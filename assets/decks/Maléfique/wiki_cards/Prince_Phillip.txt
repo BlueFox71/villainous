@@ -1,0 +1,22 @@
+{{Card
+|image1 = Prince_Phillip.png
+|villain = Maleficent
+|type = {{Color|gold|Hero}}
+|strength = 5
+|#_of_copies = 1
+|text = When Prince Phillip is played, you may discard all {{Color|red|Allies}} from his location.}}'''Prince Phillip''' is a [[Hero]] in [[Maleficent|Maleficent's]] [[Fate deck]].
+
+== Strategy ==
+The highest-Strength Hero in Maleficent's Fate deck, Prince Phillip's main use is taking out the [[Raven]], though discarding a Goon or three is pretty nice, too. He can also protect [[Flora]] or [[Merryweather]] from being [[Vanquish]]ed.
+
+== Previous versions ==
+[[File:Prince_Phillip_First.png|250x250px|First printing.]]
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Heroes]]
+[[Category:The Worst Takes It All]]
+[[Category:Strength: 5]]
+[[Category:Character Cards]]
+[[Category:Characters]]
+[[Category:Cards changed in later printings]]

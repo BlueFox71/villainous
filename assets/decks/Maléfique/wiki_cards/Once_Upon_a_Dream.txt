@@ -1,0 +1,15 @@
+{{Card
+|image1 = Once_Upon_a_Dream.png
+|villain = Maleficent
+|type = {{Color|chartreuse|Effect}}
+|#_of_copies = 2
+|text = Discard a {{Color|darkviolet|Curse}} from a location in Maleficent's Realm that has a {{Color|gold|Hero}}.}}'''Once Upon a Dream''' is an [[Effect]] in [[Maleficent|Maleficent's]] [[Fate deck]].
+
+== Strategy ==
+Unless you are Fating Maleficent heavily, Once Upon a Dream will usually whiff, as [[Hero]]es tend to discard the [[Curse]] at their location when played, and Maleficent will usually defeat Heroes before placing another Curse. However, if you're consistently dishing Fates out at Maleficent (as you should be), she may be too overwhelmed by Heroes to get rid of them while still also building up her Curses. Once Upon a Dream tends to be most useful near the end of the game, when Fates are flying back and forth every turn.
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Effects]]
+[[Category:The Worst Takes It All]]
+[[Category:Effects in Fate Deck]]

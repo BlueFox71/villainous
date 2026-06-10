@@ -1,0 +1,19 @@
+{{Card
+|image1 = Sinister_Goon.png
+|villain = Maleficent
+|type = {{Color|red|Ally}}
+|cost = 2
+|strength = 3
+|#_of_copies = 3
+|text = Sinister Goon gets +1 Strength if there are any {{Color|darkviolet|Curses}} at his location.}}'''Sinister Goon''' is an [[Ally]] in [[Maleficent|Maleficent's]] [[Villain deck]].
+
+== Strategy ==
+Reasonably priced Ally that you should try to play at [[Curse]]d locations. [[Discard fodder]] if you haven't found enough Curses yet and have no [[Hero]]es to deal with.
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Allies]]
+[[Category:The Worst Takes It All]]
+[[Category:Strength: 3]]
+[[Category:Character Cards]]
+[[Category:Characters]]

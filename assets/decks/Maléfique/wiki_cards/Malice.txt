@@ -1,0 +1,22 @@
+{{Card
+|image1 = Malice.png
+|villain = Maleficent
+|type = {{Color|deeppink|Condition}}
+|#_of_copies = 2
+|text = During their turn, if another player defeats a {{Color|gold|Hero}} with a Strength of 4 or more, you may play Malice. Defeat a {{Color|gold|Hero}} with a Strength of 4 or less.}}'''Malice''' is a [[Condition]] in [[Maleficent|Maleficent's]] [[Villain deck]].
+
+== Strategy ==
+A very useful effect if you have a [[Hero]] of the right Strength in your Realm, but Malice is not the easiest Condition to trigger. Unless an opponent currently has a Hero of the right Strength in their own Realm, it's probably best to just [[discard fodder|discard this]], and use [[Dragon Form]] or a [[Vanquish]] action to deal with your Hero.
+
+Of your possible opponents:
+* [[Davy Jones]]/[[Jafar]]/[[Madam Mim]]/[[Scar]]/[[Ursula]] - have a strong enough Hero that they ''must'' defeat, but doing so doesn't immediately win them the game
+* [[Captain Hook]]/[[Evil Queen]]/[[Pete]]/[[Ratigan]]/[[Shere Khan]] - have a strong enough Hero that prevents them from winning, but won't necessarily be played (or must have their Strength increased)
+* [[Cruella De Vil]]/[[Gaston]]/[[King Candy]]/[[Mother Gothel]]/[[Prince John]]/[[Queen of Hearts]]- have a strong, obnoxious Hero that doesn't need to be defeated, but probably will be
+* [[Dr. Facilier]]/[[Hades]]/[[Syndrome]]/[[Tamatoa]] - have a strong, obnoxious Hero, but their Strength can be reduced
+* [[Horned King]]/[[Lady Tremaine]]/[[Lotso]]/[[Yzma]] - can completely ignore strong enough Heroes
+* [[Oogie Boogie]] - has one strong enough Hero that he ''must'' defeat (although his strength can be reduced), but doing so will win him the game.
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Conditions]]
+[[Category:The Worst Takes It All]]

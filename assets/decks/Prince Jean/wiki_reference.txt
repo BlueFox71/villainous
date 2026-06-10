@@ -1,0 +1,108 @@
+[[File:Prince_John.png|thumb|305x305px]]
+:''This is one of two versions of this Villain; see the other [[Prince John/Introduction to Evil|here]].''
+
+{{quote|This crown gives me a feeling of power!}}
+
+'''Prince John''' is one of six playable [[Villain]]s in the Villainous base game, ''[[The Worst Takes It All]]''. He is from the movie ''[https://en.wikipedia.org/wiki/Robin_Hood_(1973_film) Robin Hood]'', released in 1973, in which he is voiced by [https://en.wikipedia.org/wiki/Peter_Ustinov Peter Ustinov] and animated by [https://en.wikipedia.org/wiki/Ollie_Johnston Ollie Johnston]. He is illustrated in the game by [https://www.artstation.com/suur Jessé Suursoo].
+
+== [[Objective]] ==
+Prince John must collect [[Power]] until he has at least 20 Power. He can only win at the start of his turn.
+
+== [[Realm]] ==
+[[File:PrinceJohnmover.png|thumb|250x250px|Prince John's [[mover]].]]
+Prince John's Realm contains the following [[location]]s, from left to right:
+* [[Sherwood Forest]]
+** [[Gain Power|Gain 1 Power]] | [[Discard Cards]]
+** [[Play a Card]] | [[Fate]]
+* [[Friar Tuck's Church]]
+** Gain 2 Power | Play a Card
+** Play a Card | [[Move an Item or Ally]]
+* [[Nottingham]]
+** Fate | Gain 1 Power
+** [[Vanquish]] | Play a Card
+* [[The Jail]]
+** ''empty''
+** Gain 3 Power | Play a Card | Discard Cards
+[[File:Princejohnrealm.jpg|800x800px|Prince John's Realm.]]
+
+== [[Villain deck]] ==
+[[File:Prince_John_Villain_Back.png|thumb|315x315px|Prince John's Villain deck card back.]]
+The following cards are in Prince John's Villain deck:
+* [[Beautiful, Lovely Taxes]] (×3)
+* [[Imprison]] (×3)
+* [[Rhino Guards]] (×3)
+* [[Warrant]] (×3)
+* [[Wolf Archers]] (×3)
+* [[Bow and Arrows]] (×2)
+* [[Cowardice]] (×2)
+* [[Greed]] (×2)
+* [[Set a Trap]] (×2)
+* [[Golden Arrow]]
+* [[Intimidation]]
+* [[King Richard's Crown]]
+* [[Nutsy]]
+* [[Sheriff of Nottingham]]
+* [[Sir Hiss]]
+* [[Trigger]]
+These include 10 total [[Ally|Allies]] (Rhino Guards; Wolf Archers; Nutsy; Sheriff of Nottingham; Sir Hiss; Trigger), 4 total [[Condition]]s (Cowardice; Greed), 9 total [[Effect]]s (Beautiful, Lovely Taxes; Imprison; Set a Trap; Intimidation), and 7 total [[Item]]s (Warrant; Bow and Arrows; Golden Arrow; King Richard's Crown).
+=== Card Gallery ===
+'''3 Copies:'''
+
+[[File:Beautiful_Lovely_Taxes.png|200x200px]] [[File:Imprison.png|200x200px]] [[File:Rhino_Guards.png|200x200px]] [[File:Warrant.png|200x200px]] [[File:Wolf_Archers.png|200x200px]]
+
+'''2 Copies:'''
+
+[[File:Bow_and_Arrows.png|200x200px]] [[File:Cowardice.png|200x200px]] [[File:Greed.png|200x200px]] [[File:Set_a_Trap.png|200x200px]]
+
+'''1 Copy:'''
+
+[[File:Golden_Arrow.png|200x200px]] [[File:Intimidation.png|200x200px]] [[File:King_Richards_Crown.png|200x200px]] [[File:Nutsy.png|200x200px]] [[File:Sheriff_of_Nottingham.png|200x200px]] [[File:Sir_Hiss.png|200x200px]] [[File:Trigger.png|200x200px]]
+== Fate deck ==
+[[File:Prince_John_Fate_Back.png|thumb|315x315px|Prince John's Fate deck card back.]]
+The following cards are in Prince John's Fate deck:
+* [[Clever Disguise]] (×3)
+* [[Steal from the Rich]] (×3)
+* [[Alan-a-Dale]]
+* [[Friar Tuck]]
+* [[King Richard]]
+* [[Lady Kluck]]
+* [[Little John]]
+* [[Maid Marian]]
+* [[Robin Hood]]
+* [[Skippy]]
+* [[Toby (Prince John)|Toby]]
+These include 3 total Effects (Steal from the Rich), 9 [[Hero]]es (Alan-a-Dale; Friar Tuck; King Richard; Lady Kluck; Little John; Maid Marian; Robin Hood; Skippy; Toby), and 3 total Items (Clever Disguise).
+=== Card Gallery ===
+'''3 Copies:'''
+
+[[File:Clever_Disguise.png|200x200px]] [[File:Steal_from_the_Rich.png|200x200px]]
+
+'''1 Copy:'''
+
+[[File:Alan-a-Dale.png|200x200px]] [[File:Friar_Tuck.png|200x200px]] [[File:King_Richard.png|200x200px]] [[File:Lady_Kluck.png|200x200px]] [[File:Little_John.png|200x200px]] [[File:Maid_Marian.png|200x200px]] [[File:Robin_Hood.png|200x200px]] [[File:Skippy.png|200x200px]] [[File:Toby_(Prince_John).png|200x200px]]
+
+== Strategy ==
+[[File:How to WIN as PRINCE JOHN Villainous Strategy Guide|thumb|right|335px|Lord of the Board's strategy video.]]
+
+Prince John has the simplest possible objective - accrue 20 Power. If left alone, he can do this by hopping between The Jail and Friar Tuck's Church, winning when he begins his ninth turn. However, no opponent with any amount of competency should let him get that far. As such, he should plan ahead and lay traps for the inevitable deluge of Heroes.
+
+With tools like Warrant, Beautiful, Lovely Taxes, Golden Arrow, and Sheriff of Nottingham, Prince John is a notably defensive Villain, if not necessarily ''wanting'' to be Fated, at least being able to use Heroes to his advantage. As such, he should try to find his Warrants and the Sheriff quickly, using the Discard Cards action when possible.
+
+The best card in his deck is King Richard's Crown, as Prince John of all Villains wants to conserve Power. If found, it should be played to Friar Tuck's Church immediately. It can be moved around, but that location will have it see the most use. Sir Hiss can help access the second Play a Card action when a Hero is there.
+
+Remember your goal: 20 Power. Use Cowardice when possible, particularly on expensive Rhino Guards or the Sheriff. Hold on to Greed - players will avoid reaching a total of 6 Power when playing against Prince John, but that can't always be avoided - [[Jafar]] and [[Ratigan]] in particular often need to hoard Power. Greed can also help defend your win condition, sneaking you to 24 Power or more and putting you safely beyond what Steal from the Rich can prevent, so try to keep one copy in hand as you approach 20 Power.
+
+When Vanquishing, try to use Bow and Arrows and Intimidation to keep your Allies on the board, as this will be less expensive than having to replay them, and Sheriff of Nottingham in particular wants to stick around as long as possible.
+
+It can be worth it to keep one Hero on the board, and defeat any others, to force your opponents to use it as the target for Steal from the Rich, then taking them out once they're holding enough Power to let you win.
+
+King Richard and Robin Hood are your mortal enemies. Defeat them quickly with extreme prejudice.
+
+Prince John must be Fated proactively. There is only one reactive card in his Fate deck: Little John. The rest of the deck requires Heroes to be on the board in order to Steal from him. Fate him constantly, and put Clever Disguise on Heroes that have Stolen, or King Richard or Robin Hood. Prioritize Friar Tuck, Lady Kluck and Maid Marian as Stealers; Lady Kluck because of her high Strength, and the other two for their Abilities. Try to avoid Warrants where possible, but sometimes giving Prince John 2 Power is better than leaving the top row of a location open.
+
+{{Prince John}}
+{{Villains}}
+[[Category:Villains]]
+[[Category:Prince John]]
+[[Category:The Worst Takes It All]]
+[[Category:Characters]]

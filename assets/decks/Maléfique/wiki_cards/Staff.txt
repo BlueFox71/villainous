@@ -1,0 +1,20 @@
+{{Card
+|image1 = Staff.png
+|villain = Maleficent
+|type = {{Color|deepskyblue|Item}}
+|cost = 1
+|#_of_copies = 1
+|text = If Maleficent is at this location, the Cost to play an {{Color|chartreuse|Effect}} or {{Color|darkviolet|Curse}} is reduced by 1 Power.
+}}'''Staff''' is an [[Item]] in [[Maleficent|Maleficent's]] [[Villain deck]].
+
+== Clarifications ==
+* Card [[Cost]]s cannot be reduced below zero.
+
+== Strategy ==
+One of the more powerful cards in Maleficent's deck, Staff very quickly pays for itself, particularly if played to The Forest. This should never be [[Discard Cards|discarded]] instead of played.
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Items]]
+[[Category:The Worst Takes It All]]
+[[Category:Items in Villain Deck]]

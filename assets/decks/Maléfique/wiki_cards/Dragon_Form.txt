@@ -1,0 +1,23 @@
+{{Card
+|image1 = Dragon_Form.png
+|villain = Maleficent
+|type = {{Color|chartreuse|Effect}}
+|cost = 3
+|#_of_copies = 3
+|text = Defeat a {{Color|gold|Hero}} with a Strength of 3 or less. If a Fate action targets you before your next turn, gain 3 Power.}}'''Dragon Form''' is an [[Effect]] in [[Maleficent|Maleficent's]] [[Villain deck]].
+
+== Clarifications ==
+* If you are the target of multiple Fate actions before your next turn, you gain 3 Power for each.
+
+== Strategy ==
+The [[Hero]]-defeating portion is weaker than the similar [[A Snake, Am I?]] and [[Off With Your Head!]] (from [[Jafar|Jafar's]] and [[Queen of Hearts|Queen of Hearts']] Villain decks), only able to get rid of Heroes with a Strength of up to 3, but it is still the most efficient way to deal with [[Guards]]. The Power-gaining aspect makes up for this somewhat, as it either gives you back the Power you spent (sometimes more), or discourages your opponents from even Fating you. Try to play Dragon Form when your opponents can potentially Fate you next turn: if they are in their only Fate location that isn't [[Realm#Locked Locations|locked]] or covered by a Hero, you will not be getting half the benefit of this card.
+
+== Previous versions ==
+[[File:Dragon_Form_First.png|250x250px|First printing.]]
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Effects]]
+[[Category:The Worst Takes It All]]
+[[Category:Effects in Villain Deck]]
+[[Category:Cards changed in later printings]]

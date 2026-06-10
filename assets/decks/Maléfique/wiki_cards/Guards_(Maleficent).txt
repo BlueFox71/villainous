@@ -1,0 +1,25 @@
+{{Card
+|image1 = Guards (Maleficent).png
+|villain = Maleficent
+|type = {{Color|gold|Hero}}
+|strength = 3
+|#_of_copies = 3
+|text = When performing a Vanquish action to defeat Guards, at least two {{Color|red|Allies}} must be used.
+}}:''Not to be confused with [[Guards (Syndrome)]].''
+
+'''Guards''' is a [[Hero]] in [[Maleficent|Maleficent's]] [[Fate deck]].
+
+== Strategy ==
+The strength of Guards is that they require multiple [[Ally|Allies]] to get rid of, which can make them rather annoying. However, they are vulnerable to [[Dragon Form]], and cannot remove established [[Curse]]s. Other Heroes should be prioritized over Guards if possible.
+
+== Previous versions ==
+[[File:Guards_First.png|250x250px|First printing.]]
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Heroes]]
+[[Category:The Worst Takes It All]]
+[[Category:Strength: 3]]
+[[Category:Character Cards]]
+[[Category:Characters]]
+[[Category:Cards changed in later printings]]

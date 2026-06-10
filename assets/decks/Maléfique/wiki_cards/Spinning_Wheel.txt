@@ -1,0 +1,19 @@
+{{Card
+|image1 = Spinning_Wheel.png
+|villain = Maleficent
+|type = {{Color|deepskyblue|Item}}
+|cost = 1
+|#_of_copies = 1
+|text = If a {{Color|gold|Hero}} is defeated at this location, gain Power equal to the {{Color|gold|Hero's}} Strength minus 1.}}'''Spinning Wheel''' is an [[Item]] in [[Maleficent|Maleficent's]] [[Villain deck]].
+
+== Clarifications ==
+* If [[Dreamless Sleep]] is at the same location, the amount of Power gained is reduced by 2 since the Strength taken into account is the Strength the [[Hero]] has at the moment of defeat, not the Strength it has once it's in the discard pile.
+
+== Strategy ==
+Spinning Wheel can produce a hefty amount of Power over the course of the game, and pays for itself after a single [[Vanquish]] action or [[Dragon Form]] play. Try to [[Move an Item or Ally|move it]] to locations with high-Strength [[Hero]]es, particularly ones with [[Sword of Truth]] attached.
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Items]]
+[[Category:The Worst Takes It All]]
+[[Category:Items in Villain Deck]]

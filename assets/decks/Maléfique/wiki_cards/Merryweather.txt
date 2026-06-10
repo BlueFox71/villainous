@@ -1,0 +1,18 @@
+{{Card
+|image1 = Merryweather.png
+|villain = Maleficent
+|type = {{Color|gold|Hero}}
+|strength = 4
+|#_of_copies = 1
+|text = {{Color|darkviolet|Curses}} cannot be played to Merryweather's location.}}'''Merryweather''' is a [[Hero]] in [[Maleficent|Maleficent's]] [[Fate deck]].
+
+== Strategy ==
+Merryweather is a very powerful Hero, preventing Maleficent from playing [[Curse]]s to her location (though not from [[Move an Item or Ally|moving them]] there). Try to play her on top of one of Maleficent's Move an Item or Ally locations, to prevent Maleficent from circumventing Merryweather's effect.
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Heroes]]
+[[Category:The Worst Takes It All]]
+[[Category:Strength: 4]]
+[[Category:Character Cards]]
+[[Category:Characters]]

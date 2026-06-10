@@ -1,0 +1,21 @@
+{{Card
+|image1 = Sword_of_Truth.png
+|villain = Maleficent
+|type = {{Color|deepskyblue|Item}}
+|strength = +2
+|#_of_copies = 3
+|text = When Sword of Truth is played, attach it to a {{Color|gold|Hero}} with no other attached {{Color|deepskyblue|Items}}. That {{Color|gold|Hero}} gets +2 Strength. The Cost to play a {{Color|darkviolet|Curse}} to this location is increased by 2 Power.
+}}'''Sword of Truth''' is an [[Item]] in [[Maleficent|Maleficent's]] [[Fate deck]].
+
+== Strategy ==
+If there is a [[Hero]] at a [[Curse]]-less location to attach this to, Sword of Truth is fantastic, especially if given to a Hero with an ongoing effect ([[Flora]] or [[Merryweather]]).
+
+== Previous versions ==
+[[File:Sword_of_Truth_First.png|250x250px|First printing.]]
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Items]]
+[[Category:The Worst Takes It All]]
+[[Category:Items in Fate Deck]]
+[[Category:Cards changed in later printings]]

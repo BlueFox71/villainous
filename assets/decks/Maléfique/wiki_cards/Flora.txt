@@ -1,0 +1,18 @@
+{{Card
+|image1 = Flora.png
+|villain = Maleficent
+|type = {{Color|gold|Hero}}
+|strength = 3
+|#_of_copies = 1
+|text = When Flora is played, Maleficent must reveal her hand.<br>Until Flora is defeated, Maleficent must play with her hand revealed.}}'''Flora''' is a [[Hero]] in [[Maleficent|Maleficent's]] [[Fate deck]].
+
+== Strategy ==
+Forcing Maleficent to play with her hand visible makes it a lot easier to play against her. If you know she has no [[Curse]]s in her hand, you can focus more on your own win condition, and not have to worry about slowing her down. Flora also lets you know if Maleficent has any [[Condition]]s in hand, letting you know if you need to play around them. She's a solid pick, though relatively easy to get rid of, and unable to discard a Curse on play. Try to play Flora to locations without any [[Ally|Allies]].
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Heroes]]
+[[Category:The Worst Takes It All]]
+[[Category:Strength: 3]]
+[[Category:Character Cards]]
+[[Category:Characters]]

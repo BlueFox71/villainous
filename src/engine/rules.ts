@@ -1,0 +1,405 @@
+// =============================================================================
+// Règles : coups légaux, actions disponibles, détection de victoire.
+// Fonctions pures de lecture — elles ne modifient jamais l'état. Tout est
+// évalué pour le JOUEUR ACTIF.
+// =============================================================================
+
+import type {
+  CardInstance,
+  GameState,
+  LocationAction,
+  LocationActionType,
+  LocationId,
+  PlayerState,
+} from './types'
+import { activePlayer, currentLocation } from './state'
+
+/**
+ * Types d'actions que le moteur sait actuellement traiter (affichées comme
+ * actives dans l'UI). Les autres (Fatalité, Éliminer, Déplacer) sont déjà sur
+ * le plateau mais pas encore jouables.
+ *
+ * GAIN_POWER passe par EXECUTE_ACTION ; PLAY_CARD par PLAY_CARD ; DISCARD_CARDS
+ * par DISCARD_CARDS.
+ */
+export const SUPPORTED_ACTION_TYPES: readonly LocationActionType[] = [
+  'GAIN_POWER',
+  'PLAY_CARD',
+  'DISCARD_CARDS',
+  'FATE',
+  'MOVE_ITEM_ALLY',
+  'VANQUISH',
+]
+
+/** Une action est-elle prise en charge par le moteur dans sa version actuelle ? */
+export function isSupportedType(type: LocationActionType): boolean {
+  return SUPPORTED_ACTION_TYPES.includes(type)
+}
+
+/**
+ * Lieux où le joueur actif peut se déplacer : un lieu DIFFÉRENT du lieu courant
+ * (au premier déplacement, les 4 lieux sont permis).
+ */
+export function getLegalMoves(state: GameState): LocationId[] {
+  if (state.status !== 'PLAYING' || state.phase !== 'MOVE') return []
+  const p = activePlayer(state)
+  return p.locations.filter((loc) => loc.id !== p.pawnLocation).map((loc) => loc.id)
+}
+
+/** Vrai si un déplacement vers `to` est légal dans l'état courant. */
+export function isLegalMove(state: GameState, to: LocationId): boolean {
+  return getLegalMoves(state).includes(to)
+}
+
+/** Les Héros présents sur un lieu donné du joueur actif. */
+export function heroesAt(state: GameState, locationId: LocationId): CardInstance[] {
+  return (activePlayer(state).board[locationId] ?? []).filter((c) => c.type === 'hero')
+}
+
+/**
+ * Une action est-elle RECOUVERTE par un Héros ? Un Héros posé sur un lieu (par
+ * la Fatalité d'un adversaire) recouvre sa rangée du HAUT : ces actions
+ * deviennent indisponibles. Les rangées du bas restent jouables.
+ *
+ * Exception : si Persifleur (`persifleurAvailable`) est encore actif, le joueur
+ * peut utiliser UNE action recouverte sur le lieu de Persifleur — donc on la
+ * considère comme NON recouverte le temps de cette utilisation.
+ */
+export function isActionCovered(state: GameState, action: LocationAction): boolean {
+  if (action.row !== 'top') return false
+  const loc = currentLocation(state)
+  if (!loc) return false
+  if (heroesAt(state, loc.id).length === 0) return false
+  if (state.persifleurAvailable) return false
+  return true
+}
+
+/**
+ * Actions exécutables sur le lieu courant : prises en charge, pas encore jouées
+ * ce tour-ci, et non recouvertes par un Héros. Vide hors de la phase ACTION.
+ */
+export function getAvailableActions(state: GameState): LocationAction[] {
+  if (state.status !== 'PLAYING' || state.phase !== 'ACTION') return []
+  const loc = currentLocation(state)
+  if (!loc) return []
+  return loc.actions.filter(
+    (a) =>
+      isSupportedType(a.type) &&
+      !state.usedActionIds.includes(a.id) &&
+      !isActionCovered(state, a),
+  )
+}
+
+/** Vrai si l'action `actionId` est disponible sur le lieu courant. */
+export function isActionAvailable(state: GameState, actionId: string): boolean {
+  return getAvailableActions(state).some((a) => a.id === actionId)
+}
+
+/** Les Alliés du joueur actif présents sur un lieu donné (cibles d'association
+ *  possibles pour un Objet « à associer »). */
+export function alliesAt(state: GameState, locationId: LocationId): CardInstance[] {
+  return (activePlayer(state).board[locationId] ?? []).filter((c) => c.type === 'ally')
+}
+
+/**
+ * Lieux où le joueur actif peut POSER une carte (Allié/Objet). Règle officielle
+ * « Play a Card » : n'importe lequel de ses lieux **non verrouillés** — pas
+ * seulement le lieu courant. Le recouvrement par un Héros bloque les ACTIONS
+ * d'un lieu, pas la pose d'un Allié dessus. Le Prince Jean n'a aucun verrou, donc
+ * ses 4 lieux sont toujours des destinations valides.
+ */
+export function placementLocations(state: GameState): LocationId[] {
+  return activePlayer(state).locations.map((l) => l.id)
+}
+
+/** Vrai si le joueur actif peut poser une carte sur ce lieu. */
+export function canPlaceAt(state: GameState, locationId: LocationId): boolean {
+  return placementLocations(state).includes(locationId)
+}
+
+/** Lieux voisins (adjacents, ±1 dans l'ordre du plateau) d'un lieu donné. */
+export function adjacentLocationIds(state: GameState, locationId: LocationId): LocationId[] {
+  const ids = activePlayer(state).locations.map((l) => l.id)
+  const i = ids.indexOf(locationId)
+  if (i < 0) return []
+  const out: LocationId[] = []
+  if (i > 0) out.push(ids[i - 1])
+  if (i < ids.length - 1) out.push(ids[i + 1])
+  return out
+}
+
+/** Lieu où se trouve une carte posée (Allié/Objet/Héros), ou undefined. */
+export function locationOfCard(player: PlayerState, instanceId: string): LocationId | undefined {
+  for (const loc of player.locations) {
+    if ((player.board[loc.id] ?? []).some((c) => c.instanceId === instanceId)) return loc.id
+  }
+  return undefined
+}
+
+/** Cartes du joueur actif déplaçables par « Déplacer un Allié/Objet » : Alliés et
+ *  Objets « racine » (un Objet associé suit son Allié, il n'est pas déplacé seul). */
+export function movableCards(state: GameState): { instanceId: string; from: LocationId }[] {
+  const me = activePlayer(state)
+  const out: { instanceId: string; from: LocationId }[] = []
+  for (const loc of me.locations) {
+    for (const c of me.board[loc.id] ?? []) {
+      // Une Malédiction est traitée comme un Objet : elle se déplace aussi.
+      if ((c.type === 'ally' || c.type === 'item' || c.type === 'curse') && !c.attachedTo) {
+        out.push({ instanceId: c.instanceId, from: loc.id })
+      }
+    }
+  }
+  return out
+}
+
+/** Joueur ciblé par la Fatalité du joueur actif (en 2 joueurs : l'autre). */
+export function fateTarget(state: GameState): number {
+  return (state.activePlayer + 1) % state.players.length
+}
+
+/** Vrai si un Héros de cardId donné est posé dans le royaume d'un joueur. Utile
+ *  pour les effets passifs (Roi Richard interdit les Événements, Robin retire 1
+ *  JT aux gains du royaume…). */
+export function hasHeroInRealm(state: GameState, playerIndex: number, cardId: string): boolean {
+  const p = state.players[playerIndex]
+  return Object.values(p.board).some((cards) =>
+    cards.some((c) => c.type === 'hero' && c.cardId === cardId),
+  )
+}
+
+/** Tous les Héros présents dans le royaume d'un joueur (utile pour Voler aux
+ *  Riches et Déguisement — Fatalité non-Héros qui ciblent un Héros adverse). */
+export function heroesOf(state: GameState, playerIndex: number): CardInstance[] {
+  const p = state.players[playerIndex]
+  return Object.values(p.board).flatMap((cards) => cards.filter((c) => c.type === 'hero'))
+}
+
+/** Force effective d'un Allié ou d'un Héros présent sur le plateau d'un joueur,
+ *  modificateurs passifs inclus :
+ *   - Allié : +1 par Niquedouille **autre** sur le même lieu, +1 par Arc et
+ *     Flèches qui lui est attaché, −1 par Pendard **autre** sur le même lieu
+ *     (Pendard réduit la force des AUTRES Alliés — plancher à 0).
+ *   - Héros : +1 par Adam de la Halle **autre** dans le royaume (plancher à 0).
+ *  Renvoie undefined si la carte n'est pas trouvée ou n'a pas de force. */
+export function effectiveStrength(
+  state: GameState,
+  playerIndex: number,
+  instanceId: string,
+): number | undefined {
+  const p = state.players[playerIndex]
+  const loc = locationOfCard(p, instanceId)
+  if (!loc) return undefined
+  const cell = p.board[loc] ?? []
+  const card = cell.find((c) => c.instanceId === instanceId)
+  if (!card || card.strength === undefined) return undefined
+
+  if (card.type === 'ally') {
+    const niquedouilleBonus = cell.filter(
+      (c) => c.cardId === 'niquedouille' && c.instanceId !== card.instanceId,
+    ).length
+    const arcFlechesBonus = cell.filter(
+      (c) => c.cardId === 'arc-fleches' && c.attachedTo === card.instanceId,
+    ).length
+    // Maléfique : Créature Rieuse +1 par Héros sur son lieu ;
+    // Sinistre Créature +1 si une Malédiction est présente.
+    let selfBonus = 0
+    if (card.cardId === 'creature-rieuse') {
+      selfBonus += cell.filter((c) => c.type === 'hero').length
+    }
+    if (card.cardId === 'sinistre-creature') {
+      selfBonus += cell.some((c) => c.type === 'curse') ? 1 : 0
+    }
+    // Pendard : −1 à la force de chaque AUTRE Allié sur le même lieu.
+    const pendardPenalty = cell.filter(
+      (c) => c.cardId === 'pendard' && c.instanceId !== card.instanceId,
+    ).length
+    return Math.max(0, card.strength + niquedouilleBonus + arcFlechesBonus + selfBonus - pendardPenalty)
+  }
+  if (card.type === 'hero') {
+    const adamBonus = heroesOf(state, playerIndex).filter(
+      (h) => h.cardId === 'adam-halle' && h.instanceId !== card.instanceId,
+    ).length
+    // strengthMod des curses du même lieu (Sommeil sans Rêves : -2 aux héros).
+    const curseDelta = cell.reduce((sum, c) => {
+      const m = c.strengthMod
+      if (m && m.target === 'heroes-here') return sum + m.delta
+      return sum
+    }, 0)
+    // Épée de Vérité : +2 par Épée attachée à ce héros.
+    const swordBonus = cell.filter(
+      (c) => c.cardId === 'epee-verite' && c.attachedTo === card.instanceId,
+    ).length * 2
+    return Math.max(0, card.strength + adamBonus + curseDelta + swordBonus)
+  }
+  return card.strength
+}
+
+/** Lieux où un Héros peut être posé/déplacé chez le joueur `targetIndex` : tous
+ *  ses lieux moins ceux interdits par la carte (Dame Gertrude → pas en Prison)
+ *  et moins ceux interdits par une restriction présente au lieu (Feu Infernal
+ *  → no-heroes ; Forêt de Ronces → min-hero-strength).
+ *  À réutiliser pour le déplacement de Héros (Emprisonnement, bloc C). */
+export function heroPlacementLocations(
+  state: GameState,
+  card: CardInstance,
+  targetIndex: number,
+): LocationId[] {
+  const forbidden = new Set(card.forbiddenLocations ?? [])
+  return state.players[targetIndex].locations
+    .map((l) => l.id)
+    .filter((id) => !forbidden.has(id) && canPlaceHeroAt(state, targetIndex, id, card))
+}
+
+/** Vrai si un Héros peut être posé sur le lieu — vérifie les restrictions
+ *  imposées par les cartes présentes (Malédictions de Maléfique). */
+export function canPlaceHeroAt(
+  state: GameState,
+  playerIndex: number,
+  locationId: LocationId,
+  hero: CardInstance,
+): boolean {
+  const heroStrength = hero.strength ?? 0
+  const cell = state.players[playerIndex].board[locationId] ?? []
+  for (const c of cell) {
+    const r = c.placementRestriction
+    if (!r) continue
+    if (r.type === 'no-heroes') return false
+    if (r.type === 'min-hero-strength' && heroStrength < r.value) return false
+  }
+  return true
+}
+
+/** Vrai si une Malédiction peut être posée sur le lieu : plusieurs Malédictions
+ *  peuvent cohabiter ; seule une restriction `no-curses` (Pimprenelle) l'interdit. */
+export function canPlaceCurseAt(
+  state: GameState,
+  playerIndex: number,
+  locationId: LocationId,
+): boolean {
+  // Plusieurs Malédictions peuvent cohabiter sur un même lieu (règle officielle) :
+  // on ne bloque que les lieux portant une restriction `no-curses`.
+  const cell = state.players[playerIndex].board[locationId] ?? []
+  if (cell.some((c) => c.placementRestriction?.type === 'no-curses')) return false
+  return true
+}
+
+/** Le joueur actif peut-il lancer une Fatalité (la cible a-t-elle des cartes) ? */
+export function canFate(state: GameState): boolean {
+  const t = state.players[fateTarget(state)]
+  return t.fateDeck.length + t.fateDiscard.length > 0
+}
+
+/** Vrai si cette carte est un Objet qui doit être associé à un Allié à la pose. */
+export function requiresAllyTarget(card: CardInstance): boolean {
+  return card.type === 'item' && card.attach === 'ally'
+}
+
+/** Vrai si cette carte exige un Héros cible à la pose (Emprisonnement,
+ *  Intimidation qui en a aussi besoin d'alliés, Apparence de Dragon). */
+export function cardNeedsHeroTarget(card: CardInstance): boolean {
+  return (card.effects ?? []).some(
+    (e) =>
+      e.type === 'MOVE_HERO_TO_LOCATION' ||
+      e.type === 'VANQUISH_HERO' ||
+      e.type === 'INSTANT_VANQUISH_HERO_LE',
+  )
+}
+
+/** Vrai si cette carte déclenche un Vanquish (besoin de Héros + Alliés à la pose).
+ *  Intimidation, Tendre un Piège. */
+export function cardNeedsVanquishTarget(card: CardInstance): boolean {
+  return (card.effects ?? []).some((e) => e.type === 'VANQUISH_HERO')
+}
+
+/** Vrai si cette carte demande aussi un Allié à déplacer librement avant le
+ *  Vanquish (Tendre un Piège). */
+export function cardNeedsAllyMove(card: CardInstance): boolean {
+  return (card.effects ?? []).some((e) => e.type === 'MOVE_ALLY_FREELY')
+}
+
+/** Trigger d'une Condition : vrai si l'état satisfait à la fois la condition
+ *  côté adversaire ET côté joueur. Évalue le `trigger` data-driven de la carte. */
+export function conditionIsTriggered(
+  state: GameState,
+  card: CardInstance,
+  playerIndex: number,
+): boolean {
+  if (card.type !== 'condition' || !card.trigger) return false
+  const opp = state.players[state.activePlayer]
+  const me = state.players[playerIndex]
+  switch (card.trigger.type) {
+    case 'opponent-power-ge':
+      return opp.power >= card.trigger.value
+    case 'opponent-hand-ge':
+      return (
+        opp.hand.length >= card.trigger.value &&
+        (!card.trigger.requiresOwnAlly || me.hand.some((c) => c.type === 'ally'))
+      )
+    case 'opponent-allies-in-realm-ge': {
+      const allies = Object.values(opp.board).flat().filter((c) => c.type === 'ally').length
+      return allies >= card.trigger.value
+    }
+    case 'opponent-vanquished-hero-strength-ge':
+      return (state.lastVanquishedHeroStrength ?? 0) >= card.trigger.value
+  }
+}
+
+/** Liste des Conditions actuellement jouables par `playerIndex` (en main, trigger
+ *  satisfait sur l'active player, et `playerIndex` ≠ activePlayer). */
+export function playableConditions(state: GameState, playerIndex: number): CardInstance[] {
+  if (playerIndex === state.activePlayer) return []
+  return state.players[playerIndex].hand.filter(
+    (c) => c.type === 'condition' && conditionIsTriggered(state, c, playerIndex),
+  )
+}
+
+/**
+ * Coût effectif d'une carte pour le joueur actif :
+ *   - Couronne du Roi Richard : −1 sur toute carte (lieu courant du pion).
+ *   - Bâton Magique : −1 sur Événement/Malédiction (lieu courant).
+ *   - Épée de Vérité : +2 sur Malédiction posée sur le LIEU DE DESTINATION
+ *     où l'Épée est attachée à un Héros.
+ *  Plancher à 0.
+ */
+export function effectiveCost(
+  state: GameState,
+  card: CardInstance,
+  destination?: LocationId,
+): number {
+  const base = Math.max(0, card.cost ?? 0)
+  let discount = 0
+  let surcharge = 0
+  const me = activePlayer(state)
+  const loc = me.pawnLocation
+  if (loc) {
+    const cell = me.board[loc] ?? []
+    discount += cell.filter((c) => c.cardId === 'couronne-roi-richard').length
+    if (card.type === 'effect' || card.type === 'curse') {
+      discount += cell.filter((c) => c.cardId === 'baton-magique').length
+    }
+  }
+  if (card.type === 'curse' && destination) {
+    const destCell = me.board[destination] ?? []
+    surcharge += destCell.filter((c) => c.cardId === 'epee-verite').length * 2
+  }
+  return Math.max(0, base - discount + surcharge)
+}
+
+/** Le joueur actif a-t-il atteint son objectif de victoire ? Dispatch sur le
+ *  type d'objectif (POWER_THRESHOLD, CURSE_EACH_LOCATION, …). */
+export function hasReachedObjective(state: GameState): boolean {
+  const p = activePlayer(state)
+  switch (p.objective.type) {
+    case 'POWER_THRESHOLD':
+      return p.power >= p.objective.threshold
+    case 'CURSE_EACH_LOCATION':
+      return p.locations.every((loc) =>
+        (p.board[loc.id] ?? []).some((c) => c.type === 'curse'),
+      )
+  }
+}
+
+/** Vrai si le tour courant peut être terminé (on a déjà bougé ce tour). */
+export function canEndTurn(state: GameState): boolean {
+  return state.status === 'PLAYING' && state.phase === 'ACTION'
+}

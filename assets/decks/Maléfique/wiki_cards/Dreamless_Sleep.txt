@@ -1,0 +1,15 @@
+{{Card
+|image1 = Dreamless_Sleep.png
+|villain = Maleficent
+|type = {{Color|darkviolet|Curse}}
+|cost = 3
+|#_of_copies = 2
+|text = {{Color|gold|Heroes}} at this location get -2 Strength.<br>Discard this {{Color|darkviolet|Curse}} when an {{Color|red|Ally}} is played to this location.}}'''Dreamless Sleep''' is a [[Curse]] in [[Maleficent|Maleficent's]] [[Villain deck]].
+
+== Strategy ==
+The hardest Curse to get rid of, since Maleficent can easily avoid its discard condition by simply [[Move an Item or Ally|moving]] [[Ally|Allies]] into Dreamless Sleep's location, instead of playing them directly there. Only one [[Hero]], [[Fauna]], can discard this when played to its location. It also has the handy ongoing ability of decreasing the Strength of Heroes at its location, making [[Vanquish]]ing easier, though keep in mind that allowing Heroes to be at a Curse's location makes that Curse vulnerable to [[Once Upon a Dream]].
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Curses]]
+[[Category:The Worst Takes It All]]

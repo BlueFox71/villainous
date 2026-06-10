@@ -1,0 +1,241 @@
+// =============================================================================
+// enumerateActions — énumération déterministe de TOUS les coups légaux du joueur
+// actif (ou des résolutions de Fatalité / actions gratuites en attente).
+//
+// Source unique de vérité partagée par les bots : randomBot en choisit un au
+// hasard, heuristicBot les score et prend le meilleur. Pure : ne mute jamais
+// l'état et n'utilise aucune source d'aléa.
+// =============================================================================
+
+import type { GameAction, GameState } from '../engine/types'
+import {
+  adjacentLocationIds,
+  alliesAt,
+  canFate,
+  canPlaceCurseAt,
+  cardNeedsAllyMove,
+  cardNeedsHeroTarget,
+  cardNeedsVanquishTarget,
+  effectiveCost,
+  effectiveStrength,
+  getAvailableActions,
+  getLegalMoves,
+  hasHeroInRealm,
+  heroPlacementLocations,
+  heroesOf,
+  movableCards,
+  placementLocations,
+  requiresAllyTarget,
+} from '../engine/rules'
+
+/** Tous les coups légaux disponibles dans l'état courant. Toujours non vide tant
+ *  que la partie est en cours (END_TURN / MOVE / résolutions sont garantis). */
+export function enumerateActions(state: GameState): GameAction[] {
+  const me = state.players[state.activePlayer]
+
+  // Diablo (V2) : action gratuite armée → actions Pouvoir du lieu de Diablo, ou décliner.
+  if (state.diabloFree) {
+    const loc = me.locations.find((l) => l.id === state.diabloFree!.locationId)
+    const out: GameAction[] = [{ type: 'DIABLO_SKIP_FREE_ACTION' }]
+    if (loc) {
+      const heroesHere = (me.board[loc.id] ?? []).some((c) => c.type === 'hero')
+      for (const a of loc.actions) {
+        if (a.type !== 'GAIN_POWER') continue
+        if (a.row === 'top' && heroesHere) continue
+        out.push({ type: 'DIABLO_FREE_ACTION', action: { type: 'EXECUTE_ACTION', actionId: a.id } })
+      }
+    }
+    return out
+  }
+
+  // Fatalité révélée à résoudre : une option par carte révélée (× lieu / héros valides).
+  if (state.pendingFate) {
+    const { target, revealed } = state.pendingFate
+    const out: GameAction[] = []
+    for (const card of revealed) {
+      if (card.type === 'hero') {
+        const locs = heroPlacementLocations(state, card, target)
+        if (locs.length === 0) {
+          // Aucun lieu légal → résolution sans cible (l'engine défausse le Héros).
+          out.push({ type: 'RESOLVE_FATE', instanceId: card.instanceId })
+        }
+        for (const to of locs) out.push({ type: 'RESOLVE_FATE', instanceId: card.instanceId, to })
+      } else if (
+        card.cardId === 'voler-riches' ||
+        card.cardId === 'deguisement' ||
+        card.cardId === 'epee-verite'
+      ) {
+        // Épée de Vérité : uniquement sur un Héros SANS autre Objet associé.
+        const tgt = state.players[target]
+        const targetHeroes = heroesOf(state, target).filter((h) => {
+          if (card.cardId !== 'epee-verite') return true
+          const loc = Object.keys(tgt.board).find((id) => (tgt.board[id] ?? []).some((c) => c.instanceId === h.instanceId))
+          return !loc || !(tgt.board[loc] ?? []).some((c) => c.attachedTo === h.instanceId && c.type === 'item')
+        })
+        if (targetHeroes.length > 0) {
+          for (const h of targetHeroes) {
+            out.push({ type: 'RESOLVE_FATE', instanceId: card.instanceId, targetHeroId: h.instanceId })
+          }
+        } else {
+          // Aucun Héros éligible → résolution sans cible (l'engine défausse la carte).
+          out.push({ type: 'RESOLVE_FATE', instanceId: card.instanceId })
+        }
+      } else {
+        out.push({ type: 'RESOLVE_FATE', instanceId: card.instanceId })
+      }
+    }
+    // Filet : si aucune option valide (Héros sans lieu jouable), résoudre la 1ʳᵉ.
+    if (out.length === 0 && revealed.length > 0) {
+      out.push({ type: 'RESOLVE_FATE', instanceId: revealed[0].instanceId })
+    }
+    return out
+  }
+
+  // Phase de déplacement : un lieu différent du lieu courant (+ skip si Disparition).
+  // Diablo se déplace AVANT le pion (donc ici, en phase MOVE).
+  if (state.phase === 'MOVE') {
+    const out: GameAction[] = getLegalMoves(state).map((to) => ({ type: 'MOVE', to }))
+    if (me.skipNextMove) out.push({ type: 'SKIP_MOVE' })
+    for (const loc of me.locations) {
+      for (const c of me.board[loc.id] ?? []) {
+        if (c.cardId !== 'diablo') continue
+        if (state.usedActionIds.includes(`diablo-move:${c.instanceId}`)) continue
+        for (const dest of me.locations) {
+          if (dest.id === loc.id) continue
+          out.push({ type: 'DIABLO_MOVE', instanceId: c.instanceId, to: dest.id })
+        }
+      }
+    }
+    return out
+  }
+
+  // Phase d'action : END_TURN est toujours possible (garantit la terminaison).
+  const out: GameAction[] = [{ type: 'END_TURN' }]
+
+  for (const action of getAvailableActions(state)) {
+    if (action.type === 'GAIN_POWER') {
+      out.push({ type: 'EXECUTE_ACTION', actionId: action.id })
+    } else if (action.type === 'PLAY_CARD') {
+      const locs = placementLocations(state)
+      const richardBlocks = hasHeroInRealm(state, state.activePlayer, 'roi-richard')
+      for (const card of me.hand) {
+        if (card.type === 'condition' || effectiveCost(state, card) > me.power) continue
+        if (richardBlocks && card.type === 'effect') continue
+        if (cardNeedsAllyMove(card)) continue // Tendre un Piège : combinatoire ignorée ici
+        if (card.type === 'ally' || card.type === 'item' || card.type === 'curse') {
+          if (requiresAllyTarget(card)) {
+            for (const to of locs) {
+              for (const ally of alliesAt(state, to)) {
+                out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, to, attachTo: ally.instanceId })
+              }
+            }
+          } else {
+            for (const to of locs) {
+              if (card.type === 'curse' && !canPlaceCurseAt(state, state.activePlayer, to)) continue
+              out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, to })
+            }
+          }
+        } else if (cardNeedsVanquishTarget(card)) {
+          for (const loc of me.locations) {
+            const cell = me.board[loc.id] ?? []
+            const heroes = cell.filter((c) => c.type === 'hero')
+            const localAllies = cell.filter((c) => c.type === 'ally')
+            const adjAllies = adjacentLocationIds(state, loc.id).flatMap((adj) =>
+              (me.board[adj] ?? []).filter((c) => c.cardId === 'archers-loups'),
+            )
+            for (const h of heroes) {
+              const guarded = cell.some((c) => c.cardId === 'deguisement' && c.attachedTo === h.instanceId)
+              if (guarded) continue
+              const usable =
+                h.cardId === 'bobby'
+                  ? localAllies.filter((a) => a.cardId !== 'archers-loups')
+                  : [...localAllies, ...adjAllies]
+              if (usable.length === 0) continue
+              const heroForce = effectiveStrength(state, state.activePlayer, h.instanceId) ?? 0
+              const allyForce = usable.reduce((n, a) => n + (effectiveStrength(state, state.activePlayer, a.instanceId) ?? 0), 0)
+              if (allyForce >= heroForce) {
+                out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, targetHeroId: h.instanceId, allyInstanceIds: usable.map((a) => a.instanceId) })
+              }
+            }
+          }
+        } else if (cardNeedsHeroTarget(card)) {
+          const own = heroesOf(state, state.activePlayer)
+          const maxStrengthEffect = (card.effects ?? []).find((e) => e.type === 'INSTANT_VANQUISH_HERO_LE')
+          const maxStrength =
+            maxStrengthEffect && maxStrengthEffect.type === 'INSTANT_VANQUISH_HERO_LE'
+              ? maxStrengthEffect.maxStrength
+              : Infinity
+          for (const h of own) {
+            const forbidden = new Set(h.forbiddenLocations ?? [])
+            if (card.cardId === 'emprisonnement' && forbidden.has('jail')) continue
+            if ((h.strength ?? 0) > maxStrength) continue
+            out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, targetHeroId: h.instanceId })
+          }
+        } else {
+          out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId })
+        }
+      }
+    } else if (action.type === 'DISCARD_CARDS' && me.hand.length > 0) {
+      // Une option par carte de la main (défausse d'une seule carte).
+      for (const c of me.hand) {
+        out.push({ type: 'DISCARD_CARDS', actionId: action.id, instanceIds: [c.instanceId] })
+      }
+    } else if (action.type === 'FATE' && canFate(state)) {
+      out.push({ type: 'FATE', actionId: action.id })
+    } else if (action.type === 'MOVE_ITEM_ALLY') {
+      for (const { instanceId, from } of movableCards(state)) {
+        for (const to of adjacentLocationIds(state, from)) {
+          out.push({ type: 'MOVE_CARD', actionId: action.id, instanceId, to })
+        }
+      }
+    } else if (action.type === 'VANQUISH') {
+      for (const loc of me.locations) {
+        const cell = me.board[loc.id] ?? []
+        const heroes = cell.filter((c) => c.type === 'hero')
+        if (heroes.length === 0) continue
+        const localAllies = cell.filter((c) => c.type === 'ally')
+        const adjAllies = adjacentLocationIds(state, loc.id).flatMap((adj) =>
+          (me.board[adj] ?? []).filter((c) => c.cardId === 'archers-loups'),
+        )
+        for (const h of heroes) {
+          const guarded = cell.some((c) => c.cardId === 'deguisement' && c.attachedTo === h.instanceId)
+          if (guarded) continue
+          const usable =
+            h.cardId === 'bobby'
+              ? localAllies.filter((a) => a.cardId !== 'archers-loups')
+              : [...localAllies, ...adjAllies]
+          if (usable.length === 0) continue
+          const heroForce = effectiveStrength(state, state.activePlayer, h.instanceId) ?? 0
+          const allyForce = usable.reduce((n, a) => n + (effectiveStrength(state, state.activePlayer, a.instanceId) ?? 0), 0)
+          if (allyForce >= heroForce) {
+            out.push({ type: 'VANQUISH', actionId: action.id, heroInstanceId: h.instanceId, allyInstanceIds: usable.map((a) => a.instanceId) })
+          }
+        }
+      }
+    }
+  }
+
+  // Défausser un Déguisement (2 JT, à tout moment) pour libérer un futur Vanquish.
+  if (me.power >= 2) {
+    for (const cards of Object.values(me.board)) {
+      for (const c of cards) {
+        if (c.cardId === 'deguisement') out.push({ type: 'DISCARD_DEGUISEMENT', instanceId: c.instanceId })
+      }
+    }
+  }
+
+  // Déplacement gratuit du Shérif de Nottingham (1×/tour par Shérif).
+  for (const loc of me.locations) {
+    for (const c of me.board[loc.id] ?? []) {
+      if (c.cardId !== 'sherif-nottingham') continue
+      if (state.usedActionIds.includes(`sheriff-move:${c.instanceId}`)) continue
+      for (const dest of me.locations) {
+        if (dest.id === loc.id) continue
+        out.push({ type: 'SHERIFF_MOVE', instanceId: c.instanceId, to: dest.id })
+      }
+    }
+  }
+  // (Diablo se déplace en phase MOVE — voir la branche MOVE plus haut.)
+
+  return out
+}

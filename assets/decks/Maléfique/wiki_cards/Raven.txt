@@ -1,0 +1,29 @@
+{{Card
+|image1 = Raven.png
+|villain = Maleficent
+|type = {{Color|red|Ally}}
+|cost = 3
+|strength = 1
+|#_of_copies = 1
+|text = Before Maleficent moves, you may move Raven to any location and perform one available action at his new location. Raven cannot perform Fate actions.}}'''Raven''' is an [[Ally]] in [[Maleficent|Maleficent's]] [[Villain deck]].
+
+== Clarifications ==
+* Raven moves after checking to see if Maleficent has won.
+* If Maleficent doesn't move (because of [[Vanish]]), Raven moves before Maleficent performs any actions.
+* If Raven and Maleficent move to the same location, Maleficent can repeat the action Raven performed.
+* Moving the Raven does not count as playing the Raven, therefore moving it doesn't discard [[Dreamless Sleep]].
+
+== Strategy ==
+One of the most powerful cards in Maleficent's deck, Raven allows her to take an extra [[action]] each turn at a different location. Play this card as early as you possibly can. Raven is the primary way to navigate around [[Green Fire|Green Fire's]] restriction, and also handy to take extra [[Vanquish]] or [[Move an Item or Ally]] actions, or just to get lots of Power by sending Raven to The Forest. If [[Prince Phillip]] is still in Maleificent's fate deck, be careful when playing as Prince Phillip can discard him, severely damaging your action economy. One way to protect Raven is putting him in Green Fire. He is completely safe if you have two copies of the curse down in different locations, allowing you to cycle raven between both points. Avoid putting Raven in [[Forest of Thorns]], for Prince Phillip can discard both raven and the curse if he is drawn.
+
+== Previous versions ==
+[[File:Raven_First.png|250x250px|First printing.]]
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Allies]]
+[[Category:The Worst Takes It All]]
+[[Category:Strength: 1]]
+[[Category:Character Cards]]
+[[Category:Characters]]
+[[Category:Cards changed in later printings]]

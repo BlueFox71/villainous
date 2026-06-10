@@ -1,0 +1,14 @@
+{{Card
+|image1 = Green_Fire.png
+|villain = Maleficent
+|type = {{Color|darkviolet|Curse}}
+|cost = 3
+|#_of_copies = 3
+|text = {{Color|gold|Heroes}} cannot be played to this location.<br>Discard this {{Color|darkviolet|Curse}} if Maleficent moves to this location.}}'''Green Fire''' is a [[Curse]] in [[Maleficent|Maleficent's]] [[Villain deck]].
+== Strategy ==
+Keeping all [[Hero]]es out of a location is quite powerful, making it very hard for Maleficent's Fate deck to get rid of this Curse. However, Maleficent can no longer visit that location without losing it. Try to play Green Fire to locations you don't visit often, move them around to your location, and make good use of [[Vanish]] and [[Raven]] to still have access to that location's actions.
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Curses]]
+[[Category:The Worst Takes It All]]

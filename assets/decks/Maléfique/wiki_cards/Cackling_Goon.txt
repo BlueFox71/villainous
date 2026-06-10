@@ -1,0 +1,19 @@
+{{Card
+|image1 = Cackling_Goon.png
+|villain = Maleficent
+|type = {{Color|red|Ally}}
+|cost = 1
+|strength = 1
+|#_of_copies = 3
+|text = Cackling Goon gets +1 Strength for each {{Color|gold|Hero}} at his location.}}'''Cackling Goon''' is an [[Ally]] in [[Maleficent|Maleficent's]] [[Villain deck]].
+
+== Strategy ==
+A simple, cheap Ally. It's unlikely for him to have more than 2 or 3 Strength, but his cheapness makes him useful for defeating [[Guards]].
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Allies]]
+[[Category:The Worst Takes It All]]
+[[Category:Strength: 1]]
+[[Category:Character Cards]]
+[[Category:Characters]]

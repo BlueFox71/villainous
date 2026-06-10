@@ -1,0 +1,157 @@
+@import "tailwindcss";
+
+html,
+body,
+#root {
+  min-height: 100vh;
+}
+
+body {
+  margin: 0;
+  background: #0b0a12;
+  color: #e7e5ee;
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Scrollbars fines et discrètes : piste invisible, curseur masqué par défaut,
+   visible uniquement au survol de la zone défilable concernée. */
+* {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: transparent transparent; /* curseur / piste (Firefox) */
+}
+*:hover {
+  scrollbar-color: #3a3a44 transparent; /* Firefox : curseur visible au survol */
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: transparent; /* masqué tant qu'on ne survole pas la zone */
+  border-radius: 9999px;
+}
+/* `:hover::-webkit-scrollbar-thumb` ne cible QUE la scrollbar de l'élément
+   survolé → le curseur n'apparaît que sur la zone défilable concernée. */
+:hover::-webkit-scrollbar-thumb {
+  background: #3a3a44;
+}
+:hover::-webkit-scrollbar-thumb:hover {
+  background: #50505c;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Thème OverlayScrollbars (zones via <Scroller>) : fin, sombre, fondu au survol. */
+.os-theme-villain {
+  --os-size: 8px;
+  --os-padding-perpendicular: 2px;
+  --os-padding-axis: 2px;
+  --os-handle-border-radius: 9999px;
+  --os-handle-bg: #3a3a44;
+  --os-handle-bg-hover: #50505c;
+  --os-handle-bg-active: #5a5a66;
+}
+
+/* Bordure « serpent » (lieu courant) : décalage du tiret le long du tracé SVG
+   (vitesse constante sur le périmètre, `pathLength`-normalisé à 100). */
+@property --snake-o {
+  syntax: "<number>";
+  initial-value: 0;
+  inherits: false;
+}
+@keyframes snakeTravel {
+  to {
+    --snake-o: -100;
+  }
+}
+
+/* Bouton « balayage » : un fond (`--sweep-color`) qui glisse de droite à gauche
+   au survol, texte au-dessus avec un léger rebond. */
+.sweep-btn {
+  position: relative;
+  overflow: hidden;
+  border: none;
+  cursor: pointer;
+}
+.sweep-btn::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 100%;
+  background: var(--sweep-color, #ffd401);
+  transition: width 0.4s ease-in-out;
+  z-index: 0;
+}
+.sweep-btn:hover::after {
+  right: auto;
+  left: 0;
+  width: 100%;
+}
+.sweep-btn > span {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  transition: color 0.3s ease-in-out;
+}
+.sweep-btn:hover > span {
+  animation: sweepScale 0.3s ease-in-out;
+}
+@keyframes sweepScale {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+}
+
+/* Clignotants « halo pulsé ». Jaune = Persifleur ; rose = Conditions (réaction). */
+@keyframes persifleurCardBlink {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0); }
+  50% { box-shadow: 0 0 14px 5px rgba(250, 204, 21, 0.95); }
+}
+.armed-blink {
+  animation: persifleurCardBlink 0.8s ease-in-out infinite;
+}
+@keyframes armedBlinkRose {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(232, 121, 249, 0); }
+  50% { box-shadow: 0 0 14px 5px rgba(232, 121, 249, 0.95); }
+}
+.armed-blink-rose {
+  animation: armedBlinkRose 0.8s ease-in-out infinite;
+}
+
+/* Gain de pouvoir flottant (« +N 🪙 ») : pop puis montée + estompage. */
+@keyframes gainFloat {
+  0% { transform: translate(-50%, 0) scale(0.4); opacity: 0; }
+  25% { transform: translate(-50%, -8px) scale(1.15); opacity: 1; }
+  100% { transform: translate(-50%, -52px) scale(1); opacity: 0; }
+}
+
+/* Flash rouge one-shot (Robin des Bois chipe du pouvoir) : 2 pulsations ~0.8 s. */
+@keyframes redFlash {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+  50% { box-shadow: 0 0 14px 6px rgba(220, 38, 38, 0.95); }
+}
+.red-flash {
+  animation: redFlash 0.4s ease-in-out 2;
+  border-color: #f87171 !important;
+}
+
+/* Badge « +N 🪙 » par-dessus un showcase : pop élastique puis léger flottement. */
+@keyframes powerPop {
+  0% { transform: translateY(10px) scale(0.3); opacity: 0; }
+  60% { transform: translateY(-6px) scale(1.25); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes powerFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}

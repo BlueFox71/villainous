@@ -1,0 +1,24 @@
+{{Card
+|image1 = Vanish.png
+|villain = Maleficent
+|type = {{Color|chartreuse|Effect}}
+|cost = 0
+|#_of_copies = 3
+|text = At the start of your next turn, Maleficent does not have to move to a new location.}}'''Vanish''' is an [[Effect]] in [[Maleficent|Maleficent's]] [[Villain deck]].
+
+== Strategy ==
+A very powerful card, especially in The Forest. Very useful when used where you've just played a [[Green Fire]], or if you've played a Green Fire to every other location.
+
+==Identical Cards==
+The following cards in other [[Villain|Villains']] [[Villain deck|decks]] are functionally the same (ignoring number of copies):
+* [[Sea Star Maui]]
+
+== Previous versions ==
+[[File:Vanish_First.png|250x250px|First printing.]]
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Effects]]
+[[Category:The Worst Takes It All]]
+[[Category:Effects in Villain Deck]]
+[[Category:Cards changed in later printings]]

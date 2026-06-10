@@ -1,0 +1,21 @@
+{{Card
+|image1 = King_Stefan.png
+|villain = Maleficent
+|type = {{Color|gold|Hero}}
+|strength = 4
+|#_of_copies = 1
+|text = When King Stefan is played, you may move Maleficent to any location.}}'''King Stefan''' is a [[Hero]] in [[Maleficent|Maleficent's]] [[Fate deck]].
+
+== Clarifications ==
+* If King Stefan is played during Maleficent's turn (e.g., via [[Deception]]), but after she has already moved herself, Maleficent can no longer play actions at her previous location, but can play all actions at her new location.
+
+== Strategy ==
+Possibly the most powerful card in Maleficent's Fate deck, as King Stefan can potentially discard two [[Curse]]s when played, taking out a [[Forest of Thorns]] on his own, and moving Maleficent into a [[Green Fire]]. If no Green Fire is on the board, Maleficent can at least be moved to make her next turn be at a suboptimal location.
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Heroes]]
+[[Category:The Worst Takes It All]]
+[[Category:Strength: 4]]
+[[Category:Character Cards]]
+[[Category:Characters]]

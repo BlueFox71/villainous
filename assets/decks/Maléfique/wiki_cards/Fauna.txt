@@ -1,0 +1,25 @@
+{{Card
+|image1 = Fauna.png
+|villain = Maleficent
+|type = {{Color|gold|Hero}}
+|strength = 2
+|#_of_copies = 1
+|text = When Fauna is played, you may discard Dreamless Sleep from her location.}}'''Fauna''' is a [[Hero]] in [[Maleficent|Maleficent's]] [[Fate deck]].
+
+== Clarifications ==
+* If both copies of [[Dreamless Sleep]] are at the same [[location]], Fauna only discards one of them if she is played there.
+
+== Strategy ==
+The only Hero that can discard Dreamless Sleep when played. She's a great pick if that [[Curse]] is out, a dud if it isn't.
+
+== Previous versions ==
+[[File:Fauna_First.png|250x250px|First printing.]]
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Heroes]]
+[[Category:The Worst Takes It All]]
+[[Category:Strength: 2]]
+[[Category:Character Cards]]
+[[Category:Characters]]
+[[Category:Cards changed in later printings]]

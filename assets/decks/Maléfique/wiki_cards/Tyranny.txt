@@ -1,0 +1,23 @@
+{{Card
+|image1 = Tyranny.png
+|villain = Maleficent
+|type = {{Color|deeppink|Condition}}
+|#_of_copies = 2
+|text = During their turn, if another player has three or more {{Color|red|Allies}} in their Realm, you may play Tyranny. Draw three cards into your hand, then discard any three cards.}}'''Tyranny''' is a [[Condition]] in [[Maleficent|Maleficent's]] [[Villain deck]].
+
+== Strategy ==
+The effect of this card can be quite useful, letting you get to your [[Curse]]s, but the [[Ability]] for the Condition to trigger is very sensitive to which [[Villain]] you're facing as an opponent:
+* [[Captain Hook]]/[[Davy Jones]]/[[Gaston]]/[[Madam Mim]]/[[Scar]]: Very likely to have multiple [[Ally|Allies]] out to defeat [[Hero]]es
+* [[Horned King]]/[[Pete]]/[[Queen of Hearts]]: Must have at least ''four'' Allies out in order to win
+* [[Jafar]]: Can have Heroes as Allies due to [[Hypnotize]], in addition to his conventional Allies, so more likely to trigger this later in the game
+* [[Dr. Facilier]]/[[King Candy]]/[[Mother Gothel]]/[[Oogie Boogie]]/[[Prince John]]/[[Shere Khan]]/[[Syndrome]]/[[Tamatoa]]: Has many Allies in their deck
+* [[Hades]]/[[Lotso]]/[[Ratigan]]/[[Yzma]]: Has at least four Allies, but usually won't have many in play
+* [[Lady Tremaine]]: Can have up to three Allies in play, but can refrain from playing all of them
+* [[Cruella De Vil]]/[[Ursula]]: only has ''two'' Allies in her Villain deck
+* [[Evil Queen]]: only has ''one'' Ally in her Villain deck
+Against Captain Hook, Pete, Queen of Hearts, or Scar, Tyranny is a solid card to hold on to, and will most likely trigger. Jafar, Dr. Facilier, Mother Gothel, Prince John, and Syndrome are a bit more hit or miss, but can still often trigger. Never keep Tyranny if you're only playing against Cruella De Vil, Ursula, or Evil Queen.
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Conditions]]
+[[Category:The Worst Takes It All]]

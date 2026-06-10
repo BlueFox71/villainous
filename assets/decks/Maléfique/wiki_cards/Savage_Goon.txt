@@ -1,0 +1,24 @@
+{{Card
+|image1 = Savage_Goon.png
+|villain = Maleficent
+|type = {{Color|red|Ally}}
+|cost = 3
+|strength = 4
+|#_of_copies = 3
+|text = ''No additional Ability''.}}'''Savage Goon''' is an [[Ally]] in [[Maleficent|Maleficent's]] [[Villain deck]].
+
+== Strategy ==
+A generic, strong Ally. Great for taking out stronger [[Hero]]es, especially those with [[Sword of Truth]] attached, but using these to defeat [[Guards]] is usually a waste. However, if you're trying to find your [[Curse]]s, and you don't have any Heroes in your Realm, feel free to just [[discard fodder|discard this]].
+
+== Identical cards ==
+The following cards in other [[Villain|Villains']] [[Villain deck|decks]] are functionally the same (ignoring number of copies):
+* [[Pirate Brute]]
+* [[Rhino Guards]]
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Allies]]
+[[Category:The Worst Takes It All]]
+[[Category:Strength: 4]]
+[[Category:Character Cards]]
+[[Category:Characters]]

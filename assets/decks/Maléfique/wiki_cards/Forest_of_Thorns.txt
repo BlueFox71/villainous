@@ -1,0 +1,15 @@
+{{Card
+|image1 = Forest_of_Thorns.png
+|villain = Maleficent
+|type = {{Color|darkviolet|Curse}}
+|cost = 2
+|#_of_copies = 3
+|text = {{Color|gold|Heroes}} must have a Strength of 4 or more to be played to this location.<br>Discard this {{Color|darkviolet|Curse}} when a {{Color|gold|Hero}} is played to this location.}}'''Forest of Thorns''' is a [[Curse]] in [[Maleficent|Maleficent's]] [[Villain deck]].
+
+== Strategy ==
+Forest of Thorns is the cheapest Curse, and thus the easiest to get on the board, but it's also the easiest to get rid of, with four [[Hero]]es in Maleficent's Fate deck with enough Strength to discard it on play. However, it does keep the weaker Heroes away, so try to play Forest of Thorns to locations where you consistently use the top row of actions.
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Curses]]
+[[Category:The Worst Takes It All]]

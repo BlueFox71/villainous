@@ -1,0 +1,113 @@
+[[File:Maleficent.png|thumb|305x305px]]
+:''This is one of two versions of this Villain; see the other [[Maleficent/Introduction to Evil|here]].''
+
+{{quote|Now go with a curse and serve me well!}}
+
+'''Maleficent''' is one of six playable [[Villain]]s in the Villainous base game, ''[[The Worst Takes It All]]''. She is from the movie ''[https://en.wikipedia.org/wiki/Sleeping_Beauty_(1959_film) Sleeping Beauty]'', released in 1959, in which she is voiced by [https://en.wikipedia.org/wiki/Eleanor_Audley Eleanor Audley] and animated by [https://en.wikipedia.org/wiki/Marc_Davis_(animator) Marc Davis].
+
+She has cards of a unique [[Types of Cards|type]], Curse, which add effects to locations, but also each have a condition under which they are discarded from play. She can move them to different locations using the Move an Item or Ally action.
+
+== [[Objective]] ==
+Maleficent must play Curses and move them as needed so she has at least one Curse at each location in her realm. She can only win at the start of her turn.
+
+== [[Realm]] ==
+[[File:Maleficentmover.png|thumb|250x250px|Maleficent's [[mover]].]]
+Maleficent's Realm contains the following [[location]]s, from left to right:
+* [[Forbidden Mountains]]
+** [[Move an Item or Ally]] | [[Play a Card]]
+** [[Gain Power|Gain 1 Power]] | [[Fate]]
+* [[Briar Rose's Cottage]]
+** Gain 2 Power | Move an Item or Ally
+** Play a Card | [[Discard Cards]]
+* [[The Forest (Maleficent)|The Forest]]
+** Discard Cards | Play a Card
+** Gain 3 Power | Play a Card
+* [[King Stefan's Castle]]
+** Gain 1 Power | Fate
+** [[Vanquish]] | Play a Card
+[[File:Maleficentrealm.jpg|800x800px|Maleficent's Realm.]]
+
+== [[Villain deck]] ==
+[[File:Maleficent_Villain_Back.png|thumb|315x315px|Maleficent's Villain deck card back.]]
+The following cards are in Maleficent's Villain deck:
+* [[Cackling Goon]] (×3)
+* [[Dragon Form]] (×3)
+* [[Forest of Thorns]] (×3)
+* [[Green Fire]] (×3)
+* [[Savage Goon]] (×3)
+* [[Sinister Goon]] (×3)
+* [[Vanish]] (×3)
+* [[Dreamless Sleep]] (×2)
+* [[Malice]] (×2)
+* [[Tyranny]] (×2)
+* [[Raven]]
+* [[Spinning Wheel]]
+* [[Staff]]
+These include 10 total [[Ally|Allies]] (Cackling Goon; Savage Goon; Sinister Goon; Raven), 4 total [[Condition]]s (Malice; Tyranny), 8 total [[Curse]]s (Forest of Thorns; Green Fire; Dreamless Sleep), 6 total [[Effect]]s (Dragon Form; Vanish), and 2 [[Item]]s (Spinning Wheel; Staff).
+=== Card Gallery ===
+'''3 Copies:'''
+
+[[File:Cackling_Goon.png|200x200px]] [[File:Dragon_Form.png|200x200px]] [[File:Forest_of_Thorns.png|200x200px]] [[File:Green_Fire.png|200x200px]] [[File:Savage_Goon.png|200x200px]] [[File:Sinister_Goon.png|200x200px]] [[File:Vanish.png|200x200px]]
+
+'''2 Copies:'''
+
+[[File:Dreamless_Sleep.png|200x200px]] [[File:Malice.png|200x200px]] [[File:Tyranny.png|200x200px]]
+
+'''1 Copy:'''
+
+[[File:Raven.png|200x200px]] [[File:Spinning_Wheel.png|200x200px]] [[File:Staff.png|200x200px]]
+== [[Fate deck]] ==
+[[File:Maleficent_Fate_Back.png|thumb|315x315px|Maleficent's Fate deck card back.]]
+The following cards are in Maleficent's Fate deck:
+* [[Guards (Maleficent)|Guards]] (×3)
+* [[Sword of Truth]] (×3)
+* [[Once Upon a Dream]] (×2)
+* [[Aurora]]
+* [[Fauna]]
+* [[Flora]]
+* [[King Hubert]]
+* [[King Stefan]]
+* [[Merryweather]]
+* [[Prince Phillip]]
+These include 2 total Effects (Once Upon a Dream), 10 total [[Hero]]es (Guards; Aurora; Fauna; Flora; King Hubert; King Stefan; Merryweather; Prince Phillip), and 3 total Items (Sword of Truth).
+=== Card Gallery ===
+'''3 Copies:'''
+
+[[File:Guards (Maleficent).png|200x200px]] [[File:Sword_of_Truth.png|200x200px]]
+
+'''2 Copies:'''
+
+[[File:Once_Upon_a_Dream.png|200x200px]]
+
+'''1 Copy:'''
+
+[[File:Aurora.png|200x200px]] [[File:Fauna.png|200x200px]] [[File:Flora.png|200x200px]] [[File:King_Hubert.png|200x200px]] [[File:King_Stefan.png|200x200px]] [[File:Merryweather.png|200x200px]] [[File:Prince_Phillip.png|200x200px]]
+
+== Strategy ==
+[[File:How to WIN with MALEFICENT Villainous Strategy Guide|thumb|right|335px|Lord of the Board's strategy video.]]
+
+Maleficent is a Villain of extremes - she can reach her win condition in as few as three turns, but she can quite easily be set back from it, with one of the more punishing Fate decks in the game. This makes her an almost ideal counter to Villains with initially locked second Fate locations (namely, [[Captain Hook]] and [[Evil Queen]]), as she can speed to her win without fearing much retaliation. In most situations, though, Maleficent will want to play with a bit more cunning, and prepare her board so she can reach an unbeatable state.
+
+Unlike most Villains, there is no one key card Maleficent needs to win. There are eight Curses in her deck, and she at a minimum only needs four of them. Like all Villains, she should be using the Discard Cards action frequently to find her Curses, as well as using Tyranny (when possible) to help that along. That said, there are a few powerful cards she should look out for and hold onto.
+
+Raven is easily the best card in her deck, allowing Maleficent to use an extra action every turn, as well as letting her get around Green Fire's restriction. He should be played at the first opportunity, to get the most use out of him - though do be careful about leaving him out unattended, as he is vulnerable to Prince Phillip. After that, the Staff is the second priority, and should most often be played to The Forest, letting Maleficent save Power when playing her Curses and Effects. Vanish is another key tool, again letting Maleficent work around Green Fire, but also letting her squat in The Forest and accrue Power. Dragon Form is also useful (particularly when paired with Dreamless Sleep), as is the Spinning Wheel.
+
+The rest of her deck is filled out with various Goons. If you have nothing better to do, and Power to spare, feel free to play them, but unless there are Heroes around that need to be dealt with, the Goons are [[discard fodder]].
+
+Remember that Curses can be moved with the Move an Item or Ally action - this can help you get around Merryweather, or avoid accidentally discarding Green Fire.
+
+While it can be tempting to rush to a win and throw down a Curse at each location as soon as you draw them, and there are times you may achieve victory doing this, it is very risky, as most Fate cards will undo all your hard work. Instead it can behoove you to stack multiple Curses in one location, then moving them out to individual locations later in the game. Stacking Green Fire with Forest of Thorns and/or Dreamless Sleep protects the latter from Heroes discarding them, and such a spot can also be a safe haven for your Raven. A relatively ideal midgame for Maleficent sees Green Fire at Briar Rose's Cottage and The Forest, with the Raven hopping between those two locations, and Maleficent hopping between her two Fate locations, stacking more Curses in the middle as she can, then moving them out at an ideal time to strike. Keep an eye on which cards have passed by in your Fate deck, and when your opponent can't Fate you on their next turn.
+
+There's no getting around the fact that Maleficent's progress is very visible. While the Raven can, in theory, let you play three Curses in one turn, this is unlikely to happen. Play your Curses as quickly as you can, and keep your board clear of Heroes, to avoid Sword of Truth and Once Upon a Dream, all the while discarding constantly. If a Curse gets discarded, you need to be able to play another one, so keep milling your deck to find them. Be aware of Curse combinations that are unbeatable - 2 or 3 Green Fires and 2 or 1 Dreamless Sleeps is beatable only by King Stefan or Fauna, and if all the 4+-Strength Heroes have been played or passed over, then a combination of Green Fires and Forests of Thorns can only be stopped by Once Upon a Dream, so keep a close eye on your Fate discard pile.
+
+The best way to preserve your win condition is to make sure you can't be Fated. Fate strategically, covering up top-row Fate actions with Heroes on other players' boards. Then, when each opponent can't Fate on their next turn, throw down your fourth Curse, and smile smugly as everyone around you rages in frustration.
+
+Countering Maleficent is relatively straightforward - there are several 4- or 5-Strength Heroes in her Fate deck that can discard Forest of Thorns, Fauna can discard Dreamless Sleep, and King Stefan (arguably the best card in the Fate deck) can shunt Maleficent into a Green Fire, discarding it. Use Sword of Truth and Once Upon a Dream when Heroes are present, and try to play Merryweather to a Forest of Thorns or a location without a Curse. Guards are pretty useless. While she can be Fated reactively with decent success, there's no reason to go easy on her.
+
+{{Maleficent}}
+{{Villains}}
+[[Category:Villains]]
+[[Category:Maleficent]]
+[[Category:The Worst Takes It All]]
+[[Category:Characters]]
+[[Category:Villains with Unique Card Type]]

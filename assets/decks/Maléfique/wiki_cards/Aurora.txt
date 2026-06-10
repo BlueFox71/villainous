@@ -1,0 +1,19 @@
+{{Card
+|image1 = Aurora.png
+|villain = Maleficent
+|type = {{Color|gold|Hero}}
+|strength = 4
+|#_of_copies = 1
+|text = When Aurora is played, reveal the top card of Maleficent's Fate deck. If it is a {{Color|gold|Hero}}, play it. Otherwise, return it to the top of the deck.}}'''Aurora''' is a [[Hero]] in [[Maleficent|Maleficent's]] [[Fate deck]].
+
+== Strategy ==
+A solid Hero, as she can discard [[Forest of Thorns]], and has about a two-thirds chance to bring out another Hero. If [[King Stefan]] is that Hero, there's a chance for three [[Curse]]s to be discarded in one [[Fate]] [[action]], making for a devastating combo.
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Heroes]]
+[[Category:The Worst Takes It All]]
+[[Category:Strength: 4]]
+[[Category:Character Cards]]
+[[Category:Characters]]
+[[Category:Princesses]]

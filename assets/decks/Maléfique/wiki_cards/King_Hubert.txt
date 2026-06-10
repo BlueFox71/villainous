@@ -1,0 +1,18 @@
+{{Card
+|image1 = King_Hubert.png
+|villain = Maleficent
+|type = {{Color|gold|Hero}}
+|strength = 3
+|#_of_copies = 1
+|text = When King Hubert is played, you may move one {{Color|red|Ally}} from each adjacent location to his location.}}'''King Hubert''' is a [[Hero]] in [[Maleficent|Maleficent's]] [[Fate deck]].
+
+== Strategy ==
+One of the weaker Heroes, King Hubert's main use is to protect [[Flora]] and [[Merryweather]], or any Hero with [[Sword of Truth]] attached, as Maleficent cannot (barring the [[Raven]]) [[Vanquish]] and [[Move an Item or Ally]] on the same turn. If no such other Hero is in the Realm, the other Fate pick might be of more use. A niche use for him could be to move Raven into a less optimal position.
+
+{{Maleficent}}
+[[Category:Maleficent]]
+[[Category:Heroes]]
+[[Category:The Worst Takes It All]]
+[[Category:Strength: 3]]
+[[Category:Character Cards]]
+[[Category:Characters]]
