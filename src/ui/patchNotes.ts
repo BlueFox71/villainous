@@ -9,6 +9,28 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.45',
+    date: '2026-06-11',
+    title: 'Capitaine Crochet : effets complets',
+    changes: [
+      'Objets qui donnent une action au lieu : Canon (Éliminer), Boîte à Crochets (Gagner 1), Ingénieux Mécanisme (Déplacer un Héros).',
+      'Peter Pan se place d’office sur l’Arbre du Pendu dès qu’il est dévoilé (même verrouillé).',
+      'Digne Adversaire & Obsession : piochent un Héros dans votre propre deck Fatalité et le jouent.',
+      'Monsieur Starkey (déplacer un Héros), Clochette (défausser un Allié), Tic Tac (défausse de la main), Pas de Quartier ! (+2 force), Faites-leur peur !, Ruse.',
+    ],
+  },
+  {
+    version: '0.44',
+    date: '2026-06-11',
+    title: 'Nouveau vilain : Capitaine Crochet',
+    changes: [
+      'Capitaine Crochet (Disney, 3★) jouable : objectif « éliminer Peter Pan sur le Jolly Roger ».',
+      'Arbre du Pendu verrouillé au départ, débloqué par la Carte du Pays Imaginaire.',
+      'Enfants Perdus (2 Alliés requis), Flibustiers (Vaincre à distance), Provocation (ordre d’élimination), bonus de force (Mouche, Wendy, Jean, Michel, Sabre, Poussière de Fée).',
+      'Certains effets restent « base jouable » (Canon/Boîte/Ingénieux donnant une action, Digne Adversaire/Obsession, Faites-leur peur, etc.).',
+    ],
+  },
+  {
     version: '0.43',
     date: '2026-06-11',
     title: 'Correctif : fenêtre du Coup Royal',

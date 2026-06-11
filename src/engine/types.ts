@@ -47,6 +47,9 @@ export interface LocationAction {
   row: ActionRow
   /** Montant de pouvoir gagné, pour les actions GAIN_POWER. */
   amount?: number
+  /** instanceId de l'Objet qui accorde cette action (Capitaine Crochet : Canon,
+   *  Boîte à Crochets, Ingénieux Mécanisme). Absent pour les actions imprimées. */
+  grantedBy?: string
 }
 
 /** Un lieu du plateau d'un vilain. */
@@ -114,6 +117,10 @@ export type ObjectiveDef =
    *  de la carte). La victoire est déclenchée par la carte Coup Royal, pas par un
    *  contrôle passif en début de tour. */
   | { type: 'ROYAL_CROQUET' }
+  /** Capitaine Crochet : éliminer un Héros précis (`heroCardId`) sur un lieu
+   *  précis (`locationId`). Victoire ÉVÉNEMENTIELLE — déclenchée à l'instant du
+   *  Vanquish (performVanquish), pas par un contrôle passif en début de tour. */
+  | { type: 'DEFEAT_HERO_AT_LOCATION'; heroCardId: string; locationId: LocationId }
 
 /** Phase courante à l'intérieur d'un tour. */
 export type TurnPhase =
@@ -251,6 +258,23 @@ export type Effect =
    *  (force inchangée) et ne recouvre plus les actions. Coût (= force du Héros)
    *  prélevé à la pose, hors de cet effet. */
   | { type: 'HYPNOTIZE_HERO' }
+  /** Capitaine Crochet — Clochette (à la pose) : défausse un Allié sur le lieu où
+   *  elle arrive (ctx.hostLocationId). */
+  | { type: 'DISCARD_ALLY_AT_HOST' }
+  /** Capitaine Crochet — Digne Adversaire / Obsession : dévoile le deck Fatalité
+   *  de l'acteur jusqu'à trouver un Héros, le joue dans SON royaume (Peter Pan →
+   *  Arbre du Pendu, sinon lieu du pion), défausse les autres cartes dévoilées. */
+  | { type: 'REVEAL_OWN_FATE_PLAY_HERO' }
+  /** Capitaine Crochet — Monsieur Starkey : ouvre le déplacement d'un Héros du
+   *  royaume de l'acteur vers un lieu voisin (pendingHeroRelocate). */
+  | { type: 'RELOCATE_OWN_HERO' }
+  /** Capitaine Crochet — Faites-leur peur ! : regarde les 2 premières cartes
+   *  Fatalité de l'acteur ; défausse automatiquement les non-Héros, garde les
+   *  Héros sur le dessus (heuristique : on creuse vers les Héros). */
+  | { type: 'SCRY_OWN_FATE_TOP2' }
+  /** Capitaine Crochet — Pas de Quartier ! : déplace un Allié vers un lieu voisin
+   *  non bloqué et lui donne +2 force jusqu'à la fin du tour. */
+  | { type: 'MOVE_ALLY_BUFF'; amount: number }
 
 /**
  * Un exemplaire physique d'une carte en jeu. Comme une même carte existe en
@@ -276,6 +300,13 @@ export interface CardInstance {
   /** Pour un Objet : cible d'association à la pose (recopié de CardDef).
    *  `'ally'` = sur un Allié du lieu ; sinon (défaut) posé sur le lieu. */
   attach?: 'location' | 'ally' | 'hero'
+  /** Capitaine Crochet : Objet qui DONNE une action à son lieu tant qu'il y est
+   *  posé (Canon → Vaincre, Boîte à Crochets → Gagner 1, Ingénieux Mécanisme →
+   *  Déplacer un Héros). */
+  grantsAction?: { type: LocationActionType; amount?: number; label: string }
+  /** Bonus de force temporaire « jusqu'à la fin du tour » (Pas de Quartier !).
+   *  Remis à zéro à la fin du tour du joueur actif. */
+  tempStrengthBonus?: number
   /** Si cet exemplaire est associé à une autre carte, `instanceId` de la carte
    *  porteuse (un Allié). Fixé à la pose ; absent pour les Alliés et les Objets
    *  posés directement sur le lieu. La carte porteuse vit sur le même lieu. */

@@ -96,4 +96,20 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       "Garde des Héros sur ses lieux pour l'empêcher d'aligner un arceau partout.",
     ],
   },
+  crochet: {
+    difficulty: 3,
+    story:
+      "Pirate rancunier du Pays Imaginaire (Peter Pan, 1953), le Capitaine Crochet n'a qu'une obsession : se venger de Peter Pan, qui a jeté sa main au crocodile Tic Tac. Depuis le Jolly Roger, avec Monsieur Mouche et son équipage, il traque l'enfant volant dans tout Neverland.",
+    playTips: [
+      "Ton but : amener Peter Pan jusqu'au Jolly Roger et l'y éliminer (l'éliminer ailleurs ne compte pas).",
+      "Fais venir les Héros dans ton royaume (Digne Adversaire) puis déplace-les vers le Jolly Roger pour les vaincre.",
+      "Débloque l'Arbre du Pendu avec la Carte du Pays Imaginaire pour ouvrir l'action « Déplacer un Héros ».",
+      "Évite de déplacer ton pion sur le lieu de Tic Tac : tu défausserais toute ta main.",
+    ],
+    counterTips: [
+      "Garde Peter Pan loin du Jolly Roger ; la Poussière de Fée et Wendy le rendent très difficile à vaincre.",
+      "Provocation force Crochet à éliminer certains Héros d'abord : verrouille ses priorités.",
+      "Migraine Atroce lui retire ses Objets (Canon, Sabre) et casse son installation.",
+    ],
+  },
 }

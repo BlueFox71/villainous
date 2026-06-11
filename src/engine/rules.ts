@@ -101,6 +101,29 @@ export function isActionCovered(state: GameState, action: LocationAction): boole
   return topUsed >= usableTop
 }
 
+/** Actions d'un lieu du joueur actif : actions IMPRIMÉES + actions ACCORDÉES par
+ *  des Objets posés sur ce lieu (Capitaine Crochet : Canon → Vaincre, Boîte à
+ *  Crochets → Gagner 1, Ingénieux Mécanisme → Déplacer un Héros). Les actions
+ *  accordées sont en rangée « bas » → jamais recouvertes par un Héros. */
+export function locationActions(state: GameState, locationId: LocationId): LocationAction[] {
+  const p = activePlayer(state)
+  const loc = p.locations.find((l) => l.id === locationId)
+  if (!loc) return []
+  const granted = (p.board[locationId] ?? [])
+    .filter((c) => c.grantsAction && !c.attachedTo)
+    .map(
+      (c): LocationAction => ({
+        id: `granted:${c.instanceId}`,
+        type: c.grantsAction!.type,
+        label: c.grantsAction!.label,
+        amount: c.grantsAction!.amount,
+        row: 'bottom',
+        grantedBy: c.instanceId,
+      }),
+    )
+  return [...loc.actions, ...granted]
+}
+
 /**
  * Actions exécutables sur le lieu courant : prises en charge, pas encore jouées
  * ce tour-ci, et non recouvertes par un Héros. Vide hors de la phase ACTION.
@@ -109,7 +132,7 @@ export function getAvailableActions(state: GameState): LocationAction[] {
   if (state.status !== 'PLAYING' || state.phase !== 'ACTION') return []
   const loc = currentLocation(state)
   if (!loc) return []
-  return loc.actions.filter(
+  return locationActions(state, loc.id).filter(
     (a) =>
       isSupportedType(a.type) &&
       !state.usedActionIds.includes(a.id) &&
@@ -299,6 +322,12 @@ export function effectiveStrength(
     const lanceBonus = cell.filter(
       (c) => c.cardId === 'lance' && c.attachedTo === card.instanceId,
     ).length
+    // Capitaine Crochet : Sabre d'Abordage +2 par Sabre associé à cet Allié.
+    const sabreBonus = cell.filter(
+      (c) => c.cardId === 'sabre-abordage' && c.attachedTo === card.instanceId,
+    ).length * 2
+    // Capitaine Crochet : Monsieur Mouche +2 sur le Jolly Roger.
+    const moucheBonus = card.cardId === 'monsieur-mouche' && loc === 'jolly-roger' ? 2 : 0
     // Maléfique : Créature Rieuse +1 par Héros sur son lieu ;
     // Sinistre Créature +1 si une Malédiction est présente.
     let selfBonus = 0
@@ -314,7 +343,7 @@ export function effectiveStrength(
     ).length
     return Math.max(
       0,
-      card.strength + niquedouilleBonus + arcFlechesBonus + cimeterreBonus + lanceBonus + selfBonus - pendardPenalty,
+      card.strength + niquedouilleBonus + arcFlechesBonus + cimeterreBonus + lanceBonus + sabreBonus + moucheBonus + (card.tempStrengthBonus ?? 0) + selfBonus - pendardPenalty,
     )
   }
   if (card.type === 'hero') {
@@ -351,9 +380,28 @@ export function effectiveStrength(
       heroesOf(state, playerIndex).some((h) => h.cardId === 'jasmine')
         ? 2
         : 0
+    // Capitaine Crochet (Fatalité) :
+    //  - Poussière de Fée : +2 par carte associée à ce Héros.
+    const pixieBonus = cell.filter(
+      (c) => c.cardId === 'poussiere-fee' && c.attachedTo === card.instanceId,
+    ).length * 2
+    //  - Wendy : +1 à la force de tous les AUTRES Héros du royaume.
+    const wendyBonus =
+      card.cardId !== 'wendy' && heroesOf(state, playerIndex).some((h) => h.cardId === 'wendy') ? 1 : 0
+    //  - Jean : +1 si au moins un Objet lui est associé.
+    const jeanBonus =
+      card.cardId === 'jean' &&
+      cell.some((c) => c.type === 'item' && c.attachedTo === card.instanceId)
+        ? 1
+        : 0
+    //  - Michel : +1 par lieu du royaume occupé par au moins un Héros (le sien compris).
+    const michelBonus =
+      card.cardId === 'michel'
+        ? p.locations.filter((l) => (p.board[l.id] ?? []).some((c) => c.type === 'hero')).length
+        : 0
     return Math.max(
       0,
-      card.strength + adamBonus + curseDelta + swordBonus + voeuBonus + genieBonus + rajahBonus + cimeterreOnHero - sablierPenalty,
+      card.strength + adamBonus + curseDelta + swordBonus + voeuBonus + genieBonus + rajahBonus + cimeterreOnHero + pixieBonus + wendyBonus + jeanBonus + michelBonus - sablierPenalty,
     )
   }
   return card.strength
@@ -583,6 +631,9 @@ export function hasReachedObjective(state: GameState): boolean {
     }
     case 'ROYAL_CROQUET':
       // Victoire déclenchée par la carte Coup Royal (pas un contrôle passif).
+      return false
+    case 'DEFEAT_HERO_AT_LOCATION':
+      // Victoire déclenchée à l'instant du Vanquish (performVanquish), pas ici.
       return false
   }
 }

@@ -851,7 +851,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // ---- D : Réactions humaines (Conditions) ----
   const handlePlayReaction = (card: CardInstance) => {
     // Conditions à ciblage interactif : on passe par un mode de sélection.
-    if (card.cardId === 'lachete') {
+    if (card.cardId === 'lachete' || card.cardId === 'ruse') {
       setMode({ kind: 'condition-pick-ally', instanceId: card.instanceId })
       return
     }
@@ -872,11 +872,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     if (mode?.kind !== 'condition-pick-ally') return
     const ally = user.hand.find((c) => c.instanceId === allyInstanceId)
     if (!ally || ally.type !== 'ally') return
+    const condCard = user.hand.find((c) => c.instanceId === mode.instanceId)
     setMode({
       kind: 'condition-pick-place',
       instanceId: mode.instanceId,
       allyInstanceId,
-      cardName: 'Lâcheté',
+      cardName: condCard?.name ?? 'Condition',
       allyName: ally.name,
     })
   }

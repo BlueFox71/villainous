@@ -188,9 +188,11 @@ export function performVanquish(
     const a = (me.board[allyLoc] ?? []).find((c) => c.instanceId === allyId)!
     if (a.type !== 'ally') throw new Error(`${a.name} n'est pas un Allié.`)
     if (a.isWicket) throw new Error(`${a.name} est un arceau : inutilisable pour éliminer un Héros.`)
-    const isArchers = a.cardId === 'archers-loups'
-    if (allyLoc !== heroLoc && !(isArchers && adjacents.has(allyLoc))) {
-      throw new Error(`${a.name} doit être sur ${heroLocName}${isArchers ? ' ou un lieu voisin' : ''}.`)
+    // Archers Loups (Prince Jean) et Flibustiers (Crochet) éliminent aussi un
+    // Héros sur un lieu VOISIN non bloqué.
+    const reachesAdjacent = a.cardId === 'archers-loups' || a.cardId === 'flibustiers'
+    if (allyLoc !== heroLoc && !(reachesAdjacent && adjacents.has(allyLoc))) {
+      throw new Error(`${a.name} doit être sur ${heroLocName}${reachesAdjacent ? ' ou un lieu voisin' : ''}.`)
     }
     allies.push(a)
   }
@@ -200,6 +202,21 @@ export function performVanquish(
   // Gardes du Château : minimum 2 Alliés requis pour les éliminer.
   if (heroCard.cardId === 'gardes-chateau' && allies.length < 2) {
     throw new Error("Pour éliminer les Gardes du Château, il faut au moins 2 Alliés.")
+  }
+  // Enfants Perdus (Crochet) : minimum 2 Alliés requis pour les éliminer.
+  if (heroCard.cardId === 'enfants-perdus' && allies.length < 2) {
+    throw new Error("Pour éliminer les Enfants Perdus, il faut au moins 2 Alliés.")
+  }
+  // Provocation (Crochet) : s'il existe un Héros « provocateur » (portant une
+  // Provocation) dans le royaume, il faut l'éliminer avant les autres Héros.
+  const targetHasTaunt = (me.board[heroLoc] ?? []).some(
+    (c) => c.cardId === 'provocation' && c.attachedTo === heroCard.instanceId,
+  )
+  const aTaunterExists = Object.values(me.board)
+    .flat()
+    .some((c) => c.cardId === 'provocation' && c.attachedTo)
+  if (aTaunterExists && !targetHasTaunt) {
+    throw new Error('Vous devez d’abord éliminer un Héros provocateur (Provocation).')
   }
   const heroForce = effectiveStrength(state, state.activePlayer, heroCard.instanceId) ?? 0
   const allyForce = allies.reduce(
@@ -291,6 +308,21 @@ export function performVanquish(
     'bottom',
     vanquishGain > 0 ? { gainedPower: vanquishGain } : undefined,
   )
+  // Capitaine Crochet : victoire ÉVÉNEMENTIELLE — éliminer Peter Pan sur le
+  // Jolly Roger (et nulle part ailleurs).
+  const obj = me.objective
+  if (
+    obj.type === 'DEFEAT_HERO_AT_LOCATION' &&
+    heroCard.cardId === obj.heroCardId &&
+    heroLoc === obj.locationId
+  ) {
+    return {
+      ...next,
+      status: 'WON',
+      winner: state.activePlayer,
+      log: [...next.log, `🏆 ${me.villainName} élimine ${heroCard.name} sur le Jolly Roger et l'emporte !`],
+    }
+  }
   // Effets « à la mort » du Héros (Toby, Belle Marianne — B.3).
   return resolveEffects(next, heroCard.onVanquish ?? [], {
     actorIndex: state.activePlayer,
@@ -1180,6 +1212,173 @@ export function resolveEffect(
       const verb =
         newSize === 'shrunk' ? 'rapetisse' : newSize === 'enlarged' ? 'agrandit' : 'rend à sa taille normale'
       return { ...next, log: [...next.log, `${actor.villainName} ${verb} **${hero.name}**.`] }
+    }
+    case 'DISCARD_ALLY_AT_HOST': {
+      // Clochette : défausse un Allié (et ses Objets associés) sur son lieu.
+      const loc = ctx?.hostLocationId
+      const p = state.players[idx]
+      const ally = loc
+        ? (p.board[loc] ?? []).find((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket)
+        : undefined
+      if (!loc || !ally) {
+        return { ...state, log: [...state.log, 'Clochette : aucun Allié à défausser sur ce lieu.'] }
+      }
+      const attached = (p.board[loc] ?? []).filter((c) => c.attachedTo === ally.instanceId)
+      const removed = new Set([ally.instanceId, ...attached.map((c) => c.instanceId)])
+      const next = updatePlayer(state, idx, (pp) => ({
+        ...pp,
+        board: { ...pp.board, [loc]: (pp.board[loc] ?? []).filter((c) => !removed.has(c.instanceId)) },
+        discard: [...pp.discard, ally, ...attached],
+      }))
+      return { ...next, log: [...next.log, `Clochette défausse **${ally.name}**.`] }
+    }
+    case 'REVEAL_OWN_FATE_PLAY_HERO': {
+      // Dévoile le deck Fatalité de l'acteur jusqu'à un Héros, le joue dans SON
+      // royaume, défausse les autres cartes dévoilées.
+      const actor0 = state.players[idx]
+      let deck = actor0.fateDeck
+      let disc = actor0.fateDiscard
+      let s = state.rngState
+      const revealed: CardInstance[] = []
+      let hero: CardInstance | undefined
+      while (true) {
+        if (deck.length === 0) {
+          if (disc.length === 0) break
+          const r = shuffle(disc, s)
+          deck = r.result
+          s = r.state
+          disc = []
+        }
+        const [top, ...rest] = deck
+        deck = rest
+        revealed.push(top)
+        if (top.type === 'hero') {
+          hero = top
+          break
+        }
+      }
+      const others = revealed.filter((c) => c !== hero)
+      let next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        fateDeck: deck,
+        fateDiscard: [...disc, ...others],
+      }))
+      next = { ...next, rngState: s }
+      if (!hero) {
+        return { ...next, log: [...next.log, `${actor0.villainName} ne trouve aucun Héros dans son deck Fatalité.`] }
+      }
+      const dest = hero.cardId === 'peter-pan' ? 'arbre-pendu' : actor0.pawnLocation ?? actor0.locations[0].id
+      const destName = actor0.locations.find((l) => l.id === dest)?.name ?? dest
+      // Pose dans le royaume de l'acteur (placeFateHeroWithEffects vit dans
+      // actions.ts → on reproduit ici la pose + effets « à la pose » + arrivée).
+      next = updatePlayer(next, idx, (p) => ({
+        ...p,
+        board: { ...p.board, [dest]: [...(p.board[dest] ?? []), hero] },
+      }))
+      next = {
+        ...next,
+        log: [...next.log, `${actor0.villainName} dévoile son deck Fatalité et joue **${hero.name}** sur **${destName}**.`],
+      }
+      next = resolveEffects(next, hero.onPlace ?? [], {
+        actorIndex: idx,
+        hostInstanceId: hero.instanceId,
+        hostLocationId: dest,
+      })
+      return triggerHeroArrival(next, idx, dest)
+    }
+    case 'RELOCATE_OWN_HERO': {
+      // Monsieur Starkey : si l'acteur a un Héros dans son royaume, ouvre le
+      // déplacement d'un Héros vers un lieu voisin (pendingHeroRelocate).
+      const actor = state.players[idx]
+      const hasHero = Object.values(actor.board).flat().some((c) => c.type === 'hero')
+      if (!hasHero) return state
+      return {
+        ...state,
+        pendingHeroRelocate: { chooserIndex: idx, targetIndex: idx },
+        log: [...state.log, `${actor.villainName} (Monsieur Starkey) peut déplacer un Héros vers un lieu voisin.`],
+      }
+    }
+    case 'SCRY_OWN_FATE_TOP2': {
+      // Faites-leur peur ! : regarde les 2 premières cartes Fatalité ; défausse
+      // les non-Héros, garde les Héros sur le dessus (creuse vers les Héros).
+      const actor = state.players[idx]
+      let deck = actor.fateDeck
+      let disc = actor.fateDiscard
+      let s = state.rngState
+      if (deck.length < 2 && disc.length > 0) {
+        const r = shuffle(disc, s)
+        deck = [...deck, ...r.result]
+        s = r.state
+        disc = []
+      }
+      const top = deck.slice(0, 2)
+      const rest = deck.slice(2)
+      const keep = top.filter((c) => c.type === 'hero')
+      const drop = top.filter((c) => c.type !== 'hero')
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        fateDeck: [...keep, ...rest],
+        fateDiscard: [...disc, ...drop],
+      }))
+      return {
+        ...next,
+        rngState: s,
+        log: [
+          ...next.log,
+          `${actor.villainName} sonde sa pioche Fatalité (Faites-leur peur !) : ${drop.length} carte(s) défaussée(s).`,
+        ],
+      }
+    }
+    case 'MOVE_ALLY_BUFF': {
+      // Pas de Quartier ! : déplace un Allié vers un lieu voisin non bloqué et lui
+      // donne +amount force jusqu'à la fin du tour. Auto-pick : on privilégie un
+      // Allié pouvant rejoindre un lieu voisin portant un Héros (mise en place d'un Vanquish).
+      const actor = state.players[idx]
+      const locked = new Set(actor.lockedLocations ?? [])
+      const order = actor.locations.map((l) => l.id)
+      let bestAlly: CardInstance | undefined
+      let bestFrom = ''
+      let bestTo = ''
+      let bestScore = -1
+      for (let i = 0; i < order.length; i++) {
+        const from = order[i]
+        const neighbors = [order[i - 1], order[i + 1]].filter((id): id is string => !!id && !locked.has(id))
+        if (neighbors.length === 0) continue
+        for (const c of actor.board[from] ?? []) {
+          if (c.type !== 'ally' || c.attachedTo || c.isWicket) continue
+          for (const to of neighbors) {
+            const heroesThere = (actor.board[to] ?? []).filter((d) => d.type === 'hero').length
+            const score = heroesThere * 10 + (c.strength ?? 0)
+            if (score > bestScore) {
+              bestScore = score
+              bestAlly = c
+              bestFrom = from
+              bestTo = to
+            }
+          }
+        }
+      }
+      if (!bestAlly) return { ...state, log: [...state.log, 'Pas de Quartier ! : aucun Allié déplaçable.'] }
+      const moved = bestAlly
+      const attached = (actor.board[bestFrom] ?? []).filter((c) => c.attachedTo === moved.instanceId)
+      const movedIds = new Set([moved.instanceId, ...attached.map((c) => c.instanceId)])
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        board: {
+          ...p.board,
+          [bestFrom]: (p.board[bestFrom] ?? []).filter((c) => !movedIds.has(c.instanceId)),
+          [bestTo]: [
+            ...(p.board[bestTo] ?? []),
+            { ...moved, tempStrengthBonus: (moved.tempStrengthBonus ?? 0) + effect.amount },
+            ...attached,
+          ],
+        },
+      }))
+      const toName = actor.locations.find((l) => l.id === bestTo)?.name ?? bestTo
+      return {
+        ...next,
+        log: [...next.log, `${actor.villainName} déplace **${moved.name}** vers **${toName}** (+${effect.amount} force ce tour-ci).`],
+      }
     }
     case 'TRANSFORM_GUARDS': {
       // Par ordre de la Reine ! : ouvre la sélection de 1 ou 2 Cartes Gardes à

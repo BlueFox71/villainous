@@ -84,6 +84,16 @@ function objectiveScore(p: PlayerState): number {
       // Reine de Cœur : objectif via la carte Coup Royal (mécanique des arceaux
       // pas encore implémentée) → progrès non évalué pour l'instant.
       return 0
+    case 'DEFEAT_HERO_AT_LOCATION': {
+      // Capitaine Crochet : rapprocher le Héros cible (Peter Pan) du lieu cible
+      // (Jolly Roger). Le Vanquish final déclenche la victoire (status WON).
+      const obj = p.objective
+      const targetLoc = p.locations.find((l) =>
+        (p.board[l.id] ?? []).some((c) => c.type === 'hero' && c.cardId === obj.heroCardId),
+      )?.id
+      if (!targetLoc) return 0
+      return targetLoc === obj.locationId ? 1 : 0.5
+    }
   }
 }
 
@@ -309,11 +319,11 @@ function buildConditionAction(
   card: PlayerState['hand'][number],
   rand: Rand,
 ): GameAction | null {
-  if (card.cardId === 'lachete') {
+  if (card.cardId === 'lachete' || card.cardId === 'ruse') {
+    // Lâcheté / Ruse : pose gratuitement l'Allié le plus fort de la main.
     const me = state.players[playerIndex]
     const allies = me.hand.filter((c) => c.type === 'ally')
     if (allies.length === 0) return null
-    // Allié le plus fort, sur le premier lieu.
     const ally = [...allies].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
     return {
       type: 'PLAY_CONDITION',

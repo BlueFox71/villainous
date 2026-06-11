@@ -30,9 +30,11 @@ import { jafar } from '../../data/villains/jafar'
 import { jafarCards } from '../../data/villains/jafar.cards'
 import { reineCoeur } from '../../data/villains/reineCoeur'
 import { reineCoeurCards } from '../../data/villains/reineCoeur.cards'
+import { crochet } from '../../data/villains/crochet'
+import { crochetCards } from '../../data/villains/crochet.cards'
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -40,6 +42,7 @@ export const VILLAIN_REGISTRY = {
   slenderman: { def: slenderman, cards: slendermanCards, label: 'Slenderman' },
   jafar: { def: jafar, cards: jafarCards, label: 'Jafar' },
   reineCoeur: { def: reineCoeur, cards: reineCoeurCards, label: 'Reine de Cœur' },
+  crochet: { def: crochet, cards: crochetCards, label: 'Capitaine Crochet' },
 } as const
 
 /** Qui est contrôlé par un bot. Concept d'UI : le moteur, lui, ne sait pas qui

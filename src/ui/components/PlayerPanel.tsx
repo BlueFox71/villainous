@@ -66,6 +66,14 @@ export function PlayerPanel({ player, accent, isActive, isWinner }: Props) {
             />
           ) : player.objective.type === 'ROYAL_CROQUET' ? (
             <RoyalCroquetProgress player={player} accent={accent} isWinner={isWinner} />
+          ) : player.objective.type === 'DEFEAT_HERO_AT_LOCATION' ? (
+            <DefeatHeroProgress
+              player={player}
+              accent={accent}
+              isWinner={isWinner}
+              heroCardId={player.objective.heroCardId}
+              locationId={player.objective.locationId}
+            />
           ) : (
             <CurseEachLocationProgress
               player={player}
@@ -224,6 +232,48 @@ function RoyalCroquetProgress({
             title={player.locations[i].name}
             className={`h-2 flex-1 rounded-full ${
               ok ? (isWinner ? 'bg-amber-400' : accent.gauge) : 'bg-black/40'
+            }`}
+          />
+        ))}
+      </div>
+    </>
+  )
+}
+
+function DefeatHeroProgress({
+  player,
+  accent,
+  isWinner,
+  heroCardId,
+  locationId,
+}: {
+  player: PlayerState
+  accent: Accent
+  isWinner: boolean
+  heroCardId: string
+  locationId: string
+}) {
+  const heroName = getCardDef(heroCardId)?.name ?? 'Héros'
+  const targetLoc = player.locations.find((l) =>
+    (player.board[l.id] ?? []).some((c) => c.type === 'hero' && c.cardId === heroCardId),
+  )
+  const targetName = player.locations.find((l) => l.id === locationId)?.name ?? locationId
+  // 0 = pas dans le royaume ; 1 = présent ailleurs ; 2 = sur le lieu cible.
+  const step = !targetLoc ? 0 : targetLoc.id === locationId ? 2 : 1
+  const status = step === 0 ? 'Hors-jeu' : step === 1 ? targetLoc!.name : `✓ ${targetName}`
+  return (
+    <>
+      <div className="mb-1 flex justify-between text-[10px]">
+        <span className={accent.accentText}>{heroName}</span>
+        <span className="font-mono text-white">{status}</span>
+      </div>
+      <div className="flex gap-1">
+        {[0, 1].map((i) => (
+          <div
+            key={i}
+            title={i === 0 ? 'Peter Pan dans le royaume' : `Peter Pan sur ${targetName}`}
+            className={`h-2 flex-1 rounded-full ${
+              step > i ? (isWinner ? 'bg-amber-400' : accent.gauge) : 'bg-black/40'
             }`}
           />
         ))}

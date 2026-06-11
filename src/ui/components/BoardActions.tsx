@@ -147,6 +147,33 @@ const ACTION_POS: Record<string, Record<string, Record<string, { x: number; y: n
       fate: { x: 92.9, y: 68 },
     },
   },
+  // Capitaine Crochet : même gabarit de plateau (panneau objectif + 4 lieux).
+  crochet: {
+    'jolly-roger': {
+      'gain-power': { x: 22.7, y: 20 },
+      discard: { x: 30.5, y: 20 },
+      vanquish: { x: 22.7, y: 68 },
+      'play-card': { x: 30.5, y: 68 },
+    },
+    'rocher-crane': {
+      'gain-power': { x: 43.5, y: 20 },
+      'play-card': { x: 51.4, y: 20 },
+      fate: { x: 43.5, y: 68 },
+      discard: { x: 51.4, y: 68 },
+    },
+    'lagune-sirenes': {
+      'play-card-top': { x: 64.3, y: 20 },
+      'move-item-ally': { x: 72.1, y: 20 },
+      'gain-power': { x: 64.3, y: 68 },
+      'play-card-bottom': { x: 72.1, y: 68 },
+    },
+    'arbre-pendu': {
+      fate: { x: 85.1, y: 20 },
+      'gain-power': { x: 92.9, y: 20 },
+      'move-hero': { x: 85.1, y: 68 },
+      'play-card': { x: 92.9, y: 68 },
+    },
+  },
 }
 
 interface Props {
@@ -215,6 +242,46 @@ export function BoardActions({
           )
         }),
       )}
+      {/* Actions ACCORDÉES par un Objet (Capitaine Crochet : Canon, Boîte à
+          Crochets, Ingénieux Mécanisme). Pas d'icône imprimée → pastille visible
+          centrée sur le lieu (empilées si plusieurs). */}
+      {player.locations.flatMap((loc) => {
+        const cells = layout[loc.id]
+        if (!cells) return []
+        const xs = Object.values(cells).map((p) => p.x)
+        const centerX = xs.reduce((a, b) => a + b, 0) / xs.length
+        const granted = (player.board[loc.id] ?? []).filter((c) => c.grantsAction)
+        const isCurrent = player.pawnLocation === loc.id
+        return granted.map((c, i) => {
+          const g = c.grantsAction!
+          const id = `granted:${c.instanceId}`
+          const available = isCurrent && availableActionIds.includes(id)
+          const used = isCurrent && usedActionIds.includes(id)
+          const short =
+            g.type === 'VANQUISH' ? '⚔ Vaincre' : g.type === 'MOVE_HERO' ? '↪ Héros' : `+${g.amount ?? 1} ⚡`
+          return (
+            <button
+              key={`${loc.id}:${id}`}
+              type="button"
+              disabled={!available}
+              onClick={() =>
+                onActionClick({ id, type: g.type, label: g.label, amount: g.amount, row: 'bottom', grantedBy: c.instanceId })
+              }
+              title={g.label}
+              className={`absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border-2 px-1.5 py-0.5 text-[8px] font-bold transition-colors ${
+                available
+                  ? 'border-yellow-400 bg-yellow-400/30 text-yellow-50 hover:bg-yellow-400/50 cursor-pointer'
+                  : used
+                    ? 'border-black/70 bg-black/60 text-white/40'
+                    : 'border-white/25 bg-black/50 text-white/70'
+              }`}
+              style={{ left: `${centerX}%`, top: `${44 + i * 11}%` }}
+            >
+              {short}
+            </button>
+          )
+        })
+      })}
       <style>{`
         @keyframes persifleurBlink {
           0%, 100% { box-shadow: 0 0 0 0 rgba(250,204,21,0); border-color: rgba(250,204,21,1); background-color: rgba(250,204,21,0.1); }
