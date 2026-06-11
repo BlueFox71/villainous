@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import { BOTS, useGameStore, VILLAIN_REGISTRY, type VillainKey } from './store/gameStore'
+import { BOTS, useGameStore, villainKeyOf, VILLAIN_REGISTRY, type VillainKey } from './store/gameStore'
+import { useStatsStore } from './store/statsStore'
 import { getCardDef } from '../data/registry'
 import {
+  activatableCards,
   adjacentLocationIds,
   canPlaceCurseAt,
   cardNeedsAllyMove,
   cardNeedsHeroTarget,
+  cardNeedsSacrificeTarget,
   cardNeedsVanquishTarget,
   effectiveCost,
   effectiveStrength,
@@ -14,6 +17,9 @@ import {
   hasHeroInRealm,
   heroPlacementLocations,
   playableConditions,
+  sacrificeableCards,
+  teleportTargets,
+  transformableGuards,
 } from '../engine/rules'
 import type { CardInstance, LocationAction, ShowcaseEvent } from '../engine/types'
 import { BLUE, RED } from './accents'
@@ -30,6 +36,17 @@ import { FateModal } from './components/FateModal'
 import { HeroPlacementModal } from './components/HeroPlacementModal'
 import { PawnMoveModal } from './components/PawnMoveModal'
 import { HubertPullModal } from './components/HubertPullModal'
+import { DeckPeekModal } from './components/DeckPeekModal'
+import { TypeChoiceModal } from './components/TypeChoiceModal'
+import { HeroRelocateModal } from './components/HeroRelocateModal'
+import { TeleportModal } from './components/TeleportModal'
+import { OptionsModal } from './components/OptionsModal'
+import { ActivatePickModal } from './components/ActivatePickModal'
+import { CardChoiceModal } from './components/CardChoiceModal'
+import { RoyalCroquetModal } from './components/RoyalCroquetModal'
+import { TransformWicketsModal } from './components/TransformWicketsModal'
+import { StartRollModal } from './components/StartRollModal'
+import { MusicPlayer } from './components/MusicPlayer'
 import { Showcase } from './components/Showcase'
 import { TestFateBar } from './components/TestFateBar'
 import { TestChecklist } from './components/TestChecklist'
@@ -53,6 +70,10 @@ type Mode =
   | { kind: 'move-pick'; actionId: string }
   /** Carte à déplacer choisie ; on attend le clic sur un lieu voisin. */
   | { kind: 'move-dest'; actionId: string; instanceId: string; from: string; cardName: string }
+  /** « Déplacer un Héros » : on attend le clic sur le Héros à déplacer. */
+  | { kind: 'move-hero-pick'; actionId: string }
+  /** Héros choisi ; on attend le clic sur un lieu voisin de sa position. */
+  | { kind: 'move-hero-dest'; actionId: string; heroInstanceId: string; from: string; heroName: string }
   /** « Éliminer un Héros » : choix du Héros à cibler. `viaCard` = appel depuis
    *  une carte (Intimidation, Tendre un Piège) au lieu de l'action VANQUISH. */
   | {
@@ -97,13 +118,20 @@ type Mode =
   | { kind: 'condition-pick-place'; instanceId: string; allyInstanceId: string; cardName: string; allyName: string }
   /** Méchanceté : choisir un Héros (≤4 force) à éliminer dans son royaume. */
   | { kind: 'condition-pick-hero'; instanceId: string }
+  /** Jafar — « Activer » : choisir la carte à activer (si plusieurs candidates). */
+  | { kind: 'activate-pick'; actionId: string }
+  /** Jafar — Iago activé : on attend le clic sur le lieu voisin de destination.
+   *  `itemInstanceId` = l'Objet à emmener (déjà choisi), ou undefined (Iago seul). */
+  | { kind: 'activate-iago-dest'; actionId: string; cardInstanceId: string; from: string; itemInstanceId?: string }
+  /** Jafar — Sacrifice Nécessaire : choisir l'Allié/Objet du royaume à défausser. */
+  | { kind: 'sacrifice-pick'; actionId: string; instanceId: string; cardName: string; diablo?: boolean }
   | null
 
 const BOT_STEP_MS = 700
 const HUMAN = 0
 const BOT = 1
 
-export default function App() {
+export default function App({ onExit }: { onExit?: () => void } = {}) {
   const state = useGameStore((s) => s.state)
   const move = useGameStore((s) => s.move)
   const skipMove = useGameStore((s) => s.skipMove)
@@ -111,6 +139,9 @@ export default function App() {
   const playCard = useGameStore((s) => s.playCard)
   const discardCards = useGameStore((s) => s.discardCards)
   const moveCard = useGameStore((s) => s.moveCard)
+  const moveHero = useGameStore((s) => s.moveHero)
+  const setStartingPlayer = useGameStore((s) => s.setStartingPlayer)
+  const activate = useGameStore((s) => s.activate)
   const vanquish = useGameStore((s) => s.vanquish)
   const discardDeguisement = useGameStore((s) => s.discardDeguisement)
   const sheriffMove = useGameStore((s) => s.sheriffMove)
@@ -126,6 +157,13 @@ export default function App() {
   const resolveHeroPlacement = useGameStore((s) => s.resolveHeroPlacement)
   const resolvePawnMove = useGameStore((s) => s.resolvePawnMove)
   const resolveHubertPull = useGameStore((s) => s.resolveHubertPull)
+  const resolveDeckPeek = useGameStore((s) => s.resolveDeckPeek)
+  const resolveTypeChoice = useGameStore((s) => s.resolveTypeChoice)
+  const resolveHeroRelocate = useGameStore((s) => s.resolveHeroRelocate)
+  const resolveTeleport = useGameStore((s) => s.resolveTeleport)
+  const resolveManipulation = useGameStore((s) => s.resolveManipulation)
+  const dismissRoyalCroquet = useGameStore((s) => s.dismissRoyalCroquet)
+  const resolveTransformWickets = useGameStore((s) => s.resolveTransformWickets)
   const endTurn = useGameStore((s) => s.endTurn)
   const reset = useGameStore((s) => s.reset)
   const botAct = useGameStore((s) => s.botAct)
@@ -140,7 +178,52 @@ export default function App() {
   const testShowcase = useGameStore((s) => s.testShowcase)
   const testRefreshTurn = useGameStore((s) => s.testRefreshTurn)
 
+  // --- Statistiques de profil (par vilain humain) -------------------------
+  // Le joueur humain est toujours le joueur 0 (cf. BOTS = [false, true]).
+  const recordResult = useStatsStore((s) => s.recordResult)
+  const recordGame = useStatsStore((s) => s.recordGame)
+  const addPlaytime = useStatsStore((s) => s.addPlaytime)
+  const humanVillainKey = villainKeyOf(state.players[0].villain)
+  const opponentVillainKey = villainKeyOf(state.players[1].villain)
+
+  // Temps de jeu : on mémorise l'instant d'entrée et on verse la durée écoulée
+  // au démontage (retour au menu / fermeture). Un ref suit le vilain courant
+  // pour créditer le bon compteur même si la partie change.
+  const playStartRef = useRef(Date.now())
+  const villainKeyRef = useRef(humanVillainKey)
+  villainKeyRef.current = humanVillainKey
+  useEffect(() => {
+    return () => {
+      addPlaytime(villainKeyRef.current, Date.now() - playStartRef.current)
+    }
+  }, [addPlaytime])
+
+  // Victoire/défaite : enregistrée une seule fois quand la partie se termine.
+  const resultRecordedRef = useRef(false)
+  useEffect(() => {
+    if (state.status === 'WON' && !resultRecordedRef.current) {
+      resultRecordedRef.current = true
+      const humanWon = state.winner === 0
+      recordResult(humanVillainKey, humanWon)
+      recordGame({
+        human: humanVillainKey,
+        opponent: opponentVillainKey,
+        winner: humanWon ? 'human' : 'opponent',
+        at: Date.now(),
+      })
+    }
+  }, [state.status, state.winner, humanVillainKey, opponentVillainKey, recordResult, recordGame])
+
   const [mode, setMode] = useState<Mode>(null)
+  const [showOptions, setShowOptions] = useState(false)
+  // Jet de dé de début de partie (qui commence). Sauté en mode test.
+  const [startRollDone, setStartRollDone] = useState(testMode)
+  // Choix de la carte à activer quand plusieurs sont activables (action « Activer »).
+  const [activatePick, setActivatePick] = useState<{ actionId: string } | null>(null)
+  // Iago : choix de l'Objet à emmener quand plusieurs Objets sont sur son lieu.
+  const [iagoItemPick, setIagoItemPick] = useState<
+    { actionId: string; cardInstanceId: string; from: string } | null
+  >(null)
   // Tyrannie : cartes cochées pour la défausse en attente (état dérivé de
   // `state.pendingTyrannyDiscard`, pas de mode dédié — voir `tyrannyDiscard`).
   const [tyrannyPicks, setTyrannyPicks] = useState<string[]>([])
@@ -229,6 +312,44 @@ export default function App() {
     }
     flyCard(def.image, from, to2)
   }
+  // Animation de PIOCHE : quand de nouvelles cartes apparaissent dans la main du
+  // joueur (fin de tour, Prédiction…), un dos de carte « vole » de la pioche
+  // Vilain vers la zone de main, au lieu d'apparaître instantanément.
+  const handIdsRef = useRef<Set<string>>(
+    new Set(state.players[HUMAN].hand.map((c) => c.instanceId)),
+  )
+  useEffect(() => {
+    const human = state.players[HUMAN]
+    const cur = human.hand.map((c) => c.instanceId)
+    const added = cur.filter((id) => !handIdsRef.current.has(id))
+    handIdsRef.current = new Set(cur)
+    if (added.length === 0) return
+    const pile = document.querySelector(`[data-deck-pile="${HUMAN}"]`)
+    const zone = document.querySelector(`[data-hand-zone="${HUMAN}"]`)
+    const back = human.backVillainImage
+    if (!pile || !zone || !back) return
+    const pr = pile.getBoundingClientRect()
+    const zr = zone.getBoundingClientRect()
+    const cardW = 60
+    const cardH = cardW * 1.4
+    const from: FlightRect = {
+      left: pr.left + pr.width / 2 - cardW / 2,
+      top: pr.top + pr.height / 2 - cardH / 2,
+      width: cardW,
+      height: cardH,
+    }
+    added.forEach((_, k) => {
+      const spread = added.length > 1 ? (k - (added.length - 1) / 2) * (cardW + 8) : 0
+      const to: FlightRect = {
+        left: zr.left + zr.width / 2 - cardW / 2 + spread,
+        top: zr.top + zr.height / 2 - cardH / 2,
+        width: cardW,
+        height: cardH,
+      }
+      window.setTimeout(() => flyCard(back, from, to), k * 110)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.players[HUMAN].hand])
   // Gains de pouvoir flottants (« +N 🪙 »), ex. bonus du Shérif.
   const [gains, setGains] = useState<FloatingGain[]>([])
   const gainSeq = useRef(0)
@@ -352,8 +473,12 @@ export default function App() {
   const bot = state.players[BOT]
   // Un Objet « à associer » est jouable s'il existe au moins un Allié quelque part
   // (on peut le poser sur n'importe quel lieu, donc sur celui qui porte l'Allié).
+  // Un Héros hypnotisé compte comme un Allié (porteur d'Objet valide).
   const anyAllyOnBoard =
-    isHumanTurn && Object.values(user.board).some((cards) => cards.some((c) => c.type === 'ally'))
+    isHumanTurn &&
+    Object.values(user.board).some((cards) =>
+      cards.some((c) => c.type === 'ally' || (c.type === 'hero' && c.hypnotized)),
+    )
   // Roi Richard chez le joueur humain → ses Événements sont injouables.
   const humanEventsBlocked = isHumanTurn && hasHeroInRealm(state, HUMAN, 'roi-richard')
   // Flora chez le bot → sa main est révélée à l'humain (Flora rend la main publique).
@@ -432,6 +557,112 @@ export default function App() {
   // met le bot en PAUSE pour laisser le temps de réagir.
   useEffect(() => {
     if (state.status !== 'PLAYING') return
+    if (!startRollDone) return // jet de dé de début de partie en cours
+    // Retourne-toi : carte révélée en attente d'un choix. Bot → garde la carte
+    // (auto) après un court délai ; humain → modale.
+    const pdp = state.pendingDeckPeek
+    if (pdp) {
+      if (BOTS[pdp.playerIndex]) {
+        const timer = setTimeout(() => resolveDeckPeek(true), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Tombée de la nuit : choix Événement/Objet. Bot → type présent dans les
+    // cartes du dessus (priorité Objet = Pages) ; humain → modale.
+    const ptc = state.pendingTypeChoice
+    if (ptc) {
+      if (BOTS[ptc.playerIndex]) {
+        // Prédiction (untilFound) → on scanne toute la pioche ; sinon les `count`
+        // premières cartes. On choisit un type proposé qui apparaît, à défaut le 1ᵉʳ.
+        const deck = state.players[ptc.playerIndex].deck
+        const top = ptc.untilFound ? deck : deck.slice(0, ptc.count)
+        const choice = ptc.types.find((t) => top.some((c) => c.type === t)) ?? ptc.types[0]
+        const timer = setTimeout(() => resolveTypeChoice(choice), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Manipulation : choisir une carte de la défausse à reprendre. Bot → la
+    // dernière défaussée ; humain → modale.
+    const pman = state.pendingManipulation
+    if (pman) {
+      if (BOTS[pman.playerIndex]) {
+        const disc = state.players[pman.playerIndex].discard
+        const pick = disc[disc.length - 1]
+        if (pick) {
+          const timer = setTimeout(() => resolveManipulation(pick.instanceId), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
+    // Par ordre de la Reine ! : transformer 1-2 Cartes Gardes en arceaux. Bot →
+    // privilégie les Gardes sur un lieu SANS arceau (un arceau par lieu → Coup
+    // Royal) ; humain → modale.
+    const ptw = state.pendingTransformWickets
+    if (ptw) {
+      if (BOTS[ptw.playerIndex]) {
+        const p = state.players[ptw.playerIndex]
+        const guards = transformableGuards(state, ptw.playerIndex)
+        const locHasWicket = (id: string) => {
+          const loc = p.locations.find((l) => (p.board[l.id] ?? []).some((c) => c.instanceId === id))
+          return loc ? (p.board[loc.id] ?? []).some((c) => c.isWicket) : false
+        }
+        const sorted = [...guards].sort(
+          (a, b) => Number(locHasWicket(a.instanceId)) - Number(locHasWicket(b.instanceId)),
+        )
+        const ids = sorted.slice(0, ptw.max).map((c) => c.instanceId)
+        if (ids.length > 0) {
+          const timer = setTimeout(() => resolveTransformWickets(ids), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
+    // Coup Royal raté du bot : on ferme la fenêtre pour qu'il poursuive son tour.
+    const prc = state.pendingRoyalCroquet
+    if (prc) {
+      if (BOTS[prc.playerIndex]) {
+        const timer = setTimeout(() => dismissRoyalCroquet(), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Téléportation : déplacer le pion sur un lieu portant un Héros. Bot →
+    // 1ᵉʳ lieu cible ; humain → modale.
+    const pt = state.pendingTeleport
+    if (pt) {
+      if (BOTS[pt.playerIndex]) {
+        const tgts = teleportTargets(state.players[pt.playerIndex])
+        if (tgts.length > 0) {
+          const timer = setTimeout(() => resolveTeleport(tgts[0]), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
+    // Apparition / Vent de panique : déplacer un Héros vers un lieu voisin.
+    // Bot chooser → 1ᵉʳ Héros + 1ᵉʳ lieu voisin ; humain → modale.
+    const phr = state.pendingHeroRelocate
+    if (phr) {
+      if (BOTS[phr.chooserIndex]) {
+        const tgt = state.players[phr.targetIndex]
+        const ids = tgt.locations.map((l) => l.id)
+        for (const loc of tgt.locations) {
+          const hero = (tgt.board[loc.id] ?? []).find((c) => c.type === 'hero')
+          if (hero) {
+            const i = ids.indexOf(loc.id)
+            const to = ids[i - 1] ?? ids[i + 1]
+            if (to) {
+              const timer = setTimeout(() => resolveHeroRelocate(hero.instanceId, to), BOT_STEP_MS)
+              return () => clearTimeout(timer)
+            }
+          }
+        }
+      }
+      return
+    }
     // Aurore : Héros révélé à placer. Le bot (s'il a joué la Fatalité) choisit
     // tout seul le 1ᵉʳ lieu valide ; si c'est l'humain, on attend la modale.
     const php = state.pendingHeroPlacement
@@ -497,7 +728,7 @@ export default function App() {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [isBotTurn, state, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull])
+  }, [isBotTurn, startRollDone, state, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets])
 
   // Coups légaux / actions : seulement pour le joueur humain et à son tour.
   const legalMoves = isHumanTurn ? getLegalMoves(state) : []
@@ -603,6 +834,11 @@ export default function App() {
     if (cardNeedsHeroTarget(card)) {
       return setMode({ kind: 'play-pick-hero', actionId: mode.actionId, instanceId, cardName: card.name, diablo: mode.diablo })
     }
+    // Sacrifice Nécessaire : choisir un Allié/Objet du royaume à défausser.
+    if (cardNeedsSacrificeTarget(card)) {
+      if (sacrificeableCards(state).length === 0) return // rien à sacrifier
+      return setMode({ kind: 'sacrifice-pick', actionId: mode.actionId, instanceId, cardName: card.name, diablo: mode.diablo })
+    }
     // Événement classique : effet immédiat, pas de destination.
     doPlayCard(mode.diablo, mode.actionId, instanceId)
     setMode(null)
@@ -614,10 +850,7 @@ export default function App() {
   }
   // ---- D : Réactions humaines (Conditions) ----
   const handlePlayReaction = (card: CardInstance) => {
-    if (card.cardId === 'avarice' || card.cardId === 'tyrannie') {
-      playCondition(HUMAN, card.instanceId)
-      return
-    }
+    // Conditions à ciblage interactif : on passe par un mode de sélection.
     if (card.cardId === 'lachete') {
       setMode({ kind: 'condition-pick-ally', instanceId: card.instanceId })
       return
@@ -626,6 +859,9 @@ export default function App() {
       setMode({ kind: 'condition-pick-hero', instanceId: card.instanceId })
       return
     }
+    // Toutes les autres Conditions (Avarice, Tyrannie, Tromperie, Manipulation,
+    // Sombres desseins, Sans visage…) se résolvent sans ciblage manuel.
+    playCondition(HUMAN, card.instanceId)
   }
   const handleConditionPickHero = (heroInstanceId: string) => {
     if (mode?.kind !== 'condition-pick-hero') return
@@ -715,6 +951,17 @@ export default function App() {
   const handleTrapStartVanquish = () => setMode({ kind: 'vanquish-pick-hero', actionId: '', trap: true })
   const handleTrapFinish = () => trapSkipVanquish()
   const handleCardPick = (instanceId: string) => {
+    if (mode?.kind === 'activate-pick') {
+      const card = activatableCards(state).find((c) => c.instanceId === instanceId)
+      if (card) startActivate(mode.actionId, card)
+      return
+    }
+    if (mode?.kind === 'sacrifice-pick') {
+      // La carte cliquée (Allié/Objet du royaume) est sacrifiée pour la carte jouée.
+      if (!sacrificeableCards(state).some((c) => c.instanceId === instanceId)) return
+      doPlayCard(mode.diablo, mode.actionId, mode.instanceId, undefined, undefined, undefined, [instanceId])
+      return setMode(null)
+    }
     if (mode?.kind === 'trap-pick-ally') {
       // Phase 1 de Tendre un Piège : on prend un Allié.
       const from = user.locations
@@ -746,13 +993,22 @@ export default function App() {
     if (mode?.kind === 'trap-pick-dest') {
       return handleTrapPickDest(to)
     }
+    if (mode?.kind === 'activate-iago-dest') {
+      return handleActivateIagoDest(to)
+    }
     if (mode?.kind === 'move-dest') {
       moveCard(mode.actionId, mode.instanceId, to)
       return setMode(null)
     }
+    if (mode?.kind === 'move-hero-dest') {
+      moveHero(mode.actionId, mode.heroInstanceId, to)
+      return setMode(null)
+    }
     if (mode?.kind !== 'place') return
     if (mode.isAttach) {
-      const allies = (user.board[to] ?? []).filter((c) => c.type === 'ally')
+      const allies = (user.board[to] ?? []).filter(
+        (c) => c.type === 'ally' || (c.type === 'hero' && c.hypnotized),
+      )
       if (allies.length === 0) return // lieu non cliquable en principe
       if (allies.length === 1) {
         flyHandToBoard(mode.instanceId, to)
@@ -807,10 +1063,59 @@ export default function App() {
     else if (a.type === 'FATE') handleFate(a.id)
     else if (a.type === 'MOVE_ITEM_ALLY')
       setMode((m) => (m?.kind === 'move-pick' && m.actionId === a.id ? null : { kind: 'move-pick', actionId: a.id }))
+    else if (a.type === 'MOVE_HERO')
+      setMode((m) => (m?.kind === 'move-hero-pick' && m.actionId === a.id ? null : { kind: 'move-hero-pick', actionId: a.id }))
     else if (a.type === 'VANQUISH')
       setMode((m) =>
         m?.kind === 'vanquish-pick-hero' && m.actionId === a.id ? null : { kind: 'vanquish-pick-hero', actionId: a.id },
       )
+    else if (a.type === 'ACTIVATE') {
+      const cards = activatableCards(state)
+      // Une seule carte activable → on enchaîne directement ; sinon, on propose
+      // une fenêtre de choix.
+      if (cards.length === 1) startActivate(a.id, cards[0])
+      else if (cards.length > 1) setActivatePick({ actionId: a.id })
+    }
+  }
+  /** Démarre l'activation d'une carte : Iago → choix du lieu voisin ; autres →
+   *  résolution immédiate (capacités sans ciblage). */
+  const startActivate = (actionId: string, card: CardInstance) => {
+    const from = user.locations
+      .map((l) => l.id)
+      .find((id) => (user.board[id] ?? []).some((c) => c.instanceId === card.instanceId))
+    if (card.cardId === 'iago' && from) {
+      const items = (user.board[from] ?? []).filter((c) => c.type === 'item' && !c.attachedTo)
+      if (items.length > 1) {
+        // Plusieurs Objets sur le lieu d'Iago → on demande lequel emmener.
+        setIagoItemPick({ actionId, cardInstanceId: card.instanceId, from })
+      } else {
+        setMode({
+          kind: 'activate-iago-dest',
+          actionId,
+          cardInstanceId: card.instanceId,
+          from,
+          itemInstanceId: items[0]?.instanceId,
+        })
+      }
+    } else {
+      activate(actionId, card.instanceId)
+      setMode(null)
+    }
+  }
+  /** Iago activé : destination choisie → déplace Iago (+ l'Objet pré-choisi). */
+  const handleActivateIagoDest = (to: string) => {
+    if (mode?.kind !== 'activate-iago-dest') return
+    activate(mode.actionId, mode.cardInstanceId, to, mode.itemInstanceId)
+    setMode(null)
+  }
+  const handleMoveHeroPick = (heroInstanceId: string) => {
+    if (mode?.kind !== 'move-hero-pick') return
+    const from = user.locations
+      .map((l) => l.id)
+      .find((id) => (user.board[id] ?? []).some((c) => c.instanceId === heroInstanceId))
+    if (!from) return
+    const hero = (user.board[from] ?? []).find((c) => c.instanceId === heroInstanceId)
+    setMode({ kind: 'move-hero-dest', actionId: mode.actionId, heroInstanceId, from, heroName: hero?.name ?? '' })
   }
   const handleVanquishPickHero = (heroInstanceId: string, heroName: string) => {
     if (mode?.kind !== 'vanquish-pick-hero') return
@@ -880,11 +1185,23 @@ export default function App() {
       ? user.locations
           .map((l) => l.id)
           .filter((id) => {
-            if (mode.isAttach) return (user.board[id] ?? []).some((c) => c.type === 'ally')
+            // Carte à pose restreinte (Lampe Merveilleuse → Caverne uniquement).
+            if (cardInPlay?.playOnlyAt && id !== cardInPlay.playOnlyAt) return false
+            if (mode.isAttach)
+              return (user.board[id] ?? []).some(
+                (c) => c.type === 'ally' || (c.type === 'hero' && c.hypnotized),
+              )
             if (cardInPlay?.type === 'curse') return canPlaceCurseAt(state, HUMAN, id)
+            // Limite d'exemplaires par lieu (Page : max 2 posées librement).
+            if (cardInPlay?.maxAtLocation !== undefined) {
+              const here = (user.board[id] ?? []).filter(
+                (c) => c.cardId === cardInPlay.cardId && !c.attachedTo,
+              ).length
+              return here < cardInPlay.maxAtLocation
+            }
             return true
           })
-      : mode?.kind === 'move-dest'
+      : mode?.kind === 'move-dest' || mode?.kind === 'move-hero-dest' || mode?.kind === 'activate-iago-dest'
         ? adjacentLocationIds(state, mode.from)
         : mode?.kind === 'trap-pick-dest'
           ? user.locations.map((l) => l.id) // n'importe quel lieu (Tendre un Piège)
@@ -897,14 +1214,19 @@ export default function App() {
               : []
   const attachLocation = mode?.kind === 'attach' ? mode.to : null
   // Mode « cliquer une carte » : déplacement classique OU phase 1 de Tendre un Piège.
-  const selectableCards = mode?.kind === 'move-pick' || mode?.kind === 'trap-pick-ally'
+  const selectableCards =
+    mode?.kind === 'move-pick' ||
+    mode?.kind === 'trap-pick-ally' ||
+    mode?.kind === 'activate-pick' ||
+    mode?.kind === 'sacrifice-pick'
   // Règle officielle Vanquish : on peut viser N'IMPORTE QUEL Héros du royaume
   // (pas forcément sur le lieu du pion). Les alliés utilisés doivent être au
   // LIEU DU HÉROS choisi (Archers Loups : depuis un lieu voisin).
   const vanquishHeroTargets: string[] =
     mode?.kind === 'vanquish-pick-hero' ||
     mode?.kind === 'play-pick-hero' ||
-    mode?.kind === 'condition-pick-hero'
+    mode?.kind === 'condition-pick-hero' ||
+    mode?.kind === 'move-hero-pick'
       ? (() => {
           const allHeroes = Object.values(user.board).flatMap((cards) =>
             cards.filter((c) => c.type === 'hero'),
@@ -915,6 +1237,12 @@ export default function App() {
             const limit = card?.effects?.find((e) => e.type === 'INSTANT_VANQUISH_HERO_LE')
             if (limit && limit.type === 'INSTANT_VANQUISH_HERO_LE') {
               return allHeroes.filter((h) => (h.strength ?? 0) <= limit.maxStrength).map((c) => c.instanceId)
+            }
+            // Disparition : seulement les Héros sur le lieu du pion.
+            if (card?.effects?.some((e) => e.type === 'INSTANT_VANQUISH_HERO_AT_PAWN')) {
+              return (user.board[user.pawnLocation ?? ''] ?? [])
+                .filter((c) => c.type === 'hero')
+                .map((c) => c.instanceId)
             }
           }
           // Méchanceté : héros ≤4 force.
@@ -950,9 +1278,10 @@ export default function App() {
                 : []
             return [...here, ...movedIn]
           }
-          const localAllies = simulatedAt(heroLoc).filter((c) => c.type === 'ally')
+          // Les arceaux (Cartes Gardes transformées) ne peuvent pas éliminer.
+          const localAllies = simulatedAt(heroLoc).filter((c) => c.type === 'ally' && !c.isWicket)
           const adjArchers = adjacentLocationIds(state, heroLoc).flatMap((adj) =>
-            simulatedAt(adj).filter((c) => c.cardId === 'archers-loups'),
+            simulatedAt(adj).filter((c) => c.cardId === 'archers-loups' && !c.isWicket),
           )
           const heroCard = (user.board[heroLoc] ?? []).find(
             (c) => c.instanceId === mode.heroInstanceId,
@@ -1046,6 +1375,22 @@ export default function App() {
           >
             Nouvelle partie
           </button>
+          <button
+            onClick={() => setShowOptions(true)}
+            title="Options (musique, volume)"
+            className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"
+          >
+            ⚙ Options
+          </button>
+          {onExit && (
+            <button
+              onClick={onExit}
+              title="Revenir au menu principal"
+              className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"
+            >
+              ☰ Menu
+            </button>
+          )}
         </div>
       </header>
 
@@ -1069,6 +1414,7 @@ export default function App() {
                 onVanquishPickHero={(id, name) => {
                   if (mode?.kind === 'play-pick-hero') handlePlayPickHero(id)
                   else if (mode?.kind === 'condition-pick-hero') handleConditionPickHero(id)
+                  else if (mode?.kind === 'move-hero-pick') handleMoveHeroPick(id)
                   else handleVanquishPickHero(id, name)
                 }}
                 canDiscardDeguisement={isHumanTurn && state.phase === 'ACTION' && user.power >= 2}
@@ -1141,6 +1487,8 @@ export default function App() {
             mode?.kind === 'attach' ||
             mode?.kind === 'move-pick' ||
             mode?.kind === 'move-dest' ||
+            mode?.kind === 'move-hero-pick' ||
+            mode?.kind === 'move-hero-dest' ||
             mode?.kind === 'vanquish-pick-hero' ||
             mode?.kind === 'vanquish-pick-allies' ||
             mode?.kind === 'play-pick-hero' ||
@@ -1150,7 +1498,10 @@ export default function App() {
             mode?.kind === 'diablo-dest' ||
             mode?.kind === 'condition-pick-ally' ||
             mode?.kind === 'condition-pick-place' ||
-            mode?.kind === 'condition-pick-hero') && (
+            mode?.kind === 'condition-pick-hero' ||
+            mode?.kind === 'activate-pick' ||
+            mode?.kind === 'activate-iago-dest' ||
+            mode?.kind === 'sacrifice-pick') && (
             <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-400/70 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
               <span>
                 {mode.kind === 'place' ? (
@@ -1169,6 +1520,14 @@ export default function App() {
                 ) : mode.kind === 'move-dest' ? (
                   <>
                     Déplacer <b>{mode.cardName}</b> : clique un <b>lieu voisin</b> (surligné).
+                  </>
+                ) : mode.kind === 'move-hero-pick' ? (
+                  <>
+                    Déplacer un Héros : clique le <b>Héros</b> à déplacer (surligné en rouge).
+                  </>
+                ) : mode.kind === 'move-hero-dest' ? (
+                  <>
+                    Déplacer <b>{mode.heroName}</b> : clique un <b>lieu voisin</b> (surligné).
                   </>
                 ) : mode.kind === 'vanquish-pick-hero' ? (
                   <>
@@ -1205,6 +1564,18 @@ export default function App() {
                 ) : mode.kind === 'condition-pick-hero' ? (
                   <>
                     <b>Méchanceté</b> : clique le <b>Héros</b> à éliminer (≤4 force, rouge).
+                  </>
+                ) : mode.kind === 'activate-pick' ? (
+                  <>
+                    <b>Activer</b> : clique la carte à activer (cartes surlignées).
+                  </>
+                ) : mode.kind === 'activate-iago-dest' ? (
+                  <>
+                    <b>Iago</b> : clique le <b>lieu voisin</b> de destination (Iago + 1 Objet de son lieu, −1 JT).
+                  </>
+                ) : mode.kind === 'sacrifice-pick' ? (
+                  <>
+                    <b>Sacrifice Nécessaire</b> : clique l'<b>Allié ou l'Objet</b> à défausser (+3 JT).
                   </>
                 ) : (
                   <>
@@ -1301,27 +1672,7 @@ export default function App() {
               </button>
             </div>
           )}
-          <div data-hand-zone={HUMAN}>
-          <Hand
-            hand={user.hand}
-            accent={BLUE}
-            hidden={false}
-            backImage={user.backVillainImage}
-            mode={handMode}
-            power={user.power}
-            attachTargetsAvailable={anyAllyOnBoard}
-            blockEvents={humanEventsBlocked}
-            costFor={(c) => effectiveCost(state, c)}
-            armedConditionIds={humanReactions.map((c) => c.instanceId)}
-            forcedHoverId={hoveredReactionId}
-            selectedToDiscard={tyrannyDiscard ? tyrannyPicks : mode?.kind === 'discard' ? mode.selected : []}
-            requiredDiscardCount={tyrannyDiscard ? tyrannyDiscard.count : undefined}
-            onPlayCard={handlePlayCard}
-            onToggleDiscard={handleToggleDiscard}
-            onConfirmDiscard={handleConfirmDiscard}
-            onCancel={() => setMode(null)}
-          />
-          </div>
+          {/* La main du joueur est désormais ancrée en bas de l'écran (éventail). */}
           {/* Module test (suivi de test + panneau d'injection) : sous la main. */}
           {testMode && !hideTestBar && (
             <>
@@ -1361,12 +1712,19 @@ export default function App() {
               <span className={state.activePlayer === BOT && !won ? 'text-red-300' : 'invisible'}>▶</span>
             </div>
             <button
+              type="button"
               onClick={testMode ? () => testRefreshTurn() : handleEndTurn}
               disabled={testMode ? false : !canEnd}
               title={testMode ? 'Mode test : nouveau tour — choisis le lieu de ton pion (phase déplacement), repioche, sans passer la main au bot' : undefined}
-              className="w-full rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-purple-950 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
+              className="hs-wrapper classique"
             >
-              {testMode ? 'Nouveau tour (test)' : 'Fin de tour'}
+              <span className="hs-button classique">
+                <span className="hs-border classique">
+                  <span className="hs-text classique">
+                    {testMode ? 'Nouveau tour (test)' : 'Fin de tour'}
+                  </span>
+                </span>
+              </span>
             </button>
           </div>
           {humanReactions.length > 0 && !reactionPassed && !state.pendingTyrannyDiscard && (
@@ -1484,6 +1842,33 @@ export default function App() {
         </Scroller>
       </main>
 
+      {/* ----- Main du joueur : éventail ancré en bas (style jeu de cartes en ligne). ----- */}
+      <div
+        data-hand-zone={HUMAN}
+        className="relative z-20 shrink-0 border-t border-white/10 bg-gradient-to-t from-black/60 to-transparent"
+      >
+        <Hand
+          hand={user.hand}
+          accent={BLUE}
+          hidden={false}
+          backImage={user.backVillainImage}
+          mode={handMode}
+          power={user.power}
+          attachTargetsAvailable={anyAllyOnBoard}
+          blockEvents={humanEventsBlocked}
+          costFor={(c) => effectiveCost(state, c)}
+          armedConditionIds={humanReactions.map((c) => c.instanceId)}
+          forcedHoverId={hoveredReactionId}
+          selectedToDiscard={tyrannyDiscard ? tyrannyPicks : mode?.kind === 'discard' ? mode.selected : []}
+          requiredDiscardCount={tyrannyDiscard ? tyrannyDiscard.count : undefined}
+          layout="fan"
+          onPlayCard={handlePlayCard}
+          onToggleDiscard={handleToggleDiscard}
+          onConfirmDiscard={handleConfirmDiscard}
+          onCancel={() => setMode(null)}
+        />
+      </div>
+
       {/* Résolution de Fatalité par le joueur humain (le bot résout tout seul). */}
       {state.pendingFate && isHumanTurn && (
         <FateModal
@@ -1523,6 +1908,128 @@ export default function App() {
           dest={state.pendingHubertPull.dest}
           adjacent={adjacentLocationIds(state, state.pendingHubertPull.dest)}
           onConfirm={resolveHubertPull}
+        />
+      )}
+
+      {/* Retourne-toi : l'humain voit la dernière carte de sa pioche et choisit. */}
+      {state.pendingDeckPeek && state.pendingDeckPeek.playerIndex === HUMAN && (
+        <DeckPeekModal
+          card={state.pendingDeckPeek.card}
+          onKeep={() => resolveDeckPeek(true)}
+          onReshuffle={() => resolveDeckPeek(false)}
+        />
+      )}
+
+      {/* Tombée de la nuit : l'humain choisit Événement ou Objet. */}
+      {state.pendingTypeChoice && state.pendingTypeChoice.playerIndex === HUMAN && (
+        <TypeChoiceModal
+          types={state.pendingTypeChoice.types}
+          untilFound={state.pendingTypeChoice.untilFound}
+          onChoose={resolveTypeChoice}
+        />
+      )}
+
+      {/* Apparition / Vent de panique : l'humain (chooser) déplace un Héros. */}
+      {state.pendingHeroRelocate && state.pendingHeroRelocate.chooserIndex === HUMAN && (
+        <HeroRelocateModal
+          target={state.players[state.pendingHeroRelocate.targetIndex]}
+          onResolve={resolveHeroRelocate}
+        />
+      )}
+
+      {/* Téléportation : l'humain choisit le lieu où se téléporter. */}
+      {state.pendingTeleport && state.pendingTeleport.playerIndex === HUMAN && (
+        <TeleportModal player={state.players[HUMAN]} onResolve={resolveTeleport} />
+      )}
+
+      {/* Musique (tour de Slenderman) + modale Options. */}
+      <MusicPlayer />
+      {showOptions && <OptionsModal onClose={() => setShowOptions(false)} />}
+
+      {/* Coup Royal : révélation des 5 cartes + verdict. */}
+      {state.pendingRoyalCroquet && state.pendingRoyalCroquet.playerIndex === HUMAN && (
+        <RoyalCroquetModal
+          revealed={state.pendingRoyalCroquet.revealed}
+          wicketStrength={state.pendingRoyalCroquet.wicketStrength}
+          costSum={state.pendingRoyalCroquet.costSum}
+          won={state.pendingRoyalCroquet.won}
+          onClose={dismissRoyalCroquet}
+        />
+      )}
+
+      {/* Manipulation : choisir une carte de SA défausse à reprendre en main. */}
+      {state.pendingManipulation && state.pendingManipulation.playerIndex === HUMAN && (
+        <CardChoiceModal
+          title="Manipulation : reprends une carte de ta défausse"
+          cards={user.discard}
+          onClose={() => {
+            // Choix obligatoire : à défaut, on reprend la dernière défaussée.
+            const last = user.discard[user.discard.length - 1]
+            if (last) resolveManipulation(last.instanceId)
+          }}
+          onPick={(card) => resolveManipulation(card.instanceId)}
+        />
+      )}
+
+      {/* Par ordre de la Reine ! : transformer 1 ou 2 Cartes Gardes en arceaux. */}
+      {state.pendingTransformWickets && state.pendingTransformWickets.playerIndex === HUMAN && (
+        <TransformWicketsModal
+          guards={transformableGuards(state, HUMAN)}
+          max={state.pendingTransformWickets.max}
+          onConfirm={(ids) => resolveTransformWickets(ids)}
+        />
+      )}
+
+      {/* Iago : choix de l'Objet à emmener (plusieurs Objets sur son lieu). */}
+      {iagoItemPick && (
+        <CardChoiceModal
+          title="Iago : quel objet emmener ?"
+          cards={(user.board[iagoItemPick.from] ?? []).filter((c) => c.type === 'item' && !c.attachedTo)}
+          noneLabel="Iago seul (aucun objet)"
+          onClose={() => setIagoItemPick(null)}
+          onNone={() => {
+            setMode({
+              kind: 'activate-iago-dest',
+              actionId: iagoItemPick.actionId,
+              cardInstanceId: iagoItemPick.cardInstanceId,
+              from: iagoItemPick.from,
+            })
+            setIagoItemPick(null)
+          }}
+          onPick={(item) => {
+            setMode({
+              kind: 'activate-iago-dest',
+              actionId: iagoItemPick.actionId,
+              cardInstanceId: iagoItemPick.cardInstanceId,
+              from: iagoItemPick.from,
+              itemInstanceId: item.instanceId,
+            })
+            setIagoItemPick(null)
+          }}
+        />
+      )}
+
+      {/* Choix de la carte à activer (plusieurs candidates). */}
+      {activatePick && (
+        <ActivatePickModal
+          cards={activatableCards(state)}
+          onClose={() => setActivatePick(null)}
+          onPick={(card) => {
+            const actionId = activatePick.actionId
+            setActivatePick(null)
+            startActivate(actionId, card)
+          }}
+        />
+      )}
+
+      {/* Jet de dé de début de partie : qui commence (plus haut score). */}
+      {!startRollDone && (
+        <StartRollModal
+          names={[state.players[HUMAN].villainName, state.players[BOT].villainName]}
+          onResult={(winner, rolls) => {
+            setStartingPlayer(winner, rolls)
+            setStartRollDone(true)
+          }}
         />
       )}
 

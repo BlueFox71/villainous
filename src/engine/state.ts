@@ -181,13 +181,26 @@ export function currentLocation(state: GameState): Location | undefined {
 // --- Pioche ----------------------------------------------------------------
 
 /**
- * Complète la main d'un joueur jusqu'à HAND_LIMIT, en remélangeant sa défausse
- * dans sa pioche si nécessaire. Pur : renvoie le joueur mis à jour + le nouvel
- * état du PRNG + le nombre de cartes piochées.
+ * Limite de cartes en main en fin de tour pour ce joueur. HAND_LIMIT (4) par
+ * défaut, +1 si le Scarabée d'Or (Jafar) est posé dans son royaume, −1 si la
+ * Princesse Jasmine (Fatalité) y est présente. Plancher à 1.
+ */
+export function handLimitFor(player: PlayerState): number {
+  const cards = Object.values(player.board).flat()
+  const scarab = cards.some((c) => c.cardId === 'scarabee-or') ? 1 : 0
+  const jasmine = cards.some((c) => c.type === 'hero' && c.cardId === 'jasmine') ? 1 : 0
+  return Math.max(1, HAND_LIMIT + scarab - jasmine)
+}
+
+/**
+ * Complète la main d'un joueur jusqu'à `limit` (HAND_LIMIT par défaut), en
+ * remélangeant sa défausse dans sa pioche si nécessaire. Pur : renvoie le joueur
+ * mis à jour + le nouvel état du PRNG + le nombre de cartes piochées.
  */
 export function drawPlayerToLimit(
   player: PlayerState,
   rngState: number,
+  limit: number = HAND_LIMIT,
 ): { player: PlayerState; rngState: number; drawn: number } {
   let deck = player.deck
   let hand = player.hand
@@ -195,7 +208,7 @@ export function drawPlayerToLimit(
   let s = rngState
   let drawn = 0
 
-  while (hand.length < HAND_LIMIT) {
+  while (hand.length < limit) {
     if (deck.length === 0) {
       if (discard.length === 0) break
       const reshuffled = shuffle(discard, s)
@@ -212,9 +225,10 @@ export function drawPlayerToLimit(
   return { player: { ...player, deck, hand, discard }, rngState: s, drawn }
 }
 
-/** Complète la main du JOUEUR ACTIF jusqu'à HAND_LIMIT (fin de tour). */
+/** Complète la main du JOUEUR ACTIF jusqu'à sa limite (fin de tour). */
 export function drawToLimit(state: GameState): GameState {
-  const result = drawPlayerToLimit(activePlayer(state), state.rngState)
+  const p = activePlayer(state)
+  const result = drawPlayerToLimit(p, state.rngState, handLimitFor(p))
   if (result.drawn === 0) return state
   const next = updateActivePlayer(state, () => result.player)
   return {
@@ -257,6 +271,9 @@ function makePlayer(
     board: Object.fromEntries(villain.locations.map((l) => [l.id, []])),
     fateDeck,
     fateDiscard: [],
+    lockedLocations: villain.lockedLocationsAtStart
+      ? [...villain.lockedLocationsAtStart]
+      : undefined,
   }
 }
 

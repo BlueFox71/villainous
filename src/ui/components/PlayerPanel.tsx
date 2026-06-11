@@ -1,6 +1,7 @@
 import type { PlayerState } from '../../engine/types'
 import type { Accent } from '../accents'
 import { useAnimatedNumber } from '../hooks/useAnimatedNumber'
+import { getCardDef } from '../../data/registry'
 
 interface Props {
   player: PlayerState
@@ -45,6 +46,26 @@ export function PlayerPanel({ player, accent, isActive, isWinner }: Props) {
               isWinner={isWinner}
               threshold={player.objective.threshold}
             />
+          ) : player.objective.type === 'CARDS_IN_REALM' ? (
+            <CardsInRealmProgress
+              player={player}
+              accent={accent}
+              isWinner={isWinner}
+              cardId={player.objective.cardId}
+              count={player.objective.count}
+              label="Pages"
+            />
+          ) : player.objective.type === 'CONTROL_HERO' ? (
+            <ControlHeroProgress
+              player={player}
+              accent={accent}
+              isWinner={isWinner}
+              heroCardId={player.objective.heroCardId}
+              itemCardId={player.objective.itemCardId}
+              itemLocationId={player.objective.itemLocationId}
+            />
+          ) : player.objective.type === 'ROYAL_CROQUET' ? (
+            <RoyalCroquetProgress player={player} accent={accent} isWinner={isWinner} />
           ) : (
             <CurseEachLocationProgress
               player={player}
@@ -84,6 +105,128 @@ function PowerThresholdProgress({
           className={`h-full rounded-full transition-all duration-300 ${isWinner ? 'bg-amber-400' : accent.gauge}`}
           style={{ width: `${pct}%` }}
         />
+      </div>
+    </>
+  )
+}
+
+function CardsInRealmProgress({
+  player,
+  accent,
+  isWinner,
+  cardId,
+  count,
+  label,
+}: {
+  player: PlayerState
+  accent: Accent
+  isWinner: boolean
+  cardId: string
+  count: number
+  label: string
+}) {
+  const have = player.locations.reduce(
+    (n, loc) => n + (player.board[loc.id] ?? []).filter((c) => c.cardId === cardId && !c.attachedTo).length,
+    0,
+  )
+  const animated = useAnimatedNumber(have)
+  const pct = Math.min(100, (animated / count) * 100)
+  return (
+    <>
+      <div className="mb-1 flex justify-between text-[10px]">
+        <span className={accent.accentText}>{label}</span>
+        <span className="font-mono text-white">
+          {animated} / {count}
+        </span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-black/40">
+        <div
+          className={`h-full rounded-full transition-all duration-300 ${isWinner ? 'bg-amber-400' : accent.gauge}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </>
+  )
+}
+
+function ControlHeroProgress({
+  player,
+  accent,
+  isWinner,
+  heroCardId,
+  itemCardId,
+  itemLocationId,
+}: {
+  player: PlayerState
+  accent: Accent
+  isWinner: boolean
+  heroCardId: string
+  itemCardId: string
+  itemLocationId: string
+}) {
+  const controls = Object.values(player.board)
+    .flat()
+    .some((c) => c.type === 'hero' && c.cardId === heroCardId && c.hypnotized)
+  const itemPlaced = (player.board[itemLocationId] ?? []).some((c) => c.cardId === itemCardId)
+  const heroName = getCardDef(heroCardId)?.name ?? 'Héros'
+  const itemName = getCardDef(itemCardId)?.name ?? 'Objet'
+  const locName = player.locations.find((l) => l.id === itemLocationId)?.name ?? itemLocationId
+  const steps = [
+    { ok: controls, title: `${heroName} sous Hypnose` },
+    { ok: itemPlaced, title: `${itemName} au ${locName}` },
+  ]
+  const done = steps.filter((s) => s.ok).length
+  return (
+    <>
+      <div className="mb-1 flex justify-between text-[10px]">
+        <span className={accent.accentText}>Objectif</span>
+        <span className="font-mono text-white">{done} / {steps.length}</span>
+      </div>
+      <div className="flex gap-1">
+        {steps.map((s, i) => (
+          <div
+            key={i}
+            title={s.title}
+            className={`h-2 flex-1 rounded-full ${
+              s.ok ? (isWinner ? 'bg-amber-400' : accent.gauge) : 'bg-black/40'
+            }`}
+          />
+        ))}
+      </div>
+    </>
+  )
+}
+
+function RoyalCroquetProgress({
+  player,
+  accent,
+  isWinner,
+}: {
+  player: PlayerState
+  accent: Accent
+  isWinner: boolean
+}) {
+  // Un arceau (Carte Garde transformée) par lieu = condition du Coup Royal.
+  const filled = player.locations.map((loc) =>
+    (player.board[loc.id] ?? []).some((c) => c.isWicket),
+  )
+  const done = filled.filter(Boolean).length
+  return (
+    <>
+      <div className="mb-1 flex justify-between text-[10px]">
+        <span className={accent.accentText}>Arceaux</span>
+        <span className="font-mono text-white">{done} / {filled.length}</span>
+      </div>
+      <div className="flex gap-1">
+        {filled.map((ok, i) => (
+          <div
+            key={i}
+            title={player.locations[i].name}
+            className={`h-2 flex-1 rounded-full ${
+              ok ? (isWinner ? 'bg-amber-400' : accent.gauge) : 'bg-black/40'
+            }`}
+          />
+        ))}
       </div>
     </>
   )

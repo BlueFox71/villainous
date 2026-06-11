@@ -12,8 +12,17 @@
 import type { CardDef } from './types'
 import { princeJohnCards } from './villains/princeJohn.cards'
 import { maleficentCards } from './villains/maleficent.cards'
+import { slendermanCards } from './villains/slenderman.cards'
+import { jafarCards } from './villains/jafar.cards'
+import { reineCoeurCards } from './villains/reineCoeur.cards'
 
-const allCards: CardDef[] = [...princeJohnCards, ...maleficentCards]
+const allCards: CardDef[] = [
+  ...princeJohnCards,
+  ...maleficentCards,
+  ...slendermanCards,
+  ...jafarCards,
+  ...reineCoeurCards,
+]
 
 const byId: Record<string, CardDef> = Object.fromEntries(allCards.map((c) => [c.id, c]))
 

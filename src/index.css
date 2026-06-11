@@ -56,6 +56,18 @@ body {
   --os-handle-bg-active: #5a5a66;
 }
 
+/* Variante épaisse (ex. galerie de cartes d'une fiche vilain) : barre plus
+   large et plus visible pour faire défiler de longues listes. */
+.os-theme-villain-lg {
+  --os-size: 16px;
+  --os-padding-perpendicular: 3px;
+  --os-padding-axis: 3px;
+  --os-handle-border-radius: 9999px;
+  --os-handle-bg: #5a5a66;
+  --os-handle-bg-hover: #6e6e7c;
+  --os-handle-bg-active: #7e7e8c;
+}
+
 /* Bordure « serpent » (lieu courant) : décalage du tiret le long du tracé SVG
    (vitesse constante sur le périmètre, `pathLength`-normalisé à 100). */
 @property --snake-o {
@@ -110,6 +122,91 @@ body {
   50% {
     transform: scale(0.95);
   }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Bouton « HearthStone » (utilisé pour Fin de tour).
+   Structure : .hs-wrapper > .hs-button > .hs-border > .hs-text
+   Variante .classique = pierre dorée/ambre assortie au thème Villainous.
+   ────────────────────────────────────────────────────────────────────────── */
+.hs-wrapper {
+  cursor: pointer;
+  width: 100%;
+  padding: 0 2px;
+  border-right: none;
+  border-left: none;
+  box-shadow: 0px 1px 20px 0px rgba(0, 0, 0, 0.35);
+  border-radius: 5px;
+  background: none;
+  font: inherit;
+  display: block;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+.hs-wrapper:not(:disabled):hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+.hs-wrapper:not(:disabled):active {
+  transform: translateY(1px);
+  filter: brightness(0.95);
+}
+.hs-wrapper:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.8) brightness(0.6);
+  opacity: 0.6;
+}
+
+.hs-button {
+  display: block;
+  text-align: center;
+  border-radius: 2px;
+  border: solid 3px #795548;
+}
+
+.hs-border {
+  display: table;
+  padding: 3px;
+  border-radius: 2px;
+  height: 35px;
+  min-height: 35px;
+  width: 100%;
+  /* Style de police */
+  text-transform: uppercase;
+  font-family: "Fondamento", cursive;
+  font-weight: normal;
+  color: #fff;
+  text-decoration: none;
+  text-shadow: 1px 1px #000;
+  font-size: 17px;
+  line-height: 1;
+  letter-spacing: 1px;
+  text-align: center;
+}
+
+.hs-text {
+  display: table-cell;
+  width: 100%;
+  vertical-align: middle;
+  padding: 0.6rem 1.5rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  text-shadow: 0 0 4px #000, 0 0 8px #000;
+  font-size: 1.25rem;
+  letter-spacing: 2px;
+}
+
+/* Variante « classique » : pierre dorée/ambre (thème Villainous). */
+.hs-button.classique {
+  border-color: #4a2f12;
+  background: linear-gradient(#3a2a14, #1d1408);
+}
+.hs-border.classique {
+  background: linear-gradient(#d8a23a 0%, #b67e26 45%, #8a5a16 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 234, 170, 0.6),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.45);
+}
+.hs-text.classique {
+  color: #fff7e6;
 }
 
 /* Clignotants « halo pulsé ». Jaune = Persifleur ; rose = Conditions (réaction). */

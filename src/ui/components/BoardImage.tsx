@@ -18,6 +18,7 @@ export const TOP_ACTIONS_HEIGHT = 33 // %
 const HERO_COVER: Record<string, { top: number; height: number }> = {
   princeJohn: { top: 0, height: TOP_ACTIONS_HEIGHT },
   maleficent: { top: 0, height: 38 },
+  slenderman: { top: 0, height: 38 },
 }
 
 interface Props {
@@ -84,7 +85,7 @@ export function BoardImage({
         // Persifleur : on révèle les actions du haut de ce lieu (pas de recouvrement).
         if (loc.id === unmaskHeroLocationId) return null
         const heroes = (player.board[loc.id] ?? []).filter(
-          (c) => c.type === 'hero' && !hiddenHeroInstanceIds.includes(c.instanceId),
+          (c) => c.type === 'hero' && !c.hypnotized && !hiddenHeroInstanceIds.includes(c.instanceId),
         )
         if (heroes.length === 0) return null
         return (
@@ -113,6 +114,34 @@ export function BoardImage({
             ) : (
               <span className="text-lg">🦸{heroes.length > 1 ? `×${heroes.length}` : ''}</span>
             )}
+          </div>
+        )
+      })}
+
+      {/* Lieux VERROUILLÉS (Jafar : Caverne aux Merveilles) : voile sombre + tuile
+          cadenas pour signifier que le lieu est bloqué tant qu'il n'est pas ouvert. */}
+      {(player.lockedLocations ?? []).map((lockedId) => {
+        const i = player.locations.findIndex((l) => l.id === lockedId)
+        if (i < 0) return null
+        return (
+          <div
+            key={`lock-${lockedId}`}
+            className="pointer-events-none absolute z-30 flex items-center justify-center"
+            style={{
+              left: `${LOCATIONS_LEFT + i * PAWN_STEP}%`,
+              top: '3%',
+              width: `${PAWN_STEP}%`,
+              height: '90%',
+            }}
+            title="Lieu verrouillé — Caverne aux Merveilles"
+          >
+            <div className="flex h-full w-full items-center justify-center rounded-lg bg-black/55 backdrop-grayscale">
+              <img
+                src="/cards/jafar/lock.png"
+                alt="Lieu verrouillé"
+                className="w-1/5 opacity-95 drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]"
+              />
+            </div>
           </div>
         )
       })}

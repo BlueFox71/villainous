@@ -24,13 +24,22 @@ import { princeJohn } from '../../data/villains/princeJohn'
 import { princeJohnCards } from '../../data/villains/princeJohn.cards'
 import { maleficent } from '../../data/villains/maleficent'
 import { maleficentCards } from '../../data/villains/maleficent.cards'
+import { slenderman } from '../../data/villains/slenderman'
+import { slendermanCards } from '../../data/villains/slenderman.cards'
+import { jafar } from '../../data/villains/jafar'
+import { jafarCards } from '../../data/villains/jafar.cards'
+import { reineCoeur } from '../../data/villains/reineCoeur'
+import { reineCoeurCards } from '../../data/villains/reineCoeur.cards'
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
   maleficent: { def: maleficent, cards: maleficentCards, label: 'Maléfique' },
+  slenderman: { def: slenderman, cards: slendermanCards, label: 'Slenderman' },
+  jafar: { def: jafar, cards: jafarCards, label: 'Jafar' },
+  reineCoeur: { def: reineCoeur, cards: reineCoeurCards, label: 'Reine de Cœur' },
 } as const
 
 /** Qui est contrôlé par un bot. Concept d'UI : le moteur, lui, ne sait pas qui
@@ -41,7 +50,7 @@ export const BOTS: boolean[] = [false, true]
 export type ShowcaseKind = 'card' | 'discard-red' | 'discard-dark' | 'hero'
 
 /** Retrouve la clé de vilain depuis l'id porté par le PlayerState. */
-function villainKeyOf(villainId: string): VillainKey {
+export function villainKeyOf(villainId: string): VillainKey {
   return (Object.keys(VILLAIN_REGISTRY) as VillainKey[]).find(
     (k) => VILLAIN_REGISTRY[k].def.id === villainId,
   ) ?? 'princeJohn'
@@ -194,6 +203,7 @@ function instanceOf(cardId: string, n: number): CardInstance | null {
     strengthMod: def.strengthMod,
     discardWhen: def.discardWhen,
     trigger: def.trigger,
+    maxAtLocation: def.maxAtLocation,
   }
 }
 
@@ -248,6 +258,8 @@ interface GameStore {
   testRefreshTurn: () => void
   move: (to: LocationId) => void
   skipMove: () => void
+  /** Fixe le joueur qui commence (jet de dé de début de partie) + journalise. */
+  setStartingPlayer: (index: number, rolls: [number, number]) => void
   executeAction: (actionId: string) => void
   playCard: (
     actionId: string,
@@ -260,6 +272,15 @@ interface GameStore {
   ) => void
   discardCards: (actionId: string, instanceIds: string[]) => void
   moveCard: (actionId: string, instanceId: string, to: string) => void
+  /** Action « Déplacer un Héros » : déplace un Héros vers un lieu voisin. */
+  moveHero: (actionId: string, heroInstanceId: string, to: string) => void
+  /** Action « Activer » (Jafar) : déclenche la capacité activée d'une carte. */
+  activate: (
+    actionId: string,
+    cardInstanceId: string,
+    to?: string,
+    itemInstanceId?: string,
+  ) => void
   vanquish: (actionId: string, heroInstanceId: string, allyInstanceIds: string[]) => void
   discardDeguisement: (instanceId: string) => void
   sheriffMove: (instanceId: string, to: string) => void
@@ -293,6 +314,18 @@ interface GameStore {
   resolvePawnMove: (locationId: string | null) => void
   /** Roi Hubert : attire les Alliés choisis (≤1 par lieu voisin) vers son lieu. */
   resolveHubertPull: (allyInstanceIds: string[]) => void
+  /** Retourne-toi : `keep` = garder la carte révélée ; sinon remélanger + piocher. */
+  resolveDeckPeek: (keep: boolean) => void
+  /** Tombée de la nuit : choisit le type (Événement/Objet) à conserver. */
+  resolveTypeChoice: (cardType: import('../../engine/types').CardType) => void
+  /** Apparition / Vent de panique : déplace le Héros choisi vers le lieu voisin. */
+  resolveHeroRelocate: (heroInstanceId: string, to: string) => void
+  /** Téléportation : déplace le pion vers le lieu (portant un Héros) choisi. */
+  resolveTeleport: (to: string) => void
+  resolveManipulation: (instanceId: string) => void
+  dismissRoyalCroquet: () => void
+  /** Par ordre de la Reine ! : transforme en arceaux les Cartes Gardes choisies. */
+  resolveTransformWickets: (instanceIds: string[]) => void
   endTurn: () => void
   reset: (villains?: [VillainKey, VillainKey]) => void
   /** Fait jouer UN coup au bot, si le joueur actif est un bot. */
@@ -391,6 +424,25 @@ export const useGameStore = create<GameStore>((set) => ({
         },
       }
     }),
+  setStartingPlayer: (index, rolls) =>
+    set((s) => {
+      const names = s.state.players.map((p) => p.villainName)
+      // Compensation : le joueur qui NE commence PAS démarre avec 1 Pouvoir.
+      const players = s.state.players.map((p, i) => ({ ...p, power: i === index ? 0 : 1 }))
+      const loser = index === 0 ? 1 : 0
+      return {
+        state: {
+          ...s.state,
+          activePlayer: index,
+          players,
+          log: [
+            ...s.state.log,
+            `🎲 Jet de dé : ${names[0]} fait ${rolls[0]}, ${names[1]} fait ${rolls[1]} → ${names[index]} commence !`,
+            `${names[loser]} commence avec 1 jeton Pouvoir (compensation).`,
+          ],
+        },
+      }
+    }),
   move: (to) =>
     set((s) => ({ state: applyAction(s.state, { type: 'MOVE', to }) })),
   skipMove: () =>
@@ -414,6 +466,12 @@ export const useGameStore = create<GameStore>((set) => ({
     set((s) => ({ state: applyAction(s.state, { type: 'DISCARD_CARDS', actionId, instanceIds }) })),
   moveCard: (actionId, instanceId, to) =>
     set((s) => ({ state: applyAction(s.state, { type: 'MOVE_CARD', actionId, instanceId, to }) })),
+  moveHero: (actionId, heroInstanceId, to) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'MOVE_HERO', actionId, heroInstanceId, to }) })),
+  activate: (actionId, cardInstanceId, to, itemInstanceId) =>
+    set((s) => ({
+      state: applyAction(s.state, { type: 'ACTIVATE', actionId, cardInstanceId, to, itemInstanceId }),
+    })),
   vanquish: (actionId, heroInstanceId, allyInstanceIds) =>
     set((s) => ({
       state: applyAction(s.state, { type: 'VANQUISH', actionId, heroInstanceId, allyInstanceIds }),
@@ -454,6 +512,20 @@ export const useGameStore = create<GameStore>((set) => ({
     set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_PAWN_MOVE', locationId }) })),
   resolveHubertPull: (allyInstanceIds) =>
     set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_HUBERT_PULL', allyInstanceIds }) })),
+  resolveDeckPeek: (keep) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_DECK_PEEK', keep }) })),
+  resolveTypeChoice: (cardType) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TYPE_CHOICE', cardType }) })),
+  resolveHeroRelocate: (heroInstanceId, to) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_HERO_RELOCATE', heroInstanceId, to }) })),
+  resolveTeleport: (to) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TELEPORT', to }) })),
+  resolveManipulation: (instanceId) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_MANIPULATION', instanceId }) })),
+  dismissRoyalCroquet: () =>
+    set((s) => ({ state: applyAction(s.state, { type: 'DISMISS_ROYAL_CROQUET' }) })),
+  resolveTransformWickets: (instanceIds) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TRANSFORM_WICKETS', instanceIds }) })),
   endTurn: () =>
     set((s) => ({ state: applyAction(s.state, { type: 'END_TURN' }) })),
   reset: (villains) => set({ state: newGame(villains), testMode: false }),

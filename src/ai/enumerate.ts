@@ -15,6 +15,7 @@ import {
   canPlaceCurseAt,
   cardNeedsAllyMove,
   cardNeedsHeroTarget,
+  cardNeedsSacrificeTarget,
   cardNeedsVanquishTarget,
   effectiveCost,
   effectiveStrength,
@@ -26,6 +27,7 @@ import {
   movableCards,
   placementLocations,
   requiresAllyTarget,
+  transformableGuards,
 } from '../engine/rules'
 
 /** Tous les coups légaux disponibles dans l'état courant. Toujours non vide tant
@@ -48,6 +50,26 @@ export function enumerateActions(state: GameState): GameAction[] {
     return out
   }
 
+  // Par ordre de la Reine ! : transformer 1 ou 2 Cartes Gardes en arceaux.
+  // On énumère chaque Carte Garde seule, plus chaque paire (nombre borné : ≤4 Gardes).
+  if (state.pendingTransformWickets) {
+    const guards = transformableGuards(state, state.pendingTransformWickets.playerIndex)
+    const max = state.pendingTransformWickets.max
+    const out: GameAction[] = []
+    for (let i = 0; i < guards.length; i++) {
+      out.push({ type: 'RESOLVE_TRANSFORM_WICKETS', instanceIds: [guards[i].instanceId] })
+      if (max >= 2) {
+        for (let j = i + 1; j < guards.length; j++) {
+          out.push({
+            type: 'RESOLVE_TRANSFORM_WICKETS',
+            instanceIds: [guards[i].instanceId, guards[j].instanceId],
+          })
+        }
+      }
+    }
+    return out // `guards` est non vide (pending posé seulement s'il y a des Gardes)
+  }
+
   // Fatalité révélée à résoudre : une option par carte révélée (× lieu / héros valides).
   if (state.pendingFate) {
     const { target, revealed } = state.pendingFate
@@ -63,7 +85,8 @@ export function enumerateActions(state: GameState): GameAction[] {
       } else if (
         card.cardId === 'voler-riches' ||
         card.cardId === 'deguisement' ||
-        card.cardId === 'epee-verite'
+        card.cardId === 'epee-verite' ||
+        card.cardId === 'agrandir'
       ) {
         // Épée de Vérité : uniquement sur un Héros SANS autre Objet associé.
         const tgt = state.players[target]
@@ -132,6 +155,7 @@ export function enumerateActions(state: GameState): GameAction[] {
           } else {
             for (const to of locs) {
               if (card.type === 'curse' && !canPlaceCurseAt(state, state.activePlayer, to)) continue
+              if (card.playOnlyAt && to !== card.playOnlyAt) continue
               out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, to })
             }
           }
@@ -139,7 +163,7 @@ export function enumerateActions(state: GameState): GameAction[] {
           for (const loc of me.locations) {
             const cell = me.board[loc.id] ?? []
             const heroes = cell.filter((c) => c.type === 'hero')
-            const localAllies = cell.filter((c) => c.type === 'ally')
+            const localAllies = cell.filter((c) => c.type === 'ally' && !c.isWicket)
             const adjAllies = adjacentLocationIds(state, loc.id).flatMap((adj) =>
               (me.board[adj] ?? []).filter((c) => c.cardId === 'archers-loups'),
             )
@@ -159,17 +183,36 @@ export function enumerateActions(state: GameState): GameAction[] {
             }
           }
         } else if (cardNeedsHeroTarget(card)) {
-          const own = heroesOf(state, state.activePlayer)
           const maxStrengthEffect = (card.effects ?? []).find((e) => e.type === 'INSTANT_VANQUISH_HERO_LE')
           const maxStrength =
             maxStrengthEffect && maxStrengthEffect.type === 'INSTANT_VANQUISH_HERO_LE'
               ? maxStrengthEffect.maxStrength
               : Infinity
+          // Disparition / Ah, je suis un serpent ? : Héros du lieu du pion uniquement.
+          const atPawn =
+            (card.effects ?? []).some((e) => e.type === 'INSTANT_VANQUISH_HERO_AT_PAWN') ||
+            (maxStrengthEffect?.type === 'INSTANT_VANQUISH_HERO_LE' && maxStrengthEffect.atPawn)
+          // Hypnose : coût = force du Héros → on n'énumère que les cibles abordables.
+          const isHypnose = (card.effects ?? []).some((e) => e.type === 'HYPNOTIZE_HERO')
+          const own = atPawn
+            ? (me.board[me.pawnLocation ?? ''] ?? []).filter((c) => c.type === 'hero')
+            : heroesOf(state, state.activePlayer)
           for (const h of own) {
             const forbidden = new Set(h.forbiddenLocations ?? [])
             if (card.cardId === 'emprisonnement' && forbidden.has('jail')) continue
             if ((h.strength ?? 0) > maxStrength) continue
+            const hForce = effectiveStrength(state, state.activePlayer, h.instanceId) ?? 0
+            if (isHypnose && hForce > me.power) continue
             out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, targetHeroId: h.instanceId })
+          }
+        } else if (cardNeedsSacrificeTarget(card)) {
+          // Sacrifice Nécessaire : une option par Allié/Objet (non associé) du royaume.
+          for (const loc of me.locations) {
+            for (const c of me.board[loc.id] ?? []) {
+              if (c.type === 'ally' || c.type === 'item') {
+                out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, allyInstanceIds: [c.instanceId] })
+              }
+            }
           }
         } else {
           out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId })
@@ -188,12 +231,25 @@ export function enumerateActions(state: GameState): GameAction[] {
           out.push({ type: 'MOVE_CARD', actionId: action.id, instanceId, to })
         }
       }
+    } else if (action.type === 'MOVE_HERO') {
+      // Déplacer un Héros du royaume vers un lieu voisin de sa position. Les
+      // destinations illégales (restrictions) sont écartées par le try/catch du
+      // lookahead. Utile surtout pour DÉCOUVRIR une action recouverte (le
+      // lookahead voit alors l'action redevenue jouable).
+      for (const loc of me.locations) {
+        const heroes = (me.board[loc.id] ?? []).filter((c) => c.type === 'hero')
+        for (const h of heroes) {
+          for (const to of adjacentLocationIds(state, loc.id)) {
+            out.push({ type: 'MOVE_HERO', actionId: action.id, heroInstanceId: h.instanceId, to })
+          }
+        }
+      }
     } else if (action.type === 'VANQUISH') {
       for (const loc of me.locations) {
         const cell = me.board[loc.id] ?? []
         const heroes = cell.filter((c) => c.type === 'hero')
         if (heroes.length === 0) continue
-        const localAllies = cell.filter((c) => c.type === 'ally')
+        const localAllies = cell.filter((c) => c.type === 'ally' && !c.isWicket)
         const adjAllies = adjacentLocationIds(state, loc.id).flatMap((adj) =>
           (me.board[adj] ?? []).filter((c) => c.cardId === 'archers-loups'),
         )

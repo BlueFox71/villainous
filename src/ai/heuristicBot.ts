@@ -37,6 +37,53 @@ function objectiveScore(p: PlayerState): number {
       const cursed = p.locations.filter((l) => (p.board[l.id] ?? []).some((c) => c.type === 'curse')).length
       return cursed / Math.max(1, p.locations.length)
     }
+    case 'CARDS_IN_REALM': {
+      const obj = p.objective
+      const have = p.locations.reduce(
+        (n, l) => n + (p.board[l.id] ?? []).filter((c) => c.cardId === obj.cardId && !c.attachedTo).length,
+        0,
+      )
+      return Math.min(have, obj.count) / obj.count
+    }
+    case 'CONTROL_HERO': {
+      // Gradient par étapes du combo Jafar, pour guider le bot pas à pas :
+      // déverrouiller la Caverne → invoquer le Génie (Lampe) → rapprocher la
+      // Lampe du Palais → hypnotiser le Génie → Lampe au Palais.
+      const obj = p.objective
+      const all = Object.values(p.board).flat()
+      const caveUnlocked = (p.lockedLocations ?? []).length === 0
+      const genieOut = all.some((c) => c.cardId === obj.heroCardId)
+      const controls = all.some(
+        (c) => c.type === 'hero' && c.cardId === obj.heroCardId && c.hypnotized,
+      )
+      const itemPlaced = (p.board[obj.itemLocationId] ?? []).some((c) => c.cardId === obj.itemCardId)
+      // Proximité de l'Objet (Lampe) vers son lieu cible (Palais) : récompense le
+      // fait de la rapprocher tour après tour.
+      const locIds = p.locations.map((l) => l.id)
+      const targetIdx = locIds.indexOf(obj.itemLocationId)
+      let itemIdx = -1
+      for (let i = 0; i < locIds.length; i++) {
+        if ((p.board[locIds[i]] ?? []).some((c) => c.cardId === obj.itemCardId)) itemIdx = i
+      }
+      const itemProx =
+        itemIdx >= 0 && targetIdx >= 0
+          ? 1 - Math.abs(itemIdx - targetIdx) / Math.max(1, locIds.length - 1)
+          : 0
+      // Paliers précoces fortement récompensés pour que le bot pose le Scarabée
+      // d'Or (déverrouillage) puis la Lampe Merveilleuse (Génie) dès que possible,
+      // sans aplatir la récompense des étapes finales (hypnose + Lampe au Palais).
+      let s = 0
+      if (caveUnlocked) s += 0.2
+      if (genieOut) s += 0.25
+      s += 0.1 * itemProx
+      if (controls) s += 0.25
+      if (itemPlaced) s += 0.2
+      return Math.min(1, s)
+    }
+    case 'ROYAL_CROQUET':
+      // Reine de Cœur : objectif via la carte Coup Royal (mécanique des arceaux
+      // pas encore implémentée) → progrès non évalué pour l'instant.
+      return 0
   }
 }
 

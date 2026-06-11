@@ -79,7 +79,7 @@ export function Board({
   // Loups des lieux voisins (qui peuvent éliminer un Héros sur un lieu adjacent).
   const attackTotalAt = (index: number): number => {
     const here = (player.board[player.locations[index].id] ?? [])
-      .filter((c) => c.type === 'ally')
+      .filter((c) => c.type === 'ally' && !c.isWicket)
       .reduce((n, c) => n + (strengths[c.instanceId] ?? c.strength ?? 0), 0)
     const archersAround = [player.locations[index - 1], player.locations[index + 1]]
       .filter((l): l is NonNullable<typeof l> => !!l)

@@ -63,6 +63,90 @@ const ACTION_POS: Record<string, Record<string, Record<string, { x: number; y: n
       'play-card': { x: 92.9, y: 67.9 },
     },
   },
+  // Slenderman : même gabarit de plateau (panneau objectif à gauche + 4 lieux),
+  // colonnes ~22/30 · 43/51 · 64/72 · 85/93 %, rangées haut ~20 % / bas ~68 %.
+  // Mesuré sur board.png (Realm) via grille de coordonnées — à affiner si besoin.
+  slenderman: {
+    foret: {
+      'move-item-ally': { x: 22.7, y: 20.1 },
+      'gain-power': { x: 30.5, y: 20.4 },
+      'play-card': { x: 22.65, y: 67.8 },
+      fate: { x: 30.45, y: 67.8 },
+    },
+    tunnel: {
+      'play-card-top': { x: 43.5, y: 20.4 },
+      'gain-power': { x: 51.4, y: 20.35 },
+      'play-card-bottom': { x: 43.45, y: 67.8 },
+      discard: { x: 51.3, y: 67.8 },
+    },
+    mine: {
+      fate: { x: 64.3, y: 20.6 },
+      'play-card-top': { x: 72.1, y: 20.8 },
+      'play-card-bottom': { x: 64.2, y: 67.8 },
+      'gain-power': { x: 72.1, y: 67.8 },
+    },
+    'maison-perdue': {
+      'move-hero': { x: 85.1, y: 20.5 },
+      discard: { x: 92.9, y: 20.5 },
+      'play-card': { x: 85, y: 67.8 },
+      'gain-power': { x: 92.9, y: 67.9 },
+    },
+  },
+  // Jafar : icônes calées sur board.png (panneau objectif à gauche + 4 lieux).
+  // Le symbole « nuage + éclair » = action ACTIVER (capacités activées).
+  jafar: {
+    palais: {
+      'play-card': { x: 22.7, y: 20 },
+      activate: { x: 30.5, y: 20 },
+      vanquish: { x: 22.7, y: 68 },
+      fate: { x: 30.5, y: 68 },
+    },
+    rues: {
+      'gain-power': { x: 43.5, y: 20 },
+      fate: { x: 51.4, y: 20 },
+      discard: { x: 43.5, y: 68 },
+      'play-card': { x: 51.4, y: 68 },
+    },
+    oasis: {
+      activate: { x: 64.3, y: 20 },
+      'play-card-top': { x: 72.1, y: 20 },
+      'gain-power': { x: 64.3, y: 68 },
+      'play-card-bottom': { x: 72.1, y: 68 },
+    },
+    caverne: {
+      discard: { x: 85.1, y: 20 },
+      'gain-power': { x: 92.9, y: 20 },
+      'play-card': { x: 85.1, y: 68 },
+      'move-item-ally': { x: 92.9, y: 68 },
+    },
+  },
+  // Reine de Cœur : même gabarit de plateau (panneau objectif + 4 lieux).
+  reineCoeur: {
+    'cour-palais': {
+      discard: { x: 22.7, y: 20 },
+      'move-item-ally': { x: 30.5, y: 20 },
+      'gain-power': { x: 22.7, y: 68 },
+      'play-card': { x: 30.5, y: 68 },
+    },
+    labyrinthe: {
+      'play-card-top': { x: 43.5, y: 20 },
+      activate: { x: 51.4, y: 20 },
+      'gain-power': { x: 43.5, y: 68 },
+      'play-card-bottom': { x: 51.4, y: 68 },
+    },
+    'foret-tulgey': {
+      fate: { x: 64.3, y: 20 },
+      'play-card': { x: 72.1, y: 20 },
+      discard: { x: 64.3, y: 68 },
+      vanquish: { x: 72.1, y: 68 },
+    },
+    'maison-lapin': {
+      'play-card': { x: 85.1, y: 20 },
+      'gain-power': { x: 92.9, y: 20 },
+      activate: { x: 85.1, y: 68 },
+      fate: { x: 92.9, y: 68 },
+    },
+  },
 }
 
 interface Props {

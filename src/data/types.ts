@@ -72,6 +72,13 @@ export interface CardDef {
   discardWhen?: CurseDiscardTrigger
   /** Pour une Condition : descripteur du trigger côté adversaire. */
   trigger?: ConditionTrigger
+  /** Nombre maximum d'exemplaires de cette carte posés sur un même lieu (Page : 2). */
+  maxAtLocation?: number
+  /** Jafar : coût (en Pouvoir) de la capacité activée (action « Activer »). La
+   *  présence de ce champ indique que la carte porte le symbole Activer. */
+  activatedCost?: number
+  /** La carte ne peut être posée QUE sur ce lieu (Lampe Merveilleuse → Caverne). */
+  playOnlyAt?: string
 }
 
 /** Développe une liste de définitions en un paquet concret (un élément par
@@ -111,6 +118,9 @@ export function buildDeckInstances(
           strengthMod: c.strengthMod,
           discardWhen: c.discardWhen,
           trigger: c.trigger,
+          maxAtLocation: c.maxAtLocation,
+          activatedCost: c.activatedCost,
+          playOnlyAt: c.playOnlyAt,
         }),
       ),
     )

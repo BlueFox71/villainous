@@ -135,7 +135,7 @@ export const maleficentCards: CardDef[] = [
     ],
   },
   {
-    id: 'disparition',
+    id: 'disparition-maleficent',
     name: 'Disparition',
     englishName: 'Vanish',
     deck: 'villain',

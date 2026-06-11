@@ -219,9 +219,9 @@ export const princeJohnCards: CardDef[] = [
     type: 'condition',
     cost: 0,
     copies: 2,
-    text: "Cette carte est jouable pendant le tour d'un adversaire s'il possède au moins 3 cartes en main. Jouez un Allié gratuitement.",
+    text: "Cette carte est jouable pendant le tour d'un adversaire s'il possède au moins 3 Alliés dans son royaume. Jouez un Allié gratuitement.",
     image: img('lachete.png'),
-    trigger: { type: 'opponent-hand-ge', value: 3, requiresOwnAlly: true },
+    trigger: { type: 'opponent-allies-in-realm-ge', value: 3, requiresOwnAlly: true },
   },
 
   // ----------------------------------------------------------------------

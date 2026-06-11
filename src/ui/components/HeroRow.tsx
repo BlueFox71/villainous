@@ -49,8 +49,10 @@ export function HeroRow({
     >
       {player.locations.map((loc, index) => {
         const cellCards = player.board[loc.id] ?? []
+        // Un Héros hypnotisé (Jafar) quitte la zone Héros : il est affiché comme
+        // un Allié dans la zone basse (cf. Board).
         const heroes = cellCards.filter(
-          (c) => c.type === 'hero' && !hiddenInstanceIds.includes(c.instanceId),
+          (c) => c.type === 'hero' && !c.hypnotized && !hiddenInstanceIds.includes(c.instanceId),
         )
         const previewPos =
           index === 0
@@ -88,11 +90,18 @@ export function HeroRow({
                       alt={c.name}
                       title={`${c.name}${def ? ` — ${def.text}` : ''}`}
                       onClick={isTarget ? () => onVanquishPickHero?.(c.instanceId, c.name) : undefined}
-                      className={`w-14 rounded border ${
+                      className={`w-14 rounded border transition-transform ${
                         isTarget
                           ? 'cursor-pointer border-red-500 ring-2 ring-red-500'
                           : 'border-white/40'
                       } ${redBlinkInstanceIds.includes(c.instanceId) ? 'red-flash' : ''}`}
+                      style={
+                        c.heroSize === 'shrunk'
+                          ? { transform: 'scale(0.65)' }
+                          : c.heroSize === 'enlarged'
+                            ? { transform: 'scale(1.2)' }
+                            : undefined
+                      }
                     />
                     {/* Badge MODIFICATEUR uniquement : +N (Adam de la Halle, Épée de
                         Vérité) ou −N (Sommeil sans Rêves) quand la force du Héros est

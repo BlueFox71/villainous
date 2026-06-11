@@ -32,6 +32,10 @@ interface Props {
    *  ce nombre de cartes — le bouton se débloque alors seulement à ce compte, et
    *  on masque « Annuler ». */
   requiredDiscardCount?: number
+  /** Disposition des cartes :
+   *  - 'panel' (défaut) : rangée à plat, retour à la ligne (colonnes latérales).
+   *  - 'fan' : éventail ancré en bas de l'écran (style jeu de cartes en ligne). */
+  layout?: 'panel' | 'fan'
   onPlayCard: (instanceId: string) => void
   onToggleDiscard: (instanceId: string) => void
   onConfirmDiscard: () => void
@@ -52,6 +56,7 @@ export function Hand({
   forcedHoverId = null,
   selectedToDiscard,
   requiredDiscardCount,
+  layout = 'panel',
   onPlayCard,
   onToggleDiscard,
   onConfirmDiscard,
@@ -78,13 +83,24 @@ export function Hand({
   }
 
   const active = mode !== 'idle'
+  const fan = layout === 'fan'
 
   return (
     <section
-      className={`rounded-xl border p-2 ${active ? 'border-amber-400/70 bg-amber-400/5' : accent.panelIdle}`}
+      className={
+        fan
+          ? 'relative flex w-full flex-col items-center px-2 pb-1'
+          : `rounded-xl border p-2 ${active ? 'border-amber-400/70 bg-amber-400/5' : accent.panelIdle}`
+      }
     >
       {active && (
-        <div className="mb-1 flex items-center justify-between gap-2">
+        <div
+          className={
+            fan
+              ? 'mb-1 flex items-center justify-center gap-2'
+              : 'mb-1 flex items-center justify-between gap-2'
+          }
+        >
           {requiredDiscardCount !== undefined ? (
             <span className="text-[11px] font-medium text-amber-200">
               Tyrannie : choisis {requiredDiscardCount} carte{requiredDiscardCount > 1 ? 's' : ''} à défausser.
@@ -120,10 +136,22 @@ export function Hand({
         </div>
       )}
 
-      <div className="flex flex-wrap justify-center gap-1.5">
-        {hand.map((ci) => {
+      <div
+        className={
+          fan
+            ? 'flex items-end justify-center pt-6'
+            : 'flex flex-wrap justify-center gap-1.5'
+        }
+      >
+        {hand.map((ci, i) => {
           const card = getCardDef(ci.cardId)
           if (!card) return null
+          // Géométrie de l'éventail : chaque carte est tournée autour de son bas,
+          // d'autant plus que sa distance au centre est grande, et descend en arc.
+          const mid = (hand.length - 1) / 2
+          const off = i - mid
+          const fanAngle = off * 5 // degrés par cran
+          const fanLift = Math.abs(off) * Math.abs(off) * 3 // px vers le bas (arc)
           const baseCost = card.cost ?? 0
           const cost = costFor ? costFor(ci) : baseCost
           const isArmed = armedConditionIds.includes(ci.instanceId)
@@ -163,15 +191,28 @@ export function Hand({
               data-hand-card={ci.instanceId}
               onMouseEnter={() => setHovered(ci.instanceId)}
               onMouseLeave={() => setHovered((h) => (h === ci.instanceId ? null : h))}
-              className={`relative m-0 w-24 shrink-0 ${dimmed ? 'opacity-40' : ''}`}
-              style={{ zIndex: isHovered ? 30 : 0 }}
+              className={`relative m-0 shrink-0 ${fan ? 'w-44' : 'w-24'} ${dimmed ? 'opacity-40' : ''} ${
+                fan ? 'transition-transform duration-150 ease-out' : ''
+              }`}
+              style={
+                fan
+                  ? {
+                      marginLeft: i === 0 ? 0 : '-4rem',
+                      transformOrigin: 'bottom center',
+                      transform: isHovered
+                        ? 'translateY(-3.5rem) rotate(0deg) scale(1.6)'
+                        : `translateY(${fanLift}px) rotate(${fanAngle}deg)`,
+                      zIndex: isHovered ? 40 : i,
+                    }
+                  : { zIndex: isHovered ? 30 : 0 }
+              }
             >
               <img
                 src={card.image}
                 alt={card.name}
                 title={`${card.name} — ${card.text}`}
                 onClick={onClick}
-                className={`w-24 rounded-lg border ${clickable ? 'cursor-pointer' : ''} ${ring}`}
+                className={`w-full rounded-lg border ${clickable ? 'cursor-pointer' : ''} ${ring}`}
               />
               {cost !== baseCost && (
                 <span
@@ -188,8 +229,9 @@ export function Hand({
                   ✓
                 </span>
               )}
-              {/* Aperçu zoom au survol — même effet que sur le plateau. */}
-              {isHovered && (
+              {/* Aperçu zoom au survol — même effet que sur le plateau.
+                  En éventail, la carte se relève déjà : pas d'aperçu géant. */}
+              {isHovered && !fan && (
                 <div className="absolute bottom-full left-1/2 mb-1 flex w-max -translate-x-1/2 rounded-lg border border-white/20 bg-[#0b0a12] p-1 shadow-2xl">
                   <img src={card.image} alt={card.name} className="h-[22rem] w-auto max-w-none shrink-0 rounded" />
                 </div>

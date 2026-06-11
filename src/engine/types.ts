@@ -27,6 +27,9 @@ export type LocationActionType =
   | 'MOVE_HERO'
   | 'VANQUISH'
   | 'DISCARD_CARDS'
+  /** Jafar : activer la capacité d'un Allié/Objet portant le symbole « Activer »
+   *  (Iago, Sceptre Serpent). Capacités activées — implémentation à venir. */
+  | 'ACTIVATE'
 
 /** Rangée d'une action sur le plateau. Les héros recouvrent la rangée du HAUT
  *  d'un lieu : la position est donc structurante pour la mécanique de Fatalité
@@ -77,6 +80,9 @@ export interface VillainDef {
   backVillainImage: string
   /** Dos de carte Fatalité. */
   backFateImage: string
+  /** Lieux VERROUILLÉS à la mise en place (Jafar : la Caverne aux Merveilles).
+   *  Recopié dans PlayerState.lockedLocations. Absent = aucun verrou. */
+  lockedLocationsAtStart?: LocationId[]
 }
 
 /**
@@ -89,6 +95,25 @@ export type ObjectiveDef =
   /** Avoir au moins une carte de type 'curse' (Malédiction Maléfique) sur
    *  chacun des 4 lieux du royaume. */
   | { type: 'CURSE_EACH_LOCATION' }
+  /** Avoir au moins `count` exemplaires d'une carte donnée (`cardId`) posés dans
+   *  le royaume, tous lieux confondus (Slenderman : 8 Pages). */
+  | { type: 'CARDS_IN_REALM'; cardId: string; count: number }
+  /** Contrôler un Héros précis (hypnotisé) ET avoir un Objet précis posé sur un
+   *  lieu donné (Jafar : Génie sous Hypnose + Lampe Merveilleuse au Palais du
+   *  Sultan). */
+  | {
+      type: 'CONTROL_HERO'
+      /** cardId du Héros à contrôler (hypnotisé). */
+      heroCardId: string
+      /** cardId de l'Objet requis. */
+      itemCardId: string
+      /** Lieu où l'Objet doit se trouver. */
+      itemLocationId: LocationId
+    }
+  /** Reine de Cœur : réussir un Coup Royal (un arceau sur chaque lieu + condition
+   *  de la carte). La victoire est déclenchée par la carte Coup Royal, pas par un
+   *  contrôle passif en début de tour. */
+  | { type: 'ROYAL_CROQUET' }
 
 /** Phase courante à l'intérieur d'un tour. */
 export type TurnPhase =
@@ -114,6 +139,15 @@ export type Effect =
   | { type: 'GAIN_POWER'; amount: number }
   /** Gagne `amount` pouvoir par Héros présent dans le royaume (Magnifiques Taxes). */
   | { type: 'GAIN_POWER_PER_HERO_IN_REALM'; amount: number }
+  /** Gagne `amount` pouvoir par Allié présent dans le royaume (arceaux inclus —
+   *  ils comptent comme Alliés). Reine de Cœur : Joyeux non-anniversaire. */
+  | { type: 'GAIN_POWER_PER_ALLY_IN_REALM'; amount: number }
+  /** Gagne `amount` pouvoir par carte `cardId` (posée librement) sur le lieu du
+   *  pion de l'acteur. Slenderman : Dessin inquiétant (1 par Page). */
+  | { type: 'GAIN_POWER_PER_CARD_AT_PAWN'; cardId: string; amount: number }
+  /** Autorise l'acteur à utiliser UNE action recouverte par un Héros ce tour-ci
+   *  (réutilise la mécanique Persifleur). Slenderman : Brouillage. */
+  | { type: 'GRANT_USE_COVERED_ACTION' }
   /** L'acteur perd jusqu'à `amount` JT, transférés en lockedPower sur la carte
    *  hôte du contexte (Petit Jean : −4 JT au PJ, stockés sur Petit Jean). */
   | { type: 'LOSE_POWER_TO_HOST'; amount: number }
@@ -151,11 +185,72 @@ export type Effect =
   | { type: 'MOVE_ALLY_FREELY' }
   /** Au prochain tour, le déplacement n'est pas obligatoire. Disparition. */
   | { type: 'GRANT_SKIP_NEXT_MOVE' }
+  /** Met en attente un déplacement de Héros vers un lieu voisin : l'acteur choisit
+   *  un de SES Héros et un lieu adjacent (Apparition). */
+  | { type: 'RELOCATE_HERO_ADJACENT' }
+  /** Met en attente une téléportation : l'acteur déplace son pion vers un lieu qui
+   *  porte un Héros (sans Lampe de poche), puis y joue normalement. Slenderman :
+   *  Téléportation. */
+  | { type: 'TELEPORT_TO_HERO' }
+  /** Révèle la dernière carte de la pioche de l'acteur et lui propose un choix
+   *  (RESOLVE_DECK_PEEK) : l'ajouter à sa main, OU remélanger la pioche et piocher
+   *  la première carte. Slenderman : Retourne-toi. */
+  | { type: 'PEEK_BOTTOM_THEN_CHOOSE' }
+  /** Mélange la défausse de l'acteur dans sa pioche (nouvelle pioche unique) puis
+   *  pioche `count` cartes. Slenderman : Perdu dans les bois. */
+  | { type: 'RESHUFFLE_DISCARD_AND_DRAW'; count: number }
+  /** Demande à l'acteur un type de carte (Événement/Objet), puis dévoile les
+   *  `count` premières cartes de sa pioche : ajoute la 1ʳᵉ du type choisi à sa
+   *  main et défausse les autres. Slenderman : Tombée de la nuit. */
+  | { type: 'CHOOSE_TYPE_REVEAL_DRAW'; count: number }
+  /** Demande à l'acteur un type parmi `types` (2 options), puis dévoile sa pioche
+   *  JUSQU'À trouver une carte de ce type : il l'ajoute à sa main et défausse les
+   *  autres dévoilées. Jafar : Prédiction (Objet / Allié). */
+  | { type: 'REVEAL_UNTIL_TYPE'; types: CardType[] }
   /** Active la récompense Apparence de Dragon (+3 JT si fatalisé avant son prochain tour). */
   | { type: 'ARM_DRAGON_FORM_REWARD' }
   /** Élimine instantanément le Héros cible (ctx.targetHeroId) si sa force est
-   *  ≤ maxStrength. Sans alliés. Apparence de Dragon. */
-  | { type: 'INSTANT_VANQUISH_HERO_LE'; maxStrength: number }
+   *  ≤ maxStrength. Sans alliés. Apparence de Dragon. `atPawn` : exige en plus que
+   *  le Héros soit sur le lieu du pion de l'acteur (Jafar : Ah, je suis un serpent ?). */
+  | { type: 'INSTANT_VANQUISH_HERO_LE'; maxStrength: number; atPawn?: boolean }
+  /** Élimine instantanément le Héros cible (ctx.targetHeroId) s'il se trouve sur
+   *  le lieu du pion de l'acteur. Sans alliés, sans limite de force. Disparition. */
+  | { type: 'INSTANT_VANQUISH_HERO_AT_PAWN' }
+  /** À la pose d'un Héros : « capture » jusqu'à `max` cartes de `cardId` présentes
+   *  sur le lieu hôte en les associant au Héros (attachedTo = hôte). Une carte
+   *  capturée ne compte plus dans le royaume. Enquêteur (toutes) / Enfant Perdu
+   *  (max 1) capturent les Pages de Slenderman. `max` absent = toutes. */
+  | { type: 'CAPTURE_CARDS_AT_HOST'; cardId: string; max?: number }
+  /** À la mort d'un Héros : rend à la MAIN de l'acteur les cartes (`cardId`)
+   *  capturées par ce Héros (associées à l'hôte). Enquêteur / Enfant Perdu :
+   *  Slenderman récupère ses Pages en main. */
+  | { type: 'RELEASE_CAPTURED_TO_HAND'; cardId?: string }
+  /** Jafar — Scarabée d'Or : déverrouille un lieu (retire le Cadenas). */
+  | { type: 'UNLOCK_LOCATION'; locationId: LocationId }
+  /** Jafar — Lampe Merveilleuse : cherche un Héros (`heroCardId`) dans le deck
+   *  Fatalité de l'acteur lui-même et le pose sur SON board au lieu `locationId`. */
+  | { type: 'SUMMON_FATE_HERO_TO_OWN_REALM'; heroCardId: string; locationId: LocationId }
+  /** Reine de Cœur — Coup Royal : si un arceau se trouve sur chaque lieu, révèle
+   *  les 5 premières cartes de la pioche ; si la somme de leurs coûts < force
+   *  totale des arceaux, victoire ; sinon ces 5 cartes sont défaussées. */
+  | { type: 'ROYAL_CROQUET_ATTEMPT' }
+  /** Reine de Cœur — Rapetisser / Agrandir : règle la taille du Héros cible
+   *  (ctx.targetHeroId). Si le Héros porte déjà la taille OPPOSÉE, il revient à la
+   *  normale ; sinon il prend `size`. Le Loir ne peut pas être rapetissé. */
+  | { type: 'SET_HERO_SIZE'; size: 'shrunk' | 'enlarged' }
+  /** Reine de Cœur — Par ordre de la Reine ! : ouvre la sélection de 1 ou 2
+   *  Cartes Gardes à transformer en arceaux (pendingTransformWickets). Sans
+   *  Carte Garde éligible, l'effet ne fait rien. */
+  | { type: 'TRANSFORM_GUARDS'; max: number }
+  /** Jafar — Sacrifice Nécessaire : défausse l'Allié ou l'Objet du royaume désigné
+   *  par ctx.allyInstanceIds[0] (+ ses Objets associés si c'est un Allié), puis
+   *  gagne `amount` Pouvoir. */
+  | { type: 'DISCARD_OWN_FOR_POWER'; amount: number }
+  /** Jafar — Hypnose : prend le contrôle du Héros cible (ctx.targetHeroId) du
+   *  royaume de l'acteur. Le marque `hypnotized` : il compte alors comme un Allié
+   *  (force inchangée) et ne recouvre plus les actions. Coût (= force du Héros)
+   *  prélevé à la pose, hors de cet effet. */
+  | { type: 'HYPNOTIZE_HERO' }
 
 /**
  * Un exemplaire physique d'une carte en jeu. Comme une même carte existe en
@@ -208,6 +303,34 @@ export interface CardInstance {
   discardWhen?: CurseDiscardTrigger
   /** Pour une Condition : descripteur du trigger côté adversaire. */
   trigger?: ConditionTrigger
+  /** Nombre maximum d'exemplaires de CETTE carte (même cardId) posés librement
+   *  sur un même lieu. La Page : 2 (« un lieu qui a moins de 2 pages »). */
+  maxAtLocation?: number
+  /** Jafar — Hypnose : ce Héros est sous le contrôle de Jafar. Il compte alors
+   *  comme un Allié (force inchangée, capacité ignorée) et ne recouvre plus les
+   *  actions du lieu. Il reste de type 'hero' pour l'objectif CONTROL_HERO. */
+  hypnotized?: boolean
+  /** Jafar — capacité activée : coût (en Pouvoir) de l'action « Activer » pour
+   *  cette carte (Iago : 1). Présence du champ = la carte porte le symbole
+   *  Activer. La capacité elle-même est dispatchée par cardId dans le moteur. */
+  activatedCost?: number
+  /** Jafar — Sablier Géant : la capacité a été activée ce tour-ci (effet « jusqu'à
+   *  la fin de votre tour »). Réinitialisé à la fin du tour de l'acteur. */
+  activatedThisTurn?: boolean
+  /** Cette carte ne peut être posée QUE sur ce lieu (Jafar : Lampe Merveilleuse →
+   *  Caverne aux Merveilles). Absent = n'importe quel lieu non verrouillé. */
+  playOnlyAt?: LocationId
+  /** Reine de Cœur : cette Carte Garde a été transformée en arceau (croquet).
+   *  Un arceau ne compte plus comme un Allié et sert l'objectif Coup Royal. */
+  isWicket?: boolean
+  /** Reine de Cœur : taille d'un Héros. `'shrunk'` (rapetissé) → ne recouvre
+   *  qu'une action du haut ; `'enlarged'` (agrandi) → recouvre une action de plus.
+   *  Absent = taille normale (recouvre la rangée du haut). */
+  heroSize?: 'shrunk' | 'enlarged'
+  /** Reine de Cœur — Agrandir : lieu adjacent dans lequel un Héros agrandi
+   *  recouvre une action supplémentaire (le côté gauche OU droite choisi à la
+   *  pose). Présent uniquement quand `heroSize === 'enlarged'`. */
+  enlargeTargetId?: LocationId
 }
 
 /** Restrictions de pose imposées par une carte sur son lieu (Malédictions, Héros). */
@@ -232,8 +355,17 @@ export type ConditionTrigger =
   /** L'adversaire actif a au moins `value` cartes en main. `requiresOwnAlly`
    *  ajoute la contrainte « le joueur a un Allié en main » (Lâcheté). */
   | { type: 'opponent-hand-ge'; value: number; requiresOwnAlly?: boolean }
-  /** L'adversaire actif a au moins `value` Alliés dans son royaume (Tyrannie). */
-  | { type: 'opponent-allies-in-realm-ge'; value: number }
+  /** L'adversaire actif a au moins `value` Alliés dans son royaume (Tyrannie,
+   *  Lâcheté). `requiresOwnAlly` ajoute la contrainte « le joueur a un Allié en
+   *  main » (Lâcheté pose un Allié gratuit). */
+  | { type: 'opponent-allies-in-realm-ge'; value: number; requiresOwnAlly?: boolean }
+  /** L'adversaire actif a au moins `value` Objets dans son royaume (Jafar :
+   *  Tromperie). */
+  | { type: 'opponent-items-in-realm-ge'; value: number }
+  /** L'adversaire actif a déplacé un Allié ou un Objet ce tour-ci (Sombres desseins). */
+  | { type: 'opponent-moved-card' }
+  /** L'adversaire actif a pioché au moins une carte ce tour-ci (Sans visage). */
+  | { type: 'opponent-drew-card' }
   /** L'adversaire actif vient de vaincre CE TOUR un Héros de force ≥ `value`
    *  (Méchanceté). */
   | { type: 'opponent-vanquished-hero-strength-ge'; value: number }
@@ -295,6 +427,13 @@ export interface PlayerState {
   /** Apparence de Dragon : si une Fatalité cible ce joueur avant son prochain
    *  tour, gagne 3 JT. Réinitialisé au début de son tour. */
   dragonFormReward?: boolean
+  /** Lever du jour (Slenderman) : ce joueur ne peut pas jouer de Page jusqu'à la
+   *  fin de son prochain tour. Consommé à la fin de son tour. */
+  noPagePlay?: boolean
+  /** Jafar : lieux VERROUILLÉS (Cadenas) — inaccessibles au pion et à la pose
+   *  tant que le verrou n'est pas retiré (Scarabée d'Or). La Caverne aux
+   *  Merveilles démarre verrouillée. */
+  lockedLocations?: LocationId[]
 }
 
 /**
@@ -370,6 +509,58 @@ export interface GameState {
    * RESOLVE_HUBERT_PULL. Absent hors de ce choix.
    */
   pendingHubertPull?: { chooserIndex: number; targetIndex: number; dest: LocationId }
+  /**
+   * Retourne-toi (Slenderman) : la dernière carte de la pioche de `playerIndex`
+   * a été révélée (`card`). Le joueur doit choisir (RESOLVE_DECK_PEEK) entre
+   * l'ajouter à sa main ou remélanger sa pioche et piocher la première carte.
+   * Absent / `null` hors de ce choix.
+   */
+  pendingDeckPeek?: { playerIndex: number; card: CardInstance } | null
+  /**
+   * Tombée de la nuit (Slenderman) : `playerIndex` doit choisir un type de carte
+   * (Événement/Objet) avant de dévoiler `count` cartes de sa pioche
+   * (RESOLVE_TYPE_CHOICE). Absent / `null` hors de ce choix.
+   */
+  pendingTypeChoice?: {
+    playerIndex: number
+    count: number
+    /** Les 2 types proposés au choix (défaut : Événement/Objet). */
+    types: CardType[]
+    /** true = on dévoile JUSQU'À trouver le type (Prédiction) ; false = on
+     *  dévoile `count` cartes et on garde la 1ʳᵉ du type (Tombée de la nuit). */
+    untilFound?: boolean
+  } | null
+  /**
+   * Déplacement de Héros vers un lieu voisin en attente : `chooserIndex` choisit
+   * un Héros du royaume de `targetIndex` et un lieu adjacent (RESOLVE_HERO_RELOCATE).
+   * Apparition (chooser = target = Slenderman) ; Vent de panique (Fatalité :
+   * chooser = adversaire, target = Slenderman). Absent / `null` hors de ce choix.
+   */
+  pendingHeroRelocate?: { chooserIndex: number; targetIndex: number } | null
+  /** Téléportation (Slenderman) : `playerIndex` doit choisir un lieu portant un
+   *  Héros où déplacer son pion (RESOLVE_TELEPORT). Absent / `null` sinon. */
+  pendingTeleport?: { playerIndex: number } | null
+  /** Manipulation (Jafar) : `playerIndex` doit choisir une carte de SA défausse à
+   *  reprendre en main (RESOLVE_MANIPULATION). Absent / `null` sinon. */
+  pendingManipulation?: { playerIndex: number } | null
+  /** Coup Royal (Reine de Cœur) : 5 cartes révélées à montrer au joueur, avec le
+   *  verdict (force totale des arceaux vs somme des coûts). Purement informatif —
+   *  fermé par DISMISS_ROYAL_CROQUET. Absent / `null` sinon. */
+  pendingRoyalCroquet?: {
+    playerIndex: number
+    revealed: CardInstance[]
+    wicketStrength: number
+    costSum: number
+    won: boolean
+  } | null
+  /** Par ordre de la Reine ! (Reine de Cœur) : `playerIndex` doit choisir 1 ou 2
+   *  Cartes Gardes à transformer en arceaux (RESOLVE_TRANSFORM_WICKETS). `max` = 2.
+   *  Absent / `null` sinon. */
+  pendingTransformWickets?: { playerIndex: number; max: number } | null
+  /** Le joueur actif a déplacé un Allié/Objet ce tour-ci (déclencheur Sombres desseins). */
+  activeMovedCard?: boolean
+  /** Le joueur actif a pioché ≥1 carte ce tour-ci via un effet (déclencheur Sans visage). */
+  activeDrewCard?: boolean
   /** File append-only de petits effets flottants déclenchés par le moteur
    *  (ex. Robin des Bois qui « chipe » 1 Pouvoir). L'UI les consomme via un
    *  curseur local et les anime ; n'affecte pas la logique de jeu. */
@@ -474,6 +665,20 @@ export type GameAction =
   | { type: 'DISCARD_CARDS'; actionId: string; instanceIds: string[] }
   /** Déplacer un Allié/Objet (et ses Objets associés) vers un lieu voisin. */
   | { type: 'MOVE_CARD'; actionId: string; instanceId: string; to: LocationId }
+  /** Action de lieu « Déplacer un Héros » : déplace un Héros du royaume du joueur
+   *  actif vers un lieu VOISIN de celui où il se trouve (Slenderman, Maison Perdue). */
+  | { type: 'MOVE_HERO'; actionId: string; heroInstanceId: string; to: LocationId }
+  /** Action de lieu « Activer » (Jafar) : active la capacité d'un Allié/Objet du
+   *  royaume portant le symbole Activer. `cardInstanceId` = la carte activée.
+   *  `to`/`itemInstanceId` paramètrent la capacité (Iago : lieu de destination +
+   *  Objet emmené). Le coût d'activation est prélevé par le moteur. */
+  | {
+      type: 'ACTIVATE'
+      actionId: string
+      cardInstanceId: string
+      to?: LocationId
+      itemInstanceId?: string
+    }
   /** Éliminer un Héros : somme des forces des alliés ≥ force du héros. Le héros
    *  va à la défausse Fatalité, les alliés (et leurs objets associés) à la défausse. */
   | { type: 'VANQUISH'; actionId: string; heroInstanceId: string; allyInstanceIds: string[] }
@@ -532,6 +737,23 @@ export type GameAction =
   | { type: 'RESOLVE_PAWN_MOVE'; locationId: LocationId | null }
   /** Roi Hubert : attirer les Alliés choisis (≤1 par lieu voisin) vers son lieu. */
   | { type: 'RESOLVE_HUBERT_PULL'; allyInstanceIds: string[] }
+  /** Retourne-toi : `keep` = ajouter la carte révélée (dernière de la pioche) à
+   *  la main ; sinon remélanger la pioche et piocher la première carte. */
+  | { type: 'RESOLVE_DECK_PEEK'; keep: boolean }
+  /** Tombée de la nuit : `cardType` = type choisi (Événement/Objet) ; dévoile les
+   *  cartes en attente, garde la 1ʳᵉ de ce type, défausse les autres. */
+  | { type: 'RESOLVE_TYPE_CHOICE'; cardType: CardType }
+  /** Apparition / Vent de panique : déplace le Héros choisi vers le lieu voisin. */
+  | { type: 'RESOLVE_HERO_RELOCATE'; heroInstanceId: string; to: LocationId }
+  /** Téléportation : déplace le pion vers le lieu (portant un Héros) choisi. */
+  | { type: 'RESOLVE_TELEPORT'; to: LocationId }
+  /** Manipulation : reprend en main la carte `instanceId` de la défausse du joueur. */
+  | { type: 'RESOLVE_MANIPULATION'; instanceId: string }
+  /** Coup Royal : ferme la fenêtre de révélation (informatif). */
+  | { type: 'DISMISS_ROYAL_CROQUET' }
+  /** Par ordre de la Reine ! : transforme en arceaux les Cartes Gardes choisies
+   *  (1 ou 2 instanceIds). */
+  | { type: 'RESOLVE_TRANSFORM_WICKETS'; instanceIds: string[] }
   /** MODE TEST uniquement : inflige directement un Héros Fatalité (déjà construit
    *  par l'UI) sur un lieu du joueur ACTIF, déclenchant ses effets « à la pose »,
    *  les arrivées et les showcases — comme si un adversaire l'avait joué. */

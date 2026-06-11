@@ -20,7 +20,8 @@ function needsTargetHero(card: CardInstance): boolean {
   return (
     card.cardId === 'voler-riches' ||
     card.cardId === 'deguisement' ||
-    card.cardId === 'epee-verite'
+    card.cardId === 'epee-verite' ||
+    card.cardId === 'agrandir'
   )
 }
 

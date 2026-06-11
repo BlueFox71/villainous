@@ -8,6 +8,7 @@
 
 import type {
   CardInstance,
+  CardType,
   Effect,
   GameAction,
   GameState,
@@ -34,12 +35,12 @@ import {
 import { performVanquish, processCurseDiscards, resolveEffects, triggerHeroArrival } from './effects'
 import {
   adjacentLocationIds,
-  alliesAt,
   canEndTurn,
   canPlaceAt,
   canPlaceCurseAt,
   conditionIsTriggered,
   effectiveCost,
+  effectiveStrength,
   fateTarget,
   hasHeroInRealm,
   hasReachedObjective,
@@ -50,6 +51,8 @@ import {
   isLegalMove,
   locationOfCard,
   requiresAllyTarget,
+  teleportTargets,
+  transformableGuards,
 } from './rules'
 
 /** Nombre de cartes Fatalité révélées par une action Fatalité. */
@@ -183,9 +186,18 @@ function applyPlayCard(
   if (card.type === 'effect' && hasHeroInRealm(state, state.activePlayer, 'roi-richard')) {
     throw new Error('Le Roi Richard empêche le Prince Jean de jouer des cartes Événement.')
   }
+  // Lever du jour : interdit de jouer une Page ce tour-ci.
+  if (card.cardId === 'page' && me.noPagePlay) {
+    throw new Error('Lever du jour : impossible de jouer une Page ce tour-ci.')
+  }
 
-  // Coût effectif (Couronne −1, Bâton Magique −1, Épée de Vérité +2 sur curse).
-  const cost = effectiveCost(state, card, to)
+  // Coût effectif (Couronne −1, Bâton Magique −1, Épée de Vérité +2 sur curse,
+  // Razoul −1 sur Allié). Hypnose : coût = force (effective) du Héros ciblé.
+  let cost = effectiveCost(state, card, to)
+  if ((card.effects ?? []).some((e) => e.type === 'HYPNOTIZE_HERO')) {
+    if (!targetHeroId) throw new Error('Hypnose nécessite un Héros cible.')
+    cost = effectiveStrength(state, state.activePlayer, targetHeroId) ?? 0
+  }
   if (me.power < cost) {
     throw new Error(`Pas assez de pouvoir (coût ${cost}, disponible ${me.power}).`)
   }
@@ -203,13 +215,28 @@ function applyPlayCard(
     if (!canPlaceAt(state, to)) {
       throw new Error(`Lieu de destination invalide : « ${to} ».`)
     }
+    if (card.playOnlyAt && to !== card.playOnlyAt) {
+      throw new Error(`${card.name} ne peut être posé(e) que sur un lieu précis.`)
+    }
     if (card.type === 'curse' && !canPlaceCurseAt(state, state.activePlayer, to)) {
       throw new Error(`Aucune Malédiction ne peut être posée ici (Pimprenelle).`)
     }
+    // Limite d'exemplaires de cette carte sur un même lieu (Page : max 2).
+    if (card.maxAtLocation !== undefined) {
+      const here = (me.board[to] ?? []).filter(
+        (c) => c.cardId === card.cardId && !c.attachedTo,
+      ).length
+      if (here >= card.maxAtLocation) {
+        throw new Error(`Ce lieu a déjà ${card.maxAtLocation} ${card.name}(s) : maximum atteint.`)
+      }
+    }
     dest = findLocation(me, to)!
     // Objet « à associer » : il faut un Allié porteur sur le lieu de destination.
+    // Un Héros hypnotisé (= Allié sous contrôle) et un arceau sont des porteurs valides.
     if (requiresAllyTarget(card)) {
-      const allies = alliesAt(state, to)
+      const allies = (me.board[to] ?? []).filter(
+        (c) => c.type === 'ally' || (c.type === 'hero' && c.hypnotized),
+      )
       if (allies.length === 0) {
         throw new Error(`Aucun Allié sur ${dest.name} pour y associer ${card.name}.`)
       }
@@ -586,6 +613,21 @@ function resolveFateCardOnHero(
     }
   }
 
+  if (chosen.cardId === 'lampe-de-poche') {
+    const heroLoc = locationOfCard(tgt, hero.instanceId)
+    if (!heroLoc) throw new Error(`Lieu du Héros « ${hero.name} » introuvable.`)
+    // S'attache au Héros : Slenderman ne peut plus se téléporter vers lui (cf. teleportTargets).
+    const equipped: CardInstance = { ...chosen, attachedTo: hero.instanceId }
+    const next = updatePlayer(state, targetIndex, (p) => ({
+      ...p,
+      board: { ...p.board, [heroLoc]: [...(p.board[heroLoc] ?? []), equipped] },
+    }))
+    return {
+      ...next,
+      log: [...next.log, `${playedByName} associe **${chosen.name}** à **${hero.name}** (téléportation bloquée).`],
+    }
+  }
+
   if (chosen.cardId === 'epee-verite') {
     const heroLoc = locationOfCard(tgt, hero.instanceId)
     if (!heroLoc) throw new Error(`Lieu du Héros « ${hero.name} » introuvable.`)
@@ -699,7 +741,8 @@ function applyResolveFate(
   if (
     chosen.cardId === 'voler-riches' ||
     chosen.cardId === 'deguisement' ||
-    chosen.cardId === 'epee-verite'
+    chosen.cardId === 'epee-verite' ||
+    chosen.cardId === 'lampe-de-poche'
   ) {
     let next = updatePlayer(state, pending.target, (p) => ({
       ...p,
@@ -707,6 +750,26 @@ function applyResolveFate(
     }))
     next = { ...next, pendingFate: null }
     return resolveFateCardOnHero(next, pending.target, state.activePlayer, chosen, targetHeroId)
+  }
+
+  // Agrandir (Fatalité, Reine de Cœur) : agrandit un Héros du royaume de la cible
+  // (ou rend sa taille normale à un Héros rapetissé). L'effet s'applique au Héros
+  // chez la CIBLE (realm owner) → actorIndex = pending.target.
+  if (chosen.cardId === 'agrandir') {
+    const heroes = heroesOf(state, pending.target)
+    let next = updatePlayer(state, pending.target, (p) => ({
+      ...p,
+      fateDiscard: [...p.fateDiscard, chosen, ...others],
+    }))
+    next = { ...next, pendingFate: null }
+    if (heroes.length === 0) {
+      return { ...next, log: [...next.log, `**${chosen.name}** défaussée (aucun Héros chez ${tgt.villainName}).`] }
+    }
+    if (!targetHeroId) throw new Error(`${chosen.name} nécessite un Héros cible.`)
+    return resolveEffects(next, chosen.effects ?? [], {
+      actorIndex: pending.target,
+      targetHeroId,
+    })
   }
 
   if (chosen.cardId === 'il-etait-un-reve') {
@@ -717,6 +780,58 @@ function applyResolveFate(
     }))
     next = { ...next, pendingFate: null }
     return discardCurseFromHeroLocation(next, pending.target)
+  }
+
+  // Mauvaise creepypasta : la réserve de Jetons Pouvoir de la cible retombe à 2
+  // si elle en a davantage.
+  if (chosen.cardId === 'mauvaise-creepypasta') {
+    let next = updatePlayer(state, pending.target, (p) => ({
+      ...p,
+      power: Math.min(p.power, 2),
+      fateDiscard: [...p.fateDiscard, chosen, ...others],
+    }))
+    next = { ...next, pendingFate: null }
+    return pushShowcase(
+      { ...next, log: [...next.log, `**Mauvaise creepypasta** : ${tgt.villainName} retombe à ${next.players[pending.target].power} JT.`] },
+      chosen.cardId,
+      `${tgt.villainName} : réserve ramenée à 2 JT`,
+      state.activePlayer,
+    )
+  }
+
+  // Vent de panique : l'adversaire (joueur actif) déplace un Héros du royaume de
+  // la cible vers un lieu voisin. Si la cible n'a aucun Héros, simple défausse.
+  if (chosen.cardId === 'vent-de-panique') {
+    const hasHero = Object.values(tgt.board).some((cards) => cards.some((c) => c.type === 'hero'))
+    let next = updatePlayer(state, pending.target, (p) => ({
+      ...p,
+      fateDiscard: [...p.fateDiscard, chosen, ...others],
+    }))
+    next = { ...next, pendingFate: null }
+    if (!hasHero) {
+      return { ...next, log: [...next.log, `Vent de panique : aucun Héros chez ${tgt.villainName}.`] }
+    }
+    return {
+      ...next,
+      pendingHeroRelocate: { chooserIndex: state.activePlayer, targetIndex: pending.target },
+      log: [...next.log, `**Vent de panique** : déplacez un Héros de ${tgt.villainName} vers un lieu voisin.`],
+    }
+  }
+
+  // Lever du jour : la cible ne pourra pas jouer de Page lors de son prochain tour.
+  if (chosen.cardId === 'lever-du-jour') {
+    let next = updatePlayer(state, pending.target, (p) => ({
+      ...p,
+      noPagePlay: true,
+      fateDiscard: [...p.fateDiscard, chosen, ...others],
+    }))
+    next = { ...next, pendingFate: null }
+    return pushShowcase(
+      { ...next, log: [...next.log, `**Lever du jour** : ${tgt.villainName} ne pourra pas jouer de Page à son prochain tour.`] },
+      chosen.cardId,
+      `${tgt.villainName} : pas de Page au prochain tour`,
+      state.activePlayer,
+    )
   }
 
   // Fallback (carte Fatalité non implémentée) : simple défausse.
@@ -754,6 +869,9 @@ function applyMoveCard(
   const me = activePlayer(state)
   const from = locationOfCard(me, instanceId)
   if (!from) throw new Error(`Carte « ${instanceId} » absente du plateau.`)
+  if ((me.lockedLocations ?? []).includes(from)) {
+    throw new Error(`Impossible de déplacer une carte depuis un lieu verrouillé.`)
+  }
   const card = me.board[from].find((c) => c.instanceId === instanceId)!
   // Une Malédiction est traitée comme un Objet : elle est déplaçable.
   if (card.type !== 'ally' && card.type !== 'item' && card.type !== 'curse') {
@@ -785,11 +903,222 @@ function applyMoveCard(
   return {
     ...next,
     usedActionIds: [...next.usedActionIds, actionId],
+    activeMovedCard: true, // déclencheur Sombres desseins
     log: [
       ...next.log,
       `${me.villainName} déplace **${card.name}**${moving.length > 1 ? ' (+ associé)' : ''} vers **${destName}**.`,
     ],
   }
+}
+
+/**
+ * Action de lieu « Déplacer un Héros » : déplace un Héros du royaume du joueur
+ * actif vers un lieu VOISIN de celui où il se trouve. Réutilise l'effet
+ * MOVE_HERO_TO_LOCATION (restrictions de destination + arrivées) après contrôle
+ * de l'adjacence.
+ */
+function applyMoveHero(
+  state: GameState,
+  actionId: string,
+  heroInstanceId: string,
+  to: LocationId,
+): GameState {
+  if (state.phase !== 'ACTION') {
+    throw new Error(`Impossible de déplacer un Héros en phase ${state.phase}.`)
+  }
+  if (!isActionAvailable(state, actionId)) {
+    throw new Error(`Action indisponible : « ${actionId} ».`)
+  }
+  const loc = currentLocation(state)!
+  const action = loc.actions.find((a) => a.id === actionId)!
+  if (action.type !== 'MOVE_HERO') {
+    throw new Error(`« ${actionId} » n'est pas une action « Déplacer un Héros ».`)
+  }
+  const me = activePlayer(state)
+  const from = locationOfCard(me, heroInstanceId)
+  if (!from) throw new Error(`Héros « ${heroInstanceId} » introuvable dans votre royaume.`)
+  if ((me.lockedLocations ?? []).includes(from)) {
+    throw new Error(`Impossible de déplacer un Héros depuis un lieu verrouillé.`)
+  }
+  const hero = me.board[from].find((c) => c.instanceId === heroInstanceId)!
+  if (hero.type !== 'hero') throw new Error(`${hero.name} n'est pas un Héros.`)
+  if (!adjacentLocationIds(state, from).includes(to)) {
+    throw new Error(`Lieu « ${to} » non voisin de « ${from} ».`)
+  }
+  let next = resolveEffects(state, [{ type: 'MOVE_HERO_TO_LOCATION', locationId: to }], {
+    targetHeroId: heroInstanceId,
+  })
+  next = consumePersifleur(next, action)
+  return { ...next, usedActionIds: [...next.usedActionIds, actionId] }
+}
+
+/**
+ * Action de lieu « Activer » (Jafar) : déclenche la capacité activée d'un
+ * Allié/Objet du royaume (carte avec `activatedCost`). Le coût est prélevé, puis
+ * la capacité est dispatchée par cardId.
+ *
+ *   - Iago : payez 1 Pouvoir, déplacez Iago (et un Objet non associé de son lieu)
+ *     vers un lieu voisin non verrouillé.
+ */
+function applyActivate(
+  state: GameState,
+  actionId: string,
+  cardInstanceId: string,
+  to: LocationId | undefined,
+  itemInstanceId: string | undefined,
+): GameState {
+  if (state.phase !== 'ACTION') {
+    throw new Error(`Impossible d'activer en phase ${state.phase}.`)
+  }
+  if (!isActionAvailable(state, actionId)) {
+    throw new Error(`Action indisponible : « ${actionId} ».`)
+  }
+  const loc = currentLocation(state)!
+  const action = loc.actions.find((a) => a.id === actionId)!
+  if (action.type !== 'ACTIVATE') {
+    throw new Error(`« ${actionId} » n'est pas une action « Activer ».`)
+  }
+  const me = activePlayer(state)
+  const cardLoc = locationOfCard(me, cardInstanceId)
+  if (!cardLoc) throw new Error(`Carte « ${cardInstanceId} » absente du royaume.`)
+  const card = me.board[cardLoc].find((c) => c.instanceId === cardInstanceId)!
+  if (card.activatedCost === undefined) {
+    throw new Error(`${card.name} n'a pas de capacité activée.`)
+  }
+  if (me.power < card.activatedCost) {
+    throw new Error(`Pouvoir insuffisant pour activer ${card.name}.`)
+  }
+
+  if (card.cardId === 'iago') {
+    if (!to) throw new Error('Iago : lieu de destination requis.')
+    if (!adjacentLocationIds(state, cardLoc).includes(to)) {
+      throw new Error(`Lieu « ${to} » non voisin (ou verrouillé) de « ${cardLoc} ».`)
+    }
+    // Iago + ses Objets associés, et éventuellement un Objet non associé choisi.
+    const movingIds = new Set<string>([cardInstanceId])
+    for (const c of me.board[cardLoc]) {
+      if (c.attachedTo === cardInstanceId) movingIds.add(c.instanceId)
+    }
+    let itemName = ''
+    if (itemInstanceId) {
+      const item = me.board[cardLoc].find(
+        (c) => c.instanceId === itemInstanceId && c.type === 'item' && !c.attachedTo,
+      )
+      if (!item) throw new Error('Objet à emmener invalide (non associé, sur le lieu d’Iago).')
+      movingIds.add(item.instanceId)
+      itemName = ` + **${item.name}**`
+    }
+    const moving = me.board[cardLoc].filter((c) => movingIds.has(c.instanceId))
+    const destName = findLocation(me, to)!.name
+    let next = updateActivePlayer(state, (p) => ({
+      ...p,
+      power: p.power - card.activatedCost!,
+      board: {
+        ...p.board,
+        [cardLoc]: p.board[cardLoc].filter((c) => !movingIds.has(c.instanceId)),
+        [to]: [...(p.board[to] ?? []), ...moving],
+      },
+    }))
+    next = consumePersifleur(next, action)
+    return {
+      ...next,
+      usedActionIds: [...next.usedActionIds, actionId],
+      activeMovedCard: true,
+      log: [
+        ...next.log,
+        `${me.villainName} active **Iago**${itemName} → **${destName}** (−${card.activatedCost} JT).`,
+      ],
+    }
+  }
+
+  if (card.cardId === 'sceptre-serpent') {
+    // Payez 1 : cherchez une carte Hypnose dans la défausse et ajoutez-la en main.
+    const hypno = me.discard.find((c) => c.cardId === 'hypnose')
+    let next = updateActivePlayer(state, (p) => ({
+      ...p,
+      power: p.power - card.activatedCost!,
+      discard: hypno ? p.discard.filter((c) => c.instanceId !== hypno.instanceId) : p.discard,
+      hand: hypno ? [...p.hand, hypno] : p.hand,
+    }))
+    next = consumePersifleur(next, action)
+    return {
+      ...next,
+      usedActionIds: [...next.usedActionIds, actionId],
+      log: [
+        ...next.log,
+        hypno
+          ? `${me.villainName} active le **Sceptre Serpent** : récupère **${hypno.name}** en main (−${card.activatedCost} JT).`
+          : `${me.villainName} active le **Sceptre Serpent** : aucune Hypnose en défausse (−${card.activatedCost} JT).`,
+      ],
+    }
+  }
+
+  if (card.cardId === 'sablier-geant') {
+    // Jusqu'à la fin du tour, les Héros du lieu du Sablier ont −2 force.
+    let next = updateActivePlayer(state, (p) => ({
+      ...p,
+      power: p.power - card.activatedCost!,
+      board: {
+        ...p.board,
+        [cardLoc]: p.board[cardLoc].map((c) =>
+          c.instanceId === cardInstanceId ? { ...c, activatedThisTurn: true } : c,
+        ),
+      },
+    }))
+    next = consumePersifleur(next, action)
+    const locName = findLocation(me, cardLoc)!.name
+    return {
+      ...next,
+      usedActionIds: [...next.usedActionIds, actionId],
+      log: [
+        ...next.log,
+        `${me.villainName} active le **Sablier Géant** : Héros de **${locName}** −2 force jusqu'à la fin du tour.`,
+      ],
+    }
+  }
+
+  if (card.cardId.startsWith('gardes-')) {
+    // Reine de Cœur : transforme une Carte Garde en arceau, ou la retransforme.
+    const toWicket = !card.isWicket
+    if (toWicket) {
+      // Dodo : interdit de transformer en arceau les Gardes de son lieu.
+      const dodoHere = (me.board[cardLoc] ?? []).some(
+        (c) => c.type === 'hero' && c.cardId === 'dodo',
+      )
+      if (dodoHere) throw new Error('Dodo empêche de transformer ces Cartes Gardes en arceau.')
+    }
+    // Coût : 1, +1 si le Lapin Blanc est dans le royaume (Gardes → arceau seulement).
+    const hasLapin = Object.values(me.board)
+      .flat()
+      .some((c) => c.type === 'hero' && c.cardId === 'lapin-blanc')
+    const cost = (card.activatedCost ?? 1) + (toWicket && hasLapin ? 1 : 0)
+    if (me.power < cost) {
+      throw new Error(`Pouvoir insuffisant (coût ${cost}).`)
+    }
+    let next = updateActivePlayer(state, (p) => ({
+      ...p,
+      power: p.power - cost,
+      board: {
+        ...p.board,
+        [cardLoc]: p.board[cardLoc].map((c) =>
+          c.instanceId === cardInstanceId ? { ...c, isWicket: toWicket } : c,
+        ),
+      },
+    }))
+    next = consumePersifleur(next, action)
+    return {
+      ...next,
+      usedActionIds: [...next.usedActionIds, actionId],
+      log: [
+        ...next.log,
+        toWicket
+          ? `${me.villainName} transforme **${card.name}** en arceau (−${cost} JT).`
+          : `${me.villainName} retransforme un arceau en **${card.name}** (−${cost} JT).`,
+      ],
+    }
+  }
+
+  throw new Error(`Capacité activée non implémentée pour ${card.name}.`)
 }
 
 /** Wrapper Action VANQUISH : valide l'action puis exécute le Vanquish standard. */
@@ -1157,6 +1486,87 @@ function resolveConditionEffect(
       targetHeroId: target.instanceId,
     })
   }
+  if (card.cardId === 'sombres-desseins') {
+    // Éliminer instantanément un Héros du royaume du joueur (le plus fort par
+    // défaut, ou la cible fournie via allyInstanceId). Sans allié, sans limite.
+    const acting = next.players[playerIndex]
+    const heroes = Object.values(acting.board).flat().filter((c) => c.type === 'hero')
+    if (heroes.length === 0) {
+      return { ...next, log: [...next.log, 'Sombres desseins : aucun Héros à éliminer.'] }
+    }
+    const target = allyInstanceId
+      ? heroes.find((h) => h.instanceId === allyInstanceId) ?? heroes[0]
+      : [...heroes].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+    return resolveEffectsLocal(next, [{ type: 'INSTANT_VANQUISH_HERO_LE', maxStrength: Number.MAX_SAFE_INTEGER }], {
+      actorIndex: playerIndex,
+      targetHeroId: target.instanceId,
+    })
+  }
+  if (card.cardId === 'sans-visage') {
+    // Récupère une carte de la défausse en main (priorité à une Page, sinon la
+    // dernière défaussée).
+    const acting = next.players[playerIndex]
+    if (acting.discard.length === 0) {
+      return { ...next, log: [...next.log, 'Sans visage : défausse vide.'] }
+    }
+    const pageIdx = acting.discard.findIndex((c) => c.cardId === 'page')
+    const pick = pageIdx >= 0 ? acting.discard[pageIdx] : acting.discard[acting.discard.length - 1]
+    next = updatePlayer(next, playerIndex, (p) => ({
+      ...p,
+      discard: p.discard.filter((c) => c.instanceId !== pick.instanceId),
+      hand: [...p.hand, pick],
+    }))
+    return {
+      ...next,
+      log: [...next.log, `${player.villainName} récupère **${pick.name}** de sa défausse (Sans visage).`],
+    }
+  }
+  if (card.cardId === 'manipulation') {
+    // Manipulation (Jafar) : le joueur choisit une carte de sa défausse à reprendre
+    // en main (RESOLVE_MANIPULATION). La carte Manipulation vient d'arriver en
+    // défausse — on l'exclut du choix (on ne se reprend pas soi-même).
+    const acting = next.players[playerIndex]
+    const choosable = acting.discard.filter((c) => c.instanceId !== card.instanceId)
+    if (choosable.length === 0) {
+      return { ...next, log: [...next.log, 'Manipulation : défausse vide.'] }
+    }
+    return { ...next, pendingManipulation: { playerIndex } }
+  }
+  if (card.cardId === 'tromperie') {
+    // Tromperie (Jafar) : dévoile la 1ʳᵉ carte Fatalité de l'ADVERSAIRE (joueur
+    // actif) et la joue immédiatement CONTRE lui. Héros → posé sur son plateau
+    // (1ᵉʳ lieu valide) ; non-Héros → non géré pour l'instant (remis en défausse).
+    const oppIdx = state.activePlayer
+    const opp = next.players[oppIdx]
+    if (opp.fateDeck.length === 0 && opp.fateDiscard.length === 0) {
+      return { ...next, log: [...next.log, 'Tromperie : pioche Fatalité adverse vide.'] }
+    }
+    const r = revealFate(opp, 1, next.rngState)
+    next = { ...updatePlayer(next, oppIdx, () => r.player), rngState: r.rngState }
+    const revealed = r.revealed[0]
+    if (!revealed) return next
+    if (revealed.type === 'hero') {
+      const locs = heroPlacementLocations(next, revealed, oppIdx)
+      if (locs.length === 0) {
+        next = updatePlayer(next, oppIdx, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, revealed] }))
+        return { ...next, log: [...next.log, `Tromperie : **${revealed.name}** révélé, aucun lieu valide → défaussé.`] }
+      }
+      // Le joueur qui a joué Tromperie choisit où poser le Héros (RESOLVE_HERO_PLACEMENT).
+      return {
+        ...next,
+        pendingHeroPlacement: { chooserIndex: playerIndex, targetIndex: oppIdx, hero: revealed },
+        log: [
+          ...next.log,
+          `${player.villainName} dévoile **${revealed.name}** (Tromperie) — à placer chez ${next.players[oppIdx].villainName}.`,
+        ],
+      }
+    }
+    next = updatePlayer(next, oppIdx, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, revealed] }))
+    return {
+      ...next,
+      log: [...next.log, `Tromperie : **${revealed.name}** (non-Héros) — effet non encore géré, défaussé.`],
+    }
+  }
   // Aucune autre Condition pour l'instant.
   return next
 }
@@ -1286,6 +1696,221 @@ function applyResolveHubertPull(state: GameState, allyInstanceIds: string[]): Ga
   }
 }
 
+/**
+ * Apparition / Vent de panique : déplace le Héros choisi (du royaume de
+ * `targetIndex`) vers un lieu VOISIN de sa position. Réutilise l'effet
+ * MOVE_HERO_TO_LOCATION (restrictions + arrivées) après contrôle d'adjacence.
+ */
+function applyResolveHeroRelocate(state: GameState, heroInstanceId: string, to: LocationId): GameState {
+  const pending = state.pendingHeroRelocate
+  if (!pending) throw new Error('Aucun déplacement de Héros en attente.')
+  const { targetIndex } = pending
+  const target = state.players[targetIndex]
+  const from = locationOfCard(target, heroInstanceId)
+  if (!from) throw new Error(`Héros « ${heroInstanceId} » introuvable.`)
+  const hero = (target.board[from] ?? []).find((c) => c.instanceId === heroInstanceId)
+  if (!hero || hero.type !== 'hero') throw new Error('Cible invalide (pas un Héros).')
+  // Adjacence dans le royaume de la CIBLE (pas forcément le joueur actif).
+  const ids = target.locations.map((l) => l.id)
+  const i = ids.indexOf(from)
+  const adj = [ids[i - 1], ids[i + 1]].filter(Boolean) as string[]
+  if (!adj.includes(to)) throw new Error(`Lieu « ${to} » non voisin de « ${from} ».`)
+  const next = resolveEffects(state, [{ type: 'MOVE_HERO_TO_LOCATION', locationId: to }], {
+    actorIndex: targetIndex,
+    targetHeroId: heroInstanceId,
+  })
+  return { ...next, pendingHeroRelocate: null }
+}
+
+/**
+ * Téléportation : déplace le pion du joueur en attente vers le lieu choisi (qui
+ * porte un Héros sans Lampe de poche). Le joueur joue ensuite normalement.
+ */
+function applyResolveTeleport(state: GameState, to: LocationId): GameState {
+  const pending = state.pendingTeleport
+  if (!pending) throw new Error('Aucune téléportation en attente.')
+  const player = state.players[pending.playerIndex]
+  if (!teleportTargets(player).includes(to)) {
+    throw new Error(`Téléportation impossible vers « ${to} » (pas de Héros accessible).`)
+  }
+  const destName = findLocation(player, to)?.name ?? to
+  let next = updatePlayer(state, pending.playerIndex, (p) => ({ ...p, pawnLocation: to }))
+  next = {
+    ...next,
+    pendingTeleport: null,
+    log: [...next.log, `${player.villainName} se téléporte sur **${destName}** (Téléportation).`],
+  }
+  // Arrivée du pion : Malédictions 'pawn-moves-here' (générique).
+  return processCurseDiscards(next, pending.playerIndex, to, 'pawn-moves-here')
+}
+
+/**
+ * Retourne-toi : résout le choix sur la carte révélée (`pendingDeckPeek`).
+ *   keep = true  → ajoute la dernière carte de la pioche à la main.
+ *   keep = false → remélange la pioche, puis pioche la première carte.
+ */
+function applyResolveDeckPeek(state: GameState, keep: boolean): GameState {
+  const pending = state.pendingDeckPeek
+  if (!pending) throw new Error('Aucune carte révélée à résoudre (Retourne-toi).')
+  const { playerIndex, card } = pending
+  const player = state.players[playerIndex]
+  if (keep) {
+    const next = updatePlayer(state, playerIndex, (p) => ({
+      ...p,
+      deck: p.deck.filter((c) => c.instanceId !== card.instanceId),
+      hand: [...p.hand, card],
+    }))
+    return {
+      ...next,
+      pendingDeckPeek: null,
+      activeDrewCard: true,
+      log: [...next.log, `${player.villainName} ajoute **${card.name}** à sa main (Retourne-toi).`],
+    }
+  }
+  // Remélange la pioche entière puis pioche la première carte.
+  const r = shuffle([...player.deck], state.rngState)
+  const [top, ...rest] = r.result
+  const next = updatePlayer(state, playerIndex, (p) => ({
+    ...p,
+    deck: rest,
+    hand: top ? [...p.hand, top] : p.hand,
+  }))
+  return {
+    ...next,
+    rngState: r.state,
+    pendingDeckPeek: null,
+    activeDrewCard: !!top,
+    log: [
+      ...next.log,
+      `${player.villainName} remélange sa pioche${top ? ` et pioche **${top.name}**` : ''} (Retourne-toi).`,
+    ],
+  }
+}
+
+/**
+ * Tombée de la nuit : dévoile les `count` premières cartes de la pioche du joueur
+ * en attente, ajoute la 1ʳᵉ du type choisi (`cardType`) à sa main et défausse les
+ * autres. Si la pioche est trop courte, remélange d'abord la défausse dedans.
+ */
+function applyResolveTypeChoice(state: GameState, cardType: CardType): GameState {
+  const pending = state.pendingTypeChoice
+  if (!pending) throw new Error('Aucun choix de type en attente.')
+  const { playerIndex, count, untilFound } = pending
+  const player = state.players[playerIndex]
+  const flavour = untilFound ? 'Prédiction' : 'Tombée de la nuit'
+  const TYPE_LABELS: Record<string, string> = {
+    item: 'Objet',
+    effect: 'Événement',
+    ally: 'Allié',
+    condition: 'Condition',
+    hero: 'Héros',
+    curse: 'Malédiction',
+  }
+  const typeLabel = TYPE_LABELS[cardType] ?? cardType
+  let deck = [...player.deck]
+  let discardPile = [...player.discard]
+  let rngState = state.rngState
+
+  if (untilFound) {
+    // Prédiction : dévoiler la pioche JUSQU'À trouver une carte du type choisi.
+    // On remélange la défausse si la pioche se vide en cours de route.
+    const revealed: CardInstance[] = []
+    let found: CardInstance | undefined
+    while (true) {
+      if (deck.length === 0) {
+        if (discardPile.length === 0) break
+        const r = shuffle(discardPile, rngState)
+        deck = r.result
+        discardPile = []
+        rngState = r.state
+      }
+      const [top, ...restDeck] = deck
+      deck = restDeck
+      if (top.type === cardType) {
+        found = top
+        break
+      }
+      revealed.push(top)
+    }
+    let next = updatePlayer(state, playerIndex, (p) => ({
+      ...p,
+      deck,
+      hand: found ? [...p.hand, found] : p.hand,
+      discard: [...discardPile, ...revealed],
+    }))
+    next = {
+      ...next,
+      rngState,
+      pendingTypeChoice: null,
+      activeDrewCard: !!found,
+      log: [
+        ...next.log,
+        found
+          ? `${player.villainName} dévoile ${revealed.length + 1} carte${revealed.length + 1 > 1 ? 's' : ''}, garde **${found.name}** (${typeLabel}) et défausse les autres (${flavour}).`
+          : `${player.villainName} : aucun ${typeLabel} dans la pioche (${flavour}).`,
+      ],
+    }
+    if (revealed.length > 0) {
+      next = pushDiscardShowcase(
+        next,
+        revealed.map((c) => c.cardId),
+        `${flavour} : ${revealed.length} carte${revealed.length > 1 ? 's' : ''} défaussée${revealed.length > 1 ? 's' : ''}`,
+        playerIndex,
+        'dark',
+        'bottom',
+      )
+    }
+    // Montre ensuite la carte ajoutée à la main (après les cartes défaussées).
+    if (found) {
+      next = pushShowcase(next, found.cardId, `${found.name} ajouté à votre main`, playerIndex)
+    }
+    return next
+  }
+
+  // Pas assez de cartes pour dévoiler `count` : remélanger la défausse dans la pioche.
+  if (deck.length < count && discardPile.length > 0) {
+    const r = shuffle(discardPile, rngState)
+    deck = [...deck, ...r.result]
+    discardPile = []
+    rngState = r.state
+  }
+  const revealed = deck.slice(0, count)
+  const rest = deck.slice(count)
+  const matchIdx = revealed.findIndex((c) => c.type === cardType)
+  const toHand = matchIdx >= 0 ? revealed[matchIdx] : undefined
+  const others = revealed.filter((_, i) => i !== matchIdx)
+  let next = updatePlayer(state, playerIndex, (p) => ({
+    ...p,
+    deck: rest,
+    hand: toHand ? [...p.hand, toHand] : p.hand,
+    discard: [...discardPile, ...others],
+  }))
+  next = {
+    ...next,
+    rngState,
+    pendingTypeChoice: null,
+    activeDrewCard: !!toHand,
+    log: [
+      ...next.log,
+      toHand
+        ? `${player.villainName} dévoile ${revealed.length} cartes, garde **${toHand.name}** (${typeLabel}) et défausse les autres (Tombée de la nuit).`
+        : `${player.villainName} dévoile ${revealed.length} cartes : aucun ${typeLabel}, tout est défaussé (Tombée de la nuit).`,
+    ],
+  }
+  // Showcase « défausse » des cartes écartées (visible côté adversaire).
+  if (others.length > 0) {
+    next = pushDiscardShowcase(
+      next,
+      others.map((c) => c.cardId),
+      `Tombée de la nuit : ${others.length} carte${others.length > 1 ? 's' : ''} défaussée${others.length > 1 ? 's' : ''}`,
+      playerIndex,
+      'dark',
+      'bottom',
+    )
+  }
+  return next
+}
+
 /** MODE TEST : joue une Condition (déjà construite) pour le joueur actif, en
  *  contournant le déclencheur et la restriction « tour de l'adversaire ».
  *  Auto-résout les cibles (Lâcheté : 1ᵉʳ Allié en main ; Méchanceté : 1ᵉʳ Héros
@@ -1348,6 +1973,9 @@ function applyTestPlayFateCard(
   next = consumeDragonFormReward(next, idx)
   if (card.cardId === 'il-etait-un-reve') {
     return discardCurseFromHeroLocation(next, idx)
+  }
+  if (card.cardId === 'agrandir') {
+    return resolveEffectsLocal(next, card.effects ?? [], { actorIndex: idx, targetHeroId })
   }
   if (
     card.cardId === 'voler-riches' ||
@@ -1414,9 +2042,69 @@ function applySkipMove(state: GameState): GameState {
   }
 }
 
+/** Manipulation (Jafar) : reprend en main la carte choisie de la défausse. */
+function applyResolveManipulation(state: GameState, instanceId: string): GameState {
+  const pending = state.pendingManipulation
+  if (!pending) throw new Error('Aucune Manipulation en attente.')
+  const idx = pending.playerIndex
+  const player = state.players[idx]
+  const card = player.discard.find((c) => c.instanceId === instanceId)
+  if (!card) throw new Error('Carte introuvable dans la défausse.')
+  const next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    discard: p.discard.filter((c) => c.instanceId !== instanceId),
+    hand: [...p.hand, card],
+  }))
+  return {
+    ...next,
+    pendingManipulation: null,
+    log: [...next.log, `${player.villainName} reprend **${card.name}** de sa défausse (Manipulation).`],
+  }
+}
+
+/** Par ordre de la Reine ! : transforme en arceaux les 1-2 Cartes Gardes choisies
+ *  (validées contre les Cartes Gardes éligibles : `gardes-*`, hors lieu du Dodo). */
+function applyResolveTransformWickets(state: GameState, instanceIds: string[]): GameState {
+  const pending = state.pendingTransformWickets
+  if (!pending) throw new Error('Aucune transformation de Cartes Gardes en attente.')
+  const idx = pending.playerIndex
+  const eligible = new Set(transformableGuards(state, idx).map((c) => c.instanceId))
+  const chosen = instanceIds.filter((id) => eligible.has(id)).slice(0, pending.max)
+  if (chosen.length === 0) {
+    throw new Error('Choisissez au moins 1 Carte Garde à transformer.')
+  }
+  const chosenSet = new Set(chosen)
+  const player = state.players[idx]
+  const names = player.locations
+    .flatMap((loc) => player.board[loc.id] ?? [])
+    .filter((c) => chosenSet.has(c.instanceId))
+    .map((c) => c.name)
+  const next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    board: Object.fromEntries(
+      Object.entries(p.board).map(([loc, cards]) => [
+        loc,
+        cards.map((c) => (chosenSet.has(c.instanceId) ? { ...c, isWicket: true } : c)),
+      ]),
+    ),
+  }))
+  return {
+    ...next,
+    pendingTransformWickets: null,
+    log: [
+      ...next.log,
+      `${player.villainName} transforme ${names.length === 1 ? '1 Carte Garde' : `${names.length} Cartes Gardes`} en arceau${names.length > 1 ? 'x' : ''} (${names.join(', ')}).`,
+    ],
+  }
+}
+
 function applyEndTurn(state: GameState): GameState {
   if (!canEndTurn(state)) {
     throw new Error(`Impossible de terminer le tour en phase ${state.phase}.`)
+  }
+  // Lever du jour : le blocage des Pages du joueur dont le tour se termine est consommé.
+  if (state.players[state.activePlayer].noPagePlay) {
+    state = updateActivePlayer(state, (p) => ({ ...p, noPagePlay: false }))
   }
   // Fin du tour courant : le joueur actif complète sa main à 4.
   const drawn = drawToLimit(state)
@@ -1435,6 +2123,22 @@ function applyEndTurn(state: GameState): GameState {
     lastVanquishedHeroStrength: undefined,
     diabloFree: null,
     pendingTrapVanquish: false,
+    activeMovedCard: false,
+    activeDrewCard: false,
+    // Effets « jusqu'à la fin de votre tour » du joueur qui termine (Sablier Géant).
+    players: drawn.players.map((p, i) =>
+      i === drawn.activePlayer
+        ? {
+            ...p,
+            board: Object.fromEntries(
+              Object.entries(p.board).map(([loc, cards]) => [
+                loc,
+                cards.map((c) => (c.activatedThisTurn ? { ...c, activatedThisTurn: false } : c)),
+              ]),
+            ),
+          }
+        : p,
+    ),
     log: [...drawn.log, `Fin du tour de ${endedName}.`],
   }
   if (started.players[nextIdx].dragonFormReward) {
@@ -1464,6 +2168,24 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   if (state.pendingFate && action.type !== 'RESOLVE_FATE' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Une Fatalité est en attente de résolution (RESOLVE_FATE).')
   }
+  // Retourne-toi : une carte révélée doit être résolue avant tout autre coup
+  // (sauf une Condition jouée en réaction par le non-actif).
+  if (state.pendingDeckPeek && action.type !== 'RESOLVE_DECK_PEEK' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Une carte est révélée et attend un choix (RESOLVE_DECK_PEEK).')
+  }
+  // Tombée de la nuit : un choix de type est en attente.
+  if (state.pendingTypeChoice && action.type !== 'RESOLVE_TYPE_CHOICE' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Un choix de type est en attente (RESOLVE_TYPE_CHOICE).')
+  }
+  // Par ordre de la Reine ! : la sélection de Cartes Gardes à transformer en
+  // arceaux doit être résolue avant tout autre coup.
+  if (
+    state.pendingTransformWickets &&
+    action.type !== 'RESOLVE_TRANSFORM_WICKETS' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Choisissez les Cartes Gardes à transformer (RESOLVE_TRANSFORM_WICKETS).')
+  }
   switch (action.type) {
     case 'MOVE':
       return applyMove(state, action.to)
@@ -1484,6 +2206,16 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return applyDiscardCards(state, action.actionId, action.instanceIds)
     case 'MOVE_CARD':
       return applyMoveCard(state, action.actionId, action.instanceId, action.to)
+    case 'MOVE_HERO':
+      return applyMoveHero(state, action.actionId, action.heroInstanceId, action.to)
+    case 'ACTIVATE':
+      return applyActivate(
+        state,
+        action.actionId,
+        action.cardInstanceId,
+        action.to,
+        action.itemInstanceId,
+      )
     case 'FATE':
       return applyFate(state, action.actionId)
     case 'RESOLVE_FATE':
@@ -1496,6 +2228,20 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return applyResolvePawnMove(state, action.locationId)
     case 'RESOLVE_HUBERT_PULL':
       return applyResolveHubertPull(state, action.allyInstanceIds)
+    case 'RESOLVE_DECK_PEEK':
+      return applyResolveDeckPeek(state, action.keep)
+    case 'RESOLVE_TYPE_CHOICE':
+      return applyResolveTypeChoice(state, action.cardType)
+    case 'RESOLVE_HERO_RELOCATE':
+      return applyResolveHeroRelocate(state, action.heroInstanceId, action.to)
+    case 'RESOLVE_TELEPORT':
+      return applyResolveTeleport(state, action.to)
+    case 'RESOLVE_MANIPULATION':
+      return applyResolveManipulation(state, action.instanceId)
+    case 'DISMISS_ROYAL_CROQUET':
+      return { ...state, pendingRoyalCroquet: null }
+    case 'RESOLVE_TRANSFORM_WICKETS':
+      return applyResolveTransformWickets(state, action.instanceIds)
     case 'TEST_PLACE_FATE':
       return applyTestPlaceFate(state, action.card, action.to)
     case 'TEST_PLAY_CONDITION':

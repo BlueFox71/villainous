@@ -166,17 +166,20 @@ export function LocationCard({
         </div>
       )}
 
-      {placedCards.some((c) => c.type !== 'hero' && !c.attachedTo) && (
+      {placedCards.some((c) => !c.attachedTo && (c.type !== 'hero' || c.hypnotized)) && (
         <div className="flex flex-wrap items-end justify-center gap-1.5">
           {placedCards
-            // Alliés/Objets « racine » (les Héros sont en haut ; les Objets associés
-            // sont posés DEVANT leur porteur et déployés au survol).
-            .filter((c) => c.type !== 'hero' && !c.attachedTo)
+            // Alliés/Objets « racine » dans la zone basse. Les Héros sont en haut,
+            // SAUF un Héros hypnotisé (Jafar) qui devient un Allié → affiché ici.
+            .filter((c) => !c.attachedTo && (c.type !== 'hero' || c.hypnotized))
             .map((c) => {
               const def = getCardDef(c.cardId)
               const attached = placedCards.filter((a) => a.attachedTo === c.instanceId)
-              const isTarget = attachHere && c.type === 'ally'
-              const canMovePick = selectableCards && (c.type === 'ally' || c.type === 'item')
+              const isTarget =
+                attachHere && (c.type === 'ally' || (c.type === 'hero' && !!c.hypnotized))
+              const canMovePick =
+                selectableCards &&
+                (c.type === 'ally' || c.type === 'item' || (c.type === 'hero' && !!c.hypnotized))
               const canVanquishToggle = vanquishAllyCandidates.includes(c.instanceId)
               const isVanquishSelected = vanquishSelected.includes(c.instanceId)
               const isHovered = hovered === c.instanceId
@@ -227,8 +230,19 @@ export function LocationCard({
                                 ? 'border-yellow-300 ring-2 ring-yellow-300'
                                 : 'border-white/15'
                       }`}
-                      style={isPersifleurBlink ? { animation: 'persifleurCardBlink 0.8s ease-in-out infinite' } : undefined}
+                      style={{
+                        ...(isPersifleurBlink
+                          ? { animation: 'persifleurCardBlink 0.8s ease-in-out infinite' }
+                          : {}),
+                        // Un arceau (Carte Garde transformée) est tournée de 90°.
+                        ...(c.isWicket ? { transform: 'rotate(90deg)' } : {}),
+                      }}
                     />
+                    {c.isWicket && (
+                      <span className="absolute -bottom-1 -left-1 rounded bg-fuchsia-700 px-1 text-[8px] font-bold text-white">
+                        Arceau
+                      </span>
+                    )}
                     {isVanquishSelected && (
                       <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border border-white/40 bg-red-600 text-[10px] font-bold text-white">
                         ✓

@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Fichiers sources GIMP (trop lourds ; on versionne les .png/.jpg exportés)
+*.xcf
+
 # Claude Code local settings (machine-specific permissions)
 .claude/settings.local.json
 

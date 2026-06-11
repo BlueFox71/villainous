@@ -28,7 +28,9 @@ export const SUPPORTED_ACTION_TYPES: readonly LocationActionType[] = [
   'DISCARD_CARDS',
   'FATE',
   'MOVE_ITEM_ALLY',
+  'MOVE_HERO',
   'VANQUISH',
+  'ACTIVATE',
 ]
 
 /** Une action est-elle prise en charge par le moteur dans sa version actuelle ? */
@@ -43,7 +45,10 @@ export function isSupportedType(type: LocationActionType): boolean {
 export function getLegalMoves(state: GameState): LocationId[] {
   if (state.status !== 'PLAYING' || state.phase !== 'MOVE') return []
   const p = activePlayer(state)
-  return p.locations.filter((loc) => loc.id !== p.pawnLocation).map((loc) => loc.id)
+  const locked = new Set(p.lockedLocations ?? [])
+  return p.locations
+    .filter((loc) => loc.id !== p.pawnLocation && !locked.has(loc.id))
+    .map((loc) => loc.id)
 }
 
 /** Vrai si un déplacement vers `to` est légal dans l'état courant. */
@@ -69,9 +74,31 @@ export function isActionCovered(state: GameState, action: LocationAction): boole
   if (action.row !== 'top') return false
   const loc = currentLocation(state)
   if (!loc) return false
-  if (heroesAt(state, loc.id).length === 0) return false
   if (state.persifleurAvailable) return false
-  return true
+  // Héros qui recouvrent (les hypnotisés, sous contrôle, ne recouvrent plus).
+  const covering = heroesAt(state, loc.id).filter((h) => !h.hypnotized)
+  // Héros AGRANDIS d'un lieu voisin qui débordent sur CE lieu : chacun recouvre
+  // une action du haut supplémentaire ici (le côté choisi à la pose d'Agrandir).
+  const enlargedSpillover = Object.values(activePlayer(state).board)
+    .flat()
+    .filter(
+      (c) =>
+        c.type === 'hero' &&
+        c.heroSize === 'enlarged' &&
+        !c.hypnotized &&
+        c.enlargeTargetId === loc.id,
+    ).length
+  if (covering.length === 0 && enlargedSpillover === 0) return false
+  // Un Héros à taille normale OU agrandi sur CE lieu recouvre toute la rangée du haut.
+  if (covering.some((h) => h.heroSize !== 'shrunk')) return true
+  // Sinon : que des Héros rapetissés ici (et/ou débordement d'un agrandi voisin).
+  // Chacun ne recouvre qu'UNE action du haut ; la Reine choisit lesquelles utiliser.
+  // On laisse (nbActionsHaut − nbRecouvertes) actions utilisables ; une fois ce
+  // quota atteint, le reste du haut est recouvert.
+  const topIds = loc.actions.filter((a) => a.row === 'top').map((a) => a.id)
+  const usableTop = Math.max(0, topIds.length - covering.length - enlargedSpillover)
+  const topUsed = topIds.filter((id) => state.usedActionIds.includes(id)).length
+  return topUsed >= usableTop
 }
 
 /**
@@ -86,7 +113,9 @@ export function getAvailableActions(state: GameState): LocationAction[] {
     (a) =>
       isSupportedType(a.type) &&
       !state.usedActionIds.includes(a.id) &&
-      !isActionCovered(state, a),
+      !isActionCovered(state, a) &&
+      // « Activer » n'est disponible que s'il existe une carte activable.
+      (a.type !== 'ACTIVATE' || activatableCards(state).length > 0),
   )
 }
 
@@ -96,9 +125,30 @@ export function isActionAvailable(state: GameState, actionId: string): boolean {
 }
 
 /** Les Alliés du joueur actif présents sur un lieu donné (cibles d'association
- *  possibles pour un Objet « à associer »). */
+ *  possibles pour un Objet « à associer »). Les arceaux (Cartes Gardes
+ *  transformées) restent des porteurs valides : la Lance peut s'y associer
+ *  (+1 force → arceau plus difficile à franchir au Coup Royal). */
 export function alliesAt(state: GameState, locationId: LocationId): CardInstance[] {
   return (activePlayer(state).board[locationId] ?? []).filter((c) => c.type === 'ally')
+}
+
+/** Reine de Cœur — Cartes Gardes transformables en arceaux par « Par ordre de la
+ *  Reine ! » : Allié `gardes-*` non encore arceau, hors d'un lieu où se trouve le
+ *  Dodo (qui interdit cette transformation sur son lieu). */
+export function transformableGuards(
+  state: GameState,
+  playerIndex: number = state.activePlayer,
+): CardInstance[] {
+  const p = state.players[playerIndex]
+  const out: CardInstance[] = []
+  for (const loc of p.locations) {
+    const cell = p.board[loc.id] ?? []
+    if (cell.some((c) => c.type === 'hero' && c.cardId === 'dodo')) continue
+    for (const c of cell) {
+      if (c.type === 'ally' && c.cardId.startsWith('gardes-') && !c.isWicket) out.push(c)
+    }
+  }
+  return out
 }
 
 /**
@@ -109,7 +159,9 @@ export function alliesAt(state: GameState, locationId: LocationId): CardInstance
  * ses 4 lieux sont toujours des destinations valides.
  */
 export function placementLocations(state: GameState): LocationId[] {
-  return activePlayer(state).locations.map((l) => l.id)
+  const p = activePlayer(state)
+  const locked = new Set(p.lockedLocations ?? [])
+  return p.locations.map((l) => l.id).filter((id) => !locked.has(id))
 }
 
 /** Vrai si le joueur actif peut poser une carte sur ce lieu. */
@@ -117,15 +169,33 @@ export function canPlaceAt(state: GameState, locationId: LocationId): boolean {
   return placementLocations(state).includes(locationId)
 }
 
-/** Lieux voisins (adjacents, ±1 dans l'ordre du plateau) d'un lieu donné. */
+/** Lieux d'un joueur où Slenderman peut se téléporter : ceux portant au moins un
+ *  Héros SANS Lampe de poche associée (Téléportation / Lampe de poche). */
+export function teleportTargets(player: PlayerState): LocationId[] {
+  return player.locations
+    .map((l) => l.id)
+    .filter((id) => {
+      const cell = player.board[id] ?? []
+      const lamped = new Set(
+        cell.filter((c) => c.cardId === 'lampe-de-poche' && c.attachedTo).map((c) => c.attachedTo as string),
+      )
+      return cell.some((c) => c.type === 'hero' && !lamped.has(c.instanceId))
+    })
+}
+
+/** Lieux voisins (adjacents, ±1 dans l'ordre du plateau) d'un lieu donné.
+ *  Les lieux VERROUILLÉS sont exclus : on ne peut rien y déplacer (règle des
+ *  lieux verrouillés, Jafar — Caverne aux Merveilles). */
 export function adjacentLocationIds(state: GameState, locationId: LocationId): LocationId[] {
-  const ids = activePlayer(state).locations.map((l) => l.id)
+  const me = activePlayer(state)
+  const ids = me.locations.map((l) => l.id)
+  const locked = new Set(me.lockedLocations ?? [])
   const i = ids.indexOf(locationId)
   if (i < 0) return []
   const out: LocationId[] = []
   if (i > 0) out.push(ids[i - 1])
   if (i < ids.length - 1) out.push(ids[i + 1])
-  return out
+  return out.filter((id) => !locked.has(id))
 }
 
 /** Lieu où se trouve une carte posée (Allié/Objet/Héros), ou undefined. */
@@ -140,13 +210,33 @@ export function locationOfCard(player: PlayerState, instanceId: string): Locatio
  *  Objets « racine » (un Objet associé suit son Allié, il n'est pas déplacé seul). */
 export function movableCards(state: GameState): { instanceId: string; from: LocationId }[] {
   const me = activePlayer(state)
+  const locked = new Set(me.lockedLocations ?? [])
   const out: { instanceId: string; from: LocationId }[] = []
   for (const loc of me.locations) {
+    // Rien ne peut être déplacé DEPUIS un lieu verrouillé.
+    if (locked.has(loc.id)) continue
     for (const c of me.board[loc.id] ?? []) {
-      // Une Malédiction est traitée comme un Objet : elle se déplace aussi.
-      if ((c.type === 'ally' || c.type === 'item' || c.type === 'curse') && !c.attachedTo) {
+      // Une Malédiction est traitée comme un Objet : elle se déplace aussi. Un
+      // Héros hypnotisé (Jafar) compte comme un Allié → déplaçable lui aussi.
+      const isControlledAlly = c.type === 'hero' && c.hypnotized
+      if (((c.type === 'ally' || c.type === 'item' || c.type === 'curse') && !c.attachedTo) || isControlledAlly) {
         out.push({ instanceId: c.instanceId, from: loc.id })
       }
+    }
+  }
+  return out
+}
+
+/** Cartes du joueur actif dont la capacité ACTIVÉE peut être déclenchée :
+ *  carte avec `activatedCost`, hors lieu verrouillé, et pouvoir suffisant. */
+export function activatableCards(state: GameState): CardInstance[] {
+  const me = activePlayer(state)
+  const locked = new Set(me.lockedLocations ?? [])
+  const out: CardInstance[] = []
+  for (const loc of me.locations) {
+    if (locked.has(loc.id)) continue
+    for (const c of me.board[loc.id] ?? []) {
+      if (c.activatedCost !== undefined && c.activatedCost <= me.power) out.push(c)
     }
   }
   return out
@@ -200,6 +290,15 @@ export function effectiveStrength(
     const arcFlechesBonus = cell.filter(
       (c) => c.cardId === 'arc-fleches' && c.attachedTo === card.instanceId,
     ).length
+    // Jafar : Cimeterre +1 par Cimeterre attaché à cet Allié.
+    const cimeterreBonus = cell.filter(
+      (c) => c.cardId === 'cimeterre' && c.attachedTo === card.instanceId,
+    ).length
+    // Reine de Cœur : Lance +1 par Lance associée à cet Allié (arceaux inclus :
+    // une Lance sur un arceau augmente sa force pour le Coup Royal).
+    const lanceBonus = cell.filter(
+      (c) => c.cardId === 'lance' && c.attachedTo === card.instanceId,
+    ).length
     // Maléfique : Créature Rieuse +1 par Héros sur son lieu ;
     // Sinistre Créature +1 si une Malédiction est présente.
     let selfBonus = 0
@@ -213,7 +312,10 @@ export function effectiveStrength(
     const pendardPenalty = cell.filter(
       (c) => c.cardId === 'pendard' && c.instanceId !== card.instanceId,
     ).length
-    return Math.max(0, card.strength + niquedouilleBonus + arcFlechesBonus + selfBonus - pendardPenalty)
+    return Math.max(
+      0,
+      card.strength + niquedouilleBonus + arcFlechesBonus + cimeterreBonus + lanceBonus + selfBonus - pendardPenalty,
+    )
   }
   if (card.type === 'hero') {
     const adamBonus = heroesOf(state, playerIndex).filter(
@@ -229,7 +331,30 @@ export function effectiveStrength(
     const swordBonus = cell.filter(
       (c) => c.cardId === 'epee-verite' && c.attachedTo === card.instanceId,
     ).length * 2
-    return Math.max(0, card.strength + adamBonus + curseDelta + swordBonus)
+    // Jafar (Fatalité) : Vœu +2 par Vœu attaché à ce héros.
+    const voeuBonus = cell.filter(
+      (c) => c.cardId === 'voeu' && c.attachedTo === card.instanceId,
+    ).length * 2
+    // Génie : +2 s'il est sur le même lieu que la Lampe Merveilleuse.
+    const genieBonus =
+      card.cardId === 'genie' && cell.some((c) => c.cardId === 'lampe-merveilleuse') ? 2 : 0
+    // Sablier Géant activé : −2 par Sablier actif ce tour-ci sur le lieu.
+    const sablierPenalty =
+      cell.filter((c) => c.cardId === 'sablier-geant' && c.activatedThisTurn).length * 2
+    // Héros hypnotisé (= Allié) : +1 par Cimeterre qui lui est associé.
+    const cimeterreOnHero = card.hypnotized
+      ? cell.filter((c) => c.cardId === 'cimeterre' && c.attachedTo === card.instanceId).length
+      : 0
+    // Rajah : +2 si la Princesse Jasmine est dans le royaume.
+    const rajahBonus =
+      card.cardId === 'rajah' &&
+      heroesOf(state, playerIndex).some((h) => h.cardId === 'jasmine')
+        ? 2
+        : 0
+    return Math.max(
+      0,
+      card.strength + adamBonus + curseDelta + swordBonus + voeuBonus + genieBonus + rajahBonus + cimeterreOnHero - sablierPenalty,
+    )
   }
   return card.strength
 }
@@ -245,9 +370,10 @@ export function heroPlacementLocations(
   targetIndex: number,
 ): LocationId[] {
   const forbidden = new Set(card.forbiddenLocations ?? [])
+  const locked = new Set(state.players[targetIndex].lockedLocations ?? [])
   return state.players[targetIndex].locations
     .map((l) => l.id)
-    .filter((id) => !forbidden.has(id) && canPlaceHeroAt(state, targetIndex, id, card))
+    .filter((id) => !forbidden.has(id) && !locked.has(id) && canPlaceHeroAt(state, targetIndex, id, card))
 }
 
 /** Vrai si un Héros peut être posé sur le lieu — vérifie les restrictions
@@ -301,7 +427,10 @@ export function cardNeedsHeroTarget(card: CardInstance): boolean {
     (e) =>
       e.type === 'MOVE_HERO_TO_LOCATION' ||
       e.type === 'VANQUISH_HERO' ||
-      e.type === 'INSTANT_VANQUISH_HERO_LE',
+      e.type === 'INSTANT_VANQUISH_HERO_LE' ||
+      e.type === 'INSTANT_VANQUISH_HERO_AT_PAWN' ||
+      e.type === 'HYPNOTIZE_HERO' ||
+      e.type === 'SET_HERO_SIZE',
   )
 }
 
@@ -309,6 +438,22 @@ export function cardNeedsHeroTarget(card: CardInstance): boolean {
  *  Intimidation, Tendre un Piège. */
 export function cardNeedsVanquishTarget(card: CardInstance): boolean {
   return (card.effects ?? []).some((e) => e.type === 'VANQUISH_HERO')
+}
+
+/** Vrai si cette carte exige de désigner un Allié/Objet du royaume à sacrifier
+ *  (Jafar : Sacrifice Nécessaire). */
+export function cardNeedsSacrificeTarget(card: CardInstance): boolean {
+  return (card.effects ?? []).some((e) => e.type === 'DISCARD_OWN_FOR_POWER')
+}
+
+/** Alliés et Objets (non associés) du royaume du joueur actif, candidats au
+ *  sacrifice (Sacrifice Nécessaire). */
+export function sacrificeableCards(state: GameState): CardInstance[] {
+  const me = activePlayer(state)
+  // Un Allié, OU un Objet (y compris associé à un Allié / Héros hypnotisé).
+  return me.locations.flatMap((loc) =>
+    (me.board[loc.id] ?? []).filter((c) => c.type === 'ally' || c.type === 'item'),
+  )
 }
 
 /** Vrai si cette carte demande aussi un Allié à déplacer librement avant le
@@ -337,10 +482,24 @@ export function conditionIsTriggered(
       )
     case 'opponent-allies-in-realm-ge': {
       const allies = Object.values(opp.board).flat().filter((c) => c.type === 'ally').length
-      return allies >= card.trigger.value
+      return (
+        allies >= card.trigger.value &&
+        (!card.trigger.requiresOwnAlly || me.hand.some((c) => c.type === 'ally'))
+      )
+    }
+    case 'opponent-items-in-realm-ge': {
+      // Les Malédictions de Maléfique comptent comme des Objets.
+      const items = Object.values(opp.board)
+        .flat()
+        .filter((c) => c.type === 'item' || c.type === 'curse').length
+      return items >= card.trigger.value
     }
     case 'opponent-vanquished-hero-strength-ge':
       return (state.lastVanquishedHeroStrength ?? 0) >= card.trigger.value
+    case 'opponent-moved-card':
+      return !!state.activeMovedCard
+    case 'opponent-drew-card':
+      return !!state.activeDrewCard
   }
 }
 
@@ -382,6 +541,11 @@ export function effectiveCost(
     const destCell = me.board[destination] ?? []
     surcharge += destCell.filter((c) => c.cardId === 'epee-verite').length * 2
   }
+  // Jafar — Razoul : jouer un Allié sur le lieu de Razoul coûte 1 de moins.
+  if (card.type === 'ally' && destination) {
+    const destCell = me.board[destination] ?? []
+    if (destCell.some((c) => c.cardId === 'razoul')) discount += 1
+  }
   return Math.max(0, base - discount + surcharge)
 }
 
@@ -396,6 +560,30 @@ export function hasReachedObjective(state: GameState): boolean {
       return p.locations.every((loc) =>
         (p.board[loc.id] ?? []).some((c) => c.type === 'curse'),
       )
+    case 'CARDS_IN_REALM': {
+      const obj = p.objective
+      const total = p.locations.reduce(
+        (n, loc) =>
+          n + (p.board[loc.id] ?? []).filter((c) => c.cardId === obj.cardId && !c.attachedTo).length,
+        0,
+      )
+      return total >= obj.count
+    }
+    case 'CONTROL_HERO': {
+      const obj = p.objective
+      // Contrôler le Héros visé (Héros hypnotisé présent dans le royaume)…
+      const controls = Object.values(p.board).some((cards) =>
+        cards.some((c) => c.type === 'hero' && c.cardId === obj.heroCardId && c.hypnotized),
+      )
+      // …et avoir l'Objet requis posé sur le lieu requis.
+      const itemPlaced = (p.board[obj.itemLocationId] ?? []).some(
+        (c) => c.cardId === obj.itemCardId,
+      )
+      return controls && itemPlaced
+    }
+    case 'ROYAL_CROQUET':
+      // Victoire déclenchée par la carte Coup Royal (pas un contrôle passif).
+      return false
   }
 }
 
