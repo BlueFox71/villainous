@@ -74,6 +74,14 @@ export function PlayerPanel({ player, accent, isActive, isWinner }: Props) {
               heroCardId={player.objective.heroCardId}
               locationId={player.objective.locationId}
             />
+          ) : player.objective.type === 'ITEMS_AT_LOCATION' ? (
+            <ItemsAtLocationProgress
+              player={player}
+              accent={accent}
+              isWinner={isWinner}
+              itemCardIds={player.objective.itemCardIds}
+              locationId={player.objective.locationId}
+            />
           ) : (
             <CurseEachLocationProgress
               player={player}
@@ -277,6 +285,44 @@ function DefeatHeroProgress({
             }`}
           />
         ))}
+      </div>
+    </>
+  )
+}
+
+function ItemsAtLocationProgress({
+  player,
+  accent,
+  isWinner,
+  itemCardIds,
+  locationId,
+}: {
+  player: PlayerState
+  accent: Accent
+  isWinner: boolean
+  itemCardIds: string[]
+  locationId: string
+}) {
+  const cell = player.board[locationId] ?? []
+  const locName = player.locations.find((l) => l.id === locationId)?.name ?? locationId
+  const atLoc = itemCardIds.filter((id) => cell.some((c) => c.cardId === id && !c.attachedTo)).length
+  return (
+    <>
+      <div className="mb-1 flex justify-between text-[10px]">
+        <span className={accent.accentText}>{locName}</span>
+        <span className="font-mono text-white">{atLoc} / {itemCardIds.length}</span>
+      </div>
+      <div className="flex gap-1">
+        {itemCardIds.map((id) => {
+          const ok = cell.some((c) => c.cardId === id && !c.attachedTo)
+          return (
+            <div
+              key={id}
+              title={getCardDef(id)?.name ?? id}
+              className={`h-2 flex-1 rounded-full ${ok ? (isWinner ? 'bg-amber-400' : accent.gauge) : 'bg-black/40'}`}
+            />
+          )
+        })}
       </div>
     </>
   )

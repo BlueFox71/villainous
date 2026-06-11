@@ -94,6 +94,16 @@ function objectiveScore(p: PlayerState): number {
       if (!targetLoc) return 0
       return targetLoc === obj.locationId ? 1 : 0.5
     }
+    case 'ITEMS_AT_LOCATION': {
+      // Ursula : récompense les Objets requis présents dans le royaume, davantage
+      // s'ils sont déjà sur le lieu cible (Trident + Couronne au Repaire).
+      const obj = p.objective
+      const all = Object.values(p.board).flat()
+      const cell = p.board[obj.locationId] ?? []
+      const inRealm = obj.itemCardIds.filter((id) => all.some((c) => c.cardId === id && !c.attachedTo)).length
+      const atLoc = obj.itemCardIds.filter((id) => cell.some((c) => c.cardId === id && !c.attachedTo)).length
+      return (inRealm * 0.4 + atLoc * 0.6) / obj.itemCardIds.length
+    }
   }
 }
 

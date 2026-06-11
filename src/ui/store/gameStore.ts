@@ -32,9 +32,11 @@ import { reineCoeur } from '../../data/villains/reineCoeur'
 import { reineCoeurCards } from '../../data/villains/reineCoeur.cards'
 import { crochet } from '../../data/villains/crochet'
 import { crochetCards } from '../../data/villains/crochet.cards'
+import { ursula } from '../../data/villains/ursula'
+import { ursulaCards } from '../../data/villains/ursula.cards'
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -43,6 +45,7 @@ export const VILLAIN_REGISTRY = {
   jafar: { def: jafar, cards: jafarCards, label: 'Jafar' },
   reineCoeur: { def: reineCoeur, cards: reineCoeurCards, label: 'Reine de Cœur' },
   crochet: { def: crochet, cards: crochetCards, label: 'Capitaine Crochet' },
+  ursula: { def: ursula, cards: ursulaCards, label: 'Ursula' },
 } as const
 
 /** Qui est contrôlé par un bot. Concept d'UI : le moteur, lui, ne sait pas qui
@@ -339,6 +342,10 @@ interface GameStore {
   resolveFetchedHero: (play: boolean, to?: string) => void
   /** Carte du Pays Imaginaire : défausse-la et joue gratuitement un Objet de la main. */
   useNeverlandMap: (itemInstanceId: string, to: string, attachTo?: string) => void
+  /** Opportunisme : reprend en main la carte choisie de la défausse Vilain. */
+  resolveRecover: (instanceId: string) => void
+  /** Colère Titanesque : choisit le lieu voisin où effectuer une action. */
+  resolveGiantLocation: (locationId: string) => void
   endTurn: () => void
   reset: (villains?: [VillainKey, VillainKey]) => void
   /** Fait jouer UN coup au bot, si le joueur actif est un bot. */
@@ -549,6 +556,10 @@ export const useGameStore = create<GameStore>((set) => ({
     set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_FETCHED_HERO', play, to }) })),
   useNeverlandMap: (itemInstanceId, to, attachTo) =>
     set((s) => ({ state: applyAction(s.state, { type: 'USE_NEVERLAND_MAP', itemInstanceId, to, attachTo }) })),
+  resolveRecover: (instanceId) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_RECOVER', instanceId }) })),
+  resolveGiantLocation: (locationId) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_GIANT_LOCATION', locationId }) })),
   endTurn: () =>
     set((s) => ({ state: applyAction(s.state, { type: 'END_TURN' }) })),
   reset: (villains) => set({ state: newGame(villains), testMode: false }),

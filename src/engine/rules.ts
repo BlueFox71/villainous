@@ -231,6 +231,15 @@ export function locationOfCard(player: PlayerState, instanceId: string): Locatio
 
 /** Cartes du joueur actif déplaçables par « Déplacer un Allié/Objet » : Alliés et
  *  Objets « racine » (un Objet associé suit son Allié, il n'est pas déplacé seul). */
+/** Ursula — Ariel : un Objet « gelé » (frozenBy) n'est pas déplaçable par Ursula
+ *  tant que le Héros qui l'a gelé (Ariel) est présent dans son royaume. */
+export function isItemFrozen(player: PlayerState, card: CardInstance): boolean {
+  if (!card.frozenBy) return false
+  return Object.values(player.board)
+    .flat()
+    .some((c) => c.instanceId === card.frozenBy && c.type === 'hero')
+}
+
 export function movableCards(state: GameState): { instanceId: string; from: LocationId }[] {
   const me = activePlayer(state)
   const locked = new Set(me.lockedLocations ?? [])
@@ -239,6 +248,7 @@ export function movableCards(state: GameState): { instanceId: string; from: Loca
     // Rien ne peut être déplacé DEPUIS un lieu verrouillé.
     if (locked.has(loc.id)) continue
     for (const c of me.board[loc.id] ?? []) {
+      if (isItemFrozen(me, c)) continue // Ariel : Objet gelé
       // Une Malédiction est traitée comme un Objet : elle se déplace aussi. Un
       // Héros hypnotisé (Jafar) compte comme un Allié → déplaçable lui aussi.
       const isControlledAlly = c.type === 'hero' && c.hypnotized
@@ -635,6 +645,11 @@ export function hasReachedObjective(state: GameState): boolean {
     case 'DEFEAT_HERO_AT_LOCATION':
       // Victoire déclenchée à l'instant du Vanquish (performVanquish), pas ici.
       return false
+    case 'ITEMS_AT_LOCATION': {
+      const obj = p.objective
+      const cell = p.board[obj.locationId] ?? []
+      return obj.itemCardIds.every((id) => cell.some((c) => c.cardId === id && !c.attachedTo))
+    }
   }
 }
 

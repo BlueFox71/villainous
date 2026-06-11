@@ -112,4 +112,20 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       "Migraine Atroce lui retire ses Objets (Canon, Sabre) et casse son installation.",
     ],
   },
+  ursula: {
+    difficulty: 5,
+    story:
+      "Sorcière des mers de La Petite Sirène (1989), Ursula attire les âmes désespérées et leur fait signer des pactes qu'elle est sûre de gagner. Avec ses anguilles Flotsam et Jetsam, elle convoite le trident et la couronne du Roi Triton pour régner sur l'océan.",
+    playTips: [
+      "Objectif : amène le Trident ET la Couronne à ton Repaire, au début d'un tour.",
+      "Récupère le Trident en vainquant le Roi Triton — un Pacte associé à lui le fait éliminer quand il est déplacé sur le bon lieu.",
+      "La Métamorphose déplace le Cadenas entre le Palais et le Repaire : débloque le Palais quand tu en as besoin.",
+      "Le Chaudron et les actions « Gagner » financent tes Pactes et tes Objets coûteux.",
+    ],
+    counterTips: [
+      "Ariel bloque le déplacement d'un Objet ; garde le Trident ou la Couronne loin du Repaire.",
+      "Grimsby déplace le Cadenas et peut reverrouiller le Repaire au mauvais moment pour elle.",
+      "Bigette Bulbeuse renchérit ses Pactes ; Zirgouflex la saigne en Pouvoir quand elle se déplace.",
+    ],
+  },
 }

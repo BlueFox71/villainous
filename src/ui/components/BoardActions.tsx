@@ -174,6 +174,33 @@ const ACTION_POS: Record<string, Record<string, Record<string, { x: number; y: n
       'play-card': { x: 92.9, y: 68 },
     },
   },
+  // Ursula : même gabarit de plateau (panneau objectif + 4 lieux).
+  ursula: {
+    repaire: {
+      'gain-power': { x: 22.7, y: 20 },
+      activate: { x: 30.5, y: 20 },
+      'move-item-ally': { x: 22.7, y: 68 },
+      'play-card': { x: 30.5, y: 68 },
+    },
+    navire: {
+      'gain-power': { x: 43.5, y: 20 },
+      'play-card': { x: 51.4, y: 20 },
+      fate: { x: 43.5, y: 68 },
+      discard: { x: 51.4, y: 68 },
+    },
+    rivage: {
+      'play-card-top': { x: 64.3, y: 20 },
+      discard: { x: 72.1, y: 20 },
+      'gain-power': { x: 64.3, y: 68 },
+      'play-card-bottom': { x: 72.1, y: 68 },
+    },
+    palais: {
+      'move-item-ally': { x: 85.1, y: 20 },
+      fate: { x: 92.9, y: 20 },
+      'move-hero': { x: 85.1, y: 68 },
+      'gain-power': { x: 92.9, y: 68 },
+    },
+  },
 }
 
 interface Props {
@@ -185,6 +212,9 @@ interface Props {
   /** Lieu dont les actions du HAUT clignotent (Persifleur : choisir une action
    *  recouverte). */
   blinkTopAtLocation?: string | null
+  /** Lieu « actif » pour les actions (par défaut le lieu du pion ; Colère
+   *  Titanesque d'Ursula le déplace temporairement vers un lieu voisin). */
+  activeLocationId?: string
   onActionClick: (action: LocationAction) => void
 }
 
@@ -198,10 +228,12 @@ export function BoardActions({
   availableActionIds,
   usedActionIds,
   blinkTopAtLocation = null,
+  activeLocationId,
   onActionClick,
 }: Props) {
   const layout = ACTION_POS[player.villain]
   if (!layout) return null
+  const currentLoc = activeLocationId ?? player.pawnLocation
 
   return (
     <>
@@ -209,7 +241,7 @@ export function BoardActions({
         loc.actions.map((a) => {
           const pos = layout[loc.id]?.[a.id]
           if (!pos) return null
-          const isCurrent = player.pawnLocation === loc.id
+          const isCurrent = currentLoc === loc.id
           const available = isCurrent && availableActionIds.includes(a.id)
           const used = isCurrent && usedActionIds.includes(a.id)
           // Un Héros posé recouvre la rangée du HAUT de son lieu : on masque ces

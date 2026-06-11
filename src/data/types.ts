@@ -92,6 +92,9 @@ export interface CardDef {
    *  posé (Canon → Vaincre, Boîte à Crochets → Gagner 1, Ingénieux → Déplacer un
    *  Héros). */
   grantsAction?: { type: LocationActionType; amount?: number; label: string }
+  /** Ursula — Pacte : lieu lié au Pacte (le Héros porteur est éliminé s'il y est
+   *  déplacé). */
+  contractLocationId?: LocationId
 }
 
 /** Développe une liste de définitions en un paquet concret (un élément par
@@ -137,6 +140,7 @@ export function buildDeckInstances(
           activatedCost: c.activatedCost,
           playOnlyAt: c.playOnlyAt,
           grantsAction: c.grantsAction,
+          contractLocationId: c.contractLocationId,
         }),
       ),
     )

@@ -7,15 +7,18 @@ interface Props {
   target: PlayerState
   /** Déplace le Héros choisi vers le lieu voisin. */
   onResolve: (heroInstanceId: string, to: string) => void
+  /** Tourbillon (Ursula) : autorise N'IMPORTE quel lieu non bloqué. */
+  anyLocation?: boolean
 }
 
 /**
  * Apparition / Vent de panique : choisir un Héros du royaume de `target` puis un
- * lieu voisin de sa position.
+ * lieu voisin de sa position (ou n'importe quel lieu non bloqué — Tourbillon).
  */
-export function HeroRelocateModal({ target, onResolve }: Props) {
+export function HeroRelocateModal({ target, onResolve, anyLocation = false }: Props) {
   const [heroId, setHeroId] = useState<string | null>(null)
   const ids = target.locations.map((l) => l.id)
+  const locked = new Set(target.lockedLocations ?? [])
   const nameOf = (id: string) => target.locations.find((l) => l.id === id)?.name ?? id
 
   const heroes = target.locations.flatMap((loc) =>
@@ -25,10 +28,12 @@ export function HeroRelocateModal({ target, onResolve }: Props) {
   )
   const picked = heroes.find((h) => h.id === heroId)
   const adj = picked
-    ? (() => {
-        const i = ids.indexOf(picked.from)
-        return [ids[i - 1], ids[i + 1]].filter(Boolean) as string[]
-      })()
+    ? anyLocation
+      ? ids.filter((id) => id !== picked.from && !locked.has(id))
+      : (() => {
+          const i = ids.indexOf(picked.from)
+          return [ids[i - 1], ids[i + 1]].filter((id): id is string => !!id && !locked.has(id))
+        })()
     : []
 
   return (

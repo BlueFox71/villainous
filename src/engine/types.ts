@@ -121,6 +121,9 @@ export type ObjectiveDef =
    *  précis (`locationId`). Victoire ÉVÉNEMENTIELLE — déclenchée à l'instant du
    *  Vanquish (performVanquish), pas par un contrôle passif en début de tour. */
   | { type: 'DEFEAT_HERO_AT_LOCATION'; heroCardId: string; locationId: LocationId }
+  /** Ursula : avoir TOUS les Objets `itemCardIds` (non associés) posés sur le lieu
+   *  `locationId` au début de son tour (Trident + Couronne au Repaire). */
+  | { type: 'ITEMS_AT_LOCATION'; itemCardIds: string[]; locationId: LocationId }
 
 /** Phase courante à l'intérieur d'un tour. */
 export type TurnPhase =
@@ -265,13 +268,48 @@ export type Effect =
    *  associer au Héros (ctx.hostInstanceId). `fromHand` (Aladdin) inclut aussi les
    *  Objets de la main de la cible. Ouvre pendingFateChoice. */
   | { type: 'STEAL_ITEM_TO_HERO'; fromHand?: boolean }
+  /** Ursula — Métamorphose / Grimsby : déplace le Cadenas entre le Palais et le
+   *  Repaire d'Ursula (exactement un des deux est bloqué). */
+  | { type: 'TOGGLE_URSULA_LOCK' }
+  /** Ursula — Chaudron : gagne `amount` Pouvoir par Pacte (carte avec
+   *  contractLocationId) dans le royaume. */
+  | { type: 'GAIN_POWER_PER_CONTRACT'; amount: number }
+  /** Ursula — Divination : dévoile la pioche Vilain jusqu'à un Pacte, l'ajoute à
+   *  la main, défausse les autres dévoilées. */
+  | { type: 'REVEAL_VILLAIN_UNTIL_CONTRACT' }
+  /** Ursula — Polochon (Fatalité) : mélange la défausse Vilain de l'acteur dans
+   *  sa pioche Vilain. */
+  | { type: 'SHUFFLE_VILLAIN_DISCARD' }
+  /** Ursula — Eurêka (Fatalité) : associe au Héros hôte (ctx.hostInstanceId) un
+   *  Objet pris dans la défausse Fatalité de l'acteur. */
+  | { type: 'EUREKA_ATTACH_ITEM' }
+  /** Ursula — Sébastien (Fatalité) : ouvre le choix d'un Pacte (associé à un autre
+   *  Héros) à transférer sur le Héros hôte (ctx.hostInstanceId). */
+  | { type: 'STEAL_CONTRACT_TO_HOST' }
+  /** Ursula — Max (Fatalité) : si joué sur le lieu d'Ursula, l'adversaire déplace
+   *  la figurine d'Ursula vers un lieu non bloqué (pendingPawnMove). */
+  | { type: 'MOVE_URSULA_PAWN' }
+  /** Ursula — Opportunisme : récupère un Objet ou un Événement de la défausse
+   *  Vilain (au choix) et l'ajoute à la main. */
+  | { type: 'RECOVER_ITEM_OR_EVENT' }
+  /** Ursula — Ariel (Fatalité) : déplace un Objet du royaume sur le lieu d'Ariel
+   *  (ctx.hostLocationId) et le « gèle » (Ursula ne peut plus le déplacer tant
+   *  qu'Ariel est en jeu). */
+  | { type: 'ARIEL_FREEZE_ITEM' }
+  /** Ursula — Âmes en Perdition : déplace chaque Héros portant un Pacte vers le
+   *  lieu de son Pacte s'il est voisin non bloqué (déclenche les Pactes). */
+  | { type: 'AMES_EN_PERDITION' }
+  /** Ursula — Colère Titanesque : ouvre le choix d'un lieu voisin où effectuer une
+   *  action (pendingGiantAction). */
+  | { type: 'GIANT_ACTION' }
   /** Capitaine Crochet — Digne Adversaire / Obsession : dévoile le deck Fatalité
    *  de l'acteur jusqu'à trouver un Héros, le joue dans SON royaume (Peter Pan →
    *  Arbre du Pendu, sinon lieu du pion), défausse les autres cartes dévoilées. */
   | { type: 'REVEAL_OWN_FATE_PLAY_HERO' }
   /** Capitaine Crochet — Monsieur Starkey : ouvre le déplacement d'un Héros du
-   *  royaume de l'acteur vers un lieu voisin (pendingHeroRelocate). */
-  | { type: 'RELOCATE_OWN_HERO' }
+   *  royaume de l'acteur vers un lieu voisin (pendingHeroRelocate). `anyLocation`
+   *  (Tourbillon/Ursula) autorise N'IMPORTE quel lieu non bloqué. */
+  | { type: 'RELOCATE_OWN_HERO'; anyLocation?: boolean }
   /** Capitaine Crochet — Faites-leur peur ! : regarde les 2 premières cartes
    *  Fatalité de l'acteur ; défausse automatiquement les non-Héros, garde les
    *  Héros sur le dessus (heuristique : on creuse vers les Héros). */
@@ -314,6 +352,12 @@ export interface CardInstance {
   /** Bonus de force temporaire « jusqu'à la fin du tour » (Pas de Quartier !).
    *  Remis à zéro à la fin du tour du joueur actif. */
   tempStrengthBonus?: number
+  /** Ursula — Pacte : lieu lié au Pacte. Le Héros porteur est éliminé s'il est
+   *  déplacé sur ce lieu. */
+  contractLocationId?: LocationId
+  /** Ursula — Ariel : Objet « gelé ». Ursula ne peut plus le déplacer tant que le
+   *  Héros d'instanceId `frozenBy` (Ariel) est présent dans son royaume. */
+  frozenBy?: string
   /** Si cet exemplaire est associé à une autre carte, `instanceId` de la carte
    *  porteuse (un Allié). Fixé à la pose ; absent pour les Alliés et les Objets
    *  posés directement sur le lieu. La carte porteuse vit sur le même lieu. */
@@ -606,7 +650,7 @@ export interface GameState {
    * Apparition (chooser = target = Slenderman) ; Vent de panique (Fatalité :
    * chooser = adversaire, target = Slenderman). Absent / `null` hors de ce choix.
    */
-  pendingHeroRelocate?: { chooserIndex: number; targetIndex: number } | null
+  pendingHeroRelocate?: { chooserIndex: number; targetIndex: number; anyLocation?: boolean } | null
   /** Téléportation (Slenderman) : `playerIndex` doit choisir un lieu portant un
    *  Héros où déplacer son pion (RESOLVE_TELEPORT). Absent / `null` sinon. */
   pendingTeleport?: { playerIndex: number } | null
@@ -652,6 +696,18 @@ export interface GameState {
    *  (RESOLVE_FETCHED_HERO). `discarded` = autres cartes dévoilées (à défausser),
    *  montrées pour information. */
   pendingFetchedHero?: { playerIndex: number; hero: CardInstance; discarded: CardInstance[] } | null
+  /** Opportunisme (Ursula) : `playerIndex` choisit une carte (`candidateIds`) de sa
+   *  défausse Vilain à reprendre en main (RESOLVE_RECOVER). */
+  pendingRecover?: { playerIndex: number; candidateIds: string[] } | null
+  /** Colère Titanesque (Ursula) : `playerIndex` doit choisir un lieu voisin sur
+   *  lequel effectuer une action (RESOLVE_GIANT_LOCATION). */
+  pendingGiantAction?: { playerIndex: number } | null
+  /** Colère Titanesque : tant que ce champ est posé, le joueur actif agit comme
+   *  s'il était sur ce lieu (cf. currentLocation) ; effacé après UNE action. */
+  actAtLocation?: LocationId | null
+  /** Sauvegarde de `usedActionIds` avant l'action « géante », restaurée après
+   *  (l'action d'un lieu voisin ne consomme pas l'économie d'actions normale). */
+  usedBeforeGiant?: string[] | null
   /** Le joueur actif a déplacé un Allié/Objet ce tour-ci (déclencheur Sombres desseins). */
   activeMovedCard?: boolean
   /** Le joueur actif a pioché ≥1 carte ce tour-ci via un effet (déclencheur Sans visage). */
@@ -866,6 +922,11 @@ export type GameAction =
    *  gratuitement l'Objet `itemInstanceId` de la main sur le lieu `to`
    *  (associé à `attachTo` si l'Objet s'associe). */
   | { type: 'USE_NEVERLAND_MAP'; itemInstanceId: string; to: LocationId; attachTo?: string }
+  /** Opportunisme : reprend en main la carte `instanceId` de la défausse Vilain. */
+  | { type: 'RESOLVE_RECOVER'; instanceId: string }
+  /** Colère Titanesque : choisit le lieu voisin `locationId` où agir (le joueur y
+   *  effectue ensuite UNE action normale). */
+  | { type: 'RESOLVE_GIANT_LOCATION'; locationId: LocationId }
   /** MODE TEST uniquement : inflige directement un Héros Fatalité (déjà construit
    *  par l'UI) sur un lieu du joueur ACTIF, déclenchant ses effets « à la pose »,
    *  les arrivées et les showcases — comme si un adversaire l'avait joué. */

@@ -49,6 +49,7 @@ import { ScryModal } from './components/ScryModal'
 import { AllyMoveBuffModal } from './components/AllyMoveBuffModal'
 import { FetchedHeroModal } from './components/FetchedHeroModal'
 import { NeverlandMapModal } from './components/NeverlandMapModal'
+import { GiantActionModal } from './components/GiantActionModal'
 import { StartRollModal } from './components/StartRollModal'
 import { MusicPlayer } from './components/MusicPlayer'
 import { Showcase } from './components/Showcase'
@@ -173,6 +174,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveFateChoice = useGameStore((s) => s.resolveFateChoice)
   const resolveFetchedHero = useGameStore((s) => s.resolveFetchedHero)
   const useNeverlandMap = useGameStore((s) => s.useNeverlandMap)
+  const resolveRecover = useGameStore((s) => s.resolveRecover)
+  const resolveGiantLocation = useGameStore((s) => s.resolveGiantLocation)
   const endTurn = useGameStore((s) => s.endTurn)
   const reset = useGameStore((s) => s.reset)
   const botAct = useGameStore((s) => s.botAct)
@@ -647,6 +650,22 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       }
       return
     }
+    // Opportunisme : le bot reprend la carte la plus chère de sa défausse.
+    const prec = state.pendingRecover
+    if (prec) {
+      if (BOTS[prec.playerIndex]) {
+        const p = state.players[prec.playerIndex]
+        const cands = prec.candidateIds
+          .map((id) => p.discard.find((c) => c.instanceId === id))
+          .filter((c): c is NonNullable<typeof c> => !!c)
+        const pick = [...cands].sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0))[0]
+        if (pick) {
+          const timer = setTimeout(() => resolveRecover(pick.instanceId), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
     // Abu/Aladdin/K.O. : le bot (s'il a joué la Fatalité) choisit la cible — pour
     // K.O. l'Allié le plus fort éligible, sinon le 1ᵉʳ Objet.
     const pfc = state.pendingFateChoice
@@ -738,11 +757,15 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       if (BOTS[phr.chooserIndex]) {
         const tgt = state.players[phr.targetIndex]
         const ids = tgt.locations.map((l) => l.id)
+        const locked = new Set(tgt.lockedLocations ?? [])
         for (const loc of tgt.locations) {
           const hero = (tgt.board[loc.id] ?? []).find((c) => c.type === 'hero')
           if (hero) {
             const i = ids.indexOf(loc.id)
-            const to = ids[i - 1] ?? ids[i + 1]
+            const cands = phr.anyLocation
+              ? ids.filter((id) => id !== loc.id && !locked.has(id))
+              : [ids[i - 1], ids[i + 1]].filter((id): id is string => !!id && !locked.has(id))
+            const to = cands[0]
             if (to) {
               const timer = setTimeout(() => resolveHeroRelocate(hero.instanceId, to), BOT_STEP_MS)
               return () => clearTimeout(timer)
@@ -817,7 +840,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [isBotTurn, startRollDone, state, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero])
+  }, [isBotTurn, startRollDone, state, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveRecover])
 
   // Coups légaux / actions : seulement pour le joueur humain et à son tour.
   const legalMoves = isHumanTurn ? getLegalMoves(state) : []
@@ -1535,6 +1558,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               availableActionIds={availableActions.map((a) => a.id)}
               usedActionIds={isHumanTurn ? state.usedActionIds : []}
               blinkTopAtLocation={persifleurLoc}
+              activeLocationId={state.actAtLocation || user.pawnLocation || undefined}
               onActionClick={handleBoardAction}
             />
             <button
@@ -2042,6 +2066,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       {state.pendingHeroRelocate && state.pendingHeroRelocate.chooserIndex === HUMAN && (
         <HeroRelocateModal
           target={state.players[state.pendingHeroRelocate.targetIndex]}
+          anyLocation={state.pendingHeroRelocate.anyLocation}
           onResolve={resolveHeroRelocate}
         />
       )}
@@ -2092,6 +2117,25 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       {/* Faites-leur peur ! : trier les 2 premières cartes Fatalité. */}
       {state.pendingScry && state.pendingScry.playerIndex === HUMAN && (
         <ScryModal cards={state.pendingScry.cards} onResolve={(ids) => resolveScry(ids)} />
+      )}
+
+      {/* Opportunisme : récupérer un Objet/Événement de la défausse Vilain. */}
+      {state.pendingRecover && state.pendingRecover.playerIndex === HUMAN && (() => {
+        const ids = new Set(state.pendingRecover.candidateIds)
+        const cards = user.discard.filter((c) => ids.has(c.instanceId))
+        return (
+          <CardChoiceModal
+            title="Opportunisme : reprends un Objet ou un Événement"
+            cards={cards}
+            onClose={() => cards[0] && resolveRecover(cards[0].instanceId)}
+            onPick={(card) => resolveRecover(card.instanceId)}
+          />
+        )
+      })()}
+
+      {/* Colère Titanesque : choisir un lieu voisin où agir. */}
+      {state.pendingGiantAction && state.pendingGiantAction.playerIndex === HUMAN && (
+        <GiantActionModal player={user} onResolve={(loc) => resolveGiantLocation(loc)} />
       )}
 
       {/* Carte du Pays Imaginaire : défausser pour jouer un Objet gratuitement. */}

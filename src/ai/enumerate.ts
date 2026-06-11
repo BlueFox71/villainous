@@ -70,6 +70,15 @@ export function enumerateActions(state: GameState): GameAction[] {
     return out // `guards` est non vide (pending posé seulement s'il y a des Gardes)
   }
 
+  // Colère Titanesque : choisir un lieu voisin où agir (puis on agit normalement).
+  if (state.pendingGiantAction) {
+    const p = state.players[state.pendingGiantAction.playerIndex]
+    const order = p.locations.map((l) => l.id)
+    const i = order.indexOf(p.pawnLocation ?? '')
+    const neighbors = [order[i - 1], order[i + 1]].filter((id): id is string => !!id)
+    return neighbors.map((loc) => ({ type: 'RESOLVE_GIANT_LOCATION', locationId: loc }))
+  }
+
   // Digne Adversaire / Obsession : le Héros révélé doit être JOUÉ ; on choisit le lieu.
   if (state.pendingFetchedHero) {
     const pfh = state.pendingFetchedHero

@@ -331,6 +331,50 @@ export function performVanquish(
   })
 }
 
+/**
+ * Ursula — Pacte : si le Héros `heroId` (lieu `loc`) porte un Pacte dont le lieu
+ * lié est `loc`, il est éliminé. Les Pactes vont en défausse Vilain, le Trident
+ * éventuellement associé est LIBÉRÉ (Objet libre au même lieu), les autres Objets
+ * associés et le Héros vont en défausse Fatalité. Renvoie `state` inchangé (même
+ * référence) si aucun Pacte ne se déclenche. */
+function checkPacteDefeat(state: GameState, idx: number, heroId: string, loc: LocationId): GameState {
+  const p = state.players[idx]
+  const cell = p.board[loc] ?? []
+  const hero = cell.find((c) => c.instanceId === heroId)
+  if (!hero || hero.type !== 'hero') return state
+  const attached = cell.filter((c) => c.attachedTo === heroId)
+  const pacte = attached.find((c) => c.contractLocationId === loc)
+  if (!pacte) return state
+  const trident = attached.find((c) => c.cardId === 'trident')
+  const released = trident ? [{ ...trident, attachedTo: undefined }] : []
+  const removedIds = new Set([heroId, ...attached.map((c) => c.instanceId)])
+  const toVillain = attached.filter((c) => c.contractLocationId) // les Pactes
+  const toFate = attached.filter((c) => c.cardId !== 'trident' && !c.contractLocationId) // Objets Fatalité associés
+  let next = updatePlayer(state, idx, (pp) => ({
+    ...pp,
+    board: {
+      ...pp.board,
+      [loc]: [...(pp.board[loc] ?? []).filter((c) => !removedIds.has(c.instanceId)), ...released],
+    },
+    fateDiscard: [...pp.fateDiscard, { ...hero, lockedPower: undefined }, ...toFate],
+    discard: [...pp.discard, ...toVillain],
+  }))
+  next = {
+    ...next,
+    lastVanquishedHeroStrength: Math.max(next.lastVanquishedHeroStrength ?? 0, hero.strength ?? 0),
+    log: [
+      ...next.log,
+      `Pacte : **${hero.name}** est éliminé en arrivant sur **${loc}**${trident ? ' — le Trident est libéré !' : ''}.`,
+    ],
+  }
+  // Effets « à la mort » du Héros (cohérence avec performVanquish).
+  return resolveEffects(next, hero.onVanquish ?? [], {
+    actorIndex: idx,
+    hostInstanceId: hero.instanceId,
+    hostLocationId: loc,
+  })
+}
+
 /** Résout un effet unique pour un joueur ACTEUR (par défaut : joueur actif). */
 export function resolveEffect(
   state: GameState,
@@ -559,18 +603,24 @@ export function resolveEffect(
       if (from === dest) {
         return { ...state, log: [...state.log, `**${hero.name}** est déjà à ${dest}.`] }
       }
+      // Le Héros se déplace AVEC ses Objets associés (Pacte, Trident, Objets Fatalité).
+      const carried = (actor.board[from] ?? []).filter((c) => c.attachedTo === target)
+      const movingIds = new Set([target, ...carried.map((c) => c.instanceId)])
       let next = updatePlayer(state, idx, (p) => ({
         ...p,
         board: {
           ...p.board,
-          [from!]: (p.board[from!] ?? []).filter((c) => c.instanceId !== target),
-          [dest]: [...(p.board[dest] ?? []), hero!],
+          [from!]: (p.board[from!] ?? []).filter((c) => !movingIds.has(c.instanceId)),
+          [dest]: [...(p.board[dest] ?? []), hero!, ...carried],
         },
       }))
       next = {
         ...next,
         log: [...next.log, `**${hero.name}** est déplacé(e) sur **${dest}**.`],
       }
+      // Ursula — Pacte : le Héros est éliminé s'il arrive sur le lieu de son Pacte.
+      const afterPacte = checkPacteDefeat(next, idx, target, dest)
+      if (afterPacte !== next) return afterPacte
       // L'arrivée déclenche les Mandats d'Arrêt du lieu (C.1).
       return triggerHeroArrival(next, idx, dest)
     }
@@ -1311,8 +1361,11 @@ export function resolveEffect(
       if (!hasHero) return state
       return {
         ...state,
-        pendingHeroRelocate: { chooserIndex: idx, targetIndex: idx },
-        log: [...state.log, `${actor.villainName} (Monsieur Starkey) peut déplacer un Héros vers un lieu voisin.`],
+        pendingHeroRelocate: { chooserIndex: idx, targetIndex: idx, anyLocation: effect.anyLocation },
+        log: [
+          ...state.log,
+          `${actor.villainName} peut déplacer un Héros vers ${effect.anyLocation ? 'un lieu non bloqué' : 'un lieu voisin'}.`,
+        ],
       }
     }
     case 'SCRY_OWN_FATE_TOP2': {
@@ -1361,6 +1414,216 @@ export function resolveEffect(
         log: [
           ...state.log,
           `${actor.villainName} (Pas de Quartier !) : déplacez un Allié vers un lieu voisin (+${effect.amount} force ce tour-ci).`,
+        ],
+      }
+    }
+    case 'GAIN_POWER_PER_CONTRACT': {
+      // Ursula — Chaudron : +amount Pouvoir par Pacte dans le royaume.
+      const p = state.players[idx]
+      const contracts = Object.values(p.board).flat().filter((c) => c.contractLocationId).length
+      const gained = contracts * effect.amount
+      const next = updatePlayer(state, idx, (pp) => ({ ...pp, power: pp.power + gained }))
+      return {
+        ...next,
+        log: [...next.log, `${p.villainName} gagne ${gained} Pouvoir (Chaudron : ${contracts} Pacte${contracts > 1 ? 's' : ''}).`],
+      }
+    }
+    case 'REVEAL_VILLAIN_UNTIL_CONTRACT': {
+      // Divination : dévoile la pioche Vilain jusqu'à un Pacte (carte avec
+      // contractLocationId), l'ajoute à la main, défausse les autres dévoilées.
+      const actor = state.players[idx]
+      let deck = actor.deck
+      let disc = actor.discard
+      let s = state.rngState
+      const revealed: CardInstance[] = []
+      let found: CardInstance | undefined
+      while (true) {
+        if (deck.length === 0) {
+          if (disc.length === 0) break
+          const r = shuffle(disc, s)
+          deck = r.result
+          s = r.state
+          disc = []
+        }
+        const [top, ...rest] = deck
+        deck = rest
+        revealed.push(top)
+        if (top.contractLocationId) {
+          found = top
+          break
+        }
+      }
+      const others = revealed.filter((c) => c !== found)
+      let next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        deck,
+        discard: [...disc, ...others],
+        hand: found ? [...p.hand, found] : p.hand,
+      }))
+      next = { ...next, rngState: s }
+      return {
+        ...next,
+        log: [...next.log, found ? `${actor.villainName} ajoute un Pacte à sa main (Divination).` : `${actor.villainName} ne trouve aucun Pacte.`],
+      }
+    }
+    case 'SHUFFLE_VILLAIN_DISCARD': {
+      // Polochon : mélange la défausse Vilain de l'acteur dans sa pioche Vilain.
+      const actor = state.players[idx]
+      if (actor.discard.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : défausse Vilain déjà vide.`] }
+      }
+      const r = shuffle([...actor.deck, ...actor.discard], state.rngState)
+      const next = updatePlayer(state, idx, (p) => ({ ...p, deck: r.result, discard: [] }))
+      return { ...next, rngState: r.state, log: [...next.log, `${actor.villainName} mélange sa défausse Vilain dans sa pioche (Polochon).`] }
+    }
+    case 'EUREKA_ATTACH_ITEM': {
+      // Eurêka : associe au Héros hôte le 1er Objet de la défausse Fatalité.
+      const host = ctx?.hostInstanceId
+      const loc = ctx?.hostLocationId
+      const actor = state.players[idx]
+      const item = actor.fateDiscard.find((c) => c.type === 'item')
+      if (!host || !loc || !item) {
+        return { ...state, log: [...state.log, 'Eurêka : aucun Objet dans la défausse Fatalité.'] }
+      }
+      const equipped: CardInstance = { ...item, attachedTo: host }
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        fateDiscard: p.fateDiscard.filter((c) => c.instanceId !== item.instanceId),
+        board: { ...p.board, [loc]: [...(p.board[loc] ?? []), equipped] },
+      }))
+      return { ...next, log: [...next.log, `Eurêka récupère **${item.name}** de la défausse Fatalité.`] }
+    }
+    case 'STEAL_CONTRACT_TO_HOST': {
+      // Sébastien : transfère un Pacte d'un autre Héros vers le Héros hôte.
+      const host = ctx?.hostInstanceId
+      const actor = state.players[idx]
+      const candidates = Object.values(actor.board)
+        .flat()
+        .filter((c) => c.contractLocationId && c.attachedTo && c.attachedTo !== host)
+      if (!host || candidates.length === 0) {
+        return { ...state, log: [...state.log, 'Sébastien : aucun Pacte à transférer.'] }
+      }
+      return {
+        ...state,
+        pendingFateChoice: {
+          chooserIndex: (idx + 1) % state.players.length,
+          targetIndex: idx,
+          kind: 'steal-item-to-hero',
+          hostInstanceId: host,
+          candidateIds: candidates.map((c) => c.instanceId),
+        },
+        log: [...state.log, 'Sébastien : transférez un Pacte sur lui.'],
+      }
+    }
+    case 'MOVE_URSULA_PAWN': {
+      // Max : si joué sur le lieu d'Ursula, l'adversaire déplace sa figurine.
+      const actor = state.players[idx]
+      const loc = ctx?.hostLocationId
+      if (!loc || actor.pawnLocation !== loc) return state
+      return {
+        ...state,
+        pendingPawnMove: { chooserIndex: (idx + 1) % state.players.length, targetIndex: idx },
+        log: [...state.log, `Max : la figurine d'${actor.villainName} peut être déplacée.`],
+      }
+    }
+    case 'RECOVER_ITEM_OR_EVENT': {
+      // Opportunisme : reprend en main un Objet ou un Événement de la défausse Vilain.
+      const actor = state.players[idx]
+      const candidates = actor.discard.filter((c) => c.type === 'item' || c.type === 'effect')
+      if (candidates.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : aucun Objet/Événement en défausse.`] }
+      }
+      return {
+        ...state,
+        pendingRecover: { playerIndex: idx, candidateIds: candidates.map((c) => c.instanceId) },
+        log: [...state.log, `${actor.villainName} récupère une carte de sa défausse (Opportunisme).`],
+      }
+    }
+    case 'GIANT_ACTION': {
+      // Colère Titanesque : ouvre le choix d'un lieu voisin (bloqué ou non) où le
+      // joueur effectuera UNE action.
+      const actor = state.players[idx]
+      const pawn = actor.pawnLocation
+      if (!pawn) return state
+      const order = actor.locations.map((l) => l.id)
+      const i = order.indexOf(pawn)
+      const neighbors = [order[i - 1], order[i + 1]].filter(Boolean)
+      if (neighbors.length === 0) return { ...state, log: [...state.log, 'Colère Titanesque : aucun lieu voisin.'] }
+      return {
+        ...state,
+        pendingGiantAction: { playerIndex: idx },
+        log: [...state.log, `${actor.villainName} (Colère Titanesque) : choisissez un lieu voisin où agir.`],
+      }
+    }
+    case 'AMES_EN_PERDITION': {
+      // Âmes en Perdition : déplace chaque Héros portant un Pacte vers le lieu de
+      // son Pacte s'il est voisin non bloqué (ce qui déclenche son élimination).
+      const actor = state.players[idx]
+      const targets: { id: string; to: string }[] = []
+      for (const l of actor.locations) {
+        const cell = actor.board[l.id] ?? []
+        for (const c of cell) {
+          if (c.type !== 'hero') continue
+          const pacte = cell.find((x) => x.attachedTo === c.instanceId && x.contractLocationId)
+          if (pacte?.contractLocationId && adjacentLocationIds(state, l.id).includes(pacte.contractLocationId)) {
+            targets.push({ id: c.instanceId, to: pacte.contractLocationId })
+          }
+        }
+      }
+      let next = state
+      for (const t of targets) {
+        next = resolveEffect(next, { type: 'MOVE_HERO_TO_LOCATION', locationId: t.to }, { actorIndex: idx, targetHeroId: t.id })
+      }
+      if (targets.length === 0) {
+        return { ...next, log: [...next.log, 'Âmes en Perdition : aucun Pacte déclenchable.'] }
+      }
+      return next
+    }
+    case 'ARIEL_FREEZE_ITEM': {
+      // Ariel : déplace un Objet du royaume sur le lieu d'Ariel et le gèle
+      // (priorité au Trident / à la Couronne — les Objets d'objectif).
+      const host = ctx?.hostInstanceId
+      const aLoc = ctx?.hostLocationId
+      const actor = state.players[idx]
+      if (!host || !aLoc) return state
+      const items: { c: CardInstance; loc: string }[] = []
+      for (const l of actor.locations) {
+        for (const c of actor.board[l.id] ?? []) {
+          if (c.type === 'item' && !c.attachedTo) items.push({ c, loc: l.id })
+        }
+      }
+      if (items.length === 0) {
+        return { ...state, log: [...state.log, 'Ariel : aucun Objet à geler.'] }
+      }
+      const chosen = items.find((x) => x.c.cardId === 'trident' || x.c.cardId === 'couronne') ?? items[0]
+      const moved: CardInstance = { ...chosen.c, frozenBy: host }
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        board: Object.fromEntries(
+          p.locations.map((l) => {
+            let cards = (p.board[l.id] ?? []).filter((c) => c.instanceId !== chosen.c.instanceId)
+            if (l.id === aLoc) cards = [...cards, moved]
+            return [l.id, cards]
+          }),
+        ),
+      }))
+      return {
+        ...next,
+        log: [...next.log, `Ariel déplace **${chosen.c.name}** sur son lieu et le gèle (Ursula ne peut plus le déplacer).`],
+      }
+    }
+    case 'TOGGLE_URSULA_LOCK': {
+      // Ursula : le Cadenas se déplace entre le Palais et le Repaire (un seul
+      // bloqué à la fois). On bascule vers l'AUTRE des deux.
+      const p = state.players[idx]
+      const locked = p.lockedLocations ?? []
+      const dest = locked.includes('palais') ? 'repaire' : 'palais'
+      const next = updatePlayer(state, idx, (pp) => ({ ...pp, lockedLocations: [dest] }))
+      return {
+        ...next,
+        log: [
+          ...next.log,
+          `${p.villainName} déplace le Cadenas sur ${dest === 'palais' ? 'le Palais' : "le Repaire d'Ursula"}.`,
         ],
       }
     }

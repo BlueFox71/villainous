@@ -175,7 +175,10 @@ export function findLocation(player: PlayerState, id: string): Location | undefi
 /** Lieu où se trouve le pion du joueur actif, ou undefined si pas encore placé. */
 export function currentLocation(state: GameState): Location | undefined {
   const p = activePlayer(state)
-  return p.pawnLocation ? findLocation(p, p.pawnLocation) : undefined
+  // Ursula — Colère Titanesque : le temps d'UNE action, le joueur agit comme s'il
+  // était sur un lieu voisin (actAtLocation).
+  const at = state.actAtLocation ?? p.pawnLocation
+  return at ? findLocation(p, at) : undefined
 }
 
 // --- Pioche ----------------------------------------------------------------

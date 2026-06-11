@@ -9,6 +9,40 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.55',
+    date: '2026-06-12',
+    title: 'Ursula : effets de cartes (presque tout)',
+    changes: [
+      'Divination (chercher un Pacte), Opportunisme (reprendre un Objet/Événement en défausse), Polochon (remélanger la défausse Vilain).',
+      'Conditions Arrogance (piocher 3 / défausser 3) et Illusion (jouer la Fatalité adverse).',
+      'Héros Fatalité : Max (déplace la figurine d’Ursula), Sébastien (vole un Pacte), Eurêka (récupère un Objet), Ariel (gèle un Objet : Ursula ne peut plus le déplacer).',
+      'Âmes en Perdition déclenche les Pactes des lieux voisins.',
+      'Colère Titanesque : effectuez une action d’un lieu voisin (vous choisissez le lieu, puis agissez dessus). Ursula est désormais complète.',
+    ],
+  },
+  {
+    version: '0.54',
+    date: '2026-06-12',
+    title: 'Ursula : Pactes, Trident, Chaudron',
+    changes: [
+      'Pacte : un Héros portant un Pacte est éliminé dès qu’il est déplacé sur le lieu du Pacte (il emporte ses Objets associés en se déplaçant).',
+      'Trident : sa pose invoque le Roi Triton (zone haute) et lui associe le Trident ; vaincre Triton libère le Trident (zone basse) pour l’amener au Repaire.',
+      'Tourbillon / Flotsam / Jetsam : déplacent un Héros (Tourbillon sur n’importe quel lieu) — de quoi déclencher les Pactes.',
+      'Chaudron : +2 Pouvoir par Pacte dans le royaume.',
+    ],
+  },
+  {
+    version: '0.53',
+    date: '2026-06-12',
+    title: 'Nouveau vilain : Ursula',
+    changes: [
+      'Ursula (Disney, 5★) jouable : objectif « avoir le Trident et la Couronne au Repaire d’Ursula ».',
+      'Palais bloqué au départ ; le Cadenas se déplace entre le Palais et le Repaire (Métamorphose, Grimsby).',
+      'Couronne (regarde 2 cartes Fatalité) et bonus de force des Objets associés câblés.',
+      'Pactes, Trident (via le Roi Triton), Chaudron, Divination, etc. restent « base jouable » (effet complet à venir).',
+    ],
+  },
+  {
     version: '0.52',
     date: '2026-06-11',
     title: 'Fatalité : Migraine Atroce + cartes non jouables grisées',

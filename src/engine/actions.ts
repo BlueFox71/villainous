@@ -48,6 +48,7 @@ import {
   heroesOf,
   isActionAvailable,
   isActionCovered,
+  isItemFrozen,
   isLegalMove,
   locationActions,
   locationOfCard,
@@ -275,6 +276,51 @@ function applyPlayCard(
     ...next,
     usedActionIds: [...next.usedActionIds, actionId],
     log: [...next.log, `${me.villainName} joue **${card.name}** (coût ${cost})${where}${assoc}.`],
+  }
+
+  // Ursula — Trident : cherche le Roi Triton, le pose (zone haute) et lui associe
+  // le Trident. Si Triton est déjà en jeu, le Trident lui est simplement associé.
+  // Le Trident est ainsi « verrouillé » jusqu'à ce que Triton soit éliminé
+  // (checkPacteDefeat libère alors le Trident en zone basse).
+  if (card.cardId === 'trident' && dest) {
+    const ai = state.players[state.activePlayer]
+    let tritonLoc: string | undefined
+    let triton: CardInstance | undefined
+    for (const l of ai.locations) {
+      const found = (ai.board[l.id] ?? []).find((c) => c.cardId === 'roi-triton' && c.type === 'hero')
+      if (found) {
+        tritonLoc = l.id
+        triton = found
+        break
+      }
+    }
+    if (triton && tritonLoc) {
+      const tloc = tritonLoc
+      const trident: CardInstance = { ...card, attachedTo: triton.instanceId }
+      next = updateActivePlayer(next, (p) => ({
+        ...p,
+        board: { ...p.board, [tloc]: [...(p.board[tloc] ?? []), trident] },
+      }))
+      next = { ...next, log: [...next.log, `Le Trident est associé au **Roi Triton**.`] }
+      return consumePersifleur(next, action)
+    }
+    const fromDeck = ai.fateDeck.find((c) => c.cardId === 'roi-triton')
+    const t = fromDeck ?? ai.fateDiscard.find((c) => c.cardId === 'roi-triton')
+    if (!t) {
+      // Roi Triton introuvable : le Trident est posé librement sur le lieu.
+      next = updateActivePlayer(next, (p) => ({ ...p, board: { ...p.board, [dest.id]: [...(p.board[dest.id] ?? []), card] } }))
+      next = { ...next, log: [...next.log, `Roi Triton introuvable : le Trident est posé sur **${dest.name}**.`] }
+      return consumePersifleur(next, action)
+    }
+    const trident: CardInstance = { ...card, attachedTo: t.instanceId }
+    next = updateActivePlayer(next, (p) => ({
+      ...p,
+      fateDeck: p.fateDeck.filter((c) => c.instanceId !== t.instanceId),
+      fateDiscard: p.fateDiscard.filter((c) => c.instanceId !== t.instanceId),
+      board: { ...p.board, [dest.id]: [...(p.board[dest.id] ?? []), t, trident] },
+    }))
+    next = { ...next, log: [...next.log, `Le **Roi Triton** apparaît sur **${dest.name}**, associé au Trident.`] }
+    return consumePersifleur(next, action)
   }
 
   // Showcase pour Événements/Malédictions : la carte s'affiche en grand. On
@@ -1033,6 +1079,9 @@ function applyMoveCard(
   if (card.attachedTo) {
     throw new Error('Un Objet associé suit son Allié : déplacez l’Allié.')
   }
+  if (isItemFrozen(me, card)) {
+    throw new Error(`${card.name} est gelé par Ariel : impossible de le déplacer.`)
+  }
   if (!adjacentLocationIds(state, from).includes(to)) {
     throw new Error(`Lieu « ${to} » non voisin de « ${from} ».`)
   }
@@ -1745,6 +1794,47 @@ function resolveConditionEffect(
     next = { ...next, log: [...next.log, `${player.villainName} joue gratuitement **${a.name}** (Ruse).`] }
     return processCurseDiscards(next, playerIndex, to, 'ally-played-here')
   }
+  if (card.cardId === 'arrogance') {
+    // Arrogance (Ursula) : pioche 3 cartes Méchant puis en défausse 3 (comme Tyrannie).
+    const draw3 = drawPlayerToLimitN(next.players[playerIndex], next.rngState, 3)
+    next = {
+      ...next,
+      rngState: draw3.rngState,
+      players: next.players.map((p, i) => (i === playerIndex ? draw3.player : p)),
+      log: [...next.log, `${player.villainName} pioche ${draw3.drawn} carte${draw3.drawn > 1 ? 's' : ''} (Arrogance).`],
+    }
+    if (draw3.drawn > 0) next = pushFloatingFx(next, { kind: 'tyranny-draw', playerIndex, count: draw3.drawn })
+    const discardCount = Math.min(3, next.players[playerIndex].hand.length)
+    if (discardCount === 0) return next
+    return { ...next, pendingTyrannyDiscard: { playerIndex, count: discardCount } }
+  }
+  if (card.cardId === 'illusion') {
+    // Illusion (Ursula) : dévoile la 1ʳᵉ carte Fatalité de l'adversaire et la joue
+    // immédiatement contre lui (comme Tromperie).
+    const oppIdx = state.activePlayer
+    const opp = next.players[oppIdx]
+    if (opp.fateDeck.length === 0 && opp.fateDiscard.length === 0) {
+      return { ...next, log: [...next.log, 'Illusion : pioche Fatalité adverse vide.'] }
+    }
+    const r = revealFate(opp, 1, next.rngState)
+    next = { ...updatePlayer(next, oppIdx, () => r.player), rngState: r.rngState }
+    const revealed = r.revealed[0]
+    if (!revealed) return next
+    if (revealed.type === 'hero') {
+      const locs = heroPlacementLocations(next, revealed, oppIdx)
+      if (locs.length === 0) {
+        next = updatePlayer(next, oppIdx, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, revealed] }))
+        return { ...next, log: [...next.log, `Illusion : **${revealed.name}** révélé, aucun lieu valide → défaussé.`] }
+      }
+      return {
+        ...next,
+        pendingHeroPlacement: { chooserIndex: playerIndex, targetIndex: oppIdx, hero: revealed },
+        log: [...next.log, `${player.villainName} dévoile **${revealed.name}** (Illusion) — à placer chez ${next.players[oppIdx].villainName}.`],
+      }
+    }
+    next = updatePlayer(next, oppIdx, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, revealed] }))
+    return { ...next, log: [...next.log, `Illusion : **${revealed.name}** (non-Héros) — effet non géré, défaussé.`] }
+  }
   // Aucune autre Condition pour l'instant.
   return next
 }
@@ -1888,11 +1978,19 @@ function applyResolveHeroRelocate(state: GameState, heroInstanceId: string, to: 
   if (!from) throw new Error(`Héros « ${heroInstanceId} » introuvable.`)
   const hero = (target.board[from] ?? []).find((c) => c.instanceId === heroInstanceId)
   if (!hero || hero.type !== 'hero') throw new Error('Cible invalide (pas un Héros).')
-  // Adjacence dans le royaume de la CIBLE (pas forcément le joueur actif).
-  const ids = target.locations.map((l) => l.id)
-  const i = ids.indexOf(from)
-  const adj = [ids[i - 1], ids[i + 1]].filter(Boolean) as string[]
-  if (!adj.includes(to)) throw new Error(`Lieu « ${to} » non voisin de « ${from} ».`)
+  // Adjacence dans le royaume de la CIBLE — sauf Tourbillon (anyLocation), qui
+  // autorise n'importe quel lieu non bloqué.
+  if (pending.anyLocation) {
+    const locked = new Set(target.lockedLocations ?? [])
+    if (!target.locations.some((l) => l.id === to) || locked.has(to)) {
+      throw new Error(`Lieu « ${to} » invalide (doit être non bloqué).`)
+    }
+  } else {
+    const ids = target.locations.map((l) => l.id)
+    const i = ids.indexOf(from)
+    const adj = [ids[i - 1], ids[i + 1]].filter(Boolean) as string[]
+    if (!adj.includes(to)) throw new Error(`Lieu « ${to} » non voisin de « ${from} ».`)
+  }
   const next = resolveEffects(state, [{ type: 'MOVE_HERO_TO_LOCATION', locationId: to }], {
     actorIndex: targetIndex,
     targetHeroId: heroInstanceId,
@@ -2502,6 +2600,55 @@ function applyUseNeverlandMap(
   return resolveEffects(next, item.effects ?? [], { actorIndex: state.activePlayer, hostLocationId: to })
 }
 
+/** Opportunisme (Ursula) : reprend en main la carte choisie de la défausse Vilain. */
+function applyResolveRecover(state: GameState, instanceId: string): GameState {
+  const pending = state.pendingRecover
+  if (!pending) throw new Error('Aucune récupération en attente (Opportunisme).')
+  if (!pending.candidateIds.includes(instanceId)) throw new Error('Carte choisie invalide.')
+  const idx = pending.playerIndex
+  const player = state.players[idx]
+  const card = player.discard.find((c) => c.instanceId === instanceId)
+  if (!card) throw new Error('Carte introuvable dans la défausse.')
+  const next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    discard: p.discard.filter((c) => c.instanceId !== instanceId),
+    hand: [...p.hand, card],
+  }))
+  return { ...next, pendingRecover: null, log: [...next.log, `${player.villainName} reprend **${card.name}** (Opportunisme).`] }
+}
+
+/** Colère Titanesque : choisit le lieu voisin (bloqué ou non) où agir. Le joueur
+ *  effectue ensuite UNE action normale (résolue via currentLocation = ce lieu). */
+function applyResolveGiantLocation(state: GameState, locationId: LocationId): GameState {
+  const pending = state.pendingGiantAction
+  if (!pending) throw new Error('Aucun choix de lieu (Colère Titanesque) en attente.')
+  const p = state.players[pending.playerIndex]
+  const order = p.locations.map((l) => l.id)
+  const i = order.indexOf(p.pawnLocation ?? '')
+  const neighbors = [order[i - 1], order[i + 1]].filter(Boolean) as string[]
+  if (!neighbors.includes(locationId)) throw new Error(`Lieu « ${locationId} » non voisin.`)
+  return {
+    ...state,
+    pendingGiantAction: null,
+    actAtLocation: locationId,
+    usedBeforeGiant: state.usedActionIds,
+    log: [...state.log, `Colère Titanesque : ${p.villainName} agit depuis **${findLocation(p, locationId)?.name ?? locationId}**.`],
+  }
+}
+
+/** Après une action « géante » (Colère Titanesque) : on efface actAtLocation et on
+ *  restaure usedActionIds (cette action d'un lieu voisin ne consomme pas l'économie
+ *  d'actions du lieu courant). */
+function clearGiant(before: GameState, after: GameState): GameState {
+  if (!before.actAtLocation) return after
+  return {
+    ...after,
+    actAtLocation: null,
+    usedActionIds: before.usedBeforeGiant ?? after.usedActionIds,
+    usedBeforeGiant: null,
+  }
+}
+
 function applyEndTurn(state: GameState): GameState {
   if (!canEndTurn(state)) {
     throw new Error(`Impossible de terminer le tour en phase ${state.phase}.`)
@@ -2527,6 +2674,9 @@ function applyEndTurn(state: GameState): GameState {
     lastVanquishedHeroStrength: undefined,
     diabloFree: null,
     pendingTrapVanquish: false,
+    actAtLocation: null,
+    usedBeforeGiant: null,
+    pendingGiantAction: null,
     activeMovedCard: false,
     activeDrewCard: false,
     // Effets « jusqu'à la fin de votre tour » du joueur qui termine (Sablier Géant).
@@ -2619,38 +2769,46 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   if (state.pendingFetchedHero && action.type !== 'RESOLVE_FETCHED_HERO' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Jouez ou défaussez le Héros dévoilé (RESOLVE_FETCHED_HERO).')
   }
+  // Opportunisme : récupérer une carte de la défausse d'abord.
+  if (state.pendingRecover && action.type !== 'RESOLVE_RECOVER' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Récupérez une carte de votre défausse (RESOLVE_RECOVER).')
+  }
+  // Colère Titanesque : choisir le lieu voisin où agir d'abord.
+  if (state.pendingGiantAction && action.type !== 'RESOLVE_GIANT_LOCATION' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Choisissez le lieu voisin où agir (RESOLVE_GIANT_LOCATION).')
+  }
   switch (action.type) {
     case 'MOVE':
       return applyMove(state, action.to)
     case 'EXECUTE_ACTION':
-      return applyExecuteAction(state, action.actionId)
+      return clearGiant(state, applyExecuteAction(state, action.actionId))
     case 'PLAY_CARD':
-      return applyPlayCard(
+      return clearGiant(
         state,
-        action.actionId,
-        action.instanceId,
-        action.to,
-        action.attachTo,
-        action.targetHeroId,
-        action.allyInstanceIds,
-        action.allyMove,
+        applyPlayCard(
+          state,
+          action.actionId,
+          action.instanceId,
+          action.to,
+          action.attachTo,
+          action.targetHeroId,
+          action.allyInstanceIds,
+          action.allyMove,
+        ),
       )
     case 'DISCARD_CARDS':
-      return applyDiscardCards(state, action.actionId, action.instanceIds)
+      return clearGiant(state, applyDiscardCards(state, action.actionId, action.instanceIds))
     case 'MOVE_CARD':
-      return applyMoveCard(state, action.actionId, action.instanceId, action.to)
+      return clearGiant(state, applyMoveCard(state, action.actionId, action.instanceId, action.to))
     case 'MOVE_HERO':
-      return applyMoveHero(state, action.actionId, action.heroInstanceId, action.to)
+      return clearGiant(state, applyMoveHero(state, action.actionId, action.heroInstanceId, action.to))
     case 'ACTIVATE':
-      return applyActivate(
+      return clearGiant(
         state,
-        action.actionId,
-        action.cardInstanceId,
-        action.to,
-        action.itemInstanceId,
+        applyActivate(state, action.actionId, action.cardInstanceId, action.to, action.itemInstanceId),
       )
     case 'FATE':
-      return applyFate(state, action.actionId)
+      return clearGiant(state, applyFate(state, action.actionId))
     case 'RESOLVE_FATE':
       return applyResolveFate(state, action.instanceId, action.to, action.targetHeroId)
     case 'RESOLVE_TYRANNY_DISCARD':
@@ -2683,6 +2841,10 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return applyResolveFateChoice(state, action.instanceId)
     case 'RESOLVE_FETCHED_HERO':
       return applyResolveFetchedHero(state, action.play, action.to)
+    case 'RESOLVE_RECOVER':
+      return applyResolveRecover(state, action.instanceId)
+    case 'RESOLVE_GIANT_LOCATION':
+      return applyResolveGiantLocation(state, action.locationId)
     case 'USE_NEVERLAND_MAP':
       return applyUseNeverlandMap(state, action.itemInstanceId, action.to, action.attachTo)
     case 'TEST_PLACE_FATE':
@@ -2692,7 +2854,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     case 'TEST_PLAY_FATE_CARD':
       return applyTestPlayFateCard(state, action.card, action.targetHeroId)
     case 'VANQUISH':
-      return applyVanquish(state, action.actionId, action.heroInstanceId, action.allyInstanceIds)
+      return clearGiant(state, applyVanquish(state, action.actionId, action.heroInstanceId, action.allyInstanceIds))
     case 'DISCARD_DEGUISEMENT':
       return applyDiscardDeguisement(state, action.instanceId)
     case 'SKIP_MOVE':
