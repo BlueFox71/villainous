@@ -2161,6 +2161,11 @@ function applyEndTurn(state: GameState): GameState {
 /** Applique une action de jeu et renvoie le nouvel état. Pur, déterministe. */
 export function applyAction(state: GameState, action: GameAction): GameState {
   if (state.status !== 'PLAYING') {
+    // Le Coup Royal gagnant met fin à la partie : on autorise tout de même la
+    // fermeture de sa fenêtre de résultat (sinon elle resterait bloquée).
+    if (action.type === 'DISMISS_ROYAL_CROQUET') {
+      return { ...state, pendingRoyalCroquet: null }
+    }
     throw new Error('La partie est terminée.')
   }
   // Une Fatalité révélée doit être résolue avant tout autre coup — sauf une

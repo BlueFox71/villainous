@@ -9,6 +9,14 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.43',
+    date: '2026-06-11',
+    title: 'Correctif : fenêtre du Coup Royal',
+    changes: [
+      'La fenêtre de résultat du Coup Royal peut de nouveau se fermer après une victoire (elle restait bloquée car la partie était déjà terminée).',
+    ],
+  },
+  {
     version: '0.42',
     date: '2026-06-11',
     title: 'Reine de Cœur : arceaux & Lance',
