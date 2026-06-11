@@ -15,6 +15,7 @@ import type {
   ConditionTrigger,
   CurseDiscardTrigger,
   Effect,
+  LocationActionType,
   LocationId,
   PlacementRestriction,
   SelfStrengthMod,
@@ -87,6 +88,10 @@ export interface CardDef {
   activatedCost?: number
   /** La carte ne peut être posée QUE sur ce lieu (Lampe Merveilleuse → Caverne). */
   playOnlyAt?: string
+  /** Capitaine Crochet : Objet qui DONNE une action à son lieu tant qu'il y est
+   *  posé (Canon → Vaincre, Boîte à Crochets → Gagner 1, Ingénieux → Déplacer un
+   *  Héros). */
+  grantsAction?: { type: LocationActionType; amount?: number; label: string }
 }
 
 /** Développe une liste de définitions en un paquet concret (un élément par
@@ -131,6 +136,7 @@ export function buildDeckInstances(
           maxAtLocation: c.maxAtLocation,
           activatedCost: c.activatedCost,
           playOnlyAt: c.playOnlyAt,
+          grantsAction: c.grantsAction,
         }),
       ),
     )

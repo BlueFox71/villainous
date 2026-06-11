@@ -165,7 +165,7 @@ export function enumerateActions(state: GameState): GameAction[] {
             const heroes = cell.filter((c) => c.type === 'hero')
             const localAllies = cell.filter((c) => c.type === 'ally' && !c.isWicket)
             const adjAllies = adjacentLocationIds(state, loc.id).flatMap((adj) =>
-              (me.board[adj] ?? []).filter((c) => c.cardId === 'archers-loups'),
+              (me.board[adj] ?? []).filter((c) => c.cardId === 'archers-loups' || c.cardId === 'flibustiers'),
             )
             for (const h of heroes) {
               const guarded = cell.some((c) => c.cardId === 'deguisement' && c.attachedTo === h.instanceId)
@@ -251,7 +251,7 @@ export function enumerateActions(state: GameState): GameAction[] {
         if (heroes.length === 0) continue
         const localAllies = cell.filter((c) => c.type === 'ally' && !c.isWicket)
         const adjAllies = adjacentLocationIds(state, loc.id).flatMap((adj) =>
-          (me.board[adj] ?? []).filter((c) => c.cardId === 'archers-loups'),
+          (me.board[adj] ?? []).filter((c) => c.cardId === 'archers-loups' || c.cardId === 'flibustiers'),
         )
         for (const h of heroes) {
           const guarded = cell.some((c) => c.cardId === 'deguisement' && c.attachedTo === h.instanceId)

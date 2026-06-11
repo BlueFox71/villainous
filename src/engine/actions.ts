@@ -49,6 +49,7 @@ import {
   isActionAvailable,
   isActionCovered,
   isLegalMove,
+  locationActions,
   locationOfCard,
   requiresAllyTarget,
   teleportTargets,
@@ -128,6 +129,13 @@ function applyMove(state: GameState, to: string): GameState {
       ...(hasPersifleur ? ['Persifleur : une action recouverte est jouable ici.'] : []),
     ],
   }
+  // Tic Tac (Capitaine Crochet) : si le pion arrive sur le lieu de Tic Tac,
+  // Crochet défausse immédiatement toute sa main.
+  const ticTacHere = (me.board[to] ?? []).some((c) => c.type === 'hero' && c.cardId === 'tic-tac')
+  if (ticTacHere && next.players[state.activePlayer].hand.length > 0) {
+    next = updateActivePlayer(next, (p) => ({ ...p, hand: [], discard: [...p.discard, ...p.hand] }))
+    next = { ...next, log: [...next.log, `🐊 Tic Tac ! ${me.villainName} défausse toute sa main.`] }
+  }
   // Malédictions Feu Infernal : défaussées si le pion arrive sur leur lieu.
   return processCurseDiscards(next, state.activePlayer, to, 'pawn-moves-here')
 }
@@ -137,7 +145,8 @@ function applyExecuteAction(state: GameState, actionId: string): GameState {
     throw new Error(`Action indisponible : « ${actionId} ».`)
   }
   const loc = currentLocation(state)! // garanti par isActionAvailable
-  const action = loc.actions.find((a) => a.id === actionId)!
+  // Inclut les actions accordées par un Objet (Boîte à Crochets → Gagner 1).
+  const action = locationActions(state, loc.id).find((a) => a.id === actionId)!
   if (action.type !== 'GAIN_POWER') {
     throw new Error(`EXECUTE_ACTION ne gère pas « ${action.type} ».`)
   }
@@ -425,6 +434,30 @@ function applyFate(state: GameState, actionId: string): GameState {
   }
 
   const r = revealFate(tgt, FATE_REVEAL, state.rngState)
+  // Capitaine Crochet : dès qu'il est dévoilé, Peter Pan est joué d'office sur
+  // l'Arbre du Pendu (débloqué ou non) et les autres cartes dévoilées sont
+  // défaussées — pas de choix de Fatalité.
+  const pp = r.revealed.find(
+    (c) => tgt.objective.type === 'DEFEAT_HERO_AT_LOCATION' && c.cardId === tgt.objective.heroCardId,
+  )
+  if (pp) {
+    const others = r.revealed.filter((c) => c.instanceId !== pp.instanceId)
+    let next = updatePlayer(state, target, () => ({
+      ...r.player,
+      fateDiscard: [...r.player.fateDiscard, ...others],
+    }))
+    next = consumeDragonFormReward(next, target)
+    next = consumePersifleur(next, action)
+    next = {
+      ...next,
+      rngState: r.rngState,
+      usedActionIds: [...next.usedActionIds, actionId],
+      pendingFate: null,
+      log: [...next.log, `${me.villainName} lance la Fatalité : **${pp.name}** est dévoilé et fonce sur l'Arbre du Pendu !`],
+    }
+    const arbreName = tgt.locations.find((l) => l.id === 'arbre-pendu')?.name ?? 'Arbre du Pendu'
+    return placeFateHeroWithEffects(next, target, state.activePlayer, pp, 'arbre-pendu', arbreName)
+  }
   let next = updatePlayer(state, target, () => r.player)
   // Apparence de Dragon : si la cible avait armé sa récompense, +3 JT immédiats.
   next = consumeDragonFormReward(next, target)
@@ -930,7 +963,8 @@ function applyMoveHero(
     throw new Error(`Action indisponible : « ${actionId} ».`)
   }
   const loc = currentLocation(state)!
-  const action = loc.actions.find((a) => a.id === actionId)!
+  // Inclut l'action accordée par l'Ingénieux Mécanisme (Déplacer un Héros).
+  const action = locationActions(state, loc.id).find((a) => a.id === actionId)!
   if (action.type !== 'MOVE_HERO') {
     throw new Error(`« ${actionId} » n'est pas une action « Déplacer un Héros ».`)
   }
@@ -1135,7 +1169,8 @@ function applyVanquish(
     throw new Error(`Action indisponible : « ${actionId} ».`)
   }
   const loc = currentLocation(state)!
-  const action = loc.actions.find((a) => a.id === actionId)!
+  // Inclut l'action accordée par le Canon (Éliminer un héros).
+  const action = locationActions(state, loc.id).find((a) => a.id === actionId)!
   if (action.type !== 'VANQUISH') {
     throw new Error(`« ${actionId} » n'est pas une action « Éliminer ».`)
   }
@@ -1566,6 +1601,29 @@ function resolveConditionEffect(
       ...next,
       log: [...next.log, `Tromperie : **${revealed.name}** (non-Héros) — effet non encore géré, défaussé.`],
     }
+  }
+  if (card.cardId === 'obsession') {
+    // Obsession (Crochet) : dévoile son propre deck Fatalité jusqu'à un Héros et
+    // le joue dans son royaume.
+    return resolveEffectsLocal(next, [{ type: 'REVEAL_OWN_FATE_PLAY_HERO' }], { actorIndex: playerIndex })
+  }
+  if (card.cardId === 'ruse') {
+    // Ruse (Crochet) : joue gratuitement un Allié de la main (comme Lâcheté).
+    if (!allyInstanceId) throw new Error('Ruse : précisez l’Allié à poser.')
+    if (!to) throw new Error('Ruse : précisez le lieu de pose.')
+    const acting = next.players[playerIndex]
+    const a = acting.hand.find((c) => c.instanceId === allyInstanceId)
+    if (!a) throw new Error(`Allié « ${allyInstanceId} » absent de la main.`)
+    if (a.type !== 'ally') throw new Error(`${a.name} n'est pas un Allié.`)
+    if (!acting.locations.some((l) => l.id === to)) throw new Error(`Lieu invalide : « ${to} ».`)
+    if (attachTo !== undefined) throw new Error(`${a.name} ne s'associe pas à un Allié.`)
+    next = updatePlayer(next, playerIndex, (p) => ({
+      ...p,
+      hand: p.hand.filter((c) => c.instanceId !== allyInstanceId),
+      board: { ...p.board, [to]: [...(p.board[to] ?? []), a] },
+    }))
+    next = { ...next, log: [...next.log, `${player.villainName} joue gratuitement **${a.name}** (Ruse).`] }
+    return processCurseDiscards(next, playerIndex, to, 'ally-played-here')
   }
   // Aucune autre Condition pour l'instant.
   return next
@@ -2133,7 +2191,11 @@ function applyEndTurn(state: GameState): GameState {
             board: Object.fromEntries(
               Object.entries(p.board).map(([loc, cards]) => [
                 loc,
-                cards.map((c) => (c.activatedThisTurn ? { ...c, activatedThisTurn: false } : c)),
+                cards.map((c) =>
+                  c.activatedThisTurn || c.tempStrengthBonus
+                    ? { ...c, activatedThisTurn: false, tempStrengthBonus: undefined }
+                    : c,
+                ),
               ]),
             ),
           }
@@ -2161,6 +2223,11 @@ function applyEndTurn(state: GameState): GameState {
 /** Applique une action de jeu et renvoie le nouvel état. Pur, déterministe. */
 export function applyAction(state: GameState, action: GameAction): GameState {
   if (state.status !== 'PLAYING') {
+    // Le Coup Royal gagnant met fin à la partie : on autorise tout de même la
+    // fermeture de sa fenêtre de résultat (sinon elle resterait bloquée).
+    if (action.type === 'DISMISS_ROYAL_CROQUET') {
+      return { ...state, pendingRoyalCroquet: null }
+    }
     throw new Error('La partie est terminée.')
   }
   // Une Fatalité révélée doit être résolue avant tout autre coup — sauf une

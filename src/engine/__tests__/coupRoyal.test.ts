@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { resolveEffect } from '../effects'
+import { applyAction } from '../actions'
 import { reineCoeur } from '../../data/villains/reineCoeur'
 import { reineCoeurCards } from '../../data/villains/reineCoeur.cards'
 import { buildDeckInstances } from '../../data/types'
@@ -55,6 +56,16 @@ describe('Reine de Cœur — Coup Royal', () => {
     expect(next.pendingRoyalCroquet?.won).toBe(false)
     expect(next.status).toBe('PLAYING')
     expect(next.players[0].discard).toHaveLength(5)
+  })
+
+  it('on peut fermer la fenêtre de résultat même après la victoire (partie finie)', () => {
+    const s = setup(12, [0, 0, 1, 1, 0])
+    const won = resolveEffect(s, { type: 'ROYAL_CROQUET_ATTEMPT' }, { actorIndex: 0 })
+    expect(won.status).toBe('WON')
+    // DISMISS_ROYAL_CROQUET reste autorisé malgré status WON (ne jette pas).
+    const closed = applyAction(won, { type: 'DISMISS_ROYAL_CROQUET' })
+    expect(closed.pendingRoyalCroquet ?? null).toBeNull()
+    expect(closed.status).toBe('WON') // la partie reste gagnée
   })
 
   it('sans arceau sur chaque lieu : aucune révélation', () => {

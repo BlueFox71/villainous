@@ -5,4 +5,5 @@ export const VILLAIN_COLOR: Record<string, string> = {
   maleficent: '#2C3E32',
   jafar: '#3A2A5E',
   reineCoeur: '#6B1020',
+  crochet: '#7A1538',
 }
