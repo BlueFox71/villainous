@@ -70,6 +70,39 @@ export function enumerateActions(state: GameState): GameAction[] {
     return out // `guards` est non vide (pending posé seulement s'il y a des Gardes)
   }
 
+  // Digne Adversaire / Obsession : le Héros révélé doit être JOUÉ ; on choisit le lieu.
+  if (state.pendingFetchedHero) {
+    const pfh = state.pendingFetchedHero
+    const p = state.players[pfh.playerIndex]
+    if (pfh.hero.cardId === 'peter-pan') {
+      return [{ type: 'RESOLVE_FETCHED_HERO', play: true, to: 'arbre-pendu' }]
+    }
+    const locked = new Set(p.lockedLocations ?? [])
+    return p.locations
+      .filter((l) => !locked.has(l.id))
+      .map((l) => ({ type: 'RESOLVE_FETCHED_HERO', play: true, to: l.id }))
+  }
+
+  // Abu/Aladdin/K.O. : une option par carte candidate (Objet à voler / Allié à retirer).
+  if (state.pendingFateChoice) {
+    return state.pendingFateChoice.candidateIds.map((id) => ({ type: 'RESOLVE_FATE_CHOICE', instanceId: id }))
+  }
+
+  // Pas de Quartier ! : une option par (Allié déplaçable × lieu voisin non bloqué).
+  if (state.pendingAllyMoveBuff) {
+    const p = state.players[state.pendingAllyMoveBuff.playerIndex]
+    const out: GameAction[] = []
+    for (const l of p.locations) {
+      for (const c of p.board[l.id] ?? []) {
+        if (c.type !== 'ally' || c.attachedTo || c.isWicket) continue
+        for (const to of adjacentLocationIds(state, l.id)) {
+          out.push({ type: 'RESOLVE_ALLY_MOVE_BUFF', instanceId: c.instanceId, to })
+        }
+      }
+    }
+    return out
+  }
+
   // Faites-leur peur ! : garder les Héros sur le dessus, défausser les non-Héros.
   if (state.pendingScry) {
     const heroes = state.pendingScry.cards.filter((c) => c.type === 'hero').map((c) => c.instanceId)

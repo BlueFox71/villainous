@@ -45,6 +45,9 @@ interface Props {
   /** Capitaine Crochet : ids d'actions accordées disponibles + handler de clic. */
   grantedActionIds?: string[]
   onGrantedAction?: (card: CardInstance) => void
+  /** Capitaine Crochet : la Carte du Pays Imaginaire est utilisable + handler. */
+  mapUsable?: boolean
+  onUseMap?: (instanceId: string) => void
 }
 
 /** Les 4 lieux d'un joueur : déplacement, cartes posées (Héros en haut,
@@ -77,6 +80,8 @@ export function Board({
   onCardPick,
   grantedActionIds = [],
   onGrantedAction,
+  mapUsable = false,
+  onUseMap,
 }: Props) {
   const cellColor = VILLAIN_COLOR[player.villain]
 
@@ -141,6 +146,8 @@ export function Board({
             onCardPick={onCardPick}
             grantedActionIds={grantedActionIds}
             onGrantedAction={onGrantedAction}
+            mapUsable={mapUsable}
+            onUseMap={onUseMap}
           />
         )
       })}

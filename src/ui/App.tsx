@@ -46,6 +46,9 @@ import { CardChoiceModal } from './components/CardChoiceModal'
 import { RoyalCroquetModal } from './components/RoyalCroquetModal'
 import { TransformWicketsModal } from './components/TransformWicketsModal'
 import { ScryModal } from './components/ScryModal'
+import { AllyMoveBuffModal } from './components/AllyMoveBuffModal'
+import { FetchedHeroModal } from './components/FetchedHeroModal'
+import { NeverlandMapModal } from './components/NeverlandMapModal'
 import { StartRollModal } from './components/StartRollModal'
 import { MusicPlayer } from './components/MusicPlayer'
 import { Showcase } from './components/Showcase'
@@ -166,6 +169,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const dismissRoyalCroquet = useGameStore((s) => s.dismissRoyalCroquet)
   const resolveTransformWickets = useGameStore((s) => s.resolveTransformWickets)
   const resolveScry = useGameStore((s) => s.resolveScry)
+  const resolveAllyMoveBuff = useGameStore((s) => s.resolveAllyMoveBuff)
+  const resolveFateChoice = useGameStore((s) => s.resolveFateChoice)
+  const resolveFetchedHero = useGameStore((s) => s.resolveFetchedHero)
+  const useNeverlandMap = useGameStore((s) => s.useNeverlandMap)
   const endTurn = useGameStore((s) => s.endTurn)
   const reset = useGameStore((s) => s.reset)
   const botAct = useGameStore((s) => s.botAct)
@@ -217,6 +224,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   }, [state.status, state.winner, humanVillainKey, opponentVillainKey, recordResult, recordGame])
 
   const [mode, setMode] = useState<Mode>(null)
+  const [mapModalOpen, setMapModalOpen] = useState(false)
   const [showOptions, setShowOptions] = useState(false)
   // Jet de dé de début de partie (qui commence). Sauté en mode test.
   const [startRollDone, setStartRollDone] = useState(testMode)
@@ -622,6 +630,75 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       }
       return
     }
+    // Digne Adversaire / Obsession : le Héros révélé doit être JOUÉ (le bot choisit
+    // le lieu : Peter Pan → Arbre du Pendu ; sinon son lieu courant ou un lieu libre).
+    const pfh = state.pendingFetchedHero
+    if (pfh) {
+      if (BOTS[pfh.playerIndex]) {
+        const p = state.players[pfh.playerIndex]
+        const locked = new Set(p.lockedLocations ?? [])
+        const dest =
+          pfh.hero.cardId === 'peter-pan'
+            ? 'arbre-pendu'
+            : (p.pawnLocation && !locked.has(p.pawnLocation) ? p.pawnLocation : undefined) ??
+              p.locations.find((l) => !locked.has(l.id))?.id
+        const timer = setTimeout(() => resolveFetchedHero(true, dest), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Abu/Aladdin/K.O. : le bot (s'il a joué la Fatalité) choisit la cible — pour
+    // K.O. l'Allié le plus fort éligible, sinon le 1ᵉʳ Objet.
+    const pfc = state.pendingFateChoice
+    if (pfc) {
+      if (BOTS[pfc.chooserIndex]) {
+        const tgt = state.players[pfc.targetIndex]
+        const pool = [...Object.values(tgt.board).flat(), ...tgt.hand]
+        const cands = pfc.candidateIds
+          .map((id) => pool.find((c) => c.instanceId === id))
+          .filter((c): c is NonNullable<typeof c> => !!c)
+        const pick =
+          pfc.kind === 'remove-ally'
+            ? [...cands].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+            : cands[0]
+        if (pick) {
+          const timer = setTimeout(() => resolveFateChoice(pick.instanceId), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
+    // Pas de Quartier ! : le bot déplace un Allié vers un lieu voisin (priorité à
+    // un lieu portant un Héros, pour préparer un Vanquish).
+    const pamb = state.pendingAllyMoveBuff
+    if (pamb) {
+      if (BOTS[pamb.playerIndex]) {
+        const p = state.players[pamb.playerIndex]
+        const order = p.locations.map((l) => l.id)
+        const locked = new Set(p.lockedLocations ?? [])
+        let best: { instanceId: string; to: string } | null = null
+        let bestScore = -1
+        for (let i = 0; i < order.length; i++) {
+          const neighbors = [order[i - 1], order[i + 1]].filter((id): id is string => !!id && !locked.has(id))
+          for (const c of p.board[order[i]] ?? []) {
+            if (c.type !== 'ally' || c.attachedTo || c.isWicket) continue
+            for (const to of neighbors) {
+              const score = (p.board[to] ?? []).filter((d) => d.type === 'hero').length * 10 + (c.strength ?? 0)
+              if (score > bestScore) {
+                bestScore = score
+                best = { instanceId: c.instanceId, to }
+              }
+            }
+          }
+        }
+        if (best) {
+          const move = best
+          const timer = setTimeout(() => resolveAllyMoveBuff(move.instanceId, move.to), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
     // Faites-leur peur ! : le bot garde les Héros sur le dessus, défausse le reste.
     const psc = state.pendingScry
     if (psc) {
@@ -740,7 +817,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [isBotTurn, startRollDone, state, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry])
+  }, [isBotTurn, startRollDone, state, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero])
 
   // Coups légaux / actions : seulement pour le joueur humain et à son tour.
   const legalMoves = isHumanTurn ? getLegalMoves(state) : []
@@ -1300,8 +1377,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           }
           // Les arceaux (Cartes Gardes transformées) ne peuvent pas éliminer.
           const localAllies = simulatedAt(heroLoc).filter((c) => c.type === 'ally' && !c.isWicket)
+          // Alliés « à distance » : Archers Loups (Prince Jean) et Flibustiers
+          // (Crochet) peuvent éliminer un Héros d'un lieu VOISIN non bloqué.
           const adjArchers = adjacentLocationIds(state, heroLoc).flatMap((adj) =>
-            simulatedAt(adj).filter((c) => c.cardId === 'archers-loups' && !c.isWicket),
+            simulatedAt(adj).filter(
+              (c) => (c.cardId === 'archers-loups' || c.cardId === 'flibustiers') && !c.isWicket,
+            ),
           )
           const heroCard = (user.board[heroLoc] ?? []).find(
             (c) => c.instanceId === mode.heroInstanceId,
@@ -1502,6 +1583,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 onCardPick={handleCardPick}
                 grantedActionIds={availableActions.filter((a) => a.grantedBy).map((a) => a.id)}
                 onGrantedAction={handleGrantedAction}
+                mapUsable={
+                  isHumanTurn &&
+                  state.phase === 'ACTION' &&
+                  Object.values(user.board).flat().some((c) => c.cardId === 'carte-pays-imaginaire')
+                }
+                onUseMap={() => setMapModalOpen(true)}
               />
             </div>
           </div>
@@ -2005,6 +2092,61 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       {/* Faites-leur peur ! : trier les 2 premières cartes Fatalité. */}
       {state.pendingScry && state.pendingScry.playerIndex === HUMAN && (
         <ScryModal cards={state.pendingScry.cards} onResolve={(ids) => resolveScry(ids)} />
+      )}
+
+      {/* Carte du Pays Imaginaire : défausser pour jouer un Objet gratuitement. */}
+      {mapModalOpen && (
+        <NeverlandMapModal
+          player={user}
+          onResolve={(itemInstanceId, to, attachTo) => {
+            useNeverlandMap(itemInstanceId, to, attachTo)
+            setMapModalOpen(false)
+          }}
+          onCancel={() => setMapModalOpen(false)}
+        />
+      )}
+
+      {/* Digne Adversaire / Obsession : jouer (où) ou défausser le Héros dévoilé. */}
+      {state.pendingFetchedHero && state.pendingFetchedHero.playerIndex === HUMAN && (
+        <FetchedHeroModal
+          player={user}
+          hero={state.pendingFetchedHero.hero}
+          discarded={state.pendingFetchedHero.discarded}
+          onResolve={(play, to) => resolveFetchedHero(play, to)}
+        />
+      )}
+
+      {/* Abu/Aladdin (voler un Objet) / K.O. (retirer un Allié) : choix parmi les candidats. */}
+      {state.pendingFateChoice && state.pendingFateChoice.chooserIndex === HUMAN && (() => {
+        const pfc = state.pendingFateChoice
+        const tgt = state.players[pfc.targetIndex]
+        const pool = [...Object.values(tgt.board).flat(), ...tgt.hand]
+        const cards = pfc.candidateIds
+          .map((id) => pool.find((c) => c.instanceId === id))
+          .filter((c): c is NonNullable<typeof c> => !!c)
+        const title =
+          pfc.kind === 'remove-ally'
+            ? 'K.O. : retirez un Allié (force ≤ 3)'
+            : pfc.kind === 'remove-item'
+              ? 'Migraine Atroce : défaussez un Objet'
+              : 'Volez un Objet à associer au Héros'
+        return (
+          <CardChoiceModal
+            title={title}
+            cards={cards}
+            onClose={() => cards[0] && resolveFateChoice(cards[0].instanceId)}
+            onPick={(card) => resolveFateChoice(card.instanceId)}
+          />
+        )
+      })()}
+
+      {/* Pas de Quartier ! : choisir l'Allié à déplacer puis sa destination. */}
+      {state.pendingAllyMoveBuff && state.pendingAllyMoveBuff.playerIndex === HUMAN && (
+        <AllyMoveBuffModal
+          player={user}
+          amount={state.pendingAllyMoveBuff.amount}
+          onResolve={(instanceId, to) => resolveAllyMoveBuff(instanceId, to)}
+        />
       )}
 
       {/* Iago : choix de l'Objet à emmener (plusieurs Objets sur son lieu). */}

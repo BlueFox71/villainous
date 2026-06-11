@@ -9,6 +9,56 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.52',
+    date: '2026-06-11',
+    title: 'Fatalité : Migraine Atroce + cartes non jouables grisées',
+    changes: [
+      'Migraine Atroce : défaussez un Objet du royaume adverse (au choix).',
+      'Lors d’une Fatalité, une carte sans cible valide (ex. Migraine Atroce sans Objet) est grisée quand l’autre est jouable.',
+      'Il était un Rêve n’est jouable que s’il existe une Malédiction sur un lieu portant un Héros.',
+    ],
+  },
+  {
+    version: '0.51',
+    date: '2026-06-11',
+    title: 'Reine de Cœur : Chute dans le terrier',
+    changes: [
+      'Chute dans le terrier : cherche Alice (pioche + défausse Fatalité) et la pose sur le lieu de votre choix.',
+      'Si Alice est déjà dans le royaume, retirez plutôt un Allié présent sur son lieu.',
+    ],
+  },
+  {
+    version: '0.50',
+    date: '2026-06-11',
+    title: 'Carte du Pays Imaginaire, Trahison, Digne Adversaire',
+    changes: [
+      'Carte du Pays Imaginaire : cliquez dessus (à tout moment de votre tour) pour la défausser et jouer gratuitement un Objet de votre main.',
+      'Trahison fait bien perdre 2 jetons Pouvoir à Jafar.',
+      'Digne Adversaire / Obsession : le Héros révélé doit être joué (vous choisissez seulement le lieu) ; les autres cartes dévoilées sont défaussées.',
+    ],
+  },
+  {
+    version: '0.49',
+    date: '2026-06-11',
+    title: 'Jafar : Abu/Aladdin, K.O., Hypnose = Vaincre',
+    changes: [
+      'Abu / Aladdin : vous choisissez l’Objet à voler (du lieu, et de la main pour Aladdin) ; il est associé au Héros, inutilisable par Jafar.',
+      'K.O. : vous choisissez l’Allié de force ≤ 3 à retirer du royaume.',
+      'Hypnose est désormais traitée comme « éliminer un Héros » : elle déclenche les Conditions adverses (Obsession, Méchanceté, Crise d’hystérie) selon la force du Héros hypnotisé.',
+      'Digne Adversaire / Obsession : le Héros dévoilé peut être joué (vous choisissez le lieu) ou défaussé ; les autres cartes dévoilées sont montrées avant d’être défaussées.',
+      'Zoom au survol des cartes dans la fenêtre de défausse.',
+    ],
+  },
+  {
+    version: '0.48',
+    date: '2026-06-11',
+    title: 'Crochet : Pas de Quartier ! interactif + Flibustiers',
+    changes: [
+      'Pas de Quartier ! : vous choisissez désormais quel Allié déplacer, puis sa destination (lieu voisin non bloqué), avant de gagner +2 force.',
+      'Flibustiers : ils peuvent bien être sélectionnés pour éliminer un Héros d’un lieu voisin (côte à côte) — la sélection à l’écran le proposait pas.',
+    ],
+  },
+  {
     version: '0.47',
     date: '2026-06-11',
     title: 'Crochet : Faites-leur peur ! interactif',

@@ -261,6 +261,10 @@ export type Effect =
   /** Capitaine Crochet — Clochette (à la pose) : défausse un Allié sur le lieu où
    *  elle arrive (ctx.hostLocationId). */
   | { type: 'DISCARD_ALLY_AT_HOST' }
+  /** Jafar (Fatalité) — Abu/Aladdin (à la pose) : l'adversaire choisit un Objet à
+   *  associer au Héros (ctx.hostInstanceId). `fromHand` (Aladdin) inclut aussi les
+   *  Objets de la main de la cible. Ouvre pendingFateChoice. */
+  | { type: 'STEAL_ITEM_TO_HERO'; fromHand?: boolean }
   /** Capitaine Crochet — Digne Adversaire / Obsession : dévoile le deck Fatalité
    *  de l'acteur jusqu'à trouver un Héros, le joue dans SON royaume (Peter Pan →
    *  Arbre du Pendu, sinon lieu du pion), défausse les autres cartes dévoilées. */
@@ -627,6 +631,27 @@ export interface GameState {
    *  `cards` retirées du dessus de sa pioche Fatalité, puis les défausse ou les
    *  remet sur le dessus dans l'ordre de son choix (RESOLVE_SCRY). */
   pendingScry?: { playerIndex: number; cards: CardInstance[] } | null
+  /** Pas de Quartier ! (Capitaine Crochet) : `playerIndex` choisit un Allié à
+   *  déplacer vers un lieu voisin non bloqué ; il gagne `amount` force jusqu'à la
+   *  fin du tour (RESOLVE_ALLY_MOVE_BUFF). */
+  pendingAllyMoveBuff?: { playerIndex: number; amount: number } | null
+  /** Choix sur une carte Fatalité ciblant le royaume de `targetIndex`, fait par
+   *  `chooserIndex` (celui qui a joué la Fatalité) — RESOLVE_FATE_CHOICE :
+   *   - `steal-item-to-hero` (Abu/Aladdin) : associer un Objet (`candidateIds`) au
+   *     Héros `hostInstanceId` ;
+   *   - `remove-ally` (K.O.) : retirer un Allié (`candidateIds`) du royaume. */
+  pendingFateChoice?: {
+    chooserIndex: number
+    targetIndex: number
+    kind: 'steal-item-to-hero' | 'remove-ally' | 'remove-item'
+    hostInstanceId?: string
+    candidateIds: string[]
+  } | null
+  /** Digne Adversaire / Obsession (Capitaine Crochet) : `playerIndex` a dévoilé son
+   *  deck Fatalité jusqu'à `hero` ; il choisit de le JOUER (et où) ou de le DÉFAUSSER
+   *  (RESOLVE_FETCHED_HERO). `discarded` = autres cartes dévoilées (à défausser),
+   *  montrées pour information. */
+  pendingFetchedHero?: { playerIndex: number; hero: CardInstance; discarded: CardInstance[] } | null
   /** Le joueur actif a déplacé un Allié/Objet ce tour-ci (déclencheur Sombres desseins). */
   activeMovedCard?: boolean
   /** Le joueur actif a pioché ≥1 carte ce tour-ci via un effet (déclencheur Sans visage). */
@@ -828,6 +853,19 @@ export type GameAction =
    *  pioche Fatalité, dans l'ordre (1ʳᵉ = tout en haut) ; les autres sont
    *  défaussées. Liste vide = tout défausser. */
   | { type: 'RESOLVE_SCRY'; topInstanceIds: string[] }
+  /** Pas de Quartier ! : déplace l'Allié `instanceId` vers le lieu voisin `to`
+   *  (non bloqué) et lui donne +force jusqu'à la fin du tour. */
+  | { type: 'RESOLVE_ALLY_MOVE_BUFF'; instanceId: string; to: LocationId }
+  /** Abu/Aladdin/K.O. : applique le choix sur la carte `instanceId` (Objet à voler
+   *  ou Allié à retirer) — cf. pendingFateChoice. */
+  | { type: 'RESOLVE_FATE_CHOICE'; instanceId: string }
+  /** Digne Adversaire / Obsession : joue le Héros dévoilé sur le lieu `to` (`play:
+   *  true`) ou le défausse (`play: false`). */
+  | { type: 'RESOLVE_FETCHED_HERO'; play: boolean; to?: LocationId }
+  /** Carte du Pays Imaginaire : défausse la Carte (du royaume) et joue
+   *  gratuitement l'Objet `itemInstanceId` de la main sur le lieu `to`
+   *  (associé à `attachTo` si l'Objet s'associe). */
+  | { type: 'USE_NEVERLAND_MAP'; itemInstanceId: string; to: LocationId; attachTo?: string }
   /** MODE TEST uniquement : inflige directement un Héros Fatalité (déjà construit
    *  par l'UI) sur un lieu du joueur ACTIF, déclenchant ses effets « à la pose »,
    *  les arrivées et les showcases — comme si un adversaire l'avait joué. */
