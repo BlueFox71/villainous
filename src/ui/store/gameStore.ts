@@ -330,6 +330,16 @@ interface GameStore {
   dismissRoyalCroquet: () => void
   /** Par ordre de la Reine ! : transforme en arceaux les Cartes Gardes choisies. */
   resolveTransformWickets: (instanceIds: string[]) => void
+  /** Faites-leur peur ! : remet sur le dessus / défausse les cartes sondées. */
+  resolveScry: (topInstanceIds: string[]) => void
+  /** Pas de Quartier ! : déplace l'Allié choisi vers un lieu voisin (+force). */
+  resolveAllyMoveBuff: (instanceId: string, to: string) => void
+  /** Abu/Aladdin/K.O. : applique le choix (Objet volé / Allié retiré). */
+  resolveFateChoice: (instanceId: string) => void
+  /** Digne Adversaire / Obsession : joue (sur `to`) ou défausse le Héros dévoilé. */
+  resolveFetchedHero: (play: boolean, to?: string) => void
+  /** Carte du Pays Imaginaire : défausse-la et joue gratuitement un Objet de la main. */
+  useNeverlandMap: (itemInstanceId: string, to: string, attachTo?: string) => void
   endTurn: () => void
   reset: (villains?: [VillainKey, VillainKey]) => void
   /** Fait jouer UN coup au bot, si le joueur actif est un bot. */
@@ -531,6 +541,16 @@ export const useGameStore = create<GameStore>((set) => ({
     set((s) => ({ state: applyAction(s.state, { type: 'DISMISS_ROYAL_CROQUET' }) })),
   resolveTransformWickets: (instanceIds) =>
     set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TRANSFORM_WICKETS', instanceIds }) })),
+  resolveScry: (topInstanceIds) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_SCRY', topInstanceIds }) })),
+  resolveAllyMoveBuff: (instanceId, to) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_ALLY_MOVE_BUFF', instanceId, to }) })),
+  resolveFateChoice: (instanceId) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_FATE_CHOICE', instanceId }) })),
+  resolveFetchedHero: (play, to) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_FETCHED_HERO', play, to }) })),
+  useNeverlandMap: (itemInstanceId, to, attachTo) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'USE_NEVERLAND_MAP', itemInstanceId, to, attachTo }) })),
   endTurn: () =>
     set((s) => ({ state: applyAction(s.state, { type: 'END_TURN' }) })),
   reset: (villains) => set({ state: newGame(villains), testMode: false }),

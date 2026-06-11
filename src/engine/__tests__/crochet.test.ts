@@ -64,6 +64,24 @@ describe('Capitaine Crochet — règles de combat', () => {
     expect(() => performVanquish(s, 'lp', ['a1'], false)).toThrow()
   })
 
+  it('Flibustiers : éliminent un Héros sur un lieu VOISIN non bloqué', () => {
+    // Flibustier au Jolly Roger, Héros au Rocher du Crâne (lieux côte à côte).
+    const fli = ally('f', 'flibustiers', 2)
+    const hero: CardInstance = { instanceId: 'h', cardId: 'wendy', name: 'Wendy', type: 'hero', strength: 2 }
+    const base = game()
+    const s: GameState = {
+      ...base,
+      phase: 'ACTION',
+      players: base.players.map((p, i) =>
+        i === 0
+          ? { ...p, pawnLocation: 'jolly-roger', board: { ...p.board, 'jolly-roger': [fli], 'rocher-crane': [hero] } }
+          : p,
+      ),
+    }
+    const next = performVanquish(s, 'h', ['f'], false)
+    expect(next.players[0].fateDiscard.some((c) => c.cardId === 'wendy')).toBe(true)
+  })
+
   it('Provocation : un Héros provocateur doit être éliminé en premier', () => {
     const taunted: CardInstance = { instanceId: 'h1', cardId: 'wendy', name: 'Wendy', type: 'hero', strength: 3 }
     const other: CardInstance = { instanceId: 'h2', cardId: 'jean', name: 'Jean', type: 'hero', strength: 2 }
@@ -100,6 +118,58 @@ describe('Capitaine Crochet — bonus de force', () => {
     const dust: CardInstance = { instanceId: 'd', cardId: 'poussiere-fee', name: 'Poussière', type: 'item', attachedTo: 'pp' }
     const s = withBoard('jolly-roger', [pp, dust])
     expect(effectiveStrength(s, 0, 'pp')).toBe(10) // 8 + 2
+  })
+})
+
+describe('Capitaine Crochet — Migraine Atroce', () => {
+  const migraine: CardInstance = { instanceId: 'm1', cardId: 'migraine-atroce', name: 'Migraine Atroce', type: 'effect' }
+  const other: CardInstance = { instanceId: 'o3', cardId: 'splitting', name: 'X', type: 'effect' }
+
+  it('défausse un Objet du royaume au choix', () => {
+    const item: CardInstance = { instanceId: 'it', cardId: 'canon', name: 'Canon', type: 'item' }
+    let s = game()
+    s = {
+      ...s,
+      activePlayer: 1,
+      phase: 'ACTION',
+      pendingFate: { target: 0, revealed: [migraine, other] },
+      players: s.players.map((p, i) => (i === 0 ? { ...p, board: { ...p.board, 'jolly-roger': [item] } } : p)),
+    }
+    s = applyAction(s, { type: 'RESOLVE_FATE', instanceId: 'm1' })
+    expect(s.pendingFateChoice?.kind).toBe('remove-item')
+    expect(s.pendingFateChoice?.candidateIds).toEqual(['it'])
+    s = applyAction(s, { type: 'RESOLVE_FATE_CHOICE', instanceId: 'it' })
+    expect((s.players[0].board['jolly-roger'] ?? []).some((c) => c.instanceId === 'it')).toBe(false)
+    expect(s.players[0].discard.some((c) => c.cardId === 'canon')).toBe(true)
+  })
+
+  it('sans Objet présent, n’ouvre aucun choix (no-op)', () => {
+    let s = game()
+    s = { ...s, activePlayer: 1, phase: 'ACTION', pendingFate: { target: 0, revealed: [migraine, other] } }
+    s = applyAction(s, { type: 'RESOLVE_FATE', instanceId: 'm1' })
+    expect(s.pendingFateChoice ?? null).toBeNull()
+  })
+})
+
+describe('Capitaine Crochet — Carte du Pays Imaginaire (capacité)', () => {
+  it('se défausse pour jouer gratuitement un Objet de la main', () => {
+    const map: CardInstance = { instanceId: 'map1', cardId: 'carte-pays-imaginaire', name: 'Carte du Pays Imaginaire', type: 'item' }
+    const canon: CardInstance = { instanceId: 'canon1', cardId: 'canon', name: 'Canon', type: 'item' }
+    let s = game()
+    s = {
+      ...s,
+      phase: 'ACTION',
+      players: s.players.map((p, i) =>
+        i === 0 ? { ...p, pawnLocation: 'jolly-roger', hand: [canon], board: { ...p.board, 'jolly-roger': [map] } } : p,
+      ),
+    }
+    const next = applyAction(s, { type: 'USE_NEVERLAND_MAP', itemInstanceId: 'canon1', to: 'rocher-crane' })
+    // La Carte est défaussée, le Canon est posé gratuitement, la main est vidée.
+    expect(next.players[0].discard.some((c) => c.cardId === 'carte-pays-imaginaire')).toBe(true)
+    expect((next.players[0].board['rocher-crane'] ?? []).some((c) => c.cardId === 'canon')).toBe(true)
+    expect((next.players[0].board['jolly-roger'] ?? []).some((c) => c.cardId === 'carte-pays-imaginaire')).toBe(false)
+    expect(next.players[0].hand.some((c) => c.cardId === 'canon')).toBe(false)
+    expect(next.players[0].power).toBe(s.players[0].power) // gratuit
   })
 })
 
@@ -193,19 +263,67 @@ describe('Capitaine Crochet — Clochette / Digne Adversaire / Pas de Quartier',
     expect((next.players[0].board['jolly-roger'] ?? []).some((c) => c.cardId === 'boucanier')).toBe(false)
     expect(next.players[0].discard.some((c) => c.cardId === 'boucanier')).toBe(true)
   })
-  it('Digne Adversaire (REVEAL_OWN_FATE_PLAY_HERO) amène un Héros dans le royaume', () => {
-    const s = { ...game(), players: game().players.map((p, i) => (i === 0 ? { ...p, pawnLocation: 'jolly-roger' } : p)) }
+  it('Digne Adversaire (REVEAL_OWN_FATE_PLAY_HERO) dévoile un Héros à jouer ou défausser', () => {
+    const base = game()
+    const s = { ...base, players: base.players.map((p, i) => (i === 0 ? { ...p, pawnLocation: 'jolly-roger' } : p)) }
     const heroesBefore = Object.values(s.players[0].board).flat().filter((c) => c.type === 'hero').length
-    const next = resolveEffect(s, { type: 'REVEAL_OWN_FATE_PLAY_HERO' }, { actorIndex: 0 })
-    const heroesAfter = Object.values(next.players[0].board).flat().filter((c) => c.type === 'hero').length
+    const revealed = resolveEffect(s, { type: 'REVEAL_OWN_FATE_PLAY_HERO' }, { actorIndex: 0 })
+    expect(revealed.pendingFetchedHero?.playerIndex).toBe(0)
+    // On choisit de le jouer sur le Rocher du Crâne.
+    const played = applyAction(revealed, { type: 'RESOLVE_FETCHED_HERO', play: true, to: 'rocher-crane' })
+    const heroesAfter = Object.values(played.players[0].board).flat().filter((c) => c.type === 'hero').length
     expect(heroesAfter).toBe(heroesBefore + 1)
+    expect(played.pendingFetchedHero ?? null).toBeNull()
   })
-  it('Pas de Quartier (MOVE_ALLY_BUFF) déplace un Allié et lui donne +2 jusqu’à la fin du tour', () => {
-    const s = withBoard('jolly-roger', [{ instanceId: 'a', cardId: 'boucanier', name: 'B', type: 'ally', strength: 2 }])
-    const next = resolveEffect(s, { type: 'MOVE_ALLY_BUFF', amount: 2 }, { actorIndex: 0 })
-    // L'Allié a quitté le Jolly Roger pour le Labyrinthe… non : voisin = Rocher du Crâne.
+  it('Digne Adversaire : les AUTRES cartes dévoilées sont défaussées (le Héros est joué)', () => {
+    const s = game()
+    const revealed = resolveEffect(s, { type: 'REVEAL_OWN_FATE_PLAY_HERO' }, { actorIndex: 0 })
+    const others = revealed.pendingFetchedHero!.discarded
+    const played = applyAction(revealed, { type: 'RESOLVE_FETCHED_HERO', play: true, to: 'jolly-roger' })
+    for (const o of others) {
+      expect(played.players[0].fateDiscard.some((c) => c.instanceId === o.instanceId)).toBe(true)
+    }
+  })
+  it('Faites-leur peur ! (SCRY) ouvre le tri des 2 cartes, puis RESOLVE_SCRY ré-ordonne/défausse', () => {
+    const w: CardInstance = { instanceId: 'w', cardId: 'wendy', name: 'Wendy', type: 'hero', strength: 3 }
+    const j: CardInstance = { instanceId: 'j', cardId: 'jean', name: 'Jean', type: 'hero', strength: 2 }
+    let s = game()
+    s = { ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, fateDeck: [w, j, ...p.fateDeck] } : p)) }
+    s = resolveEffect(s, { type: 'SCRY_OWN_FATE_TOP2' }, { actorIndex: 0 })
+    expect(s.pendingScry?.cards.map((c) => c.instanceId)).toEqual(['w', 'j'])
+    // On garde Jean sur le dessus et on défausse Wendy.
+    const next = applyAction(s, { type: 'RESOLVE_SCRY', topInstanceIds: ['j'] })
+    expect(next.pendingScry ?? null).toBeNull()
+    expect(next.players[0].fateDeck[0].instanceId).toBe('j')
+    expect(next.players[0].fateDiscard.some((c) => c.instanceId === 'w')).toBe(true)
+  })
+
+  it('Faites-leur peur ! : tout défausser (RESOLVE_SCRY vide)', () => {
+    const w: CardInstance = { instanceId: 'w', cardId: 'wendy', name: 'Wendy', type: 'hero', strength: 3 }
+    const j: CardInstance = { instanceId: 'j', cardId: 'jean', name: 'Jean', type: 'hero', strength: 2 }
+    let s = game()
+    s = { ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, fateDeck: [w, j, ...p.fateDeck] } : p)) }
+    s = resolveEffect(s, { type: 'SCRY_OWN_FATE_TOP2' }, { actorIndex: 0 })
+    const next = applyAction(s, { type: 'RESOLVE_SCRY', topInstanceIds: [] })
+    expect(next.players[0].fateDiscard.filter((c) => c.instanceId === 'w' || c.instanceId === 'j')).toHaveLength(2)
+    expect(next.players[0].fateDeck.slice(0, 2).map((c) => c.instanceId)).not.toContain('w')
+  })
+
+  it('Pas de Quartier (MOVE_ALLY_BUFF) ouvre la sélection, puis déplace l’Allié choisi +2', () => {
+    let s = withBoard('jolly-roger', [{ instanceId: 'a', cardId: 'boucanier', name: 'B', type: 'ally', strength: 2 }])
+    s = resolveEffect(s, { type: 'MOVE_ALLY_BUFF', amount: 2 }, { actorIndex: 0 })
+    expect(s.pendingAllyMoveBuff).toEqual({ playerIndex: 0, amount: 2 })
+    // On déplace l'Allié vers le Rocher du Crâne (voisin du Jolly Roger).
+    const next = applyAction(s, { type: 'RESOLVE_ALLY_MOVE_BUFF', instanceId: 'a', to: 'rocher-crane' })
+    expect(next.pendingAllyMoveBuff ?? null).toBeNull()
     const at = next.players[0].locations.find((l) => (next.players[0].board[l.id] ?? []).some((c) => c.instanceId === 'a'))
     expect(at?.id).toBe('rocher-crane')
     expect(effectiveStrength(next, 0, 'a')).toBe(4)
+  })
+  it('Pas de Quartier : déplacement vers un lieu non voisin refusé', () => {
+    let s = withBoard('jolly-roger', [{ instanceId: 'a', cardId: 'boucanier', name: 'B', type: 'ally', strength: 2 }])
+    s = resolveEffect(s, { type: 'MOVE_ALLY_BUFF', amount: 2 }, { actorIndex: 0 })
+    // lagune-sirenes n'est pas voisin du jolly-roger.
+    expect(() => applyAction(s, { type: 'RESOLVE_ALLY_MOVE_BUFF', instanceId: 'a', to: 'lagune-sirenes' })).toThrow()
   })
 })

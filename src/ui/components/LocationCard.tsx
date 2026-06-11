@@ -60,6 +60,14 @@ interface Props {
   onPlace: () => void
   onAttach: (allyInstanceId: string) => void
   onCardPick: (instanceId: string) => void
+  /** Capitaine Crochet : ids (`granted:<inst>`) des actions accordées par un Objet
+   *  DISPONIBLES sur ce lieu → la carte de l'Objet devient cliquable. */
+  grantedActionIds?: string[]
+  onGrantedAction?: (card: CardInstance) => void
+  /** Capitaine Crochet : la Carte du Pays Imaginaire est utilisable (tour du joueur)
+   *  → elle devient cliquable pour déclencher sa capacité. */
+  mapUsable?: boolean
+  onUseMap?: (instanceId: string) => void
 }
 
 export function LocationCard({
@@ -92,6 +100,10 @@ export function LocationCard({
   onPlace,
   onAttach,
   onCardPick,
+  grantedActionIds = [],
+  onGrantedAction,
+  mapUsable = false,
+  onUseMap,
 }: Props) {
   // Carte posée survolée (par instanceId) → agrandissement pour la lire « en direct ».
   const [hovered, setHovered] = useState<string | null>(null)
@@ -182,6 +194,12 @@ export function LocationCard({
                 (c.type === 'ally' || c.type === 'item' || (c.type === 'hero' && !!c.hypnotized))
               const canVanquishToggle = vanquishAllyCandidates.includes(c.instanceId)
               const isVanquishSelected = vanquishSelected.includes(c.instanceId)
+              // Capitaine Crochet : Objet qui donne une action au lieu (Canon,
+              // Boîte à Crochets, Ingénieux Mécanisme) → cliquable quand l'action
+              // est disponible.
+              const canGranted = !!c.grantsAction && grantedActionIds.includes(`granted:${c.instanceId}`)
+              // Carte du Pays Imaginaire : cliquable pour déclencher sa capacité.
+              const canUseMap = mapUsable && c.cardId === 'carte-pays-imaginaire'
               const isHovered = hovered === c.instanceId
               const isPersifleurBlink = blinkPersifleur && c.cardId === 'persifleur'
 
@@ -200,35 +218,49 @@ export function LocationCard({
                       alt={c.name}
                       title={`${c.name}${def ? ` — ${def.text}` : ''}`}
                       onClick={
-                        isTarget
+                        canUseMap
                           ? (e) => {
                               e.stopPropagation()
-                              onAttach(c.instanceId)
+                              onUseMap?.(c.instanceId)
                             }
-                          : canMovePick
+                          : canGranted
+                          ? (e) => {
+                              e.stopPropagation()
+                              onGrantedAction?.(c)
+                            }
+                          : isTarget
                             ? (e) => {
                                 e.stopPropagation()
-                                onCardPick(c.instanceId)
+                                onAttach(c.instanceId)
                               }
-                            : canVanquishToggle
+                            : canMovePick
                               ? (e) => {
                                   e.stopPropagation()
-                                  onVanquishToggle?.(c.instanceId)
+                                  onCardPick(c.instanceId)
                                 }
-                              : undefined
+                              : canVanquishToggle
+                                ? (e) => {
+                                    e.stopPropagation()
+                                    onVanquishToggle?.(c.instanceId)
+                                  }
+                                : undefined
                       }
                       className={`w-14 rounded border ${
-                        isTarget
-                          ? 'cursor-pointer border-amber-300 ring-2 ring-amber-300'
-                          : canMovePick
-                            ? 'cursor-pointer border-emerald-300 ring-2 ring-emerald-300'
-                            : canVanquishToggle
-                              ? isVanquishSelected
-                                ? 'cursor-pointer border-red-500 ring-2 ring-red-500'
-                                : 'cursor-pointer border-red-400/50 ring-2 ring-red-400/30'
-                              : isPersifleurBlink
-                                ? 'border-yellow-300 ring-2 ring-yellow-300'
-                                : 'border-white/15'
+                        canUseMap
+                          ? 'cursor-pointer border-lime-400 ring-2 ring-lime-400'
+                          : canGranted
+                          ? 'cursor-pointer border-yellow-400 ring-2 ring-yellow-400'
+                          : isTarget
+                            ? 'cursor-pointer border-amber-300 ring-2 ring-amber-300'
+                            : canMovePick
+                              ? 'cursor-pointer border-emerald-300 ring-2 ring-emerald-300'
+                              : canVanquishToggle
+                                ? isVanquishSelected
+                                  ? 'cursor-pointer border-red-500 ring-2 ring-red-500'
+                                  : 'cursor-pointer border-red-400/50 ring-2 ring-red-400/30'
+                                : isPersifleurBlink
+                                  ? 'border-yellow-300 ring-2 ring-yellow-300'
+                                  : 'border-white/15'
                       }`}
                       style={{
                         ...(isPersifleurBlink
@@ -241,6 +273,16 @@ export function LocationCard({
                     {c.isWicket && (
                       <span className="absolute -bottom-1 -left-1 rounded bg-fuchsia-700 px-1 text-[8px] font-bold text-white">
                         Arceau
+                      </span>
+                    )}
+                    {canGranted && (
+                      <span className="pointer-events-none absolute -top-1 -left-1 rounded bg-yellow-400 px-1 text-[8px] font-bold text-black shadow">
+                        ▶ action
+                      </span>
+                    )}
+                    {canUseMap && (
+                      <span className="pointer-events-none absolute -top-1 -left-1 rounded bg-lime-400 px-1 text-[8px] font-bold text-black shadow">
+                        ▶ utiliser
                       </span>
                     )}
                     {isVanquishSelected && (

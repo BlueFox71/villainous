@@ -81,6 +81,10 @@ function DiscardModal({
 }) {
   // Ordre : du dessus de la pile (dernière défaussée) vers le fond.
   const ordered = [...cards].reverse()
+  // Carte survolée → aperçu agrandi (rendu en grand au centre, hors du conteneur
+  // défilable pour ne pas être rogné).
+  const [hovered, setHovered] = useState<string | null>(null)
+  const hoveredCard = ordered.find((c) => c.instanceId === hovered)
   // Rendu via portail sur <body> : la modale est sinon imbriquée dans la colonne
   // du plateau (conteneur défilable), ce qui empêchait son fond de couvrir tout
   // l'écran (effet « transparent »).
@@ -115,12 +119,24 @@ function DiscardModal({
                 src={imgOf(c)}
                 alt={c.name}
                 title={c.name}
-                className="w-full rounded-lg border border-white/15"
+                onMouseEnter={() => setHovered(c.instanceId)}
+                onMouseLeave={() => setHovered((h) => (h === c.instanceId ? null : h))}
+                className="w-full cursor-zoom-in rounded-lg border border-white/15 transition hover:border-amber-300"
               />
             ))}
           </div>
         )}
       </div>
+      {/* Aperçu agrandi de la carte survolée (centré, au-dessus de tout). */}
+      {hoveredCard && (
+        <div className="pointer-events-none fixed inset-0 z-[80] flex items-center justify-center">
+          <img
+            src={imgOf(hoveredCard)}
+            alt={hoveredCard.name}
+            className="max-h-[80vh] w-auto rounded-xl border-2 border-amber-300/70 shadow-2xl"
+          />
+        </div>
+      )}
     </div>,
     document.body,
   )

@@ -870,6 +870,126 @@ function applyResolveFate(
     )
   }
 
+  // K.O. (Jafar, Fatalité) : retirer un Allié de force ≤ 3 du royaume de la cible.
+  // L'adversaire (joueur actif) choisit lequel (RESOLVE_FATE_CHOICE).
+  if (chosen.cardId === 'ko') {
+    const candidates = Object.values(tgt.board)
+      .flat()
+      .filter((c) => c.type === 'ally' && !c.isWicket && !c.attachedTo && (c.strength ?? 0) <= 3)
+    let next = updatePlayer(state, pending.target, (p) => ({
+      ...p,
+      fateDiscard: [...p.fateDiscard, chosen, ...others],
+    }))
+    next = { ...next, pendingFate: null }
+    if (candidates.length === 0) {
+      return { ...next, log: [...next.log, `**K.O.** : aucun Allié de force ≤ 3 chez ${tgt.villainName}.`] }
+    }
+    return {
+      ...next,
+      pendingFateChoice: {
+        chooserIndex: state.activePlayer,
+        targetIndex: pending.target,
+        kind: 'remove-ally',
+        candidateIds: candidates.map((c) => c.instanceId),
+      },
+      log: [...next.log, `**K.O.** : ${state.players[state.activePlayer].villainName} retire un Allié de force ≤ 3 chez ${tgt.villainName}.`],
+    }
+  }
+
+  // Migraine Atroce (Crochet, Fatalité) : défausser un Objet du royaume (au choix).
+  if (chosen.cardId === 'migraine-atroce') {
+    const items = Object.values(tgt.board)
+      .flat()
+      .filter((c) => c.type === 'item')
+    let next = updatePlayer(state, pending.target, (p) => ({
+      ...p,
+      fateDiscard: [...p.fateDiscard, chosen, ...others],
+    }))
+    next = { ...next, pendingFate: null }
+    if (items.length === 0) {
+      return { ...next, log: [...next.log, `**Migraine Atroce** : aucun Objet à défausser chez ${tgt.villainName}.`] }
+    }
+    return {
+      ...next,
+      pendingFateChoice: {
+        chooserIndex: state.activePlayer,
+        targetIndex: pending.target,
+        kind: 'remove-item',
+        candidateIds: items.map((c) => c.instanceId),
+      },
+      log: [...next.log, `**Migraine Atroce** : ${state.players[state.activePlayer].villainName} défausse un Objet de ${tgt.villainName}.`],
+    }
+  }
+
+  // Trahison (Jafar, Fatalité) : la cible perd immédiatement 2 jetons Pouvoir.
+  if (chosen.cardId === 'trahison') {
+    const lost = Math.min(2, tgt.power)
+    let next = updatePlayer(state, pending.target, (p) => ({
+      ...p,
+      power: Math.max(0, p.power - 2),
+      fateDiscard: [...p.fateDiscard, chosen, ...others],
+    }))
+    next = { ...next, pendingFate: null }
+    return {
+      ...next,
+      log: [...next.log, `**Trahison** : ${tgt.villainName} perd ${lost} jeton${lost > 1 ? 's' : ''} Pouvoir.`],
+    }
+  }
+
+  // Chute dans le terrier (Reine de Cœur, Fatalité) : cherchez Alice et jouez-la
+  // (le joueur actif choisit le lieu). Si Alice est déjà dans le royaume, retirez
+  // plutôt un Allié sur son lieu.
+  if (chosen.cardId === 'chute-terrier') {
+    let aliceLoc: string | undefined
+    for (const l of tgt.locations) {
+      if ((tgt.board[l.id] ?? []).some((c) => c.type === 'hero' && c.cardId === 'alice')) aliceLoc = l.id
+    }
+    let next = updatePlayer(state, pending.target, (p) => ({
+      ...p,
+      fateDiscard: [...p.fateDiscard, chosen, ...others],
+    }))
+    next = { ...next, pendingFate: null }
+    // Alice déjà présente → retirer un Allié sur son lieu (au choix).
+    if (aliceLoc) {
+      const candidates = (next.players[pending.target].board[aliceLoc] ?? []).filter(
+        (c) => c.type === 'ally' && !c.isWicket && !c.attachedTo,
+      )
+      if (candidates.length === 0) {
+        return { ...next, log: [...next.log, `Chute dans le terrier : aucun Allié à retirer sur le lieu d'Alice.`] }
+      }
+      return {
+        ...next,
+        pendingFateChoice: {
+          chooserIndex: state.activePlayer,
+          targetIndex: pending.target,
+          kind: 'remove-ally',
+          candidateIds: candidates.map((c) => c.instanceId),
+        },
+        log: [...next.log, `Chute dans le terrier : retirez un Allié sur le lieu d'Alice.`],
+      }
+    }
+    // Sinon : chercher Alice dans la pioche puis la défausse Fatalité.
+    const tp = next.players[pending.target]
+    const alice = tp.fateDeck.find((c) => c.cardId === 'alice') ?? tp.fateDiscard.find((c) => c.cardId === 'alice')
+    if (!alice) {
+      return { ...next, log: [...next.log, `Chute dans le terrier : Alice est introuvable.`] }
+    }
+    next = updatePlayer(next, pending.target, (p) => ({
+      ...p,
+      fateDeck: p.fateDeck.filter((c) => c.instanceId !== alice.instanceId),
+      fateDiscard: p.fateDiscard.filter((c) => c.instanceId !== alice.instanceId),
+    }))
+    if (heroPlacementLocations(next, alice, pending.target).length === 0) {
+      next = updatePlayer(next, pending.target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, alice] }))
+      return { ...next, log: [...next.log, `Chute dans le terrier : aucun lieu pour Alice → défaussée.`] }
+    }
+    return {
+      ...next,
+      pendingHeroPlacement: { chooserIndex: state.activePlayer, targetIndex: pending.target, hero: alice },
+      log: [...next.log, `Chute dans le terrier : ${state.players[state.activePlayer].villainName} place Alice.`],
+    }
+  }
+
   // Fallback (carte Fatalité non implémentée) : simple défausse.
   const next = updatePlayer(state, pending.target, (p) => ({
     ...p,
@@ -2160,6 +2280,232 @@ function applyResolveTransformWickets(state: GameState, instanceIds: string[]): 
   }
 }
 
+/** Faites-leur peur ! : remet `topInstanceIds` (validés) sur le dessus de la
+ *  pioche Fatalité dans l'ordre donné (1ʳᵉ = tout en haut), défausse les autres
+ *  cartes sondées. */
+function applyResolveScry(state: GameState, topInstanceIds: string[]): GameState {
+  const pending = state.pendingScry
+  if (!pending) throw new Error('Aucune carte Fatalité à trier (Faites-leur peur !).')
+  const idx = pending.playerIndex
+  const byId = new Map(pending.cards.map((c) => [c.instanceId, c]))
+  const kept = topInstanceIds.filter((id) => byId.has(id)).map((id) => byId.get(id)!)
+  const keptSet = new Set(kept.map((c) => c.instanceId))
+  const discarded = pending.cards.filter((c) => !keptSet.has(c.instanceId))
+  const player = state.players[idx]
+  const next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    fateDeck: [...kept, ...p.fateDeck],
+    fateDiscard: [...p.fateDiscard, ...discarded],
+  }))
+  return {
+    ...next,
+    pendingScry: null,
+    log: [
+      ...next.log,
+      `${player.villainName} (Faites-leur peur !) : ${kept.length} carte(s) sur le dessus, ${discarded.length} défaussée(s).`,
+    ],
+  }
+}
+
+/** Pas de Quartier ! : déplace l'Allié choisi vers un lieu voisin non bloqué et
+ *  lui donne +force jusqu'à la fin du tour. */
+function applyResolveAllyMoveBuff(state: GameState, instanceId: string, to: LocationId): GameState {
+  const pending = state.pendingAllyMoveBuff
+  if (!pending) throw new Error('Aucun déplacement « Pas de Quartier ! » en attente.')
+  const idx = pending.playerIndex
+  const me = state.players[idx]
+  const from = locationOfCard(me, instanceId)
+  if (!from) throw new Error(`Allié « ${instanceId} » introuvable.`)
+  const ally = (me.board[from] ?? []).find((c) => c.instanceId === instanceId)
+  if (!ally || ally.type !== 'ally' || ally.attachedTo || ally.isWicket) {
+    throw new Error('Cible invalide pour « Pas de Quartier ! ».')
+  }
+  if (!adjacentLocationIds(state, from).includes(to)) {
+    throw new Error('Destination invalide (lieu voisin non bloqué requis).')
+  }
+  const attached = (me.board[from] ?? []).filter((c) => c.attachedTo === instanceId)
+  const movedIds = new Set([instanceId, ...attached.map((c) => c.instanceId)])
+  const next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    board: {
+      ...p.board,
+      [from]: (p.board[from] ?? []).filter((c) => !movedIds.has(c.instanceId)),
+      [to]: [
+        ...(p.board[to] ?? []),
+        { ...ally, tempStrengthBonus: (ally.tempStrengthBonus ?? 0) + pending.amount },
+        ...attached,
+      ],
+    },
+  }))
+  const toName = me.locations.find((l) => l.id === to)?.name ?? to
+  return {
+    ...next,
+    pendingAllyMoveBuff: null,
+    log: [...next.log, `${me.villainName} déplace **${ally.name}** vers **${toName}** (+${pending.amount} force ce tour-ci).`],
+  }
+}
+
+/** Abu/Aladdin (vol d'un Objet → associé au Héros) / K.O. (retrait d'un Allié) :
+ *  applique le choix de l'adversaire sur la carte `instanceId`. */
+function applyResolveFateChoice(state: GameState, instanceId: string): GameState {
+  const pending = state.pendingFateChoice
+  if (!pending) throw new Error('Aucun choix de Fatalité en attente.')
+  if (!pending.candidateIds.includes(instanceId)) {
+    throw new Error('Carte choisie invalide (choix de Fatalité).')
+  }
+  const ti = pending.targetIndex
+  const tgt = state.players[ti]
+
+  if (pending.kind === 'remove-ally') {
+    const loc = locationOfCard(tgt, instanceId)
+    if (!loc) throw new Error('Allié introuvable.')
+    const ally = (tgt.board[loc] ?? []).find((c) => c.instanceId === instanceId)!
+    const attached = (tgt.board[loc] ?? []).filter((c) => c.attachedTo === instanceId)
+    const removed = new Set([instanceId, ...attached.map((c) => c.instanceId)])
+    const next = updatePlayer(state, ti, (p) => ({
+      ...p,
+      board: { ...p.board, [loc]: (p.board[loc] ?? []).filter((c) => !removed.has(c.instanceId)) },
+      discard: [...p.discard, ally, ...attached],
+    }))
+    return {
+      ...next,
+      pendingFateChoice: null,
+      log: [...next.log, `**K.O.** : **${ally.name}** est retiré du royaume de ${tgt.villainName}.`],
+    }
+  }
+
+  if (pending.kind === 'remove-item') {
+    // Migraine Atroce : défausse un Objet du royaume de la cible.
+    const loc = locationOfCard(tgt, instanceId)
+    if (!loc) throw new Error('Objet introuvable.')
+    const item = (tgt.board[loc] ?? []).find((c) => c.instanceId === instanceId)!
+    const next = updatePlayer(state, ti, (p) => ({
+      ...p,
+      board: { ...p.board, [loc]: (p.board[loc] ?? []).filter((c) => c.instanceId !== instanceId) },
+      discard: [...p.discard, { ...item, attachedTo: undefined }],
+    }))
+    return {
+      ...next,
+      pendingFateChoice: null,
+      log: [...next.log, `**Migraine Atroce** : **${item.name}** est défaussé du royaume de ${tgt.villainName}.`],
+    }
+  }
+
+  // steal-item-to-hero (Abu/Aladdin) : l'Objet (du plateau ou de la main) est
+  // associé au Héros et n'est plus utilisable par la cible.
+  const host = pending.hostInstanceId!
+  const hostLoc = locationOfCard(tgt, host)
+  if (!hostLoc) throw new Error('Héros porteur introuvable.')
+  const item =
+    Object.values(tgt.board).flat().find((c) => c.instanceId === instanceId) ??
+    tgt.hand.find((c) => c.instanceId === instanceId)
+  if (!item) throw new Error('Objet introuvable.')
+  const equipped: CardInstance = { ...item, attachedTo: host }
+  const next = updatePlayer(state, ti, (p) => ({
+    ...p,
+    hand: p.hand.filter((c) => c.instanceId !== instanceId),
+    board: Object.fromEntries(
+      p.locations.map((l) => {
+        let cards = (p.board[l.id] ?? []).filter((c) => c.instanceId !== instanceId)
+        if (l.id === hostLoc) cards = [...cards, equipped]
+        return [l.id, cards]
+      }),
+    ),
+  }))
+  return {
+    ...next,
+    pendingFateChoice: null,
+    log: [...next.log, `**${item.name}** est volé à ${tgt.villainName} et associé au Héros (inutilisable).`],
+  }
+}
+
+/** Digne Adversaire / Obsession : joue le Héros dévoilé sur le lieu choisi (Peter
+ *  Pan → Arbre du Pendu) ou le défausse ; défausse toujours les autres dévoilées. */
+function applyResolveFetchedHero(state: GameState, play: boolean, to?: LocationId): GameState {
+  const pending = state.pendingFetchedHero
+  if (!pending) throw new Error('Aucun Héros dévoilé en attente.')
+  const idx = pending.playerIndex
+  const me = state.players[idx]
+  // Les autres cartes dévoilées partent toujours en défausse Fatalité.
+  let next = updatePlayer(state, idx, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, ...pending.discarded] }))
+  next = { ...next, pendingFetchedHero: null }
+  if (!play) {
+    next = updatePlayer(next, idx, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, pending.hero] }))
+    return { ...next, log: [...next.log, `${me.villainName} défausse **${pending.hero.name}**.`] }
+  }
+  const isPeterPan = pending.hero.cardId === 'peter-pan'
+  const dest = isPeterPan ? 'arbre-pendu' : to ?? me.pawnLocation ?? me.locations[0].id
+  const locked = new Set(me.lockedLocations ?? [])
+  if (!isPeterPan && (!me.locations.some((l) => l.id === dest) || locked.has(dest))) {
+    throw new Error(`Lieu de pose invalide pour ${pending.hero.name}.`)
+  }
+  const destName = me.locations.find((l) => l.id === dest)?.name ?? dest
+  return placeFateHeroWithEffects(next, idx, idx, pending.hero, dest, destName)
+}
+
+/** Carte du Pays Imaginaire : à tout moment du tour, défaussez-la (du royaume)
+ *  pour jouer GRATUITEMENT un Objet de la main. */
+function applyUseNeverlandMap(
+  state: GameState,
+  itemInstanceId: string,
+  to: LocationId,
+  attachTo?: string,
+): GameState {
+  if (state.phase !== 'ACTION') {
+    throw new Error(`Impossible d'utiliser la Carte du Pays Imaginaire en phase ${state.phase}.`)
+  }
+  const me = activePlayer(state)
+  // Localiser la Carte du Pays Imaginaire dans le royaume.
+  let mapId: string | undefined
+  let mapLoc: string | undefined
+  for (const l of me.locations) {
+    const found = (me.board[l.id] ?? []).find((c) => c.cardId === 'carte-pays-imaginaire')
+    if (found) {
+      mapId = found.instanceId
+      mapLoc = l.id
+      break
+    }
+  }
+  if (!mapId || !mapLoc) throw new Error('Carte du Pays Imaginaire absente de votre royaume.')
+  const mapCard = (me.board[mapLoc] ?? []).find((c) => c.instanceId === mapId)!
+  const item = me.hand.find((c) => c.instanceId === itemInstanceId)
+  if (!item || item.type !== 'item') throw new Error('Objet à jouer introuvable dans la main.')
+  if (!me.locations.some((l) => l.id === to)) throw new Error(`Lieu invalide : « ${to} ».`)
+  if ((me.lockedLocations ?? []).includes(to)) throw new Error('Lieu verrouillé.')
+  if (item.playOnlyAt && item.playOnlyAt !== to) {
+    throw new Error(`${item.name} ne peut être posé qu'à un lieu précis.`)
+  }
+  const needsTarget = item.attach === 'ally' || item.attach === 'hero'
+  if (needsTarget) {
+    const host = (me.board[to] ?? []).find((c) => c.instanceId === attachTo)
+    const ok =
+      host &&
+      ((item.attach === 'ally' && host.type === 'ally' && !host.isWicket) ||
+        (item.attach === 'hero' && host.type === 'hero'))
+    if (!ok) throw new Error(`${item.name} doit être associé à une carte valide sur ${to}.`)
+  }
+  const placed: CardInstance = needsTarget ? { ...item, attachedTo: attachTo } : item
+  // Retire la Carte du Pays Imaginaire (→ défausse) et pose l'Objet sur `to`.
+  let next = updateActivePlayer(state, (p) => ({
+    ...p,
+    hand: p.hand.filter((c) => c.instanceId !== itemInstanceId),
+    discard: [...p.discard, { ...mapCard, attachedTo: undefined }],
+    board: Object.fromEntries(
+      p.locations.map((l) => {
+        let cards = (p.board[l.id] ?? []).filter((c) => c.instanceId !== mapId)
+        if (l.id === to) cards = [...cards, placed]
+        return [l.id, cards]
+      }),
+    ),
+  }))
+  next = {
+    ...next,
+    log: [...next.log, `${me.villainName} défausse la Carte du Pays Imaginaire et joue **${item.name}** gratuitement.`],
+  }
+  // Effets immédiats de l'Objet (ex. déverrouillage), s'il y en a.
+  return resolveEffects(next, item.effects ?? [], { actorIndex: state.activePlayer, hostLocationId: to })
+}
+
 function applyEndTurn(state: GameState): GameState {
   if (!canEndTurn(state)) {
     throw new Error(`Impossible de terminer le tour en phase ${state.phase}.`)
@@ -2257,6 +2603,26 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   ) {
     throw new Error('Choisissez les Cartes Gardes à transformer (RESOLVE_TRANSFORM_WICKETS).')
   }
+  // Faites-leur peur ! : le tri des 2 cartes Fatalité doit être résolu d'abord.
+  if (state.pendingScry && action.type !== 'RESOLVE_SCRY' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Triez les cartes Fatalité révélées (RESOLVE_SCRY).')
+  }
+  // Pas de Quartier ! : le déplacement de l'Allié doit être résolu d'abord.
+  if (
+    state.pendingAllyMoveBuff &&
+    action.type !== 'RESOLVE_ALLY_MOVE_BUFF' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Choisissez l’Allié à déplacer (RESOLVE_ALLY_MOVE_BUFF).')
+  }
+  // Abu/Aladdin/K.O. : le choix (Objet volé / Allié retiré) doit être résolu d'abord.
+  if (state.pendingFateChoice && action.type !== 'RESOLVE_FATE_CHOICE' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Résolvez le choix de la carte Fatalité (RESOLVE_FATE_CHOICE).')
+  }
+  // Digne Adversaire / Obsession : jouer ou défausser le Héros dévoilé d'abord.
+  if (state.pendingFetchedHero && action.type !== 'RESOLVE_FETCHED_HERO' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Jouez ou défaussez le Héros dévoilé (RESOLVE_FETCHED_HERO).')
+  }
   switch (action.type) {
     case 'MOVE':
       return applyMove(state, action.to)
@@ -2314,6 +2680,16 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return { ...state, pendingRoyalCroquet: null }
     case 'RESOLVE_TRANSFORM_WICKETS':
       return applyResolveTransformWickets(state, action.instanceIds)
+    case 'RESOLVE_SCRY':
+      return applyResolveScry(state, action.topInstanceIds)
+    case 'RESOLVE_ALLY_MOVE_BUFF':
+      return applyResolveAllyMoveBuff(state, action.instanceId, action.to)
+    case 'RESOLVE_FATE_CHOICE':
+      return applyResolveFateChoice(state, action.instanceId)
+    case 'RESOLVE_FETCHED_HERO':
+      return applyResolveFetchedHero(state, action.play, action.to)
+    case 'USE_NEVERLAND_MAP':
+      return applyUseNeverlandMap(state, action.itemInstanceId, action.to, action.attachTo)
     case 'TEST_PLACE_FATE':
       return applyTestPlaceFate(state, action.card, action.to)
     case 'TEST_PLAY_CONDITION':

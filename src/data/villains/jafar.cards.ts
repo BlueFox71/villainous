@@ -247,6 +247,7 @@ export const jafarCards: CardDef[] = [
     copies: 1,
     text: 'Prenez un Objet sur le lieu où vous jouez cette carte et associez-le à Abu. Jafar ne peut plus utiliser cet Objet.',
     image: img('abu.png'),
+    onPlace: [{ type: 'STEAL_ITEM_TO_HERO' }],
   },
   {
     id: 'aladdin',
@@ -258,6 +259,7 @@ export const jafarCards: CardDef[] = [
     copies: 1,
     text: 'Prenez un Objet de la main de Jafar ou sur le lieu où vous jouez cette carte et associez-le à Aladdin. Jafar ne peut plus utiliser cet Objet.',
     image: img('aladdin.png'),
+    onPlace: [{ type: 'STEAL_ITEM_TO_HERO', fromHand: true }],
   },
   {
     id: 'genie',

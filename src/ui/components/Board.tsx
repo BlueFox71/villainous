@@ -1,4 +1,4 @@
-import type { LocationId, PlayerState } from '../../engine/types'
+import type { CardInstance, LocationId, PlayerState } from '../../engine/types'
 import type { Accent } from '../accents'
 import { LocationCard } from './LocationCard'
 import { LOCATIONS_LEFT } from './BoardImage'
@@ -42,6 +42,12 @@ interface Props {
   onPlace: (to: LocationId) => void
   onAttach: (allyInstanceId: string) => void
   onCardPick: (instanceId: string) => void
+  /** Capitaine Crochet : ids d'actions accordées disponibles + handler de clic. */
+  grantedActionIds?: string[]
+  onGrantedAction?: (card: CardInstance) => void
+  /** Capitaine Crochet : la Carte du Pays Imaginaire est utilisable + handler. */
+  mapUsable?: boolean
+  onUseMap?: (instanceId: string) => void
 }
 
 /** Les 4 lieux d'un joueur : déplacement, cartes posées (Héros en haut,
@@ -72,6 +78,10 @@ export function Board({
   onPlace,
   onAttach,
   onCardPick,
+  grantedActionIds = [],
+  onGrantedAction,
+  mapUsable = false,
+  onUseMap,
 }: Props) {
   const cellColor = VILLAIN_COLOR[player.villain]
 
@@ -134,6 +144,10 @@ export function Board({
             onPlace={() => onPlace(loc.id)}
             onAttach={onAttach}
             onCardPick={onCardPick}
+            grantedActionIds={grantedActionIds}
+            onGrantedAction={onGrantedAction}
+            mapUsable={mapUsable}
+            onUseMap={onUseMap}
           />
         )
       })}

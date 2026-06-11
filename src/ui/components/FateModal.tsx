@@ -65,6 +65,30 @@ export function FateModal({ revealed, target, onResolve }: Props) {
       .map(({ h }) => h)
   }
 
+  // Une carte Fatalité est-elle jouable contre la cible (a-t-elle un effet
+   // possible) ? Sert à griser celles sans cible valide quand l'AUTRE est jouable.
+  const playable = (c: CardInstance): boolean => {
+    const realm = Object.values(target.board).flat()
+    if (c.cardId === 'migraine-atroce') return realm.some((x) => x.type === 'item')
+    if (c.cardId === 'ko') return realm.some((x) => x.type === 'ally' && !x.isWicket && (x.strength ?? 0) <= 3)
+    // Il était un Rêve : il faut une Malédiction sur un lieu portant un Héros.
+    if (c.cardId === 'il-etait-un-reve') {
+      return target.locations.some((l) => {
+        const cell = target.board[l.id] ?? []
+        return cell.some((x) => x.type === 'hero') && cell.some((x) => x.type === 'curse')
+      })
+    }
+    if (c.type === 'hero') {
+      const forbidden = new Set(c.forbiddenLocations ?? [])
+      const locked = new Set(target.lockedLocations ?? [])
+      return target.locations.some((l) => !forbidden.has(l.id) && !locked.has(l.id))
+    }
+    if (needsTargetHero(c)) return eligibleHeroesFor(c).length > 0
+    return true
+  }
+  // On ne grise que si une AUTRE carte est jouable (sinon il faut bien en jouer une).
+  const anyPlayable = revealed.some(playable)
+
   const choose = (c: CardInstance) => {
     if (c.type === 'hero') return setSelected(c.instanceId)
     if (needsTargetHero(c)) {
@@ -98,22 +122,28 @@ export function FateModal({ revealed, target, onResolve }: Props) {
           {revealed.map((c) => {
             const def = getCardDef(c.cardId)
             const isSel = selected === c.instanceId
+            const disabled = anyPlayable && !playable(c)
             return (
               <button
                 key={c.instanceId}
-                onClick={() => choose(c)}
+                onClick={() => !disabled && choose(c)}
+                disabled={disabled}
+                title={disabled ? `${c.name} — non jouable (aucune cible valide)` : `${c.name}${def ? ` — ${def.text}` : ''}`}
                 className={`rounded-lg border-2 p-1 transition ${
-                  isSel ? 'border-white ring-2 ring-white' : 'border-white/15 hover:border-white/60'
+                  disabled
+                    ? 'cursor-not-allowed border-white/10 opacity-40'
+                    : isSel
+                      ? 'border-white ring-2 ring-white'
+                      : 'border-white/15 hover:border-white/60'
                 }`}
               >
-                <img
-                  src={def?.image}
-                  alt={c.name}
-                  title={`${c.name}${def ? ` — ${def.text}` : ''}`}
-                  className="h-64 w-auto rounded"
-                />
+                <img src={def?.image} alt={c.name} className="h-64 w-auto rounded" />
                 <div className="mt-1 text-center text-[11px] text-white/70">
-                  {c.type === 'hero' ? `🦸 Héros (force ${c.strength ?? '?'})` : 'Carte Fatalité'}
+                  {disabled
+                    ? 'Non jouable'
+                    : c.type === 'hero'
+                      ? `🦸 Héros (force ${c.strength ?? '?'})`
+                      : 'Carte Fatalité'}
                 </div>
               </button>
             )

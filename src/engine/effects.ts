@@ -1265,6 +1265,31 @@ export function resolveEffect(
       }))
       return { ...next, log: [...next.log, `Clochette défausse **${ally.name}**.`] }
     }
+    case 'STEAL_ITEM_TO_HERO': {
+      // Abu / Aladdin (Fatalité) : l'adversaire (chooser) choisit un Objet du lieu
+      // du Héros (et, pour Aladdin, de la main de la cible) à associer au Héros.
+      const targetIndex = idx // royaume ciblé (Jafar)
+      const tgt = state.players[targetIndex]
+      const chooserIndex = (targetIndex + 1) % state.players.length
+      const loc = ctx?.hostLocationId
+      const locItems = loc ? (tgt.board[loc] ?? []).filter((c) => c.type === 'item' && !c.attachedTo) : []
+      const handItems = effect.fromHand ? tgt.hand.filter((c) => c.type === 'item') : []
+      const candidateIds = [...locItems, ...handItems].map((c) => c.instanceId)
+      if (candidateIds.length === 0 || !ctx?.hostInstanceId) {
+        return { ...state, log: [...state.log, `Aucun Objet à voler pour ${ctx?.hostInstanceId ? 'ce Héros' : 'cette carte'}.`] }
+      }
+      return {
+        ...state,
+        pendingFateChoice: {
+          chooserIndex,
+          targetIndex,
+          kind: 'steal-item-to-hero',
+          hostInstanceId: ctx.hostInstanceId,
+          candidateIds,
+        },
+        log: [...state.log, `${state.players[chooserIndex].villainName} choisit un Objet à voler à ${tgt.villainName}.`],
+      }
+    }
     case 'REVEAL_OWN_FATE_PLAY_HERO': {
       // Dévoile le deck Fatalité de l'acteur jusqu'à un Héros, le joue dans SON
       // royaume, défausse les autres cartes dévoilées.
@@ -1291,33 +1316,25 @@ export function resolveEffect(
         }
       }
       const others = revealed.filter((c) => c !== hero)
-      let next = updatePlayer(state, idx, (p) => ({
-        ...p,
-        fateDeck: deck,
-        fateDiscard: [...disc, ...others],
-      }))
+      // On retire les cartes dévoilées de la pioche ; les non-Héros et le sort du
+      // Héros (joué / défaussé) sont réglés à la résolution (RESOLVE_FETCHED_HERO).
+      let next = updatePlayer(state, idx, (p) => ({ ...p, fateDeck: deck, fateDiscard: disc }))
       next = { ...next, rngState: s }
       if (!hero) {
-        return { ...next, log: [...next.log, `${actor0.villainName} ne trouve aucun Héros dans son deck Fatalité.`] }
+        return {
+          ...next,
+          players: next.players.map((p, i) => (i === idx ? { ...p, fateDiscard: [...p.fateDiscard, ...others] } : p)),
+          log: [...next.log, `${actor0.villainName} ne trouve aucun Héros dans son deck Fatalité.`],
+        }
       }
-      const dest = hero.cardId === 'peter-pan' ? 'arbre-pendu' : actor0.pawnLocation ?? actor0.locations[0].id
-      const destName = actor0.locations.find((l) => l.id === dest)?.name ?? dest
-      // Pose dans le royaume de l'acteur (placeFateHeroWithEffects vit dans
-      // actions.ts → on reproduit ici la pose + effets « à la pose » + arrivée).
-      next = updatePlayer(next, idx, (p) => ({
-        ...p,
-        board: { ...p.board, [dest]: [...(p.board[dest] ?? []), hero] },
-      }))
-      next = {
+      return {
         ...next,
-        log: [...next.log, `${actor0.villainName} dévoile son deck Fatalité et joue **${hero.name}** sur **${destName}**.`],
+        pendingFetchedHero: { playerIndex: idx, hero, discarded: others },
+        log: [
+          ...next.log,
+          `${actor0.villainName} dévoile **${hero.name}** : à jouer dans son royaume ou à défausser.`,
+        ],
       }
-      next = resolveEffects(next, hero.onPlace ?? [], {
-        actorIndex: idx,
-        hostInstanceId: hero.instanceId,
-        hostLocationId: dest,
-      })
-      return triggerHeroArrival(next, idx, dest)
     }
     case 'RELOCATE_OWN_HERO': {
       // Monsieur Starkey : si l'acteur a un Héros dans son royaume, ouvre le
@@ -1332,8 +1349,9 @@ export function resolveEffect(
       }
     }
     case 'SCRY_OWN_FATE_TOP2': {
-      // Faites-leur peur ! : regarde les 2 premières cartes Fatalité ; défausse
-      // les non-Héros, garde les Héros sur le dessus (creuse vers les Héros).
+      // Faites-leur peur ! : retire les 2 premières cartes Fatalité et ouvre la
+      // fenêtre de décision (pendingScry) — défausser ou remettre sur le dessus
+      // dans l'ordre choisi (RESOLVE_SCRY).
       const actor = state.players[idx]
       let deck = actor.fateDeck
       let disc = actor.fateDiscard
@@ -1345,72 +1363,38 @@ export function resolveEffect(
         disc = []
       }
       const top = deck.slice(0, 2)
-      const rest = deck.slice(2)
-      const keep = top.filter((c) => c.type === 'hero')
-      const drop = top.filter((c) => c.type !== 'hero')
-      const next = updatePlayer(state, idx, (p) => ({
-        ...p,
-        fateDeck: [...keep, ...rest],
-        fateDiscard: [...disc, ...drop],
-      }))
+      const rest = deck.slice(top.length)
+      if (top.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : pioche Fatalité vide (Faites-leur peur !).`] }
+      }
+      const next = updatePlayer(state, idx, (p) => ({ ...p, fateDeck: rest, fateDiscard: disc }))
       return {
         ...next,
         rngState: s,
-        log: [
-          ...next.log,
-          `${actor.villainName} sonde sa pioche Fatalité (Faites-leur peur !) : ${drop.length} carte(s) défaussée(s).`,
-        ],
+        pendingScry: { playerIndex: idx, cards: top },
+        log: [...next.log, `${actor.villainName} regarde les ${top.length} première(s) carte(s) de sa pioche Fatalité (Faites-leur peur !).`],
       }
     }
     case 'MOVE_ALLY_BUFF': {
-      // Pas de Quartier ! : déplace un Allié vers un lieu voisin non bloqué et lui
-      // donne +amount force jusqu'à la fin du tour. Auto-pick : on privilégie un
-      // Allié pouvant rejoindre un lieu voisin portant un Héros (mise en place d'un Vanquish).
+      // Pas de Quartier ! : ouvre la sélection d'un Allié à déplacer vers un lieu
+      // voisin non bloqué (+amount force jusqu'à la fin du tour). Sans Allié
+      // déplaçable (aucun Allié, ou aucun voisin non bloqué), l'effet ne fait rien.
       const actor = state.players[idx]
-      const locked = new Set(actor.lockedLocations ?? [])
-      const order = actor.locations.map((l) => l.id)
-      let bestAlly: CardInstance | undefined
-      let bestFrom = ''
-      let bestTo = ''
-      let bestScore = -1
-      for (let i = 0; i < order.length; i++) {
-        const from = order[i]
-        const neighbors = [order[i - 1], order[i + 1]].filter((id): id is string => !!id && !locked.has(id))
-        if (neighbors.length === 0) continue
-        for (const c of actor.board[from] ?? []) {
-          if (c.type !== 'ally' || c.attachedTo || c.isWicket) continue
-          for (const to of neighbors) {
-            const heroesThere = (actor.board[to] ?? []).filter((d) => d.type === 'hero').length
-            const score = heroesThere * 10 + (c.strength ?? 0)
-            if (score > bestScore) {
-              bestScore = score
-              bestAlly = c
-              bestFrom = from
-              bestTo = to
-            }
-          }
-        }
+      const hasMovable = actor.locations.some(
+        (l) =>
+          adjacentLocationIds(state, l.id).length > 0 &&
+          (actor.board[l.id] ?? []).some((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket),
+      )
+      if (!hasMovable) {
+        return { ...state, log: [...state.log, 'Pas de Quartier ! : aucun Allié déplaçable.'] }
       }
-      if (!bestAlly) return { ...state, log: [...state.log, 'Pas de Quartier ! : aucun Allié déplaçable.'] }
-      const moved = bestAlly
-      const attached = (actor.board[bestFrom] ?? []).filter((c) => c.attachedTo === moved.instanceId)
-      const movedIds = new Set([moved.instanceId, ...attached.map((c) => c.instanceId)])
-      const next = updatePlayer(state, idx, (p) => ({
-        ...p,
-        board: {
-          ...p.board,
-          [bestFrom]: (p.board[bestFrom] ?? []).filter((c) => !movedIds.has(c.instanceId)),
-          [bestTo]: [
-            ...(p.board[bestTo] ?? []),
-            { ...moved, tempStrengthBonus: (moved.tempStrengthBonus ?? 0) + effect.amount },
-            ...attached,
-          ],
-        },
-      }))
-      const toName = actor.locations.find((l) => l.id === bestTo)?.name ?? bestTo
       return {
-        ...next,
-        log: [...next.log, `${actor.villainName} déplace **${moved.name}** vers **${toName}** (+${effect.amount} force ce tour-ci).`],
+        ...state,
+        pendingAllyMoveBuff: { playerIndex: idx, amount: effect.amount },
+        log: [
+          ...state.log,
+          `${actor.villainName} (Pas de Quartier !) : déplacez un Allié vers un lieu voisin (+${effect.amount} force ce tour-ci).`,
+        ],
       }
     }
     case 'TRANSFORM_GUARDS': {
@@ -1438,6 +1422,10 @@ export function resolveEffect(
       if (!heroLoc) throw new Error('Héros à hypnotiser introuvable dans le royaume.')
       const hero = actor.board[heroLoc].find((c) => c.instanceId === target)!
       if (hero.type !== 'hero') throw new Error(`${hero.name} n'est pas un Héros.`)
+      // Hypnotiser un Héros est traité comme « éliminer un Héros » pour les
+      // déclencheurs adverses (Obsession, Méchanceté, Crise d'hystérie) : on
+      // mémorise la force EFFECTIVE du Héros au moment de l'hypnose.
+      const hypnoStrength = effectiveStrength(state, idx, target) ?? hero.strength ?? 0
       const next = updatePlayer(state, idx, (p) => ({
         ...p,
         board: {
@@ -1449,9 +1437,10 @@ export function resolveEffect(
       }))
       return {
         ...next,
+        lastVanquishedHeroStrength: Math.max(next.lastVanquishedHeroStrength ?? 0, hypnoStrength),
         log: [
           ...next.log,
-          `${actor.villainName} hypnotise **${hero.name}** : il devient un Allié sous son contrôle.`,
+          `${actor.villainName} hypnotise **${hero.name}** (force ${hypnoStrength}) : il devient un Allié sous son contrôle.`,
         ],
       }
     }
