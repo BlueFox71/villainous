@@ -1,5 +1,6 @@
 import type { PlayerState } from '../../engine/types'
 import { getCardDef } from '../../data/registry'
+import { enlargeCoveredAction } from '../../engine/rules'
 import { VILLAIN_COLOR } from '../villainColors'
 
 // Géométrie mesurée sur board.png (Prince Jean). Le panneau de gauche (portrait
@@ -81,41 +82,118 @@ export function BoardImage({
         />
       )}
 
-      {player.locations.map((loc, i) => {
+      {player.locations.flatMap((loc, i) => {
         // Persifleur : on révèle les actions du haut de ce lieu (pas de recouvrement).
-        if (loc.id === unmaskHeroLocationId) return null
+        if (loc.id === unmaskHeroLocationId) return []
         const heroes = (player.board[loc.id] ?? []).filter(
           (c) => c.type === 'hero' && !c.hypnotized && !hiddenHeroInstanceIds.includes(c.instanceId),
         )
-        if (heroes.length === 0) return null
-        return (
-          <div
-            key={loc.id}
-            className="absolute flex items-center justify-center gap-0.5 overflow-hidden rounded-b"
-            style={{
-              left: `${LOCATIONS_LEFT + i * PAWN_STEP}%`,
-              top: `${cover.top}%`,
-              width: `${PAWN_STEP}%`,
-              height: `${cover.height}%`,
-              backgroundColor: coverColor,
-            }}
-            title={heroes.map((h) => h.name).join(', ')}
-          >
-            {heroesOnImage ? (
-              heroes.map((h) => (
-                <img
-                  key={h.instanceId}
-                  src={getCardDef(h.cardId)?.image}
-                  alt={h.name}
-                  title={`${h.name} (force ${h.strength ?? '?'})`}
-                  className="h-full w-auto max-w-none rounded border border-white/60"
-                />
-              ))
-            ) : (
-              <span className="text-lg">🦸{heroes.length > 1 ? `×${heroes.length}` : ''}</span>
-            )}
-          </div>
+        if (heroes.length === 0) return []
+        const tops = loc.actions.filter((a) => a.row === 'top')
+        const title = heroes.map((h) => h.name).join(', ')
+        const renderContent = () =>
+          heroesOnImage ? (
+            heroes.map((h) => (
+              <img
+                key={h.instanceId}
+                src={getCardDef(h.cardId)?.image}
+                alt={h.name}
+                title={`${h.name} (force ${h.strength ?? '?'})`}
+                className="h-full w-auto max-w-none rounded border border-white/60"
+              />
+            ))
+          ) : (
+            <span className="flex items-center gap-0.5">
+              <img src="/jeton_fatality.png" alt="Héros" className="h-10 w-10" />
+              {heroes.length > 1 && <span className="text-sm font-bold text-white">×{heroes.length}</span>}
+            </span>
+          )
+        // Au moins un Héros normal/agrandi → recouvrement PLEIN de la rangée du haut.
+        if (heroes.some((h) => h.heroSize !== 'shrunk')) {
+          return [
+            <div
+              key={loc.id}
+              className="absolute flex items-center justify-center gap-0.5 overflow-hidden rounded-b"
+              style={{
+                left: `${LOCATIONS_LEFT + i * PAWN_STEP}%`,
+                top: `${cover.top}%`,
+                width: `${PAWN_STEP}%`,
+                height: `${cover.height}%`,
+                backgroundColor: coverColor,
+              }}
+              title={title}
+            >
+              {renderContent()}
+            </div>,
+          ]
+        }
+        // Uniquement des Héros RAPETISSÉS : demi-masque sur le côté de l'action
+        // recouverte (celle qu'ils NE libèrent PAS). Action de gauche (index 0) →
+        // moitié gauche ; action de droite → moitié droite.
+        const coveredIds = new Set<string>()
+        for (const h of heroes) {
+          const freed = h.shrunkFreeActionId ?? tops[0]?.id
+          for (const a of tops) if (a.id !== freed) coveredIds.add(a.id)
+        }
+        return tops
+          .filter((a) => coveredIds.has(a.id))
+          .map((a) => {
+            const idx = tops.indexOf(a)
+            const left = LOCATIONS_LEFT + i * PAWN_STEP + (idx === 0 ? 0 : PAWN_STEP / 2)
+            return (
+              <div
+                key={`${loc.id}:${a.id}`}
+                className="absolute flex items-center justify-center overflow-hidden rounded-b"
+                style={{
+                  left: `${left}%`,
+                  top: `${cover.top}%`,
+                  width: `${PAWN_STEP / 2}%`,
+                  height: `${cover.height}%`,
+                  backgroundColor: coverColor,
+                }}
+                title={title}
+              >
+                {renderContent()}
+              </div>
+            )
+          })
+      })}
+
+      {/* Reine de Cœur — Agrandir : un Héros agrandi déborde sur la MOITIÉ du lieu
+          voisin (le bord vers lequel il pivote), recouvrant la 3ᵉ action. Même
+          masque que le recouvrement Héros, mais demi-largeur (PAWN_STEP / 2). */}
+      {player.locations.flatMap((loc, i) => {
+        const enlarged = (player.board[loc.id] ?? []).filter(
+          (c) =>
+            c.type === 'hero' &&
+            !c.hypnotized &&
+            c.heroSize === 'enlarged' &&
+            !hiddenHeroInstanceIds.includes(c.instanceId),
         )
+        return enlarged.flatMap((h) => {
+          const cov = enlargeCoveredAction(player, h)
+          if (!cov) return []
+          const j = player.locations.findIndex((l) => l.id === cov.locationId)
+          if (j < 0) return []
+          // Voisin de droite → moitié GAUCHE du voisin (bord adjacent) ; voisin de
+          // gauche → moitié DROITE.
+          const rightNeighbor = j > i
+          const left = LOCATIONS_LEFT + j * PAWN_STEP + (rightNeighbor ? 0 : PAWN_STEP / 2)
+          return [
+            <div
+              key={`enlarge:${h.instanceId}`}
+              className="pointer-events-none absolute overflow-hidden rounded-b"
+              style={{
+                left: `${left}%`,
+                top: `${cover.top}%`,
+                width: `${PAWN_STEP / 2}%`,
+                height: `${cover.height}%`,
+                backgroundColor: coverColor,
+              }}
+              title={`${h.name} (agrandi) déborde sur ce lieu`}
+            />,
+          ]
+        })
       })}
 
       {/* Lieux VERROUILLÉS (Jafar : Caverne aux Merveilles) : voile sombre + tuile
@@ -129,9 +207,9 @@ export function BoardImage({
             className="pointer-events-none absolute z-30 flex items-center justify-center"
             style={{
               left: `${LOCATIONS_LEFT + i * PAWN_STEP}%`,
-              top: '3%',
-              width: `${PAWN_STEP}%`,
-              height: '90%',
+              top: '10.5%',
+              width: '20.1%',
+              height: '69%',
             }}
             title="Lieu verrouillé — Caverne aux Merveilles"
           >

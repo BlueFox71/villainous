@@ -174,7 +174,7 @@ export function Profile({ onBack }: Props) {
                         className="h-8 w-8 shrink-0 rounded border border-white/15 object-cover"
                       />
                       <span className={humanWon ? 'font-semibold text-emerald-300' : 'text-white/80'}>
-                        {villainName(g.human)} (vous)
+                        {villainName(g.human)}
                       </span>
                       <span className="text-white/30">vs</span>
                       <img

@@ -9,10 +9,8 @@ interface Props {
   /** Joueur ciblé (pour le nom et la liste des lieux où poser un Héros). */
   target: PlayerState
   /** Résout : carte choisie + lieu de destination (Héros) ou héros cible
-   *  (Voler aux Riches / Déguisement). */
-  onResolve: (instanceId: string, to?: string, targetHeroId?: string) => void
-  /** Ouvre la vue plateau (loupe) de la cible pour décider où poser. */
-  onViewBoard: () => void
+   *  (Voler aux Riches / Déguisement) + sens du pivot (Agrandir : enlargeToward). */
+  onResolve: (instanceId: string, to?: string, targetHeroId?: string, enlargeToward?: string) => void
 }
 
 /** Cartes Fatalité non-héros qui ciblent un Héros adverse. */
@@ -32,9 +30,28 @@ function needsTargetHero(card: CardInstance): boolean {
  *  2b. Voler aux Riches / Déguisement → choisir un Héros adverse à cibler. Si la
  *      cible n'a aucun Héros, on résout direct (la carte est défaussée sans effet).
  */
-export function FateModal({ revealed, target, onResolve, onViewBoard }: Props) {
+export function FateModal({ revealed, target, onResolve }: Props) {
   const [selected, setSelected] = useState<string | null>(null)
   const selectedCard = revealed.find((c) => c.instanceId === selected)
+  // Agrandir : Héros choisi en attente du SENS du pivot (gauche/droite).
+  const [enlargeHero, setEnlargeHero] = useState<CardInstance | null>(null)
+
+  const heroLocationId = (h: CardInstance): string | undefined =>
+    target.locations.find((l) => (target.board[l.id] ?? []).some((c) => c.instanceId === h.instanceId))?.id
+  const neighborsOf = (locId: string) => {
+    const i = target.locations.findIndex((l) => l.id === locId)
+    return [target.locations[i - 1], target.locations[i + 1]].filter(Boolean) as PlayerState['locations']
+  }
+  // Clic sur un Héros pour Agrandir : s'il est rapetissé → simple retour normal ;
+  // s'il a deux voisins → on demande le sens ; sinon (un seul voisin) on résout direct.
+  const chooseAgrandirHero = (h: CardInstance) => {
+    if (!selectedCard) return
+    if (h.heroSize === 'shrunk') return onResolve(selectedCard.instanceId, undefined, h.instanceId)
+    const locId = heroLocationId(h)
+    const neigh = locId ? neighborsOf(locId) : []
+    if (neigh.length < 2) return onResolve(selectedCard.instanceId, undefined, h.instanceId, neigh[0]?.id)
+    setEnlargeHero(h)
+  }
 
   // Héros éligibles pour la carte sélectionnée. L'Épée de Vérité exige un Héros
   // SANS autre Objet associé ; les autres ciblent n'importe quel Héros.
@@ -53,7 +70,10 @@ export function FateModal({ revealed, target, onResolve, onViewBoard }: Props) {
     if (needsTargetHero(c)) {
       const eligible = eligibleHeroesFor(c)
       if (eligible.length === 0) return onResolve(c.instanceId) // défausse silencieuse
-      if (eligible.length === 1) return onResolve(c.instanceId, undefined, eligible[0].instanceId)
+      // Agrandir : toujours passer par l'étape Héros (puis éventuellement le sens),
+      // même avec un seul Héros éligible. Les autres cartes résolvent direct.
+      if (eligible.length === 1 && c.cardId !== 'agrandir')
+        return onResolve(c.instanceId, undefined, eligible[0].instanceId)
       return setSelected(c.instanceId)
     }
     onResolve(c.instanceId)
@@ -63,17 +83,11 @@ export function FateModal({ revealed, target, onResolve, onViewBoard }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
       <Scroller className="max-h-full w-full max-w-2xl rounded-2xl border border-white/20 bg-[#0b0a12] p-4">
         <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-base font-bold text-white">Fatalité contre {target.villainName}</h2>
-          <button
-            onClick={onViewBoard}
-            className="shrink-0 rounded-lg border border-white/20 px-3 py-1 text-xs text-white/80 hover:bg-white/10"
-          >
-            🔍 Voir le plateau adverse
-          </button>
-        </div>
+        <h2 className="text-base font-bold text-white">Fatalité contre {target.villainName}</h2>
         <p className="text-xs text-white/60">
-          {selectedCard
+          {enlargeHero
+            ? `Vers quel lieu voisin ${enlargeHero.name} déborde-t-il ? (il recouvrira l’action du haut la plus proche)`
+            : selectedCard
             ? selectedCard.type === 'hero'
               ? `Choisis le lieu où poser ${selectedCard.name}.`
               : `Choisis un Héros adverse à cibler avec ${selectedCard.name}.`
@@ -135,16 +149,20 @@ export function FateModal({ revealed, target, onResolve, onViewBoard }: Props) {
           )
         })()}
 
-        {selectedCard && selectedCard.type !== 'hero' && needsTargetHero(selectedCard) && (
+        {selectedCard && selectedCard.type !== 'hero' && needsTargetHero(selectedCard) && !enlargeHero && (
           <div className="flex flex-col gap-1">
             <span className="text-xs text-white/60">Héros cible :</span>
             <div className="flex flex-wrap gap-2">
               {eligibleHeroesFor(selectedCard).map((h) => {
                 const def = getCardDef(h.cardId)
+                const onClick =
+                  selectedCard.cardId === 'agrandir'
+                    ? () => chooseAgrandirHero(h)
+                    : () => onResolve(selectedCard.instanceId, undefined, h.instanceId)
                 return (
                   <button
                     key={h.instanceId}
-                    onClick={() => onResolve(selectedCard.instanceId, undefined, h.instanceId)}
+                    onClick={onClick}
                     className="rounded-lg border border-white/40 p-1 text-xs text-white hover:bg-white/10"
                   >
                     {def && (
@@ -157,6 +175,32 @@ export function FateModal({ revealed, target, onResolve, onViewBoard }: Props) {
             </div>
           </div>
         )}
+
+        {selectedCard?.cardId === 'agrandir' && enlargeHero && (() => {
+          const locId = heroLocationId(enlargeHero)
+          const neigh = locId ? neighborsOf(locId) : []
+          const heroLocIdx = locId ? target.locations.findIndex((l) => l.id === locId) : -1
+          return (
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-white/60">Sens du pivot ({enlargeHero.name}) :</span>
+              <div className="flex flex-wrap gap-2">
+                {neigh.map((n) => {
+                  const nIdx = target.locations.findIndex((l) => l.id === n.id)
+                  const dir = nIdx < heroLocIdx ? '← Gauche' : 'Droite →'
+                  return (
+                    <button
+                      key={n.id}
+                      onClick={() => onResolve(selectedCard.instanceId, undefined, enlargeHero.instanceId, n.id)}
+                      className="rounded-lg border border-white/40 px-3 py-2 text-xs text-white hover:bg-white/10"
+                    >
+                      {dir} — {n.name}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
         </div>
       </Scroller>
     </div>

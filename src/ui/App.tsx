@@ -31,8 +31,8 @@ import { BoardImage, LOCATIONS_LEFT } from './components/BoardImage'
 import { BoardActions } from './components/BoardActions'
 import { HeroRow } from './components/HeroRow'
 import { DeckPiles } from './components/DeckPiles'
-import { BoardModal } from './components/BoardModal'
 import { FateModal } from './components/FateModal'
+import { ChoiceModal } from './components/ChoiceModal'
 import { HeroPlacementModal } from './components/HeroPlacementModal'
 import { PawnMoveModal } from './components/PawnMoveModal'
 import { HubertPullModal } from './components/HubertPullModal'
@@ -97,6 +97,9 @@ type Mode =
     }
   /** Carte (ex. Emprisonnement) en attente de la cible Héros adverse. */
   | { kind: 'play-pick-hero'; actionId: string; instanceId: string; cardName: string; diablo?: boolean }
+  /** Rapetisser — après le choix du Héros : choisir l'action du haut à LAISSER LIBRE
+   *  (l'autre est recouverte par le Héros rapetissé). */
+  | { kind: 'shrink-pick-action'; actionId: string; instanceId: string; cardName: string; heroInstanceId: string; diablo?: boolean }
   /** Tendre un Piège — phase 1 : choisir l'allié à déplacer. */
   | { kind: 'trap-pick-ally'; actionId: string; instanceId: string; cardName: string }
   /** Tendre un Piège — phase 2 : choisir le lieu de destination de l'allié. */
@@ -259,16 +262,14 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     }
   }
   // Joue une carte Fatalité non-Héros (Voler aux Riches / Déguisement) en mode test.
-  const handleTestFateCard = (cardId: string, targetHeroId: string) => {
+  const handleTestFateCard = (cardId: string, targetHeroId: string, enlargeToward?: string) => {
     try {
-      testPlayFateCard(cardId, targetHeroId)
+      testPlayFateCard(cardId, targetHeroId, enlargeToward)
       setTestFateError(null)
     } catch (e) {
       setTestFateError(e instanceof Error ? e.message : String(e))
     }
   }
-  // Plateau affiché en grand dans la modale loupe (index joueur), ou null.
-  const [zoomPlayer, setZoomPlayer] = useState<number | null>(null)
   // Clé du tour (joueur actif × turn) — quand l'humain passe, on stocke la clé
   // courante : ainsi le « pass » devient automatiquement obsolète au changement
   // de tour, sans useEffect/setState.
@@ -769,13 +770,14 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     targetHeroId?: string,
     allyInstanceIds?: string[],
     allyMove?: { instanceId: string; to: string },
+    shrinkFreeActionId?: string,
   ) => {
     if (isDiablo) {
       try {
-        diabloFreeAction({ type: 'PLAY_CARD', actionId, instanceId, to, attachTo, targetHeroId, allyInstanceIds, allyMove })
+        diabloFreeAction({ type: 'PLAY_CARD', actionId, instanceId, to, attachTo, targetHeroId, allyInstanceIds, allyMove, shrinkFreeActionId })
       } catch { /* coup refusé par le moteur : le bandeau Diablo reste pour réessayer */ }
     } else {
-      playCard(actionId, instanceId, to, attachTo, targetHeroId, allyInstanceIds, allyMove)
+      playCard(actionId, instanceId, to, attachTo, targetHeroId, allyInstanceIds, allyMove, shrinkFreeActionId)
     }
   }
   const doVanquish = (
@@ -845,7 +847,21 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   }
   const handlePlayPickHero = (heroInstanceId: string) => {
     if (mode?.kind !== 'play-pick-hero') return
+    const card = user.hand.find((c) => c.instanceId === mode.instanceId)
+    const isShrink = card?.effects?.some((e) => e.type === 'SET_HERO_SIZE' && e.size === 'shrunk')
+    const hero = Object.values(user.board).flat().find((c) => c.instanceId === heroInstanceId)
+    // Rapetisser sur un Héros NORMAL → on demande quelle action du haut laisser
+    // libre. (Sur un Héros agrandi, Rapetisser le ramène à la normale : pas de choix.)
+    if (isShrink && hero && !hero.heroSize) {
+      setMode({ kind: 'shrink-pick-action', actionId: mode.actionId, instanceId: mode.instanceId, cardName: mode.cardName, heroInstanceId, diablo: mode.diablo })
+      return
+    }
     doPlayCard(mode.diablo, mode.actionId, mode.instanceId, undefined, undefined, heroInstanceId)
+    setMode(null)
+  }
+  const handleShrinkPickAction = (freeActionId: string) => {
+    if (mode?.kind !== 'shrink-pick-action') return
+    doPlayCard(mode.diablo, mode.actionId, mode.instanceId, undefined, undefined, mode.heroInstanceId, undefined, undefined, freeActionId)
     setMode(null)
   }
   // ---- D : Réactions humaines (Conditions) ----
@@ -1245,6 +1261,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 .filter((c) => c.type === 'hero')
                 .map((c) => c.instanceId)
             }
+            // Rapetisser : on ne peut pas rapetisser deux fois → exclure les Héros
+            // déjà rapetissés.
+            if (card?.effects?.some((e) => e.type === 'SET_HERO_SIZE' && e.size === 'shrunk')) {
+              return allHeroes.filter((h) => h.heroSize !== 'shrunk').map((c) => c.instanceId)
+            }
           }
           // Méchanceté : héros ≤4 force.
           if (mode?.kind === 'condition-pick-hero') {
@@ -1308,7 +1329,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const turnLabel = won
     ? `🏆 ${state.players[state.winner!].villainName} gagne !`
     : isBotTurn
-      ? 'Le bot joue…'
+      ? `${bot.villainName} joue…`
       : state.phase === 'MOVE'
         ? 'À toi : déplace ton pion sur un lieu différent (« Choisir »)'
         : 'À toi : agis, joue des cartes, puis finis ton tour'
@@ -1323,7 +1344,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         <div className="flex items-center gap-2 text-xs">
           <span className="text-white/50">Vilains (dev) :</span>
           <label className="flex items-center gap-1">
-            <span className="text-sky-300">Vous</span>
+            <span className="text-sky-300">{user.villainName}</span>
             <select
               value={currentVillains[0]}
               onChange={(e) => handlePickVillain(0, e.target.value as VillainKey)}
@@ -1335,7 +1356,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             </select>
           </label>
           <label className="flex items-center gap-1">
-            <span className="text-red-300">Bot</span>
+            <span className="text-red-300">{bot.villainName}</span>
             <select
               value={currentVillains[1]}
               onChange={(e) => handlePickVillain(1, e.target.value as VillainKey)}
@@ -1437,13 +1458,6 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               blinkTopAtLocation={persifleurLoc}
               onActionClick={handleBoardAction}
             />
-            <button
-              onClick={() => setZoomPlayer(HUMAN)}
-              title="Voir le plateau en grand"
-              className="absolute right-2 top-2 rounded-lg bg-black/60 px-2 py-1 text-sm hover:bg-black/80"
-            >
-              🔍
-            </button>
           </div>
           {/* En dessous de l'image : pioche/défausse VILAIN (marge gauche) + cartes du méchant. */}
           <div className="flex">
@@ -1684,10 +1698,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 handAllies={user.hand
                   .filter((c) => c.type === 'ally')
                   .map((c) => ({ instanceId: c.instanceId, name: c.name }))}
-                boardHeroes={Object.values(user.board)
-                  .flat()
-                  .filter((c) => c.type === 'hero')
-                  .map((c) => ({ instanceId: c.instanceId, name: c.name, strength: c.strength ?? 0 }))}
+                boardHeroes={user.locations.flatMap((l) =>
+                  (user.board[l.id] ?? [])
+                    .filter((c) => c.type === 'hero')
+                    .map((c) => ({ instanceId: c.instanceId, name: c.name, strength: c.strength ?? 0, locationId: l.id })),
+                )}
                 onInflict={handleInflict}
                 onPlayCondition={handleTestCondition}
                 onPlayFateCard={handleTestFateCard}
@@ -1733,7 +1748,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               <div className="mb-1 font-semibold">⚡ Réaction disponible</div>
               {isBotTurn && (
                 <div className="mb-1 text-[10px] text-fuchsia-200/80">
-                  Le bot attend ta décision.
+                  {bot.villainName} attend ta décision.
                 </div>
               )}
               <div className="flex flex-col gap-1">
@@ -1786,13 +1801,6 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           </div>
           <div className="relative">
             <BoardImage player={bot} showPawn pawnOutline={RED.ringColor} imgClassName="border border-red-900/60" hiddenHeroInstanceIds={showcaseHiddenIds} />
-            <button
-              onClick={() => setZoomPlayer(BOT)}
-              title="Voir le plateau en grand"
-              className="absolute right-2 top-2 rounded-lg bg-black/60 px-2 py-1 text-sm hover:bg-black/80"
-            >
-              🔍
-            </button>
           </div>
           <div className="flex">
             <div className="flex items-start justify-center" style={{ width: `${LOCATIONS_LEFT}%` }}>
@@ -1876,9 +1884,24 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           revealed={state.pendingFate.revealed}
           target={state.players[state.pendingFate.target]}
           onResolve={resolveFate}
-          onViewBoard={() => setZoomPlayer(state.pendingFate!.target)}
         />
       )}
+
+      {/* Rapetisser : choix de l'action du haut à laisser libre (modale centrée). */}
+      {mode?.kind === 'shrink-pick-action' && (() => {
+        const loc = user.locations.find((l) =>
+          (user.board[l.id] ?? []).some((c) => c.instanceId === mode.heroInstanceId),
+        )
+        const tops = loc ? loc.actions.filter((a) => a.row === 'top') : []
+        return (
+          <ChoiceModal
+            title={mode.cardName}
+            prompt="Choisis l'action du haut à laisser libre (l'autre sera recouverte par le Héros rapetissé)."
+            options={tops.map((a) => ({ key: a.id, label: a.label, onSelect: () => handleShrinkPickAction(a.id) }))}
+            onCancel={() => setMode(null)}
+          />
+        )
+      })()}
 
       {/* Aurore : l'humain (qui a joué la Fatalité) choisit où poser le Héros révélé. */}
       {state.pendingHeroPlacement && state.pendingHeroPlacement.chooserIndex === HUMAN && (
@@ -2063,15 +2086,6 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         onHiddenIdsChange={setShowcaseHiddenIds}
         onCardLanded={handleCardLanded}
       />
-
-      {/* Modale loupe — rendue en dernier pour passer au-dessus de la Fatalité. */}
-      {zoomPlayer !== null && (
-        <BoardModal
-          player={state.players[zoomPlayer]}
-          pawnOutline={zoomPlayer === HUMAN ? BLUE.ringColor : RED.ringColor}
-          onClose={() => setZoomPlayer(null)}
-        />
-      )}
     </div>
   )
 }

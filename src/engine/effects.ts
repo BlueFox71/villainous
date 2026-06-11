@@ -39,6 +39,12 @@ export interface EffectContext {
   allyInstanceIds?: string[]
   /** Allié à déplacer librement avant un Vanquish (Tendre un Piège). */
   allyMove?: { instanceId: string; to: LocationId }
+  /** Reine de Cœur — Agrandir : lieu voisin vers lequel le Héros agrandi pivote
+   *  (choisi par le joueur qui pose la Fatalité). Absent = choix auto par le moteur. */
+  enlargeToward?: LocationId
+  /** Reine de Cœur — Rapetisser : action du haut que le Héros rapetissé laisse
+   *  LIBRE (choisie par le joueur). Absent = la 1ʳᵉ action du haut (auto). */
+  shrinkFreeActionId?: string
 }
 
 /** Nombre de Héros présents dans le royaume d'un joueur donné. */
@@ -1179,33 +1185,60 @@ export function resolveEffect(
       if (!heroLoc) throw new Error('Héros introuvable dans le royaume.')
       const hero = actor.board[heroLoc].find((c) => c.instanceId === target)!
       if (hero.type !== 'hero') throw new Error(`${hero.name} n'est pas un Héros.`)
+      // On ne peut pas rapetisser deux fois un même Héros (la taille ne « cumule »
+      // pas). Sans effet s'il est déjà rapetissé.
+      if (effect.size === 'shrunk' && hero.heroSize === 'shrunk') {
+        return {
+          ...state,
+          log: [...state.log, `**${hero.name}** est déjà rapetissé : on ne peut pas le rapetisser deux fois.`],
+        }
+      }
       const opposite = effect.size === 'shrunk' ? 'enlarged' : 'shrunk'
       // Si le Héros porte la taille opposée → retour à la normale ; sinon `size`.
       const newSize = hero.heroSize === opposite ? undefined : effect.size
       if (newSize === 'shrunk' && hero.cardId === 'loir') {
         return { ...state, log: [...state.log, 'Le Loir ne peut pas rapetisser.'] }
       }
-      // Agrandir : on fixe le lieu adjacent recouvert (côté gauche/droite). On
-      // privilégie un voisin non déjà entièrement recouvert (coverage non gaspillée).
+      // Agrandir : on fixe le lieu adjacent recouvert (côté gauche/droite).
+      // Si le joueur a choisi un sens (ctx.enlargeToward) et que c'est un voisin
+      // valide, on le respecte ; sinon (bot / choix omis) on privilégie un voisin
+      // non déjà entièrement recouvert (couverture non gaspillée).
       let enlargeTargetId: string | undefined
       if (newSize === 'enlarged') {
         const ids = actor.locations.map((l) => l.id)
         const i = ids.indexOf(heroLoc)
         const sides = [ids[i - 1], ids[i + 1]].filter((id): id is string => !!id)
         enlargeTargetId =
+          (ctx?.enlargeToward && sides.includes(ctx.enlargeToward) ? ctx.enlargeToward : undefined) ??
           sides.find(
             (id) =>
               !(actor.board[id] ?? []).some(
                 (c) => c.type === 'hero' && !c.hypnotized && c.heroSize !== 'shrunk',
               ),
-          ) ?? sides[0]
+          ) ??
+          sides[0]
+      }
+      // Rapetisser : le Héros laisse LIBRE une action du haut (choisie par le
+      // joueur via ctx.shrinkFreeActionId) et recouvre l'autre. À défaut (bot /
+      // choix omis), on libère la 1ʳᵉ action du haut de son lieu.
+      let shrunkFreeActionId: string | undefined
+      if (newSize === 'shrunk') {
+        const tops = (actor.locations.find((l) => l.id === heroLoc)?.actions ?? []).filter(
+          (a) => a.row === 'top',
+        )
+        shrunkFreeActionId =
+          (ctx?.shrinkFreeActionId && tops.some((a) => a.id === ctx.shrinkFreeActionId)
+            ? ctx.shrinkFreeActionId
+            : undefined) ?? tops[0]?.id
       }
       const next = updatePlayer(state, idx, (p) => ({
         ...p,
         board: {
           ...p.board,
           [heroLoc]: p.board[heroLoc].map((c) =>
-            c.instanceId === target ? { ...c, heroSize: newSize, enlargeTargetId } : c,
+            c.instanceId === target
+              ? { ...c, heroSize: newSize, enlargeTargetId, shrunkFreeActionId }
+              : c,
           ),
         },
       }))

@@ -19,10 +19,13 @@ const KEYS = Object.keys(VILLAIN_REGISTRY) as VillainKey[]
 function Option({
   choice,
   selected,
+  disabled,
   onPick,
 }: {
   choice: Choice
   selected: boolean
+  /** Vilain déjà pris par l'autre camp : non sélectionnable (pas de miroir). */
+  disabled: boolean
   onPick: () => void
 }) {
   const isRandom = choice === 'random'
@@ -31,11 +34,15 @@ function Option({
     <button
       type="button"
       onClick={onPick}
+      disabled={disabled}
       aria-pressed={selected}
+      title={disabled ? 'Déjà choisi par l’autre camp' : undefined}
       className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${
-        selected
-          ? 'border-amber-400 bg-amber-400/10 ring-2 ring-amber-400'
-          : 'border-white/10 bg-white/5 hover:border-white/30 hover:bg-white/10'
+        disabled
+          ? 'cursor-not-allowed border-white/5 bg-white/5 opacity-40'
+          : selected
+            ? 'border-amber-400 bg-amber-400/10 ring-2 ring-amber-400'
+            : 'border-white/10 bg-white/5 hover:border-white/30 hover:bg-white/10'
       }`}
     >
       {isRandom ? (
@@ -65,10 +72,13 @@ function Option({
 function SidePanel({
   title,
   value,
+  taken,
   onPick,
 }: {
   title: string
   value: Choice | null
+  /** Vilain réservé par l'autre camp (jamais « random ») : grisé ici. */
+  taken: VillainKey | null
   onPick: (c: Choice) => void
 }) {
   const options: Choice[] = ['random', ...KEYS]
@@ -77,7 +87,13 @@ function SidePanel({
       <h2 className="mb-3 text-sm font-bold uppercase tracking-[0.2em] text-purple-200">{title}</h2>
       <div className="flex flex-col gap-2">
         {options.map((c) => (
-          <Option key={c} choice={c} selected={value === c} onPick={() => onPick(c)} />
+          <Option
+            key={c}
+            choice={c}
+            selected={value === c}
+            disabled={c === taken}
+            onPick={() => onPick(c)}
+          />
         ))}
       </div>
     </section>
@@ -100,9 +116,25 @@ export function VillainSelect({ onStart, onBack }: Props) {
     return pool[Math.floor(Math.random() * pool.length)] ?? KEYS[0]
   }
 
+  // Le vilain réservé par un camp (jamais « random ») : interdit à l'autre.
+  const takenBy = (c: Choice | null): VillainKey | null =>
+    c && c !== 'random' ? c : null
+
+  // Choisir un vilain pour un camp annule la sélection adverse si elle entre en
+  // conflit (les deux camps ne peuvent pas jouer le même vilain).
+  const pickMine = (c: Choice) => {
+    setMine(c)
+    if (c !== 'random' && opp === c) setOpp(null)
+  }
+  const pickOpp = (c: Choice) => {
+    setOpp(c)
+    if (c !== 'random' && mine === c) setMine(null)
+  }
+
   const launch = () => {
     if (!mine || !opp) return
-    const playerKey = mine === 'random' ? randomKey() : mine
+    // Joueur aléatoire : on exclut le choix explicite de l'adversaire (pas de miroir).
+    const playerKey = mine === 'random' ? randomKey(takenBy(opp) ?? undefined) : mine
     // Adversaire aléatoire : on évite le miroir (vilain différent du joueur).
     const botKey = opp === 'random' ? randomKey(playerKey) : opp
     reset([playerKey, botKey])
@@ -130,8 +162,8 @@ export function VillainSelect({ onStart, onBack }: Props) {
 
       <Scroller element="main" className="min-h-0 flex-1 p-6">
         <div className="mx-auto grid max-w-4xl grid-cols-1 gap-8 sm:grid-cols-2">
-          <SidePanel title="Ton vilain" value={mine} onPick={setMine} />
-          <SidePanel title="Adversaire (bot)" value={opp} onPick={setOpp} />
+          <SidePanel title="Ton vilain" value={mine} taken={takenBy(opp)} onPick={pickMine} />
+          <SidePanel title="Adversaire" value={opp} taken={takenBy(mine)} onPick={pickOpp} />
         </div>
       </Scroller>
 

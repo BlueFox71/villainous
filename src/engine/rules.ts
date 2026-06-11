@@ -74,31 +74,72 @@ export function isActionCovered(state: GameState, action: LocationAction): boole
   if (action.row !== 'top') return false
   const loc = currentLocation(state)
   if (!loc) return false
+  // Persifleur : le joueur peut utiliser UNE action recouverte → on les considère
+  // toutes jouables le temps de cette utilisation.
   if (state.persifleurAvailable) return false
-  // Héros qui recouvrent (les hypnotisés, sous contrôle, ne recouvrent plus).
-  const covering = heroesAt(state, loc.id).filter((h) => !h.hypnotized)
-  // Héros AGRANDIS d'un lieu voisin qui débordent sur CE lieu : chacun recouvre
-  // une action du haut supplémentaire ici (le côté choisi à la pose d'Agrandir).
-  const enlargedSpillover = Object.values(activePlayer(state).board)
-    .flat()
-    .filter(
-      (c) =>
-        c.type === 'hero' &&
-        c.heroSize === 'enlarged' &&
-        !c.hypnotized &&
-        c.enlargeTargetId === loc.id,
-    ).length
-  if (covering.length === 0 && enlargedSpillover === 0) return false
-  // Un Héros à taille normale OU agrandi sur CE lieu recouvre toute la rangée du haut.
-  if (covering.some((h) => h.heroSize !== 'shrunk')) return true
-  // Sinon : que des Héros rapetissés ici (et/ou débordement d'un agrandi voisin).
-  // Chacun ne recouvre qu'UNE action du haut ; la Reine choisit lesquelles utiliser.
-  // On laisse (nbActionsHaut − nbRecouvertes) actions utilisables ; une fois ce
-  // quota atteint, le reste du haut est recouvert.
-  const topIds = loc.actions.filter((a) => a.row === 'top').map((a) => a.id)
-  const usableTop = Math.max(0, topIds.length - covering.length - enlargedSpillover)
-  const topUsed = topIds.filter((id) => state.usedActionIds.includes(id)).length
-  return topUsed >= usableTop
+  return coveredTopActionIdsAt(activePlayer(state), loc.id).has(action.id)
+}
+
+/** Ids des actions du HAUT recouvertes sur un lieu donné, **indépendamment du
+ *  pion** (utilisable par l'UI pour le rendu, et par isActionCovered pour le
+ *  joueur actif). Règles :
+ *   - Héros NORMAL ou AGRANDI sur le lieu → recouvre TOUTE la rangée du haut ;
+ *   - Héros RAPETISSÉ → ne recouvre qu'UNE action : celle qu'il NE libère PAS
+ *     (`shrunkFreeActionId` ; à défaut on libère la 1ʳᵉ action du haut) ;
+ *   - Héros AGRANDI d'un lieu VOISIN → peut recouvrir une action de bord ici
+ *     (cf. enlargeCoveredAction).
+ *  Les Héros hypnotisés (sous contrôle) ne recouvrent rien. */
+export function coveredTopActionIdsAt(player: PlayerState, locationId: LocationId): Set<string> {
+  const covered = new Set<string>()
+  const loc = player.locations.find((l) => l.id === locationId)
+  if (!loc) return covered
+  const tops = loc.actions.filter((a) => a.row === 'top')
+  const heroesHere = (player.board[locationId] ?? []).filter(
+    (c) => c.type === 'hero' && !c.hypnotized,
+  )
+  for (const h of heroesHere) {
+    if (h.heroSize === 'shrunk') {
+      const freed = h.shrunkFreeActionId ?? tops[0]?.id
+      for (const a of tops) if (a.id !== freed) covered.add(a.id)
+    } else {
+      for (const a of tops) covered.add(a.id)
+    }
+  }
+  // Débordement d'un Héros agrandi d'un lieu voisin (action de bord recouverte ici).
+  for (const cards of Object.values(player.board)) {
+    for (const c of cards) {
+      const cov = enlargeCoveredAction(player, c)
+      if (cov && cov.locationId === locationId) covered.add(cov.actionId)
+    }
+  }
+  return covered
+}
+
+/** Action du haut recouverte chez un lieu VOISIN par un Héros agrandi (Reine de
+ *  Cœur — Agrandir). Le Héros « pivote » vers le voisin désigné (`enlargeTargetId`)
+ *  et recouvre l'action du haut la plus PROCHE de lui (le bord adjacent) :
+ *   - voisin de DROITE  → son action du haut la plus à GAUCHE ;
+ *   - voisin de GAUCHE  → son action du haut la plus à DROITE.
+ *  Renvoie null si la carte n'est pas un Héros agrandi actif, ou sans voisin valide.
+ *  Source unique partagée par le moteur (recouvrement) et l'UI (marquage visuel). */
+export function enlargeCoveredAction(
+  player: PlayerState,
+  hero: CardInstance,
+): { locationId: LocationId; actionId: string } | null {
+  if (hero.type !== 'hero' || hero.heroSize !== 'enlarged' || hero.hypnotized) return null
+  if (!hero.enlargeTargetId) return null
+  const heroLoc = locationOfCard(player, hero.instanceId)
+  if (!heroLoc) return null
+  const ids = player.locations.map((l) => l.id)
+  const i = ids.indexOf(heroLoc)
+  const targetIdx = ids.indexOf(hero.enlargeTargetId)
+  if (i < 0 || targetIdx < 0 || targetIdx === i) return null
+  const tops = player.locations[targetIdx].actions.filter((a) => a.row === 'top')
+  if (tops.length === 0) return null
+  // Voisin de droite (targetIdx > i) → action la plus à gauche (index 0) ;
+  // voisin de gauche → action la plus à droite (dernier index).
+  const covered = targetIdx > i ? tops[0] : tops[tops.length - 1]
+  return { locationId: player.locations[targetIdx].id, actionId: covered.id }
 }
 
 /** Actions d'un lieu du joueur actif : actions IMPRIMÉES + actions ACCORDÉES par

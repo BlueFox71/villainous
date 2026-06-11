@@ -1,4 +1,5 @@
 import type { LocationAction, PlayerState } from '../../engine/types'
+import { enlargeCoveredAction } from '../../engine/rules'
 
 // Diamètre d'un bouton rond, en % de la largeur de l'image (carré via aspect-ratio).
 const BUTTON_SIZE = 4.9 // %
@@ -68,110 +69,110 @@ const ACTION_POS: Record<string, Record<string, Record<string, { x: number; y: n
   // Mesuré sur board.png (Realm) via grille de coordonnées — à affiner si besoin.
   slenderman: {
     foret: {
-      'move-item-ally': { x: 22.7, y: 20.1 },
-      'gain-power': { x: 30.5, y: 20.4 },
-      'play-card': { x: 22.65, y: 67.8 },
-      fate: { x: 30.45, y: 67.8 },
+      'move-item-ally': { x: 22.5, y: 20.1 },
+      'gain-power': { x: 30.3, y: 19.9 },
+      'play-card': { x: 22.5, y: 67.8 },
+      fate: { x: 30.3, y: 67.7 },
     },
     tunnel: {
-      'play-card-top': { x: 43.5, y: 20.4 },
-      'gain-power': { x: 51.4, y: 20.35 },
-      'play-card-bottom': { x: 43.45, y: 67.8 },
-      discard: { x: 51.3, y: 67.8 },
+      'play-card-top': { x: 43.4, y: 20 },
+      'gain-power': { x: 51.3, y: 20.35 },
+      'play-card-bottom': { x: 43.3, y: 67.4 },
+      discard: { x: 51.2, y: 67.8 },
     },
     mine: {
-      fate: { x: 64.3, y: 20.6 },
-      'play-card-top': { x: 72.1, y: 20.8 },
+      fate: { x: 64.2, y: 20 },
+      'play-card-top': { x: 72.1, y: 20 },
       'play-card-bottom': { x: 64.2, y: 67.8 },
-      'gain-power': { x: 72.1, y: 67.8 },
+      'gain-power': { x: 72.2, y: 67.9 },
     },
     'maison-perdue': {
-      'move-hero': { x: 85.1, y: 20.5 },
-      discard: { x: 92.9, y: 20.5 },
-      'play-card': { x: 85, y: 67.8 },
-      'gain-power': { x: 92.9, y: 67.9 },
+      'move-hero': { x: 85.5, y: 20 },
+      discard: { x: 93.4, y: 20.3 },
+      'play-card': { x: 85.5, y: 67.8 },
+      'gain-power': { x: 93.3, y: 67.9 },
     },
   },
   // Jafar : icônes calées sur board.png (panneau objectif à gauche + 4 lieux).
   // Le symbole « nuage + éclair » = action ACTIVER (capacités activées).
   jafar: {
     palais: {
-      'play-card': { x: 22.7, y: 20 },
-      activate: { x: 30.5, y: 20 },
-      vanquish: { x: 22.7, y: 68 },
-      fate: { x: 30.5, y: 68 },
+      'play-card': { x: 22.7, y: 19.9 },
+      activate: { x: 30.5, y: 19.9 },
+      vanquish: { x: 22.7, y: 67 },
+      fate: { x: 30.5, y: 67 },
     },
     rues: {
-      'gain-power': { x: 43.5, y: 20 },
-      fate: { x: 51.4, y: 20 },
-      discard: { x: 43.5, y: 68 },
-      'play-card': { x: 51.4, y: 68 },
+      'gain-power': { x: 43.5, y: 19.9 },
+      fate: { x: 51.4, y: 19.9 },
+      discard: { x: 43.5, y: 67 },
+      'play-card': { x: 51.4, y: 67 },
     },
     oasis: {
-      activate: { x: 64.3, y: 20 },
-      'play-card-top': { x: 72.1, y: 20 },
-      'gain-power': { x: 64.3, y: 68 },
-      'play-card-bottom': { x: 72.1, y: 68 },
+      activate: { x: 64.3, y: 19.9 },
+      'play-card-top': { x: 72.2, y: 19.9 },
+      'gain-power': { x: 64.3, y: 67 },
+      'play-card-bottom': { x: 72.2, y: 67 },
     },
     caverne: {
-      discard: { x: 85.1, y: 20 },
-      'gain-power': { x: 92.9, y: 20 },
-      'play-card': { x: 85.1, y: 68 },
-      'move-item-ally': { x: 92.9, y: 68 },
+      discard: { x: 85.1, y: 19.9 },
+      'gain-power': { x: 93, y: 19.9 },
+      'play-card': { x: 85.1, y: 67 },
+      'move-item-ally': { x: 93, y: 67 },
     },
   },
   // Reine de Cœur : même gabarit de plateau (panneau objectif + 4 lieux).
   reineCoeur: {
     'cour-palais': {
-      discard: { x: 22.7, y: 20 },
-      'move-item-ally': { x: 30.5, y: 20 },
-      'gain-power': { x: 22.7, y: 68 },
-      'play-card': { x: 30.5, y: 68 },
+      discard: { x: 22.7, y: 20.5 },
+      'move-item-ally': { x: 30.6, y: 20.5 },
+      'gain-power': { x: 22.7, y: 67.9 },
+      'play-card': { x: 30.6, y: 67.9 },
     },
     labyrinthe: {
-      'play-card-top': { x: 43.5, y: 20 },
-      activate: { x: 51.4, y: 20 },
+      'play-card-top': { x: 43.5, y: 20.5 },
+      activate: { x: 51.4, y: 20.5 },
       'gain-power': { x: 43.5, y: 68 },
       'play-card-bottom': { x: 51.4, y: 68 },
     },
     'foret-tulgey': {
-      fate: { x: 64.3, y: 20 },
-      'play-card': { x: 72.1, y: 20 },
-      discard: { x: 64.3, y: 68 },
-      vanquish: { x: 72.1, y: 68 },
+      fate: { x: 64.4, y: 20.5 },
+      'play-card': { x: 72.3, y: 20.5 },
+      discard: { x: 64.4, y: 68 },
+      vanquish: { x: 72.3, y: 68 },
     },
     'maison-lapin': {
-      'play-card': { x: 85.1, y: 20 },
-      'gain-power': { x: 92.9, y: 20 },
-      activate: { x: 85.1, y: 68 },
-      fate: { x: 92.9, y: 68 },
+      'play-card': { x: 85.3, y: 20.7 },
+      'gain-power': { x: 93.1, y: 20.7 },
+      activate: { x: 85.2, y: 68 },
+      fate: { x: 93, y: 68 },
     },
   },
   // Capitaine Crochet : même gabarit de plateau (panneau objectif + 4 lieux).
   crochet: {
     'jolly-roger': {
-      'gain-power': { x: 22.7, y: 20 },
-      discard: { x: 30.5, y: 20 },
+      'gain-power': { x: 22.7, y: 20.8 },
+      discard: { x: 30.5, y: 20.8 },
       vanquish: { x: 22.7, y: 68 },
       'play-card': { x: 30.5, y: 68 },
     },
     'rocher-crane': {
-      'gain-power': { x: 43.5, y: 20 },
-      'play-card': { x: 51.4, y: 20 },
-      fate: { x: 43.5, y: 68 },
-      discard: { x: 51.4, y: 68 },
+      'gain-power': { x: 43.5, y: 20.9 },
+      'play-card': { x: 51.4, y: 21 },
+      fate: { x: 43.6, y: 67.5 },
+      discard: { x: 51.3, y: 68.4 },
     },
     'lagune-sirenes': {
-      'play-card-top': { x: 64.3, y: 20 },
-      'move-item-ally': { x: 72.1, y: 20 },
+      'play-card-top': { x: 64.4, y: 20.8 },
+      'move-item-ally': { x: 72.2, y: 21 },
       'gain-power': { x: 64.3, y: 68 },
-      'play-card-bottom': { x: 72.1, y: 68 },
+      'play-card-bottom': { x: 72.2, y: 68.2 },
     },
     'arbre-pendu': {
-      fate: { x: 85.1, y: 20 },
-      'gain-power': { x: 92.9, y: 20 },
-      'move-hero': { x: 85.1, y: 68 },
-      'play-card': { x: 92.9, y: 68 },
+      fate: { x: 85.2, y: 21 },
+      'gain-power': { x: 93, y: 21 },
+      'move-hero': { x: 85.1, y: 68.2 },
+      'play-card': { x: 93, y: 68.6 },
     },
   },
 }
@@ -203,6 +204,18 @@ export function BoardActions({
   const layout = ACTION_POS[player.villain]
   if (!layout) return null
 
+  // Actions recouvertes par le débordement d'un Héros agrandi voisin (Reine de
+  // Cœur — Agrandir) : on masque leur bouton (le demi-masque de BoardImage les
+  // recouvre déjà visuellement), comme pour les actions du haut d'un lieu à Héros.
+  const enlargeCovered = new Set(
+    player.locations.flatMap((loc) =>
+      (player.board[loc.id] ?? []).flatMap((c) => {
+        const cov = enlargeCoveredAction(player, c)
+        return cov ? [`${cov.locationId}:${cov.actionId}`] : []
+      }),
+    ),
+  )
+
   return (
     <>
       {player.locations.flatMap((loc) =>
@@ -216,6 +229,8 @@ export function BoardActions({
           // boutons (sauf s'ils restent jouables, ex. Persifleur → available).
           const heroHere = (player.board[loc.id] ?? []).some((c) => c.type === 'hero')
           if (a.row === 'top' && heroHere && !available) return null
+          // Action recouverte par un Héros agrandi voisin → bouton masqué.
+          if (enlargeCovered.has(`${loc.id}:${a.id}`)) return null
           // Persifleur : les actions du HAUT du lieu clignotent (choisir l'une d'elles).
           const blink = a.row === 'top' && loc.id === blinkTopAtLocation && available
           const tone = available
