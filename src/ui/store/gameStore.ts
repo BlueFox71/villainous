@@ -163,12 +163,12 @@ function newGame(
   const p1 = VILLAIN_REGISTRY[p1Key]
   const setups: PlayerSetup[] = [
     {
-      villain: { ...p0.def, name: `${p0.label} (vous)` },
+      villain: { ...p0.def, name: p0.label },
       deckCards: buildDeckInstances(p0.cards, 'villain', 'p0:'),
       fateCards: buildDeckInstances(p0.cards, 'fate', 'p0f:'),
     },
     {
-      villain: { ...p1.def, name: `Bot (${p1.label})` },
+      villain: { ...p1.def, name: p1.label },
       deckCards: buildDeckInstances(p1.cards, 'villain', 'p1:'),
       fateCards: buildDeckInstances(p1.cards, 'fate', 'p1f:'),
     },
@@ -250,7 +250,7 @@ interface GameStore {
   testAddToHand: (cardId: string) => void
   /** MODE TEST : joue une carte Fatalité non-Héros (Voler aux Riches,
    *  Déguisement) CONTRE le joueur 0, sur l'un de ses Héros (`targetHeroId`). */
-  testPlayFateCard: (cardId: string, targetHeroId: string) => void
+  testPlayFateCard: (cardId: string, targetHeroId: string, enlargeToward?: string) => void
   /** MODE TEST : déclenche un showcase d'aperçu (pour caler les positions).
    *  `opts` : durée en ms / mode « fixe », et `count` = nombre de cartes pour
    *  une défausse. */
@@ -275,6 +275,7 @@ interface GameStore {
     targetHeroId?: string,
     allyInstanceIds?: string[],
     allyMove?: { instanceId: string; to: string },
+    shrinkFreeActionId?: string,
   ) => void
   discardCards: (actionId: string, instanceIds: string[]) => void
   moveCard: (actionId: string, instanceId: string, to: string) => void
@@ -311,7 +312,7 @@ interface GameStore {
     to?: string,
   ) => void
   fate: (actionId: string) => void
-  resolveFate: (instanceId: string, to?: string, targetHeroId?: string) => void
+  resolveFate: (instanceId: string, to?: string, targetHeroId?: string, enlargeToward?: string) => void
   /** Tyrannie : défausse les cartes choisies (résout `pendingTyrannyDiscard`). */
   resolveTyrannyDiscard: (instanceIds: string[]) => void
   /** Aurore : pose le Héros révélé sur le lieu choisi (résout `pendingHeroPlacement`). */
@@ -389,11 +390,11 @@ export const useGameStore = create<GameStore>((set) => ({
       const players = s.state.players.map((p, i) => (i === 0 ? { ...p, hand: [...p.hand, card] } : p))
       return { state: { ...s.state, players } }
     }),
-  testPlayFateCard: (cardId, targetHeroId) =>
+  testPlayFateCard: (cardId, targetHeroId, enlargeToward) =>
     set((s) => {
       const card = instanceOf(cardId, ++testFateCounter)
       if (!card) return s
-      return { state: applyAction(s.state, { type: 'TEST_PLAY_FATE_CARD', card, targetHeroId }) }
+      return { state: applyAction(s.state, { type: 'TEST_PLAY_FATE_CARD', card, targetHeroId, enlargeToward }) }
     }),
   testShowcase: (kind, playerIndex, opts) =>
     set((s) => {
@@ -469,7 +470,7 @@ export const useGameStore = create<GameStore>((set) => ({
     set((s) => ({ state: applyAction(s.state, { type: 'SKIP_MOVE' }) })),
   executeAction: (actionId) =>
     set((s) => ({ state: applyAction(s.state, { type: 'EXECUTE_ACTION', actionId }) })),
-  playCard: (actionId, instanceId, to, attachTo, targetHeroId, allyInstanceIds, allyMove) =>
+  playCard: (actionId, instanceId, to, attachTo, targetHeroId, allyInstanceIds, allyMove, shrinkFreeActionId) =>
     set((s) => ({
       state: applyAction(s.state, {
         type: 'PLAY_CARD',
@@ -480,6 +481,7 @@ export const useGameStore = create<GameStore>((set) => ({
         targetHeroId,
         allyInstanceIds,
         allyMove,
+        shrinkFreeActionId,
       }),
     })),
   discardCards: (actionId, instanceIds) =>
@@ -522,8 +524,8 @@ export const useGameStore = create<GameStore>((set) => ({
     })),
   fate: (actionId) =>
     set((s) => ({ state: applyAction(s.state, { type: 'FATE', actionId }) })),
-  resolveFate: (instanceId, to, targetHeroId) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_FATE', instanceId, to, targetHeroId }) })),
+  resolveFate: (instanceId, to, targetHeroId, enlargeToward) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_FATE', instanceId, to, targetHeroId, enlargeToward }) })),
   resolveTyrannyDiscard: (instanceIds) =>
     set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TYRANNY_DISCARD', instanceIds }) })),
   resolveHeroPlacement: (locationId) =>

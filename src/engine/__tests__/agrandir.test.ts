@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getAvailableActions } from '../rules'
+import { getAvailableActions, enlargeCoveredAction } from '../rules'
 import { resolveEffect } from '../effects'
 import { reineCoeur } from '../../data/villains/reineCoeur'
 import { reineCoeurCards } from '../../data/villains/reineCoeur.cards'
@@ -50,22 +50,18 @@ describe('Reine de Cœur — Agrandir (couverture)', () => {
     expect(ids).toContain('gain-power') // bas, libre
   })
 
-  it('un Héros agrandi recouvre UNE action du haut d’un lieu voisin (au choix)', () => {
-    // Héros agrandi au Labyrinthe → déborde sur la Cour du Palais (voisin). Pion
-    // à la Cour, sans Héros : ses 2 actions du haut (Défausser / Déplacer)
-    // restent disponibles, mais une seule utilisable (la 2ᵉ est recouverte après
-    // usage de la 1ʳᵉ). On choisit la Cour car ses 2 actions du haut sont
-    // inconditionnelles (à l'inverse d'« Activer », conditionnée à une carte).
+  it('un Héros agrandi recouvre l’action du haut la PLUS PROCHE d’un lieu voisin', () => {
+    // Héros agrandi au Labyrinthe → pivote vers la Cour du Palais (voisin de
+    // GAUCHE, choisi auto). Il recouvre l'action du haut la plus à DROITE de la
+    // Cour (move-item-ally, la plus proche du Labyrinthe) ; « discard » (plus à
+    // gauche) reste libre.
     let s = setup('labyrinthe', heroOf('h1'))
     s = resolveEffect(s, { type: 'SET_HERO_SIZE', size: 'enlarged' }, { actorIndex: 0, targetHeroId: 'h1' })
     expect((s.players[0].board['labyrinthe'] ?? [])[0].enlargeTargetId).toBe('cour-palais')
     s = { ...s, players: s.players.map((p) => ({ ...p, pawnLocation: 'cour-palais' })) }
     const free = getAvailableActions(s).map((a) => a.id)
-    expect(free).toContain('discard')
-    expect(free).toContain('move-item-ally')
-    // Après usage d’une action du haut, l’autre est recouverte.
-    const after = getAvailableActions({ ...s, usedActionIds: ['discard'] }).map((a) => a.id)
-    expect(after).not.toContain('move-item-ally')
+    expect(free).toContain('discard') // action de gauche : libre
+    expect(free).not.toContain('move-item-ally') // action de droite (bord) : recouverte
   })
 
   it('un lieu voisin SANS Héros agrandi adjacent n’est pas affecté', () => {
@@ -77,6 +73,22 @@ describe('Reine de Cœur — Agrandir (couverture)', () => {
     const ids = getAvailableActions(s).map((a) => a.id)
     expect(ids).toContain('fate')
     expect(ids).toContain('play-card')
+  })
+
+  it('Agrandir : le sens choisi (enlargeToward) fixe le voisin et l’action recouverte', () => {
+    // Héros à la Forêt de Tulgey (centre) : voisins Labyrinthe (gauche) et Maison
+    // du Lapin (droite). Conforme à l'exemple : gauche → « Activer » (haut-droite
+    // du Labyrinthe) ; droite → « Jouer une carte » (haut-gauche de la Maison).
+    const s = setup('foret-tulgey', heroOf('h1'))
+    const right = resolveEffect(s, { type: 'SET_HERO_SIZE', size: 'enlarged' }, { actorIndex: 0, targetHeroId: 'h1', enlargeToward: 'maison-lapin' })
+    const heroR = (right.players[0].board['foret-tulgey'] ?? [])[0]
+    expect(heroR.enlargeTargetId).toBe('maison-lapin')
+    expect(enlargeCoveredAction(right.players[0], heroR)).toEqual({ locationId: 'maison-lapin', actionId: 'play-card' })
+
+    const left = resolveEffect(s, { type: 'SET_HERO_SIZE', size: 'enlarged' }, { actorIndex: 0, targetHeroId: 'h1', enlargeToward: 'labyrinthe' })
+    const heroL = (left.players[0].board['foret-tulgey'] ?? [])[0]
+    expect(heroL.enlargeTargetId).toBe('labyrinthe')
+    expect(enlargeCoveredAction(left.players[0], heroL)).toEqual({ locationId: 'labyrinthe', actionId: 'activate' })
   })
 
   it('Agrandir sur un Héros rapetissé le ramène à sa taille normale', () => {

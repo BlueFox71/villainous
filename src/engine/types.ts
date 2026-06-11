@@ -417,6 +417,10 @@ export interface CardInstance {
    *  recouvre une action supplémentaire (le côté gauche OU droite choisi à la
    *  pose). Présent uniquement quand `heroSize === 'enlarged'`. */
   enlargeTargetId?: LocationId
+  /** Reine de Cœur — Rapetisser : action du haut (de son lieu) que le Héros
+   *  rapetissé LAISSE LIBRE (choisie à la pose). Il recouvre l'AUTRE action du
+   *  haut. Présent uniquement quand `heroSize === 'shrunk'`. */
+  shrunkFreeActionId?: string
 }
 
 /** Restrictions de pose imposées par une carte sur son lieu (Malédictions, Héros). */
@@ -811,6 +815,9 @@ export type GameAction =
       allyInstanceIds?: string[]
       /** Allié à déplacer librement avant l'effet (Tendre un Piège). */
       allyMove?: { instanceId: string; to: LocationId }
+      /** Reine de Cœur — Rapetisser : action du haut que le Héros rapetissé laisse
+       *  LIBRE (le joueur choisit ; l'autre est recouverte). */
+      shrinkFreeActionId?: string
     }
   /** Défausser un ensemble de cartes de la main via une action « Défausser ». */
   | { type: 'DISCARD_CARDS'; actionId: string; instanceIds: string[] }
@@ -877,7 +884,16 @@ export type GameAction =
   /** Résoudre la Fatalité : jouer une des cartes révélées. `to` = lieu où poser
    *  un Héros chez la cible. `targetHeroId` = Héros adverse ciblé par Voler aux
    *  Riches (verrouille des JT dessus) ou Déguisement (s'y attache). */
-  | { type: 'RESOLVE_FATE'; instanceId: string; to?: LocationId; targetHeroId?: string }
+  | {
+      type: 'RESOLVE_FATE'
+      instanceId: string
+      to?: LocationId
+      targetHeroId?: string
+      /** Reine de Cœur — Agrandir : lieu voisin vers lequel le Héros agrandi
+       *  « pivote » (le joueur qui pose la Fatalité choisit le sens). Absent =
+       *  choix automatique par le moteur (bot). */
+      enlargeToward?: LocationId
+    }
   /** Résoudre la défausse de Tyrannie : `instanceIds` = les cartes choisies dans
    *  la main du joueur en attente (`pendingTyrannyDiscard`) à envoyer en défausse. */
   | { type: 'RESOLVE_TYRANNY_DISCARD'; instanceIds: string[] }
@@ -938,5 +954,5 @@ export type GameAction =
   /** MODE TEST uniquement : joue une carte Fatalité non-Héros (Voler aux Riches,
    *  Déguisement) CONTRE le joueur actif, ciblant l'un de ses Héros via
    *  `targetHeroId` — comme si un adversaire l'avait jouée. */
-  | { type: 'TEST_PLAY_FATE_CARD'; card: CardInstance; targetHeroId?: string }
+  | { type: 'TEST_PLAY_FATE_CARD'; card: CardInstance; targetHeroId?: string; enlargeToward?: LocationId }
   | { type: 'END_TURN' }

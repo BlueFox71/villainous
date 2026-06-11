@@ -166,6 +166,7 @@ function applyPlayCard(
   targetHeroId?: string,
   allyInstanceIds?: string[],
   allyMove?: { instanceId: string; to: string },
+  shrinkFreeActionId?: string,
 ): GameState {
   if (state.phase !== 'ACTION') {
     throw new Error(`Impossible de jouer une carte en phase ${state.phase}.`)
@@ -351,7 +352,7 @@ function applyPlayCard(
       next = { ...next, pendingTrapVanquish: true }
     }
   } else {
-    next = resolveEffects(next, card.effects ?? [], { targetHeroId, allyInstanceIds, allyMove })
+    next = resolveEffects(next, card.effects ?? [], { targetHeroId, allyInstanceIds, allyMove, shrinkFreeActionId })
   }
   next = annotateShowcaseGain(next, showcaseIdx, activePlayer(next).power - powerBeforeEffects)
 
@@ -776,6 +777,7 @@ function applyResolveFate(
   instanceId: string,
   to?: string,
   targetHeroId?: string,
+  enlargeToward?: string,
 ): GameState {
   const pending = state.pendingFate
   if (!pending) throw new Error('Aucune Fatalité à résoudre.')
@@ -848,6 +850,7 @@ function applyResolveFate(
     return resolveEffects(next, chosen.effects ?? [], {
       actorIndex: pending.target,
       targetHeroId,
+      enlargeToward,
     })
   }
 
@@ -2242,6 +2245,7 @@ function applyTestPlayFateCard(
   state: GameState,
   card: CardInstance,
   targetHeroId?: string,
+  enlargeToward?: string,
 ): GameState {
   const idx = state.activePlayer
   let next = pushShowcase(state, card.cardId, `Test : ${state.players[idx].villainName}`, idx)
@@ -2251,7 +2255,7 @@ function applyTestPlayFateCard(
     return discardCurseFromHeroLocation(next, idx)
   }
   if (card.cardId === 'agrandir') {
-    return resolveEffectsLocal(next, card.effects ?? [], { actorIndex: idx, targetHeroId })
+    return resolveEffectsLocal(next, card.effects ?? [], { actorIndex: idx, targetHeroId, enlargeToward })
   }
   if (
     card.cardId === 'voler-riches' ||
@@ -2267,7 +2271,7 @@ function applyTestPlayFateCard(
 function resolveEffectsLocal(
   state: GameState,
   effects: Effect[],
-  ctx: { actorIndex: number; targetHeroId?: string },
+  ctx: { actorIndex: number; targetHeroId?: string; enlargeToward?: string },
 ): GameState {
   return resolveEffects(state, effects, ctx)
 }
@@ -2794,6 +2798,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
           action.targetHeroId,
           action.allyInstanceIds,
           action.allyMove,
+          action.shrinkFreeActionId,
         ),
       )
     case 'DISCARD_CARDS':
@@ -2810,7 +2815,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     case 'FATE':
       return clearGiant(state, applyFate(state, action.actionId))
     case 'RESOLVE_FATE':
-      return applyResolveFate(state, action.instanceId, action.to, action.targetHeroId)
+      return applyResolveFate(state, action.instanceId, action.to, action.targetHeroId, action.enlargeToward)
     case 'RESOLVE_TYRANNY_DISCARD':
       return applyResolveTyrannyDiscard(state, action.instanceIds)
     case 'RESOLVE_HERO_PLACEMENT':
@@ -2852,7 +2857,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     case 'TEST_PLAY_CONDITION':
       return applyTestPlayCondition(state, action.card, action.allyInstanceId, action.to)
     case 'TEST_PLAY_FATE_CARD':
-      return applyTestPlayFateCard(state, action.card, action.targetHeroId)
+      return applyTestPlayFateCard(state, action.card, action.targetHeroId, action.enlargeToward)
     case 'VANQUISH':
       return clearGiant(state, applyVanquish(state, action.actionId, action.heroInstanceId, action.allyInstanceIds))
     case 'DISCARD_DEGUISEMENT':

@@ -75,6 +75,22 @@ export function HeroRow({
               const locked = c.lockedPower ?? 0
               const isTarget = vanquishTargets.includes(c.instanceId)
               const deguisement = attached.find((a) => a.cardId === 'deguisement')
+              // Héros agrandi : on incline la carte à 90° vers le lieu voisin sur
+              // lequel il déborde (à droite → +90°, à gauche → −90°).
+              const enlargeIdx =
+                c.heroSize === 'enlarged' && c.enlargeTargetId
+                  ? player.locations.findIndex((l) => l.id === c.enlargeTargetId)
+                  : -1
+              const enlargeRotate = enlargeIdx >= 0 ? (enlargeIdx > index ? 90 : -90) : 0
+              // Héros rapetissé : léger pivot à 45° vers le côté de l'action qui
+              // reste RECOUVERTE (l'action non libérée). Gauche → −45°, droite → +45°.
+              const shrinkRotate = (() => {
+                if (c.heroSize !== 'shrunk') return 0
+                const tops = loc.actions.filter((a) => a.row === 'top')
+                const freed = c.shrunkFreeActionId ?? tops[0]?.id
+                const coveredIdx = tops.findIndex((a) => a.id !== freed)
+                return coveredIdx <= 0 ? -45 : 45
+              })()
               return (
                 <figure
                   key={c.instanceId}
@@ -97,9 +113,9 @@ export function HeroRow({
                       } ${redBlinkInstanceIds.includes(c.instanceId) ? 'red-flash' : ''}`}
                       style={
                         c.heroSize === 'shrunk'
-                          ? { transform: 'scale(0.65)' }
+                          ? { transform: `rotate(${shrinkRotate}deg)` }
                           : c.heroSize === 'enlarged'
-                            ? { transform: 'scale(1.2)' }
+                            ? { transform: `scale(1.2) rotate(${enlargeRotate}deg)` }
                             : undefined
                       }
                     />

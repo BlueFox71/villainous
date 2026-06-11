@@ -10,14 +10,16 @@ interface Props {
   /** Alliés actuellement dans la main du joueur (pour choisir lors de Lâcheté). */
   handAllies: { instanceId: string; name: string }[]
   /** Héros actuellement sur le plateau du joueur (cibles de Voler aux Riches /
-   *  Déguisement / Épée, et de Méchanceté pour les Héros ≤4). */
-  boardHeroes: { instanceId: string; name: string; strength: number }[]
+   *  Déguisement / Épée, et de Méchanceté pour les Héros ≤4). `locationId` sert au
+   *  choix du sens d'Agrandir (déterminer les lieux voisins). */
+  boardHeroes: { instanceId: string; name: string; strength: number; locationId: string }[]
   /** Inflige le Héros (cardId) sur le lieu choisi. */
   onInflict: (cardId: string, to: string) => void
   /** Joue la Condition (cardId). Pour Lâcheté : Allié + lieu choisis. */
   onPlayCondition: (cardId: string, opts?: { allyInstanceId?: string; to?: string }) => void
-  /** Joue une carte Fatalité non-Héros (Voler aux Riches / Déguisement) sur un Héros du plateau. */
-  onPlayFateCard: (cardId: string, targetHeroId: string) => void
+  /** Joue une carte Fatalité non-Héros (Voler aux Riches / Déguisement / Agrandir)
+   *  sur un Héros du plateau. `enlargeToward` = sens du pivot pour Agrandir. */
+  onPlayFateCard: (cardId: string, targetHeroId: string, enlargeToward?: string) => void
   /** Ajoute une carte (cardId) à la main du joueur (pour tester un Événement). */
   onAddToHand: (cardId: string) => void
   /** Déclenche un showcase d'aperçu (pour caler les positions). */
@@ -60,6 +62,17 @@ export function TestFateBar({ villain, locations, handAllies, boardHeroes, onInf
   const [evtId, setEvtId] = useState(events[0]?.id ?? '')
   const [fateCardId, setFateCardId] = useState(fateCards[0]?.id ?? '')
   const [fateHeroId, setFateHeroId] = useState('')
+  // Agrandir : sens du pivot (lieu voisin recouvert). '' = auto.
+  const [fateEnlargeToward, setFateEnlargeToward] = useState('')
+  // Voisins du Héros ciblé par Agrandir (pour proposer le sens gauche/droite).
+  const selFateHero = boardHeroes.find((h) => h.instanceId === (fateHeroId || boardHeroes[0]?.instanceId))
+  const agrandirNeighbors =
+    fateCardId === 'agrandir' && selFateHero
+      ? (() => {
+          const i = locations.findIndex((l) => l.id === selFateHero.locationId)
+          return [locations[i - 1], locations[i + 1]].filter(Boolean) as { id: string; name: string }[]
+        })()
+      : []
   // Lâcheté : Allié de la main + lieu choisis (sinon 1ᵉʳ Allié / 1ᵉʳ lieu).
   const [condAllyId, setCondAllyId] = useState('')
   const [condLoc, setCondLoc] = useState(locations[0]?.id ?? '')
@@ -216,11 +229,33 @@ export function TestFateBar({ villain, locations, handAllies, boardHeroes, onInf
                   <option key={h.instanceId} value={h.instanceId}>{h.name}</option>
                 ))}
               </select>
+              {/* Agrandir : sens du pivot si le Héros a deux voisins. */}
+              {agrandirNeighbors.length >= 2 && (
+                <>
+                  <span className="text-emerald-200/70">pivote</span>
+                  <select
+                    value={fateEnlargeToward || agrandirNeighbors[0].id}
+                    onChange={(e) => setFateEnlargeToward(e.target.value)}
+                    className="rounded bg-black/40 px-1 py-0.5 text-white"
+                  >
+                    {agrandirNeighbors.map((n) => (
+                      <option key={n.id} value={n.id}>→ {n.name}</option>
+                    ))}
+                  </select>
+                </>
+              )}
             </>
           )}
           <button
             onClick={() =>
-              fateCardId && onPlayFateCard(fateCardId, fateHeroId || boardHeroes[0]?.instanceId)
+              fateCardId &&
+              onPlayFateCard(
+                fateCardId,
+                fateHeroId || boardHeroes[0]?.instanceId,
+                fateCardId === 'agrandir' && agrandirNeighbors.length >= 2
+                  ? fateEnlargeToward || agrandirNeighbors[0].id
+                  : undefined,
+              )
             }
             disabled={!fateCardId || boardHeroes.length === 0}
             className="rounded bg-amber-500 px-3 py-0.5 font-medium text-amber-950 hover:bg-amber-400 disabled:opacity-40"

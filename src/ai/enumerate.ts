@@ -242,15 +242,33 @@ export function enumerateActions(state: GameState): GameAction[] {
             (maxStrengthEffect?.type === 'INSTANT_VANQUISH_HERO_LE' && maxStrengthEffect.atPawn)
           // Hypnose : coût = force du Héros → on n'énumère que les cibles abordables.
           const isHypnose = (card.effects ?? []).some((e) => e.type === 'HYPNOTIZE_HERO')
+          // Rapetisser : on ne peut pas rapetisser deux fois → exclure les Héros
+          // déjà rapetissés.
+          const shrinks = (card.effects ?? []).some(
+            (e) => e.type === 'SET_HERO_SIZE' && e.size === 'shrunk',
+          )
           const own = atPawn
             ? (me.board[me.pawnLocation ?? ''] ?? []).filter((c) => c.type === 'hero')
             : heroesOf(state, state.activePlayer)
           for (const h of own) {
             const forbidden = new Set(h.forbiddenLocations ?? [])
             if (card.cardId === 'emprisonnement' && forbidden.has('jail')) continue
+            if (shrinks && h.heroSize === 'shrunk') continue
             if ((h.strength ?? 0) > maxStrength) continue
             const hForce = effectiveStrength(state, state.activePlayer, h.instanceId) ?? 0
             if (isHypnose && hForce > me.power) continue
+            // Rapetisser sur un Héros NORMAL : une option par action du haut à
+            // laisser libre (l'autre est recouverte). Sur un Héros agrandi, Rapetisser
+            // le ramène à la normale → pas de choix.
+            if (shrinks && !h.heroSize) {
+              const loc = me.locations.find((l) =>
+                (me.board[l.id] ?? []).some((c) => c.instanceId === h.instanceId),
+              )
+              for (const t of (loc?.actions ?? []).filter((a) => a.row === 'top')) {
+                out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, targetHeroId: h.instanceId, shrinkFreeActionId: t.id })
+              }
+              continue
+            }
             out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, targetHeroId: h.instanceId })
           }
         } else if (cardNeedsSacrificeTarget(card)) {

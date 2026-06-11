@@ -38,15 +38,36 @@ describe('Reine de Cœur — Rapetisser (couverture)', () => {
     expect(ids).toContain('gain-power') // bas, libre
   })
 
-  it('un Héros RAPETISSÉ laisse les 2 actions du haut disponibles (1 au choix)', () => {
+  it('un Héros rapetissé recouvre UNE action du haut (l’autre, libérée, reste dispo)', () => {
+    // Sans choix explicite, la 1ʳᵉ action du haut (discard) est libérée par défaut ;
+    // l'autre (move-item-ally) est recouverte.
     const ids = getAvailableActions(setup(heroOf('h1', 'shrunk'))).map((a) => a.id)
     expect(ids).toContain('discard')
-    expect(ids).toContain('move-item-ally')
+    expect(ids).not.toContain('move-item-ally')
   })
 
-  it('après avoir utilisé une action du haut, l’autre est recouverte', () => {
-    const ids = getAvailableActions(setup(heroOf('h1', 'shrunk'), ['discard'])).map((a) => a.id)
-    expect(ids).not.toContain('move-item-ally')
+  it('Rapetisser : le joueur choisit l’action laissée libre (shrinkFreeActionId)', () => {
+    const s0 = setup(heroOf('h1')) // Héros normal
+    // On libère « move-item-ally » → « discard » est recouverte.
+    const s = resolveEffect(
+      s0,
+      { type: 'SET_HERO_SIZE', size: 'shrunk' },
+      { actorIndex: 0, targetHeroId: 'h1', shrinkFreeActionId: 'move-item-ally' },
+    )
+    const hero = (s.players[0].board['cour-palais'] ?? [])[0]
+    expect(hero.heroSize).toBe('shrunk')
+    expect(hero.shrunkFreeActionId).toBe('move-item-ally')
+    const ids = getAvailableActions(s).map((a) => a.id)
+    expect(ids).toContain('move-item-ally') // libérée
+    expect(ids).not.toContain('discard') // recouverte
+  })
+
+  it('on ne peut pas rapetisser deux fois un Héros (déjà rapetissé → sans effet)', () => {
+    const s = setup(heroOf('h1', 'shrunk'))
+    const after = resolveEffect(s, { type: 'SET_HERO_SIZE', size: 'shrunk' }, { actorIndex: 0, targetHeroId: 'h1' })
+    // Reste rapetissé (pas de double rapetissement), et un message l'indique.
+    expect((after.players[0].board['cour-palais'] ?? [])[0].heroSize).toBe('shrunk')
+    expect(after.log.some((l) => /deux fois/.test(l))).toBe(true)
   })
 
   it('Rapetisser marque le Héros, mais le Loir ne peut pas rapetisser', () => {

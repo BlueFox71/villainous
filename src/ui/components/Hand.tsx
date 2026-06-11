@@ -212,7 +212,7 @@ export function Hand({
                 alt={card.name}
                 title={`${card.name} — ${card.text}`}
                 onClick={onClick}
-                className={`w-full rounded-lg border ${clickable ? 'cursor-pointer' : ''} ${ring}`}
+                className={`w-full border transition-[border-radius] ${isHovered ? 'rounded-[2.75rem]' : 'rounded-lg'} ${clickable ? 'cursor-pointer' : ''} ${ring}`}
               />
               {cost !== baseCost && (
                 <span
