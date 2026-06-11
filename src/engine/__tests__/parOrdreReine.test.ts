@@ -22,6 +22,7 @@ const lance = (id: string, attachedTo?: string): CardInstance => ({
   cardId: 'lance',
   name: 'Lance',
   type: 'item',
+  attachStrengthBonus: 1,
   attachedTo,
 })
 

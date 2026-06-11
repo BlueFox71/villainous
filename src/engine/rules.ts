@@ -306,86 +306,86 @@ export function effectiveStrength(
   const card = cell.find((c) => c.instanceId === instanceId)
   if (!card || card.strength === undefined) return undefined
 
+  // Bonus de force des Objets associés — donnée réutilisable (attachStrengthBonus
+  // porté par l'Objet), pour ne pas coder chaque Objet en dur par cardId : Arc et
+  // Flèches / Cimeterre / Lance (+1) sur un Allié, Épée de Vérité / Vœu (+2) sur
+  // un Héros. Le Cimeterre sur un Héros hypnotisé (= compté comme Allié) entre
+  // naturellement dans cette somme puisqu'il y est associé.
+  const attachedStrengthBonus = cell
+    .filter((c) => c.attachedTo === card.instanceId)
+    .reduce((sum, c) => sum + (c.attachStrengthBonus ?? 0), 0)
+
+  // Synergies conditionnelles de la carte sur SA PROPRE force (Créature Rieuse,
+  // Sinistre Créature, Génie, Rajah, Adam de la Halle). Donnée réutilisable :
+  // chaque variant est évalué ici, la carte ne porte que ses paramètres.
+  const selfMod = (card.selfStrengthMods ?? []).reduce((sum, m) => {
+    switch (m.kind) {
+      case 'per-type-here':
+        return sum + m.delta * cell.filter((c) => c.type === m.cardType).length
+      case 'if-type-here':
+        return sum + (cell.some((c) => c.type === m.cardType) ? m.delta : 0)
+      case 'if-card': {
+        const present =
+          m.scope === 'location'
+            ? cell.some((c) => c.cardId === m.cardId)
+            : Object.values(p.board).flat().some((c) => c.cardId === m.cardId)
+        return sum + (present ? m.delta : 0)
+      }
+    }
+  }, 0)
+
+  // Bonus temporaire « jusqu'à la fin du tour » (Capitaine Crochet : Pas de
+  // Quartier !). Champ de donnée porté par la carte ; s'applique Allié comme Héros.
+  const tempBonus = card.tempStrengthBonus ?? 0
+
   if (card.type === 'ally') {
-    const niquedouilleBonus = cell.filter(
-      (c) => c.cardId === 'niquedouille' && c.instanceId !== card.instanceId,
-    ).length
-    const arcFlechesBonus = cell.filter(
-      (c) => c.cardId === 'arc-fleches' && c.attachedTo === card.instanceId,
-    ).length
-    // Jafar : Cimeterre +1 par Cimeterre attaché à cet Allié.
-    const cimeterreBonus = cell.filter(
-      (c) => c.cardId === 'cimeterre' && c.attachedTo === card.instanceId,
-    ).length
-    // Reine de Cœur : Lance +1 par Lance associée à cet Allié (arceaux inclus :
-    // une Lance sur un arceau augmente sa force pour le Coup Royal).
-    const lanceBonus = cell.filter(
-      (c) => c.cardId === 'lance' && c.attachedTo === card.instanceId,
-    ).length
-    // Capitaine Crochet : Sabre d'Abordage +2 par Sabre associé à cet Allié.
+    // Aura des cartes du lieu sur les Alliés (Niquedouille +1, Pendard -1) —
+    // `excludeSelf` empêche la carte source de s'affecter elle-même.
+    const allyAura = cell.reduce((sum, c) => {
+      const m = c.strengthMod
+      if (m && m.target === 'allies-here' && !(m.excludeSelf && c.instanceId === card.instanceId)) {
+        return sum + m.delta
+      }
+      return sum
+    }, 0)
+    // Capitaine Crochet — bonus encore codés par cardId (TODO : migrer vers les
+    // champs de donnée comme le reste, cf. CLAUDE.md) :
+    //  - Sabre d'Abordage : +2 par Sabre associé à cet Allié (→ attachStrengthBonus).
     const sabreBonus = cell.filter(
       (c) => c.cardId === 'sabre-abordage' && c.attachedTo === card.instanceId,
     ).length * 2
-    // Capitaine Crochet : Monsieur Mouche +2 sur le Jolly Roger.
+    //  - Monsieur Mouche : +2 sur le Jolly Roger.
     const moucheBonus = card.cardId === 'monsieur-mouche' && loc === 'jolly-roger' ? 2 : 0
-    // Maléfique : Créature Rieuse +1 par Héros sur son lieu ;
-    // Sinistre Créature +1 si une Malédiction est présente.
-    let selfBonus = 0
-    if (card.cardId === 'creature-rieuse') {
-      selfBonus += cell.filter((c) => c.type === 'hero').length
-    }
-    if (card.cardId === 'sinistre-creature') {
-      selfBonus += cell.some((c) => c.type === 'curse') ? 1 : 0
-    }
-    // Pendard : −1 à la force de chaque AUTRE Allié sur le même lieu.
-    const pendardPenalty = cell.filter(
-      (c) => c.cardId === 'pendard' && c.instanceId !== card.instanceId,
-    ).length
-    return Math.max(
-      0,
-      card.strength + niquedouilleBonus + arcFlechesBonus + cimeterreBonus + lanceBonus + sabreBonus + moucheBonus + (card.tempStrengthBonus ?? 0) + selfBonus - pendardPenalty,
-    )
+    return Math.max(0, card.strength + attachedStrengthBonus + selfMod + allyAura + sabreBonus + moucheBonus + tempBonus)
   }
   if (card.type === 'hero') {
-    const adamBonus = heroesOf(state, playerIndex).filter(
-      (h) => h.cardId === 'adam-halle' && h.instanceId !== card.instanceId,
-    ).length
-    // strengthMod des curses du même lieu (Sommeil sans Rêves : -2 aux héros).
-    const curseDelta = cell.reduce((sum, c) => {
+    // Aura des cartes du lieu sur les Héros (Sommeil sans Rêves -2 ; Sablier Géant
+    // -2 seulement s'il a été activé ce tour-ci).
+    const heroAura = cell.reduce((sum, c) => {
       const m = c.strengthMod
-      if (m && m.target === 'heroes-here') return sum + m.delta
+      if (m && m.target === 'heroes-here') {
+        if (m.onlyIfActivatedThisTurn && !c.activatedThisTurn) return sum
+        return sum + m.delta
+      }
       return sum
     }, 0)
-    // Épée de Vérité : +2 par Épée attachée à ce héros.
-    const swordBonus = cell.filter(
-      (c) => c.cardId === 'epee-verite' && c.attachedTo === card.instanceId,
-    ).length * 2
-    // Jafar (Fatalité) : Vœu +2 par Vœu attaché à ce héros.
-    const voeuBonus = cell.filter(
-      (c) => c.cardId === 'voeu' && c.attachedTo === card.instanceId,
-    ).length * 2
-    // Génie : +2 s'il est sur le même lieu que la Lampe Merveilleuse.
-    const genieBonus =
-      card.cardId === 'genie' && cell.some((c) => c.cardId === 'lampe-merveilleuse') ? 2 : 0
-    // Sablier Géant activé : −2 par Sablier actif ce tour-ci sur le lieu.
-    const sablierPenalty =
-      cell.filter((c) => c.cardId === 'sablier-geant' && c.activatedThisTurn).length * 2
-    // Héros hypnotisé (= Allié) : +1 par Cimeterre qui lui est associé.
-    const cimeterreOnHero = card.hypnotized
-      ? cell.filter((c) => c.cardId === 'cimeterre' && c.attachedTo === card.instanceId).length
-      : 0
-    // Rajah : +2 si la Princesse Jasmine est dans le royaume.
-    const rajahBonus =
-      card.cardId === 'rajah' &&
-      heroesOf(state, playerIndex).some((h) => h.cardId === 'jasmine')
-        ? 2
-        : 0
-    // Capitaine Crochet (Fatalité) :
-    //  - Poussière de Fée : +2 par carte associée à ce Héros.
+    // Aura GLOBALE du royaume sur les Héros (Adam de la Halle : +1 à tous les
+    // autres Héros) — scanne tout le board, pas seulement le lieu.
+    const realmHeroAura = Object.values(p.board)
+      .flat()
+      .reduce((sum, c) => {
+        const m = c.strengthMod
+        if (m && m.target === 'heroes-realm' && !(m.excludeSelf && c.instanceId === card.instanceId)) {
+          return sum + m.delta
+        }
+        return sum
+      }, 0)
+    // Capitaine Crochet — bonus encore codés par cardId (TODO : migrer, cf. CLAUDE.md) :
+    //  - Poussière de Fée : +2 par carte associée à ce Héros (→ attachStrengthBonus).
     const pixieBonus = cell.filter(
       (c) => c.cardId === 'poussiere-fee' && c.attachedTo === card.instanceId,
     ).length * 2
-    //  - Wendy : +1 à la force de tous les AUTRES Héros du royaume.
+    //  - Wendy : +1 à tous les AUTRES Héros du royaume (→ strengthMod heroes-realm).
     const wendyBonus =
       card.cardId !== 'wendy' && heroesOf(state, playerIndex).some((h) => h.cardId === 'wendy') ? 1 : 0
     //  - Jean : +1 si au moins un Objet lui est associé.
@@ -401,7 +401,7 @@ export function effectiveStrength(
         : 0
     return Math.max(
       0,
-      card.strength + adamBonus + curseDelta + swordBonus + voeuBonus + genieBonus + rajahBonus + cimeterreOnHero + pixieBonus + wendyBonus + jeanBonus + michelBonus - sablierPenalty,
+      card.strength + attachedStrengthBonus + selfMod + heroAura + realmHeroAura + pixieBonus + wendyBonus + jeanBonus + michelBonus + tempBonus,
     )
   }
   return card.strength

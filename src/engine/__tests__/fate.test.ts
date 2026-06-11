@@ -621,7 +621,7 @@ describe('action Fatalité (B)', () => {
     s = withActive(s, { board: { ...me(s).board, nottingham: [hero] } })
     const idx = s.activePlayer
     const epee: CardInstance = {
-      instanceId: 'test:epee#1', cardId: 'epee-verite', name: 'Épée de Vérité', type: 'item', attach: 'hero',
+      instanceId: 'test:epee#1', cardId: 'epee-verite', name: 'Épée de Vérité', type: 'item', attach: 'hero', attachStrengthBonus: 2,
     }
     s = applyAction(s, { type: 'TEST_PLAY_FATE_CARD', card: epee, targetHeroId: 'h-test' })
     const placed = me(s).board['nottingham'].find((c) => c.instanceId === 'test:epee#1')!

@@ -65,6 +65,7 @@ export const princeJohnCards: CardDef[] = [
     copies: 1,
     text: 'La force des Alliés qui se trouvent sur le même lieu que Niquedouille est augmentée de 1.',
     image: img('niquedouille.png'),
+    strengthMod: { target: 'allies-here', delta: 1, excludeSelf: true },
   },
   {
     id: 'pendard',
@@ -77,6 +78,7 @@ export const princeJohnCards: CardDef[] = [
     copies: 1,
     text: 'La force des autres Alliés qui se trouvent sur le même lieu que Pendard est réduite de 1.',
     image: img('pendard.png'),
+    strengthMod: { target: 'allies-here', delta: -1, excludeSelf: true },
   },
   {
     id: 'persifleur',
@@ -113,6 +115,7 @@ export const princeJohnCards: CardDef[] = [
     type: 'item',
     cost: 1,
     attach: 'ally',
+    attachStrengthBonus: 1,
     copies: 2,
     text: 'Associez cette carte à un Allié. Sa force augmente de 1. Si vous devez défausser cet Allié, défaussez cet Objet à la place.',
     image: img('arc_fleches.png'),
@@ -308,6 +311,7 @@ export const princeJohnCards: CardDef[] = [
     copies: 1,
     text: 'La force de tous les autres Héros augmente de 1.',
     image: img('adam_halle.png'),
+    strengthMod: { target: 'heroes-realm', delta: 1, excludeSelf: true },
   },
   {
     id: 'bobby',

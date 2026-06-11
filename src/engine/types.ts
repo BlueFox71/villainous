@@ -300,6 +300,9 @@ export interface CardInstance {
   /** Pour un Objet : cible d'association à la pose (recopié de CardDef).
    *  `'ally'` = sur un Allié du lieu ; sinon (défaut) posé sur le lieu. */
   attach?: 'location' | 'ally' | 'hero'
+  /** Pour un Objet associé : bonus de force conféré à la carte hôte (recopié de
+   *  CardDef). Sommé par effectiveStrength sur tous les Objets associés à une carte. */
+  attachStrengthBonus?: number
   /** Capitaine Crochet : Objet qui DONNE une action à son lieu tant qu'il y est
    *  posé (Canon → Vaincre, Boîte à Crochets → Gagner 1, Ingénieux Mécanisme →
    *  Déplacer un Héros). */
@@ -328,8 +331,12 @@ export interface CardInstance {
   lockedPower?: number
   /** Restrictions imposées sur le lieu où cette carte est posée (Malédictions). */
   placementRestriction?: PlacementRestriction
-  /** Modificateur passif de force pour les cartes du même lieu. */
+  /** Modificateur passif de force que cette carte applique aux AUTRES cartes du
+   *  même lieu (aura : Sommeil sans Rêves, Niquedouille, Pendard, Sablier Géant). */
   strengthMod?: StrengthMod
+  /** Modificateurs conditionnels de SA PROPRE force (Créature Rieuse, Génie,
+   *  Rajah, Adam de la Halle…). Sommés par effectiveStrength. */
+  selfStrengthMods?: SelfStrengthMod[]
   /** Déclencheur de défausse automatique de cette carte. */
   discardWhen?: CurseDiscardTrigger
   /** Pour une Condition : descripteur du trigger côté adversaire. */
@@ -373,10 +380,38 @@ export type PlacementRestriction =
   /** Aucune Malédiction ne peut être posée sur ce lieu (Pimprenelle). */
   | { type: 'no-curses' }
 
-/** Modificateur passif de force appliqué aux cartes d'un même lieu. */
+/** Modificateur passif de force qu'une carte applique aux AUTRES cartes de son
+ *  lieu (aura). Donnée réutilisable : le moteur somme ces modificateurs sur le
+ *  lieu sans connaître la carte source. */
 export type StrengthMod =
-  /** Modifie la force des Héros présents sur le même lieu (Sommeil sans Rêves : -2). */
-  | { target: 'heroes-here'; delta: number }
+  /** Modifie la force des Héros du même lieu (Sommeil sans Rêves : -2 ; Sablier
+   *  Géant : -2 mais seulement s'il a été activé ce tour-ci →
+   *  `onlyIfActivatedThisTurn`). */
+  | { target: 'heroes-here'; delta: number; onlyIfActivatedThisTurn?: boolean }
+  /** Modifie la force des Alliés du même lieu. `excludeSelf` : la carte source
+   *  ne se modifie pas elle-même (Niquedouille : +1 aux AUTRES Alliés ; Pendard :
+   *  -1 aux AUTRES Alliés). */
+  | { target: 'allies-here'; delta: number; excludeSelf?: boolean }
+  /** Modifie la force de TOUS les Héros du royaume (aura globale, pas seulement le
+   *  lieu). `excludeSelf` : la carte source ne s'affecte pas (Adam de la Halle :
+   *  +1 à tous les AUTRES Héros). */
+  | { target: 'heroes-realm'; delta: number; excludeSelf?: boolean }
+
+/** Modificateur passif qu'une carte applique à SA PROPRE force selon une
+ *  condition. Donnée réutilisable : le moteur évalue chaque variant, la carte ne
+ *  porte que les paramètres (plus de cardId codé en dur dans effectiveStrength).
+ *  Ajouter une synergie de ce genre = un variant + un case dans effectiveStrength. */
+export type SelfStrengthMod =
+  /** +delta par carte de type `cardType` présente sur le MÊME lieu
+   *  (Créature Rieuse : +1 par Héros ici). */
+  | { kind: 'per-type-here'; cardType: CardType; delta: number }
+  /** +delta si au moins une carte de type `cardType` est présente sur le même
+   *  lieu (Sinistre Créature : +1 si une Malédiction ici). */
+  | { kind: 'if-type-here'; cardType: CardType; delta: number }
+  /** +delta si une carte `cardId` est présente — sur le même lieu
+   *  (`scope: 'location'`, Génie + Lampe Merveilleuse) ou n'importe où dans le
+   *  royaume (`scope: 'realm'`, Rajah + Princesse Jasmine). */
+  | { kind: 'if-card'; cardId: string; scope: 'location' | 'realm'; delta: number }
 
 /** Déclencheur d'une carte Condition : décrit la situation côté ADVERSAIRE
  *  (active player) qui rend la Condition jouable. */
