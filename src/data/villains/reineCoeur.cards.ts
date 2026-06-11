@@ -108,6 +108,7 @@ export const reineCoeurCards: CardDef[] = [
     type: 'item',
     cost: 1,
     attach: 'ally',
+    attachStrengthBonus: 1,
     copies: 3,
     text: 'Associez cette carte à un Allié, sa force augmente de 1.',
     image: img('lance.png'),

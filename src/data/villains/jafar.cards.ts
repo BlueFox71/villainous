@@ -83,6 +83,7 @@ export const jafarCards: CardDef[] = [
     type: 'item',
     cost: 0,
     attach: 'ally',
+    attachStrengthBonus: 1,
     copies: 3,
     text: 'Associez cette carte à un Allié, sa force augmente de 1.',
     image: img('cimeterre.png'),
@@ -112,6 +113,7 @@ export const jafarCards: CardDef[] = [
     text: 'Activer : jusqu’à la fin de votre tour, la force des Héros sur ce lieu est réduite de 2.',
     image: img('sablier-geant.png'),
     activatedCost: 0,
+    strengthMod: { target: 'heroes-here', delta: -2, onlyIfActivatedThisTurn: true },
   },
   {
     id: 'lampe-merveilleuse',
@@ -267,6 +269,7 @@ export const jafarCards: CardDef[] = [
     copies: 1,
     text: 'Si le Génie se trouve sur le même lieu que la Lampe Merveilleuse, sa force augmente de 2.',
     image: img('genie.png'),
+    selfStrengthMods: [{ kind: 'if-card', cardId: 'lampe-merveilleuse', scope: 'location', delta: 2 }],
   },
   {
     id: 'jasmine',
@@ -289,6 +292,7 @@ export const jafarCards: CardDef[] = [
     copies: 1,
     text: 'Si la Princesse Jasmine se trouve dans le royaume, la force de Rajah augmente de 2.',
     image: img('rajah.png'),
+    selfStrengthMods: [{ kind: 'if-card', cardId: 'jasmine', scope: 'realm', delta: 2 }],
   },
   {
     id: 'sultan',
@@ -323,6 +327,7 @@ export const jafarCards: CardDef[] = [
     deck: 'fate',
     type: 'item',
     attach: 'hero',
+    attachStrengthBonus: 2,
     copies: 3,
     text: 'Associez cette carte à un Héros, sa force augmente de 2.',
     image: img('voeu.png'),

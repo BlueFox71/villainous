@@ -17,6 +17,7 @@ import type {
   Effect,
   LocationId,
   PlacementRestriction,
+  SelfStrengthMod,
   StrengthMod,
 } from '../engine/types'
 
@@ -46,6 +47,11 @@ export interface CardDef {
    *  absent / `'location'` = posé sur le lieu lui-même. Sans effet pour les
    *  autres types (un Allié va toujours sur le lieu). */
   attach?: 'location' | 'ally' | 'hero'
+  /** Pour un Objet associé (`attach: 'ally' | 'hero'`) : bonus de force conféré
+   *  à la carte hôte tant que cet Objet lui est associé (Arc et Flèches / Cimeterre
+   *  / Lance : +1 ; Épée de Vérité / Vœu : +2). Donnée réutilisable : le moteur
+   *  somme ce champ sur tous les Objets associés, sans connaître la carte. */
+  attachStrengthBonus?: number
   /** Nombre d'exemplaires dans le paquet. */
   copies: number
   /** Texte de règle français, recopié de la carte. Source de vérité. */
@@ -66,8 +72,10 @@ export interface CardDef {
   forbiddenLocations?: LocationId[]
   /** Pour une Malédiction : restriction imposée à son lieu. */
   placementRestriction?: PlacementRestriction
-  /** Modificateur passif de force sur les cartes du même lieu. */
+  /** Modificateur passif de force sur les AUTRES cartes du même lieu (aura). */
   strengthMod?: StrengthMod
+  /** Modificateurs conditionnels de la PROPRE force de la carte (synergies). */
+  selfStrengthMods?: SelfStrengthMod[]
   /** Déclencheur de défausse automatique (typiquement les Malédictions). */
   discardWhen?: CurseDiscardTrigger
   /** Pour une Condition : descripteur du trigger côté adversaire. */
@@ -110,12 +118,14 @@ export function buildDeckInstances(
           cost: c.cost,
           strength: c.strength,
           attach: c.attach,
+          attachStrengthBonus: c.attachStrengthBonus,
           effects: c.effects,
           onPlace: c.onPlace,
           onVanquish: c.onVanquish,
           forbiddenLocations: c.forbiddenLocations,
           placementRestriction: c.placementRestriction,
           strengthMod: c.strengthMod,
+          selfStrengthMods: c.selfStrengthMods,
           discardWhen: c.discardWhen,
           trigger: c.trigger,
           maxAtLocation: c.maxAtLocation,

@@ -16,7 +16,10 @@ import { slendermanCards } from './villains/slenderman.cards'
 import { jafarCards } from './villains/jafar.cards'
 import { reineCoeurCards } from './villains/reineCoeur.cards'
 
-const allCards: CardDef[] = [
+/** Toutes les cartes, tous vilains confondus. Source unique : ajouter un vilain
+ *  ici le fait entrer dans le registre ET dans les tests d'intégrité globaux
+ *  (unicité des cardId), qui importent cette liste plutôt que de ré-énumérer. */
+export const allCards: CardDef[] = [
   ...princeJohnCards,
   ...maleficentCards,
   ...slendermanCards,

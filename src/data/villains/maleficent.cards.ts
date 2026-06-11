@@ -33,6 +33,7 @@ export const maleficentCards: CardDef[] = [
     copies: 3,
     text: 'La Créature Rieuse gagne +1 Force pour chaque Héros présent sur son lieu.',
     image: img('creature_rieuse.png'),
+    selfStrengthMods: [{ kind: 'per-type-here', cardType: 'hero', delta: 1 }],
   },
   {
     id: 'creature-sauvage',
@@ -57,6 +58,7 @@ export const maleficentCards: CardDef[] = [
     copies: 3,
     text: 'La Sinistre Créature gagne +1 Force si une Malédiction est présente sur son lieu.',
     image: img('sinistre_creature.png'),
+    selfStrengthMods: [{ kind: 'if-type-here', cardType: 'curse', delta: 1 }],
   },
   {
     id: 'diablo',
@@ -309,6 +311,7 @@ export const maleficentCards: CardDef[] = [
     deck: 'fate',
     type: 'item',
     attach: 'hero',
+    attachStrengthBonus: 2,
     copies: 3,
     text: "Quand l'Épée de Vérité est jouée, associez-la à un Héros qui n'a pas d'autre Objet associé. Ce Héros gagne +2 Force. Le coût pour jouer une Malédiction sur ce lieu est augmenté de 2 Pouvoirs.",
     image: img('epee_verite.png'),

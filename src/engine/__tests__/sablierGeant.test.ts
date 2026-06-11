@@ -13,6 +13,7 @@ const sablier = (): CardInstance => ({
   name: 'Sablier Géant',
   type: 'item',
   activatedCost: 0,
+  strengthMod: { target: 'heroes-here', delta: -2, onlyIfActivatedThisTurn: true },
 })
 const hero = (): CardInstance => ({ instanceId: 'h1', cardId: 'aladdin', name: 'Aladdin', type: 'hero', strength: 4 })
 

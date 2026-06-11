@@ -3,16 +3,21 @@ import { applyAction } from '../actions'
 import { effectiveStrength } from '../rules'
 import type { CardInstance, GameState } from '../types'
 import { me, singleGame, withActive } from './_helpers'
+import { getCardDef } from '../../data/registry'
 
-/** Fabrique un allié vilain (sans passer par data/ pour rester libre du contenu). */
+// Les fixtures recopient les champs de force passive réels (strengthMod /
+// selfStrengthMods / attachStrengthBonus) depuis le registre, pour rester
+// synchrones avec la donnée des cartes tout en gardant force/attachedTo libres.
 function ally(id: string, cardId: string, strength: number, attachedTo?: string): CardInstance {
-  return { instanceId: id, cardId, name: cardId, type: 'ally', strength, attachedTo }
+  const def = getCardDef(cardId)
+  return { instanceId: id, cardId, name: cardId, type: 'ally', strength, attachedTo, strengthMod: def?.strengthMod, selfStrengthMods: def?.selfStrengthMods }
 }
 function item(id: string, cardId: string, attachedTo?: string): CardInstance {
-  return { instanceId: id, cardId, name: cardId, type: 'item', attachedTo }
+  return { instanceId: id, cardId, name: cardId, type: 'item', attachStrengthBonus: getCardDef(cardId)?.attachStrengthBonus, attachedTo }
 }
 function hero(id: string, cardId: string, strength: number, extra: Partial<CardInstance> = {}): CardInstance {
-  return { instanceId: id, cardId, name: cardId, type: 'hero', strength, ...extra }
+  const def = getCardDef(cardId)
+  return { instanceId: id, cardId, name: cardId, type: 'hero', strength, strengthMod: def?.strengthMod, selfStrengthMods: def?.selfStrengthMods, ...extra }
 }
 
 describe('E.0 — Objectif data-driven', () => {

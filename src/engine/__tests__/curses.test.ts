@@ -3,6 +3,7 @@ import { applyAction } from '../actions'
 import { canPlaceCurseAt, effectiveCost, effectiveStrength, heroPlacementLocations, movableCards } from '../rules'
 import type { CardInstance, GameState } from '../types'
 import { me, singleGame, twoPlayerGame, withActive } from './_helpers'
+import { getCardDef } from '../../data/registry'
 
 function curse(id: string, cardId: string, opts: Partial<CardInstance> = {}): CardInstance {
   return { instanceId: id, cardId, name: cardId, type: 'curse', ...opts }
@@ -72,7 +73,8 @@ describe('E.3 — Restrictions de pose (Malédictions)', () => {
 
 describe('E.4 — Passifs alliés Maléfique', () => {
   function ally(id: string, cardId: string, strength: number): CardInstance {
-    return { instanceId: id, cardId, name: cardId, type: 'ally', strength }
+    const def = getCardDef(cardId)
+    return { instanceId: id, cardId, name: cardId, type: 'ally', strength, selfStrengthMods: def?.selfStrengthMods, strengthMod: def?.strengthMod }
   }
 
   it('Créature Rieuse : +1 Force par Héros sur son lieu', () => {
