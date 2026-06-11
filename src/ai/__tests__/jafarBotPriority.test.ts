@@ -72,7 +72,9 @@ describe('priorité du bot Jafar : Scarabée puis Lampe', () => {
           : p,
       ),
     }
-    const action = chooseAction(s)
+    // `chooseAction` départage les coups d'éval égale via `rand` (Math.random par
+    // défaut) — on passe une graine fixe pour un test déterministe (sinon flaky).
+    const action = chooseAction(s, () => 0)
     expect(action.type).toBe('PLAY_CARD')
   })
 })
