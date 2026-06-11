@@ -45,6 +45,7 @@ import { ActivatePickModal } from './components/ActivatePickModal'
 import { CardChoiceModal } from './components/CardChoiceModal'
 import { RoyalCroquetModal } from './components/RoyalCroquetModal'
 import { TransformWicketsModal } from './components/TransformWicketsModal'
+import { ScryModal } from './components/ScryModal'
 import { StartRollModal } from './components/StartRollModal'
 import { MusicPlayer } from './components/MusicPlayer'
 import { Showcase } from './components/Showcase'
@@ -164,6 +165,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveManipulation = useGameStore((s) => s.resolveManipulation)
   const dismissRoyalCroquet = useGameStore((s) => s.dismissRoyalCroquet)
   const resolveTransformWickets = useGameStore((s) => s.resolveTransformWickets)
+  const resolveScry = useGameStore((s) => s.resolveScry)
   const endTurn = useGameStore((s) => s.endTurn)
   const reset = useGameStore((s) => s.reset)
   const botAct = useGameStore((s) => s.botAct)
@@ -620,6 +622,16 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       }
       return
     }
+    // Faites-leur peur ! : le bot garde les Héros sur le dessus, défausse le reste.
+    const psc = state.pendingScry
+    if (psc) {
+      if (BOTS[psc.playerIndex]) {
+        const heroes = psc.cards.filter((c) => c.type === 'hero').map((c) => c.instanceId)
+        const timer = setTimeout(() => resolveScry(heroes), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
     // Coup Royal raté du bot : on ferme la fenêtre pour qu'il poursuive son tour.
     const prc = state.pendingRoyalCroquet
     if (prc) {
@@ -728,7 +740,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [isBotTurn, startRollDone, state, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets])
+  }, [isBotTurn, startRollDone, state, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry])
 
   // Coups légaux / actions : seulement pour le joueur humain et à son tour.
   const legalMoves = isHumanTurn ? getLegalMoves(state) : []
@@ -1077,6 +1089,13 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       if (cards.length === 1) startActivate(a.id, cards[0])
       else if (cards.length > 1) setActivatePick({ actionId: a.id })
     }
+  }
+  /** Capitaine Crochet : clic sur une carte-Objet qui DONNE une action au lieu
+   *  (Canon, Boîte à Crochets, Ingénieux Mécanisme) → déclenche cette action. */
+  const handleGrantedAction = (card: CardInstance) => {
+    const g = card.grantsAction
+    if (!g) return
+    handleBoardAction({ id: `granted:${card.instanceId}`, type: g.type, amount: g.amount, label: g.label, row: 'bottom', grantedBy: card.instanceId })
   }
   /** Démarre l'activation d'une carte : Iago → choix du lieu voisin ; autres →
    *  résolution immédiate (capacités sans ciblage). */
@@ -1481,6 +1500,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 onPlace={handlePlace}
                 onAttach={handleAttach}
                 onCardPick={handleCardPick}
+                grantedActionIds={availableActions.filter((a) => a.grantedBy).map((a) => a.id)}
+                onGrantedAction={handleGrantedAction}
               />
             </div>
           </div>
@@ -1979,6 +2000,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           max={state.pendingTransformWickets.max}
           onConfirm={(ids) => resolveTransformWickets(ids)}
         />
+      )}
+
+      {/* Faites-leur peur ! : trier les 2 premières cartes Fatalité. */}
+      {state.pendingScry && state.pendingScry.playerIndex === HUMAN && (
+        <ScryModal cards={state.pendingScry.cards} onResolve={(ids) => resolveScry(ids)} />
       )}
 
       {/* Iago : choix de l'Objet à emmener (plusieurs Objets sur son lieu). */}

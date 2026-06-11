@@ -2156,6 +2156,33 @@ function applyResolveTransformWickets(state: GameState, instanceIds: string[]): 
   }
 }
 
+/** Faites-leur peur ! : remet `topInstanceIds` (validés) sur le dessus de la
+ *  pioche Fatalité dans l'ordre donné (1ʳᵉ = tout en haut), défausse les autres
+ *  cartes sondées. */
+function applyResolveScry(state: GameState, topInstanceIds: string[]): GameState {
+  const pending = state.pendingScry
+  if (!pending) throw new Error('Aucune carte Fatalité à trier (Faites-leur peur !).')
+  const idx = pending.playerIndex
+  const byId = new Map(pending.cards.map((c) => [c.instanceId, c]))
+  const kept = topInstanceIds.filter((id) => byId.has(id)).map((id) => byId.get(id)!)
+  const keptSet = new Set(kept.map((c) => c.instanceId))
+  const discarded = pending.cards.filter((c) => !keptSet.has(c.instanceId))
+  const player = state.players[idx]
+  const next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    fateDeck: [...kept, ...p.fateDeck],
+    fateDiscard: [...p.fateDiscard, ...discarded],
+  }))
+  return {
+    ...next,
+    pendingScry: null,
+    log: [
+      ...next.log,
+      `${player.villainName} (Faites-leur peur !) : ${kept.length} carte(s) sur le dessus, ${discarded.length} défaussée(s).`,
+    ],
+  }
+}
+
 function applyEndTurn(state: GameState): GameState {
   if (!canEndTurn(state)) {
     throw new Error(`Impossible de terminer le tour en phase ${state.phase}.`)
@@ -2253,6 +2280,10 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   ) {
     throw new Error('Choisissez les Cartes Gardes à transformer (RESOLVE_TRANSFORM_WICKETS).')
   }
+  // Faites-leur peur ! : le tri des 2 cartes Fatalité doit être résolu d'abord.
+  if (state.pendingScry && action.type !== 'RESOLVE_SCRY' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Triez les cartes Fatalité révélées (RESOLVE_SCRY).')
+  }
   switch (action.type) {
     case 'MOVE':
       return applyMove(state, action.to)
@@ -2309,6 +2340,8 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return { ...state, pendingRoyalCroquet: null }
     case 'RESOLVE_TRANSFORM_WICKETS':
       return applyResolveTransformWickets(state, action.instanceIds)
+    case 'RESOLVE_SCRY':
+      return applyResolveScry(state, action.topInstanceIds)
     case 'TEST_PLACE_FATE':
       return applyTestPlaceFate(state, action.card, action.to)
     case 'TEST_PLAY_CONDITION':

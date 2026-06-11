@@ -200,6 +200,31 @@ describe('Capitaine Crochet — Clochette / Digne Adversaire / Pas de Quartier',
     const heroesAfter = Object.values(next.players[0].board).flat().filter((c) => c.type === 'hero').length
     expect(heroesAfter).toBe(heroesBefore + 1)
   })
+  it('Faites-leur peur ! (SCRY) ouvre le tri des 2 cartes, puis RESOLVE_SCRY ré-ordonne/défausse', () => {
+    const w: CardInstance = { instanceId: 'w', cardId: 'wendy', name: 'Wendy', type: 'hero', strength: 3 }
+    const j: CardInstance = { instanceId: 'j', cardId: 'jean', name: 'Jean', type: 'hero', strength: 2 }
+    let s = game()
+    s = { ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, fateDeck: [w, j, ...p.fateDeck] } : p)) }
+    s = resolveEffect(s, { type: 'SCRY_OWN_FATE_TOP2' }, { actorIndex: 0 })
+    expect(s.pendingScry?.cards.map((c) => c.instanceId)).toEqual(['w', 'j'])
+    // On garde Jean sur le dessus et on défausse Wendy.
+    const next = applyAction(s, { type: 'RESOLVE_SCRY', topInstanceIds: ['j'] })
+    expect(next.pendingScry ?? null).toBeNull()
+    expect(next.players[0].fateDeck[0].instanceId).toBe('j')
+    expect(next.players[0].fateDiscard.some((c) => c.instanceId === 'w')).toBe(true)
+  })
+
+  it('Faites-leur peur ! : tout défausser (RESOLVE_SCRY vide)', () => {
+    const w: CardInstance = { instanceId: 'w', cardId: 'wendy', name: 'Wendy', type: 'hero', strength: 3 }
+    const j: CardInstance = { instanceId: 'j', cardId: 'jean', name: 'Jean', type: 'hero', strength: 2 }
+    let s = game()
+    s = { ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, fateDeck: [w, j, ...p.fateDeck] } : p)) }
+    s = resolveEffect(s, { type: 'SCRY_OWN_FATE_TOP2' }, { actorIndex: 0 })
+    const next = applyAction(s, { type: 'RESOLVE_SCRY', topInstanceIds: [] })
+    expect(next.players[0].fateDiscard.filter((c) => c.instanceId === 'w' || c.instanceId === 'j')).toHaveLength(2)
+    expect(next.players[0].fateDeck.slice(0, 2).map((c) => c.instanceId)).not.toContain('w')
+  })
+
   it('Pas de Quartier (MOVE_ALLY_BUFF) déplace un Allié et lui donne +2 jusqu’à la fin du tour', () => {
     const s = withBoard('jolly-roger', [{ instanceId: 'a', cardId: 'boucanier', name: 'B', type: 'ally', strength: 2 }])
     const next = resolveEffect(s, { type: 'MOVE_ALLY_BUFF', amount: 2 }, { actorIndex: 0 })

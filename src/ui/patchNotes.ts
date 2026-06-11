@@ -9,6 +9,23 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.47',
+    date: '2026-06-11',
+    title: 'Crochet : Faites-leur peur ! interactif',
+    changes: [
+      'Faites-leur peur ! ouvre une fenêtre montrant les 2 premières cartes Fatalité : défaussez-les ou remettez-les sur le dessus dans l’ordre de votre choix.',
+      'Correction : dos de cartes du Capitaine Crochet (Vilain ↔ Fatalité) remis dans le bon sens.',
+    ],
+  },
+  {
+    version: '0.46',
+    date: '2026-06-11',
+    title: 'Crochet : actions accordées cliquables sur la carte',
+    changes: [
+      'La Boîte à Crochets (et le Canon, l’Ingénieux Mécanisme) : l’action accordée se déclenche en cliquant directement sur la carte posée (badge « ▶ action » + contour jaune), au lieu d’une pastille au centre du lieu.',
+    ],
+  },
+  {
     version: '0.45',
     date: '2026-06-11',
     title: 'Capitaine Crochet : effets complets',

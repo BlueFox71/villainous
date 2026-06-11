@@ -1299,8 +1299,9 @@ export function resolveEffect(
       }
     }
     case 'SCRY_OWN_FATE_TOP2': {
-      // Faites-leur peur ! : regarde les 2 premières cartes Fatalité ; défausse
-      // les non-Héros, garde les Héros sur le dessus (creuse vers les Héros).
+      // Faites-leur peur ! : retire les 2 premières cartes Fatalité et ouvre la
+      // fenêtre de décision (pendingScry) — défausser ou remettre sur le dessus
+      // dans l'ordre choisi (RESOLVE_SCRY).
       const actor = state.players[idx]
       let deck = actor.fateDeck
       let disc = actor.fateDiscard
@@ -1312,21 +1313,16 @@ export function resolveEffect(
         disc = []
       }
       const top = deck.slice(0, 2)
-      const rest = deck.slice(2)
-      const keep = top.filter((c) => c.type === 'hero')
-      const drop = top.filter((c) => c.type !== 'hero')
-      const next = updatePlayer(state, idx, (p) => ({
-        ...p,
-        fateDeck: [...keep, ...rest],
-        fateDiscard: [...disc, ...drop],
-      }))
+      const rest = deck.slice(top.length)
+      if (top.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : pioche Fatalité vide (Faites-leur peur !).`] }
+      }
+      const next = updatePlayer(state, idx, (p) => ({ ...p, fateDeck: rest, fateDiscard: disc }))
       return {
         ...next,
         rngState: s,
-        log: [
-          ...next.log,
-          `${actor.villainName} sonde sa pioche Fatalité (Faites-leur peur !) : ${drop.length} carte(s) défaussée(s).`,
-        ],
+        pendingScry: { playerIndex: idx, cards: top },
+        log: [...next.log, `${actor.villainName} regarde les ${top.length} première(s) carte(s) de sa pioche Fatalité (Faites-leur peur !).`],
       }
     }
     case 'MOVE_ALLY_BUFF': {

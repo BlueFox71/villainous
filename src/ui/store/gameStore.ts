@@ -329,6 +329,8 @@ interface GameStore {
   dismissRoyalCroquet: () => void
   /** Par ordre de la Reine ! : transforme en arceaux les Cartes Gardes choisies. */
   resolveTransformWickets: (instanceIds: string[]) => void
+  /** Faites-leur peur ! : remet sur le dessus / défausse les cartes sondées. */
+  resolveScry: (topInstanceIds: string[]) => void
   endTurn: () => void
   reset: (villains?: [VillainKey, VillainKey]) => void
   /** Fait jouer UN coup au bot, si le joueur actif est un bot. */
@@ -529,6 +531,8 @@ export const useGameStore = create<GameStore>((set) => ({
     set((s) => ({ state: applyAction(s.state, { type: 'DISMISS_ROYAL_CROQUET' }) })),
   resolveTransformWickets: (instanceIds) =>
     set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TRANSFORM_WICKETS', instanceIds }) })),
+  resolveScry: (topInstanceIds) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_SCRY', topInstanceIds }) })),
   endTurn: () =>
     set((s) => ({ state: applyAction(s.state, { type: 'END_TURN' }) })),
   reset: (villains) => set({ state: newGame(villains), testMode: false }),

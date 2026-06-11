@@ -588,6 +588,10 @@ export interface GameState {
    *  Cartes Gardes à transformer en arceaux (RESOLVE_TRANSFORM_WICKETS). `max` = 2.
    *  Absent / `null` sinon. */
   pendingTransformWickets?: { playerIndex: number; max: number } | null
+  /** Faites-leur peur ! (Capitaine Crochet) : `playerIndex` regarde les 2 cartes
+   *  `cards` retirées du dessus de sa pioche Fatalité, puis les défausse ou les
+   *  remet sur le dessus dans l'ordre de son choix (RESOLVE_SCRY). */
+  pendingScry?: { playerIndex: number; cards: CardInstance[] } | null
   /** Le joueur actif a déplacé un Allié/Objet ce tour-ci (déclencheur Sombres desseins). */
   activeMovedCard?: boolean
   /** Le joueur actif a pioché ≥1 carte ce tour-ci via un effet (déclencheur Sans visage). */
@@ -785,6 +789,10 @@ export type GameAction =
   /** Par ordre de la Reine ! : transforme en arceaux les Cartes Gardes choisies
    *  (1 ou 2 instanceIds). */
   | { type: 'RESOLVE_TRANSFORM_WICKETS'; instanceIds: string[] }
+  /** Faites-leur peur ! : `topInstanceIds` = cartes à remettre sur le dessus de la
+   *  pioche Fatalité, dans l'ordre (1ʳᵉ = tout en haut) ; les autres sont
+   *  défaussées. Liste vide = tout défausser. */
+  | { type: 'RESOLVE_SCRY'; topInstanceIds: string[] }
   /** MODE TEST uniquement : inflige directement un Héros Fatalité (déjà construit
    *  par l'UI) sur un lieu du joueur ACTIF, déclenchant ses effets « à la pose »,
    *  les arrivées et les showcases — comme si un adversaire l'avait joué. */

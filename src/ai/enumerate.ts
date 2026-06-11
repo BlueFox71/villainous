@@ -70,6 +70,12 @@ export function enumerateActions(state: GameState): GameAction[] {
     return out // `guards` est non vide (pending posé seulement s'il y a des Gardes)
   }
 
+  // Faites-leur peur ! : garder les Héros sur le dessus, défausser les non-Héros.
+  if (state.pendingScry) {
+    const heroes = state.pendingScry.cards.filter((c) => c.type === 'hero').map((c) => c.instanceId)
+    return [{ type: 'RESOLVE_SCRY', topInstanceIds: heroes }]
+  }
+
   // Fatalité révélée à résoudre : une option par carte révélée (× lieu / héros valides).
   if (state.pendingFate) {
     const { target, revealed } = state.pendingFate
