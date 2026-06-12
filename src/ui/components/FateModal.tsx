@@ -13,13 +13,14 @@ interface Props {
   onResolve: (instanceId: string, to?: string, targetHeroId?: string, enlargeToward?: string) => void
 }
 
-/** Cartes Fatalité non-héros qui ciblent un Héros adverse. */
+/** Cartes Fatalité non-héros qui ciblent un Héros adverse : Voler aux Riches,
+ *  Agrandir, et tout Objet « associé à un Héros » (attach: 'hero' : Déguisement,
+ *  Épée de Vérité, Lampe de poche, Provocation, Poussière de Fée, Vœu…). */
 function needsTargetHero(card: CardInstance): boolean {
   return (
     card.cardId === 'voler-riches' ||
-    card.cardId === 'deguisement' ||
-    card.cardId === 'epee-verite' ||
-    card.cardId === 'agrandir'
+    card.cardId === 'agrandir' ||
+    (card.type === 'item' && card.attach === 'hero')
   )
 }
 

@@ -9,13 +9,15 @@ interface Props {
   onResolve: (heroInstanceId: string, to: string) => void
   /** Tourbillon (Ursula) : autorise N'IMPORTE quel lieu non bloqué. */
   anyLocation?: boolean
+  /** Restreint les Héros déplaçables (Stratos, Mégara, Hermès). Absent = tous. */
+  candidateIds?: string[]
 }
 
 /**
  * Apparition / Vent de panique : choisir un Héros du royaume de `target` puis un
  * lieu voisin de sa position (ou n'importe quel lieu non bloqué — Tourbillon).
  */
-export function HeroRelocateModal({ target, onResolve, anyLocation = false }: Props) {
+export function HeroRelocateModal({ target, onResolve, anyLocation = false, candidateIds }: Props) {
   const [heroId, setHeroId] = useState<string | null>(null)
   const ids = target.locations.map((l) => l.id)
   const locked = new Set(target.lockedLocations ?? [])
@@ -23,7 +25,7 @@ export function HeroRelocateModal({ target, onResolve, anyLocation = false }: Pr
 
   const heroes = target.locations.flatMap((loc) =>
     (target.board[loc.id] ?? [])
-      .filter((c) => c.type === 'hero')
+      .filter((c) => c.type === 'hero' && (!candidateIds || candidateIds.includes(c.instanceId)))
       .map((c) => ({ id: c.instanceId, cardId: c.cardId, name: c.name, from: loc.id })),
   )
   const picked = heroes.find((h) => h.id === heroId)

@@ -290,6 +290,7 @@ export function movableCards(state: GameState): { instanceId: string; from: Loca
     if (locked.has(loc.id)) continue
     for (const c of me.board[loc.id] ?? []) {
       if (isItemFrozen(me, c)) continue // Ariel : Objet gelé
+      if (c.trapped) continue // Hadès : Titan entravé, non déplaçable
       // Une Malédiction est traitée comme un Objet : elle se déplace aussi. Un
       // Héros hypnotisé (Jafar) compte comme un Allié → déplaçable lui aussi.
       const isControlledAlly = c.type === 'hero' && c.hypnotized
@@ -393,6 +394,7 @@ export function effectiveStrength(
     // Aura des cartes du lieu sur les Alliés (Niquedouille +1, Pendard -1) —
     // `excludeSelf` empêche la carte source de s'affecter elle-même.
     const allyAura = cell.reduce((sum, c) => {
+      if (c.trapped) return sum // Titan entravé : ses capacités sont ignorées.
       const m = c.strengthMod
       if (m && m.target === 'allies-here' && !(m.excludeSelf && c.instanceId === card.instanceId)) {
         return sum + m.delta
@@ -413,6 +415,7 @@ export function effectiveStrength(
     // Aura des cartes du lieu sur les Héros (Sommeil sans Rêves -2 ; Sablier Géant
     // -2 seulement s'il a été activé ce tour-ci).
     const heroAura = cell.reduce((sum, c) => {
+      if (c.trapped) return sum // Titan entravé (Hydros) : capacité ignorée.
       const m = c.strengthMod
       if (m && m.target === 'heroes-here') {
         if (m.onlyIfActivatedThisTurn && !c.activatedThisTurn) return sum
@@ -425,6 +428,7 @@ export function effectiveStrength(
     const realmHeroAura = Object.values(p.board)
       .flat()
       .reduce((sum, c) => {
+        if (c.trapped) return sum // Titan entravé : capacité ignorée.
         const m = c.strengthMod
         if (m && m.target === 'heroes-realm' && !(m.excludeSelf && c.instanceId === card.instanceId)) {
           return sum + m.delta
@@ -529,7 +533,8 @@ export function cardNeedsHeroTarget(card: CardInstance): boolean {
       e.type === 'INSTANT_VANQUISH_HERO_LE' ||
       e.type === 'INSTANT_VANQUISH_HERO_AT_PAWN' ||
       e.type === 'HYPNOTIZE_HERO' ||
-      e.type === 'SET_HERO_SIZE',
+      e.type === 'SET_HERO_SIZE' ||
+      e.type === 'REDUCE_HERO_STRENGTH_TEMP',
   )
 }
 
@@ -645,6 +650,12 @@ export function effectiveCost(
     const destCell = me.board[destination] ?? []
     if (destCell.some((c) => c.cardId === 'razoul')) discount += 1
   }
+  // Hadès — Panique : Objets, Alliés et Titans coûtent 1 de moins par Panique sur
+  // leur lieu de destination.
+  if ((card.type === 'ally' || card.type === 'item') && destination) {
+    const destCell = me.board[destination] ?? []
+    discount += destCell.filter((c) => c.cardId === 'panique').length
+  }
   return Math.max(0, base - discount + surcharge)
 }
 
@@ -690,6 +701,11 @@ export function hasReachedObjective(state: GameState): boolean {
       const obj = p.objective
       const cell = p.board[obj.locationId] ?? []
       return obj.itemCardIds.every((id) => cell.some((c) => c.cardId === id && !c.attachedTo))
+    }
+    case 'UNTRAPPED_TITANS_AT_LOCATION': {
+      const obj = p.objective
+      const titans = (p.board[obj.locationId] ?? []).filter((c) => c.isTitan && !c.trapped)
+      return titans.length >= obj.count
     }
   }
 }

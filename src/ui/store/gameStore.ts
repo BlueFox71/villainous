@@ -34,9 +34,11 @@ import { crochet } from '../../data/villains/crochet'
 import { crochetCards } from '../../data/villains/crochet.cards'
 import { ursula } from '../../data/villains/ursula'
 import { ursulaCards } from '../../data/villains/ursula.cards'
+import { hades } from '../../data/villains/hades'
+import { hadesCards } from '../../data/villains/hades.cards'
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -46,6 +48,7 @@ export const VILLAIN_REGISTRY = {
   reineCoeur: { def: reineCoeur, cards: reineCoeurCards, label: 'Reine de Cœur' },
   crochet: { def: crochet, cards: crochetCards, label: 'Capitaine Crochet' },
   ursula: { def: ursula, cards: ursulaCards, label: 'Ursula' },
+  hades: { def: hades, cards: hadesCards, label: 'Hadès' },
 } as const
 
 /** Qui est contrôlé par un bot. Concept d'UI : le moteur, lui, ne sait pas qui
@@ -347,6 +350,12 @@ interface GameStore {
   resolveRecover: (instanceId: string) => void
   /** Colère Titanesque : choisit le lieu voisin où effectuer une action. */
   resolveGiantLocation: (locationId: string) => void
+  /** Préparez-vous au combat ! (Hadès) : déplace le Titan choisi vers `to`. */
+  resolveTitanMove: (titanInstanceId: string, to: string) => void
+  /** Héra / Pégase (Hadès, Fatalité) : entrave ou repousse le Titan choisi. */
+  resolveTitanSelect: (titanInstanceId: string) => void
+  /** Char (Hadès) : déplace la figurine + le Char vers `to`. */
+  chariotMove: (instanceId: string, to: string) => void
   endTurn: () => void
   reset: (villains?: [VillainKey, VillainKey]) => void
   /** Fait jouer UN coup au bot, si le joueur actif est un bot. */
@@ -562,6 +571,12 @@ export const useGameStore = create<GameStore>((set) => ({
     set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_RECOVER', instanceId }) })),
   resolveGiantLocation: (locationId) =>
     set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_GIANT_LOCATION', locationId }) })),
+  resolveTitanMove: (titanInstanceId, to) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TITAN_MOVE', titanInstanceId, to }) })),
+  resolveTitanSelect: (titanInstanceId) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TITAN_SELECT', titanInstanceId }) })),
+  chariotMove: (instanceId, to) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'CHARIOT_MOVE', instanceId, to }) })),
   endTurn: () =>
     set((s) => ({ state: applyAction(s.state, { type: 'END_TURN' }) })),
   reset: (villains) => set({ state: newGame(villains), testMode: false }),

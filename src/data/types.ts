@@ -95,6 +95,13 @@ export interface CardDef {
   /** Ursula — Pacte : lieu lié au Pacte (le Héros porteur est éliminé s'il y est
    *  déplacé). */
   contractLocationId?: LocationId
+  /** Hadès — Titan (Lythos, Hydros, Pyros, Stratos, Argès) : Allié spécial déplacé
+   *  vers le Mont Olympe pour l'objectif. */
+  isTitan?: boolean
+  /** L'Allié peut Éliminer un Héros sur un lieu VOISIN (Flibustiers, Cerbère). */
+  reachesAdjacentVanquish?: boolean
+  /** Allié qui retourne en main au lieu d'être défaussé après un Vanquish (Hydre). */
+  returnToHandOnVanquish?: boolean
 }
 
 /** Développe une liste de définitions en un paquet concret (un élément par
@@ -141,6 +148,9 @@ export function buildDeckInstances(
           playOnlyAt: c.playOnlyAt,
           grantsAction: c.grantsAction,
           contractLocationId: c.contractLocationId,
+          isTitan: c.isTitan,
+          reachesAdjacentVanquish: c.reachesAdjacentVanquish,
+          returnToHandOnVanquish: c.returnToHandOnVanquish,
         }),
       ),
     )

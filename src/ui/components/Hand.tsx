@@ -36,6 +36,8 @@ interface Props {
    *  - 'panel' (défaut) : rangée à plat, retour à la ligne (colonnes latérales).
    *  - 'fan' : éventail ancré en bas de l'écran (style jeu de cartes en ligne). */
   layout?: 'panel' | 'fan'
+  /** Largeur (classe Tailwind) des cartes ; par défaut w-48 (éventail) / w-24 (panel). */
+  cardWidthClass?: string
   onPlayCard: (instanceId: string) => void
   onToggleDiscard: (instanceId: string) => void
   onConfirmDiscard: () => void
@@ -57,6 +59,7 @@ export function Hand({
   selectedToDiscard,
   requiredDiscardCount,
   layout = 'panel',
+  cardWidthClass,
   onPlayCard,
   onToggleDiscard,
   onConfirmDiscard,
@@ -191,13 +194,13 @@ export function Hand({
               data-hand-card={ci.instanceId}
               onMouseEnter={() => setHovered(ci.instanceId)}
               onMouseLeave={() => setHovered((h) => (h === ci.instanceId ? null : h))}
-              className={`relative m-0 shrink-0 ${fan ? 'w-44' : 'w-24'} ${dimmed ? 'opacity-40' : ''} ${
+              className={`relative m-0 shrink-0 ${cardWidthClass ?? (fan ? 'w-48' : 'w-24')} ${dimmed ? 'opacity-40' : ''} ${
                 fan ? 'transition-transform duration-150 ease-out' : ''
               }`}
               style={
                 fan
                   ? {
-                      marginLeft: i === 0 ? 0 : '-4rem',
+                      marginLeft: i === 0 ? 0 : '-4.75rem',
                       transformOrigin: 'bottom center',
                       transform: isHovered
                         ? 'translateY(-3.5rem) rotate(0deg) scale(1.6)'
@@ -212,7 +215,7 @@ export function Hand({
                 alt={card.name}
                 title={`${card.name} — ${card.text}`}
                 onClick={onClick}
-                className={`w-full border transition-[border-radius] ${isHovered ? 'rounded-[2.75rem]' : 'rounded-lg'} ${clickable ? 'cursor-pointer' : ''} ${ring}`}
+                className={`w-full rounded-lg border ${clickable ? 'cursor-pointer' : ''} ${ring}`}
               />
               {cost !== baseCost && (
                 <span
@@ -233,7 +236,7 @@ export function Hand({
                   En éventail, la carte se relève déjà : pas d'aperçu géant. */}
               {isHovered && !fan && (
                 <div className="absolute bottom-full left-1/2 mb-1 flex w-max -translate-x-1/2 rounded-lg border border-white/20 bg-[#0b0a12] p-1 shadow-2xl">
-                  <img src={card.image} alt={card.name} className="h-[22rem] w-auto max-w-none shrink-0 rounded" />
+                  <img src={card.image} alt={card.name} className="h-[22rem] w-auto max-w-none shrink-0" />
                 </div>
               )}
             </figure>

@@ -82,6 +82,14 @@ export function PlayerPanel({ player, accent, isActive, isWinner }: Props) {
               itemCardIds={player.objective.itemCardIds}
               locationId={player.objective.locationId}
             />
+          ) : player.objective.type === 'UNTRAPPED_TITANS_AT_LOCATION' ? (
+            <TitansAtLocationProgress
+              player={player}
+              accent={accent}
+              isWinner={isWinner}
+              locationId={player.objective.locationId}
+              count={player.objective.count}
+            />
           ) : (
             <CurseEachLocationProgress
               player={player}
@@ -151,6 +159,42 @@ function CardsInRealmProgress({
     <>
       <div className="mb-1 flex justify-between text-[10px]">
         <span className={accent.accentText}>{label}</span>
+        <span className="font-mono text-white">
+          {animated} / {count}
+        </span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-black/40">
+        <div
+          className={`h-full rounded-full transition-all duration-300 ${isWinner ? 'bg-amber-400' : accent.gauge}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </>
+  )
+}
+
+function TitansAtLocationProgress({
+  player,
+  accent,
+  isWinner,
+  locationId,
+  count,
+}: {
+  player: PlayerState
+  accent: Accent
+  isWinner: boolean
+  locationId: string
+  count: number
+}) {
+  // Hadès : Titans NON entravés présents sur le lieu cible (Mont Olympe).
+  const have = (player.board[locationId] ?? []).filter((c) => c.isTitan && !c.trapped).length
+  const animated = useAnimatedNumber(have)
+  const pct = Math.min(100, (animated / count) * 100)
+  const locName = player.locations.find((l) => l.id === locationId)?.name ?? locationId
+  return (
+    <>
+      <div className="mb-1 flex justify-between text-[10px]">
+        <span className={accent.accentText}>Titans · {locName}</span>
         <span className="font-mono text-white">
           {animated} / {count}
         </span>

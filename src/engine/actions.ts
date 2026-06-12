@@ -32,7 +32,7 @@ import {
   updateActivePlayer,
   updatePlayer,
 } from './state'
-import { performVanquish, processCurseDiscards, resolveEffects, triggerHeroArrival } from './effects'
+import { moveTitanTo, performVanquish, processCurseDiscards, resolveEffects, titanReachableDests, triggerHeroArrival } from './effects'
 import {
   adjacentLocationIds,
   canEndTurn,
@@ -257,6 +257,19 @@ function applyPlayCard(
       host = allies.find((a) => a.instanceId === attachTo)
       if (!host) {
         throw new Error(`L'Allié cible « ${attachTo} » n'est pas un Allié sur ${dest.name}.`)
+      }
+    } else if (card.type === 'item' && card.attach === 'hero') {
+      // Hadès — Potion de mortalité : Objet Vilain associé à un Héros du royaume.
+      const heroes = (me.board[to] ?? []).filter((c) => c.type === 'hero' && !c.hypnotized)
+      if (heroes.length === 0) {
+        throw new Error(`Aucun Héros sur ${dest.name} pour y associer ${card.name}.`)
+      }
+      if (attachTo === undefined) {
+        throw new Error(`${card.name} doit être associé à un Héros (cible manquante).`)
+      }
+      host = heroes.find((h) => h.instanceId === attachTo)
+      if (!host) {
+        throw new Error(`Le Héros cible « ${attachTo} » n'est pas un Héros sur ${dest.name}.`)
       }
     } else if (attachTo !== undefined) {
       throw new Error(`${card.name} ne s'associe pas à un Allié.`)
@@ -732,6 +745,25 @@ function resolveFateCardOnHero(
     }
   }
 
+  // Objets Fatalité « purement associés » à un Héros (attach: 'hero') sans effet
+  // spécifique à l'attache : Provocation (ordre d'élimination), Poussière de Fée /
+  // Vœu (+force via attachStrengthBonus), Bigette (coût des Pactes), Zirgouflex
+  // (Ursula perd 1 JT en arrivant). Leur comportement est lu ailleurs depuis
+  // `attachedTo` ; ici on se contente de les associer au Héros choisi.
+  if (chosen.type === 'item' && chosen.attach === 'hero') {
+    const heroLoc = locationOfCard(tgt, hero.instanceId)
+    if (!heroLoc) throw new Error(`Lieu du Héros « ${hero.name} » introuvable.`)
+    const equipped: CardInstance = { ...chosen, attachedTo: hero.instanceId }
+    const next = updatePlayer(state, targetIndex, (p) => ({
+      ...p,
+      board: { ...p.board, [heroLoc]: [...(p.board[heroLoc] ?? []), equipped] },
+    }))
+    return {
+      ...next,
+      log: [...next.log, `${playedByName} associe **${chosen.name}** à **${hero.name}**.`],
+    }
+  }
+
   throw new Error(`${chosen.name} n'est pas une carte Fatalité ciblant un Héros.`)
 }
 
@@ -817,13 +849,13 @@ function applyResolveFate(
   }
 
   // Cartes Fatalité non-Héros ciblant un Héros : Voler aux Riches, Déguisement,
-  // Épée de Vérité. Effet partagé avec le MODE TEST (resolveFateCardOnHero) ; on
+  // Épée de Vérité, Lampe de poche, plus tout Objet « purement associé » à un
+  // Héros (attach: 'hero' : Provocation, Poussière de Fée, Vœu, Bigette,
+  // Zirgouflex…). Effet partagé avec le MODE TEST (resolveFateCardOnHero) ; on
   // défausse ici l'AUTRE carte révélée et on referme la Fatalité avant de déléguer.
   if (
     chosen.cardId === 'voler-riches' ||
-    chosen.cardId === 'deguisement' ||
-    chosen.cardId === 'epee-verite' ||
-    chosen.cardId === 'lampe-de-poche'
+    (chosen.type === 'item' && chosen.attach === 'hero')
   ) {
     let next = updatePlayer(state, pending.target, (p) => ({
       ...p,
@@ -1036,6 +1068,43 @@ function applyResolveFate(
     }
   }
 
+  // Éclairs (Hadès, Fatalité) : entrave tous les Titans d'un lieu (le plus fourni).
+  if (chosen.cardId === 'eclairs') {
+    let next = updatePlayer(state, pending.target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, chosen, ...others] }))
+    next = { ...next, pendingFate: null }
+    return resolveEffects(next, [{ type: 'TRAP_TITANS_AT_BEST_LOCATION' }], { actorIndex: pending.target })
+  }
+
+  // De zéro en héros (Hadès, Fatalité) : repousse le Titan le plus avancé de 2 lieux.
+  if (chosen.cardId === 'de-zero-heros') {
+    let next = updatePlayer(state, pending.target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, chosen, ...others] }))
+    next = { ...next, pendingFate: null }
+    return resolveEffects(next, [{ type: 'PUSH_TITAN_BACK_AUTO', steps: 2 }], { actorIndex: pending.target })
+  }
+
+  // Du gospel pur ! (Hadès, Fatalité) : défausse un Allié ou un Objet du royaume
+  // de la cible (auto : un Allié non-Titan en priorité, sinon un Objet, sinon un Titan).
+  if (chosen.cardId === 'du-gospel-pur') {
+    let next = updatePlayer(state, pending.target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, chosen, ...others] }))
+    next = { ...next, pendingFate: null }
+    const realm = tgt.locations.flatMap((l) => (next.players[pending.target].board[l.id] ?? []).map((c) => ({ c, loc: l.id })))
+    const pick =
+      realm.find(({ c }) => c.type === 'ally' && !c.isTitan && !c.attachedTo && !c.isWicket) ??
+      realm.find(({ c }) => c.type === 'item' && !c.attachedTo) ??
+      realm.find(({ c }) => c.type === 'ally' && !c.attachedTo)
+    if (!pick) {
+      return { ...next, log: [...next.log, `Du gospel pur ! : aucun Allié ni Objet à défausser chez ${tgt.villainName}.`] }
+    }
+    const attached = (next.players[pending.target].board[pick.loc] ?? []).filter((c) => c.attachedTo === pick.c.instanceId)
+    const removed = new Set([pick.c.instanceId, ...attached.map((c) => c.instanceId)])
+    next = updatePlayer(next, pending.target, (p) => ({
+      ...p,
+      board: { ...p.board, [pick.loc]: (p.board[pick.loc] ?? []).filter((c) => !removed.has(c.instanceId)) },
+      discard: [...p.discard, pick.c, ...attached],
+    }))
+    return { ...next, log: [...next.log, `Du gospel pur ! : **${pick.c.name}** est défaussé(e) du royaume de ${tgt.villainName}.`] }
+  }
+
   // Fallback (carte Fatalité non implémentée) : simple défausse.
   const next = updatePlayer(state, pending.target, (p) => ({
     ...p,
@@ -1085,6 +1154,23 @@ function applyMoveCard(
   if (isItemFrozen(me, card)) {
     throw new Error(`${card.name} est gelé par Ariel : impossible de le déplacer.`)
   }
+  // Hadès — Titan : l'action « Déplacer un Objet ou un Allié » déplace un Titan
+  // GRATUITEMENT vers un lieu voisin (comme un Allié), sans coût en Pouvoir.
+  // Entravé / verrouillé par Hercule (sur son lieu) = interdit. Le déplacement
+  // PAYANT (2 JT / 1 lieu, 5 JT / 2 lieux) est propre à « Préparez-vous au combat ! ».
+  if (card.isTitan) {
+    if (card.trapped) throw new Error(`${card.name} est entravé : impossible de le déplacer.`)
+    if (!titanReachableDests(state, state.activePlayer, instanceId, 1).includes(to)) {
+      throw new Error(`${card.name} ne peut pas être déplacé vers « ${to} ».`)
+    }
+    let next = moveTitanTo(state, state.activePlayer, instanceId, to, { fireTriggers: true })
+    next = consumePersifleur(next, action)
+    return {
+      ...next,
+      usedActionIds: [...next.usedActionIds, actionId],
+      activeMovedCard: true,
+    }
+  }
   if (!adjacentLocationIds(state, from).includes(to)) {
     throw new Error(`Lieu « ${to} » non voisin de « ${from} ».`)
   }
@@ -1105,7 +1191,7 @@ function applyMoveCard(
     },
   }))
   next = consumePersifleur(next, action)
-  return {
+  next = {
     ...next,
     usedActionIds: [...next.usedActionIds, actionId],
     activeMovedCard: true, // déclencheur Sombres desseins
@@ -1114,6 +1200,16 @@ function applyMoveCard(
       `${me.villainName} déplace **${card.name}**${moving.length > 1 ? ' (+ associé)' : ''} vers **${destName}**.`,
     ],
   }
+  // Hadès — Peine : quand elle est déplacée, elle peut emmener un Héros de son
+  // lieu de départ avec elle (résolution automatique).
+  if (card.cardId === 'peine') {
+    const hero = (next.players[state.activePlayer].board[from] ?? []).find((c) => c.type === 'hero')
+    if (hero) {
+      next = resolveEffects(next, [{ type: 'MOVE_HERO_TO_LOCATION', locationId: to }], { targetHeroId: hero.instanceId })
+      next = { ...next, log: [...next.log, `Peine emmène **${hero.name}** avec elle.`] }
+    }
+  }
+  return next
 }
 
 /**
@@ -1838,6 +1934,51 @@ function resolveConditionEffect(
     next = updatePlayer(next, oppIdx, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, revealed] }))
     return { ...next, log: [...next.log, `Illusion : **${revealed.name}** (non-Héros) — effet non géré, défaussé.`] }
   }
+  if (card.cardId === 'rage') {
+    // Rage (Hadès) : déplace un Héros n'importe où dans son royaume (auto : le
+    // Héros qui partage le lieu du plus grand nombre de Titans non entravés est
+    // éloigné vers le lieu qui en porte le moins — pour dégager la voie des Titans).
+    const acting = next.players[playerIndex]
+    let bestHero: { id: string; loc: string } | undefined
+    let bestTitans = -1
+    for (const l of acting.locations) {
+      const cell = acting.board[l.id] ?? []
+      const titans = cell.filter((c) => c.isTitan && !c.trapped).length
+      const hero = cell.find((c) => c.type === 'hero')
+      if (hero && titans > bestTitans) { bestTitans = titans; bestHero = { id: hero.instanceId, loc: l.id } }
+    }
+    if (!bestHero) return { ...next, log: [...next.log, 'Rage : aucun Héros à déplacer.'] }
+    let target = bestHero.loc
+    let fewest = Number.MAX_SAFE_INTEGER
+    for (const l of acting.locations) {
+      const titans = (acting.board[l.id] ?? []).filter((c) => c.isTitan && !c.trapped).length
+      if (titans < fewest) { fewest = titans; target = l.id }
+    }
+    if (target === bestHero.loc) return next
+    return resolveEffects(next, [{ type: 'MOVE_HERO_TO_LOCATION', locationId: target }], {
+      actorIndex: playerIndex,
+      targetHeroId: bestHero.id,
+    })
+  }
+  if (card.cardId === 'sans-pitie') {
+    // Sans pitié (Hadès) : joue gratuitement un Allié OU un Titan de la main. Un
+    // Titan ne peut être posé que sur Les Enfers.
+    if (!allyInstanceId) throw new Error('Sans pitié : précisez l’Allié/Titan à poser.')
+    const acting = next.players[playerIndex]
+    const a = acting.hand.find((c) => c.instanceId === allyInstanceId)
+    if (!a) throw new Error(`Carte « ${allyInstanceId} » absente de la main.`)
+    if (a.type !== 'ally') throw new Error(`${a.name} n'est pas un Allié.`)
+    const dest = a.isTitan ? 'enfers' : to
+    if (!dest) throw new Error('Sans pitié : précisez le lieu de pose.')
+    if (a.isTitan && dest !== 'enfers') throw new Error('Un Titan ne peut être posé que sur Les Enfers.')
+    if (!acting.locations.some((l) => l.id === dest)) throw new Error(`Lieu invalide : « ${dest} ».`)
+    next = updatePlayer(next, playerIndex, (p) => ({
+      ...p,
+      hand: p.hand.filter((c) => c.instanceId !== allyInstanceId),
+      board: { ...p.board, [dest]: [...(p.board[dest] ?? []), a] },
+    }))
+    return { ...next, log: [...next.log, `${player.villainName} joue gratuitement **${a.name}** sur **${dest}** (Sans pitié).`] }
+  }
   // Aucune autre Condition pour l'instant.
   return next
 }
@@ -1977,6 +2118,11 @@ function applyResolveHeroRelocate(state: GameState, heroInstanceId: string, to: 
   if (!pending) throw new Error('Aucun déplacement de Héros en attente.')
   const { targetIndex } = pending
   const target = state.players[targetIndex]
+  // Certaines cartes restreignent les Héros déplaçables (Stratos : départ/arrivée ;
+  // Mégara : lieu hôte ; Hermès : Zeus).
+  if (pending.candidateIds && !pending.candidateIds.includes(heroInstanceId)) {
+    throw new Error('Ce Héros n’est pas un choix valide.')
+  }
   const from = locationOfCard(target, heroInstanceId)
   if (!from) throw new Error(`Héros « ${heroInstanceId} » introuvable.`)
   const hero = (target.board[from] ?? []).find((c) => c.instanceId === heroInstanceId)
@@ -2640,6 +2786,113 @@ function applyResolveGiantLocation(state: GameState, locationId: LocationId): Ga
   }
 }
 
+/** Préparez-vous au combat ! (Hadès) : déplace le Titan choisi vers `to` (1 ou 2
+ *  lieux) ; le coût (2 JT pour 1 lieu, 5 pour 2) est prélevé si `paid`. */
+function applyResolveTitanMove(state: GameState, titanInstanceId: string, to: LocationId): GameState {
+  const pending = state.pendingTitanMove
+  if (!pending) throw new Error('Aucun déplacement de Titan en attente.')
+  if (!pending.titanCandidateIds.includes(titanInstanceId)) {
+    throw new Error('Ce Titan n’est pas un choix valide.')
+  }
+  const idx = pending.playerIndex
+  const p = state.players[idx]
+  const from = locationOfCard(p, titanInstanceId)
+  if (!from) throw new Error('Titan introuvable dans le royaume.')
+  const reachable = titanReachableDests(state, idx, titanInstanceId, pending.maxSteps)
+  if (!reachable.includes(to)) throw new Error(`Le Titan ne peut pas être déplacé vers « ${to} ».`)
+  const order = p.locations.map((l) => l.id)
+  const steps = Math.abs(order.indexOf(to) - order.indexOf(from))
+  const cost = pending.paid ? (steps >= 2 ? 5 : 2) : 0
+  if (pending.paid && p.power < cost) throw new Error(`Pouvoir insuffisant (${cost} JT requis).`)
+  let next = state
+  if (cost > 0) {
+    next = updatePlayer(next, idx, (pp) => ({ ...pp, power: pp.power - cost }))
+    next = { ...next, log: [...next.log, `${p.villainName} paie ${cost} JT pour déplacer un Titan de ${steps} lieu(x).`] }
+  }
+  next = moveTitanTo(next, idx, titanInstanceId, to, { fireTriggers: true })
+  return { ...next, pendingTitanMove: null }
+}
+
+/** Héra / Pégase (Fatalité) : entrave ou repousse le Titan choisi (pendingTitanSelect). */
+function applyResolveTitanSelect(state: GameState, titanInstanceId: string): GameState {
+  const pending = state.pendingTitanSelect
+  if (!pending) throw new Error('Aucune sélection de Titan en attente.')
+  if (!pending.titanCandidateIds.includes(titanInstanceId)) {
+    throw new Error('Ce Titan n’est pas un choix valide.')
+  }
+  const idx = pending.playerIndex
+  const p = state.players[idx]
+  const loc = locationOfCard(p, titanInstanceId)
+  if (!loc) return { ...state, pendingTitanSelect: null }
+  const titan = (p.board[loc] ?? []).find((c) => c.instanceId === titanInstanceId)!
+  if (pending.kind === 'trap') {
+    let next = updatePlayer(state, idx, (pp) => ({
+      ...pp,
+      board: Object.fromEntries(
+        Object.entries(pp.board).map(([l, cards]) => [
+          l,
+          cards.map((c) => (c.instanceId === titanInstanceId ? { ...c, trapped: true } : c)),
+        ]),
+      ),
+    }))
+    next = { ...next, log: [...next.log, `**${titan.name}** est entravé.`] }
+    return { ...next, pendingTitanSelect: null }
+  }
+  // push : recule le Titan de `pushSteps` lieux vers Les Enfers (sans déclencheur).
+  const order = p.locations.map((l) => l.id)
+  const destIdx = Math.max(0, order.indexOf(loc) - (pending.pushSteps ?? 1))
+  const next = order[destIdx] === loc ? state : moveTitanTo(state, idx, titanInstanceId, order[destIdx], { fireTriggers: false })
+  return { ...next, pendingTitanSelect: null }
+}
+
+/** Hadès — Char : déplace la figurine + le Char vers `to` (1×/tour) et permet d'y
+ *  effectuer UNE seule action disponible (hors Fatalité). On réutilise le mécanisme
+ *  « agir à un lieu » (actAtLocation) : pendant la fenêtre, seules les actions
+ *  NON-Fatalité de `to` sont jouables ; après la 1ʳᵉ action (clearGiant), toutes
+ *  les actions de `to` sont marquées utilisées → plus rien à faire ce tour. */
+function applyChariotMove(state: GameState, instanceId: string, to: string): GameState {
+  if (state.phase !== 'ACTION') throw new Error(`Impossible d'utiliser le Char en phase ${state.phase}.`)
+  const me = activePlayer(state)
+  const from = locationOfCard(me, instanceId)
+  if (!from) throw new Error(`Char « ${instanceId} » introuvable.`)
+  const card = (me.board[from] ?? []).find((c) => c.instanceId === instanceId)!
+  if (card.cardId !== 'char') throw new Error(`« ${card.name} » n'est pas le Char.`)
+  if (me.pawnLocation !== from) throw new Error('Vous devez être sur le lieu du Char pour l’utiliser.')
+  if (from === to) throw new Error('Le Char est déjà sur ce lieu.')
+  const dest = findLocation(me, to)
+  if (!dest) throw new Error(`Lieu inconnu : « ${to} ».`)
+  const usedKey = `chariot-move:${instanceId}`
+  if (state.usedActionIds.includes(usedKey)) throw new Error('Le Char a déjà été utilisé ce tour.')
+  const moving = (me.board[from] ?? []).filter(
+    (c) => c.instanceId === instanceId || c.attachedTo === instanceId,
+  )
+  const movingIds = new Set(moving.map((c) => c.instanceId))
+  const next = updateActivePlayer(state, (p) => ({
+    ...p,
+    pawnLocation: to,
+    board: {
+      ...p.board,
+      [from]: (p.board[from] ?? []).filter((c) => !movingIds.has(c.instanceId)),
+      [to]: [...(p.board[to] ?? []), ...moving],
+    },
+  }))
+  const preserved = state.usedActionIds.filter((a) => a.includes(':'))
+  const fateIds = dest.actions.filter((a) => a.type === 'FATE').map((a) => a.id)
+  const allDestIds = dest.actions.map((a) => a.id)
+  return {
+    ...next,
+    // Pendant la fenêtre : Fatalité bloquée, le reste de `to` jouable (une fois).
+    usedActionIds: [...preserved, usedKey, ...fateIds],
+    actAtLocation: to,
+    // Après l'unique action (clearGiant) : toutes les actions de `to` deviennent utilisées.
+    usedBeforeGiant: [...preserved, usedKey, ...allDestIds],
+    log: [
+      ...next.log,
+      `${me.villainName} déplace sa figurine et le Char vers **${dest.name}** : une action disponible (hors Fatalité).`,
+    ],
+  }
+}
+
 /** Après une action « géante » (Colère Titanesque) : on efface actAtLocation et on
  *  restaure usedActionIds (cette action d'un lieu voisin ne consomme pas l'économie
  *  d'actions du lieu courant). */
@@ -2681,6 +2934,8 @@ function applyEndTurn(state: GameState): GameState {
     actAtLocation: null,
     usedBeforeGiant: null,
     pendingGiantAction: null,
+    pendingTitanMove: null,
+    pendingTitanSelect: null,
     activeMovedCard: false,
     activeDrewCard: false,
     // Effets « jusqu'à la fin de votre tour » du joueur qui termine (Sablier Géant).
@@ -2781,6 +3036,14 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   if (state.pendingGiantAction && action.type !== 'RESOLVE_GIANT_LOCATION' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Choisissez le lieu voisin où agir (RESOLVE_GIANT_LOCATION).')
   }
+  // Préparez-vous au combat ! (Hadès) : le déplacement du Titan doit être résolu d'abord.
+  if (state.pendingTitanMove && action.type !== 'RESOLVE_TITAN_MOVE' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Choisissez le Titan à déplacer (RESOLVE_TITAN_MOVE).')
+  }
+  // Héra / Pégase (Hadès, Fatalité) : la sélection du Titan doit être résolue d'abord.
+  if (state.pendingTitanSelect && action.type !== 'RESOLVE_TITAN_SELECT' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Choisissez le Titan (RESOLVE_TITAN_SELECT).')
+  }
   switch (action.type) {
     case 'MOVE':
       return applyMove(state, action.to)
@@ -2850,6 +3113,12 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return applyResolveRecover(state, action.instanceId)
     case 'RESOLVE_GIANT_LOCATION':
       return applyResolveGiantLocation(state, action.locationId)
+    case 'RESOLVE_TITAN_MOVE':
+      return applyResolveTitanMove(state, action.titanInstanceId, action.to)
+    case 'RESOLVE_TITAN_SELECT':
+      return applyResolveTitanSelect(state, action.titanInstanceId)
+    case 'CHARIOT_MOVE':
+      return applyChariotMove(state, action.instanceId, action.to)
     case 'USE_NEVERLAND_MAP':
       return applyUseNeverlandMap(state, action.itemInstanceId, action.to, action.attachTo)
     case 'TEST_PLACE_FATE':

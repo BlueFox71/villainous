@@ -104,6 +104,24 @@ function objectiveScore(p: PlayerState): number {
       const atLoc = obj.itemCardIds.filter((id) => cell.some((c) => c.cardId === id && !c.attachedTo)).length
       return (inRealm * 0.4 + atLoc * 0.6) / obj.itemCardIds.length
     }
+    case 'UNTRAPPED_TITANS_AT_LOCATION': {
+      // Hadès : récompense les Titans non entravés, davantage à mesure qu'ils se
+      // rapprochent du Mont Olympe (plein score sur le lieu cible). Guide le bot à
+      // jouer puis pousser ses Titans vers l'objectif.
+      const obj = p.objective
+      const order = p.locations.map((l) => l.id)
+      const targetIdx = order.indexOf(obj.locationId)
+      let score = 0
+      for (const l of p.locations) {
+        const li = order.indexOf(l.id)
+        for (const c of p.board[l.id] ?? []) {
+          if (!c.isTitan || c.trapped) continue
+          if (l.id === obj.locationId) score += 1
+          else score += 0.6 * (targetIdx > 0 ? Math.max(0, 1 - Math.abs(li - targetIdx) / targetIdx) : 0)
+        }
+      }
+      return Math.min(1, score / obj.count)
+    }
   }
 }
 

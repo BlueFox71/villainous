@@ -202,6 +202,34 @@ const ACTION_POS: Record<string, Record<string, Record<string, { x: number; y: n
       'gain-power': { x: 92.9, y: 68 },
     },
   },
+  // Hadès : même gabarit de plateau (panneau objectif à gauche + 4 lieux).
+  // Ordre gauche|droite conforme à la disposition (Enfers, Thèbes, Jardins, Mont Olympe).
+  hades: {
+    enfers: {
+      'play-card-top': { x: 22.7, y: 20 },
+      'gain-power': { x: 30.5, y: 20 },
+      vanquish: { x: 22.7, y: 68 },
+      'move-item-ally': { x: 30.5, y: 68 },
+    },
+    thebes: {
+      'gain-power': { x: 43.5, y: 20 },
+      'play-card-top': { x: 51.4, y: 20 },
+      fate: { x: 43.5, y: 68 },
+      discard: { x: 51.4, y: 68 },
+    },
+    jardins: {
+      discard: { x: 64.3, y: 20 },
+      'play-card-top': { x: 72.1, y: 20 },
+      'gain-power': { x: 64.3, y: 68 },
+      'play-card-bottom': { x: 72.1, y: 68 },
+    },
+    'mont-olympe': {
+      fate: { x: 85.1, y: 20 },
+      'move-item-ally': { x: 92.9, y: 20 },
+      'play-card-bottom': { x: 85.1, y: 68 },
+      'gain-power': { x: 92.9, y: 68 },
+    },
+  },
 }
 
 interface Props {

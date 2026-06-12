@@ -124,6 +124,9 @@ export type ObjectiveDef =
   /** Ursula : avoir TOUS les Objets `itemCardIds` (non associés) posés sur le lieu
    *  `locationId` au début de son tour (Trident + Couronne au Repaire). */
   | { type: 'ITEMS_AT_LOCATION'; itemCardIds: string[]; locationId: LocationId }
+  /** Hadès : avoir au moins `count` Titans NON entravés sur le lieu `locationId`
+   *  (Mont Olympe) au début de son tour. */
+  | { type: 'UNTRAPPED_TITANS_AT_LOCATION'; locationId: LocationId; count: number }
 
 /** Phase courante à l'intérieur d'un tour. */
 export type TurnPhase =
@@ -317,6 +320,40 @@ export type Effect =
   /** Capitaine Crochet — Pas de Quartier ! : déplace un Allié vers un lieu voisin
    *  non bloqué et lui donne +2 force jusqu'à la fin du tour. */
   | { type: 'MOVE_ALLY_BUFF'; amount: number }
+  /** Hadès — Préparez-vous au combat ! : ouvre le choix d'un Titan non entravé et
+   *  d'un lieu de destination (≤ `maxSteps` lieux). `paid` : Hadès paie le
+   *  déplacement (2 JT pour 1 lieu, 5 JT pour 2). Ouvre pendingTitanMove. */
+  | { type: 'MOVE_TITAN_INTERACTIVE'; paid: boolean; maxSteps: number }
+  /** Hadès — Alignement des planètes : désentrave tous ses Titans entravés qu'il
+   *  peut se payer (1 JT chacun, des plus avancés vers Les Enfers). */
+  | { type: 'UNTRAP_TITANS_PAY' }
+  /** Hadès — Quel talent ! : gagne `amount` Pouvoir par carte du type `cardType`
+   *  (Allié — les Titans sont des Alliés) dans sa défausse. */
+  | { type: 'GAIN_POWER_PER_TYPE_IN_DISCARD'; cardType: CardType; amount: number }
+  /** Hadès — Talon d'Achille : réduit de `amount` la force du Héros cible
+   *  (ctx.targetHeroId) jusqu'à la fin du tour (via tempStrengthBonus négatif). */
+  | { type: 'REDUCE_HERO_STRENGTH_TEMP'; amount: number }
+  /** Fatalité Hadès — Éclairs : entrave tous les Titans d'un lieu (auto : le lieu
+   *  qui en porte le plus). Résolu sur le royaume de la cible (ctx.actorIndex). */
+  | { type: 'TRAP_TITANS_AT_BEST_LOCATION' }
+  /** Fatalité Hadès — Héra (entrave) / Pégase (repousse) : ouvre le choix d'un
+   *  Titan (pendingTitanSelect) par le joueur qui a posé la Fatalité. `atHost` :
+   *  candidats limités au lieu hôte (Héra) ; sinon tous les Titans non entravés
+   *  (Pégase). `pushSteps` (kind 'push') = nombre de lieux repoussés. */
+  | { type: 'OPEN_TITAN_SELECT'; kind: 'trap' | 'push'; atHost?: boolean; pushSteps?: number }
+  /** Fatalité Hadès — De zéro en héros : repousse le Titan non entravé le plus
+   *  avancé de `steps` lieux vers Les Enfers (auto). */
+  | { type: 'PUSH_TITAN_BACK_AUTO'; steps: number }
+  /** Fatalité Hadès — Hermès : cherche `heroCardId` (Zeus) dans le deck/défausse
+   *  Fatalité de la cible et le place sur le dessus de son deck Fatalité. */
+  | { type: 'SEARCH_FATE_HERO_TO_TOP'; heroCardId: string }
+  /** Fatalité Hadès — Mégara (à la pose) : déplace un Héros (autre qu'elle) du
+   *  lieu hôte vers n'importe quel lieu non bloqué (auto). */
+  | { type: 'MOVE_HERO_FROM_HOST_ANYWHERE' }
+  /** Hadès — Œil des Moires : dévoile la pioche Vilain jusqu'à une carte de type
+   *  `cardType` (Allié — Titans inclus), l'ajoute à la main, défausse les autres.
+   *  Variante NON interactive de REVEAL_UNTIL_TYPE (un seul type, pas de choix). */
+  | { type: 'REVEAL_VILLAIN_UNTIL_TYPE'; cardType: CardType }
 
 /**
  * Un exemplaire physique d'une carte en jeu. Comme une même carte existe en
@@ -409,6 +446,20 @@ export interface CardInstance {
   /** Reine de Cœur : cette Carte Garde a été transformée en arceau (croquet).
    *  Un arceau ne compte plus comme un Allié et sert l'objectif Coup Royal. */
   isWicket?: boolean
+  /** Hadès — Titan (Lythos, Hydros, Pyros, Stratos, Argès) : Allié spécial joué
+   *  sur Les Enfers, déplacé (en payant du Pouvoir) vers le Mont Olympe. Compte
+   *  pour l'objectif s'il y arrive sans être entravé. Recopié de CardDef. */
+  isTitan?: boolean
+  /** Hadès — Titan « entravé » par un Héros (Zeus, Héra, Éclairs…). Un Titan
+   *  entravé ne peut plus être déplacé, ne participe pas aux Vanquish et ne compte
+   *  pas pour l'objectif tant qu'il n'est pas désentravé. État de jeu (runtime). */
+  trapped?: boolean
+  /** L'Allié peut Éliminer un Héros sur son lieu OU sur un lieu voisin (Flibustiers,
+   *  Archers Loups, Cerbère). Donnée réutilisable, recopiée de CardDef. */
+  reachesAdjacentVanquish?: boolean
+  /** Quand cet Allié est utilisé pour un Vanquish, il retourne dans la main au lieu
+   *  d'être défaussé (Hadès : Hydre). Recopié de CardDef. */
+  returnToHandOnVanquish?: boolean
   /** Reine de Cœur : taille d'un Héros. `'shrunk'` (rapetissé) → ne recouvre
    *  qu'une action du haut ; `'enlarged'` (agrandi) → recouvre une action de plus.
    *  Absent = taille normale (recouvre la rangée du haut). */
@@ -654,7 +705,7 @@ export interface GameState {
    * Apparition (chooser = target = Slenderman) ; Vent de panique (Fatalité :
    * chooser = adversaire, target = Slenderman). Absent / `null` hors de ce choix.
    */
-  pendingHeroRelocate?: { chooserIndex: number; targetIndex: number; anyLocation?: boolean } | null
+  pendingHeroRelocate?: { chooserIndex: number; targetIndex: number; anyLocation?: boolean; candidateIds?: string[] } | null
   /** Téléportation (Slenderman) : `playerIndex` doit choisir un lieu portant un
    *  Héros où déplacer son pion (RESOLVE_TELEPORT). Absent / `null` sinon. */
   pendingTeleport?: { playerIndex: number } | null
@@ -716,6 +767,22 @@ export interface GameState {
   activeMovedCard?: boolean
   /** Le joueur actif a pioché ≥1 carte ce tour-ci via un effet (déclencheur Sans visage). */
   activeDrewCard?: boolean
+  /** Hadès — Préparez-vous au combat ! / action « Déplacer » sur un Titan :
+   *  `playerIndex` (Hadès) choisit un de ses Titans non entravés (`titanCandidateIds`)
+   *  et un lieu de destination, puis le déplace (RESOLVE_TITAN_MOVE). `paid` : le
+   *  déplacement coûte 2 JT (1 lieu) ou 5 JT (2 lieux). `maxSteps` borne la portée. */
+  pendingTitanMove?: { playerIndex: number; titanCandidateIds: string[]; paid: boolean; maxSteps: number } | null
+  /** Hadès (Fatalité) — Héra / Pégase : `chooserIndex` (le joueur qui a joué la
+   *  Fatalité) choisit un Titan parmi `titanCandidateIds` (du royaume de Hadès =
+   *  `playerIndex`) à entraver (`kind: 'trap'`) ou à repousser de `pushSteps` lieux
+   *  vers Les Enfers (`kind: 'push'`) — RESOLVE_TITAN_SELECT. */
+  pendingTitanSelect?: {
+    playerIndex: number
+    chooserIndex: number
+    titanCandidateIds: string[]
+    kind: 'trap' | 'push'
+    pushSteps?: number
+  } | null
   /** File append-only de petits effets flottants déclenchés par le moteur
    *  (ex. Robin des Bois qui « chipe » 1 Pouvoir). L'UI les consomme via un
    *  curseur local et les anime ; n'affecte pas la logique de jeu. */
@@ -848,6 +915,9 @@ export type GameAction =
   /** Déplacement gratuit du Shérif de Nottingham (1×/tour par Shérif) vers
    *  n'importe quel autre lieu. +1 JT si la destination porte un Héros. */
   | { type: 'SHERIFF_MOVE'; instanceId: string; to: LocationId }
+  /** Hadès — Char : déplace la figurine + le Char vers `to` (n'importe quel lieu),
+   *  1×/tour, et donne accès aux actions de ce lieu (hors Fatalité). */
+  | { type: 'CHARIOT_MOVE'; instanceId: string; to: LocationId }
   /** Déplacement gratuit de Diablo (1×/tour) vers n'importe quel autre lieu, en
    *  phase MOVE uniquement (« avant que Maléfique ne se déplace »). Arme ensuite
    *  une action gratuite (DIABLO_FREE_ACTION) sur ce lieu. */
@@ -943,6 +1013,11 @@ export type GameAction =
   /** Colère Titanesque : choisit le lieu voisin `locationId` où agir (le joueur y
    *  effectue ensuite UNE action normale). */
   | { type: 'RESOLVE_GIANT_LOCATION'; locationId: LocationId }
+  /** Hadès — Préparez-vous au combat ! : déplace le Titan `titanInstanceId` vers
+   *  le lieu `to` (1 ou 2 lieux). Le coût (2 ou 5 JT) est prélevé si `pendingTitanMove.paid`. */
+  | { type: 'RESOLVE_TITAN_MOVE'; titanInstanceId: string; to: LocationId }
+  /** Hadès (Fatalité) — Héra / Pégase : entrave ou repousse le Titan `titanInstanceId`. */
+  | { type: 'RESOLVE_TITAN_SELECT'; titanInstanceId: string }
   /** MODE TEST uniquement : inflige directement un Héros Fatalité (déjà construit
    *  par l'UI) sur un lieu du joueur ACTIF, déclenchant ses effets « à la pose »,
    *  les arrivées et les showcases — comme si un adversaire l'avait joué. */

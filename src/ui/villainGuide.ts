@@ -128,4 +128,20 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       "Bigette Bulbeuse renchérit ses Pactes ; Zirgouflex la saigne en Pouvoir quand elle se déplace.",
     ],
   },
+  hades: {
+    difficulty: 3,
+    story:
+      "Seigneur des Enfers d'Hercule (1997), Hadès rêve de renverser Zeus et de régner sur l'Olympe. Avec ses sbires Peine et Panique, il libère les Titans emprisonnés et les lance à l'assaut du Mont Olympe — tout en s'agaçant que ce « machin », fils de Zeus, se dresse sur sa route.",
+    playTips: [
+      "Objectif : avoir 3 Titans non entravés sur le Mont Olympe au début de ton tour.",
+      "Joue tes Titans sur Les Enfers, puis amène-les vers l'Olympe : « Déplacer un Objet ou un Allié » est GRATUIT (1 lieu voisin), et « Préparez-vous au combat ! » paie 2 ou 5 JT pour 1 ou 2 lieux afin d'accélérer.",
+      "Panique réduit le coût de tes Titans ; Argès te rend du Pouvoir à chaque déplacement ; Pyros et Alignement des planètes désentravent.",
+      "Garde de quoi répliquer aux Héros : Talon d'Achille et Cerbère (qui frappe à distance) nettoient la route.",
+    ],
+    counterTips: [
+      "Entrave ses Titans : Éclairs (tout un lieu), Héra et surtout Zeus, qui fige tout Titan arrivant sur son lieu.",
+      "Hercule empêche les Titans de quitter son lieu : pose-le sur leur chemin (Thèbes, Jardins).",
+      "Pégase et De zéro en héros repoussent un Titan vers Les Enfers : fais-lui perdre ses déplacements payés.",
+    ],
+  },
 }

@@ -9,6 +9,28 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.57',
+    date: '2026-06-12',
+    title: 'Nouveau vilain : Hadès',
+    changes: [
+      'Hadès (Disney, 3★) jouable : objectif « avoir 3 Titans non entravés sur le Mont Olympe au début de votre tour ».',
+      'Mécanique des Titans : joués sur Les Enfers, amenés vers l’Olympe gratuitement via « Déplacer un Objet ou un Allié » (1 lieu), ou en payant via « Préparez-vous au combat ! » (2 JT/1 lieu, 5 JT/2 lieux). Argès rend du Pouvoir, Pyros et Alignement des planètes désentravent, Stratos déplace un Héros.',
+      'Entrave par la Fatalité : Zeus (à l’arrivée), Héra, Éclairs ; Hercule verrouille les Titans sur son lieu ; Pégase et De zéro en héros les repoussent.',
+      'Cerbère frappe à distance, l’Hydre revient en main, Nessus rapporte du Pouvoir, Panique réduit les coûts, Potion de mortalité préserve les Titans, Talon d’Achille et le Médaillon ajustent la force.',
+      'Le Char déplace ta figurine (et lui-même) vers n’importe quel lieu une fois par tour. Stratos/Mégara/Hermès (déplacer un Héros), Héra/Pégase (entraver/repousser un Titan) et le Vanquish bonus de Lythos sont des choix interactifs.',
+      'Pion détouré, plateau, 30 cartes Méchant + 15 Fatalité, fiche et conseils.',
+    ],
+  },
+  {
+    version: '0.56',
+    date: '2026-06-12',
+    title: 'Correctif : Objets Fatalité associés à un Héros',
+    changes: [
+      'Provocation (Crochet) s’associe désormais réellement au Héros choisi lors d’une Fatalité — Crochet doit alors éliminer les Héros provocateurs en premier (la règle d’ordre était déjà en place, mais la carte n’était jamais posée).',
+      'Même correctif générique pour tous les Objets Fatalité « associés à un Héros » qui étaient silencieusement défaussés : Poussière de Fée, Vœu, Bigette Bulbeuse, Zirgouflex.',
+    ],
+  },
+  {
     version: '0.55',
     date: '2026-06-12',
     title: 'Ursula : effets de cartes (presque tout)',

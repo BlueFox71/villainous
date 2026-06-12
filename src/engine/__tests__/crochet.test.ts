@@ -82,6 +82,23 @@ describe('Capitaine Crochet — règles de combat', () => {
     expect(next.players[0].fateDiscard.some((c) => c.cardId === 'wendy')).toBe(true)
   })
 
+  it('Provocation : se associe au Héros choisi via RESOLVE_FATE', () => {
+    // Fatalité jouée par le Prince Jean (joueur 1) contre Crochet (joueur 0),
+    // qui a Wendy sur le Jolly Roger. Provocation doit s'y attacher.
+    const hero: CardInstance = { instanceId: 'h1', cardId: 'wendy', name: 'Wendy', type: 'hero', strength: 3 }
+    const taunt: CardInstance = { instanceId: 't', cardId: 'provocation', name: 'Provocation', type: 'item', attach: 'hero' }
+    const base = withBoard('jolly-roger', [hero])
+    const s: GameState = {
+      ...base,
+      activePlayer: 1,
+      pendingFate: { target: 0, revealed: [taunt] },
+    }
+    const next = applyAction(s, { type: 'RESOLVE_FATE', instanceId: 't', targetHeroId: 'h1' })
+    const placed = (next.players[0].board['jolly-roger'] ?? []).find((c) => c.cardId === 'provocation')
+    expect(placed?.attachedTo).toBe('h1')
+    expect(next.pendingFate).toBeNull()
+  })
+
   it('Provocation : un Héros provocateur doit être éliminé en premier', () => {
     const taunted: CardInstance = { instanceId: 'h1', cardId: 'wendy', name: 'Wendy', type: 'hero', strength: 3 }
     const other: CardInstance = { instanceId: 'h2', cardId: 'jean', name: 'Jean', type: 'hero', strength: 2 }

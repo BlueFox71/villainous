@@ -194,9 +194,11 @@ export function performVanquish(
     const a = (me.board[allyLoc] ?? []).find((c) => c.instanceId === allyId)!
     if (a.type !== 'ally') throw new Error(`${a.name} n'est pas un Allié.`)
     if (a.isWicket) throw new Error(`${a.name} est un arceau : inutilisable pour éliminer un Héros.`)
-    // Archers Loups (Prince Jean) et Flibustiers (Crochet) éliminent aussi un
-    // Héros sur un lieu VOISIN non bloqué.
-    const reachesAdjacent = a.cardId === 'archers-loups' || a.cardId === 'flibustiers'
+    if (a.trapped) throw new Error(`${a.name} est entravé : il ne peut pas participer à un Vanquish.`)
+    // Archers Loups (Prince Jean), Flibustiers (Crochet) et Cerbère (Hadès)
+    // éliminent aussi un Héros sur un lieu VOISIN non bloqué (donnée
+    // `reachesAdjacentVanquish` ; cardId conservés pour compat héritée).
+    const reachesAdjacent = a.reachesAdjacentVanquish || a.cardId === 'archers-loups' || a.cardId === 'flibustiers'
     if (allyLoc !== heroLoc && !(reachesAdjacent && adjacents.has(allyLoc))) {
       throw new Error(`${a.name} doit être sur ${heroLocName}${reachesAdjacent ? ' ou un lieu voisin' : ''}.`)
     }
@@ -247,8 +249,18 @@ export function performVanquish(
   // RESTE en jeu. Sinon l'Allié et tous ses Objets associés sont défaussés.
   const removedIds = new Set<string>([heroCard.instanceId])
   const discardedAllyCards: CardInstance[] = []
+  // Hadès — Hydre : utilisée pour un Vanquish, elle retourne en MAIN au lieu d'être
+  // défaussée (ses Objets associés partent quand même en défausse). On la retire du
+  // plateau mais on la garde de côté pour la remettre en main.
+  const returnedToHand: CardInstance[] = []
+  // Hadès — Potion de mortalité : si le Héros vaincu porte une Potion associée, les
+  // Titans utilisés pour l'éliminer NE sont PAS défaussés (ils restent en jeu).
+  const heroHasPotion = (me.board[heroLoc] ?? []).some(
+    (c) => c.cardId === 'potion-mortalite' && c.attachedTo === heroCard.instanceId,
+  )
   if (!keepAllies) {
     for (const a of allies) {
+      if (a.isTitan && heroHasPotion) continue // Titan préservé par la Potion
       const attached = attachedToAllies.filter((o) => o.attachedTo === a.instanceId)
       const arcs = attached.filter((o) => o.cardId === 'arc-fleches')
       if (arcs.length > 0) {
@@ -258,7 +270,11 @@ export function performVanquish(
         }
       } else {
         removedIds.add(a.instanceId)
-        discardedAllyCards.push(a)
+        if (a.returnToHandOnVanquish) {
+          returnedToHand.push({ ...a, attachedTo: undefined })
+        } else {
+          discardedAllyCards.push(a)
+        }
         for (const o of attached) {
           removedIds.add(o.instanceId)
           discardedAllyCards.push(o)
@@ -266,6 +282,9 @@ export function performVanquish(
       }
     }
   }
+  // Hadès — Nessus : +2 JT si le Héros vaincu a une force ≤ 3 et que Nessus
+  // participe au Vanquish.
+  const nessusBonus = allies.some((a) => a.cardId === 'nessus') && (heroCard.strength ?? 0) <= 3 ? 2 : 0
   const heroDiscarded: CardInstance = { ...heroCard, lockedPower: undefined }
   let next = updateActivePlayer(state, (p) => ({
     ...p,
@@ -277,7 +296,8 @@ export function performVanquish(
     ),
     fateDiscard: [...p.fateDiscard, heroDiscarded],
     discard: keepAllies ? p.discard : [...p.discard, ...discardedAllyCards],
-    power: p.power + locked + flechesCount * 2 + rouetBonus,
+    hand: [...p.hand, ...returnedToHand],
+    power: p.power + locked + flechesCount * 2 + rouetBonus + nessusBonus,
   }))
   // Mémorise la force du héros pour le trigger Méchanceté (réinitialisé à chaque tour).
   next = { ...next, lastVanquishedHeroStrength: heroCard.strength ?? 0 }
@@ -295,13 +315,19 @@ export function performVanquish(
       ...(rouetBonus > 0
         ? [`Rouet : +${rouetBonus} JT à ${me.villainName}.`]
         : []),
+      ...(nessusBonus > 0
+        ? [`Nessus : +${nessusBonus} JT à ${me.villainName}.`]
+        : []),
+      ...(returnedToHand.length > 0
+        ? [`**${returnedToHand.map((c) => c.name).join(', ')}** retourne${returnedToHand.length > 1 ? 'nt' : ''} en main (Hydre).`]
+        : []),
     ],
   }
   // Showcase « Vanquish » : Héros vaincu + Alliés utilisés + leurs Objets associés
   // (Arc et Flèches, Flèche d'Or) — défaussés, sauf Intimidation qui garde les
   // Alliés. Affiche aussi le gain de combat (« +N 🪙 » : Flèche d'Or +2, Rouet,
   // JT verrouillés rendus).
-  const vanquishGain = locked + flechesCount * 2 + rouetBonus
+  const vanquishGain = locked + flechesCount * 2 + rouetBonus + nessusBonus
   // Cartes montrées = Héros vaincu + ce qui part réellement en défausse côté Vilain
   // (Arc et Flèches à la place de l'Allié, ou Allié + Objets).
   const showcaseCardIds = [heroCard.cardId, ...discardedAllyCards.map((c) => c.cardId)]
@@ -382,6 +408,123 @@ function checkPacteDefeat(state: GameState, idx: number, heroId: string, loc: Lo
 }
 
 /** Résout un effet unique pour un joueur ACTEUR (par défaut : joueur actif). */
+// ============================ Hadès — Titans ================================
+
+/** Lieux où le Titan `titanId` (du joueur `idx`) peut être déplacé : ≤ `maxSteps`
+ *  lieux le long de la ligne du royaume (Les Enfers → Mont Olympe). Vide si le
+ *  Titan est entravé ou si Hercule est sur son lieu (il verrouille les Titans). */
+export function titanReachableDests(
+  state: GameState,
+  idx: number,
+  titanId: string,
+  maxSteps: number,
+): LocationId[] {
+  const p = state.players[idx]
+  const order = p.locations.map((l) => l.id)
+  const from = locationOfCard(p, titanId)
+  if (!from) return []
+  const titan = (p.board[from] ?? []).find((c) => c.instanceId === titanId)
+  if (!titan?.isTitan || titan.trapped) return []
+  if ((p.board[from] ?? []).some((c) => c.type === 'hero' && c.cardId === 'hercule')) return []
+  const fi = order.indexOf(from)
+  return order.filter((id, i) => id !== from && Math.abs(i - fi) <= maxSteps)
+}
+
+/** Déplace un Titan (et ses Objets associés) vers `toLoc` dans le royaume de `idx`.
+ *  Gère l'entrave par Zeus à l'arrivée et, si `fireTriggers`, les déclencheurs
+ *  « à chaque déplacement » du Titan (Argès, Pyros, Stratos, Lythos — résolus
+ *  automatiquement). Ne vérifie NI la portée NI le paiement (à la charge de
+ *  l'appelant). */
+export function moveTitanTo(
+  state: GameState,
+  idx: number,
+  titanId: string,
+  toLoc: LocationId,
+  opts: { fireTriggers: boolean },
+): GameState {
+  const p = state.players[idx]
+  const from = locationOfCard(p, titanId)
+  if (!from) return state
+  const titan = (p.board[from] ?? []).find((c) => c.instanceId === titanId)!
+  const movingIds = new Set<string>([
+    titanId,
+    ...(p.board[from] ?? []).filter((c) => c.attachedTo === titanId).map((c) => c.instanceId),
+  ])
+  const moving = (p.board[from] ?? []).filter((c) => movingIds.has(c.instanceId))
+  let next = updatePlayer(state, idx, (pp) => ({
+    ...pp,
+    board: {
+      ...pp.board,
+      [from]: (pp.board[from] ?? []).filter((c) => !movingIds.has(c.instanceId)),
+      [toLoc]: [...(pp.board[toLoc] ?? []), ...moving],
+    },
+  }))
+  const destName = findLocation(next.players[idx], toLoc)?.name ?? toLoc
+  next = { ...next, log: [...next.log, `${next.players[idx].villainName} déplace le Titan **${titan.name}** vers **${destName}**.`] }
+
+  // Zeus entrave les Titans qui arrivent sur son lieu (et leur capacité est ignorée).
+  if ((next.players[idx].board[toLoc] ?? []).some((c) => c.type === 'hero' && c.cardId === 'zeus')) {
+    next = patchCard(next, idx, titanId, (c) => ({ ...c, trapped: true }))
+    return { ...next, log: [...next.log, `**${titan.name}** arrive sur le lieu de Zeus : il est entravé (capacité ignorée).`] }
+  }
+  if (!opts.fireTriggers) return next
+
+  // Déclencheurs « à chaque déplacement » (résolution automatique).
+  if (titan.cardId === 'arges') {
+    next = resolveEffect(next, { type: 'GAIN_POWER', amount: 1 }, { actorIndex: idx })
+  } else if (titan.cardId === 'pyros') {
+    const trappedHere = (next.players[idx].board[toLoc] ?? []).find((c) => c.isTitan && c.trapped)
+    if (trappedHere) {
+      next = patchCard(next, idx, trappedHere.instanceId, (c) => ({ ...c, trapped: false }))
+      next = { ...next, log: [...next.log, `Pyros désentrave **${trappedHere.name}**.`] }
+    }
+  } else if (titan.cardId === 'stratos') {
+    // Stratos : choisir un Héros de son lieu de DÉPART ou d'ARRIVÉE et le déplacer
+    // vers un lieu voisin (pendingHeroRelocate, choisi par le joueur actif = Hadès).
+    const heroes = [
+      ...(next.players[idx].board[from] ?? []),
+      ...(next.players[idx].board[toLoc] ?? []),
+    ].filter((c) => c.type === 'hero')
+    if (heroes.length > 0) {
+      next = {
+        ...next,
+        pendingHeroRelocate: {
+          chooserIndex: next.activePlayer,
+          targetIndex: idx,
+          anyLocation: false,
+          candidateIds: heroes.map((c) => c.instanceId),
+        },
+        log: [...next.log, `Stratos : déplacez un Héros de son lieu de départ ou d'arrivée.`],
+      }
+    }
+  } else if (titan.cardId === 'lythos') {
+    // Lythos : Vanquish optionnel immédiat sur son lieu d'arrivée (s'il y a un
+    // Héros), Lythos pouvant y participer (pendingTrapVanquish réutilisé).
+    if ((next.players[idx].board[toLoc] ?? []).some((c) => c.type === 'hero')) {
+      next = { ...next, pendingTrapVanquish: true, log: [...next.log, `Lythos peut Éliminer un Héros sur ${destName} (facultatif).`] }
+    }
+  }
+  return next
+}
+
+/** Le Titan non entravé le plus AVANCÉ (proche du Mont Olympe) du joueur `idx`,
+ *  avec son lieu, ou undefined. Sert aux effets Fatalité qui « repoussent » un
+ *  Titan (Pégase, De zéro en héros). */
+function mostAdvancedTitan(
+  state: GameState,
+  idx: number,
+): { id: string; locIndex: number } | undefined {
+  const p = state.players[idx]
+  const order = p.locations.map((l) => l.id)
+  let best: { id: string; locIndex: number } | undefined
+  order.forEach((locId, i) => {
+    for (const c of p.board[locId] ?? []) {
+      if (c.isTitan && !c.trapped && (!best || i > best.locIndex)) best = { id: c.instanceId, locIndex: i }
+    }
+  })
+  return best
+}
+
 export function resolveEffect(
   state: GameState,
   effect: Effect,
@@ -1705,6 +1848,215 @@ export function resolveEffect(
           ...next.log,
           `${actor.villainName} hypnotise **${hero.name}** (force ${hypnoStrength}) : il devient un Allié sous son contrôle.`,
         ],
+      }
+    }
+    case 'MOVE_TITAN_INTERACTIVE': {
+      // Hadès — Préparez-vous au combat ! : ouvre le choix d'un Titan non entravé
+      // (déplaçable) et d'un lieu de destination (pendingTitanMove). Sans Titan
+      // déplaçable, l'effet ne fait rien.
+      const actor = state.players[idx]
+      // Payant : il faut pouvoir financer au moins 1 lieu (2 JT), sinon l'effet ne
+      // fait rien (évite un état bloqué sans résolution possible).
+      if (effect.paid && actor.power < 2) {
+        return { ...state, log: [...state.log, 'Préparez-vous au combat ! : Pouvoir insuffisant pour déplacer un Titan.'] }
+      }
+      const candidates = Object.values(actor.board)
+        .flat()
+        .filter((c) => c.isTitan && !c.trapped && titanReachableDests(state, idx, c.instanceId, effect.maxSteps).length > 0)
+      if (candidates.length === 0) {
+        return { ...state, log: [...state.log, 'Préparez-vous au combat ! : aucun Titan déplaçable.'] }
+      }
+      return {
+        ...state,
+        pendingTitanMove: {
+          playerIndex: idx,
+          titanCandidateIds: candidates.map((c) => c.instanceId),
+          paid: effect.paid,
+          maxSteps: effect.maxSteps,
+        },
+        log: [...state.log, `${actor.villainName} : choisissez un Titan à déplacer (Préparez-vous au combat !).`],
+      }
+    }
+    case 'UNTRAP_TITANS_PAY': {
+      // Alignement des planètes : désentrave les Titans entravés que l'acteur peut
+      // se payer (1 JT chacun), des plus avancés vers Les Enfers.
+      const actor = state.players[idx]
+      const order = actor.locations.map((l) => l.id)
+      const trapped: { id: string; name: string; i: number }[] = []
+      order.forEach((locId, i) => {
+        for (const c of actor.board[locId] ?? []) if (c.isTitan && c.trapped) trapped.push({ id: c.instanceId, name: c.name, i })
+      })
+      trapped.sort((a, b) => b.i - a.i) // les plus avancés d'abord
+      const affordable = trapped.slice(0, actor.power)
+      if (affordable.length === 0) {
+        return { ...state, log: [...state.log, 'Alignement des planètes : aucun Titan entravé à désentraver (ou Pouvoir insuffisant).'] }
+      }
+      let next = state
+      for (const t of affordable) next = patchCard(next, idx, t.id, (c) => ({ ...c, trapped: false }))
+      next = updatePlayer(next, idx, (p) => ({ ...p, power: p.power - affordable.length }))
+      return {
+        ...next,
+        log: [...next.log, `${actor.villainName} désentrave ${affordable.length} Titan(s) (−${affordable.length} JT) : ${affordable.map((t) => t.name).join(', ')}.`],
+      }
+    }
+    case 'GAIN_POWER_PER_TYPE_IN_DISCARD': {
+      const actor = state.players[idx]
+      const n = actor.discard.filter((c) => c.type === effect.cardType).length
+      const gross = n * effect.amount
+      const gained = Math.max(0, gross - realmPowerPenalty(state, idx))
+      let next = updatePlayer(state, idx, (p) => ({ ...p, power: p.power + gained }))
+      next = { ...next, log: [...next.log, `${next.players[idx].villainName} gagne ${gained} JT (${n} carte(s) en défausse).`] }
+      return pushRobinSteal(next, idx, gross - gained)
+    }
+    case 'REDUCE_HERO_STRENGTH_TEMP': {
+      // Talon d'Achille : −amount à la force du Héros cible jusqu'à la fin du tour.
+      const target = ctx?.targetHeroId
+      if (!target) return state
+      const actor = state.players[idx]
+      const loc = locationOfCard(actor, target)
+      if (!loc) return state
+      const hero = (actor.board[loc] ?? []).find((c) => c.instanceId === target)
+      if (!hero || hero.type !== 'hero') return state
+      const next = patchCard(state, idx, target, (c) => ({ ...c, tempStrengthBonus: (c.tempStrengthBonus ?? 0) - effect.amount }))
+      return { ...next, log: [...next.log, `**${hero.name}** : force −${effect.amount} jusqu'à la fin du tour (Talon d'Achille).`] }
+    }
+    case 'TRAP_TITANS_AT_BEST_LOCATION': {
+      // Éclairs (Fatalité) : entrave tous les Titans du lieu qui en porte le plus
+      // (non encore entravés). Résolu sur le royaume de `idx`.
+      const actor = state.players[idx]
+      let bestLoc: LocationId | undefined
+      let bestN = 0
+      for (const l of actor.locations) {
+        const n = (actor.board[l.id] ?? []).filter((c) => c.isTitan && !c.trapped).length
+        if (n > bestN) { bestN = n; bestLoc = l.id }
+      }
+      if (!bestLoc) return { ...state, log: [...state.log, 'Éclairs : aucun Titan à entraver.'] }
+      let next = state
+      for (const c of actor.board[bestLoc] ?? []) {
+        if (c.isTitan && !c.trapped) next = patchCard(next, idx, c.instanceId, (x) => ({ ...x, trapped: true }))
+      }
+      const name = findLocation(actor, bestLoc)?.name ?? bestLoc
+      return { ...next, log: [...next.log, `Éclairs : ${bestN} Titan(s) entravé(s) sur **${name}**.`] }
+    }
+    case 'OPEN_TITAN_SELECT': {
+      // Héra (entrave) / Pégase (repousse) : le joueur qui a posé la Fatalité
+      // (joueur actif) choisit un Titan parmi les candidats (pendingTitanSelect).
+      const actor = state.players[idx]
+      const candidates = (effect.atHost
+        ? (ctx?.hostLocationId ? (actor.board[ctx.hostLocationId] ?? []) : [])
+        : Object.values(actor.board).flat()
+      ).filter((c) => c.isTitan && !c.trapped)
+      if (candidates.length === 0) {
+        return { ...state, log: [...state.log, `Aucun Titan à ${effect.kind === 'trap' ? 'entraver' : 'repousser'}.`] }
+      }
+      return {
+        ...state,
+        pendingTitanSelect: {
+          playerIndex: idx,
+          chooserIndex: state.activePlayer,
+          titanCandidateIds: candidates.map((c) => c.instanceId),
+          kind: effect.kind,
+          pushSteps: effect.pushSteps,
+        },
+        log: [...state.log, `${state.players[state.activePlayer].villainName} choisit un Titan à ${effect.kind === 'trap' ? 'entraver' : 'repousser'}.`],
+      }
+    }
+    case 'PUSH_TITAN_BACK_AUTO': {
+      // Pégase (1) / De zéro en héros (2) : repousse le Titan non entravé le plus
+      // avancé de `steps` lieux vers Les Enfers (sans déclencher ses capacités).
+      const actor = state.players[idx]
+      const order = actor.locations.map((l) => l.id)
+      const best = mostAdvancedTitan(state, idx)
+      if (!best) return { ...state, log: [...state.log, 'Aucun Titan non entravé à repousser.'] }
+      const destIdx = Math.max(0, best.locIndex - effect.steps)
+      if (destIdx === best.locIndex) return state
+      return moveTitanTo(state, idx, best.id, order[destIdx], { fireTriggers: false })
+    }
+    case 'SEARCH_FATE_HERO_TO_TOP': {
+      // Hermès : place Zeus sur le dessus du deck Fatalité de la cible. S'il est
+      // déjà dans le royaume, le déplace vers le lieu portant le plus de Titans.
+      const actor = state.players[idx]
+      const inRealm = Object.values(actor.board).flat().find((c) => c.type === 'hero' && c.cardId === effect.heroCardId)
+      if (inRealm) {
+        // Zeus déjà en jeu : le joueur qui pose la Fatalité le déplace où il veut.
+        return {
+          ...state,
+          pendingHeroRelocate: {
+            chooserIndex: state.activePlayer,
+            targetIndex: idx,
+            anyLocation: true,
+            candidateIds: [inRealm.instanceId],
+          },
+          log: [...state.log, `${state.players[state.activePlayer].villainName} peut déplacer Zeus (Hermès).`],
+        }
+      }
+      const fromDeck = actor.fateDeck.find((c) => c.cardId === effect.heroCardId)
+      const fromDisc = actor.fateDiscard.find((c) => c.cardId === effect.heroCardId)
+      const zeus = fromDeck ?? fromDisc
+      if (!zeus) return { ...state, log: [...state.log, `Hermès : ${effect.heroCardId} introuvable.`] }
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        fateDeck: [zeus, ...p.fateDeck.filter((c) => c.instanceId !== zeus.instanceId)],
+        fateDiscard: p.fateDiscard.filter((c) => c.instanceId !== zeus.instanceId),
+      }))
+      return { ...next, log: [...next.log, `Hermès place **${zeus.name}** sur le dessus du deck Fatalité.`] }
+    }
+    case 'MOVE_HERO_FROM_HOST_ANYWHERE': {
+      // Mégara (à la pose) : le joueur qui pose la Fatalité déplace un Héros (autre
+      // qu'elle) du lieu hôte vers n'importe quel lieu (pendingHeroRelocate).
+      const loc = ctx?.hostLocationId
+      const host = ctx?.hostInstanceId
+      if (!loc) return state
+      const actor = state.players[idx]
+      const heroes = (actor.board[loc] ?? []).filter((c) => c.type === 'hero' && c.instanceId !== host)
+      if (heroes.length === 0) return state
+      return {
+        ...state,
+        pendingHeroRelocate: {
+          chooserIndex: state.activePlayer,
+          targetIndex: idx,
+          anyLocation: true,
+          candidateIds: heroes.map((c) => c.instanceId),
+        },
+        log: [...state.log, `${state.players[state.activePlayer].villainName} peut déplacer un Héros (Mégara).`],
+      }
+    }
+    case 'REVEAL_VILLAIN_UNTIL_TYPE': {
+      // Œil des Moires : dévoile la pioche Vilain jusqu'à une carte du type voulu
+      // (Allié, Titans inclus), l'ajoute à la main, défausse les autres dévoilées.
+      const actor = state.players[idx]
+      let deck = actor.deck
+      let disc = actor.discard
+      let s = state.rngState
+      const revealed: CardInstance[] = []
+      let found: CardInstance | undefined
+      while (true) {
+        if (deck.length === 0) {
+          if (disc.length === 0) break
+          const r = shuffle(disc, s)
+          deck = r.result
+          s = r.state
+          disc = []
+        }
+        const [top, ...rest] = deck
+        deck = rest
+        revealed.push(top)
+        if (top.type === effect.cardType) {
+          found = top
+          break
+        }
+      }
+      const others = revealed.filter((c) => c !== found)
+      let next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        deck,
+        discard: [...disc, ...others],
+        hand: found ? [...p.hand, found] : p.hand,
+      }))
+      next = { ...next, rngState: s }
+      return {
+        ...next,
+        log: [...next.log, found ? `${actor.villainName} ajoute **${found.name}** à sa main (Œil des Moires).` : `${actor.villainName} ne trouve aucun Allié (Œil des Moires).`],
       }
     }
   }

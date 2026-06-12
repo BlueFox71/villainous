@@ -36,15 +36,22 @@ function Pile({
   fate,
   zoom,
   onClick,
+  upright,
+  uprightWidth = 'w-32',
 }: {
   src?: string
   count: number
   fate?: boolean
   zoom?: boolean
   onClick?: () => void
+  /** Carte affichée DROITE (verticale) au lieu de la petite carte couchée. */
+  upright?: boolean
+  /** Largeur (classe Tailwind) de la carte en mode `upright`. */
+  uprightWidth?: string
 }) {
   const [hover, setHover] = useState(false)
   const clickable = !!onClick && count > 0
+  const border = fate ? 'border-white/40' : 'border-white/20'
   return (
     <div
       className={`relative ${clickable ? 'cursor-pointer' : ''}`}
@@ -54,7 +61,15 @@ function Pile({
       title={clickable ? 'Voir la défausse' : undefined}
       style={{ zIndex: hover ? 50 : 1 }}
     >
-      <RotatedCard src={src} fate={fate} />
+      {upright ? (
+        src ? (
+          <img src={src} alt="" className={`${uprightWidth} rounded border ${border}`} />
+        ) : (
+          <div className={`aspect-[5/7] ${uprightWidth} rounded border border-dashed bg-white/5 ${border}`} />
+        )
+      ) : (
+        <RotatedCard src={src} fate={fate} />
+      )}
       <span className="absolute -bottom-1 -right-1 rounded-full bg-black/85 px-1 text-[8px] font-mono text-white">
         {count}
       </span>
@@ -150,6 +165,9 @@ export function DeckPiles({
   player,
   kind,
   playerIndex,
+  show = 'both',
+  upright = false,
+  uprightWidth = 'w-32',
 }: {
   player: PlayerState
   kind: 'villain' | 'fate'
@@ -157,6 +175,13 @@ export function DeckPiles({
    *  « vol » du showcase défausse) et `data-deck-pile` sur la pioche Vilain
    *  (origine du vol des cartes piochées, ex. Tyrannie). */
   playerIndex?: number
+  /** Quelles piles afficher : les deux empilées (`both`, défaut), la pioche seule
+   *  (`deck`) ou la défausse seule (`discard`) — pour les disposer séparément. */
+  show?: 'both' | 'deck' | 'discard'
+  /** Affiche la pile droite (verticale) au lieu de la petite carte couchée. */
+  upright?: boolean
+  /** Largeur (classe Tailwind) en mode `upright`. */
+  uprightWidth?: string
 }) {
   const isFate = kind === 'fate'
   const back = isFate ? player.backFateImage : player.backVillainImage
@@ -169,33 +194,41 @@ export function DeckPiles({
   const deckPile =
     !isFate && playerIndex !== undefined ? (
       <div data-deck-pile={playerIndex}>
-        <Pile src={back} count={deckCount} fate={isFate} />
+        <Pile src={back} count={deckCount} fate={isFate} upright={upright} uprightWidth={uprightWidth} />
       </div>
     ) : (
-      <Pile src={back} count={deckCount} fate={isFate} />
+      <Pile src={back} count={deckCount} fate={isFate} upright={upright} uprightWidth={uprightWidth} />
     )
   const discardPile =
     !isFate && playerIndex !== undefined ? (
       <div data-discard-pile={playerIndex}>
-        <Pile src={imgOf(last)} count={discard.length} fate={isFate} zoom onClick={openDiscard} />
+        <Pile src={imgOf(last)} count={discard.length} fate={isFate} zoom upright={upright} uprightWidth={uprightWidth} onClick={openDiscard} />
       </div>
     ) : (
-      <Pile src={imgOf(last)} count={discard.length} fate={isFate} zoom onClick={openDiscard} />
+      <Pile src={imgOf(last)} count={discard.length} fate={isFate} zoom upright={upright} uprightWidth={uprightWidth} onClick={openDiscard} />
     )
   return (
     <div className="flex flex-col items-center gap-1.5">
-      {/* Fatalité : défausse au-dessus, pioche en dessous (inversé vs Vilain). */}
-      {isFate ? (
-        <>
-          {discardPile}
-          {deckPile}
-        </>
-      ) : (
-        <>
-          {deckPile}
-          {discardPile}
-        </>
-      )}
+      {/* `show` permet de disposer les piles séparément (Hadès : pioche à droite,
+          défausse à gauche). Par défaut, les deux empilées. */}
+      {show === 'deck'
+        ? deckPile
+        : show === 'discard'
+          ? discardPile
+          : /* Fatalité : défausse au-dessus, pioche en dessous (inversé vs Vilain). */
+            isFate
+            ? (
+                <>
+                  {discardPile}
+                  {deckPile}
+                </>
+              )
+            : (
+                <>
+                  {deckPile}
+                  {discardPile}
+                </>
+              )}
       {showDiscard && (
         <DiscardModal cards={discard} label={discardLabel} onClose={() => setShowDiscard(false)} />
       )}

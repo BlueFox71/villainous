@@ -8,6 +8,7 @@
 // =============================================================================
 
 import type { GameAction, GameState } from '../engine/types'
+import { titanReachableDests } from '../engine/effects'
 import {
   adjacentLocationIds,
   alliesAt,
@@ -79,6 +80,53 @@ export function enumerateActions(state: GameState): GameAction[] {
     return neighbors.map((loc) => ({ type: 'RESOLVE_GIANT_LOCATION', locationId: loc }))
   }
 
+  // Préparez-vous au combat ! (Hadès) : un Titan non entravé × lieu atteignable
+  // (filtré par ce que l'acteur peut financer si le déplacement est payant).
+  if (state.pendingTitanMove) {
+    const ptm = state.pendingTitanMove
+    const p = state.players[ptm.playerIndex]
+    const order = p.locations.map((l) => l.id)
+    const out: GameAction[] = []
+    for (const id of ptm.titanCandidateIds) {
+      const from = p.locations.find((l) => (p.board[l.id] ?? []).some((c) => c.instanceId === id))?.id
+      if (!from) continue
+      for (const to of titanReachableDests(state, ptm.playerIndex, id, ptm.maxSteps)) {
+        const steps = Math.abs(order.indexOf(to) - order.indexOf(from))
+        if (ptm.paid && p.power < (steps >= 2 ? 5 : 2)) continue
+        out.push({ type: 'RESOLVE_TITAN_MOVE', titanInstanceId: id, to })
+      }
+    }
+    // Garanti non vide : le pending n'est ouvert que si ≥1 déplacement est finançable.
+    return out
+  }
+
+  // Héra / Pégase (Hadès, Fatalité) : un choix par Titan candidat (entrave / repousse).
+  if (state.pendingTitanSelect) {
+    return state.pendingTitanSelect.titanCandidateIds.map((id) => ({ type: 'RESOLVE_TITAN_SELECT', titanInstanceId: id }))
+  }
+
+  // Déplacement de Héros en attente (Apparition, Stratos, Mégara, Hermès…) :
+  // un choix par (Héros candidat × destination valide). Résolu via botAct quand
+  // le chooseur est le joueur actif (en jeu réel, l'UI/useEffect peut le résoudre avant).
+  if (state.pendingHeroRelocate) {
+    const phr = state.pendingHeroRelocate
+    const tgt = state.players[phr.targetIndex]
+    const ids = tgt.locations.map((l) => l.id)
+    const locked = new Set(tgt.lockedLocations ?? [])
+    const out: GameAction[] = []
+    for (const loc of tgt.locations) {
+      for (const h of (tgt.board[loc.id] ?? []).filter((c) => c.type === 'hero')) {
+        if (phr.candidateIds && !phr.candidateIds.includes(h.instanceId)) continue
+        const i = ids.indexOf(loc.id)
+        const dests = phr.anyLocation
+          ? ids.filter((id) => id !== loc.id && !locked.has(id))
+          : [ids[i - 1], ids[i + 1]].filter((id): id is string => !!id && !locked.has(id))
+        for (const to of dests) out.push({ type: 'RESOLVE_HERO_RELOCATE', heroInstanceId: h.instanceId, to })
+      }
+    }
+    if (out.length > 0) return out
+  }
+
   // Digne Adversaire / Obsession : le Héros révélé doit être JOUÉ ; on choisit le lieu.
   if (state.pendingFetchedHero) {
     const pfh = state.pendingFetchedHero
@@ -132,9 +180,8 @@ export function enumerateActions(state: GameState): GameAction[] {
         for (const to of locs) out.push({ type: 'RESOLVE_FATE', instanceId: card.instanceId, to })
       } else if (
         card.cardId === 'voler-riches' ||
-        card.cardId === 'deguisement' ||
-        card.cardId === 'epee-verite' ||
-        card.cardId === 'agrandir'
+        card.cardId === 'agrandir' ||
+        (card.type === 'item' && card.attach === 'hero')
       ) {
         // Épée de Vérité : uniquement sur un Héros SANS autre Objet associé.
         const tgt = state.players[target]
@@ -200,6 +247,13 @@ export function enumerateActions(state: GameState): GameAction[] {
                 out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, to, attachTo: ally.instanceId })
               }
             }
+          } else if (card.type === 'item' && card.attach === 'hero') {
+            // Potion de mortalité (Hadès) : Objet associé à un Héros du royaume.
+            for (const to of locs) {
+              for (const h of (me.board[to] ?? []).filter((c) => c.type === 'hero' && !c.hypnotized)) {
+                out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, to, attachTo: h.instanceId })
+              }
+            }
           } else {
             for (const to of locs) {
               if (card.type === 'curse' && !canPlaceCurseAt(state, state.activePlayer, to)) continue
@@ -211,9 +265,9 @@ export function enumerateActions(state: GameState): GameAction[] {
           for (const loc of me.locations) {
             const cell = me.board[loc.id] ?? []
             const heroes = cell.filter((c) => c.type === 'hero')
-            const localAllies = cell.filter((c) => c.type === 'ally' && !c.isWicket)
+            const localAllies = cell.filter((c) => c.type === 'ally' && !c.isWicket && !c.trapped)
             const adjAllies = adjacentLocationIds(state, loc.id).flatMap((adj) =>
-              (me.board[adj] ?? []).filter((c) => c.cardId === 'archers-loups' || c.cardId === 'flibustiers'),
+              (me.board[adj] ?? []).filter((c) => !c.trapped && (c.reachesAdjacentVanquish || c.cardId === 'archers-loups' || c.cardId === 'flibustiers')),
             )
             for (const h of heroes) {
               const guarded = cell.some((c) => c.cardId === 'deguisement' && c.attachedTo === h.instanceId)
@@ -315,9 +369,9 @@ export function enumerateActions(state: GameState): GameAction[] {
         const cell = me.board[loc.id] ?? []
         const heroes = cell.filter((c) => c.type === 'hero')
         if (heroes.length === 0) continue
-        const localAllies = cell.filter((c) => c.type === 'ally' && !c.isWicket)
+        const localAllies = cell.filter((c) => c.type === 'ally' && !c.isWicket && !c.trapped)
         const adjAllies = adjacentLocationIds(state, loc.id).flatMap((adj) =>
-          (me.board[adj] ?? []).filter((c) => c.cardId === 'archers-loups' || c.cardId === 'flibustiers'),
+          (me.board[adj] ?? []).filter((c) => !c.trapped && (c.reachesAdjacentVanquish || c.cardId === 'archers-loups' || c.cardId === 'flibustiers')),
         )
         for (const h of heroes) {
           const guarded = cell.some((c) => c.cardId === 'deguisement' && c.attachedTo === h.instanceId)
@@ -358,6 +412,19 @@ export function enumerateActions(state: GameState): GameAction[] {
     }
   }
   // (Diablo se déplace en phase MOVE — voir la branche MOVE plus haut.)
+
+  // Char (Hadès) : si le pion est sur le lieu du Char et qu'il n'a pas servi ce
+  // tour, déplacer figurine + Char vers n'importe quel autre lieu.
+  if (state.phase === 'ACTION' && me.pawnLocation) {
+    for (const c of me.board[me.pawnLocation] ?? []) {
+      if (c.cardId !== 'char') continue
+      if (state.usedActionIds.includes(`chariot-move:${c.instanceId}`)) continue
+      for (const dest of me.locations) {
+        if (dest.id === me.pawnLocation) continue
+        out.push({ type: 'CHARIOT_MOVE', instanceId: c.instanceId, to: dest.id })
+      }
+    }
+  }
 
   return out
 }

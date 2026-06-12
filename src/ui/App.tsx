@@ -21,6 +21,7 @@ import {
   teleportTargets,
   transformableGuards,
 } from '../engine/rules'
+import { titanReachableDests } from '../engine/effects'
 import type { CardInstance, LocationAction, ShowcaseEvent } from '../engine/types'
 import { BLUE, RED } from './accents'
 import { PlayerPanel } from './components/PlayerPanel'
@@ -50,6 +51,8 @@ import { AllyMoveBuffModal } from './components/AllyMoveBuffModal'
 import { FetchedHeroModal } from './components/FetchedHeroModal'
 import { NeverlandMapModal } from './components/NeverlandMapModal'
 import { GiantActionModal } from './components/GiantActionModal'
+import { TitanMoveModal } from './components/TitanMoveModal'
+import { TitanSelectModal } from './components/TitanSelectModal'
 import { StartRollModal } from './components/StartRollModal'
 import { MusicPlayer } from './components/MusicPlayer'
 import { Showcase } from './components/Showcase'
@@ -179,6 +182,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const useNeverlandMap = useGameStore((s) => s.useNeverlandMap)
   const resolveRecover = useGameStore((s) => s.resolveRecover)
   const resolveGiantLocation = useGameStore((s) => s.resolveGiantLocation)
+  const resolveTitanMove = useGameStore((s) => s.resolveTitanMove)
+  const resolveTitanSelect = useGameStore((s) => s.resolveTitanSelect)
+  const chariotMove = useGameStore((s) => s.chariotMove)
   const endTurn = useGameStore((s) => s.endTurn)
   const reset = useGameStore((s) => s.reset)
   const botAct = useGameStore((s) => s.botAct)
@@ -510,6 +516,13 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         )
         .map((c) => c.instanceId)
     : []
+  // Char (Hadès) : instanceId d'un Char non utilisé sur le lieu du pion (sinon null).
+  const chariotCard: string | null =
+    isHumanTurn && state.phase === 'ACTION' && user.pawnLocation
+      ? (user.board[user.pawnLocation] ?? []).find(
+          (c) => c.cardId === 'char' && !state.usedActionIds.includes(`chariot-move:${c.instanceId}`),
+        )?.instanceId ?? null
+      : null
   // Diablo encore mobile (UI inline). Règle : « avant que Maléfique ne se
   // déplace » → uniquement en phase MOVE (donc pas le tour où on vient de jouer
   // Diablo, qui se pose en phase ACTION).
@@ -979,7 +992,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // ---- D : Réactions humaines (Conditions) ----
   const handlePlayReaction = (card: CardInstance) => {
     // Conditions à ciblage interactif : on passe par un mode de sélection.
-    if (card.cardId === 'lachete' || card.cardId === 'ruse') {
+    if (card.cardId === 'lachete' || card.cardId === 'ruse' || card.cardId === 'sans-pitie') {
       setMode({ kind: 'condition-pick-ally', instanceId: card.instanceId })
       return
     }
@@ -1000,6 +1013,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     if (mode?.kind !== 'condition-pick-ally') return
     const ally = user.hand.find((c) => c.instanceId === allyInstanceId)
     if (!ally || ally.type !== 'ally') return
+    // Un Titan ne peut être posé que sur Les Enfers → pas de choix de lieu.
+    if (ally.isTitan) {
+      playCondition(HUMAN, mode.instanceId, allyInstanceId)
+      setMode(null)
+      return
+    }
     const condCard = user.hand.find((c) => c.instanceId === mode.instanceId)
     setMode({
       kind: 'condition-pick-place',
@@ -1337,7 +1356,13 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             }
             return true
           })
-      : mode?.kind === 'move-dest' || mode?.kind === 'move-hero-dest' || mode?.kind === 'activate-iago-dest'
+      : mode?.kind === 'move-dest'
+        ? // Un Titan (Hadès) suit ses règles propres : ≤1 lieu, bloqué par Hercule
+          // sur SON lieu uniquement. Les autres cartes : lieu voisin classique.
+          (user.board[mode.from] ?? []).find((c) => c.instanceId === mode.instanceId)?.isTitan
+          ? titanReachableDests(state, HUMAN, mode.instanceId, 1)
+          : adjacentLocationIds(state, mode.from)
+      : mode?.kind === 'move-hero-dest' || mode?.kind === 'activate-iago-dest'
         ? adjacentLocationIds(state, mode.from)
         : mode?.kind === 'trap-pick-dest'
           ? user.locations.map((l) => l.id) // n'importe quel lieu (Tendre un Piège)
@@ -1544,12 +1569,20 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       <main className="grid min-h-0 flex-1 grid-cols-1 gap-3 p-3 lg:grid-cols-[1fr_15rem_1fr]">
         {/* ----- Colonne joueur (bleu) ----- */}
         <Scroller element="section" className="min-h-0">
-          <div className="flex flex-col gap-2">
+          <div className="flex min-h-full flex-col gap-2">
           <PlayerPanel player={user} accent={BLUE} isActive={state.activePlayer === HUMAN} isWinner={state.winner === HUMAN} />
-          {/* Au-dessus de l'image : pioche/défausse FATALITÉ (marge gauche) + cases Héros. */}
-          <div className="flex">
-            <div className="flex items-end justify-center" style={{ width: `${LOCATIONS_LEFT}%` }}>
-              <DeckPiles player={user} kind="fate" />
+          {/* Séparateur du haut réduit au minimum (le bloc plateau remonte). */}
+          <div aria-hidden className="grow-0" />
+          {/* Au-dessus de l'image : pioche/défausse FATALITÉ (marge gauche), verticales
+              et empilées + cases Héros. Les piles sont en position ABSOLUE pour ne pas
+              étirer la rangée. Décalages calés visuellement : la rangée descend de 20 %
+              et les piles remontent de 70 % (de la largeur) → défausse Fatalité juste
+              sous la barre d'objectif, sans toucher la disposition des autres éléments. */}
+          <div className="flex" style={{ marginTop: '8%' }}>
+            <div className="relative" style={{ width: `${LOCATIONS_LEFT}%` }}>
+              <div className="absolute inset-x-0 top-0 flex justify-center" style={{ marginTop: '-53%' }}>
+                <DeckPiles player={user} kind="fate" upright uprightWidth="w-16" />
+              </div>
             </div>
             <div className="flex-1">
               <HeroRow
@@ -1583,11 +1616,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               onActionClick={handleBoardAction}
             />
           </div>
-          {/* En dessous de l'image : pioche/défausse VILAIN (marge gauche) + cartes du méchant. */}
+          {/* En dessous de l'image : cartes du méchant. Pioche + défausse Vilain
+              sont placées en bas du plateau (voir plus bas). La marge gauche reste
+              vide pour aligner les colonnes du plateau avec l'image. */}
           <div className="flex">
-            <div className="flex items-start justify-center" style={{ width: `${LOCATIONS_LEFT}%` }}>
-              <DeckPiles player={user} kind="villain" playerIndex={HUMAN} />
-            </div>
+            <div style={{ width: `${LOCATIONS_LEFT}%` }} />
             <div className="flex-1">
               <Board
                 player={user}
@@ -1819,6 +1852,25 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               </button>
             </div>
           )}
+          {/* Char (Hadès) : déplacer figurine + Char vers n'importe quel lieu (1×/tour). */}
+          {chariotCard && !mode && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-sky-400/70 bg-sky-500/10 px-3 py-2 text-xs text-sky-100">
+              <span>
+                🏛️ <b>Char</b> : déplace ta figurine et le Char vers
+              </span>
+              {user.locations
+                .filter((l) => l.id !== user.pawnLocation)
+                .map((l) => (
+                  <button
+                    key={l.id}
+                    onClick={() => chariotMove(chariotCard, l.id)}
+                    className="rounded bg-sky-600 px-2 py-1 font-medium text-white hover:bg-sky-500"
+                  >
+                    {l.name}
+                  </button>
+                ))}
+            </div>
+          )}
           {/* La main du joueur est désormais ancrée en bas de l'écran (éventail). */}
           {/* Module test (suivi de test + panneau d'injection) : sous la main. */}
           {testMode && !hideTestBar && (
@@ -1844,6 +1896,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               />
             </>
           )}
+          {/* Défausse + Pioche Vilain : côte à côte, verticales, poussées en bas
+              (remontées de 20 px du bas via mb-5). */}
+          <div className="mt-auto mb-5 flex justify-end gap-3 px-2 pt-1">
+            <DeckPiles player={user} kind="villain" playerIndex={HUMAN} show="discard" upright uprightWidth="w-28" />
+            <DeckPiles player={user} kind="villain" playerIndex={HUMAN} show="deck" upright uprightWidth="w-28" />
+          </div>
           </div>
         </Scroller>
 
@@ -1915,11 +1973,15 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
 
         {/* ----- Colonne bot (rouge) — lecture seule, main cachée. ----- */}
         <Scroller element="section" className="min-h-0">
-          <div className="flex flex-col gap-2">
+          <div className="flex min-h-full flex-col gap-2">
           <PlayerPanel player={bot} accent={RED} isActive={state.activePlayer === BOT} isWinner={state.winner === BOT} />
-          <div className="flex">
-            <div className="flex items-end justify-center" style={{ width: `${LOCATIONS_LEFT}%` }}>
-              <DeckPiles player={bot} kind="fate" />
+          <div aria-hidden className="grow-0" />
+          {/* Rangée Fatalité (mêmes décalages que le joueur). */}
+          <div className="flex" style={{ marginTop: '8%' }}>
+            <div className="relative" style={{ width: `${LOCATIONS_LEFT}%` }}>
+              <div className="absolute inset-x-0 top-0 flex justify-center" style={{ marginTop: '-53%' }}>
+                <DeckPiles player={bot} kind="fate" upright uprightWidth="w-16" />
+              </div>
             </div>
             <div className="flex-1">
               <HeroRow
@@ -1935,9 +1997,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             <BoardImage player={bot} showPawn pawnOutline={RED.ringColor} imgClassName="border border-red-900/60" hiddenHeroInstanceIds={showcaseHiddenIds} />
           </div>
           <div className="flex">
-            <div className="flex items-start justify-center" style={{ width: `${LOCATIONS_LEFT}%` }}>
-              <DeckPiles player={bot} kind="villain" playerIndex={BOT} />
-            </div>
+            <div style={{ width: `${LOCATIONS_LEFT}%` }} />
             <div className="flex-1">
               <Board
                 player={bot}
@@ -1962,22 +2022,31 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               />
             </div>
           </div>
-          <div data-hand-zone={BOT}>
-          <Hand
-            hand={bot.hand}
-            accent={RED}
-            hidden={!botHandRevealed}
-            backImage={bot.backVillainImage}
-            mode="idle"
-            power={bot.power}
-            attachTargetsAvailable={false}
-            blockEvents={false}
-            selectedToDiscard={[]}
-            onPlayCard={noop}
-            onToggleDiscard={noop}
-            onConfirmDiscard={noop}
-            onCancel={noop}
-          />
+          {/* Bas : main du bot CENTRÉE sous le plateau ; défausse/pioche Vilain en
+              absolu à droite (pour ne pas décaler la main). */}
+          <div className="relative mt-auto mb-5 flex justify-center px-2 pt-1">
+            <div data-hand-zone={BOT}>
+            <Hand
+              hand={bot.hand}
+              accent={RED}
+              hidden={!botHandRevealed}
+              backImage={bot.backVillainImage}
+              mode="idle"
+              power={bot.power}
+              attachTargetsAvailable={false}
+              blockEvents={false}
+              selectedToDiscard={[]}
+              cardWidthClass="w-28"
+              onPlayCard={noop}
+              onToggleDiscard={noop}
+              onConfirmDiscard={noop}
+              onCancel={noop}
+            />
+            </div>
+            <div className="absolute bottom-0 right-2 flex items-end gap-3">
+              <DeckPiles player={bot} kind="villain" playerIndex={BOT} show="discard" upright uprightWidth="w-28" />
+              <DeckPiles player={bot} kind="villain" playerIndex={BOT} show="deck" upright uprightWidth="w-28" />
+            </div>
           </div>
           </div>
         </Scroller>
@@ -2090,6 +2159,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         <HeroRelocateModal
           target={state.players[state.pendingHeroRelocate.targetIndex]}
           anyLocation={state.pendingHeroRelocate.anyLocation}
+          candidateIds={state.pendingHeroRelocate.candidateIds}
           onResolve={resolveHeroRelocate}
         />
       )}
@@ -2159,6 +2229,27 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       {/* Colère Titanesque : choisir un lieu voisin où agir. */}
       {state.pendingGiantAction && state.pendingGiantAction.playerIndex === HUMAN && (
         <GiantActionModal player={user} onResolve={(loc) => resolveGiantLocation(loc)} />
+      )}
+
+      {/* Préparez-vous au combat ! (Hadès) : choisir un Titan et sa destination. */}
+      {state.pendingTitanMove && state.pendingTitanMove.playerIndex === HUMAN && (
+        <TitanMoveModal
+          player={user}
+          candidateIds={state.pendingTitanMove.titanCandidateIds}
+          paid={state.pendingTitanMove.paid}
+          maxSteps={state.pendingTitanMove.maxSteps}
+          onResolve={resolveTitanMove}
+        />
+      )}
+
+      {/* Héra / Pégase (Fatalité) : le joueur qui pose la Fatalité choisit un Titan. */}
+      {state.pendingTitanSelect && state.pendingTitanSelect.chooserIndex === HUMAN && (
+        <TitanSelectModal
+          owner={state.players[state.pendingTitanSelect.playerIndex]}
+          candidateIds={state.pendingTitanSelect.titanCandidateIds}
+          kind={state.pendingTitanSelect.kind}
+          onResolve={resolveTitanSelect}
+        />
       )}
 
       {/* Carte du Pays Imaginaire : défausser pour jouer un Objet gratuitement. */}

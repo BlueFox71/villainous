@@ -266,13 +266,21 @@ export function LocationCard({
                         ...(isPersifleurBlink
                           ? { animation: 'persifleurCardBlink 0.8s ease-in-out infinite' }
                           : {}),
-                        // Un arceau (Carte Garde transformée) est tournée de 90°.
-                        ...(c.isWicket ? { transform: 'rotate(90deg)' } : {}),
+                        // Un arceau (Carte Garde transformée) OU un Titan entravé
+                        // (Hadès) est tourné de 90°.
+                        ...(c.isWicket || c.trapped ? { transform: 'rotate(90deg)' } : {}),
+                        // Titan entravé : grisé pour signaler qu'il est neutralisé.
+                        ...(c.trapped ? { filter: 'grayscale(0.7) brightness(0.8)' } : {}),
                       }}
                     />
                     {c.isWicket && (
                       <span className="absolute -bottom-1 -left-1 rounded bg-fuchsia-700 px-1 text-[8px] font-bold text-white">
                         Arceau
+                      </span>
+                    )}
+                    {c.trapped && (
+                      <span className="absolute -bottom-1 -left-1 rounded bg-slate-700 px-1 text-[8px] font-bold text-white">
+                        Entravé
                       </span>
                     )}
                     {canGranted && (
