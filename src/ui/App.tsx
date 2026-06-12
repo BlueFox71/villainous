@@ -179,7 +179,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveAllyMoveBuff = useGameStore((s) => s.resolveAllyMoveBuff)
   const resolveFateChoice = useGameStore((s) => s.resolveFateChoice)
   const resolveFetchedHero = useGameStore((s) => s.resolveFetchedHero)
-  const useNeverlandMap = useGameStore((s) => s.useNeverlandMap)
+  // Renommé sans préfixe « use » : c'est une action du store, pas un hook React
+  // (sinon eslint react-hooks la croit appelée hors composant dans le callback).
+  const playNeverlandMap = useGameStore((s) => s.useNeverlandMap)
   const resolveRecover = useGameStore((s) => s.resolveRecover)
   const resolveGiantLocation = useGameStore((s) => s.resolveGiantLocation)
   const resolveTitanMove = useGameStore((s) => s.resolveTitanMove)
@@ -210,10 +212,14 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // Temps de jeu : on mémorise l'instant d'entrée et on verse la durée écoulée
   // au démontage (retour au menu / fermeture). Un ref suit le vilain courant
   // pour créditer le bon compteur même si la partie change.
-  const playStartRef = useRef(Date.now())
+  const playStartRef = useRef(0)
   const villainKeyRef = useRef(humanVillainKey)
-  villainKeyRef.current = humanVillainKey
+  // Mise à jour du ref hors rendu (les refs ne se modifient pas pendant le rendu).
   useEffect(() => {
+    villainKeyRef.current = humanVillainKey
+  }, [humanVillainKey])
+  useEffect(() => {
+    playStartRef.current = Date.now()
     return () => {
       addPlaytime(villainKeyRef.current, Date.now() - playStartRef.current)
     }
@@ -2257,7 +2263,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         <NeverlandMapModal
           player={user}
           onResolve={(itemInstanceId, to, attachTo) => {
-            useNeverlandMap(itemInstanceId, to, attachTo)
+            playNeverlandMap(itemInstanceId, to, attachTo)
             setMapModalOpen(false)
           }}
           onCancel={() => setMapModalOpen(false)}
