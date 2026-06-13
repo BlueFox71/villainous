@@ -1,10 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
+import { PRESENTATION_TWEAK } from '../villainArt'
+import type { VillainKey } from '../store/gameStore'
 
 interface Props {
   /** Noms des deux joueurs (index 0 = vous, 1 = bot). */
   names: [string, string]
   /** Illustrations de présentation des deux vilains (gauche / droite). */
   images?: [string | undefined, string | undefined]
+  /** Clés des deux vilains (gauche / droite) — pour appliquer leur réglage de
+   *  présentation (échelle/décalage), comme sur l'écran de choix. */
+  villainKeys?: [VillainKey, VillainKey]
   /** Appelé une fois le gagnant déterminé : (indexGagnant, [jet0, jet1]). */
   onResult: (winner: number, rolls: [number, number]) => void
 }
@@ -31,7 +36,7 @@ function Die({ value, rolling, win }: { value: number; rolling: boolean; win?: b
  * Jet de 1d20 de début de partie : chaque joueur lance, le plus haut commence.
  * Égalité → relance automatique. Animation puis annonce du gagnant.
  */
-export function StartRollModal({ names, images, onResult }: Props) {
+export function StartRollModal({ names, images, villainKeys, onResult }: Props) {
   const [dice, setDice] = useState<[number, number]>([1, 1])
   const [rolling, setRolling] = useState(true)
   const [winner, setWinner] = useState<number | null>(null)
@@ -92,33 +97,36 @@ export function StartRollModal({ names, images, onResult }: Props) {
       style={{ animation: 'versusFadeIn 0.4s ease-out both' }}
     >
       {/* Présentations des deux vilains, ancrées sur les bords (écran « versus »),
-          qui glissent depuis l'extérieur à l'ouverture. */}
-      {images?.[0] && (
-        <div
-          className="pointer-events-none absolute inset-y-0 left-0 z-0 hidden md:block"
-          style={{ animation: 'versusSlideL 0.7s ease-out both' }}
-        >
-          <img
-            src={images[0]}
-            alt=""
-            aria-hidden
-            className="h-full w-auto max-w-[40vw] object-contain object-left drop-shadow-[0_10px_30px_rgba(0,0,0,0.85)]"
-          />
-        </div>
-      )}
-      {images?.[1] && (
-        <div
-          className="pointer-events-none absolute inset-y-0 right-0 z-0 hidden md:block"
-          style={{ animation: 'versusSlideR 0.7s ease-out both' }}
-        >
-          <img
-            src={images[1]}
-            alt=""
-            aria-hidden
-            className="h-full w-auto max-w-[40vw] -scale-x-100 object-contain object-right drop-shadow-[0_10px_30px_rgba(0,0,0,0.85)]"
-          />
-        </div>
-      )}
+          qui glissent depuis l'extérieur à l'ouverture. Le réglage par vilain
+          (échelle/décalage) est appliqué comme sur l'écran de choix. */}
+      {([0, 1] as const).map((i) => {
+        const src = images?.[i]
+        if (!src) return null
+        const left = i === 0
+        const mirror = left ? 1 : -1
+        const tweak = villainKeys ? PRESENTATION_TWEAK[villainKeys[i]] : undefined
+        const dy = tweak?.versusDyPct ?? tweak?.dyPct ?? 0
+        const transform = tweak
+          ? `translate(${tweak.dxPct ?? 0}%, ${dy}%) scale(${tweak.scale ?? 1}) scaleX(${mirror})`
+          : undefined
+        return (
+          <div
+            key={i}
+            className={`pointer-events-none absolute inset-y-0 z-0 hidden md:block ${left ? 'left-0' : 'right-0'}`}
+            style={{ animation: `${left ? 'versusSlideL' : 'versusSlideR'} 0.7s ease-out both` }}
+          >
+            <img
+              src={src}
+              alt=""
+              aria-hidden
+              style={transform ? { transform, transformOrigin: 'bottom' } : undefined}
+              className={`h-full w-auto max-w-[40vw] object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.85)] ${
+                left ? 'object-left' : tweak ? 'object-right' : '-scale-x-100 object-right'
+              }`}
+            />
+          </div>
+        )
+      })}
 
       <div className="relative z-10 flex flex-col items-center gap-7">
         {/* Vilain 1 — CONTRE — Vilain 2. */}

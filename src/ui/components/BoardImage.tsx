@@ -13,6 +13,17 @@ export const LOCATIONS_LEFT = PAWN_FIRST_LEFT - PAWN_STEP / 2 // = 16 %, bord ga
 // Hauteur de la rangée d'actions du HAUT (en % de l'image) : un Héros la recouvre.
 export const TOP_ACTIONS_HEIGHT = 33 // %
 
+// L'Imposteur — géométrie des COÉQUIPIERS sur le plateau (mesurée sur sa board.png).
+// Demi-écart horizontal entre les 2 cases (actions) du HAUT, par rapport au centre
+// du lieu (≈ position des icônes d'action).
+const CREW_SLOT = 3.9 // %
+// Centre vertical d'un jeton selon sa rangée et son état. « Normal » = au-dessus de
+// l'icône (ne recouvre rien) ; « suspect » = SUR l'icône d'action (la recouvre).
+const CREW_Y: Record<'top' | 'bottom', { normal: number; suspect: number }> = {
+  top: { normal: 7, suspect: 21 },
+  bottom: { normal: 49, suspect: 61 },
+}
+
 // Géométrie du masque « recouvrement Héros » par vilain (les traits des actions
 // ne sont pas au même endroit selon le plateau). `top` = décalage vertical,
 // `height` = hauteur du masque (en % de l'image). À affiner visuellement.
@@ -37,6 +48,12 @@ interface Props {
   /** Lieu dont on NE dessine PAS le recouvrement Héros (Persifleur : on révèle
    *  les actions du haut tant que le joueur n'a pas choisi). */
   unmaskHeroLocationId?: string | null
+  /** L'Imposteur — Tuer : couleurs des Coéquipiers sélectionnables (cliquables). */
+  crewmateCandidates?: string[]
+  /** Handler de clic sur un Coéquipier candidat (couleur). */
+  onCrewmateClick?: (color: string) => void
+  /** Verbe affiché au survol d'un candidat (« Défausser » / « Rassurer »…). */
+  crewmateSelectVerb?: string
 }
 
 /**
@@ -53,6 +70,9 @@ export function BoardImage({
   pawnOutline = '#ffffff',
   hiddenHeroInstanceIds = [],
   unmaskHeroLocationId = null,
+  crewmateCandidates,
+  onCrewmateClick,
+  crewmateSelectVerb = 'Défausser',
 }: Props) {
   const pawnIndex = player.locations.findIndex((l) => l.id === player.pawnLocation)
   const coverColor = VILLAIN_COLOR[player.villain] ?? '#000000'
@@ -82,6 +102,59 @@ export function BoardImage({
           }}
         />
       )}
+
+      {/* L'Imposteur — ses 8 COÉQUIPIERS, posés SUR leur case d'action (slot
+          gauche/droite). On voit ainsi quelle action ils occupent ; suspect = halo
+          rouge SUR l'icône (action recouverte). Deux Coéquipiers sur la même case
+          sont légèrement décalés côte à côte. Sélectionnable = halo jaune cliquable. */}
+      {(() => {
+        const live = (player.crewmates ?? []).filter((c) => !c.discarded)
+        return live.map((crew) => {
+          const i = player.locations.findIndex((l) => l.id === crew.locationId)
+          if (i < 0) return null
+          const center = PAWN_FIRST_LEFT + i * PAWN_STEP
+          const slotX = center + (crew.slot === 0 ? -CREW_SLOT : CREW_SLOT)
+          // Coéquipiers sur la MÊME case (lieu + slot) : décalage interne pour les
+          // voir tous les deux sur l'action.
+          const sameCell = [...live]
+            .filter((c) => c.locationId === crew.locationId && c.slot === crew.slot)
+            .sort((a, b) => (a.color < b.color ? -1 : 1))
+          const m = sameCell.length
+          const k = sameCell.findIndex((c) => c.color === crew.color)
+          const spread = 2.4 // étalement interne d'une case (%)
+          const left = m > 1 ? slotX - spread / 2 + ((k + 0.5) / m) * spread : slotX
+          const top = CREW_Y[crew.row][crew.suspect ? 'suspect' : 'normal']
+          const selectable = crewmateCandidates?.includes(crew.color) ?? false
+          const glow = selectable
+            ? 'drop-shadow(0 0 4px #fde047) drop-shadow(0 0 9px #facc15)'
+            : crew.suspect
+              ? 'drop-shadow(0 0 3px #ff2d2d) drop-shadow(0 0 6px #ff0000)'
+              : 'drop-shadow(0 1px 1px rgba(0,0,0,0.6))'
+          const sizeFactor = m > 1 ? 0.38 : 0.5
+          return (
+            <img
+              key={`crew-${crew.color}`}
+              src={`/cards/imposteur/crew-${crew.color}.png`}
+              alt={`Coéquipier ${crew.color}`}
+              title={
+                selectable
+                  ? `${crewmateSelectVerb} le Coéquipier ${crew.color}`
+                  : `Coéquipier ${crew.color}${crew.suspect ? ' — suspect (recouvre l’action)' : ' — normal'}`
+              }
+              onClick={selectable ? () => onCrewmateClick?.(crew.color) : undefined}
+              className={`absolute z-10 w-auto -translate-x-1/2 -translate-y-1/2 transition-[left,top] duration-500 ease-in-out ${
+                selectable ? 'cursor-pointer animate-pulse' : 'pointer-events-none'
+              }`}
+              style={{
+                height: `${Math.round(player.pawnHeightPx * sizeFactor)}px`,
+                left: `${left}%`,
+                top: `${top}%`,
+                filter: glow,
+              }}
+            />
+          )
+        })
+      })()}
 
       {player.locations.flatMap((loc, i) => {
         // Persifleur : on révèle les actions du haut de ce lieu (pas de recouvrement).

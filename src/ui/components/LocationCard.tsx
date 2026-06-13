@@ -186,12 +186,13 @@ export function LocationCard({
         </div>
       )}
 
-      {placedCards.some((c) => !c.attachedTo && (c.type !== 'hero' || c.hypnotized)) && (
+      {placedCards.some((c) => !c.attachedTo && (c.type !== 'hero' || c.hypnotized) && !c.fromFate) && (
         <div className="flex flex-wrap items-end justify-center gap-1.5">
           {placedCards
             // Alliés/Objets « racine » dans la zone basse. Les Héros sont en haut,
             // SAUF un Héros hypnotisé (Jafar) qui devient un Allié → affiché ici.
-            .filter((c) => !c.attachedTo && (c.type !== 'hero' || c.hypnotized))
+            // Les Objets posés par la Fatalité (`fromFate`) sont dans la zone Fatalité.
+            .filter((c) => !c.attachedTo && (c.type !== 'hero' || c.hypnotized) && !c.fromFate)
             .map((c) => {
               const def = getCardDef(c.cardId)
               const attached = placedCards.filter((a) => a.attachedTo === c.instanceId)

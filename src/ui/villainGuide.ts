@@ -160,4 +160,20 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       "Tiana renchérit toutes ses cartes ; Mama Odie réduit ses Divinations à 2 cartes révélées.",
     ],
   },
+  imposteur: {
+    difficulty: 4,
+    story:
+      "Le saboteur masqué d'Among Us (InnerSloth, 2018). Sous sa combinaison de Coéquipier se cache un Imposteur : il sabote le vaisseau, élimine l'équipage un à un dans les couloirs d'Electrical, du Réacteur, d'Admin et de la Cafétaria, puis fait porter le chapeau aux innocents lors des réunions d'urgence.",
+    playTips: [
+      "Objectif : pose un Sabotage (O2 à Admin, Réacteur au Réacteur) et tiens-le 3 tours.",
+      "Surveille tes 8 Coéquipiers : un Coéquipier « suspect » recouvre l'action sous lui — élimine (Tuer) ou rassure (Assurance) ceux qui te gênent.",
+      "Les Tâches se défaussent quand trop de Coéquipiers s'y rassemblent : le Coéquipier imposteur en exige un de plus et t'ouvre l'action « Jouer une carte ».",
+      "Joue avec leurs déplacements de fin de tour (Porte / Lumière désactivées, Conduit) pour protéger ton Sabotage le temps qu'il faut.",
+    ],
+    counterTips: [
+      "Sa Fatalité ne contient pas de Héros : ce sont des Coéquipiers et des indices (Carte, Vidéo de surveillance) qui le rendent suspect et recouvrent ses actions.",
+      "Corps découvert et Tâche visuelle braquent les soupçons sur lui et font monter le compte à rebours : casse sa fenêtre de 3 tours.",
+      "Majorité défausse ses Objets et Alliés (hors sabotages) ; Réunion d'urgence regroupe les Coéquipiers pour saturer son lieu de Sabotage.",
+    ],
+  },
 }

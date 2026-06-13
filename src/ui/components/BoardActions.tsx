@@ -258,6 +258,35 @@ const ACTION_POS: Record<string, Record<string, Record<string, { x: number; y: n
       'gain-power': { x: 93.1, y: 66.8 },
     },
   },
+  // L'Imposteur : plateau Among Us (panneau objectif à gauche + 4 lieux). Icônes
+  // en 2×2 par lieu ; colonnes ~22.9/30.77 · 43.68/51.5 · 64.5/72.35 · 85.3/93.15,
+  // rangées haut ~21.5 % / bas ~65 %. Mesuré sur board.png.
+  imposteur: {
+    electrical: {
+      fate: { x: 22.9, y: 21.5 },
+      'play-card-top': { x: 30.77, y: 21.5 },
+      'gain-power': { x: 22.9, y: 65 },
+      activate: { x: 30.77, y: 65 },
+    },
+    reacteur: {
+      'move-item-ally': { x: 43.68, y: 21.5 },
+      'gain-power': { x: 51.5, y: 21.5 },
+      'play-card-bottom': { x: 43.68, y: 65 },
+      discard: { x: 51.5, y: 65 },
+    },
+    admin: {
+      'play-card-top': { x: 64.5, y: 21.5 },
+      activate: { x: 72.35, y: 21.5 },
+      'play-card-bottom': { x: 64.5, y: 65 },
+      'gain-power': { x: 72.35, y: 65 },
+    },
+    cafeteria: {
+      'gain-power': { x: 85.3, y: 21.5 },
+      discard: { x: 93.15, y: 21.5 },
+      fate: { x: 85.3, y: 65 },
+      'play-card-bottom': { x: 93.15, y: 65 },
+    },
+  },
 }
 
 interface Props {

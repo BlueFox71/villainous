@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { VILLAIN_REGISTRY, useGameStore, type VillainKey } from '../store/gameStore'
-import { villainPortrait, villainPresentation } from '../villainArt'
+import { villainPortrait, villainPresentation, PRESENTATION_TWEAK } from '../villainArt'
 import { VILLAIN_COLOR, villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from '../villainColors'
 import { Scroller } from '../components/Scroller'
 
@@ -114,6 +114,12 @@ function RandomArt({ side }: { side: 'left' | 'right' }) {
   })
   const src = key ? villainPresentation(key) : undefined
   if (!src) return null
+  // Même réglage de taille/position que la présentation réelle (ex. Imposteur).
+  const tweak = key ? PRESENTATION_TWEAK[key] : undefined
+  const mirror = side === 'right' ? -1 : 1
+  const transform = tweak
+    ? `translate(${tweak.dxPct ?? 0}%, ${tweak.dyPct ?? 0}%) scale(${tweak.scale ?? 1}) scaleX(${mirror})`
+    : undefined
   return (
     <div
       className={`pointer-events-none absolute inset-y-0 z-0 hidden lg:block ${
@@ -126,6 +132,7 @@ function RandomArt({ side }: { side: 'left' | 'right' }) {
           src={src}
           alt=""
           aria-hidden
+          style={transform ? { transform, transformOrigin: 'bottom' } : undefined}
           className={`h-full w-auto max-w-[40vw] object-contain brightness-0 blur-[3px] ${
             side === 'left' ? 'object-left' : 'object-right'
           }`}
@@ -146,13 +153,21 @@ function PresentationArt({ choice, side }: { choice: Choice | null; side: 'left'
   if (choice === 'random') return <RandomArt side={side} />
   const src = choice ? villainPresentation(choice) : undefined
   if (!src) return null
+  // Réglage exceptionnel par vilain (échelle + décalage). Quand présent, on pilote
+  // la transform en inline (mirror inclus) au lieu de la classe -scale-x-100.
+  const tweak = choice ? PRESENTATION_TWEAK[choice] : undefined
+  const mirror = side === 'right' ? -1 : 1
+  const transform = tweak
+    ? `translate(${tweak.dxPct ?? 0}%, ${tweak.dyPct ?? 0}%) scale(${tweak.scale ?? 1}) scaleX(${mirror})`
+    : undefined
   return (
     <img
       src={src}
       alt=""
       aria-hidden
+      style={transform ? { transform, transformOrigin: 'bottom' } : undefined}
       className={`${SIDE_ART_BASE} max-w-[40vw] object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)] ${
-        side === 'left' ? 'left-0 object-left' : 'right-0 object-right -scale-x-100'
+        side === 'left' ? 'left-0 object-left' : tweak ? 'right-0 object-right' : 'right-0 object-right -scale-x-100'
       }`}
     />
   )

@@ -135,6 +135,10 @@ function objectiveScore(p: PlayerState): number {
       if (p.pawnLocation === 'royaume-vaudou') s += 0.15
       return Math.min(1, s)
     }
+    case 'KEEP_SABOTAGE':
+      // L'Imposteur : objectif via la mécanique des Coéquipiers (pas encore
+      // implémentée) → progrès non évalué pour l'instant.
+      return 0
   }
 }
 

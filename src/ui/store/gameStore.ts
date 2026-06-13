@@ -38,9 +38,11 @@ import { hades } from '../../data/villains/hades'
 import { hadesCards } from '../../data/villains/hades.cards'
 import { facilier } from '../../data/villains/facilier'
 import { facilierCards } from '../../data/villains/facilier.cards'
+import { imposteur } from '../../data/villains/imposteur'
+import { imposteurCards } from '../../data/villains/imposteur.cards'
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -52,6 +54,7 @@ export const VILLAIN_REGISTRY = {
   ursula: { def: ursula, cards: ursulaCards, label: 'Ursula' },
   hades: { def: hades, cards: hadesCards, label: 'Hadès' },
   facilier: { def: facilier, cards: facilierCards, label: 'Dr Facilier' },
+  imposteur: { def: imposteur, cards: imposteurCards, label: "L'Imposteur" },
 } as const
 
 /** Qui est contrôlé par un bot. Concept d'UI : le moteur, lui, ne sait pas qui
@@ -368,6 +371,18 @@ interface GameStore {
   useNeverlandMap: (itemInstanceId: string, to: string, attachTo?: string) => void
   /** Opportunisme : reprend en main la carte choisie de la défausse Vilain. */
   resolveRecover: (instanceId: string) => void
+  /** Tuer (L'Imposteur) : défausse le Coéquipier `color` choisi. */
+  resolveCrewmateKill: (color: string) => void
+  /** Tâche visuelle (L'Imposteur) : rend suspect le Coéquipier `color`. */
+  resolveCrewmateSuspect: (color: string) => void
+  /** Tâche visuelle : termine la sélection (moins que le max). */
+  doneCrewmateSuspect: () => void
+  /** Assurance : déplace le Coéquipier rassuré vers `to`. */
+  resolveCrewmateMove: (to: string) => void
+  /** Assurance : ne pas déplacer (termine). */
+  doneCrewmateMove: () => void
+  /** Vidéo de surveillance / Carte : associe l'Objet Fatalité au lieu `locationId`. */
+  resolveFateObjectPlace: (locationId: string) => void
   /** Colère Titanesque : choisit le lieu voisin où effectuer une action. */
   resolveGiantLocation: (locationId: string) => void
   /** Préparez-vous au combat ! (Hadès) : déplace le Titan choisi vers `to`. */
@@ -608,6 +623,18 @@ export const useGameStore = create<GameStore>((set) => ({
     set((s) => ({ state: applyAction(s.state, { type: 'USE_NEVERLAND_MAP', itemInstanceId, to, attachTo }) })),
   resolveRecover: (instanceId) =>
     set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_RECOVER', instanceId }) })),
+  resolveCrewmateKill: (color) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_CREWMATE_KILL', color }) })),
+  resolveCrewmateSuspect: (color) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_CREWMATE_SUSPECT', color }) })),
+  doneCrewmateSuspect: () =>
+    set((s) => ({ state: applyAction(s.state, { type: 'DONE_CREWMATE_SUSPECT' }) })),
+  resolveCrewmateMove: (to) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_CREWMATE_MOVE', to }) })),
+  doneCrewmateMove: () =>
+    set((s) => ({ state: applyAction(s.state, { type: 'DONE_CREWMATE_MOVE' }) })),
+  resolveFateObjectPlace: (locationId) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_FATE_OBJECT_PLACE', locationId }) })),
   resolveGiantLocation: (locationId) =>
     set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_GIANT_LOCATION', locationId }) })),
   resolveTitanMove: (titanInstanceId, to) =>
