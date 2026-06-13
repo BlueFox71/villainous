@@ -9,6 +9,14 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.67',
+    date: '2026-06-13',
+    title: 'Réseau : app accessible depuis l’autre machine',
+    changes: [
+      'Le serveur de dév est désormais exposé sur le réseau local : l’invité ouvre l’URL « Network » affichée par « npm run dev » (ex. http://192.168.1.67:5173) — et NON l’adresse du serveur de liaison (port 8787), qui n’est pas une page web. Attention : le port peut varier (5173, 5174…) selon ce qui est déjà lancé ; utilisez l’URL exacte affichée.',
+    ],
+  },
+  {
     version: '0.66',
     date: '2026-06-13',
     title: 'Jouer en réseau (bêta) : parties à deux sur le même réseau',
