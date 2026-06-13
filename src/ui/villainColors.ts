@@ -3,9 +3,10 @@
 export const VILLAIN_COLOR: Record<string, string> = {
   princeJohn: '#66442B',
   maleficent: '#2C3E32',
-  jafar: '#3A2A5E',
-  reineCoeur: '#6B1020',
-  crochet: '#7A1538',
-  ursula: '#3C2A55',
-  hades: '#1C3B5A',
+  jafar: '#1A1A1A',
+  reineCoeur: '#792225',
+  crochet: '#4E2727',
+  slenderman: '#1A1F2E',
+  ursula: '#3D2235',
+  hades: '#226077',
 }

@@ -9,6 +9,20 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.58',
+    date: '2026-06-13',
+    title: 'Refonte de l’interface + couleurs des méchants',
+    changes: [
+      'Les panneaux des deux camps (nom, jetons, objectif) sont regroupés en bas de l’écran, de part et d’autre de la main ; colonnes des plateaux agrandies, textes d’objectif et jetons plus grands.',
+      'Couleur thématique de chaque méchant appliquée partout : fonds des cases et des panneaux, contours des cases / du plateau / du pion, serpent du lieu courant, bulles du journal.',
+      'Main du bot affichée en éventail (dos cachés) ; piles Fatalité (pioche + défausse) regroupées à gauche des cases Héros, zoom de défausse repositionné.',
+      'Les actions jouées par le bot s’illuminent une par une sur son plateau ; le passage à votre tour attend désormais la fin des showcases adverses.',
+      'Showcase de défausse affiché en niveaux de gris pour mieux l’identifier.',
+      'En-tête épuré : titre centré en majuscules avec effet brillance, boutons « Mode test » et « Quitter le test », sélecteur de vilains réservé au mode test.',
+      'Correctif : le bot Slenderman ne joue plus Téléportation ni Brouillage en l’absence de Héros dans son royaume.',
+    ],
+  },
+  {
     version: '0.57',
     date: '2026-06-12',
     title: 'Nouveau vilain : Hadès',

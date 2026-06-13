@@ -32,6 +32,10 @@ interface Props {
   onHiddenIdsChange?: (instanceIds: string[]) => void
   /** Appelé quand un showcase se referme (utile pour les gains à l'atterrissage). */
   onCardLanded?: (ev: ShowcaseEvent) => void
+  /** Notifie si un showcase est en cours/à venir dans la file (true) ou si tout
+   *  est terminé (false). Sert à attendre la fin des showcases adverses avant de
+   *  basculer au tour du joueur (le pilote du bot se met en pause). */
+  onBusyChange?: (busy: boolean) => void
 }
 
 /**
@@ -40,7 +44,7 @@ interface Props {
  * (Héros posé via Fatalité), le showcase « vole » vers le lieu cible pendant
  * la phase de fermeture.
  */
-export function Showcase({ events, humanIndex, players, onHiddenIdsChange, onCardLanded }: Props) {
+export function Showcase({ events, humanIndex, players, onHiddenIdsChange, onCardLanded, onBusyChange }: Props) {
   const [cursor, setCursor] = useState(events.length)
   const [current, setCurrent] = useState<ShowcaseEvent | null>(null)
   const [closing, setClosing] = useState(false)
@@ -165,6 +169,14 @@ export function Showcase({ events, humanIndex, players, onHiddenIdsChange, onCar
     setDiscardBoxW(discardBoxRef.current?.offsetWidth ?? 0)
   }, [current])
 
+  // Un showcase est affiché ou en attente tant que `current` existe OU qu'il reste
+  // des événements non consommés dans la file. Notifie le parent pour qu'il puisse
+  // attendre la fin (ex. ne basculer au tour du joueur qu'ensuite).
+  const busy = current !== null || cursor < events.length
+  useEffect(() => {
+    onBusyChange?.(busy)
+  }, [busy, onBusyChange])
+
   if (!current) return null
   const def = getCardDef(current.cardId)
   if (!def) return null
@@ -258,7 +270,9 @@ export function Showcase({ events, humanIndex, players, onHiddenIdsChange, onCar
                   key={`${c.id}-${i}`}
                   src={c.image}
                   alt={c.name}
-                  className="w-auto rounded-lg"
+                  // Niveaux de gris + léger assombrissement : signale que la/les
+                  // carte(s) partent à la défausse (retirées du jeu).
+                  className="w-auto rounded-lg grayscale brightness-75"
                   // ≤2 cartes : grandes (256px). Au-delà, on rétrécit pour tenir
                   // sur une seule ligne (plancher 110px).
                   style={{

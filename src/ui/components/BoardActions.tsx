@@ -178,56 +178,56 @@ const ACTION_POS: Record<string, Record<string, Record<string, { x: number; y: n
   // Ursula : même gabarit de plateau (panneau objectif + 4 lieux).
   ursula: {
     repaire: {
-      'gain-power': { x: 22.7, y: 20 },
-      activate: { x: 30.5, y: 20 },
+      'gain-power': { x: 22.7, y: 20.3 },
+      activate: { x: 30.6, y: 20.4 },
       'move-item-ally': { x: 22.7, y: 68 },
       'play-card': { x: 30.5, y: 68 },
     },
     navire: {
-      'gain-power': { x: 43.5, y: 20 },
+      'gain-power': { x: 43.6, y: 20.6 },
       'play-card': { x: 51.4, y: 20 },
       fate: { x: 43.5, y: 68 },
       discard: { x: 51.4, y: 68 },
     },
     rivage: {
-      'play-card-top': { x: 64.3, y: 20 },
-      discard: { x: 72.1, y: 20 },
-      'gain-power': { x: 64.3, y: 68 },
+      'play-card-top': { x: 64.35, y: 20.5 },
+      discard: { x: 72.2, y: 20.2 },
+      'gain-power': { x: 64.4, y: 67.6 },
       'play-card-bottom': { x: 72.1, y: 68 },
     },
     palais: {
-      'move-item-ally': { x: 85.1, y: 20 },
-      fate: { x: 92.9, y: 20 },
+      'move-item-ally': { x: 85.15, y: 20.3 },
+      fate: { x: 92.95, y: 20.3 },
       'move-hero': { x: 85.1, y: 68 },
-      'gain-power': { x: 92.9, y: 68 },
+      'gain-power': { x: 92.95, y: 67.5 },
     },
   },
   // Hadès : même gabarit de plateau (panneau objectif à gauche + 4 lieux).
   // Ordre gauche|droite conforme à la disposition (Enfers, Thèbes, Jardins, Mont Olympe).
   hades: {
     enfers: {
-      'play-card-top': { x: 22.7, y: 20 },
-      'gain-power': { x: 30.5, y: 20 },
-      vanquish: { x: 22.7, y: 68 },
-      'move-item-ally': { x: 30.5, y: 68 },
+      'play-card-top': { x: 22.9, y: 19.3 },
+      'gain-power': { x: 30.77, y: 19.4 },
+      vanquish: { x: 22.9, y: 66 },
+      'move-item-ally': { x: 30.6, y: 66 },
     },
     thebes: {
-      'gain-power': { x: 43.5, y: 20 },
-      'play-card-top': { x: 51.4, y: 20 },
-      fate: { x: 43.5, y: 68 },
-      discard: { x: 51.4, y: 68 },
+      'gain-power': { x: 43.68, y: 19.2 },
+      'play-card-top': { x: 51.5, y: 19.4 },
+      fate: { x: 43.8, y: 66 },
+      discard: { x: 51.5, y: 66.5 },
     },
     jardins: {
-      discard: { x: 64.3, y: 20 },
-      'play-card-top': { x: 72.1, y: 20 },
-      'gain-power': { x: 64.3, y: 68 },
-      'play-card-bottom': { x: 72.1, y: 68 },
+      discard: { x: 64.5, y: 19.4 },
+      'play-card-top': { x: 72.35, y: 19.5 },
+      'gain-power': { x: 64.5, y: 66.6 },
+      'play-card-bottom': { x: 72.3, y: 67 },
     },
     'mont-olympe': {
-      fate: { x: 85.1, y: 20 },
-      'move-item-ally': { x: 92.9, y: 20 },
-      'play-card-bottom': { x: 85.1, y: 68 },
-      'gain-power': { x: 92.9, y: 68 },
+      fate: { x: 85.3, y: 19.5 },
+      'move-item-ally': { x: 93.15, y: 19.6 },
+      'play-card-bottom': { x: 85.3, y: 66.8 },
+      'gain-power': { x: 93.1, y: 66.8 },
     },
   },
 }
@@ -244,6 +244,12 @@ interface Props {
   /** Lieu « actif » pour les actions (par défaut le lieu du pion ; Colère
    *  Titanesque d'Ursula le déplace temporairement vers un lieu voisin). */
   activeLocationId?: string
+  /** Clé `lieu:action` de l'action à mettre en surbrillance (flash jaune one-shot)
+   *  — sert à montrer, une par une, les actions que le bot vient de jouer. */
+  flashKey?: string | null
+  /** N'afficher QUE le bouton en flash (rien d'autre) : utilisé sur le plateau du
+   *  bot, qui ne montre pas ses pastilles d'action en temps normal. */
+  flashOnly?: boolean
   onActionClick: (action: LocationAction) => void
 }
 
@@ -258,6 +264,8 @@ export function BoardActions({
   usedActionIds,
   blinkTopAtLocation = null,
   activeLocationId,
+  flashKey = null,
+  flashOnly = false,
   onActionClick,
 }: Props) {
   const layout = ACTION_POS[player.villain]
@@ -282,22 +290,28 @@ export function BoardActions({
         loc.actions.map((a) => {
           const pos = layout[loc.id]?.[a.id]
           if (!pos) return null
+          // Flash one-shot de l'action que le bot vient de jouer.
+          const flashing = flashKey === `${loc.id}:${a.id}`
+          // Mode bot : on n'affiche QUE le bouton en flash (pas les pastilles neutres).
+          if (flashOnly && !flashing) return null
           const isCurrent = currentLoc === loc.id
           const available = isCurrent && availableActionIds.includes(a.id)
           const used = isCurrent && usedActionIds.includes(a.id)
           // Un Héros posé recouvre la rangée du HAUT de son lieu : on masque ces
           // boutons (sauf s'ils restent jouables, ex. Persifleur → available).
           const heroHere = (player.board[loc.id] ?? []).some((c) => c.type === 'hero')
-          if (a.row === 'top' && heroHere && !available) return null
+          if (a.row === 'top' && heroHere && !available && !flashing) return null
           // Action recouverte par un Héros agrandi voisin → bouton masqué.
-          if (enlargeCovered.has(`${loc.id}:${a.id}`)) return null
+          if (enlargeCovered.has(`${loc.id}:${a.id}`) && !flashing) return null
           // Persifleur : les actions du HAUT du lieu clignotent (choisir l'une d'elles).
           const blink = a.row === 'top' && loc.id === blinkTopAtLocation && available
-          const tone = available
-            ? 'border-yellow-400 bg-yellow-400/10 hover:bg-yellow-400/30 cursor-pointer'
-            : used
-              ? 'border-black/70 bg-black/55'
-              : 'border-white/20 bg-white/5'
+          const tone = flashing
+            ? 'border-yellow-300 bg-yellow-400/40'
+            : available
+              ? 'border-yellow-400 bg-yellow-400/10 hover:bg-yellow-400/30 cursor-pointer'
+              : used
+                ? 'border-black/70 bg-black/55'
+                : 'border-white/20 bg-white/5'
           return (
             <button
               key={`${loc.id}:${a.id}`}
@@ -311,7 +325,11 @@ export function BoardActions({
                 top: `${pos.y}%`,
                 width: `${BUTTON_SIZE}%`,
                 aspectRatio: '1',
-                ...(blink ? { animation: 'persifleurBlink 0.8s ease-in-out infinite' } : {}),
+                ...(flashing
+                  ? { animation: 'actionFlash 0.55s ease-out' }
+                  : blink
+                    ? { animation: 'persifleurBlink 0.8s ease-in-out infinite' }
+                    : {}),
               }}
             />
           )
@@ -324,6 +342,13 @@ export function BoardActions({
         @keyframes persifleurBlink {
           0%, 100% { box-shadow: 0 0 0 0 rgba(250,204,21,0); border-color: rgba(250,204,21,1); background-color: rgba(250,204,21,0.1); }
           50% { box-shadow: 0 0 12px 4px rgba(250,204,21,0.9); border-color: #fff; background-color: rgba(250,204,21,0.5); }
+        }
+        /* Flash one-shot d'une action jouée par le bot (n'anime PAS transform, pour
+           ne pas écraser le centrage -translate des boutons). */
+        @keyframes actionFlash {
+          0% { box-shadow: 0 0 0 0 rgba(250,204,21,0); opacity: 0; }
+          35% { box-shadow: 0 0 16px 6px rgba(250,204,21,0.95); border-color: #fff; opacity: 1; }
+          100% { box-shadow: 0 0 0 0 rgba(250,204,21,0); opacity: 1; }
         }
       `}</style>
     </>

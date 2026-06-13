@@ -7,8 +7,9 @@ import { SnakeBorder } from './SnakeBorder'
 
 /** Couleur du cadre lumineux signalant une Malédiction sur le lieu. */
 const CURSE_COLOR = '#a855f7'
-/** Couleur du cadre lumineux signalant un lieu choisissable (déplacement). */
-const MOVE_COLOR = '#38bdf8'
+/** Couleur du cadre lumineux signalant un lieu choisissable (déplacement) :
+ *  même jaune que les boutons d'action disponibles (Tailwind yellow-400). */
+const MOVE_COLOR = '#facc15'
 
 interface Props {
   location: Location
@@ -134,7 +135,14 @@ export function LocationCard({
       className={`group relative flex min-h-[90px] flex-col gap-1.5 rounded-lg border p-2 transition-colors ${tone} ${
         isPlaceTarget ? 'cursor-pointer ring-2 ring-amber-300' : ''
       } ${isMovable ? 'cursor-pointer' : ''} ${isCurrent ? 'z-30' : ''}`}
-      style={cellColor ? { backgroundColor: `${cellColor}66` } : undefined}
+      style={
+        cellColor
+          ? {
+              backgroundColor: `${cellColor}66`,
+              borderColor: `color-mix(in srgb, ${cellColor}, white 45%)`,
+            }
+          : undefined
+      }
       onClick={handleClick}
       role={clickable ? 'button' : undefined}
     >
@@ -145,7 +153,7 @@ export function LocationCard({
       {isMovable && <GlowBorder color={MOVE_COLOR} radius={8} />}
       {/* Lieu courant (pion présent) : serpent lumineux animé (couleur du camp),
           À L'EXTÉRIEUR — remplace l'ancien encadré bleu/rouge. */}
-      {isCurrent && showCurrentSnake && <SnakeBorder color={accent.ringColor} radius={8} width={4} outset={4} />}
+      {isCurrent && showCurrentSnake && <SnakeBorder color={cellColor ?? accent.ringColor} radius={8} width={4} outset={4} />}
       {/* Nom du lieu en tooltip au survol de la case. */}
       <span className="pointer-events-none absolute left-1/2 top-1 z-30 -translate-x-1/2 whitespace-nowrap rounded bg-black/85 px-1.5 py-0.5 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
         {location.name}
@@ -380,8 +388,8 @@ export function LocationCard({
             e.stopPropagation()
             onMove()
           }}
-          className="sweep-btn mt-auto w-full rounded bg-sky-900 px-2.5 py-1.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg"
-          style={{ ['--sweep-color']: cellColor ?? '#334155' } as CSSProperties}
+          className="sweep-btn mt-auto w-full rounded bg-yellow-400 px-2.5 py-1.5 text-xs font-bold uppercase tracking-wider text-yellow-950 shadow-lg"
+          style={{ ['--sweep-color']: '#ffffff' } as CSSProperties}
         >
           <span>Choisir</span>
         </button>

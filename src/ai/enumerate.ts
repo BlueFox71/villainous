@@ -335,6 +335,13 @@ export function enumerateActions(state: GameState): GameAction[] {
             }
           }
         } else {
+          // Cartes-effets sans intérêt s'il n'y a AUCUN Héros dans le royaume :
+          // Téléportation (se rendre sur le lieu d'un Héros) et Brouillage (faire
+          // les actions recouvertes par un Héros). Le bot ne doit pas les jouer à vide.
+          const needsHeroPresent = (card.effects ?? []).some(
+            (e) => e.type === 'TELEPORT_TO_HERO' || e.type === 'GRANT_USE_COVERED_ACTION',
+          )
+          if (needsHeroPresent && heroesOf(state, state.activePlayer).length === 0) continue
           out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId })
         }
       }

@@ -64,6 +64,7 @@ export function BoardImage({
         src={player.boardImage}
         alt={`Plateau de ${player.villainName}`}
         className={`w-full rounded-lg ${imgClassName}`}
+        style={{ borderColor: `color-mix(in srgb, ${coverColor}, white 45%)` }}
       />
 
       {showPawn && pawnIndex >= 0 && (
@@ -204,12 +205,12 @@ export function BoardImage({
         return (
           <div
             key={`lock-${lockedId}`}
-            className="pointer-events-none absolute z-30 flex items-center justify-center"
+            className="blocked-location pointer-events-none absolute z-30 flex items-center justify-center"
             style={{
               left: `${LOCATIONS_LEFT + i * PAWN_STEP}%`,
-              top: '10.5%',
+              top: '8.7%',
               width: '20.1%',
-              height: '69%',
+              height: '70.5%',
             }}
             title="Lieu verrouillé — Caverne aux Merveilles"
           >

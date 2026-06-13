@@ -24,6 +24,7 @@ import {
 import { titanReachableDests } from '../engine/effects'
 import type { CardInstance, LocationAction, ShowcaseEvent } from '../engine/types'
 import { BLUE, RED } from './accents'
+import { VILLAIN_COLOR } from './villainColors'
 import { PlayerPanel } from './components/PlayerPanel'
 import { Board } from './components/Board'
 import { Hand } from './components/Hand'
@@ -32,6 +33,7 @@ import { BoardImage, LOCATIONS_LEFT } from './components/BoardImage'
 import { BoardActions } from './components/BoardActions'
 import { HeroRow } from './components/HeroRow'
 import { DeckPiles } from './components/DeckPiles'
+import { StacksCards } from './components/StacksCards'
 import { FateModal } from './components/FateModal'
 import { ChoiceModal } from './components/ChoiceModal'
 import { HeroPlacementModal } from './components/HeroPlacementModal'
@@ -305,6 +307,13 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const [hoveredReactionId, setHoveredReactionId] = useState<string | null>(null)
   // instanceId actuellement « en showcase » (à masquer du plateau le temps du vol).
   const [showcaseHiddenIds, setShowcaseHiddenIds] = useState<string[]>([])
+  // Vrai tant qu'un showcase est affiché / en attente. Sert à mettre le pilote du
+  // bot EN PAUSE : il ne jouera son END_TURN (bascule vers le joueur) qu'une fois
+  // les showcases adverses terminés.
+  const [showcaseBusy, setShowcaseBusy] = useState(false)
+  // Flash one-shot (`lieu:action`) de l'action que le BOT vient de jouer, pour la
+  // visualiser sur son plateau (bouton jaune qui apparaît puis disparaît).
+  const [botFlash, setBotFlash] = useState<string | null>(null)
   // Cartes en vol (animation pose main → plateau). Purement décoratif.
   const [flights, setFlights] = useState<CardFlight[]>([])
   const flightSeq = useRef(0)
@@ -481,6 +490,26 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     }
     fxShown.current = fx.length
   }, [state.floatingFx, state.players])
+
+  // Visualisation des actions du BOT : à chaque nouvelle entrée dans usedActionIds
+  // pendant son tour, on fait flasher la pastille de l'action correspondante sur
+  // son plateau (les actions étant déjà espacées de BOT_STEP_MS, elles s'enchaînent
+  // une par une). On ignore les déplacements gratuits (id préfixé « xxx:instanceId »).
+  const prevUsedRef = useRef<string[]>(state.usedActionIds)
+  const botFlashTimer = useRef<number | undefined>(undefined)
+  useEffect(() => {
+    const used = state.usedActionIds
+    const prev = prevUsedRef.current
+    prevUsedRef.current = used
+    if (state.activePlayer !== BOT) return
+    if (used.length <= prev.length) return // reset de tour ou aucune nouvelle action
+    const actionId = used.find((id) => !prev.includes(id) && !id.includes(':'))
+    const loc = state.players[BOT].pawnLocation
+    if (!actionId || !loc) return
+    setBotFlash(`${loc}:${actionId}`)
+    window.clearTimeout(botFlashTimer.current)
+    botFlashTimer.current = window.setTimeout(() => setBotFlash(null), 550)
+  }, [state.usedActionIds, state.activePlayer, state.players])
 
   const isBotTurn = state.status === 'PLAYING' && BOTS[state.activePlayer]
   const isHumanTurn = state.status === 'PLAYING' && state.activePlayer === HUMAN
@@ -852,6 +881,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Mode test : l'adversaire est masqué, on ne le fait pas réagir/jouer.
     if (testMode) return
     if (isBotTurn) {
+      // Attend la fin d'affichage des showcases (Fatalité, défausse, pose de Héros)
+      // avant de poursuivre : ainsi le bot ne joue son END_TURN — donc ne bascule
+      // au tour du joueur — qu'une fois ses showcases terminés.
+      if (showcaseBusy) return
       const humanCanReact = playableConditions(state, HUMAN).length > 0 && !reactionPassed
       if (humanCanReact) return // pause : on attend que l'humain joue ou passe
       const timer = setTimeout(botAct, BOT_STEP_MS)
@@ -860,7 +893,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [isBotTurn, startRollDone, state, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveRecover])
+  }, [isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveRecover])
 
   // Coups légaux / actions : seulement pour le joueur humain et à son tour.
   const legalMoves = isHumanTurn ? getLegalMoves(state) : []
@@ -878,7 +911,6 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const handleAction = clearThen(executeAction)
   const handleFate = clearThen(fate)
   const handleEndTurn = clearThen(endTurn)
-  const handleReset = clearThen(reset)
   // Vilains des deux joueurs (déduits du state) pour pré-remplir le sélecteur.
   const currentVillains: [VillainKey, VillainKey] = [
     state.players[0]?.villain as VillainKey,
@@ -1334,6 +1366,20 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           ? 'condition-ally'
           : 'idle'
 
+  // Défausse en cours (action « Défausser » OU Tyrannie) : cartes sélectionnées,
+  // nombre requis (Tyrannie) et si la confirmation est possible. Sert à la fois
+  // à la main (sélection) et à la case d'actions (boutons Défausser/Annuler).
+  const discardSelected = tyrannyDiscard
+    ? tyrannyPicks
+    : mode?.kind === 'discard'
+      ? mode.selected
+      : []
+  const discardRequired = tyrannyDiscard ? tyrannyDiscard.count : undefined
+  const discardCanConfirm =
+    discardRequired !== undefined
+      ? discardSelected.length === discardRequired
+      : discardSelected.length > 0
+
   // Lieux cliquables comme destination (mode « poser ») : pour un Objet à associer,
   // seuls les lieux portant un Allié ; sinon n'importe quel lieu du joueur.
   // Si le mode 'place' concerne une carte spécifique (Allié/Objet/Malédiction),
@@ -1480,47 +1526,43 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       : 0
 
   const won = state.status === 'WON'
-  const turnLabel = won
-    ? `🏆 ${state.players[state.winner!].villainName} gagne !`
-    : isBotTurn
-      ? `${bot.villainName} joue…`
-      : state.phase === 'MOVE'
-        ? 'À toi : déplace ton pion sur un lieu différent (« Choisir »)'
-        : 'À toi : agis, joue des cartes, puis finis ton tour'
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#0b0a12] text-white">
-      <header className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-2">
-        <h1 className="text-lg font-bold text-purple-200">Disney Villainous</h1>
-        <p className="text-sm text-white/70">
-          Tour {state.turn} · <span className={won ? 'text-amber-300' : 'text-white'}>{turnLabel}</span>
-        </p>
+      <header className="relative flex items-center justify-end gap-3 border-b border-white/10 px-4 py-2">
+        <h1 className="title-shine absolute left-1/2 -translate-x-1/2 text-2xl font-bold uppercase tracking-[0.05em]">
+          Disney Villainous
+        </h1>
         <div className="flex items-center gap-2 text-xs">
-          <span className="text-white/50">Vilains (dev) :</span>
-          <label className="flex items-center gap-1">
-            <span className="text-sky-300">{user.villainName}</span>
-            <select
-              value={currentVillains[0]}
-              onChange={(e) => handlePickVillain(0, e.target.value as VillainKey)}
-              className="rounded bg-black/30 px-1 py-0.5 text-white"
-            >
-              {(Object.entries(VILLAIN_REGISTRY) as [VillainKey, { label: string }][]).map(([k, v]) => (
-                <option key={k} value={k}>{v.label}</option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-1">
-            <span className="text-red-300">{bot.villainName}</span>
-            <select
-              value={currentVillains[1]}
-              onChange={(e) => handlePickVillain(1, e.target.value as VillainKey)}
-              className="rounded bg-black/30 px-1 py-0.5 text-white"
-            >
-              {(Object.entries(VILLAIN_REGISTRY) as [VillainKey, { label: string }][]).map(([k, v]) => (
-                <option key={k} value={k}>{v.label}</option>
-              ))}
-            </select>
-          </label>
+          {testMode && (
+            <>
+              <span className="text-white/50">Vilains (dev) :</span>
+              <label className="flex items-center gap-1">
+                <span className="text-sky-300">{user.villainName}</span>
+                <select
+                  value={currentVillains[0]}
+                  onChange={(e) => handlePickVillain(0, e.target.value as VillainKey)}
+                  className="rounded bg-black/30 px-1 py-0.5 text-white"
+                >
+                  {(Object.entries(VILLAIN_REGISTRY) as [VillainKey, { label: string }][]).map(([k, v]) => (
+                    <option key={k} value={k}>{v.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-1">
+                <span className="text-red-300">{bot.villainName}</span>
+                <select
+                  value={currentVillains[1]}
+                  onChange={(e) => handlePickVillain(1, e.target.value as VillainKey)}
+                  className="rounded bg-black/30 px-1 py-0.5 text-white"
+                >
+                  {(Object.entries(VILLAIN_REGISTRY) as [VillainKey, { label: string }][]).map(([k, v]) => (
+                    <option key={k} value={k}>{v.label}</option>
+                  ))}
+                </select>
+              </label>
+            </>
+          )}
           <button
             onClick={() => {
               enterTestMode()
@@ -1534,7 +1576,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 : 'border-white/20 text-white/80 hover:bg-white/10'
             }`}
           >
-            🧪 Test
+            🧪 Mode test
           </button>
           {testMode && (
             <button
@@ -1545,12 +1587,19 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               {hideTestBar ? '👁 Panneau' : '🙈 Panneau'}
             </button>
           )}
-          <button
-            onClick={() => handleReset()}
-            className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"
-          >
-            Nouvelle partie
-          </button>
+          {testMode && (
+            <button
+              onClick={() => {
+                reset()
+                setTestPicker(null)
+                setTestFateError(null)
+              }}
+              title="Quitter le mode test (relance une partie normale)"
+              className="rounded-lg border border-emerald-400/60 px-3 py-1.5 text-sm text-emerald-200 hover:bg-emerald-500/10"
+            >
+              ✖ Quitter le test
+            </button>
+          )}
           <button
             onClick={() => setShowOptions(true)}
             title="Options (musique, volume)"
@@ -1572,47 +1621,45 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
 
       {/* 3 colonnes : toi (bleu) · journal · bot (rouge). Chacune scrolle en interne.
           En mode test, les deux camps restent visibles (édition live des plateaux). */}
-      <main className="grid min-h-0 flex-1 grid-cols-1 gap-3 p-3 lg:grid-cols-[1fr_15rem_1fr]">
+      <main className="grid min-h-0 flex-1 grid-cols-1 gap-3 p-3 lg:grid-cols-[1fr_13rem_1fr]">
         {/* ----- Colonne joueur (bleu) ----- */}
-        <Scroller element="section" className="min-h-0">
+        <Scroller element="section" className="game-board min-h-0">
           <div className="flex min-h-full flex-col gap-2">
-          <PlayerPanel player={user} accent={BLUE} isActive={state.activePlayer === HUMAN} isWinner={state.winner === HUMAN} />
+          {/* Le panneau (nom + jetons + objectif) est déplacé dans la bande du bas
+              pour rendre de la hauteur à la colonne (moins de scroll). */}
           {/* Séparateur du haut réduit au minimum (le bloc plateau remonte). */}
           <div aria-hidden className="grow-0" />
-          {/* Au-dessus de l'image : pioche/défausse FATALITÉ (marge gauche), verticales
-              et empilées + cases Héros. Les piles sont en position ABSOLUE pour ne pas
-              étirer la rangée. Décalages calés visuellement : la rangée descend de 20 %
-              et les piles remontent de 70 % (de la largeur) → défausse Fatalité juste
-              sous la barre d'objectif, sans toucher la disposition des autres éléments. */}
-          <div className="flex" style={{ marginTop: '8%' }}>
-            <div className="relative" style={{ width: `${LOCATIONS_LEFT}%` }}>
-              <div className="absolute inset-x-0 top-0 flex justify-center" style={{ marginTop: '-53%' }}>
-                <DeckPiles player={user} kind="fate" upright uprightWidth="w-16" />
+          {/* Div du haut, vide pour l'instant (hauteur fixe) — accueillera d'autres
+              piles plus tard. En dessous, `fatality-cases` : StacksCards à gauche
+              puis les 4 cases Héros. */}
+          <div className="w-full">
+            <div className="stacks-top flex h-24 w-full justify-start gap-3" />
+            <div className="fatality-cases flex items-start gap-3" style={{ paddingLeft: '1%' }}>
+              <StacksCards player={user} />
+              <div className="flex-1">
+                <HeroRow
+                  player={user}
+                  strengths={userStrengths}
+                  vanquishTargets={vanquishHeroTargets}
+                  onVanquishPickHero={(id, name) => {
+                    if (mode?.kind === 'play-pick-hero') handlePlayPickHero(id)
+                    else if (mode?.kind === 'condition-pick-hero') handleConditionPickHero(id)
+                    else if (mode?.kind === 'move-hero-pick') handleMoveHeroPick(id)
+                    else handleVanquishPickHero(id, name)
+                  }}
+                  canDiscardDeguisement={isHumanTurn && state.phase === 'ACTION' && user.power >= 2}
+                  onDiscardDeguisement={discardDeguisement}
+                  hiddenInstanceIds={showcaseHiddenIds}
+                  redBlinkInstanceIds={robinBlinkIds}
+                  offset={false}
+                />
               </div>
-            </div>
-            <div className="flex-1">
-              <HeroRow
-                player={user}
-                strengths={userStrengths}
-                vanquishTargets={vanquishHeroTargets}
-                onVanquishPickHero={(id, name) => {
-                  if (mode?.kind === 'play-pick-hero') handlePlayPickHero(id)
-                  else if (mode?.kind === 'condition-pick-hero') handleConditionPickHero(id)
-                  else if (mode?.kind === 'move-hero-pick') handleMoveHeroPick(id)
-                  else handleVanquishPickHero(id, name)
-                }}
-                canDiscardDeguisement={isHumanTurn && state.phase === 'ACTION' && user.power >= 2}
-                onDiscardDeguisement={discardDeguisement}
-                hiddenInstanceIds={showcaseHiddenIds}
-                redBlinkInstanceIds={robinBlinkIds}
-                offset={false}
-              />
             </div>
           </div>
           {/* Plateau (image). Les deux joueurs sont le Prince Jean pour l'instant.
               Un Héros posé masque la rangée d'actions du haut de son lieu. */}
           <div className="relative">
-            <BoardImage player={user} showPawn pawnOutline={BLUE.ringColor} imgClassName="border border-sky-900/60" hiddenHeroInstanceIds={showcaseHiddenIds} unmaskHeroLocationId={persifleurLoc} />
+            <BoardImage player={user} showPawn pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[user.villain]}, white 45%)`} imgClassName="border border-sky-900/60" hiddenHeroInstanceIds={showcaseHiddenIds} unmaskHeroLocationId={persifleurLoc} />
             <BoardActions
               player={user}
               availableActionIds={availableActions.map((a) => a.id)}
@@ -1905,7 +1952,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           {/* Défausse + Pioche Vilain : côte à côte, verticales, poussées en bas
               (remontées de 20 px du bas via mb-5). */}
           <div className="mt-auto mb-5 flex justify-end gap-3 px-2 pt-1">
-            <DeckPiles player={user} kind="villain" playerIndex={HUMAN} show="discard" upright uprightWidth="w-28" />
+            <DeckPiles player={user} kind="villain" playerIndex={HUMAN} show="discard" upright uprightWidth="w-28" zoomClass="bottom-0 right-full mr-1" />
             <DeckPiles player={user} kind="villain" playerIndex={HUMAN} show="deck" upright uprightWidth="w-28" />
           </div>
           </div>
@@ -1914,19 +1961,13 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         {/* ----- Milieu : tour courant + fin de tour, puis journal ----- */}
         <aside className="flex min-h-0 flex-col gap-2">
           <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-            <div className="mb-2 flex items-center justify-center gap-3 text-sm font-semibold">
-              <span className={state.activePlayer === HUMAN && !won ? 'text-sky-300' : 'invisible'}>◀</span>
-              <span className="truncate text-white">
-                {won
-                  ? `🏆 ${state.players[state.winner!].villainName}`
-                  : state.players[state.activePlayer].villainName}
-              </span>
-              <span className={state.activePlayer === BOT && !won ? 'text-red-300' : 'invisible'}>▶</span>
+            <div className="mb-2 text-center text-sm font-semibold text-white">
+              {won ? `🏆 ${state.players[state.winner!].villainName}` : `Tour ${state.turn}`}
             </div>
             <button
               type="button"
               onClick={testMode ? () => testRefreshTurn() : handleEndTurn}
-              disabled={testMode ? false : !canEnd}
+              disabled={testMode ? false : !canEnd || handMode === 'discard'}
               title={testMode ? 'Mode test : nouveau tour — choisis le lieu de ton pion (phase déplacement), repioche, sans passer la main au bot' : undefined}
               className="hs-wrapper classique"
             >
@@ -1972,35 +2013,83 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               </div>
             </div>
           )}
-          <div className="min-h-0 flex-1">
-            <GameLog log={state.log} playerNames={state.players.map((p) => p.villainName)} />
+          <div className="journal min-h-0 flex-1">
+            <GameLog
+              log={state.log}
+              playerNames={state.players.map((p) => p.villainName)}
+              playerColors={state.players.map((p) => VILLAIN_COLOR[p.villain])}
+            />
           </div>
+          {/* Case d'actions : boutons de confirmation/annulation déplacés hors de la
+              main. Apparaît pour tout mode actif (jouer une carte, défausser…). En
+              défausse, « Fin de tour » reste grisé tant qu'on n'a pas cliqué
+              « Défausser » ou « Annuler ». */}
+          {handMode !== 'idle' && (
+            <div className="actions-case rounded-xl border border-amber-400/60 bg-sky-500/20 p-3">
+              {discardRequired !== undefined && (
+                <p className="mb-2 text-center text-[11px] font-medium text-amber-200">
+                  Tyrannie : choisis {discardRequired} carte{discardRequired > 1 ? 's' : ''} à défausser.
+                </p>
+              )}
+              <div className="flex items-center justify-center gap-2">
+                {/* Confirmation de défausse (uniquement en mode défausser). */}
+                {handMode === 'discard' && (
+                  <button
+                    onClick={handleConfirmDiscard}
+                    disabled={!discardCanConfirm}
+                    className="rounded bg-slate-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-500 disabled:opacity-40"
+                  >
+                    Défausser ({discardSelected.length}
+                    {discardRequired !== undefined ? `/${discardRequired}` : ''})
+                  </button>
+                )}
+                {/* Annuler : tout mode SAUF la défausse obligatoire (Tyrannie). */}
+                {discardRequired === undefined && (
+                  <button
+                    onClick={() => setMode(null)}
+                    className="rounded border border-amber-500/60 px-3 py-1.5 text-xs text-amber-300 hover:bg-amber-500/10"
+                  >
+                    Annuler
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </aside>
 
         {/* ----- Colonne bot (rouge) — lecture seule, main cachée. ----- */}
-        <Scroller element="section" className="min-h-0">
+        <Scroller element="section" className="game-board min-h-0">
           <div className="flex min-h-full flex-col gap-2">
-          <PlayerPanel player={bot} accent={RED} isActive={state.activePlayer === BOT} isWinner={state.winner === BOT} />
+          {/* Panneau du bot déplacé dans la bande du bas (cf. colonne joueur). */}
           <div aria-hidden className="grow-0" />
-          {/* Rangée Fatalité (mêmes décalages que le joueur). */}
-          <div className="flex" style={{ marginTop: '8%' }}>
-            <div className="relative" style={{ width: `${LOCATIONS_LEFT}%` }}>
-              <div className="absolute inset-x-0 top-0 flex justify-center" style={{ marginTop: '-53%' }}>
-                <DeckPiles player={bot} kind="fate" upright uprightWidth="w-16" />
+          {/* Même disposition que le joueur (div du haut vide + StacksCards à gauche des 4 cases). */}
+          <div className="w-full">
+            <div className="stacks-top flex h-24 w-full justify-start gap-3" />
+            <div className="fatality-cases flex items-start gap-3" style={{ paddingLeft: '1%' }}>
+              <StacksCards player={bot} />
+              <div className="flex-1">
+                <HeroRow
+                  player={bot}
+                  strengths={botStrengths}
+                  hiddenInstanceIds={showcaseHiddenIds}
+                  redBlinkInstanceIds={robinBlinkIds}
+                  offset={false}
+                />
               </div>
-            </div>
-            <div className="flex-1">
-              <HeroRow
-                player={bot}
-                strengths={botStrengths}
-                hiddenInstanceIds={showcaseHiddenIds}
-                redBlinkInstanceIds={robinBlinkIds}
-                offset={false}
-              />
             </div>
           </div>
           <div className="relative">
-            <BoardImage player={bot} showPawn pawnOutline={RED.ringColor} imgClassName="border border-red-900/60" hiddenHeroInstanceIds={showcaseHiddenIds} />
+            <BoardImage player={bot} showPawn pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[bot.villain]}, white 45%)`} imgClassName="border border-red-900/60" hiddenHeroInstanceIds={showcaseHiddenIds} />
+            {/* Aucune pastille d'action affichée pour le bot, SAUF le flash one-shot
+                de l'action qu'il vient de jouer (pour visualiser ses coups). */}
+            <BoardActions
+              player={bot}
+              availableActionIds={[]}
+              usedActionIds={[]}
+              flashKey={botFlash}
+              flashOnly
+              onActionClick={noop}
+            />
           </div>
           <div className="flex">
             <div style={{ width: `${LOCATIONS_LEFT}%` }} />
@@ -2042,6 +2131,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               attachTargetsAvailable={false}
               blockEvents={false}
               selectedToDiscard={[]}
+              layout="fan"
               cardWidthClass="w-28"
               onPlayCard={noop}
               onToggleDiscard={noop}
@@ -2050,7 +2140,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             />
             </div>
             <div className="absolute bottom-0 right-2 flex items-end gap-3">
-              <DeckPiles player={bot} kind="villain" playerIndex={BOT} show="discard" upright uprightWidth="w-28" />
+              <DeckPiles player={bot} kind="villain" playerIndex={BOT} show="discard" upright uprightWidth="w-28" zoomClass="bottom-0 right-full mr-1" />
               <DeckPiles player={bot} kind="villain" playerIndex={BOT} show="deck" upright uprightWidth="w-28" />
             </div>
           </div>
@@ -2058,31 +2148,38 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         </Scroller>
       </main>
 
-      {/* ----- Main du joueur : éventail ancré en bas (style jeu de cartes en ligne). ----- */}
-      <div
-        data-hand-zone={HUMAN}
-        className="relative z-20 shrink-0 border-t border-white/10 bg-gradient-to-t from-black/60 to-transparent"
-      >
-        <Hand
-          hand={user.hand}
-          accent={BLUE}
-          hidden={false}
-          backImage={user.backVillainImage}
-          mode={handMode}
-          power={user.power}
-          attachTargetsAvailable={anyAllyOnBoard}
-          blockEvents={humanEventsBlocked}
-          costFor={(c) => effectiveCost(state, c)}
-          armedConditionIds={humanReactions.map((c) => c.instanceId)}
-          forcedHoverId={hoveredReactionId}
-          selectedToDiscard={tyrannyDiscard ? tyrannyPicks : mode?.kind === 'discard' ? mode.selected : []}
-          requiredDiscardCount={tyrannyDiscard ? tyrannyDiscard.count : undefined}
-          layout="fan"
-          onPlayCard={handlePlayCard}
-          onToggleDiscard={handleToggleDiscard}
-          onConfirmDiscard={handleConfirmDiscard}
-          onCancel={() => setMode(null)}
-        />
+      {/* ----- Bande du bas : panneau joueur · main (éventail) · panneau adverse.
+          Les panneaux (nom + jetons + objectif) ont quitté les colonnes des plateaux
+          pour leur rendre de la hauteur (moins de scroll), regroupés ici de part et
+          d'autre de la main. ----- */}
+      <div className="bottom-bar relative z-20 grid shrink-0 items-center gap-3 border-t border-white/10 bg-gradient-to-t from-black/60 to-transparent px-3 py-1">
+        {/* Panneau du joueur (gauche, bleu). */}
+        <PlayerPanel player={user} accent={BLUE} isActive={state.activePlayer === HUMAN} isWinner={state.winner === HUMAN} />
+        {/* Main du joueur (centre), légèrement relevée. */}
+        <div data-hand-zone={HUMAN} className="-translate-y-4">
+          <Hand
+            hand={user.hand}
+            accent={BLUE}
+            hidden={false}
+            backImage={user.backVillainImage}
+            mode={handMode}
+            power={user.power}
+            attachTargetsAvailable={anyAllyOnBoard}
+            blockEvents={humanEventsBlocked}
+            costFor={(c) => effectiveCost(state, c)}
+            armedConditionIds={humanReactions.map((c) => c.instanceId)}
+            forcedHoverId={hoveredReactionId}
+            selectedToDiscard={discardSelected}
+            requiredDiscardCount={discardRequired}
+            layout="fan"
+            onPlayCard={handlePlayCard}
+            onToggleDiscard={handleToggleDiscard}
+            onConfirmDiscard={handleConfirmDiscard}
+            onCancel={() => setMode(null)}
+          />
+        </div>
+        {/* Panneau adverse (droite, rouge). */}
+        <PlayerPanel player={bot} accent={RED} isActive={state.activePlayer === BOT} isWinner={state.winner === BOT} />
       </div>
 
       {/* Résolution de Fatalité par le joueur humain (le bot résout tout seul). */}
@@ -2394,6 +2491,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         players={state.players}
         onHiddenIdsChange={setShowcaseHiddenIds}
         onCardLanded={handleCardLanded}
+        onBusyChange={setShowcaseBusy}
       />
     </div>
   )

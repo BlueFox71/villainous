@@ -38,6 +38,7 @@ function Pile({
   onClick,
   upright,
   uprightWidth = 'w-32',
+  zoomClass = 'bottom-0 left-full ml-1',
 }: {
   src?: string
   count: number
@@ -48,6 +49,8 @@ function Pile({
   upright?: boolean
   /** Largeur (classe Tailwind) de la carte en mode `upright`. */
   uprightWidth?: string
+  /** Position du zoom au survol (classes d'ancrage). Défaut : à droite, aligné bas. */
+  zoomClass?: string
 }) {
   const [hover, setHover] = useState(false)
   const clickable = !!onClick && count > 0
@@ -73,10 +76,10 @@ function Pile({
       <span className="absolute -bottom-1 -right-1 rounded-full bg-black/85 px-1 text-[8px] font-mono text-white">
         {count}
       </span>
-      {/* Zoom de la défausse : carte droite, s'ouvre en HAUT-DROITE (évite le
-          débordement bas qui provoquait une scrollbar). */}
+      {/* Zoom de la défausse : carte droite. Position pilotée par `zoomClass`
+          (par défaut à droite, aligné bas). */}
       {zoom && src && hover && (
-        <div className="absolute bottom-0 left-full z-50 ml-1 rounded-lg border border-white/20 bg-[#0b0a12] p-1 shadow-2xl">
+        <div className={`absolute ${zoomClass} z-50 rounded-lg border border-white/20 bg-[#0b0a12] p-1 shadow-2xl`}>
           <img src={src} alt="" className="h-72 w-auto max-w-none rounded" />
         </div>
       )}
@@ -96,10 +99,11 @@ function DiscardModal({
 }) {
   // Ordre : du dessus de la pile (dernière défaussée) vers le fond.
   const ordered = [...cards].reverse()
-  // Carte survolée → aperçu agrandi (rendu en grand au centre, hors du conteneur
-  // défilable pour ne pas être rogné).
-  const [hovered, setHovered] = useState<string | null>(null)
-  const hoveredCard = ordered.find((c) => c.instanceId === hovered)
+  // Carte survolée → aperçu ancré JUSTE AU-DESSUS de la vignette (on mémorise sa
+  // position écran, l'aperçu est rendu en `fixed` hors du conteneur défilable pour
+  // ne pas être rogné par l'`overflow`).
+  const [hovered, setHovered] = useState<{ id: string; rect: DOMRect } | null>(null)
+  const hoveredCard = hovered ? ordered.find((c) => c.instanceId === hovered.id) : undefined
   // Rendu via portail sur <body> : la modale est sinon imbriquée dans la colonne
   // du plateau (conteneur défilable), ce qui empêchait son fond de couvrir tout
   // l'écran (effet « transparent »).
@@ -127,31 +131,44 @@ function DiscardModal({
         {ordered.length === 0 ? (
           <p className="text-sm text-white/50">La défausse est vide.</p>
         ) : (
-          <div className="grid max-h-[70vh] grid-cols-3 gap-3 overflow-y-auto sm:grid-cols-5">
+          <div className="flex max-h-[70vh] flex-wrap justify-center gap-3 overflow-y-auto">
             {ordered.map((c) => (
               <img
                 key={c.instanceId}
                 src={imgOf(c)}
                 alt={c.name}
                 title={c.name}
-                onMouseEnter={() => setHovered(c.instanceId)}
-                onMouseLeave={() => setHovered((h) => (h === c.instanceId ? null : h))}
-                className="w-full cursor-zoom-in rounded-lg border border-white/15 transition hover:border-amber-300"
+                onMouseEnter={(e) =>
+                  setHovered({ id: c.instanceId, rect: e.currentTarget.getBoundingClientRect() })
+                }
+                onMouseLeave={() => setHovered((h) => (h?.id === c.instanceId ? null : h))}
+                className="w-24 cursor-zoom-in rounded-lg border border-white/15 transition hover:border-amber-300"
               />
             ))}
           </div>
         )}
       </div>
-      {/* Aperçu agrandi de la carte survolée (centré, au-dessus de tout). */}
-      {hoveredCard && (
-        <div className="pointer-events-none fixed inset-0 z-[80] flex items-center justify-center">
-          <img
-            src={imgOf(hoveredCard)}
-            alt={hoveredCard.name}
-            className="max-h-[80vh] w-auto rounded-xl border-2 border-amber-300/70 shadow-2xl"
-          />
-        </div>
-      )}
+      {/* Aperçu de la carte survolée, ancré juste AU-DESSUS de la vignette (centré
+          dessus). Bascule en dessous si la place manque en haut de l'écran. */}
+      {hoveredCard && hovered && (() => {
+        const above = hovered.rect.top > 300
+        return (
+          <div
+            className="pointer-events-none fixed z-[80]"
+            style={{
+              left: hovered.rect.left + hovered.rect.width / 2,
+              top: above ? hovered.rect.top - 6 : hovered.rect.bottom + 6,
+              transform: above ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
+            }}
+          >
+            <img
+              src={imgOf(hoveredCard)}
+              alt={hoveredCard.name}
+              className="h-72 w-auto max-w-none rounded-xl border-2 border-amber-300/70 shadow-2xl"
+            />
+          </div>
+        )
+      })()}
     </div>,
     document.body,
   )
@@ -168,6 +185,7 @@ export function DeckPiles({
   show = 'both',
   upright = false,
   uprightWidth = 'w-32',
+  zoomClass,
 }: {
   player: PlayerState
   kind: 'villain' | 'fate'
@@ -182,6 +200,8 @@ export function DeckPiles({
   upright?: boolean
   /** Largeur (classe Tailwind) en mode `upright`. */
   uprightWidth?: string
+  /** Position du zoom de la défausse au survol (classes d'ancrage). */
+  zoomClass?: string
 }) {
   const isFate = kind === 'fate'
   const back = isFate ? player.backFateImage : player.backVillainImage
@@ -202,10 +222,10 @@ export function DeckPiles({
   const discardPile =
     !isFate && playerIndex !== undefined ? (
       <div data-discard-pile={playerIndex}>
-        <Pile src={imgOf(last)} count={discard.length} fate={isFate} zoom upright={upright} uprightWidth={uprightWidth} onClick={openDiscard} />
+        <Pile src={imgOf(last)} count={discard.length} fate={isFate} zoom upright={upright} uprightWidth={uprightWidth} zoomClass={zoomClass} onClick={openDiscard} />
       </div>
     ) : (
-      <Pile src={imgOf(last)} count={discard.length} fate={isFate} zoom upright={upright} uprightWidth={uprightWidth} onClick={openDiscard} />
+      <Pile src={imgOf(last)} count={discard.length} fate={isFate} zoom upright={upright} uprightWidth={uprightWidth} zoomClass={zoomClass} onClick={openDiscard} />
     )
   return (
     <div className="flex flex-col items-center gap-1.5">

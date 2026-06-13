@@ -2,103 +2,123 @@ import type { PlayerState } from '../../engine/types'
 import type { Accent } from '../accents'
 import { useAnimatedNumber } from '../hooks/useAnimatedNumber'
 import { getCardDef } from '../../data/registry'
+import { VILLAIN_COLOR } from '../villainColors'
 
 interface Props {
   player: PlayerState
   accent: Accent
   isActive: boolean
   isWinner: boolean
+  /** Affiche la case objectif dans le panneau (défaut). La passer à `false`
+   *  quand l'objectif est rendu ailleurs (cf. `ObjectiveBox`, bande du bas). */
+  showObjective?: boolean
 }
 
-/** En-tête d'un camp : nom + jetons de pouvoir + progression d'objectif (selon
- *  son type). Affiche une jauge pour POWER_THRESHOLD, 4 pastilles de lieux
- *  pour CURSE_EACH_LOCATION. */
-export function PlayerPanel({ player, accent, isActive, isWinner }: Props) {
+/** En-tête d'un camp : nom + jetons de pouvoir (+ objectif si `showObjective`).
+ *  L'objectif lui-même est rendu par `ObjectiveBox`, réutilisable hors panneau. */
+export function PlayerPanel({ player, accent, isActive, isWinner, showObjective = true }: Props) {
   const displayedPower = useAnimatedNumber(player.power)
+  // Fond teinté à la couleur du méchant (plus marqué quand c'est son tour).
+  const color = VILLAIN_COLOR[player.villain]
   return (
     <div
-      className={`rounded-xl border p-3 transition-colors ${isActive ? accent.panelActive : accent.panelIdle}`}
+      className={`player rounded-xl border p-3 transition-colors ${isActive ? accent.panelActive : accent.panelIdle}`}
+      style={color ? { backgroundColor: `${color}${isActive ? '4d' : '33'}` } : undefined}
     >
       <div className="flex items-center justify-between gap-2">
-        <h2 className={`truncate text-sm font-semibold ${accent.title}`}>{player.villainName}</h2>
+        <h2 className={`truncate text-lg font-semibold ${accent.title}`}>{player.villainName}</h2>
         {isWinner && <span className="shrink-0 text-lg">🏆</span>}
       </div>
 
       <div className="mt-2 flex items-stretch gap-2">
-        {/* Case jetons de pouvoir (à gauche). */}
+        {/* Case jetons de pouvoir (à gauche). Sans l'objectif, elle s'étire. */}
         <div
-          className="flex flex-col items-center justify-center rounded-lg border border-white/15 bg-black/20 px-3 py-1"
+          className={`flex flex-col items-center justify-center rounded-lg border border-white/15 bg-black/20 px-5 py-3 ${
+            showObjective ? '' : 'flex-1'
+          }`}
           title="Jetons de pouvoir"
         >
-          <span className="text-[9px] uppercase tracking-wide text-white/40">Jetons</span>
-          <span className="flex items-center gap-1.5 text-lg font-bold text-amber-100">
-            <img src="/jeton_pouvoir.png" alt="" className="h-5 w-5 rounded-full" />
+          <span className="-mt-1.5 text-[9px] uppercase tracking-wide text-white/40">Jetons</span>
+          <span className="flex items-center gap-1.5 text-3xl font-bold text-amber-100">
+            <img src="/jeton_pouvoir.png" alt="" className="h-9 w-9 rounded-full" />
             {displayedPower}
           </span>
         </div>
 
-        {/* Case objectif (à droite). */}
-        <div className="flex flex-1 flex-col justify-center rounded-lg border border-white/15 bg-black/20 px-3 py-1">
-          {player.objective.type === 'POWER_THRESHOLD' ? (
-            <PowerThresholdProgress
-              player={player}
-              accent={accent}
-              isWinner={isWinner}
-              threshold={player.objective.threshold}
-            />
-          ) : player.objective.type === 'CARDS_IN_REALM' ? (
-            <CardsInRealmProgress
-              player={player}
-              accent={accent}
-              isWinner={isWinner}
-              cardId={player.objective.cardId}
-              count={player.objective.count}
-              label="Pages"
-            />
-          ) : player.objective.type === 'CONTROL_HERO' ? (
-            <ControlHeroProgress
-              player={player}
-              accent={accent}
-              isWinner={isWinner}
-              heroCardId={player.objective.heroCardId}
-              itemCardId={player.objective.itemCardId}
-              itemLocationId={player.objective.itemLocationId}
-            />
-          ) : player.objective.type === 'ROYAL_CROQUET' ? (
-            <RoyalCroquetProgress player={player} accent={accent} isWinner={isWinner} />
-          ) : player.objective.type === 'DEFEAT_HERO_AT_LOCATION' ? (
-            <DefeatHeroProgress
-              player={player}
-              accent={accent}
-              isWinner={isWinner}
-              heroCardId={player.objective.heroCardId}
-              locationId={player.objective.locationId}
-            />
-          ) : player.objective.type === 'ITEMS_AT_LOCATION' ? (
-            <ItemsAtLocationProgress
-              player={player}
-              accent={accent}
-              isWinner={isWinner}
-              itemCardIds={player.objective.itemCardIds}
-              locationId={player.objective.locationId}
-            />
-          ) : player.objective.type === 'UNTRAPPED_TITANS_AT_LOCATION' ? (
-            <TitansAtLocationProgress
-              player={player}
-              accent={accent}
-              isWinner={isWinner}
-              locationId={player.objective.locationId}
-              count={player.objective.count}
-            />
-          ) : (
-            <CurseEachLocationProgress
-              player={player}
-              accent={accent}
-              isWinner={isWinner}
-            />
-          )}
-        </div>
+        {/* Case objectif (à droite) — masquable quand rendue ailleurs. */}
+        {showObjective && <ObjectiveBox player={player} accent={accent} isWinner={isWinner} />}
       </div>
+    </div>
+  )
+}
+
+/** Case « objectif » d'un camp : progression selon le type d'objectif. Extraite
+ *  de `PlayerPanel` pour pouvoir être affichée séparément (ex. bande du bas). */
+export function ObjectiveBox({
+  player,
+  accent,
+  isWinner,
+}: {
+  player: PlayerState
+  accent: Accent
+  isWinner: boolean
+}) {
+  return (
+    <div className="flex flex-1 flex-col justify-center rounded-lg border border-white/15 bg-black/20 px-3 py-1">
+      {player.objective.type === 'POWER_THRESHOLD' ? (
+        <PowerThresholdProgress
+          player={player}
+          accent={accent}
+          isWinner={isWinner}
+          threshold={player.objective.threshold}
+        />
+      ) : player.objective.type === 'CARDS_IN_REALM' ? (
+        <CardsInRealmProgress
+          player={player}
+          accent={accent}
+          isWinner={isWinner}
+          cardId={player.objective.cardId}
+          count={player.objective.count}
+          label="Pages"
+        />
+      ) : player.objective.type === 'CONTROL_HERO' ? (
+        <ControlHeroProgress
+          player={player}
+          accent={accent}
+          isWinner={isWinner}
+          heroCardId={player.objective.heroCardId}
+          itemCardId={player.objective.itemCardId}
+          itemLocationId={player.objective.itemLocationId}
+        />
+      ) : player.objective.type === 'ROYAL_CROQUET' ? (
+        <RoyalCroquetProgress player={player} accent={accent} isWinner={isWinner} />
+      ) : player.objective.type === 'DEFEAT_HERO_AT_LOCATION' ? (
+        <DefeatHeroProgress
+          player={player}
+          accent={accent}
+          isWinner={isWinner}
+          heroCardId={player.objective.heroCardId}
+          locationId={player.objective.locationId}
+        />
+      ) : player.objective.type === 'ITEMS_AT_LOCATION' ? (
+        <ItemsAtLocationProgress
+          player={player}
+          accent={accent}
+          isWinner={isWinner}
+          itemCardIds={player.objective.itemCardIds}
+          locationId={player.objective.locationId}
+        />
+      ) : player.objective.type === 'UNTRAPPED_TITANS_AT_LOCATION' ? (
+        <TitansAtLocationProgress
+          player={player}
+          accent={accent}
+          isWinner={isWinner}
+          locationId={player.objective.locationId}
+          count={player.objective.count}
+        />
+      ) : (
+        <CurseEachLocationProgress player={player} accent={accent} isWinner={isWinner} />
+      )}
     </div>
   )
 }
@@ -118,13 +138,13 @@ function PowerThresholdProgress({
   const pct = Math.min(100, (animated / threshold) * 100)
   return (
     <>
-      <div className="mb-1 flex justify-between text-[10px]">
+      <div className="mb-1 flex justify-between text-sm">
         <span className={accent.accentText}>Objectif</span>
         <span className="font-mono text-white">
           {animated} / {threshold}
         </span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-black/40">
+      <div className="h-2 w-full overflow-hidden rounded-full bg-white/15">
         <div
           className={`h-full rounded-full transition-all duration-300 ${isWinner ? 'bg-amber-400' : accent.gauge}`}
           style={{ width: `${pct}%` }}
@@ -157,13 +177,13 @@ function CardsInRealmProgress({
   const pct = Math.min(100, (animated / count) * 100)
   return (
     <>
-      <div className="mb-1 flex justify-between text-[10px]">
+      <div className="mb-1 flex justify-between text-sm">
         <span className={accent.accentText}>{label}</span>
         <span className="font-mono text-white">
           {animated} / {count}
         </span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-black/40">
+      <div className="h-2 w-full overflow-hidden rounded-full bg-white/15">
         <div
           className={`h-full rounded-full transition-all duration-300 ${isWinner ? 'bg-amber-400' : accent.gauge}`}
           style={{ width: `${pct}%` }}
@@ -193,13 +213,13 @@ function TitansAtLocationProgress({
   const locName = player.locations.find((l) => l.id === locationId)?.name ?? locationId
   return (
     <>
-      <div className="mb-1 flex justify-between text-[10px]">
+      <div className="mb-1 flex justify-between text-sm">
         <span className={accent.accentText}>Titans · {locName}</span>
         <span className="font-mono text-white">
           {animated} / {count}
         </span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-black/40">
+      <div className="h-2 w-full overflow-hidden rounded-full bg-white/15">
         <div
           className={`h-full rounded-full transition-all duration-300 ${isWinner ? 'bg-amber-400' : accent.gauge}`}
           style={{ width: `${pct}%` }}
@@ -238,7 +258,7 @@ function ControlHeroProgress({
   const done = steps.filter((s) => s.ok).length
   return (
     <>
-      <div className="mb-1 flex justify-between text-[10px]">
+      <div className="mb-1 flex justify-between text-sm">
         <span className={accent.accentText}>Objectif</span>
         <span className="font-mono text-white">{done} / {steps.length}</span>
       </div>
@@ -248,7 +268,7 @@ function ControlHeroProgress({
             key={i}
             title={s.title}
             className={`h-2 flex-1 rounded-full ${
-              s.ok ? (isWinner ? 'bg-amber-400' : accent.gauge) : 'bg-black/40'
+              s.ok ? (isWinner ? 'bg-amber-400' : accent.gauge) : 'bg-white/15'
             }`}
           />
         ))}
@@ -273,7 +293,7 @@ function RoyalCroquetProgress({
   const done = filled.filter(Boolean).length
   return (
     <>
-      <div className="mb-1 flex justify-between text-[10px]">
+      <div className="mb-1 flex justify-between text-sm">
         <span className={accent.accentText}>Arceaux</span>
         <span className="font-mono text-white">{done} / {filled.length}</span>
       </div>
@@ -283,7 +303,7 @@ function RoyalCroquetProgress({
             key={i}
             title={player.locations[i].name}
             className={`h-2 flex-1 rounded-full ${
-              ok ? (isWinner ? 'bg-amber-400' : accent.gauge) : 'bg-black/40'
+              ok ? (isWinner ? 'bg-amber-400' : accent.gauge) : 'bg-white/15'
             }`}
           />
         ))}
@@ -315,7 +335,7 @@ function DefeatHeroProgress({
   const status = step === 0 ? 'Hors-jeu' : step === 1 ? targetLoc!.name : `✓ ${targetName}`
   return (
     <>
-      <div className="mb-1 flex justify-between text-[10px]">
+      <div className="mb-1 flex justify-between text-sm">
         <span className={accent.accentText}>{heroName}</span>
         <span className="font-mono text-white">{status}</span>
       </div>
@@ -325,7 +345,7 @@ function DefeatHeroProgress({
             key={i}
             title={i === 0 ? 'Peter Pan dans le royaume' : `Peter Pan sur ${targetName}`}
             className={`h-2 flex-1 rounded-full ${
-              step > i ? (isWinner ? 'bg-amber-400' : accent.gauge) : 'bg-black/40'
+              step > i ? (isWinner ? 'bg-amber-400' : accent.gauge) : 'bg-white/15'
             }`}
           />
         ))}
@@ -352,7 +372,7 @@ function ItemsAtLocationProgress({
   const atLoc = itemCardIds.filter((id) => cell.some((c) => c.cardId === id && !c.attachedTo)).length
   return (
     <>
-      <div className="mb-1 flex justify-between text-[10px]">
+      <div className="mb-1 flex justify-between text-sm">
         <span className={accent.accentText}>{locName}</span>
         <span className="font-mono text-white">{atLoc} / {itemCardIds.length}</span>
       </div>
@@ -363,7 +383,7 @@ function ItemsAtLocationProgress({
             <div
               key={id}
               title={getCardDef(id)?.name ?? id}
-              className={`h-2 flex-1 rounded-full ${ok ? (isWinner ? 'bg-amber-400' : accent.gauge) : 'bg-black/40'}`}
+              className={`h-2 flex-1 rounded-full ${ok ? (isWinner ? 'bg-amber-400' : accent.gauge) : 'bg-white/15'}`}
             />
           )
         })}
@@ -387,7 +407,7 @@ function CurseEachLocationProgress({
   const done = filled.filter(Boolean).length
   return (
     <>
-      <div className="mb-1 flex justify-between text-[10px]">
+      <div className="mb-1 flex justify-between text-sm">
         <span className={accent.accentText}>Malédictions</span>
         <span className="font-mono text-white">{done} / {filled.length}</span>
       </div>
@@ -397,7 +417,7 @@ function CurseEachLocationProgress({
             key={i}
             title={player.locations[i].name}
             className={`h-2 flex-1 rounded-full ${
-              ok ? (isWinner ? 'bg-amber-400' : accent.gauge) : 'bg-black/40'
+              ok ? (isWinner ? 'bg-amber-400' : accent.gauge) : 'bg-white/15'
             }`}
           />
         ))}

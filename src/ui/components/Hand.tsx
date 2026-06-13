@@ -57,18 +57,52 @@ export function Hand({
   armedConditionIds = [],
   forcedHoverId = null,
   selectedToDiscard,
-  requiredDiscardCount,
+  // requiredDiscardCount / onConfirmDiscard / onCancel : les boutons d'action
+  // (Défausser / Annuler) vivent désormais dans la « actions-case » (colonne du
+  // milieu) — voir App. On garde ces props dans l'interface pour ne pas casser les
+  // appelants, sans les lire ici.
   layout = 'panel',
   cardWidthClass,
   onPlayCard,
   onToggleDiscard,
-  onConfirmDiscard,
-  onCancel,
 }: Props) {
   // instanceId de la carte survolée localement, pour l'aperçu zoom.
   const [hovered, setHovered] = useState<string | null>(null)
 
+  const fan = layout === 'fan'
+
   if (hidden) {
+    // Main cachée (adversaire) : on n'affiche que des dos de cartes. En éventail
+    // (`fan`), on reprend la MÊME géométrie que la main du joueur (angle + arc),
+    // mais sans révéler ni survol, et à la taille fixe des dos (w-24, inchangée).
+    if (fan) {
+      return (
+        <section className="relative flex w-full flex-col items-center px-2 pb-1">
+          <div className="flex items-end justify-center pt-2">
+            {hand.map((ci, i) => {
+              const mid = (hand.length - 1) / 2
+              const off = i - mid
+              const fanAngle = off * 5 // degrés par cran
+              const fanLift = Math.abs(off) * Math.abs(off) * 3 // px vers le bas (arc)
+              return (
+                <img
+                  key={ci.instanceId}
+                  src={backImage}
+                  alt="Carte cachée"
+                  className="m-0 w-24 shrink-0 rounded-lg border border-white/10 opacity-90"
+                  style={{
+                    marginLeft: i === 0 ? 0 : '-2.5rem',
+                    transformOrigin: 'bottom center',
+                    transform: `translateY(${fanLift}px) rotate(${fanAngle}deg)`,
+                    zIndex: i,
+                  }}
+                />
+              )
+            })}
+          </div>
+        </section>
+      )
+    }
     return (
       <section className={`rounded-xl border p-2 ${accent.panelIdle}`}>
         <div className="flex flex-wrap justify-center gap-1.5">
@@ -86,7 +120,6 @@ export function Hand({
   }
 
   const active = mode !== 'idle'
-  const fan = layout === 'fan'
 
   return (
     <section
@@ -96,53 +129,12 @@ export function Hand({
           : `rounded-xl border p-2 ${active ? 'border-amber-400/70 bg-amber-400/5' : accent.panelIdle}`
       }
     >
-      {active && (
-        <div
-          className={
-            fan
-              ? 'mb-1 flex items-center justify-center gap-2'
-              : 'mb-1 flex items-center justify-between gap-2'
-          }
-        >
-          {requiredDiscardCount !== undefined ? (
-            <span className="text-[11px] font-medium text-amber-200">
-              Tyrannie : choisis {requiredDiscardCount} carte{requiredDiscardCount > 1 ? 's' : ''} à défausser.
-            </span>
-          ) : (
-            <span />
-          )}
-          <div className="flex items-center gap-2">
-            {mode === 'discard' && (
-              <button
-                onClick={onConfirmDiscard}
-                disabled={
-                  requiredDiscardCount !== undefined
-                    ? selectedToDiscard.length !== requiredDiscardCount
-                    : selectedToDiscard.length === 0
-                }
-                className="rounded bg-slate-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-slate-500 disabled:opacity-40"
-              >
-                Défausser ({selectedToDiscard.length}
-                {requiredDiscardCount !== undefined ? `/${requiredDiscardCount}` : ''})
-              </button>
-            )}
-            {/* Défausse obligatoire (Tyrannie) : pas d'annulation possible. */}
-            {requiredDiscardCount === undefined && (
-              <button
-                onClick={onCancel}
-                className="rounded border border-amber-500/60 px-2 py-1 text-[11px] text-amber-300 hover:bg-amber-500/10"
-              >
-                Annuler
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
+      {/* Les boutons d'action (Défausser / Annuler) vivent désormais dans la
+          « actions-case » de la colonne du milieu (voir App), pour tous les modes. */}
       <div
         className={
           fan
-            ? 'flex items-end justify-center pt-6'
+            ? 'flex items-end justify-center pt-2'
             : 'flex flex-wrap justify-center gap-1.5'
         }
       >
@@ -194,13 +186,13 @@ export function Hand({
               data-hand-card={ci.instanceId}
               onMouseEnter={() => setHovered(ci.instanceId)}
               onMouseLeave={() => setHovered((h) => (h === ci.instanceId ? null : h))}
-              className={`relative m-0 shrink-0 ${cardWidthClass ?? (fan ? 'w-48' : 'w-24')} ${dimmed ? 'opacity-40' : ''} ${
+              className={`relative m-0 shrink-0 ${cardWidthClass ?? (fan ? 'w-36' : 'w-24')} ${dimmed ? 'opacity-40' : ''} ${
                 fan ? 'transition-transform duration-150 ease-out' : ''
               }`}
               style={
                 fan
                   ? {
-                      marginLeft: i === 0 ? 0 : '-4.75rem',
+                      marginLeft: i === 0 ? 0 : '-3.5rem',
                       transformOrigin: 'bottom center',
                       transform: isHovered
                         ? 'translateY(-3.5rem) rotate(0deg) scale(1.6)'
