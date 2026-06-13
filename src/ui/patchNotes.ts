@@ -9,6 +9,14 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.69',
+    date: '2026-06-13',
+    title: 'Réseau : écran « versus » au lancement',
+    changes: [
+      'En réseau, la partie s’ouvre désormais sur l’écran « votre méchant — CONTRE — l’adversaire » (avec la voix d’intro), du point de vue de chaque joueur, comme en solo — mais sans jet de dé (l’hôte commence).',
+    ],
+  },
+  {
     version: '0.68',
     date: '2026-06-13',
     title: 'Réseau : nouveau parcours « Nouvelle partie » + choix des vilains en direct',

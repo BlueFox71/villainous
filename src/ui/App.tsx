@@ -280,9 +280,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const [mode, setMode] = useState<Mode>(null)
   const [mapModalOpen, setMapModalOpen] = useState(false)
   const [showOptions, setShowOptions] = useState(false)
-  // Jet de dé de début de partie (qui commence). Sauté en mode test ET en réseau
-  // (v1 : l'hôte commence — activePlayer 0 de l'état initial ; pas de jet/compensation).
-  const [startRollDone, setStartRollDone] = useState(testMode || gameMode !== 'solo')
+  // Intro de début de partie. Sautée en mode test. En réseau : présentation
+  // « versus » SANS jet de dé (v1 : l'hôte commence — activePlayer 0).
+  const [startRollDone, setStartRollDone] = useState(testMode)
   // Affiche « À vous de jouer » (4 s) au début de chaque tour du joueur humain.
   const [showTurnSplash, setShowTurnSplash] = useState(false)
   const lastHumanTurnRef = useRef<number | null>(null)
@@ -2749,11 +2749,27 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       {!startRollDone && gameMode === 'solo' && (
         <StartRollModal
           names={[state.players[HUMAN].villainName, state.players[BOT].villainName]}
-          images={[villainPresentation(humanVillainKey), villainPresentation(opponentVillainKey)]}
+          images={[
+            villainPresentation(villainKeyOf(state.players[HUMAN].villain)),
+            villainPresentation(villainKeyOf(state.players[BOT].villain)),
+          ]}
           onResult={(winner, rolls) => {
             setStartingPlayer(winner, rolls)
             setStartRollDone(true)
           }}
+        />
+      )}
+
+      {/* Réseau : présentation « versus » (sans jet de dé) du point de vue local. */}
+      {!startRollDone && gameMode !== 'solo' && (
+        <StartRollModal
+          versusOnly
+          names={[state.players[HUMAN].villainName, state.players[BOT].villainName]}
+          images={[
+            villainPresentation(villainKeyOf(state.players[HUMAN].villain)),
+            villainPresentation(villainKeyOf(state.players[BOT].villain)),
+          ]}
+          onDone={() => setStartRollDone(true)}
         />
       )}
 
