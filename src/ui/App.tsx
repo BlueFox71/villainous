@@ -57,6 +57,7 @@ import { TitanMoveModal } from './components/TitanMoveModal'
 import { TitanSelectModal } from './components/TitanSelectModal'
 import { StartRollModal } from './components/StartRollModal'
 import { MusicPlayer } from './components/MusicPlayer'
+import { playVillainIntro } from './villainVoices'
 import { Showcase } from './components/Showcase'
 import { TestFateBar } from './components/TestFateBar'
 import { TestChecklist } from './components/TestChecklist'
@@ -226,6 +227,16 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       addPlaytime(villainKeyRef.current, Date.now() - playStartRef.current)
     }
   }, [addPlaytime])
+
+  // Voix d'intro : « mon vilain » → « Contre » → « vilain adverse », une seule
+  // fois en entrant dans la partie (jamais en mode test). Le ref évite tout
+  // rejeu si les clés (stables sur une partie) déclenchent un nouveau rendu.
+  const introPlayedRef = useRef(false)
+  useEffect(() => {
+    if (testMode || introPlayedRef.current) return
+    introPlayedRef.current = true
+    playVillainIntro(humanVillainKey, opponentVillainKey)
+  }, [testMode, humanVillainKey, opponentVillainKey])
 
   // Victoire/défaite : enregistrée une seule fois quand la partie se termine.
   const resultRecordedRef = useRef(false)

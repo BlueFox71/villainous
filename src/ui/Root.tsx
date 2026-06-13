@@ -4,10 +4,11 @@ import { MainMenu } from './screens/MainMenu'
 import { VillainList } from './screens/VillainList'
 import { VillainSelect } from './screens/VillainSelect'
 import { Profile } from './screens/Profile'
+import { SoundTest } from './screens/SoundTest'
 import { MenuMusicPlayer } from './components/MenuMusicPlayer'
 import { playClick } from './sfx'
 
-type Screen = 'menu' | 'select' | 'game' | 'villains' | 'profile'
+type Screen = 'menu' | 'select' | 'game' | 'villains' | 'profile' | 'sounds'
 
 /**
  * Racine de l'application : aiguille entre le menu principal, le choix du vilain,
@@ -37,17 +38,21 @@ export default function Root() {
       <VillainList onBack={() => setScreen('menu')} />
     ) : screen === 'profile' ? (
       <Profile onBack={() => setScreen('menu')} />
+    ) : screen === 'sounds' ? (
+      <SoundTest onBack={() => setScreen('menu')} />
     ) : (
       <MainMenu
         onNewGame={() => setScreen('select')}
         onVillainList={() => setScreen('villains')}
         onProfile={() => setScreen('profile')}
+        onSoundTest={() => setScreen('sounds')}
       />
     )
   return (
     <>
       {inner}
-      <MenuMusicPlayer />
+      {/* La banque de sons sert à écouter les bruitages : on coupe la musique de menu. */}
+      {screen !== 'sounds' && <MenuMusicPlayer />}
     </>
   )
 }

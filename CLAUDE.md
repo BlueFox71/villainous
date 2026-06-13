@@ -121,7 +121,8 @@ le câbler dans : `data/registry.ts` (`allCards`), `ui/store/gameStore.ts`
 - En cas de doute sur une règle exacte de Villainous, **demande** avant de coder.
 - Reste cohérent avec le code alentour (densité de commentaires, nommage, idiomes
   — les unions discriminées avec commentaires explicatifs sont la norme).
-- Ne committe que sur demande ; si tu es sur `main`, crée une branche d'abord.
+- Ne committe que sur demande. **On committe toujours directement sur `main`** :
+  ne crée pas de branche, ne propose pas de PR.
 - **Avant chaque commit, ajoute une note de version** en tête de `PATCH_NOTES`
   (`src/ui/patchNotes.ts`) : nouvelle `version` (incrémentée), `date`, `title`
   court et `changes` résumant les modifications en langage joueur (FR).

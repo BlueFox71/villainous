@@ -9,6 +9,15 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.59',
+    date: '2026-06-13',
+    title: 'Sons : voix d’intro + banque de sons',
+    changes: [
+      'À l’entrée d’une partie, une séquence vocale se joue : voix de votre méchant, « Contre », puis voix du méchant adverse (une variante tirée au hasard parmi quatre à chaque fois).',
+      'Nouvelle page « Banque de sons » accessible depuis le menu principal : parcourir et écouter tous les sons (recherche, filtre par catégorie, précédent/suivant, lecture automatique enchaînée, volume).',
+    ],
+  },
+  {
     version: '0.58',
     date: '2026-06-13',
     title: 'Refonte de l’interface + couleurs des méchants',

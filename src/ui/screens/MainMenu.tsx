@@ -10,6 +10,8 @@ interface Props {
   onVillainList: () => void
   /** Ouvrir l'écran de profil (statistiques). */
   onProfile: () => void
+  /** Ouvrir la page de test des sons. */
+  onSoundTest: () => void
 }
 
 /** Un bouton de menu réutilisant le style « HearthStone » (cf. index.css). */
@@ -62,7 +64,7 @@ function PatchNotesPanel() {
  * Menu principal : logo, entrées (Nouvelle partie, Liste des villains, Options),
  * et un panneau de notes de version listant les changements récents.
  */
-export function MainMenu({ onNewGame, onVillainList, onProfile }: Props) {
+export function MainMenu({ onNewGame, onVillainList, onProfile, onSoundTest }: Props) {
   const [showOptions, setShowOptions] = useState(false)
 
   return (
@@ -102,6 +104,7 @@ export function MainMenu({ onNewGame, onVillainList, onProfile }: Props) {
         <MenuButton label="Nouvelle partie" onClick={onNewGame} />
         <MenuButton label="Liste des villains" onClick={onVillainList} />
         <MenuButton label="Mon profil" onClick={onProfile} />
+        <MenuButton label="Banque de sons" onClick={onSoundTest} />
         <MenuButton label="Options" onClick={() => setShowOptions(true)} />
       </nav>
 
