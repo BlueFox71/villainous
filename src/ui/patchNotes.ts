@@ -11,98 +11,15 @@ export const PATCH_NOTES: PatchNote[] = [
   {
     version: '0.72',
     date: '2026-06-13',
-    title: 'Réseau : l’adversaire patiente pendant une Condition à choix',
+    title: 'Mode multijoueur : jouer à deux sur le même réseau local',
     changes: [
-      'Quand vous jouez une Condition qui demande un choix (sélectionner un Allié, un Héros, un lieu…), l’adversaire est désormais bloqué avec le message « {votre méchant} joue une condition ! » le temps que vous la résolviez. Dès que la Condition est jouée (ou annulée), il reprend son tour.',
-    ],
-  },
-  {
-    version: '0.71',
-    date: '2026-06-13',
-    title: 'Réseau : les Conditions jouables en réaction',
-    changes: [
-      'En partie réseau, vous pouvez désormais jouer une Condition (Avarice, Lâcheté…) pendant le tour de l’adversaire : le coup était jusqu’ici rejeté (rien ne se passait). L’hôte valide qu’il s’agit bien d’une Condition réellement déclenchable avant de l’appliquer.',
-    ],
-  },
-  {
-    version: '0.70',
-    date: '2026-06-13',
-    title: 'Réseau : correctifs (affiche du tour, flash d’action) + bouton Quitter',
-    changes: [
-      'L’affiche « À vous de jouer » montre désormais VOTRE méchant (et non celui de l’adversaire) côté invité.',
-      'Le flash sur une action jouée par l’adversaire apparaît maintenant aussi sur votre écran (il ne tombait pas en réseau).',
-      'Nouveau bouton « Quitter » en partie réseau, avec confirmation : l’autre joueur est prévenu (« L’autre joueur a quitté la partie ») et renvoyé à l’accueil ; le salon est libéré. Une coupure de connexion est gérée de la même façon.',
-    ],
-  },
-  {
-    version: '0.69',
-    date: '2026-06-13',
-    title: 'Réseau : écran « versus » au lancement',
-    changes: [
-      'En réseau, la partie s’ouvre désormais sur l’écran « votre méchant — CONTRE — l’adversaire » (avec la voix d’intro), du point de vue de chaque joueur, comme en solo — mais sans jet de dé (l’hôte commence).',
-    ],
-  },
-  {
-    version: '0.68',
-    date: '2026-06-13',
-    title: 'Réseau : nouveau parcours « Nouvelle partie » + choix des vilains en direct',
-    changes: [
-      '« Jouer en réseau » disparaît du menu principal : tout passe désormais par « Nouvelle partie », qui propose trois choix en deux blocs — « Partie en solo » d’un côté, « Héberger une partie » / « Rejoindre une partie » de l’autre.',
-      'En réseau, on se connecte d’abord (code de salon), PUIS les deux joueurs arrivent ensemble sur l’écran « Choix des vilains » : chacun choisit le sien et voit en direct le choix de l’autre. Un vilain déjà pris par l’adversaire est grisé (plus de doublon possible).',
-      'L’hôte lance la partie une fois les deux vilains choisis ; l’invité patiente le temps que l’hôte lance.',
-    ],
-  },
-  {
-    version: '0.67',
-    date: '2026-06-13',
-    title: 'Réseau : app accessible depuis l’autre machine',
-    changes: [
-      'Le serveur de dév est désormais exposé sur le réseau local : l’invité ouvre l’URL « Network » affichée par « npm run dev » (ex. http://192.168.1.67:5173) — et NON l’adresse du serveur de liaison (port 8787), qui n’est pas une page web. Attention : le port peut varier (5173, 5174…) selon ce qui est déjà lancé ; utilisez l’URL exacte affichée.',
-    ],
-  },
-  {
-    version: '0.66',
-    date: '2026-06-13',
-    title: 'Jouer en réseau (bêta) : parties à deux sur le même réseau',
-    changes: [
-      'Nouveau menu « Jouer en réseau » : affrontez un autre joueur sur le même réseau local. L’hôte lance le serveur de liaison (commande « npm run relay »), crée un salon et obtient un code à 4 lettres ; l’autre joueur ouvre la même page depuis l’adresse de l’hôte, choisit « Rejoindre » et saisit le code.',
-      'Chacun choisit son propre vilain dans le lobby. Une fois connectés, la partie démarre et chacun voit SON plateau comme « le sien » (point de vue relativisé).',
-      'Seul le joueur dont c’est le tour peut agir ; l’autre voit la partie se synchroniser en direct.',
-      'Limites de cette première version : l’hôte commence (pas de jet de dé ni de compensation en réseau) et les Conditions jouées en réaction pendant le tour adverse ne sont pas encore prises en charge en réseau (à venir).',
-    ],
-  },
-  {
-    version: '0.65',
-    date: '2026-06-13',
-    title: 'Chantier multijoueur (4/6) : branchement des coups',
-    changes: [
-      'Tous les coups de jeu passent désormais par un point d’entrée unique (toujours en préparation, sans effet sur le jeu solo) : en solo ils s’appliquent comme avant ; en réseau, ils seront envoyés à l’hôte. Étape invisible qui prépare le branchement de la partie à deux.',
-    ],
-  },
-  {
-    version: '0.64',
-    date: '2026-06-13',
-    title: 'Chantier multijoueur (3/6) : arbitrage des tours',
-    changes: [
-      'Mise en place de l’« arbitre » de partie à deux (toujours en préparation, sans effet sur le jeu solo) : l’ordinateur hôte valide chaque coup (seul le joueur dont c’est le tour peut jouer), l’applique et renvoie l’état complet à l’autre joueur, qui se synchronise.',
-    ],
-  },
-  {
-    version: '0.63',
-    date: '2026-06-13',
-    title: 'Chantier multijoueur (2/6) : tuyauterie réseau',
-    changes: [
-      'Mise en place de la connexion réseau pour la future partie à deux (toujours en préparation, sans effet sur le jeu solo) : un petit serveur de liaison à lancer sur l’ordinateur hôte permet aux deux navigateurs de s’échanger des messages sur le même réseau.',
-      'Le protocole d’échange (demandes d’action, diffusion de l’état, salon de jeu) et le transport sont posés et testés.',
-    ],
-  },
-  {
-    version: '0.62',
-    date: '2026-06-13',
-    title: 'Chantier multijoueur (1/6) : fondations',
-    changes: [
-      'Début des travaux pour jouer à deux sur le même réseau (encore en préparation, pas encore jouable). Cette version ne change rien au jeu solo contre le bot.',
-      'Réorganisation interne : la notion de « siège » (humain local / humain distant / bot) et le calcul de « à qui la main ? » sont désormais centralisés, pour préparer proprement les tours en réseau.',
+      'Affrontez un autre joueur sur le même réseau local. Depuis « Nouvelle partie », trois choix : « Partie en solo » (contre le bot), « Héberger une partie » ou « Rejoindre une partie ».',
+      'Mise en place : sur l’ordinateur hôte, lancez le serveur de liaison (« npm run relay ») ; l’invité ouvre l’URL « Network » affichée par « npm run dev » (ex. http://192.168.1.67:5173 — et NON le port 8787 du serveur de liaison ; le port de l’app peut varier), choisit « Rejoindre » et saisit le code de salon à 4 lettres.',
+      'Choix des vilains en direct : une fois connectés, les deux joueurs choisissent leur vilain sur le même écran et voient le choix de l’autre en temps réel ; un vilain déjà pris est grisé (pas de doublon). L’hôte lance ensuite la partie.',
+      'En jeu : écran « versus » au lancement (avec la voix d’intro), point de vue relativisé (chacun se voit en haut, avec SON méchant sur ses affiches), et le plateau se synchronise en direct — seul le joueur dont c’est le tour peut agir, l’autre suit.',
+      'Conditions en réaction : jouez vos Conditions (Avarice, Lâcheté…) pendant le tour adverse ; si elles demandent un choix (Allié, Héros, lieu), l’adversaire patiente avec « {méchant} joue une condition ! » jusqu’à la résolution.',
+      'Bouton « Quitter » (avec confirmation) : l’autre joueur est prévenu et renvoyé à l’accueil, et le salon est libéré ; une coupure de connexion est gérée de la même façon.',
+      'Limites de cette version : l’hôte commence toujours (pas de jet de dé ni de compensation en réseau), et la reconnexion n’est pas encore gérée.',
     ],
   },
   {
