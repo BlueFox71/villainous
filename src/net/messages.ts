@@ -38,6 +38,10 @@ export interface PassMsg { type: 'PASS' }
 export interface JoinMsg { type: 'JOIN'; name?: string }
 /** Choix (ou retrait) de vilain pendant le lobby — synchronisé en direct. */
 export interface SelectVillainMsg { type: 'SELECT_VILLAIN'; villainKey: string | null }
+/** Le joueur non-actif est en train de préparer une Condition (sélection d'une
+ *  cible) : l'adversaire actif doit patienter. `reacting` true au début, false
+ *  à la fin (Condition jouée ou annulée). */
+export interface ReactingMsg { type: 'REACTING'; reacting: boolean; villainName?: string }
 /** Quitte la partie. */
 export interface LeaveMsg { type: 'LEAVE' }
 
@@ -66,7 +70,7 @@ export interface PongMsg { type: 'PONG' }
 
 /** Union de tous les messages « jeu ». */
 export type NetMessage =
-  | ActionRequest | PassMsg | JoinMsg | SelectVillainMsg | LeaveMsg
+  | ActionRequest | PassMsg | JoinMsg | SelectVillainMsg | ReactingMsg | LeaveMsg
   | StateMsg | LobbyMsg | AssignMsg | RejectMsg
   | PingMsg | PongMsg
 

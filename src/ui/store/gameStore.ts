@@ -346,6 +346,9 @@ interface GameStore {
   /** Renseigné quand l'autre joueur a quitté / la connexion est perdue : l'UI
    *  affiche un avis puis renvoie à l'accueil. null sinon. */
   netLeftNotice: string | null
+  /** Nom du vilain de l'autre joueur quand il prépare une Condition (sélection
+   *  d'une cible) : l'UI bloque le joueur actif le temps qu'il la joue. null sinon. */
+  peerReacting: string | null
   /** État du lobby (choix des vilains en direct) : seats[0] = hôte, seats[1] =
    *  invité. null hors lobby. */
   lobby: LobbySeat[] | null
@@ -360,6 +363,9 @@ interface GameStore {
   joinHost: (code: string, host?: string) => void
   /** Pendant le lobby : choisit (ou retire avec null) SON vilain ; synchronisé. */
   selectVillain: (villainKey: VillainKey | null) => void
+  /** Réseau : signale à l'adversaire que je prépare (`on`=true) ou termine
+   *  (`on`=false) une Condition en réaction, pour le bloquer le temps voulu. */
+  setReacting: (on: boolean, villainName: string) => void
   /** Hôte uniquement : lance la partie une fois les deux vilains choisis. */
   launchGame: () => void
   /** Quitte volontairement la partie réseau en prévenant l'autre joueur (LEAVE),
@@ -519,6 +525,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   hostRoom: null,
   netError: null,
   netLeftNotice: null,
+  peerReacting: null,
   lobby: null,
   testMode: false,
   submit: (action) => {
@@ -585,10 +592,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
         onAssign: (seat) => set({ localPlayerIndex: seat, seats: seat === 0 ? ['local', 'remote'] : ['remote', 'local'] }),
         onState: (state) => set({ state, netStatus: 'playing' }),
         onLeave: () => handlePeerGone(set, get, 'L’autre joueur a quitté la partie.'),
+        onReacting: (m) => set({ peerReacting: m.reacting ? (m.villainName ?? '') : null }),
       },
     })
     activeSession = session
     set({ mode: 'client', localPlayerIndex: 1, seats: ['remote', 'local'], netStatus: 'connecting', netError: null, lobby: null })
+  },
+  setReacting: (on, villainName) => {
+    activeConnection?.send({ type: 'REACTING', reacting: on, villainName })
   },
   selectVillain: (villainKey) => {
     const { mode } = get()
@@ -616,6 +627,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       callbacks: {
         onState: (state) => set({ state }),
         onLeave: () => handlePeerGone(set, get, 'L’autre joueur a quitté la partie.'),
+        onReacting: (m) => set({ peerReacting: m.reacting ? (m.villainName ?? '') : null }),
       },
     })
     activeSession = session
@@ -628,7 +640,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   leaveNet: () => {
     teardownNet()
-    set({ mode: 'solo', seats: SOLO_SEATS, localPlayerIndex: 0, netStatus: 'idle', hostRoom: null, netError: null, netLeftNotice: null, lobby: null })
+    set({ mode: 'solo', seats: SOLO_SEATS, localPlayerIndex: 0, netStatus: 'idle', hostRoom: null, netError: null, netLeftNotice: null, peerReacting: null, lobby: null })
   },
   enterTestMode: () => set({ state: buildTestState(), testMode: true }),
   testInsertCard: (playerIndex, locationId, cardId) =>
@@ -854,7 +866,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     teardownNet()
     set({
       state: newGame(villains), testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0,
-      mode: 'solo', netStatus: 'idle', hostRoom: null, netError: null, netLeftNotice: null, lobby: null,
+      mode: 'solo', netStatus: 'idle', hostRoom: null, netError: null, netLeftNotice: null, peerReacting: null, lobby: null,
     })
   },
   botAct: () =>

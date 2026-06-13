@@ -210,6 +210,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const quitNet = useGameStore((s) => s.quitNet)
   const leaveNet = useGameStore((s) => s.leaveNet)
   const netLeftNotice = useGameStore((s) => s.netLeftNotice)
+  const peerReacting = useGameStore((s) => s.peerReacting)
+  const setReacting = useGameStore((s) => s.setReacting)
   // Contrôleur de chaque siège : remplace l'ancien BOTS[]. seats[i] === 'bot'
   // ⇒ l'UI auto-résout/enchaîne ce siège ; sinon c'est un humain (local/remote).
   const seats = useGameStore((s) => s.seats)
@@ -589,6 +591,17 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     const t = window.setTimeout(() => setShowTurnSplash(false), 4000)
     return () => window.clearTimeout(t)
   }, [state.activePlayer, state.turn, state.status, startRollDone, testMode, HUMAN])
+
+  // Réseau : prévient l'adversaire quand je prépare une Condition (sélection d'une
+  // cible) pour qu'il patiente, et le libère quand je la joue ou l'annule.
+  const reactingSentRef = useRef(false)
+  useEffect(() => {
+    if (gameMode === 'solo') return
+    const reacting = !!mode && mode.kind.startsWith('condition-pick')
+    if (reacting === reactingSentRef.current) return
+    reactingSentRef.current = reacting
+    setReacting(reacting, state.players[HUMAN].villainName)
+  }, [mode, gameMode, setReacting, state, HUMAN])
 
   const isBotTurn = state.status === 'PLAYING' && seats[state.activePlayer] === 'bot'
   const isHumanTurn = state.status === 'PLAYING' && state.activePlayer === HUMAN
@@ -2809,6 +2822,17 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 Quitter
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* RÉSEAU : l'adversaire prépare une Condition → on bloque le joueur actif. */}
+      {peerReacting && !netLeftNotice && (
+        <div className="fixed inset-0 z-[75] flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px]">
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-amber-400/40 bg-[#140d24]/90 px-8 py-6 text-center">
+            <span className="text-3xl">⏳</span>
+            <p className="text-lg font-bold text-amber-200">{peerReacting} joue une condition !</p>
+            <p className="text-sm text-white/60">Patiente le temps qu’il la résolve…</p>
           </div>
         </div>
       )}

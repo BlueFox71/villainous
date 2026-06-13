@@ -9,6 +9,14 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.72',
+    date: '2026-06-13',
+    title: 'Réseau : l’adversaire patiente pendant une Condition à choix',
+    changes: [
+      'Quand vous jouez une Condition qui demande un choix (sélectionner un Allié, un Héros, un lieu…), l’adversaire est désormais bloqué avec le message « {votre méchant} joue une condition ! » le temps que vous la résolviez. Dès que la Condition est jouée (ou annulée), il reprend son tour.',
+    ],
+  },
+  {
     version: '0.71',
     date: '2026-06-13',
     title: 'Réseau : les Conditions jouables en réaction',

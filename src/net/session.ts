@@ -40,6 +40,8 @@ export interface SessionCallbacks {
   onJoin?: (msg: Extract<NetMessage, { type: 'JOIN' }>) => void
   /** L'autre joueur a quitté volontairement la partie (message LEAVE). */
   onLeave?: () => void
+  /** L'autre joueur prépare (ou termine) une Condition en réaction. */
+  onReacting?: (msg: Extract<NetMessage, { type: 'REACTING' }>) => void
 }
 
 /** Le siège `seat` a-t-il le droit de soumettre `action` dans `state` ?
@@ -131,6 +133,9 @@ export function createHostSession(opts: {
         case 'LEAVE':
           callbacks.onLeave?.()
           break
+        case 'REACTING':
+          callbacks.onReacting?.(msg)
+          break
         case 'PASS':
         case 'PING':
           break
@@ -176,6 +181,9 @@ export function createClientSession(opts: {
           break
         case 'LEAVE':
           callbacks.onLeave?.()
+          break
+        case 'REACTING':
+          callbacks.onReacting?.(msg)
           break
         default:
           break
