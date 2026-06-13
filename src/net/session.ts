@@ -18,6 +18,7 @@
 import type { GameAction, GameState } from '../engine/types'
 import { applyAction } from '../engine/actions'
 import { whoseInput } from '../engine/turn'
+import { playableConditions } from '../engine/rules'
 import type { NetMessage, SeatKind } from './messages'
 
 /** Canal d'émission minimal (cf. Connection.send). */
@@ -41,10 +42,17 @@ export interface SessionCallbacks {
   onLeave?: () => void
 }
 
-/** Le siège `seat` a-t-il le droit de soumettre une action dans `state` ?
- *  Règle de base : seul le joueur que le moteur attend peut agir. (Les réactions
- *  Condition du joueur non-actif seront ajoutées à l'étape 6.) */
-export function canSubmit(state: GameState, seat: number): boolean {
+/** Le siège `seat` a-t-il le droit de soumettre `action` dans `state` ?
+ *  - Coup normal : seul le joueur que le moteur attend (whoseInput) peut agir.
+ *  - Réaction : une Condition (Avarice, Lâcheté…) peut être jouée par le joueur
+ *    NON-actif `seat`, si elle est réellement déclenchable (playableConditions). */
+export function canSubmit(state: GameState, action: GameAction, seat: number): boolean {
+  if (action.type === 'PLAY_CONDITION') {
+    return (
+      action.playerIndex === seat &&
+      playableConditions(state, seat).some((c) => c.instanceId === action.instanceId)
+    )
+  }
   return whoseInput(state) === seat
 }
 
@@ -93,7 +101,7 @@ export function createHostSession(opts: {
 
   /** Tente d'appliquer `action` au nom de `fromSeat`. */
   const submit = (action: GameAction, fromSeat: number) => {
-    if (!canSubmit(state, fromSeat)) {
+    if (!canSubmit(state, action, fromSeat)) {
       // Le distant est notifié ; pour un coup local illégal on prévient juste l'UI.
       if (fromSeat === remoteSeat) transport.send({ type: 'REJECT', reason: 'pas-ton-tour' })
       else callbacks.onReject?.('pas-ton-tour')

@@ -9,6 +9,14 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.71',
+    date: '2026-06-13',
+    title: 'Réseau : les Conditions jouables en réaction',
+    changes: [
+      'En partie réseau, vous pouvez désormais jouer une Condition (Avarice, Lâcheté…) pendant le tour de l’adversaire : le coup était jusqu’ici rejeté (rien ne se passait). L’hôte valide qu’il s’agit bien d’une Condition réellement déclenchable avant de l’appliquer.',
+    ],
+  },
+  {
     version: '0.70',
     date: '2026-06-13',
     title: 'Réseau : correctifs (affiche du tour, flash d’action) + bouton Quitter',

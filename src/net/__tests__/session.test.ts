@@ -114,9 +114,18 @@ describe('session hôte/client (1v1)', () => {
 })
 
 describe('canSubmit', () => {
-  it('autorise uniquement le joueur attendu', () => {
+  it('autorise uniquement le joueur attendu pour un coup normal', () => {
     const s = twoPlayerGame() // activePlayer = 0
-    expect(canSubmit(s, 0)).toBe(true)
-    expect(canSubmit(s, 1)).toBe(false)
+    const endTurn = { type: 'END_TURN' } as const
+    expect(canSubmit(s, endTurn, 0)).toBe(true)
+    expect(canSubmit(s, endTurn, 1)).toBe(false)
+  })
+
+  it('réaction Condition : refusée si mauvais siège ou carte non jouable', () => {
+    const s = twoPlayerGame()
+    // Siège ≠ playerIndex → refus (on ne joue que SA Condition).
+    expect(canSubmit(s, { type: 'PLAY_CONDITION', playerIndex: 1, instanceId: 'x' }, 0)).toBe(false)
+    // Carte absente / non déclenchée → refus (playableConditions ne la contient pas).
+    expect(canSubmit(s, { type: 'PLAY_CONDITION', playerIndex: 1, instanceId: 'inconnue' }, 1)).toBe(false)
   })
 })
