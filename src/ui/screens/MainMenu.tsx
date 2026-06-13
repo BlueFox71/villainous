@@ -68,26 +68,29 @@ export function MainMenu({ onNewGame, onVillainList, onProfile, onSoundTest }: P
   const [showOptions, setShowOptions] = useState(false)
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center gap-14 overflow-hidden bg-[#0b0a12] p-6 text-white">
-      {/* Image de fond floutée + voile sombre pour ne pas gêner le premier plan. */}
-      <div
-        className="absolute inset-0 z-0 bg-cover bg-center"
-        style={{ backgroundImage: 'url(/menu_bg_disney.jpg)' }}
-        aria-hidden
-      />
-      <div
-        className="absolute inset-0 z-0"
-        style={{
-          background:
-            'radial-gradient(120% 90% at 50% 0%, rgba(37,20,71,0.55) 0%, rgba(19,12,36,0.75) 45%, rgba(11,10,18,0.9) 100%)',
-        }}
-        aria-hidden
-      />
+    <div className="relative flex min-h-screen flex-col items-center justify-center gap-14 overflow-hidden p-6 text-white">
+      {/* Arrière-plan (photo + voile + orbes) fourni par <MenuBackground/> à la racine. */}
 
       {/* Notes de version : ancrées en haut à gauche. */}
       <div className="absolute left-6 top-6 z-10">
         <PatchNotesPanel />
       </div>
+
+      {/* Profil : avatar rond ancré en haut à droite. */}
+      <button
+        type="button"
+        onClick={onProfile}
+        title="Mon profil"
+        aria-label="Mon profil"
+        className="group absolute right-6 top-6 z-10 flex flex-col items-center gap-1.5"
+      >
+        <span className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-white/25 bg-black/40 text-2xl text-amber-200 shadow-lg backdrop-blur-sm transition group-hover:border-amber-300/80 group-hover:bg-black/60">
+          👤
+        </span>
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-white/60 transition group-hover:text-amber-200">
+          Mon profil
+        </span>
+      </button>
 
       <header className="relative z-10 text-center">
         <img
@@ -103,12 +106,12 @@ export function MainMenu({ onNewGame, onVillainList, onProfile, onSoundTest }: P
       <nav className="relative z-10 flex w-[32rem] max-w-[90vw] flex-col gap-5">
         <MenuButton label="Nouvelle partie" onClick={onNewGame} />
         <MenuButton label="Liste des villains" onClick={onVillainList} />
-        <MenuButton label="Mon profil" onClick={onProfile} />
-        <MenuButton label="Banque de sons" onClick={onSoundTest} />
         <MenuButton label="Options" onClick={() => setShowOptions(true)} />
       </nav>
 
-      {showOptions && <OptionsModal onClose={() => setShowOptions(false)} />}
+      {showOptions && (
+        <OptionsModal onClose={() => setShowOptions(false)} onSoundTest={onSoundTest} />
+      )}
     </div>
   )
 }

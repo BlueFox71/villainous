@@ -1,5 +1,4 @@
 import { useGameStore } from '../store/gameStore'
-import { villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from '../villainColors'
 
 interface Props {
   /** Aller au choix des vilains (partie solo). */
@@ -36,11 +35,10 @@ export function GameModeSelect({ onChooseVillains, onNetwork, onBack }: Props) {
   const host = () => { startHost(); onNetwork() }
   const join = () => { leaveNet(); onNetwork() }
 
-  const pageBackground = villainsBackground(DEFAULT_TINT_A, DEFAULT_TINT_B)
-
   return (
-    <div className="villain-bg flex h-screen flex-col bg-[#0a0814] text-white" style={{ backgroundImage: pageBackground }}>
-      <header className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+    <div className="relative flex h-screen flex-col overflow-hidden text-white">
+      {/* Arrière-plan (photo + voile + orbes) fourni par <MenuBackground/> à la racine. */}
+      <header className="relative z-10 flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
         <h1 className="text-lg font-bold text-purple-200">Nouvelle partie</h1>
         <button
           type="button"
@@ -51,7 +49,7 @@ export function GameModeSelect({ onChooseVillains, onNetwork, onBack }: Props) {
         </button>
       </header>
 
-      <main className="flex min-h-0 flex-1 flex-col items-center justify-center gap-8 px-6">
+      <main className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center gap-8 px-6">
         {/* Bloc SOLO */}
         <section className="flex w-[28rem] max-w-[90vw] flex-col gap-3">
           <h2 className="text-center text-xs uppercase tracking-[0.3em] text-white/40">Contre l’ordinateur</h2>

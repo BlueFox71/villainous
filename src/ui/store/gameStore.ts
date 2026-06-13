@@ -21,6 +21,7 @@ import { chooseAction, chooseReaction } from '../../ai/heuristicBot'
 import { connect, type Connection } from '../../net/connection'
 import { createClientSession, createHostSession, type ClientSession, type HostSession, type Session } from '../../net/session'
 import type { LobbySeat } from '../../net/messages'
+import { isTauri, ensureRelay, lanAddresses } from '../../net/desktop'
 import { buildDeckInstances } from '../../data/types'
 import { getCardDef } from '../../data/registry'
 import { princeJohn } from '../../data/villains/princeJohn'
@@ -94,9 +95,10 @@ let activeSession: HostSession | Session | null = null
 /** Connexion réseau active (relais). Idem : hors état réactif. */
 let activeConnection: Connection | null = null
 
-/** URL du relais. L'invité ayant chargé l'app depuis l'hôte, `location.hostname`
- *  pointe déjà sur la machine hôte ; on peut donc déduire l'adresse (override
- *  possible). */
+/** URL du relais. En WEB, l'invité ayant chargé l'app depuis l'hôte,
+ *  `location.hostname` pointe déjà sur la machine hôte (override possible). En
+ *  .exe (Tauri), `host` est fourni explicitement : 127.0.0.1 pour l'hôte (relais
+ *  embarqué local), l'IP saisie pour l'invité. */
 function relayUrl(host?: string): string {
   const h = host || (typeof location !== 'undefined' ? location.hostname : 'localhost')
   return `ws://${h}:${RELAY_PORT}`
@@ -341,6 +343,9 @@ interface GameStore {
   netStatus: NetStatus
   /** Code de salon (hôte) à communiquer à l'invité ; null hors hébergement. */
   hostRoom: string | null
+  /** App .exe (Tauri) uniquement : adresses IPv4 LAN de l'hôte à communiquer à
+   *  l'invité (en web l'invité déduit l'adresse de la page). null sinon. */
+  hostAddrs: string[] | null
   /** Dernier message d'erreur réseau (affiché par le lobby). */
   netError: string | null
   /** Renseigné quand l'autre joueur a quitté / la connexion est perdue : l'UI
@@ -523,6 +528,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   mode: 'solo',
   netStatus: 'idle',
   hostRoom: null,
+  hostAddrs: null,
   netError: null,
   netLeftNotice: null,
   peerReacting: null,
@@ -537,10 +543,33 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // via le callback onState de la session (cf. cycle de vie réseau).
     activeSession?.submitLocal(action)
   },
-  startHost: () => {
+  startHost: async () => {
     teardownNet()
     const room = makeRoomCode()
-    const conn = connect(relayUrl(), room, {
+    set({
+      mode: 'host', localPlayerIndex: 0, seats: ['local', 'remote'],
+      hostRoom: room, hostAddrs: null, netStatus: 'connecting', netError: null,
+      lobby: [
+        { seat: 0, villainKey: null, connected: true },
+        { seat: 1, villainKey: null, connected: false },
+      ],
+    })
+    // App .exe : on démarre le relais embarqué et on s'y connecte en local
+    // (127.0.0.1) — `location.hostname` vaut `tauri.localhost`, inutilisable. On
+    // récupère aussi l'IP LAN à montrer à l'invité. En web, rien de tout ça :
+    // l'hôte tourne déjà `npm run relay` et `relayUrl()` déduit l'adresse.
+    let host: string | undefined
+    if (isTauri()) {
+      try {
+        await ensureRelay()
+        host = '127.0.0.1'
+        lanAddresses().then((addrs) => set({ hostAddrs: addrs })).catch(() => {})
+      } catch {
+        set({ netStatus: 'error', netError: 'Impossible de démarrer le serveur de liaison.' })
+        return
+      }
+    }
+    const conn = connect(relayUrl(host), room, {
       onMessage: (msg) => {
         // Partie lancée : tout passe par la session de jeu.
         if (activeSession) { (activeSession as HostSession).receive(msg); return }
@@ -566,14 +595,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
       onError: () => set({ netStatus: 'error', netError: 'Erreur réseau (relais injoignable ?).' }),
     })
     activeConnection = conn
-    set({
-      mode: 'host', localPlayerIndex: 0, seats: ['local', 'remote'],
-      hostRoom: room, netStatus: 'connecting', netError: null,
-      lobby: [
-        { seat: 0, villainKey: null, connected: true },
-        { seat: 1, villainKey: null, connected: false },
-      ],
-    })
   },
   joinHost: (code, host) => {
     teardownNet()
@@ -640,7 +661,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   leaveNet: () => {
     teardownNet()
-    set({ mode: 'solo', seats: SOLO_SEATS, localPlayerIndex: 0, netStatus: 'idle', hostRoom: null, netError: null, netLeftNotice: null, peerReacting: null, lobby: null })
+    set({ mode: 'solo', seats: SOLO_SEATS, localPlayerIndex: 0, netStatus: 'idle', hostRoom: null, hostAddrs: null, netError: null, netLeftNotice: null, peerReacting: null, lobby: null })
   },
   enterTestMode: () => set({ state: buildTestState(), testMode: true }),
   testInsertCard: (playerIndex, locationId, cardId) =>
@@ -866,7 +887,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     teardownNet()
     set({
       state: newGame(villains), testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0,
-      mode: 'solo', netStatus: 'idle', hostRoom: null, netError: null, netLeftNotice: null, peerReacting: null, lobby: null,
+      mode: 'solo', netStatus: 'idle', hostRoom: null, hostAddrs: null, netError: null, netLeftNotice: null, peerReacting: null, lobby: null,
     })
   },
   botAct: () =>

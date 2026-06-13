@@ -9,12 +9,15 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '0.72',
-    date: '2026-06-13',
-    title: 'Mode multijoueur : jouer à deux sur le même réseau local',
+    version: '0.62',
+    date: '2026-06-14',
+    title: 'Application de bureau (.exe) et multijoueur sur le réseau local',
     changes: [
+      'Le jeu peut désormais être lancé comme un vrai logiciel Windows (fichier .exe / installeur), sans navigateur ni ligne de commande.',
       'Affrontez un autre joueur sur le même réseau local. Depuis « Nouvelle partie », trois choix : « Partie en solo » (contre le bot), « Héberger une partie » ou « Rejoindre une partie ».',
-      'Mise en place : sur l’ordinateur hôte, lancez le serveur de liaison (« npm run relay ») ; l’invité ouvre l’URL « Network » affichée par « npm run dev » (ex. http://192.168.1.67:5173 — et NON le port 8787 du serveur de liaison ; le port de l’app peut varier), choisit « Rejoindre » et saisit le code de salon à 4 lettres.',
+      'Multijoueur intégré à l’application : plus besoin de lancer un serveur à part. Quand vous hébergez une partie, l’app démarre toute seule le serveur de liaison et affiche votre adresse réseau (IP) à communiquer à l’autre joueur.',
+      'Pour rejoindre : sur l’autre PC, ouvrez Villainous, choisissez « Rejoindre une partie », puis saisissez l’adresse (IP) de l’hôte et le code de salon à 4 lettres.',
+      'À la première partie en réseau, Windows peut demander d’autoriser l’application sur le réseau : acceptez (réseaux privés) pour que l’autre joueur puisse se connecter.',
       'Choix des vilains en direct : une fois connectés, les deux joueurs choisissent leur vilain sur le même écran et voient le choix de l’autre en temps réel ; un vilain déjà pris est grisé (pas de doublon). L’hôte lance ensuite la partie.',
       'En jeu : écran « versus » au lancement (avec la voix d’intro), point de vue relativisé (chacun se voit en haut, avec SON méchant sur ses affiches), et le plateau se synchronise en direct — seul le joueur dont c’est le tour peut agir, l’autre suit.',
       'Conditions en réaction : jouez vos Conditions (Avarice, Lâcheté…) pendant le tour adverse ; si elles demandent un choix (Allié, Héros, lieu), l’adversaire patiente avec « {méchant} joue une condition ! » jusqu’à la résolution.',

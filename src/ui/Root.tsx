@@ -16,6 +16,7 @@ import { NetworkLobby } from './screens/NetworkLobby'
 import { Profile } from './screens/Profile'
 import { SoundTest } from './screens/SoundTest'
 import { MenuMusicPlayer } from './components/MenuMusicPlayer'
+import { MenuBackground } from './components/MenuBackground'
 import { playClick } from './sfx'
 
 /** Chemins des écrans (une route par page). */
@@ -103,6 +104,14 @@ function MenuMusic() {
   return <MenuMusicPlayer />
 }
 
+/** Arrière-plan « menu » partagé et persistant (accueil + nouvelle partie),
+ *  visible seulement sur ces écrans mais jamais démonté (orbes continus). */
+function MenuBackgroundLayer() {
+  const { pathname } = useLocation()
+  const visible = pathname === ROUTES.menu || pathname === ROUTES.modeSelect
+  return <MenuBackground visible={visible} />
+}
+
 /**
  * Racine de l'application : une route par écran (menu, choix du vilain, jeu,
  * liste des vilains, profil, banque de sons). Le jeu lui-même vit dans <App/>.
@@ -120,6 +129,7 @@ export default function Root() {
 
   return (
     <BrowserRouter>
+      <MenuBackgroundLayer />
       <Routes>
         <Route path={ROUTES.menu} element={<MenuRoute />} />
         <Route path={ROUTES.modeSelect} element={<ModeSelectRoute />} />

@@ -126,3 +126,10 @@ le câbler dans : `data/registry.ts` (`allCards`), `ui/store/gameStore.ts`
 - **Avant chaque commit, ajoute une note de version** en tête de `PATCH_NOTES`
   (`src/ui/patchNotes.ts`) : nouvelle `version` (incrémentée), `date`, `title`
   court et `changes` résumant les modifications en langage joueur (FR).
+- **Tant que les commits ne sont pas poussés** (`git log origin/main..main`), ne
+  laisse pas s'accumuler une note de version par commit : **fusionne-les en une
+  seule entrée** en tête de `PATCH_NOTES` (changes regroupés, doublons retirés).
+  Le numéro de cette entrée fusionnée suit la logique de **l'avant-dernière**
+  entrée (la première déjà poussée, juste en dessous) : on l'incrémente d'un cran
+  (ex. dernière poussée = `0.61` → l'entrée fusionnée devient `0.62`). Une fois
+  poussé, repars d'une nouvelle entrée au commit suivant.
