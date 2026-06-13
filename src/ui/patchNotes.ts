@@ -9,6 +9,15 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.63',
+    date: '2026-06-13',
+    title: 'Chantier multijoueur (2/6) : tuyauterie réseau',
+    changes: [
+      'Mise en place de la connexion réseau pour la future partie à deux (toujours en préparation, sans effet sur le jeu solo) : un petit serveur de liaison à lancer sur l’ordinateur hôte permet aux deux navigateurs de s’échanger des messages sur le même réseau.',
+      'Le protocole d’échange (demandes d’action, diffusion de l’état, salon de jeu) et le transport sont posés et testés.',
+    ],
+  },
+  {
     version: '0.62',
     date: '2026-06-13',
     title: 'Chantier multijoueur (1/6) : fondations',
