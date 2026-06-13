@@ -18,6 +18,7 @@ import {
 } from '../../engine/state'
 import { applyAction } from '../../engine/actions'
 import { chooseAction, chooseReaction } from '../../ai/heuristicBot'
+import type { HostSession, Session } from '../../net/session'
 import { buildDeckInstances } from '../../data/types'
 import { getCardDef } from '../../data/registry'
 import { princeJohn } from '../../data/villains/princeJohn'
@@ -62,6 +63,15 @@ export type SeatController = 'local' | 'remote' | 'bot'
 
 /** Configuration des sièges en partie solo (joueur 0 = humain local, 1 = bot). */
 const SOLO_SEATS: [SeatController, SeatController] = ['local', 'bot']
+
+/** Mode de partie : 'solo' (vs bot, local) ; 'host'/'client' (réseau). */
+export type GameMode = 'solo' | 'host' | 'client'
+
+/** Session réseau active. Hors de l'état réactif Zustand : c'est un objet à
+ *  effets (sockets), pas une donnée sérialisable. `null` en solo. En réseau,
+ *  l'hôte applique+diffuse via cette session ; le client envoie ses coups et
+ *  reçoit l'état. Le store s'y branche dans submit() / le cycle de vie réseau. */
+let activeSession: HostSession | Session | null = null
 
 /** Types de showcase prévisualisables en mode test (pour caler les positions). */
 export type ShowcaseKind = 'card' | 'discard-red' | 'discard-dark' | 'hero'
@@ -263,6 +273,12 @@ interface GameStore {
   /** Index du joueur incarné par CE navigateur (point de vue). Solo : 0.
    *  L'UI s'en sert pour savoir quel plateau est « le mien ». */
   localPlayerIndex: number
+  /** Mode de partie courant (solo par défaut). */
+  mode: GameMode
+  /** Point d'entrée UNIQUE de tout coup de jeu. Solo : applique localement. En
+   *  réseau : l'hôte applique+diffuse, le client envoie (via la session). Toutes
+   *  les méthodes de jeu y transitent. */
+  submit: (action: GameAction) => void
   /** Vrai quand on est en mode test (édition live des deux plateaux, bot figé). */
   testMode: boolean
   /** Entre en mode test (ou le réinitialise) : vide les deux plateaux. */
@@ -406,11 +422,21 @@ interface GameStore {
   botReact: () => boolean
 }
 
-export const useGameStore = create<GameStore>((set) => ({
+export const useGameStore = create<GameStore>((set, get) => ({
   state: newGame(),
   seats: SOLO_SEATS,
   localPlayerIndex: 0,
+  mode: 'solo',
   testMode: false,
+  submit: (action) => {
+    if (get().mode === 'solo') {
+      set((s) => ({ state: applyAction(s.state, action) }))
+      return
+    }
+    // Réseau : l'hôte applique+diffuse, le client envoie. Le store se met à jour
+    // via le callback onState de la session (cf. cycle de vie réseau).
+    activeSession?.submitLocal(action)
+  },
   enterTestMode: () => set({ state: buildTestState(), testMode: true }),
   testInsertCard: (playerIndex, locationId, cardId) =>
     set((s) => {
@@ -524,14 +550,13 @@ export const useGameStore = create<GameStore>((set) => ({
       }
     }),
   move: (to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'MOVE', to }) })),
+    get().submit({ type: 'MOVE', to }),
   skipMove: () =>
-    set((s) => ({ state: applyAction(s.state, { type: 'SKIP_MOVE' }) })),
+    get().submit({ type: 'SKIP_MOVE' }),
   executeAction: (actionId) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'EXECUTE_ACTION', actionId }) })),
+    get().submit({ type: 'EXECUTE_ACTION', actionId }),
   playCard: (actionId, instanceId, to, attachTo, targetHeroId, allyInstanceIds, allyMove, shrinkFreeActionId) =>
-    set((s) => ({
-      state: applyAction(s.state, {
+    get().submit({
         type: 'PLAY_CARD',
         actionId,
         instanceId,
@@ -542,105 +567,100 @@ export const useGameStore = create<GameStore>((set) => ({
         allyMove,
         shrinkFreeActionId,
       }),
-    })),
   discardCards: (actionId, instanceIds) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'DISCARD_CARDS', actionId, instanceIds }) })),
+    get().submit({ type: 'DISCARD_CARDS', actionId, instanceIds }),
   moveCard: (actionId, instanceId, to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'MOVE_CARD', actionId, instanceId, to }) })),
+    get().submit({ type: 'MOVE_CARD', actionId, instanceId, to }),
   moveHero: (actionId, heroInstanceId, to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'MOVE_HERO', actionId, heroInstanceId, to }) })),
+    get().submit({ type: 'MOVE_HERO', actionId, heroInstanceId, to }),
   activate: (actionId, cardInstanceId, to, itemInstanceId) =>
-    set((s) => ({
-      state: applyAction(s.state, { type: 'ACTIVATE', actionId, cardInstanceId, to, itemInstanceId }),
-    })),
+    get().submit({ type: 'ACTIVATE', actionId, cardInstanceId, to, itemInstanceId }),
   vanquish: (actionId, heroInstanceId, allyInstanceIds) =>
-    set((s) => ({
-      state: applyAction(s.state, { type: 'VANQUISH', actionId, heroInstanceId, allyInstanceIds }),
-    })),
+    get().submit({ type: 'VANQUISH', actionId, heroInstanceId, allyInstanceIds }),
   discardDeguisement: (instanceId) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'DISCARD_DEGUISEMENT', instanceId }) })),
+    get().submit({ type: 'DISCARD_DEGUISEMENT', instanceId }),
   sheriffMove: (instanceId, to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'SHERIFF_MOVE', instanceId, to }) })),
+    get().submit({ type: 'SHERIFF_MOVE', instanceId, to }),
   diabloMove: (instanceId, to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'DIABLO_MOVE', instanceId, to }) })),
+    get().submit({ type: 'DIABLO_MOVE', instanceId, to }),
   diabloFreeAction: (inner) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'DIABLO_FREE_ACTION', action: inner }) })),
+    get().submit({ type: 'DIABLO_FREE_ACTION', action: inner }),
   diabloSkipFreeAction: () =>
-    set((s) => ({ state: applyAction(s.state, { type: 'DIABLO_SKIP_FREE_ACTION' }) })),
+    get().submit({ type: 'DIABLO_SKIP_FREE_ACTION' }),
   trapVanquish: (heroInstanceId, allyInstanceIds) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'TRAP_VANQUISH', heroInstanceId, allyInstanceIds }) })),
+    get().submit({ type: 'TRAP_VANQUISH', heroInstanceId, allyInstanceIds }),
   trapSkipVanquish: () =>
-    set((s) => ({ state: applyAction(s.state, { type: 'TRAP_SKIP_VANQUISH' }) })),
+    get().submit({ type: 'TRAP_SKIP_VANQUISH' }),
   playCondition: (playerIndex, instanceId, allyInstanceId, to) =>
-    set((s) => ({
-      state: applyAction(s.state, {
+    get().submit({
         type: 'PLAY_CONDITION',
         playerIndex,
         instanceId,
         allyInstanceId,
         to,
       }),
-    })),
   fate: (actionId) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'FATE', actionId }) })),
+    get().submit({ type: 'FATE', actionId }),
   resolveFate: (instanceId, to, targetHeroId, enlargeToward) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_FATE', instanceId, to, targetHeroId, enlargeToward }) })),
+    get().submit({ type: 'RESOLVE_FATE', instanceId, to, targetHeroId, enlargeToward }),
   resolveTyrannyDiscard: (instanceIds) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TYRANNY_DISCARD', instanceIds }) })),
+    get().submit({ type: 'RESOLVE_TYRANNY_DISCARD', instanceIds }),
   resolveHeroPlacement: (locationId) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_HERO_PLACEMENT', locationId }) })),
+    get().submit({ type: 'RESOLVE_HERO_PLACEMENT', locationId }),
   resolvePawnMove: (locationId) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_PAWN_MOVE', locationId }) })),
+    get().submit({ type: 'RESOLVE_PAWN_MOVE', locationId }),
   resolveHubertPull: (allyInstanceIds) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_HUBERT_PULL', allyInstanceIds }) })),
+    get().submit({ type: 'RESOLVE_HUBERT_PULL', allyInstanceIds }),
   resolveDeckPeek: (keep) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_DECK_PEEK', keep }) })),
+    get().submit({ type: 'RESOLVE_DECK_PEEK', keep }),
   resolveTypeChoice: (cardType) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TYPE_CHOICE', cardType }) })),
+    get().submit({ type: 'RESOLVE_TYPE_CHOICE', cardType }),
   resolveHeroRelocate: (heroInstanceId, to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_HERO_RELOCATE', heroInstanceId, to }) })),
+    get().submit({ type: 'RESOLVE_HERO_RELOCATE', heroInstanceId, to }),
   skipHeroRelocate: () =>
-    set((s) => ({ state: applyAction(s.state, { type: 'SKIP_HERO_RELOCATE' }) })),
+    get().submit({ type: 'SKIP_HERO_RELOCATE' }),
   resolveTeleport: (to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TELEPORT', to }) })),
+    get().submit({ type: 'RESOLVE_TELEPORT', to }),
   resolveManipulation: (instanceId) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_MANIPULATION', instanceId }) })),
+    get().submit({ type: 'RESOLVE_MANIPULATION', instanceId }),
   dismissRoyalCroquet: () =>
-    set((s) => ({ state: applyAction(s.state, { type: 'DISMISS_ROYAL_CROQUET' }) })),
+    get().submit({ type: 'DISMISS_ROYAL_CROQUET' }),
   resolveTransformWickets: (instanceIds) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TRANSFORM_WICKETS', instanceIds }) })),
+    get().submit({ type: 'RESOLVE_TRANSFORM_WICKETS', instanceIds }),
   resolveScry: (topInstanceIds) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_SCRY', topInstanceIds }) })),
+    get().submit({ type: 'RESOLVE_SCRY', topInstanceIds }),
   resolveAllyMoveBuff: (instanceId, to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_ALLY_MOVE_BUFF', instanceId, to }) })),
+    get().submit({ type: 'RESOLVE_ALLY_MOVE_BUFF', instanceId, to }),
   resolveFateChoice: (instanceId) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_FATE_CHOICE', instanceId }) })),
+    get().submit({ type: 'RESOLVE_FATE_CHOICE', instanceId }),
   resolveFetchedHero: (play, to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_FETCHED_HERO', play, to }) })),
+    get().submit({ type: 'RESOLVE_FETCHED_HERO', play, to }),
   useNeverlandMap: (itemInstanceId, to, attachTo) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'USE_NEVERLAND_MAP', itemInstanceId, to, attachTo }) })),
+    get().submit({ type: 'USE_NEVERLAND_MAP', itemInstanceId, to, attachTo }),
   resolveRecover: (instanceId) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_RECOVER', instanceId }) })),
+    get().submit({ type: 'RESOLVE_RECOVER', instanceId }),
   resolveGiantLocation: (locationId) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_GIANT_LOCATION', locationId }) })),
+    get().submit({ type: 'RESOLVE_GIANT_LOCATION', locationId }),
   resolveTitanMove: (titanInstanceId, to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TITAN_MOVE', titanInstanceId, to }) })),
+    get().submit({ type: 'RESOLVE_TITAN_MOVE', titanInstanceId, to }),
   resolveTitanSelect: (titanInstanceId) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TITAN_SELECT', titanInstanceId }) })),
+    get().submit({ type: 'RESOLVE_TITAN_SELECT', titanInstanceId }),
   resolveDivination: (topInstanceIds) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_DIVINATION', topInstanceIds }) })),
+    get().submit({ type: 'RESOLVE_DIVINATION', topInstanceIds }),
   resolveLookTop: (keepInstanceIds) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_LOOK_TOP', keepInstanceIds }) })),
+    get().submit({ type: 'RESOLVE_LOOK_TOP', keepInstanceIds }),
   resolveFateScry: (toAudelaIds, deckTopOrder) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_FATE_SCRY', toAudelaIds, deckTopOrder }) })),
+    get().submit({ type: 'RESOLVE_FATE_SCRY', toAudelaIds, deckTopOrder }),
   useCanne: () =>
-    set((s) => ({ state: applyAction(s.state, { type: 'USE_CANNE' }) })),
+    get().submit({ type: 'USE_CANNE' }),
   chariotMove: (instanceId, to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'CHARIOT_MOVE', instanceId, to }) })),
+    get().submit({ type: 'CHARIOT_MOVE', instanceId, to }),
   endTurn: () =>
-    set((s) => ({ state: applyAction(s.state, { type: 'END_TURN' }) })),
-  reset: (villains) =>
-    set({ state: newGame(villains), testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0 }),
+    get().submit({ type: 'END_TURN' }),
+  reset: (villains) => {
+    activeSession = null
+    set({ state: newGame(villains), testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0, mode: 'solo' })
+  },
   botAct: () =>
     set((s) => {
       if (s.state.status !== 'PLAYING' || s.seats[s.state.activePlayer] !== 'bot') return s

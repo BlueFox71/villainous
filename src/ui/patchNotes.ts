@@ -9,6 +9,14 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.65',
+    date: '2026-06-13',
+    title: 'Chantier multijoueur (4/6) : branchement des coups',
+    changes: [
+      'Tous les coups de jeu passent désormais par un point d’entrée unique (toujours en préparation, sans effet sur le jeu solo) : en solo ils s’appliquent comme avant ; en réseau, ils seront envoyés à l’hôte. Étape invisible qui prépare le branchement de la partie à deux.',
+    ],
+  },
+  {
     version: '0.64',
     date: '2026-06-13',
     title: 'Chantier multijoueur (3/6) : arbitrage des tours',
