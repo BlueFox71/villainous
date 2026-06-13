@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { BOTS, useGameStore, villainKeyOf, VILLAIN_REGISTRY, type VillainKey } from './store/gameStore'
+import { useGameStore, villainKeyOf, VILLAIN_REGISTRY, type VillainKey } from './store/gameStore'
 import { useStatsStore } from './store/statsStore'
 import { getCardDef } from '../data/registry'
 import {
@@ -153,8 +153,6 @@ type Mode =
   | null
 
 const BOT_STEP_MS = 700
-const HUMAN = 0
-const BOT = 1
 
 export default function App({ onExit }: { onExit?: () => void } = {}) {
   const state = useGameStore((s) => s.state)
@@ -217,6 +215,20 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const reset = useGameStore((s) => s.reset)
   const botAct = useGameStore((s) => s.botAct)
   const botReact = useGameStore((s) => s.botReact)
+  const quitNet = useGameStore((s) => s.quitNet)
+  const leaveNet = useGameStore((s) => s.leaveNet)
+  const netLeftNotice = useGameStore((s) => s.netLeftNotice)
+  const peerReacting = useGameStore((s) => s.peerReacting)
+  const setReacting = useGameStore((s) => s.setReacting)
+  // Contrôleur de chaque siège : remplace l'ancien BOTS[]. seats[i] === 'bot'
+  // ⇒ l'UI auto-résout/enchaîne ce siège ; sinon c'est un humain (local/remote).
+  const seats = useGameStore((s) => s.seats)
+  // Point de vue : HUMAN = le joueur incarné par CE navigateur (0 en solo et
+  // chez l'hôte, 1 chez l'invité), BOT = l'autre. Relativise tout l'affichage.
+  const localPlayerIndex = useGameStore((s) => s.localPlayerIndex)
+  const HUMAN = localPlayerIndex
+  const BOT = 1 - localPlayerIndex
+  const gameMode = useGameStore((s) => s.mode)
   const testMode = useGameStore((s) => s.testMode)
   const enterTestMode = useGameStore((s) => s.enterTestMode)
   const testInsertCard = useGameStore((s) => s.testInsertCard)
@@ -229,7 +241,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const testRefreshTurn = useGameStore((s) => s.testRefreshTurn)
 
   // --- Statistiques de profil (par vilain humain) -------------------------
-  // Le joueur humain est toujours le joueur 0 (cf. BOTS = [false, true]).
+  // Le joueur humain est toujours le joueur 0 (cf. seats = ['local', 'bot']).
   const recordResult = useStatsStore((s) => s.recordResult)
   const recordGame = useStatsStore((s) => s.recordGame)
   const addPlaytime = useStatsStore((s) => s.addPlaytime)
@@ -281,7 +293,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const [mode, setMode] = useState<Mode>(null)
   const [mapModalOpen, setMapModalOpen] = useState(false)
   const [showOptions, setShowOptions] = useState(false)
-  // Jet de dé de début de partie (qui commence). Sauté en mode test.
+  // Réseau : confirmation avant de quitter la partie (l'autre joueur sera prévenu).
+  const [showQuitConfirm, setShowQuitConfirm] = useState(false)
+  // Intro de début de partie. Sautée en mode test. En réseau : présentation
+  // « versus » SANS jet de dé (v1 : l'hôte commence — activePlayer 0).
   const [startRollDone, setStartRollDone] = useState(testMode)
   // Affiche « À vous de jouer » (4 s) au début de chaque tour du joueur humain.
   const [showTurnSplash, setShowTurnSplash] = useState(false)
@@ -569,7 +584,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       }
     }
     fxShown.current = fx.length
-  }, [state.floatingFx, state.players])
+  }, [state.floatingFx, state.players, HUMAN])
 
   // Visualisation des actions : à chaque nouvelle entrée dans usedActionIds, on
   // fait flasher la pastille de l'action correspondante sur le plateau du joueur
@@ -600,10 +615,24 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     setShowTurnSplash(true)
     const t = window.setTimeout(() => setShowTurnSplash(false), 4000)
     return () => window.clearTimeout(t)
-  }, [state.activePlayer, state.turn, state.status, startRollDone, testMode])
+  }, [state.activePlayer, state.turn, state.status, startRollDone, testMode, HUMAN])
 
-  const isBotTurn = state.status === 'PLAYING' && BOTS[state.activePlayer]
+  // Réseau : prévient l'adversaire quand je prépare une Condition (sélection d'une
+  // cible) pour qu'il patiente, et le libère quand je la joue ou l'annule.
+  const reactingSentRef = useRef(false)
+  useEffect(() => {
+    if (gameMode === 'solo') return
+    const reacting = !!mode && mode.kind.startsWith('condition-pick')
+    if (reacting === reactingSentRef.current) return
+    reactingSentRef.current = reacting
+    setReacting(reacting, state.players[HUMAN].villainName)
+  }, [mode, gameMode, setReacting, state, HUMAN])
+
+  const isBotTurn = state.status === 'PLAYING' && seats[state.activePlayer] === 'bot'
   const isHumanTurn = state.status === 'PLAYING' && state.activePlayer === HUMAN
+  // Tour de l'adversaire (bot en solo, ou joueur distant en réseau) : sert au
+  // flash d'action sur SON plateau, qui doit aussi apparaître en réseau.
+  const isOpponentTurn = state.status === 'PLAYING' && state.activePlayer === BOT
 
   // Persifleur actif sur un lieu portant un Héros : on révèle (démasque) la rangée
   // du haut et on la fait clignoter tant que le joueur n'a pas choisi une action.
@@ -729,7 +758,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // (auto) après un court délai ; humain → modale.
     const pdp = state.pendingDeckPeek
     if (pdp) {
-      if (BOTS[pdp.playerIndex]) {
+      if (seats[pdp.playerIndex] === 'bot') {
         const timer = setTimeout(() => resolveDeckPeek(true), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
@@ -739,7 +768,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // cartes du dessus (priorité Objet = Pages) ; humain → modale.
     const ptc = state.pendingTypeChoice
     if (ptc) {
-      if (BOTS[ptc.playerIndex]) {
+      if (seats[ptc.playerIndex] === 'bot') {
         // Prédiction (untilFound) → on scanne toute la pioche ; sinon les `count`
         // premières cartes. On choisit un type proposé qui apparaît, à défaut le 1ᵉʳ.
         const deck = state.players[ptc.playerIndex].deck
@@ -754,7 +783,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // dernière défaussée ; humain → modale.
     const pman = state.pendingManipulation
     if (pman) {
-      if (BOTS[pman.playerIndex]) {
+      if (seats[pman.playerIndex] === 'bot') {
         const disc = state.players[pman.playerIndex].discard
         const pick = disc[disc.length - 1]
         if (pick) {
@@ -769,7 +798,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Royal) ; humain → modale.
     const ptw = state.pendingTransformWickets
     if (ptw) {
-      if (BOTS[ptw.playerIndex]) {
+      if (seats[ptw.playerIndex] === 'bot') {
         const p = state.players[ptw.playerIndex]
         const guards = transformableGuards(state, ptw.playerIndex)
         const locHasWicket = (id: string) => {
@@ -791,7 +820,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // le lieu : Peter Pan → Arbre du Pendu ; sinon son lieu courant ou un lieu libre).
     const pfh = state.pendingFetchedHero
     if (pfh) {
-      if (BOTS[pfh.playerIndex]) {
+      if (seats[pfh.playerIndex] === 'bot') {
         const p = state.players[pfh.playerIndex]
         const locked = new Set(p.lockedLocations ?? [])
         const dest =
@@ -807,7 +836,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Opportunisme : le bot reprend la carte la plus chère de sa défausse.
     const prec = state.pendingRecover
     if (prec) {
-      if (BOTS[prec.playerIndex]) {
+      if (seats[prec.playerIndex] === 'bot') {
         const p = state.players[prec.playerIndex]
         const cands = prec.candidateIds
           .map((id) => p.discard.find((c) => c.instanceId === id))
@@ -824,7 +853,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // libérer une action), sinon le premier candidat.
     const pck = state.pendingCrewmateKill
     if (pck) {
-      if (BOTS[pck.playerIndex]) {
+      if (seats[pck.playerIndex] === 'bot') {
         const crew = state.players[pck.playerIndex].crewmates ?? []
         const cands = pck.candidateColors
         const suspect = cands.find((col) => crew.some((c) => c.color === col && c.suspect))
@@ -843,7 +872,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // de l'Imposteur, un par un (priorité aux Coéquipiers qui recouvriraient une action).
     const pcs = state.pendingCrewmateSuspect
     if (pcs) {
-      if (BOTS[pcs.chooserIndex]) {
+      if (seats[pcs.chooserIndex] === 'bot') {
         const crew = state.players[pcs.targetIndex].crewmates ?? []
         const pick = crew.find((c) => !c.discarded && !c.suspect)?.color
         const timer = setTimeout(
@@ -857,7 +886,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Assurance (déplacement optionnel) : le bot ne déplace pas (termine).
     const pcm = state.pendingCrewmateMove
     if (pcm) {
-      if (BOTS[pcm.playerIndex]) {
+      if (seats[pcm.playerIndex] === 'bot') {
         const timer = setTimeout(() => doneCrewmateMove(), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
@@ -867,7 +896,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // au lieu du pion de l'Imposteur (sinon le 1ᵉʳ lieu).
     const pfo = state.pendingFateObjectPlace
     if (pfo) {
-      if (BOTS[pfo.chooserIndex]) {
+      if (seats[pfo.chooserIndex] === 'bot') {
         const tgt = state.players[pfo.targetIndex]
         const dest = tgt.pawnLocation ?? tgt.locations[0]?.id
         const timer = setTimeout(() => dest && resolveFateObjectPlace(dest), BOT_STEP_MS)
@@ -879,7 +908,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // K.O. l'Allié le plus fort éligible, sinon le 1ᵉʳ Objet.
     const pfc = state.pendingFateChoice
     if (pfc) {
-      if (BOTS[pfc.chooserIndex]) {
+      if (seats[pfc.chooserIndex] === 'bot') {
         const tgt = state.players[pfc.targetIndex]
         const pool = [...Object.values(tgt.board).flat(), ...tgt.hand]
         const cands = pfc.candidateIds
@@ -900,7 +929,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // un lieu portant un Héros, pour préparer un Vanquish).
     const pamb = state.pendingAllyMoveBuff
     if (pamb) {
-      if (BOTS[pamb.playerIndex]) {
+      if (seats[pamb.playerIndex] === 'bot') {
         const p = state.players[pamb.playerIndex]
         const order = p.locations.map((l) => l.id)
         const locked = new Set(p.lockedLocations ?? [])
@@ -930,7 +959,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Faites-leur peur ! : le bot garde les Héros sur le dessus, défausse le reste.
     const psc = state.pendingScry
     if (psc) {
-      if (BOTS[psc.playerIndex]) {
+      if (seats[psc.playerIndex] === 'bot') {
         const heroes = psc.cards.filter((c) => c.type === 'hero').map((c) => c.instanceId)
         const timer = setTimeout(() => resolveScry(heroes), BOT_STEP_MS)
         return () => clearTimeout(timer)
@@ -942,7 +971,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // (sinon il renverrait les autres cartes dans la pile).
     const pdiv = state.pendingDivination
     if (pdiv) {
-      if (BOTS[pdiv.playerIndex]) {
+      if (seats[pdiv.playerIndex] === 'bot') {
         const rank = (cardId: string) =>
           cardId === 'regner-nouvelle-orleans' ? 0 : cardId === 'esprits-masques' ? 2 : 1
         const order = [...pdiv.cards]
@@ -956,7 +985,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour de passe-passe (Dr Facilier) : le bot garde la carte la plus utile.
     const plt = state.pendingLookTop
     if (plt) {
-      if (BOTS[plt.playerIndex]) {
+      if (seats[plt.playerIndex] === 'bot') {
         const rank = (cardId: string) =>
           cardId === 'regner-nouvelle-orleans' ? 5 : cardId === 'talisman' ? 4
           : cardId === 'divination-facilier' ? 3 : cardId === 'tour-passe-passe' ? 2 : cardId === 'canne' ? 1 : 0
@@ -970,7 +999,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // de l'Au-delà avec toutes les cartes autorisées, remet les autres sur la pioche.
     const pfs = state.pendingFateScry
     if (pfs) {
-      if (BOTS[pfs.chooserIndex]) {
+      if (seats[pfs.chooserIndex] === 'bot') {
         const canAudela = (c: { cardId: string }) =>
           c.cardId !== 'talisman' && c.cardId !== 'divination-facilier'
         const toAudelaIds = pfs.cards.filter(canAudela).map((c) => c.instanceId)
@@ -983,7 +1012,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Coup Royal raté du bot : on ferme la fenêtre pour qu'il poursuive son tour.
     const prc = state.pendingRoyalCroquet
     if (prc) {
-      if (BOTS[prc.playerIndex]) {
+      if (seats[prc.playerIndex] === 'bot') {
         const timer = setTimeout(() => dismissRoyalCroquet(), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
@@ -993,7 +1022,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // 1ᵉʳ lieu cible ; humain → modale.
     const pt = state.pendingTeleport
     if (pt) {
-      if (BOTS[pt.playerIndex]) {
+      if (seats[pt.playerIndex] === 'bot') {
         const tgts = teleportTargets(state.players[pt.playerIndex])
         if (tgts.length > 0) {
           const timer = setTimeout(() => resolveTeleport(tgts[0]), BOT_STEP_MS)
@@ -1006,7 +1035,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Bot chooser → 1ᵉʳ Héros + 1ᵉʳ lieu voisin ; humain → modale.
     const phr = state.pendingHeroRelocate
     if (phr) {
-      if (BOTS[phr.chooserIndex]) {
+      if (seats[phr.chooserIndex] === 'bot') {
         const tgt = state.players[phr.targetIndex]
         const ids = tgt.locations.map((l) => l.id)
         const locked = new Set(tgt.lockedLocations ?? [])
@@ -1040,7 +1069,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // tout seul le 1ᵉʳ lieu valide ; si c'est l'humain, on attend la modale.
     const php = state.pendingHeroPlacement
     if (php) {
-      if (BOTS[php.chooserIndex]) {
+      if (seats[php.chooserIndex] === 'bot') {
         const valid = heroPlacementLocations(state, php.hero, php.targetIndex)
         if (valid.length > 0) {
           const timer = setTimeout(() => resolveHeroPlacement(valid[0]), BOT_STEP_MS)
@@ -1053,7 +1082,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // → lieu portant le plus de Malédictions (sinon ne bouge pas) ; humain → modale.
     const ppm = state.pendingPawnMove
     if (ppm) {
-      if (BOTS[ppm.chooserIndex]) {
+      if (seats[ppm.chooserIndex] === 'bot') {
         const tgt = state.players[ppm.targetIndex]
         const cands = tgt.locations.filter((l) => l.id !== tgt.pawnLocation)
         const score = (loc: string) => (tgt.board[loc] ?? []).filter((c) => c.type === 'curse').length
@@ -1067,7 +1096,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Fatalité) → 1ᵉʳ Allié de chaque lieu voisin ; humain → modale.
     const phl = state.pendingHubertPull
     if (phl) {
-      if (BOTS[phl.chooserIndex]) {
+      if (seats[phl.chooserIndex] === 'bot') {
         const tgt = state.players[phl.targetIndex]
         const ids = adjacentLocationIds(state, phl.dest)
           .map((a) => (tgt.board[a] ?? []).find((c) => c.type === 'ally')?.instanceId)
@@ -1082,7 +1111,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // si c'est l'humain, on met tout en pause le temps de sa sélection.
     const ptd = state.pendingTyrannyDiscard
     if (ptd) {
-      if (BOTS[ptd.playerIndex]) {
+      if (seats[ptd.playerIndex] === 'bot') {
         const hand = state.players[ptd.playerIndex].hand
         const ids = hand.slice(0, Math.min(ptd.count, hand.length)).map((c) => c.instanceId)
         const timer = setTimeout(() => resolveTyrannyDiscard(ids), BOT_STEP_MS)
@@ -1105,7 +1134,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveRecover, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveDivination, resolveLookTop, resolveFateScry, skipHeroRelocate])
+  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveRecover, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveDivination, resolveLookTop, resolveFateScry, skipHeroRelocate])
 
   // Coups légaux / actions : seulement pour le joueur humain et à son tour.
   const legalMoves = isHumanTurn ? getLegalMoves(state) : []
@@ -1867,11 +1896,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           </button>
           {onExit && (
             <button
-              onClick={onExit}
-              title="Revenir au menu principal"
+              onClick={() => (gameMode !== 'solo' ? setShowQuitConfirm(true) : onExit())}
+              title={gameMode !== 'solo' ? 'Quitter la partie en réseau' : 'Revenir au menu principal'}
               className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"
             >
-              ☰ Menu
+              {gameMode !== 'solo' ? '⏻ Quitter' : '☰ Menu'}
             </button>
           )}
         </div>
@@ -2407,7 +2436,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               player={bot}
               availableActionIds={[]}
               usedActionIds={[]}
-              flashKey={isBotTurn ? actionFlash : null}
+              flashKey={isOpponentTurn ? actionFlash : null}
               flashOnly
               onActionClick={noop}
             />
@@ -2831,11 +2860,17 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       )}
 
       {/* Jet de dé de début de partie : qui commence (plus haut score). */}
-      {!startRollDone && (
+      {!startRollDone && gameMode === 'solo' && (
         <StartRollModal
           names={[state.players[HUMAN].villainName, state.players[BOT].villainName]}
-          images={[villainPresentation(humanVillainKey), villainPresentation(opponentVillainKey)]}
-          villainKeys={[humanVillainKey, opponentVillainKey]}
+          images={[
+            villainPresentation(villainKeyOf(state.players[HUMAN].villain)),
+            villainPresentation(villainKeyOf(state.players[BOT].villain)),
+          ]}
+          villainKeys={[
+            villainKeyOf(state.players[HUMAN].villain),
+            villainKeyOf(state.players[BOT].villain),
+          ]}
           onResult={(winner, rolls) => {
             setStartingPlayer(winner, rolls)
             setStartRollDone(true)
@@ -2843,10 +2878,77 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         />
       )}
 
+      {/* Réseau : présentation « versus » (sans jet de dé) du point de vue local. */}
+      {!startRollDone && gameMode !== 'solo' && (
+        <StartRollModal
+          versusOnly
+          names={[state.players[HUMAN].villainName, state.players[BOT].villainName]}
+          images={[
+            villainPresentation(villainKeyOf(state.players[HUMAN].villain)),
+            villainPresentation(villainKeyOf(state.players[BOT].villain)),
+          ]}
+          onDone={() => setStartRollDone(true)}
+        />
+      )}
+
       {/* Affiche « À vous de jouer » au début du tour du joueur (key = tour → l'anim
           redémarre à chaque tour). */}
       {showTurnSplash && (
-        <TurnSplash key={state.turn} villainName={user.villainName} image={villainPresentation(humanVillainKey)} />
+        <TurnSplash key={state.turn} villainName={user.villainName} image={villainPresentation(villainKeyOf(state.players[HUMAN].villain))} />
+      )}
+
+      {/* RÉSEAU : confirmation avant de quitter la partie. */}
+      {showQuitConfirm && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4">
+          <div className="flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-white/15 bg-[#140d24] p-6 text-center">
+            <h2 className="text-lg font-bold text-amber-200">Quitter la partie ?</h2>
+            <p className="text-sm text-white/70">L’autre joueur sera prévenu et renvoyé à l’accueil.</p>
+            <div className="flex justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowQuitConfirm(false)}
+                className="rounded-lg border border-white/20 px-4 py-2 text-sm text-white/80 hover:bg-white/10"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowQuitConfirm(false); quitNet(); onExit?.() }}
+                className="rounded-lg border border-red-400/50 bg-red-500/20 px-4 py-2 text-sm font-semibold text-red-100 hover:bg-red-500/30"
+              >
+                Quitter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RÉSEAU : l'adversaire prépare une Condition → on bloque le joueur actif. */}
+      {peerReacting && !netLeftNotice && (
+        <div className="fixed inset-0 z-[75] flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px]">
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-amber-400/40 bg-[#140d24]/90 px-8 py-6 text-center">
+            <span className="text-3xl">⏳</span>
+            <p className="text-lg font-bold text-amber-200">{peerReacting} joue une condition !</p>
+            <p className="text-sm text-white/60">Patiente le temps qu’il la résolve…</p>
+          </div>
+        </div>
+      )}
+
+      {/* RÉSEAU : l'autre joueur a quitté / la connexion est perdue. */}
+      {netLeftNotice && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4">
+          <div className="flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-white/15 bg-[#140d24] p-6 text-center">
+            <h2 className="text-lg font-bold text-amber-200">Partie interrompue</h2>
+            <p className="text-sm text-white/70">{netLeftNotice}</p>
+            <button
+              type="button"
+              onClick={() => { leaveNet(); onExit?.() }}
+              className="mx-auto rounded-lg border border-white/20 px-4 py-2 text-sm text-white/80 hover:bg-white/10"
+            >
+              Retour à l’accueil
+            </button>
+          </div>
+        </div>
       )}
 
       {/* L'Imposteur — Corps découvert : bandeau « DEAD BODY REPORTED » fugace. */}

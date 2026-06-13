@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { VILLAIN_REGISTRY, useGameStore, type VillainKey } from '../store/gameStore'
 import { villainPortrait, villainPresentation, PRESENTATION_TWEAK } from '../villainArt'
 import { VILLAIN_COLOR, villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from '../villainColors'
@@ -75,14 +75,20 @@ function SidePanel({
   value,
   taken,
   onPick,
+  allowRandom = true,
+  readOnly = false,
 }: {
   title: string
   value: Choice | null
   /** Vilain réservé par l'autre camp (jamais « random ») : grisé ici. */
   taken: VillainKey | null
   onPick: (c: Choice) => void
+  /** Proposer l'option « Aléatoire » (solo) ; masquée en réseau. */
+  allowRandom?: boolean
+  /** Lecture seule (réseau : le choix de l'adversaire, non modifiable). */
+  readOnly?: boolean
 }) {
-  const options: Choice[] = ['random', ...KEYS]
+  const options: Choice[] = allowRandom ? ['random', ...KEYS] : KEYS
   return (
     <section className="flex min-h-0 flex-col">
       <h2 className="mb-3 text-sm font-bold uppercase tracking-[0.2em] text-purple-200">{title}</h2>
@@ -92,8 +98,8 @@ function SidePanel({
             key={c}
             choice={c}
             selected={value === c}
-            disabled={c === taken}
-            onPick={() => onPick(c)}
+            disabled={readOnly ? value !== c : c === taken}
+            onPick={() => { if (!readOnly) onPick(c) }}
           />
         ))}
       </div>
@@ -174,14 +180,43 @@ function PresentationArt({ choice, side }: { choice: Choice | null; side: 'left'
 }
 
 /**
- * Choix des vilains avant de lancer la partie : le joueur choisit SON vilain et
- * celui de l'ADVERSAIRE (bot). Chaque camp peut aussi être laissé « aléatoire ».
- * « Lancer la partie » résout les choix puis réinitialise le moteur avec ce duo.
+ * Choix des vilains avant la partie.
+ *  - SOLO : le joueur choisit SON vilain ET celui du bot (chacun pouvant être
+ *    « aléatoire »). « Lancer la partie » réinitialise le moteur avec ce duo.
+ *  - RÉSEAU : chacun ne choisit que SON vilain, en DIRECT (l'autre voit le choix
+ *    en temps réel) ; un vilain pris par l'autre est grisé (pas de doublon).
+ *    L'hôte lance la partie une fois les deux vilains choisis.
  */
 export function VillainSelect({ onStart, onBack }: Props) {
   const reset = useGameStore((s) => s.reset)
-  const [mine, setMine] = useState<Choice | null>(null)
-  const [opp, setOpp] = useState<Choice | null>(null)
+  const mode = useGameStore((s) => s.mode)
+  const lobby = useGameStore((s) => s.lobby)
+  const localPlayerIndex = useGameStore((s) => s.localPlayerIndex)
+  const selectVillain = useGameStore((s) => s.selectVillain)
+  const launchGame = useGameStore((s) => s.launchGame)
+  const leaveNet = useGameStore((s) => s.leaveNet)
+  const netStatus = useGameStore((s) => s.netStatus)
+  const netLeftNotice = useGameStore((s) => s.netLeftNotice)
+  const network = mode !== 'solo'
+
+  // SOLO : choix local des deux camps.
+  const [mineSolo, setMineSolo] = useState<Choice | null>(null)
+  const [oppSolo, setOppSolo] = useState<Choice | null>(null)
+
+  // RÉSEAU : choix dérivés du lobby (synchronisés en direct).
+  const seatVillain = (i: number) => (lobby?.find((s) => s.seat === i)?.villainKey ?? null) as Choice | null
+  const mine = network ? seatVillain(localPlayerIndex) : mineSolo
+  const opp = network ? seatVillain(1 - localPlayerIndex) : oppSolo
+
+  // En réseau, dès que l'hôte lance, on entre dans la partie.
+  useEffect(() => {
+    if (network && netStatus === 'playing') onStart()
+  }, [network, netStatus, onStart])
+
+  // Si l'autre joueur quitte pendant le choix des vilains : retour au menu.
+  useEffect(() => {
+    if (network && netLeftNotice) { leaveNet(); onBack() }
+  }, [network, netLeftNotice, leaveNet, onBack])
 
   /** Tire un vilain au hasard, en excluant éventuellement une clé. */
   const randomKey = (exclude?: VillainKey): VillainKey => {
@@ -190,33 +225,26 @@ export function VillainSelect({ onStart, onBack }: Props) {
   }
 
   // Le vilain réservé par un camp (jamais « random ») : interdit à l'autre.
-  const takenBy = (c: Choice | null): VillainKey | null =>
-    c && c !== 'random' ? c : null
+  const takenBy = (c: Choice | null): VillainKey | null => (c && c !== 'random' ? c : null)
 
-  // Choisir un vilain pour un camp annule la sélection adverse si elle entre en
-  // conflit (les deux camps ne peuvent pas jouer le même vilain).
-  const pickMine = (c: Choice) => {
-    setMine(c)
-    if (c !== 'random' && opp === c) setOpp(null)
-  }
-  const pickOpp = (c: Choice) => {
-    setOpp(c)
-    if (c !== 'random' && mine === c) setMine(null)
-  }
+  // SOLO : sélections croisées (les deux camps ne peuvent pas jouer le même vilain).
+  const pickMineSolo = (c: Choice) => { setMineSolo(c); if (c !== 'random' && oppSolo === c) setOppSolo(null) }
+  const pickOppSolo = (c: Choice) => { setOppSolo(c); if (c !== 'random' && mineSolo === c) setMineSolo(null) }
+  // RÉSEAU : on ne choisit que SON vilain (pas d'aléatoire).
+  const pickMineNet = (c: Choice) => { if (c !== 'random') selectVillain(c) }
 
-  const launch = () => {
-    if (!mine || !opp) return
-    // Joueur aléatoire : on exclut le choix explicite de l'adversaire (pas de miroir).
-    const playerKey = mine === 'random' ? randomKey(takenBy(opp) ?? undefined) : mine
-    // Adversaire aléatoire : on évite le miroir (vilain différent du joueur).
-    const botKey = opp === 'random' ? randomKey(playerKey) : opp
+  const launchSolo = () => {
+    if (!mineSolo || !oppSolo) return
+    const playerKey = mineSolo === 'random' ? randomKey(takenBy(oppSolo) ?? undefined) : mineSolo
+    const botKey = oppSolo === 'random' ? randomKey(playerKey) : oppSolo
     reset([playerKey, botKey])
     onStart()
   }
 
-  // Même fond « teinté par les vilains » que la partie en cours : il réagit aux
-  // vilains choisis (joueur → coin gauche, adversaire → coin droit ; teinte
-  // neutre tant qu'un camp est vide ou « aléatoire »).
+  const back = () => { if (network) leaveNet(); onBack() }
+  const bothChosen = !!takenBy(mine) && !!takenBy(opp)
+
+  // Fond « teinté par les vilains » : réagit aux choix (toi → gauche, adversaire → droite).
   const pageBackground = villainsBackground(
     (takenBy(mine) && VILLAIN_COLOR[takenBy(mine)!]) || DEFAULT_TINT_A,
     (takenBy(opp) && VILLAIN_COLOR[takenBy(opp)!]) || DEFAULT_TINT_B,
@@ -228,47 +256,85 @@ export function VillainSelect({ onStart, onBack }: Props) {
       style={{ backgroundImage: pageBackground }}
     >
       <header className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-        <h1 className="text-lg font-bold text-purple-200">Choix des vilains</h1>
+        <h1 className="text-lg font-bold text-purple-200">
+          {network ? 'Choix des vilains (en réseau)' : 'Choix des vilains'}
+        </h1>
         <button
           type="button"
-          onClick={onBack}
+          onClick={back}
           className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"
         >
           ← Menu
         </button>
       </header>
 
-      {/* Illustrations ancrées sur les bords EN ARRIÈRE-PLAN ; les listes (z-10)
-          repassent en pleine largeur centrée par-dessus, sans être rétrécies. */}
       <main className="relative min-h-0 flex-1 overflow-hidden">
         <PresentationArt choice={mine} side="left" />
         <PresentationArt choice={opp} side="right" />
         <Scroller className="relative z-10 h-full">
           <div className="mx-auto grid max-w-4xl grid-cols-1 gap-8 px-6 pb-32 pt-6 sm:grid-cols-2">
-            <SidePanel title="Ton vilain" value={mine} taken={takenBy(opp)} onPick={pickMine} />
-            <SidePanel title="Adversaire" value={opp} taken={takenBy(mine)} onPick={pickOpp} />
+            <SidePanel
+              title="Ton vilain"
+              value={mine}
+              taken={takenBy(opp)}
+              allowRandom={!network}
+              onPick={network ? pickMineNet : pickMineSolo}
+            />
+            <SidePanel
+              title={network ? 'Adversaire (en direct)' : 'Adversaire'}
+              value={opp}
+              taken={takenBy(mine)}
+              allowRandom={!network}
+              readOnly={network}
+              onPick={network ? () => {} : pickOppSolo}
+            />
           </div>
         </Scroller>
       </main>
 
-      {/* Footer repris de la barre du bas de la partie (verre dépoli), remonté
-          par-dessus le bas de `main`. z-0 : au-dessus des images (bas des
-          illustrations estompé derrière le flou) mais SOUS les listes (z-10). */}
       <footer className="relative z-0 -mt-28 flex flex-col items-center gap-2 border-t border-white/10 bg-black/30 px-4 pb-8 pt-28 shadow-[0_-6px_20px_rgba(0,0,0,0.35)] backdrop-blur-md">
-        {/* Toujours rendu (invisible quand les 2 camps sont choisis) pour réserver
-            sa hauteur : évite un décalage vertical du layout à la 2ᵉ sélection. */}
-        <span className={`text-xs text-white/40 ${!mine || !opp ? '' : 'invisible'}`}>
-          Choisis un vilain (ou « Aléatoire ») pour chaque camp.
-        </span>
-        <div className="w-72">
-          <button type="button" disabled={!mine || !opp} onClick={launch} className="hs-wrapper classique">
-            <span className="hs-button classique">
-              <span className="hs-border classique">
-                <span className="hs-text classique">Lancer la partie</span>
-              </span>
+        {/* SOLO : choix des deux camps, puis « Lancer la partie ». */}
+        {!network && (
+          <>
+            <span className={`text-xs text-white/40 ${!mineSolo || !oppSolo ? '' : 'invisible'}`}>
+              Choisis un vilain (ou « Aléatoire ») pour chaque camp.
             </span>
-          </button>
-        </div>
+            <div className="w-72">
+              <button type="button" disabled={!mineSolo || !oppSolo} onClick={launchSolo} className="hs-wrapper classique">
+                <span className="hs-button classique">
+                  <span className="hs-border classique">
+                    <span className="hs-text classique">Lancer la partie</span>
+                  </span>
+                </span>
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* RÉSEAU — HÔTE : lance la partie quand les deux vilains sont choisis. */}
+        {network && mode === 'host' && (
+          <>
+            <span className={`text-xs text-white/40 ${!bothChosen ? '' : 'invisible'}`}>
+              {!takenBy(mine) ? 'Choisis ton vilain.' : 'En attente du choix de l’adversaire…'}
+            </span>
+            <div className="w-72">
+              <button type="button" disabled={!bothChosen} onClick={launchGame} className="hs-wrapper classique">
+                <span className="hs-button classique">
+                  <span className="hs-border classique">
+                    <span className="hs-text classique">Lancer la partie</span>
+                  </span>
+                </span>
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* RÉSEAU — INVITÉ : attend que l'hôte lance. */}
+        {network && mode === 'client' && (
+          <span className="text-sm text-white/60">
+            {!takenBy(mine) ? 'Choisis ton vilain.' : '⏳ En attente que l’hôte lance la partie…'}
+          </span>
+        )}
       </footer>
     </div>
   )

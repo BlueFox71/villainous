@@ -10,8 +10,14 @@ interface Props {
   /** Clés des deux vilains (gauche / droite) — pour appliquer leur réglage de
    *  présentation (échelle/décalage), comme sur l'écran de choix. */
   villainKeys?: [VillainKey, VillainKey]
-  /** Appelé une fois le gagnant déterminé : (indexGagnant, [jet0, jet1]). */
-  onResult: (winner: number, rolls: [number, number]) => void
+  /** Appelé une fois le gagnant déterminé : (indexGagnant, [jet0, jet1]).
+   *  Ignoré en mode `versusOnly`. */
+  onResult?: (winner: number, rolls: [number, number]) => void
+  /** Réseau : présentation « versus » SANS jet de dé (l'hôte commence). On
+   *  affiche juste l'écran d'intro puis on appelle `onDone`. */
+  versusOnly?: boolean
+  /** Appelé en fin d'intro `versusOnly`. */
+  onDone?: () => void
 }
 
 const d20 = () => 1 + Math.floor(Math.random() * 20)
@@ -36,7 +42,7 @@ function Die({ value, rolling, win }: { value: number; rolling: boolean; win?: b
  * Jet de 1d20 de début de partie : chaque joueur lance, le plus haut commence.
  * Égalité → relance automatique. Animation puis annonce du gagnant.
  */
-export function StartRollModal({ names, images, villainKeys, onResult }: Props) {
+export function StartRollModal({ names, images, villainKeys, onResult, versusOnly, onDone }: Props) {
   const [dice, setDice] = useState<[number, number]>([1, 1])
   const [rolling, setRolling] = useState(true)
   const [winner, setWinner] = useState<number | null>(null)
@@ -49,6 +55,13 @@ export function StartRollModal({ names, images, villainKeys, onResult }: Props) 
       timers.current.forEach((t) => window.clearTimeout(t))
       timers.current.forEach((t) => window.clearInterval(t))
       timers.current = []
+    }
+
+    // Réseau : pas de jet de dé (l'hôte commence) — on laisse jouer l'intro puis
+    // on ferme.
+    if (versusOnly) {
+      timers.current.push(window.setTimeout(() => { if (!cancelled) onDone?.() }, 2800))
+      return () => { cancelled = true; clearAll() }
     }
 
     function roll() {
@@ -76,7 +89,7 @@ export function StartRollModal({ names, images, villainKeys, onResult }: Props) 
         setWinner(w)
         // Laisse le temps de lire l'annonce avant de lancer la partie (~6 s au total
         // avec l'intro animée + le jet, pour accompagner la voix « X contre Y »).
-        timers.current.push(window.setTimeout(() => onResult(w, [a, b]), 2800))
+        timers.current.push(window.setTimeout(() => onResult?.(w, [a, b]), 2800))
       }, 1600)
       timers.current.push(stop)
     }
@@ -145,28 +158,35 @@ export function StartRollModal({ names, images, villainKeys, onResult }: Props) 
           </span>
         </div>
 
-        {/* Panneau « Qui commence ? » (jet de dés), qui monte après l'intro. */}
+        {/* Panneau du bas, qui monte après l'intro. Réseau (`versusOnly`) :
+            simple annonce ; solo : jet de dés « Qui commence ? ». */}
         <div
           className="flex w-full max-w-lg flex-col items-center gap-5 rounded-2xl border border-white/15 bg-[#120c22]/85 p-6 backdrop-blur-sm"
           style={{ animation: 'versusRise 0.6s ease-out 0.5s both' }}
         >
-          <h2 className="text-lg font-bold text-amber-200">Qui commence ?</h2>
-          <div className="flex items-center justify-center gap-8">
-            {[0, 1].map((i) => (
-              <div key={i} className="flex flex-col items-center gap-3">
-                <Die value={dice[i]} rolling={rolling} win={winner === i} />
+          {versusOnly ? (
+            <h2 className="text-lg font-bold text-amber-200">La partie commence !</h2>
+          ) : (
+            <>
+              <h2 className="text-lg font-bold text-amber-200">Qui commence ?</h2>
+              <div className="flex items-center justify-center gap-8">
+                {[0, 1].map((i) => (
+                  <div key={i} className="flex flex-col items-center gap-3">
+                    <Die value={dice[i]} rolling={rolling} win={winner === i} />
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          <p className="h-6 text-center text-sm font-semibold">
-            {tie ? (
-              <span className="text-sky-300">Égalité — on relance !</span>
-            ) : winner !== null ? (
-              <span className="text-amber-300">{names[winner]} commence !</span>
-            ) : (
-              <span className="text-white/40">Lancer en cours…</span>
-            )}
-          </p>
+              <p className="h-6 text-center text-sm font-semibold">
+                {tie ? (
+                  <span className="text-sky-300">Égalité — on relance !</span>
+                ) : winner !== null ? (
+                  <span className="text-amber-300">{names[winner]} commence !</span>
+                ) : (
+                  <span className="text-white/40">Lancer en cours…</span>
+                )}
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>

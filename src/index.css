@@ -81,6 +81,80 @@ body {
   }
 }
 
+/* Accueil : orbes lumineux qui flottent et dérivent en arrière-plan. Chaque orbe
+   combine une dérive (trajectoire en boucle) et un scintillement (opacité). Les
+   variantes de trajectoire envoient les orbes « dans tous les sens ». */
+.menu-orb {
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+}
+@keyframes orbTwinkle {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+@keyframes orbDriftA {
+  0% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(6vw, -4vh);
+  }
+  50% {
+    transform: translate(2vw, -9vh);
+  }
+  75% {
+    transform: translate(-5vw, -3vh);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+@keyframes orbDriftB {
+  0% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(-7vw, 3vh);
+  }
+  50% {
+    transform: translate(-3vw, 8vh);
+  }
+  75% {
+    transform: translate(4vw, 4vh);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+@keyframes orbDriftC {
+  0% {
+    transform: translate(0, 0);
+  }
+  33% {
+    transform: translate(5vw, 5vh);
+  }
+  66% {
+    transform: translate(-6vw, -2vh);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .menu-orb {
+    animation: none;
+  }
+}
+
 /* Arrière-plan « teinté par les vilains » : les halos dérivent très lentement
    pour donner un peu de vie sans distraire. Le dégradé est posé via
    `background-image` (inline) ; ici on règle la taille/animation. */

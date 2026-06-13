@@ -2,6 +2,8 @@ import { useSettingsStore, type DisplayMode } from '../store/settingsStore'
 
 interface Props {
   onClose: () => void
+  /** Ouvrir la banque de sons (uniquement depuis le menu ; absent en partie). */
+  onSoundTest?: () => void
 }
 
 const DISPLAY_MODES: { mode: DisplayMode; label: string }[] = [
@@ -11,7 +13,7 @@ const DISPLAY_MODES: { mode: DisplayMode; label: string }[] = [
 ]
 
 /** Réglages du jeu : volume de la musique, sourdine et mode d'affichage. */
-export function OptionsModal({ onClose }: Props) {
+export function OptionsModal({ onClose, onSoundTest }: Props) {
   const volume = useSettingsStore((s) => s.musicVolume)
   const muted = useSettingsStore((s) => s.musicMuted)
   const setMusicVolume = useSettingsStore((s) => s.setMusicVolume)
@@ -134,6 +136,24 @@ export function OptionsModal({ onClose }: Props) {
             le mode plein écran (Échap pour revenir en fenêtré).
           </p>
         </div>
+
+        {/* Banque de sons : raccourci vers l'écran d'écoute (menu uniquement). */}
+        {onSoundTest && (
+          <div className="flex flex-col gap-2">
+            <span className="text-sm font-semibold text-white/80">Sons du jeu</span>
+            <button
+              type="button"
+              onClick={() => {
+                onClose()
+                onSoundTest()
+              }}
+              className="rounded-lg border border-white/20 px-3 py-2 text-sm text-white/80 transition hover:bg-white/10"
+            >
+              🎵 Banque de sons
+            </button>
+            <p className="text-xs text-white/40">Écouter les musiques et bruitages du jeu.</p>
+          </div>
+        )}
       </div>
     </div>
   )

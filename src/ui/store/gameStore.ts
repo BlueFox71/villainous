@@ -18,6 +18,10 @@ import {
 } from '../../engine/state'
 import { applyAction } from '../../engine/actions'
 import { chooseAction, chooseReaction } from '../../ai/heuristicBot'
+import { connect, type Connection } from '../../net/connection'
+import { createClientSession, createHostSession, type ClientSession, type HostSession, type Session } from '../../net/session'
+import type { LobbySeat } from '../../net/messages'
+import { isTauri, ensureRelay, lanAddresses } from '../../net/desktop'
 import { buildDeckInstances } from '../../data/types'
 import { getCardDef } from '../../data/registry'
 import { princeJohn } from '../../data/villains/princeJohn'
@@ -57,9 +61,84 @@ export const VILLAIN_REGISTRY = {
   imposteur: { def: imposteur, cards: imposteurCards, label: "L'Imposteur" },
 } as const
 
-/** Qui est contrôlé par un bot. Concept d'UI : le moteur, lui, ne sait pas qui
- *  joue. Joueur 0 = humain, joueur 1 = bot. */
-export const BOTS: boolean[] = [false, true]
+/** Qui contrôle chaque siège. Concept d'UI : le moteur, lui, ne sait pas qui
+ *  joue. 'local' = ce navigateur ; 'remote' = l'autre joueur (réseau, à venir) ;
+ *  'bot' = l'IA. Source de vérité pour savoir quels sièges l'autorité auto-joue
+ *  (bot) vs attend (local/remote). En solo : ['local', 'bot']. */
+export type SeatController = 'local' | 'remote' | 'bot'
+
+/** Configuration des sièges en partie solo (joueur 0 = humain local, 1 = bot). */
+const SOLO_SEATS: [SeatController, SeatController] = ['local', 'bot']
+
+/** Mode de partie : 'solo' (vs bot, local) ; 'host'/'client' (réseau). */
+export type GameMode = 'solo' | 'host' | 'client'
+
+/** Étape de la connexion réseau (pilote les écrans lobby / choix des vilains).
+ *  'waiting' = connecté au relais, en attente de l'autre joueur ; 'lobby' = les
+ *  deux présents, choix des vilains en direct ; 'playing' = partie lancée. */
+export type NetStatus = 'idle' | 'connecting' | 'waiting' | 'lobby' | 'playing' | 'error'
+
+/** Diffuse l'état du lobby (choix des vilains) à l'autre joueur. */
+function sendLobby(seats: LobbySeat[]) {
+  activeConnection?.send({
+    type: 'LOBBY',
+    seats,
+    canStart: seats.every((s) => s.connected && !!s.villainKey),
+  })
+}
+
+/** Port du relais (cf. relay/server.js) — l'hôte fait tourner `npm run relay`. */
+const RELAY_PORT = 8787
+
+/** Session réseau active. Hors de l'état réactif Zustand : c'est un objet à
+ *  effets (sockets), pas une donnée sérialisable. `null` en solo. En réseau,
+ *  l'hôte applique+diffuse via cette session ; le client envoie ses coups et
+ *  reçoit l'état. Le store s'y branche dans submit() / le cycle de vie réseau. */
+let activeSession: HostSession | Session | null = null
+/** Connexion réseau active (relais). Idem : hors état réactif. */
+let activeConnection: Connection | null = null
+
+/** URL du relais. En WEB, l'invité ayant chargé l'app depuis l'hôte,
+ *  `location.hostname` pointe déjà sur la machine hôte (override possible). En
+ *  .exe (Tauri), `host` est fourni explicitement : 127.0.0.1 pour l'hôte (relais
+ *  embarqué local), l'IP saisie pour l'invité. */
+function relayUrl(host?: string): string {
+  const h = host || (typeof location !== 'undefined' ? location.hostname : 'localhost')
+  return `ws://${h}:${RELAY_PORT}`
+}
+
+/** Code de salon court (4 lettres, sans I/O/0/1 ambigus). */
+function makeRoomCode(): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let code = ''
+  for (let i = 0; i < 4; i++) code += alphabet[Math.floor(Math.random() * alphabet.length)]
+  return code
+}
+
+/** Ferme proprement la session/connexion réseau (sans toucher à l'état Zustand). */
+function teardownNet() {
+  activeConnection?.close()
+  activeConnection = null
+  activeSession = null
+}
+
+/** L'autre joueur est parti (LEAVE reçu) ou la connexion est tombée : on coupe et
+ *  on renseigne l'avis (l'UI l'affichera puis renverra à l'accueil). Si la
+ *  connexion a déjà été fermée de NOTRE côté (activeConnection null), on ignore
+ *  — c'est nous qui sommes partis. */
+function handlePeerGone(
+  set: (partial: Partial<GameStore>) => void,
+  get: () => GameStore,
+  notice: string,
+) {
+  if (!activeConnection) return
+  // Seulement si on était réellement en lobby/partie (sinon c'est un échec de
+  // connexion initial → laissé à onError).
+  const st = get().netStatus
+  if (st !== 'lobby' && st !== 'playing') return
+  teardownNet()
+  set({ netLeftNotice: notice })
+}
 
 /** Types de showcase prévisualisables en mode test (pour caler les positions). */
 export type ShowcaseKind = 'card' | 'discard-red' | 'discard-dark' | 'hero'
@@ -255,6 +334,53 @@ function buildTestState(): GameState {
 
 interface GameStore {
   state: GameState
+  /** Contrôleur de chaque siège (voir {@link SeatController}). Détermine quels
+   *  sièges l'autorité auto-joue (bot) vs attend (local/remote). */
+  seats: [SeatController, SeatController]
+  /** Index du joueur incarné par CE navigateur (point de vue). Solo : 0.
+   *  L'UI s'en sert pour savoir quel plateau est « le mien ». */
+  localPlayerIndex: number
+  /** Mode de partie courant (solo par défaut). */
+  mode: GameMode
+  /** Étape de la connexion réseau (écran lobby). */
+  netStatus: NetStatus
+  /** Code de salon (hôte) à communiquer à l'invité ; null hors hébergement. */
+  hostRoom: string | null
+  /** App .exe (Tauri) uniquement : adresses IPv4 LAN de l'hôte à communiquer à
+   *  l'invité (en web l'invité déduit l'adresse de la page). null sinon. */
+  hostAddrs: string[] | null
+  /** Dernier message d'erreur réseau (affiché par le lobby). */
+  netError: string | null
+  /** Renseigné quand l'autre joueur a quitté / la connexion est perdue : l'UI
+   *  affiche un avis puis renvoie à l'accueil. null sinon. */
+  netLeftNotice: string | null
+  /** Nom du vilain de l'autre joueur quand il prépare une Condition (sélection
+   *  d'une cible) : l'UI bloque le joueur actif le temps qu'il la joue. null sinon. */
+  peerReacting: string | null
+  /** État du lobby (choix des vilains en direct) : seats[0] = hôte, seats[1] =
+   *  invité. null hors lobby. */
+  lobby: LobbySeat[] | null
+  /** Point d'entrée UNIQUE de tout coup de jeu. Solo : applique localement. En
+   *  réseau : l'hôte applique+diffuse, le client envoie (via la session). Toutes
+   *  les méthodes de jeu y transitent. */
+  submit: (action: GameAction) => void
+  /** Héberge une partie réseau : ouvre un salon et attend l'invité. Le choix des
+   *  vilains se fait ensuite, en direct (phase lobby). */
+  startHost: () => void
+  /** Rejoint le salon `code` (relais sur `host`, défaut = hôte de la page). */
+  joinHost: (code: string, host?: string) => void
+  /** Pendant le lobby : choisit (ou retire avec null) SON vilain ; synchronisé. */
+  selectVillain: (villainKey: VillainKey | null) => void
+  /** Réseau : signale à l'adversaire que je prépare (`on`=true) ou termine
+   *  (`on`=false) une Condition en réaction, pour le bloquer le temps voulu. */
+  setReacting: (on: boolean, villainName: string) => void
+  /** Hôte uniquement : lance la partie une fois les deux vilains choisis. */
+  launchGame: () => void
+  /** Quitte volontairement la partie réseau en prévenant l'autre joueur (LEAVE),
+   *  puis revient au mode solo. */
+  quitNet: () => void
+  /** Quitte la partie réseau et revient au mode solo. */
+  leaveNet: () => void
   /** Vrai quand on est en mode test (édition live des deux plateaux, bot figé). */
   testMode: boolean
   /** Entre en mode test (ou le réinitialise) : vide les deux plateaux. */
@@ -410,9 +536,148 @@ interface GameStore {
   botReact: () => boolean
 }
 
-export const useGameStore = create<GameStore>((set) => ({
+export const useGameStore = create<GameStore>((set, get) => ({
   state: newGame(),
+  seats: SOLO_SEATS,
+  localPlayerIndex: 0,
+  mode: 'solo',
+  netStatus: 'idle',
+  hostRoom: null,
+  hostAddrs: null,
+  netError: null,
+  netLeftNotice: null,
+  peerReacting: null,
+  lobby: null,
   testMode: false,
+  submit: (action) => {
+    if (get().mode === 'solo') {
+      set((s) => ({ state: applyAction(s.state, action) }))
+      return
+    }
+    // Réseau : l'hôte applique+diffuse, le client envoie. Le store se met à jour
+    // via le callback onState de la session (cf. cycle de vie réseau).
+    activeSession?.submitLocal(action)
+  },
+  startHost: async () => {
+    teardownNet()
+    const room = makeRoomCode()
+    set({
+      mode: 'host', localPlayerIndex: 0, seats: ['local', 'remote'],
+      hostRoom: room, hostAddrs: null, netStatus: 'connecting', netError: null,
+      lobby: [
+        { seat: 0, villainKey: null, connected: true },
+        { seat: 1, villainKey: null, connected: false },
+      ],
+    })
+    // App .exe : on démarre le relais embarqué et on s'y connecte en local
+    // (127.0.0.1) — `location.hostname` vaut `tauri.localhost`, inutilisable. On
+    // récupère aussi l'IP LAN à montrer à l'invité. En web, rien de tout ça :
+    // l'hôte tourne déjà `npm run relay` et `relayUrl()` déduit l'adresse.
+    let host: string | undefined
+    if (isTauri()) {
+      try {
+        await ensureRelay()
+        host = '127.0.0.1'
+        lanAddresses().then((addrs) => set({ hostAddrs: addrs })).catch(() => {})
+      } catch {
+        set({ netStatus: 'error', netError: 'Impossible de démarrer le serveur de liaison.' })
+        return
+      }
+    }
+    const conn = connect(relayUrl(host), room, {
+      onMessage: (msg) => {
+        // Partie lancée : tout passe par la session de jeu.
+        if (activeSession) { (activeSession as HostSession).receive(msg); return }
+        // Phase lobby (côté hôte) : présence de l'invité, son vilain, son départ.
+        if (msg.type === 'LEAVE') {
+          handlePeerGone(set, get, 'L’autre joueur a quitté la partie.')
+          return
+        } else if (msg.type === 'JOIN') {
+          set((s) => ({
+            lobby: s.lobby?.map((x) => (x.seat === 1 ? { ...x, connected: true } : x)) ?? null,
+            netStatus: 'lobby',
+          }))
+        } else if (msg.type === 'SELECT_VILLAIN') {
+          set((s) => ({
+            lobby: s.lobby?.map((x) => (x.seat === 1 ? { ...x, villainKey: msg.villainKey } : x)) ?? null,
+          }))
+        } else return
+        const lob = get().lobby
+        if (lob) sendLobby(lob)
+      },
+      onOpen: () => set({ netStatus: 'waiting' }),
+      onClose: () => handlePeerGone(set, get, 'La connexion avec l’autre joueur a été perdue.'),
+      onError: () => set({ netStatus: 'error', netError: 'Erreur réseau (relais injoignable ?).' }),
+    })
+    activeConnection = conn
+  },
+  joinHost: (code, host) => {
+    teardownNet()
+    let session: ClientSession | null = null
+    const conn = connect(relayUrl(host), code.toUpperCase(), {
+      onMessage: (msg) => session?.receive(msg),
+      onOpen: () => set({ netStatus: 'waiting' }),
+      onClose: () => handlePeerGone(set, get, 'La connexion avec l’hôte a été perdue.'),
+      onError: () => set({ netStatus: 'error', netError: 'Erreur réseau (hôte injoignable ?).' }),
+    })
+    activeConnection = conn
+    session = createClientSession({
+      transport: { send: conn.send },
+      callbacks: {
+        onLobby: (m) => set({ lobby: m.seats, netStatus: 'lobby' }),
+        onAssign: (seat) => set({ localPlayerIndex: seat, seats: seat === 0 ? ['local', 'remote'] : ['remote', 'local'] }),
+        onState: (state) => set({ state, netStatus: 'playing' }),
+        onLeave: () => handlePeerGone(set, get, 'L’autre joueur a quitté la partie.'),
+        onReacting: (m) => set({ peerReacting: m.reacting ? (m.villainName ?? '') : null }),
+      },
+    })
+    activeSession = session
+    set({ mode: 'client', localPlayerIndex: 1, seats: ['remote', 'local'], netStatus: 'connecting', netError: null, lobby: null })
+  },
+  setReacting: (on, villainName) => {
+    activeConnection?.send({ type: 'REACTING', reacting: on, villainName })
+  },
+  selectVillain: (villainKey) => {
+    const { mode } = get()
+    const mySeat = get().localPlayerIndex
+    set((s) => ({ lobby: s.lobby?.map((x) => (x.seat === mySeat ? { ...x, villainKey } : x)) ?? null }))
+    if (mode === 'host') {
+      const lob = get().lobby
+      if (lob) sendLobby(lob)
+    } else if (mode === 'client') {
+      ;(activeSession as ClientSession | null)?.selectVillain(villainKey)
+    }
+  },
+  launchGame: () => {
+    const { mode, lobby } = get()
+    if (mode !== 'host' || !lobby) return
+    const hostV = lobby[0].villainKey as VillainKey | null
+    const clientV = lobby[1].villainKey as VillainKey | null
+    if (!hostV || !clientV) return
+    const initial = newGame([hostV, clientV])
+    const session = createHostSession({
+      transport: { send: activeConnection!.send },
+      initialState: initial,
+      seats: ['human', 'human'],
+      hostSeat: 0,
+      callbacks: {
+        onState: (state) => set({ state }),
+        onLeave: () => handlePeerGone(set, get, 'L’autre joueur a quitté la partie.'),
+        onReacting: (m) => set({ peerReacting: m.reacting ? (m.villainName ?? '') : null }),
+      },
+    })
+    activeSession = session
+    set({ state: initial, netStatus: 'playing' })
+    session.start() // diffuse ASSIGN + STATE à l'invité
+  },
+  quitNet: () => {
+    activeConnection?.send({ type: 'LEAVE' }) // prévient l'autre joueur…
+    get().leaveNet() // …puis coupe et revient au solo.
+  },
+  leaveNet: () => {
+    teardownNet()
+    set({ mode: 'solo', seats: SOLO_SEATS, localPlayerIndex: 0, netStatus: 'idle', hostRoom: null, hostAddrs: null, netError: null, netLeftNotice: null, peerReacting: null, lobby: null })
+  },
   enterTestMode: () => set({ state: buildTestState(), testMode: true }),
   testInsertCard: (playerIndex, locationId, cardId) =>
     set((s) => {
@@ -526,14 +791,13 @@ export const useGameStore = create<GameStore>((set) => ({
       }
     }),
   move: (to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'MOVE', to }) })),
+    get().submit({ type: 'MOVE', to }),
   skipMove: () =>
-    set((s) => ({ state: applyAction(s.state, { type: 'SKIP_MOVE' }) })),
+    get().submit({ type: 'SKIP_MOVE' }),
   executeAction: (actionId) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'EXECUTE_ACTION', actionId }) })),
+    get().submit({ type: 'EXECUTE_ACTION', actionId }),
   playCard: (actionId, instanceId, to, attachTo, targetHeroId, allyInstanceIds, allyMove, shrinkFreeActionId) =>
-    set((s) => ({
-      state: applyAction(s.state, {
+    get().submit({
         type: 'PLAY_CARD',
         actionId,
         instanceId,
@@ -544,119 +808,118 @@ export const useGameStore = create<GameStore>((set) => ({
         allyMove,
         shrinkFreeActionId,
       }),
-    })),
   discardCards: (actionId, instanceIds) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'DISCARD_CARDS', actionId, instanceIds }) })),
+    get().submit({ type: 'DISCARD_CARDS', actionId, instanceIds }),
   moveCard: (actionId, instanceId, to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'MOVE_CARD', actionId, instanceId, to }) })),
+    get().submit({ type: 'MOVE_CARD', actionId, instanceId, to }),
   moveHero: (actionId, heroInstanceId, to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'MOVE_HERO', actionId, heroInstanceId, to }) })),
+    get().submit({ type: 'MOVE_HERO', actionId, heroInstanceId, to }),
   activate: (actionId, cardInstanceId, to, itemInstanceId) =>
-    set((s) => ({
-      state: applyAction(s.state, { type: 'ACTIVATE', actionId, cardInstanceId, to, itemInstanceId }),
-    })),
+    get().submit({ type: 'ACTIVATE', actionId, cardInstanceId, to, itemInstanceId }),
   vanquish: (actionId, heroInstanceId, allyInstanceIds) =>
-    set((s) => ({
-      state: applyAction(s.state, { type: 'VANQUISH', actionId, heroInstanceId, allyInstanceIds }),
-    })),
+    get().submit({ type: 'VANQUISH', actionId, heroInstanceId, allyInstanceIds }),
   discardDeguisement: (instanceId) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'DISCARD_DEGUISEMENT', instanceId }) })),
+    get().submit({ type: 'DISCARD_DEGUISEMENT', instanceId }),
   sheriffMove: (instanceId, to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'SHERIFF_MOVE', instanceId, to }) })),
+    get().submit({ type: 'SHERIFF_MOVE', instanceId, to }),
   diabloMove: (instanceId, to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'DIABLO_MOVE', instanceId, to }) })),
+    get().submit({ type: 'DIABLO_MOVE', instanceId, to }),
   diabloFreeAction: (inner) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'DIABLO_FREE_ACTION', action: inner }) })),
+    get().submit({ type: 'DIABLO_FREE_ACTION', action: inner }),
   diabloSkipFreeAction: () =>
-    set((s) => ({ state: applyAction(s.state, { type: 'DIABLO_SKIP_FREE_ACTION' }) })),
+    get().submit({ type: 'DIABLO_SKIP_FREE_ACTION' }),
   trapVanquish: (heroInstanceId, allyInstanceIds) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'TRAP_VANQUISH', heroInstanceId, allyInstanceIds }) })),
+    get().submit({ type: 'TRAP_VANQUISH', heroInstanceId, allyInstanceIds }),
   trapSkipVanquish: () =>
-    set((s) => ({ state: applyAction(s.state, { type: 'TRAP_SKIP_VANQUISH' }) })),
+    get().submit({ type: 'TRAP_SKIP_VANQUISH' }),
   playCondition: (playerIndex, instanceId, allyInstanceId, to) =>
-    set((s) => ({
-      state: applyAction(s.state, {
+    get().submit({
         type: 'PLAY_CONDITION',
         playerIndex,
         instanceId,
         allyInstanceId,
         to,
       }),
-    })),
   fate: (actionId) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'FATE', actionId }) })),
+    get().submit({ type: 'FATE', actionId }),
   resolveFate: (instanceId, to, targetHeroId, enlargeToward) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_FATE', instanceId, to, targetHeroId, enlargeToward }) })),
+    get().submit({ type: 'RESOLVE_FATE', instanceId, to, targetHeroId, enlargeToward }),
   resolveTyrannyDiscard: (instanceIds) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TYRANNY_DISCARD', instanceIds }) })),
+    get().submit({ type: 'RESOLVE_TYRANNY_DISCARD', instanceIds }),
   resolveHeroPlacement: (locationId) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_HERO_PLACEMENT', locationId }) })),
+    get().submit({ type: 'RESOLVE_HERO_PLACEMENT', locationId }),
   resolvePawnMove: (locationId) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_PAWN_MOVE', locationId }) })),
+    get().submit({ type: 'RESOLVE_PAWN_MOVE', locationId }),
   resolveHubertPull: (allyInstanceIds) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_HUBERT_PULL', allyInstanceIds }) })),
+    get().submit({ type: 'RESOLVE_HUBERT_PULL', allyInstanceIds }),
   resolveDeckPeek: (keep) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_DECK_PEEK', keep }) })),
+    get().submit({ type: 'RESOLVE_DECK_PEEK', keep }),
   resolveTypeChoice: (cardType) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TYPE_CHOICE', cardType }) })),
+    get().submit({ type: 'RESOLVE_TYPE_CHOICE', cardType }),
   resolveHeroRelocate: (heroInstanceId, to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_HERO_RELOCATE', heroInstanceId, to }) })),
+    get().submit({ type: 'RESOLVE_HERO_RELOCATE', heroInstanceId, to }),
   skipHeroRelocate: () =>
-    set((s) => ({ state: applyAction(s.state, { type: 'SKIP_HERO_RELOCATE' }) })),
+    get().submit({ type: 'SKIP_HERO_RELOCATE' }),
   resolveTeleport: (to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TELEPORT', to }) })),
+    get().submit({ type: 'RESOLVE_TELEPORT', to }),
   resolveManipulation: (instanceId) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_MANIPULATION', instanceId }) })),
+    get().submit({ type: 'RESOLVE_MANIPULATION', instanceId }),
   dismissRoyalCroquet: () =>
-    set((s) => ({ state: applyAction(s.state, { type: 'DISMISS_ROYAL_CROQUET' }) })),
+    get().submit({ type: 'DISMISS_ROYAL_CROQUET' }),
   resolveTransformWickets: (instanceIds) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TRANSFORM_WICKETS', instanceIds }) })),
+    get().submit({ type: 'RESOLVE_TRANSFORM_WICKETS', instanceIds }),
   resolveScry: (topInstanceIds) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_SCRY', topInstanceIds }) })),
+    get().submit({ type: 'RESOLVE_SCRY', topInstanceIds }),
   resolveAllyMoveBuff: (instanceId, to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_ALLY_MOVE_BUFF', instanceId, to }) })),
+    get().submit({ type: 'RESOLVE_ALLY_MOVE_BUFF', instanceId, to }),
   resolveFateChoice: (instanceId) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_FATE_CHOICE', instanceId }) })),
+    get().submit({ type: 'RESOLVE_FATE_CHOICE', instanceId }),
   resolveFetchedHero: (play, to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_FETCHED_HERO', play, to }) })),
+    get().submit({ type: 'RESOLVE_FETCHED_HERO', play, to }),
   useNeverlandMap: (itemInstanceId, to, attachTo) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'USE_NEVERLAND_MAP', itemInstanceId, to, attachTo }) })),
+    get().submit({ type: 'USE_NEVERLAND_MAP', itemInstanceId, to, attachTo }),
   resolveRecover: (instanceId) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_RECOVER', instanceId }) })),
+    get().submit({ type: 'RESOLVE_RECOVER', instanceId }),
   resolveCrewmateKill: (color) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_CREWMATE_KILL', color }) })),
+    get().submit({ type: 'RESOLVE_CREWMATE_KILL', color }),
   resolveCrewmateSuspect: (color) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_CREWMATE_SUSPECT', color }) })),
+    get().submit({ type: 'RESOLVE_CREWMATE_SUSPECT', color }),
   doneCrewmateSuspect: () =>
-    set((s) => ({ state: applyAction(s.state, { type: 'DONE_CREWMATE_SUSPECT' }) })),
+    get().submit({ type: 'DONE_CREWMATE_SUSPECT' }),
   resolveCrewmateMove: (to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_CREWMATE_MOVE', to }) })),
+    get().submit({ type: 'RESOLVE_CREWMATE_MOVE', to }),
   doneCrewmateMove: () =>
-    set((s) => ({ state: applyAction(s.state, { type: 'DONE_CREWMATE_MOVE' }) })),
+    get().submit({ type: 'DONE_CREWMATE_MOVE' }),
   resolveFateObjectPlace: (locationId) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_FATE_OBJECT_PLACE', locationId }) })),
+    get().submit({ type: 'RESOLVE_FATE_OBJECT_PLACE', locationId }),
   resolveGiantLocation: (locationId) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_GIANT_LOCATION', locationId }) })),
+    get().submit({ type: 'RESOLVE_GIANT_LOCATION', locationId }),
   resolveTitanMove: (titanInstanceId, to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TITAN_MOVE', titanInstanceId, to }) })),
+    get().submit({ type: 'RESOLVE_TITAN_MOVE', titanInstanceId, to }),
   resolveTitanSelect: (titanInstanceId) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TITAN_SELECT', titanInstanceId }) })),
+    get().submit({ type: 'RESOLVE_TITAN_SELECT', titanInstanceId }),
   resolveDivination: (topInstanceIds) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_DIVINATION', topInstanceIds }) })),
+    get().submit({ type: 'RESOLVE_DIVINATION', topInstanceIds }),
   resolveLookTop: (keepInstanceIds) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_LOOK_TOP', keepInstanceIds }) })),
+    get().submit({ type: 'RESOLVE_LOOK_TOP', keepInstanceIds }),
   resolveFateScry: (toAudelaIds, deckTopOrder) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_FATE_SCRY', toAudelaIds, deckTopOrder }) })),
+    get().submit({ type: 'RESOLVE_FATE_SCRY', toAudelaIds, deckTopOrder }),
   useCanne: () =>
-    set((s) => ({ state: applyAction(s.state, { type: 'USE_CANNE' }) })),
+    get().submit({ type: 'USE_CANNE' }),
   chariotMove: (instanceId, to) =>
-    set((s) => ({ state: applyAction(s.state, { type: 'CHARIOT_MOVE', instanceId, to }) })),
+    get().submit({ type: 'CHARIOT_MOVE', instanceId, to }),
   endTurn: () =>
-    set((s) => ({ state: applyAction(s.state, { type: 'END_TURN' }) })),
-  reset: (villains) => set({ state: newGame(villains), testMode: false }),
+    get().submit({ type: 'END_TURN' }),
+  reset: (villains) => {
+    teardownNet()
+    set({
+      state: newGame(villains), testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0,
+      mode: 'solo', netStatus: 'idle', hostRoom: null, hostAddrs: null, netError: null, netLeftNotice: null, peerReacting: null, lobby: null,
+    })
+  },
   botAct: () =>
     set((s) => {
-      if (s.state.status !== 'PLAYING' || !BOTS[s.state.activePlayer]) return s
+      if (s.state.status !== 'PLAYING' || s.seats[s.state.activePlayer] !== 'bot') return s
       return { state: applyAction(s.state, chooseAction(s.state)) }
     }),
   botReact: () => {
@@ -666,7 +929,7 @@ export const useGameStore = create<GameStore>((set) => ({
       // Pour chaque bot NON-ACTIF, tenter une Condition.
       for (let i = 0; i < s.state.players.length; i++) {
         if (i === s.state.activePlayer) continue
-        if (!BOTS[i]) continue
+        if (s.seats[i] !== 'bot') continue
         const reaction = chooseReaction(s.state, i)
         if (reaction) {
           played = true
