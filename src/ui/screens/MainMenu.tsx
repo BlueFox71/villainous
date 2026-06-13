@@ -4,10 +4,8 @@ import { OptionsModal } from '../components/OptionsModal'
 import { Scroller } from '../components/Scroller'
 
 interface Props {
-  /** Aller au choix du vilain (qui lancera ensuite la partie). */
+  /** Aller au choix du mode de partie (solo / réseau). */
   onNewGame: () => void
-  /** Ouvrir l'écran « Jouer en réseau » (multijoueur local). */
-  onNetwork: () => void
   /** Ouvrir la liste des vilains. */
   onVillainList: () => void
   /** Ouvrir l'écran de profil (statistiques). */
@@ -66,7 +64,7 @@ function PatchNotesPanel() {
  * Menu principal : logo, entrées (Nouvelle partie, Liste des villains, Options),
  * et un panneau de notes de version listant les changements récents.
  */
-export function MainMenu({ onNewGame, onNetwork, onVillainList, onProfile, onSoundTest }: Props) {
+export function MainMenu({ onNewGame, onVillainList, onProfile, onSoundTest }: Props) {
   const [showOptions, setShowOptions] = useState(false)
 
   return (
@@ -104,7 +102,6 @@ export function MainMenu({ onNewGame, onNetwork, onVillainList, onProfile, onSou
 
       <nav className="relative z-10 flex w-[32rem] max-w-[90vw] flex-col gap-5">
         <MenuButton label="Nouvelle partie" onClick={onNewGame} />
-        <MenuButton label="Jouer en réseau" onClick={onNetwork} />
         <MenuButton label="Liste des villains" onClick={onVillainList} />
         <MenuButton label="Mon profil" onClick={onProfile} />
         <MenuButton label="Banque de sons" onClick={onSoundTest} />

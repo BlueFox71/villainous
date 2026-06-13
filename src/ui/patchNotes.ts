@@ -9,6 +9,16 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.68',
+    date: '2026-06-13',
+    title: 'Réseau : nouveau parcours « Nouvelle partie » + choix des vilains en direct',
+    changes: [
+      '« Jouer en réseau » disparaît du menu principal : tout passe désormais par « Nouvelle partie », qui propose trois choix en deux blocs — « Partie en solo » d’un côté, « Héberger une partie » / « Rejoindre une partie » de l’autre.',
+      'En réseau, on se connecte d’abord (code de salon), PUIS les deux joueurs arrivent ensemble sur l’écran « Choix des vilains » : chacun choisit le sien et voit en direct le choix de l’autre. Un vilain déjà pris par l’adversaire est grisé (plus de doublon possible).',
+      'L’hôte lance la partie une fois les deux vilains choisis ; l’invité patiente le temps que l’hôte lance.',
+    ],
+  },
+  {
     version: '0.67',
     date: '2026-06-13',
     title: 'Réseau : app accessible depuis l’autre machine',

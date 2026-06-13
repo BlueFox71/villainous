@@ -11,6 +11,7 @@ import App from './App'
 import { MainMenu } from './screens/MainMenu'
 import { VillainList } from './screens/VillainList'
 import { VillainSelect } from './screens/VillainSelect'
+import { GameModeSelect } from './screens/GameModeSelect'
 import { NetworkLobby } from './screens/NetworkLobby'
 import { Profile } from './screens/Profile'
 import { SoundTest } from './screens/SoundTest'
@@ -20,7 +21,8 @@ import { playClick } from './sfx'
 /** Chemins des écrans (une route par page). */
 const ROUTES = {
   menu: '/',
-  select: '/nouvelle-partie',
+  modeSelect: '/nouvelle-partie',
+  chooseVillains: '/choix-vilains',
   network: '/reseau',
   game: '/partie',
   villains: '/vilains',
@@ -34,11 +36,21 @@ function MenuRoute() {
   const navigate = useNavigate()
   return (
     <MainMenu
-      onNewGame={() => navigate(ROUTES.select)}
-      onNetwork={() => navigate(ROUTES.network)}
+      onNewGame={() => navigate(ROUTES.modeSelect)}
       onVillainList={() => navigate(ROUTES.villains)}
       onProfile={() => navigate(ROUTES.profile)}
       onSoundTest={() => navigate(ROUTES.sounds)}
+    />
+  )
+}
+
+function ModeSelectRoute() {
+  const navigate = useNavigate()
+  return (
+    <GameModeSelect
+      onChooseVillains={() => navigate(ROUTES.chooseVillains)}
+      onNetwork={() => navigate(ROUTES.network)}
+      onBack={() => navigate(ROUTES.menu)}
     />
   )
 }
@@ -57,7 +69,7 @@ function NetworkRoute() {
   const navigate = useNavigate()
   return (
     <NetworkLobby
-      onEnterGame={() => navigate(ROUTES.game)}
+      onEnterVillainSelect={() => navigate(ROUTES.chooseVillains)}
       onBack={() => navigate(ROUTES.menu)}
     />
   )
@@ -110,7 +122,8 @@ export default function Root() {
     <BrowserRouter>
       <Routes>
         <Route path={ROUTES.menu} element={<MenuRoute />} />
-        <Route path={ROUTES.select} element={<SelectRoute />} />
+        <Route path={ROUTES.modeSelect} element={<ModeSelectRoute />} />
+        <Route path={ROUTES.chooseVillains} element={<SelectRoute />} />
         <Route path={ROUTES.network} element={<NetworkRoute />} />
         <Route path={ROUTES.game} element={<GameRoute />} />
         <Route path={ROUTES.villains} element={<VillainListRoute />} />

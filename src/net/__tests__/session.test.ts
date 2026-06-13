@@ -35,7 +35,6 @@ describe('session hôte/client (1v1)', () => {
     })
     const client = createClientSession({
       transport: link.clientTransport,
-      villainKey: 'maleficent',
       callbacks: { onState: (s) => { clientState = s }, onAssign: (n) => { assigned = n } },
     })
     link.wire(host, client)
@@ -55,7 +54,6 @@ describe('session hôte/client (1v1)', () => {
     const host = createHostSession({ transport: link.hostTransport, initialState: twoPlayerGame(), seats: SEATS })
     const client = createClientSession({
       transport: link.clientTransport,
-      villainKey: 'maleficent',
       callbacks: { onReject: (r) => { rejected = r } },
     })
     link.wire(host, client)
@@ -76,7 +74,6 @@ describe('session hôte/client (1v1)', () => {
     const host = createHostSession({ transport: link.hostTransport, initialState: twoPlayerGame(), seats: SEATS })
     const client = createClientSession({
       transport: link.clientTransport,
-      villainKey: 'maleficent',
       callbacks: { onState: (s) => { clientState = s } },
     })
     link.wire(host, client)
@@ -97,7 +94,6 @@ describe('session hôte/client (1v1)', () => {
     const host = createHostSession({ transport: link.hostTransport, initialState: twoPlayerGame(), seats: SEATS })
     const client = createClientSession({
       transport: link.clientTransport,
-      villainKey: 'maleficent',
       callbacks: { onState: (s) => { clientState = s } },
     })
     link.wire(host, client)

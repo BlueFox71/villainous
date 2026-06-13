@@ -19,7 +19,8 @@ import {
 import { applyAction } from '../../engine/actions'
 import { chooseAction, chooseReaction } from '../../ai/heuristicBot'
 import { connect, type Connection } from '../../net/connection'
-import { createClientSession, createHostSession, type HostSession, type Session } from '../../net/session'
+import { createClientSession, createHostSession, type ClientSession, type HostSession, type Session } from '../../net/session'
+import type { LobbySeat } from '../../net/messages'
 import { buildDeckInstances } from '../../data/types'
 import { getCardDef } from '../../data/registry'
 import { princeJohn } from '../../data/villains/princeJohn'
@@ -68,8 +69,19 @@ const SOLO_SEATS: [SeatController, SeatController] = ['local', 'bot']
 /** Mode de partie : 'solo' (vs bot, local) ; 'host'/'client' (réseau). */
 export type GameMode = 'solo' | 'host' | 'client'
 
-/** Étape de la connexion réseau (pilote l'écran lobby). */
-export type NetStatus = 'idle' | 'connecting' | 'waiting' | 'connected' | 'error'
+/** Étape de la connexion réseau (pilote les écrans lobby / choix des vilains).
+ *  'waiting' = connecté au relais, en attente de l'autre joueur ; 'lobby' = les
+ *  deux présents, choix des vilains en direct ; 'playing' = partie lancée. */
+export type NetStatus = 'idle' | 'connecting' | 'waiting' | 'lobby' | 'playing' | 'error'
+
+/** Diffuse l'état du lobby (choix des vilains) à l'autre joueur. */
+function sendLobby(seats: LobbySeat[]) {
+  activeConnection?.send({
+    type: 'LOBBY',
+    seats,
+    canStart: seats.every((s) => s.connected && !!s.villainKey),
+  })
+}
 
 /** Port du relais (cf. relay/server.js) — l'hôte fait tourner `npm run relay`. */
 const RELAY_PORT = 8787
@@ -313,16 +325,22 @@ interface GameStore {
   hostRoom: string | null
   /** Dernier message d'erreur réseau (affiché par le lobby). */
   netError: string | null
+  /** État du lobby (choix des vilains en direct) : seats[0] = hôte, seats[1] =
+   *  invité. null hors lobby. */
+  lobby: LobbySeat[] | null
   /** Point d'entrée UNIQUE de tout coup de jeu. Solo : applique localement. En
    *  réseau : l'hôte applique+diffuse, le client envoie (via la session). Toutes
    *  les méthodes de jeu y transitent. */
   submit: (action: GameAction) => void
-  /** Héberge une partie réseau : ouvre un salon, attend l'invité, démarre dès
-   *  qu'il a rejoint avec son vilain. */
-  startHost: (villainKey: VillainKey) => void
-  /** Rejoint la partie réseau de `code` (relais sur `host`, défaut = hôte de la
-   *  page) avec son `villainKey`. */
-  joinHost: (code: string, villainKey: VillainKey, host?: string) => void
+  /** Héberge une partie réseau : ouvre un salon et attend l'invité. Le choix des
+   *  vilains se fait ensuite, en direct (phase lobby). */
+  startHost: () => void
+  /** Rejoint le salon `code` (relais sur `host`, défaut = hôte de la page). */
+  joinHost: (code: string, host?: string) => void
+  /** Pendant le lobby : choisit (ou retire avec null) SON vilain ; synchronisé. */
+  selectVillain: (villainKey: VillainKey | null) => void
+  /** Hôte uniquement : lance la partie une fois les deux vilains choisis. */
+  launchGame: () => void
   /** Quitte la partie réseau et revient au mode solo. */
   leaveNet: () => void
   /** Vrai quand on est en mode test (édition live des deux plateaux, bot figé). */
@@ -476,6 +494,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   netStatus: 'idle',
   hostRoom: null,
   netError: null,
+  lobby: null,
   testMode: false,
   submit: (action) => {
     if (get().mode === 'solo') {
@@ -486,27 +505,26 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // via le callback onState de la session (cf. cycle de vie réseau).
     activeSession?.submitLocal(action)
   },
-  startHost: (villainKey) => {
+  startHost: () => {
     teardownNet()
     const room = makeRoomCode()
     const conn = connect(relayUrl(), room, {
       onMessage: (msg) => {
-        const host = activeSession as HostSession | null
-        if (host) { host.receive(msg); return }
-        // Pas encore de session : on attend que l'invité rejoigne avec son vilain.
+        // Partie lancée : tout passe par la session de jeu.
+        if (activeSession) { (activeSession as HostSession).receive(msg); return }
+        // Phase lobby (côté hôte) : présence de l'invité + son choix de vilain.
         if (msg.type === 'JOIN') {
-          const initial = newGame([villainKey, msg.villainKey as VillainKey])
-          const session = createHostSession({
-            transport: { send: conn.send },
-            initialState: initial,
-            seats: ['human', 'human'],
-            hostSeat: 0,
-            callbacks: { onState: (state) => set({ state }) },
-          })
-          activeSession = session
-          set({ state: initial, netStatus: 'connected' })
-          session.start() // diffuse ASSIGN + STATE à l'invité
-        }
+          set((s) => ({
+            lobby: s.lobby?.map((x) => (x.seat === 1 ? { ...x, connected: true } : x)) ?? null,
+            netStatus: 'lobby',
+          }))
+        } else if (msg.type === 'SELECT_VILLAIN') {
+          set((s) => ({
+            lobby: s.lobby?.map((x) => (x.seat === 1 ? { ...x, villainKey: msg.villainKey } : x)) ?? null,
+          }))
+        } else return
+        const lob = get().lobby
+        if (lob) sendLobby(lob)
       },
       onOpen: () => set({ netStatus: 'waiting' }),
       onClose: () => set((s) => (s.mode === 'solo' ? {} : { netStatus: 'error', netError: 'Connexion perdue.' })),
@@ -516,11 +534,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       mode: 'host', localPlayerIndex: 0, seats: ['local', 'remote'],
       hostRoom: room, netStatus: 'connecting', netError: null,
+      lobby: [
+        { seat: 0, villainKey: null, connected: true },
+        { seat: 1, villainKey: null, connected: false },
+      ],
     })
   },
-  joinHost: (code, villainKey, host) => {
+  joinHost: (code, host) => {
     teardownNet()
-    let session: Session | null = null
+    let session: ClientSession | null = null
     const conn = connect(relayUrl(host), code.toUpperCase(), {
       onMessage: (msg) => session?.receive(msg),
       onOpen: () => set({ netStatus: 'waiting' }),
@@ -530,18 +552,47 @@ export const useGameStore = create<GameStore>((set, get) => ({
     activeConnection = conn
     session = createClientSession({
       transport: { send: conn.send },
-      villainKey,
       callbacks: {
+        onLobby: (m) => set({ lobby: m.seats, netStatus: 'lobby' }),
         onAssign: (seat) => set({ localPlayerIndex: seat, seats: seat === 0 ? ['local', 'remote'] : ['remote', 'local'] }),
-        onState: (state) => set({ state, netStatus: 'connected' }),
+        onState: (state) => set({ state, netStatus: 'playing' }),
       },
     })
     activeSession = session
-    set({ mode: 'client', localPlayerIndex: 1, seats: ['remote', 'local'], netStatus: 'connecting', netError: null })
+    set({ mode: 'client', localPlayerIndex: 1, seats: ['remote', 'local'], netStatus: 'connecting', netError: null, lobby: null })
+  },
+  selectVillain: (villainKey) => {
+    const { mode } = get()
+    const mySeat = get().localPlayerIndex
+    set((s) => ({ lobby: s.lobby?.map((x) => (x.seat === mySeat ? { ...x, villainKey } : x)) ?? null }))
+    if (mode === 'host') {
+      const lob = get().lobby
+      if (lob) sendLobby(lob)
+    } else if (mode === 'client') {
+      ;(activeSession as ClientSession | null)?.selectVillain(villainKey)
+    }
+  },
+  launchGame: () => {
+    const { mode, lobby } = get()
+    if (mode !== 'host' || !lobby) return
+    const hostV = lobby[0].villainKey as VillainKey | null
+    const clientV = lobby[1].villainKey as VillainKey | null
+    if (!hostV || !clientV) return
+    const initial = newGame([hostV, clientV])
+    const session = createHostSession({
+      transport: { send: activeConnection!.send },
+      initialState: initial,
+      seats: ['human', 'human'],
+      hostSeat: 0,
+      callbacks: { onState: (state) => set({ state }) },
+    })
+    activeSession = session
+    set({ state: initial, netStatus: 'playing' })
+    session.start() // diffuse ASSIGN + STATE à l'invité
   },
   leaveNet: () => {
     teardownNet()
-    set({ mode: 'solo', seats: SOLO_SEATS, localPlayerIndex: 0, netStatus: 'idle', hostRoom: null, netError: null })
+    set({ mode: 'solo', seats: SOLO_SEATS, localPlayerIndex: 0, netStatus: 'idle', hostRoom: null, netError: null, lobby: null })
   },
   enterTestMode: () => set({ state: buildTestState(), testMode: true }),
   testInsertCard: (playerIndex, locationId, cardId) =>
@@ -767,7 +818,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     teardownNet()
     set({
       state: newGame(villains), testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0,
-      mode: 'solo', netStatus: 'idle', hostRoom: null, netError: null,
+      mode: 'solo', netStatus: 'idle', hostRoom: null, netError: null, lobby: null,
     })
   },
   botAct: () =>

@@ -62,6 +62,11 @@ export interface HostSession extends Session {
   getState: () => GameState
 }
 
+export interface ClientSession extends Session {
+  /** Pendant le lobby : annonce (ou retire) son choix de vilain à l'hôte. */
+  selectVillain: (villainKey: string | null) => void
+}
+
 /**
  * Crée la session HÔTE. `hostSeat` est l'index du joueur hôte (en général 0) ;
  * l'invité occupe l'autre siège. `initialState`/`seats` décrivent la partie déjà
@@ -125,22 +130,23 @@ export function createHostSession(opts: {
 }
 
 /** Crée la session CLIENT (invité). Il n'applique jamais : il envoie ses coups
- *  et adopte l'état diffusé par l'hôte. */
+ *  et adopte l'état diffusé par l'hôte. Le choix du vilain se fait ensuite, en
+ *  direct, via selectVillain() (phase lobby). */
 export function createClientSession(opts: {
   transport: Transport
-  villainKey: string
   name?: string
   callbacks?: SessionCallbacks
-}): Session {
+}): ClientSession {
   const { transport, callbacks = {} } = opts
   let localSeat = 1 // valeur par défaut tant que l'ASSIGN n'est pas arrivé
 
-  // Annonce sa présence + son choix de vilain dès la création.
-  transport.send({ type: 'JOIN', villainKey: opts.villainKey, name: opts.name })
+  // Annonce sa présence (sans vilain : le choix vient pendant le lobby).
+  transport.send({ type: 'JOIN', name: opts.name })
 
   return {
     get localSeat() { return localSeat },
     submitLocal: (action) => transport.send({ type: 'ACTION_REQUEST', action }),
+    selectVillain: (villainKey) => transport.send({ type: 'SELECT_VILLAIN', villainKey }),
     receive: (msg) => {
       switch (msg.type) {
         case 'STATE':

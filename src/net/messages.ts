@@ -33,8 +33,11 @@ export interface LobbySeat {
 export interface ActionRequest { type: 'ACTION_REQUEST'; action: GameAction }
 /** Décline une fenêtre de réaction (Condition) ouverte pour ce joueur. */
 export interface PassMsg { type: 'PASS' }
-/** Rejoint/annonce sa présence dans le salon avec un choix de vilain. */
-export interface JoinMsg { type: 'JOIN'; villainKey: string; name?: string }
+/** Annonce sa présence dans le salon (le choix du vilain vient ensuite, en
+ *  direct, via SELECT_VILLAIN). */
+export interface JoinMsg { type: 'JOIN'; name?: string }
+/** Choix (ou retrait) de vilain pendant le lobby — synchronisé en direct. */
+export interface SelectVillainMsg { type: 'SELECT_VILLAIN'; villainKey: string | null }
 /** Quitte la partie. */
 export interface LeaveMsg { type: 'LEAVE' }
 
@@ -63,7 +66,7 @@ export interface PongMsg { type: 'PONG' }
 
 /** Union de tous les messages « jeu ». */
 export type NetMessage =
-  | ActionRequest | PassMsg | JoinMsg | LeaveMsg
+  | ActionRequest | PassMsg | JoinMsg | SelectVillainMsg | LeaveMsg
   | StateMsg | LobbyMsg | AssignMsg | RejectMsg
   | PingMsg | PongMsg
 
