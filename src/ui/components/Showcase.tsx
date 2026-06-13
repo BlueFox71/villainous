@@ -106,7 +106,9 @@ export function Showcase({ events, humanIndex, players, onHiddenIdsChange, onCar
     if (!current) return
     // Mode « fixe » (test) : reste affiché jusqu'à fermeture manuelle.
     if (current.fixed) return
-    const totalMs = current.durationMs ?? 3000
+    // Défausse : 1 s de moins (montre la/les cartes retirées plus brièvement).
+    const baseMs = current.durationMs ?? 3000
+    const totalMs = current.discard ? Math.max(1200, baseMs - 1000) : baseMs
     const flightMs = current.destination
       ? Math.min(700, totalMs)
       : current.discard
@@ -272,11 +274,13 @@ export function Showcase({ events, humanIndex, players, onHiddenIdsChange, onCar
                   alt={c.name}
                   // Niveaux de gris + léger assombrissement : signale que la/les
                   // carte(s) partent à la défausse (retirées du jeu).
-                  className="w-auto rounded-lg grayscale brightness-75"
+                  className="w-auto rounded-lg object-contain grayscale brightness-75"
                   // ≤2 cartes : grandes (256px). Au-delà, on rétrécit pour tenir
-                  // sur une seule ligne (plancher 110px).
+                  // sur une seule ligne (plancher 110px). aspect-ratio fixe → largeur
+                  // connue avant chargement (pas de recentrage/décalage de la boîte).
                   style={{
                     height: cards.length <= 2 ? 256 : Math.max(110, Math.floor(520 / cards.length)),
+                    aspectRatio: '63 / 88',
                     animation: `discardCardIn 300ms ease-out ${i * 90}ms both`,
                   }}
                 />
@@ -342,7 +346,14 @@ export function Showcase({ events, humanIndex, players, onHiddenIdsChange, onCar
               ✕
             </button>
           )}
-          <img src={def.image} alt={def.name} className="h-[28rem] w-auto rounded-lg" />
+          {/* aspect-ratio fixe : la largeur est connue AVANT le chargement de
+              l'image → plus de décalage du showcase quand l'image se charge. */}
+          <img
+            src={def.image}
+            alt={def.name}
+            className="h-[28rem] w-auto rounded-lg object-contain"
+            style={{ aspectRatio: '63 / 88' }}
+          />
           {/* Animation « +N JT » quand la carte fait gagner du pouvoir. */}
           {current.gainedPower ? (
             <div

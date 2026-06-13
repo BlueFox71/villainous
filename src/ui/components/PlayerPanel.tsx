@@ -22,8 +22,16 @@ export function PlayerPanel({ player, accent, isActive, isWinner, showObjective 
   const color = VILLAIN_COLOR[player.villain]
   return (
     <div
-      className={`player rounded-xl border p-3 transition-colors ${isActive ? accent.panelActive : accent.panelIdle}`}
-      style={color ? { backgroundColor: `${color}${isActive ? '4d' : '33'}` } : undefined}
+      className={`player rounded-xl border-2 px-4 py-5 shadow-lg backdrop-blur-sm transition-colors ${isActive ? accent.panelActive : accent.panelIdle}`}
+      style={
+        color
+          ? {
+              backgroundColor: `${color}${isActive ? '4d' : '33'}`,
+              // Contour à la couleur du méchant (éclaircie pour rester visible).
+              borderColor: `color-mix(in srgb, ${color}, white ${isActive ? '55%' : '35%'})`,
+            }
+          : undefined
+      }
     >
       <div className="flex items-center justify-between gap-2">
         <h2 className={`truncate text-lg font-semibold ${accent.title}`}>{player.villainName}</h2>

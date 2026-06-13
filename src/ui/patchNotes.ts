@@ -9,6 +9,25 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.61',
+    date: '2026-06-13',
+    title: 'Mise en scène : versus, « À vous de jouer », animations',
+    changes: [
+      'Début de partie : écran « versus » animé (votre méchant — CONTRE — l’adversaire, illustrations en grand) qui accompagne la voix d’intro et le jet de dé pour savoir qui commence (~6 s).',
+      'À chaque début de votre tour, une affiche « À vous de jouer » présente votre méchant.',
+      'Nouveau thème de fond « teinté par les méchants » : les couleurs des deux vilains en présence colorent l’écran (avec une légère animation), en partie comme au choix des vilains.',
+      'Les couleurs bleu/rouge (vous/adversaire) sont remplacées partout par la couleur de chaque méchant (panneaux, cartes-lieux, contours du plateau).',
+      'Écran « Choix des vilains » : l’illustration du vilain sélectionné s’affiche en grand à gauche (vous) et à droite (adversaire) ; une silhouette mystère apparaît pour « Aléatoire » ; fond et bandeau du bas harmonisés.',
+      'En-tête de partie épurée (transparente, sans titre). Le numéro affiché correspond désormais à une manche complète (les deux joueurs ont joué) et un chronomètre indique la durée de la partie.',
+      'La carte sélectionnée garde son cadre jaune le temps de choisir sa cible ; vos actions de lieu s’illuminent au clic (comme celles du bot).',
+      'Le déplacement d’une carte d’un lieu à l’autre est désormais animé (bot comme joueur).',
+      'Pioche : les cartes apparaissent une par une et les cartes en vol passent derrière la main. Le showcase de défausse est plus court et n’a plus de petit décalage à l’apparition.',
+      'Pendant une défausse, le bouton « Fin de tour » est remplacé par un bouton bleu « Défausser » ; le bouton « Annuler » est en rouge.',
+      'Chaque écran a maintenant sa propre adresse (le lien change selon la page).',
+      'Correctif bot : Hadès ne joue plus « Préparez-vous au combat ! » s’il n’a aucun Titan déplaçable.',
+    ],
+  },
+  {
     version: '0.60',
     date: '2026-06-13',
     title: 'Nouveau vilain : Dr Facilier',

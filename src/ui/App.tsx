@@ -23,8 +23,8 @@ import {
 } from '../engine/rules'
 import { titanReachableDests } from '../engine/effects'
 import type { CardInstance, LocationAction, ShowcaseEvent } from '../engine/types'
-import { BLUE, RED } from './accents'
-import { VILLAIN_COLOR } from './villainColors'
+import { BLUE, RED, accentVars } from './accents'
+import { VILLAIN_COLOR, villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from './villainColors'
 import { PlayerPanel } from './components/PlayerPanel'
 import { Board } from './components/Board'
 import { Hand } from './components/Hand'
@@ -68,6 +68,9 @@ import { CardPicker } from './components/CardPicker'
 import { CardFlights, type CardFlight, type FlightRect } from './components/CardFlights'
 import { Scroller } from './components/Scroller'
 import { FloatingGains, type FloatingGain } from './components/FloatingGains'
+import { GameTimer } from './components/GameTimer'
+import { TurnSplash } from './components/TurnSplash'
+import { villainPresentation } from './villainArt'
 
 // `diablo: true` sur un mode interactif = l'action en cours est l'action gratuite
 // de Diablo (V2) : le dispatch final est encapsulé dans DIABLO_FREE_ACTION au lieu
@@ -272,6 +275,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const [showOptions, setShowOptions] = useState(false)
   // Jet de dé de début de partie (qui commence). Sauté en mode test.
   const [startRollDone, setStartRollDone] = useState(testMode)
+  // Affiche « À vous de jouer » (4 s) au début de chaque tour du joueur humain.
+  const [showTurnSplash, setShowTurnSplash] = useState(false)
+  const lastHumanTurnRef = useRef<number | null>(null)
   // Choix de la carte à activer quand plusieurs sont activables (action « Activer »).
   const [activatePick, setActivatePick] = useState<{ actionId: string } | null>(null)
   // Iago : choix de l'Objet à emmener quand plusieurs Objets sont sur son lieu.
@@ -335,9 +341,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // bot EN PAUSE : il ne jouera son END_TURN (bascule vers le joueur) qu'une fois
   // les showcases adverses terminés.
   const [showcaseBusy, setShowcaseBusy] = useState(false)
-  // Flash one-shot (`lieu:action`) de l'action que le BOT vient de jouer, pour la
-  // visualiser sur son plateau (bouton jaune qui apparaît puis disparaît).
-  const [botFlash, setBotFlash] = useState<string | null>(null)
+  // Flash one-shot (`lieu:action`) de l'action que le joueur ACTIF (humain OU bot)
+  // vient de jouer, pour la visualiser sur son plateau (bouton jaune éphémère).
+  const [actionFlash, setActionFlash] = useState<string | null>(null)
   // Cartes en vol (animation pose main → plateau). Purement décoratif.
   const [flights, setFlights] = useState<CardFlight[]>([])
   const flightSeq = useRef(0)
@@ -510,30 +516,66 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           height: cardH,
         }
         flyCard(back, from, to)
+      } else if (e.kind === 'move-card') {
+        // Déplacement entre lieux : la carte (image réelle) vole du lieu de départ
+        // vers le lieu d'arrivée — pour les deux joueurs.
+        const player = state.players[e.playerIndex]
+        const def = getCardDef(e.cardId)
+        const fromCell = document.querySelector(`[data-board-loc="${player?.villain}:${e.from}"]`)
+        const toCell = document.querySelector(`[data-board-loc="${player?.villain}:${e.to}"]`)
+        if (!def || !fromCell || !toCell) continue
+        const fr = fromCell.getBoundingClientRect()
+        const tr = toCell.getBoundingClientRect()
+        const cardW = 56
+        const cardH = cardW * 1.4
+        const from: FlightRect = {
+          left: fr.left + fr.width / 2 - cardW / 2,
+          top: fr.top + fr.height / 2 - cardH / 2,
+          width: cardW,
+          height: cardH,
+        }
+        const to: FlightRect = {
+          left: tr.left + tr.width / 2 - cardW / 2,
+          top: tr.top + tr.height / 2 - cardH / 2,
+          width: cardW,
+          height: cardH,
+        }
+        flyCard(def.image, from, to)
       }
     }
     fxShown.current = fx.length
   }, [state.floatingFx, state.players])
 
-  // Visualisation des actions du BOT : à chaque nouvelle entrée dans usedActionIds
-  // pendant son tour, on fait flasher la pastille de l'action correspondante sur
-  // son plateau (les actions étant déjà espacées de BOT_STEP_MS, elles s'enchaînent
-  // une par une). On ignore les déplacements gratuits (id préfixé « xxx:instanceId »).
+  // Visualisation des actions : à chaque nouvelle entrée dans usedActionIds, on
+  // fait flasher la pastille de l'action correspondante sur le plateau du joueur
+  // ACTIF (humain comme bot) — un même retour visuel pour les deux. On ignore les
+  // déplacements gratuits (id préfixé « xxx:instanceId »).
   const prevUsedRef = useRef<string[]>(state.usedActionIds)
-  const botFlashTimer = useRef<number | undefined>(undefined)
+  const actionFlashTimer = useRef<number | undefined>(undefined)
   useEffect(() => {
     const used = state.usedActionIds
     const prev = prevUsedRef.current
     prevUsedRef.current = used
-    if (state.activePlayer !== BOT) return
+    if (state.status !== 'PLAYING') return
     if (used.length <= prev.length) return // reset de tour ou aucune nouvelle action
     const actionId = used.find((id) => !prev.includes(id) && !id.includes(':'))
-    const loc = state.players[BOT].pawnLocation
+    const loc = state.players[state.activePlayer].pawnLocation
     if (!actionId || !loc) return
-    setBotFlash(`${loc}:${actionId}`)
-    window.clearTimeout(botFlashTimer.current)
-    botFlashTimer.current = window.setTimeout(() => setBotFlash(null), 550)
-  }, [state.usedActionIds, state.activePlayer, state.players])
+    setActionFlash(`${loc}:${actionId}`)
+    window.clearTimeout(actionFlashTimer.current)
+    actionFlashTimer.current = window.setTimeout(() => setActionFlash(null), 550)
+  }, [state.usedActionIds, state.activePlayer, state.status, state.players])
+
+  // Affiche « À vous de jouer » (4 s) à chaque NOUVEAU tour du joueur humain.
+  useEffect(() => {
+    if (testMode || !startRollDone) return
+    if (state.status !== 'PLAYING' || state.activePlayer !== HUMAN) return
+    if (lastHumanTurnRef.current === state.turn) return
+    lastHumanTurnRef.current = state.turn
+    setShowTurnSplash(true)
+    const t = window.setTimeout(() => setShowTurnSplash(false), 4000)
+    return () => window.clearTimeout(t)
+  }, [state.activePlayer, state.turn, state.status, startRollDone, testMode])
 
   const isBotTurn = state.status === 'PLAYING' && BOTS[state.activePlayer]
   const isHumanTurn = state.status === 'PLAYING' && state.activePlayer === HUMAN
@@ -550,6 +592,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
 
   const user = state.players[HUMAN]
   const bot = state.players[BOT]
+  // Couleurs des deux vilains en présence (repli sur teintes neutres si inconnue).
+  const userColor = VILLAIN_COLOR[user.villain] ?? DEFAULT_TINT_A
+  const botColor = VILLAIN_COLOR[bot.villain] ?? DEFAULT_TINT_B
+  // Fond de page teinté (helper partagé avec le choix des vilains).
+  const pageBackground = villainsBackground(userColor, botColor)
   // Un Objet « à associer » est jouable s'il existe au moins un Allié quelque part
   // (on peut le poser sur n'importe quel lieu, donc sur celui qui porte l'Allié).
   // Un Héros hypnotisé compte comme un Allié (porteur d'Objet valide).
@@ -1476,6 +1523,22 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           ? 'condition-ally'
           : 'idle'
 
+  // Carte de la main en cours de sélection (on choisit sa cible/destination) :
+  // garde son cadre jaune le temps du sous-flux (poser, associer, cibler…).
+  const selectedHandCardId: string | null = !mode
+    ? null
+    : mode.kind === 'place' ||
+        mode.kind === 'attach' ||
+        mode.kind === 'play-pick-hero' ||
+        mode.kind === 'shrink-pick-action' ||
+        mode.kind === 'trap-pick-ally' ||
+        mode.kind === 'trap-pick-dest' ||
+        mode.kind === 'sacrifice-pick'
+      ? mode.instanceId
+      : mode.kind === 'vanquish-pick-hero' || mode.kind === 'vanquish-pick-allies'
+        ? mode.viaCard?.instanceId ?? null
+        : null
+
   // Défausse en cours (action « Défausser » OU Tyrannie) : cartes sélectionnées,
   // nombre requis (Tyrannie) et si la confirmation est possible. Sert à la fois
   // à la main (sélection) et à la case d'actions (boutons Défausser/Annuler).
@@ -1643,11 +1706,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const won = state.status === 'WON'
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[#0b0a12] text-white">
-      <header className="relative flex items-center justify-end gap-3 border-b border-white/10 px-4 py-2">
-        <h1 className="title-shine absolute left-1/2 -translate-x-1/2 text-2xl font-bold uppercase tracking-[0.05em]">
-          Disney Villainous
-        </h1>
+    <div
+      className="villain-bg flex h-screen flex-col overflow-hidden bg-[#0a0814] text-white"
+      style={{ backgroundImage: pageBackground, ...accentVars(userColor, botColor) }}
+    >
+      <header className="relative z-30 flex items-center justify-end gap-3 px-4 py-2">
         <div className="flex items-center gap-2 text-xs">
           {testMode && (
             <>
@@ -1775,13 +1838,14 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           {/* Plateau (image). Les deux joueurs sont le Prince Jean pour l'instant.
               Un Héros posé masque la rangée d'actions du haut de son lieu. */}
           <div className="relative">
-            <BoardImage player={user} showPawn pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[user.villain]}, white 45%)`} imgClassName="border border-sky-900/60" hiddenHeroInstanceIds={showcaseHiddenIds} unmaskHeroLocationId={persifleurLoc} />
+            <BoardImage player={user} showPawn pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[user.villain]}, white 45%)`} imgClassName="border border-[color:var(--pa-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} unmaskHeroLocationId={persifleurLoc} />
             <BoardActions
               player={user}
               availableActionIds={availableActions.map((a) => a.id)}
               usedActionIds={isHumanTurn ? state.usedActionIds : []}
               blinkTopAtLocation={persifleurLoc}
               activeLocationId={state.actAtLocation || user.pawnLocation || undefined}
+              flashKey={isHumanTurn ? actionFlash : null}
               onActionClick={handleBoardAction}
             />
           </div>
@@ -2111,24 +2175,60 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         {/* ----- Milieu : tour courant + fin de tour, puis journal ----- */}
         <aside className="flex min-h-0 flex-col gap-2">
           <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-            <div className="mb-2 text-center text-sm font-semibold text-white">
-              {won ? `🏆 ${state.players[state.winner!].villainName}` : `Tour ${state.turn}`}
+            <div className="mb-2 text-center">
+              {won ? (
+                <div className="text-lg font-bold text-amber-200">
+                  🏆 {state.players[state.winner!].villainName}
+                </div>
+              ) : (
+                // Une « manche » = les deux joueurs ont joué. `state.turn` compte
+                // chaque tour-joueur (1,2,3…), d'où la division par 2.
+                <div className="text-2xl font-bold tracking-wide text-white">
+                  Tour {Math.ceil(state.turn / 2)}
+                </div>
+              )}
+              <div className="mt-0.5 font-mono text-xs text-white/55">
+                ⏱ <GameTimer running={state.status === 'PLAYING' && startRollDone} />
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={testMode ? () => testRefreshTurn() : handleEndTurn}
-              disabled={testMode ? false : !canEnd || handMode === 'discard'}
-              title={testMode ? 'Mode test : nouveau tour — choisis le lieu de ton pion (phase déplacement), repioche, sans passer la main au bot' : undefined}
-              className="hs-wrapper classique"
-            >
-              <span className="hs-button classique">
-                <span className="hs-border classique">
-                  <span className="hs-text classique">
-                    {testMode ? 'Nouveau tour (test)' : 'Fin de tour'}
+            {handMode === 'discard' ? (
+              // Pendant la défausse, le bouton « Fin de tour » est remplacé par un
+              // bouton « Défausser » identique mais BLEU (confirme la défausse).
+              <button
+                type="button"
+                onClick={handleConfirmDiscard}
+                disabled={!discardCanConfirm}
+                className="hs-wrapper bleu"
+              >
+                <span className="hs-button bleu">
+                  <span className="hs-border bleu">
+                    <span
+                      className="hs-text bleu"
+                      style={{ fontSize: '1rem', letterSpacing: '0.5px', whiteSpace: 'nowrap', padding: '0.6rem 0.5rem' }}
+                    >
+                      Défausser ({discardSelected.length}
+                      {discardRequired !== undefined ? `/${discardRequired}` : ''})
+                    </span>
                   </span>
                 </span>
-              </span>
-            </button>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={testMode ? () => testRefreshTurn() : handleEndTurn}
+                disabled={testMode ? false : !canEnd}
+                title={testMode ? 'Mode test : nouveau tour — choisis le lieu de ton pion (phase déplacement), repioche, sans passer la main au bot' : undefined}
+                className="hs-wrapper classique"
+              >
+                <span className="hs-button classique">
+                  <span className="hs-border classique">
+                    <span className="hs-text classique">
+                      {testMode ? 'Nouveau tour (test)' : isBotTurn ? 'Tour adverse' : 'Fin de tour'}
+                    </span>
+                  </span>
+                </span>
+              </button>
+            )}
           </div>
           {humanReactions.length > 0 && !reactionPassed && !state.pendingTyrannyDiscard && (
             <div className="armed-blink-rose rounded-xl border border-fuchsia-500/60 bg-fuchsia-500/10 p-2 text-xs text-fuchsia-100">
@@ -2182,22 +2282,13 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 </p>
               )}
               <div className="flex items-center justify-center gap-2">
-                {/* Confirmation de défausse (uniquement en mode défausser). */}
-                {handMode === 'discard' && (
-                  <button
-                    onClick={handleConfirmDiscard}
-                    disabled={!discardCanConfirm}
-                    className="rounded bg-slate-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-500 disabled:opacity-40"
-                  >
-                    Défausser ({discardSelected.length}
-                    {discardRequired !== undefined ? `/${discardRequired}` : ''})
-                  </button>
-                )}
-                {/* Annuler : tout mode SAUF la défausse obligatoire (Tyrannie). */}
+                {/* La confirmation de défausse est portée par le bouton bleu
+                    « Défausser » (qui remplace « Fin de tour »). Ici, seul reste
+                    « Annuler » — sauf en défausse obligatoire (Tyrannie). */}
                 {discardRequired === undefined && (
                   <button
                     onClick={() => setMode(null)}
-                    className="rounded border border-amber-500/60 px-3 py-1.5 text-xs text-amber-300 hover:bg-amber-500/10"
+                    className="rounded border border-red-500/60 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/10"
                   >
                     Annuler
                   </button>
@@ -2229,14 +2320,14 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             </div>
           </div>
           <div className="relative">
-            <BoardImage player={bot} showPawn pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[bot.villain]}, white 45%)`} imgClassName="border border-red-900/60" hiddenHeroInstanceIds={showcaseHiddenIds} />
+            <BoardImage player={bot} showPawn pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[bot.villain]}, white 45%)`} imgClassName="border border-[color:var(--po-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} />
             {/* Aucune pastille d'action affichée pour le bot, SAUF le flash one-shot
                 de l'action qu'il vient de jouer (pour visualiser ses coups). */}
             <BoardActions
               player={bot}
               availableActionIds={[]}
               usedActionIds={[]}
-              flashKey={botFlash}
+              flashKey={isBotTurn ? actionFlash : null}
               flashOnly
               onActionClick={noop}
             />
@@ -2306,7 +2397,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           Les panneaux (nom + jetons + objectif) ont quitté les colonnes des plateaux
           pour leur rendre de la hauteur (moins de scroll), regroupés ici de part et
           d'autre de la main. ----- */}
-      <div className="bottom-bar relative z-20 grid shrink-0 items-center gap-3 border-t border-white/10 bg-gradient-to-t from-black/60 to-transparent px-3 py-1">
+      <div className="bottom-bar relative z-20 grid shrink-0 items-center gap-3 border-t border-white/10 bg-black/30 px-3 py-1 shadow-[0_-6px_20px_rgba(0,0,0,0.35)] backdrop-blur-md">
         {/* Panneau du joueur (gauche, bleu). */}
         <PlayerPanel player={user} accent={BLUE} isActive={state.activePlayer === HUMAN} isWinner={state.winner === HUMAN} />
         {/* Main du joueur (centre), légèrement relevée. */}
@@ -2324,6 +2415,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             costFor={(c) => effectiveCost(state, c)}
             armedConditionIds={humanReactions.map((c) => c.instanceId)}
             forcedHoverId={hoveredReactionId}
+            selectedCardId={selectedHandCardId}
             selectedToDiscard={discardSelected}
             requiredDiscardCount={discardRequired}
             layout="fan"
@@ -2649,11 +2741,18 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       {!startRollDone && (
         <StartRollModal
           names={[state.players[HUMAN].villainName, state.players[BOT].villainName]}
+          images={[villainPresentation(humanVillainKey), villainPresentation(opponentVillainKey)]}
           onResult={(winner, rolls) => {
             setStartingPlayer(winner, rolls)
             setStartRollDone(true)
           }}
         />
+      )}
+
+      {/* Affiche « À vous de jouer » au début du tour du joueur (key = tour → l'anim
+          redémarre à chaque tour). */}
+      {showTurnSplash && (
+        <TurnSplash key={state.turn} villainName={user.villainName} image={villainPresentation(humanVillainKey)} />
       )}
 
       {/* MODE TEST : liste déroulante d'insertion de cartes sur un lieu. */}

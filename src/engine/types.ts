@@ -922,6 +922,10 @@ export type FloatingFx =
    *  lieu de destination. Émis pour les deux joueurs ; l'UI n'anime que le bot
    *  (l'humain l'est déjà avant le dispatch, avec l'image réelle de la carte). */
   | { kind: 'play-card'; playerIndex: number; locationId: LocationId; cardId: string }
+  /** Déplacement d'une carte (Allié/Objet/Malédiction) d'un lieu à un autre :
+   *  la carte « vole » du lieu de départ vers le lieu d'arrivée (émis pour les
+   *  deux joueurs ; l'UI anime l'image réelle de la carte). */
+  | { kind: 'move-card'; playerIndex: number; cardId: string; from: LocationId; to: LocationId }
 
 /** Événement « cinématique » émis par le moteur pour que l'UI affiche la
  *  carte en grand avec un message d'effet. Purement informatif (n'affecte pas

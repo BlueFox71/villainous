@@ -1402,6 +1402,8 @@ function applyMoveCard(
       `${me.villainName} déplace **${card.name}**${moving.length > 1 ? ' (+ associé)' : ''} vers **${destName}**.`,
     ],
   }
+  // Animation UI : la carte « vole » du lieu de départ vers le lieu d'arrivée.
+  next = pushFloatingFx(next, { kind: 'move-card', playerIndex: state.activePlayer, cardId: card.cardId, from, to })
   // Hadès — Peine : quand elle est déplacée, elle peut emmener un Héros de son
   // lieu de départ avec elle (résolution automatique).
   if (card.cardId === 'peine') {

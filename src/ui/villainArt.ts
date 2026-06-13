@@ -17,3 +17,21 @@ const PORTRAIT: Partial<Record<VillainKey, string>> = {
 export function villainPortrait(key: VillainKey): string {
   return PORTRAIT[key] ?? VILLAIN_REGISTRY[key].def.backVillainImage
 }
+
+/** Illustrations de présentation « en grand » (corps entier), par vilain. */
+const PRESENTATION: Partial<Record<VillainKey, string>> = {
+  princeJohn: '/presentations/princeJohn.png',
+  maleficent: '/presentations/maleficent.png',
+  jafar: '/presentations/jafar.png',
+  reineCoeur: '/presentations/reineCoeur.png',
+  crochet: '/presentations/crochet.png',
+  slenderman: '/presentations/slenderman.png',
+  ursula: '/presentations/ursula.png',
+  hades: '/presentations/hades.png',
+  facilier: '/presentations/facilier.png',
+}
+
+/** Illustration de présentation d'un vilain (undefined si non disponible). */
+export function villainPresentation(key: VillainKey): string | undefined {
+  return PRESENTATION[key]
+}

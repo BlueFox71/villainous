@@ -374,6 +374,21 @@ export function enumerateActions(state: GameState): GameAction[] {
           // Alignement des planètes (Hadès) : inutile si AUCUN Titan n'est entravé.
           const needsTrappedTitan = (card.effects ?? []).some((e) => e.type === 'UNTRAP_TITANS_PAY')
           if (needsTrappedTitan && !Object.values(me.board).flat().some((c) => c.isTitan && c.trapped)) continue
+          // Préparez-vous au combat ! (Hadès) : inutile s'il n'existe aucun Titan
+          // non entravé pouvant être déplacé (et finançable si le déplacement est payant).
+          const titanMove = (card.effects ?? []).find((e) => e.type === 'MOVE_TITAN_INTERACTIVE')
+          if (titanMove && titanMove.type === 'MOVE_TITAN_INTERACTIVE') {
+            if (titanMove.paid && me.power < 2) continue
+            const hasMovableTitan = Object.values(me.board)
+              .flat()
+              .some(
+                (c) =>
+                  c.isTitan &&
+                  !c.trapped &&
+                  titanReachableDests(state, state.activePlayer, c.instanceId, titanMove.maxSteps).length > 0,
+              )
+            if (!hasMovableTitan) continue
+          }
           // Joyeux non-anniversaire : inutile sans aucun Allié dans le royaume.
           const needsAllyInRealm = (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_ALLY_IN_REALM')
           if (needsAllyInRealm && !Object.values(me.board).flat().some((c) => c.type === 'ally')) continue

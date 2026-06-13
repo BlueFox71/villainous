@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CardInstance } from '../../engine/types'
 import type { Accent } from '../accents'
 import { getCardDef } from '../../data/registry'
@@ -16,6 +16,9 @@ interface Props {
   power: number
   /** instanceId des Conditions actuellement déclenchables (cadre rose). */
   armedConditionIds?: string[]
+  /** instanceId de la carte en cours de sélection : garde un cadre jaune le temps
+   *  de choisir la cible/destination (modes « poser », « associer », cibler…). */
+  selectedCardId?: string | null
   /** Si défini, force l'affichage du zoom sur la carte de cet instanceId
    *  (typiquement quand l'utilisateur survole un bouton extérieur). */
   forcedHoverId?: string | null
@@ -60,6 +63,7 @@ export function Hand({
   costFor,
   armedConditionIds = [],
   forcedHoverId = null,
+  selectedCardId = null,
   selectedToDiscard,
   // requiredDiscardCount / onConfirmDiscard / onCancel : les boutons d'action
   // (Défausser / Annuler) vivent désormais dans la « actions-case » (colonne du
@@ -72,6 +76,37 @@ export function Hand({
 }: Props) {
   // instanceId de la carte survolée localement, pour l'aperçu zoom.
   const [hovered, setHovered] = useState<string | null>(null)
+
+  // Apparition « carte par carte » : on repère les cartes nouvellement ajoutées à
+  // la main (pioche) et on leur attribue un rang → délai d'entrée échelonné, calé
+  // sur le vol des dos de cartes (≈110 ms d'écart, ~500 ms de vol). `enterDelays`
+  // mappe instanceId → délai (ms) ; vidé une fois les entrées terminées.
+  const prevIdsRef = useRef<string[]>(hand.map((c) => c.instanceId))
+  const [enterDelays, setEnterDelays] = useState<Record<string, number>>({})
+  useEffect(() => {
+    const prev = prevIdsRef.current
+    const cur = hand.map((c) => c.instanceId)
+    const added = cur.filter((id) => !prev.includes(id))
+    prevIdsRef.current = cur
+    if (added.length === 0) return
+    setEnterDelays((m) => {
+      const next = { ...m }
+      added.forEach((id, k) => {
+        next[id] = 480 + k * 110 // ≈ vol du dos + décalage par carte
+      })
+      return next
+    })
+    const clear = window.setTimeout(
+      () =>
+        setEnterDelays((m) => {
+          const n = { ...m }
+          added.forEach((id) => delete n[id])
+          return n
+        }),
+      480 + added.length * 110 + 400,
+    )
+    return () => window.clearTimeout(clear)
+  }, [hand])
 
   const fan = layout === 'fan'
 
@@ -176,16 +211,24 @@ export function Hand({
             : mode === 'discard'
               ? () => onToggleDiscard(ci.instanceId)
               : undefined
+          // Carte en cours de sélection (on choisit sa cible) → cadre jaune maintenu.
+          const isSelected = selectedCardId === ci.instanceId
           // Condition activée (jouable en réaction) : clignotant ROSE pulsé.
-          const ring = playable
-            ? 'border-amber-400 ring-2 ring-amber-400/60'
-            : checked
-              ? 'border-sky-400 ring-2 ring-sky-400/70'
-              : isArmed
-                ? 'border-fuchsia-400 ring-2 ring-fuchsia-400 armed-blink-rose'
-                : 'border-white/15'
+          const ring = isSelected
+            ? 'border-amber-400 ring-2 ring-amber-400/80'
+            : playable
+              ? 'border-amber-400 ring-2 ring-amber-400/60'
+              : checked
+                ? 'border-sky-400 ring-2 ring-sky-400/70'
+                : isArmed
+                  ? 'border-fuchsia-400 ring-2 ring-fuchsia-400 armed-blink-rose'
+                  : 'border-white/15'
 
           const isHovered = hovered === ci.instanceId || forcedHoverId === ci.instanceId
+          // Carte fraîchement piochée : entrée en fondu échelonnée (opacité seule).
+          const enterDelay = enterDelays[ci.instanceId]
+          const enterAnim =
+            enterDelay !== undefined ? `handDeal 260ms ease-out ${enterDelay}ms both` : undefined
 
           return (
             <figure
@@ -205,8 +248,9 @@ export function Hand({
                         ? 'translateY(-3.5rem) rotate(0deg) scale(1.6)'
                         : `translateY(${fanLift}px) rotate(${fanAngle}deg)`,
                       zIndex: isHovered ? 40 : i,
+                      animation: enterAnim,
                     }
-                  : { zIndex: isHovered ? 30 : 0 }
+                  : { zIndex: isHovered ? 30 : 0, animation: enterAnim }
               }
             >
               <img

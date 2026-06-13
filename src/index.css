@@ -81,6 +81,69 @@ body {
   }
 }
 
+/* Arrière-plan « teinté par les vilains » : les halos dérivent très lentement
+   pour donner un peu de vie sans distraire. Le dégradé est posé via
+   `background-image` (inline) ; ici on règle la taille/animation. */
+.villain-bg {
+  background-size: 150% 150%;
+  background-repeat: no-repeat;
+  animation: villainBgDrift 36s ease-in-out infinite;
+}
+@keyframes villainBgDrift {
+  0%,
+  100% {
+    background-position: 18% 20%;
+  }
+  50% {
+    background-position: 82% 80%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .villain-bg {
+    animation: none;
+  }
+}
+
+/* Écran « versus » de début de partie : entrées animées. */
+@keyframes versusFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes versusSlideL {
+  from { opacity: 0; transform: translateX(-80px); }
+  to { opacity: 0.95; transform: translateX(0); }
+}
+@keyframes versusSlideR {
+  from { opacity: 0; transform: translateX(80px); }
+  to { opacity: 0.95; transform: translateX(0); }
+}
+@keyframes versusPop {
+  0% { opacity: 0; transform: scale(0.4); }
+  60% { opacity: 1; transform: scale(1.14); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes versusRise {
+  from { opacity: 0; transform: translateY(26px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Pioche : chaque carte de la main apparaît à son tour (opacité seule, pour ne
+   pas écraser le transform de l'éventail). Le délai est échelonné par carte. */
+@keyframes handDeal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Affiche « À vous de jouer » (début de tour du joueur, façon HearthStone) :
+   entrée rapide + léger rebond, maintien, puis fondu sortant sur ~4 s. */
+@keyframes turnSplash {
+  0% { opacity: 0; transform: translateY(-14px) scale(0.9); }
+  10% { opacity: 1; transform: translateY(0) scale(1.04); }
+  18% { transform: translateY(0) scale(1); }
+  80% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.04); }
+}
+
 /* Titre « brillance » : texte vert avec une bande JAUNE qui défile en boucle
    (dégradé clippé au texte). */
 @keyframes titleShine {
@@ -237,6 +300,20 @@ body {
 }
 .hs-text.classique {
   color: #fff7e6;
+}
+
+/* Variante « bleu » : pierre bleutée (bouton « Défausser » pendant la défausse). */
+.hs-button.bleu {
+  border-color: #14304f;
+  background: linear-gradient(#16273f, #0b1626);
+}
+.hs-border.bleu {
+  background: linear-gradient(#5db4e8 0%, #2f7fc4 45%, #1a5a96 100%);
+  box-shadow: inset 0 1px 0 rgba(190, 225, 255, 0.6),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.45);
+}
+.hs-text.bleu {
+  color: #eaf4ff;
 }
 
 /* Clignotants « halo pulsé ». Jaune = Persifleur ; rose = Conditions (réaction). */

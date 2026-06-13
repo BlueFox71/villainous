@@ -49,8 +49,11 @@ function FlyingCard({ flight, onDone }: { flight: CardFlight; onDone: (id: numbe
 /** Overlay des cartes en vol (pose, pioche, défausse…). Purement décoratif. */
 export function CardFlights({ flights, onDone }: { flights: CardFlight[]; onDone: (id: number) => void }) {
   if (flights.length === 0) return null
+  // z-10 : au-dessus du plateau mais SOUS la main / les panneaux (bottom-bar z-20)
+  // et le chrome → les cartes en vol se glissent derrière la main et ne restent
+  // pas au premier plan en arrivant à destination.
   return (
-    <div className="pointer-events-none fixed inset-0 z-[55]">
+    <div className="pointer-events-none fixed inset-0 z-10">
       {flights.map((f) => (
         <FlyingCard key={f.id} flight={f} onDone={onDone} />
       ))}

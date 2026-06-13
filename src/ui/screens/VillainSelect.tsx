@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { VILLAIN_REGISTRY, useGameStore, type VillainKey } from '../store/gameStore'
-import { villainPortrait } from '../villainArt'
+import { villainPortrait, villainPresentation } from '../villainArt'
+import { VILLAIN_COLOR, villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from '../villainColors'
 import { Scroller } from '../components/Scroller'
 
 interface Props {
@@ -39,10 +40,10 @@ function Option({
       title={disabled ? 'Déjà choisi par l’autre camp' : undefined}
       className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${
         disabled
-          ? 'cursor-not-allowed border-white/5 bg-white/5 opacity-40'
+          ? 'cursor-not-allowed border-white/5 bg-black/40 opacity-40'
           : selected
-            ? 'border-amber-400 bg-amber-400/10 ring-2 ring-amber-400'
-            : 'border-white/10 bg-white/5 hover:border-white/30 hover:bg-white/10'
+            ? 'border-amber-400 bg-amber-400/20 ring-2 ring-amber-400'
+            : 'border-white/10 bg-black/45 hover:border-white/30 hover:bg-black/60'
       }`}
     >
       {isRandom ? (
@@ -100,6 +101,63 @@ function SidePanel({
   )
 }
 
+/** Position/visibilité commune des illustrations latérales (bord + arrière-plan). */
+const SIDE_ART_BASE = 'pointer-events-none absolute inset-y-0 z-0 hidden h-full w-auto lg:block'
+
+/** Illustration « mystère » pour le choix « Aléatoire » : un vilain tiré au hasard
+ *  rendu en silhouette noire légèrement floutée, avec un « ? » au centre. Le tirage
+ *  est figé tant que le composant reste monté. */
+function RandomArt({ side }: { side: 'left' | 'right' }) {
+  const [key] = useState<VillainKey | null>(() => {
+    const withArt = KEYS.filter((k) => villainPresentation(k))
+    return withArt[Math.floor(Math.random() * withArt.length)] ?? null
+  })
+  const src = key ? villainPresentation(key) : undefined
+  if (!src) return null
+  return (
+    <div
+      className={`pointer-events-none absolute inset-y-0 z-0 hidden lg:block ${
+        side === 'left' ? 'left-0' : 'right-0'
+      }`}
+    >
+      <div className="relative h-full">
+        {/* Silhouette noire, légèrement floutée. */}
+        <img
+          src={src}
+          alt=""
+          aria-hidden
+          className={`h-full w-auto max-w-[40vw] object-contain brightness-0 blur-[3px] ${
+            side === 'left' ? 'object-left' : 'object-right'
+          }`}
+        />
+        {/* « ? » au centre de la silhouette. */}
+        <span className="absolute inset-0 flex items-center justify-center text-[11rem] font-black leading-none text-white/85 [text-shadow:0_4px_24px_rgba(0,0,0,0.85)]">
+          ?
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/** Illustration « en grand » du vilain choisi, ancrée sur un bord EN ARRIÈRE-PLAN
+ *  (z-0, plein hauteur) pour décorer le côté sans perturber le layout des listes.
+ *  « Aléatoire » → illustration mystère ; rien tant qu'aucun camp n'est choisi. */
+function PresentationArt({ choice, side }: { choice: Choice | null; side: 'left' | 'right' }) {
+  if (choice === 'random') return <RandomArt side={side} />
+  const src = choice ? villainPresentation(choice) : undefined
+  if (!src) return null
+  return (
+    <img
+      src={src}
+      alt=""
+      aria-hidden
+      className={`${SIDE_ART_BASE} max-w-[40vw] object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)] ${
+        side === 'left' ? 'left-0 object-left' : 'right-0 object-right -scale-x-100'
+      }`}
+    />
+  )
+}
+
 /**
  * Choix des vilains avant de lancer la partie : le joueur choisit SON vilain et
  * celui de l'ADVERSAIRE (bot). Chaque camp peut aussi être laissé « aléatoire ».
@@ -141,13 +199,18 @@ export function VillainSelect({ onStart, onBack }: Props) {
     onStart()
   }
 
+  // Même fond « teinté par les vilains » que la partie en cours : il réagit aux
+  // vilains choisis (joueur → coin gauche, adversaire → coin droit ; teinte
+  // neutre tant qu'un camp est vide ou « aléatoire »).
+  const pageBackground = villainsBackground(
+    (takenBy(mine) && VILLAIN_COLOR[takenBy(mine)!]) || DEFAULT_TINT_A,
+    (takenBy(opp) && VILLAIN_COLOR[takenBy(opp)!]) || DEFAULT_TINT_B,
+  )
+
   return (
     <div
-      className="flex h-screen flex-col text-white"
-      style={{
-        background:
-          'radial-gradient(120% 90% at 50% 0%, #251447 0%, #130c24 45%, #0b0a12 100%)',
-      }}
+      className="villain-bg flex h-screen flex-col bg-[#0a0814] text-white"
+      style={{ backgroundImage: pageBackground }}
     >
       <header className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
         <h1 className="text-lg font-bold text-purple-200">Choix des vilains</h1>
@@ -160,19 +223,28 @@ export function VillainSelect({ onStart, onBack }: Props) {
         </button>
       </header>
 
-      <Scroller element="main" className="min-h-0 flex-1 p-6">
-        <div className="mx-auto grid max-w-4xl grid-cols-1 gap-8 sm:grid-cols-2">
-          <SidePanel title="Ton vilain" value={mine} taken={takenBy(opp)} onPick={pickMine} />
-          <SidePanel title="Adversaire" value={opp} taken={takenBy(mine)} onPick={pickOpp} />
-        </div>
-      </Scroller>
+      {/* Illustrations ancrées sur les bords EN ARRIÈRE-PLAN ; les listes (z-10)
+          repassent en pleine largeur centrée par-dessus, sans être rétrécies. */}
+      <main className="relative min-h-0 flex-1 overflow-hidden">
+        <PresentationArt choice={mine} side="left" />
+        <PresentationArt choice={opp} side="right" />
+        <Scroller className="relative z-10 h-full">
+          <div className="mx-auto grid max-w-4xl grid-cols-1 gap-8 px-6 pb-32 pt-6 sm:grid-cols-2">
+            <SidePanel title="Ton vilain" value={mine} taken={takenBy(opp)} onPick={pickMine} />
+            <SidePanel title="Adversaire" value={opp} taken={takenBy(mine)} onPick={pickOpp} />
+          </div>
+        </Scroller>
+      </main>
 
-      <footer className="flex flex-col items-center gap-2 border-t border-white/10 px-4 py-4">
-        {(!mine || !opp) && (
-          <span className="text-xs text-white/40">
-            Choisis un vilain (ou « Aléatoire ») pour chaque camp.
-          </span>
-        )}
+      {/* Footer repris de la barre du bas de la partie (verre dépoli), remonté
+          par-dessus le bas de `main`. z-0 : au-dessus des images (bas des
+          illustrations estompé derrière le flou) mais SOUS les listes (z-10). */}
+      <footer className="relative z-0 -mt-28 flex flex-col items-center gap-2 border-t border-white/10 bg-black/30 px-4 pb-8 pt-28 shadow-[0_-6px_20px_rgba(0,0,0,0.35)] backdrop-blur-md">
+        {/* Toujours rendu (invisible quand les 2 camps sont choisis) pour réserver
+            sa hauteur : évite un décalage vertical du layout à la 2ᵉ sélection. */}
+        <span className={`text-xs text-white/40 ${!mine || !opp ? '' : 'invisible'}`}>
+          Choisis un vilain (ou « Aléatoire ») pour chaque camp.
+        </span>
         <div className="w-72">
           <button type="button" disabled={!mine || !opp} onClick={launch} className="hs-wrapper classique">
             <span className="hs-button classique">

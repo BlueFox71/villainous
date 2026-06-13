@@ -11,3 +11,19 @@ export const VILLAIN_COLOR: Record<string, string> = {
   hades: '#226077',
   facilier: '#5A1E47',
 }
+
+/** Teintes de repli (camp joueur / adversaire) quand la couleur d'un vilain est
+ *  inconnue ou pas encore choisie. */
+export const DEFAULT_TINT_A = '#3a2d6b'
+export const DEFAULT_TINT_B = '#6b2d3a'
+
+/** Fond « teinté par les vilains » : chaque coin prend la couleur (éclaircie, car
+ *  les teintes vilains sont sombres) d'un camp sur une base sombre. Partagé par la
+ *  page de partie (`App`) et le choix des vilains (`VillainSelect`). */
+export function villainsBackground(colorA: string, colorB: string): string {
+  return (
+    `radial-gradient(130% 100% at 6% -8%, color-mix(in srgb, ${colorA}, white 30%) 0%, rgba(0,0,0,0) 56%), ` +
+    `radial-gradient(130% 100% at 94% 108%, color-mix(in srgb, ${colorB}, white 30%) 0%, rgba(0,0,0,0) 56%), ` +
+    `linear-gradient(160deg, #16121f 0%, #0a0814 100%)`
+  )
+}

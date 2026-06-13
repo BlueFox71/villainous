@@ -1,6 +1,11 @@
-// Palette d'accents par camp : bleu pour le joueur (utilisateur), rouge pour le
-// bot. On stocke des chaînes de classes Tailwind COMPLÈTES (pas de
-// concaténation dynamique, sinon Tailwind les purge).
+// Palette d'accents par camp. Auparavant bleu (joueur) / rouge (adversaire) ;
+// désormais DÉRIVÉE DE LA COULEUR DU MÉCHANT de chaque camp. Les valeurs sont des
+// classes Tailwind à valeur arbitraire qui lisent des variables CSS (`--pa-*` pour
+// le joueur, `--po-*` pour l'adversaire) posées sur le root du jeu via `accentVars`.
+// (On ne peut pas mettre un hex dynamique dans une classe Tailwind — purge — d'où
+// le passage par des variables CSS.)
+
+import type { CSSProperties } from 'react'
 
 export interface Accent {
   /** Panneau joueur quand c'est son tour / au repos. */
@@ -8,7 +13,7 @@ export interface Accent {
   panelIdle: string
   /** Remplissage de la jauge de pouvoir. */
   gauge: string
-  /** Couleur (hex) de l'anneau de progression de l'objectif. */
+  /** Couleur (CSS) de l'anneau de progression de l'objectif / repli serpent. */
   ringColor: string
   /** Couleur du nom du vilain. */
   title: string
@@ -24,28 +29,51 @@ export interface Accent {
   gainBtn: string
 }
 
+/** Camp joueur : lit les variables `--pa-*`. */
 export const BLUE: Accent = {
-  panelActive: 'border-sky-400 bg-sky-900/30 ring-2 ring-sky-400/40',
-  panelIdle: 'border-sky-900/60 bg-sky-950/20',
-  gauge: 'bg-sky-500',
-  ringColor: '#38bdf8',
-  title: 'text-sky-100',
-  accentText: 'text-sky-300',
-  cardMovable: 'border-sky-800 bg-sky-950/20 hover:border-sky-500 hover:bg-sky-900/30 cursor-pointer',
-  cardIdle: 'border-sky-950/60 bg-sky-950/10',
-  chip: 'bg-sky-900/50 text-sky-200',
-  gainBtn: 'bg-sky-600 hover:bg-sky-500 text-white',
+  panelActive: 'border-[color:var(--pa-line)] bg-[var(--pa-bg-active)] ring-2 ring-[color:var(--pa-ring)]',
+  panelIdle: 'border-[color:var(--pa-line-soft)] bg-[var(--pa-bg-idle)]',
+  gauge: 'bg-[var(--pa-gauge)]',
+  ringColor: 'var(--pa-text)',
+  title: 'text-[color:var(--pa-text)]',
+  accentText: 'text-[color:var(--pa-text)]',
+  cardMovable:
+    'border-[color:var(--pa-line)] bg-[var(--pa-bg-idle)] hover:border-[color:var(--pa-text)] hover:bg-[var(--pa-bg-active)] cursor-pointer',
+  cardIdle: 'border-[color:var(--pa-line-soft)] bg-[var(--pa-bg-idle)]',
+  chip: 'bg-[var(--pa-bg-active)] text-[color:var(--pa-text)]',
+  gainBtn: 'bg-[var(--pa-gauge)] hover:brightness-110 text-white',
 }
 
+/** Camp adversaire : lit les variables `--po-*`. */
 export const RED: Accent = {
-  panelActive: 'border-red-400 bg-red-900/30 ring-2 ring-red-400/40',
-  panelIdle: 'border-red-900/60 bg-red-950/20',
-  gauge: 'bg-red-500',
-  ringColor: '#f87171',
-  title: 'text-red-100',
-  accentText: 'text-red-300',
-  cardMovable: 'border-red-800 bg-red-950/20',
-  cardIdle: 'border-red-950/60 bg-red-950/10',
-  chip: 'bg-red-900/50 text-red-200',
-  gainBtn: 'bg-red-600 hover:bg-red-500 text-white',
+  panelActive: 'border-[color:var(--po-line)] bg-[var(--po-bg-active)] ring-2 ring-[color:var(--po-ring)]',
+  panelIdle: 'border-[color:var(--po-line-soft)] bg-[var(--po-bg-idle)]',
+  gauge: 'bg-[var(--po-gauge)]',
+  ringColor: 'var(--po-text)',
+  title: 'text-[color:var(--po-text)]',
+  accentText: 'text-[color:var(--po-text)]',
+  cardMovable:
+    'border-[color:var(--po-line)] bg-[var(--po-bg-idle)] hover:border-[color:var(--po-text)] hover:bg-[var(--po-bg-active)] cursor-pointer',
+  cardIdle: 'border-[color:var(--po-line-soft)] bg-[var(--po-bg-idle)]',
+  chip: 'bg-[var(--po-bg-active)] text-[color:var(--po-text)]',
+  gainBtn: 'bg-[var(--po-gauge)] hover:brightness-110 text-white',
+}
+
+/** Décline une couleur de méchant en variations (texte/bordure/jauge/fonds). */
+function shades(prefix: string, color: string): Record<string, string> {
+  return {
+    [`${prefix}-line`]: `color-mix(in srgb, ${color}, white 38%)`,
+    [`${prefix}-line-soft`]: `color-mix(in srgb, ${color}, white 16%)`,
+    [`${prefix}-ring`]: `color-mix(in srgb, ${color}, white 30%)`,
+    [`${prefix}-text`]: `color-mix(in srgb, ${color}, white 62%)`,
+    [`${prefix}-gauge`]: `color-mix(in srgb, ${color}, white 22%)`,
+    [`${prefix}-bg-active`]: `color-mix(in srgb, ${color} 42%, transparent)`,
+    [`${prefix}-bg-idle`]: `color-mix(in srgb, ${color} 22%, transparent)`,
+  }
+}
+
+/** Variables CSS d'accent des deux camps, à poser sur un conteneur englobant
+ *  (root du jeu). `BLUE` lit `--pa-*` (joueur), `RED` lit `--po-*` (adversaire). */
+export function accentVars(playerColor: string, opponentColor: string): CSSProperties {
+  return { ...shades('--pa', playerColor), ...shades('--po', opponentColor) } as CSSProperties
 }
