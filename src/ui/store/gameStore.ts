@@ -54,9 +54,14 @@ export const VILLAIN_REGISTRY = {
   facilier: { def: facilier, cards: facilierCards, label: 'Dr Facilier' },
 } as const
 
-/** Qui est contrôlé par un bot. Concept d'UI : le moteur, lui, ne sait pas qui
- *  joue. Joueur 0 = humain, joueur 1 = bot. */
-export const BOTS: boolean[] = [false, true]
+/** Qui contrôle chaque siège. Concept d'UI : le moteur, lui, ne sait pas qui
+ *  joue. 'local' = ce navigateur ; 'remote' = l'autre joueur (réseau, à venir) ;
+ *  'bot' = l'IA. Source de vérité pour savoir quels sièges l'autorité auto-joue
+ *  (bot) vs attend (local/remote). En solo : ['local', 'bot']. */
+export type SeatController = 'local' | 'remote' | 'bot'
+
+/** Configuration des sièges en partie solo (joueur 0 = humain local, 1 = bot). */
+const SOLO_SEATS: [SeatController, SeatController] = ['local', 'bot']
 
 /** Types de showcase prévisualisables en mode test (pour caler les positions). */
 export type ShowcaseKind = 'card' | 'discard-red' | 'discard-dark' | 'hero'
@@ -252,6 +257,12 @@ function buildTestState(): GameState {
 
 interface GameStore {
   state: GameState
+  /** Contrôleur de chaque siège (voir {@link SeatController}). Détermine quels
+   *  sièges l'autorité auto-joue (bot) vs attend (local/remote). */
+  seats: [SeatController, SeatController]
+  /** Index du joueur incarné par CE navigateur (point de vue). Solo : 0.
+   *  L'UI s'en sert pour savoir quel plateau est « le mien ». */
+  localPlayerIndex: number
   /** Vrai quand on est en mode test (édition live des deux plateaux, bot figé). */
   testMode: boolean
   /** Entre en mode test (ou le réinitialise) : vide les deux plateaux. */
@@ -397,6 +408,8 @@ interface GameStore {
 
 export const useGameStore = create<GameStore>((set) => ({
   state: newGame(),
+  seats: SOLO_SEATS,
+  localPlayerIndex: 0,
   testMode: false,
   enterTestMode: () => set({ state: buildTestState(), testMode: true }),
   testInsertCard: (playerIndex, locationId, cardId) =>
@@ -626,10 +639,11 @@ export const useGameStore = create<GameStore>((set) => ({
     set((s) => ({ state: applyAction(s.state, { type: 'CHARIOT_MOVE', instanceId, to }) })),
   endTurn: () =>
     set((s) => ({ state: applyAction(s.state, { type: 'END_TURN' }) })),
-  reset: (villains) => set({ state: newGame(villains), testMode: false }),
+  reset: (villains) =>
+    set({ state: newGame(villains), testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0 }),
   botAct: () =>
     set((s) => {
-      if (s.state.status !== 'PLAYING' || !BOTS[s.state.activePlayer]) return s
+      if (s.state.status !== 'PLAYING' || s.seats[s.state.activePlayer] !== 'bot') return s
       return { state: applyAction(s.state, chooseAction(s.state)) }
     }),
   botReact: () => {
@@ -639,7 +653,7 @@ export const useGameStore = create<GameStore>((set) => ({
       // Pour chaque bot NON-ACTIF, tenter une Condition.
       for (let i = 0; i < s.state.players.length; i++) {
         if (i === s.state.activePlayer) continue
-        if (!BOTS[i]) continue
+        if (s.seats[i] !== 'bot') continue
         const reaction = chooseReaction(s.state, i)
         if (reaction) {
           played = true

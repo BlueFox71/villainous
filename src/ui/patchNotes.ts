@@ -9,6 +9,15 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.62',
+    date: '2026-06-13',
+    title: 'Chantier multijoueur (1/6) : fondations',
+    changes: [
+      'Début des travaux pour jouer à deux sur le même réseau (encore en préparation, pas encore jouable). Cette version ne change rien au jeu solo contre le bot.',
+      'Réorganisation interne : la notion de « siège » (humain local / humain distant / bot) et le calcul de « à qui la main ? » sont désormais centralisés, pour préparer proprement les tours en réseau.',
+    ],
+  },
+  {
     version: '0.61',
     date: '2026-06-13',
     title: 'Mise en scène : versus, « À vous de jouer », animations',

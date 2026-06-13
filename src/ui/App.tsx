@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { BOTS, useGameStore, villainKeyOf, VILLAIN_REGISTRY, type VillainKey } from './store/gameStore'
+import { useGameStore, villainKeyOf, VILLAIN_REGISTRY, type VillainKey } from './store/gameStore'
 import { useStatsStore } from './store/statsStore'
 import { getCardDef } from '../data/registry'
 import {
@@ -209,6 +209,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const reset = useGameStore((s) => s.reset)
   const botAct = useGameStore((s) => s.botAct)
   const botReact = useGameStore((s) => s.botReact)
+  // Contrôleur de chaque siège : remplace l'ancien BOTS[]. seats[i] === 'bot'
+  // ⇒ l'UI auto-résout/enchaîne ce siège ; sinon c'est un humain (local/remote).
+  const seats = useGameStore((s) => s.seats)
   const testMode = useGameStore((s) => s.testMode)
   const enterTestMode = useGameStore((s) => s.enterTestMode)
   const testInsertCard = useGameStore((s) => s.testInsertCard)
@@ -221,7 +224,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const testRefreshTurn = useGameStore((s) => s.testRefreshTurn)
 
   // --- Statistiques de profil (par vilain humain) -------------------------
-  // Le joueur humain est toujours le joueur 0 (cf. BOTS = [false, true]).
+  // Le joueur humain est toujours le joueur 0 (cf. seats = ['local', 'bot']).
   const recordResult = useStatsStore((s) => s.recordResult)
   const recordGame = useStatsStore((s) => s.recordGame)
   const addPlaytime = useStatsStore((s) => s.addPlaytime)
@@ -577,7 +580,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     return () => window.clearTimeout(t)
   }, [state.activePlayer, state.turn, state.status, startRollDone, testMode])
 
-  const isBotTurn = state.status === 'PLAYING' && BOTS[state.activePlayer]
+  const isBotTurn = state.status === 'PLAYING' && seats[state.activePlayer] === 'bot'
   const isHumanTurn = state.status === 'PLAYING' && state.activePlayer === HUMAN
 
   // Persifleur actif sur un lieu portant un Héros : on révèle (démasque) la rangée
@@ -704,7 +707,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // (auto) après un court délai ; humain → modale.
     const pdp = state.pendingDeckPeek
     if (pdp) {
-      if (BOTS[pdp.playerIndex]) {
+      if (seats[pdp.playerIndex] === 'bot') {
         const timer = setTimeout(() => resolveDeckPeek(true), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
@@ -714,7 +717,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // cartes du dessus (priorité Objet = Pages) ; humain → modale.
     const ptc = state.pendingTypeChoice
     if (ptc) {
-      if (BOTS[ptc.playerIndex]) {
+      if (seats[ptc.playerIndex] === 'bot') {
         // Prédiction (untilFound) → on scanne toute la pioche ; sinon les `count`
         // premières cartes. On choisit un type proposé qui apparaît, à défaut le 1ᵉʳ.
         const deck = state.players[ptc.playerIndex].deck
@@ -729,7 +732,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // dernière défaussée ; humain → modale.
     const pman = state.pendingManipulation
     if (pman) {
-      if (BOTS[pman.playerIndex]) {
+      if (seats[pman.playerIndex] === 'bot') {
         const disc = state.players[pman.playerIndex].discard
         const pick = disc[disc.length - 1]
         if (pick) {
@@ -744,7 +747,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Royal) ; humain → modale.
     const ptw = state.pendingTransformWickets
     if (ptw) {
-      if (BOTS[ptw.playerIndex]) {
+      if (seats[ptw.playerIndex] === 'bot') {
         const p = state.players[ptw.playerIndex]
         const guards = transformableGuards(state, ptw.playerIndex)
         const locHasWicket = (id: string) => {
@@ -766,7 +769,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // le lieu : Peter Pan → Arbre du Pendu ; sinon son lieu courant ou un lieu libre).
     const pfh = state.pendingFetchedHero
     if (pfh) {
-      if (BOTS[pfh.playerIndex]) {
+      if (seats[pfh.playerIndex] === 'bot') {
         const p = state.players[pfh.playerIndex]
         const locked = new Set(p.lockedLocations ?? [])
         const dest =
@@ -782,7 +785,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Opportunisme : le bot reprend la carte la plus chère de sa défausse.
     const prec = state.pendingRecover
     if (prec) {
-      if (BOTS[prec.playerIndex]) {
+      if (seats[prec.playerIndex] === 'bot') {
         const p = state.players[prec.playerIndex]
         const cands = prec.candidateIds
           .map((id) => p.discard.find((c) => c.instanceId === id))
@@ -799,7 +802,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // K.O. l'Allié le plus fort éligible, sinon le 1ᵉʳ Objet.
     const pfc = state.pendingFateChoice
     if (pfc) {
-      if (BOTS[pfc.chooserIndex]) {
+      if (seats[pfc.chooserIndex] === 'bot') {
         const tgt = state.players[pfc.targetIndex]
         const pool = [...Object.values(tgt.board).flat(), ...tgt.hand]
         const cands = pfc.candidateIds
@@ -820,7 +823,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // un lieu portant un Héros, pour préparer un Vanquish).
     const pamb = state.pendingAllyMoveBuff
     if (pamb) {
-      if (BOTS[pamb.playerIndex]) {
+      if (seats[pamb.playerIndex] === 'bot') {
         const p = state.players[pamb.playerIndex]
         const order = p.locations.map((l) => l.id)
         const locked = new Set(p.lockedLocations ?? [])
@@ -850,7 +853,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Faites-leur peur ! : le bot garde les Héros sur le dessus, défausse le reste.
     const psc = state.pendingScry
     if (psc) {
-      if (BOTS[psc.playerIndex]) {
+      if (seats[psc.playerIndex] === 'bot') {
         const heroes = psc.cards.filter((c) => c.type === 'hero').map((c) => c.instanceId)
         const timer = setTimeout(() => resolveScry(heroes), BOT_STEP_MS)
         return () => clearTimeout(timer)
@@ -862,7 +865,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // (sinon il renverrait les autres cartes dans la pile).
     const pdiv = state.pendingDivination
     if (pdiv) {
-      if (BOTS[pdiv.playerIndex]) {
+      if (seats[pdiv.playerIndex] === 'bot') {
         const rank = (cardId: string) =>
           cardId === 'regner-nouvelle-orleans' ? 0 : cardId === 'esprits-masques' ? 2 : 1
         const order = [...pdiv.cards]
@@ -876,7 +879,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour de passe-passe (Dr Facilier) : le bot garde la carte la plus utile.
     const plt = state.pendingLookTop
     if (plt) {
-      if (BOTS[plt.playerIndex]) {
+      if (seats[plt.playerIndex] === 'bot') {
         const rank = (cardId: string) =>
           cardId === 'regner-nouvelle-orleans' ? 5 : cardId === 'talisman' ? 4
           : cardId === 'divination-facilier' ? 3 : cardId === 'tour-passe-passe' ? 2 : cardId === 'canne' ? 1 : 0
@@ -890,7 +893,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // de l'Au-delà avec toutes les cartes autorisées, remet les autres sur la pioche.
     const pfs = state.pendingFateScry
     if (pfs) {
-      if (BOTS[pfs.chooserIndex]) {
+      if (seats[pfs.chooserIndex] === 'bot') {
         const canAudela = (c: { cardId: string }) =>
           c.cardId !== 'talisman' && c.cardId !== 'divination-facilier'
         const toAudelaIds = pfs.cards.filter(canAudela).map((c) => c.instanceId)
@@ -903,7 +906,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Coup Royal raté du bot : on ferme la fenêtre pour qu'il poursuive son tour.
     const prc = state.pendingRoyalCroquet
     if (prc) {
-      if (BOTS[prc.playerIndex]) {
+      if (seats[prc.playerIndex] === 'bot') {
         const timer = setTimeout(() => dismissRoyalCroquet(), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
@@ -913,7 +916,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // 1ᵉʳ lieu cible ; humain → modale.
     const pt = state.pendingTeleport
     if (pt) {
-      if (BOTS[pt.playerIndex]) {
+      if (seats[pt.playerIndex] === 'bot') {
         const tgts = teleportTargets(state.players[pt.playerIndex])
         if (tgts.length > 0) {
           const timer = setTimeout(() => resolveTeleport(tgts[0]), BOT_STEP_MS)
@@ -926,7 +929,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Bot chooser → 1ᵉʳ Héros + 1ᵉʳ lieu voisin ; humain → modale.
     const phr = state.pendingHeroRelocate
     if (phr) {
-      if (BOTS[phr.chooserIndex]) {
+      if (seats[phr.chooserIndex] === 'bot') {
         const tgt = state.players[phr.targetIndex]
         const ids = tgt.locations.map((l) => l.id)
         const locked = new Set(tgt.lockedLocations ?? [])
@@ -960,7 +963,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // tout seul le 1ᵉʳ lieu valide ; si c'est l'humain, on attend la modale.
     const php = state.pendingHeroPlacement
     if (php) {
-      if (BOTS[php.chooserIndex]) {
+      if (seats[php.chooserIndex] === 'bot') {
         const valid = heroPlacementLocations(state, php.hero, php.targetIndex)
         if (valid.length > 0) {
           const timer = setTimeout(() => resolveHeroPlacement(valid[0]), BOT_STEP_MS)
@@ -973,7 +976,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // → lieu portant le plus de Malédictions (sinon ne bouge pas) ; humain → modale.
     const ppm = state.pendingPawnMove
     if (ppm) {
-      if (BOTS[ppm.chooserIndex]) {
+      if (seats[ppm.chooserIndex] === 'bot') {
         const tgt = state.players[ppm.targetIndex]
         const cands = tgt.locations.filter((l) => l.id !== tgt.pawnLocation)
         const score = (loc: string) => (tgt.board[loc] ?? []).filter((c) => c.type === 'curse').length
@@ -987,7 +990,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Fatalité) → 1ᵉʳ Allié de chaque lieu voisin ; humain → modale.
     const phl = state.pendingHubertPull
     if (phl) {
-      if (BOTS[phl.chooserIndex]) {
+      if (seats[phl.chooserIndex] === 'bot') {
         const tgt = state.players[phl.targetIndex]
         const ids = adjacentLocationIds(state, phl.dest)
           .map((a) => (tgt.board[a] ?? []).find((c) => c.type === 'ally')?.instanceId)
@@ -1002,7 +1005,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // si c'est l'humain, on met tout en pause le temps de sa sélection.
     const ptd = state.pendingTyrannyDiscard
     if (ptd) {
-      if (BOTS[ptd.playerIndex]) {
+      if (seats[ptd.playerIndex] === 'bot') {
         const hand = state.players[ptd.playerIndex].hand
         const ids = hand.slice(0, Math.min(ptd.count, hand.length)).map((c) => c.instanceId)
         const timer = setTimeout(() => resolveTyrannyDiscard(ids), BOT_STEP_MS)
@@ -1025,7 +1028,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveRecover, resolveDivination, resolveLookTop, resolveFateScry, skipHeroRelocate])
+  }, [seats, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveRecover, resolveDivination, resolveLookTop, resolveFateScry, skipHeroRelocate])
 
   // Coups légaux / actions : seulement pour le joueur humain et à son tour.
   const legalMoves = isHumanTurn ? getLegalMoves(state) : []
