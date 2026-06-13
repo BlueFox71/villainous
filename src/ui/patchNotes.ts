@@ -9,6 +9,16 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.70',
+    date: '2026-06-13',
+    title: 'Réseau : correctifs (affiche du tour, flash d’action) + bouton Quitter',
+    changes: [
+      'L’affiche « À vous de jouer » montre désormais VOTRE méchant (et non celui de l’adversaire) côté invité.',
+      'Le flash sur une action jouée par l’adversaire apparaît maintenant aussi sur votre écran (il ne tombait pas en réseau).',
+      'Nouveau bouton « Quitter » en partie réseau, avec confirmation : l’autre joueur est prévenu (« L’autre joueur a quitté la partie ») et renvoyé à l’accueil ; le salon est libéré. Une coupure de connexion est gérée de la même façon.',
+    ],
+  },
+  {
     version: '0.69',
     date: '2026-06-13',
     title: 'Réseau : écran « versus » au lancement',

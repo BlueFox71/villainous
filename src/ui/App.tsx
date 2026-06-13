@@ -207,6 +207,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const reset = useGameStore((s) => s.reset)
   const botAct = useGameStore((s) => s.botAct)
   const botReact = useGameStore((s) => s.botReact)
+  const quitNet = useGameStore((s) => s.quitNet)
+  const leaveNet = useGameStore((s) => s.leaveNet)
+  const netLeftNotice = useGameStore((s) => s.netLeftNotice)
   // Contrôleur de chaque siège : remplace l'ancien BOTS[]. seats[i] === 'bot'
   // ⇒ l'UI auto-résout/enchaîne ce siège ; sinon c'est un humain (local/remote).
   const seats = useGameStore((s) => s.seats)
@@ -280,6 +283,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const [mode, setMode] = useState<Mode>(null)
   const [mapModalOpen, setMapModalOpen] = useState(false)
   const [showOptions, setShowOptions] = useState(false)
+  // Réseau : confirmation avant de quitter la partie (l'autre joueur sera prévenu).
+  const [showQuitConfirm, setShowQuitConfirm] = useState(false)
   // Intro de début de partie. Sautée en mode test. En réseau : présentation
   // « versus » SANS jet de dé (v1 : l'hôte commence — activePlayer 0).
   const [startRollDone, setStartRollDone] = useState(testMode)
@@ -587,6 +592,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
 
   const isBotTurn = state.status === 'PLAYING' && seats[state.activePlayer] === 'bot'
   const isHumanTurn = state.status === 'PLAYING' && state.activePlayer === HUMAN
+  // Tour de l'adversaire (bot en solo, ou joueur distant en réseau) : sert au
+  // flash d'action sur SON plateau, qui doit aussi apparaître en réseau.
+  const isOpponentTurn = state.status === 'PLAYING' && state.activePlayer === BOT
 
   // Persifleur actif sur un lieu portant un Héros : on révèle (démasque) la rangée
   // du haut et on la fait clignoter tant que le joueur n'a pas choisi une action.
@@ -1795,11 +1803,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           </button>
           {onExit && (
             <button
-              onClick={onExit}
-              title="Revenir au menu principal"
+              onClick={() => (gameMode !== 'solo' ? setShowQuitConfirm(true) : onExit())}
+              title={gameMode !== 'solo' ? 'Quitter la partie en réseau' : 'Revenir au menu principal'}
               className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"
             >
-              ☰ Menu
+              {gameMode !== 'solo' ? '⏻ Quitter' : '☰ Menu'}
             </button>
           )}
         </div>
@@ -2335,7 +2343,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               player={bot}
               availableActionIds={[]}
               usedActionIds={[]}
-              flashKey={isBotTurn ? actionFlash : null}
+              flashKey={isOpponentTurn ? actionFlash : null}
               flashOnly
               onActionClick={noop}
             />
@@ -2776,7 +2784,50 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       {/* Affiche « À vous de jouer » au début du tour du joueur (key = tour → l'anim
           redémarre à chaque tour). */}
       {showTurnSplash && (
-        <TurnSplash key={state.turn} villainName={user.villainName} image={villainPresentation(humanVillainKey)} />
+        <TurnSplash key={state.turn} villainName={user.villainName} image={villainPresentation(villainKeyOf(state.players[HUMAN].villain))} />
+      )}
+
+      {/* RÉSEAU : confirmation avant de quitter la partie. */}
+      {showQuitConfirm && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4">
+          <div className="flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-white/15 bg-[#140d24] p-6 text-center">
+            <h2 className="text-lg font-bold text-amber-200">Quitter la partie ?</h2>
+            <p className="text-sm text-white/70">L’autre joueur sera prévenu et renvoyé à l’accueil.</p>
+            <div className="flex justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowQuitConfirm(false)}
+                className="rounded-lg border border-white/20 px-4 py-2 text-sm text-white/80 hover:bg-white/10"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowQuitConfirm(false); quitNet(); onExit?.() }}
+                className="rounded-lg border border-red-400/50 bg-red-500/20 px-4 py-2 text-sm font-semibold text-red-100 hover:bg-red-500/30"
+              >
+                Quitter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RÉSEAU : l'autre joueur a quitté / la connexion est perdue. */}
+      {netLeftNotice && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4">
+          <div className="flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-white/15 bg-[#140d24] p-6 text-center">
+            <h2 className="text-lg font-bold text-amber-200">Partie interrompue</h2>
+            <p className="text-sm text-white/70">{netLeftNotice}</p>
+            <button
+              type="button"
+              onClick={() => { leaveNet(); onExit?.() }}
+              className="mx-auto rounded-lg border border-white/20 px-4 py-2 text-sm text-white/80 hover:bg-white/10"
+            >
+              Retour à l’accueil
+            </button>
+          </div>
+        </div>
       )}
 
       {/* MODE TEST : liste déroulante d'insertion de cartes sur un lieu. */}

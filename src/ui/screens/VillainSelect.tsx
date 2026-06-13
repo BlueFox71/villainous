@@ -181,6 +181,7 @@ export function VillainSelect({ onStart, onBack }: Props) {
   const launchGame = useGameStore((s) => s.launchGame)
   const leaveNet = useGameStore((s) => s.leaveNet)
   const netStatus = useGameStore((s) => s.netStatus)
+  const netLeftNotice = useGameStore((s) => s.netLeftNotice)
   const network = mode !== 'solo'
 
   // SOLO : choix local des deux camps.
@@ -196,6 +197,11 @@ export function VillainSelect({ onStart, onBack }: Props) {
   useEffect(() => {
     if (network && netStatus === 'playing') onStart()
   }, [network, netStatus, onStart])
+
+  // Si l'autre joueur quitte pendant le choix des vilains : retour au menu.
+  useEffect(() => {
+    if (network && netLeftNotice) { leaveNet(); onBack() }
+  }, [network, netLeftNotice, leaveNet, onBack])
 
   /** Tire un vilain au hasard, en excluant éventuellement une clé. */
   const randomKey = (exclude?: VillainKey): VillainKey => {

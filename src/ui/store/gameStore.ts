@@ -117,6 +117,24 @@ function teardownNet() {
   activeSession = null
 }
 
+/** L'autre joueur est parti (LEAVE reçu) ou la connexion est tombée : on coupe et
+ *  on renseigne l'avis (l'UI l'affichera puis renverra à l'accueil). Si la
+ *  connexion a déjà été fermée de NOTRE côté (activeConnection null), on ignore
+ *  — c'est nous qui sommes partis. */
+function handlePeerGone(
+  set: (partial: Partial<GameStore>) => void,
+  get: () => GameStore,
+  notice: string,
+) {
+  if (!activeConnection) return
+  // Seulement si on était réellement en lobby/partie (sinon c'est un échec de
+  // connexion initial → laissé à onError).
+  const st = get().netStatus
+  if (st !== 'lobby' && st !== 'playing') return
+  teardownNet()
+  set({ netLeftNotice: notice })
+}
+
 /** Types de showcase prévisualisables en mode test (pour caler les positions). */
 export type ShowcaseKind = 'card' | 'discard-red' | 'discard-dark' | 'hero'
 
@@ -325,6 +343,9 @@ interface GameStore {
   hostRoom: string | null
   /** Dernier message d'erreur réseau (affiché par le lobby). */
   netError: string | null
+  /** Renseigné quand l'autre joueur a quitté / la connexion est perdue : l'UI
+   *  affiche un avis puis renvoie à l'accueil. null sinon. */
+  netLeftNotice: string | null
   /** État du lobby (choix des vilains en direct) : seats[0] = hôte, seats[1] =
    *  invité. null hors lobby. */
   lobby: LobbySeat[] | null
@@ -341,6 +362,9 @@ interface GameStore {
   selectVillain: (villainKey: VillainKey | null) => void
   /** Hôte uniquement : lance la partie une fois les deux vilains choisis. */
   launchGame: () => void
+  /** Quitte volontairement la partie réseau en prévenant l'autre joueur (LEAVE),
+   *  puis revient au mode solo. */
+  quitNet: () => void
   /** Quitte la partie réseau et revient au mode solo. */
   leaveNet: () => void
   /** Vrai quand on est en mode test (édition live des deux plateaux, bot figé). */
@@ -494,6 +518,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   netStatus: 'idle',
   hostRoom: null,
   netError: null,
+  netLeftNotice: null,
   lobby: null,
   testMode: false,
   submit: (action) => {
@@ -512,8 +537,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       onMessage: (msg) => {
         // Partie lancée : tout passe par la session de jeu.
         if (activeSession) { (activeSession as HostSession).receive(msg); return }
-        // Phase lobby (côté hôte) : présence de l'invité + son choix de vilain.
-        if (msg.type === 'JOIN') {
+        // Phase lobby (côté hôte) : présence de l'invité, son vilain, son départ.
+        if (msg.type === 'LEAVE') {
+          handlePeerGone(set, get, 'L’autre joueur a quitté la partie.')
+          return
+        } else if (msg.type === 'JOIN') {
           set((s) => ({
             lobby: s.lobby?.map((x) => (x.seat === 1 ? { ...x, connected: true } : x)) ?? null,
             netStatus: 'lobby',
@@ -527,7 +555,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         if (lob) sendLobby(lob)
       },
       onOpen: () => set({ netStatus: 'waiting' }),
-      onClose: () => set((s) => (s.mode === 'solo' ? {} : { netStatus: 'error', netError: 'Connexion perdue.' })),
+      onClose: () => handlePeerGone(set, get, 'La connexion avec l’autre joueur a été perdue.'),
       onError: () => set({ netStatus: 'error', netError: 'Erreur réseau (relais injoignable ?).' }),
     })
     activeConnection = conn
@@ -546,7 +574,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const conn = connect(relayUrl(host), code.toUpperCase(), {
       onMessage: (msg) => session?.receive(msg),
       onOpen: () => set({ netStatus: 'waiting' }),
-      onClose: () => set((s) => (s.mode === 'solo' ? {} : { netStatus: 'error', netError: 'Connexion perdue.' })),
+      onClose: () => handlePeerGone(set, get, 'La connexion avec l’hôte a été perdue.'),
       onError: () => set({ netStatus: 'error', netError: 'Erreur réseau (hôte injoignable ?).' }),
     })
     activeConnection = conn
@@ -556,6 +584,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         onLobby: (m) => set({ lobby: m.seats, netStatus: 'lobby' }),
         onAssign: (seat) => set({ localPlayerIndex: seat, seats: seat === 0 ? ['local', 'remote'] : ['remote', 'local'] }),
         onState: (state) => set({ state, netStatus: 'playing' }),
+        onLeave: () => handlePeerGone(set, get, 'L’autre joueur a quitté la partie.'),
       },
     })
     activeSession = session
@@ -584,15 +613,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
       initialState: initial,
       seats: ['human', 'human'],
       hostSeat: 0,
-      callbacks: { onState: (state) => set({ state }) },
+      callbacks: {
+        onState: (state) => set({ state }),
+        onLeave: () => handlePeerGone(set, get, 'L’autre joueur a quitté la partie.'),
+      },
     })
     activeSession = session
     set({ state: initial, netStatus: 'playing' })
     session.start() // diffuse ASSIGN + STATE à l'invité
   },
+  quitNet: () => {
+    activeConnection?.send({ type: 'LEAVE' }) // prévient l'autre joueur…
+    get().leaveNet() // …puis coupe et revient au solo.
+  },
   leaveNet: () => {
     teardownNet()
-    set({ mode: 'solo', seats: SOLO_SEATS, localPlayerIndex: 0, netStatus: 'idle', hostRoom: null, netError: null, lobby: null })
+    set({ mode: 'solo', seats: SOLO_SEATS, localPlayerIndex: 0, netStatus: 'idle', hostRoom: null, netError: null, netLeftNotice: null, lobby: null })
   },
   enterTestMode: () => set({ state: buildTestState(), testMode: true }),
   testInsertCard: (playerIndex, locationId, cardId) =>
@@ -818,7 +854,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     teardownNet()
     set({
       state: newGame(villains), testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0,
-      mode: 'solo', netStatus: 'idle', hostRoom: null, netError: null, lobby: null,
+      mode: 'solo', netStatus: 'idle', hostRoom: null, netError: null, netLeftNotice: null, lobby: null,
     })
   },
   botAct: () =>
