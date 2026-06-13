@@ -1,0 +1,164 @@
+// =============================================================================
+// session.ts — Cerveau du multijoueur 1v1 (orchestration hôte/client).
+//
+// Modèle : l'HÔTE fait autorité (seul endroit où applyAction est appelé). Les
+// deux camps soumettent des actions ; l'hôte valide (whoseInput), applique et
+// DIFFUSE le GameState complet. Le client n'applique rien : il remplace son état
+// par celui qu'il reçoit (cf. MULTIPLAYER_SPEC §2-§4).
+//
+// 1v1 sans identité explicite : le relais ne renvoie pas à l'émetteur, donc dans
+// un salon à 2, tout message reçu par l'hôte vient forcément de l'invité (le
+// siège « distant »), et réciproquement. On en déduit l'émetteur sans le coder.
+//
+// Agnostique du framework et du transport : on injecte un `Transport` (un simple
+// `send`). Le store branchera `connection.send` dessus et routera les messages
+// entrants vers `receive`. Testable avec deux transports reliés en mémoire.
+// =============================================================================
+
+import type { GameAction, GameState } from '../engine/types'
+import { applyAction } from '../engine/actions'
+import { whoseInput } from '../engine/turn'
+import type { NetMessage, SeatKind } from './messages'
+
+/** Canal d'émission minimal (cf. Connection.send). */
+export interface Transport {
+  send: (msg: NetMessage) => void
+}
+
+export interface SessionCallbacks {
+  /** L'état de jeu local doit être remplacé (diffusion reçue côté client, ou
+   *  application locale côté hôte). */
+  onState?: (state: GameState) => void
+  /** Côté client : l'hôte nous a attribué notre siège (= localPlayerIndex). */
+  onAssign?: (seat: number) => void
+  /** Mise à jour du salon (lobby). */
+  onLobby?: (msg: Extract<NetMessage, { type: 'LOBBY' }>) => void
+  /** Une demande a été rejetée (coup illégal / pas ton tour). */
+  onReject?: (reason: string) => void
+  /** Côté hôte : l'invité a rejoint/choisi son vilain. */
+  onJoin?: (msg: Extract<NetMessage, { type: 'JOIN' }>) => void
+}
+
+/** Le siège `seat` a-t-il le droit de soumettre une action dans `state` ?
+ *  Règle de base : seul le joueur que le moteur attend peut agir. (Les réactions
+ *  Condition du joueur non-actif seront ajoutées à l'étape 6.) */
+export function canSubmit(state: GameState, seat: number): boolean {
+  return whoseInput(state) === seat
+}
+
+export interface Session {
+  /** Soumet une action jouée par CE joueur (local). */
+  submitLocal: (action: GameAction) => void
+  /** Traite un message reçu du réseau. */
+  receive: (msg: NetMessage) => void
+  /** Index de siège de ce client (point de vue). */
+  readonly localSeat: number
+}
+
+export interface HostSession extends Session {
+  /** Démarre la partie : attribue son siège à l'invité et diffuse l'état. */
+  start: () => void
+  /** État autoritaire courant. */
+  getState: () => GameState
+}
+
+/**
+ * Crée la session HÔTE. `hostSeat` est l'index du joueur hôte (en général 0) ;
+ * l'invité occupe l'autre siège. `initialState`/`seats` décrivent la partie déjà
+ * construite (via newGame côté store).
+ */
+export function createHostSession(opts: {
+  transport: Transport
+  initialState: GameState
+  seats: SeatKind[]
+  hostSeat?: number
+  callbacks?: SessionCallbacks
+}): HostSession {
+  const { transport, seats, callbacks = {} } = opts
+  const localSeat = opts.hostSeat ?? 0
+  const remoteSeat = 1 - localSeat
+  let state = opts.initialState
+
+  const broadcastState = () => {
+    callbacks.onState?.(state)
+    transport.send({ type: 'STATE', state, seats })
+  }
+
+  /** Tente d'appliquer `action` au nom de `fromSeat`. */
+  const submit = (action: GameAction, fromSeat: number) => {
+    if (!canSubmit(state, fromSeat)) {
+      // Le distant est notifié ; pour un coup local illégal on prévient juste l'UI.
+      if (fromSeat === remoteSeat) transport.send({ type: 'REJECT', reason: 'pas-ton-tour' })
+      else callbacks.onReject?.('pas-ton-tour')
+      return
+    }
+    state = applyAction(state, action)
+    broadcastState()
+  }
+
+  return {
+    localSeat,
+    getState: () => state,
+    submitLocal: (action) => submit(action, localSeat),
+    start: () => {
+      transport.send({ type: 'ASSIGN', yourSeat: remoteSeat })
+      broadcastState()
+    },
+    receive: (msg) => {
+      // Tout message reçu vient de l'invité (siège distant).
+      switch (msg.type) {
+        case 'ACTION_REQUEST':
+          submit(msg.action, remoteSeat)
+          break
+        case 'JOIN':
+          callbacks.onJoin?.(msg)
+          break
+        case 'PASS':
+        case 'LEAVE':
+        case 'PING':
+          break
+        default:
+          break
+      }
+    },
+  }
+}
+
+/** Crée la session CLIENT (invité). Il n'applique jamais : il envoie ses coups
+ *  et adopte l'état diffusé par l'hôte. */
+export function createClientSession(opts: {
+  transport: Transport
+  villainKey: string
+  name?: string
+  callbacks?: SessionCallbacks
+}): Session {
+  const { transport, callbacks = {} } = opts
+  let localSeat = 1 // valeur par défaut tant que l'ASSIGN n'est pas arrivé
+
+  // Annonce sa présence + son choix de vilain dès la création.
+  transport.send({ type: 'JOIN', villainKey: opts.villainKey, name: opts.name })
+
+  return {
+    get localSeat() { return localSeat },
+    submitLocal: (action) => transport.send({ type: 'ACTION_REQUEST', action }),
+    receive: (msg) => {
+      switch (msg.type) {
+        case 'STATE':
+          callbacks.onState?.(msg.state)
+          break
+        case 'ASSIGN':
+          localSeat = msg.yourSeat
+          callbacks.onAssign?.(msg.yourSeat)
+          break
+        case 'LOBBY':
+          callbacks.onLobby?.(msg)
+          break
+        case 'REJECT':
+          callbacks.onReject?.(msg.reason)
+          break
+        default:
+          break
+      }
+    },
+  }
+}

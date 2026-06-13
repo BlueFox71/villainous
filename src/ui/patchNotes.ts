@@ -9,6 +9,14 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.64',
+    date: '2026-06-13',
+    title: 'Chantier multijoueur (3/6) : arbitrage des tours',
+    changes: [
+      'Mise en place de l’« arbitre » de partie à deux (toujours en préparation, sans effet sur le jeu solo) : l’ordinateur hôte valide chaque coup (seul le joueur dont c’est le tour peut jouer), l’applique et renvoie l’état complet à l’autre joueur, qui se synchronise.',
+    ],
+  },
+  {
     version: '0.63',
     date: '2026-06-13',
     title: 'Chantier multijoueur (2/6) : tuyauterie réseau',
