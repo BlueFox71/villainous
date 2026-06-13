@@ -9,6 +9,17 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.66',
+    date: '2026-06-13',
+    title: 'Jouer en réseau (bêta) : parties à deux sur le même réseau',
+    changes: [
+      'Nouveau menu « Jouer en réseau » : affrontez un autre joueur sur le même réseau local. L’hôte lance le serveur de liaison (commande « npm run relay »), crée un salon et obtient un code à 4 lettres ; l’autre joueur ouvre la même page depuis l’adresse de l’hôte, choisit « Rejoindre » et saisit le code.',
+      'Chacun choisit son propre vilain dans le lobby. Une fois connectés, la partie démarre et chacun voit SON plateau comme « le sien » (point de vue relativisé).',
+      'Seul le joueur dont c’est le tour peut agir ; l’autre voit la partie se synchroniser en direct.',
+      'Limites de cette première version : l’hôte commence (pas de jet de dé ni de compensation en réseau) et les Conditions jouées en réaction pendant le tour adverse ne sont pas encore prises en charge en réseau (à venir).',
+    ],
+  },
+  {
     version: '0.65',
     date: '2026-06-13',
     title: 'Chantier multijoueur (4/6) : branchement des coups',

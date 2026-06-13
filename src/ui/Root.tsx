@@ -11,6 +11,7 @@ import App from './App'
 import { MainMenu } from './screens/MainMenu'
 import { VillainList } from './screens/VillainList'
 import { VillainSelect } from './screens/VillainSelect'
+import { NetworkLobby } from './screens/NetworkLobby'
 import { Profile } from './screens/Profile'
 import { SoundTest } from './screens/SoundTest'
 import { MenuMusicPlayer } from './components/MenuMusicPlayer'
@@ -20,6 +21,7 @@ import { playClick } from './sfx'
 const ROUTES = {
   menu: '/',
   select: '/nouvelle-partie',
+  network: '/reseau',
   game: '/partie',
   villains: '/vilains',
   profile: '/profil',
@@ -33,6 +35,7 @@ function MenuRoute() {
   return (
     <MainMenu
       onNewGame={() => navigate(ROUTES.select)}
+      onNetwork={() => navigate(ROUTES.network)}
       onVillainList={() => navigate(ROUTES.villains)}
       onProfile={() => navigate(ROUTES.profile)}
       onSoundTest={() => navigate(ROUTES.sounds)}
@@ -45,6 +48,16 @@ function SelectRoute() {
   return (
     <VillainSelect
       onStart={() => navigate(ROUTES.game)}
+      onBack={() => navigate(ROUTES.menu)}
+    />
+  )
+}
+
+function NetworkRoute() {
+  const navigate = useNavigate()
+  return (
+    <NetworkLobby
+      onEnterGame={() => navigate(ROUTES.game)}
       onBack={() => navigate(ROUTES.menu)}
     />
   )
@@ -98,6 +111,7 @@ export default function Root() {
       <Routes>
         <Route path={ROUTES.menu} element={<MenuRoute />} />
         <Route path={ROUTES.select} element={<SelectRoute />} />
+        <Route path={ROUTES.network} element={<NetworkRoute />} />
         <Route path={ROUTES.game} element={<GameRoute />} />
         <Route path={ROUTES.villains} element={<VillainListRoute />} />
         <Route path={ROUTES.profile} element={<ProfileRoute />} />

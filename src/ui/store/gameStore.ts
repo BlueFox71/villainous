@@ -18,7 +18,8 @@ import {
 } from '../../engine/state'
 import { applyAction } from '../../engine/actions'
 import { chooseAction, chooseReaction } from '../../ai/heuristicBot'
-import type { HostSession, Session } from '../../net/session'
+import { connect, type Connection } from '../../net/connection'
+import { createClientSession, createHostSession, type HostSession, type Session } from '../../net/session'
 import { buildDeckInstances } from '../../data/types'
 import { getCardDef } from '../../data/registry'
 import { princeJohn } from '../../data/villains/princeJohn'
@@ -67,11 +68,42 @@ const SOLO_SEATS: [SeatController, SeatController] = ['local', 'bot']
 /** Mode de partie : 'solo' (vs bot, local) ; 'host'/'client' (réseau). */
 export type GameMode = 'solo' | 'host' | 'client'
 
+/** Étape de la connexion réseau (pilote l'écran lobby). */
+export type NetStatus = 'idle' | 'connecting' | 'waiting' | 'connected' | 'error'
+
+/** Port du relais (cf. relay/server.js) — l'hôte fait tourner `npm run relay`. */
+const RELAY_PORT = 8787
+
 /** Session réseau active. Hors de l'état réactif Zustand : c'est un objet à
  *  effets (sockets), pas une donnée sérialisable. `null` en solo. En réseau,
  *  l'hôte applique+diffuse via cette session ; le client envoie ses coups et
  *  reçoit l'état. Le store s'y branche dans submit() / le cycle de vie réseau. */
 let activeSession: HostSession | Session | null = null
+/** Connexion réseau active (relais). Idem : hors état réactif. */
+let activeConnection: Connection | null = null
+
+/** URL du relais. L'invité ayant chargé l'app depuis l'hôte, `location.hostname`
+ *  pointe déjà sur la machine hôte ; on peut donc déduire l'adresse (override
+ *  possible). */
+function relayUrl(host?: string): string {
+  const h = host || (typeof location !== 'undefined' ? location.hostname : 'localhost')
+  return `ws://${h}:${RELAY_PORT}`
+}
+
+/** Code de salon court (4 lettres, sans I/O/0/1 ambigus). */
+function makeRoomCode(): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let code = ''
+  for (let i = 0; i < 4; i++) code += alphabet[Math.floor(Math.random() * alphabet.length)]
+  return code
+}
+
+/** Ferme proprement la session/connexion réseau (sans toucher à l'état Zustand). */
+function teardownNet() {
+  activeConnection?.close()
+  activeConnection = null
+  activeSession = null
+}
 
 /** Types de showcase prévisualisables en mode test (pour caler les positions). */
 export type ShowcaseKind = 'card' | 'discard-red' | 'discard-dark' | 'hero'
@@ -275,10 +307,24 @@ interface GameStore {
   localPlayerIndex: number
   /** Mode de partie courant (solo par défaut). */
   mode: GameMode
+  /** Étape de la connexion réseau (écran lobby). */
+  netStatus: NetStatus
+  /** Code de salon (hôte) à communiquer à l'invité ; null hors hébergement. */
+  hostRoom: string | null
+  /** Dernier message d'erreur réseau (affiché par le lobby). */
+  netError: string | null
   /** Point d'entrée UNIQUE de tout coup de jeu. Solo : applique localement. En
    *  réseau : l'hôte applique+diffuse, le client envoie (via la session). Toutes
    *  les méthodes de jeu y transitent. */
   submit: (action: GameAction) => void
+  /** Héberge une partie réseau : ouvre un salon, attend l'invité, démarre dès
+   *  qu'il a rejoint avec son vilain. */
+  startHost: (villainKey: VillainKey) => void
+  /** Rejoint la partie réseau de `code` (relais sur `host`, défaut = hôte de la
+   *  page) avec son `villainKey`. */
+  joinHost: (code: string, villainKey: VillainKey, host?: string) => void
+  /** Quitte la partie réseau et revient au mode solo. */
+  leaveNet: () => void
   /** Vrai quand on est en mode test (édition live des deux plateaux, bot figé). */
   testMode: boolean
   /** Entre en mode test (ou le réinitialise) : vide les deux plateaux. */
@@ -427,6 +473,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   seats: SOLO_SEATS,
   localPlayerIndex: 0,
   mode: 'solo',
+  netStatus: 'idle',
+  hostRoom: null,
+  netError: null,
   testMode: false,
   submit: (action) => {
     if (get().mode === 'solo') {
@@ -436,6 +485,63 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // Réseau : l'hôte applique+diffuse, le client envoie. Le store se met à jour
     // via le callback onState de la session (cf. cycle de vie réseau).
     activeSession?.submitLocal(action)
+  },
+  startHost: (villainKey) => {
+    teardownNet()
+    const room = makeRoomCode()
+    const conn = connect(relayUrl(), room, {
+      onMessage: (msg) => {
+        const host = activeSession as HostSession | null
+        if (host) { host.receive(msg); return }
+        // Pas encore de session : on attend que l'invité rejoigne avec son vilain.
+        if (msg.type === 'JOIN') {
+          const initial = newGame([villainKey, msg.villainKey as VillainKey])
+          const session = createHostSession({
+            transport: { send: conn.send },
+            initialState: initial,
+            seats: ['human', 'human'],
+            hostSeat: 0,
+            callbacks: { onState: (state) => set({ state }) },
+          })
+          activeSession = session
+          set({ state: initial, netStatus: 'connected' })
+          session.start() // diffuse ASSIGN + STATE à l'invité
+        }
+      },
+      onOpen: () => set({ netStatus: 'waiting' }),
+      onClose: () => set((s) => (s.mode === 'solo' ? {} : { netStatus: 'error', netError: 'Connexion perdue.' })),
+      onError: () => set({ netStatus: 'error', netError: 'Erreur réseau (relais injoignable ?).' }),
+    })
+    activeConnection = conn
+    set({
+      mode: 'host', localPlayerIndex: 0, seats: ['local', 'remote'],
+      hostRoom: room, netStatus: 'connecting', netError: null,
+    })
+  },
+  joinHost: (code, villainKey, host) => {
+    teardownNet()
+    let session: Session | null = null
+    const conn = connect(relayUrl(host), code.toUpperCase(), {
+      onMessage: (msg) => session?.receive(msg),
+      onOpen: () => set({ netStatus: 'waiting' }),
+      onClose: () => set((s) => (s.mode === 'solo' ? {} : { netStatus: 'error', netError: 'Connexion perdue.' })),
+      onError: () => set({ netStatus: 'error', netError: 'Erreur réseau (hôte injoignable ?).' }),
+    })
+    activeConnection = conn
+    session = createClientSession({
+      transport: { send: conn.send },
+      villainKey,
+      callbacks: {
+        onAssign: (seat) => set({ localPlayerIndex: seat, seats: seat === 0 ? ['local', 'remote'] : ['remote', 'local'] }),
+        onState: (state) => set({ state, netStatus: 'connected' }),
+      },
+    })
+    activeSession = session
+    set({ mode: 'client', localPlayerIndex: 1, seats: ['remote', 'local'], netStatus: 'connecting', netError: null })
+  },
+  leaveNet: () => {
+    teardownNet()
+    set({ mode: 'solo', seats: SOLO_SEATS, localPlayerIndex: 0, netStatus: 'idle', hostRoom: null, netError: null })
   },
   enterTestMode: () => set({ state: buildTestState(), testMode: true }),
   testInsertCard: (playerIndex, locationId, cardId) =>
@@ -658,8 +764,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   endTurn: () =>
     get().submit({ type: 'END_TURN' }),
   reset: (villains) => {
-    activeSession = null
-    set({ state: newGame(villains), testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0, mode: 'solo' })
+    teardownNet()
+    set({
+      state: newGame(villains), testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0,
+      mode: 'solo', netStatus: 'idle', hostRoom: null, netError: null,
+    })
   },
   botAct: () =>
     set((s) => {

@@ -151,8 +151,6 @@ type Mode =
   | null
 
 const BOT_STEP_MS = 700
-const HUMAN = 0
-const BOT = 1
 
 export default function App({ onExit }: { onExit?: () => void } = {}) {
   const state = useGameStore((s) => s.state)
@@ -212,6 +210,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // Contrôleur de chaque siège : remplace l'ancien BOTS[]. seats[i] === 'bot'
   // ⇒ l'UI auto-résout/enchaîne ce siège ; sinon c'est un humain (local/remote).
   const seats = useGameStore((s) => s.seats)
+  // Point de vue : HUMAN = le joueur incarné par CE navigateur (0 en solo et
+  // chez l'hôte, 1 chez l'invité), BOT = l'autre. Relativise tout l'affichage.
+  const localPlayerIndex = useGameStore((s) => s.localPlayerIndex)
+  const HUMAN = localPlayerIndex
+  const BOT = 1 - localPlayerIndex
+  const gameMode = useGameStore((s) => s.mode)
   const testMode = useGameStore((s) => s.testMode)
   const enterTestMode = useGameStore((s) => s.enterTestMode)
   const testInsertCard = useGameStore((s) => s.testInsertCard)
@@ -276,8 +280,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const [mode, setMode] = useState<Mode>(null)
   const [mapModalOpen, setMapModalOpen] = useState(false)
   const [showOptions, setShowOptions] = useState(false)
-  // Jet de dé de début de partie (qui commence). Sauté en mode test.
-  const [startRollDone, setStartRollDone] = useState(testMode)
+  // Jet de dé de début de partie (qui commence). Sauté en mode test ET en réseau
+  // (v1 : l'hôte commence — activePlayer 0 de l'état initial ; pas de jet/compensation).
+  const [startRollDone, setStartRollDone] = useState(testMode || gameMode !== 'solo')
   // Affiche « À vous de jouer » (4 s) au début de chaque tour du joueur humain.
   const [showTurnSplash, setShowTurnSplash] = useState(false)
   const lastHumanTurnRef = useRef<number | null>(null)
@@ -547,7 +552,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       }
     }
     fxShown.current = fx.length
-  }, [state.floatingFx, state.players])
+  }, [state.floatingFx, state.players, HUMAN])
 
   // Visualisation des actions : à chaque nouvelle entrée dans usedActionIds, on
   // fait flasher la pastille de l'action correspondante sur le plateau du joueur
@@ -578,7 +583,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     setShowTurnSplash(true)
     const t = window.setTimeout(() => setShowTurnSplash(false), 4000)
     return () => window.clearTimeout(t)
-  }, [state.activePlayer, state.turn, state.status, startRollDone, testMode])
+  }, [state.activePlayer, state.turn, state.status, startRollDone, testMode, HUMAN])
 
   const isBotTurn = state.status === 'PLAYING' && seats[state.activePlayer] === 'bot'
   const isHumanTurn = state.status === 'PLAYING' && state.activePlayer === HUMAN
@@ -1028,7 +1033,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [seats, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveRecover, resolveDivination, resolveLookTop, resolveFateScry, skipHeroRelocate])
+  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveRecover, resolveDivination, resolveLookTop, resolveFateScry, skipHeroRelocate])
 
   // Coups légaux / actions : seulement pour le joueur humain et à son tour.
   const legalMoves = isHumanTurn ? getLegalMoves(state) : []
@@ -2741,7 +2746,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       )}
 
       {/* Jet de dé de début de partie : qui commence (plus haut score). */}
-      {!startRollDone && (
+      {!startRollDone && gameMode === 'solo' && (
         <StartRollModal
           names={[state.players[HUMAN].villainName, state.players[BOT].villainName]}
           images={[villainPresentation(humanVillainKey), villainPresentation(opponentVillainKey)]}

@@ -39,9 +39,18 @@ export function connect(
   WebSocketImpl: WebSocketCtor = WebSocket,
 ): Connection {
   const ws = new WebSocketImpl(url)
+  // File d'attente : les frames émises avant l'ouverture sont gardées puis
+  // envoyées à l'ouverture (le JOIN du client part dès la création de la session,
+  // souvent avant que la socket soit OPEN).
+  const queue: string[] = []
+  const rawSend = (s: string) => {
+    if (ws.readyState === ws.OPEN) ws.send(s)
+    else queue.push(s)
+  }
 
   ws.addEventListener('open', () => {
-    ws.send(encodeFrame({ room, t: 'join' }))
+    ws.send(encodeFrame({ room, t: 'join' })) // toujours en premier (enregistre la socket)
+    for (const m of queue.splice(0)) ws.send(m)
     handlers.onOpen?.()
   })
   ws.addEventListener('message', (ev: MessageEvent) => {
@@ -56,9 +65,7 @@ export function connect(
 
   return {
     room,
-    send: (msg) => {
-      if (ws.readyState === ws.OPEN) ws.send(encodeFrame({ room, t: 'data', data: msg }))
-    },
+    send: (msg) => rawSend(encodeFrame({ room, t: 'data', data: msg })),
     close: () => {
       if (ws.readyState === ws.OPEN) ws.send(encodeFrame({ room, t: 'leave' }))
       ws.close()
