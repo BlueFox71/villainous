@@ -10,6 +10,7 @@ const PORTRAIT: Partial<Record<VillainKey, string>> = {
   crochet: '/crochet.png',
   ursula: '/ursula.png',
   hades: '/hades.png',
+  facilier: '/facilier.png',
 }
 
 /** Portrait d'un vilain, avec repli sur son dos de carte si non défini. */

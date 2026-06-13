@@ -22,6 +22,8 @@ interface Props {
   onPlayFateCard: (cardId: string, targetHeroId: string, enlargeToward?: string) => void
   /** Ajoute une carte (cardId) à la main du joueur (pour tester un Événement). */
   onAddToHand: (cardId: string) => void
+  /** Dr Facilier : ajoute une carte (cardId) à la Pile de l'Au-delà du joueur. */
+  onAddToAuDela: (cardId: string) => void
   /** Déclenche un showcase d'aperçu (pour caler les positions). */
   onShowcase: (
     kind: ShowcaseKind,
@@ -45,11 +47,16 @@ const SHOWCASE_KINDS: { kind: ShowcaseKind; label: string }[] = [
  * effets « à la pose » + showcase) ou de jouer une Condition. Les sélecteurs
  * de cartes montrent l'image au survol.
  */
-export function TestFateBar({ villain, locations, handAllies, boardHeroes, onInflict, onPlayCondition, onPlayFateCard, onAddToHand, onShowcase, error }: Props) {
+export function TestFateBar({ villain, locations, handAllies, boardHeroes, onInflict, onPlayCondition, onPlayFateCard, onAddToHand, onAddToAuDela, onShowcase, error }: Props) {
   const cards = VILLAIN_REGISTRY[villain].cards
   const heroes = cards.filter((c) => c.deck === 'fate' && c.type === 'hero').sort((a, b) => a.name.localeCompare(b.name))
   const conditions = cards.filter((c) => c.type === 'condition').sort((a, b) => a.name.localeCompare(b.name))
   const events = cards.filter((c) => c.deck === 'villain' && c.type === 'effect').sort((a, b) => a.name.localeCompare(b.name))
+  // Dr Facilier : cartes Vilain pouvant être mises dans la Pile de l'Au-delà (tout
+  // sauf Talisman / Divination, exclues par les règles).
+  const auDelaCards = cards
+    .filter((c) => c.deck === 'villain' && c.id !== 'talisman' && c.id !== 'divination-facilier')
+    .sort((a, b) => a.name.localeCompare(b.name))
   // Cartes Fatalité non-Héros (Voler aux Riches = effet, Déguisement = objet) :
   // elles ciblent un Héros déjà présent sur ton plateau.
   const fateCards = cards
@@ -60,6 +67,7 @@ export function TestFateBar({ villain, locations, handAllies, boardHeroes, onInf
   const [loc, setLoc] = useState(locations[0]?.id ?? '')
   const [condId, setCondId] = useState(conditions[0]?.id ?? '')
   const [evtId, setEvtId] = useState(events[0]?.id ?? '')
+  const [auDelaCardId, setAuDelaCardId] = useState(auDelaCards[0]?.id ?? '')
   const [fateCardId, setFateCardId] = useState(fateCards[0]?.id ?? '')
   const [fateHeroId, setFateHeroId] = useState('')
   // Agrandir : sens du pivot (lieu voisin recouvert). '' = auto.
@@ -207,6 +215,22 @@ export function TestFateBar({ villain, locations, handAllies, boardHeroes, onInf
             Ajouter à la main
           </button>
           <span className="text-[10px] text-emerald-200/70">puis « Jouer une carte » sur le plateau</span>
+        </div>
+      )}
+
+      {/* Dr Facilier : remplir la Pile de l'Au-delà pour tester Divination et les
+          effets Au-delà des cartes. */}
+      {villain === 'facilier' && auDelaCards.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          <CardSelect cards={auDelaCards} value={auDelaCardId} onChange={setAuDelaCardId} placeholder="Carte…" />
+          <button
+            onClick={() => auDelaCardId && onAddToAuDela(auDelaCardId)}
+            disabled={!auDelaCardId}
+            className="rounded bg-fuchsia-500 px-3 py-0.5 font-medium text-fuchsia-950 hover:bg-fuchsia-400 disabled:opacity-40"
+          >
+            Ajouter à l'Au-delà
+          </button>
+          <span className="text-[10px] text-emerald-200/70">puis joue Divination au Royaume du vaudou</span>
         </div>
       )}
 

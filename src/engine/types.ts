@@ -127,6 +127,10 @@ export type ObjectiveDef =
   /** Hadès : avoir au moins `count` Titans NON entravés sur le lieu `locationId`
    *  (Mont Olympe) au début de son tour. */
   | { type: 'UNTRAPPED_TITANS_AT_LOCATION'; locationId: LocationId; count: number }
+  /** Dr Facilier : détenir le Talisman et révéler « Régner sur la Nouvelle-Orléans »
+   *  depuis la Pile de l'Au-delà via Divination. Victoire ÉVÉNEMENTIELLE — déclenchée
+   *  au moment de la résolution de Divination, pas par un contrôle passif. */
+  | { type: 'REIGN_NEW_ORLEANS' }
 
 /** Phase courante à l'intérieur d'un tour. */
 export type TurnPhase =
@@ -354,6 +358,37 @@ export type Effect =
    *  `cardType` (Allié — Titans inclus), l'ajoute à la main, défausse les autres.
    *  Variante NON interactive de REVEAL_UNTIL_TYPE (un seul type, pas de choix). */
   | { type: 'REVEAL_VILLAIN_UNTIL_TYPE'; cardType: CardType }
+  /** Dr Facilier — Divination : si l'acteur est au Royaume du Vaudou, mélange sa
+   *  Pile de l'Au-delà et révèle `count` cartes (2 si Mama Odie est dans son
+   *  royaume), puis l'acteur résout leurs effets Au-delà dans l'ordre de son choix
+   *  (pendingDivination). Hors du Royaume du Vaudou : sans effet. */
+  | { type: 'DIVINATION'; count: number }
+  /** Dr Facilier (Fatalité, résolu sur la CIBLE = Facilier) — L'étoile du soir :
+   *  place un Allié du royaume (auto : le plus fort) dans la Pile de l'Au-delà. */
+  | { type: 'FATE_ALLY_TO_AUDELA' }
+  /** Dr Facilier (Fatalité) — Si près du but / Charlotte : place les `count`
+   *  premières cartes de la pioche Vilain de la cible dans sa Pile de l'Au-delà. */
+  | { type: 'FATE_TOP_DECK_TO_AUDELA'; count: number }
+  /** Dr Facilier (Fatalité) — Joujou (à la pose) : place un Objet du lieu hôte
+   *  (auto : hors Talisman) dans la Pile de l'Au-delà. */
+  | { type: 'FATE_ITEM_AT_HOST_TO_AUDELA' }
+  /** Dr Facilier (Fatalité) — Big Daddy Le Bœuf (à la pose) : retire une carte de
+   *  la Pile de l'Au-delà (auto : Régner en priorité) et la place sur le dessus de
+   *  la pioche Vilain de la cible. */
+  | { type: 'FATE_AUDELA_TO_DECK_TOP' }
+  /** Dr Facilier (Fatalité) — Naveen (à la pose) : déplace tous les Héros du
+   *  royaume de la cible vers un lieu voisin (auto). */
+  | { type: 'FATE_MOVE_ALL_HEROES_ADJACENT' }
+  /** Dr Facilier — Tour de passe-passe : regarde les `look` premières cartes de la
+   *  pioche de l'acteur, en ajoute `take` à la main (auto : les plus utiles) et
+   *  défausse les autres. */
+  | { type: 'LOOK_TOP_DRAW_DISCARD'; look: number; take: number }
+  /** Dr Facilier — Désespoir : prend une carte de la Pile de l'Au-delà (auto :
+   *  carte clé en priorité) et l'ajoute à la main de l'acteur. */
+  | { type: 'TAKE_FROM_AUDELA_TO_HAND' }
+  /** Dr Facilier — Terreur : récupère dans la défausse de l'acteur une carte d'un
+   *  des `types` (auto : Événement en priorité) et l'ajoute à sa main. */
+  | { type: 'RECOVER_TYPE_FROM_DISCARD'; types: CardType[] }
 
 /**
  * Un exemplaire physique d'une carte en jeu. Comme une même carte existe en
@@ -460,6 +495,17 @@ export interface CardInstance {
   /** Quand cet Allié est utilisé pour un Vanquish, il retourne dans la main au lieu
    *  d'être défaussé (Hadès : Hydre). Recopié de CardDef. */
   returnToHandOnVanquish?: boolean
+  /** Dr Facilier — comportement de la carte révélée depuis la Pile de l'Au-delà.
+   *  Recopié de CardDef. Absent = la carte est simplement défaussée si révélée. */
+  auDela?: AuDelaEffect
+  /** Dr Facilier — quand cette carte (un Événement : Amis de l'au-delà, Régner sur
+   *  la Nouvelle-Orléans) est jouée, elle va dans la Pile de l'Au-delà au lieu de
+   *  la défausse. Recopié de CardDef. */
+  goesToAuDelaOnPlay?: boolean
+  /** La carte compte AUSSI comme un Objet (en plus de son `type`). Dr Facilier —
+   *  Esprits des masques (Allié + Objet) : ciblable par les effets « Objet »
+   *  (Joujou). Recopié de CardDef. */
+  alsoItem?: boolean
   /** Reine de Cœur : taille d'un Héros. `'shrunk'` (rapetissé) → ne recouvre
    *  qu'une action du haut ; `'enlarged'` (agrandi) → recouvre une action de plus.
    *  Absent = taille normale (recouvre la rangée du haut). */
@@ -516,6 +562,27 @@ export type SelfStrengthMod =
    *  royaume (`scope: 'realm'`, Rajah + Princesse Jasmine). */
   | { kind: 'if-card'; cardId: string; scope: 'location' | 'realm'; delta: number }
 
+/** Dr Facilier — comportement d'une carte RÉVÉLÉE depuis la Pile de l'Au-delà
+ *  par Divination. Donnée réutilisable, interprétée par resolveAuDela (effects.ts).
+ *  Une carte sans `auDela` est simplement défaussée quand elle est révélée. */
+export type AuDelaEffect =
+  /** Amis de l'au-delà : gagne `amount` Pouvoir, puis se défausse. */
+  | { kind: 'gain-power-discard'; amount: number }
+  /** Esprits des ombres : se défausse et fait perdre `amount` Pouvoir. */
+  | { kind: 'lose-power-discard'; amount: number }
+  /** Régner sur la Nouvelle-Orléans : si Facilier détient le Talisman, victoire ;
+   *  sinon, la carte retourne dans la Pile de l'Au-delà. */
+  | { kind: 'win-if-talisman' }
+  /** Ombre du Dr Facilier : la carte est posée sur le lieu `locationId`. */
+  | { kind: 'place-on-location'; locationId: LocationId }
+  /** Tour de passe-passe : regarde les `look` premières cartes de la pioche, en
+   *  ajoute `take` à la main, défausse les autres, puis se défausse. */
+  | { kind: 'scry-draw-discard'; look: number; take: number }
+  /** Esprits des masques : défausse toutes les cartes Esprits des masques
+   *  révélées, remet les AUTRES cartes révélées (non encore résolues) dans la
+   *  Pile de l'Au-delà sans appliquer leur effet, et interrompt la résolution. */
+  | { kind: 'masks-abort' }
+
 /** Déclencheur d'une carte Condition : décrit la situation côté ADVERSAIRE
  *  (active player) qui rend la Condition jouable. */
 export type ConditionTrigger =
@@ -538,6 +605,10 @@ export type ConditionTrigger =
   /** L'adversaire actif vient de vaincre CE TOUR un Héros de force ≥ `value`
    *  (Méchanceté). */
   | { type: 'opponent-vanquished-hero-strength-ge'; value: number }
+  /** L'adversaire actif a défaussé au moins `value` cartes ce tour-ci (Désespoir). */
+  | { type: 'opponent-discarded-ge'; value: number }
+  /** L'adversaire actif a gagné au moins `value` jetons Pouvoir ce tour-ci (Terreur). */
+  | { type: 'opponent-gained-power-ge'; value: number }
 
 /** Déclencheur de défausse automatique d'une carte (typiquement une Malédiction). */
 export type CurseDiscardTrigger =
@@ -603,6 +674,11 @@ export interface PlayerState {
    *  tant que le verrou n'est pas retiré (Scarabée d'Or). La Caverne aux
    *  Merveilles démarre verrouillée. */
   lockedLocations?: LocationId[]
+  /** Dr Facilier — Pile de l'Au-delà : cartes mises de côté (Amis de l'au-delà,
+   *  Régner, Alliés/cartes ajoutés par les adversaires…). Divination en révèle 3
+   *  au hasard et résout leurs effets Au-delà. Toujours présent (`[]`) ; seul
+   *  Facilier l'alimente. */
+  auDela: CardInstance[]
 }
 
 /**
@@ -705,7 +781,17 @@ export interface GameState {
    * Apparition (chooser = target = Slenderman) ; Vent de panique (Fatalité :
    * chooser = adversaire, target = Slenderman). Absent / `null` hors de ce choix.
    */
-  pendingHeroRelocate?: { chooserIndex: number; targetIndex: number; anyLocation?: boolean; candidateIds?: string[] } | null
+  pendingHeroRelocate?: {
+    chooserIndex: number
+    targetIndex: number
+    anyLocation?: boolean
+    candidateIds?: string[]
+    /** Dr Facilier — Poupées vaudou : le Héros ne peut être déplacé que de 1 lieu
+     *  dans cette direction (−1 = gauche, +1 = droite), comme les Poupées. */
+    forcedDirection?: number
+    /** Le déplacement est FACULTATIF (« vous pouvez ») : SKIP_HERO_RELOCATE permis. */
+    optional?: boolean
+  } | null
   /** Téléportation (Slenderman) : `playerIndex` doit choisir un lieu portant un
    *  Héros où déplacer son pion (RESOLVE_TELEPORT). Absent / `null` sinon. */
   pendingTeleport?: { playerIndex: number } | null
@@ -754,9 +840,11 @@ export interface GameState {
   /** Opportunisme (Ursula) : `playerIndex` choisit une carte (`candidateIds`) de sa
    *  défausse Vilain à reprendre en main (RESOLVE_RECOVER). */
   pendingRecover?: { playerIndex: number; candidateIds: string[] } | null
-  /** Colère Titanesque (Ursula) : `playerIndex` doit choisir un lieu voisin sur
-   *  lequel effectuer une action (RESOLVE_GIANT_LOCATION). */
-  pendingGiantAction?: { playerIndex: number } | null
+  /** Colère Titanesque (Ursula) / Canne (Dr Facilier) : `playerIndex` doit choisir
+   *  un lieu voisin sur lequel effectuer une action (RESOLVE_GIANT_LOCATION).
+   *  `viaCanne` = ouverture par la Canne (action Fatalité du voisin exclue, usage
+   *  unique par tour). */
+  pendingGiantAction?: { playerIndex: number; viaCanne?: boolean } | null
   /** Colère Titanesque : tant que ce champ est posé, le joueur actif agit comme
    *  s'il était sur ce lieu (cf. currentLocation) ; effacé après UNE action. */
   actAtLocation?: LocationId | null
@@ -767,11 +855,39 @@ export interface GameState {
   activeMovedCard?: boolean
   /** Le joueur actif a pioché ≥1 carte ce tour-ci via un effet (déclencheur Sans visage). */
   activeDrewCard?: boolean
+  /** Nombre de cartes défaussées par le joueur actif ce tour-ci (déclencheur
+   *  Désespoir, Dr Facilier). Remis à 0 en fin de tour. */
+  activeDiscardedCount?: number
+  /** Pouvoir gagné par le joueur actif ce tour-ci (déclencheur Terreur, Dr
+   *  Facilier). Remis à 0 en fin de tour. */
+  activeGainedPower?: number
   /** Hadès — Préparez-vous au combat ! / action « Déplacer » sur un Titan :
    *  `playerIndex` (Hadès) choisit un de ses Titans non entravés (`titanCandidateIds`)
    *  et un lieu de destination, puis le déplace (RESOLVE_TITAN_MOVE). `paid` : le
    *  déplacement coûte 2 JT (1 lieu) ou 5 JT (2 lieux). `maxSteps` borne la portée. */
   pendingTitanMove?: { playerIndex: number; titanCandidateIds: string[]; paid: boolean; maxSteps: number } | null
+  /** Dr Facilier — Divination : `playerIndex` (Facilier) a révélé `cards` de sa
+   *  Pile de l'Au-delà et doit en résoudre les effets Au-delà dans l'ordre de son
+   *  choix (RESOLVE_DIVINATION, `topInstanceIds` = ordre de résolution). Absent /
+   *  `null` hors d'une Divination. */
+  pendingDivination?: { playerIndex: number; cards: CardInstance[] } | null
+  /** Dr Facilier — Tour de passe-passe : `playerIndex` regarde les `cards`
+   *  premières cartes de sa pioche et en choisit `take` à ajouter à sa main ; les
+   *  autres sont défaussées (RESOLVE_LOOK_TOP). Absent / `null` sinon. */
+  pendingLookTop?: {
+    playerIndex: number
+    cards: CardInstance[]
+    take: number
+    /** Tour de passe-passe révélé pendant une Divination : une fois ce choix résolu,
+     *  reprendre la Divination avec ces cartes restantes (à résoudre dans l'ordre). */
+    resumeDivination?: { playerIndex: number; cards: CardInstance[] }
+  } | null
+  /** Dr Facilier — Si près du but / Charlotte (Fatalité) : `chooserIndex` (qui a
+   *  joué la Fatalité) regarde les `cards` premières cartes de la pioche Vilain de
+   *  `targetIndex` (Facilier). Il en place autant qu'il veut (parmi celles qui le
+   *  PEUVENT) dans la Pile de l'Au-delà et remet les autres sur le dessus de la
+   *  pioche dans l'ordre choisi (RESOLVE_FATE_SCRY). Absent / `null` sinon. */
+  pendingFateScry?: { chooserIndex: number; targetIndex: number; cards: CardInstance[] } | null
   /** Hadès (Fatalité) — Héra / Pégase : `chooserIndex` (le joueur qui a joué la
    *  Fatalité) choisit un Titan parmi `titanCandidateIds` (du royaume de Hadès =
    *  `playerIndex`) à entraver (`kind: 'trap'`) ou à repousser de `pushSteps` lieux
@@ -982,6 +1098,11 @@ export type GameAction =
   | { type: 'RESOLVE_TYPE_CHOICE'; cardType: CardType }
   /** Apparition / Vent de panique : déplace le Héros choisi vers le lieu voisin. */
   | { type: 'RESOLVE_HERO_RELOCATE'; heroInstanceId: string; to: LocationId }
+  /** Décline un déplacement de Héros FACULTATIF (Poupées vaudou). */
+  | { type: 'SKIP_HERO_RELOCATE' }
+  /** Dr Facilier — Canne : ouvre le choix d'un lieu voisin où effectuer UNE action
+   *  disponible (hors Fatalité), tant que le pion est sur le lieu de la Canne. */
+  | { type: 'USE_CANNE' }
   /** Téléportation : déplace le pion vers le lieu (portant un Héros) choisi. */
   | { type: 'RESOLVE_TELEPORT'; to: LocationId }
   /** Manipulation : reprend en main la carte `instanceId` de la défausse du joueur. */
@@ -1018,6 +1139,16 @@ export type GameAction =
   | { type: 'RESOLVE_TITAN_MOVE'; titanInstanceId: string; to: LocationId }
   /** Hadès (Fatalité) — Héra / Pégase : entrave ou repousse le Titan `titanInstanceId`. */
   | { type: 'RESOLVE_TITAN_SELECT'; titanInstanceId: string }
+  /** Dr Facilier — Divination : résout les cartes révélées (pendingDivination)
+   *  dans l'ordre `topInstanceIds` (1ʳᵉ résolue en premier). */
+  | { type: 'RESOLVE_DIVINATION'; topInstanceIds: string[] }
+  /** Dr Facilier — Tour de passe-passe : garde `keepInstanceIds` (parmi les cartes
+   *  révélées de pendingLookTop) en main ; les autres sont défaussées. */
+  | { type: 'RESOLVE_LOOK_TOP'; keepInstanceIds: string[] }
+  /** Dr Facilier — Si près du but / Charlotte : `toAudelaIds` rejoignent la Pile de
+   *  l'Au-delà ; `deckTopOrder` (les autres cartes révélées) reviennent sur le
+   *  dessus de la pioche Vilain de Facilier, 1ʳᵉ = tout en haut. */
+  | { type: 'RESOLVE_FATE_SCRY'; toAudelaIds: string[]; deckTopOrder: string[] }
   /** MODE TEST uniquement : inflige directement un Héros Fatalité (déjà construit
    *  par l'UI) sur un lieu du joueur ACTIF, déclenchant ses effets « à la pose »,
    *  les arrivées et les showcases — comme si un adversaire l'avait joué. */

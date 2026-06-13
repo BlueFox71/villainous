@@ -24,6 +24,9 @@ interface Props {
   attachTargetsAvailable: boolean
   /** Vrai si les cartes Événement sont temporairement interdites (Roi Richard). */
   blockEvents: boolean
+  /** Vrai s'il y a au moins un Allié dans le royaume — une carte « gain par Allié »
+   *  (Joyeux non-anniversaire) est injouable sinon. */
+  realmHasAllies: boolean
   /** Coût effectif d'une carte (Couronne −1, Bâton Magique −1 sur Événement/
    *  Malédiction, Épée de Vérité +2…). Absent → coût de base. */
   costFor?: (card: CardInstance) => number
@@ -53,6 +56,7 @@ export function Hand({
   power,
   attachTargetsAvailable,
   blockEvents,
+  realmHasAllies,
   costFor,
   armedConditionIds = [],
   forcedHoverId = null,
@@ -152,11 +156,14 @@ export function Hand({
           const isArmed = armedConditionIds.includes(ci.instanceId)
           // Un Objet à associer exige un Allié présent sur le lieu.
           const needsAlly = ci.attach === 'ally'
+          // Joyeux non-anniversaire (gain par Allié) : injouable sans Allié au royaume.
+          const needsAllyInRealm = (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_ALLY_IN_REALM')
           const playable =
             mode === 'play'
               ? card.type !== 'condition' &&
                 cost <= power &&
                 (!needsAlly || attachTargetsAvailable) &&
+                (!needsAllyInRealm || realmHasAllies) &&
                 !(blockEvents && card.type === 'effect')
               : mode === 'condition-ally'
                 ? card.type === 'ally' // Lâcheté : seuls les Alliés sont jouables, gratuit

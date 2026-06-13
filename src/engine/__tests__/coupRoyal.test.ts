@@ -78,3 +78,47 @@ describe('Reine de Cœur — Coup Royal', () => {
     expect(next.status).toBe('PLAYING')
   })
 })
+
+describe('Joyeux non-anniversaire — injouable sans Allié dans le royaume', () => {
+  const joyeux: CardInstance = {
+    instanceId: 'p0:jna',
+    cardId: 'joyeux-non-anniversaire',
+    name: 'Joyeux non-anniversaire',
+    type: 'effect',
+    cost: 0,
+    effects: [{ type: 'GAIN_POWER_PER_ALLY_IN_REALM', amount: 1 }],
+  }
+  function gameAtPlayLoc(): { s: GameState; locId: string; actionId: string } {
+    const base = createInitialGame(
+      [{ villain: reineCoeur, deckCards: buildDeckInstances(reineCoeurCards, 'villain', 'p0:'), fateCards: buildDeckInstances(reineCoeurCards, 'fate', 'p0f:') }],
+      7,
+    )
+    const loc = base.players[0].locations.find((l) => l.actions.some((a) => a.type === 'PLAY_CARD'))!
+    const playAction = loc.actions.find((a) => a.type === 'PLAY_CARD')!
+    const s: GameState = {
+      ...base,
+      phase: 'ACTION',
+      players: base.players.map((p, i) => (i === 0 ? { ...p, pawnLocation: loc.id, hand: [joyeux] } : p)),
+    }
+    return { s, locId: loc.id, actionId: playAction.id }
+  }
+
+  it('refusée si aucun Allié', () => {
+    const { s, actionId } = gameAtPlayLoc()
+    expect(() => applyAction(s, { type: 'PLAY_CARD', actionId, instanceId: joyeux.instanceId })).toThrow()
+  })
+
+  it('autorisée avec un Allié, gagne 1 JT par Allié', () => {
+    const { s, locId, actionId } = gameAtPlayLoc()
+    const ally: CardInstance = { instanceId: 'p0:a', cardId: 'gardes-coeur', name: 'Garde', type: 'ally', strength: 2 }
+    const s2: GameState = {
+      ...s,
+      players: s.players.map((p, i) =>
+        i === 0 ? { ...p, board: { ...p.board, [locId]: [...(p.board[locId] ?? []), ally] } } : p,
+      ),
+    }
+    const before = s2.players[0].power
+    const next = applyAction(s2, { type: 'PLAY_CARD', actionId, instanceId: joyeux.instanceId })
+    expect(next.players[0].power).toBe(before + 1)
+  })
+})

@@ -47,5 +47,5 @@ export function MenuMusicPlayer() {
     }
   }, [silenced, volume])
 
-  return <audio ref={ref} src="/audio/magic-mirror-menu.mp4" loop preload="auto" />
+  return <audio ref={ref} src="/audio/the-magic-mirror.mp3" loop preload="auto" />
 }

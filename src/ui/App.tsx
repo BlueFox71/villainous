@@ -32,7 +32,7 @@ import { GameLog } from './components/GameLog'
 import { BoardImage, LOCATIONS_LEFT } from './components/BoardImage'
 import { BoardActions } from './components/BoardActions'
 import { HeroRow } from './components/HeroRow'
-import { DeckPiles } from './components/DeckPiles'
+import { DeckPiles, AuDelaPile } from './components/DeckPiles'
 import { StacksCards } from './components/StacksCards'
 import { FateModal } from './components/FateModal'
 import { ChoiceModal } from './components/ChoiceModal'
@@ -54,6 +54,9 @@ import { FetchedHeroModal } from './components/FetchedHeroModal'
 import { NeverlandMapModal } from './components/NeverlandMapModal'
 import { GiantActionModal } from './components/GiantActionModal'
 import { TitanMoveModal } from './components/TitanMoveModal'
+import { DivinationModal } from './components/DivinationModal'
+import { LookTopModal } from './components/LookTopModal'
+import { FateScryModal } from './components/FateScryModal'
 import { TitanSelectModal } from './components/TitanSelectModal'
 import { StartRollModal } from './components/StartRollModal'
 import { MusicPlayer } from './components/MusicPlayer'
@@ -77,6 +80,9 @@ type Mode =
   | { kind: 'place'; actionId: string; instanceId: string; cardName: string; isAttach: boolean; diablo?: boolean }
   /** Lieu de destination choisi pour un Objet à associer ; on attend le clic sur l'Allié porteur. */
   | { kind: 'attach'; actionId: string; instanceId: string; cardName: string; to: string; diablo?: boolean }
+  /** Objet à associer à un HÉROS (Forme de grenouille, Potion de mortalité) ; on
+   *  attend le clic sur le Héros cible (n'importe quel lieu du royaume). */
+  | { kind: 'item-attach-hero'; actionId: string; instanceId: string; cardName: string; diablo?: boolean }
   /** « Déplacer un Allié/Objet » : on attend le clic sur la carte à déplacer. */
   | { kind: 'move-pick'; actionId: string }
   /** Carte à déplacer choisie ; on attend le clic sur un lieu voisin. */
@@ -174,6 +180,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveDeckPeek = useGameStore((s) => s.resolveDeckPeek)
   const resolveTypeChoice = useGameStore((s) => s.resolveTypeChoice)
   const resolveHeroRelocate = useGameStore((s) => s.resolveHeroRelocate)
+  const skipHeroRelocate = useGameStore((s) => s.skipHeroRelocate)
   const resolveTeleport = useGameStore((s) => s.resolveTeleport)
   const resolveManipulation = useGameStore((s) => s.resolveManipulation)
   const dismissRoyalCroquet = useGameStore((s) => s.dismissRoyalCroquet)
@@ -189,6 +196,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveGiantLocation = useGameStore((s) => s.resolveGiantLocation)
   const resolveTitanMove = useGameStore((s) => s.resolveTitanMove)
   const resolveTitanSelect = useGameStore((s) => s.resolveTitanSelect)
+  const resolveDivination = useGameStore((s) => s.resolveDivination)
+  const resolveLookTop = useGameStore((s) => s.resolveLookTop)
+  const resolveFateScry = useGameStore((s) => s.resolveFateScry)
+  // Renommé sans préfixe « use » (action du store, pas un hook React).
+  const activateCanne = useGameStore((s) => s.useCanne)
   const chariotMove = useGameStore((s) => s.chariotMove)
   const endTurn = useGameStore((s) => s.endTurn)
   const reset = useGameStore((s) => s.reset)
@@ -200,6 +212,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const testPlaceFate = useGameStore((s) => s.testPlaceFate)
   const testPlayCondition = useGameStore((s) => s.testPlayCondition)
   const testAddToHand = useGameStore((s) => s.testAddToHand)
+  const testAddToAuDela = useGameStore((s) => s.testAddToAuDela)
   const testPlayFateCard = useGameStore((s) => s.testPlayFateCard)
   const testShowcase = useGameStore((s) => s.testShowcase)
   const testRefreshTurn = useGameStore((s) => s.testRefreshTurn)
@@ -569,6 +582,15 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           (c) => c.cardId === 'char' && !state.usedActionIds.includes(`chariot-move:${c.instanceId}`),
         )?.instanceId ?? null
       : null
+  // Canne (Dr Facilier) : disponible si le pion est sur le lieu de la Canne et
+  // qu'elle n'a pas servi ce tour.
+  const canneAvailable: boolean =
+    isHumanTurn &&
+    state.phase === 'ACTION' &&
+    !!user.pawnLocation &&
+    !state.usedActionIds.includes('canne-action') &&
+    !state.actAtLocation &&
+    (user.board[user.pawnLocation] ?? []).some((c) => c.cardId === 'canne')
   // Diablo encore mobile (UI inline). Règle : « avant que Maléfique ne se
   // déplace » → uniquement en phase MOVE (donc pas le tour où on vient de jouer
   // Diablo, qui se pose en phase ACTION).
@@ -788,6 +810,49 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       }
       return
     }
+    // Divination (Dr Facilier) : le bot résout les cartes révélées de l'Au-delà.
+    // Ordre : Régner d'abord (victoire potentielle), Esprits des masques en dernier
+    // (sinon il renverrait les autres cartes dans la pile).
+    const pdiv = state.pendingDivination
+    if (pdiv) {
+      if (BOTS[pdiv.playerIndex]) {
+        const rank = (cardId: string) =>
+          cardId === 'regner-nouvelle-orleans' ? 0 : cardId === 'esprits-masques' ? 2 : 1
+        const order = [...pdiv.cards]
+          .sort((a, b) => rank(a.cardId) - rank(b.cardId))
+          .map((c) => c.instanceId)
+        const timer = setTimeout(() => resolveDivination(order), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Tour de passe-passe (Dr Facilier) : le bot garde la carte la plus utile.
+    const plt = state.pendingLookTop
+    if (plt) {
+      if (BOTS[plt.playerIndex]) {
+        const rank = (cardId: string) =>
+          cardId === 'regner-nouvelle-orleans' ? 5 : cardId === 'talisman' ? 4
+          : cardId === 'divination-facilier' ? 3 : cardId === 'tour-passe-passe' ? 2 : cardId === 'canne' ? 1 : 0
+        const best = [...plt.cards].sort((a, b) => rank(b.cardId) - rank(a.cardId))[0]
+        const timer = setTimeout(() => resolveLookTop([best.instanceId]), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Si près du but / Charlotte (Dr Facilier) : le bot (chooser) remplit la Pile
+    // de l'Au-delà avec toutes les cartes autorisées, remet les autres sur la pioche.
+    const pfs = state.pendingFateScry
+    if (pfs) {
+      if (BOTS[pfs.chooserIndex]) {
+        const canAudela = (c: { cardId: string }) =>
+          c.cardId !== 'talisman' && c.cardId !== 'divination-facilier'
+        const toAudelaIds = pfs.cards.filter(canAudela).map((c) => c.instanceId)
+        const deckTopOrder = pfs.cards.filter((c) => !canAudela(c)).map((c) => c.instanceId)
+        const timer = setTimeout(() => resolveFateScry(toAudelaIds, deckTopOrder), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
     // Coup Royal raté du bot : on ferme la fenêtre pour qu'il poursuive son tour.
     const prc = state.pendingRoyalCroquet
     if (prc) {
@@ -819,18 +884,27 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         const ids = tgt.locations.map((l) => l.id)
         const locked = new Set(tgt.lockedLocations ?? [])
         for (const loc of tgt.locations) {
-          const hero = (tgt.board[loc.id] ?? []).find((c) => c.type === 'hero')
+          const hero = (tgt.board[loc.id] ?? []).find(
+            (c) => c.type === 'hero' && (!phr.candidateIds || phr.candidateIds.includes(c.instanceId)),
+          )
           if (hero) {
             const i = ids.indexOf(loc.id)
-            const cands = phr.anyLocation
-              ? ids.filter((id) => id !== loc.id && !locked.has(id))
-              : [ids[i - 1], ids[i + 1]].filter((id): id is string => !!id && !locked.has(id))
+            const cands = phr.forcedDirection !== undefined
+              ? [ids[i + phr.forcedDirection]].filter((id): id is string => !!id && !locked.has(id))
+              : phr.anyLocation
+                ? ids.filter((id) => id !== loc.id && !locked.has(id))
+                : [ids[i - 1], ids[i + 1]].filter((id): id is string => !!id && !locked.has(id))
             const to = cands[0]
             if (to) {
               const timer = setTimeout(() => resolveHeroRelocate(hero.instanceId, to), BOT_STEP_MS)
               return () => clearTimeout(timer)
             }
           }
+        }
+        // Facultatif (Poupées vaudou) et aucun Héros déplaçable → décliner.
+        if (phr.optional) {
+          const timer = setTimeout(() => skipHeroRelocate(), BOT_STEP_MS)
+          return () => clearTimeout(timer)
         }
       }
       return
@@ -904,7 +978,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveRecover])
+  }, [isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveRecover, resolveDivination, resolveLookTop, resolveFateScry, skipHeroRelocate])
 
   // Coups légaux / actions : seulement pour le joueur humain et à son tour.
   const legalMoves = isHumanTurn ? getLegalMoves(state) : []
@@ -982,6 +1056,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     if (mode?.kind !== 'play') return setMode(null)
     const card = user.hand.find((c) => c.instanceId === instanceId)
     if (!card) return setMode(null)
+    // Objet à associer à un HÉROS (Forme de grenouille, Potion de mortalité) :
+    // on choisit directement le Héros cible (dans n'importe quel lieu).
+    if (card.type === 'item' && card.attach === 'hero') {
+      return setMode({ kind: 'item-attach-hero', actionId: mode.actionId, instanceId, cardName: card.name, diablo: mode.diablo })
+    }
     if (card.type === 'ally' || card.type === 'item' || card.type === 'curse') {
       // Allié/Objet/Malédiction : on choisit ensuite le LIEU de destination.
       return setMode({
@@ -1031,6 +1110,21 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       return
     }
     doPlayCard(mode.diablo, mode.actionId, mode.instanceId, undefined, undefined, heroInstanceId)
+    setMode(null)
+  }
+  const handleItemAttachHero = (heroInstanceId: string) => {
+    if (mode?.kind !== 'item-attach-hero') return
+    // Lieu du Héros ciblé (l'Objet y est posé, associé au Héros).
+    let heroLoc: string | null = null
+    for (const loc of user.locations) {
+      if ((user.board[loc.id] ?? []).some((c) => c.instanceId === heroInstanceId)) {
+        heroLoc = loc.id
+        break
+      }
+    }
+    if (!heroLoc) return
+    flyHandToBoard(mode.instanceId, heroLoc)
+    doPlayCard(mode.diablo, mode.actionId, mode.instanceId, heroLoc, heroInstanceId)
     setMode(null)
   }
   const handleShrinkPickAction = (freeActionId: string) => {
@@ -1343,7 +1437,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       return { ...m, selected }
     })
   const handleVanquishConfirm = () => {
-    if (mode?.kind !== 'vanquish-pick-allies' || mode.selected.length === 0) return
+    if (mode?.kind !== 'vanquish-pick-allies') return
+    // Un Héros de force EFFECTIVE 0 s'élimine sans Allié (action Éliminer simple ;
+    // Intimidation / Tendre un Piège exigent toujours un Allié).
+    const needed = userStrengths[mode.heroInstanceId] ?? 0
+    const allowNoAlly = needed === 0 && !mode.viaCard && !mode.trap
+    if (mode.selected.length === 0 && !allowNoAlly) return
     if (mode.trap) {
       // Vanquish facultatif de Tendre un Piège (déplacement déjà appliqué).
       trapVanquish(mode.heroInstanceId, mode.selected)
@@ -1409,7 +1508,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               return (user.board[id] ?? []).some(
                 (c) => c.type === 'ally' || (c.type === 'hero' && c.hypnotized),
               )
-            if (cardInPlay?.type === 'curse') return canPlaceCurseAt(state, HUMAN, id)
+            if (cardInPlay?.type === 'curse') return canPlaceCurseAt(state, HUMAN, id, cardInPlay)
             // Limite d'exemplaires par lieu (Page : max 2 posées librement).
             if (cardInPlay?.maxAtLocation !== undefined) {
               const here = (user.board[id] ?? []).filter(
@@ -1450,11 +1549,16 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     mode?.kind === 'vanquish-pick-hero' ||
     mode?.kind === 'play-pick-hero' ||
     mode?.kind === 'condition-pick-hero' ||
-    mode?.kind === 'move-hero-pick'
+    mode?.kind === 'move-hero-pick' ||
+    mode?.kind === 'item-attach-hero'
       ? (() => {
           const allHeroes = Object.values(user.board).flatMap((cards) =>
             cards.filter((c) => c.type === 'hero'),
           )
+          // Objet associé à un Héros (Forme de grenouille…) : Héros non hypnotisés.
+          if (mode?.kind === 'item-attach-hero') {
+            return allHeroes.filter((h) => !h.hypnotized).map((c) => c.instanceId)
+          }
           // Apparence de Dragon : seuls les Héros ≤ maxStrength sont des cibles.
           if (mode?.kind === 'play-pick-hero') {
             const card = user.hand.find((c) => c.instanceId === mode.instanceId)
@@ -1634,7 +1738,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           En mode test, les deux camps restent visibles (édition live des plateaux). */}
       <main className="grid min-h-0 flex-1 grid-cols-1 gap-3 p-3 lg:grid-cols-[1fr_13rem_1fr]">
         {/* ----- Colonne joueur (bleu) ----- */}
-        <Scroller element="section" className="game-board min-h-0">
+        <Scroller element="section" className="game-board min-h-0" options={{ overflow: { x: 'hidden' } }}>
           <div className="flex min-h-full flex-col gap-2">
           {/* Le panneau (nom + jetons + objectif) est déplacé dans la bande du bas
               pour rendre de la hauteur à la colonne (moins de scroll). */}
@@ -1656,6 +1760,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                     if (mode?.kind === 'play-pick-hero') handlePlayPickHero(id)
                     else if (mode?.kind === 'condition-pick-hero') handleConditionPickHero(id)
                     else if (mode?.kind === 'move-hero-pick') handleMoveHeroPick(id)
+                    else if (mode?.kind === 'item-attach-hero') handleItemAttachHero(id)
                     else handleVanquishPickHero(id, name)
                   }}
                   canDiscardDeguisement={isHumanTurn && state.phase === 'ACTION' && user.power >= 2}
@@ -1684,7 +1789,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               sont placées en bas du plateau (voir plus bas). La marge gauche reste
               vide pour aligner les colonnes du plateau avec l'image. */}
           <div className="flex">
-            <div style={{ width: `${LOCATIONS_LEFT}%` }} />
+            {/* Marge gauche = panneau « Pile Au-delà » du plateau : on y place la
+                pile de l'Au-delà (pile secondaire) du Dr Facilier. */}
+            <div className="piles-secondaires flex items-start justify-center pt-1" style={{ width: `${LOCATIONS_LEFT}%` }}>
+              <AuDelaPile player={user} uprightWidth="w-20" />
+            </div>
             <div className="flex-1">
               <Board
                 player={user}
@@ -1729,6 +1838,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           </div>
           {(mode?.kind === 'place' ||
             mode?.kind === 'attach' ||
+            mode?.kind === 'item-attach-hero' ||
             mode?.kind === 'move-pick' ||
             mode?.kind === 'move-dest' ||
             mode?.kind === 'move-hero-pick' ||
@@ -1756,6 +1866,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 ) : mode.kind === 'attach' ? (
                   <>
                     Associer <b>{mode.cardName}</b> : clique l'<b>allié</b> porteur (carte surlignée).
+                  </>
+                ) : mode.kind === 'item-attach-hero' ? (
+                  <>
+                    Associer <b>{mode.cardName}</b> : clique le <b>Héros</b> à cibler (surligné en rouge).
                   </>
                 ) : mode.kind === 'move-pick' ? (
                   <>
@@ -1822,6 +1936,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                     <b>Sacrifice Nécessaire</b> : clique l'<b>Allié ou l'Objet</b> à défausser (+3 JT).
                   </>
                 ) : (
+                  vanquishNeeded === 0 && !mode.viaCard && !mode.trap ? (
+                    <>
+                      Éliminer <b>{mode.heroName}</b> (force 0) : <b>aucun Allié requis</b>, clique « Éliminer ».
+                    </>
+                  ) : (
                   <>
                     Éliminer <b>{mode.heroName}</b> (force {vanquishNeeded}) : coche les <b>Alliés</b> à utiliser. Total :{' '}
                     <b className={vanquishTotal >= vanquishNeeded ? 'text-emerald-300' : 'text-red-300'}>
@@ -1829,13 +1948,18 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                     </b>{' '}
                     / {vanquishNeeded}.
                   </>
+                  )
                 )}
               </span>
               <div className="flex items-center gap-2">
                 {mode.kind === 'vanquish-pick-allies' && (
                   <button
                     onClick={handleVanquishConfirm}
-                    disabled={vanquishSelected.length === 0 || vanquishTotal < vanquishNeeded}
+                    disabled={
+                      vanquishTotal < vanquishNeeded ||
+                      (vanquishSelected.length === 0 &&
+                        !(vanquishNeeded === 0 && !mode.viaCard && !mode.trap))
+                    }
                     className="rounded bg-red-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-red-500 disabled:opacity-40"
                   >
                     Éliminer
@@ -1935,6 +2059,20 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 ))}
             </div>
           )}
+          {/* Canne (Dr Facilier) : agir sur un lieu voisin (hors Fatalité), 1×/tour. */}
+          {canneAvailable && !mode && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-fuchsia-400/70 bg-fuchsia-500/10 px-3 py-2 text-xs text-fuchsia-100">
+              <span>
+                🦯 <b>Canne</b> : effectue une action d'un lieu voisin (hors Fatalité).
+              </span>
+              <button
+                onClick={() => activateCanne()}
+                className="rounded bg-fuchsia-600 px-2 py-1 font-medium text-white hover:bg-fuchsia-500"
+              >
+                Utiliser
+              </button>
+            </div>
+          )}
           {/* La main du joueur est désormais ancrée en bas de l'écran (éventail). */}
           {/* Module test (suivi de test + panneau d'injection) : sous la main. */}
           {testMode && !hideTestBar && (
@@ -1955,6 +2093,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 onPlayCondition={handleTestCondition}
                 onPlayFateCard={handleTestFateCard}
                 onAddToHand={testAddToHand}
+                onAddToAuDela={testAddToAuDela}
                 onShowcase={testShowcase}
                 error={testFateError}
               />
@@ -2069,7 +2208,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         </aside>
 
         {/* ----- Colonne bot (rouge) — lecture seule, main cachée. ----- */}
-        <Scroller element="section" className="game-board min-h-0">
+        <Scroller element="section" className="game-board min-h-0" options={{ overflow: { x: 'hidden' } }}>
           <div className="flex min-h-full flex-col gap-2">
           {/* Panneau du bot déplacé dans la bande du bas (cf. colonne joueur). */}
           <div aria-hidden className="grow-0" />
@@ -2103,7 +2242,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             />
           </div>
           <div className="flex">
-            <div style={{ width: `${LOCATIONS_LEFT}%` }} />
+            {/* Marge gauche = panneau « Pile Au-delà » du plateau (bot). */}
+            <div className="piles-secondaires flex items-start justify-center pt-1" style={{ width: `${LOCATIONS_LEFT}%` }}>
+              <AuDelaPile player={bot} uprightWidth="w-20" />
+            </div>
             <div className="flex-1">
               <Board
                 player={bot}
@@ -2141,6 +2283,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               power={bot.power}
               attachTargetsAvailable={false}
               blockEvents={false}
+              realmHasAllies={false}
               selectedToDiscard={[]}
               layout="fan"
               cardWidthClass="w-28"
@@ -2177,6 +2320,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             power={user.power}
             attachTargetsAvailable={anyAllyOnBoard}
             blockEvents={humanEventsBlocked}
+            realmHasAllies={anyAllyOnBoard}
             costFor={(c) => effectiveCost(state, c)}
             armedConditionIds={humanReactions.map((c) => c.instanceId)}
             forcedHoverId={hoveredReactionId}
@@ -2274,7 +2418,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           target={state.players[state.pendingHeroRelocate.targetIndex]}
           anyLocation={state.pendingHeroRelocate.anyLocation}
           candidateIds={state.pendingHeroRelocate.candidateIds}
+          forcedDirection={state.pendingHeroRelocate.forcedDirection}
+          optional={state.pendingHeroRelocate.optional}
           onResolve={resolveHeroRelocate}
+          onSkip={skipHeroRelocate}
         />
       )}
 
@@ -2342,7 +2489,16 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
 
       {/* Colère Titanesque : choisir un lieu voisin où agir. */}
       {state.pendingGiantAction && state.pendingGiantAction.playerIndex === HUMAN && (
-        <GiantActionModal player={user} onResolve={(loc) => resolveGiantLocation(loc)} />
+        <GiantActionModal
+          player={user}
+          onResolve={(loc) => resolveGiantLocation(loc)}
+          title={state.pendingGiantAction.viaCanne ? 'Canne — lieu voisin' : undefined}
+          subtitle={
+            state.pendingGiantAction.viaCanne
+              ? 'Choisissez un lieu voisin : vous y effectuerez une action disponible (hors Fatalité).'
+              : undefined
+          }
+        />
       )}
 
       {/* Préparez-vous au combat ! (Hadès) : choisir un Titan et sa destination. */}
@@ -2363,6 +2519,32 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           candidateIds={state.pendingTitanSelect.titanCandidateIds}
           kind={state.pendingTitanSelect.kind}
           onResolve={resolveTitanSelect}
+        />
+      )}
+
+      {/* Divination (Dr Facilier) : résoudre les cartes révélées de l'Au-delà. */}
+      {state.pendingDivination && state.pendingDivination.playerIndex === HUMAN && (
+        <DivinationModal
+          cards={state.pendingDivination.cards}
+          onResolve={resolveDivination}
+        />
+      )}
+
+      {/* Tour de passe-passe (Dr Facilier) : choisir la carte à garder. */}
+      {state.pendingLookTop && state.pendingLookTop.playerIndex === HUMAN && (
+        <LookTopModal
+          cards={state.pendingLookTop.cards}
+          take={state.pendingLookTop.take}
+          onResolve={resolveLookTop}
+        />
+      )}
+
+      {/* Si près du but / Charlotte : le joueur qui a posé la Fatalité trie les cartes. */}
+      {state.pendingFateScry && state.pendingFateScry.chooserIndex === HUMAN && (
+        <FateScryModal
+          targetName={state.players[state.pendingFateScry.targetIndex].villainName}
+          cards={state.pendingFateScry.cards}
+          onResolve={resolveFateScry}
         />
       )}
 

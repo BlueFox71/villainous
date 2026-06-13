@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { chooseAction, chooseReaction, evaluate } from '../heuristicBot'
+import { enumerateActions } from '../enumerate'
 import { applyAction } from '../../engine/actions'
 import { nextRandom } from '../../engine/rng'
-import { twoPlayerGame, me } from '../../engine/__tests__/_helpers'
+import { twoPlayerGame, me, withActive } from '../../engine/__tests__/_helpers'
 import type { CardInstance } from '../../engine/types'
 
 function seededRand(seed: number): () => number {
@@ -25,6 +26,17 @@ describe('heuristicBot', () => {
         steps++
       }
     }).not.toThrow()
+  })
+
+  it('le bot peut défausser plusieurs cartes injouables d’un coup', () => {
+    let s = twoPlayerGame(1)
+    const c1: CardInstance = { instanceId: 'p0:x1', cardId: 'magnifiques-taxes', name: 'x', type: 'effect', cost: 2 }
+    const c2: CardInstance = { instanceId: 'p0:x2', cardId: 'magnifiques-taxes', name: 'y', type: 'effect', cost: 2 }
+    s = withActive(s, { pawnLocation: 'sherwood', power: 0, hand: [c1, c2] })
+    s = { ...s, phase: 'ACTION', usedActionIds: [] }
+    const acts = enumerateActions(s)
+    const multi = acts.find((a) => a.type === 'DISCARD_CARDS' && a.instanceIds.length === 2)
+    expect(multi).toBeTruthy()
   })
 
   it('un tour de bot finit toujours par passer la main', () => {

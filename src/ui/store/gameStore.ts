@@ -36,9 +36,11 @@ import { ursula } from '../../data/villains/ursula'
 import { ursulaCards } from '../../data/villains/ursula.cards'
 import { hades } from '../../data/villains/hades'
 import { hadesCards } from '../../data/villains/hades.cards'
+import { facilier } from '../../data/villains/facilier'
+import { facilierCards } from '../../data/villains/facilier.cards'
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -49,6 +51,7 @@ export const VILLAIN_REGISTRY = {
   crochet: { def: crochet, cards: crochetCards, label: 'Capitaine Crochet' },
   ursula: { def: ursula, cards: ursulaCards, label: 'Ursula' },
   hades: { def: hades, cards: hadesCards, label: 'Hadès' },
+  facilier: { def: facilier, cards: facilierCards, label: 'Dr Facilier' },
 } as const
 
 /** Qui est contrôlé par un bot. Concept d'UI : le moteur, lui, ne sait pas qui
@@ -204,15 +207,27 @@ function instanceOf(cardId: string, n: number): CardInstance | null {
     cost: def.cost,
     strength: def.strength,
     attach: def.attach,
+    attachStrengthBonus: def.attachStrengthBonus,
     effects: def.effects,
     onPlace: def.onPlace,
     onVanquish: def.onVanquish,
     forbiddenLocations: def.forbiddenLocations,
     placementRestriction: def.placementRestriction,
     strengthMod: def.strengthMod,
+    selfStrengthMods: def.selfStrengthMods,
     discardWhen: def.discardWhen,
     trigger: def.trigger,
     maxAtLocation: def.maxAtLocation,
+    activatedCost: def.activatedCost,
+    playOnlyAt: def.playOnlyAt,
+    grantsAction: def.grantsAction,
+    contractLocationId: def.contractLocationId,
+    isTitan: def.isTitan,
+    reachesAdjacentVanquish: def.reachesAdjacentVanquish,
+    returnToHandOnVanquish: def.returnToHandOnVanquish,
+    auDela: def.auDela,
+    goesToAuDelaOnPlay: def.goesToAuDelaOnPlay,
+    alsoItem: def.alsoItem,
   }
 }
 
@@ -251,6 +266,9 @@ interface GameStore {
   /** MODE TEST : ajoute une carte (par cardId) à la main du joueur 0 — pour
    *  ensuite la jouer normalement (Événements à cibles, Alliés, Objets…). */
   testAddToHand: (cardId: string) => void
+  /** MODE TEST (Dr Facilier) : ajoute une carte (par cardId) à la Pile de l'Au-delà
+   *  du joueur 0 — pour tester Divination et les effets Au-delà. */
+  testAddToAuDela: (cardId: string) => void
   /** MODE TEST : joue une carte Fatalité non-Héros (Voler aux Riches,
    *  Déguisement) CONTRE le joueur 0, sur l'un de ses Héros (`targetHeroId`). */
   testPlayFateCard: (cardId: string, targetHeroId: string, enlargeToward?: string) => void
@@ -330,6 +348,8 @@ interface GameStore {
   resolveTypeChoice: (cardType: import('../../engine/types').CardType) => void
   /** Apparition / Vent de panique : déplace le Héros choisi vers le lieu voisin. */
   resolveHeroRelocate: (heroInstanceId: string, to: string) => void
+  /** Décline un déplacement de Héros facultatif (Poupées vaudou). */
+  skipHeroRelocate: () => void
   /** Téléportation : déplace le pion vers le lieu (portant un Héros) choisi. */
   resolveTeleport: (to: string) => void
   resolveManipulation: (instanceId: string) => void
@@ -354,6 +374,16 @@ interface GameStore {
   resolveTitanMove: (titanInstanceId: string, to: string) => void
   /** Héra / Pégase (Hadès, Fatalité) : entrave ou repousse le Titan choisi. */
   resolveTitanSelect: (titanInstanceId: string) => void
+  /** Divination (Dr Facilier) : résout les cartes révélées de l'Au-delà dans
+   *  l'ordre `topInstanceIds`. */
+  resolveDivination: (topInstanceIds: string[]) => void
+  /** Tour de passe-passe (Dr Facilier) : garde `keepInstanceIds` en main. */
+  resolveLookTop: (keepInstanceIds: string[]) => void
+  /** Si près du but / Charlotte (Dr Facilier) : place `toAudelaIds` dans l'Au-delà,
+   *  remet `deckTopOrder` sur le dessus de la pioche. */
+  resolveFateScry: (toAudelaIds: string[], deckTopOrder: string[]) => void
+  /** Canne (Dr Facilier) : ouvre le choix d'un lieu voisin où agir. */
+  useCanne: () => void
   /** Char (Hadès) : déplace la figurine + le Char vers `to`. */
   chariotMove: (instanceId: string, to: string) => void
   endTurn: () => void
@@ -397,6 +427,13 @@ export const useGameStore = create<GameStore>((set) => ({
       const card = instanceOf(cardId, ++testFateCounter)
       if (!card) return s
       const players = s.state.players.map((p, i) => (i === 0 ? { ...p, hand: [...p.hand, card] } : p))
+      return { state: { ...s.state, players } }
+    }),
+  testAddToAuDela: (cardId) =>
+    set((s) => {
+      const card = instanceOf(cardId, ++testFateCounter)
+      if (!card) return s
+      const players = s.state.players.map((p, i) => (i === 0 ? { ...p, auDela: [...p.auDela, card] } : p))
       return { state: { ...s.state, players } }
     }),
   testPlayFateCard: (cardId, targetHeroId, enlargeToward) =>
@@ -549,6 +586,8 @@ export const useGameStore = create<GameStore>((set) => ({
     set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TYPE_CHOICE', cardType }) })),
   resolveHeroRelocate: (heroInstanceId, to) =>
     set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_HERO_RELOCATE', heroInstanceId, to }) })),
+  skipHeroRelocate: () =>
+    set((s) => ({ state: applyAction(s.state, { type: 'SKIP_HERO_RELOCATE' }) })),
   resolveTeleport: (to) =>
     set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TELEPORT', to }) })),
   resolveManipulation: (instanceId) =>
@@ -575,6 +614,14 @@ export const useGameStore = create<GameStore>((set) => ({
     set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TITAN_MOVE', titanInstanceId, to }) })),
   resolveTitanSelect: (titanInstanceId) =>
     set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_TITAN_SELECT', titanInstanceId }) })),
+  resolveDivination: (topInstanceIds) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_DIVINATION', topInstanceIds }) })),
+  resolveLookTop: (keepInstanceIds) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_LOOK_TOP', keepInstanceIds }) })),
+  resolveFateScry: (toAudelaIds, deckTopOrder) =>
+    set((s) => ({ state: applyAction(s.state, { type: 'RESOLVE_FATE_SCRY', toAudelaIds, deckTopOrder }) })),
+  useCanne: () =>
+    set((s) => ({ state: applyAction(s.state, { type: 'USE_CANNE' }) })),
   chariotMove: (instanceId, to) =>
     set((s) => ({ state: applyAction(s.state, { type: 'CHARIOT_MOVE', instanceId, to }) })),
   endTurn: () =>

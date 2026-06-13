@@ -144,4 +144,20 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       "Pégase et De zéro en héros repoussent un Titan vers Les Enfers : fais-lui perdre ses déplacements payés.",
     ],
   },
+  facilier: {
+    difficulty: 2,
+    story:
+      "Bonimenteur du Vieux Carré de La Nouvelle-Orléans (La Princesse et la Grenouille, 2009), le Dr Facilier marchande avec ses « amis de l'au-delà ». Derrière son sourire et sa magie vaudou se cache une dette à payer : il rêve de régner sur la ville grâce au Talisman et à son Ombre maléfique.",
+    playTips: [
+      "Objectif : joue le Talisman et « Régner sur la Nouvelle-Orléans », détiens le Talisman, puis joue Divination au Royaume du vaudou pour révéler Régner depuis ta Pile de l'Au-delà.",
+      "Tour de passe-passe creuse ta pioche vers tes cartes clés : joue-le dès que possible.",
+      "La Canne te laisse jouer une action d'un lieu voisin : place-la au Royaume du vaudou pour enchaîner Talisman + Divination le même tour.",
+      "Tes adversaires remplissent ta Pile de l'Au-delà : vide-la avec Poudre d'illusion et Désespoir, et n'hésite pas à relancer Divination (tu en as 3).",
+    ],
+    counterTips: [
+      "Remplis sa Pile de l'Au-delà (Si près du but, Charlotte, L'étoile du soir) pour noyer Régner et compliquer ses Divinations.",
+      "Le Talisman s'associe aux Héros faibles (force ≤ 3) : garde-en sur ses lieux pour lui voler le Talisman.",
+      "Tiana renchérit toutes ses cartes ; Mama Odie réduit ses Divinations à 2 cartes révélées.",
+    ],
+  },
 }

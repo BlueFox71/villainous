@@ -498,6 +498,22 @@ describe('Malédiction = Objet : empilable et déplaçable', () => {
     expect(canPlaceCurseAt(s, s.activePlayer, 'church')).toBe(true)
   })
 
+  it('Forêt de Ronces : pose interdite si un Héros déjà présent viole la restriction', () => {
+    const s0 = singleGame()
+    const fr = curse('fr', 'foret-ronces', {
+      placementRestriction: getCardDef('foret-ronces')?.placementRestriction,
+    })
+    // Héros faible (force 2 < 4) déjà sur church → pose interdite.
+    const weak = withActive(s0, { board: { ...me(s0).board, church: [hero('h1', 'aurore', 2)] } })
+    expect(canPlaceCurseAt(weak, weak.activePlayer, 'church', fr)).toBe(false)
+    // Héros fort (force 5 ≥ 4) → la pose reste autorisée.
+    const strong = withActive(s0, { board: { ...me(s0).board, church: [hero('h2', 'robin-des-bois', 5)] } })
+    expect(canPlaceCurseAt(strong, strong.activePlayer, 'church', fr)).toBe(true)
+    // Feu Infernal (no-heroes) : interdit dès qu'un Héros est présent.
+    const fire = curse('fi', 'feu-infernal', { placementRestriction: { type: 'no-heroes' } })
+    expect(canPlaceCurseAt(weak, weak.activePlayer, 'church', fire)).toBe(false)
+  })
+
   it('on peut poser plusieurs Malédictions sur le même lieu (PLAY_CARD)', () => {
     let s = applyAction(twoPlayerGame(), { type: 'MOVE', to: 'nottingham' })
     const c2: CardInstance = { instanceId: 'p0:c2', cardId: 'feu-infernal', name: 'Feu', type: 'curse', cost: 0 }

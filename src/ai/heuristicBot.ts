@@ -122,6 +122,19 @@ function objectiveScore(p: PlayerState): number {
       }
       return Math.min(1, score / obj.count)
     }
+    case 'REIGN_NEW_ORLEANS': {
+      // Dr Facilier : récompense la mise en place de la victoire — détenir le
+      // Talisman (libre), avoir Régner dans la Pile de l'Au-delà, disposer de
+      // Divination et être au Royaume du vaudou pour la jouer.
+      const all = Object.values(p.board).flat()
+      let s = 0
+      if (all.some((c) => c.cardId === 'talisman' && !c.attachedTo)) s += 0.4
+      else if (all.some((c) => c.cardId === 'talisman')) s += 0.2
+      if (p.auDela.some((c) => c.cardId === 'regner-nouvelle-orleans')) s += 0.3
+      if (p.hand.some((c) => c.cardId === 'divination-facilier')) s += 0.15
+      if (p.pawnLocation === 'royaume-vaudou') s += 0.15
+      return Math.min(1, s)
+    }
   }
 }
 

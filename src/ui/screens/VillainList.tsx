@@ -17,7 +17,7 @@ interface Props {
  */
 /** Catégories de vilains affichées dans la liste, dans l'ordre. */
 const CATEGORIES: { title: string; villains: VillainKey[] }[] = [
-  { title: 'Disney', villains: ['princeJohn', 'maleficent', 'jafar', 'reineCoeur', 'crochet', 'ursula', 'hades'] },
+  { title: 'Disney', villains: ['princeJohn', 'maleficent', 'jafar', 'reineCoeur', 'crochet', 'ursula', 'hades', 'facilier'] },
   { title: 'Collaborations', villains: ['slenderman'] },
 ]
 
@@ -38,14 +38,14 @@ export function VillainList({ onBack }: Props) {
       </header>
 
       <Scroller element="main" className="min-h-0 flex-1 p-6">
-        <div className="mx-auto flex max-w-4xl flex-col gap-8">
+        <div className="mx-auto flex max-w-6xl flex-col gap-8">
           {CATEGORIES.map((cat) => (
             <section key={cat.title}>
               <h2 className="mb-3 flex items-center gap-3 text-sm font-bold uppercase tracking-[0.2em] text-amber-300/80">
                 {cat.title}
                 <span className="h-px flex-1 bg-white/10" />
               </h2>
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                 {cat.villains.map((key) => {
                   const v = VILLAIN_REGISTRY[key]
                   return (
@@ -53,23 +53,21 @@ export function VillainList({ onBack }: Props) {
                       key={key}
                       type="button"
                       onClick={() => setSelected(key)}
-                      className="flex gap-4 rounded-xl border border-white/10 bg-white/5 p-4 text-left transition hover:border-white/30 hover:bg-white/10"
+                      className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/5 p-3 text-left transition hover:border-white/30 hover:bg-white/10"
                     >
                       <img
                         src={villainPortrait(key)}
                         alt={v.def.name}
-                        className="h-40 w-40 shrink-0 rounded-lg border border-white/15 object-cover"
+                        className="aspect-square w-full rounded-lg border border-white/15 object-cover"
                       />
-                      <div className="flex flex-col">
-                        <h3 className="text-xl font-bold text-amber-200">{v.def.name}</h3>
-                        <div className="mt-2 flex items-center gap-2">
-                          <span className="text-xs font-semibold uppercase tracking-wide text-white/40">
-                            Difficulté
-                          </span>
-                          <Stars value={VILLAIN_GUIDE[key].difficulty} />
-                        </div>
-                        <p className="mt-auto pt-3 text-xs text-white/40">Cliquer pour la fiche →</p>
+                      <h3 className="text-base font-bold text-amber-200">{v.def.name}</h3>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-white/40">
+                          Difficulté
+                        </span>
+                        <Stars value={VILLAIN_GUIDE[key].difficulty} />
                       </div>
+                      <p className="mt-auto pt-1 text-[10px] text-white/40">Cliquer pour la fiche →</p>
                     </button>
                   )
                 })}

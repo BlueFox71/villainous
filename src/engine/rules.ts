@@ -499,16 +499,32 @@ export function canPlaceHeroAt(
 }
 
 /** Vrai si une Malédiction peut être posée sur le lieu : plusieurs Malédictions
- *  peuvent cohabiter ; seule une restriction `no-curses` (Pimprenelle) l'interdit. */
+ *  peuvent cohabiter ; seule une restriction `no-curses` (Pimprenelle) l'interdit.
+ *  Si `card` est fourni et qu'elle restreint les Héros (Forêt de Ronces, Feu
+ *  Infernal), on interdit aussi la pose sur un lieu où un Héros présent VIOLERAIT
+ *  déjà cette restriction (on ne peut pas faire pousser les Ronces sous un Héros
+ *  qui n'aurait pas pu venir s'y poser). */
 export function canPlaceCurseAt(
   state: GameState,
   playerIndex: number,
   locationId: LocationId,
+  card?: CardInstance,
 ): boolean {
   // Plusieurs Malédictions peuvent cohabiter sur un même lieu (règle officielle) :
   // on ne bloque que les lieux portant une restriction `no-curses`.
   const cell = state.players[playerIndex].board[locationId] ?? []
   if (cell.some((c) => c.placementRestriction?.type === 'no-curses')) return false
+  const r = card?.placementRestriction
+  if (r) {
+    const heroes = cell.filter((c) => c.type === 'hero' && !c.hypnotized)
+    if (r.type === 'no-heroes' && heroes.length > 0) return false
+    if (
+      r.type === 'min-hero-strength' &&
+      heroes.some((h) => (effectiveStrength(state, playerIndex, h.instanceId) ?? h.strength ?? 0) < r.value)
+    ) {
+      return false
+    }
+  }
   return true
 }
 
@@ -604,6 +620,10 @@ export function conditionIsTriggered(
       return !!state.activeMovedCard
     case 'opponent-drew-card':
       return !!state.activeDrewCard
+    case 'opponent-discarded-ge':
+      return (state.activeDiscardedCount ?? 0) >= card.trigger.value
+    case 'opponent-gained-power-ge':
+      return (state.activeGainedPower ?? 0) >= card.trigger.value
   }
 }
 
@@ -656,6 +676,11 @@ export function effectiveCost(
     const destCell = me.board[destination] ?? []
     discount += destCell.filter((c) => c.cardId === 'panique').length
   }
+  // Dr Facilier — Tiana (Fatalité) : toutes les cartes de Facilier coûtent 1 de
+  // plus par Tiana présente dans son royaume.
+  surcharge += Object.values(me.board).flat().filter(
+    (c) => c.type === 'hero' && c.cardId === 'tiana',
+  ).length
   return Math.max(0, base - discount + surcharge)
 }
 
@@ -707,6 +732,10 @@ export function hasReachedObjective(state: GameState): boolean {
       const titans = (p.board[obj.locationId] ?? []).filter((c) => c.isTitan && !c.trapped)
       return titans.length >= obj.count
     }
+    case 'REIGN_NEW_ORLEANS':
+      // Victoire déclenchée pendant la résolution de Divination (révéler Régner en
+      // détenant le Talisman), pas par un contrôle passif en début de tour.
+      return false
   }
 }
 

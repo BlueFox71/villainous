@@ -167,9 +167,9 @@ export function performVanquish(
   allyInstanceIds: string[],
   keepAllies: boolean,
 ): GameState {
-  if (allyInstanceIds.length === 0) {
-    throw new Error("Sélectionnez au moins un Allié pour éliminer.")
-  }
+  // Un Héros de force EFFECTIVE 0 (réduit par Forme de grenouille, Sommeil sans
+  // Rêves…) peut être éliminé SANS Allié (la somme des forces alliées, 0, suffit).
+  // On ne refuse donc l'absence d'Allié qu'après avoir mesuré la force du Héros.
   const me = activePlayer(state)
   const heroLoc = locationOfCard(me, heroInstanceId)
   if (!heroLoc) {
@@ -227,6 +227,10 @@ export function performVanquish(
     throw new Error('Vous devez d’abord éliminer un Héros provocateur (Provocation).')
   }
   const heroForce = effectiveStrength(state, state.activePlayer, heroCard.instanceId) ?? 0
+  // Au moins un Allié reste requis tant que le Héros a une force > 0.
+  if (allies.length === 0 && heroForce > 0) {
+    throw new Error('Sélectionnez au moins un Allié pour éliminer ce Héros.')
+  }
   const allyForce = allies.reduce(
     (sum, a) => sum + (effectiveStrength(state, state.activePlayer, a.instanceId) ?? 0),
     0,
@@ -299,6 +303,31 @@ export function performVanquish(
     hand: [...p.hand, ...returnedToHand],
     power: p.power + locked + flechesCount * 2 + rouetBonus + nessusBonus,
   }))
+  // Dr Facilier — Objets associés au Héros vaincu : le Talisman est RÉCUPÉRÉ
+  // (libéré sur le lieu du Héros, donc « détenu » à nouveau) ; la Forme de
+  // grenouille est défaussée. (Les Objets associés au Héros ne sont pas dans
+  // removedIds : ils restent sur le lieu après le départ du Héros.)
+  const heroAttached = (me.board[heroLoc] ?? []).filter((c) => c.attachedTo === heroCard.instanceId)
+  const formes = heroAttached.filter((c) => c.cardId === 'forme-grenouille')
+  const hasTalisman = heroAttached.some((c) => c.cardId === 'talisman')
+  if (hasTalisman || formes.length > 0) {
+    const formeIds = new Set(formes.map((c) => c.instanceId))
+    next = updateActivePlayer(next, (p) => ({
+      ...p,
+      board: {
+        ...p.board,
+        [heroLoc]: (p.board[heroLoc] ?? [])
+          .filter((c) => !formeIds.has(c.instanceId))
+          .map((c) =>
+            c.cardId === 'talisman' && c.attachedTo === heroCard.instanceId ? { ...c, attachedTo: undefined } : c,
+          ),
+      },
+      discard: [...p.discard, ...formes.map((c) => ({ ...c, attachedTo: undefined }))],
+    }))
+    if (hasTalisman) {
+      next = { ...next, log: [...next.log, `Le **Talisman** est récupéré sur ${heroLocName}.`] }
+    }
+  }
   // Mémorise la force du héros pour le trigger Méchanceté (réinitialisé à chaque tour).
   next = { ...next, lastVanquishedHeroStrength: heroCard.strength ?? 0 }
   next = {
@@ -353,6 +382,27 @@ export function performVanquish(
       status: 'WON',
       winner: state.activePlayer,
       log: [...next.log, `🏆 ${me.villainName} élimine ${heroCard.name} sur le Jolly Roger et l'emporte !`],
+    }
+  }
+  // Dr Facilier — Poudre d'illusion : à chaque Héros éliminé sur ce lieu, défausse
+  // jusqu'à 2 cartes de la Pile de l'Au-delà (auto : les moins utiles, jamais Régner).
+  if ((next.players[state.activePlayer].board[heroLoc] ?? []).some((c) => c.cardId === 'poudre-illusion')) {
+    const pile = next.players[state.activePlayer].auDela
+    const droppable = [...pile]
+      .filter((c) => c.cardId !== 'regner-nouvelle-orleans')
+      .sort((a, b) => auDelaKeyPriority(a) - auDelaKeyPriority(b))
+      .slice(0, 2)
+    if (droppable.length > 0) {
+      const dropIds = new Set(droppable.map((c) => c.instanceId))
+      next = updateActivePlayer(next, (p) => ({
+        ...p,
+        auDela: p.auDela.filter((c) => !dropIds.has(c.instanceId)),
+        discard: [...p.discard, ...droppable],
+      }))
+      next = {
+        ...next,
+        log: [...next.log, `Poudre d'illusion : ${droppable.length} carte${droppable.length > 1 ? 's' : ''} défaussée${droppable.length > 1 ? 's' : ''} de la Pile de l'Au-delà.`],
+      }
     }
   }
   // Effets « à la mort » du Héros (Toby, Belle Marianne — B.3).
@@ -539,6 +589,8 @@ export function resolveEffect(
       const note = gained < effect.amount ? ' (Robin des Bois : −1)' : ''
       next = {
         ...next,
+        // Suivi du Pouvoir gagné par le joueur actif ce tour-ci (déclencheur Terreur).
+        activeGainedPower: idx === next.activePlayer ? (next.activeGainedPower ?? 0) + gained : next.activeGainedPower,
         log: [
           ...next.log,
           `${actor.villainName} gagne ${gained} JT${note} (total : ${actor.power}).`,
@@ -2059,7 +2111,271 @@ export function resolveEffect(
         log: [...next.log, found ? `${actor.villainName} ajoute **${found.name}** à sa main (Œil des Moires).` : `${actor.villainName} ne trouve aucun Allié (Œil des Moires).`],
       }
     }
+    // ===================== Dr Facilier — Pile de l'Au-delà =====================
+    case 'DIVINATION': {
+      // Divination : seulement au Royaume du vaudou. Mélange la pile, en révèle
+      // `count` cartes (2 si Mama Odie est dans le royaume) et ouvre la résolution
+      // (pendingDivination) — l'acteur choisit l'ordre.
+      const actor = state.players[idx]
+      if (actor.pawnLocation !== 'royaume-vaudou') {
+        return { ...state, log: [...state.log, `${actor.villainName} : Divination n'a d'effet qu'au Royaume du vaudou.`] }
+      }
+      if (actor.auDela.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : la Pile de l'Au-delà est vide.`] }
+      }
+      const hasMamaOdie = Object.values(actor.board).flat().some(
+        (c) => c.type === 'hero' && c.cardId === 'mama-odie',
+      )
+      const count = Math.min(hasMamaOdie ? 2 : effect.count, actor.auDela.length)
+      const r = shuffle(actor.auDela, state.rngState)
+      const revealed = r.result.slice(0, count)
+      const rest = r.result.slice(count)
+      let next = updatePlayer(state, idx, (p) => ({ ...p, auDela: rest }))
+      next = {
+        ...next,
+        rngState: r.state,
+        pendingDivination: { playerIndex: idx, cards: revealed },
+        log: [
+          ...next.log,
+          `${actor.villainName} joue Divination${hasMamaOdie ? ' (Mama Odie : 2 cartes)' : ''} : ${revealed.length} carte${revealed.length > 1 ? 's' : ''} révélée${revealed.length > 1 ? 's' : ''} de l'Au-delà.`,
+        ],
+      }
+      return next
+    }
+    case 'FATE_ALLY_TO_AUDELA': {
+      // L'étoile du soir : place l'Allié le plus FORT du royaume de la cible dans
+      // sa Pile de l'Au-delà (auto). Ses Objets associés partent en défausse.
+      const target = state.players[idx]
+      let bestLoc: LocationId | undefined
+      let best: CardInstance | undefined
+      for (const loc of target.locations) {
+        for (const c of target.board[loc.id] ?? []) {
+          if (c.type === 'ally' && !c.attachedTo && !c.isWicket && (!best || (c.strength ?? 0) > (best.strength ?? 0))) {
+            best = c
+            bestLoc = loc.id
+          }
+        }
+      }
+      if (!best || !bestLoc) {
+        return { ...state, log: [...state.log, `L'étoile du soir : aucun Allié à placer dans l'Au-delà.`] }
+      }
+      const ally = best
+      const loc = bestLoc
+      const attached = (target.board[loc] ?? []).filter((c) => c.attachedTo === ally.instanceId)
+      const removed = new Set([ally.instanceId, ...attached.map((c) => c.instanceId)])
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        board: { ...p.board, [loc]: (p.board[loc] ?? []).filter((c) => !removed.has(c.instanceId)) },
+        discard: [...p.discard, ...attached.map((c) => ({ ...c, attachedTo: undefined }))],
+        auDela: [...p.auDela, { ...ally, attachedTo: undefined }],
+      }))
+      return {
+        ...next,
+        log: [...next.log, `L'étoile du soir : **${ally.name}** est placé dans la Pile de l'Au-delà de ${target.villainName}.`],
+      }
+    }
+    case 'FATE_TOP_DECK_TO_AUDELA': {
+      // Si près du but / Charlotte : place les `count` premières cartes de la
+      // pioche Vilain de la cible dans sa Pile de l'Au-delà (auto).
+      const target = state.players[idx]
+      let deck = target.deck
+      let disc = target.discard
+      let s = state.rngState
+      const taken: CardInstance[] = []
+      while (taken.length < effect.count) {
+        if (deck.length === 0) {
+          if (disc.length === 0) break
+          const r = shuffle(disc, s)
+          deck = r.result
+          s = r.state
+          disc = []
+        }
+        const [top, ...others] = deck
+        deck = others
+        taken.push(top)
+      }
+      if (taken.length === 0) {
+        return { ...state, log: [...state.log, `${target.villainName} : pioche vide, rien à regarder.`] }
+      }
+      // Le joueur qui a posé la Fatalité (state.activePlayer) regarde ces cartes et
+      // choisit lesquelles vont dans l'Au-delà / l'ordre de retour (RESOLVE_FATE_SCRY).
+      let next = updatePlayer(state, idx, (p) => ({ ...p, deck, discard: disc }))
+      next = {
+        ...next,
+        rngState: s,
+        pendingFateScry: { chooserIndex: state.activePlayer, targetIndex: idx, cards: taken },
+        log: [
+          ...next.log,
+          `${state.players[state.activePlayer].villainName} regarde les ${taken.length} première${taken.length > 1 ? 's' : ''} carte${taken.length > 1 ? 's' : ''} de la pioche de ${target.villainName}.`,
+        ],
+      }
+      return next
+    }
+    case 'FATE_ITEM_AT_HOST_TO_AUDELA': {
+      // Joujou (à la pose) : place un Objet du lieu hôte (hors Talisman) dans la
+      // Pile de l'Au-delà de la cible (auto).
+      if (!ctx?.hostLocationId) return state
+      const loc = ctx.hostLocationId
+      const target = state.players[idx]
+      // Objet du lieu hôte (hors Talisman). Esprits des masques (Allié + Objet,
+      // `alsoItem`) est une cible valide.
+      const item = (target.board[loc] ?? []).find(
+        (c) => (c.type === 'item' || c.alsoItem) && c.cardId !== 'talisman',
+      )
+      if (!item) {
+        return { ...state, log: [...state.log, `Joujou : aucun Objet à placer dans l'Au-delà.`] }
+      }
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        board: { ...p.board, [loc]: (p.board[loc] ?? []).filter((c) => c.instanceId !== item.instanceId) },
+        auDela: [...p.auDela, { ...item, attachedTo: undefined }],
+      }))
+      return {
+        ...next,
+        log: [...next.log, `Joujou : **${item.name}** est placé dans la Pile de l'Au-delà de ${target.villainName}.`],
+      }
+    }
+    case 'FATE_AUDELA_TO_DECK_TOP': {
+      // Big Daddy Le Bœuf (à la pose) : retire une carte de la Pile de l'Au-delà
+      // (Régner en priorité, pour le différer) et la place sur le dessus de la
+      // pioche Vilain de la cible (auto).
+      const target = state.players[idx]
+      if (target.auDela.length === 0) {
+        return { ...state, log: [...state.log, `Big Daddy : la Pile de l'Au-delà est vide.`] }
+      }
+      const pick = target.auDela.find((c) => c.cardId === 'regner-nouvelle-orleans') ?? target.auDela[0]
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        auDela: p.auDela.filter((c) => c.instanceId !== pick.instanceId),
+        deck: [pick, ...p.deck],
+      }))
+      return {
+        ...next,
+        log: [...next.log, `Big Daddy : **${pick.name}** quitte la Pile de l'Au-delà pour le dessus de la pioche de ${target.villainName}.`],
+      }
+    }
+    case 'FATE_MOVE_ALL_HEROES_ADJACENT': {
+      // Naveen (à la pose) : déplace chaque Héros du royaume de la cible vers un
+      // lieu voisin (auto : le premier lieu adjacent non bloqué).
+      const target = state.players[idx]
+      let next = state
+      for (const loc of target.locations) {
+        const heroes = (next.players[idx].board[loc.id] ?? []).filter((c) => c.type === 'hero')
+        for (const hero of heroes) {
+          const adj = adjacentLocationIds(next, loc.id).filter(
+            (d) => !(next.players[idx].lockedLocations ?? []).includes(d) && !(hero.forbiddenLocations ?? []).includes(d),
+          )
+          if (adj.length === 0) continue
+          next = resolveEffect(next, { type: 'MOVE_HERO_TO_LOCATION', locationId: adj[0] }, {
+            actorIndex: idx,
+            targetHeroId: hero.instanceId,
+          })
+        }
+      }
+      return next
+    }
+    case 'LOOK_TOP_DRAW_DISCARD': {
+      // Tour de passe-passe : révèle les `look` premières cartes de la pioche et
+      // ouvre le choix (pendingLookTop) — le joueur garde `take` carte(s), le reste
+      // est défaussé. Le bot résout automatiquement (enumerate + heuristique).
+      const actor = state.players[idx]
+      let deck = actor.deck
+      let disc = actor.discard
+      let s = state.rngState
+      const seen: CardInstance[] = []
+      while (seen.length < effect.look) {
+        if (deck.length === 0) {
+          if (disc.length === 0) break
+          const r = shuffle(disc, s)
+          deck = r.result
+          s = r.state
+          disc = []
+        }
+        const [top, ...others] = deck
+        deck = others
+        seen.push(top)
+      }
+      if (seen.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : pioche vide (Tour de passe-passe).`] }
+      }
+      let next = updatePlayer(state, idx, (p) => ({ ...p, deck, discard: disc }))
+      next = {
+        ...next,
+        rngState: s,
+        pendingLookTop: { playerIndex: idx, cards: seen, take: Math.min(effect.take, seen.length) },
+        log: [...next.log, `${actor.villainName} regarde les ${seen.length} première${seen.length > 1 ? 's' : ''} carte${seen.length > 1 ? 's' : ''} de sa pioche (Tour de passe-passe).`],
+      }
+      return next
+    }
+    case 'TAKE_FROM_AUDELA_TO_HAND': {
+      // Désespoir : prend une carte de la Pile de l'Au-delà (carte clé en
+      // priorité) et l'ajoute à la main de l'acteur.
+      const actor = state.players[idx]
+      if (actor.auDela.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : la Pile de l'Au-delà est vide (Désespoir).`] }
+      }
+      const ranked = [...actor.auDela].sort((a, b) => auDelaKeyPriority(b) - auDelaKeyPriority(a))
+      const pick = ranked[0]
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        auDela: p.auDela.filter((c) => c.instanceId !== pick.instanceId),
+        hand: [...p.hand, pick],
+      }))
+      return {
+        ...next,
+        log: [...next.log, `${actor.villainName} récupère **${pick.name}** de la Pile de l'Au-delà (Désespoir).`],
+      }
+    }
+    case 'RECOVER_TYPE_FROM_DISCARD': {
+      // Terreur : récupère une carte d'un des `types` dans la défausse (Événement
+      // en priorité, sinon carte clé) et l'ajoute à la main de l'acteur.
+      const actor = state.players[idx]
+      const candidates = actor.discard.filter((c) => effect.types.includes(c.type))
+      if (candidates.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : rien à récupérer dans la défausse (Terreur).`] }
+      }
+      const ranked = [...candidates].sort((a, b) => auDelaKeyPriority(b) - auDelaKeyPriority(a))
+      const pick = ranked[0]
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        discard: p.discard.filter((c) => c.instanceId !== pick.instanceId),
+        hand: [...p.hand, pick],
+      }))
+      return {
+        ...next,
+        log: [...next.log, `${actor.villainName} récupère **${pick.name}** de sa défausse (Terreur).`],
+      }
+    }
   }
+}
+
+/** Dr Facilier — priorité « carte clé » pour les choix automatiques (Tour de
+ *  passe-passe, Désespoir, Terreur) : plus la valeur est haute, plus la carte est
+ *  précieuse pour avancer vers l'objectif. */
+function auDelaKeyPriority(c: CardInstance): number {
+  switch (c.cardId) {
+    case 'regner-nouvelle-orleans': return 100
+    case 'talisman': return 90
+    case 'divination-facilier': return 80
+    case 'tour-passe-passe': return 60
+    case 'canne': return 50
+    case 'poudre-illusion': return 30
+    default: return c.type === 'effect' ? 20 : 10
+  }
+}
+
+/** Dr Facilier — une carte peut-elle entrer dans la Pile de l'Au-delà ? Le
+ *  Talisman et Divination en sont explicitement exclus (mention sur la carte). */
+export function canEnterAuDela(c: CardInstance): boolean {
+  return c.cardId !== 'talisman' && c.cardId !== 'divination-facilier'
+}
+
+/** Dr Facilier — vrai si le joueur DÉTIENT le Talisman : un exemplaire de Talisman
+ *  posé LIBREMENT (non associé à un Héros) dans son royaume. */
+export function holdsTalisman(player: { board: Record<string, CardInstance[]> }): boolean {
+  return Object.values(player.board).flat().some(
+    (c) => c.cardId === 'talisman' && !c.attachedTo,
+  )
 }
 
 /** Résout une liste d'effets dans l'ordre pour le même contexte. */

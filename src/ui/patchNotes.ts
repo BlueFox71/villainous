@@ -9,6 +9,21 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.60',
+    date: '2026-06-13',
+    title: 'Nouveau vilain : Dr Facilier',
+    changes: [
+      'Dr Facilier (Disney, 2★) jouable : objectif « jouer le Talisman et Régner sur la Nouvelle-Orléans, détenir le Talisman, puis jouer Divination au Royaume du vaudou pour révéler Régner depuis la Pile de l’Au-delà ». Pion détouré, plateau, 30 cartes Méchant + 15 Fatalité, fiche et conseils, voix d’intro.',
+      'Nouvelle mécanique : la Pile de l’Au-delà (visible sous le plateau, cliquable pour voir son contenu). Amis de l’au-delà et Régner y vont quand on les joue ; les adversaires l’alimentent via la Fatalité. Divination la mélange, en révèle 3 cartes (2 avec Mama Odie) et résout leurs effets dans l’ordre que vous choisissez.',
+      'Le Talisman s’associe automatiquement à un Héros de force ≤ 3 et revient libre quand ce Héros est éliminé. Forme de grenouille s’associe à un Héros (−2 force) ; un Héros de force 0 peut être éliminé sans Allié. Poudre d’illusion vide la pile à chaque Héros éliminé.',
+      'Choix interactifs : Divination (ordre de résolution), Tour de passe-passe (carte gardée), Si près du but / Charlotte (cartes envoyées dans la pile + ordre), Poupées vaudou (déplacer un Héros), Canne (agir sur un lieu voisin). Joujou peut cibler les Esprits des masques (Allié + Objet) ; Ray laisse jouer la 2ᵉ carte révélée.',
+      'Conditions Désespoir / Terreur ; Lawrence suit les Héros, l’Ombre suit le pion, Tiana renchérit les cartes, Big Daddy/Eudora/Naveen actifs.',
+      'Règles : Forêt de Ronces ne peut plus être posée sur un lieu où un Héros présent viole sa restriction ; Joyeux non-anniversaire est injouable sans Allié dans le royaume.',
+      'Améliorations du bot : il n’utilise plus Alignement des planètes sans Titan entravé ni Joyeux non-anniversaire sans Allié, et peut défausser d’un coup les cartes injouables.',
+      'Menu : nouveau fond d’écran Disney Villainous et nouvelle musique (« The Magic Mirror »). Liste des villains affichée en rangées de 4.',
+    ],
+  },
+  {
     version: '0.59',
     date: '2026-06-13',
     title: 'Sons : voix d’intro + banque de sons',

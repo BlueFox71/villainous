@@ -8,7 +8,7 @@
 // =============================================================================
 
 import type { GameAction, GameState } from '../engine/types'
-import { titanReachableDests } from '../engine/effects'
+import { canEnterAuDela, titanReachableDests } from '../engine/effects'
 import {
   adjacentLocationIds,
   alliesAt,
@@ -105,6 +105,31 @@ export function enumerateActions(state: GameState): GameAction[] {
     return state.pendingTitanSelect.titanCandidateIds.map((id) => ({ type: 'RESOLVE_TITAN_SELECT', titanInstanceId: id }))
   }
 
+  // Divination (Dr Facilier) : énumère les ordres de résolution possibles des
+  // cartes révélées (≤ 3 → ≤ 6 permutations). Le bot choisit le meilleur (ex.
+  // résoudre Régner en premier pour gagner).
+  if (state.pendingDivination) {
+    const ids = state.pendingDivination.cards.map((c) => c.instanceId)
+    return permutations(ids).map((order) => ({ type: 'RESOLVE_DIVINATION', topInstanceIds: order }))
+  }
+
+  // Tour de passe-passe (Dr Facilier) : une option par carte révélée à garder
+  // (take = 1). Le bot score chaque choix.
+  if (state.pendingLookTop) {
+    const plt = state.pendingLookTop
+    return plt.cards.map((c) => ({ type: 'RESOLVE_LOOK_TOP', keepInstanceIds: [c.instanceId] }))
+  }
+
+  // Si près du but / Charlotte (Dr Facilier) : le bot (adversaire) cherche à
+  // remplir la Pile de l'Au-delà → il y place toutes les cartes autorisées et
+  // remet les autres (Talisman / Divination) sur la pioche.
+  if (state.pendingFateScry) {
+    const cards = state.pendingFateScry.cards
+    const toAudelaIds = cards.filter((c) => canEnterAuDela(c)).map((c) => c.instanceId)
+    const deckTopOrder = cards.filter((c) => !canEnterAuDela(c)).map((c) => c.instanceId)
+    return [{ type: 'RESOLVE_FATE_SCRY', toAudelaIds, deckTopOrder }]
+  }
+
   // Déplacement de Héros en attente (Apparition, Stratos, Mégara, Hermès…) :
   // un choix par (Héros candidat × destination valide). Résolu via botAct quand
   // le chooseur est le joueur actif (en jeu réel, l'UI/useEffect peut le résoudre avant).
@@ -118,12 +143,16 @@ export function enumerateActions(state: GameState): GameAction[] {
       for (const h of (tgt.board[loc.id] ?? []).filter((c) => c.type === 'hero')) {
         if (phr.candidateIds && !phr.candidateIds.includes(h.instanceId)) continue
         const i = ids.indexOf(loc.id)
-        const dests = phr.anyLocation
-          ? ids.filter((id) => id !== loc.id && !locked.has(id))
-          : [ids[i - 1], ids[i + 1]].filter((id): id is string => !!id && !locked.has(id))
+        const dests = phr.forcedDirection !== undefined
+          ? [ids[i + phr.forcedDirection]].filter((id): id is string => !!id && !locked.has(id))
+          : phr.anyLocation
+            ? ids.filter((id) => id !== loc.id && !locked.has(id))
+            : [ids[i - 1], ids[i + 1]].filter((id): id is string => !!id && !locked.has(id))
         for (const to of dests) out.push({ type: 'RESOLVE_HERO_RELOCATE', heroInstanceId: h.instanceId, to })
       }
     }
+    // Poupées vaudou : déplacement facultatif → le bot peut aussi décliner.
+    if (phr.optional) out.push({ type: 'SKIP_HERO_RELOCATE' })
     if (out.length > 0) return out
   }
 
@@ -256,7 +285,7 @@ export function enumerateActions(state: GameState): GameAction[] {
             }
           } else {
             for (const to of locs) {
-              if (card.type === 'curse' && !canPlaceCurseAt(state, state.activePlayer, to)) continue
+              if (card.type === 'curse' && !canPlaceCurseAt(state, state.activePlayer, to, card)) continue
               if (card.playOnlyAt && to !== card.playOnlyAt) continue
               out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, to })
             }
@@ -342,13 +371,31 @@ export function enumerateActions(state: GameState): GameAction[] {
             (e) => e.type === 'TELEPORT_TO_HERO' || e.type === 'GRANT_USE_COVERED_ACTION',
           )
           if (needsHeroPresent && heroesOf(state, state.activePlayer).length === 0) continue
+          // Alignement des planètes (Hadès) : inutile si AUCUN Titan n'est entravé.
+          const needsTrappedTitan = (card.effects ?? []).some((e) => e.type === 'UNTRAP_TITANS_PAY')
+          if (needsTrappedTitan && !Object.values(me.board).flat().some((c) => c.isTitan && c.trapped)) continue
+          // Joyeux non-anniversaire : inutile sans aucun Allié dans le royaume.
+          const needsAllyInRealm = (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_ALLY_IN_REALM')
+          if (needsAllyInRealm && !Object.values(me.board).flat().some((c) => c.type === 'ally')) continue
           out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId })
         }
       }
     } else if (action.type === 'DISCARD_CARDS' && me.hand.length > 0) {
-      // Une option par carte de la main (défausse d'une seule carte).
-      for (const c of me.hand) {
-        out.push({ type: 'DISCARD_CARDS', actionId: action.id, instanceIds: [c.instanceId] })
+      // Le bot peut défausser PLUSIEURS cartes. Pour rester rapide (la recherche
+      // explose si on énumère tous les sous-ensembles), on propose : chaque carte
+      // seule, chaque « toutes sauf une » (défausser le reste en gardant la
+      // meilleure) et « toute la main ». Le lookahead jusqu'à END_TURN évalue la
+      // repioche, donc ces options suffisent à cycler une main faible.
+      const ids = me.hand.map((c) => c.instanceId)
+      for (const id of ids) {
+        out.push({ type: 'DISCARD_CARDS', actionId: action.id, instanceIds: [id] }) // une carte
+      }
+      // Multi-défausse « si nécessaire » : se débarrasser d'un coup des cartes
+      // INJOUABLES ce tour (coût > pouvoir disponible) pour repiocher. Une seule
+      // option (bornée) — éviter d'exploser la recherche du bot.
+      const dead = me.hand.filter((c) => effectiveCost(state, c) > me.power).map((c) => c.instanceId)
+      if (dead.length >= 2) {
+        out.push({ type: 'DISCARD_CARDS', actionId: action.id, instanceIds: dead })
       }
     } else if (action.type === 'FATE' && canFate(state)) {
       out.push({ type: 'FATE', actionId: action.id })
@@ -383,12 +430,17 @@ export function enumerateActions(state: GameState): GameAction[] {
         for (const h of heroes) {
           const guarded = cell.some((c) => c.cardId === 'deguisement' && c.attachedTo === h.instanceId)
           if (guarded) continue
+          const heroForce = effectiveStrength(state, state.activePlayer, h.instanceId) ?? 0
+          // Héros de force 0 (réduit par Forme de grenouille…) : éliminable SANS Allié.
+          if (heroForce === 0) {
+            out.push({ type: 'VANQUISH', actionId: action.id, heroInstanceId: h.instanceId, allyInstanceIds: [] })
+            continue
+          }
           const usable =
             h.cardId === 'bobby'
               ? localAllies.filter((a) => a.cardId !== 'archers-loups')
               : [...localAllies, ...adjAllies]
           if (usable.length === 0) continue
-          const heroForce = effectiveStrength(state, state.activePlayer, h.instanceId) ?? 0
           const allyForce = usable.reduce((n, a) => n + (effectiveStrength(state, state.activePlayer, a.instanceId) ?? 0), 0)
           if (allyForce >= heroForce) {
             out.push({ type: 'VANQUISH', actionId: action.id, heroInstanceId: h.instanceId, allyInstanceIds: usable.map((a) => a.instanceId) })
@@ -433,5 +485,29 @@ export function enumerateActions(state: GameState): GameAction[] {
     }
   }
 
+  // Canne (Dr Facilier) : si le pion est sur le lieu de la Canne et qu'elle n'a
+  // pas servi ce tour, ouvrir le choix d'un lieu voisin où agir.
+  if (
+    state.phase === 'ACTION' &&
+    me.pawnLocation &&
+    !state.usedActionIds.includes('canne-action') &&
+    (me.board[me.pawnLocation] ?? []).some((c) => c.cardId === 'canne')
+  ) {
+    out.push({ type: 'USE_CANNE' })
+  }
+
+  return out
+}
+
+/** Permutations d'une liste courte (Divination : ≤ 3 éléments). Cap de sécurité à
+ *  4 éléments (24 permutations) pour rester borné. */
+function permutations<T>(items: T[]): T[][] {
+  if (items.length <= 1) return [items]
+  if (items.length > 4) return [items]
+  const out: T[][] = []
+  for (let i = 0; i < items.length; i++) {
+    const rest = [...items.slice(0, i), ...items.slice(i + 1)]
+    for (const p of permutations(rest)) out.push([items[i], ...p])
+  }
   return out
 }

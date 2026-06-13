@@ -277,6 +277,7 @@ function makePlayer(
     lockedLocations: villain.lockedLocationsAtStart
       ? [...villain.lockedLocationsAtStart]
       : undefined,
+    auDela: [],
   }
 }
 

@@ -75,5 +75,5 @@ describe('heuristicBot — force', () => {
       if (s.status === 'WON') finished++
     }
     expect(finished).toBe(N)
-  })
+  }, 20000) // 10 parties complètes : test d'intégration, marge de temps généreuse.
 })

@@ -11,13 +11,20 @@ interface Props {
   anyLocation?: boolean
   /** Restreint les Héros déplaçables (Stratos, Mégara, Hermès). Absent = tous. */
   candidateIds?: string[]
+  /** Poupées vaudou : direction imposée (−1 gauche / +1 droite), 1 lieu. */
+  forcedDirection?: number
+  /** Déplacement facultatif (« vous pouvez ») : bouton « Passer » disponible. */
+  optional?: boolean
+  /** Décline le déplacement (si `optional`). */
+  onSkip?: () => void
 }
 
 /**
  * Apparition / Vent de panique : choisir un Héros du royaume de `target` puis un
  * lieu voisin de sa position (ou n'importe quel lieu non bloqué — Tourbillon).
+ * Poupées vaudou (Dr Facilier) : direction imposée + déplacement facultatif.
  */
-export function HeroRelocateModal({ target, onResolve, anyLocation = false, candidateIds }: Props) {
+export function HeroRelocateModal({ target, onResolve, anyLocation = false, candidateIds, forcedDirection, optional, onSkip }: Props) {
   const [heroId, setHeroId] = useState<string | null>(null)
   const ids = target.locations.map((l) => l.id)
   const locked = new Set(target.lockedLocations ?? [])
@@ -30,19 +37,23 @@ export function HeroRelocateModal({ target, onResolve, anyLocation = false, cand
   )
   const picked = heroes.find((h) => h.id === heroId)
   const adj = picked
-    ? anyLocation
-      ? ids.filter((id) => id !== picked.from && !locked.has(id))
-      : (() => {
-          const i = ids.indexOf(picked.from)
-          return [ids[i - 1], ids[i + 1]].filter((id): id is string => !!id && !locked.has(id))
-        })()
+    ? forcedDirection !== undefined
+      ? [ids[ids.indexOf(picked.from) + forcedDirection]].filter((id): id is string => !!id && !locked.has(id))
+      : anyLocation
+        ? ids.filter((id) => id !== picked.from && !locked.has(id))
+        : (() => {
+            const i = ids.indexOf(picked.from)
+            return [ids[i - 1], ids[i + 1]].filter((id): id is string => !!id && !locked.has(id))
+          })()
     : []
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
       <div className="flex w-full max-w-md flex-col gap-4 rounded-2xl border border-white/15 bg-[#120c22] p-5 text-white">
         <h2 className="text-center text-lg font-bold text-purple-200">
-          Déplacer un Héros vers un lieu voisin
+          {forcedDirection !== undefined
+            ? `Poupées vaudou : déplacer un Héros vers ${forcedDirection < 0 ? 'la gauche' : 'la droite'}`
+            : 'Déplacer un Héros vers un lieu voisin'}
         </h2>
 
         {!picked ? (
@@ -88,6 +99,16 @@ export function HeroRelocateModal({ target, onResolve, anyLocation = false, cand
               ← Choisir un autre Héros
             </button>
           </>
+        )}
+
+        {optional && onSkip && (
+          <button
+            type="button"
+            onClick={onSkip}
+            className="self-center rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/70 hover:bg-white/10"
+          >
+            Passer (ne pas déplacer)
+          </button>
         )}
       </div>
     </div>

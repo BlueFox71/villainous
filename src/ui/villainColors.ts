@@ -9,4 +9,5 @@ export const VILLAIN_COLOR: Record<string, string> = {
   slenderman: '#1A1F2E',
   ursula: '#3D2235',
   hades: '#226077',
+  facilier: '#5A1E47',
 }

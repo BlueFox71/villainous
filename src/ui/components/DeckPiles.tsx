@@ -175,6 +175,49 @@ function DiscardModal({
 }
 
 /**
+ * Dr Facilier — Pile de l'Au-delà (face cachée). Affiche le dos Vilain teinté de
+ * fuchsia avec le compteur de cartes. Rendue uniquement si la pile est non vide.
+ */
+export function AuDelaPile({
+  player,
+  uprightWidth = 'w-28',
+}: {
+  player: PlayerState
+  uprightWidth?: string
+}) {
+  const count = player.auDela.length
+  const [open, setOpen] = useState(false)
+  if (count === 0) return null
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="relative cursor-pointer"
+        title="Voir la Pile de l'Au-delà"
+      >
+        <img
+          src={player.backVillainImage}
+          alt="Pile de l'Au-delà"
+          className={`${uprightWidth} rounded border-2 border-fuchsia-400/70 shadow-[0_0_8px_rgba(217,70,239,0.5)] transition hover:brightness-110`}
+        />
+        <span className="absolute -bottom-1 -right-1 rounded-full bg-black/85 px-1 text-[8px] font-mono text-white">
+          {count}
+        </span>
+      </button>
+      <span className="text-[8px] font-bold uppercase tracking-wide text-fuchsia-300/90">Au-delà</span>
+      {open && (
+        <DiscardModal
+          cards={player.auDela}
+          label={`Pile de l'Au-delà — ${player.villainName}`}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
  * Pioche (dos) + défausse (dernière carte), tournées à gauche et empilées dans la
  * marge : `kind='fate'` (au-dessus de l'image) ou `kind='villain'` (en dessous).
  */

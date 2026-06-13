@@ -72,7 +72,7 @@ export function MainMenu({ onNewGame, onVillainList, onProfile, onSoundTest }: P
       {/* Image de fond floutée + voile sombre pour ne pas gêner le premier plan. */}
       <div
         className="absolute inset-0 z-0 bg-cover bg-center"
-        style={{ backgroundImage: 'url(/menu_bg.png)' }}
+        style={{ backgroundImage: 'url(/menu_bg_disney.jpg)' }}
         aria-hidden
       />
       <div

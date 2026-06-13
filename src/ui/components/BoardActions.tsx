@@ -230,6 +230,34 @@ const ACTION_POS: Record<string, Record<string, Record<string, { x: number; y: n
       'gain-power': { x: 93.1, y: 66.8 },
     },
   },
+  // Dr Facilier : même plateau physique qu'Hadès (boîte « Mauvais jusqu'à l'os »),
+  // donc mêmes colonnes/rangées ; seuls les ids d'action diffèrent.
+  facilier: {
+    'royaume-vaudou': {
+      'gain-power': { x: 22.9, y: 19.4 },
+      fate: { x: 30.77, y: 19.4 },
+      vanquish: { x: 22.9, y: 66 },
+      'play-card': { x: 30.6, y: 66 },
+    },
+    parade: {
+      'gain-power': { x: 43.68, y: 19.4 },
+      'play-card-top': { x: 51.5, y: 19.4 },
+      discard: { x: 43.8, y: 66 },
+      'move-item-ally': { x: 51.5, y: 66.5 },
+    },
+    'chez-tiana': {
+      discard: { x: 64.5, y: 19.5 },
+      'gain-power': { x: 72.35, y: 19.5 },
+      'play-card': { x: 64.5, y: 66.8 },
+      fate: { x: 72.3, y: 67 },
+    },
+    bayou: {
+      'move-item-ally': { x: 85.3, y: 19.5 },
+      'play-card-top': { x: 93.15, y: 19.6 },
+      'play-card-bottom': { x: 85.3, y: 66.8 },
+      'gain-power': { x: 93.1, y: 66.8 },
+    },
+  },
 }
 
 interface Props {

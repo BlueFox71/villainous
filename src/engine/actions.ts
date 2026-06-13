@@ -32,7 +32,7 @@ import {
   updateActivePlayer,
   updatePlayer,
 } from './state'
-import { moveTitanTo, performVanquish, processCurseDiscards, resolveEffects, titanReachableDests, triggerHeroArrival } from './effects'
+import { canEnterAuDela, holdsTalisman, moveTitanTo, performVanquish, processCurseDiscards, resolveEffect, resolveEffects, titanReachableDests, triggerHeroArrival } from './effects'
 import {
   adjacentLocationIds,
   canEndTurn,
@@ -89,6 +89,8 @@ function resolveLocationAction(state: GameState, action: LocationAction): GameSt
       const note = penalty > 0 ? ' (Robin des Bois : −1)' : ''
       next = {
         ...next,
+        // Suivi du Pouvoir gagné ce tour-ci (déclencheur Terreur, Dr Facilier).
+        activeGainedPower: (next.activeGainedPower ?? 0) + amount,
         log: [
           ...next.log,
           `${activePlayer(next).villainName} gagne ${amount} JT${note} (total : ${activePlayer(next).power}).`,
@@ -129,6 +131,46 @@ function applyMove(state: GameState, to: string): GameState {
       `${me.villainName} se déplace vers **${dest.name}**.`,
       ...(hasPersifleur ? ['Persifleur : une action recouverte est jouable ici.'] : []),
     ],
+  }
+  // Dr Facilier — Ombre du Dr Facilier : si elle est sur le lieu de départ du
+  // pion, elle se déplace en même temps que lui (auto).
+  const from = me.pawnLocation
+  if (from && from !== to) {
+    const ombre = (next.players[state.activePlayer].board[from] ?? []).find((c) => c.cardId === 'ombre-facilier')
+    if (ombre) {
+      const moving = (next.players[state.activePlayer].board[from] ?? []).filter(
+        (c) => c.instanceId === ombre.instanceId || c.attachedTo === ombre.instanceId,
+      )
+      const ids = new Set(moving.map((c) => c.instanceId))
+      const fromId = from
+      next = updateActivePlayer(next, (p) => ({
+        ...p,
+        board: {
+          ...p.board,
+          [fromId]: (p.board[fromId] ?? []).filter((c) => !ids.has(c.instanceId)),
+          [to]: [...(p.board[to] ?? []), ...moving],
+        },
+      }))
+      next = { ...next, log: [...next.log, `L'**Ombre du Dr Facilier** suit ${me.villainName} sur **${dest.name}**.`] }
+    }
+  }
+  // Dr Facilier — Louis (Fatalité) : si Facilier arrive sur le lieu de Louis, il
+  // place une carte de sa main dans la Pile de l'Au-delà (auto : carte autorisée).
+  const louisHere = (next.players[state.activePlayer].board[to] ?? []).some(
+    (c) => c.type === 'hero' && c.cardId === 'louis',
+  )
+  if (louisHere) {
+    const pick = next.players[state.activePlayer].hand.find(
+      (c) => c.cardId !== 'talisman' && c.cardId !== 'divination-facilier',
+    )
+    if (pick) {
+      next = updateActivePlayer(next, (p) => ({
+        ...p,
+        hand: p.hand.filter((c) => c.instanceId !== pick.instanceId),
+        auDela: [...p.auDela, pick],
+      }))
+      next = { ...next, log: [...next.log, `Louis : ${me.villainName} place **${pick.name}** de sa main dans la Pile de l'Au-delà.`] }
+    }
   }
   // Tic Tac (Capitaine Crochet) : si le pion arrive sur le lieu de Tic Tac,
   // Crochet défausse immédiatement toute sa main.
@@ -201,6 +243,14 @@ function applyPlayCard(
   if (card.cardId === 'page' && me.noPagePlay) {
     throw new Error('Lever du jour : impossible de jouer une Page ce tour-ci.')
   }
+  // Joyeux non-anniversaire (gain par Allié) : injouable sans aucun Allié dans le
+  // royaume (elle n'aurait aucun effet). Donnée : on teste l'effet, pas le cardId.
+  if (
+    (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_ALLY_IN_REALM') &&
+    !Object.values(me.board).flat().some((c) => c.type === 'ally')
+  ) {
+    throw new Error('Aucun Allié dans votre royaume : cette carte n’aurait aucun effet.')
+  }
 
   // Coût effectif (Couronne −1, Bâton Magique −1, Épée de Vérité +2 sur curse,
   // Razoul −1 sur Allié). Hypnose : coût = force (effective) du Héros ciblé.
@@ -229,7 +279,7 @@ function applyPlayCard(
     if (card.playOnlyAt && to !== card.playOnlyAt) {
       throw new Error(`${card.name} ne peut être posé(e) que sur un lieu précis.`)
     }
-    if (card.type === 'curse' && !canPlaceCurseAt(state, state.activePlayer, to)) {
+    if (card.type === 'curse' && !canPlaceCurseAt(state, state.activePlayer, to, card)) {
       throw new Error(`Aucune Malédiction ne peut être posée ici (Pimprenelle).`)
     }
     // Limite d'exemplaires de cette carte sur un même lieu (Page : max 2).
@@ -391,6 +441,11 @@ function applyPlayCard(
     if (card.type === 'ally') {
       next = processCurseDiscards(next, state.activePlayer, destId, 'ally-played-here')
     }
+  } else if (card.goesToAuDelaOnPlay) {
+    // Dr Facilier — Amis de l'au-delà / Régner : l'Événement va dans la Pile de
+    // l'Au-delà au lieu de la défausse.
+    next = updateActivePlayer(next, (p) => ({ ...p, auDela: [...p.auDela, card] }))
+    next = { ...next, log: [...next.log, `**${card.name}** rejoint la Pile de l'Au-delà.`] }
   } else {
     next = updateActivePlayer(next, (p) => ({ ...p, discard: [...p.discard, card] }))
   }
@@ -439,6 +494,8 @@ function applyDiscardCards(
   consumed = {
     ...consumed,
     usedActionIds: [...consumed.usedActionIds, actionId],
+    // Suivi des cartes défaussées ce tour-ci (déclencheur Désespoir, Dr Facilier).
+    activeDiscardedCount: (consumed.activeDiscardedCount ?? 0) + discarded.length,
     log: [
       ...consumed.log,
       `${me.villainName} défausse ${discarded.length} carte${discarded.length > 1 ? 's' : ''}.`,
@@ -609,6 +666,73 @@ export function placeFateHeroWithEffects(
       'red',
       'bottom',
     )
+  }
+  // Dr Facilier — déclencheurs « à la pose d'un Héros » (Talisman, Lawrence).
+  next = applyFacilierHeroPlayTriggers(next, targetIndex, hero.instanceId, to)
+  return next
+}
+
+/** Dr Facilier — déclencheurs lorsqu'un Héros est joué dans le royaume de
+ *  `targetIndex` (sur `to`) :
+ *  - Talisman : s'il est posé LIBREMENT dans le royaume et que le Héros a une force
+ *    ≤ 3, on l'associe à ce Héros (il le suit sur son lieu).
+ *  - Lawrence : présent dans le royaume, il rejoint le lieu du Héros (auto). */
+function applyFacilierHeroPlayTriggers(
+  state: GameState,
+  targetIndex: number,
+  heroInstanceId: string,
+  to: LocationId,
+): GameState {
+  let next = state
+  const player = next.players[targetIndex]
+  const hero = (player.board[to] ?? []).find((c) => c.instanceId === heroInstanceId)
+  if (!hero || hero.type !== 'hero') return next
+
+  // Talisman : associé au Héros joué si force ≤ 3 et Talisman libre dans le royaume.
+  if ((hero.strength ?? 0) <= 3) {
+    let talisLoc: LocationId | undefined
+    let talisman: CardInstance | undefined
+    for (const loc of player.locations) {
+      const found = (player.board[loc.id] ?? []).find((c) => c.cardId === 'talisman' && !c.attachedTo)
+      if (found) { talisLoc = loc.id; talisman = found; break }
+    }
+    if (talisman && talisLoc) {
+      const tl = talisLoc
+      const attached: CardInstance = { ...talisman, attachedTo: heroInstanceId }
+      next = updatePlayer(next, targetIndex, (p) => ({
+        ...p,
+        board: {
+          ...p.board,
+          [tl]: (p.board[tl] ?? []).filter((c) => c.instanceId !== talisman!.instanceId),
+          [to]: [...(p.board[to] ?? []).filter((c) => c.instanceId !== talisman!.instanceId), attached],
+        },
+      }))
+      next = { ...next, log: [...next.log, `Le **Talisman** s'associe à **${hero.name}** (force ≤ 3).`] }
+    }
+  }
+
+  // Lawrence : rejoint le lieu du Héros (avec ses Objets associés).
+  let lawLoc: LocationId | undefined
+  let lawrence: CardInstance | undefined
+  for (const loc of next.players[targetIndex].locations) {
+    const found = (next.players[targetIndex].board[loc.id] ?? []).find((c) => c.cardId === 'lawrence')
+    if (found) { lawLoc = loc.id; lawrence = found; break }
+  }
+  if (lawrence && lawLoc && lawLoc !== to) {
+    const ll = lawLoc
+    const moving = (next.players[targetIndex].board[ll] ?? []).filter(
+      (c) => c.instanceId === lawrence!.instanceId || c.attachedTo === lawrence!.instanceId,
+    )
+    const movingIds = new Set(moving.map((c) => c.instanceId))
+    next = updatePlayer(next, targetIndex, (p) => ({
+      ...p,
+      board: {
+        ...p.board,
+        [ll]: (p.board[ll] ?? []).filter((c) => !movingIds.has(c.instanceId)),
+        [to]: [...(p.board[to] ?? []), ...moving],
+      },
+    }))
+    next = { ...next, log: [...next.log, `**Lawrence** rejoint **${hero.name}**.`] }
   }
   return next
 }
@@ -804,7 +928,76 @@ function discardCurseFromHeroLocation(state: GameState, targetIndex: number): Ga
 }
 
 /** Résout la Fatalité en attente : joue la carte choisie, défausse l'autre. */
+/** Une carte Fatalité révélée est-elle JOUABLE sur la cible (sinon elle serait
+ *  juste défaussée) ? Sert au combo Ray : on ne rouvre la Fatalité pour la 2ᵉ
+ *  carte que si elle peut réellement être jouée. */
+function fateCardPlayable(state: GameState, card: CardInstance, target: number): boolean {
+  if (card.type === 'hero') return heroPlacementLocations(state, card, target).length > 0
+  if (
+    card.cardId === 'voler-riches' ||
+    card.cardId === 'agrandir' ||
+    (card.type === 'item' && card.attach === 'hero')
+  ) {
+    return Object.values(state.players[target].board)
+      .flat()
+      .some((c) => c.type === 'hero' && !c.hypnotized)
+  }
+  return true
+}
+
+/** Résout une Fatalité révélée. Wrapper du combo RAY (Dr Facilier) : si Ray fait
+ *  partie des deux cartes dévoilées, après avoir résolu la 1ʳᵉ on PEUT aussi jouer
+ *  l'autre (si elle est jouable) — on rouvre alors la Fatalité avec cette carte. */
 function applyResolveFate(
+  state: GameState,
+  instanceId: string,
+  to?: string,
+  targetHeroId?: string,
+  enlargeToward?: string,
+): GameState {
+  const pending = state.pendingFate
+  const revealed = pending?.revealed ?? []
+  const hasRay = revealed.some((c) => c.cardId === 'ray')
+  const others = revealed.filter((c) => c.instanceId !== instanceId)
+  const target = pending?.target ?? -1
+
+  const next = applyResolveFateInner(state, instanceId, to, targetHeroId, enlargeToward)
+
+  // Combo Ray : exactement une autre carte révélée, aucune autre résolution en
+  // attente, et cette carte est jouable → on rouvre la Fatalité pour la jouer.
+  if (
+    hasRay &&
+    others.length === 1 &&
+    next.pendingFate == null &&
+    next.status === 'PLAYING' &&
+    !next.pendingHeroPlacement &&
+    !next.pendingFateChoice &&
+    !next.pendingPawnMove &&
+    !next.pendingHubertPull &&
+    !next.pendingTitanSelect &&
+    !next.pendingHeroRelocate &&
+    !next.pendingFateScry
+  ) {
+    const other = others[0]
+    if (
+      fateCardPlayable(next, other, target) &&
+      next.players[target].fateDiscard.some((c) => c.instanceId === other.instanceId)
+    ) {
+      const reopened = updatePlayer(next, target, (p) => ({
+        ...p,
+        fateDiscard: p.fateDiscard.filter((c) => c.instanceId !== other.instanceId),
+      }))
+      return {
+        ...reopened,
+        pendingFate: { target, revealed: [other] },
+        log: [...reopened.log, `Ray : vous pouvez aussi jouer **${other.name}**.`],
+      }
+    }
+  }
+  return next
+}
+
+function applyResolveFateInner(
   state: GameState,
   instanceId: string,
   to?: string,
@@ -1105,6 +1298,15 @@ function applyResolveFate(
     return { ...next, log: [...next.log, `Du gospel pur ! : **${pick.c.name}** est défaussé(e) du royaume de ${tgt.villainName}.`] }
   }
 
+  // Dr Facilier (Fatalité) — L'étoile du soir / Si près du but : Événements qui
+  // alimentent la Pile de l'Au-delà de la cible. On résout leurs effets puis on
+  // défausse la carte.
+  if (chosen.cardId === 'etoile-du-soir' || chosen.cardId === 'si-pres-du-but') {
+    let next = updatePlayer(state, pending.target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, chosen, ...others] }))
+    next = { ...next, pendingFate: null }
+    return resolveEffects(next, chosen.effects ?? [], { actorIndex: pending.target })
+  }
+
   // Fallback (carte Fatalité non implémentée) : simple défausse.
   const next = updatePlayer(state, pending.target, (p) => ({
     ...p,
@@ -1207,6 +1409,49 @@ function applyMoveCard(
     if (hero) {
       next = resolveEffects(next, [{ type: 'MOVE_HERO_TO_LOCATION', locationId: to }], { targetHeroId: hero.instanceId })
       next = { ...next, log: [...next.log, `Peine emmène **${hero.name}** avec elle.`] }
+    }
+  }
+  // Dr Facilier — Poupées vaudou : à leur déplacement, on PEUT déplacer un Héros
+  // du royaume du même nombre de lieux et dans la même direction (ici 1 lieu,
+  // l'action « Déplacer » étant un pas vers un voisin). Choix facultatif.
+  if (card.cardId === 'poupees-vaudou') {
+    const ap = state.activePlayer
+    const order = me.locations.map((l) => l.id)
+    const dir = order.indexOf(to) - order.indexOf(from) // −1 (gauche) ou +1 (droite)
+    const locked = new Set(next.players[ap].lockedLocations ?? [])
+    const candidates: string[] = []
+    for (const l of next.players[ap].locations) {
+      const destIdx = order.indexOf(l.id) + dir
+      if (destIdx < 0 || destIdx >= order.length) continue
+      const destId = order[destIdx]
+      if (locked.has(destId)) continue
+      const destCell = next.players[ap].board[destId] ?? []
+      for (const h of next.players[ap].board[l.id] ?? []) {
+        if (h.type !== 'hero') continue
+        if ((h.forbiddenLocations ?? []).includes(destId)) continue
+        // Restrictions du lieu de destination (Feu Infernal, Forêt de Ronces).
+        const blocked = destCell.some((c) => {
+          const r = c.placementRestriction
+          return (
+            (r?.type === 'no-heroes') ||
+            (r?.type === 'min-hero-strength' && (h.strength ?? 0) < r.value)
+          )
+        })
+        if (!blocked) candidates.push(h.instanceId)
+      }
+    }
+    if (candidates.length > 0) {
+      next = {
+        ...next,
+        pendingHeroRelocate: {
+          chooserIndex: ap,
+          targetIndex: ap,
+          candidateIds: candidates,
+          forcedDirection: dir,
+          optional: true,
+        },
+        log: [...next.log, `Poupées vaudou : vous pouvez déplacer un Héros d'un lieu vers ${dir < 0 ? 'la gauche' : 'la droite'}.`],
+      }
     }
   }
   return next
@@ -2139,12 +2384,24 @@ function applyResolveHeroRelocate(state: GameState, heroInstanceId: string, to: 
     const i = ids.indexOf(from)
     const adj = [ids[i - 1], ids[i + 1]].filter(Boolean) as string[]
     if (!adj.includes(to)) throw new Error(`Lieu « ${to} » non voisin de « ${from} ».`)
+    // Poupées vaudou : la direction est imposée (même sens que les Poupées).
+    if (pending.forcedDirection !== undefined && ids.indexOf(to) !== i + pending.forcedDirection) {
+      throw new Error('Direction imposée par les Poupées vaudou.')
+    }
   }
   const next = resolveEffects(state, [{ type: 'MOVE_HERO_TO_LOCATION', locationId: to }], {
     actorIndex: targetIndex,
     targetHeroId: heroInstanceId,
   })
   return { ...next, pendingHeroRelocate: null }
+}
+
+/** Décline un déplacement de Héros facultatif (Poupées vaudou). */
+function applySkipHeroRelocate(state: GameState): GameState {
+  if (!state.pendingHeroRelocate?.optional) {
+    throw new Error('Ce déplacement de Héros est obligatoire.')
+  }
+  return { ...state, pendingHeroRelocate: null }
 }
 
 /**
@@ -2777,12 +3034,55 @@ function applyResolveGiantLocation(state: GameState, locationId: LocationId): Ga
   const i = order.indexOf(p.pawnLocation ?? '')
   const neighbors = [order[i - 1], order[i + 1]].filter(Boolean) as string[]
   if (!neighbors.includes(locationId)) throw new Error(`Lieu « ${locationId} » non voisin.`)
+  const dest = findLocation(p, locationId)
+  if (pending.viaCanne) {
+    // Canne : UNE action disponible du voisin, Fatalité EXCLUE, usage unique/tour.
+    // Pendant la fenêtre, on retire les ids d'actions « pleines » (les actions du
+    // voisin redeviennent disponibles) et on bloque ses actions Fatalité. Après
+    // l'unique action (clearGiant), on restaure l'économie d'actions du lieu réel
+    // + le marqueur « canne-action » (réutilisation interdite ce tour).
+    const preserved = state.usedActionIds.filter((a) => a.includes(':'))
+    const fateIds = (dest?.actions ?? []).filter((a) => a.type === 'FATE').map((a) => a.id)
+    return {
+      ...state,
+      pendingGiantAction: null,
+      actAtLocation: locationId,
+      usedActionIds: [...preserved, 'canne-action', ...fateIds],
+      usedBeforeGiant: [...state.usedActionIds, 'canne-action'],
+      log: [...state.log, `Canne : ${p.villainName} agit depuis **${dest?.name ?? locationId}** (hors Fatalité).`],
+    }
+  }
   return {
     ...state,
     pendingGiantAction: null,
     actAtLocation: locationId,
     usedBeforeGiant: state.usedActionIds,
-    log: [...state.log, `Colère Titanesque : ${p.villainName} agit depuis **${findLocation(p, locationId)?.name ?? locationId}**.`],
+    log: [...state.log, `Colère Titanesque : ${p.villainName} agit depuis **${dest?.name ?? locationId}**.`],
+  }
+}
+
+/** Dr Facilier — Canne : ouvre le choix d'un lieu voisin (pendingGiantAction
+ *  `viaCanne`). Exige que le pion soit sur le lieu de la Canne et qu'elle n'ait pas
+ *  déjà servi ce tour. */
+function applyUseCanne(state: GameState): GameState {
+  if (state.phase !== 'ACTION') throw new Error(`Impossible d'utiliser la Canne en phase ${state.phase}.`)
+  const me = activePlayer(state)
+  const loc = me.pawnLocation
+  if (!loc) throw new Error('Aucun lieu courant.')
+  if (!(me.board[loc] ?? []).some((c) => c.cardId === 'canne')) {
+    throw new Error('La Canne n’est pas sur votre lieu.')
+  }
+  if (state.usedActionIds.includes('canne-action')) {
+    throw new Error('La Canne a déjà été utilisée ce tour.')
+  }
+  const order = me.locations.map((l) => l.id)
+  const i = order.indexOf(loc)
+  const neighbors = [order[i - 1], order[i + 1]].filter(Boolean) as string[]
+  if (neighbors.length === 0) throw new Error('Aucun lieu voisin.')
+  return {
+    ...state,
+    pendingGiantAction: { playerIndex: state.activePlayer, viaCanne: true },
+    log: [...state.log, `${me.villainName} utilise la Canne : choisissez un lieu voisin.`],
   }
 }
 
@@ -2843,6 +3143,195 @@ function applyResolveTitanSelect(state: GameState, titanInstanceId: string): Gam
   const destIdx = Math.max(0, order.indexOf(loc) - (pending.pushSteps ?? 1))
   const next = order[destIdx] === loc ? state : moveTitanTo(state, idx, titanInstanceId, order[destIdx], { fireTriggers: false })
   return { ...next, pendingTitanSelect: null }
+}
+
+/** Dr Facilier — Divination : résout les cartes révélées de la Pile de l'Au-delà
+ *  (pendingDivination) dans l'ordre `topInstanceIds` choisi par Facilier. Chaque
+ *  carte applique son effet `auDela` (cf. AuDelaEffect) ; une carte sans effet est
+ *  défaussée. « Régner » donne la victoire si Facilier détient le Talisman ; les
+ *  Esprits des masques interrompent la résolution. */
+function applyResolveDivination(state: GameState, topInstanceIds: string[]): GameState {
+  const pending = state.pendingDivination
+  if (!pending) throw new Error('Aucune Divination en attente.')
+  const idx = pending.playerIndex
+  const byId = new Map(pending.cards.map((c) => [c.instanceId, c]))
+  // Ordre de résolution : l'ordre fourni, complété par les cartes manquantes.
+  const order = topInstanceIds.filter((id) => byId.has(id))
+  for (const c of pending.cards) if (!order.includes(c.instanceId)) order.push(c.instanceId)
+
+  let next: GameState = { ...state, pendingDivination: null }
+  for (let i = 0; i < order.length; i++) {
+    const card = byId.get(order[i])!
+    const auDela = card.auDela
+    const name = next.players[idx].villainName
+    if (!auDela) {
+      next = updatePlayer(next, idx, (p) => ({ ...p, discard: [...p.discard, card] }))
+      next = { ...next, log: [...next.log, `Au-delà : **${card.name}** sans effet, défaussée.`] }
+      continue
+    }
+    switch (auDela.kind) {
+      case 'gain-power-discard': {
+        next = resolveEffect(next, { type: 'GAIN_POWER', amount: auDela.amount }, { actorIndex: idx })
+        next = updatePlayer(next, idx, (p) => ({ ...p, discard: [...p.discard, card] }))
+        break
+      }
+      case 'lose-power-discard': {
+        const lose = Math.min(auDela.amount, next.players[idx].power)
+        next = updatePlayer(next, idx, (p) => ({ ...p, power: p.power - lose, discard: [...p.discard, card] }))
+        next = { ...next, log: [...next.log, `Au-delà : **${card.name}** — ${name} perd ${lose} JT et la défausse.`] }
+        break
+      }
+      case 'place-on-location': {
+        const loc = auDela.locationId
+        const locName = findLocation(next.players[idx], loc)?.name ?? loc
+        next = updatePlayer(next, idx, (p) => ({
+          ...p,
+          board: { ...p.board, [loc]: [...(p.board[loc] ?? []), card] },
+        }))
+        next = { ...next, log: [...next.log, `Au-delà : **${card.name}** est placé sur **${locName}**.`] }
+        break
+      }
+      case 'scry-draw-discard': {
+        // Tour de passe-passe (Au-delà) : MÊME effet que joué — on regarde le dessus
+        // de la pioche et le JOUEUR choisit la carte à garder — puis cette carte est
+        // défaussée. Comme le choix est interactif, on défausse Tour de passe-passe,
+        // on ouvre le choix (pendingLookTop) et on MET EN ATTENTE le reste de la
+        // Divination (les cartes non encore résolues), repris après RESOLVE_LOOK_TOP.
+        next = updatePlayer(next, idx, (p) => ({ ...p, discard: [...p.discard, card] }))
+        next = resolveEffect(next, { type: 'LOOK_TOP_DRAW_DISCARD', look: auDela.look, take: auDela.take }, { actorIndex: idx })
+        if (next.pendingLookTop) {
+          const remaining = order.slice(i + 1).map((id) => byId.get(id)!)
+          next = {
+            ...next,
+            pendingLookTop: {
+              ...next.pendingLookTop,
+              resumeDivination: remaining.length > 0 ? { playerIndex: idx, cards: remaining } : undefined,
+            },
+          }
+          return next // interrompt la résolution ; reprise après le choix
+        }
+        break // pioche vide : pas de choix, on poursuit la Divination
+      }
+      case 'win-if-talisman': {
+        if (holdsTalisman(next.players[idx])) {
+          next = updatePlayer(next, idx, (p) => ({ ...p, discard: [...p.discard, card] }))
+          return {
+            ...next,
+            status: 'WON',
+            winner: idx,
+            log: [...next.log, `🏆 ${name} révèle « Régner sur la Nouvelle-Orléans » en détenant le Talisman et l'emporte !`],
+          }
+        }
+        next = updatePlayer(next, idx, (p) => ({ ...p, auDela: [...p.auDela, card] }))
+        next = { ...next, log: [...next.log, `Au-delà : **${card.name}** — pas de Talisman, retourne dans la Pile de l'Au-delà.`] }
+        break
+      }
+      case 'masks-abort': {
+        // Défausse TOUTES les cartes Esprits des masques encore non résolues ;
+        // remet les AUTRES non résolues dans la pile (sans appliquer leur effet) ;
+        // interrompt la Divination.
+        const rest = order.slice(i).map((id) => byId.get(id)!)
+        const masks = rest.filter((c) => c.cardId === 'esprits-masques')
+        const nonMasks = rest.filter((c) => c.cardId !== 'esprits-masques')
+        next = updatePlayer(next, idx, (p) => ({
+          ...p,
+          discard: [...p.discard, ...masks],
+          auDela: [...p.auDela, ...nonMasks],
+        }))
+        return {
+          ...next,
+          log: [
+            ...next.log,
+            `Au-delà : Esprits des masques — ${masks.length} défaussée${masks.length > 1 ? 's' : ''}${nonMasks.length ? `, ${nonMasks.length} remise${nonMasks.length > 1 ? 's' : ''} dans l'Au-delà` : ''}. Divination interrompue.`,
+          ],
+        }
+      }
+    }
+  }
+  return next
+}
+
+/** Dr Facilier — Tour de passe-passe : garde les cartes choisies (`keepInstanceIds`,
+ *  bornées à `take`) en main, défausse les autres cartes révélées (pendingLookTop). */
+function applyResolveLookTop(state: GameState, keepInstanceIds: string[]): GameState {
+  const pending = state.pendingLookTop
+  if (!pending) throw new Error('Aucun Tour de passe-passe en attente.')
+  const idx = pending.playerIndex
+  const valid = keepInstanceIds.filter((id) => pending.cards.some((c) => c.instanceId === id))
+  const keepSet = new Set(valid.slice(0, pending.take))
+  const kept = pending.cards.filter((c) => keepSet.has(c.instanceId))
+  const dumped = pending.cards.filter((c) => !keepSet.has(c.instanceId))
+  let next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    hand: [...p.hand, ...kept],
+    discard: [...p.discard, ...dumped],
+  }))
+  next = {
+    ...next,
+    pendingLookTop: null,
+    activeDrewCard: kept.length > 0 ? true : state.activeDrewCard,
+    log: [
+      ...next.log,
+      `${next.players[idx].villainName} garde **${kept.map((c) => c.name).join(', ') || '—'}** et défausse ${dumped.length} carte${dumped.length > 1 ? 's' : ''} (Tour de passe-passe).`,
+    ],
+  }
+  // Tour de passe-passe révélé en Divination : reprendre la Divination avec les
+  // cartes restantes à résoudre.
+  if (pending.resumeDivination && pending.resumeDivination.cards.length > 0) {
+    next = {
+      ...next,
+      pendingDivination: { playerIndex: pending.resumeDivination.playerIndex, cards: pending.resumeDivination.cards },
+    }
+  }
+  return next
+}
+
+/** Dr Facilier — Si près du but / Charlotte : place `toAudelaIds` (cartes révélées
+ *  autorisées) dans la Pile de l'Au-delà de Facilier ; remet les autres
+ *  (`deckTopOrder`) sur le dessus de sa pioche, 1ʳᵉ = tout en haut. */
+function applyResolveFateScry(
+  state: GameState,
+  toAudelaIds: string[],
+  deckTopOrder: string[],
+): GameState {
+  const pending = state.pendingFateScry
+  if (!pending) throw new Error('Aucune carte Fatalité révélée à trier.')
+  const idx = pending.targetIndex
+  const byId = new Map(pending.cards.map((c) => [c.instanceId, c]))
+  // Vers l'Au-delà : uniquement des cartes révélées AUTORISÉES (hors Talisman /
+  // Divination). Tout le reste revient sur la pioche.
+  const toPile = toAudelaIds
+    .filter((id) => byId.has(id) && canEnterAuDela(byId.get(id)!))
+    .map((id) => byId.get(id)!)
+  const pileIds = new Set(toPile.map((c) => c.instanceId))
+  // Ordre de retour : l'ordre demandé (filtré) puis les cartes non citées, en
+  // garantissant que TOUTES les cartes non envoyées dans l'Au-delà reviennent.
+  const ordered: CardInstance[] = []
+  const used = new Set<string>()
+  for (const id of deckTopOrder) {
+    const c = byId.get(id)
+    if (c && !pileIds.has(id) && !used.has(id)) { ordered.push(c); used.add(id) }
+  }
+  for (const c of pending.cards) {
+    if (!pileIds.has(c.instanceId) && !used.has(c.instanceId)) { ordered.push(c); used.add(c.instanceId) }
+  }
+  const target = state.players[idx]
+  let next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    deck: [...ordered, ...p.deck],
+    auDela: [...p.auDela, ...toPile],
+  }))
+  next = {
+    ...next,
+    pendingFateScry: null,
+    log: [
+      ...next.log,
+      toPile.length > 0
+        ? `${toPile.length} carte${toPile.length > 1 ? 's' : ''} de la pioche de ${target.villainName} ${toPile.length > 1 ? 'rejoignent' : 'rejoint'} la Pile de l'Au-delà.`
+        : `${target.villainName} : aucune carte ne rejoint l'Au-delà.`,
+    ],
+  }
+  return next
 }
 
 /** Hadès — Char : déplace la figurine + le Char vers `to` (1×/tour) et permet d'y
@@ -2936,8 +3425,14 @@ function applyEndTurn(state: GameState): GameState {
     pendingGiantAction: null,
     pendingTitanMove: null,
     pendingTitanSelect: null,
+    pendingDivination: null,
+    pendingLookTop: null,
+    pendingFateScry: null,
+    pendingHeroRelocate: null,
     activeMovedCard: false,
     activeDrewCard: false,
+    activeDiscardedCount: 0,
+    activeGainedPower: 0,
     // Effets « jusqu'à la fin de votre tour » du joueur qui termine (Sablier Géant).
     players: drawn.players.map((p, i) =>
       i === drawn.activePlayer
@@ -3044,6 +3539,21 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   if (state.pendingTitanSelect && action.type !== 'RESOLVE_TITAN_SELECT' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Choisissez le Titan (RESOLVE_TITAN_SELECT).')
   }
+  // Divination (Dr Facilier) : les cartes révélées de l'Au-delà doivent être
+  // résolues avant tout autre coup.
+  if (state.pendingDivination && action.type !== 'RESOLVE_DIVINATION' && action.type !== 'PLAY_CONDITION') {
+    throw new Error("Résolvez les cartes révélées de l'Au-delà (RESOLVE_DIVINATION).")
+  }
+  // Tour de passe-passe (Dr Facilier) : le choix de la carte gardée doit être
+  // résolu avant tout autre coup.
+  if (state.pendingLookTop && action.type !== 'RESOLVE_LOOK_TOP' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Choisissez la carte à garder (RESOLVE_LOOK_TOP).')
+  }
+  // Si près du but / Charlotte (Dr Facilier) : le tri des cartes révélées doit
+  // être résolu avant tout autre coup.
+  if (state.pendingFateScry && action.type !== 'RESOLVE_FATE_SCRY' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Triez les cartes révélées (RESOLVE_FATE_SCRY).')
+  }
   switch (action.type) {
     case 'MOVE':
       return applyMove(state, action.to)
@@ -3093,6 +3603,10 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return applyResolveTypeChoice(state, action.cardType)
     case 'RESOLVE_HERO_RELOCATE':
       return applyResolveHeroRelocate(state, action.heroInstanceId, action.to)
+    case 'SKIP_HERO_RELOCATE':
+      return applySkipHeroRelocate(state)
+    case 'USE_CANNE':
+      return applyUseCanne(state)
     case 'RESOLVE_TELEPORT':
       return applyResolveTeleport(state, action.to)
     case 'RESOLVE_MANIPULATION':
@@ -3117,6 +3631,12 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return applyResolveTitanMove(state, action.titanInstanceId, action.to)
     case 'RESOLVE_TITAN_SELECT':
       return applyResolveTitanSelect(state, action.titanInstanceId)
+    case 'RESOLVE_DIVINATION':
+      return applyResolveDivination(state, action.topInstanceIds)
+    case 'RESOLVE_LOOK_TOP':
+      return applyResolveLookTop(state, action.keepInstanceIds)
+    case 'RESOLVE_FATE_SCRY':
+      return applyResolveFateScry(state, action.toAudelaIds, action.deckTopOrder)
     case 'CHARIOT_MOVE':
       return applyChariotMove(state, action.instanceId, action.to)
     case 'USE_NEVERLAND_MAP':

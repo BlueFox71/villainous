@@ -10,6 +10,7 @@
 // =============================================================================
 
 import type {
+  AuDelaEffect,
   CardInstance,
   CardType,
   ConditionTrigger,
@@ -102,6 +103,15 @@ export interface CardDef {
   reachesAdjacentVanquish?: boolean
   /** Allié qui retourne en main au lieu d'être défaussé après un Vanquish (Hydre). */
   returnToHandOnVanquish?: boolean
+  /** Dr Facilier — comportement de la carte révélée depuis la Pile de l'Au-delà
+   *  (Divination). Absent = simple défausse si révélée. */
+  auDela?: AuDelaEffect
+  /** Dr Facilier — l'Événement va dans la Pile de l'Au-delà au lieu de la défausse
+   *  quand il est joué (Amis de l'au-delà, Régner sur la Nouvelle-Orléans). */
+  goesToAuDelaOnPlay?: boolean
+  /** La carte compte AUSSI comme un Objet (Esprits des masques = Allié + Objet) :
+   *  ciblable par les effets « Objet » (Joujou). */
+  alsoItem?: boolean
 }
 
 /** Développe une liste de définitions en un paquet concret (un élément par
@@ -151,6 +161,9 @@ export function buildDeckInstances(
           isTitan: c.isTitan,
           reachesAdjacentVanquish: c.reachesAdjacentVanquish,
           returnToHandOnVanquish: c.returnToHandOnVanquish,
+          auDela: c.auDela,
+          goesToAuDelaOnPlay: c.goesToAuDelaOnPlay,
+          alsoItem: c.alsoItem,
         }),
       ),
     )

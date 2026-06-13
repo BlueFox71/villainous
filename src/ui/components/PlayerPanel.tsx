@@ -116,6 +116,8 @@ export function ObjectiveBox({
           locationId={player.objective.locationId}
           count={player.objective.count}
         />
+      ) : player.objective.type === 'REIGN_NEW_ORLEANS' ? (
+        <ReignProgress player={player} accent={accent} isWinner={isWinner} />
       ) : (
         <CurseEachLocationProgress player={player} accent={accent} isWinner={isWinner} />
       )}
@@ -224,6 +226,48 @@ function TitansAtLocationProgress({
           className={`h-full rounded-full transition-all duration-300 ${isWinner ? 'bg-amber-400' : accent.gauge}`}
           style={{ width: `${pct}%` }}
         />
+      </div>
+    </>
+  )
+}
+
+function ReignProgress({
+  player,
+  accent,
+  isWinner,
+}: {
+  player: PlayerState
+  accent: Accent
+  isWinner: boolean
+}) {
+  // Dr Facilier : étapes vers la victoire (Talisman détenu, Régner dans l'Au-delà,
+  // Divination prête à être jouée au Royaume du vaudou).
+  const all = Object.values(player.board).flat()
+  const talisman = all.some((c) => c.cardId === 'talisman' && !c.attachedTo)
+  const regner = player.auDela.some((c) => c.cardId === 'regner-nouvelle-orleans')
+  const divReady = player.hand.some((c) => c.cardId === 'divination-facilier')
+  const steps = [
+    { ok: talisman, title: 'Détenir le Talisman' },
+    { ok: regner, title: 'Régner dans la Pile de l’Au-delà' },
+    { ok: divReady, title: 'Divination en main' },
+  ]
+  const done = steps.filter((s) => s.ok).length
+  return (
+    <>
+      <div className="mb-1 flex justify-between text-sm">
+        <span className={accent.accentText}>Au-delà</span>
+        <span className="font-mono text-white">{done} / {steps.length}</span>
+      </div>
+      <div className="flex gap-1">
+        {steps.map((s, i) => (
+          <div
+            key={i}
+            title={s.title}
+            className={`h-2 flex-1 rounded-full ${
+              s.ok ? (isWinner ? 'bg-amber-400' : accent.gauge) : 'bg-white/15'
+            }`}
+          />
+        ))}
       </div>
     </>
   )
