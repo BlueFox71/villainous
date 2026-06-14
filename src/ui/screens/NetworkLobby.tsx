@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useGameStore } from '../store/gameStore'
 import { isTauri } from '../../net/desktop'
-import { villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from '../villainColors'
+import { OptionsButton } from '../components/OptionsButton'
 
 interface Props {
   /** Les deux joueurs sont connectés : on passe au choix des vilains (en direct). */
@@ -53,12 +53,11 @@ export function NetworkLobby({ onEnterVillainSelect, onBack }: Props) {
     onBack()
   }
 
-  const pageBackground = villainsBackground(DEFAULT_TINT_A, DEFAULT_TINT_B)
   const isHost = mode === 'host'
   const joining = mode === 'client'
 
   return (
-    <div className="villain-bg flex h-screen flex-col bg-[#0a0814] text-white" style={{ backgroundImage: pageBackground }}>
+    <div className="relative flex h-screen flex-col overflow-hidden text-white">
       <header className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
         <h1 className="text-lg font-bold text-purple-200">{isHost ? 'Héberger une partie' : 'Rejoindre une partie'}</h1>
         <button
@@ -152,6 +151,8 @@ export function NetworkLobby({ onEnterVillainSelect, onBack }: Props) {
           )}
         </div>
       </main>
+
+      <OptionsButton />
     </div>
   )
 }

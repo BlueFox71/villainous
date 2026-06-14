@@ -107,6 +107,10 @@ export interface CardDef {
   isTitan?: boolean
   /** L'Allié peut Éliminer un Héros sur un lieu VOISIN (Flibustiers, Cerbère). */
   reachesAdjacentVanquish?: boolean
+  /** Objet « véhicule » : sur son lieu, on peut 1×/tour déplacer la figurine + cet
+   *  Objet vers n'importe quel lieu et y faire une action (hors Fatalité).
+   *  Hadès — Char ; Bowser — Bateau (même mécanisme, voir applyChariotMove). */
+  ridesWithPawn?: boolean
   /** Allié qui retourne en main au lieu d'être défaussé après un Vanquish (Hydre). */
   returnToHandOnVanquish?: boolean
   /** Dr Facilier — comportement de la carte révélée depuis la Pile de l'Au-delà
@@ -168,6 +172,7 @@ export function buildDeckInstances(
           contractLocationId: c.contractLocationId,
           isTitan: c.isTitan,
           reachesAdjacentVanquish: c.reachesAdjacentVanquish,
+          ridesWithPawn: c.ridesWithPawn,
           returnToHandOnVanquish: c.returnToHandOnVanquish,
           auDela: c.auDela,
           goesToAuDelaOnPlay: c.goesToAuDelaOnPlay,

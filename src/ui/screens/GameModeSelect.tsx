@@ -1,4 +1,5 @@
 import { useGameStore } from '../store/gameStore'
+import { OptionsButton } from '../components/OptionsButton'
 
 interface Props {
   /** Aller au choix des vilains (partie solo). */
@@ -65,6 +66,8 @@ export function GameModeSelect({ onChooseVillains, onNetwork, onBack }: Props) {
           <ModeButton label="Rejoindre une partie" onClick={join} />
         </section>
       </main>
+
+      <OptionsButton />
     </div>
   )
 }

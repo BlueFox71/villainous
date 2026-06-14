@@ -1650,24 +1650,26 @@ export function resolveEffect(
       }
     }
     case 'MOVE_ALLY_BUFF': {
-      // Pas de Quartier ! : ouvre la sélection d'un Allié à déplacer vers un lieu
-      // voisin non bloqué (+amount force jusqu'à la fin du tour). Sans Allié
-      // déplaçable (aucun Allié, ou aucun voisin non bloqué), l'effet ne fait rien.
+      // Ouvre la sélection d'un Allié à déplacer vers un lieu voisin non bloqué
+      // (+amount force jusqu'à la fin du tour ; amount 0 = simple déplacement).
+      // Sans Allié déplaçable (aucun Allié, ou aucun voisin non bloqué), no-op.
       const actor = state.players[idx]
+      const src = effect.label ?? 'Pas de Quartier !'
+      const buff = effect.amount > 0 ? ` (+${effect.amount} force ce tour-ci)` : ''
       const hasMovable = actor.locations.some(
         (l) =>
           adjacentLocationIds(state, l.id).length > 0 &&
           (actor.board[l.id] ?? []).some((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket),
       )
       if (!hasMovable) {
-        return { ...state, log: [...state.log, 'Pas de Quartier ! : aucun Allié déplaçable.'] }
+        return { ...state, log: [...state.log, `${src} : aucun Allié déplaçable.`] }
       }
       return {
         ...state,
-        pendingAllyMoveBuff: { playerIndex: idx, amount: effect.amount },
+        pendingAllyMoveBuff: { playerIndex: idx, amount: effect.amount, label: effect.label, optional: effect.optional },
         log: [
           ...state.log,
-          `${actor.villainName} (Pas de Quartier !) : déplacez un Allié vers un lieu voisin (+${effect.amount} force ce tour-ci).`,
+          `${actor.villainName} (${src}) : déplacez un Allié vers un lieu voisin${buff}.`,
         ],
       }
     }
@@ -2600,15 +2602,38 @@ export function resolveEffect(
       const actor = state.players[idx]
       // No-op pour un joueur sans Observatoire (pas Bowser).
       if (actor.starLocationId === undefined || actor.observatoryStars === undefined) return state
-      const amount = effect.amount
+      // On NE remet QUE des Étoiles actuellement posées sur des Alliés (les seules
+      // récupérables). Une Étoile sur un Allié défaussé est hors-jeu et n'existe
+      // plus → rien à reprendre. Sans Étoile sur un Allié → la carte ne fait rien.
+      // On retire `amount` Étoile(s) en partant du 1ᵉʳ Allié porteur trouvé (côté
+      // adversaire/bot : « choisir » l'Allié ; les autres Alliés ne sont pas touchés).
+      let remaining = effect.amount
+      const board: typeof actor.board = {}
+      for (const locId of Object.keys(actor.board)) {
+        board[locId] = (actor.board[locId] ?? []).map((c) => {
+          if (remaining > 0 && c.type === 'ally' && (c.stars ?? 0) > 0) {
+            const take = Math.min(c.stars ?? 0, remaining)
+            remaining -= take
+            return { ...c, stars: (c.stars ?? 0) - take }
+          }
+          return c
+        })
+      }
+      const returned = effect.amount - remaining
+      if (returned === 0) {
+        return {
+          ...state,
+          log: [...state.log, `${actor.villainName} : aucune Étoile sur un Allié — rien à remettre à l'Observatoire.`],
+        }
+      }
       const next = updatePlayer(state, idx, (p) =>
-        syncObservatoryLock({ ...p, observatoryStars: (p.observatoryStars ?? 0) + amount }),
+        syncObservatoryLock({ ...p, observatoryStars: (p.observatoryStars ?? 0) + returned, board }),
       )
       const np = next.players[idx]
-      const s = amount > 1 ? 's' : ''
+      const s = returned > 1 ? 's' : ''
       return {
         ...next,
-        log: [...next.log, `${np.villainName} : ${amount} Étoile${s} remise${s} à l'Observatoire (total : ${np.observatoryStars}).`],
+        log: [...next.log, `${np.villainName} : ${returned} Étoile${s} reprise${s} sur un Allié et remise${s} à l'Observatoire (total : ${np.observatoryStars}).`],
       }
     }
     case 'LOSE_POWER': {

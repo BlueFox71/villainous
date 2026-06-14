@@ -136,7 +136,7 @@ describe('Hadès — déplacement des Titans', () => {
   })
 
   it('le Char déplace la figurine + le Char vers n’importe quel lieu', () => {
-    const char: CardInstance = { instanceId: 'ch', cardId: 'char', name: 'Char', type: 'item' }
+    const char: CardInstance = { instanceId: 'ch', cardId: 'char', name: 'Char', type: 'item', ridesWithPawn: true }
     const s = withBoard({ enfers: [char, titan('t1', 'lythos', 4)] }, 'enfers', 10)
     const next = applyAction(s, { type: 'CHARIOT_MOVE', instanceId: 'ch', to: 'mont-olympe' })
     expect(next.players[0].pawnLocation).toBe('mont-olympe')
@@ -146,7 +146,7 @@ describe('Hadès — déplacement des Titans', () => {
   })
 
   it('après le Char, on ne peut faire qu’UNE action sur le nouveau lieu (pas la Fatalité)', () => {
-    const char: CardInstance = { instanceId: 'ch', cardId: 'char', name: 'Char', type: 'item' }
+    const char: CardInstance = { instanceId: 'ch', cardId: 'char', name: 'Char', type: 'item', ridesWithPawn: true }
     const s = withBoard({ enfers: [char] }, 'enfers', 10)
     // Char vers Jardins (4 actions, aucune Fatalité).
     const moved = applyAction(s, { type: 'CHARIOT_MOVE', instanceId: 'ch', to: 'jardins' })
@@ -159,7 +159,7 @@ describe('Hadès — déplacement des Titans', () => {
   })
 
   it('le Char ne permet PAS de jouer la Fatalité comme action bonus', () => {
-    const char: CardInstance = { instanceId: 'ch', cardId: 'char', name: 'Char', type: 'item' }
+    const char: CardInstance = { instanceId: 'ch', cardId: 'char', name: 'Char', type: 'item', ridesWithPawn: true }
     const s = withBoard({ enfers: [char] }, 'enfers', 10)
     // Char vers Mont Olympe (qui a une action Fatalité).
     const moved = applyAction(s, { type: 'CHARIOT_MOVE', instanceId: 'ch', to: 'mont-olympe' })

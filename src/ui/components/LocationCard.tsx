@@ -138,7 +138,7 @@ export function LocationCard({
       style={
         cellColor
           ? {
-              backgroundColor: `${cellColor}66`,
+              backgroundColor: `${cellColor}40`,
               borderColor: `color-mix(in srgb, ${cellColor}, white 45%)`,
             }
           : undefined
@@ -211,6 +211,8 @@ export function LocationCard({
               const canUseMap = mapUsable && c.cardId === 'carte-pays-imaginaire'
               const isHovered = hovered === c.instanceId
               const isPersifleurBlink = blinkPersifleur && c.cardId === 'persifleur'
+              // Bowser : Allié porteur d'au moins une Étoile → contour orange.
+              const hasStar = (c.stars ?? 0) > 0
 
               return (
                 <figure
@@ -269,7 +271,9 @@ export function LocationCard({
                                   : 'cursor-pointer border-red-400/50 ring-2 ring-red-400/30'
                                 : isPersifleurBlink
                                   ? 'border-yellow-300 ring-2 ring-yellow-300'
-                                  : 'border-white/15'
+                                  : hasStar
+                                    ? 'border-orange-500 ring-2 ring-orange-500/70'
+                                    : 'border-white/15'
                       }`}
                       style={{
                         ...(isPersifleurBlink
@@ -335,6 +339,27 @@ export function LocationCard({
                         style={{ right: -4 - i * 5, bottom: -2, zIndex: 5 + i }}
                       />
                     ))}
+                    {/* Bowser — Étoile(s) drainée(s) sur cet Allié : jeton centré au
+                        bas de la carte (sur la zone de texte). */}
+                    {(c.stars ?? 0) > 0 && (
+                      <span
+                        className="pointer-events-none absolute left-1/2 bottom-[14%] z-20 flex -translate-x-1/2 items-center gap-0.5"
+                        title={`${c.stars} Étoile${(c.stars ?? 0) > 1 ? 's' : ''}`}
+                      >
+                        <img
+                          src="/cards/bowser/etoile.png"
+                          alt="Étoile"
+                          className="h-6 w-auto"
+                          // Halo doux doré (mêmes drop-shadows flous que le pion).
+                          style={{ filter: 'drop-shadow(0 0 1px #fde047) drop-shadow(0 0 3px #facc15)' }}
+                        />
+                        {(c.stars ?? 0) > 1 && (
+                          <span className="text-[10px] font-black text-amber-100 [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]">
+                            ×{c.stars}
+                          </span>
+                        )}
+                      </span>
+                    )}
                   </div>
 
                   {c.cardId === 'sherif-nottingham' && sheriffMovable.includes(c.instanceId) && (

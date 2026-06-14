@@ -263,28 +263,56 @@ const ACTION_POS: Record<string, Record<string, Record<string, { x: number; y: n
   // rangées haut ~21.5 % / bas ~65 %. Mesuré sur board.png.
   imposteur: {
     electrical: {
-      fate: { x: 22.9, y: 21.5 },
-      'play-card-top': { x: 30.77, y: 21.5 },
-      'gain-power': { x: 22.9, y: 65 },
-      activate: { x: 30.77, y: 65 },
+      fate: { x: 22.5, y: 20 },
+      'play-card-top': { x: 30.4, y: 20 },
+      'gain-power': { x: 22.5, y: 67.5 },
+      activate: { x: 30.4, y: 67.5 },
     },
     reacteur: {
-      'move-item-ally': { x: 43.68, y: 21.5 },
-      'gain-power': { x: 51.5, y: 21.5 },
-      'play-card-bottom': { x: 43.68, y: 65 },
-      discard: { x: 51.5, y: 65 },
+      'move-item-ally': { x: 43.4, y: 20 },
+      'gain-power': { x: 51.25, y: 20 },
+      'play-card-bottom': { x: 43.4, y: 67.5 },
+      discard: { x: 51.2, y: 67.5 },
     },
     admin: {
-      'play-card-top': { x: 64.5, y: 21.5 },
-      activate: { x: 72.35, y: 21.5 },
-      'play-card-bottom': { x: 64.5, y: 65 },
-      'gain-power': { x: 72.35, y: 65 },
+      'play-card-top': { x: 64.3, y: 20 },
+      activate: { x: 72.1, y: 20 },
+      'play-card-bottom': { x: 64.3, y: 67.2 },
+      'gain-power': { x: 72.15, y: 67.3 },
     },
     cafeteria: {
-      'gain-power': { x: 85.3, y: 21.5 },
-      discard: { x: 93.15, y: 21.5 },
-      fate: { x: 85.3, y: 65 },
-      'play-card-bottom': { x: 93.15, y: 65 },
+      'gain-power': { x: 85.3, y: 20 },
+      discard: { x: 93.1, y: 20 },
+      fate: { x: 85.3, y: 67.5 },
+      'play-card-bottom': { x: 93.1, y: 67.4 },
+    },
+  },
+  // Bowser : centres mesurés directement sur board.png (détection des anneaux des
+  // icônes). L'éclair = Fatalité (confirmé au Château de Peach), pas Activer.
+  bowser: {
+    'chateau-bowser': {
+      'play-card': { x: 22.5, y: 20 },
+      fate: { x: 30.3, y: 20 },
+      'gain-power': { x: 22.3, y: 67.6 },
+      'move-item-ally': { x: 30.5, y: 67.6 },
+    },
+    galaxies: {
+      'play-card': { x: 43.4, y: 20 },
+      'gain-power': { x: 51.2, y: 20 },
+      activate: { x: 43.3, y: 67.4 },
+      discard: { x: 51.1, y: 67.5 },
+    },
+    observatoire: {
+      discard: { x: 64.2, y: 20 },
+      'play-card-top': { x: 72.2, y: 20 },
+      'gain-power': { x: 64.3, y: 67.3 },
+      'play-card-bottom': { x: 72.2, y: 67.4 },
+    },
+    'chateau-peach': {
+      'play-card': { x: 85.1, y: 20 },
+      'move-hero': { x: 93, y: 20.2 },
+      vanquish: { x: 85.1, y: 67.5 },
+      fate: { x: 92.9, y: 67.5 },
     },
   },
 }

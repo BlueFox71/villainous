@@ -115,7 +115,7 @@ export const bowserCards: CardDef[] = [
     deck: 'fate',
     type: 'effect',
     copies: 2,
-    text: "Remettez une Étoile sur l'Observatoire de la Comète.",
+    text: "Si un Allié possède une Étoile, retirez-en une et remettez-la sur l'Observatoire de la Comète.",
     image: img('gain-grand-star.png'),
     effects: [{ type: 'RETURN_STAR_TO_OBSERVATORY', amount: 1 }],
   },
@@ -302,7 +302,9 @@ export const bowserCards: CardDef[] = [
     text: "Lorsque vous êtes sur le même lieu que le BATEAU, vous pouvez, une fois par tour, déplacer votre figurine et le BATEAU vers n'importe quel lieu et y effectuer une action disponible, en dehors d'une action Fatalité.",
     image: img('bateau.png'),
     attach: 'location',
-    // NOTE : capacité de déplacement spéciale non encore câblée (cf. périmètre).
+    // Véhicule : même mécanisme que le Char d'Hadès (déplacement figurine + Objet
+    // + 1 action hors Fatalité, 1×/tour — applyChariotMove via CHARIOT_MOVE).
+    ridesWithPawn: true,
   },
 
   // --- Alliés --------------------------------------------------------------
@@ -386,6 +388,8 @@ export const bowserCards: CardDef[] = [
     copies: 1,
     text: 'Vous pouvez déplacer un Allié sur un lieu voisin.',
     image: img('grand-terrier.png'),
-    // NOTE : déplacement d'Allié optionnel non encore câblé (cf. périmètre).
+    // À la pose : déplacement FACULTATIF d'un Allié vers un lieu voisin (réutilise
+    // MOVE_ALLY_BUFF avec +0 force ; `optional` autorise « Ne pas déplacer »).
+    effects: [{ type: 'MOVE_ALLY_BUFF', amount: 0, label: 'Grand Terrier', optional: true }],
   },
 ]

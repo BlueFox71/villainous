@@ -1348,6 +1348,8 @@ function applyResolveFateInner(
       fateDiscard: [...p.fateDiscard, chosen, ...others],
     }))
     next = { ...next, pendingFate: null }
+    // Showcase : l'Événement Fatalité s'affiche en grand côté joueur qui le pose.
+    next = pushShowcase(next, chosen.cardId, `${tgt.villainName} subit ${chosen.name}`, state.activePlayer)
     return resolveEffects(next, chosen.effects ?? [], { actorIndex: pending.target })
   }
 
@@ -1364,6 +1366,7 @@ function applyResolveFateInner(
       pendingPawnMove: { chooserIndex: state.activePlayer, targetIndex: pending.target, via: 'Anneau étoile' },
       log: [...next.log, `Anneau étoile : ${state.players[state.activePlayer].villainName} déplace ${tgt.villainName}.`],
     }
+    next = pushShowcase(next, chosen.cardId, `${tgt.villainName} subit ${chosen.name}`, state.activePlayer)
     return next
   }
 
@@ -1461,7 +1464,9 @@ function applyMoveCard(
     throw new Error(`Action indisponible : « ${actionId} ».`)
   }
   const loc = currentLocation(state)! // garanti par isActionAvailable
-  const action = loc.actions.find((a) => a.id === actionId)!
+  // Inclut les actions ACCORDÉES par un Objet (Bowser : Galaxie en verre → Déplacer
+  // un Allié/Objet). Sans locationActions, une action « granted:… » serait introuvable.
+  const action = locationActions(state, loc.id).find((a) => a.id === actionId)!
   if (action.type !== 'MOVE_ITEM_ALLY') {
     throw new Error(`« ${actionId} » n'est pas une action « Déplacer un Allié/Objet ».`)
   }
@@ -3087,11 +3092,21 @@ function applyResolveAllyMoveBuff(state: GameState, instanceId: string, to: Loca
     },
   }))
   const toName = me.locations.find((l) => l.id === to)?.name ?? to
+  const buff = pending.amount > 0 ? ` (+${pending.amount} force ce tour-ci)` : ''
   return {
     ...next,
     pendingAllyMoveBuff: null,
-    log: [...next.log, `${me.villainName} déplace **${ally.name}** vers **${toName}** (+${pending.amount} force ce tour-ci).`],
+    log: [...next.log, `${me.villainName} déplace **${ally.name}** vers **${toName}**${buff}.`],
   }
+}
+
+/** Décline un déplacement d'Allié FACULTATIF (Grand Terrier). Refusé si le
+ *  déplacement en attente n'est pas optionnel (Pas de Quartier ! est obligatoire). */
+function applySkipAllyMoveBuff(state: GameState): GameState {
+  if (!state.pendingAllyMoveBuff?.optional) {
+    throw new Error('Ce déplacement d’Allié est obligatoire.')
+  }
+  return { ...state, pendingAllyMoveBuff: null }
 }
 
 /** Abu/Aladdin (vol d'un Objet → associé au Héros) / K.O. (retrait d'un Allié) :
@@ -3730,20 +3745,21 @@ function applyResolveFateScry(
   return next
 }
 
-/** Hadès — Char : déplace la figurine + le Char vers `to` (1×/tour) et permet d'y
- *  effectuer UNE seule action disponible (hors Fatalité). On réutilise le mécanisme
- *  « agir à un lieu » (actAtLocation) : pendant la fenêtre, seules les actions
- *  NON-Fatalité de `to` sont jouables ; après la 1ʳᵉ action (clearGiant), toutes
- *  les actions de `to` sont marquées utilisées → plus rien à faire ce tour. */
+/** Objet « véhicule » (Hadès — Char ; Bowser — Bateau) : déplace la figurine +
+ *  l'Objet vers `to` (1×/tour) et permet d'y effectuer UNE seule action disponible
+ *  (hors Fatalité). On réutilise le mécanisme « agir à un lieu » (actAtLocation) :
+ *  pendant la fenêtre, seules les actions NON-Fatalité de `to` sont jouables ;
+ *  après la 1ʳᵉ action (clearGiant), toutes les actions de `to` sont marquées
+ *  utilisées → plus rien à faire ce tour. */
 function applyChariotMove(state: GameState, instanceId: string, to: string): GameState {
-  if (state.phase !== 'ACTION') throw new Error(`Impossible d'utiliser le Char en phase ${state.phase}.`)
+  if (state.phase !== 'ACTION') throw new Error(`Impossible d'utiliser ce véhicule en phase ${state.phase}.`)
   const me = activePlayer(state)
   const from = locationOfCard(me, instanceId)
-  if (!from) throw new Error(`Char « ${instanceId} » introuvable.`)
+  if (!from) throw new Error(`Véhicule « ${instanceId} » introuvable.`)
   const card = (me.board[from] ?? []).find((c) => c.instanceId === instanceId)!
-  if (card.cardId !== 'char') throw new Error(`« ${card.name} » n'est pas le Char.`)
-  if (me.pawnLocation !== from) throw new Error('Vous devez être sur le lieu du Char pour l’utiliser.')
-  if (from === to) throw new Error('Le Char est déjà sur ce lieu.')
+  if (!card.ridesWithPawn) throw new Error(`« ${card.name} » n'est pas un véhicule.`)
+  if (me.pawnLocation !== from) throw new Error(`Vous devez être sur le lieu du ${card.name} pour l’utiliser.`)
+  if (from === to) throw new Error(`Le ${card.name} est déjà sur ce lieu.`)
   const dest = findLocation(me, to)
   if (!dest) throw new Error(`Lieu inconnu : « ${to} ».`)
   const usedKey = `chariot-move:${instanceId}`
@@ -3773,7 +3789,7 @@ function applyChariotMove(state: GameState, instanceId: string, to: string): Gam
     usedBeforeGiant: [...preserved, usedKey, ...allDestIds],
     log: [
       ...next.log,
-      `${me.villainName} déplace sa figurine et le Char vers **${dest.name}** : une action disponible (hors Fatalité).`,
+      `${me.villainName} déplace sa figurine et le ${card.name} vers **${dest.name}** : une action disponible (hors Fatalité).`,
     ],
   }
 }
@@ -3907,10 +3923,12 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   if (state.pendingScry && action.type !== 'RESOLVE_SCRY' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Triez les cartes Fatalité révélées (RESOLVE_SCRY).')
   }
-  // Pas de Quartier ! : le déplacement de l'Allié doit être résolu d'abord.
+  // Déplacement d'Allié (Pas de Quartier ! / Grand Terrier) : à résoudre d'abord
+  // (RESOLVE_ALLY_MOVE_BUFF), ou décliner si facultatif (SKIP_ALLY_MOVE_BUFF).
   if (
     state.pendingAllyMoveBuff &&
     action.type !== 'RESOLVE_ALLY_MOVE_BUFF' &&
+    action.type !== 'SKIP_ALLY_MOVE_BUFF' &&
     action.type !== 'PLAY_CONDITION'
   ) {
     throw new Error('Choisissez l’Allié à déplacer (RESOLVE_ALLY_MOVE_BUFF).')
@@ -4056,6 +4074,8 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return applyResolveScry(state, action.topInstanceIds)
     case 'RESOLVE_ALLY_MOVE_BUFF':
       return applyResolveAllyMoveBuff(state, action.instanceId, action.to)
+    case 'SKIP_ALLY_MOVE_BUFF':
+      return applySkipAllyMoveBuff(state)
     case 'RESOLVE_FATE_CHOICE':
       return applyResolveFateChoice(state, action.instanceId)
     case 'RESOLVE_FETCHED_HERO':

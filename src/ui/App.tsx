@@ -199,6 +199,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveTransformWickets = useGameStore((s) => s.resolveTransformWickets)
   const resolveScry = useGameStore((s) => s.resolveScry)
   const resolveAllyMoveBuff = useGameStore((s) => s.resolveAllyMoveBuff)
+  const skipAllyMoveBuff = useGameStore((s) => s.skipAllyMoveBuff)
   const resolveFateChoice = useGameStore((s) => s.resolveFateChoice)
   const resolveFetchedHero = useGameStore((s) => s.resolveFetchedHero)
   // Renommé sans préfixe « use » : c'est une action du store, pas un hook React
@@ -685,13 +686,16 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         )
         .map((c) => c.instanceId)
     : []
-  // Char (Hadès) : instanceId d'un Char non utilisé sur le lieu du pion (sinon null).
-  const chariotCard: string | null =
+  // Véhicule (Char d'Hadès / Bateau de Bowser) : carte « ridesWithPawn » non utilisée
+  // sur le lieu du pion (sinon null). On retient son instanceId ET son nom (libellé).
+  const chariotInstance =
     isHumanTurn && state.phase === 'ACTION' && user.pawnLocation
       ? (user.board[user.pawnLocation] ?? []).find(
-          (c) => c.cardId === 'char' && !state.usedActionIds.includes(`chariot-move:${c.instanceId}`),
-        )?.instanceId ?? null
-      : null
+          (c) => c.ridesWithPawn && !state.usedActionIds.includes(`chariot-move:${c.instanceId}`),
+        )
+      : undefined
+  const chariotCard: string | null = chariotInstance?.instanceId ?? null
+  const chariotName = chariotInstance?.name ?? 'Char'
   // Canne (Dr Facilier) : disponible si le pion est sur le lieu de la Canne et
   // qu'elle n'a pas servi ce tour.
   const canneAvailable: boolean =
@@ -2292,11 +2296,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               </button>
             </div>
           )}
-          {/* Char (Hadès) : déplacer figurine + Char vers n'importe quel lieu (1×/tour). */}
+          {/* Véhicule (Char d'Hadès / Bateau de Bowser) : déplacer figurine + Objet
+              vers n'importe quel lieu (1×/tour). */}
           {chariotCard && !mode && (
             <div className="flex flex-wrap items-center gap-2 rounded-lg border border-sky-400/70 bg-sky-500/10 px-3 py-2 text-xs text-sky-100">
               <span>
-                🏛️ <b>Char</b> : déplace ta figurine et le Char vers
+                🏛️ <b>{chariotName}</b> : déplace ta figurine et le {chariotName} vers
               </span>
               {user.locations
                 .filter((l) => l.id !== user.pawnLocation)
@@ -2892,7 +2897,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         <AllyMoveBuffModal
           player={user}
           amount={state.pendingAllyMoveBuff.amount}
+          label={state.pendingAllyMoveBuff.label}
+          optional={state.pendingAllyMoveBuff.optional}
           onResolve={(instanceId, to) => resolveAllyMoveBuff(instanceId, to)}
+          onSkip={() => skipAllyMoveBuff()}
         />
       )}
 

@@ -186,6 +186,8 @@ export const hadesCards: CardDef[] = [
     copies: 1,
     text: 'Lorsque vous êtes sur le même lieu que le Char, vous pouvez, une fois par tour, déplacer votre figurine et le Char vers n’importe quel lieu et y effectuer une action disponible, en dehors d’une action Fatalité.',
     image: img('char.png'),
+    // Véhicule : déplacement figurine + Objet + 1 action, 1×/tour (applyChariotMove).
+    ridesWithPawn: true,
   },
 
   // ----------------------------------------------------------------------

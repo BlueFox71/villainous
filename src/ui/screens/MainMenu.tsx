@@ -1,6 +1,5 @@
-import { useState } from 'react'
 import { PATCH_NOTES } from '../patchNotes'
-import { OptionsModal } from '../components/OptionsModal'
+import { OptionsButton } from '../components/OptionsButton'
 import { Scroller } from '../components/Scroller'
 
 interface Props {
@@ -10,8 +9,6 @@ interface Props {
   onVillainList: () => void
   /** Ouvrir l'écran de profil (statistiques). */
   onProfile: () => void
-  /** Ouvrir la page de test des sons. */
-  onSoundTest: () => void
 }
 
 /** Un bouton de menu réutilisant le style « HearthStone » (cf. index.css). */
@@ -64,9 +61,7 @@ function PatchNotesPanel() {
  * Menu principal : logo, entrées (Nouvelle partie, Liste des villains, Options),
  * et un panneau de notes de version listant les changements récents.
  */
-export function MainMenu({ onNewGame, onVillainList, onProfile, onSoundTest }: Props) {
-  const [showOptions, setShowOptions] = useState(false)
-
+export function MainMenu({ onNewGame, onVillainList, onProfile }: Props) {
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center gap-14 overflow-hidden p-6 text-white">
       {/* Arrière-plan (photo + voile + orbes) fourni par <MenuBackground/> à la racine. */}
@@ -106,12 +101,10 @@ export function MainMenu({ onNewGame, onVillainList, onProfile, onSoundTest }: P
       <nav className="relative z-10 flex w-[32rem] max-w-[90vw] flex-col gap-5">
         <MenuButton label="Nouvelle partie" onClick={onNewGame} />
         <MenuButton label="Liste des villains" onClick={onVillainList} />
-        <MenuButton label="Options" onClick={() => setShowOptions(true)} />
       </nav>
 
-      {showOptions && (
-        <OptionsModal onClose={() => setShowOptions(false)} onSoundTest={onSoundTest} />
-      )}
+      {/* Options : bouton icône (engrenage) ancré en bas à droite. */}
+      <OptionsButton />
     </div>
   )
 }

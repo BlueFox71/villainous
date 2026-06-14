@@ -4,6 +4,7 @@ import { bowserCards } from '../../data/villains/bowser.cards'
 import { buildDeckInstances } from '../../data/types'
 import { createInitialGame } from '../state'
 import { applyAction } from '../actions'
+import { getAvailableActions } from '../rules'
 import type { CardInstance, GameState } from '../types'
 
 function game(): GameState {
@@ -147,6 +148,76 @@ describe('Bowser — cartes jouées (intégration)', () => {
     const after = applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: decoupage.instanceId })
     expect(after.players[0].board.galaxies.some((c) => c.instanceId === ally.instanceId)).toBe(true)
     expect(after.players[0].deck[0].instanceId).toBe(evt.instanceId) // remise sur le dessus
+  })
+
+  it('Grand Terrier ouvre un déplacement d’Allié FACULTATIF (résolu ou décliné)', () => {
+    const { state, card } = withCardInHand(game(), 'grand-terrier', { pawnLocation: 'galaxies', observatoryStars: 4 })
+    const a = ally('a1') // posé au Château de Bowser (voisin : Galaxies)
+    const s: GameState = { ...state, players: [{ ...state.players[0], board: { ...state.players[0].board, 'chateau-bowser': [a] } }] }
+    const after = applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: card.instanceId, to: 'galaxies' })
+    // Grand Terrier est posé ET un déplacement facultatif (+0 force) est ouvert.
+    expect(after.players[0].board.galaxies.some((c) => c.cardId === 'grand-terrier')).toBe(true)
+    expect(after.pendingAllyMoveBuff?.optional).toBe(true)
+    expect(after.pendingAllyMoveBuff?.amount).toBe(0)
+    // Résolution : a1 se déplace vers Galaxies (voisin), sans bonus de force.
+    const moved = applyAction(after, { type: 'RESOLVE_ALLY_MOVE_BUFF', instanceId: 'a1', to: 'galaxies' })
+    expect(moved.pendingAllyMoveBuff ?? null).toBeNull()
+    expect(moved.players[0].board.galaxies.some((c) => c.instanceId === 'a1')).toBe(true)
+    // Décliner est autorisé (déplacement facultatif).
+    const skipped = applyAction(after, { type: 'SKIP_ALLY_MOVE_BUFF' })
+    expect(skipped.pendingAllyMoveBuff ?? null).toBeNull()
+    expect(skipped.players[0].board['chateau-bowser'].some((c) => c.instanceId === 'a1')).toBe(true)
+  })
+
+  it('Bateau (véhicule, comme le Char) déplace figurine + Bateau et n’accorde qu’une action', () => {
+    const base = game()
+    const me = base.players[0]
+    const bateau = [...me.deck, ...me.hand].find((c) => c.cardId === 'bateau')!
+    expect(bateau.ridesWithPawn).toBe(true) // champ recopié depuis la CardDef
+    const s: GameState = {
+      ...base,
+      phase: 'ACTION',
+      usedActionIds: [],
+      players: [{
+        ...me,
+        pawnLocation: 'galaxies',
+        observatoryStars: 4,
+        deck: me.deck.filter((c) => c.instanceId !== bateau.instanceId),
+        hand: me.hand.filter((c) => c.instanceId !== bateau.instanceId),
+        board: { ...me.board, galaxies: [{ ...bateau }] },
+      }],
+    }
+    const moved = applyAction(s, { type: 'CHARIOT_MOVE', instanceId: bateau.instanceId, to: 'chateau-peach' })
+    expect(moved.players[0].pawnLocation).toBe('chateau-peach')
+    expect(moved.players[0].board['chateau-peach'].some((c) => c.instanceId === bateau.instanceId)).toBe(true)
+    // Une seule fois par tour.
+    expect(() => applyAction(moved, { type: 'CHARIOT_MOVE', instanceId: bateau.instanceId, to: 'galaxies' })).toThrow()
+    // Pas d'action Fatalité comme action bonus (le Château de Peach en a une).
+    expect(getAvailableActions(moved).map((a) => a.type)).not.toContain('FATE')
+  })
+
+  it('Galaxie en verre : l’action accordée « Déplacer un Allié/Objet » déplace bien vers un lieu voisin', () => {
+    const base = game()
+    const me = base.players[0]
+    const glass = [...me.deck, ...me.hand].find((c) => c.cardId === 'boule-verre')!
+    const a = ally('a1') // Allié à déplacer, sur le lieu de la Galaxie
+    const s: GameState = {
+      ...base,
+      phase: 'ACTION',
+      usedActionIds: [],
+      players: [{
+        ...me,
+        pawnLocation: 'galaxies',
+        observatoryStars: 4,
+        deck: me.deck.filter((c) => c.instanceId !== glass.instanceId),
+        hand: me.hand.filter((c) => c.instanceId !== glass.instanceId),
+        board: { ...me.board, galaxies: [{ ...glass }, a] },
+      }],
+    }
+    // L'action accordée a l'id « granted:<instanceId de la Galaxie> ».
+    const after = applyAction(s, { type: 'MOVE_CARD', actionId: `granted:${glass.instanceId}`, instanceId: 'a1', to: 'chateau-bowser' })
+    expect(after.players[0].board['chateau-bowser'].some((c) => c.instanceId === 'a1')).toBe(true)
+    expect(after.players[0].board.galaxies.some((c) => c.instanceId === 'a1')).toBe(false)
   })
 
   it('Impuissance avec cible élimine un Héros de force ≤3', () => {

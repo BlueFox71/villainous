@@ -26,7 +26,6 @@ export function PlayerPanel({ player, accent, isActive, isWinner, showObjective 
       style={
         color
           ? {
-              backgroundColor: `${color}${isActive ? '4d' : '33'}`,
               // Contour à la couleur du méchant (éclaircie pour rester visible).
               borderColor: `color-mix(in srgb, ${color}, white ${isActive ? '55%' : '35%'})`,
             }

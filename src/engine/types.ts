@@ -401,9 +401,12 @@ export type Effect =
    *  Fatalité de l'acteur ; défausse automatiquement les non-Héros, garde les
    *  Héros sur le dessus (heuristique : on creuse vers les Héros). */
   | { type: 'SCRY_OWN_FATE_TOP2' }
-  /** Capitaine Crochet — Pas de Quartier ! : déplace un Allié vers un lieu voisin
-   *  non bloqué et lui donne +2 force jusqu'à la fin du tour. */
-  | { type: 'MOVE_ALLY_BUFF'; amount: number }
+  /** Déplace un Allié vers un lieu voisin non bloqué et lui donne `amount` force
+   *  jusqu'à la fin du tour. `amount: 0` = simple déplacement (Bowser — Grand
+   *  Terrier). `label` : nom de la carte (titre/log) ; `optional` : déplacement
+   *  facultatif (« vous pouvez »), autorise SKIP_ALLY_MOVE_BUFF.
+   *  Sert : Capitaine Crochet — Pas de Quartier ! (+2) ; Bowser — Grand Terrier (+0). */
+  | { type: 'MOVE_ALLY_BUFF'; amount: number; label?: string; optional?: boolean }
   /** Hadès — Préparez-vous au combat ! : ouvre le choix d'un Titan non entravé et
    *  d'un lieu de destination (≤ `maxSteps` lieux). `paid` : Hadès paie le
    *  déplacement (2 JT pour 1 lieu, 5 JT pour 2). Ouvre pendingTitanMove. */
@@ -627,6 +630,10 @@ export interface CardInstance {
   /** L'Allié peut Éliminer un Héros sur son lieu OU sur un lieu voisin (Flibustiers,
    *  Archers Loups, Cerbère). Donnée réutilisable, recopiée de CardDef. */
   reachesAdjacentVanquish?: boolean
+  /** Objet « véhicule » : 1×/tour, déplace la figurine + cet Objet vers n'importe
+   *  quel lieu pour y agir (hors Fatalité). Char (Hadès) / Bateau (Bowser).
+   *  Recopié de CardDef ; consommé via CHARIOT_MOVE / applyChariotMove. */
+  ridesWithPawn?: boolean
   /** Quand cet Allié est utilisé pour un Vanquish, il retourne dans la main au lieu
    *  d'être défaussé (Hadès : Hydre). Recopié de CardDef. */
   returnToHandOnVanquish?: boolean
@@ -975,10 +982,11 @@ export interface GameState {
    *  `cards` retirées du dessus de sa pioche Fatalité, puis les défausse ou les
    *  remet sur le dessus dans l'ordre de son choix (RESOLVE_SCRY). */
   pendingScry?: { playerIndex: number; cards: CardInstance[] } | null
-  /** Pas de Quartier ! (Capitaine Crochet) : `playerIndex` choisit un Allié à
-   *  déplacer vers un lieu voisin non bloqué ; il gagne `amount` force jusqu'à la
-   *  fin du tour (RESOLVE_ALLY_MOVE_BUFF). */
-  pendingAllyMoveBuff?: { playerIndex: number; amount: number } | null
+  /** Déplacement d'un Allié vers un lieu voisin non bloqué : `playerIndex` choisit
+   *  l'Allié ; il gagne `amount` force jusqu'à la fin du tour (RESOLVE_ALLY_MOVE_BUFF).
+   *  `label` : titre/log (carte source) ; `optional` : facultatif → SKIP_ALLY_MOVE_BUFF
+   *  permis. Sert Pas de Quartier ! (Crochet, +2) et Grand Terrier (Bowser, +0). */
+  pendingAllyMoveBuff?: { playerIndex: number; amount: number; label?: string; optional?: boolean } | null
   /** Choix sur une carte Fatalité ciblant le royaume de `targetIndex`, fait par
    *  `chooserIndex` (celui qui a joué la Fatalité) — RESOLVE_FATE_CHOICE :
    *   - `steal-item-to-hero` (Abu/Aladdin) : associer un Objet (`candidateIds`) au
@@ -1325,6 +1333,8 @@ export type GameAction =
   /** Pas de Quartier ! : déplace l'Allié `instanceId` vers le lieu voisin `to`
    *  (non bloqué) et lui donne +force jusqu'à la fin du tour. */
   | { type: 'RESOLVE_ALLY_MOVE_BUFF'; instanceId: string; to: LocationId }
+  /** Décline un déplacement d'Allié FACULTATIF (Grand Terrier). */
+  | { type: 'SKIP_ALLY_MOVE_BUFF' }
   /** Abu/Aladdin/K.O. : applique le choix sur la carte `instanceId` (Objet à voler
    *  ou Allié à retirer) — cf. pendingFateChoice. */
   | { type: 'RESOLVE_FATE_CHOICE'; instanceId: string }

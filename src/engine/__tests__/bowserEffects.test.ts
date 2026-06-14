@@ -24,16 +24,35 @@ const ally = (id: string, stars = 0): CardInstance => ({
 const peach = (): CardInstance => ({ instanceId: 'h-peach', cardId: 'peach', name: 'Peach', type: 'hero', strength: 2 })
 
 describe('Bowser — effets Étoiles', () => {
-  it("RETURN_STAR_TO_OBSERVATORY incrémente l'Observatoire et resync le verrou", () => {
+  it("RETURN_STAR_TO_OBSERVATORY reprend l'Étoile d'un Allié, incrémente l'Observatoire et resync le verrou", () => {
     const base = game()
-    // Part d'un Observatoire épuisé (verrouillé), une Étoile remise le déverrouille.
+    const a = ally('a1', 1) // Allié porteur d'1 Étoile
+    // Observatoire épuisé (verrouillé) : reprendre l'Étoile de l'Allié le déverrouille.
     const start: GameState = {
       ...base,
-      players: [{ ...base.players[0], observatoryStars: 0, lockedLocations: ['observatoire'] }],
+      players: [{
+        ...base.players[0],
+        observatoryStars: 0,
+        lockedLocations: ['observatoire'],
+        pawnLocation: 'galaxies',
+        board: { ...base.players[0].board, galaxies: [a] },
+      }],
     }
     const after = resolveEffects(start, [{ type: 'RETURN_STAR_TO_OBSERVATORY', amount: 1 }])
     expect(after.players[0].observatoryStars).toBe(1)
+    expect(after.players[0].board.galaxies[0].stars ?? 0).toBe(0) // retirée de l'Allié
     expect(after.players[0].lockedLocations ?? []).not.toContain('observatoire')
+  })
+
+  it("RETURN_STAR_TO_OBSERVATORY ne fait rien si aucun Allié n'a d'Étoile (Étoile hors-jeu)", () => {
+    const base = game()
+    const a = ally('a1', 0) // Allié sans Étoile
+    const start: GameState = {
+      ...base,
+      players: [{ ...base.players[0], observatoryStars: 0, board: { ...base.players[0].board, galaxies: [a] } }],
+    }
+    const after = resolveEffects(start, [{ type: 'RETURN_STAR_TO_OBSERVATORY', amount: 1 }])
+    expect(after.players[0].observatoryStars).toBe(0) // no-op
   })
 
   it('LOSE_POWER retire du pouvoir (plancher 0)', () => {

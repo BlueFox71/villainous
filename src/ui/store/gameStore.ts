@@ -492,6 +492,7 @@ interface GameStore {
   resolveScry: (topInstanceIds: string[]) => void
   /** Pas de Quartier ! : déplace l'Allié choisi vers un lieu voisin (+force). */
   resolveAllyMoveBuff: (instanceId: string, to: string) => void
+  skipAllyMoveBuff: () => void
   /** Abu/Aladdin/K.O. : applique le choix (Objet volé / Allié retiré). */
   resolveFateChoice: (instanceId: string) => void
   /** Digne Adversaire / Obsession : joue (sur `to`) ou défausse le Héros dévoilé. */
@@ -875,6 +876,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_SCRY', topInstanceIds }),
   resolveAllyMoveBuff: (instanceId, to) =>
     get().submit({ type: 'RESOLVE_ALLY_MOVE_BUFF', instanceId, to }),
+  skipAllyMoveBuff: () =>
+    get().submit({ type: 'SKIP_ALLY_MOVE_BUFF' }),
   resolveFateChoice: (instanceId) =>
     get().submit({ type: 'RESOLVE_FATE_CHOICE', instanceId }),
   resolveFetchedHero: (play, to) =>

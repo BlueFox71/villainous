@@ -1,7 +1,7 @@
 import { useState, type MouseEvent } from 'react'
 import type { CardDef } from '../../data/types'
 import { VILLAIN_REGISTRY, type VillainKey } from '../store/gameStore'
-import { villainPortrait } from '../villainArt'
+import { villainPortrait, villainPresentation } from '../villainArt'
 import { VILLAIN_GUIDE } from '../villainGuide'
 import { Scroller } from './Scroller'
 
@@ -109,6 +109,7 @@ function TipList({ title, tips, color }: { title: string; tips: string[]; color:
 export function VillainDetailModal({ villain, onClose }: Props) {
   const v = VILLAIN_REGISTRY[villain]
   const guide = VILLAIN_GUIDE[villain]
+  const presentation = villainPresentation(villain)
   const [showCards, setShowCards] = useState(false)
 
   // Cartes du vilain, séparées par paquet et triées par nombre d'exemplaires.
@@ -122,10 +123,23 @@ export function VillainDetailModal({ villain, onClose }: Props) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
       onClick={onClose}
     >
-      <Scroller
-        className="max-h-full w-full max-w-2xl rounded-2xl border border-white/15 bg-[#120c22] p-5"
-        options={{ scrollbars: { theme: 'os-theme-villain-lg', autoHide: 'never' } }}
+      <div
+        className="relative flex max-h-full w-full max-w-2xl items-center"
         onClick={(e: MouseEvent) => e.stopPropagation()}
+      >
+        {/* Présentation « corps entier » du vilain : ancrée à gauche du modal,
+            son bord droit glissé DERRIÈRE le panneau (masqué par son fond opaque). */}
+        {presentation && (
+          <img
+            src={presentation}
+            alt=""
+            aria-hidden
+            className="pointer-events-none absolute right-full top-1/2 z-0 hidden h-[88vh] max-w-none -translate-y-1/2 translate-x-[7rem] object-contain object-bottom drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)] lg:block"
+          />
+        )}
+        <Scroller
+        className="relative z-10 max-h-full w-full rounded-2xl border border-white/15 bg-[#120c22] p-5"
+        options={{ scrollbars: { theme: 'os-theme-villain-lg', autoHide: 'never' } }}
       >
         <div className="flex flex-col gap-5">
           {/* En-tête : portrait + nom + difficulté */}
@@ -190,7 +204,8 @@ export function VillainDetailModal({ villain, onClose }: Props) {
             </>
           )}
         </div>
-      </Scroller>
+        </Scroller>
+      </div>
     </div>
   )
 }

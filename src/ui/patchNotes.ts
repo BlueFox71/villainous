@@ -9,6 +9,21 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.65',
+    date: '2026-06-14',
+    title: 'Bowser : finitions (Étoiles, Bateau, Grand Terrier) et bouton Options',
+    changes: [
+      'Bowser — Grand Terrier : à sa pose, vous pouvez déplacer un de vos Alliés vers un lieu voisin (ou décliner).',
+      'Bowser — Bateau : même fonctionnement que le Char d’Hadès — sur son lieu, déplacez votre figurine et le Bateau vers n’importe quel lieu pour y faire une action (hors Fatalité), une fois par tour.',
+      'Les Étoiles sont maintenant visibles : sur l’Observatoire de la Comète (entre les deux rangées d’actions) et sur les Alliés qui en portent une (jeton + contour orange).',
+      'Correction « Vous avez obtenu une grande étoile ! » : la carte reprend désormais réellement une Étoile posée sur un de vos Alliés pour la remettre sur l’Observatoire (rien ne se passe si aucun Allié n’en a). Une Étoile sur un Allié défaussé est définitivement perdue.',
+      'Les Fatalités-Événement de Bowser (grande étoile, Goinfre, Comète farceuse, Anneau étoile) s’affichent maintenant en grand quand l’adversaire les joue.',
+      'Correction Galaxie en verre : son action « Déplacer un objet ou un allié » fonctionne désormais (le clic sur le lieu voisin était sans effet).',
+      'Nouvelles illustrations de Bowser (pion et présentation) et couleurs ajustées.',
+      'Nouveau bouton Options (engrenage) en bas à droite des écrans hors-partie ; l’illustration du vilain apparaît derrière sa fiche détaillée ; le lobby réseau reprend le fond animé du menu.',
+    ],
+  },
+  {
     version: '0.64',
     date: '2026-06-14',
     title: 'Nouveau méchant collaboration : Bowser (Super Mario Galaxy)',

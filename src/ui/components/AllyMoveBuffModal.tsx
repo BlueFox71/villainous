@@ -5,16 +5,23 @@ import { getCardDef } from '../../data/registry'
 
 interface Props {
   player: PlayerState
-  /** Bonus de force conféré jusqu'à la fin du tour. */
+  /** Bonus de force conféré jusqu'à la fin du tour (0 = simple déplacement). */
   amount: number
+  /** Titre de la fenêtre (carte source). Défaut : « Pas de Quartier ! ». */
+  label?: string
+  /** Déplacement facultatif (« vous pouvez ») : affiche un bouton « Ne pas déplacer ». */
+  optional?: boolean
   onResolve: (instanceId: string, to: string) => void
+  /** Décline le déplacement (uniquement si `optional`). */
+  onSkip?: () => void
 }
 
 /**
- * Pas de Quartier ! — choisir un Allié, puis un lieu voisin non bloqué où le
- * déplacer (il gagne +`amount` force jusqu'à la fin du tour).
+ * Choisir un Allié, puis un lieu voisin non bloqué où le déplacer (il gagne
+ * +`amount` force jusqu'à la fin du tour ; `amount` 0 = simple déplacement).
+ * Sert Pas de Quartier ! (Crochet, +2) et Grand Terrier (Bowser, +0, facultatif).
  */
-export function AllyMoveBuffModal({ player, amount, onResolve }: Props) {
+export function AllyMoveBuffModal({ player, amount, label, optional = false, onResolve, onSkip }: Props) {
   const [picked, setPicked] = useState<string | null>(null)
 
   const order = player.locations.map((l) => l.id)
@@ -35,11 +42,13 @@ export function AllyMoveBuffModal({ player, amount, onResolve }: Props) {
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-4">
       <div className="flex w-full max-w-lg flex-col items-center gap-4 rounded-2xl border border-white/15 bg-[#0b1020] p-6 text-white">
-        <h2 className="text-xl font-black text-amber-200">Pas de Quartier !</h2>
+        <h2 className="text-xl font-black text-amber-200">{label ?? 'Pas de Quartier !'}</h2>
         {!chosen ? (
           <>
             <p className="text-center text-sm text-white/70">
-              Choisissez l'Allié à déplacer (il gagnera +{amount} force jusqu'à la fin du tour).
+              {amount > 0
+                ? `Choisissez l'Allié à déplacer (il gagnera +${amount} force jusqu'à la fin du tour).`
+                : "Choisissez l'Allié à déplacer vers un lieu voisin."}
             </p>
             <div className="flex flex-wrap justify-center gap-3">
               {movable.map(({ card, loc }) => {
@@ -60,6 +69,15 @@ export function AllyMoveBuffModal({ player, amount, onResolve }: Props) {
                 )
               })}
             </div>
+            {optional && onSkip && (
+              <button
+                type="button"
+                onClick={onSkip}
+                className="rounded-lg border border-white/20 px-3 py-1 text-xs text-white/70 hover:bg-white/10"
+              >
+                Ne pas déplacer
+              </button>
+            )}
           </>
         ) : (
           <>

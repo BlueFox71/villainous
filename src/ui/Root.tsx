@@ -40,7 +40,6 @@ function MenuRoute() {
       onNewGame={() => navigate(ROUTES.modeSelect)}
       onVillainList={() => navigate(ROUTES.villains)}
       onProfile={() => navigate(ROUTES.profile)}
-      onSoundTest={() => navigate(ROUTES.sounds)}
     />
   )
 }
@@ -108,7 +107,8 @@ function MenuMusic() {
  *  visible seulement sur ces écrans mais jamais démonté (orbes continus). */
 function MenuBackgroundLayer() {
   const { pathname } = useLocation()
-  const visible = pathname === ROUTES.menu || pathname === ROUTES.modeSelect
+  const visible =
+    pathname === ROUTES.menu || pathname === ROUTES.modeSelect || pathname === ROUTES.network
   return <MenuBackground visible={visible} />
 }
 

@@ -3,6 +3,7 @@ import { VILLAIN_REGISTRY, useGameStore, type VillainKey } from '../store/gameSt
 import { villainPortrait, villainPresentation, PRESENTATION_TWEAK } from '../villainArt'
 import { VILLAIN_COLOR, villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from '../villainColors'
 import { Scroller } from '../components/Scroller'
+import { OptionsButton } from '../components/OptionsButton'
 
 interface Props {
   /** Le vilain est choisi et la partie démarre (l'écran de jeu prend le relais). */
@@ -252,7 +253,7 @@ export function VillainSelect({ onStart, onBack }: Props) {
 
   return (
     <div
-      className="villain-bg flex h-screen flex-col bg-[#0a0814] text-white"
+      className="villain-bg relative flex h-screen flex-col bg-[#0a0814] text-white"
       style={{ backgroundImage: pageBackground }}
     >
       <header className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
@@ -336,6 +337,8 @@ export function VillainSelect({ onStart, onBack }: Props) {
           </span>
         )}
       </footer>
+
+      <OptionsButton />
     </div>
   )
 }

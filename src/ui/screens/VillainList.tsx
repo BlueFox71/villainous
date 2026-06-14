@@ -4,6 +4,7 @@ import { villainPortrait } from '../villainArt'
 import { VILLAIN_GUIDE } from '../villainGuide'
 import { Scroller } from '../components/Scroller'
 import { Stars, VillainDetailModal } from '../components/VillainDetailModal'
+import { OptionsButton } from '../components/OptionsButton'
 
 interface Props {
   /** Revenir au menu principal. */
@@ -25,7 +26,7 @@ export function VillainList({ onBack }: Props) {
   const [selected, setSelected] = useState<VillainKey | null>(null)
 
   return (
-    <div className="flex h-screen flex-col bg-[#0b0a12] text-white">
+    <div className="relative flex h-screen flex-col bg-[#0b0a12] text-white">
       <header className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
         <h1 className="text-lg font-bold text-purple-200">Liste des villains</h1>
         <button
@@ -80,6 +81,8 @@ export function VillainList({ onBack }: Props) {
       {selected && (
         <VillainDetailModal villain={selected} onClose={() => setSelected(null)} />
       )}
+
+      <OptionsButton />
     </div>
   )
 }

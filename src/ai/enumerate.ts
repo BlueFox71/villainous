@@ -176,7 +176,8 @@ export function enumerateActions(state: GameState): GameAction[] {
     return state.pendingFateChoice.candidateIds.map((id) => ({ type: 'RESOLVE_FATE_CHOICE', instanceId: id }))
   }
 
-  // Pas de Quartier ! : une option par (Allié déplaçable × lieu voisin non bloqué).
+  // Déplacement d'Allié (Pas de Quartier ! / Grand Terrier) : une option par
+  // (Allié déplaçable × lieu voisin non bloqué) ; + « passer » si facultatif.
   if (state.pendingAllyMoveBuff) {
     const p = state.players[state.pendingAllyMoveBuff.playerIndex]
     const out: GameAction[] = []
@@ -188,6 +189,7 @@ export function enumerateActions(state: GameState): GameAction[] {
         }
       }
     }
+    if (state.pendingAllyMoveBuff.optional) out.push({ type: 'SKIP_ALLY_MOVE_BUFF' })
     return out
   }
 
@@ -509,11 +511,11 @@ export function enumerateActions(state: GameState): GameAction[] {
   }
   // (Diablo se déplace en phase MOVE — voir la branche MOVE plus haut.)
 
-  // Char (Hadès) : si le pion est sur le lieu du Char et qu'il n'a pas servi ce
-  // tour, déplacer figurine + Char vers n'importe quel autre lieu.
+  // Véhicule (Char d'Hadès / Bateau de Bowser) : si le pion est sur le lieu de
+  // l'Objet et qu'il n'a pas servi ce tour, déplacer figurine + Objet ailleurs.
   if (state.phase === 'ACTION' && me.pawnLocation) {
     for (const c of me.board[me.pawnLocation] ?? []) {
-      if (c.cardId !== 'char') continue
+      if (!c.ridesWithPawn) continue
       if (state.usedActionIds.includes(`chariot-move:${c.instanceId}`)) continue
       for (const dest of me.locations) {
         if (dest.id === me.pawnLocation) continue

@@ -103,6 +103,38 @@ export function BoardImage({
         />
       )}
 
+      {/* Bowser — ÉTOILES de l'Observatoire de la Comète : N mini-jetons étoile
+          (N = Étoiles restantes sur ce lieu) alignés entre la rangée d'actions du
+          HAUT et celle du BAS. Affichés sur `starLocationId` (l'Observatoire). */}
+      {(() => {
+        const stars = player.observatoryStars ?? 0
+        if (stars <= 0 || !player.starLocationId) return null
+        const i = player.locations.findIndex((l) => l.id === player.starLocationId)
+        if (i < 0) return null
+        const center = PAWN_FIRST_LEFT + i * PAWN_STEP
+        return (
+          <div
+            className="pointer-events-none absolute z-[15] flex -translate-x-1/2 -translate-y-1/2 items-center gap-0.5"
+            style={{ left: `${center}%`, top: '43.5%' }}
+            title={`${stars} Étoile${stars > 1 ? 's' : ''} sur l'Observatoire`}
+          >
+            {Array.from({ length: stars }, (_, k) => (
+              <img
+                key={`star-${k}`}
+                src="/cards/bowser/etoile.png"
+                alt="Étoile"
+                className="w-auto"
+                style={{
+                  height: `${Math.round(player.pawnHeightPx * 0.42)}px`,
+                  // Halo doux doré (mêmes drop-shadows flous que le pion).
+                  filter: 'drop-shadow(0 0 1px #fde047) drop-shadow(0 0 3px #facc15)',
+                }}
+              />
+            ))}
+          </div>
+        )
+      })()}
+
       {/* L'Imposteur — ses 8 COÉQUIPIERS, posés SUR leur case d'action (slot
           gauche/droite). On voit ainsi quelle action ils occupent ; suspect = halo
           rouge SUR l'icône (action recouverte). Deux Coéquipiers sur la même case
