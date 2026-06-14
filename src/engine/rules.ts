@@ -112,6 +112,13 @@ export function coveredTopActionIdsAt(player: PlayerState, locationId: LocationI
       if (cov && cov.locationId === locationId) covered.add(cov.actionId)
     }
   }
+  // L'Imposteur — un Coéquipier SUSPECT recouvre l'action du HAUT de sa case
+  // (slot 0 = 1ʳᵉ action du haut, slot 1 = 2ᵉ) : elle devient indisponible.
+  for (const crew of player.crewmates ?? []) {
+    if (crew.discarded || !crew.suspect || crew.locationId !== locationId || crew.row !== 'top') continue
+    const a = tops[crew.slot]
+    if (a) covered.add(a.id)
+  }
   return covered
 }
 
@@ -606,6 +613,14 @@ export function conditionIsTriggered(
   if (card.type !== 'condition' || !card.trigger) return false
   const opp = state.players[state.activePlayer]
   const me = state.players[playerIndex]
+  // L'Imposteur — Insidieux (rend un suspect normal) : injouable s'il n'y a aucun
+  // Coéquipier suspect (la carte n'aurait aucun effet). Donnée : on teste l'effet.
+  if (
+    (card.effects ?? []).some((e) => e.type === 'REASSURE_ANY') &&
+    !(me.crewmates ?? []).some((c) => !c.discarded && c.suspect)
+  ) {
+    return false
+  }
   switch (card.trigger.type) {
     case 'opponent-power-ge':
       return opp.power >= card.trigger.value
@@ -638,6 +653,8 @@ export function conditionIsTriggered(
       return (state.activeDiscardedCount ?? 0) >= card.trigger.value
     case 'opponent-gained-power-ge':
       return (state.activeGainedPower ?? 0) >= card.trigger.value
+    case 'opponent-played-cards-ge':
+      return (state.activePlayedCount ?? 0) >= card.trigger.value
   }
 }
 
@@ -763,6 +780,14 @@ export function hasReachedObjective(state: GameState): boolean {
         if (blocked) return false
       }
       return true
+    }
+    case 'KEEP_SABOTAGE': {
+      // Victoire quand un Sabotage posé a survécu `turns` tours (son compte à
+      // rebours `sabotageTurns`, incrémenté en fin de tour, atteint le seuil).
+      const turns = p.objective.turns
+      return Object.values(p.board)
+        .flat()
+        .some((c) => c.isSabotage && !c.attachedTo && (c.sabotageTurns ?? 0) >= turns)
     }
   }
 }

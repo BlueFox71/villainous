@@ -39,6 +39,7 @@ import { StacksCards } from './components/StacksCards'
 import { FateModal } from './components/FateModal'
 import { ChoiceModal } from './components/ChoiceModal'
 import { HeroPlacementModal } from './components/HeroPlacementModal'
+import { FateObjectPlaceModal } from './components/FateObjectPlaceModal'
 import { PawnMoveModal } from './components/PawnMoveModal'
 import { HubertPullModal } from './components/HubertPullModal'
 import { DeckPeekModal } from './components/DeckPeekModal'
@@ -62,6 +63,7 @@ import { FateScryModal } from './components/FateScryModal'
 import { TitanSelectModal } from './components/TitanSelectModal'
 import { StartRollModal } from './components/StartRollModal'
 import { MusicPlayer } from './components/MusicPlayer'
+import { playKillSound, playTaskComplete, playDeadBody, playEmergencyMeeting } from './sfx'
 import { playVillainIntro } from './villainVoices'
 import { Showcase } from './components/Showcase'
 import { TestFateBar } from './components/TestFateBar'
@@ -203,6 +205,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // (sinon eslint react-hooks la croit appelée hors composant dans le callback).
   const playNeverlandMap = useGameStore((s) => s.useNeverlandMap)
   const resolveRecover = useGameStore((s) => s.resolveRecover)
+  const resolveCrewmateKill = useGameStore((s) => s.resolveCrewmateKill)
+  const resolveCrewmateSuspect = useGameStore((s) => s.resolveCrewmateSuspect)
+  const doneCrewmateSuspect = useGameStore((s) => s.doneCrewmateSuspect)
+  const resolveCrewmateMove = useGameStore((s) => s.resolveCrewmateMove)
+  const doneCrewmateMove = useGameStore((s) => s.doneCrewmateMove)
+  const resolveFateObjectPlace = useGameStore((s) => s.resolveFateObjectPlace)
   const resolveGiantLocation = useGameStore((s) => s.resolveGiantLocation)
   const resolveTitanMove = useGameStore((s) => s.resolveTitanMove)
   const resolveTitanSelect = useGameStore((s) => s.resolveTitanSelect)
@@ -301,6 +309,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const [startRollDone, setStartRollDone] = useState(testMode)
   // Affiche « À vous de jouer » (4 s) au début de chaque tour du joueur humain.
   const [showTurnSplash, setShowTurnSplash] = useState(false)
+  // L'Imposteur — bandeau « DEAD BODY REPORTED » (Corps découvert), affiché ~2,4 s.
+  const [showDeadBody, setShowDeadBody] = useState(false)
+  // L'Imposteur — bandeau « EMERGENCY MEETING » (Réunion d'urgence), affiché ~2,4 s.
+  const [showEmergency, setShowEmergency] = useState(false)
   const lastHumanTurnRef = useRef<number | null>(null)
   // Choix de la carte à activer quand plusieurs sont activables (action « Activer »).
   const [activatePick, setActivatePick] = useState<{ actionId: string } | null>(null)
@@ -469,7 +481,20 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     }
     for (let i = fxShown.current; i < fx.length; i++) {
       const e = fx[i]
-      if (e.kind === 'robin-steal') {
+      if (e.kind === 'task-completed') {
+        // L'Imposteur : une Tâche neutralisée par les Coéquipiers → « Task complete ».
+        playTaskComplete()
+      } else if (e.kind === 'dead-body') {
+        // L'Imposteur : Corps découvert → bandeau « DEAD BODY REPORTED » + son.
+        playDeadBody()
+        setShowDeadBody(true)
+        window.setTimeout(() => setShowDeadBody(false), 2400)
+      } else if (e.kind === 'emergency-meeting') {
+        // L'Imposteur : Réunion d'urgence → bandeau « EMERGENCY MEETING » + son.
+        playEmergencyMeeting()
+        setShowEmergency(true)
+        window.setTimeout(() => setShowEmergency(false), 2400)
+      } else if (e.kind === 'robin-steal') {
         const robin = (state.players[e.playerIndex]?.board[e.locationId] ?? []).find(
           (c) => c.cardId === 'robin-des-bois',
         )
@@ -833,6 +858,61 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       }
       return
     }
+    // Tuer (L'Imposteur) : le bot défausse en priorité un Coéquipier SUSPECT (pour
+    // libérer une action), sinon le premier candidat.
+    const pck = state.pendingCrewmateKill
+    if (pck) {
+      if (seats[pck.playerIndex] === 'bot') {
+        const crew = state.players[pck.playerIndex].crewmates ?? []
+        const cands = pck.candidateColors
+        const suspect = cands.find((col) => crew.some((c) => c.color === col && c.suspect))
+        const pick = suspect ?? cands[0]
+        if (pick) {
+          const timer = setTimeout(() => {
+            if (pck.mode === 'kill') playKillSound()
+            resolveCrewmateKill(pick)
+          }, BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
+    // Tâche visuelle : le bot (s'il joue la Fatalité) rend suspects des Coéquipiers
+    // de l'Imposteur, un par un (priorité aux Coéquipiers qui recouvriraient une action).
+    const pcs = state.pendingCrewmateSuspect
+    if (pcs) {
+      if (seats[pcs.chooserIndex] === 'bot') {
+        const crew = state.players[pcs.targetIndex].crewmates ?? []
+        const pick = crew.find((c) => !c.discarded && !c.suspect)?.color
+        const timer = setTimeout(
+          () => (pick ? resolveCrewmateSuspect(pick) : doneCrewmateSuspect()),
+          BOT_STEP_MS,
+        )
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Assurance (déplacement optionnel) : le bot ne déplace pas (termine).
+    const pcm = state.pendingCrewmateMove
+    if (pcm) {
+      if (seats[pcm.playerIndex] === 'bot') {
+        const timer = setTimeout(() => doneCrewmateMove(), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Vidéo de surveillance / Carte : le bot (s'il pose la Fatalité) associe l'Objet
+    // au lieu du pion de l'Imposteur (sinon le 1ᵉʳ lieu).
+    const pfo = state.pendingFateObjectPlace
+    if (pfo) {
+      if (seats[pfo.chooserIndex] === 'bot') {
+        const tgt = state.players[pfo.targetIndex]
+        const dest = tgt.pawnLocation ?? tgt.locations[0]?.id
+        const timer = setTimeout(() => dest && resolveFateObjectPlace(dest), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
     // Abu/Aladdin/K.O. : le bot (s'il a joué la Fatalité) choisit la cible — pour
     // K.O. l'Allié le plus fort éligible, sinon le 1ᵉʳ Objet.
     const pfc = state.pendingFateChoice
@@ -1063,7 +1143,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveRecover, resolveDivination, resolveLookTop, resolveFateScry, skipHeroRelocate])
+  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveRecover, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveDivination, resolveLookTop, resolveFateScry, skipHeroRelocate])
 
   // Coups légaux / actions : seulement pour le joueur humain et à son tour.
   const legalMoves = isHumanTurn ? getLegalMoves(state) : []
@@ -1906,7 +1986,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           {/* Plateau (image). Les deux joueurs sont le Prince Jean pour l'instant.
               Un Héros posé masque la rangée d'actions du haut de son lieu. */}
           <div className="relative">
-            <BoardImage player={user} showPawn pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[user.villain]}, white 45%)`} imgClassName="border border-[color:var(--pa-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} unmaskHeroLocationId={persifleurLoc} />
+            <BoardImage player={user} showPawn pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[user.villain]}, white 45%)`} imgClassName="border border-[color:var(--pa-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} unmaskHeroLocationId={persifleurLoc} crewmateCandidates={state.pendingCrewmateKill?.playerIndex === HUMAN ? state.pendingCrewmateKill.candidateColors : undefined} onCrewmateClick={(color) => { if (state.pendingCrewmateKill?.mode === 'kill') playKillSound(); resolveCrewmateKill(color) }} crewmateSelectVerb={state.pendingCrewmateKill?.mode === 'reassure' ? 'Rassurer' : state.pendingCrewmateKill?.mode === 'kill-normal' ? 'Éliminer' : state.pendingCrewmateKill?.mode === 'move' ? 'Déplacer' : 'Défausser'} />
             <BoardActions
               player={user}
               availableActionIds={availableActions.map((a) => a.id)}
@@ -2386,7 +2466,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             <div className="actions-case rounded-xl border border-amber-400/60 bg-sky-500/20 p-3">
               {discardRequired !== undefined && (
                 <p className="mb-2 text-center text-[11px] font-medium text-amber-200">
-                  Tyrannie : choisis {discardRequired} carte{discardRequired > 1 ? 's' : ''} à défausser.
+                  {tyrannyDiscard?.label ?? 'Tyrannie'} : choisis {discardRequired} carte{discardRequired > 1 ? 's' : ''} à défausser.
                 </p>
               )}
               <div className="flex items-center justify-center gap-2">
@@ -2428,7 +2508,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             </div>
           </div>
           <div className="relative">
-            <BoardImage player={bot} showPawn pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[bot.villain]}, white 45%)`} imgClassName="border border-[color:var(--po-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} />
+            <BoardImage player={bot} showPawn pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[bot.villain]}, white 45%)`} imgClassName="border border-[color:var(--po-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} crewmateCandidates={state.pendingCrewmateSuspect?.chooserIndex === HUMAN && state.pendingCrewmateSuspect.targetIndex === BOT ? (bot.crewmates ?? []).filter((c) => !c.discarded && !c.suspect).map((c) => c.color) : undefined} onCrewmateClick={resolveCrewmateSuspect} crewmateSelectVerb="Rendre suspect" />
             {/* Aucune pastille d'action affichée pour le bot, SAUF le flash one-shot
                 de l'action qu'il vient de jouer (pour visualiser ses coups). */}
             <BoardActions
@@ -2576,6 +2656,15 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         />
       )}
 
+      {/* Vidéo de surveillance / Carte : l'humain (qui pose la Fatalité) choisit le lieu. */}
+      {state.pendingFateObjectPlace && state.pendingFateObjectPlace.chooserIndex === HUMAN && (
+        <FateObjectPlaceModal
+          card={state.pendingFateObjectPlace.card}
+          target={state.players[state.pendingFateObjectPlace.targetIndex]}
+          onPlace={resolveFateObjectPlace}
+        />
+      )}
+
       {/* Roi Stéphane : l'humain (qui a joué la Fatalité) peut déplacer le pion adverse. */}
       {state.pendingPawnMove && state.pendingPawnMove.chooserIndex === HUMAN && (
         <PawnMoveModal
@@ -2631,7 +2720,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       )}
 
       {/* Musique (tour de Slenderman) + modale Options. */}
-      <MusicPlayer />
+      <MusicPlayer enabled={startRollDone} />
       {showOptions && <OptionsModal onClose={() => setShowOptions(false)} />}
 
       {/* Coup Royal : révélation des 5 cartes + verdict. */}
@@ -2673,13 +2762,17 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         <ScryModal cards={state.pendingScry.cards} onResolve={(ids) => resolveScry(ids)} />
       )}
 
-      {/* Opportunisme : récupérer un Objet/Événement de la défausse Vilain. */}
+      {/* Opportunisme / Tâche : Téléchargement : reprendre une carte de la défausse. */}
       {state.pendingRecover && state.pendingRecover.playerIndex === HUMAN && (() => {
         const ids = new Set(state.pendingRecover.candidateIds)
         const cards = user.discard.filter((c) => ids.has(c.instanceId))
+        const title =
+          state.pendingRecover.label === 'Tâche : Téléchargement'
+            ? 'Téléchargement : reprends une carte de ta défausse'
+            : 'Opportunisme : reprends un Objet ou un Événement'
         return (
           <CardChoiceModal
-            title="Opportunisme : reprends un Objet ou un Événement"
+            title={title}
             cards={cards}
             onClose={() => cards[0] && resolveRecover(cards[0].instanceId)}
             onPick={(card) => resolveRecover(card.instanceId)}
@@ -2853,6 +2946,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             villainPresentation(villainKeyOf(state.players[HUMAN].villain)),
             villainPresentation(villainKeyOf(state.players[BOT].villain)),
           ]}
+          villainKeys={[
+            villainKeyOf(state.players[HUMAN].villain),
+            villainKeyOf(state.players[BOT].villain),
+          ]}
           onResult={(winner, rolls) => {
             setStartingPlayer(winner, rolls)
             setStartRollDone(true)
@@ -2928,6 +3025,78 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               className="mx-auto rounded-lg border border-white/20 px-4 py-2 text-sm text-white/80 hover:bg-white/10"
             >
               Retour à l’accueil
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* L'Imposteur — Corps découvert : bandeau « DEAD BODY REPORTED » fugace. */}
+      {showDeadBody && (
+        <div
+          className="pointer-events-none fixed inset-0 z-[80] flex items-center justify-center bg-black/80"
+          style={{ animation: 'versusFadeIn 0.25s ease-out both' }}
+        >
+          <img
+            src="/dead-body-reported.png"
+            alt="Dead body reported"
+            className="max-h-[100%] max-w-[100%] object-contain drop-shadow-[0_0_40px_rgba(255,0,0,0.7)]"
+          />
+        </div>
+      )}
+
+      {/* L'Imposteur — Réunion d'urgence : bandeau « EMERGENCY MEETING » PLEINE LARGEUR. */}
+      {showEmergency && (
+        <div
+          className="pointer-events-none fixed inset-0 z-[80] flex items-center justify-center bg-black/80"
+          style={{ animation: 'versusFadeIn 0.25s ease-out both' }}
+        >
+          <img
+            src="/emergency-meeting.png"
+            alt="Emergency meeting"
+            className="max-h-[55%] max-w-[70%] object-contain drop-shadow-[0_0_40px_rgba(255,0,0,0.7)]"
+          />
+        </div>
+      )}
+
+      {/* Tâche visuelle (humain qui joue la Fatalité) : bandeau de fin de sélection. */}
+      {state.pendingCrewmateSuspect && state.pendingCrewmateSuspect.chooserIndex === HUMAN && (
+        <div className="fixed inset-x-0 bottom-4 z-[75] flex justify-center">
+          <div className="flex items-center gap-3 rounded-xl border border-amber-400/60 bg-[#120c22]/95 px-4 py-2 text-sm text-amber-100 shadow-lg backdrop-blur-sm">
+            Tâche visuelle : clique les Coéquipiers à rendre suspects ({state.pendingCrewmateSuspect.remaining} restant
+            {state.pendingCrewmateSuspect.remaining > 1 ? 's' : ''}).
+            <button
+              type="button"
+              onClick={() => doneCrewmateSuspect()}
+              className="rounded-lg border border-white/25 px-3 py-1 font-semibold text-white hover:bg-white/10"
+            >
+              Terminer
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Assurance / Course (humain) : déplacement optionnel du Coéquipier — prompt
+          CENTRÉ et bien visible (sinon masqué par la main en bas). */}
+      {state.pendingCrewmateMove && state.pendingCrewmateMove.playerIndex === HUMAN && (
+        <div className="fixed inset-0 z-[78] flex items-start justify-center bg-black/40 pt-24">
+          <div className="flex flex-wrap items-center justify-center gap-2 rounded-xl border-2 border-amber-400/80 bg-[#120c22]/95 px-5 py-3 text-base text-amber-100 shadow-2xl backdrop-blur-sm">
+            <span>Déplacer le Coéquipier {state.pendingCrewmateMove.color} vers</span>
+            {state.pendingCrewmateMove.eligibleLocs.map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => resolveCrewmateMove(id)}
+                className="rounded-lg border border-amber-400/60 bg-amber-400/10 px-3 py-1 font-semibold text-white hover:bg-amber-400/30"
+              >
+                {user.locations.find((l) => l.id === id)?.name ?? id}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => doneCrewmateMove()}
+              className="rounded-lg border border-white/25 px-3 py-1 font-semibold text-white hover:bg-white/10"
+            >
+              Ne pas déplacer
             </button>
           </div>
         </div>

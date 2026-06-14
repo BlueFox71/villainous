@@ -51,8 +51,13 @@ export function HeroRow({
         const cellCards = player.board[loc.id] ?? []
         // Un Héros hypnotisé (Jafar) quitte la zone Héros : il est affiché comme
         // un Allié dans la zone basse (cf. Board).
+        // Zone Fatalité : Héros (non hypnotisés) ET Objets posés par la Fatalité
+        // (L'Imposteur : Carte, Vidéo de surveillance) — ils n'appartiennent pas à
+        // la zone des cartes Méchant.
         const heroes = cellCards.filter(
-          (c) => c.type === 'hero' && !c.hypnotized && !hiddenInstanceIds.includes(c.instanceId),
+          (c) =>
+            ((c.type === 'hero' && !c.hypnotized) || c.fromFate) &&
+            !hiddenInstanceIds.includes(c.instanceId),
         )
         const previewPos =
           index === 0

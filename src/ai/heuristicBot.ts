@@ -152,6 +152,10 @@ function objectiveScore(p: PlayerState): number {
       if (blocked) s = Math.min(s, 0.45)
       return Math.min(1, s)
     }
+    case 'KEEP_SABOTAGE':
+      // L'Imposteur : objectif via la mécanique des Coéquipiers (pas encore
+      // implémentée) → progrès non évalué pour l'instant.
+      return 0
   }
 }
 

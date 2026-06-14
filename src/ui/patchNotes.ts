@@ -9,7 +9,7 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '0.63',
+    version: '0.64',
     date: '2026-06-14',
     title: 'Nouveau méchant collaboration : Bowser (Super Mario Galaxy)',
     changes: [
@@ -21,6 +21,19 @@ export const PATCH_NOTES: PatchNote[] = [
       'Contre-jeu (Fatalité) : Mario remet une Étoile et empêche la victoire tant qu’il est en jeu ; Harmonie force l’Observatoire à garder au moins une Étoile ; Luigi défausse les Alliés d’un lieu et renvoie leurs Étoiles ; Goinfre, Comète farceuse et Anneau étoile gênent Bowser.',
       'Cartes spéciales : Bowser Jr. (va chercher Peach, et vous fait piocher quand vous êtes visé par la Fatalité), Galaxie hantée et autres capacités à « Activer », « Te revoilà ! » (récupération en défausse), « Vol du château » et « Besoin de renfort ».',
       'À venir pour Bowser : le déplacement spécial du Bateau et le déplacement d’Allié du Grand Terrier (ces cartes se jouent déjà comme Objet / Allié).',
+    ],
+  },
+  {
+    version: '0.63',
+    date: '2026-06-14',
+    title: "Nouveau méchant : L'Imposteur (Among Us)",
+    changes: [
+      "Nouveau méchant jouable dans « Collaborations » : L'Imposteur (4 étoiles), avec son plateau (Electrical, Réacteur, Admin, Cafétaria), son deck complet et ses voix.",
+      'Mécanique des Coéquipiers : 8 pions occupent la rangée du haut. À la fin de votre tour, ils se déplacent tout seuls (ils foncent vers un sabotage, sinon vers une tâche, sinon ils se répartissent). Un Coéquipier « suspect » descend sur une action et la bloque, comme un héros.',
+      'Objectif : posez un Sabotage (O2 à Admin, Réacteur au Réacteur) et tenez-le 3 tours. Mais si assez de Coéquipiers atteignent une Tâche ou un Sabotage, la carte est neutralisée.',
+      'Vos cartes manipulent les Coéquipiers : Tuer (élimine, les autres vous suspectent), Fausse accusation, Assurance (rend normal + déplace), Porte/Lumière/Communication désactivée, Conduit, les Tâches (capacité « Activer ») et les deux Sabotages.',
+      'La Fatalité contre l’Imposteur ne contient pas de héros : ce sont des Coéquipiers et des indices (Corps découvert, Vidéo de surveillance, Carte, Majorité, Réparation rapide, Tâche visuelle, Arrivée tardive, Réunion d’urgence) qui le démasquent — avec choix interactifs des cibles/lieux.',
+      'Ambiance Among Us : musique de tour, alarme de sabotage, sons « kill » / « task complete », et écrans « DEAD BODY REPORTED » et « EMERGENCY MEETING ».',
     ],
   },
   {

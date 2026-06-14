@@ -11,8 +11,9 @@
 // Ajouter un comportement = ajouter un variant à Effect + un `case` ici.
 // =============================================================================
 
-import type { CardInstance, CurseDiscardTrigger, Effect, GameState, LocationId, PlayerState } from './types'
+import type { CardInstance, Crewmate, CurseDiscardTrigger, Effect, GameState, LocationId, PlayerState } from './types'
 import { activePlayer, findLocation, pushDiscardShowcase, pushFloatingFx, pushRobinSteal, pushShowcase, revealFate, syncObservatoryLock, updateActivePlayer, updatePlayer } from './state'
+import { neighborLocIds, placeCrewmateAt } from './crewmates'
 import { shuffle } from './rng'
 import {
   adjacentLocationIds,
@@ -45,6 +46,31 @@ export interface EffectContext {
   /** Reine de Cœur — Rapetisser : action du haut que le Héros rapetissé laisse
    *  LIBRE (choisie par le joueur). Absent = la 1ʳᵉ action du haut (auto). */
   shrinkFreeActionId?: string
+}
+
+// --- Helpers Coéquipiers (L'Imposteur) ---------------------------------------
+
+/** Lieux « périmètre » d'un Imposteur : son lieu de pion + les lieux portant un de
+ *  ses Alliés (non associés). Sert aux effets « sur votre lieu ou celui d'un Allié ». */
+function crewPeri(p: GameState['players'][number]): Set<string> {
+  const allyLocs = p.locations
+    .filter((l) => (p.board[l.id] ?? []).some((c) => c.type === 'ally' && !c.attachedTo))
+    .map((l) => l.id)
+  return new Set([p.pawnLocation, ...allyLocs].filter((v): v is string => !!v))
+}
+
+/** Remplace les Coéquipiers du joueur `idx` et ajoute une ligne de journal. */
+function setCrew(state: GameState, idx: number, crew: Crewmate[], msg: string): GameState {
+  return {
+    ...state,
+    players: state.players.map((p, i) => (i === idx ? { ...p, crewmates: crew } : p)),
+    log: [...state.log, `${state.players[idx].villainName} : ${msg}.`],
+  }
+}
+
+/** Journalise un effet Coéquipier sans changement d'état (cas « rien à faire »). */
+function logCrew(state: GameState, idx: number, msg: string): GameState {
+  return { ...state, log: [...state.log, `${state.players[idx].villainName} : ${msg}.`] }
 }
 
 /** Nombre de Héros présents dans le royaume d'un joueur donné. */
@@ -1766,6 +1792,228 @@ export function resolveEffect(
         pendingRecover: { playerIndex: idx, candidateIds: candidates.map((c) => c.instanceId) },
         log: [...state.log, `${actor.villainName} récupère une carte de sa défausse (Opportunisme).`],
       }
+    }
+    case 'KILL_CREWMATE': {
+      // L'Imposteur — Tuer : défausse un Coéquipier sur le lieu du pion ou le lieu
+      // d'un Allié de l'Imposteur. Choix interactif (pendingCrewmateKill) ; les
+      // autres Coéquipiers de ce lieu deviennent suspects (à la résolution).
+      const actor = state.players[idx]
+      const crew = actor.crewmates ?? []
+      const allyLocs = actor.locations
+        .filter((l) => (actor.board[l.id] ?? []).some((c) => c.type === 'ally' && !c.attachedTo))
+        .map((l) => l.id)
+      const targetLocs = new Set<string>(
+        [actor.pawnLocation, ...allyLocs].filter((v): v is string => !!v),
+      )
+      const candidates = crew.filter((c) => !c.discarded && targetLocs.has(c.locationId))
+      if (candidates.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : aucun Coéquipier à défausser (Tuer).`] }
+      }
+      return {
+        ...state,
+        pendingCrewmateKill: { playerIndex: idx, candidateColors: candidates.map((c) => c.color), mode: 'kill' },
+        log: [...state.log, `${actor.villainName} choisit un Coéquipier à défausser (Tuer).`],
+      }
+    }
+    case 'SKIP_CREWMATE_MOVE': {
+      // Porte désactivée : les Coéquipiers de l'Imposteur ne bougeront pas à la
+      // fin de ce tour.
+      return {
+        ...state,
+        players: state.players.map((p, i) => (i === idx ? { ...p, crewmatesSkipMove: true } : p)),
+        log: [...state.log, `${state.players[idx].villainName} désactive les portes : les Coéquipiers resteront en place.`],
+      }
+    }
+    case 'FALSE_ACCUSATION': {
+      // Fausse accusation : le joueur choisit le Coéquipier à défausser (n'importe
+      // où) ; tous les autres redeviennent normaux (résolu à la sélection).
+      const p = state.players[idx]
+      const live = (p.crewmates ?? []).filter((c) => !c.discarded)
+      if (live.length === 0) return logCrew(state, idx, 'aucun Coéquipier (Fausse accusation)')
+      return {
+        ...state,
+        pendingCrewmateKill: { playerIndex: idx, candidateColors: live.map((c) => c.color), mode: 'false-accusation' },
+        log: [...state.log, `${p.villainName} choisit un Coéquipier à défausser (Fausse accusation).`],
+      }
+    }
+    case 'REASSURE_CREWMATE': {
+      // Assurance : le joueur choisit un Coéquipier suspect sur SON lieu OU le lieu
+      // d'un Allié → il redevient normal (résolu à la sélection).
+      const p = state.players[idx]
+      const peri = crewPeri(p)
+      // Tout Coéquipier (suspect OU normal) sur votre lieu / celui d'un Allié : il
+      // redevient normal (sans effet s'il l'est déjà) et pourra être déplacé.
+      const candidates = (p.crewmates ?? []).filter((c) => !c.discarded && peri.has(c.locationId))
+      if (candidates.length === 0) return logCrew(state, idx, 'aucun Coéquipier sur votre lieu ou celui d’un Allié (Assurance)')
+      return {
+        ...state,
+        pendingCrewmateKill: { playerIndex: idx, candidateColors: candidates.map((c) => c.color), mode: 'reassure' },
+        log: [...state.log, `${p.villainName} choisit un Coéquipier à rassurer (Assurance).`],
+      }
+    }
+    case 'MOVE_CREWMATES_NEIGHBOR': {
+      // Lumière désactivée : déplace `count` Coéquipiers (hors sabotage) vers un lieu
+      // voisin (le moins occupé).
+      const p = state.players[idx]
+      const locIds = p.locations.map((l) => l.id)
+      const sabLocs = new Set(
+        p.locations.filter((l) => (p.board[l.id] ?? []).some((c) => c.isSabotage && !c.attachedTo)).map((l) => l.id),
+      )
+      let crew = p.crewmates ?? []
+      const movable = crew.filter((c) => !c.discarded && !sabLocs.has(c.locationId)).slice(0, effect.count)
+      for (const m of movable) {
+        const neighbors = neighborLocIds(locIds, m.locationId)
+        if (neighbors.length === 0) continue
+        const count = (loc: string) => crew.filter((c) => !c.discarded && c.locationId === loc).length
+        const dest = [...neighbors].sort((a, b) => count(a) - count(b))[0]
+        crew = placeCrewmateAt(crew, m.color, dest)
+      }
+      return setCrew(state, idx, crew, 'déplace des Coéquipiers vers un lieu voisin (Lumière désactivée)')
+    }
+    case 'MOVE_ONE_CREWMATE_NEIGHBOR': {
+      // Réparation rapide : déplace UN Coéquipier vers un lieu voisin.
+      const p = state.players[idx]
+      const locIds = p.locations.map((l) => l.id)
+      let crew = p.crewmates ?? []
+      const m = crew.find((c) => !c.discarded && neighborLocIds(locIds, c.locationId).length > 0)
+      if (!m) return logCrew(state, idx, 'aucun Coéquipier à déplacer (Réparation rapide)')
+      const neighbors = neighborLocIds(locIds, m.locationId)
+      const count = (loc: string) => crew.filter((c) => !c.discarded && c.locationId === loc).length
+      const dest = [...neighbors].sort((a, b) => count(a) - count(b))[0]
+      crew = placeCrewmateAt(crew, m.color, dest)
+      return setCrew(state, idx, crew, `déplace le Coéquipier ${m.color} (Réparation rapide)`)
+    }
+    case 'CREWMATES_SUSPECT': {
+      // Corps découvert / Tâche visuelle : rend suspects jusqu'à `count` Coéquipiers.
+      const p = state.players[idx]
+      const peri = crewPeri(p)
+      let targets = (p.crewmates ?? []).filter(
+        (c) => !c.discarded && !c.suspect && (effect.scope === 'away' ? !peri.has(c.locationId) : true),
+      )
+      if (effect.count != null) targets = targets.slice(0, effect.count)
+      if (targets.length === 0) return logCrew(state, idx, 'aucun Coéquipier à rendre suspect')
+      const set = new Set(targets.map((c) => c.color))
+      const next = (p.crewmates ?? []).map((c) => (set.has(c.color) ? { ...c, suspect: true } : c))
+      return setCrew(state, idx, next, `${set.size} Coéquipier(s) deviennent suspects`)
+    }
+    case 'CREWMATES_SUSPECT_CHOOSE': {
+      // Tâche visuelle : l'adversaire (state.activePlayer) choisit jusqu'à `count`
+      // Coéquipiers de l'Imposteur (idx) à rendre suspects.
+      const p = state.players[idx]
+      const eligible = (p.crewmates ?? []).filter((c) => !c.discarded && !c.suspect)
+      if (eligible.length === 0) return logCrew(state, idx, 'aucun Coéquipier à rendre suspect (Tâche visuelle)')
+      return {
+        ...state,
+        pendingCrewmateSuspect: {
+          chooserIndex: state.activePlayer,
+          targetIndex: idx,
+          remaining: Math.min(effect.count, eligible.length),
+        },
+        log: [...state.log, `Tâche visuelle : choisissez jusqu'à ${effect.count} Coéquipier(s) à rendre suspects.`],
+      }
+    }
+    case 'SABOTAGE_COUNTDOWN': {
+      // Corps découvert : avance le compte à rebours d'un Sabotage présent.
+      const p = state.players[idx]
+      let touched = false
+      const board = Object.fromEntries(
+        Object.entries(p.board).map(([loc, cards]) => [
+          loc,
+          cards.map((c) => {
+            if (c.isSabotage && !c.attachedTo) {
+              touched = true
+              return { ...c, sabotageTurns: Math.max(0, (c.sabotageTurns ?? 0) + effect.amount) }
+            }
+            return c
+          }),
+        ]),
+      )
+      if (!touched) return state
+      return {
+        ...state,
+        players: state.players.map((pp, i) => (i === idx ? { ...pp, board } : pp)),
+        log: [...state.log, `Le compte à rebours du Sabotage de ${p.villainName} ${effect.amount >= 0 ? 'avance' : 'recule'} de ${Math.abs(effect.amount)}.`],
+      }
+    }
+    case 'DISCARD_FATE_ITEM': {
+      // Communication désactivée : défausse un Objet du royaume issu d'une Fatalité.
+      const p = state.players[idx]
+      let foundLoc: string | undefined
+      let found: CardInstance | undefined
+      for (const l of p.locations) {
+        for (const c of p.board[l.id] ?? []) {
+          if (c.type === 'item' && c.fromFate && !c.attachedTo) {
+            foundLoc = l.id
+            found = c
+            break
+          }
+        }
+        if (found) break
+      }
+      if (!found || !foundLoc) return logCrew(state, idx, 'aucun Objet de Fatalité à défausser (Communication désactivée)')
+      const loc = foundLoc
+      const card = found
+      return {
+        ...state,
+        players: state.players.map((pp, i) =>
+          i === idx
+            ? {
+                ...pp,
+                board: { ...pp.board, [loc]: (pp.board[loc] ?? []).filter((c) => c.instanceId !== card.instanceId) },
+                fateDiscard: [...pp.fateDiscard, card],
+              }
+            : pp,
+        ),
+        log: [...state.log, `${p.villainName} défausse **${card.name}** (Communication désactivée).`],
+      }
+    }
+    case 'PLACE_DISCARDED_CREWMATE': {
+      // Arrivée tardive : remet un Coéquipier défaussé sur le lieu le plus à gauche
+      // ou à droite (auto : à gauche si possible).
+      const p = state.players[idx]
+      const crew = p.crewmates ?? []
+      const dead = crew.find((c) => c.discarded)
+      if (!dead) return logCrew(state, idx, 'aucun Coéquipier défaussé à replacer (Arrivée tardive)')
+      const locIds = p.locations.map((l) => l.id)
+      const dest = locIds[0]
+      const next = placeCrewmateAt(crew, dead.color, dest)
+      return setCrew(state, idx, next, `replace le Coéquipier ${dead.color} (Arrivée tardive)`)
+    }
+    case 'KILL_NORMAL_CREWMATE': {
+      // Trahison : le joueur choisit un Coéquipier qui ne le suspecte pas (normal)
+      // à éliminer (résolu à la sélection).
+      const p = state.players[idx]
+      const candidates = (p.crewmates ?? []).filter((c) => !c.discarded && !c.suspect)
+      if (candidates.length === 0) return logCrew(state, idx, 'aucun Coéquipier normal à éliminer (Trahison)')
+      return {
+        ...state,
+        pendingCrewmateKill: { playerIndex: idx, candidateColors: candidates.map((c) => c.color), mode: 'kill-normal' },
+        log: [...state.log, `${p.villainName} choisit un Coéquipier (normal) à éliminer (Trahison).`],
+      }
+    }
+    case 'REASSURE_ANY': {
+      // Insidieux : un Coéquipier suspect (n'importe où) redevient normal.
+      const p = state.players[idx]
+      const crew = p.crewmates ?? []
+      const target = crew.find((c) => !c.discarded && c.suspect)
+      if (!target) return logCrew(state, idx, 'aucun Coéquipier suspect (Insidieux)')
+      const next = crew.map((c) => (c.color === target.color ? { ...c, suspect: false } : c))
+      return setCrew(state, idx, next, `un Coéquipier suspect redevient normal (Insidieux)`)
+    }
+    case 'GATHER_CREWMATES': {
+      // Réunion d'urgence : rassemble un maximum de Coéquipiers sur le lieu le plus
+      // peuplé (4 cases max).
+      const p = state.players[idx]
+      const locIds = p.locations.map((l) => l.id)
+      let crew = p.crewmates ?? []
+      const live = crew.filter((c) => !c.discarded)
+      if (live.length === 0) return logCrew(state, idx, 'aucun Coéquipier (Réunion d’urgence)')
+      const count = (loc: string) => live.filter((c) => c.locationId === loc).length
+      const dest = [...locIds].sort((a, b) => count(b) - count(a))[0]
+      for (const c of live) {
+        if (c.locationId !== dest) crew = placeCrewmateAt(crew, c.color, dest)
+      }
+      return setCrew(state, idx, crew, `rassemble les Coéquipiers sur ${p.locations.find((l) => l.id === dest)?.name ?? dest} (Réunion d’urgence)`)
     }
     case 'GIANT_ACTION': {
       // Colère Titanesque : ouvre le choix d'un lieu voisin (bloqué ou non) où le

@@ -33,6 +33,7 @@ import {
   updatePlayer,
 } from './state'
 import { canEnterAuDela, holdsTalisman, moveTitanTo, performVanquish, processCurseDiscards, resolveEffect, resolveEffects, titanReachableDests, triggerHeroArrival } from './effects'
+import { crewmateEndOfTurn, freeCellAt, placeCrewmateAt } from './crewmates'
 import {
   adjacentLocationIds,
   canEndTurn,
@@ -216,8 +217,10 @@ function applyPlayCard(
   const loc = currentLocation(state)
   if (!loc) throw new Error('Aucun lieu courant.')
 
-  // L'action « Jouer une carte » doit être disponible sur le LIEU COURANT.
-  const action = loc.actions.find((a) => a.id === actionId)
+  // L'action « Jouer une carte » doit être disponible sur le LIEU COURANT —
+  // imprimée OU accordée par un Objet/Allié (Coéquipier imposteur → « Jouer une
+  // carte »), d'où l'usage de locationActions (qui inclut les actions accordées).
+  const action = locationActions(state, loc.id).find((a) => a.id === actionId)
   if (!action || action.type !== 'PLAY_CARD') {
     throw new Error(`« ${actionId} » n'est pas une action « Jouer une carte ».`)
   }
@@ -1364,6 +1367,73 @@ function applyResolveFateInner(
     return next
   }
 
+  // L'Imposteur — Fatalités ÉVÉNEMENT (manipulent les Coéquipiers de l'Imposteur
+  // ciblé). On défausse la carte (et l'autre révélée) puis on résout ses effets
+  // sur la CIBLE (actorIndex = pending.target).
+  const IMPOSTEUR_FATE_EVENTS: Record<string, import('./types').Effect[]> = {
+    'corps-decouvert': [{ type: 'CREWMATES_SUSPECT', scope: 'away' }, { type: 'SABOTAGE_COUNTDOWN', amount: -1 }],
+    'tache-visuelle': [{ type: 'CREWMATES_SUSPECT_CHOOSE', count: 3 }],
+    'reparation-rapide': [{ type: 'MOVE_ONE_CREWMATE_NEIGHBOR' }],
+    'arrivee-tardive': [{ type: 'PLACE_DISCARDED_CREWMATE' }],
+    'reunion-d-urgence': [{ type: 'GATHER_CREWMATES' }],
+  }
+  if (IMPOSTEUR_FATE_EVENTS[chosen.cardId]) {
+    let next = updatePlayer(state, pending.target, (p) => ({
+      ...p,
+      fateDiscard: [...p.fateDiscard, chosen, ...others],
+    }))
+    next = { ...next, pendingFate: null, log: [...next.log, `**${chosen.name}** jouée contre ${tgt.villainName}.`] }
+    // Corps découvert : bandeau « DEAD BODY REPORTED » + son côté UI.
+    if (chosen.cardId === 'corps-decouvert') {
+      next = pushFloatingFx(next, { kind: 'dead-body', playerIndex: pending.target })
+    }
+    // Réunion d'urgence : bandeau « EMERGENCY MEETING » + son côté UI.
+    if (chosen.cardId === 'reunion-d-urgence') {
+      next = pushFloatingFx(next, { kind: 'emergency-meeting', playerIndex: pending.target })
+    }
+    return resolveEffects(next, IMPOSTEUR_FATE_EVENTS[chosen.cardId], { actorIndex: pending.target })
+  }
+
+  // Majorité : défausse un Objet ou un Allié du royaume de la cible (hors Sabotage).
+  if (chosen.cardId === 'majorite') {
+    let next = updatePlayer(state, pending.target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, chosen, ...others] }))
+    next = { ...next, pendingFate: null }
+    const realm = tgt.locations.flatMap((l) =>
+      (next.players[pending.target].board[l.id] ?? []).map((c) => ({ c, loc: l.id })),
+    )
+    const pick =
+      realm.find(({ c }) => c.type === 'ally' && !c.attachedTo) ??
+      realm.find(({ c }) => c.type === 'item' && !c.isSabotage && !c.attachedTo)
+    if (!pick) {
+      return { ...next, log: [...next.log, `**Majorité** : aucun Objet/Allié (hors Sabotage) à défausser chez ${tgt.villainName}.`] }
+    }
+    const attached = (next.players[pending.target].board[pick.loc] ?? []).filter((c) => c.attachedTo === pick.c.instanceId)
+    const removed = new Set([pick.c.instanceId, ...attached.map((c) => c.instanceId)])
+    next = updatePlayer(next, pending.target, (p) => ({
+      ...p,
+      board: { ...p.board, [pick.loc]: (p.board[pick.loc] ?? []).filter((c) => !removed.has(c.instanceId)) },
+      discard: [...p.discard, pick.c, ...attached],
+    }))
+    return { ...next, log: [...next.log, `**Majorité** : **${pick.c.name}** est défaussé(e) du royaume de ${tgt.villainName}.`] }
+  }
+
+  // Vidéo de surveillance / Carte : Objets Fatalité associés à un lieu de la CIBLE.
+  // Le joueur qui pose la Fatalité CHOISIT le lieu (pendingFateObjectPlace ; auto
+  // côté bot). Leurs déclencheurs vivent dans crewmateEndOfTurn.
+  if (chosen.cardId === 'video-surveillance' || chosen.cardId === 'carte') {
+    let next = updatePlayer(state, pending.target, (p) => ({
+      ...p,
+      fateDiscard: [...p.fateDiscard, ...others],
+    }))
+    next = {
+      ...next,
+      pendingFate: null,
+      pendingFateObjectPlace: { chooserIndex: state.activePlayer, targetIndex: pending.target, card: chosen },
+      log: [...next.log, `${state.players[state.activePlayer].villainName} associe **${chosen.name}** à un lieu de ${tgt.villainName}.`],
+    }
+    return next
+  }
+
   // Fallback (carte Fatalité non implémentée) : simple défausse.
   const next = updatePlayer(state, pending.target, (p) => ({
     ...p,
@@ -1747,6 +1817,79 @@ function applyActivate(
       ...next,
       usedActionIds: [...next.usedActionIds, actionId],
       log: [...next.log, `${me.villainName} active **Bowser Jr.** : cherche Peach (−${card.activatedCost} JT).`],
+    }
+  }
+
+  // ----- L'Imposteur — capacités activées des Tâches (coût 0) -----
+  if (card.cardId === 'tache-electricite') {
+    // Gagne 1 JT par carte TÂCHE : ÉLECTRICITÉ posée dans le royaume.
+    const n = Object.values(me.board).flat().filter((c) => c.cardId === 'tache-electricite' && !c.attachedTo).length
+    let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power + n }))
+    next = consumePersifleur(next, action)
+    return {
+      ...next,
+      usedActionIds: [...next.usedActionIds, actionId],
+      log: [...next.log, `${me.villainName} active **Tâche : Électricité** (+${n} JT).`],
+    }
+  }
+  if (card.cardId === 'tache-telechargement') {
+    // Le joueur choisit une carte de sa défausse à reprendre, puis mélange le deck
+    // (réutilise pendingRecover). Défausse vide → simple mélange.
+    let next = consumePersifleur(state, action)
+    next = { ...next, usedActionIds: [...next.usedActionIds, actionId] }
+    if (me.discard.length === 0) {
+      const sh = shuffle(me.deck, next.rngState)
+      return {
+        ...next,
+        rngState: sh.state,
+        players: next.players.map((p, i) => (i === state.activePlayer ? { ...p, deck: sh.result } : p)),
+        log: [...next.log, `${me.villainName} active **Tâche : Téléchargement** : défausse vide, mélange son deck.`],
+      }
+    }
+    return {
+      ...next,
+      pendingRecover: {
+        playerIndex: state.activePlayer,
+        candidateIds: me.discard.map((c) => c.instanceId),
+        thenShuffle: true,
+        label: 'Tâche : Téléchargement',
+      },
+      log: [...next.log, `${me.villainName} active **Tâche : Téléchargement** : choisissez une carte de votre défausse.`],
+    }
+  }
+  if (card.cardId === 'tache-station-essence') {
+    // Le joueur choisit la carte à défausser (puis pioche). Réutilise la sélection
+    // de main (pendingTyrannyDiscard) avec pioche différée. Main vide → simple pioche.
+    let next = consumePersifleur(state, action)
+    next = { ...next, usedActionIds: [...next.usedActionIds, actionId] }
+    if (me.hand.length === 0) {
+      const dr = drawPlayerToLimitN(next.players[state.activePlayer], next.rngState, 1)
+      return {
+        ...next,
+        rngState: dr.rngState,
+        players: next.players.map((p, i) => (i === state.activePlayer ? dr.player : p)),
+        log: [...next.log, `${me.villainName} active **Tâche : Station essence** : main vide, pioche 1 carte.`],
+      }
+    }
+    return {
+      ...next,
+      pendingTyrannyDiscard: { playerIndex: state.activePlayer, count: 1, thenDraw: 1, label: 'Tâche : Station essence' },
+      log: [...next.log, `${me.villainName} active **Tâche : Station essence** : choisissez une carte à défausser.`],
+    }
+  }
+  if (card.cardId === 'tache-course') {
+    // Le joueur CHOISIT le Coéquipier à déplacer (mode 'move' → puis choix du lieu
+    // voisin via pendingCrewmateMove).
+    const live = (me.crewmates ?? []).filter((c) => !c.discarded)
+    let next = consumePersifleur(state, action)
+    next = { ...next, usedActionIds: [...next.usedActionIds, actionId] }
+    if (live.length === 0) {
+      return { ...next, log: [...next.log, `${me.villainName} active **Tâche : Course** : aucun Coéquipier à déplacer.`] }
+    }
+    return {
+      ...next,
+      pendingCrewmateKill: { playerIndex: state.activePlayer, candidateColors: live.map((c) => c.color), mode: 'move' },
+      log: [...next.log, `${me.villainName} active **Tâche : Course** : choisissez un Coéquipier à déplacer.`],
     }
   }
 
@@ -2310,6 +2453,14 @@ function resolveConditionEffect(
     }))
     return { ...next, log: [...next.log, `${player.villainName} joue gratuitement **${a.name}** sur **${dest}** (Sans pitié).`] }
   }
+  if (card.cardId === 'trahison-imposteur') {
+    // Trahison (L'Imposteur) : élimine un Coéquipier qui ne le suspecte pas.
+    return resolveEffectsLocal(next, [{ type: 'KILL_NORMAL_CREWMATE' }], { actorIndex: playerIndex })
+  }
+  if (card.cardId === 'insidieux') {
+    // Insidieux (L'Imposteur) : un Coéquipier suspect redevient normal.
+    return resolveEffectsLocal(next, [{ type: 'REASSURE_ANY' }], { actorIndex: playerIndex })
+  }
   // Aucune autre Condition pour l'instant.
   return next
 }
@@ -2323,33 +2474,43 @@ function applyResolveTyrannyDiscard(state: GameState, instanceIds: string[]): Ga
   const pending = state.pendingTyrannyDiscard
   if (!pending) throw new Error('Aucune défausse de Tyrannie en attente.')
   const { playerIndex, count } = pending
+  const label = pending.label ?? 'Tyrannie'
   const player = state.players[playerIndex]
   const expected = Math.min(count, player.hand.length)
   if (instanceIds.length !== expected) {
-    throw new Error(`Tyrannie : il faut défausser exactement ${expected} carte(s).`)
+    throw new Error(`${label} : il faut défausser exactement ${expected} carte(s).`)
   }
   const idSet = new Set(instanceIds)
   const toDiscard = player.hand.filter((c) => idSet.has(c.instanceId))
   if (toDiscard.length !== instanceIds.length) {
-    throw new Error('Tyrannie : carte à défausser absente de la main.')
+    throw new Error(`${label} : carte à défausser absente de la main.`)
   }
   let next = updatePlayer(state, playerIndex, (p) => ({
     ...p,
     hand: p.hand.filter((c) => !idSet.has(c.instanceId)),
     discard: [...p.discard, ...toDiscard],
   }))
+  // Tâche : Station essence — pioche après la défausse.
+  if (pending.thenDraw && pending.thenDraw > 0) {
+    const dr = drawPlayerToLimitN(next.players[playerIndex], next.rngState, pending.thenDraw)
+    next = {
+      ...next,
+      rngState: dr.rngState,
+      players: next.players.map((p, i) => (i === playerIndex ? dr.player : p)),
+    }
+  }
   next = {
     ...next,
     pendingTyrannyDiscard: undefined,
     log: [
       ...next.log,
-      `${player.villainName} défausse ${toDiscard.length} carte${toDiscard.length > 1 ? 's' : ''} (Tyrannie).`,
+      `${player.villainName} défausse ${toDiscard.length} carte${toDiscard.length > 1 ? 's' : ''}${pending.thenDraw ? ' et pioche' : ''} (${label}).`,
     ],
   }
   return pushDiscardShowcase(
     next,
     toDiscard.map((c) => c.cardId),
-    `${player.villainName} défausse ${toDiscard.length} carte${toDiscard.length > 1 ? 's' : ''} (Tyrannie)`,
+    `${player.villainName} défausse ${toDiscard.length} carte${toDiscard.length > 1 ? 's' : ''} (${label})`,
     playerIndex,
     'dark',
     'bottom',
@@ -3103,12 +3264,160 @@ function applyResolveRecover(state: GameState, instanceId: string): GameState {
   const player = state.players[idx]
   const card = player.discard.find((c) => c.instanceId === instanceId)
   if (!card) throw new Error('Carte introuvable dans la défausse.')
-  const next = updatePlayer(state, idx, (p) => ({
+  let next = updatePlayer(state, idx, (p) => ({
     ...p,
     discard: p.discard.filter((c) => c.instanceId !== instanceId),
     hand: [...p.hand, card],
   }))
-  return { ...next, pendingRecover: null, log: [...next.log, `${player.villainName} reprend **${card.name}** (Opportunisme).`] }
+  if (pending.thenShuffle) {
+    const sh = shuffle(next.players[idx].deck, next.rngState)
+    next = {
+      ...next,
+      rngState: sh.state,
+      players: next.players.map((p, i) => (i === idx ? { ...p, deck: sh.result } : p)),
+    }
+  }
+  return {
+    ...next,
+    pendingRecover: null,
+    log: [...next.log, `${player.villainName} reprend **${card.name}**${pending.thenShuffle ? ' et mélange son deck' : ''} (${pending.label ?? 'Opportunisme'}).`],
+  }
+}
+
+/** Tuer (L'Imposteur) : défausse le Coéquipier choisi ; les autres Coéquipiers
+ *  (non défaussés) de SON lieu deviennent suspects. */
+function applyResolveCrewmateKill(state: GameState, color: string): GameState {
+  const pending = state.pendingCrewmateKill
+  if (!pending) throw new Error('Aucun Coéquipier à défausser (Tuer).')
+  if (!pending.candidateColors.includes(color)) throw new Error('Coéquipier choisi invalide.')
+  const idx = pending.playerIndex
+  const player = state.players[idx]
+  const crew = player.crewmates ?? []
+  const victim = crew.find((c) => c.color === color && !c.discarded)
+  if (!victim) throw new Error('Coéquipier introuvable.')
+  const loc = victim.locationId
+  // Tâche : Course — déplace le Coéquipier choisi vers un LIEU VOISIN (≤ 1 d'écart).
+  if (pending.mode === 'move') {
+    const locIds = player.locations.map((l) => l.id)
+    const ci = locIds.indexOf(loc)
+    const eligibleLocs = locIds.filter((id, j) => Math.abs(j - ci) === 1 && freeCellAt(crew, id) !== null)
+    return {
+      ...state,
+      pendingCrewmateKill: null,
+      pendingCrewmateMove: eligibleLocs.length > 0 ? { playerIndex: idx, color, eligibleLocs } : null,
+      log:
+        eligibleLocs.length > 0
+          ? [...state.log, `${player.villainName} choisit le Coéquipier ${color} (Tâche : Course) — vers quel lieu voisin ?`]
+          : [...state.log, `${player.villainName} : aucun lieu voisin libre pour déplacer le Coéquipier ${color}.`],
+    }
+  }
+  // Trahison : élimine simplement le Coéquipier choisi (aucun autre changement).
+  if (pending.mode === 'kill-normal') {
+    const killed = crew.map((c) => (c.color === color ? { ...c, discarded: true } : c))
+    const next = updatePlayer(state, idx, (p) => ({ ...p, crewmates: killed }))
+    return {
+      ...next,
+      pendingCrewmateKill: null,
+      log: [...next.log, `${player.villainName} élimine le Coéquipier ${color} (Trahison).`],
+    }
+  }
+  // Assurance : le Coéquipier choisi redevient normal, puis l'Imposteur peut
+  // FACULTATIVEMENT le déplacer vers un lieu à ≤ 2 d'écart (s'il y a de la place).
+  if (pending.mode === 'reassure') {
+    const reassured = crew.map((c) => (c.color === color ? { ...c, suspect: false } : c))
+    const next = updatePlayer(state, idx, (p) => ({ ...p, crewmates: reassured }))
+    const locIds = player.locations.map((l) => l.id)
+    const ci = locIds.indexOf(loc)
+    const eligibleLocs = locIds.filter((id, j) => {
+      const d = Math.abs(j - ci)
+      return d >= 1 && d <= 2 && freeCellAt(reassured, id) !== null
+    })
+    return {
+      ...next,
+      pendingCrewmateKill: null,
+      pendingCrewmateMove: eligibleLocs.length > 0 ? { playerIndex: idx, color, eligibleLocs } : null,
+      log: [...next.log, `${player.villainName} rassure le Coéquipier ${color} (Assurance).`],
+    }
+  }
+  const falseAccusation = pending.mode === 'false-accusation'
+  const newCrew = crew.map((c) => {
+    if (c.color === color) return { ...c, discarded: true }
+    if (c.discarded) return c
+    // Fausse accusation : TOUS les autres redeviennent normaux. Tuer : les autres
+    // du LIEU de la victime deviennent suspects.
+    if (falseAccusation) return { ...c, suspect: false }
+    if (c.locationId === loc) return { ...c, suspect: true }
+    return c
+  })
+  const next = updatePlayer(state, idx, (p) => ({ ...p, crewmates: newCrew }))
+  const locName = player.locations.find((l) => l.id === loc)?.name ?? loc
+  return {
+    ...next,
+    pendingCrewmateKill: null,
+    log: [
+      ...next.log,
+      falseAccusation
+        ? `${player.villainName} défausse le Coéquipier ${color} ; les autres redeviennent normaux (Fausse accusation).`
+        : `${player.villainName} défausse le Coéquipier ${color} ; les autres Coéquipiers de ${locName} le suspectent.`,
+    ],
+  }
+}
+
+/** Vidéo de surveillance / Carte : associe l'Objet Fatalité au lieu choisi. */
+function applyResolveFateObjectPlace(state: GameState, locationId: LocationId): GameState {
+  const pending = state.pendingFateObjectPlace
+  if (!pending) throw new Error('Aucun Objet Fatalité à placer.')
+  const tgt = state.players[pending.targetIndex]
+  if (!tgt.locations.some((l) => l.id === locationId)) throw new Error('Lieu de destination invalide.')
+  const next = updatePlayer(state, pending.targetIndex, (p) => ({
+    ...p,
+    board: { ...p.board, [locationId]: [...(p.board[locationId] ?? []), { ...pending.card, fromFate: true }] },
+  }))
+  const locName = tgt.locations.find((l) => l.id === locationId)?.name ?? locationId
+  return {
+    ...next,
+    pendingFateObjectPlace: null,
+    log: [...next.log, `**${pending.card.name}** est associée à ${locName} (royaume de ${tgt.villainName}).`],
+  }
+}
+
+/** Assurance (L'Imposteur) : déplace le Coéquipier rassuré vers le lieu choisi. */
+function applyResolveCrewmateMove(state: GameState, to: LocationId): GameState {
+  const pending = state.pendingCrewmateMove
+  if (!pending) throw new Error('Aucun déplacement de Coéquipier en attente (Assurance).')
+  if (!pending.eligibleLocs.includes(to)) throw new Error('Lieu de destination invalide (Assurance).')
+  const idx = pending.playerIndex
+  const player = state.players[idx]
+  const crew = placeCrewmateAt(player.crewmates ?? [], pending.color, to)
+  const next = updatePlayer(state, idx, (p) => ({ ...p, crewmates: crew }))
+  const locName = player.locations.find((l) => l.id === to)?.name ?? to
+  return {
+    ...next,
+    pendingCrewmateMove: null,
+    log: [...next.log, `${player.villainName} déplace le Coéquipier ${pending.color} vers ${locName} (Assurance).`],
+  }
+}
+
+/** Tâche visuelle (L'Imposteur) : rend suspect le Coéquipier `color` choisi par
+ *  l'adversaire ; décrémente le compteur (fin auto à 0). */
+function applyResolveCrewmateSuspect(state: GameState, color: string): GameState {
+  const pending = state.pendingCrewmateSuspect
+  if (!pending) throw new Error('Aucune sélection de Coéquipier suspect en attente.')
+  const idx = pending.targetIndex
+  const player = state.players[idx]
+  const crew = player.crewmates ?? []
+  const target = crew.find((c) => c.color === color && !c.discarded && !c.suspect)
+  if (!target) throw new Error('Coéquipier choisi invalide (déjà suspect / défaussé).')
+  const newCrew = crew.map((c) => (c.color === color ? { ...c, suspect: true } : c))
+  const next = updatePlayer(state, idx, (p) => ({ ...p, crewmates: newCrew }))
+  const remaining = pending.remaining - 1
+  // Reste-t-il des Coéquipiers éligibles ?
+  const eligibleLeft = newCrew.some((c) => !c.discarded && !c.suspect)
+  return {
+    ...next,
+    pendingCrewmateSuspect: remaining > 0 && eligibleLeft ? { ...pending, remaining } : null,
+    log: [...next.log, `${player.villainName} : le Coéquipier ${color} devient suspect (Tâche visuelle).`],
+  }
 }
 
 /** Colère Titanesque : choisit le lieu voisin (bloqué ou non) où agir. Le joueur
@@ -3490,8 +3799,11 @@ function applyEndTurn(state: GameState): GameState {
   if (state.players[state.activePlayer].noPagePlay) {
     state = updateActivePlayer(state, (p) => ({ ...p, noPagePlay: false }))
   }
-  // Fin du tour courant : le joueur actif complète sa main à 4.
-  const drawn = drawToLimit(state)
+  // Fin du tour courant : le joueur actif complète sa main à 4…
+  const drawn0 = drawToLimit(state)
+  // …puis la phase Coéquipiers (défausse des Tâches/Sabotages encombrés, compte à
+  // rebours, déplacement). Sans effet pour les autres vilains.
+  const drawn = crewmateEndOfTurn(drawn0, drawn0.activePlayer)
   const endedName = drawn.players[drawn.activePlayer].villainName
   const nextIdx = (drawn.activePlayer + 1) % drawn.players.length
 
@@ -3520,6 +3832,7 @@ function applyEndTurn(state: GameState): GameState {
     activeDrewCard: false,
     activeDiscardedCount: 0,
     activeGainedPower: 0,
+    activePlayedCount: 0,
     // Effets « jusqu'à la fin de votre tour » du joueur qui termine (Sablier Géant).
     players: drawn.players.map((p, i) =>
       i === drawn.activePlayer
@@ -3614,6 +3927,40 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   if (state.pendingRecover && action.type !== 'RESOLVE_RECOVER' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Récupérez une carte de votre défausse (RESOLVE_RECOVER).')
   }
+  // Tuer (L'Imposteur) : choisir le Coéquipier à défausser d'abord.
+  if (
+    state.pendingCrewmateKill &&
+    action.type !== 'RESOLVE_CREWMATE_KILL' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Choisissez le Coéquipier à défausser (RESOLVE_CREWMATE_KILL).')
+  }
+  // Tâche visuelle (L'Imposteur) : choisir les Coéquipiers à rendre suspects.
+  if (
+    state.pendingCrewmateSuspect &&
+    action.type !== 'RESOLVE_CREWMATE_SUSPECT' &&
+    action.type !== 'DONE_CREWMATE_SUSPECT' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Choisissez les Coéquipiers à rendre suspects (RESOLVE_CREWMATE_SUSPECT).')
+  }
+  // Assurance (L'Imposteur) : déplacement optionnel du Coéquipier rassuré.
+  if (
+    state.pendingCrewmateMove &&
+    action.type !== 'RESOLVE_CREWMATE_MOVE' &&
+    action.type !== 'DONE_CREWMATE_MOVE' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Déplacez le Coéquipier rassuré ou terminez (Assurance).')
+  }
+  // Vidéo de surveillance / Carte : choisir le lieu d'association d'abord.
+  if (
+    state.pendingFateObjectPlace &&
+    action.type !== 'RESOLVE_FATE_OBJECT_PLACE' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error("Choisissez le lieu où associer l'Objet (RESOLVE_FATE_OBJECT_PLACE).")
+  }
   // Colère Titanesque : choisir le lieu voisin où agir d'abord.
   if (state.pendingGiantAction && action.type !== 'RESOLVE_GIANT_LOCATION' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Choisissez le lieu voisin où agir (RESOLVE_GIANT_LOCATION).')
@@ -3646,8 +3993,8 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return applyMove(state, action.to)
     case 'EXECUTE_ACTION':
       return clearGiant(state, applyExecuteAction(state, action.actionId))
-    case 'PLAY_CARD':
-      return clearGiant(
+    case 'PLAY_CARD': {
+      const r = clearGiant(
         state,
         applyPlayCard(
           state,
@@ -3661,6 +4008,9 @@ export function applyAction(state: GameState, action: GameAction): GameState {
           action.shrinkFreeActionId,
         ),
       )
+      // Compte les cartes jouées ce tour (déclencheur Insidieux de L'Imposteur).
+      return { ...r, activePlayedCount: (state.activePlayedCount ?? 0) + 1 }
+    }
     case 'DISCARD_CARDS':
       return clearGiant(state, applyDiscardCards(state, action.actionId, action.instanceIds))
     case 'MOVE_CARD':
@@ -3712,6 +4062,18 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return applyResolveFetchedHero(state, action.play, action.to)
     case 'RESOLVE_RECOVER':
       return applyResolveRecover(state, action.instanceId)
+    case 'RESOLVE_CREWMATE_KILL':
+      return applyResolveCrewmateKill(state, action.color)
+    case 'RESOLVE_CREWMATE_SUSPECT':
+      return applyResolveCrewmateSuspect(state, action.color)
+    case 'DONE_CREWMATE_SUSPECT':
+      return { ...state, pendingCrewmateSuspect: null }
+    case 'RESOLVE_CREWMATE_MOVE':
+      return applyResolveCrewmateMove(state, action.to)
+    case 'DONE_CREWMATE_MOVE':
+      return { ...state, pendingCrewmateMove: null }
+    case 'RESOLVE_FATE_OBJECT_PLACE':
+      return applyResolveFateObjectPlace(state, action.locationId)
     case 'RESOLVE_GIANT_LOCATION':
       return applyResolveGiantLocation(state, action.locationId)
     case 'RESOLVE_TITAN_MOVE':

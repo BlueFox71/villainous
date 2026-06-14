@@ -133,6 +133,13 @@ export function ObjectiveBox({
           isWinner={isWinner}
           blockerHeroCardId={player.objective.blockerHeroCardId}
         />
+      ) : player.objective.type === 'KEEP_SABOTAGE' ? (
+        <SabotageProgress
+          player={player}
+          accent={accent}
+          isWinner={isWinner}
+          turns={player.objective.turns}
+        />
       ) : (
         <CurseEachLocationProgress player={player} accent={accent} isWinner={isWinner} />
       )}
@@ -377,6 +384,45 @@ function DepleteObservatoryProgress({
             title={s.title}
             className={`h-2 flex-1 rounded-full ${
               s.ok && !blocked ? (isWinner ? 'bg-amber-400' : accent.gauge) : s.ok ? 'bg-white/40' : 'bg-white/15'
+            }`}
+          />
+        ))}
+      </div>
+    </>
+  )
+}
+
+/** L'Imposteur — objectif « conserver un Sabotage `turns` tours ». Affiche si un
+ *  Sabotage (O2 / Réacteur) est posé et la progression du compte à rebours. */
+function SabotageProgress({
+  player,
+  accent,
+  isWinner,
+  turns,
+}: {
+  player: PlayerState
+  accent: Accent
+  isWinner: boolean
+  turns: number
+}) {
+  const sabotage = Object.values(player.board)
+    .flat()
+    .find((c) => (c.cardId === 'sabotage-o2' || c.cardId === 'sabotage-reacteur') && !c.attachedTo)
+  const elapsed = sabotage?.sabotageTurns ?? 0
+  return (
+    <>
+      <div className="mb-1 flex justify-between text-sm">
+        <span className={accent.accentText}>Sabotage</span>
+        <span className="font-mono text-white">
+          {sabotage ? `${elapsed} / ${turns} tours` : 'Aucun'}
+        </span>
+      </div>
+      <div className="flex gap-1">
+        {Array.from({ length: turns }).map((_, i) => (
+          <div
+            key={i}
+            className={`h-2 flex-1 rounded-full ${
+              i < elapsed ? (isWinner ? 'bg-amber-400' : accent.gauge) : 'bg-white/15'
             }`}
           />
         ))}

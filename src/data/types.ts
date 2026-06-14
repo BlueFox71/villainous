@@ -89,6 +89,12 @@ export interface CardDef {
   activatedCost?: number
   /** La carte ne peut être posée QUE sur ce lieu (Lampe Merveilleuse → Caverne). */
   playOnlyAt?: string
+  /** L'Imposteur — Tâche / Sabotage : seuil de Coéquipiers sur son lieu déclenchant
+   *  sa défausse avant le déplacement de fin de tour (+1 avec le Coéquipier imposteur). */
+  discardAtCrewmates?: number
+  /** L'Imposteur — Sabotage : carte d'objectif (survivre 3 tours) qui attire les
+   *  Coéquipiers. */
+  isSabotage?: boolean
   /** Capitaine Crochet : Objet qui DONNE une action à son lieu tant qu'il y est
    *  posé (Canon → Vaincre, Boîte à Crochets → Gagner 1, Ingénieux → Déplacer un
    *  Héros). */
@@ -156,6 +162,8 @@ export function buildDeckInstances(
           maxAtLocation: c.maxAtLocation,
           activatedCost: c.activatedCost,
           playOnlyAt: c.playOnlyAt,
+          discardAtCrewmates: c.discardAtCrewmates,
+          isSabotage: c.isSabotage,
           grantsAction: c.grantsAction,
           contractLocationId: c.contractLocationId,
           isTitan: c.isTitan,

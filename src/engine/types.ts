@@ -140,6 +140,10 @@ export type ObjectiveDef =
    *  par la carte Impuissance). `blockerHeroCardId` (Mario) : tant qu'un Héros de
    *  ce cardId est présent dans le royaume, la victoire est impossible. */
   | { type: 'DEPLETE_OBSERVATORY_AND_CAPTURE'; blockerHeroCardId?: string }
+  /** L'Imposteur : conserver un Sabotage (Objet) posé dans le royaume pendant
+   *  `turns` tours sans qu'il soit défaussé. Victoire vérifiée en début de tour
+   *  (le compte à rebours du Sabotage est porté par l'instance d'Objet). */
+  | { type: 'KEEP_SABOTAGE'; turns: number }
 
 /** Phase courante à l'intérieur d'un tour. */
 export type TurnPhase =
@@ -157,12 +161,79 @@ export type GameStatus = 'PLAYING' | 'WON'
 export type CardType = 'ally' | 'item' | 'effect' | 'condition' | 'hero' | 'curse'
 
 /**
+ * L'Imposteur — un COÉQUIPIER : pion neutre posé sur une CASE d'action du
+ * plateau (lieu + rangée + emplacement gauche/droite). Au repos il est « normal »
+ * (au-dessus du plateau, ne recouvre rien) ; quand il « suspecte » l'Imposteur il
+ * devient `suspect` et recouvre l'action de sa case. Deux Coéquipiers ne peuvent
+ * pas occuper la même case. Seul l'Imposteur en possède (8 au total).
+ */
+export interface Crewmate {
+  /** Identité stable et couleur (ex. 'blanc', 'bleu', 'noir'…). Sert aussi de clé
+   *  de rendu (jeton public/cards/imposteur/crew-<color>.png). */
+  color: string
+  /** Lieu où se trouve le Coéquipier. */
+  locationId: LocationId
+  /** Rangée de la case occupée (les actions du HAUT au départ). */
+  row: ActionRow
+  /** Emplacement gauche (0) ou droite (1) parmi les 2 actions de la rangée. */
+  slot: number
+  /** Vrai = suspecte l'Imposteur → recouvre l'action de sa case (pion « suspect »).
+   *  Faux = normal, au-dessus du plateau, ne recouvre rien. */
+  suspect: boolean
+  /** Défaussé (éliminé du plateau par Tuer / Trahison…). N'occupe plus de case et
+   *  n'est plus affiché ; peut revenir via la Fatalité (Arrivée tardive). */
+  discarded?: boolean
+}
+
+/**
  * Effet composable d'une carte, exécuté par le dispatcher (engine/effects.ts).
  * Union volontairement minimale pour l'instant — on l'étend au fur et à mesure
  * sans toucher au reste du moteur.
  */
 export type Effect =
   | { type: 'GAIN_POWER'; amount: number }
+  /** L'Imposteur — Tuer : défausse un Coéquipier sur le lieu du pion ou le lieu d'un
+   *  Allié de l'Imposteur (choix interactif → pendingCrewmateKill) ; les autres
+   *  Coéquipiers de ce lieu deviennent suspects. */
+  | { type: 'KILL_CREWMATE' }
+  /** L'Imposteur — Porte désactivée : les Coéquipiers ne se déplacent pas à la fin
+   *  de ce tour (drapeau crewmatesSkipMove). */
+  | { type: 'SKIP_CREWMATE_MOVE' }
+  /** L'Imposteur — Fausse accusation : défausse un Coéquipier (auto : un suspect en
+   *  priorité, n'importe où) ; tous les autres redeviennent normaux. */
+  | { type: 'FALSE_ACCUSATION' }
+  /** L'Imposteur — Assurance : un Coéquipier suspect sur le lieu du pion / d'un
+   *  Allié redevient normal (auto). */
+  | { type: 'REASSURE_CREWMATE' }
+  /** L'Imposteur — Lumière désactivée : déplace `count` Coéquipiers (hors sabotage)
+   *  vers un lieu voisin (auto : vers le lieu voisin le moins occupé). */
+  | { type: 'MOVE_CREWMATES_NEIGHBOR'; count: number }
+  /** L'Imposteur — Communication désactivée : défausse un Objet du royaume issu
+   *  d'une Fatalité (auto). */
+  | { type: 'DISCARD_FATE_ITEM' }
+  /** L'Imposteur (Fatalité, ciblant l'Imposteur) — rend SUSPECTS jusqu'à `count`
+   *  Coéquipiers : `scope` = 'away' (hors lieu du pion / d'un Allié) ou 'any'.
+   *  count absent = tous ceux du périmètre. Corps découvert / Tâche visuelle. */
+  | { type: 'CREWMATES_SUSPECT'; scope: 'away' | 'any'; count?: number }
+  /** L'Imposteur (Fatalité) — augmente de `amount` le compte à rebours d'un Sabotage
+   *  présent (Corps découvert). */
+  | { type: 'SABOTAGE_COUNTDOWN'; amount: number }
+  /** L'Imposteur — Tâche visuelle : l'adversaire CHOISIT jusqu'à `count` Coéquipiers
+   *  à rendre suspects (interactif → pendingCrewmateSuspect). */
+  | { type: 'CREWMATES_SUSPECT_CHOOSE'; count: number }
+  /** L'Imposteur (Fatalité) — déplace UN Coéquipier vers un lieu voisin (auto).
+   *  Réparation rapide. */
+  | { type: 'MOVE_ONE_CREWMATE_NEIGHBOR' }
+  /** L'Imposteur (Fatalité) — Arrivée tardive : remet en jeu un Coéquipier défaussé
+   *  sur la rangée la plus à gauche ou à droite du royaume (auto). */
+  | { type: 'PLACE_DISCARDED_CREWMATE' }
+  /** L'Imposteur (Fatalité) — Réunion d'urgence : rassemble tous les Coéquipiers sur
+   *  un lieu (auto : le lieu le plus peuplé), répartis sur les deux rangées. */
+  | { type: 'GATHER_CREWMATES' }
+  /** L'Imposteur — Trahison : élimine un Coéquipier qui NE suspecte PAS l'Imposteur. */
+  | { type: 'KILL_NORMAL_CREWMATE' }
+  /** L'Imposteur — Insidieux : un Coéquipier suspect (n'importe où) redevient normal. */
+  | { type: 'REASSURE_ANY' }
   /** Gagne `amount` pouvoir par Héros présent dans le royaume (Magnifiques Taxes). */
   | { type: 'GAIN_POWER_PER_HERO_IN_REALM'; amount: number }
   /** Gagne `amount` pouvoir par Allié présent dans le royaume (arceaux inclus —
@@ -528,6 +599,16 @@ export interface CardInstance {
   /** Cette carte ne peut être posée QUE sur ce lieu (Jafar : Lampe Merveilleuse →
    *  Caverne aux Merveilles). Absent = n'importe quel lieu non verrouillé. */
   playOnlyAt?: LocationId
+  /** L'Imposteur — Tâche / Sabotage : seuil de Coéquipiers sur son lieu qui, avant
+   *  le déplacement de fin de tour, provoque sa défausse (+1 si le Coéquipier
+   *  imposteur est sur ce lieu). Donnée réutilisable, recopiée de CardDef. */
+  discardAtCrewmates?: number
+  /** L'Imposteur — Sabotage : compte pour l'objectif (survivre 3 tours) et attire
+   *  tous les Coéquipiers. `sabotageTurns` porte son compte à rebours. */
+  isSabotage?: boolean
+  /** L'Imposteur — Objet posé sur le royaume via une FATALITÉ (Vidéo de surveillance,
+   *  Carte). Ciblable par « Communication désactivée ». État de jeu (runtime). */
+  fromFate?: boolean
   /** Reine de Cœur : cette Carte Garde a été transformée en arceau (croquet).
    *  Un arceau ne compte plus comme un Allié et sert l'objectif Coup Royal. */
   isWicket?: boolean
@@ -539,6 +620,10 @@ export interface CardInstance {
    *  entravé ne peut plus être déplacé, ne participe pas aux Vanquish et ne compte
    *  pas pour l'objectif tant qu'il n'est pas désentravé. État de jeu (runtime). */
   trapped?: boolean
+  /** L'Imposteur — Sabotage (O2 / Réacteur) : nombre de tours écoulés depuis sa
+   *  pose. À `turns` (3) l'Imposteur gagne. État de jeu (runtime), incrémenté par
+   *  la mécanique des Coéquipiers (à venir). */
+  sabotageTurns?: number
   /** L'Allié peut Éliminer un Héros sur son lieu OU sur un lieu voisin (Flibustiers,
    *  Archers Loups, Cerbère). Donnée réutilisable, recopiée de CardDef. */
   reachesAdjacentVanquish?: boolean
@@ -659,6 +744,8 @@ export type ConditionTrigger =
   | { type: 'opponent-discarded-ge'; value: number }
   /** L'adversaire actif a gagné au moins `value` jetons Pouvoir ce tour-ci (Terreur). */
   | { type: 'opponent-gained-power-ge'; value: number }
+  /** L'adversaire actif a joué au moins `value` cartes ce tour-ci (Insidieux). */
+  | { type: 'opponent-played-cards-ge'; value: number }
 
 /** Déclencheur de défausse automatique d'une carte (typiquement une Malédiction). */
 export type CurseDiscardTrigger =
@@ -738,6 +825,12 @@ export interface PlayerState {
   starLocationId?: LocationId
   /** Bowser — Peach a été capturée (via Impuissance). Condition de victoire. */
   peachCaptured?: boolean
+  /** L'Imposteur — ses 8 COÉQUIPIERS posés sur le plateau (cases d'action).
+   *  Absent pour les autres vilains. Voir l'interface `Crewmate`. */
+  crewmates?: Crewmate[]
+  /** L'Imposteur — Porte désactivée : les Coéquipiers ne se déplacent pas à la fin
+   *  du prochain tour (drapeau consommé au moment du déplacement). */
+  crewmatesSkipMove?: boolean
 }
 
 /**
@@ -794,7 +887,14 @@ export interface GameState {
    * choisir `count` cartes de sa main à défausser (RESOLVE_TYRANNY_DISCARD)
    * avant que la partie ne reprenne. Absent hors d'une résolution de Tyrannie.
    */
-  pendingTyrannyDiscard?: { playerIndex: number; count: number }
+  pendingTyrannyDiscard?: {
+    playerIndex: number
+    count: number
+    /** Nombre de cartes à piocher APRÈS la défausse (Tâche : Station essence = 1). */
+    thenDraw?: number
+    /** Libellé de la source (journal/showcase). Défaut : « Tyrannie ». */
+    label?: string
+  }
   /**
    * Aurore : un Héros révélé doit être posé sur le plateau de `targetIndex`, et
    * c'est `chooserIndex` (le joueur qui a joué la Fatalité) qui choisit le lieu
@@ -898,7 +998,38 @@ export interface GameState {
   pendingFetchedHero?: { playerIndex: number; hero: CardInstance; discarded: CardInstance[] } | null
   /** Opportunisme (Ursula) : `playerIndex` choisit une carte (`candidateIds`) de sa
    *  défausse Vilain à reprendre en main (RESOLVE_RECOVER). */
-  pendingRecover?: { playerIndex: number; candidateIds: string[] } | null
+  pendingRecover?: {
+    playerIndex: number
+    candidateIds: string[]
+    /** Mélange le deck APRÈS la reprise (Tâche : Téléchargement de L'Imposteur). */
+    thenShuffle?: boolean
+    /** Libellé de la source (journal). Défaut : « Opportunisme ». */
+    label?: string
+  } | null
+  /** L'Imposteur — Tuer / Fausse accusation : `playerIndex` choisit le Coéquipier
+   *  (par couleur) à défausser parmi `candidateColors` (RESOLVE_CREWMATE_KILL).
+   *  `mode` = 'kill' (les autres Coéquipiers du LIEU deviennent suspects) ou
+   *  'false-accusation' (TOUS les autres redeviennent normaux). */
+  pendingCrewmateKill?: {
+    playerIndex: number
+    candidateColors: string[]
+    /** 'kill' (Tuer — les autres du LIEU deviennent suspects) · 'false-accusation'
+     *  (les autres redeviennent normaux) · 'reassure' (Assurance — le choisi
+     *  redevient normal, pas de défausse). */
+    mode: 'kill' | 'false-accusation' | 'reassure' | 'kill-normal' | 'move'
+  } | null
+  /** L'Imposteur — Tâche visuelle (Fatalité) : `chooserIndex` (l'adversaire qui joue
+   *  la Fatalité) rend suspects jusqu'à `remaining` Coéquipiers de `targetIndex`
+   *  (l'Imposteur). RESOLVE_CREWMATE_SUSPECT (un par un) / DONE_CREWMATE_SUSPECT. */
+  pendingCrewmateSuspect?: { chooserIndex: number; targetIndex: number; remaining: number } | null
+  /** L'Imposteur — Assurance : après avoir rendu un Coéquipier normal, l'Imposteur
+   *  (`playerIndex`) peut le déplacer (`color`) vers un des `eligibleLocs` (lieux à
+   *  ≤ 2 d'écart). RESOLVE_CREWMATE_MOVE / DONE_CREWMATE_MOVE (facultatif). */
+  pendingCrewmateMove?: { playerIndex: number; color: string; eligibleLocs: LocationId[] } | null
+  /** L'Imposteur — Vidéo de surveillance / Carte (Fatalité) : `chooserIndex`
+   *  (l'adversaire qui joue la Fatalité) associe l'Objet `card` à un lieu du
+   *  royaume de `targetIndex` (l'Imposteur). RESOLVE_FATE_OBJECT_PLACE. */
+  pendingFateObjectPlace?: { chooserIndex: number; targetIndex: number; card: CardInstance } | null
   /** Colère Titanesque (Ursula) / Canne (Dr Facilier) : `playerIndex` doit choisir
    *  un lieu voisin sur lequel effectuer une action (RESOLVE_GIANT_LOCATION).
    *  `viaCanne` = ouverture par la Canne (action Fatalité du voisin exclue, usage
@@ -920,6 +1051,9 @@ export interface GameState {
   /** Pouvoir gagné par le joueur actif ce tour-ci (déclencheur Terreur, Dr
    *  Facilier). Remis à 0 en fin de tour. */
   activeGainedPower?: number
+  /** Nombre de cartes jouées par le joueur actif ce tour-ci (déclencheur Insidieux,
+   *  L'Imposteur). Remis à 0 en fin de tour. */
+  activePlayedCount?: number
   /** Hadès — Préparez-vous au combat ! / action « Déplacer » sur un Titan :
    *  `playerIndex` (Hadès) choisit un de ses Titans non entravés (`titanCandidateIds`)
    *  et un lieu de destination, puis le déplace (RESOLVE_TITAN_MOVE). `paid` : le
@@ -985,6 +1119,15 @@ export type FloatingFx =
    *  la carte « vole » du lieu de départ vers le lieu d'arrivée (émis pour les
    *  deux joueurs ; l'UI anime l'image réelle de la carte). */
   | { kind: 'move-card'; playerIndex: number; cardId: string; from: LocationId; to: LocationId }
+  /** L'Imposteur — une Tâche est neutralisée (défaussée) car assez de Coéquipiers
+   *  ont atteint son lieu. L'UI joue le son « Task complete ». */
+  | { kind: 'task-completed'; playerIndex: number; cardId: string }
+  /** L'Imposteur — la Fatalité « Corps découvert » est jouée : l'UI affiche le
+   *  bandeau « DEAD BODY REPORTED » et joue le son associé. */
+  | { kind: 'dead-body'; playerIndex: number }
+  /** L'Imposteur — la Fatalité « Réunion d'urgence » est jouée : l'UI affiche le
+   *  bandeau « EMERGENCY MEETING » (pleine largeur) et joue le son associé. */
+  | { kind: 'emergency-meeting'; playerIndex: number }
 
 /** Événement « cinématique » émis par le moteur pour que l'UI affiche la
  *  carte en grand avec un message d'effet. Purement informatif (n'affecte pas
@@ -1188,6 +1331,18 @@ export type GameAction =
   /** Digne Adversaire / Obsession : joue le Héros dévoilé sur le lieu `to` (`play:
    *  true`) ou le défausse (`play: false`). */
   | { type: 'RESOLVE_FETCHED_HERO'; play: boolean; to?: LocationId }
+  /** L'Imposteur — Tuer : défausse le Coéquipier `color` choisi (pendingCrewmateKill). */
+  | { type: 'RESOLVE_CREWMATE_KILL'; color: string }
+  /** L'Imposteur — Tâche visuelle : rend suspect le Coéquipier `color` choisi. */
+  | { type: 'RESOLVE_CREWMATE_SUSPECT'; color: string }
+  /** L'Imposteur — Tâche visuelle : termine la sélection (moins de 3 choisis). */
+  | { type: 'DONE_CREWMATE_SUSPECT' }
+  /** L'Imposteur — Assurance : déplace le Coéquipier rassuré vers le lieu `to`. */
+  | { type: 'RESOLVE_CREWMATE_MOVE'; to: LocationId }
+  /** L'Imposteur — Assurance : ne pas déplacer (termine). */
+  | { type: 'DONE_CREWMATE_MOVE' }
+  /** L'Imposteur — Vidéo de surveillance / Carte : associe l'Objet au lieu choisi. */
+  | { type: 'RESOLVE_FATE_OBJECT_PLACE'; locationId: LocationId }
   /** Carte du Pays Imaginaire : défausse la Carte (du royaume) et joue
    *  gratuitement l'Objet `itemInstanceId` de la main sur le lieu `to`
    *  (associé à `attachTo` si l'Objet s'associe). */

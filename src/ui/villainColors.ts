@@ -11,6 +11,7 @@ export const VILLAIN_COLOR: Record<string, string> = {
   hades: '#226077',
   facilier: '#822364',
   bowser: '#1F6B3A',
+  imposteur: '#7A1212',
 }
 
 /** Teintes de repli (camp joueur / adversaire) quand la couleur d'un vilain est

@@ -4,6 +4,7 @@
 
 import type {
   CardInstance,
+  Crewmate,
   FloatingFx,
   GameState,
   Location,
@@ -281,7 +282,29 @@ function makePlayer(
     // Bowser — Étoiles de départ sur l'Observatoire (absent pour les autres).
     observatoryStars: villain.starSetup?.count,
     starLocationId: villain.starSetup?.locationId,
+    // L'Imposteur — ses 8 Coéquipiers de départ.
+    crewmates: villain.id === 'imposteur' ? initialCrewmates(villain) : undefined,
   }
+}
+
+/** Couleurs des 8 Coéquipiers de L'Imposteur, dans l'ordre de placement
+ *  (lieu par lieu, gauche → droite sur la rangée du haut). */
+const CREW_COLORS = ['blanc', 'bleu', 'noir', 'orange', 'rose', 'vert', 'vert-clair', 'violet']
+
+/** Place les 8 Coéquipiers, un par case de la rangée du HAUT (2 par lieu sur les
+ *  4 lieux), tous « normaux » au départ. */
+function initialCrewmates(villain: VillainDef): Crewmate[] {
+  return villain.locations.slice(0, 4).flatMap((loc, li) =>
+    [0, 1].map(
+      (slot): Crewmate => ({
+        color: CREW_COLORS[li * 2 + slot],
+        locationId: loc.id,
+        row: 'top',
+        slot,
+        suspect: false,
+      }),
+    ),
+  )
 }
 
 /**

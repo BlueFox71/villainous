@@ -12,6 +12,7 @@ const PORTRAIT: Partial<Record<VillainKey, string>> = {
   hades: '/hades.png',
   facilier: '/facilier.png',
   bowser: '/bowser.png',
+  imposteur: '/imposteur2_zoom.jpg',
 }
 
 /** Portrait d'un vilain, avec repli sur son dos de carte si non défini. */
@@ -30,9 +31,22 @@ const PRESENTATION: Partial<Record<VillainKey, string>> = {
   ursula: '/presentations/ursula.png',
   hades: '/presentations/hades.png',
   facilier: '/presentations/facilier.png',
+  imposteur: '/presentations/imposteur.png',
 }
 
 /** Illustration de présentation d'un vilain (undefined si non disponible). */
 export function villainPresentation(key: VillainKey): string | undefined {
   return PRESENTATION[key]
+}
+
+/** Réglage EXCEPTIONNEL de la présentation par vilain (l'illustration de base est
+ *  pensée pour remplir la hauteur). `scale` rétrécit, `dxPct`/`dyPct` décalent en
+ *  % de la taille de l'image (dx > 0 = vers la droite ; dy > 0 = vers le bas, le
+ *  personnage descend sous le bord, derrière le footer). Origine = bas. */
+export const PRESENTATION_TWEAK: Partial<
+  Record<VillainKey, { scale?: number; dxPct?: number; dyPct?: number; versusDyPct?: number }>
+> = {
+  // `versusDyPct` : décalage vertical SPÉCIFIQUE à l'écran versus (début de partie),
+  // sinon on reprend `dyPct` (écran de choix).
+  imposteur: { scale: 0.55, dxPct: 0, dyPct: -5, versusDyPct: -12 },
 }
