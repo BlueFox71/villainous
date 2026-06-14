@@ -32,6 +32,7 @@ const VOICE_PREFIX: Record<VillainKey, string> = {
   ursula: 'Ursula',
   hades: 'Hadès',
   facilier: 'Docteur Facilier',
+  bowser: 'Bowser', // pas (encore) de fichiers de voix → intro silencieuse
 }
 
 const CONTRE_PREFIX = 'Contre'

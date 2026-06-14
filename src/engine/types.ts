@@ -86,6 +86,10 @@ export interface VillainDef {
   /** Lieux VERROUILLÉS à la mise en place (Jafar : la Caverne aux Merveilles).
    *  Recopié dans PlayerState.lockedLocations. Absent = aucun verrou. */
   lockedLocationsAtStart?: LocationId[]
+  /** Bowser : mise en place des Étoiles. `locationId` = l'Observatoire de la
+   *  Comète ; `count` = Étoiles posées au départ. Ce lieu est VERROUILLÉ
+   *  dynamiquement dès qu'il tombe à 0 Étoile. Absent = vilain sans Étoiles. */
+  starSetup?: { locationId: LocationId; count: number }
 }
 
 /**
@@ -131,6 +135,11 @@ export type ObjectiveDef =
    *  depuis la Pile de l'Au-delà via Divination. Victoire ÉVÉNEMENTIELLE — déclenchée
    *  au moment de la résolution de Divination, pas par un contrôle passif. */
   | { type: 'REIGN_NEW_ORLEANS' }
+  /** Bowser : au début de son tour, l'Observatoire de la Comète est « épuisé »
+   *  (0 Étoile) ET Peach a été capturée (drapeau `peachCaptured`, posé uniquement
+   *  par la carte Impuissance). `blockerHeroCardId` (Mario) : tant qu'un Héros de
+   *  ce cardId est présent dans le royaume, la victoire est impossible. */
+  | { type: 'DEPLETE_OBSERVATORY_AND_CAPTURE'; blockerHeroCardId?: string }
 
 /** Phase courante à l'intérieur d'un tour. */
 export type TurnPhase =
@@ -389,6 +398,43 @@ export type Effect =
   /** Dr Facilier — Terreur : récupère dans la défausse de l'acteur une carte d'un
    *  des `types` (auto : Événement en priorité) et l'ajoute à sa main. */
   | { type: 'RECOVER_TYPE_FROM_DISCARD'; types: CardType[] }
+  /** Bowser — remet `amount` Étoile(s) sur l'Observatoire de l'acteur (Mario,
+   *  Vous avez obtenu une grande étoile !). Resync le verrou dynamique. No-op si
+   *  l'acteur n'a pas d'Observatoire (pas Bowser). */
+  | { type: 'RETURN_STAR_TO_OBSERVATORY'; amount: number }
+  /** Bowser — Goinfre (Fatalité) : l'acteur (cible) perd `amount` jetons Pouvoir
+   *  (plancher 0). */
+  | { type: 'LOSE_POWER'; amount: number }
+  /** Bowser — épuisement d'énergie : retire 1 Étoile de l'Observatoire et la pose
+   *  sur l'Allié `ctx.allyInstanceIds[0]` (sur le lieu du pion). No-op si plus
+   *  d'Étoile ou pas d'Allié cible. Resync le verrou. */
+  | { type: 'DRAIN_STAR_TO_ALLY' }
+  /** Bowser — Luigi (Fatalité, à la pose) : défausse tous les Alliés du lieu hôte
+   *  (+ leurs Objets associés) ; chaque Étoile portée par ces Alliés est remise à
+   *  l'Observatoire. */
+  | { type: 'DISCARD_ALLIES_AND_RETURN_STARS_AT_HOST' }
+  /** Bowser — Dino Piranha / Kamella (à la pose d'un Allié) : si l'Allié hôte est
+   *  joué sur l'Observatoire, retire 1 Étoile de l'Observatoire et la pose sur lui.
+   *  No-op sinon. */
+  | { type: 'DRAIN_STAR_TO_SELF_IF_AT_OBSERVATORY' }
+  /** Bowser — Impuissance : capture Peach (drapeau `peachCaptured`) si un Héros
+   *  `peachCardId` est présent dans le royaume de l'acteur. No-op sinon (l'autre
+   *  branche « Éliminer un Héros » passe par INSTANT_VANQUISH_HERO_LE). */
+  | { type: 'CAPTURE_PEACH'; peachCardId: string }
+  /** Bowser — Impuissance : résout le choix « Éliminer un Héros ≤ maxStrength OU
+   *  capturer Peach ». Si `ctx.targetHeroId` est fourni → Vanquish instantané du
+   *  Héros ; sinon → capture de Peach. */
+  | { type: 'IMPUISSANCE_RESOLVE'; peachCardId: string; maxStrength: number }
+  /** Bowser — Te revoilà ! : ouvre le choix (pendingRecover) d'une carte
+   *  QUELCONQUE de la défausse à reprendre en main. */
+  | { type: 'RECOVER_ANY_FROM_DISCARD' }
+  /** Bowser — Vol du château : dévoile la pioche jusqu'à un Allié ou un Objet, le
+   *  joue gratuitement sur le lieu du pion, et remet les autres cartes dévoilées
+   *  sur le dessus de la pioche (ordre conservé). */
+  | { type: 'REVEAL_UNTIL_PLAY_ALLY_OR_ITEM' }
+  /** Bowser — Comète farceuse (Fatalité) : défausse un Objet du royaume de la
+   *  cible (auto : un Objet non associé). */
+  | { type: 'DISCARD_ONE_ITEM' }
 
 /**
  * Un exemplaire physique d'une carte en jeu. Comme une même carte existe en
@@ -449,6 +495,10 @@ export interface CardInstance {
    *  PJ, Voler aux Riches ≤4 prélevés sur un Héros). Restitués au joueur quand
    *  la carte est défaussée/vaincue (mécanique combat — bloc B). */
   lockedPower?: number
+  /** Bowser — Étoiles déposées sur cet Allié (drainées de l'Observatoire par
+   *  épuisement d'énergie, Dino Piranha, Kamella…). Défaussées avec la carte ;
+   *  une Étoile est perdue si l'Allié sert à éliminer un Héros (cf. règle carte). */
+  stars?: number
   /** Restrictions imposées sur le lieu où cette carte est posée (Malédictions). */
   placementRestriction?: PlacementRestriction
   /** Modificateur passif de force que cette carte applique aux AUTRES cartes du
@@ -679,6 +729,15 @@ export interface PlayerState {
    *  au hasard et résout leurs effets Au-delà. Toujours présent (`[]`) ; seul
    *  Facilier l'alimente. */
   auDela: CardInstance[]
+  /** Bowser — Étoiles présentes sur l'Observatoire de la Comète. `undefined`
+   *  pour les vilains sans Étoiles. Quand ce compteur tombe à 0, le lieu
+   *  `starLocationId` est verrouillé (helper syncObservatoryLock). */
+  observatoryStars?: number
+  /** Bowser — id du lieu Observatoire (recopié de VillainDef.starSetup), pour
+   *  savoir quel lieu verrouiller à 0 Étoile et où les remettre. */
+  starLocationId?: LocationId
+  /** Bowser — Peach a été capturée (via Impuissance). Condition de victoire. */
+  peachCaptured?: boolean
 }
 
 /**
@@ -747,7 +806,7 @@ export interface GameState {
    * déplacer le pion de `targetIndex` (Maléfique) sur n'importe quel lieu, ou
    * pas (optionnel). Résolu par RESOLVE_PAWN_MOVE. Absent hors de ce choix.
    */
-  pendingPawnMove?: { chooserIndex: number; targetIndex: number }
+  pendingPawnMove?: { chooserIndex: number; targetIndex: number; via?: string }
   /**
    * Roi Hubert : `chooserIndex` peut attirer UN Allié de chaque lieu voisin de
    * `dest` vers `dest`, sur le plateau de `targetIndex`. Résolu par

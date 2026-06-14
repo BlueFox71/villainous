@@ -566,6 +566,20 @@ export function cardNeedsSacrificeTarget(card: CardInstance): boolean {
   return (card.effects ?? []).some((e) => e.type === 'DISCARD_OWN_FOR_POWER')
 }
 
+/** Bowser — vrai si cette carte draine une Étoile vers un Allié choisi
+ *  (épuisement d'énergie). */
+export function cardNeedsStarAllyTarget(card: CardInstance): boolean {
+  return (card.effects ?? []).some((e) => e.type === 'DRAIN_STAR_TO_ALLY')
+}
+
+/** Bowser — Alliés candidats pour recevoir une Étoile drainée : les Alliés
+ *  présents sur le lieu du pion du joueur actif (l'épuisement se joue là). */
+export function drainStarAllies(state: GameState): CardInstance[] {
+  const me = activePlayer(state)
+  if (me.pawnLocation == null) return []
+  return (me.board[me.pawnLocation] ?? []).filter((c) => c.type === 'ally' && !c.isWicket)
+}
+
 /** Alliés et Objets (non associés) du royaume du joueur actif, candidats au
  *  sacrifice (Sacrifice Nécessaire). */
 export function sacrificeableCards(state: GameState): CardInstance[] {
@@ -736,6 +750,20 @@ export function hasReachedObjective(state: GameState): boolean {
       // Victoire déclenchée pendant la résolution de Divination (révéler Régner en
       // détenant le Talisman), pas par un contrôle passif en début de tour.
       return false
+    case 'DEPLETE_OBSERVATORY_AND_CAPTURE': {
+      const obj = p.objective
+      // Observatoire épuisé (0 Étoile) ET Peach capturée…
+      if ((p.observatoryStars ?? 0) > 0) return false
+      if (!p.peachCaptured) return false
+      // …et aucun Héros « bloqueur » (Mario) présent dans le royaume.
+      if (obj.blockerHeroCardId) {
+        const blocked = Object.values(p.board).some((cards) =>
+          cards.some((c) => c.type === 'hero' && c.cardId === obj.blockerHeroCardId),
+        )
+        if (blocked) return false
+      }
+      return true
+    }
   }
 }
 

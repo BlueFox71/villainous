@@ -278,7 +278,30 @@ function makePlayer(
       ? [...villain.lockedLocationsAtStart]
       : undefined,
     auDela: [],
+    // Bowser — Étoiles de départ sur l'Observatoire (absent pour les autres).
+    observatoryStars: villain.starSetup?.count,
+    starLocationId: villain.starSetup?.locationId,
   }
+}
+
+/**
+ * Bowser — synchronise le verrou dynamique de l'Observatoire avec son compteur
+ * d'Étoiles : le lieu `starLocationId` est VERROUILLÉ tant qu'il a 0 Étoile,
+ * déverrouillé dès qu'il en a au moins une (règle « tant qu'il y a une Étoile à
+ * l'Observatoire, ce lieu n'est pas bloqué »). Réutilise lockedLocations, donc
+ * tout le moteur (déplacement, pose, adjacence, Fatalité) en hérite. No-op pour
+ * un joueur sans Étoiles. Renvoie un nouveau PlayerState (immuable).
+ */
+export function syncObservatoryLock(player: PlayerState): PlayerState {
+  const loc = player.starLocationId
+  if (loc === undefined || player.observatoryStars === undefined) return player
+  const locked = new Set(player.lockedLocations ?? [])
+  const shouldLock = player.observatoryStars <= 0
+  if (shouldLock === locked.has(loc)) return player // déjà synchronisé
+  if (shouldLock) locked.add(loc)
+  else locked.delete(loc)
+  const next = [...locked]
+  return { ...player, lockedLocations: next.length > 0 ? next : undefined }
 }
 
 /**

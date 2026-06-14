@@ -11,8 +11,8 @@
 // Ajouter un comportement = ajouter un variant à Effect + un `case` ici.
 // =============================================================================
 
-import type { CardInstance, CurseDiscardTrigger, Effect, GameState, LocationId } from './types'
-import { activePlayer, findLocation, pushDiscardShowcase, pushFloatingFx, pushRobinSteal, pushShowcase, revealFate, updateActivePlayer, updatePlayer } from './state'
+import type { CardInstance, CurseDiscardTrigger, Effect, GameState, LocationId, PlayerState } from './types'
+import { activePlayer, findLocation, pushDiscardShowcase, pushFloatingFx, pushRobinSteal, pushShowcase, revealFate, syncObservatoryLock, updateActivePlayer, updatePlayer } from './state'
 import { shuffle } from './rng'
 import {
   adjacentLocationIds,
@@ -2346,6 +2346,247 @@ export function resolveEffect(
         log: [...next.log, `${actor.villainName} récupère **${pick.name}** de sa défausse (Terreur).`],
       }
     }
+
+    // ----- Bowser : mécanique des Étoiles -----------------------------------
+    case 'RETURN_STAR_TO_OBSERVATORY': {
+      const actor = state.players[idx]
+      // No-op pour un joueur sans Observatoire (pas Bowser).
+      if (actor.starLocationId === undefined || actor.observatoryStars === undefined) return state
+      const amount = effect.amount
+      const next = updatePlayer(state, idx, (p) =>
+        syncObservatoryLock({ ...p, observatoryStars: (p.observatoryStars ?? 0) + amount }),
+      )
+      const np = next.players[idx]
+      const s = amount > 1 ? 's' : ''
+      return {
+        ...next,
+        log: [...next.log, `${np.villainName} : ${amount} Étoile${s} remise${s} à l'Observatoire (total : ${np.observatoryStars}).`],
+      }
+    }
+    case 'LOSE_POWER': {
+      const actor = state.players[idx]
+      const lost = Math.min(actor.power, effect.amount)
+      const next = updatePlayer(state, idx, (p) => ({ ...p, power: Math.max(0, p.power - effect.amount) }))
+      const np = next.players[idx]
+      return { ...next, log: [...next.log, `${np.villainName} perd ${lost} JT (total : ${np.power}).`] }
+    }
+    case 'DRAIN_STAR_TO_ALLY': {
+      const actor = state.players[idx]
+      if ((actor.observatoryStars ?? 0) <= 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : l'Observatoire est déjà épuisé, rien à drainer.`] }
+      }
+      // Harmonie : tant qu'elle est présente, l'Observatoire garde au moins 1 Étoile.
+      if (harmonieKeepsLastStar(actor)) {
+        return { ...state, log: [...state.log, `Harmonie veille : l'Observatoire doit garder au moins une Étoile.`] }
+      }
+      const loc = actor.pawnLocation
+      if (loc == null) return state
+      const cell = actor.board[loc] ?? []
+      const allyId = ctx?.allyInstanceIds?.[0]
+      const target = allyId
+        ? cell.find((c) => c.instanceId === allyId && c.type === 'ally')
+        : cell.find((c) => c.type === 'ally' && !c.isWicket)
+      if (!target) {
+        return { ...state, log: [...state.log, `${actor.villainName} : aucun Allié sur place pour recevoir l'Étoile.`] }
+      }
+      const next = updatePlayer(state, idx, (p) =>
+        syncObservatoryLock({
+          ...p,
+          observatoryStars: (p.observatoryStars ?? 0) - 1,
+          board: {
+            ...p.board,
+            [loc]: (p.board[loc] ?? []).map((c) =>
+              c.instanceId === target.instanceId ? { ...c, stars: (c.stars ?? 0) + 1 } : c,
+            ),
+          },
+        }),
+      )
+      const np = next.players[idx]
+      return {
+        ...next,
+        log: [...next.log, `${np.villainName} draine une Étoile de l'Observatoire vers **${target.name}** (reste ${np.observatoryStars} à l'Observatoire).`],
+      }
+    }
+    case 'DRAIN_STAR_TO_SELF_IF_AT_OBSERVATORY': {
+      const actor = state.players[idx]
+      const loc = ctx?.hostLocationId
+      const hostId = ctx?.hostInstanceId
+      // Uniquement si l'Allié hôte est posé SUR l'Observatoire et qu'il y a une Étoile.
+      if (loc === undefined || hostId === undefined || loc !== actor.starLocationId) return state
+      if ((actor.observatoryStars ?? 0) <= 0) return state
+      if (harmonieKeepsLastStar(actor)) {
+        return { ...state, log: [...state.log, `Harmonie veille : l'Observatoire garde sa dernière Étoile.`] }
+      }
+      const host = (actor.board[loc] ?? []).find((c) => c.instanceId === hostId)
+      if (!host) return state
+      const next = updatePlayer(state, idx, (p) =>
+        syncObservatoryLock({
+          ...p,
+          observatoryStars: (p.observatoryStars ?? 0) - 1,
+          board: {
+            ...p.board,
+            [loc]: (p.board[loc] ?? []).map((c) =>
+              c.instanceId === hostId ? { ...c, stars: (c.stars ?? 0) + 1 } : c,
+            ),
+          },
+        }),
+      )
+      const np = next.players[idx]
+      return {
+        ...next,
+        log: [...next.log, `**${host.name}** prend une Étoile de l'Observatoire (reste ${np.observatoryStars}).`],
+      }
+    }
+    case 'DISCARD_ALLIES_AND_RETURN_STARS_AT_HOST': {
+      const loc = ctx?.hostLocationId
+      if (loc === undefined) return state
+      const actor = state.players[idx]
+      const cell = actor.board[loc] ?? []
+      const allies = cell.filter((c) => c.type === 'ally' && !c.isWicket)
+      if (allies.length === 0) return state
+      const allyIds = new Set(allies.map((c) => c.instanceId))
+      // Objets associés à ces Alliés → défaussés avec eux.
+      const attached = cell.filter((c) => c.attachedTo && allyIds.has(c.attachedTo))
+      const removed = new Set([...allyIds, ...attached.map((c) => c.instanceId)])
+      const starsReturned = allies.reduce((n, c) => n + (c.stars ?? 0), 0)
+      const next = updatePlayer(state, idx, (p) =>
+        syncObservatoryLock({
+          ...p,
+          board: { ...p.board, [loc]: (p.board[loc] ?? []).filter((c) => !removed.has(c.instanceId)) },
+          // Les Étoiles portées repartent à l'Observatoire (on les retire des cartes).
+          discard: [...p.discard, ...allies.map((c) => ({ ...c, stars: undefined })), ...attached],
+          observatoryStars:
+            p.observatoryStars !== undefined ? p.observatoryStars + starsReturned : p.observatoryStars,
+        }),
+      )
+      const sr = starsReturned > 1 ? 's' : ''
+      const tail =
+        starsReturned > 0 ? ` ; ${starsReturned} Étoile${sr} remise${sr} à l'Observatoire` : ''
+      return {
+        ...next,
+        log: [...next.log, `Luigi défausse ${allies.length} Allié${allies.length > 1 ? 's' : ''} de son lieu${tail}.`],
+      }
+    }
+    case 'CAPTURE_PEACH': {
+      const actor = state.players[idx]
+      let peachLoc: LocationId | undefined
+      let peach: CardInstance | undefined
+      for (const l of actor.locations) {
+        const found = (actor.board[l.id] ?? []).find(
+          (c) => c.type === 'hero' && c.cardId === effect.peachCardId,
+        )
+        if (found) { peachLoc = l.id; peach = found; break }
+      }
+      if (!peach || !peachLoc) {
+        return { ...state, log: [...state.log, `${actor.villainName} : Peach n'est pas en jeu, impossible de la capturer.`] }
+      }
+      // Peach quitte le plateau (capturée) : elle + ses Objets associés → défausse
+      // Fatalité, et le drapeau de capture est posé (condition de victoire).
+      const ploc = peachLoc
+      const attached = (actor.board[ploc] ?? []).filter((c) => c.attachedTo === peach!.instanceId)
+      const removed = new Set([peach.instanceId, ...attached.map((c) => c.instanceId)])
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        peachCaptured: true,
+        board: { ...p.board, [ploc]: (p.board[ploc] ?? []).filter((c) => !removed.has(c.instanceId)) },
+        fateDiscard: [...p.fateDiscard, { ...peach!, attachedTo: undefined }, ...attached],
+      }))
+      return { ...next, log: [...next.log, `${next.players[idx].villainName} capture **Peach** !`] }
+    }
+    case 'IMPUISSANCE_RESOLVE': {
+      // Choix de la carte Impuissance : un Héros cible → on l'élimine (≤ maxStrength) ;
+      // sinon → on capture Peach.
+      if (ctx?.targetHeroId) {
+        return resolveEffect(state, { type: 'INSTANT_VANQUISH_HERO_LE', maxStrength: effect.maxStrength }, ctx)
+      }
+      return resolveEffect(state, { type: 'CAPTURE_PEACH', peachCardId: effect.peachCardId }, ctx)
+    }
+    case 'RECOVER_ANY_FROM_DISCARD': {
+      // Te revoilà ! : reprend en main une carte QUELCONQUE de la défausse (choix).
+      const actor = state.players[idx]
+      if (actor.discard.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : défausse vide, rien à récupérer.`] }
+      }
+      return {
+        ...state,
+        pendingRecover: { playerIndex: idx, candidateIds: actor.discard.map((c) => c.instanceId) },
+        log: [...state.log, `${actor.villainName} récupère une carte de sa défausse (Te revoilà !).`],
+      }
+    }
+    case 'REVEAL_UNTIL_PLAY_ALLY_OR_ITEM': {
+      // Vol du château : dévoile jusqu'à un Allié/Objet, le joue gratuitement sur
+      // le lieu du pion, remet les autres dévoilées sur le dessus de la pioche.
+      const actor = state.players[idx]
+      const dest = actor.pawnLocation ?? actor.locations[0]?.id
+      if (dest === undefined) return state
+      let deck = [...actor.deck]
+      let disc = [...actor.discard]
+      let rng = state.rngState
+      const revealed: CardInstance[] = []
+      let found: CardInstance | undefined
+      while (!found) {
+        if (deck.length === 0) {
+          if (disc.length === 0) break
+          const r = shuffle(disc, rng)
+          deck = r.result
+          rng = r.state
+          disc = []
+        }
+        const [top, ...rest] = deck
+        deck = rest
+        if (top.type === 'ally' || top.type === 'item') found = top
+        else revealed.push(top)
+      }
+      if (!found) {
+        // Rien trouvé : on remet les cartes dévoilées et on garde l'état mélangé.
+        const next = updatePlayer({ ...state, rngState: rng }, idx, (p) => ({ ...p, deck: [...revealed, ...deck], discard: disc }))
+        return { ...next, log: [...next.log, `${actor.villainName} : aucun Allié ni Objet trouvé (Vol du château).`] }
+      }
+      // Objet associé à un Allié/Héros : impossible à poser librement → en main.
+      const playFree = found.attach !== 'ally' && found.attach !== 'hero'
+      let next = updatePlayer({ ...state, rngState: rng }, idx, (p) => ({
+        ...p,
+        deck: [...revealed, ...deck], // les autres dévoilées repassent sur le dessus
+        discard: disc,
+        board: playFree ? { ...p.board, [dest]: [...(p.board[dest] ?? []), found!] } : p.board,
+        hand: playFree ? p.hand : [...p.hand, found!],
+      }))
+      const destName = findLocation(actor, dest)?.name ?? dest
+      next = {
+        ...next,
+        log: [
+          ...next.log,
+          playFree
+            ? `${actor.villainName} joue gratuitement **${found.name}** sur **${destName}** (Vol du château).`
+            : `${actor.villainName} ajoute **${found.name}** à sa main (Vol du château).`,
+        ],
+      }
+      if (playFree && found.type === 'ally') {
+        next = processCurseDiscards(next, idx, dest, 'ally-played-here')
+      }
+      return next
+    }
+    case 'DISCARD_ONE_ITEM': {
+      // Comète farceuse (Fatalité) : défausse un Objet (non associé) du royaume cible.
+      const actor = state.players[idx]
+      let pickLoc: LocationId | undefined
+      let pick: CardInstance | undefined
+      for (const l of actor.locations) {
+        const found = (actor.board[l.id] ?? []).find((c) => c.type === 'item' && !c.attachedTo)
+        if (found) { pickLoc = l.id; pick = found; break }
+      }
+      if (!pick || !pickLoc) {
+        return { ...state, log: [...state.log, `${actor.villainName} : aucun Objet à défausser (Comète farceuse).`] }
+      }
+      const ploc = pickLoc
+      // Objets associés à cet Objet (aucun en pratique) ignorés ; on défausse l'Objet.
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        board: { ...p.board, [ploc]: (p.board[ploc] ?? []).filter((c) => c.instanceId !== pick!.instanceId) },
+        discard: [...p.discard, pick!],
+      }))
+      return { ...next, log: [...next.log, `Comète farceuse : **${pick.name}** est défaussé du royaume de ${actor.villainName}.`] }
+    }
   }
 }
 
@@ -2368,6 +2609,16 @@ function auDelaKeyPriority(c: CardInstance): number {
  *  Talisman et Divination en sont explicitement exclus (mention sur la carte). */
 export function canEnterAuDela(c: CardInstance): boolean {
   return c.cardId !== 'talisman' && c.cardId !== 'divination-facilier'
+}
+
+/** Bowser — Harmonie : tant qu'un Héros « harmonie » est présent dans le royaume,
+ *  l'Observatoire doit garder au moins 1 Étoile → vrai s'il n'en reste qu'une (le
+ *  drain de la dernière est interdit). No-op si l'Observatoire est déjà bloqué (0). */
+function harmonieKeepsLastStar(actor: PlayerState): boolean {
+  if ((actor.observatoryStars ?? 0) > 1) return false
+  return Object.values(actor.board).some((cards) =>
+    cards.some((c) => c.type === 'hero' && c.cardId === 'harmonie'),
+  )
 }
 
 /** Dr Facilier — vrai si le joueur DÉTIENT le Talisman : un exemplaire de Talisman

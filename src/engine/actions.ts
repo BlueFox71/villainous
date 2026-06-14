@@ -441,6 +441,16 @@ function applyPlayCard(
     if (card.type === 'ally') {
       next = processCurseDiscards(next, state.activePlayer, destId, 'ally-played-here')
     }
+    // Bowser — Dino Piranha / Kamella : effet « à la pose » résolu APRÈS placement
+    // (l'Allié doit être sur le board pour recevoir l'Étoile). Le passage générique
+    // pré-placement (resolveEffects ci-dessus) est un no-op faute de hostLocationId.
+    if (card.type === 'ally' && (card.effects ?? []).some((e) => e.type === 'DRAIN_STAR_TO_SELF_IF_AT_OBSERVATORY')) {
+      next = resolveEffects(next, [{ type: 'DRAIN_STAR_TO_SELF_IF_AT_OBSERVATORY' }], {
+        actorIndex: state.activePlayer,
+        hostInstanceId: placed.instanceId,
+        hostLocationId: destId,
+      })
+    }
   } else if (card.goesToAuDelaOnPlay) {
     // Dr Facilier — Amis de l'au-delà / Régner : l'Événement va dans la Pile de
     // l'Au-delà au lieu de la défausse.
@@ -529,6 +539,22 @@ function consumeDragonFormReward(state: GameState, targetIndex: number): GameSta
   return pushShowcase(next, 'apparence-dragon', `${tgt.villainName} : +3 JT (Apparence de Dragon)`, targetIndex)
 }
 
+/** Bowser — Bowser Jr. : la cible d'une action Fatalité pioche 1 carte par
+ *  Bowser Jr. présent dans son royaume. Thread le rngState via state.rngState. */
+function drawOnFateTargeted(state: GameState, targetIndex: number): GameState {
+  const tgt = state.players[targetIndex]
+  const jrs = Object.values(tgt.board).flat().filter((c) => c.type === 'ally' && c.cardId === 'bowser-jr').length
+  if (jrs === 0) return state
+  const r = drawPlayerToLimitN(tgt, state.rngState, jrs)
+  if (r.drawn === 0) return state
+  const next = updatePlayer(state, targetIndex, () => r.player)
+  return {
+    ...next,
+    rngState: r.rngState,
+    log: [...next.log, `Bowser Jr. : ${tgt.villainName} pioche ${r.drawn} carte${r.drawn > 1 ? 's' : ''} (ciblé par la Fatalité).`],
+  }
+}
+
 /** Lance la Fatalité : révèle FATE_REVEAL cartes du deck Fatalité de la cible. */
 function applyFate(state: GameState, actionId: string): GameState {
   if (state.phase !== 'ACTION') {
@@ -576,12 +602,15 @@ function applyFate(state: GameState, actionId: string): GameState {
     return placeFateHeroWithEffects(next, target, state.activePlayer, pp, 'arbre-pendu', arbreName)
   }
   let next = updatePlayer(state, target, () => r.player)
+  next = { ...next, rngState: r.rngState }
   // Apparence de Dragon : si la cible avait armé sa récompense, +3 JT immédiats.
   next = consumeDragonFormReward(next, target)
   next = consumePersifleur(next, action)
+  // Bowser Jr. : la cible pioche 1 carte par Bowser Jr. présent (peut remélanger
+  // → on a déjà fixé rngState ci-dessus, le helper le fait évoluer).
+  next = drawOnFateTargeted(next, target)
   return {
     ...next,
-    rngState: r.rngState,
     usedActionIds: [...next.usedActionIds, actionId],
     pendingFate: { target, revealed: r.revealed },
     log: [
@@ -1307,6 +1336,34 @@ function applyResolveFateInner(
     return resolveEffects(next, chosen.effects ?? [], { actorIndex: pending.target })
   }
 
+  // Bowser (Fatalité) — Événements résolus sur la CIBLE : « Vous avez obtenu une
+  // grande étoile ! » (remet une Étoile), « Goinfre » (la cible perd 2 JT) et
+  // « Comète farceuse » (défausse un Objet). Effets portés par chosen.effects.
+  if (chosen.cardId === 'gain-grand-star' || chosen.cardId === 'monnaie' || chosen.cardId === 'comete') {
+    let next = updatePlayer(state, pending.target, (p) => ({
+      ...p,
+      fateDiscard: [...p.fateDiscard, chosen, ...others],
+    }))
+    next = { ...next, pendingFate: null }
+    return resolveEffects(next, chosen.effects ?? [], { actorIndex: pending.target })
+  }
+
+  // Bowser (Fatalité) — « Anneau étoile » : le joueur qui pose la Fatalité déplace
+  // le pion de Bowser sur le lieu de son choix (réutilise pendingPawnMove).
+  if (chosen.cardId === 'anneau') {
+    let next = updatePlayer(state, pending.target, (p) => ({
+      ...p,
+      fateDiscard: [...p.fateDiscard, chosen, ...others],
+    }))
+    next = {
+      ...next,
+      pendingFate: null,
+      pendingPawnMove: { chooserIndex: state.activePlayer, targetIndex: pending.target, via: 'Anneau étoile' },
+      log: [...next.log, `Anneau étoile : ${state.players[state.activePlayer].villainName} déplace ${tgt.villainName}.`],
+    }
+    return next
+  }
+
   // Fallback (carte Fatalité non implémentée) : simple défausse.
   const next = updatePlayer(state, pending.target, (p) => ({
     ...p,
@@ -1667,6 +1724,32 @@ function applyActivate(
     }
   }
 
+  if (card.cardId === 'ghostly') {
+    // Bowser — Galaxie hantée : regarde les 4 premières cartes de la pioche, en
+    // garde 1 (auto : la plus utile), défausse les autres.
+    let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost! }))
+    next = resolveEffects(next, [{ type: 'LOOK_TOP_DRAW_DISCARD', look: 4, take: 1 }], { actorIndex: state.activePlayer })
+    next = consumePersifleur(next, action)
+    return {
+      ...next,
+      usedActionIds: [...next.usedActionIds, actionId],
+      log: [...next.log, `${me.villainName} active **${card.name}** : regarde 4 cartes, en garde 1.`],
+    }
+  }
+
+  if (card.cardId === 'bowser-jr') {
+    // Bowser — Bowser Jr. : paie 3 JT, cherche PEACH dans sa pioche Fatalité et la
+    // joue au Château de Peach (pour pouvoir ensuite la capturer via Impuissance).
+    let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost! }))
+    next = resolveEffects(next, [{ type: 'SUMMON_FATE_HERO_TO_OWN_REALM', heroCardId: 'peach', locationId: 'chateau-peach' }], { actorIndex: state.activePlayer })
+    next = consumePersifleur(next, action)
+    return {
+      ...next,
+      usedActionIds: [...next.usedActionIds, actionId],
+      log: [...next.log, `${me.villainName} active **Bowser Jr.** : cherche Peach (−${card.activatedCost} JT).`],
+    }
+  }
+
   throw new Error(`Capacité activée non implémentée pour ${card.name}.`)
 }
 
@@ -1962,10 +2045,11 @@ function resolveConditionEffect(
       ],
     }
   }
-  if (card.cardId === 'lachete') {
-    // Lâcheté : pose un Allié gratuitement chez le joueur.
-    if (!allyInstanceId) throw new Error('Lâcheté : précisez l\'Allié à poser.')
-    if (!to) throw new Error('Lâcheté : précisez le lieu de pose.')
+  if (card.cardId === 'lachete' || card.cardId === 'renforts') {
+    // Lâcheté / Besoin de renfort : pose un Allié gratuitement chez le joueur.
+    const label = card.name
+    if (!allyInstanceId) throw new Error(`${label} : précisez l'Allié à poser.`)
+    if (!to) throw new Error(`${label} : précisez le lieu de pose.`)
     const acting = next.players[playerIndex]
     const ally = acting.hand.find((c) => c.instanceId === allyInstanceId)
     if (!ally) throw new Error(`Allié « ${allyInstanceId} » absent de la main.`)
@@ -2299,16 +2383,17 @@ function applyResolvePawnMove(state: GameState, locationId: LocationId | null): 
   if (!pending) throw new Error('Aucun déplacement de pion en attente.')
   const { targetIndex } = pending
   const target = state.players[targetIndex]
+  const via = pending.via ?? 'Roi Stéphane'
   let next: GameState = { ...state, pendingPawnMove: undefined }
   if (locationId === null || locationId === target.pawnLocation) {
-    return { ...next, log: [...next.log, `${target.villainName} n'est pas déplacé (Roi Stéphane).`] }
+    return { ...next, log: [...next.log, `${target.villainName} n'est pas déplacé (${via}).`] }
   }
   if (!findLocation(target, locationId)) throw new Error(`Lieu inconnu : « ${locationId} ».`)
   const destName = findLocation(target, locationId)!.name
   next = updatePlayer(next, targetIndex, (p) => ({ ...p, pawnLocation: locationId }))
   next = {
     ...next,
-    log: [...next.log, `Roi Stéphane déplace ${target.villainName} vers **${destName}**.`],
+    log: [...next.log, `${via} déplace ${target.villainName} vers **${destName}**.`],
   }
   return processCurseDiscards(next, targetIndex, locationId, 'pawn-moves-here')
 }

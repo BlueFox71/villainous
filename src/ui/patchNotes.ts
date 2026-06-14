@@ -9,6 +9,21 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.63',
+    date: '2026-06-14',
+    title: 'Nouveau méchant collaboration : Bowser (Super Mario Galaxy)',
+    changes: [
+      'Bowser rejoint la liste des méchants, dans la catégorie « Collaborations » (deck de 30 cartes Méchant + 15 Fatalité, thème Super Mario Galaxy).',
+      'Son plateau : Château de Bowser, Galaxies, Observatoire de la Comète et Château de Peach.',
+      'Mécanique des Étoiles : l’Observatoire de la Comète démarre avec 4 Étoiles. Objectif de Bowser : épuiser l’Observatoire (0 Étoile) ET capturer Peach (uniquement via la carte « Impuissance ») au début de son tour.',
+      'Tant qu’il reste au moins une Étoile à l’Observatoire, ce lieu reste ouvert ; à 0 Étoile, il se bloque.',
+      '« épuisement d’énergie » draine une Étoile de l’Observatoire vers un de vos Alliés présents (vous choisissez lequel).',
+      'Contre-jeu (Fatalité) : Mario remet une Étoile et empêche la victoire tant qu’il est en jeu ; Harmonie force l’Observatoire à garder au moins une Étoile ; Luigi défausse les Alliés d’un lieu et renvoie leurs Étoiles ; Goinfre, Comète farceuse et Anneau étoile gênent Bowser.',
+      'Cartes spéciales : Bowser Jr. (va chercher Peach, et vous fait piocher quand vous êtes visé par la Fatalité), Galaxie hantée et autres capacités à « Activer », « Te revoilà ! » (récupération en défausse), « Vol du château » et « Besoin de renfort ».',
+      'À venir pour Bowser : le déplacement spécial du Bateau et le déplacement d’Allié du Grand Terrier (ces cartes se jouent déjà comme Objet / Allié).',
+    ],
+  },
+  {
     version: '0.62',
     date: '2026-06-14',
     title: 'Application de bureau (.exe) et multijoueur sur le réseau local',

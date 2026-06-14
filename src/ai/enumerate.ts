@@ -17,7 +17,9 @@ import {
   cardNeedsAllyMove,
   cardNeedsHeroTarget,
   cardNeedsSacrificeTarget,
+  cardNeedsStarAllyTarget,
   cardNeedsVanquishTarget,
+  drainStarAllies,
   effectiveCost,
   effectiveStrength,
   getAvailableActions,
@@ -362,6 +364,26 @@ export function enumerateActions(state: GameState): GameAction[] {
                 out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, allyInstanceIds: [c.instanceId] })
               }
             }
+          }
+        } else if (cardNeedsStarAllyTarget(card)) {
+          // Bowser — épuisement d'énergie : une option par Allié pouvant recevoir
+          // l'Étoile (sur le lieu du pion). Inutile si l'Observatoire est épuisé.
+          if ((me.observatoryStars ?? 0) > 0) {
+            for (const a of drainStarAllies(state)) {
+              out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, allyInstanceIds: [a.instanceId] })
+            }
+          }
+        } else if ((card.effects ?? []).some((e) => e.type === 'IMPUISSANCE_RESOLVE')) {
+          // Bowser — Impuissance : Éliminer un Héros ≤3 (une option/cible) OU
+          // capturer Peach (option sans cible, seulement si Peach est en jeu).
+          for (const h of heroesOf(state, state.activePlayer)) {
+            if ((h.strength ?? 0) <= 3) {
+              out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, targetHeroId: h.instanceId })
+            }
+          }
+          const peachPresent = heroesOf(state, state.activePlayer).some((h) => h.cardId === 'peach')
+          if (peachPresent && !me.peachCaptured) {
+            out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId })
           }
         } else {
           // Cartes-effets sans intérêt s'il n'y a AUCUN Héros dans le royaume :

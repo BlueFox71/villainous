@@ -135,6 +135,23 @@ function objectiveScore(p: PlayerState): number {
       if (p.pawnLocation === 'royaume-vaudou') s += 0.15
       return Math.min(1, s)
     }
+    case 'DEPLETE_OBSERVATORY_AND_CAPTURE': {
+      // Bowser : récompense l'épuisement de l'Observatoire (moins d'Étoiles =
+      // plus proche, base 4) et la capture de Peach. Mario présent plafonne la
+      // récompense (victoire impossible tant qu'il est là).
+      const obj = p.objective
+      const stars = p.observatoryStars ?? 0
+      const depletion = stars <= 0 ? 1 : Math.max(0, 1 - stars / 4)
+      let s = 0.5 * depletion
+      if (p.peachCaptured) s += 0.4
+      const blocked = obj.blockerHeroCardId
+        ? Object.values(p.board).some((cards) =>
+            cards.some((c) => c.type === 'hero' && c.cardId === obj.blockerHeroCardId),
+          )
+        : false
+      if (blocked) s = Math.min(s, 0.45)
+      return Math.min(1, s)
+    }
   }
 }
 
@@ -360,8 +377,8 @@ function buildConditionAction(
   card: PlayerState['hand'][number],
   rand: Rand,
 ): GameAction | null {
-  if (card.cardId === 'lachete' || card.cardId === 'ruse') {
-    // Lâcheté / Ruse : pose gratuitement l'Allié le plus fort de la main.
+  if (card.cardId === 'lachete' || card.cardId === 'ruse' || card.cardId === 'renforts') {
+    // Lâcheté / Ruse / Besoin de renfort : pose gratuitement l'Allié le plus fort.
     const me = state.players[playerIndex]
     const allies = me.hand.filter((c) => c.type === 'ally')
     if (allies.length === 0) return null

@@ -160,4 +160,20 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       "Tiana renchérit toutes ses cartes ; Mama Odie réduit ses Divinations à 2 cartes révélées.",
     ],
   },
+  bowser: {
+    difficulty: 3,
+    story:
+      "Le Roi des Koopas (Super Mario Galaxy) a arraché l'Observatoire de la Comète à Harmonie et capturé la Princesse Peach au sommet de sa forteresse spatiale. En drainant les Étoiles qui alimentent le cosmos, il compte plonger la galaxie dans les ténèbres — pour peu que les frères Mario ne viennent pas tout gâcher.",
+    playTips: [
+      "Ton objectif : vider l'Observatoire de ses 4 Étoiles ET capturer Peach (uniquement via Impuissance) — le tout en début de ton tour.",
+      "Draine les Étoiles avec « épuisement d'énergie » : chaque Étoile retirée se pose sur un Allié et te rapproche du but (mais elle saute si l'Allié élimine un Héros).",
+      "À 0 Étoile, l'Observatoire se bloque : protège ce verrou en éliminant Mario, qui en remet une et t'interdit la victoire tant qu'il est là.",
+      "Bowser Jr. va chercher Peach et la met en jeu ; garde une Impuissance sous la main pour la capturer dans la foulée.",
+    ],
+    counterTips: [
+      "Mario est ta meilleure arme : tant qu'il est sur le plateau, Bowser ne peut pas gagner, et il remet une Étoile à l'Observatoire.",
+      "Harmonie force l'Observatoire à garder une Étoile : un cadenas vivant contre l'épuisement.",
+      "Luigi défausse les Alliés d'un lieu et renvoie leurs Étoiles à l'Observatoire — idéal pour annuler un gros drainage.",
+    ],
+  },
 }

@@ -126,6 +126,13 @@ export function ObjectiveBox({
         />
       ) : player.objective.type === 'REIGN_NEW_ORLEANS' ? (
         <ReignProgress player={player} accent={accent} isWinner={isWinner} />
+      ) : player.objective.type === 'DEPLETE_OBSERVATORY_AND_CAPTURE' ? (
+        <DepleteObservatoryProgress
+          player={player}
+          accent={accent}
+          isWinner={isWinner}
+          blockerHeroCardId={player.objective.blockerHeroCardId}
+        />
       ) : (
         <CurseEachLocationProgress player={player} accent={accent} isWinner={isWinner} />
       )}
@@ -321,6 +328,55 @@ function ControlHeroProgress({
             title={s.title}
             className={`h-2 flex-1 rounded-full ${
               s.ok ? (isWinner ? 'bg-amber-400' : accent.gauge) : 'bg-white/15'
+            }`}
+          />
+        ))}
+      </div>
+    </>
+  )
+}
+
+function DepleteObservatoryProgress({
+  player,
+  accent,
+  isWinner,
+  blockerHeroCardId,
+}: {
+  player: PlayerState
+  accent: Accent
+  isWinner: boolean
+  blockerHeroCardId?: string
+}) {
+  // Bowser : épuiser l'Observatoire (0 Étoile) ET capturer Peach. Mario présent
+  // (blockerHeroCardId) interdit la victoire tant qu'il est là.
+  const stars = player.observatoryStars ?? 0
+  const depleted = stars <= 0
+  const captured = !!player.peachCaptured
+  const blocked = blockerHeroCardId
+    ? Object.values(player.board)
+        .flat()
+        .some((c) => c.type === 'hero' && c.cardId === blockerHeroCardId)
+    : false
+  const steps = [
+    { ok: depleted, title: depleted ? 'Observatoire épuisé' : `Observatoire : ${stars} Étoile${stars > 1 ? 's' : ''}` },
+    { ok: captured, title: captured ? 'Peach capturée' : 'Peach non capturée' },
+  ]
+  const done = steps.filter((s) => s.ok).length
+  return (
+    <>
+      <div className="mb-1 flex justify-between text-sm">
+        <span className={accent.accentText}>
+          {blocked ? '⛔ Mario présent' : 'Objectif'}
+        </span>
+        <span className="font-mono text-white">{done} / {steps.length}</span>
+      </div>
+      <div className="flex gap-1">
+        {steps.map((s, i) => (
+          <div
+            key={i}
+            title={s.title}
+            className={`h-2 flex-1 rounded-full ${
+              s.ok && !blocked ? (isWinner ? 'bg-amber-400' : accent.gauge) : s.ok ? 'bg-white/40' : 'bg-white/15'
             }`}
           />
         ))}

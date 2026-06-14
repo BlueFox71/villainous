@@ -9,7 +9,9 @@ import {
   cardNeedsAllyMove,
   cardNeedsHeroTarget,
   cardNeedsSacrificeTarget,
+  cardNeedsStarAllyTarget,
   cardNeedsVanquishTarget,
+  drainStarAllies,
   effectiveCost,
   effectiveStrength,
   getAvailableActions,
@@ -148,6 +150,13 @@ type Mode =
   | { kind: 'activate-iago-dest'; actionId: string; cardInstanceId: string; from: string; itemInstanceId?: string }
   /** Jafar — Sacrifice Nécessaire : choisir l'Allié/Objet du royaume à défausser. */
   | { kind: 'sacrifice-pick'; actionId: string; instanceId: string; cardName: string; diablo?: boolean }
+  /** Bowser — épuisement d'énergie : choisir l'Allié (sur le lieu du pion) qui
+   *  reçoit l'Étoile drainée de l'Observatoire. */
+  | { kind: 'drain-pick-ally'; actionId: string; instanceId: string; cardName: string; diablo?: boolean }
+  /** Bowser — Impuissance : choix « Capturer Peach » OU « Éliminer un Héros ≤3 ». */
+  | { kind: 'impuissance-choice'; actionId: string; instanceId: string; cardName: string; diablo?: boolean }
+  /** Bowser — Impuissance (branche Éliminer) : cliquer le Héros ≤3 à éliminer. */
+  | { kind: 'impuissance-pick-hero'; actionId: string; instanceId: string; cardName: string; diablo?: boolean }
   | null
 
 const BOT_STEP_MS = 700
@@ -1170,6 +1179,15 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       if (sacrificeableCards(state).length === 0) return // rien à sacrifier
       return setMode({ kind: 'sacrifice-pick', actionId: mode.actionId, instanceId, cardName: card.name, diablo: mode.diablo })
     }
+    // Bowser — épuisement d'énergie : choisir l'Allié (lieu du pion) qui reçoit l'Étoile.
+    if (cardNeedsStarAllyTarget(card)) {
+      if ((user.observatoryStars ?? 0) <= 0 || drainStarAllies(state).length === 0) return
+      return setMode({ kind: 'drain-pick-ally', actionId: mode.actionId, instanceId, cardName: card.name, diablo: mode.diablo })
+    }
+    // Bowser — Impuissance : ouvrir le choix « Capturer Peach » / « Éliminer un Héros ».
+    if (card.cardId === 'impuissance') {
+      return setMode({ kind: 'impuissance-choice', actionId: mode.actionId, instanceId, cardName: card.name, diablo: mode.diablo })
+    }
     // Événement classique : effet immédiat, pas de destination.
     doPlayCard(mode.diablo, mode.actionId, instanceId)
     setMode(null)
@@ -1211,7 +1229,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // ---- D : Réactions humaines (Conditions) ----
   const handlePlayReaction = (card: CardInstance) => {
     // Conditions à ciblage interactif : on passe par un mode de sélection.
-    if (card.cardId === 'lachete' || card.cardId === 'ruse' || card.cardId === 'sans-pitie') {
+    if (card.cardId === 'lachete' || card.cardId === 'ruse' || card.cardId === 'sans-pitie' || card.cardId === 'renforts') {
       setMode({ kind: 'condition-pick-ally', instanceId: card.instanceId })
       return
     }
@@ -1327,6 +1345,18 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       // La carte cliquée (Allié/Objet du royaume) est sacrifiée pour la carte jouée.
       if (!sacrificeableCards(state).some((c) => c.instanceId === instanceId)) return
       doPlayCard(mode.diablo, mode.actionId, mode.instanceId, undefined, undefined, undefined, [instanceId])
+      return setMode(null)
+    }
+    if (mode?.kind === 'drain-pick-ally') {
+      // L'Allié cliqué (sur le lieu du pion) reçoit l'Étoile drainée.
+      if (!drainStarAllies(state).some((c) => c.instanceId === instanceId)) return
+      doPlayCard(mode.diablo, mode.actionId, mode.instanceId, undefined, undefined, undefined, [instanceId])
+      return setMode(null)
+    }
+    if (mode?.kind === 'impuissance-pick-hero') {
+      // Le Héros cliqué (≤3) est éliminé par Impuissance.
+      if (!vanquishHeroTargets.includes(instanceId)) return
+      doPlayCard(mode.diablo, mode.actionId, mode.instanceId, undefined, undefined, instanceId)
       return setMode(null)
     }
     if (mode?.kind === 'trap-pick-ally') {
@@ -1562,7 +1592,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         mode.kind === 'shrink-pick-action' ||
         mode.kind === 'trap-pick-ally' ||
         mode.kind === 'trap-pick-dest' ||
-        mode.kind === 'sacrifice-pick'
+        mode.kind === 'sacrifice-pick' ||
+        mode.kind === 'drain-pick-ally' ||
+        mode.kind === 'impuissance-choice' ||
+        mode.kind === 'impuissance-pick-hero'
       ? mode.instanceId
       : mode.kind === 'vanquish-pick-hero' || mode.kind === 'vanquish-pick-allies'
         ? mode.viaCard?.instanceId ?? null
@@ -1633,7 +1666,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     mode?.kind === 'move-pick' ||
     mode?.kind === 'trap-pick-ally' ||
     mode?.kind === 'activate-pick' ||
-    mode?.kind === 'sacrifice-pick'
+    mode?.kind === 'sacrifice-pick' ||
+    mode?.kind === 'drain-pick-ally'
   // Règle officielle Vanquish : on peut viser N'IMPORTE QUEL Héros du royaume
   // (pas forcément sur le lieu du pion). Les alliés utilisés doivent être au
   // LIEU DU HÉROS choisi (Archers Loups : depuis un lieu voisin).
@@ -1642,7 +1676,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     mode?.kind === 'play-pick-hero' ||
     mode?.kind === 'condition-pick-hero' ||
     mode?.kind === 'move-hero-pick' ||
-    mode?.kind === 'item-attach-hero'
+    mode?.kind === 'item-attach-hero' ||
+    mode?.kind === 'impuissance-pick-hero'
       ? (() => {
           const allHeroes = Object.values(user.board).flatMap((cards) =>
             cards.filter((c) => c.type === 'hero'),
@@ -1673,6 +1708,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           // Méchanceté : héros ≤4 force.
           if (mode?.kind === 'condition-pick-hero') {
             return allHeroes.filter((h) => (h.strength ?? 0) <= 4).map((c) => c.instanceId)
+          }
+          // Impuissance (branche Éliminer) : Héros ≤3 force.
+          if (mode?.kind === 'impuissance-pick-hero') {
+            return allHeroes.filter((h) => (h.strength ?? 0) <= 3).map((c) => c.instanceId)
           }
           return allHeroes.map((c) => c.instanceId)
         })()
@@ -1948,7 +1987,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             mode?.kind === 'condition-pick-hero' ||
             mode?.kind === 'activate-pick' ||
             mode?.kind === 'activate-iago-dest' ||
-            mode?.kind === 'sacrifice-pick') && (
+            mode?.kind === 'sacrifice-pick' ||
+            mode?.kind === 'drain-pick-ally' ||
+            mode?.kind === 'impuissance-choice' ||
+            mode?.kind === 'impuissance-pick-hero') && (
             <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-400/70 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
               <span>
                 {mode.kind === 'place' ? (
@@ -2006,11 +2048,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                   </>
                 ) : mode.kind === 'condition-pick-ally' ? (
                   <>
-                    <b>Lâcheté</b> : clique un <b>Allié</b> de ta main à poser gratuitement.
+                    <b>{user.hand.find((c) => c.instanceId === mode.instanceId)?.name ?? 'Condition'}</b> : clique un <b>Allié</b> de ta main à poser gratuitement.
                   </>
                 ) : mode.kind === 'condition-pick-place' ? (
                   <>
-                    <b>Lâcheté</b> : pose <b>{mode.allyName}</b> sur un <b>lieu</b> (surligné).
+                    <b>{mode.cardName}</b> : pose <b>{mode.allyName}</b> sur un <b>lieu</b> (surligné).
                   </>
                 ) : mode.kind === 'condition-pick-hero' ? (
                   <>
@@ -2027,6 +2069,18 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 ) : mode.kind === 'sacrifice-pick' ? (
                   <>
                     <b>Sacrifice Nécessaire</b> : clique l'<b>Allié ou l'Objet</b> à défausser (+3 JT).
+                  </>
+                ) : mode.kind === 'drain-pick-ally' ? (
+                  <>
+                    <b>épuisement d'énergie</b> : clique l'<b>Allié</b> (sur ton lieu) qui reçoit l'Étoile (surligné).
+                  </>
+                ) : mode.kind === 'impuissance-choice' ? (
+                  <>
+                    <b>Impuissance</b> : choisis <b>Capturer Peach</b> ou <b>Éliminer un Héros</b> (force ≤ 3).
+                  </>
+                ) : mode.kind === 'impuissance-pick-hero' ? (
+                  <>
+                    <b>Impuissance</b> : clique le <b>Héros</b> à éliminer (force ≤ 3, rouge).
                   </>
                 ) : (
                   vanquishNeeded === 0 && !mode.viaCard && !mode.trap ? (
@@ -2065,6 +2119,31 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                   >
                     Ne pas déplacer
                   </button>
+                )}
+                {mode.kind === 'impuissance-choice' && (
+                  <>
+                    <button
+                      onClick={() => {
+                        // Capturer Peach (sans cible) : seulement si Peach est en jeu.
+                        const peachPresent = Object.values(user.board).flat().some((c) => c.type === 'hero' && c.cardId === 'peach')
+                        if (!peachPresent) return
+                        doPlayCard(mode.diablo, mode.actionId, mode.instanceId)
+                        setMode(null)
+                      }}
+                      disabled={!Object.values(user.board).flat().some((c) => c.type === 'hero' && c.cardId === 'peach')}
+                      className="rounded bg-fuchsia-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-fuchsia-500 disabled:opacity-40"
+                    >
+                      Capturer Peach
+                    </button>
+                    <button
+                      onClick={() =>
+                        setMode({ kind: 'impuissance-pick-hero', actionId: mode.actionId, instanceId: mode.instanceId, cardName: mode.cardName, diablo: mode.diablo })
+                      }
+                      className="rounded bg-red-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-red-500"
+                    >
+                      Éliminer un Héros
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={() => setMode(null)}
