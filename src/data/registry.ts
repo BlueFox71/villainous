@@ -19,8 +19,8 @@ import { crochetCards } from './villains/crochet.cards'
 import { ursulaCards } from './villains/ursula.cards'
 import { hadesCards } from './villains/hades.cards'
 import { facilierCards } from './villains/facilier.cards'
-import { bowserCards } from './villains/bowser.cards'
 import { imposteurCards } from './villains/imposteur.cards'
+import { bowserCards } from './villains/bowser.cards'
 
 /** Toutes les cartes, tous vilains confondus. Source unique : ajouter un vilain
  *  ici le fait entrer dans le registre ET dans les tests d'intégrité globaux
@@ -35,8 +35,8 @@ export const allCards: CardDef[] = [
   ...ursulaCards,
   ...hadesCards,
   ...facilierCards,
-  ...bowserCards,
   ...imposteurCards,
+  ...bowserCards,
 ]
 
 const byId: Record<string, CardDef> = Object.fromEntries(allCards.map((c) => [c.id, c]))

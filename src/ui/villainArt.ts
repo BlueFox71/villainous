@@ -11,8 +11,8 @@ const PORTRAIT: Partial<Record<VillainKey, string>> = {
   ursula: '/ursula.png',
   hades: '/hades.png',
   facilier: '/facilier.png',
-  bowser: '/bowser.png',
   imposteur: '/imposteur2_zoom.jpg',
+  bowser: '/bowser.png',
 }
 
 /** Portrait d'un vilain, avec repli sur son dos de carte si non défini. */
@@ -32,6 +32,7 @@ const PRESENTATION: Partial<Record<VillainKey, string>> = {
   hades: '/presentations/hades.png',
   facilier: '/presentations/facilier.png',
   imposteur: '/presentations/imposteur.png',
+  bowser: '/presentations/bowser.png',
 }
 
 /** Illustration de présentation d'un vilain (undefined si non disponible). */

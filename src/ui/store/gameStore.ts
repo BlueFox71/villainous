@@ -42,13 +42,13 @@ import { hades } from '../../data/villains/hades'
 import { hadesCards } from '../../data/villains/hades.cards'
 import { facilier } from '../../data/villains/facilier'
 import { facilierCards } from '../../data/villains/facilier.cards'
-import { bowser } from '../../data/villains/bowser'
-import { bowserCards } from '../../data/villains/bowser.cards'
 import { imposteur } from '../../data/villains/imposteur'
 import { imposteurCards } from '../../data/villains/imposteur.cards'
+import { bowser } from '../../data/villains/bowser'
+import { bowserCards } from '../../data/villains/bowser.cards'
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'bowser' | 'imposteur'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -60,8 +60,8 @@ export const VILLAIN_REGISTRY = {
   ursula: { def: ursula, cards: ursulaCards, label: 'Ursula' },
   hades: { def: hades, cards: hadesCards, label: 'Hadès' },
   facilier: { def: facilier, cards: facilierCards, label: 'Dr Facilier' },
-  bowser: { def: bowser, cards: bowserCards, label: 'Bowser' },
   imposteur: { def: imposteur, cards: imposteurCards, label: "L'Imposteur" },
+  bowser: { def: bowser, cards: bowserCards, label: 'Bowser' },
 } as const
 
 /** Qui contrôle chaque siège. Concept d'UI : le moteur, lui, ne sait pas qui
