@@ -135,10 +135,19 @@ function objectiveScore(p: PlayerState): number {
       if (p.pawnLocation === 'royaume-vaudou') s += 0.15
       return Math.min(1, s)
     }
-    case 'KEEP_SABOTAGE':
-      // L'Imposteur : objectif via la mécanique des Coéquipiers (pas encore
-      // implémentée) → progrès non évalué pour l'instant.
-      return 0
+    case 'KEEP_SABOTAGE': {
+      // L'Imposteur : poser un Sabotage et le TENIR `turns` tours. Poser le Sabotage
+      // est déjà une menace forte (base 0.4), qui grandit à chaque tour survécu
+      // (compte `sabotageTurns` par carte) jusqu'à la victoire. Permet à l'adversaire
+      // d'ANTICIPER (pression de blocage + escalade de Fatalité via la menace).
+      const turns = p.objective.turns
+      const placed = Object.values(p.board)
+        .flat()
+        .filter((c) => c.isSabotage && !c.attachedTo)
+      if (placed.length === 0) return 0
+      const best = Math.max(...placed.map((c) => c.sabotageTurns ?? 0))
+      return Math.min(1, 0.4 + 0.6 * (best / Math.max(1, turns)))
+    }
     case 'DEPLETE_OBSERVATORY_AND_CAPTURE': {
       // Bowser : récompense l'épuisement de l'Observatoire (moins d'Étoiles =
       // plus proche, base 4) et la capture de Peach. Mario présent plafonne la
@@ -184,6 +193,8 @@ export type EvalWeights = {
   cursePerLocation: number // tempo : par LIEU maudit (pas par Malédiction → pas d'incitation à empiler)
   hand: number // valeur d'une carte en main
   handAllyStr: number // potentiel d'un Allié en main (× force)
+  oppPawnDisrupt: number // perturbation : déplacer la figurine adverse loin de ses Alliés/Objets (× cartes, plafonné)
+  fateThreatFloor: number // part MIN de la valeur des Héros chez l'adversaire quand il n'est PAS menaçant (1 = valeur fixe ; <1 = Fatalité escaladée selon la menace)
 }
 
 /** Baseline pour l'A/B : le comportement V3 d'avant tuning — pouvoir valorisé à
@@ -205,6 +216,8 @@ export const BASELINE_WEIGHTS: EvalWeights = {
   cursePerLocation: 3,
   hand: 1,
   handAllyStr: 0,
+  oppPawnDisrupt: 4,
+  fateThreatFloor: 1, // baseline : valeur de Fatalité fixe (pas de modulation)
 }
 
 /** Poids par défaut (tunés). Pouvoir conscient de l'objectif (Maléfique ne
@@ -225,6 +238,20 @@ export const DEFAULT_WEIGHTS: EvalWeights = {
   cursePerLocation: 3,
   hand: 1,
   handAllyStr: 0,
+  oppPawnDisrupt: 4,
+  // Le bot privilégie SON objectif ; la Fatalité (Héros chez l'adversaire) n'est
+  // pleinement valorisée que si l'adversaire est proche de gagner (escalade).
+  fateThreatFloor: 0.7,
+}
+
+/** Soutien de la figurine d'un joueur : nb d'Alliés/Objets « racine » sur le lieu
+ *  de son pion (plafonné). Le déplacer ailleurs (Roi Stéphane / Anneau étoile)
+ *  le sépare de ses forces — c'est ce que valorise `oppPawnDisrupt`. */
+function pawnSupport(p: PlayerState): number {
+  const loc = p.pawnLocation
+  if (!loc) return 0
+  const n = (p.board[loc] ?? []).filter((c) => (c.type === 'ally' || c.type === 'item') && !c.attachedTo).length
+  return Math.min(n, 3)
 }
 
 /** Valeur du pouvoir pour un joueur, consciente de l'objectif. Pour un objectif
@@ -245,8 +272,9 @@ export function evaluate(state: GameState, idx: number, w: EvalWeights = DEFAULT
   const opp = state.players[(idx + 1) % state.players.length]
   let score = 0
   // Progrès vers l'objectif, le sien en positif, celui de l'adversaire en négatif.
+  const oppObj = objectiveScore(opp)
   score += objectiveScore(me) * w.objective
-  score -= objectiveScore(opp) * w.objective
+  score -= oppObj * w.objective
   // Pouvoir (conscient de l'objectif : carburant plafonné pour un non-pouvoir).
   score += powerValue(me, w, w.myPower)
   score -= powerValue(opp, w, w.oppPower)
@@ -262,10 +290,15 @@ export function evaluate(state: GameState, idx: number, w: EvalWeights = DEFAULT
   }
   // Lieux maudits (objectif Maléfique + tempo), comptés PAR LIEU (empiler n'aide pas).
   score += cursedLocationCount(me) * w.cursePerLocation
-  // Héros dans le royaume ADVERSE : bon pour le bot (ils gênent l'adversaire).
+  // Héros dans le royaume ADVERSE : bon pour le bot (ils gênent l'adversaire). On
+  // MODULE leur valeur par la MENACE adverse (sa progression vers la victoire) :
+  // faible quand l'adversaire est loin de son but (le bot a intérêt à développer
+  // SON objectif plutôt qu'à fataliser), pleine quand il est proche (le bot ralentit
+  // l'adversaire). `w.fateThreatFloor` = part minimale gardée même sans menace.
+  const fateScale = w.fateThreatFloor + (1 - w.fateThreatFloor) * oppObj
   for (const cards of Object.values(opp.board)) {
     for (const c of cards) {
-      if (c.type === 'hero') score += (c.strength ?? 0) * oppHeroPerStr + w.oppHeroFlat
+      if (c.type === 'hero') score += ((c.strength ?? 0) * oppHeroPerStr + w.oppHeroFlat) * fateScale
     }
   }
   // Cartes en main : avantage en cartes + potentiel des Alliés (force jouable).
@@ -273,6 +306,16 @@ export function evaluate(state: GameState, idx: number, w: EvalWeights = DEFAULT
   for (const c of me.hand) {
     if (c.type === 'ally') score += (c.strength ?? 0) * w.handAllyStr
   }
+  // Perturbation : on gagne à éloigner la figurine adverse de ses Alliés/Objets.
+  // Si un déplacement de SA figurine est déjà EN ATTENTE et que c'est NOUS qui le
+  // contrôlons (Roi Stéphane / Anneau étoile), on anticipe l'éloignement (soutien
+  // futur ≈ 0) — sinon la carte qui l'a déclenché paraîtrait « sans effet » (le
+  // pion n'étant pas encore déplacé) et la recherche ne la jouerait jamais.
+  const ppm = state.pendingPawnMove
+  const oppIdx = (idx + 1) % state.players.length
+  const oppSupport =
+    ppm && ppm.chooserIndex === idx && ppm.targetIndex === oppIdx ? 0 : pawnSupport(opp)
+  score -= oppSupport * w.oppPawnDisrupt
   return score
 }
 

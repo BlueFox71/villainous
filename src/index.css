@@ -178,6 +178,50 @@ body {
   }
 }
 
+/* Décor de vilain : un objet/vaisseau qui traverse lentement la bande haute de
+   l'écran, en arrière-plan (derrière toute l'UI, sans interaction). Le conteneur
+   se déplace en translation linéaire ; l'image interne gère l'orientation. */
+.villain-prop {
+  position: fixed;
+  left: 0;
+  width: max-content;
+  pointer-events: none;
+  will-change: transform;
+  animation-iteration-count: 1;
+  animation-fill-mode: forwards;
+  animation-timing-function: linear;
+}
+/* Trajectoire libre (API Web Animations) : ancrée en haut-gauche, la translation
+   absolue est pilotée en JS (pas de keyframes CSS). */
+.villain-prop--free {
+  top: 0;
+  will-change: transform, opacity;
+  animation: none;
+}
+/* Le joueur : part de la droite et dérive vers la gauche. */
+@keyframes villainDriftRTL {
+  from {
+    transform: translateX(100vw);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+/* L'adversaire : part de la gauche et dérive vers la droite. */
+@keyframes villainDriftLTR {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100vw);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .villain-prop {
+    display: none;
+  }
+}
+
 /* Écran « versus » de début de partie : entrées animées. */
 @keyframes versusFadeIn {
   from { opacity: 0; }
@@ -421,6 +465,13 @@ body {
 .red-flash {
   animation: redFlash 0.4s ease-in-out 2;
   border-color: #f87171 !important;
+}
+
+/* Fondu BAS systématique des illustrations de présentation des vilains (le bas de
+   l'image se dissout en transparence), où qu'elles soient affichées. */
+.villain-fade-bottom {
+  -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 78%, transparent 100%);
 }
 
 /* Badge « +N 🪙 » par-dessus un showcase : pop élastique puis léger flottement. */

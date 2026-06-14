@@ -45,4 +45,25 @@ describe('bot : Fatalité « Vous avez obtenu une grande étoile ! » contre Bow
     expect(action.type).toBe('RESOLVE_FATE')
     expect(action.type === 'RESOLVE_FATE' && action.instanceId).toBe(grand.instanceId)
   })
+
+  it("préfère « Anneau étoile » (déplacer Bowser loin de ses Alliés) à une Transformation sans Héros", () => {
+    const base = game()
+    const transfo = fateInst('transformation') // Objet à associer à un Héros : sans effet sans Héros
+    const anneau = fateInst('anneau') // déplace la figurine de Bowser
+    const ally: CardInstance = { instanceId: 'a1', cardId: 'dino-piranha', name: 'Dino Piranha', type: 'ally', strength: 2 }
+    const s: GameState = {
+      ...base,
+      activePlayer: 1,
+      phase: 'ACTION',
+      pendingFate: { target: 0, revealed: [transfo, anneau] },
+      players: [
+        // Bowser sur Galaxies avec un Allié (aucun Héros → Transformation inutile).
+        { ...base.players[0], pawnLocation: 'galaxies', board: { ...base.players[0].board, galaxies: [ally] } },
+        base.players[1],
+      ],
+    }
+    const action = chooseAction(s, () => 0)
+    expect(action.type).toBe('RESOLVE_FATE')
+    expect(action.type === 'RESOLVE_FATE' && action.instanceId).toBe(anneau.instanceId)
+  })
 })

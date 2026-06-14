@@ -4,7 +4,7 @@ import { bowserCards } from '../../data/villains/bowser.cards'
 import { buildDeckInstances } from '../../data/types'
 import { createInitialGame } from '../state'
 import { applyAction } from '../actions'
-import { getAvailableActions } from '../rules'
+import { getAvailableActions, heroPlacementLocations } from '../rules'
 import type { CardInstance, GameState } from '../types'
 
 function game(): GameState {
@@ -31,16 +31,17 @@ function withCardInHand(base: GameState, cardId: string, patch: Partial<GameStat
 }
 
 describe('Bowser — cartes jouées (intégration)', () => {
-  it("épuisement d'énergie draine une Étoile vers l'Allié choisi", () => {
+  it("épuisement d'énergie draine une Étoile vers un Allié SUR l'Observatoire", () => {
+    // La carte se joue depuis Galaxies, mais l'Allié receveur est sur l'Observatoire.
     const { state, card } = withCardInHand(game(), 'puissance-stellaire', {
       pawnLocation: 'galaxies',
       observatoryStars: 4,
     })
     const a = ally('a1')
-    const s: GameState = { ...state, players: [{ ...state.players[0], board: { ...state.players[0].board, galaxies: [a] } }] }
+    const s: GameState = { ...state, players: [{ ...state.players[0], board: { ...state.players[0].board, observatoire: [a] } }] }
     const after = applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: card.instanceId, allyInstanceIds: ['a1'] })
     expect(after.players[0].observatoryStars).toBe(3)
-    expect(after.players[0].board.galaxies[0].stars).toBe(1)
+    expect(after.players[0].board.observatoire[0].stars).toBe(1)
   })
 
   it('Dino Piranha posé sur l\'Observatoire prend une Étoile', () => {
@@ -126,7 +127,7 @@ describe('Bowser — cartes jouées (intégration)', () => {
     expect(after.pendingRecover?.candidateIds).toContain(discarded.instanceId)
   })
 
-  it('Vol du château joue le premier Allié/Objet dévoilé sur le lieu du pion', () => {
+  it('Vol du château dévoile jusqu’à un Allié, puis on choisit le lieu où le poser', () => {
     const base = game()
     const me = base.players[0]
     const decoupage = me.deck.find((c) => c.cardId === 'decoupage')!
@@ -142,12 +143,46 @@ describe('Bowser — cartes jouées (intégration)', () => {
         power: 5,
         pawnLocation: 'galaxies',
         hand: [decoupage],
-        deck: [evt, ally, ...rest], // dévoile evt (passe), puis ally (joué)
+        deck: [evt, ally, ...rest], // dévoile evt (passe), puis ally (trouvé)
       }],
     }
-    const after = applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: decoupage.instanceId })
-    expect(after.players[0].board.galaxies.some((c) => c.instanceId === ally.instanceId)).toBe(true)
-    expect(after.players[0].deck[0].instanceId).toBe(evt.instanceId) // remise sur le dessus
+    // 1) Jouer Vol du château ouvre le choix (la carte n'est pas encore posée).
+    const revealed = applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: decoupage.instanceId })
+    expect(revealed.pendingCastleTheft?.found.instanceId).toBe(ally.instanceId)
+    expect(revealed.pendingCastleTheft?.revealed.map((c) => c.instanceId)).toEqual([evt.instanceId])
+    expect(revealed.players[0].deck[0].instanceId).toBe(evt.instanceId) // remise sur le dessus
+    expect(revealed.players[0].board.galaxies.some((c) => c.instanceId === ally.instanceId)).toBe(false)
+    // 2) Choisir le lieu → l'Allié y est posé.
+    const placed = applyAction(revealed, { type: 'RESOLVE_CASTLE_THEFT', to: 'chateau-peach' })
+    expect(placed.pendingCastleTheft ?? null).toBeNull()
+    expect(placed.players[0].board['chateau-peach'].some((c) => c.instanceId === ally.instanceId)).toBe(true)
+  })
+
+  it('Vol du château avec pioche VIDE : mélange la défausse et y pioche', () => {
+    const base = game()
+    const me = base.players[0]
+    const decoupage = me.deck.find((c) => c.cardId === 'decoupage')!
+    const evt = me.deck.find((c) => c.type === 'effect' && c.instanceId !== decoupage.instanceId)!
+    const ally = me.deck.find((c) => c.type === 'ally')!
+    const s: GameState = {
+      ...base,
+      phase: 'ACTION',
+      usedActionIds: [],
+      players: [{
+        ...me,
+        power: 5,
+        pawnLocation: 'galaxies',
+        hand: [decoupage],
+        deck: [], // pioche Vilain VIDE
+        discard: [evt, ally], // tout est dans la défausse
+      }],
+    }
+    const revealed = applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: decoupage.instanceId })
+    // La défausse a été mélangée dans la pioche : l'Allié qui s'y trouvait est trouvé.
+    expect(revealed.pendingCastleTheft).toBeTruthy()
+    expect(revealed.pendingCastleTheft!.found.instanceId).toBe(ally.instanceId)
+    // L'Événement dévoilé est remis sur le dessus de la pioche (réalimentée).
+    expect(revealed.players[0].deck.some((c) => c.instanceId === evt.instanceId)).toBe(true)
   })
 
   it('Grand Terrier ouvre un déplacement d’Allié FACULTATIF (résolu ou décliné)', () => {
@@ -218,6 +253,120 @@ describe('Bowser — cartes jouées (intégration)', () => {
     const after = applyAction(s, { type: 'MOVE_CARD', actionId: `granted:${glass.instanceId}`, instanceId: 'a1', to: 'chateau-bowser' })
     expect(after.players[0].board['chateau-bowser'].some((c) => c.instanceId === 'a1')).toBe(true)
     expect(after.players[0].board.galaxies.some((c) => c.instanceId === 'a1')).toBe(false)
+  })
+
+  it('Peach (Fatalité) ne peut être posée QUE au Château de Peach', () => {
+    const base = game()
+    const peach = base.players[0].fateDeck.find((c) => c.cardId === 'peach')!
+    expect(heroPlacementLocations(base, peach, 0)).toEqual(['chateau-peach'])
+  })
+
+  it('Vol du château : un Allié à Étoile (Dino Piranha) posé sur l’Observatoire prend une Étoile', () => {
+    const base = game()
+    const me = base.players[0]
+    const decoupage = me.deck.find((c) => c.cardId === 'decoupage')!
+    const dino = me.deck.find((c) => c.cardId === 'dino-piranha')!
+    const rest = me.deck.filter((c) => ![decoupage.instanceId, dino.instanceId].includes(c.instanceId))
+    const s: GameState = {
+      ...base,
+      phase: 'ACTION',
+      usedActionIds: [],
+      players: [{
+        ...me,
+        power: 5,
+        pawnLocation: 'galaxies',
+        observatoryStars: 4,
+        hand: [decoupage],
+        deck: [dino, ...rest], // dévoilé immédiatement (c'est un Allié → trouvé)
+      }],
+    }
+    const revealed = applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: decoupage.instanceId })
+    expect(revealed.pendingCastleTheft?.found.cardId).toBe('dino-piranha')
+    // Posé SUR l'Observatoire → il draine une Étoile vers lui-même.
+    const placed = applyAction(revealed, { type: 'RESOLVE_CASTLE_THEFT', to: 'observatoire' })
+    const dinoOnBoard = placed.players[0].board.observatoire.find((c) => c.cardId === 'dino-piranha')
+    expect(dinoOnBoard?.stars).toBe(1)
+    expect(placed.players[0].observatoryStars).toBe(3)
+  })
+
+  it('Une Étoile portée par un Allié est PERDUE quand l’Allié est défaussé (Vanquish)', () => {
+    const base = game()
+    const me = base.players[0]
+    const dino = { ...me.deck.find((c) => c.cardId === 'dino-piranha')!, stars: 1 }
+    const hero: CardInstance = { instanceId: 'h1', cardId: 'luma', name: 'Luma', type: 'hero', strength: 2 }
+    const s: GameState = {
+      ...base,
+      phase: 'ACTION',
+      usedActionIds: [],
+      players: [{
+        ...me,
+        pawnLocation: 'chateau-peach',
+        board: { ...me.board, 'chateau-peach': [hero, dino] },
+      }],
+    }
+    const after = applyAction(s, { type: 'VANQUISH', actionId: 'vanquish', heroInstanceId: 'h1', allyInstanceIds: [dino.instanceId] })
+    const discarded = after.players[0].discard.find((c) => c.cardId === 'dino-piranha')
+    expect(discarded).toBeDefined()
+    expect(discarded?.stars).toBeUndefined() // compteur réinitialisé à la défausse
+  })
+
+  it('Bateau : une action ACCORDÉE par un Objet (Galaxie en verre) ne laisse pas de 2ᵉ action', () => {
+    const base = game()
+    const me = base.players[0]
+    const bateau = [...me.deck, ...me.hand].find((c) => c.cardId === 'bateau')!
+    const glass = [...me.deck, ...me.hand].find((c) => c.cardId === 'boule-verre')!
+    const a = ally('a1')
+    const s: GameState = {
+      ...base,
+      phase: 'ACTION',
+      usedActionIds: [],
+      players: [{
+        ...me,
+        pawnLocation: 'galaxies',
+        observatoryStars: 4,
+        deck: me.deck.filter((c) => ![bateau.instanceId, glass.instanceId].includes(c.instanceId)),
+        hand: me.hand.filter((c) => ![bateau.instanceId, glass.instanceId].includes(c.instanceId)),
+        board: { ...me.board, galaxies: [{ ...bateau }], 'chateau-peach': [{ ...glass }, a] },
+      }],
+    }
+    // 1) Bateau : figurine + Bateau vers Château de Peach (1 action dispo).
+    const moved = applyAction(s, { type: 'CHARIOT_MOVE', instanceId: bateau.instanceId, to: 'chateau-peach' })
+    // 2) On utilise l'action ACCORDÉE par la Galaxie en verre (déplacer a1).
+    const acted = applyAction(moved, { type: 'MOVE_CARD', actionId: `granted:${glass.instanceId}`, instanceId: 'a1', to: 'observatoire' })
+    expect(acted.players[0].board.observatoire.some((c) => c.instanceId === 'a1')).toBe(true)
+    // 3) Plus aucune action disponible : l'action accordée a bien été consommée.
+    expect(getAvailableActions(acted)).toHaveLength(0)
+  })
+
+  it('Observatoire verrouillé (0 Étoile) : impossible de déplacer un Allié qui y est posé', () => {
+    const base = game()
+    const me = base.players[0]
+    const a = ally('a1')
+    // Observatoire à 1 Étoile + un Allié dessus ; on joue épuisement d'énergie
+    // depuis le même lieu → l'Observatoire tombe à 0 et se VERROUILLE.
+    // Pion au Château de Bowser (qui possède l'action « Déplacer un Objet/Allié »).
+    const stellaire = me.deck.find((c) => c.cardId === 'puissance-stellaire')!
+    const s: GameState = {
+      ...base,
+      phase: 'ACTION',
+      usedActionIds: [],
+      players: [{
+        ...me,
+        power: 5,
+        pawnLocation: 'chateau-bowser',
+        observatoryStars: 1,
+        hand: [stellaire],
+        deck: me.deck.filter((c) => c.instanceId !== stellaire.instanceId),
+        board: { ...me.board, observatoire: [a] },
+      }],
+    }
+    const drained = applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: stellaire.instanceId, allyInstanceIds: ['a1'] })
+    expect(drained.players[0].observatoryStars).toBe(0)
+    expect(drained.players[0].lockedLocations).toContain('observatoire')
+    // Tenter de déplacer a1 hors de l'Observatoire verrouillé doit échouer.
+    expect(() =>
+      applyAction(drained, { type: 'MOVE_CARD', actionId: 'move-item-ally', instanceId: 'a1', to: 'galaxies' }),
+    ).toThrow(/verrouillé/)
   })
 
   it('Impuissance avec cible élimine un Héros de force ≤3', () => {

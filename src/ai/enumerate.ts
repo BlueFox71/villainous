@@ -7,7 +7,7 @@
 // l'état et n'utilise aucune source d'aléa.
 // =============================================================================
 
-import type { GameAction, GameState } from '../engine/types'
+import type { GameAction, GameState, PlayerState } from '../engine/types'
 import { canEnterAuDela, titanReachableDests } from '../engine/effects'
 import {
   adjacentLocationIds,
@@ -32,6 +32,23 @@ import {
   requiresAllyTarget,
   transformableGuards,
 } from '../engine/rules'
+
+/** cardId des cartes CRUCIALES pour l'objectif du joueur (à NE PAS défausser par le
+ *  bot) : les Objets/cartes qui doivent finir dans le royaume. Le Trident et la
+ *  Couronne d'Ursula, la carte amassée (Cartes dans le royaume), la Lampe de Jafar… */
+function objectiveCriticalCardIds(p: PlayerState): Set<string> {
+  const o = p.objective
+  switch (o.type) {
+    case 'CARDS_IN_REALM':
+      return new Set([o.cardId])
+    case 'CONTROL_HERO':
+      return new Set([o.itemCardId])
+    case 'ITEMS_AT_LOCATION':
+      return new Set(o.itemCardIds)
+    default:
+      return new Set<string>()
+  }
+}
 
 /** Tous les coups légaux disponibles dans l'état courant. Toujours non vide tant
  *  que la partie est en cours (END_TURN / MOVE / résolutions sont garantis). */
@@ -171,6 +188,18 @@ export function enumerateActions(state: GameState): GameAction[] {
       .map((l) => ({ type: 'RESOLVE_FETCHED_HERO', play: true, to: l.id }))
   }
 
+  // Vol du château (Bowser) : poser l'Allié/Objet dévoilé sur un lieu non verrouillé
+  // (ou en main si associable → une seule option sans lieu).
+  if (state.pendingCastleTheft) {
+    const pct = state.pendingCastleTheft
+    if (pct.toHand) return [{ type: 'RESOLVE_CASTLE_THEFT' }]
+    const p = state.players[pct.playerIndex]
+    const locked = new Set(p.lockedLocations ?? [])
+    return p.locations
+      .filter((l) => !locked.has(l.id))
+      .map((l) => ({ type: 'RESOLVE_CASTLE_THEFT', to: l.id }))
+  }
+
   // Abu/Aladdin/K.O. : une option par carte candidate (Objet à voler / Allié à retirer).
   if (state.pendingFateChoice) {
     return state.pendingFateChoice.candidateIds.map((id) => ({ type: 'RESOLVE_FATE_CHOICE', instanceId: id }))
@@ -191,6 +220,25 @@ export function enumerateActions(state: GameState): GameAction[] {
     }
     if (state.pendingAllyMoveBuff.optional) out.push({ type: 'SKIP_ALLY_MOVE_BUFF' })
     return out
+  }
+
+  // Déplacement de figurine adverse (Roi Stéphane / Bowser — Anneau étoile) : le
+  // chooser éloigne le pion de la cible de ses forces. Sans cette branche, la
+  // recherche traitait la carte comme sans effet (cul-de-sac) → jamais jouée.
+  // On ne propose QU'UNE destination (la plus perturbatrice : moins d'Alliés/Objets
+  // de la cible) pour ne pas démultiplier la recherche — la résolution réelle (UI)
+  // a sa propre heuristique. À défaut de destination, on ne déplace pas (null).
+  if (state.pendingPawnMove) {
+    const tgt = state.players[state.pendingPawnMove.targetIndex]
+    const locked = new Set(tgt.lockedLocations ?? [])
+    const support = (id: string) =>
+      (tgt.board[id] ?? []).filter((c) => (c.type === 'ally' || c.type === 'item') && !c.attachedTo).length
+    const cands = tgt.locations
+      .filter((l) => l.id !== tgt.pawnLocation && !locked.has(l.id))
+      .sort((a, b) => support(a.id) - support(b.id))
+    return cands.length
+      ? [{ type: 'RESOLVE_PAWN_MOVE', locationId: cands[0].id }]
+      : [{ type: 'RESOLVE_PAWN_MOVE', locationId: null }]
   }
 
   // Faites-leur peur ! : garder les Héros sur le dessus, défausser les non-Héros.
@@ -229,6 +277,13 @@ export function enumerateActions(state: GameState): GameAction[] {
           }
         } else {
           // Aucun Héros éligible → résolution sans cible (l'engine défausse la carte).
+          out.push({ type: 'RESOLVE_FATE', instanceId: card.instanceId })
+        }
+      } else if (card.cardId === 'apparence-retrouvee') {
+        // Ursula — Apparence Retrouvée : jouable seulement si un Héros (force ≤4)
+        // est dans la défausse Fatalité d'Ursula (sinon sans effet → on ne la joue pas).
+        const tgt = state.players[target]
+        if (tgt.fateDiscard.some((c) => c.type === 'hero' && (c.strength ?? 0) <= 4)) {
           out.push({ type: 'RESOLVE_FATE', instanceId: card.instanceId })
         }
       } else {
@@ -369,7 +424,7 @@ export function enumerateActions(state: GameState): GameAction[] {
           }
         } else if (cardNeedsStarAllyTarget(card)) {
           // Bowser — épuisement d'énergie : une option par Allié pouvant recevoir
-          // l'Étoile (sur le lieu du pion). Inutile si l'Observatoire est épuisé.
+          // l'Étoile (sur l'Observatoire). Inutile si l'Observatoire est épuisé.
           if ((me.observatoryStars ?? 0) > 0) {
             for (const a of drainStarAllies(state)) {
               out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, allyInstanceIds: [a.instanceId] })
@@ -389,10 +444,14 @@ export function enumerateActions(state: GameState): GameAction[] {
           }
         } else {
           // Cartes-effets sans intérêt s'il n'y a AUCUN Héros dans le royaume :
-          // Téléportation (se rendre sur le lieu d'un Héros) et Brouillage (faire
-          // les actions recouvertes par un Héros). Le bot ne doit pas les jouer à vide.
+          // Téléportation (se rendre sur le lieu d'un Héros), Brouillage (faire les
+          // actions recouvertes par un Héros) et Tourbillon (déplacer un Héros). Le
+          // bot ne doit pas les jouer à vide.
           const needsHeroPresent = (card.effects ?? []).some(
-            (e) => e.type === 'TELEPORT_TO_HERO' || e.type === 'GRANT_USE_COVERED_ACTION',
+            (e) =>
+              e.type === 'TELEPORT_TO_HERO' ||
+              e.type === 'GRANT_USE_COVERED_ACTION' ||
+              e.type === 'RELOCATE_OWN_HERO',
           )
           if (needsHeroPresent && heroesOf(state, state.activePlayer).length === 0) continue
           // Alignement des planètes (Hadès) : inutile si AUCUN Titan n'est entravé.
@@ -425,14 +484,22 @@ export function enumerateActions(state: GameState): GameAction[] {
       // seule, chaque « toutes sauf une » (défausser le reste en gardant la
       // meilleure) et « toute la main ». Le lookahead jusqu'à END_TURN évalue la
       // repioche, donc ces options suffisent à cycler une main faible.
-      const ids = me.hand.map((c) => c.instanceId)
-      for (const id of ids) {
-        out.push({ type: 'DISCARD_CARDS', actionId: action.id, instanceIds: [id] }) // une carte
+      // On NE défausse JAMAIS une carte cruciale pour l'objectif (Trident/Couronne
+      // d'Ursula, etc.) : elle doit être posée, pas jetée pour cycler.
+      const critical = objectiveCriticalCardIds(me)
+      // On préserve aussi les cartes à FORTE valeur stratégique : véhicules (Char
+      // d'Hadès, Bateau de Bowser → déplacement gratuit du pion = actions en plus)
+      // et Objets qui accordent une action supplémentaire. À poser, pas à jeter.
+      const discardable = me.hand.filter(
+        (c) => !critical.has(c.cardId) && !c.ridesWithPawn && !c.grantsAction,
+      )
+      for (const c of discardable) {
+        out.push({ type: 'DISCARD_CARDS', actionId: action.id, instanceIds: [c.instanceId] }) // une carte
       }
       // Multi-défausse « si nécessaire » : se débarrasser d'un coup des cartes
       // INJOUABLES ce tour (coût > pouvoir disponible) pour repiocher. Une seule
       // option (bornée) — éviter d'exploser la recherche du bot.
-      const dead = me.hand.filter((c) => effectiveCost(state, c) > me.power).map((c) => c.instanceId)
+      const dead = discardable.filter((c) => effectiveCost(state, c) > me.power).map((c) => c.instanceId)
       if (dead.length >= 2) {
         out.push({ type: 'DISCARD_CARDS', actionId: action.id, instanceIds: dead })
       }

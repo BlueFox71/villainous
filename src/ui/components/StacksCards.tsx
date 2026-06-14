@@ -6,9 +6,9 @@ import { DeckPiles } from './DeckPiles'
  * pioche), alignées à gauche. Le zoom de la défausse s'ouvre en bas-droite.
  * Partagé entre la colonne du joueur et celle du bot (seul `player` varie).
  */
-export function StacksCards({ player }: { player: PlayerState }) {
+export function StacksCards({ player, playerIndex }: { player: PlayerState; playerIndex?: number }) {
   return (
-    <div className="stacks-cards flex shrink-0 gap-3">
+    <div className="stacks-cards flex shrink-0 gap-3" data-fate-pile={playerIndex}>
       <DeckPiles player={player} kind="fate" show="deck" upright uprightWidth="w-16" />
       <DeckPiles player={player} kind="fate" show="discard" upright uprightWidth="w-16" zoomClass="left-0 top-full mt-1" />
     </div>

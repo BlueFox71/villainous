@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { resolveEffect } from '../effects'
 import { applyAction } from '../actions'
 import { hasReachedObjective } from '../rules'
+import { enumerateActions } from '../../ai/enumerate'
 import { ursula } from '../../data/villains/ursula'
 import { ursulaCards } from '../../data/villains/ursula.cards'
 import { princeJohn } from '../../data/villains/princeJohn'
@@ -138,6 +139,78 @@ describe('Ursula — Divination / Polochon / Opportunisme / Ariel', () => {
     const next = resolveEffect(s, { type: 'REVEAL_VILLAIN_UNTIL_CONTRACT' }, { actorIndex: 0 })
     expect(next.players[0].hand.some((c) => c.instanceId === 'p')).toBe(true)
     expect(next.players[0].discard.some((c) => c.instanceId === 'e')).toBe(true)
+  })
+  it("le bot ne défausse PAS le Trident (carte d'objectif) mais défausse le reste", () => {
+    const base = game()
+    const me = base.players[0]
+    const trident = [...me.deck, ...me.hand].find((c) => c.cardId === 'trident')!
+    const junk = [...me.deck, ...me.hand].find((c) => c.cardId === 'tourbillon')!
+    const s: GameState = {
+      ...base,
+      activePlayer: 0,
+      phase: 'ACTION',
+      usedActionIds: [],
+      players: base.players.map((p, i) => (i === 0 ? { ...p, pawnLocation: 'navire', hand: [trident, junk] } : p)),
+    }
+    const discards = enumerateActions(s).filter((a) => a.type === 'DISCARD_CARDS')
+    // Aucune option ne défausse le Trident…
+    expect(discards.every((a) => a.type === 'DISCARD_CARDS' && !a.instanceIds.includes(trident.instanceId))).toBe(true)
+    // …mais une carte quelconque reste défaussable.
+    expect(discards.some((a) => a.type === 'DISCARD_CARDS' && a.instanceIds.includes(junk.instanceId))).toBe(true)
+  })
+  it('le bot ne joue pas Tourbillon sans Héros (mais le joue avec un Héros)', () => {
+    const base = game()
+    const me = base.players[0]
+    const tourbillon = [...me.deck, ...me.hand].find((c) => c.cardId === 'tourbillon')!
+    const noHero: GameState = {
+      ...base,
+      activePlayer: 0,
+      phase: 'ACTION',
+      usedActionIds: [],
+      players: base.players.map((p, i) => (i === 0 ? { ...p, pawnLocation: 'repaire', hand: [tourbillon], power: 5 } : p)),
+    }
+    const playsTourbillon = (s: GameState) =>
+      enumerateActions(s).some((a) => a.type === 'PLAY_CARD' && a.instanceId === tourbillon.instanceId)
+    expect(playsTourbillon(noHero)).toBe(false)
+    // Avec un Héros dans le royaume, Tourbillon redevient jouable (il a une cible).
+    const hero: CardInstance = { instanceId: 'h', cardId: 'eric', name: 'Eric', type: 'hero', strength: 3 }
+    const withHero: GameState = {
+      ...noHero,
+      players: noHero.players.map((p, i) => (i === 0 ? { ...p, board: { ...p.board, navire: [hero] } } : p)),
+    }
+    expect(playsTourbillon(withHero)).toBe(true)
+  })
+  it('Apparence Retrouvée récupère un Héros ≤4 de la défausse Fatalité sur le lieu d’Ursula', () => {
+    const base = game()
+    const apparence = base.players[0].fateDeck.find((c) => c.cardId === 'apparence-retrouvee')!
+    const other = base.players[0].fateDeck.find((c) => c.instanceId !== apparence.instanceId)!
+    const eric: CardInstance = { instanceId: 'eric', cardId: 'eric', name: 'Eric', type: 'hero', strength: 3 }
+    const s: GameState = {
+      ...base,
+      activePlayer: 1,
+      pendingFate: { target: 0, revealed: [apparence, other] },
+      players: base.players.map((p, i) => (i === 0 ? { ...p, pawnLocation: 'repaire', fateDiscard: [eric] } : p)),
+    }
+    const after = applyAction(s, { type: 'RESOLVE_FATE', instanceId: apparence.instanceId })
+    expect((after.players[0].board.repaire ?? []).some((c) => c.instanceId === 'eric')).toBe(true)
+    expect(after.players[0].fateDiscard.some((c) => c.instanceId === 'eric')).toBe(false)
+  })
+  it('le bot ne propose pas Apparence Retrouvée si la défausse Fatalité est vide', () => {
+    const base = game()
+    const apparence = base.players[0].fateDeck.find((c) => c.cardId === 'apparence-retrouvee')!
+    // L'autre carte révélée est un Héros (toujours posable) → la garde de filet ne
+    // force pas Apparence Retrouvée.
+    const hero: CardInstance = { instanceId: 'h', cardId: 'eric', name: 'Eric', type: 'hero', strength: 3 }
+    const s: GameState = {
+      ...base,
+      activePlayer: 1,
+      pendingFate: { target: 0, revealed: [apparence, hero] },
+      players: base.players.map((p, i) => (i === 0 ? { ...p, pawnLocation: 'repaire', fateDiscard: [] } : p)),
+    }
+    const opts = enumerateActions(s)
+    expect(opts.some((a) => a.type === 'RESOLVE_FATE' && a.instanceId === apparence.instanceId)).toBe(false)
+    // Le Héros, lui, reste jouable.
+    expect(opts.some((a) => a.type === 'RESOLVE_FATE' && a.instanceId === hero.instanceId)).toBe(true)
   })
   it('Polochon mélange la défausse Vilain dans la pioche', () => {
     const base = game()

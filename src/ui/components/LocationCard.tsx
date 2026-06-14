@@ -35,6 +35,9 @@ interface Props {
   attachHere: boolean
   /** Mode « déplacer » : les Alliés/Objets racine deviennent sélectionnables. */
   selectableCards: boolean
+  /** Restriction PRÉCISE des cartes cliquables (instanceId) ; null = pas de
+   *  restriction (logique par type). Sert aux modes limités aux Alliés. */
+  selectableCardIds?: string[] | null
   /** Mode « éliminer — choix des alliés » : ces instanceIds sont cochables. */
   vanquishAllyCandidates?: string[]
   /** Alliés déjà cochés pour le Vanquish en cours. */
@@ -84,6 +87,7 @@ export function LocationCard({
   blinkPersifleur = false,
   locationKey,
   attachHere,
+  selectableCardIds = null,
   selectableCards,
   vanquishAllyCandidates = [],
   vanquishSelected = [],
@@ -200,7 +204,10 @@ export function LocationCard({
                 attachHere && (c.type === 'ally' || (c.type === 'hero' && !!c.hypnotized))
               const canMovePick =
                 selectableCards &&
-                (c.type === 'ally' || c.type === 'item' || (c.type === 'hero' && !!c.hypnotized))
+                (c.type === 'ally' || c.type === 'item' || (c.type === 'hero' && !!c.hypnotized)) &&
+                // Restriction précise (épuisement d'énergie, Tendre un Piège) : seuls
+                // les instanceId listés sont cliquables → pas d'Objet surligné à tort.
+                (selectableCardIds == null || selectableCardIds.includes(c.instanceId))
               const canVanquishToggle = vanquishAllyCandidates.includes(c.instanceId)
               const isVanquishSelected = vanquishSelected.includes(c.instanceId)
               // Capitaine Crochet : Objet qui donne une action au lieu (Canon,

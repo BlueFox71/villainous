@@ -133,7 +133,7 @@ export function StartRollModal({ names, images, villainKeys, onResult, versusOnl
               alt=""
               aria-hidden
               style={transform ? { transform, transformOrigin: 'bottom' } : undefined}
-              className={`h-full w-auto max-w-[40vw] object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.85)] ${
+              className={`villain-fade-bottom h-full w-auto max-w-[40vw] object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.85)] ${
                 left ? 'object-left' : tweak ? 'object-right' : '-scale-x-100 object-right'
               }`}
             />

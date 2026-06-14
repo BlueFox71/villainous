@@ -579,12 +579,12 @@ export function cardNeedsStarAllyTarget(card: CardInstance): boolean {
   return (card.effects ?? []).some((e) => e.type === 'DRAIN_STAR_TO_ALLY')
 }
 
-/** Bowser — Alliés candidats pour recevoir une Étoile drainée : les Alliés
- *  présents sur le lieu du pion du joueur actif (l'épuisement se joue là). */
+/** Bowser — Alliés candidats pour recevoir une Étoile drainée : les Alliés présents
+ *  sur l'OBSERVATOIRE de la Comète (`starLocationId`), d'où provient l'Étoile. */
 export function drainStarAllies(state: GameState): CardInstance[] {
   const me = activePlayer(state)
-  if (me.pawnLocation == null) return []
-  return (me.board[me.pawnLocation] ?? []).filter((c) => c.type === 'ally' && !c.isWicket)
+  if (me.starLocationId == null) return []
+  return (me.board[me.starLocationId] ?? []).filter((c) => c.type === 'ally' && !c.isWicket)
 }
 
 /** Alliés et Objets (non associés) du royaume du joueur actif, candidats au

@@ -62,7 +62,7 @@ describe('Bowser — effets Étoiles', () => {
     expect(after.players[0].power).toBe(0)
   })
 
-  it("DRAIN_STAR_TO_ALLY déplace une Étoile de l'Observatoire vers un Allié du lieu du pion", () => {
+  it("DRAIN_STAR_TO_ALLY déplace une Étoile de l'Observatoire vers un Allié SUR l'Observatoire", () => {
     const base = game()
     const start: GameState = {
       ...base,
@@ -70,12 +70,12 @@ describe('Bowser — effets Étoiles', () => {
         ...base.players[0],
         pawnLocation: 'galaxies',
         observatoryStars: 4,
-        board: { ...base.players[0].board, galaxies: [ally('a1')] },
+        board: { ...base.players[0].board, observatoire: [ally('a1')] },
       }],
     }
     const after = resolveEffects(start, [{ type: 'DRAIN_STAR_TO_ALLY' }], { allyInstanceIds: ['a1'] })
     expect(after.players[0].observatoryStars).toBe(3)
-    expect(after.players[0].board.galaxies[0].stars).toBe(1)
+    expect(after.players[0].board.observatoire[0].stars).toBe(1)
   })
 
   it('DRAIN_STAR_TO_ALLY épuise et verrouille quand la dernière Étoile part', () => {
@@ -86,7 +86,7 @@ describe('Bowser — effets Étoiles', () => {
         ...base.players[0],
         pawnLocation: 'galaxies',
         observatoryStars: 1,
-        board: { ...base.players[0].board, galaxies: [ally('a1')] },
+        board: { ...base.players[0].board, observatoire: [ally('a1')] },
       }],
     }
     const after = resolveEffects(start, [{ type: 'DRAIN_STAR_TO_ALLY' }], { allyInstanceIds: ['a1'] })
@@ -136,12 +136,12 @@ describe('Bowser — effets Étoiles', () => {
         ...base.players[0],
         pawnLocation: 'galaxies',
         observatoryStars: 1,
-        board: { ...base.players[0].board, galaxies: [ally('a1')], 'chateau-peach': [harmonie] },
+        board: { ...base.players[0].board, observatoire: [ally('a1')], 'chateau-peach': [harmonie] },
       }],
     }
     const after = resolveEffects(start, [{ type: 'DRAIN_STAR_TO_ALLY' }], { allyInstanceIds: ['a1'] })
     expect(after.players[0].observatoryStars).toBe(1) // bloqué
-    expect(after.players[0].board.galaxies[0].stars).toBeFalsy()
+    expect(after.players[0].board.observatoire[0].stars).toBeFalsy()
   })
 
   it("Harmonie ne bloque pas s'il reste plus d'une Étoile", () => {
@@ -153,12 +153,12 @@ describe('Bowser — effets Étoiles', () => {
         ...base.players[0],
         pawnLocation: 'galaxies',
         observatoryStars: 2,
-        board: { ...base.players[0].board, galaxies: [ally('a1')], 'chateau-peach': [harmonie] },
+        board: { ...base.players[0].board, observatoire: [ally('a1')], 'chateau-peach': [harmonie] },
       }],
     }
     const after = resolveEffects(start, [{ type: 'DRAIN_STAR_TO_ALLY' }], { allyInstanceIds: ['a1'] })
     expect(after.players[0].observatoryStars).toBe(1)
-    expect(after.players[0].board.galaxies[0].stars).toBe(1)
+    expect(after.players[0].board.observatoire[0].stars).toBe(1)
   })
 
   it('DISCARD_ONE_ITEM (Comète farceuse) défausse un Objet du royaume', () => {

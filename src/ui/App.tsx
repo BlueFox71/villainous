@@ -54,6 +54,8 @@ import { TransformWicketsModal } from './components/TransformWicketsModal'
 import { ScryModal } from './components/ScryModal'
 import { AllyMoveBuffModal } from './components/AllyMoveBuffModal'
 import { FetchedHeroModal } from './components/FetchedHeroModal'
+import { CastleTheftModal } from './components/CastleTheftModal'
+import { VictoryModal } from './components/VictoryModal'
 import { NeverlandMapModal } from './components/NeverlandMapModal'
 import { GiantActionModal } from './components/GiantActionModal'
 import { TitanMoveModal } from './components/TitanMoveModal'
@@ -74,6 +76,7 @@ import { Scroller } from './components/Scroller'
 import { FloatingGains, type FloatingGain } from './components/FloatingGains'
 import { GameTimer } from './components/GameTimer'
 import { TurnSplash } from './components/TurnSplash'
+import { BackgroundAnimation } from './components/BackgroundAnimation'
 import { villainPresentation } from './villainArt'
 
 // `diablo: true` sur un mode interactif = l'action en cours est l'action gratuite
@@ -162,6 +165,9 @@ type Mode =
   | null
 
 const BOT_STEP_MS = 700
+// Délai avant que le bot ne pose la carte de Vol du château : laisse le joueur
+// adverse lire les cartes dévoilées (modale affichée des deux côtés).
+const CASTLE_THEFT_READ_MS = 2400
 
 export default function App({ onExit }: { onExit?: () => void } = {}) {
   const state = useGameStore((s) => s.state)
@@ -202,6 +208,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const skipAllyMoveBuff = useGameStore((s) => s.skipAllyMoveBuff)
   const resolveFateChoice = useGameStore((s) => s.resolveFateChoice)
   const resolveFetchedHero = useGameStore((s) => s.resolveFetchedHero)
+  const resolveCastleTheft = useGameStore((s) => s.resolveCastleTheft)
+  const resetGame = useGameStore((s) => s.reset)
   // Renommé sans préfixe « use » : c'est une action du store, pas un hook React
   // (sinon eslint react-hooks la croit appelée hors composant dans le callback).
   const playNeverlandMap = useGameStore((s) => s.useNeverlandMap)
@@ -301,6 +309,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   }, [state.status, state.winner, humanVillainKey, opponentVillainKey, recordResult, recordGame])
 
   const [mode, setMode] = useState<Mode>(null)
+  // Mode test : relance l'animation de décor d'un vilain au clic (boutons 🚢).
+  const [debugAnim, setDebugAnim] = useState({ player: 0, opponent: 0 })
   const [mapModalOpen, setMapModalOpen] = useState(false)
   const [showOptions, setShowOptions] = useState(false)
   // Réseau : confirmation avant de quitter la partie (l'autre joueur sera prévenu).
@@ -846,6 +856,23 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       }
       return
     }
+    // Vol du château : le bot pose la carte dévoilée (lieu courant si libre, sinon
+    // 1ᵉʳ lieu libre ; objet associable → main). Délai allongé pour laisser le
+    // joueur lire les cartes dévoilées (affichage des deux côtés).
+    const pct = state.pendingCastleTheft
+    if (pct) {
+      if (seats[pct.playerIndex] === 'bot') {
+        const p = state.players[pct.playerIndex]
+        const locked = new Set(p.lockedLocations ?? [])
+        const dest = pct.toHand
+          ? undefined
+          : (p.pawnLocation && !locked.has(p.pawnLocation) ? p.pawnLocation : undefined) ??
+            p.locations.find((l) => !locked.has(l.id))?.id
+        const timer = setTimeout(() => resolveCastleTheft(dest), CASTLE_THEFT_READ_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
     // Opportunisme : le bot reprend la carte la plus chère de sa défausse.
     const prec = state.pendingRecover
     if (prec) {
@@ -1097,9 +1124,16 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     if (ppm) {
       if (seats[ppm.chooserIndex] === 'bot') {
         const tgt = state.players[ppm.targetIndex]
-        const cands = tgt.locations.filter((l) => l.id !== tgt.pawnLocation)
-        const score = (loc: string) => (tgt.board[loc] ?? []).filter((c) => c.type === 'curse').length
-        const dest = cands.length ? [...cands].sort((a, b) => score(b.id) - score(a.id))[0].id : null
+        const locked = new Set(tgt.lockedLocations ?? [])
+        const cands = tgt.locations.filter((l) => l.id !== tgt.pawnLocation && !locked.has(l.id))
+        // Priorité aux Malédictions (Roi Stéphane), puis éloigner la cible de ses
+        // propres Alliés/Objets (perturbation — Anneau étoile contre Bowser…).
+        const curses = (loc: string) => (tgt.board[loc] ?? []).filter((c) => c.type === 'curse').length
+        const support = (loc: string) =>
+          (tgt.board[loc] ?? []).filter((c) => (c.type === 'ally' || c.type === 'item') && !c.attachedTo).length
+        const dest = cands.length
+          ? [...cands].sort((a, b) => curses(b.id) - curses(a.id) || support(a.id) - support(b.id))[0].id
+          : null
         const timer = setTimeout(() => resolvePawnMove(dest), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
@@ -1147,7 +1181,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveRecover, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveDivination, resolveLookTop, resolveFateScry, skipHeroRelocate])
+  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveDivination, resolveLookTop, resolveFateScry, skipHeroRelocate])
 
   // Coups légaux / actions : seulement pour le joueur humain et à son tour.
   const legalMoves = isHumanTurn ? getLegalMoves(state) : []
@@ -1458,6 +1492,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       .map((l) => l.id)
       .find((id) => (user.board[id] ?? []).some((c) => c.instanceId === instanceId))
     if (!from) return
+    // Rien ne se déplace DEPUIS un lieu verrouillé (Bowser : Observatoire à 0 Étoile).
+    if ((user.lockedLocations ?? []).includes(from)) return
     const card = user.board[from].find((c) => c.instanceId === instanceId)
     setMode({ kind: 'move-dest', actionId: mode.actionId, instanceId, from, cardName: card?.name ?? '' })
   }
@@ -1752,6 +1788,18 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     mode?.kind === 'activate-pick' ||
     mode?.kind === 'sacrifice-pick' ||
     mode?.kind === 'drain-pick-ally'
+  // Liste PRÉCISE des cartes cliquables pour les modes restreints aux Alliés
+  // (épuisement d'énergie : Allié sur l'Observatoire ; Tendre un Piège : Allié à
+  // déplacer) — sans elle, les Objets seraient à tort surlignés/cliquables.
+  const selectableCardIds: string[] | null =
+    mode?.kind === 'drain-pick-ally'
+      ? drainStarAllies(state).map((c) => c.instanceId)
+      : mode?.kind === 'trap-pick-ally'
+        ? Object.values(user.board)
+            .flat()
+            .filter((c) => c.type === 'ally' && !c.isWicket && !c.attachedTo)
+            .map((c) => c.instanceId)
+        : null
   // Règle officielle Vanquish : on peut viser N'IMPORTE QUEL Héros du royaume
   // (pas forcément sur le lieu du pion). Les alliés utilisés doivent être au
   // LIEU DU HÉROS choisi (Archers Loups : depuis un lieu voisin).
@@ -1856,12 +1904,34 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       : 0
 
   const won = state.status === 'WON'
+  // Fin de partie : écran Victoire/Défaite. « Regarder le plateau » le ferme en
+  // laissant le plateau inactif (les 2 autres choix restent en haut à droite).
+  // `watchBoard` n'a de sens que si `won` ; il est remis à false au redémarrage
+  // (replaySameVillains) — seul retour PLAYING en place.
+  const [watchBoard, setWatchBoard] = useState(false)
+  const winnerIndex = won ? state.winner ?? null : null
+  const winnerKey = winnerIndex != null ? villainKeyOf(state.players[winnerIndex].villain) : null
+  const loserKey =
+    winnerIndex != null ? villainKeyOf(state.players[1 - winnerIndex].villain) : null
+  const replaySameVillains = () => {
+    setWatchBoard(false)
+    resetGame([humanVillainKey, opponentVillainKey])
+  }
 
   return (
     <div
       className="villain-bg flex h-screen flex-col overflow-hidden bg-[#0a0814] text-white"
       style={{ backgroundImage: pageBackground, ...accentVars(userColor, botColor) }}
     >
+      {/* Décor animé d'arrière-plan : un prop par vilain traverse la bande haute. */}
+      <BackgroundAnimation
+        playerVillain={humanVillainKey}
+        opponentVillain={opponentVillainKey}
+        playerIndex={HUMAN}
+        opponentIndex={BOT}
+        replayPlayer={debugAnim.player}
+        replayOpponent={debugAnim.opponent}
+      />
       <header className="relative z-30 flex items-center justify-end gap-3 px-4 py-2">
         <div className="flex items-center gap-2 text-xs">
           {testMode && (
@@ -1908,6 +1978,25 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           >
             🧪 Mode test
           </button>
+          {testMode && (
+            <>
+              {/* Test : relance l'animation de décor de chaque vilain. */}
+              <button
+                onClick={() => setDebugAnim((d) => ({ ...d, player: d.player + 1 }))}
+                title="Rejouer l'animation de décor du vilain 1 (joueur)"
+                className="rounded-lg border border-sky-400/60 px-3 py-1.5 text-sm text-sky-200 hover:bg-sky-500/10"
+              >
+                🚢 Vilain 1
+              </button>
+              <button
+                onClick={() => setDebugAnim((d) => ({ ...d, opponent: d.opponent + 1 }))}
+                title="Rejouer l'animation de décor du vilain 2 (adversaire)"
+                className="rounded-lg border border-rose-400/60 px-3 py-1.5 text-sm text-rose-200 hover:bg-rose-500/10"
+              >
+                🚢 Vilain 2
+              </button>
+            </>
+          )}
           {testMode && (
             <button
               onClick={() => setHideTestBar((v) => !v)}
@@ -1965,7 +2054,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           <div className="w-full">
             <div className="stacks-top flex h-24 w-full justify-start gap-3" />
             <div className="fatality-cases flex items-start gap-3" style={{ paddingLeft: '1%' }}>
-              <StacksCards player={user} />
+              <StacksCards player={user} playerIndex={HUMAN} />
               <div className="flex-1">
                 <HeroRow
                   player={user}
@@ -2019,6 +2108,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 placeTargets={placeTargets}
                 attachLocation={attachLocation}
                 selectableCards={selectableCards}
+                selectableCardIds={selectableCardIds}
                 vanquishAllyCandidates={vanquishAllyCandidates}
                 vanquishSelected={vanquishSelected}
                 onVanquishToggle={handleVanquishToggleAlly}
@@ -2367,7 +2457,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
 
         {/* ----- Milieu : tour courant + fin de tour, puis journal ----- */}
         <aside className="flex min-h-0 flex-col gap-2">
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3" data-turn-indicator>
             <div className="mb-2 text-center">
               {won ? (
                 <div className="text-lg font-bold text-amber-200">
@@ -2500,7 +2590,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           <div className="w-full">
             <div className="stacks-top flex h-24 w-full justify-start gap-3" />
             <div className="fatality-cases flex items-start gap-3" style={{ paddingLeft: '1%' }}>
-              <StacksCards player={bot} />
+              <StacksCards player={bot} playerIndex={BOT} />
               <div className="flex-1">
                 <HeroRow
                   player={bot}
@@ -2868,6 +2958,19 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         />
       )}
 
+      {/* Vol du château : cartes dévoilées + carte à jouer (affiché des DEUX côtés),
+          puis le joueur qui l'a jouée choisit le lieu. */}
+      {state.pendingCastleTheft && (
+        <CastleTheftModal
+          player={state.players[state.pendingCastleTheft.playerIndex]}
+          found={state.pendingCastleTheft.found}
+          revealed={state.pendingCastleTheft.revealed}
+          toHand={state.pendingCastleTheft.toHand}
+          interactive={state.pendingCastleTheft.playerIndex === HUMAN}
+          onResolve={(to) => resolveCastleTheft(to)}
+        />
+      )}
+
       {/* Abu/Aladdin (voler un Objet) / K.O. (retirer un Allié) : choix parmi les candidats. */}
       {state.pendingFateChoice && state.pendingFateChoice.chooserIndex === HUMAN && (() => {
         const pfc = state.pendingFateChoice
@@ -3140,6 +3243,45 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         onCardLanded={handleCardLanded}
         onBusyChange={setShowcaseBusy}
       />
+
+      {/* Fin de partie : écran Victoire/Défaite avec l'illustration du vainqueur. */}
+      {won && winnerKey && loserKey && !watchBoard && (
+        <VictoryModal
+          winnerKey={winnerKey}
+          loserKey={loserKey}
+          humanWon={winnerIndex === HUMAN}
+          onWatch={() => setWatchBoard(true)}
+          onReplay={replaySameVillains}
+          onHome={() => onExit?.()}
+          canReplay={gameMode === 'solo'}
+        />
+      )}
+
+      {/* Mode « Regarder le plateau » : le plateau reste inactif ; les deux autres
+          choix de fin de partie restent accessibles en haut à droite. */}
+      {won && watchBoard && (
+        <div className="fixed right-4 top-4 z-[78] flex items-center gap-2 rounded-xl border border-white/15 bg-[#120c22]/95 px-3 py-2 shadow-lg backdrop-blur-sm">
+          <span className="px-1 text-sm font-bold text-amber-200">
+            {state.winner === HUMAN ? '🏆 Victoire' : '💀 Défaite'}
+          </span>
+          {gameMode === 'solo' && (
+            <button
+              type="button"
+              onClick={replaySameVillains}
+              className="rounded-lg border border-amber-400/60 bg-amber-400/15 px-3 py-1 text-sm font-bold text-amber-100 hover:bg-amber-400/30"
+            >
+              🔁 Rejouer
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => onExit?.()}
+            className="rounded-lg border border-white/25 px-3 py-1 text-sm font-semibold text-white/85 hover:bg-white/10"
+          >
+            🏠 Accueil
+          </button>
+        </div>
+      )}
     </div>
   )
 }

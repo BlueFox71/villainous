@@ -1437,6 +1437,31 @@ function applyResolveFateInner(
     return next
   }
 
+  // Ursula (Fatalité) — Apparence Retrouvée : récupère un Héros de force ≤4 dans la
+  // défausse Fatalité d'Ursula et le pose sur le lieu d'Ursula (le plus fort ≤4).
+  // Non sélectionnable sans Héros valide (cf. FateModal.playable / enumerate).
+  if (chosen.cardId === 'apparence-retrouvee') {
+    const tgtP = state.players[pending.target]
+    const heroes = tgtP.fateDiscard.filter((c) => c.type === 'hero' && (c.strength ?? 0) <= 4)
+    let next: GameState = {
+      ...updatePlayer(state, pending.target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, ...others] })),
+      pendingFate: null,
+    }
+    if (heroes.length === 0) {
+      next = updatePlayer(next, pending.target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, chosen] }))
+      return { ...next, log: [...next.log, `Apparence Retrouvée : aucun Héros (force ≤4) dans la défausse Fatalité de ${tgt.villainName}.`] }
+    }
+    const hero = [...heroes].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+    // Retire le Héros récupéré de la défausse Fatalité ; la carte Apparence y va.
+    next = updatePlayer(next, pending.target, (p) => ({
+      ...p,
+      fateDiscard: [...p.fateDiscard.filter((c) => c.instanceId !== hero.instanceId), chosen],
+    }))
+    const dest = tgtP.pawnLocation ?? tgtP.locations[0].id
+    const destName = findLocation(tgtP, dest)?.name ?? dest
+    return placeFateHeroWithEffects(next, pending.target, state.activePlayer, hero, dest, destName)
+  }
+
   // Fallback (carte Fatalité non implémentée) : simple défausse.
   const next = updatePlayer(state, pending.target, (p) => ({
     ...p,
@@ -2466,6 +2491,13 @@ function resolveConditionEffect(
     // Insidieux (L'Imposteur) : un Coéquipier suspect redevient normal.
     return resolveEffectsLocal(next, [{ type: 'REASSURE_ANY' }], { actorIndex: playerIndex })
   }
+  // Repli générique : Condition « simple » qui déclare directement ses effets
+  // (sans branchement spécifique ci-dessus). Ex. Festival des éclats d'étoiles →
+  // Gagner 3 JT. Les effets s'appliquent au joueur qui RÉAGIT (playerIndex), pas
+  // au joueur actif.
+  if (card.effects && card.effects.length > 0) {
+    return resolveEffectsLocal(next, card.effects, { actorIndex: playerIndex })
+  }
   // Aucune autre Condition pour l'instant.
   return next
 }
@@ -3207,6 +3239,47 @@ function applyResolveFetchedHero(state: GameState, play: boolean, to?: LocationI
   return placeFateHeroWithEffects(next, idx, idx, pending.hero, dest, destName)
 }
 
+/** Vol du château : pose l'Allié/Objet dévoilé (`found`) sur le lieu `to` choisi
+ *  (ou en main si associable). Showcase visible des deux côtés via l'animation de
+ *  pose. Les cartes dévoilées ont déjà été remises sur le dessus par l'effet. */
+function applyResolveCastleTheft(state: GameState, to?: LocationId): GameState {
+  const pending = state.pendingCastleTheft
+  if (!pending) throw new Error('Aucun Allié/Objet dévoilé en attente (Vol du château).')
+  const idx = pending.playerIndex
+  const me = state.players[idx]
+  const found = pending.found
+  let next: GameState = { ...state, pendingCastleTheft: null }
+  // Objet associable (à un Allié/Héros) : pas de pose libre → en main.
+  if (pending.toHand) {
+    next = updatePlayer(next, idx, (p) => ({ ...p, hand: [...p.hand, found] }))
+    return { ...next, log: [...next.log, `${me.villainName} ajoute **${found.name}** à sa main (Vol du château).`] }
+  }
+  const locked = new Set(me.lockedLocations ?? [])
+  const dest = to ?? me.pawnLocation ?? me.locations[0].id
+  if (!me.locations.some((l) => l.id === dest) || locked.has(dest)) {
+    throw new Error(`Lieu de pose invalide pour ${found.name} (Vol du château).`)
+  }
+  next = updatePlayer(next, idx, (p) => ({
+    ...p,
+    board: { ...p.board, [dest]: [...(p.board[dest] ?? []), found] },
+  }))
+  // Animation de pose (vol → lieu), visible des deux côtés.
+  next = pushFloatingFx(next, { kind: 'play-card', playerIndex: idx, locationId: dest, cardId: found.cardId })
+  const destName = me.locations.find((l) => l.id === dest)?.name ?? dest
+  next = { ...next, log: [...next.log, `${me.villainName} joue gratuitement **${found.name}** sur **${destName}** (Vol du château).`] }
+  // Bowser : un Allié à effet « Étoile si posé sur l'Observatoire » (Dino Piranha,
+  // Kamella) déclenche sa pose d'Étoile comme s'il avait été joué normalement.
+  if (found.type === 'ally' && (found.effects ?? []).some((e) => e.type === 'DRAIN_STAR_TO_SELF_IF_AT_OBSERVATORY')) {
+    next = resolveEffects(next, [{ type: 'DRAIN_STAR_TO_SELF_IF_AT_OBSERVATORY' }], {
+      actorIndex: idx,
+      hostInstanceId: found.instanceId,
+      hostLocationId: dest,
+    })
+  }
+  if (found.type === 'ally') next = processCurseDiscards(next, idx, dest, 'ally-played-here')
+  return next
+}
+
 /** Carte du Pays Imaginaire : à tout moment du tour, défaussez-la (du royaume)
  *  pour jouer GRATUITEMENT un Objet de la main. */
 function applyUseNeverlandMap(
@@ -3780,13 +3853,20 @@ function applyChariotMove(state: GameState, instanceId: string, to: string): Gam
   const preserved = state.usedActionIds.filter((a) => a.includes(':'))
   const fateIds = dest.actions.filter((a) => a.type === 'FATE').map((a) => a.id)
   const allDestIds = dest.actions.map((a) => a.id)
+  // Actions ACCORDÉES par les Objets posés sur `to` (Galaxie en verre → Déplacer
+  // un Allié/Objet…) : leur id `granted:<instanceId>` doit AUSSI être consommé
+  // après l'unique action, sinon une 2ᵉ action resterait jouable (cf. bug Bateau).
+  const grantedDestIds = (next.players[state.activePlayer].board[to] ?? [])
+    .filter((c) => c.grantsAction && !c.attachedTo)
+    .map((c) => `granted:${c.instanceId}`)
   return {
     ...next,
     // Pendant la fenêtre : Fatalité bloquée, le reste de `to` jouable (une fois).
     usedActionIds: [...preserved, usedKey, ...fateIds],
     actAtLocation: to,
-    // Après l'unique action (clearGiant) : toutes les actions de `to` deviennent utilisées.
-    usedBeforeGiant: [...preserved, usedKey, ...allDestIds],
+    // Après l'unique action (clearGiant) : toutes les actions de `to` (imprimées
+    // ET accordées par des Objets) deviennent utilisées → plus rien ce tour.
+    usedBeforeGiant: [...preserved, usedKey, ...allDestIds, ...grantedDestIds],
     log: [
       ...next.log,
       `${me.villainName} déplace sa figurine et le ${card.name} vers **${dest.name}** : une action disponible (hors Fatalité).`,
@@ -3941,6 +4021,9 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   if (state.pendingFetchedHero && action.type !== 'RESOLVE_FETCHED_HERO' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Jouez ou défaussez le Héros dévoilé (RESOLVE_FETCHED_HERO).')
   }
+  if (state.pendingCastleTheft && action.type !== 'RESOLVE_CASTLE_THEFT' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Choisissez où poser la carte dévoilée (RESOLVE_CASTLE_THEFT).')
+  }
   // Opportunisme : récupérer une carte de la défausse d'abord.
   if (state.pendingRecover && action.type !== 'RESOLVE_RECOVER' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Récupérez une carte de votre défausse (RESOLVE_RECOVER).')
@@ -4080,6 +4163,8 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return applyResolveFateChoice(state, action.instanceId)
     case 'RESOLVE_FETCHED_HERO':
       return applyResolveFetchedHero(state, action.play, action.to)
+    case 'RESOLVE_CASTLE_THEFT':
+      return applyResolveCastleTheft(state, action.to)
     case 'RESOLVE_RECOVER':
       return applyResolveRecover(state, action.instanceId)
     case 'RESOLVE_CREWMATE_KILL':

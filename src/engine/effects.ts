@@ -300,10 +300,12 @@ export function performVanquish(
         }
       } else {
         removedIds.add(a.instanceId)
+        // Bowser : une Étoile portée par l'Allié est perdue quand il quitte le jeu
+        // (défaussé OU repris en main) — on réinitialise toujours son compteur.
         if (a.returnToHandOnVanquish) {
-          returnedToHand.push({ ...a, attachedTo: undefined })
+          returnedToHand.push({ ...a, attachedTo: undefined, stars: undefined })
         } else {
-          discardedAllyCards.push(a)
+          discardedAllyCards.push({ ...a, stars: undefined })
         }
         for (const o of attached) {
           removedIds.add(o.instanceId)
@@ -2652,7 +2654,8 @@ export function resolveEffect(
       if (harmonieKeepsLastStar(actor)) {
         return { ...state, log: [...state.log, `Harmonie veille : l'Observatoire doit garder au moins une Étoile.`] }
       }
-      const loc = actor.pawnLocation
+      // L'Étoile se place sur un Allié situé sur l'OBSERVATOIRE (d'où elle provient).
+      const loc = actor.starLocationId
       if (loc == null) return state
       const cell = actor.board[loc] ?? []
       const allyId = ctx?.allyInstanceIds?.[0]
@@ -2660,7 +2663,7 @@ export function resolveEffect(
         ? cell.find((c) => c.instanceId === allyId && c.type === 'ally')
         : cell.find((c) => c.type === 'ally' && !c.isWicket)
       if (!target) {
-        return { ...state, log: [...state.log, `${actor.villainName} : aucun Allié sur place pour recevoir l'Étoile.`] }
+        return { ...state, log: [...state.log, `${actor.villainName} : aucun Allié sur l'Observatoire pour recevoir l'Étoile.`] }
       }
       const next = updatePlayer(state, idx, (p) =>
         syncObservatoryLock({
@@ -2787,11 +2790,10 @@ export function resolveEffect(
       }
     }
     case 'REVEAL_UNTIL_PLAY_ALLY_OR_ITEM': {
-      // Vol du château : dévoile jusqu'à un Allié/Objet, le joue gratuitement sur
-      // le lieu du pion, remet les autres dévoilées sur le dessus de la pioche.
+      // Vol du château : dévoile jusqu'à un Allié/Objet, remet les autres dévoilées
+      // sur le dessus de la pioche, PUIS ouvre le choix du lieu (pendingCastleTheft,
+      // affiché des deux côtés). La pose effective se fait à la résolution.
       const actor = state.players[idx]
-      const dest = actor.pawnLocation ?? actor.locations[0]?.id
-      if (dest === undefined) return state
       let deck = [...actor.deck]
       let disc = [...actor.discard]
       let rng = state.rngState
@@ -2810,34 +2812,25 @@ export function resolveEffect(
         if (top.type === 'ally' || top.type === 'item') found = top
         else revealed.push(top)
       }
-      if (!found) {
-        // Rien trouvé : on remet les cartes dévoilées et on garde l'état mélangé.
-        const next = updatePlayer({ ...state, rngState: rng }, idx, (p) => ({ ...p, deck: [...revealed, ...deck], discard: disc }))
-        return { ...next, log: [...next.log, `${actor.villainName} : aucun Allié ni Objet trouvé (Vol du château).`] }
-      }
-      // Objet associé à un Allié/Héros : impossible à poser librement → en main.
-      const playFree = found.attach !== 'ally' && found.attach !== 'hero'
-      let next = updatePlayer({ ...state, rngState: rng }, idx, (p) => ({
+      // On remet les cartes dévoilées (hors `found`) sur le dessus, dans l'ordre.
+      const baseNext = updatePlayer({ ...state, rngState: rng }, idx, (p) => ({
         ...p,
-        deck: [...revealed, ...deck], // les autres dévoilées repassent sur le dessus
+        deck: [...revealed, ...deck],
         discard: disc,
-        board: playFree ? { ...p.board, [dest]: [...(p.board[dest] ?? []), found!] } : p.board,
-        hand: playFree ? p.hand : [...p.hand, found!],
       }))
-      const destName = findLocation(actor, dest)?.name ?? dest
-      next = {
-        ...next,
+      if (!found) {
+        return { ...baseNext, log: [...baseNext.log, `${actor.villainName} : aucun Allié ni Objet trouvé (Vol du château).`] }
+      }
+      // Objet associé (à un Allié/Héros) : impossible à poser librement → ira en main.
+      const toHand = found.attach === 'ally' || found.attach === 'hero'
+      return {
+        ...baseNext,
+        pendingCastleTheft: { playerIndex: idx, found, revealed, toHand },
         log: [
-          ...next.log,
-          playFree
-            ? `${actor.villainName} joue gratuitement **${found.name}** sur **${destName}** (Vol du château).`
-            : `${actor.villainName} ajoute **${found.name}** à sa main (Vol du château).`,
+          ...baseNext.log,
+          `${actor.villainName} dévoile sa pioche (Vol du château) et trouve **${found.name}**.`,
         ],
       }
-      if (playFree && found.type === 'ally') {
-        next = processCurseDiscards(next, idx, dest, 'ally-played-here')
-      }
-      return next
     }
     case 'DISCARD_ONE_ITEM': {
       // Comète farceuse (Fatalité) : défausse un Objet (non associé) du royaume cible.

@@ -14,6 +14,10 @@ interface Props {
   attachLocation: LocationId | null
   /** Mode « déplacer » : les Alliés/Objets deviennent sélectionnables. */
   selectableCards: boolean
+  /** Restriction PRÉCISE des cartes cliquables (instanceId) pour les modes limités
+   *  aux Alliés (épuisement d'énergie, Tendre un Piège). null = pas de restriction
+   *  (logique par type habituelle). */
+  selectableCardIds?: string[] | null
   /** Mode « éliminer — choix des alliés » : alliés cochables sur le lieu courant. */
   vanquishAllyCandidates?: string[]
   vanquishSelected?: string[]
@@ -60,6 +64,7 @@ export function Board({
   placeTargets,
   attachLocation,
   selectableCards,
+  selectableCardIds = null,
   vanquishAllyCandidates = [],
   vanquishSelected = [],
   onVanquishToggle,
@@ -128,6 +133,7 @@ export function Board({
             isPlaceTarget={placeTargets.includes(loc.id)}
             attachHere={attachLocation === loc.id}
             selectableCards={selectableCards}
+            selectableCardIds={selectableCardIds}
             vanquishAllyCandidates={vanquishAllyCandidates}
             vanquishSelected={vanquishSelected}
             onVanquishToggle={onVanquishToggle}

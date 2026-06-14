@@ -9,6 +9,16 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.66',
+    date: '2026-06-15',
+    title: 'Décor animé en arrière-plan (Bowser : bateau volant)',
+    changes: [
+      'Chaque méchant peut désormais avoir une animation de décor qui apparaît de temps en temps en arrière-plan pendant la partie (derrière le plateau).',
+      'Bowser : son bateau pirate volant décolle de la pile Fatalité, s’élève au-dessus du compteur de tours et disparaît dans le ciel.',
+      'En mode test, deux boutons 🚢 permettent de rejouer l’animation de chaque méchant à la demande.',
+    ],
+  },
+  {
     version: '0.65',
     date: '2026-06-14',
     title: 'Bowser : finitions (Étoiles, Bateau, Grand Terrier) et bouton Options',

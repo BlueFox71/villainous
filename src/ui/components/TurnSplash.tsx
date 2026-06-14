@@ -14,7 +14,7 @@ export function TurnSplash({ villainName, image }: { villainName: string; image?
             src={image}
             alt=""
             aria-hidden
-            className="h-[32rem] w-auto max-w-[55vw] object-contain drop-shadow-[0_16px_44px_rgba(0,0,0,0.85)]"
+            className="villain-fade-bottom h-[32rem] w-auto max-w-[55vw] object-contain drop-shadow-[0_16px_44px_rgba(0,0,0,0.85)]"
           />
         )}
         {/* Marge négative + z-10 : le bloc passe par-dessus le bas de l'image

@@ -1004,6 +1004,12 @@ export interface GameState {
    *  (RESOLVE_FETCHED_HERO). `discarded` = autres cartes dévoilées (à défausser),
    *  montrées pour information. */
   pendingFetchedHero?: { playerIndex: number; hero: CardInstance; discarded: CardInstance[] } | null
+  /** Vol du château (Bowser) : `playerIndex` a dévoilé sa pioche jusqu'à un Allié/
+   *  Objet (`found`) ; `revealed` = cartes dévoilées AVANT (déjà remises sur le
+   *  dessus de la pioche, montrées pour information). Le joueur choisit le LIEU où
+   *  poser `found` (RESOLVE_CASTLE_THEFT) ; `toHand` = l'Objet s'associe (à un Allié/
+   *  Héros) → il va en main, pas de choix de lieu. Affiché des deux côtés. */
+  pendingCastleTheft?: { playerIndex: number; found: CardInstance; revealed: CardInstance[]; toHand: boolean } | null
   /** Opportunisme (Ursula) : `playerIndex` choisit une carte (`candidateIds`) de sa
    *  défausse Vilain à reprendre en main (RESOLVE_RECOVER). */
   pendingRecover?: {
@@ -1341,6 +1347,9 @@ export type GameAction =
   /** Digne Adversaire / Obsession : joue le Héros dévoilé sur le lieu `to` (`play:
    *  true`) ou le défausse (`play: false`). */
   | { type: 'RESOLVE_FETCHED_HERO'; play: boolean; to?: LocationId }
+  /** Vol du château : pose l'Allié/Objet dévoilé (`found`) sur le lieu `to` (ou en
+   *  main si associable). */
+  | { type: 'RESOLVE_CASTLE_THEFT'; to?: LocationId }
   /** L'Imposteur — Tuer : défausse le Coéquipier `color` choisi (pendingCrewmateKill). */
   | { type: 'RESOLVE_CREWMATE_KILL'; color: string }
   /** L'Imposteur — Tâche visuelle : rend suspect le Coéquipier `color` choisi. */

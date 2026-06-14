@@ -70,6 +70,9 @@ export function FateModal({ revealed, target, onResolve }: Props) {
    // possible) ? Sert à griser celles sans cible valide quand l'AUTRE est jouable.
   const playable = (c: CardInstance): boolean => {
     const realm = Object.values(target.board).flat()
+    // Apparence Retrouvée : il faut un Héros (force ≤4) dans la défausse Fatalité.
+    if (c.cardId === 'apparence-retrouvee')
+      return target.fateDiscard.some((x) => x.type === 'hero' && (x.strength ?? 0) <= 4)
     if (c.cardId === 'migraine-atroce') return realm.some((x) => x.type === 'item')
     if (c.cardId === 'ko') return realm.some((x) => x.type === 'ally' && !x.isWicket && (x.strength ?? 0) <= 3)
     // Il était un Rêve : il faut une Malédiction sur un lieu portant un Héros.

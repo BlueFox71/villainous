@@ -68,6 +68,9 @@ export const bowserCards: CardDef[] = [
     copies: 1,
     text: "Vous devez immédiatement jouer PEACH au Château de Peach dès qu'elle est dévoilée. Défaussez les autres cartes Fatalité qui ont été dévoilées.",
     image: img('peach.png'),
+    // Pose OBLIGATOIRE au Château de Peach : tous les autres lieux sont interdits
+    // (data-driven via heroPlacementLocations ; pas de branchement par cardId).
+    forbiddenLocations: ['chateau-bowser', 'galaxies', 'observatoire'],
   },
   {
     id: 'luigi',

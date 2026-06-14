@@ -13,6 +13,40 @@ export const LOCATIONS_LEFT = PAWN_FIRST_LEFT - PAWN_STEP / 2 // = 16 %, bord ga
 // Hauteur de la rangée d'actions du HAUT (en % de l'image) : un Héros la recouvre.
 export const TOP_ACTIONS_HEIGHT = 33 // %
 
+// Emplacements des Étoiles (en % de board.png : x = largeur, y = hauteur), par
+// vilain → lieu → 4 slots. Les Étoiles de l'Observatoire occupent les 1ᵉʳˢ slots de
+// son lieu. Calés sur l'Observatoire (centre ≈ 68,5 % : décalages −5,5/+4,5 en haut
+// y 38, −7,5/+6,5 en bas y 50) ; même logique reportée sur les autres lieux
+// (centres 26,5 / 47,5 / 89,5).
+const STAR_SLOTS: Record<string, Record<string, { x: number; y: number }[]>> = {
+  bowser: {
+    'chateau-bowser': [
+      { x: 21, y: 38 },
+      { x: 31, y: 38 },
+      { x: 19, y: 50 },
+      { x: 33, y: 50 },
+    ],
+    galaxies: [
+      { x: 42, y: 38 },
+      { x: 52, y: 38 },
+      { x: 40, y: 50 },
+      { x: 54, y: 50 },
+    ],
+    observatoire: [
+      { x: 63, y: 38 },
+      { x: 73, y: 38 },
+      { x: 61, y: 50 },
+      { x: 75, y: 50 },
+    ],
+    'chateau-peach': [
+      { x: 84, y: 38 },
+      { x: 94, y: 38 },
+      { x: 82, y: 50 },
+      { x: 96, y: 50 },
+    ],
+  },
+}
+
 // L'Imposteur — géométrie des COÉQUIPIERS sur le plateau (mesurée sur sa board.png).
 // Demi-écart horizontal entre les 2 cases (actions) du HAUT, par rapport au centre
 // du lieu (≈ position des icônes d'action).
@@ -103,36 +137,31 @@ export function BoardImage({
         />
       )}
 
-      {/* Bowser — ÉTOILES de l'Observatoire de la Comète : N mini-jetons étoile
-          (N = Étoiles restantes sur ce lieu) alignés entre la rangée d'actions du
-          HAUT et celle du BAS. Affichés sur `starLocationId` (l'Observatoire). */}
+      {/* Bowser — ÉTOILES : les Étoiles restantes de l'Observatoire
+          (`observatoryStars`) occupent les 1ᵉʳˢ emplacements de `starLocationId`
+          définis dans STAR_SLOTS. */}
       {(() => {
+        const slots = STAR_SLOTS[player.villain]
+        if (!slots) return null
         const stars = player.observatoryStars ?? 0
         if (stars <= 0 || !player.starLocationId) return null
-        const i = player.locations.findIndex((l) => l.id === player.starLocationId)
-        if (i < 0) return null
-        const center = PAWN_FIRST_LEFT + i * PAWN_STEP
-        return (
-          <div
-            className="pointer-events-none absolute z-[15] flex -translate-x-1/2 -translate-y-1/2 items-center gap-0.5"
-            style={{ left: `${center}%`, top: '43.5%' }}
-            title={`${stars} Étoile${stars > 1 ? 's' : ''} sur l'Observatoire`}
-          >
-            {Array.from({ length: stars }, (_, k) => (
-              <img
-                key={`star-${k}`}
-                src="/cards/bowser/etoile.png"
-                alt="Étoile"
-                className="w-auto"
-                style={{
-                  height: `${Math.round(player.pawnHeightPx * 0.42)}px`,
-                  // Halo doux doré (mêmes drop-shadows flous que le pion).
-                  filter: 'drop-shadow(0 0 1px #fde047) drop-shadow(0 0 3px #facc15)',
-                }}
-              />
-            ))}
-          </div>
-        )
+        const locSlots = slots[player.starLocationId] ?? []
+        return Array.from({ length: Math.min(stars, locSlots.length) }, (_, k) => (
+          <img
+            key={`star-${k}`}
+            src="/cards/bowser/etoile.png"
+            alt="Étoile"
+            title={`Étoile ${k + 1}/${stars} sur l'Observatoire`}
+            className="pointer-events-none absolute z-[15] w-auto -translate-x-1/2 -translate-y-1/2"
+            style={{
+              left: `${locSlots[k].x}%`,
+              top: `${locSlots[k].y}%`,
+              height: `${Math.round(player.pawnHeightPx * 0.42)}px`,
+              // Halo doux doré (mêmes drop-shadows flous que le pion).
+              filter: 'drop-shadow(0 0 1px #fde047) drop-shadow(0 0 3px #facc15)',
+            }}
+          />
+        ))
       })()}
 
       {/* L'Imposteur — ses 8 COÉQUIPIERS, posés SUR leur case d'action (slot

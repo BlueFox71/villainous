@@ -497,6 +497,7 @@ interface GameStore {
   resolveFateChoice: (instanceId: string) => void
   /** Digne Adversaire / Obsession : joue (sur `to`) ou défausse le Héros dévoilé. */
   resolveFetchedHero: (play: boolean, to?: string) => void
+  resolveCastleTheft: (to?: string) => void
   /** Carte du Pays Imaginaire : défausse-la et joue gratuitement un Objet de la main. */
   useNeverlandMap: (itemInstanceId: string, to: string, attachTo?: string) => void
   /** Opportunisme : reprend en main la carte choisie de la défausse Vilain. */
@@ -882,6 +883,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_FATE_CHOICE', instanceId }),
   resolveFetchedHero: (play, to) =>
     get().submit({ type: 'RESOLVE_FETCHED_HERO', play, to }),
+  resolveCastleTheft: (to) =>
+    get().submit({ type: 'RESOLVE_CASTLE_THEFT', to }),
   useNeverlandMap: (itemInstanceId, to, attachTo) =>
     get().submit({ type: 'USE_NEVERLAND_MAP', itemInstanceId, to, attachTo }),
   resolveRecover: (instanceId) =>

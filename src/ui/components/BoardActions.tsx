@@ -291,10 +291,10 @@ const ACTION_POS: Record<string, Record<string, Record<string, { x: number; y: n
   // icônes). L'éclair = Fatalité (confirmé au Château de Peach), pas Activer.
   bowser: {
     'chateau-bowser': {
-      'play-card': { x: 22.5, y: 20 },
-      fate: { x: 30.3, y: 20 },
-      'gain-power': { x: 22.3, y: 67.6 },
-      'move-item-ally': { x: 30.5, y: 67.6 },
+      'play-card': { x: 22.5, y: 19.8 },
+      fate: { x: 30.4, y: 19.8 },
+      'gain-power': { x: 22.5, y: 67.6 },
+      'move-item-ally': { x: 30.4, y: 67.2 },
     },
     galaxies: {
       'play-card': { x: 43.4, y: 20 },

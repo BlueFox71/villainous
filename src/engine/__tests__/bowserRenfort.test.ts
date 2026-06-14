@@ -46,6 +46,26 @@ describe('Bowser — Besoin de renfort (Condition)', () => {
   })
 })
 
+describe("Bowser — Festival des éclats d'étoiles (Condition)", () => {
+  it("fait gagner 3 jetons Pouvoir au joueur qui réagit quand l'adversaire a ≥6 JT", () => {
+    const base = game2()
+    const p1 = base.players[1]
+    const festival = p1.deck.find((c) => c.cardId === 'nuit')!
+    const s: GameState = {
+      ...base,
+      activePlayer: 0,
+      phase: 'ACTION',
+      players: [
+        { ...base.players[0], power: 6 }, // adversaire actif ≥6 JT (déclencheur)
+        { ...p1, power: 2, hand: [festival] },
+      ],
+    }
+    const after = applyAction(s, { type: 'PLAY_CONDITION', playerIndex: 1, instanceId: festival.instanceId })
+    expect(after.players[1].power).toBe(5) // 2 + 3
+    expect(after.players[1].hand.some((c) => c.instanceId === festival.instanceId)).toBe(false)
+  })
+})
+
 describe('Bowser — Bowser Jr. (passif : pioche quand ciblé par la Fatalité)', () => {
   it('la cible pioche 1 carte quand Bowser Jr. est dans son royaume', () => {
     const base = game2()

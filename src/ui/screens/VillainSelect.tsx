@@ -140,7 +140,7 @@ function RandomArt({ side }: { side: 'left' | 'right' }) {
           alt=""
           aria-hidden
           style={transform ? { transform, transformOrigin: 'bottom' } : undefined}
-          className={`h-full w-auto max-w-[40vw] object-contain brightness-0 blur-[3px] ${
+          className={`villain-fade-bottom h-full w-auto max-w-[40vw] object-contain brightness-0 blur-[3px] ${
             side === 'left' ? 'object-left' : 'object-right'
           }`}
         />
@@ -173,7 +173,7 @@ function PresentationArt({ choice, side }: { choice: Choice | null; side: 'left'
       alt=""
       aria-hidden
       style={transform ? { transform, transformOrigin: 'bottom' } : undefined}
-      className={`${SIDE_ART_BASE} max-w-[40vw] object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)] ${
+      className={`villain-fade-bottom ${SIDE_ART_BASE} max-w-[40vw] object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)] ${
         side === 'left' ? 'left-0 object-left' : tweak ? 'right-0 object-right' : 'right-0 object-right -scale-x-100'
       }`}
     />
