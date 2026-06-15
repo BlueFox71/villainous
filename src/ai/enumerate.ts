@@ -14,6 +14,7 @@ import {
   alliesAt,
   canFate,
   canPlaceCurseAt,
+  canTakeABite,
   cardNeedsAllyMove,
   cardNeedsHeroTarget,
   cardNeedsSacrificeTarget,
@@ -27,6 +28,7 @@ import {
   hasHeroInRealm,
   heroPlacementLocations,
   heroesOf,
+  maxBrewPoison,
   movableCards,
   placementLocations,
   requiresAllyTarget,
@@ -137,6 +139,22 @@ export function enumerateActions(state: GameState): GameAction[] {
   if (state.pendingLookTop) {
     const plt = state.pendingLookTop
     return plt.cards.map((c) => ({ type: 'RESOLVE_LOOK_TOP', keepInstanceIds: [c.instanceId] }))
+  }
+
+  // La Méchante Reine — « Croque ! » : une option par Héros croquable.
+  if (state.pendingTakeABite) {
+    return state.pendingTakeABite.candidateIds.map((id) => ({ type: 'RESOLVE_TAKE_A_BITE', heroInstanceId: id }))
+  }
+
+  // La Méchante Reine — Foudre : une option par Ingrédient reproductible.
+  if (state.pendingDuplicateIngredient) {
+    return state.pendingDuplicateIngredient.candidateIds.map((id) => ({ type: 'RESOLVE_DUPLICATE_INGREDIENT', ingredientInstanceId: id }))
+  }
+
+  // La Méchante Reine — Hurlement d'effroi : chaque déplacement possible + décliner.
+  if (state.pendingScream) {
+    const opts = state.pendingScream.options.map((o) => ({ type: 'RESOLVE_SCREAM' as const, from: o.from, to: o.to }))
+    return [...opts, { type: 'RESOLVE_SCREAM' as const }]
   }
 
   // Si près du but / Charlotte (Dr Facilier) : le bot (adversaire) cherche à
@@ -294,6 +312,9 @@ export function enumerateActions(state: GameState): GameAction[] {
     if (out.length === 0 && revealed.length > 0) {
       out.push({ type: 'RESOLVE_FATE', instanceId: revealed[0].instanceId })
     }
+    // Combo « jouer les deux » (Ray/Dormeur) : la 2ᵉ carte est FACULTATIVE → le bot
+    // peut aussi passer (PASS_FATE).
+    if (state.pendingFate.optional) out.push({ type: 'PASS_FATE' })
     return out
   }
 
@@ -321,6 +342,12 @@ export function enumerateActions(state: GameState): GameAction[] {
   for (const action of getAvailableActions(state)) {
     if (action.type === 'GAIN_POWER') {
       out.push({ type: 'EXECUTE_ACTION', actionId: action.id })
+    } else if (action.type === 'BREW_POISON') {
+      // Préparer du Poison convertit N Pouvoir en N Poison : on propose au bot
+      // « 1 » (prudent) et « tout convertir » (max). L'évaluation tranche.
+      const max = maxBrewPoison(state)
+      const counts = max > 1 ? [1, max] : [1]
+      for (const count of counts) out.push({ type: 'EXECUTE_ACTION', actionId: action.id, count })
     } else if (action.type === 'PLAY_CARD') {
       const locs = placementLocations(state)
       const richardBlocks = hasHeroInRealm(state, state.activePlayer, 'roi-richard')
@@ -475,6 +502,18 @@ export function enumerateActions(state: GameState): GameAction[] {
           // Joyeux non-anniversaire : inutile sans aucun Allié dans le royaume.
           const needsAllyInRealm = (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_ALLY_IN_REALM')
           if (needsAllyInRealm && !Object.values(me.board).flat().some((c) => c.type === 'ally')) continue
+          // Magnifiques Taxes : inutile sans aucun Héros dans le royaume.
+          const needsHeroInRealm = (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_HERO_IN_REALM')
+          if (needsHeroInRealm && !Object.values(me.board).flat().some((c) => c.type === 'hero')) continue
+          // Foudre : injouable sans Ingrédient déjà joué (rien à reproduire).
+          const needsIngredient = (card.effects ?? []).some((e) => e.type === 'DUPLICATE_INGREDIENT')
+          if (needsIngredient && (me.ingredients ?? []).length === 0) continue
+          // « Je vais vous broyer les os ! » : inutile sans Héros sur le lieu du pion.
+          const needsHeroHere = (card.effects ?? []).some((e) => e.type === 'USE_COVERED_ACTIONS_THIS_TURN')
+          if (needsHeroHere && !(me.pawnLocation && (me.board[me.pawnLocation] ?? []).some((c) => c.type === 'hero'))) continue
+          // « Croque ! » : inutile si aucun Héros éliminable ici (Poison insuffisant).
+          const needsBite = (card.effects ?? []).some((e) => e.type === 'TAKE_A_BITE')
+          if (needsBite && !canTakeABite(state)) continue
           out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId })
         }
       }

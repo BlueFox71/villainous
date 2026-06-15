@@ -10,7 +10,7 @@ import { buildDeckInstances } from '../../data/types'
 import { createInitialGame } from '../state'
 import type { CardInstance, GameState } from '../types'
 
-const peterPan = (id = 'pp'): CardInstance => ({ instanceId: id, cardId: 'peter-pan', name: 'Peter Pan', type: 'hero', strength: 8 })
+const peterPan = (id = 'pp'): CardInstance => ({ instanceId: id, cardId: 'peter-pan', name: 'Peter Pan', type: 'hero', strength: 8, forcedFateLocation: 'arbre-pendu' })
 const ally = (id: string, cardId: string, strength: number): CardInstance => ({ instanceId: id, cardId, name: cardId, type: 'ally', strength })
 
 function game(): GameState {

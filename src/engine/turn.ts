@@ -50,6 +50,9 @@ export function pendingOwner(state: GameState): number | null {
   if (state.pendingTitanMove) return state.pendingTitanMove.playerIndex
   if (state.pendingDivination) return state.pendingDivination.playerIndex
   if (state.pendingLookTop) return state.pendingLookTop.playerIndex
+  if (state.pendingTakeABite) return state.pendingTakeABite.playerIndex
+  if (state.pendingDuplicateIngredient) return state.pendingDuplicateIngredient.playerIndex
+  if (state.pendingScream) return state.pendingScream.playerIndex
   // pendingFate / diabloFree / pendingTrapVanquish appartiennent TOUJOURS au
   // joueur actif (il vient de jouer la Fatalité / Diablo / le Piège) → pris en
   // charge par le repli sur activePlayer dans whoseInput, pas listés ici.

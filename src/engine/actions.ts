@@ -39,6 +39,7 @@ import {
   canEndTurn,
   canPlaceAt,
   canPlaceCurseAt,
+  canTakeABite,
   conditionIsTriggered,
   effectiveCost,
   effectiveStrength,
@@ -78,8 +79,9 @@ function consumePersifleur(state: GameState, action: LocationAction): GameState 
   }
 }
 
-/** Résout l'effet d'une action de lieu instantanée (hors gestion de tour). */
-function resolveLocationAction(state: GameState, action: LocationAction): GameState {
+/** Résout l'effet d'une action de lieu instantanée (hors gestion de tour).
+ *  `count` : nb de Pouvoir à convertir pour « Préparer du Poison » (défaut 1). */
+function resolveLocationAction(state: GameState, action: LocationAction, count?: number): GameState {
   switch (action.type) {
     case 'GAIN_POWER': {
       // Pénalité passive Robin des Bois : −1 JT (min 0) sur les gains du royaume.
@@ -98,6 +100,36 @@ function resolveLocationAction(state: GameState, action: LocationAction): GameSt
         ],
       }
       return pushRobinSteal(next, state.activePlayer, gross - amount)
+    }
+    case 'BREW_POISON': {
+      // La Méchante Reine — « Préparer du Poison » : convertit N jetons Pouvoir en
+      // N jetons Poison (1:1, N au choix). Timide (Héros Fatalité) fait coûter
+      // 1 Pouvoir EN PLUS le fait d'utiliser l'action (perdu, non converti).
+      const me = activePlayer(state)
+      const surcharge = hasHeroInRealm(state, state.activePlayer, 'timide') ? 1 : 0
+      const max = Math.max(0, me.power - surcharge)
+      if (max < 1) {
+        throw new Error(
+          surcharge
+            ? 'Timide : « Préparer du Poison » coûte 1 Pouvoir — pas assez pour convertir.'
+            : 'Préparer du Poison nécessite au moins 1 jeton Pouvoir à convertir.',
+        )
+      }
+      // Borne le nombre demandé à [1, max].
+      const n = Math.max(1, Math.min(count ?? 1, max))
+      const spent = n + surcharge
+      const next = updateActivePlayer(state, (p) => ({
+        ...p,
+        power: p.power - spent,
+        poison: (p.poison ?? 0) + n,
+      }))
+      return {
+        ...next,
+        log: [
+          ...next.log,
+          `${me.villainName} prépare du Poison (${n} Pouvoir → ${n} Poison${surcharge ? ', −1 JT : Timide' : ''}, total Poison : ${activePlayer(next).poison}).`,
+        ],
+      }
     }
     default:
       throw new Error(`Type d'action non géré : ${action.type}`)
@@ -180,23 +212,43 @@ function applyMove(state: GameState, to: string): GameState {
     next = updateActivePlayer(next, (p) => ({ ...p, hand: [], discard: [...p.discard, ...p.hand] }))
     next = { ...next, log: [...next.log, `🐊 Tic Tac ! ${me.villainName} défausse toute sa main.`] }
   }
+  // La Méchante Reine — Puits aux souhaits (Fatalité, associé à un Héros) : elle
+  // perd 1 jeton Poison chaque fois qu'elle arrive sur le lieu où il se trouve.
+  const puitsHere = (next.players[state.activePlayer].board[to] ?? []).some((c) => c.cardId === 'puits-souhaits')
+  if (puitsHere && (next.players[state.activePlayer].poison ?? 0) > 0) {
+    next = updateActivePlayer(next, (p) => ({ ...p, poison: (p.poison ?? 0) - 1 }))
+    next = { ...next, log: [...next.log, `Puits aux souhaits : ${me.villainName} perd 1 jeton Poison.`] }
+  }
   // Malédictions Feu Infernal : défaussées si le pion arrive sur leur lieu.
   return processCurseDiscards(next, state.activePlayer, to, 'pawn-moves-here')
 }
 
-function applyExecuteAction(state: GameState, actionId: string): GameState {
+function applyExecuteAction(state: GameState, actionId: string, count?: number): GameState {
   if (!isActionAvailable(state, actionId)) {
     throw new Error(`Action indisponible : « ${actionId} ».`)
   }
   const loc = currentLocation(state)! // garanti par isActionAvailable
   // Inclut les actions accordées par un Objet (Boîte à Crochets → Gagner 1).
   const action = locationActions(state, loc.id).find((a) => a.id === actionId)!
-  if (action.type !== 'GAIN_POWER') {
+  if (action.type !== 'GAIN_POWER' && action.type !== 'BREW_POISON') {
     throw new Error(`EXECUTE_ACTION ne gère pas « ${action.type} ».`)
   }
-  let next = resolveLocationAction(state, action)
+  let next = resolveLocationAction(state, action, count)
   next = consumePersifleur(next, action)
+  next = consumeRepeatAction(next, actionId)
   return { ...next, usedActionIds: [...next.usedActionIds, actionId] }
+}
+
+/** La Méchante Reine — Noir de nuit : si l'action `actionId` est REJOUÉE (déjà dans
+ *  usedActionIds) et que le drapeau « refaire une action » est armé, on le consomme.
+ *  No-op pour tous les autres cas (drapeau jamais posé). */
+function consumeRepeatAction(state: GameState, actionId: string): GameState {
+  const me = activePlayer(state)
+  if (!me.repeatActionAvailable || !state.usedActionIds.includes(actionId)) return state
+  return {
+    ...updateActivePlayer(state, (p) => ({ ...p, repeatActionAvailable: false })),
+    log: [...state.log, `Noir de nuit : ${me.villainName} refait une action.`],
+  }
 }
 
 /** Joue une carte de la main via une action « Jouer une carte » du lieu courant. */
@@ -227,7 +279,8 @@ function applyPlayCard(
   if (isActionCovered(state, action)) {
     throw new Error(`${action.label} est recouverte par un Héros.`)
   }
-  if (state.usedActionIds.includes(actionId)) {
+  // Action déjà utilisée : refusée, SAUF si Noir de nuit autorise une réutilisation.
+  if (state.usedActionIds.includes(actionId) && !activePlayer(state).repeatActionAvailable) {
     throw new Error('Cette action a déjà été utilisée ce tour.')
   }
 
@@ -253,6 +306,40 @@ function applyPlayCard(
     !Object.values(me.board).flat().some((c) => c.type === 'ally')
   ) {
     throw new Error('Aucun Allié dans votre royaume : cette carte n’aurait aucun effet.')
+  }
+  // Magnifiques Taxes (gain par Héros) : injouable sans aucun Héros dans le
+  // royaume (elle n'aurait aucun effet). Donnée : on teste l'effet, pas le cardId.
+  if (
+    (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_HERO_IN_REALM') &&
+    !Object.values(me.board).flat().some((c) => c.type === 'hero')
+  ) {
+    throw new Error('Aucun Héros dans votre royaume : cette carte n’aurait aucun effet.')
+  }
+  // Foudre (duplique un Ingrédient) : injouable s'il n'y a rien à reproduire ou
+  // si aucun Ingrédient joué n'est payable (son coût = celui de l'Ingrédient).
+  if ((card.effects ?? []).some((e) => e.type === 'DUPLICATE_INGREDIENT')) {
+    const zone = me.ingredients ?? []
+    if (zone.length === 0) {
+      throw new Error('Aucun Ingrédient joué : Foudre ne peut rien reproduire.')
+    }
+    // Le coût de Foudre = coût de l'Ingrédient reproduit : il faut pouvoir payer
+    // au moins l'un des Ingrédients déjà joués.
+    if (!zone.some((c) => (c.cost ?? 0) <= me.power)) {
+      throw new Error('Pas assez de Pouvoir pour reproduire un Ingrédient (Foudre).')
+    }
+  }
+  // « Je vais vous broyer les os ! » : injouable s'il n'y a aucun Héros sur le lieu
+  // du pion (rien à « découvrir »).
+  if (
+    (card.effects ?? []).some((e) => e.type === 'USE_COVERED_ACTIONS_THIS_TURN') &&
+    !(me.pawnLocation && (me.board[me.pawnLocation] ?? []).some((c) => c.type === 'hero'))
+  ) {
+    throw new Error('Aucun Héros sur votre lieu : cette carte n’aurait aucun effet.')
+  }
+  // « Croque ! » : injouable si aucun Héros du lieu du pion n'est éliminable
+  // (assez de Poison pour sa force, priorité Prof respectée).
+  if ((card.effects ?? []).some((e) => e.type === 'TAKE_A_BITE') && !canTakeABite(state)) {
+    throw new Error('Aucun Héros éliminable ici (pas assez de Poison) : « Croque ! » est injouable.')
   }
 
   // Coût effectif (Couronne −1, Bâton Magique −1, Épée de Vérité +2 sur curse,
@@ -331,11 +418,14 @@ function applyPlayCard(
     throw new Error(`${card.name} ne s'associe pas à un Allié.`)
   }
 
+  // Noir de nuit : cette action « Jouer une carte » est-elle une RÉUTILISATION ?
+  const reusedPlay = state.usedActionIds.includes(actionId)
   // Payer le coût, retirer la carte de la main, marquer l'action utilisée.
   let next = updateActivePlayer(state, (p) => ({
     ...p,
     power: p.power - cost,
     hand: p.hand.filter((c) => c.instanceId !== instanceId),
+    repeatActionAvailable: reusedPlay ? false : p.repeatActionAvailable,
   }))
   const where = dest ? ` sur **${dest.name}**` : ''
   const assoc = host ? `, associé à **${host.name}**` : ''
@@ -395,7 +485,7 @@ function applyPlayCard(
   // Tendre un Piège est EXCLU ici : son showcase est différé à la fin de sa
   // séquence (après le Vanquish facultatif ou « Terminer »).
   let showcaseIdx = -1
-  if ((card.type === 'effect' || card.type === 'curse') && card.cardId !== 'tendre-piege') {
+  if ((card.type === 'effect' || card.type === 'curse' || card.type === 'ingredient') && card.cardId !== 'tendre-piege') {
     next = pushShowcase(next, card.cardId, `Joué par ${me.villainName}`, state.activePlayer)
     showcaseIdx = next.showcaseEvents.length - 1
   }
@@ -459,8 +549,38 @@ function applyPlayCard(
     // l'Au-delà au lieu de la défausse.
     next = updateActivePlayer(next, (p) => ({ ...p, auDela: [...p.auDela, card] }))
     next = { ...next, log: [...next.log, `**${card.name}** rejoint la Pile de l'Au-delà.`] }
+  } else if (
+    card.type === 'ingredient' &&
+    !(activePlayer(next).ingredients ?? []).some((c) => c.cardId === card.cardId)
+  ) {
+    // La Méchante Reine — la 1ʳᵉ fois qu'un Ingrédient DIFFÉRENT est joué, il va
+    // dans la zone Ingrédients (sous le plateau) au lieu de la défausse. Quand les
+    // 4 Ingrédients différents y sont, la Maison des Nains est déverrouillée.
+    next = updateActivePlayer(next, (p) => ({ ...p, ingredients: [...(p.ingredients ?? []), card] }))
+    const count = activePlayer(next).ingredients?.length ?? 0
+    next = { ...next, log: [...next.log, `**${card.name}** rejoint les Ingrédients (${count}/4).`] }
+    if (count >= 4) {
+      const cottage = activePlayer(next).cottageLocationId
+      next = updateActivePlayer(next, (p) => ({
+        ...p,
+        lockedLocations: (p.lockedLocations ?? []).filter((l) => l !== cottage),
+      }))
+      next = { ...next, log: [...next.log, `🔓 Les 4 Ingrédients sont réunis : la **Maison des Nains** est déverrouillée !`] }
+    }
   } else {
     next = updateActivePlayer(next, (p) => ({ ...p, discard: [...p.discard, card] }))
+  }
+  // Foudre : si la résolution a ouvert le choix de l'Ingrédient à reproduire, on
+  // retient la carte Foudre et l'action pour permettre l'ANNULATION du coup.
+  if (next.pendingDuplicateIngredient && next.pendingDuplicateIngredient.foudreInstanceId === undefined) {
+    next = {
+      ...next,
+      pendingDuplicateIngredient: {
+        ...next.pendingDuplicateIngredient,
+        foudreInstanceId: card.instanceId,
+        actionId,
+      },
+    }
   }
   return consumePersifleur(next, action)
 }
@@ -484,7 +604,8 @@ function applyDiscardCards(
   if (isActionCovered(state, action)) {
     throw new Error(`${action.label} est recouverte par un Héros.`)
   }
-  if (state.usedActionIds.includes(actionId)) {
+  const reusedDiscard = state.usedActionIds.includes(actionId)
+  if (reusedDiscard && !activePlayer(state).repeatActionAvailable) {
     throw new Error('Cette action a déjà été utilisée ce tour.')
   }
   if (instanceIds.length === 0) {
@@ -502,6 +623,7 @@ function applyDiscardCards(
     ...p,
     hand: p.hand.filter((c) => !toDiscard.has(c.instanceId)),
     discard: [...p.discard, ...discarded],
+    repeatActionAvailable: reusedDiscard ? false : p.repeatActionAvailable,
   }))
   let consumed = consumePersifleur(next, action)
   consumed = {
@@ -542,20 +664,37 @@ function consumeDragonFormReward(state: GameState, targetIndex: number): GameSta
   return pushShowcase(next, 'apparence-dragon', `${tgt.villainName} : +3 JT (Apparence de Dragon)`, targetIndex)
 }
 
-/** Bowser — Bowser Jr. : la cible d'une action Fatalité pioche 1 carte par
- *  Bowser Jr. présent dans son royaume. Thread le rngState via state.rngState. */
+/** Déclencheurs « quand la cible subit une Fatalité » :
+ *  - Bowser — Bowser Jr. : pioche 1 carte par Bowser Jr. présent.
+ *  - La Méchante Reine — Miroir magique : pioche 1 carte par Miroir présent.
+ *  - La Méchante Reine — Poussière de momie : +1 jeton Poison tant que le drapeau
+ *    `poisonOnFateTargeted` est actif. Thread le rngState via state.rngState. */
 function drawOnFateTargeted(state: GameState, targetIndex: number): GameState {
-  const tgt = state.players[targetIndex]
-  const jrs = Object.values(tgt.board).flat().filter((c) => c.type === 'ally' && c.cardId === 'bowser-jr').length
-  if (jrs === 0) return state
-  const r = drawPlayerToLimitN(tgt, state.rngState, jrs)
-  if (r.drawn === 0) return state
-  const next = updatePlayer(state, targetIndex, () => r.player)
-  return {
-    ...next,
-    rngState: r.rngState,
-    log: [...next.log, `Bowser Jr. : ${tgt.villainName} pioche ${r.drawn} carte${r.drawn > 1 ? 's' : ''} (ciblé par la Fatalité).`],
+  let next = state
+  const tgt0 = next.players[targetIndex]
+  const sources =
+    Object.values(tgt0.board).flat().filter((c) => c.type === 'ally' && c.cardId === 'bowser-jr').length +
+    Object.values(tgt0.board).flat().filter((c) => c.type === 'item' && c.cardId === 'miroir-magique' && !c.attachedTo).length
+  if (sources > 0) {
+    const r = drawPlayerToLimitN(tgt0, next.rngState, sources)
+    if (r.drawn > 0) {
+      next = updatePlayer(next, targetIndex, () => r.player)
+      next = {
+        ...next,
+        rngState: r.rngState,
+        log: [...next.log, `${tgt0.villainName} pioche ${r.drawn} carte${r.drawn > 1 ? 's' : ''} (ciblé(e) par la Fatalité).`],
+      }
+    }
   }
+  // Poussière de momie : chaque Fatalité subie ajoute 1 jeton Poison.
+  if (next.players[targetIndex].poisonOnFateTargeted) {
+    next = updatePlayer(next, targetIndex, (p) => ({ ...p, poison: (p.poison ?? 0) + 1 }))
+    next = {
+      ...next,
+      log: [...next.log, `Poussière de momie : ${next.players[targetIndex].villainName} gagne 1 jeton Poison.`],
+    }
+  }
+  return next
 }
 
 /** Lance la Fatalité : révèle FATE_REVEAL cartes du deck Fatalité de la cible. */
@@ -580,13 +719,14 @@ function applyFate(state: GameState, actionId: string): GameState {
   }
 
   const r = revealFate(tgt, FATE_REVEAL, state.rngState)
-  // Capitaine Crochet : dès qu'il est dévoilé, Peter Pan est joué d'office sur
-  // l'Arbre du Pendu (débloqué ou non) et les autres cartes dévoilées sont
-  // défaussées — pas de choix de Fatalité.
-  const pp = r.revealed.find(
-    (c) => tgt.objective.type === 'DEFEAT_HERO_AT_LOCATION' && c.cardId === tgt.objective.heroCardId,
-  )
+  // Héros « joué d'office dès qu'il est dévoilé » (Peter Pan → Arbre du Pendu,
+  // Blanche-Neige → Maison des Nains) : data-driven via `forcedFateLocation`. Il
+  // est posé immédiatement sur SON lieu (verrouillé ou non) et les autres cartes
+  // dévoilées sont défaussées — pas de choix de Fatalité.
+  const pp = r.revealed.find((c) => c.type === 'hero' && c.forcedFateLocation)
   if (pp) {
+    const forced = pp.forcedFateLocation!
+    const forcedName = tgt.locations.find((l) => l.id === forced)?.name ?? forced
     const others = r.revealed.filter((c) => c.instanceId !== pp.instanceId)
     let next = updatePlayer(state, target, () => ({
       ...r.player,
@@ -599,10 +739,9 @@ function applyFate(state: GameState, actionId: string): GameState {
       rngState: r.rngState,
       usedActionIds: [...next.usedActionIds, actionId],
       pendingFate: null,
-      log: [...next.log, `${me.villainName} lance la Fatalité : **${pp.name}** est dévoilé et fonce sur l'Arbre du Pendu !`],
+      log: [...next.log, `${me.villainName} lance la Fatalité : **${pp.name}** est dévoilé(e) et joué(e) d'office sur **${forcedName}** !`],
     }
-    const arbreName = tgt.locations.find((l) => l.id === 'arbre-pendu')?.name ?? 'Arbre du Pendu'
-    return placeFateHeroWithEffects(next, target, state.activePlayer, pp, 'arbre-pendu', arbreName)
+    return placeFateHeroWithEffects(next, target, state.activePlayer, pp, forced, forcedName)
   }
   let next = updatePlayer(state, target, () => r.player)
   next = { ...next, rngState: r.rngState }
@@ -974,6 +1113,12 @@ function fateCardPlayable(state: GameState, card: CardInstance, target: number):
       .flat()
       .some((c) => c.type === 'hero' && !c.hypnotized)
   }
+  // Premier baiser d'amour : sans effet si la cible n'a ni Poison ni Héros dans sa
+  // défausse Fatalité.
+  if (card.cardId === 'premier-baiser') {
+    const tgt = state.players[target]
+    return (tgt.poison ?? 0) > 0 || tgt.fateDiscard.some((c) => c.type === 'hero')
+  }
   return true
 }
 
@@ -989,16 +1134,19 @@ function applyResolveFate(
 ): GameState {
   const pending = state.pendingFate
   const revealed = pending?.revealed ?? []
-  const hasRay = revealed.some((c) => c.cardId === 'ray')
+  // Combo « jouer les deux » (data-driven, fatePlayBoth : Ray, Dormeur). On
+  // n'active le combo que tant que la Fatalité courante n'est PAS déjà la 2ᵉ carte
+  // facultative (sinon on bouclerait).
+  const canPlayBoth = revealed.some((c) => c.fatePlayBoth) && !pending?.optional
   const others = revealed.filter((c) => c.instanceId !== instanceId)
   const target = pending?.target ?? -1
 
   const next = applyResolveFateInner(state, instanceId, to, targetHeroId, enlargeToward)
 
-  // Combo Ray : exactement une autre carte révélée, aucune autre résolution en
-  // attente, et cette carte est jouable → on rouvre la Fatalité pour la jouer.
+  // Combo : exactement une autre carte révélée, aucune autre résolution en attente,
+  // et cette carte est jouable → on rouvre la Fatalité (2ᵉ carte FACULTATIVE).
   if (
-    hasRay &&
+    canPlayBoth &&
     others.length === 1 &&
     next.pendingFate == null &&
     next.status === 'PLAYING' &&
@@ -1021,12 +1169,33 @@ function applyResolveFate(
       }))
       return {
         ...reopened,
-        pendingFate: { target, revealed: [other] },
-        log: [...reopened.log, `Ray : vous pouvez aussi jouer **${other.name}**.`],
+        // 2ᵉ carte FACULTATIVE : peut être jouée (RESOLVE_FATE) ou passée (PASS_FATE).
+        pendingFate: { target, revealed: [other], optional: true },
+        log: [...reopened.log, `Vous pouvez aussi jouer **${other.name}** (ou passer).`],
       }
     }
   }
   return next
+}
+
+/** Passe la 2ᵉ carte FACULTATIVE d'un combo « jouer les deux » (Ray/Dormeur) :
+ *  la carte révélée restante est défaussée sans être jouée. N'est licite que
+ *  pour une Fatalité marquée `optional`. */
+function applyPassFate(state: GameState): GameState {
+  const pending = state.pendingFate
+  if (!pending || !pending.optional) {
+    throw new Error('Aucune carte Fatalité facultative à passer.')
+  }
+  const next = updatePlayer(state, pending.target, (p) => ({
+    ...p,
+    fateDiscard: [...p.fateDiscard, ...pending.revealed],
+  }))
+  const names = pending.revealed.map((c) => `**${c.name}**`).join(', ')
+  return {
+    ...next,
+    pendingFate: null,
+    log: [...next.log, `Carte Fatalité non jouée : ${names} défaussée.`],
+  }
 }
 
 function applyResolveFateInner(
@@ -1045,6 +1214,15 @@ function applyResolveFateInner(
 
   // Héros : posé sur un lieu du royaume de la CIBLE ; il recouvrira sa rangée haute.
   if (chosen.type === 'hero') {
+    // Blanche-Neige (forcedFateLocation) : posée d'office sur la Maison des Nains,
+    // même verrouillée, quel que soit le choix de l'adversaire.
+    if (chosen.forcedFateLocation) {
+      const forced = chosen.forcedFateLocation
+      let next = updatePlayer(state, pending.target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, ...others] }))
+      next = { ...next, pendingFate: null }
+      const dest = findLocation(tgt, forced)
+      return placeFateHeroWithEffects(next, pending.target, state.activePlayer, chosen, forced, dest?.name ?? forced)
+    }
     // Aucun lieu légal (toutes les cases bloquées, ex. Malédictions no-heroes) → défaussé.
     if (heroPlacementLocations(state, chosen, pending.target).length === 0) {
       const next = updatePlayer(state, pending.target, (p) => ({
@@ -1368,6 +1546,19 @@ function applyResolveFateInner(
     }
     next = pushShowcase(next, chosen.cardId, `${tgt.villainName} subit ${chosen.name}`, state.activePlayer)
     return next
+  }
+
+  // La Méchante Reine (Fatalité) — Événements résolus sur la CIBLE : « Animaux de
+  // la forêt » (défausse une carte de sa main) et « Premier baiser d'amour »
+  // (défausse 1 Poison + un Héros de la défausse Fatalité revient sur le dessus).
+  if (chosen.cardId === 'animaux-foret' || chosen.cardId === 'premier-baiser') {
+    let next = updatePlayer(state, pending.target, (p) => ({
+      ...p,
+      fateDiscard: [...p.fateDiscard, chosen, ...others],
+    }))
+    next = { ...next, pendingFate: null }
+    next = pushShowcase(next, chosen.cardId, `${tgt.villainName} subit ${chosen.name}`, state.activePlayer)
+    return resolveEffects(next, chosen.effects ?? [], { actorIndex: pending.target })
   }
 
   // L'Imposteur — Fatalités ÉVÉNEMENT (manipulent les Coéquipiers de l'Imposteur
@@ -1920,6 +2111,56 @@ function applyActivate(
       ...next,
       pendingCrewmateKill: { playerIndex: state.activePlayer, candidateColors: live.map((c) => c.color), mode: 'move' },
       log: [...next.log, `${me.villainName} active **Tâche : Course** : choisissez un Coéquipier à déplacer.`],
+    }
+  }
+
+  // ----- La Méchante Reine — capacités activées -----
+  if (card.cardId === 'trone') {
+    // Trône : ajoute 1 jeton Poison.
+    let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost!, poison: (p.poison ?? 0) + 1 }))
+    next = consumePersifleur(next, action)
+    return {
+      ...next,
+      usedActionIds: [...next.usedActionIds, actionId],
+      log: [...next.log, `${me.villainName} active le **Trône** : +1 Poison (total : ${activePlayer(next).poison}).`],
+    }
+  }
+  if (card.cardId === 'ecrin') {
+    // Écrin : gagne 1 JT par Héros dans la défausse Fatalité (max 3).
+    const heroes = me.fateDiscard.filter((c) => c.type === 'hero').length
+    const gain = Math.min(3, heroes)
+    let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost! + gain }))
+    next = consumePersifleur(next, action)
+    return {
+      ...next,
+      usedActionIds: [...next.usedActionIds, actionId],
+      log: [...next.log, `${me.villainName} active l'**Écrin** : +${gain} JT (${heroes} Héros en défausse Fatalité).`],
+    }
+  }
+  if (card.cardId === 'miroir-magique') {
+    // Miroir magique : paie 1 JT, fait apparaître Blanche-Neige à la Maison des Nains.
+    let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost! }))
+    next = resolveEffects(next, [{ type: 'SUMMON_FATE_HERO_TO_OWN_REALM', heroCardId: 'blanche-neige', locationId: 'maison-des-nains' }], { actorIndex: state.activePlayer })
+    next = consumePersifleur(next, action)
+    return {
+      ...next,
+      usedActionIds: [...next.usedActionIds, actionId],
+      log: [...next.log, `${me.villainName} active le **Miroir magique** : fait apparaître Blanche-Neige (−${card.activatedCost} JT).`],
+    }
+  }
+  if (card.cardId === 'grimoires-magiques') {
+    // Grimoires magiques : regarde les 4 premières cartes de la pioche, en garde 1.
+    const top = me.deck.slice(0, 4)
+    let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost!, deck: p.deck.slice(top.length) }))
+    next = consumePersifleur(next, action)
+    next = { ...next, usedActionIds: [...next.usedActionIds, actionId] }
+    if (top.length === 0) {
+      return { ...next, log: [...next.log, `${me.villainName} active les **Grimoires magiques** : pioche vide.`] }
+    }
+    return {
+      ...next,
+      pendingLookTop: { playerIndex: state.activePlayer, cards: top, take: 1, title: 'Grimoires magiques' },
+      log: [...next.log, `${me.villainName} active les **Grimoires magiques** : regarde ${top.length} cartes, en garde 1.`],
     }
   }
 
@@ -2491,12 +2732,13 @@ function resolveConditionEffect(
     // Insidieux (L'Imposteur) : un Coéquipier suspect redevient normal.
     return resolveEffectsLocal(next, [{ type: 'REASSURE_ANY' }], { actorIndex: playerIndex })
   }
-  // Repli générique : Condition « simple » qui déclare directement ses effets
+  // Repli générique : Condition « data-driven » qui déclare directement ses effets
   // (sans branchement spécifique ci-dessus). Ex. Festival des éclats d'étoiles →
-  // Gagner 3 JT. Les effets s'appliquent au joueur qui RÉAGIT (playerIndex), pas
-  // au joueur actif.
-  if (card.effects && card.effects.length > 0) {
-    return resolveEffectsLocal(next, card.effects, { actorIndex: playerIndex })
+  // Gagner 3 JT ; Méchante Reine — Jalousie : +1 Poison ; Vanité : réorganise la
+  // pioche. Les effets s'appliquent au joueur qui RÉAGIT (playerIndex), pas au
+  // joueur actif. Évite de coder chaque Condition simple par cardId.
+  if ((card.effects ?? []).length > 0) {
+    return resolveEffectsLocal(next, card.effects ?? [], { actorIndex: playerIndex })
   }
   // Aucune autre Condition pour l'instant.
   return next
@@ -2772,6 +3014,7 @@ function applyResolveTypeChoice(state: GameState, cardType: CardType): GameState
     condition: 'Condition',
     hero: 'Héros',
     curse: 'Malédiction',
+    ingredient: 'Ingrédient',
   }
   const typeLabel = TYPE_LABELS[cardType] ?? cardType
   let deck = [...player.deck]
@@ -2843,9 +3086,43 @@ function applyResolveTypeChoice(state: GameState, cardType: CardType): GameState
   }
   const revealed = deck.slice(0, count)
   const rest = deck.slice(count)
-  const matchIdx = revealed.findIndex((c) => c.type === cardType)
-  const toHand = matchIdx >= 0 ? revealed[matchIdx] : undefined
-  const others = revealed.filter((_, i) => i !== matchIdx)
+  const matches = revealed.filter((c) => c.type === cardType)
+  const nonMatches = revealed.filter((c) => c.type !== cardType)
+
+  // Plusieurs cartes du type choisi : le joueur décide laquelle ajouter à sa main
+  // (les autres révélées — du bon type ou non — sont défaussées). On réutilise le
+  // mécanisme « regarder / garder » (pendingLookTop, take 1).
+  if (matches.length >= 2) {
+    let next = updatePlayer(state, playerIndex, (p) => ({
+      ...p,
+      deck: rest,
+      discard: [...discardPile, ...nonMatches],
+    }))
+    next = {
+      ...next,
+      rngState,
+      pendingTypeChoice: null,
+      pendingLookTop: { playerIndex, cards: matches, take: 1, title: 'Tombée de la nuit' },
+      log: [
+        ...next.log,
+        `${player.villainName} dévoile ${revealed.length} cartes : ${matches.length} ${typeLabel} — choisissez celui à garder (Tombée de la nuit).`,
+      ],
+    }
+    if (nonMatches.length > 0) {
+      next = pushDiscardShowcase(
+        next,
+        nonMatches.map((c) => c.cardId),
+        `Tombée de la nuit : ${nonMatches.length} carte${nonMatches.length > 1 ? 's' : ''} défaussée${nonMatches.length > 1 ? 's' : ''}`,
+        playerIndex,
+        'dark',
+        'bottom',
+      )
+    }
+    return next
+  }
+
+  const toHand = matches[0]
+  const others = revealed.filter((c) => c.instanceId !== toHand?.instanceId)
   let next = updatePlayer(state, playerIndex, (p) => ({
     ...p,
     deck: rest,
@@ -3152,6 +3429,39 @@ function applyResolveFateChoice(state: GameState, instanceId: string): GameState
   const ti = pending.targetIndex
   const tgt = state.players[ti]
 
+  if (pending.kind === 'discard-from-hand') {
+    // Animaux de la forêt : défausse la carte choisie dans la main de la cible.
+    const card = tgt.hand.find((c) => c.instanceId === instanceId)
+    if (!card) throw new Error('Carte introuvable dans la main.')
+    const next = updatePlayer(state, ti, (p) => ({
+      ...p,
+      hand: p.hand.filter((c) => c.instanceId !== instanceId),
+      discard: [...p.discard, card],
+    }))
+    return {
+      ...next,
+      pendingFateChoice: null,
+      log: [...next.log, `Animaux de la forêt : **${card.name}** est défaussée de la main de ${tgt.villainName}.`],
+    }
+  }
+
+  if (pending.kind === 'fate-discard-hero-to-top') {
+    // Premier baiser d'amour : un Héros de la défausse Fatalité revient sur le
+    // dessus de la pioche Fatalité de la cible.
+    const hero = tgt.fateDiscard.find((c) => c.instanceId === instanceId)
+    if (!hero) throw new Error('Héros introuvable dans la défausse Fatalité.')
+    const next = updatePlayer(state, ti, (p) => ({
+      ...p,
+      fateDiscard: p.fateDiscard.filter((c) => c.instanceId !== instanceId),
+      fateDeck: [hero, ...p.fateDeck],
+    }))
+    return {
+      ...next,
+      pendingFateChoice: null,
+      log: [...next.log, `Premier baiser d'amour : **${hero.name}** revient sur le dessus de la pioche Fatalité de ${tgt.villainName}.`],
+    }
+  }
+
   if (pending.kind === 'remove-ally') {
     const loc = locationOfCard(tgt, instanceId)
     if (!loc) throw new Error('Allié introuvable.')
@@ -3350,11 +3660,15 @@ function applyResolveRecover(state: GameState, instanceId: string): GameState {
   if (!pending.candidateIds.includes(instanceId)) throw new Error('Carte choisie invalide.')
   const idx = pending.playerIndex
   const player = state.players[idx]
+  // Recherche dans la défausse PUIS dans la pioche (Magie noire récupère de l'une
+  // ou l'autre ; les autres effets ne mettent que des ids de défausse).
   const card = player.discard.find((c) => c.instanceId === instanceId)
-  if (!card) throw new Error('Carte introuvable dans la défausse.')
+    ?? player.deck.find((c) => c.instanceId === instanceId)
+  if (!card) throw new Error('Carte introuvable (récupération).')
   let next = updatePlayer(state, idx, (p) => ({
     ...p,
     discard: p.discard.filter((c) => c.instanceId !== instanceId),
+    deck: p.deck.filter((c) => c.instanceId !== instanceId),
     hand: [...p.hand, card],
   }))
   if (pending.thenShuffle) {
@@ -3770,6 +4084,132 @@ function applyResolveLookTop(state: GameState, keepInstanceIds: string[]): GameS
   return next
 }
 
+/** La Méchante Reine — « Croque ! » : élimine le Héros choisi en défaussant autant
+ *  de Poison que sa force. Victoire si c'est le Héros-objectif sur le bon lieu. */
+function applyResolveTakeABite(state: GameState, heroInstanceId: string): GameState {
+  const pending = state.pendingTakeABite
+  if (!pending) throw new Error('Aucun « Croque ! » en attente.')
+  if (!pending.candidateIds.includes(heroInstanceId)) {
+    throw new Error('Ce Héros n’est pas une cible valide pour « Croque ! ».')
+  }
+  const idx = pending.playerIndex
+  const actor = state.players[idx]
+  const loc = locationOfCard(actor, heroInstanceId)
+  if (!loc) throw new Error('Héros introuvable (Croque !).')
+  const hero = (actor.board[loc] ?? []).find((c) => c.instanceId === heroInstanceId)!
+  const cost = effectiveStrength(state, idx, hero.instanceId) ?? 0
+  const heroLocName = findLocation(actor, loc)?.name ?? loc
+  let next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    poison: Math.max(0, (p.poison ?? 0) - cost),
+    board: { ...p.board, [loc]: (p.board[loc] ?? []).filter((c) => c.instanceId !== hero.instanceId) },
+    fateDiscard: [...p.fateDiscard, { ...hero, lockedPower: undefined }],
+  }))
+  next = {
+    ...next,
+    pendingTakeABite: null,
+    lastVanquishedHeroStrength: hero.strength ?? 0,
+    log: [...next.log, `${actor.villainName} défausse ${cost} Poison et CROQUE **${hero.name}** sur ${heroLocName}.`],
+  }
+  next = pushDiscardShowcase(next, [hero.cardId], `${actor.villainName} croque ${hero.name}`, idx, 'red', 'bottom')
+  const obj = actor.objective
+  if (obj.type === 'DEFEAT_HERO_AT_LOCATION' && hero.cardId === obj.heroCardId && loc === obj.locationId) {
+    return {
+      ...next,
+      status: 'WON',
+      winner: idx,
+      log: [...next.log, `🏆 ${actor.villainName} croque ${hero.name} à la Maison des Nains et l'emporte !`],
+    }
+  }
+  return next
+}
+
+/** La Méchante Reine — Foudre : reproduit la capacité de l'Ingrédient choisi
+ *  (présent dans la zone Ingrédients). */
+function applyResolveDuplicateIngredient(state: GameState, ingredientInstanceId: string): GameState {
+  const pending = state.pendingDuplicateIngredient
+  if (!pending) throw new Error('Aucune Foudre en attente.')
+  if (!pending.candidateIds.includes(ingredientInstanceId)) {
+    throw new Error('Cet Ingrédient n’est pas un choix valide pour Foudre.')
+  }
+  const idx = pending.playerIndex
+  const ing = (state.players[idx].ingredients ?? []).find((c) => c.instanceId === ingredientInstanceId)
+  if (!ing) throw new Error('Ingrédient introuvable (Foudre).')
+  // Le coût de Foudre est celui de l'Ingrédient reproduit, payé maintenant.
+  const cost = ing.cost ?? 0
+  if (state.players[idx].power < cost) {
+    throw new Error(`Pas assez de Pouvoir pour reproduire ${ing.name} (coût ${cost}).`)
+  }
+  let next: GameState = { ...state, pendingDuplicateIngredient: null }
+  next = updatePlayer(next, idx, (p) => ({ ...p, power: p.power - cost }))
+  next = resolveEffects(next, ing.effects ?? [], { actorIndex: idx })
+  return { ...next, log: [...next.log, `Foudre reproduit la capacité de **${ing.name}** (coût ${cost}).`] }
+}
+
+/** La Méchante Reine — Hurlement d'effroi : déplace les Héros (force ≤ 3) du lieu
+ *  `from` vers le lieu voisin `to`. Sans choix (from/to absents) : on décline. */
+function applyResolveScream(state: GameState, from?: LocationId, to?: LocationId): GameState {
+  const pending = state.pendingScream
+  if (!pending) throw new Error('Aucun Hurlement d’effroi en attente.')
+  const idx = pending.playerIndex
+  const player = state.players[idx]
+  // Décliner : on referme simplement le choix.
+  if (!from || !to) {
+    return { ...state, pendingScream: null, log: [...state.log, `${player.villainName} ne déplace aucun Héros (Hurlement d'effroi).`] }
+  }
+  if (!pending.options.some((o) => o.from === from && o.to === to)) {
+    throw new Error('Déplacement invalide (Hurlement d’effroi).')
+  }
+  const movableIds = new Set(
+    (player.board[from] ?? [])
+      .filter((c) => c.type === 'hero' && (effectiveStrength(state, idx, c.instanceId) ?? 0) <= 3)
+      .map((c) => c.instanceId),
+  )
+  const moving = (player.board[from] ?? []).filter(
+    (c) => movableIds.has(c.instanceId) || (c.attachedTo && movableIds.has(c.attachedTo)),
+  )
+  const movingIds = new Set(moving.map((c) => c.instanceId))
+  const next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    board: {
+      ...p.board,
+      [from]: (p.board[from] ?? []).filter((c) => !movingIds.has(c.instanceId)),
+      [to]: [...(p.board[to] ?? []), ...moving],
+    },
+  }))
+  const fromName = findLocation(player, from)?.name ?? from
+  const toName = findLocation(player, to)?.name ?? to
+  return {
+    ...next,
+    pendingScream: null,
+    log: [...next.log, `Hurlement d'effroi : ${movableIds.size} Héros déplacé${movableIds.size > 1 ? 's' : ''} de ${fromName} vers ${toName}.`],
+  }
+}
+
+/** La Méchante Reine — Foudre : ANNULE le choix. Foudre revient en main (depuis la
+ *  défausse) et l'action « Jouer une carte » redevient disponible. */
+function applyCancelDuplicateIngredient(state: GameState): GameState {
+  const pending = state.pendingDuplicateIngredient
+  if (!pending) throw new Error('Aucune Foudre à annuler.')
+  const idx = pending.playerIndex
+  const fId = pending.foudreInstanceId
+  const actId = pending.actionId
+  const player = state.players[idx]
+  const foudre = fId ? player.discard.find((c) => c.instanceId === fId) : undefined
+  let next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    discard: foudre ? p.discard.filter((c) => c.instanceId !== fId) : p.discard,
+    hand: foudre ? [...p.hand, foudre] : p.hand,
+  }))
+  next = {
+    ...next,
+    pendingDuplicateIngredient: null,
+    usedActionIds: actId ? next.usedActionIds.filter((id) => id !== actId) : next.usedActionIds,
+    log: [...next.log, `${player.villainName} annule Foudre.`],
+  }
+  return next
+}
+
 /** Dr Facilier — Si près du but / Charlotte : place `toAudelaIds` (cartes révélées
  *  autorisées) dans la Pile de l'Au-delà de Facilier ; remet les autres
  *  (`deckTopOrder`) sur le dessus de sa pioche, 1ʳᵉ = tout en haut. */
@@ -3912,6 +4352,7 @@ function applyEndTurn(state: GameState): GameState {
     phase: 'MOVE',
     usedActionIds: [],
     persifleurAvailable: false,
+    uncoverCoveredActions: false,
     lastVanquishedHeroStrength: undefined,
     diabloFree: null,
     pendingTrapVanquish: false,
@@ -3934,6 +4375,8 @@ function applyEndTurn(state: GameState): GameState {
       i === drawn.activePlayer
         ? {
             ...p,
+            // Noir de nuit : la possibilité de refaire une action expire en fin de tour.
+            repeatActionAvailable: false,
             board: Object.fromEntries(
               Object.entries(p.board).map(([loc, cards]) => [
                 loc,
@@ -3951,6 +4394,11 @@ function applyEndTurn(state: GameState): GameState {
   }
   if (started.players[nextIdx].dragonFormReward) {
     started = updatePlayer(started, nextIdx, (p) => ({ ...p, dragonFormReward: false }))
+  }
+  // Poussière de momie : le bonus « Poison sur Fatalité subie » expire au début du
+  // tour de la Méchante Reine.
+  if (started.players[nextIdx].poisonOnFateTargeted) {
+    started = updatePlayer(started, nextIdx, (p) => ({ ...p, poisonOnFateTargeted: false }))
   }
 
   // La victoire se vérifie « au début du tour » du nouveau joueur actif.
@@ -3978,7 +4426,12 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   }
   // Une Fatalité révélée doit être résolue avant tout autre coup — sauf une
   // Condition jouée par le non-actif (réaction « à tout moment »).
-  if (state.pendingFate && action.type !== 'RESOLVE_FATE' && action.type !== 'PLAY_CONDITION') {
+  if (
+    state.pendingFate &&
+    action.type !== 'RESOLVE_FATE' &&
+    action.type !== 'PASS_FATE' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
     throw new Error('Une Fatalité est en attente de résolution (RESOLVE_FATE).')
   }
   // Retourne-toi : une carte révélée doit être résolue avant tout autre coup
@@ -4084,6 +4537,22 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   if (state.pendingLookTop && action.type !== 'RESOLVE_LOOK_TOP' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Choisissez la carte à garder (RESOLVE_LOOK_TOP).')
   }
+  // La Méchante Reine — « Croque ! » : le choix du Héros à croquer doit être résolu
+  // avant tout autre coup.
+  if (state.pendingTakeABite && action.type !== 'RESOLVE_TAKE_A_BITE' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Choisissez le Héros à croquer (RESOLVE_TAKE_A_BITE).')
+  }
+  if (
+    state.pendingDuplicateIngredient &&
+    action.type !== 'RESOLVE_DUPLICATE_INGREDIENT' &&
+    action.type !== 'CANCEL_DUPLICATE_INGREDIENT' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Choisissez l’Ingrédient à reproduire (RESOLVE_DUPLICATE_INGREDIENT).')
+  }
+  if (state.pendingScream && action.type !== 'RESOLVE_SCREAM' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Résolvez Hurlement d’effroi (RESOLVE_SCREAM).')
+  }
   // Si près du but / Charlotte (Dr Facilier) : le tri des cartes révélées doit
   // être résolu avant tout autre coup.
   if (state.pendingFateScry && action.type !== 'RESOLVE_FATE_SCRY' && action.type !== 'PLAY_CONDITION') {
@@ -4093,7 +4562,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     case 'MOVE':
       return applyMove(state, action.to)
     case 'EXECUTE_ACTION':
-      return clearGiant(state, applyExecuteAction(state, action.actionId))
+      return clearGiant(state, applyExecuteAction(state, action.actionId, action.count))
     case 'PLAY_CARD': {
       const r = clearGiant(
         state,
@@ -4127,6 +4596,8 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return clearGiant(state, applyFate(state, action.actionId))
     case 'RESOLVE_FATE':
       return applyResolveFate(state, action.instanceId, action.to, action.targetHeroId, action.enlargeToward)
+    case 'PASS_FATE':
+      return applyPassFate(state)
     case 'RESOLVE_TYRANNY_DISCARD':
       return applyResolveTyrannyDiscard(state, action.instanceIds)
     case 'RESOLVE_HERO_PLACEMENT':
@@ -4189,6 +4660,14 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return applyResolveDivination(state, action.topInstanceIds)
     case 'RESOLVE_LOOK_TOP':
       return applyResolveLookTop(state, action.keepInstanceIds)
+    case 'RESOLVE_TAKE_A_BITE':
+      return applyResolveTakeABite(state, action.heroInstanceId)
+    case 'RESOLVE_DUPLICATE_INGREDIENT':
+      return applyResolveDuplicateIngredient(state, action.ingredientInstanceId)
+    case 'CANCEL_DUPLICATE_INGREDIENT':
+      return applyCancelDuplicateIngredient(state)
+    case 'RESOLVE_SCREAM':
+      return applyResolveScream(state, action.from, action.to)
     case 'RESOLVE_FATE_SCRY':
       return applyResolveFateScry(state, action.toAudelaIds, action.deckTopOrder)
     case 'CHARIOT_MOVE':

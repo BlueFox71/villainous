@@ -30,6 +30,18 @@ interface Props {
   /** Vrai s'il y a au moins un Allié dans le royaume — une carte « gain par Allié »
    *  (Joyeux non-anniversaire) est injouable sinon. */
   realmHasAllies: boolean
+  /** Vrai s'il y a au moins un Héros dans le royaume — une carte « gain par Héros »
+   *  (Magnifiques Taxes) est injouable sinon. */
+  realmHasHeroes: boolean
+  /** Vrai s'il y a au moins un Ingrédient joué (zone Ingrédients) PAYABLE — Foudre
+   *  est injouable sinon (rien de reproductible : son coût = celui de l'Ingrédient). */
+  hasIngredients: boolean
+  /** Vrai s'il y a au moins un Héros sur le lieu du pion — « Je vais vous broyer
+   *  les os ! » est injouable sinon. */
+  heroAtPawn: boolean
+  /** Vrai s'il existe un Héros éliminable sur le lieu du pion (assez de Poison,
+   *  priorité Prof) — « Croque ! » est injouable sinon. */
+  canBite: boolean
   /** Coût effectif d'une carte (Couronne −1, Bâton Magique −1 sur Événement/
    *  Malédiction, Épée de Vérité +2…). Absent → coût de base. */
   costFor?: (card: CardInstance) => number
@@ -60,6 +72,10 @@ export function Hand({
   attachTargetsAvailable,
   blockEvents,
   realmHasAllies,
+  realmHasHeroes,
+  hasIngredients,
+  heroAtPawn,
+  canBite,
   costFor,
   armedConditionIds = [],
   forcedHoverId = null,
@@ -193,12 +209,25 @@ export function Hand({
           const needsAlly = ci.attach === 'ally'
           // Joyeux non-anniversaire (gain par Allié) : injouable sans Allié au royaume.
           const needsAllyInRealm = (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_ALLY_IN_REALM')
+          // Magnifiques Taxes (gain par Héros) : injouable sans Héros au royaume.
+          const needsHeroInRealm = (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_HERO_IN_REALM')
+          // Foudre (duplique un Ingrédient) : injouable sans Ingrédient joué PAYABLE
+          // (son coût = celui de l'Ingrédient reproduit ; cf. prop hasIngredients).
+          const needsIngredient = (card.effects ?? []).some((e) => e.type === 'DUPLICATE_INGREDIENT')
+          // « Je vais vous broyer les os ! » : injouable sans Héros sur le lieu du pion.
+          const needsHeroHere = (card.effects ?? []).some((e) => e.type === 'USE_COVERED_ACTIONS_THIS_TURN')
+          // « Croque ! » : injouable sans Héros éliminable sur le lieu du pion.
+          const needsBite = (card.effects ?? []).some((e) => e.type === 'TAKE_A_BITE')
           const playable =
             mode === 'play'
               ? card.type !== 'condition' &&
                 cost <= power &&
                 (!needsAlly || attachTargetsAvailable) &&
                 (!needsAllyInRealm || realmHasAllies) &&
+                (!needsHeroInRealm || realmHasHeroes) &&
+                (!needsIngredient || hasIngredients) &&
+                (!needsHeroHere || heroAtPawn) &&
+                (!needsBite || canBite) &&
                 !(blockEvents && card.type === 'effect')
               : mode === 'condition-ally'
                 ? card.type === 'ally' // Lâcheté : seuls les Alliés sont jouables, gratuit

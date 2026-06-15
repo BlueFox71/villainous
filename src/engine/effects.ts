@@ -252,6 +252,11 @@ export function performVanquish(
   if (aTaunterExists && !targetHasTaunt) {
     throw new Error('Vous devez d’abord éliminer un Héros provocateur (Provocation).')
   }
+  // Prof (La Méchante Reine) : doit être éliminé AVANT les autres Héros.
+  const aPriorityHeroExists = Object.values(me.board).flat().some((c) => c.type === 'hero' && c.mustDefeatFirst)
+  if (aPriorityHeroExists && !heroCard.mustDefeatFirst) {
+    throw new Error('Vous devez d’abord éliminer Prof (priorité).')
+  }
   const heroForce = effectiveStrength(state, state.activePlayer, heroCard.instanceId) ?? 0
   // Au moins un Allié reste requis tant que le Héros a une force > 0.
   if (allies.length === 0 && heroForce > 0) {
@@ -693,6 +698,16 @@ export function resolveEffect(
         log: [
           ...state.log,
           `${state.players[idx].villainName} : une action recouverte est jouable ce tour-ci (Brouillage).`,
+        ],
+      }
+    }
+    case 'USE_COVERED_ACTIONS_THIS_TURN': {
+      return {
+        ...state,
+        uncoverCoveredActions: true,
+        log: [
+          ...state.log,
+          `${state.players[idx].villainName} : les actions recouvertes par un Héros sont jouables ce tour-ci (Je vais vous broyer les os !).`,
         ],
       }
     }
@@ -2852,6 +2867,229 @@ export function resolveEffect(
         discard: [...p.discard, pick!],
       }))
       return { ...next, log: [...next.log, `Comète farceuse : **${pick.name}** est défaussé du royaume de ${actor.villainName}.`] }
+    }
+    case 'GAIN_POISON': {
+      const next = updatePlayer(state, idx, (p) => ({ ...p, poison: (p.poison ?? 0) + effect.amount }))
+      const a = next.players[idx]
+      return {
+        ...next,
+        log: [...next.log, `${a.villainName} prépare ${effect.amount} jeton${effect.amount > 1 ? 's' : ''} de Poison (total : ${a.poison}).`],
+      }
+    }
+    case 'GAIN_POWER_PER_LOCATION_WITH_HERO': {
+      const actor = state.players[idx]
+      const n = actor.locations.filter((l) => (actor.board[l.id] ?? []).some((c) => c.type === 'hero')).length
+      const gained = Math.max(0, n * effect.amount - realmPowerPenalty(state, idx))
+      const next = updatePlayer(state, idx, (p) => ({ ...p, power: p.power + gained }))
+      return {
+        ...next,
+        log: [...next.log, `${next.players[idx].villainName} gagne ${gained} JT (${n} lieu${n > 1 ? 'x' : ''} avec un Héros).`],
+      }
+    }
+    case 'TAKE_A_BITE': {
+      // Ouvre le CHOIX du Héros à croquer (pendingTakeABite). Candidats : Héros du
+      // lieu du pion, payables avec le Poison, en respectant la priorité Prof.
+      const actor = state.players[idx]
+      const loc = actor.pawnLocation
+      if (!loc) return state
+      const heroes = (actor.board[loc] ?? []).filter((c) => c.type === 'hero' && !c.hypnotized)
+      if (heroes.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : aucun Héros ici à croquer (Croque !).`] }
+      }
+      const poison = actor.poison ?? 0
+      const priorityExists = Object.values(actor.board).flat().some((c) => c.type === 'hero' && c.mustDefeatFirst)
+      const pool = priorityExists ? heroes.filter((h) => h.mustDefeatFirst) : heroes
+      if (priorityExists && pool.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : vous devez d’abord éliminer Prof (Croque !).`] }
+      }
+      const candidates = pool.filter((h) => (effectiveStrength(state, idx, h.instanceId) ?? 0) <= poison)
+      if (candidates.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : pas assez de Poison (${poison}) pour croquer un Héros (Croque !).`] }
+      }
+      return {
+        ...state,
+        pendingTakeABite: { playerIndex: idx, candidateIds: candidates.map((h) => h.instanceId) },
+        log: [...state.log, `${actor.villainName} : choisissez le Héros à croquer.`],
+      }
+    }
+    case 'FETCH_FATE_HERO': {
+      const actor = state.players[idx]
+      const cottage = actor.cottageLocationId ?? 'maison-des-nains'
+      const di = actor.fateDeck.findIndex((c) => c.cardId === effect.heroCardId)
+      const fi = actor.fateDiscard.findIndex((c) => c.cardId === effect.heroCardId)
+      let heroCard: CardInstance | undefined
+      let next = state
+      if (di >= 0) {
+        heroCard = actor.fateDeck[di]
+        next = updatePlayer(state, idx, (p) => ({ ...p, fateDeck: p.fateDeck.filter((_, i) => i !== di) }))
+      } else if (fi >= 0) {
+        heroCard = actor.fateDiscard[fi]
+        next = updatePlayer(state, idx, (p) => ({ ...p, fateDiscard: p.fateDiscard.filter((_, i) => i !== fi) }))
+      }
+      if (!heroCard) {
+        return { ...state, log: [...state.log, `${actor.villainName} : Héros introuvable (Miroir magique).`] }
+      }
+      const placed = heroCard
+      next = updatePlayer(next, idx, (p) => ({
+        ...p,
+        board: { ...p.board, [cottage]: [...(p.board[cottage] ?? []), placed] },
+      }))
+      return { ...next, log: [...next.log, `Le Miroir magique fait apparaître **${placed.name}** à la Maison des Nains.`] }
+    }
+    case 'POISON_ON_FATE_TARGETED': {
+      const next = updatePlayer(state, idx, (p) => ({ ...p, poisonOnFateTargeted: true }))
+      return {
+        ...next,
+        log: [...next.log, `${next.players[idx].villainName} : chaque Fatalité subie ajoutera 1 Poison (Poussière de momie).`],
+      }
+    }
+    case 'DISCARD_POISON_PER_HERO_IN_REALM': {
+      const actor = state.players[idx]
+      const n = Object.values(actor.board).flat().filter((c) => c.type === 'hero').length
+      const lost = Math.min(n, actor.poison ?? 0)
+      if (lost === 0) return state
+      const next = updatePlayer(state, idx, (p) => ({ ...p, poison: (p.poison ?? 0) - lost }))
+      return { ...next, log: [...next.log, `Joyeux : ${actor.villainName} défausse ${lost} jeton${lost > 1 ? 's' : ''} de Poison.`] }
+    }
+    case 'DISCARD_FROM_TARGET_HAND': {
+      const actor = state.players[idx]
+      if (actor.hand.length === 0) {
+        return { ...state, log: [...state.log, `Animaux de la forêt : ${actor.villainName} n'a aucune carte en main.`] }
+      }
+      // La main de la cible est RÉVÉLÉE et le joueur qui a posé la Fatalité
+      // (state.activePlayer) y choisit la carte à défausser (RESOLVE_FATE_CHOICE).
+      return {
+        ...state,
+        pendingFateChoice: {
+          chooserIndex: state.activePlayer,
+          targetIndex: idx,
+          kind: 'discard-from-hand',
+          candidateIds: actor.hand.map((c) => c.instanceId),
+        },
+        log: [...state.log, `Animaux de la forêt : ${actor.villainName} révèle sa main ; ${state.players[state.activePlayer].villainName} choisit une carte à défausser.`],
+      }
+    }
+    case 'LOVES_FIRST_KISS': {
+      const actor = state.players[idx]
+      let next = state
+      const hadPoison = (actor.poison ?? 0) > 0
+      if (hadPoison) {
+        next = updatePlayer(next, idx, (p) => ({ ...p, poison: (p.poison ?? 0) - 1 }))
+      }
+      const heroes = next.players[idx].fateDiscard.filter((c) => c.type === 'hero')
+      const poisonLog = hadPoison ? `${actor.villainName} défausse 1 Poison` : `${actor.villainName} n'a aucun Poison`
+      if (heroes.length === 0) {
+        return { ...next, log: [...next.log, `Premier baiser d'amour : ${poisonLog}.`] }
+      }
+      // Le joueur qui pose la Fatalité choisit le Héros de la défausse Fatalité à
+      // remettre sur le dessus de la pioche Fatalité (RESOLVE_FATE_CHOICE).
+      return {
+        ...next,
+        pendingFateChoice: {
+          chooserIndex: state.activePlayer,
+          targetIndex: idx,
+          kind: 'fate-discard-hero-to-top',
+          candidateIds: heroes.map((c) => c.instanceId),
+        },
+        log: [...next.log, `Premier baiser d'amour : ${poisonLog} ; ${state.players[state.activePlayer].villainName} choisit un Héros à remettre sur le dessus de la Fatalité.`],
+      }
+    }
+    case 'BLACK_MAGIC_TUTOR': {
+      // Magie noire : le joueur CHOISIT un Objet ou un Ingrédient de sa pioche ou de
+      // sa défausse à reprendre en main (pendingRecover, recherche pioche+défausse),
+      // puis mélange sa pioche (thenShuffle). Sans candidat → simple mélange.
+      const actor = state.players[idx]
+      const isTarget = (c: CardInstance) => c.type === 'item' || c.type === 'ingredient'
+      const candidates = [...actor.deck, ...actor.discard].filter(isTarget)
+      if (candidates.length === 0) {
+        const r = shuffle(actor.deck, state.rngState)
+        const next = updatePlayer(state, idx, (p) => ({ ...p, deck: r.result }))
+        return {
+          ...next,
+          rngState: r.state,
+          log: [...next.log, `Magie noire : aucun Objet/Ingrédient disponible ; ${actor.villainName} mélange sa pioche.`],
+        }
+      }
+      return {
+        ...state,
+        pendingRecover: {
+          playerIndex: idx,
+          candidateIds: candidates.map((c) => c.instanceId),
+          thenShuffle: true,
+          label: 'Magie noire',
+        },
+        log: [...state.log, `Magie noire : ${actor.villainName} choisit un Objet ou un Ingrédient à reprendre.`],
+      }
+    }
+    case 'DUPLICATE_INGREDIENT': {
+      const actor = state.players[idx]
+      const zone = actor.ingredients ?? []
+      if (zone.length === 0) {
+        return { ...state, log: [...state.log, `Foudre : aucun Ingrédient déjà joué à reproduire.`] }
+      }
+      // Le coût de Foudre = coût de l'Ingrédient reproduit : on ne propose (et ne
+      // reproduit) que les Ingrédients que le joueur peut PAYER.
+      const affordable = zone.filter((c) => (c.cost ?? 0) <= actor.power)
+      if (affordable.length === 0) {
+        return { ...state, log: [...state.log, `Foudre : pas assez de Pouvoir pour reproduire un Ingrédient.`] }
+      }
+      // Un seul Ingrédient payable : paiement + reproduction directe. Plusieurs :
+      // le joueur CHOISIT lequel (pendingDuplicateIngredient).
+      if (affordable.length === 1) {
+        const pick = affordable[0]
+        const cost = pick.cost ?? 0
+        let next = updatePlayer(state, idx, (p) => ({ ...p, power: p.power - cost }))
+        next = resolveEffects(next, pick.effects ?? [], { actorIndex: idx })
+        return { ...next, log: [...next.log, `Foudre reproduit la capacité de **${pick.name}** (coût ${cost}).`] }
+      }
+      return {
+        ...state,
+        pendingDuplicateIngredient: { playerIndex: idx, candidateIds: affordable.map((c) => c.instanceId) },
+        log: [...state.log, `Foudre : ${actor.villainName} choisit l'Ingrédient à reproduire.`],
+      }
+    }
+    case 'SCREAM_OF_FRIGHT': {
+      // Ouvre le CHOIX : pour chaque lieu non bloqué portant ≥ 1 Héros de force ≤ 3,
+      // un déplacement possible vers chaque lieu voisin non bloqué.
+      const actor = state.players[idx]
+      const locked = new Set(actor.lockedLocations ?? [])
+      const options: { from: LocationId; to: LocationId }[] = []
+      for (const l of actor.locations) {
+        if (locked.has(l.id)) continue
+        const hasMovable = (actor.board[l.id] ?? []).some(
+          (c) => c.type === 'hero' && (effectiveStrength(state, idx, c.instanceId) ?? 0) <= 3,
+        )
+        if (!hasMovable) continue
+        for (const d of adjacentLocationIds(state, l.id)) {
+          if (!locked.has(d)) options.push({ from: l.id, to: d })
+        }
+      }
+      if (options.length === 0) {
+        return { ...state, log: [...state.log, `Hurlement d'effroi : aucun Héros de force ≤ 3 à déplacer.`] }
+      }
+      return {
+        ...state,
+        pendingScream: { playerIndex: idx, options },
+        log: [...state.log, `Hurlement d'effroi : ${actor.villainName} choisit les Héros à déplacer.`],
+      }
+    }
+    case 'SCRY_OWN_DECK': {
+      const actor = state.players[idx]
+      if (actor.deck.length < 2) return state
+      const top = actor.deck.slice(0, effect.count)
+      const rest = actor.deck.slice(effect.count)
+      const rank = (c: CardInstance) =>
+        c.cardId === 'miroir-magique' ? 5 : c.type === 'ingredient' ? 4 : c.cardId === 'croque' ? 3 : c.type === 'item' ? 2 : 1
+      const ordered = [...top].sort((a, b) => rank(b) - rank(a))
+      const next = updatePlayer(state, idx, (p) => ({ ...p, deck: [...ordered, ...rest] }))
+      return { ...next, log: [...next.log, `Vanité : ${actor.villainName} réorganise le dessus de sa pioche.`] }
+    }
+    case 'GRANT_REPEAT_ACTION': {
+      const next = updatePlayer(state, idx, (p) => ({ ...p, repeatActionAvailable: true }))
+      return {
+        ...next,
+        log: [...next.log, `Noir de nuit : ${next.players[idx].villainName} peut refaire une action de son lieu (hors Fatalité).`],
+      }
     }
   }
 }

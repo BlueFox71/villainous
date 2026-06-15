@@ -1,5 +1,6 @@
 import { useGameStore } from '../store/gameStore'
 import { OptionsButton } from '../components/OptionsButton'
+import { playBackClick, playHover, playBoxHubPress } from '../sfx'
 
 interface Props {
   /** Aller au choix des vilains (partie solo). */
@@ -13,7 +14,12 @@ interface Props {
 /** Bouton (style « HearthStone »). */
 function ModeButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="hs-wrapper classique">
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); playBoxHubPress(); onClick() }}
+      onMouseEnter={playHover}
+      className="hs-wrapper classique"
+    >
       <span className="hs-button classique">
         <span className="hs-border classique">
           <span className="hs-text classique">{label}</span>
@@ -43,7 +49,8 @@ export function GameModeSelect({ onChooseVillains, onNetwork, onBack }: Props) {
         <h1 className="text-lg font-bold text-purple-200">Nouvelle partie</h1>
         <button
           type="button"
-          onClick={onBack}
+          onClick={(e) => { e.stopPropagation(); playBackClick(); onBack() }}
+          onMouseEnter={playHover}
           className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"
         >
           ← Menu

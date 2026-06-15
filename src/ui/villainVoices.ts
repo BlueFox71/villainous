@@ -34,6 +34,8 @@ const VOICE_PREFIX: Record<VillainKey, string> = {
   facilier: 'Docteur Facilier',
   imposteur: "L'imposteur",
   bowser: 'Bowser', // pas (encore) de fichiers de voix → intro silencieuse
+  mechanteReine: 'La méchante Reine',
+  scar: 'Scar',
 }
 
 const CONTRE_PREFIX = 'Contre'
@@ -61,10 +63,13 @@ let current: HTMLAudioElement | null = null
  * Joue la séquence d'intro : voix de `myKey`, puis « Contre », puis voix de
  * `oppKey`, enchaînées. Respecte le volume des bruitages (coupé si à zéro).
  */
-export function playVillainIntro(myKey: VillainKey, oppKey: VillainKey) {
-  if (typeof Audio === 'undefined') return
+export function playVillainIntro(myKey: VillainKey, oppKey: VillainKey, onDone?: () => void) {
+  // `onDone` est appelé quand la séquence est terminée — ou tout de suite si rien
+  // n'est joué (audio indisponible, son coupé, aucune voix) — pour que l'appelant
+  // puisse enchaîner (ex. faire apparaître les dés APRÈS la voix).
+  if (typeof Audio === 'undefined') { onDone?.(); return }
   const { sfxVolume } = useSettingsStore.getState()
-  if (sfxVolume <= 0) return
+  if (sfxVolume <= 0) { onDone?.(); return }
   // Les voix sont plus marquantes qu'un clic : on les remonte par rapport au
   // canal bruitages (qui est volontairement discret).
   const volume = Math.min(1, sfxVolume * 2)
@@ -74,7 +79,7 @@ export function playVillainIntro(myKey: VillainKey, oppKey: VillainKey) {
     randomVoice(CONTRE_PREFIX),
     randomVoice(VOICE_PREFIX[oppKey]),
   ].filter((u): u is string => !!u)
-  if (seq.length === 0) return
+  if (seq.length === 0) { onDone?.(); return }
 
   // Coupe une éventuelle séquence précédente.
   if (current) {
@@ -90,11 +95,15 @@ export function playVillainIntro(myKey: VillainKey, oppKey: VillainKey) {
     if (audio !== current) return // une autre séquence a pris la main
     if (i >= seq.length) {
       current = null
+      onDone?.()
       return
     }
     audio.src = seq[i++]
     void audio.play().catch(() => {})
   }
   audio.addEventListener('ended', playNext)
+  // Filet : si une piste échoue à se charger/jouer, on passe à la suivante au lieu
+  // de bloquer la séquence (et donc l'apparition des dés).
+  audio.addEventListener('error', playNext)
   playNext()
 }

@@ -8,6 +8,8 @@ interface Props {
   cards: CardInstance[]
   /** Nombre de cartes à garder (Tour de passe-passe : 1). */
   take: number
+  /** Titre affiché (défaut : « Tour de passe-passe »). */
+  title?: string
   /** Renvoie les instanceIds gardés (les autres sont défaussés). */
   onResolve: (keepInstanceIds: string[]) => void
 }
@@ -16,7 +18,7 @@ interface Props {
  * Tour de passe-passe (Dr Facilier) — regarde les premières cartes de la pioche,
  * en garde `take` (cliquez pour sélectionner) ; les autres sont défaussées.
  */
-export function LookTopModal({ cards, take, onResolve }: Props) {
+export function LookTopModal({ cards, take, title = 'Tour de passe-passe', onResolve }: Props) {
   const [picked, setPicked] = useState<string[]>([])
 
   const toggle = (id: string) =>
@@ -27,7 +29,7 @@ export function LookTopModal({ cards, take, onResolve }: Props) {
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-4">
       <div className="flex w-full max-w-2xl flex-col items-center gap-4 rounded-2xl border border-fuchsia-400/30 bg-[#160a18] p-6 text-white">
-        <h2 className="text-xl font-black text-fuchsia-200">Tour de passe-passe</h2>
+        <h2 className="text-xl font-black text-fuchsia-200">{title}</h2>
         <p className="text-center text-sm text-white/70">
           {take === 1
             ? 'Choisissez la carte à ajouter à votre main ; les autres sont défaussées.'

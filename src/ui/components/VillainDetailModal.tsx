@@ -1,9 +1,10 @@
 import { useState, type MouseEvent } from 'react'
 import type { CardDef } from '../../data/types'
 import { VILLAIN_REGISTRY, type VillainKey } from '../store/gameStore'
-import { villainPortrait, villainPresentation } from '../villainArt'
+import { villainPortrait, villainPresentation, PRESENTATION_TWEAK } from '../villainArt'
 import { VILLAIN_GUIDE } from '../villainGuide'
 import { Scroller } from './Scroller'
+import { playPageFlip, playCardHover, playTinyButtonPress } from '../sfx'
 
 interface Props {
   villain: VillainKey
@@ -18,6 +19,7 @@ const TYPE_LABEL: Record<string, string> = {
   condition: 'Condition',
   hero: 'Héros',
   curse: 'Malédiction',
+  ingredient: 'Ingrédient',
 }
 
 /** DEBUG : formate une valeur (params d'effet) de façon compacte et lisible. */
@@ -201,7 +203,7 @@ function CardThumb({ card, debug = false }: { card: CardDef; debug?: boolean }) 
     <div className="flex flex-col gap-1">
       <figure
         className="relative m-0 cursor-zoom-in transition-transform duration-150 ease-out hover:scale-[1.04]"
-        onMouseEnter={() => setHover(true)}
+        onMouseEnter={() => { playCardHover(); setHover(true) }}
         onMouseLeave={() => setHover(false)}
       >
         <img
@@ -307,6 +309,11 @@ export function VillainDetailModal({ villain, onClose }: Props) {
   const v = VILLAIN_REGISTRY[villain]
   const guide = VILLAIN_GUIDE[villain]
   const presentation = villainPresentation(villain)
+  // Même réglage de taille/position que le choix des vilains et l'écran versus
+  // (ex. l'Imposteur, scale 0.55) — sinon l'illustration est trop grande ici.
+  const tweak = PRESENTATION_TWEAK[villain]
+  const presentationTransform =
+    `translateX(7rem) translateY(-50%) scale(${tweak?.scale ?? 1}) translate(${tweak?.dxPct ?? 0}%, ${tweak?.dyPct ?? 0}%)`
   const [showCards, setShowCards] = useState(false)
   // Bouton Debug réservé au développement local (URL contenant « localhost »).
   const isLocalhost = typeof window !== 'undefined' && window.location.href.includes('localhost')
@@ -340,7 +347,8 @@ export function VillainDetailModal({ villain, onClose }: Props) {
             src={presentation}
             alt=""
             aria-hidden
-            className="villain-fade-bottom pointer-events-none absolute right-full top-1/2 z-0 hidden h-[88vh] max-w-none -translate-y-1/2 translate-x-[7rem] object-contain object-bottom drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)] lg:block"
+            style={{ transform: presentationTransform, transformOrigin: 'center' }}
+            className="villain-fade-bottom pointer-events-none absolute right-full top-1/2 z-0 hidden h-[88vh] max-w-none object-contain object-bottom drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)] lg:block"
           />
         )}
         <Scroller
@@ -375,7 +383,7 @@ export function VillainDetailModal({ villain, onClose }: Props) {
                   )}
                   <button
                     type="button"
-                    onClick={onClose}
+                    onClick={() => { if (showCards) playPageFlip(); else playTinyButtonPress(); onClose() }}
                     className="rounded-lg border border-white/20 px-3 py-1 text-sm text-white/80 hover:bg-white/10"
                   >
                     Fermer ✕
@@ -396,7 +404,7 @@ export function VillainDetailModal({ villain, onClose }: Props) {
               </p>
               <button
                 type="button"
-                onClick={() => setShowCards((s) => !s)}
+                onClick={() => { playPageFlip(); setShowCards((s) => !s) }}
                 className="mt-3 self-start rounded-lg border border-amber-400/50 px-3 py-1.5 text-sm font-semibold text-amber-200 hover:bg-amber-400/10"
               >
                 {showCards ? '← Retour à la fiche' : '🃏 Voir toutes les cartes'}

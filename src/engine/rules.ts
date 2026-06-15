@@ -31,6 +31,7 @@ export const SUPPORTED_ACTION_TYPES: readonly LocationActionType[] = [
   'MOVE_HERO',
   'VANQUISH',
   'ACTIVATE',
+  'BREW_POISON',
 ]
 
 /** Une action est-elle prise en charge par le moteur dans sa version actuelle ? */
@@ -77,6 +78,9 @@ export function isActionCovered(state: GameState, action: LocationAction): boole
   // Persifleur : le joueur peut utiliser UNE action recouverte → on les considère
   // toutes jouables le temps de cette utilisation.
   if (state.persifleurAvailable) return false
+  // « Je vais vous broyer les os ! » (La Méchante Reine) : ce tour-ci, toutes les
+  // actions recouvertes du lieu deviennent jouables.
+  if (state.uncoverCoveredActions) return false
   return coveredTopActionIdsAt(activePlayer(state), loc.id).has(action.id)
 }
 
@@ -180,13 +184,20 @@ export function getAvailableActions(state: GameState): LocationAction[] {
   if (state.status !== 'PLAYING' || state.phase !== 'ACTION') return []
   const loc = currentLocation(state)
   if (!loc) return []
+  // La Méchante Reine — Noir de nuit : tant que le drapeau est armé, une action
+  // (hors Fatalité) déjà utilisée redevient disponible (réutilisation unique).
+  const REPEATABLE = new Set<string>(['GAIN_POWER', 'BREW_POISON', 'PLAY_CARD', 'DISCARD_CARDS'])
+  const canRepeat = !!activePlayer(state).repeatActionAvailable
   return locationActions(state, loc.id).filter(
     (a) =>
       isSupportedType(a.type) &&
-      !state.usedActionIds.includes(a.id) &&
+      (!state.usedActionIds.includes(a.id) || (canRepeat && REPEATABLE.has(a.type))) &&
       !isActionCovered(state, a) &&
       // « Activer » n'est disponible que s'il existe une carte activable.
-      (a.type !== 'ACTIVATE' || activatableCards(state).length > 0),
+      (a.type !== 'ACTIVATE' || activatableCards(state).length > 0) &&
+      // « Préparer du Poison » indisponible si aucun Pouvoir n'est convertible
+      // (0 Pouvoir, ou 1 Pouvoir entièrement absorbé par le surcoût Timide).
+      (a.type !== 'BREW_POISON' || maxBrewPoison(state) >= 1),
   )
 }
 
@@ -339,6 +350,32 @@ export function hasHeroInRealm(state: GameState, playerIndex: number, cardId: st
   )
 }
 
+/** La Méchante Reine — « Préparer du Poison » convertit N Pouvoir en N Poison
+ *  (1:1). Timide (Héros Fatalité dans le royaume) fait coûter 1 Pouvoir EN PLUS
+ *  le simple fait d'utiliser l'action. Renvoie le nombre MAX de Poison
+ *  préparables (0 si même 1 conversion est impossible). */
+export function maxBrewPoison(state: GameState, playerIndex: number = state.activePlayer): number {
+  const p = state.players[playerIndex]
+  const surcharge = hasHeroInRealm(state, playerIndex, 'timide') ? 1 : 0
+  return Math.max(0, p.power - surcharge)
+}
+
+/** La Méchante Reine — « Croque ! » est-il utilisable ? Vrai s'il existe, sur le
+ *  lieu du pion, un Héros (non hypnotisé) éliminable : force effective ≤ Poison
+ *  disponible, en respectant la priorité Prof (mustDefeatFirst). Mêmes critères
+ *  que l'effet TAKE_A_BITE. Sert à interdire de jouer la carte « dans le vide ». */
+export function canTakeABite(state: GameState, playerIndex: number = state.activePlayer): boolean {
+  const p = state.players[playerIndex]
+  const loc = p.pawnLocation
+  if (!loc) return false
+  const heroes = (p.board[loc] ?? []).filter((c) => c.type === 'hero' && !c.hypnotized)
+  if (heroes.length === 0) return false
+  const priorityExists = Object.values(p.board).flat().some((c) => c.type === 'hero' && c.mustDefeatFirst)
+  const pool = priorityExists ? heroes.filter((h) => h.mustDefeatFirst) : heroes
+  const poison = p.poison ?? 0
+  return pool.some((h) => (effectiveStrength(state, playerIndex, h.instanceId) ?? 0) <= poison)
+}
+
 /** Tous les Héros présents dans le royaume d'un joueur (utile pour Voler aux
  *  Riches et Déguisement — Fatalité non-Héros qui ciblent un Héros adverse). */
 export function heroesOf(state: GameState, playerIndex: number): CardInstance[] {
@@ -389,6 +426,16 @@ export function effectiveStrength(
             ? cell.some((c) => c.cardId === m.cardId)
             : Object.values(p.board).flat().some((c) => c.cardId === m.cardId)
         return sum + (present ? m.delta : 0)
+      }
+      case 'per-other-hero-realm': {
+        const others = Object.values(p.board)
+          .flat()
+          .filter((c) => c.type === 'hero' && c.instanceId !== card.instanceId).length
+        return sum + m.delta * others
+      }
+      case 'if-alone-here': {
+        const otherHeroesHere = cell.some((c) => c.type === 'hero' && c.instanceId !== card.instanceId)
+        return sum + (otherHeroesHere ? 0 : m.delta)
       }
     }
   }, 0)
@@ -788,6 +835,15 @@ export function hasReachedObjective(state: GameState): boolean {
       return Object.values(p.board)
         .flat()
         .some((c) => c.isSabotage && !c.attachedTo && (c.sabotageTurns ?? 0) >= turns)
+    }
+    case 'SUCCESSION_FORCE': {
+      // Scar : Mufasa doit être dans la pile Succession, et la Force combinée des
+      // Héros de la pile doit atteindre le seuil. Vérifié au début de son tour.
+      const obj = p.objective
+      const pile = p.succession ?? []
+      if (!pile.some((c) => c.cardId === obj.firstHeroCardId)) return false
+      const force = pile.reduce((n, c) => n + (c.strength ?? 0), 0)
+      return force >= obj.minForce
     }
   }
 }

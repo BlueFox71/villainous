@@ -122,6 +122,19 @@ export interface CardDef {
   /** La carte compte AUSSI comme un Objet (Esprits des masques = Allié + Objet) :
    *  ciblable par les effets « Objet » (Joujou). */
   alsoItem?: boolean
+  /** Héros qui doit être éliminé AVANT les autres Héros du royaume (Prof —
+   *  La Méchante Reine ; même logique que Provocation). */
+  mustDefeatFirst?: boolean
+  /** Héros Fatalité posé OBLIGATOIREMENT sur ce lieu (même verrouillé), quel que
+   *  soit le choix de l'adversaire (Blanche-Neige → Maison des Nains). */
+  forcedFateLocation?: LocationId
+  /** Fatalité : si cette carte fait partie des DEUX cartes dévoilées, le joueur qui
+   *  pose la Fatalité PEUT jouer les deux (au lieu d'en défausser une). La 2ᵉ reste
+   *  facultative (Ray — Dr Facilier ; Dormeur — La Méchante Reine). */
+  fatePlayBoth?: boolean
+  /** Scar — Allié « Hyène » : utilisé par ses synergies (force par Hyène, jeux
+   *  gratuits, défausses comptées…). */
+  isHyena?: boolean
 }
 
 /** Développe une liste de définitions en un paquet concret (un élément par
@@ -177,6 +190,10 @@ export function buildDeckInstances(
           auDela: c.auDela,
           goesToAuDelaOnPlay: c.goesToAuDelaOnPlay,
           alsoItem: c.alsoItem,
+          mustDefeatFirst: c.mustDefeatFirst,
+          forcedFateLocation: c.forcedFateLocation,
+          fatePlayBoth: c.fatePlayBoth,
+          isHyena: c.isHyena,
         }),
       ),
     )

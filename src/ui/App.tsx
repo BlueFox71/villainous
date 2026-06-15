@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useGameStore, villainKeyOf, VILLAIN_REGISTRY, type VillainKey } from './store/gameStore'
 import { useStatsStore } from './store/statsStore'
 import { getCardDef } from '../data/registry'
@@ -6,6 +7,7 @@ import {
   activatableCards,
   adjacentLocationIds,
   canPlaceCurseAt,
+  canTakeABite,
   cardNeedsAllyMove,
   cardNeedsHeroTarget,
   cardNeedsSacrificeTarget,
@@ -18,6 +20,7 @@ import {
   getLegalMoves,
   hasHeroInRealm,
   heroPlacementLocations,
+  maxBrewPoison,
   playableConditions,
   sacrificeableCards,
   teleportTargets,
@@ -34,7 +37,7 @@ import { GameLog } from './components/GameLog'
 import { BoardImage, LOCATIONS_LEFT } from './components/BoardImage'
 import { BoardActions } from './components/BoardActions'
 import { HeroRow } from './components/HeroRow'
-import { DeckPiles, AuDelaPile } from './components/DeckPiles'
+import { DeckPiles, AuDelaPile, IngredientsPile, SuccessionPile } from './components/DeckPiles'
 import { StacksCards } from './components/StacksCards'
 import { FateModal } from './components/FateModal'
 import { ChoiceModal } from './components/ChoiceModal'
@@ -56,16 +59,19 @@ import { AllyMoveBuffModal } from './components/AllyMoveBuffModal'
 import { FetchedHeroModal } from './components/FetchedHeroModal'
 import { CastleTheftModal } from './components/CastleTheftModal'
 import { VictoryModal } from './components/VictoryModal'
+import { MirrorShatter } from './components/MirrorShatter'
 import { NeverlandMapModal } from './components/NeverlandMapModal'
 import { GiantActionModal } from './components/GiantActionModal'
 import { TitanMoveModal } from './components/TitanMoveModal'
 import { DivinationModal } from './components/DivinationModal'
 import { LookTopModal } from './components/LookTopModal'
+import { TakeABiteModal } from './components/TakeABiteModal'
+import { BlackMagicModal } from './components/BlackMagicModal'
 import { FateScryModal } from './components/FateScryModal'
 import { TitanSelectModal } from './components/TitanSelectModal'
 import { StartRollModal } from './components/StartRollModal'
 import { MusicPlayer } from './components/MusicPlayer'
-import { playKillSound, playTaskComplete, playDeadBody, playEmergencyMeeting } from './sfx'
+import { playKillSound, playTaskComplete, playDeadBody, playEmergencyMeeting, playYourTurn, playEndTurnFlip, playEndTurnEnable, playHover, startVictoryBuildup, startDefeatBuildup, stopVictoryBuildup } from './sfx'
 import { playVillainIntro } from './villainVoices'
 import { Showcase } from './components/Showcase'
 import { TestFateBar } from './components/TestFateBar'
@@ -191,6 +197,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const playCondition = useGameStore((s) => s.playCondition)
   const fate = useGameStore((s) => s.fate)
   const resolveFate = useGameStore((s) => s.resolveFate)
+  const passFate = useGameStore((s) => s.passFate)
   const resolveTyrannyDiscard = useGameStore((s) => s.resolveTyrannyDiscard)
   const resolveHeroPlacement = useGameStore((s) => s.resolveHeroPlacement)
   const resolvePawnMove = useGameStore((s) => s.resolvePawnMove)
@@ -225,6 +232,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveTitanSelect = useGameStore((s) => s.resolveTitanSelect)
   const resolveDivination = useGameStore((s) => s.resolveDivination)
   const resolveLookTop = useGameStore((s) => s.resolveLookTop)
+  const resolveTakeABite = useGameStore((s) => s.resolveTakeABite)
+  const resolveDuplicateIngredient = useGameStore((s) => s.resolveDuplicateIngredient)
+  const cancelDuplicateIngredient = useGameStore((s) => s.cancelDuplicateIngredient)
+  const resolveScream = useGameStore((s) => s.resolveScream)
   const resolveFateScry = useGameStore((s) => s.resolveFateScry)
   // Renommé sans préfixe « use » (action du store, pas un hook React).
   const activateCanne = useGameStore((s) => s.useCanne)
@@ -275,6 +286,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   useEffect(() => {
     villainKeyRef.current = humanVillainKey
   }, [humanVillainKey])
+  // Suit le vilain du siège local (peut différer du siège 0 en réseau).
+  const localVillainKey = villainKeyOf(state.players[HUMAN].villain)
+  useEffect(() => {
+    humanVillainKeyRef.current = localVillainKey
+  }, [localVillainKey])
   useEffect(() => {
     playStartRef.current = Date.now()
     return () => {
@@ -285,11 +301,13 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // Voix d'intro : « mon vilain » → « Contre » → « vilain adverse », une seule
   // fois en entrant dans la partie (jamais en mode test). Le ref évite tout
   // rejeu si les clés (stables sur une partie) déclenchent un nouveau rendu.
+  // `introVoiceDone` passe à vrai à la FIN de la voix → l'écran de dés attend.
   const introPlayedRef = useRef(false)
+  const [introVoiceDone, setIntroVoiceDone] = useState(false)
   useEffect(() => {
     if (testMode || introPlayedRef.current) return
     introPlayedRef.current = true
-    playVillainIntro(humanVillainKey, opponentVillainKey)
+    playVillainIntro(humanVillainKey, opponentVillainKey, () => setIntroVoiceDone(true))
   }, [testMode, humanVillainKey, opponentVillainKey])
 
   // Victoire/défaite : enregistrée une seule fois quand la partie se termine.
@@ -325,8 +343,16 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // L'Imposteur — bandeau « EMERGENCY MEETING » (Réunion d'urgence), affiché ~2,4 s.
   const [showEmergency, setShowEmergency] = useState(false)
   const lastHumanTurnRef = useRef<number | null>(null)
+  // Vilain du joueur local (siège HUMAN), suivi par un ref pour être lu dans des
+  // effets sans les faire dépendre de `state.players` (référence changeante).
+  const humanVillainKeyRef = useRef<VillainKey | null>(null)
   // Choix de la carte à activer quand plusieurs sont activables (action « Activer »).
   const [activatePick, setActivatePick] = useState<{ actionId: string } | null>(null)
+  // La Méchante Reine — « Préparer du Poison » : sélecteur du nombre de Pouvoir à
+  // convertir en Poison (1 → max). `surcharge` = 1 si Timide est en jeu.
+  const [brewPick, setBrewPick] = useState<
+    { actionId: string; max: number; surcharge: number; count: number } | null
+  >(null)
   // Iago : choix de l'Objet à emmener quand plusieurs Objets sont sur son lieu.
   const [iagoItemPick, setIagoItemPick] = useState<
     { actionId: string; cardInstanceId: string; from: string } | null
@@ -347,6 +373,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // MODE TEST : masque le panneau de test (qui décale le layout réel) pour
   // vérifier les positions des showcases dans des conditions réelles.
   const [hideTestBar, setHideTestBar] = useState(false)
+  // MODE TEST : aperçu de l'écran de fin (Victoire/Défaite) sans vraie partie
+  // gagnée. `humanWon` = VICTOIRE/DÉFAITE ; l'image = winnerKey si victoire, sinon
+  // loserKey. `null` = aucun aperçu.
+  const [victoryPreview, setVictoryPreview] = useState<
+    { humanWon: boolean; winnerKey: VillainKey; loserKey: VillainKey } | null
+  >(null)
   // Inflige un Héros en capturant les refus de pose (sinon l'erreur est avalée).
   const handleInflict = (cardId: string, to: string) => {
     try {
@@ -633,6 +665,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     if (lastHumanTurnRef.current === state.turn) return
     lastHumanTurnRef.current = state.turn
     setShowTurnSplash(true)
+    // Alerte sonore « À vous de jouer » — sauf si on incarne L'Imposteur (qui a
+    // sa propre ambiance Among Us).
+    if (humanVillainKeyRef.current !== 'imposteur') playYourTurn()
     const t = window.setTimeout(() => setShowTurnSplash(false), 4000)
     return () => window.clearTimeout(t)
   }, [state.activePlayer, state.turn, state.status, startRollDone, testMode, HUMAN])
@@ -679,6 +714,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     Object.values(user.board).some((cards) =>
       cards.some((c) => c.type === 'ally' || (c.type === 'hero' && c.hypnotized)),
     )
+  // Au moins un Héros dans le royaume du joueur : « Magnifiques Taxes » l'exige.
+  const anyHeroOnBoard =
+    isHumanTurn && Object.values(user.board).some((cards) => cards.some((c) => c.type === 'hero'))
   // Roi Richard chez le joueur humain → ses Événements sont injouables.
   const humanEventsBlocked = isHumanTurn && hasHeroInRealm(state, HUMAN, 'roi-richard')
   // Flora chez le bot → sa main est révélée à l'humain (Flora rend la main publique).
@@ -878,10 +916,14 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     if (prec) {
       if (seats[prec.playerIndex] === 'bot') {
         const p = state.players[prec.playerIndex]
+        const pool = [...p.discard, ...p.deck]
         const cands = prec.candidateIds
-          .map((id) => p.discard.find((c) => c.instanceId === id))
+          .map((id) => pool.find((c) => c.instanceId === id))
           .filter((c): c is NonNullable<typeof c> => !!c)
-        const pick = [...cands].sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0))[0]
+        // Magie noire : le bot privilégie le Miroir magique puis les Ingrédients.
+        const rank = (c: typeof cands[number]) =>
+          c.cardId === 'miroir-magique' ? 100 : c.type === 'ingredient' ? 50 + (c.cost ?? 0) : (c.cost ?? 0)
+        const pick = [...cands].sort((a, b) => rank(b) - rank(a))[0]
         if (pick) {
           const timer = setTimeout(() => resolveRecover(pick.instanceId), BOT_STEP_MS)
           return () => clearTimeout(timer)
@@ -950,14 +992,25 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     if (pfc) {
       if (seats[pfc.chooserIndex] === 'bot') {
         const tgt = state.players[pfc.targetIndex]
-        const pool = [...Object.values(tgt.board).flat(), ...tgt.hand]
+        const pool = [...Object.values(tgt.board).flat(), ...tgt.hand, ...tgt.fateDiscard]
         const cands = pfc.candidateIds
           .map((id) => pool.find((c) => c.instanceId === id))
           .filter((c): c is NonNullable<typeof c> => !!c)
+        // Animaux de la forêt : défausser la carte la plus précieuse de la cible
+        // (Miroir magique > Croque ! > Ingrédient > reste).
+        const handRank = (c: CardInstance) =>
+          c.cardId === 'miroir-magique' ? 4 : c.cardId === 'croque' ? 3 : c.type === 'ingredient' ? 2 : 1
         const pick =
           pfc.kind === 'remove-ally'
             ? [...cands].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
-            : cands[0]
+            : pfc.kind === 'discard-from-hand'
+              ? [...cands].sort((a, b) => handRank(b) - handRank(a))[0]
+              : pfc.kind === 'fate-discard-hero-to-top'
+                ? // Premier baiser : Blanche-Neige en priorité (la plus perturbante
+                  // pour la Méchante Reine), sinon le Héros le plus fort.
+                  (cands.find((c) => c.cardId === 'blanche-neige') ??
+                    [...cands].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0])
+                : cands[0]
         if (pick) {
           const timer = setTimeout(() => resolveFateChoice(pick.instanceId), BOT_STEP_MS)
           return () => clearTimeout(timer)
@@ -1031,6 +1084,48 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           : cardId === 'divination-facilier' ? 3 : cardId === 'tour-passe-passe' ? 2 : cardId === 'canne' ? 1 : 0
         const best = [...plt.cards].sort((a, b) => rank(b.cardId) - rank(a.cardId))[0]
         const timer = setTimeout(() => resolveLookTop([best.instanceId]), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // La Méchante Reine — « Croque ! » : le bot croque le Héros-objectif en
+    // priorité, sinon le plus fort des candidats.
+    const ptab = state.pendingTakeABite
+    if (ptab) {
+      if (seats[ptab.playerIndex] === 'bot') {
+        const owner = state.players[ptab.playerIndex]
+        const objId = owner.objective.type === 'DEFEAT_HERO_AT_LOCATION' ? owner.objective.heroCardId : undefined
+        const cards = ptab.candidateIds
+          .map((id) => Object.values(owner.board).flat().find((c) => c.instanceId === id))
+          .filter((c): c is NonNullable<typeof c> => !!c)
+        const pick =
+          cards.find((c) => c.cardId === objId) ??
+          [...cards].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+        if (pick) {
+          const timer = setTimeout(() => resolveTakeABite(pick.instanceId), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
+    // La Méchante Reine — Foudre : le bot reproduit Caquet en priorité, sinon le 1er.
+    const pdup = state.pendingDuplicateIngredient
+    if (pdup) {
+      if (seats[pdup.playerIndex] === 'bot') {
+        const pick = pdup.candidateIds.find((id) => id.includes('caquet-megere')) ?? pdup.candidateIds[0]
+        if (pick) {
+          const timer = setTimeout(() => resolveDuplicateIngredient(pick), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
+    // La Méchante Reine — Hurlement d'effroi : le bot prend le 1er déplacement possible.
+    const pscr = state.pendingScream
+    if (pscr) {
+      if (seats[pscr.playerIndex] === 'bot') {
+        const o = pscr.options[0]
+        const timer = setTimeout(() => (o ? resolveScream(o.from, o.to) : resolveScream()), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
       return
@@ -1181,12 +1276,19 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveDivination, resolveLookTop, resolveFateScry, skipHeroRelocate])
+  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveDivination, resolveLookTop, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate])
 
   // Coups légaux / actions : seulement pour le joueur humain et à son tour.
   const legalMoves = isHumanTurn ? getLegalMoves(state) : []
   const availableActions = isHumanTurn ? getAvailableActions(state) : []
   const canEnd = isHumanTurn && state.phase === 'ACTION'
+
+  // Son quand le bouton « Fin de tour » passe de grisé (non utilisable) à utilisable.
+  const prevCanEndRef = useRef(canEnd)
+  useEffect(() => {
+    if (!testMode && canEnd && !prevCanEndRef.current) playEndTurnEnable()
+    prevCanEndRef.current = canEnd
+  }, [canEnd, testMode])
 
   const clearThen =
     <A extends unknown[]>(fn: (...args: A) => void) =>
@@ -1200,9 +1302,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const handleFate = clearThen(fate)
   const handleEndTurn = clearThen(endTurn)
   // Vilains des deux joueurs (déduits du state) pour pré-remplir le sélecteur.
+  // `state.players[i].villain` est l'ID de définition (kebab, ex. 'mechante-reine'),
+  // PAS la clé d'UI (ex. 'mechanteReine') : on convertit via villainKeyOf (sinon
+  // VILLAIN_REGISTRY[...] est undefined pour les vilains dont l'id ≠ la clé).
   const currentVillains: [VillainKey, VillainKey] = [
-    state.players[0]?.villain as VillainKey,
-    state.players[1]?.villain as VillainKey,
+    villainKeyOf(state.players[0].villain),
+    villainKeyOf(state.players[1].villain),
   ]
   const handlePickVillain = (slot: 0 | 1, key: VillainKey) => {
     const next: [VillainKey, VillainKey] = [...currentVillains]
@@ -1575,6 +1680,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // Clic sur un bouton d'action de l'image → traitement selon le type d'action.
   const handleBoardAction = (a: LocationAction) => {
     if (a.type === 'GAIN_POWER') handleAction(a.id)
+    else if (a.type === 'BREW_POISON') {
+      // Ouvre le sélecteur de quantité (N Pouvoir → N Poison). Timide = +1 perdu.
+      const max = maxBrewPoison(state)
+      const surcharge = hasHeroInRealm(state, state.activePlayer, 'timide') ? 1 : 0
+      if (max >= 1) setBrewPick({ actionId: a.id, max, surcharge, count: 1 })
+    }
     else if (a.type === 'PLAY_CARD') handleSelectPlay(a.id)
     else if (a.type === 'DISCARD_CARDS') handleSelectDiscard(a.id)
     else if (a.type === 'FATE') handleFate(a.id)
@@ -1909,13 +2020,52 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // `watchBoard` n'a de sens que si `won` ; il est remis à false au redémarrage
   // (replaySameVillains) — seul retour PLAYING en place.
   const [watchBoard, setWatchBoard] = useState(false)
+  // Avant l'écran de fin : le plateau du PERDANT se fissure et vole en éclats
+  // (« miroir brisé »). `endShatterDone` passe à vrai quand l'animation est finie
+  // → l'écran Victoire/Défaite s'affiche alors. Réinitialisé au redémarrage.
+  const [endShatterDone, setEndShatterDone] = useState(false)
+  // MODE TEST : prévisualise la SÉQUENCE complète de fin (éclat du plateau → écran).
+  // `testShatterSeat` = plateau qui éclate ; `testEndKind` = écran à montrer ensuite.
+  const [testShatterSeat, setTestShatterSeat] = useState<'user' | 'bot' | null>(null)
+  const [testEndKind, setTestEndKind] = useState<'victory' | 'defeat' | null>(null)
+  // Conteneurs des plateaux : mesurés pour caler l'animation d'éclat (plein écran).
+  const userBoardRef = useRef<HTMLDivElement>(null)
+  const botBoardRef = useRef<HTMLDivElement>(null)
   const winnerIndex = won ? state.winner ?? null : null
   const winnerKey = winnerIndex != null ? villainKeyOf(state.players[winnerIndex].villain) : null
   const loserKey =
     winnerIndex != null ? villainKeyOf(state.players[1 - winnerIndex].villain) : null
+  // Siège (panneau) du perdant : 'user' (siège HUMAIN) ou 'bot'.
+  const loserSeat: 'user' | 'bot' | null =
+    winnerIndex == null ? null : 1 - winnerIndex === HUMAN ? 'user' : 'bot'
+  // Plateau « détruit » : l'éclat reste affiché (puis son fond sombre) TANT QUE
+  // l'écran de fin est là, pour que le plateau n'ait pas l'air intact derrière.
+  // — Réel : du moment de la victoire jusqu'à « Regarder le plateau ».
+  // — Test : pendant l'éclat, puis pendant l'aperçu de l'écran (perdant = côté opposé
+  //   au vainqueur affiché).
+  const userBoardDestroyed =
+    (won && loserSeat === 'user' && !watchBoard) ||
+    testShatterSeat === 'user' ||
+    (!!victoryPreview && !victoryPreview.humanWon)
+  const botBoardDestroyed =
+    (won && loserSeat === 'bot' && !watchBoard) ||
+    testShatterSeat === 'bot' ||
+    (!!victoryPreview && victoryPreview.humanWon)
+  // Une animation/écran de fin est-il en cours (réel OU test) ? Sert à couper la
+  // musique de fond du tour (ex. Slenderman) pour laisser place au jingle de fin.
+  const endActive = won || testShatterSeat !== null || victoryPreview !== null
   const replaySameVillains = () => {
     setWatchBoard(false)
+    setEndShatterDone(false)
+    stopVictoryBuildup()
     resetGame([humanVillainKey, opponentVillainKey])
+  }
+  // Musique de montée jouée au début de l'éclat : victoire OU défaite (réelle/test),
+  // synchronisée pour que sa ~4,9ᵉ seconde coïncide avec l'écran de fin.
+  const humanWon = winnerIndex === HUMAN
+  const startShatterMusic = () => {
+    if (humanWon || testEndKind === 'victory') startVictoryBuildup()
+    else startDefeatBuildup()
   }
 
   return (
@@ -1995,6 +2145,21 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               >
                 🚢 Vilain 2
               </button>
+              {/* Test : SÉQUENCE complète de fin (éclat du plateau perdant → écran). */}
+              <button
+                onClick={() => { setTestEndKind('victory'); setTestShatterSeat('bot') }}
+                title="Aperçu : VICTOIRE (le plateau adverse explose puis l'écran de victoire)"
+                className="rounded-lg border border-amber-400/60 px-3 py-1.5 text-sm text-amber-200 hover:bg-amber-500/10"
+              >
+                🏆 Victoire
+              </button>
+              <button
+                onClick={() => { setTestEndKind('defeat'); setTestShatterSeat('user') }}
+                title="Aperçu : DÉFAITE (votre plateau explose puis l'écran de défaite)"
+                className="rounded-lg border border-slate-400/60 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-500/10"
+              >
+                💀 Défaite
+              </button>
             </>
           )}
           {testMode && (
@@ -2021,6 +2186,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           )}
           <button
             onClick={() => setShowOptions(true)}
+            onMouseEnter={playHover}
             title="Options (musique, volume)"
             className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"
           >
@@ -2028,7 +2194,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           </button>
           {onExit && (
             <button
-              onClick={() => (gameMode !== 'solo' ? setShowQuitConfirm(true) : onExit())}
+              onClick={() => setShowQuitConfirm(true)}
+              onMouseEnter={playHover}
               title={gameMode !== 'solo' ? 'Quitter la partie en réseau' : 'Revenir au menu principal'}
               className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"
             >
@@ -2078,7 +2245,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           </div>
           {/* Plateau (image). Les deux joueurs sont le Prince Jean pour l'instant.
               Un Héros posé masque la rangée d'actions du haut de son lieu. */}
-          <div className="relative">
+          <div className="relative" ref={userBoardRef}>
             <BoardImage player={user} showPawn pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[user.villain]}, white 45%)`} imgClassName="border border-[color:var(--pa-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} unmaskHeroLocationId={persifleurLoc} crewmateCandidates={state.pendingCrewmateKill?.playerIndex === HUMAN ? state.pendingCrewmateKill.candidateColors : undefined} onCrewmateClick={(color) => { if (state.pendingCrewmateKill?.mode === 'kill') playKillSound(); resolveCrewmateKill(color) }} crewmateSelectVerb={state.pendingCrewmateKill?.mode === 'reassure' ? 'Rassurer' : state.pendingCrewmateKill?.mode === 'kill-normal' ? 'Éliminer' : state.pendingCrewmateKill?.mode === 'move' ? 'Déplacer' : 'Défausser'} />
             <BoardActions
               player={user}
@@ -2089,6 +2256,23 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               flashKey={isHumanTurn ? actionFlash : null}
               onActionClick={handleBoardAction}
             />
+            {/* Éclat « miroir brisé » du plateau (fin de partie : perdant ; ou test).
+                Reste affiché (fond sombre) tant que l'écran de fin est là. */}
+            {userBoardDestroyed && (
+              <MirrorShatter
+                src={user.boardImage}
+                targetRef={userBoardRef}
+                onStart={startShatterMusic}
+                onDone={() => {
+                  if (testShatterSeat === 'user') {
+                    // Test « Défaite » : après l'éclat de MON plateau → écran DÉFAITE.
+                    setTestShatterSeat(null)
+                    setTestEndKind(null)
+                    setVictoryPreview({ humanWon: false, winnerKey: opponentVillainKey, loserKey: humanVillainKey })
+                  } else setEndShatterDone(true)
+                }}
+              />
+            )}
           </div>
           {/* En dessous de l'image : cartes du méchant. Pioche + défausse Vilain
               sont placées en bas du plateau (voir plus bas). La marge gauche reste
@@ -2098,6 +2282,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 pile de l'Au-delà (pile secondaire) du Dr Facilier. */}
             <div className="piles-secondaires flex items-start justify-center pt-1" style={{ width: `${LOCATIONS_LEFT}%` }}>
               <AuDelaPile player={user} uprightWidth="w-20" />
+              <IngredientsPile player={user} uprightWidth="w-14" />
+              <SuccessionPile player={user} uprightWidth="w-14" />
             </div>
             <div className="flex-1">
               <Board
@@ -2498,7 +2684,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             ) : (
               <button
                 type="button"
-                onClick={testMode ? () => testRefreshTurn() : handleEndTurn}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (testMode) { testRefreshTurn(); return }
+                  playEndTurnFlip()
+                  handleEndTurn()
+                }}
                 disabled={testMode ? false : !canEnd}
                 title={testMode ? 'Mode test : nouveau tour — choisis le lieu de ton pion (phase déplacement), repioche, sans passer la main au bot' : undefined}
                 className="hs-wrapper classique"
@@ -2602,7 +2793,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               </div>
             </div>
           </div>
-          <div className="relative">
+          <div className="relative" ref={botBoardRef}>
             <BoardImage player={bot} showPawn pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[bot.villain]}, white 45%)`} imgClassName="border border-[color:var(--po-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} crewmateCandidates={state.pendingCrewmateSuspect?.chooserIndex === HUMAN && state.pendingCrewmateSuspect.targetIndex === BOT ? (bot.crewmates ?? []).filter((c) => !c.discarded && !c.suspect).map((c) => c.color) : undefined} onCrewmateClick={resolveCrewmateSuspect} crewmateSelectVerb="Rendre suspect" />
             {/* Aucune pastille d'action affichée pour le bot, SAUF le flash one-shot
                 de l'action qu'il vient de jouer (pour visualiser ses coups). */}
@@ -2614,11 +2805,30 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               flashOnly
               onActionClick={noop}
             />
+            {/* Éclat « miroir brisé » du plateau (fin de partie : perdant ; ou test).
+                Reste affiché (fond sombre) tant que l'écran de fin est là. */}
+            {botBoardDestroyed && (
+              <MirrorShatter
+                src={bot.boardImage}
+                targetRef={botBoardRef}
+                onStart={startShatterMusic}
+                onDone={() => {
+                  if (testShatterSeat === 'bot') {
+                    // Test « Victoire » : après l'éclat du plateau ADVERSE → écran VICTOIRE.
+                    setTestShatterSeat(null)
+                    setTestEndKind(null)
+                    setVictoryPreview({ humanWon: true, winnerKey: humanVillainKey, loserKey: opponentVillainKey })
+                  } else setEndShatterDone(true)
+                }}
+              />
+            )}
           </div>
           <div className="flex">
             {/* Marge gauche = panneau « Pile Au-delà » du plateau (bot). */}
             <div className="piles-secondaires flex items-start justify-center pt-1" style={{ width: `${LOCATIONS_LEFT}%` }}>
               <AuDelaPile player={bot} uprightWidth="w-20" />
+              <IngredientsPile player={bot} uprightWidth="w-14" />
+              <SuccessionPile player={bot} uprightWidth="w-14" />
             </div>
             <div className="flex-1">
               <Board
@@ -2658,6 +2868,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               attachTargetsAvailable={false}
               blockEvents={false}
               realmHasAllies={false}
+              realmHasHeroes={false}
+              hasIngredients={false}
+              heroAtPawn={false}
+              canBite={false}
               selectedToDiscard={[]}
               layout="fan"
               cardWidthClass="w-28"
@@ -2695,6 +2909,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             attachTargetsAvailable={anyAllyOnBoard}
             blockEvents={humanEventsBlocked}
             realmHasAllies={anyAllyOnBoard}
+            realmHasHeroes={anyHeroOnBoard}
+            hasIngredients={(user.ingredients ?? []).some((c) => (c.cost ?? 0) <= user.power)}
+            heroAtPawn={!!user.pawnLocation && (user.board[user.pawnLocation] ?? []).some((c) => c.type === 'hero')}
+            canBite={canTakeABite(state, HUMAN)}
             costFor={(c) => effectiveCost(state, c)}
             armedConditionIds={humanReactions.map((c) => c.instanceId)}
             forcedHoverId={hoveredReactionId}
@@ -2718,6 +2936,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           revealed={state.pendingFate.revealed}
           target={state.players[state.pendingFate.target]}
           onResolve={resolveFate}
+          optional={state.pendingFate.optional}
+          onPass={passFate}
         />
       )}
 
@@ -2814,8 +3034,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         <TeleportModal player={state.players[HUMAN]} onResolve={resolveTeleport} />
       )}
 
-      {/* Musique (tour de Slenderman) + modale Options. */}
-      <MusicPlayer enabled={startRollDone} />
+      {/* Musique (tour de Slenderman) + modale Options. Coupée pendant l'animation/
+          écran de fin (réel ou test) pour ne pas couvrir le jingle de victoire/défaite. */}
+      <MusicPlayer enabled={startRollDone && !endActive} />
       {showOptions && <OptionsModal onClose={() => setShowOptions(false)} />}
 
       {/* Coup Royal : révélation des 5 cartes + verdict. */}
@@ -2857,10 +3078,23 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         <ScryModal cards={state.pendingScry.cards} onResolve={(ids) => resolveScry(ids)} />
       )}
 
-      {/* Opportunisme / Tâche : Téléchargement : reprendre une carte de la défausse. */}
-      {state.pendingRecover && state.pendingRecover.playerIndex === HUMAN && (() => {
+      {/* Magie noire (La Méchante Reine) : choisir un Objet/Ingrédient à reprendre,
+          via deux onglets Pioche / Défausse. */}
+      {state.pendingRecover && state.pendingRecover.playerIndex === HUMAN && state.pendingRecover.label === 'Magie noire' && (() => {
         const ids = new Set(state.pendingRecover.candidateIds)
-        const cards = user.discard.filter((c) => ids.has(c.instanceId))
+        return (
+          <BlackMagicModal
+            deckCards={user.deck.filter((c) => ids.has(c.instanceId))}
+            discardCards={user.discard.filter((c) => ids.has(c.instanceId))}
+            onPick={(instanceId) => resolveRecover(instanceId)}
+          />
+        )
+      })()}
+
+      {/* Opportunisme / Tâche : Téléchargement : reprendre une carte de la défausse. */}
+      {state.pendingRecover && state.pendingRecover.playerIndex === HUMAN && state.pendingRecover.label !== 'Magie noire' && (() => {
+        const ids = new Set(state.pendingRecover.candidateIds)
+        const cards = [...user.discard, ...user.deck].filter((c) => ids.has(c.instanceId))
         const title =
           state.pendingRecover.label === 'Tâche : Téléchargement'
             ? 'Téléchargement : reprends une carte de ta défausse'
@@ -2923,7 +3157,80 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         <LookTopModal
           cards={state.pendingLookTop.cards}
           take={state.pendingLookTop.take}
+          title={state.pendingLookTop.title}
           onResolve={resolveLookTop}
+        />
+      )}
+
+      {/* Foudre (La Méchante Reine) : choisir l'Ingrédient à reproduire. */}
+      {state.pendingDuplicateIngredient && state.pendingDuplicateIngredient.playerIndex === HUMAN && (() => {
+        const ids = new Set(state.pendingDuplicateIngredient.candidateIds)
+        const cards = (user.ingredients ?? []).filter((c) => ids.has(c.instanceId))
+        return (
+          <CardChoiceModal
+            title="Foudre : choisis l'Ingrédient à reproduire"
+            cards={cards}
+            onClose={cancelDuplicateIngredient}
+            onPick={(card) => resolveDuplicateIngredient(card.instanceId)}
+          />
+        )
+      })()}
+
+      {/* Hurlement d'effroi (La Méchante Reine) : choisir le déplacement de Héros. */}
+      {state.pendingScream && state.pendingScream.playerIndex === HUMAN && (() => {
+        const locName = (id: string) => user.locations.find((l) => l.id === id)?.name ?? id
+        // Regroupe par lieu source pour un affichage clair.
+        const fromIds = [...new Set(state.pendingScream.options.map((o) => o.from))]
+        return createPortal(
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4">
+            <div className="flex w-full max-w-md flex-col gap-3 rounded-2xl border border-fuchsia-400/30 bg-[#160a18] p-5 text-white">
+              <h2 className="text-lg font-black text-fuchsia-200">Hurlement d'effroi</h2>
+              <p className="text-sm text-white/70">
+                Déplace les Héros de force ≤ 3 d'un lieu vers un lieu voisin non bloqué.
+              </p>
+              <div className="flex flex-col gap-2">
+                {fromIds.map((fid) => (
+                  <div key={fid} className="rounded-xl border border-white/10 bg-white/5 p-2">
+                    <div className="mb-1 text-xs font-semibold text-fuchsia-200">Depuis {locName(fid)} →</div>
+                    <div className="flex flex-wrap gap-2">
+                      {state.pendingScream!.options
+                        .filter((o) => o.from === fid)
+                        .map((o) => (
+                          <button
+                            key={o.to}
+                            type="button"
+                            onClick={() => resolveScream(o.from, o.to)}
+                            className="rounded-lg border border-fuchsia-400/50 px-3 py-1 text-sm text-fuchsia-100 hover:bg-fuchsia-500/20"
+                          >
+                            {locName(o.to)}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => resolveScream()}
+                className="self-end rounded-lg border border-white/20 px-3 py-1 text-sm text-white/80 hover:bg-white/10"
+              >
+                Ne rien déplacer
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )
+      })()}
+
+      {/* « Croque ! » (La Méchante Reine) : choisir le Héros à éliminer. */}
+      {state.pendingTakeABite && state.pendingTakeABite.playerIndex === HUMAN && (
+        <TakeABiteModal
+          candidates={state.pendingTakeABite.candidateIds
+            .map((id) => Object.values(user.board).flat().find((c) => c.instanceId === id))
+            .filter((c): c is CardInstance => !!c)}
+          forceOf={(id) => effectiveStrength(state, HUMAN, id) ?? 0}
+          poison={user.poison ?? 0}
+          onResolve={resolveTakeABite}
         />
       )}
 
@@ -2975,7 +3282,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       {state.pendingFateChoice && state.pendingFateChoice.chooserIndex === HUMAN && (() => {
         const pfc = state.pendingFateChoice
         const tgt = state.players[pfc.targetIndex]
-        const pool = [...Object.values(tgt.board).flat(), ...tgt.hand]
+        const pool = [...Object.values(tgt.board).flat(), ...tgt.hand, ...tgt.fateDiscard]
         const cards = pfc.candidateIds
           .map((id) => pool.find((c) => c.instanceId === id))
           .filter((c): c is NonNullable<typeof c> => !!c)
@@ -2984,7 +3291,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             ? 'K.O. : retirez un Allié (force ≤ 3)'
             : pfc.kind === 'remove-item'
               ? 'Migraine Atroce : défaussez un Objet'
-              : 'Volez un Objet à associer au Héros'
+              : pfc.kind === 'discard-from-hand'
+                ? `Animaux de la forêt : main de ${tgt.villainName} — défaussez une carte`
+                : pfc.kind === 'fate-discard-hero-to-top'
+                  ? `Premier baiser d'amour : un Héros revient sur le dessus de la Fatalité de ${tgt.villainName}`
+                  : 'Volez un Objet à associer au Héros'
         return (
           <CardChoiceModal
             title={title}
@@ -3061,6 +3372,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             villainKeyOf(state.players[HUMAN].villain),
             villainKeyOf(state.players[BOT].villain),
           ]}
+          voiceDone={introVoiceDone}
+          boardRefs={[userBoardRef, botBoardRef]}
           onResult={(winner, rolls) => {
             setStartingPlayer(winner, rolls)
             setStartRollDone(true)
@@ -3087,12 +3400,16 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         <TurnSplash key={state.turn} villainName={user.villainName} image={villainPresentation(villainKeyOf(state.players[HUMAN].villain))} />
       )}
 
-      {/* RÉSEAU : confirmation avant de quitter la partie. */}
+      {/* Confirmation avant de quitter la partie (solo ou réseau). */}
       {showQuitConfirm && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4">
           <div className="flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-white/15 bg-[#140d24] p-6 text-center">
             <h2 className="text-lg font-bold text-amber-200">Quitter la partie ?</h2>
-            <p className="text-sm text-white/70">L’autre joueur sera prévenu et renvoyé à l’accueil.</p>
+            <p className="text-sm text-white/70">
+              {gameMode !== 'solo'
+                ? 'L’autre joueur sera prévenu et renvoyé à l’accueil.'
+                : 'La partie en cours sera abandonnée et vous reviendrez au menu principal.'}
+            </p>
             <div className="flex justify-center gap-3">
               <button
                 type="button"
@@ -3103,10 +3420,71 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               </button>
               <button
                 type="button"
-                onClick={() => { setShowQuitConfirm(false); quitNet(); onExit?.() }}
+                onClick={() => { setShowQuitConfirm(false); if (gameMode !== 'solo') quitNet(); onExit?.() }}
                 className="rounded-lg border border-red-400/50 bg-red-500/20 px-4 py-2 text-sm font-semibold text-red-100 hover:bg-red-500/30"
               >
                 Quitter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* La Méchante Reine — « Préparer du Poison » : choisir combien de Pouvoir
+          convertir en Poison (1 → max). Timide ajoute 1 Pouvoir perdu. */}
+      {brewPick && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4">
+          <div className="flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-white/15 bg-[#140d24] p-6 text-center">
+            <h2 className="text-lg font-bold text-fuchsia-200">Préparer du Poison</h2>
+            <p className="text-sm text-white/70">
+              Convertis tes jetons Pouvoir en jetons Poison (1 pour 1).
+            </p>
+            <div className="flex items-center justify-center gap-4">
+              <button
+                type="button"
+                onClick={() => setBrewPick((b) => (b ? { ...b, count: Math.max(1, b.count - 1) } : b))}
+                disabled={brewPick.count <= 1}
+                className="h-10 w-10 rounded-full border border-white/20 text-xl font-bold text-white/80 hover:bg-white/10 disabled:opacity-30"
+              >
+                −
+              </button>
+              <div className="flex min-w-[9rem] items-center justify-center gap-1.5 text-lg font-bold">
+                <span className="flex items-center gap-1 text-amber-100">
+                  <img src="/jeton_pouvoir.png" alt="" className="h-6 w-6 rounded-full" />
+                  {brewPick.count}
+                </span>
+                <span className="px-1 text-white/50">→</span>
+                <span className="text-fuchsia-200">🧪 {brewPick.count}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBrewPick((b) => (b ? { ...b, count: Math.min(b.max, b.count + 1) } : b))}
+                disabled={brewPick.count >= brewPick.max}
+                className="h-10 w-10 rounded-full border border-white/20 text-xl font-bold text-white/80 hover:bg-white/10 disabled:opacity-30"
+              >
+                +
+              </button>
+            </div>
+            {brewPick.surcharge > 0 && (
+              <p className="text-xs text-rose-300">
+                Timide : utiliser cette action coûte 1 Pouvoir de plus (perdu).
+                Total dépensé : {brewPick.count + brewPick.surcharge} Pouvoir.
+              </p>
+            )}
+            <div className="flex justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setBrewPick(null)}
+                className="rounded-lg border border-white/20 px-4 py-2 text-sm text-white/80 hover:bg-white/10"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={() => { handleAction(brewPick.actionId, brewPick.count); setBrewPick(null) }}
+                className="rounded-lg border border-fuchsia-400/50 bg-fuchsia-500/20 px-4 py-2 text-sm font-semibold text-fuchsia-100 hover:bg-fuchsia-500/30"
+              >
+                Préparer
               </button>
             </div>
           </div>
@@ -3244,16 +3622,29 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         onBusyChange={setShowcaseBusy}
       />
 
-      {/* Fin de partie : écran Victoire/Défaite avec l'illustration du vainqueur. */}
-      {won && winnerKey && loserKey && !watchBoard && (
+      {/* Fin de partie : écran Victoire/Défaite (après l'éclat du plateau perdant). */}
+      {won && winnerKey && loserKey && !watchBoard && endShatterDone && (
         <VictoryModal
           winnerKey={winnerKey}
           loserKey={loserKey}
           humanWon={winnerIndex === HUMAN}
-          onWatch={() => setWatchBoard(true)}
+          onWatch={() => { stopVictoryBuildup(); setWatchBoard(true) }}
           onReplay={replaySameVillains}
-          onHome={() => onExit?.()}
+          onHome={() => { stopVictoryBuildup(); onExit?.() }}
           canReplay={gameMode === 'solo'}
+        />
+      )}
+
+      {/* MODE TEST : aperçu d'un écran de fin (les trois boutons ferment l'aperçu). */}
+      {testMode && victoryPreview && (
+        <VictoryModal
+          winnerKey={victoryPreview.winnerKey}
+          loserKey={victoryPreview.loserKey}
+          humanWon={victoryPreview.humanWon}
+          onWatch={() => { stopVictoryBuildup(); setVictoryPreview(null) }}
+          onReplay={() => { stopVictoryBuildup(); setVictoryPreview(null) }}
+          onHome={() => { stopVictoryBuildup(); setVictoryPreview(null) }}
+          canReplay={false}
         />
       )}
 

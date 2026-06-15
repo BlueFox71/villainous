@@ -46,9 +46,13 @@ import { imposteur } from '../../data/villains/imposteur'
 import { imposteurCards } from '../../data/villains/imposteur.cards'
 import { bowser } from '../../data/villains/bowser'
 import { bowserCards } from '../../data/villains/bowser.cards'
+import { mechanteReine } from '../../data/villains/mechanteReine'
+import { mechanteReineCards } from '../../data/villains/mechanteReine.cards'
+import { scar } from '../../data/villains/scar'
+import { scarCards } from '../../data/villains/scar.cards'
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -62,6 +66,8 @@ export const VILLAIN_REGISTRY = {
   facilier: { def: facilier, cards: facilierCards, label: 'Dr Facilier' },
   imposteur: { def: imposteur, cards: imposteurCards, label: "L'Imposteur" },
   bowser: { def: bowser, cards: bowserCards, label: 'Bowser' },
+  mechanteReine: { def: mechanteReine, cards: mechanteReineCards, label: 'La Méchante Reine' },
+  scar: { def: scar, cards: scarCards, label: 'Scar' },
 } as const
 
 /** Qui contrôle chaque siège. Concept d'UI : le moteur, lui, ne sait pas qui
@@ -419,7 +425,7 @@ interface GameStore {
   skipMove: () => void
   /** Fixe le joueur qui commence (jet de dé de début de partie) + journalise. */
   setStartingPlayer: (index: number, rolls: [number, number]) => void
-  executeAction: (actionId: string) => void
+  executeAction: (actionId: string, count?: number) => void
   playCard: (
     actionId: string,
     instanceId: string,
@@ -466,6 +472,8 @@ interface GameStore {
   ) => void
   fate: (actionId: string) => void
   resolveFate: (instanceId: string, to?: string, targetHeroId?: string, enlargeToward?: string) => void
+  /** Combo « jouer les deux » (Ray/Dormeur) : passe la 2ᵉ carte facultative. */
+  passFate: () => void
   /** Tyrannie : défausse les cartes choisies (résout `pendingTyrannyDiscard`). */
   resolveTyrannyDiscard: (instanceIds: string[]) => void
   /** Aurore : pose le Héros révélé sur le lieu choisi (résout `pendingHeroPlacement`). */
@@ -525,6 +533,10 @@ interface GameStore {
   resolveDivination: (topInstanceIds: string[]) => void
   /** Tour de passe-passe (Dr Facilier) : garde `keepInstanceIds` en main. */
   resolveLookTop: (keepInstanceIds: string[]) => void
+  resolveTakeABite: (heroInstanceId: string) => void
+  resolveDuplicateIngredient: (ingredientInstanceId: string) => void
+  cancelDuplicateIngredient: () => void
+  resolveScream: (from?: string, to?: string) => void
   /** Si près du but / Charlotte (Dr Facilier) : place `toAudelaIds` dans l'Au-delà,
    *  remet `deckTopOrder` sur le dessus de la pioche. */
   resolveFateScry: (toAudelaIds: string[], deckTopOrder: string[]) => void
@@ -799,8 +811,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'MOVE', to }),
   skipMove: () =>
     get().submit({ type: 'SKIP_MOVE' }),
-  executeAction: (actionId) =>
-    get().submit({ type: 'EXECUTE_ACTION', actionId }),
+  executeAction: (actionId, count) =>
+    get().submit({ type: 'EXECUTE_ACTION', actionId, count }),
   playCard: (actionId, instanceId, to, attachTo, targetHeroId, allyInstanceIds, allyMove, shrinkFreeActionId) =>
     get().submit({
         type: 'PLAY_CARD',
@@ -849,6 +861,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'FATE', actionId }),
   resolveFate: (instanceId, to, targetHeroId, enlargeToward) =>
     get().submit({ type: 'RESOLVE_FATE', instanceId, to, targetHeroId, enlargeToward }),
+  passFate: () => get().submit({ type: 'PASS_FATE' }),
   resolveTyrannyDiscard: (instanceIds) =>
     get().submit({ type: 'RESOLVE_TYRANNY_DISCARD', instanceIds }),
   resolveHeroPlacement: (locationId) =>
@@ -911,6 +924,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_DIVINATION', topInstanceIds }),
   resolveLookTop: (keepInstanceIds) =>
     get().submit({ type: 'RESOLVE_LOOK_TOP', keepInstanceIds }),
+  resolveTakeABite: (heroInstanceId) =>
+    get().submit({ type: 'RESOLVE_TAKE_A_BITE', heroInstanceId }),
+  resolveDuplicateIngredient: (ingredientInstanceId) =>
+    get().submit({ type: 'RESOLVE_DUPLICATE_INGREDIENT', ingredientInstanceId }),
+  cancelDuplicateIngredient: () => get().submit({ type: 'CANCEL_DUPLICATE_INGREDIENT' }),
+  resolveScream: (from, to) => get().submit({ type: 'RESOLVE_SCREAM', from, to }),
   resolveFateScry: (toAudelaIds, deckTopOrder) =>
     get().submit({ type: 'RESOLVE_FATE_SCRY', toAudelaIds, deckTopOrder }),
   useCanne: () =>

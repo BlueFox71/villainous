@@ -85,9 +85,32 @@ function objectiveScore(p: PlayerState): number {
       // pas encore implémentée) → progrès non évalué pour l'instant.
       return 0
     case 'DEFEAT_HERO_AT_LOCATION': {
+      const obj = p.objective
+      // La Méchante Reine : progression dédiée — jouer les Ingrédients (déverrouille
+      // la Maison des Nains), faire venir Blanche-Neige et amasser le Poison pour la
+      // croquer. (Détectée via la zone Ingrédients, propre à elle.)
+      if (p.ingredients !== undefined) {
+        const ing = Math.min(4, p.ingredients.length)
+        let s = 0.4 * (ing / 4) // priorité n°1 : réunir les 4 Ingrédients
+        let bnLoc: string | undefined
+        let otherHeroes = 0
+        for (const l of p.locations) {
+          for (const c of p.board[l.id] ?? []) {
+            if (c.type !== 'hero') continue
+            if (c.cardId === obj.heroCardId) bnLoc = l.id
+            else otherHeroes++
+          }
+        }
+        if (bnLoc) {
+          s += 0.2 // Blanche-Neige en jeu (via le Miroir magique)
+          if (bnLoc === obj.locationId) s += 0.2 // à la Maison des Nains
+          const need = 1 + otherHeroes // approx. de sa force (+1 par autre Héros)
+          s += 0.2 * Math.min(1, (p.poison ?? 0) / need) // Poison suffisant pour croquer
+        }
+        return Math.min(1, s)
+      }
       // Capitaine Crochet : rapprocher le Héros cible (Peter Pan) du lieu cible
       // (Jolly Roger). Le Vanquish final déclenche la victoire (status WON).
-      const obj = p.objective
       const targetLoc = p.locations.find((l) =>
         (p.board[l.id] ?? []).some((c) => c.type === 'hero' && c.cardId === obj.heroCardId),
       )?.id
@@ -164,6 +187,15 @@ function objectiveScore(p: PlayerState): number {
         : false
       if (blocked) s = Math.min(s, 0.45)
       return Math.min(1, s)
+    }
+    case 'SUCCESSION_FORCE': {
+      // Scar : tant que Mufasa n'est pas dans la pile Succession, l'objectif est
+      // verrouillé (progrès plafonné). Avec lui, on mesure la Force accumulée.
+      const obj = p.objective
+      const pile = p.succession ?? []
+      const force = pile.reduce((n, c) => n + (c.strength ?? 0), 0)
+      if (!pile.some((c) => c.cardId === obj.firstHeroCardId)) return 0.15
+      return Math.min(1, force / obj.minForce)
     }
   }
 }

@@ -315,6 +315,66 @@ const ACTION_POS: Record<string, Record<string, Record<string, { x: number; y: n
       fate: { x: 92.9, y: 67.5 },
     },
   },
+  // La Méchante Reine : même gabarit (panneau objectif à gauche + 4 lieux),
+  // colonnes ~22.5/30.4 · 43.4/51.3 · 64.2/72.2 · 85.3/93.1. Particularité : le
+  // Laboratoire porte 3 actions en bas (Jouer · Fatalité · Préparer du poison).
+  // MESURES À AFFINER via l'inspecteur.
+  'mechante-reine': {
+    laboratoire: {
+      'gain-power': { x: 22.5, y: 20 },
+      'move-hero': { x: 30.4, y: 20 },
+      'play-card': { x: 20.5, y: 67.5 },
+      fate: { x: 26.5, y: 67.5 },
+      'brew-poison': { x: 32.5, y: 67.5 },
+    },
+    foret: {
+      'gain-power': { x: 43.4, y: 20 },
+      activate: { x: 51.3, y: 20 },
+      discard: { x: 43.4, y: 67.5 },
+      'play-card': { x: 51.3, y: 67.5 },
+    },
+    mine: {
+      'play-card-top': { x: 64.2, y: 20 },
+      activate: { x: 72.2, y: 20 },
+      'gain-power': { x: 64.2, y: 67.5 },
+      'play-card-bottom': { x: 72.2, y: 67.5 },
+    },
+    'maison-des-nains': {
+      discard: { x: 85.3, y: 20 },
+      fate: { x: 93.1, y: 20 },
+      'play-card': { x: 85.3, y: 67.5 },
+      'gain-power': { x: 93.1, y: 67.5 },
+    },
+  },
+  // Scar : même gabarit (panneau Succession à gauche + 4 lieux), colonnes
+  // ~22.5/30.4 · 43.4/51.3 · 64.2/72.2 · 85.3/93.1, rangées haut ~20 / bas ~67.5.
+  // MESURES À AFFINER via l'inspecteur si besoin.
+  scar: {
+    'rocher-lions': {
+      'gain-power': { x: 22.5, y: 20 },
+      'play-card-top': { x: 30.4, y: 20 },
+      'play-card-bottom': { x: 22.5, y: 67.5 },
+      'move-item-ally': { x: 30.4, y: 67.5 },
+    },
+    savane: {
+      'play-card-top': { x: 43.4, y: 20 },
+      fate: { x: 51.3, y: 20 },
+      discard: { x: 43.4, y: 67.5 },
+      'gain-power': { x: 51.3, y: 67.5 },
+    },
+    'cimetiere-elephants': {
+      discard: { x: 64.2, y: 20 },
+      'play-card-top': { x: 72.2, y: 20 },
+      'play-card-bottom': { x: 64.2, y: 67.5 },
+      'gain-power': { x: 72.2, y: 67.5 },
+    },
+    gorge: {
+      'move-item-ally': { x: 85.3, y: 20 },
+      'play-card-top': { x: 93.1, y: 20 },
+      vanquish: { x: 85.3, y: 67.5 },
+      fate: { x: 93.1, y: 67.5 },
+    },
+  },
 }
 
 interface Props {

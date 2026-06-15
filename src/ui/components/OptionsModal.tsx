@@ -1,4 +1,5 @@
 import { useSettingsStore, type DisplayMode } from '../store/settingsStore'
+import { playTinyButtonPress, playHover } from '../sfx'
 
 interface Props {
   onClose: () => void
@@ -40,7 +41,8 @@ export function OptionsModal({ onClose, onSoundTest }: Props) {
           <h2 className="text-lg font-bold text-purple-200">Options</h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => { playTinyButtonPress(); onClose() }}
+            onMouseEnter={playHover}
             className="rounded-lg border border-white/20 px-3 py-1 text-sm text-white/80 hover:bg-white/10"
           >
             Fermer ✕

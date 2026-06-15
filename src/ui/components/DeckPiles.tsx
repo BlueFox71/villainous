@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { CardInstance, PlayerState } from '../../engine/types'
 import { getCardDef } from '../../data/registry'
+import { playHistoryEvent } from '../sfx'
 
 const imgOf = (c?: CardInstance) => (c ? getCardDef(c.cardId)?.image : undefined)
 
@@ -192,7 +193,7 @@ export function AuDelaPile({
     <div className="flex flex-col items-center gap-0.5">
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={(e) => { e.stopPropagation(); playHistoryEvent(); setOpen(true) }}
         className="relative cursor-pointer"
         title="Voir la Pile de l'Au-delà"
       >
@@ -210,6 +211,113 @@ export function AuDelaPile({
         <DiscardModal
           cards={player.auDela}
           label={`Pile de l'Au-delà — ${player.villainName}`}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
+ * La Méchante Reine — zone INGRÉDIENTS (face VISIBLE), à la même place que la Pile
+ * de l'Au-delà de Facilier. Affiche les Ingrédients déjà joués (face up) pour
+ * qu'on voie lesquels sont dedans, et le compteur n/4. Cliquer agrandit. Rendue
+ * uniquement pour la Méchante Reine (champ `ingredients` défini).
+ */
+export function IngredientsPile({
+  player,
+  uprightWidth = 'w-20',
+}: {
+  player: PlayerState
+  uprightWidth?: string
+}) {
+  const [open, setOpen] = useState(false)
+  if (player.ingredients === undefined) return null
+  const ingredients = player.ingredients
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <span className="text-[8px] font-bold uppercase tracking-wide text-fuchsia-300/90">
+        Ingrédients {ingredients.length}/4
+      </span>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); if (ingredients.length > 0) { playHistoryEvent(); setOpen(true) } }}
+        className={`grid grid-cols-2 gap-1 ${ingredients.length > 0 ? 'cursor-pointer' : 'cursor-default'}`}
+        title={ingredients.length > 0 ? 'Voir les Ingrédients' : 'Aucun Ingrédient joué'}
+      >
+        {ingredients.length === 0
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className={`aspect-[5/7] ${uprightWidth} rounded border border-dashed border-fuchsia-400/40 bg-white/5`}
+              />
+            ))
+          : ingredients.map((c) => (
+              <img
+                key={c.instanceId}
+                src={imgOf(c)}
+                alt={c.name}
+                title={c.name}
+                className={`${uprightWidth} rounded border-2 border-fuchsia-400/70 shadow-[0_0_6px_rgba(217,70,239,0.5)] transition hover:brightness-110`}
+              />
+            ))}
+      </button>
+      {open && (
+        <DiscardModal
+          cards={ingredients}
+          label={`Ingrédients — ${player.villainName}`}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
+ * Scar — pile SUCCESSION (face VISIBLE), à la même place que la Pile de l'Au-delà.
+ * Affiche les Héros éliminés qui s'y trouvent (Mufasa puis les suivants) et la
+ * Force combinée /15 (objectif). Rendue uniquement pour Scar (champ `succession`).
+ */
+export function SuccessionPile({
+  player,
+  uprightWidth = 'w-14',
+}: {
+  player: PlayerState
+  uprightWidth?: string
+}) {
+  const [open, setOpen] = useState(false)
+  if (player.succession === undefined) return null
+  const pile = player.succession
+  const force = pile.reduce((n, c) => n + (c.strength ?? 0), 0)
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <span className="text-[8px] font-bold uppercase tracking-wide text-amber-300/90">
+        Succession {force}/15
+      </span>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); if (pile.length > 0) { playHistoryEvent(); setOpen(true) } }}
+        className={`flex flex-wrap justify-center gap-1 ${pile.length > 0 ? 'cursor-pointer' : 'cursor-default'}`}
+        title={pile.length > 0 ? 'Voir la pile Succession' : 'Pile Succession vide'}
+      >
+        {pile.length === 0 ? (
+          <div className={`aspect-[5/7] ${uprightWidth} rounded border border-dashed border-amber-400/40 bg-white/5`} />
+        ) : (
+          pile.map((c) => (
+            <img
+              key={c.instanceId}
+              src={imgOf(c)}
+              alt={c.name}
+              title={`${c.name} (force ${c.strength ?? '?'})`}
+              className={`${uprightWidth} rounded border-2 border-amber-400/70 shadow-[0_0_6px_rgba(251,191,36,0.5)] transition hover:brightness-110`}
+            />
+          ))
+        )}
+      </button>
+      {open && (
+        <DiscardModal
+          cards={pile}
+          label={`Pile Succession — ${player.villainName}`}
           onClose={() => setOpen(false)}
         />
       )}
@@ -252,7 +360,7 @@ export function DeckPiles({
   const discard = isFate ? player.fateDiscard : player.discard
   const last = discard[discard.length - 1]
   const [showDiscard, setShowDiscard] = useState(false)
-  const openDiscard = () => setShowDiscard(true)
+  const openDiscard = () => { playHistoryEvent(); setShowDiscard(true) }
   const discardLabel = `Défausse ${isFate ? 'Fatalité' : 'Vilain'} — ${player.villainName}`
   const deckPile =
     !isFate && playerIndex !== undefined ? (

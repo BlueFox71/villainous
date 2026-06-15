@@ -30,6 +30,10 @@ export type LocationActionType =
   /** Jafar : activer la capacité d'un Allié/Objet portant le symbole « Activer »
    *  (Iago, Sceptre Serpent). Capacités activées — implémentation à venir. */
   | 'ACTIVATE'
+  /** La Méchante Reine : « Préparer du Poison » — convertit N jetons Pouvoir en
+   *  N jetons Poison (N au choix). Timide (Héros Fatalité) fait coûter 1 Pouvoir
+   *  SUPPLÉMENTAIRE le fait d'utiliser l'action. */
+  | 'BREW_POISON'
 
 /** Rangée d'une action sur le plateau. Les héros recouvrent la rangée du HAUT
  *  d'un lieu : la position est donc structurante pour la mécanique de Fatalité
@@ -144,6 +148,10 @@ export type ObjectiveDef =
    *  `turns` tours sans qu'il soit défaussé. Victoire vérifiée en début de tour
    *  (le compte à rebours du Sabotage est porté par l'instance d'Objet). */
   | { type: 'KEEP_SABOTAGE'; turns: number }
+  /** Scar : éliminer d'abord `firstHeroCardId` (Mufasa) — placé dans la pile
+   *  Succession — puis y accumuler une Force combinée ≥ `minForce`. Victoire
+   *  vérifiée au début de son tour. */
+  | { type: 'SUCCESSION_FORCE'; firstHeroCardId: string; minForce: number }
 
 /** Phase courante à l'intérieur d'un tour. */
 export type TurnPhase =
@@ -158,7 +166,7 @@ export type GameStatus = 'PLAYING' | 'WON'
 /** Catégorie de carte. Concept de jeu (pas de présentation) → vit dans le moteur.
  *  'curse' = type unique à Maléfique : posé sur un lieu, applique un effet
  *  passif et a une condition de défausse propre. */
-export type CardType = 'ally' | 'item' | 'effect' | 'condition' | 'hero' | 'curse'
+export type CardType = 'ally' | 'item' | 'effect' | 'condition' | 'hero' | 'curse' | 'ingredient'
 
 /**
  * L'Imposteur — un COÉQUIPIER : pion neutre posé sur une CASE d'action du
@@ -245,6 +253,10 @@ export type Effect =
   /** Autorise l'acteur à utiliser UNE action recouverte par un Héros ce tour-ci
    *  (réutilise la mécanique Persifleur). Slenderman : Brouillage. */
   | { type: 'GRANT_USE_COVERED_ACTION' }
+  /** La Méchante Reine — « Je vais vous broyer les os ! » : ce tour-ci, l'acteur
+   *  peut aussi effectuer TOUTES les actions recouvertes par un Héros sur son lieu
+   *  (drapeau uncoverCoveredActions). */
+  | { type: 'USE_COVERED_ACTIONS_THIS_TURN' }
   /** L'acteur perd jusqu'à `amount` JT, transférés en lockedPower sur la carte
    *  hôte du contexte (Petit Jean : −4 JT au PJ, stockés sur Petit Jean). */
   | { type: 'LOSE_POWER_TO_HOST'; amount: number }
@@ -509,6 +521,48 @@ export type Effect =
   /** Bowser — Comète farceuse (Fatalité) : défausse un Objet du royaume de la
    *  cible (auto : un Objet non associé). */
   | { type: 'DISCARD_ONE_ITEM' }
+  /** La Méchante Reine — gagne `amount` jetons Poison (Trône, Jalousie…). */
+  | { type: 'GAIN_POISON'; amount: number }
+  /** La Méchante Reine — Caquet de vieille mégère : gagne `amount` Pouvoir par lieu
+   *  du royaume où se trouve au moins un Héros. */
+  | { type: 'GAIN_POWER_PER_LOCATION_WITH_HERO'; amount: number }
+  /** La Méchante Reine — « Croque ! » : choisit un Héros sur le lieu du pion et
+   *  défausse autant de jetons Poison que sa force pour l'éliminer (interactif →
+   *  pendingTakeABite). */
+  | { type: 'TAKE_A_BITE' }
+  /** La Méchante Reine — Miroir magique : cherche `heroCardId` (Blanche-Neige)
+   *  dans la pioche/défausse Fatalité et la joue immédiatement. */
+  | { type: 'FETCH_FATE_HERO'; heroCardId: string }
+  /** La Méchante Reine — Poussière de momie : jusqu'au début de son prochain tour,
+   *  chaque Fatalité ciblant ce joueur ajoute 1 jeton Poison (drapeau). */
+  | { type: 'POISON_ON_FATE_TARGETED' }
+  /** La Méchante Reine — Joyeux (Fatalité) : la cible défausse autant de jetons
+   *  Poison que de Héros présents dans son royaume. */
+  | { type: 'DISCARD_POISON_PER_HERO_IN_REALM' }
+  /** La Méchante Reine — Animaux de la forêt (Fatalité) : révèle la main de la
+   *  cible ; le joueur qui pose la Fatalité y choisit une carte à défausser
+   *  (ouvre pendingFateChoice, kind `discard-from-hand`). */
+  | { type: 'DISCARD_FROM_TARGET_HAND' }
+  /** La Méchante Reine — Premier baiser d'amour (Fatalité) : la cible défausse 1
+   *  jeton Poison, puis le joueur qui pose la Fatalité choisit un Héros de la
+   *  défausse Fatalité de la cible à remettre sur le dessus de sa pioche Fatalité
+   *  (ouvre pendingFateChoice, kind `fate-discard-hero-to-top`). */
+  | { type: 'LOVES_FIRST_KISS' }
+  /** La Méchante Reine — Magie noire : récupère en main un Objet/Ingrédient de la
+   *  pioche ou de la défausse (auto : le plus utile) puis mélange la pioche. */
+  | { type: 'BLACK_MAGIC_TUTOR' }
+  /** La Méchante Reine — Foudre : reproduit l'effet d'un Ingrédient déjà joué
+   *  (auto : Caquet en priorité). */
+  | { type: 'DUPLICATE_INGREDIENT' }
+  /** La Méchante Reine — Hurlement d'effroi : déplace chaque Héros de force ≤ 3 du
+   *  lieu le plus menaçant vers un lieu voisin non bloqué (auto). */
+  | { type: 'SCREAM_OF_FRIGHT' }
+  /** La Méchante Reine — Vanité : réorganise les `count` premières cartes de sa
+   *  pioche pour mettre la plus utile sur le dessus (auto). */
+  | { type: 'SCRY_OWN_DECK'; count: number }
+  /** La Méchante Reine — Noir de nuit : autorise à refaire une action (hors
+   *  Fatalité) de son lieu ce tour-ci (drapeau repeatActionAvailable). */
+  | { type: 'GRANT_REPEAT_ACTION' }
 
 /**
  * Un exemplaire physique d'une carte en jeu. Comme une même carte existe en
@@ -648,6 +702,16 @@ export interface CardInstance {
    *  Esprits des masques (Allié + Objet) : ciblable par les effets « Objet »
    *  (Joujou). Recopié de CardDef. */
   alsoItem?: boolean
+  /** Héros à éliminer avant les autres (Prof). Recopié de CardDef. */
+  mustDefeatFirst?: boolean
+  /** Héros Fatalité posé d'office sur ce lieu (Blanche-Neige → Maison des Nains).
+   *  Recopié de CardDef. */
+  forcedFateLocation?: LocationId
+  /** Fatalité : révélée parmi les deux, autorise à jouer les DEUX cartes (Ray,
+   *  Dormeur). Recopié de CardDef. */
+  fatePlayBoth?: boolean
+  /** Scar — Allié « Hyène » (synergies de Scar). Recopié de CardDef. */
+  isHyena?: boolean
   /** Reine de Cœur : taille d'un Héros. `'shrunk'` (rapetissé) → ne recouvre
    *  qu'une action du haut ; `'enlarged'` (agrandi) → recouvre une action de plus.
    *  Absent = taille normale (recouvre la rangée du haut). */
@@ -703,6 +767,12 @@ export type SelfStrengthMod =
    *  (`scope: 'location'`, Génie + Lampe Merveilleuse) ou n'importe où dans le
    *  royaume (`scope: 'realm'`, Rajah + Princesse Jasmine). */
   | { kind: 'if-card'; cardId: string; scope: 'location' | 'realm'; delta: number }
+  /** +delta par AUTRE Héros présent dans le royaume (Blanche-Neige : +1 par
+   *  autre Héros). N'inclut pas la carte elle-même. */
+  | { kind: 'per-other-hero-realm'; delta: number }
+  /** +delta s'il n'y a AUCUN autre Héros sur le même lieu (Grincheux : +1 s'il
+   *  est seul sur son lieu). */
+  | { kind: 'if-alone-here'; delta: number }
 
 /** Dr Facilier — comportement d'une carte RÉVÉLÉE depuis la Pile de l'Au-delà
  *  par Divination. Donnée réutilisable, interprétée par resolveAuDela (effects.ts).
@@ -823,6 +893,10 @@ export interface PlayerState {
    *  au hasard et résout leurs effets Au-delà. Toujours présent (`[]`) ; seul
    *  Facilier l'alimente. */
   auDela: CardInstance[]
+  /** Scar — Pile Succession : Mufasa éliminé y est placé, ainsi que les Héros
+   *  éliminés ensuite. La Force combinée des Héros de la pile détermine l'objectif.
+   *  `undefined` pour les vilains autres que Scar. */
+  succession?: CardInstance[]
   /** Bowser — Étoiles présentes sur l'Observatoire de la Comète. `undefined`
    *  pour les vilains sans Étoiles. Quand ce compteur tombe à 0, le lieu
    *  `starLocationId` est verrouillé (helper syncObservatoryLock). */
@@ -838,6 +912,22 @@ export interface PlayerState {
   /** L'Imposteur — Porte désactivée : les Coéquipiers ne se déplacent pas à la fin
    *  du prochain tour (drapeau consommé au moment du déplacement). */
   crewmatesSkipMove?: boolean
+  /** La Méchante Reine — jetons POISON accumulés (défaussés par « Croque ! » pour
+   *  éliminer un Héros). `undefined` pour les autres vilains. */
+  poison?: number
+  /** La Méchante Reine — zone INGRÉDIENTS : un exemplaire de chaque Ingrédient
+   *  déjà joué (Caquet, Hurlement, Noir de nuit, Poussière de momie). Quand les 4
+   *  Ingrédients DIFFÉRENTS y sont, la Maison des Nains est déverrouillée. */
+  ingredients?: CardInstance[]
+  /** La Méchante Reine — id du lieu Maison des Nains (verrouillé tant que les 4
+   *  Ingrédients ne sont pas joués). Recopié à la mise en place. */
+  cottageLocationId?: LocationId
+  /** La Méchante Reine — Poussière de momie : jusqu'au début de son prochain tour,
+   *  chaque Fatalité ciblant ce joueur ajoute 1 jeton Poison. */
+  poisonOnFateTargeted?: boolean
+  /** La Méchante Reine — Noir de nuit : autorise à effectuer une SECONDE fois une
+   *  action (hors Fatalité) de son lieu ce tour-ci. Consommé à la réutilisation. */
+  repeatActionAvailable?: boolean
 }
 
 /**
@@ -867,6 +957,10 @@ export interface GameState {
   /** Vrai si le joueur actif vient de bouger sur un lieu portant Persifleur :
    *  il peut utiliser UNE action recouverte de ce lieu. Consommé à l'usage. */
   persifleurAvailable: boolean
+  /** La Méchante Reine — « Je vais vous broyer les os ! » : ce tour-ci, le joueur
+   *  actif peut utiliser TOUTES les actions recouvertes par un Héros sur son lieu.
+   *  Réinitialisé au début de chaque tour. */
+  uncoverCoveredActions?: boolean
   /** Force du dernier Héros vaincu CE TOUR (Méchanceté trigger). Reset à
    *  chaque fin de tour. */
   lastVanquishedHeroStrength?: number
@@ -991,11 +1085,17 @@ export interface GameState {
    *  `chooserIndex` (celui qui a joué la Fatalité) — RESOLVE_FATE_CHOICE :
    *   - `steal-item-to-hero` (Abu/Aladdin) : associer un Objet (`candidateIds`) au
    *     Héros `hostInstanceId` ;
-   *   - `remove-ally` (K.O.) : retirer un Allié (`candidateIds`) du royaume. */
+   *   - `remove-ally` (K.O.) : retirer un Allié (`candidateIds`) du royaume ;
+   *   - `remove-item` (Migraine Atroce) : défausser un Objet du royaume ;
+   *   - `discard-from-hand` (Animaux de la forêt) : révèle la MAIN de la cible et
+   *     le chooser y choisit une carte à défausser ;
+   *   - `fate-discard-hero-to-top` (Premier baiser d'amour) : le chooser choisit un
+   *     Héros de la DÉFAUSSE Fatalité de la cible à remettre sur le dessus de sa
+   *     pioche Fatalité. */
   pendingFateChoice?: {
     chooserIndex: number
     targetIndex: number
-    kind: 'steal-item-to-hero' | 'remove-ally' | 'remove-item'
+    kind: 'steal-item-to-hero' | 'remove-ally' | 'remove-item' | 'discard-from-hand' | 'fate-discard-hero-to-top'
     hostInstanceId?: string
     candidateIds: string[]
   } | null
@@ -1085,9 +1185,31 @@ export interface GameState {
     playerIndex: number
     cards: CardInstance[]
     take: number
+    /** Titre affiché dans le modal de choix (défaut : « Tour de passe-passe »).
+     *  Permet de réutiliser ce mécanisme pour d'autres cartes (ex. Tombée de la
+     *  nuit, quand plusieurs cartes du type choisi sont révélées). */
+    title?: string
     /** Tour de passe-passe révélé pendant une Divination : une fois ce choix résolu,
      *  reprendre la Divination avec ces cartes restantes (à résoudre dans l'ordre). */
     resumeDivination?: { playerIndex: number; cards: CardInstance[] }
+  } | null
+  /** La Méchante Reine — « Croque ! » : `playerIndex` choisit lequel des Héros
+   *  `candidateIds` (présents sur son lieu et payables avec son Poison) éliminer
+   *  en défaussant autant de Poison que sa force (RESOLVE_TAKE_A_BITE). */
+  pendingTakeABite?: { playerIndex: number; candidateIds: string[] } | null
+  /** La Méchante Reine — Hurlement d'effroi : `playerIndex` choisit un déplacement
+   *  parmi `options` (déplacer les Héros de force ≤ 3 d'un lieu `from` vers un lieu
+   *  voisin non bloqué `to`), ou décline (RESOLVE_SCREAM sans option). */
+  pendingScream?: { playerIndex: number; options: { from: LocationId; to: LocationId }[] } | null
+  /** La Méchante Reine — Foudre : `playerIndex` choisit lequel des Ingrédients de
+   *  sa zone (`candidateIds`) reproduire (RESOLVE_DUPLICATE_INGREDIENT). On retient
+   *  `foudreInstanceId` et `actionId` pour pouvoir ANNULER (remettre Foudre en main
+   *  et libérer l'action) — CANCEL_DUPLICATE_INGREDIENT. */
+  pendingDuplicateIngredient?: {
+    playerIndex: number
+    candidateIds: string[]
+    foudreInstanceId?: string
+    actionId?: string
   } | null
   /** Dr Facilier — Si près du but / Charlotte (Fatalité) : `chooserIndex` (qui a
    *  joué la Fatalité) regarde les `cards` premières cartes de la pioche Vilain de
@@ -1191,6 +1313,9 @@ export interface PendingFate {
   target: number
   /** Les 2 cartes révélées du deck Fatalité de la cible (retirées de sa pioche). */
   revealed: CardInstance[]
+  /** Combo « jouer les deux » (Ray/Dormeur) : 2ᵉ carte FACULTATIVE → le joueur
+   *  peut la jouer (RESOLVE_FATE) ou passer (PASS_FATE). Absent = obligatoire. */
+  optional?: boolean
 }
 
 /**
@@ -1199,7 +1324,10 @@ export interface PendingFate {
  */
 export type GameAction =
   | { type: 'MOVE'; to: LocationId }
-  | { type: 'EXECUTE_ACTION'; actionId: string }
+  /** Exécute une action instantanée du lieu (Gagner Pouvoir, Préparer du Poison).
+   *  `count` : nb de jetons convertis pour « Préparer du Poison » (N Pouvoir →
+   *  N Poison). Ignoré pour les autres actions ; défaut 1. */
+  | { type: 'EXECUTE_ACTION'; actionId: string; count?: number }
   /** Jouer une carte de la main via une action « Jouer une carte » du lieu courant.
    *  `to` = lieu de destination (n'importe quel lieu non verrouillé), requis pour
    *  un Allié/Objet ; ignoré pour un Événement. `attachTo` = instanceId de l'Allié
@@ -1300,6 +1428,9 @@ export type GameAction =
        *  choix automatique par le moteur (bot). */
       enlargeToward?: LocationId
     }
+  /** Passer la 2ᵉ carte FACULTATIVE d'un combo « jouer les deux » (Ray/Dormeur) :
+   *  on défausse la carte révélée restante sans la jouer. */
+  | { type: 'PASS_FATE' }
   /** Résoudre la défausse de Tyrannie : `instanceIds` = les cartes choisies dans
    *  la main du joueur en attente (`pendingTyrannyDiscard`) à envoyer en défausse. */
   | { type: 'RESOLVE_TYRANNY_DISCARD'; instanceIds: string[] }
@@ -1382,6 +1513,17 @@ export type GameAction =
   /** Dr Facilier — Tour de passe-passe : garde `keepInstanceIds` (parmi les cartes
    *  révélées de pendingLookTop) en main ; les autres sont défaussées. */
   | { type: 'RESOLVE_LOOK_TOP'; keepInstanceIds: string[] }
+  /** La Méchante Reine — « Croque ! » : élimine le Héros choisi (`heroInstanceId`)
+   *  en défaussant autant de Poison que sa force. */
+  | { type: 'RESOLVE_TAKE_A_BITE'; heroInstanceId: string }
+  /** La Méchante Reine — Foudre : reproduit l'Ingrédient choisi (`ingredientInstanceId`). */
+  | { type: 'RESOLVE_DUPLICATE_INGREDIENT'; ingredientInstanceId: string }
+  /** La Méchante Reine — Foudre : ANNULE le choix (Foudre revient en main, l'action
+   *  « Jouer une carte » est de nouveau disponible). */
+  | { type: 'CANCEL_DUPLICATE_INGREDIENT' }
+  /** La Méchante Reine — Hurlement d'effroi : déplace les Héros (force ≤ 3) du lieu
+   *  `from` vers `to`. Les deux absents = décliner (ne rien déplacer). */
+  | { type: 'RESOLVE_SCREAM'; from?: LocationId; to?: LocationId }
   /** Dr Facilier — Si près du but / Charlotte : `toAudelaIds` rejoignent la Pile de
    *  l'Au-delà ; `deckTopOrder` (les autres cartes révélées) reviennent sur le
    *  dessus de la pioche Vilain de Facilier, 1ʳᵉ = tout en haut. */

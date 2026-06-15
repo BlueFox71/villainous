@@ -96,11 +96,17 @@ function SoundTestRoute() {
 }
 
 /** Musique de menu : jouée sur les écrans hors-jeu, sauf la banque de sons (qui
- *  doit rester silencieuse) et l'écran de jeu (qui a sa propre musique). */
+ *  doit rester silencieuse) et l'écran de jeu (qui a sa propre musique). La liste
+ *  des vilains a sa propre piste. La `key` force le remontage au changement de
+ *  piste pour relancer proprement la lecture. */
 function MenuMusic() {
   const { pathname } = useLocation()
   if (pathname === ROUTES.game || pathname === ROUTES.sounds) return null
-  return <MenuMusicPlayer />
+  const onVillains = pathname === ROUTES.villains
+  const src = onVillains ? '/audio/villain-list.mp3' : '/audio/the-magic-mirror.mp3'
+  // Piste de la liste des vilains un peu moins forte que la musique du menu.
+  const gain = onVillains ? 0.8 : 1
+  return <MenuMusicPlayer key={src} src={src} gain={gain} />
 }
 
 /** Arrière-plan « menu » partagé et persistant (accueil + nouvelle partie),
@@ -117,9 +123,11 @@ function MenuBackgroundLayer() {
  * liste des vilains, profil, banque de sons). Le jeu lui-même vit dans <App/>.
  */
 export default function Root() {
-  // Son de clic sur TOUS les boutons (non désactivés), partout dans l'app.
+  // Son de clic sur TOUS les boutons (non désactivés), partout dans l'app —
+  // SAUF sur la Banque de sons, où le clic ne doit pas couvrir le son prévisualisé.
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
+      if (window.location.pathname === ROUTES.sounds) return
       const btn = (e.target as HTMLElement | null)?.closest('button')
       if (btn && !(btn as HTMLButtonElement).disabled) playClick()
     }

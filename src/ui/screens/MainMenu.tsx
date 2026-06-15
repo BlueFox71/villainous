@@ -1,6 +1,7 @@
 import { PATCH_NOTES } from '../patchNotes'
 import { OptionsButton } from '../components/OptionsButton'
 import { Scroller } from '../components/Scroller'
+import { playHover, playProfileHover } from '../sfx'
 
 interface Props {
   /** Aller au choix du mode de partie (solo / réseau). */
@@ -14,7 +15,7 @@ interface Props {
 /** Un bouton de menu réutilisant le style « HearthStone » (cf. index.css). */
 function MenuButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="hs-wrapper classique">
+    <button type="button" onClick={onClick} onMouseEnter={playHover} className="hs-wrapper classique">
       <span className="hs-button classique">
         <span className="hs-border classique">
           <span className="hs-text classique">{label}</span>
@@ -75,6 +76,7 @@ export function MainMenu({ onNewGame, onVillainList, onProfile }: Props) {
       <button
         type="button"
         onClick={onProfile}
+        onMouseEnter={playProfileHover}
         title="Mon profil"
         aria-label="Mon profil"
         className="group absolute right-6 top-6 z-10 flex flex-col items-center gap-1.5"

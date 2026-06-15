@@ -1,8 +1,9 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { MenuOrbs } from './MenuOrbs'
 import { villainPresentation, villainPortrait } from '../villainArt'
 import { VILLAIN_REGISTRY, type VillainKey } from '../store/gameStore'
+import { playVictoryJingle, playDefeatJingle } from '../sfx'
 
 /** Une goutte de pluie (position + cadence aléatoires), façon CodePen « rain ». */
 interface Drop {
@@ -59,6 +60,16 @@ export function VictoryModal({ winnerKey, loserKey, humanWon, onWatch, onReplay,
   const frontDrops = useMemo(() => makeDrops(), [])
   const backDrops = useMemo(() => makeDrops(), [])
 
+  // Jingle d'apparition de l'écran : victoire ou défaite (une seule fois, même en
+  // StrictMode qui monte le composant deux fois en développement).
+  const jinglePlayedRef = useRef(false)
+  useEffect(() => {
+    if (jinglePlayedRef.current) return
+    jinglePlayedRef.current = true
+    if (humanWon) playVictoryJingle()
+    else playDefeatJingle()
+  }, [humanWon])
+
   // Image : le vainqueur si victoire, sinon le perdant (le vilain du joueur).
   const shownKey = humanWon ? winnerKey : loserKey
   const img = villainPresentation(shownKey) ?? villainPortrait(shownKey)
@@ -93,7 +104,7 @@ export function VictoryModal({ winnerKey, loserKey, humanWon, onWatch, onReplay,
       <div className="relative z-10 flex flex-col items-center gap-3 px-4 text-center">
         <h1
           className={`text-6xl font-black tracking-[0.15em] drop-shadow-[0_4px_24px_rgba(0,0,0,0.85)] sm:text-7xl ${
-            humanWon ? 'victory-title text-amber-300' : 'text-slate-300'
+            humanWon ? 'victory-title text-amber-300' : 'defeat-title text-slate-300'
           }`}
         >
           {humanWon ? 'VICTOIRE' : 'DÉFAITE'}
@@ -206,6 +217,13 @@ export function VictoryModal({ winnerKey, loserKey, humanWon, onWatch, onReplay,
         @keyframes victoryPop {
           0% { opacity: 0; transform: scale(0.7) translateY(20px); }
           100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        /* DÉFAITE : le mot apparaît droit, puis s'incline lourdement à 45° vers le
+           bas (effet dramatique de « chute »). */
+        .defeat-title { animation: defeatTilt 0.32s cubic-bezier(0.6, 0, 0.7, 1) 0.55s both; }
+        @keyframes defeatTilt {
+          0% { transform: rotate(0deg) translateY(0); }
+          100% { transform: rotate(45deg) translateY(0.18em); }
         }
         /* Pluie de défaite (d'après l'effet « rain » de CodePen) : gouttes faites
            d'une tige qui tombe + une éclaboussure à l'impact. Rendue DEVANT le vilain. */

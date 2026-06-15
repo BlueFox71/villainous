@@ -377,6 +377,7 @@ export const facilierCards: CardDef[] = [
     copies: 1,
     text: "Si Ray fait partie des deux cartes dévoilées lors d'une action Fatalité, vous pouvez les jouer toutes les deux.",
     image: img('ray.png'),
+    fatePlayBoth: true,
   },
   {
     id: 'tiana',

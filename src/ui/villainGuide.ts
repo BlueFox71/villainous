@@ -161,7 +161,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
     ],
   },
   imposteur: {
-    difficulty: 4,
+    difficulty: 3,
     story:
       "Le saboteur masqué d'Among Us (InnerSloth, 2018). Sous sa combinaison de Coéquipier se cache un Imposteur : il sabote le vaisseau, élimine l'équipage un à un dans les couloirs d'Electrical, du Réacteur, d'Admin et de la Cafétaria, puis fait porter le chapeau aux innocents lors des réunions d'urgence.",
     playTips: [
@@ -177,7 +177,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
     ],
   },
   bowser: {
-    difficulty: 3,
+    difficulty: 4,
     story:
       "Le Roi des Koopas (Super Mario Galaxy) a arraché l'Observatoire de la Comète à Harmonie et capturé la Princesse Peach au sommet de sa forteresse spatiale. En drainant les Étoiles qui alimentent le cosmos, il compte plonger la galaxie dans les ténèbres — pour peu que les frères Mario ne viennent pas tout gâcher.",
     playTips: [
@@ -190,6 +190,38 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       "Mario est ta meilleure arme : tant qu'il est sur le plateau, Bowser ne peut pas gagner, et il remet une Étoile à l'Observatoire.",
       "Harmonie force l'Observatoire à garder une Étoile : un cadenas vivant contre l'épuisement.",
       "Luigi défausse les Alliés d'un lieu et renvoie leurs Étoiles à l'Observatoire — idéal pour annuler un gros drainage.",
+    ],
+  },
+  mechanteReine: {
+    difficulty: 3,
+    story:
+      "Reine orgueilleuse et jalouse (Blanche-Neige et les Sept Nains, 1937), elle interroge sans cesse son Miroir magique. Quand celui-ci désigne Blanche-Neige comme « la plus belle », la Reine se métamorphose en vieille sorcière et concocte une pomme empoisonnée pour en finir avec sa rivale.",
+    playTips: [
+      'Ton objectif : faire venir Blanche-Neige à la Maison des Nains (via le Miroir magique), puis l’éliminer avec « Croque ! ».',
+      'Joue les 4 Ingrédients différents (Caquet, Hurlement, Noir de nuit, Poussière de momie) : ils vont dans ta zone Ingrédients et, à 4, déverrouillent la Maison des Nains.',
+      'Accumule des jetons Poison : l’action « Préparer du poison » convertit autant de jetons Pouvoir que tu veux en jetons Poison (1 pour 1) ; le Trône et Jalousie en donnent aussi. « Croque ! » en défausse autant que la force du Héros visé pour l’éliminer.',
+      'Le Chasseur affaiblit les Héros présents sur son lieu (−1) ; le Miroir magique te fait piocher quand tu es ciblée par la Fatalité.',
+    ],
+    counterTips: [
+      'Les 7 Nains gonflent : Simplet booste tous les autres Héros (+1) et Prof doit être éliminé en premier.',
+      'Joyeux fait défausser à la Reine autant de Poison que de Héros présents — sabote sa réserve.',
+      'Premier baiser d’amour défausse un Poison et remet un Héros sur le dessus de la Fatalité : casse son tempo juste avant le « Croque ! » final.',
+    ],
+  },
+  scar: {
+    difficulty: 4,
+    story:
+      "Lion ambitieux et manipulateur (Le Roi Lion, 1994), Scar convoite le trône de son frère Mufasa. Allié aux hyènes du Cimetière d’éléphants, il complote pour éliminer le roi et son héritier Simba, et régner sur la Terre des Lions.",
+    playTips: [
+      'Ton objectif : trouver et éliminer Mufasa (il rejoint alors la pile Succession), puis éliminer d’autres Héros pour atteindre une Force combinée d’au moins 15 dans cette pile. Tu ne peux gagner qu’au début de ton tour.',
+      'Une fois Mufasa dans la pile Succession, TOUS les Héros que tu élimines y sont placés et leur Force s’additionne — chasse les gros Héros (Simba 5, Mufasa 6).',
+      'Appuie-toi sur tes Hyènes (Hyène affamée, Banzaï, Ed, Shenzi) : elles se renforcent en groupe et se jouent à prix réduit ou gratuitement ; Festin et Suivez-moi ! les redéploient.',
+      'Rafiki doit être éliminé avant les autres Héros — règle vite ce verrou.',
+    ],
+    counterTips: [
+      'Tant que Mufasa n’est pas dans sa pile Succession, Scar ne progresse pas — protège Mufasa (Bâton de Rafiki, Vision) et garde des Héros forts en jeu.',
+      'Simba plafonne la force des Hyènes à 2 ; Zazu affaiblit les Héros sur son lieu mais renforce ceux d’ailleurs.',
+      'Timon et Pumbaa se renforcent mutuellement (+2 chacun s’ils sont dans le royaume) : un duo difficile à croquer pour Scar.',
     ],
   },
 }

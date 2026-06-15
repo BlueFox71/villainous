@@ -23,6 +23,7 @@ const TYPE_LABEL: Record<string, string> = {
   condition: 'Condition',
   effect: 'Événement',
   hero: 'Héros',
+  ingredient: 'Ingrédient',
 }
 
 const PANEL_W = 220

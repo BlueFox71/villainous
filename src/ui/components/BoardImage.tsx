@@ -248,7 +248,7 @@ export function BoardImage({
           return [
             <div
               key={loc.id}
-              className="absolute flex items-center justify-center gap-0.5 overflow-hidden rounded-b"
+              className="absolute z-[8] flex items-center justify-center gap-0.5 overflow-hidden rounded-b"
               style={{
                 left: `${LOCATIONS_LEFT + i * PAWN_STEP}%`,
                 top: `${cover.top}%`,
@@ -278,7 +278,7 @@ export function BoardImage({
             return (
               <div
                 key={`${loc.id}:${a.id}`}
-                className="absolute flex items-center justify-center overflow-hidden rounded-b"
+                className="absolute z-[8] flex items-center justify-center overflow-hidden rounded-b"
                 style={{
                   left: `${left}%`,
                   top: `${cover.top}%`,
@@ -317,7 +317,7 @@ export function BoardImage({
           return [
             <div
               key={`enlarge:${h.instanceId}`}
-              className="pointer-events-none absolute overflow-hidden rounded-b"
+              className="pointer-events-none absolute z-[8] overflow-hidden rounded-b"
               style={{
                 left: `${left}%`,
                 top: `${cover.top}%`,
@@ -339,14 +339,14 @@ export function BoardImage({
         return (
           <div
             key={`lock-${lockedId}`}
-            className="blocked-location pointer-events-none absolute z-30 flex items-center justify-center"
+            className="blocked-location pointer-events-none absolute z-[5] flex items-center justify-center"
             style={{
               left: `${LOCATIONS_LEFT + i * PAWN_STEP}%`,
               top: '8.7%',
               width: '20.1%',
               height: '70.5%',
             }}
-            title="Lieu verrouillé — Caverne aux Merveilles"
+            title={`Lieu verrouillé — ${player.locations[i].name}`}
           >
             <div className="flex h-full w-full items-center justify-center rounded-lg bg-black/55 backdrop-grayscale">
               <img

@@ -26,6 +26,21 @@ function atLocation(locId: string, hand: CardInstance[], power: number): GameSta
   return withActive(s, { hand, power })
 }
 
+/** Ajoute un Héros (Petit Jean, sans effet spécial) au royaume du joueur actif —
+ *  utile pour rendre « Magnifiques Taxes » jouable (exige ≥ 1 Héros). */
+function withHero(s: GameState, locId: string, n = 1): GameState {
+  const c = princeJohnCardById['petit-jean']
+  const hero: CardInstance = {
+    instanceId: `petit-jean#${n}`,
+    cardId: 'petit-jean',
+    name: c.name,
+    type: 'hero',
+    strength: c.strength,
+  }
+  const board = me(s).board
+  return withActive(s, { board: { ...board, [locId]: [...(board[locId] ?? []), hero] } })
+}
+
 // `to` par défaut = lieu courant du joueur actif (cas le plus fréquent en test).
 const play = (
   s: GameState,
@@ -53,12 +68,13 @@ describe('jouer une carte', () => {
   })
 
   it('un Événement est défaussé et ses effets sont résolus', () => {
-    const taxes = inst('magnifiques-taxes') // coût 0, +1/héros (0 ici)
+    const taxes = inst('magnifiques-taxes') // coût 0, +1/héros
     let s = atLocation('jail', [taxes], 0)
+    s = withHero(s, 'nottingham') // 1 Héros au royaume → +1 JT
     s = play(s, 'play-card', taxes)
     expect(me(s).discard.map((c) => c.cardId)).toContain('magnifiques-taxes')
     expect(me(s).board['jail']).toHaveLength(0)
-    expect(me(s).power).toBe(0)
+    expect(me(s).power).toBe(1)
   })
 
   it('pouvoir insuffisant : refusé', () => {
@@ -77,6 +93,7 @@ describe('jouer une carte', () => {
     const a = inst('magnifiques-taxes', 1)
     const b = inst('magnifiques-taxes', 2)
     let s = atLocation('jail', [a, b], 0)
+    s = withHero(s, 'nottingham') // rend « Magnifiques Taxes » jouable
     s = play(s, 'play-card', a)
     expect(() => play(s, 'play-card', b)).toThrow()
   })
@@ -91,6 +108,7 @@ describe('jouer une carte', () => {
     const a = inst('magnifiques-taxes', 1)
     const b = inst('magnifiques-taxes', 2)
     let s = atLocation('church', [a, b], 0)
+    s = withHero(s, 'nottingham') // rend « Magnifiques Taxes » jouable
     s = play(s, 'play-card-top', a)
     s = play(s, 'play-card-bottom', b)
     expect(me(s).discard).toHaveLength(2)

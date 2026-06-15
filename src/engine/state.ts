@@ -284,6 +284,12 @@ function makePlayer(
     starLocationId: villain.starSetup?.locationId,
     // L'Imposteur — ses 8 Coéquipiers de départ.
     crewmates: villain.id === 'imposteur' ? initialCrewmates(villain) : undefined,
+    // La Méchante Reine — jetons Poison, zone Ingrédients et lieu Maison des Nains.
+    poison: villain.id === 'mechante-reine' ? 0 : undefined,
+    ingredients: villain.id === 'mechante-reine' ? [] : undefined,
+    cottageLocationId: villain.id === 'mechante-reine' ? 'maison-des-nains' : undefined,
+    // Scar — pile Succession (vide au départ ; alimentée par les Héros éliminés).
+    succession: villain.id === 'scar' ? [] : undefined,
   }
 }
 

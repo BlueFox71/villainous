@@ -1,0 +1,312 @@
+// =============================================================================
+// Scar (Le Roi Lion) — cartes (deck Méchant de 30 + deck Fatalité de 15).
+//
+// Source : images FR du dossier assets/decks/Scar/ (texte recopié fidèlement) +
+// wiki Villainous FR. Le TEXTE est la source de vérité ; les `effects` sont
+// ajoutés au fil de l'eau. Beaucoup de cartes de Scar reposent sur des mécaniques
+// dédiées (Hyènes, pile Succession) implémentées progressivement — elles restent
+// « texte seul » en attendant.
+//
+// NOTE : l'image de « Nala » est absente du dossier source ; on utilise un dos de
+// carte en attendant l'illustration réelle (et son texte exact reste à confirmer).
+// =============================================================================
+
+import type { CardDef } from '../types'
+
+const img = (f: string) => `/cards/scar/${f}`
+
+export const scarCards: CardDef[] = [
+  // ----------------------------------------------------------------------
+  // DECK MÉCHANT — Alliés (Hyènes & Gnous)
+  // ----------------------------------------------------------------------
+  {
+    id: 'hyene-affamee',
+    name: 'Hyène affamée',
+    englishName: 'Hungry Hyena',
+    deck: 'villain',
+    type: 'ally',
+    cost: 2,
+    strength: 1,
+    copies: 6,
+    text: 'La force de la Hyène affamée augmente de 1 pour chaque autre Hyène sur le même lieu qu’elle.',
+    image: img('hyene-affamee.png'),
+    isHyena: true,
+  },
+  {
+    id: 'troupeau-gnous',
+    name: 'Troupeau de gnous',
+    englishName: 'Wildebeest Stampede',
+    deck: 'villain',
+    type: 'ally',
+    cost: 2,
+    strength: 3,
+    copies: 2,
+    text: 'S’il y a un Héros sur le lieu où vous jouez Troupeau de gnous, déplacez-le vers un lieu voisin. Puis vous pouvez effectuer une action Éliminer un Héros sur ce nouveau lieu.',
+    image: img('troupeau-gnous.png'),
+  },
+  {
+    id: 'banzai',
+    name: 'Banzaï la hyène',
+    englishName: 'Banzai',
+    deck: 'villain',
+    type: 'ally',
+    cost: 2,
+    strength: 2,
+    copies: 1,
+    text: 'Gagnez 1 jeton Pouvoir pour chaque autre Hyène défaussée depuis le lieu où se trouve Banzaï.',
+    image: img('banzai.png'),
+    isHyena: true,
+  },
+  {
+    id: 'ed',
+    name: 'Ed la hyène',
+    englishName: 'Ed',
+    deck: 'villain',
+    type: 'ally',
+    cost: 2,
+    strength: 2,
+    copies: 1,
+    text: 'Jouer des Hyènes sur le lieu où se trouve Ed coûte 1 jeton Pouvoir de moins.',
+    image: img('ed.png'),
+    isHyena: true,
+  },
+  {
+    id: 'shenzi',
+    name: 'Shenzi la hyène',
+    englishName: 'Shenzi',
+    deck: 'villain',
+    type: 'ally',
+    cost: 2,
+    strength: 2,
+    copies: 1,
+    text: 'Vous pouvez jouer une Hyène gratuitement de votre main.',
+    image: img('shenzi.png'),
+    isHyena: true,
+  },
+
+  // ----------------------------------------------------------------------
+  // DECK MÉCHANT — Événements
+  // ----------------------------------------------------------------------
+  {
+    id: 'longue-vie-roi',
+    name: 'Longue vie au roi !',
+    englishName: 'Long Live the King!',
+    deck: 'villain',
+    type: 'effect',
+    cost: 1,
+    copies: 4,
+    text: 'Dévoilez les 4 premières cartes Fatalité de votre pioche. Vous pouvez jouer un Héros. Défaussez les autres cartes dévoilées.',
+    image: img('longue-vie-roi.png'),
+  },
+  {
+    id: 'petit-secret',
+    name: 'Petit secret',
+    englishName: 'Little Secret',
+    deck: 'villain',
+    type: 'effect',
+    cost: 1,
+    copies: 3,
+    text: 'Choisissez une carte Fatalité dans la défausse et jouez-la.',
+    image: img('petit-secret.png'),
+  },
+  {
+    id: 'soyez-pretes',
+    name: 'Soyez prêtes !',
+    englishName: 'Be Prepared!',
+    deck: 'villain',
+    type: 'effect',
+    cost: 1,
+    copies: 3,
+    text: 'Défaussez les 3 premières cartes de votre pioche. Vous pouvez choisir 1 Événement ou jusqu’à 2 Alliés de votre défausse et les ajouter à votre main.',
+    image: img('soyez-pretes.png'),
+  },
+  {
+    id: 'suivez-moi',
+    name: 'Suivez-moi !',
+    englishName: 'Follow Me!',
+    deck: 'villain',
+    type: 'effect',
+    cost: 0,
+    copies: 3,
+    text: 'Choisissez une Hyène qui ne se trouve pas sur votre lieu. Effectuez 1 action disponible de ce lieu, en dehors d’une action Fatalité.',
+    image: img('suivez-moi.png'),
+  },
+  {
+    id: 'festin',
+    name: 'Festin',
+    englishName: 'Feast',
+    deck: 'villain',
+    type: 'effect',
+    cost: 2,
+    copies: 2,
+    text: 'Choisissez un lieu et déplacez-y autant de Hyènes de votre royaume que vous le désirez.',
+    image: img('festin.png'),
+  },
+
+  // ----------------------------------------------------------------------
+  // DECK MÉCHANT — Conditions
+  // ----------------------------------------------------------------------
+  {
+    id: 'vie-pas-juste',
+    name: 'La vie n’est pas juste',
+    englishName: 'Life’s Not Fair',
+    deck: 'villain',
+    type: 'condition',
+    cost: 0,
+    copies: 2,
+    text: 'Jouable pendant le tour d’un adversaire s’il vous cible avec une action Fatalité. Avant qu’il ne fasse son action, regardez les deux premières cartes Fatalité de votre pioche, puis défaussez ou replacez chacune d’elles.',
+    image: img('vie-pas-juste.png'),
+  },
+  {
+    id: 'orgueil',
+    name: 'Orgueil',
+    englishName: 'Pride',
+    deck: 'villain',
+    type: 'condition',
+    cost: 0,
+    copies: 2,
+    text: 'Jouable pendant le tour d’un adversaire s’il défausse au moins deux cartes. Gagnez 3 jetons Pouvoir.',
+    image: img('orgueil.png'),
+  },
+
+  // ----------------------------------------------------------------------
+  // DECK FATALITÉ — Événements
+  // ----------------------------------------------------------------------
+  {
+    id: 'hakuna-matata',
+    name: 'Hakuna Matata',
+    englishName: 'Hakuna Matata',
+    deck: 'fate',
+    type: 'effect',
+    copies: 3,
+    text: 'Choisissez un Héros de force 3 ou moins dans la pile Succession et jouez-le, ou déplacez un Héros vers un lieu de votre choix.',
+    image: img('hakuna-matata.png'),
+  },
+
+  // ----------------------------------------------------------------------
+  // DECK FATALITÉ — Objets
+  // ----------------------------------------------------------------------
+  {
+    id: 'vision',
+    name: 'Vision',
+    englishName: 'Vision',
+    deck: 'fate',
+    type: 'item',
+    attach: 'hero',
+    attachStrengthBonus: 3,
+    copies: 3,
+    text: 'Associez cette carte à un Héros qui ne possède aucun Objet : sa force augmente de 3.',
+    image: img('vision.png'),
+  },
+  {
+    id: 'baton-rafiki',
+    name: 'Bâton de Rafiki',
+    englishName: 'Rafiki’s Staff',
+    deck: 'fate',
+    type: 'item',
+    attach: 'hero',
+    copies: 1,
+    text: 'Associez cette carte à un Héros. Si ce Héros doit être éliminé, défaussez cet Objet à la place.',
+    image: img('baton-rafiki.png'),
+  },
+
+  // ----------------------------------------------------------------------
+  // DECK FATALITÉ — Héros
+  // ----------------------------------------------------------------------
+  {
+    id: 'mufasa',
+    name: 'Mufasa',
+    englishName: 'Mufasa',
+    deck: 'fate',
+    type: 'hero',
+    strength: 6,
+    copies: 1,
+    text: 'Lorsque Mufasa est éliminé, placez-le dans la pile Succession. Tant que Mufasa est dans la pile Succession, les Héros que vous éliminez y sont également placés.',
+    image: img('mufasa.png'),
+  },
+  {
+    id: 'nala',
+    name: 'Nala',
+    englishName: 'Nala',
+    deck: 'fate',
+    type: 'hero',
+    strength: 4,
+    copies: 1,
+    // TODO : illustration et texte exact à confirmer (carte absente du dossier).
+    text: 'Vous pouvez déplacer un Héros vers le lieu de Nala.',
+    image: img('nala.png'),
+  },
+  {
+    id: 'rafiki',
+    name: 'Rafiki',
+    englishName: 'Rafiki',
+    deck: 'fate',
+    type: 'hero',
+    strength: 3,
+    copies: 1,
+    text: 'Scar doit éliminer Rafiki avant les autres Héros.',
+    image: img('rafiki.png'),
+    mustDefeatFirst: true,
+  },
+  {
+    id: 'sarabi',
+    name: 'Sarabi',
+    englishName: 'Sarabi',
+    deck: 'fate',
+    type: 'hero',
+    strength: 3,
+    copies: 1,
+    text: 'Vous pouvez défausser une Hyène sur le lieu où vous jouez Sarabi.',
+    image: img('sarabi.png'),
+  },
+  {
+    id: 'pumbaa',
+    name: 'Pumbaa',
+    englishName: 'Pumbaa',
+    deck: 'fate',
+    type: 'hero',
+    strength: 3,
+    copies: 1,
+    text: 'Si Timon se trouve dans le royaume, la force de Pumbaa augmente de 2.',
+    image: img('pumbaa.png'),
+    selfStrengthMods: [{ kind: 'if-card', cardId: 'timon', scope: 'realm', delta: 2 }],
+  },
+  {
+    id: 'timon',
+    name: 'Timon',
+    englishName: 'Timon',
+    deck: 'fate',
+    type: 'hero',
+    strength: 2,
+    copies: 1,
+    text: 'Si Pumbaa se trouve dans le royaume, la force de Timon augmente de 2.',
+    image: img('timon.png'),
+    selfStrengthMods: [{ kind: 'if-card', cardId: 'pumbaa', scope: 'realm', delta: 2 }],
+  },
+  {
+    id: 'zazu',
+    name: 'Zazu',
+    englishName: 'Zazu',
+    deck: 'fate',
+    type: 'hero',
+    strength: 2,
+    copies: 1,
+    text: 'La force des autres Héros sur le lieu où se trouve Zazu est réduite de 2. Celle des Héros sur les autres lieux est augmentée de 1.',
+    image: img('zazu.png'),
+  },
+  {
+    id: 'simba',
+    name: 'Simba',
+    englishName: 'Simba',
+    deck: 'fate',
+    type: 'hero',
+    strength: 5,
+    copies: 1,
+    text: 'La force des Hyènes ne peut pas dépasser 2.',
+    image: img('simba.png'),
+  },
+]
+
+export const scarCardById: Record<string, CardDef> = Object.fromEntries(
+  scarCards.map((c) => [c.id, c]),
+)

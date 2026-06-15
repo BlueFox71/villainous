@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { OptionsModal } from './OptionsModal'
+import { playClick, playHover } from '../sfx'
 
 /**
  * Bouton icône « Options » (engrenage) ancré en bas à droite de l'écran, ouvrant
@@ -16,7 +17,8 @@ export function OptionsButton() {
     <>
       <button
         type="button"
-        onClick={() => setShowOptions(true)}
+        onClick={(e) => { e.stopPropagation(); playClick(); setShowOptions(true) }}
+        onMouseEnter={playHover}
         title="Options"
         aria-label="Options"
         className="group absolute bottom-6 right-6 z-10 flex h-16 w-16 items-center justify-center rounded-full transition hover:scale-110"

@@ -3,6 +3,7 @@ import { VILLAIN_REGISTRY, type VillainKey } from '../store/gameStore'
 import { useStatsStore, type VillainStats } from '../store/statsStore'
 import { villainPortrait } from '../villainArt'
 import { Scroller } from '../components/Scroller'
+import { playProfileHover } from '../sfx'
 
 interface Props {
   /** Revenir au menu principal. */
@@ -94,6 +95,7 @@ export function Profile({ onBack }: Props) {
         <button
           type="button"
           onClick={onBack}
+          onMouseEnter={playProfileHover}
           className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"
         >
           ← Menu

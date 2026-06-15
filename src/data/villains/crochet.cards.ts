@@ -238,6 +238,7 @@ export const crochetCards: CardDef[] = [
     copies: 1,
     text: "Dès qu'il est dévoilé, jouez immédiatement Peter Pan sur l'Arbre du Pendu (débloqué ou non). Défaussez les autres cartes Fatalité dévoilées.",
     image: img('peter-pan.png'),
+    forcedFateLocation: 'arbre-pendu',
   },
   {
     id: 'wendy',

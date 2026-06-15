@@ -52,6 +52,18 @@ export function PlayerPanel({ player, accent, isActive, isWinner, showObjective 
           </span>
         </div>
 
+        {/* La Méchante Reine — jetons Poison + progression des Ingrédients. */}
+        {player.poison !== undefined && (
+          <div
+            className="flex flex-col items-center justify-center rounded-lg border border-fuchsia-400/30 bg-black/20 px-3 py-3"
+            title={`Poison : ${player.poison} · Ingrédients : ${player.ingredients?.length ?? 0}/4`}
+          >
+            <span className="-mt-1.5 text-[9px] uppercase tracking-wide text-fuchsia-300/70">Poison</span>
+            <span className="text-2xl font-bold text-fuchsia-200">🧪 {player.poison}</span>
+            <span className="text-[10px] text-white/50">Ingrédients {player.ingredients?.length ?? 0}/4</span>
+          </div>
+        )}
+
         {/* Case objectif (à droite) — masquable quand rendue ailleurs. */}
         {showObjective && <ObjectiveBox player={player} accent={accent} isWinner={isWinner} />}
       </div>

@@ -11,6 +11,10 @@ interface Props {
   /** Résout : carte choisie + lieu de destination (Héros) ou héros cible
    *  (Voler aux Riches / Déguisement) + sens du pivot (Agrandir : enlargeToward). */
   onResolve: (instanceId: string, to?: string, targetHeroId?: string, enlargeToward?: string) => void
+  /** Combo « jouer les deux » (Ray/Dormeur) : 2ᵉ carte FACULTATIVE → propose un
+   *  bouton « Passer » (appelle `onPass`). */
+  optional?: boolean
+  onPass?: () => void
 }
 
 /** Cartes Fatalité non-héros qui ciblent un Héros adverse : Voler aux Riches,
@@ -31,7 +35,7 @@ function needsTargetHero(card: CardInstance): boolean {
  *  2b. Voler aux Riches / Déguisement → choisir un Héros adverse à cibler. Si la
  *      cible n'a aucun Héros, on résout direct (la carte est défaussée sans effet).
  */
-export function FateModal({ revealed, target, onResolve }: Props) {
+export function FateModal({ revealed, target, onResolve, optional = false, onPass }: Props) {
   const [selected, setSelected] = useState<string | null>(null)
   const selectedCard = revealed.find((c) => c.instanceId === selected)
   // Agrandir : Héros choisi en attente du SENS du pivot (gauche/droite).
@@ -75,6 +79,10 @@ export function FateModal({ revealed, target, onResolve }: Props) {
       return target.fateDiscard.some((x) => x.type === 'hero' && (x.strength ?? 0) <= 4)
     if (c.cardId === 'migraine-atroce') return realm.some((x) => x.type === 'item')
     if (c.cardId === 'ko') return realm.some((x) => x.type === 'ally' && !x.isWicket && (x.strength ?? 0) <= 3)
+    // Premier baiser d'amour : sans effet si la cible n'a ni Poison ni Héros dans
+    // sa défausse Fatalité.
+    if (c.cardId === 'premier-baiser')
+      return (target.poison ?? 0) > 0 || target.fateDiscard.some((x) => x.type === 'hero')
     // Il était un Rêve : il faut une Malédiction sur un lieu portant un Héros.
     if (c.cardId === 'il-etait-un-reve') {
       return target.locations.some((l) => {
@@ -119,7 +127,9 @@ export function FateModal({ revealed, target, onResolve }: Props) {
             ? selectedCard.type === 'hero'
               ? `Choisis le lieu où poser ${selectedCard.name}.`
               : `Choisis un Héros adverse à cibler avec ${selectedCard.name}.`
-            : 'Choisis une carte à jouer — l’autre est défaussée.'}
+            : optional
+              ? 'Tu peux jouer cette 2ᵉ carte (Dormeur/Ray) ou passer.'
+              : 'Choisis une carte à jouer — l’autre est défaussée.'}
         </p>
 
         <div className="flex justify-center gap-3">
@@ -235,6 +245,18 @@ export function FateModal({ revealed, target, onResolve }: Props) {
             </div>
           )
         })()}
+
+        {optional && onPass && (
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={onPass}
+              className="rounded-lg border border-white/30 px-4 py-2 text-sm text-white/80 hover:bg-white/10"
+            >
+              Passer (ne pas jouer)
+            </button>
+          </div>
+        )}
         </div>
       </Scroller>
     </div>

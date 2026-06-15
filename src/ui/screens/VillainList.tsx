@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { VILLAIN_REGISTRY, type VillainKey } from '../store/gameStore'
 import { villainPortrait } from '../villainArt'
+import { playHeroHover, playHover, playHeroSelect } from '../sfx'
 import { VILLAIN_GUIDE } from '../villainGuide'
 import { Scroller } from '../components/Scroller'
 import { Stars, VillainDetailModal } from '../components/VillainDetailModal'
@@ -18,7 +19,7 @@ interface Props {
  */
 /** Catégories de vilains affichées dans la liste, dans l'ordre. */
 const CATEGORIES: { title: string; villains: VillainKey[] }[] = [
-  { title: 'Disney', villains: ['princeJohn', 'maleficent', 'jafar', 'reineCoeur', 'crochet', 'ursula', 'hades', 'facilier'] },
+  { title: 'Disney', villains: ['princeJohn', 'maleficent', 'jafar', 'reineCoeur', 'crochet', 'ursula', 'hades', 'facilier', 'mechanteReine', 'scar'] },
   { title: 'Collaborations', villains: ['slenderman', 'imposteur', 'bowser'] },
 ]
 
@@ -32,6 +33,7 @@ export function VillainList({ onBack }: Props) {
         <button
           type="button"
           onClick={onBack}
+          onMouseEnter={playHover}
           className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"
         >
           ← Menu
@@ -53,7 +55,8 @@ export function VillainList({ onBack }: Props) {
                     <button
                       key={key}
                       type="button"
-                      onClick={() => setSelected(key)}
+                      onClick={(e) => { e.stopPropagation(); playHeroSelect(); setSelected(key) }}
+                      onMouseEnter={playHeroHover}
                       className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/5 p-3 text-left transition hover:border-white/30 hover:bg-white/10"
                     >
                       <img

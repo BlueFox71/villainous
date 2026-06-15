@@ -51,7 +51,11 @@ export function TestFateBar({ villain, locations, handAllies, boardHeroes, onInf
   const cards = VILLAIN_REGISTRY[villain].cards
   const heroes = cards.filter((c) => c.deck === 'fate' && c.type === 'hero').sort((a, b) => a.name.localeCompare(b.name))
   const conditions = cards.filter((c) => c.type === 'condition').sort((a, b) => a.name.localeCompare(b.name))
-  const events = cards.filter((c) => c.deck === 'villain' && c.type === 'effect').sort((a, b) => a.name.localeCompare(b.name))
+  // Événements ET Ingrédients (La Méchante Reine) : ajoutables à la main pour être
+  // joués via « Jouer une carte » (tester la boucle Ingrédients → Maison des Nains).
+  const events = cards
+    .filter((c) => c.deck === 'villain' && (c.type === 'effect' || c.type === 'ingredient'))
+    .sort((a, b) => a.name.localeCompare(b.name))
   // Dr Facilier : cartes Vilain pouvant être mises dans la Pile de l'Au-delà (tout
   // sauf Talisman / Divination, exclues par les règles).
   const auDelaCards = cards

@@ -4,6 +4,7 @@ import { villainPortrait, villainPresentation, PRESENTATION_TWEAK } from '../vil
 import { VILLAIN_COLOR, villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from '../villainColors'
 import { Scroller } from '../components/Scroller'
 import { OptionsButton } from '../components/OptionsButton'
+import { playHeroSelect, playPlayButtonHover, playBackClick, playHover, playHeroHover } from '../sfx'
 
 interface Props {
   /** Le vilain est choisi et la partie démarre (l'écran de jeu prend le relais). */
@@ -35,7 +36,8 @@ function Option({
   return (
     <button
       type="button"
-      onClick={onPick}
+      onClick={(e) => { e.stopPropagation(); playHeroSelect(); onPick() }}
+      onMouseEnter={() => { if (!disabled) playHeroHover() }}
       disabled={disabled}
       aria-pressed={selected}
       title={disabled ? 'Déjà choisi par l’autre camp' : undefined}
@@ -262,7 +264,8 @@ export function VillainSelect({ onStart, onBack }: Props) {
         </h1>
         <button
           type="button"
-          onClick={back}
+          onClick={(e) => { e.stopPropagation(); playBackClick(); back() }}
+          onMouseEnter={playHover}
           className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"
         >
           ← Menu
@@ -301,7 +304,7 @@ export function VillainSelect({ onStart, onBack }: Props) {
               Choisis un vilain (ou « Aléatoire ») pour chaque camp.
             </span>
             <div className="w-72">
-              <button type="button" disabled={!mineSolo || !oppSolo} onClick={launchSolo} className="hs-wrapper classique">
+              <button type="button" disabled={!mineSolo || !oppSolo} onClick={(e) => { e.stopPropagation(); playHeroSelect(); launchSolo() }} onMouseEnter={playPlayButtonHover} className="hs-wrapper classique">
                 <span className="hs-button classique">
                   <span className="hs-border classique">
                     <span className="hs-text classique">Lancer la partie</span>
@@ -319,7 +322,7 @@ export function VillainSelect({ onStart, onBack }: Props) {
               {!takenBy(mine) ? 'Choisis ton vilain.' : 'En attente du choix de l’adversaire…'}
             </span>
             <div className="w-72">
-              <button type="button" disabled={!bothChosen} onClick={launchGame} className="hs-wrapper classique">
+              <button type="button" disabled={!bothChosen} onClick={(e) => { e.stopPropagation(); playHeroSelect(); launchGame() }} onMouseEnter={playPlayButtonHover} className="hs-wrapper classique">
                 <span className="hs-button classique">
                   <span className="hs-border classique">
                     <span className="hs-text classique">Lancer la partie</span>

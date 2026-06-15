@@ -51,6 +51,7 @@ const TYPE_LABEL: Record<string, string> = {
   condition: 'Condition',
   hero: 'Héros',
   curse: 'Malédiction',
+  ingredient: 'Ingrédient',
 }
 
 function loadValidated(): Set<string> {
