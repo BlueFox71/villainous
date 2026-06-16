@@ -24,6 +24,10 @@ export interface LobbySeat {
   seat: number
   villainKey: string | null
   name?: string
+  /** Avatar du joueur (profil) : vilain de présentation + couleur de fond. Sert à
+   *  l'affichage (panneaux, historique) côté adverse. */
+  avatarVillain?: string | null
+  avatarColor?: string
   connected: boolean
 }
 
@@ -35,9 +39,18 @@ export interface ActionRequest { type: 'ACTION_REQUEST'; action: GameAction }
 export interface PassMsg { type: 'PASS' }
 /** Annonce sa présence dans le salon (le choix du vilain vient ensuite, en
  *  direct, via SELECT_VILLAIN). */
-export interface JoinMsg { type: 'JOIN'; name?: string }
+export interface JoinMsg {
+  type: 'JOIN'
+  name?: string
+  avatarVillain?: string | null
+  avatarColor?: string
+}
 /** Choix (ou retrait) de vilain pendant le lobby — synchronisé en direct. */
 export interface SelectVillainMsg { type: 'SELECT_VILLAIN'; villainKey: string | null }
+/** Survol éphémère d'un vilain pendant le lobby : permet d'afficher le curseur de
+ *  l'autre joueur en direct (façon sélection de perso). `villainKey` null = plus
+ *  de survol. Non autoritaire : simple reflet visuel, jamais rediffusé. */
+export interface HoverVillainMsg { type: 'HOVER_VILLAIN'; villainKey: string | null }
 /** Le joueur non-actif est en train de préparer une Condition (sélection d'une
  *  cible) : l'adversaire actif doit patienter. `reacting` true au début, false
  *  à la fin (Condition jouée ou annulée). */
@@ -70,7 +83,7 @@ export interface PongMsg { type: 'PONG' }
 
 /** Union de tous les messages « jeu ». */
 export type NetMessage =
-  | ActionRequest | PassMsg | JoinMsg | SelectVillainMsg | ReactingMsg | LeaveMsg
+  | ActionRequest | PassMsg | JoinMsg | SelectVillainMsg | HoverVillainMsg | ReactingMsg | LeaveMsg
   | StateMsg | LobbyMsg | AssignMsg | RejectMsg
   | PingMsg | PongMsg
 

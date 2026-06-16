@@ -216,8 +216,516 @@ body {
     transform: translateX(100vw);
   }
 }
+/* Coups de canon du décor (bouche du canon avant). Lueur brève + bouffée de fumée
+   qui dérive vers le haut-droite (sens de tir), en quelques salves espacées pendant
+   le vol. Enfants du vaisseau : héritent de sa translation/rotation/échelle. */
+/* Groupe des FX de canon : couvre tout le vaisseau ; miroité (scaleX -1) pour un
+   vol vers la gauche, ce qui inverse à la fois la position de la bouche et le sens
+   de dérive de la fumée. */
+.cannon-fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transform-origin: center;
+}
+.cannon-flash,
+.cannon-smoke {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 9999px;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+}
+.cannon-flash {
+  background: radial-gradient(
+    circle,
+    rgba(255, 236, 170, 0.97) 0%,
+    rgba(255, 130, 30, 0.95) 38%,
+    rgba(210, 40, 0, 0.55) 60%,
+    rgba(170, 20, 0, 0) 75%
+  );
+  animation: cannonFlash 5s ease-out infinite;
+}
+.cannon-smoke {
+  background: radial-gradient(circle, rgba(60, 60, 60, 0.85) 0%, rgba(42, 42, 42, 0.5) 55%, rgba(28, 28, 28, 0) 78%);
+  animation: cannonSmoke 5s ease-out infinite;
+}
+/* Une salve dans les ~10 % du cycle, puis silence → ~4 tirs sur un vol de 20 s. */
+@keyframes cannonFlash {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.3);
+  }
+  2% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.5);
+  }
+  9% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.7);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+/* Dérive vers le HAUT-GAUCHE (sens de tir des canons de coque). Miroité côté haut. */
+@keyframes cannonSmoke {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.2);
+  }
+  3% {
+    opacity: 0.85;
+  }
+  10% {
+    transform: translate(-75%, -80%) scale(1.1);
+  }
+  28% {
+    opacity: 0;
+    transform: translate(-110%, -120%) scale(2);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+/* Souffle de feu vert du dragon (Maléfique) : image colorisée crachée par BOUFFÉES
+   depuis la gueule. Chaque bouffée grandit de petite à grande puis s'estompe (comme
+   les coups de canon). Groupe miroité (scaleX -1) pour un vol vers la gauche. */
+.fire-fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transform-origin: center;
+}
+.dragon-flame {
+  position: absolute;
+  pointer-events: none;
+  /* Point d'ancrage de la flamme (calé à la gueule du dragon) : on grandit depuis ce
+     coin. Position fine via right/bottom dans le composant. */
+  transform-origin: left top;
+  opacity: 0;
+  animation: dragonFlame 6s ease-out infinite;
+  will-change: transform, opacity;
+}
+@keyframes dragonFlame {
+  0% {
+    transform: scale(0.15);
+    opacity: 0;
+  }
+  6% {
+    opacity: 1;
+  }
+  19% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  28% {
+    transform: scale(1.12);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.12);
+    opacity: 0;
+  }
+}
+/* Traînée de plumes d'Iago (Jafar) : petites formes rondes allongées (rouge) qui se
+   détachent de la queue, dérivent vers l'arrière-bas en tournoyant puis s'estompent.
+   Groupe miroité (scaleX -1) pour un vol vers la gauche. */
+.feather-fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transform-origin: center;
+}
+.feather {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 60% 40%, #e8412f 0%, #c0271e 65%, #8e160f 100%);
+  opacity: 0;
+  /* Chaque « flux » ressème en boucle : projection vive (~60 %) puis court temps mort.
+     Le nombre (1–3), la direction et la position sont tirés au hasard par passage. */
+  animation-duration: 2s;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+@keyframes featherFly1 {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  62%,
+  100% {
+    transform: translate(-360%, -320%) rotate(-240deg) scale(0.4);
+    opacity: 0;
+  }
+}
+@keyframes featherFly2 {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  62%,
+  100% {
+    transform: translate(-430%, 300%) rotate(210deg) scale(0.4);
+    opacity: 0;
+  }
+}
+@keyframes featherFly3 {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  62%,
+  100% {
+    transform: translate(320%, -360%) rotate(280deg) scale(0.4);
+    opacity: 0;
+  }
+}
+/* Pages de Slenderman : apparition/disparition en fondu (3 s), ancrées par leur
+   centre à une position aléatoire. Le décalage temporel est posé par span. */
+.page-note {
+  position: absolute;
+  width: auto;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+  animation: pageFade 3s ease-in-out both;
+}
+@keyframes pageFade {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.82);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+}
+/* Roses de la Reine de Cœur : chaque rose apparaît en fondu (échelonnée), reste
+   blanche, puis un calque rouge (masqué à sa forme, en multiply pour garder le
+   relief) s'allume ; toute la nuée disparaît ensuite via le fondu du calque.
+   Les délais (apparition échelonnée, virage au rouge, fondu global) sont posés
+   en inline depuis le composant. */
+.rose-layer {
+  opacity: 1;
+  animation: roseLayerOut 1.1s ease-in forwards;
+}
+.rose-note {
+  position: absolute;
+  width: auto;
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(var(--rose-rot, 0deg)) scale(0.7);
+  filter: drop-shadow(0 3px 7px rgba(0, 0, 0, 0.55));
+  isolation: isolate; /* confine le multiply du calque rouge à la rose blanche */
+  animation: roseIn 0.6s ease-out forwards;
+}
+.rose-white {
+  display: block;
+  height: 100%;
+  width: auto;
+}
+.rose-red {
+  position: absolute;
+  inset: 0;
+  background: #c81d39; /* rouge « rose » ; multiply × blanc = rouge avec relief */
+  mix-blend-mode: multiply;
+  /* Masque = forme de la rose (posé en inline, car le fichier varie). L'éclosion est
+     un clip-path circulaire qui grandit depuis le CENTRE : le rouge naît au cœur de
+     la fleur et s'étend vers l'extérieur (cf. rosePaint). Robuste partout. */
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-position: center;
+  mask-position: center;
+  clip-path: circle(0% at 50% 50%); /* état initial : rien de peint */
+  animation: rosePaint 1.2s ease-out both;
+}
+@keyframes roseIn {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--rose-rot, 0deg)) scale(0.7);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--rose-rot, 0deg)) scale(1);
+  }
+}
+/* L'éclosion : le cercle de peinture grandit depuis le centre jusqu'à couvrir toute
+   la rose (80 % du rayon de référence dépasse les coins du cadre carré). */
+@keyframes rosePaint {
+  0% { clip-path: circle(0% at 50% 50%); }
+  100% { clip-path: circle(80% at 50% 50%); }
+}
+@keyframes roseLayerOut {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+/* Pièces de Prince Jean : chaque pièce tombe du haut (hors écran) jusqu'en bas en
+   tournoyant. Chute en ease-in (accélération « gravité »). Durée/délai/spin inline. */
+.coin-fall {
+  position: absolute;
+  top: 0;
+  width: auto;
+  transform: translateY(-15vh);
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.35));
+  will-change: transform;
+  animation-name: coinFall;
+  animation-timing-function: ease-in;
+  animation-fill-mode: both;
+}
+@keyframes coinFall {
+  0% {
+    transform: translateY(-15vh) rotate(0deg);
+  }
+  100% {
+    transform: translateY(115vh) rotate(var(--coin-spin, 360deg));
+  }
+}
+/* Clip d'eau (Capitaine Crochet) : vidéo en boucle dont les bords sont fondus en
+   transparence (masque elliptique) pour que le rectangle se fonde dans le décor. */
+.water-clip {
+  display: block;
+  height: 100%;
+  width: auto;
+  opacity: 0.9;
+  transform: scaleX(-1); /* miroir : le croco « regarde » vers la gauche (sens RTL) */
+  -webkit-mask-image: radial-gradient(ellipse 52% 50% at 50% 50%, #000 50%, transparent 90%);
+  mask-image: radial-gradient(ellipse 52% 50% at 50% 50%, #000 50%, transparent 90%);
+}
+/* Bulles d'Ursula : l'enveloppe (.bubble-rise) monte LINÉAIREMENT du bas vers le haut
+   (vitesse constante, fondu aux extrémités) ; l'image (.bubble-sway) ondule de part et
+   d'autre (pendule, en boucle alternée) pour une dérive naturelle sans à-coup. */
+.bubble-rise {
+  position: absolute;
+  top: 0;
+  transform: translateY(110vh);
+  will-change: transform, opacity;
+  animation-name: bubbleRiseY;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+@keyframes bubbleRiseY {
+  0% {
+    transform: translateY(110vh);
+    opacity: 0;
+  }
+  8% {
+    opacity: var(--bubble-op, 0.7);
+  }
+  92% {
+    opacity: var(--bubble-op, 0.7);
+  }
+  100% {
+    transform: translateY(-20vh);
+    opacity: 0;
+  }
+}
+.bubble-sway {
+  display: block;
+  width: auto;
+  will-change: transform;
+  animation-name: bubbleSway;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes bubbleSway {
+  from {
+    transform: translateX(calc(var(--bubble-sway, 3vw) * -1));
+  }
+  to {
+    transform: translateX(var(--bubble-sway, 3vw));
+  }
+}
+/* Totems « amis de l'autre côté » (Dr Facilier) : l'ensemble apparaît en fondu, reste
+   violet, puis s'assombrit en disparaissant (voodooLife sur le conteneur). Le calque
+   des yeux (.voodoo-eyes) brille fort en violet par à-coups (voodooGlow). */
+.voodoo-layer {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  opacity: 0;
+  will-change: opacity;
+  animation-name: voodooLife;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: both;
+}
+.voodoo-base {
+  display: block;
+  height: 100%;
+  width: auto;
+}
+/* Conteneur des yeux : porte la COULEUR (filtre tiré au hasard, inline), qui re-teinte
+   l'image des yeux ET son halo. L'image à l'intérieur garde l'animation de glow. */
+.voodoo-eyes-wrap {
+  position: absolute;
+  inset: 0;
+  will-change: filter;
+}
+.voodoo-eyes {
+  display: block;
+  height: 100%;
+  width: auto;
+  will-change: filter;
+  animation-name: voodooGlow;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: both;
+}
+/* Les totems apparaissent en fondu, restent pendant les éclats, puis disparaissent en
+   douceur sur la fin (après l'éclat fort tenu). */
+@keyframes voodooLife {
+  0% {
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  78% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+/* Trois éclats violets croissants : faible (~16 %), moyen (~29 %), fort (~40 %) ; le
+   fort est TENU jusqu'à ~78 % (≈ 3 s), puis s'éteint en douceur jusqu'à la fin. */
+@keyframes voodooGlow {
+  0%,
+  10% {
+    filter: brightness(1) saturate(1) drop-shadow(0 0 0 rgba(200, 90, 255, 0));
+  }
+  16% {
+    filter: brightness(1.45) saturate(1.3) drop-shadow(0 0 6px rgba(205, 95, 255, 0.55)); /* faible */
+  }
+  22% {
+    filter: brightness(1.05) saturate(1.1) drop-shadow(0 0 2px rgba(205, 95, 255, 0.2));
+  }
+  29% {
+    filter: brightness(2) saturate(1.5) drop-shadow(0 0 12px rgba(205, 95, 255, 0.8))
+      drop-shadow(0 0 22px rgba(175, 55, 255, 0.6)); /* moyen */
+  }
+  35% {
+    filter: brightness(1.1) saturate(1.1) drop-shadow(0 0 3px rgba(205, 95, 255, 0.25));
+  }
+  40%,
+  78% {
+    filter: brightness(3.4) saturate(1.9) drop-shadow(0 0 24px rgba(220, 130, 255, 1))
+      drop-shadow(0 0 48px rgba(185, 65, 255, 0.95)); /* fort, tenu ~3 s */
+  }
+  100% {
+    filter: brightness(1) saturate(1) drop-shadow(0 0 0 rgba(200, 90, 255, 0)); /* extinction douce */
+  }
+}
+/* Flammes d'Hadès : chaque flamme est un sprite vertical (39 frames) joué en boucle
+   par pas (steps), ancré en bas. Le calque entier apparaît/disparaît en fondu. */
+.fire-layer {
+  opacity: 0;
+  /* `filter` de teinte (bleu Hadès / vert Scar) posé en inline par le composant. */
+  will-change: opacity, filter;
+  animation-name: fireAppear;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: both;
+}
+@keyframes fireAppear {
+  0% {
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.fire-flame {
+  position: absolute;
+  bottom: 0;
+  background-repeat: no-repeat;
+  background-size: 100% auto; /* largeur = flamme ; hauteur = 39 × hauteur de flamme */
+  will-change: background-position;
+  animation-name: fireCycle;
+  animation-timing-function: steps(39);
+  animation-iteration-count: infinite;
+}
+@keyframes fireCycle {
+  from {
+    background-position-y: 0;
+  }
+  to {
+    background-position-y: calc(-1 * var(--frames) * var(--fh)); /* défile les 39 frames */
+  }
+}
+/* Fumée de la Méchante Reine : volutes floues (procédurales) montant du bas en
+   grossissant et en se dissipant. Le calque entier apparaît/disparaît en fondu. */
+.smoke-layer {
+  opacity: 0;
+  will-change: opacity;
+  animation-name: fireAppear; /* même fondu d'apparition/disparition du calque */
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: both;
+}
+.smoke-puff {
+  position: absolute;
+  bottom: -8vh;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 45%,
+    rgba(158, 126, 198, 0.5) 0%,
+    rgba(120, 92, 165, 0.32) 45%,
+    rgba(0, 0, 0, 0) 72%
+  );
+  filter: blur(8px);
+  will-change: transform, opacity;
+  animation-name: smokeRise;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+@keyframes smokeRise {
+  0% {
+    transform: translate(0, 0) scale(0.4);
+    opacity: 0;
+  }
+  18% {
+    opacity: var(--smoke-op, 0.5);
+  }
+  100% {
+    transform: translate(var(--smoke-drift, 0), -78vh) scale(1.7);
+    opacity: 0;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
-  .villain-prop {
+  .villain-prop,
+  .page-layer,
+  .rose-layer,
+  .coin-layer,
+  .bubble-layer,
+  .voodoo-layer,
+  .fire-layer,
+  .smoke-layer {
     display: none;
   }
 }

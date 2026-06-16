@@ -12,11 +12,14 @@ interface Props {
   /** Affiche la case objectif dans le panneau (défaut). La passer à `false`
    *  quand l'objectif est rendu ailleurs (cf. `ObjectiveBox`, bande du bas). */
   showObjective?: boolean
+  /** Libellé affiché en titre du camp (défaut : nom du vilain). Permet d'afficher
+   *  le nom du joueur (profil / adversaire réseau) à la place. */
+  displayName?: string
 }
 
 /** En-tête d'un camp : nom + jetons de pouvoir (+ objectif si `showObjective`).
  *  L'objectif lui-même est rendu par `ObjectiveBox`, réutilisable hors panneau. */
-export function PlayerPanel({ player, accent, isActive, isWinner, showObjective = true }: Props) {
+export function PlayerPanel({ player, accent, isActive, isWinner, showObjective = true, displayName }: Props) {
   const displayedPower = useAnimatedNumber(player.power)
   // Fond teinté à la couleur du méchant (plus marqué quand c'est son tour).
   const color = VILLAIN_COLOR[player.villain]
@@ -33,7 +36,7 @@ export function PlayerPanel({ player, accent, isActive, isWinner, showObjective 
       }
     >
       <div className="flex items-center justify-between gap-2">
-        <h2 className={`truncate text-lg font-semibold ${accent.title}`}>{player.villainName}</h2>
+        <h2 className={`truncate text-lg font-semibold ${accent.title}`}>{displayName ?? player.villainName}</h2>
         {isWinner && <span className="shrink-0 text-lg">🏆</span>}
       </div>
 

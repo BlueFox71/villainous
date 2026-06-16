@@ -9,6 +9,20 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.68',
+    date: '2026-06-17',
+    title: 'Profil joueur : avatar et nom, affichés en partie et dans l’historique',
+    changes: [
+      'Profil : nouvel avatar personnalisable — choisissez un vilain (son illustration de présentation) et une couleur de fond parmi une palette (noir par défaut, et blanc disponible). Saisissez aussi votre nom de joueur (« Toi » par défaut).',
+      'L’écran Profil affiche maintenant l’avatar en grand, centré, avec le nom dessous et un petit bouton crayon pour basculer en mode édition. Les statistiques par vilain passent d’une liste à une grille.',
+      'Menu principal : le bouton « Mon profil » devient votre avatar (en bas à droite, près des Options), légèrement estompé et qui s’éclaircit au survol.',
+      'Choix des vilains : en solo comme en réseau, votre camp affiche désormais votre nom de joueur ; en réseau, le camp adverse affiche le nom de l’autre joueur.',
+      'En partie : le panneau de votre camp affiche votre nom ; le panneau adverse affiche le nom du vilain en solo, ou le nom de l’autre joueur en réseau.',
+      'Historique des parties : avatars ronds et noms. En solo, votre avatar/nom face au vilain adverse (image + couleur du vilain) ; en réseau, les deux noms et avatars des joueurs.',
+      'Rejoindre une partie : un bouton « Annuler » permet de stopper une tentative de connexion (ex. mauvais code) et de corriger le code sans repasser par le menu.',
+    ],
+  },
+  {
     version: '0.67',
     date: '2026-06-15',
     title: 'Nouvelle méchante : La Méchante Reine, sons d’interface et ajustements',

@@ -24,6 +24,7 @@ import type { LobbySeat } from '../../net/messages'
 import { isTauri, ensureRelay, lanAddresses } from '../../net/desktop'
 import { buildDeckInstances } from '../../data/types'
 import { getCardDef } from '../../data/registry'
+import { usePlayerStore } from './playerStore'
 import { princeJohn } from '../../data/villains/princeJohn'
 import { princeJohnCards } from '../../data/villains/princeJohn.cards'
 import { maleficent } from '../../data/villains/maleficent'
@@ -86,6 +87,13 @@ export type GameMode = 'solo' | 'host' | 'client'
  *  'waiting' = connecté au relais, en attente de l'autre joueur ; 'lobby' = les
  *  deux présents, choix des vilains en direct ; 'playing' = partie lancée. */
 export type NetStatus = 'idle' | 'connecting' | 'waiting' | 'lobby' | 'playing' | 'error'
+
+/** Profil local (nom + avatar) à inscrire dans le lobby réseau ; nom undefined si
+ *  non renseigné. */
+function myProfile(): { name?: string; avatarVillain: string | null; avatarColor: string } {
+  const p = usePlayerStore.getState()
+  return { name: p.name.trim() || undefined, avatarVillain: p.avatarVillain, avatarColor: p.avatarColor }
+}
 
 /** Diffuse l'état du lobby (choix des vilains) à l'autre joueur. */
 function sendLobby(seats: LobbySeat[]) {
@@ -366,6 +374,9 @@ interface GameStore {
   /** Nom du vilain de l'autre joueur quand il prépare une Condition (sélection
    *  d'une cible) : l'UI bloque le joueur actif le temps qu'il la joue. null sinon. */
   peerReacting: string | null
+  /** Lobby réseau : vilain actuellement SURVOLÉ par l'autre joueur (curseur en
+   *  direct, façon sélection de perso). null = pas de survol / hors lobby. */
+  peerHover: VillainKey | null
   /** État du lobby (choix des vilains en direct) : seats[0] = hôte, seats[1] =
    *  invité. null hors lobby. */
   lobby: LobbySeat[] | null
@@ -380,6 +391,9 @@ interface GameStore {
   joinHost: (code: string, host?: string) => void
   /** Pendant le lobby : choisit (ou retire avec null) SON vilain ; synchronisé. */
   selectVillain: (villainKey: VillainKey | null) => void
+  /** Pendant le lobby : signale le vilain que JE survole (ou null) à l'autre joueur,
+   *  pour qu'il voie mon curseur en direct. Sans effet hors réseau. */
+  setHoverVillain: (villainKey: VillainKey | null) => void
   /** Réseau : signale à l'adversaire que je prépare (`on`=true) ou termine
    *  (`on`=false) une Condition en réaction, pour le bloquer le temps voulu. */
   setReacting: (on: boolean, villainName: string) => void
@@ -564,6 +578,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   netError: null,
   netLeftNotice: null,
   peerReacting: null,
+  peerHover: null,
   lobby: null,
   testMode: false,
   submit: (action) => {
@@ -582,7 +597,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       mode: 'host', localPlayerIndex: 0, seats: ['local', 'remote'],
       hostRoom: room, hostAddrs: null, netStatus: 'connecting', netError: null,
       lobby: [
-        { seat: 0, villainKey: null, connected: true },
+        { seat: 0, villainKey: null, ...myProfile(), connected: true },
         { seat: 1, villainKey: null, connected: false },
       ],
     })
@@ -611,13 +626,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
           return
         } else if (msg.type === 'JOIN') {
           set((s) => ({
-            lobby: s.lobby?.map((x) => (x.seat === 1 ? { ...x, connected: true } : x)) ?? null,
+            lobby: s.lobby?.map((x) =>
+              x.seat === 1
+                ? { ...x, connected: true, name: msg.name, avatarVillain: msg.avatarVillain, avatarColor: msg.avatarColor }
+                : x,
+            ) ?? null,
             netStatus: 'lobby',
           }))
         } else if (msg.type === 'SELECT_VILLAIN') {
           set((s) => ({
             lobby: s.lobby?.map((x) => (x.seat === 1 ? { ...x, villainKey: msg.villainKey } : x)) ?? null,
           }))
+        } else if (msg.type === 'HOVER_VILLAIN') {
+          // Survol éphémère de l'invité : simple reflet visuel, pas de rediffusion.
+          set({ peerHover: (msg.villainKey as VillainKey | null) ?? null })
+          return
         } else return
         const lob = get().lobby
         if (lob) sendLobby(lob)
@@ -640,12 +663,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     activeConnection = conn
     session = createClientSession({
       transport: { send: conn.send },
+      ...myProfile(),
       callbacks: {
         onLobby: (m) => set({ lobby: m.seats, netStatus: 'lobby' }),
         onAssign: (seat) => set({ localPlayerIndex: seat, seats: seat === 0 ? ['local', 'remote'] : ['remote', 'local'] }),
         onState: (state) => set({ state, netStatus: 'playing' }),
         onLeave: () => handlePeerGone(set, get, 'L’autre joueur a quitté la partie.'),
         onReacting: (m) => set({ peerReacting: m.reacting ? (m.villainName ?? '') : null }),
+        onHover: (m) => set({ peerHover: (m.villainKey as VillainKey | null) ?? null }),
       },
     })
     activeSession = session
@@ -653,6 +678,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   setReacting: (on, villainName) => {
     activeConnection?.send({ type: 'REACTING', reacting: on, villainName })
+  },
+  setHoverVillain: (villainKey) => {
+    // Réseau uniquement : on diffuse directement à l'autre joueur (non autoritaire).
+    if (get().mode === 'solo') return
+    activeConnection?.send({ type: 'HOVER_VILLAIN', villainKey })
   },
   selectVillain: (villainKey) => {
     const { mode } = get()
@@ -693,7 +723,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   },
   leaveNet: () => {
     teardownNet()
-    set({ mode: 'solo', seats: SOLO_SEATS, localPlayerIndex: 0, netStatus: 'idle', hostRoom: null, hostAddrs: null, netError: null, netLeftNotice: null, peerReacting: null, lobby: null })
+    set({ mode: 'solo', seats: SOLO_SEATS, localPlayerIndex: 0, netStatus: 'idle', hostRoom: null, hostAddrs: null, netError: null, netLeftNotice: null, peerReacting: null, peerHover: null, lobby: null })
   },
   enterTestMode: () => set({ state: buildTestState(), testMode: true }),
   testInsertCard: (playerIndex, locationId, cardId) =>

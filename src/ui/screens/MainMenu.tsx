@@ -1,6 +1,7 @@
 import { PATCH_NOTES } from '../patchNotes'
 import { OptionsButton } from '../components/OptionsButton'
 import { Scroller } from '../components/Scroller'
+import { PlayerAvatar } from '../components/PlayerAvatar'
 import { playHover, playProfileHover } from '../sfx'
 
 interface Props {
@@ -72,21 +73,19 @@ export function MainMenu({ onNewGame, onVillainList, onProfile }: Props) {
         <PatchNotesPanel />
       </div>
 
-      {/* Profil : avatar rond ancré en haut à droite. */}
+      {/* Profil : avatar rond ancré en bas à droite, à côté du bouton Options. */}
       <button
         type="button"
         onClick={onProfile}
         onMouseEnter={playProfileHover}
         title="Mon profil"
         aria-label="Mon profil"
-        className="group absolute right-6 top-6 z-10 flex flex-col items-center gap-1.5"
+        className="group absolute bottom-6 right-28 z-10 rounded-full transition hover:brightness-110"
       >
-        <span className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-white/25 bg-black/40 text-2xl text-amber-200 shadow-lg backdrop-blur-sm transition group-hover:border-amber-300/80 group-hover:bg-black/60">
-          👤
-        </span>
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-white/60 transition group-hover:text-amber-200">
-          Mon profil
-        </span>
+        <PlayerAvatar
+          size={70}
+          className="opacity-50 transition group-hover:border-amber-300/80 group-hover:opacity-100"
+        />
       </button>
 
       <header className="relative z-10 text-center">

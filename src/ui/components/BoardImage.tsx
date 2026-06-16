@@ -113,7 +113,7 @@ export function BoardImage({
   const cover = HERO_COVER[player.villain] ?? { top: 0, height: TOP_ACTIONS_HEIGHT }
 
   return (
-    <div className="relative">
+    <div className="relative" data-board>
       <img
         src={player.boardImage}
         alt={`Plateau de ${player.villainName}`}

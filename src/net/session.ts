@@ -42,6 +42,8 @@ export interface SessionCallbacks {
   onLeave?: () => void
   /** L'autre joueur prépare (ou termine) une Condition en réaction. */
   onReacting?: (msg: Extract<NetMessage, { type: 'REACTING' }>) => void
+  /** Lobby : l'autre joueur survole (ou quitte) un vilain — curseur en direct. */
+  onHover?: (msg: Extract<NetMessage, { type: 'HOVER_VILLAIN' }>) => void
 }
 
 /** Le siège `seat` a-t-il le droit de soumettre `action` dans `state` ?
@@ -152,13 +154,20 @@ export function createHostSession(opts: {
 export function createClientSession(opts: {
   transport: Transport
   name?: string
+  avatarVillain?: string | null
+  avatarColor?: string
   callbacks?: SessionCallbacks
 }): ClientSession {
   const { transport, callbacks = {} } = opts
   let localSeat = 1 // valeur par défaut tant que l'ASSIGN n'est pas arrivé
 
   // Annonce sa présence (sans vilain : le choix vient pendant le lobby).
-  transport.send({ type: 'JOIN', name: opts.name })
+  transport.send({
+    type: 'JOIN',
+    name: opts.name,
+    avatarVillain: opts.avatarVillain,
+    avatarColor: opts.avatarColor,
+  })
 
   return {
     get localSeat() { return localSeat },
@@ -175,6 +184,9 @@ export function createClientSession(opts: {
           break
         case 'LOBBY':
           callbacks.onLobby?.(msg)
+          break
+        case 'HOVER_VILLAIN':
+          callbacks.onHover?.(msg)
           break
         case 'REJECT':
           callbacks.onReject?.(msg.reason)

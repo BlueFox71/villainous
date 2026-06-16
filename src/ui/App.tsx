@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useGameStore, villainKeyOf, VILLAIN_REGISTRY, type VillainKey } from './store/gameStore'
+import { usePlayerStore } from './store/playerStore'
 import { useStatsStore } from './store/statsStore'
 import { getCardDef } from '../data/registry'
 import {
@@ -83,6 +84,7 @@ import { FloatingGains, type FloatingGain } from './components/FloatingGains'
 import { GameTimer } from './components/GameTimer'
 import { TurnSplash } from './components/TurnSplash'
 import { BackgroundAnimation } from './components/BackgroundAnimation'
+import { villainAnimation } from './villainAnimations'
 import { villainPresentation } from './villainArt'
 
 // `diablo: true` sur un mode interactif = l'action en cours est l'action gratuite
@@ -259,6 +261,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const BOT = 1 - localPlayerIndex
   const gameMode = useGameStore((s) => s.mode)
   const testMode = useGameStore((s) => s.testMode)
+  // Noms/avatars des joueurs : profil local + lobby réseau (pour l'adversaire).
+  const lobby = useGameStore((s) => s.lobby)
+  const myProfileName = usePlayerStore((s) => s.name)
+  const myAvatarVillain = usePlayerStore((s) => s.avatarVillain)
+  const myAvatarColor = usePlayerStore((s) => s.avatarColor)
   const enterTestMode = useGameStore((s) => s.enterTestMode)
   const testInsertCard = useGameStore((s) => s.testInsertCard)
   const testPlaceFate = useGameStore((s) => s.testPlaceFate)
@@ -269,8 +276,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const testShowcase = useGameStore((s) => s.testShowcase)
   const testRefreshTurn = useGameStore((s) => s.testRefreshTurn)
 
-  // --- Statistiques de profil (par vilain humain) -------------------------
-  // Le joueur humain est toujours le joueur 0 (cf. seats = ['local', 'bot']).
+  // --- Statistiques de profil (par vilain joueur) -------------------------
+  // `humanVillainKey`/`opponentVillainKey` (sièges 0/1) servent à l'intro voix et au
+  // temps de jeu ; l'enregistrement de fin de partie, lui, est relatif au siège LOCAL.
   const recordResult = useStatsStore((s) => s.recordResult)
   const recordGame = useStatsStore((s) => s.recordGame)
   const addPlaytime = useStatsStore((s) => s.addPlaytime)
@@ -310,25 +318,51 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     playVillainIntro(humanVillainKey, opponentVillainKey, () => setIntroVoiceDone(true))
   }, [testMode, humanVillainKey, opponentVillainKey])
 
-  // Victoire/défaite : enregistrée une seule fois quand la partie se termine.
+  // Victoire/défaite : enregistrée une seule fois quand la partie se termine. Tout
+  // est relatif au siège LOCAL (HUMAN/BOT) — correct en solo comme en réseau (où
+  // chaque client journalise depuis son point de vue).
   const resultRecordedRef = useRef(false)
   useEffect(() => {
     if (state.status === 'WON' && !resultRecordedRef.current) {
       resultRecordedRef.current = true
-      const humanWon = state.winner === 0
-      recordResult(humanVillainKey, humanWon)
+      const humanWon = state.winner === HUMAN
+      const localKey = villainKeyOf(state.players[HUMAN].villain)
+      const oppKey = villainKeyOf(state.players[BOT].villain)
+      const oppSeat = lobby?.find((s) => s.seat === BOT)
+      const net = gameMode !== 'solo'
+      recordResult(localKey, humanWon)
       recordGame({
-        human: humanVillainKey,
-        opponent: opponentVillainKey,
+        human: localKey,
+        opponent: oppKey,
         winner: humanWon ? 'human' : 'opponent',
         at: Date.now(),
+        mode: gameMode,
+        humanName: myProfileName.trim() || undefined,
+        humanAvatarVillain: myAvatarVillain,
+        humanAvatarColor: myAvatarColor,
+        // L'adversaire n'a un nom/avatar « joueur » qu'en réseau ; en solo c'est le bot.
+        opponentName: net ? oppSeat?.name : undefined,
+        opponentAvatarVillain: net ? oppSeat?.avatarVillain : undefined,
+        opponentAvatarColor: net ? oppSeat?.avatarColor : undefined,
       })
     }
-  }, [state.status, state.winner, humanVillainKey, opponentVillainKey, recordResult, recordGame])
+  }, [
+    state.status, state.winner, state.players, HUMAN, BOT, lobby, gameMode,
+    myProfileName, myAvatarVillain, myAvatarColor, recordResult, recordGame,
+  ])
 
   const [mode, setMode] = useState<Mode>(null)
-  // Mode test : relance l'animation de décor d'un vilain au clic (boutons 🚢).
-  const [debugAnim, setDebugAnim] = useState({ player: 0, opponent: 0 })
+  // Mode test : relance l'animation de décor au clic (boutons 🚢). On choisit le
+  // vilain ET le camp (joueur/adversaire) pour tester chaque trajectoire des deux côtés.
+  const [debugAnim, setDebugAnim] = useState<{
+    seq: number
+    villain: VillainKey
+    side: 'player' | 'opponent'
+  } | null>(null)
+  const fireDebugAnim = (villain: VillainKey, side: 'player' | 'opponent') =>
+    setDebugAnim((d) => ({ seq: (d?.seq ?? 0) + 1, villain, side }))
+  // Mode test : vilain choisi dans le select pour prévisualiser son animation (n'importe lequel).
+  const [testVillain, setTestVillain] = useState<VillainKey>(humanVillainKey)
   const [mapModalOpen, setMapModalOpen] = useState(false)
   const [showOptions, setShowOptions] = useState(false)
   // Réseau : confirmation avant de quitter la partie (l'autre joueur sera prévenu).
@@ -701,6 +735,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
 
   const user = state.players[HUMAN]
   const bot = state.players[BOT]
+  // Libellés des panneaux : le joueur local affiche son nom de profil ; l'adversaire
+  // affiche son nom (réseau, lu dans le lobby) en multi, ou le nom du vilain en solo.
+  const userDisplayName = myProfileName.trim() || user.villainName
+  const oppNetName = lobby?.find((s) => s.seat === BOT)?.name?.trim()
+  const botDisplayName = gameMode === 'solo' ? bot.villainName : oppNetName || bot.villainName
   // Couleurs des deux vilains en présence (repli sur teintes neutres si inconnue).
   const userColor = VILLAIN_COLOR[user.villain] ?? DEFAULT_TINT_A
   const botColor = VILLAIN_COLOR[bot.villain] ?? DEFAULT_TINT_B
@@ -2070,17 +2109,20 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
 
   return (
     <div
-      className="villain-bg flex h-screen flex-col overflow-hidden bg-[#0a0814] text-white"
+      className="villain-bg isolate flex h-screen flex-col overflow-hidden bg-[#0a0814] text-white"
       style={{ backgroundImage: pageBackground, ...accentVars(userColor, botColor) }}
     >
-      {/* Décor animé d'arrière-plan : un prop par vilain traverse la bande haute. */}
+      {/* `isolate` (isolation: isolate) : le conteneur racine crée un contexte
+          d'empilement. Son fond (dégradé) se peint tout au fond ; le décor animé en
+          z -1 passe JUSTE AU-DESSUS du fond mais DERRIÈRE toute l'UI (flux normal).
+          Sans ce contexte, le z -1 remontait au contexte racine et le fond opaque
+          du conteneur le recouvrait → invisible. */}
+      {/* Décor animé : juste au-dessus du fond, derrière toute l'UI. Visible là où
+          l'UI laisse voir l'arrière-plan / à travers les panneaux translucides. */}
       <BackgroundAnimation
         playerVillain={humanVillainKey}
         opponentVillain={opponentVillainKey}
-        playerIndex={HUMAN}
-        opponentIndex={BOT}
-        replayPlayer={debugAnim.player}
-        replayOpponent={debugAnim.opponent}
+        debugFire={debugAnim ?? undefined}
       />
       <header className="relative z-30 flex items-center justify-end gap-3 px-4 py-2">
         <div className="flex items-center gap-2 text-xs">
@@ -2130,21 +2172,49 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           </button>
           {testMode && (
             <>
-              {/* Test : relance l'animation de décor de chaque vilain. */}
-              <button
-                onClick={() => setDebugAnim((d) => ({ ...d, player: d.player + 1 }))}
-                title="Rejouer l'animation de décor du vilain 1 (joueur)"
-                className="rounded-lg border border-sky-400/60 px-3 py-1.5 text-sm text-sky-200 hover:bg-sky-500/10"
-              >
-                🚢 Vilain 1
-              </button>
-              <button
-                onClick={() => setDebugAnim((d) => ({ ...d, opponent: d.opponent + 1 }))}
-                title="Rejouer l'animation de décor du vilain 2 (adversaire)"
-                className="rounded-lg border border-rose-400/60 px-3 py-1.5 text-sm text-rose-200 hover:bg-rose-500/10"
-              >
-                🚢 Vilain 2
-              </button>
+              {/* Test : rejoue l'animation de décor de N'IMPORTE QUEL vilain (select).
+                  Les boutons « bas »/« haut » n'apparaissent que pour les animations à
+                  deux côtés (qui dépendent du camp : cross / sky-arc / drift-spin) ;
+                  sinon un seul bouton « jouer » (les autres ignorent le côté). */}
+              {(() => {
+                const anim = villainAnimation(testVillain)
+                const hasAnim = !!anim
+                const twoSidedPaths = new Set(['cross', 'sky-arc', 'drift-spin'])
+                const twoSided = hasAnim && twoSidedPaths.has(anim!.path ?? 'cross')
+                const btn =
+                  'rounded px-1.5 py-0.5 text-xs text-white/80 enabled:hover:bg-white/10 disabled:opacity-30'
+                return (
+                  <div className="flex items-center gap-1 rounded-lg border border-white/25 px-2 py-1">
+                    <span className="text-sm">🚢</span>
+                    <select
+                      value={testVillain}
+                      onChange={(e) => setTestVillain(e.target.value as VillainKey)}
+                      className="rounded border border-white/20 bg-black/40 px-1.5 py-0.5 text-xs text-white/90"
+                    >
+                      {(Object.keys(VILLAIN_REGISTRY) as VillainKey[]).map((k) => (
+                        <option key={k} value={k}>
+                          {VILLAIN_REGISTRY[k].def.name}
+                          {villainAnimation(k) ? '' : ' (—)'}
+                        </option>
+                      ))}
+                    </select>
+                    {twoSided ? (
+                      <>
+                        <button onClick={() => fireDebugAnim(testVillain, 'player')} disabled={!hasAnim} title="Côté joueur (bas)" className={btn}>
+                          bas
+                        </button>
+                        <button onClick={() => fireDebugAnim(testVillain, 'opponent')} disabled={!hasAnim} title="Côté adversaire (haut)" className={btn}>
+                          haut
+                        </button>
+                      </>
+                    ) : (
+                      <button onClick={() => fireDebugAnim(testVillain, 'player')} disabled={!hasAnim} title="Jouer l'animation" className={btn}>
+                        jouer
+                      </button>
+                    )}
+                  </div>
+                )
+              })()}
               {/* Test : SÉQUENCE complète de fin (éclat du plateau perdant → écran). */}
               <button
                 onClick={() => { setTestEndKind('victory'); setTestShatterSeat('bot') }}
@@ -2896,7 +2966,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           d'autre de la main. ----- */}
       <div className="bottom-bar relative z-20 grid shrink-0 items-center gap-3 border-t border-white/10 bg-black/30 px-3 py-1 shadow-[0_-6px_20px_rgba(0,0,0,0.35)] backdrop-blur-md">
         {/* Panneau du joueur (gauche, bleu). */}
-        <PlayerPanel player={user} accent={BLUE} isActive={state.activePlayer === HUMAN} isWinner={state.winner === HUMAN} />
+        <PlayerPanel player={user} accent={BLUE} isActive={state.activePlayer === HUMAN} isWinner={state.winner === HUMAN} displayName={userDisplayName} />
         {/* Main du joueur (centre), légèrement relevée. */}
         <div data-hand-zone={HUMAN} className="-translate-y-4">
           <Hand
@@ -2927,7 +2997,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           />
         </div>
         {/* Panneau adverse (droite, rouge). */}
-        <PlayerPanel player={bot} accent={RED} isActive={state.activePlayer === BOT} isWinner={state.winner === BOT} />
+        <PlayerPanel player={bot} accent={RED} isActive={state.activePlayer === BOT} isWinner={state.winner === BOT} displayName={botDisplayName} />
       </div>
 
       {/* Résolution de Fatalité par le joueur humain (le bot résout tout seul). */}

@@ -5,15 +5,26 @@ const HISTORY_KEY = 'villainous:history'
 const HISTORY_MAX = 100
 
 /** Une partie terminée : quel vilain (joueur) contre quel vilain (adversaire) et
- *  qui a gagné. `at` = horodatage (ms). */
+ *  qui a gagné. `at` = horodatage (ms). Champs optionnels (profil/réseau) ajoutés
+ *  ensuite : absents sur les vieux enregistrements → repli sur le vilain. */
 export interface GameRecord {
-  /** Clé du vilain du joueur humain. */
+  /** Clé du vilain du joueur (local). */
   human: string
-  /** Clé du vilain de l'adversaire (bot). */
+  /** Clé du vilain de l'adversaire. */
   opponent: string
-  /** Vainqueur : le joueur humain ou l'adversaire. */
+  /** Vainqueur : le joueur local ou l'adversaire. */
   winner: 'human' | 'opponent'
   at: number
+  /** Mode de la partie : 'solo' (vs bot) ou réseau ('host'/'client'). */
+  mode?: 'solo' | 'host' | 'client'
+  /** Nom + avatar (profil) du joueur local. */
+  humanName?: string
+  humanAvatarVillain?: string | null
+  humanAvatarColor?: string
+  /** Nom + avatar de l'adversaire (réseau uniquement ; en solo c'est le bot). */
+  opponentName?: string
+  opponentAvatarVillain?: string | null
+  opponentAvatarColor?: string
 }
 
 function readHistory(): GameRecord[] {

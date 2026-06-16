@@ -143,9 +143,20 @@ export function NetworkLobby({ onEnterVillainSelect, onBack }: Props) {
                 />
               </div>
               {joining && (
-                <span className="text-center text-sm text-white/50">
-                  {netStatus === 'error' ? 'Hôte injoignable. Vérifie le code et l’adresse.' : '⏳ Connexion à l’hôte…'}
-                </span>
+                <div className="flex flex-col items-center gap-2">
+                  <span className="text-center text-sm text-white/50">
+                    {netStatus === 'error' ? 'Hôte injoignable. Vérifie le code et l’adresse.' : '⏳ Connexion à l’hôte…'}
+                  </span>
+                  {/* Annule la tentative (coupe la connexion) et réactive le formulaire,
+                      sans quitter l'écran : on peut corriger le code et réessayer. */}
+                  <button
+                    type="button"
+                    onClick={leaveNet}
+                    className="rounded-lg border border-white/20 px-4 py-1.5 text-sm text-white/80 hover:bg-white/10"
+                  >
+                    Annuler
+                  </button>
+                </div>
               )}
             </div>
           )}

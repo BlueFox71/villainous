@@ -1,9 +1,13 @@
 import { useState } from 'react'
 import { VILLAIN_REGISTRY, type VillainKey } from '../store/gameStore'
 import { useStatsStore, type VillainStats } from '../store/statsStore'
+import { usePlayerStore, AVATAR_COLORS } from '../store/playerStore'
 import { villainPortrait } from '../villainArt'
+import { VILLAIN_COLOR } from '../villainColors'
 import { Scroller } from '../components/Scroller'
-import { playProfileHover } from '../sfx'
+import { PlayerAvatar, Avatar } from '../components/PlayerAvatar'
+import { playProfileHover, playHover } from '../sfx'
+import type { GameRecord } from '../store/statsStore'
 
 interface Props {
   /** Revenir au menu principal. */
@@ -34,6 +38,41 @@ function villainName(key: string): string {
   return (VILLAIN_REGISTRY as Record<string, { def: { name: string } }>)[key]?.def.name ?? key
 }
 
+/** Descripteur d'un camp dans l'historique : libellé + avatar (vilain + couleur). */
+interface HistorySide {
+  label: string
+  villain: VillainKey | null
+  color: string
+}
+
+/** Camp « joueur local » d'un enregistrement : nom + avatar du profil (repli sur le
+ *  vilain joué pour les vieux enregistrements sans avatar). */
+function humanSide(g: GameRecord): HistorySide {
+  return {
+    label: g.humanName?.trim() || villainName(g.human),
+    villain: (g.humanAvatarVillain !== undefined ? g.humanAvatarVillain : g.human) as VillainKey | null,
+    color: g.humanAvatarColor ?? VILLAIN_COLOR[g.human] ?? '#111111',
+  }
+}
+
+/** Camp adverse : en réseau, nom + avatar du joueur adverse ; en solo (ou vieil
+ *  enregistrement), nom + image + couleur du vilain. */
+function opponentSide(g: GameRecord): HistorySide {
+  const net = g.mode === 'host' || g.mode === 'client'
+  if (net) {
+    return {
+      label: g.opponentName?.trim() || villainName(g.opponent),
+      villain: (g.opponentAvatarVillain !== undefined ? g.opponentAvatarVillain : g.opponent) as VillainKey | null,
+      color: g.opponentAvatarColor ?? VILLAIN_COLOR[g.opponent] ?? '#111111',
+    }
+  }
+  return {
+    label: villainName(g.opponent),
+    villain: g.opponent as VillainKey,
+    color: VILLAIN_COLOR[g.opponent] ?? '#111111',
+  }
+}
+
 /** Date courte (ex. « 11/06 14:32 »). */
 function formatDate(at: number): string {
   try {
@@ -48,26 +87,54 @@ function formatDate(at: number): string {
   }
 }
 
-/** Une statistique en colonne : grande valeur + libellé discret. */
-function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
+/** Une statistique en colonne : grande valeur + libellé discret. `compact` réduit
+ *  la taille pour tenir dans les cartes de la grille. */
+function Stat({
+  label,
+  value,
+  tone,
+  compact,
+}: {
+  label: string
+  value: string
+  tone?: string
+  compact?: boolean
+}) {
   return (
     <div className="flex flex-col items-center">
-      <span className={`text-2xl font-bold ${tone ?? 'text-white'}`}>{value}</span>
-      <span className="text-[11px] uppercase tracking-wide text-white/40">{label}</span>
+      <span className={`font-bold ${compact ? 'text-lg' : 'text-2xl'} ${tone ?? 'text-white'}`}>
+        {value}
+      </span>
+      <span
+        className={`uppercase tracking-wide text-white/40 ${compact ? 'text-[9px]' : 'text-[11px]'}`}
+      >
+        {label}
+      </span>
     </div>
   )
 }
 
 /**
- * Écran de profil : pour chaque vilain, le temps de jeu cumulé, le nombre de
- * victoires/défaites et le pourcentage de victoire. Données persistées en
- * localStorage (cf. statsStore).
+ * Écran de profil : édition de l'avatar (vilain + couleur) et du nom du joueur,
+ * puis pour chaque vilain le temps de jeu cumulé, les victoires/défaites et le
+ * pourcentage de victoire. Données persistées en localStorage (cf. statsStore,
+ * playerStore).
  */
 export function Profile({ onBack }: Props) {
   const stats = useStatsStore((s) => s.stats)
   const history = useStatsStore((s) => s.history)
   const resetAll = useStatsStore((s) => s.resetAll)
   const [confirmReset, setConfirmReset] = useState(false)
+  // Bascule entre l'affichage visuel du profil et son édition (avatar + nom).
+  const [editing, setEditing] = useState(false)
+
+  // Profil joueur (nom + avatar).
+  const name = usePlayerStore((s) => s.name)
+  const avatarVillain = usePlayerStore((s) => s.avatarVillain)
+  const avatarColor = usePlayerStore((s) => s.avatarColor)
+  const setName = usePlayerStore((s) => s.setName)
+  const setAvatarVillain = usePlayerStore((s) => s.setAvatarVillain)
+  const setAvatarColor = usePlayerStore((s) => s.setAvatarColor)
 
   const villains = Object.entries(VILLAIN_REGISTRY) as [
     VillainKey,
@@ -103,7 +170,134 @@ export function Profile({ onBack }: Props) {
       </header>
 
       <Scroller element="main" className="min-h-0 flex-1 p-6">
-        <div className="mx-auto flex max-w-3xl flex-col gap-5">
+        <div className="mx-auto flex max-w-5xl flex-col gap-5">
+          {/* Profil : affichage visuel par défaut, édition (avatar + nom) à la demande. */}
+          <div className="rounded-2xl border border-white/15 bg-white/5 p-5">
+            {!editing ? (
+              /* AFFICHAGE VISUEL : avatar centré, nom dessous, crayon en badge. */
+              <div className="flex flex-col items-center gap-3 py-2">
+                <div className="relative">
+                  <PlayerAvatar size={144} />
+                  <button
+                    type="button"
+                    onClick={() => setEditing(true)}
+                    onMouseEnter={playProfileHover}
+                    title="Modifier mon profil"
+                    aria-label="Modifier mon profil"
+                    className="absolute bottom-1 right-1 flex h-10 w-10 items-center justify-center rounded-full border-2 border-white/20 bg-[#1a1726] text-lg text-amber-200 shadow-lg transition hover:bg-[#262134]"
+                  >
+                    ✎
+                  </button>
+                </div>
+                <span className="max-w-full truncate text-center text-3xl font-black text-amber-100">
+                  {name.trim() || 'Toi'}
+                </span>
+              </div>
+            ) : (
+              /* ÉDITION : avatar (aperçu) + contrôles nom / vilain / couleur. */
+              <div className="flex flex-col gap-6 md:flex-row md:items-start">
+                {/* Aperçu de l'avatar + nom saisi. */}
+                <div className="flex shrink-0 flex-col items-center gap-3">
+                  <PlayerAvatar size={128} />
+                  <span className="max-w-[10rem] truncate text-center text-lg font-bold text-amber-100">
+                    {name.trim() || 'Toi'}
+                  </span>
+                </div>
+
+                {/* Contrôles : nom, vilain, couleur. */}
+                <div className="flex min-w-0 flex-1 flex-col gap-5">
+                  {/* Nom du joueur. */}
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[11px] font-bold uppercase tracking-wide text-white/50">
+                      Nom du joueur
+                    </span>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value.slice(0, 20))}
+                      maxLength={20}
+                      placeholder="Ton nom de méchant…"
+                      className="w-full max-w-xs rounded-lg border border-white/15 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-white/30 focus:border-amber-300/60 focus:outline-none"
+                    />
+                  </label>
+
+                  {/* Choix du vilain de l'avatar (grille de portraits). */}
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[11px] font-bold uppercase tracking-wide text-white/50">
+                      Vilain
+                    </span>
+                    <div className="grid grid-cols-6 gap-2 sm:grid-cols-8 lg:grid-cols-10">
+                      {villains.map(([key, v]) => {
+                        const selected = avatarVillain === key
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            title={v.def.name}
+                            onClick={() => setAvatarVillain(key)}
+                            onMouseEnter={playHover}
+                            aria-pressed={selected}
+                            className={`overflow-hidden rounded-lg border transition ${
+                              selected
+                                ? 'border-transparent ring-2 ring-amber-400'
+                                : 'border-white/10 hover:border-white/40'
+                            }`}
+                          >
+                            <img
+                              src={villainPortrait(key)}
+                              alt={v.def.name}
+                              className="aspect-square w-full object-cover"
+                            />
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Choix de la couleur de fond. */}
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[11px] font-bold uppercase tracking-wide text-white/50">
+                      Couleur de fond
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {AVATAR_COLORS.map((c) => {
+                        const selected = avatarColor === c
+                        return (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setAvatarColor(c)}
+                            onMouseEnter={playHover}
+                            aria-label={`Couleur ${c}`}
+                            aria-pressed={selected}
+                            style={{ backgroundColor: c }}
+                            className={`h-8 w-8 rounded-full border transition ${
+                              selected
+                                ? 'border-white ring-2 ring-white/80'
+                                : 'border-white/20 hover:border-white/60'
+                            }`}
+                          />
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Fin d'édition : retour à l'affichage visuel. */}
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setEditing(false)}
+                      onMouseEnter={playProfileHover}
+                      className="rounded-lg border border-amber-300/50 px-4 py-1.5 text-sm font-semibold text-amber-200 hover:bg-amber-400/10"
+                    >
+                      ✓ Terminé
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Bandeau de totaux. */}
           <div className="rounded-2xl border border-white/15 bg-white/5 p-5">
             <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-amber-200">
@@ -113,46 +307,46 @@ export function Profile({ onBack }: Props) {
               <Stat label="Parties" value={`${totalGames}`} />
               <Stat label="Victoires" value={`${totals.wins}`} tone="text-emerald-300" />
               <Stat label="Défaites" value={`${totals.losses}`} tone="text-red-300" />
-              <Stat
-                label="% victoire"
-                value={`${winRate(totals)}%`}
-                tone="text-amber-300"
-              />
+              <Stat label="% victoire" value={`${winRate(totals)}%`} tone="text-amber-300" />
               <Stat label="Temps de jeu" value={formatPlaytime(totals.playtimeMs)} />
             </div>
           </div>
 
-          {/* Une carte par vilain. */}
-          {villains.map(([key, v]) => {
-            const s = stats[key] ?? EMPTY
-            const games = s.wins + s.losses
-            return (
-              <div
-                key={key}
-                className="flex gap-4 rounded-xl border border-white/10 bg-white/5 p-4"
-              >
-                <img
-                  src={villainPortrait(key)}
-                  alt={v.def.name}
-                  className="h-28 w-28 shrink-0 rounded-lg border border-white/15 object-cover"
-                />
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <h3 className="text-xl font-bold text-amber-200">{v.def.name}</h3>
+          {/* Stats par vilain : une grille de cartes compactes. */}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {villains.map(([key, v]) => {
+              const s = stats[key] ?? EMPTY
+              const games = s.wins + s.losses
+              return (
+                <div
+                  key={key}
+                  className="flex flex-col rounded-xl border border-white/10 bg-white/5 p-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={villainPortrait(key)}
+                      alt={v.def.name}
+                      className="h-16 w-16 shrink-0 rounded-lg border border-white/15 object-cover"
+                    />
+                    <h3 className="min-w-0 truncate text-lg font-bold text-amber-200">
+                      {v.def.name}
+                    </h3>
+                  </div>
                   {games === 0 ? (
                     <p className="mt-4 text-sm text-white/40">Aucune partie jouée.</p>
                   ) : (
-                    <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-5">
-                      <Stat label="Parties" value={`${games}`} />
-                      <Stat label="Victoires" value={`${s.wins}`} tone="text-emerald-300" />
-                      <Stat label="Défaites" value={`${s.losses}`} tone="text-red-300" />
-                      <Stat label="% victoire" value={`${winRate(s)}%`} tone="text-amber-300" />
-                      <Stat label="Temps" value={formatPlaytime(s.playtimeMs)} />
+                    <div className="mt-4 grid grid-cols-5 gap-1.5">
+                      <Stat label="Parties" value={`${games}`} compact />
+                      <Stat label="Vict." value={`${s.wins}`} tone="text-emerald-300" compact />
+                      <Stat label="Déf." value={`${s.losses}`} tone="text-red-300" compact />
+                      <Stat label="%" value={`${winRate(s)}%`} tone="text-amber-300" compact />
+                      <Stat label="Temps" value={formatPlaytime(s.playtimeMs)} compact />
                     </div>
                   )}
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
 
           {/* Historique des parties. */}
           <div className="rounded-2xl border border-white/15 bg-white/5 p-5">
@@ -165,27 +359,21 @@ export function Profile({ onBack }: Props) {
               <ul className="flex flex-col gap-2">
                 {history.map((g, i) => {
                   const humanWon = g.winner === 'human'
+                  const me = humanSide(g)
+                  const opp = opponentSide(g)
                   return (
                     <li
                       key={i}
                       className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm"
                     >
-                      <img
-                        src={villainPortrait(g.human as VillainKey)}
-                        alt=""
-                        className="h-8 w-8 shrink-0 rounded border border-white/15 object-cover"
-                      />
+                      <Avatar villain={me.villain} color={me.color} size={36} />
                       <span className={humanWon ? 'font-semibold text-emerald-300' : 'text-white/80'}>
-                        {villainName(g.human)}
+                        {me.label}
                       </span>
                       <span className="text-white/30">vs</span>
-                      <img
-                        src={villainPortrait(g.opponent as VillainKey)}
-                        alt=""
-                        className="h-8 w-8 shrink-0 rounded border border-white/15 object-cover"
-                      />
+                      <Avatar villain={opp.villain} color={opp.color} size={36} />
                       <span className={!humanWon ? 'font-semibold text-red-300' : 'text-white/80'}>
-                        {villainName(g.opponent)}
+                        {opp.label}
                       </span>
                       <span
                         className={`ml-auto shrink-0 rounded px-2 py-0.5 text-xs font-bold ${
