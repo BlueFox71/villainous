@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { CardInstance, PlayerState } from '../../engine/types'
 import { getCardDef } from '../../data/registry'
 import { Scroller } from './Scroller'
+import { DiscardModal } from './DeckPiles'
 
 interface Props {
   /** Les 2 cartes Fatalité révélées (du deck de la cible). */
@@ -40,6 +41,21 @@ export function FateModal({ revealed, target, onResolve, optional = false, onPas
   const selectedCard = revealed.find((c) => c.instanceId === selected)
   // Agrandir : Héros choisi en attente du SENS du pivot (gauche/droite).
   const [enlargeHero, setEnlargeHero] = useState<CardInstance | null>(null)
+  // Voir la défausse Fatalité de la cible (modale superposée, lecture seule).
+  const [showDiscard, setShowDiscard] = useState(false)
+  // « Voir le plateau » : tant que le bouton est MAINTENU enfoncé, on masque la
+  // modale pour laisser voir le plateau en entier ; au relâchement, elle revient.
+  const [peeking, setPeeking] = useState(false)
+  useEffect(() => {
+    if (!peeking) return
+    const stop = () => setPeeking(false)
+    window.addEventListener('pointerup', stop)
+    window.addEventListener('pointercancel', stop)
+    return () => {
+      window.removeEventListener('pointerup', stop)
+      window.removeEventListener('pointercancel', stop)
+    }
+  }, [peeking])
 
   const heroLocationId = (h: CardInstance): string | undefined =>
     target.locations.find((l) => (target.board[l.id] ?? []).some((c) => c.instanceId === h.instanceId))?.id
@@ -115,11 +131,34 @@ export function FateModal({ revealed, target, onResolve, optional = false, onPas
     onResolve(c.instanceId)
   }
 
+  // « Voir le plateau » maintenu : on masque temporairement la modale (mais le
+  // composant reste monté → la sélection en cours est préservée).
+  if (peeking) return null
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
       <Scroller className="max-h-full w-full max-w-2xl rounded-2xl border border-white/20 bg-[#0b0a12] p-4">
         <div className="flex flex-col gap-3">
-        <h2 className="text-base font-bold text-white">Fatalité contre {target.villainName}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-base font-bold text-white">Fatalité contre {target.villainName}</h2>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShowDiscard(true)}
+              className="rounded-lg border border-white/25 px-2.5 py-1 text-xs text-white/80 hover:bg-white/10"
+            >
+              Défausse Fatalité ({target.fateDiscard.length})
+            </button>
+            <button
+              type="button"
+              onPointerDown={() => setPeeking(true)}
+              className="select-none rounded-lg border border-white/25 px-2.5 py-1 text-xs text-white/80 hover:bg-white/10"
+              title="Maintiens le bouton pour voir le plateau ; relâche pour revenir"
+            >
+              👁 Voir le plateau (maintenir)
+            </button>
+          </div>
+        </div>
         <p className="text-xs text-white/60">
           {enlargeHero
             ? `Vers quel lieu voisin ${enlargeHero.name} déborde-t-il ? (il recouvrira l’action du haut la plus proche)`
@@ -259,6 +298,14 @@ export function FateModal({ revealed, target, onResolve, optional = false, onPas
         )}
         </div>
       </Scroller>
+
+      {showDiscard && (
+        <DiscardModal
+          cards={target.fateDiscard}
+          label={`Défausse Fatalité — ${target.villainName}`}
+          onClose={() => setShowDiscard(false)}
+        />
+      )}
     </div>
   )
 }

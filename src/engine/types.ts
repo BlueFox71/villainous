@@ -1219,6 +1219,12 @@ export interface GameState {
      *  sur le lieu d'arrivée (pendingTrapVanquish `source: 'gnous'`). */
     thenTrapVanquish?: boolean
   } | null
+  /**
+   * Flèche de Mome Raths (Fatalité, Reine de Cœur) : `chooserIndex` (joueur qui pose
+   * la Fatalité) déplace un Allié du royaume de `targetIndex` vers le lieu non bloqué
+   * de son choix (RESOLVE_ALLY_RELOCATE). Absent / `null` hors de ce choix.
+   */
+  pendingAllyRelocate?: { chooserIndex: number; targetIndex: number } | null
   /** Téléportation (Slenderman) : `playerIndex` doit choisir un lieu portant un
    *  Héros où déplacer son pion (RESOLVE_TELEPORT). Absent / `null` sinon. */
   pendingTeleport?: { playerIndex: number } | null
@@ -1718,6 +1724,8 @@ export type GameAction =
   | { type: 'RESOLVE_HERO_RELOCATE'; heroInstanceId: string; to: LocationId }
   /** Décline un déplacement de Héros FACULTATIF (Poupées vaudou). */
   | { type: 'SKIP_HERO_RELOCATE' }
+  /** Flèche de Mome Raths : déplace l'Allié choisi vers le lieu (non bloqué) choisi. */
+  | { type: 'RESOLVE_ALLY_RELOCATE'; allyInstanceId: string; to: LocationId }
   /** Dr Facilier — Canne : ouvre le choix d'un lieu voisin où effectuer UNE action
    *  disponible (hors Fatalité), tant que le pion est sur le lieu de la Canne. */
   | { type: 'USE_CANNE' }

@@ -1,7 +1,7 @@
 {
   "name": "villainous",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.72.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -76,6 +76,7 @@
       "icon": "electron/icon.ico"
     },
     "nsis": {
+      "artifactName": "Villainous Setup.exe",
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
@@ -85,7 +86,7 @@
       "uninstallerIcon": "electron/icon.ico"
     },
     "portable": {
-      "artifactName": "Villainous.exe"
+      "artifactName": "Villainous ${version}.exe"
     }
   }
 }

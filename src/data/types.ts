@@ -30,6 +30,25 @@ export type { CardType } from '../engine/types'
 /** À quel paquet appartient la carte. */
 export type DeckKind = 'villain' | 'fate'
 
+/**
+ * Classement « malus » d'une carte Fatalité DURABLE (Héros/Objet) du point de vue
+ * du joueur ciblé. Sert UNIQUEMENT à l'IA pour moduler son agressivité Fatalité
+ * (cf. mémoire projet « villainous-fate-malus ») : poids croissant, l'absence de
+ * champ = NEUTRE (typiquement le Héros-cible de l'objectif). Renseigné par cardId
+ * dans `data/fateMalus.ts` et attaché aux CardDef par le registre.
+ *
+ *  slow / slow2 / slow3        → RALENTIT (gêne ; ++ / +++ = beaucoup)
+ *  block-advance / -advance3   → EMPÊCHE D'AVANCER (fait reculer la progression)
+ *  block-win                   → EMPÊCHE DE GAGNER (bloc dur tant que présent)
+ */
+export type FateMalus =
+  | 'slow'
+  | 'slow2'
+  | 'slow3'
+  | 'block-advance'
+  | 'block-advance3'
+  | 'block-win'
+
 export interface CardDef {
   /** Slug stable (kebab-case, ASCII). Sert de clé et d'id de rendu. */
   id: string
@@ -138,6 +157,10 @@ export interface CardDef {
   /** Scar — carte injouable s'il n'y a aucune Hyène dans le royaume (Festin :
    *  rien à déplacer sinon). */
   requiresHyenaInRealm?: boolean
+  /** IA uniquement : classement « malus » de cette carte Fatalité durable pour le
+   *  joueur ciblé. Renseigné via `data/fateMalus.ts` et attaché par le registre
+   *  (pas dans les `.cards.ts`). Absent = NEUTRE. */
+  fateMalus?: FateMalus
 }
 
 /** Développe une liste de définitions en un paquet concret (un élément par

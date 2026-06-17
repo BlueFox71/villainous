@@ -519,6 +519,8 @@ interface GameStore {
   resolveHeroRelocate: (heroInstanceId: string, to: string) => void
   /** Décline un déplacement de Héros facultatif (Poupées vaudou). */
   skipHeroRelocate: () => void
+  /** Flèche de Mome Raths : déplace l'Allié choisi vers le lieu (non bloqué) choisi. */
+  resolveAllyRelocate: (allyInstanceId: string, to: string) => void
   /** Téléportation : déplace le pion vers le lieu (portant un Héros) choisi. */
   resolveTeleport: (to: string) => void
   resolveManipulation: (instanceId: string) => void
@@ -951,6 +953,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_HERO_RELOCATE', heroInstanceId, to }),
   skipHeroRelocate: () =>
     get().submit({ type: 'SKIP_HERO_RELOCATE' }),
+  resolveAllyRelocate: (allyInstanceId, to) =>
+    get().submit({ type: 'RESOLVE_ALLY_RELOCATE', allyInstanceId, to }),
   resolveTeleport: (to) =>
     get().submit({ type: 'RESOLVE_TELEPORT', to }),
   resolveManipulation: (instanceId) =>

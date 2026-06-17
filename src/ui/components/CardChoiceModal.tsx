@@ -33,7 +33,7 @@ export function CardChoiceModal({ title, cards, onPick, onClose, noneLabel, onNo
             Annuler
           </button>
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="flex max-h-[70vh] flex-col gap-2 overflow-y-auto">
           {cards.map((c) => {
             const def = getCardDef(c.cardId)
             return (

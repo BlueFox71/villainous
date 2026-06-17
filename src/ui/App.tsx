@@ -39,7 +39,7 @@ import { GameLog } from './components/GameLog'
 import { BoardImage, LOCATIONS_LEFT } from './components/BoardImage'
 import { BoardActions } from './components/BoardActions'
 import { HeroRow } from './components/HeroRow'
-import { DeckPiles, AuDelaPile, IngredientsPile, SuccessionPile } from './components/DeckPiles'
+import { DeckPiles, AuDelaPile, IngredientsPile, SuccessionPile, DiscardModal } from './components/DeckPiles'
 import { StacksCards } from './components/StacksCards'
 import { FateModal } from './components/FateModal'
 import { ChoiceModal } from './components/ChoiceModal'
@@ -50,6 +50,7 @@ import { HubertPullModal } from './components/HubertPullModal'
 import { DeckPeekModal } from './components/DeckPeekModal'
 import { TypeChoiceModal } from './components/TypeChoiceModal'
 import { HeroRelocateModal } from './components/HeroRelocateModal'
+import { AllyRelocateModal } from './components/AllyRelocateModal'
 import { TeleportModal } from './components/TeleportModal'
 import { OptionsModal } from './components/OptionsModal'
 import { ActivatePickModal } from './components/ActivatePickModal'
@@ -289,6 +290,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveTypeChoice = useGameStore((s) => s.resolveTypeChoice)
   const resolveHeroRelocate = useGameStore((s) => s.resolveHeroRelocate)
   const skipHeroRelocate = useGameStore((s) => s.skipHeroRelocate)
+  const resolveAllyRelocate = useGameStore((s) => s.resolveAllyRelocate)
   const resolveTeleport = useGameStore((s) => s.resolveTeleport)
   const resolveManipulation = useGameStore((s) => s.resolveManipulation)
   const dismissRoyalCroquet = useGameStore((s) => s.dismissRoyalCroquet)
@@ -1545,6 +1547,29 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       }
       return
     }
+    // Flèche de Mome Raths : déplacer un Allié de la cible vers un lieu non bloqué.
+    // Bot chooser → 1ᵉʳ Allié + 1ᵉʳ lieu non bloqué ; humain → modale.
+    const par = state.pendingAllyRelocate
+    if (par) {
+      if (seats[par.chooserIndex] === 'bot') {
+        const tgt = state.players[par.targetIndex]
+        const ids = tgt.locations.map((l) => l.id)
+        const locked = new Set(tgt.lockedLocations ?? [])
+        for (const loc of tgt.locations) {
+          const ally = (tgt.board[loc.id] ?? []).find(
+            (c) => c.type === 'ally' && !c.attachedTo && !c.isWicket,
+          )
+          if (ally) {
+            const to = ids.find((id) => id !== loc.id && !locked.has(id))
+            if (to) {
+              const timer = setTimeout(() => resolveAllyRelocate(ally.instanceId, to), BOT_STEP_MS)
+              return () => clearTimeout(timer)
+            }
+          }
+        }
+      }
+      return
+    }
     // Aurore : Héros révélé à placer. Le bot (s'il a joué la Fatalité) choisit
     // tout seul le 1ᵉʳ lieu valide ; si c'est l'humain, on attend la modale.
     const php = state.pendingHeroPlacement
@@ -1621,7 +1646,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveDivination, resolveLookTop, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate])
+  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveDivination, resolveLookTop, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate])
 
   // Coups légaux / actions : seulement pour le joueur humain et à son tour.
   const legalMoves = isHumanTurn ? getLegalMoves(state) : []
@@ -3530,6 +3555,14 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         />
       )}
 
+      {/* Flèche de Mome Raths : l'humain (chooser) déplace un Allié de la cible. */}
+      {state.pendingAllyRelocate && state.pendingAllyRelocate.chooserIndex === HUMAN && (
+        <AllyRelocateModal
+          target={state.players[state.pendingAllyRelocate.targetIndex]}
+          onResolve={resolveAllyRelocate}
+        />
+      )}
+
       {/* Téléportation : l'humain choisit le lieu où se téléporter. */}
       {state.pendingTeleport && state.pendingTeleport.playerIndex === HUMAN && (
         <TeleportModal player={state.players[HUMAN]} onResolve={resolveTeleport} />
@@ -3592,8 +3625,22 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         )
       })()}
 
+      {/* Te revoilà ! (Bowser) : reprendre N'IMPORTE quelle carte de la défausse →
+          on ouvre la modale de défausse (grille défilable), cartes cliquables. */}
+      {state.pendingRecover && state.pendingRecover.playerIndex === HUMAN && state.pendingRecover.label === 'Te revoilà !' && (() => {
+        const ids = new Set(state.pendingRecover.candidateIds)
+        const cards = user.discard.filter((c) => ids.has(c.instanceId))
+        return (
+          <DiscardModal
+            cards={cards}
+            label={`Te revoilà ! — reprends une carte de ta défausse`}
+            onPick={(instanceId) => resolveRecover(instanceId)}
+          />
+        )
+      })()}
+
       {/* Opportunisme / Tâche : Téléchargement : reprendre une carte de la défausse. */}
-      {state.pendingRecover && state.pendingRecover.playerIndex === HUMAN && state.pendingRecover.label !== 'Magie noire' && (() => {
+      {state.pendingRecover && state.pendingRecover.playerIndex === HUMAN && state.pendingRecover.label !== 'Magie noire' && state.pendingRecover.label !== 'Te revoilà !' && (() => {
         const ids = new Set(state.pendingRecover.candidateIds)
         const cards = [...user.discard, ...user.deck].filter((c) => ids.has(c.instanceId))
         const title =

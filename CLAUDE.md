@@ -105,6 +105,27 @@ le câbler dans : `data/registry.ts` (`allCards`), `ui/store/gameStore.ts`
 `ui/screens/VillainList.tsx`. Ajouter un test d'intégrité du paquet (cf.
 `data/__tests__/*.cards.test.ts` : compte des cartes, champs requis, images).
 
+**Classement Fatalité (malus IA) — OBLIGATOIRE pour tout nouveau vilain.** Pour que
+le bot module son agressivité Fatalité, chaque vilain a une classification de ses
+cartes Fatalité durables (Héros + Objets persistants). En ajoutant un vilain, tu
+**proposes un tableau** (carte → effet résumé → catégorie) à l'utilisateur pour
+validation, avec les catégories de poids croissant **RALENTIT** (graduable `+`/`++`/
+`+++`) < **EMPÊCHE D'AVANCER** < **EMPÊCHE DE GAGNER** ; **NEUTRE** = 0 (typiquement
+le Héros-cible de l'objectif). Indique aussi : (a) une éventuelle **règle d'évitement**
+— ne pas fataliser si cela donnerait au joueur son Héros-clé encore absent (cf.
+Scar/Mufasa, Crochet/Peter Pan, Bowser/Peach…) ; (b) une éventuelle **règle de ciblage**
+du bot (ex. ne pas associer un Objet à tel Héros). Reporter le résultat dans la mémoire
+projet « villainous-fate-malus ».
+
+**Jauge d'objectif (IA) — OBLIGATOIRE aussi pour tout nouveau vilain.** Le bot évalue
+sa progression via `objectiveScore` (`ai/heuristicBot.ts`). En ajoutant un vilain (donc
+un nouveau type d'objectif, ou un type existant), tu **proposes à l'utilisateur la jauge
+en langage clair** (les paliers/poids, 0→1) et tu **demandes confirmation**, comme pour
+les malus. La jauge doit refléter la **vraie proximité de victoire**, pas un compteur
+brut (ex. pondérer les étapes finales, tenir compte de la force réunie pour vaincre un
+Héros-cible, d'un blocage qui plafonne le score…). Reporter le résultat dans la même
+mémoire projet « villainous-fate-malus ».
+
 ## Tests
 
 - Vitest, à côté du code (`engine/__tests__/`, `data/__tests__/`).

@@ -2923,7 +2923,7 @@ export function resolveEffect(
       }
       return {
         ...state,
-        pendingRecover: { playerIndex: idx, candidateIds: actor.discard.map((c) => c.instanceId) },
+        pendingRecover: { playerIndex: idx, candidateIds: actor.discard.map((c) => c.instanceId), label: 'Te revoilà !' },
         log: [...state.log, `${actor.villainName} récupère une carte de sa défausse (Te revoilà !).`],
       }
     }
@@ -3594,13 +3594,27 @@ export function resolveEffect(
       }
     }
     case 'YZMA_HERO_REALM_TO_DECKS': {
-      // En fuite : retire le Héros le plus fort du royaume, le mélange avec les 4 pioches.
+      // En fuite : retire un Héros du royaume et le mélange avec les 4 pioches. On vise
+      // EN PRIORITÉ le Héros-cible de l'objectif (Kuzco) — le renvoyer dans les pioches
+      // est la disruption maximale (Yzma doit le re-trouver) ; sinon le plus fort.
       const p = state.players[idx]
+      const targetId = p.objective.type === 'DEFEAT_HERO_WITH_ALLY' ? p.objective.heroCardId : undefined
       let hero: CardInstance | undefined
       let loc: string | undefined
-      for (const l of p.locations) {
-        for (const c of p.board[l.id] ?? []) {
-          if (c.type === 'hero' && (!hero || (c.strength ?? 0) > (hero.strength ?? 0))) { hero = c; loc = l.id }
+      // 1) En priorité le Héros-cible de l'objectif (Kuzco) s'il est présent.
+      if (targetId) {
+        for (const l of p.locations) {
+          for (const c of p.board[l.id] ?? []) {
+            if (c.type === 'hero' && c.cardId === targetId) { hero = c; loc = l.id }
+          }
+        }
+      }
+      // 2) Sinon, le Héros le plus fort du royaume.
+      if (!hero) {
+        for (const l of p.locations) {
+          for (const c of p.board[l.id] ?? []) {
+            if (c.type === 'hero' && (!hero || (c.strength ?? 0) > (hero.strength ?? 0))) { hero = c; loc = l.id }
+          }
         }
       }
       if (!hero || !loc) return { ...state, log: [...state.log, 'En fuite : aucun Héros dans le royaume.'] }

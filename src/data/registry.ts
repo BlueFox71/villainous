@@ -10,6 +10,7 @@
 // =============================================================================
 
 import type { CardDef } from './types'
+import { FATE_MALUS } from './fateMalus'
 import { princeJohnCards } from './villains/princeJohn.cards'
 import { maleficentCards } from './villains/maleficent.cards'
 import { slendermanCards } from './villains/slenderman.cards'
@@ -47,7 +48,11 @@ export const allCards: CardDef[] = [
   ...ratiganCards,
 ]
 
-const byId: Record<string, CardDef> = Object.fromEntries(allCards.map((c) => [c.id, c]))
+// On attache le classement « malus Fatalité » (data IA) au CardDef, sans muter
+// les définitions d'origine : le registre est la source de `getCardDef`.
+const byId: Record<string, CardDef> = Object.fromEntries(
+  allCards.map((c) => [c.id, FATE_MALUS[c.id] ? { ...c, fateMalus: FATE_MALUS[c.id] } : c]),
+)
 
 /** Résout une CardDef depuis son cardId (toutes vilains confondus). Renvoie
  *  undefined si la carte est inconnue (typiquement une carte « truquée » dans

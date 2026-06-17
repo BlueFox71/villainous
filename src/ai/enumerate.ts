@@ -21,6 +21,7 @@ import {
   cardNeedsStarAllyTarget,
   cardNeedsVanquishTarget,
   drainStarAllies,
+  activatableCards,
   effectiveCost,
   effectiveStrength,
   getAvailableActions,
@@ -216,6 +217,24 @@ export function enumerateActions(state: GameState): GameAction[] {
     if (out.length > 0) return out
   }
 
+  // Flèche de Mome Raths : déplacer un Allié de la cible vers n'importe quel lieu
+  // non bloqué (un choix par Allié candidat × destination).
+  if (state.pendingAllyRelocate) {
+    const par = state.pendingAllyRelocate
+    const tgt = state.players[par.targetIndex]
+    const ids = tgt.locations.map((l) => l.id)
+    const locked = new Set(tgt.lockedLocations ?? [])
+    const out: GameAction[] = []
+    for (const loc of tgt.locations) {
+      for (const a of (tgt.board[loc.id] ?? []).filter((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket)) {
+        for (const to of ids.filter((id) => id !== loc.id && !locked.has(id))) {
+          out.push({ type: 'RESOLVE_ALLY_RELOCATE', allyInstanceId: a.instanceId, to })
+        }
+      }
+    }
+    if (out.length > 0) return out
+  }
+
   // Digne Adversaire / Obsession : le Héros révélé doit être JOUÉ ; on choisit le lieu.
   if (state.pendingFetchedHero) {
     const pfh = state.pendingFetchedHero
@@ -337,8 +356,15 @@ export function enumerateActions(state: GameState): GameAction[] {
           const loc = Object.keys(tgt.board).find((id) => (tgt.board[id] ?? []).some((c) => c.instanceId === h.instanceId))
           return !loc || !(tgt.board[loc] ?? []).some((c) => c.attachedTo === h.instanceId && c.type === 'item')
         })
-        if (targetHeroes.length > 0) {
-          for (const h of targetHeroes) {
+        // Provocation (Crochet) : NE PAS l'associer à Peter Pan (ça forcerait Crochet
+        // à le vaincre d'abord — donc l'aiderait) sauf s'il n'y a aucun autre Héros.
+        let provoTargets = targetHeroes
+        if (card.cardId === 'provocation') {
+          const nonPeter = targetHeroes.filter((h) => h.cardId !== 'peter-pan')
+          if (nonPeter.length > 0) provoTargets = nonPeter
+        }
+        if (provoTargets.length > 0) {
+          for (const h of provoTargets) {
             out.push({ type: 'RESOLVE_FATE', instanceId: card.instanceId, targetHeroId: h.instanceId })
           }
         } else {
@@ -624,6 +650,14 @@ export function enumerateActions(state: GameState): GameAction[] {
       }
     } else if (action.type === 'FATE' && canFate(state)) {
       out.push({ type: 'FATE', actionId: action.id })
+    } else if (action.type === 'ACTIVATE') {
+      // Une option par carte activable. Les capacités exigeant des paramètres
+      // (Iago : lieu/objet) échouent à la simulation et sont écartées par le
+      // try/catch du lookahead — sans gêner les capacités simples (transformer une
+      // Carte Garde en arceau pour la Reine de Cœur, Bowser Jr., Galaxie hantée…).
+      for (const c of activatableCards(state)) {
+        out.push({ type: 'ACTIVATE', actionId: action.id, cardInstanceId: c.instanceId })
+      }
     } else if (action.type === 'MOVE_ITEM_ALLY') {
       for (const { instanceId, from } of movableCards(state)) {
         for (const to of adjacentLocationIds(state, from)) {

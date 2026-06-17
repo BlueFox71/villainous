@@ -1684,6 +1684,7 @@ function applyResolveFate(
     !next.pendingHubertPull &&
     !next.pendingTitanSelect &&
     !next.pendingHeroRelocate &&
+    !next.pendingAllyRelocate &&
     !next.pendingFateScry
   ) {
     const other = others[0]
@@ -1902,6 +1903,28 @@ function applyResolveFateInner(
         candidateIds: candidates.map((c) => c.instanceId),
       },
       log: [...next.log, `**K.O.** : ${state.players[state.activePlayer].villainName} retire un Allié de force ≤ 3 chez ${tgt.villainName}.`],
+    }
+  }
+
+  // Flèche de Mome Raths (Reine de Cœur, Fatalité) : le joueur qui pose la Fatalité
+  // déplace un Allié du royaume de la cible vers le lieu (non bloqué) de son choix.
+  // Sans Allié déplaçable, simple défausse.
+  if (chosen.cardId === 'fleche-mome-raths') {
+    const candidates = Object.values(tgt.board)
+      .flat()
+      .filter((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket)
+    let next = updatePlayer(state, pending.target, (p) => ({
+      ...p,
+      fateDiscard: [...p.fateDiscard, chosen, ...others],
+    }))
+    next = { ...next, pendingFate: null }
+    if (candidates.length === 0) {
+      return { ...next, log: [...next.log, `**Flèche de Mome Raths** : aucun Allié à déplacer chez ${tgt.villainName}.`] }
+    }
+    return {
+      ...next,
+      pendingAllyRelocate: { chooserIndex: state.activePlayer, targetIndex: pending.target },
+      log: [...next.log, `**Flèche de Mome Raths** : ${state.players[state.activePlayer].villainName} déplace un Allié de ${tgt.villainName}.`],
     }
   }
 
@@ -2677,6 +2700,13 @@ function applyActivate(
   if (card.cardId === 'bowser-jr') {
     // Bowser — Bowser Jr. : paie 3 JT, cherche PEACH dans sa pioche Fatalité et la
     // joue au Château de Peach (pour pouvoir ensuite la capturer via Impuissance).
+    // Interdit si Peach est déjà en jeu ou capturée (sinon on la re-poserait).
+    const peachInPlay = Object.values(me.board)
+      .flat()
+      .some((x) => x.type === 'hero' && x.cardId === 'peach')
+    if (peachInPlay || me.peachCaptured) {
+      throw new Error('Bowser Jr. : Peach est déjà en jeu ou capturée.')
+    }
     let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost! }))
     next = resolveEffects(next, [{ type: 'SUMMON_FATE_HERO_TO_OWN_REALM', heroCardId: 'peach', locationId: 'chateau-peach' }], { actorIndex: state.activePlayer })
     next = consumePersifleur(next, action)
@@ -3633,6 +3663,44 @@ function applySkipHeroRelocate(state: GameState): GameState {
     throw new Error('Ce déplacement de Héros est obligatoire.')
   }
   return { ...state, pendingHeroRelocate: null }
+}
+
+/**
+ * Flèche de Mome Raths : déplace l'Allié choisi (du royaume de la cible) vers le
+ * lieu non bloqué choisi, en emmenant ses Objets associés. Le lieu peut être
+ * n'importe lequel des lieux non verrouillés de la cible (« lieu de votre choix »).
+ */
+function applyResolveAllyRelocate(state: GameState, allyInstanceId: string, to: LocationId): GameState {
+  const pending = state.pendingAllyRelocate
+  if (!pending) throw new Error('Aucun déplacement d’Allié en attente.')
+  const { targetIndex } = pending
+  const target = state.players[targetIndex]
+  const from = locationOfCard(target, allyInstanceId)
+  if (!from) throw new Error(`Allié « ${allyInstanceId} » introuvable.`)
+  const ally = (target.board[from] ?? []).find((c) => c.instanceId === allyInstanceId)
+  if (!ally || ally.type !== 'ally') throw new Error('Cible invalide (pas un Allié).')
+  const locked = new Set(target.lockedLocations ?? [])
+  if (!target.locations.some((l) => l.id === to) || locked.has(to)) {
+    throw new Error(`Lieu « ${to} » invalide (doit être non bloqué).`)
+  }
+  if (from === to) return { ...state, pendingAllyRelocate: null }
+  // L'Allié emmène ses Objets associés (cohérence avec les autres déplacements).
+  const moving = (target.board[from] ?? []).filter((c) => c.instanceId === allyInstanceId || c.attachedTo === allyInstanceId)
+  const movingIds = new Set(moving.map((c) => c.instanceId))
+  const destName = findLocation(target, to)?.name ?? to
+  const next = updatePlayer(state, targetIndex, (p) => ({
+    ...p,
+    board: {
+      ...p.board,
+      [from]: (p.board[from] ?? []).filter((c) => !movingIds.has(c.instanceId)),
+      [to]: [...(p.board[to] ?? []), ...moving],
+    },
+  }))
+  return {
+    ...next,
+    pendingAllyRelocate: null,
+    log: [...next.log, `**Flèche de Mome Raths** : **${ally.name}** est déplacé(e) vers **${destName}**.`],
+  }
 }
 
 /**
@@ -5605,6 +5673,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveTypeChoice(state, action.cardType)
     case 'RESOLVE_HERO_RELOCATE':
       return applyResolveHeroRelocate(state, action.heroInstanceId, action.to)
+    case 'RESOLVE_ALLY_RELOCATE':
+      return applyResolveAllyRelocate(state, action.allyInstanceId, action.to)
     case 'SKIP_HERO_RELOCATE':
       return applySkipHeroRelocate(state)
     case 'USE_CANNE':

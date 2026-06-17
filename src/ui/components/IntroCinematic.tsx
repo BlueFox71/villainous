@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import { useSettingsStore } from '../store/settingsStore'
 
-// Volume de la cinématique d'intro : un peu moins fort que le maximum.
+// Volume forcé de la cinématique quand la musique est coupée (0 %) : on évite
+// une intro muette en repassant à ce niveau (un peu moins fort que le maximum).
 const INTRO_VOLUME = 0.55
 
 /**
@@ -43,14 +45,17 @@ export function IntroCinematic({ onDone }: { onDone: () => void }) {
   }
 
   // Démarrage de la lecture : la cinématique est jouée en PLEIN ÉCRAN (app de
-  // bureau), à volume réduit, avec repli muet si l'autoplay sonore est bloqué.
+  // bureau), avec repli muet si l'autoplay sonore est bloqué. Le volume suit le
+  // réglage Musique du joueur (lu à l'arrivée sur la page) ; mais si la musique
+  // est coupée (0 %), on force INTRO_VOLUME pour que l'intro ne soit pas muette.
   useEffect(() => {
     if (typeof window !== 'undefined' && window.villainous) {
       void window.villainous.setFullscreen(true)
     }
     const el = videoRef.current
     if (!el) return
-    el.volume = INTRO_VOLUME
+    const { musicVolume, musicMuted } = useSettingsStore.getState()
+    el.volume = musicMuted || musicVolume === 0 ? INTRO_VOLUME : musicVolume
     el.play().catch(() => {
       el.muted = true
       el.play().catch(() => {})

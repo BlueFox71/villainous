@@ -9,6 +9,21 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.72',
+    date: '2026-06-18',
+    title: 'Bot plus malin (Fatalité, objectifs) + confort de jeu',
+    changes: [
+      'Progression d’objectif : chaque camp affiche désormais une barre de progression (en %) vers sa victoire, calculée selon la vraie proximité de l’objectif.',
+      'Bot — Fatalité plus juste : il ne s’acharne plus à vous fataliser quand vous êtes déjà bien gêné/bloqué (il se concentre alors sur son objectif), et fatalise fort quand vous foncez vers la victoire. Si vous avez atteint votre objectif et attendez votre prochain tour, il tente systématiquement de vous fataliser.',
+      'Bot — il évite de vous rendre service : il ne lance pas de Fatalité si cela vous donnerait votre Héros-clé encore absent (Mufasa pour Scar, Peter Pan pour Crochet, Peach pour Bowser, Blanche-Neige pour la Méchante Reine, Kuzco pour Yzma).',
+      'Bot — Bowser : il rassemble enfin ses Alliés à l’Observatoire de la Comète pour drainer les Étoiles. Reine de Cœur : il transforme ses Cartes Gardes en arceaux. Jauges d’objectif affinées (Crochet, Yzma, Ratigan…).',
+      'Modale de Fatalité : un bouton « Défausse Fatalité » pour consulter la défausse de la cible, et un bouton « Voir le plateau » (à maintenir enfoncé) qui masque la modale le temps de regarder le plateau.',
+      '« Te revoilà ! » (Bowser) : on choisit la carte à récupérer directement dans la défausse (modale défilable), au lieu d’une liste tronquée.',
+      'Bowser : on ne peut plus activer Bowser Jr. une fois Peach en jeu ou capturée. Flèche de Mome Raths (Reine de Cœur) : déplace bien un Allié vers le lieu choisi.',
+      'Cinématique d’intro : son réglé sur le volume de la musique des Options (et forcé à un niveau audible si la musique est coupée).',
+    ],
+  },
+  {
     version: '0.71',
     date: '2026-06-17',
     title: 'Nouveau vilain : Ratigan (+ bouton Cinématique)',

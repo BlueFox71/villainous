@@ -88,15 +88,20 @@ function Pile({
   )
 }
 
-/** Fenêtre listant toutes les cartes d'une défausse (plus récentes en premier). */
-function DiscardModal({
+/** Fenêtre listant toutes les cartes d'une défausse (plus récentes en premier).
+ *  Lecture seule par défaut ; si `onPick` est fourni, chaque carte devient
+ *  cliquable (ex. « Te revoilà ! » : choisir la carte à reprendre en main). Sans
+ *  `onClose`, la fenêtre ne peut pas être fermée sans choisir (choix obligatoire). */
+export function DiscardModal({
   cards,
   label,
   onClose,
+  onPick,
 }: {
   cards: CardInstance[]
   label: string
-  onClose: () => void
+  onClose?: () => void
+  onPick?: (instanceId: string) => void
 }) {
   // Ordre : du dessus de la pile (dernière défaussée) vers le fond.
   const ordered = [...cards].reverse()
@@ -121,14 +126,19 @@ function DiscardModal({
           <h2 className="text-lg font-bold text-purple-200">
             {label} <span className="font-normal text-white/40">({cards.length})</span>
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-white/20 px-3 py-1 text-sm text-white/80 hover:bg-white/10"
-          >
-            Fermer ✕
-          </button>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-white/20 px-3 py-1 text-sm text-white/80 hover:bg-white/10"
+            >
+              Fermer ✕
+            </button>
+          )}
         </div>
+        {onPick && (
+          <p className="text-center text-sm text-amber-200/90">Clique une carte pour la reprendre en main.</p>
+        )}
         {ordered.length === 0 ? (
           <p className="text-sm text-white/50">La défausse est vide.</p>
         ) : (
@@ -143,7 +153,8 @@ function DiscardModal({
                   setHovered({ id: c.instanceId, rect: e.currentTarget.getBoundingClientRect() })
                 }
                 onMouseLeave={() => setHovered((h) => (h?.id === c.instanceId ? null : h))}
-                className="w-24 cursor-zoom-in rounded-lg border border-white/15 transition hover:border-amber-300"
+                onClick={onPick ? () => onPick(c.instanceId) : undefined}
+                className={`w-24 rounded-lg border border-white/15 transition hover:border-amber-300 ${onPick ? 'cursor-pointer hover:brightness-110' : 'cursor-zoom-in'}`}
               />
             ))}
           </div>

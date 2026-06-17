@@ -17,10 +17,11 @@
 // applyAction est pur : l'utiliser pour le « lookahead » ne mute rien.
 // =============================================================================
 
-import type { GameAction, GameState, PlayerState } from '../engine/types'
+import type { CardInstance, GameAction, GameState, PlayerState } from '../engine/types'
 import { applyAction } from '../engine/actions'
-import { playableConditions } from '../engine/rules'
+import { playableConditions, hasReachedObjective } from '../engine/rules'
 import { enumerateActions } from './enumerate'
+import { playerMalus } from './fateMalus'
 
 type Rand = () => number
 
@@ -28,8 +29,9 @@ function pick<T>(items: T[], rand: Rand): T {
   return items[Math.floor(rand() * items.length)]
 }
 
-/** Proportion de l'objectif atteinte par un joueur (0..1). */
-function objectiveScore(p: PlayerState): number {
+/** Proportion de l'objectif atteinte par un joueur (0..1). Exportée pour l'affichage
+ *  de la progression en % côté UI (même jauge que celle qui guide le bot). */
+export function objectiveScore(p: PlayerState): number {
   switch (p.objective.type) {
     case 'POWER_THRESHOLD':
       return Math.min(p.power, p.objective.threshold) / p.objective.threshold
@@ -80,10 +82,19 @@ function objectiveScore(p: PlayerState): number {
       if (itemPlaced) s += 0.2
       return Math.min(1, s)
     }
-    case 'ROYAL_CROQUET':
-      // Reine de Cœur : objectif via la carte Coup Royal (mécanique des arceaux
-      // pas encore implémentée) → progrès non évalué pour l'instant.
-      return 0
+    case 'ROYAL_CROQUET': {
+      // Reine de Cœur : un arceau dans CHAQUE lieu (puis Coup Royal, qui déclenche
+      // la victoire et qu'on capte via status WON). Par lieu : un arceau vaut 1, une
+      // Carte Garde encore non transformée vaut 0.5 (étape intermédiaire) → le bot
+      // pose ses Gardes puis les transforme en arceaux.
+      const score = p.locations.reduce((acc, l) => {
+        const cell = p.board[l.id] ?? []
+        if (cell.some((c) => c.isWicket)) return acc + 1
+        if (cell.some((c) => c.type === 'ally' && c.cardId.startsWith('gardes-'))) return acc + 0.5
+        return acc
+      }, 0)
+      return Math.min(1, score / Math.max(1, p.locations.length))
+    }
     case 'DEFEAT_HERO_AT_LOCATION': {
       const obj = p.objective
       // La Méchante Reine : progression dédiée — jouer les Ingrédients (déverrouille
@@ -109,13 +120,23 @@ function objectiveScore(p: PlayerState): number {
         }
         return Math.min(1, s)
       }
-      // Capitaine Crochet : rapprocher le Héros cible (Peter Pan) du lieu cible
-      // (Jolly Roger). Le Vanquish final déclenche la victoire (status WON).
-      const targetLoc = p.locations.find((l) =>
+      // Capitaine Crochet : faire venir Peter Pan (via Fatalité), le rapprocher du
+      // Jolly Roger, et réunir assez d'Alliés pour le vaincre. Jauge graduée :
+      // base (présent) + proximité du lieu cible + capacité à le vaincre (force
+      // d'Alliés sur son lieu ÷ sa force). Le Vanquish final déclenche la victoire.
+      const heroLocId = p.locations.find((l) =>
         (p.board[l.id] ?? []).some((c) => c.type === 'hero' && c.cardId === obj.heroCardId),
       )?.id
-      if (!targetLoc) return 0
-      return targetLoc === obj.locationId ? 1 : 0.5
+      if (!heroLocId) return 0 // Peter Pan pas encore en jeu
+      const hero = (p.board[heroLocId] ?? []).find((c) => c.type === 'hero' && c.cardId === obj.heroCardId)!
+      const ids = p.locations.map((l) => l.id)
+      const dist = Math.abs(ids.indexOf(heroLocId) - ids.indexOf(obj.locationId))
+      const prox = ids.length > 1 ? 1 - dist / (ids.length - 1) : 1
+      const allyForce = (p.board[heroLocId] ?? [])
+        .filter((c) => c.type === 'ally' && !c.isWicket && !c.trapped)
+        .reduce((n, c) => n + (c.strength ?? 0), 0)
+      const readiness = Math.min(1, allyForce / Math.max(1, hero.strength ?? 1))
+      return Math.min(1, 0.4 + 0.3 * prox + 0.3 * readiness)
     }
     case 'ITEMS_AT_LOCATION': {
       // Ursula : récompense les Objets requis présents dans le royaume, davantage
@@ -178,7 +199,9 @@ function objectiveScore(p: PlayerState): number {
       const obj = p.objective
       const stars = p.observatoryStars ?? 0
       const depletion = stars <= 0 ? 1 : Math.max(0, 1 - stars / 4)
-      let s = 0.5 * depletion
+      // Peach capturée vaut 0.4 ; les Étoiles complètent le reste (0.6) → 1.0 quand
+      // l'Observatoire est à 0 ET Peach capturée.
+      let s = 0.6 * depletion
       if (p.peachCaptured) s += 0.4
       const blocked = obj.blockerHeroCardId
         ? Object.values(p.board).some((cards) =>
@@ -202,12 +225,23 @@ function objectiveScore(p: PlayerState): number {
       // la présence de Kuzco et de Kronk dans le royaume.
       if (p.objectiveHeroDefeated) return 1
       const obj = p.objective
-      const inRealm = (id: string) =>
-        Object.values(p.board).flat().some((c) => c.cardId === id)
-      const hasHero = inRealm(obj.heroCardId)
-      const hasAlly = inRealm(obj.allyCardId)
-      if (hasHero && hasAlly) return 0.6
-      if (hasHero || hasAlly) return 0.3
+      // Localise Kuzco (cible) et Kronk (Allié). « Prêt » = même lieu ET Kronk assez
+      // fort pour l'éliminer (force brute — approximation pour une jauge).
+      let kuzco: CardInstance | undefined
+      let kuzcoLoc: string | undefined
+      let kronk: CardInstance | undefined
+      let kronkLoc: string | undefined
+      for (const l of p.locations) {
+        for (const c of p.board[l.id] ?? []) {
+          if (c.cardId === obj.heroCardId) { kuzco = c; kuzcoLoc = l.id }
+          else if (c.cardId === obj.allyCardId) { kronk = c; kronkLoc = l.id }
+        }
+      }
+      if (kuzco && kronk) {
+        const ready = kuzcoLoc === kronkLoc && (kronk.strength ?? 0) >= (kuzco.strength ?? 0)
+        return ready ? 0.85 : 0.5
+      }
+      if (kuzco || kronk) return 0.3
       return 0.1
     }
     case 'RATIGAN_DUAL': {
@@ -219,9 +253,25 @@ function objectiveScore(p: PlayerState): number {
       )
       let s: number
       if (p.becameTheRat) {
-        // Côté « Le Rat » : éliminer Basil.
+        // Côté « Le Rat » : éliminer Basil. Gradué par la capacité à le vaincre
+        // (force d'Alliés réunie sur son lieu ÷ sa force), comme Crochet/Yzma.
         if (p.objectiveHeroDefeated) return 1
-        s = all.some((c) => c.type === 'hero' && c.cardId === obj.altHeroCardId) ? 0.5 : 0.2
+        let basil: CardInstance | undefined
+        let basilLoc: string | undefined
+        for (const l of p.locations) {
+          for (const c of p.board[l.id] ?? []) {
+            if (c.type === 'hero' && c.cardId === obj.altHeroCardId) { basil = c; basilLoc = l.id }
+          }
+        }
+        if (!basil || !basilLoc) {
+          s = 0.2 // Basil pas encore en jeu
+        } else {
+          const allyForce = (p.board[basilLoc] ?? [])
+            .filter((c) => c.type === 'ally' && !c.isWicket && !c.trapped)
+            .reduce((n, c) => n + (c.strength ?? 0), 0)
+          const readiness = Math.min(1, allyForce / Math.max(1, basil.strength ?? 1))
+          s = 0.4 + 0.4 * readiness // présent 0.4 → prêt à le vaincre 0.8
+        }
       } else {
         // Côté « L'Esprit Supérieur » : faire venir la Reine Robot puis la poster à
         // Buckingham Palace (récompense d'abord sa mise en jeu, puis sa position).
@@ -311,8 +361,10 @@ export const DEFAULT_WEIGHTS: EvalWeights = {
   handAllyStr: 0,
   oppPawnDisrupt: 4,
   // Le bot privilégie SON objectif ; la Fatalité (Héros chez l'adversaire) n'est
-  // pleinement valorisée que si l'adversaire est proche de gagner (escalade).
-  fateThreatFloor: 0.7,
+  // pleinement valorisée que si la MENACE réelle est haute (progrès − malus). Plancher
+  // bas : quand l'adversaire est déjà bien bloqué (menace ~0), le bot lâche presque
+  // la Fatalité et se concentre sur son objectif (cf. mémoire « villainous-fate-malus »).
+  fateThreatFloor: 0.25,
 }
 
 /** Soutien de la figurine d'un joueur : nb d'Alliés/Objets « racine » sur le lieu
@@ -340,7 +392,8 @@ function powerValue(p: PlayerState, w: EvalWeights, mult: number): number {
 export function evaluate(state: GameState, idx: number, w: EvalWeights = DEFAULT_WEIGHTS): number {
   if (state.status === 'WON') return state.winner === idx ? 1e9 : -1e9
   const me = state.players[idx]
-  const opp = state.players[(idx + 1) % state.players.length]
+  const oppIdx = (idx + 1) % state.players.length
+  const opp = state.players[oppIdx]
   let score = 0
   // Progrès vers l'objectif, le sien en positif, celui de l'adversaire en négatif.
   const oppObj = objectiveScore(opp)
@@ -361,12 +414,21 @@ export function evaluate(state: GameState, idx: number, w: EvalWeights = DEFAULT
   }
   // Lieux maudits (objectif Maléfique + tempo), comptés PAR LIEU (empiler n'aide pas).
   score += cursedLocationCount(me) * w.cursePerLocation
+  // Bowser : les Alliés sur l'Observatoire de la Comète sont « prêts à drainer » une
+  // Étoile (Dino Piranha/Kamella à la pose, ou la carte de drainage qui exige un Allié
+  // présent). Tant qu'il reste des Étoiles, on récompense leur présence sur ce lieu
+  // pour que le bot les y rassemble au lieu de les éparpiller.
+  if (me.objective.type === 'DEPLETE_OBSERVATORY_AND_CAPTURE' && (me.observatoryStars ?? 0) > 0 && me.starLocationId) {
+    const onObservatory = (me.board[me.starLocationId] ?? []).filter((c) => c.type === 'ally' && !c.isWicket).length
+    score += Math.min(onObservatory, 3) * 4
+  }
   // Héros dans le royaume ADVERSE : bon pour le bot (ils gênent l'adversaire). On
-  // MODULE leur valeur par la MENACE adverse (sa progression vers la victoire) :
-  // faible quand l'adversaire est loin de son but (le bot a intérêt à développer
-  // SON objectif plutôt qu'à fataliser), pleine quand il est proche (le bot ralentit
-  // l'adversaire). `w.fateThreatFloor` = part minimale gardée même sans menace.
-  const fateScale = w.fateThreatFloor + (1 - w.fateThreatFloor) * oppObj
+  // MODULE leur valeur par la MENACE RÉELLE adverse = progrès objectif − malus déjà
+  // subi (Fatalités durables dans son royaume : Mario, etc.). Si l'adversaire est
+  // déjà bien bloqué (malus élevé), la menace tombe → le bot ne s'acharne plus en
+  // Fatalité et développe SON objectif. `w.fateThreatFloor` = part minimale gardée.
+  const oppThreat = Math.max(0, oppObj - playerMalus(state, oppIdx))
+  const fateScale = w.fateThreatFloor + (1 - w.fateThreatFloor) * oppThreat
   for (const cards of Object.values(opp.board)) {
     for (const c of cards) {
       if (c.type === 'hero') score += ((c.strength ?? 0) * oppHeroPerStr + w.oppHeroFlat) * fateScale
@@ -383,7 +445,6 @@ export function evaluate(state: GameState, idx: number, w: EvalWeights = DEFAULT
   // futur ≈ 0) — sinon la carte qui l'a déclenché paraîtrait « sans effet » (le
   // pion n'étant pas encore déplacé) et la recherche ne la jouerait jamais.
   const ppm = state.pendingPawnMove
-  const oppIdx = (idx + 1) % state.players.length
   const oppSupport =
     ppm && ppm.chooserIndex === idx && ppm.targetIndex === oppIdx ? 0 : pawnSupport(opp)
   score -= oppSupport * w.oppPawnDisrupt
@@ -438,6 +499,31 @@ function bestTurnScore(state: GameState, idx: number, budget: Budget, w: EvalWei
 }
 
 /**
+ * Vrai si fataliser l'adversaire `oppIdx` LUI rendrait service en faisant entrer
+ * en jeu le Héros-clé (cible de son objectif) qu'il doit éliminer/capturer/contrôler
+ * mais qui est encore absent — car cette cible vit dans SA pioche Fatalité. Tant
+ * que c'est vrai, le bot s'abstient de fataliser (cf. mémoire « villainous-fate-malus »).
+ * Piloté par le type d'objectif, donc générique pour tout futur vilain similaire.
+ */
+function fateWouldHelpOpponent(state: GameState, oppIdx: number): boolean {
+  const opp = state.players[oppIdx]
+  const inRealm = (cardId: string) =>
+    Object.values(opp.board).some((cards) => cards.some((c) => c.cardId === cardId))
+  const obj = opp.objective
+  switch (obj.type) {
+    case 'DEFEAT_HERO_AT_LOCATION': // Crochet/Peter Pan ; Méchante Reine/Blanche-Neige
+    case 'DEFEAT_HERO_WITH_ALLY': // Yzma/Kuzco
+      return !inRealm(obj.heroCardId)
+    case 'DEPLETE_OBSERVATORY_AND_CAPTURE': // Bowser/Peach (ni en jeu ni capturée)
+      return !opp.peachCaptured && !inRealm('peach')
+    case 'SUCCESSION_FORCE': // Scar/Mufasa (pas encore dans la pile Succession)
+      return !(opp.succession ?? []).some((c) => c.cardId === obj.firstHeroCardId)
+    default:
+      return false
+  }
+}
+
+/**
  * Choisit le premier coup de la meilleure ligne de jeu sur le reste du tour.
  * On simule chaque coup légal, puis on cherche (beam, borné) la meilleure éval
  * de fin de tour qu'il permet d'atteindre. À éval égale, choix aléatoire parmi
@@ -449,7 +535,41 @@ export function chooseAction(
   w: EvalWeights = DEFAULT_WEIGHTS,
 ): GameAction {
   const idx = state.activePlayer
-  const candidates = enumerateActions(state)
+  let candidates = enumerateActions(state)
+
+  // Anti-victoire : si l'adversaire a DÉJÀ atteint son objectif (il gagnera au
+  // début de son prochain tour), le bot doit le fataliser CE tour-ci si possible.
+  // On restreint alors les coups à : (1) une action Fatalité disponible tout de
+  // suite, sinon (2) un déplacement qui rend une Fatalité possible ce tour. La
+  // recherche de tour choisit ensuite la meilleure option de ce sous-ensemble.
+  const oppIdx = (idx + 1) % state.players.length
+  if (fateWouldHelpOpponent(state, oppIdx)) {
+    // Évitement : fataliser donnerait à l'adversaire son Héros-clé encore absent
+    // (Mufasa/Scar, Peter Pan/Crochet, Peach/Bowser, Blanche-Neige/Méch. Reine,
+    // Kuzco/Yzma) → le bot ne fatalise pas tant que ce Héros n'est pas déjà en jeu.
+    candidates = candidates.filter((a) => a.type !== 'FATE')
+  } else if (hasReachedObjective(state, oppIdx)) {
+    // Anti-victoire : si l'adversaire a DÉJÀ atteint son objectif (il gagnera au
+    // début de son prochain tour), le bot doit le fataliser CE tour-ci si possible.
+    // On restreint alors les coups à : (1) une action Fatalité disponible tout de
+    // suite, sinon (2) un déplacement qui rend une Fatalité possible ce tour. La
+    // recherche de tour choisit ensuite la meilleure option de ce sous-ensemble.
+    const fatesNow = candidates.filter((a) => a.type === 'FATE')
+    if (fatesNow.length > 0) {
+      candidates = fatesNow
+    } else {
+      const movesToFate = candidates.filter((a) => {
+        if (a.type !== 'MOVE') return false
+        try {
+          return enumerateActions(applyAction(state, a)).some((b) => b.type === 'FATE')
+        } catch {
+          return false
+        }
+      })
+      if (movesToFate.length > 0) candidates = movesToFate
+    }
+  }
+
   // Pré-tri par éval immédiate : on approfondit en priorité les coups prometteurs.
   const scored: { action: GameAction; next: GameState | null; imm: number }[] = []
   for (const action of candidates) {

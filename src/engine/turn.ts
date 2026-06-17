@@ -31,6 +31,7 @@ export function pendingOwner(state: GameState): number | null {
   if (state.pendingPawnMove) return state.pendingPawnMove.chooserIndex
   if (state.pendingHubertPull) return state.pendingHubertPull.chooserIndex
   if (state.pendingHeroRelocate) return state.pendingHeroRelocate.chooserIndex
+  if (state.pendingAllyRelocate) return state.pendingAllyRelocate.chooserIndex
   if (state.pendingFateChoice) return state.pendingFateChoice.chooserIndex
   if (state.pendingFateScry) return state.pendingFateScry.chooserIndex
   if (state.pendingYzmaFate) {

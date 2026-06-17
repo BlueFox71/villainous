@@ -334,7 +334,16 @@ export function activatableCards(state: GameState): CardInstance[] {
   for (const loc of me.locations) {
     if (locked.has(loc.id)) continue
     for (const c of me.board[loc.id] ?? []) {
-      if (c.activatedCost !== undefined && c.activatedCost <= me.power) out.push(c)
+      if (c.activatedCost === undefined || c.activatedCost > me.power) continue
+      // Bowser Jr. : sa capacité (chercher Peach et la jouer) n'a de sens que tant
+      // que Peach n'est NI en jeu NI déjà capturée.
+      if (c.cardId === 'bowser-jr') {
+        const peachInPlay = Object.values(me.board)
+          .flat()
+          .some((x) => x.type === 'hero' && x.cardId === 'peach')
+        if (peachInPlay || me.peachCaptured) continue
+      }
+      out.push(c)
     }
   }
   return out
@@ -813,10 +822,12 @@ export function effectiveCost(
   return Math.max(0, base - discount + surcharge)
 }
 
-/** Le joueur actif a-t-il atteint son objectif de victoire ? Dispatch sur le
- *  type d'objectif (POWER_THRESHOLD, CURSE_EACH_LOCATION, …). */
-export function hasReachedObjective(state: GameState): boolean {
-  const p = activePlayer(state)
+/** Le joueur `playerIndex` (défaut : joueur actif) a-t-il atteint son objectif de
+ *  victoire ? Dispatch sur le type d'objectif (POWER_THRESHOLD, CURSE_EACH_LOCATION,
+ *  …). Les objectifs déclenchés « à l'instant » (Coup Royal, Vanquish, Divination)
+ *  renvoient `false` ici : ils n'ont pas de fenêtre « atteint mais en attente ». */
+export function hasReachedObjective(state: GameState, playerIndex: number = state.activePlayer): boolean {
+  const p = state.players[playerIndex]
   switch (p.objective.type) {
     case 'POWER_THRESHOLD':
       return p.power >= p.objective.threshold

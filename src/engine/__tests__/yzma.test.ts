@@ -197,6 +197,36 @@ describe('Yzma — Beauté endormie', () => {
   })
 })
 
+describe('Yzma — En fuite vise Kuzco en priorité', () => {
+  it('renvoie Kuzco (cible de l’objectif) dans les pioches, même si un Héros plus fort est présent', () => {
+    const base = game()
+    const kuzco: CardInstance = { instanceId: 'k#1', cardId: 'kuzco', name: 'Kuzco', type: 'hero', strength: 2 }
+    const strong: CardInstance = { instanceId: 's#1', cardId: 'paysan', name: 'Paysan', type: 'hero', strength: 9 }
+    const s: GameState = {
+      ...base,
+      players: base.players.map((p, i) => (i === 1 ? { ...p, board: { ...p.board, palais: [kuzco, strong] } } : p)),
+    }
+    const after = resolveEffects(s, [{ type: 'YZMA_HERO_REALM_TO_DECKS' }], { actorIndex: 1 })
+    const realm = Object.values(after.players[1].board).flat()
+    expect(realm.some((c) => c.cardId === 'kuzco')).toBe(false) // Kuzco renvoyé dans les pioches
+    expect(realm.some((c) => c.cardId === 'paysan')).toBe(true) // le Héros le plus fort reste
+  })
+
+  it('sans Kuzco présent, renvoie le Héros le plus fort', () => {
+    const base = game()
+    const h1: CardInstance = { instanceId: 'a#1', cardId: 'bucky', name: 'Bucky', type: 'hero', strength: 3 }
+    const h2: CardInstance = { instanceId: 'b#1', cardId: 'paysan', name: 'Paysan', type: 'hero', strength: 7 }
+    const s: GameState = {
+      ...base,
+      players: base.players.map((p, i) => (i === 1 ? { ...p, board: { ...p.board, palais: [h1, h2] } } : p)),
+    }
+    const after = resolveEffects(s, [{ type: 'YZMA_HERO_REALM_TO_DECKS' }], { actorIndex: 1 })
+    const realm = Object.values(after.players[1].board).flat()
+    expect(realm.some((c) => c.instanceId === 'b#1')).toBe(false) // le plus fort renvoyé
+    expect(realm.some((c) => c.instanceId === 'a#1')).toBe(true)
+  })
+})
+
 describe('Yzma — Le chemin qui balance (jouabilité)', () => {
   /** Yzma active, pion à la jungle, avec un Kronk (kronkPower donné) au Palais. */
   function withKronk(kronkPower: number | undefined, includeKronk = true): GameState {
