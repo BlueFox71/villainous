@@ -8,6 +8,9 @@ interface Props {
   title?: string
   /** Sous-titre explicatif. */
   subtitle?: string
+  /** Lieux proposés. Par défaut : les lieux voisins du pion. Fourni explicitement
+   *  pour Suivez-moi ! (Scar) → les lieux portant une Hyène. */
+  locations?: string[]
 }
 
 /**
@@ -20,10 +23,11 @@ export function GiantActionModal({
   onResolve,
   title = 'Colère Titanesque',
   subtitle = 'Choisissez un lieu voisin (bloqué ou non) : vous y effectuerez ensuite une action.',
+  locations,
 }: Props) {
   const order = player.locations.map((l) => l.id)
   const i = order.indexOf(player.pawnLocation ?? '')
-  const neighbors = [order[i - 1], order[i + 1]].filter((id): id is string => !!id)
+  const choices = locations ?? ([order[i - 1], order[i + 1]].filter((id): id is string => !!id))
 
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-4">
@@ -31,7 +35,7 @@ export function GiantActionModal({
         <h2 className="text-xl font-black text-fuchsia-200">{title}</h2>
         <p className="text-center text-sm text-white/70">{subtitle}</p>
         <div className="flex flex-wrap justify-center gap-2">
-          {neighbors.map((id) => {
+          {choices.map((id) => {
             const loc = player.locations.find((l) => l.id === id)
             const blocked = (player.lockedLocations ?? []).includes(id)
             return (

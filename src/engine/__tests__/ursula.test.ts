@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { resolveEffect } from '../effects'
-import { applyAction } from '../actions'
+import { applyAction, placeFateHeroWithEffects } from '../actions'
 import { hasReachedObjective } from '../rules'
 import { enumerateActions } from '../../ai/enumerate'
 import { ursula } from '../../data/villains/ursula'
@@ -217,6 +217,17 @@ describe('Ursula — Divination / Polochon / Opportunisme / Ariel', () => {
     const x: CardInstance = { instanceId: 'x', cardId: 'tourbillon', name: 'T', type: 'effect' }
     const s: GameState = { ...base, players: base.players.map((pp, i) => (i === 0 ? { ...pp, deck: [], discard: [x] } : pp)) }
     const next = resolveEffect(s, { type: 'SHUFFLE_VILLAIN_DISCARD' }, { actorIndex: 0 })
+    expect(next.players[0].discard).toHaveLength(0)
+    expect(next.players[0].deck.some((c) => c.instanceId === 'x')).toBe(true)
+  })
+  it("Polochon est câblé : sa pose (onPlace) mélange bien la défausse Vilain d'Ursula", () => {
+    const base = game()
+    const x: CardInstance = { instanceId: 'x', cardId: 'tourbillon', name: 'T', type: 'effect' }
+    const polochon = buildDeckInstances(ursulaCards, 'fate', 'pol:').find((c) => c.cardId === 'polochon')!
+    expect(polochon.onPlace?.some((e) => e.type === 'SHUFFLE_VILLAIN_DISCARD')).toBe(true)
+    const s: GameState = { ...base, players: base.players.map((pp, i) => (i === 0 ? { ...pp, deck: [], discard: [x] } : pp)) }
+    const dest = base.players[0].locations[0].id
+    const next = placeFateHeroWithEffects(s, 0, 1, polochon, dest, 'Lieu')
     expect(next.players[0].discard).toHaveLength(0)
     expect(next.players[0].deck.some((c) => c.instanceId === 'x')).toBe(true)
   })

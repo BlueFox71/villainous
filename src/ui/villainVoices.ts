@@ -36,6 +36,8 @@ const VOICE_PREFIX: Record<VillainKey, string> = {
   bowser: 'Bowser', // pas (encore) de fichiers de voix → intro silencieuse
   mechanteReine: 'La méchante Reine',
   scar: 'Scar',
+  yzma: 'Yzma',
+  ratigan: 'Ratigan', // pas (encore) de fichiers de voix → intro silencieuse
 }
 
 const CONTRE_PREFIX = 'Contre'
@@ -104,6 +106,64 @@ export function playVillainIntro(myKey: VillainKey, oppKey: VillainKey, onDone?:
   audio.addEventListener('ended', playNext)
   // Filet : si une piste échoue à se charger/jouer, on passe à la suivante au lieu
   // de bloquer la séquence (et donc l'apparition des dés).
+  audio.addEventListener('error', playNext)
+  playNext()
+}
+
+// --- Phrases de fermeture d'intro -------------------------------------------
+// Quand les portraits quittent l'écran (fin de l'intro), un vilain peut « lâcher »
+// une phrase. Fichiers .mp3 à la RACINE de `assets/` (ex. « Scar phrase.mp3 »).
+const PHRASE_FILES = import.meta.glob('/assets/*phrase*.mp3', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+}) as Record<string, string>
+const PHRASE_BY_NAME: Record<string, string> = {}
+for (const [path, url] of Object.entries(PHRASE_FILES)) {
+  const file = path.slice(path.lastIndexOf('/') + 1).replace(/\.mp3$/i, '')
+  PHRASE_BY_NAME[file.toLowerCase().normalize('NFC')] = url
+}
+// Nom de fichier (sans extension) par vilain + gain relatif optionnel (1 = plein
+// volume ; <1 pour atténuer une phrase trop forte). Seuls quelques vilains en ont.
+const PHRASE_FILE: Partial<Record<VillainKey, { file: string; gain?: number }>> = {
+  scar: { file: 'Scar phrase' },
+  maleficent: { file: 'Maléfique phrase', gain: 0.7 },
+}
+function phraseTrack(key: VillainKey): { url: string; gain: number } | undefined {
+  const entry = PHRASE_FILE[key]
+  if (!entry) return undefined
+  const url = PHRASE_BY_NAME[entry.file.toLowerCase().normalize('NFC')]
+  return url ? { url, gain: entry.gain ?? 1 } : undefined
+}
+
+/**
+ * Joue, à la fermeture de l'intro, la phrase de l'ADVERSAIRE (`oppKey`) puis celle
+ * de NOTRE vilain (`myKey`), enchaînées. `onDone` est appelé à la fin — ou tout de
+ * suite si rien n'est joué (son coupé, aucune phrase) — pour enchaîner la fermeture.
+ */
+export function playClosingPhrases(myKey: VillainKey, oppKey: VillainKey, onDone?: () => void) {
+  if (typeof Audio === 'undefined') { onDone?.(); return }
+  const { sfxVolume } = useSettingsStore.getState()
+  if (sfxVolume <= 0) { onDone?.(); return }
+  const volume = Math.min(1, sfxVolume * 2)
+  // D'abord l'adversaire, puis notre personnage.
+  const seq = [phraseTrack(oppKey), phraseTrack(myKey)].filter(
+    (t): t is { url: string; gain: number } => !!t,
+  )
+  if (seq.length === 0) { onDone?.(); return }
+  if (current) { current.pause(); current = null }
+  const audio = new Audio()
+  current = audio
+  let i = 0
+  const playNext = () => {
+    if (audio !== current) return
+    if (i >= seq.length) { current = null; onDone?.(); return }
+    const track = seq[i++]
+    audio.volume = Math.min(1, volume * track.gain)
+    audio.src = track.url
+    void audio.play().catch(() => {})
+  }
+  audio.addEventListener('ended', playNext)
   audio.addEventListener('error', playNext)
   playNext()
 }

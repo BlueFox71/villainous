@@ -7,8 +7,6 @@
 // dédiées (Hyènes, pile Succession) implémentées progressivement — elles restent
 // « texte seul » en attendant.
 //
-// NOTE : l'image de « Nala » est absente du dossier source ; on utilise un dos de
-// carte en attendant l'illustration réelle (et son texte exact reste à confirmer).
 // =============================================================================
 
 import type { CardDef } from '../types'
@@ -31,6 +29,7 @@ export const scarCards: CardDef[] = [
     text: 'La force de la Hyène affamée augmente de 1 pour chaque autre Hyène sur le même lieu qu’elle.',
     image: img('hyene-affamee.png'),
     isHyena: true,
+    selfStrengthMods: [{ kind: 'per-other-hyena-here', delta: 1 }],
   },
   {
     id: 'troupeau-gnous',
@@ -43,6 +42,7 @@ export const scarCards: CardDef[] = [
     copies: 2,
     text: 'S’il y a un Héros sur le lieu où vous jouez Troupeau de gnous, déplacez-le vers un lieu voisin. Puis vous pouvez effectuer une action Éliminer un Héros sur ce nouveau lieu.',
     image: img('troupeau-gnous.png'),
+    effects: [{ type: 'GNOUS_MOVE' }],
   },
   {
     id: 'banzai',
@@ -82,6 +82,7 @@ export const scarCards: CardDef[] = [
     text: 'Vous pouvez jouer une Hyène gratuitement de votre main.',
     image: img('shenzi.png'),
     isHyena: true,
+    effects: [{ type: 'PLAY_FREE_HYENA' }],
   },
 
   // ----------------------------------------------------------------------
@@ -97,6 +98,7 @@ export const scarCards: CardDef[] = [
     copies: 4,
     text: 'Dévoilez les 4 premières cartes Fatalité de votre pioche. Vous pouvez jouer un Héros. Défaussez les autres cartes dévoilées.',
     image: img('longue-vie-roi.png'),
+    effects: [{ type: 'REVEAL_FATE_PLAY_HERO', count: 4 }],
   },
   {
     id: 'petit-secret',
@@ -108,6 +110,7 @@ export const scarCards: CardDef[] = [
     copies: 3,
     text: 'Choisissez une carte Fatalité dans la défausse et jouez-la.',
     image: img('petit-secret.png'),
+    effects: [{ type: 'PLAY_FATE_HERO_FROM_DISCARD' }],
   },
   {
     id: 'soyez-pretes',
@@ -119,6 +122,7 @@ export const scarCards: CardDef[] = [
     copies: 3,
     text: 'Défaussez les 3 premières cartes de votre pioche. Vous pouvez choisir 1 Événement ou jusqu’à 2 Alliés de votre défausse et les ajouter à votre main.',
     image: img('soyez-pretes.png'),
+    effects: [{ type: 'BE_PREPARED' }],
   },
   {
     id: 'suivez-moi',
@@ -130,6 +134,7 @@ export const scarCards: CardDef[] = [
     copies: 3,
     text: 'Choisissez une Hyène qui ne se trouve pas sur votre lieu. Effectuez 1 action disponible de ce lieu, en dehors d’une action Fatalité.',
     image: img('suivez-moi.png'),
+    effects: [{ type: 'FOLLOW_ME' }],
   },
   {
     id: 'festin',
@@ -141,6 +146,8 @@ export const scarCards: CardDef[] = [
     copies: 2,
     text: 'Choisissez un lieu et déplacez-y autant de Hyènes de votre royaume que vous le désirez.',
     image: img('festin.png'),
+    requiresHyenaInRealm: true,
+    effects: [{ type: 'GATHER_HYENAS' }],
   },
 
   // ----------------------------------------------------------------------
@@ -156,6 +163,8 @@ export const scarCards: CardDef[] = [
     copies: 2,
     text: 'Jouable pendant le tour d’un adversaire s’il vous cible avec une action Fatalité. Avant qu’il ne fasse son action, regardez les deux premières cartes Fatalité de votre pioche, puis défaussez ou replacez chacune d’elles.',
     image: img('vie-pas-juste.png'),
+    trigger: { type: 'opponent-fate-targeted-me' },
+    effects: [{ type: 'SCRY_OWN_FATE_TOP2' }],
   },
   {
     id: 'orgueil',
@@ -167,6 +176,8 @@ export const scarCards: CardDef[] = [
     copies: 2,
     text: 'Jouable pendant le tour d’un adversaire s’il défausse au moins deux cartes. Gagnez 3 jetons Pouvoir.',
     image: img('orgueil.png'),
+    trigger: { type: 'opponent-discarded-ge', value: 2 },
+    effects: [{ type: 'GAIN_POWER', amount: 3 }],
   },
 
   // ----------------------------------------------------------------------
@@ -181,6 +192,7 @@ export const scarCards: CardDef[] = [
     copies: 3,
     text: 'Choisissez un Héros de force 3 ou moins dans la pile Succession et jouez-le, ou déplacez un Héros vers un lieu de votre choix.',
     image: img('hakuna-matata.png'),
+    effects: [{ type: 'HAKUNA_MATATA' }],
   },
 
   // ----------------------------------------------------------------------
@@ -230,11 +242,11 @@ export const scarCards: CardDef[] = [
     englishName: 'Nala',
     deck: 'fate',
     type: 'hero',
-    strength: 4,
+    strength: 3,
     copies: 1,
-    // TODO : illustration et texte exact à confirmer (carte absente du dossier).
-    text: 'Vous pouvez déplacer un Héros vers le lieu de Nala.',
+    text: 'Vous pouvez déplacer un Héros vers n’importe quel lieu.',
     image: img('nala.png'),
+    onPlace: [{ type: 'FATE_MOVE_HERO_TO_SAFEST' }],
   },
   {
     id: 'rafiki',
@@ -258,6 +270,7 @@ export const scarCards: CardDef[] = [
     copies: 1,
     text: 'Vous pouvez défausser une Hyène sur le lieu où vous jouez Sarabi.',
     image: img('sarabi.png'),
+    onPlace: [{ type: 'DISCARD_HYENA_AT_HOST' }],
   },
   {
     id: 'pumbaa',

@@ -1,0 +1,334 @@
+// =============================================================================
+// Yzma (Kuzco, l'empereur mégalo) — cartes (deck Méchant de 30 + deck Fatalité de 16).
+//
+// Source : images FR du dossier assets/decks/Yzma/ (texte recopié fidèlement).
+// Le TEXTE est la source de vérité ; les `effects` (traduction machine) sont
+// ajoutés au fil de l'eau (cf. phases). Beaucoup de cartes manipulent les QUATRE
+// pioches Fatalité d'Yzma — mécanique dédiée implémentée progressivement.
+// =============================================================================
+
+import type { CardDef } from '../types'
+
+const img = (f: string) => `/cards/yzma/${f}`
+
+export const yzmaCards: CardDef[] = [
+  // ----------------------------------------------------------------------
+  // DECK MÉCHANT — Alliés
+  // ----------------------------------------------------------------------
+  {
+    id: 'gardes-imperiaux',
+    name: 'Gardes impériaux',
+    englishName: 'Imperial Guards',
+    deck: 'villain',
+    type: 'ally',
+    cost: 2,
+    strength: 3,
+    copies: 3,
+    text: 'Aucune capacité.',
+    image: img('gardes-imperiaux.png'),
+  },
+  {
+    id: 'kronk',
+    name: 'Kronk',
+    englishName: 'Kronk',
+    deck: 'villain',
+    type: 'ally',
+    cost: 3,
+    strength: 6,
+    copies: 1,
+    text: "Kronk n'est pas défaussé lorsqu'il est utilisé pour éliminer un Héros. À chaque fois que Kronk est déplacé, placez 1 jeton Pouvoir de la réserve sur lui. Dès qu'il en a 3 ou plus, il passe au-dessus de votre plateau et devient un Héros.",
+    image: img('kronk.png'),
+  },
+
+  // ----------------------------------------------------------------------
+  // DECK MÉCHANT — Objet
+  // ----------------------------------------------------------------------
+  {
+    id: 'couteau',
+    name: 'Couteau',
+    englishName: 'Knife',
+    deck: 'villain',
+    type: 'item',
+    attach: 'ally',
+    attachStrengthBonus: 1,
+    cost: 1,
+    copies: 1,
+    text: "Associez cette carte à un Allié, sa force augmente de 1. Lorsque cet Allié est défaussé, le Couteau retourne dans votre main.",
+    image: img('couteau.png'),
+  },
+
+  // ----------------------------------------------------------------------
+  // DECK MÉCHANT — Événements
+  // ----------------------------------------------------------------------
+  {
+    id: 'a-l-attaque',
+    name: 'À l’attaque !',
+    englishName: 'Attack!',
+    deck: 'villain',
+    type: 'effect',
+    cost: 1,
+    copies: 3,
+    text: "Choisissez l'une de vos pioches de cartes Fatalité et dévoilez-en toutes les cartes. Jouez tous les Héros dévoilés sur ce lieu, puis remélangez les autres cartes et replacez la pioche.",
+    image: img('a-l-attaque.png'),
+    effects: [{ type: 'YZMA_OWN_DECK_ACTION', mode: 'attack' }],
+  },
+  {
+    id: 'indiscretion',
+    name: 'Indiscrétion',
+    englishName: 'Snooping',
+    deck: 'villain',
+    type: 'effect',
+    cost: 2,
+    copies: 3,
+    text: "Choisissez l'une de vos pioches de cartes Fatalité et regardez-en toutes les cartes. Puis remélangez-les et replacez la pioche.",
+    image: img('indiscretion.png'),
+    effects: [{ type: 'YZMA_OWN_DECK_ACTION', mode: 'snoop' }],
+  },
+  {
+    id: 'marteau',
+    name: 'Je l’écraserai avec un marteau',
+    englishName: 'Crush Him With a Hammer',
+    deck: 'villain',
+    type: 'effect',
+    cost: 1,
+    copies: 3,
+    text: "Choisissez l'une de vos pioches de cartes Fatalité. Dévoilez-en 2 cartes au hasard et défaussez-les.",
+    image: img('marteau.png'),
+    effects: [{ type: 'YZMA_OWN_DECK_ACTION', mode: 'hammer' }],
+  },
+  {
+    id: 'beaute-endormie',
+    name: 'Beauté endormie',
+    englishName: 'Sleeping Beauty',
+    deck: 'villain',
+    type: 'effect',
+    cost: 1,
+    copies: 2,
+    text: "Cette carte n'est jouable que comme première et seule action de votre tour. Au prochain tour, avant de déplacer votre figurine, vous pouvez gagner 2 jetons Pouvoir, piocher 2 cartes et déplacer un Héros sur un lieu voisin.",
+    image: img('beaute-endormie.png'),
+    effects: [{ type: 'BEAUTY_SLEEP' }],
+  },
+  {
+    id: 'bras-droit',
+    name: 'Bras droit',
+    englishName: 'Right-Hand Man',
+    deck: 'villain',
+    type: 'effect',
+    cost: 2,
+    copies: 2,
+    text: "Trouvez Kronk et ajoutez-le à votre main. S'il se trouve dans le royaume, défaussez tous les jetons Pouvoir posés sur lui et ajoutez à votre main tous les Objets qui lui sont associés.",
+    image: img('bras-droit.png'),
+    effects: [{ type: 'FIND_KRONK' }],
+  },
+  {
+    id: 'fausses-funerailles',
+    name: 'Fausses funérailles',
+    englishName: 'Fake Funeral',
+    deck: 'villain',
+    type: 'effect',
+    cost: 0,
+    copies: 2,
+    text: 'Gagnez 1 jeton Pouvoir par Héros dans la défausse de cartes Fatalité (max. 5 jetons).',
+    image: img('fausses-funerailles.png'),
+    effects: [{ type: 'GAIN_POWER_PER_FATE_DISCARD_HERO', max: 5 }],
+  },
+  {
+    id: 'finis-le-travail',
+    name: 'Finis le travail',
+    englishName: 'Finish the Job',
+    deck: 'villain',
+    type: 'effect',
+    cost: 1,
+    copies: 2,
+    text: "Déplacez un Allié vers n'importe quel lieu où se trouve au moins un Héros.",
+    image: img('finis-le-travail.png'),
+    effects: [{ type: 'FINISH_THE_JOB' }],
+  },
+  {
+    id: 'ironie-du-sort',
+    name: 'Ironie du sort',
+    englishName: 'Poetic Justice',
+    deck: 'villain',
+    type: 'effect',
+    cost: 1,
+    copies: 2,
+    text: "Si vous vous trouvez sur le même lieu qu'au moins un Allié, choisissez un Événement de votre défausse, payez son coût et jouez-le.",
+    image: img('ironie-du-sort.png'),
+    effects: [{ type: 'POETIC_JUSTICE' }],
+  },
+  {
+    id: 'chemin-qui-balance',
+    name: 'Le chemin qui balance',
+    englishName: 'The Bumpy Trail',
+    deck: 'villain',
+    type: 'effect',
+    cost: 0,
+    copies: 2,
+    text: 'Défaussez tous les jetons Pouvoir placés sur Kronk et gagnez-en autant.',
+    image: img('chemin-qui-balance.png'),
+    effects: [{ type: 'KRONK_DISCARD_TOKENS' }],
+  },
+
+  // ----------------------------------------------------------------------
+  // DECK MÉCHANT — Conditions
+  // ----------------------------------------------------------------------
+  {
+    id: 'ferocite',
+    name: 'Férocité',
+    englishName: 'Ferocity',
+    deck: 'villain',
+    type: 'condition',
+    cost: 0,
+    copies: 2,
+    text: "Jouable pendant le tour d'un adversaire s'il élimine un Héros de force 3 ou moins. Éliminez un Héros de force 3 ou moins.",
+    image: img('ferocite.png'),
+    trigger: { type: 'opponent-vanquished-hero-strength-le', value: 3 },
+  },
+  {
+    id: 'superiorite',
+    name: 'Supériorité',
+    englishName: 'Superiority',
+    deck: 'villain',
+    type: 'condition',
+    cost: 0,
+    copies: 2,
+    text: "Jouable pendant le tour d'un adversaire s'il vous cible avec une action Fatalité. Choisissez à sa place la pioche de cartes Fatalité avec laquelle il doit jouer.",
+    image: img('superiorite.png'),
+    trigger: { type: 'opponent-fate-targeted-me' },
+  },
+
+  // ----------------------------------------------------------------------
+  // DECK FATALITÉ — Événements
+  // ----------------------------------------------------------------------
+  {
+    id: 'attention-au-groove',
+    name: 'Attention au groove !',
+    englishName: 'Beware the Groove!',
+    deck: 'fate',
+    type: 'effect',
+    copies: 3,
+    text: "Choisissez un Héros dans la défausse. Mélangez-le avec 1 ou 2 pioches de cartes Fatalité d'Yzma, puis reformez le même nombre de pioches les plus égales possibles.",
+    image: img('attention-au-groove.png'),
+    effects: [{ type: 'YZMA_HERO_DISCARD_TO_DECKS', count: 2 }],
+  },
+  {
+    id: 'chemin-de-la-droiture',
+    name: 'Chemin de la droiture',
+    englishName: 'The Straight and Narrow',
+    deck: 'fate',
+    type: 'effect',
+    copies: 2,
+    text: 'Si Kuzco est dans le royaume, placez 2 jetons Pouvoir sur Kronk. Sinon, placez-en 1 seul.',
+    image: img('chemin-de-la-droiture.png'),
+    effects: [{ type: 'KRONK_ADD_TOKENS_IF_KUZCO' }],
+  },
+  {
+    id: 'mauvais-levier',
+    name: 'Mauvais levier',
+    englishName: 'Wrong Lever',
+    deck: 'fate',
+    type: 'effect',
+    copies: 2,
+    text: "Si cette carte est dévoilée, jouez-la immédiatement. Yzma perd la moitié de ses jetons Pouvoir, arrondie au supérieur.",
+    image: img('mauvais-levier.png'),
+    effects: [{ type: 'LOSE_HALF_POWER' }],
+  },
+  {
+    id: 'en-fuite',
+    name: 'En fuite',
+    englishName: 'On the Run',
+    deck: 'fate',
+    type: 'effect',
+    copies: 1,
+    text: "Choisissez un Héros du royaume. Mélangez-le avec toutes les pioches de cartes Fatalité d'Yzma, puis reformez quatre pioches les plus égales possibles.",
+    image: img('en-fuite.png'),
+    effects: [{ type: 'YZMA_HERO_REALM_TO_DECKS' }],
+  },
+
+  // ----------------------------------------------------------------------
+  // DECK FATALITÉ — Héros
+  // ----------------------------------------------------------------------
+  {
+    id: 'paysan',
+    name: 'Paysan',
+    englishName: 'Peasant',
+    deck: 'fate',
+    type: 'hero',
+    strength: 2,
+    copies: 2,
+    text: "Vous pouvez choisir un Héros dans la défausse et le mélanger dans l'une des pioches de cartes Fatalité.",
+    image: img('paysan.png'),
+    onPlace: [{ type: 'YZMA_HERO_DISCARD_TO_DECKS', count: 1, optional: true }],
+  },
+  {
+    id: 'bucky',
+    name: 'Bucky',
+    englishName: 'Bucky',
+    deck: 'fate',
+    type: 'hero',
+    strength: 2,
+    copies: 1,
+    text: "Kronk ne peut pas être utilisé pour éliminer Bucky.",
+    image: img('bucky.png'),
+  },
+  {
+    id: 'chaca',
+    name: 'Chaca',
+    englishName: 'Chaca',
+    deck: 'fate',
+    type: 'hero',
+    strength: 3,
+    copies: 1,
+    text: "Tant que Tipo ou Chaca sont présents dans le royaume, Yzma ne peut pas éliminer d'autres Héros.",
+    image: img('chaca.png'),
+  },
+  {
+    id: 'chicha',
+    name: 'Chicha',
+    englishName: 'Chicha',
+    deck: 'fate',
+    type: 'hero',
+    strength: 4,
+    copies: 1,
+    text: 'Yzma perd jusqu’à 2 jetons Pouvoir si elle se déplace sur le lieu où se trouve Chicha.',
+    image: img('chicha.png'),
+  },
+  {
+    id: 'kuzco',
+    name: 'Kuzco',
+    englishName: 'Kuzco',
+    deck: 'fate',
+    type: 'hero',
+    strength: 7,
+    copies: 1,
+    text: 'Si Kuzco est défaussé, mélangez-le avec toutes les pioches de cartes Fatalité, puis reformez 4 pioches les plus égales possibles.',
+    image: img('kuzco.png'),
+  },
+  {
+    id: 'pacha',
+    name: 'Pacha',
+    englishName: 'Pacha',
+    deck: 'fate',
+    type: 'hero',
+    strength: 4,
+    copies: 1,
+    text: 'Vous pouvez mélanger 2 pioches de cartes Fatalité ensemble, puis reformer 2 pioches les plus égales possibles.',
+    image: img('pacha.png'),
+    onPlace: [{ type: 'YZMA_RESHUFFLE_DECKS', count: 2, optional: true }],
+  },
+  {
+    id: 'tipo',
+    name: 'Tipo',
+    englishName: 'Tipo',
+    deck: 'fate',
+    type: 'hero',
+    strength: 3,
+    copies: 1,
+    text: "Tant que Tipo ou Chaca sont présents dans le royaume, Yzma ne peut pas éliminer d'autres Héros.",
+    image: img('tipo.png'),
+  },
+]
+
+export const yzmaCardById: Record<string, CardDef> = Object.fromEntries(
+  yzmaCards.map((c) => [c.id, c]),
+)

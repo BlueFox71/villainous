@@ -45,6 +45,9 @@ export function isSupportedType(type: LocationActionType): boolean {
  */
 export function getLegalMoves(state: GameState): LocationId[] {
   if (state.status !== 'PLAYING' || state.phase !== 'MOVE') return []
+  // Yzma — Beauté endormie : tant que le réveil n'est pas résolu, le déplacement
+  // est bloqué (« avant de vous déplacer… »).
+  if (state.pendingBeautySleep) return []
   const p = activePlayer(state)
   const locked = new Set(p.lockedLocations ?? [])
   return p.locations
@@ -182,6 +185,8 @@ export function locationActions(state: GameState, locationId: LocationId): Locat
  */
 export function getAvailableActions(state: GameState): LocationAction[] {
   if (state.status !== 'PLAYING' || state.phase !== 'ACTION') return []
+  // Yzma — Beauté endormie : verrou « seule action » → plus aucune action ce tour.
+  if (activePlayer(state).soleActionLock) return []
   const loc = currentLocation(state)
   if (!loc) return []
   // La Méchante Reine — Noir de nuit : tant que le drapeau est armé, une action
@@ -437,6 +442,10 @@ export function effectiveStrength(
         const otherHeroesHere = cell.some((c) => c.type === 'hero' && c.instanceId !== card.instanceId)
         return sum + (otherHeroesHere ? 0 : m.delta)
       }
+      case 'per-other-hyena-here': {
+        const others = cell.filter((c) => c.isHyena && c.instanceId !== card.instanceId).length
+        return sum + m.delta * others
+      }
     }
   }, 0)
 
@@ -463,7 +472,12 @@ export function effectiveStrength(
     ).length * 2
     //  - Monsieur Mouche : +2 sur le Jolly Roger.
     const moucheBonus = card.cardId === 'monsieur-mouche' && loc === 'jolly-roger' ? 2 : 0
-    return Math.max(0, card.strength + attachedStrengthBonus + selfMod + allyAura + sabreBonus + moucheBonus + tempBonus)
+    const allyTotal = card.strength + attachedStrengthBonus + selfMod + allyAura + sabreBonus + moucheBonus + tempBonus
+    // Scar — Simba : tant qu'il est en jeu, la force des Hyènes ne peut dépasser 2.
+    const simbaCaps =
+      card.isHyena &&
+      Object.values(p.board).flat().some((c) => c.type === 'hero' && c.cardId === 'simba')
+    return Math.max(0, simbaCaps ? Math.min(2, allyTotal) : allyTotal)
   }
   if (card.type === 'hero') {
     // Aura des cartes du lieu sur les Héros (Sommeil sans Rêves -2 ; Sablier Géant
@@ -508,9 +522,15 @@ export function effectiveStrength(
       card.cardId === 'michel'
         ? p.locations.filter((l) => (p.board[l.id] ?? []).some((c) => c.type === 'hero')).length
         : 0
+    // Scar — Zazu : -2 aux AUTRES Héros sur SON lieu ; +1 aux Héros des autres lieux.
+    let zazuBonus = 0
+    if (card.cardId !== 'zazu') {
+      const zazuLoc = p.locations.find((l) => (p.board[l.id] ?? []).some((c) => c.cardId === 'zazu'))?.id
+      if (zazuLoc) zazuBonus = zazuLoc === loc ? -2 : 1
+    }
     return Math.max(
       0,
-      card.strength + attachedStrengthBonus + selfMod + heroAura + realmHeroAura + pixieBonus + wendyBonus + jeanBonus + michelBonus + tempBonus,
+      card.strength + attachedStrengthBonus + selfMod + heroAura + realmHeroAura + pixieBonus + wendyBonus + jeanBonus + michelBonus + zazuBonus + tempBonus,
     )
   }
   return card.strength
@@ -584,6 +604,8 @@ export function canPlaceCurseAt(
 
 /** Le joueur actif peut-il lancer une Fatalité (la cible a-t-elle des cartes) ? */
 export function canFate(state: GameState): boolean {
+  // Yzma — Beauté endormie : verrou « seule action » → Fatalité indisponible.
+  if (activePlayer(state).soleActionLock) return false
   const t = state.players[fateTarget(state)]
   return t.fateDeck.length + t.fateDiscard.length > 0
 }
@@ -692,6 +714,10 @@ export function conditionIsTriggered(
     }
     case 'opponent-vanquished-hero-strength-ge':
       return (state.lastVanquishedHeroStrength ?? 0) >= card.trigger.value
+    case 'opponent-vanquished-hero-strength-le': {
+      const v = state.lastVanquishedHeroStrength
+      return v !== undefined && v <= card.trigger.value
+    }
     case 'opponent-moved-card':
       return !!state.activeMovedCard
     case 'opponent-drew-card':
@@ -702,6 +728,8 @@ export function conditionIsTriggered(
       return (state.activeGainedPower ?? 0) >= card.trigger.value
     case 'opponent-played-cards-ge':
       return (state.activePlayedCount ?? 0) >= card.trigger.value
+    case 'opponent-fate-targeted-me':
+      return (state.activeFateTargets ?? []).includes(playerIndex)
   }
 }
 
@@ -754,11 +782,34 @@ export function effectiveCost(
     const destCell = me.board[destination] ?? []
     discount += destCell.filter((c) => c.cardId === 'panique').length
   }
+  // Scar — Ed : jouer une Hyène sur le lieu d'Ed coûte 1 de moins (par Ed présent).
+  if (card.isHyena && destination) {
+    const destCell = me.board[destination] ?? []
+    discount += destCell.filter((c) => c.cardId === 'ed').length
+  }
   // Dr Facilier — Tiana (Fatalité) : toutes les cartes de Facilier coûtent 1 de
   // plus par Tiana présente dans son royaume.
   surcharge += Object.values(me.board).flat().filter(
     (c) => c.type === 'hero' && c.cardId === 'tiana',
   ).length
+  // Ratigan — Outils : jouer un Objet coûte 1 de moins par Outils dans le royaume.
+  if (card.type === 'item') {
+    discount += Object.values(me.board)
+      .flat()
+      .filter((c) => c.cardId === 'outils' && !c.attachedTo).length
+  }
+  // Ratigan — Flaversham (Fatalité) sur le Repaire secret : la Reine Robot coûte
+  // 3 de moins.
+  if (card.cardId === 'reine-robot') {
+    const repaire = me.board['repaire-secret'] ?? []
+    if (repaire.some((c) => c.type === 'hero' && c.cardId === 'flaversham')) discount += 3
+  }
+  // Ratigan — Félicia : si aucun Héros n'est présent sur le lieu de destination
+  // (impossible d'en défausser un), elle coûte 2 jetons Pouvoir de plus.
+  if (card.cardId === 'felicia' && destination) {
+    const destCell = me.board[destination] ?? []
+    if (!destCell.some((c) => c.type === 'hero' && !c.hypnotized)) surcharge += 2
+  }
   return Math.max(0, base - discount + surcharge)
 }
 
@@ -844,6 +895,27 @@ export function hasReachedObjective(state: GameState): boolean {
       if (!pile.some((c) => c.cardId === obj.firstHeroCardId)) return false
       const force = pile.reduce((n, c) => n + (c.strength ?? 0), 0)
       return force >= obj.minForce
+    }
+    case 'DEFEAT_HERO_WITH_ALLY':
+      // Yzma : drapeau posé au moment où Kronk élimine Kuzco (performVanquish).
+      return !!p.objectiveHeroDefeated
+    case 'RATIGAN_DUAL': {
+      const obj = p.objective
+      // La Reine Moustoria à Buckingham Palace empêche la victoire, quel que soit
+      // le côté de la tuile Objectif.
+      const blocked = (p.board[obj.locationId] ?? []).some(
+        (c) => c.type === 'hero' && c.cardId === obj.blockerHeroCardId,
+      )
+      if (blocked) return false
+      if (p.becameTheRat) {
+        // Côté « Le Rat » : éliminer Basil (drapeau posé au Vanquish).
+        return !!p.objectiveHeroDefeated
+      }
+      // Côté « L'Esprit Supérieur » : la Reine Robot (non associée) doit être à
+      // Buckingham Palace au début du tour.
+      return (p.board[obj.locationId] ?? []).some(
+        (c) => c.cardId === obj.itemCardId && !c.attachedTo,
+      )
     }
   }
 }

@@ -26,6 +26,11 @@ interface HeroRowProps {
   /** instanceIds des Héros à faire clignoter en rouge (Robin des Bois quand sa
    *  pénalité prend effet). Flash one-shot. */
   redBlinkInstanceIds?: string[]
+  /** Yzma — ids de lieux dont la pioche Fatalité est cliquable (choix de pioche en
+   *  attente : À l'attaque !, Marteau, Indiscrétion, Fatalité…). */
+  fatePickable?: string[]
+  /** Handler de clic sur une pioche Fatalité choisie (locationId). */
+  onFatePick?: (locationId: string) => void
   offset?: boolean
 }
 
@@ -38,6 +43,8 @@ export function HeroRow({
   onDiscardDeguisement,
   hiddenInstanceIds = [],
   redBlinkInstanceIds = [],
+  fatePickable = [],
+  onFatePick,
   offset = true,
 }: HeroRowProps) {
   const [hovered, setHovered] = useState<string | null>(null)
@@ -73,6 +80,45 @@ export function HeroRow({
           >
             {/* Indicateur : contour blanc sur toute case héros contenant ≥1 Héros. */}
             {heroes.length > 0 && <GlowBorder color="#ffffff" radius={8} />}
+            {/* Yzma — pioche Fatalité de CE lieu (face cachée), posée AU-DESSUS de la
+                zone de Fatalité. Positionnée en absolu (bottom-full) : elle ne prend
+                pas de place dans le flux et ne décale donc PAS les autres éléments.
+                Une pile par lieu (4 au total) ; vide = emplacement pointillé. Quand un
+                choix de pioche est en attente, la pile (non vide) devient cliquable. */}
+            {player.fateDecks !== undefined && (() => {
+              const n = (player.fateDecks[loc.id] ?? []).length
+              const pickable = fatePickable.includes(loc.id)
+              return (
+                <button
+                  type="button"
+                  disabled={!pickable}
+                  onClick={pickable ? () => onFatePick?.(loc.id) : undefined}
+                  className={`absolute bottom-full left-1/2 z-20 mb-1 -translate-x-1/2 ${pickable ? 'cursor-pointer animate-pulse' : 'cursor-default'}`}
+                  title={
+                    pickable
+                      ? `Choisir cette pioche Fatalité (${loc.name}, ${n} carte${n > 1 ? 's' : ''})`
+                      : `Pioche Fatalité — ${loc.name} : ${n} carte${n > 1 ? 's' : ''}`
+                  }
+                >
+                  {n > 0 ? (
+                    <img
+                      src={player.backFateImage}
+                      alt="Pioche Fatalité"
+                      className={`w-16 rounded border shadow ${
+                        pickable
+                          ? 'border-amber-300 ring-2 ring-amber-300'
+                          : 'border-amber-300/70'
+                      }`}
+                    />
+                  ) : (
+                    <div className="aspect-[5/7] w-16 rounded border border-dashed border-amber-300/40 bg-white/5" />
+                  )}
+                  <span className="absolute -bottom-1 -right-1 rounded-full bg-black/85 px-1 text-[8px] font-mono text-white">
+                    {n}
+                  </span>
+                </button>
+              )
+            })()}
             {heroes.map((c) => {
               const def = getCardDef(c.cardId)
               const isHovered = hovered === c.instanceId
@@ -149,13 +195,25 @@ export function HeroRow({
                         🔒{locked}
                       </span>
                     )}
+                    {/* Yzma — Kronk devenu Héros : jetons Pouvoir accumulés (≥3). */}
+                    {(c.kronkPower ?? 0) > 0 && (
+                      <span
+                        title={`${c.kronkPower} jeton${(c.kronkPower ?? 0) > 1 ? 's' : ''} Pouvoir sur Kronk`}
+                        className="absolute -bottom-1 -right-1 flex items-center gap-0.5 rounded-full border border-white/40 bg-purple-900/90 px-1 text-[10px] font-black text-amber-100"
+                      >
+                        <img src="/jeton_pouvoir.png" alt="" className="h-3.5 w-3.5 object-contain" />
+                        {c.kronkPower}
+                      </span>
+                    )}
                     {attached.map((a, i) => (
                       <img
                         key={a.instanceId}
                         src={getCardDef(a.cardId)?.image}
                         alt={a.name}
                         title={`associé : ${a.name}`}
-                        className="absolute w-8 rounded border-2 border-fuchsia-400 shadow-md"
+                        // pointer-events-none : la vignette de l'Objet associé ne doit
+                        // pas intercepter les clics destinés au Héros porteur.
+                        className="pointer-events-none absolute w-8 rounded border-2 border-fuchsia-400 shadow-md"
                         style={{ right: -4 - i * 5, bottom: -2, zIndex: 5 + i }}
                       />
                     ))}

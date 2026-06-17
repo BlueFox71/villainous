@@ -28,6 +28,7 @@ import {
   hasHeroInRealm,
   heroPlacementLocations,
   heroesOf,
+  locationOfCard,
   maxBrewPoison,
   movableCards,
   placementLocations,
@@ -92,9 +93,31 @@ export function enumerateActions(state: GameState): GameAction[] {
     return out // `guards` est non vide (pending posé seulement s'il y a des Gardes)
   }
 
-  // Colère Titanesque : choisir un lieu voisin où agir (puis on agit normalement).
+  // Yzma — Beauté endormie (réveil) : choix indépendants (gagner 2 JT, piocher 2,
+  // déplacer un Héros voisin). Gagner du Pouvoir et piocher est presque toujours bon
+  // pour le bot : on propose donc systématiquement les deux, avec ou sans
+  // déplacement de Héros (un coup par Héros du royaume × lieu voisin atteignable).
+  if (state.pendingBeautySleep) {
+    const out: GameAction[] = [{ type: 'RESOLVE_BEAUTY_SLEEP', gainPower: true, draw: true, heroMove: null }]
+    for (const h of heroesOf(state, state.activePlayer)) {
+      const from = locationOfCard(me, h.instanceId)
+      if (!from) continue
+      for (const to of adjacentLocationIds(state, from)) {
+        out.push({ type: 'RESOLVE_BEAUTY_SLEEP', gainPower: true, draw: true, heroMove: { heroInstanceId: h.instanceId, to } })
+      }
+    }
+    return out
+  }
+
+  // Colère Titanesque / Canne / Suivez-moi ! : choisir un lieu où agir (puis on agit
+  // normalement). Suivez-moi ! (viaFollowMe) propose les lieux à Hyène listés ; les
+  // autres modes proposent les lieux voisins.
   if (state.pendingGiantAction) {
-    const p = state.players[state.pendingGiantAction.playerIndex]
+    const pending = state.pendingGiantAction
+    if (pending.viaFollowMe) {
+      return (pending.locations ?? []).map((loc) => ({ type: 'RESOLVE_GIANT_LOCATION', locationId: loc }))
+    }
+    const p = state.players[pending.playerIndex]
     const order = p.locations.map((l) => l.id)
     const i = order.indexOf(p.pawnLocation ?? '')
     const neighbors = [order[i - 1], order[i + 1]].filter((id): id is string => !!id)
@@ -266,6 +289,31 @@ export function enumerateActions(state: GameState): GameAction[] {
   }
 
   // Fatalité révélée à résoudre : une option par carte révélée (× lieu / héros valides).
+  // Yzma — Fatalité spéciale : 4 pioches (une par lieu). L'adversaire choisit une
+  // pioche NON VIDE (phase 'deck'), en voit toutes les cartes, puis en joue une sur
+  // LE LIEU de cette pioche (phase 'card') ; le reste est remélangé et replacé.
+  if (state.pendingYzmaFate) {
+    const pending = state.pendingYzmaFate
+    const tgt = state.players[pending.targetIndex]
+    if (pending.phase === 'deck') {
+      const decks = tgt.fateDecks ?? {}
+      const out: GameAction[] = []
+      for (const loc of tgt.locations) {
+        if ((decks[loc.id] ?? []).length > 0) {
+          out.push({ type: 'RESOLVE_YZMA_FATE_DECK', locationId: loc.id })
+        }
+      }
+      return out // ≥1 pioche non vide garanti par applyFateYzma (redistribue si besoin)
+    }
+    // phase 'card' : jouer une des cartes révélées sur le lieu de la pioche choisie.
+    // Toutes sont jouables (un Héros est posé sur ce lieu, un Événement résout ses
+    // effets). On ne propose pas « aucune carte » : la Fatalité doit frapper.
+    return (pending.cards ?? []).map((c) => ({
+      type: 'RESOLVE_YZMA_FATE_CARD' as const,
+      instanceId: c.instanceId,
+    }))
+  }
+
   if (state.pendingFate) {
     const { target, revealed } = state.pendingFate
     const out: GameAction[] = []
@@ -514,6 +562,38 @@ export function enumerateActions(state: GameState): GameAction[] {
           // « Croque ! » : inutile si aucun Héros éliminable ici (Poison insuffisant).
           const needsBite = (card.effects ?? []).some((e) => e.type === 'TAKE_A_BITE')
           if (needsBite && !canTakeABite(state)) continue
+          // Festin (Scar) : inutile sans Hyène dans le royaume.
+          if (card.requiresHyenaInRealm && !Object.values(me.board).flat().some((c) => c.isHyena)) continue
+          // Suivez-moi ! (Scar) : injouable sans Hyène sur un autre lieu que le pion.
+          if (
+            (card.effects ?? []).some((e) => e.type === 'FOLLOW_ME') &&
+            !me.locations.some((l) => l.id !== me.pawnLocation && (me.board[l.id] ?? []).some((c) => c.isHyena))
+          )
+            continue
+          // Petit secret (Scar) : injouable sans Héros ni Événement en défausse Fatalité.
+          if (
+            (card.effects ?? []).some((e) => e.type === 'PLAY_FATE_HERO_FROM_DISCARD') &&
+            !me.fateDiscard.some((c) => c.type === 'hero' || c.type === 'effect')
+          )
+            continue
+          // Le chemin qui balance (Yzma) : inutile sans jeton Pouvoir sur Kronk.
+          if (
+            (card.effects ?? []).some((e) => e.type === 'KRONK_DISCARD_TOKENS') &&
+            !Object.values(me.board).flat().some((c) => c.cardId === 'kronk' && (c.kronkPower ?? 0) > 0)
+          )
+            continue
+          // Fausses funérailles (Yzma) : inutile sans Héros en défausse Fatalité.
+          if (
+            (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_FATE_DISCARD_HERO') &&
+            !me.fateDiscard.some((c) => c.type === 'hero')
+          )
+            continue
+          // Beauté endormie (Yzma) : jouable uniquement en PREMIÈRE action du tour.
+          if (
+            (card.effects ?? []).some((e) => e.type === 'BEAUTY_SLEEP') &&
+            state.usedActionIds.some((a) => !a.includes(':'))
+          )
+            continue
           out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId })
         }
       }

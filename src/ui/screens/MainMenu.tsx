@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { PATCH_NOTES } from '../patchNotes'
 import { OptionsButton } from '../components/OptionsButton'
 import { Scroller } from '../components/Scroller'
 import { PlayerAvatar } from '../components/PlayerAvatar'
+import { usePlayerStore } from '../store/playerStore'
 import { playHover, playProfileHover } from '../sfx'
 
 interface Props {
@@ -11,6 +13,8 @@ interface Props {
   onVillainList: () => void
   /** Ouvrir l'écran de profil (statistiques). */
   onProfile: () => void
+  /** Rejouer la cinématique d'intro. */
+  onReplayIntro: () => void
 }
 
 /** Un bouton de menu réutilisant le style « HearthStone » (cf. index.css). */
@@ -63,7 +67,13 @@ function PatchNotesPanel() {
  * Menu principal : logo, entrées (Nouvelle partie, Liste des villains, Options),
  * et un panneau de notes de version listant les changements récents.
  */
-export function MainMenu({ onNewGame, onVillainList, onProfile }: Props) {
+export function MainMenu({ onNewGame, onVillainList, onProfile, onReplayIntro }: Props) {
+  const playerName = usePlayerStore((s) => s.name)
+  // Confirmation avant de fermer l'application (bouton « Quitter »).
+  const [confirmQuit, setConfirmQuit] = useState(false)
+  // Ferme la fenêtre Electron → `window-all-closed` → `app.quit()`. (Sans effet dans
+  // un onglet de navigateur classique, mais le jeu cible l'app de bureau.)
+  const quitApp = () => window.close()
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center gap-14 overflow-hidden p-6 text-white">
       {/* Arrière-plan (photo + voile + orbes) fourni par <MenuBackground/> à la racine. */}
@@ -73,19 +83,24 @@ export function MainMenu({ onNewGame, onVillainList, onProfile }: Props) {
         <PatchNotesPanel />
       </div>
 
-      {/* Profil : avatar rond ancré en bas à droite, à côté du bouton Options. */}
+      {/* Profil : avatar rond ancré en haut à droite. */}
       <button
         type="button"
         onClick={onProfile}
         onMouseEnter={playProfileHover}
         title="Mon profil"
         aria-label="Mon profil"
-        className="group absolute bottom-6 right-28 z-10 rounded-full transition hover:brightness-110"
+        className="group absolute right-6 top-6 z-10 flex flex-col items-center gap-1 transition hover:brightness-110"
       >
         <PlayerAvatar
           size={70}
           className="opacity-50 transition group-hover:border-amber-300/80 group-hover:opacity-100"
         />
+        {playerName.trim() && (
+          <span className="max-w-[8rem] truncate text-sm font-semibold text-white/60 transition group-hover:text-amber-200">
+            {playerName}
+          </span>
+        )}
       </button>
 
       <header className="relative z-10 text-center">
@@ -102,10 +117,45 @@ export function MainMenu({ onNewGame, onVillainList, onProfile }: Props) {
       <nav className="relative z-10 flex w-[32rem] max-w-[90vw] flex-col gap-5">
         <MenuButton label="Nouvelle partie" onClick={onNewGame} />
         <MenuButton label="Liste des villains" onClick={onVillainList} />
+        <MenuButton label="Quitter" onClick={() => setConfirmQuit(true)} />
       </nav>
+
+      {/* Cinématique : rejoue la vidéo d'intro. Ancré en bas à gauche. */}
+      <button
+        type="button"
+        onClick={onReplayIntro}
+        onMouseEnter={playHover}
+        title="Revoir la cinématique d'introduction"
+        className="absolute bottom-6 left-6 z-10 flex items-center gap-2 rounded-full border border-white/20 bg-black/40 px-4 py-2 text-sm font-semibold text-white/70 backdrop-blur-sm transition hover:border-amber-300/70 hover:text-amber-200"
+      >
+        🎬 Cinématique
+      </button>
 
       {/* Options : bouton icône (engrenage) ancré en bas à droite. */}
       <OptionsButton />
+
+      {/* Confirmation de fermeture (mêmes boutons / bruitages que le menu). */}
+      {confirmQuit && (
+        <div
+          className="absolute inset-0 z-30 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+          onClick={() => setConfirmQuit(false)}
+        >
+          <div
+            className="flex flex-col items-center gap-6 rounded-2xl border border-white/15 bg-[#15101f] p-8 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="text-xl font-bold text-amber-200">Quitter le jeu ?</span>
+            <div className="flex gap-4">
+              <div className="w-44">
+                <MenuButton label="Quitter" onClick={quitApp} />
+              </div>
+              <div className="w-44">
+                <MenuButton label="Annuler" onClick={() => setConfirmQuit(false)} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

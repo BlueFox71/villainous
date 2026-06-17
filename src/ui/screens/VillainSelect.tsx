@@ -274,10 +274,8 @@ export function VillainSelect({ onStart, onBack }: Props) {
   // SOLO : choix local des deux camps + camp actif (alimenté par les clics grille).
   const [mineSolo, setMineSolo] = useState<Choice | null>(null)
   const [oppSolo, setOppSolo] = useState<Choice | null>(null)
-  const [activeSide, setActiveSide] = useState<Side>('mine')
-  // SOLO : quand les deux vilains sont déjà choisis, cliquer un vilain ouvre ce choix
-  // « Changer pour : Toi / Adversaire » (le vilain en attente d'affectation).
-  const [pendingPick, setPendingPick] = useState<Choice | null>(null)
+  // Camp actif : `null` = aucun (clic grille sans effet ; choisis un camp via sa carte).
+  const [activeSide, setActiveSide] = useState<Side | null>('mine')
 
   // RÉSEAU : choix dérivés du lobby (synchronisés en direct).
   const seatVillain = (i: number) => (lobby?.find((s) => s.seat === i)?.villainKey ?? null) as Choice | null
@@ -314,22 +312,19 @@ export function VillainSelect({ onStart, onBack }: Props) {
     }
   }
 
-  // SOLO : 1er clic = TON vilain, 2e clic = le BOT (auto-bascule). Une fois les DEUX
-  // choisis, un clic ouvre le choix « Changer pour : Toi / Adversaire » (pendingPick).
+  // SOLO : 1er clic = TON vilain, 2e clic = le BOT (auto-bascule sur le camp encore
+  // vide). Quand les DEUX deviennent choisis, plus aucun camp n'est actif (`null`) :
+  // pour changer un vilain, on clique d'abord sa carte « Toi » / « Adversaire ».
   const pickSolo = (c: Choice) => {
-    if (mineSolo && oppSolo) {
-      setPendingPick(c)
-      return
-    }
+    if (!activeSide) return // aucun camp actif : choisis-en un via sa carte d'abord
+    // Valeur de l'AUTRE camp après ce clic (l'anti-miroir peut le vider s'il avait `c`).
+    const otherVal = activeSide === 'mine' ? oppSolo : mineSolo
+    const otherStillChosen = !!otherVal && !(c !== 'random' && otherVal === c)
     assignSide(c, activeSide)
-    setActiveSide(activeSide === 'mine' ? 'opp' : 'mine')
+    // Les deux sont désormais choisis → aucun camp actif ; sinon bascule sur l'autre.
+    setActiveSide(otherStillChosen ? null : activeSide === 'mine' ? 'opp' : 'mine')
   }
 
-  // Confirme l'affectation du vilain en attente (pendingPick) au camp choisi.
-  const confirmPending = (side: Side) => {
-    if (pendingPick) assignSide(pendingPick, side)
-    setPendingPick(null)
-  }
   // RÉSEAU : on ne choisit que SON vilain. « Aléatoire » est résolu sur-le-champ en
   // un vilain disponible (on exclut celui pris par l'adversaire) puis confirmé.
   const pickMineNet = (c: Choice) => {
@@ -429,52 +424,6 @@ export function VillainSelect({ onStart, onBack }: Props) {
             </div>
           </div>
         </Scroller>
-
-        {/* SOLO : les deux vilains sont choisis et on en re-clique un → choisir le camp. */}
-        {!network && pendingPick && (
-          <div
-            className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 px-4"
-            onClick={() => setPendingPick(null)}
-          >
-            <div
-              className="flex flex-col items-center gap-4 rounded-2xl border border-white/15 bg-[#15101f] p-6 shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-3">
-                {pendingPick !== 'random' ? (
-                  <img src={villainPortrait(pendingPick)} alt="" className="h-14 w-14 rounded-lg border border-white/15 object-cover" />
-                ) : (
-                  <span className="flex h-14 w-14 items-center justify-center rounded-lg border border-white/15 bg-white/5 text-2xl">🎲</span>
-                )}
-                <span className="text-lg font-bold text-amber-200">
-                  {pendingPick === 'random' ? 'Aléatoire' : VILLAIN_REGISTRY[pendingPick].def.name}
-                </span>
-              </div>
-              <span className="text-sm font-semibold uppercase tracking-wide text-white/60">Changer pour :</span>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); playHeroSelect(); confirmPending('mine') }}
-                  onMouseEnter={playHover}
-                  className="rounded-xl bg-amber-400 px-5 py-2.5 font-black uppercase tracking-wide text-black transition hover:brightness-110"
-                >
-                  {mineLabel}
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); playHeroSelect(); confirmPending('opp') }}
-                  onMouseEnter={playHover}
-                  className="rounded-xl bg-purple-400 px-5 py-2.5 font-black uppercase tracking-wide text-black transition hover:brightness-110"
-                >
-                  Adversaire
-                </button>
-              </div>
-              <button type="button" onClick={() => setPendingPick(null)} className="text-xs text-white/40 hover:text-white/70">
-                Annuler
-              </button>
-            </div>
-          </div>
-        )}
       </main>
 
       <footer className="relative z-0 -mt-28 flex flex-col items-center gap-2 border-t border-white/10 bg-black/30 px-4 pb-8 pt-28 shadow-[0_-6px_20px_rgba(0,0,0,0.35)] backdrop-blur-md">

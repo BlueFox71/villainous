@@ -33,6 +33,14 @@ export function pendingOwner(state: GameState): number | null {
   if (state.pendingHeroRelocate) return state.pendingHeroRelocate.chooserIndex
   if (state.pendingFateChoice) return state.pendingFateChoice.chooserIndex
   if (state.pendingFateScry) return state.pendingFateScry.chooserIndex
+  if (state.pendingYzmaFate) {
+    // Supériorité : la phase « choix de pioche » peut revenir à Yzma (deckChooserIndex).
+    const yf = state.pendingYzmaFate
+    return yf.phase === 'deck' ? (yf.deckChooserIndex ?? yf.chooserIndex) : yf.chooserIndex
+  }
+  if (state.pendingYzmaOwnDeck) return state.pendingYzmaOwnDeck.playerIndex
+  if (state.pendingFinishJob) return state.pendingFinishJob.playerIndex
+  if (state.pendingReplayEvent) return state.pendingReplayEvent.playerIndex
   if (state.pendingTitanSelect) return state.pendingTitanSelect.chooserIndex
   // playerIndex : la main revient au joueur explicitement désigné.
   if (state.pendingTyrannyDiscard) return state.pendingTyrannyDiscard.playerIndex
@@ -46,6 +54,9 @@ export function pendingOwner(state: GameState): number | null {
   if (state.pendingAllyMoveBuff) return state.pendingAllyMoveBuff.playerIndex
   if (state.pendingFetchedHero) return state.pendingFetchedHero.playerIndex
   if (state.pendingRecover) return state.pendingRecover.playerIndex
+  if (state.pendingBePrepared) return state.pendingBePrepared.playerIndex
+  if (state.pendingFreeHyena) return state.pendingFreeHyena.playerIndex
+  if (state.pendingHakunaMatata) return state.pendingHakunaMatata.playerIndex
   if (state.pendingGiantAction) return state.pendingGiantAction.playerIndex
   if (state.pendingTitanMove) return state.pendingTitanMove.playerIndex
   if (state.pendingDivination) return state.pendingDivination.playerIndex

@@ -29,10 +29,11 @@ import {
   pushRobinSteal,
   pushShowcase,
   revealFate,
+  syncRatiganObjectiveAll,
   updateActivePlayer,
   updatePlayer,
 } from './state'
-import { canEnterAuDela, holdsTalisman, moveTitanTo, performVanquish, processCurseDiscards, resolveEffect, resolveEffects, titanReachableDests, triggerHeroArrival } from './effects'
+import { addKronkTokens, canEnterAuDela, holdsTalisman, moveTitanTo, performVanquish, playChosenFateFromDiscard, processCurseDiscards, reformYzmaDecks, reshuffleYzmaIfKuzcoDiscarded, resolveEffect, resolveEffects, titanReachableDests, triggerHeroArrival } from './effects'
 import { crewmateEndOfTurn, freeCellAt, placeCrewmateAt } from './crewmates'
 import {
   adjacentLocationIds,
@@ -262,6 +263,7 @@ function applyPlayCard(
   allyInstanceIds?: string[],
   allyMove?: { instanceId: string; to: string },
   shrinkFreeActionId?: string,
+  engrenagesIds?: string[],
 ): GameState {
   if (state.phase !== 'ACTION') {
     throw new Error(`Impossible de jouer une carte en phase ${state.phase}.`)
@@ -341,6 +343,50 @@ function applyPlayCard(
   if ((card.effects ?? []).some((e) => e.type === 'TAKE_A_BITE') && !canTakeABite(state)) {
     throw new Error('Aucun Héros éliminable ici (pas assez de Poison) : « Croque ! » est injouable.')
   }
+  // Scar — Festin : injouable s'il n'y a aucune Hyène dans le royaume (rien à déplacer).
+  if (card.requiresHyenaInRealm && !Object.values(me.board).flat().some((c) => c.isHyena)) {
+    throw new Error('Aucune Hyène dans votre royaume : cette carte n’aurait aucun effet.')
+  }
+  // Scar — Suivez-moi ! : injouable s'il n'y a aucune Hyène sur un AUTRE lieu que
+  // celui du pion (aucune Hyène à « suivre »).
+  if (
+    (card.effects ?? []).some((e) => e.type === 'FOLLOW_ME') &&
+    !me.locations.some((l) => l.id !== me.pawnLocation && (me.board[l.id] ?? []).some((c) => c.isHyena))
+  ) {
+    throw new Error('Aucune Hyène sur un autre lieu : « Suivez-moi ! » est injouable.')
+  }
+  // Yzma — Fausses funérailles : injouable s'il n'y a aucun Héros dans la défausse
+  // Fatalité (elle n'aurait aucun effet : 0 jeton gagné).
+  if (
+    (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_FATE_DISCARD_HERO') &&
+    !me.fateDiscard.some((c) => c.type === 'hero')
+  ) {
+    throw new Error('Aucun Héros dans votre défausse Fatalité : « Fausses funérailles » est injouable.')
+  }
+  // Yzma — Le chemin qui balance : injouable s'il n'y a aucun jeton Pouvoir sur
+  // Kronk (Kronk absent du royaume ou sans jeton) → elle n'aurait aucun effet.
+  if (
+    (card.effects ?? []).some((e) => e.type === 'KRONK_DISCARD_TOKENS') &&
+    !Object.values(me.board).flat().some((c) => c.cardId === 'kronk' && (c.kronkPower ?? 0) > 0)
+  ) {
+    throw new Error('Aucun jeton Pouvoir sur Kronk : « Le chemin qui balance » est injouable.')
+  }
+  // Yzma — Beauté endormie : jouable uniquement en PREMIÈRE action du tour (aucune
+  // action « réelle » — hors marqueurs « : » — déjà utilisée).
+  if (
+    (card.effects ?? []).some((e) => e.type === 'BEAUTY_SLEEP') &&
+    state.usedActionIds.some((a) => !a.includes(':'))
+  ) {
+    throw new Error('Beauté endormie ne peut être jouée qu’en première action du tour.')
+  }
+  // Scar — Petit secret : injouable s'il n'y a aucune carte Fatalité jouable (Héros
+  // ou Événement) dans la défausse Fatalité.
+  if (
+    (card.effects ?? []).some((e) => e.type === 'PLAY_FATE_HERO_FROM_DISCARD') &&
+    !me.fateDiscard.some((c) => c.type === 'hero' || c.type === 'effect')
+  ) {
+    throw new Error('Aucune carte Fatalité jouable dans la défausse : « Petit secret » est injouable.')
+  }
 
   // Coût effectif (Couronne −1, Bâton Magique −1, Épée de Vérité +2 sur curse,
   // Razoul −1 sur Allié). Hypnose : coût = force (effective) du Héros ciblé.
@@ -348,6 +394,24 @@ function applyPlayCard(
   if ((card.effects ?? []).some((e) => e.type === 'HYPNOTIZE_HERO')) {
     if (!targetHeroId) throw new Error('Hypnose nécessite un Héros cible.')
     cost = effectiveStrength(state, state.activePlayer, targetHeroId) ?? 0
+  }
+  // Ratigan — Engrenages : pour jouer un Objet, on peut défausser des Engrenages EN
+  // JEU (sur le plateau) — au choix du joueur via `engrenagesIds` — pour réduire son
+  // coût de 3 par Engrenage.
+  const engrenagesToDiscard: CardInstance[] = []
+  if (card.type === 'item' && engrenagesIds && engrenagesIds.length > 0) {
+    for (const id of engrenagesIds) {
+      let found: CardInstance | undefined
+      for (const l of me.locations) {
+        const c = (me.board[l.id] ?? []).find(
+          (c) => c.instanceId === id && c.cardId === 'engrenages' && !c.attachedTo,
+        )
+        if (c) { found = c; break }
+      }
+      if (!found) throw new Error('Engrenages à défausser introuvable sur le plateau.')
+      engrenagesToDiscard.push(found)
+      cost = Math.max(0, cost - 3)
+    }
   }
   if (me.power < cost) {
     throw new Error(`Pas assez de pouvoir (coût ${cost}, disponible ${me.power}).`)
@@ -421,12 +485,30 @@ function applyPlayCard(
   // Noir de nuit : cette action « Jouer une carte » est-elle une RÉUTILISATION ?
   const reusedPlay = state.usedActionIds.includes(actionId)
   // Payer le coût, retirer la carte de la main, marquer l'action utilisée.
+  const engSet = new Set(engrenagesToDiscard.map((c) => c.instanceId))
   let next = updateActivePlayer(state, (p) => ({
     ...p,
     power: p.power - cost,
     hand: p.hand.filter((c) => c.instanceId !== instanceId),
+    // Les Engrenages choisis sont retirés du PLATEAU (tous lieux) et défaussés.
+    board:
+      engSet.size === 0
+        ? p.board
+        : Object.fromEntries(
+            Object.entries(p.board).map(([loc, cards]) => [loc, cards.filter((c) => !engSet.has(c.instanceId))]),
+          ),
+    discard: engSet.size === 0 ? p.discard : [...p.discard, ...engrenagesToDiscard],
     repeatActionAvailable: reusedPlay ? false : p.repeatActionAvailable,
   }))
+  if (engrenagesToDiscard.length > 0) {
+    next = {
+      ...next,
+      log: [
+        ...next.log,
+        `${me.villainName} défausse ${engrenagesToDiscard.length} Engrenage${engrenagesToDiscard.length > 1 ? 's' : ''} en jeu (−${engrenagesToDiscard.length * 3} au coût).`,
+      ],
+    }
+  }
   const where = dest ? ` sur **${dest.name}**` : ''
   const assoc = host ? `, associé à **${host.name}**` : ''
   next = {
@@ -505,7 +587,7 @@ function applyPlayCard(
       next = pushShowcase(next, 'tendre-piege', `Joué par ${me.villainName}`, state.activePlayer)
     } else {
       // Chemin interactif : Vanquish facultatif → showcase différé à sa résolution.
-      next = { ...next, pendingTrapVanquish: true }
+      next = { ...next, pendingTrapVanquish: { source: 'trap' } }
     }
   } else {
     next = resolveEffects(next, card.effects ?? [], { targetHeroId, allyInstanceIds, allyMove, shrinkFreeActionId })
@@ -543,6 +625,24 @@ function applyPlayCard(
         hostInstanceId: placed.instanceId,
         hostLocationId: destId,
       })
+    }
+    // Scar — Shenzi (jouer une Hyène gratuite) / Troupeau de gnous (déplacer un
+    // Héros) : effets « à la pose » nécessitant le lieu, résolus après placement.
+    if (card.type === 'ally') {
+      const hostEffects = (card.effects ?? []).filter(
+        (e) =>
+          e.type === 'PLAY_FREE_HYENA' ||
+          e.type === 'GNOUS_MOVE' ||
+          e.type === 'DISCARD_HERO_AT_HOST' ||
+          e.type === 'ALLY_REMOTE_GAIN_POWER',
+      )
+      if (hostEffects.length > 0) {
+        next = resolveEffects(next, hostEffects, {
+          actorIndex: state.activePlayer,
+          hostInstanceId: placed.instanceId,
+          hostLocationId: destId,
+        })
+      }
     }
   } else if (card.goesToAuDelaOnPlay) {
     // Dr Facilier — Amis de l'au-delà / Régner : l'Événement va dans la Pile de
@@ -714,6 +814,11 @@ function applyFate(state: GameState, actionId: string): GameState {
   const target = fateTarget(state)
   const me = activePlayer(state)
   const tgt = state.players[target]
+  // Yzma : Fatalité spéciale (4 pioches). L'adversaire choisit une pioche, voit
+  // toutes ses cartes, en joue une sur le lieu, remélange le reste.
+  if (tgt.fateDecks) {
+    return applyFateYzma(state, target, actionId)
+  }
   if (tgt.fateDeck.length + tgt.fateDiscard.length === 0) {
     throw new Error(`Le deck Fatalité de ${tgt.villainName} est vide.`)
   }
@@ -739,6 +844,7 @@ function applyFate(state: GameState, actionId: string): GameState {
       rngState: r.rngState,
       usedActionIds: [...next.usedActionIds, actionId],
       pendingFate: null,
+      activeFateTargets: [...(next.activeFateTargets ?? []), target],
       log: [...next.log, `${me.villainName} lance la Fatalité : **${pp.name}** est dévoilé(e) et joué(e) d'office sur **${forcedName}** !`],
     }
     return placeFateHeroWithEffects(next, target, state.activePlayer, pp, forced, forcedName)
@@ -755,9 +861,414 @@ function applyFate(state: GameState, actionId: string): GameState {
     ...next,
     usedActionIds: [...next.usedActionIds, actionId],
     pendingFate: { target, revealed: r.revealed },
+    activeFateTargets: [...(next.activeFateTargets ?? []), target],
     log: [
       ...next.log,
       `${me.villainName} lance la Fatalité contre ${tgt.villainName} (révèle ${r.revealed.length} carte${r.revealed.length > 1 ? 's' : ''}).`,
+    ],
+  }
+}
+
+/** Yzma — redistribue la défausse Fatalité (mélangée) en 4 pioches les plus égales
+ *  possibles, indexées par id de lieu. */
+function redistributeYzmaFateDecks(
+  player: PlayerState,
+  rngState: number,
+): { decks: Record<string, CardInstance[]>; rngState: number } {
+  const ids = player.locations.map((l) => l.id)
+  const sh = shuffle(player.fateDiscard, rngState)
+  const decks: Record<string, CardInstance[]> = Object.fromEntries(ids.map((id) => [id, []]))
+  sh.result.forEach((c, i) => decks[ids[i % ids.length]].push(c))
+  return { decks, rngState: sh.state }
+}
+
+/** Yzma — lance la Fatalité : ouvre le choix de pioche (par lieu) pour l'adversaire.
+ *  Si toutes les pioches sont vides, la défausse est d'abord redistribuée en 4. */
+function applyFateYzma(state: GameState, target: number, actionId: string): GameState {
+  let next = state
+  const tgt0 = next.players[target]
+  const decks0 = tgt0.fateDecks ?? {}
+  const totalInDecks = Object.values(decks0).reduce((n, d) => n + d.length, 0)
+  if (totalInDecks === 0) {
+    if (tgt0.fateDiscard.length === 0) {
+      throw new Error(`Les pioches Fatalité de ${tgt0.villainName} sont vides.`)
+    }
+    const r = redistributeYzmaFateDecks(tgt0, next.rngState)
+    next = {
+      ...updatePlayer(next, target, (p) => ({ ...p, fateDecks: r.decks, fateDiscard: [] })),
+      rngState: r.rngState,
+      log: [...next.log, `Les pioches Fatalité de ${tgt0.villainName} sont vides : la défausse est mélangée et redistribuée en 4 pioches.`],
+    }
+  }
+  const me = activePlayer(next)
+  return {
+    ...next,
+    usedActionIds: [...next.usedActionIds, actionId],
+    activeFateTargets: [...(next.activeFateTargets ?? []), target],
+    pendingYzmaFate: { chooserIndex: next.activePlayer, targetIndex: target, phase: 'deck' },
+    log: [
+      ...next.log,
+      `${me.villainName} lance la Fatalité contre ${next.players[target].villainName} : choisissez une pioche (par lieu).`,
+    ],
+  }
+}
+
+/** Yzma (Fatalité) — l'adversaire choisit la pioche d'un lieu : on lui dévoile toutes
+ *  ses cartes (tenues dans le pending), puis il en jouera une (RESOLVE_YZMA_FATE_CARD). */
+function applyResolveYzmaFateDeck(state: GameState, locationId: LocationId): GameState {
+  const pending = state.pendingYzmaFate
+  if (!pending || pending.phase !== 'deck') throw new Error('Aucun choix de pioche Fatalité (Yzma) en attente.')
+  const tgt = state.players[pending.targetIndex]
+  const deck = tgt.fateDecks?.[locationId] ?? []
+  if (deck.length === 0) throw new Error('Cette pioche Fatalité est vide : choisissez-en une autre.')
+  const next = updatePlayer(state, pending.targetIndex, (p) => ({
+    ...p,
+    fateDecks: { ...(p.fateDecks ?? {}), [locationId]: [] },
+  }))
+  const locName = tgt.locations.find((l) => l.id === locationId)?.name ?? locationId
+  return {
+    ...next,
+    pendingYzmaFate: { ...pending, phase: 'card', locationId, cards: deck },
+    log: [
+      ...next.log,
+      `${state.players[pending.chooserIndex].villainName} consulte la pioche Fatalité de **${locName}** (${deck.length} carte${deck.length > 1 ? 's' : ''}).`,
+    ],
+  }
+}
+
+/** Yzma (Fatalité) — l'adversaire joue la carte choisie sur le lieu (ou aucune), et
+ *  le reste de la pioche est remélangé puis replacé. */
+function applyResolveYzmaFateCard(state: GameState, instanceId: string | null): GameState {
+  const pending = state.pendingYzmaFate
+  if (!pending || pending.phase !== 'card' || !pending.locationId || !pending.cards) {
+    throw new Error('Aucune carte Fatalité (Yzma) à jouer en attente.')
+  }
+  const { targetIndex, chooserIndex, locationId, cards } = pending
+  const tgt = state.players[targetIndex]
+  const locName = tgt.locations.find((l) => l.id === locationId)?.name ?? locationId
+  const chosen = instanceId ? cards.find((c) => c.instanceId === instanceId) : undefined
+  const rest = chosen ? cards.filter((c) => c.instanceId !== chosen.instanceId) : cards
+  // Remélange le reste dans la pioche du lieu.
+  const sh = shuffle(rest, state.rngState)
+  let next: GameState = {
+    ...updatePlayer(state, targetIndex, (p) => ({
+      ...p,
+      fateDecks: { ...(p.fateDecks ?? {}), [locationId]: sh.result },
+    })),
+    rngState: sh.state,
+    pendingYzmaFate: null,
+  }
+  if (!chosen) {
+    return { ...next, log: [...next.log, `Aucune carte jouée : la pioche de **${locName}** est replacée.`] }
+  }
+  if (chosen.type === 'hero') {
+    return placeFateHeroWithEffects(next, targetIndex, chooserIndex, chosen, locationId, locName)
+  }
+  // Carte Fatalité non-Héros (Événement) : résout ses effets (Phase 3) puis défausse.
+  next = resolveEffects(next, chosen.effects ?? [], { actorIndex: targetIndex })
+  next = updatePlayer(next, targetIndex, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, chosen] }))
+  return { ...next, log: [...next.log, `**${chosen.name}** est jouée sur **${locName}**.`] }
+}
+
+/** Yzma — À l'attaque ! / Marteau : agit sur la pioche Fatalité du lieu choisi. */
+function applyResolveYzmaOwnDeck(state: GameState, locationId: LocationId): GameState {
+  const pending = state.pendingYzmaOwnDeck
+  if (!pending) throw new Error('Aucune action de pioche (Yzma) en attente.')
+  const idx = pending.playerIndex
+  const p = state.players[idx]
+  // Indiscrétion (snoop) : 1er appel = dévoile la pioche choisie (montrée au joueur,
+  // remélangée pour le replacement) ; 2ᵉ appel (revealCards déjà posé) = referme.
+  if (pending.mode === 'snoop') {
+    if (pending.revealCards) {
+      return { ...state, pendingYzmaOwnDeck: null, log: [...state.log, 'Indiscrétion : pioche replacée.'] }
+    }
+    const deck0 = p.fateDecks?.[locationId] ?? []
+    if (deck0.length === 0) throw new Error('Cette pioche Fatalité est vide : choisissez-en une autre.')
+    const sh0 = shuffle(deck0, state.rngState)
+    const locName0 = p.locations.find((l) => l.id === locationId)?.name ?? locationId
+    return {
+      ...updatePlayer(state, idx, (pp) => ({ ...pp, fateDecks: { ...(pp.fateDecks ?? {}), [locationId]: sh0.result } })),
+      rngState: sh0.state,
+      pendingYzmaOwnDeck: { ...pending, revealCards: deck0 },
+      log: [...state.log, `Indiscrétion : ${p.villainName} regarde la pioche de **${locName0}** (${deck0.length} cartes).`],
+    }
+  }
+  // À l'attaque ! : DEUX temps. 1) on dévoile TOUTE la pioche choisie (montrée au
+  // joueur, comme Indiscrétion). 2) à la fermeture du modal, on exécute : Héros joués
+  // sur ce lieu, Mauvais levier déclenché+défaussé, autres Événements remélangés.
+  if (pending.mode === 'attack') {
+    if (!pending.revealCards) {
+      const deck0 = p.fateDecks?.[locationId] ?? []
+      if (deck0.length === 0) throw new Error('Cette pioche Fatalité est vide : choisissez-en une autre.')
+      const locName0 = p.locations.find((l) => l.id === locationId)?.name ?? locationId
+      const names = deck0.map((c) => `**${c.name}**`).join(', ')
+      return {
+        ...state,
+        pendingYzmaOwnDeck: { ...pending, revealCards: deck0, revealLocationId: locationId },
+        log: [
+          ...state.log,
+          `À l'attaque ! : ${p.villainName} dévoile toute la pioche de **${locName0}** (${deck0.length} carte${deck0.length > 1 ? 's' : ''} : ${names}).`,
+        ],
+      }
+    }
+    // 2ᵉ temps : exécuter sur la pioche dévoilée.
+    const loc = pending.revealLocationId ?? locationId
+    const deck = p.fateDecks?.[loc] ?? []
+    const locName = p.locations.find((l) => l.id === loc)?.name ?? loc
+    const heroes = deck.filter((c) => c.type === 'hero')
+    const revealTriggered = deck.filter((c) => c.cardId === 'mauvais-levier')
+    const others = deck.filter((c) => c.type !== 'hero' && c.cardId !== 'mauvais-levier')
+    const sh = shuffle(others, state.rngState)
+    let next: GameState = {
+      ...updatePlayer(state, idx, (pp) => ({ ...pp, fateDecks: { ...(pp.fateDecks ?? {}), [loc]: sh.result } })),
+      rngState: sh.state,
+      pendingYzmaOwnDeck: null,
+    }
+    for (const hero of heroes) {
+      next = placeFateHeroWithEffects(next, idx, idx, hero, loc, locName)
+      if (next.status === 'WON') return next
+    }
+    for (const c of revealTriggered) {
+      next = resolveEffects(next, c.effects ?? [], { actorIndex: idx })
+      next = updatePlayer(next, idx, (pp) => ({ ...pp, fateDiscard: [...pp.fateDiscard, c] }))
+      next = { ...next, log: [...next.log, `À l'attaque ! : **${c.name}** se déclenche puis est défaussée.`] }
+    }
+    return {
+      ...next,
+      log: [...next.log, `À l'attaque ! : ${heroes.length} Héros joué${heroes.length > 1 ? 's' : ''} sur **${locName}**.`],
+    }
+  }
+  const deck = p.fateDecks?.[locationId] ?? []
+  if (deck.length === 0) throw new Error('Cette pioche Fatalité est vide : choisissez-en une autre.')
+  const locName = p.locations.find((l) => l.id === locationId)?.name ?? locationId
+  if (pending.mode === 'hammer') {
+    // Le joueur choisit lui-même les 2 cartes à défausser, mais FACE CACHÉE
+    // (« au hasard ») : on remélange la pioche et on présente les dos. Le choix porte
+    // donc sur des cartes dont l'identité reste cachée (RESOLVE_YZMA_HAMMER).
+    const sh = shuffle(deck, state.rngState)
+    const count = Math.min(2, sh.result.length)
+    return {
+      ...updatePlayer(state, idx, (pp) => ({
+        ...pp,
+        fateDecks: { ...(pp.fateDecks ?? {}), [locationId]: sh.result },
+      })),
+      rngState: sh.state,
+      pendingYzmaOwnDeck: { ...pending, hammerPick: { locationId, cards: sh.result, count } },
+      log: [
+        ...state.log,
+        `Je l'écraserai avec un marteau : ${p.villainName} choisit ${count} carte${count > 1 ? 's' : ''} (face cachée) à défausser de la pioche de **${locName}**.`,
+      ],
+    }
+  }
+  throw new Error(`Mode de pioche Yzma non géré : ${pending.mode}.`)
+}
+
+/** Yzma — Marteau : défausse les cartes choisies (face cachée) de la pioche. */
+function applyResolveYzmaHammer(state: GameState, instanceIds: string[]): GameState {
+  const pending = state.pendingYzmaOwnDeck
+  if (!pending || !pending.hammerPick) throw new Error('Aucun choix de défausse (Marteau) en attente.')
+  const idx = pending.playerIndex
+  const p = state.players[idx]
+  const { locationId, cards, count } = pending.hammerPick
+  if (instanceIds.length !== count) throw new Error(`Marteau : choisissez exactement ${count} carte(s) à défausser.`)
+  for (const id of instanceIds) {
+    if (!cards.some((c) => c.instanceId === id)) throw new Error('Marteau : carte choisie invalide.')
+  }
+  const ids = new Set(instanceIds)
+  const deck = p.fateDecks?.[locationId] ?? []
+  const discarded = deck.filter((c) => ids.has(c.instanceId))
+  const rest = deck.filter((c) => !ids.has(c.instanceId))
+  const locName = p.locations.find((l) => l.id === locationId)?.name ?? locationId
+  const next: GameState = {
+    ...updatePlayer(state, idx, (pp) => ({
+      ...pp,
+      fateDecks: { ...(pp.fateDecks ?? {}), [locationId]: rest },
+      fateDiscard: [...pp.fateDiscard, ...discarded],
+    })),
+    pendingYzmaOwnDeck: null,
+  }
+  let withLog: GameState = {
+    ...next,
+    log: [
+      ...next.log,
+      `Je l'écraserai avec un marteau : ${discarded.length} carte${discarded.length > 1 ? 's' : ''} défaussée${discarded.length > 1 ? 's' : ''} de la pioche de **${locName}** (${discarded.map((c) => c.name).join(', ')}).`,
+    ],
+  }
+  // Mauvais levier défaussé par le marteau : son effet (Yzma perd la moitié de son
+  // Pouvoir) se déclenche aussi (comme à la révélation par À l'attaque !).
+  for (const c of discarded.filter((c) => c.cardId === 'mauvais-levier')) {
+    withLog = resolveEffects(withLog, c.effects ?? [], { actorIndex: idx })
+    withLog = { ...withLog, log: [...withLog.log, `Je l'écraserai avec un marteau : **${c.name}** se déclenche en étant défaussée.`] }
+  }
+  // Si Kuzco vient d'être défaussé, tout est remélangé et reformé en 4 pioches.
+  return reshuffleYzmaIfKuzcoDiscarded(withLog, idx)
+}
+
+/** Yzma — Paysan / Attention au groove ! / Pacha : mélange (optionnel) un Héros de la
+ *  défausse et/ou des pioches choisies, reformées également. */
+function applyResolveYzmaManipulate(
+  state: GameState,
+  heroInstanceId: string | null,
+  locationIds: LocationId[],
+): GameState {
+  const pending = state.pendingYzmaManipulate
+  if (!pending) throw new Error('Aucune manipulation de pioches (Yzma) en attente.')
+  const idx = pending.playerIndex
+  const p = state.players[idx]
+  // Refus (« Vous pouvez ») : aucun Héros et aucune pioche choisis.
+  if (heroInstanceId === null && locationIds.length === 0) {
+    if (!pending.optional) throw new Error('Cette manipulation est obligatoire : choisissez une pioche.')
+    return { ...state, pendingYzmaManipulate: null, log: [...state.log, `${p.villainName} renonce à manipuler ses pioches Fatalité.`] }
+  }
+  if (locationIds.length < 1 || locationIds.length > pending.count) {
+    throw new Error(`Choisissez de 1 à ${pending.count} pioche(s) Fatalité.`)
+  }
+  const ids = p.locations.map((l) => l.id)
+  for (const loc of locationIds) {
+    if (!ids.includes(loc)) throw new Error('Pioche Fatalité invalide.')
+  }
+  if (pending.mode === 'hero-to-decks') {
+    if (heroInstanceId === null || !pending.heroIds.includes(heroInstanceId)) {
+      throw new Error('Choisissez un Héros valide de la défausse Fatalité.')
+    }
+    const hero = p.fateDiscard.find((c) => c.instanceId === heroInstanceId)
+    if (!hero) throw new Error('Héros introuvable dans la défausse Fatalité.')
+    const next0 = updatePlayer(state, idx, (pp) => ({
+      ...pp,
+      fateDiscard: pp.fateDiscard.filter((c) => c.instanceId !== heroInstanceId),
+    }))
+    const next = reformYzmaDecks(next0, idx, locationIds, [hero])
+    return {
+      ...next,
+      pendingYzmaManipulate: null,
+      log: [...next.log, `**${hero.name}** est mélangé dans ${locationIds.length} pioche(s) Fatalité.`],
+    }
+  }
+  // reshuffle (Pacha) : mélange les pioches choisies, reformées également.
+  const next = reformYzmaDecks(state, idx, locationIds, [])
+  return {
+    ...next,
+    pendingYzmaManipulate: null,
+    log: [...next.log, `${locationIds.length} pioches Fatalité sont mélangées et reformées.`],
+  }
+}
+
+/** Yzma — Ironie du sort : rejoue l'Événement choisi de la défausse (paie son coût). */
+function applyResolveReplayEvent(state: GameState, instanceId: string | null): GameState {
+  const pending = state.pendingReplayEvent
+  if (!pending) throw new Error('Aucun Événement à rejouer (Ironie du sort) en attente.')
+  const idx = pending.playerIndex
+  const p = state.players[idx]
+  if (instanceId === null) {
+    return { ...state, pendingReplayEvent: null, log: [...state.log, 'Ironie du sort : aucun Événement rejoué.'] }
+  }
+  if (!pending.candidateIds.includes(instanceId)) throw new Error('Événement choisi invalide (Ironie du sort).')
+  const ev = p.discard.find((c) => c.instanceId === instanceId)
+  if (!ev) throw new Error('Événement introuvable dans la défausse.')
+  const cost = ev.cost ?? 0
+  if (p.power < cost) throw new Error('Pas assez de Pouvoir pour rejouer cet Événement.')
+  let next: GameState = { ...updatePlayer(state, idx, (pp) => ({ ...pp, power: pp.power - cost })), pendingReplayEvent: null }
+  next = { ...next, log: [...next.log, `Ironie du sort : **${ev.name}** est rejoué (coût ${cost}).`] }
+  next = resolveEffects(next, ev.effects ?? [], { actorIndex: idx })
+  return next
+}
+
+/** Yzma — Finis le travail : choisir un Allié (phase 1) puis un lieu portant un Héros
+ *  (phase 2) ; l'Allié (et ses Objets) y est déplacé. */
+function applyResolveFinishJob(state: GameState, allyInstanceId?: string, to?: LocationId): GameState {
+  const pending = state.pendingFinishJob
+  if (!pending) throw new Error('Aucun déplacement (Finis le travail) en attente.')
+  const idx = pending.playerIndex
+  const p = state.players[idx]
+  if (!pending.allyInstanceId) {
+    if (!allyInstanceId) throw new Error('Finis le travail : précisez l’Allié à déplacer.')
+    const a = Object.values(p.board).flat().find((c) => c.instanceId === allyInstanceId)
+    if (!a || a.type !== 'ally') throw new Error('Finis le travail : Allié invalide.')
+    return { ...state, pendingFinishJob: { ...pending, allyInstanceId } }
+  }
+  if (!to) throw new Error('Finis le travail : précisez le lieu de destination.')
+  const allyId = pending.allyInstanceId
+  const from = locationOfCard(p, allyId)
+  if (!from) throw new Error('Finis le travail : Allié introuvable.')
+  if (!(p.board[to] ?? []).some((c) => c.type === 'hero')) {
+    throw new Error('Finis le travail : ce lieu ne porte aucun Héros.')
+  }
+  const moving = (p.board[from] ?? []).filter((c) => c.instanceId === allyId || c.attachedTo === allyId)
+  const movingIds = new Set(moving.map((c) => c.instanceId))
+  const ally = moving.find((c) => c.instanceId === allyId)!
+  const destName = findLocation(p, to)?.name ?? to
+  let next: GameState = {
+    ...updatePlayer(state, idx, (pp) => ({
+      ...pp,
+      board: {
+        ...pp.board,
+        [from]: (pp.board[from] ?? []).filter((c) => !movingIds.has(c.instanceId)),
+        [to]: [...(pp.board[to] ?? []), ...moving],
+      },
+    })),
+    pendingFinishJob: null,
+    log: [...state.log, `Finis le travail : **${ally.name}** est déplacé vers **${destName}**.`],
+  }
+  // Kronk gagne un jeton Pouvoir à chaque déplacement.
+  if (ally.cardId === 'kronk') next = addKronkTokens(next, idx, 1)
+  return next
+}
+
+/**
+ * Yzma — Beauté endormie (effet différé, début de tour avant déplacement) :
+ * applique les choix indépendants — gagner 2 JT, piocher 2 cartes, déplacer un
+ * Héros du royaume vers un lieu voisin — puis ferme le pending (le déplacement du
+ * pion redevient possible).
+ */
+function applyResolveBeautySleep(
+  state: GameState,
+  gainPower: boolean,
+  draw: boolean,
+  heroMove: { heroInstanceId: string; to: LocationId } | null,
+): GameState {
+  const pending = state.pendingBeautySleep
+  if (!pending) throw new Error('Aucun réveil (Beauté endormie) en attente.')
+  const idx = pending.playerIndex
+  let next: GameState = state
+  // 1) Gain de 2 jetons Pouvoir.
+  if (gainPower) {
+    next = updatePlayer(next, idx, (p) => ({ ...p, power: p.power + 2 }))
+  }
+  // 2) Pioche de 2 cartes.
+  let drawn = 0
+  if (draw) {
+    const dr = drawPlayerToLimitN(next.players[idx], next.rngState, 2)
+    drawn = dr.drawn
+    next = { ...next, rngState: dr.rngState, players: next.players.map((p, i) => (i === idx ? dr.player : p)) }
+  }
+  // 3) Déplacement d'un Héros du royaume vers un lieu voisin (réutilise
+  //    MOVE_HERO_TO_LOCATION : restrictions de destination + arrivées).
+  if (heroMove) {
+    const p = next.players[idx]
+    const from = locationOfCard(p, heroMove.heroInstanceId)
+    if (!from) throw new Error('Beauté endormie : Héros introuvable dans votre royaume.')
+    const hero = (p.board[from] ?? []).find((c) => c.instanceId === heroMove.heroInstanceId)
+    if (!hero || hero.type !== 'hero') throw new Error('Beauté endormie : cible invalide (pas un Héros).')
+    if (!adjacentLocationIds(next, from).includes(heroMove.to)) {
+      throw new Error(`Beauté endormie : « ${heroMove.to} » n'est pas voisin de « ${from} ».`)
+    }
+    next = resolveEffects(next, [{ type: 'MOVE_HERO_TO_LOCATION', locationId: heroMove.to }], {
+      targetHeroId: heroMove.heroInstanceId,
+    })
+  }
+  const parts: string[] = []
+  if (gainPower) parts.push('gagne 2 JT')
+  if (draw) parts.push(`pioche ${drawn} carte${drawn > 1 ? 's' : ''}`)
+  if (heroMove) parts.push('déplace un Héros')
+  const villainName = next.players[idx].villainName
+  return {
+    ...next,
+    pendingBeautySleep: null,
+    log: [
+      ...next.log,
+      parts.length > 0
+        ? `Beauté endormie : ${villainName} ${parts.join(', ')}.`
+        : `Beauté endormie : ${villainName} ne fait rien de son réveil.`,
     ],
   }
 }
@@ -1038,6 +1549,23 @@ function resolveFateCardOnHero(
         `${playedByName} associe **${chosen.name}** à **${hero.name}** (+2 Force ; Malédiction +2 sur ce lieu).`,
       ],
     }
+  }
+
+  // Ballon de fortune (Ratigan, Fatalité) : +2 Force au Héros porteur (attachStrengthBonus),
+  // puis on peut le déplacer immédiatement (auto : Buckingham Palace, il emporte le Ballon).
+  if (chosen.cardId === 'ballon-de-fortune') {
+    const heroLoc = locationOfCard(tgt, hero.instanceId)
+    if (!heroLoc) throw new Error(`Lieu du Héros « ${hero.name} » introuvable.`)
+    const equipped: CardInstance = { ...chosen, attachedTo: hero.instanceId }
+    let next = updatePlayer(state, targetIndex, (p) => ({
+      ...p,
+      board: { ...p.board, [heroLoc]: [...(p.board[heroLoc] ?? []), equipped] },
+    }))
+    next = { ...next, log: [...next.log, `${playedByName} associe **${chosen.name}** à **${hero.name}** (+2 Force).`] }
+    return resolveEffects(next, [{ type: 'MOVE_HERO_TO_LOCATION', locationId: 'buckingham-palace' }], {
+      actorIndex: targetIndex,
+      targetHeroId: hero.instanceId,
+    })
   }
 
   // Objets Fatalité « purement associés » à un Héros (attach: 'hero') sans effet
@@ -1551,7 +2079,9 @@ function applyResolveFateInner(
   // La Méchante Reine (Fatalité) — Événements résolus sur la CIBLE : « Animaux de
   // la forêt » (défausse une carte de sa main) et « Premier baiser d'amour »
   // (défausse 1 Poison + un Héros de la défausse Fatalité revient sur le dessus).
-  if (chosen.cardId === 'animaux-foret' || chosen.cardId === 'premier-baiser') {
+  // Scar — Hakuna Matata : Événement Fatalité résolu sur la CIBLE (Scar), comme
+  // les Événements de la Méchante Reine ci-dessus.
+  if (chosen.cardId === 'animaux-foret' || chosen.cardId === 'premier-baiser' || chosen.cardId === 'hakuna-matata') {
     let next = updatePlayer(state, pending.target, (p) => ({
       ...p,
       fateDiscard: [...p.fateDiscard, chosen, ...others],
@@ -1653,6 +2183,44 @@ function applyResolveFateInner(
     return placeFateHeroWithEffects(next, pending.target, state.activePlayer, hero, dest, destName)
   }
 
+  // Appel à l'aide (Ratigan, Fatalité) : cherche Basil et le joue sur le lieu de
+  // votre choix ; s'il est déjà dans le royaume, déplacez-le. Auto : on vise le lieu
+  // de la Reine Robot (pour que Basil la défausse → bascule « Le Rat »), sinon
+  // Buckingham Palace. La pose/le déplacement déclenche l'onPlace de Basil.
+  if (chosen.cardId === 'appel-a-l-aide') {
+    let next: GameState = {
+      ...updatePlayer(state, pending.target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, chosen, ...others] })),
+      pendingFate: null,
+    }
+    const t = next.players[pending.target]
+    const robotLoc = t.locations.find((l) =>
+      (t.board[l.id] ?? []).some((c) => c.cardId === 'reine-robot' && !c.attachedTo),
+    )?.id
+    const destId = robotLoc ?? 'buckingham-palace'
+    const destName = findLocation(t, destId)?.name ?? destId
+    // Basil déjà en jeu ? → on le déplace vers destId, ce qui redéclenche son onPlace.
+    let basilLoc: string | undefined
+    let basil: CardInstance | undefined
+    for (const l of t.locations) {
+      const f = (t.board[l.id] ?? []).find((c) => c.cardId === 'basil' && c.type === 'hero')
+      if (f) { basilLoc = l.id; basil = f; break }
+    }
+    if (basil && basilLoc) {
+      next = resolveEffects(next, [{ type: 'MOVE_HERO_TO_LOCATION', locationId: destId }], { actorIndex: pending.target, targetHeroId: basil.instanceId })
+      return resolveEffects(next, basil.onPlace ?? [], { actorIndex: pending.target, hostInstanceId: basil.instanceId, hostLocationId: destId })
+    }
+    const found = t.fateDeck.find((c) => c.cardId === 'basil') ?? t.fateDiscard.find((c) => c.cardId === 'basil')
+    if (!found) {
+      return { ...next, log: [...next.log, `Appel à l'aide : Basil est introuvable.`] }
+    }
+    next = updatePlayer(next, pending.target, (p) => ({
+      ...p,
+      fateDeck: p.fateDeck.filter((c) => c.instanceId !== found.instanceId),
+      fateDiscard: p.fateDiscard.filter((c) => c.instanceId !== found.instanceId),
+    }))
+    return placeFateHeroWithEffects(next, pending.target, state.activePlayer, found, destId, destName)
+  }
+
   // Fallback (carte Fatalité non implémentée) : simple défausse.
   const next = updatePlayer(state, pending.target, (p) => ({
     ...p,
@@ -1752,6 +2320,10 @@ function applyMoveCard(
   }
   // Animation UI : la carte « vole » du lieu de départ vers le lieu d'arrivée.
   next = pushFloatingFx(next, { kind: 'move-card', playerIndex: state.activePlayer, cardId: card.cardId, from, to })
+  // Yzma — Kronk gagne 1 jeton Pouvoir à chaque déplacement (devient Héros à 3+).
+  if (card.cardId === 'kronk') {
+    next = addKronkTokens(next, state.activePlayer, 1)
+  }
   // Hadès — Peine : quand elle est déplacée, elle peut emmener un Héros de son
   // lieu de départ avec elle (résolution automatique).
   if (card.cardId === 'peine') {
@@ -1946,6 +2518,80 @@ function applyActivate(
         hypno
           ? `${me.villainName} active le **Sceptre Serpent** : récupère **${hypno.name}** en main (−${card.activatedCost} JT).`
           : `${me.villainName} active le **Sceptre Serpent** : aucune Hypnose en défausse (−${card.activatedCost} JT).`,
+      ],
+    }
+  }
+
+  if (card.cardId === 'cloche') {
+    // Ratigan — Cloche : cherche Félicia (pioche/défausse) → main, remélange la pioche.
+    let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost! }))
+    next = resolveEffects(next, [{ type: 'TUTOR_CARD_TO_HAND', cardId: 'felicia' }], { actorIndex: state.activePlayer })
+    next = consumePersifleur(next, action)
+    return { ...next, usedActionIds: [...next.usedActionIds, actionId] }
+  }
+
+  if (card.cardId === 'dirigeable') {
+    // Ratigan — Dirigeable : payez 1, déplacez le Dirigeable + 1 Objet/Allié non
+    // associé du même lieu vers n'importe quel lieu. Auto : emmène la Reine Robot
+    // vers Buckingham Palace si elle est là (saut direct vers l'objectif), sinon le
+    // plus précieux Objet/Allié vers le lieu du pion.
+    const cell = me.board[cardLoc]
+    const companions = cell.filter(
+      (c) => c.instanceId !== cardInstanceId && !c.attachedTo && (c.type === 'item' || c.type === 'ally'),
+    )
+    const robot = companions.find((c) => c.cardId === 'reine-robot')
+    const companion =
+      robot ??
+      (companions.length > 0
+        ? companions.reduce((a, b) => ((b.cost ?? 0) + (b.strength ?? 0) > (a.cost ?? 0) + (a.strength ?? 0) ? b : a))
+        : undefined)
+    const dest = robot ? 'buckingham-palace' : me.pawnLocation ?? cardLoc
+    const movingIds = new Set<string>([cardInstanceId])
+    for (const c of cell) if (c.attachedTo === cardInstanceId) movingIds.add(c.instanceId)
+    if (companion) {
+      movingIds.add(companion.instanceId)
+      for (const c of cell) if (c.attachedTo === companion.instanceId) movingIds.add(c.instanceId)
+    }
+    const moving = cell.filter((c) => movingIds.has(c.instanceId))
+    let next = updateActivePlayer(state, (p) => ({
+      ...p,
+      power: p.power - card.activatedCost!,
+      board: {
+        ...p.board,
+        [cardLoc]: p.board[cardLoc].filter((c) => !movingIds.has(c.instanceId)),
+        [dest]: [...(p.board[dest] ?? []), ...moving],
+      },
+    }))
+    next = consumePersifleur(next, action)
+    const destName = findLocation(me, dest)!.name
+    const compName = companion ? ` + **${companion.name}**` : ''
+    return {
+      ...next,
+      usedActionIds: [...next.usedActionIds, actionId],
+      log: [...next.log, `${me.villainName} active le **Dirigeable**${compName} → **${destName}** (−${card.activatedCost} JT).`],
+    }
+  }
+
+  if (card.cardId === 'piege-ingenieux') {
+    // Ratigan — Piège ingénieux : payez 1, amorcez le piège sur son lieu. Il se
+    // refermera au début de votre prochain tour (resolveArmedTraps), avant le
+    // déplacement, éliminant tous les Héros du lieu, puis sera défaussé.
+    let next = updateActivePlayer(state, (p) => ({
+      ...p,
+      power: p.power - card.activatedCost!,
+      board: {
+        ...p.board,
+        [cardLoc]: p.board[cardLoc].map((c) => (c.instanceId === cardInstanceId ? { ...c, trapArmed: true } : c)),
+      },
+    }))
+    next = consumePersifleur(next, action)
+    const locName = findLocation(me, cardLoc)!.name
+    return {
+      ...next,
+      usedActionIds: [...next.usedActionIds, actionId],
+      log: [
+        ...next.log,
+        `${me.villainName} amorce le **Piège ingénieux** sur **${locName}** (−${card.activatedCost} JT) : il se refermera au début de votre prochain tour.`,
       ],
     }
   }
@@ -2330,19 +2976,27 @@ function applyTrapVanquish(
   allyInstanceIds: string[],
 ): GameState {
   if (!state.pendingTrapVanquish) {
-    throw new Error("Aucune élimination de Tendre un Piège en attente.")
+    throw new Error("Aucune élimination facultative en attente.")
   }
+  const source = state.pendingTrapVanquish.source
   let next = performVanquish(state, heroInstanceId, allyInstanceIds, false)
-  // Showcase de la carte différé : il apparaît une fois la séquence terminée.
-  next = pushShowcase(next, 'tendre-piege', `Joué par ${activePlayer(next).villainName}`, next.activePlayer)
-  return { ...next, pendingTrapVanquish: false }
+  // Tendre un Piège : showcase de la carte différé (apparaît une fois la séquence
+  // terminée). Troupeau de gnous : la carte a déjà été montrée à sa pose.
+  if (source === 'trap') {
+    next = pushShowcase(next, 'tendre-piege', `Joué par ${activePlayer(next).villainName}`, next.activePlayer)
+  }
+  return { ...next, pendingTrapVanquish: null }
 }
 
-/** Tendre un Piège : termine sans éliminer de Héros. */
+/** Termine un Vanquish facultatif (Tendre un Piège / Troupeau de gnous) sans éliminer. */
 function applyTrapSkipVanquish(state: GameState): GameState {
   if (!state.pendingTrapVanquish) return state
-  const next = pushShowcase(state, 'tendre-piege', `Joué par ${activePlayer(state).villainName}`, state.activePlayer)
-  return { ...next, pendingTrapVanquish: false }
+  const source = state.pendingTrapVanquish.source
+  const next =
+    source === 'trap'
+      ? pushShowcase(state, 'tendre-piege', `Joué par ${activePlayer(state).villainName}`, state.activePlayer)
+      : state
+  return { ...next, pendingTrapVanquish: null }
 }
 
 /** Déplacement gratuit du Shérif de Nottingham (1×/tour par Shérif), bonus
@@ -2530,6 +3184,22 @@ function resolveConditionEffect(
       ? heroes.find((h) => h.instanceId === allyInstanceId) ?? heroes[0]
       : heroes[0]
     return resolveEffectsLocal(next, [{ type: 'INSTANT_VANQUISH_HERO_LE', maxStrength: 4 }], {
+      actorIndex: playerIndex,
+      targetHeroId: target.instanceId,
+    })
+  }
+  if (card.cardId === 'ferocite') {
+    // Yzma — Férocité : éliminer instantanément un Héros ≤3 du royaume du joueur qui
+    // joue la Condition (cible via allyInstanceId, sinon 1ᵉʳ éligible).
+    const acting = next.players[playerIndex]
+    const heroes = Object.values(acting.board)
+      .flat()
+      .filter((c) => c.type === 'hero' && (c.strength ?? 0) <= 3)
+    if (heroes.length === 0) {
+      return { ...next, log: [...next.log, 'Férocité : aucun Héros éligible (force ≤ 3).'] }
+    }
+    const target = allyInstanceId ? heroes.find((h) => h.instanceId === allyInstanceId) ?? heroes[0] : heroes[0]
+    return resolveEffectsLocal(next, [{ type: 'INSTANT_VANQUISH_HERO_LE', maxStrength: 3 }], {
       actorIndex: playerIndex,
       targetHeroId: target.instanceId,
     })
@@ -2723,6 +3393,35 @@ function resolveConditionEffect(
       board: { ...p.board, [dest]: [...(p.board[dest] ?? []), a] },
     }))
     return { ...next, log: [...next.log, `${player.villainName} joue gratuitement **${a.name}** sur **${dest}** (Sans pitié).`] }
+  }
+  if (card.cardId === 'superiorite') {
+    // Yzma — Supériorité : pendant une Fatalité qui la cible (choix de pioche en
+    // attente), c'est Yzma qui choisit la pioche à la place de l'adversaire.
+    const yf = next.pendingYzmaFate
+    if (yf && yf.phase === 'deck' && yf.targetIndex === playerIndex) {
+      return {
+        ...next,
+        pendingYzmaFate: { ...yf, deckChooserIndex: playerIndex },
+        log: [...next.log, `${player.villainName} (Supériorité) choisit elle-même la pioche Fatalité.`],
+      }
+    }
+    return next
+  }
+  if (card.cardId === 'vie-pas-juste') {
+    // Scar — La vie n'est pas juste : on trie les cartes Fatalité que l'adversaire
+    // s'apprête à jouer CONTRE soi (les cartes révélées). Les gardées restent
+    // jouables (pendingFate.revealed), les écartées partent en défausse. Si aucune
+    // Fatalité n'est en attente (jouée trop tard), on sonde le dessus de sa pioche.
+    const pf = next.pendingFate
+    if (pf && pf.target === playerIndex && pf.revealed.length > 0) {
+      return {
+        ...next,
+        pendingFate: { ...pf, revealed: [] },
+        pendingScry: { playerIndex, cards: pf.revealed, rerevealFate: true },
+        log: [...next.log, `${player.villainName} examine les 2 cartes du dessus de sa pioche Fatalité (La vie n'est pas juste).`],
+      }
+    }
+    return resolveEffectsLocal(next, [{ type: 'SCRY_OWN_FATE_TOP2' }], { actorIndex: playerIndex })
   }
   if (card.cardId === 'trahison-imposteur') {
     // Trahison (L'Imposteur) : élimine un Coéquipier qui ne le suspecte pas.
@@ -2920,6 +3619,11 @@ function applyResolveHeroRelocate(state: GameState, heroInstanceId: string, to: 
     actorIndex: targetIndex,
     targetHeroId: heroInstanceId,
   })
+  // Scar — Troupeau de gnous : après le déplacement, le joueur peut éliminer un Héros
+  // sur le nouveau lieu (Vanquish facultatif restreint à `to`).
+  if (pending.thenTrapVanquish) {
+    return { ...next, pendingHeroRelocate: null, pendingTrapVanquish: { source: 'gnous', locationId: to } }
+  }
   return { ...next, pendingHeroRelocate: null }
 }
 
@@ -3355,6 +4059,39 @@ function applyResolveScry(state: GameState, topInstanceIds: string[]): GameState
   const keptSet = new Set(kept.map((c) => c.instanceId))
   const discarded = pending.cards.filter((c) => !keptSet.has(c.instanceId))
   const player = state.players[idx]
+
+  // Scar — La vie n'est pas juste : les gardées retournent sur le DESSUS de la pioche
+  // Fatalité (ordre choisi), les écartées sont défaussées. PUIS l'adversaire re-révèle
+  // sa Fatalité depuis ce dessus modifié : il pioche donc la gardée + la carte
+  // suivante si une a été écartée (tout écarter → il pioche les 2 cartes suivantes).
+  if (pending.rerevealFate) {
+    let next = updatePlayer(state, idx, (p) => ({
+      ...p,
+      fateDeck: [...kept, ...p.fateDeck],
+      fateDiscard: [...p.fateDiscard, ...discarded],
+    }))
+    const r = revealFate(next.players[idx], FATE_REVEAL, next.rngState)
+    next = { ...updatePlayer(next, idx, () => r.player), rngState: r.rngState }
+    const pf = next.pendingFate
+    if (r.revealed.length === 0) {
+      return {
+        ...next,
+        pendingScry: null,
+        pendingFate: null,
+        log: [...next.log, `${player.villainName} : plus aucune carte Fatalité à révéler (La vie n'est pas juste).`],
+      }
+    }
+    return {
+      ...next,
+      pendingScry: null,
+      pendingFate: pf ? { ...pf, revealed: r.revealed } : { target: idx, revealed: r.revealed },
+      log: [
+        ...next.log,
+        `${player.villainName} garde ${kept.length} carte(s) sur le dessus, défausse ${discarded.length} ; l'adversaire re-révèle sa Fatalité (La vie n'est pas juste).`,
+      ],
+    }
+  }
+
   const next = updatePlayer(state, idx, (p) => ({
     ...p,
     fateDeck: [...kept, ...p.fateDeck],
@@ -3365,7 +4102,7 @@ function applyResolveScry(state: GameState, topInstanceIds: string[]): GameState
     pendingScry: null,
     log: [
       ...next.log,
-      `${player.villainName} (Faites-leur peur !) : ${kept.length} carte(s) sur le dessus, ${discarded.length} défaussée(s).`,
+      `${player.villainName} (sondage Fatalité) : ${kept.length} carte(s) sur le dessus, ${discarded.length} défaussée(s).`,
     ],
   }
 }
@@ -3459,6 +4196,31 @@ function applyResolveFateChoice(state: GameState, instanceId: string): GameState
       ...next,
       pendingFateChoice: null,
       log: [...next.log, `Premier baiser d'amour : **${hero.name}** revient sur le dessus de la pioche Fatalité de ${tgt.villainName}.`],
+    }
+  }
+
+  if (pending.kind === 'play-fate-card-from-discard') {
+    // Scar — Petit secret : joue la carte Fatalité (Héros ou Événement) choisie.
+    return playChosenFateFromDiscard({ ...state, pendingFateChoice: null }, pending.chooserIndex, instanceId)
+  }
+
+  if (pending.kind === 'play-revealed-fate-hero') {
+    // Scar — Longue vie au roi ! : le Héros choisi (déposé dans la défausse Fatalité)
+    // est joué dans le royaume sur le lieu du pion ; les autres restent défaussés.
+    const hero = tgt.fateDiscard.find((c) => c.instanceId === instanceId)
+    if (!hero) throw new Error('Héros dévoilé introuvable dans la défausse Fatalité.')
+    const dest = tgt.pawnLocation ?? tgt.locations[0]?.id
+    if (!dest) throw new Error('Aucun lieu où jouer le Héros.')
+    let next = updatePlayer(state, ti, (p) => ({
+      ...p,
+      fateDiscard: p.fateDiscard.filter((c) => c.instanceId !== instanceId),
+      board: { ...p.board, [dest]: [...(p.board[dest] ?? []), hero] },
+    }))
+    next = { ...next, pendingFateChoice: null }
+    next = resolveEffects(next, hero.onPlace ?? [], { actorIndex: ti, hostInstanceId: hero.instanceId, hostLocationId: dest })
+    return {
+      ...next,
+      log: [...next.log, `Longue vie au roi ! : **${hero.name}** entre dans le royaume.`],
     }
   }
 
@@ -3686,6 +4448,104 @@ function applyResolveRecover(state: GameState, instanceId: string): GameState {
   }
 }
 
+/** Scar — Soyez prêtes ! : reprend en main 1 Événement OU jusqu'à 2 Alliés de la
+ *  défausse. `instanceId` null = terminer. Un Événement clôt le choix (exclusif) ;
+ *  un 1ᵉʳ Allié rouvre le choix limité aux Alliés (un 2ᵉ possible, ou terminer). */
+function applyResolveBePrepared(state: GameState, instanceId: string | null): GameState {
+  const pending = state.pendingBePrepared
+  if (!pending) throw new Error('Aucune récupération en attente (Soyez prêtes !).')
+  const idx = pending.playerIndex
+  const player = state.players[idx]
+  if (instanceId === null) {
+    return { ...state, pendingBePrepared: null, log: [...state.log, `${player.villainName} : récupération terminée (Soyez prêtes !).`] }
+  }
+  if (!pending.candidateIds.includes(instanceId)) throw new Error('Carte choisie invalide (Soyez prêtes !).')
+  const card = player.discard.find((c) => c.instanceId === instanceId)
+  if (!card) throw new Error('Carte introuvable dans la défausse (Soyez prêtes !).')
+  let next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    discard: p.discard.filter((c) => c.instanceId !== instanceId),
+    hand: [...p.hand, card],
+  }))
+  next = { ...next, log: [...next.log, `${player.villainName} reprend **${card.name}** (Soyez prêtes !).`] }
+  // Un Événement est exclusif → fin. Un 2ᵉ Allié (alliesOnly) → fin.
+  if (card.type === 'effect' || pending.alliesOnly) {
+    return { ...next, pendingBePrepared: null }
+  }
+  // 1ᵉʳ Allié repris : on peut en reprendre un 2ᵉ s'il en reste.
+  const remainingAllies = next.players[idx].discard.filter((c) => c.type === 'ally').map((c) => c.instanceId)
+  if (remainingAllies.length === 0) {
+    return { ...next, pendingBePrepared: null }
+  }
+  return {
+    ...next,
+    pendingBePrepared: { playerIndex: idx, candidateIds: remainingAllies, alliesOnly: true },
+  }
+}
+
+/** Scar — Shenzi : joue gratuitement la Hyène choisie (`instanceId`) de la main sur
+ *  le lieu de Shenzi. `instanceId` null = décliner. */
+function applyResolveFreeHyena(state: GameState, instanceId: string | null): GameState {
+  const pending = state.pendingFreeHyena
+  if (!pending) throw new Error('Aucune Hyène gratuite en attente (Shenzi).')
+  const idx = pending.playerIndex
+  const player = state.players[idx]
+  if (instanceId === null) {
+    return { ...state, pendingFreeHyena: null, log: [...state.log, `${player.villainName} ne joue pas de Hyène (Shenzi).`] }
+  }
+  if (!pending.candidateIds.includes(instanceId)) throw new Error('Hyène choisie invalide (Shenzi).')
+  const hyena = player.hand.find((c) => c.instanceId === instanceId)
+  if (!hyena) throw new Error('Hyène introuvable dans la main (Shenzi).')
+  const loc = pending.locationId
+  let next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    hand: p.hand.filter((c) => c.instanceId !== instanceId),
+    board: { ...p.board, [loc]: [...(p.board[loc] ?? []), hyena] },
+  }))
+  next = { ...next, pendingFreeHyena: null, log: [...next.log, `Shenzi : ${player.villainName} joue gratuitement **${hyena.name}**.`] }
+  // Une Malédiction Sommeil sans Rêves se défausse quand un Allié arrive sur le lieu.
+  return processCurseDiscards(next, idx, loc, 'ally-played-here')
+}
+
+/** Scar — Hakuna Matata : soit `mode: 'play'` rejoue le Héros choisi (≤3) de la pile
+ *  Succession dans le royaume (lieu comptant le moins d'Alliés), soit `mode: 'move'`
+ *  ouvre le déplacement d'un Héros du royaume vers n'importe quel lieu. */
+function applyResolveHakunaMatata(state: GameState, mode: 'play' | 'move', instanceId: string): GameState {
+  const pending = state.pendingHakunaMatata
+  if (!pending) throw new Error('Aucun Hakuna Matata en attente.')
+  const idx = pending.playerIndex
+  const p = state.players[idx]
+  if (mode === 'play') {
+    if (!pending.successionIds.includes(instanceId)) throw new Error('Héros de Succession invalide (Hakuna Matata).')
+    const hero = (p.succession ?? []).find((c) => c.instanceId === instanceId)
+    if (!hero) throw new Error('Héros introuvable dans la pile Succession.')
+    const locked = new Set(p.lockedLocations ?? [])
+    const allyCountAt = (locId: string) =>
+      (p.board[locId] ?? []).filter((c) => c.type === 'ally' && !c.isWicket).length
+    const dest = p.locations.map((l) => l.id).filter((id) => !locked.has(id)).sort((a, b) => allyCountAt(a) - allyCountAt(b))[0]
+    if (!dest) throw new Error('Aucun lieu où rejouer le Héros.')
+    const next = updatePlayer(state, idx, (pp) => ({
+      ...pp,
+      succession: (pp.succession ?? []).filter((c) => c.instanceId !== instanceId),
+      board: { ...pp.board, [dest]: [...(pp.board[dest] ?? []), hero] },
+    }))
+    const destName = p.locations.find((l) => l.id === dest)?.name ?? dest
+    return {
+      ...next,
+      pendingHakunaMatata: null,
+      log: [...next.log, `Hakuna Matata : **${hero.name}** quitte la pile Succession et revient sur ${destName}.`],
+    }
+  }
+  // mode === 'move' : ouvre le déplacement (n'importe quel lieu) du Héros choisi.
+  if (!pending.realmHeroIds.includes(instanceId)) throw new Error('Héros du royaume invalide (Hakuna Matata).')
+  return {
+    ...state,
+    pendingHakunaMatata: null,
+    pendingHeroRelocate: { chooserIndex: idx, targetIndex: idx, anyLocation: true, candidateIds: [instanceId] },
+    log: [...state.log, 'Hakuna Matata : déplacez le Héros choisi vers n’importe quel lieu.'],
+  }
+}
+
 /** Tuer (L'Imposteur) : défausse le Coéquipier choisi ; les autres Coéquipiers
  *  (non défaussés) de SON lieu deviennent suspects. */
 function applyResolveCrewmateKill(state: GameState, color: string): GameState {
@@ -3831,8 +4691,26 @@ function applyResolveGiantLocation(state: GameState, locationId: LocationId): Ga
   const order = p.locations.map((l) => l.id)
   const i = order.indexOf(p.pawnLocation ?? '')
   const neighbors = [order[i - 1], order[i + 1]].filter(Boolean) as string[]
-  if (!neighbors.includes(locationId)) throw new Error(`Lieu « ${locationId} » non voisin.`)
   const dest = findLocation(p, locationId)
+  if (pending.viaFollowMe) {
+    // Scar — Suivez-moi ! : le lieu doit être l'un des lieux à Hyène listés. On ouvre
+    // la fenêtre d'action distante (hors Fatalité), sans marqueur (l'Événement est
+    // déjà consommé) ; après l'unique action, usedBeforeGiant restaure l'économie.
+    if (!(pending.locations ?? []).includes(locationId)) {
+      throw new Error(`Lieu « ${locationId} » sans Hyène éligible.`)
+    }
+    const preserved = state.usedActionIds.filter((a) => a.includes(':'))
+    const fateIds = (dest?.actions ?? []).filter((a) => a.type === 'FATE').map((a) => a.id)
+    return {
+      ...state,
+      pendingGiantAction: null,
+      actAtLocation: locationId,
+      usedActionIds: [...preserved, ...fateIds],
+      usedBeforeGiant: state.usedActionIds,
+      log: [...state.log, `Suivez-moi ! : ${p.villainName} agit depuis **${dest?.name ?? locationId}** (hors Fatalité).`],
+    }
+  }
+  if (!neighbors.includes(locationId)) throw new Error(`Lieu « ${locationId} » non voisin.`)
   if (pending.viaCanne) {
     // Canne : UNE action disponible du voisin, Fatalité EXCLUE, usage unique/tour.
     // Pendant la fenêtre, on retire les ids d'actions « pleines » (les actions du
@@ -4327,6 +5205,37 @@ function clearGiant(before: GameState, after: GameState): GameState {
   }
 }
 
+/**
+ * Ratigan — Piège ingénieux : au début du tour du joueur `idx` (avant son
+ * déplacement), referme chaque piège amorcé de son royaume — élimine tous les
+ * Héros de son lieu — puis défausse la carte. No-op pour les autres vilains / sans
+ * piège amorcé. Doit tourner AVANT la vérification de victoire (un piège peut
+ * éliminer Basil côté « Le Rat »).
+ */
+function resolveArmedTraps(state: GameState, idx: number): GameState {
+  const player = state.players[idx]
+  const armed: { loc: LocationId; instanceId: string; name: string }[] = []
+  for (const loc of player.locations) {
+    for (const c of player.board[loc.id] ?? []) {
+      if (c.trapArmed && c.cardId === 'piege-ingenieux') {
+        armed.push({ loc: loc.id, instanceId: c.instanceId, name: c.name })
+      }
+    }
+  }
+  let next = state
+  for (const trap of armed) {
+    next = resolveEffects(next, [{ type: 'ELIMINATE_ALL_HEROES_AT', locationId: trap.loc }], { actorIndex: idx })
+    const card = (next.players[idx].board[trap.loc] ?? []).find((c) => c.instanceId === trap.instanceId)
+    next = updatePlayer(next, idx, (p) => ({
+      ...p,
+      board: { ...p.board, [trap.loc]: (p.board[trap.loc] ?? []).filter((c) => c.instanceId !== trap.instanceId) },
+      discard: card ? [...p.discard, { ...card, trapArmed: undefined }] : p.discard,
+    }))
+    next = { ...next, log: [...next.log, `Le **Piège ingénieux** se referme puis est défaussé.`] }
+  }
+  return next
+}
+
 function applyEndTurn(state: GameState): GameState {
   if (!canEndTurn(state)) {
     throw new Error(`Impossible de terminer le tour en phase ${state.phase}.`)
@@ -4355,7 +5264,7 @@ function applyEndTurn(state: GameState): GameState {
     uncoverCoveredActions: false,
     lastVanquishedHeroStrength: undefined,
     diabloFree: null,
-    pendingTrapVanquish: false,
+    pendingTrapVanquish: null,
     actAtLocation: null,
     usedBeforeGiant: null,
     pendingGiantAction: null,
@@ -4370,6 +5279,7 @@ function applyEndTurn(state: GameState): GameState {
     activeDiscardedCount: 0,
     activeGainedPower: 0,
     activePlayedCount: 0,
+    activeFateTargets: [],
     // Effets « jusqu'à la fin de votre tour » du joueur qui termine (Sablier Géant).
     players: drawn.players.map((p, i) =>
       i === drawn.activePlayer
@@ -4400,6 +5310,31 @@ function applyEndTurn(state: GameState): GameState {
   if (started.players[nextIdx].poisonOnFateTargeted) {
     started = updatePlayer(started, nextIdx, (p) => ({ ...p, poisonOnFateTargeted: false }))
   }
+  // Le verrou « seule action » de Beauté endormie expire au début du tour suivant.
+  if (started.players[nextIdx].soleActionLock) {
+    started = updatePlayer(started, nextIdx, (p) => ({ ...p, soleActionLock: false }))
+  }
+  // Yzma — Beauté endormie : au début de son tour, AVANT le déplacement, ouvre un
+  // choix interactif (gagner 2 JT / piocher 2 / déplacer un Héros voisin), chaque
+  // option indépendante. Le déplacement reste bloqué tant qu'il n'est pas résolu.
+  if (started.players[nextIdx].beautySleepPending) {
+    started = {
+      ...updatePlayer(started, nextIdx, (p) => ({ ...p, beautySleepPending: false })),
+      pendingBeautySleep: { playerIndex: nextIdx },
+      log: [
+        ...started.log,
+        `Beauté endormie : ${started.players[nextIdx].villainName} se réveille — choisissez vos effets avant de vous déplacer.`,
+      ],
+    }
+  }
+
+  // Ratigan — Piège ingénieux : referme les pièges amorcés (avant le déplacement et
+  // la victoire — un piège peut éliminer Basil côté « Le Rat »).
+  started = resolveArmedTraps(started, nextIdx)
+
+  // Ratigan — la bascule « Le Rat » est désormais immédiate (syncRatiganObjectiveAll
+  // après chaque action) ; au pire on resynchronise ici par sécurité avant la victoire.
+  started = syncRatiganObjectiveAll(started)
 
   // La victoire se vérifie « au début du tour » du nouveau joueur actif.
   if (hasReachedObjective(started)) {
@@ -4416,6 +5351,13 @@ function applyEndTurn(state: GameState): GameState {
 
 /** Applique une action de jeu et renvoie le nouvel état. Pur, déterministe. */
 export function applyAction(state: GameState, action: GameAction): GameState {
+  // Après chaque action, on synchronise l'objectif double de Ratigan : si la Reine
+  // Robot vient d'être défaussée (Basil, mode test…), sa tuile bascule côté « Le
+  // Rat » immédiatement, sans attendre le début de son tour.
+  return syncRatiganObjectiveAll(applyActionCore(state, action))
+}
+
+function applyActionCore(state: GameState, action: GameAction): GameState {
   if (state.status !== 'PLAYING') {
     // Le Coup Royal gagnant met fin à la partie : on autorise tout de même la
     // fermeture de sa fenêtre de résultat (sinon elle resterait bloquée).
@@ -4425,12 +5367,15 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     throw new Error('La partie est terminée.')
   }
   // Une Fatalité révélée doit être résolue avant tout autre coup — sauf une
-  // Condition jouée par le non-actif (réaction « à tout moment »).
+  // Condition jouée par le non-actif (réaction « à tout moment ») ET la résolution
+  // d'un sondage ouvert PAR cette réaction (Scar — La vie n'est pas juste ouvre
+  // pendingScry alors que la Fatalité de l'adversaire est encore en attente).
   if (
     state.pendingFate &&
     action.type !== 'RESOLVE_FATE' &&
     action.type !== 'PASS_FATE' &&
-    action.type !== 'PLAY_CONDITION'
+    action.type !== 'PLAY_CONDITION' &&
+    action.type !== 'RESOLVE_SCRY'
   ) {
     throw new Error('Une Fatalité est en attente de résolution (RESOLVE_FATE).')
   }
@@ -4456,6 +5401,15 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   if (state.pendingScry && action.type !== 'RESOLVE_SCRY' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Triez les cartes Fatalité révélées (RESOLVE_SCRY).')
   }
+  // Yzma — Beauté endormie (réveil) : à résoudre avant tout autre coup, déplacement
+  // du pion compris (« avant de vous déplacer… »).
+  if (
+    state.pendingBeautySleep &&
+    action.type !== 'RESOLVE_BEAUTY_SLEEP' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Résolvez le réveil de Beauté endormie (RESOLVE_BEAUTY_SLEEP).')
+  }
   // Déplacement d'Allié (Pas de Quartier ! / Grand Terrier) : à résoudre d'abord
   // (RESOLVE_ALLY_MOVE_BUFF), ou décliner si facultatif (SKIP_ALLY_MOVE_BUFF).
   if (
@@ -4478,6 +5432,15 @@ export function applyAction(state: GameState, action: GameAction): GameState {
     throw new Error('Choisissez où poser la carte dévoilée (RESOLVE_CASTLE_THEFT).')
   }
   // Opportunisme : récupérer une carte de la défausse d'abord.
+  if (state.pendingBePrepared && action.type !== 'RESOLVE_BE_PREPARED' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Choisissez les cartes à reprendre (RESOLVE_BE_PREPARED).')
+  }
+  if (state.pendingFreeHyena && action.type !== 'RESOLVE_FREE_HYENA' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Choisissez la Hyène à jouer gratuitement (RESOLVE_FREE_HYENA).')
+  }
+  if (state.pendingHakunaMatata && action.type !== 'RESOLVE_HAKUNA_MATATA' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Résolvez Hakuna Matata (RESOLVE_HAKUNA_MATATA).')
+  }
   if (state.pendingRecover && action.type !== 'RESOLVE_RECOVER' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Récupérez une carte de votre défausse (RESOLVE_RECOVER).')
   }
@@ -4558,6 +5521,35 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   if (state.pendingFateScry && action.type !== 'RESOLVE_FATE_SCRY' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Triez les cartes révélées (RESOLVE_FATE_SCRY).')
   }
+  if (
+    state.pendingYzmaFate &&
+    action.type !== 'RESOLVE_YZMA_FATE_DECK' &&
+    action.type !== 'RESOLVE_YZMA_FATE_CARD' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Résolvez la Fatalité d’Yzma (choix de pioche puis de carte).')
+  }
+  if (
+    state.pendingYzmaOwnDeck &&
+    action.type !== 'RESOLVE_YZMA_OWN_DECK' &&
+    action.type !== 'RESOLVE_YZMA_HAMMER' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Choisissez la pioche Fatalité sur laquelle agir (RESOLVE_YZMA_OWN_DECK).')
+  }
+  if (
+    state.pendingYzmaManipulate &&
+    action.type !== 'RESOLVE_YZMA_MANIPULATE' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Yzma : résolvez la manipulation des pioches Fatalité (RESOLVE_YZMA_MANIPULATE).')
+  }
+  if (state.pendingFinishJob && action.type !== 'RESOLVE_FINISH_JOB' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Finis le travail : choisissez l’Allié puis le lieu (RESOLVE_FINISH_JOB).')
+  }
+  if (state.pendingReplayEvent && action.type !== 'RESOLVE_REPLAY_EVENT' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Ironie du sort : choisissez l’Événement à rejouer (RESOLVE_REPLAY_EVENT).')
+  }
   switch (action.type) {
     case 'MOVE':
       return applyMove(state, action.to)
@@ -4576,6 +5568,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
           action.allyInstanceIds,
           action.allyMove,
           action.shrinkFreeActionId,
+          action.engrenagesIds,
         ),
       )
       // Compte les cartes jouées ce tour (déclencheur Insidieux de L'Imposteur).
@@ -4638,6 +5631,12 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return applyResolveCastleTheft(state, action.to)
     case 'RESOLVE_RECOVER':
       return applyResolveRecover(state, action.instanceId)
+    case 'RESOLVE_BE_PREPARED':
+      return applyResolveBePrepared(state, action.instanceId)
+    case 'RESOLVE_FREE_HYENA':
+      return applyResolveFreeHyena(state, action.instanceId)
+    case 'RESOLVE_HAKUNA_MATATA':
+      return applyResolveHakunaMatata(state, action.mode, action.instanceId)
     case 'RESOLVE_CREWMATE_KILL':
       return applyResolveCrewmateKill(state, action.color)
     case 'RESOLVE_CREWMATE_SUSPECT':
@@ -4670,6 +5669,22 @@ export function applyAction(state: GameState, action: GameAction): GameState {
       return applyResolveScream(state, action.from, action.to)
     case 'RESOLVE_FATE_SCRY':
       return applyResolveFateScry(state, action.toAudelaIds, action.deckTopOrder)
+    case 'RESOLVE_YZMA_FATE_DECK':
+      return applyResolveYzmaFateDeck(state, action.locationId)
+    case 'RESOLVE_YZMA_FATE_CARD':
+      return applyResolveYzmaFateCard(state, action.instanceId)
+    case 'RESOLVE_YZMA_OWN_DECK':
+      return applyResolveYzmaOwnDeck(state, action.locationId)
+    case 'RESOLVE_YZMA_HAMMER':
+      return applyResolveYzmaHammer(state, action.instanceIds)
+    case 'RESOLVE_YZMA_MANIPULATE':
+      return applyResolveYzmaManipulate(state, action.heroInstanceId, action.locationIds)
+    case 'RESOLVE_FINISH_JOB':
+      return applyResolveFinishJob(state, action.allyInstanceId, action.to)
+    case 'RESOLVE_BEAUTY_SLEEP':
+      return applyResolveBeautySleep(state, action.gainPower, action.draw, action.heroMove)
+    case 'RESOLVE_REPLAY_EVENT':
+      return applyResolveReplayEvent(state, action.instanceId)
     case 'CHARIOT_MOVE':
       return applyChariotMove(state, action.instanceId, action.to)
     case 'USE_NEVERLAND_MAP':

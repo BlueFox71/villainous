@@ -273,7 +273,10 @@ function makePlayer(
     hand: [],
     discard: [],
     board: Object.fromEntries(villain.locations.map((l) => [l.id, []])),
-    fateDeck,
+    // Yzma : la pioche Fatalité est répartie en 4 pioches (une par lieu) ; `fateDeck`
+    // reste vide. Les autres vilains gardent une seule pioche.
+    fateDeck: villain.id === 'yzma' ? [] : fateDeck,
+    fateDecks: villain.id === 'yzma' ? splitYzmaFateDecks(villain.locations, fateDeck) : undefined,
     fateDiscard: [],
     lockedLocations: villain.lockedLocationsAtStart
       ? [...villain.lockedLocationsAtStart]
@@ -290,7 +293,25 @@ function makePlayer(
     cottageLocationId: villain.id === 'mechante-reine' ? 'maison-des-nains' : undefined,
     // Scar — pile Succession (vide au départ ; alimentée par les Héros éliminés).
     succession: villain.id === 'scar' ? [] : undefined,
+    // Yzma — objectif (Kronk élimine Kuzco) ; Ratigan — côté « Le Rat » (éliminer
+    // Basil) : drapeau initialisé à faux.
+    objectiveHeroDefeated:
+      villain.id === 'yzma' || villain.id === 'ratigan' ? false : undefined,
+    // Ratigan — objectif double : démarre côté « L'Esprit Supérieur ».
+    becameTheRat: villain.id === 'ratigan' ? false : undefined,
   }
+}
+
+/** Yzma — répartit la pioche Fatalité (déjà mélangée) en 4 pioches, une par lieu,
+ *  les plus égales possibles (round-robin). Indexées par id de lieu. */
+function splitYzmaFateDecks(
+  locations: VillainDef['locations'],
+  fateCards: CardInstance[],
+): Record<string, CardInstance[]> {
+  const ids = locations.map((l) => l.id)
+  const decks: Record<string, CardInstance[]> = Object.fromEntries(ids.map((id) => [id, []]))
+  fateCards.forEach((c, i) => decks[ids[i % ids.length]].push(c))
+  return decks
 }
 
 /** Couleurs des 8 Coéquipiers de L'Imposteur, dans l'ordre de placement
@@ -331,6 +352,48 @@ export function syncObservatoryLock(player: PlayerState): PlayerState {
   else locked.delete(loc)
   const next = [...locked]
   return { ...player, lockedLocations: next.length > 0 ? next : undefined }
+}
+
+/**
+ * Ratigan — bascule sa tuile Objectif côté « Le Rat » dès que la Reine Robot se
+ * retrouve dans sa défausse (défaussée par Basil ou autre) : son objectif devient
+ * alors « éliminer Basil ». Idempotent (ne rebascule pas) et no-op pour les autres
+ * vilains ou tant que la Reine Robot n'est pas défaussée. Renvoie un nouveau
+ * PlayerState (immuable).
+ */
+export function syncRatiganObjective(player: PlayerState): PlayerState {
+  if (player.villain !== 'ratigan' || player.becameTheRat) return player
+  if (!player.discard.some((c) => c.cardId === 'reine-robot')) return player
+  return {
+    ...player,
+    becameTheRat: true,
+    objectiveDescription:
+      'La Reine Robot a été défaussée : vous êtes devenu « Le Rat ». Vous devez ' +
+      'éliminer Basil. La Reine Moustoria à Buckingham Palace empêche la victoire. ' +
+      'Vous ne pouvez gagner qu’au début de votre tour.',
+  }
+}
+
+/**
+ * Applique syncRatiganObjective à TOUS les joueurs : dès que la Reine Robot d'un
+ * Ratigan se retrouve en défausse (Basil, mode test…), sa tuile bascule côté « Le
+ * Rat » IMMÉDIATEMENT (sans attendre le début de son tour) — conforme à la carte
+ * « Si cette carte est défaussée, retournez votre tuile Objectif ». Journalise la
+ * bascule. No-op si rien ne change. Appelé après chaque action (applyAction).
+ */
+export function syncRatiganObjectiveAll(state: GameState): GameState {
+  let next = state
+  for (let i = 0; i < next.players.length; i++) {
+    const synced = syncRatiganObjective(next.players[i])
+    if (synced !== next.players[i]) {
+      next = {
+        ...next,
+        players: next.players.map((p, j) => (j === i ? synced : p)),
+        log: [...next.log, `${synced.villainName} devient **Le Rat** : il doit désormais éliminer Basil.`],
+      }
+    }
+  }
+  return next
 }
 
 /**

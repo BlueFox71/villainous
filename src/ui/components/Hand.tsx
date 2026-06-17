@@ -42,6 +42,29 @@ interface Props {
   /** Vrai s'il existe un Héros éliminable sur le lieu du pion (assez de Poison,
    *  priorité Prof) — « Croque ! » est injouable sinon. */
   canBite: boolean
+  /** Vrai s'il y a au moins une Hyène dans le royaume — Festin (Scar) est
+   *  injouable sinon. */
+  realmHasHyena: boolean
+  /** Vrai s'il y a au moins une Hyène sur un AUTRE lieu que celui du pion —
+   *  « Suivez-moi ! » (Scar) est injouable sinon. */
+  hyenaElsewhere: boolean
+  /** Vrai s'il y a au moins un Héros ou Événement dans la défausse Fatalité —
+   *  « Petit secret » (Scar) est injouable sinon. */
+  fateDiscardHasCard: boolean
+  /** Vrai si une action « réelle » (hors marqueurs) a déjà été utilisée ce tour —
+   *  Beauté endormie (Yzma) n'est jouable qu'en PREMIÈRE action, donc injouable
+   *  ensuite. */
+  realActionUsed: boolean
+  /** Vrai s'il y a au moins un jeton Pouvoir sur Kronk — « Le chemin qui balance »
+   *  (Yzma) est injouable sinon (elle n'aurait aucun effet). */
+  kronkHasPowerToken: boolean
+  /** Vrai s'il y a au moins un Héros dans la défausse Fatalité — « Fausses
+   *  funérailles » (Yzma) est injouable sinon (0 jeton gagné). */
+  fateDiscardHasHero: boolean
+  /** Vrai si « Ironie du sort » (Yzma) ferait quelque chose : un Allié sur le lieu
+   *  du pion ET un Événement de la défausse abordable une fois Ironie payée. Sinon
+   *  la carte est injouable (elle gaspillerait du Pouvoir). */
+  poeticJusticeUsable: boolean
   /** Coût effectif d'une carte (Couronne −1, Bâton Magique −1 sur Événement/
    *  Malédiction, Épée de Vérité +2…). Absent → coût de base. */
   costFor?: (card: CardInstance) => number
@@ -76,6 +99,13 @@ export function Hand({
   hasIngredients,
   heroAtPawn,
   canBite,
+  realmHasHyena,
+  hyenaElsewhere,
+  fateDiscardHasCard,
+  realActionUsed,
+  kronkHasPowerToken,
+  fateDiscardHasHero,
+  poeticJusticeUsable,
   costFor,
   armedConditionIds = [],
   forcedHoverId = null,
@@ -218,6 +248,21 @@ export function Hand({
           const needsHeroHere = (card.effects ?? []).some((e) => e.type === 'USE_COVERED_ACTIONS_THIS_TURN')
           // « Croque ! » : injouable sans Héros éliminable sur le lieu du pion.
           const needsBite = (card.effects ?? []).some((e) => e.type === 'TAKE_A_BITE')
+          // Festin (Scar) : injouable sans Hyène dans le royaume.
+          const needsHyena = !!card.requiresHyenaInRealm
+          // Suivez-moi ! (Scar) : injouable sans Hyène sur un autre lieu que le pion.
+          const needsHyenaElsewhere = (card.effects ?? []).some((e) => e.type === 'FOLLOW_ME')
+          // Petit secret (Scar) : injouable si la défausse Fatalité est vide.
+          const needsFateDiscard = (card.effects ?? []).some((e) => e.type === 'PLAY_FATE_HERO_FROM_DISCARD')
+          // Beauté endormie (Yzma) : jouable uniquement en PREMIÈRE action du tour.
+          const needsFirstAction = (card.effects ?? []).some((e) => e.type === 'BEAUTY_SLEEP')
+          // Le chemin qui balance (Yzma) : injouable sans jeton Pouvoir sur Kronk.
+          const needsKronkToken = (card.effects ?? []).some((e) => e.type === 'KRONK_DISCARD_TOKENS')
+          // Fausses funérailles (Yzma) : injouable sans Héros en défausse Fatalité.
+          const needsFateDiscardHero = (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_FATE_DISCARD_HERO')
+          // Ironie du sort (Yzma) : injouable sans Allié sur le lieu / sans Événement
+          // abordable en défausse (elle gaspillerait sinon du Pouvoir).
+          const needsPoeticJustice = (card.effects ?? []).some((e) => e.type === 'POETIC_JUSTICE')
           const playable =
             mode === 'play'
               ? card.type !== 'condition' &&
@@ -228,6 +273,13 @@ export function Hand({
                 (!needsIngredient || hasIngredients) &&
                 (!needsHeroHere || heroAtPawn) &&
                 (!needsBite || canBite) &&
+                (!needsHyena || realmHasHyena) &&
+                (!needsHyenaElsewhere || hyenaElsewhere) &&
+                (!needsFateDiscard || fateDiscardHasCard) &&
+                (!needsFirstAction || !realActionUsed) &&
+                (!needsKronkToken || kronkHasPowerToken) &&
+                (!needsFateDiscardHero || fateDiscardHasHero) &&
+                (!needsPoeticJustice || poeticJusticeUsable) &&
                 !(blockEvents && card.type === 'effect')
               : mode === 'condition-ally'
                 ? card.type === 'ally' // Lâcheté : seuls les Alliés sont jouables, gratuit

@@ -10,6 +10,9 @@ interface Props {
   /** Renvoie les instanceIds à remettre sur le dessus, dans l'ordre (1ʳᵉ = tout
    *  en haut) ; les autres sont défaussées. Liste vide = tout défausser. */
   onResolve: (topInstanceIds: string[]) => void
+  /** Titre (nom de la carte source). Défaut neutre — plusieurs cartes partagent ce
+   *  sondage (Faites-leur peur !, La vie n'est pas juste, …). */
+  title?: string
 }
 
 /**
@@ -18,11 +21,12 @@ interface Props {
  *  - réordonnez celles que vous gardez (bouton ⇄),
  *  - validez : les cartes gardées repartent sur le dessus dans l'ordre affiché.
  */
-export function ScryModal({ cards, onResolve }: Props) {
+export function ScryModal({ cards, onResolve, title = 'Sondage de la pioche Fatalité' }: Props) {
   const [order, setOrder] = useState<string[]>(cards.map((c) => c.instanceId))
   const [discarded, setDiscarded] = useState<Set<string>>(new Set())
 
   const kept = order.filter((id) => !discarded.has(id))
+  const discardedCount = cards.length - kept.length
   const swap = () => order.length === 2 && setOrder([order[1], order[0]])
   const toggleDiscard = (id: string) =>
     setDiscarded((s) => {
@@ -35,7 +39,7 @@ export function ScryModal({ cards, onResolve }: Props) {
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-4">
       <div className="flex w-full max-w-lg flex-col items-center gap-4 rounded-2xl border border-white/15 bg-[#0b1020] p-6 text-white">
-        <h2 className="text-xl font-black text-sky-200">Faites-leur peur !</h2>
+        <h2 className="text-xl font-black text-sky-200">{title}</h2>
         <p className="text-center text-sm text-white/70">
           Les {cards.length} première(s) carte(s) de votre pioche Fatalité. Défaussez-les, ou
           remettez-les sur le dessus dans l'ordre de votre choix (la 1ʳᵉ sera piochée en premier).
@@ -88,17 +92,14 @@ export function ScryModal({ cards, onResolve }: Props) {
         <div className="flex gap-3">
           <button
             type="button"
-            onClick={() => onResolve([])}
-            className="rounded-xl border border-red-400/50 px-4 py-2 text-sm font-bold text-red-100 hover:bg-red-500/20"
-          >
-            Tout défausser
-          </button>
-          <button
-            type="button"
             onClick={() => onResolve(kept)}
             className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-bold text-white hover:bg-sky-500"
           >
-            Valider{kept.length > 0 ? ` (${kept.length} sur le dessus)` : ' (tout défausser)'}
+            {kept.length === 0
+              ? 'Valider — tout défausser'
+              : discardedCount === 0
+                ? `Valider — ${kept.length} sur le dessus`
+                : `Valider — ${kept.length} sur le dessus, ${discardedCount} défaussée${discardedCount > 1 ? 's' : ''}`}
           </button>
         </div>
       </div>

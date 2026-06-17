@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { PlayerState } from '../../engine/types'
 import type { Accent } from '../accents'
 import { useAnimatedNumber } from '../hooks/useAnimatedNumber'
@@ -12,14 +13,15 @@ interface Props {
   /** Affiche la case objectif dans le panneau (défaut). La passer à `false`
    *  quand l'objectif est rendu ailleurs (cf. `ObjectiveBox`, bande du bas). */
   showObjective?: boolean
-  /** Libellé affiché en titre du camp (défaut : nom du vilain). Permet d'afficher
-   *  le nom du joueur (profil / adversaire réseau) à la place. */
-  displayName?: string
+  /** Sous-titre affiché après le nom du vilain (« — pseudo » / « — Ordinateur »). */
+  subLabel?: string
+  /** Vignette ronde à gauche du titre (avatar du joueur / du vilain). */
+  avatar?: ReactNode
 }
 
 /** En-tête d'un camp : nom + jetons de pouvoir (+ objectif si `showObjective`).
  *  L'objectif lui-même est rendu par `ObjectiveBox`, réutilisable hors panneau. */
-export function PlayerPanel({ player, accent, isActive, isWinner, showObjective = true, displayName }: Props) {
+export function PlayerPanel({ player, accent, isActive, isWinner, showObjective = true, subLabel, avatar }: Props) {
   const displayedPower = useAnimatedNumber(player.power)
   // Fond teinté à la couleur du méchant (plus marqué quand c'est son tour).
   const color = VILLAIN_COLOR[player.villain]
@@ -36,7 +38,13 @@ export function PlayerPanel({ player, accent, isActive, isWinner, showObjective 
       }
     >
       <div className="flex items-center justify-between gap-2">
-        <h2 className={`truncate text-lg font-semibold ${accent.title}`}>{displayName ?? player.villainName}</h2>
+        <div className="flex min-w-0 items-center gap-2">
+          <h2 className={`truncate text-lg font-semibold ${accent.title}`}>
+            {player.villainName}
+            {subLabel && <span className="font-normal text-white/55"> — {subLabel}</span>}
+          </h2>
+          {avatar}
+        </div>
         {isWinner && <span className="shrink-0 text-lg">🏆</span>}
       </div>
 
@@ -154,6 +162,32 @@ export function ObjectiveBox({
           isWinner={isWinner}
           turns={player.objective.turns}
         />
+      ) : player.objective.type === 'SUCCESSION_FORCE' ? (
+        <SuccessionForceProgress
+          player={player}
+          accent={accent}
+          isWinner={isWinner}
+          firstHeroCardId={player.objective.firstHeroCardId}
+          minForce={player.objective.minForce}
+        />
+      ) : player.objective.type === 'DEFEAT_HERO_WITH_ALLY' ? (
+        <DefeatHeroWithAllyProgress
+          player={player}
+          accent={accent}
+          isWinner={isWinner}
+          heroCardId={player.objective.heroCardId}
+          allyCardId={player.objective.allyCardId}
+        />
+      ) : player.objective.type === 'RATIGAN_DUAL' ? (
+        <RatiganDualProgress
+          player={player}
+          accent={accent}
+          isWinner={isWinner}
+          itemCardId={player.objective.itemCardId}
+          locationId={player.objective.locationId}
+          altHeroCardId={player.objective.altHeroCardId}
+          blockerHeroCardId={player.objective.blockerHeroCardId}
+        />
       ) : (
         <CurseEachLocationProgress player={player} accent={accent} isWinner={isWinner} />
       )}
@@ -188,6 +222,49 @@ function PowerThresholdProgress({
           style={{ width: `${pct}%` }}
         />
       </div>
+    </>
+  )
+}
+
+/** Scar — pile Succession : accumuler `minForce` de Force, Mufasa devant y être en
+ *  premier. Affiche la Force totale de la pile / l'objectif, et rappelle qu'il faut
+ *  d'abord vaincre le premier Héros (Mufasa) tant qu'il n'y est pas. */
+function SuccessionForceProgress({
+  player,
+  accent,
+  isWinner,
+  firstHeroCardId,
+  minForce,
+}: {
+  player: PlayerState
+  accent: Accent
+  isWinner: boolean
+  firstHeroCardId: string
+  minForce: number
+}) {
+  const pile = player.succession ?? []
+  const hasFirst = pile.some((c) => c.cardId === firstHeroCardId)
+  const force = pile.reduce((n, c) => n + (c.strength ?? 0), 0)
+  const animated = useAnimatedNumber(force)
+  const pct = Math.min(100, (animated / minForce) * 100)
+  const firstName = getCardDef(firstHeroCardId)?.name ?? 'le premier Héros'
+  return (
+    <>
+      <div className="mb-1 flex justify-between text-sm">
+        <span className={accent.accentText}>Succession</span>
+        <span className="font-mono text-white">
+          {animated} / {minForce}
+        </span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-white/15">
+        <div
+          className={`h-full rounded-full transition-all duration-300 ${isWinner ? 'bg-amber-400' : accent.gauge}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      {!hasFirst && (
+        <div className="mt-1 text-[10px] text-amber-300">↳ vaincre {firstName} d'abord</div>
+      )}
     </>
   )
 }
@@ -349,6 +426,119 @@ function ControlHeroProgress({
             title={s.title}
             className={`h-2 flex-1 rounded-full ${
               s.ok ? (isWinner ? 'bg-amber-400' : accent.gauge) : 'bg-white/15'
+            }`}
+          />
+        ))}
+      </div>
+    </>
+  )
+}
+
+/** Yzma — DEFEAT_HERO_WITH_ALLY : poser l'Allié (Kronk), faire venir le Héros (Kuzco),
+ *  puis éliminer le Héros avec l'Allié. 3 étapes ; toutes vertes une fois l'objectif
+ *  atteint (les cartes peuvent alors avoir quitté le plateau). */
+function DefeatHeroWithAllyProgress({
+  player,
+  accent,
+  isWinner,
+  heroCardId,
+  allyCardId,
+}: {
+  player: PlayerState
+  accent: Accent
+  isWinner: boolean
+  heroCardId: string
+  allyCardId: string
+}) {
+  const defeated = !!player.objectiveHeroDefeated
+  const inRealm = (id: string) => Object.values(player.board).flat().some((c) => c.cardId === id)
+  const heroName = getCardDef(heroCardId)?.name ?? 'Héros'
+  const allyName = getCardDef(allyCardId)?.name ?? 'Allié'
+  const steps = [
+    { ok: defeated || inRealm(allyCardId), title: `${allyName} en jeu` },
+    { ok: defeated || inRealm(heroCardId), title: `${heroName} en jeu` },
+    { ok: defeated, title: `${heroName} éliminé par ${allyName}` },
+  ]
+  const done = steps.filter((s) => s.ok).length
+  return (
+    <>
+      <div className="mb-1 flex justify-between text-sm">
+        <span className={accent.accentText}>Objectif</span>
+        <span className="font-mono text-white">{done} / {steps.length}</span>
+      </div>
+      <div className="flex gap-1">
+        {steps.map((s, i) => (
+          <div
+            key={i}
+            title={s.title}
+            className={`h-2 flex-1 rounded-full ${
+              s.ok ? (isWinner ? 'bg-amber-400' : accent.gauge) : 'bg-white/15'
+            }`}
+          />
+        ))}
+      </div>
+    </>
+  )
+}
+
+/** Ratigan — objectif DOUBLE. Côté « L'Esprit Supérieur » : amener la Reine Robot
+ *  à Buckingham Palace. Côté « Le Rat » (Reine Robot défaussée) : éliminer Basil.
+ *  La Reine Moustoria sur le lieu cible bloque la victoire (libellé ⛔). */
+function RatiganDualProgress({
+  player,
+  accent,
+  isWinner,
+  itemCardId,
+  locationId,
+  altHeroCardId,
+  blockerHeroCardId,
+}: {
+  player: PlayerState
+  accent: Accent
+  isWinner: boolean
+  itemCardId: string
+  locationId: string
+  altHeroCardId: string
+  blockerHeroCardId: string
+}) {
+  const cell = player.board[locationId] ?? []
+  const blocked = cell.some((c) => c.type === 'hero' && c.cardId === blockerHeroCardId)
+  const all = Object.values(player.board).flat()
+  let steps: { ok: boolean; title: string }[]
+  let label: string
+  if (player.becameTheRat) {
+    const defeated = !!player.objectiveHeroDefeated
+    const basilName = getCardDef(altHeroCardId)?.name ?? 'Basil'
+    steps = [
+      { ok: defeated || all.some((c) => c.type === 'hero' && c.cardId === altHeroCardId), title: `${basilName} en jeu` },
+      { ok: defeated, title: `${basilName} éliminé` },
+    ]
+    label = 'Le Rat'
+  } else {
+    const robotName = getCardDef(itemCardId)?.name ?? 'Reine Robot'
+    const locName = player.locations.find((l) => l.id === locationId)?.name ?? locationId
+    const inRealm = all.some((c) => c.cardId === itemCardId && !c.attachedTo)
+    const atLoc = cell.some((c) => c.cardId === itemCardId && !c.attachedTo)
+    steps = [
+      { ok: atLoc || inRealm, title: `${robotName} en jeu` },
+      { ok: atLoc, title: `${robotName} à ${locName}` },
+    ]
+    label = 'L’Esprit Supérieur'
+  }
+  const done = steps.filter((s) => s.ok).length
+  return (
+    <>
+      <div className="mb-1 flex justify-between text-sm">
+        <span className={accent.accentText}>{blocked ? '⛔ Moustoria' : label}</span>
+        <span className="font-mono text-white">{done} / {steps.length}</span>
+      </div>
+      <div className="flex gap-1">
+        {steps.map((s, i) => (
+          <div
+            key={i}
+            title={s.title}
+            className={`h-2 flex-1 rounded-full ${
+              s.ok && !blocked ? (isWinner ? 'bg-amber-400' : accent.gauge) : s.ok ? 'bg-white/40' : 'bg-white/15'
             }`}
           />
         ))}

@@ -152,6 +152,23 @@ export type ObjectiveDef =
    *  Succession — puis y accumuler une Force combinée ≥ `minForce`. Victoire
    *  vérifiée au début de son tour. */
   | { type: 'SUCCESSION_FORCE'; firstHeroCardId: string; minForce: number }
+  /** Yzma : jouer `heroCardId` (Kuzco, trouvé dans ses 4 pioches Fatalité) et
+   *  l'éliminer en utilisant l'Allié `allyCardId` (Kronk). Drapeau posé au Vanquish. */
+  | { type: 'DEFEAT_HERO_WITH_ALLY'; heroCardId: string; allyCardId: string }
+  /** Ratigan : objectif DOUBLE. Côté « L'Esprit Supérieur » (départ) — au début de
+   *  son tour, l'Objet `itemCardId` (Reine Robot, non associé) doit se trouver sur
+   *  `locationId` (Buckingham Palace). Si la Reine Robot est défaussée, la tuile
+   *  Objectif bascule côté « Le Rat » (drapeau `becameTheRat`) : il faut alors
+   *  éliminer le Héros `altHeroCardId` (Basil) — drapeau `objectiveHeroDefeated`
+   *  posé au Vanquish. Dans les deux cas, le Héros `blockerHeroCardId` (Reine
+   *  Moustoria) présent sur `locationId` empêche la victoire. */
+  | {
+      type: 'RATIGAN_DUAL'
+      itemCardId: string
+      locationId: LocationId
+      altHeroCardId: string
+      blockerHeroCardId: string
+    }
 
 /** Phase courante à l'intérieur d'un tour. */
 export type TurnPhase =
@@ -563,6 +580,112 @@ export type Effect =
   /** La Méchante Reine — Noir de nuit : autorise à refaire une action (hors
    *  Fatalité) de son lieu ce tour-ci (drapeau repeatActionAvailable). */
   | { type: 'GRANT_REPEAT_ACTION' }
+  /** Scar — Sarabi (Fatalité, à la pose) : défausse une Hyène sur le lieu de Sarabi
+   *  (auto : la plus forte). */
+  | { type: 'DISCARD_HYENA_AT_HOST' }
+  /** Scar — Nala (Fatalité, à la pose) : déplace le Héros le plus fort du royaume
+   *  vers le lieu comptant le moins d'Alliés de Scar (auto, défensif). */
+  | { type: 'FATE_MOVE_HERO_TO_SAFEST' }
+  /** Scar — Festin : rassemble toutes les Hyènes du royaume sur le lieu du pion
+   *  (auto : consolidation, pour booster Hyène affamée). */
+  | { type: 'GATHER_HYENAS' }
+  /** Scar — Hakuna Matata (Fatalité) : si un Héros de force ≤ 3 est dans la pile
+   *  Succession, le rejoue dans le royaume (auto, anti-Scar) ; sinon déplace un
+   *  Héros (FATE_MOVE_HERO_TO_SAFEST). */
+  | { type: 'HAKUNA_MATATA' }
+  /** Scar — Shenzi (à la pose) : joue gratuitement une Hyène de la main (auto : la
+   *  plus forte) sur le lieu de Shenzi. Nécessite hostLocationId (post-placement). */
+  | { type: 'PLAY_FREE_HYENA' }
+  /** Scar — Troupeau de gnous (à la pose) : s'il y a un Héros sur le lieu, le
+   *  déplace vers un lieu voisin (auto). Nécessite hostLocationId (post-placement). */
+  | { type: 'GNOUS_MOVE' }
+  /** Scar — Longue vie au roi ! : dévoile les 4 premières cartes Fatalité, joue le
+   *  Héros le plus fort dévoilé sur le lieu du pion (auto), défausse le reste. */
+  | { type: 'REVEAL_FATE_PLAY_HERO'; count: number }
+  /** Scar — Petit secret : joue un Héros de la défausse Fatalité (auto : le plus
+   *  fort) sur le lieu du pion. */
+  | { type: 'PLAY_FATE_HERO_FROM_DISCARD' }
+  /** Scar — Soyez prêtes ! : défausse les 3 premières cartes de la pioche, puis
+   *  récupère en main jusqu'à 2 Alliés (auto : Hyènes/forts d'abord) de la défausse,
+   *  ou à défaut 1 Événement. */
+  | { type: 'BE_PREPARED' }
+  /** Scar — Suivez-moi ! : effectue une action disponible d'un lieu portant une
+   *  Hyène (hors lieu du pion). Auto : déclenche la meilleure action « Gagner du
+   *  pouvoir » d'un tel lieu. */
+  | { type: 'FOLLOW_ME' }
+  /** Yzma — Fausses funérailles : gagne 1 JT par Héros dans la défausse Fatalité,
+   *  plafonné à `max`. */
+  | { type: 'GAIN_POWER_PER_FATE_DISCARD_HERO'; max: number }
+  /** Yzma — Mauvais levier : le joueur perd la moitié de ses jetons Pouvoir
+   *  (arrondie au supérieur). */
+  | { type: 'LOSE_HALF_POWER' }
+  /** Yzma — agir sur l'une de SES pioches Fatalité (ouvre pendingYzmaOwnDeck) :
+   *   - `attack` (À l'attaque !) : dévoile la pioche, joue tous ses Héros sur ce lieu,
+   *     remélange le reste ;
+   *   - `hammer` (Je l'écraserai avec un marteau) : dévoile 2 cartes au hasard et les
+   *     défausse. */
+  | { type: 'YZMA_OWN_DECK_ACTION'; mode: 'attack' | 'hammer' | 'snoop' }
+  /** Yzma — Bras droit : récupère Kronk en main (depuis la pioche/défausse). S'il est
+   *  déjà dans le royaume, reprend en main ses Objets associés (ses jetons sont
+   *  défaussés). */
+  | { type: 'FIND_KRONK' }
+  /** Yzma — Le chemin qui balance : défausse tous les jetons Pouvoir de Kronk et en
+   *  gagne autant. */
+  | { type: 'KRONK_DISCARD_TOKENS' }
+  /** Yzma — Chemin de la droiture (Fatalité) : pose 2 jetons sur Kronk si Kuzco est
+   *  dans le royaume, sinon 1. */
+  | { type: 'KRONK_ADD_TOKENS_IF_KUZCO' }
+  /** Yzma — Finis le travail : déplace un Allié vers n'importe quel lieu portant au
+   *  moins un Héros (ouvre pendingFinishJob). */
+  | { type: 'FINISH_THE_JOB' }
+  /** Yzma — En fuite (Fatalité) : retire un Héros du royaume, le mélange avec les 4
+   *  pioches Fatalité, puis reforme 4 pioches les plus égales possibles (auto). */
+  | { type: 'YZMA_HERO_REALM_TO_DECKS' }
+  /** Yzma — Attention au groove ! / Paysan : prend un Héros de la défausse Fatalité et
+   *  le mélange dans `count` pioche(s), reformées également. `optional` (Paysan : « Vous
+   *  pouvez ») = le contrôleur peut refuser. Le contrôleur choisit le Héros et la/les
+   *  pioche(s) (bot : Héros le plus fort + pioches les plus petites). */
+  | { type: 'YZMA_HERO_DISCARD_TO_DECKS'; count: number; optional?: boolean }
+  /** Yzma — Pacha (Fatalité) : mélange `count` pioches Fatalité ensemble, reformées
+   *  également. `optional` (« Vous pouvez ») = le contrôleur peut refuser. */
+  | { type: 'YZMA_RESHUFFLE_DECKS'; count: number; optional?: boolean }
+  /** Yzma — Ironie du sort : si le joueur est avec un Allié, choisit un Événement de
+   *  sa défausse, en paie le coût et le rejoue (ouvre pendingReplayEvent). */
+  | { type: 'POETIC_JUSTICE' }
+  /** Yzma — Beauté endormie : pose un effet différé (au prochain tour, avant le
+   *  déplacement : +2 JT et pioche 2 cartes). */
+  | { type: 'BEAUTY_SLEEP' }
+  /** Ratigan — Le Grand Génie du Mal : piochez `draw` cartes OU gagnez `power` JT
+   *  (résolu automatiquement par une heuristique : pioche si la main est courte,
+   *  sinon Pouvoir). */
+  | { type: 'DRAW_OR_GAIN_POWER'; draw: number; power: number }
+  /** Ratigan — Capture : déplace un Héros du royaume de force ≤ `maxStrength` vers
+   *  `locationId` (auto : le Héros éligible le plus fort). Respecte forbiddenLocations. */
+  | { type: 'MOVE_REALM_HERO_TO'; maxStrength: number; locationId: LocationId }
+  /** Ratigan — Cloche : cherche la carte `cardId` (Félicia) dans la pioche ou la
+   *  défausse de l'acteur, l'ajoute à sa main, puis remélange sa pioche. */
+  | { type: 'TUTOR_CARD_TO_HAND'; cardId: string }
+  /** Ratigan — Basil (Fatalité, à la pose) : défausse un Objet non associé du lieu
+   *  hôte (auto : `preferCardId` — la Reine Robot — en priorité, sinon le plus cher).
+   *  Défausser la Reine Robot bascule l'objectif de Ratigan côté « Le Rat ». */
+  | { type: 'DISCARD_ITEM_AT_HOST'; preferCardId?: string }
+  /** Ratigan — Sabotage (Fatalité) : sur un lieu portant au moins un Héros, défausse
+   *  un Objet non associé de coût ≤ `maxCost` (auto : le plus cher éligible). */
+  | { type: 'DISCARD_REALM_ITEM_LE_COST'; maxCost: number }
+  /** Ratigan — Félicia (à la pose) : défausse un Héros du lieu hôte (auto : le plus
+   *  fort) vers la défausse Fatalité. No-op (sans erreur) tant que le lieu hôte n'est
+   *  pas connu (résolu après placement de l'Allié). La surcharge « +2 si aucun Héros »
+   *  est gérée par effectiveCost. */
+  | { type: 'DISCARD_HERO_AT_HOST' }
+  /** Ratigan — Piège ingénieux : élimine TOUS les Héros du lieu `locationId` (sans
+   *  Allié, comme un Vanquish gratuit) : restitue leur Pouvoir verrouillé, déclenche
+   *  leurs effets « à la mort », et pose le drapeau de victoire si Basil est éliminé
+   *  côté « Le Rat ». */
+  | { type: 'ELIMINATE_ALL_HEROES_AT'; locationId: LocationId }
+  /** Ratigan — Brutes (à la pose) : si l'Allié est joué sur un lieu où le pion n'est
+   *  PAS, effectue une action disponible de ce lieu (auto : gagne le Pouvoir de la
+   *  meilleure action « Gagner du Pouvoir » imprimée sur ce lieu). */
+  | { type: 'ALLY_REMOTE_GAIN_POWER' }
 
 /**
  * Un exemplaire physique d'une carte en jeu. Comme une même carte existe en
@@ -627,6 +750,11 @@ export interface CardInstance {
    *  épuisement d'énergie, Dino Piranha, Kamella…). Défaussées avec la carte ;
    *  une Étoile est perdue si l'Allié sert à éliminer un Héros (cf. règle carte). */
   stars?: number
+  /** Yzma — jetons Pouvoir posés sur Kronk (gagnés à chaque déplacement). À 3+, Kronk
+   *  « passe au-dessus du plateau » et devient un Héros (drapeau `kronkTransformed`). */
+  kronkPower?: number
+  /** Yzma — Kronk a atteint 3+ jetons : il est devenu un Héros (n'est plus un Allié). */
+  kronkTransformed?: boolean
   /** Restrictions imposées sur le lieu où cette carte est posée (Malédictions). */
   placementRestriction?: PlacementRestriction
   /** Modificateur passif de force que cette carte applique aux AUTRES cartes du
@@ -653,6 +781,10 @@ export interface CardInstance {
   /** Jafar — Sablier Géant : la capacité a été activée ce tour-ci (effet « jusqu'à
    *  la fin de votre tour »). Réinitialisé à la fin du tour de l'acteur. */
   activatedThisTurn?: boolean
+  /** Ratigan — Piège ingénieux : amorcé via Activer. Au début du PROCHAIN tour de
+   *  son propriétaire (avant le déplacement), tous les Héros de son lieu sont
+   *  éliminés, puis cette carte est défaussée. */
+  trapArmed?: boolean
   /** Cette carte ne peut être posée QUE sur ce lieu (Jafar : Lampe Merveilleuse →
    *  Caverne aux Merveilles). Absent = n'importe quel lieu non verrouillé. */
   playOnlyAt?: LocationId
@@ -712,6 +844,8 @@ export interface CardInstance {
   fatePlayBoth?: boolean
   /** Scar — Allié « Hyène » (synergies de Scar). Recopié de CardDef. */
   isHyena?: boolean
+  /** Scar — injouable sans Hyène dans le royaume (Festin). Recopié de CardDef. */
+  requiresHyenaInRealm?: boolean
   /** Reine de Cœur : taille d'un Héros. `'shrunk'` (rapetissé) → ne recouvre
    *  qu'une action du haut ; `'enlarged'` (agrandi) → recouvre une action de plus.
    *  Absent = taille normale (recouvre la rangée du haut). */
@@ -773,6 +907,8 @@ export type SelfStrengthMod =
   /** +delta s'il n'y a AUCUN autre Héros sur le même lieu (Grincheux : +1 s'il
    *  est seul sur son lieu). */
   | { kind: 'if-alone-here'; delta: number }
+  /** Scar — +delta par AUTRE Hyène (`isHyena`) sur le MÊME lieu (Hyène affamée). */
+  | { kind: 'per-other-hyena-here'; delta: number }
 
 /** Dr Facilier — comportement d'une carte RÉVÉLÉE depuis la Pile de l'Au-delà
  *  par Divination. Donnée réutilisable, interprétée par resolveAuDela (effects.ts).
@@ -817,12 +953,18 @@ export type ConditionTrigger =
   /** L'adversaire actif vient de vaincre CE TOUR un Héros de force ≥ `value`
    *  (Méchanceté). */
   | { type: 'opponent-vanquished-hero-strength-ge'; value: number }
+  /** L'adversaire actif vient de vaincre CE TOUR un Héros de force ≤ `value`
+   *  (Yzma — Férocité). */
+  | { type: 'opponent-vanquished-hero-strength-le'; value: number }
   /** L'adversaire actif a défaussé au moins `value` cartes ce tour-ci (Désespoir). */
   | { type: 'opponent-discarded-ge'; value: number }
   /** L'adversaire actif a gagné au moins `value` jetons Pouvoir ce tour-ci (Terreur). */
   | { type: 'opponent-gained-power-ge'; value: number }
   /** L'adversaire actif a joué au moins `value` cartes ce tour-ci (Insidieux). */
   | { type: 'opponent-played-cards-ge'; value: number }
+  /** L'adversaire actif a ciblé le joueur avec une action Fatalité ce tour-ci
+   *  (Scar — La vie n'est pas juste). */
+  | { type: 'opponent-fate-targeted-me' }
 
 /** Déclencheur de défausse automatique d'une carte (typiquement une Malédiction). */
 export type CurseDiscardTrigger =
@@ -873,7 +1015,12 @@ export interface PlayerState {
   /** Pioche Fatalité : les Héros (et cartes Fatalité) que les ADVERSAIRES jouent
    *  contre ce joueur via l'action Fatalité. Mélangée à la mise en place. */
   fateDeck: CardInstance[]
-  /** Défausse Fatalité (carte révélée non jouée, héros vaincus…). */
+  /** Yzma — QUATRE pioches Fatalité (une par lieu, indexées par id de lieu). Quand
+   *  ce champ est défini, `fateDeck` est inutilisé (vide) : l'adversaire choisit une
+   *  pioche par lieu lors d'une Fatalité. `undefined` pour les autres vilains. */
+  fateDecks?: Record<LocationId, CardInstance[]>
+  /** Défausse Fatalité (carte révélée non jouée, héros vaincus…). Yzma : une seule
+   *  défausse partagée par ses 4 pioches. */
   fateDiscard: CardInstance[]
   /** Disparition (Maléfique) : au prochain tour, le déplacement n'est pas
    *  obligatoire. Drapeau consommé au début du tour suivant (MOVE ou SKIP_MOVE). */
@@ -897,6 +1044,21 @@ export interface PlayerState {
    *  éliminés ensuite. La Force combinée des Héros de la pile détermine l'objectif.
    *  `undefined` pour les vilains autres que Scar. */
   succession?: CardInstance[]
+  /** Yzma — objectif DEFEAT_HERO_WITH_ALLY : passé à `true` dès que l'Allié requis
+   *  (Kronk) élimine le Héros requis (Kuzco). Ratigan le réutilise côté « Le Rat »
+   *  (Basil éliminé). `undefined` pour les autres vilains. */
+  objectiveHeroDefeated?: boolean
+  /** Ratigan — objectif DOUBLE : passé à `true` quand la Reine Robot est défaussée
+   *  (par Basil), basculant la tuile Objectif côté « Le Rat » (éliminer Basil).
+   *  `undefined` pour les autres vilains. */
+  becameTheRat?: boolean
+  /** Yzma — Beauté endormie : effet différé armé ; déclenché au début du prochain
+   *  tour d'Yzma (avant le déplacement : ouvre pendingBeautySleep). */
+  beautySleepPending?: boolean
+  /** Yzma — Beauté endormie : verrou « seule action ». Posé quand la carte est
+   *  jouée : aucune AUTRE action n'est permise ce tour-ci. Réinitialisé au début
+   *  du tour suivant. */
+  soleActionLock?: boolean
   /** Bowser — Étoiles présentes sur l'Observatoire de la Comète. `undefined`
    *  pour les vilains sans Étoiles. Quand ce compteur tombe à 0, le lieu
    *  `starLocationId` est verrouillé (helper syncObservatoryLock). */
@@ -978,11 +1140,13 @@ export interface GameState {
    */
   diabloFree?: { instanceId: string; locationId: LocationId } | null
   /**
-   * Tendre un Piège : après le déplacement (immédiat) de l'Allié, le joueur PEUT
-   * faire une action Éliminer un Héros (facultative). `true` tant qu'elle est
-   * proposée ; consommée par TRAP_VANQUISH / TRAP_SKIP_VANQUISH ou la fin de tour.
+   * Vanquish FACULTATIF en attente, proposé après une autre action :
+   *   - `source: 'trap'` (Tendre un Piège) : éliminer n'importe quel Héros ;
+   *   - `source: 'gnous'` (Scar — Troupeau de gnous) : éliminer un Héros sur le
+   *     `locationId` où le Héros vient d'être repoussé.
+   * Consommé par TRAP_VANQUISH / TRAP_SKIP_VANQUISH ou la fin de tour.
    */
-  pendingTrapVanquish?: boolean
+  pendingTrapVanquish?: { source: 'trap' | 'gnous'; locationId?: LocationId } | null
   /**
    * Tyrannie en cours : le joueur `playerIndex` a pioché et doit maintenant
    * choisir `count` cartes de sa main à défausser (RESOLVE_TYRANNY_DISCARD)
@@ -1051,6 +1215,9 @@ export interface GameState {
     forcedDirection?: number
     /** Le déplacement est FACULTATIF (« vous pouvez ») : SKIP_HERO_RELOCATE permis. */
     optional?: boolean
+    /** Scar — Troupeau de gnous : après le déplacement, ouvre un Vanquish facultatif
+     *  sur le lieu d'arrivée (pendingTrapVanquish `source: 'gnous'`). */
+    thenTrapVanquish?: boolean
   } | null
   /** Téléportation (Slenderman) : `playerIndex` doit choisir un lieu portant un
    *  Héros où déplacer son pion (RESOLVE_TELEPORT). Absent / `null` sinon. */
@@ -1074,8 +1241,12 @@ export interface GameState {
   pendingTransformWickets?: { playerIndex: number; max: number } | null
   /** Faites-leur peur ! (Capitaine Crochet) : `playerIndex` regarde les 2 cartes
    *  `cards` retirées du dessus de sa pioche Fatalité, puis les défausse ou les
-   *  remet sur le dessus dans l'ordre de son choix (RESOLVE_SCRY). */
-  pendingScry?: { playerIndex: number; cards: CardInstance[] } | null
+   *  remet sur le dessus dans l'ordre de son choix (RESOLVE_SCRY).
+   *  `rerevealFate` (Scar — La vie n'est pas juste, en réaction) : on trie les 2 cartes
+   *  que l'adversaire s'apprête à révéler ; les gardées retournent sur le DESSUS de la
+   *  pioche Fatalité (les écartées sont défaussées), PUIS l'adversaire re-révèle sa
+   *  Fatalité depuis ce dessus modifié (il pioche donc la gardée + la suivante). */
+  pendingScry?: { playerIndex: number; cards: CardInstance[]; rerevealFate?: boolean } | null
   /** Déplacement d'un Allié vers un lieu voisin non bloqué : `playerIndex` choisit
    *  l'Allié ; il gagne `amount` force jusqu'à la fin du tour (RESOLVE_ALLY_MOVE_BUFF).
    *  `label` : titre/log (carte source) ; `optional` : facultatif → SKIP_ALLY_MOVE_BUFF
@@ -1091,11 +1262,24 @@ export interface GameState {
    *     le chooser y choisit une carte à défausser ;
    *   - `fate-discard-hero-to-top` (Premier baiser d'amour) : le chooser choisit un
    *     Héros de la DÉFAUSSE Fatalité de la cible à remettre sur le dessus de sa
-   *     pioche Fatalité. */
+   *     pioche Fatalité.
+   *   - `play-revealed-fate-hero` (Scar — Longue vie au roi !) : le chooser (= la
+   *     cible) choisit, parmi les Héros dévoilés (déposés dans sa défausse Fatalité),
+   *     lequel jouer dans son royaume ; les autres restent défaussés.
+   *   - `play-fate-card-from-discard` (Scar — Petit secret) : le chooser (= la cible)
+   *     choisit une carte Fatalité (Héros ou Événement) de SA défausse Fatalité et la
+   *     joue (Héros → royaume ; Événement → ses effets se re-déclenchent). */
   pendingFateChoice?: {
     chooserIndex: number
     targetIndex: number
-    kind: 'steal-item-to-hero' | 'remove-ally' | 'remove-item' | 'discard-from-hand' | 'fate-discard-hero-to-top'
+    kind:
+      | 'steal-item-to-hero'
+      | 'remove-ally'
+      | 'remove-item'
+      | 'discard-from-hand'
+      | 'fate-discard-hero-to-top'
+      | 'play-revealed-fate-hero'
+      | 'play-fate-card-from-discard'
     hostInstanceId?: string
     candidateIds: string[]
   } | null
@@ -1120,6 +1304,19 @@ export interface GameState {
     /** Libellé de la source (journal). Défaut : « Opportunisme ». */
     label?: string
   } | null
+  /** Scar — Soyez prêtes ! : après avoir défaussé 3 cartes, `playerIndex` reprend en
+   *  main soit 1 Événement, soit jusqu'à 2 Alliés de sa défausse (RESOLVE_BE_PREPARED ;
+   *  `instanceId` null = terminer). `alliesOnly` : on a déjà repris 1 Allié, seuls les
+   *  Alliés restent éligibles (un 2ᵉ, ou terminer). */
+  pendingBePrepared?: { playerIndex: number; candidateIds: string[]; alliesOnly: boolean } | null
+  /** Scar — Shenzi : `playerIndex` peut jouer GRATUITEMENT une Hyène de sa main
+   *  (`candidateIds`) sur `locationId` (le lieu de Shenzi) — RESOLVE_FREE_HYENA ;
+   *  `instanceId` null = ne pas jouer. */
+  pendingFreeHyena?: { playerIndex: number; locationId: string; candidateIds: string[] } | null
+  /** Scar — Hakuna Matata (Fatalité) : `playerIndex` choisit AU CHOIX de rejouer un
+   *  Héros de force ≤ 3 de la pile Succession (`successionIds`), OU de déplacer un
+   *  Héros du royaume (`realmHeroIds`) vers n'importe quel lieu — RESOLVE_HAKUNA_MATATA. */
+  pendingHakunaMatata?: { playerIndex: number; successionIds: string[]; realmHeroIds: string[] } | null
   /** L'Imposteur — Tuer / Fausse accusation : `playerIndex` choisit le Coéquipier
    *  (par couleur) à défausser parmi `candidateColors` (RESOLVE_CREWMATE_KILL).
    *  `mode` = 'kill' (les autres Coéquipiers du LIEU deviennent suspects) ou
@@ -1147,8 +1344,15 @@ export interface GameState {
   /** Colère Titanesque (Ursula) / Canne (Dr Facilier) : `playerIndex` doit choisir
    *  un lieu voisin sur lequel effectuer une action (RESOLVE_GIANT_LOCATION).
    *  `viaCanne` = ouverture par la Canne (action Fatalité du voisin exclue, usage
-   *  unique par tour). */
-  pendingGiantAction?: { playerIndex: number; viaCanne?: boolean } | null
+   *  unique par tour). `viaFollowMe` (Scar — Suivez-moi !) : les lieux candidats ne
+   *  sont pas les voisins mais ceux listés dans `locations` (lieux portant une Hyène,
+   *  hors lieu du pion) ; action Fatalité exclue. */
+  pendingGiantAction?: {
+    playerIndex: number
+    viaCanne?: boolean
+    viaFollowMe?: boolean
+    locations?: string[]
+  } | null
   /** Colère Titanesque : tant que ce champ est posé, le joueur actif agit comme
    *  s'il était sur ce lieu (cf. currentLocation) ; effacé après UNE action. */
   actAtLocation?: LocationId | null
@@ -1168,6 +1372,9 @@ export interface GameState {
   /** Nombre de cartes jouées par le joueur actif ce tour-ci (déclencheur Insidieux,
    *  L'Imposteur). Remis à 0 en fin de tour. */
   activePlayedCount?: number
+  /** Indices des joueurs ciblés par une action Fatalité du joueur actif ce tour-ci
+   *  (déclencheur Scar — La vie n'est pas juste). Remis à [] en fin de tour. */
+  activeFateTargets?: number[]
   /** Hadès — Préparez-vous au combat ! / action « Déplacer » sur un Titan :
    *  `playerIndex` (Hadès) choisit un de ses Titans non entravés (`titanCandidateIds`)
    *  et un lieu de destination, puis le déplace (RESOLVE_TITAN_MOVE). `paid` : le
@@ -1217,6 +1424,63 @@ export interface GameState {
    *  PEUVENT) dans la Pile de l'Au-delà et remet les autres sur le dessus de la
    *  pioche dans l'ordre choisi (RESOLVE_FATE_SCRY). Absent / `null` sinon. */
   pendingFateScry?: { chooserIndex: number; targetIndex: number; cards: CardInstance[] } | null
+  /** Yzma (Fatalité) — `chooserIndex` (qui a joué la Fatalité) cible `targetIndex`
+   *  (Yzma, aux 4 pioches). Deux phases :
+   *   - `phase: 'deck'` : il choisit l'une des pioches NON VIDES (par `locationId`) —
+   *     RESOLVE_YZMA_FATE_DECK ;
+   *   - `phase: 'card'` : il voit toutes les `cards` de la pioche choisie (`locationId`)
+   *     et en joue UNE sur ce lieu (ou aucune si rien de jouable), le reste est
+   *     remélangé et replacé — RESOLVE_YZMA_FATE_CARD. */
+  pendingYzmaFate?: {
+    chooserIndex: number
+    targetIndex: number
+    phase: 'deck' | 'card'
+    locationId?: LocationId
+    cards?: CardInstance[]
+    /** Yzma — Supériorité : c'est YZMA (et non l'adversaire) qui choisit la pioche
+     *  (phase `deck`). Le choix de la CARTE reste à l'adversaire (`chooserIndex`). */
+    deckChooserIndex?: number
+  } | null
+  /** Yzma — agir sur l'une de SES pioches Fatalité (À l'attaque ! / Marteau) :
+   *  `playerIndex` (Yzma) choisit le lieu de la pioche, puis l'effet `mode` s'applique
+   *  (RESOLVE_YZMA_OWN_DECK). */
+  pendingYzmaOwnDeck?: {
+    playerIndex: number
+    mode: 'attack' | 'hammer' | 'snoop'
+    /** Snoop (Indiscrétion) / À l'attaque ! : cartes dévoilées à MONTRER au joueur
+     *  avant de continuer (snoop : replacer ; attack : jouer Héros + résoudre). */
+    revealCards?: CardInstance[]
+    /** À l'attaque ! : lieu de la pioche dévoilée, mémorisé pour l'exécution au 2ᵉ
+     *  temps (à la fermeture du modal de révélation). */
+    revealLocationId?: LocationId
+    /** Marteau : après le choix de la pioche, le joueur choisit lui-même les cartes à
+     *  défausser, mais FACE CACHÉE (« au hasard ») — il voit les dos. `cards` = pioche
+     *  (remélangée) où piocher ; `count` = nombre à défausser (RESOLVE_YZMA_HAMMER). */
+    hammerPick?: { locationId: LocationId; cards: CardInstance[]; count: number }
+  } | null
+  /** Yzma — manipulation interactive des pioches Fatalité (Paysan / Attention au groove !
+   *  / Pacha) : le contrôleur (`playerIndex`) choisit éventuellement un Héros de la
+   *  défausse (`heroIds`, mode `hero-to-decks`) et jusqu'à `count` pioche(s) à mélanger,
+   *  puis reformées également. `optional` = il peut refuser (RESOLVE_YZMA_MANIPULATE). */
+  pendingYzmaManipulate?: {
+    playerIndex: number
+    mode: 'hero-to-decks' | 'reshuffle'
+    count: number
+    optional: boolean
+    /** Héros candidats (instanceId) de la défausse Fatalité (mode `hero-to-decks`). */
+    heroIds: string[]
+  } | null
+  /** Yzma — Finis le travail : `playerIndex` choisit un Allié (`allyInstanceId`) puis
+   *  un lieu portant un Héros (RESOLVE_FINISH_JOB). */
+  pendingFinishJob?: { playerIndex: number; allyInstanceId?: string } | null
+  /** Yzma — Beauté endormie (effet différé) : au début de son tour, AVANT de se
+   *  déplacer, `playerIndex` peut (chaque choix indépendant) gagner 2 JT, piocher
+   *  2 cartes et déplacer un Héros de son royaume vers un lieu voisin
+   *  (RESOLVE_BEAUTY_SLEEP). Le déplacement reste bloqué tant qu'il n'est pas résolu. */
+  pendingBeautySleep?: { playerIndex: number } | null
+  /** Yzma — Ironie du sort : `playerIndex` choisit un Événement de sa défausse
+   *  (`candidateIds`, abordables), en paie le coût et le rejoue (RESOLVE_REPLAY_EVENT). */
+  pendingReplayEvent?: { playerIndex: number; candidateIds: string[] } | null
   /** Hadès (Fatalité) — Héra / Pégase : `chooserIndex` (le joueur qui a joué la
    *  Fatalité) choisit un Titan parmi `titanCandidateIds` (du royaume de Hadès =
    *  `playerIndex`) à entraver (`kind: 'trap'`) ou à repousser de `pushSteps` lieux
@@ -1349,6 +1613,9 @@ export type GameAction =
       /** Reine de Cœur — Rapetisser : action du haut que le Héros rapetissé laisse
        *  LIBRE (le joueur choisit ; l'autre est recouverte). */
       shrinkFreeActionId?: string
+      /** Ratigan — Engrenages EN JEU à défausser pour réduire le coût de l'Objet
+       *  joué (−3 par Engrenage). instanceIds d'Engrenages non associés du royaume. */
+      engrenagesIds?: string[]
     }
   /** Défausser un ensemble de cartes de la main via une action « Défausser ». */
   | { type: 'DISCARD_CARDS'; actionId: string; instanceIds: string[] }
@@ -1499,6 +1766,9 @@ export type GameAction =
   | { type: 'USE_NEVERLAND_MAP'; itemInstanceId: string; to: LocationId; attachTo?: string }
   /** Opportunisme : reprend en main la carte `instanceId` de la défausse Vilain. */
   | { type: 'RESOLVE_RECOVER'; instanceId: string }
+  | { type: 'RESOLVE_BE_PREPARED'; instanceId: string | null }
+  | { type: 'RESOLVE_FREE_HYENA'; instanceId: string | null }
+  | { type: 'RESOLVE_HAKUNA_MATATA'; mode: 'play' | 'move'; instanceId: string }
   /** Colère Titanesque : choisit le lieu voisin `locationId` où agir (le joueur y
    *  effectue ensuite UNE action normale). */
   | { type: 'RESOLVE_GIANT_LOCATION'; locationId: LocationId }
@@ -1528,6 +1798,29 @@ export type GameAction =
    *  l'Au-delà ; `deckTopOrder` (les autres cartes révélées) reviennent sur le
    *  dessus de la pioche Vilain de Facilier, 1ʳᵉ = tout en haut. */
   | { type: 'RESOLVE_FATE_SCRY'; toAudelaIds: string[]; deckTopOrder: string[] }
+  /** Yzma (Fatalité) : choisir l'une des 4 pioches (par lieu), puis la carte à jouer. */
+  | { type: 'RESOLVE_YZMA_FATE_DECK'; locationId: LocationId }
+  | { type: 'RESOLVE_YZMA_FATE_CARD'; instanceId: string | null }
+  /** Yzma : choisir la pioche (lieu) sur laquelle agir (À l'attaque ! / Marteau). */
+  | { type: 'RESOLVE_YZMA_OWN_DECK'; locationId: LocationId }
+  /** Yzma — Marteau : choisir (face cachée) les cartes à défausser de la pioche. */
+  | { type: 'RESOLVE_YZMA_HAMMER'; instanceIds: string[] }
+  /** Yzma — Paysan / Attention au groove ! / Pacha : choisir un Héros (ou aucun) et
+   *  les pioches à mélanger (`locationIds` vide + `heroInstanceId` null = refuser). */
+  | { type: 'RESOLVE_YZMA_MANIPULATE'; heroInstanceId: string | null; locationIds: LocationId[] }
+  /** Yzma — Finis le travail : choisir l'Allié puis le lieu (à Héros) de destination. */
+  | { type: 'RESOLVE_FINISH_JOB'; allyInstanceId?: string; to?: LocationId }
+  /** Yzma — Beauté endormie (effet différé) : choix indépendants à appliquer avant
+   *  le déplacement. `heroMove` (optionnel) déplace un Héros du royaume vers un lieu
+   *  voisin. Tout omettre / `false` / `null` = ne rien faire de ce choix. */
+  | {
+      type: 'RESOLVE_BEAUTY_SLEEP'
+      gainPower: boolean
+      draw: boolean
+      heroMove: { heroInstanceId: string; to: LocationId } | null
+    }
+  /** Yzma — Ironie du sort : Événement de la défausse à rejouer (null = aucun). */
+  | { type: 'RESOLVE_REPLAY_EVENT'; instanceId: string | null }
   /** MODE TEST uniquement : inflige directement un Héros Fatalité (déjà construit
    *  par l'UI) sur un lieu du joueur ACTIF, déclenchant ses effets « à la pose »,
    *  les arrivées et les showcases — comme si un adversaire l'avait joué. */

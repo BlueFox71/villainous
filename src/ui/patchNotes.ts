@@ -9,6 +9,48 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.71',
+    date: '2026-06-17',
+    title: 'Nouveau vilain : Ratigan (+ bouton Cinématique)',
+    changes: [
+      'Nouveau vilain jouable : Ratigan (Basil, détective privé) — Disney, difficulté 2★. Plateau (Repaire secret, Magasin de Flaversham, Big Ben, Buckingham Palace), pion, portrait et présentation, dos de cartes, fiche et conseils, 30 cartes Méchant + 15 Fatalité avec leurs illustrations.',
+      'Objectif double : jouez la Reine Robot et postez-la à Buckingham Palace pour gagner — mais si Basil la défausse, Ratigan « devient le Rat » et doit alors éliminer Basil. La Reine Moustoria à Buckingham Palace bloque la victoire dans les deux cas.',
+      'La tuile Objectif est posée sur le plateau (panneau gauche) : côté « L’Esprit Supérieur » au départ, elle se retourne automatiquement côté « Le Rat » quand la Reine Robot est défaussée.',
+      'Reine Robot (coût 15) rendue atteignable : Engrenages (défaussés, −3 chacun), Outils (−1) et Flaversham sur le Repaire secret (−3) réduisent son coût.',
+      'Toutes les cartes de Ratigan sont désormais actives. Méchant : Capture (déplace un Héros ≤3 au Repaire secret), Fidget (fait venir Flaversham), Cloche (Activer : récupère Félicia), Dirigeable (Activer : transporte un Objet/Allié n’importe où — idéal pour amener la Reine Robot à Buckingham), Piège ingénieux (Activer : au début de votre tour suivant, élimine tous les Héros de son lieu — peut éliminer Basil), Félicia (défausse un Héros de son lieu, sinon +2), Brutes (jouées à distance : profitent d’une action « Gagner » du lieu), Liste de Fidget, Le Grand Génie du Mal, Habits royaux, Uniforme (+2).',
+      'Côté Fatalité : Basil défausse la Reine Robot (déclenche « Le Rat »), Appel à l’aide fait venir Basil, Sabotage défausse un Objet bon marché, Toby et Ballon de fortune déplacent un Héros, Olivia dévoile/joue une Fatalité à sa mort, Mrs. Judson draine 2 Pouvoir, Dr. Dawson gagne +2 si Basil est là.',
+      'Un bouton « 🎬 Cinématique » apparaît en bas à gauche du menu principal : il rejoue à volonté la cinématique d’introduction (qui reste passable via Échap).',
+    ],
+  },
+  {
+    version: '0.70',
+    date: '2026-06-17',
+    title: 'Cinématique d’introduction + mémorisation de l’affichage',
+    changes: [
+      'Au lancement du jeu, une cinématique « Les Méchants Disney se déchaînent » est désormais jouée en plein écran avant le menu principal. À la fin de la vidéo, un fondu au noir laisse place au menu.',
+      'La cinématique peut être passée à tout moment en appuyant sur Échap (ou en cliquant sur « Passer »). Son volume a été légèrement baissé.',
+      'Elle ne se joue qu’une fois par lancement : un simple rechargement de la fenêtre ne la rejoue pas.',
+      'Affichage : le jeu se lance désormais dans le mode choisi dans les Options (fenêtré / plein écran), mémorisé d’un lancement à l’autre. Au tout premier lancement, le jeu démarre en plein écran.',
+    ],
+  },
+  {
+    version: '0.69',
+    date: '2026-06-17',
+    title: 'Yzma — corrections de cartes (Beauté endormie, Le chemin qui balance)',
+    changes: [
+      'Yzma — Beauté endormie : la carte ne reste plus surlignée à tort. Comme elle ne peut être jouée qu’en PREMIÈRE et SEULE action du tour, elle est maintenant grisée dès que vous avez déjà fait une action (vous ne pouvez donc plus cliquer dessus pour rien). Après l’avoir jouée, plus aucune autre action n’est possible ce tour-ci (seul « Fin de tour » reste).',
+      'Yzma — Beauté endormie : l’effet du tour suivant est désormais complet et au choix. Avant de vous déplacer, une fenêtre vous laisse décider, indépendamment, de gagner 2 Pouvoir, de piocher 2 cartes et de déplacer un Héros de votre royaume vers un lieu voisin (le seul moyen pour Yzma de déplacer Kuzco). Vous pouvez tout faire, une partie, ou rien.',
+      'Yzma — Le chemin qui balance : la carte est maintenant grisée (injouable) s’il n’y a aucun jeton Pouvoir sur Kronk (Kronk absent du royaume ou sans jeton) — on ne peut plus la gaspiller pour rien.',
+      'Yzma — Kuzco : éliminé SANS Kronk, il ne reste plus à tort dans la défausse Fatalité. Comme le veut sa règle, il est désormais remélangé avec toutes les cartes des 4 pioches Fatalité, puis celles-ci sont reformées le plus également possible (le déclenchement manquait après une élimination).',
+      'Yzma — Fausses funérailles : la carte est maintenant grisée (injouable) s’il n’y a aucun Héros dans votre défausse Fatalité (elle ne rapporterait aucun jeton).',
+      'Yzma — Finis le travail : on choisit désormais l’Allié à déplacer en cliquant DIRECTEMENT dessus sur le plateau (cartes surlignées), au lieu d’une liste où deux Alliés identiques (ex. deux « Gardes du palais ») étaient impossibles à distinguer. Le choix du lieu de destination (parmi tous les lieux portant un Héros) reste ensuite proposé.',
+      'Yzma — Kronk : les jetons Pouvoir posés sur lui s’affichent maintenant sur sa carte (badge 🪙). Ils s’accumulent à chaque déplacement et, à 3 jetons, Kronk devient un Héros — c’est désormais visible. (Kronk reste conservé, comme avant, quand il sert à éliminer un Héros.)',
+      'Yzma — Kronk : s’il est éliminé alors qu’il est devenu un Héros, il rejoint la défausse Méchant (et redevient un Allié normal), au lieu de la défausse Fatalité.',
+      'Yzma — Bras droit : quand Kronk est dans votre royaume (y compris devenu Héros), il est désormais bien RETIRÉ du plateau et ajouté à votre main (jetons Pouvoir défaussés, Objets associés repris en main, transformation annulée). Avant, il restait à tort sur le plateau.',
+      'Correctif général : un Objet associé (ex. Couteau sur un Allié) n’intercepte plus le clic destiné à sa carte porteuse. On peut donc de nouveau sélectionner un Allié équipé pour éliminer un Héros (ex. Gardes impériaux + Couteau contre Bucky).',
+    ],
+  },
+  {
     version: '0.68',
     date: '2026-06-17',
     title: 'Profil joueur : avatar et nom, affichés en partie et dans l’historique',

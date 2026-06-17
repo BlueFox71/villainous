@@ -11,9 +11,10 @@
 //
 // Grille de déplacement : 8 colonnes × 2 rangées (16 cases = les 16 actions).
 //   col = indexLieu * 2 + slot (0..7) · row = 0 (haut) | 1 (bas).
-// 1 case orthogonale par tour, jamais deux Coéquipiers sur la même case.
-// Priorité : SABOTAGE (tous convergent) > TÂCHE (les plus proches d'abord) >
-// ÉTALEMENT (on bouge les suspects vers le lieu le moins occupé).
+// 1 case orthogonale par tour (case pleine → on rejoint une autre case libre
+// adjacente ; un Coéquipier ne reste que s'il est totalement bloqué ou déjà à la
+// cible). Priorité : SABOTAGE (tous convergent) > TÂCHE (les plus proches d'abord) >
+// ÉTALEMENT (TOUS les Coéquipiers vers le lieu le moins occupé).
 // =============================================================================
 
 import type { CardInstance, Crewmate, FloatingFx, GameState, PlayerState } from './types'
@@ -298,7 +299,8 @@ function computeMoved(player: PlayerState): Crewmate[] {
       }
       return best
     }
-    if (!c.suspect) return null
+    // Étalement (ni Sabotage ni Tâche) : TOUS les Coéquipiers se déplacent vers le
+    // lieu le moins occupé (ils doivent tous bouger ; seul celui qui y est déjà reste).
     let best = 0
     for (let l = 1; l < N; l++) if (countByLoc[l] < countByLoc[best]) best = l
     return best === myLoc ? null : best
@@ -321,15 +323,18 @@ function computeMoved(player: PlayerState): Crewmate[] {
     return da - db || (a.c.color < b.c.color ? -1 : 1)
   })
 
+  const free = (nc: number) => nc >= 0 && nc < N * 2 && (count.get(nc) ?? 0) < CELL_CAPACITY
   for (const { c, target } of movers) {
     const col = colOf(c)
     inc(col, -1) // il quitte sa case
     const sign = col < target * 2 ? 1 : -1
-    const nextCol = col + sign
-    // Déplacement HORIZONTAL uniquement (jamais la rangée du bas). La case voisine
-    // doit avoir < 2 occupants, sinon le Coéquipier reste sur place.
-    const canMove = nextCol >= 0 && nextCol < N * 2 && (count.get(nextCol) ?? 0) < CELL_CAPACITY
-    const destCol = canMove ? nextCol : col
+    // Déplacement HORIZONTAL uniquement (1 case/tour, jamais la rangée du bas). On
+    // avance vers la cible si la case voisine a de la place ; sinon le Coéquipier
+    // DOIT quand même bouger → il rejoint l'autre case libre adjacente ; s'il est
+    // totalement bloqué (les deux voisines pleines / hors grille), il reste.
+    const toward = col + sign
+    const away = col - sign
+    const destCol = free(toward) ? toward : free(away) ? away : col
     inc(destCol, 1)
     decided.set(c.color, { col: destCol, row: 0 })
   }

@@ -346,6 +346,8 @@ export const ursulaCards: CardDef[] = [
     copies: 1,
     text: "Mélangez la défausse et la pioche de cartes Méchant d'Ursula.",
     image: img('polochon.png'),
+    // À la pose : Ursula (le vilain ciblé) mélange sa défausse Vilain dans sa pioche.
+    onPlace: [{ type: 'SHUFFLE_VILLAIN_DISCARD' }],
   },
 
   // ----------------------------------------------------------------------

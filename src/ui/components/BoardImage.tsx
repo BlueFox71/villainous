@@ -121,6 +121,20 @@ export function BoardImage({
         style={{ borderColor: `color-mix(in srgb, ${coverColor}, white 45%)` }}
       />
 
+      {/* Ratigan — tuile Objectif posée dans le panneau gauche du plateau (qui
+          porte l'emplacement « Placez la tuile Objectif ici »). Côté « L'Esprit
+          Supérieur » (souris) par défaut ; bascule côté « Le Rat » dès que la Reine
+          Robot a été défaussée (drapeau becameTheRat). */}
+      {player.villain === 'ratigan' && (
+        <img
+          src={player.becameTheRat ? '/cards/ratigan/objectif-rat.png' : '/cards/ratigan/objectif-souris.png'}
+          alt={player.becameTheRat ? 'Objectif : Le Rat' : 'Objectif : L’Esprit Supérieur'}
+          title={player.objectiveDescription}
+          className="pointer-events-none absolute z-[5] rounded-l-lg"
+          style={{ left: '0%', top: '0.3%', width: '15.8%', height: '99.2%', objectFit: 'fill' }}
+        />
+      )}
+
       {showPawn && pawnIndex >= 0 && (
         <img
           src={player.pawnImage}

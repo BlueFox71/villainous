@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import {
   BrowserRouter,
   Navigate,
@@ -17,6 +17,8 @@ import { Profile } from './screens/Profile'
 import { SoundTest } from './screens/SoundTest'
 import { MenuMusicPlayer } from './components/MenuMusicPlayer'
 import { MenuBackground } from './components/MenuBackground'
+import { IntroCinematic } from './components/IntroCinematic'
+import { useSettingsStore } from './store/settingsStore'
 import { playClick } from './sfx'
 
 /** Chemins des écrans (une route par page). */
@@ -33,13 +35,14 @@ const ROUTES = {
 
 // --- Écrans câblés à la navigation par URL ---------------------------------
 
-function MenuRoute() {
+function MenuRoute({ onReplayIntro }: { onReplayIntro: () => void }) {
   const navigate = useNavigate()
   return (
     <MainMenu
       onNewGame={() => navigate(ROUTES.modeSelect)}
       onVillainList={() => navigate(ROUTES.villains)}
       onProfile={() => navigate(ROUTES.profile)}
+      onReplayIntro={onReplayIntro}
     />
   )
 }
@@ -123,6 +126,32 @@ function MenuBackgroundLayer() {
  * liste des vilains, profil, banque de sons). Le jeu lui-même vit dans <App/>.
  */
 export default function Root() {
+  // Cinématique d'intro « Les Méchants Disney se déchaînent » : jouée une seule
+  // fois par session (un lancement de l'app de bureau = une session ; un simple
+  // rechargement ne la rejoue pas). Tant qu'elle tourne, le menu reste masqué
+  // dessous et sa musique est coupée.
+  const [introDone, setIntroDone] = useState(
+    () => sessionStorage.getItem('introPlayed') === '1',
+  )
+  const finishIntro = () => {
+    sessionStorage.setItem('introPlayed', '1')
+    setIntroDone(true)
+  }
+  // Rejoue la cinématique d'intro à la demande (bouton du menu) : on remasque le
+  // menu sous la vidéo ; `finishIntro` la refermera comme au lancement.
+  const replayIntro = () => setIntroDone(false)
+
+  // App de bureau : aligne le mode d'affichage du store sur celui réellement
+  // appliqué à la fenêtre native au lancement (source de vérité côté Electron),
+  // pour que les Options affichent le bon mode sélectionné.
+  useEffect(() => {
+    const bridge = window.villainous
+    if (!bridge) return
+    void bridge.getDisplayMode().then((mode) => {
+      useSettingsStore.setState({ displayMode: mode })
+    })
+  }, [])
+
   // Son de clic sur TOUS les boutons (non désactivés), partout dans l'app —
   // SAUF sur la Banque de sons, où le clic ne doit pas couvrir le son prévisualisé.
   useEffect(() => {
@@ -139,7 +168,7 @@ export default function Root() {
     <BrowserRouter>
       <MenuBackgroundLayer />
       <Routes>
-        <Route path={ROUTES.menu} element={<MenuRoute />} />
+        <Route path={ROUTES.menu} element={<MenuRoute onReplayIntro={replayIntro} />} />
         <Route path={ROUTES.modeSelect} element={<ModeSelectRoute />} />
         <Route path={ROUTES.chooseVillains} element={<SelectRoute />} />
         <Route path={ROUTES.network} element={<NetworkRoute />} />
@@ -150,7 +179,9 @@ export default function Root() {
         {/* Route inconnue → menu. */}
         <Route path="*" element={<Navigate to={ROUTES.menu} replace />} />
       </Routes>
-      <MenuMusic />
+      {/* Musique de menu coupée pendant la cinématique d'intro. */}
+      {introDone && <MenuMusic />}
+      {!introDone && <IntroCinematic onDone={finishIntro} />}
     </BrowserRouter>
   )
 }

@@ -342,7 +342,10 @@ export function LocationCard({
                         src={getCardDef(a.cardId)?.image}
                         alt={a.name}
                         title={`associé : ${a.name}`}
-                        className="absolute w-8 rounded border-2 border-sky-400 shadow-md"
+                        // pointer-events-none : la vignette de l'Objet associé ne doit
+                        // PAS intercepter les clics destinés à la carte porteuse (ex.
+                        // sélection de l'Allié pour un Vanquish).
+                        className="pointer-events-none absolute w-8 rounded border-2 border-sky-400 shadow-md"
                         style={{ right: -4 - i * 5, bottom: -2, zIndex: 5 + i }}
                       />
                     ))}
@@ -365,6 +368,24 @@ export function LocationCard({
                             ×{c.stars}
                           </span>
                         )}
+                      </span>
+                    )}
+                    {/* Yzma — jeton(s) Pouvoir posés sur Kronk : badge centré au bas de
+                        la carte (à 3+, Kronk devient un Héros). */}
+                    {(c.kronkPower ?? 0) > 0 && (
+                      <span
+                        className="pointer-events-none absolute left-1/2 bottom-[14%] z-20 flex -translate-x-1/2 items-center gap-0.5"
+                        title={`${c.kronkPower} jeton${(c.kronkPower ?? 0) > 1 ? 's' : ''} Pouvoir sur Kronk`}
+                      >
+                        <img
+                          src="/jeton_pouvoir.png"
+                          alt="Pouvoir"
+                          className="h-6 w-6 object-contain"
+                          style={{ filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.8))' }}
+                        />
+                        <span className="text-[10px] font-black text-amber-100 [text-shadow:0_1px_2px_rgba(0,0,0,0.9)]">
+                          ×{c.kronkPower}
+                        </span>
                       </span>
                     )}
                   </div>

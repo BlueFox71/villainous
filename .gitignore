@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Build de l'exécutable de bureau (Electron / electron-builder)
+release
+Villainous.lnk
+
 # Fichiers sources GIMP (trop lourds ; on versionne les .png/.jpg exportés)
 *.xcf
 
@@ -28,3 +32,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Vidéos trop volumineuses pour GitHub (>100 Mo) — gardées en local
+/public/intro.mp4
+/assets/Les Méchants Disney se déchaînent !.mp4

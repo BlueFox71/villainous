@@ -2,6 +2,25 @@ import { create } from 'zustand'
 
 const LS_KEY = 'villainous:settings'
 
+/** Mode d'affichage. En navigateur, 'fullscreen' et 'borderless' utilisent tous
+ *  deux l'API Fullscreen (un vrai « borderless » natif relève de l'appli desktop).
+ *  Dans l'app de bureau, le pont Electron (`window.villainous`) pilote la fenêtre
+ *  native et persiste le choix côté process principal (cf. electron/main.cjs). */
+export type DisplayMode = 'windowed' | 'fullscreen' | 'borderless'
+
+/** Pont exposé par le preload Electron (absent en navigateur de dev). */
+declare global {
+  interface Window {
+    villainous?: {
+      getDisplayMode: () => Promise<DisplayMode>
+      setDisplayMode: (mode: DisplayMode) => Promise<void>
+      setFullscreen: (on: boolean) => Promise<void>
+    }
+  }
+}
+
+const DISPLAY_MODES: DisplayMode[] = ['windowed', 'fullscreen', 'borderless']
+
 interface Persisted {
   musicVolume: number // 0..1
   musicMuted: boolean
@@ -9,6 +28,8 @@ interface Persisted {
   sfxVolume: number
   /** Couper la musique quand l'app n'est pas au premier plan (autre onglet/fenêtre). */
   pauseMusicUnfocused: boolean
+  /** Mode d'affichage choisi par le joueur. */
+  displayMode: DisplayMode
 }
 
 function read(): Persisted {
@@ -17,6 +38,7 @@ function read(): Persisted {
     musicMuted: false,
     sfxVolume: 0.3,
     pauseMusicUnfocused: true,
+    displayMode: 'windowed',
   }
   if (typeof localStorage === 'undefined') return fallback
   try {
@@ -37,6 +59,10 @@ function read(): Persisted {
         typeof parsed.pauseMusicUnfocused === 'boolean'
           ? parsed.pauseMusicUnfocused
           : fallback.pauseMusicUnfocused,
+      displayMode:
+        parsed.displayMode && DISPLAY_MODES.includes(parsed.displayMode)
+          ? parsed.displayMode
+          : fallback.displayMode,
     }
   } catch {
     return fallback
@@ -46,23 +72,21 @@ function read(): Persisted {
 function persist(s: Persisted) {
   if (typeof localStorage === 'undefined') return
   try {
-    const { musicVolume, musicMuted, sfxVolume, pauseMusicUnfocused } = s
+    const { musicVolume, musicMuted, sfxVolume, pauseMusicUnfocused, displayMode } = s
     localStorage.setItem(
       LS_KEY,
-      JSON.stringify({ musicVolume, musicMuted, sfxVolume, pauseMusicUnfocused }),
+      JSON.stringify({ musicVolume, musicMuted, sfxVolume, pauseMusicUnfocused, displayMode }),
     )
   } catch {
     /* ignore */
   }
 }
 
-/** Mode d'affichage. En navigateur, 'fullscreen' et 'borderless' utilisent tous
- *  deux l'API Fullscreen (un vrai « borderless » natif relève de l'appli desktop). */
-export type DisplayMode = 'windowed' | 'fullscreen' | 'borderless'
-
-/** Applique le mode d'affichage via l'API Fullscreen (doit être appelé pendant
- *  un geste utilisateur pour entrer en plein écran). */
-function applyDisplayMode(mode: DisplayMode) {
+/** Applique le mode d'affichage en NAVIGATEUR via l'API Fullscreen (doit être
+ *  appelé pendant un geste utilisateur pour entrer en plein écran). Dans l'app
+ *  de bureau, c'est le pont Electron qui pilote la fenêtre native (voir
+ *  `setDisplayMode`). */
+function applyBrowserDisplayMode(mode: DisplayMode) {
   if (typeof document === 'undefined') return
   try {
     if (mode === 'windowed') {
@@ -76,9 +100,6 @@ function applyDisplayMode(mode: DisplayMode) {
 }
 
 interface SettingsStore extends Persisted {
-  /** Mode d'affichage courant (runtime, non persisté : on ne peut pas ré-entrer
-   *  en plein écran automatiquement au chargement sans geste utilisateur). */
-  displayMode: DisplayMode
   setMusicVolume: (v: number) => void
   toggleMusicMuted: () => void
   setSfxVolume: (v: number) => void
@@ -86,10 +107,9 @@ interface SettingsStore extends Persisted {
   setDisplayMode: (mode: DisplayMode) => void
 }
 
-/** Réglages du joueur (volume/sourdine/coupure persistés ; affichage en runtime). */
+/** Réglages du joueur (volume/sourdine/affichage persistés). */
 export const useSettingsStore = create<SettingsStore>((set) => ({
   ...read(),
-  displayMode: 'windowed',
   setMusicVolume: (v) =>
     set((s) => {
       const musicVolume = Math.min(1, Math.max(0, v))
@@ -116,14 +136,24 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
       return next
     }),
   setDisplayMode: (mode) =>
-    set(() => {
-      applyDisplayMode(mode)
-      return { displayMode: mode }
+    set((s) => {
+      // App de bureau : le process principal pilote la fenêtre native et persiste
+      // le choix. Navigateur : repli sur l'API Fullscreen.
+      if (typeof window !== 'undefined' && window.villainous) {
+        void window.villainous.setDisplayMode(mode)
+      } else {
+        applyBrowserDisplayMode(mode)
+      }
+      const next: Persisted = { ...s, displayMode: mode }
+      persist(next)
+      return next
     }),
 }))
 
-// Synchronise le réglage si l'utilisateur quitte le plein écran (touche Échap).
-if (typeof document !== 'undefined') {
+// Synchronise le réglage si l'utilisateur quitte le plein écran (touche Échap)
+// EN NAVIGATEUR. Dans l'app de bureau, le plein écran natif n'émet pas cet
+// événement DOM (le mode reste donc celui choisi par le joueur).
+if (typeof document !== 'undefined' && !(typeof window !== 'undefined' && window.villainous)) {
   document.addEventListener('fullscreenchange', () => {
     if (!document.fullscreenElement) {
       const cur = useSettingsStore.getState().displayMode

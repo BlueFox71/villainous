@@ -135,6 +135,9 @@ export interface CardDef {
   /** Scar — Allié « Hyène » : utilisé par ses synergies (force par Hyène, jeux
    *  gratuits, défausses comptées…). */
   isHyena?: boolean
+  /** Scar — carte injouable s'il n'y a aucune Hyène dans le royaume (Festin :
+   *  rien à déplacer sinon). */
+  requiresHyenaInRealm?: boolean
 }
 
 /** Développe une liste de définitions en un paquet concret (un élément par
@@ -194,6 +197,7 @@ export function buildDeckInstances(
           forcedFateLocation: c.forcedFateLocation,
           fatePlayBoth: c.fatePlayBoth,
           isHyena: c.isHyena,
+          requiresHyenaInRealm: c.requiresHyenaInRealm,
         }),
       ),
     )

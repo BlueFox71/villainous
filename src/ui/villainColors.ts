@@ -14,6 +14,8 @@ export const VILLAIN_COLOR: Record<string, string> = {
   bowser: '#5C1F00',
   mechanteReine: '#3A1E5C',
   scar: '#6B3410',
+  yzma: '#5B2C6F',
+  ratigan: '#5A1426',
 }
 
 /** Teintes de repli (camp joueur / adversaire) quand la couleur d'un vilain est

@@ -15,6 +15,8 @@ const PORTRAIT: Partial<Record<VillainKey, string>> = {
   bowser: '/bowser.png',
   mechanteReine: '/mechante-reine.png',
   scar: '/scar.png',
+  yzma: '/yzma.png',
+  ratigan: '/ratigan.png',
 }
 
 /** Portrait d'un vilain, avec repli sur son dos de carte si non défini. */
@@ -37,6 +39,8 @@ const PRESENTATION: Partial<Record<VillainKey, string>> = {
   bowser: '/presentations/bowser.png',
   mechanteReine: '/presentations/mechante-reine.png',
   scar: '/presentations/scar.png',
+  yzma: '/presentations/yzma.png',
+  ratigan: '/presentations/ratigan.png',
 }
 
 /** Illustration de présentation d'un vilain (undefined si non disponible). */

@@ -197,6 +197,45 @@ function objectiveScore(p: PlayerState): number {
       if (!pile.some((c) => c.cardId === obj.firstHeroCardId)) return 0.15
       return Math.min(1, force / obj.minForce)
     }
+    case 'DEFEAT_HERO_WITH_ALLY': {
+      // Yzma : objectif atteint si Kronk a éliminé Kuzco. Sinon, progrès estimé selon
+      // la présence de Kuzco et de Kronk dans le royaume.
+      if (p.objectiveHeroDefeated) return 1
+      const obj = p.objective
+      const inRealm = (id: string) =>
+        Object.values(p.board).flat().some((c) => c.cardId === id)
+      const hasHero = inRealm(obj.heroCardId)
+      const hasAlly = inRealm(obj.allyCardId)
+      if (hasHero && hasAlly) return 0.6
+      if (hasHero || hasAlly) return 0.3
+      return 0.1
+    }
+    case 'RATIGAN_DUAL': {
+      const obj = p.objective
+      const all = Object.values(p.board).flat()
+      // La Reine Moustoria à Buckingham Palace bloque la victoire (plafonne le score).
+      const blocked = (p.board[obj.locationId] ?? []).some(
+        (c) => c.type === 'hero' && c.cardId === obj.blockerHeroCardId,
+      )
+      let s: number
+      if (p.becameTheRat) {
+        // Côté « Le Rat » : éliminer Basil.
+        if (p.objectiveHeroDefeated) return 1
+        s = all.some((c) => c.type === 'hero' && c.cardId === obj.altHeroCardId) ? 0.5 : 0.2
+      } else {
+        // Côté « L'Esprit Supérieur » : faire venir la Reine Robot puis la poster à
+        // Buckingham Palace (récompense d'abord sa mise en jeu, puis sa position).
+        const atPalace = (p.board[obj.locationId] ?? []).some(
+          (c) => c.cardId === obj.itemCardId && !c.attachedTo,
+        )
+        if (atPalace && !blocked) return 1
+        const inRealm = all.some((c) => c.cardId === obj.itemCardId && !c.attachedTo)
+        // Sans la Reine Robot en jeu : progrès proportionnel au Pouvoir accumulé
+        // vers son coût (15), car la jouer est l'étape clé.
+        s = inRealm ? 0.7 : 0.5 * Math.min(1, p.power / 15)
+      }
+      return blocked ? Math.min(s, 0.45) : Math.min(1, s)
+    }
   }
 }
 

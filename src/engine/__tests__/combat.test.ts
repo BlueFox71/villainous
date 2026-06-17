@@ -623,11 +623,11 @@ describe('C.5 — Tendre un Piège', () => {
     })
     expect(me(s).board['sherwood']).toHaveLength(0)
     expect(me(s).board['jail'].some((c) => c.instanceId === 'a1')).toBe(true)
-    expect(s.pendingTrapVanquish).toBe(true)
+    expect(s.pendingTrapVanquish?.source).toBe('trap')
     expect(me(s).discard.some((c) => c.instanceId === 'trap')).toBe(true)
     // Éliminer le Héros via l'action facultative.
     s = applyAction(s, { type: 'TRAP_VANQUISH', heroInstanceId: 'h1', allyInstanceIds: ['a1'] })
-    expect(s.pendingTrapVanquish).toBe(false)
+    expect(s.pendingTrapVanquish).toBeNull()
     expect(me(s).fateDiscard.some((c) => c.instanceId === 'h1')).toBe(true)
   })
 
@@ -644,9 +644,9 @@ describe('C.5 — Tendre un Piège', () => {
       instanceId: 'trap',
       allyMove: { instanceId: 'a1', to: 'jail' },
     })
-    expect(s.pendingTrapVanquish).toBe(true)
+    expect(s.pendingTrapVanquish?.source).toBe('trap')
     s = applyAction(s, { type: 'TRAP_SKIP_VANQUISH' })
-    expect(s.pendingTrapVanquish).toBe(false)
+    expect(s.pendingTrapVanquish).toBeNull()
     // L'Allié reste déplacé.
     expect(me(s).board['jail'].some((c) => c.instanceId === 'a1')).toBe(true)
   })

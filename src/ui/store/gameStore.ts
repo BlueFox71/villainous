@@ -51,9 +51,13 @@ import { mechanteReine } from '../../data/villains/mechanteReine'
 import { mechanteReineCards } from '../../data/villains/mechanteReine.cards'
 import { scar } from '../../data/villains/scar'
 import { scarCards } from '../../data/villains/scar.cards'
+import { yzma } from '../../data/villains/yzma'
+import { yzmaCards } from '../../data/villains/yzma.cards'
+import { ratigan } from '../../data/villains/ratigan'
+import { ratiganCards } from '../../data/villains/ratigan.cards'
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -69,6 +73,8 @@ export const VILLAIN_REGISTRY = {
   bowser: { def: bowser, cards: bowserCards, label: 'Bowser' },
   mechanteReine: { def: mechanteReine, cards: mechanteReineCards, label: 'La Méchante Reine' },
   scar: { def: scar, cards: scarCards, label: 'Scar' },
+  yzma: { def: yzma, cards: yzmaCards, label: 'Yzma' },
+  ratigan: { def: ratigan, cards: ratiganCards, label: 'Ratigan' },
 } as const
 
 /** Qui contrôle chaque siège. Concept d'UI : le moteur, lui, ne sait pas qui
@@ -319,14 +325,22 @@ function instanceOf(cardId: string, n: number): CardInstance | null {
     maxAtLocation: def.maxAtLocation,
     activatedCost: def.activatedCost,
     playOnlyAt: def.playOnlyAt,
+    discardAtCrewmates: def.discardAtCrewmates,
+    isSabotage: def.isSabotage,
     grantsAction: def.grantsAction,
     contractLocationId: def.contractLocationId,
     isTitan: def.isTitan,
     reachesAdjacentVanquish: def.reachesAdjacentVanquish,
+    ridesWithPawn: def.ridesWithPawn,
     returnToHandOnVanquish: def.returnToHandOnVanquish,
     auDela: def.auDela,
     goesToAuDelaOnPlay: def.goesToAuDelaOnPlay,
     alsoItem: def.alsoItem,
+    mustDefeatFirst: def.mustDefeatFirst,
+    forcedFateLocation: def.forcedFateLocation,
+    fatePlayBoth: def.fatePlayBoth,
+    isHyena: def.isHyena,
+    requiresHyenaInRealm: def.requiresHyenaInRealm,
   }
 }
 
@@ -449,6 +463,7 @@ interface GameStore {
     allyInstanceIds?: string[],
     allyMove?: { instanceId: string; to: string },
     shrinkFreeActionId?: string,
+    engrenagesIds?: string[],
   ) => void
   discardCards: (actionId: string, instanceIds: string[]) => void
   moveCard: (actionId: string, instanceId: string, to: string) => void
@@ -524,6 +539,33 @@ interface GameStore {
   useNeverlandMap: (itemInstanceId: string, to: string, attachTo?: string) => void
   /** Opportunisme : reprend en main la carte choisie de la défausse Vilain. */
   resolveRecover: (instanceId: string) => void
+  /** Soyez prêtes ! (Scar) : reprend la carte choisie (null = terminer). */
+  resolveBePrepared: (instanceId: string | null) => void
+  /** Shenzi (Scar) : joue gratuitement la Hyène choisie (null = décliner). */
+  resolveFreeHyena: (instanceId: string | null) => void
+  /** Hakuna Matata (Scar) : rejoue un Héros de la Succession (`play`) ou déplace un
+   *  Héros du royaume (`move`). */
+  resolveHakunaMatata: (mode: 'play' | 'move', instanceId: string) => void
+  /** Yzma (Fatalité) : choisit la pioche (par lieu), puis la carte à jouer. */
+  resolveYzmaFateDeck: (locationId: string) => void
+  resolveYzmaFateCard: (instanceId: string | null) => void
+  /** Yzma (À l'attaque ! / Marteau) : choisit la pioche (lieu) sur laquelle agir. */
+  resolveYzmaOwnDeck: (locationId: string) => void
+  /** Yzma (Marteau) : choisit (face cachée) les cartes à défausser de la pioche. */
+  resolveYzmaHammer: (instanceIds: string[]) => void
+  /** Yzma (Paysan / Attention au groove ! / Pacha) : Héros (ou null) + pioches à mélanger. */
+  resolveYzmaManipulate: (heroInstanceId: string | null, locationIds: string[]) => void
+  /** Yzma (Finis le travail) : choisit l'Allié puis le lieu (à Héros) de destination. */
+  resolveFinishJob: (allyInstanceId?: string, to?: string) => void
+  /** Yzma (Beauté endormie, réveil) : applique les choix indépendants (gagner 2 JT,
+   *  piocher 2, déplacer un Héros vers un lieu voisin). */
+  resolveBeautySleep: (
+    gainPower: boolean,
+    draw: boolean,
+    heroMove: { heroInstanceId: string; to: string } | null,
+  ) => void
+  /** Yzma (Ironie du sort) : rejoue l'Événement choisi de la défausse (null = aucun). */
+  resolveReplayEvent: (instanceId: string | null) => void
   /** Tuer (L'Imposteur) : défausse le Coéquipier `color` choisi. */
   resolveCrewmateKill: (color: string) => void
   /** Tâche visuelle (L'Imposteur) : rend suspect le Coéquipier `color`. */
@@ -843,7 +885,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'SKIP_MOVE' }),
   executeAction: (actionId, count) =>
     get().submit({ type: 'EXECUTE_ACTION', actionId, count }),
-  playCard: (actionId, instanceId, to, attachTo, targetHeroId, allyInstanceIds, allyMove, shrinkFreeActionId) =>
+  playCard: (actionId, instanceId, to, attachTo, targetHeroId, allyInstanceIds, allyMove, shrinkFreeActionId, engrenagesIds) =>
     get().submit({
         type: 'PLAY_CARD',
         actionId,
@@ -854,6 +896,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
         allyInstanceIds,
         allyMove,
         shrinkFreeActionId,
+        engrenagesIds,
       }),
   discardCards: (actionId, instanceIds) =>
     get().submit({ type: 'DISCARD_CARDS', actionId, instanceIds }),
@@ -932,6 +975,28 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'USE_NEVERLAND_MAP', itemInstanceId, to, attachTo }),
   resolveRecover: (instanceId) =>
     get().submit({ type: 'RESOLVE_RECOVER', instanceId }),
+  resolveBePrepared: (instanceId) =>
+    get().submit({ type: 'RESOLVE_BE_PREPARED', instanceId }),
+  resolveFreeHyena: (instanceId) =>
+    get().submit({ type: 'RESOLVE_FREE_HYENA', instanceId }),
+  resolveHakunaMatata: (mode, instanceId) =>
+    get().submit({ type: 'RESOLVE_HAKUNA_MATATA', mode, instanceId }),
+  resolveYzmaFateDeck: (locationId) =>
+    get().submit({ type: 'RESOLVE_YZMA_FATE_DECK', locationId }),
+  resolveYzmaFateCard: (instanceId) =>
+    get().submit({ type: 'RESOLVE_YZMA_FATE_CARD', instanceId }),
+  resolveYzmaOwnDeck: (locationId) =>
+    get().submit({ type: 'RESOLVE_YZMA_OWN_DECK', locationId }),
+  resolveYzmaHammer: (instanceIds) =>
+    get().submit({ type: 'RESOLVE_YZMA_HAMMER', instanceIds }),
+  resolveYzmaManipulate: (heroInstanceId, locationIds) =>
+    get().submit({ type: 'RESOLVE_YZMA_MANIPULATE', heroInstanceId, locationIds }),
+  resolveFinishJob: (allyInstanceId, to) =>
+    get().submit({ type: 'RESOLVE_FINISH_JOB', allyInstanceId, to }),
+  resolveBeautySleep: (gainPower, draw, heroMove) =>
+    get().submit({ type: 'RESOLVE_BEAUTY_SLEEP', gainPower, draw, heroMove }),
+  resolveReplayEvent: (instanceId) =>
+    get().submit({ type: 'RESOLVE_REPLAY_EVENT', instanceId }),
   resolveCrewmateKill: (color) =>
     get().submit({ type: 'RESOLVE_CREWMATE_KILL', color }),
   resolveCrewmateSuspect: (color) =>

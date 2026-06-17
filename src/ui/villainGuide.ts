@@ -224,4 +224,36 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       'Timon et Pumbaa se renforcent mutuellement (+2 chacun s’ils sont dans le royaume) : un duo difficile à croquer pour Scar.',
     ],
   },
+  yzma: {
+    difficulty: 2,
+    story:
+      "Conseillère machiavélique de l’empereur Kuzco (Kuzco, l’empereur mégalo, 2000), Yzma veut s’emparer du trône. Avec l’aide (maladroite) de son homme de main Kronk, elle multiplie les potions et les pièges pour se débarrasser de l’empereur.",
+    playTips: [
+      'Ton objectif : trouver Kuzco dans l’une de tes 4 pioches Fatalité et le jouer, puis l’éliminer avec Kronk (qui n’est pas défaussé à l’attaque).',
+      'Tu as QUATRE pioches Fatalité (une par lieu). Manipule-les : À l’attaque !, Indiscrétion, Je l’écraserai avec un marteau, Bras droit te rapprochent de Kuzco et de Kronk.',
+      'Kronk gagne 1 jeton Pouvoir à chaque déplacement ; à 3+ il devient un Héros. Le chemin qui balance / Bras droit récupèrent ces jetons.',
+      'Couteau (+1) sur un Allié revient en main quand il est défaussé : un bonus de force réutilisable.',
+    ],
+    counterTips: [
+      'Évite de jouer Kuzco dans son royaume : c’est exactement ce qu’il lui faut pour gagner !',
+      'Tipo et Chaca empêchent Yzma d’éliminer d’autres Héros ; Bucky ne peut pas être éliminé par Kronk.',
+      'Chicha et Mauvais levier la vident de ses jetons Pouvoir — exploite ses faiblesses économiques.',
+    ],
+  },
+  ratigan: {
+    difficulty: 2,
+    story:
+      "Génie criminel de Londres (Basil, détective privé, 1986), le Professeur Ratigan — un rat qui se rêve en gentilrat — kidnappe l’horloger Flaversham pour bâtir une Reine Robot et usurper la couronne. Élégant et théâtral, il bascule dans une rage bestiale dès qu’on le traite de « rat » — et son ennemi juré, le détective Basil, est sur sa piste.",
+    playTips: [
+      'Ton objectif : joue la Reine Robot (coûteuse : 15 Pouvoir), déplace-la sur Buckingham Palace et commence ton tour avec elle sur ce lieu.',
+      'Réduis le coût de la Reine Robot avec tes Objets : Engrenages (−3 chacun, défaussés) et Outils (−1 par Objet joué) rendent les 15 Pouvoir atteignables.',
+      'Si Basil défausse ta Reine Robot, ta tuile bascule côté « Le Rat » : ton objectif devient alors d’éliminer Basil — appuie-toi sur tes Alliés (Félicia, Brutes) et le Piège ingénieux.',
+      'Méfie-toi de la Reine Moustoria : tant qu’elle est à Buckingham Palace, tu ne peux pas gagner, quel que soit ton objectif.',
+    ],
+    counterTips: [
+      'Basil est ta meilleure arme : pose-le sur la Reine Robot pour la défausser et forcer Ratigan à changer d’objectif (et à repartir de loin).',
+      'Place la Reine Moustoria à Buckingham Palace : un verrou vivant qui interdit toute victoire à Ratigan.',
+      'Sabotage défausse ses Objets bon marché (coût ≤ 3) : ralentis son économie d’Engrenages et d’Outils.',
+    ],
+  },
 }

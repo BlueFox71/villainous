@@ -32,6 +32,7 @@ import type { CardInstance, LocationAction, ShowcaseEvent } from '../engine/type
 import { BLUE, RED, accentVars } from './accents'
 import { VILLAIN_COLOR, villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from './villainColors'
 import { PlayerPanel } from './components/PlayerPanel'
+import { Avatar, PlayerAvatar } from './components/PlayerAvatar'
 import { Board } from './components/Board'
 import { Hand } from './components/Hand'
 import { GameLog } from './components/GameLog'
@@ -63,6 +64,11 @@ import { VictoryModal } from './components/VictoryModal'
 import { MirrorShatter } from './components/MirrorShatter'
 import { NeverlandMapModal } from './components/NeverlandMapModal'
 import { GiantActionModal } from './components/GiantActionModal'
+import { HakunaMatataModal } from './components/HakunaMatataModal'
+import { YzmaFateModal } from './components/YzmaFateModal'
+import { YzmaHammerModal } from './components/YzmaHammerModal'
+import { YzmaManipulateModal } from './components/YzmaManipulateModal'
+import { BeautySleepModal } from './components/BeautySleepModal'
 import { TitanMoveModal } from './components/TitanMoveModal'
 import { DivinationModal } from './components/DivinationModal'
 import { LookTopModal } from './components/LookTopModal'
@@ -118,6 +124,8 @@ type Mode =
       diablo?: boolean
       /** Vanquish facultatif de Tendre un Piège (déplacement déjà appliqué). */
       trap?: boolean
+      /** Restreint les Héros ciblables à ce lieu (Troupeau de gnous : nouveau lieu). */
+      vanquishLocationId?: string
     }
   /** Héros choisi ; on coche les Alliés du lieu, total live, confirme. */
   | {
@@ -172,6 +180,79 @@ type Mode =
   | { kind: 'impuissance-pick-hero'; actionId: string; instanceId: string; cardName: string; diablo?: boolean }
   | null
 
+/** Ratigan — modal de choix : combien d'Engrenages EN JEU défausser (−3 chacun) pour
+ *  réduire le coût de l'Objet joué. Le joueur ajuste le nombre ; on bloque la
+ *  confirmation si le coût restant dépasse son Pouvoir. */
+function EngrenagesModal({
+  cardName,
+  baseCost,
+  power,
+  max,
+  onConfirm,
+  onCancel,
+}: {
+  cardName: string
+  baseCost: number
+  power: number
+  max: number
+  onConfirm: (count: number) => void
+  onCancel: () => void
+}) {
+  const [count, setCount] = useState(0)
+  const cost = Math.max(0, baseCost - 3 * count)
+  const affordable = cost <= power
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+      <div className="flex w-[24rem] max-w-[92vw] flex-col gap-4 rounded-2xl border border-white/15 bg-[#15101f] p-6 shadow-2xl">
+        <h2 className="text-center text-lg font-bold text-amber-200">Engrenages</h2>
+        <p className="text-center text-sm text-white/80">
+          Défausser des <b>Engrenages</b> en jeu pour réduire le coût de <b>{cardName}</b> (−3 chacun) ?
+        </p>
+        <div className="flex items-center justify-center gap-4">
+          <button
+            type="button"
+            onClick={() => setCount((c) => Math.max(0, c - 1))}
+            disabled={count <= 0}
+            className="h-9 w-9 rounded-full border border-white/25 text-lg font-bold text-white disabled:opacity-30 hover:bg-white/10"
+          >
+            −
+          </button>
+          <span className="font-mono text-xl text-white">{count} / {max}</span>
+          <button
+            type="button"
+            onClick={() => setCount((c) => Math.min(max, c + 1))}
+            disabled={count >= max}
+            className="h-9 w-9 rounded-full border border-white/25 text-lg font-bold text-white disabled:opacity-30 hover:bg-white/10"
+          >
+            +
+          </button>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-white/70">Coût : <b className={affordable ? 'text-emerald-300' : 'text-red-400'}>{cost}</b> JT</span>
+          <span className="text-white/70">Pouvoir : {power} JT</span>
+        </div>
+        <div className="flex justify-center gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg border border-white/20 px-4 py-1.5 text-sm text-white/80 hover:bg-white/10"
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirm(count)}
+            disabled={!affordable}
+            className="rounded-lg border border-amber-400/60 bg-amber-500/20 px-4 py-1.5 text-sm font-semibold text-amber-100 disabled:opacity-40 hover:bg-amber-500/30"
+          >
+            Jouer{count > 0 ? ` (défausser ${count})` : ''}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const BOT_STEP_MS = 700
 // Délai avant que le bot ne pose la carte de Vol du château : laisse le joueur
 // adverse lire les cartes dévoilées (modale affichée des deux côtés).
@@ -223,6 +304,17 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // (sinon eslint react-hooks la croit appelée hors composant dans le callback).
   const playNeverlandMap = useGameStore((s) => s.useNeverlandMap)
   const resolveRecover = useGameStore((s) => s.resolveRecover)
+  const resolveBePrepared = useGameStore((s) => s.resolveBePrepared)
+  const resolveFreeHyena = useGameStore((s) => s.resolveFreeHyena)
+  const resolveHakunaMatata = useGameStore((s) => s.resolveHakunaMatata)
+  const resolveYzmaFateDeck = useGameStore((s) => s.resolveYzmaFateDeck)
+  const resolveYzmaFateCard = useGameStore((s) => s.resolveYzmaFateCard)
+  const resolveYzmaOwnDeck = useGameStore((s) => s.resolveYzmaOwnDeck)
+  const resolveYzmaHammer = useGameStore((s) => s.resolveYzmaHammer)
+  const resolveYzmaManipulate = useGameStore((s) => s.resolveYzmaManipulate)
+  const resolveFinishJob = useGameStore((s) => s.resolveFinishJob)
+  const resolveBeautySleep = useGameStore((s) => s.resolveBeautySleep)
+  const resolveReplayEvent = useGameStore((s) => s.resolveReplayEvent)
   const resolveCrewmateKill = useGameStore((s) => s.resolveCrewmateKill)
   const resolveCrewmateSuspect = useGameStore((s) => s.resolveCrewmateSuspect)
   const doneCrewmateSuspect = useGameStore((s) => s.doneCrewmateSuspect)
@@ -352,6 +444,18 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   ])
 
   const [mode, setMode] = useState<Mode>(null)
+  // Ratigan — Engrenages : choix (combien d'Engrenages EN JEU défausser, −3 chacun)
+  // au moment de jouer un Objet. Ouvert si le joueur a des Engrenages posés.
+  const [engrenagesPrompt, setEngrenagesPrompt] = useState<{
+    diablo?: boolean
+    actionId: string
+    instanceId: string
+    to?: string
+    attachTo?: string
+    cardName: string
+    baseCost: number
+    available: CardInstance[]
+  } | null>(null)
   // Mode test : relance l'animation de décor au clic (boutons 🚢). On choisit le
   // vilain ET le camp (joueur/adversaire) pour tester chaque trajectoire des deux côtés.
   const [debugAnim, setDebugAnim] = useState<{
@@ -735,14 +839,25 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
 
   const user = state.players[HUMAN]
   const bot = state.players[BOT]
-  // Libellés des panneaux : le joueur local affiche son nom de profil ; l'adversaire
-  // affiche son nom (réseau, lu dans le lobby) en multi, ou le nom du vilain en solo.
-  const userDisplayName = myProfileName.trim() || user.villainName
-  const oppNetName = lobby?.find((s) => s.seat === BOT)?.name?.trim()
-  const botDisplayName = gameMode === 'solo' ? bot.villainName : oppNetName || bot.villainName
   // Couleurs des deux vilains en présence (repli sur teintes neutres si inconnue).
   const userColor = VILLAIN_COLOR[user.villain] ?? DEFAULT_TINT_A
   const botColor = VILLAIN_COLOR[bot.villain] ?? DEFAULT_TINT_B
+  // Sous-titres + avatars des panneaux : pseudo du joueur local (avec son avatar de
+  // profil) ; « Ordinateur » pour un bot (avec la vignette de son vilain) ; nom + avatar
+  // du lobby pour un adversaire réseau.
+  const oppSeatInfo = lobby?.find((s) => s.seat === BOT)
+  const oppIsBot = seats[BOT] === 'bot'
+  const userSubLabel = myProfileName.trim() || undefined
+  const oppSubLabel = oppIsBot ? 'Ordinateur' : oppSeatInfo?.name?.trim() || 'Adversaire'
+  const oppAvatar = oppIsBot ? (
+    <Avatar villain={villainKeyOf(bot.villain)} color={botColor} size={36} />
+  ) : (
+    <Avatar
+      villain={(oppSeatInfo?.avatarVillain as VillainKey | null) ?? villainKeyOf(bot.villain)}
+      color={oppSeatInfo?.avatarColor ?? botColor}
+      size={36}
+    />
+  )
   // Fond de page teinté (helper partagé avec le choix des vilains).
   const pageBackground = villainsBackground(userColor, botColor)
   // Un Objet « à associer » est jouable s'il existe au moins un Allié quelque part
@@ -970,6 +1085,186 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       }
       return
     }
+    // Soyez prêtes ! (Scar) : le bot reprend en priorité des Alliés (Hyènes/forts
+    // d'abord, jusqu'à 2), sinon le meilleur Événement.
+    const pbp = state.pendingBePrepared
+    if (pbp) {
+      if (seats[pbp.playerIndex] === 'bot') {
+        const p = state.players[pbp.playerIndex]
+        const cands = pbp.candidateIds
+          .map((id) => p.discard.find((c) => c.instanceId === id))
+          .filter((c): c is NonNullable<typeof c> => !!c)
+        const allies = cands
+          .filter((c) => c.type === 'ally')
+          .sort((a, b) => (b.isHyena ? 1 : 0) - (a.isHyena ? 1 : 0) || (b.strength ?? 0) - (a.strength ?? 0))
+        const pick = allies[0] ?? cands.find((c) => c.type === 'effect')
+        const timer = setTimeout(() => resolveBePrepared(pick ? pick.instanceId : null), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Shenzi (Scar) : le bot joue gratuitement la Hyène la plus forte de sa main.
+    const pfh2 = state.pendingFreeHyena
+    if (pfh2) {
+      if (seats[pfh2.playerIndex] === 'bot') {
+        const p = state.players[pfh2.playerIndex]
+        const cands = pfh2.candidateIds
+          .map((id) => p.hand.find((c) => c.instanceId === id))
+          .filter((c): c is NonNullable<typeof c> => !!c)
+        const pick = [...cands].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+        const timer = setTimeout(() => resolveFreeHyena(pick ? pick.instanceId : null), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Hakuna Matata (Scar) : le bot préfère DÉPLACER un Héros (ne perd pas de Force
+    // de Succession) ; à défaut, rejoue le Héros le plus FAIBLE de la Succession.
+    const phm = state.pendingHakunaMatata
+    if (phm) {
+      if (seats[phm.playerIndex] === 'bot') {
+        const p = state.players[phm.playerIndex]
+        const byId = (id: string) => Object.values(p.board).flat().find((c) => c.instanceId === id) ?? (p.succession ?? []).find((c) => c.instanceId === id)
+        let act: { mode: 'play' | 'move'; instanceId: string } | undefined
+        if (phm.realmHeroIds.length > 0) {
+          const strongest = [...phm.realmHeroIds].sort((a, b) => ((byId(b)?.strength ?? 0) - (byId(a)?.strength ?? 0)))[0]
+          act = { mode: 'move', instanceId: strongest }
+        } else if (phm.successionIds.length > 0) {
+          const weakest = [...phm.successionIds].sort((a, b) => ((byId(a)?.strength ?? 0) - (byId(b)?.strength ?? 0)))[0]
+          act = { mode: 'play', instanceId: weakest }
+        }
+        if (act) {
+          const chosen = act
+          const timer = setTimeout(() => resolveHakunaMatata(chosen.mode, chosen.instanceId), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
+    // Yzma (Fatalité) : le bot, quand il CIBLE Yzma, choisit une pioche puis joue le
+    // Héros le plus fort (en évitant Kuzco, qui sert l'objectif d'Yzma).
+    const pyf = state.pendingYzmaFate
+    if (pyf) {
+      const pyfOwner = pyf.phase === 'deck' ? (pyf.deckChooserIndex ?? pyf.chooserIndex) : pyf.chooserIndex
+      if (seats[pyfOwner] === 'bot') {
+        const tgt = state.players[pyf.targetIndex]
+        const heroStr = (c: CardInstance) => (c.type === 'hero' && c.cardId !== 'kuzco' ? (c.strength ?? 0) : -1)
+        if (pyf.phase === 'deck') {
+          const decks = tgt.fateDecks ?? {}
+          // Pioche non vide avec le meilleur Héros (hors Kuzco) ; sinon la 1ʳᵉ non vide.
+          const nonEmpty = Object.keys(decks).filter((id) => (decks[id] ?? []).length > 0)
+          if (nonEmpty.length > 0) {
+            const best = [...nonEmpty].sort(
+              (a, b) =>
+                Math.max(-1, ...(decks[b] ?? []).map(heroStr)) - Math.max(-1, ...(decks[a] ?? []).map(heroStr)),
+            )[0]
+            const timer = setTimeout(() => resolveYzmaFateDeck(best), BOT_STEP_MS)
+            return () => clearTimeout(timer)
+          }
+        } else if (pyf.phase === 'card') {
+          const cards = pyf.cards ?? []
+          const best = [...cards].sort((a, b) => heroStr(b) - heroStr(a))[0]
+          const pick = best && heroStr(best) >= 0 ? best.instanceId : null
+          const timer = setTimeout(() => resolveYzmaFateCard(pick), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
+    // Yzma (À l'attaque ! / Marteau) : le bot Yzma choisit la pioche avec le plus de Héros.
+    const pyod = state.pendingYzmaOwnDeck
+    if (pyod) {
+      if (seats[pyod.playerIndex] === 'bot') {
+        // Indiscrétion : après avoir regardé (revealCards posé), le bot referme.
+        if (pyod.revealCards) {
+          const timer = setTimeout(() => resolveYzmaOwnDeck(''), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+        // Marteau : les cartes étant face cachée, le bot en défausse `count` au hasard
+        // (ici : les premières de la pioche déjà remélangée).
+        if (pyod.hammerPick) {
+          const { cards, count } = pyod.hammerPick
+          const ids = cards.slice(0, count).map((c) => c.instanceId)
+          const timer = setTimeout(() => resolveYzmaHammer(ids), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+        const decks = state.players[pyod.playerIndex].fateDecks ?? {}
+        const nonEmpty = Object.keys(decks).filter((id) => (decks[id] ?? []).length > 0)
+        if (nonEmpty.length > 0) {
+          const best = [...nonEmpty].sort(
+            (a, b) =>
+              (decks[b] ?? []).filter((c) => c.type === 'hero').length -
+              (decks[a] ?? []).filter((c) => c.type === 'hero').length,
+          )[0]
+          const timer = setTimeout(() => resolveYzmaOwnDeck(best), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
+    // Paysan / Attention au groove ! / Pacha (Yzma) : le bot mélange le Héros le plus
+    // fort (le cas échéant) dans les pioches les plus petites (comportement auto).
+    const pym = state.pendingYzmaManipulate
+    if (pym) {
+      if (seats[pym.playerIndex] === 'bot') {
+        const pl = state.players[pym.playerIndex]
+        const decks = pl.fateDecks ?? {}
+        const targets = Object.keys(decks)
+          .sort((a, b) => (decks[a]?.length ?? 0) - (decks[b]?.length ?? 0))
+          .slice(0, Math.max(1, pym.count))
+        let heroId: string | null = null
+        if (pym.mode === 'hero-to-decks') {
+          const hero = pl.fateDiscard
+            .filter((c) => pym.heroIds.includes(c.instanceId))
+            .sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+          heroId = hero?.instanceId ?? null
+        }
+        const timer = setTimeout(() => resolveYzmaManipulate(heroId, targets), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Finis le travail (Yzma) : le bot déplace son Allié le plus fort vers le lieu du
+    // Héros le plus fort.
+    const pfj = state.pendingFinishJob
+    if (pfj) {
+      if (seats[pfj.playerIndex] === 'bot') {
+        const pl = state.players[pfj.playerIndex]
+        if (!pfj.allyInstanceId) {
+          const allies = Object.values(pl.board).flat().filter((c) => c.type === 'ally' && !c.attachedTo)
+          const best = [...allies].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+          if (best) {
+            const timer = setTimeout(() => resolveFinishJob(best.instanceId, undefined), BOT_STEP_MS)
+            return () => clearTimeout(timer)
+          }
+        } else {
+          const heroLocs = pl.locations.filter((l) => (pl.board[l.id] ?? []).some((c) => c.type === 'hero'))
+          const best = [...heroLocs].sort(
+            (a, b) =>
+              Math.max(0, ...(pl.board[b.id] ?? []).filter((c) => c.type === 'hero').map((c) => c.strength ?? 0)) -
+              Math.max(0, ...(pl.board[a.id] ?? []).filter((c) => c.type === 'hero').map((c) => c.strength ?? 0)),
+          )[0]
+          if (best) {
+            const timer = setTimeout(() => resolveFinishJob(undefined, best.id), BOT_STEP_MS)
+            return () => clearTimeout(timer)
+          }
+        }
+      }
+      return
+    }
+    // Ironie du sort (Yzma) : le bot rejoue l'Événement abordable le plus cher.
+    const pre = state.pendingReplayEvent
+    if (pre) {
+      if (seats[pre.playerIndex] === 'bot') {
+        const pl = state.players[pre.playerIndex]
+        const cands = pre.candidateIds
+          .map((id) => pl.discard.find((c) => c.instanceId === id))
+          .filter((c): c is NonNullable<typeof c> => !!c)
+        const pick = [...cands].sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0))[0]
+        const timer = setTimeout(() => resolveReplayEvent(pick ? pick.instanceId : null), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
     // Tuer (L'Imposteur) : le bot défausse en priorité un Coéquipier SUSPECT (pour
     // libérer une action), sinon le premier candidat.
     const pck = state.pendingCrewmateKill
@@ -1049,7 +1344,18 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                   // pour la Méchante Reine), sinon le Héros le plus fort.
                   (cands.find((c) => c.cardId === 'blanche-neige') ??
                     [...cands].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0])
-                : cands[0]
+                : pfc.kind === 'play-revealed-fate-hero'
+                  ? // Longue vie au roi ! : Scar joue le Héros le plus fort (Force pour
+                    // la pile Succession).
+                    [...cands].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+                  : pfc.kind === 'play-fate-card-from-discard'
+                    ? // Petit secret : Héros le plus fort en priorité, sinon un Événement.
+                      [...cands].sort(
+                        (a, b) =>
+                          (b.type === 'hero' ? 1 : 0) - (a.type === 'hero' ? 1 : 0) ||
+                          (b.strength ?? 0) - (a.strength ?? 0),
+                      )[0]
+                    : cands[0]
         if (pick) {
           const timer = setTimeout(() => resolveFateChoice(pick.instanceId), BOT_STEP_MS)
           return () => clearTimeout(timer)
@@ -1315,12 +1621,50 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveDivination, resolveLookTop, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate])
+  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveDivination, resolveLookTop, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate])
 
   // Coups légaux / actions : seulement pour le joueur humain et à son tour.
   const legalMoves = isHumanTurn ? getLegalMoves(state) : []
   const availableActions = isHumanTurn ? getAvailableActions(state) : []
   const canEnd = isHumanTurn && state.phase === 'ACTION'
+
+  // Yzma — choix d'une pioche Fatalité par clic DIRECT sur le plateau (au lieu d'une
+  // modale). Deux flux où le HUMAIN choisit : ses propres cartes (À l'attaque ! /
+  // Marteau / Indiscrétion → resolveYzmaOwnDeck, pioches de SON royaume) et la
+  // résolution de Fatalité phase « pioche » (resolveYzmaFateDeck, pioches de la CIBLE).
+  const fatePileChoiceFor = (seat: number): { pickable: string[]; onPick?: (loc: string) => void } => {
+    const own = state.pendingYzmaOwnDeck
+    if (own && own.playerIndex === HUMAN && !own.revealCards && !own.hammerPick && seat === HUMAN) {
+      const p = state.players[seat]
+      const pickable = p.locations.filter((l) => (p.fateDecks?.[l.id] ?? []).length > 0).map((l) => l.id)
+      return { pickable, onPick: (loc) => resolveYzmaOwnDeck(loc) }
+    }
+    const yf = state.pendingYzmaFate
+    if (yf && yf.phase === 'deck') {
+      const owner = yf.deckChooserIndex ?? yf.chooserIndex
+      if (owner === HUMAN && yf.targetIndex === seat) {
+        const p = state.players[seat]
+        const pickable = p.locations.filter((l) => (p.fateDecks?.[l.id] ?? []).length > 0).map((l) => l.id)
+        return { pickable, onPick: (loc) => resolveYzmaFateDeck(loc) }
+      }
+    }
+    return { pickable: [] }
+  }
+  const userFatePick = fatePileChoiceFor(HUMAN)
+  const botFatePick = fatePileChoiceFor(BOT)
+  // Bandeau d'instruction (non bloquant) décrivant le choix de pioche en cours.
+  const fatePileBanner: string | null = (() => {
+    if (userFatePick.pickable.length === 0 && botFatePick.pickable.length === 0) return null
+    const own = state.pendingYzmaOwnDeck
+    if (own && own.playerIndex === HUMAN && !own.revealCards) {
+      return own.mode === 'attack'
+        ? 'À l’attaque ! — cliquez la pioche Fatalité à dévoiler (tous ses Héros seront joués sur ce lieu).'
+        : own.mode === 'hammer'
+          ? 'Marteau — cliquez la pioche Fatalité : 2 cartes au hasard en seront défaussées.'
+          : 'Indiscrétion — cliquez la pioche Fatalité à examiner.'
+    }
+    return 'Fatalité — cliquez la pioche Fatalité d’Yzma à dévoiler (vous y jouerez ensuite une carte).'
+  })()
 
   // Son quand le bouton « Fin de tour » passe de grisé (non utilisable) à utilisable.
   const prevCanEndRef = useRef(canEnd)
@@ -1366,14 +1710,37 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     allyInstanceIds?: string[],
     allyMove?: { instanceId: string; to: string },
     shrinkFreeActionId?: string,
+    engrenagesIds?: string[],
   ) => {
     if (isDiablo) {
       try {
-        diabloFreeAction({ type: 'PLAY_CARD', actionId, instanceId, to, attachTo, targetHeroId, allyInstanceIds, allyMove, shrinkFreeActionId })
+        diabloFreeAction({ type: 'PLAY_CARD', actionId, instanceId, to, attachTo, targetHeroId, allyInstanceIds, allyMove, shrinkFreeActionId, engrenagesIds })
       } catch { /* coup refusé par le moteur : le bandeau Diablo reste pour réessayer */ }
     } else {
-      playCard(actionId, instanceId, to, attachTo, targetHeroId, allyInstanceIds, allyMove, shrinkFreeActionId)
+      playCard(actionId, instanceId, to, attachTo, targetHeroId, allyInstanceIds, allyMove, shrinkFreeActionId, engrenagesIds)
     }
+  }
+  // Ratigan — pose d'un Objet : si des Engrenages sont EN JEU, on propose d'abord de
+  // les défausser pour réduire le coût (−3 chacun). Sinon, pose directe (avec vol).
+  const playItemMaybeEngrenages = (
+    diablo: boolean | undefined,
+    actionId: string,
+    instanceId: string,
+    to?: string,
+    attachTo?: string,
+  ) => {
+    const card = user.hand.find((c) => c.instanceId === instanceId)
+    const available =
+      card?.type === 'item'
+        ? Object.values(user.board).flat().filter((c) => c.cardId === 'engrenages' && !c.attachedTo)
+        : []
+    const baseCost = card ? effectiveCost(state, card, to) : 0
+    if (card && available.length > 0 && baseCost > 0) {
+      setEngrenagesPrompt({ diablo, actionId, instanceId, to, attachTo, cardName: card.name, baseCost, available })
+      return
+    }
+    if (to) flyHandToBoard(instanceId, to)
+    doPlayCard(diablo, actionId, instanceId, to, attachTo)
   }
   const doVanquish = (
     isDiablo: boolean | undefined,
@@ -1595,9 +1962,26 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     setMode(null)
   }
   // Tendre un Piège — Vanquish facultatif (pendingTrapVanquish) : démarrer ou terminer.
-  const handleTrapStartVanquish = () => setMode({ kind: 'vanquish-pick-hero', actionId: '', trap: true })
+  const handleTrapStartVanquish = () =>
+    setMode({
+      kind: 'vanquish-pick-hero',
+      actionId: '',
+      trap: true,
+      vanquishLocationId: state.pendingTrapVanquish?.locationId,
+    })
   const handleTrapFinish = () => trapSkipVanquish()
   const handleCardPick = (instanceId: string) => {
+    // Finis le travail (Yzma) — phase 1 : clic DIRECT sur l'Allié du plateau à
+    // déplacer (lève l'ambiguïté entre deux Alliés identiques, ex. deux « Gardes du
+    // palais », que la liste ne permettait pas de distinguer).
+    const pfj = state.pendingFinishJob
+    if (pfj && pfj.playerIndex === HUMAN && !pfj.allyInstanceId) {
+      const isAlly = Object.values(user.board).flat().some(
+        (c) => c.instanceId === instanceId && c.type === 'ally' && !c.isWicket && !c.attachedTo,
+      )
+      if (isAlly) resolveFinishJob(instanceId, undefined)
+      return
+    }
     if (mode?.kind === 'activate-pick') {
       const card = activatableCards(state).find((c) => c.instanceId === instanceId)
       if (card) startActivate(mode.actionId, card)
@@ -1672,21 +2056,18 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       )
       if (allies.length === 0) return // lieu non cliquable en principe
       if (allies.length === 1) {
-        flyHandToBoard(mode.instanceId, to)
-        doPlayCard(mode.diablo, mode.actionId, mode.instanceId, to, allies[0].instanceId)
+        playItemMaybeEngrenages(mode.diablo, mode.actionId, mode.instanceId, to, allies[0].instanceId)
         return setMode(null)
       }
       // Plusieurs Alliés sur ce lieu : on attend le clic sur la carte de l'Allié.
       return setMode({ kind: 'attach', actionId: mode.actionId, instanceId: mode.instanceId, cardName: mode.cardName, to, diablo: mode.diablo })
     }
-    flyHandToBoard(mode.instanceId, to)
-    doPlayCard(mode.diablo, mode.actionId, mode.instanceId, to)
+    playItemMaybeEngrenages(mode.diablo, mode.actionId, mode.instanceId, to)
     setMode(null)
   }
   const handleAttach = (allyInstanceId: string) => {
     if (mode?.kind !== 'attach') return
-    flyHandToBoard(mode.instanceId, mode.to)
-    doPlayCard(mode.diablo, mode.actionId, mode.instanceId, mode.to, allyInstanceId)
+    playItemMaybeEngrenages(mode.diablo, mode.actionId, mode.instanceId, mode.to, allyInstanceId)
     setMode(null)
   }
   const handleToggleDiscard = (instanceId: string) => {
@@ -1931,20 +2312,27 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               ? user.locations.map((l) => l.id) // Lâcheté : n'importe quel lieu
               : []
   const attachLocation = mode?.kind === 'attach' ? mode.to : null
+  // Finis le travail (Yzma) — phase 1 : on choisit l'Allié à déplacer par clic
+  // direct sur le plateau (pending moteur, pas un `mode` UI).
+  const finishJobPickAlly =
+    !!state.pendingFinishJob &&
+    state.pendingFinishJob.playerIndex === HUMAN &&
+    !state.pendingFinishJob.allyInstanceId
   // Mode « cliquer une carte » : déplacement classique OU phase 1 de Tendre un Piège.
   const selectableCards =
     mode?.kind === 'move-pick' ||
     mode?.kind === 'trap-pick-ally' ||
     mode?.kind === 'activate-pick' ||
     mode?.kind === 'sacrifice-pick' ||
-    mode?.kind === 'drain-pick-ally'
+    mode?.kind === 'drain-pick-ally' ||
+    finishJobPickAlly
   // Liste PRÉCISE des cartes cliquables pour les modes restreints aux Alliés
   // (épuisement d'énergie : Allié sur l'Observatoire ; Tendre un Piège : Allié à
   // déplacer) — sans elle, les Objets seraient à tort surlignés/cliquables.
   const selectableCardIds: string[] | null =
     mode?.kind === 'drain-pick-ally'
       ? drainStarAllies(state).map((c) => c.instanceId)
-      : mode?.kind === 'trap-pick-ally'
+      : mode?.kind === 'trap-pick-ally' || finishJobPickAlly
         ? Object.values(user.board)
             .flat()
             .filter((c) => c.type === 'ally' && !c.isWicket && !c.attachedTo)
@@ -1994,6 +2382,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           // Impuissance (branche Éliminer) : Héros ≤3 force.
           if (mode?.kind === 'impuissance-pick-hero') {
             return allHeroes.filter((h) => (h.strength ?? 0) <= 3).map((c) => c.instanceId)
+          }
+          // Troupeau de gnous : Vanquish restreint au nouveau lieu du Héros repoussé.
+          if (mode?.kind === 'vanquish-pick-hero' && mode.vanquishLocationId) {
+            return (user.board[mode.vanquishLocationId] ?? [])
+              .filter((c) => c.type === 'hero')
+              .map((c) => c.instanceId)
           }
           return allHeroes.map((c) => c.instanceId)
         })()
@@ -2308,6 +2702,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                   onDiscardDeguisement={discardDeguisement}
                   hiddenInstanceIds={showcaseHiddenIds}
                   redBlinkInstanceIds={robinBlinkIds}
+                  fatePickable={userFatePick.pickable}
+                  onFatePick={userFatePick.onPick}
                   offset={false}
                 />
               </div>
@@ -2398,6 +2794,13 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               />
             </div>
           </div>
+          {finishJobPickAlly && (
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-400/70 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
+              <span>
+                <b>Finis le travail</b> : clique l'<b>Allié</b> de ton royaume à déplacer (cartes surlignées).
+              </span>
+            </div>
+          )}
           {(mode?.kind === 'place' ||
             mode?.kind === 'attach' ||
             mode?.kind === 'item-attach-hero' ||
@@ -2626,7 +3029,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           {isHumanTurn && state.pendingTrapVanquish && !mode && (
             <div className="flex flex-wrap items-center gap-2 rounded-lg border border-orange-400/70 bg-orange-500/10 px-3 py-2 text-xs text-orange-100">
               <span>
-                🪤 <b>Tendre un Piège</b> : tu peux éliminer un Héros (facultatif).
+                {state.pendingTrapVanquish.source === 'gnous' ? (
+                  <>🦬 <b>Troupeau de gnous</b> : tu peux éliminer un Héros sur le nouveau lieu (facultatif).</>
+                ) : (
+                  <>🪤 <b>Tendre un Piège</b> : tu peux éliminer un Héros (facultatif).</>
+                )}
               </span>
               <button
                 onClick={handleTrapStartVanquish}
@@ -2858,6 +3265,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                   strengths={botStrengths}
                   hiddenInstanceIds={showcaseHiddenIds}
                   redBlinkInstanceIds={robinBlinkIds}
+                  fatePickable={botFatePick.pickable}
+                  onFatePick={botFatePick.onPick}
                   offset={false}
                 />
               </div>
@@ -2942,6 +3351,13 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               hasIngredients={false}
               heroAtPawn={false}
               canBite={false}
+              realmHasHyena={false}
+              hyenaElsewhere={false}
+              fateDiscardHasCard={false}
+              realActionUsed={false}
+              kronkHasPowerToken={false}
+              fateDiscardHasHero={false}
+              poeticJusticeUsable={false}
               selectedToDiscard={[]}
               layout="fan"
               cardWidthClass="w-28"
@@ -2966,7 +3382,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           d'autre de la main. ----- */}
       <div className="bottom-bar relative z-20 grid shrink-0 items-center gap-3 border-t border-white/10 bg-black/30 px-3 py-1 shadow-[0_-6px_20px_rgba(0,0,0,0.35)] backdrop-blur-md">
         {/* Panneau du joueur (gauche, bleu). */}
-        <PlayerPanel player={user} accent={BLUE} isActive={state.activePlayer === HUMAN} isWinner={state.winner === HUMAN} displayName={userDisplayName} />
+        <PlayerPanel player={user} accent={BLUE} isActive={state.activePlayer === HUMAN} isWinner={state.winner === HUMAN} subLabel={userSubLabel} avatar={<PlayerAvatar size={36} />} />
         {/* Main du joueur (centre), légèrement relevée. */}
         <div data-hand-zone={HUMAN} className="-translate-y-4">
           <Hand
@@ -2983,6 +3399,21 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             hasIngredients={(user.ingredients ?? []).some((c) => (c.cost ?? 0) <= user.power)}
             heroAtPawn={!!user.pawnLocation && (user.board[user.pawnLocation] ?? []).some((c) => c.type === 'hero')}
             canBite={canTakeABite(state, HUMAN)}
+            realmHasHyena={Object.values(user.board).flat().some((c) => c.isHyena)}
+            hyenaElsewhere={user.locations.some((l) => l.id !== user.pawnLocation && (user.board[l.id] ?? []).some((c) => c.isHyena))}
+            fateDiscardHasCard={user.fateDiscard.some((c) => c.type === 'hero' || c.type === 'effect')}
+            realActionUsed={state.usedActionIds.some((a) => !a.includes(':'))}
+            kronkHasPowerToken={Object.values(user.board).flat().some((c) => c.cardId === 'kronk' && (c.kronkPower ?? 0) > 0)}
+            fateDiscardHasHero={user.fateDiscard.some((c) => c.type === 'hero')}
+            poeticJusticeUsable={(() => {
+              // Ironie du sort : Allié sur le lieu du pion ET Événement de la défausse
+              // abordable après avoir payé Ironie (coût effectif, Bâton Magique inclus).
+              if (!user.pawnLocation) return false
+              if (!(user.board[user.pawnLocation] ?? []).some((c) => c.type === 'ally')) return false
+              const ironie = user.hand.find((c) => (c.effects ?? []).some((e) => e.type === 'POETIC_JUSTICE'))
+              const poeticPower = user.power - (ironie ? effectiveCost(state, ironie) : 1)
+              return user.discard.some((c) => c.type === 'effect' && (c.cost ?? 0) <= poeticPower)
+            })()}
             costFor={(c) => effectiveCost(state, c)}
             armedConditionIds={humanReactions.map((c) => c.instanceId)}
             forcedHoverId={hoveredReactionId}
@@ -2997,7 +3428,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           />
         </div>
         {/* Panneau adverse (droite, rouge). */}
-        <PlayerPanel player={bot} accent={RED} isActive={state.activePlayer === BOT} isWinner={state.winner === BOT} displayName={botDisplayName} />
+        <PlayerPanel player={bot} accent={RED} isActive={state.activePlayer === BOT} isWinner={state.winner === BOT} subLabel={oppSubLabel} avatar={oppAvatar} />
       </div>
 
       {/* Résolution de Fatalité par le joueur humain (le bot résout tout seul). */}
@@ -3179,16 +3610,208 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         )
       })()}
 
+      {/* Soyez prêtes ! (Scar) : reprendre 1 Événement OU jusqu'à 2 Alliés. */}
+      {state.pendingBePrepared && state.pendingBePrepared.playerIndex === HUMAN && (() => {
+        const ids = new Set(state.pendingBePrepared.candidateIds)
+        const cards = user.discard.filter((c) => ids.has(c.instanceId))
+        const title = state.pendingBePrepared.alliesOnly
+          ? 'Soyez prêtes ! : reprends un 2ᵉ Allié (ou termine)'
+          : 'Soyez prêtes ! : reprends 1 Événement ou jusqu’à 2 Alliés'
+        return (
+          <CardChoiceModal
+            title={title}
+            cards={cards}
+            noneLabel="Terminer"
+            onNone={() => resolveBePrepared(null)}
+            onClose={() => resolveBePrepared(null)}
+            onPick={(card) => resolveBePrepared(card.instanceId)}
+          />
+        )
+      })()}
+
+      {/* Shenzi (Scar) : jouer gratuitement une Hyène de la main (ou décliner). */}
+      {state.pendingFreeHyena && state.pendingFreeHyena.playerIndex === HUMAN && (() => {
+        const ids = new Set(state.pendingFreeHyena.candidateIds)
+        const cards = user.hand.filter((c) => ids.has(c.instanceId))
+        return (
+          <CardChoiceModal
+            title="Shenzi : joue gratuitement une Hyène (facultatif)"
+            cards={cards}
+            noneLabel="Ne pas jouer"
+            onNone={() => resolveFreeHyena(null)}
+            onClose={() => resolveFreeHyena(null)}
+            onPick={(card) => resolveFreeHyena(card.instanceId)}
+          />
+        )
+      })()}
+
+      {/* Yzma — bandeau d'instruction pour le choix d'une pioche Fatalité par clic
+          (non bloquant : la pioche à dévoiler clignote sur le plateau). */}
+      {fatePileBanner && (
+        <div className="pointer-events-none fixed left-1/2 top-3 z-[60] -translate-x-1/2 rounded-xl border border-amber-300/70 bg-[#1a1226]/95 px-4 py-2 text-center text-sm font-bold text-amber-100 shadow-2xl">
+          {fatePileBanner}
+        </div>
+      )}
+
+      {/* Yzma (Fatalité) : la phase « pioche » se fait par clic direct sur la pioche
+          du plateau (cf. HeroRow / fatePickable). Ici on ne garde QUE la phase
+          « carte » : choisir la carte à jouer parmi celles dévoilées. */}
+      {state.pendingYzmaFate && state.pendingYzmaFate.phase === 'card' && state.pendingYzmaFate.chooserIndex === HUMAN && (() => {
+        const yf = state.pendingYzmaFate
+        return (
+          <YzmaFateModal
+            target={state.players[yf.targetIndex]}
+            phase={yf.phase}
+            cards={yf.cards}
+            onChooseDeck={(loc) => resolveYzmaFateDeck(loc)}
+            onChooseCard={(id) => resolveYzmaFateCard(id)}
+          />
+        )
+      })()}
+
+      {/* Yzma (Ironie du sort) : rejouer un Événement de la défausse. */}
+      {state.pendingReplayEvent && state.pendingReplayEvent.playerIndex === HUMAN && (() => {
+        const ids = new Set(state.pendingReplayEvent.candidateIds)
+        const cards = user.discard.filter((c) => ids.has(c.instanceId))
+        return (
+          <CardChoiceModal
+            title="Ironie du sort : rejouez un Événement (vous en payez le coût)"
+            cards={cards}
+            noneLabel="Ne rien rejouer"
+            onNone={() => resolveReplayEvent(null)}
+            onClose={() => resolveReplayEvent(null)}
+            onPick={(card) => resolveReplayEvent(card.instanceId)}
+          />
+        )
+      })()}
+
+      {/* Yzma (Finis le travail) : choisir un Allié puis un lieu portant un Héros. */}
+      {/* Finis le travail (Yzma) — phase 2 : choix du lieu (à Héros) de destination.
+          La phase 1 (choix de l'Allié) se fait par clic direct sur le plateau. */}
+      {state.pendingFinishJob && state.pendingFinishJob.playerIndex === HUMAN && state.pendingFinishJob.allyInstanceId && (
+        <GiantActionModal
+          player={user}
+          locations={user.locations.filter((l) => (user.board[l.id] ?? []).some((c) => c.type === 'hero')).map((l) => l.id)}
+          title="Finis le travail — lieu de destination"
+          subtitle="Choisissez un lieu portant un Héros où déplacer l’Allié."
+          onResolve={(loc) => resolveFinishJob(undefined, loc)}
+        />
+      )}
+
+      {/* Yzma — Beauté endormie : réveil au début du tour (avant déplacement). */}
+      {state.pendingBeautySleep && state.pendingBeautySleep.playerIndex === HUMAN && (
+        <BeautySleepModal
+          player={user}
+          onConfirm={(gainPower, draw, heroMove) => resolveBeautySleep(gainPower, draw, heroMove)}
+        />
+      )}
+
+      {/* Yzma (À l'attaque ! / Marteau / Indiscrétion) : le choix de la pioche se fait
+          par clic direct sur le plateau (cf. HeroRow / fatePickable). On garde ici la
+          révélation d'Indiscrétion (lecture seule) et le choix FACE CACHÉE du Marteau. */}
+      {engrenagesPrompt && (
+        <EngrenagesModal
+          cardName={engrenagesPrompt.cardName}
+          baseCost={engrenagesPrompt.baseCost}
+          power={user.power}
+          max={engrenagesPrompt.available.length}
+          onConfirm={(count) => {
+            const ids = engrenagesPrompt.available.slice(0, count).map((c) => c.instanceId)
+            if (engrenagesPrompt.to) flyHandToBoard(engrenagesPrompt.instanceId, engrenagesPrompt.to)
+            doPlayCard(
+              engrenagesPrompt.diablo,
+              engrenagesPrompt.actionId,
+              engrenagesPrompt.instanceId,
+              engrenagesPrompt.to,
+              engrenagesPrompt.attachTo,
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              ids,
+            )
+            setEngrenagesPrompt(null)
+          }}
+          onCancel={() => setEngrenagesPrompt(null)}
+        />
+      )}
+
+      {state.pendingYzmaOwnDeck && state.pendingYzmaOwnDeck.playerIndex === HUMAN &&
+        state.pendingYzmaOwnDeck.revealCards && (
+          <CardChoiceModal
+            title={
+              state.pendingYzmaOwnDeck.mode === 'attack'
+                ? 'À l’attaque ! : contenu de la pioche'
+                : 'Indiscrétion : contenu de la pioche'
+            }
+            cards={state.pendingYzmaOwnDeck.revealCards}
+            onClose={() => resolveYzmaOwnDeck('')}
+            onPick={() => resolveYzmaOwnDeck('')}
+          />
+        )}
+      {state.pendingYzmaOwnDeck && state.pendingYzmaOwnDeck.playerIndex === HUMAN &&
+        state.pendingYzmaOwnDeck.hammerPick && (() => {
+          const hp = state.pendingYzmaOwnDeck.hammerPick!
+          return (
+            <YzmaHammerModal
+              backImage={user.backFateImage}
+              locationName={user.locations.find((l) => l.id === hp.locationId)?.name ?? hp.locationId}
+              cards={hp.cards}
+              count={hp.count}
+              onConfirm={(ids) => resolveYzmaHammer(ids)}
+            />
+          )
+        })()}
+
+      {/* Yzma (Paysan / Attention au groove ! / Pacha) : choix interactif (optionnel)
+          d'un Héros de la défausse et des pioches à mélanger. */}
+      {state.pendingYzmaManipulate && state.pendingYzmaManipulate.playerIndex === HUMAN && (
+        <YzmaManipulateModal
+          player={user}
+          mode={state.pendingYzmaManipulate.mode}
+          count={state.pendingYzmaManipulate.count}
+          optional={state.pendingYzmaManipulate.optional}
+          heroIds={state.pendingYzmaManipulate.heroIds}
+          onResolve={(heroId, locs) => resolveYzmaManipulate(heroId, locs)}
+        />
+      )}
+
+      {/* Hakuna Matata (Scar) : rejouer un Héros de la Succession ou déplacer un Héros. */}
+      {state.pendingHakunaMatata && state.pendingHakunaMatata.playerIndex === HUMAN && (() => {
+        const phm = state.pendingHakunaMatata
+        const succIds = new Set(phm.successionIds)
+        const realmIds = new Set(phm.realmHeroIds)
+        const successionHeroes = (user.succession ?? []).filter((c) => succIds.has(c.instanceId))
+        const realmHeroes = Object.values(user.board).flat().filter((c) => realmIds.has(c.instanceId))
+        return (
+          <HakunaMatataModal
+            successionHeroes={successionHeroes}
+            realmHeroes={realmHeroes}
+            onPlay={(instanceId) => resolveHakunaMatata('play', instanceId)}
+            onMove={(instanceId) => resolveHakunaMatata('move', instanceId)}
+          />
+        )
+      })()}
+
       {/* Colère Titanesque : choisir un lieu voisin où agir. */}
       {state.pendingGiantAction && state.pendingGiantAction.playerIndex === HUMAN && (
         <GiantActionModal
           player={user}
           onResolve={(loc) => resolveGiantLocation(loc)}
-          title={state.pendingGiantAction.viaCanne ? 'Canne — lieu voisin' : undefined}
+          locations={state.pendingGiantAction.viaFollowMe ? state.pendingGiantAction.locations : undefined}
+          title={
+            state.pendingGiantAction.viaFollowMe
+              ? 'Suivez-moi ! — lieu d’une Hyène'
+              : state.pendingGiantAction.viaCanne
+                ? 'Canne — lieu voisin'
+                : undefined
+          }
           subtitle={
-            state.pendingGiantAction.viaCanne
-              ? 'Choisissez un lieu voisin : vous y effectuerez une action disponible (hors Fatalité).'
-              : undefined
+            state.pendingGiantAction.viaFollowMe
+              ? 'Choisissez le lieu d’une Hyène (hors votre lieu) : vous y effectuerez une action disponible (hors Fatalité).'
+              : state.pendingGiantAction.viaCanne
+                ? 'Choisissez un lieu voisin : vous y effectuerez une action disponible (hors Fatalité).'
+                : undefined
           }
         />
       )}
@@ -3365,7 +3988,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 ? `Animaux de la forêt : main de ${tgt.villainName} — défaussez une carte`
                 : pfc.kind === 'fate-discard-hero-to-top'
                   ? `Premier baiser d'amour : un Héros revient sur le dessus de la Fatalité de ${tgt.villainName}`
-                  : 'Volez un Objet à associer au Héros'
+                  : pfc.kind === 'play-revealed-fate-hero'
+                    ? 'Longue vie au roi ! : choisissez le Héros à jouer dans votre royaume'
+                    : pfc.kind === 'play-fate-card-from-discard'
+                      ? 'Petit secret : choisissez la carte Fatalité à jouer'
+                      : 'Volez un Objet à associer au Héros'
         return (
           <CardChoiceModal
             title={title}

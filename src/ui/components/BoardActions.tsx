@@ -375,6 +375,64 @@ const ACTION_POS: Record<string, Record<string, Record<string, { x: number; y: n
       fate: { x: 93.1, y: 67.5 },
     },
   },
+  // Yzma : gabarit standard (4 lieux × 2 colonnes × 2 rangées). À affiner via l'inspecteur.
+  yzma: {
+    palais: {
+      'gain-power': { x: 22.5, y: 20 },
+      'move-item-ally': { x: 30.4, y: 20 },
+      vanquish: { x: 22.5, y: 67.5 },
+      'play-card': { x: 30.4, y: 67.5 },
+    },
+    'maison-pacha': {
+      'play-card': { x: 43.4, y: 20 },
+      'gain-power': { x: 51.3, y: 20 },
+      'move-item-ally': { x: 43.4, y: 67.5 },
+      fate: { x: 51.3, y: 67.5 },
+    },
+    jungle: {
+      'play-card-top': { x: 64.2, y: 20 },
+      discard: { x: 72.2, y: 20 },
+      'gain-power': { x: 64.2, y: 67.5 },
+      'play-card-bottom': { x: 72.2, y: 67.5 },
+    },
+    'poele-mudka': {
+      'gain-power': { x: 85.3, y: 20 },
+      fate: { x: 93.1, y: 20 },
+      discard: { x: 85.3, y: 67.5 },
+      'play-card': { x: 93.1, y: 67.5 },
+    },
+  },
+  // Ratigan : plateau « Perfectly Wretched ». Mesuré sur board.png via grille de %.
+  // Particularités : Repaire secret a la rangée HAUTE vide et 3 actions en bas
+  // (Fatalité · Jouer · Activer) ; Buckingham Palace a 3 actions en bas
+  // (Déplacer · Gagner 1 · Défausser). Le symbole éclair = Fatalité ; la carte à
+  // encoches = Activer. MESURES À AFFINER via l'inspecteur si besoin.
+  ratigan: {
+    'repaire-secret': {
+      fate: { x: 22, y: 70 },
+      'play-card': { x: 30, y: 70 },
+      activate: { x: 37, y: 70 },
+    },
+    'magasin-flaversham': {
+      'play-card-top': { x: 44, y: 20 },
+      discard: { x: 51, y: 20 },
+      'gain-power': { x: 44, y: 70 },
+      'play-card-bottom': { x: 51, y: 70 },
+    },
+    'big-ben': {
+      'gain-power': { x: 64, y: 20 },
+      'move-item-ally': { x: 72, y: 20 },
+      'play-card': { x: 64, y: 70 },
+      vanquish: { x: 72, y: 70 },
+    },
+    'buckingham-palace': {
+      fate: { x: 84, y: 20 },
+      'play-card': { x: 92, y: 20 },
+      'move-item-ally': { x: 84, y: 70 },
+      'gain-power': { x: 90, y: 70 },
+      discard: { x: 96, y: 70 },
+    },
+  },
 }
 
 interface Props {
