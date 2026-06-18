@@ -18,6 +18,7 @@ import { shuffle } from './rng'
 import {
   adjacentLocationIds,
   effectiveStrength,
+  goalsBlockedByHero,
   hasHeroInRealm,
   heroPlacementLocations,
   locationOfCard,
@@ -87,6 +88,41 @@ function realmPowerPenalty(state: GameState, idx: number): number {
   return hasHeroInRealm(state, idx, 'robin-des-bois') ? 1 : 0
 }
 
+/** Pat Hibulaire — déplace les Alliés « followsHeroes » (Grillon) du royaume de
+ *  `playerIndex` vers `locationId` (lieu du Héros qui vient d'arriver), avec leurs
+ *  Objets associés. « Vous pouvez » résolu automatiquement (toujours bénéfique). */
+function moveFollowersToHero(state: GameState, playerIndex: number, locationId: LocationId): GameState {
+  let next = state
+  const name = state.players[playerIndex].villainName
+  for (const l of state.players[playerIndex].locations) {
+    if (l.id === locationId) continue
+    const followers = (next.players[playerIndex].board[l.id] ?? []).filter(
+      (c) => c.type === 'ally' && c.followsHeroes,
+    )
+    for (const f of followers) {
+      const here = next.players[playerIndex].board[l.id] ?? []
+      const ids = new Set([
+        f.instanceId,
+        ...here.filter((c) => c.attachedTo === f.instanceId).map((c) => c.instanceId),
+      ])
+      const moving = here.filter((c) => ids.has(c.instanceId))
+      next = updatePlayer(next, playerIndex, (pl) => ({
+        ...pl,
+        board: {
+          ...pl.board,
+          [l.id]: (pl.board[l.id] ?? []).filter((c) => !ids.has(c.instanceId)),
+          [locationId]: [...(pl.board[locationId] ?? []), ...moving],
+        },
+      }))
+      next = {
+        ...next,
+        log: [...next.log, `${name} déplace **${f.name}** vers ${findLocation(next.players[playerIndex], locationId)?.name ?? locationId} (suit le Héros).`],
+      }
+    }
+  }
+  return next
+}
+
 /**
  * Déclenche les effets « à l'arrivée d'un Héros » sur un lieu d'un joueur :
  * pour chaque Mandat d'Arrêt présent au lieu, +2 JT au propriétaire (C.1).
@@ -119,6 +155,9 @@ export function triggerHeroArrival(
     // Robin des Bois : animation « −N 🪙 » du pouvoir chipé (−1 par Mandat).
     next = pushRobinSteal(next, playerIndex, mandates.length * penalty)
   }
+  // Pat Hibulaire — Grillon : tout Allié « followsHeroes » du royaume suit le Héros
+  // qui vient d'arriver (déplacé auto sur son lieu, avec ses Objets associés).
+  next = moveFollowersToHero(next, playerIndex, locationId)
   return processCurseDiscards(next, playerIndex, locationId, 'hero-played-here')
 }
 
@@ -728,6 +767,106 @@ function mostAdvancedTitan(
     }
   })
   return best
+}
+
+/** Pat Hibulaire — déplace une carte (+ Objets associés) de `from` vers `to` dans
+ *  le royaume `idx`. Pur. No-op si rien à déplacer. */
+function relocateCard(state: GameState, idx: number, instanceId: string, from: LocationId, to: LocationId): GameState {
+  if (from === to) return state
+  const cell = state.players[idx].board[from] ?? []
+  const ids = new Set([
+    instanceId,
+    ...cell.filter((c) => c.attachedTo === instanceId).map((c) => c.instanceId),
+  ])
+  const moving = cell.filter((c) => ids.has(c.instanceId))
+  if (moving.length === 0) return state
+  return updatePlayer(state, idx, (p) => ({
+    ...p,
+    board: {
+      ...p.board,
+      [from]: (p.board[from] ?? []).filter((c) => !ids.has(c.instanceId)),
+      [to]: [...(p.board[to] ?? []), ...moving],
+    },
+  }))
+}
+
+/** Pat Hibulaire — déplacement « malin » d'un Allié ou Objet (Cheval bénéfique pour
+ *  Pat / Horace perturbateur joué par l'adversaire), résolu par une heuristique
+ *  d'objectif. Renvoie l'état (journalisé) ou un no-op journalisé. */
+function smartMoveAllyOrItem(state: GameState, idx: number, beneficial: boolean): GameState {
+  const p = state.players[idx]
+  const name = p.villainName
+  const label = beneficial ? 'Cheval' : 'Horace'
+  const done = (s: GameState, card: CardInstance, to: LocationId): GameState => ({
+    ...s,
+    log: [...s.log, `${label} : **${card.name}** déplacé vers ${findLocation(p, to)?.name ?? to}.`],
+  })
+  type Pos = { card: CardInstance; loc: LocationId }
+  const allies: Pos[] = []
+  const items: Pos[] = []
+  for (const l of p.locations) {
+    for (const c of p.board[l.id] ?? []) {
+      if (c.attachedTo) continue
+      if (c.type === 'ally') allies.push({ card: c, loc: l.id })
+      else if (c.type === 'item') items.push({ card: c, loc: l.id })
+    }
+  }
+  const counts = (lid: LocationId) => {
+    const here = p.board[lid] ?? []
+    return { a: here.filter((c) => c.type === 'ally').length, h: here.filter((c) => c.type === 'hero').length }
+  }
+  const goals = (p.goals ?? []).filter((g) => !g.completed)
+
+  if (beneficial) {
+    // 1) Round Up : amener l'Allié le plus fort (d'ailleurs) sur le lieu de la tuile.
+    for (const g of goals) {
+      if (g.kind !== 'round-up') continue
+      const off = allies
+        .filter((a) => a.loc !== g.locationId)
+        .sort((a, b) => (b.card.strength ?? 0) - (a.card.strength ?? 0))[0]
+      if (off) return done(relocateCard(state, idx, off.card.instanceId, off.loc, g.locationId), off.card, g.locationId)
+    }
+    // 2) Strike It Rich : amener un Objet (d'ailleurs) sur le lieu de la tuile.
+    for (const g of goals) {
+      if (g.kind !== 'strike-it-rich') continue
+      const off = items.find((a) => a.loc !== g.locationId)
+      if (off) return done(relocateCard(state, idx, off.card.instanceId, off.loc, g.locationId), off.card, g.locationId)
+    }
+    // 3) Rule the Realm : combler un lieu déficitaire (Alliés ≤ Héros) avec un Allié
+    //    pris d'un lieu en excédent.
+    for (const g of goals) {
+      if (g.kind !== 'rule-the-realm') continue
+      const deficit = p.locations.find((l) => { const c = counts(l.id); return c.a <= c.h })
+      if (!deficit) continue
+      const donor = allies
+        .filter((a) => a.loc !== deficit.id)
+        .find((a) => { const c = counts(a.loc); return c.a - 1 > c.h })
+      if (donor) return done(relocateCard(state, idx, donor.card.instanceId, donor.loc, deficit.id), donor.card, deficit.id)
+    }
+    return { ...state, log: [...state.log, `${name} : Cheval — aucun déplacement utile.`] }
+  }
+
+  // Perturbateur (Horace) : disperse l'Allié le plus fort du lieu le plus chargé.
+  let fromLoc: LocationId | undefined
+  let maxAllies = -1
+  for (const l of p.locations) {
+    const n = counts(l.id).a
+    if (n > maxAllies) { maxAllies = n; fromLoc = l.id }
+  }
+  if (fromLoc && maxAllies > 0) {
+    const here = (p.board[fromLoc] ?? []).filter((c) => c.type === 'ally' && !c.attachedTo)
+    const strongest = [...here].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+    const to = [...p.locations]
+      .filter((l) => l.id !== fromLoc)
+      .sort((a, b) => counts(a.id).a - counts(b.id).a)[0]
+    if (strongest && to) return done(relocateCard(state, idx, strongest.instanceId, fromLoc, to.id), strongest, to.id)
+  }
+  const it = items[0]
+  if (it) {
+    const to = p.locations.find((l) => l.id !== it.loc)
+    if (to) return done(relocateCard(state, idx, it.card.instanceId, it.loc, to.id), it.card, to.id)
+  }
+  return { ...state, log: [...state.log, `${name} : Horace — rien à déplacer.`] }
 }
 
 export function resolveEffect(
@@ -3472,11 +3611,12 @@ export function resolveEffect(
       }
     }
     case 'LOSE_HALF_POWER': {
-      // Yzma — Mauvais levier : perd la moitié de ses JT (arrondie au supérieur).
+      // Perd la moitié de ses JT : arrondi supérieur (Yzma — Mauvais levier, défaut)
+      // ou inférieur (Pat Hibulaire — Épuisé).
       const actor = state.players[idx]
-      const loss = Math.ceil(actor.power / 2)
+      const loss = (effect.roundUp ?? true) ? Math.ceil(actor.power / 2) : Math.floor(actor.power / 2)
       const next = updatePlayer(state, idx, (p) => ({ ...p, power: Math.max(0, p.power - loss) }))
-      return { ...next, log: [...next.log, `Mauvais levier : ${actor.villainName} perd ${loss} JT.`] }
+      return { ...next, log: [...next.log, `${actor.villainName} perd ${loss} JT (la moitié de son Pouvoir).`] }
     }
     case 'YZMA_OWN_DECK_ACTION': {
       // Yzma — À l'attaque ! / Marteau : choisir l'une de SES pioches Fatalité non vide.
@@ -3900,6 +4040,303 @@ export function resolveEffect(
       }
       const withLog = { ...state, log: [...state.log, `Brutes : action « Gagner du Pouvoir » du lieu exploitée.`] }
       return resolveEffect(withLog, { type: 'GAIN_POWER', amount: best }, { actorIndex: idx })
+    }
+
+    // --- Pat Hibulaire --------------------------------------------------------
+    case 'PLAY_A_GAME': {
+      // Une Petite Partie ? : révèle les `reveal` premières cartes Méchant, gagne la
+      // somme de leur coût (−1 si Oswald présent), puis les défausse. Win Big si ≥ 4.
+      const actor = state.players[idx]
+      let deck = [...actor.deck]
+      let disc = [...actor.discard]
+      let rng = state.rngState
+      const revealed: CardInstance[] = []
+      while (revealed.length < effect.reveal) {
+        if (deck.length === 0) {
+          if (disc.length === 0) break
+          const r = shuffle(disc, rng)
+          deck = r.result
+          rng = r.state
+          disc = []
+        }
+        const [top, ...rest] = deck
+        deck = rest
+        revealed.push(top)
+      }
+      const sum = revealed.reduce((n, c) => n + (c.cost ?? 0), 0)
+      const reduced =
+        effect.reducerHeroCardId && hasHeroInRealm(state, idx, effect.reducerHeroCardId) ? 1 : 0
+      const gain = Math.max(0, sum - reduced)
+      let next = updatePlayer({ ...state, rngState: rng }, idx, (p) => ({
+        ...p,
+        deck,
+        discard: [...disc, ...revealed],
+        power: p.power + gain,
+      }))
+      next = {
+        ...next,
+        log: [
+          ...next.log,
+          `${actor.villainName} joue Une Petite Partie ? : ${
+            revealed.map((c) => c.name).join(', ') || '—'
+          } → +${gain} JT${reduced ? ' (Oswald : −1)' : ''}.`,
+        ],
+      }
+      // Win Big : gain ≥ 4 via CETTE Petite Partie, tuile sur le lieu du pion.
+      const me = next.players[idx]
+      if (gain >= 4 && me.goals && !goalsBlockedByHero(me)) {
+        const g = me.goals.find(
+          (x) => x.kind === 'win-big' && !x.completed && x.locationId === me.pawnLocation,
+        )
+        if (g) {
+          const goals = me.goals.map((x) => (x === g ? { ...x, completed: true, revealed: true } : x))
+          next = updatePlayer(next, idx, (p) => ({ ...p, goals }))
+          next = { ...next, log: [...next.log, `${me.villainName} remplit l'objectif **Jackpot** !`] }
+          if (goals.every((x) => x.completed)) {
+            next = {
+              ...next,
+              status: 'WON',
+              winner: idx,
+              log: [...next.log, `🏆 ${me.villainName} a rempli ses 4 objectifs et l'emporte !`],
+            }
+          }
+        }
+      }
+      return next
+    }
+    case 'REVEAL_PETE_GOAL': {
+      // Révèle (affichage) la première tuile Objectif encore cachée de la cible.
+      const actor = state.players[idx]
+      if (!actor.goals) return state
+      const i = actor.goals.findIndex((g) => !g.revealed)
+      if (i < 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : toutes les tuiles Objectif sont déjà révélées.`] }
+      }
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        goals: p.goals!.map((g, k) => (k === i ? { ...g, revealed: true } : g)),
+      }))
+      return { ...next, log: [...next.log, `Une tuile Objectif de ${actor.villainName} est révélée.`] }
+    }
+    case 'DISCARD_ALLY_BY_CARDID': {
+      // Planqués : défausse un Allié de `cardId` (Bandit) du royaume de la cible.
+      const actor = state.players[idx]
+      let loc: LocationId | undefined
+      let card: CardInstance | undefined
+      for (const l of actor.locations) {
+        const f = (actor.board[l.id] ?? []).find(
+          (c) => c.type === 'ally' && c.cardId === effect.cardId && !c.attachedTo,
+        )
+        if (f) { loc = l.id; card = f; break }
+      }
+      if (!loc || !card) {
+        return { ...state, log: [...state.log, `${actor.villainName} : aucun ${effect.cardId} à défausser (Planqués).`] }
+      }
+      const ll = loc
+      const target = card
+      const ids = new Set([
+        target.instanceId,
+        ...(actor.board[ll] ?? []).filter((c) => c.attachedTo === target.instanceId).map((c) => c.instanceId),
+      ])
+      const removed = (actor.board[ll] ?? []).filter((c) => ids.has(c.instanceId))
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        board: { ...p.board, [ll]: (p.board[ll] ?? []).filter((c) => !ids.has(c.instanceId)) },
+        discard: [...p.discard, ...removed],
+      }))
+      return { ...next, log: [...next.log, `${actor.villainName} défausse **${target.name}** (Planqués).`] }
+    }
+    case 'FATE_SCRY_DISCARD_BY_COST': {
+      // Assommé Bêtement : dévoile `count` cartes, défausse celles de coût ≥ minCost,
+      // remélange les autres et les replace sur le dessus de la pioche de la cible.
+      const actor = state.players[idx]
+      let deck = [...actor.deck]
+      let disc = [...actor.discard]
+      let rng = state.rngState
+      const revealed: CardInstance[] = []
+      while (revealed.length < effect.count) {
+        if (deck.length === 0) {
+          if (disc.length === 0) break
+          const r = shuffle(disc, rng)
+          deck = r.result
+          rng = r.state
+          disc = []
+        }
+        const [top, ...rest] = deck
+        deck = rest
+        revealed.push(top)
+      }
+      const toDiscard = revealed.filter((c) => (c.cost ?? 0) >= effect.minCost)
+      const keep = revealed.filter((c) => (c.cost ?? 0) < effect.minCost)
+      const sh = shuffle(keep, rng)
+      rng = sh.state
+      const next = updatePlayer({ ...state, rngState: rng }, idx, (p) => ({
+        ...p,
+        deck: [...sh.result, ...deck],
+        discard: [...disc, ...toDiscard],
+      }))
+      return {
+        ...next,
+        log: [
+          ...next.log,
+          `Assommé Bêtement : ${actor.villainName} défausse ${toDiscard.length} carte${toDiscard.length > 1 ? 's' : ''} de coût ≥ ${effect.minCost}.`,
+        ],
+      }
+    }
+    case 'FATE_DISCARD_STRONGEST_ALLY_OR_ITEM': {
+      // Minnie : défausse l'Allié le plus fort, à défaut l'Objet (non associé) le plus cher.
+      const actor = state.players[idx]
+      let pickLoc: LocationId | undefined
+      let pick: CardInstance | undefined
+      let bestScore = -1
+      for (const l of actor.locations) {
+        for (const c of actor.board[l.id] ?? []) {
+          if (c.attachedTo) continue
+          const s = c.type === 'ally' ? 1000 + (c.strength ?? 0) : c.type === 'item' ? c.cost ?? 0 : -1
+          if (s > bestScore) { bestScore = s; pick = c; pickLoc = l.id }
+        }
+      }
+      if (!pick || !pickLoc) {
+        return { ...state, log: [...state.log, `${actor.villainName} : aucun Allié ni Objet à défausser (Minnie).`] }
+      }
+      const ll = pickLoc
+      const target = pick
+      const ids = new Set([
+        target.instanceId,
+        ...(actor.board[ll] ?? []).filter((c) => c.attachedTo === target.instanceId).map((c) => c.instanceId),
+      ])
+      const removed = (actor.board[ll] ?? []).filter((c) => ids.has(c.instanceId))
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        board: { ...p.board, [ll]: (p.board[ll] ?? []).filter((c) => !ids.has(c.instanceId)) },
+        discard: [...p.discard, ...removed],
+      }))
+      return { ...next, log: [...next.log, `Minnie : ${actor.villainName} défausse **${target.name}**.`] }
+    }
+    case 'FATE_MOVE_ITEM_TO_HOST': {
+      // Pluto : déplace un Objet (non associé) d'ailleurs vers le lieu hôte.
+      if (!ctx?.hostLocationId) return state
+      const actor = state.players[idx]
+      const host = ctx.hostLocationId
+      let from: LocationId | undefined
+      let item: CardInstance | undefined
+      for (const l of actor.locations) {
+        if (l.id === host) continue
+        const f = (actor.board[l.id] ?? []).find((c) => c.type === 'item' && !c.attachedTo)
+        if (f) { from = l.id; item = f; break }
+      }
+      if (!from || !item) {
+        return { ...state, log: [...state.log, `Pluto : aucun Objet à déplacer.`] }
+      }
+      const ff = from
+      const it = item
+      const ids = new Set([
+        it.instanceId,
+        ...(actor.board[ff] ?? []).filter((c) => c.attachedTo === it.instanceId).map((c) => c.instanceId),
+      ])
+      const moving = (actor.board[ff] ?? []).filter((c) => ids.has(c.instanceId))
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        board: {
+          ...p.board,
+          [ff]: (p.board[ff] ?? []).filter((c) => !ids.has(c.instanceId)),
+          [host]: [...(p.board[host] ?? []), ...moving],
+        },
+      }))
+      return {
+        ...next,
+        log: [...next.log, `Pluto : **${it.name}** est déplacé vers ${findLocation(actor, host)?.name ?? host}.`],
+      }
+    }
+    case 'AIR_STRIKE': {
+      // Attaque Aérienne : déplace le pion sur le Héros le plus fort et l'élimine
+      // (sans Allié), puis plus aucune autre action ce tour-ci.
+      const actor = state.players[idx]
+      let bestLoc: LocationId | undefined
+      let bestHero: CardInstance | undefined
+      let best = -1
+      for (const l of actor.locations) {
+        for (const c of actor.board[l.id] ?? []) {
+          if (c.type === 'hero' && (c.strength ?? 0) > best) { best = c.strength ?? 0; bestHero = c; bestLoc = l.id }
+        }
+      }
+      if (!bestLoc || !bestHero) {
+        return { ...state, log: [...state.log, `${actor.villainName} : aucun Héros à éliminer (Attaque Aérienne).`] }
+      }
+      const dest = bestLoc
+      let next = updatePlayer(state, idx, (p) => ({ ...p, pawnLocation: dest }))
+      next = {
+        ...next,
+        log: [...next.log, `${actor.villainName} fond sur ${findLocation(actor, dest)?.name ?? dest} (Attaque Aérienne).`],
+      }
+      next = resolveEffect(next, { type: 'INSTANT_VANQUISH_HERO_AT_PAWN' }, { actorIndex: idx, targetHeroId: bestHero.instanceId })
+      // « Puis votre tour est terminé » : plus aucune autre action ce tour-ci.
+      return updatePlayer(next, idx, (p) => ({ ...p, soleActionLock: true }))
+    }
+    case 'MOVE_ALLY_OR_ITEM_SMART':
+      return smartMoveAllyOrItem(state, idx, effect.beneficial)
+    case 'DRAW_THEN_BOTTOM': {
+      // Sournois : pioche `draw` cartes, puis replace la plus chère de la main dessous.
+      const actor = state.players[idx]
+      let deck = [...actor.deck]
+      let disc = [...actor.discard]
+      let rng = state.rngState
+      const drawn: CardInstance[] = []
+      while (drawn.length < effect.draw) {
+        if (deck.length === 0) {
+          if (disc.length === 0) break
+          const r = shuffle(disc, rng)
+          deck = r.result
+          rng = r.state
+          disc = []
+        }
+        const [t, ...rest] = deck
+        deck = rest
+        drawn.push(t)
+      }
+      let hand = [...actor.hand, ...drawn]
+      let note = ''
+      if (hand.length > 0) {
+        const worst = [...hand].sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0))[0]
+        hand = hand.filter((c) => c.instanceId !== worst.instanceId)
+        deck = [...deck, worst]
+        note = ` puis replace **${worst.name}** sous la pioche`
+      }
+      const next = updatePlayer({ ...state, rngState: rng }, idx, (p) => ({ ...p, deck, hand, discard: disc }))
+      return {
+        ...next,
+        log: [...next.log, `${actor.villainName} pioche ${drawn.length} carte${drawn.length > 1 ? 's' : ''}${note} (Sournois).`],
+      }
+    }
+    case 'FATE_DISTURB_GOAL': {
+      // Dingo : déplace une tuile non remplie vers un lieu voisin libre, ou l'échange
+      // avec une tuile voisine non remplie.
+      const actor = state.players[idx]
+      const goals = actor.goals
+      if (!goals) return state
+      const order = actor.locations.map((l) => l.id)
+      const tileAt = (lid: LocationId) => goals.find((g) => g.locationId === lid && !g.completed)
+      for (let i = 0; i < order.length; i++) {
+        const t = tileAt(order[i])
+        if (!t) continue
+        const neighbors = [order[i - 1], order[i + 1]].filter((v): v is LocationId => !!v)
+        const empty = neighbors.find((nb) => !tileAt(nb))
+        if (empty) {
+          const newGoals = goals.map((g) => (g === t ? { ...g, locationId: empty, revealed: true } : g))
+          const next = updatePlayer(state, idx, (p) => ({ ...p, goals: newGoals }))
+          return { ...next, log: [...next.log, `Dingo déplace une tuile Objectif de ${actor.villainName} vers ${findLocation(actor, empty)?.name ?? empty}.`] }
+        }
+        const swapNb = neighbors.find((nb) => tileAt(nb))
+        if (swapNb) {
+          const u = tileAt(swapNb)!
+          const newGoals = goals.map((g) =>
+            g === t ? { ...g, locationId: swapNb, revealed: true } : g === u ? { ...g, locationId: order[i], revealed: true } : g,
+          )
+          const next = updatePlayer(state, idx, (p) => ({ ...p, goals: newGoals }))
+          return { ...next, log: [...next.log, `Dingo intervertit deux tuiles Objectif de ${actor.villainName}.`] }
+        }
+      }
+      return { ...state, log: [...state.log, `Dingo : aucune tuile Objectif à perturber.`] }
     }
   }
 }

@@ -286,6 +286,50 @@ export function objectiveScore(p: PlayerState): number {
       }
       return blocked ? Math.min(s, 0.45) : Math.min(1, s)
     }
+    case 'COMPLETE_GOAL_TOKENS': {
+      // Pat Hibulaire : moyenne sur les 4 tuiles. Une tuile remplie = 1 ; sinon
+      // sa proximité ∈ [0, 0.95] (plafonnée pour rester sous une tuile complétée).
+      const goals = p.goals ?? []
+      if (goals.length === 0) return 0
+      const cap = (x: number) => Math.min(0.95, x)
+      let score = 0
+      for (const g of goals) {
+        if (g.completed) { score += 1; continue }
+        const cell = p.board[g.locationId] ?? []
+        switch (g.kind) {
+          case 'round-up': {
+            // Alliés de force totale ≥ 10 sur le lieu.
+            const force = cell
+              .filter((c) => c.type === 'ally')
+              .reduce((n, c) => n + (c.strength ?? 0), 0)
+            score += cap(force / 10)
+            break
+          }
+          case 'strike-it-rich': {
+            // ≥ 3 Objets (non associés) sur le lieu.
+            const items = cell.filter((c) => c.type === 'item' && !c.attachedTo).length
+            score += cap(items / 3)
+            break
+          }
+          case 'rule-the-realm': {
+            // Plus d'Alliés que de Héros sur CHAQUE lieu du royaume.
+            const ok = p.locations.filter((l) => {
+              const here = p.board[l.id] ?? []
+              const allies = here.filter((c) => c.type === 'ally').length
+              const heroes = here.filter((c) => c.type === 'hero').length
+              return allies > heroes
+            }).length
+            score += cap(ok / p.locations.length)
+            break
+          }
+          // Win Big / Power Play : déclenchées en une seule action → binaires.
+          case 'win-big':
+          case 'power-play':
+            break
+        }
+      }
+      return score / goals.length
+    }
   }
 }
 
@@ -629,10 +673,12 @@ function buildConditionAction(
       to: me.locations[0].id,
     }
   }
-  if (card.cardId === 'mechancete') {
+  if (card.cardId === 'mechancete' || card.cardId === 'ferocite' || card.cardId === 'affront') {
+    // Vaincre un Héros : Méchanceté ≤4, Férocité/Affront ≤3. Cible le plus fort éligible.
+    const maxStr = card.cardId === 'mechancete' ? 4 : 3
     const heroes = Object.values(state.players[playerIndex].board)
       .flat()
-      .filter((c) => c.type === 'hero' && (c.strength ?? 0) <= 4)
+      .filter((c) => c.type === 'hero' && (c.strength ?? 0) <= maxStr)
     if (heroes.length === 0) return null
     // Héros le plus fort éligible (le plus pénalisant à garder).
     const hero = [...heroes].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]

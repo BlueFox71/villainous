@@ -94,6 +94,11 @@ export interface VillainDef {
    *  Comète ; `count` = Étoiles posées au départ. Ce lieu est VERROUILLÉ
    *  dynamiquement dès qu'il tombe à 0 Étoile. Absent = vilain sans Étoiles. */
   starSetup?: { locationId: LocationId; count: number }
+  /** Pat Hibulaire : les 5 « tuiles Objectif » candidates (objectif
+   *  COMPLETE_GOAL_TOKENS). À la mise en place, on en tire 4 au hasard, une par
+   *  lieu (la 5ᵉ reste hors-jeu). Recopié vers PlayerState.goals. Absent = vilain
+   *  sans tuiles Objectif. */
+  goalKinds?: PeteGoalKind[]
 }
 
 /**
@@ -169,6 +174,38 @@ export type ObjectiveDef =
       altHeroCardId: string
       blockerHeroCardId: string
     }
+  /** Pat Hibulaire : remplir ses 4 tuiles Objectif (tirées parmi 5 à la mise en
+   *  place, une par lieu). Chaque tuile a sa propre condition (voir PeteGoalKind),
+   *  vérifiée en début de tour (Round Up / Strike It Rich / Rule the Realm) ou à
+   *  l'instant déclencheur (Win Big / Power Play). `blockerHeroCardId` (Mickey) :
+   *  tant qu'un Héros de ce cardId est présent dans le royaume, aucune tuile ne
+   *  peut être complétée (et donc la victoire est impossible). */
+  | { type: 'COMPLETE_GOAL_TOKENS'; blockerHeroCardId?: string }
+
+/** Pat Hibulaire — les 5 types de tuile Objectif (4 tirés par partie) :
+ *  - `win-big`        : gagner ≥4 Pouvoir via UNE SEULE Petite Partie ? sur le lieu ;
+ *  - `power-play`     : dépenser ≥6 Pouvoir en un tour avec le pion sur le lieu ;
+ *  - `strike-it-rich` : ≥3 Objets sur le lieu au début du tour ;
+ *  - `round-up`       : Alliés de force totale ≥10 sur le lieu au début du tour ;
+ *  - `rule-the-realm` : plus d'Alliés que de Héros sur CHAQUE lieu au début du tour. */
+export type PeteGoalKind =
+  | 'win-big'
+  | 'power-play'
+  | 'strike-it-rich'
+  | 'round-up'
+  | 'rule-the-realm'
+
+/** Pat Hibulaire — une tuile Objectif posée sur un lieu. Retirée du plateau (mais
+ *  conservée ici `completed: true`) une fois remplie ; les 4 tuiles complétées = victoire. */
+export interface GoalToken {
+  kind: PeteGoalKind
+  /** Lieu sur lequel la tuile est posée (toutes les conditions « sur ce lieu »). */
+  locationId: LocationId
+  /** Remplie (retirée du plateau). */
+  completed: boolean
+  /** Révélée à l'adversaire (Clarabelle, Hors-la-loi, Dingo…). Affichage seulement. */
+  revealed: boolean
+}
 
 /** Phase courante à l'intérieur d'un tour. */
 export type TurnPhase =
@@ -616,9 +653,10 @@ export type Effect =
   /** Yzma — Fausses funérailles : gagne 1 JT par Héros dans la défausse Fatalité,
    *  plafonné à `max`. */
   | { type: 'GAIN_POWER_PER_FATE_DISCARD_HERO'; max: number }
-  /** Yzma — Mauvais levier : le joueur perd la moitié de ses jetons Pouvoir
-   *  (arrondie au supérieur). */
-  | { type: 'LOSE_HALF_POWER' }
+  /** Le joueur perd la moitié de ses jetons Pouvoir. `roundUp` (défaut true) :
+   *  arrondi supérieur (Yzma — Mauvais levier) ; false = arrondi inférieur (Pat
+   *  Hibulaire — Épuisé). */
+  | { type: 'LOSE_HALF_POWER'; roundUp?: boolean }
   /** Yzma — agir sur l'une de SES pioches Fatalité (ouvre pendingYzmaOwnDeck) :
    *   - `attack` (À l'attaque !) : dévoile la pioche, joue tous ses Héros sur ce lieu,
    *     remélange le reste ;
@@ -686,6 +724,44 @@ export type Effect =
    *  PAS, effectue une action disponible de ce lieu (auto : gagne le Pouvoir de la
    *  meilleure action « Gagner du Pouvoir » imprimée sur ce lieu). */
   | { type: 'ALLY_REMOTE_GAIN_POWER' }
+  /** Pat Hibulaire — Une Petite Partie ? : révèle les `reveal` premières cartes
+   *  Méchant de la pioche, gagne la somme de leur coût (−1 si un Héros
+   *  `reducerHeroCardId` (Oswald) est présent), puis les défausse. Si le gain ≥ 4 et
+   *  que la tuile Win Big est sur le lieu du pion, elle est complétée (victoire si
+   *  c'est la 4ᵉ). */
+  | { type: 'PLAY_A_GAME'; reveal: number; reducerHeroCardId?: string }
+  /** Pat Hibulaire (Fatalité ciblant Pat) — révèle une de ses tuiles Objectif face
+   *  cachée (auto : la première non révélée). Effet d'affichage seulement. */
+  | { type: 'REVEAL_PETE_GOAL' }
+  /** Pat Hibulaire (Fatalité) — Planqués : défausse un Allié de `cardId` (Bandit) du
+   *  royaume de la cible (auto : le premier trouvé). */
+  | { type: 'DISCARD_ALLY_BY_CARDID'; cardId: string }
+  /** Pat Hibulaire (Fatalité) — Assommé Bêtement : dévoile les `count` premières
+   *  cartes Méchant de la cible, défausse celles de coût ≥ `minCost`, remélange les
+   *  autres et les replace sur le dessus de sa pioche. */
+  | { type: 'FATE_SCRY_DISCARD_BY_COST'; count: number; minCost: number }
+  /** Pat Hibulaire (Fatalité) — Minnie (à la pose) : défausse un Allié OU un Objet
+   *  (non associé) du royaume de la cible (auto : le plus fort / le plus cher). */
+  | { type: 'FATE_DISCARD_STRONGEST_ALLY_OR_ITEM' }
+  /** Pat Hibulaire (Fatalité) — Pluto (à la pose) : déplace un Objet (non associé)
+   *  du royaume de la cible vers le lieu hôte (auto : le premier trouvé ailleurs). */
+  | { type: 'FATE_MOVE_ITEM_TO_HOST' }
+  /** Pat Hibulaire — Attaque Aérienne : déplace le pion sur un lieu portant un Héros
+   *  (auto : le plus fort) et l'élimine sans Allié ; puis plus aucune autre action
+   *  ce tour-ci (soleActionLock). */
+  | { type: 'AIR_STRIKE' }
+  /** Pat Hibulaire — Cheval (`beneficial: true`, déplacement utile pour Pat) /
+   *  Horace (Fatalité, `beneficial: false`, déplacement perturbateur par l'adversaire) :
+   *  déplace un Allié OU un Objet (non associé) du royaume vers n'importe quel lieu.
+   *  Résolu automatiquement par une heuristique d'objectif (vers / hors d'une tuile). */
+  | { type: 'MOVE_ALLY_OR_ITEM_SMART'; beneficial: boolean }
+  /** Pat Hibulaire — Sournois : pioche `draw` cartes Méchant, puis replace 1 carte
+   *  de la main sur le dessous de la pioche (auto : la plus chère). */
+  | { type: 'DRAW_THEN_BOTTOM'; draw: number }
+  /** Pat Hibulaire — Dingo (Fatalité, à la pose) : perturbe les tuiles Objectif de
+   *  la cible — déplace une tuile non remplie vers un lieu voisin libre, ou l'échange
+   *  avec une tuile voisine (auto). */
+  | { type: 'FATE_DISTURB_GOAL' }
 
 /**
  * Un exemplaire physique d'une carte en jeu. Comme une même carte existe en
@@ -846,6 +922,12 @@ export interface CardInstance {
   isHyena?: boolean
   /** Scar — injouable sans Hyène dans le royaume (Festin). Recopié de CardDef. */
   requiresHyenaInRealm?: boolean
+  /** Pat Hibulaire — Grillon : à chaque Héros joué dans le royaume du propriétaire,
+   *  cet Allié peut être déplacé sur le lieu du Héros (auto). Recopié de CardDef. */
+  followsHeroes?: boolean
+  /** Pat Hibulaire — Bandit : on peut jouer plusieurs exemplaires lors d'une même
+   *  action « Jouer une carte ». Recopié de CardDef. */
+  playMultiplePerAction?: boolean
   /** Reine de Cœur : taille d'un Héros. `'shrunk'` (rapetissé) → ne recouvre
    *  qu'une action du haut ; `'enlarged'` (agrandi) → recouvre une action de plus.
    *  Absent = taille normale (recouvre la rangée du haut). */
@@ -1090,6 +1172,13 @@ export interface PlayerState {
   /** La Méchante Reine — Noir de nuit : autorise à effectuer une SECONDE fois une
    *  action (hors Fatalité) de son lieu ce tour-ci. Consommé à la réutilisation. */
   repeatActionAvailable?: boolean
+  /** Pat Hibulaire — ses 4 tuiles Objectif (une par lieu), tirées parmi 5 à la
+   *  mise en place. Objectif COMPLETE_GOAL_TOKENS : les 4 `completed` = victoire.
+   *  `undefined` pour les autres vilains. */
+  goals?: GoalToken[]
+  /** Pat Hibulaire — Pouvoir dépensé pendant le tour courant (pour la tuile
+   *  Power Play : ≥6 dépensés avec le pion sur son lieu). Remis à 0 en début de tour. */
+  powerSpentThisTurn?: number
 }
 
 /**
@@ -1107,6 +1196,10 @@ export interface GameState {
   phase: TurnPhase
   /** Ids des actions déjà exécutées ce tour-ci par le joueur actif. */
   usedActionIds: string[]
+  /** Pat Hibulaire — Bandit : action « Jouer une carte » laissée OUVERTE par un
+   *  Bandit (tant qu'un autre Bandit est en main). Réservée à d'autres Bandits ;
+   *  remise à zéro au début de chaque tour. `null`/absent sinon. */
+  banditChain?: { actionId: string } | null
   status: GameStatus
   /** Index du joueur gagnant, ou null tant que la partie continue. */
   winner: number | null

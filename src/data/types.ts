@@ -157,6 +157,12 @@ export interface CardDef {
   /** Scar — carte injouable s'il n'y a aucune Hyène dans le royaume (Festin :
    *  rien à déplacer sinon). */
   requiresHyenaInRealm?: boolean
+  /** Pat Hibulaire — Grillon : Allié qui peut suivre chaque Héros joué dans le
+   *  royaume (déplacé auto sur le lieu du Héros). */
+  followsHeroes?: boolean
+  /** Pat Hibulaire — Bandit : plusieurs exemplaires jouables lors d'une même action
+   *  « Jouer une carte ». */
+  playMultiplePerAction?: boolean
   /** IA uniquement : classement « malus » de cette carte Fatalité durable pour le
    *  joueur ciblé. Renseigné via `data/fateMalus.ts` et attaché par le registre
    *  (pas dans les `.cards.ts`). Absent = NEUTRE. */
@@ -221,6 +227,8 @@ export function buildDeckInstances(
           fatePlayBoth: c.fatePlayBoth,
           isHyena: c.isHyena,
           requiresHyenaInRealm: c.requiresHyenaInRealm,
+          followsHeroes: c.followsHeroes,
+          playMultiplePerAction: c.playMultiplePerAction,
         }),
       ),
     )

@@ -256,4 +256,20 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       'Sabotage défausse ses Objets bon marché (coût ≤ 3) : ralentis son économie d’Engrenages et d’Outils.',
     ],
   },
+  patHibulaire: {
+    difficulty: 4,
+    story:
+      "Brute massive et matamore, Pat Hibulaire (Pete) est le plus vieil ennemi de Mickey (depuis 1925). Bandit de grand chemin, contrebandier et gros bras, il écume Frontier Town, la station-service, l’aéroport et le ponton du Steamboat Willie. Cupide et combinard, il poursuit quatre coups fumants à la fois.",
+    playTips: [
+      'Ton objectif change à chaque partie : 4 de tes 5 tuiles sont tirées au hasard, une par lieu. Repère-les vite et adapte ton plan.',
+      'Boucle « Jackpot » (Une Petite Partie ?) au plus tôt : plus la partie dure, plus tes grosses cartes quittent la pioche et plus Oswald risque de sortir.',
+      'Les Bandits sont ton moteur : on peut en jouer plusieurs en une seule action — idéal pour « Bande Puissante » (force ≥ 10) et « Main Basse » (plus d’Alliés que de Héros partout).',
+      'Cheval, Steamboat Willie et le Perroquet repositionnent et récupèrent tes cartes : sers-t’en pour aligner Objets (« Signe de Richesse ») et Alliés au bon endroit.',
+    ],
+    counterTips: [
+      'Mickey est l’arme absolue : tant qu’il est dans son royaume, Pat ne peut remplir AUCUNE tuile. Mais il peut continuer à se préparer — ne relâche pas la Fatalité pour autant.',
+      'Goofy (Dingo) et Minnie sabotent ses tuiles et ses Alliés/Objets ; Donald l’oblige à le vaincre en premier. Couvre ses lieux de gain et de pose.',
+      'Oswald affaiblit Une Petite Partie ? : pose-le si « Jackpot » ou « Soif de Pouvoir » traînent encore.',
+    ],
+  },
 }

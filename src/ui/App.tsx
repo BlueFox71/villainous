@@ -3407,7 +3407,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           d'autre de la main. ----- */}
       <div className="bottom-bar relative z-20 grid shrink-0 items-center gap-3 border-t border-white/10 bg-black/30 px-3 py-1 shadow-[0_-6px_20px_rgba(0,0,0,0.35)] backdrop-blur-md">
         {/* Panneau du joueur (gauche, bleu). */}
-        <PlayerPanel player={user} accent={BLUE} isActive={state.activePlayer === HUMAN} isWinner={state.winner === HUMAN} subLabel={userSubLabel} avatar={<PlayerAvatar size={36} />} />
+        <PlayerPanel player={user} accent={BLUE} isActive={state.activePlayer === HUMAN} isWinner={state.winner === HUMAN} subLabel={userSubLabel} avatar={<PlayerAvatar size={36} />} own />
         {/* Main du joueur (centre), légèrement relevée. */}
         <div data-hand-zone={HUMAN} className="-translate-y-4">
           <Hand

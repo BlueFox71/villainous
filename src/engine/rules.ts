@@ -7,6 +7,7 @@
 import type {
   CardInstance,
   GameState,
+  GoalToken,
   LocationAction,
   LocationActionType,
   LocationId,
@@ -928,6 +929,48 @@ export function hasReachedObjective(state: GameState, playerIndex: number = stat
         (c) => c.cardId === obj.itemCardId && !c.attachedTo,
       )
     }
+    case 'COMPLETE_GOAL_TOKENS': {
+      // Pat Hibulaire : les 4 tuiles Objectif posées doivent toutes être remplies.
+      // La complétion d'une tuile est verrouillée tant que Mickey est présent
+      // (géré au moment où la tuile passe à `completed`), donc ce contrôle final
+      // se contente de vérifier qu'elles le sont toutes.
+      const goals = p.goals ?? []
+      return goals.length > 0 && goals.every((g) => g.completed)
+    }
+  }
+}
+
+/** Pat Hibulaire — un Héros « bloqueur » (Mickey) est présent dans le royaume :
+ *  aucune tuile Objectif ne peut être complétée tant qu'il est là. */
+export function goalsBlockedByHero(p: PlayerState): boolean {
+  if (p.objective.type !== 'COMPLETE_GOAL_TOKENS') return false
+  const id = p.objective.blockerHeroCardId
+  if (!id) return false
+  return Object.values(p.board)
+    .flat()
+    .some((c) => c.type === 'hero' && c.cardId === id)
+}
+
+/** Pat Hibulaire — la tuile « début de tour » est-elle remplie dans l'état courant ?
+ *  (Strike It Rich / Round Up / Rule the Realm.) Win Big / Power Play sont
+ *  ÉVÉNEMENTIELLES (complétées au moment du déclencheur), donc toujours false ici. */
+export function isPassiveGoalMet(p: PlayerState, goal: GoalToken): boolean {
+  const cell = p.board[goal.locationId] ?? []
+  switch (goal.kind) {
+    case 'strike-it-rich':
+      return cell.filter((c) => c.type === 'item' && !c.attachedTo).length >= 3
+    case 'round-up':
+      return cell.filter((c) => c.type === 'ally').reduce((n, c) => n + (c.strength ?? 0), 0) >= 10
+    case 'rule-the-realm':
+      return p.locations.every((l) => {
+        const here = p.board[l.id] ?? []
+        return (
+          here.filter((c) => c.type === 'ally').length >
+          here.filter((c) => c.type === 'hero').length
+        )
+      })
+    default:
+      return false
   }
 }
 
