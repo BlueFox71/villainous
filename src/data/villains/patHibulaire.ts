@@ -80,6 +80,10 @@ export const patHibulaire: VillainDef = {
   ],
 }
 
+/** Dos de tuile Objectif (face cachée) — affiché tant qu'une tuile n'est ni
+ *  révélée ni remplie (côté adversaire, ou tuiles encore secrètes du joueur). */
+export const PAT_GOAL_BACK = img('goal-back.png')
+
 /** Présentation des 5 tuiles Objectif (nom FR, texte recopié, image). Le MOTEUR
  *  ne s'en sert pas (il raisonne sur `PeteGoalKind`) ; l'UI l'utilise pour rendre
  *  les tuiles. */

@@ -3262,25 +3262,35 @@ function resolveConditionEffect(
     })
   }
   if (card.cardId === 'mauvais-coup') {
-    // Pat Hibulaire — Mauvais Coup : prend 2 cartes du DESSOUS de la pioche (→ main),
-    // puis replace 1 carte de la main sur le dessous (auto : la plus chère). Net +1.
+    // Pat Hibulaire — Mauvais Coup : révèle les 2 dernières cartes de la pioche.
+    // Le joueur en garde 1 en main, l'autre repart sur le dessus OU le dessous
+    // (RESOLVE_MAUVAIS_COUP — modale pour l'humain, auto pour le bot). Net +1.
     const acting = next.players[playerIndex]
     const taken = acting.deck.slice(-2)
-    let deck = acting.deck.slice(0, acting.deck.length - taken.length)
-    let hand = [...acting.hand, ...taken]
-    // Replace la carte la plus chère de la main sur le dessous (si la main n'est pas vide).
-    if (hand.length > 0) {
-      const worst = [...hand].sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0))[0]
-      hand = hand.filter((c) => c.instanceId !== worst.instanceId)
-      deck = [...deck, worst]
+    if (taken.length === 0) {
+      return { ...next, log: [...next.log, `${player.villainName} : pioche vide (Mauvais Coup).`] }
     }
-    next = updatePlayer(next, playerIndex, (p) => ({ ...p, deck, hand }))
+    if (taken.length === 1) {
+      // Une seule carte disponible : pas de choix possible, on la prend en main.
+      next = updatePlayer(next, playerIndex, (p) => ({
+        ...p,
+        deck: p.deck.slice(0, p.deck.length - 1),
+        hand: [...p.hand, taken[0]],
+      }))
+      return {
+        ...next,
+        log: [...next.log, `${player.villainName} prend la dernière carte de sa pioche en main (Mauvais Coup).`],
+      }
+    }
+    // 2 cartes : on les retire de la pioche et on ouvre le choix interactif.
+    next = updatePlayer(next, playerIndex, (p) => ({
+      ...p,
+      deck: p.deck.slice(0, p.deck.length - taken.length),
+    }))
     return {
       ...next,
-      log: [
-        ...next.log,
-        `${player.villainName} pioche ${taken.length} carte${taken.length > 1 ? 's' : ''} du dessous et réorganise sa pioche (Mauvais Coup).`,
-      ],
+      pendingMauvaisCoup: { playerIndex, cards: taken },
+      log: [...next.log, `${player.villainName} regarde les 2 cartes du dessous de sa pioche (Mauvais Coup).`],
     }
   }
   if (card.cardId === 'sombres-desseins') {
@@ -4220,6 +4230,42 @@ function applyResolveScry(state: GameState, topInstanceIds: string[]): GameState
     log: [
       ...next.log,
       `${player.villainName} (sondage Fatalité) : ${kept.length} carte(s) sur le dessus, ${discarded.length} défaussée(s).`,
+    ],
+  }
+}
+
+/**
+ * Mauvais Coup (Pat Hibulaire) : parmi les 2 cartes révélées, `keepInstanceId`
+ * rejoint la main ; l'autre repart sur le DESSUS (`top`) ou le DESSOUS (`bottom`)
+ * de la pioche.
+ */
+function applyResolveMauvaisCoup(
+  state: GameState,
+  keepInstanceId: string,
+  otherPlacement: 'top' | 'bottom',
+): GameState {
+  const pending = state.pendingMauvaisCoup
+  if (!pending) throw new Error('Aucun Mauvais Coup en attente.')
+  const idx = pending.playerIndex
+  const player = state.players[idx]
+  const kept = pending.cards.find((c) => c.instanceId === keepInstanceId)
+  if (!kept) throw new Error('Carte à garder introuvable (Mauvais Coup).')
+  const other = pending.cards.find((c) => c.instanceId !== keepInstanceId)
+  if (!other) throw new Error('Autre carte introuvable (Mauvais Coup).')
+  // Le dessus de la pioche est l'indice 0, le dessous la fin du tableau.
+  const next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    hand: [...p.hand, kept],
+    deck: otherPlacement === 'top' ? [other, ...p.deck] : [...p.deck, other],
+  }))
+  return {
+    ...next,
+    pendingMauvaisCoup: null,
+    log: [
+      ...next.log,
+      `${player.villainName} prend **${kept.name}** en main et replace l'autre carte sur le ${
+        otherPlacement === 'top' ? 'dessus' : 'dessous'
+      } de sa pioche (Mauvais Coup).`,
     ],
   }
 }
@@ -5594,6 +5640,14 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   if (state.pendingScry && action.type !== 'RESOLVE_SCRY' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Triez les cartes Fatalité révélées (RESOLVE_SCRY).')
   }
+  // Mauvais Coup : le choix des 2 cartes du dessous doit être résolu d'abord.
+  if (
+    state.pendingMauvaisCoup &&
+    action.type !== 'RESOLVE_MAUVAIS_COUP' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Choisissez une carte à garder (RESOLVE_MAUVAIS_COUP).')
+  }
   // Yzma — Beauté endormie (réveil) : à résoudre avant tout autre coup, déplacement
   // du pion compris (« avant de vous déplacer… »).
   if (
@@ -5806,6 +5860,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyUseCanne(state)
     case 'RESOLVE_TELEPORT':
       return applyResolveTeleport(state, action.to)
+    case 'RESOLVE_MAUVAIS_COUP':
+      return applyResolveMauvaisCoup(state, action.keepInstanceId, action.otherPlacement)
     case 'RESOLVE_MANIPULATION':
       return applyResolveManipulation(state, action.instanceId)
     case 'DISMISS_ROYAL_CROQUET':

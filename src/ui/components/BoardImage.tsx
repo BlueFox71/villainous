@@ -9,6 +9,11 @@ import { VILLAIN_COLOR } from '../villainColors'
 export const PAWN_FIRST_LEFT = 26.5 // % — centre du 1ᵉʳ lieu
 export const PAWN_STEP = 21 // % — écart entre deux lieux
 export const PAWN_TOP = 42 // %
+// Décalage vertical du pion par vilain (présentation pure) : certains plateaux ont
+// la « piste » du pion plus haut/bas que le gabarit standard. Défaut = PAWN_TOP.
+const PAWN_TOP_BY_VILLAIN: Record<string, number> = {
+  patHibulaire: 39,
+}
 export const LOCATIONS_LEFT = PAWN_FIRST_LEFT - PAWN_STEP / 2 // = 16 %, bord gauche des lieux
 // Hauteur de la rangée d'actions du HAUT (en % de l'image) : un Héros la recouvre.
 export const TOP_ACTIONS_HEIGHT = 33 // %
@@ -144,7 +149,7 @@ export function BoardImage({
           style={{
             height: `${player.pawnHeightPx}px`,
             left: `${PAWN_FIRST_LEFT + pawnIndex * PAWN_STEP}%`,
-            top: `${PAWN_TOP}%`,
+            top: `${PAWN_TOP_BY_VILLAIN[player.villain] ?? PAWN_TOP}%`,
             // Contour doux (drop-shadows flous) à la couleur du camp.
             filter: `drop-shadow(0 0 1px ${pawnOutline}) drop-shadow(0 0 2.5px ${pawnOutline})`,
           }}

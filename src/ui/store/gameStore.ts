@@ -527,6 +527,8 @@ interface GameStore {
   /** Téléportation : déplace le pion vers le lieu (portant un Héros) choisi. */
   resolveTeleport: (to: string) => void
   resolveManipulation: (instanceId: string) => void
+  /** Mauvais Coup : garde la carte choisie en main, replace l'autre dessus/dessous. */
+  resolveMauvaisCoup: (keepInstanceId: string, otherPlacement: 'top' | 'bottom') => void
   dismissRoyalCroquet: () => void
   /** Par ordre de la Reine ! : transforme en arceaux les Cartes Gardes choisies. */
   resolveTransformWickets: (instanceIds: string[]) => void
@@ -962,6 +964,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_TELEPORT', to }),
   resolveManipulation: (instanceId) =>
     get().submit({ type: 'RESOLVE_MANIPULATION', instanceId }),
+  resolveMauvaisCoup: (keepInstanceId, otherPlacement) =>
+    get().submit({ type: 'RESOLVE_MAUVAIS_COUP', keepInstanceId, otherPlacement }),
   dismissRoyalCroquet: () =>
     get().submit({ type: 'DISMISS_ROYAL_CROQUET' }),
   resolveTransformWickets: (instanceIds) =>

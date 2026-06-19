@@ -41,6 +41,7 @@ import { BoardActions } from './components/BoardActions'
 import { HeroRow } from './components/HeroRow'
 import { DeckPiles, AuDelaPile, IngredientsPile, SuccessionPile, DiscardModal } from './components/DeckPiles'
 import { StacksCards } from './components/StacksCards'
+import { GoalTilesRow } from './components/GoalTilesRow'
 import { FateModal } from './components/FateModal'
 import { ChoiceModal } from './components/ChoiceModal'
 import { HeroPlacementModal } from './components/HeroPlacementModal'
@@ -48,6 +49,7 @@ import { FateObjectPlaceModal } from './components/FateObjectPlaceModal'
 import { PawnMoveModal } from './components/PawnMoveModal'
 import { HubertPullModal } from './components/HubertPullModal'
 import { DeckPeekModal } from './components/DeckPeekModal'
+import { MauvaisCoupModal } from './components/MauvaisCoupModal'
 import { TypeChoiceModal } from './components/TypeChoiceModal'
 import { HeroRelocateModal } from './components/HeroRelocateModal'
 import { AllyRelocateModal } from './components/AllyRelocateModal'
@@ -293,6 +295,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveAllyRelocate = useGameStore((s) => s.resolveAllyRelocate)
   const resolveTeleport = useGameStore((s) => s.resolveTeleport)
   const resolveManipulation = useGameStore((s) => s.resolveManipulation)
+  const resolveMauvaisCoup = useGameStore((s) => s.resolveMauvaisCoup)
   const dismissRoyalCroquet = useGameStore((s) => s.dismissRoyalCroquet)
   const resolveTransformWickets = useGameStore((s) => s.resolveTransformWickets)
   const resolveScry = useGameStore((s) => s.resolveScry)
@@ -1010,6 +1013,18 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       }
       return
     }
+    // Mauvais Coup : choisir 1 des 2 cartes du dessous à prendre en main, l'autre
+    // dessus/dessous. Bot → garde la moins chère (plus jouable) en main et remet
+    // l'autre sur le dessous ; humain → modale.
+    const pmc = state.pendingMauvaisCoup
+    if (pmc) {
+      if (seats[pmc.playerIndex] === 'bot') {
+        const keep = [...pmc.cards].sort((a, b) => (a.cost ?? 0) - (b.cost ?? 0))[0]
+        const timer = setTimeout(() => resolveMauvaisCoup(keep.instanceId, 'bottom'), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
     // Par ordre de la Reine ! : transformer 1-2 Cartes Gardes en arceaux. Bot →
     // privilégie les Gardes sur un lieu SANS arceau (un arceau par lieu → Coup
     // Royal) ; humain → modale.
@@ -1646,7 +1661,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveDivination, resolveLookTop, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate])
+  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveDivination, resolveLookTop, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate])
 
   // Coups légaux / actions : seulement pour le joueur humain et à son tour.
   const legalMoves = isHumanTurn ? getLegalMoves(state) : []
@@ -2708,7 +2723,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               piles plus tard. En dessous, `fatality-cases` : StacksCards à gauche
               puis les 4 cases Héros. */}
           <div className="w-full">
-            <div className="stacks-top flex h-24 w-full justify-start gap-3" />
+            <div className="stacks-top flex h-24 w-full items-end justify-start gap-3">
+              {/* Pat Hibulaire — tuiles Objectif, une au-dessus de chaque case Héros. */}
+              <GoalTilesRow player={user} own />
+            </div>
             <div className="fatality-cases flex items-start gap-3" style={{ paddingLeft: '1%' }}>
               <StacksCards player={user} playerIndex={HUMAN} />
               <div className="flex-1">
@@ -3281,7 +3299,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           <div aria-hidden className="grow-0" />
           {/* Même disposition que le joueur (div du haut vide + StacksCards à gauche des 4 cases). */}
           <div className="w-full">
-            <div className="stacks-top flex h-24 w-full justify-start gap-3" />
+            <div className="stacks-top flex h-24 w-full items-end justify-start gap-3">
+              {/* Pat Hibulaire — tuiles Objectif de l'adversaire (dos sauf révélées). */}
+              <GoalTilesRow player={bot} />
+            </div>
             <div className="fatality-cases flex items-start gap-3" style={{ paddingLeft: '1%' }}>
               <StacksCards player={bot} playerIndex={BOT} />
               <div className="flex-1">
@@ -3407,7 +3428,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           d'autre de la main. ----- */}
       <div className="bottom-bar relative z-20 grid shrink-0 items-center gap-3 border-t border-white/10 bg-black/30 px-3 py-1 shadow-[0_-6px_20px_rgba(0,0,0,0.35)] backdrop-blur-md">
         {/* Panneau du joueur (gauche, bleu). */}
-        <PlayerPanel player={user} accent={BLUE} isActive={state.activePlayer === HUMAN} isWinner={state.winner === HUMAN} subLabel={userSubLabel} avatar={<PlayerAvatar size={36} />} own />
+        <PlayerPanel player={user} accent={BLUE} isActive={state.activePlayer === HUMAN} isWinner={state.winner === HUMAN} subLabel={userSubLabel} avatar={<PlayerAvatar size={36} />} />
         {/* Main du joueur (centre), légèrement relevée. */}
         <div data-hand-zone={HUMAN} className="-translate-y-4">
           <Hand
@@ -3530,6 +3551,14 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           card={state.pendingDeckPeek.card}
           onKeep={() => resolveDeckPeek(true)}
           onReshuffle={() => resolveDeckPeek(false)}
+        />
+      )}
+
+      {/* Mauvais Coup : l'humain garde 1 des 2 cartes du dessous, replace l'autre. */}
+      {state.pendingMauvaisCoup && state.pendingMauvaisCoup.playerIndex === HUMAN && (
+        <MauvaisCoupModal
+          cards={state.pendingMauvaisCoup.cards}
+          onResolve={(keepId, placement) => resolveMauvaisCoup(keepId, placement)}
         />
       )}
 
