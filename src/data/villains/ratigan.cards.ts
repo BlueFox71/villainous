@@ -331,7 +331,7 @@ export const ratiganCards: CardDef[] = [
     copies: 1,
     text: 'Vous pouvez déplacer un Héros vers le lieu de votre choix.',
     image: img('toby.png'),
-    onPlace: [{ type: 'MOVE_REALM_HERO_TO', maxStrength: 99, locationId: 'buckingham-palace' }],
+    onPlace: [{ type: 'RELOCATE_REALM_HERO_ANYWHERE' }],
   },
 
   // ----------------------------------------------------------------------

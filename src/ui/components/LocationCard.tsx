@@ -77,6 +77,10 @@ interface Props {
    *  → elle devient cliquable pour déclencher sa capacité. */
   mapUsable?: boolean
   onUseMap?: (instanceId: string) => void
+  /** Mère Gothel : la Couronne est utilisable (tour du joueur) → cliquable pour la
+   *  défausser contre 1 jeton Confiance. */
+  crownUsable?: boolean
+  onUseCrown?: (instanceId: string) => void
 }
 
 export function LocationCard({
@@ -117,6 +121,8 @@ export function LocationCard({
   onGrantedAction,
   mapUsable = false,
   onUseMap,
+  crownUsable = false,
+  onUseCrown,
 }: Props) {
   // Carte posée survolée (par instanceId) → agrandissement pour la lire « en direct ».
   const [hovered, setHovered] = useState<string | null>(null)
@@ -227,6 +233,8 @@ export function LocationCard({
               const canGranted = !!c.grantsAction && grantedActionIds.includes(`granted:${c.instanceId}`)
               // Carte du Pays Imaginaire : cliquable pour déclencher sa capacité.
               const canUseMap = mapUsable && c.cardId === 'carte-pays-imaginaire'
+              // Couronne (Gothel) : cliquable pour la défausser contre 1 Confiance.
+              const canUseCrown = crownUsable && c.cardId === 'couronne-gothel'
               const isHovered = hovered === c.instanceId
               const isPersifleurBlink = blinkPersifleur && c.cardId === 'persifleur'
               // Bowser : Allié porteur d'au moins une Étoile → contour orange.
@@ -251,6 +259,11 @@ export function LocationCard({
                           ? (e) => {
                               e.stopPropagation()
                               onUseMap?.(c.instanceId)
+                            }
+                          : canUseCrown
+                          ? (e) => {
+                              e.stopPropagation()
+                              onUseCrown?.(c.instanceId)
                             }
                           : canGranted
                           ? (e) => {
@@ -282,6 +295,8 @@ export function LocationCard({
                       className={`w-14 rounded border ${
                         canUseMap
                           ? 'cursor-pointer border-lime-400 ring-2 ring-lime-400'
+                          : canUseCrown
+                          ? 'cursor-pointer border-pink-400 ring-2 ring-pink-400'
                           : canGranted
                           ? 'cursor-pointer border-yellow-400 ring-2 ring-yellow-400'
                           : isTarget

@@ -34,7 +34,7 @@ import {
   updateActivePlayer,
   updatePlayer,
 } from './state'
-import { addKronkTokens, canEnterAuDela, holdsTalisman, moveTitanTo, performVanquish, playChosenFateFromDiscard, processCurseDiscards, reformYzmaDecks, reshuffleYzmaIfKuzcoDiscarded, resolveEffect, resolveEffects, titanReachableDests, triggerHeroArrival } from './effects'
+import { addKronkTokens, addPuppyFromReserve, canEnterAuDela, capturePuppiesAt, doQuelsMove, doQuelsTutor, enterQuelsMove, enterQuelsTutor, holdsTalisman, moveTitanTo, performVanquish, playChosenFateFromDiscard, processCurseDiscards, raiponceLocation, reformYzmaDecks, relocateRaiponce, reshuffleYzmaIfKuzcoDiscarded, resolveEffect, resolveEffects, titanReachableDests, triggerHeroArrival } from './effects'
 import { crewmateEndOfTurn, freeCellAt, placeCrewmateAt } from './crewmates'
 import {
   adjacentLocationIds,
@@ -45,6 +45,7 @@ import {
   conditionIsTriggered,
   effectiveCost,
   effectiveStrength,
+  capturedPuppies,
   fateTarget,
   goalsBlockedByHero,
   hasHeroInRealm,
@@ -318,10 +319,12 @@ function applyPlayCard(
   ) {
     throw new Error('Aucun Allié dans votre royaume : cette carte n’aurait aucun effet.')
   }
-  // Magnifiques Taxes (gain par Héros) : injouable sans aucun Héros dans le
-  // royaume (elle n'aurait aucun effet). Donnée : on teste l'effet, pas le cardId.
+  // Magnifiques Taxes (gain par Héros) / Cruelle diablesse (déplace un Héros) :
+  // injouable sans aucun Héros dans le royaume (aucun effet). Donnée : on teste l'effet.
   if (
-    (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_HERO_IN_REALM') &&
+    (card.effects ?? []).some(
+      (e) => e.type === 'GAIN_POWER_PER_HERO_IN_REALM' || e.type === 'RELOCATE_OWN_HERO',
+    ) &&
     !Object.values(me.board).flat().some((c) => c.type === 'hero')
   ) {
     throw new Error('Aucun Héros dans votre royaume : cette carte n’aurait aucun effet.')
@@ -403,6 +406,32 @@ function applyPlayCard(
     if (move && move.type === 'MOVE_REALM_HERO_TO' && realmRelocateCandidates(me, move.maxStrength, move.locationId).length === 0) {
       throw new Error('Aucun Héros déplaçable hors de la destination : cette carte n’aurait aucun effet.')
     }
+  }
+  // Cruella — Finissez le travail ! : injouable s'il n'existe aucune capacité activable
+  // (carte avec activatedCost finançable) dans le royaume (aucun effet).
+  if (
+    (card.effects ?? []).some((e) => e.type === 'GRANT_FREE_ACTIVATE') &&
+    !Object.values(me.board).flat().some((c) => c.activatedCost !== undefined && c.activatedCost <= me.power)
+  ) {
+    throw new Error('Aucune capacité activable : cette carte n’aurait aucun effet.')
+  }
+  // Cruella — Le diable l'emporte : injouable si la défausse ne contient aucune carte
+  // d'un des types récupérables (aucun effet). Donnée : on teste l'effet RECOVER_FROM_DISCARD_CHOICE.
+  {
+    const rec = (card.effects ?? []).find((e) => e.type === 'RECOVER_FROM_DISCARD_CHOICE')
+    if (rec && rec.type === 'RECOVER_FROM_DISCARD_CHOICE' && !me.discard.some((c) => rec.types.includes(c.type))) {
+      throw new Error('Aucune carte récupérable dans votre défausse : cette carte n’aurait aucun effet.')
+    }
+  }
+  // Mère Gothel — « Je t'aime bien plus » : Événement injouable si le pion n'est pas
+  // sur le lieu de Raiponce (il n'aurait aucun effet). La Brosse à cheveux (Objet)
+  // n'est PAS concernée : elle se pose puis pourra rejoindre Raiponce plus tard.
+  if (
+    card.type === 'effect' &&
+    (card.effects ?? []).some((e) => e.type === 'GAIN_CONFIANCE_WITH_RAIPONCE') &&
+    raiponceLocation(me) !== me.pawnLocation
+  ) {
+    throw new Error('Votre pion n’est pas sur le lieu de Raiponce : cette carte n’aurait aucun effet.')
   }
   // Sombra — Boop ! : injouable s'il n'y a aucun Héros à pirater (aucun Héros dans
   // le royaume, ou tous déjà piratés).
@@ -744,6 +773,19 @@ function applyPlayCard(
       // comme « Suivez-moi ! »). Sur le lieu du pion : aucun bonus (carte normale).
       if ((card.effects ?? []).some((e) => e.type === 'ALLY_REMOTE_ACTION') && destId !== activePlayer(next).pawnLocation) {
         next = openRemoteActionWindow(next, state.activePlayer, destId)
+      }
+      // Mère Gothel — Frères Stabbington : joués sur le lieu de Raiponce (hors Tour),
+      // on PEUT la déplacer sur la Tour (choix facultatif → pendingRaiponceToTower).
+      if ((card.effects ?? []).some((e) => e.type === 'OFFER_RAIPONCE_TO_TOWER')) {
+        const ap = activePlayer(next)
+        const rLoc = raiponceLocation(ap)
+        if (rLoc && rLoc === destId && rLoc !== ap.locations[0]?.id) {
+          next = {
+            ...next,
+            pendingRaiponceToTower: { chooserIndex: state.activePlayer },
+            log: [...next.log, `${ap.villainName} (${card.name}) : vous pouvez déplacer Raiponce sur la Tour.`],
+          }
+        }
       }
     }
     // Sombra — Faille : le bonus « Piratage gratuit » est consommé dès qu'un
@@ -1984,6 +2026,62 @@ function applyResolveFateInner(
     )
   }
 
+  // Mère Gothel — Moi j'ai un rêve : la cible (Gothel) perd 1 jeton Confiance.
+  if (chosen.cardId === 'moi-jai-un-reve') {
+    let next = updatePlayer(state, pending.target, (p) => ({
+      ...p,
+      fateDiscard: [...p.fateDiscard, chosen, ...others],
+    }))
+    next = { ...next, pendingFate: null }
+    next = resolveEffects(next, chosen.effects ?? [], { actorIndex: pending.target })
+    return pushShowcase(next, chosen.cardId, `${tgt.villainName} perd 1 Confiance`, state.activePlayer)
+  }
+
+  // Cruella — Conduite à risques (Fatalité) : défausse un Objet du royaume de la
+  // cible (auto : le plus cher).
+  if (chosen.cardId === 'conduite-a-risques') {
+    const items = tgt.locations.flatMap((l) =>
+      (tgt.board[l.id] ?? []).filter((c) => c.type === 'item' && !c.attachedTo).map((c) => ({ c, loc: l.id })),
+    )
+    const best = [...items].sort((a, b) => (b.c.cost ?? 0) - (a.c.cost ?? 0))[0]
+    let next = updatePlayer(state, pending.target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, chosen, ...others] }))
+    next = { ...next, pendingFate: null }
+    if (!best) {
+      return { ...next, log: [...next.log, `Conduite à risques : aucun Objet à défausser chez ${tgt.villainName}.`] }
+    }
+    // L'Objet (et ses Objets associés éventuels) quitte le plateau pour la défausse.
+    next = updatePlayer(next, pending.target, (p) => ({
+      ...p,
+      board: { ...p.board, [best.loc]: (p.board[best.loc] ?? []).filter((c) => c.instanceId !== best.c.instanceId) },
+      discard: [...p.discard, best.c],
+    }))
+    return pushShowcase({ ...next, log: [...next.log, `Conduite à risques : **${best.c.name}** est défaussé.`] }, chosen.cardId, `${tgt.villainName} : ${best.c.name} défaussé`, state.activePlayer)
+  }
+
+  // Cruella — Aboiement du soir (Fatalité) : rejoue un Héros de la défausse Fatalité
+  // de la cible (auto : le plus fort), posé là où il gêne le plus (le plus de Chiots).
+  if (chosen.cardId === 'aboiement-du-soir') {
+    const hero = [...tgt.fateDiscard].filter((c) => c.type === 'hero').sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+    let next = updatePlayer(state, pending.target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, ...others] }))
+    next = { ...next, pendingFate: null }
+    if (!hero) {
+      return { ...next, log: [...next.log, `Aboiement du soir : aucun Héros en défausse Fatalité.`], }
+    }
+    next = updatePlayer(next, pending.target, (p) => ({ ...p, fateDiscard: p.fateDiscard.filter((c) => c.instanceId !== hero.instanceId) }))
+    // Lieu cible : celui qui porte le plus de Chiots posés (sinon le 1ᵉʳ lieu).
+    const puppyByLoc = new Map<string, number>()
+    for (const t of next.players[pending.target].puppyTiles ?? []) {
+      if (t.state === 'board') puppyByLoc.set(t.location, (puppyByLoc.get(t.location) ?? 0) + t.value)
+    }
+    let dest = tgt.locations[0].id
+    let bestSum = -1
+    for (const l of tgt.locations) {
+      const s = puppyByLoc.get(l.id) ?? 0
+      if (s > bestSum) { bestSum = s; dest = l.id }
+    }
+    return placeFateHeroWithEffects(next, pending.target, state.activePlayer, hero, dest, findLocation(tgt, dest)!.name)
+  }
+
   // Vent de panique : l'adversaire (joueur actif) déplace un Héros du royaume de
   // la cible vers un lieu voisin. Si la cible n'a aucun Héros, simple défausse.
   if (chosen.cardId === 'vent-de-panique') {
@@ -2539,7 +2637,9 @@ function applyMoveCard(
       activeMovedCard: true,
     }
   }
-  if (!adjacentLocationIds(state, from).includes(to)) {
+  // Cruella — Roadster : peut aller sur N'IMPORTE quel lieu (pas seulement voisin).
+  const roadsterAnywhere = card.cardId === 'roadster'
+  if (!roadsterAnywhere && !adjacentLocationIds(state, from).includes(to)) {
     throw new Error(`Lieu « ${to} » non voisin de « ${from} ».`)
   }
 
@@ -2626,6 +2726,66 @@ function applyMoveCard(
       }
     }
   }
+  // Mère Gothel — Garde royal : quand il est déplacé, on PEUT déplacer un Héros de
+  // son lieu de DÉPART (`from`) vers son lieu d'ARRIVÉE (`to`). Destination imposée
+  // (= `to`), choix facultatif et interactif (quel Héros).
+  if (card.cardId === 'garde-royal') {
+    const ap = state.activePlayer
+    const destCell = next.players[ap].board[to] ?? []
+    const candidates = (next.players[ap].board[from] ?? [])
+      .filter((h) => {
+        if (h.type !== 'hero') return false
+        if ((h.forbiddenLocations ?? []).includes(to)) return false
+        // Restrictions du lieu d'arrivée (Feu Infernal, Forêt de Ronces…).
+        return !destCell.some((c) => {
+          const r = c.placementRestriction
+          return (
+            r?.type === 'no-heroes' ||
+            (r?.type === 'min-hero-strength' && (h.strength ?? 0) < r.value)
+          )
+        })
+      })
+      .map((h) => h.instanceId)
+    if (candidates.length > 0) {
+      next = {
+        ...next,
+        pendingHeroRelocate: {
+          chooserIndex: ap,
+          targetIndex: ap,
+          candidateIds: candidates,
+          forcedLocationId: to,
+          optional: true,
+        },
+        log: [...next.log, `Garde royal : vous pouvez déplacer un Héros vers **${destName}**.`],
+      }
+    }
+  }
+  // Mère Gothel — Brosse à cheveux : si elle est DÉPLACÉE sur le lieu de Raiponce,
+  // gagnez 1 jeton Confiance. (Le cas « jouée sur le lieu de Raiponce » est géré par
+  // l'effet GAIN_CONFIANCE_WITH_RAIPONCE à la pose.)
+  if (card.cardId === 'brosse-a-cheveux') {
+    const ap = state.activePlayer
+    if (raiponceLocation(next.players[ap]) === to) {
+      next = resolveEffects(next, [{ type: 'GAIN_CONFIANCE', amount: 1 }], { actorIndex: ap })
+    }
+  }
+  // Cruella — Roadster : à son déplacement, emmène jusqu'à 2 Tuiles Chiots du lieu
+  // de départ vers le lieu d'arrivée (auto : les plus grosses).
+  if (card.cardId === 'roadster') {
+    const ap = state.activePlayer
+    const movable = (next.players[ap].puppyTiles ?? [])
+      .filter((t) => t.state === 'board' && t.location === from)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 2)
+    if (movable.length > 0) {
+      const ids = new Set(movable.map((t) => t.id))
+      next = updateActivePlayer(next, (p) => ({
+        ...p,
+        puppyTiles: (p.puppyTiles ?? []).map((t) => (ids.has(t.id) ? { ...t, location: to } : t)),
+      }))
+      next = { ...next, log: [...next.log, `Le Roadster emmène ${movable.length} Tuile(s) Chiots vers **${destName}**.`] }
+    }
+  }
   return next
 }
 
@@ -2679,7 +2839,27 @@ function applyMoveHero(
  *   - Iago : payez 1 Pouvoir, déplacez Iago (et un Objet non associé de son lieu)
  *     vers un lieu voisin non verrouillé.
  */
+/** Cruella d'Enfer — Finissez le travail ! : tant que `freeActivate` est posé, une
+ *  activation ne consomme PAS l'action de lieu (le drapeau est consommé à la place).
+ *  Wrapper autour de applyActivateCore. */
 function applyActivate(
+  state: GameState,
+  actionId: string,
+  cardInstanceId: string,
+  to: LocationId | undefined,
+  itemInstanceId: string | undefined,
+): GameState {
+  const useFree = !!activePlayer(state).freeActivate
+  const before = state.usedActionIds
+  const result = applyActivateCore(state, actionId, cardInstanceId, to, itemInstanceId)
+  if (useFree && result !== state) {
+    // Activation gratuite : on ne consomme pas l'action de lieu, mais le drapeau.
+    return updateActivePlayer({ ...result, usedActionIds: before }, (p) => ({ ...p, freeActivate: false }))
+  }
+  return result
+}
+
+function applyActivateCore(
   state: GameState,
   actionId: string,
   cardInstanceId: string,
@@ -2689,14 +2869,23 @@ function applyActivate(
   if (state.phase !== 'ACTION') {
     throw new Error(`Impossible d'activer en phase ${state.phase}.`)
   }
-  if (!isActionAvailable(state, actionId)) {
-    throw new Error(`Action indisponible : « ${actionId} ».`)
+  // Cruella — Finissez le travail ! : une activation gratuite (actionId
+  // 'free-activate') ne dépend PAS d'un lieu portant le symbole Activer ni d'une
+  // action de lieu disponible. On lui donne une action synthétique.
+  const isFree = actionId === 'free-activate' && !!activePlayer(state).freeActivate
+  if (!isFree) {
+    if (!isActionAvailable(state, actionId)) {
+      throw new Error(`Action indisponible : « ${actionId} ».`)
+    }
+    const loc = currentLocation(state)!
+    const a = loc.actions.find((x) => x.id === actionId)
+    if (!a || a.type !== 'ACTIVATE') {
+      throw new Error(`« ${actionId} » n'est pas une action « Activer ».`)
+    }
   }
-  const loc = currentLocation(state)!
-  const action = loc.actions.find((a) => a.id === actionId)!
-  if (action.type !== 'ACTIVATE') {
-    throw new Error(`« ${actionId} » n'est pas une action « Activer ».`)
-  }
+  const action: LocationAction = isFree
+    ? { id: 'free-activate', type: 'ACTIVATE', label: 'Activer (gratuit)', row: 'top' }
+    : currentLocation(state)!.actions.find((x) => x.id === actionId)!
   const me = activePlayer(state)
   const cardLoc = locationOfCard(me, cardInstanceId)
   if (!cardLoc) throw new Error(`Carte « ${cardInstanceId} » absente du royaume.`)
@@ -2704,7 +2893,9 @@ function applyActivate(
   if (card.activatedCost === undefined) {
     throw new Error(`${card.name} n'a pas de capacité activée.`)
   }
-  if (me.power < card.activatedCost) {
+  // Cruella — Nanny : activer un Allié/Objet sur SON lieu coûte 1 Pouvoir de plus.
+  const nannyTax = (me.board[cardLoc] ?? []).some((c) => c.type === 'hero' && c.cardId === 'nanny') ? 1 : 0
+  if (me.power < card.activatedCost + nannyTax) {
     throw new Error(`Pouvoir insuffisant pour activer ${card.name}.`)
   }
 
@@ -3115,6 +3306,62 @@ function applyActivate(
       pendingLookTop: { playerIndex: state.activePlayer, cards: top, take: 1, title: 'Grimoires magiques' },
       log: [...next.log, `${me.villainName} active les **Grimoires magiques** : regarde ${top.length} cartes, en garde 1.`],
     }
+  }
+
+  // ----- Cruella d'Enfer — capacités activées -----
+  if (card.cardId === 'lampe-electrique') {
+    // Lampe électrique : ajoute une Tuile Chiots de la réserve sur son lieu indiqué.
+    let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost! - nannyTax }))
+    next = consumePersifleur(next, action)
+    next = { ...next, usedActionIds: [...next.usedActionIds, actionId] }
+    return resolveEffects(next, [{ type: 'ADD_PUPPY_FROM_RESERVE', label: 'Lampe électrique' }], { actorIndex: state.activePlayer })
+  }
+  if (card.cardId === 'horace-cruella') {
+    // Horace : capturer 1 Tuile Chiots sur son lieu OU amener une Tuile de la réserve.
+    // Si les DEUX sont possibles → choix du joueur (pendingHoraceChoice).
+    let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost! - nannyTax }))
+    next = consumePersifleur(next, action)
+    next = { ...next, usedActionIds: [...next.usedActionIds, actionId] }
+    const ap = state.activePlayer
+    const pongo = (next.players[ap].board[cardLoc] ?? []).some((c) => c.type === 'hero' && c.cardId === 'pongo')
+    const canCapture = !pongo && (next.players[ap].puppyTiles ?? []).some((t) => t.state === 'board' && t.location === cardLoc)
+    const canAdd = (next.players[ap].puppyTiles ?? []).some((t) => t.state === 'reserve')
+    if (canCapture && canAdd) {
+      return {
+        ...next,
+        pendingHoraceChoice: { playerIndex: ap, locationId: cardLoc },
+        log: [...next.log, `${me.villainName} active **Horace** : capturer une Tuile sur son lieu ou en amener une de la réserve ?`],
+      }
+    }
+    if (canCapture) return capturePuppiesAt(next, ap, cardLoc, 1)
+    return resolveEffects(next, [{ type: 'ADD_PUPPY_FROM_RESERVE', label: 'Horace' }], { actorIndex: ap })
+  }
+  if (card.cardId === 'jasper') {
+    // Jasper : paie 1 JT, capture jusqu'à 2 Tuiles Chiots sur son lieu.
+    let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost! - nannyTax }))
+    next = consumePersifleur(next, action)
+    next = { ...next, usedActionIds: [...next.usedActionIds, actionId] }
+    return capturePuppiesAt(next, state.activePlayer, cardLoc, 2)
+  }
+  if (card.cardId === 'telephone') {
+    // Téléphone : paie 1 JT, joue gratuitement un Allié de la défausse (sur le lieu
+    // du pion par défaut).
+    const ap = state.activePlayer
+    const ally = me.discard.find((c) => c.type === 'ally')
+    let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost! - nannyTax }))
+    next = consumePersifleur(next, action)
+    next = { ...next, usedActionIds: [...next.usedActionIds, actionId] }
+    if (!ally) {
+      return { ...next, log: [...next.log, `${me.villainName} active le **Téléphone** : aucun Allié en défausse.`] }
+    }
+    const dest = me.pawnLocation ?? me.locations[0].id
+    next = updateActivePlayer(next, (p) => ({
+      ...p,
+      discard: p.discard.filter((c) => c.instanceId !== ally.instanceId),
+      board: { ...p.board, [dest]: [...(p.board[dest] ?? []), ally] },
+    }))
+    next = pushFloatingFx(next, { kind: 'play-card', playerIndex: ap, locationId: dest, cardId: ally.cardId })
+    return { ...next, log: [...next.log, `${me.villainName} active le **Téléphone** : rejoue **${ally.name}** sur **${findLocation(me, dest)!.name}** (−${card.activatedCost} JT).`] }
   }
 
   throw new Error(`Capacité activée non implémentée pour ${card.name}.`)
@@ -4165,6 +4412,129 @@ function applyResolveDrawOrGainPower(state: GameState, choice: 'draw' | 'power')
     activeDrewCard: drawn.length > 0 ? true : next.activeDrewCard,
     log: [...next.log, `${player.villainName} pioche ${drawn.length} carte${drawn.length > 1 ? 's' : ''} (Le Grand Génie du Mal).`],
   }
+}
+
+/**
+ * Mère Gothel — Lance-moi ta chevelure : ramène Raiponce de `steps` lieux vers la
+ * Tour (option validée par le pending). Réutilise relocateRaiponce via MOVE_RAIPONCE.
+ */
+function applyResolveRaiponceHomeward(state: GameState, steps: number): GameState {
+  const pending = state.pendingRaiponceHomeward
+  if (!pending) throw new Error('Aucun déplacement de Raiponce en attente.')
+  const option = pending.options.find((o) => o.steps === steps)
+  if (!option) throw new Error(`Nombre de lieux invalide : ${steps}.`)
+  const cleared = { ...state, pendingRaiponceHomeward: null }
+  return resolveEffect(cleared, { type: 'MOVE_RAIPONCE', to: 'left', steps }, { actorIndex: pending.chooserIndex })
+}
+
+/**
+ * Mère Gothel — Couronne : capacité GRATUITE (à tout moment du tour) qui défausse
+ * l'Objet pour gagner 1 jeton Confiance. Ne consomme aucune action de lieu.
+ */
+function applySacrificeCrown(state: GameState, instanceId: string): GameState {
+  if (state.phase !== 'ACTION') {
+    throw new Error(`Impossible d'utiliser la Couronne en phase ${state.phase}.`)
+  }
+  const me = activePlayer(state)
+  const loc = locationOfCard(me, instanceId)
+  if (!loc) throw new Error(`Couronne « ${instanceId} » absente du royaume.`)
+  const card = me.board[loc].find((c) => c.instanceId === instanceId)!
+  if (card.cardId !== 'couronne-gothel') {
+    throw new Error(`${card.name} n'est pas une Couronne.`)
+  }
+  let next = updateActivePlayer(state, (p) => ({
+    ...p,
+    board: { ...p.board, [loc]: p.board[loc].filter((c) => c.instanceId !== instanceId) },
+    discard: [...p.discard, card],
+  }))
+  next = resolveEffects(next, [{ type: 'GAIN_CONFIANCE', amount: 1 }], { actorIndex: state.activePlayer })
+  return {
+    ...next,
+    log: [...next.log, `${me.villainName} défausse la **Couronne** pour gagner 1 Confiance.`],
+  }
+}
+
+/**
+ * Mère Gothel — Frères Stabbington : déplace (ou non) Raiponce sur la Tour après
+ * qu'un frère a été joué sur son lieu. `move` false → on décline (no-op).
+ */
+function applyResolveRaiponceToTower(state: GameState, move: boolean): GameState {
+  const pending = state.pendingRaiponceToTower
+  if (!pending) throw new Error('Aucun déplacement de Raiponce (Stabbington) en attente.')
+  const cleared = { ...state, pendingRaiponceToTower: null }
+  if (!move) {
+    return { ...cleared, log: [...cleared.log, `${state.players[pending.chooserIndex].villainName} laisse Raiponce sur place.`] }
+  }
+  return resolveEffect(cleared, { type: 'MOVE_RAIPONCE', to: 'tour' }, { actorIndex: pending.chooserIndex })
+}
+
+/** Cruella d'Enfer — résout le choix d'une Tuile Chiots de la réserve à ajouter
+ *  sur son lieu indiqué. */
+function applyResolvePuppyAdd(state: GameState, tileId: string): GameState {
+  const pending = state.pendingPuppyAdd
+  if (!pending) throw new Error('Aucun ajout de Tuile Chiots en attente.')
+  if (!pending.candidateTileIds.includes(tileId)) throw new Error('Tuile Chiots non valide.')
+  const cleared = { ...state, pendingPuppyAdd: null }
+  return addPuppyFromReserve(cleared, pending.playerIndex, tileId)
+}
+
+/** Cruella d'Enfer — Repéré ! : révèle une Tuile Chiots face cachée de la réserve. */
+function applyResolvePuppyReveal(state: GameState, tileId: string): GameState {
+  const pending = state.pendingPuppyReveal
+  if (!pending) throw new Error('Aucune révélation de Tuile Chiots en attente.')
+  const idx = pending.playerIndex
+  const tile = (state.players[idx].puppyTiles ?? []).find((t) => t.id === tileId)
+  if (!tile || tile.state !== 'reserve' || tile.revealed) {
+    throw new Error('Cette Tuile Chiots ne peut pas être révélée.')
+  }
+  let next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    puppyTiles: (p.puppyTiles ?? []).map((t) => (t.id === tileId ? { ...t, revealed: true } : t)),
+  }))
+  const remaining = pending.remaining - 1
+  const hiddenLeft = (next.players[idx].puppyTiles ?? []).some((t) => t.state === 'reserve' && !t.revealed)
+  next = {
+    ...next,
+    pendingPuppyReveal: remaining > 0 && hiddenLeft ? { playerIndex: idx, remaining } : null,
+    log: [...next.log, `${state.players[idx].villainName} révèle une Tuile Chiots (${tile.value}) de la réserve.`],
+  }
+  return next
+}
+
+/** Cruella d'Enfer — Repéré ! : arrête de révéler (révélation facultative). */
+function applyDonePuppyReveal(state: GameState): GameState {
+  if (!state.pendingPuppyReveal) throw new Error('Aucune révélation en cours.')
+  return { ...state, pendingPuppyReveal: null }
+}
+
+/** Cruella d'Enfer — Quels idiots ! : choix de l'option (déplacer / chercher). */
+function applyResolveQuelsIdiots(state: GameState, choice: 'move' | 'tutor'): GameState {
+  const pending = state.pendingQuelsIdiots
+  if (!pending || pending.phase !== 'choose') throw new Error('Aucun choix Quels idiots ! en attente.')
+  const cleared = { ...state, pendingQuelsIdiots: null }
+  return choice === 'move' ? enterQuelsMove(cleared, pending.playerIndex) : enterQuelsTutor(cleared, pending.playerIndex)
+}
+
+/** Cruella d'Enfer — Quels idiots ! : choix de l'Allié (déplacer ou chercher). */
+function applyResolveQuelsIdiotsPick(state: GameState, instanceId: string): GameState {
+  const pending = state.pendingQuelsIdiots
+  if (!pending || (pending.phase !== 'move' && pending.phase !== 'tutor')) {
+    throw new Error('Aucun choix d’Allié Quels idiots ! en attente.')
+  }
+  if (!(pending.candidateIds ?? []).includes(instanceId)) throw new Error('Allié non valide.')
+  const cleared = { ...state, pendingQuelsIdiots: null }
+  return pending.phase === 'move'
+    ? doQuelsMove(cleared, pending.playerIndex, instanceId)
+    : doQuelsTutor(cleared, pending.playerIndex, instanceId)
+}
+
+/** Cruella d'Enfer — Horace : résout le choix capturer / amener. */
+function applyResolveHoraceChoice(state: GameState, capture: boolean): GameState {
+  const pending = state.pendingHoraceChoice
+  if (!pending) throw new Error('Aucun choix d’Horace en attente.')
+  const cleared = { ...state, pendingHoraceChoice: null }
+  if (capture) return capturePuppiesAt(cleared, pending.playerIndex, pending.locationId, 1)
+  return resolveEffects(cleared, [{ type: 'ADD_PUPPY_FROM_RESERVE', label: 'Horace' }], { actorIndex: pending.playerIndex })
 }
 
 function applyResolveTypeChoice(state: GameState, cardType: CardType): GameState {
@@ -5859,6 +6229,36 @@ function resolveArmedTraps(state: GameState, idx: number): GameState {
   return next
 }
 
+/** Mère Gothel — à la fin de son tour, Raiponce (Héros-tuile) se déplace d'un lieu
+ *  vers la DROITE si elle le peut (Tour → Canard boiteux → Forêt → Corona). Ses
+ *  Objets associés (Poêle à frire…) la suivent. No-op pour les autres vilains ou si
+ *  elle est déjà au lieu le plus à droite. Pur. */
+function moveRaiponceEndOfTurn(state: GameState, idx: number): GameState {
+  const p = state.players[idx]
+  if (p.villain !== 'gothel') return state
+  let next = state
+  // N'écoute que moi : Raiponce ne se déplace pas à la fin de ce tour (drapeau consommé).
+  if (p.raiponceSkipMove) {
+    next = updatePlayer(state, idx, (pl) => ({ ...pl, raiponceSkipMove: false }))
+  } else {
+    const from = raiponceLocation(p)
+    const order = p.locations.map((l) => l.id)
+    const i = from ? order.indexOf(from) : -1
+    // Glisse d'un lieu vers la droite, sauf si elle est déjà tout à droite (Corona).
+    if (i >= 0 && i < order.length - 1) {
+      next = relocateRaiponce(state, idx, order[i + 1])
+    }
+  }
+  // Raiponce — pénalité : si, à la fin du tour, elle se trouve sur Corona (lieu le
+  // plus à droite du royaume), Mère Gothel perd 1 jeton Confiance.
+  const np = next.players[idx]
+  const order = np.locations.map((l) => l.id)
+  if (raiponceLocation(np) === order[order.length - 1]) {
+    next = resolveEffects(next, [{ type: 'LOSE_CONFIANCE', amount: 1 }], { actorIndex: idx })
+  }
+  return next
+}
+
 function applyEndTurn(state: GameState): GameState {
   if (!canEndTurn(state)) {
     throw new Error(`Impossible de terminer le tour en phase ${state.phase}.`)
@@ -5888,7 +6288,9 @@ function applyEndTurn(state: GameState): GameState {
   const drawn0 = drawToLimit(state)
   // …puis la phase Coéquipiers (défausse des Tâches/Sabotages encombrés, compte à
   // rebours, déplacement). Sans effet pour les autres vilains.
-  const drawn = crewmateEndOfTurn(drawn0, drawn0.activePlayer)
+  let drawn = crewmateEndOfTurn(drawn0, drawn0.activePlayer)
+  // Mère Gothel — fin de son tour : Raiponce glisse d'un lieu vers la droite.
+  drawn = moveRaiponceEndOfTurn(drawn, drawn.activePlayer)
   const endedName = drawn.players[drawn.activePlayer].villainName
   const nextIdx = (drawn.activePlayer + 1) % drawn.players.length
 
@@ -5928,6 +6330,10 @@ function applyEndTurn(state: GameState): GameState {
             ...p,
             // Noir de nuit : la possibilité de refaire une action expire en fin de tour.
             repeatActionAvailable: false,
+            // Mère Gothel — Vengeance : le bonus de Confiance non consommé expire.
+            vengeanceConfianceArmed: false,
+            // Cruella — Finissez le travail ! : l'activation gratuite non utilisée expire.
+            freeActivate: false,
             board: Object.fromEntries(
               Object.entries(p.board).map(([loc, cards]) => [
                 loc,
@@ -5989,11 +6395,17 @@ function applyEndTurn(state: GameState): GameState {
   // La victoire se vérifie « au début du tour » du nouveau joueur actif.
   if (hasReachedObjective(started)) {
     const w = started.players[nextIdx]
+    const howMuch =
+      w.objective.type === 'CONFIANCE_THRESHOLD'
+        ? `${w.confiance ?? 0} Confiance`
+        : w.objective.type === 'PUPPY_THRESHOLD'
+          ? `${capturedPuppies(w)} Chiots`
+          : `${w.power} JT`
     return {
       ...started,
       status: 'WON',
       winner: nextIdx,
-      log: [...started.log, `🏆 ${w.villainName} l'emporte avec ${w.power} JT !`],
+      log: [...started.log, `🏆 ${w.villainName} l'emporte avec ${howMuch} !`],
     }
   }
   return started
@@ -6116,6 +6528,56 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
     action.type !== 'PLAY_CONDITION'
   ) {
     throw new Error('Un choix Piocher/Pouvoir est en attente (RESOLVE_DRAW_OR_GAIN_POWER).')
+  }
+  // Lance-moi ta chevelure : le choix du nombre de lieux pour Raiponce est en attente.
+  if (
+    state.pendingRaiponceHomeward &&
+    action.type !== 'RESOLVE_RAIPONCE_HOMEWARD' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Choisissez de combien de lieux ramener Raiponce (RESOLVE_RAIPONCE_HOMEWARD).')
+  }
+  // Frères Stabbington : le choix « déplacer Raiponce sur la Tour ? » est en attente.
+  if (
+    state.pendingRaiponceToTower &&
+    action.type !== 'RESOLVE_RAIPONCE_TO_TOWER' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Choisissez si Raiponce rejoint la Tour (RESOLVE_RAIPONCE_TO_TOWER).')
+  }
+  // Cruella — le choix d'une Tuile Chiots de la réserve est en attente.
+  if (
+    state.pendingPuppyAdd &&
+    action.type !== 'RESOLVE_PUPPY_ADD' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Choisissez une Tuile Chiots de la réserve (RESOLVE_PUPPY_ADD).')
+  }
+  // Cruella — Repéré ! : la révélation de Tuiles Chiots est en attente.
+  if (
+    state.pendingPuppyReveal &&
+    action.type !== 'RESOLVE_PUPPY_REVEAL' &&
+    action.type !== 'DONE_PUPPY_REVEAL' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Révélez des Tuiles Chiots ou terminez (RESOLVE_PUPPY_REVEAL / DONE_PUPPY_REVEAL).')
+  }
+  // Cruella — Horace : le choix capturer / amener est en attente.
+  if (
+    state.pendingHoraceChoice &&
+    action.type !== 'RESOLVE_HORACE_CHOICE' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Choisissez l’option d’Horace (RESOLVE_HORACE_CHOICE).')
+  }
+  // Cruella — Quels idiots ! : un choix (option ou Allié) est en attente.
+  if (
+    state.pendingQuelsIdiots &&
+    action.type !== 'RESOLVE_QUELS_IDIOTS' &&
+    action.type !== 'RESOLVE_QUELS_IDIOTS_PICK' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Résolvez Quels idiots ! (RESOLVE_QUELS_IDIOTS / RESOLVE_QUELS_IDIOTS_PICK).')
   }
   // Par ordre de la Reine ! : la sélection de Cartes Gardes à transformer en
   // arceaux doit être résolue avant tout autre coup.
@@ -6355,6 +6817,24 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveTypeChoice(state, action.cardType)
     case 'RESOLVE_DRAW_OR_GAIN_POWER':
       return applyResolveDrawOrGainPower(state, action.choice)
+    case 'RESOLVE_RAIPONCE_HOMEWARD':
+      return applyResolveRaiponceHomeward(state, action.steps)
+    case 'RESOLVE_RAIPONCE_TO_TOWER':
+      return applyResolveRaiponceToTower(state, action.move)
+    case 'RESOLVE_PUPPY_ADD':
+      return applyResolvePuppyAdd(state, action.tileId)
+    case 'RESOLVE_PUPPY_REVEAL':
+      return applyResolvePuppyReveal(state, action.tileId)
+    case 'DONE_PUPPY_REVEAL':
+      return applyDonePuppyReveal(state)
+    case 'RESOLVE_HORACE_CHOICE':
+      return applyResolveHoraceChoice(state, action.capture)
+    case 'RESOLVE_QUELS_IDIOTS':
+      return applyResolveQuelsIdiots(state, action.choice)
+    case 'RESOLVE_QUELS_IDIOTS_PICK':
+      return applyResolveQuelsIdiotsPick(state, action.instanceId)
+    case 'SACRIFICE_COURONNE':
+      return applySacrificeCrown(state, action.instanceId)
     case 'RESOLVE_HERO_RELOCATE':
       return applyResolveHeroRelocate(state, action.heroInstanceId, action.to)
     case 'RESOLVE_ALLY_RELOCATE':

@@ -197,7 +197,11 @@ export function getAvailableActions(state: GameState): LocationAction[] {
   return locationActions(state, loc.id).filter(
     (a) =>
       isSupportedType(a.type) &&
-      (!state.usedActionIds.includes(a.id) || (canRepeat && REPEATABLE.has(a.type))) &&
+      (!state.usedActionIds.includes(a.id) ||
+        (canRepeat && REPEATABLE.has(a.type)) ||
+        // Cruella — Finissez le travail ! : une action Activer gratuite reste possible
+        // même si l'action de lieu a déjà servi ce tour.
+        (a.type === 'ACTIVATE' && !!activePlayer(state).freeActivate)) &&
       !isActionCovered(state, a) &&
       // Sombra : une action piratée (recouverte par un Hack) est désactivée.
       !isActionHacked(activePlayer(state), loc.id, a.id) &&
@@ -887,6 +891,12 @@ export function effectiveCost(
   return Math.max(0, base - discount + surcharge)
 }
 
+/** Cruella d'Enfer — nombre total de Chiots CAPTURÉS (somme des valeurs des Tuiles
+ *  Chiots à l'état `captured`). Sert à l'objectif (≥ 99) et à la jauge IA. */
+export function capturedPuppies(p: PlayerState): number {
+  return (p.puppyTiles ?? []).filter((t) => t.state === 'captured').reduce((n, t) => n + t.value, 0)
+}
+
 /** Le joueur `playerIndex` (défaut : joueur actif) a-t-il atteint son objectif de
  *  victoire ? Dispatch sur le type d'objectif (POWER_THRESHOLD, CURSE_EACH_LOCATION,
  *  …). Les objectifs déclenchés « à l'instant » (Coup Royal, Vanquish, Divination)
@@ -896,6 +906,10 @@ export function hasReachedObjective(state: GameState, playerIndex: number = stat
   switch (p.objective.type) {
     case 'POWER_THRESHOLD':
       return p.power >= p.objective.threshold
+    case 'CONFIANCE_THRESHOLD':
+      return (p.confiance ?? 0) >= p.objective.threshold
+    case 'PUPPY_THRESHOLD':
+      return capturedPuppies(p) >= p.objective.threshold
     case 'CURSE_EACH_LOCATION':
       return p.locations.every((loc) =>
         (p.board[loc.id] ?? []).some((c) => c.type === 'curse'),

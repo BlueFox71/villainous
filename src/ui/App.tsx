@@ -40,7 +40,7 @@ import { GameLog } from './components/GameLog'
 import { BoardImage, LOCATIONS_LEFT } from './components/BoardImage'
 import { BoardActions } from './components/BoardActions'
 import { HeroRow } from './components/HeroRow'
-import { DeckPiles, AuDelaPile, IngredientsPile, SuccessionPile, DiscardModal } from './components/DeckPiles'
+import { DeckPiles, AuDelaPile, IngredientsPile, SuccessionPile, CapturedPuppiesPile, DiscardModal } from './components/DeckPiles'
 import { StacksCards } from './components/StacksCards'
 import { FateModal } from './components/FateModal'
 import { ChoiceModal } from './components/ChoiceModal'
@@ -76,7 +76,6 @@ import { TitanMoveModal } from './components/TitanMoveModal'
 import { DivinationModal } from './components/DivinationModal'
 import { LookTopModal } from './components/LookTopModal'
 import { RevealModal } from './components/RevealModal'
-import { HackModal } from './components/HackModal'
 import { InformationModal } from './components/InformationModal'
 import { TakeABiteModal } from './components/TakeABiteModal'
 import { BlackMagicModal } from './components/BlackMagicModal'
@@ -264,6 +263,42 @@ function DrawOrGainPowerModal({
   )
 }
 
+/** Mère Gothel — Lance-moi ta chevelure : l'humain choisit de combien de lieux
+ *  ramener Raiponce vers la Tour (1 ou 2). */
+function RaiponceHomewardModal({
+  options,
+  onChoose,
+}: {
+  options: { steps: number; locationId: string; locationName: string }[]
+  onChoose: (steps: number) => void
+}) {
+  const def = getCardDef('lance-moi-ta-chevelure')
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+      <div className="flex w-[26rem] max-w-[92vw] flex-col gap-4 rounded-2xl border border-white/15 bg-[#15101f] p-6 shadow-2xl">
+        <h2 className="text-center text-lg font-bold text-amber-200">Lance-moi ta chevelure</h2>
+        {def?.image && (
+          <img src={def.image} alt={def.name} className="mx-auto w-28 rounded-lg border border-white/15 shadow" />
+        )}
+        <p className="text-center text-sm text-white/80">De combien de lieux ramener Raiponce vers la Tour ?</p>
+        <div className="flex justify-center gap-3">
+          {options.map((o) => (
+            <button
+              key={o.steps}
+              type="button"
+              onClick={() => onChoose(o.steps)}
+              className="flex-1 rounded-lg border border-fuchsia-400/60 bg-fuchsia-500/20 px-4 py-2 text-sm font-semibold text-fuchsia-100 hover:bg-fuchsia-500/30"
+            >
+              {o.steps} lieu{o.steps > 1 ? 'x' : ''}
+              <span className="block text-xs font-normal text-white/60">→ {o.locationName}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const BOT_STEP_MS = 700
 // Délai avant que le bot ne pose la carte de Vol du château : laisse le joueur
 // adverse lire les cartes dévoilées (modale affichée des deux côtés).
@@ -299,6 +334,15 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveDeckPeek = useGameStore((s) => s.resolveDeckPeek)
   const resolveTypeChoice = useGameStore((s) => s.resolveTypeChoice)
   const resolveDrawOrGainPower = useGameStore((s) => s.resolveDrawOrGainPower)
+  const resolveRaiponceHomeward = useGameStore((s) => s.resolveRaiponceHomeward)
+  const resolveRaiponceToTower = useGameStore((s) => s.resolveRaiponceToTower)
+  const resolvePuppyAdd = useGameStore((s) => s.resolvePuppyAdd)
+  const resolvePuppyReveal = useGameStore((s) => s.resolvePuppyReveal)
+  const donePuppyReveal = useGameStore((s) => s.donePuppyReveal)
+  const resolveHoraceChoice = useGameStore((s) => s.resolveHoraceChoice)
+  const resolveQuelsIdiots = useGameStore((s) => s.resolveQuelsIdiots)
+  const resolveQuelsIdiotsPick = useGameStore((s) => s.resolveQuelsIdiotsPick)
+  const sacrificeCrown = useGameStore((s) => s.sacrificeCrown)
   const resolveHeroRelocate = useGameStore((s) => s.resolveHeroRelocate)
   const skipHeroRelocate = useGameStore((s) => s.skipHeroRelocate)
   const resolveAllyRelocate = useGameStore((s) => s.resolveAllyRelocate)
@@ -474,6 +518,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // Mode test : vilain choisi dans le select pour prévisualiser son animation (n'importe lequel).
   const [testVillain, setTestVillain] = useState<VillainKey>(humanVillainKey)
   const [mapModalOpen, setMapModalOpen] = useState(false)
+  // Mère Gothel — Couronne : instanceId en attente de confirmation de défausse (→ 1 Confiance).
+  const [crownConfirm, setCrownConfirm] = useState<string | null>(null)
   const [showOptions, setShowOptions] = useState(false)
   // Réseau : confirmation avant de quitter la partie (l'autre joueur sera prévenu).
   const [showQuitConfirm, setShowQuitConfirm] = useState(false)
@@ -1012,6 +1058,87 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         const choice = state.players[pdgp.playerIndex].hand.length >= 3 ? 'power' : 'draw'
         const timer = setTimeout(() => resolveDrawOrGainPower(choice), BOT_STEP_MS)
         return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Lance-moi ta chevelure : choisir de combien de lieux ramener Raiponce vers la
+    // Tour. Bot → ramène au plus près de la Tour (nombre de lieux maximal) ; humain → modale.
+    const prh = state.pendingRaiponceHomeward
+    if (prh) {
+      if (seats[prh.chooserIndex] === 'bot') {
+        const steps = Math.max(...prh.options.map((o) => o.steps))
+        const timer = setTimeout(() => resolveRaiponceHomeward(steps), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Frères Stabbington : ramener Raiponce sur la Tour ? Bot → oui (la Tour la rapproche
+    // des gains de Confiance et évite la dérive vers Corona) ; humain → modale.
+    const prt = state.pendingRaiponceToTower
+    if (prt) {
+      if (seats[prt.chooserIndex] === 'bot') {
+        const timer = setTimeout(() => resolveRaiponceToTower(true), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Cruella — choisir une Tuile Chiots de la réserve. Bot → la plus grosse valeur
+    // (en privilégiant une tuile déjà révélée) ; humain → modale.
+    const ppa = state.pendingPuppyAdd
+    if (ppa) {
+      if (seats[ppa.playerIndex] === 'bot') {
+        const tiles = (state.players[ppa.playerIndex].puppyTiles ?? []).filter((t) => ppa.candidateTileIds.includes(t.id))
+        const best = [...tiles].sort((a, b) => (Number(b.revealed) - Number(a.revealed)) || (b.value - a.value))[0]
+        if (best) {
+          const timer = setTimeout(() => resolvePuppyAdd(best.id), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
+    // Repéré ! : révéler des Tuiles Chiots de la réserve. Bot → en révèle (jusqu'à
+    // remaining) une par une ; humain → clic direct sur les tuiles (faces cachées).
+    const ppr = state.pendingPuppyReveal
+    if (ppr) {
+      if (seats[ppr.playerIndex] === 'bot') {
+        const hidden = (state.players[ppr.playerIndex].puppyTiles ?? []).find((t) => t.state === 'reserve' && !t.revealed)
+        const timer = setTimeout(() => (hidden ? resolvePuppyReveal(hidden.id) : donePuppyReveal()), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Horace : capturer sur son lieu ou amener une Tuile. Bot → capture (progrès
+    // direct vers l'objectif) ; humain → modale.
+    const phc = state.pendingHoraceChoice
+    if (phc) {
+      if (seats[phc.playerIndex] === 'bot') {
+        const timer = setTimeout(() => resolveHoraceChoice(true), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Quels idiots ! : Bot → préfère chercher un Allié (avantage de carte), sinon
+    // déplacer ; puis choisit l'Allié le plus fort. Humain → modale / clic.
+    const pqi = state.pendingQuelsIdiots
+    if (pqi) {
+      if (seats[pqi.playerIndex] === 'bot') {
+        const pl = state.players[pqi.playerIndex]
+        if (pqi.phase === 'choose') {
+          const choice = pqi.canTutor ? 'tutor' : 'move'
+          const timer = setTimeout(() => resolveQuelsIdiots(choice), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+        const pool = pqi.phase === 'move'
+          ? Object.values(pl.board).flat()
+          : [...pl.deck, ...pl.discard]
+        const cands = (pqi.candidateIds ?? [])
+          .map((id) => pool.find((c) => c.instanceId === id))
+          .filter((c): c is NonNullable<typeof c> => !!c)
+        const best = [...cands].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+        if (best) {
+          const timer = setTimeout(() => resolveQuelsIdiotsPick(best.instanceId), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
       }
       return
     }
@@ -1724,7 +1851,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate])
+  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate])
 
   // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
   // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
@@ -2149,6 +2276,18 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     })
   const handleTrapFinish = () => trapSkipVanquish()
   const handleCardPick = (instanceId: string) => {
+    // Cruella — Finissez le travail ! : activation gratuite par clic direct sur une
+    // carte à capacité activable du royaume.
+    if (freeActivateMode) {
+      const card = activatableCards(state).find((c) => c.instanceId === instanceId)
+      if (card) startActivate('free-activate', card)
+      return
+    }
+    // Cruella — Quels idiots ! (phase déplacer) : clic sur l'Allié à amener.
+    if (quelsMovePick) {
+      if ((state.pendingQuelsIdiots?.candidateIds ?? []).includes(instanceId)) resolveQuelsIdiotsPick(instanceId)
+      return
+    }
     // Finis le travail (Yzma) — phase 1 : clic DIRECT sur l'Allié du plateau à
     // déplacer (lève l'ambiguïté entre deux Alliés identiques, ex. deux « Gardes du
     // palais », que la liste ne permettait pas de distinguer).
@@ -2370,6 +2509,14 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     activate(mode.actionId, mode.cardInstanceId, to, mode.itemInstanceId)
     setMode(null)
   }
+  // Cruella — Finissez le travail ! : tant que l'activation gratuite est disponible
+  // (drapeau freeActivate), les cartes à capacité activable du royaume deviennent
+  // cliquables (clic direct → activation gratuite). Voir selectableCards / handleCardPick.
+  const freeActivateMode = isHumanTurn && !!user.freeActivate && !mode
+  // Cruella — Quels idiots ! (phase « déplacer ») : clic direct sur l'Allié du
+  // royaume à amener sur le lieu du pion.
+  const quelsMovePick =
+    state.pendingQuelsIdiots?.playerIndex === HUMAN && state.pendingQuelsIdiots.phase === 'move'
   const handleMoveHeroPick = (heroInstanceId: string) => {
     if (mode?.kind !== 'move-hero-pick') return
     const from = user.locations
@@ -2552,12 +2699,18 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     mode?.kind === 'sacrifice-pick' ||
     mode?.kind === 'drain-pick-ally' ||
     mode?.kind === 'felicia-pick-ally' ||
-    finishJobPickAlly
+    finishJobPickAlly ||
+    freeActivateMode ||
+    quelsMovePick
   // Liste PRÉCISE des cartes cliquables pour les modes restreints aux Alliés
   // (épuisement d'énergie : Allié sur l'Observatoire ; Tendre un Piège : Allié à
   // déplacer) — sans elle, les Objets seraient à tort surlignés/cliquables.
   const selectableCardIds: string[] | null =
-    mode?.kind === 'drain-pick-ally'
+    mode?.kind === 'activate-pick' || freeActivateMode
+      ? activatableCards(state).map((c) => c.instanceId)
+      : quelsMovePick
+      ? state.pendingQuelsIdiots?.candidateIds ?? []
+      : mode?.kind === 'drain-pick-ally'
       ? drainStarAllies(state).map((c) => c.instanceId)
       : mode?.kind === 'felicia-pick-ally'
       ? (user.board[mode.to] ?? [])
@@ -2669,11 +2822,14 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           }
           // Les arceaux (Cartes Gardes transformées) ne peuvent pas éliminer.
           const localAllies = simulatedAt(heroLoc).filter((c) => c.type === 'ally' && !c.isWicket)
-          // Alliés « à distance » : Archers Loups (Prince Jean) et Flibustiers
-          // (Crochet) peuvent éliminer un Héros d'un lieu VOISIN non bloqué.
+          // Alliés « à distance » (donnée `reachesAdjacentVanquish`) : Archers Loups
+          // (Prince Jean), Flibustiers (Crochet), Cerbère (Hadès), Cavaliers du roi
+          // (Mère Gothel)… peuvent éliminer un Héros d'un lieu VOISIN non bloqué.
           const adjArchers = adjacentLocationIds(state, heroLoc).flatMap((adj) =>
             simulatedAt(adj).filter(
-              (c) => (c.cardId === 'archers-loups' || c.cardId === 'flibustiers') && !c.isWicket,
+              (c) =>
+                (c.reachesAdjacentVanquish || c.cardId === 'archers-loups' || c.cardId === 'flibustiers') &&
+                !c.isWicket,
             ),
           )
           const heroCard = (user.board[heroLoc] ?? []).find(
@@ -2982,6 +3138,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               activeLocationId={state.actAtLocation || user.pawnLocation || undefined}
               flashKey={isHumanTurn ? actionFlash : null}
               onActionClick={handleBoardAction}
+              hackLocationId={state.pendingHack?.playerIndex === HUMAN ? state.pendingHack.locationId : null}
+              hackActionIds={state.pendingHack?.playerIndex === HUMAN ? state.pendingHack.actionIds : undefined}
+              onHackPick={resolveHack}
             />
             {/* Éclat « miroir brisé » du plateau (fin de partie : perdant ; ou test).
                 Reste affiché (fond sombre) tant que l'écran de fin est là. */}
@@ -3011,6 +3170,17 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               <AuDelaPile player={user} uprightWidth="w-20" />
               <IngredientsPile player={user} uprightWidth="w-14" />
               <SuccessionPile player={user} uprightWidth="w-14" />
+              <CapturedPuppiesPile
+                player={user}
+                uprightWidth="w-9"
+                revealMode={state.pendingPuppyReveal?.playerIndex === HUMAN}
+                revealRemaining={state.pendingPuppyReveal?.playerIndex === HUMAN ? state.pendingPuppyReveal.remaining : 0}
+                onRevealTile={resolvePuppyReveal}
+                onDoneReveal={donePuppyReveal}
+                addMode={state.pendingPuppyAdd?.playerIndex === HUMAN}
+                addCandidates={state.pendingPuppyAdd?.playerIndex === HUMAN ? state.pendingPuppyAdd.candidateTileIds : undefined}
+                onAddTile={resolvePuppyAdd}
+              />
             </div>
             <div className="flex-1">
               <Board
@@ -3055,6 +3225,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                   Object.values(user.board).flat().some((c) => c.cardId === 'carte-pays-imaginaire')
                 }
                 onUseMap={() => setMapModalOpen(true)}
+                crownUsable={
+                  isHumanTurn &&
+                  state.phase === 'ACTION' &&
+                  Object.values(user.board).flat().some((c) => c.cardId === 'couronne-gothel')
+                }
+                onUseCrown={(id) => setCrownConfirm(id)}
               />
             </div>
           </div>
@@ -3644,6 +3820,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               <AuDelaPile player={bot} uprightWidth="w-20" />
               <IngredientsPile player={bot} uprightWidth="w-14" />
               <SuccessionPile player={bot} uprightWidth="w-14" />
+              <CapturedPuppiesPile player={bot} uprightWidth="w-9" />
             </div>
             <div className="flex-1">
               <Board
@@ -3696,6 +3873,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               poeticJusticeUsable={false}
               relocateTargetAvailable={false}
               hackTargetAvailable={false}
+              pawnWithRaiponce={false}
+              recoverFromDiscardAvailable={false}
+              hasActivatableCard={false}
               selectedToDiscard={[]}
               layout="fan"
               cardWidthClass="w-28"
@@ -3760,6 +3940,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               return realmRelocateCandidates(user, eff.maxStrength, eff.locationId).length > 0
             })()}
             hackTargetAvailable={Object.values(user.board).flat().some((c) => c.type === 'hero' && !c.abilityHacked)}
+            pawnWithRaiponce={!!user.pawnLocation && (user.board[user.pawnLocation] ?? []).some((c) => c.cardId === 'raiponce')}
+            recoverFromDiscardAvailable={user.discard.some((c) => c.type === 'item' || c.type === 'effect')}
+            hasActivatableCard={activatableCards(state).length > 0}
             costFor={(c) => effectiveCost(state, c)}
             armedConditionIds={humanReactions.map((c) => c.instanceId)}
             forcedHoverId={hoveredReactionId}
@@ -3883,6 +4066,109 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           onChoose={resolveDrawOrGainPower}
         />
       )}
+
+      {/* Lance-moi ta chevelure : l'humain choisit de combien de lieux ramener Raiponce. */}
+      {state.pendingRaiponceHomeward && state.pendingRaiponceHomeward.chooserIndex === HUMAN && (
+        <RaiponceHomewardModal
+          options={state.pendingRaiponceHomeward.options}
+          onChoose={resolveRaiponceHomeward}
+        />
+      )}
+
+      {/* Frères Stabbington : l'humain choisit de ramener Raiponce sur la Tour (ou non). */}
+      {state.pendingRaiponceToTower && state.pendingRaiponceToTower.chooserIndex === HUMAN && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+          <div className="flex w-[24rem] max-w-[92vw] flex-col gap-4 rounded-2xl border border-white/15 bg-[#15101f] p-6 shadow-2xl">
+            <h2 className="text-center text-lg font-bold text-fuchsia-200">Frères Stabbington</h2>
+            <p className="text-center text-sm text-white/80">Déplacer Raiponce sur la Tour ?</p>
+            <div className="flex justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => resolveRaiponceToTower(true)}
+                className="flex-1 rounded-lg border border-fuchsia-400/60 bg-fuchsia-500/20 px-4 py-2 text-sm font-semibold text-fuchsia-100 hover:bg-fuchsia-500/30"
+              >
+                Oui, sur la Tour
+              </button>
+              <button
+                type="button"
+                onClick={() => resolveRaiponceToTower(false)}
+                className="flex-1 rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 hover:bg-white/10"
+              >
+                Non, laisser
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cruella — le choix d'une Tuile Chiots de la réserve à amener se fait par CLIC
+          DIRECT sur les tuiles de la pile Réserve (CapturedPuppiesPile, addMode), pas
+          de modale. */}
+
+      {/* Cruella — Horace : choisir capturer sur son lieu OU amener une Tuile. */}
+      {state.pendingHoraceChoice && state.pendingHoraceChoice.playerIndex === HUMAN && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+          <div className="flex w-[26rem] max-w-[92vw] flex-col gap-4 rounded-2xl border border-white/15 bg-[#15101f] p-6 shadow-2xl">
+            <h2 className="text-center text-lg font-bold text-rose-200">Horace</h2>
+            <p className="text-center text-sm text-white/80">Que veux-tu faire ?</p>
+            <div className="flex justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => resolveHoraceChoice(true)}
+                className="flex-1 rounded-lg border border-rose-400/60 bg-rose-500/20 px-4 py-2 text-sm font-semibold text-rose-100 hover:bg-rose-500/30"
+              >
+                Capturer une Tuile ici
+              </button>
+              <button
+                type="button"
+                onClick={() => resolveHoraceChoice(false)}
+                className="flex-1 rounded-lg border border-rose-400/60 bg-rose-500/20 px-4 py-2 text-sm font-semibold text-rose-100 hover:bg-rose-500/30"
+              >
+                Amener une Tuile (réserve)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cruella — Quels idiots ! (choix de l'option). */}
+      {state.pendingQuelsIdiots &&
+        state.pendingQuelsIdiots.playerIndex === HUMAN &&
+        state.pendingQuelsIdiots.phase === 'choose' && (
+          <ChoiceModal
+            title="Quels idiots !"
+            prompt="Que veux-tu faire ?"
+            layout="row"
+            options={[
+              ...(state.pendingQuelsIdiots.canMove
+                ? [{ key: 'move', label: 'Déplacer un Allié', description: 'Amène un Allié sur ton lieu', onSelect: () => resolveQuelsIdiots('move') }]
+                : []),
+              ...(state.pendingQuelsIdiots.canTutor
+                ? [{ key: 'tutor', label: 'Chercher un Allié', description: 'Pioche/défausse → main, puis remélange', onSelect: () => resolveQuelsIdiots('tutor') }]
+                : []),
+            ]}
+          />
+        )}
+
+      {/* Cruella — Quels idiots ! (chercher : choix de l'Allié de la pioche/défausse). */}
+      {state.pendingQuelsIdiots &&
+        state.pendingQuelsIdiots.playerIndex === HUMAN &&
+        state.pendingQuelsIdiots.phase === 'tutor' && (
+          <ChoiceModal
+            title="Quels idiots !"
+            prompt="Quel Allié récupérer ?"
+            layout="row"
+            options={[...user.deck, ...user.discard]
+              .filter((c) => (state.pendingQuelsIdiots!.candidateIds ?? []).includes(c.instanceId))
+              .map((c) => ({
+                key: c.instanceId,
+                label: c.name,
+                description: `Force ${c.strength ?? '?'}`,
+                imageSrc: getCardDef(c.cardId)?.image,
+                onSelect: () => resolveQuelsIdiotsPick(c.instanceId),
+              }))}
+          />
+        )}
 
       {/* Apparition / Vent de panique : l'humain (chooser) déplace un Héros.
           Cas « destination imposée » (Capture) EXCLU : choix par clic direct sur le
@@ -4245,14 +4531,16 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         />
       )}
 
-      {/* Sombra — Piratage : choisir l'action du lieu à désactiver. */}
+      {/* Sombra — Piratage : choix de l'action à désactiver par clic DIRECT sur le
+          plateau (les cases concernées clignotent en fuchsia, cf. BoardActions).
+          Bandeau d'instruction non bloquant. */}
       {state.pendingHack && state.pendingHack.playerIndex === HUMAN && (
-        <HackModal
-          player={user}
-          locationId={state.pendingHack.locationId}
-          actionIds={state.pendingHack.actionIds}
-          onResolve={resolveHack}
-        />
+        <div className="pointer-events-none fixed left-1/2 top-3 z-[60] -translate-x-1/2 rounded-xl border border-fuchsia-300/70 bg-[#1a1226]/95 px-4 py-2 text-center text-sm font-bold text-fuchsia-100 shadow-2xl">
+          Piratage de{' '}
+          {user.locations.find((l) => l.id === state.pendingHack!.locationId)?.name ??
+            state.pendingHack.locationId}
+          {' '}: clique l’action à désactiver.
+        </div>
       )}
 
       {/* Sombra — Information : garder la pioche (défausser 2 de la main) ou défausser les cartes piochées. */}
@@ -4355,6 +4643,35 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           }}
           onCancel={() => setMapModalOpen(false)}
         />
+      )}
+
+      {/* Mère Gothel — Couronne : confirmer la défausse contre 1 jeton Confiance. */}
+      {crownConfirm && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+          <div className="flex w-[24rem] max-w-[92vw] flex-col gap-4 rounded-2xl border border-white/15 bg-[#15101f] p-6 shadow-2xl">
+            <h2 className="text-center text-lg font-bold text-pink-200">Couronne</h2>
+            {getCardDef('couronne-gothel')?.image && (
+              <img src={getCardDef('couronne-gothel')!.image} alt="Couronne" className="mx-auto w-24 rounded-lg border border-white/15 shadow" />
+            )}
+            <p className="text-center text-sm text-white/80">Défausser la Couronne pour gagner 1 jeton Confiance ?</p>
+            <div className="flex justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => { sacrificeCrown(crownConfirm); setCrownConfirm(null) }}
+                className="flex-1 rounded-lg border border-pink-400/60 bg-pink-500/20 px-4 py-2 text-sm font-semibold text-pink-100 hover:bg-pink-500/30"
+              >
+                Défausser → +1 Confiance
+              </button>
+              <button
+                type="button"
+                onClick={() => setCrownConfirm(null)}
+                className="flex-1 rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 hover:bg-white/10"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Digne Adversaire / Obsession : jouer (où) ou défausser le Héros dévoilé. */}

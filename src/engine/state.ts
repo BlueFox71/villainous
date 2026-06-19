@@ -299,6 +299,19 @@ function makePlayer(
       villain.id === 'yzma' || villain.id === 'ratigan' ? false : undefined,
     // Ratigan — objectif double : démarre côté « L'Esprit Supérieur ».
     becameTheRat: villain.id === 'ratigan' ? false : undefined,
+    // Mère Gothel — compteur de Confiance (objectif). 0 au départ.
+    confiance: villain.id === 'gothel' ? 0 : undefined,
+    // Cruella d'Enfer — 12 Tuiles Chiots en réserve (face cachée) au départ.
+    puppyTiles: villain.startingPuppyTiles
+      ? villain.startingPuppyTiles.map((t, k) => ({
+          id: `${t.homeLocation}-${t.value}-${k}`,
+          value: t.value,
+          homeLocation: t.homeLocation,
+          location: t.homeLocation,
+          state: 'reserve' as const,
+          revealed: false,
+        }))
+      : undefined,
   }
 }
 
@@ -363,15 +376,28 @@ export function syncObservatoryLock(player: PlayerState): PlayerState {
  */
 export function syncRatiganObjective(player: PlayerState): PlayerState {
   if (player.villain !== 'ratigan' || player.becameTheRat) return player
-  if (!player.discard.some((c) => c.cardId === 'reine-robot')) return player
-  return {
-    ...player,
-    becameTheRat: true,
-    objectiveDescription:
-      'La Reine Robot a été défaussée : vous êtes devenu « Le Rat ». Vous devez ' +
-      'éliminer Basil. La Reine Moustoria à Buckingham Palace empêche la victoire. ' +
-      'Vous ne pouvez gagner qu’au début de votre tour.',
+  const onBoard = Object.values(player.board).flat().some((c) => c.cardId === 'reine-robot')
+  // La Reine Robot a-t-elle déjà été POSÉE ? (mémorisé tant qu'elle est en jeu).
+  const wasInPlay = player.reineRobotWasInPlay || onBoard
+  const inDiscard = player.discard.some((c) => c.cardId === 'reine-robot')
+  // Bascule UNIQUEMENT si une Reine Robot POSÉE est défaussée (elle quitte le plateau
+  // pour la défausse). La défausser depuis la MAIN (jamais posée) ne bascule PAS.
+  if (inDiscard && wasInPlay && !onBoard) {
+    return {
+      ...player,
+      becameTheRat: true,
+      reineRobotWasInPlay: true,
+      objectiveDescription:
+        'La Reine Robot a été défaussée : vous êtes devenu « Le Rat ». Vous devez ' +
+        'éliminer Basil. La Reine Moustoria à Buckingham Palace empêche la victoire. ' +
+        'Vous ne pouvez gagner qu’au début de votre tour.',
+    }
   }
+  // Sinon, on mémorise simplement qu'elle est (a été) en jeu, pour une défausse future.
+  if (wasInPlay && !player.reineRobotWasInPlay) {
+    return { ...player, reineRobotWasInPlay: true }
+  }
+  return player
 }
 
 /**
@@ -417,6 +443,21 @@ export function createInitialGame(setups: PlayerSetup[], seed: number): GameStat
     // dans l'ordre de tour (1ᵉʳ : 0, 2ᵉ : 1, 3ᵉ : 2…) pour compenser l'avantage
     // de jouer en premier.
     let player = makePlayer(villain, shuffled.result, shuffledFate.result, i)
+    // Mère Gothel — pose le Héros-tuile (Raiponce) sur son lieu de départ (la Tour).
+    if (villain.startingHeroTile) {
+      const t = villain.startingHeroTile
+      const tile: CardInstance = {
+        instanceId: `p${i}:tile:${t.cardId}`,
+        cardId: t.cardId,
+        name: t.name,
+        type: 'hero',
+        strength: t.strength,
+      }
+      player = {
+        ...player,
+        board: { ...player.board, [t.locationId]: [...(player.board[t.locationId] ?? []), tile] },
+      }
+    }
     // Pat Hibulaire — mise en place spéciale : on tire 4 de ses 5 tuiles Objectif
     // (mélange puis on en garde une par lieu, la 5ᵉ reste hors-jeu) et on les pose
     // face cachée, une par lieu.
@@ -434,6 +475,13 @@ export function createInitialGame(setups: PlayerSetup[], seed: number): GameStat
         })),
         powerSpentThisTurn: 0,
       }
+    }
+    // Cruella d'Enfer — mélange la réserve de Tuiles Chiots (Repéré ! / les choix de
+    // tuile face cachée tirent ainsi un ordre imprévisible).
+    if (player.puppyTiles) {
+      const r = shuffle(player.puppyTiles, rngState)
+      rngState = r.state
+      player = { ...player, puppyTiles: r.result }
     }
     const drawn = drawPlayerToLimit(player, rngState)
     rngState = drawn.rngState

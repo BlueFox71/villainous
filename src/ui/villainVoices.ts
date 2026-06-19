@@ -40,6 +40,8 @@ const VOICE_PREFIX: Record<VillainKey, string> = {
   ratigan: 'Ratigan', // pas (encore) de fichiers de voix → intro silencieuse
   sombra: 'Sombra',
   patHibulaire: 'Pat Hibulaire', // pas (encore) de fichiers de voix → intro silencieuse
+  gothel: 'La mère Gothel', // 1 seule variante présente (n°2) ; les 3 autres manquent encore
+  cruella: "Cruella d'enfer", // 4 variantes présentes
 }
 
 const CONTRE_PREFIX = 'Contre'
@@ -130,12 +132,31 @@ for (const [path, url] of Object.entries(PHRASE_FILES)) {
 const PHRASE_FILE: Partial<Record<VillainKey, { file: string; gain?: number }>> = {
   scar: { file: 'Scar phrase' },
   maleficent: { file: 'Maléfique phrase', gain: 0.7 },
+  sombra: { file: 'Sombra phrase', gain: 0.5 },
+  ursula: { file: 'Ursula phrase', gain: 0.5 },
 }
 function phraseTrack(key: VillainKey): { url: string; gain: number } | undefined {
   const entry = PHRASE_FILE[key]
   if (!entry) return undefined
   const url = PHRASE_BY_NAME[entry.file.toLowerCase().normalize('NFC')]
   return url ? { url, gain: entry.gain ?? 1 } : undefined
+}
+
+/** Joue la phrase d'un vilain (si elle existe), p. ex. à sa sélection dans l'écran
+ *  de choix. No-op si aucun fichier de phrase, si le son est coupé, ou hors navigateur.
+ *  Coupe une éventuelle phrase/voix en cours. */
+export function playVillainPhrase(key: VillainKey) {
+  if (typeof Audio === 'undefined') return
+  const { sfxVolume } = useSettingsStore.getState()
+  if (sfxVolume <= 0) return
+  const track = phraseTrack(key)
+  if (!track) return
+  if (current) { current.pause(); current = null }
+  const audio = new Audio()
+  audio.volume = Math.min(1, sfxVolume * 2 * track.gain)
+  audio.src = track.url
+  current = audio
+  void audio.play().catch(() => {})
 }
 
 /**

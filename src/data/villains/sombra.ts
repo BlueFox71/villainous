@@ -31,9 +31,8 @@ export const sombra: VillainDef = {
     'l’emporter. Une carte de Piratage ne peut pas être déplacée et désactive une ' +
     'action du lieu tant qu’elle y reste.',
   boardImage: `${img}/board.png`,
-  // Pas encore de pion Sombra → on emprunte celui d'Ursula (teinte violette proche).
-  pawnImage: '/pion_ursula.png',
-  pawnHeightPx: 110,
+  pawnImage: '/pion_sombra.png',
+  pawnHeightPx: 80,
   backVillainImage: `${img}/back-villain.png`,
   backFateImage: `${img}/back-fate.png`,
   // Lumérico est inaccessible tant que FAILLE n'a pas été jouée.

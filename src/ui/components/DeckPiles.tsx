@@ -337,6 +337,127 @@ export function SuccessionPile({
 }
 
 /**
+ * Cruella d'Enfer — pile des CHIOTS CAPTURÉS (face VISIBLE), à la même place que la
+ * Pile de l'Au-delà / Succession / Ingrédients. Affiche les Tuiles Chiots capturées
+ * (on voit lesquelles) et le total /99 (objectif). Rendue uniquement pour Cruella
+ * (champ `puppyTiles` défini).
+ */
+export function CapturedPuppiesPile({
+  player,
+  uprightWidth = 'w-12',
+  revealMode = false,
+  revealRemaining = 0,
+  onRevealTile,
+  onDoneReveal,
+  addMode = false,
+  addCandidates,
+  onAddTile,
+}: {
+  player: PlayerState
+  uprightWidth?: string
+  /** Repéré ! : les Tuiles face cachée de la réserve deviennent cliquables pour les révéler. */
+  revealMode?: boolean
+  revealRemaining?: number
+  onRevealTile?: (tileId: string) => void
+  onDoneReveal?: () => void
+  /** Ici mes petits ! / Lampe / Horace… : les Tuiles candidates de la réserve
+   *  deviennent cliquables pour en amener une sur son lieu (clic direct, pas de modale). */
+  addMode?: boolean
+  addCandidates?: string[]
+  onAddTile?: (tileId: string) => void
+}) {
+  if (player.puppyTiles === undefined) return null
+  const captured = player.puppyTiles.filter((t) => t.state === 'captured')
+  const reserve = player.puppyTiles.filter((t) => t.state === 'reserve')
+  const total = captured.reduce((n, t) => n + t.value, 0)
+  const shortLoc = (home: string) => (home === 'maison-radcliff' ? 'maison' : home)
+  const tileSrc = (t: { homeLocation: string; value: number; revealed: boolean }) =>
+    t.revealed ? `/cards/cruella/tuile-${shortLoc(t.homeLocation)}-${t.value}.png` : '/cards/cruella/tuile-dos.png'
+  return (
+    <div className="flex w-full flex-col items-center gap-1">
+      <div className="flex w-full flex-col items-center gap-0.5">
+        <span className="text-[8px] font-bold uppercase tracking-wide text-rose-300/90">
+          Chiots capturés {total}/99
+        </span>
+        <div
+          className="flex w-full flex-wrap justify-center gap-1"
+          title={`${captured.length} Tuile(s) Chiots capturée(s) — ${total} Chiots`}
+        >
+          {captured.length === 0 ? (
+            <div className={`aspect-[5/7] ${uprightWidth} rounded border border-dashed border-rose-400/40 bg-white/5`} />
+          ) : (
+            captured.map((t) => (
+              <img
+                key={t.id}
+                src={tileSrc(t)}
+                alt={`Tuile Chiots ${t.value}`}
+                title={`${t.value} chiots`}
+                className={`${uprightWidth} relative z-0 rounded border-2 border-rose-400/70 shadow-[0_0_6px_rgba(244,114,182,0.5)] transition-transform duration-150 ease-out hover:z-30 hover:scale-[3.4]`}
+              />
+            ))
+          )}
+        </div>
+      </div>
+      {/* Réserve : les tuiles ni capturées ni posées (face cachée tant que non révélées).
+          Tuiles petites pour que toute la réserve tienne sans défilement ni pousser le
+          reste de la colonne (pioche/défausse). */}
+      <div className="flex w-full flex-col items-center gap-0.5">
+        <span className="text-[8px] font-bold uppercase tracking-wide text-rose-300/50">
+          {addMode ? 'Choisis une tuile à amener' : `Réserve ${reserve.length}`}
+        </span>
+        <div className="flex w-full flex-wrap justify-center gap-0.5" title={`${reserve.length} Tuile(s) Chiots en réserve`}>
+          {reserve.map((t) => {
+            // Repéré ! : une Tuile face cachée devient cliquable (révélation).
+            // Ici mes petits ! / Lampe… : une Tuile candidate devient cliquable (amener).
+            const canReveal = revealMode && !t.revealed
+            const canAdd = addMode && (addCandidates?.includes(t.id) ?? false)
+            if (canReveal || canAdd) {
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => (canAdd ? onAddTile?.(t.id) : onRevealTile?.(t.id))}
+                  title={canAdd ? 'Amener cette Tuile Chiots sur son lieu' : 'Révéler cette Tuile Chiots'}
+                  className="animate-pulse cursor-pointer rounded ring-2 ring-fuchsia-400 transition hover:brightness-125"
+                >
+                  <img
+                    src={tileSrc(t)}
+                    alt={t.revealed ? `Tuile Chiots ${t.value}` : 'Tuile face cachée'}
+                    className="w-7 rounded border border-fuchsia-300"
+                  />
+                </button>
+              )
+            }
+            return (
+              <img
+                key={t.id}
+                src={tileSrc(t)}
+                alt={t.revealed ? `Tuile Chiots ${t.value}` : 'Tuile Chiots (face cachée)'}
+                title={t.revealed ? `${t.value} chiots` : 'Tuile face cachée'}
+                className={
+                  t.revealed
+                    ? 'relative z-0 w-7 rounded border border-rose-400/30 opacity-80 transition-transform duration-150 ease-out hover:z-30 hover:scale-[3.6] hover:opacity-100'
+                    : 'w-7 rounded border border-rose-400/30 opacity-80'
+                }
+              />
+            )
+          })}
+        </div>
+        {revealMode && (
+          <button
+            type="button"
+            onClick={() => onDoneReveal?.()}
+            className="mt-1 rounded border border-fuchsia-400/60 bg-fuchsia-500/20 px-2 py-0.5 text-[10px] font-semibold text-fuchsia-100 hover:bg-fuchsia-500/30"
+          >
+            Terminer ({revealRemaining})
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/**
  * Pioche (dos) + défausse (dernière carte), tournées à gauche et empilées dans la
  * marge : `kind='fate'` (au-dessus de l'image) ou `kind='villain'` (en dessous).
  */

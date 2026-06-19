@@ -79,6 +79,36 @@ export function PlayerPanel({ player, accent, isActive, isWinner, showObjective 
           </div>
         )}
 
+        {/* Mère Gothel — jetons Confiance (objectif : 10). */}
+        {player.confiance !== undefined && (
+          <div
+            className="flex flex-col items-center justify-center rounded-lg border border-rose-400/30 bg-black/20 px-3 py-3"
+            title={`Confiance : ${player.confiance}/10`}
+          >
+            <span className="-mt-1.5 text-[9px] uppercase tracking-wide text-rose-300/70">Confiance</span>
+            <span className="text-2xl font-bold text-rose-200">💗 {player.confiance}</span>
+            <span className="text-[10px] text-white/50">{player.confiance}/10</span>
+          </div>
+        )}
+
+        {/* Cruella d'Enfer — réserve de Tuiles Chiots restante (les Chiots CAPTURÉS sont
+            affichés dans la pile dédiée, à côté de la pile Succession/Au-delà). */}
+        {player.puppyTiles !== undefined && (() => {
+          const captured = player.puppyTiles.filter((t) => t.state === 'captured').reduce((n, t) => n + t.value, 0)
+          const reserve = player.puppyTiles.filter((t) => t.state === 'reserve').length
+          const onBoard = player.puppyTiles.filter((t) => t.state === 'board').reduce((n, t) => n + t.value, 0)
+          return (
+            <div
+              className="flex flex-col items-center justify-center rounded-lg border border-rose-400/30 bg-black/20 px-3 py-3"
+              title={`Réserve : ${reserve} tuiles — posés : ${onBoard} Chiots — capturés : ${captured}/99`}
+            >
+              <span className="-mt-1.5 text-[9px] uppercase tracking-wide text-rose-300/70">Réserve</span>
+              <span className="text-2xl font-bold text-rose-200">🐾 {reserve}</span>
+              <span className="text-[10px] text-white/50">tuiles · {captured}/99</span>
+            </div>
+          )
+        })()}
+
         {/* Case objectif (à droite) — masquable quand rendue ailleurs. */}
         {showObjective && <ObjectiveBox player={player} accent={accent} isWinner={isWinner} own={own} />}
       </div>

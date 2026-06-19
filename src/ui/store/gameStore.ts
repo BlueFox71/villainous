@@ -59,9 +59,13 @@ import { sombra } from '../../data/villains/sombra'
 import { sombraCards } from '../../data/villains/sombra.cards'
 import { patHibulaire } from '../../data/villains/patHibulaire'
 import { patHibulaireCards } from '../../data/villains/patHibulaire.cards'
+import { gothel } from '../../data/villains/gothel'
+import { gothelCards } from '../../data/villains/gothel.cards'
+import { cruella } from '../../data/villains/cruella'
+import { cruellaCards } from '../../data/villains/cruella.cards'
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -81,6 +85,8 @@ export const VILLAIN_REGISTRY = {
   ratigan: { def: ratigan, cards: ratiganCards, label: 'Ratigan' },
   sombra: { def: sombra, cards: sombraCards, label: 'Sombra' },
   patHibulaire: { def: patHibulaire, cards: patHibulaireCards, label: 'Pat Hibulaire' },
+  gothel: { def: gothel, cards: gothelCards, label: 'Mère Gothel' },
+  cruella: { def: cruella, cards: cruellaCards, label: 'Cruella d’Enfer' },
 } as const
 
 /** Qui contrôle chaque siège. Concept d'UI : le moteur, lui, ne sait pas qui
@@ -525,6 +531,24 @@ interface GameStore {
   resolveTypeChoice: (cardType: import('../../engine/types').CardType) => void
   /** Le Grand Génie du Mal : choisit de piocher (`'draw'`) ou gagner du Pouvoir (`'power'`). */
   resolveDrawOrGainPower: (choice: 'draw' | 'power') => void
+  /** Lance-moi ta chevelure : ramène Raiponce de `steps` lieux (1 ou 2) vers la Tour. */
+  resolveRaiponceHomeward: (steps: number) => void
+  /** Frères Stabbington : déplacer (ou non) Raiponce sur la Tour. */
+  resolveRaiponceToTower: (move: boolean) => void
+  /** Cruella — choisir une Tuile Chiots de la réserve à ajouter sur son lieu indiqué. */
+  resolvePuppyAdd: (tileId: string) => void
+  /** Cruella — Repéré ! : révéler une Tuile Chiots face cachée de la réserve. */
+  resolvePuppyReveal: (tileId: string) => void
+  /** Cruella — Repéré ! : terminer la révélation. */
+  donePuppyReveal: () => void
+  /** Cruella — Horace : capturer (true) ou amener une Tuile de la réserve (false). */
+  resolveHoraceChoice: (capture: boolean) => void
+  /** Cruella — Quels idiots ! : choisir l'option (déplacer / chercher un Allié). */
+  resolveQuelsIdiots: (choice: 'move' | 'tutor') => void
+  /** Cruella — Quels idiots ! : choisir l'Allié (à déplacer ou à chercher). */
+  resolveQuelsIdiotsPick: (instanceId: string) => void
+  /** Couronne (Gothel) : défausse l'Objet pour 1 jeton Confiance (capacité gratuite). */
+  sacrificeCrown: (instanceId: string) => void
   /** Apparition / Vent de panique : déplace le Héros choisi vers le lieu voisin. */
   resolveHeroRelocate: (heroInstanceId: string, to: string) => void
   /** Décline un déplacement de Héros facultatif (Poupées vaudou). */
@@ -970,6 +994,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_TYPE_CHOICE', cardType }),
   resolveDrawOrGainPower: (choice) =>
     get().submit({ type: 'RESOLVE_DRAW_OR_GAIN_POWER', choice }),
+  resolveRaiponceHomeward: (steps) =>
+    get().submit({ type: 'RESOLVE_RAIPONCE_HOMEWARD', steps }),
+  resolveRaiponceToTower: (move) =>
+    get().submit({ type: 'RESOLVE_RAIPONCE_TO_TOWER', move }),
+  resolvePuppyAdd: (tileId) =>
+    get().submit({ type: 'RESOLVE_PUPPY_ADD', tileId }),
+  resolvePuppyReveal: (tileId) =>
+    get().submit({ type: 'RESOLVE_PUPPY_REVEAL', tileId }),
+  donePuppyReveal: () =>
+    get().submit({ type: 'DONE_PUPPY_REVEAL' }),
+  resolveHoraceChoice: (capture) =>
+    get().submit({ type: 'RESOLVE_HORACE_CHOICE', capture }),
+  resolveQuelsIdiots: (choice) =>
+    get().submit({ type: 'RESOLVE_QUELS_IDIOTS', choice }),
+  resolveQuelsIdiotsPick: (instanceId) =>
+    get().submit({ type: 'RESOLVE_QUELS_IDIOTS_PICK', instanceId }),
+  sacrificeCrown: (instanceId) =>
+    get().submit({ type: 'SACRIFICE_COURONNE', instanceId }),
   resolveHeroRelocate: (heroInstanceId, to) =>
     get().submit({ type: 'RESOLVE_HERO_RELOCATE', heroInstanceId, to }),
   skipHeroRelocate: () =>

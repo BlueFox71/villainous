@@ -339,6 +339,19 @@ export function objectiveScore(p: PlayerState): number {
       }
       return score / goals.length
     }
+    case 'CONFIANCE_THRESHOLD':
+      // Jauge linéaire : la Confiance est directement le compteur de victoire.
+      return Math.min(p.confiance ?? 0, p.objective.threshold) / p.objective.threshold
+    case 'PUPPY_THRESHOLD': {
+      // Cruella — jauge surtout pilotée par les Chiots CAPTURÉS (le compteur de
+      // victoire), avec un petit crédit pour les Tuiles déjà POSÉES (à portée de
+      // capture) afin d'encourager à amener des Chiots avant de les capturer.
+      const tiles = p.puppyTiles ?? []
+      const captured = tiles.filter((t) => t.state === 'captured').reduce((n, t) => n + t.value, 0)
+      const onBoard = tiles.filter((t) => t.state === 'board').reduce((n, t) => n + t.value, 0)
+      const thr = p.objective.threshold
+      return Math.min(1, (captured + 0.25 * onBoard) / thr)
+    }
   }
 }
 

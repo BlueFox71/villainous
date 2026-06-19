@@ -72,6 +72,15 @@ interface Props {
   /** Vrai s'il existe un Héros à pirater (Boop !, non déjà piraté). Sinon la carte
    *  est injouable. */
   hackTargetAvailable: boolean
+  /** Vrai si le pion est sur le lieu de Raiponce (Mère Gothel) — un Événement
+   *  « Je t'aime bien plus » est injouable sinon (il n'aurait aucun effet). */
+  pawnWithRaiponce: boolean
+  /** Vrai s'il existe une carte récupérable dans la défausse (Le diable l'emporte :
+   *  Objet ou Événement). La carte est injouable sinon. */
+  recoverFromDiscardAvailable: boolean
+  /** Vrai s'il existe une capacité activable dans le royaume (Finissez le travail !).
+   *  La carte est injouable sinon. */
+  hasActivatableCard: boolean
   /** Coût effectif d'une carte (Couronne −1, Bâton Magique −1 sur Événement/
    *  Malédiction, Épée de Vérité +2…). Absent → coût de base. */
   costFor?: (card: CardInstance) => number
@@ -115,6 +124,9 @@ export function Hand({
   poeticJusticeUsable,
   relocateTargetAvailable,
   hackTargetAvailable,
+  pawnWithRaiponce,
+  recoverFromDiscardAvailable,
+  hasActivatableCard,
   costFor,
   armedConditionIds = [],
   forcedHoverId = null,
@@ -248,8 +260,11 @@ export function Hand({
           const needsAlly = ci.attach === 'ally'
           // Joyeux non-anniversaire (gain par Allié) : injouable sans Allié au royaume.
           const needsAllyInRealm = (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_ALLY_IN_REALM')
-          // Magnifiques Taxes (gain par Héros) : injouable sans Héros au royaume.
-          const needsHeroInRealm = (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_HERO_IN_REALM')
+          // Magnifiques Taxes (gain par Héros) / Cruelle diablesse (déplace un Héros) :
+          // injouable sans Héros au royaume.
+          const needsHeroInRealm = (card.effects ?? []).some(
+            (e) => e.type === 'GAIN_POWER_PER_HERO_IN_REALM' || e.type === 'RELOCATE_OWN_HERO',
+          )
           // Foudre (duplique un Ingrédient) : injouable sans Ingrédient joué PAYABLE
           // (son coût = celui de l'Ingrédient reproduit ; cf. prop hasIngredients).
           const needsIngredient = (card.effects ?? []).some((e) => e.type === 'DUPLICATE_INGREDIENT')
@@ -276,6 +291,15 @@ export function Hand({
           const needsRelocateTarget = (card.effects ?? []).some((e) => e.type === 'MOVE_REALM_HERO_TO')
           // Boop ! (Sombra) : injouable sans Héros à pirater (aucun, ou tous déjà piratés).
           const needsHackTarget = (card.effects ?? []).some((e) => e.type === 'HACK_HERO')
+          // « Je t'aime bien plus » (Gothel) : Événement injouable si le pion n'est pas
+          // sur le lieu de Raiponce (il n'aurait aucun effet). La Brosse à cheveux
+          // (Objet) reste jouable : elle se pose et pourra rejoindre Raiponce plus tard.
+          const needsPawnWithRaiponce =
+            card.type === 'effect' && (card.effects ?? []).some((e) => e.type === 'GAIN_CONFIANCE_WITH_RAIPONCE')
+          // Le diable l'emporte (Cruella) : injouable sans carte récupérable en défausse.
+          const needsRecoverTarget = (card.effects ?? []).some((e) => e.type === 'RECOVER_FROM_DISCARD_CHOICE')
+          // Finissez le travail ! (Cruella) : injouable sans capacité activable.
+          const needsActivatable = (card.effects ?? []).some((e) => e.type === 'GRANT_FREE_ACTIVATE')
           const playable =
             mode === 'play'
               ? card.type !== 'condition' &&
@@ -295,6 +319,9 @@ export function Hand({
                 (!needsPoeticJustice || poeticJusticeUsable) &&
                 (!needsRelocateTarget || relocateTargetAvailable) &&
                 (!needsHackTarget || hackTargetAvailable) &&
+                (!needsPawnWithRaiponce || pawnWithRaiponce) &&
+                (!needsRecoverTarget || recoverFromDiscardAvailable) &&
+                (!needsActivatable || hasActivatableCard) &&
                 !(blockEvents && card.type === 'effect')
               : mode === 'condition-ally'
                 ? card.type === 'ally' // Lâcheté : seuls les Alliés sont jouables, gratuit

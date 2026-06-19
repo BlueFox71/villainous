@@ -6,6 +6,7 @@ import { VILLAIN_COLOR, villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } fro
 import { Scroller } from '../components/Scroller'
 import { OptionsButton } from '../components/OptionsButton'
 import { playHeroSelect, playPlayButtonHover, playBackClick, playHover, playHeroHover } from '../sfx'
+import { playVillainPhrase } from '../villainVoices'
 
 interface Props {
   /** Le vilain est choisi et la partie démarre (l'écran de jeu prend le relais). */
@@ -317,18 +318,26 @@ export function VillainSelect({ onStart, onBack }: Props) {
   // pour changer un vilain, on clique d'abord sa carte « Toi » / « Adversaire ».
   const pickSolo = (c: Choice) => {
     if (!activeSide) return // aucun camp actif : choisis-en un via sa carte d'abord
+    if (c !== 'random') playVillainPhrase(c) // phrase du vilain choisi (Scar, Maléfique…)
+    // Le camp actif avait-il DÉJÀ un vilain ? Si oui, on est en train de le MODIFIER :
+    // on garde ce camp actif (pas de désélection) pour pouvoir le changer en série.
+    const editingChosen = !!(activeSide === 'mine' ? mineSolo : oppSolo)
     // Valeur de l'AUTRE camp après ce clic (l'anti-miroir peut le vider s'il avait `c`).
     const otherVal = activeSide === 'mine' ? oppSolo : mineSolo
     const otherStillChosen = !!otherVal && !(c !== 'random' && otherVal === c)
     assignSide(c, activeSide)
-    // Les deux sont désormais choisis → aucun camp actif ; sinon bascule sur l'autre.
+    // Modification d'un camp déjà choisi → on reste sur ce camp. Sinon (premier choix
+    // de ce camp) : bascule sur l'autre s'il est vide, sinon plus aucun camp actif.
+    if (editingChosen) return
     setActiveSide(otherStillChosen ? null : activeSide === 'mine' ? 'opp' : 'mine')
   }
 
   // RÉSEAU : on ne choisit que SON vilain. « Aléatoire » est résolu sur-le-champ en
   // un vilain disponible (on exclut celui pris par l'adversaire) puis confirmé.
   const pickMineNet = (c: Choice) => {
-    selectVillain(c === 'random' ? randomKey(takenBy(opp) ?? undefined) : c)
+    const key = c === 'random' ? randomKey(takenBy(opp) ?? undefined) : c
+    playVillainPhrase(key) // phrase du vilain choisi (Scar, Maléfique…)
+    selectVillain(key)
   }
   const pickTile = network ? pickMineNet : pickSolo
 

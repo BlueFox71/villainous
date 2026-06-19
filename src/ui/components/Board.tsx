@@ -56,6 +56,9 @@ interface Props {
   /** Capitaine Crochet : la Carte du Pays Imaginaire est utilisable + handler. */
   mapUsable?: boolean
   onUseMap?: (instanceId: string) => void
+  /** Mère Gothel : la Couronne est utilisable + handler (défausse → 1 Confiance). */
+  crownUsable?: boolean
+  onUseCrown?: (instanceId: string) => void
 }
 
 /** Les 4 lieux d'un joueur : déplacement, cartes posées (Héros en haut,
@@ -94,6 +97,8 @@ export function Board({
   onGrantedAction,
   mapUsable = false,
   onUseMap,
+  crownUsable = false,
+  onUseCrown,
 }: Props) {
   const cellColor = VILLAIN_COLOR[player.villain]
 
@@ -164,6 +169,8 @@ export function Board({
             onGrantedAction={onGrantedAction}
             mapUsable={mapUsable}
             onUseMap={onUseMap}
+            crownUsable={crownUsable}
+            onUseCrown={onUseCrown}
           />
         )
       })}

@@ -99,6 +99,14 @@ export interface VillainDef {
    *  lieu (la 5ᵉ reste hors-jeu). Recopié vers PlayerState.goals. Absent = vilain
    *  sans tuiles Objectif. */
   goalKinds?: PeteGoalKind[]
+  /** Mère Gothel — Héros « tuile » posé dans le royaume à la mise en place (Raiponce
+   *  sur la Tour). Il n'est PAS dans le deck Fatalité ; il est toujours présent et
+   *  revient sur `locationId` s'il est éliminé (cf. performVanquish). */
+  startingHeroTile?: { cardId: string; name: string; strength: number; locationId: LocationId }
+  /** Cruella d'Enfer — les 12 Tuiles Chiots placées en réserve (face cachée) à la
+   *  mise en place. Chaque tuile vaut `value` Chiots et appartient au lieu `homeLocation`
+   *  (« le lieu indiqué »). Recopié vers PlayerState.puppyTiles. Absent ailleurs. */
+  startingPuppyTiles?: { value: number; homeLocation: LocationId }[]
 }
 
 /**
@@ -179,6 +187,11 @@ export type ObjectiveDef =
    *  ÉVÉNEMENTIELLE — déclenchée par Protocole Sombra quand tous les lieux sont
    *  piratés (pas un contrôle passif en début de tour). */
   | { type: 'SOMBRA'; winCardId: string }
+  /** Mère Gothel : avoir au moins `threshold` jetons Confiance au début de son tour. */
+  | { type: 'CONFIANCE_THRESHOLD'; threshold: number }
+  /** Cruella d'Enfer : avoir CAPTURÉ au moins `threshold` Chiots (somme des valeurs
+   *  des Tuiles Chiots capturées) au début de son tour. */
+  | { type: 'PUPPY_THRESHOLD'; threshold: number }
   /** Pat Hibulaire : remplir ses 4 tuiles Objectif (tirées parmi 5 à la mise en
    *  place, une par lieu). Chaque tuile a sa propre condition (voir PeteGoalKind),
    *  vérifiée en début de tour (Round Up / Strike It Rich / Rule the Realm) ou à
@@ -252,6 +265,22 @@ export interface Crewmate {
   discarded?: boolean
 }
 
+/** Cruella d'Enfer — une Tuile Chiots (suivi de la progression vers 99 Chiots). */
+export interface PuppyTile {
+  /** Identifiant stable et unique (ex. 'maison-11-a'). */
+  id: string
+  /** Nombre de Chiots (11 ou 22). */
+  value: number
+  /** Lieu indiqué sur la tuile (« le lieu indiqué » des cartes d'ajout). */
+  homeLocation: LocationId
+  /** Lieu courant : `homeLocation` à l'ajout, peut changer (Roadster, Sergent Tibs). */
+  location: LocationId
+  /** Réserve / posée sur un lieu / capturée. */
+  state: 'reserve' | 'board' | 'captured'
+  /** Révélée une fois pour toutes (face visible). Une tuile posée/capturée l'est toujours. */
+  revealed: boolean
+}
+
 /**
  * Effet composable d'une carte, exécuté par le dispatcher (engine/effects.ts).
  * Union volontairement minimale pour l'instant — on l'étend au fur et à mesure
@@ -259,6 +288,63 @@ export interface Crewmate {
  */
 export type Effect =
   | { type: 'GAIN_POWER'; amount: number }
+  /** Mère Gothel — gagne `amount` jetons Confiance (pris dans la Réserve : n'entame
+   *  pas son Pouvoir). Objectif : 10 Confiance au début de son tour. */
+  | { type: 'GAIN_CONFIANCE'; amount: number }
+  /** Mère Gothel — perd `amount` jetons Confiance (rendus à la Réserve, plancher 0). */
+  | { type: 'LOSE_CONFIANCE'; amount: number }
+  /** Mère Gothel — déplace Raiponce (Héros-tuile). `to` : 'tour'/'corona' = lieu
+   *  extrême ; 'left'/'right' = de `steps` lieux (défaut 1) vers la Tour / Corona. */
+  | { type: 'MOVE_RAIPONCE'; to: 'tour' | 'corona' | 'left' | 'right'; steps?: number }
+  /** Mère Gothel — gagne `amount` Confiance SI le pion est sur le lieu de Raiponce
+   *  (+`bonusAtTour` si ce lieu est la Tour). Sinon rien. */
+  | { type: 'GAIN_CONFIANCE_WITH_RAIPONCE'; amount: number; bonusAtTour: number }
+  /** Mère Gothel — N'écoute que moi : Raiponce ne se déplacera pas à la fin de ce tour. */
+  | { type: 'SKIP_RAIPONCE_MOVE' }
+  /** Mère Gothel — Vengeance : effectue une action « Éliminer un Héros » (offerte à la
+   *  Tour) et arme le bonus de Confiance (+1 si le Héros éliminé n'est pas Raiponce). */
+  | { type: 'VENGEANCE' }
+  /** Mère Gothel — Lance-moi ta chevelure : si Raiponce est sur la Tour, gagnez
+   *  `confianceIfAtTower` Confiance ; sinon, déplacez-la de 1 à `maxSteps` lieux vers
+   *  la Tour (choix du nombre de lieux → pendingRaiponceHomeward si ≥ 2 options). */
+  | { type: 'RAIPONCE_HOMEWARD'; confianceIfAtTower: number; maxSteps: number }
+  /** Mère Gothel — Frères Stabbington : Allié qui, joué sur le lieu de Raiponce
+   *  (hors Tour), permet (au choix) de la déplacer sur la Tour. Marqueur : la
+   *  résolution a lieu APRÈS placement (applyPlayCard → pendingRaiponceToTower). */
+  | { type: 'OFFER_RAIPONCE_TO_TOWER' }
+  // --- Cruella d'Enfer : Tuiles Chiots --------------------------------------
+  /** Choisis une Tuile Chiots de la réserve et ajoute-la sur son lieu indiqué
+   *  (interactif → pendingPuppyAdd ; bot : meilleure connue). Ici mes petits !,
+   *  Lampe électrique, Sans cœur, Horace (option ajouter). */
+  | { type: 'ADD_PUPPY_FROM_RESERVE'; label?: string }
+  /** Capture une Tuile Chiots posée sur le lieu du pion (J'ai payé pour ça). */
+  | { type: 'CAPTURE_PUPPY_AT_PAWN' }
+  /** Capture jusqu'à `max` Tuiles Chiots posées sur le lieu de la carte hôte
+   *  (Jasper, Horace). Nécessite hostLocationId. */
+  | { type: 'CAPTURE_PUPPY_AT_HOST'; max: number }
+  /** Révèle jusqu'à `count` Tuiles Chiots face cachée de la réserve (Repéré !). */
+  | { type: 'REVEAL_PUPPY_RESERVE'; count: number }
+  /** Gagne 1 Pouvoir par lieu portant ≥ 1 Tuile Chiots (J'adore les belles fourrures). */
+  | { type: 'GAIN_POWER_PER_PUPPY_LOCATION' }
+  /** Fatalité — Évasion : remet `count` Tuile(s) Chiots CAPTURÉE(s) dans la réserve
+   *  (face visible). Auto : la plus grosse valeur (nuit le plus). */
+  | { type: 'UNCAPTURE_PUPPY_TO_RESERVE'; count: number }
+  /** Fatalité — Nous sommes des labradors : remet dans la réserve jusqu'à `max`
+   *  Tuiles Chiots NON capturées d'un même lieu. */
+  | { type: 'RETURN_BOARD_PUPPIES_TO_RESERVE'; max: number }
+  /** Fatalité — Sergent Tibs : déplace jusqu'à `max` Tuiles Chiots non capturées
+   *  vers le lieu hôte du Héros (hostLocationId). */
+  | { type: 'MOVE_BOARD_PUPPIES_TO_HERO'; max: number }
+  /** Fatalité — Perdita : prend 1 Tuile Chiots capturée et la repose (non capturée)
+   *  sur le lieu hôte du Héros. */
+  | { type: 'PLACE_CAPTURED_PUPPY_AT_HERO' }
+  /** Cruella — Finissez le travail ! : autorise UNE action « Activer » gratuite ce
+   *  tour, sur le lieu courant (drapeau freeActivate). */
+  | { type: 'GRANT_FREE_ACTIVATE' }
+  /** Cruella — Quels idiots ! : au CHOIX, déplacer un Allié sur le lieu du pion OU
+   *  chercher un Allié (pioche/défausse) → main puis remélanger. Ouvre le choix
+   *  (pendingQuelsIdiots) avec sous-choix de l'Allié. */
+  | { type: 'QUELS_IDIOTS' }
   /** L'Imposteur — Tuer : défausse un Coéquipier sur le lieu du pion ou le lieu d'un
    *  Allié de l'Imposteur (choix interactif → pendingCrewmateKill) ; les autres
    *  Coéquipiers de ce lieu deviennent suspects. */
@@ -599,9 +685,10 @@ export type Effect =
    *  capturer Peach ». Si `ctx.targetHeroId` est fourni → Vanquish instantané du
    *  Héros ; sinon → capture de Peach. */
   | { type: 'IMPUISSANCE_RESOLVE'; peachCardId: string; maxStrength: number }
-  /** Bowser — Te revoilà ! : ouvre le choix (pendingRecover) d'une carte
-   *  QUELCONQUE de la défausse à reprendre en main. */
-  | { type: 'RECOVER_ANY_FROM_DISCARD' }
+  /** Bowser — Te revoilà ! / Mère Gothel — Ce qu'il m'a pris : ouvre le choix
+   *  (pendingRecover) d'une carte QUELCONQUE de la défausse à reprendre en main.
+   *  `label` : titre affiché (log/showcase) ; défaut « Te revoilà ! ». */
+  | { type: 'RECOVER_ANY_FROM_DISCARD'; label?: string }
   /** Bowser — Vol du château : dévoile la pioche jusqu'à un Allié ou un Objet, le
    *  joue gratuitement sur le lieu du pion, et remet les autres cartes dévoilées
    *  sur le dessus de la pioche (ordre conservé). */
@@ -734,6 +821,10 @@ export type Effect =
   /** Ratigan — Capture : déplace un Héros du royaume de force ≤ `maxStrength` vers
    *  `locationId` (auto : le Héros éligible le plus fort). Respecte forbiddenLocations. */
   | { type: 'MOVE_REALM_HERO_TO'; maxStrength: number; locationId: LocationId }
+  /** Ratigan — Toby (à la pose) : « Vous pouvez déplacer un Héros vers le lieu de
+   *  votre choix. » Ouvre `pendingHeroRelocate` (anyLocation, optionnel) avec les
+   *  Héros du royaume comme candidats, SAUF Toby lui-même (carte hôte exclue). */
+  | { type: 'RELOCATE_REALM_HERO_ANYWHERE' }
   /** Ratigan — Cloche : cherche la carte `cardId` (Félicia) dans la pioche ou la
    *  défausse de l'acteur, l'ajoute à sa main, puis remélange sa pioche. */
   | { type: 'TUTOR_CARD_TO_HAND'; cardId: string }
@@ -1180,6 +1271,10 @@ export interface PlayerState {
    *  (par Basil), basculant la tuile Objectif côté « Le Rat » (éliminer Basil).
    *  `undefined` pour les autres vilains. */
   becameTheRat?: boolean
+  /** Ratigan — la Reine Robot a été POSÉE sur le plateau au moins une fois. Condition
+   *  pour que SA DÉFAUSSE bascule l'objectif côté « Le Rat » : défausser la Reine
+   *  Robot depuis la MAIN (jamais posée) ne bascule PAS. `undefined` ailleurs. */
+  reineRobotWasInPlay?: boolean
   /** Yzma — Beauté endormie : effet différé armé ; déclenché au début du prochain
    *  tour d'Yzma (avant le déplacement : ouvre pendingBeautySleep). */
   beautySleepPending?: boolean
@@ -1202,6 +1297,26 @@ export interface PlayerState {
   starLocationId?: LocationId
   /** Bowser — Peach a été capturée (via Impuissance). Condition de victoire. */
   peachCaptured?: boolean
+  /** Mère Gothel — jetons CONFIANCE accumulés (au-dessus de son plateau). Objectif :
+   *  en atteindre 10 au début de son tour. Pris dans la Réserve quand elle en gagne
+   *  (n'entame pas son Pouvoir), rendus quand elle en perd. `undefined` ailleurs. */
+  confiance?: number
+  /** Mère Gothel — N'écoute que moi : Raiponce ne se déplace pas à la fin de ce tour
+   *  (drapeau consommé lors de la dérive de fin de tour). */
+  raiponceSkipMove?: boolean
+  /** Mère Gothel — Vengeance : le prochain Vanquish de ce tour rapporte 1 Confiance
+   *  si le Héros éliminé n'est pas Raiponce. Consommé au Vanquish / en fin de tour. */
+  vengeanceConfianceArmed?: boolean
+  /** Cruella d'Enfer — ses 12 Tuiles Chiots. État de chacune :
+   *  - `reserve` : dans la réserve au-dessus du plateau (face cachée tant que `revealed` est faux) ;
+   *  - `board`   : posée sur un lieu (visible), pas encore capturée ;
+   *  - `captured`: capturée (compte vers l'objectif de 99 Chiots).
+   *  `homeLocation` = lieu indiqué sur la tuile ; `location` = lieu courant (peut différer
+   *  après un déplacement Roadster/Sergent Tibs). `undefined` pour les autres vilains. */
+  puppyTiles?: PuppyTile[]
+  /** Cruella d'Enfer — Finissez le travail ! : une action « Activer » gratuite est
+   *  disponible ce tour sur le lieu courant (consommée à l'usage). */
+  freeActivate?: boolean
   /** L'Imposteur — ses 8 COÉQUIPIERS posés sur le plateau (cases d'action).
    *  Absent pour les autres vilains. Voir l'interface `Crewmate`. */
   crewmates?: Crewmate[]
@@ -1366,6 +1481,52 @@ export interface GameState {
    * hors de ce choix.
    */
   pendingDrawOrGainPower?: { playerIndex: number; draw: number; power: number } | null
+  /**
+   * Mère Gothel — Lance-moi ta chevelure : `chooserIndex` choisit de combien de
+   * lieux (parmi `options`) ramener Raiponce vers la Tour (RESOLVE_RAIPONCE_HOMEWARD).
+   * N'apparaît que lorsqu'il y a ≥ 2 possibilités (sinon le déplacement est auto).
+   */
+  pendingRaiponceHomeward?: {
+    chooserIndex: number
+    options: { steps: number; locationId: LocationId; locationName: string }[]
+  } | null
+  /**
+   * Mère Gothel — Frères Stabbington : un Allié vient d'être joué sur le lieu de
+   * Raiponce ; `chooserIndex` PEUT la déplacer sur la Tour (RESOLVE_RAIPONCE_TO_TOWER,
+   * `move` true/false). Absent / `null` hors de ce choix.
+   */
+  pendingRaiponceToTower?: { chooserIndex: number } | null
+  /**
+   * Cruella d'Enfer — choix d'une Tuile Chiots de la réserve à ajouter sur son lieu
+   * indiqué. `candidateTileIds` = tuiles de la réserve éligibles ; `label` = titre.
+   * Résolu par RESOLVE_PUPPY_ADD. Absent / `null` hors de ce choix.
+   */
+  pendingPuppyAdd?: { playerIndex: number; candidateTileIds: string[]; label: string } | null
+  /**
+   * Cruella d'Enfer — Repéré ! : `playerIndex` peut révéler jusqu'à `remaining`
+   * Tuiles Chiots FACE CACHÉE de la réserve (en cliquant dessus). Résolu par
+   * RESOLVE_PUPPY_REVEAL (une tuile) ou DONE_PUPPY_REVEAL (arrêter). `null` sinon.
+   */
+  pendingPuppyReveal?: { playerIndex: number; remaining: number } | null
+  /**
+   * Cruella d'Enfer — Horace : quand SES DEUX options sont possibles (capturer une
+   * Tuile Chiots sur son lieu OU en amener une de la réserve), `playerIndex` choisit
+   * (RESOLVE_HORACE_CHOICE). `locationId` = lieu d'Horace. `null` sinon.
+   */
+  pendingHoraceChoice?: { playerIndex: number; locationId: LocationId } | null
+  /**
+   * Cruella d'Enfer — Quels idiots ! : `phase` = 'choose' (déplacer un Allié OU en
+   * chercher un), puis 'move' / 'tutor' (choix de l'Allié parmi `candidateIds`).
+   * `canMove`/`canTutor` : options offertes au choix initial. Résolu par
+   * RESOLVE_QUELS_IDIOTS (choix) puis RESOLVE_QUELS_IDIOTS_PICK (Allié). `null` sinon.
+   */
+  pendingQuelsIdiots?: {
+    playerIndex: number
+    phase: 'choose' | 'move' | 'tutor'
+    canMove?: boolean
+    canTutor?: boolean
+    candidateIds?: string[]
+  } | null
   /**
    * Déplacement de Héros vers un lieu voisin en attente : `chooserIndex` choisit
    * un Héros du royaume de `targetIndex` et un lieu adjacent (RESOLVE_HERO_RELOCATE).
@@ -1932,6 +2093,27 @@ export type GameAction =
   /** Ratigan — Le Grand Génie du Mal : `choice` = piocher (`'draw'`) OU gagner du
    *  Pouvoir (`'power'`). */
   | { type: 'RESOLVE_DRAW_OR_GAIN_POWER'; choice: 'draw' | 'power' }
+  /** Mère Gothel — Lance-moi ta chevelure : `steps` = nombre de lieux dont Raiponce
+   *  est ramenée vers la Tour (1 ou 2). */
+  | { type: 'RESOLVE_RAIPONCE_HOMEWARD'; steps: number }
+  /** Mère Gothel — Frères Stabbington : `move` = déplacer (ou non) Raiponce sur la Tour. */
+  | { type: 'RESOLVE_RAIPONCE_TO_TOWER'; move: boolean }
+  /** Cruella d'Enfer — choix de la Tuile Chiots (réserve) à ajouter sur son lieu indiqué. */
+  | { type: 'RESOLVE_PUPPY_ADD'; tileId: string }
+  /** Cruella d'Enfer — Repéré ! : révèle une Tuile Chiots face cachée de la réserve. */
+  | { type: 'RESOLVE_PUPPY_REVEAL'; tileId: string }
+  /** Cruella d'Enfer — Repéré ! : arrête de révéler (révélation facultative). */
+  | { type: 'DONE_PUPPY_REVEAL' }
+  /** Cruella d'Enfer — Horace : `capture` = capturer sur son lieu (true) OU amener
+   *  une Tuile de la réserve (false). */
+  | { type: 'RESOLVE_HORACE_CHOICE'; capture: boolean }
+  /** Cruella d'Enfer — Quels idiots ! : choix de l'option (déplacer / chercher). */
+  | { type: 'RESOLVE_QUELS_IDIOTS'; choice: 'move' | 'tutor' }
+  /** Cruella d'Enfer — Quels idiots ! : choix de l'Allié (à déplacer ou à chercher). */
+  | { type: 'RESOLVE_QUELS_IDIOTS_PICK'; instanceId: string }
+  /** Mère Gothel — Couronne : défausse l'Objet `instanceId` (capacité gratuite, à
+   *  tout moment du tour) pour gagner 1 jeton Confiance. */
+  | { type: 'SACRIFICE_COURONNE'; instanceId: string }
   /** Apparition / Vent de panique : déplace le Héros choisi vers le lieu voisin. */
   | { type: 'RESOLVE_HERO_RELOCATE'; heroInstanceId: string; to: LocationId }
   /** Décline un déplacement de Héros FACULTATIF (Poupées vaudou). */

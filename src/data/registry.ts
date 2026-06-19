@@ -28,6 +28,8 @@ import { yzmaCards } from './villains/yzma.cards'
 import { ratiganCards } from './villains/ratigan.cards'
 import { sombraCards } from './villains/sombra.cards'
 import { patHibulaireCards } from './villains/patHibulaire.cards'
+import { gothelCards } from './villains/gothel.cards'
+import { cruellaCards } from './villains/cruella.cards'
 
 /** Toutes les cartes, tous vilains confondus. Source unique : ajouter un vilain
  *  ici le fait entrer dans le registre ET dans les tests d'intégrité globaux
@@ -50,6 +52,8 @@ export const allCards: CardDef[] = [
   ...ratiganCards,
   ...sombraCards,
   ...patHibulaireCards,
+  ...gothelCards,
+  ...cruellaCards,
 ]
 
 // On attache le classement « malus Fatalité » (data IA) au CardDef, sans muter

@@ -8,7 +8,7 @@
 // =============================================================================
 
 import type { GameAction, GameState, PlayerState } from '../engine/types'
-import { canEnterAuDela, titanReachableDests } from '../engine/effects'
+import { canEnterAuDela, raiponceLocation, titanReachableDests } from '../engine/effects'
 import {
   adjacentLocationIds,
   alliesAt,
@@ -473,6 +473,27 @@ export function enumerateActions(state: GameState): GameAction[] {
     out.push({ type: 'SKIP_REMOTE_ACTION' })
   }
 
+  // Mère Gothel — Couronne : capacité gratuite (défausse → 1 Confiance). Le bot ne
+  // s'en sert que si ce point le fait GAGNER (sinon il garde l'Objet pour son passif
+  // « 2 Confiance par Héros éliminé sur son lieu »).
+  if (me.objective.type === 'CONFIANCE_THRESHOLD' && (me.confiance ?? 0) + 1 >= me.objective.threshold) {
+    for (const loc of me.locations) {
+      for (const c of me.board[loc.id] ?? []) {
+        if (c.cardId === 'couronne-gothel') {
+          out.push({ type: 'SACRIFICE_COURONNE', instanceId: c.instanceId })
+        }
+      }
+    }
+  }
+
+  // Cruella — Finissez le travail ! : activation gratuite disponible → on propose
+  // d'activer chaque capacité finançable, sans dépendre d'un lieu Activer.
+  if (me.freeActivate) {
+    for (const c of activatableCards(state)) {
+      out.push({ type: 'ACTIVATE', actionId: 'free-activate', cardInstanceId: c.instanceId })
+    }
+  }
+
   for (const action of getAvailableActions(state)) {
     if (action.type === 'GAIN_POWER') {
       out.push({ type: 'EXECUTE_ACTION', actionId: action.id })
@@ -697,6 +718,26 @@ export function enumerateActions(state: GameState): GameAction[] {
           if (
             (card.effects ?? []).some((e) => e.type === 'BEAUTY_SLEEP') &&
             state.usedActionIds.some((a) => !a.includes(':'))
+          )
+            continue
+          // « Je t'aime bien plus » (Gothel) : inutile si le pion n'est pas sur le
+          // lieu de Raiponce (l'Événement n'aurait aucun effet).
+          if (
+            card.type === 'effect' &&
+            (card.effects ?? []).some((e) => e.type === 'GAIN_CONFIANCE_WITH_RAIPONCE') &&
+            raiponceLocation(me) !== me.pawnLocation
+          )
+            continue
+          // Le diable l'emporte (Cruella) : inutile sans carte récupérable en défausse.
+          {
+            const rec = (card.effects ?? []).find((e) => e.type === 'RECOVER_FROM_DISCARD_CHOICE')
+            if (rec && rec.type === 'RECOVER_FROM_DISCARD_CHOICE' && !me.discard.some((c) => rec.types.includes(c.type)))
+              continue
+          }
+          // Finissez le travail ! (Cruella) : inutile sans capacité activable finançable.
+          if (
+            (card.effects ?? []).some((e) => e.type === 'GRANT_FREE_ACTIVATE') &&
+            !Object.values(me.board).flat().some((c) => c.activatedCost !== undefined && c.activatedCost <= me.power)
           )
             continue
           out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId })

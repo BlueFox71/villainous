@@ -227,6 +227,165 @@ function patchCard(
  * défaussés) ET par la carte Intimidation (alliés gardés en jeu). Aucune
  * vérification d'action ; c'est l'appelant qui s'en charge.
  */
+/** Mère Gothel — lieu où se trouve Raiponce (Héros-tuile), ou null si absente. */
+export function raiponceLocation(p: PlayerState): string | null {
+  for (const loc of p.locations) {
+    if ((p.board[loc.id] ?? []).some((c) => c.cardId === 'raiponce')) return loc.id
+  }
+  return null
+}
+
+/** Mère Gothel — déplace Raiponce (et ses Objets associés) vers `toLoc`. Pur. No-op
+ *  si elle est absente ou déjà sur place. Partagé par MOVE_RAIPONCE et la dérive de
+ *  fin de tour. */
+export function relocateRaiponce(state: GameState, idx: number, toLoc: string): GameState {
+  const p = state.players[idx]
+  const from = raiponceLocation(p)
+  if (!from || from === toLoc) return state
+  const tile = (p.board[from] ?? []).find((c) => c.cardId === 'raiponce')!
+  const moveIds = new Set<string>([tile.instanceId])
+  for (const c of p.board[from] ?? []) if (c.attachedTo === tile.instanceId) moveIds.add(c.instanceId)
+  const moving = (p.board[from] ?? []).filter((c) => moveIds.has(c.instanceId))
+  const next = updatePlayer(state, idx, (pl) => ({
+    ...pl,
+    board: {
+      ...pl.board,
+      [from]: (pl.board[from] ?? []).filter((c) => !moveIds.has(c.instanceId)),
+      [toLoc]: [...(pl.board[toLoc] ?? []), ...moving],
+    },
+  }))
+  const toName = p.locations.find((l) => l.id === toLoc)?.name ?? toLoc
+  return { ...next, log: [...next.log, `Raiponce se déplace vers **${toName}**.`] }
+}
+
+// ---------------------------------------------------------------------------
+// Cruella d'Enfer — helpers Tuiles Chiots.
+// ---------------------------------------------------------------------------
+
+/** Un Héros de `cardId` est-il présent sur `locationId` du royaume de `p` ? */
+function heroPresent(p: PlayerState, locationId: string, cardId: string): boolean {
+  return (p.board[locationId] ?? []).some((c) => c.type === 'hero' && c.cardId === cardId)
+}
+
+const locName = (p: PlayerState, id: string) => p.locations.find((l) => l.id === id)?.name ?? id
+
+/** Ajoute la Tuile Chiots `tileId` (de la réserve) sur son lieu indiqué. Si Anita
+ *  et Roger gardent ce lieu, la tuile retourne dans la réserve (face visible). */
+export function addPuppyFromReserve(state: GameState, idx: number, tileId: string): GameState {
+  const p = state.players[idx]
+  const tile = (p.puppyTiles ?? []).find((t) => t.id === tileId && t.state === 'reserve')
+  if (!tile) return state
+  const home = tile.homeLocation
+  const bounced = heroPresent(p, home, 'anita-et-roger')
+  const next = updatePlayer(state, idx, (pl) => ({
+    ...pl,
+    puppyTiles: (pl.puppyTiles ?? []).map((t) =>
+      t.id === tileId
+        ? bounced
+          ? { ...t, state: 'reserve' as const, revealed: true, location: home }
+          : { ...t, state: 'board' as const, revealed: true, location: home }
+        : t,
+    ),
+  }))
+  const msg = bounced
+    ? `Anita et Roger renvoient une Tuile Chiots (${tile.value}) dans la réserve.`
+    : `${p.villainName} amène une Tuile Chiots (${tile.value}) sur **${locName(p, home)}**.`
+  return { ...next, log: [...next.log, msg] }
+}
+
+/** Capture jusqu'à `max` Tuiles Chiots posées sur `locationId` (les plus grosses
+ *  d'abord). Bloqué si Pongo garde ce lieu. */
+export function capturePuppiesAt(state: GameState, idx: number, locationId: string, max: number): GameState {
+  const p = state.players[idx]
+  if (heroPresent(p, locationId, 'pongo')) {
+    return { ...state, log: [...state.log, `Pongo empêche toute capture sur **${locName(p, locationId)}**.`] }
+  }
+  const onLoc = (p.puppyTiles ?? [])
+    .filter((t) => t.state === 'board' && t.location === locationId)
+    .sort((a, b) => b.value - a.value)
+  const toCapture = new Set(onLoc.slice(0, Math.max(0, max)).map((t) => t.id))
+  if (toCapture.size === 0) {
+    return { ...state, log: [...state.log, `${p.villainName} : aucune Tuile Chiots à capturer sur **${locName(p, locationId)}**.`] }
+  }
+  const gained = onLoc.filter((t) => toCapture.has(t.id)).reduce((n, t) => n + t.value, 0)
+  const next = updatePlayer(state, idx, (pl) => ({
+    ...pl,
+    puppyTiles: (pl.puppyTiles ?? []).map((t) => (toCapture.has(t.id) ? { ...t, state: 'captured' as const } : t)),
+  }))
+  const total = (next.players[idx].puppyTiles ?? []).filter((t) => t.state === 'captured').reduce((n, t) => n + t.value, 0)
+  return {
+    ...next,
+    log: [...next.log, `${p.villainName} capture ${toCapture.size} Tuile(s) Chiots (+${gained} Chiots, total ${total}).`],
+  }
+}
+
+// --- Cruella d'Enfer — Quels idiots ! (déplacer un Allié OU en chercher un) -------
+
+/** Alliés du royaume déplaçables sur le lieu du pion (= pas déjà sur ce lieu). */
+export function quelsMoveCandidates(p: PlayerState): CardInstance[] {
+  const here = p.pawnLocation
+  if (!here) return []
+  return p.locations
+    .filter((l) => l.id !== here)
+    .flatMap((l) => (p.board[l.id] ?? []).filter((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket))
+}
+
+/** Alliés présents dans la pioche OU la défausse (Quels idiots ! — chercher). */
+export function quelsTutorCandidates(p: PlayerState): CardInstance[] {
+  return [...p.deck, ...p.discard].filter((c) => c.type === 'ally')
+}
+
+/** Déplace l'Allié `allyId` (+ ses Objets associés) sur le lieu du pion. */
+export function doQuelsMove(state: GameState, idx: number, allyId: string): GameState {
+  const p = state.players[idx]
+  const here = p.pawnLocation
+  if (!here) return state
+  const from = p.locations.find((l) => (p.board[l.id] ?? []).some((c) => c.instanceId === allyId))?.id
+  if (!from || from === here) return state
+  const moving = (p.board[from] ?? []).filter((c) => c.instanceId === allyId || c.attachedTo === allyId)
+  const ids = new Set(moving.map((c) => c.instanceId))
+  const next = updatePlayer(state, idx, (pl) => ({
+    ...pl,
+    board: {
+      ...pl.board,
+      [from]: (pl.board[from] ?? []).filter((c) => !ids.has(c.instanceId)),
+      [here]: [...(pl.board[here] ?? []), ...moving],
+    },
+  }))
+  const name = moving.find((c) => c.instanceId === allyId)?.name ?? 'Allié'
+  return { ...next, log: [...next.log, `${p.villainName} déplace **${name}** sur **${locName(p, here)}** (Quels idiots !).`] }
+}
+
+/** Cherche l'Allié `allyId` (pioche/défausse) → main, puis remélange la pioche. */
+export function doQuelsTutor(state: GameState, idx: number, allyId: string): GameState {
+  const p = state.players[idx]
+  const chosen = [...p.deck, ...p.discard].find((c) => c.instanceId === allyId && c.type === 'ally')
+  if (!chosen) return state
+  let next = updatePlayer(state, idx, (pl) => ({
+    ...pl,
+    deck: pl.deck.filter((c) => c.instanceId !== allyId),
+    discard: pl.discard.filter((c) => c.instanceId !== allyId),
+    hand: [...pl.hand, chosen],
+  }))
+  const r = shuffle(next.players[idx].deck, next.rngState)
+  next = updatePlayer({ ...next, rngState: r.state }, idx, (pl) => ({ ...pl, deck: r.result }))
+  return { ...next, log: [...next.log, `${p.villainName} récupère **${chosen.name}** (Quels idiots !) et remélange sa pioche.`] }
+}
+
+/** Ouvre la sélection « déplacer un Allié » (auto si un seul candidat). */
+export function enterQuelsMove(state: GameState, idx: number): GameState {
+  const cands = quelsMoveCandidates(state.players[idx])
+  if (cands.length === 1) return doQuelsMove(state, idx, cands[0].instanceId)
+  return { ...state, pendingQuelsIdiots: { playerIndex: idx, phase: 'move', candidateIds: cands.map((c) => c.instanceId) } }
+}
+
+/** Ouvre la sélection « chercher un Allié » (auto si un seul candidat). */
+export function enterQuelsTutor(state: GameState, idx: number): GameState {
+  const cands = quelsTutorCandidates(state.players[idx])
+  if (cands.length === 1) return doQuelsTutor(state, idx, cands[0].instanceId)
+  return { ...state, pendingQuelsIdiots: { playerIndex: idx, phase: 'tutor', candidateIds: cands.map((c) => c.instanceId) } }
+}
+
 export function performVanquish(
   state: GameState,
   heroInstanceId: string,
@@ -429,15 +588,33 @@ export function performVanquish(
   const mufasaInPile = (me.succession ?? []).some((c) => c.cardId === 'mufasa')
   const toSuccession =
     me.succession !== undefined && (heroCard.cardId === 'mufasa' || mufasaInPile)
+  // Mère Gothel — Raiponce n'est JAMAIS défaussée : éliminée, elle revient sur la
+  // Tour (héros toujours présent dans le royaume). On la retire de son lieu puis on
+  // la repose sur 'tour', sans la mettre en défausse Fatalité.
+  const raiponceReturns = heroCard.cardId === 'raiponce'
+  // Mère Gothel — Poignard : si l'Allié qui élimine Raiponce porte un Poignard,
+  // Gothel gagne 1 jeton Confiance.
+  const poignardKillsRaiponce =
+    raiponceReturns && attachedToAllies.some((c) => c.cardId === 'poignard')
+  // Mère Gothel — Vengeance : ce Vanquish rapporte 1 Confiance si le Héros éliminé
+  // n'est PAS Raiponce. Le drapeau est consommé par ce Vanquish.
+  const vengeanceConfiance = !!me.vengeanceConfianceArmed && !raiponceReturns
+  // Mère Gothel — Couronne : si un Héros est éliminé sur le lieu d'une Couronne,
+  // Gothel gagne 2 Confiance (par Couronne présente sur ce lieu).
+  const couronneConfiance =
+    (me.board[heroLoc] ?? []).filter((c) => c.cardId === 'couronne-gothel').length * 2
+  const confGain = (poignardKillsRaiponce ? 1 : 0) + (vengeanceConfiance ? 1 : 0) + couronneConfiance
   let next = updateActivePlayer(state, (p) => ({
     ...p,
     board: Object.fromEntries(
       Object.entries(p.board).map(([locId, cards]) => [
         locId,
-        cards.filter((c) => !removedIds.has(c.instanceId)),
+        locId === 'tour' && raiponceReturns
+          ? [...cards.filter((c) => !removedIds.has(c.instanceId)), { ...heroCard, lockedPower: undefined, attachedTo: undefined }]
+          : cards.filter((c) => !removedIds.has(c.instanceId)),
       ]),
     ),
-    fateDiscard: toSuccession || kronkToVillain ? p.fateDiscard : [...p.fateDiscard, heroDiscarded],
+    fateDiscard: raiponceReturns || toSuccession || kronkToVillain ? p.fateDiscard : [...p.fateDiscard, heroDiscarded],
     succession: toSuccession ? [...(p.succession ?? []), heroDiscarded] : p.succession,
     discard: [
       ...(keepAllies ? p.discard : [...p.discard, ...discardedAllyCards]),
@@ -445,8 +622,28 @@ export function performVanquish(
     ],
     hand: [...p.hand, ...returnedToHand],
     power: p.power + locked + flechesCount * 2 + rouetBonus + nessusBonus + banzaiBonus,
+    confiance: confGain > 0 ? (p.confiance ?? 0) + confGain : p.confiance,
+    vengeanceConfianceArmed: p.vengeanceConfianceArmed ? false : p.vengeanceConfianceArmed,
     objectiveHeroDefeated: kronkAteKuzco || ratiganBeatBasil ? true : p.objectiveHeroDefeated,
   }))
+  if (poignardKillsRaiponce) {
+    next = {
+      ...next,
+      log: [...next.log, `Poignard : ${me.villainName} gagne 1 Confiance (Raiponce éliminée).`],
+    }
+  }
+  if (vengeanceConfiance) {
+    next = {
+      ...next,
+      log: [...next.log, `Vengeance : ${me.villainName} gagne 1 Confiance (Héros éliminé).`],
+    }
+  }
+  if (couronneConfiance > 0) {
+    next = {
+      ...next,
+      log: [...next.log, `Couronne : ${me.villainName} gagne ${couronneConfiance} Confiance (Héros éliminé sur son lieu).`],
+    }
+  }
   if (banzaiBonus > 0) {
     next = {
       ...next,
@@ -506,6 +703,7 @@ export function performVanquish(
       ...(returnedToHand.length > 0
         ? [`**${returnedToHand.map((c) => c.name).join(', ')}** retourne${returnedToHand.length > 1 ? 'nt' : ''} en main (Hydre).`]
         : []),
+      ...(raiponceReturns ? ['**Raiponce** n’est pas défaussée : elle revient sur la Tour.'] : []),
     ],
   }
   // Showcase « Vanquish » : Héros vaincu + Alliés utilisés + leurs Objets associés
@@ -892,6 +1090,232 @@ export function resolveEffect(
         ],
       }
       return pushRobinSteal(next, idx, effect.amount - gained)
+    }
+    case 'GAIN_CONFIANCE': {
+      const next = updatePlayer(state, idx, (p) => ({ ...p, confiance: (p.confiance ?? 0) + effect.amount }))
+      const actor = next.players[idx]
+      return {
+        ...next,
+        log: [...next.log, `${actor.villainName} gagne ${effect.amount} Confiance (total : ${actor.confiance}).`],
+      }
+    }
+    case 'LOSE_CONFIANCE': {
+      const next = updatePlayer(state, idx, (p) => ({ ...p, confiance: Math.max(0, (p.confiance ?? 0) - effect.amount) }))
+      const actor = next.players[idx]
+      return {
+        ...next,
+        log: [...next.log, `${actor.villainName} perd ${effect.amount} Confiance (total : ${actor.confiance}).`],
+      }
+    }
+    case 'SKIP_RAIPONCE_MOVE': {
+      const next = updatePlayer(state, idx, (p) => ({ ...p, raiponceSkipMove: true }))
+      return { ...next, log: [...next.log, `${next.players[idx].villainName} : Raiponce ne se déplacera pas ce tour-ci.`] }
+    }
+    case 'VENGEANCE': {
+      // Arme le bonus de Confiance et OFFRE une action « Éliminer un Héros » à la Tour
+      // (seul lieu de Gothel avec un Vanquish). Fenêtre « agir à un lieu » facultative
+      // (si aucun Héros vincible, le joueur passe). +1 Confiance au Vanquish si la cible
+      // n'est pas Raiponce (cf. performVanquish).
+      const next = updatePlayer(state, idx, (p) => ({ ...p, vengeanceConfianceArmed: true }))
+      return {
+        ...next,
+        actAtLocation: 'tour',
+        actAtLocationSkippable: true,
+        log: [...next.log, `${next.players[idx].villainName} (Vengeance) : effectuez une action Éliminer un Héros à la Tour.`],
+      }
+    }
+    case 'MOVE_RAIPONCE': {
+      const p = state.players[idx]
+      const from = raiponceLocation(p)
+      if (!from) return state
+      const order = p.locations.map((l) => l.id)
+      const i = order.indexOf(from)
+      const steps = effect.steps ?? 1
+      const target =
+        effect.to === 'tour'
+          ? order[0]
+          : effect.to === 'corona'
+            ? order[order.length - 1]
+            : effect.to === 'left'
+              ? order[Math.max(0, i - steps)]
+              : order[Math.min(order.length - 1, i + steps)]
+      if (target === from) return state
+      return relocateRaiponce(state, idx, target)
+    }
+    case 'OFFER_RAIPONCE_TO_TOWER':
+      // Marqueur (Frères Stabbington) : la résolution réelle a lieu APRÈS le
+      // placement de l'Allié, dans applyPlayCard (besoin du lieu d'arrivée).
+      return state
+    case 'RAIPONCE_HOMEWARD': {
+      // Lance-moi ta chevelure : Raiponce sur la Tour → gain de Confiance ; sinon
+      // ramène-la de 1 à `maxSteps` lieux vers la Tour (à gauche). Le joueur choisit
+      // le nombre de lieux dès qu'il y a ≥ 2 possibilités (pendingRaiponceHomeward).
+      const p = state.players[idx]
+      const from = raiponceLocation(p)
+      if (!from) return state
+      const order = p.locations.map((l) => l.id)
+      const i = order.indexOf(from)
+      if (i <= 0) {
+        // Déjà sur la Tour → simple gain de Confiance.
+        return resolveEffect(state, { type: 'GAIN_CONFIANCE', amount: effect.confianceIfAtTower }, { actorIndex: idx })
+      }
+      // Possibilités : de 1 à min(maxSteps, distance à la Tour) lieux vers la gauche.
+      const maxPossible = Math.min(effect.maxSteps, i)
+      const options = Array.from({ length: maxPossible }, (_, k) => {
+        const steps = k + 1
+        const destId = order[i - steps]
+        return { steps, locationId: destId, locationName: p.locations.find((l) => l.id === destId)?.name ?? destId }
+      })
+      if (options.length <= 1) {
+        // Un seul choix possible → déplacement direct (pas de choix à faire).
+        return relocateRaiponce(state, idx, options[0].locationId)
+      }
+      return {
+        ...state,
+        pendingRaiponceHomeward: { chooserIndex: idx, options },
+        log: [...state.log, `${p.villainName} (Lance-moi ta chevelure) : ramène Raiponce de 1 ou 2 lieux vers la Tour.`],
+      }
+    }
+    // --- Cruella d'Enfer : Tuiles Chiots ------------------------------------
+    case 'ADD_PUPPY_FROM_RESERVE': {
+      const p = state.players[idx]
+      const candidates = (p.puppyTiles ?? []).filter((t) => t.state === 'reserve')
+      if (candidates.length === 0) {
+        return { ...state, log: [...state.log, `${p.villainName} : réserve de Chiots vide.`] }
+      }
+      return {
+        ...state,
+        pendingPuppyAdd: {
+          playerIndex: idx,
+          candidateTileIds: candidates.map((t) => t.id),
+          label: effect.label ?? 'Tuile Chiots',
+        },
+        log: [...state.log, `${p.villainName} choisit une Tuile Chiots de la réserve (${effect.label ?? 'ajout'}).`],
+      }
+    }
+    case 'CAPTURE_PUPPY_AT_PAWN': {
+      const p = state.players[idx]
+      if (!p.pawnLocation) return state
+      return capturePuppiesAt(state, idx, p.pawnLocation, 1)
+    }
+    case 'CAPTURE_PUPPY_AT_HOST': {
+      if (!ctx?.hostLocationId) return state
+      return capturePuppiesAt(state, idx, ctx.hostLocationId, effect.max)
+    }
+    case 'REVEAL_PUPPY_RESERVE': {
+      // Repéré ! : le joueur choisit quelles Tuiles face cachée révéler (jusqu'à
+      // `count`). Ouvre pendingPuppyReveal (clic direct sur les tuiles ; bot auto).
+      const p = state.players[idx]
+      const hidden = (p.puppyTiles ?? []).filter((t) => t.state === 'reserve' && !t.revealed).length
+      if (hidden === 0) {
+        return { ...state, log: [...state.log, `${p.villainName} : aucune Tuile Chiots face cachée à révéler.`] }
+      }
+      return {
+        ...state,
+        pendingPuppyReveal: { playerIndex: idx, remaining: Math.min(effect.count, hidden) },
+        log: [...state.log, `${p.villainName} (Repéré !) : révélez jusqu'à ${Math.min(effect.count, hidden)} Tuile(s) Chiots de la réserve.`],
+      }
+    }
+    case 'GAIN_POWER_PER_PUPPY_LOCATION': {
+      const p = state.players[idx]
+      const locs = new Set((p.puppyTiles ?? []).filter((t) => t.state === 'board').map((t) => t.location))
+      return resolveEffect(state, { type: 'GAIN_POWER', amount: locs.size }, { actorIndex: idx })
+    }
+    case 'UNCAPTURE_PUPPY_TO_RESERVE': {
+      const p = state.players[idx]
+      const captured = (p.puppyTiles ?? []).filter((t) => t.state === 'captured').sort((a, b) => b.value - a.value)
+      const pick = new Set(captured.slice(0, Math.max(0, effect.count)).map((t) => t.id))
+      if (pick.size === 0) return { ...state, log: [...state.log, `${p.villainName} : aucune Tuile Chiots capturée à libérer.`] }
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        puppyTiles: (pl.puppyTiles ?? []).map((t) =>
+          pick.has(t.id) ? { ...t, state: 'reserve' as const, revealed: true, location: t.homeLocation } : t,
+        ),
+      }))
+      return { ...next, log: [...next.log, `Évasion : ${pick.size} Tuile(s) Chiots capturée(s) repart(ent) dans la réserve.`] }
+    }
+    case 'RETURN_BOARD_PUPPIES_TO_RESERVE': {
+      const p = state.players[idx]
+      // Choisit le lieu avec le plus de Chiots posés, en renvoie jusqu'à `max`.
+      const byLoc = new Map<string, typeof p.puppyTiles>()
+      for (const t of p.puppyTiles ?? []) {
+        if (t.state !== 'board') continue
+        byLoc.set(t.location, [...(byLoc.get(t.location) ?? []), t])
+      }
+      let bestLoc: string | null = null
+      let bestSum = -1
+      for (const [loc, tiles] of byLoc) {
+        const sum = (tiles ?? []).reduce((n, t) => n + t.value, 0)
+        if (sum > bestSum) { bestSum = sum; bestLoc = loc }
+      }
+      if (!bestLoc) return { ...state, log: [...state.log, `Nous sommes des labradors : aucune Tuile Chiots posée.`] }
+      const pick = new Set((byLoc.get(bestLoc) ?? []).sort((a, b) => b.value - a.value).slice(0, effect.max).map((t) => t.id))
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        puppyTiles: (pl.puppyTiles ?? []).map((t) =>
+          pick.has(t.id) ? { ...t, state: 'reserve' as const, revealed: true, location: t.homeLocation } : t,
+        ),
+      }))
+      return { ...next, log: [...next.log, `Nous sommes des labradors : ${pick.size} Tuile(s) Chiots de **${locName(p, bestLoc)}** repart(ent) dans la réserve.`] }
+    }
+    case 'MOVE_BOARD_PUPPIES_TO_HERO': {
+      if (!ctx?.hostLocationId) return state
+      const dest = ctx.hostLocationId
+      const p = state.players[idx]
+      const movable = (p.puppyTiles ?? [])
+        .filter((t) => t.state === 'board' && t.location !== dest)
+        .sort((a, b) => b.value - a.value)
+        .slice(0, Math.max(0, effect.max))
+      const pick = new Set(movable.map((t) => t.id))
+      if (pick.size === 0) return state
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        puppyTiles: (pl.puppyTiles ?? []).map((t) => (pick.has(t.id) ? { ...t, location: dest } : t)),
+      }))
+      return { ...next, log: [...next.log, `Sergent Tibs regroupe ${pick.size} Tuile(s) Chiots sur **${locName(p, dest)}**.`] }
+    }
+    case 'PLACE_CAPTURED_PUPPY_AT_HERO': {
+      if (!ctx?.hostLocationId) return state
+      const dest = ctx.hostLocationId
+      const p = state.players[idx]
+      const captured = (p.puppyTiles ?? []).filter((t) => t.state === 'captured').sort((a, b) => b.value - a.value)
+      const pick = captured[0]
+      if (!pick) return state
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        puppyTiles: (pl.puppyTiles ?? []).map((t) =>
+          t.id === pick.id ? { ...t, state: 'board' as const, location: dest, revealed: true } : t,
+        ),
+      }))
+      return { ...next, log: [...next.log, `Perdita libère une Tuile Chiots (${pick.value}) sur **${locName(p, dest)}**.`] }
+    }
+    case 'GRANT_FREE_ACTIVATE': {
+      const next = updatePlayer(state, idx, (pl) => ({ ...pl, freeActivate: true }))
+      return { ...next, log: [...next.log, `${state.players[idx].villainName} : une activation gratuite est disponible (Finissez le travail !).`] }
+    }
+    case 'QUELS_IDIOTS': {
+      const p = state.players[idx]
+      const canMove = quelsMoveCandidates(p).length > 0
+      const canTutor = quelsTutorCandidates(p).length > 0
+      if (!canMove && !canTutor) return { ...state, log: [...state.log, `${p.villainName} : aucun Allié à déplacer ni à chercher.`] }
+      // Les DEUX options possibles → on demande laquelle (puis l'Allié).
+      if (canMove && canTutor) {
+        return {
+          ...state,
+          pendingQuelsIdiots: { playerIndex: idx, phase: 'choose', canMove, canTutor },
+          log: [...state.log, `${p.villainName} (Quels idiots !) : déplacer un Allié ou en chercher un ?`],
+        }
+      }
+      return canMove ? enterQuelsMove(state, idx) : enterQuelsTutor(state, idx)
+    }
+    case 'GAIN_CONFIANCE_WITH_RAIPONCE': {
+      const p = state.players[idx]
+      const rLoc = raiponceLocation(p)
+      if (!rLoc || p.pawnLocation !== rLoc) return state
+      const gain = effect.amount + (rLoc === p.locations[0]?.id ? effect.bonusAtTour : 0)
+      const next = updatePlayer(state, idx, (pl) => ({ ...pl, confiance: (pl.confiance ?? 0) + gain }))
+      const actor = next.players[idx]
+      return { ...next, log: [...next.log, `${actor.villainName} gagne ${gain} Confiance (avec Raiponce${rLoc === p.locations[0]?.id ? ' à la Tour' : ''}).`] }
     }
     case 'GAIN_POWER_PER_HERO_IN_REALM': {
       const heroes = countHeroesInRealm(state, idx)
@@ -3281,15 +3705,17 @@ export function resolveEffect(
       return resolveEffect(state, { type: 'CAPTURE_PEACH', peachCardId: effect.peachCardId }, ctx)
     }
     case 'RECOVER_ANY_FROM_DISCARD': {
-      // Te revoilà ! : reprend en main une carte QUELCONQUE de la défausse (choix).
+      // Te revoilà ! / Ce qu'il m'a pris : reprend en main une carte QUELCONQUE de
+      // la défausse (choix). `label` distingue la carte source dans les messages.
       const actor = state.players[idx]
+      const label = effect.label ?? 'Te revoilà !'
       if (actor.discard.length === 0) {
         return { ...state, log: [...state.log, `${actor.villainName} : défausse vide, rien à récupérer.`] }
       }
       return {
         ...state,
-        pendingRecover: { playerIndex: idx, candidateIds: actor.discard.map((c) => c.instanceId), label: 'Te revoilà !' },
-        log: [...state.log, `${actor.villainName} récupère une carte de sa défausse (Te revoilà !).`],
+        pendingRecover: { playerIndex: idx, candidateIds: actor.discard.map((c) => c.instanceId), label },
+        log: [...state.log, `${actor.villainName} récupère une carte de sa défausse (${label}).`],
       }
     }
     case 'REVEAL_UNTIL_PLAY_ALLY_OR_ITEM': {
@@ -4092,6 +4518,32 @@ export function resolveEffect(
         { type: 'MOVE_HERO_TO_LOCATION', locationId: effect.locationId },
         { actorIndex: idx, targetHeroId: candidates[0].instanceId },
       )
+    }
+    case 'RELOCATE_REALM_HERO_ANYWHERE': {
+      // Ratigan — Toby (à la pose) : « Vous pouvez déplacer un Héros vers le lieu de
+      // votre choix. » Contrairement à Capture (destination imposée), la destination
+      // est ici libre, mais Toby NE PEUT PAS se déplacer lui-même : on exclut la carte
+      // hôte des candidats (comme Mégara). Déplacement FACULTATIF.
+      const actor = state.players[idx]
+      const heroes = Object.values(actor.board)
+        .flat()
+        .filter((c) => c.type === 'hero' && c.instanceId !== ctx?.hostInstanceId)
+      if (heroes.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : aucun autre Héros à déplacer (Toby).`] }
+      }
+      // « Vous » = le joueur qui pose la Fatalité (l'attaquant = activePlayer), comme
+      // Mégara — pas le propriétaire du royaume.
+      return {
+        ...state,
+        pendingHeroRelocate: {
+          chooserIndex: state.activePlayer,
+          targetIndex: idx,
+          anyLocation: true,
+          optional: true,
+          candidateIds: heroes.map((c) => c.instanceId),
+        },
+        log: [...state.log, `${state.players[state.activePlayer].villainName} peut déplacer un Héros vers le lieu de son choix (Toby).`],
+      }
     }
     case 'TUTOR_CARD_TO_HAND': {
       // Ratigan — Cloche : cherche `cardId` (Félicia) dans la pioche ou la défausse,

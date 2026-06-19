@@ -178,6 +178,42 @@ export function BoardImage({
         ))
       })()}
 
+      {/* Cruella d'Enfer — TUILES CHIOTS posées sur les lieux (état `board`).
+          Chaque tuile affiche sa face (valeur 11/22) ; image dérivée du lieu d'origine. */}
+      {(() => {
+        const tiles = (player.puppyTiles ?? []).filter((t) => t.state === 'board')
+        if (tiles.length === 0) return null
+        const shortLoc = (homeLocation: string) =>
+          homeLocation === 'maison-radcliff' ? 'maison' : homeLocation
+        // Regroupe par lieu courant pour les disposer côte à côte.
+        const byLoc = new Map<string, typeof tiles>()
+        for (const t of tiles) byLoc.set(t.location, [...(byLoc.get(t.location) ?? []), t])
+        return [...byLoc.entries()].flatMap(([locId, locTiles]) => {
+          const i = player.locations.findIndex((l) => l.id === locId)
+          if (i < 0) return []
+          const center = PAWN_FIRST_LEFT + i * PAWN_STEP
+          const m = locTiles.length
+          const spread = Math.min(16, 5 * m) // étalement horizontal (%)
+          return locTiles.map((t, k) => {
+            const left = m > 1 ? center - spread / 2 + ((k + 0.5) / m) * spread : center
+            return (
+              <img
+                key={`puppy-${t.id}`}
+                src={`/cards/cruella/tuile-${shortLoc(t.homeLocation)}-${t.value}.png`}
+                alt={`Tuile Chiots ${t.value}`}
+                title={`Tuile Chiots — ${t.value} chiots`}
+                className="pointer-events-none absolute z-[14] w-auto -translate-x-1/2 -translate-y-1/2 rounded-sm border border-black/40 shadow"
+                style={{
+                  left: `${left}%`,
+                  top: '47%',
+                  height: `${Math.round(player.pawnHeightPx * 0.5)}px`,
+                }}
+              />
+            )
+          })
+        })
+      })()}
+
       {/* L'Imposteur — ses 8 COÉQUIPIERS, posés SUR leur case d'action (slot
           gauche/droite). On voit ainsi quelle action ils occupent ; suspect = halo
           rouge SUR l'icône (action recouverte). Deux Coéquipiers sur la même case

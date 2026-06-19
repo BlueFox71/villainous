@@ -75,10 +75,30 @@ describe('Ratigan — objectif « L’Esprit Supérieur »', () => {
 })
 
 describe('Ratigan — bascule « Le Rat »', () => {
-  it('syncRatiganObjective bascule dès que la Reine Robot est dans la défausse', () => {
+  it('ne bascule PAS si la Reine Robot est défaussée sans avoir été posée (depuis la main)', () => {
     const base = game()
     const flipped = syncRatiganObjective({ ...base.players[0], discard: [item('rr', 'reine-robot', 15)] })
+    expect(flipped.becameTheRat).toBeFalsy()
+  })
+
+  it('bascule quand une Reine Robot POSÉE (reineRobotWasInPlay) est défaussée', () => {
+    const base = game()
+    const flipped = syncRatiganObjective({
+      ...base.players[0],
+      reineRobotWasInPlay: true,
+      discard: [item('rr', 'reine-robot', 15)],
+    })
     expect(flipped.becameTheRat).toBe(true)
+  })
+
+  it('défausser la Reine Robot depuis la MAIN (action Défausser) ne bascule PAS', () => {
+    let s = game()
+    const robot = item('rr', 'reine-robot', 15)
+    s = withBoard(s, {}, { hand: [robot], pawnLocation: 'magasin-flaversham', becameTheRat: false })
+    s = { ...s, phase: 'ACTION' }
+    const after = applyAction(s, { type: 'DISCARD_CARDS', actionId: 'discard', instanceIds: ['rr'] })
+    expect(after.players[0].discard.some((c) => c.cardId === 'reine-robot')).toBe(true)
+    expect(after.players[0].becameTheRat).toBeFalsy() // jamais posée → pas de bascule
   })
 
   it('défausser la Reine Robot (Basil infligé) bascule l’objectif IMMÉDIATEMENT', () => {
@@ -92,7 +112,7 @@ describe('Ratigan — bascule « Le Rat »', () => {
       ...base,
       phase: 'ACTION',
       activePlayer: 0,
-      players: base.players.map((p, i) => (i === 0 ? { ...p, board: { ...p.board, 'buckingham-palace': [robot] } } : p)),
+      players: base.players.map((p, i) => (i === 0 ? { ...p, reineRobotWasInPlay: true, board: { ...p.board, 'buckingham-palace': [robot] } } : p)),
     }
     // Mode test : on inflige Basil sur le lieu de la Reine Robot (déclenche son onPlace).
     const after = applyAction(s, { type: 'TEST_PLACE_FATE', card: basil, to: 'buckingham-palace' })
@@ -209,6 +229,31 @@ describe('Ratigan — effets de cartes (2b)', () => {
     const after = resolveEffect(s, { type: 'MOVE_REALM_HERO_TO', maxStrength: 3, locationId: 'repaire-secret' }, { actorIndex: 0 })
     expect(after.pendingHeroRelocate ?? null).toBeNull()
     expect(after.players[0].board['repaire-secret'].some((c) => c.instanceId === 'h2')).toBe(true)
+  })
+
+  it('Toby : déplace un AUTRE Héros n’importe où, mais PAS lui-même', () => {
+    const s = withBoard(game(), {
+      'big-ben': [hero('toby', 'toby-ratigan', 6)],
+      'magasin-flaversham': [hero('o', 'olivia', 1)],
+    })
+    const after = resolveEffect(s, { type: 'RELOCATE_REALM_HERO_ANYWHERE' }, { actorIndex: 0, hostInstanceId: 'toby' })
+    // Choix ouvert : destination libre, facultatif ; Toby N’EST PAS candidat.
+    expect(after.pendingHeroRelocate?.anyLocation).toBe(true)
+    expect(after.pendingHeroRelocate?.optional).toBe(true)
+    expect(after.pendingHeroRelocate?.chooserIndex).toBe(0)
+    expect(after.pendingHeroRelocate?.candidateIds).toEqual(['o'])
+    // On ne peut PAS résoudre le déplacement sur Toby lui-même.
+    expect(() => applyAction(after, { type: 'RESOLVE_HERO_RELOCATE', heroInstanceId: 'toby', to: 'repaire-secret' })).toThrow()
+    // …mais on peut déplacer l’autre Héros vers le lieu de son choix.
+    const done = applyAction(after, { type: 'RESOLVE_HERO_RELOCATE', heroInstanceId: 'o', to: 'repaire-secret' })
+    expect(done.players[0].board['repaire-secret'].some((c) => c.instanceId === 'o')).toBe(true)
+    expect(done.pendingHeroRelocate ?? null).toBeNull()
+  })
+
+  it('Toby : seul sur le plateau, son effet n’a aucune cible (no-op)', () => {
+    const s = withBoard(game(), { 'big-ben': [hero('toby', 'toby-ratigan', 6)] })
+    const after = resolveEffect(s, { type: 'RELOCATE_REALM_HERO_ANYWHERE' }, { actorIndex: 0, hostInstanceId: 'toby' })
+    expect(after.pendingHeroRelocate ?? null).toBeNull()
   })
 
   it('Capture : injouable s’il n’y a aucun Héros ≤3 hors du Repaire secret', () => {

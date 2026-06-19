@@ -18,6 +18,8 @@ export const VILLAIN_COLOR: Record<string, string> = {
   ratigan: '#5A1426',
   sombra: '#3B1E63',
   patHibulaire: '#34404A',
+  gothel: '#5E1A38',
+  cruella: '#6E1422',
 }
 
 /** Teintes de repli (camp joueur / adversaire) quand la couleur d'un vilain est

@@ -187,6 +187,28 @@ export const FATE_MALUS: Record<string, FateMalus> = {
   'lever-du-jour': 'slow',
   'vent-de-panique': 'slow',
   'mauvaise-creepypasta': 'slow',
+
+  // --- Mère Gothel (accumuler 10 Confiance) — pas de bloc dur : la Confiance peut
+  // toujours se gagner. Les Héros qui la FONT PERDRE sont les plus gênants. ---
+  'flynn-rider': 'block-advance', // lui fait perdre jusqu'à 2 Confiance à l'arrivée
+  'la-reine-et-le-roi': 'block-advance', // −1 Confiance sur le lieu de Raiponce
+  pascal: 'slow2', // repousse Raiponce vers Corona (loin de la Tour)
+  'la-main-froide': 'slow', // défausse une carte de sa main
+  'le-satyre': 'slow',
+  maximus: 'slow',
+  ulf: 'slow', // empêche ses Alliés de quitter leur lieu
+  'poele-a-frire': 'slow', // protège un Héros (+1 force)
+
+  // --- Cruella d'Enfer (capturer 99 Chiots) — pas de bloc dur : les Chiots peuvent
+  // toujours être ré-amenés. Les Héros qui bloquent la capture / renvoient les
+  // tuiles sont les plus gênants. ---
+  pongo: 'block-advance', // aucune capture possible sur son lieu
+  'anita-et-roger': 'block-advance', // renvoie en réserve les tuiles amenées sur son lieu
+  perdita: 'slow2', // libère une tuile capturée (recul direct de la progression)
+  nanny: 'slow2', // renchérit les activations (son moteur amener/capturer)
+  'sergent-tibs': 'slow',
+  colonel: 'slow',
+  capitaine: 'slow',
 }
 
 /** cardId dont le « block-win » n'est valable que sous condition (gérée par l'IA). */

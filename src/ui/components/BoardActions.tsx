@@ -462,6 +462,64 @@ const ACTION_POS: Record<string, Record<string, Record<string, { x: number; y: n
       'gain-power': { x: 92.9, y: 67.8 },
     },
   },
+  // Cruella d'Enfer : même gabarit (panneau objectif à gauche + 4 lieux). Castel
+  // D'Enfer porte 3 actions en bas (Jouer · Gagner 1 · Défausser). MESURES À AFFINER.
+  cruella: {
+    'maison-radcliff': {
+      fate: { x: 22.7, y: 20 },
+      activate: { x: 30.5, y: 20 },
+      vanquish: { x: 22.7, y: 67.8 },
+      'play-card': { x: 30.5, y: 67.8 },
+    },
+    campagne: {
+      'play-card-top': { x: 43.5, y: 20 },
+      'move-item-ally': { x: 51.4, y: 20 },
+      'gain-power': { x: 43.5, y: 67.8 },
+      'play-card-bottom': { x: 51.4, y: 67.8 },
+    },
+    laiterie: {
+      discard: { x: 64.3, y: 20 },
+      'gain-power': { x: 72.1, y: 20 },
+      'play-card': { x: 64.3, y: 67.8 },
+      fate: { x: 72.1, y: 67.8 },
+    },
+    castel: {
+      'move-item-ally': { x: 85.1, y: 20 },
+      activate: { x: 92.9, y: 20 },
+      'play-card': { x: 83, y: 67.8 },
+      'gain-power': { x: 89.2, y: 67.8 },
+      discard: { x: 95.5, y: 67.8 },
+    },
+  },
+  // Mère Gothel : plateau large (panneau Confiance à gauche + 4 lieux). Tour & Corona
+  // en 2×2 ; Le Canard boiteux & Forêt en 1 (haut) + 3 (bas). Rangées haut ~23 % /
+  // bas ~60 %. MESURES À AFFINER via l'inspecteur si besoin.
+  gothel: {
+    tour: {
+      'move-item-ally': { x: 22.8, y: 19 },
+      fate: { x: 30.6, y: 19 },
+      'play-card': { x: 22.8, y: 66.6 },
+      vanquish: { x: 30.6, y: 66.5 },
+    },
+    'canard-boiteux': {
+      'play-card-top': { x: 47.5, y: 18.5 },
+      'gain-power': { x: 41.2, y: 66.9 },
+      'play-card-bottom': { x: 47.5, y: 66.9 },
+      discard: { x: 53.8, y: 66.8 },
+    },
+    foret: {
+      'play-card-top': { x: 68.2, y: 18.5 },
+      'gain-power': { x: 61.85, y: 66 },
+      'play-card-bottom': { x: 68.1, y: 66 },
+      'move-item-ally': { x: 74.4, y: 66 },
+    },
+    corona: {
+      'gain-power': { x: 85.15, y: 18.6 },
+      discard: { x: 93, y: 18.5 },
+      'play-card': { x: 85.1, y: 66.3 },
+      fate: { x: 92.9, y: 66 },
+    },
+  },
 }
 
 interface Props {
@@ -483,6 +541,12 @@ interface Props {
    *  bot, qui ne montre pas ses pastilles d'action en temps normal. */
   flashOnly?: boolean
   onActionClick: (action: LocationAction) => void
+  /** Sombra — Piratage : lieu dont une action doit être DÉSACTIVÉE par clic direct
+   *  (remplace la modale). Les actions listées dans `hackActionIds` y clignotent en
+   *  fuchsia et `onHackPick` est appelé au clic. */
+  hackLocationId?: string | null
+  hackActionIds?: string[]
+  onHackPick?: (actionId: string) => void
 }
 
 /**
@@ -499,6 +563,9 @@ export function BoardActions({
   flashKey = null,
   flashOnly = false,
   onActionClick,
+  hackLocationId = null,
+  hackActionIds,
+  onHackPick,
 }: Props) {
   const layout = ACTION_POS[player.villain]
   if (!layout) return null
@@ -522,6 +589,27 @@ export function BoardActions({
         loc.actions.map((a) => {
           const pos = layout[loc.id]?.[a.id]
           if (!pos) return null
+          // Sombra — Piratage : choix de l'action à DÉSACTIVER par clic direct sur
+          // le plateau (remplace la modale). Bouton fuchsia clignotant, prioritaire
+          // sur l'affichage normal (rendu même si la rangée serait masquée par un Héros).
+          if (onHackPick && loc.id === hackLocationId && (hackActionIds ?? []).includes(a.id) && !flashOnly) {
+            return (
+              <button
+                key={`${loc.id}:${a.id}`}
+                type="button"
+                onClick={() => onHackPick(a.id)}
+                title={`Pirater : désactiver « ${a.label} »`}
+                className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border-2"
+                style={{
+                  left: `${pos.x}%`,
+                  top: `${pos.y}%`,
+                  width: `${BUTTON_SIZE}%`,
+                  aspectRatio: '1',
+                  animation: 'hackPick 0.8s ease-in-out infinite',
+                }}
+              />
+            )
+          }
           // Sombra — action piratée : recouverte par l'image Hack, désactivée.
           const hacked = (player.board[loc.id] ?? []).some(
             (c) => c.isPiratage && c.hackedActionId === a.id,
@@ -599,6 +687,11 @@ export function BoardActions({
           0% { box-shadow: 0 0 0 0 rgba(250,204,21,0); opacity: 0; }
           35% { box-shadow: 0 0 16px 6px rgba(250,204,21,0.95); border-color: #fff; opacity: 1; }
           100% { box-shadow: 0 0 0 0 rgba(250,204,21,0); opacity: 1; }
+        }
+        /* Sombra — action piratable (choix de désactivation par clic direct) : pulse fuchsia. */
+        @keyframes hackPick {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(232,121,249,0); border-color: rgba(232,121,249,1); background-color: rgba(232,121,249,0.15); }
+          50% { box-shadow: 0 0 12px 4px rgba(232,121,249,0.9); border-color: #fff; background-color: rgba(232,121,249,0.55); }
         }
       `}</style>
     </>

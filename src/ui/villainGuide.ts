@@ -273,7 +273,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
     ],
   },
   patHibulaire: {
-    difficulty: 4,
+    difficulty: 3,
     story:
       "Brute massive et matamore, Pat Hibulaire (Pete) est le plus vieil ennemi de Mickey (depuis 1925). Bandit de grand chemin, contrebandier et gros bras, il écume Frontier Town, la station-service, l’aéroport et le ponton du Steamboat Willie. Cupide et combinard, il poursuit quatre coups fumants à la fois.",
     playTips: [
@@ -286,6 +286,36 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       'Mickey est l’arme absolue : tant qu’il est dans son royaume, Pat ne peut remplir AUCUNE tuile. Mais il peut continuer à se préparer — ne relâche pas la Fatalité pour autant.',
       'Goofy (Dingo) et Minnie sabotent ses tuiles et ses Alliés/Objets ; Donald l’oblige à le vaincre en premier. Couvre ses lieux de gain et de pose.',
       'Oswald affaiblit Une Petite Partie ? : pose-le si « Jackpot » ou « Soif de Pouvoir » traînent encore.',
+    ],
+  },
+  gothel: {
+    difficulty: 5,
+    story:
+      "Vaniteuse et manipulatrice, Mère Gothel (Disney, Raiponce, 2010) a séquestré la princesse Raiponce dans une tour isolée pour profiter du pouvoir rajeunissant de sa chevelure magique. Sous des airs de mère aimante, elle étouffe la jeune fille de fausse tendresse et de remarques humiliantes pour la garder sous son emprise.",
+    playTips: [
+      'Ton objectif est la Confiance : accumule-la (Raiponce ramenée à la Tour, Héros éliminés, Brosse à cheveux déplacée…) jusqu’à 10, puis l’emporte au début de ton tour.',
+      'Raiponce est toujours chez toi : elle glisse d’un lieu vers la droite à chaque fin de tour. Organise tes lieux pour exploiter sa position.',
+      'Manipule plutôt que d’affronter : tes Événements et Conditions retournent le tour adverse à ton avantage.',
+    ],
+    counterTips: [
+      'Les Héros de Corona (Flynn, Maximus, la garde) la ralentissent : ils l’empêchent de gagner de la Confiance librement.',
+      'Surveille sa Confiance : quand elle approche de 10, prive-la des sources faciles (Raiponce, éliminations).',
+      'Les Lanternes et « Moi j’ai un rêve » perturbent son emprise sur Raiponce.',
+    ],
+  },
+  cruella: {
+    difficulty: 4,
+    story:
+      "Héritière fortunée obsédée par la fourrure, Cruella d’Enfer (Disney, Les 101 Dalmatiens, 1961) rêve d’un manteau taillé dans la robe tachetée de chiots dalmatiens. Mondaine cruelle et impatiente, elle lance ses sbires Jasper et Horace à la capture des chiots, fonçant dans la nuit au volant de son bolide.",
+    playTips: [
+      'Ton objectif : amène des Tuiles Chiots dans ton royaume (réserve → lieu indiqué) puis CAPTURE-les jusqu’à 99 Chiots, l’emporte au début de ton tour.',
+      'Amène des Chiots avec Lampe électrique, Horace, Ici mes petits ! et Sans cœur ; capture avec Horace, Jasper et J’ai payé pour ça.',
+      'Repéré ! révèle les grosses tuiles (22) de la réserve pour les viser ; Roadster et Sergent Tibs regroupent les tuiles là où tes captureurs agissent.',
+    ],
+    counterTips: [
+      'Pongo bloque la capture sur son lieu et Anita & Roger renvoient les tuiles en réserve : pose-les là où elle amasse ses Chiots.',
+      'Évasion et « Nous sommes des labradors » lui font perdre des Chiots déjà acquis ou posés.',
+      'Nanny renchérit ses activations ; multiplie les Héros pour recouvrir ses actions Activer et Jouer.',
     ],
   },
 }

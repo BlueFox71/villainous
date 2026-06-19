@@ -19,6 +19,8 @@ const PORTRAIT: Partial<Record<VillainKey, string>> = {
   ratigan: '/ratigan.png',
   sombra: '/sombra.jpg',
   patHibulaire: '/pat-hibulaire.png',
+  gothel: '/gothel.png',
+  cruella: '/cruella.png',
 }
 
 /** Portrait d'un vilain, avec repli sur son dos de carte si non défini. */
@@ -45,6 +47,8 @@ const PRESENTATION: Partial<Record<VillainKey, string>> = {
   ratigan: '/presentations/ratigan.png',
   sombra: '/presentations/sombra.png',
   patHibulaire: '/presentations/pat_hibulaire.png',
+  gothel: '/presentations/gothel.png',
+  cruella: '/presentations/cruella.png',
 }
 
 /** Illustration de présentation d'un vilain (undefined si non disponible). */
@@ -62,4 +66,7 @@ export const PRESENTATION_TWEAK: Partial<
   // `versusDyPct` : décalage vertical SPÉCIFIQUE à l'écran versus (début de partie),
   // sinon on reprend `dyPct` (écran de choix).
   imposteur: { scale: 0.55, dxPct: 0, dyPct: -5, versusDyPct: -12 },
+  // Mère Gothel : illustration légèrement trop grande → on la rétrécit un poil, et
+  // un peu trop haute sur l'écran de choix → on la descend légèrement.
+  gothel: { scale: 0.9, dyPct: 4 },
 }
