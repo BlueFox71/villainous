@@ -16,6 +16,10 @@ interface HeroRowProps {
   /** Héros cliquables (mode « éliminer — choix de la cible »). */
   vanquishTargets?: string[]
   onVanquishPickHero?: (instanceId: string, name: string) => void
+  /** Héros cliquables (mode « déplacer — choix du Héros », destination imposée :
+   *  Capture). Anneau ambre, distinct du rouge Vanquish. */
+  relocateTargets?: string[]
+  onRelocatePickHero?: (instanceId: string) => void
   /** Vrai si le joueur peut payer 2 JT pour défausser un Déguisement
    *  (tour du joueur, JT suffisants). Affiche un bouton sous le Héros porteur. */
   canDiscardDeguisement?: boolean
@@ -39,6 +43,8 @@ export function HeroRow({
   strengths,
   vanquishTargets = [],
   onVanquishPickHero,
+  relocateTargets = [],
+  onRelocatePickHero,
   canDiscardDeguisement = false,
   onDiscardDeguisement,
   hiddenInstanceIds = [],
@@ -125,6 +131,7 @@ export function HeroRow({
               const attached = cellCards.filter((a) => a.attachedTo === c.instanceId)
               const locked = c.lockedPower ?? 0
               const isTarget = vanquishTargets.includes(c.instanceId)
+              const isRelocateTarget = !isTarget && relocateTargets.includes(c.instanceId)
               const deguisement = attached.find((a) => a.cardId === 'deguisement')
               // Héros agrandi : on incline la carte à 90° vers le lieu voisin sur
               // lequel il déborde (à droite → +90°, à gauche → −90°).
@@ -156,11 +163,19 @@ export function HeroRow({
                       src={def?.image}
                       alt={c.name}
                       title={`${c.name}${def ? ` — ${def.text}` : ''}`}
-                      onClick={isTarget ? () => onVanquishPickHero?.(c.instanceId, c.name) : undefined}
+                      onClick={
+                        isTarget
+                          ? () => onVanquishPickHero?.(c.instanceId, c.name)
+                          : isRelocateTarget
+                            ? () => onRelocatePickHero?.(c.instanceId)
+                            : undefined
+                      }
                       className={`w-14 rounded border transition-transform ${
                         isTarget
                           ? 'cursor-pointer border-red-500 ring-2 ring-red-500'
-                          : 'border-white/40'
+                          : isRelocateTarget
+                            ? 'cursor-pointer border-amber-400 ring-2 ring-amber-400 animate-pulse'
+                            : 'border-white/40'
                       } ${redBlinkInstanceIds.includes(c.instanceId) ? 'red-flash' : ''}`}
                       style={
                         c.heroSize === 'shrunk'
@@ -170,6 +185,17 @@ export function HeroRow({
                             : undefined
                       }
                     />
+                    {/* Sombra — Héros « piraté » (Boop !) : overlay Hack glitch. */}
+                    {c.abilityHacked && (
+                      <div
+                        className="hack-glitch pointer-events-none absolute left-1/2 top-1/2 w-14 -translate-x-1/2 -translate-y-1/2"
+                        title="Héros piraté (Boop !) — capacité annulée"
+                      >
+                        <img src="/cards/sombra/hack.png" alt="" aria-hidden="true" className="hg-base" />
+                        <img src="/cards/sombra/hack.png" alt="" aria-hidden="true" className="hg-layer hg-a" />
+                        <img src="/cards/sombra/hack.png" alt="" aria-hidden="true" className="hg-layer hg-b" />
+                      </div>
+                    )}
                     {/* Badge MODIFICATEUR uniquement : +N (Adam de la Halle, Épée de
                         Vérité) ou −N (Sommeil sans Rêves) quand la force du Héros est
                         modifiée. Pas de badge de force « brute ». */}

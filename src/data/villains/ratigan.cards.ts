@@ -27,7 +27,7 @@ export const ratiganCards: CardDef[] = [
     copies: 3,
     text: 'Si vous jouez les Brutes sur un lieu où vous ne vous trouvez pas, vous pouvez effectuer 1 action disponible de ce lieu, en dehors d’une action Fatalité.',
     image: img('brutes.png'),
-    effects: [{ type: 'ALLY_REMOTE_GAIN_POWER' }],
+    effects: [{ type: 'ALLY_REMOTE_ACTION' }],
   },
   {
     id: 'bartholomee',
@@ -50,9 +50,9 @@ export const ratiganCards: CardDef[] = [
     cost: 3,
     strength: 6,
     copies: 1,
-    text: 'Lorsque vous jouez Félicia, défaussez un Héros de son lieu ou payez 2 jetons Pouvoir supplémentaires.',
+    text: 'Lorsque vous jouez Félicia, défaussez un Allié de son lieu ou payez 2 jetons Pouvoir supplémentaires.',
     image: img('felicia.png'),
-    effects: [{ type: 'DISCARD_HERO_AT_HOST' }],
+    effects: [{ type: 'DISCARD_ALLY_AT_HOST_OR_PAY', power: 2 }],
   },
   {
     id: 'fidget',
@@ -109,6 +109,8 @@ export const ratiganCards: CardDef[] = [
     copies: 2,
     text: 'Cette carte est jouable pendant le tour d’un adversaire s’il gagne au moins 3 jetons Pouvoir. Ajoutez un Objet de votre défausse à votre main.',
     image: img('extravagance.png'),
+    trigger: { type: 'opponent-gained-power-ge', value: 3 },
+    effects: [{ type: 'RECOVER_FROM_DISCARD_CHOICE', types: ['item'], label: 'Extravagance' }],
   },
   {
     id: 'sournois',
@@ -120,6 +122,7 @@ export const ratiganCards: CardDef[] = [
     copies: 2,
     text: 'Cette carte est jouable pendant le tour d’un adversaire s’il cible avec une action Fatalité. Il ne dévoile qu’une carte Fatalité au lieu de deux.',
     image: img('sournois.png'),
+    trigger: { type: 'opponent-fate-targeted-me' },
   },
 
   // ----------------------------------------------------------------------
@@ -193,9 +196,9 @@ export const ratiganCards: CardDef[] = [
     type: 'item',
     cost: 2,
     copies: 1,
-    text: 'Gagnez 2 jetons Pouvoir.',
+    text: 'Activer : gagnez 2 jetons Pouvoir.',
     image: img('habits-royaux.png'),
-    effects: [{ type: 'GAIN_POWER', amount: 2 }],
+    activatedCost: 0,
   },
   {
     id: 'liste-de-fidget',
@@ -207,6 +210,7 @@ export const ratiganCards: CardDef[] = [
     copies: 1,
     text: 'Dévoilez les cartes de votre pioche jusqu’à ce que vous trouviez un Objet. Ajoutez-le à votre main et défaussez les autres cartes dévoilées.',
     image: img('liste-de-fidget.png'),
+    effects: [{ type: 'REVEAL_DECK_UNTIL_TYPE', cardType: 'item', title: 'Liste de Fidget' }],
   },
   {
     id: 'outils',
@@ -352,7 +356,6 @@ export const ratiganCards: CardDef[] = [
     copies: 2,
     text: 'Choisissez un lieu où se trouve au moins un Héros et défaussez-y un Objet coûtant 3 ou moins.',
     image: img('sabotage.png'),
-    effects: [{ type: 'DISCARD_REALM_ITEM_LE_COST', maxCost: 3 }],
   },
 
   // ----------------------------------------------------------------------

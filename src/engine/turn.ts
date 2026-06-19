@@ -47,6 +47,7 @@ export function pendingOwner(state: GameState): number | null {
   if (state.pendingTyrannyDiscard) return state.pendingTyrannyDiscard.playerIndex
   if (state.pendingDeckPeek) return state.pendingDeckPeek.playerIndex
   if (state.pendingTypeChoice) return state.pendingTypeChoice.playerIndex
+  if (state.pendingDrawOrGainPower) return state.pendingDrawOrGainPower.playerIndex
   if (state.pendingTeleport) return state.pendingTeleport.playerIndex
   if (state.pendingManipulation) return state.pendingManipulation.playerIndex
   if (state.pendingRoyalCroquet) return state.pendingRoyalCroquet.playerIndex
@@ -62,6 +63,9 @@ export function pendingOwner(state: GameState): number | null {
   if (state.pendingTitanMove) return state.pendingTitanMove.playerIndex
   if (state.pendingDivination) return state.pendingDivination.playerIndex
   if (state.pendingLookTop) return state.pendingLookTop.playerIndex
+  if (state.pendingReveal) return state.pendingReveal.playerIndex
+  if (state.pendingHack) return state.pendingHack.playerIndex
+  if (state.pendingInformation) return state.pendingInformation.playerIndex
   if (state.pendingTakeABite) return state.pendingTakeABite.playerIndex
   if (state.pendingDuplicateIngredient) return state.pendingDuplicateIngredient.playerIndex
   if (state.pendingScream) return state.pendingScream.playerIndex

@@ -65,6 +65,13 @@ interface Props {
    *  du pion ET un Événement de la défausse abordable une fois Ironie payée. Sinon
    *  la carte est injouable (elle gaspillerait du Pouvoir). */
   poeticJusticeUsable: boolean
+  /** Vrai s'il existe un Héros déplaçable (Capture, effet MOVE_REALM_HERO_TO) :
+   *  force ≤ max, sur un AUTRE lieu que la destination, accepté par celle-ci. La
+   *  carte est injouable sinon (aucun effet). */
+  relocateTargetAvailable: boolean
+  /** Vrai s'il existe un Héros à pirater (Boop !, non déjà piraté). Sinon la carte
+   *  est injouable. */
+  hackTargetAvailable: boolean
   /** Coût effectif d'une carte (Couronne −1, Bâton Magique −1 sur Événement/
    *  Malédiction, Épée de Vérité +2…). Absent → coût de base. */
   costFor?: (card: CardInstance) => number
@@ -106,6 +113,8 @@ export function Hand({
   kronkHasPowerToken,
   fateDiscardHasHero,
   poeticJusticeUsable,
+  relocateTargetAvailable,
+  hackTargetAvailable,
   costFor,
   armedConditionIds = [],
   forcedHoverId = null,
@@ -263,6 +272,10 @@ export function Hand({
           // Ironie du sort (Yzma) : injouable sans Allié sur le lieu / sans Événement
           // abordable en défausse (elle gaspillerait sinon du Pouvoir).
           const needsPoeticJustice = (card.effects ?? []).some((e) => e.type === 'POETIC_JUSTICE')
+          // Capture (Ratigan) : injouable sans Héros déplaçable hors de la destination.
+          const needsRelocateTarget = (card.effects ?? []).some((e) => e.type === 'MOVE_REALM_HERO_TO')
+          // Boop ! (Sombra) : injouable sans Héros à pirater (aucun, ou tous déjà piratés).
+          const needsHackTarget = (card.effects ?? []).some((e) => e.type === 'HACK_HERO')
           const playable =
             mode === 'play'
               ? card.type !== 'condition' &&
@@ -280,6 +293,8 @@ export function Hand({
                 (!needsKronkToken || kronkHasPowerToken) &&
                 (!needsFateDiscardHero || fateDiscardHasHero) &&
                 (!needsPoeticJustice || poeticJusticeUsable) &&
+                (!needsRelocateTarget || relocateTargetAvailable) &&
+                (!needsHackTarget || hackTargetAvailable) &&
                 !(blockEvents && card.type === 'effect')
               : mode === 'condition-ally'
                 ? card.type === 'ally' // Lâcheté : seuls les Alliés sont jouables, gratuit

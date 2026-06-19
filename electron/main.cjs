@@ -42,6 +42,20 @@ function applyDisplayMode(win, mode) {
   win.setFullScreen(mode !== 'windowed')
 }
 
+// --- Facteur de zoom d'UI LOCAL (jamais versionné) ------------------------
+// Lu depuis userData/uizoom.json ({ "factor": 1.1 }). Ce fichier vit dans les
+// données locales de l'app (hors dépôt) : la valeur perso n'est JAMAIS poussée.
+// Absent / invalide → 1 (aucun zoom), donc aucun effet pour les autres postes.
+// Vrai zoom Chromium (comme Ctrl +) : net, sans flou, avec reflow.
+function readZoomFactor() {
+  try {
+    const f = JSON.parse(fs.readFileSync(path.join(app.getPath('userData'), 'uizoom.json'), 'utf8')).factor
+    return typeof f === 'number' && f > 0 ? f : 1
+  } catch {
+    return 1
+  }
+}
+
 // Référence à la fenêtre principale (pilotée par les messages IPC du renderer).
 let mainWindow = null
 
@@ -116,6 +130,12 @@ function createWindow() {
   mainWindow = win
   win.setMenuBarVisibility(false)
   win.loadURL('app://local/index.html')
+
+  // Applique le zoom d'UI local (relu à chaque chargement → modifiable sans rebuild).
+  win.webContents.on('did-finish-load', () => {
+    const z = readZoomFactor()
+    if (z !== 1) win.webContents.setZoomFactor(z)
+  })
 
   // Liens externes (cibles _blank) → navigateur système, pas dans l'app.
   win.webContents.setWindowOpenHandler(({ url }) => {

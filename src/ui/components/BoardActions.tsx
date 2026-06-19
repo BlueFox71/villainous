@@ -409,28 +409,57 @@ const ACTION_POS: Record<string, Record<string, Record<string, { x: number; y: n
   // encoches = Activer. MESURES À AFFINER via l'inspecteur si besoin.
   ratigan: {
     'repaire-secret': {
-      fate: { x: 22, y: 70 },
-      'play-card': { x: 30, y: 70 },
-      activate: { x: 37, y: 70 },
+      fate: { x: 20.4, y: 68 },
+      'play-card': { x: 26.7, y: 68 },
+      activate: { x: 32.9, y: 68 },
     },
     'magasin-flaversham': {
-      'play-card-top': { x: 44, y: 20 },
-      discard: { x: 51, y: 20 },
-      'gain-power': { x: 44, y: 70 },
-      'play-card-bottom': { x: 51, y: 70 },
+      'play-card-top': { x: 43.7, y: 20.2 },
+      discard: { x: 51.5, y: 20.2 },
+      'gain-power': { x: 43.7, y: 68 },
+      'play-card-bottom': { x: 51.5, y: 68 },
     },
     'big-ben': {
-      'gain-power': { x: 64, y: 20 },
-      'move-item-ally': { x: 72, y: 20 },
-      'play-card': { x: 64, y: 70 },
-      vanquish: { x: 72, y: 70 },
+      'gain-power': { x: 64.6, y: 20.5 },
+      'move-item-ally': { x: 72.3, y: 20.4 },
+      'play-card': { x: 64.5, y: 68 },
+      vanquish: { x: 72.4, y: 68 },
     },
     'buckingham-palace': {
-      fate: { x: 84, y: 20 },
-      'play-card': { x: 92, y: 20 },
-      'move-item-ally': { x: 84, y: 70 },
-      'gain-power': { x: 90, y: 70 },
-      discard: { x: 96, y: 70 },
+      fate: { x: 85.3, y: 20.5 },
+      'play-card': { x: 93.1, y: 20.2 },
+      'move-item-ally': { x: 83, y: 68 },
+      'gain-power': { x: 89.2, y: 68 },
+      discard: { x: 95.5, y: 68 },
+    },
+  },
+  // Sombra : même gabarit de plateau que Maléfique/Slenderman (panneau objectif à
+  // gauche + 4 lieux). Colonnes ~22,7/30,5 · 43,5/51,4 · 64,3/72,1 · 85,1/92,9 % ;
+  // rangées haut ~20,4 % / bas ~67,8 %.
+  sombra: {
+    castillo: {
+      'play-card-top': { x: 22.7, y: 20.4 },
+      'gain-power': { x: 30.5, y: 20.4 },
+      discard: { x: 22.7, y: 67.8 },
+      activate: { x: 30.5, y: 67.8 },
+    },
+    'los-muertos': {
+      'gain-power': { x: 43.5, y: 20.4 },
+      'move-item-ally': { x: 51.4, y: 20.4 },
+      'play-card': { x: 43.5, y: 67.8 },
+      fate: { x: 51.4, y: 67.8 },
+    },
+    dorado: {
+      discard: { x: 64.3, y: 20.4 },
+      'play-card-top': { x: 72.1, y: 20.4 },
+      'gain-power': { x: 64.3, y: 67.8 },
+      'play-card-bottom': { x: 72.1, y: 67.8 },
+    },
+    lumerico: {
+      fate: { x: 85.1, y: 20.4 },
+      activate: { x: 92.9, y: 20.4 },
+      'move-hero': { x: 85.1, y: 67.8 },
+      'gain-power': { x: 92.9, y: 67.8 },
     },
   },
 }
@@ -493,6 +522,24 @@ export function BoardActions({
         loc.actions.map((a) => {
           const pos = layout[loc.id]?.[a.id]
           if (!pos) return null
+          // Sombra — action piratée : recouverte par l'image Hack, désactivée.
+          const hacked = (player.board[loc.id] ?? []).some(
+            (c) => c.isPiratage && c.hackedActionId === a.id,
+          )
+          if (hacked && !flashOnly) {
+            return (
+              <div
+                key={`${loc.id}:${a.id}`}
+                title={`${a.label} — désactivé (Hack)`}
+                className="hack-glitch pointer-events-none absolute -translate-x-1/2 -translate-y-1/2"
+                style={{ left: `${pos.x}%`, top: `${pos.y}%`, width: `${BUTTON_SIZE * 1.7}%` }}
+              >
+                <img src="/cards/sombra/hack.png" alt="Piraté" className="hg-base" />
+                <img src="/cards/sombra/hack.png" alt="" aria-hidden="true" className="hg-layer hg-a" />
+                <img src="/cards/sombra/hack.png" alt="" aria-hidden="true" className="hg-layer hg-b" />
+              </div>
+            )
+          }
           // Flash one-shot de l'action que le bot vient de jouer.
           const flashing = flashKey === `${loc.id}:${a.id}`
           // Mode bot : on n'affiche QUE le bouton en flash (pas les pastilles neutres).

@@ -13,6 +13,9 @@ interface Props {
   candidateIds?: string[]
   /** Poupées vaudou : direction imposée (−1 gauche / +1 droite), 1 lieu. */
   forcedDirection?: number
+  /** Ratigan — Capture : destination IMPOSÉE ; choisir un Héros le déplace directement
+   *  vers ce lieu (pas d'étape « choisir le lieu »). */
+  forcedLocationId?: string
   /** Déplacement facultatif (« vous pouvez ») : bouton « Passer » disponible. */
   optional?: boolean
   /** Décline le déplacement (si `optional`). */
@@ -24,7 +27,7 @@ interface Props {
  * lieu voisin de sa position (ou n'importe quel lieu non bloqué — Tourbillon).
  * Poupées vaudou (Dr Facilier) : direction imposée + déplacement facultatif.
  */
-export function HeroRelocateModal({ target, onResolve, anyLocation = false, candidateIds, forcedDirection, optional, onSkip }: Props) {
+export function HeroRelocateModal({ target, onResolve, anyLocation = false, candidateIds, forcedDirection, forcedLocationId, optional, onSkip }: Props) {
   const [heroId, setHeroId] = useState<string | null>(null)
   const ids = target.locations.map((l) => l.id)
   const locked = new Set(target.lockedLocations ?? [])
@@ -51,12 +54,34 @@ export function HeroRelocateModal({ target, onResolve, anyLocation = false, cand
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
       <div className="flex w-full max-w-md flex-col gap-4 rounded-2xl border border-white/15 bg-[#120c22] p-5 text-white">
         <h2 className="text-center text-lg font-bold text-purple-200">
-          {forcedDirection !== undefined
+          {forcedLocationId !== undefined
+            ? `Déplacer un Héros vers ${nameOf(forcedLocationId)}`
+            : forcedDirection !== undefined
             ? `Poupées vaudou : déplacer un Héros vers ${forcedDirection < 0 ? 'la gauche' : 'la droite'}`
             : 'Déplacer un Héros vers un lieu voisin'}
         </h2>
 
-        {!picked ? (
+        {forcedLocationId !== undefined ? (
+          // Capture : destination imposée → cliquer un Héros le déplace directement.
+          <>
+            <p className="text-center text-sm text-white/70">
+              Choisis le Héros à déplacer vers <b className="text-amber-200">{nameOf(forcedLocationId)}</b> :
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {heroes.map((h) => (
+                <button
+                  key={h.id}
+                  type="button"
+                  onClick={() => onResolve(h.id, forcedLocationId)}
+                  className="flex flex-col items-center gap-1 rounded-lg border border-white/20 p-2 hover:border-amber-400 hover:bg-white/10"
+                >
+                  <img src={getCardDef(h.cardId)?.image} alt={h.name} className="w-16 rounded" />
+                  <span className="text-[11px] text-white/70">{nameOf(h.from)}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : !picked ? (
           <>
             <p className="text-center text-sm text-white/70">Choisis le Héros à déplacer :</p>
             <div className="flex flex-wrap justify-center gap-2">

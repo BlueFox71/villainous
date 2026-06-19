@@ -22,6 +22,10 @@ interface Props {
   vanquishAllyCandidates?: string[]
   vanquishSelected?: string[]
   onVanquishToggle?: (instanceId: string) => void
+  /** Ratigan — pose d'Objet : Engrenages (instanceId) cochables sur le plateau. */
+  engrenagesCandidates?: string[]
+  engrenagesSelected?: string[]
+  onEngrenagesToggle?: (instanceId: string) => void
   /** Shériffs (instanceId) qui peuvent encore se déplacer ce tour (bouton inline). */
   sheriffMovable?: string[]
   onSheriffMoveStart?: (instanceId: string) => void
@@ -68,6 +72,9 @@ export function Board({
   vanquishAllyCandidates = [],
   vanquishSelected = [],
   onVanquishToggle,
+  engrenagesCandidates = [],
+  engrenagesSelected = [],
+  onEngrenagesToggle,
   sheriffMovable = [],
   onSheriffMoveStart,
   diabloMovable = [],
@@ -137,6 +144,9 @@ export function Board({
             vanquishAllyCandidates={vanquishAllyCandidates}
             vanquishSelected={vanquishSelected}
             onVanquishToggle={onVanquishToggle}
+            engrenagesCandidates={engrenagesCandidates}
+            engrenagesSelected={engrenagesSelected}
+            onEngrenagesToggle={onEngrenagesToggle}
             sheriffMovable={sheriffMovable}
             onSheriffMoveStart={onSheriffMoveStart}
             diabloMovable={diabloMovable}

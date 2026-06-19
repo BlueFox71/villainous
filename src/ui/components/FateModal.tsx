@@ -94,6 +94,15 @@ export function FateModal({ revealed, target, onResolve, optional = false, onPas
     if (c.cardId === 'apparence-retrouvee')
       return target.fateDiscard.some((x) => x.type === 'hero' && (x.strength ?? 0) <= 4)
     if (c.cardId === 'migraine-atroce') return realm.some((x) => x.type === 'item')
+    // Réinitialisation (Sombra) : il faut un Piratage à retirer.
+    if (c.cardId === 'reinitialisation') return realm.some((x) => x.isPiratage)
+    // Sabotage : il faut un Objet (≤3, non associé) sur un lieu portant un Héros.
+    if (c.cardId === 'sabotage') {
+      return target.locations.some((l) => {
+        const cell = target.board[l.id] ?? []
+        return cell.some((x) => x.type === 'hero') && cell.some((x) => x.type === 'item' && !x.attachedTo && (x.cost ?? 0) <= 3)
+      })
+    }
     if (c.cardId === 'ko') return realm.some((x) => x.type === 'ally' && !x.isWicket && (x.strength ?? 0) <= 3)
     // Premier baiser d'amour : sans effet si la cible n'a ni Poison ni Héros dans
     // sa défausse Fatalité.

@@ -74,6 +74,33 @@ export function enumerateActions(state: GameState): GameAction[] {
     return out
   }
 
+  // Vanquish FACULTATIF en attente (Tendre un Piège / Troupeau de gnous / Uniforme) :
+  // éliminer un Héros (sur le lieu imposé le cas échéant), ou terminer sans éliminer.
+  // Pour l'Uniforme, l'Allié porteur DOIT figurer parmi les participants.
+  if (state.pendingTrapVanquish) {
+    const pv = state.pendingTrapVanquish
+    const out: GameAction[] = [{ type: 'TRAP_SKIP_VANQUISH' }]
+    const locs = pv.locationId ? [pv.locationId] : me.locations.map((l) => l.id)
+    for (const locId of locs) {
+      const cell = me.board[locId] ?? []
+      const localAllies = cell.filter((c) => c.type === 'ally' && !c.isWicket && !c.trapped && !c.attachedTo)
+      const adjAllies = adjacentLocationIds(state, locId).flatMap((adj) =>
+        (me.board[adj] ?? []).filter(
+          (c) => !c.trapped && (c.reachesAdjacentVanquish || c.cardId === 'archers-loups' || c.cardId === 'flibustiers'),
+        ),
+      )
+      const usable = [...localAllies, ...adjAllies]
+      // Uniforme : si l'Allié porteur n'est pas disponible ici, ce lieu est inéligible.
+      if (pv.requiredAllyInstanceId && !usable.some((a) => a.instanceId === pv.requiredAllyInstanceId)) continue
+      for (const h of cell.filter((c) => c.type === 'hero')) {
+        const guarded = cell.some((c) => c.cardId === 'deguisement' && c.attachedTo === h.instanceId)
+        if (guarded) continue
+        out.push({ type: 'TRAP_VANQUISH', heroInstanceId: h.instanceId, allyInstanceIds: usable.map((a) => a.instanceId) })
+      }
+    }
+    return out
+  }
+
   // Par ordre de la Reine ! : transformer 1 ou 2 Cartes Gardes en arceaux.
   // On énumère chaque Carte Garde seule, plus chaque paire (nombre borné : ≤4 Gardes).
   if (state.pendingTransformWickets) {
@@ -165,6 +192,25 @@ export function enumerateActions(state: GameState): GameAction[] {
     return plt.cards.map((c) => ({ type: 'RESOLVE_LOOK_TOP', keepInstanceIds: [c.instanceId] }))
   }
 
+  // Liste de Fidget (Ratigan) : affichage informatif, le bot l'acquitte simplement.
+  if (state.pendingReveal) {
+    return [{ type: 'ACKNOWLEDGE_REVEAL' }]
+  }
+
+  // Sombra — Piratage : une option par action désactivable (le bot score chacune).
+  if (state.pendingHack) {
+    return state.pendingHack.actionIds.map((id) => ({ type: 'RESOLVE_HACK', actionId: id }))
+  }
+
+  // Sombra — Information : garder la pioche (défausser depuis la main) ou défausser
+  // les cartes piochées.
+  if (state.pendingInformation) {
+    return [
+      { type: 'RESOLVE_INFORMATION', discardDrawn: false },
+      { type: 'RESOLVE_INFORMATION', discardDrawn: true },
+    ]
+  }
+
   // La Méchante Reine — « Croque ! » : une option par Héros croquable.
   if (state.pendingTakeABite) {
     return state.pendingTakeABite.candidateIds.map((id) => ({ type: 'RESOLVE_TAKE_A_BITE', heroInstanceId: id }))
@@ -204,7 +250,9 @@ export function enumerateActions(state: GameState): GameAction[] {
       for (const h of (tgt.board[loc.id] ?? []).filter((c) => c.type === 'hero')) {
         if (phr.candidateIds && !phr.candidateIds.includes(h.instanceId)) continue
         const i = ids.indexOf(loc.id)
-        const dests = phr.forcedDirection !== undefined
+        const dests = phr.forcedLocationId !== undefined
+          ? [phr.forcedLocationId].filter((id): id is string => !!id && !locked.has(id))
+          : phr.forcedDirection !== undefined
           ? [ids[i + phr.forcedDirection]].filter((id): id is string => !!id && !locked.has(id))
           : phr.anyLocation
             ? ids.filter((id) => id !== loc.id && !locked.has(id))
@@ -301,8 +349,13 @@ export function enumerateActions(state: GameState): GameAction[] {
       : [{ type: 'RESOLVE_PAWN_MOVE', locationId: null }]
   }
 
-  // Faites-leur peur ! : garder les Héros sur le dessus, défausser les non-Héros.
+  // Pas si vite (Sombra) : garder (= faire jouer) la carte la MOINS menaçante (force
+  // la plus faible). Sinon Faites-leur peur ! : garder les Héros, défausser le reste.
   if (state.pendingScry) {
+    if (state.pendingScry.pasSiVite) {
+      const least = [...state.pendingScry.cards].sort((a, b) => (a.strength ?? 0) - (b.strength ?? 0))[0]
+      return [{ type: 'RESOLVE_SCRY', topInstanceIds: least ? [least.instanceId] : [] }]
+    }
     const heroes = state.pendingScry.cards.filter((c) => c.type === 'hero').map((c) => c.instanceId)
     return [{ type: 'RESOLVE_SCRY', topInstanceIds: heroes }]
   }
@@ -413,6 +466,13 @@ export function enumerateActions(state: GameState): GameAction[] {
   // Phase d'action : END_TURN est toujours possible (garantit la terminaison).
   const out: GameAction[] = [{ type: 'END_TURN' }]
 
+  // Ratigan — Brutes : fenêtre d'action distante FACULTATIVE → on peut y renoncer
+  // (sans terminer le tour). Les actions du lieu distant sont énumérées normalement
+  // ci-dessous (getAvailableActions respecte actAtLocation).
+  if (state.actAtLocation && state.actAtLocationSkippable) {
+    out.push({ type: 'SKIP_REMOTE_ACTION' })
+  }
+
   for (const action of getAvailableActions(state)) {
     if (action.type === 'GAIN_POWER') {
       out.push({ type: 'EXECUTE_ACTION', actionId: action.id })
@@ -429,6 +489,7 @@ export function enumerateActions(state: GameState): GameAction[] {
         if (card.type === 'condition' || effectiveCost(state, card) > me.power) continue
         if (richardBlocks && card.type === 'effect') continue
         if (cardNeedsAllyMove(card)) continue // Tendre un Piège : combinatoire ignorée ici
+        const orPayEffect = (card.effects ?? []).find((x) => x.type === 'DISCARD_ALLY_AT_HOST_OR_PAY')
         if (card.type === 'ally' || card.type === 'item' || card.type === 'curse') {
           if (requiresAllyTarget(card)) {
             for (const to of locs) {
@@ -441,6 +502,21 @@ export function enumerateActions(state: GameState): GameAction[] {
             for (const to of locs) {
               for (const h of (me.board[to] ?? []).filter((c) => c.type === 'hero' && !c.hypnotized)) {
                 out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, to, attachTo: h.instanceId })
+              }
+            }
+          } else if (orPayEffect && orPayEffect.type === 'DISCARD_ALLY_AT_HOST_OR_PAY') {
+            // Ratigan — Félicia : à chaque lieu, soit défausser un Allié présent
+            // (une option par Allié), soit payer le supplément si finançable. Lieu
+            // sans Allié ET supplément inabordable → injouable (option non émise).
+            const pay = orPayEffect.power
+            const base = effectiveCost(state, card)
+            for (const to of locs) {
+              const alliesHere = (me.board[to] ?? []).filter((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket)
+              for (const a of alliesHere) {
+                out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, to, allyInstanceIds: [a.instanceId] })
+              }
+              if (me.power >= base + pay) {
+                out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, to })
               }
             }
           } else {
@@ -490,6 +566,8 @@ export function enumerateActions(state: GameState): GameAction[] {
           const shrinks = (card.effects ?? []).some(
             (e) => e.type === 'SET_HERO_SIZE' && e.size === 'shrunk',
           )
+          // Boop ! (Sombra) : on ne pirate pas un Héros déjà piraté.
+          const hacks = (card.effects ?? []).some((e) => e.type === 'HACK_HERO')
           const own = atPawn
             ? (me.board[me.pawnLocation ?? ''] ?? []).filter((c) => c.type === 'hero')
             : heroesOf(state, state.activePlayer)
@@ -497,6 +575,7 @@ export function enumerateActions(state: GameState): GameAction[] {
             const forbidden = new Set(h.forbiddenLocations ?? [])
             if (card.cardId === 'emprisonnement' && forbidden.has('jail')) continue
             if (shrinks && h.heroSize === 'shrunk') continue
+            if (hacks && h.abilityHacked) continue
             if ((h.strength ?? 0) > maxStrength) continue
             const hForce = effectiveStrength(state, state.activePlayer, h.instanceId) ?? 0
             if (isHypnose && hForce > me.power) continue

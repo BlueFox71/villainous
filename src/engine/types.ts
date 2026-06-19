@@ -169,6 +169,11 @@ export type ObjectiveDef =
       altHeroCardId: string
       blockerHeroCardId: string
     }
+  /** Sombra : avoir une carte de Piratage (`isPiratage`) sur CHACUN des 4 lieux
+   *  (Lumérico compris) ET jouer la carte `winCardId` (Protocole Sombra). Victoire
+   *  ÉVÉNEMENTIELLE — déclenchée par Protocole Sombra quand tous les lieux sont
+   *  piratés (pas un contrôle passif en début de tour). */
+  | { type: 'SOMBRA'; winCardId: string }
 
 /** Phase courante à l'intérieur d'un tour. */
 export type TurnPhase =
@@ -495,12 +500,41 @@ export type Effect =
    *  pioche de l'acteur, en ajoute `take` à la main (auto : les plus utiles) et
    *  défausse les autres. */
   | { type: 'LOOK_TOP_DRAW_DISCARD'; look: number; take: number }
+  /** Ratigan — Liste de Fidget : dévoile les cartes de la pioche de l'acteur une à
+   *  une jusqu'à en trouver une du type `cardType` (Objet). Cette carte rejoint sa
+   *  main, les AUTRES cartes dévoilées sont défaussées. Toutes les cartes dévoilées
+   *  sont montrées au joueur (pendingReveal). `title` : titre du modal d'info. */
+  | { type: 'REVEAL_DECK_UNTIL_TYPE'; cardType: CardType; title?: string }
   /** Dr Facilier — Désespoir : prend une carte de la Pile de l'Au-delà (auto :
    *  carte clé en priorité) et l'ajoute à la main de l'acteur. */
   | { type: 'TAKE_FROM_AUDELA_TO_HAND' }
   /** Dr Facilier — Terreur : récupère dans la défausse de l'acteur une carte d'un
    *  des `types` (auto : Événement en priorité) et l'ajoute à sa main. */
   | { type: 'RECOVER_TYPE_FROM_DISCARD'; types: CardType[] }
+  /** Ratigan — Extravagance : le joueur CHOISIT une carte d'un des `types` (Objet)
+   *  dans sa défausse et l'ajoute à sa main (ouvre pendingRecover). `label` : titre
+   *  affiché. Paramétrable et réutilisable (variante « avec choix » de RECOVER…). */
+  | { type: 'RECOVER_FROM_DISCARD_CHOICE'; types: CardType[]; label?: string }
+  /** Sombra — Protocole Sombra : détruit tous les Piratages/IEM du royaume (→
+   *  défausse) et les Héros piratés (Boop attaché → défausse Fatalité). Si TOUS les
+   *  lieux sont piratés au moment où on le joue, Sombra gagne la partie. */
+  | { type: 'SOMBRA_PROTOCOL' }
+  /** Sombra — Skycode : gagne 1 Pouvoir par lieu piraté ET par Héros piraté. */
+  | { type: 'GAIN_POWER_PER_HACK' }
+  /** Sombra — Vol de données (Fatalité) : la cible perd 1 Pouvoir par Piratage/IEM
+   *  présent dans son royaume. */
+  | { type: 'LOSE_POWER_PER_PIRATAGE' }
+  /** Sombra — Boop ! : « pirate » le Héros cible (ctx.targetHeroId) → sa capacité est
+   *  annulée (`abilityHacked`). Katya Volskaya ne peut pas être piratée. */
+  | { type: 'HACK_HERO' }
+  /** Sombra — Information : pioche `draw` cartes puis en défausse `discard` au choix
+   *  (ouvre la sélection de défausse). */
+  | { type: 'DRAW_THEN_DISCARD'; draw: number; discard: number }
+  /** Sombra — Invisibilité : l'acteur est immunisé à la Fatalité jusqu'à son prochain
+   *  tour (`noFate`). */
+  | { type: 'FATE_IMMUNITY' }
+  /** Sombra — Faille : le prochain Piratage joué ce tour est gratuit (`freePiratage`). */
+  | { type: 'GRANT_FREE_PIRATAGE' }
   /** Bowser — remet `amount` Étoile(s) sur l'Observatoire de l'acteur (Mario,
    *  Vous avez obtenu une grande étoile !). Resync le verrou dynamique. No-op si
    *  l'acteur n'a pas d'Observatoire (pas Bowser). */
@@ -669,23 +703,21 @@ export type Effect =
    *  hôte (auto : `preferCardId` — la Reine Robot — en priorité, sinon le plus cher).
    *  Défausser la Reine Robot bascule l'objectif de Ratigan côté « Le Rat ». */
   | { type: 'DISCARD_ITEM_AT_HOST'; preferCardId?: string }
-  /** Ratigan — Sabotage (Fatalité) : sur un lieu portant au moins un Héros, défausse
-   *  un Objet non associé de coût ≤ `maxCost` (auto : le plus cher éligible). */
-  | { type: 'DISCARD_REALM_ITEM_LE_COST'; maxCost: number }
   /** Ratigan — Félicia (à la pose) : défausse un Héros du lieu hôte (auto : le plus
-   *  fort) vers la défausse Fatalité. No-op (sans erreur) tant que le lieu hôte n'est
-   *  pas connu (résolu après placement de l'Allié). La surcharge « +2 si aucun Héros »
-   *  est gérée par effectiveCost. */
-  | { type: 'DISCARD_HERO_AT_HOST' }
+   *  À la pose, le joueur DOIT soit défausser un Allié de son lieu (ctx.allyInstanceIds[0]),
+   *  soit payer `power` jetons Pouvoir de plus (géré dans applyPlayCard). Injouable si
+   *  aucune des deux options n'est possible. L'effet ne réalise QUE la défausse (le
+   *  supplément est prélevé au paiement du coût) ; no-op si l'option « payer » est choisie. */
+  | { type: 'DISCARD_ALLY_AT_HOST_OR_PAY'; power: number }
   /** Ratigan — Piège ingénieux : élimine TOUS les Héros du lieu `locationId` (sans
    *  Allié, comme un Vanquish gratuit) : restitue leur Pouvoir verrouillé, déclenche
    *  leurs effets « à la mort », et pose le drapeau de victoire si Basil est éliminé
    *  côté « Le Rat ». */
   | { type: 'ELIMINATE_ALL_HEROES_AT'; locationId: LocationId }
   /** Ratigan — Brutes (à la pose) : si l'Allié est joué sur un lieu où le pion n'est
-   *  PAS, effectue une action disponible de ce lieu (auto : gagne le Pouvoir de la
-   *  meilleure action « Gagner du Pouvoir » imprimée sur ce lieu). */
-  | { type: 'ALLY_REMOTE_GAIN_POWER' }
+   *  PAS, le joueur peut effectuer UNE action disponible de ce lieu, hors Fatalité
+   *  (fenêtre `actAtLocation` skippable, comme « Suivez-moi ! » / la Canne). */
+  | { type: 'ALLY_REMOTE_ACTION' }
 
 /**
  * Un exemplaire physique d'une carte en jeu. Comme une même carte existe en
@@ -846,6 +878,20 @@ export interface CardInstance {
   isHyena?: boolean
   /** Scar — injouable sans Hyène dans le royaume (Festin). Recopié de CardDef. */
   requiresHyenaInRealm?: boolean
+  /** Sombra — carte de Piratage (Piratage, IEM) : posée sur un lieu, NON déplaçable,
+   *  comptée comme Objet pour les conditions adverses. Recopié de CardDef. */
+  isPiratage?: boolean
+  /** Sombra — Piratage qui désactive une action du lieu à la pose (Piratage = oui,
+   *  IEM = non). Recopié de CardDef. */
+  hackDisablesAction?: boolean
+  /** Sombra — Faille : résout ses effets puis est défaussé (ne reste pas en jeu). */
+  discardOnPlay?: boolean
+  /** Sombra — id de l'action du lieu désactivée par ce Piratage (recouverte par
+   *  l'image Hack) tant que le Piratage reste sur le lieu. Posé à la pose. */
+  hackedActionId?: string
+  /** Sombra — Héros « piraté » (Boop attaché) : sa capacité est annulée (carte sans
+   *  effet). Posé quand Boop lui est associé ; retiré si Boop est retiré. */
+  abilityHacked?: boolean
   /** Reine de Cœur : taille d'un Héros. `'shrunk'` (rapetissé) → ne recouvre
    *  qu'une action du haut ; `'enlarged'` (agrandi) → recouvre une action de plus.
    *  Absent = taille normale (recouvre la rangée du haut). */
@@ -1059,6 +1105,12 @@ export interface PlayerState {
    *  jouée : aucune AUTRE action n'est permise ce tour-ci. Réinitialisé au début
    *  du tour suivant. */
   soleActionLock?: boolean
+  /** Sombra — Invisibilité : immunisée à la Fatalité jusqu'au début de son prochain
+   *  tour (posé quand la carte est jouée, réinitialisé à son tour suivant). */
+  noFate?: boolean
+  /** Sombra — Faille : le prochain Piratage joué ce tour est GRATUIT (coût 0).
+   *  Consommé à la pose d'un Piratage. */
+  freePiratage?: boolean
   /** Bowser — Étoiles présentes sur l'Observatoire de la Comète. `undefined`
    *  pour les vilains sans Étoiles. Quand ce compteur tombe à 0, le lieu
    *  `starLocationId` est verrouillé (helper syncObservatoryLock). */
@@ -1143,10 +1195,17 @@ export interface GameState {
    * Vanquish FACULTATIF en attente, proposé après une autre action :
    *   - `source: 'trap'` (Tendre un Piège) : éliminer n'importe quel Héros ;
    *   - `source: 'gnous'` (Scar — Troupeau de gnous) : éliminer un Héros sur le
-   *     `locationId` où le Héros vient d'être repoussé.
+   *     `locationId` où le Héros vient d'être repoussé ;
+   *   - `source: 'uniforme'` (Ratigan — Uniforme) : éliminer un Héros sur le
+   *     `locationId` de l'Allié porteur, qui DOIT participer (`requiredAllyInstanceId`).
    * Consommé par TRAP_VANQUISH / TRAP_SKIP_VANQUISH ou la fin de tour.
    */
-  pendingTrapVanquish?: { source: 'trap' | 'gnous'; locationId?: LocationId } | null
+  pendingTrapVanquish?: {
+    source: 'trap' | 'gnous' | 'uniforme'
+    locationId?: LocationId
+    /** Uniforme : instanceId de l'Allié porteur, OBLIGATOIRE parmi les participants. */
+    requiredAllyInstanceId?: string
+  } | null
   /**
    * Tyrannie en cours : le joueur `playerIndex` a pioché et doit maintenant
    * choisir `count` cartes de sa main à défausser (RESOLVE_TYRANNY_DISCARD)
@@ -1160,6 +1219,15 @@ export interface GameState {
     /** Libellé de la source (journal/showcase). Défaut : « Tyrannie ». */
     label?: string
   }
+  /** Sombra — Information : `playerIndex` vient de piocher `drawnIds` cartes ; il
+   *  choisit ensuite de défausser `discardCount` cartes de sa main (RESOLVE_INFORMATION
+   *  discardDrawn=false → ouvre la sélection) OU de défausser les cartes piochées
+   *  (discardDrawn=true). */
+  pendingInformation?: {
+    playerIndex: number
+    drawnIds: string[]
+    discardCount: number
+  } | null
   /**
    * Aurore : un Héros révélé doit être posé sur le plateau de `targetIndex`, et
    * c'est `chooserIndex` (le joueur qui a joué la Fatalité) qui choisit le lieu
@@ -1200,6 +1268,12 @@ export interface GameState {
     untilFound?: boolean
   } | null
   /**
+   * Ratigan — Le Grand Génie du Mal : `playerIndex` choisit entre piocher `draw`
+   * cartes OU gagner `power` Pouvoir (RESOLVE_DRAW_OR_GAIN_POWER). Absent / `null`
+   * hors de ce choix.
+   */
+  pendingDrawOrGainPower?: { playerIndex: number; draw: number; power: number } | null
+  /**
    * Déplacement de Héros vers un lieu voisin en attente : `chooserIndex` choisit
    * un Héros du royaume de `targetIndex` et un lieu adjacent (RESOLVE_HERO_RELOCATE).
    * Apparition (chooser = target = Slenderman) ; Vent de panique (Fatalité :
@@ -1213,6 +1287,9 @@ export interface GameState {
     /** Dr Facilier — Poupées vaudou : le Héros ne peut être déplacé que de 1 lieu
      *  dans cette direction (−1 = gauche, +1 = droite), comme les Poupées. */
     forcedDirection?: number
+    /** Ratigan — Capture : la destination est IMPOSÉE (Repaire secret) ; le joueur
+     *  choisit seulement QUEL Héros (parmi `candidateIds`) déplacer vers ce lieu. */
+    forcedLocationId?: LocationId
     /** Le déplacement est FACULTATIF (« vous pouvez ») : SKIP_HERO_RELOCATE permis. */
     optional?: boolean
     /** Scar — Troupeau de gnous : après le déplacement, ouvre un Vanquish facultatif
@@ -1252,7 +1329,7 @@ export interface GameState {
    *  que l'adversaire s'apprête à révéler ; les gardées retournent sur le DESSUS de la
    *  pioche Fatalité (les écartées sont défaussées), PUIS l'adversaire re-révèle sa
    *  Fatalité depuis ce dessus modifié (il pioche donc la gardée + la suivante). */
-  pendingScry?: { playerIndex: number; cards: CardInstance[]; rerevealFate?: boolean } | null
+  pendingScry?: { playerIndex: number; cards: CardInstance[]; rerevealFate?: boolean; pasSiVite?: boolean } | null
   /** Déplacement d'un Allié vers un lieu voisin non bloqué : `playerIndex` choisit
    *  l'Allié ; il gagne `amount` force jusqu'à la fin du tour (RESOLVE_ALLY_MOVE_BUFF).
    *  `label` : titre/log (carte source) ; `optional` : facultatif → SKIP_ALLY_MOVE_BUFF
@@ -1286,6 +1363,7 @@ export interface GameState {
       | 'fate-discard-hero-to-top'
       | 'play-revealed-fate-hero'
       | 'play-fate-card-from-discard'
+      | 'hand-to-deck-top'
     hostInstanceId?: string
     candidateIds: string[]
   } | null
@@ -1347,6 +1425,17 @@ export interface GameState {
    *  (l'adversaire qui joue la Fatalité) associe l'Objet `card` à un lieu du
    *  royaume de `targetIndex` (l'Imposteur). RESOLVE_FATE_OBJECT_PLACE. */
   pendingFateObjectPlace?: { chooserIndex: number; targetIndex: number; card: CardInstance } | null
+  /** Ratigan — Appel à l'aide (Fatalité) : `chooserIndex` (l'adversaire qui joue la
+   *  Fatalité) choisit le lieu du royaume de `targetIndex` (Ratigan) où poser le
+   *  Héros `heroCardId` (cherché dans la pioche/défausse Fatalité) — ou l'y déplacer
+   *  s'il y est déjà (`mode`). RESOLVE_FATE_HERO_PLACE. */
+  pendingFateHeroPlace?: {
+    chooserIndex: number
+    targetIndex: number
+    heroCardId: string
+    heroName: string
+    mode: 'place' | 'move'
+  } | null
   /** Colère Titanesque (Ursula) / Canne (Dr Facilier) : `playerIndex` doit choisir
    *  un lieu voisin sur lequel effectuer une action (RESOLVE_GIANT_LOCATION).
    *  `viaCanne` = ouverture par la Canne (action Fatalité du voisin exclue, usage
@@ -1365,6 +1454,10 @@ export interface GameState {
   /** Sauvegarde de `usedActionIds` avant l'action « géante », restaurée après
    *  (l'action d'un lieu voisin ne consomme pas l'économie d'actions normale). */
   usedBeforeGiant?: string[] | null
+  /** Fenêtre `actAtLocation` FACULTATIVE (Ratigan — Brutes) : le joueur peut
+   *  renoncer (SKIP_REMOTE_ACTION) au lieu d'agir. Absent pour les fenêtres
+   *  obligatoires (Char/Bateau, Suivez-moi !, Canne). */
+  actAtLocationSkippable?: boolean | null
   /** Le joueur actif a déplacé un Allié/Objet ce tour-ci (déclencheur Sombres desseins). */
   activeMovedCard?: boolean
   /** Le joueur actif a pioché ≥1 carte ce tour-ci via un effet (déclencheur Sans visage). */
@@ -1405,6 +1498,26 @@ export interface GameState {
     /** Tour de passe-passe révélé pendant une Divination : une fois ce choix résolu,
      *  reprendre la Divination avec ces cartes restantes (à résoudre dans l'ordre). */
     resumeDivination?: { playerIndex: number; cards: CardInstance[] }
+  } | null
+  /** Ratigan — Liste de Fidget : cartes dévoilées de la pioche montrées au joueur
+   *  (purement informatif). La carte gardée (`keptInstanceId`) est DÉJÀ dans la main
+   *  et les autres DÉJÀ en défausse ; ce pending ne sert qu'à afficher le résultat
+   *  jusqu'à acquittement (ACKNOWLEDGE_REVEAL). Absent / `null` sinon. */
+  pendingReveal?: {
+    playerIndex: number
+    cards: CardInstance[]
+    keptInstanceId?: string
+    title?: string
+  } | null
+  /** Sombra — Piratage : `playerIndex` vient de poser le Piratage `instanceId` sur
+   *  `locationId` et doit CHOISIR l'action de ce lieu à désactiver (recouverte par un
+   *  Hack tant que le Piratage y reste). `actionIds` = actions désactivables (non
+   *  déjà piratées). RESOLVE_HACK. */
+  pendingHack?: {
+    playerIndex: number
+    locationId: LocationId
+    instanceId: string
+    actionIds: string[]
   } | null
   /** La Méchante Reine — « Croque ! » : `playerIndex` choisit lequel des Héros
    *  `candidateIds` (présents sur son lieu et payables avec son Poison) éliminer
@@ -1674,6 +1787,9 @@ export type GameAction =
   /** Tendre un Piège : effectue l'action Éliminer un Héros facultative (après le
    *  déplacement d'Allié déjà appliqué). */
   | { type: 'TRAP_VANQUISH'; heroInstanceId: string; allyInstanceIds: string[] }
+  /** Ratigan — Brutes : renonce à l'action distante facultative (ferme la fenêtre
+   *  `actAtLocation` sans agir). */
+  | { type: 'SKIP_REMOTE_ACTION' }
   /** Tendre un Piège : termine sans éliminer de Héros (action facultative). */
   | { type: 'TRAP_SKIP_VANQUISH' }
   /** Jouer une Condition (Avarice, Lâcheté) pendant le tour d'un adversaire.
@@ -1720,6 +1836,9 @@ export type GameAction =
   /** Tombée de la nuit : `cardType` = type choisi (Événement/Objet) ; dévoile les
    *  cartes en attente, garde la 1ʳᵉ de ce type, défausse les autres. */
   | { type: 'RESOLVE_TYPE_CHOICE'; cardType: CardType }
+  /** Ratigan — Le Grand Génie du Mal : `choice` = piocher (`'draw'`) OU gagner du
+   *  Pouvoir (`'power'`). */
+  | { type: 'RESOLVE_DRAW_OR_GAIN_POWER'; choice: 'draw' | 'power' }
   /** Apparition / Vent de panique : déplace le Héros choisi vers le lieu voisin. */
   | { type: 'RESOLVE_HERO_RELOCATE'; heroInstanceId: string; to: LocationId }
   /** Décline un déplacement de Héros FACULTATIF (Poupées vaudou). */
@@ -1768,6 +1887,8 @@ export type GameAction =
   | { type: 'DONE_CREWMATE_MOVE' }
   /** L'Imposteur — Vidéo de surveillance / Carte : associe l'Objet au lieu choisi. */
   | { type: 'RESOLVE_FATE_OBJECT_PLACE'; locationId: LocationId }
+  /** Ratigan — Appel à l'aide : pose/déplace le Héros cherché sur le lieu choisi. */
+  | { type: 'RESOLVE_FATE_HERO_PLACE'; locationId: LocationId }
   /** Carte du Pays Imaginaire : défausse la Carte (du royaume) et joue
    *  gratuitement l'Objet `itemInstanceId` de la main sur le lieu `to`
    *  (associé à `attachTo` si l'Objet s'associe). */
@@ -1791,6 +1912,14 @@ export type GameAction =
   /** Dr Facilier — Tour de passe-passe : garde `keepInstanceIds` (parmi les cartes
    *  révélées de pendingLookTop) en main ; les autres sont défaussées. */
   | { type: 'RESOLVE_LOOK_TOP'; keepInstanceIds: string[] }
+  /** Ratigan — Liste de Fidget : acquitte l'affichage des cartes dévoilées
+   *  (pendingReveal) ; aucune décision, ferme simplement le modal d'info. */
+  | { type: 'ACKNOWLEDGE_REVEAL' }
+  /** Sombra — Piratage : désactive l'action `actionId` du lieu piraté. */
+  | { type: 'RESOLVE_HACK'; actionId: string }
+  /** Sombra — Information : `discardDrawn` = true → défausse les cartes piochées ;
+   *  false → ouvre la sélection pour défausser `discardCount` cartes de la main. */
+  | { type: 'RESOLVE_INFORMATION'; discardDrawn: boolean }
   /** La Méchante Reine — « Croque ! » : élimine le Héros choisi (`heroInstanceId`)
    *  en défaussant autant de Poison que sa force. */
   | { type: 'RESOLVE_TAKE_A_BITE'; heroInstanceId: string }

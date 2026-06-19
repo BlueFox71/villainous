@@ -992,3 +992,94 @@ body {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-6px); }
 }
+
+/* Sombra — overlay « Hack » sur une action piratée. Inspiré d'un datamosh : 3 calques
+   de l'image (base + 2 bandes DÉPLACÉES teintées magenta/cyan) + scanlines/bruit.
+   L'overlay reste FIXE sur l'action ; seules les bandes et la couleur "buguent". */
+.hack-glitch {
+  display: block;
+  line-height: 0;
+  animation: hackFlicker 2.1s steps(1, end) infinite;
+  will-change: opacity;
+}
+.hack-glitch > img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+/* Calques de bande déplacée, superposés à la base. */
+.hack-glitch .hg-layer {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: screen;
+}
+
+/* Coupures de la base : intacte, puis bursts courts et erratiques (V + H mêlées). */
+@keyframes hackSlice {
+  0%, 8%    { clip-path: inset(0 0 0 0); }
+  9%        { clip-path: inset(0 64% 0 0); }
+  11%       { clip-path: inset(46% 0 0 0); }
+  12%, 30%  { clip-path: inset(0 0 0 0); }
+  31%       { clip-path: inset(0 0 0 71%); }
+  32%       { clip-path: inset(0 26% 0 34%); }
+  34%       { clip-path: inset(63% 0 0 0); }
+  35%, 49%  { clip-path: inset(0 0 0 0); }
+  50%       { clip-path: inset(0 0 52% 0); }
+  51%, 71%  { clip-path: inset(0 0 0 0); }
+  72%       { clip-path: inset(0 39% 0 0); }
+  73%       { clip-path: inset(18% 0 58% 0); }
+  75%       { clip-path: inset(0 0 0 55%); }
+  76%, 100% { clip-path: inset(0 0 0 0); }
+}
+.hg-base {
+  animation: hackSlice 4.3s steps(1, end) infinite;
+}
+/* Bande déplacée A (magenta, décalée à gauche) : montre une fine bande horizontale,
+   translatée, qui saute d'une hauteur à l'autre — la signature du datamosh. */
+@keyframes hackBandA {
+  0%, 13%   { clip-path: inset(0 0 100% 0); transform: translateX(0); }      /* masquée */
+  15%       { clip-path: inset(12% 0 74% 0); transform: translateX(-7px); }
+  18%, 39%  { clip-path: inset(0 0 100% 0); }
+  41%       { clip-path: inset(52% 0 33% 0); transform: translateX(9px); }
+  44%, 68%  { clip-path: inset(0 0 100% 0); }
+  70%       { clip-path: inset(30% 0 52% 0); transform: translateX(-12px); }
+  73%, 100% { clip-path: inset(0 0 100% 0); }
+}
+.hg-a {
+  filter: drop-shadow(-5px 0 0 rgba(255, 46, 160, 0.95)) saturate(1.6) brightness(1.4);
+  animation: hackBandA 2.3s steps(1, end) infinite;
+}
+/* Bande déplacée B (cyan, décalée à droite), bandes/timing distincts. */
+@keyframes hackBandB {
+  0%, 21%   { clip-path: inset(0 0 100% 0); transform: translateX(0); }
+  23%       { clip-path: inset(66% 0 18% 0); transform: translateX(8px); }
+  26%, 51%  { clip-path: inset(0 0 100% 0); }
+  53%       { clip-path: inset(8% 0 80% 0); transform: translateX(-10px); }
+  56%, 85%  { clip-path: inset(0 0 100% 0); }
+  87%       { clip-path: inset(44% 0 40% 0); transform: translateX(13px); }
+  90%, 100% { clip-path: inset(0 0 100% 0); }
+}
+.hg-b {
+  filter: drop-shadow(5px 0 0 rgba(34, 255, 225, 0.95)) saturate(1.6) brightness(1.4);
+  animation: hackBandB 1.9s steps(1, end) infinite;
+}
+/* Scanlines / bruit qui défile (statique) par-dessus l'ensemble. */
+.hack-glitch::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(200, 120, 255, 0.18) 0 1px, transparent 1px 3px);
+  mix-blend-mode: screen;
+  opacity: 0.55;
+  animation: hackScan 0.45s steps(3, end) infinite;
+}
+@keyframes hackScan {
+  0%   { background-position-y: 0; }
+  100% { background-position-y: 9px; }
+}
+/* Scintillement global bref et irrégulier. */
+@keyframes hackFlicker {
+  0%, 22%, 24%, 61%, 63%, 100% { opacity: 1; }
+  23%, 62% { opacity: 0.62; }
+}

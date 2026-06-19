@@ -55,9 +55,11 @@ import { yzma } from '../../data/villains/yzma'
 import { yzmaCards } from '../../data/villains/yzma.cards'
 import { ratigan } from '../../data/villains/ratigan'
 import { ratiganCards } from '../../data/villains/ratigan.cards'
+import { sombra } from '../../data/villains/sombra'
+import { sombraCards } from '../../data/villains/sombra.cards'
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -75,6 +77,7 @@ export const VILLAIN_REGISTRY = {
   scar: { def: scar, cards: scarCards, label: 'Scar' },
   yzma: { def: yzma, cards: yzmaCards, label: 'Yzma' },
   ratigan: { def: ratigan, cards: ratiganCards, label: 'Ratigan' },
+  sombra: { def: sombra, cards: sombraCards, label: 'Sombra' },
 } as const
 
 /** Qui contrôle chaque siège. Concept d'UI : le moteur, lui, ne sait pas qui
@@ -493,6 +496,8 @@ interface GameStore {
   trapVanquish: (heroInstanceId: string, allyInstanceIds: string[]) => void
   /** Tendre un Piège : termine sans éliminer. */
   trapSkipVanquish: () => void
+  /** Ratigan — Brutes : renonce à l'action distante facultative. */
+  skipRemoteAction: () => void
   playCondition: (
     playerIndex: number,
     instanceId: string,
@@ -515,6 +520,8 @@ interface GameStore {
   resolveDeckPeek: (keep: boolean) => void
   /** Tombée de la nuit : choisit le type (Événement/Objet) à conserver. */
   resolveTypeChoice: (cardType: import('../../engine/types').CardType) => void
+  /** Le Grand Génie du Mal : choisit de piocher (`'draw'`) ou gagner du Pouvoir (`'power'`). */
+  resolveDrawOrGainPower: (choice: 'draw' | 'power') => void
   /** Apparition / Vent de panique : déplace le Héros choisi vers le lieu voisin. */
   resolveHeroRelocate: (heroInstanceId: string, to: string) => void
   /** Décline un déplacement de Héros facultatif (Poupées vaudou). */
@@ -580,6 +587,7 @@ interface GameStore {
   doneCrewmateMove: () => void
   /** Vidéo de surveillance / Carte : associe l'Objet Fatalité au lieu `locationId`. */
   resolveFateObjectPlace: (locationId: string) => void
+  resolveFateHeroPlace: (locationId: string) => void
   /** Colère Titanesque : choisit le lieu voisin où effectuer une action. */
   resolveGiantLocation: (locationId: string) => void
   /** Préparez-vous au combat ! (Hadès) : déplace le Titan choisi vers `to`. */
@@ -591,6 +599,12 @@ interface GameStore {
   resolveDivination: (topInstanceIds: string[]) => void
   /** Tour de passe-passe (Dr Facilier) : garde `keepInstanceIds` en main. */
   resolveLookTop: (keepInstanceIds: string[]) => void
+  /** Liste de Fidget (Ratigan) : acquitte l'affichage des cartes dévoilées. */
+  acknowledgeReveal: () => void
+  /** Sombra — Piratage : désactive l'action choisie du lieu piraté. */
+  resolveHack: (actionId: string) => void
+  /** Sombra — Information : défausser les cartes piochées (true) ou 2 de la main. */
+  resolveInformation: (discardDrawn: boolean) => void
   resolveTakeABite: (heroInstanceId: string) => void
   resolveDuplicateIngredient: (ingredientInstanceId: string) => void
   cancelDuplicateIngredient: () => void
@@ -924,6 +938,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'TRAP_VANQUISH', heroInstanceId, allyInstanceIds }),
   trapSkipVanquish: () =>
     get().submit({ type: 'TRAP_SKIP_VANQUISH' }),
+  skipRemoteAction: () =>
+    get().submit({ type: 'SKIP_REMOTE_ACTION' }),
   playCondition: (playerIndex, instanceId, allyInstanceId, to) =>
     get().submit({
         type: 'PLAY_CONDITION',
@@ -949,6 +965,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_DECK_PEEK', keep }),
   resolveTypeChoice: (cardType) =>
     get().submit({ type: 'RESOLVE_TYPE_CHOICE', cardType }),
+  resolveDrawOrGainPower: (choice) =>
+    get().submit({ type: 'RESOLVE_DRAW_OR_GAIN_POWER', choice }),
   resolveHeroRelocate: (heroInstanceId, to) =>
     get().submit({ type: 'RESOLVE_HERO_RELOCATE', heroInstanceId, to }),
   skipHeroRelocate: () =>
@@ -1013,6 +1031,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'DONE_CREWMATE_MOVE' }),
   resolveFateObjectPlace: (locationId) =>
     get().submit({ type: 'RESOLVE_FATE_OBJECT_PLACE', locationId }),
+  resolveFateHeroPlace: (locationId) =>
+    get().submit({ type: 'RESOLVE_FATE_HERO_PLACE', locationId }),
   resolveGiantLocation: (locationId) =>
     get().submit({ type: 'RESOLVE_GIANT_LOCATION', locationId }),
   resolveTitanMove: (titanInstanceId, to) =>
@@ -1023,6 +1043,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_DIVINATION', topInstanceIds }),
   resolveLookTop: (keepInstanceIds) =>
     get().submit({ type: 'RESOLVE_LOOK_TOP', keepInstanceIds }),
+  acknowledgeReveal: () => get().submit({ type: 'ACKNOWLEDGE_REVEAL' }),
+  resolveHack: (actionId) => get().submit({ type: 'RESOLVE_HACK', actionId }),
+  resolveInformation: (discardDrawn) => get().submit({ type: 'RESOLVE_INFORMATION', discardDrawn }),
   resolveTakeABite: (heroInstanceId) =>
     get().submit({ type: 'RESOLVE_TAKE_A_BITE', heroInstanceId }),
   resolveDuplicateIngredient: (ingredientInstanceId) =>

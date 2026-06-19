@@ -240,6 +240,22 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       'Chicha et Mauvais levier la vident de ses jetons Pouvoir — exploite ses faiblesses économiques.',
     ],
   },
+  sombra: {
+    difficulty: 2,
+    story:
+      "Pirate informatique surdouée du collectif Los Muertos puis agent fantôme (Overwatch), Sombra traque l’information et tire les ficelles dans l’ombre. Maîtresse du piratage et de la furtivité, elle infiltre les systèmes de LumériCo et Volskaya pour faire chanter les puissants — un coup d’avance, toujours.",
+    playTips: [
+      "Ton objectif : pose une carte de Piratage sur CHACUN des 4 lieux (Lumérico compris) puis joue Protocole Sombra pour gagner.",
+      "Lumérico est verrouillé au départ : joue Faille pour le déverrouiller (et enchaîne un Piratage gratuit).",
+      "Quand tu pirates un lieu, tu désactives une de ses actions : coupe les actions les plus gênantes (ou les Fatalités) de tes adversaires.",
+      "Tes Piratages ne se déplacent pas mais comptent comme des Objets : attention aux Héros qui les retirent (l’Œil, Zarya, Réinitialisation).",
+    ],
+    counterTips: [
+      "Retire ses Piratages : l’Œil et Zarya nettoient un lieu, Réinitialisation annule un piratage à distance.",
+      "Guillermo Portero se pose sur Lumérico (même bloqué) et empêche Sombra d’y poser un Piratage : un verrou sur son lieu le plus difficile.",
+      "Vol de données la saigne (−1 Pouvoir par Piratage/IEM) et Shutdown gèle un lieu un tour : ralentis sa course aux 4 piratages.",
+    ],
+  },
   ratigan: {
     difficulty: 2,
     story:

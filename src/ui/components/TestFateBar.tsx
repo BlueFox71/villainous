@@ -60,6 +60,10 @@ export function TestFateBar({ villain, locations, handAllies, boardHeroes, onInf
   const allies = cards
     .filter((c) => c.deck === 'villain' && c.type === 'ally')
     .sort((a, b) => a.name.localeCompare(b.name))
+  // Objets du deck Vilain : ajoutables à la main pour les poser via « Jouer une carte ».
+  const items = cards
+    .filter((c) => c.deck === 'villain' && c.type === 'item')
+    .sort((a, b) => a.name.localeCompare(b.name))
   // Dr Facilier : cartes Vilain pouvant être mises dans la Pile de l'Au-delà (tout
   // sauf Talisman / Divination, exclues par les règles).
   const auDelaCards = cards
@@ -76,6 +80,7 @@ export function TestFateBar({ villain, locations, handAllies, boardHeroes, onInf
   const [condId, setCondId] = useState(conditions[0]?.id ?? '')
   const [evtId, setEvtId] = useState(events[0]?.id ?? '')
   const [allyId, setAllyId] = useState(allies[0]?.id ?? '')
+  const [itemId, setItemId] = useState(items[0]?.id ?? '')
   const [auDelaCardId, setAuDelaCardId] = useState(auDelaCards[0]?.id ?? '')
   const [fateCardId, setFateCardId] = useState(fateCards[0]?.id ?? '')
   const [fateHeroId, setFateHeroId] = useState('')
@@ -234,6 +239,21 @@ export function TestFateBar({ villain, locations, handAllies, boardHeroes, onInf
           <button
             onClick={() => allyId && onAddToHand(allyId)}
             disabled={!allyId}
+            className="rounded bg-sky-500 px-3 py-0.5 font-medium text-sky-950 hover:bg-sky-400 disabled:opacity-40"
+          >
+            Ajouter à la main
+          </button>
+          <span className="text-[10px] text-emerald-200/70">puis « Jouer une carte » sur le plateau</span>
+        </div>
+      )}
+
+      {/* Ajouter un Objet de son choix à la main, puis le poser via « Jouer une carte ». */}
+      {items.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          <CardSelect cards={items} value={itemId} onChange={setItemId} placeholder="Objet…" />
+          <button
+            onClick={() => itemId && onAddToHand(itemId)}
+            disabled={!itemId}
             className="rounded bg-sky-500 px-3 py-0.5 font-medium text-sky-950 hover:bg-sky-400 disabled:opacity-40"
           >
             Ajouter à la main

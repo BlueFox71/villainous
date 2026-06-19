@@ -23,6 +23,7 @@ import {
   heroPlacementLocations,
   maxBrewPoison,
   playableConditions,
+  realmRelocateCandidates,
   sacrificeableCards,
   teleportTargets,
   transformableGuards,
@@ -45,6 +46,7 @@ import { FateModal } from './components/FateModal'
 import { ChoiceModal } from './components/ChoiceModal'
 import { HeroPlacementModal } from './components/HeroPlacementModal'
 import { FateObjectPlaceModal } from './components/FateObjectPlaceModal'
+import { FateHeroPlaceModal } from './components/FateHeroPlaceModal'
 import { PawnMoveModal } from './components/PawnMoveModal'
 import { HubertPullModal } from './components/HubertPullModal'
 import { DeckPeekModal } from './components/DeckPeekModal'
@@ -73,13 +75,16 @@ import { BeautySleepModal } from './components/BeautySleepModal'
 import { TitanMoveModal } from './components/TitanMoveModal'
 import { DivinationModal } from './components/DivinationModal'
 import { LookTopModal } from './components/LookTopModal'
+import { RevealModal } from './components/RevealModal'
+import { HackModal } from './components/HackModal'
+import { InformationModal } from './components/InformationModal'
 import { TakeABiteModal } from './components/TakeABiteModal'
 import { BlackMagicModal } from './components/BlackMagicModal'
 import { FateScryModal } from './components/FateScryModal'
 import { TitanSelectModal } from './components/TitanSelectModal'
 import { StartRollModal } from './components/StartRollModal'
 import { MusicPlayer } from './components/MusicPlayer'
-import { playKillSound, playTaskComplete, playDeadBody, playEmergencyMeeting, playYourTurn, playEndTurnFlip, playEndTurnEnable, playHover, startVictoryBuildup, startDefeatBuildup, stopVictoryBuildup } from './sfx'
+import { playKillSound, playTaskComplete, playDeadBody, playEmergencyMeeting, playYourTurn, playEndTurnFlip, playEndTurnEnable, playHover, startVictoryBuildup, startDefeatBuildup, stopVictoryBuildup, playLieuPirate } from './sfx'
 import { playVillainIntro } from './villainVoices'
 import { Showcase } from './components/Showcase'
 import { TestFateBar } from './components/TestFateBar'
@@ -123,10 +128,12 @@ type Mode =
       actionId: string
       viaCard?: { instanceId: string; cardName: string; allyMove?: { instanceId: string; to: string } }
       diablo?: boolean
-      /** Vanquish facultatif de Tendre un Piège (déplacement déjà appliqué). */
+      /** Vanquish facultatif de Tendre un Piège / Uniforme (action déjà appliquée). */
       trap?: boolean
-      /** Restreint les Héros ciblables à ce lieu (Troupeau de gnous : nouveau lieu). */
+      /** Restreint les Héros ciblables à ce lieu (Troupeau de gnous / Uniforme). */
       vanquishLocationId?: string
+      /** Uniforme : Allié porteur OBLIGATOIRE parmi les participants (présélectionné). */
+      requiredAllyId?: string
     }
   /** Héros choisi ; on coche les Alliés du lieu, total live, confirme. */
   | {
@@ -138,6 +145,8 @@ type Mode =
       viaCard?: { instanceId: string; cardName: string; allyMove?: { instanceId: string; to: string } }
       diablo?: boolean
       trap?: boolean
+      /** Uniforme : Allié porteur OBLIGATOIRE (présélectionné, non décochable). */
+      requiredAllyId?: string
     }
   /** Carte (ex. Emprisonnement) en attente de la cible Héros adverse. */
   | { kind: 'play-pick-hero'; actionId: string; instanceId: string; cardName: string; diablo?: boolean }
@@ -179,74 +188,75 @@ type Mode =
   | { kind: 'impuissance-choice'; actionId: string; instanceId: string; cardName: string; diablo?: boolean }
   /** Bowser — Impuissance (branche Éliminer) : cliquer le Héros ≤3 à éliminer. */
   | { kind: 'impuissance-pick-hero'; actionId: string; instanceId: string; cardName: string; diablo?: boolean }
+  /** Ratigan — pose d'un Objet : on coche directement les Engrenages EN JEU à
+   *  défausser (−3 chacun) sur le plateau, coût live, puis on confirme. */
+  | {
+      kind: 'engrenages-pick'
+      diablo?: boolean
+      actionId: string
+      instanceId: string
+      to?: string
+      attachTo?: string
+      cardName: string
+      baseCost: number
+      /** instanceIds des Engrenages cochables (non associés, sur le plateau). */
+      available: string[]
+      /** Engrenages déjà cochés à défausser. */
+      selected: string[]
+    }
+  /** Ratigan — Félicia : à la pose (lieu `to` choisi), choix entre défausser un
+   *  Allié de ce lieu OU payer 2 Pouvoir de plus. Ouvert quand les DEUX options
+   *  sont possibles. */
+  | {
+      kind: 'felicia-choice'
+      actionId: string
+      instanceId: string
+      cardName: string
+      to: string
+      /** instanceIds des Alliés défaussables sur `to`. */
+      allies: string[]
+      /** Coût de base (pour afficher le total « +2 »). */
+      baseCost: number
+      diablo?: boolean
+    }
+  /** Ratigan — Félicia : on attend le clic sur l'Allié de `to` à défausser. */
+  | { kind: 'felicia-pick-ally'; actionId: string; instanceId: string; cardName: string; to: string; diablo?: boolean }
   | null
 
-/** Ratigan — modal de choix : combien d'Engrenages EN JEU défausser (−3 chacun) pour
- *  réduire le coût de l'Objet joué. Le joueur ajuste le nombre ; on bloque la
- *  confirmation si le coût restant dépasse son Pouvoir. */
-function EngrenagesModal({
-  cardName,
-  baseCost,
+/** Ratigan — Le Grand Génie du Mal : l'humain choisit entre piocher `draw` cartes
+ *  OU gagner `power` jetons Pouvoir. */
+function DrawOrGainPowerModal({
+  draw,
   power,
-  max,
-  onConfirm,
-  onCancel,
+  onChoose,
 }: {
-  cardName: string
-  baseCost: number
+  draw: number
   power: number
-  max: number
-  onConfirm: (count: number) => void
-  onCancel: () => void
+  onChoose: (choice: 'draw' | 'power') => void
 }) {
-  const [count, setCount] = useState(0)
-  const cost = Math.max(0, baseCost - 3 * count)
-  const affordable = cost <= power
+  const def = getCardDef('grand-genie-du-mal')
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
-      <div className="flex w-[24rem] max-w-[92vw] flex-col gap-4 rounded-2xl border border-white/15 bg-[#15101f] p-6 shadow-2xl">
-        <h2 className="text-center text-lg font-bold text-amber-200">Engrenages</h2>
-        <p className="text-center text-sm text-white/80">
-          Défausser des <b>Engrenages</b> en jeu pour réduire le coût de <b>{cardName}</b> (−3 chacun) ?
-        </p>
-        <div className="flex items-center justify-center gap-4">
-          <button
-            type="button"
-            onClick={() => setCount((c) => Math.max(0, c - 1))}
-            disabled={count <= 0}
-            className="h-9 w-9 rounded-full border border-white/25 text-lg font-bold text-white disabled:opacity-30 hover:bg-white/10"
-          >
-            −
-          </button>
-          <span className="font-mono text-xl text-white">{count} / {max}</span>
-          <button
-            type="button"
-            onClick={() => setCount((c) => Math.min(max, c + 1))}
-            disabled={count >= max}
-            className="h-9 w-9 rounded-full border border-white/25 text-lg font-bold text-white disabled:opacity-30 hover:bg-white/10"
-          >
-            +
-          </button>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-white/70">Coût : <b className={affordable ? 'text-emerald-300' : 'text-red-400'}>{cost}</b> JT</span>
-          <span className="text-white/70">Pouvoir : {power} JT</span>
-        </div>
+      <div className="flex w-[26rem] max-w-[92vw] flex-col gap-4 rounded-2xl border border-white/15 bg-[#15101f] p-6 shadow-2xl">
+        <h2 className="text-center text-lg font-bold text-amber-200">Le Grand Génie du Mal</h2>
+        {def?.image && (
+          <img src={def.image} alt={def.name} className="mx-auto w-28 rounded-lg border border-white/15 shadow" />
+        )}
+        <p className="text-center text-sm text-white/80">Choisis ton effet :</p>
         <div className="flex justify-center gap-3">
           <button
             type="button"
-            onClick={onCancel}
-            className="rounded-lg border border-white/20 px-4 py-1.5 text-sm text-white/80 hover:bg-white/10"
+            onClick={() => onChoose('draw')}
+            className="flex-1 rounded-lg border border-sky-400/60 bg-sky-500/20 px-4 py-2 text-sm font-semibold text-sky-100 hover:bg-sky-500/30"
           >
-            Annuler
+            Piocher {draw} carte{draw > 1 ? 's' : ''}
           </button>
           <button
             type="button"
-            onClick={() => onConfirm(count)}
-            disabled={!affordable}
-            className="rounded-lg border border-amber-400/60 bg-amber-500/20 px-4 py-1.5 text-sm font-semibold text-amber-100 disabled:opacity-40 hover:bg-amber-500/30"
+            onClick={() => onChoose('power')}
+            className="flex-1 rounded-lg border border-amber-400/60 bg-amber-500/20 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-500/30"
           >
-            Jouer{count > 0 ? ` (défausser ${count})` : ''}
+            Gagner {power} Pouvoir
           </button>
         </div>
       </div>
@@ -288,6 +298,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveHubertPull = useGameStore((s) => s.resolveHubertPull)
   const resolveDeckPeek = useGameStore((s) => s.resolveDeckPeek)
   const resolveTypeChoice = useGameStore((s) => s.resolveTypeChoice)
+  const resolveDrawOrGainPower = useGameStore((s) => s.resolveDrawOrGainPower)
   const resolveHeroRelocate = useGameStore((s) => s.resolveHeroRelocate)
   const skipHeroRelocate = useGameStore((s) => s.skipHeroRelocate)
   const resolveAllyRelocate = useGameStore((s) => s.resolveAllyRelocate)
@@ -323,11 +334,15 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveCrewmateMove = useGameStore((s) => s.resolveCrewmateMove)
   const doneCrewmateMove = useGameStore((s) => s.doneCrewmateMove)
   const resolveFateObjectPlace = useGameStore((s) => s.resolveFateObjectPlace)
+  const resolveFateHeroPlace = useGameStore((s) => s.resolveFateHeroPlace)
   const resolveGiantLocation = useGameStore((s) => s.resolveGiantLocation)
   const resolveTitanMove = useGameStore((s) => s.resolveTitanMove)
   const resolveTitanSelect = useGameStore((s) => s.resolveTitanSelect)
   const resolveDivination = useGameStore((s) => s.resolveDivination)
   const resolveLookTop = useGameStore((s) => s.resolveLookTop)
+  const acknowledgeReveal = useGameStore((s) => s.acknowledgeReveal)
+  const resolveHack = useGameStore((s) => s.resolveHack)
+  const resolveInformation = useGameStore((s) => s.resolveInformation)
   const resolveTakeABite = useGameStore((s) => s.resolveTakeABite)
   const resolveDuplicateIngredient = useGameStore((s) => s.resolveDuplicateIngredient)
   const cancelDuplicateIngredient = useGameStore((s) => s.cancelDuplicateIngredient)
@@ -336,6 +351,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // Renommé sans préfixe « use » (action du store, pas un hook React).
   const activateCanne = useGameStore((s) => s.useCanne)
   const chariotMove = useGameStore((s) => s.chariotMove)
+  const skipRemoteAction = useGameStore((s) => s.skipRemoteAction)
   const endTurn = useGameStore((s) => s.endTurn)
   const reset = useGameStore((s) => s.reset)
   const botAct = useGameStore((s) => s.botAct)
@@ -446,18 +462,6 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   ])
 
   const [mode, setMode] = useState<Mode>(null)
-  // Ratigan — Engrenages : choix (combien d'Engrenages EN JEU défausser, −3 chacun)
-  // au moment de jouer un Objet. Ouvert si le joueur a des Engrenages posés.
-  const [engrenagesPrompt, setEngrenagesPrompt] = useState<{
-    diablo?: boolean
-    actionId: string
-    instanceId: string
-    to?: string
-    attachTo?: string
-    cardName: string
-    baseCost: number
-    available: CardInstance[]
-  } | null>(null)
   // Mode test : relance l'animation de décor au clic (boutons 🚢). On choisit le
   // vilain ET le camp (joueur/adversaire) pour tester chaque trajectoire des deux côtés.
   const [debugAnim, setDebugAnim] = useState<{
@@ -483,6 +487,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // L'Imposteur — bandeau « EMERGENCY MEETING » (Réunion d'urgence), affiché ~2,4 s.
   const [showEmergency, setShowEmergency] = useState(false)
   const lastHumanTurnRef = useRef<number | null>(null)
+  // Sombra — son « Lieu piraté » : on le joue dès qu'une nouvelle « piraterie »
+  // apparaît (action désactivée par un Piratage OU Héros piraté par Boop), tous
+  // joueurs confondus. Un compteur suivi par ref évite de le rejouer à chaque rendu.
+  const hackCountRef = useRef<number | null>(null)
   // Vilain du joueur local (siège HUMAN), suivi par un ref pour être lu dans des
   // effets sans les faire dépendre de `state.players` (référence changeante).
   const humanVillainKeyRef = useRef<VillainKey | null>(null)
@@ -996,6 +1004,17 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       }
       return
     }
+    // Le Grand Génie du Mal : piocher 2 cartes OU gagner 2 Pouvoir. Bot →
+    // heuristique (pioche si la main est courte, < 3 cartes) ; humain → modale.
+    const pdgp = state.pendingDrawOrGainPower
+    if (pdgp) {
+      if (seats[pdgp.playerIndex] === 'bot') {
+        const choice = state.players[pdgp.playerIndex].hand.length >= 3 ? 'power' : 'draw'
+        const timer = setTimeout(() => resolveDrawOrGainPower(choice), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
     // Manipulation : choisir une carte de la défausse à reprendre. Bot → la
     // dernière défaussée ; humain → modale.
     const pman = state.pendingManipulation
@@ -1322,6 +1341,21 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       }
       return
     }
+    // Appel à l'aide (Ratigan) : le bot (qui pose la Fatalité) vise le lieu de la
+    // Reine Robot (pour que Basil la défausse → bascule « Le Rat »), sinon Buckingham.
+    const pfhp = state.pendingFateHeroPlace
+    if (pfhp) {
+      if (seats[pfhp.chooserIndex] === 'bot') {
+        const tgt = state.players[pfhp.targetIndex]
+        const robotLoc = tgt.locations.find((l) =>
+          (tgt.board[l.id] ?? []).some((c) => c.cardId === 'reine-robot' && !c.attachedTo),
+        )?.id
+        const dest = robotLoc ?? (tgt.locations.some((l) => l.id === 'buckingham-palace') ? 'buckingham-palace' : tgt.locations[0]?.id)
+        const timer = setTimeout(() => dest && resolveFateHeroPlace(dest), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
     // Abu/Aladdin/K.O. : le bot (s'il a joué la Fatalité) choisit la cible — pour
     // K.O. l'Allié le plus fort éligible, sinon le 1ᵉʳ Objet.
     const pfc = state.pendingFateChoice
@@ -1357,7 +1391,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                           (b.type === 'hero' ? 1 : 0) - (a.type === 'hero' ? 1 : 0) ||
                           (b.strength ?? 0) - (a.strength ?? 0),
                       )[0]
-                    : cands[0]
+                    : pfc.kind === 'remove-item'
+                      ? // Migraine / Sabotage : défausser l'Objet le plus cher (le plus pénalisant).
+                        [...cands].sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0))[0]
+                      : cands[0]
         if (pick) {
           const timer = setTimeout(() => resolveFateChoice(pick.instanceId), BOT_STEP_MS)
           return () => clearTimeout(timer)
@@ -1400,8 +1437,15 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     const psc = state.pendingScry
     if (psc) {
       if (seats[psc.playerIndex] === 'bot') {
-        const heroes = psc.cards.filter((c) => c.type === 'hero').map((c) => c.instanceId)
-        const timer = setTimeout(() => resolveScry(heroes), BOT_STEP_MS)
+        // Pas si vite (Sombra) : garder (= faire jouer) la carte la moins menaçante.
+        // Sinon (Faites-leur peur !) : garder les Héros sur le dessus.
+        const keep = psc.pasSiVite
+          ? (() => {
+              const least = [...psc.cards].sort((a, b) => (a.strength ?? 0) - (b.strength ?? 0))[0]
+              return least ? [least.instanceId] : []
+            })()
+          : psc.cards.filter((c) => c.type === 'hero').map((c) => c.instanceId)
+        const timer = setTimeout(() => resolveScry(keep), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
       return
@@ -1431,6 +1475,38 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           : cardId === 'divination-facilier' ? 3 : cardId === 'tour-passe-passe' ? 2 : cardId === 'canne' ? 1 : 0
         const best = [...plt.cards].sort((a, b) => rank(b.cardId) - rank(a.cardId))[0]
         const timer = setTimeout(() => resolveLookTop([best.instanceId]), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Liste de Fidget (Ratigan) : affichage informatif, le bot l'acquitte tout seul.
+    const prv = state.pendingReveal
+    if (prv) {
+      if (seats[prv.playerIndex] === 'bot') {
+        const timer = setTimeout(() => acknowledgeReveal(), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Sombra — Piratage : le bot désactive l'action la moins utile (Défausser en
+    // priorité, sinon la 1ʳᵉ proposée).
+    const phk = state.pendingHack
+    if (phk) {
+      if (seats[phk.playerIndex] === 'bot') {
+        const loc = state.players[phk.playerIndex].locations.find((l) => l.id === phk.locationId)
+        const byId = (id: string) => loc?.actions.find((a) => a.id === id)
+        const pick =
+          phk.actionIds.find((id) => byId(id)?.type === 'DISCARD_CARDS') ?? phk.actionIds[0]
+        const timer = setTimeout(() => resolveHack(pick), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Sombra — Information : le bot garde la pioche (net +1) et défausse depuis sa main.
+    const pinf = state.pendingInformation
+    if (pinf) {
+      if (seats[pinf.playerIndex] === 'bot') {
+        const timer = setTimeout(() => resolveInformation(false), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
       return
@@ -1527,7 +1603,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           )
           if (hero) {
             const i = ids.indexOf(loc.id)
-            const cands = phr.forcedDirection !== undefined
+            const cands = phr.forcedLocationId !== undefined
+              ? [phr.forcedLocationId].filter((id): id is string => !!id && !locked.has(id))
+              : phr.forcedDirection !== undefined
               ? [ids[i + phr.forcedDirection]].filter((id): id is string => !!id && !locked.has(id))
               : phr.anyLocation
                 ? ids.filter((id) => id !== loc.id && !locked.has(id))
@@ -1646,7 +1724,24 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveDivination, resolveLookTop, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate])
+  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveHeroRelocate, resolveTeleport, resolveManipulation, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate])
+
+  // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
+  // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
+  // tous joueurs confondus. Couvre humain ET bot, sans rejouer à chaque rendu.
+  useEffect(() => {
+    let count = 0
+    for (const p of state.players) {
+      for (const cards of Object.values(p.board)) {
+        for (const c of cards) {
+          if (c.isPiratage && c.hackedActionId) count++
+          if (c.type === 'hero' && c.abilityHacked) count++
+        }
+      }
+    }
+    if (hackCountRef.current !== null && count > hackCountRef.current) playLieuPirate()
+    hackCountRef.current = count
+  }, [state])
 
   // Coups légaux / actions : seulement pour le joueur humain et à son tour.
   const legalMoves = isHumanTurn ? getLegalMoves(state) : []
@@ -1745,8 +1840,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       playCard(actionId, instanceId, to, attachTo, targetHeroId, allyInstanceIds, allyMove, shrinkFreeActionId, engrenagesIds)
     }
   }
-  // Ratigan — pose d'un Objet : si des Engrenages sont EN JEU, on propose d'abord de
-  // les défausser pour réduire le coût (−3 chacun). Sinon, pose directe (avec vol).
+  // Ratigan — pose d'un Objet : si des Engrenages sont EN JEU, on bascule dans un
+  // mode où le joueur coche DIRECTEMENT les Engrenages du plateau à défausser pour
+  // réduire le coût (−3 chacun). Sinon, pose directe (avec vol). Cette fonction est
+  // responsable de l'état `mode` final (engrenages-pick OU null après la pose).
   const playItemMaybeEngrenages = (
     diablo: boolean | undefined,
     actionId: string,
@@ -1761,11 +1858,65 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         : []
     const baseCost = card ? effectiveCost(state, card, to) : 0
     if (card && available.length > 0 && baseCost > 0) {
-      setEngrenagesPrompt({ diablo, actionId, instanceId, to, attachTo, cardName: card.name, baseCost, available })
+      setMode({
+        kind: 'engrenages-pick',
+        diablo,
+        actionId,
+        instanceId,
+        to,
+        attachTo,
+        cardName: card.name,
+        baseCost,
+        available: available.map((c) => c.instanceId),
+        selected: [],
+      })
       return
     }
     if (to) flyHandToBoard(instanceId, to)
     doPlayCard(diablo, actionId, instanceId, to, attachTo)
+    setMode(null)
+  }
+  // Ratigan — coche/décoche un Engrenage du plateau (mode engrenages-pick).
+  const handleEngrenagesToggle = (instanceId: string) =>
+    setMode((m) => {
+      if (m?.kind !== 'engrenages-pick') return m
+      const selected = m.selected.includes(instanceId)
+        ? m.selected.filter((id) => id !== instanceId)
+        : [...m.selected, instanceId]
+      return { ...m, selected }
+    })
+  // Ratigan — confirme la pose de l'Objet en défaussant les Engrenages cochés.
+  const handleEngrenagesConfirm = () => {
+    if (mode?.kind !== 'engrenages-pick') return
+    const cost = Math.max(0, mode.baseCost - 3 * mode.selected.length)
+    if (cost > user.power) return
+    if (mode.to) flyHandToBoard(mode.instanceId, mode.to)
+    doPlayCard(
+      mode.diablo,
+      mode.actionId,
+      mode.instanceId,
+      mode.to,
+      mode.attachTo,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      mode.selected,
+    )
+    setMode(null)
+  }
+  // Ratigan — Félicia : pose effective. `allyId` fourni → défausse cet Allié de son
+  // lieu ; absent → on paie 2 Pouvoir de plus (le moteur prélève le supplément).
+  const playFelicia = (
+    diablo: boolean | undefined,
+    actionId: string,
+    instanceId: string,
+    to: string,
+    allyId?: string,
+  ) => {
+    flyHandToBoard(instanceId, to)
+    doPlayCard(diablo, actionId, instanceId, to, undefined, undefined, allyId ? [allyId] : undefined)
+    setMode(null)
   }
   const doVanquish = (
     isDiablo: boolean | undefined,
@@ -1986,13 +2137,15 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     playCard(mode.actionId, mode.instanceId)
     setMode(null)
   }
-  // Tendre un Piège — Vanquish facultatif (pendingTrapVanquish) : démarrer ou terminer.
+  // Tendre un Piège / Uniforme — Vanquish facultatif (pendingTrapVanquish) :
+  // démarrer ou terminer. Uniforme : l'Allié porteur est obligatoire (présélectionné).
   const handleTrapStartVanquish = () =>
     setMode({
       kind: 'vanquish-pick-hero',
       actionId: '',
       trap: true,
       vanquishLocationId: state.pendingTrapVanquish?.locationId,
+      requiredAllyId: state.pendingTrapVanquish?.requiredAllyInstanceId,
     })
   const handleTrapFinish = () => trapSkipVanquish()
   const handleCardPick = (instanceId: string) => {
@@ -2023,6 +2176,14 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       if (!drainStarAllies(state).some((c) => c.instanceId === instanceId)) return
       doPlayCard(mode.diablo, mode.actionId, mode.instanceId, undefined, undefined, undefined, [instanceId])
       return setMode(null)
+    }
+    if (mode?.kind === 'felicia-pick-ally') {
+      // L'Allié cliqué (sur le lieu de Félicia) est défaussé pour la jouer.
+      const here = (user.board[mode.to] ?? []).some(
+        (c) => c.instanceId === instanceId && c.type === 'ally' && !c.attachedTo && !c.isWicket,
+      )
+      if (!here) return
+      return playFelicia(mode.diablo, mode.actionId, mode.instanceId, mode.to, instanceId)
     }
     if (mode?.kind === 'impuissance-pick-hero') {
       // Le Héros cliqué (≤3) est éliminé par Impuissance.
@@ -2075,25 +2236,46 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       return setMode(null)
     }
     if (mode?.kind !== 'place') return
+    // Ratigan — Félicia : à la pose, défausser un Allié de son lieu OU payer 2 de plus.
+    const placing = user.hand.find((c) => c.instanceId === mode.instanceId)
+    const orPay = placing && (placing.effects ?? []).find((e) => e.type === 'DISCARD_ALLY_AT_HOST_OR_PAY')
+    if (placing && orPay && orPay.type === 'DISCARD_ALLY_AT_HOST_OR_PAY') {
+      const allies = (user.board[to] ?? [])
+        .filter((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket)
+        .map((c) => c.instanceId)
+      const baseCost = effectiveCost(state, placing, to)
+      const canPay = user.power >= baseCost + orPay.power
+      if (allies.length === 0 && !canPay) return // injouable (lieu non proposé en principe)
+      if (allies.length > 0 && canPay) {
+        return setMode({ kind: 'felicia-choice', actionId: mode.actionId, instanceId: mode.instanceId, cardName: mode.cardName, to, allies, baseCost, diablo: mode.diablo })
+      }
+      if (allies.length > 0) {
+        // Défausse obligatoire (pas les moyens de payer le supplément).
+        if (allies.length === 1) return playFelicia(mode.diablo, mode.actionId, mode.instanceId, to, allies[0])
+        return setMode({ kind: 'felicia-pick-ally', actionId: mode.actionId, instanceId: mode.instanceId, cardName: mode.cardName, to, diablo: mode.diablo })
+      }
+      // Paiement obligatoire (aucun Allié à défausser sur ce lieu).
+      return playFelicia(mode.diablo, mode.actionId, mode.instanceId, to)
+    }
     if (mode.isAttach) {
       const allies = (user.board[to] ?? []).filter(
         (c) => c.type === 'ally' || (c.type === 'hero' && c.hypnotized),
       )
       if (allies.length === 0) return // lieu non cliquable en principe
       if (allies.length === 1) {
-        playItemMaybeEngrenages(mode.diablo, mode.actionId, mode.instanceId, to, allies[0].instanceId)
-        return setMode(null)
+        // playItemMaybeEngrenages fixe lui-même le mode (engrenages-pick ou null).
+        return playItemMaybeEngrenages(mode.diablo, mode.actionId, mode.instanceId, to, allies[0].instanceId)
       }
       // Plusieurs Alliés sur ce lieu : on attend le clic sur la carte de l'Allié.
       return setMode({ kind: 'attach', actionId: mode.actionId, instanceId: mode.instanceId, cardName: mode.cardName, to, diablo: mode.diablo })
     }
+    // playItemMaybeEngrenages fixe lui-même le mode (engrenages-pick ou null).
     playItemMaybeEngrenages(mode.diablo, mode.actionId, mode.instanceId, to)
-    setMode(null)
   }
   const handleAttach = (allyInstanceId: string) => {
     if (mode?.kind !== 'attach') return
+    // playItemMaybeEngrenages fixe lui-même le mode (engrenages-pick ou null).
     playItemMaybeEngrenages(mode.diablo, mode.actionId, mode.instanceId, mode.to, allyInstanceId)
-    setMode(null)
   }
   const handleToggleDiscard = (instanceId: string) => {
     // Défausse Tyrannie (état dédié) prioritaire sur le mode défausse normal.
@@ -2204,15 +2386,19 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       actionId: mode.actionId,
       heroInstanceId,
       heroName,
-      selected: [],
+      // Uniforme : l'Allié porteur est présélectionné (obligatoire).
+      selected: mode.requiredAllyId ? [mode.requiredAllyId] : [],
       viaCard: mode.viaCard,
       diablo: mode.diablo,
       trap: mode.trap,
+      requiredAllyId: mode.requiredAllyId,
     })
   }
   const handleVanquishToggleAlly = (allyInstanceId: string) =>
     setMode((m) => {
       if (m?.kind !== 'vanquish-pick-allies') return m
+      // Uniforme : l'Allié porteur ne peut pas être décoché (participation obligatoire).
+      if (m.requiredAllyId === allyInstanceId) return m
       const selected = m.selected.includes(allyInstanceId)
         ? m.selected.filter((id) => id !== allyInstanceId)
         : [...m.selected, allyInstanceId]
@@ -2271,7 +2457,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         mode.kind === 'sacrifice-pick' ||
         mode.kind === 'drain-pick-ally' ||
         mode.kind === 'impuissance-choice' ||
-        mode.kind === 'impuissance-pick-hero'
+        mode.kind === 'impuissance-pick-hero' ||
+        mode.kind === 'engrenages-pick' ||
+        mode.kind === 'felicia-choice' ||
+        mode.kind === 'felicia-pick-ally'
       ? mode.instanceId
       : mode.kind === 'vanquish-pick-hero' || mode.kind === 'vanquish-pick-allies'
         ? mode.viaCard?.instanceId ?? null
@@ -2305,6 +2494,18 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           .filter((id) => {
             // Carte à pose restreinte (Lampe Merveilleuse → Caverne uniquement).
             if (cardInPlay?.playOnlyAt && id !== cardInPlay.playOnlyAt) return false
+            // Ratigan — Félicia : injouable sur un lieu où l'on ne peut ni défausser
+            // un Allié, ni (faute de Pouvoir) payer le supplément de 2.
+            if (cardInPlay) {
+              const fel = (cardInPlay.effects ?? []).find((e) => e.type === 'DISCARD_ALLY_AT_HOST_OR_PAY')
+              if (fel && fel.type === 'DISCARD_ALLY_AT_HOST_OR_PAY') {
+                const hasAlly = (user.board[id] ?? []).some(
+                  (c) => c.type === 'ally' && !c.attachedTo && !c.isWicket,
+                )
+                const canPay = user.power >= effectiveCost(state, cardInPlay, id) + fel.power
+                if (!hasAlly && !canPay) return false
+              }
+            }
             if (mode.isAttach)
               return (user.board[id] ?? []).some(
                 (c) => c.type === 'ally' || (c.type === 'hero' && c.hypnotized),
@@ -2350,6 +2551,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     mode?.kind === 'activate-pick' ||
     mode?.kind === 'sacrifice-pick' ||
     mode?.kind === 'drain-pick-ally' ||
+    mode?.kind === 'felicia-pick-ally' ||
     finishJobPickAlly
   // Liste PRÉCISE des cartes cliquables pour les modes restreints aux Alliés
   // (épuisement d'énergie : Allié sur l'Observatoire ; Tendre un Piège : Allié à
@@ -2357,6 +2559,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const selectableCardIds: string[] | null =
     mode?.kind === 'drain-pick-ally'
       ? drainStarAllies(state).map((c) => c.instanceId)
+      : mode?.kind === 'felicia-pick-ally'
+      ? (user.board[mode.to] ?? [])
+          .filter((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket)
+          .map((c) => c.instanceId)
       : mode?.kind === 'trap-pick-ally' || finishJobPickAlly
         ? Object.values(user.board)
             .flat()
@@ -2388,6 +2594,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             if (limit && limit.type === 'INSTANT_VANQUISH_HERO_LE') {
               return allHeroes.filter((h) => (h.strength ?? 0) <= limit.maxStrength).map((c) => c.instanceId)
             }
+            // Sombra — Boop ! : seuls les Héros PAS déjà piratés sont ciblables.
+            if (card?.effects?.some((e) => e.type === 'HACK_HERO')) {
+              return allHeroes.filter((h) => !h.abilityHacked).map((c) => c.instanceId)
+            }
             // Disparition : seulement les Héros sur le lieu du pion.
             if (card?.effects?.some((e) => e.type === 'INSTANT_VANQUISH_HERO_AT_PAWN')) {
               return (user.board[user.pawnLocation ?? ''] ?? [])
@@ -2417,6 +2627,20 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           return allHeroes.map((c) => c.instanceId)
         })()
       : []
+  // Capture (Ratigan) : choix du Héros à déplacer PAR CLIC DIRECT sur le plateau
+  // (destination imposée → `forcedLocationId`). On surligne les Héros candidats du
+  // royaume du joueur ; cliquer en déplace un directement (pas de modal). Les autres
+  // cas de pendingHeroRelocate (choix d'un lieu) gardent le modal.
+  const relocateHeroTargets: string[] = (() => {
+    const phr = state.pendingHeroRelocate
+    if (!phr || phr.chooserIndex !== HUMAN || phr.forcedLocationId === undefined) return []
+    const heroes = Object.values(user.board)
+      .flat()
+      .filter((c) => c.type === 'hero')
+      .map((c) => c.instanceId)
+    return phr.candidateIds ? heroes.filter((id) => phr.candidateIds!.includes(id)) : heroes
+  })()
+
   // Localisation du héros ciblé (mode pick-allies).
   const heroLoc = (() => {
     if (mode?.kind !== 'vanquish-pick-allies') return null
@@ -2462,6 +2686,13 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           return combined.map((c) => c.instanceId)
         })()
       : []
+  // Ratigan — Engrenages : cartes cochables (du plateau) + sélection + coût live.
+  const engrenagesCandidates = mode?.kind === 'engrenages-pick' ? mode.available : []
+  const engrenagesSelected = mode?.kind === 'engrenages-pick' ? mode.selected : []
+  const engrenagesCost =
+    mode?.kind === 'engrenages-pick'
+      ? Math.max(0, mode.baseCost - 3 * mode.selected.length)
+      : 0
   const vanquishSelected = mode?.kind === 'vanquish-pick-allies' ? mode.selected : []
   const vanquishTotal = vanquishSelected.reduce(
     (n, id) => n + (userStrengths[id] ?? 0),
@@ -2723,6 +2954,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                     else if (mode?.kind === 'item-attach-hero') handleItemAttachHero(id)
                     else handleVanquishPickHero(id, name)
                   }}
+                  relocateTargets={relocateHeroTargets}
+                  onRelocatePickHero={(id) => {
+                    const phr = state.pendingHeroRelocate
+                    if (phr?.forcedLocationId) resolveHeroRelocate(id, phr.forcedLocationId)
+                  }}
                   canDiscardDeguisement={isHumanTurn && state.phase === 'ACTION' && user.power >= 2}
                   onDiscardDeguisement={discardDeguisement}
                   hiddenInstanceIds={showcaseHiddenIds}
@@ -2789,6 +3025,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 vanquishAllyCandidates={vanquishAllyCandidates}
                 vanquishSelected={vanquishSelected}
                 onVanquishToggle={handleVanquishToggleAlly}
+                engrenagesCandidates={engrenagesCandidates}
+                engrenagesSelected={engrenagesSelected}
+                onEngrenagesToggle={handleEngrenagesToggle}
                 sheriffMovable={sheriffMovable}
                 onSheriffMoveStart={handleSheriffMoveStart}
                 diabloMovable={diabloMovable}
@@ -2848,7 +3087,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             mode?.kind === 'sacrifice-pick' ||
             mode?.kind === 'drain-pick-ally' ||
             mode?.kind === 'impuissance-choice' ||
-            mode?.kind === 'impuissance-pick-hero') && (
+            mode?.kind === 'impuissance-pick-hero' ||
+            mode?.kind === 'engrenages-pick' ||
+            mode?.kind === 'felicia-choice' ||
+            mode?.kind === 'felicia-pick-ally') && (
             <div className="flex items-center justify-between gap-2 rounded-lg border border-amber-400/70 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
               <span>
                 {mode.kind === 'place' ? (
@@ -2940,6 +3182,23 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                   <>
                     <b>Impuissance</b> : clique le <b>Héros</b> à éliminer (force ≤ 3, rouge).
                   </>
+                ) : mode.kind === 'engrenages-pick' ? (
+                  <>
+                    Pose <b>{mode.cardName}</b> : coche les <b>Engrenages</b> à défausser (−3 chacun, surlignés).
+                    Coût :{' '}
+                    <b className={engrenagesCost <= user.power ? 'text-emerald-300' : 'text-red-300'}>
+                      {engrenagesCost}
+                    </b>{' '}
+                    / {user.power} JT.
+                  </>
+                ) : mode.kind === 'felicia-choice' ? (
+                  <>
+                    <b>Félicia</b> : <b>défausse un Allié</b> de son lieu ou <b>paie 2 Pouvoir</b> de plus (total {mode.baseCost + 2} JT).
+                  </>
+                ) : mode.kind === 'felicia-pick-ally' ? (
+                  <>
+                    <b>Félicia</b> : clique l'<b>Allié</b> de son lieu à défausser (surligné).
+                  </>
                 ) : (
                   vanquishNeeded === 0 && !mode.viaCard && !mode.trap ? (
                     <>
@@ -2969,6 +3228,38 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                   >
                     Éliminer
                   </button>
+                )}
+                {mode.kind === 'engrenages-pick' && (
+                  <button
+                    onClick={handleEngrenagesConfirm}
+                    disabled={engrenagesCost > user.power}
+                    className="rounded bg-amber-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-amber-500 disabled:opacity-40"
+                  >
+                    Poser{mode.selected.length > 0 ? ` (−${mode.selected.length * 3})` : ''}
+                  </button>
+                )}
+                {mode.kind === 'felicia-choice' && (
+                  <>
+                    <button
+                      onClick={() => {
+                        // Défausser un Allié : 1 seul → direct ; sinon, on choisit lequel.
+                        if (mode.allies.length === 1) {
+                          playFelicia(mode.diablo, mode.actionId, mode.instanceId, mode.to, mode.allies[0])
+                        } else {
+                          setMode({ kind: 'felicia-pick-ally', actionId: mode.actionId, instanceId: mode.instanceId, cardName: mode.cardName, to: mode.to, diablo: mode.diablo })
+                        }
+                      }}
+                      className="rounded bg-rose-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-rose-500"
+                    >
+                      Défausser un Allié
+                    </button>
+                    <button
+                      onClick={() => playFelicia(mode.diablo, mode.actionId, mode.instanceId, mode.to)}
+                      className="rounded bg-amber-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-amber-500"
+                    >
+                      Payer 2 Pouvoir
+                    </button>
+                  </>
                 )}
                 {mode.kind === 'trap-pick-ally' && (
                   <button
@@ -3056,6 +3347,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               <span>
                 {state.pendingTrapVanquish.source === 'gnous' ? (
                   <>🦬 <b>Troupeau de gnous</b> : tu peux éliminer un Héros sur le nouveau lieu (facultatif).</>
+                ) : state.pendingTrapVanquish.source === 'uniforme' ? (
+                  <>👮 <b>Uniforme</b> : tu peux éliminer un Héros sur le lieu de l'Allié équipé — qui doit participer (facultatif).</>
                 ) : (
                   <>🪤 <b>Tendre un Piège</b> : tu peux éliminer un Héros (facultatif).</>
                 )}
@@ -3105,6 +3398,24 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 className="rounded bg-fuchsia-600 px-2 py-1 font-medium text-white hover:bg-fuchsia-500"
               >
                 Utiliser
+              </button>
+            </div>
+          )}
+          {/* Ratigan — Brutes : action distante FACULTATIVE sur leur lieu (les
+              pastilles d'action de ce lieu, hors Fatalité, sont cliquables sur le
+              plateau). Bouton « Passer » pour y renoncer. */}
+          {isHumanTurn && state.actAtLocation && state.actAtLocationSkippable && !mode && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-400/70 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+              <span>
+                💪 <b>Brutes</b> : effectue une action sur{' '}
+                <b>{user.locations.find((l) => l.id === state.actAtLocation)?.name ?? 'leur lieu'}</b>{' '}
+                (hors Fatalité), ou passe.
+              </span>
+              <button
+                onClick={() => skipRemoteAction()}
+                className="rounded border border-amber-400/60 px-2 py-1 text-amber-200 hover:bg-amber-500/10"
+              >
+                Passer
               </button>
             </div>
           )}
@@ -3383,6 +3694,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               kronkHasPowerToken={false}
               fateDiscardHasHero={false}
               poeticJusticeUsable={false}
+              relocateTargetAvailable={false}
+              hackTargetAvailable={false}
               selectedToDiscard={[]}
               layout="fan"
               cardWidthClass="w-28"
@@ -3439,6 +3752,14 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               const poeticPower = user.power - (ironie ? effectiveCost(state, ironie) : 1)
               return user.discard.some((c) => c.type === 'effect' && (c.cost ?? 0) <= poeticPower)
             })()}
+            relocateTargetAvailable={(() => {
+              // Capture : au moins un Héros déplaçable hors de la destination imposée.
+              const card = user.hand.find((c) => (c.effects ?? []).some((e) => e.type === 'MOVE_REALM_HERO_TO'))
+              const eff = card?.effects?.find((e) => e.type === 'MOVE_REALM_HERO_TO')
+              if (!eff || eff.type !== 'MOVE_REALM_HERO_TO') return true
+              return realmRelocateCandidates(user, eff.maxStrength, eff.locationId).length > 0
+            })()}
+            hackTargetAvailable={Object.values(user.board).flat().some((c) => c.type === 'hero' && !c.abilityHacked)}
             costFor={(c) => effectiveCost(state, c)}
             armedConditionIds={humanReactions.map((c) => c.instanceId)}
             forcedHoverId={hoveredReactionId}
@@ -3506,6 +3827,18 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         />
       )}
 
+      {/* Appel à l'aide (Ratigan) : l'humain (qui a posé la Fatalité) choisit le lieu
+          où poser/déplacer Basil. */}
+      {state.pendingFateHeroPlace && state.pendingFateHeroPlace.chooserIndex === HUMAN && (
+        <FateHeroPlaceModal
+          heroCardId={state.pendingFateHeroPlace.heroCardId}
+          heroName={state.pendingFateHeroPlace.heroName}
+          mode={state.pendingFateHeroPlace.mode}
+          target={state.players[state.pendingFateHeroPlace.targetIndex]}
+          onPlace={resolveFateHeroPlace}
+        />
+      )}
+
       {/* Roi Stéphane : l'humain (qui a joué la Fatalité) peut déplacer le pion adverse. */}
       {state.pendingPawnMove && state.pendingPawnMove.chooserIndex === HUMAN && (
         <PawnMoveModal
@@ -3542,13 +3875,27 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         />
       )}
 
-      {/* Apparition / Vent de panique : l'humain (chooser) déplace un Héros. */}
-      {state.pendingHeroRelocate && state.pendingHeroRelocate.chooserIndex === HUMAN && (
+      {/* Le Grand Génie du Mal : l'humain choisit piocher OU gagner du Pouvoir. */}
+      {state.pendingDrawOrGainPower && state.pendingDrawOrGainPower.playerIndex === HUMAN && (
+        <DrawOrGainPowerModal
+          draw={state.pendingDrawOrGainPower.draw}
+          power={state.pendingDrawOrGainPower.power}
+          onChoose={resolveDrawOrGainPower}
+        />
+      )}
+
+      {/* Apparition / Vent de panique : l'humain (chooser) déplace un Héros.
+          Cas « destination imposée » (Capture) EXCLU : choix par clic direct sur le
+          plateau (Héros surlignés en ambre), pas de modal. */}
+      {state.pendingHeroRelocate &&
+        state.pendingHeroRelocate.chooserIndex === HUMAN &&
+        state.pendingHeroRelocate.forcedLocationId === undefined && (
         <HeroRelocateModal
           target={state.players[state.pendingHeroRelocate.targetIndex]}
           anyLocation={state.pendingHeroRelocate.anyLocation}
           candidateIds={state.pendingHeroRelocate.candidateIds}
           forcedDirection={state.pendingHeroRelocate.forcedDirection}
+          forcedLocationId={state.pendingHeroRelocate.forcedLocationId}
           optional={state.pendingHeroRelocate.optional}
           onResolve={resolveHeroRelocate}
           onSkip={skipHeroRelocate}
@@ -3646,7 +3993,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         const title =
           state.pendingRecover.label === 'Tâche : Téléchargement'
             ? 'Téléchargement : reprends une carte de ta défausse'
-            : 'Opportunisme : reprends un Objet ou un Événement'
+            : state.pendingRecover.label === 'Extravagance'
+              ? 'Extravagance : reprends un Objet de ta défausse'
+              : 'Opportunisme : reprends un Objet ou un Événement'
         return (
           <CardChoiceModal
             title={title}
@@ -3697,6 +4046,17 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       {fatePileBanner && (
         <div className="pointer-events-none fixed left-1/2 top-3 z-[60] -translate-x-1/2 rounded-xl border border-amber-300/70 bg-[#1a1226]/95 px-4 py-2 text-center text-sm font-bold text-amber-100 shadow-2xl">
           {fatePileBanner}
+        </div>
+      )}
+
+      {/* Capture (Ratigan) — bandeau d'instruction pour le choix du Héros par clic
+          direct (non bloquant : les Héros candidats clignotent en ambre). */}
+      {relocateHeroTargets.length > 0 && state.pendingHeroRelocate?.forcedLocationId && (
+        <div className="pointer-events-none fixed left-1/2 top-3 z-[60] -translate-x-1/2 rounded-xl border border-amber-300/70 bg-[#1a1226]/95 px-4 py-2 text-center text-sm font-bold text-amber-100 shadow-2xl">
+          Clique le Héros à déplacer vers{' '}
+          {user.locations.find((l) => l.id === state.pendingHeroRelocate!.forcedLocationId)?.name ??
+            state.pendingHeroRelocate.forcedLocationId}
+          .
         </div>
       )}
 
@@ -3756,33 +4116,6 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       {/* Yzma (À l'attaque ! / Marteau / Indiscrétion) : le choix de la pioche se fait
           par clic direct sur le plateau (cf. HeroRow / fatePickable). On garde ici la
           révélation d'Indiscrétion (lecture seule) et le choix FACE CACHÉE du Marteau. */}
-      {engrenagesPrompt && (
-        <EngrenagesModal
-          cardName={engrenagesPrompt.cardName}
-          baseCost={engrenagesPrompt.baseCost}
-          power={user.power}
-          max={engrenagesPrompt.available.length}
-          onConfirm={(count) => {
-            const ids = engrenagesPrompt.available.slice(0, count).map((c) => c.instanceId)
-            if (engrenagesPrompt.to) flyHandToBoard(engrenagesPrompt.instanceId, engrenagesPrompt.to)
-            doPlayCard(
-              engrenagesPrompt.diablo,
-              engrenagesPrompt.actionId,
-              engrenagesPrompt.instanceId,
-              engrenagesPrompt.to,
-              engrenagesPrompt.attachTo,
-              undefined,
-              undefined,
-              undefined,
-              undefined,
-              ids,
-            )
-            setEngrenagesPrompt(null)
-          }}
-          onCancel={() => setEngrenagesPrompt(null)}
-        />
-      )}
-
       {state.pendingYzmaOwnDeck && state.pendingYzmaOwnDeck.playerIndex === HUMAN &&
         state.pendingYzmaOwnDeck.revealCards && (
           <CardChoiceModal
@@ -3899,6 +4232,35 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           take={state.pendingLookTop.take}
           title={state.pendingLookTop.title}
           onResolve={resolveLookTop}
+        />
+      )}
+
+      {/* Liste de Fidget (Ratigan) : montre toutes les cartes dévoilées. */}
+      {state.pendingReveal && state.pendingReveal.playerIndex === HUMAN && (
+        <RevealModal
+          cards={state.pendingReveal.cards}
+          keptInstanceId={state.pendingReveal.keptInstanceId}
+          title={state.pendingReveal.title}
+          onAcknowledge={acknowledgeReveal}
+        />
+      )}
+
+      {/* Sombra — Piratage : choisir l'action du lieu à désactiver. */}
+      {state.pendingHack && state.pendingHack.playerIndex === HUMAN && (
+        <HackModal
+          player={user}
+          locationId={state.pendingHack.locationId}
+          actionIds={state.pendingHack.actionIds}
+          onResolve={resolveHack}
+        />
+      )}
+
+      {/* Sombra — Information : garder la pioche (défausser 2 de la main) ou défausser les cartes piochées. */}
+      {state.pendingInformation && state.pendingInformation.playerIndex === HUMAN && (
+        <InformationModal
+          drawn={user.hand.filter((c) => state.pendingInformation!.drawnIds.includes(c.instanceId))}
+          discardCount={state.pendingInformation.discardCount}
+          onChoose={resolveInformation}
         />
       )}
 

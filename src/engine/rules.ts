@@ -198,6 +198,8 @@ export function getAvailableActions(state: GameState): LocationAction[] {
       isSupportedType(a.type) &&
       (!state.usedActionIds.includes(a.id) || (canRepeat && REPEATABLE.has(a.type))) &&
       !isActionCovered(state, a) &&
+      // Sombra : une action piratée (recouverte par un Hack) est désactivée.
+      !isActionHacked(activePlayer(state), loc.id, a.id) &&
       // « Activer » n'est disponible que s'il existe une carte activable.
       (a.type !== 'ACTIVATE' || activatableCards(state).length > 0) &&
       // « Préparer du Poison » indisponible si aucun Pouvoir n'est convertible
@@ -209,6 +211,13 @@ export function getAvailableActions(state: GameState): LocationAction[] {
 /** Vrai si l'action `actionId` est disponible sur le lieu courant. */
 export function isActionAvailable(state: GameState, actionId: string): boolean {
   return getAvailableActions(state).some((a) => a.id === actionId)
+}
+
+/** Sombra : l'action `actionId` du lieu `locationId` est-elle PIRATÉE (recouverte
+ *  par un Hack) ? Vrai si une carte de Piratage posée sur ce lieu cible cette action
+ *  (`hackedActionId`). Tant qu'elle y est, l'action est désactivée. */
+export function isActionHacked(p: PlayerState, locationId: LocationId, actionId: string): boolean {
+  return (p.board[locationId] ?? []).some((c) => c.isPiratage && c.hackedActionId === actionId)
 }
 
 /** Les Alliés du joueur actif présents sur un lieu donné (cibles d'association
@@ -317,6 +326,8 @@ export function movableCards(state: GameState): { instanceId: string; from: Loca
       // Une Malédiction est traitée comme un Objet : elle se déplace aussi. Un
       // Héros hypnotisé (Jafar) compte comme un Allié → déplaçable lui aussi.
       const isControlledAlly = c.type === 'hero' && c.hypnotized
+      // Sombra : une carte de Piratage ne peut JAMAIS être déplacée.
+      if (c.isPiratage) continue
       if (((c.type === 'ally' || c.type === 'item' || c.type === 'curse') && !c.attachedTo) || isControlledAlly) {
         out.push({ instanceId: c.instanceId, from: loc.id })
       }
@@ -342,6 +353,14 @@ export function activatableCards(state: GameState): CardInstance[] {
           .flat()
           .some((x) => x.type === 'hero' && x.cardId === 'peach')
         if (peachInPlay || me.peachCaptured) continue
+      }
+      // Ratigan — Cloche : cherche Félicia dans la pioche/défausse. Inutile (donc non
+      // activable) si Félicia est déjà en main ou déjà posée sur un lieu.
+      if (c.cardId === 'cloche') {
+        const feliciaOut =
+          me.hand.some((x) => x.cardId === 'felicia') ||
+          Object.values(me.board).flat().some((x) => x.cardId === 'felicia')
+        if (feliciaOut) continue
       }
       out.push(c)
     }
@@ -616,6 +635,8 @@ export function canFate(state: GameState): boolean {
   // Yzma — Beauté endormie : verrou « seule action » → Fatalité indisponible.
   if (activePlayer(state).soleActionLock) return false
   const t = state.players[fateTarget(state)]
+  // Sombra — Invisibilité : la cible est immunisée à la Fatalité ce tour.
+  if (t.noFate) return false
   return t.fateDeck.length + t.fateDiscard.length > 0
 }
 
@@ -635,7 +656,8 @@ export function cardNeedsHeroTarget(card: CardInstance): boolean {
       e.type === 'INSTANT_VANQUISH_HERO_AT_PAWN' ||
       e.type === 'HYPNOTIZE_HERO' ||
       e.type === 'SET_HERO_SIZE' ||
-      e.type === 'REDUCE_HERO_STRENGTH_TEMP',
+      e.type === 'REDUCE_HERO_STRENGTH_TEMP' ||
+      e.type === 'HACK_HERO',
   )
 }
 
@@ -744,6 +766,42 @@ export function conditionIsTriggered(
 
 /** Liste des Conditions actuellement jouables par `playerIndex` (en main, trigger
  *  satisfait sur l'active player, et `playerIndex` ≠ activePlayer). */
+/**
+ * Ratigan — Capture (effet MOVE_REALM_HERO_TO) : Héros « déplaçables » vers
+ * `destinationId`. Un Héros est éligible s'il est de force ≤ `maxStrength`, situé
+ * sur un AUTRE lieu que la destination (déplacer un Héros déjà sur place n'aurait
+ * aucun effet), et accepté par la destination (pas de restriction « no-heroes »,
+ * force ≥ minimum imposé, lieu non interdit pour ce Héros). Sert à la fois à la
+ * jouabilité de la carte, au choix de la cible et à l'affichage UI.
+ */
+export function realmRelocateCandidates(
+  player: PlayerState,
+  maxStrength: number,
+  destinationId: LocationId,
+): CardInstance[] {
+  const destCell = player.board[destinationId] ?? []
+  if (destCell.some((c) => c.placementRestriction?.type === 'no-heroes')) return []
+  const minStr = destCell.reduce(
+    (m, c) => (c.placementRestriction?.type === 'min-hero-strength' ? Math.max(m, c.placementRestriction.value) : m),
+    0,
+  )
+  const out: CardInstance[] = []
+  for (const loc of player.locations) {
+    if (loc.id === destinationId) continue // déjà sur la destination → exclu
+    for (const c of player.board[loc.id] ?? []) {
+      if (
+        c.type === 'hero' &&
+        (c.strength ?? 0) <= maxStrength &&
+        (c.strength ?? 0) >= minStr &&
+        !(c.forbiddenLocations ?? []).includes(destinationId)
+      ) {
+        out.push(c)
+      }
+    }
+  }
+  return out
+}
+
 export function playableConditions(state: GameState, playerIndex: number): CardInstance[] {
   if (playerIndex === state.activePlayer) return []
   return state.players[playerIndex].hand.filter(
@@ -807,18 +865,24 @@ export function effectiveCost(
       .flat()
       .filter((c) => c.cardId === 'outils' && !c.attachedTo).length
   }
+  // Sombra — Lynx Seventeen (Fatalité) : Piratages/IEM coûtent 1 de plus par Lynx
+  // présent (sa capacité ignorée s'il est piraté par Boop).
+  if (card.isPiratage) {
+    surcharge += Object.values(me.board)
+      .flat()
+      .filter((c) => c.type === 'hero' && c.cardId === 'lynx-seventeen' && !c.abilityHacked).length
+  }
   // Ratigan — Flaversham (Fatalité) sur le Repaire secret : la Reine Robot coûte
   // 3 de moins.
   if (card.cardId === 'reine-robot') {
     const repaire = me.board['repaire-secret'] ?? []
     if (repaire.some((c) => c.type === 'hero' && c.cardId === 'flaversham')) discount += 3
   }
-  // Ratigan — Félicia : si aucun Héros n'est présent sur le lieu de destination
-  // (impossible d'en défausser un), elle coûte 2 jetons Pouvoir de plus.
-  if (card.cardId === 'felicia' && destination) {
-    const destCell = me.board[destination] ?? []
-    if (!destCell.some((c) => c.type === 'hero' && !c.hypnotized)) surcharge += 2
-  }
+  // Ratigan — Félicia : le supplément de 2 Pouvoir (« ou payez 2 de plus ») n'est PAS
+  // une surcharge automatique : c'est un choix résolu à la pose (applyPlayCard), selon
+  // que le joueur défausse un Allié de son lieu ou paie le supplément.
+  // Sombra — Faille : le prochain Piratage est gratuit.
+  if (card.isPiratage && me.freePiratage) return 0
   return Math.max(0, base - discount + surcharge)
 }
 
@@ -875,6 +939,10 @@ export function hasReachedObjective(state: GameState, playerIndex: number = stat
     case 'REIGN_NEW_ORLEANS':
       // Victoire déclenchée pendant la résolution de Divination (révéler Régner en
       // détenant le Talisman), pas par un contrôle passif en début de tour.
+      return false
+    case 'SOMBRA':
+      // Victoire déclenchée par Protocole Sombra quand tous les lieux sont piratés
+      // (événementielle), pas par un contrôle passif en début de tour.
       return false
     case 'DEPLETE_OBSERVATORY_AND_CAPTURE': {
       const obj = p.objective

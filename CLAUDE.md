@@ -83,6 +83,26 @@ Ordre de préférence pour donner un comportement à une carte :
 
 Conséquence visée : **ajouter une carte = éditer `data/` ; rarement le moteur.**
 
+### Interactivité par défaut — NON négociable (dès le codage de la carte)
+
+Toute carte qui implique un **choix du joueur** doit être **interactive d'emblée**,
+sans attendre une demande : ne JAMAIS résoudre un choix par un auto-pick côté humain.
+Sont des choix : *quel* Héros / Allié / Objet cibler, *quel* lieu (pose ou
+déplacement, y compris « n'importe quel lieu »), et *si* une action facultative
+(« vous pouvez… ») est effectuée ou non.
+
+- Implémente le choix via un état `pendingXXX` + une modale (ou un **clic direct sur
+  le plateau** quand c'est plus naturel : Héros, Objet, lieu, pioche…), sur le modèle
+  des mécaniques existantes (`pendingFateChoice`, `pendingHeroRelocate` `anyLocation`/
+  `optional`, `pendingFateHeroPlace`, `pendingReveal`, `pendingRecover`, clic
+  `relocateTargets`/`fatePickable`…). **Réutilise-les** avant d'en créer un nouveau.
+- Le **bot auto-résout** ces pending (handler dans `ui/App.tsx` + énumération dans
+  `ai/enumerate.ts`) : l'auto-pick reste réservé au bot, jamais imposé à l'humain.
+- Une carte est **injouable / non activable** (grisée + garde-fou moteur qui `throw`)
+  si elle n'aurait **aucun effet** (aucune cible valide) — cf. `activatableCards`,
+  la jouabilité dans `playCard`, et `Hand`/`FateModal`.
+- Couvre par des tests le flux interactif (ouverture du pending → résolution).
+
 ### Anatomie d'une CardDef (`data/types.ts`)
 - `id` : slug **kebab-case ASCII**, **unique entre TOUS les vilains** (le registre
   indexe par `cardId`). Garde-fou : `data/__tests__/uniqueIds.test.ts` (alimenté

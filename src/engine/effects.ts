@@ -21,6 +21,7 @@ import {
   hasHeroInRealm,
   heroPlacementLocations,
   locationOfCard,
+  realmRelocateCandidates,
   teleportTargets,
   transformableGuards,
 } from './rules'
@@ -2697,6 +2698,215 @@ export function resolveEffect(
       }
       return next
     }
+    case 'REVEAL_DECK_UNTIL_TYPE': {
+      // Ratigan — Liste de Fidget : dévoile les cartes du dessus de la pioche une à
+      // une jusqu'à trouver une carte du type voulu (Objet). Celle-ci rejoint la
+      // main ; les autres cartes dévoilées sont défaussées. On remélange la défausse
+      // dans la pioche si elle se vide en cours de route (borné par le nombre total
+      // de cartes disponibles pour éviter toute boucle si aucun Objet n'existe).
+      const actor = state.players[idx]
+      let deck = actor.deck
+      let disc = actor.discard
+      let s = state.rngState
+      const total = deck.length + disc.length
+      const revealed: CardInstance[] = []
+      let found: CardInstance | undefined
+      while (revealed.length < total) {
+        if (deck.length === 0) {
+          if (disc.length === 0) break
+          const r = shuffle(disc, s)
+          deck = r.result
+          s = r.state
+          disc = []
+        }
+        const [top, ...rest] = deck
+        deck = rest
+        revealed.push(top)
+        if (top.type === effect.cardType) {
+          found = top
+          break
+        }
+      }
+      if (revealed.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : pioche et défausse vides (Liste de Fidget).`] }
+      }
+      const others = found ? revealed.filter((c) => c.instanceId !== found!.instanceId) : revealed
+      let next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        deck,
+        hand: found ? [...p.hand, found] : p.hand,
+        discard: [...disc, ...others],
+      }))
+      next = {
+        ...next,
+        rngState: s,
+        pendingReveal: {
+          playerIndex: idx,
+          cards: revealed,
+          keptInstanceId: found?.instanceId,
+          title: effect.title ?? 'Cartes dévoilées',
+        },
+        log: [
+          ...next.log,
+          found
+            ? `${actor.villainName} dévoile ${revealed.length} carte${revealed.length > 1 ? 's' : ''} et ajoute **${found.name}** à sa main ; les autres sont défaussées (Liste de Fidget).`
+            : `${actor.villainName} dévoile ${revealed.length} carte${revealed.length > 1 ? 's' : ''} : aucun Objet trouvé, tout est défaussé (Liste de Fidget).`,
+        ],
+      }
+      return next
+    }
+    case 'SOMBRA_PROTOCOL': {
+      // Détruit tous les Piratages/IEM du royaume (→ défausse Vilain) et les Héros
+      // piratés (Boop attaché → défausse Fatalité, avec leurs Objets associés). Si
+      // TOUS les lieux sont piratés au moment du jeu, Sombra gagne.
+      const actor = state.players[idx]
+      const allHacked = actor.locations.every((l) =>
+        (actor.board[l.id] ?? []).some((c) => c.isPiratage),
+      )
+      const toVillain: CardInstance[] = []
+      const toFate: CardInstance[] = []
+      const removeIds = new Set<string>()
+      for (const l of actor.locations) {
+        const cell = actor.board[l.id] ?? []
+        for (const c of cell) {
+          if (c.isPiratage) {
+            removeIds.add(c.instanceId)
+            toVillain.push({ ...c, hackedActionId: undefined })
+          } else if (c.type === 'hero' && c.abilityHacked) {
+            removeIds.add(c.instanceId)
+            toFate.push({ ...c, abilityHacked: undefined, lockedPower: undefined })
+            for (const a of cell) {
+              if (a.attachedTo !== c.instanceId) continue
+              removeIds.add(a.instanceId)
+              ;(a.cardId === 'boop' ? toVillain : toFate).push({ ...a, attachedTo: undefined })
+            }
+          }
+        }
+      }
+      let next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        board: Object.fromEntries(
+          p.locations.map((l) => [l.id, (p.board[l.id] ?? []).filter((c) => !removeIds.has(c.instanceId))]),
+        ),
+        discard: [...p.discard, ...toVillain],
+        fateDiscard: [...p.fateDiscard, ...toFate],
+      }))
+      const nPir = toVillain.filter((c) => c.isPiratage).length
+      next = {
+        ...next,
+        log: [
+          ...next.log,
+          `${actor.villainName} exécute le Protocole Sombra : ${nPir} Piratage(s) détruit(s).`,
+        ],
+      }
+      if (allHacked) {
+        return {
+          ...next,
+          status: 'WON',
+          winner: idx,
+          log: [...next.log, `🏆 Protocole Sombra : tous les lieux étaient piratés — ${actor.villainName} l'emporte !`],
+        }
+      }
+      return next
+    }
+    case 'GAIN_POWER_PER_HACK': {
+      // Skycode : 1 Pouvoir par lieu piraté + 1 par Héros piraté (Boop).
+      const actor = state.players[idx]
+      const hackedLocs = actor.locations.filter((l) =>
+        (actor.board[l.id] ?? []).some((c) => c.isPiratage),
+      ).length
+      const hackedHeroes = Object.values(actor.board)
+        .flat()
+        .filter((c) => c.type === 'hero' && c.abilityHacked).length
+      const gross = hackedLocs + hackedHeroes
+      const gained = Math.max(0, gross - realmPowerPenalty(state, idx))
+      const next = updatePlayer(state, idx, (p) => ({ ...p, power: p.power + gained }))
+      return {
+        ...next,
+        log: [
+          ...next.log,
+          `${actor.villainName} gagne ${gained} JT (${hackedLocs} lieu(x) + ${hackedHeroes} Héros piraté(s)) (Skycode).`,
+        ],
+      }
+    }
+    case 'LOSE_POWER_PER_PIRATAGE': {
+      // Vol de données (Fatalité) : la cible perd 1 Pouvoir par Piratage/IEM en jeu.
+      const actor = state.players[idx]
+      const n = Object.values(actor.board).flat().filter((c) => c.isPiratage).length
+      const lost = Math.min(n, actor.power)
+      if (lost === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : aucun Piratage en jeu (Vol de données).`] }
+      }
+      const next = updatePlayer(state, idx, (p) => ({ ...p, power: p.power - lost }))
+      return {
+        ...next,
+        log: [...next.log, `${actor.villainName} perd ${lost} JT (Vol de données : ${n} Piratage/IEM).`],
+      }
+    }
+    case 'HACK_HERO': {
+      // Boop ! : annule la capacité du Héros cible (abilityHacked). Katya Volskaya
+      // est immunisée (« ne peut pas être piratée »).
+      if (!ctx?.targetHeroId) throw new Error('Boop ! nécessite un Héros cible.')
+      const actor = state.players[idx]
+      const loc = locationOfCard(actor, ctx.targetHeroId)
+      if (!loc) return state
+      const hero = (actor.board[loc] ?? []).find((c) => c.instanceId === ctx.targetHeroId)
+      if (!hero || hero.type !== 'hero') return state
+      if (hero.cardId === 'katya-volskaya') {
+        return { ...state, log: [...state.log, `**${hero.name}** ne peut pas être piratée (Boop ! sans effet).`] }
+      }
+      if (hero.abilityHacked) {
+        return { ...state, log: [...state.log, `**${hero.name}** est déjà piraté(e).`] }
+      }
+      const next = patchCard(state, idx, ctx.targetHeroId, (c) => ({ ...c, abilityHacked: true }))
+      return {
+        ...next,
+        log: [...next.log, `${actor.villainName} pirate **${hero.name}** (Boop !) : sa capacité est annulée.`],
+      }
+    }
+    case 'FATE_IMMUNITY': {
+      // Invisibilité : l'acteur ne subit pas de Fatalité jusqu'à son prochain tour.
+      const next = updatePlayer(state, idx, (p) => ({ ...p, noFate: true }))
+      return { ...next, log: [...next.log, `${next.players[idx].villainName} devient invisible : aucune Fatalité jusqu'à son prochain tour.`] }
+    }
+    case 'GRANT_FREE_PIRATAGE': {
+      // Faille : le prochain Piratage joué ce tour est gratuit.
+      const next = updatePlayer(state, idx, (p) => ({ ...p, freePiratage: true }))
+      return { ...next, log: [...next.log, `${next.players[idx].villainName} : prochain Piratage gratuit (Faille).`] }
+    }
+    case 'DRAW_THEN_DISCARD': {
+      // Information : pioche `draw` cartes (remélange au besoin), puis ouvre un CHOIX
+      // (pendingInformation) : défausser `discard` cartes de la main OU défausser les
+      // cartes piochées.
+      const actor = state.players[idx]
+      let deck = actor.deck
+      let disc = actor.discard
+      let s = state.rngState
+      const drawn: CardInstance[] = []
+      while (drawn.length < effect.draw) {
+        if (deck.length === 0) {
+          if (disc.length === 0) break
+          const r = shuffle(disc, s)
+          deck = r.result
+          s = r.state
+          disc = []
+        }
+        const [top, ...rest] = deck
+        deck = rest
+        drawn.push(top)
+      }
+      let next = updatePlayer(state, idx, (p) => ({ ...p, deck, discard: disc, hand: [...p.hand, ...drawn] }))
+      next = {
+        ...next,
+        rngState: s,
+        pendingInformation:
+          drawn.length > 0
+            ? { playerIndex: idx, drawnIds: drawn.map((c) => c.instanceId), discardCount: effect.discard }
+            : next.pendingInformation,
+        log: [...next.log, `${actor.villainName} pioche ${drawn.length} carte(s) (Information).`],
+      }
+      return next
+    }
     case 'TAKE_FROM_AUDELA_TO_HAND': {
       // Désespoir : prend une carte de la Pile de l'Au-delà (carte clé en
       // priorité) et l'ajoute à la main de l'acteur.
@@ -2734,6 +2944,22 @@ export function resolveEffect(
       return {
         ...next,
         log: [...next.log, `${actor.villainName} récupère **${pick.name}** de sa défausse (Terreur).`],
+      }
+    }
+
+    case 'RECOVER_FROM_DISCARD_CHOICE': {
+      // Extravagance : le joueur CHOISIT une carte d'un des `types` (Objet) dans sa
+      // défausse à reprendre en main (ouvre pendingRecover ; bot : auto-pick).
+      const actor = state.players[idx]
+      const candidates = actor.discard.filter((c) => effect.types.includes(c.type))
+      const label = effect.label ?? 'Récupération'
+      if (candidates.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : rien à récupérer dans la défausse (${label}).`] }
+      }
+      return {
+        ...state,
+        pendingRecover: { playerIndex: idx, candidateIds: candidates.map((c) => c.instanceId), label },
+        log: [...state.log, `${actor.villainName} récupère une carte de sa défausse (${label}).`],
       }
     }
 
@@ -3690,63 +3916,41 @@ export function resolveEffect(
       return { ...next, log: [...next.log, 'Beauté endormie : effet armé pour le début de votre prochain tour. (Seule action de ce tour.)'] }
     }
     case 'DRAW_OR_GAIN_POWER': {
-      // Ratigan — Le Grand Génie du Mal : pioche `draw` cartes OU gagne `power` JT.
-      // Heuristique : pioche si la main est courte (< 3 cartes), sinon Pouvoir.
-      const actor = state.players[idx]
-      if (actor.hand.length >= 3) {
-        return resolveEffect(state, { type: 'GAIN_POWER', amount: effect.power }, { actorIndex: idx })
-      }
-      let deck = actor.deck
-      let disc = actor.discard
-      let s = state.rngState
-      const drawn: CardInstance[] = []
-      for (let i = 0; i < effect.draw; i++) {
-        if (deck.length === 0) {
-          if (disc.length === 0) break
-          const r = shuffle(disc, s)
-          deck = r.result
-          s = r.state
-          disc = []
-        }
-        drawn.push(deck[0])
-        deck = deck.slice(1)
-      }
-      const next = updatePlayer(state, idx, (p) => ({ ...p, deck, discard: disc, hand: [...p.hand, ...drawn] }))
+      // Ratigan — Le Grand Génie du Mal : le joueur choisit entre piocher `draw`
+      // cartes OU gagner `power` JT. On met le choix en attente ; il est résolu par
+      // RESOLVE_DRAW_OR_GAIN_POWER (humain → modale, bot → heuristique côté UI).
       return {
-        ...next,
-        rngState: s,
-        activeDrewCard: drawn.length > 0 ? true : state.activeDrewCard,
-        log: [...next.log, `${actor.villainName} pioche ${drawn.length} carte${drawn.length > 1 ? 's' : ''} (Le Grand Génie du Mal).`],
+        ...state,
+        pendingDrawOrGainPower: { playerIndex: idx, draw: effect.draw, power: effect.power },
       }
     }
     case 'MOVE_REALM_HERO_TO': {
-      // Ratigan — Capture : déplace un Héros de force ≤ max vers `locationId` (auto :
-      // le plus fort éligible, hors ceux que la destination refuse).
+      // Ratigan — Capture : déplace un Héros de force ≤ max vers `locationId`. Les
+      // Héros déjà sur la destination sont EXCLUS (déplacement sans effet) ; cf.
+      // realmRelocateCandidates (partagé avec la jouabilité et l'UI).
       const actor = state.players[idx]
-      const destCell = actor.board[effect.locationId] ?? []
-      const destBlocked = destCell.some((c) => c.placementRestriction?.type === 'no-heroes')
-      const minStr = destCell.reduce(
-        (m, c) => (c.placementRestriction?.type === 'min-hero-strength' ? Math.max(m, c.placementRestriction.value) : m),
-        0,
-      )
-      const candidates = Object.values(actor.board)
-        .flat()
-        .filter(
-          (c) =>
-            c.type === 'hero' &&
-            (c.strength ?? 0) <= effect.maxStrength &&
-            !destBlocked &&
-            (c.strength ?? 0) >= minStr &&
-            !(c.forbiddenLocations ?? []).includes(effect.locationId),
-        )
+      const candidates = realmRelocateCandidates(actor, effect.maxStrength, effect.locationId)
       if (candidates.length === 0) {
         return { ...state, log: [...state.log, `${actor.villainName} : aucun Héros de force ≤ ${effect.maxStrength} à déplacer (Capture).`] }
       }
-      const target = candidates.reduce((a, b) => ((b.strength ?? 0) > (a.strength ?? 0) ? b : a))
+      // Plusieurs Héros éligibles → le joueur CHOISIT lequel déplacer (destination
+      // imposée). Un seul → résolution directe (pas de choix à faire).
+      if (candidates.length >= 2) {
+        return {
+          ...state,
+          pendingHeroRelocate: {
+            chooserIndex: idx,
+            targetIndex: idx,
+            candidateIds: candidates.map((c) => c.instanceId),
+            forcedLocationId: effect.locationId,
+          },
+          log: [...state.log, `${actor.villainName} : choisis le Héros (force ≤ ${effect.maxStrength}) à déplacer vers le Repaire secret (Capture).`],
+        }
+      }
       return resolveEffect(
         state,
         { type: 'MOVE_HERO_TO_LOCATION', locationId: effect.locationId },
-        { actorIndex: idx, targetHeroId: target.instanceId },
+        { actorIndex: idx, targetHeroId: candidates[0].instanceId },
       )
     }
     case 'TUTOR_CARD_TO_HAND': {
@@ -3793,55 +3997,24 @@ export function resolveEffect(
       }))
       return { ...next, log: [...next.log, `Basil défausse **${pick.name}**.`] }
     }
-    case 'DISCARD_REALM_ITEM_LE_COST': {
-      // Ratigan — Sabotage (Fatalité) : sur un lieu portant au moins un Héros,
-      // défausse un Objet non associé de coût ≤ max (auto : le plus cher éligible).
+    case 'DISCARD_ALLY_AT_HOST_OR_PAY': {
+      // Ratigan — Félicia (à la pose) : si un Allié a été choisi (ctx.allyInstanceIds),
+      // il est défaussé (avec ses Objets associés). Sinon, l'option « payer » a été
+      // retenue : le supplément a déjà été prélevé sur le coût → rien à faire ici.
+      const loc = ctx?.hostLocationId
+      const chosenId = ctx?.allyInstanceIds?.[0]
+      if (!loc || !chosenId) return state
       const actor = state.players[idx]
-      let bestLoc: LocationId | undefined
-      let pick: CardInstance | undefined
-      for (const l of actor.locations) {
-        const cell = actor.board[l.id] ?? []
-        if (!cell.some((c) => c.type === 'hero')) continue
-        for (const it of cell) {
-          if (it.type !== 'item' || it.attachedTo || (it.cost ?? 0) > effect.maxCost) continue
-          if (!pick || (it.cost ?? 0) > (pick.cost ?? 0)) {
-            pick = it
-            bestLoc = l.id
-          }
-        }
-      }
-      if (!pick || !bestLoc) {
-        return { ...state, log: [...state.log, `${actor.villainName} : aucun Objet de coût ≤ ${effect.maxCost} à saboter (Sabotage).`] }
-      }
-      const loc = bestLoc
-      const chosen = pick
-      const attached = (actor.board[loc] ?? []).filter((c) => c.attachedTo === chosen.instanceId)
-      const removeIds = new Set([chosen.instanceId, ...attached.map((c) => c.instanceId)])
+      const ally = (actor.board[loc] ?? []).find((c) => c.instanceId === chosenId && c.type === 'ally')
+      if (!ally) return state
+      const attached = (actor.board[loc] ?? []).filter((c) => c.attachedTo === ally.instanceId)
+      const removeIds = new Set([ally.instanceId, ...attached.map((c) => c.instanceId)])
       const next = updatePlayer(state, idx, (p) => ({
         ...p,
         board: { ...p.board, [loc]: (p.board[loc] ?? []).filter((c) => !removeIds.has(c.instanceId)) },
-        discard: [...p.discard, chosen, ...attached],
+        discard: [...p.discard, ally, ...attached],
       }))
-      return { ...next, log: [...next.log, `Sabotage défausse **${chosen.name}**.`] }
-    }
-    case 'DISCARD_HERO_AT_HOST': {
-      // Ratigan — Félicia (à la pose) : défausse un Héros du lieu hôte (auto : le plus
-      // fort) → défausse Fatalité. No-op tant que le lieu hôte n'est pas connu (le
-      // passage pré-placement des effets d'Allié n'a pas de hostLocationId).
-      if (!ctx?.hostLocationId) return state
-      const loc = ctx.hostLocationId
-      const actor = state.players[idx]
-      const heroes = (actor.board[loc] ?? []).filter((c) => c.type === 'hero')
-      if (heroes.length === 0) return state
-      const pick = heroes.reduce((a, b) => ((b.strength ?? 0) > (a.strength ?? 0) ? b : a))
-      const attached = (actor.board[loc] ?? []).filter((c) => c.attachedTo === pick.instanceId)
-      const removeIds = new Set([pick.instanceId, ...attached.map((c) => c.instanceId)])
-      const next = updatePlayer(state, idx, (p) => ({
-        ...p,
-        board: { ...p.board, [loc]: (p.board[loc] ?? []).filter((c) => !removeIds.has(c.instanceId)) },
-        fateDiscard: [...p.fateDiscard, pick, ...attached],
-      }))
-      return { ...next, log: [...next.log, `Félicia défausse **${pick.name}**.`] }
+      return { ...next, log: [...next.log, `Félicia défausse **${ally.name}**.`] }
     }
     case 'ELIMINATE_ALL_HEROES_AT': {
       // Ratigan — Piège ingénieux : élimine tous les Héros du lieu (Vanquish gratuit),
@@ -3853,6 +4026,8 @@ export function resolveEffect(
         return { ...state, log: [...state.log, `Piège ingénieux : aucun Héros sur ce lieu.`] }
       }
       let next = state
+      const eliminated: string[] = [] // cardIds montrés dans le showcase
+      let restituted = 0 // Pouvoir verrouillé restitué (animé « +N 🪙 »)
       for (const heroId of heroIds) {
         const cur = next.players[idx]
         const cell = cur.board[loc] ?? []
@@ -3862,6 +4037,8 @@ export function resolveEffect(
         if (cell.some((c) => c.cardId === 'deguisement' && c.attachedTo === heroId)) continue
         const attached = cell.filter((c) => c.attachedTo === heroId)
         const locked = hero.lockedPower ?? 0
+        restituted += locked
+        eliminated.push(hero.cardId)
         const heroDiscarded: CardInstance = { ...hero, lockedPower: undefined }
         const ratiganBeatBasil = cur.villain === 'ratigan' && cur.becameTheRat === true && hero.cardId === 'basil'
         const removeIds = new Set([heroId, ...attached.map((c) => c.instanceId)])
@@ -3883,23 +4060,26 @@ export function resolveEffect(
           hostLocationId: loc,
         })
       }
+      // Showcase : les Héros piégés « partent » en défausse (comme un Vanquish).
+      if (eliminated.length > 0) {
+        next = pushDiscardShowcase(
+          next,
+          eliminated,
+          `Piège ingénieux : ${eliminated.length} Héros éliminé${eliminated.length > 1 ? 's' : ''}`,
+          idx,
+          'red',
+          'bottom',
+          restituted > 0 ? { gainedPower: restituted } : undefined,
+        )
+      }
       return next
     }
-    case 'ALLY_REMOTE_GAIN_POWER': {
-      // Ratigan — Brutes : jouées hors du lieu du pion → effectue une action de ce
-      // lieu (auto : la meilleure action « Gagner du Pouvoir »). No-op tant que le
-      // lieu hôte n'est pas connu (passage pré-placement) ou si joué sur le lieu du pion.
-      if (!ctx?.hostLocationId) return state
-      const actor = state.players[idx]
-      if (ctx.hostLocationId === actor.pawnLocation) return state
-      const locDef = actor.locations.find((l) => l.id === ctx!.hostLocationId)
-      const gains = (locDef?.actions ?? []).filter((a) => a.type === 'GAIN_POWER').map((a) => a.amount ?? 0)
-      const best = gains.length > 0 ? Math.max(...gains) : 0
-      if (best <= 0) {
-        return { ...state, log: [...state.log, `Brutes : aucune action « Gagner du Pouvoir » à exploiter ici.`] }
-      }
-      const withLog = { ...state, log: [...state.log, `Brutes : action « Gagner du Pouvoir » du lieu exploitée.`] }
-      return resolveEffect(withLog, { type: 'GAIN_POWER', amount: best }, { actorIndex: idx })
+    case 'ALLY_REMOTE_ACTION': {
+      // Ratigan — Brutes : jouées hors du lieu du pion → fenêtre d'action distante
+      // (UNE action disponible du lieu, hors Fatalité). Cette fenêtre est ouverte
+      // dans actions.ts (playCard) APRÈS placement, car elle manipule l'économie
+      // d'actions (actAtLocation / usedBeforeGiant). Ici : simple marqueur no-op.
+      return state
     }
   }
 }

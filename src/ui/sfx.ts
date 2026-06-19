@@ -53,6 +53,8 @@ const SHATTER_SRC = '/audio/hero-portrait-explode.ogg' // au moment où le plate
 const SHATTER_GAIN = 0.7
 const CRACK_SRC = '/audio/craquement.mp3' // pendant que les fissures se propagent
 const CRACK_GAIN = 0.8
+const LIEU_PIRATE_SRC = '/audio/lieu-pirate.mp3' // Sombra : un lieu est piraté (action désactivée)
+const LIEU_PIRATE_GAIN = 0.75
 
 // Éléments de base préchargés ; on les clone à chaque lecture pour autoriser le
 // chevauchement de sons rapprochés.
@@ -80,6 +82,7 @@ let victoryBuildupBase: HTMLAudioElement | null = null
 let defeatBuildupBase: HTMLAudioElement | null = null
 let shatterBase: HTMLAudioElement | null = null
 let crackBase: HTMLAudioElement | null = null
+let lieuPirateBase: HTMLAudioElement | null = null
 if (typeof Audio !== 'undefined') {
   base = new Audio(CLICK_SRC)
   base.preload = 'auto'
@@ -129,6 +132,8 @@ if (typeof Audio !== 'undefined') {
   shatterBase.preload = 'auto'
   crackBase = new Audio(CRACK_SRC)
   crackBase.preload = 'auto'
+  lieuPirateBase = new Audio(LIEU_PIRATE_SRC)
+  lieuPirateBase.preload = 'auto'
 }
 
 /** Joue le son de clic de bouton (respecte le volume des bruitages). */
@@ -416,4 +421,14 @@ export function stopStartBarFill() {
     startFillLoop.pause()
     startFillLoop = null
   }
+}
+
+/** Sombra — joue « Lieu piraté » quand un Piratage désactive une action d'un lieu. */
+export function playLieuPirate() {
+  if (!lieuPirateBase) return
+  const { sfxVolume } = useSettingsStore.getState()
+  if (sfxVolume <= 0) return
+  const a = lieuPirateBase.cloneNode() as HTMLAudioElement
+  a.volume = Math.min(1, sfxVolume) * LIEU_PIRATE_GAIN
+  void a.play().catch(() => {})
 }

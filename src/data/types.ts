@@ -157,6 +157,16 @@ export interface CardDef {
   /** Scar — carte injouable s'il n'y a aucune Hyène dans le royaume (Festin :
    *  rien à déplacer sinon). */
   requiresHyenaInRealm?: boolean
+  /** Sombra — carte de « Piratage » (Piratage, IEM) : posée sur un lieu, NON
+   *  déplaçable, et comptée comme un Objet pour les conditions adverses. Le lieu qui
+   *  en porte une est « piraté ». `hackDisablesAction` : à la pose, le joueur
+   *  désactive une action du lieu (recouverte par l'image Hack) tant que le piratage
+   *  reste (Piratage = oui ; IEM = non). */
+  isPiratage?: boolean
+  hackDisablesAction?: boolean
+  /** Objet qui résout ses effets puis est DÉFAUSSÉ au lieu de rester sur le plateau
+   *  (Sombra — Faille). */
+  discardOnPlay?: boolean
   /** IA uniquement : classement « malus » de cette carte Fatalité durable pour le
    *  joueur ciblé. Renseigné via `data/fateMalus.ts` et attaché par le registre
    *  (pas dans les `.cards.ts`). Absent = NEUTRE. */
@@ -221,6 +231,9 @@ export function buildDeckInstances(
           fatePlayBoth: c.fatePlayBoth,
           isHyena: c.isHyena,
           requiresHyenaInRealm: c.requiresHyenaInRealm,
+          isPiratage: c.isPiratage,
+          hackDisablesAction: c.hackDisablesAction,
+          discardOnPlay: c.discardOnPlay,
         }),
       ),
     )

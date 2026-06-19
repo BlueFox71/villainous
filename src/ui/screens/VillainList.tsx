@@ -20,7 +20,7 @@ interface Props {
 /** Catégories de vilains affichées dans la liste, dans l'ordre. */
 const CATEGORIES: { title: string; villains: VillainKey[] }[] = [
   { title: 'Disney', villains: ['princeJohn', 'maleficent', 'jafar', 'reineCoeur', 'crochet', 'ursula', 'hades', 'facilier', 'mechanteReine', 'scar', 'yzma', 'ratigan'] },
-  { title: 'Collaborations', villains: ['slenderman', 'imposteur', 'bowser'] },
+  { title: 'Collaborations', villains: ['slenderman', 'imposteur', 'bowser', 'sombra'] },
 ]
 
 export function VillainList({ onBack }: Props) {

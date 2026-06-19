@@ -39,6 +39,15 @@ export function objectiveScore(p: PlayerState): number {
       const cursed = p.locations.filter((l) => (p.board[l.id] ?? []).some((c) => c.type === 'curse')).length
       return cursed / Math.max(1, p.locations.length)
     }
+    case 'SOMBRA': {
+      // 0,85 × (lieux piratés / 4) ; +0,15 quand les 4 lieux sont piratés ET que
+      // Protocole Sombra est en main (prêt à déclencher la victoire).
+      const total = Math.max(1, p.locations.length)
+      const hacked = p.locations.filter((l) => (p.board[l.id] ?? []).some((c) => c.isPiratage)).length
+      let s = 0.85 * (hacked / total)
+      if (hacked >= total && p.hand.some((c) => c.cardId === 'protocole-sombra')) s += 0.15
+      return Math.min(1, s)
+    }
     case 'CARDS_IN_REALM': {
       const obj = p.objective
       const have = p.locations.reduce(

@@ -16,6 +16,7 @@ export const VILLAIN_COLOR: Record<string, string> = {
   scar: '#6B3410',
   yzma: '#5B2C6F',
   ratigan: '#5A1426',
+  sombra: '#3B1E63',
 }
 
 /** Teintes de repli (camp joueur / adversaire) quand la couleur d'un vilain est

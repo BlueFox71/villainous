@@ -43,6 +43,11 @@ interface Props {
   /** Alliés déjà cochés pour le Vanquish en cours. */
   vanquishSelected?: string[]
   onVanquishToggle?: (instanceId: string) => void
+  /** Ratigan — pose d'Objet : Engrenages (instanceId) cochables à défausser (−3). */
+  engrenagesCandidates?: string[]
+  /** Engrenages déjà cochés à défausser. */
+  engrenagesSelected?: string[]
+  onEngrenagesToggle?: (instanceId: string) => void
   /** Liste des Shériffs (instanceId) qui peuvent encore se déplacer ce tour. */
   sheriffMovable?: string[]
   onSheriffMoveStart?: (instanceId: string) => void
@@ -92,6 +97,9 @@ export function LocationCard({
   vanquishAllyCandidates = [],
   vanquishSelected = [],
   onVanquishToggle,
+  engrenagesCandidates = [],
+  engrenagesSelected = [],
+  onEngrenagesToggle,
   sheriffMovable = [],
   onSheriffMoveStart,
   diabloMovable = [],
@@ -210,6 +218,9 @@ export function LocationCard({
                 (selectableCardIds == null || selectableCardIds.includes(c.instanceId))
               const canVanquishToggle = vanquishAllyCandidates.includes(c.instanceId)
               const isVanquishSelected = vanquishSelected.includes(c.instanceId)
+              // Ratigan — Engrenages cochables (pose d'Objet) : −3 par Engrenage défaussé.
+              const canEngrenagesToggle = engrenagesCandidates.includes(c.instanceId)
+              const isEngrenagesSelected = engrenagesSelected.includes(c.instanceId)
               // Capitaine Crochet : Objet qui donne une action au lieu (Canon,
               // Boîte à Crochets, Ingénieux Mécanisme) → cliquable quand l'action
               // est disponible.
@@ -261,7 +272,12 @@ export function LocationCard({
                                     e.stopPropagation()
                                     onVanquishToggle?.(c.instanceId)
                                   }
-                                : undefined
+                                : canEngrenagesToggle
+                                  ? (e) => {
+                                      e.stopPropagation()
+                                      onEngrenagesToggle?.(c.instanceId)
+                                    }
+                                  : undefined
                       }
                       className={`w-14 rounded border ${
                         canUseMap
@@ -276,7 +292,11 @@ export function LocationCard({
                                 ? isVanquishSelected
                                   ? 'cursor-pointer border-red-500 ring-2 ring-red-500'
                                   : 'cursor-pointer border-red-400/50 ring-2 ring-red-400/30'
-                                : isPersifleurBlink
+                                : canEngrenagesToggle
+                                  ? isEngrenagesSelected
+                                    ? 'cursor-pointer border-amber-400 ring-2 ring-amber-400'
+                                    : 'cursor-pointer border-amber-300/50 ring-2 ring-amber-300/30'
+                                  : isPersifleurBlink
                                   ? 'border-yellow-300 ring-2 ring-yellow-300'
                                   : hasStar
                                     ? 'border-orange-500 ring-2 ring-orange-500/70'

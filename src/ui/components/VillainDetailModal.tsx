@@ -76,6 +76,7 @@ const EFFECT_INFO: Record<string, { does: string; needs?: string }> = {
   RECOVER_ANY_FROM_DISCARD: { does: 'Reprend une carte de la défausse', needs: 'une carte en défausse' },
   RECOVER_ITEM_OR_EVENT: { does: 'Reprend un Objet/Événement de la défausse', needs: 'un Objet/Événement en défausse' },
   RECOVER_TYPE_FROM_DISCARD: { does: 'Reprend une carte d’un type de la défausse', needs: 'une carte de ce type en défausse' },
+  RECOVER_FROM_DISCARD_CHOICE: { does: 'Reprend (au choix) une carte d’un type de la défausse', needs: 'une carte de ce type en défausse' },
   DISCARD_OWN_FOR_POWER: { does: 'Défausse des cartes pour gagner du Pouvoir', needs: 'des cartes en main' },
   UNTRAP_TITANS_PAY: { does: 'Libère des Titans entravés (en payant)', needs: 'un Titan entravé' },
   MOVE_TITAN_INTERACTIVE: { does: 'Déplace un Titan non entravé', needs: 'un Titan non entravé déplaçable' },

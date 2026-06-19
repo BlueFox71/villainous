@@ -9,6 +9,38 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.74',
+    date: '2026-06-19',
+    title: 'Nouveau vilain : Sombra + finitions de Ratigan',
+    changes: [
+      'NOUVEAU VILAIN — Sombra (collaboration, 2★) : pirate les 4 lieux puis joue Protocole Sombra pour gagner. Mécanique de Piratage (désactive une action du lieu, overlay « hack » glitché + bruitage), Lumérico déverrouillé par Faille, Boop! qui pirate un Héros (capacité annulée), Invisibilité, et tout le deck Fatalité (l’Œil, Zarya, Guillermo, Lynx, Shutdown, Réinitialisation…).',
+      'Sabotage (Fatalité de Ratigan) : le joueur qui la pose choisit l’Objet (coûtant 3 ou moins) à défausser parmi les Objets situés sur un lieu occupé par un Héros — ce qui détermine aussi le lieu. Le bot vise l’Objet le plus cher.',
+      'Ballon de fortune (Fatalité de Ratigan) : le joueur qui la pose choisit le Héros à équiper (+2 Force), puis peut OU NON le déplacer — et s’il le déplace, il choisit librement le lieu (n’importe lequel). Le Ballon suit le Héros.',
+      'Appel à l’aide (Fatalité de Ratigan) : le joueur qui la pose choisit désormais le lieu où Basil apparaît (ou se déplace, s’il est déjà en jeu) — une fenêtre propose les quatre lieux. Le bot vise le lieu de la Reine Robot (pour la faire défausser), sinon Buckingham Palace.',
+      'Cloche : ne peut plus être activée si Félicia est déjà dans votre main ou déjà posée sur un lieu (elle serait sans effet). L’action « Activer » se grise dans ce cas.',
+      'Extravagance : Condition jouable en réaction quand un adversaire gagne au moins 3 jetons Pouvoir — choisissez alors un Objet de votre défausse à ajouter à votre main (une fenêtre vous laisse choisir lequel).',
+      'Sournois : Condition jouable en réaction quand un adversaire vous cible avec une Fatalité — il ne dévoile alors qu’une seule carte Fatalité au lieu de deux (la carte en trop retourne sur le dessus de votre pioche).',
+      'Liste de Fidget : en la jouant, vous dévoilez les cartes du dessus de votre pioche jusqu’à tomber sur un Objet. Cet Objet rejoint votre main, les autres cartes dévoilées sont défaussées — et une fenêtre vous montre TOUTES les cartes dévoilées (l’Objet gardé est surligné), à refermer d’un clic sur « Compris ».',
+      'Piège ingénieux : quand le piège se referme au début de votre tour, les Héros éliminés s’affichent désormais (animation de défausse) au lieu de disparaître silencieusement.',
+      'Capture : plus de fenêtre séparée pour choisir le Héros — cliquez directement le Héros voulu sur le plateau (il clignote en ambre) pour l’envoyer au Repaire secret. La carte est désormais injouable s’il n’y a aucun Héros de force 3 ou moins ailleurs qu’au Repaire secret, et un Héros déjà sur le Repaire secret n’est plus proposé comme cible.',
+    ],
+  },
+  {
+    version: '0.73',
+    date: '2026-06-18',
+    title: 'Ratigan : Engrenages, Grand Génie du Mal, Habits royaux, Félicia',
+    changes: [
+      'Lorsque vous posez un Objet et que des Engrenages sont en jeu, plus de fenêtre séparée : cochez directement les Engrenages à défausser sur le plateau (surlignés en ambre). Le coût se met à jour en direct et un bouton « Poser » confirme la pose.',
+      'Le Grand Génie du Mal vous laisse désormais choisir : piocher 2 cartes OU gagner 2 jetons Pouvoir (une fenêtre propose les deux options). Le bot tranche selon sa main.',
+      'Habits royaux devient un Objet à activer : posez-le, puis utilisez une action « Activer » pour gagner 2 jetons Pouvoir (réutilisable chaque tour) au lieu d’un gain unique à la pose.',
+      'Félicia : à la pose, vous choisissez entre défausser un Allié de son lieu ou payer 2 jetons Pouvoir de plus. S’il y a plusieurs Alliés, vous cliquez celui à défausser. Si vous ne pouvez ni défausser un Allié ni payer le supplément, la carte est injouable sur ce lieu.',
+      'Uniforme : après l’avoir associé à un Allié (+2 Force), vous pouvez enchaîner une action « Éliminer un Héros » sur le lieu de cet Allié — qui doit obligatoirement participer (il est présélectionné). Action facultative : un bouton « Terminer » permet d’y renoncer.',
+      'Brutes : jouées sur un lieu où votre pion n’est PAS, elles vous laissent désormais effectuer librement UNE action disponible de ce lieu (hors Fatalité) — au lieu de simplement gagner du Pouvoir. Un bandeau « Brutes » s’affiche avec un bouton « Passer » pour y renoncer.',
+      'Capture : quand plusieurs Héros de force 3 ou moins sont en jeu, vous choisissez désormais lequel envoyer au Repaire secret (au lieu d’un choix automatique).',
+      'Positions des pastilles d’action du plateau de Ratigan corrigées (elles tombent désormais pile sur les icônes des quatre lieux).',
+    ],
+  },
+  {
     version: '0.72',
     date: '2026-06-18',
     title: 'Bot plus malin (Fatalité, objectifs) + confort de jeu',

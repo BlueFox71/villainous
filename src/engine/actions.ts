@@ -55,6 +55,7 @@ import {
   isLegalMove,
   locationActions,
   locationOfCard,
+  realmRelocateCandidates,
   requiresAllyTarget,
   teleportTargets,
   transformableGuards,
@@ -387,6 +388,39 @@ function applyPlayCard(
   ) {
     throw new Error('Aucune carte Fatalité jouable dans la défausse : « Petit secret » est injouable.')
   }
+  // Ratigan — Capture : injouable s'il n'existe aucun Héros déplaçable (force ≤ max,
+  // sur un AUTRE lieu que la destination, accepté par celle-ci).
+  {
+    const move = (card.effects ?? []).find((e) => e.type === 'MOVE_REALM_HERO_TO')
+    if (move && move.type === 'MOVE_REALM_HERO_TO' && realmRelocateCandidates(me, move.maxStrength, move.locationId).length === 0) {
+      throw new Error('Aucun Héros déplaçable hors de la destination : cette carte n’aurait aucun effet.')
+    }
+  }
+  // Sombra — Boop ! : injouable s'il n'y a aucun Héros à pirater (aucun Héros dans
+  // le royaume, ou tous déjà piratés).
+  if ((card.effects ?? []).some((e) => e.type === 'HACK_HERO')) {
+    const targetable = Object.values(me.board)
+      .flat()
+      .some((c) => c.type === 'hero' && !c.abilityHacked)
+    if (!targetable) {
+      throw new Error('Aucun Héros à pirater (aucun Héros en jeu, ou déjà tous piratés).')
+    }
+  }
+  // Sombra — un Piratage/IEM ne peut pas être posé sur un lieu portant L'Œil ou
+  // Guillermo Portero (capacité ignorée si le Héros est piraté par Boop), ni sur un
+  // lieu gelé par Shutdown (marqueur Fatalité, ce tour-ci).
+  if (card.isPiratage && to) {
+    const cell = me.board[to] ?? []
+    const blockers = cell.some(
+      (c) => c.type === 'hero' && !c.abilityHacked && (c.cardId === 'l-oeil' || c.cardId === 'guillermo-portero'),
+    )
+    if (blockers) {
+      throw new Error('Ce lieu ne peut pas être piraté (L’Œil ou Guillermo Portero y est présent).')
+    }
+    if (cell.some((c) => c.cardId === 'shutdown')) {
+      throw new Error('Ce lieu est gelé par Shutdown : impossible de le pirater ce tour-ci.')
+    }
+  }
 
   // Coût effectif (Couronne −1, Bâton Magique −1, Épée de Vérité +2 sur curse,
   // Razoul −1 sur Allié). Hypnose : coût = force (effective) du Héros ciblé.
@@ -411,6 +445,30 @@ function applyPlayCard(
       if (!found) throw new Error('Engrenages à défausser introuvable sur le plateau.')
       engrenagesToDiscard.push(found)
       cost = Math.max(0, cost - 3)
+    }
+  }
+  // Ratigan — Félicia : à la pose, le joueur DOIT soit défausser un Allié de son lieu
+  // (allyInstanceIds[0]), soit payer `power` Pouvoir de plus. Injouable si aucune des
+  // deux options n'est possible. La défausse est réalisée par l'effet post-placement.
+  const orPay = (card.effects ?? []).find((e) => e.type === 'DISCARD_ALLY_AT_HOST_OR_PAY')
+  if (orPay && orPay.type === 'DISCARD_ALLY_AT_HOST_OR_PAY' && to !== undefined) {
+    const chosenAllyId = allyInstanceIds?.[0]
+    const alliesHere = (me.board[to] ?? []).filter(
+      (c) => c.type === 'ally' && !c.attachedTo && !c.isWicket,
+    )
+    if (chosenAllyId) {
+      if (!alliesHere.some((c) => c.instanceId === chosenAllyId)) {
+        throw new Error(`${card.name} : Allié à défausser invalide sur ce lieu.`)
+      }
+      // Option « défausser » : coût de base inchangé.
+    } else {
+      // Option « payer » : il faut pouvoir régler le supplément.
+      if (me.power < cost + orPay.power) {
+        throw new Error(
+          `${card.name} est injouable : ni Allié à défausser sur ce lieu, ni ${orPay.power} Pouvoir de plus.`,
+        )
+      }
+      cost += orPay.power
     }
   }
   if (me.power < cost) {
@@ -594,6 +652,12 @@ function applyPlayCard(
   }
   next = annotateShowcaseGain(next, showcaseIdx, activePlayer(next).power - powerBeforeEffects)
 
+  // Sombra — Faille (discardOnPlay) : ses effets sont résolus (coût/main/action déjà
+  // gérés plus haut), mais la carte va en DÉFAUSSE au lieu de rester sur le plateau.
+  if (goesToBoard && dest && card.discardOnPlay) {
+    next = updateActivePlayer(next, (p) => ({ ...p, discard: [...p.discard, card] }))
+    return consumePersifleur(next, action)
+  }
   // Pose sur le lieu de destination (Objet associé : lien `attachedTo`), sinon défausse.
   if (goesToBoard && dest) {
     const destId = dest.id
@@ -626,6 +690,25 @@ function applyPlayCard(
         hostLocationId: destId,
       })
     }
+    // Ratigan — Uniforme : après l'association (+2 Force), « vous pouvez effectuer
+    // une action Éliminer un Héros ; cet Allié doit y participer ». Le Vanquish est
+    // FACULTATIF et se fait SUR LE LIEU de l'Allié porteur. Chemin atomique
+    // (bot/tests) si une cible est fournie ; sinon mis en attente (pendingTrapVanquish
+    // source 'uniforme') pour un choix UI ultérieur. On n'arme rien s'il n'y a aucun
+    // Héros sur ce lieu (rien à éliminer).
+    // Sombra — Arme Uzi : même mécanique que l'Uniforme (+2 à l'Allié porteur, puis
+    // action « Éliminer un Héros » facultative à laquelle cet Allié participe).
+    if ((card.cardId === 'uniforme' || card.cardId === 'arme-uzi') && host) {
+      const heroesHere = (activePlayer(next).board[destId] ?? []).some((c) => c.type === 'hero')
+      if (targetHeroId && allyInstanceIds && allyInstanceIds.length > 0) {
+        next = performVanquish(next, targetHeroId, allyInstanceIds, false)
+      } else if (heroesHere) {
+        next = {
+          ...next,
+          pendingTrapVanquish: { source: 'uniforme', locationId: destId, requiredAllyInstanceId: host.instanceId },
+        }
+      }
+    }
     // Scar — Shenzi (jouer une Hyène gratuite) / Troupeau de gnous (déplacer un
     // Héros) : effets « à la pose » nécessitant le lieu, résolus après placement.
     if (card.type === 'ally') {
@@ -633,15 +716,47 @@ function applyPlayCard(
         (e) =>
           e.type === 'PLAY_FREE_HYENA' ||
           e.type === 'GNOUS_MOVE' ||
-          e.type === 'DISCARD_HERO_AT_HOST' ||
-          e.type === 'ALLY_REMOTE_GAIN_POWER',
+          e.type === 'DISCARD_ALLY_AT_HOST_OR_PAY',
       )
       if (hostEffects.length > 0) {
         next = resolveEffects(next, hostEffects, {
           actorIndex: state.activePlayer,
           hostInstanceId: placed.instanceId,
           hostLocationId: destId,
+          // Félicia : l'Allié choisi à défausser (DISCARD_ALLY_AT_HOST_OR_PAY).
+          allyInstanceIds,
         })
+      }
+      // Ratigan — Brutes : jouées sur un lieu où le pion n'est PAS → ouvre une
+      // fenêtre d'action distante FACULTATIVE (une action disponible de ce lieu,
+      // hors Fatalité). On la pose après placement (l'économie d'actions est gérée
+      // comme « Suivez-moi ! »). Sur le lieu du pion : aucun bonus (carte normale).
+      if ((card.effects ?? []).some((e) => e.type === 'ALLY_REMOTE_ACTION') && destId !== activePlayer(next).pawnLocation) {
+        next = openRemoteActionWindow(next, state.activePlayer, destId)
+      }
+    }
+    // Sombra — Faille : le bonus « Piratage gratuit » est consommé dès qu'un
+    // Piratage/IEM est posé.
+    if (card.isPiratage && activePlayer(next).freePiratage) {
+      next = updateActivePlayer(next, (p) => ({ ...p, freePiratage: false }))
+    }
+    // Sombra — Piratage : le lieu est désormais piraté. Un Piratage (pas l'IEM)
+    // DÉSACTIVE une action du lieu, au CHOIX du joueur (pendingHack ; bot auto).
+    if (card.isPiratage && card.hackDisablesAction) {
+      const destLoc = findLocation(activePlayer(next), destId)
+      // Actions désactivables = celles du lieu pas déjà piratées par un autre Piratage.
+      const already = new Set(
+        (activePlayer(next).board[destId] ?? [])
+          .filter((c) => c.isPiratage && c.hackedActionId)
+          .map((c) => c.hackedActionId!),
+      )
+      const actionIds = (destLoc?.actions ?? []).map((a) => a.id).filter((id) => !already.has(id))
+      if (actionIds.length > 0) {
+        next = {
+          ...next,
+          pendingHack: { playerIndex: state.activePlayer, locationId: destId, instanceId: placed.instanceId, actionIds },
+          log: [...next.log, `${me.villainName} pirate **${destLoc?.name ?? destId}** : choisissez l'action à désactiver.`],
+        }
       }
     }
   } else if (card.goesToAuDelaOnPlay) {
@@ -814,6 +929,10 @@ function applyFate(state: GameState, actionId: string): GameState {
   const target = fateTarget(state)
   const me = activePlayer(state)
   const tgt = state.players[target]
+  // Sombra — Invisibilité : la cible est immunisée à la Fatalité ce tour.
+  if (tgt.noFate) {
+    throw new Error(`${tgt.villainName} est invisible : aucune Fatalité possible ce tour-ci.`)
+  }
   // Yzma : Fatalité spéciale (4 pioches). L'adversaire choisit une pioche, voit
   // toutes ses cartes, en joue une sur le lieu, remélange le reste.
   if (tgt.fateDecks) {
@@ -1552,7 +1671,9 @@ function resolveFateCardOnHero(
   }
 
   // Ballon de fortune (Ratigan, Fatalité) : +2 Force au Héros porteur (attachStrengthBonus),
-  // puis on peut le déplacer immédiatement (auto : Buckingham Palace, il emporte le Ballon).
+  // puis on PEUT le déplacer vers N'IMPORTE QUEL lieu — déplacement FACULTATIF dont le
+  // lieu est choisi par le joueur qui pose la Fatalité (pendingHeroRelocate : anyLocation +
+  // optional ; le bot tranche). Le Ballon (associé) suit le Héros lors du déplacement.
   if (chosen.cardId === 'ballon-de-fortune') {
     const heroLoc = locationOfCard(tgt, hero.instanceId)
     if (!heroLoc) throw new Error(`Lieu du Héros « ${hero.name} » introuvable.`)
@@ -1562,10 +1683,17 @@ function resolveFateCardOnHero(
       board: { ...p.board, [heroLoc]: [...(p.board[heroLoc] ?? []), equipped] },
     }))
     next = { ...next, log: [...next.log, `${playedByName} associe **${chosen.name}** à **${hero.name}** (+2 Force).`] }
-    return resolveEffects(next, [{ type: 'MOVE_HERO_TO_LOCATION', locationId: 'buckingham-palace' }], {
-      actorIndex: targetIndex,
-      targetHeroId: hero.instanceId,
-    })
+    return {
+      ...next,
+      pendingHeroRelocate: {
+        chooserIndex: playedByIndex,
+        targetIndex,
+        anyLocation: true,
+        optional: true,
+        candidateIds: [hero.instanceId],
+      },
+      log: [...next.log, `${playedByName} peut déplacer **${hero.name}** vers n'importe quel lieu (Ballon de fortune).`],
+    }
   }
 
   // Objets Fatalité « purement associés » à un Héros (attach: 'hero') sans effet
@@ -1953,6 +2081,95 @@ function applyResolveFateInner(
     }
   }
 
+  // Shutdown (Sombra, Fatalité) : l'adversaire associe Shutdown à un lieu de Sombra
+  // (marqueur). Tant qu'il y est (jusqu'à la fin du prochain tour de Sombra), elle ne
+  // peut pas y poser de Piratage/IEM. Réutilise pendingFateObjectPlace (choix du lieu).
+  if (chosen.cardId === 'shutdown') {
+    let next = updatePlayer(state, pending.target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, ...others] }))
+    next = {
+      ...next,
+      pendingFate: null,
+      pendingFateObjectPlace: { chooserIndex: state.activePlayer, targetIndex: pending.target, card: chosen },
+      log: [...next.log, `${state.players[state.activePlayer].villainName} gèle un lieu de ${tgt.villainName} (Shutdown).`],
+    }
+    return next
+  }
+
+  // Acculé (Sombra, Fatalité) : Sombra dévoile sa main ; l'adversaire choisit une
+  // carte et la remet sur le dessus du deck Méchant de Sombra (pendingFateChoice).
+  if (chosen.cardId === 'accule') {
+    let next = updatePlayer(state, pending.target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, chosen, ...others] }))
+    next = { ...next, pendingFate: null }
+    const hand = next.players[pending.target].hand
+    if (hand.length === 0) {
+      return { ...next, log: [...next.log, `**Acculé** : ${tgt.villainName} n'a aucune carte en main.`] }
+    }
+    return {
+      ...next,
+      pendingFateChoice: {
+        chooserIndex: state.activePlayer,
+        targetIndex: pending.target,
+        kind: 'hand-to-deck-top',
+        candidateIds: hand.map((c) => c.instanceId),
+      },
+      log: [...next.log, `**Acculé** : ${state.players[state.activePlayer].villainName} remet une carte de la main de ${tgt.villainName} sur sa pioche.`],
+    }
+  }
+
+  // Réinitialisation (Sombra, Fatalité) : retire un Piratage du royaume de Sombra,
+  // au CHOIX du joueur qui pose la Fatalité (pendingFateChoice 'remove-item').
+  if (chosen.cardId === 'reinitialisation') {
+    const piratages = Object.values(tgt.board).flat().filter((c) => c.isPiratage)
+    let next = updatePlayer(state, pending.target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, chosen, ...others] }))
+    next = { ...next, pendingFate: null }
+    if (piratages.length === 0) {
+      return { ...next, log: [...next.log, `**Réinitialisation** : aucun Piratage à retirer chez ${tgt.villainName}.`] }
+    }
+    return {
+      ...next,
+      pendingFateChoice: {
+        chooserIndex: state.activePlayer,
+        targetIndex: pending.target,
+        kind: 'remove-item',
+        candidateIds: piratages.map((c) => c.instanceId),
+      },
+      log: [...next.log, `**Réinitialisation** : ${state.players[state.activePlayer].villainName} retire un Piratage de ${tgt.villainName}.`],
+    }
+  }
+
+  // Sabotage (Ratigan, Fatalité) : sur un lieu portant ≥1 Héros, défaussez un Objet
+  // non associé de coût ≤ 3 — au CHOIX du joueur qui pose la Fatalité. Choisir l'Objet
+  // détermine aussi le lieu (l'Objet n'est candidat que s'il est sur un lieu à Héros).
+  if (chosen.cardId === 'sabotage') {
+    const maxCost = 3
+    const candidates: CardInstance[] = []
+    for (const l of tgt.locations) {
+      const cell = tgt.board[l.id] ?? []
+      if (!cell.some((c) => c.type === 'hero')) continue
+      for (const it of cell) {
+        if (it.type === 'item' && !it.attachedTo && (it.cost ?? 0) <= maxCost) candidates.push(it)
+      }
+    }
+    let next = updatePlayer(state, pending.target, (p) => ({
+      ...p,
+      fateDiscard: [...p.fateDiscard, chosen, ...others],
+    }))
+    next = { ...next, pendingFate: null }
+    if (candidates.length === 0) {
+      return { ...next, log: [...next.log, `**Sabotage** : aucun Objet (coût ≤ ${maxCost}) sur un lieu occupé par un Héros chez ${tgt.villainName}.`] }
+    }
+    return {
+      ...next,
+      pendingFateChoice: {
+        chooserIndex: state.activePlayer,
+        targetIndex: pending.target,
+        kind: 'remove-item',
+        candidateIds: candidates.map((c) => c.instanceId),
+      },
+      log: [...next.log, `**Sabotage** : ${state.players[state.activePlayer].villainName} défausse un Objet (coût ≤ ${maxCost}) sur un lieu occupé par un Héros de ${tgt.villainName}.`],
+    }
+  }
+
   // Trahison (Jafar, Fatalité) : la cible perd immédiatement 2 jetons Pouvoir.
   if (chosen.cardId === 'trahison') {
     const lost = Math.min(2, tgt.power)
@@ -2207,41 +2424,40 @@ function applyResolveFateInner(
   }
 
   // Appel à l'aide (Ratigan, Fatalité) : cherche Basil et le joue sur le lieu de
-  // votre choix ; s'il est déjà dans le royaume, déplacez-le. Auto : on vise le lieu
-  // de la Reine Robot (pour que Basil la défausse → bascule « Le Rat »), sinon
-  // Buckingham Palace. La pose/le déplacement déclenche l'onPlace de Basil.
+  // VOTRE choix ; s'il est déjà dans le royaume, déplacez-le vers n'importe quel
+  // lieu. Le choix du lieu est interactif (pendingFateHeroPlace ; le bot auto-résout
+  // côté lieu de la Reine Robot / Buckingham). La pose/le déplacement déclenchera
+  // l'onPlace de Basil à la résolution.
   if (chosen.cardId === 'appel-a-l-aide') {
-    let next: GameState = {
+    const next: GameState = {
       ...updatePlayer(state, pending.target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, chosen, ...others] })),
       pendingFate: null,
     }
     const t = next.players[pending.target]
-    const robotLoc = t.locations.find((l) =>
-      (t.board[l.id] ?? []).some((c) => c.cardId === 'reine-robot' && !c.attachedTo),
-    )?.id
-    const destId = robotLoc ?? 'buckingham-palace'
-    const destName = findLocation(t, destId)?.name ?? destId
-    // Basil déjà en jeu ? → on le déplace vers destId, ce qui redéclenche son onPlace.
-    let basilLoc: string | undefined
-    let basil: CardInstance | undefined
-    for (const l of t.locations) {
-      const f = (t.board[l.id] ?? []).find((c) => c.cardId === 'basil' && c.type === 'hero')
-      if (f) { basilLoc = l.id; basil = f; break }
-    }
-    if (basil && basilLoc) {
-      next = resolveEffects(next, [{ type: 'MOVE_HERO_TO_LOCATION', locationId: destId }], { actorIndex: pending.target, targetHeroId: basil.instanceId })
-      return resolveEffects(next, basil.onPlace ?? [], { actorIndex: pending.target, hostInstanceId: basil.instanceId, hostLocationId: destId })
-    }
-    const found = t.fateDeck.find((c) => c.cardId === 'basil') ?? t.fateDiscard.find((c) => c.cardId === 'basil')
-    if (!found) {
+    const basilInRealm = t.locations.some((l) =>
+      (t.board[l.id] ?? []).some((c) => c.cardId === 'basil' && c.type === 'hero'),
+    )
+    const basilAvailable =
+      basilInRealm ||
+      t.fateDeck.some((c) => c.cardId === 'basil') ||
+      t.fateDiscard.some((c) => c.cardId === 'basil')
+    if (!basilAvailable) {
       return { ...next, log: [...next.log, `Appel à l'aide : Basil est introuvable.`] }
     }
-    next = updatePlayer(next, pending.target, (p) => ({
-      ...p,
-      fateDeck: p.fateDeck.filter((c) => c.instanceId !== found.instanceId),
-      fateDiscard: p.fateDiscard.filter((c) => c.instanceId !== found.instanceId),
-    }))
-    return placeFateHeroWithEffects(next, pending.target, state.activePlayer, found, destId, destName)
+    return {
+      ...next,
+      pendingFateHeroPlace: {
+        chooserIndex: state.activePlayer,
+        targetIndex: pending.target,
+        heroCardId: 'basil',
+        heroName: 'Basil',
+        mode: basilInRealm ? 'move' : 'place',
+      },
+      log: [
+        ...next.log,
+        `${state.players[state.activePlayer].villainName} : ${basilInRealm ? 'déplacez' : 'placez'} **Basil** sur un lieu de ${tgt.villainName} (Appel à l'aide).`,
+      ],
+    }
   }
 
   // Fallback (carte Fatalité non implémentée) : simple défausse.
@@ -2523,6 +2739,40 @@ function applyActivate(
     }
   }
 
+  if (card.cardId === 'transducteur') {
+    // Sombra — Transducteur : payez 1, déplacez la figurine SUR le Transducteur et
+    // jouez les actions disponibles de ce lieu (hors Fatalité). On réinitialise
+    // l'économie d'actions vers ce lieu (actions fraîches), Fatalité bloquée. Un
+    // marqueur scopé empêche de réutiliser le Transducteur le même tour.
+    const usedKey = `transducteur:${cardInstanceId}`
+    if (state.usedActionIds.includes(usedKey)) {
+      throw new Error('Le Transducteur a déjà été utilisé ce tour.')
+    }
+    const dest = findLocation(me, cardLoc)!
+    const preserved = state.usedActionIds.filter((a) => a.includes(':'))
+    const fateIds = dest.actions.filter((a) => a.type === 'FATE').map((a) => a.id)
+    let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost!, pawnLocation: cardLoc }))
+    next = consumePersifleur(next, action)
+    return {
+      ...next,
+      // Actions du lieu d'arrivée fraîches (hors Fatalité, bloquée) ; Transducteur consommé.
+      usedActionIds: [...preserved, ...fateIds, usedKey],
+      log: [
+        ...next.log,
+        `${me.villainName} active le **Transducteur** : se déplace sur **${dest.name}** et y agit (hors Fatalité) (−${card.activatedCost} JT).`,
+      ],
+    }
+  }
+
+  if (card.cardId === 'membres-los-muertos') {
+    // Sombra — Membres de Los Muertos : Activer → chercher Arme Uzi (pioche/défausse)
+    // et l'ajouter à la main. Réutilise TUTOR_CARD_TO_HAND.
+    let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost! }))
+    next = resolveEffects(next, [{ type: 'TUTOR_CARD_TO_HAND', cardId: 'arme-uzi' }], { actorIndex: state.activePlayer })
+    next = consumePersifleur(next, action)
+    return { ...next, usedActionIds: [...next.usedActionIds, actionId] }
+  }
+
   if (card.cardId === 'sceptre-serpent') {
     // Payez 1 : cherchez une carte Hypnose dans la défausse et ajoutez-la en main.
     const hypno = me.discard.find((c) => c.cardId === 'hypnose')
@@ -2547,6 +2797,14 @@ function applyActivate(
 
   if (card.cardId === 'cloche') {
     // Ratigan — Cloche : cherche Félicia (pioche/défausse) → main, remélange la pioche.
+    // Inutilisable si Félicia est déjà en main ou déjà posée sur un lieu (elle ne se
+    // trouve alors ni dans la pioche ni dans la défausse).
+    const feliciaOut =
+      me.hand.some((c) => c.cardId === 'felicia') ||
+      Object.values(me.board).flat().some((c) => c.cardId === 'felicia')
+    if (feliciaOut) {
+      throw new Error('Félicia est déjà en main ou en jeu : la Cloche est inutile.')
+    }
     let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost! }))
     next = resolveEffects(next, [{ type: 'TUTOR_CARD_TO_HAND', cardId: 'felicia' }], { actorIndex: state.activePlayer })
     next = consumePersifleur(next, action)
@@ -2617,6 +2875,14 @@ function applyActivate(
         `${me.villainName} amorce le **Piège ingénieux** sur **${locName}** (−${card.activatedCost} JT) : il se refermera au début de votre prochain tour.`,
       ],
     }
+  }
+
+  if (card.cardId === 'habits-royaux') {
+    // Ratigan — Habits royaux : activer pour gagner 2 jetons Pouvoir (réutilisable).
+    let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost! }))
+    next = resolveEffects(next, [{ type: 'GAIN_POWER', amount: 2 }], { actorIndex: state.activePlayer })
+    next = consumePersifleur(next, action)
+    return { ...next, usedActionIds: [...next.usedActionIds, actionId] }
   }
 
   if (card.cardId === 'sablier-geant') {
@@ -3009,6 +3275,11 @@ function applyTrapVanquish(
     throw new Error("Aucune élimination facultative en attente.")
   }
   const source = state.pendingTrapVanquish.source
+  // Uniforme : l'Allié porteur doit participer à l'élimination.
+  const required = state.pendingTrapVanquish.requiredAllyInstanceId
+  if (required && !allyInstanceIds.includes(required)) {
+    throw new Error("L'Allié portant l'Uniforme doit participer à l'élimination.")
+  }
   let next = performVanquish(state, heroInstanceId, allyInstanceIds, false)
   // Tendre un Piège : showcase de la carte différé (apparaît une fois la séquence
   // terminée). Troupeau de gnous : la carte a déjà été montrée à sa pose.
@@ -3453,6 +3724,41 @@ function resolveConditionEffect(
     }
     return resolveEffectsLocal(next, [{ type: 'SCRY_OWN_FATE_TOP2' }], { actorIndex: playerIndex })
   }
+  if (card.cardId === 'pas-si-vite') {
+    // Sombra — Pas si vite : pendant une Fatalité qui la cible, SOMBRA choisit la
+    // carte Fatalité jouée (à la place de l'adversaire). On stocke les cartes
+    // révélées dans pendingScry (réutilise RESOLVE_SCRY, autorisé pendant pendingFate)
+    // et on vide pendingFate.revealed le temps du choix.
+    const pf = next.pendingFate
+    if (pf && pf.target === playerIndex && pf.revealed.length > 1) {
+      return {
+        ...next,
+        pendingFate: { ...pf, revealed: [] },
+        pendingScry: { playerIndex, cards: pf.revealed, pasSiVite: true },
+        log: [...next.log, `${player.villainName} (Pas si vite) choisit la carte Fatalité à jouer.`],
+      }
+    }
+    return next
+  }
+  if (card.cardId === 'sournois') {
+    // Ratigan — Sournois : pendant une Fatalité qui le cible, l'adversaire ne dévoile
+    // qu'1 carte Fatalité au lieu de 2. Les cartes déjà révélées en trop retournent
+    // sur le DESSUS de la pioche Fatalité (non révélées). On garde la 1ʳᵉ révélée.
+    const pf = next.pendingFate
+    if (pf && pf.target === playerIndex && pf.revealed.length > 1) {
+      const [keep, ...rest] = pf.revealed
+      next = updatePlayer(next, playerIndex, (p) => ({ ...p, fateDeck: [...rest, ...p.fateDeck] }))
+      return {
+        ...next,
+        pendingFate: { ...pf, revealed: [keep] },
+        log: [
+          ...next.log,
+          `${player.villainName} (Sournois) : l'adversaire ne dévoile qu'1 carte Fatalité au lieu de 2.`,
+        ],
+      }
+    }
+    return next
+  }
   if (card.cardId === 'trahison-imposteur') {
     // Trahison (L'Imposteur) : élimine un Coéquipier qui ne le suspecte pas.
     return resolveEffectsLocal(next, [{ type: 'KILL_NORMAL_CREWMATE' }], { actorIndex: playerIndex })
@@ -3628,9 +3934,10 @@ function applyResolveHeroRelocate(state: GameState, heroInstanceId: string, to: 
   if (!from) throw new Error(`Héros « ${heroInstanceId} » introuvable.`)
   const hero = (target.board[from] ?? []).find((c) => c.instanceId === heroInstanceId)
   if (!hero || hero.type !== 'hero') throw new Error('Cible invalide (pas un Héros).')
-  // Adjacence dans le royaume de la CIBLE — sauf Tourbillon (anyLocation), qui
-  // autorise n'importe quel lieu non bloqué.
-  if (pending.anyLocation) {
+  // Ratigan — Capture : destination IMPOSÉE (le joueur n'a choisi que le Héros).
+  if (pending.forcedLocationId !== undefined) {
+    if (to !== pending.forcedLocationId) throw new Error(`Destination imposée : « ${pending.forcedLocationId} ».`)
+  } else if (pending.anyLocation) {
     const locked = new Set(target.lockedLocations ?? [])
     if (!target.locations.some((l) => l.id === to) || locked.has(to)) {
       throw new Error(`Lieu « ${to} » invalide (doit être non bloqué).`)
@@ -3773,6 +4080,44 @@ function applyResolveDeckPeek(state: GameState, keep: boolean): GameState {
  * en attente, ajoute la 1ʳᵉ du type choisi (`cardType`) à sa main et défausse les
  * autres. Si la pioche est trop courte, remélange d'abord la défausse dedans.
  */
+/**
+ * Ratigan — Le Grand Génie du Mal : résout le choix « piocher OU gagner du
+ * Pouvoir ». `'power'` réutilise GAIN_POWER (pénalité Robin, journal) ; `'draw'`
+ * pioche `draw` cartes (remélange la défausse si nécessaire). Efface le choix.
+ */
+function applyResolveDrawOrGainPower(state: GameState, choice: 'draw' | 'power'): GameState {
+  const pending = state.pendingDrawOrGainPower
+  if (!pending) throw new Error('Aucun choix Piocher/Pouvoir en attente.')
+  const { playerIndex, draw, power } = pending
+  const cleared = { ...state, pendingDrawOrGainPower: null }
+  if (choice === 'power') {
+    return resolveEffect(cleared, { type: 'GAIN_POWER', amount: power }, { actorIndex: playerIndex })
+  }
+  const player = cleared.players[playerIndex]
+  let deck = player.deck
+  let disc = player.discard
+  let s = cleared.rngState
+  const drawn: CardInstance[] = []
+  for (let i = 0; i < draw; i++) {
+    if (deck.length === 0) {
+      if (disc.length === 0) break
+      const r = shuffle(disc, s)
+      deck = r.result
+      s = r.state
+      disc = []
+    }
+    drawn.push(deck[0])
+    deck = deck.slice(1)
+  }
+  const next = updatePlayer(cleared, playerIndex, (p) => ({ ...p, deck, discard: disc, hand: [...p.hand, ...drawn] }))
+  return {
+    ...next,
+    rngState: s,
+    activeDrewCard: drawn.length > 0 ? true : next.activeDrewCard,
+    log: [...next.log, `${player.villainName} pioche ${drawn.length} carte${drawn.length > 1 ? 's' : ''} (Le Grand Génie du Mal).`],
+  }
+}
+
 function applyResolveTypeChoice(state: GameState, cardType: CardType): GameState {
   const pending = state.pendingTypeChoice
   if (!pending) throw new Error('Aucun choix de type en attente.')
@@ -4160,6 +4505,24 @@ function applyResolveScry(state: GameState, topInstanceIds: string[]): GameState
     }
   }
 
+  // Sombra — Pas si vite : la carte gardée (choisie par Sombra) est celle qui sera
+  // JOUÉE contre elle (remise dans pendingFate.revealed) ; les autres sont défaussées.
+  if (pending.pasSiVite) {
+    const played = kept[0] ?? pending.cards[0]
+    const others = pending.cards.filter((c) => c.instanceId !== played.instanceId)
+    const withDiscard = updatePlayer(state, idx, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, ...others] }))
+    const pf = withDiscard.pendingFate
+    return {
+      ...withDiscard,
+      pendingScry: null,
+      pendingFate: pf ? { ...pf, revealed: [played] } : { target: idx, revealed: [played] },
+      log: [
+        ...withDiscard.log,
+        `Pas si vite : ${player.villainName} choisit **${played.name}** ; ${others.length} carte(s) Fatalité défaussée(s).`,
+      ],
+    }
+  }
+
   const next = updatePlayer(state, idx, (p) => ({
     ...p,
     fateDeck: [...kept, ...p.fateDeck],
@@ -4250,6 +4613,23 @@ function applyResolveFateChoice(state: GameState, instanceId: string): GameState
     }
   }
 
+  if (pending.kind === 'hand-to-deck-top') {
+    // Acculé (Sombra) : une carte de la main de la cible repart sur le dessus de
+    // son deck Méchant.
+    const card = tgt.hand.find((c) => c.instanceId === instanceId)
+    if (!card) throw new Error('Carte introuvable dans la main.')
+    const next = updatePlayer(state, ti, (p) => ({
+      ...p,
+      hand: p.hand.filter((c) => c.instanceId !== instanceId),
+      deck: [card, ...p.deck],
+    }))
+    return {
+      ...next,
+      pendingFateChoice: null,
+      log: [...next.log, `**Acculé** : **${card.name}** repart sur le dessus de la pioche de ${tgt.villainName}.`],
+    }
+  }
+
   if (pending.kind === 'fate-discard-hero-to-top') {
     // Premier baiser d'amour : un Héros de la défausse Fatalité revient sur le
     // dessus de la pioche Fatalité de la cible.
@@ -4311,7 +4691,7 @@ function applyResolveFateChoice(state: GameState, instanceId: string): GameState
   }
 
   if (pending.kind === 'remove-item') {
-    // Migraine Atroce : défausse un Objet du royaume de la cible.
+    // Migraine Atroce / Sabotage : défausse l'Objet choisi du royaume de la cible.
     const loc = locationOfCard(tgt, instanceId)
     if (!loc) throw new Error('Objet introuvable.')
     const item = (tgt.board[loc] ?? []).find((c) => c.instanceId === instanceId)!
@@ -4323,7 +4703,7 @@ function applyResolveFateChoice(state: GameState, instanceId: string): GameState
     return {
       ...next,
       pendingFateChoice: null,
-      log: [...next.log, `**Migraine Atroce** : **${item.name}** est défaussé du royaume de ${tgt.villainName}.`],
+      log: [...next.log, `**${item.name}** est défaussé du royaume de ${tgt.villainName}.`],
     }
   }
 
@@ -4708,6 +5088,95 @@ function applyResolveFateObjectPlace(state: GameState, locationId: LocationId): 
     ...next,
     pendingFateObjectPlace: null,
     log: [...next.log, `**${pending.card.name}** est associée à ${locName} (royaume de ${tgt.villainName}).`],
+  }
+}
+
+/** Ratigan — Appel à l'aide : pose le Héros cherché (Basil) sur le lieu choisi, ou
+ *  l'y déplace s'il est déjà en jeu. Déclenche son onPlace dans les deux cas. */
+function applyResolveFateHeroPlace(state: GameState, locationId: LocationId): GameState {
+  const pending = state.pendingFateHeroPlace
+  if (!pending) throw new Error('Aucun Héros Fatalité à placer.')
+  const tgt = state.players[pending.targetIndex]
+  if (!tgt.locations.some((l) => l.id === locationId)) throw new Error('Lieu de destination invalide.')
+  const destName = findLocation(tgt, locationId)?.name ?? locationId
+  let next: GameState = { ...state, pendingFateHeroPlace: null }
+  // Basil déjà en jeu → on le déplace (MOVE_HERO_TO_LOCATION redéclenche son onPlace).
+  let basilLoc: LocationId | undefined
+  let basil: CardInstance | undefined
+  for (const l of tgt.locations) {
+    const f = (tgt.board[l.id] ?? []).find((c) => c.cardId === pending.heroCardId && c.type === 'hero')
+    if (f) { basilLoc = l.id; basil = f; break }
+  }
+  if (basil && basilLoc) {
+    next = resolveEffects(next, [{ type: 'MOVE_HERO_TO_LOCATION', locationId }], { actorIndex: pending.targetIndex, targetHeroId: basil.instanceId })
+    return resolveEffects(next, basil.onPlace ?? [], { actorIndex: pending.targetIndex, hostInstanceId: basil.instanceId, hostLocationId: locationId })
+  }
+  // Sinon : cherche Basil dans la pioche/défausse Fatalité et le pose.
+  const found = tgt.fateDeck.find((c) => c.cardId === pending.heroCardId) ?? tgt.fateDiscard.find((c) => c.cardId === pending.heroCardId)
+  if (!found) {
+    return { ...next, log: [...next.log, `Appel à l'aide : ${pending.heroName} est introuvable.`] }
+  }
+  next = updatePlayer(next, pending.targetIndex, (p) => ({
+    ...p,
+    fateDeck: p.fateDeck.filter((c) => c.instanceId !== found.instanceId),
+    fateDiscard: p.fateDiscard.filter((c) => c.instanceId !== found.instanceId),
+  }))
+  return placeFateHeroWithEffects(next, pending.targetIndex, pending.chooserIndex, found, locationId, destName)
+}
+
+/** Sombra — Piratage : désactive l'action choisie du lieu piraté (le Piratage
+ *  `instanceId` mémorise `hackedActionId` ; l'action reste désactivée tant qu'il y est). */
+function applyResolveHack(state: GameState, actionId: string): GameState {
+  const pending = state.pendingHack
+  if (!pending) throw new Error('Aucun piratage à résoudre.')
+  if (!pending.actionIds.includes(actionId)) throw new Error('Action à désactiver invalide.')
+  const idx = pending.playerIndex
+  let next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    board: {
+      ...p.board,
+      [pending.locationId]: (p.board[pending.locationId] ?? []).map((c) =>
+        c.instanceId === pending.instanceId ? { ...c, hackedActionId: actionId } : c,
+      ),
+    },
+  }))
+  const loc = findLocation(next.players[idx], pending.locationId)
+  const actLabel = loc?.actions.find((a) => a.id === actionId)?.label ?? actionId
+  next = {
+    ...next,
+    pendingHack: null,
+    log: [...next.log, `Sombra désactive « ${actLabel} » sur **${loc?.name ?? pending.locationId}** (Hack).`],
+  }
+  return next
+}
+
+/** Sombra — Information : `discardDrawn` = défausser les cartes piochées ; sinon
+ *  ouvrir la sélection pour défausser `discardCount` cartes de la main. */
+function applyResolveInformation(state: GameState, discardDrawn: boolean): GameState {
+  const pending = state.pendingInformation
+  if (!pending) throw new Error('Aucun choix Information en attente.')
+  const idx = pending.playerIndex
+  if (discardDrawn) {
+    const drawn = new Set(pending.drawnIds)
+    const player = state.players[idx]
+    const toDiscard = player.hand.filter((c) => drawn.has(c.instanceId))
+    const next = updatePlayer(state, idx, (p) => ({
+      ...p,
+      hand: p.hand.filter((c) => !drawn.has(c.instanceId)),
+      discard: [...p.discard, ...toDiscard],
+    }))
+    return {
+      ...next,
+      pendingInformation: null,
+      log: [...next.log, `${player.villainName} défausse les ${toDiscard.length} carte(s) piochée(s) (Information).`],
+    }
+  }
+  const count = Math.min(pending.discardCount, state.players[idx].hand.length)
+  return {
+    ...state,
+    pendingInformation: null,
+    pendingTyrannyDiscard: count > 0 ? { playerIndex: idx, count, label: 'Information' } : undefined,
+    log: [...state.log, `${state.players[idx].villainName} : défaussez ${count} carte(s) de votre main (Information).`],
   }
 }
 
@@ -5260,6 +5729,42 @@ function applyChariotMove(state: GameState, instanceId: string, to: string): Gam
   }
 }
 
+/** Ratigan — Brutes : ouvre une fenêtre d'action distante FACULTATIVE sur
+ *  `locationId` (le lieu où les Brutes viennent d'être jouées, différent du pion).
+ *  Même mécanique que « Suivez-moi ! » : pendant la fenêtre, seules les actions
+ *  NON-Fatalité de ce lieu sont jouables ; après UNE action (clearGiant) ou un
+ *  renoncement (SKIP_REMOTE_ACTION), l'économie d'actions normale est restaurée. */
+function openRemoteActionWindow(state: GameState, idx: number, locationId: LocationId): GameState {
+  const p = state.players[idx]
+  const dest = findLocation(p, locationId)
+  if (!dest) return state
+  // On ne garde que les marqueurs d'actions scopés (`:`) : les actions imprimées
+  // du lieu distant redeviennent disponibles ; les Fatalité y sont bloquées.
+  const preserved = state.usedActionIds.filter((a) => a.includes(':'))
+  const fateIds = dest.actions.filter((a) => a.type === 'FATE').map((a) => a.id)
+  return {
+    ...state,
+    actAtLocation: locationId,
+    actAtLocationSkippable: true,
+    usedActionIds: [...preserved, ...fateIds],
+    usedBeforeGiant: state.usedActionIds,
+    log: [...state.log, `Brutes : ${p.villainName} peut effectuer une action sur **${dest.name}** (hors Fatalité).`],
+  }
+}
+
+/** Ratigan — Brutes : renonce à l'action distante facultative (ferme la fenêtre). */
+function applySkipRemoteAction(state: GameState): GameState {
+  if (!state.actAtLocation) return state
+  return {
+    ...state,
+    actAtLocation: null,
+    actAtLocationSkippable: null,
+    usedActionIds: state.usedBeforeGiant ?? state.usedActionIds,
+    usedBeforeGiant: null,
+    log: [...state.log, `Brutes : ${activePlayer(state).villainName} renonce à l'action distante.`],
+  }
+}
+
 /** Après une action « géante » (Colère Titanesque) : on efface actAtLocation et on
  *  restaure usedActionIds (cette action d'un lieu voisin ne consomme pas l'économie
  *  d'actions du lieu courant). */
@@ -5268,6 +5773,7 @@ function clearGiant(before: GameState, after: GameState): GameState {
   return {
     ...after,
     actAtLocation: null,
+    actAtLocationSkippable: null,
     usedActionIds: before.usedBeforeGiant ?? after.usedActionIds,
     usedBeforeGiant: null,
   }
@@ -5312,6 +5818,23 @@ function applyEndTurn(state: GameState): GameState {
   if (state.players[state.activePlayer].noPagePlay) {
     state = updateActivePlayer(state, (p) => ({ ...p, noPagePlay: false }))
   }
+  // Sombra — Shutdown : les marqueurs « lieu gelé » expirent à la fin du tour de
+  // Sombra (ils auront bloqué le piratage de ce lieu pendant tout son tour).
+  if (Object.values(state.players[state.activePlayer].board).flat().some((c) => c.cardId === 'shutdown')) {
+    state = updateActivePlayer(state, (p) => {
+      const removed: CardInstance[] = []
+      const board = Object.fromEntries(
+        p.locations.map((l) => [
+          l.id,
+          (p.board[l.id] ?? []).filter((c) => {
+            if (c.cardId === 'shutdown') { removed.push(c); return false }
+            return true
+          }),
+        ]),
+      )
+      return { ...p, board, fateDiscard: [...p.fateDiscard, ...removed] }
+    })
+  }
   // Fin du tour courant : le joueur actif complète sa main à 4…
   const drawn0 = drawToLimit(state)
   // …puis la phase Coéquipiers (défausse des Tâches/Sabotages encombrés, compte à
@@ -5334,6 +5857,7 @@ function applyEndTurn(state: GameState): GameState {
     diabloFree: null,
     pendingTrapVanquish: null,
     actAtLocation: null,
+    actAtLocationSkippable: null,
     usedBeforeGiant: null,
     pendingGiantAction: null,
     pendingTitanMove: null,
@@ -5381,6 +5905,10 @@ function applyEndTurn(state: GameState): GameState {
   // Le verrou « seule action » de Beauté endormie expire au début du tour suivant.
   if (started.players[nextIdx].soleActionLock) {
     started = updatePlayer(started, nextIdx, (p) => ({ ...p, soleActionLock: false }))
+  }
+  // Sombra — Invisibilité : l'immunité à la Fatalité expire au début de son tour.
+  if (started.players[nextIdx].noFate) {
+    started = updatePlayer(started, nextIdx, (p) => ({ ...p, noFate: false }))
   }
   // Yzma — Beauté endormie : au début de son tour, AVANT le déplacement, ouvre un
   // choix interactif (gagner 2 JT / piocher 2 / déplacer un Héros voisin), chaque
@@ -5455,6 +5983,14 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   // Tombée de la nuit : un choix de type est en attente.
   if (state.pendingTypeChoice && action.type !== 'RESOLVE_TYPE_CHOICE' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Un choix de type est en attente (RESOLVE_TYPE_CHOICE).')
+  }
+  // Le Grand Génie du Mal : choix Piocher/Pouvoir en attente.
+  if (
+    state.pendingDrawOrGainPower &&
+    action.type !== 'RESOLVE_DRAW_OR_GAIN_POWER' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un choix Piocher/Pouvoir est en attente (RESOLVE_DRAW_OR_GAIN_POWER).')
   }
   // Par ordre de la Reine ! : la sélection de Cartes Gardes à transformer en
   // arceaux doit être résolue avant tout autre coup.
@@ -5546,6 +6082,14 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   ) {
     throw new Error("Choisissez le lieu où associer l'Objet (RESOLVE_FATE_OBJECT_PLACE).")
   }
+  // Appel à l'aide (Ratigan) : choisir le lieu où poser/déplacer Basil d'abord.
+  if (
+    state.pendingFateHeroPlace &&
+    action.type !== 'RESOLVE_FATE_HERO_PLACE' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Choisissez le lieu où placer le Héros (RESOLVE_FATE_HERO_PLACE).')
+  }
   // Colère Titanesque : choisir le lieu voisin où agir d'abord.
   if (state.pendingGiantAction && action.type !== 'RESOLVE_GIANT_LOCATION' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Choisissez le lieu voisin où agir (RESOLVE_GIANT_LOCATION).')
@@ -5567,6 +6111,19 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   // résolu avant tout autre coup.
   if (state.pendingLookTop && action.type !== 'RESOLVE_LOOK_TOP' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Choisissez la carte à garder (RESOLVE_LOOK_TOP).')
+  }
+  // Liste de Fidget (Ratigan) : les cartes dévoilées doivent être acquittées (vues)
+  // avant tout autre coup.
+  if (state.pendingReveal && action.type !== 'ACKNOWLEDGE_REVEAL' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Acquittez les cartes dévoilées (ACKNOWLEDGE_REVEAL).')
+  }
+  // Sombra — Piratage : choisir l'action à désactiver avant tout autre coup.
+  if (state.pendingHack && action.type !== 'RESOLVE_HACK' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Choisissez l’action à désactiver (RESOLVE_HACK).')
+  }
+  // Sombra — Information : choisir quoi défausser avant tout autre coup.
+  if (state.pendingInformation && action.type !== 'RESOLVE_INFORMATION' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Information : choisissez quoi défausser (RESOLVE_INFORMATION).')
   }
   // La Méchante Reine — « Croque ! » : le choix du Héros à croquer doit être résolu
   // avant tout autre coup.
@@ -5671,6 +6228,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveDeckPeek(state, action.keep)
     case 'RESOLVE_TYPE_CHOICE':
       return applyResolveTypeChoice(state, action.cardType)
+    case 'RESOLVE_DRAW_OR_GAIN_POWER':
+      return applyResolveDrawOrGainPower(state, action.choice)
     case 'RESOLVE_HERO_RELOCATE':
       return applyResolveHeroRelocate(state, action.heroInstanceId, action.to)
     case 'RESOLVE_ALLY_RELOCATE':
@@ -5719,6 +6278,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return { ...state, pendingCrewmateMove: null }
     case 'RESOLVE_FATE_OBJECT_PLACE':
       return applyResolveFateObjectPlace(state, action.locationId)
+    case 'RESOLVE_FATE_HERO_PLACE':
+      return applyResolveFateHeroPlace(state, action.locationId)
     case 'RESOLVE_GIANT_LOCATION':
       return applyResolveGiantLocation(state, action.locationId)
     case 'RESOLVE_TITAN_MOVE':
@@ -5729,6 +6290,12 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveDivination(state, action.topInstanceIds)
     case 'RESOLVE_LOOK_TOP':
       return applyResolveLookTop(state, action.keepInstanceIds)
+    case 'ACKNOWLEDGE_REVEAL':
+      return { ...state, pendingReveal: null }
+    case 'RESOLVE_HACK':
+      return applyResolveHack(state, action.actionId)
+    case 'RESOLVE_INFORMATION':
+      return applyResolveInformation(state, action.discardDrawn)
     case 'RESOLVE_TAKE_A_BITE':
       return applyResolveTakeABite(state, action.heroInstanceId)
     case 'RESOLVE_DUPLICATE_INGREDIENT':
@@ -5783,6 +6350,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyTrapVanquish(state, action.heroInstanceId, action.allyInstanceIds)
     case 'TRAP_SKIP_VANQUISH':
       return applyTrapSkipVanquish(state)
+    case 'SKIP_REMOTE_ACTION':
+      return applySkipRemoteAction(state)
     case 'PLAY_CONDITION':
       return applyPlayCondition(
         state,

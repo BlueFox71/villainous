@@ -7,7 +7,7 @@
 // Disposition (4 lieux, gauche → droite), 2 rangées (haut / bas). Tous les lieux
 // sont interactifs dès le début (aucun verrou).
 //
-//   Repaire secret        haut: (vide)              bas: Activer · Jouer · Fatalité
+//   Repaire secret        haut: (vide)              bas: Fatalité · Jouer · Activer
 //   Magasin de Flaversham  haut: Jouer · Défausser   bas: Gagner 3 · Jouer
 //   Big Ben               haut: Gagner 2 · Déplacer  bas: Jouer · Éliminer
 //   Buckingham Palace     haut: Fatalité · Jouer     bas: Déplacer · Gagner 1 · Défausser

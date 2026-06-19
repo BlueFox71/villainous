@@ -162,6 +162,14 @@ export const FATE_MALUS: Record<string, FateMalus> = {
   olivia: 'slow',
   'toby-ratigan': 'slow',
 
+  // --- Sombra (un Piratage sur chaque lieu + Protocole Sombra) ---
+  'l-oeil': 'block-win', // retire un Piratage de son lieu ET empêche d'y pirater
+  'guillermo-portero': 'block-win', // sur Lumérico : empêche d'y pirater
+  zarya: 'block-advance', // détruit un Objet (donc un Piratage) de son lieu
+  'lynx-seventeen': 'slow2', // Piratages/IEM coûtent +1
+  'soldat-76': 'slow',
+  'katya-volskaya': 'slow',
+
   // --- Slenderman (les 8 Pages dans le royaume) ---
   enqueteur: 'block-advance3',
   'enfant-perdu': 'block-advance',
