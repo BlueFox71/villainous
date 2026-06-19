@@ -416,10 +416,26 @@ export function createInitialGame(setups: PlayerSetup[], seed: number): GameStat
     // Règle officielle : chaque joueur démarre avec un nombre de JT = position
     // dans l'ordre de tour (1ᵉʳ : 0, 2ᵉ : 1, 3ᵉ : 2…) pour compenser l'avantage
     // de jouer en premier.
-    const drawn = drawPlayerToLimit(
-      makePlayer(villain, shuffled.result, shuffledFate.result, i),
-      rngState,
-    )
+    let player = makePlayer(villain, shuffled.result, shuffledFate.result, i)
+    // Pat Hibulaire — mise en place spéciale : on tire 4 de ses 5 tuiles Objectif
+    // (mélange puis on en garde une par lieu, la 5ᵉ reste hors-jeu) et on les pose
+    // face cachée, une par lieu.
+    if (villain.goalKinds && villain.goalKinds.length > 0) {
+      const r = shuffle(villain.goalKinds, rngState)
+      rngState = r.state
+      const chosen = r.result.slice(0, villain.locations.length)
+      player = {
+        ...player,
+        goals: villain.locations.map((loc, k) => ({
+          kind: chosen[k],
+          locationId: loc.id,
+          completed: false,
+          revealed: false,
+        })),
+        powerSpentThisTurn: 0,
+      }
+    }
+    const drawn = drawPlayerToLimit(player, rngState)
     rngState = drawn.rngState
     players.push(drawn.player)
     setupLog.push(

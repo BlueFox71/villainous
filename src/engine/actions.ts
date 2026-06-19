@@ -15,6 +15,7 @@ import type {
   Location,
   LocationAction,
   LocationId,
+  PeteGoalKind,
   PlayerState,
 } from './types'
 import { shuffle } from './rng'
@@ -45,6 +46,7 @@ import {
   effectiveCost,
   effectiveStrength,
   fateTarget,
+  goalsBlockedByHero,
   hasHeroInRealm,
   hasReachedObjective,
   heroPlacementLocations,
@@ -53,6 +55,7 @@ import {
   isActionCovered,
   isItemFrozen,
   isLegalMove,
+  isPassiveGoalMet,
   locationActions,
   locationOfCard,
   realmRelocateCandidates,
@@ -290,6 +293,11 @@ function applyPlayCard(
   const me = activePlayer(state)
   const card = me.hand.find((c) => c.instanceId === instanceId)
   if (!card) throw new Error(`Carte « ${instanceId} » absente de la main.`)
+  // Pat Hibulaire — une action « Jouer » laissée ouverte par un Bandit ne peut
+  // servir qu'à jouer d'autres Bandits (les autres cartes utilisent une autre action).
+  if (state.banditChain?.actionId === actionId && !card.playMultiplePerAction) {
+    throw new Error('Cette action « Jouer une carte » est réservée à d’autres Bandits ce tour-ci.')
+  }
   if (card.type === 'condition') {
     throw new Error("Une carte Condition se joue pendant le tour d'un adversaire.")
   }
@@ -547,6 +555,9 @@ function applyPlayCard(
   let next = updateActivePlayer(state, (p) => ({
     ...p,
     power: p.power - cost,
+    // Pat Hibulaire — suivi du Pouvoir dépensé ce tour (tuile Power Play : ≥6).
+    powerSpentThisTurn:
+      p.powerSpentThisTurn !== undefined ? p.powerSpentThisTurn + cost : undefined,
     hand: p.hand.filter((c) => c.instanceId !== instanceId),
     // Les Engrenages choisis sont retirés du PLATEAU (tous lieux) et défaussés.
     board:
@@ -3505,6 +3516,44 @@ function resolveConditionEffect(
       targetHeroId: target.instanceId,
     })
   }
+  if (card.cardId === 'affront') {
+    // Pat Hibulaire — Affront : éliminer instantanément un Héros ≤3 du royaume du
+    // joueur qui joue la Condition (cible via allyInstanceId, sinon 1ᵉʳ éligible).
+    const acting = next.players[playerIndex]
+    const heroes = Object.values(acting.board)
+      .flat()
+      .filter((c) => c.type === 'hero' && (c.strength ?? 0) <= 3)
+    if (heroes.length === 0) {
+      return { ...next, log: [...next.log, 'Affront : aucun Héros éligible (force ≤ 3).'] }
+    }
+    const target = allyInstanceId ? heroes.find((h) => h.instanceId === allyInstanceId) ?? heroes[0] : heroes[0]
+    return resolveEffectsLocal(next, [{ type: 'INSTANT_VANQUISH_HERO_LE', maxStrength: 3 }], {
+      actorIndex: playerIndex,
+      targetHeroId: target.instanceId,
+    })
+  }
+  if (card.cardId === 'mauvais-coup') {
+    // Pat Hibulaire — Mauvais Coup : prend 2 cartes du DESSOUS de la pioche (→ main),
+    // puis replace 1 carte de la main sur le dessous (auto : la plus chère). Net +1.
+    const acting = next.players[playerIndex]
+    const taken = acting.deck.slice(-2)
+    let deck = acting.deck.slice(0, acting.deck.length - taken.length)
+    let hand = [...acting.hand, ...taken]
+    // Replace la carte la plus chère de la main sur le dessous (si la main n'est pas vide).
+    if (hand.length > 0) {
+      const worst = [...hand].sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0))[0]
+      hand = hand.filter((c) => c.instanceId !== worst.instanceId)
+      deck = [...deck, worst]
+    }
+    next = updatePlayer(next, playerIndex, (p) => ({ ...p, deck, hand }))
+    return {
+      ...next,
+      log: [
+        ...next.log,
+        `${player.villainName} pioche ${taken.length} carte${taken.length > 1 ? 's' : ''} du dessous et réorganise sa pioche (Mauvais Coup).`,
+      ],
+    }
+  }
   if (card.cardId === 'sombres-desseins') {
     // Éliminer instantanément un Héros du royaume du joueur (le plus fort par
     // défaut, ou la cible fournie via allyInstanceId). Sans allié, sans limite.
@@ -5932,6 +5981,11 @@ function applyEndTurn(state: GameState): GameState {
   // après chaque action) ; au pire on resynchronise ici par sécurité avant la victoire.
   started = syncRatiganObjectiveAll(started)
 
+  // Pat Hibulaire — début de son tour : reset du Pouvoir dépensé + complétion des
+  // tuiles « début de tour » remplies (peut déclencher la victoire ici).
+  started = resolvePeteStartOfTurn(started, nextIdx)
+  if (started.status === 'WON') return started
+
   // La victoire se vérifie « au début du tour » du nouveau joueur actif.
   if (hasReachedObjective(started)) {
     const w = started.players[nextIdx]
@@ -5945,12 +5999,83 @@ function applyEndTurn(state: GameState): GameState {
   return started
 }
 
+/** Pat Hibulaire — libellés FR des tuiles Objectif (journal). */
+const PETE_GOAL_LABEL: Record<PeteGoalKind, string> = {
+  'win-big': 'Jackpot',
+  'power-play': 'Soif de Pouvoir',
+  'strike-it-rich': 'Signe de Richesse',
+  'round-up': 'Bande Puissante',
+  'rule-the-realm': 'Main Basse sur la Ville',
+}
+
+/** Pat Hibulaire — marque une tuile Objectif `completed` (révélée), journalise, et
+ *  déclare la victoire si les 4 tuiles sont alors remplies. `kindOnly` cible une
+ *  seule tuile (par son kind). Pur. */
+function completeGoal(state: GameState, idx: number, kind: PeteGoalKind): GameState {
+  const p = state.players[idx]
+  if (!p.goals) return state
+  const goals = p.goals.map((g) =>
+    g.kind === kind && !g.completed ? { ...g, completed: true, revealed: true } : g,
+  )
+  if (goals.every((g, i) => g === p.goals![i])) return state
+  let next = updatePlayer(state, idx, (pl) => ({ ...pl, goals }))
+  next = {
+    ...next,
+    log: [...next.log, `${p.villainName} remplit l'objectif **${PETE_GOAL_LABEL[kind]}** !`],
+  }
+  if (goals.every((g) => g.completed)) {
+    return {
+      ...next,
+      status: 'WON',
+      winner: idx,
+      log: [...next.log, `🏆 ${p.villainName} a rempli ses 4 objectifs et l'emporte !`],
+    }
+  }
+  return next
+}
+
+/** Pat Hibulaire — au début de son tour : remet à zéro le Pouvoir dépensé et
+ *  complète les tuiles « début de tour » (Strike It Rich / Round Up / Rule the
+ *  Realm) dont la condition est remplie (sauf si Mickey bloque). Pur. No-op pour
+ *  les autres vilains. */
+function resolvePeteStartOfTurn(state: GameState, idx: number): GameState {
+  const p = state.players[idx]
+  if (!p.goals) return state
+  let next = state
+  if (p.powerSpentThisTurn) {
+    next = updatePlayer(next, idx, (pl) => ({ ...pl, powerSpentThisTurn: 0 }))
+  }
+  if (goalsBlockedByHero(next.players[idx])) return next
+  for (const g of next.players[idx].goals ?? []) {
+    if (!g.completed && isPassiveGoalMet(next.players[idx], g)) {
+      next = completeGoal(next, idx, g.kind)
+      if (next.status === 'WON') return next
+    }
+  }
+  return next
+}
+
+/** Pat Hibulaire — après chaque action : complète la tuile Power Play si ≥6 Pouvoir
+ *  ont été dépensés ce tour avec le pion sur le lieu de la tuile (sauf si Mickey
+ *  bloque). Win Big est traité dans l'effet d'Une Petite Partie ?. Pur. */
+function syncPetePowerPlay(state: GameState): GameState {
+  const idx = state.activePlayer
+  const p = state.players[idx]
+  if (!p.goals || state.status !== 'PLAYING') return state
+  if (goalsBlockedByHero(p)) return state
+  const goal = p.goals.find(
+    (g) => g.kind === 'power-play' && !g.completed && g.locationId === p.pawnLocation,
+  )
+  if (!goal || (p.powerSpentThisTurn ?? 0) < 6) return state
+  return completeGoal(state, idx, 'power-play')
+}
+
 /** Applique une action de jeu et renvoie le nouvel état. Pur, déterministe. */
 export function applyAction(state: GameState, action: GameAction): GameState {
-  // Après chaque action, on synchronise l'objectif double de Ratigan : si la Reine
-  // Robot vient d'être défaussée (Basil, mode test…), sa tuile bascule côté « Le
-  // Rat » immédiatement, sans attendre le début de son tour.
-  return syncRatiganObjectiveAll(applyActionCore(state, action))
+  // Après chaque action : (1) bascule éventuelle de l'objectif double de Ratigan
+  // (Reine Robot défaussée → « Le Rat ») ; (2) Pat Hibulaire — complétion de la
+  // tuile Power Play si ≥6 Pouvoir dépensés ce tour sur le bon lieu.
+  return syncPetePowerPlay(syncRatiganObjectiveAll(applyActionCore(state, action)))
 }
 
 function applyActionCore(state: GameState, action: GameAction): GameState {

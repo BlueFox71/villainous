@@ -170,6 +170,16 @@ export const FATE_MALUS: Record<string, FateMalus> = {
   'soldat-76': 'slow',
   'katya-volskaya': 'slow',
 
+  // --- Pat Hibulaire (remplir ses 4 tuiles Objectif) ---
+  mickey: 'block-win', // interdit toute complétion tant qu'il est présent
+  minnie: 'slow3',
+  donald: 'block-advance', // à éliminer avant les autres Héros
+  dingo: 'slow3', // déplace / échange les tuiles Objectif
+  oswald: 'slow', // −1 Pouvoir sur Une Petite Partie ?
+  horace: 'slow',
+  pluto: 'slow',
+  clarabelle: 'slow',
+
   // --- Slenderman (les 8 Pages dans le royaume) ---
   enqueteur: 'block-advance3',
   'enfant-perdu': 'block-advance',

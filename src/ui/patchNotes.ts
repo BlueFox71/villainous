@@ -9,7 +9,7 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '0.74',
+    version: '0.75',
     date: '2026-06-19',
     title: 'Nouveau vilain : Sombra + finitions de Ratigan',
     changes: [
@@ -23,6 +23,19 @@ export const PATCH_NOTES: PatchNote[] = [
       'Liste de Fidget : en la jouant, vous dévoilez les cartes du dessus de votre pioche jusqu’à tomber sur un Objet. Cet Objet rejoint votre main, les autres cartes dévoilées sont défaussées — et une fenêtre vous montre TOUTES les cartes dévoilées (l’Objet gardé est surligné), à refermer d’un clic sur « Compris ».',
       'Piège ingénieux : quand le piège se referme au début de votre tour, les Héros éliminés s’affichent désormais (animation de défausse) au lieu de disparaître silencieusement.',
       'Capture : plus de fenêtre séparée pour choisir le Héros — cliquez directement le Héros voulu sur le plateau (il clignote en ambre) pour l’envoyer au Repaire secret. La carte est désormais injouable s’il n’y a aucun Héros de force 3 ou moins ailleurs qu’au Repaire secret, et un Héros déjà sur le Repaire secret n’est plus proposé comme cible.',
+    ],
+  },
+  {
+    version: '0.74',
+    date: '2026-06-19',
+    title: 'Nouveau vilain : Pat Hibulaire',
+    changes: [
+      'Nouveau vilain jouable : Pat Hibulaire (Pete) — Disney, difficulté 4★. Plateau (Frontier Town, Station Service, Aéroport, Ponton), pion, portrait et présentation, dos de cartes, fiche et conseils, 30 cartes Méchant + 15 Fatalité avec leurs illustrations.',
+      'Objectif à tuiles : à la mise en place, 4 de vos 5 tuiles Objectif sont posées face cachée, une par lieu — et tirées au hasard, donc chaque partie est différente. Remplissez vos 4 tuiles pour gagner ; tant que Mickey est dans votre royaume, aucune tuile ne peut être complétée.',
+      'Les 5 objectifs : Jackpot (gagner ≥4 Pouvoir avec Une Petite Partie ?), Soif de Pouvoir (dépenser ≥6 Pouvoir en un tour sur le lieu), Signe de Richesse (≥3 Objets sur le lieu), Bande Puissante (Alliés de force totale ≥10 sur le lieu), Main Basse sur la Ville (plus d’Alliés que de Héros sur chaque lieu).',
+      'Toutes les cartes sont actives. Méchant : Bandit (jouables en série), Cheval/Horace (déplacent un Allié ou Objet), Perroquet (récupère en défausse), Grillon (suit les Héros), Une Petite Partie ? (révèle 2 cartes, gagne leur coût), Sournois, Attaque Aérienne (déplace Pat et élimine un Héros), les Conditions Mauvais Coup / Affront (réactions au tour adverse), et 4 Objets verrouillés par lieu qui ajoutent une action.',
+      'Côté Fatalité : Mickey bloque la victoire, Donald doit être vaincu en premier, Minnie défausse votre meilleur Allié/Objet, Dingo dérange vos tuiles, Clarabelle et Hors-la-loi les dévoilent, Oswald taxe Une Petite Partie ?, Assommé Bêtement et Épuisé vous ralentissent.',
+      'Le bot sait jouer Pat (jauge d’objectif tenant compte de la vraie proximité des tuiles) et module sa Fatalité contre lui (Mickey = blocage dur, Donald/Minnie/Dingo prioritaires).',
     ],
   },
   {

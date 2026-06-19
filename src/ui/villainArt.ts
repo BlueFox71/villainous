@@ -18,6 +18,7 @@ const PORTRAIT: Partial<Record<VillainKey, string>> = {
   yzma: '/yzma.png',
   ratigan: '/ratigan.png',
   sombra: '/sombra.jpg',
+  patHibulaire: '/pat-hibulaire.png',
 }
 
 /** Portrait d'un vilain, avec repli sur son dos de carte si non défini. */
@@ -43,6 +44,7 @@ const PRESENTATION: Partial<Record<VillainKey, string>> = {
   yzma: '/presentations/yzma.png',
   ratigan: '/presentations/ratigan.png',
   sombra: '/presentations/sombra.png',
+  patHibulaire: '/presentations/pat_hibulaire.png',
 }
 
 /** Illustration de présentation d'un vilain (undefined si non disponible). */

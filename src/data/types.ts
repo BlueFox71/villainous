@@ -167,6 +167,12 @@ export interface CardDef {
   /** Objet qui résout ses effets puis est DÉFAUSSÉ au lieu de rester sur le plateau
    *  (Sombra — Faille). */
   discardOnPlay?: boolean
+  /** Pat Hibulaire — Grillon : Allié qui peut suivre chaque Héros joué dans le
+   *  royaume (déplacé auto sur le lieu du Héros). */
+  followsHeroes?: boolean
+  /** Pat Hibulaire — Bandit : plusieurs exemplaires jouables lors d'une même action
+   *  « Jouer une carte ». */
+  playMultiplePerAction?: boolean
   /** IA uniquement : classement « malus » de cette carte Fatalité durable pour le
    *  joueur ciblé. Renseigné via `data/fateMalus.ts` et attaché par le registre
    *  (pas dans les `.cards.ts`). Absent = NEUTRE. */
@@ -234,6 +240,8 @@ export function buildDeckInstances(
           isPiratage: c.isPiratage,
           hackDisablesAction: c.hackDisablesAction,
           discardOnPlay: c.discardOnPlay,
+          followsHeroes: c.followsHeroes,
+          playMultiplePerAction: c.playMultiplePerAction,
         }),
       ),
     )

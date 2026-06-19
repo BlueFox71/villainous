@@ -57,9 +57,11 @@ import { ratigan } from '../../data/villains/ratigan'
 import { ratiganCards } from '../../data/villains/ratigan.cards'
 import { sombra } from '../../data/villains/sombra'
 import { sombraCards } from '../../data/villains/sombra.cards'
+import { patHibulaire } from '../../data/villains/patHibulaire'
+import { patHibulaireCards } from '../../data/villains/patHibulaire.cards'
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -78,6 +80,7 @@ export const VILLAIN_REGISTRY = {
   yzma: { def: yzma, cards: yzmaCards, label: 'Yzma' },
   ratigan: { def: ratigan, cards: ratiganCards, label: 'Ratigan' },
   sombra: { def: sombra, cards: sombraCards, label: 'Sombra' },
+  patHibulaire: { def: patHibulaire, cards: patHibulaireCards, label: 'Pat Hibulaire' },
 } as const
 
 /** Qui contrôle chaque siège. Concept d'UI : le moteur, lui, ne sait pas qui

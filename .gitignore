@@ -36,3 +36,6 @@ Villainous.lnk
 # Cinématique d'intro : suivie via Git LFS (cf. .gitattributes).
 # Source brute (>100 Mo) gardée en local seulement.
 /assets/Les Méchants Disney se déchaînent !.mp4
+
+# Découpes intermédiaires de préparation d'assets (jetables).
+/_crops/

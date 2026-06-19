@@ -39,6 +39,7 @@ const VOICE_PREFIX: Record<VillainKey, string> = {
   yzma: 'Yzma',
   ratigan: 'Ratigan', // pas (encore) de fichiers de voix → intro silencieuse
   sombra: 'Sombra',
+  patHibulaire: 'Pat Hibulaire', // pas (encore) de fichiers de voix → intro silencieuse
 }
 
 const CONTRE_PREFIX = 'Contre'
