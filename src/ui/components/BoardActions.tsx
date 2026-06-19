@@ -520,6 +520,36 @@ const ACTION_POS: Record<string, Record<string, Record<string, { x: number; y: n
       fate: { x: 92.9, y: 66 },
     },
   },
+  // Pat Hibulaire : même gabarit que Scar (board.png 4492×1256, ratio quasi
+  // identique), 4 lieux × 2 colonnes × 2 rangées. Colonnes ~22.5/30.4 · 43.4/51.3
+  // · 64.2/72.2 · 85.3/93.1, rangées haut ~20 / bas ~67.5. Calé visuellement sur
+  // board.png (icônes alignées) — à affiner via l'inspecteur si besoin.
+  patHibulaire: {
+    'frontier-town': {
+      'play-card': { x: 22.8, y: 18.8 },
+      'gain-power': { x: 30.7, y: 18.7 },
+      'move-item-ally': { x: 22.75, y: 66.2 },
+      vanquish: { x: 30.6, y: 66.2 },
+    },
+    'station-service': {
+      'gain-power': { x: 43.7, y: 18.5 },
+      'play-card': { x: 51.5, y: 18.8 },
+      fate: { x: 43.6, y: 66.5 },
+      discard: { x: 51.45, y: 66.5 },
+    },
+    aeroport: {
+      'move-item-ally': { x: 64.45, y: 19 },
+      fate: { x: 72.3, y: 19 },
+      'play-card': { x: 64.4, y: 66.6 },
+      'gain-power': { x: 72.3, y: 66.6 },
+    },
+    ponton: {
+      discard: { x: 85.3, y: 19.4 },
+      'play-card-top': { x: 93.2, y: 19.4 },
+      'play-card-bottom': { x: 85.2, y: 67.1 },
+      'gain-power': { x: 93.1, y: 67.4 },
+    },
+  },
 }
 
 interface Props {

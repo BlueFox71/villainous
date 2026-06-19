@@ -1462,6 +1462,13 @@ export interface GameState {
    */
   pendingDeckPeek?: { playerIndex: number; card: CardInstance } | null
   /**
+   * Mauvais Coup (Pat Hibulaire) : `playerIndex` a révélé les 2 dernières cartes
+   * de sa pioche (`cards`, dans l'ordre de la pioche — `cards[1]` est tout en bas)
+   * et doit en choisir 1 à prendre en main, l'autre repartant sur le DESSUS ou le
+   * DESSOUS de la pioche (RESOLVE_MAUVAIS_COUP). Absent / `null` hors de ce choix.
+   */
+  pendingMauvaisCoup?: { playerIndex: number; cards: CardInstance[] } | null
+  /**
    * Tombée de la nuit (Slenderman) : `playerIndex` doit choisir un type de carte
    * (Événement/Objet) avant de dévoiler `count` cartes de sa pioche
    * (RESOLVE_TYPE_CHOICE). Absent / `null` hors de ce choix.
@@ -2114,6 +2121,9 @@ export type GameAction =
   /** Mère Gothel — Couronne : défausse l'Objet `instanceId` (capacité gratuite, à
    *  tout moment du tour) pour gagner 1 jeton Confiance. */
   | { type: 'SACRIFICE_COURONNE'; instanceId: string }
+  /** Mauvais Coup : `keepInstanceId` = carte (parmi les 2 révélées) prise en main ;
+   *  l'autre repart sur le DESSUS (`top`) ou le DESSOUS (`bottom`) de la pioche. */
+  | { type: 'RESOLVE_MAUVAIS_COUP'; keepInstanceId: string; otherPlacement: 'top' | 'bottom' }
   /** Apparition / Vent de panique : déplace le Héros choisi vers le lieu voisin. */
   | { type: 'RESOLVE_HERO_RELOCATE'; heroInstanceId: string; to: LocationId }
   /** Décline un déplacement de Héros FACULTATIF (Poupées vaudou). */

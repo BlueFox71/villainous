@@ -44,6 +44,18 @@ export const PATCH_NOTES: PatchNote[] = [
   },
   {
     version: '0.74',
+    date: '2026-06-20',
+    title: 'Pat Hibulaire : tuiles Objectif sur le plateau + Mauvais Coup interactif',
+    changes: [
+      'Pat Hibulaire — les 4 tuiles Objectif sont désormais posées au-dessus des cases Héros, une par lieu, à leur vraie place sur le plateau (au lieu d’une liste dans le panneau).',
+      'Info-bulle des tuiles : au survol de VOS tuiles, une barre de progression (privée — l’adversaire ne la voit jamais) indique où vous en êtes (Objets posés, force des Alliés, Pouvoir dépensé ce tour…). Pour « Main Basse sur la Ville », la barre est en 4 segments, un par lieu, pour voir lesquels sont déjà acquis.',
+      'Une tuile adverse révélée s’affiche avec une bordure blanche ; son info-bulle ne montre que l’image (jamais votre progression).',
+      'Mauvais Coup : la carte est maintenant interactive — vous voyez les 2 cartes du dessous de votre pioche, en gardez 1 en main et replacez l’autre sur le dessus ou le dessous (au choix).',
+      'Retouches visuelles du plateau de Pat (placement des icônes d’action, hauteur du pion) et ajustement des couleurs de plusieurs vilains.',
+    ],
+  },
+  {
+    version: '0.73',
     date: '2026-06-19',
     title: 'Nouveau vilain : Pat Hibulaire',
     changes: [

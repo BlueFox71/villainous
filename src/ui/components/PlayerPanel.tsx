@@ -4,7 +4,6 @@ import type { Accent } from '../accents'
 import { useAnimatedNumber } from '../hooks/useAnimatedNumber'
 import { objectiveScore } from '../../ai/heuristicBot'
 import { VILLAIN_COLOR } from '../villainColors'
-import { PAT_GOAL_INFO } from '../../data/villains/patHibulaire'
 
 interface Props {
   player: PlayerState
@@ -18,14 +17,11 @@ interface Props {
   subLabel?: string
   /** Vignette ronde à gauche du titre (avatar du joueur / du vilain). */
   avatar?: ReactNode
-  /** Vrai si ce panneau est celui du joueur LOCAL (révèle ses tuiles Objectif
-   *  cachées — Pat Hibulaire). L'adversaire ne voit que les tuiles révélées. */
-  own?: boolean
 }
 
 /** En-tête d'un camp : nom + jetons de pouvoir (+ objectif si `showObjective`).
  *  L'objectif lui-même est rendu par `ObjectiveBox`, réutilisable hors panneau. */
-export function PlayerPanel({ player, accent, isActive, isWinner, showObjective = true, subLabel, avatar, own = false }: Props) {
+export function PlayerPanel({ player, accent, isActive, isWinner, showObjective = true, subLabel, avatar }: Props) {
   const displayedPower = useAnimatedNumber(player.power)
   // Fond teinté à la couleur du méchant (plus marqué quand c'est son tour).
   const color = VILLAIN_COLOR[player.villain]
@@ -110,7 +106,7 @@ export function PlayerPanel({ player, accent, isActive, isWinner, showObjective 
         })()}
 
         {/* Case objectif (à droite) — masquable quand rendue ailleurs. */}
-        {showObjective && <ObjectiveBox player={player} accent={accent} isWinner={isWinner} own={own} />}
+        {showObjective && <ObjectiveBox player={player} accent={accent} isWinner={isWinner} />}
       </div>
     </div>
   )
@@ -123,13 +119,10 @@ export function ObjectiveBox({
   player,
   accent,
   isWinner,
-  own = false,
 }: {
   player: PlayerState
   accent: Accent
   isWinner: boolean
-  /** Joueur local : révèle ses tuiles Objectif cachées (Pat Hibulaire). */
-  own?: boolean
 }) {
   // Progression globale (0..1) → %, même jauge que celle qui guide le bot.
   const pct = Math.round(Math.max(0, Math.min(1, objectiveScore(player))) * 100)
@@ -145,32 +138,8 @@ export function ObjectiveBox({
           style={{ width: `${pct}%` }}
         />
       </div>
-
-      {/* Pat Hibulaire — ses 4 tuiles Objectif (face cachée pour l'adversaire tant
-          qu'elles ne sont pas révélées). Le joueur local voit toujours les siennes. */}
-      {player.goals && player.goals.length > 0 && (
-        <div className="mt-1.5 flex flex-col gap-0.5">
-          {player.goals.map((g, i) => {
-            const show = own || g.revealed
-            const locName = player.locations.find((l) => l.id === g.locationId)?.name ?? ''
-            return (
-              <div
-                key={i}
-                className={`flex items-center justify-between gap-2 rounded px-1.5 py-0.5 text-[9px] ${
-                  g.completed ? 'bg-amber-400/20 text-amber-100' : 'bg-white/5 text-white/70'
-                }`}
-                title={show ? PAT_GOAL_INFO[g.kind].text : 'Tuile Objectif face cachée'}
-              >
-                <span className="truncate">
-                  {g.completed ? '✓ ' : ''}
-                  {show ? PAT_GOAL_INFO[g.kind].name : '🔒 Objectif caché'}
-                </span>
-                <span className="shrink-0 text-white/40">{locName}</span>
-              </div>
-            )
-          })}
-        </div>
-      )}
+      {/* Pat Hibulaire — les 4 tuiles Objectif sont désormais rendues au-dessus des
+          cases Héros (cf. `GoalTilesRow`), plus dans ce panneau. */}
     </div>
   )
 }
