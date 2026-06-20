@@ -6,14 +6,17 @@ interface Props {
   target: PlayerState
   /** `locationId` = déplacer là ; `null` = ne pas déplacer. */
   onMove: (locationId: string | null) => void
+  /** Titre = carte source (Roi Stéphane, Le Satyre, Anneau étoile…). */
+  title?: string
 }
 
-/** Roi Stéphane : le joueur qui a joué la Fatalité peut déplacer le pion de la
- *  cible sur n'importe quel lieu, ou choisir de ne pas le déplacer. */
-export function PawnMoveModal({ target, onMove }: Props) {
+/** Le joueur qui a joué la Fatalité peut déplacer le pion de la cible sur
+ *  n'importe quel lieu, ou choisir de ne pas le déplacer (Roi Stéphane, Le
+ *  Satyre, Anneau étoile…). */
+export function PawnMoveModal({ target, onMove, title = 'Roi Stéphane' }: Props) {
   return (
     <ChoiceModal
-      title="Roi Stéphane"
+      title={title}
       prompt={`Tu peux déplacer le pion de ${target.villainName} sur n'importe quel lieu.`}
       options={target.locations.map((loc) => ({
         key: loc.id,

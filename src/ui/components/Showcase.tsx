@@ -76,7 +76,8 @@ export function Showcase({ events, humanIndex, players, onHiddenIdsChange, onCar
       // qu'il joue) — le showcase de carte n'est utile que pour le côté adverse.
       // Exceptions toujours montrées : les « défausses » (dont le Vanquish) et les
       // Héros qui « volent » vers un lieu (destination).
-      const isHumanOwnCard = !ev.discard && !ev.destination && ev.playerIndex === humanIndex
+      const isHumanOwnCard =
+        !ev.discard && !ev.destination && !ev.reveal && ev.playerIndex === humanIndex
       if (isHumanOwnCard) {
         next++
         continue
@@ -305,6 +306,54 @@ export function Showcase({ events, humanIndex, players, onHiddenIdsChange, onCar
     ? `linear-gradient(90deg, #38bdf8, #818cf8, ${villainColor}, #38bdf8)`
     : `linear-gradient(90deg, #f87171, #fb923c, ${villainColor}, #f87171)`
 
+  // ---- Variante « révélation à suspense » : Une Petite Partie ? — les cartes se
+  // dévoilent une à une, le coût total s'incrémente puis scintille, enfin le badge.
+  if (current.reveal) {
+    const left = isHuman ? '22%' : '78%'
+    const backImage = players[current.playerIndex]?.backVillainImage ?? ''
+    return (
+      <div key="showcase-reveal" className="pointer-events-none fixed inset-0 z-[60]">
+        <div
+          className="absolute inset-0 bg-black/25 transition-opacity duration-300"
+          style={{ opacity: closing ? 0 : 1 }}
+        />
+        <div
+          className="absolute top-1/2 rounded-2xl p-[5px] shadow-2xl"
+          style={{
+            left,
+            transform: `translate(-50%, -50%) scale(${closing ? 0.95 : 1})`,
+            opacity: closing ? 0 : 1,
+            backgroundImage: gradient,
+            backgroundSize: '300% 100%',
+            transition: 'transform 300ms ease, opacity 300ms ease',
+            animation: `${closing ? '' : 'showcaseIn 300ms ease-out, '}showcaseBorder 2.5s linear infinite`,
+          }}
+        >
+          {current.reveal.scry ? (
+            <ScryDiscardShowcase
+              cardIds={current.reveal.cardIds}
+              costs={current.reveal.costs}
+              discarded={current.reveal.discarded ?? current.reveal.cardIds.map(() => false)}
+              message={current.message}
+              backImage={backImage}
+            />
+          ) : (
+            <RevealShowcase
+              cardIds={current.reveal.cardIds}
+              costs={current.reveal.costs}
+              gainedPower={current.gainedPower ?? 0}
+              backImage={backImage}
+            />
+          )}
+        </div>
+        <style>{`
+          @keyframes showcaseIn { from { transform: translate(-50%, -50%) scale(0.85); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+          @keyframes showcaseBorder { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+        `}</style>
+      </div>
+    )
+  }
+
   // Position : showcase centré sur la colonne du joueur qui joue (25 %/75 %).
   // En fermeture pour un Héros avec destination connue, on vole vers la case
   // Héros cible via un delta pixel calculé sur le DOM.
@@ -371,6 +420,248 @@ export function Showcase({ events, humanIndex, players, onHiddenIdsChange, onCar
       <style>{`
         @keyframes showcaseIn { from { transform: translate(-50%, -50%) scale(0.85); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
         @keyframes showcaseBorder { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+      `}</style>
+    </div>
+  )
+}
+
+/**
+ * Contenu de la révélation « à suspense » (Une Petite Partie ?) : les cartes se
+ * dévoilent une à une (1 s d'intervalle, dos avant dévoilement), un compteur de
+ * coût total s'incrémente à chaque carte, scintille une fois toutes révélées,
+ * puis le badge « +N JT » apparaît. Timeline interne synchronisée avec la durée
+ * du showcase (cf. `pushRevealShowcase` côté moteur).
+ */
+function RevealShowcase({
+  cardIds,
+  costs,
+  gainedPower,
+  backImage,
+}: {
+  cardIds: string[]
+  costs: number[]
+  gainedPower: number
+  backImage: string
+}) {
+  const n = cardIds.length
+  const [revealed, setRevealed] = useState(0)
+  const [total, setTotal] = useState(0)
+  const [sparkle, setSparkle] = useState(false)
+  const [showBadge, setShowBadge] = useState(false)
+
+  useEffect(() => {
+    const timers: number[] = []
+    cardIds.forEach((_, i) => {
+      timers.push(
+        window.setTimeout(() => {
+          setRevealed(i + 1)
+          setTotal((t) => t + (costs[i] ?? 0))
+        }, i * 1000),
+      )
+    })
+    const sparkleAt = Math.max(0, n - 1) * 1000 + 700
+    const badgeAt = sparkleAt + 700
+    timers.push(window.setTimeout(() => setSparkle(true), sparkleAt))
+    timers.push(
+      window.setTimeout(() => {
+        setSparkle(false)
+        setShowBadge(true)
+      }, badgeAt),
+    )
+    return () => timers.forEach((t) => window.clearTimeout(t))
+    // Monté une fois par showcase (cardIds/costs constants pour cet événement).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return (
+    <div className="relative flex flex-col items-center gap-3 rounded-2xl bg-[#0b0a12] p-4">
+      {/* Badge « +N JT » (style commun aux autres showcases) une fois le total révélé. */}
+      {showBadge && gainedPower > 0 ? (
+        <div
+          className="pointer-events-none absolute -top-5 right-1 z-20"
+          style={{ animation: 'powerPop 700ms cubic-bezier(0.34,1.56,0.64,1) both, powerFloat 1.8s ease-in-out 700ms infinite' }}
+        >
+          <span className="flex items-center gap-1 rounded-full bg-amber-400 px-3 py-1 text-2xl font-black text-amber-950 shadow-lg ring-2 ring-amber-200">
+            +{gainedPower}
+            <img src="/jeton_pouvoir.png" alt="pouvoir" className="h-6 w-6 object-contain drop-shadow" />
+          </span>
+        </div>
+      ) : null}
+
+      {/* Cartes : dos tant que non dévoilée, recto à leur tour. */}
+      <div className="flex flex-nowrap items-center justify-center gap-3">
+        {cardIds.map((id, i) => {
+          const def = getCardDef(id)
+          const isUp = i < revealed
+          return (
+            <div key={`${id}-${i}`} className="relative" style={{ height: 256, aspectRatio: '63 / 88' }}>
+              <img
+                src={isUp ? def?.image : backImage}
+                alt={isUp ? def?.name ?? '' : 'carte cachée'}
+                className="h-full w-full rounded-lg object-contain"
+                style={isUp ? { animation: 'revealFlip 360ms ease-out both' } : undefined}
+              />
+              {/* Pastille du coût de la carte, à son dévoilement. */}
+              {isUp ? (
+                <span
+                  className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-sky-500 px-2 py-0.5 text-sm font-black text-white shadow ring-2 ring-sky-200"
+                  style={{ animation: 'revealCostIn 300ms ease-out both' }}
+                >
+                  +{costs[i] ?? 0}
+                </span>
+              ) : null}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Compteur de coût total : s'incrémente à chaque carte, puis scintille. */}
+      <div
+        className="rounded-xl bg-white/5 px-5 py-1.5 text-center"
+        style={sparkle ? { animation: 'revealSparkleBox 700ms ease-in-out 1' } : undefined}
+      >
+        <span className="text-[11px] uppercase tracking-wide text-white/50">Coût total</span>
+        <div
+          className="text-3xl font-black text-amber-200"
+          style={sparkle ? { animation: 'revealSparkleText 700ms ease-in-out 1' } : undefined}
+        >
+          {total}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes revealFlip { from { transform: rotateY(90deg) scale(0.92); opacity: 0; } to { transform: rotateY(0deg) scale(1); opacity: 1; } }
+        @keyframes revealCostIn { from { transform: translate(-50%, 6px) scale(0.6); opacity: 0; } to { transform: translate(-50%, 0) scale(1); opacity: 1; } }
+        @keyframes revealSparkleBox { 0%,100% { box-shadow: 0 0 0 0 rgba(251,191,36,0); } 50% { box-shadow: 0 0 20px 5px rgba(251,191,36,0.8); } }
+        @keyframes revealSparkleText { 0%,100% { text-shadow: none; transform: scale(1); } 50% { text-shadow: 0 0 16px rgba(251,191,36,0.95); transform: scale(1.28); } }
+      `}</style>
+    </div>
+  )
+}
+
+/**
+ * Contenu de la « scrutation + défausse » (Assommé Bêtement). Timeline en 4 temps,
+ * synchronisée avec la durée du showcase (`n * 450 + 3600` ms côté moteur) :
+ *  1) RÉVÈLE les cartes une à une (flip + pastille de coût) ;
+ *  2) MARQUE : les cartes de coût ≥ seuil (`discarded`) virent au gris avec un
+ *     tampon « Défaussé » qui pulse en rouge ;
+ *  3) MÉLANGE : les défaussées tombent (vers la défausse), les conservées se
+ *     retournent (dos) et tremblotent (mélange) ;
+ *  4) DESSUS : les dos conservés remontent vers la mention « Sur le dessus de la
+ *     pioche » avec un léger halo.
+ */
+function ScryDiscardShowcase({
+  cardIds,
+  costs,
+  discarded,
+  message,
+  backImage,
+}: {
+  cardIds: string[]
+  costs: number[]
+  discarded: boolean[]
+  message: string
+  backImage: string
+}) {
+  const n = cardIds.length
+  const [revealed, setRevealed] = useState(0)
+  // step : 0 = révélation en cours, 1 = marquage défausse, 2 = mélange, 3 = pose sur la pioche.
+  const [step, setStep] = useState(0)
+
+  useEffect(() => {
+    const timers: number[] = []
+    cardIds.forEach((_, i) => {
+      timers.push(window.setTimeout(() => setRevealed(i + 1), i * 450))
+    })
+    const markAt = n * 450 + 200
+    timers.push(window.setTimeout(() => setStep(1), markAt))
+    timers.push(window.setTimeout(() => setStep(2), markAt + 1000))
+    timers.push(window.setTimeout(() => setStep(3), markAt + 2000))
+    return () => timers.forEach((t) => window.clearTimeout(t))
+    // Monté une fois par showcase (props constantes pour cet événement).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const keptCount = discarded.filter((d) => !d).length
+
+  return (
+    <div className="relative flex flex-col items-center gap-3 rounded-2xl bg-[#0b0a12] p-4">
+      {/* Bandeau « Sur le dessus de la pioche » : apparaît à la dernière étape. */}
+      <div
+        className="flex items-center gap-2 text-sm font-black uppercase tracking-wide transition-all duration-300"
+        style={{
+          opacity: step >= 3 ? 1 : 0.35,
+          color: step >= 3 ? '#fcd34d' : '#94a3b8',
+          transform: step >= 3 ? 'translateY(0)' : 'translateY(4px)',
+        }}
+      >
+        {step >= 3 ? `↑ ${keptCount} carte${keptCount > 1 ? 's' : ''} remise${keptCount > 1 ? 's' : ''} sur le dessus de la pioche` : 'Pioche du Méchant'}
+      </div>
+
+      <div className="flex flex-nowrap items-start justify-center gap-3">
+        {cardIds.map((id, i) => {
+          const def = getCardDef(id)
+          const isUp = i < revealed
+          const isDiscarded = discarded[i]
+          // À partir du mélange : les défaussées tombent, les conservées passent dos.
+          const showBack = step >= 2 && !isDiscarded
+          const dropping = step >= 2 && isDiscarded
+          const lifting = step >= 3 && !isDiscarded
+          // Grise dès l'étape « marquage » pour les défaussées.
+          const grayed = step >= 1 && isDiscarded
+          return (
+            <div
+              key={`${id}-${i}`}
+              className="relative transition-all duration-500"
+              style={{
+                height: 220,
+                aspectRatio: '63 / 88',
+                opacity: dropping ? 0 : 1,
+                transform: dropping
+                  ? 'translateY(48px) scale(0.8) rotate(-6deg)'
+                  : lifting
+                    ? 'translateY(-18px)'
+                    : 'translateY(0)',
+              }}
+            >
+              <img
+                src={isUp ? (showBack ? backImage : def?.image) : backImage}
+                alt={isUp ? def?.name ?? '' : 'carte cachée'}
+                className="h-full w-full rounded-lg object-contain transition-all duration-500"
+                style={{
+                  filter: grayed ? 'grayscale(1) brightness(0.6)' : 'none',
+                  boxShadow: lifting ? '0 0 16px 3px rgba(252,211,77,0.65)' : 'none',
+                  animation: isUp && !showBack && i === revealed - 1 ? 'revealFlip 360ms ease-out both' : showBack ? 'scryShuffle 0.6s ease-in-out' : undefined,
+                }}
+              />
+              {/* Pastille du coût (tant que la carte est visible de face). */}
+              {isUp && !showBack ? (
+                <span
+                  className={`absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full px-2 py-0.5 text-sm font-black text-white shadow ring-2 ${grayed ? 'bg-rose-600 ring-rose-300' : 'bg-sky-500 ring-sky-200'}`}
+                  style={{ animation: 'revealCostIn 300ms ease-out both' }}
+                >
+                  {costs[i] ?? 0}
+                </span>
+              ) : null}
+              {/* Tampon « Défaussé » sur les cartes de coût ≥ seuil (étape marquage). */}
+              {grayed && !showBack ? (
+                <span
+                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-12 rounded border-2 border-rose-400 bg-rose-900/70 px-2 py-0.5 text-xs font-black uppercase tracking-wider text-rose-100"
+                  style={{ animation: 'scryStamp 600ms cubic-bezier(0.34,1.56,0.64,1) both' }}
+                >
+                  Défaussé
+                </span>
+              ) : null}
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="max-w-[34rem] text-center text-[13px] font-semibold text-white/70">{message}</div>
+
+      <style>{`
+        @keyframes scryStamp { 0% { transform: translate(-50%, -50%) rotate(-12deg) scale(2.2); opacity: 0; } 60% { opacity: 1; } 100% { transform: translate(-50%, -50%) rotate(-12deg) scale(1); opacity: 1; } }
+        @keyframes scryShuffle { 0% { transform: rotateY(0deg); } 25% { transform: translateX(-6px) rotate(-4deg); } 50% { transform: rotateY(180deg); } 75% { transform: translateX(6px) rotate(4deg); } 100% { transform: translateX(0) rotate(0deg); } }
       `}</style>
     </div>
   )

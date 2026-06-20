@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { GoalToken, PlayerState } from '../../engine/types'
 import { PAT_GOAL_BACK, PAT_GOAL_INFO } from '../../data/villains/patHibulaire'
 
@@ -70,6 +70,30 @@ function goalProgress(
  */
 export function GoalTilesRow({ player, own = false }: { player: PlayerState; own?: boolean }) {
   const [hovered, setHovered] = useState<string | null>(null)
+  // Animation « FLIP » : quand une tuile change de lieu (Dingo), on la fait glisser
+  // de son ancienne position vers la nouvelle. Les tuiles sont keyées par `goal.kind`
+  // (identité stable) ; on mémorise leur rectangle pour calculer le delta.
+  const tileRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+  const prevRects = useRef<Map<string, DOMRect>>(new Map())
+  useLayoutEffect(() => {
+    tileRefs.current.forEach((el, kind) => {
+      const rect = el.getBoundingClientRect()
+      const prev = prevRects.current.get(kind)
+      if (prev) {
+        const dx = prev.left - rect.left
+        const dy = prev.top - rect.top
+        if (dx || dy) {
+          el.style.transition = 'none'
+          el.style.transform = `translate(${dx}px, ${dy}px)`
+          requestAnimationFrame(() => {
+            el.style.transition = 'transform 480ms cubic-bezier(0.4, 0, 0.2, 1)'
+            el.style.transform = ''
+          })
+        }
+      }
+      prevRects.current.set(kind, rect)
+    })
+  })
   if (!player.goals || player.goals.length === 0) return null
   const last = player.locations.length - 1
   return (
@@ -85,21 +109,31 @@ export function GoalTilesRow({ player, own = false }: { player: PlayerState; own
         <div className="mb-1.5 grid grid-cols-4 gap-2">
           {player.locations.map((loc, index) => {
             const goal = player.goals!.find((g) => g.locationId === loc.id)
-            if (!goal) return <div key={loc.id} />
+            if (!goal) return null
             const show = own || goal.revealed || goal.completed
             const info = PAT_GOAL_INFO[goal.kind]
-            const isHovered = hovered === loc.id
+            const isHovered = hovered === goal.kind
             // Info-bulle calée sur le bord (1ʳᵉ tuile à gauche, dernière à droite,
             // sinon centrée) pour ne pas déborder de la colonne.
             const tipPos =
               index === 0 ? 'left-0' : index === last ? 'right-0' : 'left-1/2 -translate-x-1/2'
             return (
-              <div key={loc.id} className="flex justify-center">
+              // Keyée par `goal.kind` (identité stable) + colonne explicite → quand la
+              // tuile change de lieu, React déplace l'élément et l'effet FLIP l'anime.
+              <div
+                key={goal.kind}
+                ref={(el) => {
+                  if (el) tileRefs.current.set(goal.kind, el)
+                  else tileRefs.current.delete(goal.kind)
+                }}
+                style={{ gridColumnStart: index + 1 }}
+                className="flex justify-center"
+              >
                 <div
                   className={`relative ${goal.completed ? '' : 'opacity-95'}`}
                   style={{ zIndex: isHovered ? 50 : 1 }}
-                  onMouseEnter={() => setHovered(loc.id)}
-                  onMouseLeave={() => setHovered((h) => (h === loc.id ? null : h))}
+                  onMouseEnter={() => setHovered(goal.kind)}
+                  onMouseLeave={() => setHovered((h) => (h === goal.kind ? null : h))}
                 >
                   <img
                     src={show ? info.image : PAT_GOAL_BACK}
@@ -108,13 +142,19 @@ export function GoalTilesRow({ player, own = false }: { player: PlayerState; own
                       goal.completed
                         ? 'border-amber-300 ring-2 ring-amber-300'
                         : goal.revealed && !own
-                          ? 'border-white'
+                          ? 'border-2 border-white ring-2 ring-white/70'
                           : 'border-white/25'
                     }`}
                   />
                   {goal.completed && (
                     <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border border-amber-200 bg-amber-400 text-[11px] font-black text-purple-950 shadow">
                       ✓
+                    </span>
+                  )}
+                  {/* Tuile adverse dévoilée (Clarabelle, Hors-la-loi, Dingo…) : badge clair. */}
+                  {goal.revealed && !own && !goal.completed && (
+                    <span className="absolute -top-1 left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border border-white/70 bg-white px-1.5 text-[8px] font-black uppercase tracking-wide text-[#0b0a12] shadow">
+                      dévoilée
                     </span>
                   )}
                   {isHovered && (

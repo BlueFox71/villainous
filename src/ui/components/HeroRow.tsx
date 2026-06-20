@@ -242,6 +242,15 @@ export function HeroRow({
                         🔒{locked}
                       </span>
                     )}
+                    {/* Mère Gothel — Flynn Rider : jetons Confiance détenus (rendus si vaincu). */}
+                    {(c.heldConfiance ?? 0) > 0 && (
+                      <span
+                        title={`${c.heldConfiance} jeton${(c.heldConfiance ?? 0) > 1 ? 's' : ''} Confiance détenu${(c.heldConfiance ?? 0) > 1 ? 's' : ''} (rendus à Mère Gothel si ce Héros est vaincu).`}
+                        className="absolute -bottom-1 -left-1 flex h-5 min-w-[20px] items-center justify-center rounded-full border border-white/40 bg-rose-500 px-1 text-[10px] font-bold text-white"
+                      >
+                        💗{c.heldConfiance}
+                      </span>
+                    )}
                     {/* Yzma — Kronk devenu Héros : jetons Pouvoir accumulés (≥3). */}
                     {(c.kronkPower ?? 0) > 0 && (
                       <span

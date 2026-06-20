@@ -374,13 +374,20 @@ export function enumerateActions(state: GameState): GameAction[] {
       for (const h of (tgt.board[loc.id] ?? []).filter((c) => c.type === 'hero')) {
         if (phr.candidateIds && !phr.candidateIds.includes(h.instanceId)) continue
         const i = ids.indexOf(loc.id)
-        const dests = phr.forcedLocationId !== undefined
+        let dests = phr.forcedLocationId !== undefined
           ? [phr.forcedLocationId].filter((id): id is string => !!id && !locked.has(id))
           : phr.forcedDirection !== undefined
           ? [ids[i + phr.forcedDirection]].filter((id): id is string => !!id && !locked.has(id))
           : phr.anyLocation
             ? ids.filter((id) => id !== loc.id && !locked.has(id))
             : [ids[i - 1], ids[i + 1]].filter((id): id is string => !!id && !locked.has(id))
+        // Mère Gothel (bot) : sa propre Raiponce (Héros-tuile) ne doit JAMAIS être
+        // poussée vers la droite (vers Corona) — elle y campe = −1 Confiance au début
+        // du tour. On ne garde donc que les destinations vers la gauche (vers la Tour,
+        // qui rapproche de la victoire). Cas typique : Garde royal déplacé vers Corona.
+        if (tgt.villain === 'gothel' && h.cardId === 'raiponce') {
+          dests = dests.filter((id) => ids.indexOf(id) < i)
+        }
         for (const to of dests) out.push({ type: 'RESOLVE_HERO_RELOCATE', heroInstanceId: h.instanceId, to })
       }
     }

@@ -19,7 +19,7 @@
 
 import type { CardInstance, GameAction, GameState, PlayerState } from '../engine/types'
 import { applyAction } from '../engine/actions'
-import { playableConditions, hasReachedObjective } from '../engine/rules'
+import { playableConditions, hasReachedObjective, goalsBlockedByHero } from '../engine/rules'
 import { enumerateActions } from './enumerate'
 import { playerMalus } from './fateMalus'
 
@@ -381,7 +381,13 @@ export function objectiveScore(p: PlayerState): number {
             break
         }
       }
-      return score / goals.length
+      // Mickey (Héros bloqueur) présent : AUCUNE tuile ne peut être complétée tant
+      // qu'il est là → la vraie proximité de victoire s'effondre. On plafonne la
+      // jauge (comme un objectif « Vaincre un Héros » bloqué) pour que le bot voie
+      // la valeur de POSER Mickey en Fatalité (gros déni) et, jouant Pat, la priorité
+      // de l'éliminer. Sans ça, 3 tuiles « remplies » donnaient ~0,9 malgré le blocage.
+      const raw = score / goals.length
+      return goalsBlockedByHero(p) ? Math.min(0.4, raw) : raw
     }
     case 'CONFIANCE_THRESHOLD':
       // Jauge linéaire : la Confiance est directement le compteur de victoire.
@@ -653,17 +659,27 @@ export function chooseAction(
   // suite, sinon (2) un déplacement qui rend une Fatalité possible ce tour. La
   // recherche de tour choisit ensuite la meilleure option de ce sous-ensemble.
   const oppIdx = (idx + 1) % state.players.length
+  // « Proche de gagner » : l'adversaire n'a pas ENCORE atteint son objectif mais
+  // sa jauge est très haute, il n'est pas déjà bien gêné par mes Fatalités durables,
+  // et JE suis en retard sur lui. Dans ce cas le bot privilégie la Fatalité CE tour
+  // (sinon il finit par se laisser dépasser) — sauf s'il est devant/à égalité, où il
+  // vaut mieux courir à sa propre victoire que de perdre un tour à fataliser.
+  const oppNearWin =
+    objectiveScore(state.players[oppIdx]) >= 0.9 &&
+    playerMalus(state, oppIdx) < 0.5 &&
+    objectiveScore(state.players[idx]) < objectiveScore(state.players[oppIdx])
   if (fateWouldHelpOpponent(state, oppIdx)) {
     // Évitement : fataliser donnerait à l'adversaire son Héros-clé encore absent
     // (Mufasa/Scar, Peter Pan/Crochet, Peach/Bowser, Blanche-Neige/Méch. Reine,
     // Kuzco/Yzma) → le bot ne fatalise pas tant que ce Héros n'est pas déjà en jeu.
     candidates = candidates.filter((a) => a.type !== 'FATE')
-  } else if (hasReachedObjective(state, oppIdx)) {
+  } else if (hasReachedObjective(state, oppIdx) || oppNearWin) {
     // Anti-victoire : si l'adversaire a DÉJÀ atteint son objectif (il gagnera au
-    // début de son prochain tour), le bot doit le fataliser CE tour-ci si possible.
-    // On restreint alors les coups à : (1) une action Fatalité disponible tout de
-    // suite, sinon (2) un déplacement qui rend une Fatalité possible ce tour. La
-    // recherche de tour choisit ensuite la meilleure option de ce sous-ensemble.
+    // début de son prochain tour) OU s'il en est très proche (oppNearWin), le bot
+    // doit le fataliser CE tour-ci si possible. On restreint alors les coups à :
+    // (1) une action Fatalité disponible tout de suite, sinon (2) un déplacement qui
+    // rend une Fatalité possible ce tour. La recherche de tour choisit ensuite la
+    // meilleure option de ce sous-ensemble.
     const fatesNow = candidates.filter((a) => a.type === 'FATE')
     if (fatesNow.length > 0) {
       candidates = fatesNow

@@ -137,7 +137,7 @@ export const patHibulaireCards: CardDef[] = [
     copies: 2,
     text: 'Cette carte est jouable pendant le tour d’un adversaire s’il déplace un Allié ou un Objet. Éliminez un Héros de force 3 ou moins.',
     image: img('affront.png'),
-    trigger: { type: 'opponent-moved-card' },
+    trigger: { type: 'opponent-moved-card', requiresOwnHeroMaxStrength: 3 },
   },
 
   // ----------------------------------------------------------------------

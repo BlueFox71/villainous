@@ -9,8 +9,8 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '0.76',
-    date: '2026-06-20',
+    version: '0.77',
+    date: '2026-06-21',
     title: 'Nouveaux vilains : Gaston, Le Seigneur des clés & Madame de Trémaine',
     changes: [
       'NOUVEAU VILAIN — Madame de Trémaine (Disney, Cendrillon, 4★) : objectif inédit, MARIER une de ses filles au Prince. Jouez l’Invitation du Roi pour déverrouiller la Salle de Bal, amenez-y une fille EN ROBE DE BAL (Anastasia/Drizella en robe, qui remplacent leur version ordinaire déjà en jeu) ET le Prince (faites-le venir avec La Clé, déplaçable comme un allié), puis jouez les Cloches de Mariage — à condition qu’AUCUNE Pantoufle de Verre ne soit dans votre royaume.',
@@ -34,6 +34,18 @@ export const PATCH_NOTES: PatchNote[] = [
       'Gaston — La Rose (Fatalité) : la jouer fait jouer l’autre carte Fatalité révélée, puis piocher deux cartes et en jouer une, puis retirer un Obstacle (la cascade complète, gérée pour le joueur comme pour le bot ; le retrait est bloqué si Belle est en jeu).',
       'Gaston — capacités « à la pose » des Héros Fatalité désormais actives : la Bête éloigne les Alliés de son lieu ; Maurice fait apparaître son Invention associée à lui (les Alliés de son lieu perdent 1 Force) ; Lumière laisse déplacer un autre Héros vers n’importe quel lieu ; Mrs Samovar et Zip dispersent les autres Héros du royaume.',
       'Gaston — plateau, pion, portrait, présentation (illustration dédiée), voix, jetons Obstacle et les 30 cartes Méchant + 15 Fatalité avec leurs illustrations. Le bot sait jouer Gaston (jauge de progression des Obstacles, Belle traitée comme blocage dur) et le contrer.',
+    ],
+  },
+  {
+    version: '0.76',
+    date: '2026-06-21',
+    title: 'Mère Gothel & Pat Hibulaire : corrections de règles, IA et animation',
+    changes: [
+      'Mère Gothel — Raiponce sur Corona : la perte d’1 jeton Confiance n’est plus appliquée à l’instant où Raiponce glisse sur Corona, mais vérifiée au DÉBUT de votre tour suivant. Si entre-temps Raiponce a été vaincue ou ramenée vers la Tour, vous ne perdez rien.',
+      'Bot (Mère Gothel) — Garde royal : le bot ne traîne plus sa propre Raiponce vers Corona quand il déplace un Garde royal (il ne l’emmène que vers la gauche, vers la Tour, ce qui le rapproche de la victoire). Vous gardez, vous, toute liberté de la déplacer où vous voulez.',
+      'Intro (navigateur) : la cinématique d’ouverture n’est plus muette quand l’autoplay sonore est bloqué — le son se réactive au premier clic ou appui de touche, au volume prévu même si la musique est réglée à 0 %.',
+      'Pat Hibulaire — Assommé Bêtement : l’effet est maintenant ANIMÉ et visible (y compris quand vous êtes la cible). On dévoile les 5 premières cartes Méchant, celles de coût ≥ 2 virent au gris avec un tampon « Défaussé », puis les autres sont mélangées (dos) et reposées sur le dessus de la pioche.',
+      'Bot contre Pat Hibulaire : tant que Mickey bloque vos tuiles, le bot évalue désormais correctement votre faible proximité de victoire — il privilégie donc de poser Mickey. Et quand un adversaire est sur le point de gagner (jauge très haute) alors que le bot est en retard, ce dernier priorise la Fatalité pour le freiner.',
     ],
   },
   {

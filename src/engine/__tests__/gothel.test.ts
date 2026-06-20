@@ -20,8 +20,27 @@ const game = (seed = 7): GameState =>
     seed,
   )
 
-const raiponceOf = (s: GameState) =>
-  Object.entries(s.players[0].board).find(([, cards]) =>
+// Partie 2 joueurs (Gothel en p0, un second Gothel en p1) pour observer le report
+// de la pénalité Corona entre la fin du tour de Gothel et le début de son suivant.
+const game2 = (seed = 7): GameState =>
+  createInitialGame(
+    [
+      {
+        villain: gothel,
+        deckCards: buildDeckInstances(gothelCards, 'villain', 'p0:'),
+        fateCards: buildDeckInstances(gothelCards, 'fate', 'p0f:'),
+      },
+      {
+        villain: gothel,
+        deckCards: buildDeckInstances(gothelCards, 'villain', 'p1:'),
+        fateCards: buildDeckInstances(gothelCards, 'fate', 'p1f:'),
+      },
+    ],
+    seed,
+  )
+
+const raiponceOf = (s: GameState, idx = 0) =>
+  Object.entries(s.players[idx].board).find(([, cards]) =>
     cards.some((c) => c.cardId === 'raiponce'),
   )?.[0]
 
@@ -74,23 +93,72 @@ describe('Mère Gothel — mécanique Confiance & Raiponce', () => {
     expect(raiponceOf(after)).toBe('canard-boiteux')
   })
 
-  it('Raiponce qui glisse jusqu’à Corona en fin de tour fait perdre 1 Confiance', () => {
+  it('Raiponce qui glisse jusqu’à Corona puis y campe au début du tour → −1 Confiance', () => {
     let s = game()
     const rap = Object.values(s.players[0].board).flat().find((c) => c.cardId === 'raiponce')!
-    // Raiponce sur la Forêt : la dérive de fin de tour l'amène sur Corona.
+    // Raiponce sur la Forêt : la dérive de fin de tour l'amène sur Corona ; en
+    // partie mono-joueur, le début du tour suivant (= ce même joueur) applique
+    // aussitôt la pénalité « Raiponce sur Corona ».
     s = { ...s, phase: 'ACTION', players: [{ ...s.players[0], confiance: 5, board: { ...s.players[0].board, tour: [], foret: [{ ...rap }] } }] }
     const after = applyAction(s, { type: 'END_TURN' })
     expect(raiponceOf(after)).toBe('corona')
     expect(after.players[0].confiance).toBe(4)
   })
 
-  it('Raiponce déjà sur Corona : −1 Confiance chaque fin de tour (plancher 0)', () => {
+  it('Raiponce déjà sur Corona : −1 Confiance au début de chaque tour (plancher 0)', () => {
     let s = game()
     const rap = Object.values(s.players[0].board).flat().find((c) => c.cardId === 'raiponce')!
     s = { ...s, phase: 'ACTION', players: [{ ...s.players[0], confiance: 0, board: { ...s.players[0].board, tour: [], corona: [{ ...rap }] } }] }
     const after = applyAction(s, { type: 'END_TURN' })
     expect(raiponceOf(after)).toBe('corona') // déjà tout à droite : reste sur place
     expect(after.players[0].confiance).toBe(0) // plancher
+  })
+
+  it('report (2 joueurs) : pas de perte quand Raiponce glisse sur Corona en fin de tour', () => {
+    let s = game2()
+    const rap = Object.values(s.players[0].board).flat().find((c) => c.cardId === 'raiponce')!
+    // Gothel (p0) actif, Raiponce sur la Forêt, 5 Confiance.
+    s = {
+      ...s,
+      phase: 'ACTION',
+      activePlayer: 0,
+      players: [
+        { ...s.players[0], confiance: 5, board: { ...s.players[0].board, tour: [], foret: [{ ...rap }] } },
+        s.players[1],
+      ],
+    }
+    // Fin du tour de p0 : Raiponce glisse sur Corona MAIS aucune perte immédiate
+    // (c'est au tour de p1 de commencer).
+    const afterP0 = applyAction(s, { type: 'END_TURN' })
+    expect(raiponceOf(afterP0)).toBe('corona')
+    expect(afterP0.players[0].confiance).toBe(5)
+    // Fin du tour de p1 → début du tour de Gothel : Raiponce campe sur Corona → −1.
+    const backToGothel = applyAction({ ...afterP0, phase: 'ACTION' }, { type: 'END_TURN' })
+    expect(backToGothel.activePlayer).toBe(0)
+    expect(backToGothel.players[0].confiance).toBe(4)
+  })
+
+  it('report (2 joueurs) : Raiponce quittée de Corona avant le tour de Gothel → pas de perte', () => {
+    let s = game2()
+    const rap = Object.values(s.players[0].board).flat().find((c) => c.cardId === 'raiponce')!
+    s = {
+      ...s,
+      phase: 'ACTION',
+      activePlayer: 0,
+      players: [
+        { ...s.players[0], confiance: 5, board: { ...s.players[0].board, tour: [], foret: [{ ...rap }] } },
+        s.players[1],
+      ],
+    }
+    const afterP0 = applyAction(s, { type: 'END_TURN' })
+    expect(raiponceOf(afterP0)).toBe('corona')
+    // Pendant le tour de p1, Raiponce est ramenée vers la Tour (ex. Lance-moi ta chevelure).
+    const moved = resolveEffects(afterP0, [{ type: 'MOVE_RAIPONCE', to: 'tour' }], { actorIndex: 0 })
+    expect(raiponceOf(moved)).toBe('tour')
+    // Début du tour de Gothel : Raiponce n'est plus sur Corona → aucune perte.
+    const backToGothel = applyAction({ ...moved, phase: 'ACTION' }, { type: 'END_TURN' })
+    expect(backToGothel.activePlayer).toBe(0)
+    expect(backToGothel.players[0].confiance).toBe(5)
   })
 
   it('Raiponce ailleurs que Corona en fin de tour : pas de perte', () => {

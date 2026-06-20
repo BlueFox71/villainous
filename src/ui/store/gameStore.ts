@@ -590,6 +590,16 @@ interface GameStore {
   resolveManipulation: (instanceId: string) => void
   /** Mauvais Coup : garde la carte choisie en main, replace l'autre dessus/dessous. */
   resolveMauvaisCoup: (keepInstanceId: string, otherPlacement: 'top' | 'bottom') => void
+  /** Sournois : replace la carte choisie de la main sur le dessus/dessous. */
+  resolveSournois: (instanceId: string, placement: 'top' | 'bottom') => void
+  /** Cheval : déplace l'Allié/Objet choisi vers `to` (null/null = ne rien déplacer). */
+  resolveAllyItemMove: (instanceId: string | null, to: string | null) => void
+  /** Cheval (bot) : délègue le choix de déplacement à l'heuristique du moteur. */
+  resolveAllyItemMoveAuto: () => void
+  /** Bandit : enchaîne les Bandits choisis (tableau vide = aucun de plus). */
+  resolveBanditChain: (instanceIds: string[]) => void
+  /** Dingo : intervertit les tuiles des lieux `from`/`to` (null/null = rien). */
+  resolveDingo: (from: string | null, to: string | null) => void
   dismissRoyalCroquet: () => void
   /** Par ordre de la Reine ! : transforme en arceaux les Cartes Gardes choisies. */
   resolveTransformWickets: (instanceIds: string[]) => void
@@ -1076,6 +1086,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_MANIPULATION', instanceId }),
   resolveMauvaisCoup: (keepInstanceId, otherPlacement) =>
     get().submit({ type: 'RESOLVE_MAUVAIS_COUP', keepInstanceId, otherPlacement }),
+  resolveSournois: (instanceId, placement) =>
+    get().submit({ type: 'RESOLVE_SOURNOIS', instanceId, placement }),
+  resolveAllyItemMove: (instanceId, to) =>
+    get().submit({ type: 'RESOLVE_ALLY_ITEM_MOVE', instanceId, to }),
+  resolveAllyItemMoveAuto: () =>
+    get().submit({ type: 'RESOLVE_ALLY_ITEM_MOVE', instanceId: null, to: null, auto: true }),
+  resolveBanditChain: (instanceIds) =>
+    get().submit({ type: 'RESOLVE_BANDIT_CHAIN', instanceIds }),
+  resolveDingo: (from, to) =>
+    get().submit({ type: 'RESOLVE_DINGO', from, to }),
   dismissRoyalCroquet: () =>
     get().submit({ type: 'DISMISS_ROYAL_CROQUET' }),
   resolveTransformWickets: (instanceIds) =>

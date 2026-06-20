@@ -12,13 +12,14 @@
 // =============================================================================
 
 import type { CardInstance, Crewmate, CurseDiscardTrigger, Effect, GameState, LocationId, PlayerState } from './types'
-import { activePlayer, findLocation, pushDiscardShowcase, pushFloatingFx, pushRobinSteal, pushShowcase, revealFate, syncObservatoryLock, updateActivePlayer, updatePlayer } from './state'
+import { activePlayer, findLocation, pushDiscardShowcase, pushFloatingFx, pushRevealShowcase, pushRobinSteal, pushScryDiscardShowcase, pushShowcase, revealFate, syncObservatoryLock, updateActivePlayer, updatePlayer } from './state'
 import { neighborLocIds, placeCrewmateAt } from './crewmates'
 import { shuffle, nextRandom } from './rng'
 import { KEY_COLORS, type KeyColor } from './types'
 import {
   adjacentLocationIds,
   belleBlocksRemoval,
+  dingoSwapOptions,
   ownedKeyColors,
   effectiveStrength,
   goalsBlockedByHero,
@@ -791,7 +792,10 @@ export function performVanquish(
   // Gothel gagne 2 Confiance (par Couronne présente sur ce lieu).
   const couronneConfiance =
     (me.board[heroLoc] ?? []).filter((c) => c.cardId === 'couronne-gothel').length * 2
-  const confGain = (poignardKillsRaiponce ? 1 : 0) + (vengeanceConfiance ? 1 : 0) + couronneConfiance
+  // Mère Gothel — Flynn Rider vaincu : rend les jetons Confiance qu'il détenait.
+  const flynnConfiance = heroCard.cardId === 'flynn-rider' ? heroCard.heldConfiance ?? 0 : 0
+  const confGain =
+    (poignardKillsRaiponce ? 1 : 0) + (vengeanceConfiance ? 1 : 0) + couronneConfiance + flynnConfiance
   let next = updateActivePlayer(state, (p) => ({
     ...p,
     board: Object.fromEntries(
@@ -1158,7 +1162,7 @@ function mostAdvancedTitan(
 
 /** Pat Hibulaire — déplace une carte (+ Objets associés) de `from` vers `to` dans
  *  le royaume `idx`. Pur. No-op si rien à déplacer. */
-function relocateCard(state: GameState, idx: number, instanceId: string, from: LocationId, to: LocationId): GameState {
+export function relocateCard(state: GameState, idx: number, instanceId: string, from: LocationId, to: LocationId): GameState {
   if (from === to) return state
   const cell = state.players[idx].board[from] ?? []
   const ids = new Set([
@@ -1180,7 +1184,7 @@ function relocateCard(state: GameState, idx: number, instanceId: string, from: L
 /** Pat Hibulaire — déplacement « malin » d'un Allié ou Objet (Cheval bénéfique pour
  *  Pat / Horace perturbateur joué par l'adversaire), résolu par une heuristique
  *  d'objectif. Renvoie l'état (journalisé) ou un no-op journalisé. */
-function smartMoveAllyOrItem(state: GameState, idx: number, beneficial: boolean): GameState {
+export function smartMoveAllyOrItem(state: GameState, idx: number, beneficial: boolean): GameState {
   const p = state.players[idx]
   const name = p.villainName
   const label = beneficial ? 'Cheval' : 'Horace'
@@ -1293,6 +1297,67 @@ export function resolveEffect(
       return {
         ...next,
         log: [...next.log, `${actor.villainName} perd ${effect.amount} Confiance (total : ${actor.confiance}).`],
+      }
+    }
+    case 'LOSE_CONFIANCE_AT_RAIPONCE': {
+      // La Reine et le Roi : Gothel perd `amount` Confiance seulement si ce Héros
+      // arrive (onPlace) sur le lieu où se trouve Raiponce.
+      const p = state.players[idx]
+      if (!ctx?.hostLocationId || ctx.hostLocationId !== raiponceLocation(p)) return state
+      const next = updatePlayer(state, idx, (q) => ({ ...q, confiance: Math.max(0, (q.confiance ?? 0) - effect.amount) }))
+      const actor = next.players[idx]
+      return {
+        ...next,
+        log: [
+          ...next.log,
+          `La Reine et le Roi arrivent sur le lieu de Raiponce : ${actor.villainName} perd ${effect.amount} Confiance (total : ${actor.confiance}).`,
+        ],
+      }
+    }
+    case 'FATE_DISCARD_RANDOM_HAND': {
+      // La Main froide : le propriétaire défausse `amount` carte(s) au hasard de sa
+      // main (aléa déterministe via rngState).
+      const actor = state.players[idx]
+      if (actor.hand.length === 0) {
+        return { ...state, log: [...state.log, `La Main froide : ${actor.villainName} n'a aucune carte en main.`] }
+      }
+      const sh = shuffle(actor.hand, state.rngState)
+      const n = Math.min(effect.amount, sh.result.length)
+      const dropped = sh.result.slice(0, n)
+      const dropIds = new Set(dropped.map((c) => c.instanceId))
+      const next = updatePlayer({ ...state, rngState: sh.state }, idx, (p) => ({
+        ...p,
+        hand: p.hand.filter((c) => !dropIds.has(c.instanceId)),
+        discard: [...p.discard, ...dropped],
+      }))
+      return {
+        ...next,
+        log: [...next.log, `La Main froide : ${actor.villainName} défausse ${n} carte au hasard de sa main.`],
+      }
+    }
+    case 'FLYNN_TAKE_CONFIANCE': {
+      // Flynn Rider : Gothel perd jusqu'à `amount` Confiance, déposés sur Flynn
+      // (heldConfiance) ; rendus s'il est vaincu (cf. performVanquish).
+      if (!ctx?.hostInstanceId) return state
+      const actor = state.players[idx]
+      const taken = Math.min(effect.amount, actor.confiance ?? 0)
+      const hostId = ctx.hostInstanceId
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        confiance: Math.max(0, (p.confiance ?? 0) - taken),
+        board: Object.fromEntries(
+          Object.entries(p.board).map(([loc, cards]) => [
+            loc,
+            cards.map((c) => (c.instanceId === hostId ? { ...c, heldConfiance: taken } : c)),
+          ]),
+        ),
+      }))
+      return {
+        ...next,
+        log: [
+          ...next.log,
+          `Flynn Rider : ${actor.villainName} perd ${taken} Confiance (déposé${taken > 1 ? 's' : ''} sur Flynn).`,
+        ],
       }
     }
     case 'SKIP_RAIPONCE_MOVE': {
@@ -2547,6 +2612,19 @@ export function resolveEffect(
         ...state,
         pendingPawnMove: { chooserIndex: state.activePlayer, targetIndex: idx },
         log: [...state.log, `Roi Stéphane : ${state.players[idx].villainName} peut être déplacé.`],
+      }
+    }
+    case 'MOVE_OWNER_PAWN_IF_AT_PAWN': {
+      // Le Satyre : joué (onPlace) sur le lieu du pion du propriétaire → le joueur
+      // qui pose la Fatalité (`state.activePlayer`) peut déplacer ce pion n'importe
+      // où (pendingPawnMove). Sinon, aucun effet.
+      const p = state.players[idx]
+      const label = effect.label ?? 'Le Satyre'
+      if (!ctx?.hostLocationId || ctx.hostLocationId !== p.pawnLocation) return state
+      return {
+        ...state,
+        pendingPawnMove: { chooserIndex: state.activePlayer, targetIndex: idx, via: label },
+        log: [...state.log, `${label} : le pion de ${p.villainName} peut être déplacé sur n'importe quel lieu.`],
       }
     }
     case 'REVEAL_FATE_TOP_PLAY_IF_HERO': {
@@ -5355,6 +5433,22 @@ export function resolveEffect(
           } → +${gain} JT${reduced ? ' (Oswald : −1)' : ''}.`,
         ],
       }
+      // Showcase « à suspense » : les cartes se dévoilent une à une (1 s), le coût
+      // total s'incrémente, scintille, puis le badge +gain JT s'affiche. Durée =
+      // (n−1)·1000 (dévoilements) + 700 (scintillement) + 700 (badge) + 1400 (tenue).
+      if (revealed.length > 0) {
+        const durationMs = Math.max(0, revealed.length - 1) * 1000 + 2800
+        next = pushRevealShowcase(
+          next,
+          revealed[0].cardId,
+          revealed.map((c) => c.cardId),
+          revealed.map((c) => c.cost ?? 0),
+          idx,
+          gain,
+          `Une Petite Partie ? → +${gain} JT`,
+          { durationMs },
+        )
+      }
       // Win Big : gain ≥ 4 via CETTE Petite Partie, tuile sur le lieu du pion.
       const me = next.players[idx]
       if (gain >= 4 && me.goals && !goalsBlockedByHero(me)) {
@@ -5443,18 +5537,35 @@ export function resolveEffect(
       const keep = revealed.filter((c) => (c.cost ?? 0) < effect.minCost)
       const sh = shuffle(keep, rng)
       rng = sh.state
-      const next = updatePlayer({ ...state, rngState: rng }, idx, (p) => ({
+      let next = updatePlayer({ ...state, rngState: rng }, idx, (p) => ({
         ...p,
         deck: [...sh.result, ...deck],
         discard: [...disc, ...toDiscard],
       }))
-      return {
+      next = {
         ...next,
         log: [
           ...next.log,
           `Assommé Bêtement : ${actor.villainName} défausse ${toDiscard.length} carte${toDiscard.length > 1 ? 's' : ''} de coût ≥ ${effect.minCost}.`,
         ],
       }
+      // Showcase animé : on dévoile les cartes scrutées, grise celles ≥ seuil (vers
+      // la défausse), puis « remélange + repose sur le dessus » les conservées.
+      // Durée calée sur la timeline interne du composant (cf. ScryDiscardShowcase).
+      if (revealed.length > 0) {
+        const durationMs = revealed.length * 450 + 3600
+        next = pushScryDiscardShowcase(
+          next,
+          'assomme-betement',
+          revealed.map((c) => c.cardId),
+          revealed.map((c) => c.cost ?? 0),
+          revealed.map((c) => (c.cost ?? 0) >= effect.minCost),
+          idx,
+          `Assommé Bêtement : ${toDiscard.length} carte${toDiscard.length > 1 ? 's' : ''} défaussée${toDiscard.length > 1 ? 's' : ''} (coût ≥ ${effect.minCost})`,
+          { durationMs },
+        )
+      }
+      return next
     }
     case 'FATE_DISCARD_STRONGEST_ALLY_OR_ITEM': {
       // Minnie : défausse l'Allié le plus fort, à défaut l'Objet (non associé) le plus cher.
@@ -5546,10 +5657,28 @@ export function resolveEffect(
       // « Puis votre tour est terminé » : plus aucune autre action ce tour-ci.
       return updatePlayer(next, idx, (p) => ({ ...p, soleActionLock: true }))
     }
-    case 'MOVE_ALLY_OR_ITEM_SMART':
+    case 'MOVE_ALLY_OR_ITEM_SMART': {
+      // Cheval (bénéfique) : déplacement CHOISI par le joueur → ouvre la fenêtre
+      // interactive (modale pour l'humain, auto pour le bot via RESOLVE auto). On
+      // n'ouvre que s'il y a au moins un Allié/Objet (non associé) déplaçable.
+      if (effect.beneficial) {
+        const p = state.players[idx]
+        const hasMovable = p.locations.some((l) =>
+          (p.board[l.id] ?? []).some((c) => (c.type === 'ally' || c.type === 'item') && !c.attachedTo),
+        )
+        if (!hasMovable) {
+          return { ...state, log: [...state.log, `${p.villainName} : Cheval — aucun Allié ou Objet à déplacer.`] }
+        }
+        return { ...state, pendingAllyItemMove: { playerIndex: idx, beneficial: true } }
+      }
+      // Horace (perturbateur, joué par l'adversaire) : choix auto (heuristique).
       return smartMoveAllyOrItem(state, idx, effect.beneficial)
+    }
     case 'DRAW_THEN_BOTTOM': {
-      // Sournois : pioche `draw` cartes, puis replace la plus chère de la main dessous.
+      // Sournois : pioche `draw` cartes en main, puis le joueur choisit 1 carte de
+      // sa main à replacer sur le dessus/dessous de la pioche (RESOLVE_SOURNOIS —
+      // modale pour l'humain, auto pour le bot). Choix PRIVÉ : rien au journal sur
+      // les cartes piochées/replacées (info cachée à l'adversaire).
       const actor = state.players[idx]
       let deck = [...actor.deck]
       let disc = [...actor.discard]
@@ -5567,49 +5696,25 @@ export function resolveEffect(
         deck = rest
         drawn.push(t)
       }
-      let hand = [...actor.hand, ...drawn]
-      let note = ''
-      if (hand.length > 0) {
-        const worst = [...hand].sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0))[0]
-        hand = hand.filter((c) => c.instanceId !== worst.instanceId)
-        deck = [...deck, worst]
-        note = ` puis replace **${worst.name}** sous la pioche`
-      }
+      const hand = [...actor.hand, ...drawn]
       const next = updatePlayer({ ...state, rngState: rng }, idx, (p) => ({ ...p, deck, hand, discard: disc }))
-      return {
-        ...next,
-        log: [...next.log, `${actor.villainName} pioche ${drawn.length} carte${drawn.length > 1 ? 's' : ''}${note} (Sournois).`],
-      }
+      // Main vide (cas limite) : rien à replacer.
+      if (hand.length === 0) return next
+      return { ...next, pendingSournois: { playerIndex: idx } }
     }
     case 'FATE_DISTURB_GOAL': {
-      // Dingo : déplace une tuile non remplie vers un lieu voisin libre, ou l'échange
-      // avec une tuile voisine non remplie.
+      // Dingo : le joueur qui pose la Fatalité (`state.activePlayer`) peut intervertir
+      // 2 tuiles Objectif voisines (déplacer 1 tuile vers un lieu « libre » = échanger
+      // avec une tuile remplie). Interactif (modale humain / auto bot via RESOLVE_DINGO).
       const actor = state.players[idx]
-      const goals = actor.goals
-      if (!goals) return state
-      const order = actor.locations.map((l) => l.id)
-      const tileAt = (lid: LocationId) => goals.find((g) => g.locationId === lid && !g.completed)
-      for (let i = 0; i < order.length; i++) {
-        const t = tileAt(order[i])
-        if (!t) continue
-        const neighbors = [order[i - 1], order[i + 1]].filter((v): v is LocationId => !!v)
-        const empty = neighbors.find((nb) => !tileAt(nb))
-        if (empty) {
-          const newGoals = goals.map((g) => (g === t ? { ...g, locationId: empty, revealed: true } : g))
-          const next = updatePlayer(state, idx, (p) => ({ ...p, goals: newGoals }))
-          return { ...next, log: [...next.log, `Dingo déplace une tuile Objectif de ${actor.villainName} vers ${findLocation(actor, empty)?.name ?? empty}.`] }
-        }
-        const swapNb = neighbors.find((nb) => tileAt(nb))
-        if (swapNb) {
-          const u = tileAt(swapNb)!
-          const newGoals = goals.map((g) =>
-            g === t ? { ...g, locationId: swapNb, revealed: true } : g === u ? { ...g, locationId: order[i], revealed: true } : g,
-          )
-          const next = updatePlayer(state, idx, (p) => ({ ...p, goals: newGoals }))
-          return { ...next, log: [...next.log, `Dingo intervertit deux tuiles Objectif de ${actor.villainName}.`] }
-        }
+      if (!actor.goals || dingoSwapOptions(actor).length === 0) {
+        return { ...state, log: [...state.log, `Dingo : aucune tuile Objectif à perturber.`] }
       }
-      return { ...state, log: [...state.log, `Dingo : aucune tuile Objectif à perturber.`] }
+      return {
+        ...state,
+        pendingDingo: { chooserIndex: state.activePlayer, targetIndex: idx },
+        log: [...state.log, `Dingo : l'adversaire peut intervertir/déplacer une tuile Objectif de ${actor.villainName}.`],
+      }
     }
   }
 }

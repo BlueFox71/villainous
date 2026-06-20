@@ -58,6 +58,23 @@ describe('bot : fatalise systématiquement quand l’adversaire a atteint son ob
     expect(enumerateActions(after).some((a) => a.type === 'FATE')).toBe(true)
   })
 
+  it('adversaire TRÈS proche (jauge ≥ 0,9) et bot en retard → le bot fatalise', () => {
+    const base = game()
+    const s: GameState = {
+      ...base,
+      activePlayer: 0,
+      phase: 'ACTION',
+      usedActionIds: [],
+      players: [
+        { ...base.players[0], pawnLocation: 'chateau-bowser' },
+        // Prince Jean à 18/20 JT (0,9) : pas encore gagnant, mais imminent.
+        { ...base.players[1], power: 18 },
+      ],
+    }
+    const action = chooseAction(s, () => 0)
+    expect(action.type).toBe('FATE')
+  })
+
   it('si l’adversaire n’a PAS atteint son objectif, le bot n’est pas forcé de fataliser', () => {
     const base = game()
     const s: GameState = {

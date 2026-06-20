@@ -276,6 +276,7 @@ export const gothelCards: CardDef[] = [
     copies: 1,
     text: 'À son arrivée, Mère Gothel perd jusqu’à 2 jetons Confiance ; s’il est éliminé, elle en regagne 2. (Effets : Phase 3b.)',
     image: img('flynn-rider.png'),
+    onPlace: [{ type: 'FLYNN_TAKE_CONFIANCE', amount: 2 }],
   },
   {
     id: 'la-main-froide',
@@ -287,6 +288,7 @@ export const gothelCards: CardDef[] = [
     copies: 1,
     text: 'À son arrivée, Mère Gothel défausse une carte au hasard de sa main. (Effet : Phase 3b.)',
     image: img('la-main-froide.png'),
+    onPlace: [{ type: 'FATE_DISCARD_RANDOM_HAND', amount: 1 }],
   },
   {
     id: 'la-reine-et-le-roi',
@@ -298,6 +300,7 @@ export const gothelCards: CardDef[] = [
     copies: 1,
     text: 'À leur arrivée sur le lieu de Raiponce, Mère Gothel perd 1 jeton Confiance. (Effet : Phase 3b.)',
     image: img('la-reine-et-le-roi.png'),
+    onPlace: [{ type: 'LOSE_CONFIANCE_AT_RAIPONCE', amount: 1 }],
   },
   {
     id: 'le-satyre',
@@ -307,8 +310,9 @@ export const gothelCards: CardDef[] = [
     type: 'hero',
     strength: 2,
     copies: 1,
-    text: 'S’il est joué sur le lieu du pion de Mère Gothel, il peut être déplacé immédiatement sur n’importe quel lieu. (Effet : Phase 3b.)',
+    text: 'Si vous jouez Le Satyre sur le lieu où se trouve Mère Gothel, vous pouvez la déplacer sur n’importe quel lieu. (Effet : Phase 3b.)',
     image: img('le-satyre.png'),
+    onPlace: [{ type: 'MOVE_OWNER_PAWN_IF_AT_PAWN', label: 'Le Satyre' }],
   },
   {
     id: 'maximus',

@@ -142,6 +142,71 @@ export function pushDiscardShowcase(
 }
 
 /**
+ * Pousse un showcase « révélation à suspense » (Une Petite Partie ?) : on dévoile
+ * `cardIds` une à une, un compteur de coût total (`costs`) s'incrémente, puis le
+ * gain (`gainedPower`) s'affiche en badge JT. `sourceCardId` doit être une carte
+ * valide (utilisé comme repli par les chemins génériques). Pur.
+ */
+export function pushRevealShowcase(
+  state: GameState,
+  sourceCardId: string,
+  cardIds: string[],
+  costs: number[],
+  playerIndex: number,
+  gainedPower: number,
+  message: string,
+  opts?: { durationMs?: number },
+): GameState {
+  if (cardIds.length === 0) return state
+  return {
+    ...state,
+    showcaseEvents: [
+      ...state.showcaseEvents,
+      {
+        cardId: sourceCardId,
+        message,
+        playerIndex,
+        reveal: { cardIds, costs },
+        gainedPower: gainedPower > 0 ? gainedPower : undefined,
+        ...opts,
+      },
+    ],
+  }
+}
+
+/**
+ * Pousse un showcase « scrutation + défausse » (Assommé Bêtement) : on dévoile
+ * `cardIds`, celles dont `discarded[i]` est vrai (coût ≥ seuil) virent au gris et
+ * partent à la défausse, puis les autres sont remélangées (dos) et reposées sur le
+ * dessus de la pioche. `playerIndex` = joueur dont on fouille la pioche. Pur.
+ */
+export function pushScryDiscardShowcase(
+  state: GameState,
+  sourceCardId: string,
+  cardIds: string[],
+  costs: number[],
+  discarded: boolean[],
+  playerIndex: number,
+  message: string,
+  opts?: { durationMs?: number },
+): GameState {
+  if (cardIds.length === 0) return state
+  return {
+    ...state,
+    showcaseEvents: [
+      ...state.showcaseEvents,
+      {
+        cardId: sourceCardId,
+        message,
+        playerIndex,
+        reveal: { cardIds, costs, scry: true, discarded },
+        ...opts,
+      },
+    ],
+  }
+}
+
+/**
  * Révèle les `count` premières cartes du deck Fatalité d'un joueur (les retire
  * de sa pioche), en remélangeant sa défausse Fatalité si la pioche se vide. Pur.
  */
