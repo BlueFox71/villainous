@@ -8,7 +8,7 @@
 // =============================================================================
 
 import { create } from 'zustand'
-import type { CardInstance, GameAction, GameState, LocationId } from '../../engine/types'
+import type { CardInstance, GameAction, GameState, KeyColor, LocationId } from '../../engine/types'
 import {
   createInitialGame,
   drawPlayerToLimit,
@@ -63,9 +63,15 @@ import { gothel } from '../../data/villains/gothel'
 import { gothelCards } from '../../data/villains/gothel.cards'
 import { cruella } from '../../data/villains/cruella'
 import { cruellaCards } from '../../data/villains/cruella.cards'
+import { gaston } from '../../data/villains/gaston'
+import { gastonCards } from '../../data/villains/gaston.cards'
+import { seigneurCles } from '../../data/villains/seigneurCles'
+import { seigneurClesCards } from '../../data/villains/seigneurCles.cards'
+import { madameTremaine } from '../../data/villains/madameTremaine'
+import { madameTremaineCards } from '../../data/villains/madameTremaine.cards'
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'seigneurCles' | 'madameTremaine'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -87,6 +93,9 @@ export const VILLAIN_REGISTRY = {
   patHibulaire: { def: patHibulaire, cards: patHibulaireCards, label: 'Pat Hibulaire' },
   gothel: { def: gothel, cards: gothelCards, label: 'Mère Gothel' },
   cruella: { def: cruella, cards: cruellaCards, label: 'Cruella d’Enfer' },
+  gaston: { def: gaston, cards: gastonCards, label: 'Gaston' },
+  seigneurCles: { def: seigneurCles, cards: seigneurClesCards, label: 'Le Seigneur des clés' },
+  madameTremaine: { def: madameTremaine, cards: madameTremaineCards, label: 'Madame de Trémaine' },
 } as const
 
 /** Qui contrôle chaque siège. Concept d'UI : le moteur, lui, ne sait pas qui
@@ -501,6 +510,25 @@ interface GameStore {
   ) => void
   /** Diablo (V2) : décline l'action gratuite. */
   diabloSkipFreeAction: () => void
+  /** Gaston (Belle est à moi / Tous avec moi) : exécute l'action gratuite armée. */
+  performGrantedAction: (inner: Extract<GameAction, { type: 'VANQUISH' | 'MOVE_CARD' }>) => void
+  /** Gaston : décline l'action gratuite armée. */
+  skipGrantedAction: () => void
+  /** Gaston : retire/replace un jeton Obstacle sur un lieu (pendingObstacle). */
+  resolveObstacle: (locationId: string) => void
+  /** Gaston : termine le retrait/replacement d'Obstacles en attente. */
+  doneObstacle: () => void
+  /** Le Seigneur des clés : action « Obtenir une clé » (ouvre le choix de clé). */
+  obtainKey: (actionId: string) => void
+  /** Le Seigneur des clés : ramasse / repose la clé choisie (pendingKey). `locationId`
+   *  = lieu de dépose (perte avec choix du lieu). */
+  resolveKey: (keyId: string, locationId?: LocationId) => void
+  /** Le Seigneur des clés : choisit une couleur avant de lancer le dé (pendingKeyColor). */
+  resolveKeyColor: (color: KeyColor) => void
+  /** Le Seigneur des clés : Plaisir ou souffrance (perdre du Pouvoir ou reposer une clé). */
+  resolvePlaisir: (choice: 'power' | 'key') => void
+  /** Le Seigneur des clés : Sorcellerie / Gévaudan — l'adversaire choisit la clé (et le lieu). */
+  resolveStealKey: (keyId: string, locationId?: LocationId) => void
   /** Tendre un Piège : action Éliminer un Héros facultative. */
   trapVanquish: (heroInstanceId: string, allyInstanceIds: string[]) => void
   /** Tendre un Piège : termine sans éliminer. */
@@ -543,6 +571,8 @@ interface GameStore {
   donePuppyReveal: () => void
   /** Cruella — Horace : capturer (true) ou amener une Tuile de la réserve (false). */
   resolveHoraceChoice: (capture: boolean) => void
+  /** Cruella — choisir une Tuile Chiots à capturer (plusieurs sur le lieu). */
+  resolvePuppyCapture: (tileId: string) => void
   /** Cruella — Quels idiots ! : choisir l'option (déplacer / chercher un Allié). */
   resolveQuelsIdiots: (choice: 'move' | 'tutor') => void
   /** Cruella — Quels idiots ! : choisir l'Allié (à déplacer ou à chercher). */
@@ -963,6 +993,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'DIABLO_FREE_ACTION', action: inner }),
   diabloSkipFreeAction: () =>
     get().submit({ type: 'DIABLO_SKIP_FREE_ACTION' }),
+  performGrantedAction: (inner) =>
+    get().submit({ type: 'PERFORM_GRANTED_ACTION', action: inner }),
+  skipGrantedAction: () =>
+    get().submit({ type: 'SKIP_GRANTED_ACTION' }),
+  resolveObstacle: (locationId) =>
+    get().submit({ type: 'RESOLVE_OBSTACLE', locationId }),
+  doneObstacle: () =>
+    get().submit({ type: 'DONE_OBSTACLE' }),
+  obtainKey: (actionId) =>
+    get().submit({ type: 'OBTAIN_KEY', actionId }),
+  resolveKey: (keyId, locationId) =>
+    get().submit({ type: 'RESOLVE_KEY', keyId, locationId }),
+  resolveKeyColor: (color) =>
+    get().submit({ type: 'RESOLVE_KEY_COLOR', color }),
+  resolvePlaisir: (choice) =>
+    get().submit({ type: 'RESOLVE_PLAISIR', choice }),
+  resolveStealKey: (keyId, locationId) =>
+    get().submit({ type: 'RESOLVE_STEAL_KEY', keyId, locationId }),
   trapVanquish: (heroInstanceId, allyInstanceIds) =>
     get().submit({ type: 'TRAP_VANQUISH', heroInstanceId, allyInstanceIds }),
   trapSkipVanquish: () =>
@@ -1008,6 +1056,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'DONE_PUPPY_REVEAL' }),
   resolveHoraceChoice: (capture) =>
     get().submit({ type: 'RESOLVE_HORACE_CHOICE', capture }),
+  resolvePuppyCapture: (tileId) =>
+    get().submit({ type: 'RESOLVE_PUPPY_CAPTURE', tileId }),
   resolveQuelsIdiots: (choice) =>
     get().submit({ type: 'RESOLVE_QUELS_IDIOTS', choice }),
   resolveQuelsIdiotsPick: (instanceId) =>

@@ -34,10 +34,13 @@ import {
   updateActivePlayer,
   updatePlayer,
 } from './state'
-import { addKronkTokens, addPuppyFromReserve, canEnterAuDela, capturePuppiesAt, doQuelsMove, doQuelsTutor, enterQuelsMove, enterQuelsTutor, holdsTalisman, moveTitanTo, performVanquish, playChosenFateFromDiscard, processCurseDiscards, raiponceLocation, reformYzmaDecks, relocateRaiponce, reshuffleYzmaIfKuzcoDiscarded, resolveEffect, resolveEffects, titanReachableDests, triggerHeroArrival } from './effects'
+import { rollColorDie } from './effects'
+import { addKronkTokens, addPuppyFromReserve, canEnterAuDela, capturePuppiesAt, doCapturePuppies, doQuelsMove, doQuelsTutor, enterQuelsMove, enterQuelsTutor, holdsTalisman, moveTitanTo, performVanquish, playChosenFateFromDiscard, processCurseDiscards, raiponceLocation, reformYzmaDecks, relocateRaiponce, reshuffleYzmaIfKuzcoDiscarded, resolveEffect, resolveEffects, titanReachableDests, triggerHeroArrival } from './effects'
 import { crewmateEndOfTurn, freeCellAt, placeCrewmateAt } from './crewmates'
+import { pendingOwner } from './turn'
 import {
   adjacentLocationIds,
+  belleBlocksRemoval,
   canEndTurn,
   canPlaceAt,
   canPlaceCurseAt,
@@ -46,6 +49,7 @@ import {
   effectiveCost,
   effectiveStrength,
   capturedPuppies,
+  totalObstacles,
   fateTarget,
   goalsBlockedByHero,
   hasHeroInRealm,
@@ -415,6 +419,52 @@ function applyPlayCard(
   ) {
     throw new Error('Aucune capacité activable : cette carte n’aurait aucun effet.')
   }
+  // Gaston — cartes dont le SEUL effet est de retirer des Obstacles : injouables si
+  // Belle bloque le retrait ou s'il ne reste aucun Obstacle (aucun effet).
+  {
+    const fx = card.effects ?? []
+    const onlyRemoves = fx.length > 0 && fx.every((e) => e.type === 'REMOVE_OBSTACLE')
+    if (onlyRemoves && (belleBlocksRemoval(me) || totalObstacles(me) === 0)) {
+      throw new Error(
+        belleBlocksRemoval(me)
+          ? 'Belle est dans le royaume : aucun Obstacle ne peut être retiré.'
+          : 'Aucun Obstacle à retirer.',
+      )
+    }
+  }
+  // Gaston — une carte qui REPLACE des Obstacles est injouable si les 8 Obstacles
+  // sont déjà sur le plateau (règle officielle : pas de place pour replacer).
+  if ((card.effects ?? []).some((e) => e.type === 'REPLACE_OBSTACLE') && totalObstacles(me) >= 8) {
+    throw new Error('Les 8 Obstacles sont déjà en place : impossible d’en replacer.')
+  }
+  // Gaston — Montre-moi la Bête ! : injouable si ni la Bête ni Belle ne sont dans le
+  // royaume (aucune des branches de l'effet ne s'applique).
+  if ((card.effects ?? []).some((e) => e.type === 'SHOW_ME_THE_BEAST')) {
+    const heroes = Object.values(me.board).flat()
+    const hasBeast = heroes.some((c) => c.type === 'hero' && c.cardId === 'la-bete')
+    const hasBelle = heroes.some((c) => c.type === 'hero' && c.cardId === 'belle')
+    if (!hasBeast && !hasBelle) {
+      throw new Error('Ni la Bête ni Belle dans le royaume : cette carte n’aurait aucun effet.')
+    }
+  }
+  // Gaston — Belle est à moi (« Effectuez une action Éliminer un Héros ») : injouable
+  // sans Héros dans le royaume. Tous avec moi (« Déplacer un Allié/Objet ») : injouable
+  // sans Allié ni Objet (non associé) déplaçable.
+  {
+    const grant = (card.effects ?? []).find((e) => e.type === 'GRANT_FREE_ACTION')
+    if (grant && grant.type === 'GRANT_FREE_ACTION') {
+      const cards = Object.values(me.board).flat()
+      if (grant.actionType === 'VANQUISH' && !cards.some((c) => c.type === 'hero')) {
+        throw new Error('Aucun Héros à éliminer : cette carte n’aurait aucun effet.')
+      }
+      if (
+        grant.actionType === 'MOVE_ITEM_ALLY' &&
+        !cards.some((c) => (c.type === 'ally' || c.type === 'item' || c.type === 'curse') && !c.attachedTo)
+      ) {
+        throw new Error('Aucun Allié ni Objet à déplacer : cette carte n’aurait aucun effet.')
+      }
+    }
+  }
   // Cruella — Le diable l'emporte : injouable si la défausse ne contient aucune carte
   // d'un des types récupérables (aucun effet). Donnée : on teste l'effet RECOVER_FROM_DISCARD_CHOICE.
   {
@@ -459,6 +509,14 @@ function applyPlayCard(
     }
   }
 
+  // Madame de Trémaine — Allié « en robe de bal » : jouable uniquement pour remplacer
+  // sa version ordinaire (`replacesCardId`) déjà en jeu (elle sera défaussée à la pose).
+  if (
+    card.replacesCardId &&
+    !Object.values(me.board).flat().some((c) => c.cardId === card.replacesCardId && !c.attachedTo)
+  ) {
+    throw new Error(`${card.name} ne peut être jouée que pour remplacer sa version ordinaire déjà en jeu.`)
+  }
   // Coût effectif (Couronne −1, Bâton Magique −1, Épée de Vérité +2 sur curse,
   // Razoul −1 sur Allié). Hypnose : coût = force (effective) du Héros ciblé.
   let cost = effectiveCost(state, card, to)
@@ -706,6 +764,28 @@ function applyPlayCard(
       ...p,
       board: { ...p.board, [destId]: [...(p.board[destId] ?? []), placed] },
     }))
+    // Madame de Trémaine — Allié « en robe de bal » : défausse UNE version ordinaire
+    // (`replacesCardId`) déjà en jeu (elle est « remplacée »).
+    if (card.replacesCardId) {
+      const repId = card.replacesCardId
+      next = updateActivePlayer(next, (p) => {
+        let removed: CardInstance | undefined
+        const board: typeof p.board = {}
+        for (const [lid, cards] of Object.entries(p.board)) {
+          if (!removed) {
+            const i = cards.findIndex((c) => c.cardId === repId && !c.attachedTo)
+            if (i >= 0) {
+              removed = cards[i]
+              board[lid] = [...cards.slice(0, i), ...cards.slice(i + 1)]
+              continue
+            }
+          }
+          board[lid] = cards
+        }
+        return removed ? { ...p, board, discard: [...p.discard, removed] } : p
+      })
+      next = { ...next, log: [...next.log, `**${card.name}** remplace sa version ordinaire (défaussée).`] }
+    }
     // Animation de pose (vol main → lieu). Les Malédictions ont déjà un showcase
     // côté bot et sont volées via `flyHandToBoard` côté humain → on les exclut.
     if (card.type !== 'curse') {
@@ -942,7 +1022,9 @@ function drawOnFateTargeted(state: GameState, targetIndex: number): GameState {
   const tgt0 = next.players[targetIndex]
   const sources =
     Object.values(tgt0.board).flat().filter((c) => c.type === 'ally' && c.cardId === 'bowser-jr').length +
-    Object.values(tgt0.board).flat().filter((c) => c.type === 'item' && c.cardId === 'miroir-magique' && !c.attachedTo).length
+    Object.values(tgt0.board).flat().filter((c) => c.type === 'item' && c.cardId === 'miroir-magique' && !c.attachedTo).length +
+    // Le Seigneur des clés — Appel : pioche 1 carte par Appel posé (ciblé par une Fatalité).
+    Object.values(tgt0.board).flat().filter((c) => c.drawCardOnFateTargeted && !c.attachedTo).length
   if (sources > 0) {
     const r = drawPlayerToLimitN(tgt0, next.rngState, sources)
     if (r.drawn > 0) {
@@ -1834,6 +1916,80 @@ function fateCardPlayable(state: GameState, card: CardInstance, target: number):
 /** Résout une Fatalité révélée. Wrapper du combo RAY (Dr Facilier) : si Ray fait
  *  partie des deux cartes dévoilées, après avoir résolu la 1ʳᵉ on PEUT aussi jouer
  *  l'autre (si elle est jouable) — on rouvre alors la Fatalité avec cette carte. */
+// --- Gaston : La Rose (Fatalité — chaîne « jouer 2 cartes + retirer 1 Obstacle ») --
+
+/** La Rose — retire 1 Obstacle (auto) chez la cible (Gaston), en fin de chaîne.
+ *  Respecte le blocage par Belle ; priorise les lieux non vidables par un Vanquish. */
+function roseRemoveObstacle(state: GameState, target: number): GameState {
+  const tp = state.players[target]
+  if (belleBlocksRemoval(tp) || totalObstacles(tp) === 0) {
+    return { ...state, log: [...state.log, `La Rose : aucun Obstacle retiré chez ${tp.villainName}.`] }
+  }
+  const pref = ['taverne', 'bois', 'maison-belle', 'chateau-bete']
+  const loc = tp.locations
+    .map((l) => l.id)
+    .filter((id) => (tp.obstacles?.[id] ?? 0) > 0)
+    .sort((a, b) => (pref.indexOf(a) + 9) % 9 - ((pref.indexOf(b) + 9) % 9))[0]
+  const next = updatePlayer(state, target, (p) => ({
+    ...p,
+    obstacles: { ...(p.obstacles ?? {}), [loc]: (p.obstacles?.[loc] ?? 0) - 1 },
+  }))
+  return { ...next, log: [...next.log, `La Rose : 1 Obstacle retiré de **${findLocation(next.players[target], loc)?.name ?? loc}**.`] }
+}
+
+/** La Rose — démarre la chaîne : défausse la Rose, puis fait jouer l'AUTRE carte
+ *  révélée (rouverte en Fatalité non facultative). syncRoseChain enchaîne ensuite. */
+function startRose(state: GameState, target: number, revealed: CardInstance[], roseId: string): GameState {
+  const rose = revealed.find((c) => c.instanceId === roseId)!
+  const others = revealed.filter((c) => c.instanceId !== roseId)
+  let next = updatePlayer(state, target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, rose] }))
+  next = {
+    ...next,
+    pendingFate: null,
+    log: [...next.log, `**La Rose** : jouez l'autre carte Fatalité, puis piochez-en 2 et jouez-en une, puis retirez 1 Obstacle.`],
+  }
+  if (others.length > 0) {
+    return { ...next, pendingFate: { target, revealed: others }, roseChain: { target, phase: 'play-other' } }
+  }
+  // La Rose révélée seule (pioche quasi vide) : on passe directement à la pioche de 2.
+  return syncRoseChain({ ...next, roseChain: { target, phase: 'play-other' } })
+}
+
+/** Vrai si plus aucun choix n'est en attente (la chaîne de la Rose peut avancer). */
+function isFateChainSettled(state: GameState): boolean {
+  return (
+    state.status === 'PLAYING' &&
+    !state.pendingFate &&
+    !state.grantedAction &&
+    pendingOwner(state) === null
+  )
+}
+
+/** La Rose — fait avancer la chaîne dès que tout est résolu (appelé après chaque
+ *  action). play-other → pioche 2 cartes et en fait jouer une ; play-new → retire
+ *  1 Obstacle et termine. */
+function syncRoseChain(state: GameState): GameState {
+  const rc = state.roseChain
+  if (!rc || !isFateChainSettled(state)) return state
+  if (rc.phase === 'play-other') {
+    const r = revealFate(state.players[rc.target], 2, state.rngState)
+    let next = updatePlayer({ ...state, rngState: r.rngState }, rc.target, () => r.player)
+    if (r.revealed.length === 0) {
+      next = roseRemoveObstacle(next, rc.target)
+      return { ...next, roseChain: null }
+    }
+    return {
+      ...next,
+      pendingFate: { target: rc.target, revealed: r.revealed },
+      roseChain: { target: rc.target, phase: 'play-new' },
+      log: [...next.log, `La Rose : 2 cartes Fatalité piochées — jouez-en une.`],
+    }
+  }
+  // phase 'play-new' : la carte choisie vient d'être jouée → retire 1 Obstacle, fin.
+  const next = roseRemoveObstacle(state, rc.target)
+  return { ...next, roseChain: null }
+}
+
 function applyResolveFate(
   state: GameState,
   instanceId: string,
@@ -1843,10 +1999,16 @@ function applyResolveFate(
 ): GameState {
   const pending = state.pendingFate
   const revealed = pending?.revealed ?? []
+  // Gaston — La Rose : si on choisit de la jouer (hors chaîne déjà en cours), elle
+  // déclenche sa cascade au lieu de la résolution standard.
+  const chosenCard = revealed.find((c) => c.instanceId === instanceId)
+  if (chosenCard?.cardId === 'la-rose' && !state.roseChain) {
+    return startRose(state, pending!.target, revealed, instanceId)
+  }
   // Combo « jouer les deux » (data-driven, fatePlayBoth : Ray, Dormeur). On
   // n'active le combo que tant que la Fatalité courante n'est PAS déjà la 2ᵉ carte
   // facultative (sinon on bouclerait).
-  const canPlayBoth = revealed.some((c) => c.fatePlayBoth) && !pending?.optional
+  const canPlayBoth = !state.roseChain && revealed.some((c) => c.fatePlayBoth) && !pending?.optional
   const others = revealed.filter((c) => c.instanceId !== instanceId)
   const target = pending?.target ?? -1
 
@@ -2430,7 +2592,14 @@ function applyResolveFateInner(
   // (défausse 1 Poison + un Héros de la défausse Fatalité revient sur le dessus).
   // Scar — Hakuna Matata : Événement Fatalité résolu sur la CIBLE (Scar), comme
   // les Événements de la Méchante Reine ci-dessus.
-  if (chosen.cardId === 'animaux-foret' || chosen.cardId === 'premier-baiser' || chosen.cardId === 'hakuna-matata') {
+  // Le Seigneur des clés — Événements Fatalité résolus sur la CIBLE (le Seigneur) :
+  // Plaisir ou souffrance, J'ai affronté mon cauchemar, Sorcellerie, Duel.
+  if (
+    chosen.cardId === 'animaux-foret' || chosen.cardId === 'premier-baiser' || chosen.cardId === 'hakuna-matata' ||
+    chosen.cardId === 'plaisir-ou-souffrance' || chosen.cardId === 'jai-affronte-mon-cauchemar' ||
+    chosen.cardId === 'sorcellerie' || chosen.cardId === 'duel' ||
+    chosen.cardId === 'bibbidi-bobbidi-boo' || chosen.cardId === 'sweet-nightingale'
+  ) {
     let next = updatePlayer(state, pending.target, (p) => ({
       ...p,
       fateDiscard: [...p.fateDiscard, chosen, ...others],
@@ -3345,15 +3514,15 @@ function applyActivateCore(
   }
   if (card.cardId === 'telephone') {
     // Téléphone : paie 1 JT, joue gratuitement un Allié de la défausse (sur le lieu
-    // du pion par défaut).
+    // du pion par défaut). Injouable s'il n'y a aucun Allié en défausse.
     const ap = state.activePlayer
     const ally = me.discard.find((c) => c.type === 'ally')
+    if (!ally) {
+      throw new Error('Aucun Allié dans votre défausse : le Téléphone n’a aucun effet.')
+    }
     let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost! - nannyTax }))
     next = consumePersifleur(next, action)
     next = { ...next, usedActionIds: [...next.usedActionIds, actionId] }
-    if (!ally) {
-      return { ...next, log: [...next.log, `${me.villainName} active le **Téléphone** : aucun Allié en défausse.`] }
-    }
     const dest = me.pawnLocation ?? me.locations[0].id
     next = updateActivePlayer(next, (p) => ({
       ...p,
@@ -3362,6 +3531,23 @@ function applyActivateCore(
     }))
     next = pushFloatingFx(next, { kind: 'play-card', playerIndex: ap, locationId: dest, cardId: ally.cardId })
     return { ...next, log: [...next.log, `${me.villainName} active le **Téléphone** : rejoue **${ally.name}** sur **${findLocation(me, dest)!.name}** (−${card.activatedCost} JT).`] }
+  }
+
+  if (card.cardId === 'monsieur-darque') {
+    // Gaston — Monsieur D'Arque : paie le coût, puis retire un Obstacle (REMOVE_OBSTACLE
+    // max 1). Injouable si Belle bloque ou s'il ne reste aucun Obstacle (garde-fou ci-dessous).
+    const ap = state.activePlayer
+    if (belleBlocksRemoval(me)) {
+      throw new Error('Belle est dans le royaume : aucun Obstacle ne peut être retiré.')
+    }
+    if (totalObstacles(me) === 0) {
+      throw new Error('Aucun Obstacle à retirer : inutile d’activer Monsieur D’Arque.')
+    }
+    let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost! - nannyTax }))
+    next = consumePersifleur(next, action)
+    next = { ...next, usedActionIds: [...next.usedActionIds, actionId] }
+    next = { ...next, log: [...next.log, `${me.villainName} active **Monsieur D’Arque** (−${card.activatedCost} JT).`] }
+    return resolveEffects(next, [{ type: 'REMOVE_OBSTACLE', max: 1 }], { actorIndex: ap })
   }
 
   throw new Error(`Capacité activée non implémentée pour ${card.name}.`)
@@ -3521,6 +3707,257 @@ function applyDiabloFreeAction(
 function applyDiabloSkipFreeAction(state: GameState): GameState {
   if (!state.diabloFree) return state
   return { ...state, diabloFree: null }
+}
+
+/**
+ * Gaston — Belle est à moi / Tous avec moi : exécute l'action gratuite armée
+ * (`grantedAction`). On INJECTE une action synthétique du bon type sur le lieu du
+ * pion (même si le lieu ne la propose pas — Gaston n'a aucune action « Déplacer »
+ * imprimée), slots d'actions vierges, puis on délègue à applyAction (VANQUISH /
+ * MOVE_CARD), avant de restaurer le contexte de tour réel (l'action gratuite ne
+ * consomme aucun slot du lieu courant). Mécanique sœur de l'action gratuite de Diablo.
+ */
+function applyPerformGrantedAction(
+  state: GameState,
+  inner: Extract<GameAction, { type: 'VANQUISH' | 'MOVE_CARD' }>,
+): GameState {
+  const g = state.grantedAction
+  if (!g) throw new Error("Aucune action gratuite n'est disponible.")
+  const idx = g.playerIndex
+  const realLocations = state.players[idx].locations
+  const realUsed = state.usedActionIds
+  const realPhase = state.phase
+  const pawn = state.players[idx].pawnLocation
+  if (!pawn) throw new Error('Le pion doit être placé pour effectuer cette action.')
+  const synthId = 'granted-free-action'
+  let view = updatePlayer(state, idx, (p) => ({
+    ...p,
+    locations: p.locations.map((l) =>
+      l.id === pawn
+        ? { ...l, actions: [...l.actions, { id: synthId, type: g.actionType, label: g.label, row: 'bottom' as const }] }
+        : l,
+    ),
+  }))
+  view = { ...view, phase: 'ACTION', usedActionIds: [], grantedAction: null }
+  let after = applyAction(view, { ...inner, actionId: synthId })
+  // Restaure le plateau réel (sans l'action synthétique) et le contexte de tour.
+  after = updateActivePlayer(after, (p) => ({ ...p, locations: realLocations }))
+  return {
+    ...after,
+    phase: realPhase,
+    usedActionIds: realUsed,
+    grantedAction: null,
+    log: [...after.log, `(action gratuite : ${g.label})`],
+  }
+}
+
+/** Gaston — décline l'action gratuite armée (aucune cible / choix de ne pas l'utiliser). */
+function applySkipGrantedAction(state: GameState): GameState {
+  if (!state.grantedAction) return state
+  return { ...state, grantedAction: null }
+}
+
+const GASTON_OBSTACLE_CAP = 2
+
+/** Ferme un pendingObstacle et déclenche son éventuel suivi (Sous le charme : choix
+ *  gagner Pouvoir / piocher → pendingDrawOrGainPower). */
+function closeObstaclePending(state: GameState, pen: NonNullable<GameState['pendingObstacle']>): GameState {
+  if (pen.then?.drawOrGain) {
+    return {
+      ...state,
+      pendingObstacle: null,
+      pendingDrawOrGainPower: {
+        playerIndex: pen.chooserIndex,
+        draw: pen.then.drawOrGain.draw,
+        power: pen.then.drawOrGain.power,
+        cardId: pen.then.drawOrGain.cardId,
+      },
+    }
+  }
+  return { ...state, pendingObstacle: null }
+}
+
+/** Gaston — retire/replace UN jeton Obstacle sur `locationId` (pendingObstacle).
+ *  Décrémente `remaining` et ferme le pending quand il n'y a plus rien à faire. */
+function applyResolveObstacle(state: GameState, locationId: LocationId): GameState {
+  const pen = state.pendingObstacle
+  if (!pen) throw new Error("Aucun retrait/replacement d'Obstacle en attente.")
+  const target = pen.targetIndex
+  const tp = state.players[target]
+  const cur = tp.obstacles?.[locationId] ?? 0
+  const locName = findLocation(tp, locationId)?.name ?? locationId
+  const setCount = (s: GameState, v: number): GameState =>
+    updatePlayer(s, target, (p) => ({ ...p, obstacles: { ...(p.obstacles ?? {}), [locationId]: v } }))
+
+  if (pen.kind === 'remove') {
+    if (cur <= 0) throw new Error(`${locName} ne porte aucun Obstacle.`)
+    if (pen.sameLocation && pen.lockedLocationId && pen.lockedLocationId !== locationId) {
+      throw new Error('Retrait limité à un seul lieu.')
+    }
+    let next = setCount(state, cur - 1)
+    const remaining = pen.remaining - 1
+    const locked = pen.sameLocation ? locationId : null
+    const total = totalObstacles(next.players[target])
+    const lockedEmpty = pen.sameLocation && (next.players[target].obstacles?.[locationId] ?? 0) === 0
+    const done = remaining <= 0 || total === 0 || lockedEmpty
+    next = done ? closeObstaclePending(next, pen) : { ...next, pendingObstacle: { ...pen, remaining, lockedLocationId: locked } }
+    return { ...next, log: [...next.log, `${tp.villainName} retire 1 Obstacle de **${locName}** (${total} restant${total > 1 ? 's' : ''}).`] }
+  }
+  // replace
+  if (cur >= GASTON_OBSTACLE_CAP) throw new Error(`${locName} porte déjà 2 Obstacles.`)
+  if (pen.fillLocation) {
+    const next = closeObstaclePending(setCount(state, GASTON_OBSTACLE_CAP), pen)
+    return { ...next, log: [...next.log, `Obstacles replacés sur **${locName}** (plein) chez ${tp.villainName}.`] }
+  }
+  let next = setCount(state, cur + 1)
+  const remaining = pen.remaining - 1
+  const freeSlots = next.players[target].locations.filter(
+    (l) => (next.players[target].obstacles?.[l.id] ?? 0) < GASTON_OBSTACLE_CAP,
+  ).length
+  const done = remaining <= 0 || freeSlots === 0
+  next = done ? closeObstaclePending(next, pen) : { ...next, pendingObstacle: { ...pen, remaining } }
+  return { ...next, log: [...next.log, `1 Obstacle replacé sur **${locName}** chez ${tp.villainName}.`] }
+}
+
+/** Gaston — termine un retrait/replacement d'Obstacles facultatif (ferme le pending +
+ *  déclenche son suivi éventuel). */
+function applyDoneObstacle(state: GameState): GameState {
+  if (!state.pendingObstacle) return state
+  return closeObstaclePending(state, state.pendingObstacle)
+}
+
+// --- Le Seigneur des clés ---------------------------------------------------
+
+/** Action « Obtenir une clé » (Crypte) : ouvre le choix d'une clé du lieu courant. */
+function applyObtainKey(state: GameState, actionId: string): GameState {
+  if (state.phase !== 'ACTION') throw new Error(`Impossible d'obtenir une clé en phase ${state.phase}.`)
+  if (!isActionAvailable(state, actionId)) throw new Error(`Action indisponible : « ${actionId} ».`)
+  const action = currentLocation(state)!.actions.find((a) => a.id === actionId)!
+  if (action.type !== 'OBTAIN_KEY') throw new Error(`« ${actionId} » n'est pas une action « Obtenir une clé ».`)
+  // Lance le dé de couleur : la couleur obtenue désigne la clé ramassée sur le plateau.
+  let next = resolveEffects(state, [{ type: 'ROLL_DIE_TAKE_KEY_FROM_BOARD' }], { actorIndex: state.activePlayer })
+  next = consumePersifleur(next, action)
+  return { ...next, usedActionIds: [...next.usedActionIds, actionId] }
+}
+
+/** Nombre de clés actuellement posées sur un lieu d'un joueur. */
+function keysAtLocation(p: GameState['players'][number], locId: string): number {
+  return (p.keys ?? []).filter((k) => k.location === locId && !k.stolenBy).length
+}
+
+/** Résout un choix de clé (pendingKey) : ramasser (→ possédée) ou perdre (→ lieu).
+ *  `locationId` : lieu de dépose choisi (mode 'lose' avec `chooseDest`). */
+function applyResolveKey(state: GameState, keyId: string, locationId?: LocationId): GameState {
+  const pen = state.pendingKey
+  if (!pen) throw new Error('Aucun choix de clé en attente.')
+  const idx = pen.playerIndex
+  const key = (state.players[idx].keys ?? []).find((k) => k.id === keyId)
+  if (!key) throw new Error('Clé introuvable.')
+  if (pen.kind === 'take') {
+    if (key.location === null || key.stolenBy) throw new Error('Cette clé n’est pas sur le plateau.')
+    if (pen.locationId !== undefined && key.location !== pen.locationId) throw new Error('Cette clé n’est pas sur ce lieu.')
+    if (pen.color !== undefined && key.color !== pen.color) throw new Error('Cette clé n’est pas de la couleur tirée.')
+    const next = updatePlayer(state, idx, (p) => ({
+      ...p,
+      keys: (p.keys ?? []).map((k) => (k.id === keyId ? { ...k, location: null } : k)),
+    }))
+    return { ...next, pendingKey: null, log: [...next.log, `${state.players[idx].villainName} ramasse une clé ${key.color}.`] }
+  }
+  // 'lose' : la clé possédée retourne sur le plateau, puis on applique le suivi.
+  if (key.location !== null || key.stolenBy) throw new Error('Cette clé n’est pas en votre possession.')
+  let dest: LocationId
+  if (pen.chooseDest) {
+    // Lieu choisi par le joueur : doit comporter moins de 3 clés.
+    if (!locationId || !findLocation(state.players[idx], locationId)) throw new Error('Lieu de dépose invalide.')
+    if (keysAtLocation(state.players[idx], locationId) >= 3) throw new Error('Ce lieu comporte déjà 3 clés.')
+    dest = locationId
+  } else {
+    dest = state.players[idx].pawnLocation ?? state.players[idx].locations[0].id
+  }
+  let next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    keys: (p.keys ?? []).map((k) => (k.id === keyId ? { ...k, location: dest } : k)),
+  }))
+  next = { ...next, pendingKey: null, log: [...next.log, `${state.players[idx].villainName} repose une clé ${key.color} sur **${findLocation(next.players[idx], dest)?.name ?? dest}**.`] }
+  if (pen.then?.gainPower) next = updatePlayer(next, idx, (p) => ({ ...p, power: p.power + pen.then!.gainPower! }))
+  if (pen.then?.draw) {
+    const d = drawPlayerToLimitN(next.players[idx], next.rngState, pen.then.draw)
+    next = { ...updatePlayer(next, idx, () => d.player), rngState: d.rngState }
+  }
+  return next
+}
+
+/** 00:00 : couleur choisie → lance le dé ; si match (et non bloqué), ramasse une clé
+ *  de cette couleur présente sur le plateau (n'importe quel lieu). */
+function applyResolveKeyColor(state: GameState, color: string): GameState {
+  const pen = state.pendingKeyColor
+  if (!pen) throw new Error('Aucun choix de couleur en attente.')
+  const idx = pen.playerIndex
+  const roll = rollColorDie(state.rngState)
+  const next: GameState = { ...state, rngState: roll.rngState, lastDieColor: roll.color, pendingKeyColor: null, dieRoll: { seq: (state.dieRoll?.seq ?? 0) + 1, color: roll.color, by: idx } }
+  const blocked = next.players[idx].dieBlockedColor === roll.color
+  if (roll.color === color && !blocked) {
+    const matches = (next.players[idx].keys ?? []).filter((k) => k.location !== null && !k.stolenBy && k.color === roll.color)
+    if (matches.length > 0) {
+      // Choix interactif : le joueur prend la clé de cette couleur qu'il veut.
+      return { ...next, pendingKey: { playerIndex: idx, kind: 'take', color: roll.color, label: `00:00 — prenez une clé ${roll.color}` }, log: [...next.log, `00:00 — dé : **${roll.color}** = couleur choisie : ${state.players[idx].villainName} peut prendre une clé ${roll.color} !`] }
+    }
+    return { ...next, log: [...next.log, `00:00 — dé : **${roll.color}** : aucune clé ${roll.color} sur le plateau.`] }
+  }
+  return { ...next, log: [...next.log, `00:00 — dé : **${roll.color}** (couleur choisie : ${color})${blocked ? ' — bloquée par Baron Samedi' : ''}. Raté.`] }
+}
+
+/** Plaisir ou souffrance : le Seigneur perd du Pouvoir OU repose une clé. */
+function applyResolvePlaisir(state: GameState, choice: 'power' | 'key'): GameState {
+  const pen = state.pendingPlaisir
+  if (!pen) throw new Error('Aucun choix Plaisir ou souffrance en attente.')
+  const idx = pen.playerIndex
+  if (choice === 'power') {
+    const next = updatePlayer({ ...state, pendingPlaisir: null }, idx, (p) => ({ ...p, power: Math.max(0, p.power - pen.power) }))
+    return { ...next, log: [...next.log, `${state.players[idx].villainName} perd ${pen.power} Pouvoir (Plaisir ou souffrance).`] }
+  }
+  // 'key' : repose une clé (ouvre le choix de la clé à reposer).
+  const owned = (state.players[idx].keys ?? []).filter((k) => k.location === null && !k.stolenBy)
+  if (owned.length === 0) {
+    // Aucune clé : on retombe sur la perte de Pouvoir.
+    const next = updatePlayer({ ...state, pendingPlaisir: null }, idx, (p) => ({ ...p, power: Math.max(0, p.power - pen.power) }))
+    return { ...next, log: [...next.log, `${state.players[idx].villainName} n'a aucune clé : perd ${pen.power} Pouvoir.`] }
+  }
+  return { ...state, pendingPlaisir: null, pendingKey: { playerIndex: idx, kind: 'lose', chooseDest: true, label: 'Reposez une clé (Plaisir ou souffrance)' } }
+}
+
+/** Sorcellerie / Gévaudan : l'adversaire a choisi une clé du Seigneur. 'steal' →
+ *  volée par le Héros hôte ; 'return' → reposée sur `locationId`. */
+function applyResolveStealKey(state: GameState, keyId: string, locationId?: LocationId): GameState {
+  const pen = state.pendingStealKey
+  if (!pen) throw new Error('Aucun choix de clé adverse en attente.')
+  const t = pen.targetIndex
+  const key = (state.players[t].keys ?? []).find((k) => k.id === keyId && k.location === null && !k.stolenBy)
+  if (!key) throw new Error('Cette clé n’est pas en possession du Seigneur.')
+  if (pen.mode === 'steal') {
+    const next = updatePlayer(state, t, (p) => ({
+      ...p,
+      keys: (p.keys ?? []).map((k) => (k.id === keyId ? { ...k, location: null, stolenBy: pen.hostInstanceId } : k)),
+    }))
+    // Gévaudan vole plusieurs clés : on garde le pending tant qu'il reste des clés à
+    // voler ET que le Seigneur en possède encore.
+    const remaining = (pen.count ?? 1) - 1
+    const stillOwned = (next.players[t].keys ?? []).some((k) => k.location === null && !k.stolenBy)
+    const keepOpen = remaining > 0 && stillOwned
+    return {
+      ...next,
+      pendingStealKey: keepOpen ? { ...pen, count: remaining } : null,
+      log: [...next.log, `Gévaudan vole une clé ${key.color} à ${state.players[t].villainName}.`],
+    }
+  }
+  // 'return' : repose la clé sur le lieu choisi (défaut : lieu du pion).
+  const dest = locationId ?? state.players[t].pawnLocation ?? state.players[t].locations[0].id
+  if (!findLocation(state.players[t], dest)) throw new Error('Lieu invalide.')
+  const next = updatePlayer(state, t, (p) => ({
+    ...p,
+    keys: (p.keys ?? []).map((k) => (k.id === keyId ? { ...k, location: dest } : k)),
+  }))
+  return { ...next, pendingStealKey: null, log: [...next.log, `Sorcellerie : une clé ${key.color} de ${state.players[t].villainName} est reposée sur **${findLocation(next.players[t], dest)?.name ?? dest}**.`] }
 }
 
 /** Tendre un Piège : exécute l'action Éliminer un Héros facultative. */
@@ -4536,6 +4973,27 @@ function applyResolveQuelsIdiotsPick(state: GameState, instanceId: string): Game
   return pending.phase === 'move'
     ? doQuelsMove(cleared, pending.playerIndex, instanceId)
     : doQuelsTutor(cleared, pending.playerIndex, instanceId)
+}
+
+/** Cruella d'Enfer — capture choisie : capture la Tuile `tileId` du lieu en attente. */
+function applyResolvePuppyCapture(state: GameState, tileId: string): GameState {
+  const pending = state.pendingPuppyCapture
+  if (!pending) throw new Error('Aucune capture de Tuile Chiots en attente.')
+  const idx = pending.playerIndex
+  const tile = (state.players[idx].puppyTiles ?? []).find((t) => t.id === tileId)
+  if (!tile || tile.state !== 'board' || tile.location !== pending.locationId) {
+    throw new Error('Cette Tuile Chiots ne peut pas être capturée.')
+  }
+  let next = doCapturePuppies(state, idx, [tileId])
+  const remaining = pending.remaining - 1
+  const moreLeft = (next.players[idx].puppyTiles ?? []).some(
+    (t) => t.state === 'board' && t.location === pending.locationId,
+  )
+  next = {
+    ...next,
+    pendingPuppyCapture: remaining > 0 && moreLeft ? { playerIndex: idx, locationId: pending.locationId, remaining } : null,
+  }
+  return next
 }
 
 /** Cruella d'Enfer — Horace : résout le choix capturer / amener. */
@@ -6352,6 +6810,16 @@ function applyEndTurn(state: GameState): GameState {
     uncoverCoveredActions: false,
     lastVanquishedHeroStrength: undefined,
     diabloFree: null,
+    grantedAction: null,
+    pendingObstacle: null,
+    pendingKey: null,
+    pendingKeyColor: null,
+    pendingPlaisir: null,
+    pendingStealKey: null,
+    lastDieColor: null,
+    // NB : on NE remet PAS `dieRoll` à null ici — son `seq` doit croître de façon
+    // monotone sur toute la partie pour que l'UI détecte chaque nouveau lancer
+    // (sinon le seq repartirait à 1 chaque tour et l'anim ne se redéclencherait pas).
     pendingTrapVanquish: null,
     actAtLocation: null,
     actAtLocationSkippable: null,
@@ -6432,6 +6900,17 @@ function applyEndTurn(state: GameState): GameState {
   // Ratigan — la bascule « Le Rat » est désormais immédiate (syncRatiganObjectiveAll
   // après chaque action) ; au pire on resynchronise ici par sécurité avant la victoire.
   started = syncRatiganObjectiveAll(started)
+
+  // Le Seigneur des clés — début de son tour : Carte Temps (repeatActionNextTurn →
+  // repeatActionAvailable) et Peste (actionsCapNextTurn → actionsCap) prennent effet.
+  // On efface toujours actionsCap (sinon un plafond passé persisterait).
+  started = updatePlayer(started, nextIdx, (p) => ({
+    ...p,
+    repeatActionAvailable: p.repeatActionNextTurn ? true : p.repeatActionAvailable,
+    repeatActionNextTurn: false,
+    actionsCap: p.actionsCapNextTurn,
+    actionsCapNextTurn: undefined,
+  }))
 
   // Pat Hibulaire — début de son tour : reset du Pouvoir dépensé + complétion des
   // tuiles « début de tour » remplies (peut déclencher la victoire ici).
@@ -6533,7 +7012,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   // Après chaque action : (1) bascule éventuelle de l'objectif double de Ratigan
   // (Reine Robot défaussée → « Le Rat ») ; (2) Pat Hibulaire — complétion de la
   // tuile Power Play si ≥6 Pouvoir dépensés ce tour sur le bon lieu.
-  return syncPetePowerPlay(syncRatiganObjectiveAll(applyActionCore(state, action)))
+  return syncRoseChain(syncPetePowerPlay(syncRatiganObjectiveAll(applyActionCore(state, action))))
 }
 
 function applyActionCore(state: GameState, action: GameAction): GameState {
@@ -6615,6 +7094,14 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
     action.type !== 'PLAY_CONDITION'
   ) {
     throw new Error('Choisissez l’option d’Horace (RESOLVE_HORACE_CHOICE).')
+  }
+  // Cruella — capture choisie : la sélection des Tuiles Chiots à capturer est en attente.
+  if (
+    state.pendingPuppyCapture &&
+    action.type !== 'RESOLVE_PUPPY_CAPTURE' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Choisissez les Tuiles Chiots à capturer (RESOLVE_PUPPY_CAPTURE).')
   }
   // Cruella — Quels idiots ! : un choix (option ou Allié) est en attente.
   if (
@@ -6883,6 +7370,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyDonePuppyReveal(state)
     case 'RESOLVE_HORACE_CHOICE':
       return applyResolveHoraceChoice(state, action.capture)
+    case 'RESOLVE_PUPPY_CAPTURE':
+      return applyResolvePuppyCapture(state, action.tileId)
     case 'RESOLVE_QUELS_IDIOTS':
       return applyResolveQuelsIdiots(state, action.choice)
     case 'RESOLVE_QUELS_IDIOTS_PICK':
@@ -7007,6 +7496,24 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyDiabloFreeAction(state, action.action)
     case 'DIABLO_SKIP_FREE_ACTION':
       return applyDiabloSkipFreeAction(state)
+    case 'PERFORM_GRANTED_ACTION':
+      return applyPerformGrantedAction(state, action.action)
+    case 'SKIP_GRANTED_ACTION':
+      return applySkipGrantedAction(state)
+    case 'OBTAIN_KEY':
+      return applyObtainKey(state, action.actionId)
+    case 'RESOLVE_KEY':
+      return applyResolveKey(state, action.keyId, action.locationId)
+    case 'RESOLVE_KEY_COLOR':
+      return applyResolveKeyColor(state, action.color)
+    case 'RESOLVE_PLAISIR':
+      return applyResolvePlaisir(state, action.choice)
+    case 'RESOLVE_STEAL_KEY':
+      return applyResolveStealKey(state, action.keyId, action.locationId)
+    case 'RESOLVE_OBSTACLE':
+      return applyResolveObstacle(state, action.locationId)
+    case 'DONE_OBSTACLE':
+      return applyDoneObstacle(state)
     case 'TRAP_VANQUISH':
       return applyTrapVanquish(state, action.heroInstanceId, action.allyInstanceIds)
     case 'TRAP_SKIP_VANQUISH':

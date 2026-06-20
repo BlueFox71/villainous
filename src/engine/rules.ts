@@ -33,6 +33,7 @@ export const SUPPORTED_ACTION_TYPES: readonly LocationActionType[] = [
   'VANQUISH',
   'ACTIVATE',
   'BREW_POISON',
+  'OBTAIN_KEY',
 ]
 
 /** Une action est-elle prise en charge par le moteur dans sa version actuelle ? */
@@ -76,7 +77,8 @@ export function heroesAt(state: GameState, locationId: LocationId): CardInstance
  * considère comme NON recouverte le temps de cette utilisation.
  */
 export function isActionCovered(state: GameState, action: LocationAction): boolean {
-  if (action.row !== 'top') return false
+  // En général seules les actions du HAUT sont recouvertes, MAIS un Héros « coversExtraAction »
+  // (Le Seigneur des clés — Hellin) recouvre aussi une action du bas → on ne court-circuite plus.
   const loc = currentLocation(state)
   if (!loc) return false
   // Persifleur : le joueur peut utiliser UNE action recouverte → on les considère
@@ -103,7 +105,9 @@ export function coveredTopActionIdsAt(player: PlayerState, locationId: LocationI
   if (!loc) return covered
   const tops = loc.actions.filter((a) => a.row === 'top')
   const heroesHere = (player.board[locationId] ?? []).filter(
-    (c) => c.type === 'hero' && !c.hypnotized,
+    // Un Héros hypnotisé (contrôlé), PIÉGÉ (Madame de Trémaine), ou le Prince (allié
+    // de Madame de Trémaine) ne recouvre aucune action.
+    (c) => c.type === 'hero' && !c.hypnotized && !c.trapped && c.cardId !== 'the-prince',
   )
   for (const h of heroesHere) {
     if (h.heroSize === 'shrunk') {
@@ -112,6 +116,12 @@ export function coveredTopActionIdsAt(player: PlayerState, locationId: LocationI
     } else {
       for (const a of tops) covered.add(a.id)
     }
+  }
+  // Le Seigneur des clés — Hellin (coversExtraAction) : recouvre AUSSI la 1ʳᵉ action
+  // du bas (3 actions recouvertes au lieu de 2).
+  if (heroesHere.some((h) => h.coversExtraAction)) {
+    const firstBottom = loc.actions.find((a) => a.row === 'bottom')
+    if (firstBottom) covered.add(firstBottom.id)
   }
   // Débordement d'un Héros agrandi d'un lieu voisin (action de bord recouverte ici).
   for (const cards of Object.values(player.board)) {
@@ -188,6 +198,10 @@ export function getAvailableActions(state: GameState): LocationAction[] {
   if (state.status !== 'PLAYING' || state.phase !== 'ACTION') return []
   // Yzma — Beauté endormie : verrou « seule action » → plus aucune action ce tour.
   if (activePlayer(state).soleActionLock) return []
+  // Le Seigneur des clés — Peste : plafond d'actions ce tour. Au-delà, plus d'action
+  // de lieu (on compte les actions de lieu jouées = ids non scopés).
+  const cap = activePlayer(state).actionsCap
+  if (cap !== undefined && state.usedActionIds.filter((id) => !id.includes(':')).length >= cap) return []
   const loc = currentLocation(state)
   if (!loc) return []
   // La Méchante Reine — Noir de nuit : tant que le drapeau est armé, une action
@@ -209,7 +223,10 @@ export function getAvailableActions(state: GameState): LocationAction[] {
       (a.type !== 'ACTIVATE' || activatableCards(state).length > 0) &&
       // « Préparer du Poison » indisponible si aucun Pouvoir n'est convertible
       // (0 Pouvoir, ou 1 Pouvoir entièrement absorbé par le surcoût Timide).
-      (a.type !== 'BREW_POISON' || maxBrewPoison(state) >= 1),
+      (a.type !== 'BREW_POISON' || maxBrewPoison(state) >= 1) &&
+      // Le Seigneur des clés — « Obtenir une clé » (lancer du dé) indisponible si plus
+      // aucune clé sur le plateau (le dé n'aurait rien à ramasser).
+      (a.type !== 'OBTAIN_KEY' || (activePlayer(state).keys ?? []).some((k) => k.location !== null && !k.stolenBy)),
   )
 }
 
@@ -330,7 +347,8 @@ export function movableCards(state: GameState): { instanceId: string; from: Loca
       if (c.trapped) continue // Hadès : Titan entravé, non déplaçable
       // Une Malédiction est traitée comme un Objet : elle se déplace aussi. Un
       // Héros hypnotisé (Jafar) compte comme un Allié → déplaçable lui aussi.
-      const isControlledAlly = c.type === 'hero' && c.hypnotized
+      // Héros hypnotisé (Jafar) OU le Prince (Madame de Trémaine) → déplaçable comme un Allié.
+      const isControlledAlly = (c.type === 'hero' && c.hypnotized) || c.cardId === 'the-prince'
       // Sombra : une carte de Piratage ne peut JAMAIS être déplacée.
       if (c.isPiratage) continue
       if (((c.type === 'ally' || c.type === 'item' || c.type === 'curse') && !c.attachedTo) || isControlledAlly) {
@@ -367,6 +385,12 @@ export function activatableCards(state: GameState): CardInstance[] {
           Object.values(me.board).flat().some((x) => x.cardId === 'felicia')
         if (feliciaOut) continue
       }
+      // Cruella — Téléphone : rejoue un Allié de la défausse. Inutile (non activable)
+      // s'il n'y a aucun Allié dans la défausse.
+      if (c.cardId === 'telephone' && !me.discard.some((x) => x.type === 'ally')) continue
+      // Gaston — Monsieur D'Arque : retire un Obstacle. Inutile (non activable) si
+      // Belle bloque le retrait ou s'il ne reste aucun Obstacle.
+      if (c.cardId === 'monsieur-darque' && (belleBlocksRemoval(me) || totalObstacles(me) === 0)) continue
       out.push(c)
     }
   }
@@ -479,6 +503,12 @@ export function effectiveStrength(
         const others = cell.filter((c) => c.isHyena && c.instanceId !== card.instanceId).length
         return sum + m.delta * others
       }
+      case 'per-other-same-cardId-realm': {
+        const others = Object.values(p.board)
+          .flat()
+          .filter((c) => c.cardId === card.cardId && c.instanceId !== card.instanceId).length
+        return sum + m.delta * others
+      }
     }
   }, 0)
 
@@ -518,7 +548,7 @@ export function effectiveStrength(
     const heroAura = cell.reduce((sum, c) => {
       if (c.trapped) return sum // Titan entravé (Hydros) : capacité ignorée.
       const m = c.strengthMod
-      if (m && m.target === 'heroes-here') {
+      if (m && m.target === 'heroes-here' && !(m.excludeSelf && c.instanceId === card.instanceId)) {
         if (m.onlyIfActivatedThisTurn && !c.activatedThisTurn) return sum
         return sum + m.delta
       }
@@ -662,7 +692,8 @@ export function cardNeedsHeroTarget(card: CardInstance): boolean {
       e.type === 'HYPNOTIZE_HERO' ||
       e.type === 'SET_HERO_SIZE' ||
       e.type === 'REDUCE_HERO_STRENGTH_TEMP' ||
-      e.type === 'HACK_HERO',
+      e.type === 'HACK_HERO' ||
+      e.type === 'TRAP_HERO',
   )
 }
 
@@ -764,6 +795,10 @@ export function conditionIsTriggered(
       return (state.activeGainedPower ?? 0) >= card.trigger.value
     case 'opponent-played-cards-ge':
       return (state.activePlayedCount ?? 0) >= card.trigger.value
+    case 'opponent-actions-ge':
+      // « réalise au moins N actions » : on compte les actions de lieu effectuées
+      // ce tour par l'adversaire actif (ids non scopés, hors marqueurs internes).
+      return state.usedActionIds.filter((id) => !id.includes(':')).length >= card.trigger.value
     case 'opponent-fate-targeted-me':
       return (state.activeFateTargets ?? []).includes(playerIndex)
   }
@@ -809,6 +844,11 @@ export function realmRelocateCandidates(
 
 export function playableConditions(state: GameState, playerIndex: number): CardInstance[] {
   if (playerIndex === state.activePlayer) return []
+  // Le Seigneur des clés — Élisabeth Bathory : tant qu'elle est dans son royaume,
+  // ses Conditions sont inutilisables.
+  if (Object.values(state.players[playerIndex].board).flat().some((c) => c.type === 'hero' && c.cardId === 'elisabeth-bathory')) {
+    return []
+  }
   return state.players[playerIndex].hand.filter(
     (c) => c.type === 'condition' && conditionIsTriggered(state, c, playerIndex),
   )
@@ -897,6 +937,32 @@ export function capturedPuppies(p: PlayerState): number {
   return (p.puppyTiles ?? []).filter((t) => t.state === 'captured').reduce((n, t) => n + t.value, 0)
 }
 
+/** Gaston — nombre total de jetons Obstacle restants sur le plateau (somme par lieu). */
+export function totalObstacles(p: PlayerState): number {
+  return Object.values(p.obstacles ?? {}).reduce((n, v) => n + v, 0)
+}
+
+/** Gaston — Belle, tant qu'elle est présente dans le royaume, empêche tout RETRAIT
+ *  d'Obstacle (le retrait par REMOVE_OBSTACLE/Vanquish doit alors être bloqué). */
+export function belleBlocksRemoval(p: PlayerState): boolean {
+  return Object.values(p.board).flat().some((c) => c.type === 'hero' && c.cardId === 'belle')
+}
+
+/** Le Seigneur des clés — clés POSSÉDÉES (sur aucun lieu et non volées). */
+export function ownedKeys(p: PlayerState): { id: string; color: string }[] {
+  return (p.keys ?? []).filter((k) => k.location === null && !k.stolenBy)
+}
+
+/** Le Seigneur des clés — ensemble des COULEURS de clé possédées. */
+export function ownedKeyColors(p: PlayerState): Set<string> {
+  return new Set(ownedKeys(p).map((k) => k.color))
+}
+
+/** Le Seigneur des clés — détient-il la Clé Noire (bloque la victoire) ? */
+export function holdsBlackKey(p: PlayerState): boolean {
+  return Object.values(p.board).flat().some((c) => c.cardId === 'cle-noire')
+}
+
 /** Le joueur `playerIndex` (défaut : joueur actif) a-t-il atteint son objectif de
  *  victoire ? Dispatch sur le type d'objectif (POWER_THRESHOLD, CURSE_EACH_LOCATION,
  *  …). Les objectifs déclenchés « à l'instant » (Coup Royal, Vanquish, Divination)
@@ -910,6 +976,19 @@ export function hasReachedObjective(state: GameState, playerIndex: number = stat
       return (p.confiance ?? 0) >= p.objective.threshold
     case 'PUPPY_THRESHOLD':
       return capturedPuppies(p) >= p.objective.threshold
+    case 'REMOVE_ALL_OBSTACLES':
+      return totalObstacles(p) === 0
+    case 'KEYS_ALL_COLORS':
+      return ownedKeyColors(p).size >= 6 && !holdsBlackKey(p)
+    case 'MARRY_PRINCE': {
+      const obj = p.objective
+      const ballroom = p.board[obj.ballroomId] ?? []
+      const gown = ballroom.some((c) => obj.ballGownCardIds.includes(c.cardId) && c.type === 'ally' && !c.attachedTo)
+      const prince = ballroom.some((c) => c.cardId === obj.princeCardId)
+      const bells = Object.values(p.board).flat().some((c) => c.cardId === obj.bellsCardId && !c.attachedTo)
+      const slipper = Object.values(p.board).flat().some((c) => c.cardId === obj.slipperCardId)
+      return gown && prince && bells && !slipper
+    }
     case 'CURSE_EACH_LOCATION':
       return p.locations.every((loc) =>
         (p.board[loc.id] ?? []).some((c) => c.type === 'curse'),

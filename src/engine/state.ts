@@ -11,7 +11,8 @@ import type {
   PlayerState,
   VillainDef,
 } from './types'
-import { shuffle } from './rng'
+import { shuffle, nextRandom } from './rng'
+import { KEY_COLORS, type KeyColor } from './types'
 
 /** Nombre de cartes en main à compléter en fin de tour. */
 export const HAND_LIMIT = 4
@@ -312,6 +313,11 @@ function makePlayer(
           revealed: false,
         }))
       : undefined,
+    // Gaston — jetons Obstacle : `startingObstacles` par lieu (2 → 8 au total).
+    obstacles:
+      villain.startingObstacles !== undefined
+        ? Object.fromEntries(villain.locations.map((l) => [l.id, villain.startingObstacles!]))
+        : undefined,
   }
 }
 
@@ -482,6 +488,27 @@ export function createInitialGame(setups: PlayerSetup[], seed: number): GameStat
       const r = shuffle(player.puppyTiles, rngState)
       rngState = r.state
       player = { ...player, puppyTiles: r.result }
+    }
+    // Le Seigneur des clés — génère 12 clés (3/lieu) : une de chaque couleur (≥1 garanti)
+    // + le reste tiré au hasard (max 4/couleur), mélangées puis réparties par lieu.
+    if (villain.startingKeysPerLocation) {
+      const per = villain.startingKeysPerLocation
+      const total = villain.locations.length * per
+      const counts: Record<KeyColor, number> = { bleu: 0, rouge: 0, vert: 0, jaune: 0, violet: 0, orange: 0 }
+      const bag: KeyColor[] = []
+      for (const c of KEY_COLORS) { bag.push(c); counts[c]++ } // ≥1 de chaque couleur
+      while (bag.length < total) {
+        const avail = KEY_COLORS.filter((c) => counts[c] < 4)
+        const r = nextRandom(rngState); rngState = r.state
+        const c = avail[Math.floor(r.value * avail.length)] ?? avail[0]
+        bag.push(c); counts[c]++
+      }
+      const sh = shuffle(bag, rngState); rngState = sh.state
+      const locs = villain.locations.map((l) => l.id)
+      player = {
+        ...player,
+        keys: sh.result.map((color, i) => ({ id: `key-${i}`, color, location: locs[Math.floor(i / per)] })),
+      }
     }
     const drawn = drawPlayerToLimit(player, rngState)
     rngState = drawn.rngState

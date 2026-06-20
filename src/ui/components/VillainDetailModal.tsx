@@ -316,6 +316,7 @@ export function VillainDetailModal({ villain, onClose }: Props) {
   const presentationTransform =
     `translateX(7rem) translateY(-50%) scale(${tweak?.scale ?? 1}) translate(${tweak?.dxPct ?? 0}%, ${tweak?.dyPct ?? 0}%)`
   const [showCards, setShowCards] = useState(false)
+  const [showBoard, setShowBoard] = useState(false)
   // Bouton Debug réservé au développement local (URL contenant « localhost »).
   const isLocalhost = typeof window !== 'undefined' && window.location.href.includes('localhost')
   const [debug, setDebug] = useState(false)
@@ -337,7 +338,7 @@ export function VillainDetailModal({ villain, onClose }: Props) {
     >
       <div
         className={`relative flex max-h-full w-full items-center transition-[max-width] duration-300 ${
-          showCards ? 'max-w-6xl' : 'max-w-2xl'
+          showCards ? 'max-w-6xl' : showBoard ? 'max-w-5xl' : 'max-w-2xl'
         }`}
         onClick={(e: MouseEvent) => e.stopPropagation()}
       >
@@ -403,17 +404,35 @@ export function VillainDetailModal({ villain, onClose }: Props) {
               <p className="mt-1 text-sm leading-snug text-white/80">
                 {v.def.objectiveDescription}
               </p>
-              <button
-                type="button"
-                onClick={() => { playPageFlip(); setShowCards((s) => !s) }}
-                className="mt-3 self-start rounded-lg border border-amber-400/50 px-3 py-1.5 text-sm font-semibold text-amber-200 hover:bg-amber-400/10"
-              >
-                {showCards ? '← Retour à la fiche' : '🃏 Voir toutes les cartes'}
-              </button>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => { playPageFlip(); setShowBoard(false); setShowCards((s) => !s) }}
+                  className="rounded-lg border border-amber-400/50 px-3 py-1.5 text-sm font-semibold text-amber-200 hover:bg-amber-400/10"
+                >
+                  {showCards ? '← Retour à la fiche' : '🃏 Voir toutes les cartes'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { playPageFlip(); setShowCards(false); setShowBoard((s) => !s) }}
+                  className="rounded-lg border border-sky-400/50 px-3 py-1.5 text-sm font-semibold text-sky-200 hover:bg-sky-400/10"
+                >
+                  {showBoard ? '← Retour à la fiche' : '🗺️ Voir le plateau'}
+                </button>
+              </div>
             </div>
           </div>
 
-          {showCards ? (
+          {showBoard ? (
+            /* Plateau du vilain (image), affiché en grand. */
+            <div className="flex flex-col items-center gap-3">
+              <img
+                src={v.def.boardImage}
+                alt={`Plateau de ${v.def.name}`}
+                className="w-full rounded-lg border border-white/15 shadow-lg"
+              />
+            </div>
+          ) : showCards ? (
             /* Galerie des cartes (Vilain + Fatalité) avec nombre d'exemplaires. */
             <div className="flex flex-col gap-5">
               <DeckGallery title="Deck Vilain" cards={villainCards} count={sumCopies(villainCards)} debug={debug} />

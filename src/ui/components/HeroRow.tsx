@@ -196,6 +196,27 @@ export function HeroRow({
                         <img src="/cards/sombra/hack.png" alt="" aria-hidden="true" className="hg-layer hg-b" />
                       </div>
                     )}
+                    {/* Le Seigneur des clés — clés VOLÉES par ce Héros (Gévaudan) :
+                        affichées en bas de sa carte (récupérées s'il est vaincu). */}
+                    {(() => {
+                      const stolen = (player.keys ?? []).filter((k) => k.stolenBy === c.instanceId)
+                      if (stolen.length === 0) return null
+                      return (
+                        <div
+                          className="pointer-events-none absolute inset-0 flex items-center justify-center gap-0.5"
+                          title={`Clé(s) volée(s) : ${stolen.map((k) => k.color).join(', ')}`}
+                        >
+                          {stolen.map((k) => (
+                            <img
+                              key={k.id}
+                              src={`/cards/seigneur-cles/cle-${k.color}.png`}
+                              alt={`Clé ${k.color} volée`}
+                              className="h-9 w-auto drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)]"
+                            />
+                          ))}
+                        </div>
+                      )
+                    })()}
                     {/* Badge MODIFICATEUR uniquement : +N (Adam de la Halle, Épée de
                         Vérité) ou −N (Sommeil sans Rêves) quand la force du Héros est
                         modifiée. Pas de badge de force « brute ». */}

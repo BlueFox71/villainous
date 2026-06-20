@@ -34,6 +34,9 @@ export type LocationActionType =
    *  N jetons Poison (N au choix). Timide (Héros Fatalité) fait coûter 1 Pouvoir
    *  SUPPLÉMENTAIRE le fait d'utiliser l'action. */
   | 'BREW_POISON'
+  /** Le Seigneur des clés : « Obtenir une clé » — ramasse une clé présente sur le
+   *  lieu courant (choix interactif). */
+  | 'OBTAIN_KEY'
 
 /** Rangée d'une action sur le plateau. Les héros recouvrent la rangée du HAUT
  *  d'un lieu : la position est donc structurante pour la mécanique de Fatalité
@@ -107,6 +110,30 @@ export interface VillainDef {
    *  mise en place. Chaque tuile vaut `value` Chiots et appartient au lieu `homeLocation`
    *  (« le lieu indiqué »). Recopié vers PlayerState.puppyTiles. Absent ailleurs. */
   startingPuppyTiles?: { value: number; homeLocation: LocationId }[]
+  /** Gaston — nombre de jetons Obstacle posés sur CHAQUE lieu à la mise en place
+   *  (2 → 8 au total). Recopié vers PlayerState.obstacles. Absent ailleurs. */
+  startingObstacles?: number
+  /** Le Seigneur des clés — nombre de clés posées par lieu à la mise en place
+   *  (3 → 12 au total ; ≥1 de chaque couleur garanti). Déclenche la génération des
+   *  clés dans createInitialGame. Absent ailleurs. */
+  startingKeysPerLocation?: number
+}
+
+/** Le Seigneur des clés — couleurs de clé (le dé a une face par couleur). */
+export type KeyColor = 'bleu' | 'rouge' | 'vert' | 'jaune' | 'violet' | 'orange'
+
+/** Le Seigneur des clés — l'ordre canonique des 6 couleurs (faces du dé, affichage). */
+export const KEY_COLORS: KeyColor[] = ['bleu', 'rouge', 'vert', 'jaune', 'violet', 'orange']
+
+/** Le Seigneur des clés — une clé. `location` = lieu où elle est posée, ou `null`
+ *  si le Seigneur la POSSÈDE. */
+export interface KeyToken {
+  id: string
+  color: KeyColor
+  location: LocationId | null
+  /** Gévaudan — clé VOLÉE : retirée du Seigneur, rattachée à ce Héros (instanceId).
+   *  Une telle clé ne compte PAS comme possédée. Rendue à sa mort. */
+  stolenBy?: string
 }
 
 /**
@@ -192,6 +219,24 @@ export type ObjectiveDef =
   /** Cruella d'Enfer : avoir CAPTURÉ au moins `threshold` Chiots (somme des valeurs
    *  des Tuiles Chiots capturées) au début de son tour. */
   | { type: 'PUPPY_THRESHOLD'; threshold: number }
+  /** Gaston : avoir RETIRÉ ses 8 jetons Obstacle (aucun ne reste sur le plateau)
+   *  au début de son tour. */
+  | { type: 'REMOVE_ALL_OBSTACLES' }
+  /** Le Seigneur des clés : posséder au moins 1 clé de CHAQUE couleur (6) au début
+   *  de son tour. Bloqué tant qu'il détient la Clé Noire. */
+  | { type: 'KEYS_ALL_COLORS' }
+  /** Madame de Trémaine : MARIER une fille au Prince. Au début de son tour, victoire
+   *  si une fille EN ROBE DE BAL (`ballGownCardIds`) ET le Prince (`princeCardId`)
+   *  sont sur `ballroomId`, que les Cloches de Mariage (`bellsCardId`) sont en jeu,
+   *  et qu'aucune Pantoufle de Verre (`slipperCardId`) n'est dans le royaume. */
+  | {
+      type: 'MARRY_PRINCE'
+      ballroomId: LocationId
+      ballGownCardIds: string[]
+      princeCardId: string
+      bellsCardId: string
+      slipperCardId: string
+    }
   /** Pat Hibulaire : remplir ses 4 tuiles Objectif (tirées parmi 5 à la mise en
    *  place, une par lieu). Chaque tuile a sa propre condition (voir PeteGoalKind),
    *  vérifiée en début de tour (Round Up / Strike It Rich / Rule the Realm) ou à
@@ -341,6 +386,115 @@ export type Effect =
   /** Cruella — Finissez le travail ! : autorise UNE action « Activer » gratuite ce
    *  tour, sur le lieu courant (drapeau freeActivate). */
   | { type: 'GRANT_FREE_ACTIVATE' }
+  // --- Gaston : jetons Obstacle ---------------------------------------------
+  /** Retire jusqu'à `max` jetons Obstacle. `sameLocation` : tous depuis UN SEUL lieu
+   *  (Laissez-moi vous regarder). Sinon, librement répartis (Très mauvais caractère,
+   *  Sortez !, Monsieur D'Arque, Aussi belle que moi). Interactif (pendingObstacle) ;
+   *  bloqué si Belle est dans le royaume. */
+  | { type: 'REMOVE_OBSTACLE'; max: number; sameLocation?: boolean }
+  /** Replace `count` jetons Obstacle (bornés à 2/lieu, total 8). `mode` :
+   *  'free' (défaut, lieux au choix) ; 'each-location' (jusqu'à 1 sur CHAQUE lieu —
+   *  C'est toi) ; 'fill-location' (remplit UN lieu choisi à 2 — Vous m'avez sauvé la vie).
+   *  Sous le charme, Je n'ai jamais…, Me masser les pieds. Interactif (pendingObstacle). */
+  | {
+      type: 'REPLACE_OBSTACLE'
+      count: number
+      mode?: 'free' | 'each-location' | 'fill-location'
+      auto?: boolean
+      /** Gaston — Sous le charme : une fois le(s) Obstacle(s) replacé(s), ouvre le choix
+       *  « gagner `power` Pouvoir OU piocher `draw` cartes » (pendingDrawOrGainPower).
+       *  `cardId` = carte source (affichage du modal). */
+      thenDrawOrGain?: { draw: number; power: number; cardId?: string }
+    }
+  /** Retire TOUS les jetons Obstacle d'un lieu précis (Vanquish de la Bête → Château ;
+   *  de Maurice → Maison de Belle). Non bloqué par Belle (déclenché par un Vanquish). */
+  | { type: 'REMOVE_OBSTACLES_AT_LOCATION'; locationId: LocationId }
+  /** Gaston — Belle est à moi / Tous avec moi : « Effectuez une action X ». Arme une
+   *  action gratuite de type `actionType` exécutable depuis le lieu du pion ce tour
+   *  (grantedAction), même si le lieu ne la propose pas (cf. Diablo). */
+  | { type: 'GRANT_FREE_ACTION'; actionType: LocationActionType }
+  /** Gaston — Gardez-moi en otage : dévoile la pioche Fatalité jusqu'au 1er Héros,
+   *  le joue sur `locationId`, retire `removeObstacle` Obstacle(s), remélange le reste. */
+  | { type: 'REVEAL_FATE_UNTIL_HERO_PLAY'; locationId: LocationId; removeObstacle?: number }
+  /** Gaston — Montre-moi la Bête ! : si la Bête est en jeu → retire 1 Obstacle ;
+   *  si Belle est en jeu → replace 1 Obstacle ; si LES DEUX → gagne 2 Pouvoir (à la
+   *  place). */
+  | { type: 'SHOW_ME_THE_BEAST' }
+  /** Gaston (Fatalité) — C'est la fête : le joueur qui fatalise choisit un Héros de
+   *  la défausse Fatalité de Gaston et le pose sur un lieu (auto : le plus fort, là
+   *  où il gêne le plus). (Distinct de PLAY_FATE_HERO_FROM_DISCARD, propre à Scar.) */
+  | { type: 'FATE_PLAY_HERO_FROM_DISCARD' }
+  /** Gaston (Fatalité, à la pose) — Maurice : cherche son `itemCardId` (Invention de
+   *  Maurice) dans la pioche/défausse Fatalité de la cible et l'associe au Héros hôte
+   *  (sur son lieu). Auto. */
+  | { type: 'FETCH_FATE_ITEM_TO_HOST'; itemCardId: string }
+  /** Gaston (Fatalité, à la pose) — La Bête : déplace tous les Alliés (non associés)
+   *  du lieu hôte vers les AUTRES lieux non bloqués (auto : dispersion en round-robin),
+   *  pour les éloigner de la Bête. */
+  | { type: 'MOVE_ALLIES_FROM_HOST_AWAY' }
+  /** Gaston (Fatalité, à la pose) — Mrs Samovar et Zip : disperse tous les Héros du
+   *  royaume de la cible (sauf l'hôte) à travers les lieux (auto, round-robin). */
+  | { type: 'SCATTER_REALM_HEROES' }
+  // --- Le Seigneur des clés : clés de couleur + dé ---------------------------
+  /** « Obtenir une clé » / Toute Puissance : ramasse une clé présente sur le lieu du
+   *  pion (choix interactif → pendingKeyTake ; bot : couleur encore manquante). */
+  | { type: 'TAKE_KEY_AT_PAWN' }
+  /** Pierre tombale : lance le dé ; si une clé de la couleur obtenue est sur le lieu
+   *  du pion, la ramasse (auto). */
+  | { type: 'ROLL_DIE_TAKE_KEY_AT_PAWN' }
+  /** Action « Obtenir une clé » : lance le dé ; ramasse une clé de la couleur obtenue
+   *  n'importe où sur le plateau (auto). */
+  | { type: 'ROLL_DIE_TAKE_KEY_FROM_BOARD' }
+  /** Madame de Trémaine — Piège : PIÈGE un Héros choisi (`trapped`) : sa capacité est
+   *  ignorée et il ne recouvre plus aucune action. */
+  | { type: 'TRAP_HERO' }
+  /** Madame de Trémaine — Canne : retire (défausse) toutes les Pantoufles de Verre du
+   *  royaume. */
+  | { type: 'REMOVE_GLASS_SLIPPER' }
+  /** Fatalité (Bibbidi-Bobbidi-Boo / Doux Rossignol) : la cible défausse `count`
+   *  carte(s) au hasard de sa main. */
+  | { type: 'TARGET_DISCARD_RANDOM'; count: number }
+  /** 00:00 : le joueur choisit une couleur, lance le dé ; si match, ramasse une clé
+   *  de cette couleur sur le plateau (pendingColorChoice puis dé auto). */
+  | { type: 'CHOOSE_COLOR_ROLL_TAKE_KEY' }
+  /** Trop facile : perd une clé au choix (→ plateau) puis gagne `power` Pouvoir. */
+  | { type: 'LOSE_KEY_GAIN_POWER'; power: number }
+  /** Plus qu'une minute : perd une clé au choix (→ plateau) puis pioche `draw`. */
+  | { type: 'LOSE_KEY_DRAW'; draw: number }
+  /** Répondez ! : gagne 1 Pouvoir par couleur de clé DIFFÉRENTE possédée. */
+  | { type: 'GAIN_POWER_PER_KEY_COLOR' }
+  /** Misérable cloporte : pioche autant de cartes Méchant que l'adversaire a défaussé
+   *  ce tour (activeDiscardedCount). */
+  | { type: 'DRAW_PER_OPPONENT_DISCARD' }
+  /** Peste : le prochain tour de l'adversaire actif est plafonné à `actions` action(s). */
+  | { type: 'CAP_OPPONENT_NEXT_TURN'; actions: number }
+  /** Manque de temps : défausse toute la main puis pioche `draw` cartes. */
+  | { type: 'DISCARD_HAND_DRAW'; draw: number }
+  /** Carte Temps : au PROCHAIN tour, une action pourra être effectuée 2 fois
+   *  (repeatActionNextTurn → repeatActionAvailable au début du tour). */
+  | { type: 'GRANT_REPEAT_ACTION_NEXT_TURN' }
+  /** Anne de Chantraine (à la pose) : la cible (le Seigneur) défausse toutes ses
+   *  cartes en main du type `cardType`. */
+  | { type: 'TARGET_DISCARD_ALL_OF_TYPE'; cardType: CardType }
+  /** Baron Samedi (à la pose) : lance le dé ; tant qu'il est présent, le Seigneur ne
+   *  peut pas gagner de clé de cette couleur AU DÉ (dieBlockedColor). */
+  | { type: 'ROLL_DIE_BLOCK_KEY_COLOR' }
+  /** Gévaudan (à la pose) : vole 1 clé possédée au Seigneur (rattachée au Héros hôte). */
+  | { type: 'STEAL_KEY_TO_HERO' }
+  /** Gévaudan (à la mort) : rend au Seigneur les clés volées (attachées à ce Héros). */
+  | { type: 'RETURN_STOLEN_KEYS' }
+  /** J'ai affronté mon cauchemar ! : lance le dé ; le Seigneur perd toutes ses clés
+   *  de la couleur obtenue (→ plateau). */
+  | { type: 'ROLL_DIE_LOSE_KEYS_COLOR' }
+  /** Sorcellerie : remet une clé possédée par le Seigneur sur un lieu (auto :
+   *  une couleur unique pour faire le plus de dégât, sur un lieu éloigné). */
+  | { type: 'RETURN_OWNED_KEY_TO_BOARD' }
+  /** Duel : reprend toutes les clés du plateau et les redistribue aléatoirement,
+   *  équilibrées sur chaque lieu (les clés possédées restent au Seigneur). */
+  | { type: 'REDISTRIBUTE_BOARD_KEYS' }
+  /** Plaisir ou souffrance : le Seigneur choisit — perdre `power` Pouvoir OU reposer
+   *  une clé (pendingPlaisir ; bot : le moindre mal). */
+  | { type: 'PLAISIR_OU_SOUFFRANCE'; power: number }
   /** Cruella — Quels idiots ! : au CHOIX, déplacer un Allié sur le lieu du pion OU
    *  chercher un Allié (pioche/défausse) → main puis remélanger. Ouvre le choix
    *  (pendingQuelsIdiots) avec sous-choix de l'Allié. */
@@ -706,8 +860,10 @@ export type Effect =
    *  pendingTakeABite). */
   | { type: 'TAKE_A_BITE' }
   /** La Méchante Reine — Miroir magique : cherche `heroCardId` (Blanche-Neige)
-   *  dans la pioche/défausse Fatalité et la joue immédiatement. */
-  | { type: 'FETCH_FATE_HERO'; heroCardId: string }
+   *  dans la pioche/défausse Fatalité et la joue immédiatement. `locationId` : lieu
+   *  de pose imposé (Gaston — Miroir magique : la Bête au Château de la Bête) ;
+   *  défaut = la Maison des Nains (Méchante Reine). */
+  | { type: 'FETCH_FATE_HERO'; heroCardId: string; locationId?: LocationId }
   /** La Méchante Reine — Poussière de momie : jusqu'au début de son prochain tour,
    *  chaque Fatalité ciblant ce joueur ajoute 1 jeton Poison (drapeau). */
   | { type: 'POISON_ON_FATE_TARGETED' }
@@ -913,6 +1069,9 @@ export interface CardInstance {
   /** Pour un Objet associé : bonus de force conféré à la carte hôte (recopié de
    *  CardDef). Sommé par effectiveStrength sur tous les Objets associés à une carte. */
   attachStrengthBonus?: number
+  /** Objet « bouclier » associé à un Allié (Cruella — Tisonnier) : quand l'Allié
+   *  devrait être défaussé, cet Objet est défaussé À SA PLACE et l'Allié survit. */
+  shieldAllyFromDiscard?: boolean
   /** Capitaine Crochet : Objet qui DONNE une action à son lieu tant qu'il y est
    *  posé (Canon → Vaincre, Boîte à Crochets → Gagner 1, Ingénieux Mécanisme →
    *  Déplacer un Héros). */
@@ -1065,6 +1224,18 @@ export interface CardInstance {
   /** Pat Hibulaire — Bandit : on peut jouer plusieurs exemplaires lors d'une même
    *  action « Jouer une carte ». Recopié de CardDef. */
   playMultiplePerAction?: boolean
+  /** Gaston — Lefou : un Vanquish effectué sur SON lieu ne défausse pas les Alliés
+   *  utilisés (ils retournent en main). Recopié de CardDef. */
+  keepAlliesOnVanquishHere?: boolean
+  /** Le Seigneur des clés — Appel : pioche 1 carte quand le Seigneur est ciblé par
+   *  une Fatalité. Recopié de CardDef. */
+  drawCardOnFateTargeted?: boolean
+  /** Le Seigneur des clés — Hellin : Héros qui recouvre UNE action de plus (3 au
+   *  lieu de 2). Recopié de CardDef. */
+  coversExtraAction?: boolean
+  /** Madame de Trémaine — Allié « en robe de bal » : ne peut être joué que pour
+   *  REMPLACER l'Allié `replacesCardId` déjà en jeu (qui est alors défaussé). */
+  replacesCardId?: string
   /** Reine de Cœur : taille d'un Héros. `'shrunk'` (rapetissé) → ne recouvre
    *  qu'une action du haut ; `'enlarged'` (agrandi) → recouvre une action de plus.
    *  Absent = taille normale (recouvre la rangée du haut). */
@@ -1095,7 +1266,7 @@ export type StrengthMod =
   /** Modifie la force des Héros du même lieu (Sommeil sans Rêves : -2 ; Sablier
    *  Géant : -2 mais seulement s'il a été activé ce tour-ci →
    *  `onlyIfActivatedThisTurn`). */
-  | { target: 'heroes-here'; delta: number; onlyIfActivatedThisTurn?: boolean }
+  | { target: 'heroes-here'; delta: number; onlyIfActivatedThisTurn?: boolean; excludeSelf?: boolean }
   /** Modifie la force des Alliés du même lieu. `excludeSelf` : la carte source
    *  ne se modifie pas elle-même (Niquedouille : +1 aux AUTRES Alliés ; Pendard :
    *  -1 aux AUTRES Alliés). */
@@ -1128,6 +1299,9 @@ export type SelfStrengthMod =
   | { kind: 'if-alone-here'; delta: number }
   /** Scar — +delta par AUTRE Hyène (`isHyena`) sur le MÊME lieu (Hyène affamée). */
   | { kind: 'per-other-hyena-here'; delta: number }
+  /** +delta par AUTRE carte de MÊME cardId présente dans le royaume (Gaston —
+   *  Loups : +1 par autre Loup). Réutilisable pour toute carte « en meute ». */
+  | { kind: 'per-other-same-cardId-realm'; delta: number }
 
 /** Dr Facilier — comportement d'une carte RÉVÉLÉE depuis la Pile de l'Au-delà
  *  par Divination. Donnée réutilisable, interprétée par resolveAuDela (effects.ts).
@@ -1181,6 +1355,9 @@ export type ConditionTrigger =
   | { type: 'opponent-gained-power-ge'; value: number }
   /** L'adversaire actif a joué au moins `value` cartes ce tour-ci (Insidieux). */
   | { type: 'opponent-played-cards-ge'; value: number }
+  /** L'adversaire actif a réalisé au moins `value` actions de lieu ce tour-ci
+   *  (Gaston — Aussi belle que moi : ≥ 4 actions). */
+  | { type: 'opponent-actions-ge'; value: number }
   /** L'adversaire actif a ciblé le joueur avec une action Fatalité ce tour-ci
    *  (Scar — La vie n'est pas juste). */
   | { type: 'opponent-fate-targeted-me' }
@@ -1346,6 +1523,27 @@ export interface PlayerState {
   /** Pat Hibulaire — Pouvoir dépensé pendant le tour courant (pour la tuile
    *  Power Play : ≥6 dépensés avec le pion sur son lieu). Remis à 0 en début de tour. */
   powerSpentThisTurn?: number
+  /** Gaston — jetons OBSTACLE restants par lieu (0 à 2). 2 par lieu au départ (8 au
+   *  total). Objectif REMOVE_ALL_OBSTACLES : tous à 0 au début de son tour. Retirés
+   *  par REMOVE_OBSTACLE / Vanquish (Bête, Maurice) ; replacés par REPLACE_OBSTACLE
+   *  (Fatalité, Sous le charme). `undefined` pour les autres vilains. */
+  obstacles?: Record<LocationId, number>
+  /** Le Seigneur des clés — ses 12 clés (réparties sur les lieux à la mise en place).
+   *  `location` = lieu, `null` = possédée par lui (objectif : ≥1 de chaque couleur).
+   *  `undefined` pour les autres vilains. */
+  keys?: KeyToken[]
+  /** Le Seigneur des clés — Baron Samedi : couleur de clé que le dé NE PEUT plus
+   *  donner tant que Baron Samedi est présent. */
+  dieBlockedColor?: KeyColor
+  /** Le Seigneur des clés — Carte Temps : au PROCHAIN tour, une action pourra être
+   *  effectuée 2 fois (converti en repeatActionAvailable au début du tour). */
+  repeatActionNextTurn?: boolean
+  /** Le Seigneur des clés — Peste : plafond d'actions imposé au PROCHAIN tour de ce
+   *  joueur (converti en `actionsCap` au début de son tour). */
+  actionsCapNextTurn?: number
+  /** Plafond d'actions de lieu actif CE tour-ci (Peste). Au-delà, plus aucune action
+   *  de lieu n'est disponible (END_TURN reste possible). Effacé en fin de tour. */
+  actionsCap?: number
 }
 
 /**
@@ -1483,11 +1681,12 @@ export interface GameState {
     untilFound?: boolean
   } | null
   /**
-   * Ratigan — Le Grand Génie du Mal : `playerIndex` choisit entre piocher `draw`
-   * cartes OU gagner `power` Pouvoir (RESOLVE_DRAW_OR_GAIN_POWER). Absent / `null`
-   * hors de ce choix.
+   * Ratigan — Le Grand Génie du Mal / Gaston — Sous le charme : `playerIndex` choisit
+   * entre piocher `draw` cartes OU gagner `power` Pouvoir (RESOLVE_DRAW_OR_GAIN_POWER).
+   * `cardId` = carte source (pour l'affichage du modal) ; défaut = Le Grand Génie du
+   * Mal. Absent / `null` hors de ce choix.
    */
-  pendingDrawOrGainPower?: { playerIndex: number; draw: number; power: number } | null
+  pendingDrawOrGainPower?: { playerIndex: number; draw: number; power: number; cardId?: string } | null
   /**
    * Mère Gothel — Lance-moi ta chevelure : `chooserIndex` choisit de combien de
    * lieux (parmi `options`) ramener Raiponce vers la Tour (RESOLVE_RAIPONCE_HOMEWARD).
@@ -1521,6 +1720,90 @@ export interface GameState {
    * (RESOLVE_HORACE_CHOICE). `locationId` = lieu d'Horace. `null` sinon.
    */
   pendingHoraceChoice?: { playerIndex: number; locationId: LocationId } | null
+  /**
+   * Cruella d'Enfer — capture de Tuiles Chiots avec CHOIX : plus de tuiles posées
+   * sur `locationId` que le nombre capturable → `playerIndex` choisit lesquelles
+   * (RESOLVE_PUPPY_CAPTURE), `remaining` restant à capturer. `null` sinon.
+   */
+  pendingPuppyCapture?: { playerIndex: number; locationId: LocationId; remaining: number } | null
+  /**
+   * Gaston — retrait/replacement interactif de jetons Obstacle. `chooserIndex`
+   * clique un lieu (RESOLVE_OBSTACLE) ou termine (DONE_OBSTACLE) ; `targetIndex` =
+   * propriétaire des Obstacles (Gaston). `kind` : 'remove' (cartes de Gaston) ou
+   * 'replace' (Fatalité adverse). `remaining` : clics restants. `sameLocation` (remove) :
+   * tous depuis un seul lieu, verrouillé par `lockedLocationId`. `fillLocation` (replace) :
+   * un clic remplit le lieu choisi (Vous m'avez sauvé la vie). `label` : titre affiché.
+   */
+  pendingObstacle?: {
+    chooserIndex: number
+    targetIndex: number
+    kind: 'remove' | 'replace'
+    remaining: number
+    sameLocation?: boolean
+    fillLocation?: boolean
+    lockedLocationId?: LocationId | null
+    label: string
+    /** Gaston — Sous le charme : suivi déclenché à la fermeture du pending (choix
+     *  gagner Pouvoir / piocher). */
+    then?: { drawOrGain: { draw: number; power: number; cardId?: string } }
+  } | null
+  /**
+   * Gaston — Belle est à moi / Tous avec moi : action gratuite armée de type
+   * `actionType`, exécutable depuis le lieu du pion (PERFORM_GRANTED_ACTION) ou
+   * déclinée (SKIP_GRANTED_ACTION). `null`/absent hors de cette fenêtre.
+   */
+  grantedAction?: { playerIndex: number; actionType: LocationActionType; label: string } | null
+  /**
+   * Le Seigneur des clés — choix interactif d'une clé. `kind` : 'take' (ramasser une
+   * clé présente sur `locationId`) ou 'lose' (rendre une clé POSSÉDÉE au plateau).
+   * `then` : suivi après un 'lose' (gagner Pouvoir / piocher). Résolu par RESOLVE_KEY.
+   */
+  pendingKey?: {
+    playerIndex: number
+    kind: 'take' | 'lose'
+    locationId?: LocationId
+    /** Filtre de couleur (prise au dé) : seules les clés de cette couleur sont prenables. */
+    color?: KeyColor
+    /** 'lose' : si vrai, le joueur choisit AUSSI le lieu où reposer la clé (un lieu
+     *  comptant < 3 clés). Sinon la clé revient sur le lieu du pion. */
+    chooseDest?: boolean
+    then?: { gainPower?: number; draw?: number }
+    label: string
+  } | null
+  /** Le Seigneur des clés — dernier lancer du dé de couleur, pour l'animation UI.
+   *  `seq` croît à chaque lancer ; `by` = index du joueur qui lance. */
+  dieRoll?: { seq: number; color: KeyColor; by: number } | null
+  /** Le Seigneur des clés — 00:00 : `playerIndex` choisit une couleur (RESOLVE_KEY_COLOR),
+   *  puis le dé est lancé automatiquement. */
+  pendingKeyColor?: { playerIndex: number } | null
+  /** Le Seigneur des clés — Plaisir ou souffrance : le Seigneur choisit perdre `power`
+   *  Pouvoir OU reposer une clé (RESOLVE_PLAISIR). */
+  pendingPlaisir?: { playerIndex: number; power: number } | null
+  /**
+   * Le Seigneur des clés — Fatalité interactive où l'ADVERSAIRE (`chooserIndex`)
+   * choisit une clé POSSÉDÉE du Seigneur (`targetIndex`). `mode` : 'steal' (Gévaudan :
+   * la clé est volée par le Héros `hostInstanceId`) ou 'return' (Sorcellerie : la clé
+   * est reposée sur un lieu choisi). Résolu par RESOLVE_STEAL_KEY.
+   */
+  pendingStealKey?: {
+    chooserIndex: number
+    targetIndex: number
+    mode: 'steal' | 'return'
+    hostInstanceId?: string
+    /** Nombre de clés restant à voler (Gévaudan en vole 2). Défaut : 1. */
+    count?: number
+  } | null
+  /** Le Seigneur des clés — dernière couleur obtenue au dé (affichage UI). */
+  lastDieColor?: KeyColor | null
+  /**
+   * Gaston — La Rose (Fatalité) : chaîne en cours. `phase` :
+   *  - 'play-other' : l'autre carte révélée avec la Rose est en train d'être jouée ;
+   *    une fois résolue, on pioche 2 cartes Fatalité (→ 'play-new').
+   *  - 'play-new'   : une des 2 cartes piochées est en train d'être jouée ; une fois
+   *    résolue, on retire 1 Obstacle et la chaîne se termine.
+   * Avancée automatiquement par syncRoseChain quand plus aucun choix n'est en attente.
+   */
+  roseChain?: { target: number; phase: 'play-other' | 'play-new' } | null
   /**
    * Cruella d'Enfer — Quels idiots ! : `phase` = 'choose' (déplacer un Allié OU en
    * chercher un), puis 'move' / 'tutor' (choix de l'Allié parmi `candidateIds`).
@@ -2114,10 +2397,32 @@ export type GameAction =
   /** Cruella d'Enfer — Horace : `capture` = capturer sur son lieu (true) OU amener
    *  une Tuile de la réserve (false). */
   | { type: 'RESOLVE_HORACE_CHOICE'; capture: boolean }
+  /** Cruella d'Enfer — choix d'une Tuile Chiots à capturer (plusieurs sur le lieu). */
+  | { type: 'RESOLVE_PUPPY_CAPTURE'; tileId: string }
   /** Cruella d'Enfer — Quels idiots ! : choix de l'option (déplacer / chercher). */
   | { type: 'RESOLVE_QUELS_IDIOTS'; choice: 'move' | 'tutor' }
   /** Cruella d'Enfer — Quels idiots ! : choix de l'Allié (à déplacer ou à chercher). */
   | { type: 'RESOLVE_QUELS_IDIOTS_PICK'; instanceId: string }
+  /** Gaston — retire/replace un jeton Obstacle sur `locationId` (pendingObstacle). */
+  | { type: 'RESOLVE_OBSTACLE'; locationId: LocationId }
+  /** Gaston — termine le retrait/replacement d'Obstacles en attente (pendingObstacle). */
+  | { type: 'DONE_OBSTACLE' }
+  /** Gaston — exécute l'action gratuite armée (Belle est à moi / Tous avec moi). */
+  | { type: 'PERFORM_GRANTED_ACTION'; action: Extract<GameAction, { type: 'VANQUISH' | 'MOVE_CARD' }> }
+  /** Gaston — décline l'action gratuite armée. */
+  | { type: 'SKIP_GRANTED_ACTION' }
+  /** Le Seigneur des clés — action « Obtenir une clé » (ramasse une clé du lieu courant). */
+  | { type: 'OBTAIN_KEY'; actionId: string }
+  /** Le Seigneur des clés — résout un choix de clé (ramasser/perdre) : `keyId` ;
+   *  `locationId` = lieu de dépose (perte avec choix du lieu, Plaisir ou souffrance). */
+  | { type: 'RESOLVE_KEY'; keyId: string; locationId?: LocationId }
+  /** Le Seigneur des clés — 00:00 : couleur choisie avant le lancer du dé. */
+  | { type: 'RESOLVE_KEY_COLOR'; color: KeyColor }
+  /** Le Seigneur des clés — Plaisir ou souffrance : 'power' (perdre du Pouvoir) ou 'key'. */
+  | { type: 'RESOLVE_PLAISIR'; choice: 'power' | 'key' }
+  /** Le Seigneur des clés — Sorcellerie / Gévaudan : l'adversaire choisit la clé `keyId`
+   *  du Seigneur (`locationId` = lieu où la reposer, mode 'return' uniquement). */
+  | { type: 'RESOLVE_STEAL_KEY'; keyId: string; locationId?: LocationId }
   /** Mère Gothel — Couronne : défausse l'Objet `instanceId` (capacité gratuite, à
    *  tout moment du tour) pour gagner 1 jeton Confiance. */
   | { type: 'SACRIFICE_COURONNE'; instanceId: string }

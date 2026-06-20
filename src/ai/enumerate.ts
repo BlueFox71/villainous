@@ -8,6 +8,7 @@
 // =============================================================================
 
 import type { GameAction, GameState, PlayerState } from '../engine/types'
+import { KEY_COLORS } from '../engine/types'
 import { canEnterAuDela, raiponceLocation, titanReachableDests } from '../engine/effects'
 import {
   adjacentLocationIds,
@@ -69,6 +70,129 @@ export function enumerateActions(state: GameState): GameAction[] {
         if (a.type !== 'GAIN_POWER') continue
         if (a.row === 'top' && heroesHere) continue
         out.push({ type: 'DIABLO_FREE_ACTION', action: { type: 'EXECUTE_ACTION', actionId: a.id } })
+      }
+    }
+    return out
+  }
+
+  // Gaston — action gratuite armée (Belle est à moi = Vanquish ; Tous avec moi = Déplacer).
+  // On énumère les exécutions possibles (enveloppées dans PERFORM_GRANTED_ACTION) + décliner.
+  if (state.grantedAction) {
+    const g = state.grantedAction
+    const out: GameAction[] = [{ type: 'SKIP_GRANTED_ACTION' }]
+    const SID = 'granted-free-action'
+    if (g.actionType === 'VANQUISH') {
+      for (const loc of me.locations) {
+        const cell = me.board[loc.id] ?? []
+        const heroes = cell.filter((c) => c.type === 'hero')
+        if (heroes.length === 0) continue
+        const localAllies = cell.filter((c) => c.type === 'ally' && !c.isWicket && !c.trapped)
+        const adjAllies = adjacentLocationIds(state, loc.id).flatMap((adj) =>
+          (me.board[adj] ?? []).filter(
+            (c) => !c.trapped && (c.reachesAdjacentVanquish || c.cardId === 'archers-loups' || c.cardId === 'flibustiers'),
+          ),
+        )
+        for (const h of heroes) {
+          if (cell.some((c) => c.cardId === 'deguisement' && c.attachedTo === h.instanceId)) continue
+          const heroForce = effectiveStrength(state, state.activePlayer, h.instanceId) ?? 0
+          if (heroForce === 0) {
+            out.push({ type: 'PERFORM_GRANTED_ACTION', action: { type: 'VANQUISH', actionId: SID, heroInstanceId: h.instanceId, allyInstanceIds: [] } })
+            continue
+          }
+          const usable = h.cardId === 'bobby' ? localAllies.filter((a) => a.cardId !== 'archers-loups') : [...localAllies, ...adjAllies]
+          if (usable.length === 0) continue
+          const allyForce = usable.reduce((n, a) => n + (effectiveStrength(state, state.activePlayer, a.instanceId) ?? 0), 0)
+          if (allyForce >= heroForce) {
+            out.push({ type: 'PERFORM_GRANTED_ACTION', action: { type: 'VANQUISH', actionId: SID, heroInstanceId: h.instanceId, allyInstanceIds: usable.map((a) => a.instanceId) } })
+          }
+        }
+      }
+    } else if (g.actionType === 'MOVE_ITEM_ALLY') {
+      for (const { instanceId, from } of movableCards(state)) {
+        for (const to of adjacentLocationIds(state, from)) {
+          out.push({ type: 'PERFORM_GRANTED_ACTION', action: { type: 'MOVE_CARD', actionId: SID, instanceId, to } })
+        }
+      }
+    }
+    return out
+  }
+
+  // Gaston — retrait/replacement d'Obstacles en attente : un coup par lieu éligible,
+  // plus « terminer » (le retrait est facultatif ; le replacement aussi par sécurité).
+  if (state.pendingObstacle) {
+    const pen = state.pendingObstacle
+    const tp = state.players[pen.targetIndex]
+    const out: GameAction[] = []
+    for (const l of tp.locations) {
+      const n = tp.obstacles?.[l.id] ?? 0
+      if (pen.kind === 'remove') {
+        if (n <= 0) continue
+        if (pen.sameLocation && pen.lockedLocationId && pen.lockedLocationId !== l.id) continue
+        out.push({ type: 'RESOLVE_OBSTACLE', locationId: l.id })
+      } else {
+        if (n >= 2) continue
+        out.push({ type: 'RESOLVE_OBSTACLE', locationId: l.id })
+      }
+    }
+    out.push({ type: 'DONE_OBSTACLE' })
+    return out
+  }
+
+  // Le Seigneur des clés — choix d'une clé (ramasser sur le lieu du pion, ou reposer
+  // une clé possédée) : une option par clé candidate. Le scoring (objectiveScore) tranche
+  // — ramasser de préférence une NOUVELLE couleur, reposer de préférence un doublon.
+  if (state.pendingKey) {
+    const pen = state.pendingKey
+    const p = state.players[pen.playerIndex]
+    if (pen.kind === 'take') {
+      const cands = (p.keys ?? []).filter(
+        (k) =>
+          k.location !== null && !k.stolenBy &&
+          (pen.locationId === undefined || k.location === pen.locationId) &&
+          (pen.color === undefined || k.color === pen.color),
+      )
+      return cands.map((k) => ({ type: 'RESOLVE_KEY', keyId: k.id }))
+    }
+    // 'lose' : reposer une clé possédée. Avec chooseDest, on choisit aussi le lieu
+    // (un lieu < 3 clés) → une option par (clé × lieu éligible).
+    const owned = (p.keys ?? []).filter((k) => k.location === null && !k.stolenBy)
+    if (pen.chooseDest) {
+      const dests = p.locations.map((l) => l.id).filter((lid) => (p.keys ?? []).filter((k) => k.location === lid && !k.stolenBy).length < 3)
+      return owned.flatMap((k) => dests.map((lid) => ({ type: 'RESOLVE_KEY' as const, keyId: k.id, locationId: lid })))
+    }
+    return owned.map((k) => ({ type: 'RESOLVE_KEY', keyId: k.id }))
+  }
+
+  // Le Seigneur des clés — choix d'une couleur avant lancer le dé (00:00 / Minuit) :
+  // une option par couleur. Le lookahead simule le jet (rng déterministe) et garde
+  // la couleur qui rapporte effectivement une clé.
+  if (state.pendingKeyColor) {
+    return KEY_COLORS.map((color) => ({ type: 'RESOLVE_KEY_COLOR', color }))
+  }
+
+  // Le Seigneur des clés — Plaisir ou souffrance : perdre du Pouvoir ou reposer une clé.
+  if (state.pendingPlaisir) {
+    return [
+      { type: 'RESOLVE_PLAISIR', choice: 'power' },
+      { type: 'RESOLVE_PLAISIR', choice: 'key' },
+    ]
+  }
+
+  // Le Seigneur des clés — Sorcellerie / Gévaudan : l'adversaire (chooser) choisit une
+  // clé possédée du Seigneur. 'steal' = une option par couleur ; 'return' = couleur × lieu.
+  if (state.pendingStealKey) {
+    const pen = state.pendingStealKey
+    const t = state.players[pen.targetIndex]
+    const owned = (t.keys ?? []).filter((k) => k.location === null && !k.stolenBy)
+    const seen = new Set<string>()
+    const out: GameAction[] = []
+    for (const k of owned) {
+      if (seen.has(k.color)) continue
+      seen.add(k.color)
+      if (pen.mode === 'steal') {
+        out.push({ type: 'RESOLVE_STEAL_KEY', keyId: k.id })
+      } else {
+        for (const l of t.locations) out.push({ type: 'RESOLVE_STEAL_KEY', keyId: k.id, locationId: l.id })
       }
     }
     return out
@@ -497,6 +621,9 @@ export function enumerateActions(state: GameState): GameAction[] {
   for (const action of getAvailableActions(state)) {
     if (action.type === 'GAIN_POWER') {
       out.push({ type: 'EXECUTE_ACTION', actionId: action.id })
+    } else if (action.type === 'OBTAIN_KEY') {
+      // Le Seigneur des clés : ramasser une clé sur le lieu du pion (ouvre pendingKey).
+      out.push({ type: 'OBTAIN_KEY', actionId: action.id })
     } else if (action.type === 'BREW_POISON') {
       // Préparer du Poison convertit N Pouvoir en N Poison : on propose au bot
       // « 1 » (prudent) et « tout convertir » (max). L'évaluation tranche.
@@ -510,6 +637,9 @@ export function enumerateActions(state: GameState): GameAction[] {
         if (card.type === 'condition' || effectiveCost(state, card) > me.power) continue
         if (richardBlocks && card.type === 'effect') continue
         if (cardNeedsAllyMove(card)) continue // Tendre un Piège : combinatoire ignorée ici
+        // Madame de Trémaine — Allié « en robe de bal » injouable sans sa version
+        // ordinaire en jeu.
+        if (card.replacesCardId && !Object.values(me.board).flat().some((c) => c.cardId === card.replacesCardId && !c.attachedTo)) continue
         const orPayEffect = (card.effects ?? []).find((x) => x.type === 'DISCARD_ALLY_AT_HOST_OR_PAY')
         if (card.type === 'ally' || card.type === 'item' || card.type === 'curse') {
           if (requiresAllyTarget(card)) {
@@ -738,6 +868,28 @@ export function enumerateActions(state: GameState): GameAction[] {
           if (
             (card.effects ?? []).some((e) => e.type === 'GRANT_FREE_ACTIVATE') &&
             !Object.values(me.board).flat().some((c) => c.activatedCost !== undefined && c.activatedCost <= me.power)
+          )
+            continue
+          // Le Seigneur des clés — Toute Puissance / C'est moi qui décide / Pierre
+          // tombale : inutiles sans clé sur le lieu du pion. 00:00 : inutile sans clé
+          // sur le plateau.
+          if (
+            (card.effects ?? []).some((e) => e.type === 'TAKE_KEY_AT_PAWN' || e.type === 'ROLL_DIE_TAKE_KEY_AT_PAWN') &&
+            !(me.keys ?? []).some((k) => k.location === me.pawnLocation && !k.stolenBy)
+          )
+            continue
+          if (
+            (card.effects ?? []).some((e) => e.type === 'CHOOSE_COLOR_ROLL_TAKE_KEY' || e.type === 'ROLL_DIE_TAKE_KEY_FROM_BOARD') &&
+            !(me.keys ?? []).some((k) => k.location !== null && !k.stolenBy)
+          )
+            continue
+          // Répondez ! (0 Pouvoir sinon) / Trop facile / Plus qu'une minute (« perdez
+          // une clé ») : inutiles sans clé possédée.
+          if (
+            (card.effects ?? []).some(
+              (e) => e.type === 'GAIN_POWER_PER_KEY_COLOR' || e.type === 'LOSE_KEY_GAIN_POWER' || e.type === 'LOSE_KEY_DRAW',
+            ) &&
+            !(me.keys ?? []).some((k) => k.location === null && !k.stolenBy)
           )
             continue
           out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId })

@@ -163,7 +163,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   imposteur: {
     difficulty: 3,
     story:
-      "Le saboteur masqué d'Among Us (InnerSloth, 2018). Sous sa combinaison de Coéquipier se cache un Imposteur : il sabote le vaisseau, élimine l'équipage un à un dans les couloirs d'Electrical, du Réacteur, d'Admin et de la Cafétaria, puis fait porter le chapeau aux innocents lors des réunions d'urgence.",
+      "Le saboteur masqué (Among Us, 2018). Sous sa combinaison de Coéquipier se cache un Imposteur : il sabote le vaisseau, élimine l'équipage un à un dans les couloirs d'Electrical, du Réacteur, d'Admin et de la Cafétaria, puis fait porter le chapeau aux innocents lors des réunions d'urgence.",
     playTips: [
       "Objectif : pose un Sabotage (O2 à Admin, Réacteur au Réacteur) et tiens-le 3 tours.",
       "Surveille tes 8 Coéquipiers : un Coéquipier « suspect » recouvre l'action sous lui — élimine (Tuer) ou rassure (Assurance) ceux qui te gênent.",
@@ -243,7 +243,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   sombra: {
     difficulty: 2,
     story:
-      "Pirate informatique surdouée du collectif Los Muertos puis agent fantôme (Overwatch), Sombra traque l’information et tire les ficelles dans l’ombre. Maîtresse du piratage et de la furtivité, elle infiltre les systèmes de LumériCo et Volskaya pour faire chanter les puissants — un coup d’avance, toujours.",
+      "Pirate informatique surdouée du collectif Los Muertos puis agent fantôme (Overwatch, 2016), Sombra traque l’information et tire les ficelles dans l’ombre. Maîtresse du piratage et de la furtivité, elle infiltre les systèmes de LumériCo et Volskaya pour faire chanter les puissants — un coup d’avance, toujours.",
     playTips: [
       "Ton objectif : pose une carte de Piratage sur CHACUN des 4 lieux (Lumérico compris) puis joue Protocole Sombra pour gagner.",
       "Lumérico est verrouillé au départ : joue Faille pour le déverrouiller (et enchaîne un Piratage gratuit).",
@@ -316,6 +316,53 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       'Pongo bloque la capture sur son lieu et Anita & Roger renvoient les tuiles en réserve : pose-les là où elle amasse ses Chiots.',
       'Évasion et « Nous sommes des labradors » lui font perdre des Chiots déjà acquis ou posés.',
       'Nanny renchérit ses activations ; multiplie les Héros pour recouvrir ses actions Activer et Jouer.',
+    ],
+  },
+  gaston: {
+    difficulty: 1,
+    story:
+      "Chasseur vaniteux et adulé de tout le village (Disney, La Belle et la Bête, 1991), Gaston n’a qu’une idée en tête : épouser Belle, « la plus belle, donc la seule digne de lui ». Éconduit, il retourne la foule contre la Bête et marche sur le château, prêt à tout pour obtenir ce qu’il convoite.",
+    playTips: [
+      'Ton objectif : RETIRER tes 8 jetons Obstacle (2 par lieu). Retire-les avec Très mauvais caractère, Laissez-moi vous regarder, Sortez !, Aussi belle que moi, ou en activant Monsieur D’Arque.',
+      'Vaincre la Bête vide les Obstacles du Château de la Bête ; vaincre Maurice vide ceux de la Maison de Belle : fais-les venir par Gardez-moi en otage / Miroir magique, puis élimine-les.',
+      'Belle bloque TOUT retrait tant qu’elle est en jeu : élimine-la en priorité (Instinct de chasseur, Belle est à moi). Loups et Foule en colère fournissent la force.',
+    ],
+    counterTips: [
+      'Belle est ton meilleur frein contre lui : tant qu’elle est dans son royaume, il ne peut retirer aucun Obstacle.',
+      'C’est toi, Me masser les pieds, Vous m’avez sauvé la vie et Sous le charme REPLACENT des Obstacles : annule sa progression au pire moment.',
+      'L’Invention de Maurice affaiblit ses Alliés ; Big Ben renforce tes Héros : rends ses éliminations (et donc l’accès à la Bête / Maurice) plus coûteuses.',
+    ],
+  },
+  seigneurCles: {
+    difficulty: 2,
+    story:
+      "Le Seigneur des clés est le Gardien (« the Gatekeeper ») du jeu de société Atmosfear (à l’origine Nightmare, 1991) : un spectre encapuchonné aux yeux luminescents qui, depuis sa cassette vidéo, mène la partie et harcèle les joueurs. Comme dans Atmosfear, la victoire passe par la collecte d’une clé de chacune des six couleurs avant de regagner le centre du plateau — sous peine d’être englouti par les Ténèbres. Sa cour de damnés (Anne de Chantraine, Élisabeth Báthory, le Baron Samedi, Gévaudan…) veille à reprendre les clés à quiconque s’approche du but.",
+    playTips: [
+      'Ton objectif : au début de ton tour, posséder au moins 1 clé de CHAQUE couleur (bleu, rouge, vert, jaune, violet, orange). 12 clés sont réparties sur tes 4 lieux.',
+      'Ramasse les clés avec l’action « Obtenir une clé » (Crypte), Toute Puissance, C’est moi qui décide, Pierre Tombale et 00:00. Déplace ton pion vers les lieux qui portent les couleurs qui te manquent.',
+      'Le dé de couleur est aléatoire : Pierre Tombale et J’ai affronté mon cauchemar dépendent du jet, mais 00:00 / Minuit te laissent CHOISIR la couleur visée — garde-les pour la dernière couleur manquante.',
+      'Garde un œil sur la Clé Noire : tant qu’elle est sur ton plateau, tu ne peux pas gagner, même avec les six couleurs.',
+    ],
+    counterTips: [
+      'La Fatalité lui reprend des clés : Sorcellerie repose une clé, Duel rebrasse celles du plateau, J’ai affronté mon cauchemar et Plaisir ou souffrance lui en coûtent. Vise la couleur dont il n’a qu’un exemplaire.',
+      'Gévaudan vole une clé tant qu’il vit ; Baron Samedi bloque une couleur au dé : combine-les pour l’asphyxier sur sa dernière couleur.',
+      'La Clé Noire (Objet Fatalité) lui interdit la victoire tant qu’elle reste posée : pose-la quand il approche des six couleurs.',
+    ],
+  },
+  madameTremaine: {
+    difficulty: 4,
+    story:
+      "Belle-mère cruelle de Cendrillon (Disney, 1950), Madame de Trémaine n’a qu’une obsession : marier l’une de ses filles, Anastasia ou Drizella, au Prince — quitte à enfermer Cendrillon et à briser ses rêves. Avec son chat Lucifer et sa canne, elle manœuvre dans son manoir jusqu’à la Salle de Bal.",
+    playTips: [
+      'Ton objectif : MARIER une fille au Prince. Joue d’abord l’Invitation du Roi pour déverrouiller la Salle de Bal.',
+      'Amène une fille EN ROBE DE BAL (Anastasia/Drizella en robe — qui remplacent leur version ordinaire déjà en jeu) ET le Prince dans la Salle de Bal, puis joue les Cloches de Mariage… mais SANS aucune Pantoufle de Verre dans ton royaume.',
+      'Les Pantoufles de Verre ne se retirent qu’avec la Canne (récupérable via « Il y a encore une chance »). Piège les Héros gênants, ou vaincs-les avec Petite voleuse ! et Minuit.',
+      'Le Prince ne recouvre aucune action et tu peux le déplacer comme un allié : amène-le jusqu’à la Salle de Bal.',
+    ],
+    counterTips: [
+      'La Bonne Fée et les Pantoufles de Verre sont tes meilleures armes : tant qu’une Pantoufle est dans son royaume, le mariage est impossible.',
+      'Cendrillon, Cendrillon en robe de bal et la Bonne Fée recouvrent ses lieux : ralentis sa mise en place de la Salle de Bal.',
+      'Bibbidi-Bobbidi-Boo et Doux Rossignol lui font défausser des cartes : casse ses combinaisons (Invitation, Robe, Cloches) avant qu’elles n’arrivent en jeu.',
     ],
   },
 }

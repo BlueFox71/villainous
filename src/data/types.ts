@@ -73,6 +73,9 @@ export interface CardDef {
    *  / Lance : +1 ; Épée de Vérité / Vœu : +2). Donnée réutilisable : le moteur
    *  somme ce champ sur tous les Objets associés, sans connaître la carte. */
   attachStrengthBonus?: number
+  /** Objet « bouclier » associé à un Allié (Cruella — Tisonnier) : défaussé à la
+   *  place de son Allié quand celui-ci devrait être défaussé. */
+  shieldAllyFromDiscard?: boolean
   /** Nombre d'exemplaires dans le paquet. */
   copies: number
   /** Texte de règle français, recopié de la carte. Source de vérité. */
@@ -173,6 +176,17 @@ export interface CardDef {
   /** Pat Hibulaire — Bandit : plusieurs exemplaires jouables lors d'une même action
    *  « Jouer une carte ». */
   playMultiplePerAction?: boolean
+  /** Gaston — Lefou : un Vanquish effectué sur SON lieu ne défausse pas les Alliés
+   *  utilisés (ils retournent en main). */
+  keepAlliesOnVanquishHere?: boolean
+  /** Le Seigneur des clés — Appel : pioche 1 carte quand le Seigneur est ciblé par
+   *  une Fatalité. */
+  drawCardOnFateTargeted?: boolean
+  /** Le Seigneur des clés — Hellin : Héros qui recouvre UNE action de plus. */
+  coversExtraAction?: boolean
+  /** Madame de Trémaine — Allié « en robe de bal » : jouable uniquement pour
+   *  remplacer l'Allié `replacesCardId` déjà en jeu (défaussé au passage). */
+  replacesCardId?: string
   /** IA uniquement : classement « malus » de cette carte Fatalité durable pour le
    *  joueur ciblé. Renseigné via `data/fateMalus.ts` et attaché par le registre
    *  (pas dans les `.cards.ts`). Absent = NEUTRE. */
@@ -209,6 +223,7 @@ export function buildDeckInstances(
           strength: c.strength,
           attach: c.attach,
           attachStrengthBonus: c.attachStrengthBonus,
+          shieldAllyFromDiscard: c.shieldAllyFromDiscard,
           effects: c.effects,
           onPlace: c.onPlace,
           onVanquish: c.onVanquish,
@@ -242,6 +257,10 @@ export function buildDeckInstances(
           discardOnPlay: c.discardOnPlay,
           followsHeroes: c.followsHeroes,
           playMultiplePerAction: c.playMultiplePerAction,
+          keepAlliesOnVanquishHere: c.keepAlliesOnVanquishHere,
+          drawCardOnFateTargeted: c.drawCardOnFateTargeted,
+          coversExtraAction: c.coversExtraAction,
+          replacesCardId: c.replacesCardId,
         }),
       ),
     )

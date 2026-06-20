@@ -65,8 +65,9 @@ export const cruellaCards: CardDef[] = [
     cost: 1,
     attach: 'ally',
     attachStrengthBonus: 1,
+    shieldAllyFromDiscard: true,
     copies: 2,
-    text: 'Associez cette carte à un Allié, sa force augmente de 1. Si cet Allié doit être défaussé, défaussez cet Objet à la place.',
+    text: 'Associez cette carte à un Allié, sa force augmente de 1. Si cet Allié doit être défaussé, il ne l’est pas : défaussez le Tisonnier à la place.',
     image: img('tisonnier.png'),
   },
   {

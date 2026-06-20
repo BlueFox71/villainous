@@ -105,6 +105,52 @@ export function PlayerPanel({ player, accent, isActive, isWinner, showObjective 
           )
         })()}
 
+        {/* Gaston — jetons OBSTACLE restants (objectif : 0 sur 8). */}
+        {player.obstacles !== undefined && (() => {
+          const remaining = Object.values(player.obstacles).reduce((n, v) => n + v, 0)
+          const start = Math.max(1, player.locations.length * 2)
+          return (
+            <div
+              className="flex flex-col items-center justify-center rounded-lg border border-amber-400/30 bg-black/20 px-3 py-3"
+              title={`Obstacles restants : ${remaining}/${start} (objectif : 0)`}
+            >
+              <span className="-mt-1.5 text-[9px] uppercase tracking-wide text-amber-300/70">Obstacles</span>
+              <span className="text-2xl font-bold text-amber-200">🚧 {remaining}</span>
+              <span className="text-[10px] text-white/50">{start - remaining}/{start} retirés</span>
+            </div>
+          )
+        })()}
+
+        {/* Le Seigneur des clés — clés possédées par couleur (objectif : 1 de chaque). */}
+        {player.keys !== undefined && (() => {
+          const KEY_HEX: Record<string, string> = { bleu: '#3b82f6', rouge: '#ef4444', vert: '#22c55e', jaune: '#eab308', violet: '#a855f7', orange: '#f97316' }
+          const COLORS = ['bleu', 'rouge', 'vert', 'jaune', 'violet', 'orange']
+          const owned: Record<string, number> = {}
+          for (const k of player.keys.filter((k) => k.location === null && !k.stolenBy)) owned[k.color] = (owned[k.color] ?? 0) + 1
+          const colorsHeld = COLORS.filter((c) => (owned[c] ?? 0) > 0).length
+          return (
+            <div
+              className="flex flex-col items-center justify-center rounded-lg border border-indigo-400/30 bg-black/20 px-3 py-2.5"
+              title={`Couleurs de clés possédées : ${colorsHeld}/6 (objectif : 6)`}
+            >
+              <span className="-mt-1 text-[9px] uppercase tracking-wide text-indigo-300/70">Clés</span>
+              <div className="mt-0.5 flex gap-1">
+                {COLORS.map((c) => (
+                  <span
+                    key={c}
+                    className="flex h-4 w-4 items-center justify-center rounded-full border border-white/40 text-[8px] font-bold text-white"
+                    style={{ backgroundColor: KEY_HEX[c], opacity: (owned[c] ?? 0) > 0 ? 1 : 0.2 }}
+                    title={`${c} : ${owned[c] ?? 0}`}
+                  >
+                    {(owned[c] ?? 0) > 1 ? owned[c] : ''}
+                  </span>
+                ))}
+              </div>
+              <span className="mt-0.5 text-[10px] text-white/50">{colorsHeld}/6 couleurs</span>
+            </div>
+          )
+        })()}
+
         {/* Case objectif (à droite) — masquable quand rendue ailleurs. */}
         {showObjective && <ObjectiveBox player={player} accent={accent} isWinner={isWinner} />}
       </div>

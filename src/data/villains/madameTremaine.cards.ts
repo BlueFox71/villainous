@@ -1,0 +1,376 @@
+// =============================================================================
+// Madame de Trémaine — cartes (deck Méchant : 30 ; deck Fatalité : 15).
+//
+// Noms / coûts / textes / ILLUSTRATIONS tirés des planches du jeu réel (faces
+// découpées depuis assets/decks/Madame de Tremaine). La BOUCLE DE VICTOIRE est
+// fidèle : Invitation du Roi (déverrouille la Salle de Bal) → fille EN ROBE (remplace
+// sa version ordinaire) + Prince dans la Salle de Bal → Cloches de Mariage sans
+// Pantoufle de Verre. Capturé / Sale voleuse / Douze coups de minuit neutralisent
+// les Héros ; la Canne retire les Pantoufles.
+// NOTE : quelques EFFETS restent une interprétation jouable (le texte exact de
+// certaines cartes — choix multiples, défausses conditionnelles — est simplifié).
+// =============================================================================
+
+import type { CardDef } from '../types'
+
+const img = (f: string) => `/cards/madame-tremaine/${f}`
+
+export const madameTremaineCards: CardDef[] = [
+  // ----------------------------------------------------------------------
+  // DECK MÉCHANT — Alliés (5)
+  // ----------------------------------------------------------------------
+  {
+    id: 'anastasia',
+    name: 'Anastasie',
+    englishName: 'Anastasia',
+    deck: 'villain',
+    type: 'ally',
+    cost: 1,
+    strength: 2,
+    copies: 1,
+    text: 'Une des belles-filles de Madame de Trémaine. Peut être remplacée par Anastasie en robe de bal.',
+    image: img('anastasia.png'),
+  },
+  {
+    id: 'drizella',
+    name: 'Javotte',
+    englishName: 'Drizella',
+    deck: 'villain',
+    type: 'ally',
+    cost: 1,
+    strength: 2,
+    copies: 1,
+    text: 'Une des belles-filles de Madame de Trémaine. Peut être remplacée par Javotte en robe de bal.',
+    image: img('drizella.png'),
+  },
+  {
+    id: 'ball-gown-anastasia',
+    name: 'Anastasie en robe de bal',
+    englishName: 'Ball Gown Anastasia',
+    deck: 'villain',
+    type: 'ally',
+    cost: 2,
+    strength: 4,
+    copies: 1,
+    replacesCardId: 'anastasia',
+    text: 'Défaussez Anastasie pour jouer Anastasie en robe de bal. Prête pour le bal.',
+    image: img('ball-gown-anastasia.png'),
+  },
+  {
+    id: 'ball-gown-drizella',
+    name: 'Javotte en robe de bal',
+    englishName: 'Ball Gown Drizella',
+    deck: 'villain',
+    type: 'ally',
+    cost: 2,
+    strength: 4,
+    copies: 1,
+    replacesCardId: 'drizella',
+    text: 'Défaussez Javotte pour jouer Javotte en robe de bal. Prête pour le bal.',
+    image: img('ball-gown-drizella.png'),
+  },
+  {
+    id: 'lucifer',
+    name: 'Lucifer',
+    englishName: 'Lucifer',
+    deck: 'villain',
+    type: 'ally',
+    cost: 3,
+    strength: 3,
+    copies: 1,
+    text: 'Le chat de Madame de Trémaine : il guette les Héros présents sur son lieu.',
+    image: img('lucifer.png'),
+  },
+
+  // ----------------------------------------------------------------------
+  // DECK MÉCHANT — Objets (4)
+  // ----------------------------------------------------------------------
+  {
+    id: 'invitation-du-roi',
+    name: 'Invitation du Roi',
+    englishName: 'Invitation from the King',
+    deck: 'villain',
+    type: 'item',
+    cost: 3,
+    copies: 1,
+    text: 'Quand l’Invitation du Roi est jouée, déverrouillez la Salle de Bal.',
+    effects: [{ type: 'UNLOCK_LOCATION', locationId: 'salle-de-bal' }],
+    image: img('invitation-du-roi.png'),
+  },
+  {
+    id: 'canne-tremaine',
+    name: 'Canne de Madame de Trémaine',
+    englishName: "Lady Tremaine's Cane",
+    deck: 'villain',
+    type: 'item',
+    cost: 2,
+    copies: 1,
+    text: 'Retirez les Pantoufles de Verre de votre royaume (le seul moyen de les retirer).',
+    effects: [{ type: 'REMOVE_GLASS_SLIPPER' }],
+    image: img('canne-tremaine.png'),
+  },
+  {
+    id: 'la-cle',
+    name: 'La Clé',
+    englishName: 'The Key',
+    deck: 'villain',
+    type: 'item',
+    cost: 2,
+    copies: 1,
+    text: 'Faites venir le Prince dans la Salle de Bal (cherché dans votre pioche/défausse Fatalité).',
+    effects: [{ type: 'SUMMON_FATE_HERO_TO_OWN_REALM', heroCardId: 'the-prince', locationId: 'salle-de-bal' }],
+    image: img('la-cle.png'),
+  },
+  {
+    id: 'cloches-mariage',
+    name: 'Cloches de Mariage',
+    englishName: 'Wedding Bells',
+    deck: 'villain',
+    type: 'item',
+    cost: 3,
+    copies: 1,
+    text: 'Au début de votre tour : si une de vos filles EN ROBE DE BAL et le Prince sont dans la Salle de Bal et qu’aucune Pantoufle de Verre n’est dans votre royaume, vous gagnez la partie.',
+    image: img('cloches-mariage.png'),
+  },
+
+  // ----------------------------------------------------------------------
+  // DECK MÉCHANT — Conditions (6)
+  // ----------------------------------------------------------------------
+  {
+    id: 'et-une-chose-encore',
+    name: 'J’allais oublier un détail',
+    englishName: 'And One More Thing',
+    deck: 'villain',
+    type: 'condition',
+    cost: 0,
+    copies: 2,
+    text: 'Jouable pendant le tour d’un adversaire qui réalise au moins 3 actions. Gagnez 3 jetons Pouvoir.',
+    trigger: { type: 'opponent-actions-ge', value: 3 },
+    effects: [{ type: 'GAIN_POWER', amount: 3 }],
+    image: img('et-une-chose-encore.png'),
+  },
+  {
+    id: 'enfermes',
+    name: 'Enfermé',
+    englishName: 'Locked Up',
+    deck: 'villain',
+    type: 'condition',
+    cost: 0,
+    copies: 2,
+    text: 'Jouable pendant le tour d’un adversaire qui possède au moins 10 jetons Pouvoir. Gagnez 3 jetons Pouvoir.',
+    trigger: { type: 'opponent-power-ge', value: 10 },
+    effects: [{ type: 'GAIN_POWER', amount: 3 }],
+    image: img('enfermes.png'),
+  },
+  {
+    id: 'vilaines-farces',
+    name: 'Plaisanteries douteuses',
+    englishName: 'Vicious Practical Jokes',
+    deck: 'villain',
+    type: 'condition',
+    cost: 0,
+    copies: 2,
+    text: 'Jouable pendant le tour d’un adversaire qui défausse au moins 2 cartes. Piochez autant de cartes que de cartes défaussées.',
+    trigger: { type: 'opponent-discarded-ge', value: 2 },
+    effects: [{ type: 'DRAW_PER_OPPONENT_DISCARD' }],
+    image: img('vilaines-farces.png'),
+  },
+
+  // ----------------------------------------------------------------------
+  // DECK MÉCHANT — Événements (15)
+  // ----------------------------------------------------------------------
+  {
+    id: 'il-y-a-encore-une-chance',
+    name: 'C’est votre dernière chance',
+    englishName: "There's Still a Chance",
+    deck: 'villain',
+    type: 'effect',
+    cost: 2,
+    copies: 4,
+    text: 'Récupérez un Objet ou un Événement de votre défausse et ajoutez-le à votre main.',
+    effects: [{ type: 'RECOVER_ITEM_OR_EVENT' }],
+    image: img('il-y-a-encore-une-chance.png'),
+  },
+  {
+    id: 'je-disais-si',
+    name: 'J’ai dit « Si »',
+    englishName: 'I Said "If"',
+    deck: 'villain',
+    type: 'effect',
+    cost: 2,
+    copies: 3,
+    text: 'Mélangez votre défausse de Méchant avec votre pioche, puis piochez 2 cartes.',
+    effects: [{ type: 'GAIN_POWER', amount: 2 }],
+    image: img('je-disais-si.png'),
+  },
+  {
+    id: 'piege',
+    name: 'Capturé',
+    englishName: 'Trapped',
+    deck: 'villain',
+    type: 'effect',
+    cost: 1,
+    copies: 3,
+    text: 'Placez un jeton Capturé sur un Héros de votre royaume : sa capacité est ignorée et il ne recouvre plus d’action.',
+    effects: [{ type: 'TRAP_HERO' }],
+    image: img('piege.png'),
+  },
+  {
+    id: 'je-ne-reviens-jamais',
+    name: 'Je ne reviens jamais sur ma parole',
+    englishName: 'I Never Go Back on My Word',
+    deck: 'villain',
+    type: 'effect',
+    cost: 2,
+    copies: 2,
+    text: 'Gagnez 3 jetons Pouvoir.',
+    effects: [{ type: 'GAIN_POWER', amount: 3 }],
+    image: img('je-ne-reviens-jamais.png'),
+  },
+  {
+    id: 'petite-voleuse',
+    name: 'Sale voleuse !',
+    englishName: 'You Little Thief!',
+    deck: 'villain',
+    type: 'effect',
+    cost: 0,
+    copies: 2,
+    text: 'Vainquez Cendrillon ou Cendrillon en robe de bal (sans Allié).',
+    effects: [{ type: 'INSTANT_VANQUISH_HERO_LE', maxStrength: 3 }],
+    image: img('petite-voleuse.png'),
+  },
+  {
+    id: 'minuit-tremaine',
+    name: 'Douze coups de minuit',
+    englishName: 'Midnight',
+    deck: 'villain',
+    type: 'effect',
+    cost: 4,
+    copies: 1,
+    text: 'Vainquez un Héros de votre royaume (sans Allié).',
+    effects: [{ type: 'INSTANT_VANQUISH_HERO_LE', maxStrength: 6 }],
+    image: img('minuit-tremaine.png'),
+  },
+
+  // ----------------------------------------------------------------------
+  // DECK FATALITÉ — Héros (6) + le Prince (1)
+  // ----------------------------------------------------------------------
+  {
+    id: 'cendrillon',
+    name: 'Cendrillon',
+    englishName: 'Cinderella',
+    deck: 'fate',
+    type: 'hero',
+    strength: 2,
+    copies: 1,
+    text: 'Les Événements coûtent 2 jetons Pouvoir de plus. Recouvre la rangée du haut de son lieu.',
+    image: img('cendrillon.png'),
+  },
+  {
+    id: 'ball-gown-cinderella',
+    name: 'Cendrillon en robe de bal',
+    englishName: 'Ball Gown Cinderella',
+    deck: 'fate',
+    type: 'hero',
+    strength: 2,
+    copies: 1,
+    text: 'Aucun Allié ne peut entrer dans la Salle de Bal tant qu’elle est en jeu. Recouvre la rangée du haut de son lieu.',
+    image: img('ball-gown-cinderella.png'),
+  },
+  {
+    id: 'fairy-godmother',
+    name: 'Marraine la Bonne Fée',
+    englishName: 'Fairy Godmother',
+    deck: 'fate',
+    type: 'hero',
+    strength: 4,
+    copies: 1,
+    text: 'Quand elle est jouée, cherchez et jouez Cendrillon en robe de bal. Recouvre la rangée du haut de son lieu.',
+    image: img('fairy-godmother.png'),
+  },
+  {
+    id: 'jaq',
+    name: 'Jack',
+    englishName: 'Jaq',
+    deck: 'fate',
+    type: 'hero',
+    strength: 1,
+    copies: 1,
+    text: 'Une des souris amies de Cendrillon.',
+    image: img('jaq.png'),
+  },
+  {
+    id: 'gus',
+    name: 'Gus',
+    englishName: 'Gus',
+    deck: 'fate',
+    type: 'hero',
+    strength: 1,
+    copies: 1,
+    text: 'Une des souris amies de Cendrillon.',
+    image: img('gus.png'),
+  },
+  {
+    id: 'bruno',
+    name: 'Pataud',
+    englishName: 'Bruno',
+    deck: 'fate',
+    type: 'hero',
+    strength: 3,
+    copies: 1,
+    text: 'Quand Pataud est joué ou déplacé, déplacez Lucifer vers son lieu. Ennemi juré de Lucifer.',
+    image: img('bruno.png'),
+  },
+  {
+    id: 'the-prince',
+    name: 'Le Prince',
+    englishName: 'The Prince',
+    deck: 'fate',
+    type: 'hero',
+    strength: 0,
+    copies: 1,
+    text: 'Madame de Trémaine doit l’amener dans la Salle de Bal avec une fille en robe de bal pour les marier. Ne recouvre aucune action et peut être déplacé par Madame de Trémaine.',
+    image: img('the-prince.png'),
+  },
+
+  // ----------------------------------------------------------------------
+  // DECK FATALITÉ — Objets (2)
+  // ----------------------------------------------------------------------
+  {
+    id: 'pantoufle-de-verre',
+    name: 'Pantoufle de Verre',
+    englishName: 'Glass Slipper',
+    deck: 'fate',
+    type: 'item',
+    attach: 'hero',
+    copies: 2,
+    text: 'Associée à un Héros. Tant qu’une Pantoufle de Verre est dans le royaume de Madame de Trémaine, le mariage est impossible. Seule la Canne peut la retirer.',
+    image: img('pantoufle-de-verre.png'),
+  },
+
+  // ----------------------------------------------------------------------
+  // DECK FATALITÉ — Événements (6)
+  // ----------------------------------------------------------------------
+  {
+    id: 'bibbidi-bobbidi-boo',
+    name: 'Bibbidi-Bobbidi-Boo',
+    englishName: 'Bibbidi-Bobbidi-Boo',
+    deck: 'fate',
+    type: 'effect',
+    copies: 3,
+    text: 'La magie de la Bonne Fée : Madame de Trémaine défausse une carte au hasard de sa main.',
+    effects: [{ type: 'TARGET_DISCARD_RANDOM', count: 1 }],
+    image: img('bibbidi-bobbidi-boo.png'),
+  },
+  {
+    id: 'sweet-nightingale',
+    name: 'Doux Rossignol',
+    englishName: 'Sweet Nightingale',
+    deck: 'fate',
+    type: 'effect',
+    copies: 3,
+    text: 'Le chant de Cendrillon : Madame de Trémaine défausse une carte au hasard de sa main.',
+    effects: [{ type: 'TARGET_DISCARD_RANDOM', count: 1 }],
+    image: img('sweet-nightingale.png'),
+  },
+]

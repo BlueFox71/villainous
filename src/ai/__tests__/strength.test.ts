@@ -54,7 +54,7 @@ describe('heuristicBot — force', () => {
     }
     expect(hWins).toBeGreaterThanOrEqual(Math.ceil(N * 0.9))
     expect(rWins).toBe(N - hWins) // pas de parties non terminées
-  })
+  }, 30000) // 20 parties simulées : lourd en CPU, marge de temps (évite un timeout sous charge).
 
   it('les parties Prince Jean vs Maléfique convergent (anti-livelock)', () => {
     // Garde-fou : avant l'éval « consciente de l'objectif », les deux bots se

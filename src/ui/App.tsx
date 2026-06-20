@@ -29,7 +29,7 @@ import {
   transformableGuards,
 } from '../engine/rules'
 import { titanReachableDests } from '../engine/effects'
-import type { CardInstance, LocationAction, ShowcaseEvent } from '../engine/types'
+import type { CardInstance, KeyColor, LocationAction, ShowcaseEvent } from '../engine/types'
 import { BLUE, RED, accentVars } from './accents'
 import { VILLAIN_COLOR, villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from './villainColors'
 import { PlayerPanel } from './components/PlayerPanel'
@@ -114,10 +114,11 @@ type Mode =
   /** Objet à associer à un HÉROS (Forme de grenouille, Potion de mortalité) ; on
    *  attend le clic sur le Héros cible (n'importe quel lieu du royaume). */
   | { kind: 'item-attach-hero'; actionId: string; instanceId: string; cardName: string; diablo?: boolean }
-  /** « Déplacer un Allié/Objet » : on attend le clic sur la carte à déplacer. */
-  | { kind: 'move-pick'; actionId: string }
+  /** « Déplacer un Allié/Objet » : on attend le clic sur la carte à déplacer.
+   *  `granted` (Gaston — Tous avec moi) : action gratuite armée → dispatch enveloppé. */
+  | { kind: 'move-pick'; actionId: string; granted?: boolean }
   /** Carte à déplacer choisie ; on attend le clic sur un lieu voisin. */
-  | { kind: 'move-dest'; actionId: string; instanceId: string; from: string; cardName: string }
+  | { kind: 'move-dest'; actionId: string; instanceId: string; from: string; cardName: string; granted?: boolean }
   /** « Déplacer un Héros » : on attend le clic sur le Héros à déplacer. */
   | { kind: 'move-hero-pick'; actionId: string }
   /** Héros choisi ; on attend le clic sur un lieu voisin de sa position. */
@@ -129,6 +130,8 @@ type Mode =
       actionId: string
       viaCard?: { instanceId: string; cardName: string; allyMove?: { instanceId: string; to: string } }
       diablo?: boolean
+      /** Gaston — Belle est à moi : Vanquish gratuit armé → dispatch enveloppé. */
+      granted?: boolean
       /** Vanquish facultatif de Tendre un Piège / Uniforme (action déjà appliquée). */
       trap?: boolean
       /** Restreint les Héros ciblables à ce lieu (Troupeau de gnous / Uniforme). */
@@ -145,6 +148,7 @@ type Mode =
       selected: string[]
       viaCard?: { instanceId: string; cardName: string; allyMove?: { instanceId: string; to: string } }
       diablo?: boolean
+      granted?: boolean
       trap?: boolean
       /** Uniforme : Allié porteur OBLIGATOIRE (présélectionné, non décochable). */
       requiredAllyId?: string
@@ -224,22 +228,65 @@ type Mode =
   | { kind: 'felicia-pick-ally'; actionId: string; instanceId: string; cardName: string; to: string; diablo?: boolean }
   | null
 
+/** Le Seigneur des clés — couleurs du dé (CSS). */
+const DIE_COLORS = ['bleu', 'rouge', 'vert', 'jaune', 'violet', 'orange'] as const
+const DIE_HEX: Record<string, string> = { bleu: '#3b82f6', rouge: '#ef4444', vert: '#22c55e', jaune: '#eab308', violet: '#a855f7', orange: '#f97316' }
+
+/** Animation du lancer du dé de couleur : les faces défilent ~1,1 s puis se figent
+ *  sur la couleur obtenue. `onDone` est appelé une fois l'animation terminée. */
+function DieRollModal({ seq, color, onDone }: { seq: number; color: string; onDone: (seq: number) => void }) {
+  const [face, setFace] = useState(0)
+  const [settled, setSettled] = useState(false)
+  useEffect(() => {
+    let i = 0
+    const spin = setInterval(() => { i += 1; setFace(i % DIE_COLORS.length) }, 95)
+    const stop = setTimeout(() => {
+      clearInterval(spin)
+      setFace(DIE_COLORS.indexOf(color as (typeof DIE_COLORS)[number]))
+      setSettled(true)
+    }, 1100)
+    const finish = setTimeout(() => onDone(seq), 1950)
+    return () => { clearInterval(spin); clearTimeout(stop); clearTimeout(finish) }
+  }, [color, seq, onDone])
+  return createPortal(
+    <div className="pointer-events-none fixed inset-0 z-[300] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3 rounded-2xl border border-white/15 bg-black/80 px-10 py-7 shadow-2xl backdrop-blur-sm">
+        <div className="text-xs font-semibold uppercase tracking-[0.25em] text-white/60">Dé de couleur</div>
+        <div
+          className="h-24 w-24 rounded-2xl border-4 border-white/85 transition-[background-color,box-shadow] duration-100"
+          style={{
+            backgroundColor: DIE_HEX[DIE_COLORS[face]],
+            boxShadow: settled ? `0 0 26px 6px ${DIE_HEX[color] ?? '#fff'}` : '0 4px 12px rgba(0,0,0,0.5)',
+            transform: settled ? 'scale(1.12)' : 'scale(1)',
+          }}
+        />
+        <div className={`text-lg font-bold capitalize transition-opacity ${settled ? 'text-white opacity-100' : 'text-white/40'}`}>
+          {settled ? color : ' '}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 /** Ratigan — Le Grand Génie du Mal : l'humain choisit entre piocher `draw` cartes
  *  OU gagner `power` jetons Pouvoir. */
 function DrawOrGainPowerModal({
   draw,
   power,
+  cardId,
   onChoose,
 }: {
   draw: number
   power: number
+  cardId?: string
   onChoose: (choice: 'draw' | 'power') => void
 }) {
-  const def = getCardDef('grand-genie-du-mal')
+  const def = getCardDef(cardId ?? 'grand-genie-du-mal')
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
       <div className="flex w-[26rem] max-w-[92vw] flex-col gap-4 rounded-2xl border border-white/15 bg-[#15101f] p-6 shadow-2xl">
-        <h2 className="text-center text-lg font-bold text-amber-200">Le Grand Génie du Mal</h2>
+        <h2 className="text-center text-lg font-bold text-amber-200">{def?.name ?? 'Le Grand Génie du Mal'}</h2>
         {def?.image && (
           <img src={def.image} alt={def.name} className="mx-auto w-28 rounded-lg border border-white/15 shadow" />
         )}
@@ -323,6 +370,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const diabloMove = useGameStore((s) => s.diabloMove)
   const diabloFreeAction = useGameStore((s) => s.diabloFreeAction)
   const diabloSkipFreeAction = useGameStore((s) => s.diabloSkipFreeAction)
+  const performGrantedAction = useGameStore((s) => s.performGrantedAction)
+  const skipGrantedAction = useGameStore((s) => s.skipGrantedAction)
+  const resolveObstacle = useGameStore((s) => s.resolveObstacle)
+  const doneObstacle = useGameStore((s) => s.doneObstacle)
   const trapVanquish = useGameStore((s) => s.trapVanquish)
   const trapSkipVanquish = useGameStore((s) => s.trapSkipVanquish)
   const playCondition = useGameStore((s) => s.playCondition)
@@ -342,6 +393,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolvePuppyReveal = useGameStore((s) => s.resolvePuppyReveal)
   const donePuppyReveal = useGameStore((s) => s.donePuppyReveal)
   const resolveHoraceChoice = useGameStore((s) => s.resolveHoraceChoice)
+  const resolvePuppyCapture = useGameStore((s) => s.resolvePuppyCapture)
   const resolveQuelsIdiots = useGameStore((s) => s.resolveQuelsIdiots)
   const resolveQuelsIdiotsPick = useGameStore((s) => s.resolveQuelsIdiotsPick)
   const sacrificeCrown = useGameStore((s) => s.sacrificeCrown)
@@ -395,6 +447,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const cancelDuplicateIngredient = useGameStore((s) => s.cancelDuplicateIngredient)
   const resolveScream = useGameStore((s) => s.resolveScream)
   const resolveFateScry = useGameStore((s) => s.resolveFateScry)
+  const obtainKey = useGameStore((s) => s.obtainKey)
+  const resolveKey = useGameStore((s) => s.resolveKey)
+  const resolveKeyColor = useGameStore((s) => s.resolveKeyColor)
+  const resolvePlaisir = useGameStore((s) => s.resolvePlaisir)
+  const resolveStealKey = useGameStore((s) => s.resolveStealKey)
   // Renommé sans préfixe « use » (action du store, pas un hook React).
   const activateCanne = useGameStore((s) => s.useCanne)
   const chariotMove = useGameStore((s) => s.chariotMove)
@@ -545,6 +602,16 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const humanVillainKeyRef = useRef<VillainKey | null>(null)
   // Choix de la carte à activer quand plusieurs sont activables (action « Activer »).
   const [activatePick, setActivatePick] = useState<{ actionId: string } | null>(null)
+  // Le Seigneur des clés — Sorcellerie : clé choisie (couleur) en attente du lieu où la reposer.
+  const [stealKeyId, setStealKeyId] = useState<string | null>(null)
+  // Le Seigneur des clés — Plaisir ou souffrance (reposer une clé) : clé choisie en
+  // attente du lieu de dépose (< 3 clés).
+  const [loseKeyId, setLoseKeyId] = useState<string | null>(null)
+  // Le Seigneur des clés — animation du lancer de dé. On affiche l'anim tant que le
+  // dernier lancer humain n'a pas été « acquitté » (dieDismissSeq). État dérivé (pas
+  // d'effet) : `dieAnim` est vrai dès qu'un nouveau lancer arrive et faux après onDone.
+  const [dieDismissSeq, setDieDismissSeq] = useState(0)
+  const dieAnim = !!state.dieRoll && state.dieRoll.by === HUMAN && state.dieRoll.seq !== dieDismissSeq
   // La Méchante Reine — « Préparer du Poison » : sélecteur du nombre de Pouvoir à
   // convertir en Poison (1 → max). `surcharge` = 1 si Timide est en jeu.
   const [brewPick, setBrewPick] = useState<
@@ -608,7 +675,6 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // de tour, sans useEffect/setState.
   const turnKey = `${state.activePlayer}:${state.turn}`
   const [passedTurnKey, setPassedTurnKey] = useState<string | null>(null)
-  const reactionPassed = passedTurnKey === turnKey
   // Carte de la main survolée depuis l'extérieur (boutons « Jouer Avarice »…).
   const [hoveredReactionId, setHoveredReactionId] = useState<string | null>(null)
   // instanceId actuellement « en showcase » (à masquer du plateau le temps du vol).
@@ -936,6 +1002,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const botHandRevealed = hasHeroInRealm(state, BOT, 'flora')
   // Conditions jouables par l'humain pendant le tour du bot (D — réaction).
   const humanReactions: CardInstance[] = !isHumanTurn ? playableConditions(state, HUMAN) : []
+  // Clé de réaction : le tour + l'ENSEMBLE des Conditions actuellement déclenchables.
+  // « Passer » ne verrouille QUE cet ensemble : si une NOUVELLE Condition devient
+  // jouable plus tard dans le tour adverse (ex. « Pas si vite ! » dès qu'il lance une
+  // Fatalité), la fenêtre de réaction revient au lieu de rester verrouillée.
+  const reactionKey = `${turnKey}:${humanReactions.map((c) => c.instanceId).sort().join(',')}`
+  const reactionPassed = passedTurnKey === reactionKey
   // Shériffs encore mobiles ce tour (instanceId), pour afficher le bouton inline.
   const sheriffMovable: string[] = isHumanTurn && state.phase === 'ACTION'
     ? Object.values(user.board)
@@ -1028,6 +1100,126 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   useEffect(() => {
     if (state.status !== 'PLAYING') return
     if (!startRollDone) return // jet de dé de début de partie en cours
+    // Gaston — retrait/replacement de jetons Obstacle. Bot → retire en priorité les
+    // lieux non vidables par un Vanquish (Taverne/Bois) ; replace en dispersant (lieu
+    // le plus vide d'abord) ; humain → bandeau de lieux.
+    const pob = state.pendingObstacle
+    if (pob) {
+      if (seats[pob.chooserIndex] === 'bot') {
+        const tp = state.players[pob.targetIndex]
+        const ids = tp.locations.map((l) => l.id)
+        let locId: string | undefined
+        if (pob.kind === 'remove') {
+          const pref = ['taverne', 'bois', 'maison-belle', 'chateau-bete']
+          locId = ids
+            .filter((id) => (tp.obstacles?.[id] ?? 0) > 0 && (!pob.sameLocation || !pob.lockedLocationId || pob.lockedLocationId === id))
+            .sort((a, b) => (pref.indexOf(a) + 9) % 9 - ((pref.indexOf(b) + 9) % 9))[0]
+        } else {
+          locId = ids
+            .filter((id) => (tp.obstacles?.[id] ?? 0) < 2)
+            .sort((a, b) => (tp.obstacles?.[a] ?? 0) - (tp.obstacles?.[b] ?? 0))[0]
+        }
+        const timer = setTimeout(() => (locId ? resolveObstacle(locId) : doneObstacle()), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Le Seigneur des clés — choix d'une clé (pendingKey). Bot → RAMASSE de préférence
+    // une couleur encore absente ; REPOSE de préférence un doublon (pour ne perdre
+    // aucune couleur). Humain → bandeau / clic direct sur le plateau.
+    const pky = state.pendingKey
+    if (pky) {
+      if (seats[pky.playerIndex] === 'bot') {
+        const p = state.players[pky.playerIndex]
+        const owned = (p.keys ?? []).filter((k) => k.location === null && !k.stolenBy)
+        let pick: string | undefined
+        if (pky.kind === 'take') {
+          const ownedColors = new Set(owned.map((k) => k.color))
+          const cands = (p.keys ?? []).filter(
+            (k) =>
+              k.location !== null && !k.stolenBy &&
+              (pky.locationId === undefined || k.location === pky.locationId) &&
+              (pky.color === undefined || k.color === pky.color),
+          )
+          pick = (cands.find((k) => !ownedColors.has(k.color)) ?? cands[0])?.id
+        } else {
+          const count: Record<string, number> = {}
+          for (const k of owned) count[k.color] = (count[k.color] ?? 0) + 1
+          pick = [...owned].sort((a, b) => count[b.color] - count[a.color])[0]?.id
+        }
+        if (pick) {
+          const id = pick
+          // Perte avec choix du lieu (Plaisir) : repose sur un lieu < 3 clés (le lieu
+          // du pion si possible, sinon le plus proche) pour le récupérer facilement.
+          let dest: string | undefined
+          if (pky.kind === 'lose' && pky.chooseDest) {
+            const order = p.locations.map((l) => l.id)
+            const room = order.filter((lid) => (p.keys ?? []).filter((k) => k.location === lid && !k.stolenBy).length < 3)
+            const pawnIdx = order.indexOf(p.pawnLocation ?? order[0])
+            dest = room.includes(p.pawnLocation ?? '') ? p.pawnLocation! : [...room].sort((a, b) => Math.abs(order.indexOf(a) - pawnIdx) - Math.abs(order.indexOf(b) - pawnIdx))[0]
+          }
+          const timer = setTimeout(() => resolveKey(id, dest), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
+    // Le Seigneur des clés — choix d'une couleur avant le dé (pendingKeyColor). Bot →
+    // vise une couleur manquante de préférence présente sur le plateau. Humain → bandeau.
+    const pkc = state.pendingKeyColor
+    if (pkc) {
+      if (seats[pkc.playerIndex] === 'bot') {
+        const COLORS = ['bleu', 'rouge', 'vert', 'jaune', 'violet', 'orange'] as KeyColor[]
+        const p = state.players[pkc.playerIndex]
+        const owned = new Set((p.keys ?? []).filter((k) => k.location === null && !k.stolenBy).map((k) => k.color))
+        const onBoard = new Set((p.keys ?? []).filter((k) => k.location !== null && !k.stolenBy).map((k) => k.color))
+        const needed = COLORS.filter((c) => !owned.has(c))
+        const choice = needed.find((c) => onBoard.has(c)) ?? needed[0] ?? COLORS[0]
+        const timer = setTimeout(() => resolveKeyColor(choice), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Le Seigneur des clés — Plaisir ou souffrance (pendingPlaisir). Bot → repose une
+    // clé s'il a un doublon (couleur préservée), sinon perd du Pouvoir si possible.
+    const ppl = state.pendingPlaisir
+    if (ppl) {
+      if (seats[ppl.playerIndex] === 'bot') {
+        const p = state.players[ppl.playerIndex]
+        const owned = (p.keys ?? []).filter((k) => k.location === null && !k.stolenBy)
+        const count: Record<string, number> = {}
+        for (const k of owned) count[k.color] = (count[k.color] ?? 0) + 1
+        const hasDuplicate = Object.values(count).some((n) => n >= 2)
+        const choice: 'power' | 'key' = hasDuplicate ? 'key' : p.power >= ppl.power ? 'power' : 'key'
+        const timer = setTimeout(() => resolvePlaisir(choice), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Le Seigneur des clés — Sorcellerie / Gévaudan (pendingStealKey). Le CHOOSER (adversaire
+    // du Seigneur) choisit la clé la plus dommageable (couleur unique), reposée au plus loin
+    // du pion pour 'return'. Humain → bandeau ; bot → auto.
+    const psk = state.pendingStealKey
+    if (psk) {
+      if (seats[psk.chooserIndex] === 'bot') {
+        const t = state.players[psk.targetIndex]
+        const owned = (t.keys ?? []).filter((k) => k.location === null && !k.stolenBy)
+        if (owned.length > 0) {
+          const count: Record<string, number> = {}
+          for (const k of owned) count[k.color] = (count[k.color] ?? 0) + 1
+          const victim = [...owned].sort((a, b) => count[a.color] - count[b.color])[0]
+          const locs = t.locations.map((l) => l.id)
+          const pawnIdx = locs.indexOf(t.pawnLocation ?? locs[0])
+          const dest = [...locs].sort((a, b) => Math.abs(locs.indexOf(b) - pawnIdx) - Math.abs(locs.indexOf(a) - pawnIdx))[0]
+          const timer = setTimeout(
+            () => resolveStealKey(victim.id, psk.mode === 'return' ? dest : undefined),
+            BOT_STEP_MS,
+          )
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
     // Retourne-toi : carte révélée en attente d'un choix. Bot → garde la carte
     // (auto) après un court délai ; humain → modale.
     const pdp = state.pendingDeckPeek
@@ -1117,6 +1309,20 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       if (seats[phc.playerIndex] === 'bot') {
         const timer = setTimeout(() => resolveHoraceChoice(true), BOT_STEP_MS)
         return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Capture avec choix : Bot → capture la plus grosse tuile ; humain → modale.
+    const ppc = state.pendingPuppyCapture
+    if (ppc) {
+      if (seats[ppc.playerIndex] === 'bot') {
+        const best = (state.players[ppc.playerIndex].puppyTiles ?? [])
+          .filter((t) => t.state === 'board' && t.location === ppc.locationId)
+          .sort((a, b) => b.value - a.value)[0]
+        if (best) {
+          const timer = setTimeout(() => resolvePuppyCapture(best.id), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
       }
       return
     }
@@ -1866,7 +2072,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate])
+  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey])
 
   // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
   // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
@@ -2363,7 +2569,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Rien ne se déplace DEPUIS un lieu verrouillé (Bowser : Observatoire à 0 Étoile).
     if ((user.lockedLocations ?? []).includes(from)) return
     const card = user.board[from].find((c) => c.instanceId === instanceId)
-    setMode({ kind: 'move-dest', actionId: mode.actionId, instanceId, from, cardName: card?.name ?? '' })
+    setMode({ kind: 'move-dest', actionId: mode.actionId, instanceId, from, cardName: card?.name ?? '', granted: mode.granted })
   }
   const handlePlace = (to: string) => {
     if (mode?.kind === 'condition-pick-place') {
@@ -2382,7 +2588,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       return handleActivateIagoDest(to)
     }
     if (mode?.kind === 'move-dest') {
-      moveCard(mode.actionId, mode.instanceId, to)
+      if (mode.granted) {
+        // Gaston — Tous avec moi : déplacement gratuit (action synthétique côté moteur).
+        performGrantedAction({ type: 'MOVE_CARD', actionId: 'granted-free-action', instanceId: mode.instanceId, to })
+      } else {
+        moveCard(mode.actionId, mode.instanceId, to)
+      }
       return setMode(null)
     }
     if (mode?.kind === 'move-hero-dest') {
@@ -2485,6 +2696,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       if (cards.length === 1) startActivate(a.id, cards[0])
       else if (cards.length > 1) setActivatePick({ actionId: a.id })
     }
+    else if (a.type === 'OBTAIN_KEY') obtainKey(a.id) // Seigneur des clés → ouvre pendingKey
   }
   /** Capitaine Crochet : clic sur une carte-Objet qui DONNE une action au lieu
    *  (Canon, Boîte à Crochets, Ingénieux Mécanisme) → déclenche cette action. */
@@ -2552,6 +2764,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       selected: mode.requiredAllyId ? [mode.requiredAllyId] : [],
       viaCard: mode.viaCard,
       diablo: mode.diablo,
+      granted: mode.granted,
       trap: mode.trap,
       requiredAllyId: mode.requiredAllyId,
     })
@@ -2589,6 +2802,14 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         mode.selected,
         v.allyMove,
       )
+    } else if (mode.granted) {
+      // Gaston — Belle est à moi : Vanquish gratuit (action synthétique côté moteur).
+      performGrantedAction({
+        type: 'VANQUISH',
+        actionId: 'granted-free-action',
+        heroInstanceId: mode.heroInstanceId,
+        allyInstanceIds: mode.selected,
+      })
     } else {
       doVanquish(mode.diablo, mode.actionId, mode.heroInstanceId, mode.selected)
     }
@@ -3147,7 +3368,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           {/* Plateau (image). Les deux joueurs sont le Prince Jean pour l'instant.
               Un Héros posé masque la rangée d'actions du haut de son lieu. */}
           <div className="relative" ref={userBoardRef}>
-            <BoardImage player={user} showPawn pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[user.villain]}, white 45%)`} imgClassName="border border-[color:var(--pa-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} unmaskHeroLocationId={persifleurLoc} crewmateCandidates={state.pendingCrewmateKill?.playerIndex === HUMAN ? state.pendingCrewmateKill.candidateColors : undefined} onCrewmateClick={(color) => { if (state.pendingCrewmateKill?.mode === 'kill') playKillSound(); resolveCrewmateKill(color) }} crewmateSelectVerb={state.pendingCrewmateKill?.mode === 'reassure' ? 'Rassurer' : state.pendingCrewmateKill?.mode === 'kill-normal' ? 'Éliminer' : state.pendingCrewmateKill?.mode === 'move' ? 'Déplacer' : 'Défausser'} />
+            <BoardImage player={user} showPawn pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[user.villain]}, white 45%)`} imgClassName="border border-[color:var(--pa-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} unmaskHeroLocationId={persifleurLoc} obstacleTargets={state.pendingObstacle && state.pendingObstacle.chooserIndex === HUMAN && state.pendingObstacle.kind === 'remove' ? user.locations.map((l) => l.id).filter((id) => (user.obstacles?.[id] ?? 0) > 0 && (!state.pendingObstacle!.sameLocation || !state.pendingObstacle!.lockedLocationId || state.pendingObstacle!.lockedLocationId === id)) : undefined} onObstacleClick={resolveObstacle} keyPick={state.pendingKey && state.pendingKey.playerIndex === HUMAN && state.pendingKey.kind === 'take' && !dieAnim ? { locationId: state.pendingKey.locationId, color: state.pendingKey.color } : undefined} onKeyClick={resolveKey} crewmateCandidates={state.pendingCrewmateKill?.playerIndex === HUMAN ? state.pendingCrewmateKill.candidateColors : undefined} onCrewmateClick={(color) => { if (state.pendingCrewmateKill?.mode === 'kill') playKillSound(); resolveCrewmateKill(color) }} crewmateSelectVerb={state.pendingCrewmateKill?.mode === 'reassure' ? 'Rassurer' : state.pendingCrewmateKill?.mode === 'kill-normal' ? 'Éliminer' : state.pendingCrewmateKill?.mode === 'move' ? 'Déplacer' : 'Défausser'} />
             <BoardActions
               player={user}
               availableActionIds={availableActions.map((a) => a.id)}
@@ -3535,6 +3756,201 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               )}
             </div>
           )}
+          {/* Gaston — Belle est à moi / Tous avec moi : action gratuite armée. */}
+          {state.grantedAction && isHumanTurn && (
+            <div className="rounded-lg border border-amber-400/70 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+              {mode && 'granted' in mode && mode.granted ? (
+                <div className="flex items-center justify-between gap-2">
+                  <span>🎯 <b>{state.grantedAction.label}</b> — choisis sur le plateau.</span>
+                  <button
+                    onClick={() => setMode(null)}
+                    className="rounded border border-amber-400/60 px-2 py-1 hover:bg-amber-400/10"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span>🎯 <b>Gaston</b> : effectuez une action <b>{state.grantedAction.label}</b>.</span>
+                  <button
+                    onClick={() =>
+                      setMode(
+                        state.grantedAction!.actionType === 'VANQUISH'
+                          ? { kind: 'vanquish-pick-hero', actionId: 'granted-free-action', granted: true }
+                          : { kind: 'move-pick', actionId: 'granted-free-action', granted: true },
+                      )
+                    }
+                    className="rounded bg-amber-600 px-2 py-1 text-white hover:bg-amber-500"
+                  >
+                    {state.grantedAction.label}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMode(null)
+                      skipGrantedAction()
+                    }}
+                    className="rounded border border-amber-400/60 px-2 py-1 hover:bg-amber-400/10"
+                  >
+                    Passer
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          {/* Gaston — retrait/replacement interactif des jetons Obstacle. */}
+          {state.pendingObstacle && state.pendingObstacle.chooserIndex === HUMAN && (() => {
+            const pen = state.pendingObstacle
+            const tp = state.players[pen.targetIndex]
+            const eligible = tp.locations.filter((l) => {
+              const n = tp.obstacles?.[l.id] ?? 0
+              if (pen.kind === 'remove') {
+                if (n <= 0) return false
+                if (pen.sameLocation && pen.lockedLocationId && pen.lockedLocationId !== l.id) return false
+                return true
+              }
+              return n < 2
+            })
+            // RETRAIT : on clique directement le jeton Obstacle sur le plateau
+            // (surligné en jaune) → pas de boutons de lieu, juste « Terminer ».
+            // REPLACEMENT : pas de jeton à cliquer (emplacement vide) → boutons de lieu.
+            return (
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-400/70 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                <span>🚧 <b>{pen.label}</b> — {pen.kind === 'remove' ? 'cliquez un jeton Obstacle (surligné) sur le plateau.' : 'cliquez un lieu où replacer un Obstacle.'}</span>
+                {pen.kind === 'replace' && eligible.map((l) => (
+                  <button
+                    key={l.id}
+                    onClick={() => resolveObstacle(l.id)}
+                    className="rounded bg-amber-600 px-2 py-1 text-white hover:bg-amber-500"
+                  >
+                    {l.name} ({tp.obstacles?.[l.id] ?? 0})
+                  </button>
+                ))}
+                <button
+                  onClick={doneObstacle}
+                  className="rounded border border-amber-400/60 px-2 py-1 hover:bg-amber-400/10"
+                >
+                  Terminer
+                </button>
+              </div>
+            )
+          })()}
+          {/* Le Seigneur des clés — choix d'une clé (pendingKey). RAMASSER : on clique
+              directement la clé (surlignée) sur le plateau. PERDRE : un bouton par clé
+              possédée (couleur), à reposer sur le lieu du pion. */}
+          {state.pendingKey && state.pendingKey.playerIndex === HUMAN && !dieAnim && (() => {
+            const pen = state.pendingKey
+            const KEY_HEX: Record<string, string> = { bleu: '#3b82f6', rouge: '#ef4444', vert: '#22c55e', jaune: '#eab308', violet: '#a855f7', orange: '#f97316' }
+            const owned = (user.keys ?? []).filter((k) => k.location === null && !k.stolenBy)
+            const keysAt = (lid: string) => (user.keys ?? []).filter((k) => k.location === lid && !k.stolenBy).length
+            // Étape 2 (Plaisir, chooseDest) : on a choisi la clé → choisir le lieu (< 3 clés).
+            if (pen.kind === 'lose' && pen.chooseDest && loseKeyId) {
+              return (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-indigo-400/70 bg-indigo-500/10 px-3 py-2 text-xs text-indigo-100">
+                  <span>🔑 <b>{pen.label}</b> — sur quel lieu reposer la clé ? (lieux comptant moins de 3 clés)</span>
+                  {user.locations.filter((l) => keysAt(l.id) < 3).map((l) => (
+                    <button
+                      key={l.id}
+                      onClick={() => { resolveKey(loseKeyId, l.id); setLoseKeyId(null) }}
+                      className="rounded bg-indigo-600 px-2 py-1 text-white hover:bg-indigo-500"
+                    >
+                      {l.name} ({keysAt(l.id)})
+                    </button>
+                  ))}
+                </div>
+              )
+            }
+            return (
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-indigo-400/70 bg-indigo-500/10 px-3 py-2 text-xs text-indigo-100">
+                <span>🔑 <b>{pen.label}</b>{pen.kind === 'take' ? ' — cliquez une clé (surlignée) sur le plateau.' : ' — choisissez une clé à reposer :'}</span>
+                {pen.kind === 'lose' && owned.map((k) => (
+                  <button
+                    key={k.id}
+                    onClick={() => (pen.chooseDest ? setLoseKeyId(k.id) : resolveKey(k.id))}
+                    className="rounded px-2 py-1 font-semibold text-white capitalize hover:brightness-110"
+                    style={{ backgroundColor: KEY_HEX[k.color] ?? '#666' }}
+                  >
+                    {k.color}
+                  </button>
+                ))}
+              </div>
+            )
+          })()}
+          {/* Le Seigneur des clés — choisir une couleur avant de lancer le dé (00:00 / Minuit). */}
+          {state.pendingKeyColor && state.pendingKeyColor.playerIndex === HUMAN && (() => {
+            const KEY_HEX: Record<string, string> = { bleu: '#3b82f6', rouge: '#ef4444', vert: '#22c55e', jaune: '#eab308', violet: '#a855f7', orange: '#f97316' }
+            return (
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-indigo-400/70 bg-indigo-500/10 px-3 py-2 text-xs text-indigo-100">
+                <span>🎲 <b>Choisissez une couleur</b>, puis lancez le dé : si le dé affiche cette couleur, vous prenez une clé de cette couleur.</span>
+                {(['bleu', 'rouge', 'vert', 'jaune', 'violet', 'orange'] as KeyColor[]).map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => resolveKeyColor(c)}
+                    className="rounded px-2 py-1 font-semibold text-white capitalize hover:brightness-110"
+                    style={{ backgroundColor: KEY_HEX[c] }}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            )
+          })()}
+          {/* Le Seigneur des clés — Plaisir ou souffrance : perdre du Pouvoir ou reposer une clé. */}
+          {state.pendingPlaisir && state.pendingPlaisir.playerIndex === HUMAN && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-rose-400/70 bg-rose-500/10 px-3 py-2 text-xs text-rose-100">
+              <span>⚖️ <b>Plaisir ou souffrance</b> : choisissez votre châtiment.</span>
+              <button onClick={() => resolvePlaisir('power')} className="rounded bg-rose-600 px-2 py-1 font-medium text-white hover:bg-rose-500">
+                Perdre {state.pendingPlaisir.power} Pouvoir
+              </button>
+              <button onClick={() => resolvePlaisir('key')} className="rounded border border-rose-400/60 px-2 py-1 text-rose-200 hover:bg-rose-500/10">
+                Reposer une clé
+              </button>
+            </div>
+          )}
+          {/* Le Seigneur des clés — Sorcellerie / Gévaudan : c'est NOTRE tour et nous
+              attaquons le Seigneur adverse → on choisit quelle clé lui prendre (puis,
+              pour Sorcellerie, sur quel lieu la reposer). */}
+          {state.pendingStealKey && state.pendingStealKey.chooserIndex === HUMAN && (() => {
+            const pen = state.pendingStealKey
+            const tgt = state.players[pen.targetIndex]
+            const KEY_HEX: Record<string, string> = { bleu: '#3b82f6', rouge: '#ef4444', vert: '#22c55e', jaune: '#eab308', violet: '#a855f7', orange: '#f97316' }
+            const owned = (tgt.keys ?? []).filter((k) => k.location === null && !k.stolenBy)
+            // Étape 1 : choisir la clé (une entrée par couleur distincte). Étape 2
+            // (Sorcellerie) : choisir le lieu où reposer la clé déjà sélectionnée.
+            const seen = new Set<string>()
+            const distinct = owned.filter((k) => (seen.has(k.color) ? false : (seen.add(k.color), true)))
+            return (
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-fuchsia-400/70 bg-fuchsia-500/10 px-3 py-2 text-xs text-fuchsia-100">
+                {!stealKeyId || pen.mode === 'steal' ? (
+                  <>
+                    <span>🗝️ <b>{pen.mode === 'steal' ? 'Gévaudan' : 'Sorcellerie'}</b> — choisissez une clé de {tgt.villainName} :</span>
+                    {distinct.map((k) => (
+                      <button
+                        key={k.id}
+                        onClick={() => (pen.mode === 'steal' ? resolveStealKey(k.id) : setStealKeyId(k.id))}
+                        className="rounded px-2 py-1 font-semibold capitalize text-white hover:brightness-110"
+                        style={{ backgroundColor: KEY_HEX[k.color] ?? '#666' }}
+                      >
+                        {k.color}
+                      </button>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    <span>🗝️ <b>Sorcellerie</b> — reposez la clé sur quel lieu ?</span>
+                    {tgt.locations.map((l) => (
+                      <button
+                        key={l.id}
+                        onClick={() => { resolveStealKey(stealKeyId, l.id); setStealKeyId(null) }}
+                        className="rounded bg-fuchsia-600 px-2 py-1 text-white hover:bg-fuchsia-500"
+                      >
+                        {l.name}
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
+            )
+          })()}
           {/* Tendre un Piège : Vanquish facultatif après le déplacement (déjà appliqué). */}
           {isHumanTurn && state.pendingTrapVanquish && !mode && (
             <div className="flex flex-wrap items-center gap-2 rounded-lg border border-orange-400/70 bg-orange-500/10 px-3 py-2 text-xs text-orange-100">
@@ -3735,7 +4151,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 ))}
                 {isBotTurn && (
                   <button
-                    onClick={() => setPassedTurnKey(turnKey)}
+                    onClick={() => setPassedTurnKey(reactionKey)}
                     className="mt-1 rounded border border-fuchsia-400/40 px-2 py-1 text-fuchsia-200 hover:bg-fuchsia-400/10"
                   >
                     Passer (ne pas réagir)
@@ -3964,6 +4380,21 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             pawnWithRaiponce={!!user.pawnLocation && (user.board[user.pawnLocation] ?? []).some((c) => c.cardId === 'raiponce')}
             recoverFromDiscardAvailable={user.discard.some((c) => c.type === 'item' || c.type === 'effect')}
             hasActivatableCard={activatableCards(state).length > 0}
+            canRemoveObstacle={
+              user.obstacles !== undefined &&
+              Object.values(user.obstacles).reduce((n, v) => n + v, 0) > 0 &&
+              !Object.values(user.board).flat().some((c) => c.type === 'hero' && c.cardId === 'belle')
+            }
+            canReplaceObstacle={
+              user.obstacles !== undefined &&
+              Object.values(user.obstacles).reduce((n, v) => n + v, 0) < user.locations.length * 2
+            }
+            realmHasMovableCard={Object.values(user.board).flat().some((c) => (c.type === 'ally' || c.type === 'item' || c.type === 'curse') && !c.attachedTo)}
+            showMeBeastUsable={Object.values(user.board).flat().some((c) => c.type === 'hero' && (c.cardId === 'la-bete' || c.cardId === 'belle'))}
+            keyAtPawn={(user.keys ?? []).some((k) => k.location === user.pawnLocation && !k.stolenBy)}
+            keysOnBoard={(user.keys ?? []).some((k) => k.location !== null && !k.stolenBy)}
+            ownsKey={(user.keys ?? []).some((k) => k.location === null && !k.stolenBy)}
+            realmCardIds={Object.values(user.board).flat().map((c) => c.cardId)}
             costFor={(c) => effectiveCost(state, c)}
             armedConditionIds={humanReactions.map((c) => c.instanceId)}
             forcedHoverId={hoveredReactionId}
@@ -4092,8 +4523,14 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         <DrawOrGainPowerModal
           draw={state.pendingDrawOrGainPower.draw}
           power={state.pendingDrawOrGainPower.power}
+          cardId={state.pendingDrawOrGainPower.cardId}
           onChoose={resolveDrawOrGainPower}
         />
+      )}
+
+      {/* Le Seigneur des clés — animation du lancer de dé de couleur. */}
+      {dieAnim && state.dieRoll && (
+        <DieRollModal key={state.dieRoll.seq} seq={state.dieRoll.seq} color={state.dieRoll.color} onDone={setDieDismissSeq} />
       )}
 
       {/* Lance-moi ta chevelure : l'humain choisit de combien de lieux ramener Raiponce. */}
@@ -4158,6 +4595,26 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Cruella — capture avec choix : quelle(s) Tuile Chiots capturer sur le lieu. */}
+      {state.pendingPuppyCapture && state.pendingPuppyCapture.playerIndex === HUMAN && (
+        <ChoiceModal
+          title="Capturer une Tuile Chiots"
+          prompt={`Choisis la Tuile à capturer (encore ${state.pendingPuppyCapture.remaining}).`}
+          layout="row"
+          options={(user.puppyTiles ?? [])
+            .filter((t) => t.state === 'board' && t.location === state.pendingPuppyCapture!.locationId)
+            .map((t) => {
+              const short = t.homeLocation === 'maison-radcliff' ? 'maison' : t.homeLocation
+              return {
+                key: t.id,
+                label: `${t.value} chiots`,
+                imageSrc: `/cards/cruella/tuile-${short}-${t.value}.png`,
+                onSelect: () => resolvePuppyCapture(t.id),
+              }
+            })}
+        />
       )}
 
       {/* Cruella — Quels idiots ! (choix de l'option). */}
@@ -4271,7 +4728,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
 
       {/* Faites-leur peur ! : trier les 2 premières cartes Fatalité. */}
       {state.pendingScry && state.pendingScry.playerIndex === HUMAN && (
-        <ScryModal cards={state.pendingScry.cards} onResolve={(ids) => resolveScry(ids)} />
+        <ScryModal cards={state.pendingScry.cards} onResolve={(ids) => resolveScry(ids)} pasSiVite={state.pendingScry.pasSiVite} />
       )}
 
       {/* Magie noire (La Méchante Reine) : choisir un Objet/Ingrédient à reprendre,

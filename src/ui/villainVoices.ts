@@ -42,6 +42,9 @@ const VOICE_PREFIX: Record<VillainKey, string> = {
   patHibulaire: 'Pat Hibulaire', // pas (encore) de fichiers de voix → intro silencieuse
   gothel: 'La mère Gothel', // 1 seule variante présente (n°2) ; les 3 autres manquent encore
   cruella: "Cruella d'enfer", // 4 variantes présentes
+  gaston: 'Gaston', // 4 variantes présentes
+  seigneurCles: 'Le Seigneur des clés', // 4 variantes présentes
+  madameTremaine: 'Madame de trémaine', // 4 variantes présentes
 }
 
 const CONTRE_PREFIX = 'Contre'

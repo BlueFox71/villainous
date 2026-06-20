@@ -81,6 +81,31 @@ interface Props {
   /** Vrai s'il existe une capacité activable dans le royaume (Finissez le travail !).
    *  La carte est injouable sinon. */
   hasActivatableCard: boolean
+  /** Gaston — vrai si Gaston peut RETIRER un Obstacle (au moins un présent ET Belle
+   *  pas dans le royaume). Les cartes dont le seul effet est de retirer un Obstacle
+   *  (Très mauvais caractère, Laissez-moi vous regarder, Sortez !) sont injouables sinon. */
+  canRemoveObstacle?: boolean
+  /** Gaston — vrai s'il reste de la place pour REPLACER un Obstacle (< 8). Sous le
+   *  charme est injouable sinon (règle officielle : pas de place pour replacer). */
+  canReplaceObstacle?: boolean
+  /** Gaston — vrai s'il existe un Allié/Objet (non associé) déplaçable. « Tous avec
+   *  moi ! » est injouable sinon. */
+  realmHasMovableCard?: boolean
+  /** Gaston — vrai si la Bête OU Belle est dans le royaume. « Montre-moi la Bête ! »
+   *  est injouable sinon (aucun effet). */
+  showMeBeastUsable?: boolean
+  /** Le Seigneur des clés — vrai s'il y a au moins une clé sur le lieu du pion.
+   *  Toute Puissance / C'est moi qui décide / Pierre tombale sont injouables sinon. */
+  keyAtPawn?: boolean
+  /** Le Seigneur des clés — vrai s'il y a au moins une clé posée sur le plateau.
+   *  00:00 est injouable sinon (aucune clé à prendre au dé). */
+  keysOnBoard?: boolean
+  /** Le Seigneur des clés — vrai s'il possède au moins une clé. Répondez ! est
+   *  injouable sinon (0 Pouvoir gagné). */
+  ownsKey?: boolean
+  /** Madame de Trémaine — cardId présents dans le royaume (pour griser un Allié « en
+   *  robe de bal » dont la version ordinaire n'est pas en jeu). */
+  realmCardIds?: string[]
   /** Coût effectif d'une carte (Couronne −1, Bâton Magique −1 sur Événement/
    *  Malédiction, Épée de Vérité +2…). Absent → coût de base. */
   costFor?: (card: CardInstance) => number
@@ -127,6 +152,14 @@ export function Hand({
   pawnWithRaiponce,
   recoverFromDiscardAvailable,
   hasActivatableCard,
+  canRemoveObstacle = true,
+  canReplaceObstacle = true,
+  realmHasMovableCard = true,
+  showMeBeastUsable = true,
+  keyAtPawn = true,
+  keysOnBoard = true,
+  ownsKey = true,
+  realmCardIds,
   costFor,
   armedConditionIds = [],
   forcedHoverId = null,
@@ -261,10 +294,24 @@ export function Hand({
           // Joyeux non-anniversaire (gain par Allié) : injouable sans Allié au royaume.
           const needsAllyInRealm = (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_ALLY_IN_REALM')
           // Magnifiques Taxes (gain par Héros) / Cruelle diablesse (déplace un Héros) :
-          // injouable sans Héros au royaume.
+          // injouable sans Héros au royaume. Gaston — Belle est à moi (action gratuite
+          // « Éliminer un Héros ») : idem, injouable sans Héros à cibler.
           const needsHeroInRealm = (card.effects ?? []).some(
-            (e) => e.type === 'GAIN_POWER_PER_HERO_IN_REALM' || e.type === 'RELOCATE_OWN_HERO',
+            (e) =>
+              e.type === 'GAIN_POWER_PER_HERO_IN_REALM' ||
+              e.type === 'RELOCATE_OWN_HERO' ||
+              (e.type === 'GRANT_FREE_ACTION' && e.actionType === 'VANQUISH') ||
+              // Le Seigneur des clés — Banni ! (déplace un Héros) / Souffre-douleur
+              // (réduit la force d'un Héros) : sans Héros au royaume, aucun effet.
+              e.type === 'MOVE_HERO_TO_LOCATION' ||
+              e.type === 'REDUCE_HERO_STRENGTH_TEMP' ||
+              // Madame de Trémaine — Piège : sans Héros à piéger, aucun effet.
+              e.type === 'TRAP_HERO',
           )
+          // Madame de Trémaine — Allié « en robe de bal » : injouable si sa version
+          // ordinaire (`replacesCardId`) n'est pas en jeu.
+          const needsReplaceTarget = !!ci.replacesCardId
+          const replaceOk = !needsReplaceTarget || (realmCardIds ?? []).includes(ci.replacesCardId!)
           // Foudre (duplique un Ingrédient) : injouable sans Ingrédient joué PAYABLE
           // (son coût = celui de l'Ingrédient reproduit ; cf. prop hasIngredients).
           const needsIngredient = (card.effects ?? []).some((e) => e.type === 'DUPLICATE_INGREDIENT')
@@ -300,6 +347,26 @@ export function Hand({
           const needsRecoverTarget = (card.effects ?? []).some((e) => e.type === 'RECOVER_FROM_DISCARD_CHOICE')
           // Finissez le travail ! (Cruella) : injouable sans capacité activable.
           const needsActivatable = (card.effects ?? []).some((e) => e.type === 'GRANT_FREE_ACTIVATE')
+          // Gaston — cartes dont le SEUL effet est de retirer des Obstacles (Très mauvais
+          // caractère, Laissez-moi vous regarder, Sortez !) : injouables si Belle bloque
+          // ou s'il ne reste aucun Obstacle.
+          const cardFx = card.effects ?? []
+          const needsRemoveObstacle = cardFx.length > 0 && cardFx.every((e) => e.type === 'REMOVE_OBSTACLE')
+          // Sous le charme : injouable si les 8 Obstacles sont déjà posés (rien à replacer).
+          const needsReplaceObstacle = cardFx.some((e) => e.type === 'REPLACE_OBSTACLE')
+          // Tous avec moi ! : injouable sans Allié/Objet déplaçable.
+          const needsMovableCard = cardFx.some((e) => e.type === 'GRANT_FREE_ACTION' && e.actionType === 'MOVE_ITEM_ALLY')
+          // Montre-moi la Bête ! : injouable si ni la Bête ni Belle dans le royaume.
+          const needsShowMeBeast = cardFx.some((e) => e.type === 'SHOW_ME_THE_BEAST')
+          // Le Seigneur des clés — Toute Puissance / C'est moi qui décide / Pierre tombale :
+          // injouables sans clé sur le lieu du pion. 00:00 : injouable sans clé sur le plateau.
+          const needsKeyAtPawn = cardFx.some((e) => e.type === 'TAKE_KEY_AT_PAWN' || e.type === 'ROLL_DIE_TAKE_KEY_AT_PAWN')
+          const needsKeysOnBoard = cardFx.some((e) => e.type === 'CHOOSE_COLOR_ROLL_TAKE_KEY' || e.type === 'ROLL_DIE_TAKE_KEY_FROM_BOARD')
+          // Cartes qui exigent une clé POSSÉDÉE : Répondez ! (0 Pouvoir sinon),
+          // Trop facile / Plus qu'une minute (« perdez une clé de votre choix »).
+          const needsOwnedKey = cardFx.some(
+            (e) => e.type === 'GAIN_POWER_PER_KEY_COLOR' || e.type === 'LOSE_KEY_GAIN_POWER' || e.type === 'LOSE_KEY_DRAW',
+          )
           const playable =
             mode === 'play'
               ? card.type !== 'condition' &&
@@ -322,6 +389,14 @@ export function Hand({
                 (!needsPawnWithRaiponce || pawnWithRaiponce) &&
                 (!needsRecoverTarget || recoverFromDiscardAvailable) &&
                 (!needsActivatable || hasActivatableCard) &&
+                (!needsRemoveObstacle || canRemoveObstacle) &&
+                (!needsReplaceObstacle || canReplaceObstacle) &&
+                (!needsMovableCard || realmHasMovableCard) &&
+                (!needsShowMeBeast || showMeBeastUsable) &&
+                (!needsKeyAtPawn || keyAtPawn) &&
+                (!needsKeysOnBoard || keysOnBoard) &&
+                (!needsOwnedKey || ownsKey) &&
+                replaceOk &&
                 !(blockEvents && card.type === 'effect')
               : mode === 'condition-ally'
                 ? card.type === 'ally' // Lâcheté : seuls les Alliés sont jouables, gratuit

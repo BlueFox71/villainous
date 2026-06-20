@@ -39,6 +39,50 @@ export function objectiveScore(p: PlayerState): number {
       const cursed = p.locations.filter((l) => (p.board[l.id] ?? []).some((c) => c.type === 'curse')).length
       return cursed / Math.max(1, p.locations.length)
     }
+    case 'KEYS_ALL_COLORS': {
+      // Le Seigneur des clés : proportion des 6 couleurs possédées. Plafonné si la
+      // Clé Noire est dans son royaume (bloque la victoire → priorité à s'en défaire).
+      const owned = new Set((p.keys ?? []).filter((k) => k.location === null && !k.stolenBy).map((k) => k.color))
+      const blackKey = Object.values(p.board).flat().some((c) => c.cardId === 'cle-noire')
+      if (owned.size >= 6 && !blackKey) return 1
+      let s = owned.size / 6
+      if (blackKey) s = Math.min(s, 0.5)
+      return Math.min(0.99, s)
+    }
+    case 'MARRY_PRINCE': {
+      // Madame de Trémaine : progression vers le mariage. Paliers cumulés : Salle de
+      // Bal déverrouillée, fille en robe au bal, Prince au bal, Cloches en jeu, aucune
+      // Pantoufle de Verre. La proximité réelle dépend du dernier verrou manquant.
+      const obj = p.objective
+      const ballroom = p.board[obj.ballroomId] ?? []
+      const all = Object.values(p.board).flat()
+      const unlocked = !(p.lockedLocations ?? []).includes(obj.ballroomId)
+      const gownAtBall = ballroom.some((c) => obj.ballGownCardIds.includes(c.cardId) && c.type === 'ally' && !c.attachedTo)
+      const princeAtBall = ballroom.some((c) => c.cardId === obj.princeCardId)
+      const bells = all.some((c) => c.cardId === obj.bellsCardId && !c.attachedTo)
+      const slipper = all.some((c) => c.cardId === obj.slipperCardId)
+      if (unlocked && gownAtBall && princeAtBall && bells && !slipper) return 1
+      // Pondère les jalons ; la Pantoufle de Verre plafonne (il faut d'abord la retirer).
+      let s = 0
+      if (unlocked) s += 0.2
+      if (bells) s += 0.2
+      if (gownAtBall) s += 0.3
+      if (princeAtBall) s += 0.25
+      if (slipper) s = Math.min(s, 0.6)
+      return Math.min(0.99, s)
+    }
+    case 'REMOVE_ALL_OBSTACLES': {
+      // Gaston : proportion d'Obstacles RETIRÉS (8 au départ). Si Belle est dans le
+      // royaume, elle bloque TOUT retrait : on plafonne la jauge pour pousser le bot
+      // à la vaincre avant de pouvoir progresser de nouveau.
+      const start = Math.max(1, p.locations.length * 2)
+      const remaining = Object.values(p.obstacles ?? {}).reduce((n, v) => n + v, 0)
+      if (remaining === 0) return 1
+      let s = (start - remaining) / start
+      const belle = Object.values(p.board).flat().some((c) => c.type === 'hero' && c.cardId === 'belle')
+      if (belle) s = Math.min(s, 0.5)
+      return Math.min(0.99, s)
+    }
     case 'SOMBRA': {
       // 0,85 × (lieux piratés / 4) ; +0,15 quand les 4 lieux sont piratés ET que
       // Protocole Sombra est en main (prêt à déclencher la victoire).

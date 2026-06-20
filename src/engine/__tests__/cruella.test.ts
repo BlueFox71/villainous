@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { createInitialGame } from '../state'
 import { applyAction } from '../actions'
 import { hasReachedObjective } from '../rules'
-import { addPuppyFromReserve, capturePuppiesAt, resolveEffects } from '../effects'
+import { addPuppyFromReserve, capturePuppiesAt, performVanquish, resolveEffects } from '../effects'
 import { cruella } from '../../data/villains/cruella'
 import { cruellaCards } from '../../data/villains/cruella.cards'
 import { buildDeckInstances } from '../../data/types'
@@ -72,15 +72,29 @@ describe('Cruella d’Enfer — Tuiles Chiots & objectif', () => {
     expect(t2.revealed).toBe(true)
   })
 
-  it('capturePuppiesAt capture les tuiles posées (les plus grosses d’abord)', () => {
+  it('capturePuppiesAt : plus de tuiles que de place → choix de celle à capturer', () => {
     let s = game()
     const t11 = tilesOf(s).find((t) => t.homeLocation === 'laiterie' && t.value === 11)!
     const t22 = tilesOf(s).find((t) => t.homeLocation === 'laiterie' && t.value === 22)!
     s = setTile(s, t11.id, { state: 'board', location: 'laiterie', revealed: true })
     s = setTile(s, t22.id, { state: 'board', location: 'laiterie', revealed: true })
-    const after = capturePuppiesAt(s, 0, 'laiterie', 1) // capture 1 → la plus grosse (22)
+    // 2 tuiles posées, capture 1 → choix interactif.
+    const pending = capturePuppiesAt(s, 0, 'laiterie', 1)
+    expect(pending.pendingPuppyCapture).toMatchObject({ playerIndex: 0, locationId: 'laiterie', remaining: 1 })
+    // On choisit la tuile de 22.
+    const after = applyAction(pending, { type: 'RESOLVE_PUPPY_CAPTURE', tileId: t22.id })
     expect((after.players[0].puppyTiles ?? []).find((t) => t.id === t22.id)!.state).toBe('captured')
     expect((after.players[0].puppyTiles ?? []).find((t) => t.id === t11.id)!.state).toBe('board')
+    expect(after.pendingPuppyCapture ?? null).toBeNull()
+    expect(captured(after)).toBe(22)
+  })
+
+  it('capturePuppiesAt : assez de place → capture directe (sans choix)', () => {
+    let s = game()
+    const t = tilesOf(s).find((t) => t.homeLocation === 'laiterie' && t.value === 22)!
+    s = setTile(s, t.id, { state: 'board', location: 'laiterie', revealed: true })
+    const after = capturePuppiesAt(s, 0, 'laiterie', 1) // 1 tuile, place pour 1 → direct
+    expect(after.pendingPuppyCapture ?? null).toBeNull()
     expect(captured(after)).toBe(22)
   })
 
@@ -142,6 +156,20 @@ describe('Cruella d’Enfer — Tuiles Chiots & objectif', () => {
     const after = applyAction(s, { type: 'MOVE_CARD', actionId: 'move-item-ally', instanceId: 'r', to: 'castel' })
     expect((after.players[0].puppyTiles ?? []).find((t) => t.id === t1.id)!.location).toBe('castel')
     expect((after.players[0].puppyTiles ?? []).find((t) => t.id === t2.id)!.location).toBe('castel')
+  })
+
+  it('Tisonnier : protège l’Allié (défaussé à sa place lors d’un Vanquish)', () => {
+    let s = game()
+    const hero: CardInstance = { instanceId: 'h', cardId: 'colonel', name: 'Colonel', type: 'hero', strength: 3 }
+    const ally: CardInstance = { instanceId: 'a', cardId: 'jasper', name: 'Jasper', type: 'ally', strength: 4 }
+    const tis: CardInstance = { instanceId: 't', cardId: 'tisonnier', name: 'Tisonnier', type: 'item', attach: 'ally', attachStrengthBonus: 1, shieldAllyFromDiscard: true, attachedTo: 'a' }
+    s = { ...s, phase: 'ACTION', players: [{ ...s.players[0], board: { ...s.players[0].board, campagne: [hero, ally, tis] } }] }
+    const after = performVanquish(s, 'h', ['a'], false)
+    const here = after.players[0].board['campagne'] ?? []
+    expect(here.some((c) => c.instanceId === 'h')).toBe(false) // Héros éliminé
+    expect(here.some((c) => c.instanceId === 'a')).toBe(true) // Allié survit
+    expect(after.players[0].discard.some((c) => c.cardId === 'tisonnier')).toBe(true) // Tisonnier défaussé
+    expect(after.players[0].discard.some((c) => c.instanceId === 'a')).toBe(false) // pas l'Allié
   })
 
   it('Quels idiots ! : choix déplacer/chercher, puis choix de l’Allié', () => {

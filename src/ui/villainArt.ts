@@ -21,6 +21,9 @@ const PORTRAIT: Partial<Record<VillainKey, string>> = {
   patHibulaire: '/pat-hibulaire.png',
   gothel: '/gothel.png',
   cruella: '/cruella.png',
+  gaston: '/gaston.png',
+  seigneurCles: '/seigneur-cles.png',
+  madameTremaine: '/madame-tremaine.png',
 }
 
 /** Portrait d'un vilain, avec repli sur son dos de carte si non défini. */
@@ -49,6 +52,9 @@ const PRESENTATION: Partial<Record<VillainKey, string>> = {
   patHibulaire: '/presentations/pat_hibulaire.png',
   gothel: '/presentations/gothel.png',
   cruella: '/presentations/cruella.png',
+  gaston: '/presentations/gaston.png',
+  seigneurCles: '/presentations/seigneur-cles.png',
+  madameTremaine: '/presentations/madame-tremaine.png',
 }
 
 /** Illustration de présentation d'un vilain (undefined si non disponible). */
@@ -69,4 +75,6 @@ export const PRESENTATION_TWEAK: Partial<
   // Mère Gothel : illustration légèrement trop grande → on la rétrécit un poil, et
   // un peu trop haute sur l'écran de choix → on la descend légèrement.
   gothel: { scale: 0.9, dyPct: 4 },
+  // Le Seigneur des clés : on baisse légèrement sa position (sans le rétrécir).
+  seigneurCles: { dyPct: 6 },
 }

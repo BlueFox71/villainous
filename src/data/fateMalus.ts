@@ -209,6 +209,39 @@ export const FATE_MALUS: Record<string, FateMalus> = {
   'sergent-tibs': 'slow',
   colonel: 'slow',
   capitaine: 'slow',
+
+  // --- Gaston (retirer ses 8 Obstacles) — Belle bloque DUR tout retrait. La Bête et
+  // Maurice sont NEUTRES (absents) : les vaincre RETIRE des Obstacles → ne pas les
+  // fataliser (règle d'évitement dans ai/fateMalus.ts). ---
+  belle: 'block-win', // tant qu'elle est là, aucun Obstacle ne peut être retiré
+  'big-ben': 'slow', // +1 aux autres Héros du lieu (protège les bloqueurs)
+  lumiere: 'slow',
+  'mrs-samovar-et-zip': 'slow',
+  'invention-de-maurice': 'slow', // −1 à la force des Alliés du lieu (vanquish plus durs)
+
+  // --- Le Seigneur des clés (posséder 1 clé de chaque couleur) — pas de Héros-cible
+  // (NEUTRE) : l'objectif ne réclame aucun Héros précis. La Clé Noire bloque DUR la
+  // victoire ; Baron Samedi et Gévaudan retirent/bloquent une couleur tant qu'ils
+  // sont là ; les autres gênent la main / les actions / les réactions. ---
+  'cle-noire': 'block-win', // tant qu'elle est posée, le Seigneur ne peut pas gagner
+  'baron-samedi': 'block-advance', // bloque une couleur de clé au dé tant qu'il est là
+  gevaudan: 'block-advance', // vole une clé tant qu'il est en jeu (couleur en moins)
+  'anne-de-chantraine': 'slow', // défausse les Événements de sa main
+  'elisabeth-bathory': 'slow', // l'empêche de jouer ses Conditions en réaction
+  hellin: 'slow', // recouvre une action supplémentaire de son lieu
+  khufu: 'slow', // défausse l'Appel (perte de pioche défensive)
+
+  // --- Madame de Trémaine (marier une fille au Prince) — la Pantoufle de Verre
+  // bloque DUR le mariage tant qu'elle est là ; Cendrillon (ordinaire / en robe)
+  // recouvre fortement ; les autres gênent. Le PRINCE est NEUTRE (absent) : il AIDE
+  // Madame de Trémaine, donc le bot évite de le lui donner (heuristique). ---
+  'pantoufle-de-verre': 'block-win', // tant qu'une Pantoufle est là, le mariage est impossible
+  cendrillon: 'block-advance', // gros Héros (F4) qui recouvre la rangée du haut
+  'ball-gown-cinderella': 'block-advance', // idem, encore plus forte (F5)
+  'fairy-godmother': 'slow', // recouvre + thème Pantoufle
+  bruno: 'slow',
+  jaq: 'slow',
+  gus: 'slow',
 }
 
 /** cardId dont le « block-win » n'est valable que sous condition (gérée par l'IA). */

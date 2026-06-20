@@ -13,6 +13,10 @@ interface Props {
   /** Titre (nom de la carte source). Défaut neutre — plusieurs cartes partagent ce
    *  sondage (Faites-leur peur !, La vie n'est pas juste, …). */
   title?: string
+  /** Sombra — Pas si vite ! : sémantique INVERSÉE. Le joueur ne « garde » pas des
+   *  cartes pour SA pioche : il CHOISIT laquelle des cartes révélées l'adversaire
+   *  jouera CONTRE lui (l'autre est défaussée). UI dédiée « choisir une carte ». */
+  pasSiVite?: boolean
 }
 
 /**
@@ -21,9 +25,42 @@ interface Props {
  *  - réordonnez celles que vous gardez (bouton ⇄),
  *  - validez : les cartes gardées repartent sur le dessus dans l'ordre affiché.
  */
-export function ScryModal({ cards, onResolve, title = 'Sondage de la pioche Fatalité' }: Props) {
+export function ScryModal({ cards, onResolve, title = 'Sondage de la pioche Fatalité', pasSiVite = false }: Props) {
   const [order, setOrder] = useState<string[]>(cards.map((c) => c.instanceId))
   const [discarded, setDiscarded] = useState<Set<string>>(new Set())
+
+  // Sombra — Pas si vite ! : on choisit directement QUELLE carte l'adversaire joue
+  // contre nous (clic sur la carte) ; l'autre est défaussée. Sémantique propre.
+  if (pasSiVite) {
+    return createPortal(
+      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-4">
+        <div className="flex w-full max-w-lg flex-col items-center gap-4 rounded-2xl border border-fuchsia-400/30 bg-[#0b1020] p-6 text-white">
+          <h2 className="text-xl font-black text-fuchsia-200">Pas si vite !</h2>
+          <p className="text-center text-sm text-white/70">
+            Vous choisissez à la place de l'adversaire : sélectionnez la carte Fatalité qui sera
+            <b> jouée contre vous</b>. L'autre est défaussée.
+          </p>
+          <div className="flex items-center justify-center gap-4">
+            {cards.map((c) => {
+              const def = getCardDef(c.cardId)
+              return (
+                <button
+                  key={c.instanceId}
+                  type="button"
+                  onClick={() => onResolve([c.instanceId])}
+                  className="flex flex-col items-center gap-1 rounded-lg border-2 border-sky-300/60 p-1 transition hover:border-fuchsia-300 hover:bg-fuchsia-500/10"
+                >
+                  <img src={def?.image} alt={c.name} className="h-56 w-auto rounded-lg" />
+                  <span className="text-xs font-bold text-fuchsia-200">Choisir {c.name}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>,
+      document.body,
+    )
+  }
 
   const kept = order.filter((id) => !discarded.has(id))
   const discardedCount = cards.length - kept.length

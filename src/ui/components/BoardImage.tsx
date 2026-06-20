@@ -52,6 +52,30 @@ const STAR_SLOTS: Record<string, Record<string, { x: number; y: number }[]>> = {
   },
 }
 
+// Gaston — emplacements des 2 jetons OBSTACLE par lieu (calés visuellement sur sa
+// board.png : losanges marqués). Indexés par lieu ; le k-ième Obstacle restant
+// occupe le k-ième emplacement.
+const OBSTACLE_SLOTS: Record<string, Record<string, { x: number; y: number }[]>> = {
+  gaston: {
+    'maison-belle': [
+      { x: 20.2, y: 46 },
+      { x: 33.2, y: 47 },
+    ],
+    taverne: [
+      { x: 41, y: 47 },
+      { x: 54, y: 46 },
+    ],
+    bois: [
+      { x: 62, y: 46 },
+      { x: 75, y: 46.7 },
+    ],
+    'chateau-bete': [
+      { x: 82.8, y: 46.9 },
+      { x: 96, y: 47 },
+    ],
+  },
+}
+
 // L'Imposteur — géométrie des COÉQUIPIERS sur le plateau (mesurée sur sa board.png).
 // Demi-écart horizontal entre les 2 cases (actions) du HAUT, par rapport au centre
 // du lieu (≈ position des icônes d'action).
@@ -93,6 +117,17 @@ interface Props {
   onCrewmateClick?: (color: string) => void
   /** Verbe affiché au survol d'un candidat (« Défausser » / « Rassurer »…). */
   crewmateSelectVerb?: string
+  /** Gaston — lieux dont un jeton Obstacle est cliquable (retrait interactif). */
+  obstacleTargets?: string[]
+  /** Handler de clic sur un jeton Obstacle (retire un Obstacle de ce lieu). */
+  onObstacleClick?: (locationId: string) => void
+  /** Le Seigneur des clés — contrainte de ramassage interactif : une clé posée est
+   *  cliquable si elle satisfait `locationId` (si défini) ET `color` (si défini).
+   *  `{locationId}` = Toute Puissance ; `{color}` = Obtenir une clé / 00:00 ;
+   *  `{locationId,color}` = Pierre tombale. */
+  keyPick?: { locationId?: string; color?: string } | null
+  /** Handler de clic sur une clé posée (la ramasse). */
+  onKeyClick?: (keyId: string) => void
 }
 
 /**
@@ -112,6 +147,10 @@ export function BoardImage({
   crewmateCandidates,
   onCrewmateClick,
   crewmateSelectVerb = 'Défausser',
+  obstacleTargets,
+  onObstacleClick,
+  keyPick,
+  onKeyClick,
 }: Props) {
   const pawnIndex = player.locations.findIndex((l) => l.id === player.pawnLocation)
   const coverColor = VILLAIN_COLOR[player.villain] ?? '#000000'
@@ -144,8 +183,13 @@ export function BoardImage({
         <img
           src={player.pawnImage}
           alt="Pion"
-          title="Pion"
-          className="pointer-events-none absolute z-20 w-auto -translate-x-1/2 -translate-y-1/2 transition-[left,top] duration-500 ease-in-out"
+          title={player.villain === 'seigneur-cles' ? 'Pion (survolez pour voir les clés en dessous)' : 'Pion'}
+          // Le Seigneur des clés : au survol, le pion devient quasi transparent pour
+          // révéler les clés posées en dessous (il capte alors le pointeur ; les clés
+          // cliquables passent au-dessus de lui — voir leur z-index plus bas).
+          className={`absolute z-20 w-auto -translate-x-1/2 -translate-y-1/2 transition-[left,top,opacity] duration-500 ease-in-out ${
+            player.villain === 'seigneur-cles' ? 'cursor-help hover:opacity-10 hover:duration-150' : 'pointer-events-none'
+          }`}
           style={{
             height: `${player.pawnHeightPx}px`,
             left: `${PAWN_FIRST_LEFT + pawnIndex * PAWN_STEP}%`,
@@ -212,6 +256,87 @@ export function BoardImage({
                   left: `${left}%`,
                   top: '47%',
                   height: `${Math.round(player.pawnHeightPx * 0.5)}px`,
+                }}
+              />
+            )
+          })
+        })
+      })()}
+
+      {/* Gaston — JETONS OBSTACLE restants par lieu (2 max), posés sur leurs
+          emplacements marqués (OBSTACLE_SLOTS). Ils disparaissent à mesure que Gaston
+          les retire (objectif : 0). */}
+      {(() => {
+        if (!player.obstacles) return null
+        const slots = OBSTACLE_SLOTS[player.villain]
+        if (!slots) return null
+        return player.locations.flatMap((l) => {
+          const n = player.obstacles![l.id] ?? 0
+          const locSlots = slots[l.id] ?? []
+          const clickable = (obstacleTargets ?? []).includes(l.id)
+          return Array.from({ length: Math.min(n, locSlots.length) }, (_, k) => (
+            <img
+              key={`obstacle-${l.id}-${k}`}
+              src="/cards/gaston/obstacle.png"
+              alt="Obstacle"
+              title={clickable ? `Cliquez pour retirer un Obstacle de ${l.name}` : `Obstacle — ${n} sur ${l.name}`}
+              onClick={clickable ? () => onObstacleClick?.(l.id) : undefined}
+              className={`absolute z-[14] w-auto -translate-x-1/2 -translate-y-1/2 ${
+                clickable ? 'cursor-pointer transition-transform hover:scale-110' : 'pointer-events-none drop-shadow'
+              }`}
+              style={{
+                left: `${locSlots[k].x}%`,
+                top: `${locSlots[k].y}%`,
+                height: `${Math.round(player.pawnHeightPx * 0.625)}px`,
+                filter: clickable
+                  ? 'drop-shadow(0 0 4px #fde047) drop-shadow(0 0 9px #facc15)'
+                  : undefined,
+              }}
+            />
+          ))
+        })
+      })()}
+
+      {/* Le Seigneur des clés — CLÉS posées sur les lieux (k.location !== null).
+          Petits jetons colorés (6 couleurs) étalés au centre du lieu. Cliquables
+          (halo doré) quand le lieu figure dans keyTargets (ramassage interactif). */}
+      {(() => {
+        const keys = (player.keys ?? []).filter((k) => k.location !== null && !k.stolenBy)
+        if (keys.length === 0) return null
+        const byLoc = new Map<string, typeof keys>()
+        for (const k of keys) byLoc.set(k.location!, [...(byLoc.get(k.location!) ?? []), k])
+        return [...byLoc.entries()].flatMap(([locId, locKeys]) => {
+          const i = player.locations.findIndex((l) => l.id === locId)
+          if (i < 0) return []
+          const center = PAWN_FIRST_LEFT + i * PAWN_STEP
+          const m = locKeys.length
+          const spread = Math.min(15, 5 * m)
+          // Taille des clés indépendante de la réduction du pion (≈ 62 px).
+          const size = Math.round(player.pawnHeightPx * 0.78)
+          return locKeys.map((k, j) => {
+            // Cliquable si elle satisfait la contrainte de ramassage (lieu et/ou couleur).
+            const clickable =
+              !!keyPick &&
+              (keyPick.locationId === undefined || locId === keyPick.locationId) &&
+              (keyPick.color === undefined || k.color === keyPick.color)
+            const left = m > 1 ? center - spread / 2 + ((j + 0.5) / m) * spread : center
+            return (
+              <img
+                key={`key-${k.id}`}
+                src={`/cards/seigneur-cles/cle-${k.color}.png`}
+                alt={`Clé ${k.color}`}
+                onClick={clickable ? () => onKeyClick?.(k.id) : undefined}
+                title={clickable ? `Cliquez pour ramasser la clé ${k.color}` : `Clé ${k.color}`}
+                className={`absolute w-auto -translate-x-1/2 -translate-y-1/2 ${
+                  clickable ? 'z-30 cursor-pointer animate-pulse hover:scale-110' : 'z-[14] pointer-events-none'
+                }`}
+                style={{
+                  left: `${left}%`,
+                  top: '48%',
+                  height: `${size}px`,
+                  filter: clickable
+                    ? 'drop-shadow(0 0 4px #fde047) drop-shadow(0 0 9px #facc15)'
+                    : 'drop-shadow(0 1px 2px rgba(0,0,0,0.7))',
                 }}
               />
             )

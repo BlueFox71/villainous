@@ -491,6 +491,35 @@ const ACTION_POS: Record<string, Record<string, Record<string, { x: number; y: n
       discard: { x: 95.5, y: 67.8 },
     },
   },
+  // Gaston : même gabarit (panneau objectif/portrait à gauche + 4 lieux ; board.png
+  // 4455×1248, ratio ~ celui de Cruella). Colonnes standard ~22,7/30,5 · 43,5/51,4 ·
+  // 64,3/72,1 · 85,1/92,9 % ; rangées haut ~20 / bas ~68. MESURES À AFFINER.
+  gaston: {
+    'maison-belle': {
+      vanquish: { x: 22.7, y: 19 },
+      'play-card-top': { x: 30.5, y: 19 },
+      discard: { x: 22.7, y: 66.8 },
+      'gain-power': { x: 30.5, y: 66.8 },
+    },
+    taverne: {
+      activate: { x: 43.5, y: 19 },
+      'gain-power': { x: 51.4, y: 19 },
+      'play-card': { x: 43.5, y: 66.8 },
+      vanquish: { x: 51.4, y: 66.8 },
+    },
+    bois: {
+      'play-card-top': { x: 64.5, y: 19 },
+      discard: { x: 72.4, y: 19 },
+      fate: { x: 64.5, y: 66.8 },
+      'gain-power': { x: 72.5, y: 66.8 },
+    },
+    'chateau-bete': {
+      'play-card-top': { x: 85.5, y: 19 },
+      fate: { x: 93.4, y: 19 },
+      'play-card-bottom': { x: 85.5, y: 66.8 },
+      'gain-power': { x: 93.4, y: 66.8 },
+    },
+  },
   // Mère Gothel : plateau large (panneau Confiance à gauche + 4 lieux). Tour & Corona
   // en 2×2 ; Le Canard boiteux & Forêt en 1 (haut) + 3 (bas). Rangées haut ~23 % /
   // bas ~60 %. MESURES À AFFINER via l'inspecteur si besoin.
@@ -548,6 +577,65 @@ const ACTION_POS: Record<string, Record<string, Record<string, { x: number; y: n
       'play-card-top': { x: 93.2, y: 19.4 },
       'play-card-bottom': { x: 85.2, y: 67.1 },
       'gain-power': { x: 93.1, y: 67.4 },
+    },
+  },
+  // Le Seigneur des clés : gabarit standard (panneau objectif à gauche + 4 lieux),
+  // colonnes ~22.7/30.5 · 43.5/51.4 · 64.3/72.1 · 85.1/92.9 %, rangées haut ~20 /
+  // bas ~67.8. La Crypte porte 2 actions « Jouer » en haut et Gagner 3 · Obtenir une
+  // clé en bas. MESURES À AFFINER via l'inspecteur.
+  'seigneur-cles': {
+    crypte: {
+      'play-card-top': { x: 23, y: 20 },
+      'play-card-top2': { x: 31, y: 20.5 },
+      'gain-power': { x: 23, y: 67.8 },
+      'obtain-key': { x: 30.9, y: 68 },
+    },
+    cachot: {
+      'play-card-top': { x: 43.5, y: 20 },
+      'gain-power': { x: 51.3, y: 20 },
+      'play-card-bottom': { x: 43.3, y: 67.8 },
+      discard: { x: 51.2, y: 67.8 },
+    },
+    cimetiere: {
+      discard: { x: 64.3, y: 20 },
+      'gain-power': { x: 72.1, y: 20 },
+      'play-card': { x: 64.2, y: 67.5 },
+      fate: { x: 72.1, y: 67.8 },
+    },
+    'fosse-commune': {
+      fate: { x: 88.8, y: 20 },
+      'move-hero': { x: 95.2, y: 67 },
+      vanquish: { x: 82.6, y: 67.8 },
+      'gain-power': { x: 88.9, y: 67.5 },
+    },
+  },
+  // Madame de Trémaine : gabarit standard (panneau objectif à gauche + 4 lieux),
+  // colonnes ~22.7/30.5 · 43.5/51.4 · 64.3/72.1 · 85.1/92.9 %, rangées haut ~20 /
+  // bas ~67.8. La Salle de Bal n'a que 3 actions (en bas : Activer · Jouer · Déplacer).
+  // MESURES À AFFINER via l'inspecteur.
+  'madame-tremaine': {
+    'chambre-cendrillon': {
+      'play-card': { x: 22.7, y: 20 },
+      'move-item-ally': { x: 30.5, y: 20 },
+      discard: { x: 22.7, y: 67.8 },
+      'gain-power': { x: 30.5, y: 67.8 },
+    },
+    'salle-musique': {
+      fate: { x: 43.5, y: 20 },
+      'gain-power': { x: 51.4, y: 20 },
+      'play-card': { x: 43.5, y: 67.8 },
+      'play-card2': { x: 51.4, y: 67.8 },
+    },
+    chateau: {
+      'play-card': { x: 64.3, y: 20 },
+      discard: { x: 72.1, y: 20 },
+      fate: { x: 64.3, y: 67.8 },
+      'gain-power': { x: 72.1, y: 67.8 },
+    },
+    'salle-de-bal': {
+      activate: { x: 83, y: 67.8 },
+      'play-card': { x: 89.2, y: 67.8 },
+      'move-item-ally': { x: 95.5, y: 67.8 },
     },
   },
 }

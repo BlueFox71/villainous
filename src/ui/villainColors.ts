@@ -20,6 +20,9 @@ export const VILLAIN_COLOR: Record<string, string> = {
   sombra: '#3B1E63',
   gothel: '#5E1A38',
   cruella: '#6E1422',
+  gaston: '#B5462A',
+  'seigneur-cles': '#3A2E55',
+  'madame-tremaine': '#4A2E3A',
 }
 
 /** Teintes de repli (camp joueur / adversaire) quand la couleur d'un vilain est
