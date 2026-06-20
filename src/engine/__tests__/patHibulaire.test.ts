@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { applyAction } from '../actions'
 import { resolveEffects, triggerHeroArrival } from '../effects'
-import { hasReachedObjective, isPassiveGoalMet, goalsBlockedByHero } from '../rules'
+import { hasReachedObjective, isPassiveGoalMet, goalsBlockedByHero, conditionIsTriggered } from '../rules'
 import { patHibulaire } from '../../data/villains/patHibulaire'
 import { patHibulaireCards } from '../../data/villains/patHibulaire.cards'
 import { princeJohn } from '../../data/villains/princeJohn'
@@ -63,6 +63,33 @@ describe('Pat Hibulaire — mise en place des tuiles Objectif', () => {
     // Au moins une graine sur deux change l'agencement (non garanti pour TOUTES,
     // mais ces deux-là diffèrent : garde-fou anti « tirage figé »).
     expect(a).not.toBe(b)
+  })
+})
+
+describe('Pat Hibulaire — Affront (Condition)', () => {
+  // Affront se joue au tour de l'adversaire (qui a déplacé une carte) ET seulement
+  // s'il y a un Héros de force ≤ 3 dans le royaume de Pat (sinon aucun effet).
+  const affront = (): CardInstance =>
+    buildDeckInstances(patHibulaireCards, 'villain', 'p0:').find((c) => c.cardId === 'affront')!
+
+  function moveContext(base: GameState): GameState {
+    // Adversaire (joueur 1) actif et ayant déplacé une carte ce tour-ci.
+    return { ...base, activePlayer: 1, activeMovedCard: true }
+  }
+
+  it('non jouable sans aucun Héros sur le plateau', () => {
+    const s = moveContext(game())
+    expect(conditionIsTriggered(s, affront(), 0)).toBe(false)
+  })
+
+  it('non jouable si le seul Héros est de force > 3', () => {
+    const s = moveContext(withGoals(game(), [], { 'frontier-town': [hero('h', 'mickey', 5)] }))
+    expect(conditionIsTriggered(s, affront(), 0)).toBe(false)
+  })
+
+  it('jouable avec un Héros de force ≤ 3 dans le royaume', () => {
+    const s = moveContext(withGoals(game(), [], { 'frontier-town': [hero('h', 'donald', 3)] }))
+    expect(conditionIsTriggered(s, affront(), 0)).toBe(true)
   })
 })
 
@@ -225,6 +252,14 @@ describe('Pat Hibulaire — effets de cartes', () => {
     expect(after.players[0].discard.map((c) => c.instanceId).sort()).toEqual(['b', 'd'])
     expect(after.players[0].deck.map((c) => c.instanceId).slice(-1)).toEqual(['z'])
     expect(after.players[0].deck).toHaveLength(4) // a,c,e + z
+    // Showcase animé émis : 5 cartes révélées, variante scry, flags de défausse =
+    // (coût ≥ 2), ciblé sur la pioche de p0.
+    const ev = after.showcaseEvents.at(-1)!
+    expect(ev.reveal?.scry).toBe(true)
+    expect(ev.playerIndex).toBe(0)
+    expect(ev.reveal?.cardIds).toHaveLength(5)
+    expect(ev.reveal?.costs).toEqual([0, 3, 1, 2, 0]) // ordre du dessus de la pioche (a,b,c,d,e)
+    expect(ev.reveal?.discarded).toEqual([false, true, false, true, false])
   })
 
   it('Grillon suit le Héros joué (déplacé sur son lieu)', () => {

@@ -43,9 +43,10 @@ export interface VillainAnimation {
    *  - `roses` : pas de trajet ; 8 à 12 copies de `image` apparaissent une à une à des
    *    endroits/orientations aléatoires (blanches), puis TOUTES rougissent ~4 s avant
    *    de disparaître en fondu (Reine de Cœur).
-   *  - `coins` : pluie de pièces ; chaque pièce (image tirée au hasard parmi `images`)
-   *    tombe du haut vers le bas de l'écran en tournoyant, position/taille/vitesse au
-   *    hasard, sur toute la largeur (Prince Jean).
+   *  - `coins` : pluie d'objets ; chaque objet (image tirée au hasard parmi `images`)
+   *    tombe du haut vers le bas de l'écran en tournoyant, position/vitesse au hasard,
+   *    sur toute la largeur. Nombre par défaut ~48-66, ou forcé via `count` (Prince
+   *    Jean : pièces ; Méchante Reine : pommes empoisonnées).
    *  - `water-cross` : le clip `video` (en boucle, bords adoucis) traverse le HAUT de
    *    l'écran de gauche à droite (Capitaine Crochet : Tic-Tac et ses bulles).
    *  - `rise` : des copies de `image` montent du bas vers le haut en ondulant et en
@@ -56,12 +57,10 @@ export interface VillainAnimation {
    *    brille fort en violet, puis tout s'assombrit en disparaissant (Dr Facilier).
    *  - `fire-bottom` : une rangée de flammes (sprite `sprite`/`frames` joué en boucle)
    *    apparaît en bas de l'écran sur toute la largeur, tailles/positions/phases au
-   *    hasard, en fondu (Hadès, Scar).
-   *  - `smoke` : des volutes de fumée (procédurales, sans image) montent du bas en
-   *    grossissant et en se dissipant, sur toute la largeur (Méchante Reine). */
+   *    hasard, en fondu (Hadès, Scar). */
   path?:
     | 'cross' | 'sky-arc' | 'drift-spin' | 'pages' | 'roses' | 'coins' | 'water-cross'
-    | 'rise' | 'voodoo' | 'fire-bottom' | 'smoke'
+    | 'rise' | 'voodoo' | 'fire-bottom'
   /** Tire quelques coups de canon (lueur + fumée à la bouche du canon avant)
    *  pendant le vol. Réservé aux trajectoires `sky-arc`. */
   cannons?: boolean
@@ -72,6 +71,9 @@ export interface VillainAnimation {
   feathers?: boolean
   /** Nombre de tours d'image sur tout le trajet (trajectoire `drift-spin`, défaut 1.25). */
   spinTurns?: number
+  /** Nombre d'objets qui tombent (trajectoire `coins`). Si absent, ~48-66 (pluie dense).
+   *  Sert à une chute plus parcimonieuse (Méchante Reine : quelques pommes). */
+  count?: number
 }
 
 export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation>> = {
@@ -154,16 +156,8 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation>> = 
     durationSec: 15, // couvre l'étalement des montées (délais + durée)
     path: 'rise',
   },
-  // Hadès (Hercule) : une rangée de flammes (sprite détouré de fire.gif) surgit en bas
-  // de l'écran, tailles/positions/phases au hasard, et flotte le temps d'un passage.
-  hades: {
-    sprite: '/animations/fire_sprite.png',
-    frames: 39,
-    heightPct: 32, // hauteur de base d'une flamme (grande ; variée par flamme)
-    durationSec: 10, // durée du passage (apparition → maintien → disparition)
-    tint: 'hue-rotate(190deg) saturate(1.5)', // feu orange → bleu
-    path: 'fire-bottom',
-  },
+  // Hadès : plus d'animation temporaire — le feu bleu est désormais un décor PERMANENT
+  // (cf. villainDecor.ts, kind `fire`).
   // Scar (Le Roi Lion) : le feu VERT de « Soyez prêtes » envahit le bas de l'écran
   // (même sprite que Hadès, teinté en vert).
   scar: {
@@ -174,13 +168,14 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation>> = 
     tint: 'hue-rotate(95deg) saturate(1.9)', // feu orange → vert toxique
     path: 'fire-bottom',
   },
-  // Méchante Reine (Blanche-Neige) : une fumée violette (procédurale) monte du bas de
-  // l'écran ; pendant ce temps, des pommes empoisonnées tombent du ciel (comme les pièces).
+  // Méchante Reine (Blanche-Neige) : quelques pommes empoisonnées tombent du ciel en
+  // tournoyant (la fumée violette est désormais un décor PERMANENT, cf. villainDecor.ts).
   mechanteReine: {
-    image: '/animations/apple.png', // pomme empoisonnée qui tombe
-    heightPct: 22, // diamètre de base d'une volute (varié par volute)
-    durationSec: 12, // durée du passage (fumée qui s'installe puis se dissipe)
-    path: 'smoke',
+    images: ['/animations/apple.png'],
+    heightPct: 7, // taille d'une pomme
+    durationSec: 10, // couvre l'étalement des chutes
+    count: 8, // pluie parcimonieuse (≈ une poignée de pommes)
+    path: 'coins',
   },
   // Dr Facilier (La Princesse et la Grenouille) : les totems « amis de l'autre côté »
   // apparaissent en fondu au-dessus du plateau ; leurs yeux (calque) s'illuminent fort

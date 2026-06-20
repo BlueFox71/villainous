@@ -9,6 +9,18 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.76',
+    date: '2026-06-21',
+    title: 'Mère Gothel & Pat Hibulaire : corrections de règles, IA et animation',
+    changes: [
+      'Mère Gothel — Raiponce sur Corona : la perte d’1 jeton Confiance n’est plus appliquée à l’instant où Raiponce glisse sur Corona, mais vérifiée au DÉBUT de votre tour suivant. Si entre-temps Raiponce a été vaincue ou ramenée vers la Tour, vous ne perdez rien.',
+      'Bot (Mère Gothel) — Garde royal : le bot ne traîne plus sa propre Raiponce vers Corona quand il déplace un Garde royal (il ne l’emmène que vers la gauche, vers la Tour, ce qui le rapproche de la victoire). Vous gardez, vous, toute liberté de la déplacer où vous voulez.',
+      'Intro (navigateur) : la cinématique d’ouverture n’est plus muette quand l’autoplay sonore est bloqué — le son se réactive au premier clic ou appui de touche, au volume prévu même si la musique est réglée à 0 %.',
+      'Pat Hibulaire — Assommé Bêtement : l’effet est maintenant ANIMÉ et visible (y compris quand vous êtes la cible). On dévoile les 5 premières cartes Méchant, celles de coût ≥ 2 virent au gris avec un tampon « Défaussé », puis les autres sont mélangées (dos) et reposées sur le dessus de la pioche.',
+      'Bot contre Pat Hibulaire : tant que Mickey bloque vos tuiles, le bot évalue désormais correctement votre faible proximité de victoire — il privilégie donc de poser Mickey. Et quand un adversaire est sur le point de gagner (jauge très haute) alors que le bot est en retard, ce dernier priorise la Fatalité pour le freiner.',
+    ],
+  },
+  {
     version: '0.75',
     date: '2026-06-19',
     title: 'Nouveaux vilains : Cruella d’Enfer, Sombra & Mère Gothel + finitions de Ratigan',

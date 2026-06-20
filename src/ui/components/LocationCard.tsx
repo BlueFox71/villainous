@@ -229,8 +229,11 @@ export function LocationCard({
               const isEngrenagesSelected = engrenagesSelected.includes(c.instanceId)
               // Capitaine Crochet : Objet qui donne une action au lieu (Canon,
               // Boîte à Crochets, Ingénieux Mécanisme) → cliquable quand l'action
-              // est disponible.
-              const canGranted = !!c.grantsAction && grantedActionIds.includes(`granted:${c.instanceId}`)
+              // est disponible. EXCEPTION : si on est en train de SÉLECTIONNER une
+              // carte à déplacer (move-pick), cet Objet (Steamboat Willie…) doit
+              // pouvoir être choisi pour être déplacé, pas déclencher son action.
+              const canGranted =
+                !!c.grantsAction && grantedActionIds.includes(`granted:${c.instanceId}`) && !canMovePick
               // Carte du Pays Imaginaire : cliquable pour déclencher sa capacité.
               const canUseMap = mapUsable && c.cardId === 'carte-pays-imaginaire'
               // Couronne (Gothel) : cliquable pour la défausser contre 1 Confiance.

@@ -34,7 +34,7 @@ import {
   updateActivePlayer,
   updatePlayer,
 } from './state'
-import { addKronkTokens, addPuppyFromReserve, canEnterAuDela, capturePuppiesAt, doQuelsMove, doQuelsTutor, enterQuelsMove, enterQuelsTutor, holdsTalisman, moveTitanTo, performVanquish, playChosenFateFromDiscard, processCurseDiscards, raiponceLocation, reformYzmaDecks, relocateRaiponce, reshuffleYzmaIfKuzcoDiscarded, resolveEffect, resolveEffects, titanReachableDests, triggerHeroArrival } from './effects'
+import { addKronkTokens, addPuppyFromReserve, canEnterAuDela, capturePuppiesAt, doQuelsMove, doQuelsTutor, enterQuelsMove, enterQuelsTutor, holdsTalisman, moveTitanTo, performVanquish, playChosenFateFromDiscard, processCurseDiscards, raiponceLocation, reformYzmaDecks, relocateCard, relocateRaiponce, reshuffleYzmaIfKuzcoDiscarded, resolveEffect, resolveEffects, smartMoveAllyOrItem, titanReachableDests, triggerHeroArrival } from './effects'
 import { crewmateEndOfTurn, freeCellAt, placeCrewmateAt } from './crewmates'
 import {
   adjacentLocationIds,
@@ -294,11 +294,6 @@ function applyPlayCard(
   const me = activePlayer(state)
   const card = me.hand.find((c) => c.instanceId === instanceId)
   if (!card) throw new Error(`Carte « ${instanceId} » absente de la main.`)
-  // Pat Hibulaire — une action « Jouer » laissée ouverte par un Bandit ne peut
-  // servir qu'à jouer d'autres Bandits (les autres cartes utilisent une autre action).
-  if (state.banditChain?.actionId === actionId && !card.playMultiplePerAction) {
-    throw new Error('Cette action « Jouer une carte » est réservée à d’autres Bandits ce tour-ci.')
-  }
   if (card.type === 'condition') {
     throw new Error("Une carte Condition se joue pendant le tour d'un adversaire.")
   }
@@ -690,7 +685,12 @@ function applyPlayCard(
   } else {
     next = resolveEffects(next, card.effects ?? [], { targetHeroId, allyInstanceIds, allyMove, shrinkFreeActionId })
   }
-  next = annotateShowcaseGain(next, showcaseIdx, activePlayer(next).power - powerBeforeEffects)
+  // Une Petite Partie ? : le gain « +N JT » est porté par le showcase « révélation
+  // à suspense » (cf. PLAY_A_GAME), pas par le showcase générique de la carte —
+  // sinon le badge s'afficherait deux fois (côté adverse).
+  if (card.cardId !== 'une-petite-partie') {
+    next = annotateShowcaseGain(next, showcaseIdx, activePlayer(next).power - powerBeforeEffects)
+  }
 
   // Sombra — Faille (discardOnPlay) : ses effets sont résolus (coût/main/action déjà
   // gérés plus haut), mais la carte va en DÉFAUSSE au lieu de rester sur le plateau.
@@ -719,6 +719,17 @@ function applyPlayCard(
     // Une Malédiction Sommeil sans Rêves se défausse quand un Allié arrive.
     if (card.type === 'ally') {
       next = processCurseDiscards(next, state.activePlayer, destId, 'ally-played-here')
+    }
+    // Pat Hibulaire — Bandit : on peut enchaîner d'AUTRES Bandits sur ce lieu dans
+    // la même action (chacun paie son coût). Ouvre la fenêtre s'il reste au moins
+    // un autre Bandit en main et finançable.
+    if (card.playMultiplePerAction) {
+      const ap = activePlayer(next)
+      const others = ap.hand.filter((c) => c.playMultiplePerAction)
+      const minCost = others.reduce((m, c) => Math.min(m, effectiveCost(next, c, destId)), Infinity)
+      if (others.length > 0 && ap.power >= minCost) {
+        next = { ...next, pendingBanditChain: { playerIndex: state.activePlayer, locationId: destId } }
+      }
     }
     // Bowser — Dino Piranha / Kamella : effet « à la pose » résolu APRÈS placement
     // (l'Allié doit être sur le board pour recevoir l'Étoile). Le passage générique
@@ -5003,6 +5014,141 @@ function applyResolveMauvaisCoup(
   }
 }
 
+/**
+ * Sournois (Pat Hibulaire) : replace la carte `instanceId` de la main du joueur
+ * sur le DESSUS (`top`) ou le DESSOUS (`bottom`) de sa pioche. Choix PRIVÉ : le
+ * journal ne révèle ni la carte ni le sens (info cachée à l'adversaire).
+ */
+function applyResolveSournois(
+  state: GameState,
+  instanceId: string,
+  placement: 'top' | 'bottom',
+): GameState {
+  const pending = state.pendingSournois
+  if (!pending) throw new Error('Aucun Sournois en attente.')
+  const idx = pending.playerIndex
+  const player = state.players[idx]
+  const card = player.hand.find((c) => c.instanceId === instanceId)
+  if (!card) throw new Error('Carte à replacer introuvable (Sournois).')
+  const next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    hand: p.hand.filter((c) => c.instanceId !== instanceId),
+    deck: placement === 'top' ? [card, ...p.deck] : [...p.deck, card],
+  }))
+  return { ...next, pendingSournois: null }
+}
+
+/**
+ * Cheval (Pat Hibulaire) : déplace l'Allié/Objet `instanceId` vers `to`. `auto` =
+ * le bot délègue à l'heuristique ; `instanceId`/`to` null = ne rien déplacer.
+ */
+function applyResolveAllyItemMove(
+  state: GameState,
+  instanceId: string | null,
+  to: LocationId | null,
+  auto: boolean,
+): GameState {
+  const pending = state.pendingAllyItemMove
+  if (!pending) throw new Error('Aucun déplacement Cheval en attente.')
+  const idx = pending.playerIndex
+  let next = state
+  if (auto) {
+    next = smartMoveAllyOrItem(state, idx, pending.beneficial)
+  } else if (instanceId && to) {
+    const p = state.players[idx]
+    const from = p.locations.map((l) => l.id).find((id) => (p.board[id] ?? []).some((c) => c.instanceId === instanceId))
+    const card = from ? p.board[from]?.find((c) => c.instanceId === instanceId) : undefined
+    if (from && card) {
+      next = relocateCard(state, idx, instanceId, from, to)
+      next = {
+        ...next,
+        log: [...next.log, `Cheval : **${card.name}** déplacé vers ${findLocation(p, to)?.name ?? to}.`],
+      }
+    }
+  }
+  // instanceId null (et pas auto) = le joueur a choisi de ne rien déplacer.
+  return { ...next, pendingAllyItemMove: null }
+}
+
+/**
+ * Bandit (Pat Hibulaire) : enchaîne d'autres Bandits (`instanceIds`) sur le lieu
+ * du premier, dans la même action « Jouer une carte ». Chacun paie son coût. Un
+ * tableau vide = ne pas en jouer d'autre.
+ */
+function applyResolveBanditChain(state: GameState, instanceIds: string[]): GameState {
+  const pending = state.pendingBanditChain
+  if (!pending) throw new Error('Aucun enchaînement Bandit en attente.')
+  const idx = pending.playerIndex
+  const locId = pending.locationId
+  let next: GameState = { ...state, pendingBanditChain: null }
+  for (const id of instanceIds) {
+    const me = next.players[idx]
+    const card = me.hand.find((c) => c.instanceId === id)
+    if (!card) throw new Error('Bandit introuvable en main.')
+    if (!card.playMultiplePerAction) throw new Error(`${card.name} ne peut pas être enchaîné comme un Bandit.`)
+    const cost = effectiveCost(next, card, locId)
+    if (me.power < cost) throw new Error(`Pas assez de Pouvoir pour enchaîner **${card.name}** (coût ${cost}).`)
+    next = updatePlayer(next, idx, (p) => ({
+      ...p,
+      power: p.power - cost,
+      powerSpentThisTurn: p.powerSpentThisTurn !== undefined ? p.powerSpentThisTurn + cost : undefined,
+      hand: p.hand.filter((c) => c.instanceId !== id),
+      board: { ...p.board, [locId]: [...(p.board[locId] ?? []), card] },
+    }))
+    next = pushFloatingFx(next, { kind: 'play-card', playerIndex: idx, locationId: locId, cardId: card.cardId })
+    next = {
+      ...next,
+      log: [
+        ...next.log,
+        `${me.villainName} joue **${card.name}** (coût ${cost}) sur **${findLocation(me, locId)?.name ?? locId}** (Bandit).`,
+      ],
+    }
+    next = processCurseDiscards(next, idx, locId, 'ally-played-here')
+  }
+  return next
+}
+
+/**
+ * Dingo (Pat Hibulaire) : intervertit les tuiles Objectif des lieux `from` et `to`
+ * (voisins) de la cible. `from` doit porter une tuile NON remplie ; `to` peut porter
+ * une tuile remplie (« lieu libre »). null/null = ne rien faire.
+ */
+function applyResolveDingo(
+  state: GameState,
+  from: LocationId | null,
+  to: LocationId | null,
+): GameState {
+  const pending = state.pendingDingo
+  if (!pending) throw new Error('Aucun Dingo en attente.')
+  const idx = pending.targetIndex
+  const player = state.players[idx]
+  if (from === null || to === null) {
+    return { ...state, pendingDingo: null, log: [...state.log, `Dingo : aucune tuile déplacée.`] }
+  }
+  const order = player.locations.map((l) => l.id)
+  if (Math.abs(order.indexOf(from) - order.indexOf(to)) !== 1) {
+    throw new Error('Dingo : les deux lieux ne sont pas voisins.')
+  }
+  const goals = player.goals ?? []
+  const ga = goals.find((g) => g.locationId === from && !g.completed)
+  const gb = goals.find((g) => g.locationId === to)
+  if (!ga || !gb) throw new Error('Dingo : tuile introuvable.')
+  const newGoals = goals.map((g) =>
+    g === ga ? { ...g, locationId: to, revealed: true } : g === gb ? { ...g, locationId: from, revealed: true } : g,
+  )
+  const next = updatePlayer(state, idx, (p) => ({ ...p, goals: newGoals }))
+  const fromName = findLocation(player, from)?.name ?? from
+  const toName = findLocation(player, to)?.name ?? to
+  return {
+    ...next,
+    pendingDingo: null,
+    log: [
+      ...next.log,
+      `Dingo : les tuiles Objectif de ${fromName} et ${toName} (${player.villainName}) sont échangées.`,
+    ],
+  }
+}
+
 /** Pas de Quartier ! : déplace l'Allié choisi vers un lieu voisin non bloqué et
  *  lui donne +force jusqu'à la fin du tour. */
 function applyResolveAllyMoveBuff(state: GameState, instanceId: string, to: LocationId): GameState {
@@ -6278,31 +6424,38 @@ function resolveArmedTraps(state: GameState, idx: number): GameState {
 /** Mère Gothel — à la fin de son tour, Raiponce (Héros-tuile) se déplace d'un lieu
  *  vers la DROITE si elle le peut (Tour → Canard boiteux → Forêt → Corona). Ses
  *  Objets associés (Poêle à frire…) la suivent. No-op pour les autres vilains ou si
- *  elle est déjà au lieu le plus à droite. Pur. */
+ *  elle est déjà au lieu le plus à droite. Pur.
+ *  NB : la pénalité −1 Confiance « Raiponce sur Corona » n'est PAS appliquée ici —
+ *  elle est vérifiée au DÉBUT du tour suivant de Gothel (cf. gothelStartOfTurn) : si
+ *  Raiponce a quitté Corona entre-temps (vaincue, ramenée vers la Tour…), aucune perte. */
 function moveRaiponceEndOfTurn(state: GameState, idx: number): GameState {
   const p = state.players[idx]
   if (p.villain !== 'gothel') return state
-  let next = state
   // N'écoute que moi : Raiponce ne se déplace pas à la fin de ce tour (drapeau consommé).
   if (p.raiponceSkipMove) {
-    next = updatePlayer(state, idx, (pl) => ({ ...pl, raiponceSkipMove: false }))
-  } else {
-    const from = raiponceLocation(p)
-    const order = p.locations.map((l) => l.id)
-    const i = from ? order.indexOf(from) : -1
-    // Glisse d'un lieu vers la droite, sauf si elle est déjà tout à droite (Corona).
-    if (i >= 0 && i < order.length - 1) {
-      next = relocateRaiponce(state, idx, order[i + 1])
-    }
+    return updatePlayer(state, idx, (pl) => ({ ...pl, raiponceSkipMove: false }))
   }
-  // Raiponce — pénalité : si, à la fin du tour, elle se trouve sur Corona (lieu le
-  // plus à droite du royaume), Mère Gothel perd 1 jeton Confiance.
-  const np = next.players[idx]
-  const order = np.locations.map((l) => l.id)
-  if (raiponceLocation(np) === order[order.length - 1]) {
-    next = resolveEffects(next, [{ type: 'LOSE_CONFIANCE', amount: 1 }], { actorIndex: idx })
+  const from = raiponceLocation(p)
+  const order = p.locations.map((l) => l.id)
+  const i = from ? order.indexOf(from) : -1
+  // Glisse d'un lieu vers la droite, sauf si elle est déjà tout à droite (Corona).
+  if (i >= 0 && i < order.length - 1) {
+    return relocateRaiponce(state, idx, order[i + 1])
   }
-  return next
+  return state
+}
+
+/** Mère Gothel — au DÉBUT de son tour : si Raiponce se trouve (encore) sur Corona
+ *  (lieu le plus à droite du royaume), Gothel perd 1 jeton Confiance. Vérifié à
+ *  l'ouverture du tour, et non quand Raiponce y glisse en fin de tour : un Héros
+ *  ramené vers la Tour (Lance-moi ta chevelure, Stabbington…) ou vaincu d'ici là
+ *  échappe à la pénalité. No-op pour les autres vilains. Pur. */
+function gothelStartOfTurn(state: GameState, idx: number): GameState {
+  const p = state.players[idx]
+  if (p.villain !== 'gothel') return state
+  const order = p.locations.map((l) => l.id)
+  if (raiponceLocation(p) !== order[order.length - 1]) return state
+  return resolveEffects(state, [{ type: 'LOSE_CONFIANCE', amount: 1 }], { actorIndex: idx })
 }
 
 function applyEndTurn(state: GameState): GameState {
@@ -6437,6 +6590,10 @@ function applyEndTurn(state: GameState): GameState {
   // tuiles « début de tour » remplies (peut déclencher la victoire ici).
   started = resolvePeteStartOfTurn(started, nextIdx)
   if (started.status === 'WON') return started
+
+  // Mère Gothel — début de son tour : pénalité si Raiponce campe sur Corona
+  // (vérifiée AVANT la victoire — la perte peut repasser Gothel sous le seuil).
+  started = gothelStartOfTurn(started, nextIdx)
 
   // La victoire se vérifie « au début du tour » du nouveau joueur actif.
   if (hasReachedObjective(started)) {
@@ -6645,6 +6802,34 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
     action.type !== 'PLAY_CONDITION'
   ) {
     throw new Error('Choisissez une carte à garder (RESOLVE_MAUVAIS_COUP).')
+  }
+  // Sournois : le replacement d'une carte de la main doit être résolu d'abord.
+  if (
+    state.pendingSournois &&
+    action.type !== 'RESOLVE_SOURNOIS' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Replacez une carte de votre main (RESOLVE_SOURNOIS).')
+  }
+  // Cheval : le déplacement d'un Allié/Objet doit être résolu d'abord.
+  if (
+    state.pendingAllyItemMove &&
+    action.type !== 'RESOLVE_ALLY_ITEM_MOVE' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Résolvez le déplacement (Cheval) (RESOLVE_ALLY_ITEM_MOVE).')
+  }
+  // Bandit : l'enchaînement d'autres Bandits doit être résolu d'abord.
+  if (
+    state.pendingBanditChain &&
+    action.type !== 'RESOLVE_BANDIT_CHAIN' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Résolvez l’enchaînement des Bandits (RESOLVE_BANDIT_CHAIN).')
+  }
+  // Dingo : l'interversion/déplacement de tuile doit être résolu d'abord.
+  if (state.pendingDingo && action.type !== 'RESOLVE_DINGO' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Résolvez le coup de Dingo (RESOLVE_DINGO).')
   }
   // Yzma — Beauté endormie (réveil) : à résoudre avant tout autre coup, déplacement
   // du pion compris (« avant de vous déplacer… »).
@@ -6901,6 +7086,14 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveTeleport(state, action.to)
     case 'RESOLVE_MAUVAIS_COUP':
       return applyResolveMauvaisCoup(state, action.keepInstanceId, action.otherPlacement)
+    case 'RESOLVE_SOURNOIS':
+      return applyResolveSournois(state, action.instanceId, action.placement)
+    case 'RESOLVE_ALLY_ITEM_MOVE':
+      return applyResolveAllyItemMove(state, action.instanceId, action.to, action.auto ?? false)
+    case 'RESOLVE_BANDIT_CHAIN':
+      return applyResolveBanditChain(state, action.instanceIds)
+    case 'RESOLVE_DINGO':
+      return applyResolveDingo(state, action.from, action.to)
     case 'RESOLVE_MANIPULATION':
       return applyResolveManipulation(state, action.instanceId)
     case 'DISMISS_ROYAL_CROQUET':

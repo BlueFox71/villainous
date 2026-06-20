@@ -111,7 +111,7 @@ function VillainProp({ villain, isPlayer, src }: PropAnimProps) {
   >(() => {
     if (path !== 'coins' || !anim?.images) return []
     const imgs = anim.images
-    const n = 48 + Math.floor(Math.random() * 19) // 48..66 (≈ triple)
+    const n = anim.count ?? 48 + Math.floor(Math.random() * 19) // défaut 48..66 (pluie dense)
     return Array.from({ length: n }, () => ({
       img: imgs[Math.floor(Math.random() * imgs.length)],
       left: 2 + Math.random() * 94, // % de la largeur
@@ -145,38 +145,6 @@ function VillainProp({ villain, isPlayer, src }: PropAnimProps) {
       swayDelay: -(Math.random() * 3), // s (phase d'ondulation décalée)
       op: 0.5 + Math.random() * 0.4, // opacité de pointe
     }))
-  })
-
-  // Fumée (Méchante Reine) : 16 à 22 volutes réparties sur la largeur, montant en
-  // grossissant et en se dissipant. Taille/vitesse/phase/dérive/opacité au hasard.
-  const [smokeItems] = useState<
-    { left: number; size: number; dur: number; delay: number; drift: number; op: number }[]
-  >(() => {
-    if (path !== 'smoke') return []
-    const base = anim?.heightPct ?? 22
-    const n = 16 + Math.floor(Math.random() * 7) // 16..22
-    const slot = 100 / n
-    return Array.from({ length: n }, (_, i) => ({
-      left: i * slot + slot / 2 + (Math.random() - 0.5) * slot, // % réparti régulièrement
-      size: base * (0.6 + Math.random() * 0.9), // vh
-      dur: 5 + Math.random() * 4, // s (montée)
-      delay: -(Math.random() * 6), // s (phase décalée)
-      drift: (Math.random() - 0.5) * 16, // vw (dérive latérale)
-      op: 0.35 + Math.random() * 0.3, // opacité de pointe
-    }))
-  })
-
-  // Pomme empoisonnée (Méchante Reine) : UNE seule pomme tombe lentement du ciel (une
-  // seule chute), pendant la fumée. Léger tournoiement.
-  const [appleItems] = useState<{ left: number; size: number; dur: number; delay: number; spin: number }[]>(() => {
-    if (path !== 'smoke' || !anim?.image) return []
-    return [{
-      left: 30 + Math.random() * 40, // % (vers le centre)
-      size: 8, // vh
-      dur: 8.5 + Math.random() * 1.5, // s (chute lente)
-      delay: 0.8, // s (peu après l'apparition de la fumée)
-      spin: (Math.random() < 0.5 ? -1 : 1) * (15 + Math.random() * 45), // léger tournoiement
-    }]
   })
 
   // Flammes (Hadès) : 12 à 16 flammes le long du bas, taille/colonne/vitesse de boucle/
@@ -380,47 +348,6 @@ function VillainProp({ villain, isPlayer, src }: PropAnimProps) {
               }}
             />
           </div>
-        ))}
-      </div>
-    )
-  }
-
-  if (path === 'smoke') {
-    // Volutes de fumée procédurales (blobs flous) montant du bas en grossissant et en se
-    // dissipant. Le calque apparaît/disparaît en fondu (fireAppear).
-    return (
-      <div className="smoke-layer pointer-events-none absolute inset-0" style={{ animationDuration: `${durationSec}s` }} aria-hidden>
-        {smokeItems.map((s, i) => (
-          <div
-            key={i}
-            className="smoke-puff"
-            style={{
-              left: `${s.left}%`,
-              width: `${s.size}vh`,
-              height: `${s.size}vh`,
-              animationDuration: `${s.dur}s`,
-              animationDelay: `${s.delay}s`,
-              '--smoke-op': s.op,
-              '--smoke-drift': `${s.drift}vw`,
-            } as CSSProperties}
-          />
-        ))}
-        {/* Pommes empoisonnées qui tombent (réutilise la chute des pièces, en boucle). */}
-        {appleItems.map((a, i) => (
-          <img
-            key={`apple-${i}`}
-            src={anim.image}
-            alt=""
-            className="coin-fall"
-            style={{
-              left: `${a.left}%`,
-              height: `${a.size}vh`,
-              animationDuration: `${a.dur}s`,
-              animationDelay: `${a.delay}s`,
-              '--coin-spin': `${a.spin}deg`,
-            } as CSSProperties}
-            draggable={false}
-          />
         ))}
       </div>
     )
@@ -741,7 +668,7 @@ export function BackgroundAnimation({
   const pickImage = (villain: VillainKey): string => {
     const a = villainAnimation(villain)
     if (!a) return ''
-    if (a.path === 'pages' || a.path === 'coins' || a.path === 'rise' || a.path === 'water-cross' || a.path === 'voodoo' || a.path === 'fire-bottom' || a.path === 'smoke') return '' // pas d'image unique ici
+    if (a.path === 'pages' || a.path === 'coins' || a.path === 'rise' || a.path === 'water-cross' || a.path === 'voodoo' || a.path === 'fire-bottom') return '' // pas d'image unique ici
     if (!a.images || a.images.length === 0) return a.image ?? ''
     const q = imageQueues.current
     if (!q[villain] || q[villain]!.length === 0) q[villain] = shuffle(a.images)

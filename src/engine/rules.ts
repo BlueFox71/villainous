@@ -754,8 +754,16 @@ export function conditionIsTriggered(
       const v = state.lastVanquishedHeroStrength
       return v !== undefined && v <= card.trigger.value
     }
-    case 'opponent-moved-card':
-      return !!state.activeMovedCard
+    case 'opponent-moved-card': {
+      if (!state.activeMovedCard) return false
+      // Affront : injouable s'il n'y a aucun Héros éligible (force ≤ N) dans le
+      // royaume du joueur — l'effet (éliminer un Héros ≤ N) serait sans objet.
+      const maxStr = card.trigger.requiresOwnHeroMaxStrength
+      if (maxStr === undefined) return true
+      return Object.values(me.board)
+        .flat()
+        .some((c) => c.type === 'hero' && (c.strength ?? 0) <= maxStr)
+    }
     case 'opponent-drew-card':
       return !!state.activeDrewCard
     case 'opponent-discarded-ge':
@@ -1059,4 +1067,35 @@ export function isPassiveGoalMet(p: PlayerState, goal: GoalToken): boolean {
 /** Vrai si le tour courant peut être terminé (on a déjà bougé ce tour). */
 export function canEndTurn(state: GameState): boolean {
   return state.status === 'PLAYING' && state.phase === 'ACTION'
+}
+
+/**
+ * Pat Hibulaire — Dingo : coups possibles. Interversion de 2 tuiles Objectif
+ * voisines dont `from` porte une tuile NON remplie. Une tuile REMPLIE compte comme
+ * un emplacement « libre » (déplacer la tuile vers ce lieu = échanger avec la tuile
+ * remplie, `toCompleted: true`). Sert à la fois à la modale (humain) et à l'auto (bot).
+ */
+export function dingoSwapOptions(
+  player: PlayerState,
+): { from: LocationId; to: LocationId; toCompleted: boolean }[] {
+  const goals = player.goals ?? []
+  const order = player.locations.map((l) => l.id)
+  const tileAt = (lid: LocationId) => goals.find((g) => g.locationId === lid)
+  const out: { from: LocationId; to: LocationId; toCompleted: boolean }[] = []
+  const seen = new Set<string>()
+  for (let i = 0; i < order.length; i++) {
+    const here = tileAt(order[i])
+    if (!here || here.completed) continue // `from` doit porter une tuile NON remplie
+    for (const j of [i - 1, i + 1]) {
+      if (j < 0 || j >= order.length) continue
+      const nb = tileAt(order[j])
+      if (!nb) continue
+      // Dédoublonne les paires non-remplie ↔ non-remplie (A↔B == B↔A).
+      const key = nb.completed ? `${order[i]}>${order[j]}` : [order[i], order[j]].sort().join('|')
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push({ from: order[i], to: order[j], toCompleted: !!nb.completed })
+    }
+  }
+  return out
 }

@@ -293,6 +293,19 @@ export type Effect =
   | { type: 'GAIN_CONFIANCE'; amount: number }
   /** Mère Gothel — perd `amount` jetons Confiance (rendus à la Réserve, plancher 0). */
   | { type: 'LOSE_CONFIANCE'; amount: number }
+  /** Mère Gothel — perd `amount` Confiance SI la carte (onPlace) arrive sur le lieu
+   *  de Raiponce ; sinon rien (La Reine et le Roi). */
+  | { type: 'LOSE_CONFIANCE_AT_RAIPONCE'; amount: number }
+  /** Le Satyre — si ce Héros (onPlace) arrive sur le lieu du pion du propriétaire,
+   *  le joueur qui pose la Fatalité peut déplacer ce pion sur n'importe quel lieu
+   *  (pendingPawnMove). Sinon rien. */
+  | { type: 'MOVE_OWNER_PAWN_IF_AT_PAWN'; label?: string }
+  /** La Main froide — le propriétaire défausse `amount` carte(s) au hasard de sa
+   *  main (aléa via rngState). */
+  | { type: 'FATE_DISCARD_RANDOM_HAND'; amount: number }
+  /** Flynn Rider — à l'arrivée, le propriétaire (Gothel) perd jusqu'à `amount`
+   *  Confiance, déposés sur ce Héros (heldConfiance) ; rendus s'il est vaincu. */
+  | { type: 'FLYNN_TAKE_CONFIANCE'; amount: number }
   /** Mère Gothel — déplace Raiponce (Héros-tuile). `to` : 'tour'/'corona' = lieu
    *  extrême ; 'left'/'right' = de `steps` lieux (défaut 1) vers la Tour / Corona. */
   | { type: 'MOVE_RAIPONCE'; to: 'tour' | 'corona' | 'left' | 'right'; steps?: number }
@@ -945,6 +958,9 @@ export interface CardInstance {
    *  PJ, Voler aux Riches ≤4 prélevés sur un Héros). Restitués au joueur quand
    *  la carte est défaussée/vaincue (mécanique combat — bloc B). */
   lockedPower?: number
+  /** Mère Gothel — jetons Confiance « détenus » par ce Héros (Flynn Rider : pris à
+   *  Gothel à son arrivée, rendus si Flynn est vaincu). Affiché en badge. */
+  heldConfiance?: number
   /** Bowser — Étoiles déposées sur cet Allié (drainées de l'Observatoire par
    *  épuisement d'énergie, Dino Piranha, Kamella…). Défaussées avec la carte ;
    *  une Étoile est perdue si l'Allié sert à éliminer un Héros (cf. règle carte). */
@@ -1165,8 +1181,11 @@ export type ConditionTrigger =
   /** L'adversaire actif a au moins `value` Objets dans son royaume (Jafar :
    *  Tromperie). */
   | { type: 'opponent-items-in-realm-ge'; value: number }
-  /** L'adversaire actif a déplacé un Allié ou un Objet ce tour-ci (Sombres desseins). */
-  | { type: 'opponent-moved-card' }
+  /** L'adversaire actif a déplacé un Allié ou un Objet ce tour-ci (Sombres desseins).
+   *  `requiresOwnHeroMaxStrength` : contrainte supplémentaire « le joueur a, dans son
+   *  royaume, un Héros de force ≤ cette valeur » (Affront élimine un Héros ≤ 3 : injouable
+   *  sinon, car sans effet). */
+  | { type: 'opponent-moved-card'; requiresOwnHeroMaxStrength?: number }
   /** L'adversaire actif a pioché au moins une carte ce tour-ci (Sans visage). */
   | { type: 'opponent-drew-card' }
   /** L'adversaire actif vient de vaincre CE TOUR un Héros de force ≥ `value`
@@ -1363,10 +1382,10 @@ export interface GameState {
   phase: TurnPhase
   /** Ids des actions déjà exécutées ce tour-ci par le joueur actif. */
   usedActionIds: string[]
-  /** Pat Hibulaire — Bandit : action « Jouer une carte » laissée OUVERTE par un
-   *  Bandit (tant qu'un autre Bandit est en main). Réservée à d'autres Bandits ;
-   *  remise à zéro au début de chaque tour. `null`/absent sinon. */
-  banditChain?: { actionId: string } | null
+  /** Pat Hibulaire — Bandit : après avoir joué un Bandit, `playerIndex` peut en
+   *  enchaîner d'AUTRES sur le même lieu (`locationId`) dans la même action « Jouer
+   *  une carte » (chacun paie son coût) — RESOLVE_BANDIT_CHAIN. `null`/absent sinon. */
+  pendingBanditChain?: { playerIndex: number; locationId: LocationId } | null
   status: GameStatus
   /** Index du joueur gagnant, ou null tant que la partie continue. */
   winner: number | null
@@ -1468,6 +1487,25 @@ export interface GameState {
    * DESSOUS de la pioche (RESOLVE_MAUVAIS_COUP). Absent / `null` hors de ce choix.
    */
   pendingMauvaisCoup?: { playerIndex: number; cards: CardInstance[] } | null
+  /**
+   * Sournois (Pat Hibulaire) : `playerIndex` a pioché 2 cartes et doit maintenant
+   * choisir 1 carte de sa main à replacer sur le DESSUS ou le DESSOUS de sa pioche
+   * (RESOLVE_SOURNOIS). Choix PRIVÉ (rien au journal). Absent / `null` sinon.
+   */
+  pendingSournois?: { playerIndex: number } | null
+  /**
+   * Dingo (Pat Hibulaire) : `chooserIndex` (joueur ayant posé la Fatalité) peut
+   * intervertir 2 tuiles Objectif voisines de `targetIndex` (déplacer 1 tuile vers
+   * un lieu « libre » = échanger avec une tuile remplie). Résolu par RESOLVE_DINGO
+   * (facultatif). Absent / `null` hors de ce choix.
+   */
+  pendingDingo?: { chooserIndex: number; targetIndex: number } | null
+  /**
+   * Cheval (Pat Hibulaire) : `playerIndex` peut déplacer un Allié ou un Objet de son
+   * royaume sur n'importe quel lieu (RESOLVE_ALLY_ITEM_MOVE). Facultatif. Absent /
+   * `null` hors de ce choix.
+   */
+  pendingAllyItemMove?: { playerIndex: number; beneficial: boolean } | null
   /**
    * Tombée de la nuit (Slenderman) : `playerIndex` doit choisir un type de carte
    * (Événement/Objet) avant de dévoiler `count` cartes de sa pioche
@@ -1949,6 +1987,23 @@ export interface ShowcaseEvent {
     /** Ancrage vertical : 'center' (défaut) ou 'bottom' (près de la main). */
     anchor?: 'center' | 'bottom'
   }
+  /** Variante « révélation à suspense » (Une Petite Partie ?) : on dévoile les
+   *  cartes une à une (1 s d'intervalle), un compteur de coût total s'incrémente à
+   *  chaque carte, puis il scintille avant l'affichage du badge `gainedPower` JT. */
+  reveal?: {
+    /** Cartes révélées, dans l'ordre de dévoilement. */
+    cardIds: string[]
+    /** Coût de chaque carte (même ordre) — incrémente le total affiché. */
+    costs: number[]
+    /** Variante « scrutation + défausse » (Assommé Bêtement) : on dévoile les
+     *  cartes, celles marquées `discarded` virent au gris (partent à la défausse),
+     *  puis les autres sont remélangées (dos) et reposées sur le dessus de la pioche.
+     *  Absent/false = révélation « à suspense » classique (Une Petite Partie ?). */
+    scry?: boolean
+    /** Pour la variante `scry` : par carte (même ordre que `cardIds`), vrai si elle
+     *  est défaussée (coût ≥ seuil), faux si elle est conservée et remise sur le dessus. */
+    discarded?: boolean[]
+  }
 }
 
 /** Fatalité révélée en attente de résolution par le joueur actif. */
@@ -2124,6 +2179,17 @@ export type GameAction =
   /** Mauvais Coup : `keepInstanceId` = carte (parmi les 2 révélées) prise en main ;
    *  l'autre repart sur le DESSUS (`top`) ou le DESSOUS (`bottom`) de la pioche. */
   | { type: 'RESOLVE_MAUVAIS_COUP'; keepInstanceId: string; otherPlacement: 'top' | 'bottom' }
+  /** Sournois : replace la carte `instanceId` de la main sur le dessus/dessous. */
+  | { type: 'RESOLVE_SOURNOIS'; instanceId: string; placement: 'top' | 'bottom' }
+  /** Cheval : déplace l'Allié/Objet `instanceId` vers `to`. `instanceId`/`to` null =
+   *  ne rien déplacer (facultatif). `auto` = le bot délègue le choix à l'heuristique. */
+  | { type: 'RESOLVE_ALLY_ITEM_MOVE'; instanceId: string | null; to: LocationId | null; auto?: boolean }
+  /** Bandit : enchaîne d'autres Bandits (`instanceIds`) sur le même lieu, dans la
+   *  même action. Tableau vide = n'en jouer aucun de plus. */
+  | { type: 'RESOLVE_BANDIT_CHAIN'; instanceIds: string[] }
+  /** Dingo : intervertit les tuiles Objectif des lieux `from` et `to` (voisins).
+   *  `from`/`to` null = ne rien faire (facultatif). */
+  | { type: 'RESOLVE_DINGO'; from: LocationId | null; to: LocationId | null }
   /** Apparition / Vent de panique : déplace le Héros choisi vers le lieu voisin. */
   | { type: 'RESOLVE_HERO_RELOCATE'; heroInstanceId: string; to: LocationId }
   /** Décline un déplacement de Héros FACULTATIF (Poupées vaudou). */

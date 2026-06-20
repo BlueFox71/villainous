@@ -679,44 +679,800 @@ body {
     background-position-y: calc(-1 * var(--frames) * var(--fh)); /* défile les 39 frames */
   }
 }
-/* Fumée de la Méchante Reine : volutes floues (procédurales) montant du bas en
-   grossissant et en se dissipant. Le calque entier apparaît/disparaît en fondu. */
-.smoke-layer {
+/* Décor permanent : vidéo teintée (Méchante Reine — fumée de sorcellerie).
+   Une vidéo en boucle (plein cadre, object-fit cover) est recouverte d'un dégradé en
+   `mix-blend-mode: color` : le dégradé impose sa teinte (hue/saturation) en gardant la
+   luminance et le mouvement de la vidéo. Cf. components/VillainDecor.tsx. */
+.video-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #000; /* fond derrière la vidéo (et si la vidéo est masquée) */
+}
+/* (Dimensionnement de la vidéo posé en inline dans VideoDecor — plein cadre garanti.) */
+.video-decor .video-tint {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: color; /* colore la vidéo en conservant sa luminance */
+  pointer-events: none;
+}
+/* Voile noir du bouclage en fondu (par-dessus la vidéo + sa teinte). Opacité/durée de
+   transition pilotées en JS (cf. VideoDecor) ; valeur de repli ici. */
+.video-decor .video-fade {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 5s linear;
+}
+/* ----- Décor permanent : pellicule de cinéma (Pat Hibulaire) -----
+   Décor présent EN CONTINU pendant la partie, sur la largeur de la colonne du
+   vilain et toute la hauteur de l'écran. Le conteneur applique la teinte sépia + la
+   vignette ; les calques enfants animent grain, scintillement, rayures, poussières
+   et perforations. Cf. components/VillainDecor.tsx. */
+.film-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* Voile chaud + vignette assombrie sur les bords (ambiance pellicule jaunie). */
+  background: radial-gradient(
+    120% 100% at 50% 45%,
+    rgba(60, 42, 16, 0.1) 0%,
+    rgba(28, 18, 6, 0.34) 62%,
+    rgba(12, 7, 2, 0.62) 100%
+  );
+  filter: sepia(0.35) saturate(0.85);
+}
+.film-grain {
+  position: absolute;
+  inset: 0;
+  background-repeat: repeat;
+  background-size: 170px 170px;
+  opacity: 0.13;
+  will-change: background-position, opacity;
+  /* Le grain « saute » d'une position à l'autre (steps) + faible respiration. */
+  animation: filmGrainMove 0.5s steps(3) infinite, filmGrainFlick 3.3s ease-in-out infinite;
+}
+@keyframes filmGrainMove {
+  0% { background-position: 0 0; }
+  25% { background-position: -32px 20px; }
+  50% { background-position: 26px -30px; }
+  75% { background-position: -18px -12px; }
+  100% { background-position: 14px 28px; }
+}
+@keyframes filmGrainFlick {
+  0%, 100% { opacity: 0.1; }
+  50% { opacity: 0.17; }
+}
+.film-flicker {
+  position: absolute;
+  inset: 0;
+  background: #000;
   opacity: 0;
   will-change: opacity;
-  animation-name: fireAppear; /* même fondu d'apparition/disparition du calque */
-  animation-timing-function: ease-in-out;
-  animation-fill-mode: both;
+  /* Sauts de luminosité abrupts (steps) : instabilité d'un vieux projecteur. */
+  animation: filmFlicker 1.1s steps(1) infinite;
 }
-.smoke-puff {
+@keyframes filmFlicker {
+  0% { opacity: 0; }
+  18% { opacity: 0.07; }
+  30% { opacity: 0; }
+  52% { opacity: 0.11; }
+  64% { opacity: 0.02; }
+  82% { opacity: 0.08; }
+  100% { opacity: 0; }
+}
+.film-scratch {
   position: absolute;
-  bottom: -8vh;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle at 50% 45%,
-    rgba(158, 126, 198, 0.5) 0%,
-    rgba(120, 92, 165, 0.32) 45%,
-    rgba(0, 0, 0, 0) 72%
+  top: -2%;
+  height: 104%;
+  /* Éraflure sombre, atténuée en haut/bas. */
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(10, 6, 2, 0.55) 14%,
+    rgba(10, 6, 2, 0.5) 86%,
+    rgba(0, 0, 0, 0) 100%
   );
-  filter: blur(8px);
-  will-change: transform, opacity;
-  animation-name: smokeRise;
-  animation-timing-function: ease-out;
+  opacity: 0;
+  will-change: opacity, transform;
+  animation-name: filmScratch;
+  animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
 }
-@keyframes smokeRise {
-  0% {
-    transform: translate(0, 0) scale(0.4);
-    opacity: 0;
-  }
-  18% {
-    opacity: var(--smoke-op, 0.5);
-  }
-  100% {
-    transform: translate(var(--smoke-drift, 0), -78vh) scale(1.7);
-    opacity: 0;
-  }
+.film-scratch--bright {
+  /* Éraflure « lumineuse » (la couche d'émulsion arrachée laisse passer la lumière). */
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(255, 246, 224, 0.45) 14%,
+    rgba(255, 246, 224, 0.4) 86%,
+    rgba(0, 0, 0, 0) 100%
+  );
 }
+@keyframes filmScratch {
+  /* Apparaît, tremble latéralement entre deux positions, puis disparaît ; reste
+     absente le reste du cycle → la rayure « va et vient ». */
+  0% { opacity: 0; transform: translateX(0); }
+  10% { opacity: 0.7; transform: translateX(var(--scratch-jitter, 3px)); }
+  20% { opacity: 0.5; transform: translateX(0); }
+  30% { opacity: 0.65; transform: translateX(var(--scratch-jitter, 3px)); }
+  40% { opacity: 0; transform: translateX(0); }
+  100% { opacity: 0; transform: translateX(0); }
+}
+.film-dust {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(14, 9, 3, 0.6);
+  opacity: 0;
+  will-change: opacity;
+  /* Clignote très brièvement (steps), puis absente le reste du cycle. */
+  animation-name: filmDust;
+  animation-timing-function: steps(1);
+  animation-iteration-count: infinite;
+}
+@keyframes filmDust {
+  0%, 100% { opacity: 0; }
+  3% { opacity: 0.55; }
+  6% { opacity: 0; }
+  9% { opacity: 0.4; }
+  12% { opacity: 0; }
+}
+.film-perforations {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  /* Bande sombre de la pellicule + trous clairs régulièrement espacés. */
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 0 13px,
+      rgba(255, 244, 222, 0.12) 13px 29px
+    ),
+    linear-gradient(rgba(6, 4, 1, 0.5), rgba(6, 4, 1, 0.5));
+  background-size: 100% 42px, 100% 100%;
+  opacity: 0.7;
+  will-change: background-position;
+  /* Les trous défilent vers le bas : la pellicule « tourne » dans le projecteur. */
+  animation: filmRun 1.5s linear infinite;
+}
+.film-perforations--left { left: 0; }
+.film-perforations--right { right: 0; }
+@keyframes filmRun {
+  to { background-position: 0 42px, 0 0; }
+}
+
+/* ----- Décor permanent : sablier (Jafar) -----
+   Un filet de sable tombe du haut vers le bas (resserré au centre = le col du
+   sablier) ; un niveau de sable se remplit au fond puis se vide en boucle (sablier
+   qu'on retourne). Cf. components/VillainDecor.tsx. */
+.sand-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0.5; /* décor plus discret */
+  /* Voile chaud + vignette (ambiance désert/ocre). */
+  background: radial-gradient(
+    120% 100% at 50% 28%,
+    rgba(120, 86, 30, 0.1) 0%,
+    rgba(40, 28, 8, 0.3) 64%,
+    rgba(12, 8, 2, 0.55) 100%
+  );
+}
+.sand-stream {
+  position: absolute;
+  inset: 0;
+}
+.sand-grain {
+  position: absolute;
+  top: 0;
+  border-radius: 50%; /* grain fin (ellipse une fois étiré en hauteur) */
+  will-change: transform;
+  animation-name: sandFall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes sandFall {
+  /* Chute droite, du haut de l'écran vers le bas (rideau rectangulaire). */
+  from { transform: translateY(-2vh); }
+  to { transform: translateY(113vh); }
+}
+.sand-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 100%;
+  /* Sable OPAQUE (opaque pour masquer la coulée qui passe derrière) : dégradé clair→
+     foncé, ocre orangé. */
+  background: linear-gradient(
+    to bottom,
+    rgb(198, 122, 54) 0,
+    rgb(160, 92, 38) 16vh,
+    rgb(112, 60, 26) 44vh
+  );
+  /* Silhouette du tas (apex arrondi + pentes ondulées) posée en clip-path inline,
+     calculée dans VillainDecor.tsx (SAND_PILE_CLIP). */
+  will-change: transform;
+  transform: translateY(100%);
+  /* Monte UNE fois depuis le bas de l'écran jusqu'en haut, puis se fige (forwards, pas
+     de boucle) et ne bouge plus. La coulée de grains garde son animation infinie. */
+  animation: sandFillRise 600s linear forwards;
+}
+@keyframes sandFillRise {
+  from { transform: translateY(90%); } /* niveau de départ : un peu de sable déjà visible */
+  to { transform: translateY(8%); } /* rempli presque jusqu'en haut, puis figé */
+}
+
+/* ----- Décor permanent : espace / champ d'étoiles (L'Imposteur) -----
+   Des points blancs défilent vers la droite (profondeur : proches = gros/rapides/en
+   traînée). Cf. components/VillainDecor.tsx. */
+.space-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* Pas de fond : on laisse voir l'arrière-plan de la page (seules les étoiles). */
+}
+.star {
+  position: absolute;
+  left: -6vw;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.9), 0 0 2px rgba(255, 255, 255, 1);
+  will-change: transform;
+  animation-name: starFly;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes starFly {
+  from { transform: translateX(0); }
+  to { transform: translateX(118vw); } /* traverse la colonne vers la droite (clippé) */
+}
+
+/* ----- Décor permanent : mur de feu (Hadès — feu bleu) -----
+   Rangée de flammes permanente en bas de la colonne ; chaque flamme réutilise
+   `.fire-flame` (sprite joué en boucle). Teinte posée en inline. */
+.fire-decor {
+  position: absolute;
+  inset: 0;
+}
+
+/* ----- Décor permanent : chevelure dorée (Mère Gothel — Raiponce) -----
+   Des mèches lumineuses pendent du haut de l'écran et se balancent (pivot en haut,
+   comme un rideau de cheveux), un halo doré pulse au rythme de l'incantation, et des
+   particules d'or montent en scintillant. Cf. components/VillainDecor.tsx. */
+.hair-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0.7; /* décor discret */
+  /* Voile chaud sombre + halo doré au sommet (la lumière vient d'en haut). */
+  background: radial-gradient(
+    120% 80% at 50% 0%,
+    rgba(196, 150, 60, 0.16) 0%,
+    rgba(60, 44, 22, 0.28) 55%,
+    rgba(14, 10, 4, 0.5) 100%
+  );
+}
+.hair-strand {
+  position: absolute;
+  top: -2%;
+  transform-origin: top center;
+  /* L'élément lui-même reste à opacité 1 : la teinte de base (dorée, atténuée par
+     mèche) est portée par `::before`, le surlignage d'incantation (jaune) par `::after`.
+     Ainsi le jaune n'est PAS plafonné par l'opacité faible de la mèche. */
+  will-change: transform;
+  animation-name: hairSway;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+/* Teinte de base dorée : transparente aux pointes (haut et bas), lumineuse au cœur.
+   L'opacité par mèche (variation naturelle) est posée ici via `--hair-op`. */
+.hair-strand::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 244, 194, 0) 0%,
+    rgba(255, 230, 150, 0.95) 14%,
+    rgba(232, 184, 75, 0.95) 64%,
+    rgba(201, 148, 31, 0) 100%
+  );
+  box-shadow: 0 0 6px rgba(255, 216, 120, 0.6);
+  filter: blur(0.4px);
+  opacity: var(--hair-op);
+}
+@keyframes hairSway {
+  /* Balancement de pendule autour du point d'accroche (en haut). */
+  from { transform: rotate(calc(var(--hair-swing) * -1)); }
+  to { transform: rotate(var(--hair-swing)); }
+}
+/* Incantation : la mèche entière se colore en jaune brillant, le remplissage
+   DESCENDANT lentement du haut vers le bas (calque jaune `::after` superposé à la
+   mèche, révélé via clip-path top→bottom), puis elle BRILLE ~10 s, puis la brillance
+   s'ESTOMPE. Invisible hors incantation ; jouée une fois quand `.hair-decor.is-singing`
+   est posé (cf. VillainDecor.tsx). */
+.hair-strand::after {
+  content: '';
+  position: absolute;
+  inset: 0; /* recouvre exactement la mèche (toute sa hauteur) */
+  border-radius: 9999px;
+  /* Jaune vif et incandescent #FDC700 (cœur quasi blanc, surexposé) — version
+     « illuminée » de la mèche. */
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 236, 120, 0) 0%,
+    #fff3b0 8%,
+    #ffe24a 28%,
+    #fdc700 50%,
+    #ffe24a 72%,
+    #fff3b0 92%,
+    rgba(255, 236, 120, 0) 100%
+  );
+  /* Triple halo (proche + large) pour un débordement lumineux marqué. */
+  box-shadow:
+    0 0 10px 3px rgba(255, 240, 150, 1),
+    0 0 26px 9px rgba(253, 199, 0, 0.95),
+    0 0 52px 18px rgba(253, 199, 0, 0.55);
+  /* Léger bloom : sature et fait « baver » la lumière au-delà des bords. */
+  filter: brightness(1.35) saturate(1.25) drop-shadow(0 0 8px rgba(255, 226, 90, 0.9));
+  mix-blend-mode: screen; /* la lumière s'ajoute au fond → effet incandescent */
+  opacity: 0;
+  /* Caché au départ : entièrement clippé par le bas (rien de visible). */
+  clip-path: inset(0 0 100% 0);
+  pointer-events: none;
+}
+.hair-decor.is-singing .hair-strand::after {
+  animation: hairSing 45s linear forwards;
+}
+@keyframes hairSing {
+  /* 0→55,56 % (25 s) : le jaune descend et remplit toute la mèche, du haut vers le bas.
+     55,56→88,89 % (15 s) : la mèche reste pleinement illuminée (elle brille).
+     88,89→100 % (5 s) : la brillance s'estompe. */
+  0% { clip-path: inset(0 0 100% 0); opacity: 1; }
+  55.56% { clip-path: inset(0 0 0% 0); opacity: 1; }
+  88.89% { clip-path: inset(0 0 0% 0); opacity: 1; }
+  100% { clip-path: inset(0 0 0% 0); opacity: 0; }
+}
+.hair-mote {
+  position: absolute;
+  bottom: -4%;
+  border-radius: 9999px;
+  background: radial-gradient(circle, #fff6d2 0%, #f0c860 55%, rgba(201, 148, 31, 0) 100%);
+  box-shadow: 0 0 6px rgba(255, 216, 120, 0.9);
+  will-change: transform, opacity;
+  animation-name: hairMoteRise;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes hairMoteRise {
+  0% { transform: translateY(0) translateX(0); opacity: 0; }
+  15% { opacity: 1; }
+  50% { transform: translateY(-55vh) translateX(8px); opacity: 0.85; }
+  85% { opacity: 1; }
+  100% { transform: translateY(-112vh) translateX(-6px); opacity: 0; }
+}
+.hair-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* Halo doré qui pulse : la chevelure « s'allume » au rythme de l'incantation. */
+  background: radial-gradient(
+    100% 70% at 50% 12%,
+    rgba(255, 220, 130, 0.22) 0%,
+    rgba(255, 210, 110, 0) 60%
+  );
+  mix-blend-mode: screen;
+  will-change: opacity;
+  animation: hairGlowPulse 6.5s ease-in-out infinite;
+}
+@keyframes hairGlowPulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+/* ----- Décor permanent : poussière d'or (Prince Jean) -----
+   De fines particules dorées dérivent lentement vers le haut (enveloppe `.gold-mote-rise`)
+   en ondulant latéralement (`.gold-mote-sway`, pendule) ; environ une sur quatre scintille
+   (`.gold-mote--twinkle`). Voile chaud + vignette sur le conteneur. Cf. VillainDecor.tsx. */
+.gold-dust-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0.85;
+  /* Voile chaud doré + vignette (le trésor qu'on devine hors champ). */
+  background: radial-gradient(
+    120% 90% at 50% 60%,
+    rgba(120, 90, 30, 0.12) 0%,
+    rgba(40, 28, 10, 0.22) 60%,
+    rgba(12, 8, 2, 0.42) 100%
+  );
+}
+.gold-mote-rise {
+  position: absolute;
+  bottom: -5vh;
+  will-change: transform;
+  animation-name: goldRise;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes goldRise {
+  from { transform: translateY(0); }
+  to { transform: translateY(-115vh); }
+}
+.gold-mote-sway {
+  display: block;
+  will-change: transform;
+  animation-name: goldSway;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes goldSway {
+  from { transform: translateX(calc(var(--sway) * -1)); }
+  to { transform: translateX(var(--sway)); }
+}
+.gold-mote {
+  display: block;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 45%, #fff3c8 0%, #ffe09a 40%, #d8a93a 70%, rgba(216, 169, 58, 0) 100%);
+  box-shadow: 0 0 6px rgba(255, 214, 120, 0.85);
+}
+.gold-mote--twinkle {
+  will-change: opacity, transform;
+  animation-name: goldTwinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes goldTwinkle {
+  from { opacity: 0.15; transform: scale(0.75); }
+  to { opacity: 1; transform: scale(1.3); }
+}
+/* Pièces qui tombent en tournoyant, en continu (réutilise les keyframes `coinFall` de la
+   pluie de pièces temporaire, mais en boucle LINÉAIRE → reprise régulière). */
+.gold-coin {
+  position: absolute;
+  top: 0;
+  width: auto;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.4));
+  will-change: transform;
+  animation-name: coinFall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+/* ----- Décor permanent : ronces (Maléfique) -----
+   Des épines sombres montent du bas en oscillant (pivot en bas), sur fond de lueur verte
+   pulsante et d'étincelles vertes qui s'élèvent. Cf. components/VillainDecor.tsx. */
+.thorns-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0.9;
+  /* Fond OPAQUE (vert très sombre) : indispensable pour que le multiply des ronces efface
+     le blanc de la photo (sinon, sur fond transparent, le blanc resterait visible). */
+  background: radial-gradient(110% 90% at 50% 55%, #16331f 0%, #0c1a11 55%, #060d08 100%);
+}
+.thorn-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(95% 85% at 50% 70%, rgba(90, 210, 120, 0.28) 0%, rgba(60, 180, 90, 0) 65%);
+  mix-blend-mode: screen;
+  will-change: opacity;
+  animation: thornGlowPulse 5.5s ease-in-out infinite;
+}
+@keyframes thornGlowPulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.9; }
+}
+/* Boule verte hypnotique qui se balade (derrière les ronces). `orbWander` déplace le point
+   (left/top), `orbPulse` fait respirer la taille/l'éclat. mix-blend screen → elle éclaire
+   le fond sombre ; les ronces (multiply, par-dessus) la masquent là où il y a des branches. */
+.thorn-orb {
+  position: absolute;
+  width: 17vh;
+  height: 17vh;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(225, 255, 205, 0.95) 0%,
+    rgba(72, 228, 53, 0.85) 34%,
+    rgba(72, 228, 53, 0) 70%
+  );
+  filter: blur(1px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  will-change: left, top, transform, opacity;
+  animation: orbWander 75s ease-in-out infinite, orbPulse 3.4s ease-in-out infinite;
+}
+/* Déplacement pleine amplitude sur les deux axes, trajet long et erratique (beaucoup de
+   points) → l'orbe se balade longuement dans tout le div. */
+@keyframes orbWander {
+  0% { left: 10%; top: 92%; }
+  8% { left: 78%; top: 80%; }
+  16% { left: 32%; top: 58%; }
+  24% { left: 88%; top: 40%; }
+  32% { left: 18%; top: 22%; }
+  40% { left: 60%; top: 10%; }
+  48% { left: 90%; top: 30%; }
+  56% { left: 40%; top: 46%; }
+  64% { left: 12%; top: 64%; }
+  72% { left: 70%; top: 86%; }
+  80% { left: 26%; top: 70%; }
+  88% { left: 84%; top: 54%; }
+  100% { left: 10%; top: 92%; }
+}
+@keyframes orbPulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.7; }
+  50% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+}
+.thorn-bramble {
+  position: absolute;
+  inset: 0;
+  background-image: url('/animations/ronces.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  /* Silhouette : seuil quasi binaire (gris/teintes → noir/blanc franc) → ronces noir pur
+     sur blanc net (sinon, multipliées par la lueur verte, elles ressortent verdâtres). */
+  filter: grayscale(1) brightness(0.9) contrast(12);
+  /* Ronces noires sur fond blanc → multiply efface le blanc, garde les ronces sombres. */
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+/* Second calque pivoté de 90° (carré de 100vh centré → couvre la colonne haute/étroite
+   même après rotation) → croise les ronces du premier calque pour un enchevêtrement dense. */
+.thorn-bramble--rot {
+  inset: auto;
+  left: 50%;
+  top: 50%;
+  width: 100vh;
+  height: 100vh;
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+/* Troisième calque pivoté de 60°, abaissé (centré plus bas). */
+.thorn-bramble--rot45 {
+  inset: auto;
+  left: 50%;
+  top: 55%;
+  width: 100vh;
+  height: 100vh;
+  transform: translate(-50%, -50%) rotate(60deg);
+}
+.thorn-spark {
+  position: absolute;
+  bottom: -2vh;
+  border-radius: 50%;
+  background: radial-gradient(circle, #d6ffd0 0%, #6fdc7e 55%, rgba(60, 180, 90, 0) 100%);
+  box-shadow: 0 0 6px rgba(120, 240, 140, 0.9);
+  will-change: transform, opacity;
+  animation-name: thornSparkRise;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes thornSparkRise {
+  0% { transform: translate(0, 0) scale(0.6); opacity: 0; }
+  15% { opacity: var(--op, 0.8); }
+  100% { transform: translate(var(--drift, 0), -92vh) scale(1.1); opacity: 0; }
+}
+
+/* ----- Décor permanent : forêt de Slenderman (étape par étape) -----
+   Étape 2 (d'après une photo de forêt brumeuse de nuit) : lune en fond, troncs en
+   silhouette, brume bleue lumineuse au sol, sol sombre. Cf. components/VillainDecor.tsx. */
+.forest-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* Ciel de nuit bleu : un peu plus clair vers la lune (haut-centre) → très sombre en bas. */
+  background: linear-gradient(to bottom, #1c2740 0%, #10182a 50%, #070a12 100%);
+}
+.forest-tree {
+  position: absolute;
+  bottom: 0;
+  transform-origin: bottom center;
+  /* Image de tronc étirée pour remplir la boîte (fin & haut) ; silhouette via le filtre inline. */
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: 100% 100%;
+}
+/* Couche de brume : la couleur, la position (bottom/height), le flou et le dégradé sont
+   posés EN INLINE par couche (cf. FOREST_FOG dans VillainDecor.tsx) pour la profondeur. */
+.forest-mist {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+.forest-ground {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 20%;
+  background: linear-gradient(to bottom, #0a0e1a 0%, #04060c 100%);
+}
+/* Nappe de brume mobile : ellipse floue qui dérive en va-et-vient (parallaxe selon la
+   profondeur). Couleur/taille/position/amplitude posées en inline. */
+.forest-fog-blob {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  will-change: transform;
+  transform: translate(-50%, -50%);
+  animation-name: fogSway;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes fogSway {
+  from { transform: translate(-50%, -50%) translateX(calc(var(--amp) * -1)); }
+  to { transform: translate(-50%, -50%) translateX(var(--amp)); }
+}
+/* Glitch « bug pixel » (effet psychologique Slenderman, esprit datamosh de Sombra) : pendant
+   la bouffée (`.is-glitching`), toute la scène se déchire en RGB-split magenta/cyan et
+   tressaute ; des scanlines teintées défilent par-dessus. Rien hors bouffée. */
+.forest-decor.is-glitching {
+  animation: forestGlitch 0.9s linear infinite;
+}
+@keyframes forestGlitch {
+  0%, 100% { transform: translate(0, 0) skew(0deg); filter: none; }
+  2%, 64% { transform: translate(3px, 0) skew(0deg); }
+  4%, 60% { transform: translate(-3px, 0) skew(0deg); }
+  18% { filter: drop-shadow(-5px 0 rgba(255, 255, 255, 0.7)) drop-shadow(5px 0 rgba(34, 255, 225, 0.7)); }
+  44% { filter: drop-shadow(5px 0 rgba(255, 255, 255, 0.7)) drop-shadow(-5px 0 rgba(34, 255, 225, 0.7)); }
+  /* Pic : grosse secousse en cisaillement + déchirure couleur (blanc/cyan). */
+  62% { transform: translate(0, 1px) skew(7deg); filter: drop-shadow(-9px 0 rgba(255, 255, 255, 0.85)) drop-shadow(9px 0 rgba(34, 255, 225, 0.85)); }
+}
+/* Silhouette de Slenderman : image PNG en silhouette noire, placée parmi les arbres
+   (z-index moyen → certains troncs proches la masquent). Invisible hors bouffée ; révélée
+   furtivement (fondu) quand `.is-glitching` est posé. */
+.forest-figure {
+  position: absolute;
+  bottom: 16%;
+  z-index: 60;
+  width: 30vh;
+  height: 80%; /* boîte large : le contain cale la taille sur la LARGEUR (30vh) */
+  transform: translateX(-50%);
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: contain;
+  filter: brightness(0.3); /* assombri (silhouette sombre mais pas totalement noire) */
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+.forest-decor.is-glitching .forest-figure {
+  opacity: 0.7;
+}
+.forest-static {
+  position: absolute;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+  opacity: 0;
+  /* Scanlines blanches (signature numérique). */
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.2) 0 1px, transparent 1px 3px);
+  mix-blend-mode: screen;
+}
+.forest-decor.is-glitching .forest-static {
+  animation: forestScan 0.4s steps(3, end) infinite, forestScanFlicker 0.18s steps(2, end) infinite;
+}
+@keyframes forestScan {
+  0% { background-position-y: 0; }
+  100% { background-position-y: 9px; }
+}
+@keyframes forestScanFlicker {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.85; }
+}
+
+/* ----- Décor permanent : pétales de roses (Reine de Cœur) -----
+   Des pétales rouges tombent du haut en voletant (oscillation latérale ±--sx) et en
+   tournoyant, sur un fond cramoisi sombre. Cf. components/VillainDecor.tsx. */
+.petals-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: radial-gradient(120% 100% at 50% 30%, #4a1417 0%, #2a0c0e 55%, #120406 100%);
+}
+.petal {
+  position: absolute;
+  top: 0;
+  border-radius: 100% 0 100% 0; /* forme de pétale */
+  will-change: transform, background-color;
+  animation-name: petalFall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes petalFall {
+  /* Chute (translateY) + voletement (translateX ±--sx) + tournoiement (rotate), ET couleur :
+     BLANC en haut → ROUGE (--red) en bas (« peindre les roses en rouge »). Position et couleur
+     dans la même animation → toujours synchrones. Début/fin hors écran → reprise invisible. */
+  0% { transform: translateY(-12vh) translateX(calc(var(--sx) * -1)) rotate(0deg); background-color: #fff; }
+  25% { transform: translateY(19vh) translateX(var(--sx)) rotate(120deg); background-color: #fff; }
+  55% { transform: translateY(54vh) translateX(calc(var(--sx) * -1)) rotate(300deg); background-color: #fff; }
+  70% { transform: translateY(70vh) translateX(var(--sx)) rotate(380deg); background-color: var(--red); }
+  100% { transform: translateY(112vh) translateX(calc(var(--sx) * -1)) rotate(560deg); background-color: var(--red); }
+}
+
+/* ----- Décor permanent : mer de nuit / reflets de lune (Capitaine Crochet) -----
+   Des traînées horizontales claires ondulent (translateX ±--sx) et scintillent (opacité) sur
+   l'eau, dans le bas de l'écran, sous un halo de lune. Cf. components/VillainDecor.tsx. */
+.water-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* Ciel de nuit bleu en haut → eau plus sombre en bas. */
+  background: linear-gradient(to bottom, #0e2238 0%, #0b1c30 55%, #05101c 100%);
+}
+.water-cloud {
+  position: absolute;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  /* Nuage pâle, flou et diffus. */
+  background: radial-gradient(ellipse at center, rgba(190, 210, 235, 0.9) 0%, rgba(160, 185, 220, 0) 70%);
+  filter: blur(14px);
+  pointer-events: none;
+  will-change: transform;
+  animation-name: waterCloudDrift;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes waterCloudDrift {
+  from { transform: translateX(calc(-50% - var(--amp))); }
+  to { transform: translateX(calc(-50% + var(--amp))); }
+}
+.water-island {
+  position: absolute;
+  left: 1%;
+  bottom: 15%;
+  width: 34vh;
+  height: 26vh;
+  background-image: url('/animations/neverland.png');
+  background-repeat: no-repeat;
+  background-position: left bottom;
+  background-size: contain;
+  opacity: 0.55;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45));
+  will-change: transform;
+  /* Léger flottement (l'île au loin sur la mer). */
+  animation: waterIslandFloat 7s ease-in-out infinite alternate;
+}
+@keyframes waterIslandFloat {
+  from { transform: translateY(0); }
+  to { transform: translateY(-1vh); }
+}
+.water-glint {
+  position: absolute;
+  border-radius: 50%;
+  /* Traînée claire, fondue aux deux bouts. */
+  background: linear-gradient(to right, rgba(190, 220, 255, 0) 0%, rgba(205, 230, 255, 0.9) 50%, rgba(190, 220, 255, 0) 100%);
+  filter: blur(2px);
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+  animation-name: waterSway, waterShimmer;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-direction: alternate, alternate;
+}
+@keyframes waterSway {
+  from { transform: translateX(calc(var(--sway) * -1)); }
+  to { transform: translateX(var(--sway)); }
+}
+@keyframes waterShimmer {
+  from { opacity: calc(var(--op) * 0.3); }
+  to { opacity: var(--op); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .villain-prop,
   .page-layer,
@@ -725,8 +1481,89 @@ body {
   .bubble-layer,
   .voodoo-layer,
   .fire-layer,
-  .smoke-layer {
+  .video-decor video,
+  .gold-mote,
+  .gold-coin,
+  .thorn-spark,
+  .petal,
+  .water-glint {
     display: none;
+  }
+  .water-cloud {
+    animation: none;
+  }
+  .water-island {
+    animation: none;
+  }
+  /* Forêt : nappes de brume figées (pas de dérive), pas de grésillement. */
+  .forest-fog-blob {
+    animation: none;
+  }
+  .forest-decor.is-glitching {
+    animation: none;
+    transform: none;
+    filter: none;
+  }
+  .forest-decor.is-glitching .forest-static {
+    animation: none;
+    opacity: 0;
+  }
+  .forest-figure {
+    display: none;
+  }
+  /* Ronces : lianes statiques (aucune animation) ; lueur verte + orbe statiques. */
+  .thorn-glow {
+    animation: none;
+    opacity: 0.5;
+  }
+  .thorn-orb {
+    animation: none;
+  }
+  /* Pellicule : on garde la teinte/vignette/grain statiques, sans mouvement. */
+  .film-grain,
+  .film-flicker,
+  .film-scratch,
+  .film-dust,
+  .film-perforations {
+    animation: none;
+  }
+  .film-flicker {
+    opacity: 0;
+  }
+  /* Sablier : niveau statique à mi-hauteur, pas de chute. */
+  .sand-grain {
+    animation: none;
+    opacity: 0;
+  }
+  .sand-fill {
+    animation: none;
+    transform: translateY(52%);
+  }
+  /* Espace : étoiles figées (hors champ → pas de défilement). */
+  .star {
+    animation: none;
+  }
+  /* Feu : flammes figées (première frame du sprite). */
+  .fire-decor .fire-flame {
+    animation: none;
+  }
+  /* Chevelure dorée : mèches figées (sans balancement), particules masquées, halo
+     statique à mi-intensité. */
+  .hair-strand {
+    animation: none;
+  }
+  /* Incantation : pas de vague descendante en mouvement réduit. */
+  .hair-decor.is-singing .hair-strand::after {
+    animation: none;
+    opacity: 0;
+  }
+  .hair-mote {
+    animation: none;
+    opacity: 0;
+  }
+  .hair-glow {
+    animation: none;
+    opacity: 0.5;
   }
 }
 

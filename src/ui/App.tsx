@@ -22,6 +22,7 @@ import {
   hasHeroInRealm,
   heroPlacementLocations,
   maxBrewPoison,
+  dingoSwapOptions,
   playableConditions,
   realmRelocateCandidates,
   sacrificeableCards,
@@ -52,6 +53,10 @@ import { PawnMoveModal } from './components/PawnMoveModal'
 import { HubertPullModal } from './components/HubertPullModal'
 import { DeckPeekModal } from './components/DeckPeekModal'
 import { MauvaisCoupModal } from './components/MauvaisCoupModal'
+import { SournoisModal } from './components/SournoisModal'
+import { MoveAllyItemModal } from './components/MoveAllyItemModal'
+import { BanditChainModal } from './components/BanditChainModal'
+import { DingoModal } from './components/DingoModal'
 import { TypeChoiceModal } from './components/TypeChoiceModal'
 import { HeroRelocateModal } from './components/HeroRelocateModal'
 import { AllyRelocateModal } from './components/AllyRelocateModal'
@@ -97,6 +102,7 @@ import { FloatingGains, type FloatingGain } from './components/FloatingGains'
 import { GameTimer } from './components/GameTimer'
 import { TurnSplash } from './components/TurnSplash'
 import { BackgroundAnimation } from './components/BackgroundAnimation'
+import { VillainDecor } from './components/VillainDecor'
 import { villainAnimation } from './villainAnimations'
 import { villainPresentation } from './villainArt'
 
@@ -351,6 +357,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveTeleport = useGameStore((s) => s.resolveTeleport)
   const resolveManipulation = useGameStore((s) => s.resolveManipulation)
   const resolveMauvaisCoup = useGameStore((s) => s.resolveMauvaisCoup)
+  const resolveSournois = useGameStore((s) => s.resolveSournois)
+  const resolveAllyItemMove = useGameStore((s) => s.resolveAllyItemMove)
+  const resolveAllyItemMoveAuto = useGameStore((s) => s.resolveAllyItemMoveAuto)
+  const resolveBanditChain = useGameStore((s) => s.resolveBanditChain)
+  const resolveDingo = useGameStore((s) => s.resolveDingo)
   const dismissRoyalCroquet = useGameStore((s) => s.dismissRoyalCroquet)
   const resolveTransformWickets = useGameStore((s) => s.resolveTransformWickets)
   const resolveScry = useGameStore((s) => s.resolveScry)
@@ -1171,6 +1182,54 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       }
       return
     }
+    // Sournois : replacer 1 carte de la main sur le dessus/dessous. Bot → remet la
+    // plus chère (moins jouable) sur le dessous ; humain → modale.
+    const psr = state.pendingSournois
+    if (psr) {
+      if (seats[psr.playerIndex] === 'bot') {
+        const hand = state.players[psr.playerIndex].hand
+        const worst = [...hand].sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0))[0]
+        if (worst) {
+          const timer = setTimeout(() => resolveSournois(worst.instanceId, 'bottom'), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
+    // Cheval : déplacer un Allié/Objet. Bot → délègue à l'heuristique (auto) ;
+    // humain → modale (choix carte + lieu, ou ne rien déplacer).
+    const paim = state.pendingAllyItemMove
+    if (paim) {
+      if (seats[paim.playerIndex] === 'bot') {
+        const timer = setTimeout(() => resolveAllyItemMoveAuto(), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Bandit : enchaîner d'autres Bandits. Bot → n'en enchaîne aucun (il joue ses
+    // Bandits un par un via ses actions) ; humain → modale de sélection multiple.
+    const pbc = state.pendingBanditChain
+    if (pbc) {
+      if (seats[pbc.playerIndex] === 'bot') {
+        const timer = setTimeout(() => resolveBanditChain([]), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Dingo : intervertir/déplacer une tuile Objectif de la cible. Bot (chooser) →
+    // 1ᵉʳ coup disponible (perturbation) ; humain → modale.
+    const pdg = state.pendingDingo
+    if (pdg) {
+      if (seats[pdg.chooserIndex] === 'bot') {
+        const opt = dingoSwapOptions(state.players[pdg.targetIndex])[0]
+        const timer = setTimeout(
+          () => (opt ? resolveDingo(opt.from, opt.to) : resolveDingo(null, null)),
+          BOT_STEP_MS,
+        )
+        return () => clearTimeout(timer)
+      }
+      return
+    }
     // Par ordre de la Reine ! : transformer 1-2 Cartes Gardes en arceaux. Bot →
     // privilégie les Gardes sur un lieu SANS arceau (un arceau par lieu → Coup
     // Royal) ; humain → modale.
@@ -1866,7 +1925,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate])
+  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate])
 
   // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
   // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
@@ -2938,6 +2997,28 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           z -1 passe JUSTE AU-DESSUS du fond mais DERRIÈRE toute l'UI (flux normal).
           Sans ce contexte, le z -1 remontait au contexte racine et le fond opaque
           du conteneur le recouvrait → invisible. */}
+      {/* Décor PERMANENT par vilain : grille calquée sur `main` (mêmes colonnes
+          `1fr 13rem 1fr`, mêmes gouttières) mais en `fixed inset-0` → chaque décor
+          occupe la LARGEUR de sa colonne `game-board` et TOUTE la hauteur de l'écran.
+          `overflow-hidden` clippe le décor à sa colonne. Au plan du fond (z -1),
+          derrière l'UI et SOUS les props animés ci-dessous. */}
+      <div
+        className="pointer-events-none fixed inset-0 grid grid-cols-1 gap-3 px-3 lg:grid-cols-[1fr_13rem_1fr]"
+        style={{ zIndex: -1 }}
+        aria-hidden
+      >
+        {/* Chaque décor déborde vers le bord EXTÉRIEUR de l'écran (gauche pour le joueur,
+            droite pour l'adversaire) : le débordement étend la colonne par-delà la
+            gouttière `px-3` (sur un item de grille étiré, une marge négative AGRANDIT la
+            boîte de ce côté) → on ne voit plus le trait qui délimitait le décor. */}
+        <div className="relative overflow-hidden" style={{ marginLeft: '-10%' }}>
+          <VillainDecor villain={humanVillainKey} />
+        </div>
+        <div className="hidden lg:block" />
+        <div className="relative overflow-hidden" style={{ marginRight: '-10%' }}>
+          <VillainDecor villain={opponentVillainKey} />
+        </div>
+      </div>
       {/* Décor animé : juste au-dessus du fond, derrière toute l'UI. Visible là où
           l'UI laisse voir l'arrière-plan / à travers les panneaux translucides. */}
       <BackgroundAnimation
@@ -4043,10 +4124,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         />
       )}
 
-      {/* Roi Stéphane : l'humain (qui a joué la Fatalité) peut déplacer le pion adverse. */}
+      {/* Roi Stéphane / Le Satyre / Anneau étoile : l'humain (qui a joué la Fatalité)
+          peut déplacer le pion adverse. */}
       {state.pendingPawnMove && state.pendingPawnMove.chooserIndex === HUMAN && (
         <PawnMoveModal
           target={state.players[state.pendingPawnMove.targetIndex]}
+          title={state.pendingPawnMove.via}
           onMove={resolvePawnMove}
         />
       )}
@@ -4075,6 +4158,41 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         <MauvaisCoupModal
           cards={state.pendingMauvaisCoup.cards}
           onResolve={(keepId, placement) => resolveMauvaisCoup(keepId, placement)}
+        />
+      )}
+
+      {/* Sournois : l'humain replace 1 carte de sa main sur le dessus/dessous. */}
+      {state.pendingSournois && state.pendingSournois.playerIndex === HUMAN && (
+        <SournoisModal
+          hand={user.hand}
+          onResolve={(instanceId, placement) => resolveSournois(instanceId, placement)}
+        />
+      )}
+
+      {/* Cheval : l'humain déplace un Allié/Objet (ou rien). */}
+      {state.pendingAllyItemMove && state.pendingAllyItemMove.playerIndex === HUMAN && (
+        <MoveAllyItemModal
+          player={user}
+          onResolve={(instanceId, to) => resolveAllyItemMove(instanceId, to)}
+          onSkip={() => resolveAllyItemMove(null, null)}
+        />
+      )}
+
+      {/* Bandit : l'humain enchaîne d'autres Bandits dans la même action. */}
+      {state.pendingBanditChain && state.pendingBanditChain.playerIndex === HUMAN && (
+        <BanditChainModal
+          bandits={user.hand.filter((c) => c.playMultiplePerAction)}
+          power={user.power}
+          onResolve={(ids) => resolveBanditChain(ids)}
+        />
+      )}
+
+      {/* Dingo : l'humain (qui a posé la Fatalité) intervertit/déplace une tuile. */}
+      {state.pendingDingo && state.pendingDingo.chooserIndex === HUMAN && (
+        <DingoModal
+          target={state.players[state.pendingDingo.targetIndex]}
+          onResolve={(from, to) => resolveDingo(from, to)}
+          onSkip={() => resolveDingo(null, null)}
         />
       )}
 

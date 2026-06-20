@@ -56,10 +56,30 @@ export function IntroCinematic({ onDone }: { onDone: () => void }) {
     if (!el) return
     const { musicVolume, musicMuted } = useSettingsStore.getState()
     el.volume = musicMuted || musicVolume === 0 ? INTRO_VOLUME : musicVolume
+
+    // Réactive le son au PREMIER geste utilisateur (clic / touche) — le
+    // navigateur ne débloque l'audio qu'après une interaction. On déclare le
+    // handler ici pour pouvoir le retirer au démontage (cleanup de l'effet).
+    const unmute = () => {
+      el.muted = false
+      window.removeEventListener('pointerdown', unmute)
+      window.removeEventListener('keydown', unmute)
+    }
+
     el.play().catch(() => {
+      // Autoplay sonore bloqué (navigateur) : on démarre en muet pour que la
+      // vidéo se lance quand même, puis on réactive le son au premier geste.
+      // Sans ça, l'intro reste muette dans le navigateur.
       el.muted = true
       el.play().catch(() => {})
+      window.addEventListener('pointerdown', unmute)
+      window.addEventListener('keydown', unmute)
     })
+
+    return () => {
+      window.removeEventListener('pointerdown', unmute)
+      window.removeEventListener('keydown', unmute)
+    }
   }, [])
 
   // Échap pour passer la cinématique.
