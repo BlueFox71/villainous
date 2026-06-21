@@ -420,6 +420,25 @@ body {
     transform: translate(-50%, -50%) scale(0.95);
   }
 }
+/* Chat du Cheshire (Reine de Cœur, path `fade`) : se matérialise en fondu, reste visible
+   ~5 s, puis s'évapore en fondu en grandissant un peu. La durée totale est posée en inline
+   (`animationDuration`) ; les pourcentages calent ~12 % d'entrée, maintien, ~20 % de sortie. */
+.cheshire-fade {
+  position: absolute;
+  width: auto;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.55));
+  animation-name: cheshireFade;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: both;
+}
+@keyframes cheshireFade {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.85); }
+  12% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  78% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.12); }
+}
 /* Roses de la Reine de Cœur : chaque rose apparaît en fondu (échelonnée), reste
    blanche, puis un calque rouge (masqué à sa forme, en multiply pour garder le
    relief) s'allume ; toute la nuée disparaît ensuite via le fondu du calque.
@@ -1416,9 +1435,9 @@ body {
   position: absolute;
   border-radius: 50%;
   transform: translateX(-50%);
-  /* Nuage pâle, flou et diffus. */
-  background: radial-gradient(ellipse at center, rgba(190, 210, 235, 0.9) 0%, rgba(160, 185, 220, 0) 70%);
-  filter: blur(14px);
+  /* Nuage pâle, plus dense. */
+  background: radial-gradient(ellipse at center, rgba(200, 218, 240, 1) 0%, rgba(165, 190, 222, 0) 72%);
+  filter: blur(11px);
   pointer-events: none;
   will-change: transform;
   animation-name: waterCloudDrift;
@@ -1454,15 +1473,37 @@ body {
 .water-glint {
   position: absolute;
   border-radius: 50%;
-  /* Traînée claire, fondue aux deux bouts. */
-  background: linear-gradient(to right, rgba(190, 220, 255, 0) 0%, rgba(205, 230, 255, 0.9) 50%, rgba(190, 220, 255, 0) 100%);
-  filter: blur(2px);
+  /* Houle : large traînée diffuse, fondue aux deux bouts. */
+  background: linear-gradient(to right, rgba(190, 220, 255, 0) 0%, rgba(205, 230, 255, 0.8) 50%, rgba(190, 220, 255, 0) 100%);
+  filter: blur(7px);
   mix-blend-mode: screen;
   will-change: transform, opacity;
   animation-name: waterSway, waterShimmer;
   animation-timing-function: ease-in-out, ease-in-out;
   animation-iteration-count: infinite, infinite;
   animation-direction: alternate, alternate;
+}
+/* Poussière de fée : étincelle dorée qui flotte (translate) et scintille (opacité/échelle). */
+.water-pixie {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff6cf 0%, #ffe08a 45%, rgba(255, 200, 90, 0) 75%);
+  box-shadow: 0 0 6px rgba(255, 224, 140, 0.9);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation-name: pixieFloat, pixieTwinkle;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-direction: alternate, alternate;
+}
+@keyframes pixieFloat {
+  from { transform: translate(calc(var(--fx) * -1), calc(var(--fy) * -1)); }
+  to { transform: translate(var(--fx), var(--fy)); }
+}
+@keyframes pixieTwinkle {
+  from { opacity: calc(var(--op) * 0.2); }
+  to { opacity: var(--op); }
 }
 @keyframes waterSway {
   from { transform: translateX(calc(var(--sway) * -1)); }
@@ -1471,6 +1512,285 @@ body {
 @keyframes waterShimmer {
   from { opacity: calc(var(--op) * 0.3); }
   to { opacity: var(--op); }
+}
+
+/* ----- Décor permanent : la Grotte d'Ursula -----
+   Eau vert-bleu très sombre, fortement vignettée. Des colonnes de VAPEUR ROSE montent du fond en
+   s'enroulant et en grossissant (.grotto-vapor), une lueur rosée pulse par en-dessous
+   (.grotto-glow), de discrètes caustiques teintées scintillent en haut (.caustic-web), et des
+   bulles montent du fond (réutilise .bubble-rise/.bubble-sway). Cf. components/VillainDecor.tsx. */
+.grotto-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* Eau de grotte vert-bleu sombre, à peine plus claire vers le milieu-haut, presque noire en bas. */
+  background:
+    radial-gradient(120% 80% at 50% 32%, rgba(28, 92, 100, 0.55) 0%, rgba(12, 46, 56, 0) 60%),
+    linear-gradient(to bottom, #0a242b 0%, #0a2128 42%, #081820 74%, #0a1018 100%);
+}
+.caustic-web {
+  position: absolute;
+  /* Débordement : on agrandit la boîte pour que le zoom/dérive ne révèle jamais les bords. */
+  inset: -30%;
+  background-repeat: repeat;
+  background-size: 46vh 46vh;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  /* Discrètes : fortes tout en haut, s'estompent vite (la grotte est sombre). */
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.3) 30%, transparent 60%);
+  mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.3) 30%, transparent 60%);
+  will-change: transform, background-position;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+.caustic-web--a {
+  opacity: 0.22;
+  animation-name: causticDriftA;
+  animation-duration: 19s;
+}
+.caustic-web--b {
+  opacity: 0.14;
+  animation-name: causticDriftB;
+  animation-duration: 26s;
+}
+@keyframes causticDriftA {
+  from { transform: scale(1); background-position: 0 0; }
+  to { transform: scale(1.18); background-position: 22vh 14vh; }
+}
+@keyframes causticDriftB {
+  from { transform: scale(1.14); background-position: 0 0; }
+  to { transform: scale(1); background-position: -18vh 20vh; }
+}
+/* Lueur rosée des évents, au fond (la source de la vapeur). Pulse lentement. */
+.grotto-glow {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 50%;
+  background: radial-gradient(120% 100% at 50% 100%, rgba(224, 138, 200, 0.42) 0%, rgba(186, 104, 178, 0.16) 38%, rgba(150, 80, 150, 0) 70%);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  will-change: opacity;
+  animation: grottoGlowPulse 9s ease-in-out infinite alternate;
+}
+@keyframes grottoGlowPulse {
+  from { opacity: 0.7; }
+  to { opacity: 1; }
+}
+/* Bouffée de vapeur rose : disque flou qui monte du fond en s'enroulant (--sx) et en grossissant,
+   apparaît puis se dissipe. Taille/position/durée/déphasage posés en inline. */
+.grotto-vapor {
+  position: absolute;
+  bottom: -6vh;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(248, 198, 228, 0.95) 0%, rgba(214, 138, 200, 0.5) 42%, rgba(150, 90, 150, 0) 72%);
+  filter: blur(9px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation-name: vaporRise;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+@keyframes vaporRise {
+  0% { transform: translate(-50%, 0) scale(0.4); opacity: 0; }
+  12% { opacity: var(--vop); }
+  45% { transform: translate(calc(-50% + var(--sx)), -40vh) scale(1.15); }
+  72% { transform: translate(calc(-50% - var(--sx)), -66vh) scale(1.7); opacity: calc(var(--vop) * 0.55); }
+  100% { transform: translate(-50%, -94vh) scale(2.5); opacity: 0; }
+}
+/* Bulles du décor permanent : `.bubble-rise` ne boucle pas par défaut (conçue pour un passage
+   ponctuel qui ne joue qu'une fois) → on la fait répéter à l'infini ici, sinon les bulles
+   montent une seule fois puis disparaissent. */
+.grotto-decor .bubble-rise {
+  animation-iteration-count: infinite;
+}
+/* Vignette : coins très sombres (la grotte plongée dans l'obscurité). */
+.grotto-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(125% 95% at 50% 42%, transparent 32%, rgba(4, 12, 18, 0.5) 74%, rgba(2, 8, 12, 0.88) 100%);
+}
+/* Événement surprise : le nuage d'encre d'Ursula. Le calque est par-dessus tout le décor ;
+   des giclées noires (.ink-blob) jaillissent et se chevauchent pour tout noyer, doublées d'un
+   voile noir (.ink-veil) qui comble les interstices, puis l'ensemble se dissipe. */
+.grotto-ink {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  /* Isolation : le navigateur peint cet effet dans sa propre couche et NE refond pas toute la
+     page par-dessus à chaque frame → ne fait plus saccader les animations voisines. */
+  contain: layout paint style;
+}
+.ink-veil {
+  position: absolute;
+  inset: 0;
+  background: #04060a;
+  opacity: 0;
+  /* Le voile suit les giclées (léger retard) : il monte une fois l'encre étalée. */
+  animation: inkVeil 14s ease-in 2.5s forwards;
+}
+@keyframes inkVeil {
+  0% { opacity: 0; }
+  25% { opacity: 0.5; }
+  45% { opacity: 0.97; }
+  68% { opacity: 0.97; }
+  100% { opacity: 0; }
+}
+.ink-blob {
+  position: absolute;
+  /* Nuage d'encre LÉGER pour le GPU : deux dégradés radiaux décalés (aspect grumeleux) à fondu
+     très doux → bords « fumée » SANS filtre blur ni SVG (qui faisaient saccader tout le reste).
+     La forme irrégulière vient du border-radius (posé en inline) + la rotation. */
+  background:
+    radial-gradient(closest-side at 42% 40%, rgba(3, 5, 9, 0.98) 0%, rgba(3, 5, 9, 0.86) 38%, rgba(3, 5, 9, 0) 72%),
+    radial-gradient(closest-side at 63% 64%, rgba(3, 5, 9, 0.96) 0%, rgba(3, 5, 9, 0) 66%);
+  transform: translate(-50%, -50%) scale(0.45) rotate(0deg);
+  opacity: 0;
+  animation: inkSpread 14s ease-in forwards;
+}
+/* L'encre APPARAÎT EN FONDU (opacité 0 → 1 sur ~le premier tiers), puis se diffuse en s'enroulant
+   (dérive --dx/--dy + rotation --rot) et en grossissant → fumée qui envahit, sans « pop ». */
+@keyframes inkSpread {
+  0% { transform: translate(-50%, -50%) scale(0.45) rotate(0deg); opacity: 0; }
+  32% {
+    transform: translate(calc(-50% + var(--dx) * 0.4), calc(-50% + var(--dy) * 0.4)) scale(0.78) rotate(calc(var(--rot) * 0.4));
+    opacity: 1;
+  }
+  40% {
+    transform: translate(calc(-50% + var(--dx) * 0.5), calc(-50% + var(--dy) * 0.5)) scale(0.85) rotate(calc(var(--rot) * 0.5));
+    opacity: 1;
+  }
+  70% {
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.18) rotate(var(--rot));
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(-50% + var(--dx) * 1.3), calc(-50% + var(--dy) * 1.3)) scale(1.45) rotate(calc(var(--rot) * 1.25));
+    opacity: 0;
+  }
+}
+
+/* ----- Décor permanent : les Enfers (Hadès) -----
+   Mur de feu bleu (`.uw-fire` réutilise `.fire-flame`) + âmes spectrales + braises bleues +
+   lueur bleue pulsante. Coup de colère (`.is-angry`) : le feu vire au rouge et grossit, un
+   voile de rage rougeoie. Cf. components/VillainDecor.tsx. */
+.underworld-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: radial-gradient(120% 90% at 50% 100%, #14213a 0%, #0a1020 55%, #04060d 100%);
+}
+.uw-base {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 16vh;
+  pointer-events: none;
+  /* Base de feu bleu : comble le bas sombre sous/entre les flammes. */
+  background: linear-gradient(to top, rgba(70, 150, 255, 0.7) 0%, rgba(55, 125, 240, 0.3) 45%, rgba(50, 110, 230, 0) 100%);
+  mix-blend-mode: screen;
+  transition: filter 0.9s ease;
+}
+.underworld-decor.is-angry .uw-base {
+  filter: hue-rotate(-200deg) saturate(1.8) brightness(1.1); /* bleu → rouge pendant la colère */
+}
+.uw-fire {
+  position: absolute;
+  inset: 0;
+  transform-origin: bottom center;
+  filter: hue-rotate(190deg) saturate(1.5); /* orange → bleu */
+  transition: filter 0.9s ease, transform 0.9s ease;
+}
+.underworld-decor.is-angry .uw-fire {
+  /* Colère : feu rouge/orange + plus haut. */
+  filter: hue-rotate(-18deg) saturate(1.9) brightness(1.15);
+  transform: scaleY(1.22);
+}
+.uw-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(80% 50% at 50% 100%, rgba(90, 170, 255, 0.3) 0%, rgba(70, 140, 235, 0) 65%);
+  mix-blend-mode: screen;
+  will-change: opacity;
+  animation: uwGlowPulse 4.5s ease-in-out infinite;
+}
+@keyframes uwGlowPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.85; }
+}
+.uw-rage {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(85% 55% at 50% 100%, rgba(255, 90, 30, 0.5) 0%, rgba(220, 50, 20, 0) 65%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity 0.9s ease;
+}
+.underworld-decor.is-angry .uw-rage {
+  opacity: 0.85;
+}
+.uw-soul {
+  position: absolute;
+  bottom: -6vh;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation-name: soulRise;
+  animation-timing-function: ease-in;
+  animation-iteration-count: infinite;
+}
+/* Petit fond/halo vert derrière l'âme (sa propre teinte, hors filtre de la silhouette). */
+.uw-soul::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  width: 145%;
+  height: 78%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse at center, rgba(120, 205, 140, 0.5) 0%, rgba(110, 200, 150, 0) 70%);
+  filter: blur(8px);
+}
+/* Silhouette d'âme (image) : teintée VERT (bleu → vert via hue-rotate) + léger flou + miroir. */
+.uw-soul::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--soul-img);
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: contain;
+  transform: scaleX(var(--flip, 1));
+  filter: grayscale(0.3) saturate(1.5) hue-rotate(-100deg) brightness(1.05) blur(1.2px);
+}
+@keyframes soulRise {
+  0% { transform: translate(0, 0) scale(0.9); opacity: 0; }
+  20% { opacity: var(--op, 0.3); }
+  100% { transform: translate(var(--drift, 0), -88vh) scale(1.05); opacity: 0; }
+}
+.uw-ember {
+  position: absolute;
+  bottom: -2vh;
+  border-radius: 50%;
+  background: radial-gradient(circle, #e6f4ff 0%, #6fb8ff 50%, rgba(80, 150, 255, 0) 75%);
+  box-shadow: 0 0 6px rgba(120, 190, 255, 0.9);
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+  animation-name: uwEmberRise;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+@keyframes uwEmberRise {
+  0% { transform: translate(0, 0); opacity: 0; }
+  15% { opacity: var(--op, 0.8); }
+  100% { transform: translate(var(--drift, 0), -68vh); opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1486,7 +1806,20 @@ body {
   .gold-coin,
   .thorn-spark,
   .petal,
-  .water-glint {
+  .water-glint,
+  .water-pixie {
+    display: none;
+  }
+  /* Grotte : caustiques et lueur figées, vapeur et bulles masquées. */
+  .caustic-web {
+    animation: none;
+    transform: none;
+  }
+  .grotto-glow {
+    animation: none;
+  }
+  .grotto-vapor,
+  .grotto-decor .bubble-rise {
     display: none;
   }
   .water-cloud {
@@ -1547,6 +1880,21 @@ body {
   .fire-decor .fire-flame {
     animation: none;
   }
+  /* Enfers (Hadès) : flammes figées, âmes/braises masquées, lueur statique, pas de colère. */
+  .uw-fire .fire-flame {
+    animation: none;
+  }
+  .uw-soul,
+  .uw-ember {
+    display: none;
+  }
+  .uw-glow {
+    animation: none;
+    opacity: 0.5;
+  }
+  .underworld-decor.is-angry .uw-rage {
+    opacity: 0;
+  }
   /* Chevelure dorée : mèches figées (sans balancement), particules masquées, halo
      statique à mi-intensité. */
   .hair-strand {
@@ -1564,6 +1912,47 @@ body {
   .hair-glow {
     animation: none;
     opacity: 0.5;
+  }
+  /* Vaudou (Facilier) : masques figés (sans bercement ni respiration), à opacité moyenne ;
+     particules de magie masquées ; lueur statique ; pas d'invocation. */
+  .voodoo-mask-bob {
+    animation: none;
+  }
+  .voodoo-mask {
+    animation: none;
+    opacity: 0.7;
+  }
+  .voodoo-mote-rise,
+  .voodoo-mote-sway,
+  .voodoo-mote {
+    animation: none;
+  }
+  .voodoo-mote-rise {
+    display: none;
+  }
+  .voodoo-glow {
+    animation: none;
+    opacity: 0.45;
+  }
+  .voodoo-decor.is-summoning .voodoo-summon {
+    opacity: 0;
+  }
+  /* Galaxie (Bowser) : étoiles fixes (sans scintillement), nébuleuse figée, mondes immobiles,
+     trou noir statique sans aspiration, observatoire à luminosité normale. */
+  .galaxy-star,
+  .galaxy-starfield,
+  .galaxy-nebula,
+  .galaxy-world,
+  .galaxy-world-img,
+  .galaxy-bh-img {
+    animation: none;
+  }
+  .galaxy-bh-mote {
+    display: none;
+  }
+  .galaxy-observatory {
+    animation: none;
+    filter: brightness(1);
   }
 }
 
@@ -1919,4 +2308,297 @@ body {
 @keyframes hackFlicker {
   0%, 22%, 24%, 61%, 63%, 100% { opacity: 1; }
   23%, 62% { opacity: 0.62; }
+}
+
+/* ----- Décor permanent : masques vaudou (Dr Facilier — « Friends on the Other Side ») -----
+   Des masques tribaux (images) flottent dans une pénombre violacée : l'enveloppe `.voodoo-mask-bob`
+   les BERCE verticalement, l'image `.voodoo-mask` RESPIRE en opacité (émerge de l'ombre puis s'y
+   fond) avec une légère rotation, à des profondeurs variées (taille/flou/luminosité via vars CSS).
+   Des particules de magie violette/verte montent (`.voodoo-mote-*`, même schéma que la poussière
+   d'or). Pendant l'INVOCATION (`.is-summoning`) : les masques s'illuminent (luminosité + halo) et
+   une vague de magie déferle (`.voodoo-summon`). Cf. components/VillainDecor.tsx. */
+.voodoo-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* Pénombre violacée de l'échoppe vaudou. */
+  background: radial-gradient(120% 100% at 50% 38%, #2a0a33 0%, #160320 55%, #08000e 100%);
+}
+/* Lueur de magie qui pulse par en-dessous. */
+.voodoo-glow {
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  bottom: -20%;
+  height: 78%;
+  z-index: 0;
+  background: radial-gradient(
+    60% 100% at 50% 100%,
+    rgba(190, 45, 230, 0.42) 0%,
+    rgba(120, 30, 200, 0.18) 45%,
+    rgba(0, 0, 0, 0) 75%
+  );
+  filter: blur(8px);
+  will-change: opacity, transform;
+  animation: voodooGlowPulse 7s ease-in-out infinite alternate;
+}
+@keyframes voodooGlowPulse {
+  from { opacity: 0.42; transform: scaleY(0.92); }
+  to { opacity: 0.82; transform: scaleY(1.06); }
+}
+/* Masque : enveloppe = bercement vertical (pivot centré horizontalement via translate -50%). */
+.voodoo-mask-bob {
+  position: absolute;
+  transform: translate(-50%, 0);
+  will-change: transform;
+  animation-name: voodooBob;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes voodooBob {
+  from { transform: translate(-50%, 0); }
+  to { transform: translate(-50%, calc(-1 * var(--bob))); }
+}
+/* Image du masque : respiration d'opacité + légère rotation (le miroir `--flip` est intégré au
+   keyframe pour ne pas être écrasé par le transform de l'animation). Flou/luminosité par var ;
+   transition sur `filter` pour que l'illumination de l'invocation monte/descende en douceur. */
+.voodoo-mask {
+  display: block;
+  width: auto;
+  filter: blur(var(--blur)) brightness(var(--br)) saturate(1.05);
+  transition: filter 1.1s ease;
+  will-change: opacity, transform;
+  animation-name: voodooBreathe;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes voodooBreathe {
+  from { opacity: var(--op-lo); transform: rotate(calc(-1 * var(--rot))) scaleX(var(--flip)); }
+  to { opacity: var(--op-hi); transform: rotate(var(--rot)) scaleX(var(--flip)); }
+}
+/* Invocation : les masques s'illuminent (luminosité poussée + saturation + halo magenta). */
+.voodoo-decor.is-summoning .voodoo-mask {
+  filter: blur(var(--blur)) brightness(calc(var(--br) + 0.95)) saturate(1.7)
+    drop-shadow(0 0 14px rgba(224, 64, 251, 0.9));
+}
+/* Particules de magie violette/verte (même schéma nesté que la poussière d'or). */
+.voodoo-mote-rise {
+  position: absolute;
+  bottom: -5vh;
+  z-index: 50;
+  will-change: transform;
+  animation-name: voodooMoteRise;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes voodooMoteRise {
+  from { transform: translateY(0); }
+  to { transform: translateY(-118vh); }
+}
+.voodoo-mote-sway {
+  display: block;
+  will-change: transform;
+  animation-name: voodooMoteSway;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes voodooMoteSway {
+  from { transform: translateX(calc(var(--sway) * -1)); }
+  to { transform: translateX(var(--sway)); }
+}
+.voodoo-mote {
+  display: block;
+  border-radius: 50%;
+  box-shadow: 0 0 7px var(--mote-color), 0 0 3px var(--mote-color);
+  will-change: opacity, transform;
+  animation-name: voodooMoteTwinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes voodooMoteTwinkle {
+  from { opacity: 0.15; transform: scale(0.7); }
+  to { opacity: 1; transform: scale(1.25); }
+}
+/* Vague de magie de l'invocation : un voile radial vert-violet qui enfle puis reflue (joué une
+   fois quand `.is-summoning` est posé ; l'élément reste monté en permanence). */
+.voodoo-summon {
+  position: absolute;
+  inset: -15%;
+  z-index: 200;
+  pointer-events: none;
+  opacity: 0;
+  mix-blend-mode: screen;
+}
+.voodoo-decor.is-summoning .voodoo-summon {
+  background: radial-gradient(
+    70% 80% at 50% 58%,
+    rgba(94, 232, 75, 0.34) 0%,
+    rgba(178, 38, 255, 0.3) 40%,
+    rgba(0, 0, 0, 0) 75%
+  );
+  animation: voodooSummon 5.2s ease-in-out;
+}
+@keyframes voodooSummon {
+  0% { opacity: 0; transform: scale(0.6); }
+  25% { opacity: 0.95; transform: scale(1.05); }
+  70% { opacity: 0.7; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.18); }
+}
+/* Vignette violacée (la pénombre de l'échoppe), par-dessus tout. */
+.voodoo-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 210;
+  pointer-events: none;
+  background: radial-gradient(
+    120% 100% at 50% 45%,
+    rgba(0, 0, 0, 0) 45%,
+    rgba(8, 0, 14, 0.55) 80%,
+    rgba(4, 0, 8, 0.85) 100%
+  );
+}
+
+/* ----- Décor permanent : galaxie de Bowser (Super Mario Galaxy) -----
+   Espace BLEU profond : champ d'étoiles scintillantes (`.galaxy-star`) + nébuleuses bleues qui
+   dérivent (`.galaxy-nebula`). Les mondes flottants (`.galaxy-world` = défilement horizontal,
+   `.galaxy-world-img` = rotation lente sur elle-même) traversent l'écran. Le trou noir
+   (`.galaxy-blackhole`) tourne (`.galaxy-bh-img`) et ASPIRE des particules qui spiralent vers son
+   centre (`.galaxy-bh-mote`). L'observatoire (`.galaxy-observatory`) S'ÉPUISE : sa luminosité
+   décline puis revient en boucle. Cf. components/VillainDecor.tsx. */
+.galaxy-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* Fond spatial bleu profond (la galaxie de Bowser). */
+  background: radial-gradient(130% 110% at 50% 35%, #0a1838 0%, #060d22 55%, #02030c 100%);
+}
+.galaxy-nebula {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(26px);
+  mix-blend-mode: screen;
+  will-change: transform;
+  animation-name: galaxyNebulaDrift;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes galaxyNebulaDrift {
+  from { transform: translate(calc(var(--amp) * -1), 0) scale(1); }
+  to { transform: translate(var(--amp), 4vh) scale(1.12); }
+}
+/* Champ d'étoiles : calque un peu plus large que l'écran (déborde des deux côtés) qui dérive
+   TRÈS lentement, pour donner une impression de défilement dans l'espace sans bord vide. */
+.galaxy-starfield {
+  position: absolute;
+  left: -8%;
+  top: 0;
+  width: 116%;
+  height: 100%;
+  will-change: transform;
+  animation: galaxyStarDrift 70s ease-in-out infinite alternate;
+}
+@keyframes galaxyStarDrift {
+  from { transform: translateX(0); }
+  to { transform: translateX(-8vw); }
+}
+.galaxy-star {
+  position: absolute;
+  border-radius: 50%;
+  will-change: opacity, transform;
+  animation-name: galaxyTwinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes galaxyTwinkle {
+  from { opacity: 0.2; transform: scale(0.7); }
+  to { opacity: 1; transform: scale(1.25); }
+}
+/* Mondes flottants : enveloppe = défilement horizontal en boucle (droite → gauche, hors champ des
+   deux côtés) ; image = rotation lente sur elle-même. */
+.galaxy-world {
+  position: absolute;
+  left: 0;
+  will-change: transform;
+  animation-name: galaxyWorldDrift;
+  animation-timing-function: linear;
+  animation-iteration-count: 1;
+  animation-fill-mode: forwards; /* reste hors champ à gauche après la traversée (un par un) */
+}
+@keyframes galaxyWorldDrift {
+  from { transform: translateX(122vw); }
+  to { transform: translateX(-135vw); }
+}
+/* Averse d'étoiles SURPRISE (Bowser) : chaque étoile traverse de droite à gauche en tournoyant,
+   une seule fois. Taille/hauteur/vitesse/délai posés en inline ; rotation via `--spin`. */
+.galaxy-star-shoot {
+  position: absolute;
+  left: 0;
+  width: auto;
+  z-index: 70;
+  filter: drop-shadow(0 0 6px rgba(255, 230, 120, 0.9));
+  will-change: transform;
+  animation-name: galaxyStarShower;
+  animation-timing-function: linear;
+  animation-iteration-count: 1;
+  animation-fill-mode: both; /* applique l'état de DÉPART pendant le délai → reste hors champ à droite jusqu'à son entrée */
+}
+@keyframes galaxyStarShower {
+  from { transform: translateX(116vw) rotate(0deg); }
+  to { transform: translateX(-130vw) rotate(var(--spin, 360deg)); }
+}
+.galaxy-world-img {
+  display: block;
+  width: auto;
+}
+/* Trou noir : conteneur (taille = le trou) ; l'image tourne, les particules spiralent vers le centre. */
+.galaxy-blackhole {
+  position: absolute;
+  z-index: 60;
+}
+.galaxy-bh-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  will-change: transform;
+  filter: blur(3px) drop-shadow(0 0 18px rgba(20, 10, 40, 0.9));
+  animation: galaxyBhSpin 1s linear infinite reverse;
+}
+@keyframes galaxyBhSpin {
+  from { transform: rotate(0); }
+  to { transform: rotate(360deg); }
+}
+/* Particule aspirée : part d'un point du cercle (angle `--a`, rayon `--r`) et SPIRALE vers le centre
+   en rétrécissant. translate(-50%,-50%) centre la pastille sur le centre du trou avant rotation. */
+.galaxy-bh-mote {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 50%;
+  will-change: transform, opacity;
+  animation-name: galaxyBhSuck;
+  animation-timing-function: ease-in;
+  animation-iteration-count: infinite;
+}
+@keyframes galaxyBhSuck {
+  0% { transform: translate(-50%, -50%) rotate(var(--a)) translateX(var(--r)) scale(1); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translate(-50%, -50%) rotate(calc(var(--a) + 540deg)) translateX(0) scale(0.2); opacity: 0; }
+}
+/* Observatoire qui s'épuise : il défile dans l'enveloppe `.galaxy-world` (comme les mondes) tout en
+   gardant sa luminosité (et son halo) qui décline puis revient en boucle. */
+.galaxy-observatory {
+  display: block;
+  width: auto;
+  will-change: filter, opacity;
+  animation: galaxyObsDrain 7s ease-in-out infinite alternate;
+}
+@keyframes galaxyObsDrain {
+  from { filter: brightness(1.05) drop-shadow(0 0 14px rgba(120, 180, 255, 0.6)); opacity: 1; }
+  to { filter: brightness(0.3) drop-shadow(0 0 4px rgba(120, 180, 255, 0.15)); opacity: 0.72; }
 }

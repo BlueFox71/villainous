@@ -25,9 +25,12 @@ export type VillainDecor =
   // comme à travers le hublot d'une fusée (L'Imposteur — Among Us).
   | { kind: 'space' }
   // `fire` : un mur de flammes permanent en bas de l'écran (sprite vertical joué en
-  // boucle), teinté via `tint`. Paramétrable → réutilisable (Hadès : feu bleu ;
-  // Scar : feu vert…).
+  // boucle), teinté via `tint`. Paramétrable → réutilisable (Scar : feu vert…).
   | { kind: 'fire'; sprite: string; frames: number; tint?: string; heightPct?: number }
+  // `underworld` : les Enfers d'Hadès — mur de feu bleu + âmes spectrales qui montent du
+  // Styx + braises bleues + lueur bleue pulsante, et par moments un COUP DE COLÈRE (le feu
+  // vire au rouge/orange et grossit) (Hadès — Hercule).
+  | { kind: 'underworld' }
   // `goldenHair` : la chevelure magique dorée de Raiponce — des mèches lumineuses
   // pendent du haut de l'écran et se balancent doucement, avec un halo doré qui pulse
   // au rythme de l'incantation (« Fleur aux pétales d'or… ») et des particules d'or
@@ -56,6 +59,21 @@ export type VillainDecor =
   // `water` : une mer de nuit — des reflets de lune (traînées horizontales claires) ondulent
   // et scintillent sur l'eau dans le bas de l'écran, sur un fond bleu-nuit (Capitaine Crochet).
   | { kind: 'water' }
+  // `grotto` : la Grotte d'Ursula — eau vert-bleu très sombre (fort vignettage), des colonnes de
+  // VAPEUR ROSE/magenta montent du fond en s'enroulant (les évents de la grotte), une lueur rosée
+  // pulse par en-dessous, de discrètes caustiques teintées scintillent en haut, et des bulles
+  // (surtout roses) montent du fond (Ursula — La Petite Sirène).
+  | { kind: 'grotto' }
+  // `voodoo` : « Friends on the Other Side » — des masques vaudou (images) flottent dans le noir
+  // violacé, bercés et respirant (ils émergent puis se fondent dans l'ombre), des particules de
+  // magie violette/verte montent, et par moments une INVOCATION (les masques s'illuminent et une
+  // vague de magie déferle) (Dr Facilier — La Princesse et la Grenouille).
+  | { kind: 'voodoo' }
+  // `galaxy` : la galaxie de Bowser — espace profond aux couleurs de Bowser (nébuleuse rouge/orange
+  // qui dérive), champ d'étoiles scintillantes, étoiles filantes, des « méchants » qui flottent
+  // (Méla-Méla, Bulle de lave, Comète) et, par moments, un BILL BOURRIN (obus Banzai Bill) qui
+  // traverse l'écran (Bowser — Super Mario Galaxy).
+  | { kind: 'galaxy' }
 
 export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   patHibulaire: { kind: 'film' },
@@ -64,7 +82,9 @@ export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   slenderman: { kind: 'forest' },
   reineCoeur: { kind: 'petals' },
   crochet: { kind: 'water' },
+  ursula: { kind: 'grotto' },
   jafar: { kind: 'sand' },
+  facilier: { kind: 'voodoo' },
   imposteur: { kind: 'space' },
   gothel: { kind: 'goldenHair' },
   // Méchante Reine (Blanche-Neige) : vidéo de fumée teintée en violet sorcellerie
@@ -74,14 +94,11 @@ export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
     src: '/animations/smoke.mp4',
     gradient: 'linear-gradient(to top, #2e1c2d, #472b46 55%, #5e3a5b)',
   },
-  // Hadès (Hercule) : feu bleu permanent (sprite orange détouré, teinté en bleu).
-  hades: {
-    kind: 'fire',
-    sprite: '/animations/fire_sprite.png',
-    frames: 39,
-    tint: 'hue-rotate(190deg) saturate(1.5)', // feu orange → bleu
-    heightPct: 32,
-  },
+  // Hadès (Hercule) : les Enfers — feu bleu + âmes + braises + lueur + coups de colère.
+  hades: { kind: 'underworld' },
+  // Bowser (Super Mario Galaxy) : sa galaxie — nébuleuse rouge/orange + étoiles + méchants flottants
+  // + Bill Bourrin qui traverse.
+  bowser: { kind: 'galaxy' },
 }
 
 /** Décor permanent d'un vilain (undefined si non défini). */

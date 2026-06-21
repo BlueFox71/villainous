@@ -3233,11 +3233,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             gouttière `px-3` (sur un item de grille étiré, une marge négative AGRANDIT la
             boîte de ce côté) → on ne voit plus le trait qui délimitait le décor. */}
         <div className="relative overflow-hidden" style={{ marginLeft: '-10%' }}>
-          <VillainDecor villain={humanVillainKey} />
+          <VillainDecor villain={humanVillainKey} side="left" />
         </div>
         <div className="hidden lg:block" />
         <div className="relative overflow-hidden" style={{ marginRight: '-10%' }}>
-          <VillainDecor villain={opponentVillainKey} />
+          <VillainDecor villain={opponentVillainKey} side="right" />
         </div>
       </div>
       {/* Décor animé : juste au-dessus du fond, derrière toute l'UI. Visible là où

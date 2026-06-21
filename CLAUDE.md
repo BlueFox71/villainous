@@ -174,3 +174,12 @@ mémoire projet « villainous-fate-malus ».
   entrée (la première déjà poussée, juste en dessous) : on l'incrémente d'un cran
   (ex. dernière poussée = `0.61` → l'entrée fusionnée devient `0.62`). Une fois
   poussé, repars d'une nouvelle entrée au commit suivant.
+- **Avant chaque commit, range les nouveaux fichiers d'`assets/`.** Si `git status`
+  montre des fichiers non rangés à la racine d'`assets/` (ou mal placés), déplace-les
+  dans le sous-dossier adapté **— mais demande validation avant de déplacer/supprimer.**
+  `assets/` ne contient que des **sources** (l'app ne sert que `public/`), organisées
+  par type : `portraits/`, `ui/`, `pions/`, `animations/` (sources de décor/anim),
+  `decks/` (par vilain), `presentations/`, `Sounds/`, `Voix Villainous/`.
+  ⚠️ Ne déplace JAMAIS les fichiers lus par `import.meta.glob` (cf. `villainVoices.ts`,
+  `SoundTest.tsx`) : `assets/Sounds/**`, `assets/Voix Villainous/*.wav` et les
+  `assets/*phrase*.mp3` **à la racine** doivent rester en place, sinon ça casse le build.

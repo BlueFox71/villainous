@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
-import { villainAnimation } from '../villainAnimations'
+import { villainAnimation, villainAnimationList, type VillainAnimation } from '../villainAnimations'
 import type { VillainKey } from '../store/gameStore'
 
 interface PropAnimProps {
@@ -8,6 +8,8 @@ interface PropAnimProps {
   isPlayer: boolean
   /** Image à afficher (déjà choisie par le parent : cycle de couleurs pour l'Imposteur). */
   src: string
+  /** Index de l'animation choisie pour ce passage (un vilain peut en avoir plusieurs). */
+  animIdx: number
 }
 
 // Imposteur : couleurs tournant dans le sens HORAIRE (les autres en anti-horaire).
@@ -47,8 +49,8 @@ const FREEZE_DEBUG: boolean = false
  *  - `sky-arc` : arrive par le milieu-gauche et s'élève en ARC pour sortir en haut
  *    à droite (≈ 3/4), avec tangage, flottement, mise à l'échelle (profondeur) et
  *    fondus aux extrémités. Trajectoire relative à l'écran (API Web Animations). */
-function VillainProp({ villain, isPlayer, src }: PropAnimProps) {
-  const anim = villainAnimation(villain)
+function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
+  const anim = villainAnimationList(villain)[animIdx]
   const ref = useRef<HTMLDivElement>(null)
   const path = anim?.path ?? 'cross'
   // Plumes (Iago) : 1 à 3 « flux » par passage (→ 1 à 3 plumes à la fois), chacun
@@ -101,6 +103,23 @@ function VillainProp({ villain, isPlayer, src }: PropAnimProps) {
       y: myTop + Math.random() * (vh - myTop - myBot),
       rot: Math.random() * 360,
     }))
+  })
+
+  // Cheshire (Reine de Cœur, path `fade`) : une seule position au hasard (hors marges),
+  // figée au montage.
+  const [fadePos] = useState<{ x: number; y: number } | null>(() => {
+    if (path !== 'fade' || !anim?.image) return null
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    const ph = ((anim.heightPct ?? 20) / 100) * vh
+    const half = ph / 2
+    const mx = half + 12 // marge latérale
+    const myTop = half + 50 // sous le header
+    const myBot = half + 60 // au-dessus de la barre du bas
+    return {
+      x: mx + Math.random() * (vw - 2 * mx),
+      y: myTop + Math.random() * (vh - myTop - myBot),
+    }
   })
 
   // Pièces (Prince Jean) : pluie de 16 à 22 pièces tombant du haut vers le bas, sur
@@ -349,6 +368,29 @@ function VillainProp({ villain, isPlayer, src }: PropAnimProps) {
             />
           </div>
         ))}
+      </div>
+    )
+  }
+
+  if (path === 'fade') {
+    // Le Chat du Cheshire se matérialise en fondu à un endroit au hasard, reste ~5 s, puis
+    // s'évapore (fondu + léger grandissement). Durée totale = `durationSec` (cf. cheshireFade).
+    if (!fadePos) return null
+    return (
+      <div className="page-layer pointer-events-none absolute inset-0" aria-hidden>
+        <img
+          src={anim.image}
+          alt=""
+          className="cheshire-fade"
+          style={{
+            left: `${fadePos.x}px`,
+            top: `${fadePos.y}px`,
+            height: `${heightPct}vh`,
+            animationDuration: `${durationSec}s`,
+            ...freezeStyle,
+          }}
+          draggable={false}
+        />
       </div>
     )
   }
@@ -657,33 +699,36 @@ export function BackgroundAnimation({
 }: Props) {
   // `play` non-null = un passage est en cours ; `id` sert de clé de remontage,
   // `villain` mémorise le vilain affiché, `src` l'image choisie pour ce passage.
-  type Play = { id: number; villain: VillainKey; src: string } | null
+  type Play = { id: number; villain: VillainKey; src: string; animIdx: number } | null
   const [playerPlay, setPlayerPlay] = useState<Play>(null)
   const [opponentPlay, setOpponentPlay] = useState<Play>(null)
   const seq = useRef(0)
   const cleanupTimers = useRef<number[]>([])
   // File d'images mélangée par vilain : on épuise toutes les couleurs avant qu'une ne
-  // réapparaisse (la file se régénère mélangée une fois vide).
-  const imageQueues = useRef<Partial<Record<VillainKey, string[]>>>({})
-  const pickImage = (villain: VillainKey): string => {
-    const a = villainAnimation(villain)
-    if (!a) return ''
+  // réapparaisse (la file se régénère mélangée une fois vide). Clé = `villain#animIdx`
+  // (chaque animation d'un vilain a sa propre file d'images).
+  const imageQueues = useRef<Record<string, string[]>>({})
+  const pickImage = (villain: VillainKey, animIdx: number, a: VillainAnimation): string => {
     if (a.path === 'pages' || a.path === 'coins' || a.path === 'rise' || a.path === 'water-cross' || a.path === 'voodoo' || a.path === 'fire-bottom') return '' // pas d'image unique ici
     if (!a.images || a.images.length === 0) return a.image ?? ''
+    const key = `${villain}#${animIdx}`
     const q = imageQueues.current
-    if (!q[villain] || q[villain]!.length === 0) q[villain] = shuffle(a.images)
-    return q[villain]!.shift() as string
+    if (!q[key] || q[key].length === 0) q[key] = shuffle(a.images)
+    return q[key].shift() as string
   }
 
   // Déclenche un passage sur un côté. Par défaut le vilain du camp ; `villainOverride`
-  // permet d'afficher n'importe quel vilain sur ce camp (debug). Démonte après la traversée.
+  // permet d'afficher n'importe quel vilain sur ce camp (debug). Si le vilain a plusieurs
+  // animations, on en tire une au hasard. Démonte après la traversée.
   const fire = (side: 'player' | 'opponent', villainOverride?: VillainKey) => {
     const villain = villainOverride ?? (side === 'player' ? playerVillain : opponentVillain)
-    const anim = villainAnimation(villain)
-    if (!anim) return
+    const list = villainAnimationList(villain)
+    if (list.length === 0) return
+    const animIdx = Math.floor(Math.random() * list.length)
+    const anim = list[animIdx]
     const id = ++seq.current
     const set = side === 'player' ? setPlayerPlay : setOpponentPlay
-    set({ id, villain, src: pickImage(villain) })
+    set({ id, villain, src: pickImage(villain, animIdx, anim), animIdx })
     if (FREEZE_DEBUG) return // figé : on garde le prop monté (pas de démontage auto)
     const lifeMs = (anim.durationSec ?? 30) * 1000 + CLEANUP_BUFFER_MS
     const t = window.setTimeout(() => set((cur) => (cur?.id === id ? null : cur)), lifeMs)
@@ -730,7 +775,7 @@ export function BackgroundAnimation({
   return (
     <div className="pointer-events-none fixed inset-0 overflow-hidden" style={{ zIndex: -1 }} aria-hidden>
       {playerPlay !== null && (
-        <VillainProp key={`p-${playerPlay.id}`} villain={playerPlay.villain} isPlayer src={playerPlay.src} />
+        <VillainProp key={`p-${playerPlay.id}`} villain={playerPlay.villain} isPlayer src={playerPlay.src} animIdx={playerPlay.animIdx} />
       )}
       {opponentPlay !== null && (
         <VillainProp
@@ -738,6 +783,7 @@ export function BackgroundAnimation({
           villain={opponentPlay.villain}
           isPlayer={false}
           src={opponentPlay.src}
+          animIdx={opponentPlay.animIdx}
         />
       )}
     </div>

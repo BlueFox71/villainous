@@ -57,10 +57,13 @@ export interface VillainAnimation {
    *    brille fort en violet, puis tout s'assombrit en disparaissant (Dr Facilier).
    *  - `fire-bottom` : une rangée de flammes (sprite `sprite`/`frames` joué en boucle)
    *    apparaît en bas de l'écran sur toute la largeur, tailles/positions/phases au
-   *    hasard, en fondu (Hadès, Scar). */
+   *    hasard, en fondu (Hadès, Scar).
+   *  - `fade` : `image` apparaît en FONDU à un endroit au hasard, reste visible ~5 s,
+   *    puis disparaît en fondu (en grandissant légèrement) — le Chat du Cheshire qui se
+   *    matérialise puis s'évapore (Reine de Cœur). */
   path?:
     | 'cross' | 'sky-arc' | 'drift-spin' | 'pages' | 'roses' | 'coins' | 'water-cross'
-    | 'rise' | 'voodoo' | 'fire-bottom'
+    | 'rise' | 'voodoo' | 'fire-bottom' | 'fade'
   /** Tire quelques coups de canon (lueur + fumée à la bouche du canon avant)
    *  pendant le vol. Réservé aux trajectoires `sky-arc`. */
   cannons?: boolean
@@ -76,7 +79,9 @@ export interface VillainAnimation {
   count?: number
 }
 
-export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation>> = {
+// Un vilain peut avoir UNE animation, ou PLUSIEURS (tableau) : dans ce cas le planificateur
+// en tire une au hasard à chaque passage.
+export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | VillainAnimation[]>> = {
   // Prince Jean (Robin des Bois) : une pluie de pièces d'or (11 angles découpés de
   // pieces.png) tombe du ciel jusqu'en bas, sur toute la largeur, chacune tournoyant.
   princeJohn: {
@@ -187,15 +192,26 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation>> = 
     durationSec: 8, // apparition → éclats faible/moyen → éclat fort tenu ~3 s → fondu doux
     path: 'voodoo',
   },
-  // Reine de Cœur (Alice au pays des merveilles) : 8 à 12 roses BLANCHES apparaissent
-  // une à une à des endroits/orientations au hasard, puis toutes rougissent ~4 s avant
-  // de disparaître en fondu (« Peignez-moi ces roses en rouge ! »).
-  reineCoeur: {
-    image: '/animations/rose.png',
-    heightPct: 10,
-    durationSec: 13, // couvre apparitions (≤ ~5,7 s) + coulure + 4 s + fondu
-    path: 'roses',
-  },
+  // Reine de Cœur (Alice au pays des merveilles) : DEUX animations (tirées au hasard).
+  reineCoeur: [
+    // 1) 8 à 12 roses BLANCHES apparaissent une à une à des endroits/orientations au hasard,
+    //    puis toutes rougissent ~4 s avant de disparaître en fondu (« Peignez-moi ces roses
+    //    en rouge ! »).
+    {
+      image: '/animations/rose.png',
+      heightPct: 10,
+      durationSec: 13, // couvre apparitions (≤ ~5,7 s) + coulure + 4 s + fondu
+      path: 'roses',
+    },
+    // 2) le Chat du Cheshire se matérialise en fondu à un endroit au hasard, reste ~5 s,
+    //    puis s'évapore (fondu + léger grandissement).
+    {
+      image: '/animations/cheshire.png',
+      heightPct: 20,
+      durationSec: 6.5, // fondu d'entrée + ~5 s visibles + fondu de sortie
+      path: 'fade',
+    },
+  ],
   // Jafar (Aladdin) : le perroquet Iago survole l'écran (même trajectoire que le
   // dragon) en semant quelques plumes derrière lui.
   jafar: {
@@ -228,7 +244,15 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation>> = 
   },
 }
 
-/** Animation de décor d'un vilain (undefined si non défini). */
+/** Liste des animations de décor d'un vilain (vide si aucune). Normalise l'entrée (une seule
+ *  animation → tableau d'un élément). */
+export function villainAnimationList(key: VillainKey): VillainAnimation[] {
+  const v = VILLAIN_ANIMATION[key]
+  return v ? (Array.isArray(v) ? v : [v]) : []
+}
+
+/** Première animation de décor d'un vilain (undefined si aucune). Pour les usages qui n'ont
+ *  besoin que de savoir s'il en existe une / d'un aperçu (debug). */
 export function villainAnimation(key: VillainKey): VillainAnimation | undefined {
-  return VILLAIN_ANIMATION[key]
+  return villainAnimationList(key)[0]
 }

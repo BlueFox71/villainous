@@ -9,6 +9,18 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.78',
+    date: '2026-06-22',
+    title: 'Décors d’arrière-plan : Crochet, Ursula, Facilier & Bowser',
+    changes: [
+      'Capitaine Crochet — nouveau décor permanent d’arrière-plan : une mer de nuit sous la lune, avec des reflets qui ondulent et scintillent sur l’eau, des nuages qui dérivent, l’île de Neverland au loin et la poussière de fée de Clochette qui flotte dans le ciel.',
+      'Ursula — nouveau décor permanent d’arrière-plan : sa Grotte. Une eau vert-bleu très sombre, fortement assombrie sur les bords, d’où montent des colonnes de vapeur ROSE qui s’enroulent et grossissent (les évents de la grotte), une lueur rosée qui pulse par en-dessous, des bulles qui remontent du fond (quelques filées continues) et, de temps en temps, une SURPRISE : son nuage d’encre noire qui jaillit et envahit tout l’arrière-plan avant de se dissiper.',
+      'Dr Facilier — nouveau décor permanent d’arrière-plan : « Friends on the Other Side ». Des masques vaudou flottent dans une pénombre violacée (ils émergent de l’ombre puis s’y fondent), de la magie violette et verte monte en scintillant, et de temps en temps une INVOCATION illumine les masques tandis qu’une vague de magie déferle.',
+      'Bowser — nouveau décor permanent d’arrière-plan : sa galaxie (Super Mario Galaxy). Un espace bleu profond avec un champ d’étoiles scintillantes qui dérive lentement et des nébuleuses, des mondes flottants qui traversent l’écran un par un, un trou noir qui tourne et aspire des particules en spirale, et l’Observatoire qui s’épuise (sa lumière faiblit puis revient). De temps en temps, une SURPRISE : une averse d’étoiles ou de fragments traverse tout l’écran.',
+      'Reine de Cœur — nouvelle animation surprise : le Chat du Cheshire se matérialise en fondu à un endroit au hasard, reste un instant, puis s’évapore (en alternance avec la pluie de roses).',
+    ],
+  },
+  {
     version: '0.77',
     date: '2026-06-21',
     title: 'Nouveaux vilains : Gaston, Le Seigneur des clés & Madame de Trémaine',
