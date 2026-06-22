@@ -11,6 +11,7 @@ import App from './App'
 import { MainMenu } from './screens/MainMenu'
 import { VillainList } from './screens/VillainList'
 import { VillainSelect } from './screens/VillainSelect'
+import { GameLoading } from './screens/GameLoading'
 import { GameModeSelect } from './screens/GameModeSelect'
 import { NetworkLobby } from './screens/NetworkLobby'
 import { Profile } from './screens/Profile'
@@ -27,6 +28,7 @@ const ROUTES = {
   modeSelect: '/nouvelle-partie',
   chooseVillains: '/choix-vilains',
   network: '/reseau',
+  loading: '/chargement',
   game: '/partie',
   villains: '/vilains',
   profile: '/profil',
@@ -62,7 +64,18 @@ function SelectRoute() {
   const navigate = useNavigate()
   return (
     <VillainSelect
-      onStart={() => navigate(ROUTES.game)}
+      // On passe par l'écran de chargement (préchargement des décors) avant la partie.
+      onStart={() => navigate(ROUTES.loading)}
+      onBack={() => navigate(ROUTES.menu)}
+    />
+  )
+}
+
+function LoadingRoute() {
+  const navigate = useNavigate()
+  return (
+    <GameLoading
+      onReady={() => navigate(ROUTES.game, { replace: true })}
       onBack={() => navigate(ROUTES.menu)}
     />
   )
@@ -172,6 +185,7 @@ export default function Root() {
         <Route path={ROUTES.modeSelect} element={<ModeSelectRoute />} />
         <Route path={ROUTES.chooseVillains} element={<SelectRoute />} />
         <Route path={ROUTES.network} element={<NetworkRoute />} />
+        <Route path={ROUTES.loading} element={<LoadingRoute />} />
         <Route path={ROUTES.game} element={<GameRoute />} />
         <Route path={ROUTES.villains} element={<VillainListRoute />} />
         <Route path={ROUTES.profile} element={<ProfileRoute />} />

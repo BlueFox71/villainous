@@ -515,6 +515,153 @@ function VideoDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'video
   )
 }
 
+// Teintes de sorcellerie violette pour la poussière de magie (variées : violet, magenta, mauve).
+const QUEEN_MOTE_COLORS = ['#b026ff', '#d11ad1', '#e040fb', '#9b4dd6']
+
+/** Décor « Méchante Reine » (Blanche-Neige) : la fumée violette de sorcellerie (vidéo `video`)
+ *  SURMONTÉE de trois couches qui racontent la Reine — des BULLES de potion verte montent du fond
+ *  (le chaudron ; réutilise l'enveloppe `.bubble-rise`/`.bubble-sway` d'Ursula), une fine POUSSIÈRE
+ *  de sorcellerie violette monte en scintillant (réutilise les motes de Facilier, teintés violet),
+ *  et une ou deux POMMES empoisonnées flottent dans la fumée avec un halo vert toxique qui pulse.
+ *  Éléments tirés une fois au montage, animations en CSS (cf. index.css, section « Méchante Reine »). */
+function EvilQueenDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'evilQueen' }> }) {
+  // Bulles de potion verte : montent du fond en ondulant (réutilise `.bubble-rise`/`.bubble-sway`),
+  // dessinées en CSS (pas d'image) → la couleur vient de la classe `.queen-bubble`.
+  const [bubbles] = useState(() =>
+    Array.from({ length: 22 }, () => ({
+      left: Math.random() * 100, // %
+      size: 0.8 + Math.random() * 2.4, // vh (petites bulles)
+      dur: 9 + Math.random() * 9, // s (montée lente, 9–18 s)
+      delay: -(Math.random() * 18), // s (flux continu, déphasé)
+      sway: 1.4 + Math.random() * 3, // vw (ondulation latérale)
+      swayDur: 2.4 + Math.random() * 2.2, // s (période d'ondulation)
+      op: 0.45 + Math.random() * 0.4, // opacité de pointe
+    })),
+  )
+  // Poussière de sorcellerie violette : monte en ondulant et en scintillant (mêmes mécaniques que
+  // les motes de Facilier : enveloppe = montée, milieu = ondulation, image = scintillement).
+  const [motes] = useState(() =>
+    Array.from({ length: 28 }, (_, i) => ({
+      left: Math.random() * 100, // %
+      size: 1.6 + Math.random() * 2.8, // px
+      dur: 8 + Math.random() * 8, // s (montée lente)
+      delay: -(Math.random() * 16), // s
+      sway: 2 + Math.random() * 5, // vw (ondulation latérale)
+      swayDur: 3 + Math.random() * 3, // s
+      twkDur: 1.3 + Math.random() * 1.8, // s (scintillement)
+      twkDelay: -(Math.random() * 3), // s
+      op: 0.4 + Math.random() * 0.5,
+      color: QUEEN_MOTE_COLORS[i % QUEEN_MOTE_COLORS.length],
+    })),
+  )
+  // Pommes empoisonnées : deux pommes (une grosse, une petite) flottent à des endroits différents,
+  // chacune se balance verticalement (bob), tangue légèrement et baigne dans un halo vert qui pulse.
+  const [apples] = useState(() => [
+    { left: 22, top: 58, size: 11, bob: 1.4, bobDur: 6.5, lean: 4, leanDur: 7.5, glowDur: 4.2, delay: 0 },
+    { left: 76, top: 40, size: 7, bob: 1.8, bobDur: 8, lean: 5, leanDur: 9, glowDur: 5.4, delay: -2.5 },
+  ])
+  return (
+    <div className="queen-decor" aria-hidden>
+      {/* Fond : la vidéo de fumée violette (réutilise le décor vidéo générique, avec son bouclage en fondu). */}
+      <VideoDecor decor={{ kind: 'video', src: decor.src, gradient: decor.gradient }} />
+      {/* Bulles de potion verte qui montent du chaudron. */}
+      {bubbles.map((b, i) => (
+        <span
+          key={`bub-${i}`}
+          className="bubble-rise"
+          style={{
+            left: `${b.left}%`,
+            animationDuration: `${b.dur}s`,
+            animationDelay: `${b.delay}s`,
+            '--bubble-op': b.op,
+          } as CSSProperties}
+        >
+          <span
+            className="bubble-sway queen-bubble"
+            style={{
+              width: `${b.size}vh`,
+              height: `${b.size}vh`,
+              animationDuration: `${b.swayDur}s`,
+              animationDelay: `${b.delay}s`,
+              '--bubble-sway': `${b.sway}vw`,
+            } as CSSProperties}
+          />
+        </span>
+      ))}
+      {/* Poussière de sorcellerie violette qui monte en scintillant. */}
+      {motes.map((m, i) => (
+        <span
+          key={`mote-${i}`}
+          className="voodoo-mote-rise"
+          style={{
+            left: `${m.left}%`,
+            animationDuration: `${m.dur}s`,
+            animationDelay: `${m.delay}s`,
+          }}
+        >
+          <span
+            className="voodoo-mote-sway"
+            style={{
+              animationDuration: `${m.swayDur}s`,
+              animationDelay: `${m.delay}s`,
+              '--sway': `${m.sway}vw`,
+            } as CSSProperties}
+          >
+            <span
+              className="voodoo-mote"
+              style={{
+                width: `${m.size}px`,
+                height: `${m.size}px`,
+                opacity: m.op,
+                background: m.color,
+                animationDuration: `${m.twkDur}s`,
+                animationDelay: `${m.twkDelay}s`,
+                '--mote-color': m.color,
+              } as CSSProperties}
+            />
+          </span>
+        </span>
+      ))}
+      {/* Pommes empoisonnées : enveloppe = bercement vertical ; halo vert pulsant derrière ; image qui tangue. */}
+      {apples.map((a, i) => (
+        <span
+          key={`apple-${i}`}
+          className="queen-apple-bob"
+          style={{
+            left: `${a.left}%`,
+            top: `${a.top}%`,
+            animationDuration: `${a.bobDur}s`,
+            animationDelay: `${a.delay}s`,
+            '--bob': `${a.bob}vh`,
+          } as CSSProperties}
+        >
+          <span
+            className="queen-apple-glow"
+            style={{
+              width: `${a.size * 1.7}vh`,
+              height: `${a.size * 1.7}vh`,
+              animationDuration: `${a.glowDur}s`,
+              animationDelay: `${a.delay}s`,
+            }}
+          />
+          <img
+            src={decor.apple}
+            alt=""
+            className="queen-apple"
+            draggable={false}
+            style={{
+              height: `${a.size}vh`,
+              animationDuration: `${a.leanDur}s`,
+              animationDelay: `${a.delay}s`,
+              '--lean': `${a.lean}deg`,
+            } as CSSProperties}
+          />
+        </span>
+      ))}
+    </div>
+  )
+}
+
 // Les 11 pièces découpées (mêmes images que la pluie de pièces temporaire de Prince Jean).
 const COIN_IMAGES = Array.from({ length: 11 }, (_, i) => `/animations/piece-${i + 1}.png`)
 
@@ -1644,6 +1791,163 @@ function GalaxyDecor() {
   )
 }
 
+/** Décor « graveyard » (Scar) : le cimetière des éléphants de « Soyez prêtes » (d'après l'image du
+ *  film) — atmosphère enfumée JAUNE-VERT OLIVE, des PILIERS de roche en arrière-plan traversés de
+ *  TRAÎNÉES DE LUMIÈRE verticales qui vacillent, des colonnes de VAPEUR olive qui montent des évents
+ *  (réutilise `vaporRise`), une brume diffuse qui dérive, et une lueur malsaine qui palpite.
+ *  Éléments tirés une fois au montage, animations en CSS (cf. index.css, section « cimetière des
+ *  éléphants »). */
+function GraveyardDecor() {
+  // Traînées de lumière verticales : de fins faisceaux jaune-vert qui descendent des hauteurs (la
+  // lumière qui filtre entre les piliers de roche), vacillant en opacité et oscillant légèrement.
+  const [rays] = useState(() =>
+    Array.from({ length: 11 }, () => ({
+      left: Math.random() * 100, // %
+      width: 0.8 + Math.random() * 3.2, // vw (faisceaux d'épaisseurs variées)
+      height: 55 + Math.random() * 45, // % (descendent plus ou moins bas)
+      op: 0.1 + Math.random() * 0.22, // discrets
+      flickDur: 3 + Math.random() * 5, // s (vacillement)
+      flickDelay: -(Math.random() * 8), // s
+      sway: 0.5 + Math.random() * 1.5, // vw (léger balancement)
+      swayDur: 7 + Math.random() * 6, // s
+    })),
+  )
+  // Colonnes de vapeur verte : quelques ÉVENTS au fond émettent chacun plusieurs bouffées étagées
+  // dans le temps → colonne continue qui s'enroule en montant (même mécanique que la grotte d'Ursula).
+  const [puffs] = useState(() => {
+    const vents = Array.from({ length: 5 }, () => ({
+      left: 8 + Math.random() * 84, // % (répartis sur la largeur)
+      base: 17 + Math.random() * 15, // vh (taille de base des bouffées de cet évent)
+    }))
+    return vents.flatMap((v, vi) => {
+      const n = 6 + Math.floor(Math.random() * 3) // 6–8 bouffées par évent
+      const dur = 10 + Math.random() * 6 // s (montée, commune à l'évent → cadence régulière)
+      return Array.from({ length: n }, (_, i) => ({
+        key: `${vi}-${i}`,
+        left: v.left + (Math.random() - 0.5) * 6, // % (léger éparpillement)
+        size: v.base * (0.7 + Math.random() * 0.7), // vh
+        dur,
+        delay: -((i / n) * dur) - Math.random() * 1.5, // s (étagées → flux continu)
+        sx: (Math.random() < 0.5 ? -1 : 1) * (3 + Math.random() * 5), // vw (enroulement latéral)
+        op: 0.35 + Math.random() * 0.3, // opacité de pointe
+      }))
+    })
+  })
+  // Fumerolles puissantes (#C0E23E) : quelques ÉVENTS crachent de gros panaches qui jaillissent du
+  // sol et montent en bouffant vigoureusement (bouffées étagées → colonne continue et dense). Plus
+  // grosses, plus opaques et plus rapides que les colonnes de vapeur olive.
+  const [fumerolles] = useState(() => {
+    const vents = Array.from({ length: 3 }, () => ({
+      left: 16 + Math.random() * 68, // % (répartis sur la largeur)
+      base: 16 + Math.random() * 10, // vh (panache contenu : ne doit pas noyer la colonne)
+    }))
+    return vents.flatMap((v, vi) => {
+      const n = 6 + Math.floor(Math.random() * 2) // 6–7 bouffées par évent (colonne continue)
+      const dur = 8 + Math.random() * 4 // s (montée vigoureuse, commune à l'évent)
+      return Array.from({ length: n }, (_, i) => ({
+        key: `${vi}-${i}`,
+        left: v.left + (Math.random() - 0.5) * 7, // % (éparpillement = panache large)
+        size: v.base * (0.7 + Math.random() * 0.7), // vh
+        dur,
+        delay: -((i / n) * dur) - Math.random() * 1.2, // s (étagées → flux continu)
+        sx: (Math.random() < 0.5 ? -1 : 1) * (4 + Math.random() * 6), // vw (bouffées qui s'enroulent)
+        op: 0.35 + Math.random() * 0.2, // opacité de pointe (présente mais sans noyer l'UI)
+      }))
+    })
+  })
+  // Étincelles vertes qui montent (braises spectrales de la caverne).
+  const [sparks] = useState(() =>
+    Array.from({ length: 22 }, () => ({
+      left: Math.random() * 100, // %
+      size: 1.4 + Math.random() * 2.4, // px
+      dur: 5 + Math.random() * 5, // s (montée)
+      delay: -(Math.random() * 10), // s
+      drift: (Math.random() - 0.5) * 8, // vw (dérive latérale)
+      op: 0.5 + Math.random() * 0.4,
+    })),
+  )
+  return (
+    <div className="graveyard-decor" aria-hidden>
+      {/* Lueur verte malsaine qui palpite par en-dessous (la source des geysers). */}
+      <div className="graveyard-glow" />
+      {/* Traînées de lumière verticales (entre les piliers de roche) : enveloppe = balancement
+          latéral ; enfant = vacillement d'opacité. */}
+      {rays.map((r, i) => (
+        <span
+          key={`ray-${i}`}
+          className="graveyard-ray-sway"
+          style={{
+            left: `${r.left}%`,
+            width: `${r.width}vw`,
+            height: `${r.height}%`,
+            animationDuration: `${r.swayDur}s`,
+            '--sway': `${r.sway}vw`,
+          } as CSSProperties}
+        >
+          <span
+            className="graveyard-ray"
+            style={{
+              opacity: r.op,
+              animationDuration: `${r.flickDur}s`,
+              animationDelay: `${r.flickDelay}s`,
+            }}
+          />
+        </span>
+      ))}
+      {/* Fumerolles puissantes (#C0E23E) qui jaillissent du sol et montent en bouffant. */}
+      {fumerolles.map((f) => (
+        <span
+          key={`fum-${f.key}`}
+          className="graveyard-fumerolle"
+          style={{
+            left: `${f.left}%`,
+            width: `${f.size}vh`,
+            height: `${f.size}vh`,
+            animationDuration: `${f.dur}s`,
+            animationDelay: `${f.delay}s`,
+            '--sx': `${f.sx}vw`,
+            '--vop': f.op,
+          } as CSSProperties}
+        />
+      ))}
+      {/* Colonnes de vapeur verte qui jaillissent des évents et montent en s'enroulant. */}
+      {puffs.map((p) => (
+        <span
+          key={`puff-${p.key}`}
+          className="graveyard-vapor"
+          style={{
+            left: `${p.left}%`,
+            width: `${p.size}vh`,
+            height: `${p.size}vh`,
+            animationDuration: `${p.dur}s`,
+            animationDelay: `${p.delay}s`,
+            '--sx': `${p.sx}vw`,
+            '--vop': p.op,
+          } as CSSProperties}
+        />
+      ))}
+      {/* Étincelles vertes qui montent. */}
+      {sparks.map((s, i) => (
+        <span
+          key={`spark-${i}`}
+          className="graveyard-spark"
+          style={{
+            left: `${s.left}%`,
+            width: `${s.size}px`,
+            height: `${s.size}px`,
+            animationDuration: `${s.dur}s`,
+            animationDelay: `${s.delay}s`,
+            '--drift': `${s.drift}vw`,
+            '--op': s.op,
+          } as CSSProperties}
+        />
+      ))}
+      {/* Vignette : coins très sombres (la caverne plongée dans l'obscurité). */}
+      <div className="graveyard-vignette" />
+    </div>
+  )
+}
+
 /** Décor permanent d'arrière-plan d'un vilain (rien si aucun décor défini). */
 export function VillainDecor({ villain, side }: { villain: VillainKey; side?: 'left' | 'right' }) {
   const decor = villainDecor(villain)
@@ -1663,6 +1967,8 @@ export function VillainDecor({ villain, side }: { villain: VillainKey; side?: 'l
       return <GoldenHairDecor />
     case 'video':
       return <VideoDecor decor={decor} />
+    case 'evilQueen':
+      return <EvilQueenDecor decor={decor} />
     case 'goldDust':
       return <GoldDustDecor />
     case 'thorns':
@@ -1679,6 +1985,8 @@ export function VillainDecor({ villain, side }: { villain: VillainKey; side?: 'l
       return <VoodooDecor />
     case 'galaxy':
       return <GalaxyDecor />
+    case 'graveyard':
+      return <GraveyardDecor />
     default:
       return null
   }

@@ -69,9 +69,11 @@ import { seigneurCles } from '../../data/villains/seigneurCles'
 import { seigneurClesCards } from '../../data/villains/seigneurCles.cards'
 import { madameTremaine } from '../../data/villains/madameTremaine'
 import { madameTremaineCards } from '../../data/villains/madameTremaine.cards'
+import { oogieBoogie } from '../../data/villains/oogie-boogie'
+import { oogieBoogieCards } from '../../data/villains/oogie-boogie.cards'
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'seigneurCles' | 'madameTremaine'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'seigneurCles' | 'madameTremaine' | 'oogieBoogie'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -96,6 +98,7 @@ export const VILLAIN_REGISTRY = {
   gaston: { def: gaston, cards: gastonCards, label: 'Gaston' },
   seigneurCles: { def: seigneurCles, cards: seigneurClesCards, label: 'Le Seigneur des clés' },
   madameTremaine: { def: madameTremaine, cards: madameTremaineCards, label: 'Madame de Trémaine' },
+  oogieBoogie: { def: oogieBoogie, cards: oogieBoogieCards, label: 'Oogie Boogie' },
 } as const
 
 /** Qui contrôle chaque siège. Concept d'UI : le moteur, lui, ne sait pas qui
@@ -644,6 +647,12 @@ interface GameStore {
   ) => void
   /** Yzma (Ironie du sort) : rejoue l'Événement choisi de la défausse (null = aucun). */
   resolveReplayEvent: (instanceId: string | null) => void
+  /** Oogie Boogie : confirme le lancer de dés en cours et applique son issue. */
+  resolveDice: () => void
+  /** Oogie Boogie : joue un Dés pipés pour relancer le dé `dieIndex` (0/1). */
+  resolveDiceReroll: (instanceId: string, dieIndex: 0 | 1) => void
+  /** Oogie Boogie : renonce à l'action de royaume gratuite (Préparation de Noël ≥8). */
+  skipFreeRealmAction: () => void
   /** Tuer (L'Imposteur) : défausse le Coéquipier `color` choisi. */
   resolveCrewmateKill: (color: string) => void
   /** Tâche visuelle (L'Imposteur) : rend suspect le Coéquipier `color`. */
@@ -1138,6 +1147,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_BEAUTY_SLEEP', gainPower, draw, heroMove }),
   resolveReplayEvent: (instanceId) =>
     get().submit({ type: 'RESOLVE_REPLAY_EVENT', instanceId }),
+  resolveDice: () => get().submit({ type: 'RESOLVE_DICE' }),
+  resolveDiceReroll: (instanceId, dieIndex) =>
+    get().submit({ type: 'RESOLVE_DICE_REROLL', instanceId, dieIndex }),
+  skipFreeRealmAction: () => get().submit({ type: 'SKIP_FREE_REALM_ACTION' }),
   resolveCrewmateKill: (color) =>
     get().submit({ type: 'RESOLVE_CREWMATE_KILL', color }),
   resolveCrewmateSuspect: (color) =>

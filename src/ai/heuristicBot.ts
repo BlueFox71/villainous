@@ -150,6 +150,22 @@ export function objectiveScore(p: PlayerState): number {
     }
     case 'DEFEAT_HERO_AT_LOCATION': {
       const obj = p.objective
+      // Oogie Boogie : faire revenir Jack via les Imposteurs (0→4), PUIS réunir assez
+      // d'Alliés à l'Antre pour le vaincre. Réunir les 4 imposteurs ≈ 60 % du chemin
+      // (Jack revient), le vaincre ≈ les 40 % restants (force 8 + Zéro + jetons -1).
+      if (p.villain === 'oogie-boogie') {
+        if (!p.jackReturned) return 0.6 * Math.min(4, p.impostorsPlaced ?? 0) / 4
+        const jackLoc = p.locations.find((l) => (p.board[l.id] ?? []).some((c) => c.cardId === 'jack-skellington'))?.id
+        if (!jackLoc) return 0.6
+        const jack = (p.board[jackLoc] ?? []).find((c) => c.cardId === 'jack-skellington')!
+        const zero = Object.values(p.board).flat().some((c) => c.cardId === 'zero')
+        const jackForce = Math.max(0, (jack.strength ?? 8) + (jack.forceTokens ?? 0) + (zero ? 2 : 0))
+        const allyForce = (p.board[jackLoc] ?? [])
+          .filter((c) => c.type === 'ally' && !c.isWicket && !c.trapped)
+          .reduce((n, c) => n + (c.strength ?? 0), 0)
+        const readiness = Math.min(1, allyForce / Math.max(1, jackForce))
+        return Math.min(1, 0.6 + 0.4 * readiness)
+      }
       // La Méchante Reine : progression dédiée — jouer les Ingrédients (déverrouille
       // la Maison des Nains), faire venir Blanche-Neige et amasser le Poison pour la
       // croquer. (Détectée via la zone Ingrédients, propre à elle.)

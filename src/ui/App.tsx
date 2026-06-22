@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useGameStore, villainKeyOf, VILLAIN_REGISTRY, type VillainKey } from './store/gameStore'
 import { usePlayerStore } from './store/playerStore'
 import { useStatsStore } from './store/statsStore'
+import { useIsDesktopApp } from './store/settingsStore'
 import { getCardDef } from '../data/registry'
 import {
   activatableCards,
@@ -30,7 +31,7 @@ import {
   transformableGuards,
 } from '../engine/rules'
 import { titanReachableDests } from '../engine/effects'
-import type { CardInstance, KeyColor, LocationAction, ShowcaseEvent } from '../engine/types'
+import type { CardInstance, KeyColor, LocationAction, PendingDice, ShowcaseEvent } from '../engine/types'
 import { BLUE, RED, accentVars } from './accents'
 import { VILLAIN_COLOR, villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from './villainColors'
 import { PlayerPanel } from './components/PlayerPanel'
@@ -275,6 +276,157 @@ function DieRollModal({ seq, color, onDone }: { seq: number; color: string; onDo
   )
 }
 
+/** Oogie Boogie — un dé à 6 faces affiché (losange façon plateau), avec sa valeur. */
+function D6({ value, rolling, dim }: { value: number; rolling?: boolean; dim?: boolean }) {
+  return (
+    <div
+      className={`flex h-20 w-20 items-center justify-center rounded-2xl border-2 text-3xl font-black ${
+        dim ? 'border-white/15 bg-white/5 text-white/40' : 'border-amber-300/70 bg-amber-400/15 text-amber-100'
+      } ${rolling ? 'animate-pulse' : ''}`}
+      style={{ transform: 'rotate(45deg)' }}
+    >
+      <span style={{ transform: 'rotate(-45deg)' }}>{value}</span>
+    </div>
+  )
+}
+
+/** Oogie Boogie — résolution interactive d'un lancer de 2 dés : affiche le résultat
+ *  (avec modificateur Gram / Salut Oogie !), permet de relancer un dé avec un Dés
+ *  pipés, puis de valider l'issue. */
+function DiceRollModal({
+  pending,
+  rerollCards,
+  onConfirm,
+  onReroll,
+}: {
+  pending: PendingDice
+  rerollCards: CardInstance[]
+  onConfirm: () => void
+  onReroll: (instanceId: string, dieIndex: 0 | 1) => void
+}) {
+  // Le composant est REMONTÉ (via `key`) à chaque (re)lancer → l'état initial
+  // `rolling = true` se réarme tout seul ; on ne fait que figer le résultat à la fin.
+  const [rolling, setRolling] = useState(true)
+  const [shown, setShown] = useState<[number, number]>(pending.dice)
+  useEffect(() => {
+    const spin = setInterval(() => setShown([1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)]), 80)
+    const stop = setTimeout(() => { clearInterval(spin); setShown(pending.dice); setRolling(false) }, 650)
+    return () => { clearInterval(spin); clearTimeout(stop) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const canReroll = pending.canReroll && rerollCards.length > 0 && !rolling
+  const impostor = pending.outcome.kind === 'impostor'
+  const good = impostor ? pending.total >= 7 : pending.total >= 8
+  return createPortal(
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+      <div className="flex w-[28rem] max-w-[94vw] flex-col items-center gap-4 rounded-2xl border border-white/15 bg-[#15101f] p-6 shadow-2xl">
+        <div className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-200/80">{pending.context}</div>
+        <div className="flex items-center gap-4">
+          <D6 value={shown[0]} rolling={rolling} />
+          <D6 value={shown[1]} rolling={rolling} />
+        </div>
+        {!rolling && (
+          <div className="text-center">
+            <div className="text-sm text-white/70">
+              {pending.dice[0]} + {pending.dice[1]}
+              {pending.modifier !== 0 && (
+                <span className={pending.modifier > 0 ? 'text-emerald-300' : 'text-rose-300'}>
+                  {' '}{pending.modifier > 0 ? '+' : ''}{pending.modifier}
+                </span>
+              )}
+            </div>
+            <div className={`text-4xl font-black ${good ? 'text-emerald-300' : 'text-white'}`}>{pending.total}</div>
+            {impostor && (
+              <div className={`text-xs font-semibold ${good ? 'text-emerald-300' : 'text-rose-300'}`}>
+                {good ? 'Réussite (≥ 7) !' : 'Échec (≤ 6)'}
+              </div>
+            )}
+          </div>
+        )}
+        {!rolling && (
+          <div className="flex w-full flex-col gap-2">
+            {canReroll && (
+              <div className="flex flex-col gap-1 rounded-lg border border-white/10 bg-white/5 p-2">
+                <div className="text-center text-xs font-semibold text-amber-200/80">Dés pipés — relancer un dé</div>
+                <div className="flex justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onReroll(rerollCards[0].instanceId, 0)}
+                    className="rounded-lg border border-amber-400/60 bg-amber-500/15 px-3 py-1 text-sm font-semibold text-amber-100 hover:bg-amber-500/30"
+                  >
+                    Relancer le dé 1 ({pending.dice[0]})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onReroll(rerollCards[0].instanceId, 1)}
+                    className="rounded-lg border border-amber-400/60 bg-amber-500/15 px-3 py-1 text-sm font-semibold text-amber-100 hover:bg-amber-500/30"
+                  >
+                    Relancer le dé 2 ({pending.dice[1]})
+                  </button>
+                </div>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={onConfirm}
+              className="rounded-lg border border-emerald-400/60 bg-emerald-500/20 px-4 py-2 text-sm font-bold text-emerald-100 hover:bg-emerald-500/30"
+            >
+              Valider
+            </button>
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+/** Oogie Boogie — affichage auto-dismiss d'un lancer de dés NON interactif (bot,
+ *  Conditions) : montre le résultat brièvement puis s'efface. */
+function DiceRollToast({
+  seq,
+  dice,
+  total,
+  modifier,
+  context,
+  onDone,
+}: {
+  seq: number
+  dice: [number, number]
+  total: number
+  modifier: number
+  context: string
+  onDone: (seq: number) => void
+}) {
+  // Remonté (via `key={seq}`) à chaque lancer → état initial `rolling = true`.
+  const [rolling, setRolling] = useState(true)
+  const [shown, setShown] = useState<[number, number]>(dice)
+  useEffect(() => {
+    const spin = setInterval(() => setShown([1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)]), 80)
+    const stop = setTimeout(() => { clearInterval(spin); setShown(dice); setRolling(false) }, 650)
+    const finish = setTimeout(() => onDone(seq), 1750)
+    return () => { clearInterval(spin); clearTimeout(stop); clearTimeout(finish) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return createPortal(
+    <div className="pointer-events-none fixed inset-0 z-[300] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3 rounded-2xl border border-white/15 bg-black/80 px-10 py-7 shadow-2xl backdrop-blur-sm">
+        <div className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-200/70">{context}</div>
+        <div className="flex items-center gap-3">
+          <D6 value={shown[0]} rolling={rolling} />
+          <D6 value={shown[1]} rolling={rolling} />
+        </div>
+        {!rolling && (
+          <div className="text-2xl font-black text-white">
+            {dice[0]} + {dice[1]}{modifier !== 0 ? ` ${modifier > 0 ? '+' : ''}${modifier}` : ''} = {total}
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
 /** Ratigan — Le Grand Génie du Mal : l'humain choisit entre piocher `draw` cartes
  *  OU gagner `power` jetons Pouvoir. */
 function DrawOrGainPowerModal({
@@ -461,6 +613,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const obtainKey = useGameStore((s) => s.obtainKey)
   const resolveKey = useGameStore((s) => s.resolveKey)
   const resolveKeyColor = useGameStore((s) => s.resolveKeyColor)
+  const resolveDice = useGameStore((s) => s.resolveDice)
+  const resolveDiceReroll = useGameStore((s) => s.resolveDiceReroll)
+  const skipFreeRealmAction = useGameStore((s) => s.skipFreeRealmAction)
   const resolvePlaisir = useGameStore((s) => s.resolvePlaisir)
   const resolveStealKey = useGameStore((s) => s.resolveStealKey)
   // Renommé sans préfixe « use » (action du store, pas un hook React).
@@ -486,6 +641,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const BOT = 1 - localPlayerIndex
   const gameMode = useGameStore((s) => s.mode)
   const testMode = useGameStore((s) => s.testMode)
+  // Vrai si l'app tourne en exécutable de bureau (réel) OU si la simulation .exe est
+  // activée dans les options. Le bouton « Mode test » (outil de dév) est alors masqué.
+  const isDesktopApp = useIsDesktopApp()
   // Noms/avatars des joueurs : profil local + lobby réseau (pour l'adversaire).
   const lobby = useGameStore((s) => s.lobby)
   const myProfileName = usePlayerStore((s) => s.name)
@@ -623,6 +781,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // d'effet) : `dieAnim` est vrai dès qu'un nouveau lancer arrive et faux après onDone.
   const [dieDismissSeq, setDieDismissSeq] = useState(0)
   const dieAnim = !!state.dieRoll && state.dieRoll.by === HUMAN && state.dieRoll.seq !== dieDismissSeq
+  // Oogie Boogie — animation auto-dismiss des lancers de 2 dés NON interactifs (bot,
+  // Conditions) : on l'affiche tant que le dernier lancer n'est pas acquitté ET qu'il
+  // n'y a pas de résolution interactive en cours pour l'humain.
+  const [diceDismissSeq, setDiceDismissSeq] = useState(0)
+  const humanDice = !!state.pendingDice && state.pendingDice.playerIndex === HUMAN
+  const diceAnim = !!state.diceRoll && !humanDice && state.diceRoll.by !== HUMAN && state.diceRoll.seq !== diceDismissSeq
   // La Méchante Reine — « Préparer du Poison » : sélecteur du nombre de Pouvoir à
   // convertir en Poison (1 → max). `surcharge` = 1 si Timide est en jeu.
   const [brewPick, setBrewPick] = useState<
@@ -3278,21 +3442,24 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               </label>
             </>
           )}
-          <button
-            onClick={() => {
-              enterTestMode()
-              setTestPicker(null)
-              setTestFateError(null)
-            }}
-            title="Mode test : vide les deux plateaux pour composer une situation"
-            className={`rounded-lg border px-3 py-1.5 text-sm ${
-              testMode
-                ? 'border-emerald-400 bg-emerald-500/20 text-emerald-200'
-                : 'border-white/20 text-white/80 hover:bg-white/10'
-            }`}
-          >
-            🧪 Mode test
-          </button>
+          {/* Bouton « Mode test » : outil de dév, masqué dans l'exe de bureau (joueurs). */}
+          {!isDesktopApp && (
+            <button
+              onClick={() => {
+                enterTestMode()
+                setTestPicker(null)
+                setTestFateError(null)
+              }}
+              title="Mode test : vide les deux plateaux pour composer une situation"
+              className={`rounded-lg border px-3 py-1.5 text-sm ${
+                testMode
+                  ? 'border-emerald-400 bg-emerald-500/20 text-emerald-200'
+                  : 'border-white/20 text-white/80 hover:bg-white/10'
+              }`}
+            >
+              🧪 Mode test
+            </button>
+          )}
           {testMode && (
             <>
               {/* Test : rejoue l'animation de décor de N'IMPORTE QUEL vilain (select).
@@ -4649,6 +4816,47 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       {/* Le Seigneur des clés — animation du lancer de dé de couleur. */}
       {dieAnim && state.dieRoll && (
         <DieRollModal key={state.dieRoll.seq} seq={state.dieRoll.seq} color={state.dieRoll.color} onDone={setDieDismissSeq} />
+      )}
+
+      {/* Oogie Boogie — résolution interactive d'un lancer de 2 dés (humain). */}
+      {humanDice && state.pendingDice && (
+        <DiceRollModal
+          key={`pd-${state.diceRoll?.seq ?? 0}`}
+          pending={state.pendingDice}
+          rerollCards={state.players[HUMAN].hand.filter((c) => c.cardId === 'des-pipes')}
+          onConfirm={resolveDice}
+          onReroll={resolveDiceReroll}
+        />
+      )}
+
+      {/* Oogie Boogie — animation auto-dismiss d'un lancer non interactif (bot / Condition). */}
+      {diceAnim && state.diceRoll && (
+        <DiceRollToast
+          key={`dt-${state.diceRoll.seq}`}
+          seq={state.diceRoll.seq}
+          dice={state.diceRoll.dice}
+          total={state.diceRoll.total}
+          modifier={state.diceRoll.modifier}
+          context={state.diceRoll.context}
+          onDone={setDiceDismissSeq}
+        />
+      )}
+
+      {/* Oogie Boogie — Préparation de Noël (≥8) : bandeau d'action gratuite (humain).
+          Le joueur effectue une action de lieu normalement (gérée par le moteur) ou renonce. */}
+      {state.pendingFreeRealmAction && state.pendingFreeRealmAction.playerIndex === HUMAN && (
+        <div className="fixed inset-x-0 top-4 z-[260] flex justify-center px-4">
+          <div className="flex items-center gap-3 rounded-full border border-amber-300/40 bg-[#15101f]/95 px-5 py-2 shadow-2xl">
+            <span className="text-sm font-semibold text-amber-100">Préparation de Noël : effectue une action gratuite de ton lieu, ou renonce.</span>
+            <button
+              type="button"
+              onClick={skipFreeRealmAction}
+              className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-white hover:bg-white/20"
+            >
+              Renoncer
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Lance-moi ta chevelure : l'humain choisit de combien de lieux ramener Raiponce. */}

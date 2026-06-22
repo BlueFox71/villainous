@@ -3,6 +3,9 @@ import type { CardDef } from '../../data/types'
 import { VILLAIN_REGISTRY, type VillainKey } from '../store/gameStore'
 import { villainPortrait, villainPresentation, PRESENTATION_TWEAK } from '../villainArt'
 import { VILLAIN_GUIDE } from '../villainGuide'
+import { VILLAIN_COLOR } from '../villainColors'
+import { villainPack, villainCreator } from '../villainPacks'
+import { useIsDesktopApp } from '../store/settingsStore'
 import { Scroller } from './Scroller'
 import { playPageFlip, playCardHover, playTinyButtonPress } from '../sfx'
 
@@ -121,6 +124,17 @@ export function VillainDetailModal({ villain, onClose }: Props) {
     `translateX(7rem) translateY(-50%) scale(${tweak?.scale ?? 1}) translate(${tweak?.dxPct ?? 0}%, ${tweak?.dyPct ?? 0}%)`
   const [showCards, setShowCards] = useState(false)
   const [showBoard, setShowBoard] = useState(false)
+  // Outil de dév (caché en exe / simulation .exe) : la couleur thématique du vilain.
+  const isDesktopApp = useIsDesktopApp()
+  const villainColor = VILLAIN_COLOR[v.def.id]
+  // Pack du vilain (boîte) : affiche, nom, date de sortie ; tooltip = liste des vilains du pack.
+  const pack = villainPack(villain)
+  const packMembers = pack
+    ? [...pack.villains.map((k) => VILLAIN_REGISTRY[k].def.name), ...(pack.otherMembers ?? [])]
+    : []
+  // Vilain de collaboration (pas de pack officiel) : on affiche son créateur à la place.
+  const creator = !pack ? villainCreator(villain) : undefined
+  const [packHover, setPackHover] = useState(false)
 
   // Cartes du vilain, séparées par paquet et triées par nombre d'exemplaires.
   const byCopies = (a: CardDef, b: CardDef) => b.copies - a.copies || a.name.localeCompare(b.name)
@@ -170,6 +184,14 @@ export function VillainDetailModal({ villain, onClose }: Props) {
               <div className="flex items-start justify-between gap-3">
                 <h2 className="text-2xl font-black text-amber-200">{v.def.name}</h2>
                 <div className="flex shrink-0 items-center gap-2">
+                  {/* Couleur du vilain (dév, masqué en exe / simulation .exe). */}
+                  {!isDesktopApp && villainColor && (
+                    <span
+                      className="inline-block h-6 w-6 rounded border border-white/30"
+                      style={{ backgroundColor: villainColor }}
+                      title={`Couleur ${villainColor}`}
+                    />
+                  )}
                   <button
                     type="button"
                     onClick={() => { if (showCards) playPageFlip(); else playTinyButtonPress(); onClose() }}
@@ -210,6 +232,31 @@ export function VillainDetailModal({ villain, onClose }: Props) {
             </div>
           </div>
 
+          {/* Tooltip pack (affiché À DROITE de l'écran) : affiche en grand + nom/date + vilains. */}
+          {pack && packHover && (
+            <div className="pointer-events-none fixed inset-0 z-[60] flex items-center justify-end p-6 pr-[4vw]">
+              <div className="flex max-w-xs flex-col gap-2 rounded-2xl border border-white/25 bg-[#1a1330] p-4 shadow-2xl">
+                {pack.image && (
+                  <img
+                    src={pack.image}
+                    alt={pack.name}
+                    className="max-h-[55vh] w-auto max-w-full rounded-xl border border-white/20"
+                  />
+                )}
+                <p className="text-base font-bold text-amber-200">{pack.name}</p>
+                <div className="flex flex-col gap-0.5 text-xs text-white/50">
+                  <span><img src="/usa.png" alt="USA" title="Sortie USA" className="mr-1 inline-block h-3.5 w-auto align-[-2px]" />{pack.releaseUS}</span>
+                  <span><img src="/france.png" alt="France" title="Sortie France" className="mr-1 inline-block h-3.5 w-auto align-[-2px]" />{pack.releaseFR}</span>
+                </div>
+                <ul className="mt-1 space-y-0.5 text-sm text-white/75">
+                  {packMembers.map((m) => (
+                    <li key={m}>• {m}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
           {showBoard ? (
             /* Plateau du vilain (image), affiché en grand. */
             <div className="flex flex-col items-center gap-3">
@@ -238,6 +285,59 @@ export function VillainDetailModal({ villain, onClose }: Props) {
             <TipList title="Bien le jouer" tips={guide.playTips} color="text-emerald-300" />
             <TipList title="Le contrer" tips={guide.counterTips} color="text-red-300" />
           </div>
+
+          {/* Pack du vilain (bas du modal) : affiche + nom ; survol → tooltip à gauche. */}
+          {pack && (
+            <div
+              className="flex cursor-help items-center gap-3 border-t border-white/10 pt-4"
+              onMouseEnter={() => { playCardHover(); setPackHover(true) }}
+              onMouseLeave={() => setPackHover(false)}
+            >
+              {pack.image && (
+                <img
+                  src={pack.image}
+                  alt={pack.name}
+                  className="h-16 w-auto shrink-0 rounded border border-white/20 object-contain"
+                />
+              )}
+              <span className="flex min-w-0 flex-col">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-white/40">Pack</span>
+                <span className="text-sm font-semibold text-amber-100">{pack.name}</span>
+              </span>
+              {/* Pions des vilains du pack (implémentés), alignés à droite, côte à côte. */}
+              <span className="ml-auto flex items-center gap-2">
+                {pack.villains.map((k) => (
+                  <img
+                    key={k}
+                    src={VILLAIN_REGISTRY[k].def.pawnImage}
+                    alt={VILLAIN_REGISTRY[k].def.name}
+                    title={VILLAIN_REGISTRY[k].def.name}
+                    className="h-12 w-auto shrink-0 object-contain drop-shadow"
+                  />
+                ))}
+              </span>
+            </div>
+          )}
+
+          {/* Vilain de collaboration (sans pack) : on affiche le créateur + son pion à droite. */}
+          {!pack && creator && (
+            <div className="flex items-center gap-3 border-t border-white/10 pt-4">
+              <span className="flex min-w-0 flex-col">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-white/40">
+                  Créateur
+                </span>
+                <span className="text-sm font-semibold text-amber-100">{creator}</span>
+              </span>
+              <span className="ml-auto flex items-center gap-2">
+                <img
+                  src={v.def.pawnImage}
+                  alt={v.def.name}
+                  title={v.def.name}
+                  className="h-12 w-auto shrink-0 object-contain drop-shadow"
+                />
+              </span>
+            </div>
+          )}
             </>
           )}
         </div>

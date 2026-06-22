@@ -17,12 +17,14 @@ export const VILLAIN_COLOR: Record<string, string> = {
   yzma: '#7B3772',
   ratigan: '#555354',
   patHibulaire: '#353535',
-  sombra: '#483E68',
+  sombra: '#4C436D',
   gothel: '#564A3B',
-  cruella: '#A7223A',
-  gaston: '#B5462A',
-  'seigneur-cles': '#3A2E55',
-  'madame-tremaine': '#4A2E3A',
+  cruella: '#AA1D2E',
+  gaston: '#7D3D00',
+  'seigneur-cles': '#303030',
+  'madame-tremaine': '#48545F',
+  'oogie-boogie': '#2F5E3A',
+  oogieBoogie: '#2F5E3A',
 }
 
 /** Teintes de repli (camp joueur / adversaire) quand la couleur d'un vilain est

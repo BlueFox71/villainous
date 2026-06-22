@@ -30,6 +30,9 @@ interface Persisted {
   pauseMusicUnfocused: boolean
   /** Mode d'affichage choisi par le joueur. */
   displayMode: DisplayMode
+  /** Réglage DÉV : forcer le comportement « application de bureau (.exe) » même en
+   *  navigateur (masque les outils de dév : Mode test, Banque de sons, etc.). */
+  simulateDesktop: boolean
 }
 
 function read(): Persisted {
@@ -39,6 +42,7 @@ function read(): Persisted {
     sfxVolume: 0.3,
     pauseMusicUnfocused: true,
     displayMode: 'windowed',
+    simulateDesktop: false,
   }
   if (typeof localStorage === 'undefined') return fallback
   try {
@@ -63,6 +67,8 @@ function read(): Persisted {
         parsed.displayMode && DISPLAY_MODES.includes(parsed.displayMode)
           ? parsed.displayMode
           : fallback.displayMode,
+      simulateDesktop:
+        typeof parsed.simulateDesktop === 'boolean' ? parsed.simulateDesktop : fallback.simulateDesktop,
     }
   } catch {
     return fallback
@@ -72,10 +78,10 @@ function read(): Persisted {
 function persist(s: Persisted) {
   if (typeof localStorage === 'undefined') return
   try {
-    const { musicVolume, musicMuted, sfxVolume, pauseMusicUnfocused, displayMode } = s
+    const { musicVolume, musicMuted, sfxVolume, pauseMusicUnfocused, displayMode, simulateDesktop } = s
     localStorage.setItem(
       LS_KEY,
-      JSON.stringify({ musicVolume, musicMuted, sfxVolume, pauseMusicUnfocused, displayMode }),
+      JSON.stringify({ musicVolume, musicMuted, sfxVolume, pauseMusicUnfocused, displayMode, simulateDesktop }),
     )
   } catch {
     /* ignore */
@@ -105,6 +111,8 @@ interface SettingsStore extends Persisted {
   setSfxVolume: (v: number) => void
   togglePauseMusicUnfocused: () => void
   setDisplayMode: (mode: DisplayMode) => void
+  /** Active/désactive la simulation du mode application de bureau (.exe). */
+  toggleSimulateDesktop: () => void
 }
 
 /** Réglages du joueur (volume/sourdine/affichage persistés). */
@@ -148,7 +156,26 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
       persist(next)
       return next
     }),
+  toggleSimulateDesktop: () =>
+    set((s) => {
+      const next: Persisted = { ...s, simulateDesktop: !s.simulateDesktop }
+      persist(next)
+      return next
+    }),
 }))
+
+/** Vrai si l'app tourne RÉELLEMENT en exécutable de bureau (pont Electron
+ *  `window.villainous`, ou coquille Tauri) — faux au navigateur. */
+export function isRealDesktopApp(): boolean {
+  return typeof window !== 'undefined' && (!!window.villainous || '__TAURI_INTERNALS__' in window)
+}
+
+/** Hook réactif : vrai si on est en application de bureau RÉELLE ou si le joueur a
+ *  activé la simulation (.exe) dans les options. Les éléments réservés au dév
+ *  (Mode test, Banque de sons, case couleur…) se masquent quand c'est vrai. */
+export function useIsDesktopApp(): boolean {
+  return useSettingsStore((s) => s.simulateDesktop) || isRealDesktopApp()
+}
 
 // Synchronise le réglage si l'utilisateur quitte le plein écran (touche Échap)
 // EN NAVIGATEUR. Dans l'app de bureau, le plein écran natif n'émet pas cet

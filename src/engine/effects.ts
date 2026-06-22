@@ -11,10 +11,10 @@
 // Ajouter un comportement = ajouter un variant à Effect + un `case` ici.
 // =============================================================================
 
-import type { CardInstance, Crewmate, CurseDiscardTrigger, Effect, GameState, LocationId, PlayerState } from './types'
+import type { CardInstance, Crewmate, CurseDiscardTrigger, DiceOutcome, Effect, GameState, LocationId, PlayerState } from './types'
 import { activePlayer, findLocation, pushDiscardShowcase, pushFloatingFx, pushRevealShowcase, pushRobinSteal, pushScryDiscardShowcase, pushShowcase, revealFate, syncObservatoryLock, updateActivePlayer, updatePlayer } from './state'
 import { neighborLocIds, placeCrewmateAt } from './crewmates'
-import { shuffle, nextRandom } from './rng'
+import { shuffle, nextRandom, rollD6 } from './rng'
 import { KEY_COLORS, type KeyColor } from './types'
 import {
   adjacentLocationIds,
@@ -92,6 +92,65 @@ export function countHeroesInRealm(state: GameState, actorIndex?: number): numbe
 /** Pénalité passive sur les gains de pouvoir dans le royaume (Robin → −1). */
 function realmPowerPenalty(state: GameState, idx: number): number {
   return hasHeroInRealm(state, idx, 'robin-des-bois') ? 1 : 0
+}
+
+// --- Oogie Boogie : lancers de dés ------------------------------------------
+
+/** Modificateur appliqué au prochain lancer de `idx` : +1 si Gram est sur le lieu
+ *  du pion (capacité de Gram), −2 par jeton « Salut, Oogie ! » (Fatalité). */
+export function oogieRollModifier(p: PlayerState): number {
+  let mod = 0
+  if (p.pawnLocation && (p.board[p.pawnLocation] ?? []).some((c) => c.cardId === 'gram')) mod += 1
+  mod -= 2 * (p.helloOogieTokens ?? 0)
+  return mod
+}
+
+/** Lance 2 dés à 6 faces (déterministe). */
+function rollTwoDice(rngState: number): { dice: [number, number]; rngState: number } {
+  const a = rollD6(rngState)
+  const b = rollD6(a.state)
+  return { dice: [a.value, b.value], rngState: b.state }
+}
+
+/** Total visé quand le résultat est CHOISI (Cette fois l'affaire est dans le sac) :
+ *  on prend le meilleur pour l'issue (toujours le succès). */
+function controlledDice(outcome: DiceOutcome): [number, number] {
+  // 12 satisfait tous les seuils favorables (impostor ≥7, making/merveille/trick ≥8).
+  return outcome.kind === 'making-christmas' || outcome.kind === 'merveille' || outcome.kind === 'trick-or-treat' || outcome.kind === 'impostor'
+    ? [6, 6]
+    : [6, 6]
+}
+
+/** Ouvre une fenêtre de lancer de dés : lance (ou prend le résultat choisi si
+ *  `bagControlledDice`), applique les modificateurs, consomme les jetons Salut Oogie !,
+ *  publie `diceRoll` (animation UI) et arme `pendingDice` (RESOLVE_DICE / reroll). */
+export function openDiceRoll(
+  state: GameState,
+  idx: number,
+  context: string,
+  outcome: DiceOutcome,
+): GameState {
+  const controlled = !!state.bagControlledDice
+  const r = controlled
+    ? { dice: controlledDice(outcome), rngState: state.rngState }
+    : rollTwoDice(state.rngState)
+  const p0 = state.players[idx]
+  const modifier = oogieRollModifier(p0)
+  const total = r.dice[0] + r.dice[1] + modifier
+  const seq = (state.diceRoll?.seq ?? 0) + 1
+  // Consomme les jetons « Salut, Oogie ! » (appliqués à ce lancer).
+  let next = updatePlayer({ ...state, rngState: r.rngState }, idx, (p) => ({ ...p, helloOogieTokens: 0 }))
+  const canReroll = !controlled && (next.players[idx].hand ?? []).some((c) => c.cardId === 'des-pipes')
+  next = {
+    ...next,
+    diceRoll: { seq, dice: r.dice, total, modifier, by: idx, context },
+    pendingDice: { playerIndex: idx, dice: r.dice, modifier, total, context, outcome, canReroll },
+  }
+  const modStr = modifier !== 0 ? ` (${modifier > 0 ? '+' : ''}${modifier})` : ''
+  return {
+    ...next,
+    log: [...next.log, `${p0.villainName} lance les dés — ${context} : ${r.dice[0]} + ${r.dice[1]}${modStr} = **${total}**.`],
+  }
 }
 
 /** Pat Hibulaire — déplace les Alliés « followsHeroes » (Grillon) du royaume de
@@ -960,6 +1019,35 @@ export function performVanquish(
       }
     }
   }
+  // Oogie Boogie — déclencheurs de participation au Vanquish (Alliés déjà défaussés
+  // à ce stade si keepAllies = false) :
+  //  - Araignées : +1 Pouvoir et +1 carte par Araignée engagée.
+  //  - Chauves-souris : récupèrent un Allié de la défausse en main (auto : le plus
+  //    fort — l'interactivité fine est différée).
+  {
+    const spiders = allies.filter((a) => a.cardId === 'araignees').length
+    if (spiders > 0) {
+      next = resolveEffects(
+        next,
+        [{ type: 'GAIN_POWER', amount: spiders }, { type: 'DRAW_CARDS', count: spiders }],
+        { actorIndex: state.activePlayer },
+      )
+    }
+    if (!keepAllies && allies.some((a) => a.cardId === 'chauves-souris')) {
+      const ap = state.activePlayer
+      const pool = next.players[ap].discard.filter((c) => c.type === 'ally' && c.cardId !== 'chauves-souris')
+      const best = [...pool].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+        ?? [...next.players[ap].discard.filter((c) => c.type === 'ally')].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+      if (best) {
+        next = updatePlayer(next, ap, (pp) => ({
+          ...pp,
+          discard: pp.discard.filter((c) => c.instanceId !== best.instanceId),
+          hand: [...pp.hand, best],
+        }))
+        next = { ...next, log: [...next.log, `Chauves-souris : **${best.name}** récupéré de la défausse.`] }
+      }
+    }
+  }
   // Effets « à la mort » du Héros (Toby, Belle Marianne — B.3).
   next = resolveEffects(next, heroCard.onVanquish ?? [], {
     actorIndex: state.activePlayer,
@@ -1282,6 +1370,110 @@ export function resolveEffect(
         ],
       }
       return pushRobinSteal(next, idx, effect.amount - gained)
+    }
+    // --- Oogie Boogie -------------------------------------------------------
+    case 'ROLL_IMPOSTOR':
+      return openDiceRoll(state, idx, 'Imposteur Perce-Oreilles', { kind: 'impostor' })
+    case 'ROLL_MAKING_CHRISTMAS':
+      return openDiceRoll(state, idx, 'Préparation de Noël', { kind: 'making-christmas' })
+    case 'ROLL_MERVEILLE': {
+      // Effectue d'abord l'élimination (Alliés → défausse ; déclenche les triggers
+      // Chauves-souris/Araignées et onVanquish du Héros), puis lance les dés. Le
+      // résultat décidera si les Alliés utilisés reviennent en main ou restent en jeu.
+      const heroLoc = ctx?.targetHeroId ? locationOfCard(state.players[idx], ctx.targetHeroId) : undefined
+      const next = resolveEffects(state, [{ type: 'VANQUISH_HERO', keepAllies: false }], {
+        actorIndex: idx,
+        targetHeroId: ctx?.targetHeroId,
+        allyInstanceIds: ctx?.allyInstanceIds,
+      })
+      const loc = heroLoc ?? next.players[idx].pawnLocation ?? next.players[idx].locations[0].id
+      return openDiceRoll(next, idx, 'Mais quelle merveille !', {
+        kind: 'merveille',
+        allyInstanceIds: ctx?.allyInstanceIds ?? [],
+        locationId: loc,
+      })
+    }
+    case 'DISCARD_TOP_FATE_DRAW_PER_HERO': {
+      const p = state.players[idx]
+      const top = p.fateDeck.slice(0, effect.count)
+      const heroes = top.filter((c) => c.type === 'hero').length
+      let next = updatePlayer(state, idx, (pp) => ({
+        ...pp,
+        fateDeck: pp.fateDeck.slice(effect.count),
+        fateDiscard: [...pp.fateDiscard, ...top],
+      }))
+      next = {
+        ...next,
+        log: [...next.log, `${p.villainName} (Ce sont des vacances) défausse ${top.length} carte(s) Fatalité (${heroes} Héros).`],
+      }
+      if (heroes > 0) next = drawNCards(next, idx, heroes)
+      return next
+    }
+    case 'JACK_FATE_DISCARD_IMPOSTOR': {
+      const before = state.players[idx].impostorsPlaced ?? 0
+      const after = Math.max(0, before - 1)
+      const next = updatePlayer(state, idx, (pp) => ({ ...pp, impostorsPlaced: after }))
+      return {
+        ...next,
+        log: [...next.log, `Jack Skellington (Fatalité) : un Imposteur Perce-Oreilles est retiré de la pile (${after}/4).`],
+      }
+    }
+    case 'DRAW_CARDS':
+      return drawNCards(state, idx, effect.count)
+    case 'SALLY_PLACED': {
+      const loc = ctx?.hostLocationId
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        pawnLocation: loc ?? p.pawnLocation,
+        sallyRestrict: true,
+      }))
+      const placeName = loc ? findLocation(next.players[idx], loc)?.name ?? loc : '—'
+      return {
+        ...next,
+        log: [...next.log, `Sally : ${next.players[idx].villainName} est déplacé sur **${placeName}** ; désormais il ne peut se déplacer que vers un lieu voisin.`],
+      }
+    }
+    case 'ROLL_TRICK_OR_TREAT': {
+      // Condition : résolue immédiatement (pas de fenêtre de relance hors de son
+      // propre tour). On publie quand même `diceRoll` pour l'animation.
+      const r = rollTwoDice(state.rngState)
+      const total = r.dice[0] + r.dice[1]
+      const seq = (state.diceRoll?.seq ?? 0) + 1
+      let next: GameState = {
+        ...state,
+        rngState: r.rngState,
+        diceRoll: { seq, dice: r.dice, total, modifier: 0, by: idx, context: 'Joyeux Halloween !' },
+        log: [...state.log, `${state.players[idx].villainName} lance les dés — Joyeux Halloween ! : ${r.dice[0]} + ${r.dice[1]} = **${total}**.`],
+      }
+      if (total >= 8) {
+        next = resolveEffect(next, { type: 'GAIN_POWER', amount: total }, { actorIndex: idx })
+      } else {
+        // Vole 1 Pouvoir à l'adversaire actif (celui dont c'est le tour).
+        const victim = next.activePlayer === idx ? (idx + 1) % next.players.length : next.activePlayer
+        const steal = Math.min(1, next.players[victim].power)
+        next = {
+          ...next,
+          players: next.players.map((pl, i) =>
+            i === victim ? { ...pl, power: pl.power - steal } : i === idx ? { ...pl, power: pl.power + steal } : pl,
+          ),
+          log: [...next.log, `Joyeux Halloween ! (${total}) : ${next.players[idx].villainName} vole ${steal} Pouvoir à ${next.players[victim].villainName}.`],
+        }
+      }
+      return next
+    }
+    case 'REPLAY_EVENT_BAG': {
+      // Cette fois l'affaire est dans le sac : rejoue GRATUITEMENT un Événement de
+      // la défausse, avec résultat de dés CHOISI. Candidats = Événements rejouables.
+      const p = state.players[idx]
+      const candidates = p.discard.filter((c) => c.type === 'effect' && !c.reactiveOnly && (c.effects?.length ?? 0) > 0)
+      if (candidates.length === 0) {
+        return { ...state, log: [...state.log, `${p.villainName} : aucun Événement à rejouer (l'affaire est dans le sac).`] }
+      }
+      return {
+        ...state,
+        pendingReplayEvent: { playerIndex: idx, candidateIds: candidates.map((c) => c.instanceId), free: true, bagControlledDice: true },
+        log: [...state.log, `${p.villainName} : choisissez un Événement à rejouer (l'affaire est dans le sac).`],
+      }
     }
     case 'GAIN_CONFIANCE': {
       const next = updatePlayer(state, idx, (p) => ({ ...p, confiance: (p.confiance ?? 0) + effect.amount }))

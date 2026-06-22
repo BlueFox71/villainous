@@ -9,6 +9,18 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.79',
+    date: '2026-06-23',
+    title: 'Nouveau vilain : Oogie Boogie (mécanique des DÉS)',
+    changes: [
+      'NOUVEAU VILAIN — Oogie Boogie (Disney, L’Étrange Noël de Monsieur Jack, 3★) : objectif inédit, faire revenir Jack Skellington puis le VAINCRE. Jouez des « Imposteur Perce-Oreilles » : à chaque fois, lancez les dés (7 ou plus = réussite, la carte rejoint la pile à côté de Sandy Claws). À 4 imposteurs réussis, Jack revient (Héros force 8) à l’Antre d’Oogie Boogie — réunissez-y assez d’Alliés pour l’éliminer.',
+      'MÉCANIQUE DES DÉS (inédite) : Oogie lance DEUX dés à six faces (somme 2–12) pour résoudre plusieurs cartes, avec une animation du tirage. Modificateurs : Gram ajoute +1 quand votre pion est sur son lieu ; « Salut, Oogie ! » (Fatalité) retire 2 au prochain lancer. Les Dés pipés permettent de RELANCER un dé après le tirage ; « Cette fois l’affaire est dans le sac » rejoue un Événement de votre défausse en choisissant le résultat des dés.',
+      'Oogie Boogie — le Trio Am/Stram/Gram se renforce mutuellement (+1 force par autre membre du trio dans le royaume). Stram fait piocher 1 carte quand le pion arrive sur son lieu. Les Chauves-souris (récupèrent un Allié de la défausse) et les Araignées (+1 Pouvoir et 1 carte) se déclenchent en participant à une élimination. La Baignoire et « Mais quelle merveille ! », « Préparation de Noël », « Ce sont des vacances »… sont en jeu.',
+      'Oogie Boogie — Fatalité : Jack joué en Fatalité retire un imposteur de la pile (recul) ; Sally déplace Oogie et le restreint aux lieux voisins ; Zéro donne +2 à Jack ; les Citoyens d’Halloween doivent être éliminés en premier ; le Docteur Finkelstein revient sur la pioche s’il est vaincu ; le Maire fait apparaître un Héros quand il tombe. Plateau (Ville d’Halloween, Cabane du Trio, Cimetière, Antre), pion, portrait, fiche et les 30 cartes Méchant + 15 Fatalité illustrées. Le bot sait jouer et contrer Oogie Boogie.',
+      'Menu principal — nouveau bouton « ⭐ Crédits » sous les notes de version : ouvre une fenêtre avec les crédits (développement) et la mention juridique (projet personnel, jamais publié ni commercialisé).',
+    ],
+  },
+  {
     version: '0.78',
     date: '2026-06-22',
     title: 'Décors d’arrière-plan : Crochet, Ursula, Facilier & Bowser',

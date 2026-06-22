@@ -60,6 +60,29 @@ function objectiveCriticalCardIds(p: PlayerState): Set<string> {
 export function enumerateActions(state: GameState): GameAction[] {
   const me = state.players[state.activePlayer]
 
+  // Oogie Boogie — lancer de dés en cours : confirmer, ou relancer un dé avec un
+  // Dés pipés quand c'est utile (Imposteur raté → on retente d'atteindre 7).
+  if (state.pendingDice) {
+    const pen = state.pendingDice
+    const out: GameAction[] = [{ type: 'RESOLVE_DICE' }]
+    if (pen.canReroll && pen.outcome.kind === 'impostor' && pen.total < 7) {
+      const dp = state.players[pen.playerIndex].hand.find((c) => c.cardId === 'des-pipes')
+      if (dp) {
+        const lowIdx: 0 | 1 = pen.dice[0] <= pen.dice[1] ? 0 : 1
+        out.push({ type: 'RESOLVE_DICE_REROLL', instanceId: dp.instanceId, dieIndex: lowIdx })
+      }
+    }
+    return out
+  }
+
+  // Oogie Boogie — action de royaume gratuite (Préparation de Noël ≥8) : on réutilise
+  // l'énumération normale (pending levé), filtrée aux actions de lieu, + renoncer.
+  if (state.pendingFreeRealmAction) {
+    const FREE_OK = new Set(['EXECUTE_ACTION', 'PLAY_CARD', 'MOVE_CARD', 'MOVE_HERO', 'VANQUISH', 'ACTIVATE'])
+    const opts = enumerateActions({ ...state, pendingFreeRealmAction: null, usedActionIds: [] }).filter((a) => FREE_OK.has(a.type))
+    return [...opts, { type: 'SKIP_FREE_REALM_ACTION' }]
+  }
+
   // Diablo (V2) : action gratuite armée → actions Pouvoir du lieu de Diablo, ou décliner.
   if (state.diabloFree) {
     const loc = me.locations.find((l) => l.id === state.diabloFree!.locationId)
@@ -642,6 +665,7 @@ export function enumerateActions(state: GameState): GameAction[] {
       const richardBlocks = hasHeroInRealm(state, state.activePlayer, 'roi-richard')
       for (const card of me.hand) {
         if (card.type === 'condition' || effectiveCost(state, card) > me.power) continue
+        if (card.reactiveOnly) continue // Oogie — Dés pipés : se joue en réaction
         if (richardBlocks && card.type === 'effect') continue
         if (cardNeedsAllyMove(card)) continue // Tendre un Piège : combinatoire ignorée ici
         // Madame de Trémaine — Allié « en robe de bal » injouable sans sa version

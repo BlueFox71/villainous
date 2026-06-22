@@ -1,4 +1,4 @@
-import { useSettingsStore, type DisplayMode } from '../store/settingsStore'
+import { useSettingsStore, useIsDesktopApp, isRealDesktopApp, type DisplayMode } from '../store/settingsStore'
 import { playTinyButtonPress, playHover } from '../sfx'
 
 interface Props {
@@ -13,6 +13,7 @@ const DISPLAY_MODES: { mode: DisplayMode; label: string }[] = [
   { mode: 'borderless', label: 'Plein écran fenêtré' },
 ]
 
+
 /** Réglages du jeu : volume de la musique, sourdine et mode d'affichage. */
 export function OptionsModal({ onClose, onSoundTest }: Props) {
   const volume = useSettingsStore((s) => s.musicVolume)
@@ -25,6 +26,9 @@ export function OptionsModal({ onClose, onSoundTest }: Props) {
   const togglePauseUnfocused = useSettingsStore((s) => s.togglePauseMusicUnfocused)
   const displayMode = useSettingsStore((s) => s.displayMode)
   const setDisplayMode = useSettingsStore((s) => s.setDisplayMode)
+  const simulateDesktop = useSettingsStore((s) => s.simulateDesktop)
+  const toggleSimulateDesktop = useSettingsStore((s) => s.toggleSimulateDesktop)
+  const isDesktopApp = useIsDesktopApp()
   const pct = Math.round((muted ? 0 : volume) * 100)
   const sfxPct = Math.round(sfxVolume * 100)
 
@@ -139,8 +143,8 @@ export function OptionsModal({ onClose, onSoundTest }: Props) {
           </p>
         </div>
 
-        {/* Banque de sons : raccourci vers l'écran d'écoute (menu uniquement). */}
-        {onSoundTest && (
+        {/* Banque de sons : raccourci vers l'écran d'écoute (menu uniquement ; masqué dans l'exe). */}
+        {onSoundTest && !isDesktopApp && (
           <div className="flex flex-col gap-2">
             <span className="text-sm font-semibold text-white/80">Sons du jeu</span>
             <button
@@ -155,6 +159,23 @@ export function OptionsModal({ onClose, onSoundTest }: Props) {
             </button>
             <p className="text-xs text-white/40">Écouter les musiques et bruitages du jeu.</p>
           </div>
+        )}
+
+        {/* Réglage DÉV (caché dans l'exe réel) : simuler le mode application de bureau pour
+            tester le masquage des outils de dév (Mode test, Banque de sons, case couleur…). */}
+        {!isRealDesktopApp() && (
+          <label className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-white/15 p-3 text-sm">
+            <span className="flex flex-col">
+              <span className="font-semibold text-emerald-300/80">Simuler le mode application (.exe)</span>
+              <span className="text-xs text-white/40">Masque les outils de dév comme dans l'exe distribué.</span>
+            </span>
+            <input
+              type="checkbox"
+              checked={simulateDesktop}
+              onChange={toggleSimulateDesktop}
+              className="h-5 w-5 shrink-0 accent-emerald-400"
+            />
+          </label>
         )}
       </div>
     </div>

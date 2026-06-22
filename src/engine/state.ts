@@ -575,6 +575,20 @@ export function createInitialGame(setups: PlayerSetup[], seed: number): GameStat
         keys: sh.result.map((color, i) => ({ id: `key-${i}`, color, location: locs[Math.floor(i / per)] })),
       }
     }
+    // Oogie Boogie — Prisonnier (Perce-Oreilles / Sandy Claws) posé à l'Antre : on le
+    // sort du deck Fatalité et on le place sur son lieu. Il ancre la pile d'Imposteurs.
+    if (villain.prisonerSetup) {
+      const { cardId, locationId } = villain.prisonerSetup
+      const prisoner = player.fateDeck.find((c) => c.cardId === cardId)
+      if (prisoner) {
+        player = {
+          ...player,
+          fateDeck: player.fateDeck.filter((c) => c.instanceId !== prisoner.instanceId),
+          board: { ...player.board, [locationId]: [...(player.board[locationId] ?? []), prisoner] },
+          impostorsPlaced: 0,
+        }
+      }
+    }
     const drawn = drawPlayerToLimit(player, rngState)
     rngState = drawn.rngState
     players.push(drawn.player)

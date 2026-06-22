@@ -18,6 +18,12 @@ export function nextRandom(state: number): { value: number; state: number } {
   return { value, state: a }
 }
 
+/** Lance un dé à 6 faces (Oogie Boogie) : renvoie 1..6 + le nouvel état du PRNG. */
+export function rollD6(state: number): { value: number; state: number } {
+  const r = nextRandom(state)
+  return { value: 1 + Math.floor(r.value * 6), state: r.state }
+}
+
 /** Mélange de Fisher-Yates pur : renvoie une nouvelle copie mélangée + le
  *  nouvel état du PRNG (n'altère pas le tableau d'entrée). */
 export function shuffle<T>(input: readonly T[], state: number): { result: T[]; state: number } {

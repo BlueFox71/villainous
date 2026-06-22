@@ -45,6 +45,7 @@ const VOICE_PREFIX: Record<VillainKey, string> = {
   gaston: 'Gaston', // 4 variantes présentes
   seigneurCles: 'Le Seigneur des clés', // 4 variantes présentes
   madameTremaine: 'Madame de trémaine', // 4 variantes présentes
+  oogieBoogie: 'Oogie Boogie', // pas (encore) de fichiers de voix → intro silencieuse
 }
 
 const CONTRE_PREFIX = 'Contre'

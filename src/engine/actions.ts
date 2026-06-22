@@ -18,7 +18,7 @@ import type {
   PeteGoalKind,
   PlayerState,
 } from './types'
-import { shuffle } from './rng'
+import { shuffle, rollD6 } from './rng'
 import {
   activePlayer,
   annotateShowcaseGain,
@@ -174,6 +174,11 @@ function applyMove(state: GameState, to: string): GameState {
       ...(hasPersifleur ? ['Persifleur : une action recouverte est jouable ici.'] : []),
     ],
   }
+  // Oogie Boogie — Stram : pioche 1 carte quand le pion arrive sur son lieu.
+  if ((next.players[state.activePlayer].board[to] ?? []).some((c) => c.cardId === 'stram')) {
+    next = resolveEffects(next, [{ type: 'DRAW_CARDS', count: 1 }], { actorIndex: state.activePlayer })
+    next = { ...next, log: [...next.log, `Stram : ${me.villainName} pioche 1 carte en arrivant ici.`] }
+  }
   // Dr Facilier — Ombre du Dr Facilier : si elle est sur le lieu de départ du
   // pion, elle se déplace en même temps que lui (auto).
   const from = me.pawnLocation
@@ -299,6 +304,11 @@ function applyPlayCard(
   if (!card) throw new Error(`Carte « ${instanceId} » absente de la main.`)
   if (card.type === 'condition') {
     throw new Error("Une carte Condition se joue pendant le tour d'un adversaire.")
+  }
+  // Oogie Boogie — Dés pipés : se joue en réaction (relance d'un dé), pas via
+  // « Jouer une carte ».
+  if (card.reactiveOnly) {
+    throw new Error('Cette carte se joue en réaction (après un lancer de dés).')
   }
   // Roi Richard (Fatalité, dans le royaume du joueur actif) : interdit les
   // cartes Événement tant qu'il n'est pas vaincu.
@@ -1429,11 +1439,145 @@ function applyResolveReplayEvent(state: GameState, instanceId: string | null): G
   if (!pending.candidateIds.includes(instanceId)) throw new Error('Événement choisi invalide (Ironie du sort).')
   const ev = p.discard.find((c) => c.instanceId === instanceId)
   if (!ev) throw new Error('Événement introuvable dans la défausse.')
-  const cost = ev.cost ?? 0
+  // Oogie — Cette fois l'affaire est dans le sac : rejeu GRATUIT et, si l'Événement
+  // lance les dés, résultat CHOISI (bagControlledDice).
+  const free = !!pending.free
+  const cost = free ? 0 : ev.cost ?? 0
   if (p.power < cost) throw new Error('Pas assez de Pouvoir pour rejouer cet Événement.')
-  let next: GameState = { ...updatePlayer(state, idx, (pp) => ({ ...pp, power: pp.power - cost })), pendingReplayEvent: null }
-  next = { ...next, log: [...next.log, `Ironie du sort : **${ev.name}** est rejoué (coût ${cost}).`] }
+  const label = pending.bagControlledDice ? "Cette fois l'affaire est dans le sac" : 'Ironie du sort'
+  let next: GameState = {
+    ...updatePlayer(state, idx, (pp) => ({ ...pp, power: pp.power - cost })),
+    pendingReplayEvent: null,
+    bagControlledDice: pending.bagControlledDice ? true : state.bagControlledDice,
+  }
+  next = { ...next, log: [...next.log, `${label} : **${ev.name}** est rejoué${free ? ' (gratuitement)' : ` (coût ${cost})`}.`] }
   next = resolveEffects(next, ev.effects ?? [], { actorIndex: idx })
+  // Le drapeau « dés contrôlés » ne vaut que pour ce rejeu (sauf si un pendingDice
+  // s'est ouvert : il sera consommé/nettoyé à la résolution du lancer).
+  if (!next.pendingDice) next = { ...next, bagControlledDice: null }
+  return next
+}
+
+// --- Oogie Boogie : résolution des lancers de dés ---------------------------
+
+/** Joue un Dés pipés (`instanceId`) pour relancer le dé `dieIndex` du lancer en cours. */
+function applyResolveDiceReroll(state: GameState, instanceId: string, dieIndex: 0 | 1): GameState {
+  const pen = state.pendingDice
+  if (!pen) throw new Error('Aucun lancer de dés en cours.')
+  const idx = pen.playerIndex
+  const p = state.players[idx]
+  const card = p.hand.find((c) => c.instanceId === instanceId && c.cardId === 'des-pipes')
+  if (!card) throw new Error('Aucun Dés pipés correspondant en main.')
+  const r = rollD6(state.rngState)
+  const dice: [number, number] = dieIndex === 0 ? [r.value, pen.dice[1]] : [pen.dice[0], r.value]
+  const total = dice[0] + dice[1] + pen.modifier
+  const next = updatePlayer({ ...state, rngState: r.state }, idx, (pp) => ({
+    ...pp,
+    hand: pp.hand.filter((c) => c.instanceId !== instanceId),
+    discard: [...pp.discard, card],
+  }))
+  const canReroll = next.players[idx].hand.some((c) => c.cardId === 'des-pipes')
+  const seq = (next.diceRoll?.seq ?? 0) + 1
+  const modStr = pen.modifier !== 0 ? ` (${pen.modifier > 0 ? '+' : ''}${pen.modifier})` : ''
+  return {
+    ...next,
+    diceRoll: { seq, dice, total, modifier: pen.modifier, by: idx, context: pen.context },
+    pendingDice: { ...pen, dice, total, canReroll },
+    log: [...next.log, `${p.villainName} (Dés pipés) relance un dé : ${dice[0]} + ${dice[1]}${modStr} = **${total}**.`],
+  }
+}
+
+/** Confirme le lancer de dés en cours et applique son issue (cf. PendingDice.outcome). */
+function applyResolveDice(state: GameState): GameState {
+  const pen = state.pendingDice
+  if (!pen) throw new Error('Aucun lancer de dés à résoudre.')
+  const idx = pen.playerIndex
+  const total = pen.total
+  let next: GameState = { ...state, pendingDice: null, bagControlledDice: null }
+  const name = next.players[idx].villainName
+  switch (pen.outcome.kind) {
+    case 'impostor': {
+      if (total >= 7) {
+        const p = next.players[idx]
+        if (p.jackReturned) {
+          // Jack est revenu : l'Imposteur lui colle un jeton Force -1.
+          const jackLoc = Object.keys(p.board).find((l) => (p.board[l] ?? []).some((c) => c.cardId === 'jack-skellington'))
+          if (jackLoc) {
+            next = updatePlayer(next, idx, (pp) => ({
+              ...pp,
+              board: {
+                ...pp.board,
+                [jackLoc]: pp.board[jackLoc].map((c) =>
+                  c.cardId === 'jack-skellington' ? { ...c, forceTokens: (c.forceTokens ?? 0) - 1 } : c,
+                ),
+              },
+            }))
+            next = { ...next, log: [...next.log, `Imposteur réussi (${total}) : un jeton Force -1 est ajouté à Jack Skellington.`] }
+          }
+        } else {
+          const count = (p.impostorsPlaced ?? 0) + 1
+          next = updatePlayer(next, idx, (pp) => ({ ...pp, impostorsPlaced: count }))
+          next = { ...next, log: [...next.log, `Imposteur réussi (${total}) : ${count}/4 près de Sandy Claws.`] }
+          if (count >= 4) {
+            // Jack revient à l'Antre (Héros force 8) ; Sandy Claws est retiré du jeu.
+            next = resolveEffects(
+              next,
+              [{ type: 'SUMMON_FATE_HERO_TO_OWN_REALM', heroCardId: 'jack-skellington', locationId: 'antre' }],
+              { actorIndex: idx },
+            )
+            next = updatePlayer(next, idx, (pp) => ({
+              ...pp,
+              jackReturned: true,
+              board: Object.fromEntries(
+                Object.entries(pp.board).map(([l, cards]) => [l, cards.filter((c) => c.cardId !== 'perce-oreilles')]),
+              ),
+            }))
+            next = { ...next, log: [...next.log, `Les 4 Imposteurs font revenir **Jack Skellington** ! Sandy Claws est retiré du jeu — éliminez Jack à l'Antre pour gagner.`] }
+          }
+        }
+      } else {
+        next = { ...next, log: [...next.log, `Imposteur raté (${total} ≤ 6) : la carte est défaussée.`] }
+      }
+      break
+    }
+    case 'making-christmas': {
+      if (total <= 7) {
+        next = resolveEffects(next, [{ type: 'DRAW_CARDS', count: 1 }], { actorIndex: idx })
+        next = { ...next, log: [...next.log, `Préparation de Noël (${total}) : ${name} pioche 1 carte.`] }
+      } else {
+        next = {
+          ...next,
+          pendingFreeRealmAction: { playerIndex: idx },
+          log: [...next.log, `Préparation de Noël (${total}) : ${name} peut effectuer une action de royaume gratuite (sur son lieu).`],
+        }
+      }
+      break
+    }
+    case 'merveille': {
+      const ids = new Set(pen.outcome.allyInstanceIds)
+      const loc = pen.outcome.locationId
+      if (total <= 7) {
+        next = updatePlayer(next, idx, (pp) => {
+          const back = pp.discard.filter((c) => ids.has(c.instanceId))
+          return { ...pp, discard: pp.discard.filter((c) => !ids.has(c.instanceId)), hand: [...pp.hand, ...back] }
+        })
+        next = { ...next, log: [...next.log, `Mais quelle merveille ! (${total}) : les Alliés utilisés reviennent en main.`] }
+      } else {
+        next = updatePlayer(next, idx, (pp) => {
+          const back = pp.discard.filter((c) => ids.has(c.instanceId)).map((c) => ({ ...c, attachedTo: undefined }))
+          return {
+            ...pp,
+            discard: pp.discard.filter((c) => !ids.has(c.instanceId)),
+            board: { ...pp.board, [loc]: [...(pp.board[loc] ?? []), ...back] },
+          }
+        })
+        next = { ...next, log: [...next.log, `Mais quelle merveille ! (${total}) : les Alliés utilisés restent en jeu.`] }
+      }
+      break
+    }
+    case 'trick-or-treat':
+      break // résolu immédiatement par l'effet (jamais via pendingDice)
+  }
   return next
 }
 
@@ -2014,6 +2158,16 @@ function applyResolveFate(
   const chosenCard = revealed.find((c) => c.instanceId === instanceId)
   if (chosenCard?.cardId === 'la-rose' && !state.roseChain) {
     return startRose(state, pending!.target, revealed, instanceId)
+  }
+  // Oogie Boogie — Jack Skellington joué en FATALITÉ : ce n'est PAS un Héros posé,
+  // mais un Événement qui retire 1 Imposteur de la pile. Jack (et l'autre carte
+  // révélée) partent en défausse Fatalité ; Jack pourra revenir via l'objectif.
+  if (chosenCard?.cardId === 'jack-skellington') {
+    const tgt = pending!.target
+    let next = updatePlayer(state, tgt, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, ...revealed] }))
+    next = { ...next, pendingFate: null }
+    next = resolveEffects(next, [{ type: 'JACK_FATE_DISCARD_IMPOSTOR' }], { actorIndex: tgt })
+    return next
   }
   // Combo « jouer les deux » (data-driven, fatePlayBoth : Ray, Dormeur). On
   // n'active le combo que tant que la Fatalité courante n'est PAS déjà la 2ᵉ carte
@@ -6969,9 +7123,12 @@ function applyEndTurn(state: GameState): GameState {
     pendingPlaisir: null,
     pendingStealKey: null,
     lastDieColor: null,
-    // NB : on NE remet PAS `dieRoll` à null ici — son `seq` doit croître de façon
-    // monotone sur toute la partie pour que l'UI détecte chaque nouveau lancer
-    // (sinon le seq repartirait à 1 chaque tour et l'anim ne se redéclencherait pas).
+    // NB : on NE remet PAS `dieRoll`/`diceRoll` à null ici — leur `seq` doit croître
+    // de façon monotone sur toute la partie pour que l'UI détecte chaque nouveau
+    // lancer (sinon le seq repartirait à 1 chaque tour et l'anim ne se redéclencherait pas).
+    pendingDice: null,
+    pendingFreeRealmAction: null,
+    bagControlledDice: null,
     pendingTrapVanquish: null,
     actAtLocation: null,
     actAtLocationSkippable: null,
@@ -7487,6 +7644,36 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   if (state.pendingReplayEvent && action.type !== 'RESOLVE_REPLAY_EVENT' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Ironie du sort : choisissez l’Événement à rejouer (RESOLVE_REPLAY_EVENT).')
   }
+  // Oogie Boogie — un lancer de dés en cours bloque tout sauf sa résolution (et le
+  // jeu des Conditions adverses, traité plus haut). On résout par RESOLVE_DICE, ou
+  // on relance un dé via un Dés pipés (RESOLVE_DICE_REROLL).
+  if (
+    state.pendingDice &&
+    action.type !== 'RESOLVE_DICE' &&
+    action.type !== 'RESOLVE_DICE_REROLL' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Résolvez le lancer de dés en cours (RESOLVE_DICE).')
+  }
+  // Oogie Boogie — Préparation de Noël (≥8) : une action de royaume gratuite est
+  // offerte (sur le lieu du pion). Le joueur effectue UNE action de lieu (rejouable
+  // même si déjà utilisée ce tour) puis la fenêtre se referme, ou il y renonce.
+  if (state.pendingFreeRealmAction) {
+    if (action.type === 'SKIP_FREE_REALM_ACTION') {
+      return { ...state, pendingFreeRealmAction: null, log: [...state.log, `${activePlayer(state).villainName} renonce à l'action gratuite (Préparation de Noël).`] }
+    }
+    const FREE_OK = ['EXECUTE_ACTION', 'PLAY_CARD', 'MOVE_CARD', 'MOVE_HERO', 'VANQUISH', 'ACTIVATE']
+    if (FREE_OK.includes(action.type)) {
+      const actId = (action as { actionId?: string }).actionId
+      const cleared: GameState = {
+        ...state,
+        pendingFreeRealmAction: null,
+        usedActionIds: actId ? state.usedActionIds.filter((a) => a !== actId) : state.usedActionIds,
+      }
+      return applyAction(cleared, action)
+    }
+    throw new Error('Préparation de Noël : effectuez une action de royaume gratuite ou renoncez (SKIP_FREE_REALM_ACTION).')
+  }
   switch (action.type) {
     case 'MOVE':
       return applyMove(state, action.to)
@@ -7664,6 +7851,13 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveBeautySleep(state, action.gainPower, action.draw, action.heroMove)
     case 'RESOLVE_REPLAY_EVENT':
       return applyResolveReplayEvent(state, action.instanceId)
+    case 'RESOLVE_DICE':
+      return applyResolveDice(state)
+    case 'RESOLVE_DICE_REROLL':
+      return applyResolveDiceReroll(state, action.instanceId, action.dieIndex)
+    case 'SKIP_FREE_REALM_ACTION':
+      // Hors fenêtre d'action gratuite : sans effet (la fenêtre est gérée plus haut).
+      return state
     case 'CHARIOT_MOVE':
       return applyChariotMove(state, action.instanceId, action.to)
     case 'USE_NEVERLAND_MAP':

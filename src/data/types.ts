@@ -191,6 +191,9 @@ export interface CardDef {
    *  joueur ciblé. Renseigné via `data/fateMalus.ts` et attaché par le registre
    *  (pas dans les `.cards.ts`). Absent = NEUTRE. */
   fateMalus?: FateMalus
+  /** Oogie Boogie — carte jouée en réaction, pas via « Jouer une carte » (Dés pipés :
+   *  relance un dé pendant un lancer). Injouable normalement. */
+  reactiveOnly?: boolean
 }
 
 /** Développe une liste de définitions en un paquet concret (un élément par
@@ -261,6 +264,7 @@ export function buildDeckInstances(
           drawCardOnFateTargeted: c.drawCardOnFateTargeted,
           coversExtraAction: c.coversExtraAction,
           replacesCardId: c.replacesCardId,
+          reactiveOnly: c.reactiveOnly,
         }),
       ),
     )

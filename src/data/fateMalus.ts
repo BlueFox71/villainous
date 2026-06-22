@@ -242,6 +242,16 @@ export const FATE_MALUS: Record<string, FateMalus> = {
   bruno: 'slow',
   jaq: 'slow',
   gus: 'slow',
+
+  // --- Oogie Boogie (faire revenir Jack via 4 Imposteurs puis le vaincre) ---
+  // Jack Skellington = Héros-cible (NEUTRE, absent). Perce-Oreilles = Prisonnier de
+  // mise en place (NEUTRE). Jack joué EN Fatalité retire un Imposteur : c'est une
+  // bonne carte pour l'adversaire, mais ce n'est PAS un Héros durable → hors table.
+  sally: 'slow2', // restreint les déplacements d'Oogie aux lieux voisins (gêne forte)
+  zero: 'slow2', // +2 à la force de Jack : rend le Vanquish final plus dur
+  'docteur-finkelstein': 'slow', // revient sur la pioche Fatalité s'il est éliminé
+  'maire-halloween': 'slow', // éliminé → fait apparaître un autre Héros
+  'citoyens-halloween': 'slow', // à éliminer avant les autres Héros du lieu
 }
 
 /** cardId dont le « block-win » n'est valable que sous condition (gérée par l'IA). */

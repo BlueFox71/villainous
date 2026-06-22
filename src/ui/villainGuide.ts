@@ -365,4 +365,20 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       'Bibbidi-Bobbidi-Boo et Doux Rossignol lui font défausser des cartes : casse ses combinaisons (Invitation, Robe, Cloches) avant qu’elles n’arrivent en jeu.',
     ],
   },
+  oogieBoogie: {
+    difficulty: 3,
+    story:
+      "Croquemitaine de Halloween Town (L’Étrange Noël de Monsieur Jack, 1993), Oogie Boogie est un sac de toile grouillant d’insectes, accro au jeu et aux dés pipés. Il enlève « Perce-Oreilles » (Sandy Claws) et veut convaincre Jack Skellington de lui laisser Noël… avant de le faire tomber dans son antre.",
+    playTips: [
+      'Ton objectif : faire revenir Jack Skellington puis le VAINCRE. Joue des « Imposteur Perce-Oreilles » : à chaque fois, lance les dés (7+ = succès, la carte rejoint la pile à côté de Sandy Claws).',
+      'À 4 imposteurs réussis, Jack revient (Héros force 8, sans capacité) à l’Antre d’Oogie Boogie : réunis-y assez d’Alliés pour l’éliminer (le Trio Am/Stram/Gram se renforce mutuellement).',
+      'Tu lances DEUX dés (somme 2–12). Gram ajoute +1 quand ton pion est sur son lieu ; les Dés pipés relancent un dé ; « Cette fois l’affaire est dans le sac » te laisse choisir le résultat.',
+      'Les imposteurs joués APRÈS le retour de Jack lui collent un jeton force −1 : continue d’en jouer pour l’affaiblir avant le combat.',
+    ],
+    counterTips: [
+      'Jouer Jack Skellington en Fatalité défausse un imposteur de sa pile : casse sa progression au bon moment.',
+      'Salut, Oogie ! lui retire 2 à son prochain lancer — sabote un jet d’imposteur décisif.',
+      'Les Citoyens d’Halloween doivent être éliminés avant les autres Héros : empile-les pour protéger Jack et les Héros gênants.',
+    ],
+  },
 }

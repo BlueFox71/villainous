@@ -117,6 +117,10 @@ export interface VillainDef {
    *  (3 → 12 au total ; ≥1 de chaque couleur garanti). Déclenche la génération des
    *  clés dans createInitialGame. Absent ailleurs. */
   startingKeysPerLocation?: number
+  /** Oogie Boogie — Prisonnier posé sur un lieu à la mise en place (Perce-Oreilles /
+   *  Sandy Claws sur l'Antre). La carte est sortie du deck Fatalité. Elle ancre la
+   *  pile d'Imposteurs et déclenche le retour de Jack à 4 imposteurs. Absent ailleurs. */
+  prisonerSetup?: { cardId: string; locationId: LocationId }
 }
 
 /** Le Seigneur des clés — couleurs de clé (le dé a une face par couleur). */
@@ -333,6 +337,35 @@ export interface PuppyTile {
  */
 export type Effect =
   | { type: 'GAIN_POWER'; amount: number }
+  /** Oogie Boogie — Imposteur Perce-Oreilles : lance les 2 dés (pendingDice
+   *  `impostor`). ≥7 → succès (pile près de Sandy Claws / jeton -1 sur Jack si
+   *  revenu) ; ≤6 → la carte est défaussée. */
+  | { type: 'ROLL_IMPOSTOR' }
+  /** Oogie Boogie — Préparation de Noël : lance les 2 dés (pendingDice
+   *  `making-christmas`). ≤7 → pioche 1 ; ≥8 → action de royaume gratuite. */
+  | { type: 'ROLL_MAKING_CHRISTMAS' }
+  /** Oogie Boogie — Mais quelle merveille ! : effectue d'abord un Vanquish
+   *  (ctx.targetHeroId + allyInstanceIds), met les Alliés de côté, puis lance les
+   *  dés (pendingDice `merveille`). ≤7 → Alliés en main ; ≥8 → restent en jeu. */
+  | { type: 'ROLL_MERVEILLE' }
+  /** Oogie Boogie — Ce sont des vacances : défausse les 3 premières cartes de SA
+   *  pioche Fatalité, pioche 1 carte Vilain par Héros ainsi défaussé. */
+  | { type: 'DISCARD_TOP_FATE_DRAW_PER_HERO'; count: number }
+  /** Oogie Boogie — Jack Skellington joué en FATALITÉ : retire 1 Imposteur de la
+   *  pile (impostorsPlaced − 1, plancher 0). La carte Jack part en défausse Fatalité. */
+  | { type: 'JACK_FATE_DISCARD_IMPOSTOR' }
+  /** Oogie Boogie — Cette fois l'affaire est dans le sac : rejoue un Événement de
+   *  la défausse gratuitement ; s'il lance les dés, le résultat est choisi (au mieux).
+   *  Réutilise pendingReplayEvent avec le drapeau `bagControlledDice`. */
+  | { type: 'REPLAY_EVENT_BAG' }
+  /** Oogie Boogie — Joyeux Halloween ! (Condition) : lance les 2 dés. ≥8 → gagne le
+   *  total en Pouvoir ; ≤7 → vole 1 Pouvoir à l'adversaire actif. Résolu immédiatement. */
+  | { type: 'ROLL_TRICK_OR_TREAT' }
+  /** Pioche `count` cartes (générique). */
+  | { type: 'DRAW_CARDS'; count: number }
+  /** Oogie Boogie — Sally (onPlace, Fatalité) : déplace le pion d'Oogie sur le lieu
+   *  où Sally est posée et active la restriction de déplacement (lieux voisins). */
+  | { type: 'SALLY_PLACED' }
   /** Mère Gothel — gagne `amount` jetons Confiance (pris dans la Réserve : n'entame
    *  pas son Pouvoir). Objectif : 10 Confiance au début de son tour. */
   | { type: 'GAIN_CONFIANCE'; amount: number }
@@ -1092,6 +1125,13 @@ export interface CardInstance {
   /** Bonus de force temporaire « jusqu'à la fin du tour » (Pas de Quartier !).
    *  Remis à zéro à la fin du tour du joueur actif. */
   tempStrengthBonus?: number
+  /** Jetons de force PERMANENTS posés sur la carte (Oogie Boogie : jeton Force -1
+   *  collé à Jack Skellington par chaque Imposteur joué après son retour). Sommé
+   *  par effectiveStrength (peut être négatif). */
+  forceTokens?: number
+  /** Carte qui ne se joue PAS via une action « Jouer une carte » : elle est jouée
+   *  en réaction (Oogie Boogie — Dés pipés : relance un dé pendant un lancer). */
+  reactiveOnly?: boolean
   /** Ursula — Pacte : lieu lié au Pacte. Le Héros porteur est éliminé s'il est
    *  déplacé sur ce lieu. */
   contractLocationId?: LocationId
@@ -1318,6 +1358,10 @@ export type SelfStrengthMod =
   /** +delta par AUTRE carte de MÊME cardId présente dans le royaume (Gaston —
    *  Loups : +1 par autre Loup). Réutilisable pour toute carte « en meute ». */
   | { kind: 'per-other-same-cardId-realm'; delta: number }
+  /** +delta par AUTRE carte dont le cardId est dans `cardIds`, présente dans le
+   *  royaume (Oogie Boogie — Trio Am/Stram/Gram : +1 par autre membre du trio).
+   *  N'inclut pas la carte elle-même. */
+  | { kind: 'per-other-in-set-realm'; cardIds: string[]; delta: number }
 
 /** Dr Facilier — comportement d'une carte RÉVÉLÉE depuis la Pile de l'Au-delà
  *  par Divination. Donnée réutilisable, interprétée par resolveAuDela (effects.ts).
@@ -1563,6 +1607,60 @@ export interface PlayerState {
   /** Plafond d'actions de lieu actif CE tour-ci (Peste). Au-delà, plus aucune action
    *  de lieu n'est disponible (END_TURN reste possible). Effacé en fin de tour. */
   actionsCap?: number
+  /** Oogie Boogie — nombre d'Imposteur Perce-Oreilles réussis posés près de Sandy
+   *  Claws (0→4). À 4, Jack Skellington revient et Sandy Claws est retiré. */
+  impostorsPlaced?: number
+  /** Oogie Boogie — Jack Skellington est revenu (Héros à l'Antre) : les Imposteurs
+   *  joués ensuite lui collent un jeton Force -1 au lieu d'alimenter la pile. */
+  jackReturned?: boolean
+  /** Oogie Boogie — jetons « Salut, Oogie ! » sous la figurine (Fatalité). Chacun
+   *  retire 2 au PROCHAIN lancer de dés, puis est défaussé. */
+  helloOogieTokens?: number
+  /** Oogie Boogie — Sally : tant qu'elle est en jeu, Oogie ne peut se déplacer que
+   *  vers un lieu VOISIN au début de son tour. */
+  sallyRestrict?: boolean
+}
+
+/**
+ * Oogie Boogie — ce qu'il faut faire du résultat d'un lancer de dés une fois
+ * celui-ci confirmé (après modificateurs et éventuelles relances). Discriminé par
+ * `kind` ; résolu par applyResolveDice.
+ */
+export type DiceOutcome =
+  /** Imposteur Perce-Oreilles : ≥7 → succès (pile près de Sandy Claws, ou jeton
+   *  Force -1 sur Jack s'il est revenu) ; ≤6 → la carte est défaussée (déjà partie
+   *  en défausse par le flux de jeu : seul le compteur de succès est affecté). */
+  | { kind: 'impostor' }
+  /** Préparation de Noël : ≤7 → pioche 1 carte ; ≥8 → une action de royaume
+   *  gratuite (hors Fatalité). */
+  | { kind: 'making-christmas' }
+  /** Mais quelle merveille ! : Vanquish déjà résolu (Alliés mis de côté). ≤7 →
+   *  Alliés rendus en main ; ≥8 → Alliés restent sur leur lieu (non défaussés). */
+  | { kind: 'merveille'; allyInstanceIds: string[]; locationId: LocationId }
+  /** Joyeux Halloween ! (Condition) : ≥8 → gagne le total en Pouvoir ; ≤7 → vole
+   *  1 Pouvoir à l'adversaire `targetIndex`. */
+  | { kind: 'trick-or-treat'; targetIndex: number }
+
+/**
+ * Oogie Boogie — fenêtre de résolution d'un lancer de dés. Ouverte dès qu'une
+ * carte lance les 2 dés : le joueur voit le résultat (déjà modifié par Gram /
+ * Salut Oogie !), peut RELANCER un dé avec un Dés pipés (RESOLVE_DICE_REROLL),
+ * puis confirme (RESOLVE_DICE) pour appliquer l'`outcome`.
+ */
+export interface PendingDice {
+  playerIndex: number
+  /** Valeurs faciales des deux dés (après relances). */
+  dice: [number, number]
+  /** Modificateur appliqué au total (Gram +1, Salut Oogie ! -2 chacun…). */
+  modifier: number
+  /** Total effectif = dice[0] + dice[1] + modifier. */
+  total: number
+  /** Libellé de la carte/contexte (journal + modale). */
+  context: string
+  /** Ce qu'il faut faire du total une fois confirmé. */
+  outcome: DiceOutcome
+  /** Vrai si le joueur peut encore relancer (un Dés pipés en main). Recalculé. */
+  canReroll: boolean
 }
 
 /**
@@ -1833,6 +1931,18 @@ export interface GameState {
   } | null
   /** Le Seigneur des clés — dernière couleur obtenue au dé (affichage UI). */
   lastDieColor?: KeyColor | null
+  /** Oogie Boogie — dernier lancer des 2 dés, pour l'animation UI. `seq` croît à
+   *  chaque lancer (relances comprises) ; `by` = index du joueur qui lance. */
+  diceRoll?: { seq: number; dice: [number, number]; total: number; modifier: number; by: number; context: string } | null
+  /** Oogie Boogie — fenêtre de résolution d'un lancer en cours (RESOLVE_DICE /
+   *  RESOLVE_DICE_REROLL). `null` hors d'un lancer. */
+  pendingDice?: PendingDice | null
+  /** Oogie Boogie — Préparation de Noël (≥8) : `playerIndex` peut effectuer UNE
+   *  action de royaume gratuite (hors Fatalité), puis RESOLVE/skip. */
+  pendingFreeRealmAction?: { playerIndex: number } | null
+  /** Oogie Boogie — Cette fois l'affaire est dans le sac : pendant le rejeu d'un
+   *  Événement, tout lancer de dés est CONTRÔLÉ (résolu au meilleur résultat). */
+  bagControlledDice?: boolean | null
   /**
    * Gaston — La Rose (Fatalité) : chaîne en cours. `phase` :
    *  - 'play-other' : l'autre carte révélée avec la Rose est en train d'être jouée ;
@@ -2181,7 +2291,7 @@ export interface GameState {
   pendingBeautySleep?: { playerIndex: number } | null
   /** Yzma — Ironie du sort : `playerIndex` choisit un Événement de sa défausse
    *  (`candidateIds`, abordables), en paie le coût et le rejoue (RESOLVE_REPLAY_EVENT). */
-  pendingReplayEvent?: { playerIndex: number; candidateIds: string[] } | null
+  pendingReplayEvent?: { playerIndex: number; candidateIds: string[]; free?: boolean; bagControlledDice?: boolean } | null
   /** Hadès (Fatalité) — Héra / Pégase : `chooserIndex` (le joueur qui a joué la
    *  Fatalité) choisit un Titan parmi `titanCandidateIds` (du royaume de Hadès =
    *  `playerIndex`) à entraver (`kind: 'trap'`) ou à repousser de `pushSteps` lieux
@@ -2614,6 +2724,13 @@ export type GameAction =
     }
   /** Yzma — Ironie du sort : Événement de la défausse à rejouer (null = aucun). */
   | { type: 'RESOLVE_REPLAY_EVENT'; instanceId: string | null }
+  /** Oogie Boogie — confirme le lancer de dés en cours et applique son issue. */
+  | { type: 'RESOLVE_DICE' }
+  /** Oogie Boogie — joue un Dés pipés (`instanceId`) pour relancer le dé `dieIndex`
+   *  (0 ou 1) du lancer en cours. */
+  | { type: 'RESOLVE_DICE_REROLL'; instanceId: string; dieIndex: 0 | 1 }
+  /** Oogie Boogie — Préparation de Noël (≥8) : action de royaume gratuite déclinée. */
+  | { type: 'SKIP_FREE_REALM_ACTION' }
   /** MODE TEST uniquement : inflige directement un Héros Fatalité (déjà construit
    *  par l'UI) sur un lieu du joueur ACTIF, déclenchant ses effets « à la pose »,
    *  les arrivées et les showcases — comme si un adversaire l'avait joué. */

@@ -38,9 +38,13 @@ export type VillainDecor =
   | { kind: 'goldenHair' }
   // `video` : une vidéo en boucle (plein cadre, `object-fit: cover`) recouverte d'un
   // dégradé teinté en `mix-blend-mode: color` → on colore la vidéo en gardant sa
-  // luminance. Paramétrable (`src`, `gradient`) → réutilisable (Méchante Reine : fumée
-  // violette de sorcellerie).
+  // luminance. Paramétrable (`src`, `gradient`) → réutilisable.
   | { kind: 'video'; src: string; gradient?: string }
+  // `evilQueen` : la fumée violette de sorcellerie (vidéo `video`) SURMONTÉE de couches qui
+  // racontent la Méchante Reine — des bulles de potion verte montent du chaudron, une fine
+  // poussière de sorcellerie violette scintille, et une ou deux POMMES empoisonnées flottent
+  // dans la fumée avec un halo vert toxique qui pulse (Méchante Reine — Blanche-Neige).
+  | { kind: 'evilQueen'; src: string; gradient?: string; apple: string }
   // `goldDust` : une fine poussière d'or dérive lentement (mouvement flottant, vitesses
   // et tailles variées) ; quelques particules scintillent (éclat de reflet). Voile chaud
   // doré + vignette (le trésor hors champ) (Prince Jean — Robin des Bois, la cupidité).
@@ -74,6 +78,11 @@ export type VillainDecor =
   // (Méla-Méla, Bulle de lave, Comète) et, par moments, un BILL BOURRIN (obus Banzai Bill) qui
   // traverse l'écran (Bowser — Super Mario Galaxy).
   | { kind: 'galaxy' }
+  // `graveyard` : le cimetière des éléphants de « Soyez prêtes » — une caverne volcanique sombre,
+  // des ROCHERS déchiquetés tout autour (bas, côtés, plafond/stalactites), des colonnes de VAPEUR
+  // VERTE qui jaillissent des évents et montent en s'enroulant, une nappe de brume verte qui dérive
+  // partout, et une lueur verte malsaine qui palpite par en-dessous (Scar — Le Roi Lion).
+  | { kind: 'graveyard' }
 
 export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   patHibulaire: { kind: 'film' },
@@ -87,21 +96,81 @@ export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   facilier: { kind: 'voodoo' },
   imposteur: { kind: 'space' },
   gothel: { kind: 'goldenHair' },
-  // Méchante Reine (Blanche-Neige) : vidéo de fumée teintée en violet sorcellerie
-  // (#472B46) via mix-blend-mode color.
+  // Méchante Reine (Blanche-Neige) : la fumée de sorcellerie (vidéo teintée violet #472B46 via
+  // mix-blend-mode color) surmontée des bulles de potion verte, de la poussière de sorcellerie
+  // violette et des pommes empoisonnées.
   mechanteReine: {
-    kind: 'video',
+    kind: 'evilQueen',
     src: '/animations/smoke.mp4',
     gradient: 'linear-gradient(to top, #2e1c2d, #472b46 55%, #5e3a5b)',
+    apple: '/animations/apple.png',
   },
   // Hadès (Hercule) : les Enfers — feu bleu + âmes + braises + lueur + coups de colère.
   hades: { kind: 'underworld' },
   // Bowser (Super Mario Galaxy) : sa galaxie — nébuleuse rouge/orange + étoiles + méchants flottants
   // + Bill Bourrin qui traverse.
   bowser: { kind: 'galaxy' },
+  // Scar (Le Roi Lion) : « Soyez prêtes » — caverne du cimetière des éléphants, rochers tout autour
+  // + geysers de vapeur verte + brume verte + lueur verte malsaine.
+  scar: { kind: 'graveyard' },
 }
 
 /** Décor permanent d'un vilain (undefined si non défini). */
 export function villainDecor(key: VillainKey): VillainDecor | undefined {
   return VILLAIN_DECOR[key]
+}
+
+/** Manifeste des fichiers (images / vidéos) qu'un décor charge à l'exécution. Sert à les
+ *  PRÉCHARGER pendant l'écran de chargement (cf. `screens/GameLoading.tsx`) pour éviter le
+ *  pic de saccade au montage du décor (décodage d'images + démarrage vidéo en bloc).
+ *
+ *  ⚠️ À garder en phase avec les assets réellement référencés dans `components/VillainDecor.tsx`
+ *  (et quelques `url(...)` de `index.css`). Une entrée en trop ou manquante est sans danger
+ *  (le préchargement est « best-effort ») : au pire on précharge un fichier inutile, ou on rate
+ *  un pic. Les décors purement CSS (grain, dégradés, formes) n'ont aucun asset → liste vide. */
+export function decorAssets(decor: VillainDecor): { images: string[]; videos: string[] } {
+  const none = { images: [], videos: [] }
+  switch (decor.kind) {
+    case 'fire':
+      return { images: [decor.sprite], videos: [] }
+    case 'underworld':
+      return {
+        images: ['/animations/ame_homme.png', '/animations/ame_femme.png', '/animations/ame_homme2.png', '/animations/fire_sprite.png'],
+        videos: [],
+      }
+    case 'video':
+      return { images: [], videos: [decor.src] }
+    case 'evilQueen':
+      return { images: [decor.apple], videos: [decor.src] }
+    case 'goldDust':
+      return { images: Array.from({ length: 11 }, (_, i) => `/animations/piece-${i + 1}.png`), videos: [] }
+    case 'thorns':
+      return { images: ['/animations/ronces.png'], videos: [] }
+    case 'forest':
+      return {
+        images: ['/animations/tronc1.png', '/animations/tronc2.png', '/animations/tronc3.png', '/animations/slenderman_animation.png'],
+        videos: [],
+      }
+    case 'water':
+      return { images: ['/animations/neverland.png'], videos: [] }
+    case 'grotto':
+      return { images: ['/animations/bulle-bleu.png', '/animations/bulle.png', '/animations/bulle-rose.png'], videos: [] }
+    case 'voodoo':
+      return { images: Array.from({ length: 11 }, (_, i) => `/animations/masque${i + 1}.png`), videos: [] }
+    case 'galaxy':
+      return {
+        images: [
+          // Mondes flottants (galaxy1..N), pluie d'étoiles/fragments, observatoire et trou noir.
+          ...Array.from({ length: 37 }, (_, i) => `/animations/galaxy${i + 1}.png`),
+          '/animations/star.png',
+          ...Array.from({ length: 6 }, (_, i) => `/animations/fragment${i + 1}.png`),
+          '/animations/observatory.png',
+          '/animations/trou_noir.png',
+        ],
+        videos: [],
+      }
+    // Décors 100 % CSS (aucun fichier à précharger) : film, sand, space, goldenHair, petals, graveyard.
+    default:
+      return none
+  }
 }

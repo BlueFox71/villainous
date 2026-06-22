@@ -725,6 +725,83 @@ body {
   pointer-events: none;
   transition: opacity 5s linear;
 }
+/* ----- Décor permanent : Méchante Reine (Blanche-Neige) -----
+   Par-dessus la vidéo de fumée violette (`.video-decor`), trois couches : des bulles de potion
+   verte qui montent du chaudron (`.queen-bubble`, dessinées en CSS, portées par l'enveloppe
+   `.bubble-rise`/`.bubble-sway` d'Ursula), la poussière de sorcellerie violette (réutilise les
+   motes de Facilier `.voodoo-mote-*`) et des pommes empoisonnées flottantes (`.queen-apple-*`).
+   Cf. components/VillainDecor.tsx. */
+.queen-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+/* `.bubble-rise` ne boucle pas par défaut (passage unique) → on la fait répéter, sinon les bulles
+   montent une seule fois au montage puis disparaissent (comme pour la grotte d'Ursula). */
+.queen-decor .bubble-rise {
+  animation-iteration-count: infinite;
+}
+/* Bulle de potion verte : sphère translucide vert poison avec reflet en haut-gauche et halo. */
+.queen-bubble {
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 35% 30%,
+    rgba(210, 255, 170, 0.85) 0%,
+    rgba(120, 220, 90, 0.5) 42%,
+    rgba(50, 140, 45, 0.18) 74%,
+    rgba(40, 110, 40, 0) 100%
+  );
+  box-shadow: 0 0 7px rgba(130, 240, 100, 0.55), inset 0 0 5px rgba(225, 255, 190, 0.6);
+}
+/* Pomme empoisonnée : enveloppe positionnée qui se balance verticalement (bob, alterné). */
+.queen-apple-bob {
+  position: absolute;
+  z-index: 60;
+  will-change: transform;
+  animation-name: queenAppleBob;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes queenAppleBob {
+  from { transform: translate(-50%, calc(var(--bob, 1.5vh) * -1)); }
+  to { transform: translate(-50%, var(--bob, 1.5vh)); }
+}
+/* Halo vert toxique derrière la pomme : pulse en opacité/échelle (le poison qui irradie). */
+.queen-apple-glow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(120, 240, 90, 0.5) 0%, rgba(90, 200, 60, 0.18) 45%, transparent 70%);
+  filter: blur(6px);
+  pointer-events: none;
+  will-change: opacity, transform;
+  animation-name: queenAppleGlow;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes queenAppleGlow {
+  from { opacity: 0.3; transform: translate(-50%, -50%) scale(0.85); }
+  to { opacity: 0.85; transform: translate(-50%, -50%) scale(1.15); }
+}
+/* L'image de la pomme : tangue doucement (rotation alternée) ; un léger reflet vert la pénètre. */
+.queen-apple {
+  display: block;
+  position: relative;
+  will-change: transform;
+  filter: drop-shadow(0 0 4px rgba(120, 240, 90, 0.5));
+  animation-name: queenAppleTilt;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes queenAppleTilt {
+  from { transform: rotate(calc(var(--lean, 4deg) * -1)); }
+  to { transform: rotate(var(--lean, 4deg)); }
+}
 /* ----- Décor permanent : pellicule de cinéma (Pat Hibulaire) -----
    Décor présent EN CONTINU pendant la partie, sur la largeur de la colonne du
    vilain et toute la hauteur de l'écran. Le conteneur applique la teinte sépia + la
@@ -1421,6 +1498,134 @@ body {
   100% { transform: translateY(112vh) translateX(calc(var(--sx) * -1)) rotate(560deg); background-color: var(--red); }
 }
 
+/* ----- Décor permanent : le cimetière des éléphants / « Soyez prêtes » (Scar) -----
+   Une caverne volcanique sombre, des rochers déchiquetés tout autour (côtés, plafond à stalactites,
+   arête dentelée en bas), des colonnes de vapeur verte qui jaillissent des évents et montent en
+   s'enroulant (réutilise `vaporRise`), une brume verte diffuse qui dérive partout (réutilise
+   `.forest-fog-blob`/`fogSway`), et une lueur verte malsaine qui palpite. Cf. components/VillainDecor.tsx. */
+.graveyard-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* Atmosphère enfumée jaune-vert OLIVE (d'après l'image) : halo lumineux murky en haut-centre (la
+     lumière qui filtre entre les piliers) → olive sombre sur les bords et en bas. */
+  background:
+    radial-gradient(110% 78% at 50% 16%, rgba(176, 162, 70, 0.5) 0%, rgba(120, 108, 44, 0.18) 40%, rgba(60, 56, 22, 0) 66%),
+    linear-gradient(to bottom, #1c1c0c 0%, #26260f 38%, #222010 66%, #15140a 100%);
+}
+.graveyard-glow {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 55%;
+  pointer-events: none;
+  /* Lueur olive volcanique qui pulse (les évents au fond). */
+  background: radial-gradient(120% 100% at 50% 100%, rgba(150, 170, 60, 0.34) 0%, rgba(120, 140, 50, 0.14) 40%, rgba(80, 90, 35, 0) 72%);
+  mix-blend-mode: screen;
+  will-change: opacity;
+  animation: graveyardGlowPulse 6s ease-in-out infinite alternate;
+}
+@keyframes graveyardGlowPulse {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+/* Traînées de lumière verticales : faisceaux jaune-vert qui descendent des hauteurs (la lumière
+   entre les piliers de roche). Enveloppe = balancement latéral (`graveyardRaySway`) ; enfant =
+   vacillement d'opacité (`graveyardRayFlicker`). */
+.graveyard-ray-sway {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  pointer-events: none;
+  will-change: transform;
+  animation-name: graveyardRaySway;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes graveyardRaySway {
+  from { transform: translateX(calc(-50% - var(--sway))); }
+  to { transform: translateX(calc(-50% + var(--sway))); }
+}
+.graveyard-ray {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* Faisceau qui s'estompe vers le bas, bords adoucis. */
+  background: linear-gradient(to bottom, rgba(208, 196, 96, 0) 0%, rgba(208, 196, 96, 0.85) 18%, rgba(186, 174, 80, 0.5) 60%, rgba(150, 140, 60, 0) 100%);
+  filter: blur(5px);
+  mix-blend-mode: screen;
+  will-change: opacity;
+  animation-name: graveyardRayFlicker;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes graveyardRayFlicker {
+  from { opacity: 0.35; }
+  to { opacity: 1; }
+}
+/* Fumerolle puissante (#C0E23E) : gros panache qui jaillit du sol et monte en bouffant et en
+   s'enroulant (--sx), en grossissant fortement. Plus gros/opaque que `.graveyard-vapor`. */
+.graveyard-fumerolle {
+  position: absolute;
+  bottom: -8vh;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(1, 253, 67, 0.7) 0%, rgba(1, 253, 67, 0.32) 45%, rgba(1, 253, 67, 0) 72%);
+  filter: blur(14px);
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+  animation-name: fumerolleRise;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+@keyframes fumerolleRise {
+  0% { transform: translate(-50%, 0) scale(0.5); opacity: 0; }
+  14% { opacity: var(--vop); }
+  55% { transform: translate(calc(-50% + var(--sx)), -50vh) scale(1.4); opacity: calc(var(--vop) * 0.8); }
+  100% { transform: translate(-50%, -96vh) scale(2); opacity: 0; }
+}
+/* Bouffée de vapeur olive : disque flou qui monte du fond en s'enroulant (--sx) et en grossissant
+   (réutilise le keyframe `vaporRise` de la grotte). */
+.graveyard-vapor {
+  position: absolute;
+  bottom: -6vh;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(200, 190, 96, 0.8) 0%, rgba(150, 160, 70, 0.45) 42%, rgba(90, 100, 40, 0) 72%);
+  filter: blur(9px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation-name: vaporRise;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+.graveyard-spark {
+  position: absolute;
+  bottom: -2vh;
+  border-radius: 50%;
+  background: radial-gradient(circle, #f4f0c0 0%, #c8d24a 55%, rgba(150, 160, 50, 0) 100%);
+  box-shadow: 0 0 6px rgba(210, 220, 110, 0.85);
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+  animation-name: graveyardSparkRise;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+@keyframes graveyardSparkRise {
+  0% { transform: translate(0, 0); opacity: 0; }
+  15% { opacity: var(--op, 0.8); }
+  100% { transform: translate(var(--drift, 0), -80vh); opacity: 0; }
+}
+.graveyard-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(125% 95% at 50% 30%, transparent 36%, rgba(12, 12, 5, 0.5) 74%, rgba(6, 6, 2, 0.9) 100%);
+}
+
 /* ----- Décor permanent : mer de nuit / reflets de lune (Capitaine Crochet) -----
    Des traînées horizontales claires ondulent (translateX ±--sx) et scintillent (opacité) sur
    l'eau, dans le bas de l'écran, sous un halo de lune. Cf. components/VillainDecor.tsx. */
@@ -1819,8 +2024,15 @@ body {
     animation: none;
   }
   .grotto-vapor,
-  .grotto-decor .bubble-rise {
+  .grotto-decor .bubble-rise,
+  .queen-decor .bubble-rise {
     display: none;
+  }
+  /* Méchante Reine : pommes empoisonnées figées (ni balancement, ni halo pulsant, ni tangage). */
+  .queen-apple-bob,
+  .queen-apple-glow,
+  .queen-apple {
+    animation: none;
   }
   .water-cloud {
     animation: none;
@@ -1887,6 +2099,23 @@ body {
   .uw-soul,
   .uw-ember {
     display: none;
+  }
+  /* Cimetière des éléphants (Scar) : vapeur/fumerolles/étincelles masquées, lueur et traînées figées. */
+  .graveyard-vapor,
+  .graveyard-fumerolle,
+  .graveyard-spark {
+    display: none;
+  }
+  .graveyard-glow {
+    animation: none;
+    opacity: 0.7;
+  }
+  .graveyard-ray-sway {
+    animation: none;
+  }
+  .graveyard-ray {
+    animation: none;
+    opacity: 0.5;
   }
   .uw-glow {
     animation: none;

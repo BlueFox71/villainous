@@ -52,8 +52,12 @@ export function getLegalMoves(state: GameState): LocationId[] {
   if (state.pendingBeautySleep) return []
   const p = activePlayer(state)
   const locked = new Set(p.lockedLocations ?? [])
+  // Oogie Boogie — Sally : tant qu'elle est dans le royaume, le pion ne peut se
+  // déplacer que vers un lieu VOISIN de sa position.
+  const sallyPresent = Object.values(p.board).flat().some((c) => c.type === 'hero' && c.cardId === 'sally')
+  const adj = sallyPresent && p.pawnLocation ? new Set(adjacentLocationIds(state, p.pawnLocation)) : null
   return p.locations
-    .filter((loc) => loc.id !== p.pawnLocation && !locked.has(loc.id))
+    .filter((loc) => loc.id !== p.pawnLocation && !locked.has(loc.id) && (!adj || adj.has(loc.id)))
     .map((loc) => loc.id)
 }
 
@@ -509,8 +513,18 @@ export function effectiveStrength(
           .filter((c) => c.cardId === card.cardId && c.instanceId !== card.instanceId).length
         return sum + m.delta * others
       }
+      case 'per-other-in-set-realm': {
+        const others = Object.values(p.board)
+          .flat()
+          .filter((c) => m.cardIds.includes(c.cardId) && c.instanceId !== card.instanceId).length
+        return sum + m.delta * others
+      }
     }
   }, 0)
+
+  // Jetons de force permanents posés sur la carte (Oogie : Jack -1 par Imposteur
+  // joué après son retour). Peut être négatif ; s'applique Allié comme Héros.
+  const forceTokens = card.forceTokens ?? 0
 
   // Bonus temporaire « jusqu'à la fin du tour » (Capitaine Crochet : Pas de
   // Quartier !). Champ de donnée porté par la carte ; s'applique Allié comme Héros.
@@ -535,7 +549,7 @@ export function effectiveStrength(
     ).length * 2
     //  - Monsieur Mouche : +2 sur le Jolly Roger.
     const moucheBonus = card.cardId === 'monsieur-mouche' && loc === 'jolly-roger' ? 2 : 0
-    const allyTotal = card.strength + attachedStrengthBonus + selfMod + allyAura + sabreBonus + moucheBonus + tempBonus
+    const allyTotal = card.strength + attachedStrengthBonus + selfMod + allyAura + sabreBonus + moucheBonus + tempBonus + forceTokens
     // Scar — Simba : tant qu'il est en jeu, la force des Hyènes ne peut dépasser 2.
     const simbaCaps =
       card.isHyena &&
@@ -593,7 +607,7 @@ export function effectiveStrength(
     }
     return Math.max(
       0,
-      card.strength + attachedStrengthBonus + selfMod + heroAura + realmHeroAura + pixieBonus + wendyBonus + jeanBonus + michelBonus + zazuBonus + tempBonus,
+      card.strength + attachedStrengthBonus + selfMod + heroAura + realmHeroAura + pixieBonus + wendyBonus + jeanBonus + michelBonus + zazuBonus + tempBonus + forceTokens,
     )
   }
   return card.strength
@@ -700,7 +714,8 @@ export function cardNeedsHeroTarget(card: CardInstance): boolean {
 /** Vrai si cette carte déclenche un Vanquish (besoin de Héros + Alliés à la pose).
  *  Intimidation, Tendre un Piège. */
 export function cardNeedsVanquishTarget(card: CardInstance): boolean {
-  return (card.effects ?? []).some((e) => e.type === 'VANQUISH_HERO')
+  // ROLL_MERVEILLE (Oogie — Mais quelle merveille !) commence aussi par un Vanquish.
+  return (card.effects ?? []).some((e) => e.type === 'VANQUISH_HERO' || e.type === 'ROLL_MERVEILLE')
 }
 
 /** Vrai si cette carte exige de désigner un Allié/Objet du royaume à sacrifier
