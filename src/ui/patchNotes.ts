@@ -9,6 +9,19 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.80',
+    date: '2026-06-24',
+    title: 'Décors d’arrière-plan : Cruella & Sombra + réglages',
+    changes: [
+      'Cruella d’Enfer — nouveau décor permanent d’arrière-plan : une nuit d’hiver enneigée (le climax des 101 Dalmatiens). Un fond bleu-nuit froid sous un halo de lune, une chute de neige qui volette avec de la profondeur, et de grandes taches de dalmatien noires qui apparaissent et dérivent lentement. De temps en temps, DEUX traînées d’empreintes de pattes de chiot (deux chiens, en sens opposés) s’impriment une à une dans la neige, marquent un temps, puis s’effacent une par une.',
+      'Cruella d’Enfer — nouvelle animation de passage : une traînée d’empreintes de pattes traverse le haut de l’écran de droite à gauche (un chien invisible qui passe dans la neige), puis s’efface une par une.',
+      'Sombra — nouveau décor permanent d’arrière-plan : son interface de piratage. Un fond violet très sombre, une pluie de code (colonnes de glyphes qui tombent, tête lumineuse cyan/magenta), une distorsion glitch qui déchire l’arrière-plan en tranches (franges magenta/cyan), des lignes de scan qui balaient l’écran, et de temps en temps une vague de glitch qui parcourt tout l’écran. Surprise : par moments, son crâne de piratage se « tape » en ASCII au centre, caractère par caractère, puis s’efface.',
+      'Sombra — nouvelle animation d’arrière-plan : ses crânes de Piratage (« BOOP! ») s’affichent un à un à des endroits au hasard, en clignotant d’un glitch chromatique cyan/magenta, comme autant de systèmes compromis.',
+      'Hadès — nouvelle animation d’arrière-plan : une nuée d’âmes du Styx s’élève du bas vers le haut en ondulant et en s’estompant, concentrée sur les deux côtés de l’écran pour encadrer les plateaux sans les masquer. Les âmes sont floues et nimbées d’un halo bleuté pour un rendu spectral.',
+      'Ratigan — décor permanent : les diamants qui tombent sont plus gros, et toute la pluie d’objets (rouages, diamants, cloche) tombe plus lentement.',
+    ],
+  },
+  {
     version: '0.79',
     date: '2026-06-23',
     title: 'Nouveau vilain : Oogie Boogie (mécanique des DÉS)',

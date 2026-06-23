@@ -42,6 +42,9 @@ const ROSE_HOLD = 4 // maintien en rouge avant disparition (demandé : 4 s)
 // DEBUG TEMPORAIRE : fige le décor au centre de l'écran (pas de trajet) pour caler
 // finement les FX (flamme, canons…). Remettre à `false` avant de committer.
 const FREEZE_DEBUG: boolean = false
+// Trajectoire `paws` (Cruella) : empreintes qui s'impriment puis s'effacent une par une.
+const PAW_CROSS_STEP = 0.16 // s — écart d'apparition (et de disparition) entre deux empreintes
+const PAW_CROSS_LIFE = 8 // s — durée de vie d'une empreinte (impression → pose → effacement ; cf. CSS)
 
 /** Un décor de vilain qui passe à l'écran (UN passage). Deux trajectoires :
  *  - `cross` : traversée linéaire de la bande haute (joueur de gauche à droite,
@@ -53,6 +56,31 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
   const anim = villainAnimationList(villain)[animIdx]
   const ref = useRef<HTMLDivElement>(null)
   const path = anim?.path ?? 'cross'
+  // Traînée de pas (Kronk de Yzma, trajectoire `water-cross` avec image) : des triangles marquent le
+  // sol au niveau de ses pieds, échelonnés DANS LE SENS DE SA COURSE (joueur → vers la droite ;
+  // adversaire → vers la gauche), chacun en fondu sur 3 s. L'apparition est calée sur la position de
+  // ses pieds → le triangle paraît à son passage et RESTE derrière lui.
+  const [kronkPrints] = useState(() => {
+    const dur = anim?.durationSec ?? 30
+    const hPct = anim?.heightPct ?? 8
+    const W = typeof window !== 'undefined' ? window.innerWidth : 1920
+    const H = typeof window !== 'undefined' ? window.innerHeight : 1080
+    const movingLeft = !isPlayer // adversaire = RTL ; joueur = LTR (comme `cross`)
+    const START_PCT = 96
+    const END_PCT = 6
+    const SPACING_PX = 12 // espacement entre deux triangles
+    const imgWvw = hPct * 1.06 * (H / W) // largeur de l'image en vw (ratio kronk ≈ 1,06)
+    const foot = imgWvw * 0.5 // pieds ≈ centre de l'image
+    const travel = 100 + imgWvw // course totale en vw
+    const spanPx = ((START_PCT - END_PCT) / 100) * W
+    const n = Math.min(400, Math.max(2, Math.round(spanPx / SPACING_PX))) // plafonné pour la perf
+    return Array.from({ length: n }, (_, i) => {
+      const left = START_PCT - (i / (n - 1)) * (START_PCT - END_PCT)
+      // Fraction du trajet où les pieds atteignent `left` : RTL part de 100vw, LTR part de -largeur.
+      const f = movingLeft ? (100 + foot - left) / travel : (left + imgWvw - foot) / travel
+      return { left, delay: Math.max(0, f * dur) }
+    })
+  })
   // Plumes (Iago) : 1 à 3 « flux » par passage (→ 1 à 3 plumes à la fois), chacun
   // ressemant en boucle pendant le vol, direction/position/taille tirées au hasard.
   // Décidé une fois au montage (= un passage).
@@ -105,6 +133,37 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     }))
   })
 
+  // Cruella (path `paws`) : DEUX traînées d'empreintes traversent en même temps — une dans la bande
+  // HAUTE (droite→gauche, le sens d'Yzma), une dans la bande BASSE (gauche→droite) → deux chiens en
+  // sens opposés. Chaque empreinte porte son propre `delay` (impression échelonnée par rangée).
+  // Positions/orientations figées au montage ; impression + effacement joués en CSS (cf. cruellaPawCross).
+  const [pawItems] = useState<{ x: number; y: number; rot: number; delay: number }[]>(() => {
+    if (path !== 'paws') return []
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    const ph = ((anim?.heightPct ?? 6) / 100) * vh // hauteur d'une empreinte (px)
+    const mx = ph * 0.6 + 12 // marge latérale (l'empreinte ne sort pas du cadre)
+    // Une rangée traversante : `yPct` la bande, `movingLeft` le sens de marche.
+    const makeRow = (yPct: number, movingLeft: boolean) => {
+      const yBand = (yPct / 100) * vh
+      const wander = (Math.random() - 0.5) * (vh * 0.05) // léger dénivelé
+      const n = 16 + Math.floor(Math.random() * 5) // 16..20 empreintes en travers
+      return Array.from({ length: n }, (_, j) => {
+        const t = n > 1 ? j / (n - 1) : 0
+        return {
+          x: movingLeft ? vw - mx - t * (vw - 2 * mx) : mx + t * (vw - 2 * mx),
+          y: yBand + (t - 0.5) * wander + (j % 2 ? ph * 0.14 : -ph * 0.14), // alternance pattes G/D
+          rot: (movingLeft ? -90 : 90) + (Math.random() - 0.5) * 16, // pointe dans le sens de marche
+          delay: j * PAW_CROSS_STEP, // s (échelonné par rangée → chaque rangée s'imprime une à une)
+        }
+      })
+    }
+    return [
+      ...makeRow(anim?.topPct ?? 8, true), // bande HAUTE, droite → gauche
+      ...makeRow(88, false), // bande BASSE, gauche → droite
+    ]
+  })
+
   // Cheshire (Reine de Cœur, path `fade`) : une seule position au hasard (hors marges),
   // figée au montage.
   const [fadePos] = useState<{ x: number; y: number } | null>(() => {
@@ -141,8 +200,9 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     }))
   })
 
-  // Bulles (Ursula) : 18 à 30 bulles montantes, taille/colonne/vitesse/ondulation au
-  // hasard, figées au montage. La montée est jouée en CSS (cf. bubbleRise).
+  // Montée (Ursula : bulles ; Hadès : âmes) : 18 à 30 éléments par défaut (ou `count`),
+  // taille/colonne/vitesse/ondulation au hasard, figés au montage. `sides` les concentre
+  // sur les deux marges. La montée est jouée en CSS (cf. bubbleRise).
   const [bubbleItems] = useState<
     {
       img: string; left: number; size: number; dur: number; delay: number
@@ -152,10 +212,14 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     if (path !== 'rise' || !anim?.images) return []
     const base = anim.heightPct ?? 5
     const imgs = anim.images
-    const n = 18 + Math.floor(Math.random() * 13) // 18..30
+    const n = anim.count ?? 18 + Math.floor(Math.random() * 13) // défaut 18..30 (sinon imposé)
+    // Répartition : sur toute la largeur, ou concentrée sur les DEUX CÔTÉS (`sides`) en
+    // laissant ~16 % au centre pour les plateaux — chaque âme tirée dans la marge G ou D.
+    const sideLeft = () =>
+      Math.random() < 0.5 ? 1 + Math.random() * 41 : 58 + Math.random() * 41
     return Array.from({ length: n }, () => ({
       img: imgs[Math.floor(Math.random() * imgs.length)], // teinte au hasard
-      left: 2 + Math.random() * 96, // % de la largeur (point d'ancrage)
+      left: anim.sides ? sideLeft() : 2 + Math.random() * 96, // % de la largeur (point d'ancrage)
       size: base * (0.45 + Math.random() * 1.1), // vh (bulles de tailles variées)
       dur: 5 + Math.random() * 4.5, // s (montée régulière, linéaire)
       delay: Math.random() * 5, // s (étalement du flux)
@@ -320,7 +384,7 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
             key={i}
             src={anim.images?.[i]}
             alt=""
-            className="page-note"
+            className={`page-note${anim.glitch ? ' glitch-note' : ''}`}
             style={{ left: `${p.x}px`, top: `${p.y}px`, height: `${heightPct}vh`, animationDelay: `${i * 0.3}s` }}
             draggable={false}
           />
@@ -395,6 +459,32 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     )
   }
 
+  if (path === 'paws') {
+    // Traînée d'empreintes en travers de la bande haute (R→L) : chaque empreinte s'imprime à son tour
+    // (cruellaPawCross : surgit en grossissant), reste posée, puis s'efface — décalage `PAW_CROSS_STEP`
+    // → apparition ET disparition une par une. Fond du PNG transparent → `invert` donne une patte
+    // blanche propre, sans `mix-blend-mode` (lisible quel que soit l'arrière-plan).
+    return (
+      <div className="paw-cross-layer pointer-events-none absolute inset-0" aria-hidden>
+        {pawItems.map((p, i) => (
+          <span
+            key={i}
+            className="paw-cross"
+            style={{ left: `${p.x}px`, top: `${p.y}px`, transform: `translate(-50%, -50%) rotate(${p.rot}deg)` }}
+          >
+            <img
+              src={anim.image}
+              alt=""
+              className="paw-cross-img"
+              draggable={false}
+              style={{ height: `${heightPct}vh`, animationDelay: `${p.delay}s`, animationDuration: `${PAW_CROSS_LIFE}s` }}
+            />
+          </span>
+        ))}
+      </div>
+    )
+  }
+
   if (path === 'fire-bottom') {
     // Rangée de flammes en bas de l'écran : chaque flamme joue le sprite en boucle
     // (background-position par pas), avec taille/colonne/phase au hasard. Le calque
@@ -454,7 +544,10 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     // (pendule indépendant) → montée fluide sans à-coup. Joué en CSS (cf. bubbleRiseY/
     // bubbleSway).
     return (
-      <div className="bubble-layer pointer-events-none absolute inset-0" aria-hidden>
+      <div
+        className={`bubble-layer pointer-events-none absolute inset-0${anim?.glow ? ' souls-layer' : ''}`}
+        aria-hidden
+      >
         {bubbleItems.map((b, i) => (
           <span
             key={i}
@@ -510,28 +603,55 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
   }
 
   if (path === 'water-cross') {
-    // Le clip vidéo (en boucle) traverse le HAUT de l'écran de DROITE à GAUCHE. On
-    // réutilise la mécanique `cross` (villainDriftRTL) ; les bords du clip sont
-    // adoucis (masque) pour fondre le rectangle dans le décor.
+    // Traverse le HAUT de l'écran. La VIDÉO (Tic-Tac de Crochet) garde son sens d'origine (toujours RTL,
+    // clip déjà retourné en CSS). L'IMAGE (Kronk de Yzma) part dans le SENS du camp (comme `cross`/
+    // Imposteur) : joueur de gauche à droite (LTR), adversaire de droite à gauche (RTL), et l'image est
+    // retournée pour regarder dans le sens du déplacement (selon `facesLeft`).
+    const movingLeft = anim.video ? true : !isPlayer
+    const flip = movingLeft ? !anim.facesLeft : !!anim.facesLeft
+    const imgStyle = { transform: flip ? 'scaleX(-1)' : undefined }
     return (
-      <div
-        className="villain-prop"
-        style={{
-          top: '2%',
-          height: `${heightPct}vh`,
-          animationName: 'villainDriftRTL',
-          animationDuration: `${durationSec}s`,
-        }}
-      >
-        <video
-          className="water-clip"
-          src={anim.video}
-          autoPlay
-          loop
-          muted
-          playsInline
-        />
-      </div>
+      <Fragment>
+        {!anim.video && anim.onFoot && (
+          <div className="kronk-trail" style={{ top: `calc(${anim.topPct ?? 2}% + ${heightPct - 1}vh)` }}>
+            {kronkPrints.map((p, i) => (
+              <span
+                key={i}
+                className="kronk-print"
+                style={{
+                  left: `${p.left}%`,
+                  // Le triangle pointe dans le SENS de la course (gauche par défaut ; retourné si LTR).
+                  transform: movingLeft ? undefined : 'translateX(-50%) scaleX(-1)',
+                  animationDelay: `${p.delay}s`,
+                }}
+              />
+            ))}
+          </div>
+        )}
+        <div
+          className="villain-prop"
+          style={{
+            top: `${anim.topPct ?? 2}%`,
+            height: `${heightPct}vh`,
+            animationName: movingLeft ? 'villainDriftRTL' : 'villainDriftLTR',
+            animationDuration: `${durationSec}s`,
+          }}
+        >
+          {anim.video ? (
+            <video className="water-clip" src={anim.video} autoPlay loop muted playsInline />
+          ) : anim.onFoot ? (
+            // À pied (Kronk) : wrapper = vibration de course (rebond + secousse) ; l'image regarde dans le sens.
+            <span className="water-run">
+              <img src={anim.image} alt="" className="h-full w-auto select-none opacity-90" style={imgStyle} draggable={false} />
+            </span>
+          ) : (
+            // Dérive simple (ex. dirigeable de Ratigan) : wrapper = léger flottement vertical (`water-float`).
+            <span className="water-float">
+              <img src={anim.image} alt="" className="h-full w-auto select-none" style={imgStyle} draggable={false} />
+            </span>
+          )}
+        </div>
+      </Fragment>
     )
   }
 
@@ -709,7 +829,7 @@ export function BackgroundAnimation({
   // (chaque animation d'un vilain a sa propre file d'images).
   const imageQueues = useRef<Record<string, string[]>>({})
   const pickImage = (villain: VillainKey, animIdx: number, a: VillainAnimation): string => {
-    if (a.path === 'pages' || a.path === 'coins' || a.path === 'rise' || a.path === 'water-cross' || a.path === 'voodoo' || a.path === 'fire-bottom') return '' // pas d'image unique ici
+    if (a.path === 'pages' || a.path === 'coins' || a.path === 'rise' || a.path === 'water-cross' || a.path === 'voodoo' || a.path === 'fire-bottom' || a.path === 'paws') return '' // pas d'image unique ici
     if (!a.images || a.images.length === 0) return a.image ?? ''
     const key = `${villain}#${animIdx}`
     const q = imageQueues.current

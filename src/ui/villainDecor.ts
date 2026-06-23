@@ -42,8 +42,9 @@ export type VillainDecor =
   | { kind: 'video'; src: string; gradient?: string }
   // `evilQueen` : la fumée violette de sorcellerie (vidéo `video`) SURMONTÉE de couches qui
   // racontent la Méchante Reine — des bulles de potion verte montent du chaudron, une fine
-  // poussière de sorcellerie violette scintille, et une ou deux POMMES empoisonnées flottent
-  // dans la fumée avec un halo vert toxique qui pulse (Méchante Reine — Blanche-Neige).
+  // poussière de sorcellerie violette scintille, une potion mijote dans un verre (changement
+  // de couleurs, éclair, vaporisation) et des POMMES empoisonnées lévitent un peu partout
+  // (Méchante Reine — Blanche-Neige).
   | { kind: 'evilQueen'; src: string; gradient?: string; apple: string }
   // `goldDust` : une fine poussière d'or dérive lentement (mouvement flottant, vitesses
   // et tailles variées) ; quelques particules scintillent (éclat de reflet). Voile chaud
@@ -78,11 +79,33 @@ export type VillainDecor =
   // (Méla-Méla, Bulle de lave, Comète) et, par moments, un BILL BOURRIN (obus Banzai Bill) qui
   // traverse l'écran (Bowser — Super Mario Galaxy).
   | { kind: 'galaxy' }
-  // `graveyard` : le cimetière des éléphants de « Soyez prêtes » — une caverne volcanique sombre,
-  // des ROCHERS déchiquetés tout autour (bas, côtés, plafond/stalactites), des colonnes de VAPEUR
-  // VERTE qui jaillissent des évents et montent en s'enroulant, une nappe de brume verte qui dérive
-  // partout, et une lueur verte malsaine qui palpite par en-dessous (Scar — Le Roi Lion).
-  | { kind: 'graveyard' }
+  // `image` : une simple IMAGE d'arrière-plan fixe, affichée en plein cadre (`cover`, centrée).
+  // Base sobre et générique → point de départ pour construire un décor par couches par-dessus.
+  | { kind: 'image'; src: string }
+  // `scar` : le décor de Scar (Le Roi Lion), construit par couches sur l'image de fond `src`
+  // (réutilise le rendu `image`). Couche actuelle : des GEYSERS de vapeur VERTE qui jaillissent du
+  // bas en s'enroulant (réutilise le keyframe `vaporRise`). D'autres couches viendront s'ajouter.
+  | { kind: 'scar'; src: string }
+  // `yzma` : le laboratoire secret de Yzma (Kuzco) — pénombre de pierre violet/magenta + cyan, une lueur
+  // magenta pulsante, des BULLES multicolores et des VOLUTES de vapeur colorées qui montent des potions.
+  // [construction par couches : fioles en verre + explosion « Pull the lever » à venir]
+  | { kind: 'yzma' }
+  // `clockwork` : Ratigan (Basil, détective privé) — une pluie continue d'images (4 rouages + 4
+  // diamants) qui tombent du haut en tournoyant, comme les pièces de Prince Jean (keyframe `coinFall`
+  // en boucle), en quantité ×3.
+  | { kind: 'clockwork' }
+  // `cruella` : nuit d'hiver enneigée (le climax des 101 Dalmatiens, la poursuite dans la neige) —
+  // fond bleu-nuit froid, un faible halo lunaire, une chute de neige voletante (profondeur), de
+  // subtiles taches dalmatiennes noires qui dérivent en fondu (le thème fourrure tachetée) et, par
+  // moments, une traînée d'EMPREINTES de pattes de chiot qui s'imprime dans la neige puis s'efface
+  // (Cruella d'Enfer).
+  | { kind: 'cruella' }
+  // `cyber` : Sombra (Overwatch) — son interface de piratage. Fond violet très sombre, une PLUIE
+  // de code (colonnes de glyphes binaires/symboles qui tombent, tête claire + traîne qui s'estompe)
+  // en violet/cyan, une DISTORSION glitch en arrière-plan (copies décalées magenta/cyan tranchées),
+  // une ligne de scan qui balaie l'écran, et par moments des SURPRISES : une vague de glitch qui
+  // parcourt l'écran, et le crâne de piratage qui se tape en ASCII.
+  | { kind: 'cyber' }
 
 export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   patHibulaire: { kind: 'film' },
@@ -97,8 +120,8 @@ export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   imposteur: { kind: 'space' },
   gothel: { kind: 'goldenHair' },
   // Méchante Reine (Blanche-Neige) : la fumée de sorcellerie (vidéo teintée violet #472B46 via
-  // mix-blend-mode color) surmontée des bulles de potion verte, de la poussière de sorcellerie
-  // violette et des pommes empoisonnées.
+  // mix-blend-mode color) surmontée des bulles de potion, de la poussière de sorcellerie violette,
+  // de la potion qui mijote dans son verre et des pommes empoisonnées qui lévitent.
   mechanteReine: {
     kind: 'evilQueen',
     src: '/animations/smoke.mp4',
@@ -110,9 +133,20 @@ export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   // Bowser (Super Mario Galaxy) : sa galaxie — nébuleuse rouge/orange + étoiles + méchants flottants
   // + Bill Bourrin qui traverse.
   bowser: { kind: 'galaxy' },
-  // Scar (Le Roi Lion) : « Soyez prêtes » — caverne du cimetière des éléphants, rochers tout autour
-  // + geysers de vapeur verte + brume verte + lueur verte malsaine.
-  scar: { kind: 'graveyard' },
+  // Scar (Le Roi Lion) : image `background_scar.jpg` en fond + geysers de vapeur verte (couches en
+  // construction).
+  scar: { kind: 'scar', src: '/animations/background_scar.jpg' },
+  // Yzma (Kuzco) : son laboratoire secret de potions — bulles et vapeurs multicolores (couches en construction).
+  yzma: { kind: 'yzma' },
+  // Ratigan (Basil, détective privé) : pluie de rouages & diamants qui tombent en tournoyant
+  // (comme les pièces de Prince Jean, ×3).
+  ratigan: { kind: 'clockwork' },
+  // Cruella d'Enfer (Les 101 Dalmatiens) : nuit d'hiver enneigée — neige voletante, taches
+  // dalmatiennes qui dérivent, et empreintes de pattes de chiot qui s'impriment dans la neige.
+  cruella: { kind: 'cruella' },
+  // Sombra (Overwatch) : son interface de piratage — pluie de code violet/cyan, distorsion glitch
+  // en arrière-plan, ligne de scan, vagues de glitch et crâne ASCII occasionnels.
+  sombra: { kind: 'cyber' },
 }
 
 /** Décor permanent d'un vilain (undefined si non défini). */
@@ -138,6 +172,23 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
         images: ['/animations/ame_homme.png', '/animations/ame_femme.png', '/animations/ame_homme2.png', '/animations/fire_sprite.png'],
         videos: [],
       }
+    case 'image':
+    case 'scar':
+      return { images: [decor.src], videos: [] }
+    case 'clockwork':
+      return {
+        images: [
+          ...Array.from({ length: 11 }, (_, i) => `/animations/piece-${i + 1}.png`),
+          ...Array.from({ length: 4 }, (_, i) => `/animations/diamant-${i + 1}.png`),
+          '/animations/cloche-main.png',
+          '/animations/rouage_plat.png',
+        ],
+        videos: [],
+      }
+    case 'yzma':
+      return { images: ['/animations/potion_yzma.png', '/animations/potion_neutre.png', '/animations/cat_yzma.png'], videos: [] }
+    case 'cruella':
+      return { images: ['/animations/patte.png'], videos: [] }
     case 'video':
       return { images: [], videos: [decor.src] }
     case 'evilQueen':
@@ -169,7 +220,8 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
         ],
         videos: [],
       }
-    // Décors 100 % CSS (aucun fichier à précharger) : film, sand, space, goldenHair, petals, graveyard.
+    // Décors 100 % CSS (aucun fichier à précharger) : film, sand, space, goldenHair, petals,
+    // clockwork, cruella, cyber.
     default:
       return none
   }

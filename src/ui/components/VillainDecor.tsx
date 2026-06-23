@@ -518,24 +518,129 @@ function VideoDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'video
 // Teintes de sorcellerie violette pour la poussière de magie (variées : violet, magenta, mauve).
 const QUEEN_MOTE_COLORS = ['#b026ff', '#d11ad1', '#e040fb', '#9b4dd6']
 
+// Couleurs des bulles de potion qui montent (suffixes de classe `.queen-bubble--*`).
+const QUEEN_BUBBLE_TINTS = ['green']
+
+/** La potion de la Méchante Reine en train de mijoter (la scène du film : elle prépare son
+ *  breuvage de déguisement). Un VERRE translucide contient un liquide qui change de couleur en
+ *  boucle — transparent → noir → #AF3716 (rouille) → #334826 (vert sombre) — puis un ÉCLAIR
+ *  foudroie le verre (flash + foudre) et le liquide se VAPORISE en un gaz #556B5D qui s'échappe,
+ *  avant de reprendre depuis le début. Le liquide bouillonne pendant l'infusion.
+ *  Les couleurs sont pilotées par `data-phase` (cf. index.css, section « potion ») ; la séquence
+ *  est cadencée par une chaîne de timers ci-dessous. */
+type PotionPhase = 'clear' | 'black' | 'rust' | 'green' | 'transmuted' | 'gas' | 'fall' | 'gone'
+// Délai avant que le verre ne réapparaisse après être tombé. En prod : 2 min ; pour le test : 10 s.
+const POTION_REAPPEAR_MS = 120_000 // 2 min
+function PotionBrew() {
+  const [phase, setPhase] = useState<PotionPhase>('clear')
+  const [strike, setStrike] = useState(false) // éclair en cours
+  // Bouillons à l'intérieur du liquide (montent puis s'effacent, clipés par le liquide).
+  const [brew] = useState(() =>
+    Array.from({ length: 18 }, () => ({
+      left: 12 + Math.random() * 76, // %
+      size: 0.7 + Math.random() * 1.6, // vh
+      dur: 1.6 + Math.random() * 1.6, // s (bouillonne plus vite)
+      delay: -(Math.random() * 3), // s
+    })),
+  )
+  // Volutes de gaz qui s'échappent du verre une fois la potion vaporisée (phase « gas »).
+  const [gas] = useState(() =>
+    Array.from({ length: 9 }, () => ({
+      left: 30 + Math.random() * 40, // %
+      size: 5 + Math.random() * 7, // vh
+      dur: 3.4 + Math.random() * 2.6, // s
+      delay: -(Math.random() * 4), // s
+      drift: (Math.random() - 0.5) * 6, // vw (dérive latérale en montant)
+    })),
+  )
+  // Séquence en boucle : chaque étape est programmée par un timer décalé ; à la fin, on relance.
+  useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = []
+    const run = () => {
+      const at = (ms: number, fn: () => void) => timers.push(setTimeout(fn, ms))
+      setPhase('clear')
+      setStrike(false)
+      at(4500, () => setPhase('black')) // le liquide se trouble et noircit
+      at(8000, () => setPhase('rust')) // vire au rouge-rouille (#AF3716)
+      at(11500, () => setPhase('green')) // puis au vert sombre (#334826)
+      at(15000, () => setStrike(true)) // l'éclair foudroie le verre
+      at(15800, () => {
+        setStrike(false)
+        setPhase('transmuted') // le liquide vire au #556B5D et reste plein 10 s
+      })
+      at(25800, () => setPhase('gas')) // puis il se vide en se vaporisant
+      at(28800, () => setPhase('fall')) // le verre vidé se renverse et tombe
+      at(30000, () => setPhase('gone')) // disparu (après l'animation de chute)
+      at(30000 + POTION_REAPPEAR_MS, run) // réapparaît puis tout recommence
+    }
+    run()
+    return () => timers.forEach(clearTimeout)
+  }, [])
+  return (
+    <div className={`queen-potion${strike ? ' is-strike' : ''}`} data-phase={phase} aria-hidden>
+      {/* Foudre + flash (visibles seulement pendant `is-strike`). */}
+      <div className="potion-bolt" />
+      <div className="potion-flash" />
+      {/* Le verre et son contenu. */}
+      <div className="potion-glass">
+        <div className="potion-liquid">
+          <span className="potion-surface" />
+          {brew.map((b, i) => (
+            <span
+              key={i}
+              className="potion-brew-bubble"
+              style={{
+                left: `${b.left}%`,
+                width: `${b.size}vh`,
+                height: `${b.size}vh`,
+                animationDuration: `${b.dur}s`,
+                animationDelay: `${b.delay}s`,
+              }}
+            />
+          ))}
+        </div>
+        <div className="potion-shine" />
+        <div className="potion-rim" />
+      </div>
+      {/* Gaz qui s'échappe du verre (phase « gas »). */}
+      {gas.map((g, i) => (
+        <span
+          key={`gas-${i}`}
+          className="potion-gas"
+          style={{
+            left: `${g.left}%`,
+            width: `${g.size}vh`,
+            height: `${g.size}vh`,
+            animationDuration: `${g.dur}s`,
+            animationDelay: `${g.delay}s`,
+            '--drift': `${g.drift}vw`,
+          } as CSSProperties}
+        />
+      ))}
+    </div>
+  )
+}
+
 /** Décor « Méchante Reine » (Blanche-Neige) : la fumée violette de sorcellerie (vidéo `video`)
  *  SURMONTÉE de trois couches qui racontent la Reine — des BULLES de potion verte montent du fond
  *  (le chaudron ; réutilise l'enveloppe `.bubble-rise`/`.bubble-sway` d'Ursula), une fine POUSSIÈRE
  *  de sorcellerie violette monte en scintillant (réutilise les motes de Facilier, teintés violet),
- *  et une ou deux POMMES empoisonnées flottent dans la fumée avec un halo vert toxique qui pulse.
+ *  et une POTION mijote dans un verre (changement de couleurs → éclair → vaporisation → chute).
  *  Éléments tirés une fois au montage, animations en CSS (cf. index.css, section « Méchante Reine »). */
 function EvilQueenDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'evilQueen' }> }) {
-  // Bulles de potion verte : montent du fond en ondulant (réutilise `.bubble-rise`/`.bubble-sway`),
-  // dessinées en CSS (pas d'image) → la couleur vient de la classe `.queen-bubble`.
+  // Bulles de potion : montent du fond en ondulant (réutilise `.bubble-rise`/`.bubble-sway`),
+  // dessinées en CSS (pas d'image) → la couleur vient de la classe `.queen-bubble--*` (vert /
+  // transparent / bleu / jaune, réparties au hasard).
   const [bubbles] = useState(() =>
-    Array.from({ length: 22 }, () => ({
+    Array.from({ length: 22 }, (_, i) => ({
       left: Math.random() * 100, // %
       size: 0.8 + Math.random() * 2.4, // vh (petites bulles)
       dur: 9 + Math.random() * 9, // s (montée lente, 9–18 s)
       delay: -(Math.random() * 18), // s (flux continu, déphasé)
       sway: 1.4 + Math.random() * 3, // vw (ondulation latérale)
       swayDur: 2.4 + Math.random() * 2.2, // s (période d'ondulation)
-      op: 0.45 + Math.random() * 0.4, // opacité de pointe
+      op: 0.8, // opacité des bulles
+      tint: QUEEN_BUBBLE_TINTS[i % QUEEN_BUBBLE_TINTS.length], // couleur de la bulle
     })),
   )
   // Poussière de sorcellerie violette : monte en ondulant et en scintillant (mêmes mécaniques que
@@ -554,12 +659,29 @@ function EvilQueenDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'e
       color: QUEEN_MOTE_COLORS[i % QUEEN_MOTE_COLORS.length],
     })),
   )
-  // Pommes empoisonnées : deux pommes (une grosse, une petite) flottent à des endroits différents,
-  // chacune se balance verticalement (bob), tangue légèrement et baigne dans un halo vert qui pulse.
-  const [apples] = useState(() => [
-    { left: 22, top: 58, size: 11, bob: 1.4, bobDur: 6.5, lean: 4, leanDur: 7.5, glowDur: 4.2, delay: 0 },
-    { left: 76, top: 40, size: 7, bob: 1.8, bobDur: 8, lean: 5, leanDur: 9, glowDur: 5.4, delay: -2.5 },
-  ])
+  // Pommes empoisonnées réparties sur toute la zone joueur : on les pose sur une GRILLE 3×2 (avec un
+  // peu de jitter) pour éviter qu'elles se regroupent, puis chacune se balade lentement autour de sa
+  // case (dérive X/Y modérée), avec un tangage léger et un halo vert toxique qui pulse.
+  const APPLE_COLS = 3
+  const APPLE_ROWS = 2
+  const [apples] = useState(() =>
+    Array.from({ length: APPLE_COLS * APPLE_ROWS }, (_, i) => {
+      const cx = i % APPLE_COLS
+      const cy = Math.floor(i / APPLE_COLS)
+      return {
+        left: ((cx + 0.5) / APPLE_COLS) * 100 + (Math.random() - 0.5) * 12, // % (centre de case ± jitter)
+        top: ((cy + 0.5) / APPLE_ROWS) * 100 + (Math.random() - 0.5) * 16, // %
+        size: 2.6 + Math.random() * 3.4, // vh (petites pommes)
+        dx: 5 + Math.random() * 7, // vw (dérive horizontale modérée, reste dans sa zone)
+        dy: 7 + Math.random() * 9, // vh (dérive verticale modérée)
+        floatDur: 24 + Math.random() * 16, // s (balade lente, 24–40 s)
+        lean: 3 + Math.random() * 4, // deg (tangage)
+        leanDur: 6.5 + Math.random() * 3.5, // s
+        glowDur: 4 + Math.random() * 2.5, // s (pulsation du halo)
+        delay: -(Math.random() * 20), // s (déphasage)
+      }
+    }),
+  )
   return (
     <div className="queen-decor" aria-hidden>
       {/* Fond : la vidéo de fumée violette (réutilise le décor vidéo générique, avec son bouclage en fondu). */}
@@ -577,7 +699,7 @@ function EvilQueenDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'e
           } as CSSProperties}
         >
           <span
-            className="bubble-sway queen-bubble"
+            className={`bubble-sway queen-bubble queen-bubble--${b.tint}`}
             style={{
               width: `${b.size}vh`,
               height: `${b.size}vh`,
@@ -622,7 +744,9 @@ function EvilQueenDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'e
           </span>
         </span>
       ))}
-      {/* Pommes empoisonnées : enveloppe = bercement vertical ; halo vert pulsant derrière ; image qui tangue. */}
+      {/* Potion qui mijote : verre + liquide qui change de couleur, éclair, puis vaporisation. */}
+      <PotionBrew />
+      {/* Pommes empoisonnées qui lévitent : enveloppe = bercement vertical ; halo vert pulsant derrière ; image qui tangue. */}
       {apples.map((a, i) => (
         <span
           key={`apple-${i}`}
@@ -630,9 +754,10 @@ function EvilQueenDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'e
           style={{
             left: `${a.left}%`,
             top: `${a.top}%`,
-            animationDuration: `${a.bobDur}s`,
+            animationDuration: `${a.floatDur}s`,
             animationDelay: `${a.delay}s`,
-            '--bob': `${a.bob}vh`,
+            '--dx': `${a.dx}vw`,
+            '--dy': `${a.dy}vh`,
           } as CSSProperties}
         >
           <span
@@ -1791,19 +1916,117 @@ function GalaxyDecor() {
   )
 }
 
-/** Décor « graveyard » (Scar) : le cimetière des éléphants de « Soyez prêtes » (d'après l'image du
- *  film) — atmosphère enfumée JAUNE-VERT OLIVE, des PILIERS de roche en arrière-plan traversés de
- *  TRAÎNÉES DE LUMIÈRE verticales qui vacillent, des colonnes de VAPEUR olive qui montent des évents
- *  (réutilise `vaporRise`), une brume diffuse qui dérive, et une lueur malsaine qui palpite.
- *  Éléments tirés une fois au montage, animations en CSS (cf. index.css, section « cimetière des
- *  éléphants »). */
-function GraveyardDecor() {
-  // Traînées de lumière verticales : de fins faisceaux jaune-vert qui descendent des hauteurs (la
-  // lumière qui filtre entre les piliers de roche), vacillant en opacité et oscillant légèrement.
+/** Décor « image » : une simple image d'arrière-plan fixe affichée en plein cadre (`cover`, centrée).
+ *  Base sobre et générique (cf. Scar, dont le décor repart de `background_scar.jpg`) ; des couches
+ *  animées pourront être ajoutées par-dessus par la suite. */
+function ImageDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'image' }> }) {
+  return (
+    <div
+      className="image-decor"
+      style={{ backgroundImage: `url(${decor.src})` }}
+      aria-hidden
+    />
+  )
+}
+
+
+// Animation SURPRISE des jets de fumée de Scar : ils n'apparaissent que par bouffées (cf. ScarDecor).
+// `SCAR_JET_DURATION_MS` = durée d'une bouffée ; l'intervalle entre deux bouffées est aléatoire
+// (`SCAR_JET_GAP_MIN/MAX_MS`). MODE TEST : à `true`, bouffées fréquentes (toutes les ~10 s) pour régler.
+const SCAR_JET_TEST = false
+const SCAR_JET_DURATION_MS = 5000 // durée d'une bouffée de jets
+const SCAR_JET_GAP_MIN_MS = SCAR_JET_TEST ? 10000 : 120000 // 10 s en test, sinon 2 min
+const SCAR_JET_GAP_MAX_MS = SCAR_JET_TEST ? 10000 : 240000 // 10 s en test, sinon 4 min
+
+/** Décor « scar » (Le Roi Lion) : l'image de fond `background_scar.jpg` (rendu `image`) surmontée de
+ *  plusieurs couches qui recréent le cimetière des éléphants de « Soyez prêtes » —
+ *   • GEYSERS de vapeur verte qui jaillissent d'évents au sol et montent en s'enroulant (`vaporRise`) ;
+ *   • RAYONS de lumière verte qui filtrent d'en haut et vacillent (enveloppe = balancement, enfant = flicker) ;
+ *   • BRAISES vertes qui s'élèvent en scintillant ;
+ *   • LUEUR verte malsaine qui palpite par en-dessous + VIGNETTE qui assombrit les coins ;
+ *   • ÉRUPTION ponctuelle (minuterie) : un évent crache un gros panache + un flash vert (pyrotechnies) ;
+ *   • YEUX luisants (hyènes / crâne) qui s'allument et clignent dans l'ombre.
+ *  Éléments tirés une fois au montage ; animations en CSS (cf. index.css, section « Scar »). */
+function ScarDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'scar' }> }) {
+  // Geysers : évents fixes au sol émettant chacun une colonne continue de vapeur verte (bouffées
+  // étagées dans le temps → flux régulier qui s'enroule en montant).
+  const [puffs] = useState(() => {
+    const vents = Array.from({ length: 5 }, () => ({
+      left: 8 + Math.random() * 84, // % (répartis sur la largeur)
+      base: 16 + Math.random() * 14, // vh (taille de base des bouffées de cet évent)
+    }))
+    return vents.flatMap((v, vi) => {
+      const n = 6 + Math.floor(Math.random() * 3) // 6–8 bouffées par évent
+      const dur = 9 + Math.random() * 6 // s (montée, commune à l'évent → cadence régulière)
+      return Array.from({ length: n }, (_, i) => ({
+        key: `${vi}-${i}`,
+        left: v.left + (Math.random() - 0.5) * 6, // % (léger éparpillement)
+        size: v.base * (0.7 + Math.random() * 0.7), // vh
+        dur,
+        delay: -((i / n) * dur) - Math.random() * 1.5, // s (étagées → flux continu)
+        sx: (Math.random() < 0.5 ? -1 : 1) * (3 + Math.random() * 5), // vw (enroulement latéral)
+        op: 0.4 + Math.random() * 0.32, // opacité de pointe
+      }))
+    })
+  })
+  // Six JETS de fumée verte PUISSANTS (haute pression) qui fusent du bas de l'écran, répartis
+  // régulièrement sur la largeur : chaque évent crache une colonne dense de bouffées étagées, fine et fulgurante.
+  const [jets] = useState(() => {
+    const vents = [
+      { left: 9 + (Math.random() - 0.5) * 5 }, // %
+      { left: 25 + (Math.random() - 0.5) * 5 }, // %
+      { left: 42 + (Math.random() - 0.5) * 5 }, // %
+      { left: 58 + (Math.random() - 0.5) * 5 }, // %
+      { left: 75 + (Math.random() - 0.5) * 5 }, // %
+      { left: 91 + (Math.random() - 0.5) * 5 }, // % (6 jets répartis régulièrement)
+    ]
+    return vents.flatMap((v, vi) => {
+      const dur = 0.95 + Math.random() * 0.25 // s (montée FULGURANTE = très forte pression)
+      const base = 11 + Math.random() * 4 // vh (bouffées FINES)
+      // Fenêtre d'ÉMISSION : on lance des bouffées (à un coup) pendant EMIT s, puis plus rien ; les
+      // dernières finissent leur montée avant le démontage → ni pop au début, ni coupure à la fin.
+      const EMIT = 3.6 // s (émission ; EMIT + dur doit rester < SCAR_JET_DURATION_MS/1000)
+      const n = 60 // bouffées émises sur la fenêtre (densité de la colonne)
+      return Array.from({ length: n }, (_, i) => ({
+        key: `${vi}-${i}`,
+        left: v.left + (Math.random() - 0.5) * 2, // % (très resserré → jet fin et net)
+        size: base * (0.75 + Math.random() * 0.5), // vh
+        dur,
+        delay: (i / n) * EMIT + Math.random() * 0.06, // s (POSITIFS étalés sur la fenêtre → arrive par le bas ET les dernières finissent)
+        sx: (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 2), // vw (enroulement minime → reste une colonne fine)
+        op: 0.6 + Math.random() * 0.3, // opacité de pointe (bien dense)
+      }))
+    })
+  })
+  // Bouffée SURPRISE : les jets ne sont montés que pendant `SCAR_JET_DURATION_MS`, puis retirés ; on
+  // reprogramme la suivante après un intervalle aléatoire (cf. SCAR_JET_* ; désactivé en reduced-motion).
+  const [jetsOn, setJetsOn] = useState(false)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let off: ReturnType<typeof setTimeout>
+    let next: ReturnType<typeof setTimeout>
+    const gap = () => SCAR_JET_GAP_MIN_MS + Math.random() * (SCAR_JET_GAP_MAX_MS - SCAR_JET_GAP_MIN_MS)
+    const schedule = (delay: number) => {
+      next = setTimeout(() => {
+        setJetsOn(true)
+        off = setTimeout(() => {
+          setJetsOn(false)
+          schedule(gap())
+        }, SCAR_JET_DURATION_MS)
+      }, delay)
+    }
+    schedule(gap())
+    return () => {
+      clearTimeout(next)
+      clearTimeout(off)
+    }
+  }, [])
+  // Rayons de lumière verte qui descendent des hauteurs (la lumière qui filtre entre les piliers de
+  // roche), vacillant en opacité et oscillant légèrement.
   const [rays] = useState(() =>
-    Array.from({ length: 11 }, () => ({
+    Array.from({ length: 9 }, () => ({
       left: Math.random() * 100, // %
-      width: 0.8 + Math.random() * 3.2, // vw (faisceaux d'épaisseurs variées)
+      width: 0.8 + Math.random() * 3, // vw (faisceaux d'épaisseurs variées)
       height: 55 + Math.random() * 45, // % (descendent plus ou moins bas)
       op: 0.1 + Math.random() * 0.22, // discrets
       flickDur: 3 + Math.random() * 5, // s (vacillement)
@@ -1812,52 +2035,9 @@ function GraveyardDecor() {
       swayDur: 7 + Math.random() * 6, // s
     })),
   )
-  // Colonnes de vapeur verte : quelques ÉVENTS au fond émettent chacun plusieurs bouffées étagées
-  // dans le temps → colonne continue qui s'enroule en montant (même mécanique que la grotte d'Ursula).
-  const [puffs] = useState(() => {
-    const vents = Array.from({ length: 5 }, () => ({
-      left: 8 + Math.random() * 84, // % (répartis sur la largeur)
-      base: 17 + Math.random() * 15, // vh (taille de base des bouffées de cet évent)
-    }))
-    return vents.flatMap((v, vi) => {
-      const n = 6 + Math.floor(Math.random() * 3) // 6–8 bouffées par évent
-      const dur = 10 + Math.random() * 6 // s (montée, commune à l'évent → cadence régulière)
-      return Array.from({ length: n }, (_, i) => ({
-        key: `${vi}-${i}`,
-        left: v.left + (Math.random() - 0.5) * 6, // % (léger éparpillement)
-        size: v.base * (0.7 + Math.random() * 0.7), // vh
-        dur,
-        delay: -((i / n) * dur) - Math.random() * 1.5, // s (étagées → flux continu)
-        sx: (Math.random() < 0.5 ? -1 : 1) * (3 + Math.random() * 5), // vw (enroulement latéral)
-        op: 0.35 + Math.random() * 0.3, // opacité de pointe
-      }))
-    })
-  })
-  // Fumerolles puissantes (#C0E23E) : quelques ÉVENTS crachent de gros panaches qui jaillissent du
-  // sol et montent en bouffant vigoureusement (bouffées étagées → colonne continue et dense). Plus
-  // grosses, plus opaques et plus rapides que les colonnes de vapeur olive.
-  const [fumerolles] = useState(() => {
-    const vents = Array.from({ length: 3 }, () => ({
-      left: 16 + Math.random() * 68, // % (répartis sur la largeur)
-      base: 16 + Math.random() * 10, // vh (panache contenu : ne doit pas noyer la colonne)
-    }))
-    return vents.flatMap((v, vi) => {
-      const n = 6 + Math.floor(Math.random() * 2) // 6–7 bouffées par évent (colonne continue)
-      const dur = 8 + Math.random() * 4 // s (montée vigoureuse, commune à l'évent)
-      return Array.from({ length: n }, (_, i) => ({
-        key: `${vi}-${i}`,
-        left: v.left + (Math.random() - 0.5) * 7, // % (éparpillement = panache large)
-        size: v.base * (0.7 + Math.random() * 0.7), // vh
-        dur,
-        delay: -((i / n) * dur) - Math.random() * 1.2, // s (étagées → flux continu)
-        sx: (Math.random() < 0.5 ? -1 : 1) * (4 + Math.random() * 6), // vw (bouffées qui s'enroulent)
-        op: 0.35 + Math.random() * 0.2, // opacité de pointe (présente mais sans noyer l'UI)
-      }))
-    })
-  })
-  // Étincelles vertes qui montent (braises spectrales de la caverne).
+  // Braises vertes spectrales qui montent du bas en scintillant.
   const [sparks] = useState(() =>
-    Array.from({ length: 22 }, () => ({
+    Array.from({ length: 24 }, () => ({
       left: Math.random() * 100, // %
       size: 1.4 + Math.random() * 2.4, // px
       dur: 5 + Math.random() * 5, // s (montée)
@@ -1866,16 +2046,48 @@ function GraveyardDecor() {
       op: 0.5 + Math.random() * 0.4,
     })),
   )
+  // Éruption ponctuelle : à intervalle aléatoire, un évent crache un GROS panache vert (plusieurs
+  // bouffées jouées une fois) + un flash, puis se dissipe. On (dé)monte le calque le temps de l'effet.
+  const [erupt, setErupt] = useState<{ seq: number; left: number; plumes: { key: string; size: number; dur: number; delay: number; sx: number; op: number }[] } | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let next: ReturnType<typeof setTimeout>
+    let clear: ReturnType<typeof setTimeout>
+    let seq = 0
+    const fire = () => {
+      const left = 15 + Math.random() * 70 // % (évent qui entre en éruption)
+      const n = 9
+      const plumes = Array.from({ length: n }, (_, i) => ({
+        key: `${seq}-${i}`,
+        size: 18 + Math.random() * 16, // vh (gros panache)
+        dur: 2 + Math.random() * 1, // s (montée vigoureuse)
+        delay: (i / n) * 0.9 + Math.random() * 0.2, // s (jets successifs)
+        sx: (Math.random() < 0.5 ? -1 : 1) * (4 + Math.random() * 7), // vw
+        op: 0.55 + Math.random() * 0.3,
+      }))
+      setErupt({ seq: seq++, left, plumes })
+      clear = setTimeout(() => setErupt(null), 3400) // durée totale de l'éruption
+      next = setTimeout(fire, 26000 + Math.random() * 16000) // 26–42 s entre deux éruptions
+    }
+    next = setTimeout(fire, 8000 + Math.random() * 8000) // première éruption après 8–16 s
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
   return (
-    <div className="graveyard-decor" aria-hidden>
-      {/* Lueur verte malsaine qui palpite par en-dessous (la source des geysers). */}
-      <div className="graveyard-glow" />
-      {/* Traînées de lumière verticales (entre les piliers de roche) : enveloppe = balancement
-          latéral ; enfant = vacillement d'opacité. */}
+    <div className="scar-decor" aria-hidden>
+      {/* Image de fond (réutilise le rendu générique `image`). */}
+      <ImageDecor decor={{ kind: 'image', src: decor.src }} />
+      {/* Lueur verte malsaine qui palpite par en-dessous (la source des évents). */}
+      <div className="scar-glow" />
+      {/* Vignette : assombrit les coins (placée sous les couches lumineuses pour ne pas les ternir). */}
+      <div className="scar-vignette" />
+      {/* Rayons de lumière verte : enveloppe = balancement latéral ; enfant = vacillement d'opacité. */}
       {rays.map((r, i) => (
         <span
           key={`ray-${i}`}
-          className="graveyard-ray-sway"
+          className="scar-ray-sway"
           style={{
             left: `${r.left}%`,
             width: `${r.width}vw`,
@@ -1885,7 +2097,7 @@ function GraveyardDecor() {
           } as CSSProperties}
         >
           <span
-            className="graveyard-ray"
+            className="scar-ray"
             style={{
               opacity: r.op,
               animationDuration: `${r.flickDur}s`,
@@ -1894,27 +2106,11 @@ function GraveyardDecor() {
           />
         </span>
       ))}
-      {/* Fumerolles puissantes (#C0E23E) qui jaillissent du sol et montent en bouffant. */}
-      {fumerolles.map((f) => (
-        <span
-          key={`fum-${f.key}`}
-          className="graveyard-fumerolle"
-          style={{
-            left: `${f.left}%`,
-            width: `${f.size}vh`,
-            height: `${f.size}vh`,
-            animationDuration: `${f.dur}s`,
-            animationDelay: `${f.delay}s`,
-            '--sx': `${f.sx}vw`,
-            '--vop': f.op,
-          } as CSSProperties}
-        />
-      ))}
-      {/* Colonnes de vapeur verte qui jaillissent des évents et montent en s'enroulant. */}
+      {/* Geysers de vapeur verte qui jaillissent du sol et montent en s'enroulant. */}
       {puffs.map((p) => (
         <span
-          key={`puff-${p.key}`}
-          className="graveyard-vapor"
+          key={`geyser-${p.key}`}
+          className="scar-geyser"
           style={{
             left: `${p.left}%`,
             width: `${p.size}vh`,
@@ -1926,11 +2122,50 @@ function GraveyardDecor() {
           } as CSSProperties}
         />
       ))}
-      {/* Étincelles vertes qui montent. */}
+      {/* SURPRISE : bouffée des 6 jets de fumée verte (montée fulgurante), montée seulement pendant
+          SCAR_JET_DURATION_MS toutes les quelques minutes (cf. effet jetsOn). */}
+      {jetsOn && jets.map((j) => (
+        <span
+          key={`jet-${j.key}`}
+          className="scar-jet"
+          style={{
+            left: `${j.left}%`,
+            width: `${j.size}vh`,
+            height: `${j.size}vh`,
+            animationDuration: `${j.dur}s`,
+            animationDelay: `${j.delay}s`,
+            '--sx': `${j.sx}vw`,
+            '--vop': j.op,
+          } as CSSProperties}
+        />
+      ))}
+      {/* Éruption ponctuelle : flash + gros panache vert (montée jouée une fois). */}
+      {erupt && (
+        <div className="scar-eruption" style={{ left: `${erupt.left}%` }}>
+          <span className="scar-flash" />
+          {/* Fond vert au pied de l'éruption : comble la base pour ne pas avoir un vide sous les panaches. */}
+          <span className="scar-erupt-base" />
+          {erupt.plumes.map((p) => (
+            <span
+              key={`erupt-${p.key}`}
+              className="scar-erupt"
+              style={{
+                width: `${p.size}vh`,
+                height: `${p.size}vh`,
+                animationDuration: `${p.dur}s`,
+                animationDelay: `${p.delay}s`,
+                '--sx': `${p.sx}vw`,
+                '--vop': p.op,
+              } as CSSProperties}
+            />
+          ))}
+        </div>
+      )}
+      {/* Braises vertes qui montent en scintillant. */}
       {sparks.map((s, i) => (
         <span
           key={`spark-${i}`}
-          className="graveyard-spark"
+          className="scar-spark"
           style={{
             left: `${s.left}%`,
             width: `${s.size}px`,
@@ -1942,8 +2177,1006 @@ function GraveyardDecor() {
           } as CSSProperties}
         />
       ))}
-      {/* Vignette : coins très sombres (la caverne plongée dans l'obscurité). */}
-      <div className="graveyard-vignette" />
+    </div>
+  )
+}
+
+// Couleurs des potions de Yzma : magenta, cyan, vert acide, orange, violet, rose — des teintes vives
+// et variées (l'étagère de fioles bariolées de son laboratoire).
+const YZMA_COLORS = ['#d11ad1', '#1ad1c4', '#7cfc00', '#ff7a1a', '#b026ff', '#ff2d7a']
+
+// Surprise « Pull the lever, Kronk ! » : une potion explose en un nuage de fumée de transformation
+// multicolore (cf. YzmaDecor). `..._DURATION_MS` = durée d'une explosion ; intervalle aléatoire entre deux
+// (`..._GAP_MIN/MAX_MS`). MODE TEST : à `true`, explosions fréquentes (~10 s) pour régler.
+const YZMA_BOOM_TEST = false
+const YZMA_BOOM_DURATION_MS = 4200 // durée d'une explosion (double boom : 2e foyer décalé + bouffée + onde + marge)
+const YZMA_BOOM_GAP_MIN_MS = YZMA_BOOM_TEST ? 10000 : 60000 // 10 s en test, sinon 1 min
+const YZMA_BOOM_GAP_MAX_MS = YZMA_BOOM_TEST ? 10000 : 60000 // 10 s en test, sinon 1 min
+
+// Surprise « Yzma transformée en CHAT » : une grosse fumée noire monte du bas du plateau, se dissipe et
+// révèle le chat (image `cat_yzma`) avec un « ? », qui prend un temps puis DÉTALE vers la gauche. `..._STEP_MS`
+// = repères de la séquence (cf. YzmaDecor) ; intervalle aléatoire entre deux (`..._GAP_MIN/MAX_MS`).
+const YZMA_CAT_TEST = false
+const YZMA_CAT_DURATION_MS = 18300 // durée totale (fumée ~9 s → révélation → arrêt → fuite complète) + marge de démontage
+const YZMA_CAT_GAP_MIN_MS = YZMA_CAT_TEST ? 21000 : 180000 // 21 s en test (> durée scène), sinon 3 min
+const YZMA_CAT_GAP_MAX_MS = YZMA_CAT_TEST ? 21000 : 300000 // 21 s en test (> durée scène), sinon 5 min
+
+// Images des fioles baladeuses de Yzma (ratio largeur/hauteur pour une largeur stable + facteur de taille
+// par image : la potion_yzma plus grande, la potion_neutre plus petite).
+const YZMA_VIAL_IMAGES = [
+  { src: '/animations/potion_yzma.png', aspect: 334 / 450, scale: 1.25 }, // flacon vertical (plus grand)
+  { src: '/animations/potion_neutre.png', aspect: 887 / 469, scale: 0.6 }, // flacon horizontal rose (plus petit)
+]
+
+/** Une fiole de potion qui SE BALADE en rebondissant sur les bords du conteneur (façon écran de veille
+ *  Windows), en TOURNANT lentement pendant le déplacement, nimbée d'un halo coloré qui pulse. Position
+ *  pilotée en requestAnimationFrame (UI, pas le moteur) ; `speed` en % de la plus petite dimension / s
+ *  → vitesse constante quel que soit l'écran. En reduced-motion : placée au centre, immobile. */
+function YzmaVial({ img }: { img: { src: string; aspect: number; scale: number } }) {
+  const [v] = useState(() => ({
+    size: (8 + Math.random() * 4) * img.scale, // vh (hauteur du flacon × facteur de taille de l'image)
+    lean: 2 + Math.random() * 4, // deg (tangage léger)
+    leanDur: 5 + Math.random() * 3, // s
+    glow: YZMA_COLORS[Math.floor(Math.random() * YZMA_COLORS.length)], // halo coloré
+    glowDur: 3.5 + Math.random() * 2.5, // s
+    speed: 6 + Math.random() * 5, // % / s (vitesse de la balade)
+    dir: Math.random() * Math.PI * 2, // rad (direction initiale)
+    spinDur: 14 + Math.random() * 12, // s (rotation lente pendant le déplacement)
+    spinDir: Math.random() < 0.5 ? 1 : -1, // sens de rotation
+  }))
+  const ref = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    const box = el?.parentElement // .yzma-decor
+    if (!el || !box) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      el.style.transform = `translate(${(box.clientWidth - el.offsetWidth) / 2}px, ${(box.clientHeight - el.offsetHeight) / 2}px)`
+      return
+    }
+    let x = Math.random() * Math.max(1, box.clientWidth - el.offsetWidth)
+    let y = Math.random() * Math.max(1, box.clientHeight - el.offsetHeight)
+    const px = (Math.min(box.clientWidth, box.clientHeight) * v.speed) / 100 / 1000 // px/ms
+    let vx = Math.cos(v.dir) * px
+    let vy = Math.sin(v.dir) * px
+    let raf = 0
+    let last = 0
+    const step = (t: number) => {
+      const dt = last ? Math.min(t - last, 50) : 0 // ms (borné : évite un grand saut au retour d'onglet)
+      last = t
+      const W = box.clientWidth
+      const H = box.clientHeight
+      const w = el.offsetWidth
+      const h = el.offsetHeight
+      x += vx * dt
+      y += vy * dt
+      if (x <= 0) { x = 0; vx = Math.abs(vx) } else if (x >= W - w) { x = W - w; vx = -Math.abs(vx) }
+      if (y <= 0) { y = 0; vy = Math.abs(vy) } else if (y >= H - h) { y = H - h; vy = -Math.abs(vy) }
+      el.style.transform = `translate(${x}px, ${y}px)`
+      raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [v])
+  return (
+    <span ref={ref} className="yzma-vial-roam">
+      <span
+        className="yzma-vial-glow"
+        style={{
+          width: `${v.size * 0.95}vh`,
+          height: `${v.size * 0.95}vh`,
+          background: `radial-gradient(circle, ${v.glow} 0%, ${v.glow}00 70%)`,
+          animationDuration: `${v.glowDur}s`,
+        }}
+      />
+      {/* Wrapper = rotation lente pendant le déplacement ; l'image = tangage léger (lean). */}
+      <span className="yzma-vial-spin" style={{ animationDuration: `${v.spinDur}s`, '--spin-dir': v.spinDir } as CSSProperties}>
+        <img
+          src={img.src}
+          alt=""
+          className="yzma-vial"
+          draggable={false}
+          style={{
+            height: `${v.size}vh`,
+            width: `${v.size * img.aspect}vh`, // largeur d'après le ratio de l'image
+            animationDuration: `${v.leanDur}s`,
+            '--lean': `${v.lean}deg`,
+          } as CSSProperties}
+        />
+      </span>
+    </span>
+  )
+}
+
+/** Décor « yzma » (Kuzco, l'empereur mégalo) : le laboratoire secret de potions de Yzma — une pénombre
+ *  de pierre violacée, une lueur magenta qui pulse par en-dessous, des BULLES multicolores qui montent
+ *  en ondulant et des VOLUTES de vapeur colorées qui s'élèvent des évents, le tout vignetté ; 5 fioles de
+ *  potion qui SE BALADENT en rebondissant sur les bords (écran de veille, pilotées en JS) ; et par moments
+ *  une SURPRISE « Pull the lever » : une potion explose en un nuage de fumée de transformation multicolore.
+ *  Éléments tirés une fois au montage ; animations CSS (cf. index.css) sauf la balade (requestAnimationFrame). */
+function YzmaDecor() {
+  // Bulles multicolores qui montent du fond en ondulant (enveloppe = montée, milieu = ondulation,
+  // pastille = la bulle colorée). Schéma nesté de la poussière d'or / des motes vaudou.
+  const [bubbles] = useState(() =>
+    Array.from({ length: 44 }, (_, i) => ({
+      left: Math.random() * 100, // %
+      size: 0.9 + Math.random() * 2.6, // vh
+      dur: 8 + Math.random() * 8, // s (montée lente)
+      delay: -(Math.random() * 16), // s (flux continu, déphasé)
+      sway: 1.5 + Math.random() * 3.5, // vw (ondulation latérale)
+      swayDur: 2.6 + Math.random() * 2.4, // s
+      op: 0.45 + Math.random() * 0.4, // opacité de pointe
+      color: YZMA_COLORS[i % YZMA_COLORS.length],
+    })),
+  )
+  // Volutes de vapeur colorées : quelques ÉVENTS au fond crachent des bouffées étagées qui montent en
+  // s'enroulant (réutilise le keyframe `vaporRise`). Chaque évent a sa couleur.
+  const [wisps] = useState(() => {
+    const vents = Array.from({ length: 5 }, (_, i) => ({
+      left: 10 + Math.random() * 80, // %
+      base: 13 + Math.random() * 10, // vh (taille de base des bouffées)
+      color: YZMA_COLORS[i % YZMA_COLORS.length],
+    }))
+    return vents.flatMap((v, vi) => {
+      const n = 6 + Math.floor(Math.random() * 3) // 6–8 bouffées par évent
+      const dur = 10 + Math.random() * 6 // s (montée, commune à l'évent → cadence régulière)
+      return Array.from({ length: n }, (_, i) => ({
+        key: `${vi}-${i}`,
+        left: v.left + (Math.random() - 0.5) * 6, // %
+        size: v.base * (0.7 + Math.random() * 0.7), // vh
+        dur,
+        delay: -((i / n) * dur) - Math.random() * 1.5, // s (étagées → flux continu)
+        sx: (Math.random() < 0.5 ? -1 : 1) * (3 + Math.random() * 5), // vw (enroulement)
+        op: 0.25 + Math.random() * 0.22, // opacité de pointe (diffuse)
+        color: v.color,
+      }))
+    })
+  })
+  // Étape 2 — FIOLES BALADEUSES : 5 flacons de potion (images `potion_yzma` / `potion_neutre`) se
+  // baladent en rebondissant sur les bords (façon écran de veille), en tournant lentement et nimbés
+  // d'un halo. Chaque fiole est un `YzmaVial` autonome (son propre rAF) — cf. le composant plus haut.
+  // SURPRISE « Pull the lever » : à intervalle aléatoire, une potion explose à un endroit au hasard en un
+  // nuage de fumée de transformation (flash + onde + bouffées colorées qui giclent). Calque (dé)monté le
+  // temps de l'effet → les animations à un coup jouent une fois. Désactivé en reduced-motion.
+  const [boom, setBoom] = useState<{
+    seq: number
+    blasts: {
+      key: string
+      left: number
+      top: number
+      delay: number
+      puffs: { key: string; size: number; dx: number; dy: number; dur: number; delay: number; op: number; color: string }[]
+    }[]
+  } | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let next: ReturnType<typeof setTimeout>
+    let clear: ReturnType<typeof setTimeout>
+    let seq = 0
+    const gap = () => YZMA_BOOM_GAP_MIN_MS + Math.random() * (YZMA_BOOM_GAP_MAX_MS - YZMA_BOOM_GAP_MIN_MS)
+    // Un foyer d'explosion : une origine (left/top) + un nuage de bouffées colorées qui giclent en radial.
+    const makeBlast = (bi: number, seqId: number, delay: number) => {
+      const n = 14
+      const puffs = Array.from({ length: n }, (_, i) => {
+        const ang = (i / n) * Math.PI * 2 + Math.random() * 0.4 // réparties en cercle (+ jitter)
+        const dist = 12 + Math.random() * 22 // vh (distance d'éjection radiale)
+        return {
+          key: `${seqId}-${bi}-${i}`,
+          size: 8 + Math.random() * 10, // vh
+          dx: Math.cos(ang) * dist, // vh
+          dy: Math.sin(ang) * dist, // vh
+          dur: 1.4 + Math.random() * 1, // s
+          delay: Math.random() * 0.5, // s (le nuage « bouillonne » en plusieurs jets)
+          op: 0.5 + Math.random() * 0.35,
+          color: YZMA_COLORS[Math.floor(Math.random() * YZMA_COLORS.length)],
+        }
+      })
+      return { key: `${seqId}-${bi}`, left: 22 + Math.random() * 56, top: 26 + Math.random() * 48, delay, puffs }
+    }
+    const fire = () => {
+      // DOUBLE BOOM : deux foyers à des endroits différents, le second décalé d'un court instant.
+      const s = seq++
+      const blasts = [makeBlast(0, s, 0), makeBlast(1, s, 0.45 + Math.random() * 0.4)]
+      setBoom({ seq: s, blasts })
+      clear = setTimeout(() => setBoom(null), YZMA_BOOM_DURATION_MS)
+      next = setTimeout(fire, gap())
+    }
+    next = setTimeout(fire, gap())
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
+  // SURPRISE « Yzma en chat » : à intervalle aléatoire, une grosse fumée noire monte du bas du plateau, se
+  // dissipe et révèle le chat (avec un « ? »), qui marque un temps puis DÉTALE vers la gauche. Calque
+  // (dé)monté le temps de la scène → les animations à un coup jouent une fois. Désactivé en reduced-motion.
+  const [cat, setCat] = useState<{
+    seq: number
+    puffs: { key: string; left: number; size: number; sx: number; sx2: number; delay: number; op: number }[]
+  } | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let next: ReturnType<typeof setTimeout>
+    let clear: ReturnType<typeof setTimeout>
+    let seq = 0
+    const gap = () => YZMA_CAT_GAP_MIN_MS + Math.random() * (YZMA_CAT_GAP_MAX_MS - YZMA_CAT_GAP_MIN_MS)
+    const fire = () => {
+      const s = seq++
+      // Grosse fumée noire DENSE : beaucoup de grosses bouffées qui montent du bas-centre en s'évasant et
+      // recouvrent entièrement le chat, puis se dissipent (le révèlent).
+      const puffs = Array.from({ length: 26 }, (_, i) => ({
+        key: `${s}-${i}`,
+        left: 50 + (Math.random() - 0.5) * 48, // % (large, autour du centre-bas)
+        size: 26 + Math.random() * 26, // vh (TRÈS grosses bouffées)
+        sx: (Math.random() - 0.5) * 12, // vw (dérive en montant)
+        sx2: (Math.random() - 0.5) * 28, // vw (dérive finale)
+        delay: Math.random() * 0.5, // s
+        op: 0.88 + Math.random() * 0.12,
+      }))
+      setCat({ seq: s, puffs })
+      clear = setTimeout(() => setCat(null), YZMA_CAT_DURATION_MS)
+      next = setTimeout(fire, gap())
+    }
+    next = setTimeout(fire, gap())
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
+  return (
+    <div className="yzma-decor" aria-hidden>
+      {/* Lueur magenta qui pulse par en-dessous (les potions au fond). */}
+      <div className="yzma-glow" />
+      {/* Volutes de vapeur colorées qui montent des évents en s'enroulant. */}
+      {wisps.map((w) => (
+        <span
+          key={`wisp-${w.key}`}
+          className="yzma-wisp"
+          style={{
+            left: `${w.left}%`,
+            width: `${w.size}vh`,
+            height: `${w.size}vh`,
+            background: `radial-gradient(circle, ${w.color} 0%, ${w.color}66 42%, ${w.color}00 72%)`,
+            animationDuration: `${w.dur}s`,
+            animationDelay: `${w.delay}s`,
+            '--sx': `${w.sx}vw`,
+            '--vop': w.op,
+          } as CSSProperties}
+        />
+      ))}
+      {/* Bulles multicolores qui montent en ondulant. */}
+      {bubbles.map((b, i) => (
+        <span
+          key={`bub-${i}`}
+          className="yzma-bubble-rise"
+          style={{
+            left: `${b.left}%`,
+            animationDuration: `${b.dur}s`,
+            animationDelay: `${b.delay}s`,
+          }}
+        >
+          <span
+            className="yzma-bubble-sway"
+            style={{
+              animationDuration: `${b.swayDur}s`,
+              animationDelay: `${b.delay}s`,
+              '--sway': `${b.sway}vw`,
+            } as CSSProperties}
+          >
+            <span
+              className="yzma-bubble"
+              style={{
+                width: `${b.size}vh`,
+                height: `${b.size}vh`,
+                opacity: b.op,
+                background: `radial-gradient(circle at 35% 30%, #ffffffcc 0%, ${b.color} 45%, ${b.color}00 100%)`,
+                boxShadow: `0 0 6px ${b.color}aa`,
+              }}
+            />
+          </span>
+        </span>
+      ))}
+      {/* Fioles qui SE BALADENT en rebondissant sur les bords (DVD), en tournant lentement et nimbées
+          d'un halo : 1 potion_yzma + 5 potion_neutre ; chaque fiole pilote son propre trajet. */}
+      {[0, 1, 1, 1, 1, 1].map((idx, i) => (
+        <YzmaVial key={i} img={YZMA_VIAL_IMAGES[idx]} />
+      ))}
+      {/* Vignette : coins sombres (le laboratoire plongé dans la pénombre). */}
+      <div className="yzma-vignette" />
+      {/* SURPRISE « Pull the lever » : DOUBLE explosion d'une potion en nuage de fumée multicolore (au-dessus
+          de tout le décor) — deux foyers, le second décalé (bl.delay). Animations jouées une fois. */}
+      {boom &&
+        boom.blasts.map((bl) => (
+          <div key={`boom-${bl.key}`} className="yzma-boom" style={{ left: `${bl.left}%`, top: `${bl.top}%` }}>
+            <span className="yzma-boom-flash" style={{ animationDelay: `${bl.delay}s` }} />
+            <span className="yzma-boom-ring" style={{ animationDelay: `${bl.delay}s` }} />
+            {bl.puffs.map((p) => (
+              <span
+                key={`boom-${p.key}`}
+                className="yzma-boom-puff"
+                style={{
+                  width: `${p.size}vh`,
+                  height: `${p.size}vh`,
+                  background: `radial-gradient(circle, ${p.color} 0%, ${p.color}66 45%, ${p.color}00 72%)`,
+                  animationDuration: `${p.dur}s`,
+                  animationDelay: `${p.delay + bl.delay}s`,
+                  '--dx': `${p.dx}vh`,
+                  '--dy': `${p.dy}vh`,
+                  '--op': p.op,
+                } as CSSProperties}
+              />
+            ))}
+          </div>
+        ))}
+      {/* SURPRISE « Yzma en chat » : grosse fumée noire qui monte du bas, se dissipe et révèle le chat
+          (avec « ? »), qui marque un temps puis DÉTALE vers la gauche. Au-dessus de tout le décor. */}
+      {cat && (
+        <div className="yzma-cat-scene">
+          {cat.puffs.map((p) => (
+            <span
+              key={`catsmoke-${p.key}`}
+              className="yzma-cat-smoke"
+              style={{
+                left: `${p.left}%`,
+                width: `${p.size}vh`,
+                height: `${p.size}vh`,
+                animationDelay: `${p.delay}s`,
+                '--sx': `${p.sx}vw`,
+                '--sx2': `${p.sx2}vw`,
+                '--op': p.op,
+              } as CSSProperties}
+            />
+          ))}
+          <span className="yzma-cat-figure">
+            <span className="yzma-cat-q">?</span>
+            <img src="/animations/cat_yzma.png" alt="" className="yzma-cat-img" draggable={false} />
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Images qui tombent dans le décor de Ratigan : les PIÈCES de Prince Jean (réutilisées, cf. COIN_IMAGES) + 4 diamants.
+const RATIGAN_DIAMANTS = Array.from({ length: 4 }, (_, i) => `/animations/diamant-${i + 1}.png`)
+// Ombre portée commune aux objets qui tombent.
+const RATIGAN_SHADOW = 'drop-shadow(0 3px 5px rgba(0, 0, 0, 0.4))'
+// Teintes des diamants : rouge, bleu et blanc (l'image est un cristal clair → on la colore au filtre
+// `sepia + hue-rotate`, qui préserve les facettes ; le blanc reste l'image d'origine).
+const DIAMOND_TINTS = [
+  `grayscale(1) sepia(1) saturate(20) hue-rotate(-66deg) brightness(1) ${RATIGAN_SHADOW}`, // rouge
+  `grayscale(1) sepia(1) saturate(12) hue-rotate(188deg) brightness(1) ${RATIGAN_SHADOW}`, // bleu
+  RATIGAN_SHADOW, // blanc (sans teinte)
+]
+
+/** Décor « clockwork » (Ratigan — Basil, détective privé) : le beffroi de Big Ben.
+ *  ARRIÈRE-PLAN : voile ambré au gaz + nappes de brume qui dérivent, un grand CADRAN d'horloge lumineux
+ *  (disque ambré + ticks + aiguilles qui tournent) et de grands ENGRENAGES (rouages) qui tournent lentement
+ *  sur eux-mêmes (parallaxe par tailles/opacités). DEVANT : une pluie permanente de PIÈCES (celles de Prince
+ *  Jean) et de diamants qui tombent en tournoyant (mécanique `coinFall` en boucle, ×135 ; diamants teintés
+ *  rouge/bleu/blanc) + une cloche sans teinte. SURPRISE ponctuelle : une cascade d'EAU (#B93A59) se
+ *  déverse ~7 s par moments. Éléments tirés une fois au montage ; rotations multiples de 360° (bouclage net). */
+function ClockworkDecor({ side }: { side?: 'left' | 'right' }) {
+  // La colonne du décor déborde de 10 % (de la largeur écran) vers le bord EXTÉRIEUR (gauche pour le
+  // joueur, droite pour l'adversaire), donc une partie de la boîte est hors écran de ce côté. On biaise
+  // la répartition horizontale vers le bord INTÉRIEUR (visible) pour que la pluie reste centrée sur la
+  // colonne réellement affichée, au lieu d'être décalée vers le débordement.
+  const [lo, hi] = side === 'right' ? [-10, 100] : side === 'left' ? [20, 98] : [4, 96]
+  const [items] = useState(() => {
+    const rain = Array.from({ length: 135 }, () => {
+      // Un objet sur deux ≈ un diamant (teinté), l'autre une pièce de Prince Jean (non teintée).
+      const isDiamond = Math.random() < 0.5
+      const img = isDiamond
+        ? RATIGAN_DIAMANTS[Math.floor(Math.random() * RATIGAN_DIAMANTS.length)]
+        : COIN_IMAGES[Math.floor(Math.random() * COIN_IMAGES.length)]
+      return {
+        img,
+        filter: isDiamond ? DIAMOND_TINTS[Math.floor(Math.random() * DIAMOND_TINTS.length)] : RATIGAN_SHADOW,
+        left: lo + Math.random() * (hi - lo), // % (biaisé selon le côté, cf. ci-dessus)
+        // Diamants nettement plus gros que les pièces.
+        size: isDiamond ? 3.6 + Math.random() * 3.8 : 1.8 + Math.random() * 2.4, // vh
+        dur: 20 + Math.random() * 14, // s (chute lente, 20–34 s)
+        delay: -(Math.random() * 34), // s (étalées sur tout le trajet)
+        spin: (Math.random() < 0.5 ? -1 : 1) * 360 * (1 + Math.floor(Math.random() * 3)), // ±360/720/1080°
+        op: 0.6,
+      }
+    })
+    // Une SEULE cloche (sans teinte : couleurs d'origine, juste une ombre) et bien plus grosse, qui
+    // tombe comme les diamants.
+    const cloche = {
+      img: '/animations/cloche-main.png',
+      filter: RATIGAN_SHADOW, // pas de teinte couleur, juste l'ombre portée
+      left: lo + Math.random() * (hi - lo),
+      size: 10 + Math.random() * 3, // vh (bien plus grosse que la pluie)
+      dur: 24 + Math.random() * 10, // s (chute lente)
+      delay: -(Math.random() * 34), // s
+      spin: (Math.random() < 0.5 ? -1 : 1) * 360 * (1 + Math.floor(Math.random() * 3)),
+      op: 0.6,
+    }
+    return [...rain, cloche]
+  })
+  // ARRIÈRE-PLAN : de grands ENGRENAGES (image `rouage_plat.png`) qui tournent lentement sur eux-mêmes,
+  // DERRIÈRE la pluie et la cascade (les rouages de Big Ben). Tailles/positions/vitesses/sens tirés une
+  // fois au montage.
+  const [cogs] = useState(() => {
+    // Répartis sur une GRILLE 3×2 (une cellule par engrenage) + jitter → bien étalés (pas en paquet).
+    const cells = [
+      { left: 18, top: 26 }, { left: 50, top: 20 }, { left: 82, top: 30 },
+      { left: 20, top: 72 }, { left: 52, top: 76 }, { left: 84, top: 66 },
+    ]
+    return cells.map((cell) => ({
+      left: cell.left + (Math.random() - 0.5) * 14, // % (jitter dans la cellule)
+      top: cell.top + (Math.random() - 0.5) * 16, // %
+      size: 26 + Math.random() * 32, // vh (grands engrenages)
+      dur: 16 + Math.random() * 26, // s (rotation lente)
+      spin: Math.random() < 0.5 ? 360 : -360, // sens horaire / antihoraire
+      op: 0.18 + Math.random() * 0.16, // discrets (arrière-plan)
+    }))
+  })
+  // Nappes de BRUME AMBRÉE (gaz de Big Ben) qui dérivent lentement, tout au fond.
+  const [mist] = useState(() =>
+    Array.from({ length: 4 }, () => ({
+      left: 12 + Math.random() * 76, // %
+      top: 18 + Math.random() * 60, // %
+      w: 48 + Math.random() * 40, // vh
+      h: 28 + Math.random() * 26, // vh
+      dur: 22 + Math.random() * 18, // s (dérive lente)
+      delay: -(Math.random() * 30), // s
+      amp: 6 + Math.random() * 8, // vw (va-et-vient)
+      op: 0.1 + Math.random() * 0.12,
+    })),
+  )
+  // Colonnes d'eau de la cascade (couleur #B93A59, 2 nuances ; filets qui tombent vite, hauteurs et débits
+  // variés) ; positions biaisées sur la colonne visible.
+  const [falls] = useState(() =>
+    Array.from({ length: 72 }, () => {
+      const r = Math.random()
+      const h = r < 0.4 ? 8 + Math.random() * 5 : r < 0.75 ? 14 + Math.random() * 9 : 24 + Math.random() * 13 // vh
+      return {
+        left: lo + Math.random() * (hi - lo), // %
+        w: 0.5 + Math.random() * 0.9, // vh (filet fin)
+        h, // vh (hauteur de colonne)
+        dur: 0.4 + Math.random() * 0.6, // s (chute rapide : lent/moyen/rapide)
+        delay: -(Math.random() * 1.2), // s
+        teal: Math.random() < 0.5, // true = nuance plus claire (profondeur)
+        op: 0.6 + Math.random() * 0.35,
+      }
+    }),
+  )
+  // Bouillons blancs (« écume ») au pied de la cascade : petits ronds qui frémissent.
+  const [foam] = useState(() =>
+    Array.from({ length: 28 }, () => ({
+      left: lo + Math.random() * (hi - lo), // %
+      size: 1.6 + Math.random() * 2.8, // vh
+      dur: 0.12 + Math.random() * 0.32, // s (frémissement rapide)
+      delay: -(Math.random() * 0.4), // s
+      op: 0.7 + Math.random() * 0.3,
+    })),
+  )
+  // SURPRISE : par moments, une cascade D'EAU se déverse quelques secondes, puis s'arrête ; on reprogramme
+  // la suivante après un intervalle aléatoire (désactivée en reduced-motion).
+  const [waterOn, setWaterOn] = useState(false)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let off: ReturnType<typeof setTimeout>
+    let next: ReturnType<typeof setTimeout>
+    const gap = () => 35000 + Math.random() * 35000 // 35–70 s entre deux cascades
+    const schedule = (delay: number) => {
+      next = setTimeout(() => {
+        setWaterOn(true)
+        off = setTimeout(() => {
+          setWaterOn(false)
+          schedule(gap())
+        }, 7000) // la cascade coule ~7 s
+      }, delay)
+    }
+    schedule(15000 + Math.random() * 15000) // première cascade entre 15 et 30 s
+    return () => {
+      clearTimeout(next)
+      clearTimeout(off)
+    }
+  }, [])
+  return (
+    <div className="clockwork-decor" aria-hidden>
+      {/* Tout au fond : voile ambré + nappes de brume au gaz qui dérivent. */}
+      <div className="cw-ambient" />
+      {mist.map((m, i) => (
+        <span
+          key={`mist-${i}`}
+          className="cw-mist"
+          style={{
+            left: `${m.left}%`,
+            top: `${m.top}%`,
+            width: `${m.w}vh`,
+            height: `${m.h}vh`,
+            opacity: m.op,
+            animationDuration: `${m.dur}s`,
+            animationDelay: `${m.delay}s`,
+            '--amp': `${m.amp}vw`,
+          } as CSSProperties}
+        />
+      ))}
+      {/* Grand CADRAN d'horloge lumineux (Big Ben), au fond : disque ambré + ticks + aiguilles qui tournent. */}
+      <div className="cw-clockface">
+        <span className="cw-clock-hand cw-clock-hand--h" />
+        <span className="cw-clock-hand cw-clock-hand--m" />
+        <span className="cw-clock-center" />
+      </div>
+      {/* Arrière-plan : grands engrenages dessinés en CSS qui tournent lentement (rouages de Big Ben).
+          Rendus AVANT la pluie de rouages/diamants et la cascade → derrière elles. */}
+      {cogs.map((c, i) => (
+        <span
+          key={`cog-${i}`}
+          className="cw-cog"
+          style={{
+            left: `${c.left}%`,
+            top: `${c.top}%`,
+            width: `${c.size}vh`,
+            height: `${c.size}vh`,
+            opacity: c.op,
+            animationDuration: `${c.dur}s`,
+            '--spin': `${c.spin}deg`,
+          } as CSSProperties}
+        >
+          <img src="/animations/rouage_plat.png" alt="" className="cw-cog-img" draggable={false} />
+        </span>
+      ))}
+      {items.map((c, i) => (
+        <img
+          key={i}
+          src={c.img}
+          alt=""
+          className="cw-fall"
+          style={{
+            left: `${c.left}%`,
+            height: `${c.size}vh`,
+            opacity: c.op,
+            filter: c.filter,
+            animationDuration: `${c.dur}s`,
+            animationDelay: `${c.delay}s`,
+            '--coin-spin': `${c.spin}deg`,
+          } as CSSProperties}
+          draggable={false}
+        />
+      ))}
+      {/* SURPRISE : cascade d'EAU (#B93A59) qui se déverse par moments (colonnes qui tombent + écume au pied). */}
+      <div className={`cw-water${waterOn ? ' is-pouring' : ''}`}>
+        <div className="cw-water-veil" />
+        {falls.map((f, i) => (
+          <span
+            key={`fall-${i}`}
+            className={`cw-water-fall${f.teal ? ' is-teal' : ''}`}
+            style={{
+              left: `${f.left}%`,
+              width: `${f.w}vh`,
+              opacity: f.op,
+              animationDuration: `${f.dur}s`,
+              animationDelay: `${f.delay}s`,
+              '--fh': `${f.h}vh`,
+            } as CSSProperties}
+          />
+        ))}
+        <div className="cw-water-foamband" />
+        {foam.map((b, i) => (
+          <span
+            key={`foam-${i}`}
+            className="cw-water-bubble"
+            style={{
+              left: `${b.left}%`,
+              width: `${b.size}vh`,
+              height: `${b.size}vh`,
+              opacity: b.op,
+              animationDuration: `${b.dur}s`,
+              animationDelay: `${b.delay}s`,
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// SURPRISE Cruella : DEUX traînées d'empreintes de pattes (deux chiens) traversent la neige — une en
+// haut, une en bas, en sens opposés ; la 2ᵉ démarre quand la 1ʳᵉ a fini de s'imprimer. Elles marquent
+// un temps puis s'effacent UNE PAR UNE (dans l'ordre où elles ont été posées). Sur minuterie ;
+// désactivée en reduced-motion (la minuterie ne se lance pas). Le minutage total est calculé par tir
+// (cf. fire()) à partir du nombre réel d'empreintes.
+const CRUELLA_PAW_TEST = false // true = cadence rapide pour le réglage
+const CRUELLA_PAW_STAMP_STEP_S = 0.17 // s — délai entre deux empreintes qui s'impriment
+const CRUELLA_PAW_STAMP_DUR_S = 0.45 // s — durée de l'impression d'une empreinte (cf. keyframe)
+const CRUELLA_PAW_HOLD_MS = 1500 // ms — temps où toute la traînée reste posée avant de s'effacer
+const CRUELLA_PAW_OUT_STEP_S = 0.13 // s — délai entre deux disparitions (effacement une par une)
+const CRUELLA_PAW_OUT_DUR_MS = 700 // ms — durée du fondu d'une empreinte (cf. CSS transition)
+const CRUELLA_PAW_GAP_MIN_MS = CRUELLA_PAW_TEST ? 2_500 : 120_000
+const CRUELLA_PAW_GAP_MAX_MS = CRUELLA_PAW_TEST ? 5_000 : 240_000
+
+// Taches dalmatiennes : silhouettes noires arrondies et irrégulières. Chaque tache a un
+// `border-radius` aléatoire (4 coins) → forme organique, jamais un disque parfait.
+function randomBlobRadius(): string {
+  const r = () => 40 + Math.random() * 45 // % (chaque coin entre 40 et 85 %)
+  return `${r()}% ${r()}% ${r()}% ${r()}% / ${r()}% ${r()}% ${r()}% ${r()}%`
+}
+
+/** Décor « cruella » : nuit d'hiver enneigée (Les 101 Dalmatiens). Fond bleu-nuit froid avec un
+ *  faible halo lunaire ; de la neige tombe en voletant (profondeur : flocons proches plus gros,
+ *  rapides et flous) ; de subtiles taches dalmatiennes noires dérivent en fondu (la fourrure
+ *  tachetée). Une traînée d'EMPREINTES de pattes de chiot s'imprimera par moments dans la neige
+ *  (étape 2). Éléments tirés une fois au montage, animations jouées en CSS (cf. index.css). */
+function CruellaDecor() {
+  // Flocons : profondeur (0 lointain → 1 proche) qui pilote taille / vitesse / flou / opacité, plus
+  // un voletement latéral (--sx) et un déphasage pour un flux continu.
+  const [flakes] = useState(() =>
+    Array.from({ length: 90 }, () => {
+      const depth = Math.random() // 0 lointain, 1 proche
+      return {
+        left: Math.random() * 100, // %
+        size: 1.4 + depth * 5, // px (proche = plus gros)
+        dur: 16 - depth * 8, // s (proche = tombe plus vite : ~8 à 16 s)
+        delay: -(Math.random() * 16), // s (étalés sur tout le trajet)
+        sx: 2 + Math.random() * 7, // vw (amplitude du voletement latéral)
+        swayDur: 3 + Math.random() * 3, // s (période d'ondulation)
+        blur: (1 - depth) * 1.6, // px (lointain = légèrement flou)
+        op: 0.4 + depth * 0.55, // proche = plus opaque
+      }
+    }),
+  )
+  // Taches dalmatiennes : grosses taches noires qui apparaissent/dérivent très lentement en fondu,
+  // surtout dans les marges. Forme et trajet figés au montage.
+  const [spots] = useState(() =>
+    Array.from({ length: 14 }, () => ({
+      left: Math.random() * 100, // %
+      top: Math.random() * 100, // %
+      size: 4 + Math.random() * 9, // vh
+      radius: randomBlobRadius(),
+      dx: (Math.random() - 0.5) * 10, // vw (dérive lente)
+      dy: (Math.random() - 0.5) * 10, // vh
+      dur: 26 + Math.random() * 22, // s (cycle apparition → dérive → disparition)
+      delay: -(Math.random() * 40), // s (déphasage)
+      op: 0.82 + Math.random() * 0.13, // opacité de pointe (taches bien visibles, ~0,82–0,95)
+      lean: (Math.random() - 0.5) * 24, // deg (rotation pendant la dérive)
+    })),
+  )
+  // SURPRISE : traînée d'empreintes de pattes. Calque (dé)monté le temps de la scène ; chaque
+  // empreinte « s'imprime » (cruellaPawStamp, jouée une fois) avec un délai croissant → elles
+  // apparaissent une à une ; puis tout le calque se fond (`is-leaving`) avant d'être démonté.
+  const [paws, setPaws] = useState<{
+    seq: number
+    items: { key: string; left: number; top: number; rot: number; size: number; delay: number; outDelay: number }[]
+  } | null>(null)
+  const [pawsLeaving, setPawsLeaving] = useState(false)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let next: ReturnType<typeof setTimeout>
+    let leave: ReturnType<typeof setTimeout>
+    let clear: ReturnType<typeof setTimeout>
+    let seq = 0
+    const gap = () => CRUELLA_PAW_GAP_MIN_MS + Math.random() * (CRUELLA_PAW_GAP_MAX_MS - CRUELLA_PAW_GAP_MIN_MS)
+    // Une traînée : ligne de marche en travers de l'écran. `yBase` donne la hauteur, `ltr` le sens de
+    // la marche, `idx` préfixe les clés, `delayBase` (s) décale le début de l'impression (pour
+    // enchaîner la 2ᵉ traînée après la 1ʳᵉ). Chaque empreinte pointe dans le sens de la marche et
+    // s'imprime après la précédente. Le décor n'est visible que dans les bandes HAUTE et BASSE.
+    const makeTrail = (s: number, idx: number, yBase: number, ltr: boolean, delayBase: number) => {
+      const n = 11 + Math.floor(Math.random() * 4) // 11–14 empreintes
+      const wander = (Math.random() - 0.5) * 8 // % (léger dénivelé)
+      const size = 4.5 + Math.random() * 2 // vh (taille d'une empreinte — bien visible)
+      const rot = ltr ? 90 : -90 // les pattes pointent dans le sens de la marche
+      return Array.from({ length: n }, (_, i) => {
+        const t = n > 1 ? i / (n - 1) : 0
+        return {
+          key: `${s}-${idx}-${i}`,
+          left: ltr ? 5 + t * 90 : 95 - t * 90, // %
+          top: yBase + (t - 0.5) * wander + (i % 2 ? 2.5 : -2.5), // alternance pattes G/D
+          rot: rot + (Math.random() - 0.5) * 18, // deg (léger lacet)
+          size,
+          delay: delayBase + i * CRUELLA_PAW_STAMP_STEP_S, // s (s'imprime après la précédente)
+        }
+      })
+    }
+    const fire = () => {
+      const s = seq++
+      setPawsLeaving(false)
+      // Deux chiens en sens OPPOSÉS : un en HAUT (5–11 %), un un peu plus bas (62–69 %). La 2ᵉ traînée
+      // démarre quand la 1ʳᵉ a fini de s'imprimer (delayBase = fin d'impression de la 1ʳᵉ).
+      const ltr = Math.random() < 0.5
+      const trailA = makeTrail(s, 0, 5 + Math.random() * 6, ltr, 0)
+      const aEndS = (trailA.length - 1) * CRUELLA_PAW_STAMP_STEP_S + CRUELLA_PAW_STAMP_DUR_S
+      const trailB = makeTrail(s, 1, 62 + Math.random() * 7, !ltr, aEndS)
+      // Effacement UNE PAR UNE, dans l'ordre de pose (la combinaison est déjà dans l'ordre d'apparition).
+      const items = [...trailA, ...trailB].map((it, i) => ({ ...it, outDelay: i * CRUELLA_PAW_OUT_STEP_S }))
+      setPaws({ seq: s, items })
+      // Minutage : impression (jusqu'à `appearEndS`) → temps de pose (HOLD) → effacement échelonné.
+      const appearEndS = aEndS + (trailB.length - 1) * CRUELLA_PAW_STAMP_STEP_S + CRUELLA_PAW_STAMP_DUR_S
+      const leaveAtMs = appearEndS * 1000 + CRUELLA_PAW_HOLD_MS
+      const outSpanMs = (items.length - 1) * CRUELLA_PAW_OUT_STEP_S * 1000 + CRUELLA_PAW_OUT_DUR_MS
+      const durationMs = leaveAtMs + outSpanMs + 250 // +marge pour ne pas couper le dernier fondu
+      leave = setTimeout(() => setPawsLeaving(true), leaveAtMs)
+      clear = setTimeout(() => {
+        setPaws(null)
+        setPawsLeaving(false)
+      }, durationMs)
+      next = setTimeout(fire, durationMs + gap())
+    }
+    next = setTimeout(fire, gap())
+    return () => {
+      clearTimeout(next)
+      clearTimeout(leave)
+      clearTimeout(clear)
+    }
+  }, [])
+  return (
+    <div className="cruella-decor" aria-hidden>
+      {/* Halo lunaire froid + vignette (posés par CSS sur le conteneur via ::before/::after). */}
+      <div className="cruella-moon" />
+      {/* Taches dalmatiennes noires qui dérivent en fondu (derrière la neige). */}
+      {spots.map((s, i) => (
+        <span
+          key={`spot-${i}`}
+          className="cruella-spot"
+          style={{
+            left: `${s.left}%`,
+            top: `${s.top}%`,
+            width: `${s.size}vh`,
+            height: `${s.size}vh`,
+            borderRadius: s.radius,
+            animationDuration: `${s.dur}s`,
+            animationDelay: `${s.delay}s`,
+            '--dx': `${s.dx}vw`,
+            '--dy': `${s.dy}vh`,
+            '--op': s.op,
+            '--lean': `${s.lean}deg`,
+          } as CSSProperties}
+        />
+      ))}
+      {/* Neige : enveloppe = chute (translateY) ; enfant = voletement latéral (pendule). */}
+      {flakes.map((f, i) => (
+        <span
+          key={`flake-${i}`}
+          className="cruella-flake-fall"
+          style={{
+            left: `${f.left}%`,
+            animationDuration: `${f.dur}s`,
+            animationDelay: `${f.delay}s`,
+          }}
+        >
+          <span
+            className="cruella-flake-sway"
+            style={{
+              animationDuration: `${f.swayDur}s`,
+              animationDelay: `${f.delay}s`,
+              '--sx': `${f.sx}vw`,
+            } as CSSProperties}
+          >
+            <span
+              className="cruella-flake"
+              style={{
+                width: `${f.size}px`,
+                height: `${f.size}px`,
+                opacity: f.op,
+                filter: f.blur ? `blur(${f.blur}px)` : undefined,
+              }}
+            />
+          </span>
+        </span>
+      ))}
+      {/* Traînées d'empreintes de pattes (par-dessus la neige). En sortie (`is-leaving`), chaque
+          empreinte s'efface à son tour (transition-delay = `--out-delay`) → disparition une par une. */}
+      {paws && (
+        <div
+          className={`cruella-paws${pawsLeaving ? ' is-leaving' : ''}`}
+          style={{ '--paw-out-dur': `${CRUELLA_PAW_OUT_DUR_MS}ms` } as CSSProperties}
+        >
+          {paws.items.map((p) => (
+            // Conteneur = position + orientation (dans le sens de la marche) ; l'image porte
+            // l'animation d'« impression » (surgit en grossissant puis se cale).
+            <span
+              key={p.key}
+              className="cruella-paw"
+              style={{
+                left: `${p.left}%`,
+                top: `${p.top}%`,
+                width: `${p.size}vh`,
+                transform: `translate(-50%, -50%) rotate(${p.rot}deg)`,
+              }}
+            >
+              <img
+                src="/animations/patte.png"
+                alt=""
+                className="cruella-paw-img"
+                draggable={false}
+                style={{ animationDelay: `${p.delay}s`, '--out-delay': `${p.outDelay}s` } as CSSProperties}
+              />
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Jeu de glyphes de la pluie de code (binaire dominant + quelques symboles « hacker »).
+const CYBER_GLYPHS = '0101010101<>[]{}/#$%*+=01'
+// Construit une colonne de code : N glyphes empilés (un par ligne, rendus via white-space: pre).
+function cyberColumnText(): string {
+  const n = 14 + Math.floor(Math.random() * 18) // 14–31 glyphes
+  let s = ''
+  for (let i = 0; i < n; i++) s += CYBER_GLYPHS[Math.floor(Math.random() * CYBER_GLYPHS.length)] + '\n'
+  return s.slice(0, -1)
+}
+
+// Crâne de piratage de Sombra en ASCII demi-teinte (cf. assets/ascii_sombra.png). Lignes alignées
+// en monospace (espaces de tête = centrage de la silhouette hexagonale).
+const SKULL_ART = [
+  '                     :PB@Bk:',
+  '                  ,jB@@B@B@B@BBL.',
+  '                7G@B@B@BMMMMMB@B@B@Nr',
+  '              :kB@B@@@MMOMOMOMOMMMM@B@B@B1,',
+  '            :5@B@B@B@BBMMOMOMOMOMOMM@@@B@B@BBu.',
+  '          70@@@B@B@B@BXBMOMOMOMOMOMMBMPB@B@B@B@B@Nr',
+  '        G@@@BJ iB@B@@  OBMOMOMOMOMOMOM@2  B@B@B. EB@B@S',
+  '       @@BM@GJBU.  iSuB@OMOMOMOMOMOMM@OU1:  .kBLM@M@B@',
+  '       B@MMB@B        7@BBMMOMOMOMOMOBB@:        B@BMM@B',
+  '       @@@B@B          7@@@MMMOMOMOMM@@:          @@B@B@',
+  '       @@OLB.         BNB@MMOMOMM@BEB           rBjM@B',
+  '       @@  @          M  OBOMOMM@q  M           .@  @@',
+  '       @@OvB          B:u@MMOMOMMBJiB           .BvM@B',
+  '       @B@B@J         0@B@MMOMOMOMB@B@u         q@@@B@',
+  '       B@MBB@v       G@@BMMMMMMMMMMMBB@5       F@BMM@B',
+  '       @BBM@BPNi   LMEB@OMMMMM@B@MMMOM@BzM7   rEqB@MBB@',
+  '       B@@@BM  B@B@B  qBMOMB@B@B@BMOMBL  B@B@B  @B@B@M',
+  '       J@@@@PB@B@B@B7G@OMBB.    ,@MMM@qLB@B@@@BqB@BBv',
+  '         iGB@,i0@M@B@MMO@E  :  M@OMM@@@B@Pii@@N:',
+  '       .     B@M@B@MMM@B@B@B@MMM@@@M@B',
+  '             @B@B.i@MBB@B@B@@BM@::B@B@',
+  '             B@@@ .B@B.:@B@ :B@B  @B@O',
+  '              :0 r@B@ .@B@  :B@B: P:',
+  '                vMB :@B@ :BO7',
+  '                   ,B@B',
+].join('\n')
+// Durée de la frappe : on révèle SKULL_STEP caractères toutes les ~16 ms.
+const SKULL_STEP = 3
+const SKULL_TYPE_MS = Math.ceil(SKULL_ART.length / SKULL_STEP) * 16
+
+/** Crâne ASCII de Sombra qui « se tape » caractère par caractère (effet machine à écrire), avec un
+ *  curseur clignotant tant que la frappe n'est pas finie. Isolé dans son propre composant pour que
+ *  seul lui (et non tout le décor) se re-rende à chaque tick. La sortie en fondu est portée par le
+ *  parent via la classe `is-leaving`. */
+function CyberSkull({ leaving }: { leaving: boolean }) {
+  const [count, setCount] = useState(0)
+  const done = count >= SKULL_ART.length
+  useEffect(() => {
+    const id = setInterval(() => {
+      setCount((c) => {
+        const next = c + SKULL_STEP
+        if (next >= SKULL_ART.length) {
+          clearInterval(id)
+          return SKULL_ART.length
+        }
+        return next
+      })
+    }, 16)
+    return () => clearInterval(id)
+  }, [])
+  return (
+    <div className={`cyber-skull-wrap${leaving ? ' is-leaving' : ''}`}>
+      <pre className="cyber-skull">
+        {SKULL_ART.slice(0, count)}
+        {!done && <span className="cyber-skull-caret">▋</span>}
+      </pre>
+    </div>
+  )
+}
+
+/** Décor « cyber » (Sombra — Overwatch) : son interface de piratage. Fond violet très sombre,
+ *  une PLUIE de code (colonnes de glyphes qui tombent ; un dégradé clippé sur le texte éclaire la
+ *  tête en cyan/magenta et estompe la traîne), une DISTORSION glitch en arrière-plan (deux copies
+ *  décalées magenta/cyan découpées en tranches horizontales animées — d'après l'effet glitch CSS
+ *  classique), une ligne de scan qui balaie l'écran, et par moments des SURPRISES : une vague de
+ *  glitch qui parcourt l'écran, et le CRÂNE de piratage de Sombra qui
+ *  se tape en ASCII caractère par caractère puis s'efface. Aléas figés au montage ; animations
+ *  jouées en CSS (cf. index.css). */
+function CyberDecor({ side }: { side?: 'left' | 'right' }) {
+  // La colonne du décor déborde vers le bord EXTÉRIEUR : on biaise la répartition horizontale vers
+  // le bord INTÉRIEUR visible (comme Ratigan / Crochet).
+  const [lo, hi] = side === 'right' ? [-8, 100] : side === 'left' ? [0, 108] : [0, 100]
+  // Colonnes de code qui tombent (tête cyan ou magenta tirée par colonne).
+  const [cols] = useState(() =>
+    Array.from({ length: 32 }, () => {
+      const cyan = Math.random() < 0.5
+      return {
+        left: lo + Math.random() * (hi - lo), // %
+        size: 1.4 + Math.random() * 1.5, // vh (taille de police)
+        dur: 6 + Math.random() * 11, // s (vitesse de chute)
+        delay: -(Math.random() * 17), // s (étalées sur tout le trajet)
+        text: cyberColumnText(),
+        head: cyan ? '#67e8f9' : '#e879f9', // tête : cyan / magenta
+        tail: cyan ? 'rgba(34,211,238,0)' : 'rgba(168,85,247,0)', // traîne transparente
+        op: 0.45 + Math.random() * 0.45,
+      }
+    }),
+  )
+  // SURPRISE : une vague de glitch balaie tout l'écran par moments, puis se dissipe ; on reprogramme
+  // la suivante après un intervalle aléatoire (désactivée en reduced-motion).
+  const [glitchOn, setGlitchOn] = useState(false)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let on: ReturnType<typeof setTimeout>
+    let next: ReturnType<typeof setTimeout>
+    const gap = () => 20000 + Math.random() * 28000 // 20–48 s entre deux vagues
+    const schedule = (delay: number) => {
+      next = setTimeout(() => {
+        setGlitchOn(true)
+        on = setTimeout(() => {
+          setGlitchOn(false)
+          schedule(gap())
+        }, 1100) // la vague dure ~1,1 s
+      }, delay)
+    }
+    schedule(8000 + Math.random() * 10000) // première vague entre 8 et 18 s
+    return () => {
+      clearTimeout(next)
+      clearTimeout(on)
+    }
+  }, [])
+  // SURPRISE : le crâne ASCII se tape au centre, reste affiché, puis s'efface ; on reprogramme le
+  // suivant (désactivée en reduced-motion).
+  const [skull, setSkull] = useState(false)
+  const [skullLeaving, setSkullLeaving] = useState(false)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let show: ReturnType<typeof setTimeout>
+    let leave: ReturnType<typeof setTimeout>
+    let clear: ReturnType<typeof setTimeout>
+    const HOLD_MS = 3000 // crâne tenu après la frappe
+    const FADE_MS = 900 // fondu de sortie (cf. transition CSS)
+    const gap = () => 30000 + Math.random() * 30000 // 30–60 s entre deux apparitions
+    const schedule = (delay: number) => {
+      show = setTimeout(() => {
+        setSkullLeaving(false)
+        setSkull(true) // (re)monte CyberSkull → frappe depuis zéro
+        leave = setTimeout(() => setSkullLeaving(true), SKULL_TYPE_MS + HOLD_MS)
+        clear = setTimeout(() => {
+          setSkull(false)
+          setSkullLeaving(false)
+          schedule(gap())
+        }, SKULL_TYPE_MS + HOLD_MS + FADE_MS)
+      }, delay)
+    }
+    schedule(12000 + Math.random() * 12000) // première apparition entre 12 et 24 s
+    return () => {
+      clearTimeout(show)
+      clearTimeout(leave)
+      clearTimeout(clear)
+    }
+  }, [])
+  return (
+    <div className={`cyber-decor${glitchOn ? ' is-glitching' : ''}`} aria-hidden>
+      {/* Distorsion glitch en ARRIÈRE-PLAN (derrière la pluie) : deux copies décalées magenta/cyan
+          découpées en tranches horizontales animées (clip-path) → smear RGB type datamosh. Les deux
+          copies sont des pseudo-éléments (cf. .cyber-mosh::before/::after dans index.css). */}
+      <div className="cyber-mosh" />
+      {/* Pluie de code : colonnes de glyphes qui tombent (tête éclairée via dégradé clippé au texte). */}
+      {cols.map((c, i) => (
+        <span
+          key={`col-${i}`}
+          className="cyber-col"
+          style={{
+            left: `${c.left}%`,
+            fontSize: `${c.size}vh`,
+            opacity: c.op,
+            animationDuration: `${c.dur}s`,
+            animationDelay: `${c.delay}s`,
+            '--head': c.head,
+            '--tail': c.tail,
+          } as CSSProperties}
+        >
+          {c.text}
+        </span>
+      ))}
+      {/* Ligne de scan qui balaie l'écran (par-dessus la pluie). */}
+      <div className="cyber-sweep" />
+      {/* Vague de glitch (jouée quand `is-glitching`). */}
+      <div className="cyber-glitch" />
+      {/* SURPRISE : crâne ASCII qui se tape au centre (au premier plan, lisible au-dessus du reste). */}
+      {skull && <CyberSkull leaving={skullLeaving} />}
     </div>
   )
 }
@@ -1985,8 +3218,18 @@ export function VillainDecor({ villain, side }: { villain: VillainKey; side?: 'l
       return <VoodooDecor />
     case 'galaxy':
       return <GalaxyDecor />
-    case 'graveyard':
-      return <GraveyardDecor />
+    case 'yzma':
+      return <YzmaDecor />
+    case 'clockwork':
+      return <ClockworkDecor side={side} />
+    case 'cruella':
+      return <CruellaDecor />
+    case 'cyber':
+      return <CyberDecor side={side} />
+    case 'scar':
+      return <ScarDecor decor={decor} />
+    case 'image':
+      return <ImageDecor decor={decor} />
     default:
       return null
   }

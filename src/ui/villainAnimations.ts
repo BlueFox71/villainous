@@ -26,6 +26,9 @@ export interface VillainAnimation {
   images?: string[]
   /** Hauteur de l'élément en % de la hauteur d'écran (défaut 8 %). */
   heightPct?: number
+  /** Position verticale du haut de l'élément, en % de la hauteur d'écran (trajectoire `water-cross` ;
+   *  défaut 2 %). Permet de remonter/descendre la traversée. */
+  topPct?: number
   /** Durée d'une traversée complète, en secondes (défaut 30 s). */
   durationSec?: number
   /** L'image regarde-t-elle vers la GAUCHE au naturel ? Sert à orienter le
@@ -51,7 +54,8 @@ export interface VillainAnimation {
    *    l'écran de gauche à droite (Capitaine Crochet : Tic-Tac et ses bulles).
    *  - `rise` : des copies de `image` montent du bas vers le haut en ondulant et en
    *    s'estompant, taille/colonne/vitesse au hasard, sur toute la surface (Ursula :
-   *    bulles). Réutilisable (Hadès : âmes, Scar : braises).
+   *    bulles). Densité réglable via `count`, répartition `sides` (deux côtés) ;
+   *    réutilisable (Hadès : nuée d'âmes, Scar : braises).
    *  - `voodoo` : `image` (totems) apparaît en fondu au-dessus du plateau du vilain
    *    (bas si joueur, haut si adversaire) ; `overlayImage` (les yeux) se superpose et
    *    brille fort en violet, puis tout s'assombrit en disparaissant (Dr Facilier).
@@ -60,10 +64,14 @@ export interface VillainAnimation {
    *    hasard, en fondu (Hadès, Scar).
    *  - `fade` : `image` apparaît en FONDU à un endroit au hasard, reste visible ~5 s,
    *    puis disparaît en fondu (en grandissant légèrement) — le Chat du Cheshire qui se
-   *    matérialise puis s'évapore (Reine de Cœur). */
+   *    matérialise puis s'évapore (Reine de Cœur).
+   *  - `paws` : une traînée d'empreintes (`image`, fond transparent → affichée en blanc via
+   *    `invert`) s'imprime une à une en travers de la bande haute, de DROITE à GAUCHE (comme la
+   *    traversée d'Yzma), marque un temps, puis s'efface une par une — un chien invisible qui
+   *    passe dans la neige (Cruella). */
   path?:
     | 'cross' | 'sky-arc' | 'drift-spin' | 'pages' | 'roses' | 'coins' | 'water-cross'
-    | 'rise' | 'voodoo' | 'fire-bottom' | 'fade'
+    | 'rise' | 'voodoo' | 'fire-bottom' | 'fade' | 'paws'
   /** Tire quelques coups de canon (lueur + fumée à la bouche du canon avant)
    *  pendant le vol. Réservé aux trajectoires `sky-arc`. */
   cannons?: boolean
@@ -74,9 +82,22 @@ export interface VillainAnimation {
   feathers?: boolean
   /** Nombre de tours d'image sur tout le trajet (trajectoire `drift-spin`, défaut 1.25). */
   spinTurns?: number
-  /** Nombre d'objets qui tombent (trajectoire `coins`). Si absent, ~48-66 (pluie dense).
-   *  Sert à une chute plus parcimonieuse (Méchante Reine : quelques pommes). */
+  /** Nombre d'éléments générés. Trajectoire `coins` : objets qui tombent (si absent ~48-66 ;
+   *  Méchante Reine : quelques pommes). Trajectoire `rise` : âmes/bulles montantes (si absent
+   *  18-30 ; Hadès : nuée d'âmes). */
   count?: number
+  /** Trajectoire `rise` : concentre les éléments sur les DEUX CÔTÉS (marges gauche/droite),
+   *  en laissant le centre — où s'affichent les plateaux — plus dégagé (Hadès : âmes). */
+  sides?: boolean
+  /** Trajectoire `rise` : rend l'image floue et lui ajoute un halo lumineux derrière (aura
+   *  spectrale qui suit l'ondulation) — pour des apparitions fantomatiques (Hadès : âmes). */
+  glow?: boolean
+  /** Trajectoire `pages` : ajoute un flicker « glitch » (dédoublement chromatique cyan/magenta
+   *  par à-coups) à chaque image, pour un rendu piratage (Sombra : crânes de Piratage). */
+  glitch?: boolean
+  /** Trajectoire `water-cross` avec une IMAGE : l'élément MARCHE (Kronk de Yzma) → ajoute une traînée de
+   *  pas au sol + une vibration de course. Sans ça, l'image DÉRIVE simplement (ex. dirigeable de Ratigan). */
+  onFoot?: boolean
 }
 
 // Un vilain peut avoir UNE animation, ou PLUSIEURS (tableau) : dans ce cas le planificateur
@@ -148,6 +169,26 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
     durationSec: 9.6, // = durée du clip → une lecture complète pendant la traversée
     path: 'water-cross',
   },
+  // Yzma (Kuzco) : Kronk traverse le HAUT de l'écran (les deux camps) en courant, portant le
+  // palanquin — même trajectoire que le Tic-Tac de Crochet (`water-cross`, droite → gauche).
+  yzma: {
+    image: '/animations/yzma_kronk.png',
+    heightPct: 16, // silhouette (Kronk + palanquin)
+    topPct: 3, // hauteur de la traversée
+    durationSec: 12, // une traversée complète
+    path: 'water-cross',
+    onFoot: true, // Kronk court → traînée de pas + vibration de course
+  },
+  // Ratigan (Basil, détective privé) : son DIRIGEABLE traverse le HAUT de l'écran (même trajectoire que le
+  // Tic-Tac de Crochet, `water-cross` droite → gauche), en dérivant simplement (pas à pied).
+  ratigan: {
+    image: '/animations/dirigeable.png',
+    heightPct: 14, // taille du dirigeable (image carrée 250×250)
+    topPct: 3, // hauteur de la traversée
+    durationSec: 16, // dérive lente et majestueuse
+    facesLeft: true, // le nez pointe à gauche (sens du déplacement) → pas de retournement
+    path: 'water-cross',
+  },
   // Ursula (La Petite Sirène) : un flux de bulles monte du fond vers la surface en
   // ondulant et en s'estompant, sur toute la largeur. Trois teintes (original, bleu,
   // rose) tirées au hasard par bulle.
@@ -161,8 +202,23 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
     durationSec: 15, // couvre l'étalement des montées (délais + durée)
     path: 'rise',
   },
-  // Hadès : plus d'animation temporaire — le feu bleu est désormais un décor PERMANENT
-  // (cf. villainDecor.ts, kind `fire`).
+  // Hadès : une nuée d'âmes du Styx (3 sprites tirés au hasard) s'élève du bas vers le
+  // haut en ondulant et en s'estompant — concentrée sur les DEUX CÔTÉS (marges gauche/
+  // droite) pour encadrer les plateaux sans les noyer. (Le feu bleu reste un décor
+  // PERMANENT, cf. villainDecor.ts, kind `fire`.)
+  hades: {
+    images: [
+      '/animations/ame_femme.png',
+      '/animations/ame_homme.png',
+      '/animations/ame_homme2.png',
+    ],
+    heightPct: 11, // âmes nettement plus grandes que des bulles
+    durationSec: 16, // couvre l'étalement des montées (délais + durée)
+    count: 70, // nuée dense
+    sides: true, // concentrées sur les deux marges
+    glow: true, // âmes floues + halo spectral
+    path: 'rise',
+  },
   // Scar (Le Roi Lion) : le feu VERT de « Soyez prêtes » envahit le bas de l'écran
   // (même sprite que Hadès, teinté en vert).
   scar: {
@@ -221,6 +277,26 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
     facesLeft: true, // Iago regarde à gauche
     path: 'sky-arc',
     feathers: true,
+  },
+  // Sombra (Overwatch) : ses crânes de Piratage (« BOOP! ») s'affichent un à un en fondu à des
+  // endroits au hasard (hors plateaux), comme autant de systèmes compromis, en clignotant d'un
+  // glitch chromatique (cyan/magenta). Même trajectoire que les pages de Slenderman (`pages`).
+  sombra: {
+    images: Array.from({ length: 16 }, () => '/animations/sombra-hack.png'),
+    heightPct: 14,
+    durationSec: 8, // couvre la séquence (3 s + 15×0,3 s ≈ 7,5 s) avant démontage
+    path: 'pages',
+    glitch: true,
+  },
+  // Cruella d'Enfer (Les 101 Dalmatiens) : une traînée d'empreintes de pattes de chiot s'imprime
+  // une à une en travers de la bande haute (de droite à gauche, comme la traversée d'Yzma/du Tic-Tac),
+  // marque un temps, puis s'efface une par une (un chien invisible qui passe dans la neige).
+  cruella: {
+    image: '/animations/patte.png',
+    heightPct: 6, // taille d'une empreinte
+    topPct: 8, // hauteur de la bande de traversée
+    durationSec: 11.5, // couvre impression échelonnée + temps de pose + effacement échelonné
+    path: 'paws',
   },
   // L'Imposteur (Among Us) : un équipier éjecté (couleur au hasard) dérive en ligne
   // droite du haut-gauche vers le bas-droite en tournant lentement sur lui-même.
