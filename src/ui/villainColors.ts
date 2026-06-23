@@ -25,6 +25,12 @@ export const VILLAIN_COLOR: Record<string, string> = {
   'madame-tremaine': '#48545F',
   'oogie-boogie': '#2F5E3A',
   oogieBoogie: '#2F5E3A',
+  'seigneur-tenebres': '#3B5A2E',
+  'madame-mim': '#7A2E8F',
+  syndrome: '#A8431C',
+  lotso: '#B0285A',
+  'sa-sucrerie': '#B81E63',
+  saSucrerie: '#B81E63',
 }
 
 /** Teintes de repli (camp joueur / adversaire) quand la couleur d'un vilain est

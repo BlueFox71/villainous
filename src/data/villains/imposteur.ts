@@ -26,6 +26,7 @@ export const imposteur: VillainDef = {
   id: 'imposteur',
   name: "L'Imposteur",
   objective: { type: 'KEEP_SABOTAGE', turns: 3 },
+  boardObjective: 'Saboter le SKELD.',
   objectiveDescription:
     'Jouez un Sabotage (O2 à Admin, Réacteur au Réacteur) et conservez-le posé ' +
     'dans votre royaume pendant 3 tours sans qu’il soit défaussé.',

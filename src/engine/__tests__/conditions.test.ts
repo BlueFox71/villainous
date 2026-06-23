@@ -107,6 +107,48 @@ describe('D.1 — PLAY_CONDITION : Avarice', () => {
       applyAction(s, { type: 'PLAY_CONDITION', playerIndex: 1, instanceId: 'p1:av' }),
     ).toThrow(/condition/i)
   })
+
+  it('Une Condition PIOCHÉE en cours de tour n’est pas jouable en réaction (instantané du début de tour)', () => {
+    let s = twoPlayerGame()
+    s = {
+      ...s,
+      activePlayer: 0,
+      players: s.players.map((p, i) =>
+        i === 0
+          ? { ...p, power: 6 } // déclencheur Avarice satisfait
+          : {
+              ...p,
+              hand: [condition('p1:av1', 'avarice'), condition('p1:av2', 'avarice')],
+              // Seule av1 était en main au début du tour ; av2 a été piochée depuis.
+              reactableConditionIds: ['p1:av1'],
+            },
+      ),
+    }
+    // Seule la Condition de l'instantané est proposée.
+    expect(playableConditions(s, 1).map((c) => c.instanceId)).toEqual(['p1:av1'])
+    // La piochée est refusée par le moteur…
+    expect(() =>
+      applyAction(s, { type: 'PLAY_CONDITION', playerIndex: 1, instanceId: 'p1:av2' }),
+    ).toThrow(/piochée en cours de tour/i)
+    // …celle de l'instantané est jouable.
+    expect(() =>
+      applyAction(s, { type: 'PLAY_CONDITION', playerIndex: 1, instanceId: 'p1:av1' }),
+    ).not.toThrow()
+  })
+
+  it('END_TURN fige l’instantané des Conditions réactables de chaque joueur', () => {
+    let s = twoPlayerGame()
+    s = {
+      ...s,
+      phase: 'ACTION',
+      players: s.players.map((p, i) =>
+        i === 1 ? { ...p, hand: [condition('p1:av', 'avarice'), ...p.hand.filter((c) => c.type !== 'condition')] } : p,
+      ),
+    }
+    const after = applyAction(s, { type: 'END_TURN' })
+    // Le joueur 1 avait Avarice en main → elle figure dans son instantané.
+    expect(after.players[1].reactableConditionIds).toContain('p1:av')
+  })
 })
 
 describe('D.2 — PLAY_CONDITION : Lâcheté', () => {

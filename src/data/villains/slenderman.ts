@@ -21,6 +21,7 @@ export const slenderman: VillainDef = {
   id: 'slenderman',
   name: 'Slenderman',
   objective: { type: 'CARDS_IN_REALM', cardId: 'page', count: 8 },
+  boardObjective: 'Au début de votre tour, vous devez avoir les 8 pages dans votre royaume.',
   objectiveDescription: 'Au début de votre tour, avoir les 8 Pages dans votre royaume.',
   boardImage: '/cards/slenderman/board.png',
   pawnImage: '/pion_slenderman.png',

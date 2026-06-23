@@ -1,7 +1,9 @@
+import { useRef } from 'react'
 import type { PlayerState } from '../../engine/types'
 import { getCardDef } from '../../data/registry'
 import { enlargeCoveredAction } from '../../engine/rules'
 import { VILLAIN_COLOR } from '../villainColors'
+import { SUGAR_RUSH_TRACK } from './sugarRushTrack'
 
 // Géométrie mesurée sur board.png (Prince Jean). Le panneau de gauche (portrait
 // + objectif) décale le 1ᵉʳ lieu, puis les 4 lieux sont régulièrement espacés.
@@ -128,6 +130,15 @@ interface Props {
   keyPick?: { locationId?: string; color?: string } | null
   /** Handler de clic sur une clé posée (la ramasse). */
   onKeyClick?: (keyId: string) => void
+  /** Le pion est saisissable (glisser-déposer) pour se déplacer — tour humain,
+   *  phase MOVE, au moins un lieu légal. Remplace l'ancien bouton « Choisir ». */
+  pawnDraggable?: boolean
+  /** Masque le pion réel pendant le glissé (le fantôme le remplace). */
+  pawnDragging?: boolean
+  onPawnDragStart?: (x: number, y: number) => void
+  onPawnDragMove?: (x: number, y: number) => void
+  onPawnDragDrop?: (x: number, y: number) => void
+  onPawnDragCancel?: () => void
 }
 
 /**
@@ -151,10 +162,32 @@ export function BoardImage({
   onObstacleClick,
   keyPick,
   onKeyClick,
+  pawnDraggable = false,
+  pawnDragging = false,
+  onPawnDragStart,
+  onPawnDragMove,
+  onPawnDragDrop,
+  onPawnDragCancel,
 }: Props) {
+  // Geste de glissé du pion (même schéma que les cartes : seuil de 6 px avant de
+  // déclencher, capture du pointeur, clic droit = annulation).
+  const pawnDragRef = useRef<{ startX: number; startY: number; dragging: boolean } | null>(null)
   const pawnIndex = player.locations.findIndex((l) => l.id === player.pawnLocation)
   const coverColor = VILLAIN_COLOR[player.villain] ?? '#000000'
   const cover = HERO_COVER[player.villain] ?? { top: 0, height: TOP_ACTIONS_HEIGHT }
+
+  // Sa Sucrerie — CIRCUIT EN HUIT : le pion ne change pas de lieu mais avance sur la
+  // boucle (index `trackPos`, 0–17). On le place donc sur la case du circuit, pas en
+  // colonne de lieu. Le jeton Pilote suit `racerPos`. Le déplacement passe par la
+  // bannière 1–4 (pas de glisser-déposer du pion ici).
+  const isSugarRush = player.villain === 'sa-sucrerie'
+  const trackPos = ((player.trackPos ?? 0) % SUGAR_RUSH_TRACK.length + SUGAR_RUSH_TRACK.length) % SUGAR_RUSH_TRACK.length
+  const trackCell = SUGAR_RUSH_TRACK[trackPos]
+  // Le pion de Sa Sucrerie est saisissable comme les autres : il se glisse sur une case
+  // atteignable du circuit (1–4 en avant), géré par App (trackCaseUnderPointer).
+  const canDragPawn = pawnDraggable
+  const pawnLeft = isSugarRush ? trackCell.x : PAWN_FIRST_LEFT + pawnIndex * PAWN_STEP
+  const pawnTop = isSugarRush ? trackCell.y : (PAWN_TOP_BY_VILLAIN[player.villain] ?? PAWN_TOP)
 
   return (
     <div className="relative" data-board>
@@ -183,22 +216,110 @@ export function BoardImage({
         <img
           src={player.pawnImage}
           alt="Pion"
-          title={player.villain === 'seigneur-cles' ? 'Pion (survolez pour voir les clés en dessous)' : 'Pion'}
-          // Le Seigneur des clés : au survol, le pion devient quasi transparent pour
-          // révéler les clés posées en dessous (il capte alors le pointeur ; les clés
-          // cliquables passent au-dessus de lui — voir leur z-index plus bas).
+          draggable={false}
+          title={
+            canDragPawn
+              ? isSugarRush
+                ? 'Glissez le pion de 1 à 4 cases sur le circuit'
+                : 'Glissez le pion sur un lieu pour vous y déplacer'
+              : isSugarRush
+                ? `Pion sur le circuit (case ${trackPos} / ${SUGAR_RUSH_TRACK.length})`
+                : player.villain === 'seigneur-cles'
+                  ? 'Pion (survolez pour voir les clés en dessous)'
+                  : 'Pion'
+          }
+          // Déplacement par glissé : quand `pawnDraggable`, le pion capte le pointeur
+          // et se saisit (curseur grab). Sinon, comportement antérieur — Le Seigneur
+          // des clés : au survol, le pion devient quasi transparent pour révéler les
+          // clés posées en dessous (les clés cliquables passent au-dessus de lui).
           className={`absolute z-20 w-auto -translate-x-1/2 -translate-y-1/2 transition-[left,top,opacity] duration-500 ease-in-out ${
-            player.villain === 'seigneur-cles' ? 'cursor-help hover:opacity-10 hover:duration-150' : 'pointer-events-none'
+            pawnDragging
+              ? 'pointer-events-none opacity-0'
+              : canDragPawn
+                ? 'cursor-grab touch-none pointer-events-auto active:cursor-grabbing hover:scale-110'
+                : player.villain === 'seigneur-cles'
+                  ? 'cursor-help hover:opacity-10 hover:duration-150'
+                  : 'pointer-events-none'
           }`}
+          onPointerDown={
+            canDragPawn
+              ? (e) => {
+                  if (e.button !== 0) return
+                  ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+                  pawnDragRef.current = { startX: e.clientX, startY: e.clientY, dragging: false }
+                }
+              : undefined
+          }
+          onPointerMove={
+            canDragPawn
+              ? (e) => {
+                  const d = pawnDragRef.current
+                  if (!d) return
+                  if (!d.dragging) {
+                    if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < 6) return
+                    d.dragging = true
+                    onPawnDragStart?.(e.clientX, e.clientY)
+                  }
+                  onPawnDragMove?.(e.clientX, e.clientY)
+                }
+              : undefined
+          }
+          onPointerUp={
+            canDragPawn
+              ? (e) => {
+                  const d = pawnDragRef.current
+                  pawnDragRef.current = null
+                  if (d?.dragging) onPawnDragDrop?.(e.clientX, e.clientY)
+                }
+              : undefined
+          }
+          onContextMenu={
+            canDragPawn
+              ? (e) => {
+                  // Clic droit pendant le glissé : annule (le pion reste sur place).
+                  if (pawnDragRef.current?.dragging) {
+                    e.preventDefault()
+                    pawnDragRef.current = null
+                    onPawnDragCancel?.()
+                  }
+                }
+              : undefined
+          }
           style={{
             height: `${player.pawnHeightPx}px`,
-            left: `${PAWN_FIRST_LEFT + pawnIndex * PAWN_STEP}%`,
-            top: `${PAWN_TOP_BY_VILLAIN[player.villain] ?? PAWN_TOP}%`,
-            // Contour doux (drop-shadows flous) à la couleur du camp.
-            filter: `drop-shadow(0 0 1px ${pawnOutline}) drop-shadow(0 0 2.5px ${pawnOutline})`,
+            left: `${pawnLeft}%`,
+            top: `${pawnTop}%`,
+            // Contour doux (drop-shadows flous) à la couleur du camp ; halo plus marqué
+            // quand le pion est saisissable, pour signaler qu'on peut le glisser.
+            filter: canDragPawn
+              ? `drop-shadow(0 0 2px ${pawnOutline}) drop-shadow(0 0 6px #facc15)`
+              : `drop-shadow(0 0 1px ${pawnOutline}) drop-shadow(0 0 2.5px ${pawnOutline})`,
           }}
         />
       )}
+
+      {/* Sa Sucrerie — JETON PILOTE (Vanellope) : pendant la course, il court contre
+          King Candy le long du circuit. Posé sur la case `racerPos` (il recouvre cette
+          action, qui devient inaccessible). Disparaît hors course. */}
+      {isSugarRush && player.raceActive && player.racerPos != null && (() => {
+        const rp = ((player.racerPos % SUGAR_RUSH_TRACK.length) + SUGAR_RUSH_TRACK.length) % SUGAR_RUSH_TRACK.length
+        const cell = SUGAR_RUSH_TRACK[rp]
+        return (
+          <img
+            src="/racer-token.png"
+            alt="Jeton Pilote"
+            draggable={false}
+            title={`Jeton Pilote de Vanellope (case ${rp} / ${SUGAR_RUSH_TRACK.length}) — recouvre cette action`}
+            className="pointer-events-none absolute z-[18] w-auto -translate-x-1/2 -translate-y-1/2 transition-[left,top] duration-500 ease-in-out"
+            style={{
+              left: `${cell.x}%`,
+              top: `${cell.y}%`,
+              height: `${Math.round(player.pawnHeightPx * 0.8)}px`,
+              filter: 'drop-shadow(0 0 2px #fff) drop-shadow(0 0 6px #22d3ee)',
+            }}
+          />
+        )
+      })()}
 
       {/* Bowser — ÉTOILES : les Étoiles restantes de l'Observatoire
           (`observatoryStars`) occupent les 1ᵉʳˢ emplacements de `starLocationId`
@@ -397,7 +518,7 @@ export function BoardImage({
         })
       })()}
 
-      {player.locations.flatMap((loc, i) => {
+      {!isSugarRush && player.locations.flatMap((loc, i) => {
         // Persifleur : on révèle les actions du haut de ce lieu (pas de recouvrement).
         if (loc.id === unmaskHeroLocationId) return []
         const heroes = (player.board[loc.id] ?? []).filter(

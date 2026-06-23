@@ -24,6 +24,7 @@ export const seigneurCles: VillainDef = {
   objective: { type: 'KEYS_ALL_COLORS' },
   // 3 clés posées par lieu (12 au total ; ≥1 de chaque couleur garanti à la mise en place).
   startingKeysPerLocation: 3,
+  boardObjective: 'Au début de votre tour, vous devez avoir au moins 1 clé de chaque couleur',
   objectiveDescription:
     'Au début de votre tour, possédez au moins 1 clé de CHAQUE couleur (bleu, rouge, vert, ' +
     'jaune, violet, orange). 12 clés sont réparties sur vos 4 lieux ; ramassez-les avec ' +

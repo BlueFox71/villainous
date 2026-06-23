@@ -14,6 +14,7 @@ import type {
   PlayerState,
 } from './types'
 import { activePlayer, currentLocation } from './state'
+import { isKingCandy, accessibleActionIds, racerCoveredActionId, isTrackLocation } from './kingCandy'
 
 /**
  * Types d'actions que le moteur sait actuellement traiter (affichées comme
@@ -51,6 +52,9 @@ export function getLegalMoves(state: GameState): LocationId[] {
   // est bloqué (« avant de vous déplacer… »).
   if (state.pendingBeautySleep) return []
   const p = activePlayer(state)
+  // Sa Sucrerie — le pion ne « change pas de lieu » : il avance sur le circuit (action
+  // MOVE_TRACK). Aucun déplacement vers une zone de cartes.
+  if (isKingCandy(p)) return []
   const locked = new Set(p.lockedLocations ?? [])
   // Oogie Boogie — Sally : tant qu'elle est dans le royaume, le pion ne peut se
   // déplacer que vers un lieu VOISIN de sa position.
@@ -91,7 +95,14 @@ export function isActionCovered(state: GameState, action: LocationAction): boole
   // « Je vais vous broyer les os ! » (La Méchante Reine) : ce tour-ci, toutes les
   // actions recouvertes du lieu deviennent jouables.
   if (state.uncoverCoveredActions) return false
-  return coveredTopActionIdsAt(activePlayer(state), loc.id).has(action.id)
+  // Sa Sucrerie — le jeton Pilote recouvre l'action où il se trouve (sauf Turbo-Statique
+  // ce tour). Les Héros ne recouvrent pas d'action de circuit (placement non positionnel).
+  const me = activePlayer(state)
+  if (isKingCandy(me)) {
+    if (me.turboUncoverThisTurn) return false
+    return racerCoveredActionId(me) === action.id
+  }
+  return coveredTopActionIdsAt(me, loc.id).has(action.id)
 }
 
 /** Ids des actions du HAUT recouvertes sur un lieu donné, **indépendamment du
@@ -111,7 +122,10 @@ export function coveredTopActionIdsAt(player: PlayerState, locationId: LocationI
   const heroesHere = (player.board[locationId] ?? []).filter(
     // Un Héros hypnotisé (contrôlé), PIÉGÉ (Madame de Trémaine), ou le Prince (allié
     // de Madame de Trémaine) ne recouvre aucune action.
-    (c) => c.type === 'hero' && !c.hypnotized && !c.trapped && c.cardId !== 'the-prince',
+    // Lotso — Buzz l'Éclair en mode GARDIEN recouvre la rangée du haut comme un Héros.
+    (c) =>
+      (c.type === 'hero' && !c.hypnotized && !c.trapped && c.cardId !== 'the-prince') ||
+      (c.isBuzz && c.buzzMode === 'guardian'),
   )
   for (const h of heroesHere) {
     if (h.heroSize === 'shrunk') {
@@ -212,9 +226,14 @@ export function getAvailableActions(state: GameState): LocationAction[] {
   // (hors Fatalité) déjà utilisée redevient disponible (réutilisation unique).
   const REPEATABLE = new Set<string>(['GAIN_POWER', 'BREW_POISON', 'PLAY_CARD', 'DISCARD_CARDS'])
   const canRepeat = !!activePlayer(state).repeatActionAvailable
+  // Sa Sucrerie — seules les 3 actions accessibles depuis la position du pion (dessus
+  // + devant + derrière) sont jouables ce tour.
+  const kc = isKingCandy(activePlayer(state))
+  const accessible = kc ? accessibleActionIds(activePlayer(state)) : null
   return locationActions(state, loc.id).filter(
     (a) =>
       isSupportedType(a.type) &&
+      (!accessible || accessible.has(a.id)) &&
       (!state.usedActionIds.includes(a.id) ||
         (canRepeat && REPEATABLE.has(a.type)) ||
         // Cruella — Finissez le travail ! : une action Activer gratuite reste possible
@@ -223,8 +242,10 @@ export function getAvailableActions(state: GameState): LocationAction[] {
       !isActionCovered(state, a) &&
       // Sombra : une action piratée (recouverte par un Hack) est désactivée.
       !isActionHacked(activePlayer(state), loc.id, a.id) &&
-      // « Activer » n'est disponible que s'il existe une carte activable.
-      (a.type !== 'ACTIVATE' || activatableCards(state).length > 0) &&
+      // « Activer » n'est disponible que s'il existe une carte activable OU, pour le
+      // Seigneur des Ténèbres, un Chaudron Magique en sa possession à réveiller (l'action
+      // Activer est donnée par les Squelettes de Soldats).
+      (a.type !== 'ACTIVATE' || activatableCards(state).length > 0 || activePlayer(state).blackCauldron === 'claimed') &&
       // « Préparer du Poison » indisponible si aucun Pouvoir n'est convertible
       // (0 Pouvoir, ou 1 Pouvoir entièrement absorbé par le surcoût Timide).
       (a.type !== 'BREW_POISON' || maxBrewPoison(state) >= 1) &&
@@ -283,7 +304,8 @@ export function transformableGuards(
 export function placementLocations(state: GameState): LocationId[] {
   const p = activePlayer(state)
   const locked = new Set(p.lockedLocations ?? [])
-  return p.locations.map((l) => l.id).filter((id) => !locked.has(id))
+  // Sa Sucrerie : on pose dans les 4 zones, jamais sur le circuit lui-même.
+  return p.locations.map((l) => l.id).filter((id) => !locked.has(id) && !isTrackLocation(p, id))
 }
 
 /** Vrai si le joueur actif peut poser une carte sur ce lieu. */
@@ -317,7 +339,9 @@ export function adjacentLocationIds(state: GameState, locationId: LocationId): L
   const out: LocationId[] = []
   if (i > 0) out.push(ids[i - 1])
   if (i < ids.length - 1) out.push(ids[i + 1])
-  return out.filter((id) => !locked.has(id))
+  // Sa Sucrerie : le circuit (locations[0]) n'est jamais un voisin de zone — on le
+  // retire pour obtenir l'adjacence linéaire z1↔z2↔z3↔z4.
+  return out.filter((id) => !locked.has(id) && !isTrackLocation(me, id))
 }
 
 /** Lieu où se trouve une carte posée (Allié/Objet/Héros), ou undefined. */
@@ -342,10 +366,14 @@ export function isItemFrozen(player: PlayerState, card: CardInstance): boolean {
 export function movableCards(state: GameState): { instanceId: string; from: LocationId }[] {
   const me = activePlayer(state)
   const locked = new Set(me.lockedLocations ?? [])
+  // Mère Gothel — Ulf : tant qu'il est là, aucun Allié ne peut quitter son lieu.
+  const alliesStuck = alliesCannotMove(me)
   const out: { instanceId: string; from: LocationId }[] = []
   for (const loc of me.locations) {
     // Rien ne peut être déplacé DEPUIS un lieu verrouillé.
     if (locked.has(loc.id)) continue
+    // Syndrome — Frozone : les Alliés de SON lieu sont immobilisés.
+    const frozoneHere = (me.board[loc.id] ?? []).some((c) => c.type === 'hero' && c.blocksAllyMovesHere)
     for (const c of me.board[loc.id] ?? []) {
       if (isItemFrozen(me, c)) continue // Ariel : Objet gelé
       if (c.trapped) continue // Hadès : Titan entravé, non déplaçable
@@ -355,6 +383,8 @@ export function movableCards(state: GameState): { instanceId: string; from: Loca
       const isControlledAlly = (c.type === 'hero' && c.hypnotized) || c.cardId === 'the-prince'
       // Sombra : une carte de Piratage ne peut JAMAIS être déplacée.
       if (c.isPiratage) continue
+      // Ulf (Gothel) / Frozone (Syndrome) : les Alliés immobilisés (Objets/Malédictions bougent).
+      if ((alliesStuck || frozoneHere) && c.type === 'ally') continue
       if (((c.type === 'ally' || c.type === 'item' || c.type === 'curse') && !c.attachedTo) || isControlledAlly) {
         out.push({ instanceId: c.instanceId, from: loc.id })
       }
@@ -395,10 +425,67 @@ export function activatableCards(state: GameState): CardInstance[] {
       // Gaston — Monsieur D'Arque : retire un Obstacle. Inutile (non activable) si
       // Belle bloque le retrait ou s'il ne reste aucun Obstacle.
       if (c.cardId === 'monsieur-darque' && (belleBlocksRemoval(me) || totalObstacles(me) === 0)) continue
+      // Madame de Trémaine — Canne : retire une Pantoufle de Verre. Non activable s'il
+      // n'y a aucune Pantoufle dans le royaume.
+      if (
+        c.cardId === 'canne-tremaine' &&
+        !Object.values(me.board).flat().some((x) => isGlassSlipper(x.cardId))
+      ) {
+        continue
+      }
+      // Madame de Trémaine — Invitation du Roi : examine la pioche Fatalité. Non
+      // activable si pioche ET défausse Fatalité sont vides (rien à regarder).
+      if (c.cardId === 'invitation-du-roi' && me.fateDeck.length === 0 && me.fateDiscard.length === 0) continue
+      // Madame de Trémaine — La Clé : déplace un Héros vers la Chambre + le piège. Non
+      // activable s'il n'y a aucun Héros dans le royaume.
+      if (c.cardId === 'la-cle' && !Object.values(me.board).flat().some((x) => x.type === 'hero')) continue
+      // Lotso — Big Baby : dévoile la pioche Fatalité jusqu'à un Héros. Non activable s'il
+      // n'y a aucun Héros dans la pioche NI la défausse Fatalité (rien à révéler/jouer).
+      if (
+        c.cardId === 'big-baby' &&
+        ![...me.fateDeck, ...me.fateDiscard].some((x) => x.type === 'hero')
+      ) {
+        continue
+      }
+      // Lotso — Flex : déplace un Héros/Buzz de SON lieu. Non activable s'il n'y a aucun
+      // Héros ni Buzz sur le lieu de Flex (rien à déplacer).
+      if (
+        c.cardId === 'flex' &&
+        !(me.board[loc.id] ?? []).some((x) => x.type === 'hero' || x.isBuzz)
+      ) {
+        continue
+      }
+      // Syndrome — Télécommande : activable seulement si l'Omnidroïde v.10 ET la figurine
+      // sont sur SON lieu (l'activation détruit le v.10 = objectif).
+      if (
+        c.cardId === 'telecommande-de-syndrome' &&
+        (me.pawnLocation !== loc.id ||
+          !(me.board[loc.id] ?? []).some((x) => x.isOmnidroid && x.omnidroidStage === 'x10'))
+      ) {
+        continue
+      }
       out.push(c)
     }
   }
   return out
+}
+
+/** Le Seigneur des Ténèbres — lieux (non verrouillés) où un « Mort-vivant du Chaudron »
+ *  peut être joué : le Chaudron Noir doit être ACTIF et le lieu doit porter au moins un
+ *  Objet « Anciens Soldats » (qui sera échangé/défaussé). Source unique partagée par le
+ *  garde-fou moteur, le grisé UI (lieux jouables) et l'énumération du bot. */
+export function cauldronBornLocations(player: PlayerState, card: CardInstance): LocationId[] {
+  if (!card.requiresPoweredCauldron) return player.locations.map((l) => l.id)
+  if (player.blackCauldron !== 'powered') return []
+  const need = card.consumesItemCardId
+  const locked = new Set(player.lockedLocations ?? [])
+  return player.locations
+    .map((l) => l.id)
+    .filter((id) => !locked.has(id))
+    .filter((id) =>
+      need === undefined ||
+      (player.board[id] ?? []).some((c) => c.cardId === need && c.type === 'item' && !c.attachedTo),
+    )
 }
 
 /** Joueur ciblé par la Fatalité du joueur actif (en 2 joueurs : l'autre). */
@@ -467,6 +554,17 @@ export function effectiveStrength(
   const cell = p.board[loc] ?? []
   const card = cell.find((c) => c.instanceId === instanceId)
   if (!card || card.strength === undefined) return undefined
+  // Syndrome — Unité de Confinement : la force de ce Héros est réduite à 0.
+  if (card.forceZeroed) return 0
+  // Syndrome — Jack-Jack : sa force devient celle du Héros le plus fort sur son lieu
+  // (comparaison sur la force de base, sans récursion).
+  if ((card.selfStrengthMods ?? []).some((m) => m.kind === 'match-strongest-hero-here')) {
+    const strongest = Math.max(
+      card.strength,
+      ...cell.filter((c) => c.type === 'hero').map((c) => c.strength ?? 0),
+    )
+    return Math.max(0, strongest)
+  }
 
   // Bonus de force des Objets associés — donnée réutilisable (attachStrengthBonus
   // porté par l'Objet), pour ne pas coder chaque Objet en dur par cardId : Arc et
@@ -519,6 +617,17 @@ export function effectiveStrength(
           .filter((c) => m.cardIds.includes(c.cardId) && c.instanceId !== card.instanceId).length
         return sum + m.delta * others
       }
+      case 'per-other-hero-here': {
+        const others = cell.filter((c) => c.type === 'hero' && c.instanceId !== card.instanceId).length
+        return sum + m.delta * others
+      }
+      case 'per-other-type-here': {
+        const others = cell.filter((c) => c.type === m.cardType && c.instanceId !== card.instanceId).length
+        return sum + m.delta * others
+      }
+      case 'match-strongest-hero-here':
+        // Traité en amont (override de la force) ; neutre dans la somme.
+        return sum
     }
   }, 0)
 
@@ -529,6 +638,10 @@ export function effectiveStrength(
   // Bonus temporaire « jusqu'à la fin du tour » (Capitaine Crochet : Pas de
   // Quartier !). Champ de donnée porté par la carte ; s'applique Allié comme Héros.
   const tempBonus = card.tempStrengthBonus ?? 0
+  // Modificateur PERMANENT de force porté par la carte (Syndrome — 15 ans plus tard :
+  // −2 sur le Héros joué). On garde la force de BASE intacte pour que l'UI affiche le
+  // badge « force modifiée ». S'applique Allié comme Héros.
+  const permaDelta = card.permanentStrengthDelta ?? 0
 
   if (card.type === 'ally') {
     // Aura des cartes du lieu sur les Alliés (Niquedouille +1, Pendard -1) —
@@ -549,7 +662,7 @@ export function effectiveStrength(
     ).length * 2
     //  - Monsieur Mouche : +2 sur le Jolly Roger.
     const moucheBonus = card.cardId === 'monsieur-mouche' && loc === 'jolly-roger' ? 2 : 0
-    const allyTotal = card.strength + attachedStrengthBonus + selfMod + allyAura + sabreBonus + moucheBonus + tempBonus + forceTokens
+    const allyTotal = card.strength + attachedStrengthBonus + selfMod + allyAura + sabreBonus + moucheBonus + tempBonus + forceTokens + permaDelta
     // Scar — Simba : tant qu'il est en jeu, la force des Hyènes ne peut dépasser 2.
     const simbaCaps =
       card.isHyena &&
@@ -575,7 +688,12 @@ export function effectiveStrength(
       .reduce((sum, c) => {
         if (c.trapped) return sum // Titan entravé : capacité ignorée.
         const m = c.strengthMod
-        if (m && m.target === 'heroes-realm' && !(m.excludeSelf && c.instanceId === card.instanceId)) {
+        if (
+          m &&
+          m.target === 'heroes-realm' &&
+          !(m.excludeSelf && c.instanceId === card.instanceId) &&
+          !(m.exceptCardId && m.exceptCardId === card.cardId)
+        ) {
           return sum + m.delta
         }
         return sum
@@ -607,7 +725,7 @@ export function effectiveStrength(
     }
     return Math.max(
       0,
-      card.strength + attachedStrengthBonus + selfMod + heroAura + realmHeroAura + pixieBonus + wendyBonus + jeanBonus + michelBonus + zazuBonus + tempBonus + forceTokens,
+      card.strength + attachedStrengthBonus + selfMod + heroAura + realmHeroAura + pixieBonus + wendyBonus + jeanBonus + michelBonus + zazuBonus + tempBonus + forceTokens + permaDelta,
     )
   }
   return card.strength
@@ -624,10 +742,12 @@ export function heroPlacementLocations(
   targetIndex: number,
 ): LocationId[] {
   const forbidden = new Set(card.forbiddenLocations ?? [])
-  const locked = new Set(state.players[targetIndex].lockedLocations ?? [])
-  return state.players[targetIndex].locations
+  const tgt = state.players[targetIndex]
+  const locked = new Set(tgt.lockedLocations ?? [])
+  return tgt.locations
     .map((l) => l.id)
-    .filter((id) => !forbidden.has(id) && !locked.has(id) && canPlaceHeroAt(state, targetIndex, id, card))
+    // Sa Sucrerie : un Héros de Fatalité se pose dans une zone, jamais sur le circuit.
+    .filter((id) => !forbidden.has(id) && !locked.has(id) && !isTrackLocation(tgt, id) && canPlaceHeroAt(state, targetIndex, id, card))
 }
 
 /** Vrai si un Héros peut être posé sur le lieu — vérifie les restrictions
@@ -647,6 +767,91 @@ export function canPlaceHeroAt(
     if (r.type === 'min-hero-strength' && heroStrength < r.value) return false
   }
   return true
+}
+
+/** Lotso — Héros du royaume dont la force EFFECTIVE peut encore être réduite par des
+ *  jetons −1 : force effective > 0 et pas un Rex protégé (partage son lieu avec un autre
+ *  Héros). `scope` restreint les lieux ('room' = Salle des Chenilles, 'not-room' = hors
+ *  Salle, 'at-pawn' = lieu du pion, 'all' = partout — défaut). Source partagée : effet
+ *  LOTSO_REDUCE / Le Bibliothécaire, garde-fous de jouabilité, énumération bot et résolution.
+ *  Renvoie les instanceId. */
+export function lotsoReducibleHeroes(
+  state: GameState,
+  playerIndex: number,
+  scope: 'room' | 'not-room' | 'all' | 'at-pawn' = 'all',
+): string[] {
+  const p = state.players[playerIndex]
+  const roomId = p.objective.type === 'LOTSO_GATHER' ? p.objective.roomId : p.locations[0].id
+  const out: string[] = []
+  for (const l of p.locations) {
+    if (scope === 'room' && l.id !== roomId) continue
+    if (scope === 'not-room' && l.id === roomId) continue
+    if (scope === 'at-pawn' && l.id !== p.pawnLocation) continue
+    for (const c of p.board[l.id] ?? []) {
+      if (c.type !== 'hero') continue
+      if ((effectiveStrength(state, playerIndex, c.instanceId) ?? 0) <= 0) continue
+      if (c.protectedWithOtherHero && (p.board[l.id] ?? []).some((x) => x.type === 'hero' && x.instanceId !== c.instanceId)) continue
+      out.push(c.instanceId)
+    }
+  }
+  return out
+}
+
+/** Lotso — vrai s'il y a au moins un Héros (quelle que soit sa force) sur la Salle des
+ *  Chenilles. Sert au garde-fou de « Les nouveaux jouets n'ont pas la moindre chance »
+ *  (injouable si aucun Héros dans la Salle). */
+export function lotsoHasHeroInRoom(state: GameState, playerIndex: number): boolean {
+  const p = state.players[playerIndex]
+  const roomId = p.objective.type === 'LOTSO_GATHER' ? p.objective.roomId : p.locations[0].id
+  return (p.board[roomId] ?? []).some((c) => c.type === 'hero')
+}
+
+/** Lotso — Pas l'âge minimum requis : cartes déplaçables vers la Salle des Chenilles =
+ *  les Héros ET la tuile Buzz (Gardien/Démo) situés sur un AUTRE lieu que la Salle (déplacer
+ *  ce qui y est déjà n'aurait aucun effet). Source partagée : choix interactif, garde-fou de
+ *  jouabilité (la carte est injouable si vide → Buzz déjà dans la Salle et aucun Héros ailleurs). */
+export function lotsoToRoomCandidates(state: GameState, playerIndex: number): string[] {
+  const p = state.players[playerIndex]
+  const roomId = p.objective.type === 'LOTSO_GATHER' ? p.objective.roomId : p.locations[0].id
+  const out: string[] = []
+  for (const l of p.locations) {
+    if (l.id === roomId) continue
+    for (const c of p.board[l.id] ?? []) {
+      if (c.type === 'hero' || c.isBuzz) out.push(c.instanceId)
+    }
+  }
+  return out
+}
+
+/** Madame de Trémaine — les deux Pantoufles de Verre (cartes distinctes : Chambre /
+ *  Château). Tant qu'UNE est dans le royaume, le mariage est impossible. */
+export const GLASS_SLIPPER_IDS = ['pantoufle-chambre', 'pantoufle-chateau']
+export const isGlassSlipper = (cardId: string): boolean => GLASS_SLIPPER_IDS.includes(cardId)
+
+/** Mère Gothel — Ulf : vrai si un Héros du royaume immobilise tous les Alliés. */
+export function alliesCannotMove(player: PlayerState): boolean {
+  return Object.values(player.board).flat().some((c) => c.type === 'hero' && c.blocksAllyMoves)
+}
+
+/** Vrai si un Allié sur `locationId` ne peut PAS être déplacé : soit Ulf immobilise tout
+ *  le royaume (`blocksAllyMoves`), soit un Héros « Frozone » est sur CE lieu
+ *  (`blocksAllyMovesHere`). */
+export function alliesCannotMoveFrom(player: PlayerState, locationId: LocationId): boolean {
+  if (alliesCannotMove(player)) return true
+  return (player.board[locationId] ?? []).some((c) => c.type === 'hero' && c.blocksAllyMovesHere)
+}
+
+/** Vrai si AUCUN Allié ne peut être posé/déplacé sur ce lieu chez `playerIndex`,
+ *  parce qu'un Héros présent dans son royaume l'interdit (Madame de Trémaine —
+ *  Cendrillon en robe de bal : la Salle de Bal). Donnée : `blocksAlliesAtLocation`. */
+export function allyBlockedAt(
+  state: GameState,
+  playerIndex: number,
+  locationId: LocationId,
+): boolean {
+  return Object.values(state.players[playerIndex].board)
+    .flat()
+    .some((c) => c.type === 'hero' && c.blocksAlliesAtLocation === locationId)
 }
 
 /** Vrai si une Malédiction peut être posée sur le lieu : plusieurs Malédictions
@@ -772,6 +977,52 @@ export function conditionIsTriggered(
   ) {
     return false
   }
+  // Lotso — Parfumé à la fraise (mélange la défausse Méchant dans la pioche) : injouable
+  // si la défausse Méchant est vide (rien à remélanger → aucun effet).
+  if (
+    (card.effects ?? []).some((e) => e.type === 'RESHUFFLE_DISCARD_AND_DRAW') &&
+    me.discard.length === 0
+  ) {
+    return false
+  }
+  // Madame Mim — J'aime le sport (récupérer une carte de la défausse) : injouable si la
+  // défausse ne contient aucune carte récupérable (rien à ajouter en main).
+  const recover = (card.effects ?? []).find((e) => e.type === 'RECOVER_FROM_DISCARD_CHOICE')
+  if (
+    recover &&
+    recover.type === 'RECOVER_FROM_DISCARD_CHOICE' &&
+    !me.discard.some((c) => recover.types.includes(c.type))
+  ) {
+    return false
+  }
+  // Syndrome — Qui est le plus super ? : gagne autant que le coût de la dernière carte
+  // jouée. Injouable si cette carte coûtait 0 (aucun Pouvoir à gagner).
+  if (
+    (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_EQUAL_LAST_PLAYED_COST') &&
+    (state.lastPlayedCardCost ?? 0) < 1
+  ) {
+    return false
+  }
+  // Lotso — Quelque chose se brisa (déplace tous les Héros sur la Salle des Chenilles) :
+  // injouable s'il n'y a aucun Héros HORS de la Salle (rien à y amener).
+  if (
+    (card.effects ?? []).some((e) => e.type === 'LOTSO_MOVE' && e.scope === 'all-to-room') &&
+    me.objective.type === 'LOTSO_GATHER'
+  ) {
+    const roomId = me.objective.roomId
+    const heroOutside = me.locations.some(
+      (l) => l.id !== roomId && (me.board[l.id] ?? []).some((c) => c.type === 'hero'),
+    )
+    if (!heroOutside) return false
+  }
+  // Lotso — Bien le bonjour à ton enfant ! (réduit à 0 un Héros sur le lieu du pion) :
+  // injouable s'il n'y a aucun Héros sur le lieu du pion (la carte serait sans effet).
+  if (
+    (card.effects ?? []).some((e) => e.type === 'LOTSO_REDUCE' && e.scope === 'at-pawn' && e.toZero) &&
+    !(me.board[me.pawnLocation ?? ''] ?? []).some((c) => c.type === 'hero')
+  ) {
+    return false
+  }
   switch (card.trigger.type) {
     case 'opponent-power-ge':
       return opp.power >= card.trigger.value
@@ -788,14 +1039,19 @@ export function conditionIsTriggered(
       )
     }
     case 'opponent-items-in-realm-ge': {
-      // Les Malédictions de Maléfique comptent comme des Objets.
+      // Les Malédictions de Maléfique comptent comme des Objets ; les cartes `alsoItem`
+      // aussi (Syndrome — l'Omnidroïde compte comme un Objet pour les conditions adverses).
       const items = Object.values(opp.board)
         .flat()
-        .filter((c) => c.type === 'item' || c.type === 'curse').length
+        .filter((c) => c.type === 'item' || c.type === 'curse' || c.alsoItem).length
       return items >= card.trigger.value
     }
-    case 'opponent-vanquished-hero-strength-ge':
-      return (state.lastVanquishedHeroStrength ?? 0) >= card.trigger.value
+    case 'opponent-vanquished-hero-strength-ge': {
+      // Il faut qu'un Héros ait RÉELLEMENT été éliminé ce tour-ci (sinon undefined) :
+      // sans ce garde-fou, `value: 0` (Enfermée) serait toujours vrai (0 ≥ 0).
+      const v = state.lastVanquishedHeroStrength
+      return v !== undefined && v >= card.trigger.value
+    }
     case 'opponent-vanquished-hero-strength-le': {
       const v = state.lastVanquishedHeroStrength
       return v !== undefined && v <= card.trigger.value
@@ -813,17 +1069,21 @@ export function conditionIsTriggered(
     case 'opponent-drew-card':
       return !!state.activeDrewCard
     case 'opponent-discarded-ge':
-      return (state.activeDiscardedCount ?? 0) >= card.trigger.value
+      // Si la Condition a été piochée en cours de tour adverse, on ne compte que les
+      // défausses survenues DEPUIS (instantané `conditionBaseline`).
+      return (state.activeDiscardedCount ?? 0) - (card.conditionBaseline?.discarded ?? 0) >= card.trigger.value
     case 'opponent-gained-power-ge':
-      return (state.activeGainedPower ?? 0) >= card.trigger.value
+      return (state.activeGainedPower ?? 0) - (card.conditionBaseline?.gainedPower ?? 0) >= card.trigger.value
     case 'opponent-played-cards-ge':
-      return (state.activePlayedCount ?? 0) >= card.trigger.value
+      return (state.activePlayedCount ?? 0) - (card.conditionBaseline?.playedCards ?? 0) >= card.trigger.value
     case 'opponent-actions-ge':
       // « réalise au moins N actions » : on compte les actions de lieu effectuées
       // ce tour par l'adversaire actif (ids non scopés, hors marqueurs internes).
       return state.usedActionIds.filter((id) => !id.includes(':')).length >= card.trigger.value
     case 'opponent-fate-targeted-me':
       return (state.activeFateTargets ?? []).includes(playerIndex)
+    case 'opponent-played-item':
+      return (state.activePlayedItemCount ?? 0) - (card.conditionBaseline?.playedItems ?? 0) >= card.trigger.value
   }
 }
 
@@ -865,6 +1125,31 @@ export function realmRelocateCandidates(
   return out
 }
 
+/** Trigger CUMULATIF (compteur du tour : gains de Pouvoir, défausses, cartes/Objets
+ *  joués). Pour ces triggers, une Condition piochée en cours de tour (avec un
+ *  `conditionBaseline`) peut quand même réagir, mais seulement à ce qui survient APRÈS
+ *  sa pioche (cf. conditionIsTriggered, qui soustrait l'instantané). */
+export function isCumulativeTrigger(t?: CardInstance['trigger']): boolean {
+  return (
+    !!t &&
+    (t.type === 'opponent-discarded-ge' ||
+      t.type === 'opponent-gained-power-ge' ||
+      t.type === 'opponent-played-cards-ge' ||
+      t.type === 'opponent-played-item')
+  )
+}
+
+/** Une Condition est-elle « réactable » maintenant ? Soit elle était en main au début
+ *  du tour (`reactableConditionIds`), soit elle a été piochée en cours de tour MAIS
+ *  porte un trigger cumulatif (elle réagira à ce qui se passe après sa pioche). */
+export function conditionIsReactable(
+  eligibleIds: string[] | undefined,
+  card: CardInstance,
+): boolean {
+  if (eligibleIds === undefined || eligibleIds.includes(card.instanceId)) return true
+  return card.conditionBaseline !== undefined && isCumulativeTrigger(card.trigger)
+}
+
 export function playableConditions(state: GameState, playerIndex: number): CardInstance[] {
   if (playerIndex === state.activePlayer) return []
   // Le Seigneur des clés — Élisabeth Bathory : tant qu'elle est dans son royaume,
@@ -872,8 +1157,15 @@ export function playableConditions(state: GameState, playerIndex: number): CardI
   if (Object.values(state.players[playerIndex].board).flat().some((c) => c.type === 'hero' && c.cardId === 'elisabeth-bathory')) {
     return []
   }
+  // Seules les Conditions présentes en main au DÉBUT du tour peuvent réagir (une
+  // Condition piochée en cours de tour n'était pas là quand le déclencheur a été
+  // satisfait). `reactableConditionIds` absent (1ᵉʳ tour / état de test) = pas de filtre.
+  const eligible = state.players[playerIndex].reactableConditionIds
   return state.players[playerIndex].hand.filter(
-    (c) => c.type === 'condition' && conditionIsTriggered(state, c, playerIndex),
+    (c) =>
+      c.type === 'condition' &&
+      conditionIsReactable(eligible, c) &&
+      conditionIsTriggered(state, c, playerIndex),
   )
 }
 
@@ -927,6 +1219,13 @@ export function effectiveCost(
   surcharge += Object.values(me.board).flat().filter(
     (c) => c.type === 'hero' && c.cardId === 'tiana',
   ).length
+  // Madame de Trémaine — Cendrillon (Fatalité) : les Événements coûtent 2 de plus
+  // tant qu'elle est dans le royaume.
+  if (card.type === 'effect' && Object.values(me.board).flat().some(
+    (c) => c.type === 'hero' && c.cardId === 'cendrillon',
+  )) {
+    surcharge += 2
+  }
   // Ratigan — Outils : jouer un Objet coûte 1 de moins par Outils dans le royaume.
   if (card.type === 'item') {
     discount += Object.values(me.board)
@@ -1009,7 +1308,7 @@ export function hasReachedObjective(state: GameState, playerIndex: number = stat
       const gown = ballroom.some((c) => obj.ballGownCardIds.includes(c.cardId) && c.type === 'ally' && !c.attachedTo)
       const prince = ballroom.some((c) => c.cardId === obj.princeCardId)
       const bells = Object.values(p.board).flat().some((c) => c.cardId === obj.bellsCardId && !c.attachedTo)
-      const slipper = Object.values(p.board).flat().some((c) => c.cardId === obj.slipperCardId)
+      const slipper = Object.values(p.board).flat().some((c) => obj.slipperCardIds.includes(c.cardId))
       return gown && prince && bells && !slipper
     }
     case 'CURSE_EACH_LOCATION':
@@ -1042,6 +1341,10 @@ export function hasReachedObjective(state: GameState, playerIndex: number = stat
       return false
     case 'DEFEAT_HERO_AT_LOCATION':
       // Victoire déclenchée à l'instant du Vanquish (performVanquish), pas ici.
+      return false
+    case 'KING_CANDY_RACE':
+      // Sa Sucrerie — victoire ÉVÉNEMENTIELLE : déclenchée quand le pion franchit
+      // Départ/Arrivée pendant une course (moveKingCandyTrack), pas en début de tour.
       return false
     case 'ITEMS_AT_LOCATION': {
       const obj = p.objective
@@ -1120,6 +1423,37 @@ export function hasReachedObjective(state: GameState, playerIndex: number = stat
       // se contente de vérifier qu'elles le sont toutes.
       const goals = p.goals ?? []
       return goals.length > 0 && goals.every((g) => g.completed)
+    }
+    case 'CAULDRON_BORN_EVERYWHERE':
+      // Le Seigneur des Ténèbres : un Mort-vivant du Chaudron (Allié non associé)
+      // sur CHACUN de ses lieux.
+      return p.locations.every((loc) =>
+        (p.board[loc.id] ?? []).some((c) => c.cardId === 'cauldron-born' && c.type === 'ally' && !c.attachedTo),
+      )
+    case 'DEFEAT_ALL_MERLIN':
+      // Madame Mim : les 7 Métamorphoses de Merlin sont vaincues — la pioche Merlin est
+      // vide ET aucune Métamorphose de Merlin n'est en jeu (toutes en merlinDiscard).
+      return (
+        (p.merlinDeck?.length ?? 0) === 0 &&
+        !Object.values(p.board).flat().some((c) => c.isMerlinTransformation)
+      )
+    case 'DEFEAT_OMNIDROID_V10':
+      // Syndrome : l'Omnidroïde v.10 a été détruit (via la Télécommande) ET aucun Héros
+      // ne reste dans le royaume.
+      return (
+        p.omnidroidStage === 'destroyed' &&
+        !Object.values(p.board).flat().some((c) => c.type === 'hero')
+      )
+    case 'LOTSO_GATHER': {
+      // Lotso : les 4 Héros, tous sur la Salle des Chenilles à force EFFECTIVE 0, ET la
+      // tuile Buzz (n'importe quelle face) sur ce lieu.
+      const room = p.board[p.objective.roomId] ?? []
+      const buzzHere = room.some((c) => c.isBuzz)
+      if (!buzzHere) return false
+      return p.objective.heroCardIds.every((id) => {
+        const hero = room.find((c) => c.type === 'hero' && c.cardId === id)
+        return !!hero && (effectiveStrength(state, playerIndex, hero.instanceId) ?? 0) === 0
+      })
     }
   }
 }

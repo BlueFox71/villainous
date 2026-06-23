@@ -26,10 +26,11 @@ export const gaston: VillainDef = {
   objective: { type: 'REMOVE_ALL_OBSTACLES' },
   // 8 Obstacles : 2 sur chacun des 4 lieux à la mise en place.
   startingObstacles: 2,
+  boardObjective: 'Vous devez retirer les 8 jetons Obstacle de votre royaume.',
   objectiveDescription:
     'Retirez les 8 jetons Obstacle de votre plateau (2 par lieu au départ). Retirez-les ' +
-    'avec des Effets/Conditions (Très mauvais caractère, Sortez !, Laissez-moi vous regarder, ' +
-    'Aussi belle que moi…), en activant Monsieur D’Arque, ou en vainquant la Bête (retire ceux ' +
+    'avec des Effets/Conditions (Crise de colère, Sortez !, Laissez-moi vous regarder, ' +
+    'Digne de moi…), en activant Monsieur D’Arque, ou en vainquant la Bête (retire ceux ' +
     'du Château de la Bête) ou Maurice (ceux de la Maison de Belle). Tant que Belle est dans ' +
     'votre royaume, AUCUN Obstacle ne peut être retiré : il faut d’abord la vaincre. Vous ne ' +
     'pouvez l’emporter qu’au début de votre tour.',

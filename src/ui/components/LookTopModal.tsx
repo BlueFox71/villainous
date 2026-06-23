@@ -33,7 +33,7 @@ export function LookTopModal({ cards, take, title = 'Tour de passe-passe', onRes
         <p className="text-center text-sm text-white/70">
           {take === 1
             ? 'Choisissez la carte à ajouter à votre main ; les autres sont défaussées.'
-            : `Choisissez ${take} cartes à ajouter à votre main ; les autres sont défaussées.`}
+            : `Choisissez jusqu’à ${take} cartes à ajouter à votre main ; les autres sont défaussées.`}
         </p>
 
         <div className="flex flex-wrap items-start justify-center gap-4">
@@ -63,7 +63,9 @@ export function LookTopModal({ cards, take, title = 'Tour de passe-passe', onRes
 
         <button
           type="button"
-          disabled={picked.length === 0}
+          // take === 1 : on garde obligatoirement 1 carte. take > 1 (« jusqu'à N ») :
+          // on peut en garder 0 à N (valider même sans sélection = tout défausser).
+          disabled={take === 1 && picked.length === 0}
           onClick={() => onResolve(picked)}
           className="rounded-xl bg-fuchsia-600 px-4 py-2 text-sm font-bold text-white hover:bg-fuchsia-500 disabled:cursor-not-allowed disabled:opacity-40"
         >

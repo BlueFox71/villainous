@@ -89,7 +89,7 @@ export const gastonCards: CardDef[] = [
   // ----------------------------------------------------------------------
   {
     id: 'aussi-belle-que-moi',
-    name: 'Aussi belle que moi',
+    name: 'Digne de moi',
     englishName: 'Beautiful as Me',
     deck: 'villain',
     type: 'condition',
@@ -106,7 +106,7 @@ export const gastonCards: CardDef[] = [
   // ----------------------------------------------------------------------
   {
     id: 'tres-mauvais-caractere',
-    name: 'Très mauvais caractère',
+    name: 'Crise de colère',
     englishName: 'Temper',
     deck: 'villain',
     type: 'effect',
@@ -178,7 +178,7 @@ export const gastonCards: CardDef[] = [
   },
   {
     id: 'intimidation-gaston',
-    name: 'Intimidation',
+    name: 'Du plomb dans la tête',
     englishName: 'Intimidating',
     deck: 'villain',
     type: 'effect',
@@ -214,7 +214,7 @@ export const gastonCards: CardDef[] = [
   },
   {
     id: 'sous-le-charme',
-    name: 'Sous le charme',
+    name: 'Quel beau garçon !',
     englishName: 'Swoon',
     deck: 'villain',
     type: 'effect',
@@ -288,9 +288,10 @@ export const gastonCards: CardDef[] = [
     type: 'hero',
     strength: 2,
     copies: 1,
-    text: 'Quand Maurice est joué, cherchez et jouez son Invention sur le lieu de Maurice. Si Maurice est éliminé, retirez tous les Obstacles de la Maison de Belle.',
+    text: 'Quand Maurice est joué, cherchez et jouez son Bidule de malheur sur le lieu de Maurice. Si Maurice est éliminé, retirez tous les Obstacles de la Maison de Belle.',
     onPlace: [{ type: 'FETCH_FATE_ITEM_TO_HOST', itemCardId: 'invention-de-maurice' }],
     onVanquish: [{ type: 'REMOVE_OBSTACLES_AT_LOCATION', locationId: 'maison-belle' }],
+    // Le texte mentionne « son Bidule de malheur » (= l'Objet invention-de-maurice).
     image: img('maurice.png'),
   },
   {
@@ -311,7 +312,7 @@ export const gastonCards: CardDef[] = [
   // ----------------------------------------------------------------------
   {
     id: 'invention-de-maurice',
-    name: 'Invention de Maurice',
+    name: 'Bidule de malheur',
     englishName: "Maurice's Invention",
     deck: 'fate',
     type: 'item',
@@ -327,7 +328,7 @@ export const gastonCards: CardDef[] = [
   // ----------------------------------------------------------------------
   {
     id: 'cest-toi',
-    name: 'C’est toi',
+    name: 'Oui c’est toi !',
     englishName: 'It Is You',
     deck: 'fate',
     type: 'effect',
@@ -349,7 +350,7 @@ export const gastonCards: CardDef[] = [
   },
   {
     id: 'me-masser-les-pieds',
-    name: 'Me masser les pieds',
+    name: 'Me masser gentiment les pieds',
     englishName: 'Massaging My Feet',
     deck: 'fate',
     type: 'effect',
@@ -360,7 +361,7 @@ export const gastonCards: CardDef[] = [
   },
   {
     id: 'vous-mavez-sauve-la-vie',
-    name: 'Vous m’avez sauvé la vie',
+    name: 'C’est gentil de m’avoir sauvé la vie',
     englishName: 'Saving My Life',
     deck: 'fate',
     type: 'effect',
@@ -387,8 +388,7 @@ export const gastonCards: CardDef[] = [
     deck: 'fate',
     type: 'effect',
     copies: 1,
-    text: 'Cherchez et jouez la Bête. Mélangez la pioche des cartes Fatalité avec le Miroir Magique.',
-    effects: [{ type: 'FETCH_FATE_HERO', heroCardId: 'la-bete', locationId: 'chateau-bete' }],
+    text: 'Cherchez la Bête (pioche ou défausse Fatalité) et jouez-la sur le lieu de votre choix. Le Miroir magique retourne dans la pioche Fatalité, qui est ensuite mélangée.',
     image: img('miroir-magique.png'),
   },
   {

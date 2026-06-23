@@ -235,7 +235,8 @@ export const FATE_MALUS: Record<string, FateMalus> = {
   // bloque DUR le mariage tant qu'elle est là ; Cendrillon (ordinaire / en robe)
   // recouvre fortement ; les autres gênent. Le PRINCE est NEUTRE (absent) : il AIDE
   // Madame de Trémaine, donc le bot évite de le lui donner (heuristique). ---
-  'pantoufle-de-verre': 'block-win', // tant qu'une Pantoufle est là, le mariage est impossible
+  'pantoufle-chambre': 'block-win', // tant qu'une Pantoufle est là, le mariage est impossible
+  'pantoufle-chateau': 'block-win',
   cendrillon: 'block-advance', // gros Héros (F4) qui recouvre la rangée du haut
   'ball-gown-cinderella': 'block-advance', // idem, encore plus forte (F5)
   'fairy-godmother': 'slow', // recouvre + thème Pantoufle
@@ -252,6 +253,28 @@ export const FATE_MALUS: Record<string, FateMalus> = {
   'docteur-finkelstein': 'slow', // revient sur la pioche Fatalité s'il est éliminé
   'maire-halloween': 'slow', // éliminé → fait apparaître un autre Héros
   'citoyens-halloween': 'slow', // à éliminer avant les autres Héros du lieu
+
+  // --- Le Seigneur des Ténèbres (un Mort-vivant du Chaudron sur chaque lieu) — les
+  // Héros recouvrent ses lieux (l'empêchant d'y poser un Mort-vivant) ; les Sorcières
+  // de Morva détiennent le Chaudron (gênent davantage). HEN WEN est NEUTRE/à éviter :
+  // la lui donner lui offre le Chaudron Noir (le bot l'évite — heuristique). Dyrnwyn
+  // (Objet) renforce un Héros, rendant son Vanquish plus coûteux. ---
+  taran: 'block-advance', // Héros-cible costaud (F4), recouvre la rangée du haut
+  'princess-eilonwy': 'slow',
+  'fflewddur-fflam': 'slow',
+  'witches-of-morva': 'block-advance', // détiennent le Chaudron : gros frein
+  doli: 'slow',
+  'fair-folk': 'slow',
+  gurgi: 'slow',
+  dyrnwyn: 'slow', // épée associée à un Héros : +2 force
+
+  // --- Sa Sucrerie (King Candy) — Vanellope von Schweetz est le Héros-CIBLE de
+  // l'objectif (NEUTRE/à éviter : la lui donner LANCE/alimente sa course → le bot évite
+  // de la fataliser sauf pour accélérer le jeton Pilote contre lui). Ralph est un gros
+  // Héros (mais le vaincre via le Médaillon lui donne Vanellope → ciblage prudent). ---
+  'ralph-la-casse': 'block-advance', // gros Héros F6 ; renchérit Déplacer un Objet/Allié
+  'sergent-calhoun': 'slow2', // l'action Jouer une carte coûte 1 Pouvoir de plus
+  'felix-fixe-jr': 'slow2', // bride le déplacement à 2–3 cases (au lieu de 1–4)
 }
 
 /** cardId dont le « block-win » n'est valable que sous condition (gérée par l'IA). */

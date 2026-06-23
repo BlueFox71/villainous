@@ -420,3 +420,34 @@ describe('Gaston — Belle est à moi (action gratuite)', () => {
     expect(() => applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: card.instanceId, to: undefined })).toThrow()
   })
 })
+
+describe('Gaston — Miroir magique (Fatalité)', () => {
+  const game2 = (): GameState =>
+    createInitialGame(
+      [
+        { villain: gaston, deckCards: buildDeckInstances(gastonCards, 'villain', 'p0:'), fateCards: buildDeckInstances(gastonCards, 'fate', 'p0f:') },
+        { villain: princeJohn, deckCards: buildDeckInstances(princeJohnCards, 'villain', 'p1:'), fateCards: buildDeckInstances(princeJohnCards, 'fate', 'p1f:') },
+      ],
+      7,
+    )
+
+  it('cherche la Bête (pioche), placement au lieu choisi ; le Miroir retourne dans la pioche Fatalité', () => {
+    const fate = buildDeckInstances(gastonCards, 'fate', 'p0f:')
+    const miroir = { ...fate.find((c) => c.cardId === 'miroir-magique-gaston')!, instanceId: 'mir1' }
+    const other = { ...fate.find((c) => c.cardId !== 'miroir-magique-gaston' && c.cardId !== 'la-bete')!, instanceId: 'oth1' }
+    let s = game2()
+    expect(s.players[0].fateDeck.some((c) => c.cardId === 'la-bete')).toBe(true) // Bête dans la pioche
+    s = { ...s, activePlayer: 1, phase: 'ACTION', pendingFate: { target: 0, revealed: [miroir, other] } }
+    s = applyAction(s, { type: 'RESOLVE_FATE', instanceId: 'mir1' })
+    // Le Miroir est de retour dans la pioche Fatalité (jamais en défausse).
+    expect(s.players[0].fateDeck.some((c) => c.instanceId === 'mir1')).toBe(true)
+    expect(s.players[0].fateDiscard.some((c) => c.instanceId === 'mir1')).toBe(false)
+    // Placement de la Bête en attente, lieu au choix du joueur qui fatalise.
+    expect(s.pendingFateHeroPlace?.heroCardId).toBe('la-bete')
+    expect(s.pendingFateHeroPlace?.chooserIndex).toBe(1)
+    // Le joueur choisit la Taverne (n'importe quel lieu).
+    s = applyAction(s, { type: 'RESOLVE_FATE_HERO_PLACE', locationId: 'taverne' })
+    expect((s.players[0].board['taverne'] ?? []).some((c) => c.cardId === 'la-bete')).toBe(true)
+    expect(s.pendingFateHeroPlace ?? null).toBeNull()
+  })
+})

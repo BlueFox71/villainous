@@ -77,8 +77,11 @@ export interface VillainDef {
   locations: Location[]
   /** Condition de victoire data-driven (interprétée par engine/rules.ts). */
   objective: ObjectiveDef
-  /** Description lisible de la condition de victoire. */
+  /** Description lisible de la condition de victoire (texte stratégique enrichi). */
   objectiveDescription: string
+  /** Objectif EXACT tel qu'imprimé sur le plateau (texte court). Affiché en priorité
+   *  dans la fiche du vilain ; repli sur `objectiveDescription` si absent. */
+  boardObjective?: string
   /** URL de l'image du plateau (servie depuis public/). */
   boardImage: string
   /** URL de l'image du pion. */
@@ -121,6 +124,26 @@ export interface VillainDef {
    *  Sandy Claws sur l'Antre). La carte est sortie du deck Fatalité. Elle ancre la
    *  pile d'Imposteurs et déclenche le retour de Jack à 4 imposteurs. Absent ailleurs. */
   prisonerSetup?: { cardId: string; locationId: LocationId }
+  /** Syndrome — mise en place de l'Omnidroïde (tuiles HORS deck). `startLocation` :
+   *  lieu où l'Omnidroïde v.X8 débute. `stages` : la séquence v.X8 → v.X9 → v.10
+   *  (le 1er est posé sur le plateau, les suivants forment `omnidroidPile`). Absent
+   *  ailleurs. */
+  /** Lotso — la tuile GARDIEN « Buzz l'Éclair » (deux faces, hors deck), posée sur
+   *  `locationId` (Salle des Chenilles) au départ, face Gardien. */
+  guardianSetup?: { cardId: string; name: string; locationId: LocationId; strength: number }
+  omnidroidSetup?: {
+    startLocation: LocationId
+    stages: {
+      cardId: string
+      name: string
+      strength: number
+      stage: 'x8' | 'x9' | 'x10'
+      /** Modifications Majeures à défausser du royaume pour jouer cette tuile (x9 : 1, v.10 : 3). */
+      upgradeCost?: number
+      /** Lieu imposé pour jouer cette tuile (v.10 → Métroville). */
+      forceLocation?: LocationId
+    }[]
+  }
 }
 
 /** Le Seigneur des clés — couleurs de clé (le dé a une face par couleur). */
@@ -239,7 +262,9 @@ export type ObjectiveDef =
       ballGownCardIds: string[]
       princeCardId: string
       bellsCardId: string
-      slipperCardId: string
+      /** Les Pantoufles de Verre (2 cartes distinctes) : tant qu'UNE est dans le
+       *  royaume, le mariage est impossible. */
+      slipperCardIds: string[]
     }
   /** Pat Hibulaire : remplir ses 4 tuiles Objectif (tirées parmi 5 à la mise en
    *  place, une par lieu). Chaque tuile a sa propre condition (voir PeteGoalKind),
@@ -248,6 +273,24 @@ export type ObjectiveDef =
    *  tant qu'un Héros de ce cardId est présent dans le royaume, aucune tuile ne
    *  peut être complétée (et donc la victoire est impossible). */
   | { type: 'COMPLETE_GOAL_TOKENS'; blockerHeroCardId?: string }
+  /** Le Seigneur des Ténèbres : avoir un Allié « Mort-vivant du Chaudron »
+   *  (cardId `cauldron-born`) sur CHACUN de ses lieux. */
+  | { type: 'CAULDRON_BORN_EVERYWHERE' }
+  /** Madame Mim : vaincre les 7 Métamorphoses de Merlin (la pioche Merlin est vide
+   *  ET aucune Métamorphose de Merlin n'est en jeu — toutes en `merlinDiscard`). */
+  | { type: 'DEFEAT_ALL_MERLIN' }
+  /** Lotso : réunir les `heroCardIds` (4 Héros) sur `roomId` (Salle des Chenilles), tous
+   *  à force EFFECTIVE 0, ET avoir la tuile Buzz (isBuzz, n'importe quelle face) sur ce lieu. */
+  | { type: 'LOTSO_GATHER'; roomId: LocationId; heroCardIds: string[] }
+  /** Syndrome : ÉLIMINER l'Omnidroïde v.10 (via la Télécommande activée à son lieu)
+   *  ET n'avoir aucun Héros dans son royaume au début de son tour. La progression
+   *  v.X8 → v.X9 → v.10 est portée par `omnidroidStage` (cf. omnidroidSetup). */
+  | { type: 'DEFEAT_OMNIDROID_V10' }
+  /** Sa Sucrerie (King Candy) : franchir la case Départ/Arrivée du circuit (`trackPos`
+   *  boucle 0→17→0) alors qu'une course est active (`raceActive`) et qu'un BUG (Glitch)
+   *  est associé à Vanellope von Schweetz. Victoire ÉVÉNEMENTIELLE — déclenchée à
+   *  l'instant où le pion King Candy franchit l'index 0, AVANT le jeton Pilote. */
+  | { type: 'KING_CANDY_RACE' }
 
 /** Pat Hibulaire — les 5 types de tuile Objectif (4 tirés par partie) :
  *  - `win-big`        : gagner ≥4 Pouvoir via UNE SEULE Petite Partie ? sur le lieu ;
@@ -336,6 +379,176 @@ export interface PuppyTile {
  * sans toucher au reste du moteur.
  */
 export type Effect =
+  /** Le Seigneur des Ténèbres : s'emparer du Chaudron Noir (tuile hors deck).
+   *  Fait passer `blackCauldron` de 'set-aside' à 'claimed' (sans effet si déjà
+   *  réclamé/activé). Sources : Montrez-moi le Chaudron Noir, Nous avons conclu un
+   *  marché, et la défaite de Hen Wen (onVanquish). */
+  | { type: 'CLAIM_BLACK_CAULDRON' }
+  /** Le Seigneur des Ténèbres — RÉVEILLE le Chaudron Magique réclamé (face Pouvoir :
+   *  'claimed' → 'powered'). « Notre heure est venue ! ». Sans effet si pas réclamé. */
+  | { type: 'POWER_BLACK_CAULDRON' }
+  /** Le Seigneur des Ténèbres — REND DORMANT le Chaudron Magique réveillé ('powered' →
+   *  'claimed'). Sacrifice de Gurki (Fatalité). Sans effet s'il n'est pas réveillé. */
+  | { type: 'DORMANT_BLACK_CAULDRON' }
+  /** Pioche `count` cartes (Capturés). */
+  | { type: 'DRAW_CARDS'; count: number }
+  // --- Sa Sucrerie (King Candy / Sugar Rush) --------------------------------
+  /** Bug (Glitch) : la carte vient d'être associée à Vanellope → LANCE la course :
+   *  place le pion King Candy ET le jeton Pilote sur Départ/Arrivée (index 0),
+   *  `raceActive = true`, puis le tour se termine. */
+  | { type: 'KING_CANDY_START_RACE' }
+  /** Vanellope (début de tour) & « Enfin un vrai Kart ! » (Fatalité) : dévoile la 1ʳᵉ
+   *  carte Méchant de la pioche de Sa Sucrerie, avance le jeton Pilote de (coût + 2)
+   *  cases, puis remet la carte SOUS la pioche. Sans effet hors course. */
+  | { type: 'KING_CANDY_ADVANCE_RACER_BY_REVEAL' }
+  /** Avance le jeton Pilote de `amount` cases (C'est quoi toutes ces étincelles : +3). */
+  | { type: 'KING_CANDY_ADVANCE_RACER'; amount: number }
+  /** Recule le jeton Pilote de `amount` cases (Mémoire Verrouillée 2, Taffyta 2,
+   *  Il lui est défendu de courir 3). Borné à l'index 0. */
+  | { type: 'KING_CANDY_MOVE_RACER_BACK'; amount: number }
+  /** Déplace le pion King Candy de `steps` cases sur le circuit (signé : négatif =
+   *  recul, Princesse Vanellope −4 ; positif = Le plus puissant Virus +2). Pendant une
+   *  course, un franchissement de Départ/Arrivée vers l'avant déclenche la victoire. */
+  | { type: 'KING_CANDY_MOVE_TRACK'; steps: number }
+  /** Turbo-Statique : CE tour, King Candy peut utiliser ses 3 actions accessibles même
+   *  si elles sont recouvertes (Héros ou jeton Pilote). Pose `turboUncoverThisTurn`. */
+  | { type: 'KING_CANDY_TURBO' }
+  // --- Syndrome (Les Indestructibles) ---------------------------------------
+  /** Mirage : dévoile la pioche Fatalité jusqu'au 1er Héros, le joue sur le MÊME lieu que
+   *  Mirage (sa destination de pose), défausse les autres dévoilées. */
+  | { type: 'REVEAL_FATE_HERO_AT_PAWN' }
+  /** 15 ans plus tard : dévoile la pioche Fatalité jusqu'au 1er Héros, à JOUER sur le lieu
+   *  de SON choix (pendingFetchedHero), avec sa force réduite de `weakenBy`. Les autres
+   *  cartes dévoilées sont défaussées. */
+  | { type: 'REVEAL_FATE_HERO_CHOOSE_LOC'; weakenBy?: number }
+  /** Identification, je vous prie : déplace un Allié ou un Objet (non associé) vers un
+   *  lieu portant ≥1 Héros (auto : le plus utile vers le lieu d'un Héros). */
+  | { type: 'MOVE_ALLY_OR_ITEM_TO_HERO_LOCATION' }
+  /** Unité de Confinement : réduit la force d'un Héros à 0 (`forceZeroed`). Auto : le
+   *  Héros le plus fort du royaume. */
+  | { type: 'REDUCE_HERO_FORCE_TO_ZERO' }
+  /** Qui est le plus super ? (Condition) : gagne autant de Pouvoir que le COÛT de la
+   *  dernière carte jouée par l'adversaire (`lastPlayedCardCost`). */
+  | { type: 'GAIN_POWER_EQUAL_LAST_PLAYED_COST' }
+  /** Sonde Bio (Condition) : élimine un Héros du royaume de force ≤ celle du dernier
+   *  Héros vaincu par l'adversaire (`lastVanquishedHeroStrength`). Auto : le plus fort
+   *  éligible. */
+  | { type: 'DEFEAT_REALM_HERO_AUTO'; useLastVanquishStrength?: boolean }
+  /** Fatalité — Alors ça, c'est un truc de dingue ! : défausse TOUS les Alliés et Objets
+   *  du royaume de la cible, sauf ceux de `exceptCardId` (Champ de Force). */
+  | { type: 'DISCARD_VILLAIN_BOARD_EXCEPT'; exceptCardId: string }
+  /** Fatalité — Violette (à la pose) : défausse toutes les cartes `cardId` du royaume
+   *  de la cible (Énergie au Point Zéro). */
+  | { type: 'DISCARD_ALL_OF_CARDID_IN_REALM'; cardId: string }
+  /** Fatalité — effet COMMUN aux Indestructibles + Frozone (à la pose) : si la
+   *  Télécommande de Syndrome est dans le royaume (non associée), associez-la
+   *  IMMÉDIATEMENT à ce Héros (il « vole » la Télécommande → Syndrome ne peut plus
+   *  l'activer jusqu'à ce que le Héros soit vaincu). */
+  | { type: 'ATTACH_REMOTE_IF_IN_REALM' }
+  /** Fatalité — Elastigirl (à la pose) : défausse UN Allié (au choix du fatalisateur ;
+   *  auto = le plus fort) sur le lieu hôte. L'Omnidroïde est épargné. */
+  | { type: 'DISCARD_ONE_ALLY_AT_HOST' }
+  /** Fatalité — Flèche (à la pose) : déplace UN Héros (au choix ; auto) du royaume vers
+   *  le lieu hôte (celui où Flèche est jouée). */
+  | { type: 'MOVE_HERO_TO_HOST' }
+  /** Fatalité — Intrusion : la cible révèle sa main (journal, pas d'effet mécanique). */
+  | { type: 'REVEAL_HAND' }
+  /** Fatalité — Monologue : la cible défausse `count` cartes de sa main AU CHOIX
+   *  (interactif via pendingTyrannyDiscard ; auto pour le bot). */
+  | { type: 'TARGET_DISCARD_CHOICE'; count: number }
+  // --- Lotso (Toy Story 3) ---------------------------------------------------
+  /** Big Baby / Bienvenue à Sunnyside : dévoile la pioche Fatalité jusqu'au 1er Héros,
+   *  le joue sur la Salle des Chenilles (`atRoom`) ou sur un lieu HORS de la Salle
+   *  (`!atRoom`, auto). Défausse les autres dévoilées. */
+  | { type: 'LOTSO_REVEAL_HERO'; atRoom: boolean }
+  /** Réductions de force (jetons −1) Lotso. `scope` : 'room' (Héros de la Salle),
+   *  'not-room' (hors Salle), 'all' (tous), 'at-pawn' (lieu du pion). `target` :
+   *  'all' ou 'one' (auto : le plus fort). `byRoomCount` : montant = nb de Héros de la
+   *  Salle. `toZero` : réduit jusqu'à 0. Sinon `amount`. */
+  | {
+      type: 'LOTSO_REDUCE'
+      scope: 'room' | 'not-room' | 'all' | 'at-pawn'
+      target: 'all' | 'one'
+      amount?: number
+      byRoomCount?: boolean
+      toZero?: boolean
+    }
+  /** Lotso — Le Bibliothécaire : coût VARIABLE. Ouvre une répartition interactive où le
+   *  joueur dépense des jetons Pouvoir (1 = −1 force) ventilés entre les Héros de son
+   *  choix (cf. `pendingLotsoBookworm`). */
+  | { type: 'LOTSO_BOOKWORM' }
+  /** Déplacements Lotso. `scope` : 'to-room' (un Héros [ou Buzz] vers la Salle),
+   *  'all-to-room' (tous les Héros vers la Salle), 'from-room' (un Héros hors de la
+   *  Salle), 'from-host' (un Héros [ou Buzz] du lieu hôte vers ailleurs). `includeBuzz` :
+   *  la tuile Buzz est une cible possible. Auto. */
+  | { type: 'LOTSO_MOVE'; scope: 'to-room' | 'all-to-room' | 'from-room' | 'from-host'; includeBuzz?: boolean }
+  /** Retourne la tuile Buzz sur sa face `to` ('demo' = Allié ; 'guardian' = Gardien) et
+   *  la déplace (`moveTo` : 'bottom' = un lieu de la rangée basse au choix/auto ;
+   *  'cour-top' = en haut de la Cour de Récréation). */
+  | { type: 'LOTSO_FLIP_BUZZ'; to: 'demo' | 'guardian'; moveTo?: 'bottom' | 'cour-top' }
+  /** Andy nous cherche (Fatalité) : +`amount` force (jetons +1) à tous les Héros dont la
+   *  force n'a pas été réduite à 0. */
+  | { type: 'LOTSO_BOOST_NONZERO'; amount: number }
+  /** Jouets de Bonnie (Fatalité) : retire tous les jetons Force négatifs d'un Héros
+   *  (auto : le plus réduit) — restaure sa force. */
+  | { type: 'LOTSO_RESTORE_HERO' }
+  /** Le Grappin (Fatalité) : défausse un Héros de force 0 (auto), puis mélange la
+   *  défausse Fatalité dans la pioche Fatalité. */
+  | { type: 'LOTSO_DISCARD_ZERO_HERO' }
+  /** Jessie / Lotso était son préféré (Fatalité) : défausse un Allié de Lotso (auto : le
+   *  plus fort ; Buzz démo épargné). */
+  | { type: 'LOTSO_FATE_DISCARD_ALLY' }
+  /** Woody (Fatalité, à la pose) : si le Chapeau de Woody est en jeu, défaussez-le ; puis
+   *  déplace les Héros de la Salle des Chenilles vers d'autres lieux (auto, dispersion). */
+  | { type: 'WOODY_RELEASE' }
+  /** Médaillon de Daisy (Fatalité) : si Big Baby est en jeu, défaussez-le ; puis mélange
+   *  la défausse Fatalité dans la pioche Fatalité. */
+  | { type: 'DAISY_LOCKET' }
+  /** Fatalité — Travail d'équipe : le fatalisateur regarde les `count` premières cartes de
+   *  la pioche Fatalité de la cible et les réordonne. Auto (simplifié) : Héros d'abord
+   *  (au plus défavorable pour la cible). */
+  | { type: 'REORDER_FATE_TOP'; count: number }
+  /** Fatalité — Pas de Capes ! : au PROCHAIN tour de la cible, son déplacement est
+   *  ANNULÉ (le pion reste sur place ; flag `skipMoveForcedNextTurn`). */
+  | { type: 'FORCE_SKIP_NEXT_MOVE' }
+  // --- Madame Mim ---------------------------------------------------------
+  /** J'établis les règles : vainc directement une Métamorphose de Merlin du royaume
+   *  (→ merlinDiscard + remplacement au Lieu du Duel). 2ᵉ voie de victoire. */
+  | { type: 'DEFEAT_MERLIN_IN_REALM' }
+  /** Duel de Sorcellerie : pose la prochaine Métamorphose de Merlin (dessus de la
+   *  pioche Merlin) au Lieu du Duel (en plus de celle déjà présente). */
+  | { type: 'PLACE_MERLIN_AT_DUEL' }
+  /** Pas de Tricherie : réordonne le dessus de la pioche Merlin pour faire venir une
+   *  Métamorphose que Madame Mim peut vaincre (auto-optimisé). */
+  | { type: 'REORDER_MERLIN_DECK_TOP2' }
+  /** Le Savoir conduit à la Puissance (Fatalité) : déplace une Métamorphose de Merlin
+   *  vers un autre lieu (auto : loin d'une Métamorphose Mim prête). */
+  | { type: 'MOVE_MERLIN_ANYWHERE' }
+  /** Merlin (Fatalité) : remet une Métamorphose de Merlin VAINCUE (merlinDiscard, au
+   *  hasard) dans la pioche Merlin. */
+  | { type: 'RECYCLE_DEFEATED_MERLIN' }
+  /** Archimède (Fatalité) : remplace la Métamorphose de Merlin en jeu par le dessus de
+   *  la pioche Merlin (la remplacée est remélangée dans la pioche). */
+  | { type: 'SWAP_DUEL_MERLIN' }
+  /** Merlin Microbe (Fatalité) : défausse une Métamorphose Mim (Allié) du royaume. */
+  | { type: 'DISCARD_MIM_TRANSFORMATION' }
+  /** Le Seigneur des Ténèbres — choix « s'emparer du Chaudron Magique OU gagner `power`
+   *  Pouvoir » (Montre-moi le Chaudron Magique). */
+  | { type: 'CLAIM_CAULDRON_OR_POWER'; power: number }
+  /** Le Seigneur des Ténèbres — Nous avons conclu un marché ! : choix « mélanger sa
+   *  défausse Vilain dans sa pioche » OU « payer `power` Pouvoir supplémentaires pour
+   *  défausser l'Épée Magique de son royaume et s'emparer du Chaudron Magique ». Le
+   *  choix n'est proposé que si LES DEUX options sont possibles (sinon auto-résolu). */
+  | { type: 'BARGAIN_RESHUFFLE_OR_SWORD'; power: number }
+  /** Le Seigneur des Ténèbres — Retour à la vie de Gurki (Fatalité) : mélange la
+   *  défausse Fatalité du joueur dans sa pioche, dévoile 2 cartes Fatalité et permet de
+   *  jouer les deux. */
+  | { type: 'RESHUFFLE_FATE_REVEAL_PLAY_BOTH' }
+  /** Le Seigneur des Ténèbres — Nous touchons du doigt la victoire : jouer GRATUITEMENT
+   *  un Objet de sa main (sur un lieu choisi). Sans effet si aucun Objet en main. */
+  | { type: 'GRANT_FREE_ITEM_PLAY' }
+  /** Rassemble tous les Alliés du joueur sur le lieu de la carte hôte (Ritournel). */
+  | { type: 'GATHER_ALLIES_TO_HOST' }
   | { type: 'GAIN_POWER'; amount: number }
   /** Oogie Boogie — Imposteur Perce-Oreilles : lance les 2 dés (pendingDice
    *  `impostor`). ≥7 → succès (pile près de Sandy Claws / jeton -1 sur Jack si
@@ -459,6 +672,11 @@ export type Effect =
    *  action gratuite de type `actionType` exécutable depuis le lieu du pion ce tour
    *  (grantedAction), même si le lieu ne la propose pas (cf. Diablo). */
   | { type: 'GRANT_FREE_ACTION'; actionType: LocationActionType }
+  /** Madame de Trémaine — C'est votre dernière chance : effectue UNE action gratuite
+   *  au CHOIX entre « Déplacer un Objet ou un Allié » et « Activer ». Si une seule des
+   *  deux est possible, elle est armée directement ; si les deux le sont, ouvre le choix
+   *  (pendingMoveOrActivate). Injouable si aucune des deux n'est possible. */
+  | { type: 'GRANT_FREE_MOVE_OR_ACTIVATE' }
   /** Gaston — Gardez-moi en otage : dévoile la pioche Fatalité jusqu'au 1er Héros,
    *  le joue sur `locationId`, retire `removeObstacle` Obstacle(s), remélange le reste. */
   | { type: 'REVEAL_FATE_UNTIL_HERO_PLAY'; locationId: LocationId; removeObstacle?: number }
@@ -478,6 +696,9 @@ export type Effect =
    *  du lieu hôte vers les AUTRES lieux non bloqués (auto : dispersion en round-robin),
    *  pour les éloigner de la Bête. */
   | { type: 'MOVE_ALLIES_FROM_HOST_AWAY' }
+  /** Sa Sucrerie — Go ! : déplacer jusqu'à `count` Alliés du royaume de l'acteur, chacun
+   *  vers N'IMPORTE QUEL lieu (choix interactif via pendingAllyRelocate, facultatif). */
+  | { type: 'RELOCATE_ALLIES'; count: number; title?: string }
   /** Gaston (Fatalité, à la pose) — Mrs Samovar et Zip : disperse tous les Héros du
    *  royaume de la cible (sauf l'hôte) à travers les lieux (auto, round-robin). */
   | { type: 'SCATTER_REALM_HEROES' }
@@ -500,6 +721,9 @@ export type Effect =
   /** Fatalité (Bibbidi-Bobbidi-Boo / Doux Rossignol) : la cible défausse `count`
    *  carte(s) au hasard de sa main. */
   | { type: 'TARGET_DISCARD_RANDOM'; count: number }
+  /** Madame de Trémaine — Je ne reviens jamais sur ma parole : mélange sa défausse
+   *  Fatalité avec sa pioche Fatalité pour en former une nouvelle. */
+  | { type: 'RESHUFFLE_FATE_DISCARD' }
   /** 00:00 : le joueur choisit une couleur, lance le dé ; si match, ramasse une clé
    *  de cette couleur sur le plateau (pendingColorChoice puis dé auto). */
   | { type: 'CHOOSE_COLOR_ROLL_TAKE_KEY' }
@@ -653,6 +877,14 @@ export type Effect =
   /** Mélange la défausse de l'acteur dans sa pioche (nouvelle pioche unique) puis
    *  pioche `count` cartes. Slenderman : Perdu dans les bois. */
   | { type: 'RESHUFFLE_DISCARD_AND_DRAW'; count: number }
+  /** Madame de Trémaine — Je ne reviens jamais : mélange la défausse Fatalité dans la
+   *  pioche Fatalité, puis l'acteur regarde les `count` premières cartes et les replace
+   *  dans l'ordre de son choix sur le dessus (pendingFateReorder). */
+  | { type: 'RESHUFFLE_FATE_THEN_REORDER'; count: number }
+  /** L'acteur peut défausser N'IMPORTE QUEL nombre de cartes de sa main (choix
+   *  interactif, 0 inclus), puis pioche jusqu'à avoir `handLimit` cartes en main.
+   *  Madame de Trémaine : J'allais oublier un détail. `label` = source (journal). */
+  | { type: 'DISCARD_ANY_THEN_REFILL'; handLimit: number; label?: string }
   /** Demande à l'acteur un type de carte (Événement/Objet), puis dévoile les
    *  `count` premières cartes de sa pioche : ajoute la 1ʳᵉ du type choisi à sa
    *  main et défausse les autres. Slenderman : Tombée de la nuit. */
@@ -665,8 +897,20 @@ export type Effect =
   | { type: 'ARM_DRAGON_FORM_REWARD' }
   /** Élimine instantanément le Héros cible (ctx.targetHeroId) si sa force est
    *  ≤ maxStrength. Sans alliés. Apparence de Dragon. `atPawn` : exige en plus que
-   *  le Héros soit sur le lieu du pion de l'acteur (Jafar : Ah, je suis un serpent ?). */
-  | { type: 'INSTANT_VANQUISH_HERO_LE'; maxStrength: number; atPawn?: boolean }
+   *  le Héros soit sur le lieu du pion de l'acteur (Jafar : Ah, je suis un serpent ?).
+   *  `onlyCardIds` : restreint les cibles à ces `cardId` précis (Madame de Trémaine —
+   *  Sale voleuse ! ne vise que Cendrillon / Cendrillon en robe de bal). La carte est
+   *  alors injouable si aucun de ces Héros n'est dans le royaume. */
+  | { type: 'INSTANT_VANQUISH_HERO_LE'; maxStrength: number; atPawn?: boolean; onlyCardIds?: string[] }
+  /** Élimine instantanément TOUS les Héros du royaume de l'acteur, sans exception ni
+   *  choix (sans alliés). Madame de Trémaine — Douze coups de minuit. Injouable si le
+   *  royaume ne contient aucun Héros. */
+  | { type: 'INSTANT_VANQUISH_ALL_HEROES' }
+  /** Rassemble TOUTES les copies des Objets Fatalité dont le `cardId` ∈ `cardIds`
+   *  (pioche + défausse Fatalité + plateau, en les détachant) et les pose, non associées,
+   *  sur `locationId` (défaut : lieu du pion) du royaume de l'acteur. Madame de Trémaine —
+   *  Douze coups de minuit : ramène les deux Pantoufles de Verre après le board-wipe. */
+  | { type: 'FETCH_FATE_ITEMS_TO_REALM'; cardIds: string[]; locationId?: LocationId }
   /** Élimine instantanément le Héros cible (ctx.targetHeroId) s'il se trouve sur
    *  le lieu du pion de l'acteur. Sans alliés, sans limite de force. Disparition. */
   | { type: 'INSTANT_VANQUISH_HERO_AT_PAWN' }
@@ -684,6 +928,18 @@ export type Effect =
   /** Jafar — Lampe Merveilleuse : cherche un Héros (`heroCardId`) dans le deck
    *  Fatalité de l'acteur lui-même et le pose sur SON board au lieu `locationId`. */
   | { type: 'SUMMON_FATE_HERO_TO_OWN_REALM'; heroCardId: string; locationId: LocationId }
+  /** Déplace l'Allié (`cardId`) du royaume de l'acteur vers le lieu HÔTE de la carte
+   *  qui déclenche l'effet (ctx.hostLocationId). Madame de Trémaine — Pataud (onPlace) :
+   *  attire Lucifer sur son lieu. Sans effet si l'Allié n'est pas en jeu / déjà là. */
+  | { type: 'MOVE_ALLY_TO_HOST'; cardId: string }
+  /** Mère Gothel — Maximus (onPlace) : le joueur qui pose la Fatalité peut déplacer
+   *  une carte Cavaliers du roi (lieu voisin) PUIS déplacer Maximus (lieu voisin).
+   *  Ouvre `pendingMaximus` (phases « cavaliers » → « maximus »). */
+  | { type: 'MAXIMUS_RELOCATE' }
+  /** Madame de Trémaine — La Clé (pose) : déplace le Héros nommé `heroCardId` (Cendrillon),
+   *  s'il est dans le royaume, vers `locationId` (sa Chambre) et le piège (jeton Enfermé).
+   *  Sans effet si le Héros n'est pas en jeu. */
+  | { type: 'MOVE_NAMED_HERO_TO_AND_TRAP'; heroCardId: string; locationId: LocationId }
   /** Reine de Cœur — Coup Royal : si un arceau se trouve sur chaque lieu, révèle
    *  les 5 premières cartes de la pioche ; si la somme de leurs coûts < force
    *  totale des arceaux, victoire ; sinon ces 5 cartes sont défaussées. */
@@ -822,7 +1078,7 @@ export type Effect =
   /** Dr Facilier — Tour de passe-passe : regarde les `look` premières cartes de la
    *  pioche de l'acteur, en ajoute `take` à la main (auto : les plus utiles) et
    *  défausse les autres. */
-  | { type: 'LOOK_TOP_DRAW_DISCARD'; look: number; take: number }
+  | { type: 'LOOK_TOP_DRAW_DISCARD'; look: number; take: number; title?: string }
   /** Ratigan — Liste de Fidget : dévoile les cartes de la pioche de l'acteur une à
    *  une jusqu'à en trouver une du type `cardType` (Objet). Cette carte rejoint sa
    *  main, les AUTRES cartes dévoilées sont défaussées. Toutes les cartes dévoilées
@@ -831,9 +1087,10 @@ export type Effect =
   /** Dr Facilier — Désespoir : prend une carte de la Pile de l'Au-delà (auto :
    *  carte clé en priorité) et l'ajoute à la main de l'acteur. */
   | { type: 'TAKE_FROM_AUDELA_TO_HAND' }
-  /** Dr Facilier — Terreur : récupère dans la défausse de l'acteur une carte d'un
-   *  des `types` (auto : Événement en priorité) et l'ajoute à sa main. */
-  | { type: 'RECOVER_TYPE_FROM_DISCARD'; types: CardType[] }
+  /** Dr Facilier — Terreur : le joueur CHOISIT une carte d'un des `types` (Allié ou
+   *  Événement) dans sa défausse et l'ajoute à sa main (ouvre pendingRecover ; bot :
+   *  auto-pick). `label` : titre de la modale de choix. */
+  | { type: 'RECOVER_TYPE_FROM_DISCARD'; types: CardType[]; label?: string }
   /** Ratigan — Extravagance : le joueur CHOISIT une carte d'un des `types` (Objet)
    *  dans sa défausse et l'ajoute à sa main (ouvre pendingRecover). `label` : titre
    *  affiché. Paramétrable et réutilisable (variante « avec choix » de RECOVER…). */
@@ -910,6 +1167,10 @@ export type Effect =
    *  de pose imposé (Gaston — Miroir magique : la Bête au Château de la Bête) ;
    *  défaut = la Maison des Nains (Méchante Reine). */
   | { type: 'FETCH_FATE_HERO'; heroCardId: string; locationId?: LocationId }
+  /** Le Seigneur des Ténèbres — On te tient, valet de ferme ! : choix « chercher
+   *  `heroCardId` (Tirelire) et la jouer sur le lieu de son choix » (sans `targetHeroId`)
+   *  OU « éliminer un Héros de force ≤ `maxStrength` » (avec `targetHeroId`). */
+  | { type: 'PIGKEEPER_RESOLVE'; heroCardId: string; maxStrength: number }
   /** La Méchante Reine — Poussière de momie : jusqu'au début de son prochain tour,
    *  chaque Fatalité ciblant ce joueur ajoute 1 jeton Poison (drapeau). */
   | { type: 'POISON_ON_FATE_TARGETED' }
@@ -1020,6 +1281,10 @@ export type Effect =
    *  (résolu automatiquement par une heuristique : pioche si la main est courte,
    *  sinon Pouvoir). */
   | { type: 'DRAW_OR_GAIN_POWER'; draw: number; power: number }
+  /** Sa Sucrerie — Mémoire Verrouillée : gagner `power` Pouvoir OU reculer le jeton
+   *  Pilote de `racerBack`. Le choix n'est offert que si une course est active (le jeton
+   *  Pilote est sur le circuit) ; sinon, on gagne simplement le Pouvoir. */
+  | { type: 'POWER_OR_RACER_BACK'; power: number; racerBack: number }
   /** Ratigan — Capture : déplace un Héros du royaume de force ≤ `maxStrength` vers
    *  `locationId` (auto : le Héros éligible le plus fort). Respecte forbiddenLocations. */
   | { type: 'MOVE_REALM_HERO_TO'; maxStrength: number; locationId: LocationId }
@@ -1112,6 +1377,8 @@ export interface CardInstance {
   /** Pour un Objet : cible d'association à la pose (recopié de CardDef).
    *  `'ally'` = sur un Allié du lieu ; sinon (défaut) posé sur le lieu. */
   attach?: 'location' | 'ally' | 'hero'
+  /** Objet qui ne peut être associé QU'au Héros de ce cardId (Sa Sucrerie — Bug). */
+  attachOnlyCardId?: string
   /** Pour un Objet associé : bonus de force conféré à la carte hôte (recopié de
    *  CardDef). Sommé par effectiveStrength sur tous les Objets associés à une carte. */
   attachStrengthBonus?: number
@@ -1122,6 +1389,13 @@ export interface CardInstance {
    *  posé (Canon → Vaincre, Boîte à Crochets → Gagner 1, Ingénieux Mécanisme →
    *  Déplacer un Héros). */
   grantsAction?: { type: LocationActionType; amount?: number; label: string }
+  /** Madame Mim — Métamorphose Mim (Allié) : ne peut éliminer QUE la Métamorphose de
+   *  Merlin (Héros) de ce cardId (garde-fou dans performVanquish). */
+  transformationTarget?: string
+  /** Madame Mim — drapeaux d'affichage/mécanique : Métamorphose Mim (Allié, deck Méchant)
+   *  ou Métamorphose de Merlin (Héros, deck Merlin, posée au Lieu du Duel). */
+  isMimTransformation?: boolean
+  isMerlinTransformation?: boolean
   /** Bonus de force temporaire « jusqu'à la fin du tour » (Pas de Quartier !).
    *  Remis à zéro à la fin du tour du joueur actif. */
   tempStrengthBonus?: number
@@ -1171,6 +1445,15 @@ export interface CardInstance {
   kronkTransformed?: boolean
   /** Restrictions imposées sur le lieu où cette carte est posée (Malédictions). */
   placementRestriction?: PlacementRestriction
+  /** Tant que ce Héros est dans le royaume, AUCUN Allié ne peut être posé ni déplacé
+   *  sur ce lieu (Madame de Trémaine — Cendrillon en robe de bal : la Salle de Bal). */
+  blocksAlliesAtLocation?: LocationId
+  /** Tant que ce Héros est dans le royaume, AUCUN Allié ne peut quitter son lieu
+   *  (Mère Gothel — Ulf : les Alliés sont immobilisés). */
+  blocksAllyMoves?: boolean
+  /** Tant que ce Héros est en jeu, les Alliés présents sur SON lieu (uniquement) ne
+   *  peuvent pas être déplacés (Syndrome — Frozone). */
+  blocksAllyMovesHere?: boolean
   /** Modificateur passif de force que cette carte applique aux AUTRES cartes du
    *  même lieu (aura : Sommeil sans Rêves, Niquedouille, Pendard, Sablier Géant). */
   strengthMod?: StrengthMod
@@ -1258,6 +1541,26 @@ export interface CardInstance {
   fatePlayBoth?: boolean
   /** Scar — Allié « Hyène » (synergies de Scar). Recopié de CardDef. */
   isHyena?: boolean
+  /** Le Seigneur des Ténèbres — Mort-vivant du Chaudron : jouable UNIQUEMENT quand
+   *  le Chaudron Noir est activé (`blackCauldron === 'powered'`). Recopié de CardDef. */
+  requiresPoweredCauldron?: boolean
+  /** Le Seigneur des Ténèbres — Mort-vivant du Chaudron : à la pose, doit « échanger »
+   *  un Objet de ce cardId présent sur le lieu de destination (défaussé). Le lieu doit
+   *  donc en porter un, sinon la carte est injouable. Recopié de CardDef. */
+  consumesItemCardId?: string
+  /** Héros qui, tant qu'il est en jeu, interdit au joueur de jouer des Événements
+   *  (Roi Richard, Tirelire). Recopié de CardDef. */
+  blocksVillainEvents?: boolean
+  /** Héros qui interdit la pose de l'Objet de ce cardId sur SON lieu (Les Elfes →
+   *  Squelettes de Soldats). Recopié de CardDef. */
+  blocksItemPlacement?: string
+  /** Allié qui, au lieu d'être défaussé après une action Éliminer un Héros à laquelle il
+   *  participe, est déplacé sur le lieu du pion (Crapaud). Recopié de CardDef. */
+  relocateToPawnOnVanquish?: boolean
+  /** Sa Sucrerie — Cybug en Sucre : Allié qui, au lieu d'être défaussé après une action
+   *  Éliminer un Héros, RESTE en jeu, gagne ce nombre en Force (jeton +N cumulatif) et est
+   *  déplacé sur un lieu AU CHOIX (pendingAllyRelocate restreint). Recopié de CardDef. */
+  survivesVanquishGain?: number
   /** Scar — injouable sans Hyène dans le royaume (Festin). Recopié de CardDef. */
   requiresHyenaInRealm?: boolean
   /** Sombra — carte de Piratage (Piratage, IEM) : posée sur un lieu, NON déplaçable,
@@ -1304,6 +1607,55 @@ export interface CardInstance {
    *  rapetissé LAISSE LIBRE (choisie à la pose). Il recouvre l'AUTRE action du
    *  haut. Présent uniquement quand `heroSize === 'shrunk'`. */
   shrunkFreeActionId?: string
+  /** Syndrome — l'Omnidroïde (Allié spécial, tuile hors deck). `omnidroidStage` =
+   *  version (x8/x9/x10). Participe aux Vanquish comme un Allié ; à la fin du Vanquish,
+   *  v.X8/v.X9 sont retirés du royaume et la version suivante arrive en main, tandis
+   *  que v.10 reste. Recopié de la définition de tuile. */
+  isOmnidroid?: boolean
+  omnidroidStage?: 'x8' | 'x9' | 'x10'
+  /** Syndrome — pour jouer cette tuile Omnidroïde (en main), défausser ce nombre de
+   *  Modifications Majeures du royaume (x9 : 1, v.10 : 3). */
+  omnidroidUpgradeCost?: number
+  /** Syndrome — lieu imposé pour poser cette tuile Omnidroïde (v.10 → Métroville). */
+  omnidroidForceLocation?: LocationId
+  /** Syndrome — Énergie au Point Zéro : Objet associé à un Héros qui, en plus de son
+   *  malus de force (`attachStrengthBonus` négatif), EMPÊCHE de déplacer ce Héros. */
+  immobilizesHostHero?: boolean
+  /** Syndrome — Champ de Force (Objet Fatalité associé à un Héros) : si ce Héros doit
+   *  être éliminé, cet Objet est défaussé À SA PLACE et le Héros survit (bouclier,
+   *  équivalent Héros de `shieldAllyFromDiscard`). Donnée réutilisable. */
+  shieldHeroFromVanquish?: boolean
+  /** Syndrome — l'Omnidroïde ET la Télécommande comptent comme Objet pour les conditions
+   *  adverses, mais ne peuvent PAS être affectés par les effets visant Alliés/Objets
+   *  (défausser/déplacer un Allié ou un Objet). Exemptés partout via ce drapeau. */
+  immuneToAllyItemEffects?: boolean
+  /** Syndrome — Unité de Confinement : la force EFFECTIVE de ce Héros est réduite à 0
+   *  (jetons Force). État de jeu (runtime), posé sur le Héros ciblé. */
+  forceZeroed?: boolean
+  /** Modificateur PERMANENT de force porté par la carte (Syndrome — 15 ans plus tard :
+   *  −2 sur le Héros joué). La force de base reste intacte (l'UI affiche le badge
+   *  « force modifiée »). Sommé par effectiveStrength. */
+  permanentStrengthDelta?: number
+  /** Lotso — tuile GARDIEN « Buzz l'Éclair » (deux faces). `buzzMode` : 'guardian'
+   *  (protège les Héros de son lieu du Vaincre) ou 'demo' (Allié force 1). */
+  isBuzz?: boolean
+  buzzMode?: 'guardian' | 'demo'
+  /** Lotso — Rex : tant qu'il partage son lieu avec un autre Héros, il ne peut être ni
+   *  ciblé par un Vaincre ni réduit par des jetons Force −1 (ignoré si sa force est 0). */
+  protectedWithOtherHero?: boolean
+  /** Nombre minimum d'Alliés requis pour éliminer ce Héros (Lotso — Bayonne/Hamm : 2 ;
+   *  généralise gardes-chateau / enfants-perdus). Ignoré si sa force est 0. */
+  minAlliesToVanquish?: number
+  /** Condition PIOCHÉE pendant le tour d'un adversaire (réaction : « Je travaille en
+   *  solo », « Appel »…) : instantané des compteurs du tour au moment de la pioche. La
+   *  Condition ne peut alors réagir qu'aux événements survenus APRÈS (on compare à cet
+   *  instantané), pas à ceux d'avant qu'on l'ait en main. Effacé au début de chaque tour. */
+  conditionBaseline?: {
+    gainedPower: number
+    discarded: number
+    playedCards: number
+    playedItems: number
+  }
 }
 
 /** Restrictions de pose imposées par une carte sur son lieu (Malédictions, Héros). */
@@ -1329,8 +1681,9 @@ export type StrengthMod =
   | { target: 'allies-here'; delta: number; excludeSelf?: boolean }
   /** Modifie la force de TOUS les Héros du royaume (aura globale, pas seulement le
    *  lieu). `excludeSelf` : la carte source ne s'affecte pas (Adam de la Halle :
-   *  +1 à tous les AUTRES Héros). */
-  | { target: 'heroes-realm'; delta: number; excludeSelf?: boolean }
+   *  +1 à tous les AUTRES Héros). `exceptCardId` : un Héros de ce cardId n'est PAS
+   *  affecté (Lotso — Chapeau de Woody : −1 à tous les Héros SAUF Woody). */
+  | { target: 'heroes-realm'; delta: number; excludeSelf?: boolean; exceptCardId?: string }
 
 /** Modificateur passif qu'une carte applique à SA PROPRE force selon une
  *  condition. Donnée réutilisable : le moteur évalue chaque variant, la carte ne
@@ -1362,6 +1715,14 @@ export type SelfStrengthMod =
    *  royaume (Oogie Boogie — Trio Am/Stram/Gram : +1 par autre membre du trio).
    *  N'inclut pas la carte elle-même. */
   | { kind: 'per-other-in-set-realm'; cardIds: string[]; delta: number }
+  /** +delta par AUTRE Héros présent sur le même lieu (Taram). */
+  | { kind: 'per-other-hero-here'; delta: number }
+  /** +delta par AUTRE carte de type `cardType` présente sur le même lieu (Syndrome —
+   *  Gardes : +1 par autre Allié). Exclut la carte elle-même. */
+  | { kind: 'per-other-type-here'; cardType: CardType; delta: number }
+  /** Syndrome — Jack-Jack : sa force EFFECTIVE devient celle du Héros le plus fort sur
+   *  son lieu (comparaison sur la force de base, sans récursion). */
+  | { kind: 'match-strongest-hero-here' }
 
 /** Dr Facilier — comportement d'une carte RÉVÉLÉE depuis la Pile de l'Au-delà
  *  par Divination. Donnée réutilisable, interprétée par resolveAuDela (effects.ts).
@@ -1424,6 +1785,9 @@ export type ConditionTrigger =
   /** L'adversaire actif a ciblé le joueur avec une action Fatalité ce tour-ci
    *  (Scar — La vie n'est pas juste). */
   | { type: 'opponent-fate-targeted-me' }
+  /** L'adversaire actif a joué au moins `value` Objet(s) ce tour-ci (Le Seigneur des
+   *  Ténèbres — Nous touchons du doigt la victoire). */
+  | { type: 'opponent-played-item'; value: number }
 
 /** Déclencheur de défausse automatique d'une carte (typiquement une Malédiction). */
 export type CurseDiscardTrigger =
@@ -1490,6 +1854,11 @@ export interface PlayerState {
   /** Lever du jour (Slenderman) : ce joueur ne peut pas jouer de Page jusqu'à la
    *  fin de son prochain tour. Consommé à la fin de son tour. */
   noPagePlay?: boolean
+  /** Conditions (instanceId) présentes en main au DÉBUT du tour courant : seules
+   *  celles-ci peuvent être jouées en réaction ce tour. Une Condition piochée en cours
+   *  de tour (ex. « J'allais oublier un détail ») n'est PAS réactable. `undefined` (1ᵉʳ
+   *  tour / états construits à la main) = aucune restriction. Réévalué à chaque tour. */
+  reactableConditionIds?: string[]
   /** Jafar : lieux VERROUILLÉS (Cadenas) — inaccessibles au pion et à la pose
    *  tant que le verrou n'est pas retiré (Scarabée d'Or). La Caverne aux
    *  Merveilles démarre verrouillée. */
@@ -1537,6 +1906,11 @@ export interface PlayerState {
   starLocationId?: LocationId
   /** Bowser — Peach a été capturée (via Impuissance). Condition de victoire. */
   peachCaptured?: boolean
+  /** Le Seigneur des Ténèbres — état de la tuile CHAUDRON NOIR (hors deck) :
+   *  'set-aside' = mise de côté (pas encore réclamée), 'claimed' = à côté du portrait
+   *  (face Chaudron, inactive), 'powered' = activée (face Pouvoir → permet de jouer
+   *  les Morts-vivants du Chaudron). `undefined` pour les autres vilains. */
+  blackCauldron?: 'set-aside' | 'claimed' | 'powered'
   /** Mère Gothel — jetons CONFIANCE accumulés (au-dessus de son plateau). Objectif :
    *  en atteindre 10 au début de son tour. Pris dans la Réserve quand elle en gagne
    *  (n'entame pas son Pouvoir), rendus quand elle en perd. `undefined` ailleurs. */
@@ -1619,6 +1993,37 @@ export interface PlayerState {
   /** Oogie Boogie — Sally : tant qu'elle est en jeu, Oogie ne peut se déplacer que
    *  vers un lieu VOISIN au début de son tour. */
   sallyRestrict?: boolean
+  /** Madame Mim — 2ᵉ pioche Fatalité, dédiée aux Métamorphoses de Merlin (les « Héros »).
+   *  À la mise en place, 1 Merlin est posé au Lieu du Duel ; à chaque défaite, on en
+   *  pioche un autre ici. `fateDeck` reste la pioche Fatalité TRADITIONNELLE (8 cartes,
+   *  ce que jouent les adversaires). `undefined` pour les autres vilains. */
+  merlinDeck?: CardInstance[]
+  /** Madame Mim — Métamorphoses de Merlin VAINCUES (objectif : en avoir 7). La carte
+   *  Fatalité « Merlin » peut en remettre une au hasard dans `merlinDeck`. */
+  merlinDiscard?: CardInstance[]
+  /** Syndrome — progression de l'Omnidroïde. `x8`/`x9`/`x10` = la version en jeu (ou
+   *  l'attente de jouer la suivante : `x9-hand`/`x10-hand`) ; `destroyed` = v.10
+   *  éliminé via la Télécommande (objectif rempli). `undefined` pour les autres. */
+  omnidroidStage?: 'x8' | 'x9-hand' | 'x9' | 'x10-hand' | 'x10' | 'destroyed'
+  /** Syndrome — tuiles Omnidroïde pas encore jouées (v.X9 puis v.10), dans l'ordre. */
+  omnidroidPile?: CardInstance[]
+  /** Syndrome (Fatalité Pas de Capes !) : au PROCHAIN tour, le déplacement est annulé
+   *  (le pion reste sur place). Consommé au début du tour. */
+  skipMoveForcedNextTurn?: boolean
+  /** Sa Sucrerie (King Candy) — position du pion sur le circuit en huit (index 0..17
+   *  dans `locations[0].actions`). Le déplacement est de 1 à 4 cases (au lieu d'un
+   *  changement de lieu). `0` = case Départ/Arrivée. `undefined` pour les autres. */
+  trackPos?: number
+  /** Sa Sucrerie — position du jeton Pilote (Vanellope) sur le circuit (0..17), ou
+   *  `null` s'il n'est pas en course. Le jeton COUVRE l'action où il se trouve. */
+  racerPos?: number | null
+  /** Sa Sucrerie — une COURSE est active (un Bug a été associé à Vanellope et lancé
+   *  la course). King Candy gagne s'il franchit Départ/Arrivée avant le jeton Pilote. */
+  raceActive?: boolean
+  /** Sa Sucrerie (Turbo-Statique) : CE tour, King Candy peut utiliser ses 3 actions
+   *  accessibles même si elles sont recouvertes (Héros ou jeton Pilote). Consommé en
+   *  fin de tour. */
+  turboUncoverThisTurn?: boolean
 }
 
 /**
@@ -1701,6 +2106,9 @@ export interface GameState {
   /** Force du dernier Héros vaincu CE TOUR (Méchanceté trigger). Reset à
    *  chaque fin de tour. */
   lastVanquishedHeroStrength?: number
+  /** Coût de la DERNIÈRE carte jouée par le joueur actif CE TOUR (Syndrome — « Qui est
+   *  le plus super ? » : gagne autant de Pouvoir que ce coût). Reset au début du tour. */
+  lastPlayedCardCost?: number
   /**
    * Fatalité en cours : le joueur actif a révélé 2 cartes du deck Fatalité d'une
    * cible et doit en choisir une (RESOLVE_FATE) avant tout autre coup. `null`
@@ -1739,6 +2147,12 @@ export interface GameState {
     count: number
     /** Nombre de cartes à piocher APRÈS la défausse (Tâche : Station essence = 1). */
     thenDraw?: number
+    /** Défausse FACULTATIVE d'un nombre LIBRE de cartes (0 inclus), au lieu d'exactement
+     *  `count` (Madame de Trémaine : J'allais oublier un détail). */
+    optional?: boolean
+    /** Après la défausse, compléter la main jusqu'à `drawTo` cartes (au lieu de
+     *  `thenDraw`). Madame de Trémaine : J'allais oublier un détail (= 4). */
+    drawTo?: number
     /** Libellé de la source (journal/showcase). Défaut : « Tyrannie ». */
     label?: string
   }
@@ -1823,6 +2237,33 @@ export interface GameState {
    * Mal. Absent / `null` hors de ce choix.
    */
   pendingDrawOrGainPower?: { playerIndex: number; draw: number; power: number; cardId?: string } | null
+  /** Sa Sucrerie — Mémoire Verrouillée : choix « gagner `power` Pouvoir » OU « reculer
+   *  le jeton Pilote de `racerBack` » (RESOLVE_POWER_OR_RACER_BACK). Ouvert seulement en
+   *  course active. */
+  pendingPowerOrRacerBack?: { playerIndex: number; power: number; racerBack: number } | null
+  /** Madame de Trémaine — C'est votre dernière chance : `playerIndex` choisit entre
+   *  effectuer une action « Déplacer un Objet ou un Allié » et une action « Activer »
+   *  (RESOLVE_MOVE_OR_ACTIVATE). N'apparaît que si LES DEUX sont possibles. */
+  pendingMoveOrActivate?: { playerIndex: number } | null
+  /** Le Seigneur des Ténèbres — Montre-moi le Chaudron Magique / Nous avons conclu un
+   *  marché : `playerIndex` choisit entre s'emparer du Chaudron Magique et gagner
+   *  `power` Pouvoir (RESOLVE_CAULDRON_CHOICE). N'apparaît que si le Chaudron est encore
+   *  à s'emparer (sinon on gagne directement le Pouvoir). */
+  pendingCauldronChoice?: { playerIndex: number; power: number } | null
+  /** Le Seigneur des Ténèbres — Nous avons conclu un marché ! : `playerIndex` choisit
+   *  entre « mélanger sa défausse dans sa pioche » et « payer `power` Pouvoir pour
+   *  défausser l'Épée Magique et s'emparer du Chaudron » (RESOLVE_BARGAIN_CHOICE).
+   *  N'apparaît que si LES DEUX options sont possibles. */
+  pendingBargainChoice?: { playerIndex: number; power: number } | null
+  /** Le Seigneur des Ténèbres — Nous touchons du doigt la victoire : `playerIndex` joue
+   *  gratuitement un Objet de sa main sur un lieu (RESOLVE_FREE_ITEM_PLAY) ou renonce
+   *  (SKIP_FREE_ITEM_PLAY). */
+  pendingFreeItemPlay?: { playerIndex: number } | null
+  /** Madame de Trémaine — Je ne reviens jamais : `playerIndex` regarde `cards` (top de
+   *  sa pioche Fatalité) et les replace dans l'ordre de son choix (RESOLVE_FATE_REORDER).
+   *  `deck` = pioche concernée : 'fate' (défaut) ou 'merlin' (Madame Mim — Pas de Tricherie,
+   *  regarde le dessus de la pioche de Métamorphoses de Merlin). */
+  pendingFateReorder?: { playerIndex: number; cards: CardInstance[]; deck?: 'fate' | 'merlin' } | null
   /**
    * Mère Gothel — Lance-moi ta chevelure : `chooserIndex` choisit de combien de
    * lieux (parmi `options`) ramener Raiponce vers la Tour (RESOLVE_RAIPONCE_HOMEWARD).
@@ -1987,13 +2428,72 @@ export interface GameState {
     /** Scar — Troupeau de gnous : après le déplacement, ouvre un Vanquish facultatif
      *  sur le lieu d'arrivée (pendingTrapVanquish `source: 'gnous'`). */
     thenTrapVanquish?: boolean
+    /** Madame de Trémaine — La Clé : le Héros déplacé reçoit un jeton Enfermé (piège). */
+    thenTrap?: boolean
   } | null
   /**
    * Flèche de Mome Raths (Fatalité, Reine de Cœur) : `chooserIndex` (joueur qui pose
    * la Fatalité) déplace un Allié du royaume de `targetIndex` vers le lieu non bloqué
    * de son choix (RESOLVE_ALLY_RELOCATE). Absent / `null` hors de ce choix.
    */
-  pendingAllyRelocate?: { chooserIndex: number; targetIndex: number } | null
+  pendingAllyRelocate?: {
+    chooserIndex: number
+    targetIndex: number
+    /** Nb d'Alliés encore déplaçables (Go ! : 2). Défaut 1. */
+    remaining?: number
+    /** Peut s'arrêter avant d'avoir tout déplacé (Go !). Défaut false. */
+    optional?: boolean
+    /** Libellé affiché (défaut « Flèche de Mome Raths »). */
+    title?: string
+    /** Restreint les Alliés déplaçables à ces instanceId (Cybug en Sucre : seuls les
+     *  Cybugs survivants). Absent = tous les Alliés du royaume. */
+    onlyInstanceIds?: string[]
+  } | null
+  /** Syndrome — « Identification, je vous prie » : `playerIndex` (l'acteur) doit déplacer
+   *  un de ses Alliés OU Objets (non associé) vers un lieu de son royaume portant ≥1 Héros
+   *  (RESOLVE_IDENTIFICATION). Absent / `null` hors de ce choix. */
+  pendingIdentification?: { playerIndex: number } | null
+  /** Lotso — choix interactif d'une CIBLE (carte du royaume) : `kind` 'reduce' (réduire un
+   *  Héros, de `amount` ou jusqu'à 0 si `toZero`) ou 'move-to-room' (déplacer un Héros ou
+   *  Buzz sur la Salle des Chenilles). `candidateIds` = cibles valides (RESOLVE_LOTSO_TARGET). */
+  pendingLotsoTarget?: {
+    playerIndex: number
+    kind: 'reduce' | 'move-to-room'
+    candidateIds: string[]
+    amount?: number
+    toZero?: boolean
+    label: string
+  } | null
+  /** Lotso — Réinitialisation : après avoir retourné Buzz en mode Démo, `playerIndex`
+   *  choisit le LIEU où le déplacer (n'importe lequel, partie inférieure). `buzzInstanceId`
+   *  = la tuile Buzz à déplacer (RESOLVE_LOTSO_BUZZ_MOVE). */
+  pendingLotsoBuzzMove?: { playerIndex: number; buzzInstanceId: string } | null
+  /** Lotso — Le Bibliothécaire : `playerIndex` dépense des jetons Pouvoir (1 = −1 force)
+   *  qu'il RÉPARTIT librement entre plusieurs Héros (clic Héros = −1 + −1 Pouvoir),
+   *  jusqu'à épuisement du Pouvoir / des cibles ou « Terminer ». `spent` = total déjà
+   *  dépensé (pour le journal). RESOLVE_LOTSO_BOOKWORM (heroInstanceId=null → terminer). */
+  pendingLotsoBookworm?: { playerIndex: number; spent: number } | null
+  /** Lotso — Flex (capacité activée) : déplace un Héros OU Buzz du lieu de Flex vers
+   *  n'importe quel AUTRE lieu, en 2 phases. `fromLocationId` = lieu de Flex ;
+   *  `candidateIds` = Héros/Buzz déplaçables ; `cardInstanceId` absent → phase « quelle
+   *  carte » (RESOLVE_LOTSO_FLEX cardInstanceId), présent → phase « quel lieu »
+   *  (RESOLVE_LOTSO_FLEX to). */
+  pendingLotsoFlex?: {
+    playerIndex: number
+    fromLocationId: LocationId
+    candidateIds: string[]
+    cardInstanceId?: string
+  } | null
+  /** Mère Gothel — Maximus : `chooserIndex` (joueur qui a posé la Fatalité) déplace
+   *  d'abord une carte Cavaliers du roi du royaume de `targetIndex` vers un lieu voisin
+   *  (phase « cavaliers »), puis Maximus lui-même vers un lieu voisin (phase « maximus »).
+   *  Les deux déplacements sont FACULTATIFS. */
+  pendingMaximus?: {
+    chooserIndex: number
+    targetIndex: number
+    maximusInstanceId: string
+    phase: 'cavaliers' | 'maximus'
+  } | null
   /** Téléportation (Slenderman) : `playerIndex` doit choisir un lieu portant un
    *  Héros où déplacer son pion (RESOLVE_TELEPORT). Absent / `null` sinon. */
   pendingTeleport?: { playerIndex: number } | null
@@ -2051,6 +2551,7 @@ export interface GameState {
       | 'steal-item-to-hero'
       | 'remove-ally'
       | 'remove-item'
+      | 'remove-card'
       | 'discard-from-hand'
       | 'fate-discard-hero-to-top'
       | 'play-revealed-fate-hero'
@@ -2163,6 +2664,9 @@ export interface GameState {
   /** Nombre de cartes jouées par le joueur actif ce tour-ci (déclencheur Insidieux,
    *  L'Imposteur). Remis à 0 en fin de tour. */
   activePlayedCount?: number
+  /** Nombre d'OBJETS joués par le joueur actif ce tour-ci (déclencheur Le Seigneur des
+   *  Ténèbres — Nous touchons du doigt la victoire). Remis à 0 en fin de tour. */
+  activePlayedItemCount?: number
   /** Indices des joueurs ciblés par une action Fatalité du joueur actif ce tour-ci
    *  (déclencheur Scar — La vie n'est pas juste). Remis à [] en fin de tour. */
   activeFateTargets?: number[]
@@ -2416,6 +2920,11 @@ export interface PendingFate {
  */
 export type GameAction =
   | { type: 'MOVE'; to: LocationId }
+  /** Sa Sucrerie (King Candy) — déplacement sur le circuit en huit : avance le pion de
+   *  `steps` cases Action (1 à 4 normalement ; 2 ou 3 si Félix Fixe Jr. est en jeu).
+   *  Remplace l'action MOVE pour ce vilain. Pendant une course, franchir Départ/Arrivée
+   *  (index 0) déclenche la victoire si un Bug est associé à Vanellope. */
+  | { type: 'MOVE_TRACK'; steps: number }
   /** Exécute une action instantanée du lieu (Gagner Pouvoir, Préparer du Poison).
    *  `count` : nb de jetons convertis pour « Préparer du Poison » (N Pouvoir →
    *  N Poison). Ignoré pour les autres actions ; défaut 1. */
@@ -2548,6 +3057,13 @@ export type GameAction =
   /** Ratigan — Le Grand Génie du Mal : `choice` = piocher (`'draw'`) OU gagner du
    *  Pouvoir (`'power'`). */
   | { type: 'RESOLVE_DRAW_OR_GAIN_POWER'; choice: 'draw' | 'power' }
+  | { type: 'RESOLVE_POWER_OR_RACER_BACK'; choice: 'power' | 'racer' }
+  /** Madame de Trémaine — C'est votre dernière chance : résout le choix entre
+   *  « Déplacer un Objet ou un Allié » (`move`) et « Activer » (`activate`). */
+  | { type: 'RESOLVE_MOVE_OR_ACTIVATE'; choice: 'move' | 'activate' }
+  /** Madame de Trémaine — Je ne reviens jamais : replace les cartes Fatalité regardées
+   *  sur le dessus de la pioche dans l'ordre `orderedIds` (1ᵉʳ = dessus). */
+  | { type: 'RESOLVE_FATE_REORDER'; orderedIds: string[] }
   /** Mère Gothel — Lance-moi ta chevelure : `steps` = nombre de lieux dont Raiponce
    *  est ramenée vers la Tour (1 ou 2). */
   | { type: 'RESOLVE_RAIPONCE_HOMEWARD'; steps: number }
@@ -2611,6 +3127,27 @@ export type GameAction =
   | { type: 'SKIP_HERO_RELOCATE' }
   /** Flèche de Mome Raths : déplace l'Allié choisi vers le lieu (non bloqué) choisi. */
   | { type: 'RESOLVE_ALLY_RELOCATE'; allyInstanceId: string; to: LocationId }
+  | { type: 'SKIP_ALLY_RELOCATE' }
+  /** Syndrome — « Identification, je vous prie » : déplace l'Allié/Objet choisi vers le
+   *  lieu (portant un Héros) choisi. */
+  | { type: 'RESOLVE_IDENTIFICATION'; cardInstanceId: string; to: LocationId }
+  /** Lotso — résout `pendingLotsoTarget` : applique l'effet (réduction / déplacement vers
+   *  la Salle) à la carte choisie. */
+  | { type: 'RESOLVE_LOTSO_TARGET'; instanceId: string }
+  /** Lotso — résout `pendingLotsoBuzzMove` : déplace la tuile Buzz (mode Démo) vers le lieu choisi. */
+  | { type: 'RESOLVE_LOTSO_BUZZ_MOVE'; to: LocationId }
+  /** Lotso — Le Bibliothécaire : applique une réduction de −1 (et −1 Pouvoir) au Héros
+   *  choisi, ou termine la répartition si `heroInstanceId` est null. */
+  | { type: 'RESOLVE_LOTSO_BOOKWORM'; heroInstanceId: string | null }
+  /** Lotso — Flex : phase « quelle carte » (`cardInstanceId`) puis phase « quel lieu »
+   *  (`to`). Un seul champ est renseigné selon la phase en cours. */
+  | { type: 'RESOLVE_LOTSO_FLEX'; cardInstanceId?: string; to?: LocationId }
+  /** Mère Gothel — Maximus, phase « cavaliers » : déplace le Cavaliers du roi choisi
+   *  vers `to` (lieu voisin), ou passe (`allyInstanceId`/`to` = null). */
+  | { type: 'RESOLVE_MAXIMUS_CAVALIERS'; allyInstanceId: string | null; to: LocationId | null }
+  /** Mère Gothel — Maximus, phase « maximus » : déplace Maximus vers `to` (lieu voisin),
+   *  ou passe (`to` = null). */
+  | { type: 'RESOLVE_MAXIMUS_MOVE'; to: LocationId | null }
   /** Dr Facilier — Canne : ouvre le choix d'un lieu voisin où effectuer UNE action
    *  disponible (hors Fatalité), tant que le pion est sur le lieu de la Canne. */
   | { type: 'USE_CANNE' }
@@ -2743,4 +3280,19 @@ export type GameAction =
    *  Déguisement) CONTRE le joueur actif, ciblant l'un de ses Héros via
    *  `targetHeroId` — comme si un adversaire l'avait jouée. */
   | { type: 'TEST_PLAY_FATE_CARD'; card: CardInstance; targetHeroId?: string; enlargeToward?: LocationId }
+  /** Le Seigneur des Ténèbres — ACTIVE le Chaudron Noir réclamé (le retourne sur sa
+   *  face Pouvoir : `blackCauldron` 'claimed' → 'powered'). Permet ensuite de jouer
+   *  les Morts-vivants du Chaudron. Action gratuite (ne consomme pas d'action de lieu). */
+  | { type: 'ACTIVATE_CAULDRON' }
+  /** Le Seigneur des Ténèbres — résout le choix « s'emparer du Chaudron OU gagner du
+   *  Pouvoir » (Montre-moi le Chaudron Magique). */
+  | { type: 'RESOLVE_CAULDRON_CHOICE'; choice: 'cauldron' | 'power' }
+  /** Le Seigneur des Ténèbres — résout le choix « mélanger sa défausse OU défausser
+   *  l'Épée Magique pour s'emparer du Chaudron » (Nous avons conclu un marché !). */
+  | { type: 'RESOLVE_BARGAIN_CHOICE'; choice: 'reshuffle' | 'sword' }
+  /** Le Seigneur des Ténèbres — joue gratuitement l'Objet `instanceId` de la main sur
+   *  le lieu `to` (Nous touchons du doigt la victoire). */
+  | { type: 'RESOLVE_FREE_ITEM_PLAY'; instanceId: string; to: LocationId }
+  /** Renonce au jeu gratuit d'un Objet (Nous touchons du doigt la victoire). */
+  | { type: 'SKIP_FREE_ITEM_PLAY' }
   | { type: 'END_TURN' }

@@ -7,21 +7,33 @@ interface Props {
   target: PlayerState
   /** Déplace l'Allié choisi vers le lieu (non bloqué) choisi. */
   onResolve: (allyInstanceId: string, to: string) => void
+  /** Titre affiché (défaut « Flèche de Mome Raths »). */
+  title?: string
+  /** Nb d'Alliés encore déplaçables (Go ! : jusqu'à 2). */
+  remaining?: number
+  /** Déplacement facultatif → bouton « Terminer ». */
+  optional?: boolean
+  onSkip?: () => void
+  /** Restreint les Alliés déplaçables à ces instanceId (Cybug en Sucre). */
+  onlyInstanceIds?: string[]
 }
 
 /**
- * Flèche de Mome Raths (Fatalité, Reine de Cœur) : choisir un Allié du royaume de
- * `target` puis n'importe quel lieu non bloqué où le déplacer.
+ * Déplacer un Allié vers n'importe quel lieu non bloqué. Flèche de Mome Raths
+ * (Fatalité, Reine de Cœur) : 1 Allié de la cible. Go ! (Sa Sucrerie) : jusqu'à 2
+ * de ses propres Alliés (`remaining`, `optional` → bouton Terminer).
  */
-export function AllyRelocateModal({ target, onResolve }: Props) {
+export function AllyRelocateModal({ target, onResolve, title = 'Flèche de Mome Raths', remaining = 1, optional = false, onSkip, onlyInstanceIds }: Props) {
   const [allyId, setAllyId] = useState<string | null>(null)
   const ids = target.locations.map((l) => l.id)
   const locked = new Set(target.lockedLocations ?? [])
   const nameOf = (id: string) => target.locations.find((l) => l.id === id)?.name ?? id
 
+  // Un arceau (Carte Garde transformée) reste un Allié : la Flèche peut le déplacer.
+  const only = onlyInstanceIds ? new Set(onlyInstanceIds) : null
   const allies = target.locations.flatMap((loc) =>
     (target.board[loc.id] ?? [])
-      .filter((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket)
+      .filter((c) => c.type === 'ally' && !c.attachedTo && (!only || only.has(c.instanceId)))
       .map((c) => ({ id: c.instanceId, cardId: c.cardId, name: c.name, from: loc.id })),
   )
   const picked = allies.find((a) => a.id === allyId)
@@ -31,7 +43,7 @@ export function AllyRelocateModal({ target, onResolve }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
       <div className="flex w-full max-w-md flex-col gap-4 rounded-2xl border border-white/15 bg-[#120c22] p-5 text-white">
         <h2 className="text-center text-lg font-bold text-purple-200">
-          Flèche de Mome Raths : déplacer un Allié
+          {title} : déplacer un Allié{remaining > 1 ? ` (jusqu’à ${remaining})` : ''}
         </h2>
 
         {!picked ? (
@@ -77,6 +89,15 @@ export function AllyRelocateModal({ target, onResolve }: Props) {
               ← Choisir un autre Allié
             </button>
           </>
+        )}
+        {optional && onSkip && (
+          <button
+            type="button"
+            onClick={onSkip}
+            className="self-center rounded-lg border border-white/25 px-4 py-1.5 text-sm font-semibold text-white/80 hover:bg-white/10"
+          >
+            Terminer (ne plus déplacer)
+          </button>
         )}
       </div>
     </div>

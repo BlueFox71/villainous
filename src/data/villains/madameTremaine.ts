@@ -28,8 +28,9 @@ export const madameTremaine: VillainDef = {
     ballGownCardIds: ['ball-gown-anastasia', 'ball-gown-drizella'],
     princeCardId: 'the-prince',
     bellsCardId: 'cloches-mariage',
-    slipperCardId: 'pantoufle-de-verre',
+    slipperCardIds: ['pantoufle-chambre', 'pantoufle-chateau'],
   },
+  boardObjective: 'Vous devez réunir une de vos filles en robe de bal et le Prince sur la salle de bal, puis activer les cloches du mariage.',
   objectiveDescription:
     'MARIEZ Anastasia ou Drizella au Prince. Déverrouillez la Salle de Bal (Invitation du Roi), ' +
     'amenez-y une fille EN ROBE DE BAL (qui remplace sa version ordinaire déjà en jeu) AVEC le Prince, ' +

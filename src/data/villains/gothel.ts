@@ -28,6 +28,7 @@ export const gothel: VillainDef = {
   objective: { type: 'CONFIANCE_THRESHOLD', threshold: 10 },
   // Raiponce : Héros-tuile toujours présent, posé sur la Tour à la mise en place.
   startingHeroTile: { cardId: 'raiponce', name: 'Raiponce', strength: 4, locationId: 'tour' },
+  boardObjective: 'Au début de votre tour, vous devez posséder au moins 10 jetons Confiance.',
   objectiveDescription:
     'Accumulez au moins 10 jetons Confiance. Vous gagnez de la Confiance en ' +
     'déplaçant Raiponce sur la Tour, en éliminant des Héros, en déplaçant la ' +

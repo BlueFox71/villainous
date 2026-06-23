@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react'
+import { useState, useRef } from 'react'
 import type { CardInstance, Location } from '../../engine/types'
 import type { Accent } from '../accents'
 import { getCardDef } from '../../data/registry'
@@ -81,6 +81,16 @@ interface Props {
    *  défausser contre 1 jeton Confiance. */
   crownUsable?: boolean
   onUseCrown?: (instanceId: string) => void
+  /** Glisser-déposer du déplacement (action « Déplacer un Objet/Allié »). Si défini,
+   *  les cartes dont l'instanceId ∈ `movableDragIds` sont saisissables vers un lieu. */
+  dragMoveActionId?: string
+  movableDragIds?: string[]
+  onCardDragStart?: (instanceId: string, x: number, y: number) => void
+  onCardDragMove?: (x: number, y: number) => void
+  onCardDragDrop?: (instanceId: string, x: number, y: number) => void
+  onCardDragCancel?: () => void
+  /** instanceId de la carte en cours de glissé (pour l'estomper). */
+  draggingInstanceId?: string | null
 }
 
 export function LocationCard({
@@ -123,9 +133,20 @@ export function LocationCard({
   onUseMap,
   crownUsable = false,
   onUseCrown,
+  dragMoveActionId,
+  movableDragIds = [],
+  onCardDragStart,
+  onCardDragMove,
+  onCardDragDrop,
+  onCardDragCancel,
+  draggingInstanceId = null,
 }: Props) {
   // Carte posée survolée (par instanceId) → agrandissement pour la lire « en direct ».
   const [hovered, setHovered] = useState<string | null>(null)
+  // Glisser-déposer d'un Allié/Objet à déplacer : suivi du pointeur (seuil pour
+  // distinguer d'un clic) + drapeau pour neutraliser le clic qui suit un glissé.
+  const dragPointer = useRef<{ id: string; startX: number; startY: number; dragging: boolean } | null>(null)
+  const suppressClickRef = useRef(false)
   const previewPos =
     previewAlign === 'left'
       ? 'left-0'
@@ -204,13 +225,14 @@ export function LocationCard({
         </div>
       )}
 
-      {placedCards.some((c) => !c.attachedTo && (c.type !== 'hero' || c.hypnotized) && !c.fromFate) && (
+      {placedCards.some((c) => !c.attachedTo && (c.type !== 'hero' || c.hypnotized) && !c.fromFate && !(c.isBuzz && c.buzzMode === 'guardian')) && (
         <div className="flex flex-wrap items-end justify-center gap-1.5">
           {placedCards
             // Alliés/Objets « racine » dans la zone basse. Les Héros sont en haut,
             // SAUF un Héros hypnotisé (Jafar) qui devient un Allié → affiché ici.
             // Les Objets posés par la Fatalité (`fromFate`) sont dans la zone Fatalité.
-            .filter((c) => !c.attachedTo && (c.type !== 'hero' || c.hypnotized) && !c.fromFate)
+            // Lotso — Buzz l'Éclair en mode GARDIEN siège en haut (côté Héros), pas ici.
+            .filter((c) => !c.attachedTo && (c.type !== 'hero' || c.hypnotized) && !c.fromFate && !(c.isBuzz && c.buzzMode === 'guardian'))
             .map((c) => {
               const def = getCardDef(c.cardId)
               const attached = placedCards.filter((a) => a.attachedTo === c.instanceId)
@@ -242,6 +264,23 @@ export function LocationCard({
               const isPersifleurBlink = blinkPersifleur && c.cardId === 'persifleur'
               // Bowser : Allié porteur d'au moins une Étoile → contour orange.
               const hasStar = (c.stars ?? 0) > 0
+              // Glisser-déposer du déplacement : cette carte est saisissable vers un lieu.
+              const dragEligible = !!dragMoveActionId && movableDragIds.includes(c.instanceId)
+              const cardClick = canUseMap
+                ? () => onUseMap?.(c.instanceId)
+                : canUseCrown
+                  ? () => onUseCrown?.(c.instanceId)
+                  : canGranted
+                    ? () => onGrantedAction?.(c)
+                    : isTarget
+                      ? () => onAttach(c.instanceId)
+                      : canMovePick
+                        ? () => onCardPick(c.instanceId)
+                        : canVanquishToggle
+                          ? () => onVanquishToggle?.(c.instanceId)
+                          : canEngrenagesToggle
+                            ? () => onEngrenagesToggle?.(c.instanceId)
+                            : undefined
 
               return (
                 <figure
@@ -257,45 +296,72 @@ export function LocationCard({
                       src={def?.image}
                       alt={c.name}
                       title={`${c.name}${def ? ` — ${def.text}` : ''}`}
+                      draggable={false}
                       onClick={
-                        canUseMap
+                        cardClick
                           ? (e) => {
                               e.stopPropagation()
-                              onUseMap?.(c.instanceId)
+                              // Un clic qui suit un glissé est neutralisé (déjà déplacé).
+                              if (suppressClickRef.current) { suppressClickRef.current = false; return }
+                              cardClick()
                             }
-                          : canUseCrown
+                          : undefined
+                      }
+                      onPointerDown={
+                        dragEligible
                           ? (e) => {
-                              e.stopPropagation()
-                              onUseCrown?.(c.instanceId)
+                              if (e.button !== 0) return
+                              ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+                              dragPointer.current = { id: c.instanceId, startX: e.clientX, startY: e.clientY, dragging: false }
                             }
-                          : canGranted
+                          : undefined
+                      }
+                      onPointerMove={
+                        dragEligible
                           ? (e) => {
-                              e.stopPropagation()
-                              onGrantedAction?.(c)
-                            }
-                          : isTarget
-                            ? (e) => {
-                                e.stopPropagation()
-                                onAttach(c.instanceId)
+                              const d = dragPointer.current
+                              if (!d || d.id !== c.instanceId) return
+                              if (!d.dragging) {
+                                if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < 6) return
+                                d.dragging = true
+                                onCardDragStart?.(c.instanceId, e.clientX, e.clientY)
                               }
-                            : canMovePick
-                              ? (e) => {
-                                  e.stopPropagation()
-                                  onCardPick(c.instanceId)
-                                }
-                              : canVanquishToggle
-                                ? (e) => {
-                                    e.stopPropagation()
-                                    onVanquishToggle?.(c.instanceId)
-                                  }
-                                : canEngrenagesToggle
-                                  ? (e) => {
-                                      e.stopPropagation()
-                                      onEngrenagesToggle?.(c.instanceId)
-                                    }
-                                  : undefined
+                              onCardDragMove?.(e.clientX, e.clientY)
+                            }
+                          : undefined
+                      }
+                      onPointerUp={
+                        dragEligible
+                          ? (e) => {
+                              const d = dragPointer.current
+                              dragPointer.current = null
+                              if (!d || d.id !== c.instanceId) return
+                              if (d.dragging) {
+                                suppressClickRef.current = true
+                                window.setTimeout(() => { suppressClickRef.current = false }, 0)
+                                onCardDragDrop?.(c.instanceId, e.clientX, e.clientY)
+                              }
+                            }
+                          : undefined
+                      }
+                      onContextMenu={
+                        dragEligible
+                          ? (e) => {
+                              if (dragPointer.current?.dragging) {
+                                e.preventDefault()
+                                dragPointer.current = null
+                                suppressClickRef.current = true
+                                window.setTimeout(() => { suppressClickRef.current = false }, 0)
+                                onCardDragCancel?.()
+                              }
+                            }
+                          : undefined
                       }
                       className={`w-14 rounded border ${
+                        draggingInstanceId === c.instanceId ? 'opacity-0 ' : ''
+                      }${
+                        dragEligible && !canMovePick ? 'cursor-grab ' : ''
+                      }${
                         canUseMap
                           ? 'cursor-pointer border-lime-400 ring-2 ring-lime-400'
                           : canUseCrown
@@ -321,6 +387,7 @@ export function LocationCard({
                                     : 'border-white/15'
                       }`}
                       style={{
+                        ...(dragEligible ? { touchAction: 'none' } : {}),
                         ...(isPersifleurBlink
                           ? { animation: 'persifleurCardBlink 0.8s ease-in-out infinite' }
                           : {}),
@@ -474,18 +541,9 @@ export function LocationCard({
         </div>
       )}
 
-      {!isCurrent && isMovable && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onMove()
-          }}
-          className="sweep-btn mt-auto w-full rounded bg-yellow-400 px-2.5 py-1.5 text-xs font-bold uppercase tracking-wider text-yellow-950 shadow-lg"
-          style={{ ['--sweep-color']: '#ffffff' } as CSSProperties}
-        >
-          <span>Choisir</span>
-        </button>
-      )}
+      {/* Plus de bouton « Choisir » : on déplace le pion en le GLISSANT sur le lieu
+          (cf. BoardImage). Le halo jaune + le clic direct sur le lieu restent un
+          repli (notamment au 1ᵉʳ déplacement, où le pion n'est pas encore posé). */}
       {isCurrent && canSkipMove && (
         <button
           onClick={(e) => {

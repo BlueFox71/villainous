@@ -59,6 +59,15 @@ interface Props {
   /** Mère Gothel : la Couronne est utilisable + handler (défausse → 1 Confiance). */
   crownUsable?: boolean
   onUseCrown?: (instanceId: string) => void
+  /** Glisser-déposer du déplacement : action « Déplacer un Objet/Allié » dispo (id) et
+   *  ids des cartes déplaçables → elles deviennent saisissables vers un lieu voisin. */
+  dragMoveActionId?: string
+  movableDragIds?: string[]
+  onCardDragStart?: (instanceId: string, x: number, y: number) => void
+  onCardDragMove?: (x: number, y: number) => void
+  onCardDragDrop?: (instanceId: string, x: number, y: number) => void
+  onCardDragCancel?: () => void
+  draggingInstanceId?: string | null
 }
 
 /** Les 4 lieux d'un joueur : déplacement, cartes posées (Héros en haut,
@@ -99,22 +108,42 @@ export function Board({
   onUseMap,
   crownUsable = false,
   onUseCrown,
+  dragMoveActionId,
+  movableDragIds = [],
+  onCardDragStart,
+  onCardDragMove,
+  onCardDragDrop,
+  onCardDragCancel,
+  draggingInstanceId = null,
 }: Props) {
   const cellColor = VILLAIN_COLOR[player.villain]
 
-  // Force d'attaque disponible sur un lieu (par index) : Alliés présents + Archers
-  // Loups des lieux voisins (qui peuvent éliminer un Héros sur un lieu adjacent).
+  // Sa Sucrerie — le circuit (sugar-rush) n'est PAS une zone de cartes : la grille du
+  // bas n'affiche que les 4 zones de pose (Alliés/Objets/Héros). Les actions du circuit
+  // sont sur l'image (BoardActions) ; le pion avance sur le circuit (BoardImage).
+  const displayLocations =
+    player.villain === 'sa-sucrerie'
+      ? player.locations.filter((l) => l.id !== 'sugar-rush')
+      : player.locations
+
+  // Force d'attaque disponible sur un lieu (par index) : Alliés présents + Alliés « à
+  // distance » des lieux voisins (donnée `reachesAdjacentVanquish` : Archers Loups,
+  // Flibustiers, Cavaliers du roi, Les Vouivres…) qui peuvent éliminer un Héros adjacent.
+  const reachesAdjacent = (c: CardInstance): boolean =>
+    c.type === 'ally' &&
+    !c.isWicket &&
+    (c.reachesAdjacentVanquish || c.cardId === 'archers-loups' || c.cardId === 'flibustiers')
   const attackTotalAt = (index: number): number => {
-    const here = (player.board[player.locations[index].id] ?? [])
+    const here = (player.board[displayLocations[index].id] ?? [])
       .filter((c) => c.type === 'ally' && !c.isWicket)
       .reduce((n, c) => n + (strengths[c.instanceId] ?? c.strength ?? 0), 0)
-    const archersAround = [player.locations[index - 1], player.locations[index + 1]]
+    const archersAround = [displayLocations[index - 1], displayLocations[index + 1]]
       .filter((l): l is NonNullable<typeof l> => !!l)
       .reduce(
         (n, nl) =>
           n +
           (player.board[nl.id] ?? [])
-            .filter((c) => c.cardId === 'archers-loups')
+            .filter(reachesAdjacent)
             .reduce((m, c) => m + (strengths[c.instanceId] ?? c.strength ?? 0), 0),
         0,
       )
@@ -125,10 +154,10 @@ export function Board({
     // Décalé à droite pour s'aligner sous les lieux de l'image (sauf si déjà placé
     // dans un flex où la marge gauche est occupée par les pioches Vilain).
     <div className="grid grid-cols-4 gap-2" style={offset ? { marginLeft: `${LOCATIONS_LEFT}%` } : undefined}>
-      {player.locations.map((loc, index) => {
+      {displayLocations.map((loc, index) => {
         const isCurrent = player.pawnLocation === loc.id
         const previewAlign =
-          index === 0 ? 'left' : index === player.locations.length - 1 ? 'right' : 'center'
+          index === 0 ? 'left' : index === displayLocations.length - 1 ? 'right' : 'center'
         return (
           <LocationCard
             key={loc.id}
@@ -171,6 +200,13 @@ export function Board({
             onUseMap={onUseMap}
             crownUsable={crownUsable}
             onUseCrown={onUseCrown}
+            dragMoveActionId={dragMoveActionId}
+            movableDragIds={movableDragIds}
+            onCardDragStart={onCardDragStart}
+            onCardDragMove={onCardDragMove}
+            onCardDragDrop={onCardDragDrop}
+            onCardDragCancel={onCardDragCancel}
+            draggingInstanceId={draggingInstanceId}
           />
         )
       })}

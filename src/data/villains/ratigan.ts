@@ -32,6 +32,8 @@ export const ratigan: VillainDef = {
     altHeroCardId: 'basil',
     blockerHeroCardId: 'reine-moustoria',
   },
+  boardObjective:
+    'Au début de votre tour, la Reine Robot doit se trouver à Buckingham Palace. Si elle est détruite, vous devez éliminer Basil.',
   objectiveDescription:
     'Jouez la Reine Robot, déplacez-la sur Buckingham Palace et commencez votre tour ' +
     'avec elle sur ce lieu. Si la Reine Robot est défaussée (par Basil), vous devenez ' +

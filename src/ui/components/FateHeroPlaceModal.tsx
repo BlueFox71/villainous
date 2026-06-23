@@ -30,7 +30,10 @@ export function FateHeroPlaceModal({ heroCardId, heroName, mode, target, onPlace
           </div>
         )}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {target.locations.map((loc) => (
+          {target.locations
+            // Sa Sucrerie : le circuit n'accueille pas de Héros (seulement les 4 zones).
+            .filter((loc) => !(target.villain === 'sa-sucrerie' && loc.id === 'sugar-rush'))
+            .map((loc) => (
             <button
               key={loc.id}
               onClick={() => onPlace(loc.id)}

@@ -27,6 +27,7 @@ export const jafar: VillainDef = {
     itemCardId: 'lampe-merveilleuse',
     itemLocationId: 'palais',
   },
+  boardObjective: 'Au début de votre tour, la LAMPE MERVEILLEUSE doit se trouver au Palais du Sultan et le GÉNIE doit être sous HYPNOSE.',
   objectiveDescription:
     'Au début de votre tour, contrôler le Génie (hypnotisé) et avoir la Lampe Merveilleuse au Palais du Sultan.',
   boardImage: '/cards/jafar/board.png',

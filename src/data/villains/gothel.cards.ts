@@ -85,7 +85,8 @@ export const gothelCards: CardDef[] = [
     type: 'condition',
     cost: 0,
     copies: 2,
-    text: 'Jouable au tour d’un adversaire qui élimine un Héros de force 3 ou plus : éliminez alors un Héros de force 3 ou moins. (Réaction : Phase 3b.)',
+    text: 'Jouable au tour d’un adversaire qui élimine un Héros de force 3 ou plus : éliminez alors un Héros de force 3 ou moins de votre royaume.',
+    trigger: { type: 'opponent-vanquished-hero-strength-ge', value: 3 },
     image: img('double-jeu.png'),
   },
   {
@@ -96,7 +97,9 @@ export const gothelCards: CardDef[] = [
     type: 'condition',
     cost: 0,
     copies: 2,
-    text: 'Jouable au tour d’un adversaire qui déplace un Héros ou un Objet : déplacez alors Raiponce sur la Tour. (Réaction : Phase 3b.)',
+    text: 'Jouable au tour d’un adversaire qui déplace un Héros ou un Objet : déplacez alors Raiponce sur la Tour.',
+    trigger: { type: 'opponent-moved-card' },
+    effects: [{ type: 'MOVE_RAIPONCE', to: 'tour' }],
     image: img('egocentrisme.png'),
   },
 
@@ -249,7 +252,8 @@ export const gothelCards: CardDef[] = [
     deck: 'fate',
     type: 'effect',
     copies: 2,
-    text: 'Déplacez Raiponce sur Corona. (Effet Fatalité ciblé : Phase 3b.)',
+    text: 'Déplacez Raiponce sur Corona.',
+    effects: [{ type: 'MOVE_RAIPONCE', to: 'corona' }],
     image: img('lanternes.png'),
   },
   {
@@ -259,7 +263,7 @@ export const gothelCards: CardDef[] = [
     deck: 'fate',
     type: 'effect',
     copies: 2,
-    text: 'Défaussez un Allié ou un Objet de coût 2 ou moins du royaume de Mère Gothel. (Effet Fatalité ciblé : Phase 3b.)',
+    text: 'Défaussez un Allié ou un Objet de coût 2 ou moins du royaume de Mère Gothel.',
     image: img('vieillissement.png'),
   },
 
@@ -322,7 +326,8 @@ export const gothelCards: CardDef[] = [
     type: 'hero',
     strength: 3,
     copies: 1,
-    text: 'Permet de déplacer une carte Cavaliers du roi, puis de déplacer Maximus vers un autre lieu. (Effet : Phase 3b.)',
+    text: 'À son arrivée, vous pouvez déplacer une carte Cavaliers du roi vers un lieu voisin, puis déplacer Maximus vers un lieu voisin.',
+    onPlace: [{ type: 'MAXIMUS_RELOCATE' }],
     image: img('maximus.png'),
   },
   {
@@ -333,7 +338,7 @@ export const gothelCards: CardDef[] = [
     type: 'hero',
     strength: 2,
     copies: 1,
-    text: 'Si Raiponce est déplacée sur le lieu de Pascal, déplacez-la aussitôt d’un lieu vers Corona. (Effet : Phase 3b.)',
+    text: 'Si Raiponce est déplacée sur le lieu de Pascal, déplacez-la aussitôt d’un lieu vers Corona.',
     image: img('pascal.png'),
   },
   {
@@ -344,7 +349,8 @@ export const gothelCards: CardDef[] = [
     type: 'hero',
     strength: 2,
     copies: 1,
-    text: 'Tant qu’il est présent, aucun Allié ne peut quitter son lieu. (Effet : Phase 3b.)',
+    text: 'Tant qu’il est présent, aucun Allié ne peut quitter son lieu.',
+    blocksAllyMoves: true,
     image: img('ulf.png'),
   },
 

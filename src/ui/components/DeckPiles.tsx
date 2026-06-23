@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { CardInstance, PlayerState } from '../../engine/types'
 import { getCardDef } from '../../data/registry'
@@ -285,6 +285,65 @@ export function IngredientsPile({
 }
 
 /**
+ * Le Seigneur des Ténèbres — tuile CHAUDRON MAGIQUE (à deux faces), affichée à la
+ * même place que les piles secondaires (Au-delà, Ingrédients…). Face « Chaudron »
+ * tant qu'il n'est pas réveillé, face « Pouvoir » une fois réveillé. Rendue
+ * uniquement pour ce vilain (champ `blackCauldron` défini).
+ */
+export function CauldronTile({
+  player,
+  uprightWidth = 'w-16',
+}: {
+  player: PlayerState
+  uprightWidth?: string
+}) {
+  const [hovered, setHovered] = useState(false)
+  if (player.blackCauldron === undefined) return null
+  const st = player.blackCauldron
+  const label = st === 'powered' ? 'Réveillé' : st === 'claimed' ? 'En sa possession' : 'À s’emparer'
+  const tone = st === 'powered' ? 'text-lime-300' : st === 'claimed' ? 'text-amber-200' : 'text-white/40'
+  const tile =
+    st === 'powered'
+      ? '/cards/seigneur-tenebres/cauldron-powered.png'
+      : '/cards/seigneur-tenebres/cauldron.png'
+  return (
+    <div
+      className="relative flex flex-col items-center gap-0.5"
+      title={`Chaudron Magique : ${label}`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{ zIndex: hovered ? 50 : undefined }}
+    >
+      <span className="text-[8px] font-bold uppercase tracking-wide text-lime-300/90">Chaudron</span>
+      <img
+        src={tile}
+        alt="Chaudron Magique"
+        className={`${uprightWidth} h-auto cursor-zoom-in object-contain transition-transform hover:scale-105 ${
+          st === 'set-aside'
+            ? 'opacity-30 grayscale'
+            : st === 'powered'
+              ? 'drop-shadow-[0_0_6px_rgba(132,204,22,0.7)]'
+              : ''
+        }`}
+      />
+      <span className={`text-[8px] font-semibold ${tone}`}>{label}</span>
+      {/* Aperçu agrandi au survol (affiché à droite, comme le zoom des cartes). */}
+      {hovered && (
+        <div className="pointer-events-none absolute left-full top-0 z-50 ml-2">
+          <img
+            src={tile}
+            alt="Chaudron Magique"
+            className={`w-48 max-w-none rounded-lg border-2 shadow-2xl ${
+              st === 'set-aside' ? 'border-white/30 opacity-60 grayscale' : st === 'powered' ? 'border-lime-400/70' : 'border-amber-300/60'
+            }`}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
  * Scar — pile SUCCESSION (face VISIBLE), à la même place que la Pile de l'Au-delà.
  * Affiche les Héros éliminés qui s'y trouvent (Mufasa puis les suivants) et la
  * Force combinée /15 (objectif). Rendue uniquement pour Scar (champ `succession`).
@@ -534,6 +593,159 @@ export function DeckPiles({
               )}
       {showDiscard && (
         <DiscardModal cards={discard} label={discardLabel} onClose={() => setShowDiscard(false)} />
+      )}
+    </div>
+  )
+}
+
+/**
+ * Syndrome — tuile(s) OMNIDROÏDE prêtes à jouer (v.X9 / v.10), affichées « à part »
+ * (à la même place que les piles secondaires), HORS de la main. Jouables comme une
+ * carte classique : on clique une action « Jouer une carte », puis la tuile ici.
+ * `canPlay` = on est en mode « Jouer une carte » → la tuile pulse et devient cliquable.
+ * Rendue uniquement pour Syndrome (`omnidroidStage` défini) et s'il y a une tuile prête.
+ */
+export function OmnidroidPile({
+  player,
+  canPlay = false,
+  onPlay,
+  uprightWidth = 'w-16',
+  onCardDragStart,
+  onCardDragMove,
+  onCardDragDrop,
+  onCardDragCancel,
+  draggingInstanceId,
+}: {
+  player: PlayerState
+  canPlay?: boolean
+  onPlay?: (instanceId: string) => void
+  uprightWidth?: string
+  /** Glisser-déposer (comme une carte de main) : actifs quand une action « Jouer une
+   *  carte » est disponible (`canPlay`). Lâcher sur un lieu joue la tuile. */
+  onCardDragStart?: (instanceId: string, x: number, y: number) => void
+  onCardDragMove?: (x: number, y: number) => void
+  onCardDragDrop?: (instanceId: string, x: number, y: number) => void
+  onCardDragCancel?: () => void
+  draggingInstanceId?: string | null
+}) {
+  const [hovered, setHovered] = useState(false)
+  const dragPointer = useRef<{ id: string; startX: number; startY: number; dragging: boolean } | null>(null)
+  if (player.omnidroidStage === undefined) return null
+  const tiles = player.hand.filter((c) => c.isOmnidroid)
+  if (tiles.length === 0) return null
+  const draggable = canPlay && !!onCardDragStart
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <span className="text-[8px] font-bold uppercase tracking-wide text-orange-300/90">Omnidroïde</span>
+      <div className="flex gap-1">
+        {tiles.map((c) => {
+          const clickable = canPlay && !!onPlay
+          const isDragging = draggingInstanceId === c.instanceId
+          return (
+            <div
+              key={c.instanceId}
+              className="relative"
+              onMouseEnter={() => setHovered(true)}
+              onMouseLeave={() => setHovered(false)}
+              style={{ zIndex: hovered ? 50 : undefined }}
+            >
+              <button
+                type="button"
+                disabled={!clickable && !draggable}
+                onClick={() => { if (clickable) onPlay?.(c.instanceId) }}
+                onPointerDown={
+                  draggable
+                    ? (e) => {
+                        if (e.button !== 0) return
+                        ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+                        dragPointer.current = { id: c.instanceId, startX: e.clientX, startY: e.clientY, dragging: false }
+                      }
+                    : undefined
+                }
+                onPointerMove={
+                  draggable
+                    ? (e) => {
+                        const d = dragPointer.current
+                        if (!d || d.id !== c.instanceId) return
+                        if (!d.dragging) {
+                          if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < 6) return
+                          d.dragging = true
+                          onCardDragStart?.(c.instanceId, e.clientX, e.clientY)
+                        }
+                        onCardDragMove?.(e.clientX, e.clientY)
+                      }
+                    : undefined
+                }
+                onPointerUp={
+                  draggable
+                    ? (e) => {
+                        const d = dragPointer.current
+                        dragPointer.current = null
+                        if (!d || d.id !== c.instanceId) return
+                        if (d.dragging) onCardDragDrop?.(c.instanceId, e.clientX, e.clientY)
+                      }
+                    : undefined
+                }
+                onContextMenu={
+                  draggable
+                    ? (e) => { if (dragPointer.current?.dragging) { e.preventDefault(); dragPointer.current = null; onCardDragCancel?.() } }
+                    : undefined
+                }
+                title={draggable ? `Glissez ${c.name} sur un lieu pour le jouer` : `${c.name} — prêt (utilise une action « Jouer une carte »)`}
+                className={`block touch-none ${draggable ? 'cursor-grab animate-pulse' : clickable ? 'cursor-pointer animate-pulse' : 'cursor-default'} ${isDragging ? 'opacity-40' : ''}`}
+              >
+                <img
+                  src={imgOf(c)}
+                  alt={c.name}
+                  className={`${uprightWidth} rounded border-2 transition hover:brightness-110 ${
+                    clickable || draggable ? 'border-amber-400 ring-2 ring-amber-400/70' : 'border-orange-400/70'
+                  }`}
+                />
+              </button>
+              {hovered && !isDragging && (
+                <div className="pointer-events-none absolute left-full top-0 z-50 ml-2">
+                  <img src={imgOf(c)} alt={c.name} className="w-48 max-w-none rounded-lg border-2 border-orange-400/70 shadow-2xl" />
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Madame Mim — pile + défausse des MÉTAMORPHOSES DE MERLIN (2ᵉ pioche Fatalité,
+ * dédiée). Affichée AU-DESSUS des piles Fatalité traditionnelles (cf. StacksCards).
+ * Rendue uniquement pour le vilain qui a une pioche Merlin (`merlinDeck` défini).
+ */
+export function MerlinPiles({ player, uprightWidth = 'w-16' }: { player: PlayerState; uprightWidth?: string }) {
+  const [showDiscard, setShowDiscard] = useState(false)
+  if (player.merlinDeck === undefined) return null
+  const deck = player.merlinDeck
+  const discard = player.merlinDiscard ?? []
+  const last = discard[discard.length - 1]
+  const back = '/cards/madame-mim/back-merlin.png'
+  return (
+    <div className="flex shrink-0 gap-3" title="Métamorphoses de Merlin (pioche & vaincues)">
+      <Pile src={back} count={deck.length} fate upright uprightWidth={uprightWidth} />
+      <Pile
+        src={imgOf(last)}
+        count={discard.length}
+        fate
+        zoom
+        upright
+        uprightWidth={uprightWidth}
+        zoomClass="left-0 top-full mt-1"
+        onClick={discard.length > 0 ? () => { playHistoryEvent(); setShowDiscard(true) } : undefined}
+      />
+      {showDiscard && (
+        <DiscardModal
+          cards={discard}
+          label={`Métamorphoses de Merlin vaincues — ${player.villainName}`}
+          onClose={() => setShowDiscard(false)}
+        />
       )}
     </div>
   )

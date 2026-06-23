@@ -46,6 +46,11 @@ const VOICE_PREFIX: Record<VillainKey, string> = {
   seigneurCles: 'Le Seigneur des clés', // 4 variantes présentes
   madameTremaine: 'Madame de trémaine', // 4 variantes présentes
   oogieBoogie: 'Oogie Boogie', // pas (encore) de fichiers de voix → intro silencieuse
+  seigneurTenebres: 'Le Seigneur des Ténèbres', // 4 variantes présentes
+  madameMim: 'Madame mim', // 4 variantes présentes
+  syndrome: 'Syndrome', // 4 variantes présentes
+  lotso: 'Lotso', // 4 variantes présentes
+  saSucrerie: 'Sa sucrerie', // 4 variantes présentes
 }
 
 const CONTRE_PREFIX = 'Contre'

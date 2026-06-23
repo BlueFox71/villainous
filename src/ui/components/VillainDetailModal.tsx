@@ -139,7 +139,10 @@ export function VillainDetailModal({ villain, onClose }: Props) {
   // Cartes du vilain, séparées par paquet et triées par nombre d'exemplaires.
   const byCopies = (a: CardDef, b: CardDef) => b.copies - a.copies || a.name.localeCompare(b.name)
   const villainCards = v.cards.filter((c) => c.deck === 'villain').sort(byCopies)
-  const fateCards = v.cards.filter((c) => c.deck === 'fate').sort(byCopies)
+  // Madame Mim — les Métamorphoses de Merlin sont une pioche À PART (entre le deck
+  // Vilain et la Fatalité traditionnelle), bien qu'elles portent `deck: 'fate'`.
+  const merlinCards = v.cards.filter((c) => c.isMerlinTransformation).sort(byCopies)
+  const fateCards = v.cards.filter((c) => c.deck === 'fate' && !c.isMerlinTransformation).sort(byCopies)
   const sumCopies = (cards: CardDef[]) => cards.reduce((n, c) => n + c.copies, 0)
 
   return (
@@ -211,7 +214,7 @@ export function VillainDetailModal({ villain, onClose }: Props) {
                 Objectif
               </p>
               <p className="mt-1 text-sm leading-snug text-white/80">
-                {v.def.objectiveDescription}
+                {v.def.boardObjective ?? v.def.objectiveDescription}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
@@ -270,6 +273,9 @@ export function VillainDetailModal({ villain, onClose }: Props) {
             /* Galerie des cartes (Vilain + Fatalité) avec nombre d'exemplaires. */
             <div className="flex flex-col gap-5">
               <DeckGallery title="Deck Vilain" cards={villainCards} count={sumCopies(villainCards)} />
+              {merlinCards.length > 0 && (
+                <DeckGallery title="Métamorphoses de Merlin" cards={merlinCards} count={sumCopies(merlinCards)} />
+              )}
               <DeckGallery title="Deck Fatalité" cards={fateCards} count={sumCopies(fateCards)} />
             </div>
           ) : (

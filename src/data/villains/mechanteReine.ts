@@ -31,6 +31,7 @@ export const mechanteReine: VillainDef = {
   id: 'mechante-reine',
   name: 'La Méchante Reine',
   objective: { type: 'DEFEAT_HERO_AT_LOCATION', heroCardId: 'blanche-neige', locationId: 'maison-des-nains' },
+  boardObjective: 'Vous devez éliminer Blanche Neige.',
   objectiveDescription:
     'Jouez les 4 Ingrédients pour déverrouiller la Maison des Nains, préparez du ' +
     'Poison, faites venir Blanche-Neige (Miroir magique), puis éliminez-la avec ' +

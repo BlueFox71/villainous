@@ -25,6 +25,7 @@ export const bowser: VillainDef = {
   id: 'bowser',
   name: 'Bowser',
   objective: { type: 'DEPLETE_OBSERVATORY_AND_CAPTURE', blockerHeroCardId: 'mario' },
+  boardObjective: 'Au début de votre tour, vous devez épuiser l’Observatoire de la Comète et capturer Peach.',
   objectiveDescription:
     "Au début de votre tour, épuiser l'Observatoire de la Comète (0 Étoile) et avoir capturé Peach. Impossible tant que Mario est présent.",
   boardImage: '/cards/bowser/board.png',

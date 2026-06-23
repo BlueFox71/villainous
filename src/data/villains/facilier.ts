@@ -27,6 +27,7 @@ export const facilier: VillainDef = {
   id: 'facilier',
   name: 'Dr Facilier',
   objective: { type: 'REIGN_NEW_ORLEANS' },
+  boardObjective: 'Vous devez détenir le Talisman et parvenir à régner sur la Nouvelle-Orléans.',
   objectiveDescription:
     'Jouez le Talisman et « Régner sur la Nouvelle-Orléans », détenez le Talisman, ' +
     'puis jouez Divination au Royaume du vaudou pour révéler « Régner sur la ' +

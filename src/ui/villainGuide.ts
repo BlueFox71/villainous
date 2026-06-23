@@ -177,7 +177,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
     ],
   },
   bowser: {
-    difficulty: 4,
+    difficulty: 3,
     story:
       "Le Roi des Koopas (Super Mario Galaxy) a arraché l'Observatoire de la Comète à Harmonie et capturé la Princesse Peach au sommet de sa forteresse spatiale. En drainant les Étoiles qui alimentent le cosmos, il compte plonger la galaxie dans les ténèbres — pour peu que les frères Mario ne viennent pas tout gâcher.",
     playTips: [
@@ -323,14 +323,14 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
     story:
       "Chasseur vaniteux et adulé de tout le village (Disney, La Belle et la Bête, 1991), Gaston n’a qu’une idée en tête : épouser Belle, « la plus belle, donc la seule digne de lui ». Éconduit, il retourne la foule contre la Bête et marche sur le château, prêt à tout pour obtenir ce qu’il convoite.",
     playTips: [
-      'Ton objectif : RETIRER tes 8 jetons Obstacle (2 par lieu). Retire-les avec Très mauvais caractère, Laissez-moi vous regarder, Sortez !, Aussi belle que moi, ou en activant Monsieur D’Arque.',
+      'Ton objectif : RETIRER tes 8 jetons Obstacle (2 par lieu). Retire-les avec Crise de colère, Laissez-moi vous regarder, Sortez !, Digne de moi, ou en activant Monsieur D’Arque.',
       'Vaincre la Bête vide les Obstacles du Château de la Bête ; vaincre Maurice vide ceux de la Maison de Belle : fais-les venir par Gardez-moi en otage / Miroir magique, puis élimine-les.',
       'Belle bloque TOUT retrait tant qu’elle est en jeu : élimine-la en priorité (Instinct de chasseur, Belle est à moi). Loups et Foule en colère fournissent la force.',
     ],
     counterTips: [
       'Belle est ton meilleur frein contre lui : tant qu’elle est dans son royaume, il ne peut retirer aucun Obstacle.',
-      'C’est toi, Me masser les pieds, Vous m’avez sauvé la vie et Sous le charme REPLACENT des Obstacles : annule sa progression au pire moment.',
-      'L’Invention de Maurice affaiblit ses Alliés ; Big Ben renforce tes Héros : rends ses éliminations (et donc l’accès à la Bête / Maurice) plus coûteuses.',
+      'Oui c’est toi !, Me masser gentiment les pieds, C’est gentil de m’avoir sauvé la vie et Quel beau garçon ! REPLACENT des Obstacles : annule sa progression au pire moment.',
+      'Le Bidule de malheur affaiblit ses Alliés ; Big Ben renforce tes Héros : rends ses éliminations (et donc l’accès à la Bête / Maurice) plus coûteuses.',
     ],
   },
   seigneurCles: {
@@ -379,6 +379,83 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       'Jouer Jack Skellington en Fatalité défausse un imposteur de sa pile : casse sa progression au bon moment.',
       'Salut, Oogie ! lui retire 2 à son prochain lancer — sabote un jet d’imposteur décisif.',
       'Les Citoyens d’Halloween doivent être éliminés avant les autres Héros : empile-les pour protéger Jack et les Héros gênants.',
+    ],
+  },
+  seigneurTenebres: {
+    difficulty: 4,
+    story:
+      "Le Seigneur des Ténèbres (Disney, Taram et le Chaudron magique, 1985) est un roi-liche décharné qui convoite le Chaudron Magique : une marmite maudite capable de relever une armée de Soldats Ressuscités immortels. Avec son sbire couard Crapaud, il pourchasse le petit valet de ferme Taram et la truie oraculaire Tirelire pour s’emparer du Chaudron et plonger le monde dans les ténèbres.",
+    playTips: [
+      'Ton objectif : avoir un Soldat Ressuscité sur CHACUN de tes 4 lieux.',
+      'Empare-toi du Chaudron Magique (Montre-moi le Chaudron Magique, Nous avons conclu un marché, ou en vainquant Tirelire), puis RÉVEILLE-le pour passer sur sa face Pouvoir : via la carte « Notre heure est venue ! » OU l’action « Activer une capacité » donnée par les Squelettes de Soldats.',
+      'Les Squelettes de Soldats (Objets) donnent à leur lieu l’action « Activer une capacité » — c’est ainsi qu’on réveille le Chaudron. Une fois réveillé, joue tes Soldats Ressuscités sur tes lieux — ils sont immortels (non défaussés quand ils participent à une élimination).',
+      'Tirelire (Hen Wen) est un atout : si elle débarque dans ton royaume, vaincs-la pour t’emparer du Chaudron Magique gratuitement.',
+    ],
+    counterTips: [
+      'Taram, la Princesse Éloïse et Ronchon recouvrent ses lieux : occupe-les pour l’empêcher d’y poser ses Soldats Ressuscités.',
+      'Les Sorcières de Morva le font perdre du Pouvoir ou défausser ; Sacrifice de Gurki rendort son Chaudron réveillé.',
+      'Garde Tirelire hors de son royaume si tu peux : la lui livrer revient à lui offrir le Chaudron Magique.',
+    ],
+  },
+  madameMim: {
+    difficulty: 1,
+    story:
+      "Madame Mim (Disney, Merlin l’Enchanteur, 1963) est une sorcière mesquine et vaniteuse qui adore tricher. Lorsque Merlin la défie en duel de sorcellerie, les deux mages se transforment tour à tour en animaux de plus en plus redoutables. Mim ne supporte pas de perdre — et compte bien venir à bout de toutes les métamorphoses de ce vieux barbon.",
+    playTips: [
+      'Ton objectif : vaincre les 7 Métamorphoses de Merlin. Une trône en permanence au Lieu du Duel ; dès que tu en vainc une, une autre apparaît.',
+      'Chaque Métamorphose Mim (tes « Alliés ») donne l’action « Éliminer un Héros » à son lieu et ne peut vaincre QU’UNE Métamorphose de Merlin précise : assure-toi d’avoir la bonne (ex. Mim Crocodile vainc Merlin Tortue).',
+      'Tu peux aussi vaincre une Métamorphose de Merlin en jouant « J’établis les règles ». « Pas de Tricherie » te laisse regarder/réordonner le dessus de la pioche Merlin pour préparer ta prochaine Métamorphose.',
+    ],
+    counterTips: [
+      '« Le Savoir conduit à la Puissance » déplace la Métamorphose de Merlin loin de la Métamorphose Mim prête à la vaincre.',
+      '« Merlin » renvoie une Métamorphose déjà vaincue dans la pioche (elle devra la revaincre) ; « Archimède » remplace celle en jeu par une autre.',
+      '« Merlin Microbe » défausse une de ses Métamorphoses Mim ; « Arthur Oiseau » lui fait défausser toute sa main.',
+    ],
+  },
+  syndrome: {
+    difficulty: 3,
+    story:
+      "Buddy Pine, alias Syndrome (Les Indestructibles, Pixar, 2004), est un génie de la technologie rejeté par son idole M. Indestructible. Devenu super-vilain sans super-pouvoirs, il met au point l’Omnidroïde, un robot tueur de Super qui apprend de chaque combat. Il compte bien prouver qu’avec assez de gadgets, n’importe qui peut être « super »… donc plus personne ne le sera.",
+    playTips: [
+      'Ton objectif : DÉTRUIRE l’Omnidroïde v.10 et n’avoir aucun Héros dans ton royaume. Fais évoluer ton Omnidroïde v.X8 → v.X9 → v.10 en l’utilisant pour Éliminer des Héros.',
+      'Pour jouer l’Omnidroïde v.X9 (puis v.10), tu dois défausser des MODIFICATIONS MAJEURES de ton royaume : pose-les tôt et garde-en assez (1 pour le v.X9, 3 pour le v.10).',
+      'Quand l’Omnidroïde v.X9 vainc un Héros, tu récupères la TÉLÉCOMMANDE. Pose-la sur Métroville (avec le v.10), amène ton pion là, puis Active-la pour détruire le robot et l’emporter.',
+    ],
+    counterTips: [
+      'Les Indestructibles VOLENT la Télécommande s’ils arrivent alors qu’elle est dans le royaume : élimine-les ou récupère-la.',
+      '« Alors ça, c’est un truc de dingue ! » balaie tous tes Alliés et Objets (Modifications Majeures comprises) — sauf le Champ de Force.',
+      'Le Champ de Force protège un Héros d’une élimination ; Violette défausse tes Énergies au Point Zéro ; « Pas de Capes ! » te prive de déplacement.',
+    ],
+  },
+  lotso: {
+    difficulty: 4,
+    story:
+      "Lots-o’-Huggin’ Bear (Toy Story 3, Pixar, 2010) est un ours en peluche à la fraise au sourire mielleux qui règne en tyran sur la garderie de Sunnyside. Abandonné jadis par sa petite fille, il a juré que plus aucun jouet ne compterait. Il « accueille » les nouveaux venus… avant de les briser, de les réduire au silence et de les enfermer.",
+    playTips: [
+      'Ton objectif : réunir tes 4 Héros (Hamm, Jessie, Rex, Woody) sur la Salle des Chenilles, TOUS réduits à force 0, avec Buzz l’Éclair (Gardien ou Mode Démo) sur ce lieu.',
+      'Réduis les Héros avec des jetons Force −1 (Enfermés, Le Bibliothécaire, Patrouille de nuit…) ou en les ÉLIMINANT : un Héros que tu élimines n’est pas défaussé — il reste sur place à force 0.',
+      'Amène les Héros sur la Salle des Chenilles (Pas l’âge minimum requis, Quelque chose se brisa, Bienvenue à Sunnyside). Buzz en Mode Démo, utilisé pour éliminer un Héros (avec un autre Allié), le réduit à 0 ET le place sur la Salle des Chenilles.',
+    ],
+    counterTips: [
+      'Buzz l’Éclair (Gardien) protège du Vaincre les Héros de son lieu ; Mode espagnol le renvoie en Gardien sur la Cour de Récréation, loin de la Salle des Chenilles.',
+      'Andy nous cherche et Jouets de Bonnie RESTAURENT la force des Héros ; Un seul moyen de sortir et Woody les font QUITTER la Salle des Chenilles ; Le Grappin renvoie un Héros réduit à 0 dans la pioche.',
+      'Bayonne exige 2 Alliés pour être éliminé ; Rex est protégé tant qu’il accompagne un autre Héros ; Médaillon de Daisy / Lotso était son préféré défaussent ses Alliés (Big Baby compris).',
+    ],
+  },
+  saSucrerie: {
+    difficulty: 4,
+    story:
+      "King Candy (Les Mondes de Ralph, 2012) règne en tyran sur le jeu d'arcade Sugar Rush. C'est en réalité Turbo, un pilote jaloux qui a piraté le jeu et effacé les souvenirs de tous. Il s'acharne à empêcher Vanellope von Schweetz, une « Bug » au grand cœur, de prendre le départ — quitte à provoquer l'invasion des Cybugs.",
+    playTips: [
+      "Ton objectif : franchir la case Départ/Arrivée du circuit AVANT le jeton Pilote de Vanellope, alors qu'un Bug lui est associé.",
+      "Ton pion ne change pas de lieu : il avance de 1 à 4 cases sur le circuit en huit, et tu n'accèdes qu'à 3 actions par tour (celle où tu es + devant + derrière). Choisis bien ta distance pour viser les bonnes actions.",
+      "Fais d'abord venir Vanellope dans ton royaume (par Fatalité, ou en jouant le Médaillon des Héros de Ralph puis en vainquant Ralph la Casse), puis joue un Bug sur elle : la course démarre, ton pion et le jeton Pilote repartent de Départ/Arrivée.",
+      "Pendant la course, ralentis le jeton Pilote (Mémoire Verrouillée, Taffyta Crème Brûlée, Il lui est défendu de courir) et accélère-toi (L'important c'est de payer) pour boucler le tour le premier.",
+    ],
+    counterTips: [
+      "Vanellope avance le jeton Pilote chaque tour tant qu'un Bug lui est associé — et Enfin un vrai Kart ! le propulse encore plus loin.",
+      "Princesse Vanellope fait reculer King Candy de 4 cases ; Félix Fixe Jr. le contraint à n'avancer que de 2 ou 3 cases.",
+      "Calhoun et Ralph la Casse renchérissent ses actions ; déplace Vanellope hors de portée d'un Bug pour casser sa mise en place.",
     ],
   },
 }

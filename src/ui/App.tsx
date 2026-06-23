@@ -8,6 +8,7 @@ import { getCardDef } from '../data/registry'
 import {
   activatableCards,
   adjacentLocationIds,
+  allyBlockedAt,
   canPlaceCurseAt,
   canTakeABite,
   cardNeedsAllyMove,
@@ -22,7 +23,11 @@ import {
   getLegalMoves,
   hasHeroInRealm,
   heroPlacementLocations,
+  lotsoReducibleHeroes,
+  lotsoToRoomCandidates,
+  lotsoHasHeroInRoom,
   maxBrewPoison,
+  movableCards,
   dingoSwapOptions,
   playableConditions,
   realmRelocateCandidates,
@@ -39,10 +44,11 @@ import { Avatar, PlayerAvatar } from './components/PlayerAvatar'
 import { Board } from './components/Board'
 import { Hand } from './components/Hand'
 import { GameLog } from './components/GameLog'
-import { BoardImage, LOCATIONS_LEFT } from './components/BoardImage'
+import { BoardImage, LOCATIONS_LEFT, PAWN_FIRST_LEFT, PAWN_STEP } from './components/BoardImage'
 import { BoardActions } from './components/BoardActions'
+import { SUGAR_RUSH_TRACK } from './components/sugarRushTrack'
 import { HeroRow } from './components/HeroRow'
-import { DeckPiles, AuDelaPile, IngredientsPile, SuccessionPile, CapturedPuppiesPile, DiscardModal } from './components/DeckPiles'
+import { DeckPiles, AuDelaPile, IngredientsPile, SuccessionPile, CapturedPuppiesPile, CauldronTile, MerlinPiles, OmnidroidPile, DiscardModal } from './components/DeckPiles'
 import { StacksCards } from './components/StacksCards'
 import { GoalTilesRow } from './components/GoalTilesRow'
 import { FateModal } from './components/FateModal'
@@ -61,6 +67,12 @@ import { DingoModal } from './components/DingoModal'
 import { TypeChoiceModal } from './components/TypeChoiceModal'
 import { HeroRelocateModal } from './components/HeroRelocateModal'
 import { AllyRelocateModal } from './components/AllyRelocateModal'
+import { IdentificationModal } from './components/IdentificationModal'
+import { LotsoTargetModal } from './components/LotsoTargetModal'
+import { LotsoBuzzMoveModal } from './components/LotsoBuzzMoveModal'
+import { LotsoBookwormModal } from './components/LotsoBookwormModal'
+import { MaximusModal } from './components/MaximusModal'
+import { FateReorderModal } from './components/FateReorderModal'
 import { TeleportModal } from './components/TeleportModal'
 import { OptionsModal } from './components/OptionsModal'
 import { ActivatePickModal } from './components/ActivatePickModal'
@@ -200,6 +212,11 @@ type Mode =
   | { kind: 'impuissance-choice'; actionId: string; instanceId: string; cardName: string; diablo?: boolean }
   /** Bowser — Impuissance (branche Éliminer) : cliquer le Héros ≤3 à éliminer. */
   | { kind: 'impuissance-pick-hero'; actionId: string; instanceId: string; cardName: string; diablo?: boolean }
+  /** Le Seigneur des Ténèbres — On te tient : choix « chercher Tirelire » OU « éliminer
+   *  un Héros de force 1 ». */
+  | { kind: 'pigkeeper-choice'; actionId: string; instanceId: string; cardName: string; diablo?: boolean }
+  /** On te tient (branche Éliminer) : cliquer le Héros de force ≤1 à éliminer. */
+  | { kind: 'pigkeeper-pick-hero'; actionId: string; instanceId: string; cardName: string; diablo?: boolean }
   /** Ratigan — pose d'un Objet : on coche directement les Engrenages EN JEU à
    *  défausser (−3 chacun) sur le plateau, coût live, puis on confirme. */
   | {
@@ -470,6 +487,192 @@ function DrawOrGainPowerModal({
   )
 }
 
+function MoveOrActivateModal({
+  canMove,
+  canActivate,
+  onChoose,
+}: {
+  canMove: boolean
+  canActivate: boolean
+  onChoose: (choice: 'move' | 'activate') => void
+}) {
+  const def = getCardDef('il-y-a-encore-une-chance')
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+      <div className="flex w-[26rem] max-w-[92vw] flex-col gap-4 rounded-2xl border border-white/15 bg-[#15101f] p-6 shadow-2xl">
+        <h2 className="text-center text-lg font-bold text-amber-200">{def?.name ?? 'C’est votre dernière chance'}</h2>
+        {def?.image && (
+          <img src={def.image} alt={def.name} className="mx-auto w-28 rounded-lg border border-white/15 shadow" />
+        )}
+        <p className="text-center text-sm text-white/80">Choisis l’action gratuite :</p>
+        <div className="flex justify-center gap-3">
+          <button
+            type="button"
+            disabled={!canMove}
+            onClick={() => onChoose('move')}
+            className="flex-1 rounded-lg border border-sky-400/60 bg-sky-500/20 px-4 py-2 text-sm font-semibold text-sky-100 hover:bg-sky-500/30 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Déplacer un Objet ou un Allié
+          </button>
+          <button
+            type="button"
+            disabled={!canActivate}
+            onClick={() => onChoose('activate')}
+            className="flex-1 rounded-lg border border-amber-400/60 bg-amber-500/20 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-500/30 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Activer une capacité
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Le Seigneur des Ténèbres — Montre-moi le Chaudron Magique / Nous avons conclu un
+ *  marché : choix « s'emparer du Chaudron » OU « gagner du Pouvoir ». */
+function CauldronChoiceModal({
+  power,
+  onChoose,
+}: {
+  power: number
+  onChoose: (choice: 'cauldron' | 'power') => void
+}) {
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+      <div className="flex w-[26rem] max-w-[92vw] flex-col gap-4 rounded-2xl border border-white/15 bg-[#15101f] p-6 shadow-2xl">
+        <h2 className="text-center text-lg font-bold text-lime-200">Le Chaudron Magique</h2>
+        <img
+          src="/cards/seigneur-tenebres/cauldron.png"
+          alt="Chaudron Magique"
+          className="mx-auto h-24 w-auto object-contain drop-shadow"
+        />
+        <p className="text-center text-sm text-white/80">Que choisis-tu ?</p>
+        <div className="flex justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => onChoose('cauldron')}
+            className="flex-1 rounded-lg border border-lime-400/60 bg-lime-500/20 px-4 py-2 text-sm font-semibold text-lime-100 hover:bg-lime-500/30"
+          >
+            🜕 S’emparer du Chaudron
+          </button>
+          <button
+            type="button"
+            onClick={() => onChoose('power')}
+            className="flex-1 rounded-lg border border-amber-400/60 bg-amber-500/20 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-500/30"
+          >
+            Gagner {power} Pouvoir
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Le Seigneur des Ténèbres — Nous avons conclu un marché ! : choix « mélanger sa
+ *  défausse » OU « payer N Pouvoir pour défausser l'Épée Magique et s'emparer du
+ *  Chaudron ». N'apparaît que si les deux options sont possibles. */
+function BargainChoiceModal({
+  power,
+  onChoose,
+}: {
+  power: number
+  onChoose: (choice: 'reshuffle' | 'sword') => void
+}) {
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+      <div className="flex w-[28rem] max-w-[92vw] flex-col gap-4 rounded-2xl border border-white/15 bg-[#15101f] p-6 shadow-2xl">
+        <h2 className="text-center text-lg font-bold text-lime-200">Nous avons conclu un marché !</h2>
+        <p className="text-center text-sm text-white/80">Que choisis-tu ?</p>
+        <div className="flex justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => onChoose('reshuffle')}
+            className="flex-1 rounded-lg border border-sky-400/60 bg-sky-500/20 px-4 py-3 text-sm font-semibold text-sky-100 hover:bg-sky-500/30"
+          >
+            🔀 Mélanger ma défausse dans ma pioche
+          </button>
+          <button
+            type="button"
+            onClick={() => onChoose('sword')}
+            className="flex-1 rounded-lg border border-lime-400/60 bg-lime-500/20 px-4 py-3 text-sm font-semibold text-lime-100 hover:bg-lime-500/30"
+          >
+            🜕 Payer {power} Pouvoir : défausser l’Épée Magique et s’emparer du Chaudron
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Le Seigneur des Ténèbres — Nous touchons du doigt la victoire : l'humain joue
+ *  gratuitement un Objet de sa main (choix de l'Objet puis du lieu). */
+function FreeItemPlayModal({
+  items,
+  locations,
+  blockedFor,
+  onResolve,
+  onSkip,
+}: {
+  items: CardInstance[]
+  locations: { id: string; name: string }[]
+  /** cardId → set des lieux interdits (Les Elfes). */
+  blockedFor: (cardId: string, locationId: string) => boolean
+  onResolve: (instanceId: string, to: string) => void
+  onSkip: () => void
+}) {
+  const [pick, setPick] = useState<string | null>(items.length === 1 ? items[0].instanceId : null)
+  const picked = items.find((c) => c.instanceId === pick)
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+      <div className="flex w-[30rem] max-w-[94vw] flex-col gap-4 rounded-2xl border border-white/15 bg-[#15101f] p-6 shadow-2xl">
+        <h2 className="text-center text-lg font-bold text-lime-200">Jouez gratuitement un Objet</h2>
+        <div className="flex flex-wrap justify-center gap-2">
+          {items.map((c) => {
+            const def = getCardDef(c.cardId)
+            return (
+              <button
+                key={c.instanceId}
+                type="button"
+                onClick={() => setPick(c.instanceId)}
+                className={`rounded-lg border-2 p-1 transition ${pick === c.instanceId ? 'border-lime-300 ring-2 ring-lime-300' : 'border-white/15 hover:border-white/50'}`}
+              >
+                {def?.image && <img src={def.image} alt={c.name} className="h-28 w-auto rounded" />}
+                <div className="mt-0.5 text-center text-[11px] text-white/70">{c.name}</div>
+              </button>
+            )
+          })}
+        </div>
+        {picked && (
+          <>
+            <p className="text-center text-sm text-white/80">Sur quel lieu ?</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {locations.map((l) => {
+                const blocked = blockedFor(picked.cardId, l.id)
+                return (
+                  <button
+                    key={l.id}
+                    type="button"
+                    disabled={blocked}
+                    onClick={() => onResolve(picked.instanceId, l.id)}
+                    className={`rounded-lg border px-2 py-2 text-xs ${blocked ? 'cursor-not-allowed border-white/10 text-white/30' : 'border-white/40 text-white hover:bg-white/10'}`}
+                  >
+                    {l.name}
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        )}
+        <div className="flex justify-end">
+          <button type="button" onClick={onSkip} className="rounded-lg border border-white/30 px-4 py-2 text-sm text-white/80 hover:bg-white/10">
+            Renoncer
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /** Mère Gothel — Lance-moi ta chevelure : l'humain choisit de combien de lieux
  *  ramener Raiponce vers la Tour (1 ou 2). */
 function RaiponceHomewardModal({
@@ -514,6 +717,7 @@ const CASTLE_THEFT_READ_MS = 2400
 export default function App({ onExit }: { onExit?: () => void } = {}) {
   const state = useGameStore((s) => s.state)
   const move = useGameStore((s) => s.move)
+  const moveTrack = useGameStore((s) => s.moveTrack)
   const skipMove = useGameStore((s) => s.skipMove)
   const executeAction = useGameStore((s) => s.executeAction)
   const playCard = useGameStore((s) => s.playCard)
@@ -522,6 +726,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const moveHero = useGameStore((s) => s.moveHero)
   const setStartingPlayer = useGameStore((s) => s.setStartingPlayer)
   const activate = useGameStore((s) => s.activate)
+  const activateCauldron = useGameStore((s) => s.activateCauldron)
   const vanquish = useGameStore((s) => s.vanquish)
   const discardDeguisement = useGameStore((s) => s.discardDeguisement)
   const sheriffMove = useGameStore((s) => s.sheriffMove)
@@ -545,6 +750,15 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveDeckPeek = useGameStore((s) => s.resolveDeckPeek)
   const resolveTypeChoice = useGameStore((s) => s.resolveTypeChoice)
   const resolveDrawOrGainPower = useGameStore((s) => s.resolveDrawOrGainPower)
+  const resolvePowerOrRacerBack = useGameStore((s) => s.resolvePowerOrRacerBack)
+  const resolveMoveOrActivate = useGameStore((s) => s.resolveMoveOrActivate)
+  const resolveCauldronChoice = useGameStore((s) => s.resolveCauldronChoice)
+  const resolveBargainChoice = useGameStore((s) => s.resolveBargainChoice)
+  const resolveFreeItemPlay = useGameStore((s) => s.resolveFreeItemPlay)
+  const skipFreeItemPlay = useGameStore((s) => s.skipFreeItemPlay)
+  const resolveMaximusCavaliers = useGameStore((s) => s.resolveMaximusCavaliers)
+  const resolveMaximusMove = useGameStore((s) => s.resolveMaximusMove)
+  const resolveFateReorder = useGameStore((s) => s.resolveFateReorder)
   const resolveRaiponceHomeward = useGameStore((s) => s.resolveRaiponceHomeward)
   const resolveRaiponceToTower = useGameStore((s) => s.resolveRaiponceToTower)
   const resolvePuppyAdd = useGameStore((s) => s.resolvePuppyAdd)
@@ -558,6 +772,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveHeroRelocate = useGameStore((s) => s.resolveHeroRelocate)
   const skipHeroRelocate = useGameStore((s) => s.skipHeroRelocate)
   const resolveAllyRelocate = useGameStore((s) => s.resolveAllyRelocate)
+  const skipAllyRelocate = useGameStore((s) => s.skipAllyRelocate)
+  const resolveIdentification = useGameStore((s) => s.resolveIdentification)
+  const resolveLotsoTarget = useGameStore((s) => s.resolveLotsoTarget)
+  const resolveLotsoBuzzMove = useGameStore((s) => s.resolveLotsoBuzzMove)
+  const resolveLotsoBookworm = useGameStore((s) => s.resolveLotsoBookworm)
+  const resolveLotsoFlex = useGameStore((s) => s.resolveLotsoFlex)
   const resolveTeleport = useGameStore((s) => s.resolveTeleport)
   const resolveManipulation = useGameStore((s) => s.resolveManipulation)
   const resolveMauvaisCoup = useGameStore((s) => s.resolveMauvaisCoup)
@@ -776,6 +996,25 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // Le Seigneur des clés — Plaisir ou souffrance (reposer une clé) : clé choisie en
   // attente du lieu de dépose (< 3 clés).
   const [loseKeyId, setLoseKeyId] = useState<string | null>(null)
+  // Glisser-déposer d'une carte de la main vers le plateau : instanceId en cours de glissé.
+  const [draggingCardId, setDraggingCardId] = useState<string | null>(null)
+  // Fantôme suivant le curseur pendant le glissé (clone de la carte). On ne stocke en
+  // state que l'instanceId + la position initiale (montage du portail) ; la position LIVE
+  // est pilotée en impératif via un ref + une boucle rAF (pas de re-render par pointermove).
+  // `pawnSrc` non vide → le fantôme est le PION (déplacement), pas une carte.
+  const [dragGhost, setDragGhost] = useState<{ instanceId: string; x: number; y: number; pawnSrc?: string } | null>(null)
+  // Vrai pendant qu'on glisse le pion (masque le pion réel ; le fantôme le remplace).
+  const [draggingPawn, setDraggingPawn] = useState(false)
+  // Lieu survolé pendant le glissé (surbrillance) et lieu où la pose vient d'avoir lieu (pulse).
+  const [dragOverLoc, setDragOverLoc] = useState<string | null>(null)
+  const [dropPulseLoc, setDropPulseLoc] = useState<string | null>(null)
+  const dragInstanceRef = useRef<string | null>(null)
+  // Source du glissé en cours : 'play' (carte de la main) ou 'move' (Allié/Objet du plateau).
+  const dragKindRef = useRef<'play' | 'move' | 'pawn' | 'hero'>('play')
+  const dragGhostElRef = useRef<HTMLImageElement | null>(null)
+  const dragTargetRef = useRef({ x: 0, y: 0 }) // position visée (curseur)
+  const dragRenderRef = useRef({ x: 0, y: 0 }) // position rendue (rattrape la cible avec inertie)
+  const dragRafRef = useRef<number | null>(null)
   // Le Seigneur des clés — animation du lancer de dé. On affiche l'anim tant que le
   // dernier lancer humain n'a pas été « acquitté » (dieDismissSeq). État dérivé (pas
   // d'effet) : `dieAnim` est vrai dès qu'un nouveau lancer arrive et faux après onDone.
@@ -1171,8 +1410,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // Au moins un Héros dans le royaume du joueur : « Magnifiques Taxes » l'exige.
   const anyHeroOnBoard =
     isHumanTurn && Object.values(user.board).some((cards) => cards.some((c) => c.type === 'hero'))
-  // Roi Richard chez le joueur humain → ses Événements sont injouables.
-  const humanEventsBlocked = isHumanTurn && hasHeroInRealm(state, HUMAN, 'roi-richard')
+  // Roi Richard / Tirelire chez le joueur humain → ses Événements sont injouables.
+  const humanEventsBlocked = isHumanTurn && Object.values(user.board).flat().some((c) => c.type === 'hero' && c.blocksVillainEvents)
   // Flora chez le bot → sa main est révélée à l'humain (Flora rend la main publique).
   const botHandRevealed = hasHeroInRealm(state, BOT, 'flora')
   // Conditions jouables par l'humain pendant le tour du bot (D — réaction).
@@ -1427,6 +1666,78 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       if (seats[pdgp.playerIndex] === 'bot') {
         const choice = state.players[pdgp.playerIndex].hand.length >= 3 ? 'power' : 'draw'
         const timer = setTimeout(() => resolveDrawOrGainPower(choice), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Mémoire Verrouillée : Pouvoir OU reculer le jeton Pilote. Bot → recule le Pilote
+    // s'il est devant King Candy (le freiner), sinon prend le Pouvoir ; humain → modale.
+    const pprb = state.pendingPowerOrRacerBack
+    if (pprb) {
+      if (seats[pprb.playerIndex] === 'bot') {
+        const p = state.players[pprb.playerIndex]
+        const choice = (p.racerPos ?? 0) > (p.trackPos ?? 0) ? 'racer' : 'power'
+        const timer = setTimeout(() => resolvePowerOrRacerBack(choice), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // C'est votre dernière chance : choix action gratuite Déplacer/Activer. Bot →
+    // préfère Activer si possible (effet souvent plus fort), sinon Déplacer ; humain → modale.
+    const pmoa = state.pendingMoveOrActivate
+    if (pmoa) {
+      if (seats[pmoa.playerIndex] === 'bot') {
+        const choice = activatableCards(state).length > 0 ? 'activate' : 'move'
+        const timer = setTimeout(() => resolveMoveOrActivate(choice), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Le Seigneur des Ténèbres : choix Chaudron/Pouvoir. Bot → s'empare du Chaudron
+    // (toujours utile tant qu'il ne l'a pas) ; humain → modale.
+    const pcc = state.pendingCauldronChoice
+    if (pcc) {
+      if (seats[pcc.playerIndex] === 'bot') {
+        const timer = setTimeout(() => resolveCauldronChoice('cauldron'), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Le Seigneur des Ténèbres : choix « Nous avons conclu un marché ! ». Bot → défausse
+    // l'Épée Magique pour s'emparer du Chaudron (haute valeur) ; humain → modale.
+    const pbargain = state.pendingBargainChoice
+    if (pbargain) {
+      if (seats[pbargain.playerIndex] === 'bot') {
+        const timer = setTimeout(() => resolveBargainChoice('sword'), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Le Seigneur des Ténèbres : jeu gratuit d'un Objet. Bot → joue le 1er Objet sur un
+    // lieu non interdit (de préférence sans déjà ce Squelettes) ; humain → modale.
+    const pfip = state.pendingFreeItemPlay
+    if (pfip) {
+      if (seats[pfip.playerIndex] === 'bot') {
+        const pl = state.players[pfip.playerIndex]
+        const item = pl.hand.find((c) => c.type === 'item')
+        const locked = new Set(pl.lockedLocations ?? [])
+        const loc = item
+          ? pl.locations.find((l) => !locked.has(l.id) && !(pl.board[l.id] ?? []).some((c) => c.type === 'hero' && c.blocksItemPlacement === item.cardId))
+          : undefined
+        const timer = setTimeout(
+          () => (item && loc ? resolveFreeItemPlay(item.instanceId, loc.id) : skipFreeItemPlay()),
+          BOT_STEP_MS,
+        )
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Je ne reviens jamais : réorganisation Fatalité. Bot → garde l'ordre ; humain → modale.
+    const pfr = state.pendingFateReorder
+    if (pfr) {
+      if (seats[pfr.playerIndex] === 'bot') {
+        const ids = pfr.cards.map((c) => c.instanceId)
+        const timer = setTimeout(() => resolveFateReorder(ids), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
       return
@@ -2044,8 +2355,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         const rank = (cardId: string) =>
           cardId === 'regner-nouvelle-orleans' ? 5 : cardId === 'talisman' ? 4
           : cardId === 'divination-facilier' ? 3 : cardId === 'tour-passe-passe' ? 2 : cardId === 'canne' ? 1 : 0
-        const best = [...plt.cards].sort((a, b) => rank(b.cardId) - rank(a.cardId))[0]
-        const timer = setTimeout(() => resolveLookTop([best.instanceId]), BOT_STEP_MS)
+        // Garde jusqu'à `take` cartes les mieux classées (Quelques Dragées : 2).
+        const best = [...plt.cards].sort((a, b) => rank(b.cardId) - rank(a.cardId)).slice(0, plt.take)
+        const timer = setTimeout(() => resolveLookTop(best.map((c) => c.instanceId)), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
       return
@@ -2206,7 +2518,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         const locked = new Set(tgt.lockedLocations ?? [])
         for (const loc of tgt.locations) {
           const ally = (tgt.board[loc.id] ?? []).find(
-            (c) => c.type === 'ally' && !c.attachedTo && !c.isWicket,
+            (c) => c.type === 'ally' && !c.attachedTo,
           )
           if (ally) {
             const to = ids.find((id) => id !== loc.id && !locked.has(id))
@@ -2215,6 +2527,93 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               return () => clearTimeout(timer)
             }
           }
+        }
+      }
+      return
+    }
+    // Syndrome — Identification, je vous prie : l'acteur déplace un de ses Allié/Objet vers
+    // un lieu portant un Héros. Bot → 1ᵉʳ Allié/Objet + 1ᵉʳ lieu-Héros ; humain → modale.
+    const pid = state.pendingIdentification
+    if (pid) {
+      if (seats[pid.playerIndex] === 'bot') {
+        const p = state.players[pid.playerIndex]
+        const heroLocs = p.locations.map((l) => l.id).filter((id) => (p.board[id] ?? []).some((c) => c.type === 'hero'))
+        for (const loc of p.locations) {
+          const c = (p.board[loc.id] ?? []).find((x) => (x.type === 'ally' || x.type === 'item') && !x.attachedTo && !x.isWicket)
+          if (c) {
+            const to = heroLocs.find((id) => id !== loc.id)
+            if (to) {
+              const timer = setTimeout(() => resolveIdentification(c.instanceId, to), BOT_STEP_MS)
+              return () => clearTimeout(timer)
+            }
+          }
+        }
+      }
+      return
+    }
+    // Lotso — choix de cible (réduire / déplacer vers la Salle). Bot → meilleure cible
+    // (Héros le plus fort) ; humain → modale.
+    const plTarget = state.pendingLotsoTarget
+    if (plTarget) {
+      if (seats[plTarget.playerIndex] === 'bot') {
+        const p = state.players[plTarget.playerIndex]
+        const cards = Object.values(p.board).flat().filter((c) => plTarget.candidateIds.includes(c.instanceId))
+        const pick = [...cards].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+        if (pick) {
+          const timer = setTimeout(() => resolveLotsoTarget(pick.instanceId), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
+    // Lotso — Réinitialisation : choix du lieu où placer Buzz (mode Démo). Bot → lieu du pion ;
+    // humain → modale.
+    const plBuzz = state.pendingLotsoBuzzMove
+    if (plBuzz) {
+      if (seats[plBuzz.playerIndex] === 'bot') {
+        const p = state.players[plBuzz.playerIndex]
+        const dest = p.pawnLocation ?? p.locations[0]?.id
+        if (dest) {
+          const timer = setTimeout(() => resolveLotsoBuzzMove(dest), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
+    // Lotso — Le Bibliothécaire : répartition des réductions. Bot → réduit le Héros le moins
+    // fort (le moins cher à amener à 0), en gardant 2 jetons Pouvoir de réserve ; humain → modale.
+    const plBook = state.pendingLotsoBookworm
+    if (plBook) {
+      if (seats[plBook.playerIndex] === 'bot') {
+        const p = state.players[plBook.playerIndex]
+        const elig = lotsoReducibleHeroes(state, plBook.playerIndex)
+        if (elig.length > 0 && p.power > 2) {
+          const pick = elig
+            .map((id) => ({ id, s: effectiveStrength(state, plBook.playerIndex, id) ?? 0 }))
+            .sort((a, b) => a.s - b.s)[0]
+          const timer = setTimeout(() => resolveLotsoBookworm(pick.id), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+        const timer = setTimeout(() => resolveLotsoBookworm(null), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Lotso — Flex : phase 1 (choisir la carte) puis phase 2 (choisir le lieu). Bot →
+    // 1er candidat / 1er autre lieu ; humain → modales.
+    const plFlex = state.pendingLotsoFlex
+    if (plFlex) {
+      if (seats[plFlex.playerIndex] === 'bot') {
+        if (!plFlex.cardInstanceId) {
+          const pick = plFlex.candidateIds[0]
+          const timer = setTimeout(() => resolveLotsoFlex({ cardInstanceId: pick }), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+        const p = state.players[plFlex.playerIndex]
+        const dest = p.locations.find((l) => l.id !== plFlex.fromLocationId)?.id
+        if (dest) {
+          const timer = setTimeout(() => resolveLotsoFlex({ to: dest }), BOT_STEP_MS)
+          return () => clearTimeout(timer)
         }
       }
       return
@@ -2274,7 +2673,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     if (ptd) {
       if (seats[ptd.playerIndex] === 'bot') {
         const hand = state.players[ptd.playerIndex].hand
-        const ids = hand.slice(0, Math.min(ptd.count, hand.length)).map((c) => c.instanceId)
+        // Défausse facultative (J'allais oublier un détail) : le bot complète juste
+        // sa main (ne défausse rien). Sinon (Tyrannie) : défausse `count` cartes.
+        const ids = ptd.optional
+          ? []
+          : hand.slice(0, Math.min(ptd.count, hand.length)).map((c) => c.instanceId)
         const timer = setTimeout(() => resolveTyrannyDiscard(ids), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
@@ -2295,7 +2698,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey])
+  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolveIdentification, resolveLotsoTarget, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey])
 
   // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
   // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
@@ -2318,6 +2721,48 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const legalMoves = isHumanTurn ? getLegalMoves(state) : []
   const availableActions = isHumanTurn ? getAvailableActions(state) : []
   const canEnd = isHumanTurn && state.phase === 'ACTION'
+  // Glisser-déposer : action « Jouer une carte » utilisable (mode 'play' actif → son
+  // actionId ; sinon la 1ʳᵉ action « Jouer » libre du lieu courant). Désactivé pendant
+  // un sous-flux (poser/cibler) ou hors du tour humain.
+  const dragPlayActionId =
+    isHumanTurn && state.phase === 'ACTION' && (!mode || mode.kind === 'play')
+      ? mode?.kind === 'play'
+        ? mode.actionId
+        : availableActions.find((a) => a.type === 'PLAY_CARD')?.id
+      : undefined
+  // Glisser-déposer : action « Déplacer un Objet ou un Allié » utilisable → les Alliés/
+  // Objets déplaçables du plateau deviennent saisissables (drag) vers un lieu voisin,
+  // comme une carte de la main. `movableDragIds` = instanceId des cartes déplaçables.
+  const dragMoveActionId =
+    isHumanTurn && state.phase === 'ACTION' && (!mode || mode.kind === 'move-pick')
+      ? mode?.kind === 'move-pick'
+        ? mode.actionId
+        : availableActions.find((a) => a.type === 'MOVE_ITEM_ALLY')?.id
+      : undefined
+  const movableDragIds = dragMoveActionId ? movableCards(state).map((m) => m.instanceId) : []
+  // Glisser-déposer d'un HÉROS : l'action « Déplacer un Héros » (MOVE_HERO) utilisable
+  // → les Héros du royaume deviennent saisissables vers un lieu VOISIN (comme un
+  // Allié/Objet), au lieu de l'ancien flux clic-Héros puis clic-destination.
+  const dragHeroActionId =
+    isHumanTurn && state.phase === 'ACTION' && (!mode || mode.kind === 'move-hero-pick')
+      ? mode?.kind === 'move-hero-pick'
+        ? mode.actionId
+        : availableActions.find((a) => a.type === 'MOVE_HERO')?.id
+      : undefined
+  // Héros saisissables : ceux d'un lieu NON verrouillé ayant au moins une destination
+  // voisine non verrouillée (mêmes conditions que le moteur, cf. applyMoveHero).
+  const movableHeroIds: string[] = dragHeroActionId
+    ? (() => {
+        const locked = new Set(user.lockedLocations ?? [])
+        return user.locations.flatMap((l) => {
+          if (locked.has(l.id)) return []
+          if (adjacentLocationIds(state, l.id).every((d) => locked.has(d))) return []
+          return (user.board[l.id] ?? [])
+            .filter((c) => c.type === 'hero' && !c.hypnotized)
+            .map((c) => c.instanceId)
+        })
+      })()
+    : []
 
   // Yzma — choix d'une pioche Fatalité par clic DIRECT sur le plateau (au lieu d'une
   // modale). Deux flux où le HUMAIN choisit : ses propres cartes (À l'attaque ! /
@@ -2371,6 +2816,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       fn(...args)
     }
   const handleMove = clearThen(move)
+  const handleMoveTrack = clearThen(moveTrack)
   const handleSkipMove = clearThen(skipMove)
   const handleAction = clearThen(executeAction)
   const handleFate = clearThen(fate)
@@ -2564,6 +3010,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     if (card.cardId === 'impuissance') {
       return setMode({ kind: 'impuissance-choice', actionId: mode.actionId, instanceId, cardName: card.name, diablo: mode.diablo })
     }
+    // Le Seigneur des Ténèbres — On te tient : choix « Chercher Tirelire » / « Éliminer un Héros ».
+    if (card.cardId === 'we-got-you-pig-keeper') {
+      return setMode({ kind: 'pigkeeper-choice', actionId: mode.actionId, instanceId, cardName: card.name, diablo: mode.diablo })
+    }
     // Événement classique : effet immédiat, pas de destination.
     doPlayCard(mode.diablo, mode.actionId, instanceId)
     setMode(null)
@@ -2609,7 +3059,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       setMode({ kind: 'condition-pick-ally', instanceId: card.instanceId })
       return
     }
-    if (card.cardId === 'mechancete') {
+    if (card.cardId === 'mechancete' || card.cardId === 'double-jeu' || card.cardId === 'enfermes') {
       setMode({ kind: 'condition-pick-hero', instanceId: card.instanceId })
       return
     }
@@ -2774,6 +3224,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       doPlayCard(mode.diablo, mode.actionId, mode.instanceId, undefined, undefined, instanceId)
       return setMode(null)
     }
+    if (mode?.kind === 'pigkeeper-pick-hero') {
+      // Le Héros cliqué (force ≤1) est éliminé par On te tient.
+      if (!vanquishHeroTargets.includes(instanceId)) return
+      doPlayCard(mode.diablo, mode.actionId, mode.instanceId, undefined, undefined, instanceId)
+      return setMode(null)
+    }
     if (mode?.kind === 'trap-pick-ally') {
       // Phase 1 de Tendre un Piège : on prend un Allié.
       const from = user.locations
@@ -2865,6 +3321,322 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // playItemMaybeEngrenages fixe lui-même le mode (engrenages-pick ou null).
     playItemMaybeEngrenages(mode.diablo, mode.actionId, mode.instanceId, mode.to, allyInstanceId)
   }
+  // ---- Glisser-déposer : jouer une carte en la déposant sur le plateau. ----
+  // `dropLocationId` = lieu sous le curseur au lâcher (null si hors d'un lieu). Les
+  // Alliés/Objets « de lieu » exigent un lieu ; les Événements se jouent n'importe où ;
+  // les cartes à cible (Héros, association) ouvrent leur sélection habituelle.
+  const playByDrag = (instanceId: string, dropLocationId: string | null) => {
+    setDraggingCardId(null)
+    const actionId = dragPlayActionId
+    if (!actionId || !isHumanTurn) return
+    const card = user.hand.find((c) => c.instanceId === instanceId)
+    if (!card) return
+    // Objet associé à un Héros (Forme de grenouille…) : on choisit le Héros (clic).
+    if (card.type === 'item' && card.attach === 'hero') {
+      return setMode({ kind: 'item-attach-hero', actionId, instanceId, cardName: card.name })
+    }
+    // Allié / Objet / Malédiction : se POSE sur un lieu → on utilise le lieu déposé.
+    if (card.type === 'ally' || card.type === 'item' || card.type === 'curse') {
+      if (!dropLocationId) return // déposé hors d'un lieu : on ignore (carte de lieu)
+      if (card.playOnlyAt && dropLocationId !== card.playOnlyAt) return
+      // Syndrome — Omnidroïde v.10 : doit être posé sur Métroville (lâcher ailleurs ignoré).
+      if (card.omnidroidForceLocation && dropLocationId !== card.omnidroidForceLocation) return
+      if ((card.forbiddenLocations ?? []).includes(dropLocationId)) return // Anastasie/Javotte : pas dans la Salle de Bal
+      // Le Seigneur des Ténèbres — Mort-vivant du Chaudron : Chaudron actif + lieu portant
+      // des Anciens Soldats (sinon dépôt ignoré).
+      if (card.requiresPoweredCauldron && user.blackCauldron !== 'powered') return
+      if (card.consumesItemCardId && !(user.board[dropLocationId] ?? []).some((c) => c.cardId === card.consumesItemCardId && c.type === 'item' && !c.attachedTo)) return
+      if ((user.lockedLocations ?? []).includes(dropLocationId)) return // lieu verrouillé
+      // Félicia (défausser un Allié OU payer) : flux complet via le mode 'place'.
+      if ((card.effects ?? []).some((e) => e.type === 'DISCARD_ALLY_AT_HOST_OR_PAY')) {
+        return setMode({ kind: 'place', actionId, instanceId, cardName: card.name, isAttach: false })
+      }
+      if (card.type === 'item' && card.attach === 'ally') {
+        const allies = (user.board[dropLocationId] ?? []).filter((c) => c.type === 'ally' || (c.type === 'hero' && c.hypnotized))
+        if (allies.length === 0) return // aucun hôte sur ce lieu
+        if (allies.length === 1) return playItemMaybeEngrenages(undefined, actionId, instanceId, dropLocationId, allies[0].instanceId)
+        return setMode({ kind: 'attach', actionId, instanceId, cardName: card.name, to: dropLocationId })
+      }
+      return playItemMaybeEngrenages(undefined, actionId, instanceId, dropLocationId)
+    }
+    // Cartes à cible : on ouvre la sélection habituelle (le joueur clique ensuite).
+    if (cardNeedsAllyMove(card)) return setMode({ kind: 'trap-pick-ally', actionId, instanceId, cardName: card.name })
+    if (cardNeedsVanquishTarget(card)) return setMode({ kind: 'vanquish-pick-hero', actionId, viaCard: { instanceId, cardName: card.name } })
+    if (cardNeedsHeroTarget(card)) return setMode({ kind: 'play-pick-hero', actionId, instanceId, cardName: card.name })
+    if (cardNeedsSacrificeTarget(card)) {
+      if (sacrificeableCards(state).length === 0) return
+      return setMode({ kind: 'sacrifice-pick', actionId, instanceId, cardName: card.name })
+    }
+    if (cardNeedsStarAllyTarget(card)) {
+      if ((user.observatoryStars ?? 0) <= 0 || drainStarAllies(state).length === 0) return
+      return setMode({ kind: 'drain-pick-ally', actionId, instanceId, cardName: card.name })
+    }
+    if (card.cardId === 'impuissance') return setMode({ kind: 'impuissance-choice', actionId, instanceId, cardName: card.name })
+    if (card.cardId === 'we-got-you-pig-keeper') return setMode({ kind: 'pigkeeper-choice', actionId, instanceId, cardName: card.name })
+    // Événement classique : effet immédiat, sans lieu.
+    doPlayCard(undefined, actionId, instanceId)
+    setMode(null)
+  }
+  // Glissé d'un Allié/Objet DÉJÀ posé (action « Déplacer un Objet ou un Allié ») : on
+  // le déplace vers le lieu lâché s'il est une destination valide (voisin / Roadster /
+  // Titan, non verrouillé, non bloqué par Cendrillon en robe de bal). Sinon : annulé.
+  const moveByDrag = (instanceId: string, dropLocationId: string | null) => {
+    setDraggingCardId(null)
+    if (!dragMoveActionId || !isHumanTurn || !dropLocationId) return
+    const from = user.locations.map((l) => l.id).find((id) => (user.board[id] ?? []).some((c) => c.instanceId === instanceId))
+    if (!from || from === dropLocationId) return
+    const card = (user.board[from] ?? []).find((c) => c.instanceId === instanceId)
+    if (!card) return
+    const dests = card.isTitan
+      ? titanReachableDests(state, HUMAN, instanceId, 1)
+      : card.cardId === 'roadster'
+        ? user.locations.map((l) => l.id)
+        : adjacentLocationIds(state, from)
+    const locked = new Set(user.lockedLocations ?? [])
+    const ok =
+      dests.includes(dropLocationId) &&
+      !locked.has(dropLocationId) &&
+      !(card.forbiddenLocations ?? []).includes(dropLocationId) &&
+      !(card.type === 'ally' && allyBlockedAt(state, HUMAN, dropLocationId))
+    if (!ok) return // destination invalide → la carte « revient » sur place
+    moveCard(dragMoveActionId, instanceId, dropLocationId)
+    setMode(null)
+  }
+  // Glissé d'un HÉROS (action « Déplacer un Héros ») : on le déplace vers le lieu lâché
+  // s'il est VOISIN du sien (et non verrouillé de part et d'autre). Sinon : annulé.
+  const moveHeroByDrag = (instanceId: string, dropLocationId: string | null) => {
+    setDraggingCardId(null)
+    if (!dragHeroActionId || !isHumanTurn || !dropLocationId) return
+    const from = user.locations.map((l) => l.id).find((id) => (user.board[id] ?? []).some((c) => c.instanceId === instanceId))
+    if (!from || from === dropLocationId) return
+    const card = (user.board[from] ?? []).find((c) => c.instanceId === instanceId)
+    if (!card || card.type !== 'hero') return
+    const locked = new Set(user.lockedLocations ?? [])
+    if (locked.has(from) || locked.has(dropLocationId)) return
+    if (!adjacentLocationIds(state, from).includes(dropLocationId)) return // pas voisin → annulé
+    moveHero(dragHeroActionId, instanceId, dropLocationId)
+    setMode(null)
+  }
+  // Lieu sous le curseur (null si hors du plateau du joueur), déduit de la géométrie des pions.
+  const locUnderPointer = (x: number, y: number): string | null => {
+    // Sa Sucrerie — 4 zones, comme un plateau classique. On les vise de DEUX façons :
+    //  1) en lâchant sur une cellule de zone de la grille du bas (data-board-loc) ;
+    //  2) en lâchant sur l'IMAGE du circuit (geste classique) : les 4 rectangles dessinés
+    //     sont aux positions standard (26,5 / 47,5 / 68,5 / 89,5 %), donc on mappe
+    //     l'abscisse → zone, exactement comme les autres plateaux.
+    if (user.villain === 'sa-sucrerie') {
+      for (const z of ['zone-1', 'zone-2', 'zone-3', 'zone-4']) {
+        const r = document.querySelector(`[data-board-loc="${user.villain}:${z}"]`)?.getBoundingClientRect()
+        if (r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return z
+      }
+      const rect = userBoardRef.current?.getBoundingClientRect()
+      if (rect && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+        const xPct = ((x - rect.left) / rect.width) * 100
+        const i = Math.round((xPct - PAWN_FIRST_LEFT) / PAWN_STEP)
+        if (i >= 0 && i <= 3) return `zone-${i + 1}`
+      }
+      return null
+    }
+    const rect = userBoardRef.current?.getBoundingClientRect()
+    if (!rect || x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) return null
+    const xPct = ((x - rect.left) / rect.width) * 100
+    const i = Math.round((xPct - PAWN_FIRST_LEFT) / PAWN_STEP)
+    return i >= 0 && i < user.locations.length ? user.locations[i].id : null
+  }
+  // La carte glissée se POSE-t-elle sur un lieu (Allié/Objet/Malédiction) ? Sinon (Événement,
+  // carte à cible) on ne met pas en surbrillance un lieu précis. Un Allié/Objet DÉPLACÉ
+  // depuis le plateau ('move') vise toujours un lieu → surbrillance.
+  const draggedIsLocationCard = (instanceId: string): boolean => {
+    if (dragKindRef.current === 'move' || dragKindRef.current === 'hero') return true
+    const card = user.hand.find((c) => c.instanceId === instanceId)
+    return !!card && (card.type === 'ally' || card.type === 'curse' || (card.type === 'item' && card.attach !== 'hero'))
+  }
+  // Boucle d'animation : le fantôme rattrape le curseur avec une micro-inertie (lerp) et
+  // s'incline selon la vitesse horizontale. Pilotée en impératif (style DOM) → aucun
+  // re-render React par image, donc parfaitement fluide même si App est volumineux.
+  const stepDragGhost = () => {
+    const el = dragGhostElRef.current
+    if (el) {
+      const t = dragTargetRef.current
+      const r = dragRenderRef.current
+      const k = 0.35 // facteur de rattrapage (1 = instantané, plus bas = plus d'inertie)
+      r.x += (t.x - r.x) * k
+      r.y += (t.y - r.y) * k
+      const tilt = Math.max(-18, Math.min(18, (t.x - r.x) * 0.7))
+      el.style.left = `${r.x}px`
+      el.style.top = `${r.y}px`
+      el.style.transform = `translate(-50%, -50%) rotate(${tilt}deg)`
+    }
+    dragRafRef.current = requestAnimationFrame(stepDragGhost)
+  }
+  const stopDragGhost = () => {
+    if (dragRafRef.current != null) {
+      cancelAnimationFrame(dragRafRef.current)
+      dragRafRef.current = null
+    }
+  }
+  // Sécurité : on annule la boucle rAF du fantôme si le composant est démonté en plein glissé.
+  useEffect(() => () => {
+    if (dragRafRef.current != null) cancelAnimationFrame(dragRafRef.current)
+  }, [])
+  // Début du glissé : on affiche le fantôme (clone de la carte) qui suivra le curseur.
+  const handleCardDragStart = (instanceId: string, x: number, y: number) => {
+    // Source : carte de la main (pose), HÉROS du plateau (déplacement de Héros) ou
+    // Allié/Objet du plateau (déplacement classique).
+    if (user.hand.some((c) => c.instanceId === instanceId)) {
+      dragKindRef.current = 'play'
+    } else {
+      const onBoard = Object.values(user.board).flat().find((c) => c.instanceId === instanceId)
+      dragKindRef.current = onBoard?.type === 'hero' ? 'hero' : 'move'
+    }
+    dragTargetRef.current = { x, y }
+    dragRenderRef.current = { x, y }
+    dragInstanceRef.current = instanceId
+    setDraggingCardId(instanceId)
+    setDragGhost({ instanceId, x, y })
+    if (draggedIsLocationCard(instanceId)) setDragOverLoc(locUnderPointer(x, y))
+    if (dragRafRef.current == null) dragRafRef.current = requestAnimationFrame(stepDragGhost)
+  }
+  const handleCardDragMove = (x: number, y: number) => {
+    dragTargetRef.current = { x, y } // la boucle rAF se charge du rendu fluide
+    const id = dragInstanceRef.current
+    if (id && draggedIsLocationCard(id)) setDragOverLoc(locUnderPointer(x, y)) // React bail si inchangé
+  }
+  // Lâcher : si le curseur est sur le plateau, on joue la carte (lieu déduit de X).
+  const handleCardDragDrop = (instanceId: string, x: number, y: number) => {
+    stopDragGhost()
+    dragInstanceRef.current = null
+    setDragGhost(null)
+    setDragOverLoc(null)
+    const loc = locUnderPointer(x, y)
+    const rect = userBoardRef.current?.getBoundingClientRect()
+    const overImage = !!rect && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
+    const isKC = user.villain === 'sa-sucrerie'
+    // Sa Sucrerie : `loc` couvre déjà les 4 zones (cellule de grille OU rectangle dessiné
+    // sur l'image, mappé par l'abscisse). On pose donc dès qu'une zone est visée.
+    const onBoard = isKC ? loc != null : overImage
+    if (onBoard) {
+      // Petite animation de « pose » sur le lieu visé (pulse), puis on joue/déplace.
+      if (loc) {
+        setDropPulseLoc(loc)
+        window.setTimeout(() => setDropPulseLoc((l) => (l === loc ? null : l)), 450)
+      }
+      // Héros déplacé ('hero'), Allié/Objet déplacé ('move'), ou carte de la main ('play').
+      if (dragKindRef.current === 'hero') moveHeroByDrag(instanceId, loc)
+      else if (dragKindRef.current === 'move') moveByDrag(instanceId, loc)
+      else playByDrag(instanceId, loc)
+    } else {
+      setDraggingCardId(null) // lâché hors du plateau : on annule (retour en main / sur place)
+    }
+  }
+  // Annulation explicite (clic droit pendant le glissé) : la carte revient en main.
+  const cancelDrag = () => {
+    stopDragGhost()
+    dragInstanceRef.current = null
+    setDragGhost(null)
+    setDragOverLoc(null)
+    setDraggingCardId(null)
+  }
+  // ─── Sa Sucrerie — déplacement du pion sur le CIRCUIT EN HUIT par glisser-déposer ───
+  // Le pion ne « change pas de lieu » : il avance de 1 à 4 cases (2–3 avec Félix Fixe
+  // Jr.). On saisit le pion ; les cases atteignables s'allument ; on le lâche sur l'une
+  // d'elles → MOVE_TRACK. (Remplace l'ancienne bannière « avance de N cases ».)
+  const userIsKingCandy = user.villain === 'sa-sucrerie'
+  const kcMoveRange = (): { min: number; max: number } => {
+    const felix = Object.values(user.board)
+      .flat()
+      .some((c) => c.type === 'hero' && c.cardId === 'felix-fixe-jr' && !c.hypnotized)
+    return felix ? { min: 2, max: 3 } : { min: 1, max: 4 }
+  }
+  // Cases atteignables depuis la position courante : { steps, idx, x, y } (idx = case du
+  // circuit, x/y = % sur l'image). Le croisement (a4/a13) ne peut jamais être atteint
+  // deux fois dans la même fenêtre (9 cases d'écart) → pas d'ambiguïté.
+  const kcReachableCases = (): { steps: number; idx: number; x: number; y: number }[] => {
+    if (!userIsKingCandy) return []
+    const { min, max } = kcMoveRange()
+    const pos = user.trackPos ?? 0
+    const out: { steps: number; idx: number; x: number; y: number }[] = []
+    for (let s = min; s <= max; s++) {
+      const idx = (pos + s) % SUGAR_RUSH_TRACK.length
+      out.push({ steps: s, idx, x: SUGAR_RUSH_TRACK[idx].x, y: SUGAR_RUSH_TRACK[idx].y })
+    }
+    return out
+  }
+  // Case atteignable la plus proche du curseur (en % de l'image), dans un rayon de ~4 %.
+  const trackCaseUnderPointer = (x: number, y: number): { steps: number; idx: number } | null => {
+    const rect = userBoardRef.current?.getBoundingClientRect()
+    if (!rect) return null
+    const xPct = ((x - rect.left) / rect.width) * 100
+    const yPct = ((y - rect.top) / rect.height) * 100
+    let best: { steps: number; idx: number; d: number } | null = null
+    for (const c of kcReachableCases()) {
+      const d = Math.hypot(c.x - xPct, c.y - yPct)
+      if (d <= 6 && (!best || d < best.d)) best = { steps: c.steps, idx: c.idx, d }
+    }
+    return best ? { steps: best.steps, idx: best.idx } : null
+  }
+  const [kcHoverCase, setKcHoverCase] = useState<number | null>(null)
+
+  // ─── Glisser le PION pour se déplacer (remplace le bouton « Choisir »). ───
+  // Réutilise la boucle rAF du fantôme + locUnderPointer ; seuls les lieux LÉGAUX
+  // (legalMoves) s'allument et acceptent le lâcher.
+  const handlePawnDragStart = (x: number, y: number) => {
+    dragKindRef.current = 'pawn'
+    dragTargetRef.current = { x, y }
+    dragRenderRef.current = { x, y }
+    setDraggingPawn(true)
+    setDragGhost({ instanceId: '', x, y, pawnSrc: user.pawnImage })
+    if (userIsKingCandy) setKcHoverCase(trackCaseUnderPointer(x, y)?.idx ?? null)
+    else {
+      const loc = locUnderPointer(x, y)
+      setDragOverLoc(loc && legalMoves.includes(loc) ? loc : null)
+    }
+    if (dragRafRef.current == null) dragRafRef.current = requestAnimationFrame(stepDragGhost)
+  }
+  const handlePawnDragMove = (x: number, y: number) => {
+    dragTargetRef.current = { x, y } // rendu fluide via la boucle rAF
+    if (userIsKingCandy) setKcHoverCase(trackCaseUnderPointer(x, y)?.idx ?? null)
+    else {
+      const loc = locUnderPointer(x, y)
+      setDragOverLoc(loc && legalMoves.includes(loc) ? loc : null)
+    }
+  }
+  const handlePawnDragDrop = (x: number, y: number) => {
+    stopDragGhost()
+    setDragGhost(null)
+    setDragOverLoc(null)
+    setDraggingPawn(false)
+    setKcHoverCase(null)
+    // Sa Sucrerie — lâché sur une case atteignable du circuit → avance d'autant de cases.
+    if (userIsKingCandy) {
+      const hit = trackCaseUnderPointer(x, y)
+      if (hit) handleMoveTrack(hit.steps)
+      return
+    }
+    const loc = locUnderPointer(x, y)
+    if (loc && legalMoves.includes(loc)) {
+      setDropPulseLoc(loc)
+      window.setTimeout(() => setDropPulseLoc((l) => (l === loc ? null : l)), 450)
+      handleMove(loc) // lâché sur un lieu légal → déplacement
+    }
+    // Lâché ailleurs (ou sur le lieu courant) : le pion reste sur place.
+  }
+  const handlePawnDragCancel = () => {
+    stopDragGhost()
+    setDragGhost(null)
+    setDragOverLoc(null)
+    setDraggingPawn(false)
+    setKcHoverCase(null)
+  }
+  // Le pion est saisissable seulement quand un vrai déplacement est possible et que
+  // le pion est déjà posé (au 1ᵉʳ déplacement, on clique le lieu : pas encore de pion).
+  const pawnDraggable =
+    isHumanTurn &&
+    state.phase === 'MOVE' &&
+    user.pawnLocation != null &&
+    // Sa Sucrerie : le pion avance sur le circuit (pas de legalMoves de lieu) → toujours
+    // saisissable pendant sa phase MOVE. Autres vilains : au moins un lieu légal.
+    (userIsKingCandy || legalMoves.length > 0)
   const handleToggleDiscard = (instanceId: string) => {
     // Défausse Tyrannie (état dédié) prioritaire sur le mode défausse normal.
     if (tyrannyDiscard) {
@@ -2883,7 +3655,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   }
   const handleConfirmDiscard = () => {
     if (tyrannyDiscard) {
-      if (tyrannyPicks.length === tyrannyDiscard.count) {
+      // Défausse facultative : n'importe quel nombre (0 inclus). Sinon : exactement `count`.
+      if (tyrannyDiscard.optional || tyrannyPicks.length === tyrannyDiscard.count) {
         resolveTyrannyDiscard(tyrannyPicks)
         setTyrannyPicks([])
       }
@@ -2914,9 +3687,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       )
     else if (a.type === 'ACTIVATE') {
       const cards = activatableCards(state)
-      // Une seule carte activable → on enchaîne directement ; sinon, on propose
-      // une fenêtre de choix.
-      if (cards.length === 1) startActivate(a.id, cards[0])
+      // Le Seigneur des Ténèbres : l'action « Activer » (donnée par les Squelettes de
+      // Soldats) sert à RÉVEILLER le Chaudron Magique en sa possession — ce vilain n'a
+      // aucune carte à capacité activée.
+      if (cards.length === 0 && user.blackCauldron === 'claimed') activateCauldron()
+      // Une seule carte activable → on enchaîne directement ; sinon, fenêtre de choix.
+      else if (cards.length === 1) startActivate(a.id, cards[0])
       else if (cards.length > 1) setActivatePick({ actionId: a.id })
     }
     else if (a.type === 'OBTAIN_KEY') obtainKey(a.id) // Seigneur des clés → ouvre pendingKey
@@ -2978,6 +3754,23 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   }
   const handleVanquishPickHero = (heroInstanceId: string, heroName: string) => {
     if (mode?.kind !== 'vanquish-pick-hero') return
+    // Madame Mim — une Métamorphose de Merlin se vainc avec la Métamorphose Mim
+    // correspondante, SANS choix d'alliés ni force : on résout directement (pas
+    // d'étape « cocher les alliés / Total X/Y »).
+    const heroCard = Object.values(user.board).flat().find((c) => c.instanceId === heroInstanceId)
+    if (heroCard?.isMerlinTransformation) {
+      const loc = user.locations.map((l) => l.id).find((id) => (user.board[id] ?? []).some((c) => c.instanceId === heroInstanceId))
+      const mim = loc ? (user.board[loc] ?? []).find((c) => c.isMimTransformation && c.transformationTarget === heroCard.cardId) : undefined
+      if (!mim) return // pas la bonne Métamorphose Mim sur le lieu → impossible
+      if (mode.viaCard) {
+        doPlayCard(mode.diablo, mode.actionId, mode.viaCard.instanceId, undefined, undefined, heroInstanceId, [mim.instanceId], mode.viaCard.allyMove)
+      } else if (mode.granted) {
+        performGrantedAction({ type: 'VANQUISH', actionId: 'granted-free-action', heroInstanceId, allyInstanceIds: [mim.instanceId] })
+      } else {
+        doVanquish(mode.diablo, mode.actionId, heroInstanceId, [mim.instanceId])
+      }
+      return setMode(null)
+    }
     setMode({
       kind: 'vanquish-pick-allies',
       actionId: mode.actionId,
@@ -3064,6 +3857,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         mode.kind === 'drain-pick-ally' ||
         mode.kind === 'impuissance-choice' ||
         mode.kind === 'impuissance-pick-hero' ||
+        mode.kind === 'pigkeeper-choice' ||
+        mode.kind === 'pigkeeper-pick-hero' ||
         mode.kind === 'engrenages-pick' ||
         mode.kind === 'felicia-choice' ||
         mode.kind === 'felicia-pick-ally'
@@ -3080,9 +3875,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     : mode?.kind === 'discard'
       ? mode.selected
       : []
-  const discardRequired = tyrannyDiscard ? tyrannyDiscard.count : undefined
-  const discardCanConfirm =
-    discardRequired !== undefined
+  // Défausse facultative (J'allais oublier un détail) : aucun nombre imposé → on
+  // peut confirmer même à 0 carte. Sinon (Tyrannie) : exactement `count`.
+  const discardRequired = tyrannyDiscard && !tyrannyDiscard.optional ? tyrannyDiscard.count : undefined
+  const discardCanConfirm = tyrannyDiscard?.optional
+    ? true
+    : discardRequired !== undefined
       ? discardSelected.length === discardRequired
       : discardSelected.length > 0
 
@@ -3098,8 +3896,22 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       ? user.locations
           .map((l) => l.id)
           .filter((id) => {
+            // Sa Sucrerie : on pose dans les 4 zones, jamais sur le circuit.
+            if (user.villain === 'sa-sucrerie' && id === 'sugar-rush') return false
             // Carte à pose restreinte (Lampe Merveilleuse → Caverne uniquement).
             if (cardInPlay?.playOnlyAt && id !== cardInPlay.playOnlyAt) return false
+            // Anastasie/Javotte : pas dans la Salle de Bal (lieux interdits par carte).
+            if ((cardInPlay?.forbiddenLocations ?? []).includes(id)) return false
+            // Cendrillon en robe de bal : aucun Allié sur la Salle de Bal.
+            if (cardInPlay?.type === 'ally' && allyBlockedAt(state, HUMAN, id)) return false
+            // Le Seigneur des Ténèbres — Mort-vivant du Chaudron : Chaudron actif + lieu
+            // portant des Anciens Soldats.
+            if (cardInPlay?.requiresPoweredCauldron && user.blackCauldron !== 'powered') return false
+            if (
+              cardInPlay?.consumesItemCardId &&
+              !(user.board[id] ?? []).some((c) => c.cardId === cardInPlay.consumesItemCardId && c.type === 'item' && !c.attachedTo)
+            )
+              return false
             // Ratigan — Félicia : injouable sur un lieu où l'on ne peut ni défausser
             // un Allié, ni (faute de Pouvoir) payer le supplément de 2.
             if (cardInPlay) {
@@ -3129,9 +3941,16 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       : mode?.kind === 'move-dest'
         ? // Un Titan (Hadès) suit ses règles propres : ≤1 lieu, bloqué par Hercule
           // sur SON lieu uniquement. Les autres cartes : lieu voisin classique.
-          (user.board[mode.from] ?? []).find((c) => c.instanceId === mode.instanceId)?.isTitan
-          ? titanReachableDests(state, HUMAN, mode.instanceId, 1)
-          : adjacentLocationIds(state, mode.from)
+          (() => {
+            const moving = (user.board[mode.from] ?? []).find((c) => c.instanceId === mode.instanceId)
+            const base = moving?.isTitan
+              ? titanReachableDests(state, HUMAN, mode.instanceId, 1)
+              : adjacentLocationIds(state, mode.from)
+            // Anastasie/Javotte : pas dans la Salle de Bal (lieux interdits par carte).
+            const noForbidden = base.filter((id) => !(moving?.forbiddenLocations ?? []).includes(id))
+            // Cendrillon en robe de bal : un Allié ne peut pas rejoindre la Salle de Bal.
+            return moving?.type === 'ally' ? noForbidden.filter((id) => !allyBlockedAt(state, HUMAN, id)) : noForbidden
+          })()
       : mode?.kind === 'move-hero-dest' || mode?.kind === 'activate-iago-dest'
         ? adjacentLocationIds(state, mode.from)
         : mode?.kind === 'trap-pick-dest'
@@ -3190,7 +4009,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     mode?.kind === 'condition-pick-hero' ||
     mode?.kind === 'move-hero-pick' ||
     mode?.kind === 'item-attach-hero' ||
-    mode?.kind === 'impuissance-pick-hero'
+    mode?.kind === 'impuissance-pick-hero' ||
+    mode?.kind === 'pigkeeper-pick-hero'
       ? (() => {
           const allHeroes = Object.values(user.board).flatMap((cards) =>
             cards.filter((c) => c.type === 'hero'),
@@ -3204,7 +4024,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             const card = user.hand.find((c) => c.instanceId === mode.instanceId)
             const limit = card?.effects?.find((e) => e.type === 'INSTANT_VANQUISH_HERO_LE')
             if (limit && limit.type === 'INSTANT_VANQUISH_HERO_LE') {
-              return allHeroes.filter((h) => (h.strength ?? 0) <= limit.maxStrength).map((c) => c.instanceId)
+              return allHeroes
+                .filter((h) => (h.strength ?? 0) <= limit.maxStrength)
+                // Sale voleuse ! : cible restreinte (Cendrillon / robe de bal).
+                .filter((h) => !limit.onlyCardIds || limit.onlyCardIds.includes(h.cardId))
+                .map((c) => c.instanceId)
             }
             // Sombra — Boop ! : seuls les Héros PAS déjà piratés sont ciblables.
             if (card?.effects?.some((e) => e.type === 'HACK_HERO')) {
@@ -3222,13 +4046,23 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               return allHeroes.filter((h) => h.heroSize !== 'shrunk').map((c) => c.instanceId)
             }
           }
-          // Méchanceté : héros ≤4 force.
+          // Méchanceté : héros ≤4 force. Double jeu (Gothel) : héros ≤3.
+          // Enfermée (Trémaine) : n'importe quel Héros NON encore piégé.
           if (mode?.kind === 'condition-pick-hero') {
-            return allHeroes.filter((h) => (h.strength ?? 0) <= 4).map((c) => c.instanceId)
+            const cond = user.hand.find((c) => c.instanceId === mode.instanceId)
+            if (cond?.cardId === 'enfermes') {
+              return allHeroes.filter((h) => !h.trapped).map((c) => c.instanceId)
+            }
+            const maxStr = cond?.cardId === 'double-jeu' ? 3 : 4
+            return allHeroes.filter((h) => (h.strength ?? 0) <= maxStr).map((c) => c.instanceId)
           }
           // Impuissance (branche Éliminer) : Héros ≤3 force.
           if (mode?.kind === 'impuissance-pick-hero') {
             return allHeroes.filter((h) => (h.strength ?? 0) <= 3).map((c) => c.instanceId)
+          }
+          // On te tient (branche Éliminer) : Héros de force ≤1.
+          if (mode?.kind === 'pigkeeper-pick-hero') {
+            return allHeroes.filter((h) => (h.strength ?? 0) <= 1).map((c) => c.instanceId)
           }
           // Troupeau de gnous : Vanquish restreint au nouveau lieu du Héros repoussé.
           if (mode?.kind === 'vanquish-pick-hero' && mode.vanquishLocationId) {
@@ -3295,9 +4129,13 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             (c) => c.instanceId === mode.heroInstanceId,
           )
           const isBobby = heroCard?.cardId === 'bobby'
+          // Madame Mim — une Métamorphose de Merlin ne se vainc qu'avec la Métamorphose
+          // Mim correspondante (sur son lieu), sans force : on ne propose QUE celle(s)-là.
           const combined = isBobby
             ? localAllies.filter((a) => a.cardId !== 'archers-loups')
-            : [...localAllies, ...adjArchers]
+            : heroCard?.isMerlinTransformation
+              ? localAllies.filter((a) => a.transformationTarget === heroCard.cardId)
+              : [...localAllies, ...adjArchers]
           return combined.map((c) => c.instanceId)
         })()
       : []
@@ -3317,6 +4155,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     mode?.kind === 'vanquish-pick-allies'
       ? userStrengths[mode.heroInstanceId] ?? 0
       : 0
+  // Madame Mim — cible = Métamorphose de Merlin : pas de force requise, il suffit
+  // d'avoir sélectionné la Métamorphose Mim correspondante (seule proposée).
+  const vanquishHeroIsMerlin =
+    mode?.kind === 'vanquish-pick-allies' &&
+    Object.values(user.board).flat().find((c) => c.instanceId === mode.heroInstanceId)?.isMerlinTransformation === true
 
   const won = state.status === 'WON'
   // Fin de partie : écran Victoire/Défaite. « Regarder le plateau » le ferme en
@@ -3580,6 +4423,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               puis les 4 cases Héros. */}
           <div className="w-full">
             <div className="stacks-top flex h-24 w-full items-end justify-start gap-3">
+              {/* Madame Mim — pioche + défausse des Métamorphoses de Merlin, juste
+                  au-dessus de la pioche/défausse Fatalité (même retrait gauche que
+                  `fatality-cases` pour rester aligné). Rendu seulement pour Mim. */}
+              <div style={{ paddingLeft: '1%' }}>
+                <MerlinPiles player={user} uprightWidth="w-16" />
+              </div>
               {/* Pat Hibulaire — tuiles Objectif, une au-dessus de chaque case Héros. */}
               <GoalTilesRow player={user} own />
             </div>
@@ -3609,14 +4458,23 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                   fatePickable={userFatePick.pickable}
                   onFatePick={userFatePick.onPick}
                   offset={false}
+                  dragHeroIds={movableHeroIds}
+                  draggingInstanceId={draggingCardId}
+                  onCardDragStart={handleCardDragStart}
+                  onCardDragMove={handleCardDragMove}
+                  onCardDragDrop={handleCardDragDrop}
+                  onCardDragCancel={cancelDrag}
                 />
               </div>
             </div>
           </div>
           {/* Plateau (image). Les deux joueurs sont le Prince Jean pour l'instant.
               Un Héros posé masque la rangée d'actions du haut de son lieu. */}
-          <div className="relative" ref={userBoardRef}>
-            <BoardImage player={user} showPawn pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[user.villain]}, white 45%)`} imgClassName="border border-[color:var(--pa-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} unmaskHeroLocationId={persifleurLoc} obstacleTargets={state.pendingObstacle && state.pendingObstacle.chooserIndex === HUMAN && state.pendingObstacle.kind === 'remove' ? user.locations.map((l) => l.id).filter((id) => (user.obstacles?.[id] ?? 0) > 0 && (!state.pendingObstacle!.sameLocation || !state.pendingObstacle!.lockedLocationId || state.pendingObstacle!.lockedLocationId === id)) : undefined} onObstacleClick={resolveObstacle} keyPick={state.pendingKey && state.pendingKey.playerIndex === HUMAN && state.pendingKey.kind === 'take' && !dieAnim ? { locationId: state.pendingKey.locationId, color: state.pendingKey.color } : undefined} onKeyClick={resolveKey} crewmateCandidates={state.pendingCrewmateKill?.playerIndex === HUMAN ? state.pendingCrewmateKill.candidateColors : undefined} onCrewmateClick={(color) => { if (state.pendingCrewmateKill?.mode === 'kill') playKillSound(); resolveCrewmateKill(color) }} crewmateSelectVerb={state.pendingCrewmateKill?.mode === 'reassure' ? 'Rassurer' : state.pendingCrewmateKill?.mode === 'kill-normal' ? 'Éliminer' : state.pendingCrewmateKill?.mode === 'move' ? 'Déplacer' : 'Défausser'} />
+          <div
+            className={`relative rounded-lg transition-shadow ${draggingCardId ? 'ring-2 ring-amber-400/70' : ''}`}
+            ref={userBoardRef}
+          >
+            <BoardImage player={user} showPawn pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[user.villain]}, white 45%)`} imgClassName="border border-[color:var(--pa-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} unmaskHeroLocationId={persifleurLoc} obstacleTargets={state.pendingObstacle && state.pendingObstacle.chooserIndex === HUMAN && state.pendingObstacle.kind === 'remove' ? user.locations.map((l) => l.id).filter((id) => (user.obstacles?.[id] ?? 0) > 0 && (!state.pendingObstacle!.sameLocation || !state.pendingObstacle!.lockedLocationId || state.pendingObstacle!.lockedLocationId === id)) : undefined} onObstacleClick={resolveObstacle} keyPick={state.pendingKey && state.pendingKey.playerIndex === HUMAN && state.pendingKey.kind === 'take' && !dieAnim ? { locationId: state.pendingKey.locationId, color: state.pendingKey.color } : undefined} onKeyClick={resolveKey} crewmateCandidates={state.pendingCrewmateKill?.playerIndex === HUMAN ? state.pendingCrewmateKill.candidateColors : undefined} onCrewmateClick={(color) => { if (state.pendingCrewmateKill?.mode === 'kill') playKillSound(); resolveCrewmateKill(color) }} crewmateSelectVerb={state.pendingCrewmateKill?.mode === 'reassure' ? 'Rassurer' : state.pendingCrewmateKill?.mode === 'kill-normal' ? 'Éliminer' : state.pendingCrewmateKill?.mode === 'move' ? 'Déplacer' : 'Défausser'} pawnDraggable={pawnDraggable} pawnDragging={draggingPawn} onPawnDragStart={handlePawnDragStart} onPawnDragMove={handlePawnDragMove} onPawnDragDrop={handlePawnDragDrop} onPawnDragCancel={handlePawnDragCancel} />
             <BoardActions
               player={user}
               availableActionIds={availableActions.map((a) => a.id)}
@@ -3629,6 +4487,64 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               hackActionIds={state.pendingHack?.playerIndex === HUMAN ? state.pendingHack.actionIds : undefined}
               onHackPick={resolveHack}
             />
+            {/* Sa Sucrerie — pendant sa phase MOVE, les cases ATTEIGNABLES (1–4 en avant)
+                clignotent sur le circuit. Deux façons d'y aller : GLISSER le pion dessus,
+                ou simplement CLIQUER la case (pour qui préfère le clic). La case survolée
+                (au glissé) est mise en évidence. */}
+            {isHumanTurn && state.phase === 'MOVE' && userIsKingCandy &&
+              kcReachableCases().map((c) => (
+                <button
+                  key={`kc-reach-${c.idx}`}
+                  type="button"
+                  onClick={() => handleMoveTrack(c.steps)}
+                  onMouseEnter={() => setKcHoverCase(c.idx)}
+                  onMouseLeave={() => setKcHoverCase((h) => (h === c.idx ? null : h))}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full border-2 hover:scale-110"
+                  style={{
+                    left: `${c.x}%`,
+                    top: `${c.y}%`,
+                    width: '5.4%',
+                    aspectRatio: '1',
+                    borderColor: kcHoverCase === c.idx ? '#fff' : 'rgba(250,204,21,0.9)',
+                    backgroundColor: kcHoverCase === c.idx ? 'rgba(250,204,21,0.55)' : 'rgba(250,204,21,0.18)',
+                    boxShadow: kcHoverCase === c.idx ? '0 0 16px 5px rgba(250,204,21,0.85)' : '0 0 9px 2px rgba(250,204,21,0.45)',
+                    animation: kcHoverCase === c.idx ? undefined : 'kcReachPulse 1.1s ease-in-out infinite',
+                  }}
+                  title={`Avancer de ${c.steps} case${c.steps > 1 ? 's' : ''} (clic ou glissé du pion)`}
+                />
+              ))}
+            {/* Le Seigneur des Ténèbres — on RÉVEILLE le Chaudron Magique via l'action
+                « Activer une capacité » donnée par les Squelettes de Soldats (clic sur la
+                carte/le bouton d'action de leur lieu), pas par un bouton/clic dédié. */}
+            {/* Glisser-déposer : surbrillance JAUNE du lieu visé sur l'image, pendant le
+                glissé (comme tous les plateaux). Sa Sucrerie : les 4 zones sont aux colonnes
+                standard (zone-N → colonne N−1), donc on surligne la même colonne sur le circuit. */}
+            {dragOverLoc && (() => {
+              const i = userIsKingCandy
+                ? Number(dragOverLoc.replace('zone-', '')) - 1
+                : user.locations.findIndex((l) => l.id === dragOverLoc)
+              if (i < 0) return null
+              const locked = (user.lockedLocations ?? []).includes(dragOverLoc)
+              return (
+                <div
+                  className={`pointer-events-none absolute inset-y-0 rounded-lg ring-2 transition-all duration-150 ${locked ? 'bg-red-500/10 ring-red-400/70' : 'bg-amber-300/15 ring-amber-300/80'}`}
+                  style={{ left: `${PAWN_FIRST_LEFT + i * PAWN_STEP - PAWN_STEP / 2}%`, width: `${PAWN_STEP}%` }}
+                />
+              )
+            })()}
+            {/* Glisser-déposer : petite animation de « pose » au lâcher sur un lieu. */}
+            {dropPulseLoc && (() => {
+              const i = userIsKingCandy
+                ? Number(dropPulseLoc.replace('zone-', '')) - 1
+                : user.locations.findIndex((l) => l.id === dropPulseLoc)
+              if (i < 0) return null
+              return (
+                <div
+                  className="pointer-events-none absolute inset-y-0 animate-ping rounded-lg ring-4 ring-amber-300/80"
+                  style={{ left: `${PAWN_FIRST_LEFT + i * PAWN_STEP - PAWN_STEP / 2}%`, width: `${PAWN_STEP}%` }}
+                />
+              )
+            })()}
             {/* Éclat « miroir brisé » du plateau (fin de partie : perdant ; ou test).
                 Reste affiché (fond sombre) tant que l'écran de fin est là. */}
             {userBoardDestroyed && (
@@ -3668,8 +4584,38 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 addCandidates={state.pendingPuppyAdd?.playerIndex === HUMAN ? state.pendingPuppyAdd.candidateTileIds : undefined}
                 onAddTile={resolvePuppyAdd}
               />
+              <CauldronTile player={user} />
+              <OmnidroidPile
+                player={user}
+                canPlay={!!dragPlayActionId || mode?.kind === 'play'}
+                onPlay={handlePlayCard}
+                onCardDragStart={handleCardDragStart}
+                onCardDragMove={handleCardDragMove}
+                onCardDragDrop={handleCardDragDrop}
+                onCardDragCancel={cancelDrag}
+                draggingInstanceId={draggingCardId}
+              />
             </div>
             <div className="flex-1">
+              {/* Sa Sucrerie — circuit en huit : le déplacement se fait en GLISSANT le pion
+                  sur une case atteignable (1–4 en avant, surlignées sur le circuit). Cette
+                  barre rappelle la consigne + affiche l'état de la course. */}
+              {isHumanTurn && state.phase === 'MOVE' && user.villain === 'sa-sucrerie' && (() => {
+                const { min, max } = kcMoveRange()
+                return (
+                  <div className="mb-2 flex flex-wrap items-center gap-2 rounded-xl border border-pink-300/40 bg-[#1a0e16]/90 px-4 py-2 shadow-lg">
+                    <span className="text-sm font-semibold text-pink-100">
+                      🏎️ Glissez le pion — ou cliquez — sur une case surlignée du circuit ({min === max ? `${min}` : `${min}–${max}`} case{max > 1 ? 's' : ''} en avant).
+                    </span>
+                    {min === 2 && max === 3 && <span className="text-xs text-pink-200/70">(Félix Fixe Jr. : 2–3 cases)</span>}
+                    {user.raceActive && (
+                      <span className="ml-auto text-xs font-semibold text-amber-200">
+                        🏁 Course : toi case {user.trackPos ?? 0} / 18 · Pilote case {user.racerPos ?? 0} / 18
+                      </span>
+                    )}
+                  </div>
+                )
+              })()}
               <Board
                 player={user}
                 accent={BLUE}
@@ -3704,6 +4650,13 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 onPlace={handlePlace}
                 onAttach={handleAttach}
                 onCardPick={handleCardPick}
+                dragMoveActionId={dragMoveActionId}
+                movableDragIds={movableDragIds}
+                onCardDragStart={handleCardDragStart}
+                onCardDragMove={handleCardDragMove}
+                onCardDragDrop={handleCardDragDrop}
+                onCardDragCancel={cancelDrag}
+                draggingInstanceId={draggingCardId}
                 grantedActionIds={availableActions.filter((a) => a.grantedBy).map((a) => a.id)}
                 onGrantedAction={handleGrantedAction}
                 mapUsable={
@@ -3751,6 +4704,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             mode?.kind === 'drain-pick-ally' ||
             mode?.kind === 'impuissance-choice' ||
             mode?.kind === 'impuissance-pick-hero' ||
+            mode?.kind === 'pigkeeper-choice' ||
+            mode?.kind === 'pigkeeper-pick-hero' ||
             mode?.kind === 'engrenages-pick' ||
             mode?.kind === 'felicia-choice' ||
             mode?.kind === 'felicia-pick-ally') && (
@@ -3845,6 +4800,14 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                   <>
                     <b>Impuissance</b> : clique le <b>Héros</b> à éliminer (force ≤ 3, rouge).
                   </>
+                ) : mode.kind === 'pigkeeper-choice' ? (
+                  <>
+                    <b>On te tient</b> : choisis <b>Chercher Tirelire</b> ou <b>Éliminer un Héros</b> (force 1).
+                  </>
+                ) : mode.kind === 'pigkeeper-pick-hero' ? (
+                  <>
+                    <b>On te tient</b> : clique le <b>Héros</b> à éliminer (force 1, rouge).
+                  </>
                 ) : mode.kind === 'engrenages-pick' ? (
                   <>
                     Pose <b>{mode.cardName}</b> : coche les <b>Engrenages</b> à défausser (−3 chacun, surlignés).
@@ -3883,9 +4846,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                   <button
                     onClick={handleVanquishConfirm}
                     disabled={
-                      vanquishTotal < vanquishNeeded ||
-                      (vanquishSelected.length === 0 &&
-                        !(vanquishNeeded === 0 && !mode.viaCard && !mode.trap))
+                      vanquishHeroIsMerlin
+                        ? vanquishSelected.length === 0
+                        : vanquishTotal < vanquishNeeded ||
+                          (vanquishSelected.length === 0 &&
+                            !(vanquishNeeded === 0 && !mode.viaCard && !mode.trap))
                     }
                     className="rounded bg-red-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-red-500 disabled:opacity-40"
                   >
@@ -3957,6 +4922,37 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                     </button>
                   </>
                 )}
+                {mode.kind === 'pigkeeper-choice' && (() => {
+                  // On te tient : « Chercher Tirelire » (si Tirelire dans la pioche/défausse
+                  // Fatalité) OU « Éliminer un Héros de force 1 » (si un tel Héros est en jeu).
+                  const canFetch =
+                    user.fateDeck.some((c) => c.cardId === 'hen-wen') || user.fateDiscard.some((c) => c.cardId === 'hen-wen')
+                  const canVanquish = Object.values(user.board).flat().some((c) => c.type === 'hero' && (c.strength ?? 0) <= 1)
+                  return (
+                    <>
+                      <button
+                        onClick={() => {
+                          if (!canFetch) return
+                          doPlayCard(mode.diablo, mode.actionId, mode.instanceId)
+                          setMode(null)
+                        }}
+                        disabled={!canFetch}
+                        className="rounded bg-fuchsia-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-fuchsia-500 disabled:opacity-40"
+                      >
+                        Chercher Tirelire
+                      </button>
+                      <button
+                        onClick={() =>
+                          setMode({ kind: 'pigkeeper-pick-hero', actionId: mode.actionId, instanceId: mode.instanceId, cardName: mode.cardName, diablo: mode.diablo })
+                        }
+                        disabled={!canVanquish}
+                        className="rounded bg-red-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-red-500 disabled:opacity-40"
+                      >
+                        Éliminer un Héros (force 1)
+                      </button>
+                    </>
+                  )
+                })()}
                 <button
                   onClick={() => setMode(null)}
                   className="rounded border border-amber-500/60 px-2 py-1 text-amber-300 hover:bg-amber-500/10"
@@ -4426,11 +5422,17 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                   {tyrannyDiscard?.label ?? 'Tyrannie'} : choisis {discardRequired} carte{discardRequired > 1 ? 's' : ''} à défausser.
                 </p>
               )}
+              {tyrannyDiscard?.optional && (
+                <p className="mb-2 text-center text-[11px] font-medium text-amber-200">
+                  {tyrannyDiscard.label ?? 'Défausse'} : défausse autant de cartes que tu veux (ou aucune), puis pioche jusqu’à 4.
+                </p>
+              )}
               <div className="flex items-center justify-center gap-2">
                 {/* La confirmation de défausse est portée par le bouton bleu
                     « Défausser » (qui remplace « Fin de tour »). Ici, seul reste
-                    « Annuler » — sauf en défausse obligatoire (Tyrannie). */}
-                {discardRequired === undefined && (
+                    « Annuler » — sauf en défausse obligatoire (Tyrannie / facultative
+                    en attente, qui ne passent pas par `mode` et seraient bloquées). */}
+                {discardRequired === undefined && !tyrannyDiscard && (
                   <button
                     onClick={() => setMode(null)}
                     className="rounded border border-red-500/60 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/10"
@@ -4451,6 +5453,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           {/* Même disposition que le joueur (div du haut vide + StacksCards à gauche des 4 cases). */}
           <div className="w-full">
             <div className="stacks-top flex h-24 w-full items-end justify-start gap-3">
+              {/* Madame Mim — pioche + défausse des Métamorphoses de Merlin (adversaire),
+                  alignées sur la pioche/défausse Fatalité (même retrait gauche). */}
+              <div style={{ paddingLeft: '1%' }}>
+                <MerlinPiles player={bot} uprightWidth="w-16" />
+              </div>
               {/* Pat Hibulaire — tuiles Objectif de l'adversaire (dos sauf révélées). */}
               <GoalTilesRow player={bot} />
             </div>
@@ -4506,6 +5513,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               <IngredientsPile player={bot} uprightWidth="w-14" />
               <SuccessionPile player={bot} uprightWidth="w-14" />
               <CapturedPuppiesPile player={bot} uprightWidth="w-9" />
+              <CauldronTile player={bot} />
+              <OmnidroidPile player={bot} />
             </div>
             <div className="flex-1">
               <Board
@@ -4536,7 +5545,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           <div className="relative mt-auto mb-5 flex justify-center px-2 pt-1">
             <div data-hand-zone={BOT}>
             <Hand
-              hand={bot.hand}
+              hand={bot.hand.filter((c) => !c.isOmnidroid)}
               accent={RED}
               hidden={!botHandRevealed}
               backImage={bot.backVillainImage}
@@ -4545,6 +5554,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               attachTargetsAvailable={false}
               blockEvents={false}
               realmHasAllies={false}
+              realmHasPuppyTile={false}
               realmHasHeroes={false}
               hasIngredients={false}
               heroAtPawn={false}
@@ -4589,7 +5599,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         {/* Main du joueur (centre), légèrement relevée. */}
         <div data-hand-zone={HUMAN} className="-translate-y-4">
           <Hand
-            hand={user.hand}
+            hand={user.hand.filter((c) => !c.isOmnidroid)}
             accent={BLUE}
             hidden={false}
             backImage={user.backVillainImage}
@@ -4598,7 +5608,29 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             attachTargetsAvailable={anyAllyOnBoard}
             blockEvents={humanEventsBlocked}
             realmHasAllies={anyAllyOnBoard}
+            realmHasPuppyTile={(user.puppyTiles ?? []).some((t) => t.state === 'board')}
             realmHasHeroes={anyHeroOnBoard}
+            bargainPlayable={(() => {
+              // Nous avons conclu un marché ! : jouable si défausse non vide OU Épée Magique
+              // défaussable pour le Chaudron (Épée présente, Pouvoir suffisant, Chaudron pas pris).
+              const card = user.hand.find((c) => (c.effects ?? []).some((e) => e.type === 'BARGAIN_RESHUFFLE_OR_SWORD'))
+              const eff = card?.effects?.find((e) => e.type === 'BARGAIN_RESHUFFLE_OR_SWORD')
+              if (!card || !eff || eff.type !== 'BARGAIN_RESHUFFLE_OR_SWORD') return true
+              const hasSword = Object.values(user.board).flat().some((c) => c.cardId === 'dyrnwyn')
+              const canSword = hasSword && user.power >= effectiveCost(state, card) + eff.power && user.blackCauldron === 'set-aside'
+              return user.discard.length > 0 || canSword
+            })()}
+            pigKeeperPlayable={(() => {
+              // On te tient : jouable si Tirelire est dans la pioche/défausse Fatalité
+              // (à chercher) OU s'il y a un Héros de force ≤1 à éliminer dans le royaume.
+              const card = user.hand.find((c) => (c.effects ?? []).some((e) => e.type === 'PIGKEEPER_RESOLVE'))
+              if (!card) return true
+              const canFetch = user.fateDeck.some((c) => c.cardId === 'hen-wen') || user.fateDiscard.some((c) => c.cardId === 'hen-wen')
+              const canVanquish = Object.values(user.board).flat().some((c) => c.type === 'hero' && (c.strength ?? 0) <= 1)
+              return canFetch || canVanquish
+            })()}
+            canTransformGuards={transformableGuards(state, HUMAN).length > 0}
+            hasHackInPlay={Object.values(user.board).flat().some((c) => c.isPiratage || (c.type === 'hero' && c.abilityHacked))}
             hasIngredients={(user.ingredients ?? []).some((c) => (c.cost ?? 0) <= user.power)}
             heroAtPawn={!!user.pawnLocation && (user.board[user.pawnLocation] ?? []).some((c) => c.type === 'hero')}
             canBite={canTakeABite(state, HUMAN)}
@@ -4626,6 +5658,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             })()}
             hackTargetAvailable={Object.values(user.board).flat().some((c) => c.type === 'hero' && !c.abilityHacked)}
             pawnWithRaiponce={!!user.pawnLocation && (user.board[user.pawnLocation] ?? []).some((c) => c.cardId === 'raiponce')}
+            raiponceAtTour={(user.board[user.locations[0].id] ?? []).some((c) => c.cardId === 'raiponce')}
             recoverFromDiscardAvailable={user.discard.some((c) => c.type === 'item' || c.type === 'effect')}
             hasActivatableCard={activatableCards(state).length > 0}
             canRemoveObstacle={
@@ -4642,7 +5675,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             keyAtPawn={(user.keys ?? []).some((k) => k.location === user.pawnLocation && !k.stolenBy)}
             keysOnBoard={(user.keys ?? []).some((k) => k.location !== null && !k.stolenBy)}
             ownsKey={(user.keys ?? []).some((k) => k.location === null && !k.stolenBy)}
+            lotsoToRoomAvailable={lotsoToRoomCandidates(state, HUMAN).length > 0}
+            lotsoHeroOutsideRoom={lotsoReducibleHeroes(state, HUMAN, 'not-room').length > 0}
+            lotsoHeroInRoom={lotsoHasHeroInRoom(state, HUMAN)}
             realmCardIds={Object.values(user.board).flat().map((c) => c.cardId)}
+            fateDiscardNonEmpty={user.fateDiscard.length > 0}
+            villainDiscardNonEmpty={user.discard.length > 0}
             costFor={(c) => effectiveCost(state, c)}
             armedConditionIds={humanReactions.map((c) => c.instanceId)}
             forcedHoverId={hoveredReactionId}
@@ -4651,9 +5689,21 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             requiredDiscardCount={discardRequired}
             layout="fan"
             onPlayCard={handlePlayCard}
+            onActivateReaction={(id) => {
+              // Clic direct sur une Condition armée dans la main = raccourci du
+              // panneau de réaction.
+              const c = humanReactions.find((r) => r.instanceId === id)
+              if (c) handlePlayReaction(c)
+            }}
             onToggleDiscard={handleToggleDiscard}
             onConfirmDiscard={handleConfirmDiscard}
             onCancel={() => setMode(null)}
+            dragPlayActionId={dragPlayActionId}
+            onCardDragStart={handleCardDragStart}
+            onCardDragMove={handleCardDragMove}
+            onCardDragDrop={handleCardDragDrop}
+            onCardDragCancel={cancelDrag}
+            draggingInstanceId={draggingCardId}
           />
         </div>
         {/* Panneau adverse (droite, rouge). */}
@@ -4813,6 +5863,64 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         />
       )}
 
+      {/* Sa Sucrerie — Mémoire Verrouillée : l'humain choisit Pouvoir OU reculer le Pilote. */}
+      {state.pendingPowerOrRacerBack && state.pendingPowerOrRacerBack.playerIndex === HUMAN && (
+        <ChoiceModal
+          title="Mémoire Verrouillée"
+          prompt="Que choisissez-vous ?"
+          options={[
+            {
+              key: 'power',
+              label: `Gagner ${state.pendingPowerOrRacerBack.power} jetons Pouvoir`,
+              onSelect: () => resolvePowerOrRacerBack('power'),
+            },
+            {
+              key: 'racer',
+              label: `Reculer le jeton Pilote de ${state.pendingPowerOrRacerBack.racerBack} cases`,
+              onSelect: () => resolvePowerOrRacerBack('racer'),
+            },
+          ]}
+        />
+      )}
+
+      {/* C'est votre dernière chance : l'humain choisit Déplacer un Objet/Allié OU Activer. */}
+      {state.pendingMoveOrActivate && state.pendingMoveOrActivate.playerIndex === HUMAN && (
+        <MoveOrActivateModal
+          canMove={movableCards(state).length > 0}
+          canActivate={activatableCards(state).length > 0}
+          onChoose={resolveMoveOrActivate}
+        />
+      )}
+
+      {/* Le Seigneur des Ténèbres : l'humain choisit s'emparer du Chaudron OU gagner du Pouvoir. */}
+      {state.pendingCauldronChoice && state.pendingCauldronChoice.playerIndex === HUMAN && (
+        <CauldronChoiceModal power={state.pendingCauldronChoice.power} onChoose={resolveCauldronChoice} />
+      )}
+      {state.pendingBargainChoice && state.pendingBargainChoice.playerIndex === HUMAN && (
+        <BargainChoiceModal power={state.pendingBargainChoice.power} onChoose={resolveBargainChoice} />
+      )}
+
+      {/* Le Seigneur des Ténèbres : l'humain joue gratuitement un Objet de sa main. */}
+      {state.pendingFreeItemPlay && state.pendingFreeItemPlay.playerIndex === HUMAN && (
+        <FreeItemPlayModal
+          items={user.hand.filter((c) => c.type === 'item')}
+          locations={user.locations.filter((l) => !(user.lockedLocations ?? []).includes(l.id)).map((l) => ({ id: l.id, name: l.name }))}
+          blockedFor={(cardId, locId) => (user.board[locId] ?? []).some((c) => c.type === 'hero' && c.blocksItemPlacement === cardId)}
+          onResolve={resolveFreeItemPlay}
+          onSkip={skipFreeItemPlay}
+        />
+      )}
+
+      {/* Je ne reviens jamais : l'humain réordonne le dessus de sa pioche Fatalité. */}
+      {state.pendingFateReorder && state.pendingFateReorder.playerIndex === HUMAN && (
+        <FateReorderModal
+          cards={state.pendingFateReorder.cards}
+          onResolve={resolveFateReorder}
+          title={state.pendingFateReorder.deck === 'merlin' ? 'Pas de Tricherie' : undefined}
+          deckLabel={state.pendingFateReorder.deck === 'merlin' ? 'de Métamorphoses de Merlin' : undefined}
+        />
+      )}
+
       {/* Le Seigneur des clés — animation du lancer de dé de couleur. */}
       {dieAnim && state.dieRoll && (
         <DieRollModal key={state.dieRoll.seq} seq={state.dieRoll.seq} color={state.dieRoll.color} onDone={setDieDismissSeq} />
@@ -4858,6 +5966,53 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           </div>
         </div>
       )}
+
+      {/* Glisser-déposer : fantôme du PION qui suit le curseur (déplacement). */}
+      {dragGhost?.pawnSrc &&
+        createPortal(
+          <img
+            ref={(el) => {
+              dragGhostElRef.current = el
+            }}
+            src={dragGhost.pawnSrc}
+            alt=""
+            aria-hidden
+            draggable={false}
+            className="pointer-events-none fixed z-[300] w-auto"
+            style={{
+              left: dragGhost.x,
+              top: dragGhost.y,
+              height: `${Math.round(user.pawnHeightPx * 1.3)}px`,
+              transform: 'translate(-50%, -50%)',
+              willChange: 'left, top, transform',
+              filter: `drop-shadow(0 0 2px #fff) drop-shadow(0 0 7px ${VILLAIN_COLOR[user.villain]})`,
+            }}
+          />,
+          document.body,
+        )}
+      {/* Glisser-déposer : fantôme de la carte qui suit le curseur (main OU plateau). */}
+      {dragGhost && !dragGhost.pawnSrc && (() => {
+        const inst =
+          user.hand.find((c) => c.instanceId === dragGhost.instanceId) ??
+          Object.values(user.board).flat().find((c) => c.instanceId === dragGhost.instanceId)
+        const src = inst && getCardDef(inst.cardId)?.image
+        if (!src) return null
+        return createPortal(
+          <img
+            ref={(el) => {
+              dragGhostElRef.current = el
+            }}
+            src={src}
+            alt=""
+            aria-hidden
+            draggable={false}
+            className="pointer-events-none fixed z-[300] w-44 rounded-xl border-2 border-amber-300/90 shadow-[0_12px_30px_rgba(0,0,0,0.6)]"
+            // Position initiale ; la boucle rAF prend ensuite le relais (style impératif).
+            style={{ left: dragGhost.x, top: dragGhost.y, transform: 'translate(-50%, -50%)', willChange: 'left, top, transform' }}
+          />,
+          document.body,
+        )
+      })()}
 
       {/* Lance-moi ta chevelure : l'humain choisit de combien de lieux ramener Raiponce. */}
       {state.pendingRaiponceHomeward && state.pendingRaiponceHomeward.chooserIndex === HUMAN && (
@@ -5005,6 +6160,88 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         <AllyRelocateModal
           target={state.players[state.pendingAllyRelocate.targetIndex]}
           onResolve={resolveAllyRelocate}
+          title={state.pendingAllyRelocate.title}
+          remaining={state.pendingAllyRelocate.remaining ?? 1}
+          optional={state.pendingAllyRelocate.optional}
+          onSkip={skipAllyRelocate}
+        />
+      )}
+
+      {/* Syndrome — Identification, je vous prie : l'humain déplace un Allié/Objet vers un lieu avec Héros. */}
+      {state.pendingIdentification && state.pendingIdentification.playerIndex === HUMAN && (
+        <IdentificationModal
+          player={state.players[state.pendingIdentification.playerIndex]}
+          onResolve={resolveIdentification}
+        />
+      )}
+
+      {/* Lotso — choix de cible (réduire un Héros / déplacer vers la Salle des Chenilles). */}
+      {state.pendingLotsoTarget && state.pendingLotsoTarget.playerIndex === HUMAN && (
+        <LotsoTargetModal
+          player={state.players[state.pendingLotsoTarget.playerIndex]}
+          candidateIds={state.pendingLotsoTarget.candidateIds}
+          label={state.pendingLotsoTarget.label}
+          onResolve={resolveLotsoTarget}
+        />
+      )}
+
+      {/* Lotso — Réinitialisation : choix du lieu où placer Buzz (mode Démo). */}
+      {state.pendingLotsoBuzzMove && state.pendingLotsoBuzzMove.playerIndex === HUMAN && (
+        <LotsoBuzzMoveModal
+          player={state.players[state.pendingLotsoBuzzMove.playerIndex]}
+          onResolve={resolveLotsoBuzzMove}
+        />
+      )}
+
+      {/* Lotso — Le Bibliothécaire : répartition interactive des réductions de force. */}
+      {state.pendingLotsoBookworm && state.pendingLotsoBookworm.playerIndex === HUMAN && (
+        <LotsoBookwormModal
+          power={state.players[HUMAN].power}
+          spent={state.pendingLotsoBookworm.spent}
+          candidates={lotsoReducibleHeroes(state, HUMAN).map((id) => {
+            const p = state.players[HUMAN]
+            const loc = p.locations.find((l) => (p.board[l.id] ?? []).some((c) => c.instanceId === id))
+            const c = loc ? (p.board[loc.id] ?? []).find((x) => x.instanceId === id)! : undefined
+            return {
+              instanceId: id,
+              cardId: c?.cardId ?? '',
+              name: c?.name ?? '',
+              strength: effectiveStrength(state, HUMAN, id) ?? 0,
+              locationName: loc?.name ?? '',
+            }
+          })}
+          onReduce={resolveLotsoBookworm}
+          onDone={() => resolveLotsoBookworm(null)}
+        />
+      )}
+
+      {/* Lotso — Flex : phase 1 = choisir le Héros/Buzz à déplacer (LotsoTargetModal). */}
+      {state.pendingLotsoFlex && state.pendingLotsoFlex.playerIndex === HUMAN && !state.pendingLotsoFlex.cardInstanceId && (
+        <LotsoTargetModal
+          player={state.players[HUMAN]}
+          candidateIds={state.pendingLotsoFlex.candidateIds}
+          label="Flex : quel Héros / Gardien déplacer ?"
+          onResolve={(cardInstanceId) => resolveLotsoFlex({ cardInstanceId })}
+        />
+      )}
+      {/* Lotso — Flex : phase 2 = choisir le lieu de destination (≠ lieu de Flex). */}
+      {state.pendingLotsoFlex && state.pendingLotsoFlex.playerIndex === HUMAN && state.pendingLotsoFlex.cardInstanceId && (
+        <LotsoBuzzMoveModal
+          player={state.players[HUMAN]}
+          title="Flex : vers quel lieu ?"
+          excludeLocationId={state.pendingLotsoFlex.fromLocationId}
+          onResolve={(to) => resolveLotsoFlex({ to })}
+        />
+      )}
+
+      {/* Maximus (Gothel) : l'humain (joueur qui fatalise) repositionne Cavaliers + Maximus. */}
+      {state.pendingMaximus && state.pendingMaximus.chooserIndex === HUMAN && (
+        <MaximusModal
+          target={state.players[state.pendingMaximus.targetIndex]}
+          phase={state.pendingMaximus.phase}
+          maximusInstanceId={state.pendingMaximus.maximusInstanceId}
+          onCavaliers={resolveMaximusCavaliers}
+          onMaximus={resolveMaximusMove}
         />
       )}
 
@@ -5093,7 +6330,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             ? 'Téléchargement : reprends une carte de ta défausse'
             : state.pendingRecover.label === 'Extravagance'
               ? 'Extravagance : reprends un Objet de ta défausse'
-              : 'Opportunisme : reprends un Objet ou un Événement'
+              : state.pendingRecover.label === 'Terreur'
+                ? 'Terreur : reprends un Allié ou un Événement de ta défausse'
+                : 'Opportunisme : reprends un Objet ou un Événement'
         return (
           <CardChoiceModal
             title={title}
@@ -5520,6 +6759,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         const title =
           pfc.kind === 'remove-ally'
             ? 'K.O. : retirez un Allié (force ≤ 3)'
+            : pfc.kind === 'remove-card'
+              ? 'Vieillissement : défaussez un Allié ou un Objet (coût ≤ 2)'
             : pfc.kind === 'remove-item'
               ? 'Migraine Atroce : défaussez un Objet'
               : pfc.kind === 'discard-from-hand'

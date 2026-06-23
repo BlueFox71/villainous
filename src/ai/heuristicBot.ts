@@ -35,6 +35,28 @@ export function objectiveScore(p: PlayerState): number {
   switch (p.objective.type) {
     case 'POWER_THRESHOLD':
       return Math.min(p.power, p.objective.threshold) / p.objective.threshold
+    case 'KING_CANDY_RACE': {
+      // Sa Sucrerie : avant la course, jalonner l'arrivée de Vanellope dans le royaume
+      // puis l'attache d'un Bug. Pendant la course, refléter la VRAIE proximité : la
+      // position sur le circuit ET l'avance sur le jeton Pilote (en retard = plafonné).
+      const all = Object.values(p.board).flat()
+      const vanellope = all.find((c) => c.type === 'hero' && c.cardId === 'vanellope-von-schweetz')
+      const bugOnV = !!vanellope && all.some((c) => c.cardId === 'bug' && c.attachedTo === vanellope.instanceId)
+      if (p.raceActive && p.racerPos != null) {
+        const TRACK = 18
+        const progress = Math.min(1, (p.trackPos ?? 0) / TRACK)
+        const lead = (p.trackPos ?? 0) - p.racerPos // > 0 = devant le jeton Pilote
+        let s = 0.5 + 0.45 * progress
+        if (lead < 0) s = Math.min(s, 0.6) // en retard sur le Pilote : plafonné
+        else s += Math.min(0.05, 0.01 * lead)
+        return Math.min(0.99, s)
+      }
+      let s = 0
+      if (vanellope) s += 0.3
+      if (bugOnV) s += 0.1
+      else if (p.hand.some((c) => c.cardId === 'bug')) s += 0.1
+      return Math.min(0.4, s)
+    }
     case 'CURSE_EACH_LOCATION': {
       const cursed = p.locations.filter((l) => (p.board[l.id] ?? []).some((c) => c.type === 'curse')).length
       return cursed / Math.max(1, p.locations.length)
@@ -60,7 +82,7 @@ export function objectiveScore(p: PlayerState): number {
       const gownAtBall = ballroom.some((c) => obj.ballGownCardIds.includes(c.cardId) && c.type === 'ally' && !c.attachedTo)
       const princeAtBall = ballroom.some((c) => c.cardId === obj.princeCardId)
       const bells = all.some((c) => c.cardId === obj.bellsCardId && !c.attachedTo)
-      const slipper = all.some((c) => c.cardId === obj.slipperCardId)
+      const slipper = all.some((c) => obj.slipperCardIds.includes(c.cardId))
       if (unlocked && gownAtBall && princeAtBall && bells && !slipper) return 1
       // Pondère les jalons ; la Pantoufle de Verre plafonne (il faut d'abord la retirer).
       let s = 0
@@ -417,6 +439,68 @@ export function objectiveScore(p: PlayerState): number {
       const onBoard = tiles.filter((t) => t.state === 'board').reduce((n, t) => n + t.value, 0)
       const thr = p.objective.threshold
       return Math.min(1, (captured + 0.25 * onBoard) / thr)
+    }
+    case 'CAULDRON_BORN_EVERYWHERE': {
+      // Le Seigneur des Ténèbres : la victoire = un Mort-vivant du Chaudron par lieu.
+      // Pilotée surtout par ce compte, mais on crédite les étapes préalables (poser des
+      // Anciens Soldats, s'emparer du Chaudron, l'activer) pour guider tout le parcours.
+      const total = Math.max(1, p.locations.length)
+      const born = p.locations.filter((l) =>
+        (p.board[l.id] ?? []).some((c) => c.cardId === 'cauldron-born' && c.type === 'ally' && !c.attachedTo),
+      ).length
+      if (born >= total) return 1
+      const soldiers = p.locations.filter((l) =>
+        (p.board[l.id] ?? []).some((c) => c.cardId === 'ancient-soldiers' && c.type === 'item' && !c.attachedTo),
+      ).length
+      let s = 0.6 * (born / total) + 0.15 * (soldiers / total)
+      if (p.blackCauldron === 'claimed') s += 0.1
+      if (p.blackCauldron === 'powered') s += 0.15
+      return Math.min(0.99, s)
+    }
+    case 'DEFEAT_ALL_MERLIN': {
+      // Madame Mim : proportion des 7 Métamorphoses de Merlin vaincues (merlinDiscard),
+      // + petit bonus si la Métamorphose Mim qui vainc le Merlin ACTUEL du Lieu du Duel
+      // est déjà en jeu/main (défaite imminente).
+      const TOTAL = 7
+      const defeated = p.merlinDiscard?.length ?? 0
+      if (defeated >= TOTAL) return 1
+      // Merlin actuellement en jeu (au Lieu du Duel).
+      const current = Object.values(p.board).flat().find((c) => c.isMerlinTransformation)
+      const ready =
+        current &&
+        [...Object.values(p.board).flat(), ...p.hand].some(
+          (c) => c.isMimTransformation && c.transformationTarget === current.cardId,
+        )
+      return Math.min(0.99, defeated / TOTAL + (ready ? 0.08 : 0))
+    }
+    case 'DEFEAT_OMNIDROID_V10': {
+      // Syndrome : progression v.X8 → v.X9 → v.10 → détruit, modulée par la présence de
+      // la Télécommande et l'absence de Héros (l'objectif exige un royaume sans Héros).
+      const stage = p.omnidroidStage
+      const hasHero = Object.values(p.board).flat().some((c) => c.type === 'hero')
+      if (stage === 'destroyed') return hasHero ? 0.9 : 1
+      const base: Record<string, number> = { x8: 0.1, 'x9-hand': 0.25, x9: 0.4, 'x10-hand': 0.6, x10: 0.8 }
+      let s = base[stage ?? 'x8'] ?? 0.1
+      const remote = [...p.hand, ...Object.values(p.board).flat()].some((c) => c.cardId === 'telecommande-de-syndrome')
+      if (stage === 'x10' && remote) s = 0.92
+      return Math.min(0.99, s)
+    }
+    case 'LOTSO_GATHER': {
+      // Lotso : proportion des 4 Héros sur la Salle des Chenilles à force 0, + bonus si
+      // Buzz y est. Force effective approximée (base + jetons − Chapeau de Woody).
+      const obj = p.objective
+      const room = p.board[obj.roomId] ?? []
+      const hat = Object.values(p.board).flat().some((c) => c.cardId === 'chapeau-de-woody')
+      const eff = (c: { strength?: number; permanentStrengthDelta?: number; cardId: string }) =>
+        Math.max(0, (c.strength ?? 0) + (c.permanentStrengthDelta ?? 0) + (hat && c.cardId !== 'woody' ? -1 : 0))
+      const buzzHere = room.some((c) => c.isBuzz)
+      const done = obj.heroCardIds.filter((id) => {
+        const h = room.find((c) => c.type === 'hero' && c.cardId === id)
+        return !!h && eff(h) === 0
+      }).length
+      if (done === obj.heroCardIds.length && buzzHere) return 1
+      const inPlayZero = Object.values(p.board).flat().filter((c) => c.type === 'hero' && obj.heroCardIds.includes(c.cardId) && eff(c) === 0).length
+      return Math.min(0.99, done * 0.18 + inPlayZero * 0.05 + (buzzHere ? 0.08 : 0))
     }
   }
 }

@@ -28,6 +28,7 @@ export const scar: VillainDef = {
   id: 'scar',
   name: 'Scar',
   objective: { type: 'SUCCESSION_FORCE', firstHeroCardId: 'mufasa', minForce: 15 },
+  boardObjective: 'Au début de votre tour, il doit y avoir au moins 15 points de force dans votre pile Succession.',
   objectiveDescription:
     'Trouvez et éliminez Mufasa, qui rejoint la pile Succession, puis éliminez ' +
     'd’autres Héros pour atteindre une Force combinée d’au moins 15 dans cette pile. ' +

@@ -30,6 +30,7 @@ export const cruella: VillainDef = {
   name: 'Cruella d’Enfer',
   objective: { type: 'PUPPY_THRESHOLD', threshold: 99 },
   startingPuppyTiles: puppyTiles,
+  boardObjective: 'Au début de votre tour, vous devez avoir capturé au moins 99 chiots.',
   objectiveDescription:
     'Amenez des Tuiles Chiots dans votre royaume (depuis la réserve), puis CAPTUREZ-les ' +
     'jusqu’à avoir au moins 99 Chiots capturés. Amenez des Chiots en activant Lampe ' +
