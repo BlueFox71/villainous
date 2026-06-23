@@ -252,7 +252,7 @@ export const facilierCards: CardDef[] = [
     copies: 2,
     text: "Cette carte est jouable pendant le tour d'un adversaire s'il gagne au moins 3 jetons Pouvoir. Choisissez un Allié ou un Événement sur votre défausse et ajoutez-le à votre main.",
     trigger: { type: 'opponent-gained-power-ge', value: 3 },
-    effects: [{ type: 'RECOVER_TYPE_FROM_DISCARD', types: ['ally', 'effect'] }],
+    effects: [{ type: 'RECOVER_TYPE_FROM_DISCARD', types: ['ally', 'effect'], label: 'Terreur' }],
     image: img('terreur.png'),
   },
 

@@ -34,6 +34,11 @@ import { gastonCards } from './villains/gaston.cards'
 import { seigneurClesCards } from './villains/seigneurCles.cards'
 import { madameTremaineCards } from './villains/madameTremaine.cards'
 import { oogieBoogieCards } from './villains/oogie-boogie.cards'
+import { seigneurTenebresCards } from './villains/seigneurTenebres.cards'
+import { madameMimCards } from './villains/madameMim.cards'
+import { syndromeCards } from './villains/syndrome.cards'
+import { lotsoCards } from './villains/lotso.cards'
+import { saSucrerieCards } from './villains/sa-sucrerie.cards'
 
 /** Toutes les cartes, tous vilains confondus. Source unique : ajouter un vilain
  *  ici le fait entrer dans le registre ET dans les tests d'intégrité globaux
@@ -62,6 +67,11 @@ export const allCards: CardDef[] = [
   ...seigneurClesCards,
   ...madameTremaineCards,
   ...oogieBoogieCards,
+  ...seigneurTenebresCards,
+  ...madameMimCards,
+  ...syndromeCards,
+  ...lotsoCards,
+  ...saSucrerieCards,
 ]
 
 // On attache le classement « malus Fatalité » (data IA) au CardDef, sans muter

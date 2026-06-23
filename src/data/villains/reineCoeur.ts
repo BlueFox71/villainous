@@ -21,6 +21,7 @@ export const reineCoeur: VillainDef = {
   id: 'reineCoeur',
   name: 'Reine de Cœur',
   objective: { type: 'ROYAL_CROQUET' },
+  boardObjective: 'Placez un arceau dans chaque lieu et réussissez un COUP ROYAL.',
   objectiveDescription: 'Placez un arceau dans chaque lieu et réussissez un Coup Royal.',
   boardImage: '/cards/reine-coeur/board.png',
   pawnImage: '/pion_reine_coeur.png',

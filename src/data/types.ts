@@ -68,6 +68,9 @@ export interface CardDef {
    *  absent / `'location'` = posé sur le lieu lui-même. Sans effet pour les
    *  autres types (un Allié va toujours sur le lieu). */
   attach?: 'location' | 'ally' | 'hero'
+  /** Objet qui ne peut être associé QU'au Héros de ce cardId (Sa Sucrerie — Bug →
+   *  Vanellope von Schweetz uniquement). */
+  attachOnlyCardId?: string
   /** Pour un Objet associé (`attach: 'ally' | 'hero'`) : bonus de force conféré
    *  à la carte hôte tant que cet Objet lui est associé (Arc et Flèches / Cimeterre
    *  / Lance : +1 ; Épée de Vérité / Vœu : +2). Donnée réutilisable : le moteur
@@ -96,6 +99,18 @@ export interface CardDef {
   forbiddenLocations?: LocationId[]
   /** Pour une Malédiction : restriction imposée à son lieu. */
   placementRestriction?: PlacementRestriction
+  /** Héros qui, tant qu'il est en jeu, interdit la pose/le déplacement d'un Allié
+   *  sur ce lieu (Cendrillon en robe de bal → Salle de Bal). */
+  blocksAlliesAtLocation?: LocationId
+  /** Héros qui, tant qu'il est en jeu, immobilise TOUS les Alliés (Ulf). */
+  blocksAllyMoves?: boolean
+  /** Héros qui immobilise les Alliés présents sur SON lieu uniquement (Syndrome — Frozone). */
+  blocksAllyMovesHere?: boolean
+  /** Lotso — Rex : protégé (ni Vaincre ni réduction) tant qu'il partage son lieu avec un
+   *  autre Héros (ignoré si sa force est 0). */
+  protectedWithOtherHero?: boolean
+  /** Nombre minimum d'Alliés requis pour éliminer ce Héros (Lotso — Bayonne/Hamm : 2). */
+  minAlliesToVanquish?: number
   /** Modificateur passif de force sur les AUTRES cartes du même lieu (aura). */
   strengthMod?: StrengthMod
   /** Modificateurs conditionnels de la PROPRE force de la carte (synergies). */
@@ -160,6 +175,26 @@ export interface CardDef {
   /** Scar — carte injouable s'il n'y a aucune Hyène dans le royaume (Festin :
    *  rien à déplacer sinon). */
   requiresHyenaInRealm?: boolean
+  /** Le Seigneur des Ténèbres — Mort-vivant du Chaudron : jouable seulement quand le
+   *  Chaudron Noir est activé (`blackCauldron === 'powered'`). */
+  requiresPoweredCauldron?: boolean
+  /** Le Seigneur des Ténèbres — Mort-vivant du Chaudron : à la pose, « échange » un
+   *  Objet de ce cardId présent sur le lieu de destination (défaussé). Le lieu doit en
+   *  porter un, sinon la carte est injouable. */
+  consumesItemCardId?: string
+  /** Héros qui interdit au joueur de jouer des Événements tant qu'il est en jeu
+   *  (Roi Richard, Tirelire). */
+  blocksVillainEvents?: boolean
+  /** Héros qui interdit la pose de l'Objet de ce cardId sur SON lieu (Les Elfes →
+   *  Squelettes de Soldats). */
+  blocksItemPlacement?: string
+  /** Allié déplacé sur le lieu du pion au lieu d'être défaussé après une action
+   *  Éliminer un Héros à laquelle il participe (Crapaud). */
+  relocateToPawnOnVanquish?: boolean
+  /** Sa Sucrerie — Cybug en Sucre : au lieu d'être défaussé après une action Éliminer
+   *  un Héros, l'Allié RESTE en jeu, gagne ce nombre en Force (cumulatif) et est déplacé
+   *  sur un lieu au choix. */
+  survivesVanquishGain?: number
   /** Sombra — carte de « Piratage » (Piratage, IEM) : posée sur un lieu, NON
    *  déplaçable, et comptée comme un Objet pour les conditions adverses. Le lieu qui
    *  en porte une est « piraté ». `hackDisablesAction` : à la pose, le joueur
@@ -187,6 +222,22 @@ export interface CardDef {
   /** Madame de Trémaine — Allié « en robe de bal » : jouable uniquement pour
    *  remplacer l'Allié `replacesCardId` déjà en jeu (défaussé au passage). */
   replacesCardId?: string
+  /** Madame Mim — Métamorphose Mim (Allié) : ne peut éliminer QUE la Métamorphose de
+   *  Merlin (Héros) de ce cardId. */
+  transformationTarget?: string
+  /** Madame Mim — drapeaux : Métamorphose Mim (Allié, deck Méchant) / de Merlin (Héros,
+   *  deck Merlin). */
+  isMimTransformation?: boolean
+  isMerlinTransformation?: boolean
+  /** Syndrome — Énergie au Point Zéro (Objet associé à un Héros) : empêche de déplacer
+   *  le Héros hôte (en plus de son `attachStrengthBonus` négatif). */
+  immobilizesHostHero?: boolean
+  /** Syndrome — Champ de Force (Objet Fatalité associé à un Héros) : défaussé à la place
+   *  du Héros s'il doit être éliminé (bouclier). */
+  shieldHeroFromVanquish?: boolean
+  /** Syndrome — Télécommande : compte comme Objet pour les conditions adverses mais
+   *  n'est pas affectée par les effets visant Alliés/Objets (défausser/déplacer). */
+  immuneToAllyItemEffects?: boolean
   /** IA uniquement : classement « malus » de cette carte Fatalité durable pour le
    *  joueur ciblé. Renseigné via `data/fateMalus.ts` et attaché par le registre
    *  (pas dans les `.cards.ts`). Absent = NEUTRE. */
@@ -225,6 +276,7 @@ export function buildDeckInstances(
           cost: c.cost,
           strength: c.strength,
           attach: c.attach,
+          attachOnlyCardId: c.attachOnlyCardId,
           attachStrengthBonus: c.attachStrengthBonus,
           shieldAllyFromDiscard: c.shieldAllyFromDiscard,
           effects: c.effects,
@@ -232,6 +284,11 @@ export function buildDeckInstances(
           onVanquish: c.onVanquish,
           forbiddenLocations: c.forbiddenLocations,
           placementRestriction: c.placementRestriction,
+          blocksAlliesAtLocation: c.blocksAlliesAtLocation,
+          blocksAllyMoves: c.blocksAllyMoves,
+          blocksAllyMovesHere: c.blocksAllyMovesHere,
+          protectedWithOtherHero: c.protectedWithOtherHero,
+          minAlliesToVanquish: c.minAlliesToVanquish,
           strengthMod: c.strengthMod,
           selfStrengthMods: c.selfStrengthMods,
           discardWhen: c.discardWhen,
@@ -255,6 +312,12 @@ export function buildDeckInstances(
           fatePlayBoth: c.fatePlayBoth,
           isHyena: c.isHyena,
           requiresHyenaInRealm: c.requiresHyenaInRealm,
+          requiresPoweredCauldron: c.requiresPoweredCauldron,
+          consumesItemCardId: c.consumesItemCardId,
+          blocksVillainEvents: c.blocksVillainEvents,
+          blocksItemPlacement: c.blocksItemPlacement,
+          relocateToPawnOnVanquish: c.relocateToPawnOnVanquish,
+          survivesVanquishGain: c.survivesVanquishGain,
           isPiratage: c.isPiratage,
           hackDisablesAction: c.hackDisablesAction,
           discardOnPlay: c.discardOnPlay,
@@ -265,6 +328,12 @@ export function buildDeckInstances(
           coversExtraAction: c.coversExtraAction,
           replacesCardId: c.replacesCardId,
           reactiveOnly: c.reactiveOnly,
+          transformationTarget: c.transformationTarget,
+          isMimTransformation: c.isMimTransformation,
+          isMerlinTransformation: c.isMerlinTransformation,
+          immobilizesHostHero: c.immobilizesHostHero,
+          shieldHeroFromVanquish: c.shieldHeroFromVanquish,
+          immuneToAllyItemEffects: c.immuneToAllyItemEffects,
         }),
       ),
     )

@@ -278,7 +278,9 @@ export function drawPlayerToLimit(
   let s = rngState
   let drawn = 0
 
-  while (hand.length < limit) {
+  // Les tuiles Omnidroïde (Syndrome) sont « à part » : elles ne comptent pas dans la
+  // limite de main (elles s'affichent avec les piles secondaires, hors de la main).
+  while (hand.filter((c) => !c.isOmnidroid).length < limit) {
     if (deck.length === 0) {
       if (discard.length === 0) break
       const reshuffled = shuffle(discard, s)
@@ -383,6 +385,8 @@ function makePlayer(
       villain.startingObstacles !== undefined
         ? Object.fromEntries(villain.locations.map((l) => [l.id, villain.startingObstacles!]))
         : undefined,
+    // Le Seigneur des Ténèbres — tuile Chaudron Noir : mise de côté au départ.
+    blackCauldron: villain.objective.type === 'CAULDRON_BORN_EVERYWHERE' ? 'set-aside' : undefined,
   }
 }
 
@@ -588,6 +592,78 @@ export function createInitialGame(setups: PlayerSetup[], seed: number): GameStat
           impostorsPlaced: 0,
         }
       }
+    }
+    // Madame Mim — sépare la pioche Fatalité : TRADITIONNELLE (8, ce que jouent les
+    // adversaires) vs Métamorphoses de Merlin (merlinDeck, 7). Pose 1 Merlin au hasard
+    // au Lieu du Duel (3ᵉ lieu) ; les suivants y seront posés à chaque défaite.
+    if (villain.objective.type === 'DEFEAT_ALL_MERLIN') {
+      const traditional = player.fateDeck.filter((c) => !c.isMerlinTransformation)
+      const sh = shuffle(player.fateDeck.filter((c) => c.isMerlinTransformation), rngState)
+      rngState = sh.state
+      const merlinDeck = [...sh.result]
+      const duelLoc = villain.locations[2]?.id ?? villain.locations[0].id
+      const first = merlinDeck.shift()
+      player = {
+        ...player,
+        fateDeck: traditional,
+        merlinDeck,
+        merlinDiscard: [],
+        board: first
+          ? { ...player.board, [duelLoc]: [...(player.board[duelLoc] ?? []), first] }
+          : player.board,
+      }
+    }
+    // Syndrome — pose l'Omnidroïde v.X8 sur son lieu de départ ; v.X9 puis v.10 forment
+    // la pile (jouées plus tard en défaussant des Modifications Majeures).
+    if (villain.omnidroidSetup) {
+      const setup = villain.omnidroidSetup
+      const make = (s: (typeof setup.stages)[number]): CardInstance => ({
+        instanceId: `p${i}:omnidroid:${s.cardId}`,
+        cardId: s.cardId,
+        name: s.name,
+        type: 'ally',
+        strength: s.strength,
+        isOmnidroid: true,
+        // Un Omnidroïde compte comme un OBJET pour les conditions adverses (tout en
+        // restant un Allié pour les actions « Éliminer un Héros ») et est immunisé aux
+        // effets visant Alliés/Objets.
+        alsoItem: true,
+        immuneToAllyItemEffects: true,
+        omnidroidStage: s.stage,
+        omnidroidUpgradeCost: s.upgradeCost,
+        omnidroidForceLocation: s.forceLocation,
+      })
+      const [first, ...rest] = setup.stages
+      const start = setup.startLocation
+      player = {
+        ...player,
+        omnidroidStage: first.stage as PlayerState['omnidroidStage'],
+        omnidroidPile: rest.map(make),
+        board: { ...player.board, [start]: [...(player.board[start] ?? []), make(first)] },
+      }
+    }
+    // Lotso — pose la tuile GARDIEN « Buzz l'Éclair » (deux faces) sur son lieu de départ
+    // (Salle des Chenilles), face Gardien.
+    if (villain.guardianSetup) {
+      const g = villain.guardianSetup
+      const buzz: CardInstance = {
+        instanceId: `p${i}:guardian:${g.cardId}`,
+        cardId: g.cardId,
+        name: g.name,
+        type: 'ally',
+        strength: g.strength,
+        isBuzz: true,
+        buzzMode: 'guardian',
+      }
+      player = {
+        ...player,
+        board: { ...player.board, [g.locationId]: [...(player.board[g.locationId] ?? []), buzz] },
+      }
+    }
+    // Sa Sucrerie (King Candy) — circuit en huit : le pion démarre à la case
+    // Départ/Arrivée (index 0), pas de course en cours.
+    if (villain.id === 'sa-sucrerie') {
+      player = { ...player, trackPos: 0, racerPos: null, raceActive: false }
     }
     const drawn = drawPlayerToLimit(player, rngState)
     rngState = drawn.rngState

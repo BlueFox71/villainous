@@ -29,6 +29,7 @@ export const hades: VillainDef = {
     locationId: 'mont-olympe',
     count: 3,
   },
+  boardObjective: 'Au début de votre tour, il doit y avoir au moins trois Titans sur le Mont Olympe.',
   objectiveDescription:
     'Ayez au moins 3 Titans non entravés sur le Mont Olympe au début de votre tour.',
   boardImage: '/cards/hades/board.png',

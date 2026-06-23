@@ -26,6 +26,7 @@ export const crochet: VillainDef = {
     heroCardId: 'peter-pan',
     locationId: 'jolly-roger',
   },
+  boardObjective: 'Vous devez éliminer Peter Pan sur le Jolly Roger.',
   objectiveDescription: 'Éliminez Peter Pan sur le Jolly Roger (l’éliminer ailleurs ne compte pas).',
   boardImage: '/cards/crochet/board.png',
   pawnImage: '/pion_crochet.png',

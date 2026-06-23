@@ -25,6 +25,7 @@ export const ursula: VillainDef = {
     itemCardIds: ['trident', 'couronne'],
     locationId: 'repaire',
   },
+  boardObjective: 'Au début de votre tour, le TRIDENT et la COURONNE doivent se trouver au repaire d’Ursula.',
   objectiveDescription: 'Au début de votre tour, avoir le Trident et la Couronne au Repaire d’Ursula.',
   boardImage: '/cards/ursula/board.png',
   pawnImage: '/pion_ursula.png',

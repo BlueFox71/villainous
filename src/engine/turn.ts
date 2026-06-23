@@ -45,9 +45,19 @@ export function pendingOwner(state: GameState): number | null {
   if (state.pendingTitanSelect) return state.pendingTitanSelect.chooserIndex
   // playerIndex : la main revient au joueur explicitement désigné.
   if (state.pendingTyrannyDiscard) return state.pendingTyrannyDiscard.playerIndex
+  if (state.pendingLotsoTarget) return state.pendingLotsoTarget.playerIndex
+  if (state.pendingLotsoBuzzMove) return state.pendingLotsoBuzzMove.playerIndex
+  if (state.pendingLotsoBookworm) return state.pendingLotsoBookworm.playerIndex
+  if (state.pendingLotsoFlex) return state.pendingLotsoFlex.playerIndex
   if (state.pendingDeckPeek) return state.pendingDeckPeek.playerIndex
   if (state.pendingTypeChoice) return state.pendingTypeChoice.playerIndex
   if (state.pendingDrawOrGainPower) return state.pendingDrawOrGainPower.playerIndex
+  if (state.pendingMoveOrActivate) return state.pendingMoveOrActivate.playerIndex
+  if (state.pendingCauldronChoice) return state.pendingCauldronChoice.playerIndex
+  if (state.pendingBargainChoice) return state.pendingBargainChoice.playerIndex
+  if (state.pendingFreeItemPlay) return state.pendingFreeItemPlay.playerIndex
+  if (state.pendingMaximus) return state.pendingMaximus.chooserIndex
+  if (state.pendingFateReorder) return state.pendingFateReorder.playerIndex
   if (state.pendingTeleport) return state.pendingTeleport.playerIndex
   if (state.pendingManipulation) return state.pendingManipulation.playerIndex
   if (state.pendingRoyalCroquet) return state.pendingRoyalCroquet.playerIndex

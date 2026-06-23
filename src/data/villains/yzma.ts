@@ -30,6 +30,7 @@ export const yzma: VillainDef = {
   id: 'yzma',
   name: 'Yzma',
   objective: { type: 'DEFEAT_HERO_WITH_ALLY', heroCardId: 'kuzco', allyCardId: 'kronk' },
+  boardObjective: 'Vous devez éliminer Kuzco à l’aide de Kronk.',
   objectiveDescription:
     'Trouvez Kuzco dans l’une de vos quatre pioches Fatalité et jouez-le. Jouez Kronk, ' +
     'gardez-le de votre côté, et utilisez-le pour éliminer Kuzco.',

@@ -71,9 +71,19 @@ import { madameTremaine } from '../../data/villains/madameTremaine'
 import { madameTremaineCards } from '../../data/villains/madameTremaine.cards'
 import { oogieBoogie } from '../../data/villains/oogie-boogie'
 import { oogieBoogieCards } from '../../data/villains/oogie-boogie.cards'
+import { seigneurTenebres } from '../../data/villains/seigneurTenebres'
+import { seigneurTenebresCards } from '../../data/villains/seigneurTenebres.cards'
+import { madameMim } from '../../data/villains/madameMim'
+import { madameMimCards } from '../../data/villains/madameMim.cards'
+import { syndrome } from '../../data/villains/syndrome'
+import { syndromeCards } from '../../data/villains/syndrome.cards'
+import { lotso } from '../../data/villains/lotso'
+import { lotsoCards } from '../../data/villains/lotso.cards'
+import { saSucrerie } from '../../data/villains/sa-sucrerie'
+import { saSucrerieCards } from '../../data/villains/sa-sucrerie.cards'
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'seigneurCles' | 'madameTremaine' | 'oogieBoogie'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'seigneurCles' | 'madameTremaine' | 'oogieBoogie' | 'seigneurTenebres' | 'madameMim' | 'syndrome' | 'lotso' | 'saSucrerie'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -98,7 +108,12 @@ export const VILLAIN_REGISTRY = {
   gaston: { def: gaston, cards: gastonCards, label: 'Gaston' },
   seigneurCles: { def: seigneurCles, cards: seigneurClesCards, label: 'Le Seigneur des clés' },
   madameTremaine: { def: madameTremaine, cards: madameTremaineCards, label: 'Madame de Trémaine' },
+  seigneurTenebres: { def: seigneurTenebres, cards: seigneurTenebresCards, label: 'Le Seigneur des Ténèbres' },
+  madameMim: { def: madameMim, cards: madameMimCards, label: 'Madame Mim' },
+  syndrome: { def: syndrome, cards: syndromeCards, label: 'Syndrome' },
+  lotso: { def: lotso, cards: lotsoCards, label: 'Lotso' },
   oogieBoogie: { def: oogieBoogie, cards: oogieBoogieCards, label: 'Oogie Boogie' },
+  saSucrerie: { def: saSucrerie, cards: saSucrerieCards, label: 'Sa Sucrerie' },
 } as const
 
 /** Qui contrôle chaque siège. Concept d'UI : le moteur, lui, ne sait pas qui
@@ -474,6 +489,7 @@ interface GameStore {
    *  sans passer la main au bot — pour continuer à jouer après « fin de tour ». */
   testRefreshTurn: () => void
   move: (to: LocationId) => void
+  moveTrack: (steps: number) => void
   skipMove: () => void
   /** Fixe le joueur qui commence (jet de dé de début de partie) + journalise. */
   setStartingPlayer: (index: number, rolls: [number, number]) => void
@@ -501,6 +517,15 @@ interface GameStore {
     itemInstanceId?: string,
   ) => void
   vanquish: (actionId: string, heroInstanceId: string, allyInstanceIds: string[]) => void
+  /** Le Seigneur des Ténèbres — active le Chaudron Magique réclamé (face Pouvoir). */
+  activateCauldron: () => void
+  /** Le Seigneur des Ténèbres — résout le choix « Chaudron OU Pouvoir ». */
+  resolveCauldronChoice: (choice: 'cauldron' | 'power') => void
+  /** Le Seigneur des Ténèbres — résout le choix « Nous avons conclu un marché ! ». */
+  resolveBargainChoice: (choice: 'reshuffle' | 'sword') => void
+  /** Le Seigneur des Ténèbres — joue gratuitement un Objet (Nous touchons du doigt la victoire). */
+  resolveFreeItemPlay: (instanceId: string, to: string) => void
+  skipFreeItemPlay: () => void
   discardDeguisement: (instanceId: string) => void
   sheriffMove: (instanceId: string, to: string) => void
   diabloMove: (instanceId: string, to: string) => void
@@ -562,6 +587,14 @@ interface GameStore {
   resolveTypeChoice: (cardType: import('../../engine/types').CardType) => void
   /** Le Grand Génie du Mal : choisit de piocher (`'draw'`) ou gagner du Pouvoir (`'power'`). */
   resolveDrawOrGainPower: (choice: 'draw' | 'power') => void
+  resolvePowerOrRacerBack: (choice: 'power' | 'racer') => void
+  /** C'est votre dernière chance : choisir l'action gratuite (Déplacer / Activer). */
+  resolveMoveOrActivate: (choice: 'move' | 'activate') => void
+  /** Maximus (Gothel) : déplacer un Cavaliers du roi (phase 1) puis Maximus (phase 2). */
+  resolveMaximusCavaliers: (allyInstanceId: string | null, to: string | null) => void
+  resolveMaximusMove: (to: string | null) => void
+  /** Je ne reviens jamais (Trémaine) : replace les cartes Fatalité dans l'ordre choisi. */
+  resolveFateReorder: (orderedIds: string[]) => void
   /** Lance-moi ta chevelure : ramène Raiponce de `steps` lieux (1 ou 2) vers la Tour. */
   resolveRaiponceHomeward: (steps: number) => void
   /** Frères Stabbington : déplacer (ou non) Raiponce sur la Tour. */
@@ -588,6 +621,17 @@ interface GameStore {
   skipHeroRelocate: () => void
   /** Flèche de Mome Raths : déplace l'Allié choisi vers le lieu (non bloqué) choisi. */
   resolveAllyRelocate: (allyInstanceId: string, to: string) => void
+  skipAllyRelocate: () => void
+  /** Syndrome — Identification, je vous prie : déplace l'Allié/Objet choisi vers le lieu (avec Héros) choisi. */
+  resolveIdentification: (cardInstanceId: string, to: string) => void
+  /** Lotso — résout le choix de cible (réduire un Héros / déplacer vers la Salle des Chenilles). */
+  resolveLotsoTarget: (instanceId: string) => void
+  /** Lotso — Réinitialisation : résout le choix du lieu où placer Buzz (mode Démo). */
+  resolveLotsoBuzzMove: (to: string) => void
+  /** Lotso — Le Bibliothécaire : réduit le Héros choisi (−1) ou termine (null). */
+  resolveLotsoBookworm: (heroInstanceId: string | null) => void
+  /** Lotso — Flex : choisit la carte à déplacer (cardInstanceId) puis le lieu (to). */
+  resolveLotsoFlex: (arg: { cardInstanceId?: string; to?: string }) => void
   /** Téléportation : déplace le pion vers le lieu (portant un Héros) choisi. */
   resolveTeleport: (to: string) => void
   resolveManipulation: (instanceId: string) => void
@@ -975,6 +1019,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }),
   move: (to) =>
     get().submit({ type: 'MOVE', to }),
+  moveTrack: (steps) =>
+    get().submit({ type: 'MOVE_TRACK', steps }),
   skipMove: () =>
     get().submit({ type: 'SKIP_MOVE' }),
   executeAction: (actionId, count) =>
@@ -1002,6 +1048,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'ACTIVATE', actionId, cardInstanceId, to, itemInstanceId }),
   vanquish: (actionId, heroInstanceId, allyInstanceIds) =>
     get().submit({ type: 'VANQUISH', actionId, heroInstanceId, allyInstanceIds }),
+  activateCauldron: () => get().submit({ type: 'ACTIVATE_CAULDRON' }),
+  resolveCauldronChoice: (choice: 'cauldron' | 'power') => get().submit({ type: 'RESOLVE_CAULDRON_CHOICE', choice }),
+  resolveBargainChoice: (choice: 'reshuffle' | 'sword') => get().submit({ type: 'RESOLVE_BARGAIN_CHOICE', choice }),
+  resolveFreeItemPlay: (instanceId: string, to: string) => get().submit({ type: 'RESOLVE_FREE_ITEM_PLAY', instanceId, to }),
+  skipFreeItemPlay: () => get().submit({ type: 'SKIP_FREE_ITEM_PLAY' }),
   discardDeguisement: (instanceId) =>
     get().submit({ type: 'DISCARD_DEGUISEMENT', instanceId }),
   sheriffMove: (instanceId, to) =>
@@ -1063,6 +1114,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_TYPE_CHOICE', cardType }),
   resolveDrawOrGainPower: (choice) =>
     get().submit({ type: 'RESOLVE_DRAW_OR_GAIN_POWER', choice }),
+  resolvePowerOrRacerBack: (choice) =>
+    get().submit({ type: 'RESOLVE_POWER_OR_RACER_BACK', choice }),
+  resolveMoveOrActivate: (choice) =>
+    get().submit({ type: 'RESOLVE_MOVE_OR_ACTIVATE', choice }),
+  resolveMaximusCavaliers: (allyInstanceId, to) =>
+    get().submit({ type: 'RESOLVE_MAXIMUS_CAVALIERS', allyInstanceId, to }),
+  resolveMaximusMove: (to) =>
+    get().submit({ type: 'RESOLVE_MAXIMUS_MOVE', to }),
+  resolveFateReorder: (orderedIds) =>
+    get().submit({ type: 'RESOLVE_FATE_REORDER', orderedIds }),
   resolveRaiponceHomeward: (steps) =>
     get().submit({ type: 'RESOLVE_RAIPONCE_HOMEWARD', steps }),
   resolveRaiponceToTower: (move) =>
@@ -1089,6 +1150,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'SKIP_HERO_RELOCATE' }),
   resolveAllyRelocate: (allyInstanceId, to) =>
     get().submit({ type: 'RESOLVE_ALLY_RELOCATE', allyInstanceId, to }),
+  skipAllyRelocate: () => get().submit({ type: 'SKIP_ALLY_RELOCATE' }),
+  resolveIdentification: (cardInstanceId, to) =>
+    get().submit({ type: 'RESOLVE_IDENTIFICATION', cardInstanceId, to }),
+  resolveLotsoTarget: (instanceId) => get().submit({ type: 'RESOLVE_LOTSO_TARGET', instanceId }),
+  resolveLotsoBuzzMove: (to) => get().submit({ type: 'RESOLVE_LOTSO_BUZZ_MOVE', to }),
+  resolveLotsoBookworm: (heroInstanceId) => get().submit({ type: 'RESOLVE_LOTSO_BOOKWORM', heroInstanceId }),
+  resolveLotsoFlex: (arg) => get().submit({ type: 'RESOLVE_LOTSO_FLEX', ...arg }),
   resolveTeleport: (to) =>
     get().submit({ type: 'RESOLVE_TELEPORT', to }),
   resolveManipulation: (instanceId) =>

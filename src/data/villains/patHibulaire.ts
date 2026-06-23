@@ -26,6 +26,7 @@ export const patHibulaire: VillainDef = {
   id: 'patHibulaire',
   name: 'Pat Hibulaire',
   objective: { type: 'COMPLETE_GOAL_TOKENS', blockerHeroCardId: 'mickey' },
+  boardObjective: 'Vous devez remplir vos 4 objectifs.',
   objectiveDescription:
     'À la mise en place, 4 de vos 5 tuiles Objectif sont posées face cachée, une ' +
     'sur chaque lieu. Remplissez vos 4 tuiles pour gagner. Tant que Mickey est ' +

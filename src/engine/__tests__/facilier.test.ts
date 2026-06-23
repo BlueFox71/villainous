@@ -52,6 +52,23 @@ describe('Dr Facilier — Pile de l’Au-delà', () => {
     expect(out.players[0].auDela.map((c) => c.cardId)).toContain('regner-nouvelle-orleans')
   })
 
+  it('Terreur : choix INTERACTIF d’un Allié OU d’un Événement de la défausse (pendingRecover)', () => {
+    const ally = inst('esprits-ombres') // un Allié quelconque du deck Facilier
+    const event = inst('amis-au-dela') // un Événement quelconque
+    let s = facilierGame()
+    s = withActive(s, { discard: [ally, event] })
+    // Terreur ouvre un pendingRecover listant les deux candidats (pas d'auto-pick).
+    s = resolveEffect(s, { type: 'RECOVER_TYPE_FROM_DISCARD', types: ['ally', 'effect'], label: 'Terreur' }, { actorIndex: 0 })
+    expect(s.pendingRecover?.playerIndex).toBe(0)
+    expect(s.pendingRecover?.label).toBe('Terreur')
+    expect(new Set(s.pendingRecover?.candidateIds)).toEqual(new Set([ally.instanceId, event.instanceId]))
+    // Le joueur choisit l'Événement → il rejoint la main, l'Allié reste en défausse.
+    const out = applyAction(s, { type: 'RESOLVE_RECOVER', instanceId: event.instanceId })
+    expect(out.pendingRecover ?? null).toBeNull()
+    expect(out.players[0].hand.some((c) => c.instanceId === event.instanceId)).toBe(true)
+    expect(out.players[0].discard.some((c) => c.instanceId === ally.instanceId)).toBe(true)
+  })
+
   it('JOUER Divination révèle Tour de passe-passe de la pile et déclenche son effet', () => {
     const divination = inst('divination-facilier')
     const tour = inst('tour-passe-passe')

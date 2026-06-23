@@ -105,21 +105,35 @@ export function PlayerPanel({ player, accent, isActive, isWinner, showObjective 
           )
         })()}
 
-        {/* Gaston — jetons OBSTACLE restants (objectif : 0 sur 8). */}
+        {/* Gaston — objectif : RETIRER tous les Obstacles (0 sur 8). La jauge montre les
+            8 jetons : ceux RETIRÉS (progression) en plein, ceux qui restent estompés. */}
         {player.obstacles !== undefined && (() => {
           const remaining = Object.values(player.obstacles).reduce((n, v) => n + v, 0)
           const start = Math.max(1, player.locations.length * 2)
+          const removed = start - remaining
           return (
             <div
-              className="flex flex-col items-center justify-center rounded-lg border border-amber-400/30 bg-black/20 px-3 py-3"
-              title={`Obstacles restants : ${remaining}/${start} (objectif : 0)`}
+              className="flex flex-col items-center justify-center rounded-lg border border-amber-400/30 bg-black/20 px-3 py-2.5"
+              title={`Obstacles retirés : ${removed}/${start} (objectif : tous retirés)`}
             >
-              <span className="-mt-1.5 text-[9px] uppercase tracking-wide text-amber-300/70">Obstacles</span>
-              <span className="text-2xl font-bold text-amber-200">🚧 {remaining}</span>
-              <span className="text-[10px] text-white/50">{start - remaining}/{start} retirés</span>
+              <span className="-mt-1 text-[9px] uppercase tracking-wide text-amber-300/70">Obstacles</span>
+              <div className="mt-1 grid grid-cols-4 gap-0.5">
+                {Array.from({ length: start }, (_, i) => (
+                  <img
+                    key={i}
+                    src="/cards/gaston/obstacle.png"
+                    alt="Obstacle"
+                    className={`h-4 w-4 object-contain ${i < removed ? 'drop-shadow' : 'opacity-20 grayscale'}`}
+                  />
+                ))}
+              </div>
+              <span className="mt-1 text-[10px] text-white/50">{removed}/{start} retirés</span>
             </div>
           )
         })()}
+
+        {/* Le Seigneur des Ténèbres — le Chaudron Magique est affiché parmi les piles
+            secondaires du plateau (CauldronTile dans la marge gauche), pas ici. */}
 
         {/* Le Seigneur des clés — clés possédées par couleur (objectif : 1 de chaque). */}
         {player.keys !== undefined && (() => {

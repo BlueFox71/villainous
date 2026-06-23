@@ -283,6 +283,7 @@ describe('action Fatalité (B)', () => {
       name: 'Roi Richard',
       type: 'hero',
       strength: 5,
+      blocksVillainEvents: true,
     }
     const taxes: CardInstance = {
       instanceId: 'p0:taxes#1',

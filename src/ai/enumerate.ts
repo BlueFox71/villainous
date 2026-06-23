@@ -10,8 +10,10 @@
 import type { GameAction, GameState, PlayerState } from '../engine/types'
 import { KEY_COLORS } from '../engine/types'
 import { canEnterAuDela, raiponceLocation, titanReachableDests } from '../engine/effects'
+import { fateCardPlayable } from '../engine/actions'
 import {
   adjacentLocationIds,
+  allyBlockedAt,
   alliesAt,
   canFate,
   canPlaceCurseAt,
@@ -23,14 +25,15 @@ import {
   cardNeedsVanquishTarget,
   drainStarAllies,
   activatableCards,
+  cauldronBornLocations,
   effectiveCost,
   effectiveStrength,
   getAvailableActions,
   getLegalMoves,
-  hasHeroInRealm,
   heroPlacementLocations,
   heroesOf,
   locationOfCard,
+  lotsoReducibleHeroes,
   maxBrewPoison,
   movableCards,
   placementLocations,
@@ -434,6 +437,61 @@ export function enumerateActions(state: GameState): GameAction[] {
         }
       }
     }
+    // Go ! (facultatif) : on peut s'arrêter avant d'avoir déplacé tous les Alliés.
+    if (par.optional) out.push({ type: 'SKIP_ALLY_RELOCATE' })
+    if (out.length > 0) return out
+  }
+
+  // Mémoire Verrouillée : choix Pouvoir OU reculer le jeton Pilote.
+  if (state.pendingPowerOrRacerBack) {
+    return [
+      { type: 'RESOLVE_POWER_OR_RACER_BACK', choice: 'power' },
+      { type: 'RESOLVE_POWER_OR_RACER_BACK', choice: 'racer' },
+    ]
+  }
+
+  // Lotso — choix d'une cible (réduire un Héros / déplacer vers la Salle des Chenilles).
+  if (state.pendingLotsoTarget) {
+    const ptl = state.pendingLotsoTarget
+    return ptl.candidateIds.map((instanceId) => ({ type: 'RESOLVE_LOTSO_TARGET', instanceId }))
+  }
+
+  // Lotso — Réinitialisation : choix du lieu où placer Buzz (mode Démo).
+  if (state.pendingLotsoBuzzMove) {
+    const pl = state.players[state.pendingLotsoBuzzMove.playerIndex]
+    return pl.locations.map((l) => ({ type: 'RESOLVE_LOTSO_BUZZ_MOVE', to: l.id }))
+  }
+
+  // Lotso — Le Bibliothécaire : réduire un Héros réductible (−1) ou terminer.
+  if (state.pendingLotsoBookworm) {
+    const out: GameAction[] = [{ type: 'RESOLVE_LOTSO_BOOKWORM', heroInstanceId: null }]
+    for (const id of lotsoReducibleHeroes(state, state.pendingLotsoBookworm.playerIndex)) {
+      out.push({ type: 'RESOLVE_LOTSO_BOOKWORM', heroInstanceId: id })
+    }
+    return out
+  }
+
+  // Lotso — Flex : phase 1 (choisir la carte) ou phase 2 (choisir le lieu de destination).
+  if (state.pendingLotsoFlex) {
+    const pf = state.pendingLotsoFlex
+    if (!pf.cardInstanceId) return pf.candidateIds.map((id) => ({ type: 'RESOLVE_LOTSO_FLEX', cardInstanceId: id }))
+    const pl = state.players[pf.playerIndex]
+    return pl.locations.filter((l) => l.id !== pf.fromLocationId).map((l) => ({ type: 'RESOLVE_LOTSO_FLEX', to: l.id }))
+  }
+
+  // Syndrome — « Identification, je vous prie » : déplacer un Allié/Objet vers un lieu
+  // portant un Héros. On énumère (carte × lieu-avec-Héros).
+  if (state.pendingIdentification) {
+    const p = state.players[state.pendingIdentification.playerIndex]
+    const heroLocs = p.locations.map((l) => l.id).filter((id) => (p.board[id] ?? []).some((c) => c.type === 'hero'))
+    const out: GameAction[] = []
+    for (const loc of p.locations) {
+      for (const c of (p.board[loc.id] ?? []).filter((c) => (c.type === 'ally' || c.type === 'item') && !c.attachedTo && !c.isWicket && !c.immuneToAllyItemEffects)) {
+        for (const to of heroLocs.filter((id) => id !== loc.id)) {
+          out.push({ type: 'RESOLVE_IDENTIFICATION', cardInstanceId: c.instanceId, to })
+        }
+      }
+    }
     if (out.length > 0) return out
   }
 
@@ -465,6 +523,39 @@ export function enumerateActions(state: GameState): GameAction[] {
   // Abu/Aladdin/K.O. : une option par carte candidate (Objet à voler / Allié à retirer).
   if (state.pendingFateChoice) {
     return state.pendingFateChoice.candidateIds.map((id) => ({ type: 'RESOLVE_FATE_CHOICE', instanceId: id }))
+  }
+
+  // Je ne reviens jamais : le bot conserve l'ordre révélé (réorganisation neutre).
+  if (state.pendingFateReorder) {
+    return [{ type: 'RESOLVE_FATE_REORDER', orderedIds: state.pendingFateReorder.cards.map((c) => c.instanceId) }]
+  }
+
+  // Mère Gothel — Maximus : repositionnement facultatif (Cavaliers du roi, puis Maximus)
+  // par le joueur qui pose la Fatalité. Une option par destination voisine + « passer ».
+  if (state.pendingMaximus) {
+    const pm = state.pendingMaximus
+    const tp = state.players[pm.targetIndex]
+    const order = tp.locations.map((l) => l.id)
+    const locked = new Set(tp.lockedLocations ?? [])
+    const adj = (from: string): string[] => {
+      const i = order.indexOf(from)
+      return [order[i - 1], order[i + 1]].filter((id): id is string => !!id && !locked.has(id))
+    }
+    if (pm.phase === 'cavaliers') {
+      const out: GameAction[] = [{ type: 'RESOLVE_MAXIMUS_CAVALIERS', allyInstanceId: null, to: null }]
+      for (const loc of tp.locations) {
+        for (const c of tp.board[loc.id] ?? []) {
+          if (c.type === 'ally' && c.cardId === 'cavaliers-du-roi') {
+            for (const to of adj(loc.id)) out.push({ type: 'RESOLVE_MAXIMUS_CAVALIERS', allyInstanceId: c.instanceId, to })
+          }
+        }
+      }
+      return out
+    }
+    const out: GameAction[] = [{ type: 'RESOLVE_MAXIMUS_MOVE', to: null }]
+    const from = tp.locations.find((l) => (tp.board[l.id] ?? []).some((c) => c.instanceId === pm.maximusInstanceId))?.id
+    if (from) for (const to of adj(from)) out.push({ type: 'RESOLVE_MAXIMUS_MOVE', to })
+    return out
   }
 
   // Déplacement d'Allié (Pas de Quartier ! / Grand Terrier) : une option par
@@ -585,6 +676,19 @@ export function enumerateActions(state: GameState): GameAction[] {
         if (tgt.fateDiscard.some((c) => c.type === 'hero' && (c.strength ?? 0) <= 4)) {
           out.push({ type: 'RESOLVE_FATE', instanceId: card.instanceId })
         }
+      } else if (card.cardId === 'gurgis-happy-day') {
+        // Le Seigneur des Ténèbres — Retour à la vie de Gurki : jouable seulement si la
+        // défausse Fatalité de la cible n'est pas vide (sinon rien à remélanger).
+        if (state.players[target].fateDiscard.length > 0) {
+          out.push({ type: 'RESOLVE_FATE', instanceId: card.instanceId })
+        }
+      } else if (card.cardId === 'travail-d-equipe') {
+        // Syndrome — Travail d'équipe : jouable seulement si l'AUTRE carte révélée existe
+        // et est jouable (« Jouez l'autre carte Fatalité » est obligatoire).
+        const other = revealed.find((c) => c.instanceId !== card.instanceId)
+        if (other && fateCardPlayable(state, other, target)) {
+          out.push({ type: 'RESOLVE_FATE', instanceId: card.instanceId })
+        }
       } else {
         out.push({ type: 'RESOLVE_FATE', instanceId: card.instanceId })
       }
@@ -602,6 +706,15 @@ export function enumerateActions(state: GameState): GameAction[] {
   // Phase de déplacement : un lieu différent du lieu courant (+ skip si Disparition).
   // Diablo se déplace AVANT le pion (donc ici, en phase MOVE).
   if (state.phase === 'MOVE') {
+    // Sa Sucrerie — déplacement sur le circuit en huit : 1 à 4 cases (2–3 si Félix).
+    if (me.villain === 'sa-sucrerie') {
+      const felix = Object.values(me.board).flat().some((c) => c.type === 'hero' && c.cardId === 'felix-fixe-jr' && !c.hypnotized)
+      const min = felix ? 2 : 1
+      const max = felix ? 3 : 4
+      const out: GameAction[] = []
+      for (let s = min; s <= max; s++) out.push({ type: 'MOVE_TRACK', steps: s })
+      return out
+    }
     const out: GameAction[] = getLegalMoves(state).map((to) => ({ type: 'MOVE', to }))
     if (me.skipNextMove) out.push({ type: 'SKIP_MOVE' })
     for (const loc of me.locations) {
@@ -640,6 +753,13 @@ export function enumerateActions(state: GameState): GameAction[] {
     }
   }
 
+  // Le Seigneur des Ténèbres — RÉVEILLER le Chaudron Noir réclamé via l'action « Activer
+  // une capacité » donnée par les Squelettes de Soldats : seulement si cette action est
+  // disponible (un Squelettes au lieu du pion), comme pour l'humain.
+  if (me.blackCauldron === 'claimed' && getAvailableActions(state).some((a) => a.type === 'ACTIVATE')) {
+    out.push({ type: 'ACTIVATE_CAULDRON' })
+  }
+
   // Cruella — Finissez le travail ! : activation gratuite disponible → on propose
   // d'activer chaque capacité finançable, sans dépendre d'un lieu Activer.
   if (me.freeActivate) {
@@ -662,7 +782,7 @@ export function enumerateActions(state: GameState): GameAction[] {
       for (const count of counts) out.push({ type: 'EXECUTE_ACTION', actionId: action.id, count })
     } else if (action.type === 'PLAY_CARD') {
       const locs = placementLocations(state)
-      const richardBlocks = hasHeroInRealm(state, state.activePlayer, 'roi-richard')
+      const richardBlocks = Object.values(me.board).flat().some((c) => c.type === 'hero' && c.blocksVillainEvents)
       for (const card of me.hand) {
         if (card.type === 'condition' || effectiveCost(state, card) > me.power) continue
         if (card.reactiveOnly) continue // Oogie — Dés pipés : se joue en réaction
@@ -671,6 +791,48 @@ export function enumerateActions(state: GameState): GameAction[] {
         // Madame de Trémaine — Allié « en robe de bal » injouable sans sa version
         // ordinaire en jeu.
         if (card.replacesCardId && !Object.values(me.board).flat().some((c) => c.cardId === card.replacesCardId && !c.attachedTo)) continue
+        // Madame de Trémaine — Je ne reviens jamais : inutile si la défausse Fatalité est vide.
+        if ((card.effects ?? []).some((e) => e.type === 'RESHUFFLE_FATE_DISCARD') && me.fateDiscard.length === 0) continue
+        // Mère Gothel — Je serai la méchante : injouable si Raiponce est déjà sur la Tour
+        // (ne resterait que la perte de 1 Confiance).
+        if (
+          card.type === 'effect' &&
+          (card.effects ?? []).some((e) => e.type === 'MOVE_RAIPONCE' && e.to === 'tour') &&
+          raiponceLocation(me) === me.locations[0].id
+        ) continue
+        // J'ai dit « Si » : injouable si la défausse de Méchant est vide.
+        if ((card.effects ?? []).some((e) => e.type === 'RESHUFFLE_DISCARD_AND_DRAW') && me.discard.length === 0) continue
+        // Syndrome — Identification, je vous prie : inutile sans lieu portant un Héros ou
+        // sans Allié/Objet (non associé) à déplacer.
+        if (
+          (card.effects ?? []).some((e) => e.type === 'MOVE_ALLY_OR_ITEM_TO_HERO_LOCATION') &&
+          (!me.locations.some((l) => (me.board[l.id] ?? []).some((c) => c.type === 'hero')) ||
+            !Object.values(me.board).flat().some((c) => (c.type === 'ally' || c.type === 'item') && !c.attachedTo && !c.isWicket && !c.immuneToAllyItemEffects))
+        ) continue
+        // Reine de Cœur — Par ordre de la Reine ! : inutile sans Carte Garde transformable.
+        if ((card.effects ?? []).some((e) => e.type === 'TRANSFORM_GUARDS') && transformableGuards(state, state.activePlayer).length === 0) continue
+        // Cruella — J'adore les belles fourrures : inutile sans Tuile Chiots dans le royaume.
+        if ((card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_PUPPY_LOCATION') && !(me.puppyTiles ?? []).some((t) => t.state === 'board')) continue
+        // Le Seigneur des Ténèbres — Notre heure est venue ! : inutile si le Chaudron n'est
+        // pas en sa possession (déjà réveillé, ou pas encore réclamé).
+        if ((card.effects ?? []).some((e) => e.type === 'POWER_BLACK_CAULDRON') && me.blackCauldron !== 'claimed') continue
+        // Le Seigneur des Ténèbres — Nous avons conclu un marché ! : injouable si aucune
+        // option n'est réalisable (défausse vide ET pas d'Épée Magique défaussable pour
+        // le Chaudron — Épée absente, Pouvoir insuffisant, ou Chaudron déjà pris).
+        {
+          const bg = (card.effects ?? []).find((e) => e.type === 'BARGAIN_RESHUFFLE_OR_SWORD')
+          if (bg && bg.type === 'BARGAIN_RESHUFFLE_OR_SWORD') {
+            const hasSword = Object.values(me.board).flat().some((c) => c.cardId === 'dyrnwyn')
+            const canSword = hasSword && me.power >= effectiveCost(state, card) + bg.power && me.blackCauldron === 'set-aside'
+            if (me.discard.length === 0 && !canSword) continue
+          }
+        }
+        // C'est votre dernière chance : injouable si NI déplacement NI activation possible.
+        if (
+          (card.effects ?? []).some((e) => e.type === 'GRANT_FREE_MOVE_OR_ACTIVATE') &&
+          movableCards(state).length === 0 &&
+          activatableCards(state).length === 0
+        ) continue
         const orPayEffect = (card.effects ?? []).find((x) => x.type === 'DISCARD_ALLY_AT_HOST_OR_PAY')
         if (card.type === 'ally' || card.type === 'item' || card.type === 'curse') {
           if (requiresAllyTarget(card)) {
@@ -702,9 +864,26 @@ export function enumerateActions(state: GameState): GameAction[] {
               }
             }
           } else {
-            for (const to of locs) {
+            // Le Seigneur des Ténèbres — Mort-vivant du Chaudron : lieux restreints
+            // (Chaudron actif + Anciens Soldats présents).
+            // Syndrome — tuile Omnidroïde (v.X9/v.10) : jouable seulement si le royaume
+            // a assez de Modifications Majeures ; v.10 doit aller sur Métroville.
+            if (card.isOmnidroid && card.omnidroidUpgradeCost) {
+              const mods = Object.values(me.board)
+                .flat()
+                .filter((c) => c.cardId === 'modification-majeure' && c.type === 'item' && !c.attachedTo).length
+              if (mods < card.omnidroidUpgradeCost) continue
+            }
+            const placeLocs =
+              card.requiresPoweredCauldron || card.consumesItemCardId ? cauldronBornLocations(me, card) : locs
+            for (const to of placeLocs) {
               if (card.type === 'curse' && !canPlaceCurseAt(state, state.activePlayer, to, card)) continue
               if (card.playOnlyAt && to !== card.playOnlyAt) continue
+              if (card.isOmnidroid && card.omnidroidForceLocation && to !== card.omnidroidForceLocation) continue
+              // Anastasie/Javotte : pas dans la Salle de Bal (lieux interdits par carte).
+              if ((card.forbiddenLocations ?? []).includes(to)) continue
+              // Cendrillon en robe de bal : aucun Allié sur la Salle de Bal.
+              if (card.type === 'ally' && allyBlockedAt(state, state.activePlayer, to)) continue
               out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, to })
             }
           }
@@ -750,6 +929,9 @@ export function enumerateActions(state: GameState): GameAction[] {
           )
           // Boop ! (Sombra) : on ne pirate pas un Héros déjà piraté.
           const hacks = (card.effects ?? []).some((e) => e.type === 'HACK_HERO')
+          // Sale voleuse ! : cible restreinte à certains cardId (Cendrillon / robe de bal).
+          const onlyCardIds =
+            maxStrengthEffect?.type === 'INSTANT_VANQUISH_HERO_LE' ? maxStrengthEffect.onlyCardIds : undefined
           const own = atPawn
             ? (me.board[me.pawnLocation ?? ''] ?? []).filter((c) => c.type === 'hero')
             : heroesOf(state, state.activePlayer)
@@ -758,6 +940,7 @@ export function enumerateActions(state: GameState): GameAction[] {
             if (card.cardId === 'emprisonnement' && forbidden.has('jail')) continue
             if (shrinks && h.heroSize === 'shrunk') continue
             if (hacks && h.abilityHacked) continue
+            if (onlyCardIds && !onlyCardIds.includes(h.cardId)) continue
             if ((h.strength ?? 0) > maxStrength) continue
             const hForce = effectiveStrength(state, state.activePlayer, h.instanceId) ?? 0
             if (isHypnose && hForce > me.power) continue
@@ -804,6 +987,18 @@ export function enumerateActions(state: GameState): GameAction[] {
           if (peachPresent && !me.peachCaptured) {
             out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId })
           }
+        } else if ((card.effects ?? []).some((e) => e.type === 'PIGKEEPER_RESOLVE')) {
+          // Le Seigneur des Ténèbres — On te tient : Éliminer un Héros de force ≤1 (une
+          // option/cible) OU chercher Tirelire (option sans cible, si elle est dans la
+          // pioche/défausse Fatalité).
+          for (const h of heroesOf(state, state.activePlayer)) {
+            if ((h.strength ?? 0) <= 1) {
+              out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, targetHeroId: h.instanceId })
+            }
+          }
+          if (me.fateDeck.some((c) => c.cardId === 'hen-wen') || me.fateDiscard.some((c) => c.cardId === 'hen-wen')) {
+            out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId })
+          }
         } else {
           // Cartes-effets sans intérêt s'il n'y a AUCUN Héros dans le royaume :
           // Téléportation (se rendre sur le lieu d'un Héros), Brouillage (faire les
@@ -813,9 +1008,23 @@ export function enumerateActions(state: GameState): GameAction[] {
             (e) =>
               e.type === 'TELEPORT_TO_HERO' ||
               e.type === 'GRANT_USE_COVERED_ACTION' ||
-              e.type === 'RELOCATE_OWN_HERO',
+              e.type === 'RELOCATE_OWN_HERO' ||
+              e.type === 'RELOCATE_HERO_ADJACENT' ||
+              // Douze coups de minuit : élimine tous les Héros → inutile si aucun.
+              e.type === 'INSTANT_VANQUISH_ALL_HEROES',
           )
           if (needsHeroPresent && heroesOf(state, state.activePlayer).length === 0) continue
+          // Sombra — Skycode (gain par piratage) / Protocole Sombra (détruit les piratages,
+          // ou victoire si tous les lieux piratés) : inutiles sans aucun Piratage/IEM ni
+          // Héros piraté dans le royaume.
+          const needsHackInPlay = (card.effects ?? []).some(
+            (e) => e.type === 'GAIN_POWER_PER_HACK' || e.type === 'SOMBRA_PROTOCOL',
+          )
+          if (
+            needsHackInPlay &&
+            !Object.values(me.board).flat().some((c) => c.isPiratage || (c.type === 'hero' && c.abilityHacked))
+          )
+            continue
           // Alignement des planètes (Hadès) : inutile si AUCUN Titan n'est entravé.
           const needsTrappedTitan = (card.effects ?? []).some((e) => e.type === 'UNTRAP_TITANS_PAY')
           if (needsTrappedTitan && !Object.values(me.board).flat().some((c) => c.isTitan && c.trapped)) continue
@@ -963,7 +1172,12 @@ export function enumerateActions(state: GameState): GameAction[] {
       }
     } else if (action.type === 'MOVE_ITEM_ALLY') {
       for (const { instanceId, from } of movableCards(state)) {
+        const moving = (me.board[from] ?? []).find((c) => c.instanceId === instanceId)
         for (const to of adjacentLocationIds(state, from)) {
+          // Anastasie/Javotte : pas dans la Salle de Bal (lieux interdits par carte).
+          if ((moving?.forbiddenLocations ?? []).includes(to)) continue
+          // Cendrillon en robe de bal : un Allié ne peut pas rejoindre la Salle de Bal.
+          if (moving?.type === 'ally' && allyBlockedAt(state, state.activePlayer, to)) continue
           out.push({ type: 'MOVE_CARD', actionId: action.id, instanceId, to })
         }
       }
@@ -993,6 +1207,15 @@ export function enumerateActions(state: GameState): GameAction[] {
           const guarded = cell.some((c) => c.cardId === 'deguisement' && c.attachedTo === h.instanceId)
           if (guarded) continue
           const heroForce = effectiveStrength(state, state.activePlayer, h.instanceId) ?? 0
+          // Madame Mim — Métamorphose de Merlin : vaincue par la Métamorphose Mim
+          // correspondante SUR son lieu, SANS force (la correspondance suffit).
+          if (h.isMerlinTransformation) {
+            const match = localAllies.find((a) => a.transformationTarget === h.cardId)
+            if (match) {
+              out.push({ type: 'VANQUISH', actionId: action.id, heroInstanceId: h.instanceId, allyInstanceIds: [match.instanceId] })
+            }
+            continue
+          }
           // Héros de force 0 (réduit par Forme de grenouille…) : éliminable SANS Allié.
           if (heroForce === 0) {
             out.push({ type: 'VANQUISH', actionId: action.id, heroInstanceId: h.instanceId, allyInstanceIds: [] })

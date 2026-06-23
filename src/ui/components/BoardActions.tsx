@@ -1,5 +1,6 @@
 import type { LocationAction, PlayerState } from '../../engine/types'
 import { enlargeCoveredAction } from '../../engine/rules'
+import { SUGAR_RUSH_TRACK } from './sugarRushTrack'
 
 // Diamètre d'un bouton rond, en % de la largeur de l'image (carré via aspect-ratio).
 const BUTTON_SIZE = 4.9 // %
@@ -638,6 +639,128 @@ const ACTION_POS: Record<string, Record<string, Record<string, { x: number; y: n
       'move-item-ally': { x: 95.5, y: 67.8 },
     },
   },
+  // Le Seigneur des Ténèbres : gabarit standard (board.png 4480×1248, ratio 3,59 —
+  // identique à Gaston/Cruella). Panneau objectif à gauche + 4 lieux ; colonnes
+  // ~22.7/30.5 · 43.5/51.4 · 64.3/72.1 · 85.1/92.9 %, rangées haut ~20 / bas ~67.8.
+  // Emplacements « Gagner pouvoir » repérés par les nombres imprimés (1/3/2).
+  // MESURES À AFFINER via l'inspecteur si besoin.
+  'seigneur-tenebres': {
+    morva: {
+      'play-card': { x: 22.7, y: 20 },
+      fate: { x: 30.5, y: 20 },
+      discard: { x: 22.7, y: 67.8 },
+      'gain-power': { x: 30.5, y: 67.8 },
+    },
+    'royaume-petit-peuple': {
+      'play-card-top': { x: 43.5, y: 20 },
+      'gain-power': { x: 51.4, y: 20 },
+      'play-card-bottom': { x: 43.5, y: 67.8 },
+      vanquish: { x: 51.4, y: 67.8 },
+    },
+    cachots: {
+      'play-card': { x: 64.3, y: 20 },
+      'move-item-ally': { x: 72.1, y: 20 },
+      fate: { x: 64.3, y: 67.8 },
+      'gain-power': { x: 72.1, y: 67.8 },
+    },
+    'salle-trone': {
+      vanquish: { x: 85.1, y: 20 },
+      discard: { x: 92.9, y: 20 },
+      'play-card': { x: 85.1, y: 67.8 },
+      'move-item-ally': { x: 92.9, y: 67.8 },
+    },
+  },
+  // Madame Mim : plateau standard (4460×1256). Particularité : 1 action en HAUT
+  // (centrée) + 3 en BAS par lieu ; le Lieu du Duel a le HAUT vide. Centres de lieu
+  // 26.5 / 47.5 / 68.5 / 89.5 ; bas étalé à ±7 %. MESURES À AFFINER via l'inspecteur.
+  'madame-mim': {
+    'the-woods': {
+      'gain-power': { x: 26.7, y: 20 },
+      'play-card': { x: 20.3, y: 67 },
+      fate: { x: 26.7, y: 67 },
+      'move-item-ally': { x: 33.1, y: 67 },
+    },
+    cabane: {
+      'play-card': { x: 47.6, y: 20 },
+      'gain-power': { x: 41.2, y: 67 },
+      'move-item-ally': { x: 47.6, y: 67 },
+      'move-hero': { x: 54, y: 67 },
+    },
+    'lieu-duel': {
+      'gain-power': { x: 62, y: 67 },
+      discard: { x: 68.4, y: 67 },
+      fate: { x: 74.8, y: 67 },
+    },
+    marais: {
+      'play-card': { x: 89.3, y: 19.7 },
+      'gain-power': { x: 83, y: 67 },
+      'play-card-bottom': { x: 89.3, y: 67 },
+      discard: { x: 95.7, y: 67 },
+    },
+  },
+  // Syndrome : plateau standard (4464×1256). 2 actions HAUT + 2 BAS par lieu. Centres de
+  // lieu ≈ 26.6 / 47.4 / 68.2 / 89.0 ; colonnes à ±3,9 % ; rangées y 20 (haut) / 67.8 (bas).
+  syndrome: {
+    'maison-des-parr': {
+      'play-card': { x: 22.7, y: 20 },
+      fate: { x: 30.5, y: 20 },
+      vanquish: { x: 22.7, y: 67.8 },
+      'gain-power': { x: 30.5, y: 67.8 },
+    },
+    'ile-nomanisan': {
+      'gain-power': { x: 43.5, y: 20 },
+      'play-card': { x: 51.4, y: 20 },
+      discard: { x: 43.5, y: 67.8 },
+      'play-card-bottom': { x: 51.4, y: 67.8 },
+    },
+    'base-syndrome': {
+      'play-card': { x: 64.3, y: 20 },
+      vanquish: { x: 72.1, y: 20 },
+      'play-card-bottom': { x: 64.3, y: 67.8 },
+      'move-item-ally': { x: 72.1, y: 67.8 },
+    },
+    metroville: {
+      discard: { x: 85.1, y: 20 },
+      'play-card': { x: 92.9, y: 20 },
+      fate: { x: 85.1, y: 67.8 },
+      'gain-power': { x: 92.9, y: 67.8 },
+    },
+  },
+  // Lotso : plateau standard. La Salle des Chenilles n'a pas d'action HAUT (les Héros s'y
+  // réunissent) ; ses 3 actions sont alignées au milieu/bas.
+  lotso: {
+    'salle-des-chenilles': {
+      discard: { x: 20.4, y: 66 },
+      'play-card': { x: 26.8, y: 66 },
+      'gain-power': { x: 33.1, y: 65.9 },
+    },
+    bibliotheque: {
+      fate: { x: 43.6, y: 19 },
+      'gain-power': { x: 51.5, y: 19 },
+      'play-card': { x: 43.5, y: 66.8 },
+      activate: { x: 51.5, y: 66.8 },
+    },
+    'cour-de-recreation': {
+      'play-card': { x: 64.3, y: 19 },
+      discard: { x: 72.1, y: 19 },
+      fate: { x: 64.3, y: 65.8 },
+      'gain-power': { x: 72.1, y: 65.8 },
+    },
+    'decharge-municipale': {
+      'play-card': { x: 85.1, y: 19 },
+      vanquish: { x: 92.9, y: 19 },
+      'play-card-bottom': { x: 85.1, y: 65.8 },
+      'move-item-ally': { x: 92.9, y: 66.8 },
+    },
+  },
+}
+
+// Sa Sucrerie — les 18 cases du CIRCUIT EN HUIT (a0..a17) sont positionnées par
+// SUGAR_RUSH_TRACK (cf. BoardImage). On dérive l'entrée ACTION_POS du circuit pour
+// que les boutons d'action se posent sur leurs icônes. Les 3 cases accessibles
+// (derrière/dessus/devant) s'allument en jaune comme partout ailleurs.
+ACTION_POS['sa-sucrerie'] = {
+  'sugar-rush': Object.fromEntries(SUGAR_RUSH_TRACK.map((p, i) => [`a${i}`, p])),
 }
 
 interface Props {
@@ -754,8 +877,11 @@ export function BoardActions({
           const available = isCurrent && availableActionIds.includes(a.id)
           const used = isCurrent && usedActionIds.includes(a.id)
           // Un Héros posé recouvre la rangée du HAUT de son lieu : on masque ces
-          // boutons (sauf s'ils restent jouables, ex. Persifleur → available).
-          const heroHere = (player.board[loc.id] ?? []).some((c) => c.type === 'hero')
+          // boutons (sauf s'ils restent jouables, ex. Persifleur → available). Sur le
+          // circuit en huit (Sa Sucrerie), les Héros NE recouvrent PAS positionnellement
+          // d'action : on n'applique donc pas ce masquage.
+          const heroHere =
+            player.villain !== 'sa-sucrerie' && (player.board[loc.id] ?? []).some((c) => c.type === 'hero')
           if (a.row === 'top' && heroHere && !available && !flashing) return null
           // Action recouverte par un Héros agrandi voisin → bouton masqué.
           if (enlargeCovered.has(`${loc.id}:${a.id}`) && !flashing) return null
@@ -775,7 +901,11 @@ export function BoardActions({
               disabled={!available}
               onClick={() => onActionClick(a)}
               title={a.label}
-              className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 transition-colors ${tone}`}
+              // Un bouton NON disponible ne doit pas intercepter le clic : sinon, là où
+              // deux cases se superposent (Sa Sucrerie — croisement du huit : a4 ET a13
+              // au même point), le bouton non jouable rendu au-dessus « avale » le clic
+              // destiné au bouton jouable en dessous. `pointer-events-none` le laisse passer.
+              className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 transition-colors ${available ? 'z-10' : 'pointer-events-none'} ${tone}`}
               style={{
                 left: `${pos.x}%`,
                 top: `${pos.y}%`,
@@ -810,6 +940,11 @@ export function BoardActions({
         @keyframes hackPick {
           0%, 100% { box-shadow: 0 0 0 0 rgba(232,121,249,0); border-color: rgba(232,121,249,1); background-color: rgba(232,121,249,0.15); }
           50% { box-shadow: 0 0 12px 4px rgba(232,121,249,0.9); border-color: #fff; background-color: rgba(232,121,249,0.55); }
+        }
+        /* Sa Sucrerie — cases atteignables du circuit (déplacement du pion) : pulse doré doux. */
+        @keyframes kcReachPulse {
+          0%, 100% { box-shadow: 0 0 6px 1px rgba(250,204,21,0.35); }
+          50% { box-shadow: 0 0 12px 4px rgba(250,204,21,0.7); }
         }
       `}</style>
     </>

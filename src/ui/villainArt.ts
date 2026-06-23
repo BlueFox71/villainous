@@ -25,6 +25,11 @@ const PORTRAIT: Partial<Record<VillainKey, string>> = {
   seigneurCles: '/seigneur-cles.png',
   madameTremaine: '/madame-tremaine.png',
   oogieBoogie: '/oogie-boogie.png',
+  seigneurTenebres: '/seigneur-tenebres.png',
+  madameMim: '/madame-mim.png',
+  syndrome: '/syndrome.png',
+  lotso: '/lotso.png',
+  saSucrerie: '/sa-sucrerie.png',
 }
 
 /** Portrait d'un vilain, avec repli sur son dos de carte si non défini. */
@@ -56,6 +61,12 @@ const PRESENTATION: Partial<Record<VillainKey, string>> = {
   gaston: '/presentations/gaston.png',
   seigneurCles: '/presentations/seigneur-cles.png',
   madameTremaine: '/presentations/madame-tremaine.png',
+  oogieBoogie: '/presentations/oogie-boogie.png',
+  seigneurTenebres: '/presentations/seigneur-tenebres.png',
+  madameMim: '/presentations/madame-mim.png',
+  syndrome: '/presentations/syndrome.png',
+  lotso: '/presentations/lotso.png',
+  saSucrerie: '/presentations/sa-sucrerie.png',
 }
 
 /** Illustration de présentation d'un vilain (undefined si non disponible). */

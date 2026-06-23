@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { createInitialGame } from '../state'
-import { applyAction } from '../actions'
-import { hasReachedObjective } from '../rules'
-import { performVanquish, resolveEffects } from '../effects'
+import { applyAction, placeFateHeroWithEffects } from '../actions'
+import { hasReachedObjective, conditionIsTriggered, movableCards } from '../rules'
+import { performVanquish, resolveEffects, relocateRaiponce } from '../effects'
 import { gothel } from '../../data/villains/gothel'
 import { gothelCards } from '../../data/villains/gothel.cards'
 import { buildDeckInstances } from '../../data/types'
@@ -91,6 +91,19 @@ describe('Mère Gothel — mécanique Confiance & Raiponce', () => {
     expect(raiponceOf(s)).toBe('tour')
     const after = applyAction(s, { type: 'END_TURN' })
     expect(raiponceOf(after)).toBe('canard-boiteux')
+  })
+
+  it('Lanternes (Fatalité) déplace Raiponce sur Corona', () => {
+    const fate = buildDeckInstances(gothelCards, 'fate', 'p1f:')
+    const lanternes = { ...fate.find((c) => c.cardId === 'lanternes')!, instanceId: 'lant1' }
+    const other = { ...fate.find((c) => c.cardId === 'vieillissement')!, instanceId: 'oth1' }
+    let s = game2()
+    expect(raiponceOf(s, 0)).toBe('tour')
+    // Le joueur 1 fatalise Gothel (joueur 0) avec Lanternes.
+    s = { ...s, activePlayer: 1, phase: 'ACTION', pendingFate: { target: 0, revealed: [lanternes, other] } }
+    s = applyAction(s, { type: 'RESOLVE_FATE', instanceId: 'lant1' })
+    expect(raiponceOf(s, 0)).toBe('corona')
+    expect(s.pendingFate ?? null).toBeNull()
   })
 
   it('Raiponce qui glisse jusqu’à Corona puis y campe au début du tour → −1 Confiance', () => {
@@ -464,5 +477,141 @@ describe('Mère Gothel — mécanique Confiance & Raiponce', () => {
     }
     const after = applyAction(s, { type: 'MOVE_CARD', actionId: 'move-item-ally', instanceId: 'gr', to: 'corona' })
     expect(after.pendingHeroRelocate ?? null).toBeNull()
+  })
+})
+
+describe('Mère Gothel — cartes Phase 3b implémentées', () => {
+  const fateC = (id: string) => ({ ...buildDeckInstances(gothelCards, 'fate', 'p0f:').find((c) => c.cardId === id)! })
+  const villC = (id: string) => ({ ...buildDeckInstances(gothelCards, 'villain', 'p0:').find((c) => c.cardId === id)! })
+
+  it('Pascal : Raiponce arrivant sur son lieu file aussitôt d’un lieu vers Corona', () => {
+    let s = game()
+    const rap = Object.values(s.players[0].board).flat().find((c) => c.cardId === 'raiponce')!
+    s = { ...s, players: [{ ...s.players[0], board: { ...s.players[0].board, tour: [{ ...rap }], foret: [fateC('pascal')] } }] }
+    s = relocateRaiponce(s, 0, 'foret') // arrive sur Pascal (Forêt) → rebondit sur Corona
+    expect(raiponceOf(s, 0)).toBe('corona')
+  })
+
+  it('Ulf : aucun Allié ne peut quitter son lieu', () => {
+    let s = game()
+    const ally = villC('cavaliers-du-roi')
+    s = { ...s, phase: 'ACTION', players: [{ ...s.players[0], pawnLocation: 'foret', board: { ...s.players[0].board, foret: [ally, fateC('ulf')] } }] }
+    expect(movableCards(s).some((m) => m.instanceId === ally.instanceId)).toBe(false)
+    expect(() =>
+      applyAction(s, { type: 'MOVE_CARD', actionId: 'move-item-ally', instanceId: ally.instanceId, to: 'corona' }),
+    ).toThrow(/Ulf/i)
+  })
+
+  it('Égocentrisme : réaction qui ramène Raiponce sur la Tour', () => {
+    let s = game2()
+    const rap = Object.values(s.players[0].board).flat().find((c) => c.cardId === 'raiponce')!
+    const ego = { ...buildDeckInstances(gothelCards, 'villain', 'p0:').find((c) => c.cardId === 'egocentrisme')! }
+    s = {
+      ...s,
+      activePlayer: 1,
+      activeMovedCard: true,
+      players: s.players.map((p, i) => (i === 0 ? { ...p, board: { ...p.board, tour: [], foret: [{ ...rap }] }, hand: [ego] } : p)),
+    }
+    expect(conditionIsTriggered(s, ego, 0)).toBe(true)
+    s = applyAction(s, { type: 'PLAY_CONDITION', playerIndex: 0, instanceId: ego.instanceId })
+    expect(raiponceOf(s, 0)).toBe('tour')
+  })
+
+  it('Double jeu : réaction qui élimine un Héros ≤ 3 du royaume', () => {
+    let s = game2()
+    const hero: CardInstance = { instanceId: 'h3', cardId: 'mini-hero', name: 'Mini', type: 'hero', strength: 2 }
+    const dj = { ...buildDeckInstances(gothelCards, 'villain', 'p0:').find((c) => c.cardId === 'double-jeu')! }
+    s = {
+      ...s,
+      activePlayer: 1,
+      lastVanquishedHeroStrength: 3,
+      players: s.players.map((p, i) => (i === 0 ? { ...p, board: { ...p.board, foret: [hero] }, hand: [dj] } : p)),
+    }
+    expect(conditionIsTriggered(s, dj, 0)).toBe(true)
+    s = applyAction(s, { type: 'PLAY_CONDITION', playerIndex: 0, instanceId: dj.instanceId })
+    expect((s.players[0].board['foret'] ?? []).some((c) => c.instanceId === 'h3')).toBe(false)
+  })
+
+  it('Maximus : repositionne un Cavaliers du roi puis Maximus (lieux voisins)', () => {
+    let s = game2()
+    s = { ...s, activePlayer: 1 } // joueur 1 fatalise Gothel (joueur 0)
+    const cav = { ...villC('cavaliers-du-roi'), instanceId: 'cav1' }
+    const max = { ...fateC('maximus'), instanceId: 'max1' }
+    s = { ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, board: { ...p.board, tour: [...(p.board['tour'] ?? []), cav] } } : p)) }
+    s = placeFateHeroWithEffects(s, 0, 1, max, 'canard-boiteux', 'Canard boiteux')
+    expect(s.pendingMaximus?.phase).toBe('cavaliers')
+    // Cavalier : tour → canard-boiteux (voisin).
+    s = applyAction(s, { type: 'RESOLVE_MAXIMUS_CAVALIERS', allyInstanceId: 'cav1', to: 'canard-boiteux' })
+    expect(s.pendingMaximus?.phase).toBe('maximus')
+    expect((s.players[0].board['canard-boiteux'] ?? []).some((c) => c.instanceId === 'cav1')).toBe(true)
+    // Maximus : canard-boiteux → foret (voisin).
+    s = applyAction(s, { type: 'RESOLVE_MAXIMUS_MOVE', to: 'foret' })
+    expect(s.pendingMaximus ?? null).toBeNull()
+    expect((s.players[0].board['foret'] ?? []).some((c) => c.instanceId === 'max1')).toBe(true)
+  })
+
+  it('Maximus : les deux déplacements sont facultatifs (on peut tout passer)', () => {
+    let s = game2()
+    s = { ...s, activePlayer: 1 }
+    const cav = { ...villC('cavaliers-du-roi'), instanceId: 'cav1' }
+    const max = { ...fateC('maximus'), instanceId: 'max1' }
+    s = { ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, board: { ...p.board, tour: [...(p.board['tour'] ?? []), cav] } } : p)) }
+    s = placeFateHeroWithEffects(s, 0, 1, max, 'canard-boiteux', 'Canard boiteux')
+    s = applyAction(s, { type: 'RESOLVE_MAXIMUS_CAVALIERS', allyInstanceId: null, to: null })
+    expect(s.pendingMaximus?.phase).toBe('maximus')
+    s = applyAction(s, { type: 'RESOLVE_MAXIMUS_MOVE', to: null })
+    expect(s.pendingMaximus ?? null).toBeNull()
+    expect((s.players[0].board['canard-boiteux'] ?? []).some((c) => c.instanceId === 'max1')).toBe(true) // Maximus n'a pas bougé
+    expect((s.players[0].board['tour'] ?? []).some((c) => c.instanceId === 'cav1')).toBe(true) // Cavalier non plus
+  })
+
+  it('Vieillissement (Fatalité) : défausse un Allié/Objet de coût ≤ 2 (choix)', () => {
+    const fate1 = buildDeckInstances(gothelCards, 'fate', 'p1f:')
+    const v = { ...fate1.find((c) => c.cardId === 'vieillissement')!, instanceId: 'v1' }
+    const other = { ...fate1.find((c) => c.cardId === 'lanternes')!, instanceId: 'o1' }
+    let s = game2()
+    const ally: CardInstance = { instanceId: 'a1', cardId: 'cheap-ally', name: 'A', type: 'ally', cost: 1, strength: 2 }
+    s = {
+      ...s,
+      activePlayer: 1,
+      phase: 'ACTION',
+      pendingFate: { target: 0, revealed: [v, other] },
+      players: s.players.map((p, i) => (i === 0 ? { ...p, board: { ...p.board, foret: [ally] } } : p)),
+    }
+    s = applyAction(s, { type: 'RESOLVE_FATE', instanceId: 'v1' })
+    expect(s.pendingFateChoice?.kind).toBe('remove-card')
+    expect(s.pendingFateChoice?.candidateIds).toContain('a1')
+    s = applyAction(s, { type: 'RESOLVE_FATE_CHOICE', instanceId: 'a1' })
+    expect(s.players[0].discard.some((c) => c.instanceId === 'a1')).toBe(true)
+  })
+})
+
+describe('Mère Gothel — Je serai la méchante (injouable si Raiponce sur la Tour)', () => {
+  const jsm = (): CardInstance => ({
+    instanceId: 'jsm',
+    cardId: 'je-serai-la-mechante',
+    name: 'Je serai la méchante',
+    type: 'effect',
+    cost: 0,
+    effects: [{ type: 'MOVE_RAIPONCE', to: 'tour' }, { type: 'LOSE_CONFIANCE', amount: 1 }],
+  })
+
+  it('injouable si Raiponce est déjà sur la Tour', () => {
+    let s = game()
+    s = { ...s, phase: 'ACTION', players: [{ ...s.players[0], pawnLocation: 'tour', hand: [jsm()] }] }
+    expect(raiponceOf(s, 0)).toBe('tour')
+    expect(() => applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: 'jsm' })).toThrow(/Tour/i)
+  })
+
+  it('jouable si Raiponce n’est pas sur la Tour', () => {
+    let s = game()
+    const rap = Object.values(s.players[0].board).flat().find((c) => c.cardId === 'raiponce')!
+    s = {
+      ...s,
+      phase: 'ACTION',
+      players: [{ ...s.players[0], pawnLocation: 'tour', hand: [jsm()], board: { ...s.players[0].board, tour: [], foret: [{ ...rap }] } }],
+    }
+    expect(raiponceOf(s, 0)).toBe('foret')
+    expect(() => applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: 'jsm' })).not.toThrow()
   })
 })

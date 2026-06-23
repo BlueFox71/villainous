@@ -262,6 +262,7 @@ export const princeJohnCards: CardDef[] = [
     type: 'hero',
     strength: 5,
     copies: 1,
+    blocksVillainEvents: true,
     text: 'Le Prince Jean ne peut plus jouer de cartes Événement.',
     image: img('roi_richard.png'),
   },

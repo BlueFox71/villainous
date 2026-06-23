@@ -30,9 +30,26 @@ interface Props {
   /** Vrai s'il y a au moins un Allié dans le royaume — une carte « gain par Allié »
    *  (Joyeux non-anniversaire) est injouable sinon. */
   realmHasAllies: boolean
+  /** Vrai s'il y a au moins une Tuile Chiots posée (Cruella) — « J'adore les belles
+   *  fourrures » est injouable sinon. */
+  realmHasPuppyTile: boolean
   /** Vrai s'il y a au moins un Héros dans le royaume — une carte « gain par Héros »
    *  (Magnifiques Taxes) est injouable sinon. */
   realmHasHeroes: boolean
+  /** Le Seigneur des Ténèbres — Nous avons conclu un marché ! : vrai si au moins une des
+   *  deux options est réalisable (défausse non vide, OU Épée Magique défaussable pour le
+   *  Chaudron). Injouable sinon. */
+  bargainPlayable?: boolean
+  /** Le Seigneur des Ténèbres — On te tient : vrai si au moins une option est possible
+   *  (chercher Tirelire OU éliminer un Héros de force 1). Injouable sinon. */
+  pigKeeperPlayable?: boolean
+  /** Reine de Cœur — Par ordre de la Reine ! : vrai s'il existe au moins une Carte Garde
+   *  transformable en arceau. Injouable sinon. */
+  canTransformGuards?: boolean
+  /** Sombra — vrai s'il y a au moins un Piratage/IEM ou un Héros piraté dans le royaume.
+   *  Skycode (gain par piratage) et Protocole Sombra (détruit les piratages) sont
+   *  injouables sinon (aucun effet ; et Protocole ne peut pas faire gagner). */
+  hasHackInPlay?: boolean
   /** Vrai s'il y a au moins un Ingrédient joué (zone Ingrédients) PAYABLE — Foudre
    *  est injouable sinon (rien de reproductible : son coût = celui de l'Ingrédient). */
   hasIngredients: boolean
@@ -75,6 +92,9 @@ interface Props {
   /** Vrai si le pion est sur le lieu de Raiponce (Mère Gothel) — un Événement
    *  « Je t'aime bien plus » est injouable sinon (il n'aurait aucun effet). */
   pawnWithRaiponce: boolean
+  /** Vrai si Raiponce est DÉJÀ sur la Tour (Mère Gothel) — « Je serai la méchante »
+   *  (ramener Raiponce sur la Tour + perdre 1 Confiance) est injouable alors. */
+  raiponceAtTour?: boolean
   /** Vrai s'il existe une carte récupérable dans la défausse (Le diable l'emporte :
    *  Objet ou Événement). La carte est injouable sinon. */
   recoverFromDiscardAvailable: boolean
@@ -103,9 +123,38 @@ interface Props {
   /** Le Seigneur des clés — vrai s'il possède au moins une clé. Répondez ! est
    *  injouable sinon (0 Pouvoir gagné). */
   ownsKey?: boolean
+  /** Lotso — vrai s'il y a quelque chose à amener sur la Salle des Chenilles (Héros hors
+   *  Salle, ou Buzz hors Salle). « Pas l'âge minimum requis » est injouable sinon. */
+  lotsoToRoomAvailable?: boolean
+  /** Lotso — vrai s'il y a un Héros réductible hors de la Salle des Chenilles. « Patrouille
+   *  de nuit » est injouable sinon. */
+  lotsoHeroOutsideRoom?: boolean
+  /** Lotso — vrai s'il y a au moins un Héros dans la Salle des Chenilles. « Les nouveaux
+   *  jouets n'ont pas la moindre chance » est injouable sinon. */
+  lotsoHeroInRoom?: boolean
   /** Madame de Trémaine — cardId présents dans le royaume (pour griser un Allié « en
    *  robe de bal » dont la version ordinaire n'est pas en jeu). */
   realmCardIds?: string[]
+  /** Madame de Trémaine — vrai si la défausse Fatalité n'est pas vide (Je ne reviens
+   *  jamais sur ma parole est injouable sinon). */
+  fateDiscardNonEmpty?: boolean
+  /** Vrai si la défausse de Méchant n'est pas vide (J'ai dit « Si » est injouable
+   *  sinon : rien à remélanger dans la pioche). */
+  villainDiscardNonEmpty?: boolean
+  /** Glisser-déposer : id de l'action « Jouer une carte » disponible sur le lieu
+   *  courant. Si défini, les cartes jouables deviennent saisissables (drag) vers le
+   *  plateau, même sans avoir cliqué l'action au préalable. */
+  dragPlayActionId?: string
+  /** Glissé au pointeur : début (seuil franchi), avec la position du curseur. */
+  onCardDragStart?: (instanceId: string, x: number, y: number) => void
+  /** Glissé au pointeur : déplacement du curseur (met à jour le fantôme). */
+  onCardDragMove?: (x: number, y: number) => void
+  /** Glissé au pointeur : lâcher (l'App fait le hit-test du plateau et joue). */
+  onCardDragDrop?: (instanceId: string, x: number, y: number) => void
+  /** Glissé au pointeur : annulation (clic droit) → la carte revient en main. */
+  onCardDragCancel?: () => void
+  /** instanceId de la carte en cours de glissé (pour l'estomper dans la main). */
+  draggingInstanceId?: string | null
   /** Coût effectif d'une carte (Couronne −1, Bâton Magique −1 sur Événement/
    *  Malédiction, Épée de Vérité +2…). Absent → coût de base. */
   costFor?: (card: CardInstance) => number
@@ -121,6 +170,10 @@ interface Props {
   /** Largeur (classe Tailwind) des cartes ; par défaut w-48 (éventail) / w-24 (panel). */
   cardWidthClass?: string
   onPlayCard: (instanceId: string) => void
+  /** Clic sur une Condition « armée » (clignotante) dans la main pendant le tour
+   *  d'un adversaire : déclenche la réaction (raccourci du panneau « Réaction
+   *  disponible »). Absent → la carte armée reste un simple indicateur visuel. */
+  onActivateReaction?: (instanceId: string) => void
   onToggleDiscard: (instanceId: string) => void
   onConfirmDiscard: () => void
   onCancel: () => void
@@ -136,7 +189,12 @@ export function Hand({
   attachTargetsAvailable,
   blockEvents,
   realmHasAllies,
+  realmHasPuppyTile,
   realmHasHeroes,
+  bargainPlayable = true,
+  pigKeeperPlayable = true,
+  canTransformGuards = true,
+  hasHackInPlay,
   hasIngredients,
   heroAtPawn,
   canBite,
@@ -150,6 +208,7 @@ export function Hand({
   relocateTargetAvailable,
   hackTargetAvailable,
   pawnWithRaiponce,
+  raiponceAtTour = false,
   recoverFromDiscardAvailable,
   hasActivatableCard,
   canRemoveObstacle = true,
@@ -159,7 +218,18 @@ export function Hand({
   keyAtPawn = true,
   keysOnBoard = true,
   ownsKey = true,
+  lotsoToRoomAvailable = true,
+  lotsoHeroOutsideRoom = true,
+  lotsoHeroInRoom = true,
   realmCardIds,
+  fateDiscardNonEmpty = true,
+  villainDiscardNonEmpty = true,
+  dragPlayActionId,
+  onCardDragStart,
+  onCardDragMove,
+  onCardDragDrop,
+  onCardDragCancel,
+  draggingInstanceId = null,
   costFor,
   armedConditionIds = [],
   forcedHoverId = null,
@@ -172,10 +242,15 @@ export function Hand({
   layout = 'panel',
   cardWidthClass,
   onPlayCard,
+  onActivateReaction,
   onToggleDiscard,
 }: Props) {
   // instanceId de la carte survolée localement, pour l'aperçu zoom.
   const [hovered, setHovered] = useState<string | null>(null)
+  // Glisser-déposer au pointeur : suivi du glissé en cours (seuil pour distinguer
+  // d'un clic) et drapeau pour neutraliser le clic qui suit un glissé.
+  const dragPointer = useRef<{ id: string; startX: number; startY: number; dragging: boolean } | null>(null)
+  const suppressClickRef = useRef(false)
 
   // Apparition « carte par carte » : on repère les cartes nouvellement ajoutées à
   // la main (pioche) et on leur attribue un rang → délai d'entrée échelonné, calé
@@ -292,10 +367,22 @@ export function Hand({
           // Un Objet à associer exige un Allié présent sur le lieu.
           const needsAlly = ci.attach === 'ally'
           // Joyeux non-anniversaire (gain par Allié) : injouable sans Allié au royaume.
-          const needsAllyInRealm = (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_ALLY_IN_REALM')
+          const needsAllyInRealm = (card.effects ?? []).some(
+            (e) => e.type === 'GAIN_POWER_PER_ALLY_IN_REALM' || e.type === 'RELOCATE_ALLIES',
+          )
+          // Cruella — J'adore les belles fourrures : injouable sans Tuile Chiots au royaume.
+          const needsPuppyInRealm = (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_PUPPY_LOCATION')
           // Magnifiques Taxes (gain par Héros) / Cruelle diablesse (déplace un Héros) :
           // injouable sans Héros au royaume. Gaston — Belle est à moi (action gratuite
           // « Éliminer un Héros ») : idem, injouable sans Héros à cibler.
+          // Nous avons conclu un marché ! : injouable si aucune option n'est réalisable
+          // (calcul fait dans App → `bargainPlayable`).
+          const needsBargain = (card.effects ?? []).some((e) => e.type === 'BARGAIN_RESHUFFLE_OR_SWORD')
+          // On te tient : injouable si Tirelire déjà en jeu ET aucun Héros de force 1
+          // (calcul fait dans App → `pigKeeperPlayable`).
+          const needsPigKeeper = (card.effects ?? []).some((e) => e.type === 'PIGKEEPER_RESOLVE')
+          // Par ordre de la Reine ! : injouable sans Carte Garde transformable (calcul App).
+          const needsTransformGuards = (card.effects ?? []).some((e) => e.type === 'TRANSFORM_GUARDS')
           const needsHeroInRealm = (card.effects ?? []).some(
             (e) =>
               e.type === 'GAIN_POWER_PER_HERO_IN_REALM' ||
@@ -305,13 +392,29 @@ export function Hand({
               // (réduit la force d'un Héros) : sans Héros au royaume, aucun effet.
               e.type === 'MOVE_HERO_TO_LOCATION' ||
               e.type === 'REDUCE_HERO_STRENGTH_TEMP' ||
+              // Sombra — Adios (déplace un Héros vers un lieu voisin) : sans Héros, aucun effet.
+              e.type === 'RELOCATE_HERO_ADJACENT' ||
               // Madame de Trémaine — Piège : sans Héros à piéger, aucun effet.
-              e.type === 'TRAP_HERO',
+              e.type === 'TRAP_HERO' ||
+              // Madame de Trémaine — Douze coups de minuit : sans Héros, aucun effet.
+              e.type === 'INSTANT_VANQUISH_ALL_HEROES',
           )
           // Madame de Trémaine — Allié « en robe de bal » : injouable si sa version
           // ordinaire (`replacesCardId`) n'est pas en jeu.
           const needsReplaceTarget = !!ci.replacesCardId
           const replaceOk = !needsReplaceTarget || (realmCardIds ?? []).includes(ci.replacesCardId!)
+          // Madame de Trémaine — Sale voleuse ! (INSTANT_VANQUISH_HERO_LE restreint à
+          // certains cardId) : injouable si aucun des Héros visés n'est dans le royaume.
+          const vanquishOnly = (card.effects ?? [])
+            .filter((e) => e.type === 'INSTANT_VANQUISH_HERO_LE' && e.onlyCardIds)
+            .flatMap((e) => (e.type === 'INSTANT_VANQUISH_HERO_LE' ? e.onlyCardIds ?? [] : []))
+          const vanquishOnlyOk =
+            vanquishOnly.length === 0 || vanquishOnly.some((id) => (realmCardIds ?? []).includes(id))
+          // Madame de Trémaine — Je ne reviens jamais sur ma parole : injouable si la
+          // défausse Fatalité est vide (rien à remélanger).
+          const needsFateDiscardCard = (card.effects ?? []).some((e) => e.type === 'RESHUFFLE_FATE_DISCARD')
+          // J'ai dit « Si » : injouable si la défausse de Méchant est vide.
+          const needsVillainDiscard = (card.effects ?? []).some((e) => e.type === 'RESHUFFLE_DISCARD_AND_DRAW')
           // Foudre (duplique un Ingrédient) : injouable sans Ingrédient joué PAYABLE
           // (son coût = celui de l'Ingrédient reproduit ; cf. prop hasIngredients).
           const needsIngredient = (card.effects ?? []).some((e) => e.type === 'DUPLICATE_INGREDIENT')
@@ -338,11 +441,22 @@ export function Hand({
           const needsRelocateTarget = (card.effects ?? []).some((e) => e.type === 'MOVE_REALM_HERO_TO')
           // Boop ! (Sombra) : injouable sans Héros à pirater (aucun, ou tous déjà piratés).
           const needsHackTarget = (card.effects ?? []).some((e) => e.type === 'HACK_HERO')
+          // Skycode (gain par piratage) / Protocole Sombra (détruit les piratages, ou
+          // victoire si TOUS les lieux sont piratés) : injouables sans aucun Piratage/IEM
+          // ni Héros piraté dans le royaume (aucun effet — Protocole ne peut alors pas
+          // faire gagner non plus, la victoire exigeant des Piratages partout).
+          const needsHackInPlay = (card.effects ?? []).some(
+            (e) => e.type === 'GAIN_POWER_PER_HACK' || e.type === 'SOMBRA_PROTOCOL',
+          )
           // « Je t'aime bien plus » (Gothel) : Événement injouable si le pion n'est pas
           // sur le lieu de Raiponce (il n'aurait aucun effet). La Brosse à cheveux
           // (Objet) reste jouable : elle se pose et pourra rejoindre Raiponce plus tard.
           const needsPawnWithRaiponce =
             card.type === 'effect' && (card.effects ?? []).some((e) => e.type === 'GAIN_CONFIANCE_WITH_RAIPONCE')
+          // « Je serai la méchante » (Gothel) : Événement injouable si Raiponce est DÉJÀ
+          // sur la Tour (ramener + perdre 1 Confiance n'aurait que l'inconvénient).
+          const needsRaiponceNotAtTour =
+            card.type === 'effect' && (card.effects ?? []).some((e) => e.type === 'MOVE_RAIPONCE' && e.to === 'tour')
           // Le diable l'emporte (Cruella) : injouable sans carte récupérable en défausse.
           const needsRecoverTarget = (card.effects ?? []).some((e) => e.type === 'RECOVER_FROM_DISCARD_CHOICE')
           // Finissez le travail ! (Cruella) : injouable sans capacité activable.
@@ -356,6 +470,22 @@ export function Hand({
           const needsReplaceObstacle = cardFx.some((e) => e.type === 'REPLACE_OBSTACLE')
           // Tous avec moi ! : injouable sans Allié/Objet déplaçable.
           const needsMovableCard = cardFx.some((e) => e.type === 'GRANT_FREE_ACTION' && e.actionType === 'MOVE_ITEM_ALLY')
+          // C'est votre dernière chance : injouable si NI Objet/Allié déplaçable NI capacité activable.
+          const needsMoveOrActivate = cardFx.some((e) => e.type === 'GRANT_FREE_MOVE_OR_ACTIVATE')
+          // Syndrome — Identification, je vous prie : injouable sans lieu portant un Héros
+          // OU sans Allié/Objet (non associé) à déplacer.
+          const needsIdentification = cardFx.some((e) => e.type === 'MOVE_ALLY_OR_ITEM_TO_HERO_LOCATION')
+          // Lotso — Le Bibliothécaire (coût variable) : injouable sans jeton Pouvoir à
+          // dépenser OU sans Héros au royaume (rien à réduire).
+          const needsBookworm = cardFx.some((e) => e.type === 'LOTSO_BOOKWORM')
+          // Lotso — Pas l'âge minimum requis : injouable si rien à amener sur la Salle des
+          // Chenilles (Buzz déjà dedans ET aucun Héros sur un autre lieu).
+          const needsToRoomCandidate = cardFx.some((e) => e.type === 'LOTSO_MOVE' && e.scope === 'to-room')
+          // Lotso — Patrouille de nuit : injouable sans Héros réductible HORS de la Salle.
+          const needsHeroOutsideRoom = cardFx.some((e) => e.type === 'LOTSO_REDUCE' && e.scope === 'not-room' && e.target === 'one')
+          // Lotso — Enfermés / Les nouveaux jouets : injouable sans Héros dans la Salle des
+          // Chenilles (Buzz ne compte pas).
+          const needsHeroInRoom = cardFx.some((e) => e.type === 'LOTSO_REDUCE' && e.scope === 'room' && e.target === 'all')
           // Montre-moi la Bête ! : injouable si ni la Bête ni Belle dans le royaume.
           const needsShowMeBeast = cardFx.some((e) => e.type === 'SHOW_ME_THE_BEAST')
           // Le Seigneur des clés — Toute Puissance / C'est moi qui décide / Pierre tombale :
@@ -367,48 +497,80 @@ export function Hand({
           const needsOwnedKey = cardFx.some(
             (e) => e.type === 'GAIN_POWER_PER_KEY_COLOR' || e.type === 'LOSE_KEY_GAIN_POWER' || e.type === 'LOSE_KEY_DRAW',
           )
+          // Conditions de jouabilité « Jouer une carte » (indépendantes du mode UI) :
+          // sert au clic (mode 'play') ET au glisser-déposer (dragPlayActionId).
+          const canPlay =
+            card.type !== 'condition' &&
+            cost <= power &&
+            (!needsAlly || attachTargetsAvailable) &&
+            (!needsAllyInRealm || realmHasAllies) &&
+            (!needsPuppyInRealm || realmHasPuppyTile) &&
+            (!needsHeroInRealm || realmHasHeroes) &&
+            (!needsBargain || bargainPlayable) &&
+            (!needsPigKeeper || pigKeeperPlayable) &&
+            (!needsTransformGuards || canTransformGuards) &&
+            (!needsIngredient || hasIngredients) &&
+            (!needsHeroHere || heroAtPawn) &&
+            (!needsBite || canBite) &&
+            (!needsHyena || realmHasHyena) &&
+            (!needsHyenaElsewhere || hyenaElsewhere) &&
+            (!needsFateDiscard || fateDiscardHasCard) &&
+            (!needsFirstAction || !realActionUsed) &&
+            (!needsKronkToken || kronkHasPowerToken) &&
+            (!needsFateDiscardHero || fateDiscardHasHero) &&
+            (!needsPoeticJustice || poeticJusticeUsable) &&
+            (!needsRelocateTarget || relocateTargetAvailable) &&
+            (!needsHackTarget || hackTargetAvailable) &&
+            (!needsHackInPlay || !!hasHackInPlay) &&
+            (!needsPawnWithRaiponce || pawnWithRaiponce) &&
+            (!needsRaiponceNotAtTour || !raiponceAtTour) &&
+            (!needsRecoverTarget || recoverFromDiscardAvailable) &&
+            (!needsActivatable || hasActivatableCard) &&
+            (!needsRemoveObstacle || canRemoveObstacle) &&
+            (!needsReplaceObstacle || canReplaceObstacle) &&
+            (!needsMovableCard || realmHasMovableCard) &&
+            (!needsMoveOrActivate || realmHasMovableCard || hasActivatableCard) &&
+            (!needsIdentification || (realmHasHeroes && realmHasMovableCard)) &&
+            (!needsBookworm || (realmHasHeroes && power >= 1)) &&
+            (!needsToRoomCandidate || lotsoToRoomAvailable) &&
+            (!needsHeroOutsideRoom || lotsoHeroOutsideRoom) &&
+            (!needsHeroInRoom || lotsoHeroInRoom) &&
+            (!needsShowMeBeast || showMeBeastUsable) &&
+            (!needsKeyAtPawn || keyAtPawn) &&
+            (!needsKeysOnBoard || keysOnBoard) &&
+            (!needsOwnedKey || ownsKey) &&
+            replaceOk &&
+            vanquishOnlyOk &&
+            (!needsFateDiscardCard || fateDiscardNonEmpty) &&
+            (!needsVillainDiscard || villainDiscardNonEmpty) &&
+            !(blockEvents && card.type === 'effect')
           const playable =
             mode === 'play'
-              ? card.type !== 'condition' &&
-                cost <= power &&
-                (!needsAlly || attachTargetsAvailable) &&
-                (!needsAllyInRealm || realmHasAllies) &&
-                (!needsHeroInRealm || realmHasHeroes) &&
-                (!needsIngredient || hasIngredients) &&
-                (!needsHeroHere || heroAtPawn) &&
-                (!needsBite || canBite) &&
-                (!needsHyena || realmHasHyena) &&
-                (!needsHyenaElsewhere || hyenaElsewhere) &&
-                (!needsFateDiscard || fateDiscardHasCard) &&
-                (!needsFirstAction || !realActionUsed) &&
-                (!needsKronkToken || kronkHasPowerToken) &&
-                (!needsFateDiscardHero || fateDiscardHasHero) &&
-                (!needsPoeticJustice || poeticJusticeUsable) &&
-                (!needsRelocateTarget || relocateTargetAvailable) &&
-                (!needsHackTarget || hackTargetAvailable) &&
-                (!needsPawnWithRaiponce || pawnWithRaiponce) &&
-                (!needsRecoverTarget || recoverFromDiscardAvailable) &&
-                (!needsActivatable || hasActivatableCard) &&
-                (!needsRemoveObstacle || canRemoveObstacle) &&
-                (!needsReplaceObstacle || canReplaceObstacle) &&
-                (!needsMovableCard || realmHasMovableCard) &&
-                (!needsShowMeBeast || showMeBeastUsable) &&
-                (!needsKeyAtPawn || keyAtPawn) &&
-                (!needsKeysOnBoard || keysOnBoard) &&
-                (!needsOwnedKey || ownsKey) &&
-                replaceOk &&
-                !(blockEvents && card.type === 'effect')
+              ? canPlay
               : mode === 'condition-ally'
                 ? card.type === 'ally' // Lâcheté : seuls les Alliés sont jouables, gratuit
                 : false
+          // Glisser-déposer : la carte est saisissable dès qu'une action « Jouer une
+          // carte » est disponible et que la carte serait jouable (même hors mode 'play').
+          const dragEligible = !!dragPlayActionId && canPlay && mode !== 'discard'
           const checked = selectedToDiscard.includes(ci.instanceId)
-          const clickable = playable || mode === 'discard'
+          // « Jouer une carte » ne se fait PLUS au clic : on glisse la carte sur le plateau.
+          // Le clic reste utile uniquement pour la défausse et la réaction « condition-ally »
+          // (Lâcheté), où le glissé n'est pas disponible.
+          // Condition « armée » (clignotante) jouable en réaction pendant le tour d'un
+          // adversaire : on autorise le clic direct sur la carte comme raccourci du
+          // panneau « Réaction disponible ».
+          const reactionClickable = isArmed && !!onActivateReaction
+          const clickable = (mode === 'condition-ally' && playable) || mode === 'discard' || reactionClickable
           const dimmed = (mode === 'play' || mode === 'condition-ally') && !playable
-          const onClick = playable
-            ? () => onPlayCard(ci.instanceId)
-            : mode === 'discard'
-              ? () => onToggleDiscard(ci.instanceId)
-              : undefined
+          const onClick =
+            mode === 'condition-ally' && playable
+              ? () => onPlayCard(ci.instanceId)
+              : mode === 'discard'
+                ? () => onToggleDiscard(ci.instanceId)
+                : reactionClickable
+                  ? () => onActivateReaction!(ci.instanceId)
+                  : undefined
           // Carte en cours de sélection (on choisit sa cible) → cadre jaune maintenu.
           const isSelected = selectedCardId === ci.instanceId
           // Condition activée (jouable en réaction) : clignotant ROSE pulsé.
@@ -455,8 +617,72 @@ export function Hand({
                 src={card.image}
                 alt={card.name}
                 title={`${card.name} — ${card.text}`}
-                onClick={onClick}
-                className={`w-full rounded-lg border ${clickable ? 'cursor-pointer' : ''} ${ring}`}
+                // L'image ne doit PAS déclencher le drag natif du navigateur : il volerait
+                // les événements pointer et figerait notre fantôme.
+                draggable={false}
+                style={dragEligible ? { touchAction: 'none' } : undefined}
+                onClick={() => {
+                  // Un clic qui suit un glissé est neutralisé (le glissé a déjà joué/ciblé).
+                  if (suppressClickRef.current) { suppressClickRef.current = false; return }
+                  onClick?.()
+                }}
+                onPointerDown={
+                  dragEligible
+                    ? (e) => {
+                        if (e.button !== 0) return
+                        ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+                        dragPointer.current = { id: ci.instanceId, startX: e.clientX, startY: e.clientY, dragging: false }
+                      }
+                    : undefined
+                }
+                onPointerMove={
+                  dragEligible
+                    ? (e) => {
+                        const d = dragPointer.current
+                        if (!d || d.id !== ci.instanceId) return
+                        if (!d.dragging) {
+                          if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < 6) return
+                          d.dragging = true
+                          onCardDragStart?.(ci.instanceId, e.clientX, e.clientY)
+                        }
+                        onCardDragMove?.(e.clientX, e.clientY)
+                      }
+                    : undefined
+                }
+                onPointerUp={
+                  dragEligible
+                    ? (e) => {
+                        const d = dragPointer.current
+                        dragPointer.current = null
+                        if (!d || d.id !== ci.instanceId) return
+                        if (d.dragging) {
+                          // Neutralise le clic « parasite » qui suit le glissé. On l'auto-efface
+                          // après ce clic (setTimeout 0) : s'il ne retombe pas sur cette carte
+                          // (lâché ailleurs), le flag ne doit pas bloquer un futur vrai clic.
+                          suppressClickRef.current = true
+                          window.setTimeout(() => { suppressClickRef.current = false }, 0)
+                          onCardDragDrop?.(ci.instanceId, e.clientX, e.clientY)
+                        }
+                      }
+                    : undefined
+                }
+                onContextMenu={
+                  dragEligible
+                    ? (e) => {
+                        // Clic droit pendant un glissé : on annule (la carte revient en main).
+                        if (dragPointer.current?.dragging) {
+                          e.preventDefault()
+                          dragPointer.current = null
+                          suppressClickRef.current = true
+                          window.setTimeout(() => { suppressClickRef.current = false }, 0)
+                          onCardDragCancel?.()
+                        }
+                      }
+                    : undefined
+                }
+                className={`w-full rounded-lg border ${clickable ? 'cursor-pointer' : dragEligible ? 'cursor-grab' : ''} ${ring} ${
+                  draggingInstanceId === ci.instanceId ? 'opacity-0' : ''
+                }`}
               />
               {cost !== baseCost && (
                 <span

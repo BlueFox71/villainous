@@ -65,8 +65,7 @@ export const VILLAIN_PACKS: VillainPack[] = [
     releaseUS: 'Février 2021',
     releaseFR: 'Septembre 2021',
     // « Le Seigneur des clés » du jeu est une collab fan distincte → non rattaché ici.
-    villains: ['gaston', 'madameTremaine'],
-    otherMembers: ['Le Seigneur des Ténèbres'],
+    villains: ['gaston', 'madameTremaine', 'seigneurTenebres'],
   },
   {
     id: 'pack-6',
@@ -74,8 +73,7 @@ export const VILLAIN_PACKS: VillainPack[] = [
     image: '/packs/pack-6.png',
     releaseUS: 'Mars 2022',
     releaseFR: 'Septembre 2022',
-    villains: [],
-    otherMembers: ['Lotso', 'Madame Mim', 'Syndrome'],
+    villains: ['lotso', 'madameMim', 'syndrome'],
   },
   {
     id: 'pack-7',
@@ -91,8 +89,8 @@ export const VILLAIN_PACKS: VillainPack[] = [
     image: '/packs/pack-8.png',
     releaseUS: 'Juin 2024',
     releaseFR: 'Septembre 2024',
-    villains: [],
-    otherMembers: ['Sa Sucrerie', 'Shere Khan'],
+    villains: ['saSucrerie'],
+    otherMembers: ['Shere Khan'],
   },
   {
     id: 'pack-9',

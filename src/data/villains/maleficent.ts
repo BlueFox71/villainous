@@ -34,6 +34,7 @@ export const maleficent: VillainDef = {
   id: 'maleficent',
   name: 'Maléfique',
   objective: { type: 'CURSE_EACH_LOCATION' },
+  boardObjective: 'Au début de votre tour, il doit y avoir au moins une Malédiction sur chaque lieu de votre royaume.',
   objectiveDescription: 'Avoir au moins une Malédiction sur chacun des 4 lieux au début de son tour.',
   boardImage: '/cards/maleficent/board.png',
   pawnImage: '/pion_maleficent.png',
