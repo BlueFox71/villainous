@@ -306,6 +306,7 @@ export const cruellaCards: CardDef[] = [
     copies: 1,
     text: 'Vous pouvez déplacer un Allié du lieu où vous jouez CAPITAINE vers un lieu voisin.',
     image: img('capitaine.png'),
+    onPlace: [{ type: 'MOVE_ALLY_FROM_HOST_ADJACENT' }],
   },
   {
     id: 'colonel',
@@ -317,6 +318,7 @@ export const cruellaCards: CardDef[] = [
     copies: 1,
     text: 'Vous pouvez déplacer un Héros vers le lieu de votre choix.',
     image: img('colonel.png'),
+    onPlace: [{ type: 'RELOCATE_REALM_HERO_ANYWHERE' }],
   },
   {
     id: 'nanny',

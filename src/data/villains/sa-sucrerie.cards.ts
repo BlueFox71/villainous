@@ -21,6 +21,8 @@ export const saSucrerieCards: CardDef[] = [
     strength: 2,
     copies: 3,
     text: 'Lorsque CYBUG EN SUCRE participe à une action Éliminer un Héros, déplacez-le sur un autre lieu au lieu de le défausser, puis ajoutez-lui un jeton Force +1.',
+    // Survit au Vanquish : pas défaussé, +1 Force cumulatif, déplacé sur un lieu au choix.
+    survivesVanquishGain: 1,
     image: img('cybug-en-sucre.png'),
   },
   {
@@ -35,6 +37,7 @@ export const saSucrerieCards: CardDef[] = [
     text: 'Lorsque les PILOTES sont joués ou déplacés, gagnez 1 jeton Pouvoir.',
     image: img('pilotes.png'),
     effects: [{ type: 'GAIN_POWER', amount: 1 }],
+    effectsAlsoOnMove: true, // gain 1 Pouvoir à la pose ET à chaque déplacement
   },
   {
     id: 'duncan-et-wynnchel',
@@ -47,6 +50,8 @@ export const saSucrerieCards: CardDef[] = [
     copies: 1,
     text: 'Lorsque DUNCAN ET WYNNCHEL sont joués ou déplacés, vous pouvez effectuer une action Éliminer un Héros.',
     image: img('duncan-et-wynnchel.png'),
+    effects: [{ type: 'OPTIONAL_FREE_VANQUISH' }],
+    effectsAlsoOnMove: true, // action Éliminer un Héros facultative à la pose ET au déplacement
   },
   {
     id: 'taffyta-creme-brulee',
@@ -59,7 +64,8 @@ export const saSucrerieCards: CardDef[] = [
     copies: 1,
     text: "Quand TAFFYTA CRÈME BRÛLÉE est jouée ou déplacée, vous pouvez reculer le marqueur Pilote de 2 cases OU effectuer une action Jouer une carte.",
     image: img('taffyta-creme-brulee.png'),
-    effects: [{ type: 'KING_CANDY_MOVE_RACER_BACK', amount: 2 }],
+    effects: [{ type: 'TAFFYTA_CHOICE' }],
+    effectsAlsoOnMove: true, // choix Pilote/Jouer une carte à la pose ET au déplacement
   },
   {
     id: 'aigre-bill',
@@ -70,8 +76,10 @@ export const saSucrerieCards: CardDef[] = [
     cost: 1,
     strength: 2,
     copies: 1,
-    text: "Lorsque AIGRE BILL est joué ou déplacé, vous pouvez dévoiler les cartes de votre pioche jusqu'à en trouver une, l'ajouter à votre main, puis replacer les autres cartes dévoilées sur le dessus de la pioche dans l'ordre de votre choix.",
+    text: "Lorsque AIGRE BILL est joué ou déplacé, vous pouvez dévoiler les cartes de votre pioche jusqu'à en trouver un Allié, l'ajouter à votre main, puis replacer les autres cartes dévoilées sur le dessus de la pioche dans l'ordre de votre choix.",
     image: img('aigre-bill.png'),
+    effects: [{ type: 'AIGRE_BILL_DIG' }],
+    effectsAlsoOnMove: true, // fouille facultative à la pose ET au déplacement
   },
   // --- Objets ---------------------------------------------------------------
   {
@@ -84,9 +92,9 @@ export const saSucrerieCards: CardDef[] = [
     attach: 'hero',
     attachOnlyCardId: 'vanellope-von-schweetz',
     copies: 3,
-    text: "Associez cette carte à Vanellope von Schweetz. Si un Bug est associé à Vanellope, avancez votre figurine et le marqueur Pilote à la case Départ/Arrivée, puis votre tour est terminé.",
+    text: "Associez cette carte à Vanellope von Schweetz. Si un Bug est DÉJÀ associé à Vanellope, votre figurine et le marqueur Pilote avancent de 2 cases. Sinon, placez votre figurine et le marqueur Pilote sur la case Départ/Arrivée, puis votre tour est terminé.",
     image: img('bug.png'),
-    effects: [{ type: 'KING_CANDY_START_RACE' }],
+    effects: [{ type: 'KING_CANDY_PLAY_BUG' }],
   },
   {
     id: 'medaillon-des-heros-de-ralph',
@@ -98,6 +106,7 @@ export const saSucrerieCards: CardDef[] = [
     copies: 1,
     text: "Lorsque vous jouez cette carte, cherchez Ralph la Casse et jouez-le sur ce lieu en lui associant cette carte. Si Ralph la Casse est éliminé, cherchez Vanellope von Schweetz et jouez-la sur ce lieu.",
     image: img('medaillon-des-heros-de-ralph.png'),
+    effects: [{ type: 'MEDAILLON_FETCH_RALPH' }],
   },
   // --- Événements -----------------------------------------------------------
   {
@@ -135,6 +144,7 @@ export const saSucrerieCards: CardDef[] = [
     text: "Cette carte est jouable sans action Jouer une carte. Durant ce tour, vous pouvez effectuer vos 3 actions accessibles, même celles recouvertes par un Héros ou le marqueur Pilote.",
     image: img('turbo-statique.png'),
     effects: [{ type: 'KING_CANDY_TURBO' }],
+    playableWithoutAction: true, // jouable sans consommer d'action « Jouer une carte »
   },
   {
     id: 'quelques-dragees',
@@ -156,8 +166,11 @@ export const saSucrerieCards: CardDef[] = [
     type: 'effect',
     cost: 0,
     copies: 1,
-    text: "Cette carte est jouable uniquement avant d'effectuer vos actions et sans action Jouer une carte. Dépensez jusqu'à 8 jetons Pouvoir pour jouer cette carte. Déplacez-vous ensuite d'autant de cases Action que de jetons ainsi dépensés.",
+    text: "Cette carte est jouable uniquement avant d'effectuer vos actions et sans action Jouer une carte. Dépensez jusqu'à 6 jetons Pouvoir pour jouer cette carte. Déplacez-vous ensuite d'autant de cases Action que de jetons ainsi dépensés.",
     image: img('limportant-cest-de-payer.png'),
+    effects: [{ type: 'PAY_TO_RACE' }],
+    playableWithoutAction: true,
+    playableOnlyBeforeActions: true,
   },
   {
     id: 'il-lui-est-defendu-de-courir',
@@ -169,7 +182,7 @@ export const saSucrerieCards: CardDef[] = [
     copies: 1,
     text: "Déplacez autant d'Alliés que vous voulez vers le lieu où se trouve un Héros, puis effectuez une action Éliminer un Héros. Les Alliés utilisés ne sont pas défaussés. Reculez le marqueur Pilote de 3 cases.",
     image: img('il-lui-est-defendu-de-courir.png'),
-    effects: [{ type: 'KING_CANDY_MOVE_RACER_BACK', amount: 3 }],
+    effects: [{ type: 'RACE_BAN' }],
   },
   // --- Conditions -----------------------------------------------------------
   {
@@ -182,6 +195,8 @@ export const saSucrerieCards: CardDef[] = [
     copies: 2,
     text: "Cette carte se joue uniquement pendant le tour d'un adversaire s'il gagne au moins 2 jetons Pouvoir. Cherchez une carte dans votre défausse et ajoutez-la à votre main.",
     image: img('hors-service.png'),
+    trigger: { type: 'opponent-gained-power-ge', value: 2 },
+    effects: [{ type: 'RECOVER_FROM_DISCARD_CHOICE', types: ['ally', 'item', 'effect', 'condition'], label: 'Hors Service' }],
   },
   {
     id: 'le-plus-puissant-virus',
@@ -191,8 +206,10 @@ export const saSucrerieCards: CardDef[] = [
     type: 'condition',
     cost: 0,
     copies: 2,
-    text: "Cette carte est jouable pendant le tour d'un adversaire s'il déplace un Héros ou un Bug. Avancez votre figurine de 2 cases Action.",
+    text: "Cette carte est jouable pendant le tour d'un adversaire s'il déplace un Allié ou un Objet. Avancez votre figurine de 2 cases Action.",
     image: img('le-plus-puissant-virus.png'),
+    trigger: { type: 'opponent-moved-card' },
+    effects: [{ type: 'KING_CANDY_MOVE_TRACK', steps: 2 }],
   },
 
   // ============================ DECK FATALITÉ (15) ===========================
@@ -207,6 +224,8 @@ export const saSucrerieCards: CardDef[] = [
     copies: 1,
     text: "Vous pouvez déplacer Vanellope von Schweetz vers le lieu de votre choix. L'action Jouer une carte coûte 1 jeton Pouvoir de plus.",
     image: img('sergent-calhoun.png'),
+    onPlace: [{ type: 'RELOCATE_FATE_TARGET_HERO', heroCardId: 'vanellope-von-schweetz' }],
+    playCardCostSurcharge: 1,
   },
   {
     id: 'vanellope-von-schweetz',
@@ -229,6 +248,8 @@ export const saSucrerieCards: CardDef[] = [
     copies: 1,
     text: "Vous pouvez déplacer Vanellope von Schweetz vers le lieu de votre choix. L'action Déplacer un Objet ou un Allié coûte 1 jeton Pouvoir.",
     image: img('ralph-la-casse.png'),
+    onPlace: [{ type: 'RELOCATE_FATE_TARGET_HERO', heroCardId: 'vanellope-von-schweetz' }],
+    moveActionSurcharge: 1,
   },
   {
     id: 'felix-fixe-jr',
@@ -240,6 +261,7 @@ export const saSucrerieCards: CardDef[] = [
     copies: 1,
     text: "Vous pouvez déplacer Vanellope von Schweetz vers le lieu de votre choix. Au début de son tour, Sa Sucrerie doit choisir de se déplacer de 2 ou 3 cases Action au lieu de 1 à 4.",
     image: img('felix-fixe-jr.png'),
+    onPlace: [{ type: 'RELOCATE_FATE_TARGET_HERO', heroCardId: 'vanellope-von-schweetz' }],
   },
   // --- Événements Fatalité --------------------------------------------------
   {
@@ -249,9 +271,9 @@ export const saSucrerieCards: CardDef[] = [
     deck: 'fate',
     type: 'effect',
     copies: 2,
-    text: "Dévoilez la première carte Méchant de la pioche de Sa Sucrerie puis avancez le marqueur Pilote d'autant de cases que le coût de la carte dévoilée, augmentée de 2. Placez la carte dévoilée sous la pioche.",
+    text: "Dévoilez la première carte Méchant de la pioche de Sa Sucrerie puis avancez le marqueur Pilote d'autant de cases que le coût de la carte dévoilée, augmentée de 1. Placez la carte dévoilée sous la pioche.",
     image: img('enfin-un-vrai-kart.png'),
-    effects: [{ type: 'KING_CANDY_ADVANCE_RACER_BY_REVEAL' }],
+    effects: [{ type: 'KING_CANDY_ADVANCE_RACER_BY_REVEAL', bonus: 1 }],
   },
   {
     id: 'princesse-vanellope',
@@ -262,7 +284,7 @@ export const saSucrerieCards: CardDef[] = [
     copies: 2,
     text: "Reculez la figurine de Sa Sucrerie jusqu'à 4 cases Action.",
     image: img('princesse-vanellope.png'),
-    effects: [{ type: 'KING_CANDY_MOVE_TRACK', steps: -4 }],
+    effects: [{ type: 'KING_CANDY_PAWN_BACK_CHOICE', max: 4 }],
   },
   {
     id: 'niveau-inacheve',
@@ -273,6 +295,7 @@ export const saSucrerieCards: CardDef[] = [
     copies: 2,
     text: "Dévoilez les 4 premières cartes Méchant de la pioche de Sa Sucrerie. Placez-en 2 sur le dessus de la pioche et les 2 autres en dessous, dans l'ordre de votre choix.",
     image: img('niveau-inacheve.png'),
+    effects: [{ type: 'NIVEAU_INACHEVE' }],
   },
   {
     id: 'juste-quelques-eguimauves',
@@ -283,6 +306,7 @@ export const saSucrerieCards: CardDef[] = [
     copies: 2,
     text: 'Sa Sucrerie doit révéler sa main et défausser 2 cartes.',
     image: img('juste-quelques-eguimauves.png'),
+    effects: [{ type: 'TARGET_DISCARD_CHOICE', count: 2, label: 'Juste quelques Éguimauves' }],
   },
   {
     id: 'le-faisceau',
@@ -293,6 +317,7 @@ export const saSucrerieCards: CardDef[] = [
     copies: 1,
     text: "Choisissez un lieu et déplacez-y tous les Cybug en Sucre se trouvant sur un lieu voisin. Vous pouvez défausser un Cybug en Sucre sur ce lieu.",
     image: img('le-faisceau.png'),
+    effects: [{ type: 'BEACON_GATHER_CYBUGS' }],
   },
   {
     id: 'cest-quoi-toutes-ces-etincelles-magiques',
@@ -301,9 +326,9 @@ export const saSucrerieCards: CardDef[] = [
     deck: 'fate',
     type: 'effect',
     copies: 1,
-    text: "Vous pouvez défausser un Bug. Si vous le faites et qu'il reste un Bug associé à Vanellope von Schweetz, avancez le marqueur Pilote de 3 cases.",
+    text: "Défaussez un Bug associé à Vanellope von Schweetz. S'il reste un Bug associé à Vanellope ensuite, avancez le marqueur Pilote de 3 cases.",
     image: img('cest-quoi-toutes-ces-etincelles-magiques.png'),
-    effects: [{ type: 'KING_CANDY_ADVANCE_RACER', amount: 3 }],
+    effects: [{ type: 'KING_CANDY_SPARKLES' }],
   },
   {
     id: 'medaille-de-vanellope',
@@ -312,7 +337,8 @@ export const saSucrerieCards: CardDef[] = [
     deck: 'fate',
     type: 'effect',
     copies: 1,
-    text: "Vous pouvez choisir un Héros dans la défausse de cartes Fatalité. Jouez-le et ajoutez-lui 1 jeton Force +1.",
+    text: "Choisissez un Héros dans la défausse de cartes Fatalité, jouez-le sur le lieu de votre choix et ajoutez-lui 1 jeton Force +1.",
     image: img('medaille-de-vanellope.png'),
+    effects: [{ type: 'MEDAL_PLAY_FATE_HERO' }],
   },
 ]

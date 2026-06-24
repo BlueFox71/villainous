@@ -31,6 +31,11 @@ export const VILLAIN_COLOR: Record<string, string> = {
   lotso: '#B0285A',
   'sa-sucrerie': '#B81E63',
   saSucrerie: '#B81E63',
+  'shere-khan': '#C9772E',
+  shereKhan: '#C9772E',
+  'davy-jones': '#1E7A6F',
+  davyJones: '#1E7A6F',
+  tamatoa: '#C79A2E',
 }
 
 /** Teintes de repli (camp joueur / adversaire) quand la couleur d'un vilain est

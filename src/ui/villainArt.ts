@@ -30,6 +30,9 @@ const PORTRAIT: Partial<Record<VillainKey, string>> = {
   syndrome: '/syndrome.png',
   lotso: '/lotso.png',
   saSucrerie: '/sa-sucrerie.png',
+  shereKhan: '/shere-khan.png',
+  davyJones: '/davy-jones.png',
+  tamatoa: '/tamatoa.png',
 }
 
 /** Portrait d'un vilain, avec repli sur son dos de carte si non défini. */
@@ -67,6 +70,9 @@ const PRESENTATION: Partial<Record<VillainKey, string>> = {
   syndrome: '/presentations/syndrome.png',
   lotso: '/presentations/lotso.png',
   saSucrerie: '/presentations/sa-sucrerie.png',
+  shereKhan: '/presentations/shere-khan.png',
+  davyJones: '/presentations/davy-jones.png',
+  tamatoa: '/presentations/tamatoa.png',
 }
 
 /** Illustration de présentation d'un vilain (undefined si non disponible). */
@@ -89,4 +95,7 @@ export const PRESENTATION_TWEAK: Partial<
   gothel: { scale: 0.9, dyPct: 4 },
   // Le Seigneur des clés : on baisse légèrement sa position (sans le rétrécir).
   seigneurCles: { dyPct: 6 },
+  // Maléfique : nouvelle illustration carrée (1000×1000) — on la remonte pour caler la
+  // figure dans le cadre (négatif = vers le haut).
+  maleficent: { dyPct: -6 },
 }

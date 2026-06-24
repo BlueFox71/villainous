@@ -546,6 +546,26 @@ body {
     transform: translateY(115vh) rotate(var(--coin-spin, 360deg));
   }
 }
+/* Brillance des jetons de Pouvoir quand on en gagne : halo doré qui pulse + léger
+   « pop » d'échelle, puis retour à la normale. */
+@keyframes powerGlow {
+  0% {
+    box-shadow: 0 0 0 0 var(--glow-color, #fcd34d);
+    transform: scale(1);
+  }
+  30% {
+    box-shadow: 0 0 18px 6px var(--glow-color, #fcd34d), 0 0 6px 2px rgba(255, 255, 255, 0.7);
+    transform: scale(1.08);
+  }
+  100% {
+    box-shadow: 0 0 0 0 var(--glow-color, #fcd34d);
+    transform: scale(1);
+  }
+}
+/* --glow-color : couleur du halo (= couleur du vilain, injectée en style inline). */
+.power-glow {
+  animation: powerGlow 0.9s ease-out;
+}
 /* Clip d'eau (Capitaine Crochet) : vidéo en boucle dont les bords sont fondus en
    transparence (masque elliptique) pour que le rectangle se fonde dans le décor. */
 .water-clip {

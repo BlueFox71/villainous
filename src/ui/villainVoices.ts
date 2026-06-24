@@ -51,6 +51,9 @@ const VOICE_PREFIX: Record<VillainKey, string> = {
   syndrome: 'Syndrome', // 4 variantes présentes
   lotso: 'Lotso', // 4 variantes présentes
   saSucrerie: 'Sa sucrerie', // 4 variantes présentes
+  shereKhan: 'Shere khan', // 4 variantes présentes
+  davyJones: 'Davy jones', // 4 variantes présentes
+  tamatoa: 'Tamatoa', // 4 variantes présentes
 }
 
 const CONTRE_PREFIX = 'Contre'

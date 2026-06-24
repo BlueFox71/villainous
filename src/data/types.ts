@@ -195,6 +195,37 @@ export interface CardDef {
    *  un Héros, l'Allié RESTE en jeu, gagne ce nombre en Force (cumulatif) et est déplacé
    *  sur un lieu au choix. */
   survivesVanquishGain?: number
+  /** Carte « jouée OU déplacée » : ses `effects` se redéclenchent aussi quand l'Allié/
+   *  Objet est déplacé entre deux lieux (en plus de la pose). Ex. Pilotes (Sa Sucrerie) :
+   *  GAIN_POWER 1 à la pose ET à chaque déplacement. */
+  effectsAlsoOnMove?: boolean
+  /** Carte jouable SANS action « Jouer une carte » (en payant son coût) : elle peut être
+   *  jouée à tout moment du tour et ne consomme aucune action de lieu. Ex. Turbo-Statique
+   *  (Sa Sucrerie). */
+  playableWithoutAction?: boolean
+  /** Carte jouable uniquement AVANT d'avoir effectué une action de lieu ce tour (après
+   *  le déplacement du pion). Ex. L'important, c'est de payer (Sa Sucrerie). */
+  playableOnlyBeforeActions?: boolean
+  /** Shere Khan — Baloo : tant que ce Héros est dans le royaume, AUCUN autre Héros ne peut
+   *  être éliminé ; chaque tentative pose à la place un jeton Pouvoir sur lui, et à
+   *  `shieldsOtherHeroesUntilTokens` jetons il est défaussé (avec ses jetons). */
+  shieldsOtherHeroesUntilTokens?: number
+  /** Héros (Fatalité) qui, tant qu'il est dans le royaume, augmente de N le coût de
+   *  TOUTE carte jouée (« l'action Jouer une carte coûte N de plus »). Ex. Sergent
+   *  Calhoun (Sa Sucrerie, +1). Cumulatif par exemplaire présent. */
+  playCardCostSurcharge?: number
+  /** Carte Fatalité (Héros ou Objet associé) qui fait perdre N jetons Pouvoir au vilain
+   *  quand sa figurine ARRIVE sur le lieu de cette carte. Ex. Chicha (Yzma, 2),
+   *  Zirgouflex (Ursula, 1). Cumulatif ; plancher 0. */
+  powerLossOnPawnArrive?: number
+  /** Héros (Fatalité) qui renchérit de N le coût d'un PACTE qui le cible (Roi Triton,
+   *  Ursula, +1). Appliqué à la pose via `attachTo` (cf. applyPlayCard). Les Événements
+   *  ciblant ce Héros ne sont pas couverts (cible choisie après le paiement). */
+  pacteTargetSurcharge?: number
+  /** Héros (Fatalité) qui, tant qu'il est dans le royaume, fait coûter N jetons Pouvoir
+   *  l'action « Déplacer un Objet ou un Allié » (normalement gratuite). Ex. Ralph la Casse
+   *  (Sa Sucrerie, +1). Cumulatif par exemplaire. */
+  moveActionSurcharge?: number
   /** Sombra — carte de « Piratage » (Piratage, IEM) : posée sur un lieu, NON
    *  déplaçable, et comptée comme un Objet pour les conditions adverses. Le lieu qui
    *  en porte une est « piraté ». `hackDisablesAction` : à la pose, le joueur
@@ -229,6 +260,15 @@ export interface CardDef {
    *  deck Merlin). */
   isMimTransformation?: boolean
   isMerlinTransformation?: boolean
+  /** Tamatoa — drapeaux (cf. CardInstance). */
+  isMauiCard?: boolean
+  joinsAlliesOnAllyPlay?: boolean
+  moveAnyCardOnVanquish?: boolean
+  gainPowerWhenFated?: number
+  triggersMauiDeck?: boolean
+  shieldsHeroesAtLocation?: boolean
+  coversActionsLikeHero?: boolean
+  selfDiscardOnPawnEndTurnHere?: boolean
   /** Syndrome — Énergie au Point Zéro (Objet associé à un Héros) : empêche de déplacer
    *  le Héros hôte (en plus de son `attachStrengthBonus` négatif). */
   immobilizesHostHero?: boolean
@@ -245,6 +285,17 @@ export interface CardDef {
   /** Oogie Boogie — carte jouée en réaction, pas via « Jouer une carte » (Dés pipés :
    *  relance un dé pendant un lancer). Injouable normalement. */
   reactiveOnly?: boolean
+  // --- Davy Jones (Jetons Trésor) ------------------------------------------
+  /** Héros (Jack Sparrow) : bloque l'action Éliminer tant que le pion de Davy est sur son lieu. */
+  blocksVanquishHere?: boolean
+  /** Allié (Le Second Maccus) : utilisé pour un Vanquish, on peut défausser un autre Allié à sa place. */
+  survivesVanquishByDiscardingAlly?: boolean
+  /** Allié (Le Kraken) : pas défaussé quand il élimine un Héros à Trésor révélé. */
+  survivesVanquishWithRevealedTreasure?: boolean
+  /** Allié (Hadras) : quand défaussé, révèle un jeton Trésor sur un Héros. */
+  revealTreasureOnDiscard?: boolean
+  /** Objet Fatalité (Le Black Pearl) : à la mort de l'hôte, se réassocie à un autre Héros du lieu. */
+  reattachOnHostDefeat?: boolean
 }
 
 /** Développe une liste de définitions en un paquet concret (un élément par
@@ -318,6 +369,14 @@ export function buildDeckInstances(
           blocksItemPlacement: c.blocksItemPlacement,
           relocateToPawnOnVanquish: c.relocateToPawnOnVanquish,
           survivesVanquishGain: c.survivesVanquishGain,
+          effectsAlsoOnMove: c.effectsAlsoOnMove,
+          playableWithoutAction: c.playableWithoutAction,
+          playableOnlyBeforeActions: c.playableOnlyBeforeActions,
+          shieldsOtherHeroesUntilTokens: c.shieldsOtherHeroesUntilTokens,
+          playCardCostSurcharge: c.playCardCostSurcharge,
+          powerLossOnPawnArrive: c.powerLossOnPawnArrive,
+          pacteTargetSurcharge: c.pacteTargetSurcharge,
+          moveActionSurcharge: c.moveActionSurcharge,
           isPiratage: c.isPiratage,
           hackDisablesAction: c.hackDisablesAction,
           discardOnPlay: c.discardOnPlay,
@@ -331,9 +390,22 @@ export function buildDeckInstances(
           transformationTarget: c.transformationTarget,
           isMimTransformation: c.isMimTransformation,
           isMerlinTransformation: c.isMerlinTransformation,
+          isMauiCard: c.isMauiCard,
+          joinsAlliesOnAllyPlay: c.joinsAlliesOnAllyPlay,
+          moveAnyCardOnVanquish: c.moveAnyCardOnVanquish,
+          gainPowerWhenFated: c.gainPowerWhenFated,
+          triggersMauiDeck: c.triggersMauiDeck,
+          shieldsHeroesAtLocation: c.shieldsHeroesAtLocation,
+          coversActionsLikeHero: c.coversActionsLikeHero,
+          selfDiscardOnPawnEndTurnHere: c.selfDiscardOnPawnEndTurnHere,
           immobilizesHostHero: c.immobilizesHostHero,
           shieldHeroFromVanquish: c.shieldHeroFromVanquish,
           immuneToAllyItemEffects: c.immuneToAllyItemEffects,
+          blocksVanquishHere: c.blocksVanquishHere,
+          survivesVanquishByDiscardingAlly: c.survivesVanquishByDiscardingAlly,
+          survivesVanquishWithRevealedTreasure: c.survivesVanquishWithRevealedTreasure,
+          revealTreasureOnDiscard: c.revealTreasureOnDiscard,
+          reattachOnHostDefeat: c.reattachOnHostDefeat,
         }),
       ),
     )

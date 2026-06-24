@@ -55,6 +55,13 @@ const CRACK_SRC = '/audio/craquement.mp3' // pendant que les fissures se propage
 const CRACK_GAIN = 0.8
 const LIEU_PIRATE_SRC = '/audio/lieu-pirate.mp3' // Sombra : un lieu est piraté (action désactivée)
 const LIEU_PIRATE_GAIN = 0.75
+const NO_CAN_DO_SRC = '/audio/no-can-do.ogg' // tentative de jouer une carte injouable
+const NO_CAN_DO_GAIN = 0.5
+const MANA_ADD_SRC = '/audio/mana-crystal-add.ogg' // le joueur gagne ≥1 jeton Pouvoir
+const MANA_ADD_GAIN = 0.5
+const CARD_DRAG_LOOP_SRC = '/audio/card-drag-loop.ogg' // boucle pendant qu'on tient une carte au curseur
+const CARD_DRAG_LOOP_GAIN = 0.08 // volume final discret
+const CARD_DRAG_FADE_MS = 700 // durée du fondu d'entrée (montée progressive)
 
 // Éléments de base préchargés ; on les clone à chaque lecture pour autoriser le
 // chevauchement de sons rapprochés.
@@ -83,6 +90,8 @@ let defeatBuildupBase: HTMLAudioElement | null = null
 let shatterBase: HTMLAudioElement | null = null
 let crackBase: HTMLAudioElement | null = null
 let lieuPirateBase: HTMLAudioElement | null = null
+let noCanDoBase: HTMLAudioElement | null = null
+let manaAddBase: HTMLAudioElement | null = null
 if (typeof Audio !== 'undefined') {
   base = new Audio(CLICK_SRC)
   base.preload = 'auto'
@@ -134,6 +143,30 @@ if (typeof Audio !== 'undefined') {
   crackBase.preload = 'auto'
   lieuPirateBase = new Audio(LIEU_PIRATE_SRC)
   lieuPirateBase.preload = 'auto'
+  noCanDoBase = new Audio(NO_CAN_DO_SRC)
+  noCanDoBase.preload = 'auto'
+  manaAddBase = new Audio(MANA_ADD_SRC)
+  manaAddBase.preload = 'auto'
+}
+
+/** Joue le son d'erreur quand on tente de jouer une carte injouable. */
+export function playNoCanDo() {
+  if (!noCanDoBase) return
+  const { sfxVolume } = useSettingsStore.getState()
+  if (sfxVolume <= 0) return
+  const a = noCanDoBase.cloneNode() as HTMLAudioElement
+  a.volume = Math.min(1, sfxVolume) * NO_CAN_DO_GAIN
+  void a.play().catch(() => {})
+}
+
+/** Joue le son de cristal quand le joueur gagne au moins 1 jeton Pouvoir. */
+export function playManaAdd() {
+  if (!manaAddBase) return
+  const { sfxVolume } = useSettingsStore.getState()
+  if (sfxVolume <= 0) return
+  const a = manaAddBase.cloneNode() as HTMLAudioElement
+  a.volume = Math.min(1, sfxVolume) * MANA_ADD_GAIN
+  void a.play().catch(() => {})
 }
 
 /** Joue le son de clic de bouton (respecte le volume des bruitages). */
@@ -420,6 +453,51 @@ export function stopStartBarFill() {
   if (startFillLoop) {
     startFillLoop.pause()
     startFillLoop = null
+  }
+}
+
+// Boucle « cristal » pendant qu'une carte de la main est tenue au curseur (start/stop).
+let cardDragLoop: HTMLAudioElement | null = null
+let cardDragFade: ReturnType<typeof setInterval> | null = null
+
+/** Démarre la boucle pendant qu'on tient une carte de la main au curseur (idempotent).
+ *  Le son monte PROGRESSIVEMENT jusqu'à son volume final (fondu d'entrée) pour ne pas
+ *  démarrer brutalement. */
+export function startCardDragLoop() {
+  if (typeof Audio === 'undefined') return
+  const { sfxVolume } = useSettingsStore.getState()
+  if (sfxVolume <= 0) return
+  stopCardDragLoop()
+  const target = Math.min(1, sfxVolume) * CARD_DRAG_LOOP_GAIN
+  const audio = new Audio(CARD_DRAG_LOOP_SRC)
+  audio.loop = true
+  audio.volume = 0
+  cardDragLoop = audio
+  void audio.play().catch(() => {})
+  // Fondu d'entrée linéaire (≈ CARD_DRAG_FADE_MS) via paliers de 40 ms.
+  const step = 40
+  const ticks = Math.max(1, Math.round(CARD_DRAG_FADE_MS / step))
+  let n = 0
+  cardDragFade = setInterval(() => {
+    n += 1
+    if (cardDragLoop !== audio) return // une autre boucle a pris la main
+    audio.volume = Math.min(target, (target * n) / ticks)
+    if (n >= ticks && cardDragFade) {
+      clearInterval(cardDragFade)
+      cardDragFade = null
+    }
+  }, step)
+}
+
+/** Arrête la boucle « carte tenue au curseur » (no-op si déjà arrêtée). */
+export function stopCardDragLoop() {
+  if (cardDragFade) {
+    clearInterval(cardDragFade)
+    cardDragFade = null
+  }
+  if (cardDragLoop) {
+    cardDragLoop.pause()
+    cardDragLoop = null
   }
 }
 

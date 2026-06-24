@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode, type CSSProperties } from 'react'
 import type { PlayerState } from '../../engine/types'
 import type { Accent } from '../accents'
 import { useAnimatedNumber } from '../hooks/useAnimatedNumber'
@@ -23,6 +23,22 @@ interface Props {
  *  L'objectif lui-même est rendu par `ObjectiveBox`, réutilisable hors panneau. */
 export function PlayerPanel({ player, accent, isActive, isWinner, showObjective = true, subLabel, avatar }: Props) {
   const displayedPower = useAnimatedNumber(player.power)
+  // Brillance de la case Jetons quand le Pouvoir AUGMENTE (gain reçu).
+  const [powerGlow, setPowerGlow] = useState(false)
+  const prevPowerRef = useRef<number | null>(null)
+  const glowTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    const prev = prevPowerRef.current
+    prevPowerRef.current = player.power
+    if (prev !== null && player.power > prev) {
+      setPowerGlow(false)
+      // Redémarre l'animation même si elle était déjà en cours (gains successifs).
+      requestAnimationFrame(() => setPowerGlow(true))
+      if (glowTimer.current) clearTimeout(glowTimer.current)
+      glowTimer.current = setTimeout(() => setPowerGlow(false), 950)
+    }
+  }, [player.power])
+  useEffect(() => () => { if (glowTimer.current) clearTimeout(glowTimer.current) }, [])
   // Fond teinté à la couleur du méchant (plus marqué quand c'est son tour).
   const color = VILLAIN_COLOR[player.villain]
   return (
@@ -53,8 +69,14 @@ export function PlayerPanel({ player, accent, isActive, isWinner, showObjective 
         <div
           className={`flex flex-col items-center justify-center rounded-lg border border-white/15 bg-black/20 px-5 py-3 ${
             showObjective ? '' : 'flex-1'
-          }`}
+          } ${powerGlow ? 'power-glow' : ''}`}
           title="Jetons de pouvoir"
+          style={
+            color
+              ? // Halo de gain à la couleur du méchant (éclaircie pour rester visible).
+                ({ ['--glow-color' as string]: `color-mix(in srgb, ${color}, white 25%)` } as CSSProperties)
+              : undefined
+          }
         >
           <span className="-mt-1.5 text-[9px] uppercase tracking-wide text-white/40">Jetons</span>
           <span className="flex items-center gap-1.5 text-3xl font-bold text-amber-100">

@@ -131,6 +131,8 @@ export interface VillainDef {
   /** Lotso — la tuile GARDIEN « Buzz l'Éclair » (deux faces, hors deck), posée sur
    *  `locationId` (Salle des Chenilles) au départ, face Gardien. */
   guardianSetup?: { cardId: string; name: string; locationId: LocationId; strength: number }
+  /** Tamatoa — dos de la 3ᵉ pioche (Maui), affichée à part. */
+  mauiDeckBackImage?: string
   omnidroidSetup?: {
     startLocation: LocationId
     stages: {
@@ -291,6 +293,14 @@ export type ObjectiveDef =
    *  est associé à Vanellope von Schweetz. Victoire ÉVÉNEMENTIELLE — déclenchée à
    *  l'instant où le pion King Candy franchit l'index 0, AVANT le jeton Pilote. */
   | { type: 'KING_CANDY_RACE' }
+  /** Shere Khan : VAINCRE `heroCardId` (Mowgli) alors qu'AUCUN jeton Feu n'est présent
+   *  dans son royaume. Victoire ÉVÉNEMENTIELLE — déclenchée à l'instant du Vanquish de
+   *  Mowgli (performVanquish), uniquement si `fireTokens` est vide. */
+  | { type: 'DEFEAT_HERO_NO_FIRE'; heroCardId: string }
+  /** Davy Jones : RÉCUPÉRER les `count` jetons Trésor (poser face cachée sur un Héros →
+   *  révéler → vaincre ce Héros). Victoire ÉVÉNEMENTIELLE — déclenchée quand
+   *  `claimedTreasures.length` atteint `count` (au Vanquish d'un Héros à trésor révélé). */
+  | { type: 'CLAIM_ALL_TREASURES'; count: number }
 
 /** Pat Hibulaire — les 5 types de tuile Objectif (4 tirés par partie) :
  *  - `win-big`        : gagner ≥4 Pouvoir via UNE SEULE Petite Partie ? sur le lieu ;
@@ -379,6 +389,52 @@ export interface PuppyTile {
  * sans toucher au reste du moteur.
  */
 export type Effect =
+  // ── Tamatoa (pioche Maui + mécanique des Objets-objectif) ─────────────────
+  /** Dévoile et joue la 1ʳᵉ carte de la pioche MAUI (forcé : auto en début de tour tant
+   *  que Maui est en jeu, et chaîne Heihei Maui). */
+  | { type: 'PLAY_TOP_MAUI' }
+  /** « Pas exactement l'heure de Maui » : dévoile la 1ʳᵉ carte Maui, puis le joueur CHOISIT
+   *  de la jouer ou de la défausser (pendingMauiChoice). */
+  | { type: 'REVEAL_TOP_MAUI_CHOICE' }
+  /** Crustacé doté du pouvoir de création : (option) remélange la défausse Fatalité,
+   *  dévoile `reveal` cartes Fatalité, joue les Objets dévoilés (dont le Cœur), défausse le reste. */
+  | { type: 'CRUSTACEAN_REVEAL'; reveal: number }
+  /** Appât : pioche 1 carte par Héros dans le royaume. */
+  | { type: 'DRAW_PER_HERO_IN_REALM' }
+  /** Beau et brillant : remélange la défausse Maui dans la pioche Maui. */
+  | { type: 'RESHUFFLE_MAUI_DISCARD' }
+  /** Tu ressembles à des fruits de mer : paie Pouvoir = force d'un Héros choisi, l'élimine. */
+  | { type: 'DEFEAT_HERO_PAY_STRENGTH' }
+  /** Sans pouvoir / Pas si difficile : ajoute jusqu'à `max` jetons Force −1 à un Héros. */
+  | { type: 'ADD_MINUS_FORCE_TOKENS'; max: number }
+  /** L'heure de Maui : cherche Maui, le joue, associe l'Hameçon ; si déjà en jeu, le déplace + retire ses jetons. */
+  | { type: 'FETCH_MAUI_ATTACH_HOOK' }
+  /** Fuite (Fatalité) : déplace un Héros ou un Objet non associé vers un lieu voisin. */
+  | { type: 'MOVE_HERO_OR_ITEM_ADJACENT' }
+  /** Mini Maui (Fatalité) : regarde et réordonne les `count` premières cartes de la pioche Maui. */
+  | { type: 'REORDER_MAUI_TOP'; count: number }
+  /** Cœur de Te Fiti (onPlace) : cherche Moana, la pose sur le lieu du Cœur et lui associe le Cœur. */
+  | { type: 'HEART_FETCH_MOANA' }
+  /** Moana (onPlace) : si le Cœur de Te Fiti est dans le royaume, le lui associe. */
+  | { type: 'MOANA_STEAL_HEART' }
+  /** Carte Maui — jetons Force +1 : `allies` à tous les Alliés, `heroes` à tous les Héros. */
+  | { type: 'MAUI_FORCE_TOKENS'; allies: number; heroes: number }
+  /** Carte Maui — défausse les `count` premières cartes d'une (ou des) pioche(s). */
+  | { type: 'DISCARD_TOP_DECK'; whichDeck: 'fate' | 'villain' | 'both'; count: number }
+  /** Carte Maui (Requin) — joue la 1ʳᵉ carte Fatalité sur Tamatoa lui-même. */
+  | { type: 'PLAY_TOP_FATE_ON_SELF' }
+  /** Carte Maui (Coléoptère) — mélange tous les Alliés et les répartit équitablement. */
+  | { type: 'SHUFFLE_REDISTRIBUTE_ALLIES' }
+  /** Carte Maui (Cochon) — perd `lose` Pouvoir et pioche `draw` cartes. */
+  | { type: 'LOSE_POWER_DRAW'; lose: number; draw: number }
+  /** Carte Maui (Lézard) — défausse un Allié, gagne Pouvoir = sa force. */
+  | { type: 'DISCARD_ALLY_GAIN_POWER' }
+  /** Carte Maui (Heihei) — défaussée, puis dévoile et joue les `count` prochaines cartes Maui. */
+  | { type: 'MAUI_CHAIN'; count: number }
+  /** Carte Maui (Poisson) — gagne 1 Pouvoir par Condition en main, puis les défausse. */
+  | { type: 'REVEAL_HAND_POWER_PER_CONDITION' }
+  /** Carte Maui (Étoile de mer) — au prochain tour, déplacement de la figurine facultatif. */
+  | { type: 'OPTIONAL_SKIP_MOVE_NEXT' }
   /** Le Seigneur des Ténèbres : s'emparer du Chaudron Noir (tuile hors deck).
    *  Fait passer `blackCauldron` de 'set-aside' à 'claimed' (sans effet si déjà
    *  réclamé/activé). Sources : Montrez-moi le Chaudron Noir, Nous avons conclu un
@@ -397,15 +453,126 @@ export type Effect =
    *  place le pion King Candy ET le jeton Pilote sur Départ/Arrivée (index 0),
    *  `raceActive = true`, puis le tour se termine. */
   | { type: 'KING_CANDY_START_RACE' }
+  /** Bug (Glitch) joué : si un Bug était DÉJÀ associé à Vanellope (course en cours),
+   *  le pion King Candy ET le jeton Pilote avancent de 2 cases ; sinon (1ᵉʳ Bug) LANCE
+   *  la course (= KING_CANDY_START_RACE). Résolu après l'association de la carte. */
+  | { type: 'KING_CANDY_PLAY_BUG' }
+  /** Sa Sucrerie — L'important, c'est de payer : ouvre le choix de dépenser 1 à
+   *  min(6, Pouvoir) jetons pour avancer le pion d'autant de cases (pendingPayRace). */
+  | { type: 'PAY_TO_RACE' }
+  /** Sa Sucrerie — Il lui est défendu de courir : recule le jeton Pilote de 3 (si course),
+   *  puis (si Allié + Héros) ouvre le déplacement libre d'Alliés vers le lieu d'un Héros
+   *  chaîné à un Vanquish facultatif gardant les Alliés (pendingAllyRelocate → trap 'race-ban'). */
+  | { type: 'RACE_BAN' }
+  /** Sa Sucrerie — Sergent Calhoun / Ralph la Casse (Fatalité, onPlace) : le fataliseur
+   *  PEUT déplacer le Héros `heroCardId` (Vanellope) du royaume fatalisé vers le lieu de
+   *  son choix (pendingHeroRelocate, anyLocation, optional). Sans ce Héros → aucun effet. */
+  | { type: 'RELOCATE_FATE_TARGET_HERO'; heroCardId: string }
+  /** Sa Sucrerie — Princesse Vanellope (Fatalité) : le fataliseur fait reculer le pion
+   *  King Candy de 0 à `max` cases (choix interactif pendingPawnBack ; borné par trackPos). */
+  | { type: 'KING_CANDY_PAWN_BACK_CHOICE'; max: number }
+  /** Sa Sucrerie — Niveau Inachevé (Fatalité) : dévoile les 4 1ʳᵉˢ cartes de la pioche
+   *  Méchant ; le fataliseur en place 2 sur le dessus et 2 sous la pioche, dans l'ordre de
+   *  son choix (pendingFateReorder deck 'villain-split2', chooserIndex = activePlayer). */
+  | { type: 'NIVEAU_INACHEVE' }
+  /** Sa Sucrerie — Le Faisceau (Fatalité) : le fataliseur choisit un lieu, y rassemble
+   *  tous les Cybugs en Sucre des lieux voisins, puis peut défausser un Cybug de ce lieu
+   *  (pendingBeacon). Sans Cybug dans le royaume → aucun effet. */
+  | { type: 'BEACON_GATHER_CYBUGS' }
+  /** Sa Sucrerie — C'est quoi toutes ces étincelles magiques ? (Fatalité) : défausse un
+   *  Bug associé à Vanellope ; s'il en reste au moins un ensuite, le jeton Pilote avance
+   *  de 3. Sans Bug sur Vanellope → aucun effet. */
+  | { type: 'KING_CANDY_SPARKLES' }
+  /** Sa Sucrerie — Médaille de Vanellope (Fatalité) : le fataliseur choisit un Héros de la
+   *  défausse Fatalité de Sa Sucrerie et le joue sur le lieu de son choix avec +1 Force
+   *  (pendingMedal). Sans Héros en défausse Fatalité → aucun effet. */
+  | { type: 'MEDAL_PLAY_FATE_HERO' }
+  // --- Shere Khan (Le Livre de la Jungle) : mécanique des Jetons Feu ----------
+  /** Feu Rouge des Hommes (Fatalité) : le fataliseur POSE un jeton Feu sur une action au
+   *  choix d'un lieu de Shere Khan, OU déplace un jeton Feu existant vers une autre action. */
+  | { type: 'PLACE_OR_MOVE_FIRE' }
+  /** Mowgli (onPlace) : pose un jeton Feu sur une action du lieu d'arrivée du Héros. */
+  | { type: 'PLACE_FIRE_AT_HOST' }
+  /** C'est moi, Shere Khan : retire un jeton Feu d'une action du lieu du pion (au choix). */
+  | { type: 'REMOVE_FIRE_AT_PAWN' }
+  /** C'est très intéressant… (Condition) : choix multiple — gagner 1 Pouvoir / piocher 1 /
+   *  déplacer un jeton Feu vers une autre action. */
+  | { type: 'INTERESSANT_CHOICE' }
+  /** Tout le monde fuit : action gratuite au choix « Activer une capacité » OU « Éliminer
+   *  un Héros ». */
+  | { type: 'GRANT_FREE_ACTIVATE_OR_VANQUISH' }
+  /** Jeune et sans défense : déplacer un Héros sur le lieu d'un Allié OU gagner 1 Pouvoir
+   *  par Allié du royaume. */
+  | { type: 'MOVE_HERO_TO_ALLY_OR_POWER_PER_ALLY' }
+  /** À toi de jouer, cousin : dévoile la pioche jusqu'à un Allié, le joue gratuitement,
+   *  défausse les autres dévoilées. */
+  | { type: 'REVEAL_UNTIL_ALLY_PLAY_FREE' }
+  /** C'est à moi que vous le direz : défausse `count` cartes Fatalité, puis on PEUT remettre
+   *  une carte Fatalité de la défausse dans la pioche. */
+  | { type: 'DISCARD_FATE_THEN_RECOVER'; count: number }
+  /** Lancé sur ses traces : si `heroCardId` (Mowgli) est dans le royaume → l'éliminer ;
+   *  sinon, le chercher (pioche/défausse Fatalité) et le jouer sur le lieu du pion. */
+  | { type: 'DEFEAT_OR_FETCH_HERO'; heroCardId: string }
+  /** Aie confiance : récupère `count` cartes de la défausse et les remélange dans la pioche. */
+  | { type: 'RECOVER_CARDS_TO_DECK'; count: number }
+  /** La Patrouille de la Jungle (onPlace) : dévoile la 1ʳᵉ carte Fatalité ; si Événement,
+   *  la joue ; sinon la replace sur la pioche. */
+  | { type: 'REVEAL_FATE_PLAY_IF_EVENT' }
+  /** Vautours (onPlace) : déplace un Héros du lieu d'arrivée + les Vautours vers un lieu. */
+  | { type: 'VULTURES_MOVE' }
+  /** Bagheera (onPlace) : disperse les Héros et Alliés du lieu d'arrivée vers d'autres lieux. */
+  | { type: 'BAGHEERA_SCATTER' }
+  /** Meute de Loups (onPlace) : défausse un Objet ou une carte Macaques du lieu d'arrivée. */
+  | { type: 'WOLF_PACK_DISCARD' }
+  /** Prendre le tigre par la queue (Fatalité) : déplace un Héros au choix + déplace le pion
+   *  de Shere Khan vers un lieu portant un Héros. */
+  | { type: 'TIGER_BY_THE_TAIL' }
+  /** C'est mon ami (Fatalité) : +`amount` Force (jeton) à tous les Héros d'un lieu au choix. */
+  | { type: 'BUFF_HEROES_AT_LOCATION'; amount: number }
+  // --- Davy Jones (Jetons Trésor) ------------------------------------------
+  /** Pose un jeton Trésor FACE CACHÉE (pioché de la réserve) sur un Héros qui n'en a pas
+   *  (choix interactif du Héros). Ils sont là / 2ᵉ partie de Maudit sois-tu. */
+  | { type: 'PLACE_TREASURE_FACEDOWN' }
+  /** RÉVÈLE (face visible) un jeton Trésor face cachée sur un Héros (choix interactif).
+   *  `atHostLocation` : restreint au lieu de la carte porteuse (Bill le Bottier). */
+  | { type: 'REVEAL_TREASURE'; atHostLocation?: boolean }
+  /** Les amis deviennent des ennemis : échange les trésors entre 2 Héros OU déplace le
+   *  trésor d'un Héros vers un autre (choix interactif). */
+  | { type: 'MOVE_SWAP_TREASURE' }
+  /** Maudit sois-tu, Jack Sparrow (Fatalité) : retire un trésor d'un Héros → réserve,
+   *  puis pose un trésor face cachée sur un Héros. */
+  | { type: 'CURSE_TREASURE_CYCLE' }
+  /** As-tu peur de la mort ? : dévoile la Fatalité jusqu'à un Héros, le joue sur un lieu
+   *  au choix, et ajoute un jeton Trésor face cachée sur ce Héros. */
+  | { type: 'FETCH_HERO_PLACE_TREASURE' }
+  /** La Poursuite : déplace n'importe quel Héros vers un lieu où se trouve un Allié
+   *  (choix interactif du Héros et du lieu). */
+  | { type: 'MOVE_ANY_HERO_TO_ALLY' }
+  /** Où ça pointe-t-il ? (Fatalité) : déplace un Héros AVEC trésor n'importe où, et/ou un
+   *  Héros SANS trésor n'importe où (deux déplacements facultatifs). */
+  | { type: 'WHERE_POINTS' }
+  /** Réveillez le Kraken ! : défausse un Allié, puis cherche LE KRAKEN et le joue
+   *  gratuitement sur le lieu du pion. */
+  | { type: 'WAKE_KRAKEN' }
+  /** L'amour de Calypso (Fatalité) : réduit le Pouvoir de Davy à `max`. */
+  | { type: 'CAP_POWER'; max: number }
+  /** Je considère cela comme un non : récupère `count` cartes au choix de la défausse. */
+  | { type: 'RECOVER_N_FROM_DISCARD'; count: number }
+  /** Will Turner (Fatalité, à la pose) : défausse un Allié de force ≤ 2 de son lieu. */
+  | { type: 'WILL_TURNER_DISCARD' }
   /** Vanellope (début de tour) & « Enfin un vrai Kart ! » (Fatalité) : dévoile la 1ʳᵉ
    *  carte Méchant de la pioche de Sa Sucrerie, avance le jeton Pilote de (coût + 2)
    *  cases, puis remet la carte SOUS la pioche. Sans effet hors course. */
-  | { type: 'KING_CANDY_ADVANCE_RACER_BY_REVEAL' }
+  | { type: 'KING_CANDY_ADVANCE_RACER_BY_REVEAL'; bonus?: number }
   /** Avance le jeton Pilote de `amount` cases (C'est quoi toutes ces étincelles : +3). */
   | { type: 'KING_CANDY_ADVANCE_RACER'; amount: number }
   /** Recule le jeton Pilote de `amount` cases (Mémoire Verrouillée 2, Taffyta 2,
    *  Il lui est défendu de courir 3). Borné à l'index 0. */
   | { type: 'KING_CANDY_MOVE_RACER_BACK'; amount: number }
+  /** Sa Sucrerie — Taffyta Crème Brûlée (jouée OU déplacée) : choix « reculer le Pilote
+   *  de 2 » OU « effectuer une action Jouer une carte gratuite ». Si les deux sont
+   *  possibles → pending interactif ; sinon la seule option réalisable s'applique. */
+  | { type: 'TAFFYTA_CHOICE' }
   /** Déplace le pion King Candy de `steps` cases sur le circuit (signé : négatif =
    *  recul, Princesse Vanellope −4 ; positif = Le plus puissant Virus +2). Pendant une
    *  course, un franchissement de Départ/Arrivée vers l'avant déclenche la victoire. */
@@ -455,7 +622,7 @@ export type Effect =
   | { type: 'REVEAL_HAND' }
   /** Fatalité — Monologue : la cible défausse `count` cartes de sa main AU CHOIX
    *  (interactif via pendingTyrannyDiscard ; auto pour le bot). */
-  | { type: 'TARGET_DISCARD_CHOICE'; count: number }
+  | { type: 'TARGET_DISCARD_CHOICE'; count: number; label?: string }
   // --- Lotso (Toy Story 3) ---------------------------------------------------
   /** Big Baby / Bienvenue à Sunnyside : dévoile la pioche Fatalité jusqu'au 1er Héros,
    *  le joue sur la Salle des Chenilles (`atRoom`) ou sur un lieu HORS de la Salle
@@ -825,7 +992,7 @@ export type Effect =
   /** La Méchante Reine — « Je vais vous broyer les os ! » : ce tour-ci, l'acteur
    *  peut aussi effectuer TOUTES les actions recouvertes par un Héros sur son lieu
    *  (drapeau uncoverCoveredActions). */
-  | { type: 'USE_COVERED_ACTIONS_THIS_TURN' }
+  | { type: 'USE_COVERED_ACTIONS_THIS_TURN'; includeFire?: boolean; exceptFate?: boolean }
   /** L'acteur perd jusqu'à `amount` JT, transférés en lockedPower sur la carte
    *  hôte du contexte (Petit Jean : −4 JT au PJ, stockés sur Petit Jean). */
   | { type: 'LOSE_POWER_TO_HOST'; amount: number }
@@ -858,6 +1025,11 @@ export type Effect =
    *  (ctx.allyInstanceIds). `keepAllies` = ne pas défausser les alliés
    *  (Intimidation). Sinon = Vanquish standard. */
   | { type: 'VANQUISH_HERO'; keepAllies: boolean }
+  /** Ouvre une action « Éliminer un Héros » FACULTATIVE (fenêtre pendingTrapVanquish,
+   *  source 'duncan') si au moins un Héros est présent dans le royaume — le joueur
+   *  choisit le Héros et les Alliés, ou passe. Sa Sucrerie — Duncan et Wynnchel
+   *  (« joué ou déplacé »). Sans effet s'il n'y a aucun Héros. */
+  | { type: 'OPTIONAL_FREE_VANQUISH' }
   /** Déplace librement un Allié (ctx.allyMove.instanceId) vers n'importe quel
    *  lieu (ctx.allyMove.to) — sans contrainte d'adjacence. Tendre un Piège. */
   | { type: 'MOVE_ALLY_FREELY' }
@@ -952,6 +1124,10 @@ export type Effect =
    *  Cartes Gardes à transformer en arceaux (pendingTransformWickets). Sans
    *  Carte Garde éligible, l'effet ne fait rien. */
   | { type: 'TRANSFORM_GUARDS'; max: number }
+  /** Reine de Cœur — Le Chafouin (Fatalité, à la pose) : retransforme jusqu'à `max`
+   *  ARCEAUX de la cible en Cartes Gardes (recul d'objectif). Auto-résolu (choix du
+   *  fataliseur), un arceau par lieu pour maximiser les cases perdues. */
+  | { type: 'REVERT_WICKETS'; max: number }
   /** Jafar — Sacrifice Nécessaire : défausse l'Allié ou l'Objet du royaume désigné
    *  par ctx.allyInstanceIds[0] (+ ses Objets associés si c'est un Allié), puis
    *  gagne `amount` Pouvoir. */
@@ -1084,6 +1260,10 @@ export type Effect =
    *  main, les AUTRES cartes dévoilées sont défaussées. Toutes les cartes dévoilées
    *  sont montrées au joueur (pendingReveal). `title` : titre du modal d'info. */
   | { type: 'REVEAL_DECK_UNTIL_TYPE'; cardType: CardType; title?: string }
+  /** Sa Sucrerie — Aigre Bill (joué OU déplacé) : ouvre le choix FACULTATIF de fouiller
+   *  la pioche Méchant (dévoiler jusqu'à un Allié → main, réordonner le reste sur le
+   *  dessus). Sans Allié dans la pioche+défausse → aucun effet. */
+  | { type: 'AIGRE_BILL_DIG' }
   /** Dr Facilier — Désespoir : prend une carte de la Pile de l'Au-delà (auto :
    *  carte clé en priorité) et l'ajoute à la main de l'acteur. */
   | { type: 'TAKE_FROM_AUDELA_TO_HAND' }
@@ -1167,6 +1347,10 @@ export type Effect =
    *  de pose imposé (Gaston — Miroir magique : la Bête au Château de la Bête) ;
    *  défaut = la Maison des Nains (Méchante Reine). */
   | { type: 'FETCH_FATE_HERO'; heroCardId: string; locationId?: LocationId }
+  /** Sa Sucrerie — Médaillon des Héros de Ralph (à la pose) : cherche Ralph la Casse
+   *  (pioche/défausse Fatalité), le pose sur le lieu HÔTE du Médaillon en lui associant
+   *  le Médaillon, et arme son `onVanquish` (à sa mort → chercher Vanellope sur ce lieu). */
+  | { type: 'MEDAILLON_FETCH_RALPH' }
   /** Le Seigneur des Ténèbres — On te tient, valet de ferme ! : choix « chercher
    *  `heroCardId` (Tirelire) et la jouer sur le lieu de son choix » (sans `targetHeroId`)
    *  OU « éliminer un Héros de force ≤ `maxStrength` » (avec `targetHeroId`). */
@@ -1292,6 +1476,10 @@ export type Effect =
    *  votre choix. » Ouvre `pendingHeroRelocate` (anyLocation, optionnel) avec les
    *  Héros du royaume comme candidats, SAUF Toby lui-même (carte hôte exclue). */
   | { type: 'RELOCATE_REALM_HERO_ANYWHERE' }
+  /** Cruella — Capitaine (Fatalité, à la pose) : déplace un Allié du lieu de Capitaine
+   *  (ctx.hostLocationId) vers un lieu voisin. Auto (choix du fataliseur) : éloigne
+   *  l'Allié le plus précieux (Jasper/Horace) vers le voisin ayant le moins de Tuiles. */
+  | { type: 'MOVE_ALLY_FROM_HOST_ADJACENT' }
   /** Ratigan — Cloche : cherche la carte `cardId` (Félicia) dans la pioche ou la
    *  défausse de l'acteur, l'ajoute à sa main, puis remélange sa pioche. */
   | { type: 'TUTOR_CARD_TO_HAND'; cardId: string }
@@ -1332,7 +1520,13 @@ export type Effect =
   | { type: 'FATE_SCRY_DISCARD_BY_COST'; count: number; minCost: number }
   /** Pat Hibulaire (Fatalité) — Minnie (à la pose) : défausse un Allié OU un Objet
    *  (non associé) du royaume de la cible (auto : le plus fort / le plus cher). */
-  | { type: 'FATE_DISCARD_STRONGEST_ALLY_OR_ITEM' }
+  /** Défausse l'Allié le plus fort, à défaut l'Objet le plus cher (Minnie). `onlyType`
+   *  restreint la cible (Sweet Nightingale → 'ally' ; Jaq → 'item') ; `preferCardIds`
+   *  privilégie certaines cibles (Jaq → Cloches/Canne). */
+  | { type: 'FATE_DISCARD_STRONGEST_ALLY_OR_ITEM'; onlyType?: 'ally' | 'item'; preferCardIds?: string[] }
+  /** Madame de Trémaine — Bibbidi-Bobbidi-Boo : retire le jeton « piégé » d'un Héros
+   *  du royaume de la cible (il redevient actif). Sans Héros piégé, aucun effet. */
+  | { type: 'UNTRAP_HERO' }
   /** Pat Hibulaire (Fatalité) — Pluto (à la pose) : déplace un Objet (non associé)
    *  du royaume de la cible vers le lieu hôte (auto : le premier trouvé ailleurs). */
   | { type: 'FATE_MOVE_ITEM_TO_HOST' }
@@ -1396,6 +1590,21 @@ export interface CardInstance {
    *  ou Métamorphose de Merlin (Héros, deck Merlin, posée au Lieu du Duel). */
   isMimTransformation?: boolean
   isMerlinTransformation?: boolean
+  /** Tamatoa — carte de la pioche MAUI (séparée du deck Fatalité au setup). */
+  isMauiCard?: boolean
+  /** Tamatoa — Chauves-souris à huit yeux : peuvent rejoindre un Allié qu'on vient de jouer. */
+  joinsAlliesOnAllyPlay?: boolean
+  /** Tamatoa — Monstre Arboricole : déplacer n'importe quelle carte après un Vanquish. */
+  moveAnyCardOnVanquish?: boolean
+  /** Tamatoa — Hameçon de Maui : gagne N Pouvoir chaque fois que Tamatoa est ciblé par la Fatalité. */
+  gainPowerWhenFated?: number
+  /** Tamatoa — Maui (Héros) : déclenche la pioche Maui en début de tour tant qu'il est en jeu. */
+  triggersMauiDeck?: boolean
+  /** Tamatoa — Quelque chose qui brille : protège du Vanquish les Héros de son lieu ;
+   *  recouvre les actions comme un Héros ; se défausse quand Tamatoa finit son tour ici. */
+  shieldsHeroesAtLocation?: boolean
+  coversActionsLikeHero?: boolean
+  selfDiscardOnPawnEndTurnHere?: boolean
   /** Bonus de force temporaire « jusqu'à la fin du tour » (Pas de Quartier !).
    *  Remis à zéro à la fin du tour du joueur actif. */
   tempStrengthBonus?: number
@@ -1406,6 +1615,25 @@ export interface CardInstance {
   /** Carte qui ne se joue PAS via une action « Jouer une carte » : elle est jouée
    *  en réaction (Oogie Boogie — Dés pipés : relance un dé pendant un lancer). */
   reactiveOnly?: boolean
+  // --- Davy Jones (Jetons Trésor) ------------------------------------------
+  /** Jeton Trésor posé sur ce Héros (runtime). `id` = id du trésor (compas-de-jack…),
+   *  `faceUp` = révélé (effet actif) ou face cachée. Un Héros n'en porte qu'un. */
+  treasure?: { id: string; faceUp: boolean }
+  /** Héros (Davy Jones — Jack Sparrow) : tant qu'il est en jeu et que le pion de Davy
+   *  est sur SON lieu, Davy ne peut pas faire d'action Éliminer un Héros. */
+  blocksVanquishHere?: boolean
+  /** Allié (Davy Jones — Le Second Maccus) : utilisé pour un Vanquish, on PEUT défausser
+   *  un AUTRE Allié du royaume à sa place (il survit). */
+  survivesVanquishByDiscardingAlly?: boolean
+  /** Allié (Davy Jones — Le Kraken) : n'est pas défaussé quand il élimine un Héros
+   *  porteur d'un jeton Trésor RÉVÉLÉ. */
+  survivesVanquishWithRevealedTreasure?: boolean
+  /** Allié (Davy Jones — Hadras) : quand il est défaussé, révèle un jeton Trésor
+   *  face cachée sur un Héros. */
+  revealTreasureOnDiscard?: boolean
+  /** Objet Fatalité (Davy Jones — Le Black Pearl) : à la mort de l'hôte, se réassocie
+   *  à un autre Héros du lieu. */
+  reattachOnHostDefeat?: boolean
   /** Ursula — Pacte : lieu lié au Pacte. Le Héros porteur est éliminé s'il est
    *  déplacé sur ce lieu. */
   contractLocationId?: LocationId
@@ -1561,6 +1789,32 @@ export interface CardInstance {
    *  Éliminer un Héros, RESTE en jeu, gagne ce nombre en Force (jeton +N cumulatif) et est
    *  déplacé sur un lieu AU CHOIX (pendingAllyRelocate restreint). Recopié de CardDef. */
   survivesVanquishGain?: number
+  /** Carte « jouée OU déplacée » : ses `effects` se redéclenchent au déplacement de
+   *  l'Allié/Objet (en plus de la pose). Ex. Pilotes (Sa Sucrerie). Recopié de CardDef. */
+  effectsAlsoOnMove?: boolean
+  /** Carte jouable SANS action « Jouer une carte » (paie son coût, ne consomme aucune
+   *  action). Ex. Turbo-Statique (Sa Sucrerie). Recopié de CardDef. */
+  playableWithoutAction?: boolean
+  /** Carte jouable uniquement AVANT toute action de lieu ce tour (après le déplacement).
+   *  Ex. L'important, c'est de payer (Sa Sucrerie). Recopié de CardDef. */
+  playableOnlyBeforeActions?: boolean
+  /** Shere Khan — Baloo : protège tous les autres Héros (jeton Pouvoir à la place ; défaussé
+   *  à N jetons). Recopié de CardDef. */
+  shieldsOtherHeroesUntilTokens?: number
+  /** Shere Khan — Baloo : nombre de jetons Pouvoir accumulés sur lui (runtime). */
+  protectionTokens?: number
+  /** Héros (Fatalité) qui augmente de N le coût de toute carte jouée tant qu'il est dans
+   *  le royaume (Sergent Calhoun, +1). Recopié de CardDef. */
+  playCardCostSurcharge?: number
+  /** Carte Fatalité qui fait perdre N Pouvoir au vilain quand sa figurine arrive sur
+   *  son lieu (Chicha 2, Zirgouflex 1). Recopié de CardDef. */
+  powerLossOnPawnArrive?: number
+  /** Héros (Fatalité) qui renchérit de N le coût d'un Pacte le ciblant (Roi Triton, +1).
+   *  Recopié de CardDef. */
+  pacteTargetSurcharge?: number
+  /** Héros (Fatalité) qui fait coûter N Pouvoir l'action « Déplacer un Objet/Allié » tant
+   *  qu'il est dans le royaume (Ralph la Casse, +1). Recopié de CardDef. */
+  moveActionSurcharge?: number
   /** Scar — injouable sans Hyène dans le royaume (Festin). Recopié de CardDef. */
   requiresHyenaInRealm?: boolean
   /** Sombra — carte de Piratage (Piratage, IEM) : posée sur un lieu, NON déplaçable,
@@ -1655,6 +1909,7 @@ export interface CardInstance {
     discarded: number
     playedCards: number
     playedItems: number
+    playedAllies: number
   }
 }
 
@@ -1706,6 +1961,12 @@ export type SelfStrengthMod =
   /** +delta s'il n'y a AUCUN autre Héros sur le même lieu (Grincheux : +1 s'il
    *  est seul sur son lieu). */
   | { kind: 'if-alone-here'; delta: number }
+  /** +delta si au moins un Objet est associé à cette carte (Jean / Crochet : +1
+   *  s'il porte un Objet). */
+  | { kind: 'if-attached-item'; delta: number }
+  /** +delta par lieu du royaume occupé par au moins un Héros, le sien COMPRIS
+   *  (Michel / Crochet). */
+  | { kind: 'per-location-with-hero'; delta: number }
   /** Scar — +delta par AUTRE Hyène (`isHyena`) sur le MÊME lieu (Hyène affamée). */
   | { kind: 'per-other-hyena-here'; delta: number }
   /** +delta par AUTRE carte de MÊME cardId présente dans le royaume (Gaston —
@@ -1723,6 +1984,12 @@ export type SelfStrengthMod =
   /** Syndrome — Jack-Jack : sa force EFFECTIVE devient celle du Héros le plus fort sur
    *  son lieu (comparaison sur la force de base, sans récursion). */
   | { kind: 'match-strongest-hero-here' }
+  /** Davy Jones — L'Équipage du Hollandais Volant : +delta par AUTRE lieu (≠ le sien)
+   *  où se trouve au moins un Allié. */
+  | { kind: 'per-other-location-with-ally'; delta: number }
+  /** Davy Jones — James Norrington : +delta par jeton Trésor déjà RÉCUPÉRÉ par le
+   *  propriétaire du royaume (claimedTreasures). */
+  | { kind: 'per-claimed-treasure'; delta: number }
 
 /** Dr Facilier — comportement d'une carte RÉVÉLÉE depuis la Pile de l'Au-delà
  *  par Divination. Donnée réutilisable, interprétée par resolveAuDela (effects.ts).
@@ -1788,6 +2055,9 @@ export type ConditionTrigger =
   /** L'adversaire actif a joué au moins `value` Objet(s) ce tour-ci (Le Seigneur des
    *  Ténèbres — Nous touchons du doigt la victoire). */
   | { type: 'opponent-played-item'; value: number }
+  /** L'adversaire actif a joué au moins un Allié ce tour-ci (Davy Jones — Wyvern
+   *  s'exprime). */
+  | { type: 'opponent-played-ally' }
 
 /** Déclencheur de défausse automatique d'une carte (typiquement une Malédiction). */
 export type CurseDiscardTrigger =
@@ -1965,6 +2235,18 @@ export interface PlayerState {
    *  par REMOVE_OBSTACLE / Vanquish (Bête, Maurice) ; replacés par REPLACE_OBSTACLE
    *  (Fatalité, Sous le charme). `undefined` pour les autres vilains. */
   obstacles?: Record<LocationId, number>
+  /** Shere Khan — jetons FEU posés sur des ACTIONS de ses lieux (recouvrent l'action,
+   *  qui devient inutilisable, comme un Héros recouvre la rangée du haut). Pour chaque
+   *  lieu : la liste des `actionId` recouverts. Posés/déplacés par la Fatalité (Feu Rouge
+   *  des Hommes, Mowgli), retirés par les cartes Méchant (C'est moi Shere Khan, Macaques,
+   *  C'est très intéressant…). Objectif bloqué tant qu'il en reste un. `undefined` sinon. */
+  fireTokens?: Record<LocationId, string[]>
+  /** Davy Jones — RÉSERVE de jetons Trésor non encore posés ni récupérés (ids mélangés,
+   *  face cachée). On en pioche le 1ᵉʳ pour poser un trésor face cachée sur un Héros.
+   *  `undefined` pour les autres vilains. */
+  treasureReserve?: string[]
+  /** Davy Jones — jetons Trésor RÉCUPÉRÉS définitivement (objectif : en récupérer 5). */
+  claimedTreasures?: string[]
   /** Le Seigneur des clés — ses 12 clés (réparties sur les lieux à la mise en place).
    *  `location` = lieu, `null` = possédée par lui (objectif : ≥1 de chaque couleur).
    *  `undefined` pour les autres vilains. */
@@ -2001,6 +2283,14 @@ export interface PlayerState {
   /** Madame Mim — Métamorphoses de Merlin VAINCUES (objectif : en avoir 7). La carte
    *  Fatalité « Merlin » peut en remettre une au hasard dans `merlinDeck`. */
   merlinDiscard?: CardInstance[]
+  /** Tamatoa — 3ᵉ pioche (cartes MAUI, 10), séparée du deck Fatalité au setup. Jouée
+   *  carte par carte tant que Maui (Héros) est en jeu (et via « Pas exactement l'heure
+   *  de Maui »). `undefined` pour les autres vilains. */
+  mauiDeck?: CardInstance[]
+  mauiDiscard?: CardInstance[]
+  /** Tamatoa — Étoile de mer Maui : au prochain tour, le déplacement de la figurine
+   *  n'est pas obligatoire (le joueur peut rester sur place). */
+  tamatoaSkipMoveNext?: boolean
   /** Syndrome — progression de l'Omnidroïde. `x8`/`x9`/`x10` = la version en jeu (ou
    *  l'attente de jouer la suivante : `x9-hand`/`x10-hand`) ; `destroyed` = v.10
    *  éliminé via la Télécommande (objectif rempli). `undefined` pour les autres. */
@@ -2103,6 +2393,12 @@ export interface GameState {
    *  actif peut utiliser TOUTES les actions recouvertes par un Héros sur son lieu.
    *  Réinitialisé au début de chaque tour. */
   uncoverCoveredActions?: boolean
+  /** Tamatoa — Piégé : comme `uncoverCoveredActions`, mais les actions FATALITÉ recouvertes
+   *  restent indisponibles (« sauf Fatalité »). Réinitialisé chaque tour. */
+  uncoverExceptFate?: boolean
+  /** Shere Khan — Bravo ! Bravo ! : ce tour-ci, le joueur peut aussi utiliser les actions
+   *  recouvertes par un jeton FEU sur le lieu de son pion. Réinitialisé chaque tour. */
+  uncoverFireThisTurn?: boolean
   /** Force du dernier Héros vaincu CE TOUR (Méchanceté trigger). Reset à
    *  chaque fin de tour. */
   lastVanquishedHeroStrength?: number
@@ -2132,7 +2428,7 @@ export interface GameState {
    * Consommé par TRAP_VANQUISH / TRAP_SKIP_VANQUISH ou la fin de tour.
    */
   pendingTrapVanquish?: {
-    source: 'trap' | 'gnous' | 'uniforme'
+    source: 'trap' | 'gnous' | 'uniforme' | 'duncan' | 'race-ban'
     locationId?: LocationId
     /** Uniforme : instanceId de l'Allié porteur, OBLIGATOIRE parmi les participants. */
     requiredAllyInstanceId?: string
@@ -2241,10 +2537,104 @@ export interface GameState {
    *  le jeton Pilote de `racerBack` » (RESOLVE_POWER_OR_RACER_BACK). Ouvert seulement en
    *  course active. */
   pendingPowerOrRacerBack?: { playerIndex: number; power: number; racerBack: number } | null
+  /** Sa Sucrerie — Taffyta Crème Brûlée : `playerIndex` choisit entre « reculer le Pilote
+   *  de 2 » et « effectuer une action Jouer une carte gratuite » (RESOLVE_TAFFYTA_CHOICE).
+   *  N'apparaît que si LES DEUX sont possibles (sinon la seule option s'applique). */
+  pendingTaffytaChoice?: { playerIndex: number } | null
+  /** Sa Sucrerie — L'important, c'est de payer : `playerIndex` choisit combien de jetons
+   *  Pouvoir dépenser (1 à `max`) pour avancer son pion d'autant (RESOLVE_PAY_RACE). */
+  pendingPayRace?: { playerIndex: number; max: number } | null
+  /** Sa Sucrerie — Princesse Vanellope (Fatalité) : `chooserIndex` (le fataliseur) choisit
+   *  de combien (0 à `max`) reculer le pion King Candy de `playerIndex` (RESOLVE_PAWN_BACK). */
+  pendingPawnBack?: { playerIndex: number; chooserIndex: number; max: number } | null
+  /** Sa Sucrerie — Le Faisceau (Fatalité) : `chooserIndex` (le fataliseur) agit sur le
+   *  royaume de `playerIndex` (Sa Sucrerie). Phase 'pick-location' : choisir le lieu de
+   *  rassemblement (`locationIds`). Phase 'discard' : défausser FACULTATIVEMENT un Cybug
+   *  (`cybugIds`) du lieu rassemblé. RESOLVE_BEACON. */
+  pendingBeacon?: {
+    playerIndex: number
+    chooserIndex: number
+    kind: 'pick-location' | 'discard'
+    locationIds?: LocationId[]
+    cybugIds?: string[]
+  } | null
+  /** Sa Sucrerie — Médaille de Vanellope (Fatalité) : `chooserIndex` (le fataliseur) joue un
+   *  Héros de la défausse Fatalité de `playerIndex` (Sa Sucrerie) avec +1 Force. Phase
+   *  'pick-hero' (`heroIds`) puis 'pick-location' (`heroInstanceId` choisi, `locationIds`).
+   *  RESOLVE_MEDAL. */
+  pendingMedal?: {
+    playerIndex: number
+    chooserIndex: number
+    kind: 'pick-hero' | 'pick-location'
+    heroIds?: string[]
+    heroInstanceId?: string
+    locationIds?: LocationId[]
+  } | null
   /** Madame de Trémaine — C'est votre dernière chance : `playerIndex` choisit entre
    *  effectuer une action « Déplacer un Objet ou un Allié » et une action « Activer »
    *  (RESOLVE_MOVE_OR_ACTIVATE). N'apparaît que si LES DEUX sont possibles. */
   pendingMoveOrActivate?: { playerIndex: number } | null
+  /** Shere Khan — Tout le monde fuit : `playerIndex` choisit entre effectuer une action
+   *  « Activer une capacité » et une action « Éliminer un Héros » (RESOLVE_ACTIVATE_OR_VANQUISH).
+   *  N'apparaît que si LES DEUX sont possibles. */
+  pendingActivateOrVanquish?: { playerIndex: number } | null
+  /** Shere Khan — C'est moi, Shere Khan : `playerIndex` choisit quel jeton Feu retirer
+   *  (lieu + action) quand il y en a plusieurs (RESOLVE_REMOVE_FIRE). */
+  pendingRemoveFire?: { playerIndex: number } | null
+  /** Shere Khan — Lancé sur ses traces : `playerIndex` choisit quel Héros de son royaume
+   *  éliminer (gratuitement) quand il y en a plusieurs (RESOLVE_SHERE_KHAN_DEFEAT). */
+  pendingShereKhanDefeat?: { playerIndex: number } | null
+  /** Shere Khan — C'est à moi que vous le direz : `playerIndex` PEUT choisir une carte de
+   *  sa défausse Fatalité à remélanger dans sa pioche Fatalité, ou passer (RESOLVE_RECOVER_FATE). */
+  pendingRecoverFate?: { playerIndex: number } | null
+  /** Shere Khan — À toi de jouer, cousin : `playerIndex` joue gratuitement l'Allié `ally`
+   *  (dévoilé) sur le lieu de son choix (RESOLVE_FREE_PLAY_ALLY). */
+  pendingFreePlayAlly?: { playerIndex: number; ally: CardInstance } | null
+  /** Shere Khan — Jeune et sans défense : `playerIndex` choisit (kind 'choose') de déplacer
+   *  un Héros sur le lieu d'un Allié (kind 'pick-hero' → 'pick-ally') ou de gagner 1 Pouvoir
+   *  par Allié. `heroInstanceId` = Héros retenu pour le déplacement. RESOLVE_YOUNG. */
+  pendingYoung?: { playerIndex: number; kind: 'choose' | 'pick-hero' | 'pick-ally'; heroInstanceId?: string } | null
+  /** Shere Khan — Aie confiance : `playerIndex` choisit jusqu'à `remaining` cartes de sa
+   *  défausse (`chosen` = déjà choisies) à remélanger dans sa pioche (RESOLVE_RECOVER_TO_DECK). */
+  pendingRecoverToDeck?: { playerIndex: number; remaining: number; chosen: string[] } | null
+  /** Shere Khan — C'est très intéressant : `playerIndex` effectue une ou plusieurs actions
+   *  parmi gagner 1 Pouvoir / piocher 1 / déplacer 1 jeton Feu (`done` = déjà faites).
+   *  RESOLVE_INTERESSANT. */
+  pendingInteressant?: { playerIndex: number; done: ('power' | 'draw' | 'fire')[] } | null
+  /** Shere Khan — Kaa (capacité activée) : choisir un Objet de la défausse à jouer (payer
+   *  son coût, l'associer à Kaa sur `locationId`). RESOLVE_KAA_PLAY. */
+  pendingKaaPlay?: { playerIndex: number; hostInstanceId: string; locationId: LocationId } | null
+  /** Shere Khan — Le Roi Singe (capacité activée) : déplacer une carte Macaques vers
+   *  n'importe quel lieu. `macaqueInstanceId` est choisi d'abord (si plusieurs), puis le
+   *  lieu de destination. RESOLVE_MONKEY_KING. */
+  pendingMonkeyKing?: { playerIndex: number; macaqueInstanceId?: string } | null
+  /** Shere Khan — Kaa (bouclier) : lors d'un Vanquish où Kaa serait défaussé, le joueur
+   *  peut défausser UN Objet associé à sa place (ou rien). Le Vanquish est rejoué avec la
+   *  décision. RESOLVE_KAA_SHIELD. */
+  pendingKaaShield?: {
+    playerIndex: number
+    heroInstanceId: string
+    allyInstanceIds: string[]
+    itemInstanceIds: string[]
+    raceBan: boolean
+  } | null
+  // --- Davy Jones (Jetons Trésor) ------------------------------------------
+  /** Davy Jones : `playerIndex` choisit un Héros (sans trésor) — `heroInstanceId` — puis
+   *  QUEL jeton Trésor de la réserve y poser face cachée (RESOLVE_PLACE_TREASURE, 2 phases). */
+  pendingPlaceTreasure?: { playerIndex: number; heroInstanceId?: string } | null
+  /** Davy Jones : `playerIndex` choisit un Héros porteur d'un trésor face cachée à
+   *  RÉVÉLER, parmi `candidateIds` (RESOLVE_REVEAL_TREASURE). */
+  pendingRevealTreasure?: { playerIndex: number; candidateIds: string[] } | null
+  /** Davy Jones — Les amis deviennent des ennemis : `playerIndex` choisit un Héros source
+   *  (`fromHeroId`) puis un Héros cible ; échange/déplace les trésors (RESOLVE_MOVE_SWAP_TREASURE). */
+  pendingMoveSwapTreasure?: { playerIndex: number; fromHeroId?: string } | null
+  /** Davy Jones — Réveillez le Kraken ! : `playerIndex` choisit un Allié à défausser avant
+   *  de jouer Le Kraken gratuitement sur le lieu du pion (RESOLVE_WAKE_KRAKEN). */
+  pendingWakeKraken?: { playerIndex: number } | null
+  /** Tamatoa — « Pas exactement l'heure de Maui » : la 1ʳᵉ carte de la pioche Maui est
+   *  dévoilée (toujours en tête de `mauiDeck`) ; `playerIndex` choisit de la JOUER ou de
+   *  la DÉFAUSSER (RESOLVE_MAUI_CHOICE). */
+  pendingMauiChoice?: { playerIndex: number } | null
   /** Le Seigneur des Ténèbres — Montre-moi le Chaudron Magique / Nous avons conclu un
    *  marché : `playerIndex` choisit entre s'emparer du Chaudron Magique et gagner
    *  `power` Pouvoir (RESOLVE_CAULDRON_CHOICE). N'apparaît que si le Chaudron est encore
@@ -2261,9 +2651,21 @@ export interface GameState {
   pendingFreeItemPlay?: { playerIndex: number } | null
   /** Madame de Trémaine — Je ne reviens jamais : `playerIndex` regarde `cards` (top de
    *  sa pioche Fatalité) et les replace dans l'ordre de son choix (RESOLVE_FATE_REORDER).
-   *  `deck` = pioche concernée : 'fate' (défaut) ou 'merlin' (Madame Mim — Pas de Tricherie,
-   *  regarde le dessus de la pioche de Métamorphoses de Merlin). */
-  pendingFateReorder?: { playerIndex: number; cards: CardInstance[]; deck?: 'fate' | 'merlin' } | null
+   *  `deck` = pioche concernée : 'fate' (défaut), 'merlin' (Madame Mim — Pas de Tricherie,
+   *  regarde le dessus de la pioche de Métamorphoses de Merlin) ou 'villain' (Sa Sucrerie —
+   *  Aigre Bill, replace sur le dessus de la pioche Méchant). */
+  pendingFateReorder?: {
+    playerIndex: number
+    cards: CardInstance[]
+    deck?: 'fate' | 'merlin' | 'villain' | 'villain-split2'
+    /** Qui ORDONNE (défaut = playerIndex, le propriétaire). Sa Sucrerie — Niveau Inachevé :
+     *  le fataliseur ordonne la pioche Méchant de l'adversaire. */
+    chooserIndex?: number
+  } | null
+  /** Sa Sucrerie — Aigre Bill (joué OU déplacé, FACULTATIF) : `playerIndex` choisit de
+   *  fouiller (dévoiler sa pioche Méchant jusqu'à un Allié → main, puis réordonner le
+   *  reste sur le dessus) ou de renoncer (RESOLVE_AIGRE_BILL). */
+  pendingAigreBill?: { playerIndex: number } | null
   /**
    * Mère Gothel — Lance-moi ta chevelure : `chooserIndex` choisit de combien de
    * lieux (parmi `options`) ramener Raiponce vers la Tour (RESOLVE_RAIPONCE_HOMEWARD).
@@ -2430,6 +2832,10 @@ export interface GameState {
     thenTrapVanquish?: boolean
     /** Madame de Trémaine — La Clé : le Héros déplacé reçoit un jeton Enfermé (piège). */
     thenTrap?: boolean
+    /** Davy Jones — La Poursuite : destinations AUTORISÉES restreintes à ces lieux (ceux
+     *  portant un Allié). Combiné avec `anyLocation` (sinon = voisins). Absent = pas de
+     *  restriction supplémentaire. */
+    allowedLocationIds?: LocationId[]
   } | null
   /**
    * Flèche de Mome Raths (Fatalité, Reine de Cœur) : `chooserIndex` (joueur qui pose
@@ -2448,6 +2854,9 @@ export interface GameState {
     /** Restreint les Alliés déplaçables à ces instanceId (Cybug en Sucre : seuls les
      *  Cybugs survivants). Absent = tous les Alliés du royaume. */
     onlyInstanceIds?: string[]
+    /** Sa Sucrerie — Il lui est défendu de courir : à la fermeture de la fenêtre, ouvre un
+     *  Vanquish facultatif (pendingTrapVanquish `source: 'race-ban'`, Alliés non défaussés). */
+    thenRaceBanVanquish?: boolean
   } | null
   /** Syndrome — « Identification, je vous prie » : `playerIndex` (l'acteur) doit déplacer
    *  un de ses Alliés OU Objets (non associé) vers un lieu de son royaume portant ≥1 Héros
@@ -2564,7 +2973,11 @@ export interface GameState {
    *  deck Fatalité jusqu'à `hero` ; il choisit de le JOUER (et où) ou de le DÉFAUSSER
    *  (RESOLVE_FETCHED_HERO). `discarded` = autres cartes dévoilées (à défausser),
    *  montrées pour information. */
-  pendingFetchedHero?: { playerIndex: number; hero: CardInstance; discarded: CardInstance[] } | null
+  pendingFetchedHero?: { playerIndex: number; hero: CardInstance; discarded: CardInstance[]; placeTreasureAfter?: boolean } | null
+  /** Tamatoa — Crustacé doté du pouvoir de création : Objets dévoilés (Cœur de Te Fiti /
+   *  Quelque chose qui brille) à JOUER un par un sur le lieu du choix de `playerIndex`
+   *  (RESOLVE_CRUSTACEAN_PLACE). `items[0]` = l'Objet en cours de placement. */
+  pendingCrustaceanPlace?: { playerIndex: number; items: CardInstance[] } | null
   /** Vol du château (Bowser) : `playerIndex` a dévoilé sa pioche jusqu'à un Allié/
    *  Objet (`found`) ; `revealed` = cartes dévoilées AVANT (déjà remises sur le
    *  dessus de la pioche, montrées pour information). Le joueur choisit le LIEU où
@@ -2580,6 +2993,9 @@ export interface GameState {
     thenShuffle?: boolean
     /** Libellé de la source (journal). Défaut : « Opportunisme ». */
     label?: string
+    /** Nombre de cartes à récupérer (défaut 1). Davy Jones — Je considère cela comme un
+     *  non : 2. Décrémenté à chaque reprise ; le pending se ferme à 0 ou si plus de candidat. */
+    count?: number
   } | null
   /** Scar — Soyez prêtes ! : après avoir défaussé 3 cartes, `playerIndex` reprend en
    *  main soit 1 Événement, soit jusqu'à 2 Alliés de sa défausse (RESOLVE_BE_PREPARED ;
@@ -2667,6 +3083,9 @@ export interface GameState {
   /** Nombre d'OBJETS joués par le joueur actif ce tour-ci (déclencheur Le Seigneur des
    *  Ténèbres — Nous touchons du doigt la victoire). Remis à 0 en fin de tour. */
   activePlayedItemCount?: number
+  /** Nombre d'ALLIÉS joués par le joueur actif ce tour-ci (déclencheur Davy Jones —
+   *  Wyvern s'exprime). Remis à 0 en fin de tour. */
+  activePlayedAllyCount?: number
   /** Indices des joueurs ciblés par une action Fatalité du joueur actif ce tour-ci
    *  (déclencheur Scar — La vie n'est pas juste). Remis à [] en fin de tour. */
   activeFateTargets?: number[]
@@ -3061,6 +3480,40 @@ export type GameAction =
   /** Madame de Trémaine — C'est votre dernière chance : résout le choix entre
    *  « Déplacer un Objet ou un Allié » (`move`) et « Activer » (`activate`). */
   | { type: 'RESOLVE_MOVE_OR_ACTIVATE'; choice: 'move' | 'activate' }
+  /** Shere Khan — Tout le monde fuit : choisir l'action gratuite (Activer / Vaincre). */
+  | { type: 'RESOLVE_ACTIVATE_OR_VANQUISH'; choice: 'activate' | 'vanquish' }
+  /** Shere Khan — C'est moi, Shere Khan : retire le jeton Feu de (locationId, actionId). */
+  | { type: 'RESOLVE_REMOVE_FIRE'; locationId: LocationId; actionId: string }
+  /** Shere Khan — Lancé sur ses traces : éliminer le Héros choisi (gratuit). */
+  | { type: 'RESOLVE_SHERE_KHAN_DEFEAT'; heroInstanceId: string }
+  /** Shere Khan — C'est à moi que vous le direz : remettre la carte Fatalité `instanceId`
+   *  (de la défausse) dans la pioche Fatalité, ou passer (`instanceId` absent). */
+  | { type: 'RESOLVE_RECOVER_FATE'; instanceId?: string }
+  /** Shere Khan — À toi de jouer, cousin : jouer l'Allié dévoilé sur `locationId`. */
+  | { type: 'RESOLVE_FREE_PLAY_ALLY'; locationId: LocationId }
+  /** Shere Khan — Jeune et sans défense : `choice` (move/gain) puis `heroInstanceId` /
+   *  `allyInstanceId` (le Héros est déplacé sur le lieu de cet Allié). */
+  | { type: 'RESOLVE_YOUNG'; choice?: 'move' | 'gain'; heroInstanceId?: string; allyInstanceId?: string }
+  /** Shere Khan — Aie confiance : choisir une carte de la défausse à récupérer (`instanceId`)
+   *  ou terminer (`done`). */
+  | { type: 'RESOLVE_RECOVER_TO_DECK'; instanceId?: string; done?: boolean }
+  /** Shere Khan — C'est très intéressant : effectuer une action (`option`) ou terminer (`done`). */
+  | { type: 'RESOLVE_INTERESSANT'; option?: 'power' | 'draw' | 'fire'; done?: boolean }
+  /** Shere Khan — Kaa : jouer l'Objet `instanceId` de la défausse (l'associer à Kaa). */
+  | { type: 'RESOLVE_KAA_PLAY'; instanceId: string }
+  /** Shere Khan — Le Roi Singe : choisir le Macaque puis le lieu de destination. */
+  | { type: 'RESOLVE_MONKEY_KING'; macaqueInstanceId?: string; to?: LocationId }
+  /** Shere Khan — Kaa (bouclier) : défausser l'Objet `itemInstanceId` à la place de Kaa,
+   *  ou laisser Kaa être défaussé (`decline`). */
+  | { type: 'RESOLVE_KAA_SHIELD'; itemInstanceId?: string; decline?: boolean }
+  /** Davy Jones : phase 1 choisir le Héros (`heroInstanceId`), phase 2 le Trésor (`treasureId`). */
+  | { type: 'RESOLVE_PLACE_TREASURE'; heroInstanceId?: string; treasureId?: string }
+  /** Davy Jones : révéler le jeton Trésor du Héros `heroInstanceId`. */
+  | { type: 'RESOLVE_REVEAL_TREASURE'; heroInstanceId: string }
+  /** Davy Jones — Les amis : choisir le Héros source puis le Héros cible (échange/déplace). */
+  | { type: 'RESOLVE_MOVE_SWAP_TREASURE'; heroInstanceId: string }
+  /** Davy Jones — Réveillez le Kraken : défausser l'Allié `allyInstanceId` choisi. */
+  | { type: 'RESOLVE_WAKE_KRAKEN'; allyInstanceId: string }
   /** Madame de Trémaine — Je ne reviens jamais : replace les cartes Fatalité regardées
    *  sur le dessus de la pioche dans l'ordre `orderedIds` (1ᵉʳ = dessus). */
   | { type: 'RESOLVE_FATE_REORDER'; orderedIds: string[] }
@@ -3089,7 +3542,23 @@ export type GameAction =
   /** Gaston — termine le retrait/replacement d'Obstacles en attente (pendingObstacle). */
   | { type: 'DONE_OBSTACLE' }
   /** Gaston — exécute l'action gratuite armée (Belle est à moi / Tous avec moi). */
-  | { type: 'PERFORM_GRANTED_ACTION'; action: Extract<GameAction, { type: 'VANQUISH' | 'MOVE_CARD' }> }
+  | { type: 'PERFORM_GRANTED_ACTION'; action: Extract<GameAction, { type: 'VANQUISH' | 'MOVE_CARD' | 'PLAY_CARD' }> }
+  /** Sa Sucrerie — Taffyta Crème Brûlée : résout le choix « reculer le Pilote de 2 »
+   *  OU « effectuer une action Jouer une carte gratuite ». */
+  | { type: 'RESOLVE_TAFFYTA_CHOICE'; choice: 'racer-back' | 'play-card' }
+  /** Sa Sucrerie — Aigre Bill : fouiller (`dig: true`) ou renoncer (`dig: false`). */
+  | { type: 'RESOLVE_AIGRE_BILL'; dig: boolean }
+  /** Sa Sucrerie — L'important, c'est de payer : dépenser `amount` jetons Pouvoir (1..max)
+   *  pour avancer le pion d'autant de cases. */
+  | { type: 'RESOLVE_PAY_RACE'; amount: number }
+  /** Sa Sucrerie — Princesse Vanellope : reculer le pion King Candy de `amount` (0..max). */
+  | { type: 'RESOLVE_PAWN_BACK'; amount: number }
+  /** Sa Sucrerie — Le Faisceau : choisir le lieu de rassemblement (`locationId`) puis,
+   *  en phase 'discard', défausser un Cybug (`cybugInstanceId`) ou passer (`skip`). */
+  | { type: 'RESOLVE_BEACON'; locationId?: LocationId; cybugInstanceId?: string; skip?: boolean }
+  /** Sa Sucrerie — Médaille de Vanellope : choisir le Héros (`heroInstanceId`) puis le lieu
+   *  (`locationId`) où le jouer (+1 Force). */
+  | { type: 'RESOLVE_MEDAL'; heroInstanceId?: string; locationId?: LocationId }
   /** Gaston — décline l'action gratuite armée. */
   | { type: 'SKIP_GRANTED_ACTION' }
   /** Le Seigneur des clés — action « Obtenir une clé » (ramasse une clé du lieu courant). */
@@ -3287,6 +3756,8 @@ export type GameAction =
   /** Le Seigneur des Ténèbres — résout le choix « s'emparer du Chaudron OU gagner du
    *  Pouvoir » (Montre-moi le Chaudron Magique). */
   | { type: 'RESOLVE_CAULDRON_CHOICE'; choice: 'cauldron' | 'power' }
+  | { type: 'RESOLVE_MAUI_CHOICE'; choice: 'play' | 'discard' }
+  | { type: 'RESOLVE_CRUSTACEAN_PLACE'; to: LocationId }
   /** Le Seigneur des Ténèbres — résout le choix « mélanger sa défausse OU défausser
    *  l'Épée Magique pour s'emparer du Chaudron » (Nous avons conclu un marché !). */
   | { type: 'RESOLVE_BARGAIN_CHOICE'; choice: 'reshuffle' | 'sword' }

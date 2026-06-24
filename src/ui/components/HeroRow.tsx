@@ -368,20 +368,51 @@ export function HeroRow({
                         style={{ right: -4 - i * 5, bottom: -2, zIndex: 5 + i }}
                       />
                     ))}
+                    {/* Davy Jones — jeton Trésor posé sur ce Héros : dos si face cachée,
+                        illustration du trésor si révélé. Posé en haut à gauche. */}
+                    {c.treasure && (
+                      <img
+                        src={c.treasure.faceUp ? `/cards/davy-jones/treasure-${c.treasure.id}.png` : '/cards/davy-jones/treasure-back.png'}
+                        alt={c.treasure.faceUp ? c.treasure.id : 'Trésor (face cachée)'}
+                        title={c.treasure.faceUp ? `Trésor révélé : ${c.treasure.id}` : 'Jeton Trésor (face cachée)'}
+                        className={`pointer-events-none absolute left-0 top-0 h-[30px] w-[30px] object-contain ${
+                          c.treasure.faceUp
+                            ? 'drop-shadow-[0_0_3px_rgba(251,191,36,0.95)]'
+                            : 'drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]'
+                        }`}
+                        style={{ zIndex: 30 }}
+                      />
+                    )}
                   </div>
-                  {isHovered && (
-                    <div className={`absolute top-full ${previewPos} mt-1 flex w-max items-end gap-1 rounded-lg border border-white/20 bg-[#0b0a12] p-1 shadow-2xl`}>
-                      <img src={def?.image} alt={c.name} className="h-[22rem] w-auto max-w-none shrink-0 rounded" />
-                      {attached.map((a) => (
-                        <img
-                          key={a.instanceId}
-                          src={getCardDef(a.cardId)?.image}
-                          alt={a.name}
-                          className="h-[22rem] w-auto max-w-none shrink-0 rounded border-2 border-fuchsia-400"
-                        />
-                      ))}
-                    </div>
-                  )}
+                  {isHovered && (() => {
+                    // Davy Jones — jeton Trésor agrandi dans l'aperçu (révélé = visible, sinon dos).
+                    // On le place EN DESSOUS de la carte (centré), hors de la boîte sombre.
+                    const treasureImg = c.treasure ? (
+                      <img
+                        key="treasure-preview"
+                        src={c.treasure.faceUp ? `/cards/davy-jones/treasure-${c.treasure.id}.png` : '/cards/davy-jones/treasure-back.png'}
+                        alt={c.treasure.faceUp ? c.treasure.id : 'Trésor (face cachée)'}
+                        className="mt-1 h-40 w-40 shrink-0 object-contain drop-shadow-[0_0_6px_rgba(251,191,36,0.7)]"
+                      />
+                    ) : null
+                    return (
+                      <div className={`absolute top-full ${previewPos} mt-1 flex w-max flex-col items-center`}>
+                        <div className="flex items-end gap-1 rounded-lg border border-white/20 bg-[#0b0a12] p-1 shadow-2xl">
+                          <img src={def?.image} alt={c.name} className="h-[22rem] w-auto max-w-none shrink-0 rounded" />
+                          {attached.map((a) => (
+                            <img
+                              key={a.instanceId}
+                              src={getCardDef(a.cardId)?.image}
+                              alt={a.name}
+                              className="h-[22rem] w-auto max-w-none shrink-0 rounded border-2 border-fuchsia-400"
+                            />
+                          ))}
+                        </div>
+                        {/* Le jeton Trésor flotte HORS de la boîte sombre (coins transparents, pas de fond noir). */}
+                        {treasureImg}
+                      </div>
+                    )
+                  })()}
                   {deguisement && canDiscardDeguisement && (
                     <button
                       onClick={() => onDiscardDeguisement?.(deguisement.instanceId)}

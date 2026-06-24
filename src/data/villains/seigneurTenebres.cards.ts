@@ -248,7 +248,7 @@ export const seigneurTenebresCards: CardDef[] = [
     type: 'hero',
     strength: 3,
     copies: 1,
-    text: 'Les trois sorcières qui détiennent le Chaudron Noir.',
+    text: 'Tant que Les Sorcières de Morva sont dans le royaume, le Seigneur des Ténèbres ne peut pas s’emparer du Chaudron Magique (elles le détiennent).',
     image: img('witches-of-morva.png'),
   },
   {

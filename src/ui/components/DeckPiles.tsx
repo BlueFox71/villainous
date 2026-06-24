@@ -285,6 +285,49 @@ export function IngredientsPile({
 }
 
 /**
+ * Davy Jones — TRÉSORS RÉCUPÉRÉS (face visible), à la même place que les piles
+ * secondaires (Au-delà, Ingrédients…). Affiche les jetons Trésor déjà récupérés et le
+ * compteur n/5. Rendu uniquement pour Davy Jones (champ `claimedTreasures` défini).
+ */
+export function ClaimedTreasuresPile({
+  player,
+  uprightWidth = 'w-9',
+}: {
+  player: PlayerState
+  uprightWidth?: string
+}) {
+  if (player.claimedTreasures === undefined) return null
+  const claimed = player.claimedTreasures
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <span className="text-[8px] font-bold uppercase tracking-wide text-amber-300/90">
+        Trésors {claimed.length}/5
+      </span>
+      <div className="grid grid-cols-5 gap-0.5" title={`Trésors récupérés : ${claimed.length}/5`}>
+        {Array.from({ length: 5 }).map((_, i) => {
+          const id = claimed[i]
+          return id ? (
+            <img
+              key={id}
+              src={`/cards/davy-jones/treasure-${id}.png`}
+              alt={id}
+              title={id}
+              className={`${uprightWidth} aspect-square object-contain drop-shadow-[0_0_5px_rgba(251,191,36,0.7)]`}
+            />
+          ) : (
+            <div
+              key={i}
+              className={`${uprightWidth} aspect-square bg-amber-300/15`}
+              style={{ clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)' }}
+            />
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/**
  * Le Seigneur des Ténèbres — tuile CHAUDRON MAGIQUE (à deux faces), affichée à la
  * même place que les piles secondaires (Au-delà, Ingrédients…). Face « Chaudron »
  * tant qu'il n'est pas réveillé, face « Pouvoir » une fois réveillé. Rendue
@@ -744,6 +787,41 @@ export function MerlinPiles({ player, uprightWidth = 'w-16' }: { player: PlayerS
         <DiscardModal
           cards={discard}
           label={`Métamorphoses de Merlin vaincues — ${player.villainName}`}
+          onClose={() => setShowDiscard(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
+ * Tamatoa — pile + défausse des cartes MAUI (3ᵉ pioche). Affichée comme les piles Merlin.
+ * Rendue uniquement pour le vilain qui a une pioche Maui (`mauiDeck` défini).
+ */
+export function MauiPiles({ player, uprightWidth = 'w-16' }: { player: PlayerState; uprightWidth?: string }) {
+  const [showDiscard, setShowDiscard] = useState(false)
+  if (player.mauiDeck === undefined) return null
+  const deck = player.mauiDeck
+  const discard = player.mauiDiscard ?? []
+  const last = discard[discard.length - 1]
+  const back = '/cards/tamatoa/back-maui.png'
+  return (
+    <div className="flex shrink-0 gap-3" title="Cartes Maui (pioche & défausse)">
+      <Pile src={back} count={deck.length} fate upright uprightWidth={uprightWidth} />
+      <Pile
+        src={imgOf(last)}
+        count={discard.length}
+        fate
+        zoom
+        upright
+        uprightWidth={uprightWidth}
+        zoomClass="left-0 top-full mt-1"
+        onClick={discard.length > 0 ? () => { playHistoryEvent(); setShowDiscard(true) } : undefined}
+      />
+      {showDiscard && (
+        <DiscardModal
+          cards={discard}
+          label={`Cartes Maui — ${player.villainName}`}
           onClose={() => setShowDiscard(false)}
         />
       )}

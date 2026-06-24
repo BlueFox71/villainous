@@ -242,6 +242,8 @@ export const reineCoeurCards: CardDef[] = [
     copies: 1,
     text: 'Transforme 1 ou 2 arceaux en Cartes Gardes. Si la Reine de Cœur l’élimine, elle peut retransformer 1 ou 2 Cartes Gardes en arceaux.',
     image: img('chafouin.png'),
+    onPlace: [{ type: 'REVERT_WICKETS', max: 2 }],
+    onVanquish: [{ type: 'TRANSFORM_GUARDS', max: 2 }],
   },
   {
     id: 'chapelier-fou',
@@ -253,6 +255,7 @@ export const reineCoeurCards: CardDef[] = [
     copies: 1,
     text: 'Si le Lièvre de Mars se trouve dans le royaume, la force du Chapelier Fou augmente de 2.',
     image: img('chapelier-fou.png'),
+    selfStrengthMods: [{ kind: 'if-card', cardId: 'lievre-mars', scope: 'realm', delta: 2 }],
   },
   {
     id: 'chenille',
@@ -264,6 +267,7 @@ export const reineCoeurCards: CardDef[] = [
     copies: 1,
     text: 'La force de tous les Alliés sur le lieu de la Chenille est réduite de 1.',
     image: img('chenille.png'),
+    strengthMod: { target: 'allies-here', delta: -1 },
   },
   {
     id: 'dodo',
@@ -297,6 +301,7 @@ export const reineCoeurCards: CardDef[] = [
     copies: 1,
     text: 'Si le Chapelier Fou se trouve dans le royaume, la force du Lièvre de Mars augmente de 2.',
     image: img('lievre-mars.png'),
+    selfStrengthMods: [{ kind: 'if-card', cardId: 'chapelier-fou', scope: 'realm', delta: 2 }],
   },
   {
     id: 'loir',

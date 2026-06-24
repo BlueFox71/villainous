@@ -53,6 +53,25 @@ describe('Le Seigneur des Ténèbres — Chaudron Noir', () => {
     expect(s.players[0].blackCauldron).toBe('claimed')
   })
 
+  it('Les Sorcières de Morva en jeu : la prise du Chaudron est bloquée (set-aside conservé)', () => {
+    let s = setBoard(game(), { morva: [card('witches-of-morva', 'hero', { strength: 3 })] })
+    s = resolveEffects(s, [{ type: 'CLAIM_BLACK_CAULDRON' }], { actorIndex: 0 })
+    expect(s.players[0].blackCauldron).toBe('set-aside')
+    // Une fois les Sorcières parties, la prise réussit.
+    s = setBoard(s, { morva: [] })
+    s = resolveEffects(s, [{ type: 'CLAIM_BLACK_CAULDRON' }], { actorIndex: 0 })
+    expect(s.players[0].blackCauldron).toBe('claimed')
+  })
+
+  it('Montre-moi (Sorcières en jeu, Chaudron à prendre) : gagne le Pouvoir au lieu du Chaudron, sans choix', () => {
+    let s = setBoard(game(), { morva: [card('witches-of-morva', 'hero', { strength: 3 })] })
+    const p0 = s.players[0].power
+    s = resolveEffects(s, [{ type: 'CLAIM_CAULDRON_OR_POWER', power: 3 }], { actorIndex: 0 })
+    expect(s.pendingCauldronChoice ?? null).toBeNull()
+    expect(s.players[0].blackCauldron).toBe('set-aside')
+    expect(s.players[0].power).toBe(p0 + 3)
+  })
+
   it('ACTIVATE_CAULDRON : claimed → powered ; refusé si pas réclamé', () => {
     let s = game()
     s = { ...s, phase: 'ACTION' }

@@ -5,11 +5,9 @@
 // assets/decks/Mère Gothel/. Les `text` sont des descriptions FONCTIONNELLES
 // (reformulées), pas le texte imprimé.
 //
-// Effets : les variantes DÉTERMINISTES (gain/perte de Confiance, déplacement de
-// Raiponce, blocage de son déplacement) sont câblées via `effects`. Les effets
-// demandant un CHOIX interactif (récupération en défausse, Vanquish déclenché,
-// déplacement « 1 ou 2 lieux »…) restent décrits en texte et seront ajoutés en
-// Phase 3b (cf. mémoire « villainous-gothel-todo »).
+// STATUT : toutes les cartes sont implémentées (Confiance, déplacement/contrôle de
+// Raiponce, Brosse/Couronne/Poignard, Stabbington, Garde royal, Vengeance, Double-jeu,
+// Vieillissement, Flynn +régain, Pascal, Maximus, Ulf, Satyre…).
 //
 // Raiponce : Héros-tuile (copies 0), posée sur la Tour à la mise en place.
 // =============================================================================
@@ -278,7 +276,7 @@ export const gothelCards: CardDef[] = [
     type: 'hero',
     strength: 4,
     copies: 1,
-    text: 'À son arrivée, Mère Gothel perd jusqu’à 2 jetons Confiance ; s’il est éliminé, elle en regagne 2. (Effets : Phase 3b.)',
+    text: 'À son arrivée, Mère Gothel perd jusqu’à 2 jetons Confiance ; s’il est éliminé, elle en regagne 2.',
     image: img('flynn-rider.png'),
     onPlace: [{ type: 'FLYNN_TAKE_CONFIANCE', amount: 2 }],
   },
@@ -290,7 +288,7 @@ export const gothelCards: CardDef[] = [
     type: 'hero',
     strength: 2,
     copies: 1,
-    text: 'À son arrivée, Mère Gothel défausse une carte au hasard de sa main. (Effet : Phase 3b.)',
+    text: 'À son arrivée, Mère Gothel défausse une carte au hasard de sa main.',
     image: img('la-main-froide.png'),
     onPlace: [{ type: 'FATE_DISCARD_RANDOM_HAND', amount: 1 }],
   },
@@ -302,7 +300,7 @@ export const gothelCards: CardDef[] = [
     type: 'hero',
     strength: 4,
     copies: 1,
-    text: 'À leur arrivée sur le lieu de Raiponce, Mère Gothel perd 1 jeton Confiance. (Effet : Phase 3b.)',
+    text: 'À leur arrivée sur le lieu de Raiponce, Mère Gothel perd 1 jeton Confiance.',
     image: img('la-reine-et-le-roi.png'),
     onPlace: [{ type: 'LOSE_CONFIANCE_AT_RAIPONCE', amount: 1 }],
   },
@@ -314,7 +312,7 @@ export const gothelCards: CardDef[] = [
     type: 'hero',
     strength: 2,
     copies: 1,
-    text: 'Si vous jouez Le Satyre sur le lieu où se trouve Mère Gothel, vous pouvez la déplacer sur n’importe quel lieu. (Effet : Phase 3b.)',
+    text: 'Si vous jouez Le Satyre sur le lieu où se trouve Mère Gothel, vous pouvez la déplacer sur n’importe quel lieu.',
     image: img('le-satyre.png'),
     onPlace: [{ type: 'MOVE_OWNER_PAWN_IF_AT_PAWN', label: 'Le Satyre' }],
   },

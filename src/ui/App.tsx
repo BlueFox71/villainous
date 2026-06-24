@@ -36,6 +36,7 @@ import {
   transformableGuards,
 } from '../engine/rules'
 import { titanReachableDests } from '../engine/effects'
+import { FREE_PLAY_NO_ACTION_ID } from '../engine/actions'
 import type { CardInstance, KeyColor, LocationAction, PendingDice, ShowcaseEvent } from '../engine/types'
 import { BLUE, RED, accentVars } from './accents'
 import { VILLAIN_COLOR, villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from './villainColors'
@@ -48,7 +49,7 @@ import { BoardImage, LOCATIONS_LEFT, PAWN_FIRST_LEFT, PAWN_STEP } from './compon
 import { BoardActions } from './components/BoardActions'
 import { SUGAR_RUSH_TRACK } from './components/sugarRushTrack'
 import { HeroRow } from './components/HeroRow'
-import { DeckPiles, AuDelaPile, IngredientsPile, SuccessionPile, CapturedPuppiesPile, CauldronTile, MerlinPiles, OmnidroidPile, DiscardModal } from './components/DeckPiles'
+import { DeckPiles, AuDelaPile, IngredientsPile, SuccessionPile, CapturedPuppiesPile, ClaimedTreasuresPile, CauldronTile, MerlinPiles, MauiPiles, OmnidroidPile, DiscardModal } from './components/DeckPiles'
 import { StacksCards } from './components/StacksCards'
 import { GoalTilesRow } from './components/GoalTilesRow'
 import { FateModal } from './components/FateModal'
@@ -103,7 +104,7 @@ import { FateScryModal } from './components/FateScryModal'
 import { TitanSelectModal } from './components/TitanSelectModal'
 import { StartRollModal } from './components/StartRollModal'
 import { MusicPlayer } from './components/MusicPlayer'
-import { playKillSound, playTaskComplete, playDeadBody, playEmergencyMeeting, playYourTurn, playEndTurnFlip, playEndTurnEnable, playHover, startVictoryBuildup, startDefeatBuildup, stopVictoryBuildup, playLieuPirate } from './sfx'
+import { playKillSound, playTaskComplete, playDeadBody, playEmergencyMeeting, playYourTurn, playEndTurnFlip, playEndTurnEnable, playHover, startVictoryBuildup, startDefeatBuildup, stopVictoryBuildup, playLieuPirate, playNoCanDo, playManaAdd, startCardDragLoop, stopCardDragLoop } from './sfx'
 import { playVillainIntro } from './villainVoices'
 import { Showcase } from './components/Showcase'
 import { TestFateBar } from './components/TestFateBar'
@@ -568,6 +569,48 @@ function CauldronChoiceModal({
   )
 }
 
+/** Tamatoa — Pas exactement l'heure de Maui : la 1ʳᵉ carte Maui est dévoilée ; le joueur
+ *  choisit de la JOUER (résout son effet) ou de la DÉFAUSSER. */
+function MauiChoiceModal({
+  card,
+  onChoose,
+}: {
+  card: CardInstance | undefined
+  onChoose: (choice: 'play' | 'discard') => void
+}) {
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+      <div className="flex w-[26rem] max-w-[92vw] flex-col gap-4 rounded-2xl border border-white/15 bg-[#15101f] p-6 shadow-2xl">
+        <h2 className="text-center text-lg font-bold text-amber-200">Pas exactement l’heure de Maui</h2>
+        {card && (
+          <img
+            src={`/cards/tamatoa/${card.cardId}.png`}
+            alt={card.name}
+            className="mx-auto h-48 w-auto rounded-lg object-contain shadow-lg"
+          />
+        )}
+        <p className="text-center text-sm text-white/80">Joues-tu cette carte Maui, ou la défausses-tu ?</p>
+        <div className="flex justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => onChoose('play')}
+            className="flex-1 rounded-lg border border-amber-400/60 bg-amber-500/20 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-500/30"
+          >
+            🎴 Jouer
+          </button>
+          <button
+            type="button"
+            onClick={() => onChoose('discard')}
+            className="flex-1 rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-sm font-semibold text-white/80 hover:bg-white/20"
+          >
+            🗑️ Défausser
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /** Le Seigneur des Ténèbres — Nous avons conclu un marché ! : choix « mélanger sa
  *  défausse » OU « payer N Pouvoir pour défausser l'Épée Magique et s'emparer du
  *  Chaudron ». N'apparaît que si les deux options sont possibles. */
@@ -763,8 +806,31 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveTypeChoice = useGameStore((s) => s.resolveTypeChoice)
   const resolveDrawOrGainPower = useGameStore((s) => s.resolveDrawOrGainPower)
   const resolvePowerOrRacerBack = useGameStore((s) => s.resolvePowerOrRacerBack)
+  const resolveTaffytaChoice = useGameStore((s) => s.resolveTaffytaChoice)
+  const resolveAigreBill = useGameStore((s) => s.resolveAigreBill)
+  const resolvePayRace = useGameStore((s) => s.resolvePayRace)
+  const resolvePawnBack = useGameStore((s) => s.resolvePawnBack)
+  const resolveBeacon = useGameStore((s) => s.resolveBeacon)
+  const resolveMedal = useGameStore((s) => s.resolveMedal)
+  const resolveActivateOrVanquish = useGameStore((s) => s.resolveActivateOrVanquish)
+  const resolveRemoveFire = useGameStore((s) => s.resolveRemoveFire)
+  const resolveShereKhanDefeat = useGameStore((s) => s.resolveShereKhanDefeat)
+  const resolveRecoverFate = useGameStore((s) => s.resolveRecoverFate)
+  const resolveFreePlayAlly = useGameStore((s) => s.resolveFreePlayAlly)
+  const resolveYoung = useGameStore((s) => s.resolveYoung)
+  const resolveRecoverToDeck = useGameStore((s) => s.resolveRecoverToDeck)
+  const resolveInteressant = useGameStore((s) => s.resolveInteressant)
+  const resolveKaaPlay = useGameStore((s) => s.resolveKaaPlay)
+  const resolveMonkeyKing = useGameStore((s) => s.resolveMonkeyKing)
+  const resolveKaaShield = useGameStore((s) => s.resolveKaaShield)
+  const resolvePlaceTreasure = useGameStore((s) => s.resolvePlaceTreasure)
+  const resolveRevealTreasure = useGameStore((s) => s.resolveRevealTreasure)
+  const resolveMoveSwapTreasure = useGameStore((s) => s.resolveMoveSwapTreasure)
+  const resolveWakeKraken = useGameStore((s) => s.resolveWakeKraken)
   const resolveMoveOrActivate = useGameStore((s) => s.resolveMoveOrActivate)
   const resolveCauldronChoice = useGameStore((s) => s.resolveCauldronChoice)
+  const resolveMauiChoice = useGameStore((s) => s.resolveMauiChoice)
+  const resolveCrustaceanPlace = useGameStore((s) => s.resolveCrustaceanPlace)
   const resolveBargainChoice = useGameStore((s) => s.resolveBargainChoice)
   const resolveFreeItemPlay = useGameStore((s) => s.resolveFreeItemPlay)
   const skipFreeItemPlay = useGameStore((s) => s.skipFreeItemPlay)
@@ -1013,6 +1079,18 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const [loseKeyId, setLoseKeyId] = useState<string | null>(null)
   // Glisser-déposer d'une carte de la main vers le plateau : instanceId en cours de glissé.
   const [draggingCardId, setDraggingCardId] = useState<string | null>(null)
+  // Message transitoire « pourquoi cette carte est injouable » (saisie d'une carte non
+  // jouable). S'efface seul après quelques secondes.
+  const [unplayableMsg, setUnplayableMsg] = useState<string | null>(null)
+  const unplayableTimer = useRef<number | null>(null)
+  // Son « cristal » quand le Pouvoir du joueur humain AUGMENTE (gain ≥1 jeton).
+  const prevHumanPowerRef = useRef<number | null>(null)
+  const showUnplayable = (reason: string) => {
+    setUnplayableMsg(reason)
+    playNoCanDo()
+    if (unplayableTimer.current) window.clearTimeout(unplayableTimer.current)
+    unplayableTimer.current = window.setTimeout(() => setUnplayableMsg(null), 4000)
+  }
   // Fantôme suivant le curseur pendant le glissé (clone de la carte). On ne stocke en
   // state que l'instanceId + la position initiale (montage du portail) ; la position LIVE
   // est pilotée en impératif via un ref + une boucle rAF (pas de re-render par pointermove).
@@ -1329,6 +1407,25 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     }
     fxShown.current = fx.length
   }, [state.floatingFx, state.players, HUMAN])
+
+  // Gain de Pouvoir du joueur humain → son « mana_crystal_add ». On compare au Pouvoir
+  // précédent ; on ne joue QUE sur une hausse (pas à la dépense ni au montage initial).
+  useEffect(() => {
+    const cur = state.players[HUMAN]?.power ?? 0
+    const prev = prevHumanPowerRef.current
+    prevHumanPowerRef.current = cur
+    if (prev !== null && cur > prev) playManaAdd()
+  }, [state.players, HUMAN])
+
+  // Boucle sonore tant qu'une carte de la MAIN est tenue au curseur (drag 'play').
+  // S'arrête dès le lâcher/annulation (draggingCardId repasse à null) ou pour un glissé
+  // de plateau (Héros/Allié/Objet, dragKindRef ≠ 'play').
+  useEffect(() => {
+    if (draggingCardId && dragKindRef.current === 'play') startCardDragLoop()
+    else stopCardDragLoop()
+  }, [draggingCardId])
+  // Sécurité : couper la boucle si le composant est démonté en plein glissé.
+  useEffect(() => () => stopCardDragLoop(), [])
 
   // Visualisation des actions : à chaque nouvelle entrée dans usedActionIds, on
   // fait flasher la pastille de l'action correspondante sur le plateau du joueur
@@ -1714,6 +1811,19 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     if (pcc) {
       if (seats[pcc.playerIndex] === 'bot') {
         const timer = setTimeout(() => resolveCauldronChoice('cauldron'), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Tamatoa : « Pas exactement l'heure de Maui ». Bot → joue la carte Maui dévoilée si
+    // elle l'aide (Pouvoir / Force aux Alliés), sinon la défausse ; humain → modale.
+    const pmaui = state.pendingMauiChoice
+    if (pmaui) {
+      if (seats[pmaui.playerIndex] === 'bot') {
+        const top = state.players[pmaui.playerIndex].mauiDeck?.[0]
+        const beneficial = new Set(['poisson-maui', 'etoile-de-mer-maui', 'tete-de-requin-maui', 'queue-de-requin-maui'])
+        const choice = top && beneficial.has(top.cardId) ? 'play' : 'discard'
+        const timer = setTimeout(() => resolveMauiChoice(choice), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
       return
@@ -2713,7 +2823,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolveIdentification, resolveLotsoTarget, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey])
+  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveCrustaceanPlace, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolveIdentification, resolveLotsoTarget, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey])
 
   // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
   // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
@@ -2864,6 +2974,14 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     shrinkFreeActionId?: string,
     engrenagesIds?: string[],
   ) => {
+    // Action « Jouer une carte » gratuite (Taffyta — grantedAction PLAY_CARD) : on
+    // enveloppe la pose dans PERFORM_GRANTED_ACTION (actionId synthétique réservé).
+    if (actionId === 'granted-free-action') {
+      try {
+        performGrantedAction({ type: 'PLAY_CARD', actionId, instanceId, to, attachTo, targetHeroId, allyInstanceIds, allyMove, shrinkFreeActionId, engrenagesIds })
+      } catch { /* coup refusé : le bandeau d'action gratuite reste pour réessayer */ }
+      return
+    }
     if (isDiablo) {
       try {
         diabloFreeAction({ type: 'PLAY_CARD', actionId, instanceId, to, attachTo, targetHeroId, allyInstanceIds, allyMove, shrinkFreeActionId, engrenagesIds })
@@ -3266,6 +3384,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     setMode({ kind: 'move-dest', actionId: mode.actionId, instanceId, from, cardName: card?.name ?? '', granted: mode.granted })
   }
   const handlePlace = (to: string) => {
+    // Tamatoa — Crustacé : un clic sur un lieu y joue l'Objet dévoilé.
+    if (state.pendingCrustaceanPlace?.playerIndex === HUMAN) {
+      return resolveCrustaceanPlace(to)
+    }
     if (mode?.kind === 'condition-pick-place') {
       return handleConditionPickPlace(to)
     }
@@ -3342,10 +3464,13 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // les cartes à cible (Héros, association) ouvrent leur sélection habituelle.
   const playByDrag = (instanceId: string, dropLocationId: string | null) => {
     setDraggingCardId(null)
-    const actionId = dragPlayActionId
-    if (!actionId || !isHumanTurn) return
+    if (!isHumanTurn) return
     const card = user.hand.find((c) => c.instanceId === instanceId)
     if (!card) return
+    // Turbo-Statique : jouée sans action « Jouer une carte » (actionId sentinelle, ne
+    // consomme aucune action) même si aucune action de pose n'est disponible.
+    const actionId = card.playableWithoutAction ? FREE_PLAY_NO_ACTION_ID : dragPlayActionId
+    if (!actionId) return
     // Objet associé à un Héros (Forme de grenouille…) : on choisit le Héros (clic).
     if (card.type === 'item' && card.attach === 'hero') {
       return setMode({ kind: 'item-attach-hero', actionId, instanceId, cardName: card.name })
@@ -3907,7 +4032,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const cardInPlay =
     mode?.kind === 'place' ? user.hand.find((c) => c.instanceId === mode.instanceId) : undefined
   const placeTargets: string[] =
-    mode?.kind === 'place'
+    // Tamatoa — Crustacé : pose de l'Objet dévoilé par CLIC sur un lieu (pas de modale).
+    state.pendingCrustaceanPlace?.playerIndex === HUMAN
+      ? user.locations.map((l) => l.id).filter((id) => !(user.lockedLocations ?? []).includes(id))
+      : mode?.kind === 'place'
       ? user.locations
           .map((l) => l.id)
           .filter((id) => {
@@ -4448,6 +4576,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                   `fatality-cases` pour rester aligné). Rendu seulement pour Mim. */}
               <div style={{ paddingLeft: '1%' }}>
                 <MerlinPiles player={user} uprightWidth="w-16" />
+                <MauiPiles player={user} uprightWidth="w-16" />
               </div>
               {/* Pat Hibulaire — tuiles Objectif, une au-dessus de chaque case Héros. */}
               <GoalTilesRow player={user} own />
@@ -4604,6 +4733,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 addCandidates={state.pendingPuppyAdd?.playerIndex === HUMAN ? state.pendingPuppyAdd.candidateTileIds : undefined}
                 onAddTile={resolvePuppyAdd}
               />
+              <ClaimedTreasuresPile player={user} />
               <CauldronTile player={user} />
               <OmnidroidPile
                 player={user}
@@ -5041,7 +5171,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                       setMode(
                         state.grantedAction!.actionType === 'VANQUISH'
                           ? { kind: 'vanquish-pick-hero', actionId: 'granted-free-action', granted: true }
-                          : { kind: 'move-pick', actionId: 'granted-free-action', granted: true },
+                          : state.grantedAction!.actionType === 'PLAY_CARD'
+                            ? { kind: 'play', actionId: 'granted-free-action' }
+                            : { kind: 'move-pick', actionId: 'granted-free-action', granted: true },
                       )
                     }
                     className="rounded bg-amber-600 px-2 py-1 text-white hover:bg-amber-500"
@@ -5223,6 +5355,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                   <>🦬 <b>Troupeau de gnous</b> : tu peux éliminer un Héros sur le nouveau lieu (facultatif).</>
                 ) : state.pendingTrapVanquish.source === 'uniforme' ? (
                   <>👮 <b>Uniforme</b> : tu peux éliminer un Héros sur le lieu de l'Allié équipé — qui doit participer (facultatif).</>
+                ) : state.pendingTrapVanquish.source === 'duncan' ? (
+                  <>🚔 <b>Duncan et Wynnchel</b> : tu peux effectuer une action Éliminer un Héros (facultatif).</>
+                ) : state.pendingTrapVanquish.source === 'race-ban' ? (
+                  <>🏁 <b>Il lui est défendu de courir</b> : élimine un Héros (les Alliés utilisés ne sont pas défaussés).</>
                 ) : (
                   <>🪤 <b>Tendre un Piège</b> : tu peux éliminer un Héros (facultatif).</>
                 )}
@@ -5477,6 +5613,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                   alignées sur la pioche/défausse Fatalité (même retrait gauche). */}
               <div style={{ paddingLeft: '1%' }}>
                 <MerlinPiles player={bot} uprightWidth="w-16" />
+                <MauiPiles player={bot} uprightWidth="w-16" />
               </div>
               {/* Pat Hibulaire — tuiles Objectif de l'adversaire (dos sauf révélées). */}
               <GoalTilesRow player={bot} />
@@ -5533,6 +5670,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               <IngredientsPile player={bot} uprightWidth="w-14" />
               <SuccessionPile player={bot} uprightWidth="w-14" />
               <CapturedPuppiesPile player={bot} uprightWidth="w-9" />
+              <ClaimedTreasuresPile player={bot} />
               <CauldronTile player={bot} />
               <OmnidroidPile player={bot} />
             </div>
@@ -5630,6 +5768,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             realmHasAllies={anyAllyOnBoard}
             realmHasPuppyTile={(user.puppyTiles ?? []).some((t) => t.state === 'board')}
             realmHasHeroes={anyHeroOnBoard}
+            raceBanPlayable={(anyAllyOnBoard && anyHeroOnBoard) || !!user.raceActive}
+            realmHasFire={Object.values(user.fireTokens ?? {}).some((a) => a.length > 0)}
+            realmHasFacedownTreasure={user.locations.some((l) => (user.board[l.id] ?? []).some((c) => c.type === 'hero' && c.treasure && !c.treasure.faceUp))}
             bargainPlayable={(() => {
               // Nous avons conclu un marché ! : jouable si défausse non vide OU Épée Magique
               // défaussable pour le Chaudron (Épée présente, Pouvoir suffisant, Chaudron pas pris).
@@ -5653,6 +5794,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             hasHackInPlay={Object.values(user.board).flat().some((c) => c.isPiratage || (c.type === 'hero' && c.abilityHacked))}
             hasIngredients={(user.ingredients ?? []).some((c) => (c.cost ?? 0) <= user.power)}
             heroAtPawn={!!user.pawnLocation && (user.board[user.pawnLocation] ?? []).some((c) => c.type === 'hero')}
+            coveredAtPawn={
+              !!user.pawnLocation &&
+              ((user.board[user.pawnLocation] ?? []).some((c) => c.type === 'hero') ||
+                (user.fireTokens?.[user.pawnLocation] ?? []).length > 0)
+            }
             canBite={canTakeABite(state, HUMAN)}
             realmHasHyena={Object.values(user.board).flat().some((c) => c.isHyena)}
             hyenaElsewhere={user.locations.some((l) => l.id !== user.pawnLocation && (user.board[l.id] ?? []).some((c) => c.isHyena))}
@@ -5719,6 +5865,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             onConfirmDiscard={handleConfirmDiscard}
             onCancel={() => setMode(null)}
             dragPlayActionId={dragPlayActionId}
+            canFreePlay={isHumanTurn && state.phase === 'ACTION'}
+            mustMoveFirst={isHumanTurn && state.phase === 'MOVE'}
+            onUnplayable={showUnplayable}
             onCardDragStart={handleCardDragStart}
             onCardDragMove={handleCardDragMove}
             onCardDragDrop={handleCardDragDrop}
@@ -5903,6 +6052,502 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         />
       )}
 
+      {/* Sa Sucrerie — Taffyta : l'humain choisit reculer le Pilote OU jouer une carte. */}
+      {state.pendingTaffytaChoice && state.pendingTaffytaChoice.playerIndex === HUMAN && (
+        <ChoiceModal
+          title="Taffyta Crème Brûlée"
+          prompt="Que choisissez-vous ?"
+          options={[
+            {
+              key: 'racer-back',
+              label: 'Reculer le jeton Pilote de 2 cases',
+              onSelect: () => resolveTaffytaChoice('racer-back'),
+            },
+            {
+              key: 'play-card',
+              label: 'Effectuer une action Jouer une carte',
+              onSelect: () => resolveTaffytaChoice('play-card'),
+            },
+          ]}
+        />
+      )}
+
+      {/* Sa Sucrerie — Aigre Bill : l'humain choisit de fouiller la pioche ou non. */}
+      {state.pendingAigreBill && state.pendingAigreBill.playerIndex === HUMAN && (
+        <ChoiceModal
+          title="Aigre Bill"
+          prompt="Fouiller votre pioche Méchant jusqu'à un Allié ?"
+          options={[
+            {
+              key: 'dig',
+              label: 'Fouiller (Allié en main, réordonner le reste)',
+              onSelect: () => resolveAigreBill(true),
+            },
+            {
+              key: 'skip',
+              label: 'Renoncer',
+              onSelect: () => resolveAigreBill(false),
+            },
+          ]}
+        />
+      )}
+
+      {/* Message « carte injouable » : pourquoi la carte saisie ne peut pas être jouée.
+          Style Hearthstone : texte blanc gras à contour noir, centré au milieu de l'écran. */}
+      {unplayableMsg && (
+        <div className="pointer-events-none fixed inset-0 z-[60] flex items-center justify-center px-6">
+          <div
+            className="select-none text-center text-3xl font-bold tracking-wide text-white sm:text-4xl"
+            style={{
+              fontFamily: 'Georgia, "Times New Roman", serif',
+              textShadow:
+                '2px 2px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000, -2px -2px 0 #000, 0 0 8px rgba(0,0,0,0.9), 0 4px 10px rgba(0,0,0,0.8)',
+            }}
+          >
+            {unplayableMsg}
+          </div>
+        </div>
+      )}
+
+      {/* Sa Sucrerie — Médaille de Vanellope : le fataliseur (humain) choisit Héros puis lieu. */}
+      {state.pendingMedal && state.pendingMedal.chooserIndex === HUMAN && (() => {
+        const pm = state.pendingMedal
+        const kcP = state.players[pm.playerIndex]
+        if (pm.kind === 'pick-hero') {
+          const heroName = (id: string) => kcP.fateDiscard.find((c) => c.instanceId === id)?.name ?? 'Héros'
+          return (
+            <ChoiceModal
+              title="Médaille de Vanellope — Héros"
+              prompt="Quel Héros de la défausse Fatalité rejouer (+1 Force) ?"
+              options={(pm.heroIds ?? []).map((id) => ({
+                key: `medal-h-${id}`,
+                label: heroName(id),
+                onSelect: () => resolveMedal({ heroInstanceId: id }),
+              }))}
+            />
+          )
+        }
+        const nameOf = (id: string) => kcP.locations.find((l) => l.id === id)?.name ?? id
+        return (
+          <ChoiceModal
+            title="Médaille de Vanellope — lieu"
+            prompt="Sur quel lieu jouer le Héros ?"
+            options={(pm.locationIds ?? []).map((id) => ({
+              key: `medal-l-${id}`,
+              label: nameOf(id),
+              onSelect: () => resolveMedal({ locationId: id }),
+            }))}
+          />
+        )
+      })()}
+
+      {/* Sa Sucrerie — Le Faisceau : le fataliseur (humain) choisit le lieu puis défausse. */}
+      {state.pendingBeacon && state.pendingBeacon.chooserIndex === HUMAN && (() => {
+        const pb = state.pendingBeacon
+        const kcP = state.players[pb.playerIndex]
+        const nameOf = (id: string) => kcP.locations.find((l) => l.id === id)?.name ?? id
+        if (pb.kind === 'pick-location') {
+          return (
+            <ChoiceModal
+              title="Le Faisceau — lieu de rassemblement"
+              prompt="Sur quel lieu rassembler les Cybugs en Sucre voisins ?"
+              options={(pb.locationIds ?? []).map((id) => ({
+                key: `beacon-${id}`,
+                label: nameOf(id),
+                onSelect: () => resolveBeacon({ locationId: id }),
+              }))}
+            />
+          )
+        }
+        const cybugName = (id: string) =>
+          Object.values(kcP.board).flat().find((c) => c.instanceId === id)?.name ?? 'Cybug en Sucre'
+        return (
+          <ChoiceModal
+            title="Le Faisceau — défausser un Cybug ?"
+            prompt="Vous pouvez défausser un Cybug en Sucre de ce lieu."
+            options={[
+              { key: 'beacon-skip', label: 'Ne rien défausser', onSelect: () => resolveBeacon({ skip: true }) },
+              ...(pb.cybugIds ?? []).map((id) => ({
+                key: `beacon-dis-${id}`,
+                label: `Défausser ${cybugName(id)}`,
+                onSelect: () => resolveBeacon({ cybugInstanceId: id }),
+              })),
+            ]}
+          />
+        )
+      })()}
+
+      {/* Sa Sucrerie — Princesse Vanellope : le fataliseur (humain) choisit le recul du pion. */}
+      {state.pendingPawnBack && state.pendingPawnBack.chooserIndex === HUMAN && (
+        <ChoiceModal
+          title="Princesse Vanellope"
+          prompt="De combien de cases reculer le pion de Sa Sucrerie ?"
+          options={Array.from({ length: state.pendingPawnBack.max + 1 }, (_, i) => i).map((n) => ({
+            key: `back-${n}`,
+            label: n === 0 ? 'Ne pas reculer' : `Reculer de ${n}`,
+            onSelect: () => resolvePawnBack(n),
+          }))}
+        />
+      )}
+
+      {/* Sa Sucrerie — L'important, c'est de payer : l'humain choisit combien dépenser. */}
+      {state.pendingPayRace && state.pendingPayRace.playerIndex === HUMAN && (
+        <ChoiceModal
+          title="L'important, c'est de payer"
+          prompt="Combien de jetons Pouvoir dépenser ? (vous avancez d'autant de cases)"
+          options={Array.from({ length: state.pendingPayRace.max }, (_, i) => i + 1).map((n) => ({
+            key: `pay-${n}`,
+            label: `Dépenser ${n} (avancer de ${n})`,
+            onSelect: () => resolvePayRace(n),
+          }))}
+        />
+      )}
+
+      {/* Shere Khan — Aie confiance : choisir des cartes de la défausse à remélanger. */}
+      {state.pendingRecoverToDeck && state.pendingRecoverToDeck.playerIndex === HUMAN && (() => {
+        const prd = state.pendingRecoverToDeck
+        const chosen = new Set(prd.chosen)
+        const cards = user.discard.filter((c) => !chosen.has(c.instanceId))
+        const title =
+          user.villain === 'tamatoa'
+            ? `Je te le dirai en chantant (${prd.chosen.length}/${prd.remaining})`
+            : `Aie confiance (${prd.chosen.length}/${prd.remaining})`
+        return (
+          <CardChoiceModal
+            title={title}
+            cards={cards}
+            onPick={(card) => resolveRecoverToDeck({ instanceId: card.instanceId })}
+            noneLabel="Terminer"
+            onNone={() => resolveRecoverToDeck({ done: true })}
+            onClose={() => resolveRecoverToDeck({ done: true })}
+          />
+        )
+      })()}
+
+      {/* Shere Khan — C'est très intéressant : une ou plusieurs actions au choix. */}
+      {state.pendingInteressant && state.pendingInteressant.playerIndex === HUMAN && (() => {
+        const done = new Set(state.pendingInteressant.done)
+        const hasFire = Object.values(user.fireTokens ?? {}).some((a) => a.length > 0)
+        const opts: { key: string; label: string; onSelect: () => void }[] = [
+          { key: 'int-done', label: 'Terminer', onSelect: () => resolveInteressant({ done: true }) },
+        ]
+        if (!done.has('power')) opts.push({ key: 'int-power', label: 'Gagner 1 jeton Pouvoir', onSelect: () => resolveInteressant({ option: 'power' }) })
+        if (!done.has('draw')) opts.push({ key: 'int-draw', label: 'Piocher 1 carte', onSelect: () => resolveInteressant({ option: 'draw' }) })
+        if (!done.has('fire') && hasFire) opts.push({ key: 'int-fire', label: 'Déplacer 1 jeton Feu sur une autre action', onSelect: () => resolveInteressant({ option: 'fire' }) })
+        return (
+          <ChoiceModal
+            title="C'est très intéressant"
+            prompt="Effectuez une ou plusieurs actions, puis terminez."
+            options={opts}
+          />
+        )
+      })()}
+
+      {/* Shere Khan — Kaa : choisir un Objet de la défausse à jouer (et l'associer à Kaa). */}
+      {state.pendingKaaPlay && state.pendingKaaPlay.playerIndex === HUMAN && (() => {
+        const items = user.discard.filter((c) => c.type === 'item' && (c.cost ?? 0) <= user.power)
+        return (
+          <ChoiceModal
+            title="Kaa"
+            prompt="Choisissez un Objet de votre défausse à jouer (vous payez son coût)."
+            options={items.map((c) => ({
+              key: `kaa-${c.instanceId}`,
+              label: `${c.name} (${c.cost ?? 0} JT)`,
+              onSelect: () => resolveKaaPlay(c.instanceId),
+            }))}
+          />
+        )
+      })()}
+
+      {/* Shere Khan — Le Roi Singe : choisir le Macaque puis son lieu de destination. */}
+      {state.pendingMonkeyKing && state.pendingMonkeyKing.playerIndex === HUMAN && (() => {
+        const pmk = state.pendingMonkeyKing
+        if (!pmk.macaqueInstanceId) {
+          const macaques = user.locations.flatMap((l) =>
+            (user.board[l.id] ?? [])
+              .filter((c) => c.cardId === 'macaques')
+              .map((c) => ({ id: c.instanceId, locName: l.name })),
+          )
+          return (
+            <ChoiceModal
+              title="Le Roi Singe"
+              prompt="Quel groupe de Macaques voulez-vous déplacer ?"
+              options={macaques.map((m) => ({
+                key: `mk-${m.id}`,
+                label: `Macaques (${m.locName})`,
+                onSelect: () => resolveMonkeyKing({ macaqueInstanceId: m.id }),
+              }))}
+            />
+          )
+        }
+        return (
+          <ChoiceModal
+            title="Le Roi Singe"
+            prompt="Vers quel lieu déplacer les Macaques ?"
+            options={user.locations.map((l) => ({
+              key: `mk-to-${l.id}`,
+              label: l.name,
+              onSelect: () => resolveMonkeyKing({ to: l.id }),
+            }))}
+          />
+        )
+      })()}
+
+      {/* Davy Jones — poser un jeton Trésor : phase 1 le Héros, phase 2 QUEL Trésor (face cachée). */}
+      {state.pendingPlaceTreasure && state.pendingPlaceTreasure.playerIndex === HUMAN && (() => {
+        const ppt = state.pendingPlaceTreasure
+        if (!ppt.heroInstanceId) {
+          const heroes = user.locations.flatMap((l) =>
+            (user.board[l.id] ?? []).filter((c) => c.type === 'hero' && !c.treasure).map((c) => ({ c, locName: l.name })),
+          )
+          return (
+            <ChoiceModal
+              title="Jeton Trésor"
+              prompt="Sur quel Héros poser un jeton Trésor (face cachée) ?"
+              options={heroes.map(({ c, locName }) => ({
+                key: `pt-${c.instanceId}`,
+                label: `${c.name} (${locName})`,
+                onSelect: () => resolvePlaceTreasure({ heroInstanceId: c.instanceId }),
+              }))}
+            />
+          )
+        }
+        // Choix « à l'aveugle » : on ne montre que les DOS des jetons de la réserve (vous
+        // ne savez pas lequel vous posez tant qu'il n'est pas révélé).
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
+            <div className="flex w-full max-w-md flex-col gap-4 rounded-2xl border border-white/15 bg-[#120c22] p-5 text-white">
+              <h2 className="text-center text-lg font-bold text-amber-200">Jeton Trésor</h2>
+              <p className="text-center text-sm text-white/70">
+                Choisissez un jeton Trésor de la réserve à poser <b>face cachée</b> — vous ignorez lequel.
+              </p>
+              <div className="flex flex-wrap justify-center gap-3">
+                {(user.treasureReserve ?? []).map((tid, i) => (
+                  <button
+                    key={`ptt-${tid}`}
+                    type="button"
+                    onClick={() => resolvePlaceTreasure({ treasureId: tid })}
+                    title="Jeton Trésor (face cachée)"
+                    className="transition hover:scale-110 hover:brightness-110"
+                  >
+                    <img
+                      src="/cards/davy-jones/treasure-back.png"
+                      alt={`Jeton Trésor ${i + 1}`}
+                      className="h-16 w-16 object-contain drop-shadow-[0_0_4px_rgba(251,191,36,0.5)]"
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Davy Jones — révéler un jeton Trésor sur un Héros. */}
+      {state.pendingRevealTreasure && state.pendingRevealTreasure.playerIndex === HUMAN && (() => {
+        const prt = state.pendingRevealTreasure
+        const all = user.locations.flatMap((l) => (user.board[l.id] ?? []).map((c) => ({ c, locName: l.name })))
+        const cands = prt.candidateIds
+          .map((id) => all.find((x) => x.c.instanceId === id))
+          .filter((x): x is NonNullable<typeof x> => !!x)
+        return (
+          <ChoiceModal
+            title="Révéler un Trésor"
+            prompt="Sur quel Héros révéler le jeton Trésor (face cachée) ?"
+            options={cands.map(({ c, locName }) => ({
+              key: `rt-${c.instanceId}`,
+              label: `${c.name} (${locName})`,
+              onSelect: () => resolveRevealTreasure(c.instanceId),
+            }))}
+          />
+        )
+      })()}
+
+      {/* Davy Jones — Les amis deviennent des ennemis : déplacer/échanger un trésor. */}
+      {state.pendingMoveSwapTreasure && state.pendingMoveSwapTreasure.playerIndex === HUMAN && (() => {
+        const pms = state.pendingMoveSwapTreasure
+        const heroes = user.locations.flatMap((l) =>
+          (user.board[l.id] ?? []).filter((c) => c.type === 'hero').map((c) => ({ c, locName: l.name })),
+        )
+        const phase1 = !pms.fromHeroId
+        const opts = heroes
+          .filter(({ c }) => (phase1 ? !!c.treasure : c.instanceId !== pms.fromHeroId))
+          .map(({ c, locName }) => ({
+            key: `ms-${c.instanceId}`,
+            label: `${c.name} (${locName})${c.treasure ? ' • trésor' : ''}`,
+            onSelect: () => resolveMoveSwapTreasure(c.instanceId),
+          }))
+        return (
+          <ChoiceModal
+            title="Les amis deviennent des ennemis"
+            prompt={phase1 ? 'Quel Héros possède le trésor à déplacer ?' : 'Vers quel Héros (échange si déjà un trésor) ?'}
+            options={opts}
+          />
+        )
+      })()}
+
+      {/* Davy Jones — Réveillez le Kraken ! : défausser un Allié. */}
+      {state.pendingWakeKraken && state.pendingWakeKraken.playerIndex === HUMAN && (() => {
+        const allies = user.locations.flatMap((l) =>
+          (user.board[l.id] ?? []).filter((c) => c.type === 'ally' && !c.attachedTo).map((c) => ({ c, locName: l.name })),
+        )
+        return (
+          <ChoiceModal
+            title="Réveillez le Kraken !"
+            prompt="Quel Allié défausser pour réveiller Le Kraken ?"
+            options={allies.map(({ c, locName }) => ({
+              key: `wk-${c.instanceId}`,
+              label: `${c.name} (${locName})`,
+              onSelect: () => resolveWakeKraken(c.instanceId),
+            }))}
+          />
+        )
+      })()}
+
+      {/* Shere Khan — Kaa (bouclier) : sacrifier un Objet associé pour préserver Kaa, ou non. */}
+      {state.pendingKaaShield && state.pendingKaaShield.playerIndex === HUMAN && (() => {
+        const pks = state.pendingKaaShield
+        const allCards = user.locations.flatMap((l) => user.board[l.id] ?? [])
+        const items = pks.itemInstanceIds
+          .map((id) => allCards.find((c) => c.instanceId === id))
+          .filter((c): c is NonNullable<typeof c> => !!c)
+        return (
+          <ChoiceModal
+            title="Kaa"
+            prompt="Kaa serait défaussé. Sacrifier un Objet associé à sa place ?"
+            options={[
+              ...items.map((c) => ({
+                key: `kshield-${c.instanceId}`,
+                label: `Défausser ${c.name} (Kaa survit)`,
+                onSelect: () => resolveKaaShield({ itemInstanceId: c.instanceId }),
+              })),
+              { key: 'kshield-none', label: 'Laisser Kaa être défaussé', onSelect: () => resolveKaaShield({ decline: true }) },
+            ]}
+          />
+        )
+      })()}
+
+      {/* Shere Khan — Jeune et sans défense : choix (déplacer un Héros / gagner du Pouvoir). */}
+      {state.pendingYoung && state.pendingYoung.playerIndex === HUMAN && (() => {
+        const py = state.pendingYoung
+        if (py.kind === 'choose') {
+          const allies = user.locations.flatMap((l) => (user.board[l.id] ?? []).filter((c) => c.type === 'ally' && !c.attachedTo)).length
+          return (
+            <ChoiceModal
+              title="Jeune et sans défense"
+              prompt="Que choisissez-vous ?"
+              options={[
+                { key: 'y-move', label: 'Déplacer un Héros sur le lieu d’un Allié', onSelect: () => resolveYoung({ choice: 'move' }) },
+                { key: 'y-gain', label: `Gagner ${allies} jeton(s) Pouvoir (1 par Allié)`, onSelect: () => resolveYoung({ choice: 'gain' }) },
+              ]}
+            />
+          )
+        }
+        if (py.kind === 'pick-hero') {
+          return (
+            <ChoiceModal
+              title="Jeune et sans défense — quel Héros ?"
+              prompt="Quel Héros déplacer ?"
+              options={user.locations.flatMap((l) =>
+                (user.board[l.id] ?? []).filter((c) => c.type === 'hero').map((h) => ({
+                  key: `yh-${h.instanceId}`,
+                  label: `${h.name} (${l.name})`,
+                  onSelect: () => resolveYoung({ heroInstanceId: h.instanceId }),
+                })),
+              )}
+            />
+          )
+        }
+        return (
+          <ChoiceModal
+            title="Jeune et sans défense — vers quel Allié ?"
+            prompt="Sur le lieu de quel Allié déplacer le Héros ?"
+            options={user.locations.flatMap((l) =>
+              (user.board[l.id] ?? []).filter((c) => c.type === 'ally' && !c.attachedTo).map((a) => ({
+                key: `ya-${a.instanceId}`,
+                label: `${a.name} (${l.name})`,
+                onSelect: () => resolveYoung({ allyInstanceId: a.instanceId }),
+              })),
+            )}
+          />
+        )
+      })()}
+
+      {/* Shere Khan — À toi de jouer, cousin : l'humain choisit où jouer l'Allié dévoilé. */}
+      {state.pendingFreePlayAlly && state.pendingFreePlayAlly.playerIndex === HUMAN && (
+        <ChoiceModal
+          title="À toi de jouer, cousin"
+          prompt={`Où jouer ${state.pendingFreePlayAlly.ally.name} (gratuitement) ?`}
+          options={user.locations
+            .filter((l) => !(user.lockedLocations ?? []).includes(l.id))
+            .map((l) => ({ key: `fpa-${l.id}`, label: l.name, onSelect: () => resolveFreePlayAlly(l.id) }))}
+        />
+      )}
+
+      {/* Shere Khan — C'est à moi que vous le direz : retour facultatif d'une Fatalité. */}
+      {state.pendingRecoverFate && state.pendingRecoverFate.playerIndex === HUMAN && (
+        <ChoiceModal
+          title="C'est à moi que vous le direz"
+          prompt="Remettre une carte Fatalité de la défausse dans la pioche ?"
+          options={[
+            { key: 'rf-skip', label: 'Ne rien remettre', onSelect: () => resolveRecoverFate(undefined) },
+            ...user.fateDiscard.map((c) => ({
+              key: `rf-${c.instanceId}`,
+              label: c.name,
+              onSelect: () => resolveRecoverFate(c.instanceId),
+            })),
+          ]}
+        />
+      )}
+
+      {/* Shere Khan — Lancé sur ses traces : l'humain choisit quel Héros éliminer. */}
+      {state.pendingShereKhanDefeat && state.pendingShereKhanDefeat.playerIndex === HUMAN && (
+        <ChoiceModal
+          title="Lancé sur ses traces"
+          prompt="Quel Héros éliminer ?"
+          options={user.locations.flatMap((loc) =>
+            (user.board[loc.id] ?? [])
+              .filter((c) => c.type === 'hero')
+              .map((h) => ({
+                key: `skd-${h.instanceId}`,
+                label: `${h.name} (${loc.name})`,
+                onSelect: () => resolveShereKhanDefeat(h.instanceId),
+              })),
+          )}
+        />
+      )}
+
+      {/* Shere Khan — C'est moi, Shere Khan : l'humain choisit quel jeton Feu retirer. */}
+      {state.pendingRemoveFire && state.pendingRemoveFire.playerIndex === HUMAN && (
+        <ChoiceModal
+          title="C'est moi, Shere Khan"
+          prompt="Quel jeton Feu retirer ?"
+          options={Object.entries(user.fireTokens ?? {}).flatMap(([locId, actionIds]) =>
+            actionIds.map((actionId) => {
+              const loc = user.locations.find((l) => l.id === locId)
+              const actLabel = loc?.actions.find((a) => a.id === actionId)?.label ?? actionId
+              return {
+                key: `rf-${locId}-${actionId}`,
+                label: `${loc?.name ?? locId} — ${actLabel}`,
+                onSelect: () => resolveRemoveFire(locId, actionId),
+              }
+            }),
+          )}
+        />
+      )}
+
+      {/* Shere Khan — Tout le monde fuit : l'humain choisit Activer une capacité OU Éliminer un Héros. */}
+      {state.pendingActivateOrVanquish && state.pendingActivateOrVanquish.playerIndex === HUMAN && (
+        <ChoiceModal
+          title="Tout le monde fuit devant Shere Khan"
+          prompt="Quelle action gratuite effectuer ?"
+          options={[
+            { key: 'vanquish', label: 'Éliminer un Héros', onSelect: () => resolveActivateOrVanquish('vanquish') },
+            { key: 'activate', label: 'Activer une capacité', onSelect: () => resolveActivateOrVanquish('activate') },
+          ]}
+        />
+      )}
+
       {/* C'est votre dernière chance : l'humain choisit Déplacer un Objet/Allié OU Activer. */}
       {state.pendingMoveOrActivate && state.pendingMoveOrActivate.playerIndex === HUMAN && (
         <MoveOrActivateModal
@@ -5915,6 +6560,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       {/* Le Seigneur des Ténèbres : l'humain choisit s'emparer du Chaudron OU gagner du Pouvoir. */}
       {state.pendingCauldronChoice && state.pendingCauldronChoice.playerIndex === HUMAN && (
         <CauldronChoiceModal power={state.pendingCauldronChoice.power} onChoose={resolveCauldronChoice} />
+      )}
+      {state.pendingMauiChoice && state.pendingMauiChoice.playerIndex === HUMAN && (
+        <MauiChoiceModal card={state.players[HUMAN].mauiDeck?.[0]} onChoose={resolveMauiChoice} />
       )}
       {state.pendingBargainChoice && state.pendingBargainChoice.playerIndex === HUMAN && (
         <BargainChoiceModal power={state.pendingBargainChoice.power} onChoose={resolveBargainChoice} />
@@ -5932,12 +6580,26 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       )}
 
       {/* Je ne reviens jamais : l'humain réordonne le dessus de sa pioche Fatalité. */}
-      {state.pendingFateReorder && state.pendingFateReorder.playerIndex === HUMAN && (
+      {state.pendingFateReorder && (state.pendingFateReorder.chooserIndex ?? state.pendingFateReorder.playerIndex) === HUMAN && (
         <FateReorderModal
           cards={state.pendingFateReorder.cards}
           onResolve={resolveFateReorder}
-          title={state.pendingFateReorder.deck === 'merlin' ? 'Pas de Tricherie' : undefined}
-          deckLabel={state.pendingFateReorder.deck === 'merlin' ? 'de Métamorphoses de Merlin' : undefined}
+          title={
+            state.pendingFateReorder.deck === 'merlin'
+              ? 'Pas de Tricherie'
+              : state.pendingFateReorder.deck === 'villain'
+                ? 'Aigre Bill'
+                : state.pendingFateReorder.deck === 'villain-split2'
+                  ? 'Niveau Inachevé — 2 dessus, 2 dessous (dans l’ordre)'
+                  : undefined
+          }
+          deckLabel={
+            state.pendingFateReorder.deck === 'merlin'
+              ? 'de Métamorphoses de Merlin'
+              : state.pendingFateReorder.deck === 'villain' || state.pendingFateReorder.deck === 'villain-split2'
+                ? 'Méchant'
+                : undefined
+          }
         />
       )}
 
@@ -6170,6 +6832,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           forcedDirection={state.pendingHeroRelocate.forcedDirection}
           forcedLocationId={state.pendingHeroRelocate.forcedLocationId}
           optional={state.pendingHeroRelocate.optional}
+          allowedLocationIds={state.pendingHeroRelocate.allowedLocationIds}
           onResolve={resolveHeroRelocate}
           onSkip={skipHeroRelocate}
         />

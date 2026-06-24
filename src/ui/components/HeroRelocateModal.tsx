@@ -18,6 +18,8 @@ interface Props {
   forcedLocationId?: string
   /** Déplacement facultatif (« vous pouvez ») : bouton « Passer » disponible. */
   optional?: boolean
+  /** Davy Jones — La Poursuite : destinations limitées à ces lieux (portant un Allié). */
+  allowedLocationIds?: string[]
   /** Décline le déplacement (si `optional`). */
   onSkip?: () => void
 }
@@ -27,7 +29,7 @@ interface Props {
  * lieu voisin de sa position (ou n'importe quel lieu non bloqué — Tourbillon).
  * Poupées vaudou (Dr Facilier) : direction imposée + déplacement facultatif.
  */
-export function HeroRelocateModal({ target, onResolve, anyLocation = false, candidateIds, forcedDirection, forcedLocationId, optional, onSkip }: Props) {
+export function HeroRelocateModal({ target, onResolve, anyLocation = false, candidateIds, forcedDirection, forcedLocationId, optional, allowedLocationIds, onSkip }: Props) {
   const [heroId, setHeroId] = useState<string | null>(null)
   const ids = target.locations.map((l) => l.id)
   const locked = new Set(target.lockedLocations ?? [])
@@ -49,6 +51,8 @@ export function HeroRelocateModal({ target, onResolve, anyLocation = false, cand
             return [ids[i - 1], ids[i + 1]].filter((id): id is string => !!id && !locked.has(id))
           })()
     : []
+  // Davy Jones — La Poursuite : ne garder que les lieux portant un Allié.
+  const dests = allowedLocationIds ? adj.filter((id) => allowedLocationIds.includes(id)) : adj
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
@@ -105,7 +109,7 @@ export function HeroRelocateModal({ target, onResolve, anyLocation = false, cand
               lieu voisin :
             </p>
             <div className="flex flex-wrap justify-center gap-2">
-              {adj.map((to) => (
+              {dests.map((to) => (
                 <button
                   key={to}
                   type="button"

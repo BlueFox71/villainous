@@ -54,6 +54,7 @@ export function pendingOwner(state: GameState): number | null {
   if (state.pendingDrawOrGainPower) return state.pendingDrawOrGainPower.playerIndex
   if (state.pendingMoveOrActivate) return state.pendingMoveOrActivate.playerIndex
   if (state.pendingCauldronChoice) return state.pendingCauldronChoice.playerIndex
+  if (state.pendingMauiChoice) return state.pendingMauiChoice.playerIndex
   if (state.pendingBargainChoice) return state.pendingBargainChoice.playerIndex
   if (state.pendingFreeItemPlay) return state.pendingFreeItemPlay.playerIndex
   if (state.pendingMaximus) return state.pendingMaximus.chooserIndex
@@ -65,6 +66,7 @@ export function pendingOwner(state: GameState): number | null {
   if (state.pendingScry) return state.pendingScry.playerIndex
   if (state.pendingAllyMoveBuff) return state.pendingAllyMoveBuff.playerIndex
   if (state.pendingFetchedHero) return state.pendingFetchedHero.playerIndex
+  if (state.pendingCrustaceanPlace) return state.pendingCrustaceanPlace.playerIndex
   if (state.pendingRecover) return state.pendingRecover.playerIndex
   if (state.pendingBePrepared) return state.pendingBePrepared.playerIndex
   if (state.pendingFreeHyena) return state.pendingFreeHyena.playerIndex

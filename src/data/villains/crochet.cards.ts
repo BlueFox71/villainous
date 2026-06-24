@@ -250,6 +250,7 @@ export const crochetCards: CardDef[] = [
     copies: 1,
     text: 'La force de tous les autres Héros augmente de 1.',
     image: img('wendy.png'),
+    strengthMod: { target: 'heroes-realm', delta: 1, excludeSelf: true },
   },
   {
     id: 'jean',
@@ -261,6 +262,7 @@ export const crochetCards: CardDef[] = [
     copies: 1,
     text: 'Si au moins un Objet est associé à Jean, sa force augmente de 1.',
     image: img('jean.png'),
+    selfStrengthMods: [{ kind: 'if-attached-item', delta: 1 }],
   },
   {
     id: 'michel',
@@ -272,6 +274,7 @@ export const crochetCards: CardDef[] = [
     copies: 1,
     text: 'La force de Michel augmente de 1 par lieu occupé par au moins un Héros (le sien compris).',
     image: img('michel.png'),
+    selfStrengthMods: [{ kind: 'per-location-with-hero', delta: 1 }],
   },
   {
     id: 'tic-tac',

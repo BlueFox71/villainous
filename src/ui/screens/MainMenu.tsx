@@ -39,8 +39,8 @@ function PatchNotesPanel() {
       </h2>
       <Scroller className="max-h-[36rem]">
         <ul className="flex flex-col gap-4 pr-2">
-          {PATCH_NOTES.map((note) => (
-            <li key={note.version}>
+          {PATCH_NOTES.map((note, noteIdx) => (
+            <li key={`${note.version}-${noteIdx}`}>
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-sm font-semibold text-purple-200">
                   v{note.version} — {note.title}

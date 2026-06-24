@@ -10,7 +10,8 @@
 import type { GameAction, GameState, PlayerState } from '../engine/types'
 import { KEY_COLORS } from '../engine/types'
 import { canEnterAuDela, raiponceLocation, titanReachableDests } from '../engine/effects'
-import { fateCardPlayable } from '../engine/actions'
+import { fateCardPlayable, FREE_PLAY_NO_ACTION_ID } from '../engine/actions'
+import { VILLAIN_STRATEGY } from './villainStrategy'
 import {
   adjacentLocationIds,
   allyBlockedAt,
@@ -112,6 +113,8 @@ export function enumerateActions(state: GameState): GameAction[] {
         const cell = me.board[loc.id] ?? []
         const heroes = cell.filter((c) => c.type === 'hero')
         if (heroes.length === 0) continue
+        // Tamatoa — Quelque chose qui brille protège tous les Héros de son lieu.
+        if (cell.some((c) => c.shieldsHeroesAtLocation && !c.attachedTo)) continue
         const localAllies = cell.filter((c) => c.type === 'ally' && !c.isWicket && !c.trapped)
         const adjAllies = adjacentLocationIds(state, loc.id).flatMap((adj) =>
           (me.board[adj] ?? []).filter(
@@ -137,6 +140,16 @@ export function enumerateActions(state: GameState): GameAction[] {
       for (const { instanceId, from } of movableCards(state)) {
         for (const to of adjacentLocationIds(state, from)) {
           out.push({ type: 'PERFORM_GRANTED_ACTION', action: { type: 'MOVE_CARD', actionId: SID, instanceId, to } })
+        }
+      }
+    } else if (g.actionType === 'PLAY_CARD') {
+      // Action « Jouer une carte » gratuite (Taffyta). On se limite aux Alliés
+      // abordables posés sur un lieu valide (cas robuste, sans cible/association).
+      const zones = placementLocations(state)
+      for (const card of me.hand) {
+        if (card.type !== 'ally' || (card.cost ?? 0) > me.power) continue
+        for (const to of zones) {
+          out.push({ type: 'PERFORM_GRANTED_ACTION', action: { type: 'PLAY_CARD', actionId: SID, instanceId: card.instanceId, to } })
         }
       }
     }
@@ -378,12 +391,15 @@ export function enumerateActions(state: GameState): GameAction[] {
   }
 
   // Si près du but / Charlotte (Dr Facilier) : le bot (adversaire) cherche à
-  // remplir la Pile de l'Au-delà → il y place toutes les cartes autorisées et
-  // remet les autres (Talisman / Divination) sur la pioche.
+  // remplir la Pile de l'Au-delà de « parasites » → il y place les cartes autorisées
+  // et remet les autres (Talisman / Divination) sur la pioche. EXCEPTION : ne JAMAIS
+  // y verser « Régner sur la Nouvelle-Orléans » — ce serait offrir la carte de victoire
+  // à Facilier (il gagne en la révélant via Divination en détenant le Talisman).
   if (state.pendingFateScry) {
     const cards = state.pendingFateScry.cards
-    const toAudelaIds = cards.filter((c) => canEnterAuDela(c)).map((c) => c.instanceId)
-    const deckTopOrder = cards.filter((c) => !canEnterAuDela(c)).map((c) => c.instanceId)
+    const gift = (c: { cardId: string }) => c.cardId === 'regner-nouvelle-orleans'
+    const toAudelaIds = cards.filter((c) => canEnterAuDela(c) && !gift(c)).map((c) => c.instanceId)
+    const deckTopOrder = cards.filter((c) => !canEnterAuDela(c) || gift(c)).map((c) => c.instanceId)
     return [{ type: 'RESOLVE_FATE_SCRY', toAudelaIds, deckTopOrder }]
   }
 
@@ -413,6 +429,10 @@ export function enumerateActions(state: GameState): GameAction[] {
         // qui rapproche de la victoire). Cas typique : Garde royal déplacé vers Corona.
         if (tgt.villain === 'gothel' && h.cardId === 'raiponce') {
           dests = dests.filter((id) => ids.indexOf(id) < i)
+        }
+        // Davy Jones — La Poursuite : destinations limitées aux lieux portant un Allié.
+        if (phr.allowedLocationIds) {
+          dests = dests.filter((id) => phr.allowedLocationIds!.includes(id))
         }
         for (const to of dests) out.push({ type: 'RESOLVE_HERO_RELOCATE', heroInstanceId: h.instanceId, to })
       }
@@ -448,6 +468,190 @@ export function enumerateActions(state: GameState): GameAction[] {
       { type: 'RESOLVE_POWER_OR_RACER_BACK', choice: 'power' },
       { type: 'RESOLVE_POWER_OR_RACER_BACK', choice: 'racer' },
     ]
+  }
+
+  // Taffyta Crème Brûlée : choix reculer le Pilote de 2 OU action Jouer une carte gratuite.
+  if (state.pendingTaffytaChoice) {
+    return [
+      { type: 'RESOLVE_TAFFYTA_CHOICE', choice: 'racer-back' },
+      { type: 'RESOLVE_TAFFYTA_CHOICE', choice: 'play-card' },
+    ]
+  }
+
+  // Aigre Bill : fouiller la pioche Méchant (bénéfique) ou renoncer.
+  if (state.pendingAigreBill) {
+    return [
+      { type: 'RESOLVE_AIGRE_BILL', dig: true },
+      { type: 'RESOLVE_AIGRE_BILL', dig: false },
+    ]
+  }
+
+  // L'important, c'est de payer : choisir combien de Pouvoir dépenser (1..max).
+  if (state.pendingPayRace) {
+    const out: GameAction[] = []
+    for (let n = 1; n <= state.pendingPayRace.max; n++) out.push({ type: 'RESOLVE_PAY_RACE', amount: n })
+    return out
+  }
+
+  // Princesse Vanellope : le fataliseur recule le pion King Candy de 0 à max.
+  if (state.pendingPawnBack) {
+    const out: GameAction[] = []
+    for (let n = 0; n <= state.pendingPawnBack.max; n++) out.push({ type: 'RESOLVE_PAWN_BACK', amount: n })
+    return out
+  }
+
+  // Shere Khan — Tout le monde fuit : choisir Activer une capacité OU Éliminer un Héros.
+  if (state.pendingActivateOrVanquish) {
+    return [
+      { type: 'RESOLVE_ACTIVATE_OR_VANQUISH', choice: 'vanquish' },
+      { type: 'RESOLVE_ACTIVATE_OR_VANQUISH', choice: 'activate' },
+    ]
+  }
+
+  // Shere Khan — Aie confiance : choisir des cartes de la défausse à récupérer (ou terminer).
+  if (state.pendingRecoverToDeck) {
+    const chosen = new Set(state.pendingRecoverToDeck.chosen)
+    const out: GameAction[] = [{ type: 'RESOLVE_RECOVER_TO_DECK', done: true }]
+    for (const c of me.discard) if (!chosen.has(c.instanceId)) out.push({ type: 'RESOLVE_RECOVER_TO_DECK', instanceId: c.instanceId })
+    return out
+  }
+
+  // Shere Khan — C'est très intéressant : choisir une action restante (ou terminer).
+  if (state.pendingInteressant) {
+    const done = new Set(state.pendingInteressant.done)
+    const out: GameAction[] = [{ type: 'RESOLVE_INTERESSANT', done: true }]
+    for (const opt of ['power', 'draw', 'fire'] as const) {
+      if (!done.has(opt)) out.push({ type: 'RESOLVE_INTERESSANT', option: opt })
+    }
+    return out
+  }
+
+  // Shere Khan — Kaa : choisir un Objet abordable de la défausse à jouer.
+  if (state.pendingKaaPlay) {
+    return me.discard
+      .filter((c) => c.type === 'item' && (c.cost ?? 0) <= me.power)
+      .map((c) => ({ type: 'RESOLVE_KAA_PLAY', instanceId: c.instanceId }))
+  }
+
+  // Shere Khan — Le Roi Singe : phase 1 choix du Macaque, phase 2 choix du lieu.
+  if (state.pendingMonkeyKing) {
+    if (!state.pendingMonkeyKing.macaqueInstanceId) {
+      const ids: string[] = []
+      for (const loc of me.locations) for (const c of me.board[loc.id] ?? []) if (c.cardId === 'macaques') ids.push(c.instanceId)
+      return ids.map((id) => ({ type: 'RESOLVE_MONKEY_KING', macaqueInstanceId: id }))
+    }
+    return me.locations.map((l) => ({ type: 'RESOLVE_MONKEY_KING', to: l.id }))
+  }
+
+  // Shere Khan — Kaa (bouclier) : sacrifier un Objet associé, ou laisser Kaa être défaussé.
+  if (state.pendingKaaShield) {
+    return [
+      ...state.pendingKaaShield.itemInstanceIds.map((id) => ({ type: 'RESOLVE_KAA_SHIELD', itemInstanceId: id } as GameAction)),
+      { type: 'RESOLVE_KAA_SHIELD', decline: true },
+    ]
+  }
+
+  // Davy Jones — poser un jeton Trésor : phase 1 choix du Héros, phase 2 choix du Trésor.
+  if (state.pendingPlaceTreasure) {
+    if (!state.pendingPlaceTreasure.heroInstanceId) {
+      const heroes: GameAction[] = []
+      for (const loc of me.locations) for (const c of me.board[loc.id] ?? []) {
+        if (c.type === 'hero' && !c.treasure) heroes.push({ type: 'RESOLVE_PLACE_TREASURE', heroInstanceId: c.instanceId })
+      }
+      return heroes
+    }
+    return (me.treasureReserve ?? []).map((tid) => ({ type: 'RESOLVE_PLACE_TREASURE', treasureId: tid }))
+  }
+  // Davy Jones — révéler un jeton Trésor (parmi les candidats).
+  if (state.pendingRevealTreasure) {
+    return state.pendingRevealTreasure.candidateIds.map((id) => ({ type: 'RESOLVE_REVEAL_TREASURE', heroInstanceId: id }))
+  }
+  // Davy Jones — Les amis : choisir le Héros source (avec trésor) puis cible.
+  if (state.pendingMoveSwapTreasure) {
+    const out: GameAction[] = []
+    for (const loc of me.locations) for (const c of me.board[loc.id] ?? []) {
+      if (c.type !== 'hero') continue
+      if (!state.pendingMoveSwapTreasure.fromHeroId) {
+        if (c.treasure) out.push({ type: 'RESOLVE_MOVE_SWAP_TREASURE', heroInstanceId: c.instanceId })
+      } else if (c.instanceId !== state.pendingMoveSwapTreasure.fromHeroId) {
+        out.push({ type: 'RESOLVE_MOVE_SWAP_TREASURE', heroInstanceId: c.instanceId })
+      }
+    }
+    return out
+  }
+  // Davy Jones — Réveillez le Kraken : défausser un Allié (non associé).
+  if (state.pendingWakeKraken) {
+    const out: GameAction[] = []
+    for (const loc of me.locations) for (const c of me.board[loc.id] ?? []) {
+      if (c.type === 'ally' && !c.attachedTo) out.push({ type: 'RESOLVE_WAKE_KRAKEN', allyInstanceId: c.instanceId })
+    }
+    return out
+  }
+
+  // Shere Khan — Jeune et sans défense : choix déplacer un Héros / gagner du Pouvoir.
+  if (state.pendingYoung) {
+    const py = state.pendingYoung
+    if (py.kind === 'choose') {
+      return [
+        { type: 'RESOLVE_YOUNG', choice: 'gain' },
+        { type: 'RESOLVE_YOUNG', choice: 'move' },
+      ]
+    }
+    if (py.kind === 'pick-hero') {
+      return Object.values(me.board).flat().filter((c) => c.type === 'hero').map((h) => ({ type: 'RESOLVE_YOUNG', heroInstanceId: h.instanceId }))
+    }
+    return Object.values(me.board).flat().filter((c) => c.type === 'ally' && !c.attachedTo).map((a) => ({ type: 'RESOLVE_YOUNG', allyInstanceId: a.instanceId }))
+  }
+
+  // Shere Khan — À toi de jouer, cousin : jouer l'Allié dévoilé sur un lieu au choix.
+  if (state.pendingFreePlayAlly) {
+    const locked = new Set(me.lockedLocations ?? [])
+    return me.locations
+      .filter((l) => !locked.has(l.id))
+      .map((l) => ({ type: 'RESOLVE_FREE_PLAY_ALLY', locationId: l.id }))
+  }
+
+  // Shere Khan — C'est à moi que vous le direz : remettre (ou non) une Fatalité de la défausse.
+  if (state.pendingRecoverFate) {
+    const out: GameAction[] = [{ type: 'RESOLVE_RECOVER_FATE' }]
+    for (const c of me.fateDiscard) out.push({ type: 'RESOLVE_RECOVER_FATE', instanceId: c.instanceId })
+    return out
+  }
+
+  // Shere Khan — Lancé sur ses traces : choisir quel Héros éliminer (gratuit).
+  if (state.pendingShereKhanDefeat) {
+    const heroes = Object.values(me.board).flat().filter((c) => c.type === 'hero')
+    // Priorité au Héros-cible (Mowgli) si l'objectif est atteignable (pas de Feu).
+    return heroes.map((h) => ({ type: 'RESOLVE_SHERE_KHAN_DEFEAT', heroInstanceId: h.instanceId }))
+  }
+
+  // Shere Khan — C'est moi, Shere Khan : choisir quel jeton Feu retirer.
+  if (state.pendingRemoveFire) {
+    const out: GameAction[] = []
+    for (const [locationId, ids] of Object.entries(me.fireTokens ?? {})) {
+      for (const actionId of ids) out.push({ type: 'RESOLVE_REMOVE_FIRE', locationId, actionId })
+    }
+    return out.length > 0 ? out : [{ type: 'RESOLVE_REMOVE_FIRE', locationId: me.locations[0].id, actionId: 'x' }]
+  }
+
+  // Le Faisceau : choisir le lieu de rassemblement, puis défausser (ou non) un Cybug.
+  if (state.pendingBeacon) {
+    const pb = state.pendingBeacon
+    if (pb.kind === 'pick-location') {
+      return (pb.locationIds ?? []).map((locationId) => ({ type: 'RESOLVE_BEACON', locationId }))
+    }
+    const out: GameAction[] = [{ type: 'RESOLVE_BEACON', skip: true }]
+    for (const id of pb.cybugIds ?? []) out.push({ type: 'RESOLVE_BEACON', cybugInstanceId: id })
+    return out
+  }
+
+  // Médaille de Vanellope : choisir le Héros puis le lieu où le rejouer (+1 Force).
+  if (state.pendingMedal) {
+    const pm = state.pendingMedal
+    if (pm.kind === 'pick-hero') {
+      return (pm.heroIds ?? []).map((heroInstanceId) => ({ type: 'RESOLVE_MEDAL', heroInstanceId }))
+    }
+    return (pm.locationIds ?? []).map((locationId) => ({ type: 'RESOLVE_MEDAL', locationId }))
   }
 
   // Lotso — choix d'une cible (réduire un Héros / déplacer vers la Salle des Chenilles).
@@ -496,6 +700,16 @@ export function enumerateActions(state: GameState): GameAction[] {
   }
 
   // Digne Adversaire / Obsession : le Héros révélé doit être JOUÉ ; on choisit le lieu.
+  // Tamatoa — Crustacé : placer l'Objet dévoilé sur un lieu (le bot choisit via l'éval ;
+  // le Cœur va au Repaire car la jauge objectif le récompense).
+  if (state.pendingCrustaceanPlace) {
+    const pcp = state.pendingCrustaceanPlace
+    const p = state.players[pcp.playerIndex]
+    const locked = new Set(p.lockedLocations ?? [])
+    return p.locations
+      .filter((l) => !locked.has(l.id))
+      .map((l) => ({ type: 'RESOLVE_CRUSTACEAN_PLACE', to: l.id }))
+  }
   if (state.pendingFetchedHero) {
     const pfh = state.pendingFetchedHero
     const p = state.players[pfh.playerIndex]
@@ -522,7 +736,22 @@ export function enumerateActions(state: GameState): GameAction[] {
 
   // Abu/Aladdin/K.O. : une option par carte candidate (Objet à voler / Allié à retirer).
   if (state.pendingFateChoice) {
-    return state.pendingFateChoice.candidateIds.map((id) => ({ type: 'RESOLVE_FATE_CHOICE', instanceId: id }))
+    const pen = state.pendingFateChoice
+    // Défausser une carte de la main adverse (Animaux de la forêt) : l'éval ne distingue
+    // pas les cartes en main → on cible la plus précieuse selon le vilain (Miroir >
+    // Ingrédient > Croque pour la Méchante Reine). Cf. villainStrategy.valuableHandCards.
+    if (pen.kind === 'discard-from-hand') {
+      const priority = VILLAIN_STRATEGY[state.players[pen.targetIndex].villain]?.fateTargeting?.valuableHandCards
+      if (priority) {
+        const cand = new Set(pen.candidateIds)
+        const hand = state.players[pen.targetIndex].hand
+        for (const cardId of priority) {
+          const found = hand.find((c) => c.cardId === cardId && cand.has(c.instanceId))
+          if (found) return [{ type: 'RESOLVE_FATE_CHOICE', instanceId: found.instanceId }]
+        }
+      }
+    }
+    return pen.candidateIds.map((id) => ({ type: 'RESOLVE_FATE_CHOICE', instanceId: id }))
   }
 
   // Je ne reviens jamais : le bot conserve l'ordre révélé (réorganisation neutre).
@@ -633,8 +862,15 @@ export function enumerateActions(state: GameState): GameAction[] {
 
   if (state.pendingFate) {
     const { target, revealed } = state.pendingFate
+    // Héros qui AIDENT le vilain ciblé (Flaversham chez Ratigan) : on ne les joue PAS,
+    // sauf s'il n'existe aucune autre carte révélée à jouer (la Fatalité doit frapper).
+    const avoidPlay = VILLAIN_STRATEGY[state.players[target].villain]?.fateTargeting?.avoidPlayingHeroes
+    const isAvoid = (c: { type: string; cardId: string }) =>
+      !!avoidPlay && c.type === 'hero' && avoidPlay.includes(c.cardId)
+    const hasAlternative = revealed.some((c) => !isAvoid(c))
     const out: GameAction[] = []
     for (const card of revealed) {
+      if (isAvoid(card) && hasAlternative) continue
       if (card.type === 'hero') {
         const locs = heroPlacementLocations(state, card, target)
         if (locs.length === 0) {
@@ -655,11 +891,12 @@ export function enumerateActions(state: GameState): GameAction[] {
           return !loc || !(tgt.board[loc] ?? []).some((c) => c.attachedTo === h.instanceId && c.type === 'item')
         })
         // Provocation (Crochet) : NE PAS l'associer à Peter Pan (ça forcerait Crochet
-        // à le vaincre d'abord — donc l'aiderait) sauf s'il n'y a aucun autre Héros.
+        // à le vaincre d'abord — donc l'aiderait), ni à Wendy (elle renforce tous les
+        // autres Héros, dont les Provocateurs) — sauf s'il n'y a aucun autre Héros.
         let provoTargets = targetHeroes
         if (card.cardId === 'provocation') {
-          const nonPeter = targetHeroes.filter((h) => h.cardId !== 'peter-pan')
-          if (nonPeter.length > 0) provoTargets = nonPeter
+          const good = targetHeroes.filter((h) => h.cardId !== 'peter-pan' && h.cardId !== 'wendy')
+          if (good.length > 0) provoTargets = good
         }
         if (provoTargets.length > 0) {
           for (const h of provoTargets) {
@@ -765,6 +1002,20 @@ export function enumerateActions(state: GameState): GameAction[] {
   if (me.freeActivate) {
     for (const c of activatableCards(state)) {
       out.push({ type: 'ACTIVATE', actionId: 'free-activate', cardInstanceId: c.instanceId })
+    }
+  }
+
+  // Cartes jouables sans action « Jouer une carte » (Turbo-Statique, L'important c'est de
+  // payer) : à tout moment de la phase ACTION, paient leur coût, ne consomment aucune
+  // action. Événement simple → pose directe. Certaines exigent d'être jouées AVANT toute
+  // action de lieu (playableOnlyBeforeActions).
+  if (state.phase === 'ACTION') {
+    const realActionUsed = state.usedActionIds.some((a) => !a.includes(':'))
+    for (const card of me.hand) {
+      if (!card.playableWithoutAction || card.type !== 'effect') continue
+      if (effectiveCost(state, card) > me.power) continue
+      if (card.playableOnlyBeforeActions && realActionUsed) continue
+      out.push({ type: 'PLAY_CARD', actionId: FREE_PLAY_NO_ACTION_ID, instanceId: card.instanceId })
     }
   }
 
@@ -1046,8 +1297,15 @@ export function enumerateActions(state: GameState): GameAction[] {
           // Joyeux non-anniversaire : inutile sans aucun Allié dans le royaume.
           const needsAllyInRealm = (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_ALLY_IN_REALM')
           if (needsAllyInRealm && !Object.values(me.board).flat().some((c) => c.type === 'ally')) continue
-          // Magnifiques Taxes : inutile sans aucun Héros dans le royaume.
-          const needsHeroInRealm = (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_HERO_IN_REALM')
+          // Magnifiques Taxes / Appât / Tu ressembles à des fruits de mer : inutile sans
+          // aucun Héros dans le royaume.
+          const needsHeroInRealm = (card.effects ?? []).some(
+            (e) =>
+              e.type === 'GAIN_POWER_PER_HERO_IN_REALM' ||
+              e.type === 'DRAW_PER_HERO_IN_REALM' ||
+              e.type === 'DEFEAT_HERO_PAY_STRENGTH' ||
+              e.type === 'ADD_MINUS_FORCE_TOKENS',
+          )
           if (needsHeroInRealm && !Object.values(me.board).flat().some((c) => c.type === 'hero')) continue
           // Foudre : injouable sans Ingrédient déjà joué (rien à reproduire).
           const needsIngredient = (card.effects ?? []).some((e) => e.type === 'DUPLICATE_INGREDIENT')
@@ -1199,6 +1457,8 @@ export function enumerateActions(state: GameState): GameAction[] {
         const cell = me.board[loc.id] ?? []
         const heroes = cell.filter((c) => c.type === 'hero')
         if (heroes.length === 0) continue
+        // Tamatoa — Quelque chose qui brille protège tous les Héros de son lieu.
+        if (cell.some((c) => c.shieldsHeroesAtLocation && !c.attachedTo)) continue
         const localAllies = cell.filter((c) => c.type === 'ally' && !c.isWicket && !c.trapped)
         const adjAllies = adjacentLocationIds(state, loc.id).flatMap((adj) =>
           (me.board[adj] ?? []).filter((c) => !c.trapped && (c.reachesAdjacentVanquish || c.cardId === 'archers-loups' || c.cardId === 'flibustiers')),

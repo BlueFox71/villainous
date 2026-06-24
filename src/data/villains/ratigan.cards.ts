@@ -2,10 +2,10 @@
 // Ratigan — cartes (deck Méchant de 30 + deck Fatalité de 15).
 //
 // Source : images FR du dossier assets/decks/Ratigan/ (texte recopié fidèlement) +
-// wiki Villainous FR. Le TEXTE est la source de vérité ; les `effects` sont ajoutés
-// au fil de l'eau (Phase 2). Plusieurs cartes reposent sur des mécaniques dédiées
-// (Activer, objectif double Reine Robot / Le Rat) implémentées progressivement —
-// elles restent « texte seul » en attendant.
+// wiki Villainous FR. Le TEXTE est la source de vérité.
+// STATUT : toutes les cartes sont implémentées (coûts via Engrenages/Outils/
+// Flaversham, activations Cloche/Dirigeable/Piège ingénieux/Habits royaux, objectif
+// double Reine Robot / Le Rat, réactions Sournois/Extravagance). Aucune « texte seul ».
 // =============================================================================
 
 import type { CardDef } from '../types'

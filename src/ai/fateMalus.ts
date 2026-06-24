@@ -37,6 +37,9 @@ const COVER_WEIGHT = 4
  *  - Reine Moustoria : block-win seulement à Buckingham Palace.
  *  - Provocation : block-win si l'hôte n'est PAS Peter Pan et que Peter Pan est en
  *    jeu (force Crochet à le tuer d'abord) ; sur Peter Pan → aucun malus (l'aide).
+ *  - Ariel : block-win seulement si un Objet-clé (Couronne/Trident) est exposé sur un
+ *    lieu NON verrouillé d'Ursula (sinon elle n'a rien à geler → simple corps).
+ *  - Sébastien : ne gêne (slow) que s'il y a un Pacte associé à un Héros à voler.
  * Renvoie null si la carte n'a aucun malus effectif.
  */
 function effectiveCategory(
@@ -61,6 +64,30 @@ function effectiveCategory(
       const peterPresent = realm.some((c) => c.cardId === 'peter-pan')
       return peterPresent ? 'block-win' : 'slow'
     }
+    case 'ariel': {
+      // Ariel ne gêne vraiment que s'il y a un Objet-clé (Couronne/Trident) exposé
+      // sur un lieu NON verrouillé d'Ursula : sinon elle n'a rien à geler/déplacer.
+      const p = state.players[idx]
+      const locked = new Set(p.lockedLocations ?? [])
+      const exposed = Object.entries(p.board).some(
+        ([lid, cards]) =>
+          !locked.has(lid) &&
+          cards.some((c) => c.type === 'item' && (c.cardId === 'couronne' || c.cardId === 'trident')),
+      )
+      return exposed ? 'block-win' : 'slow'
+    }
+    case 'sebastien': {
+      // Sébastien ne gêne que s'il y a un Pacte associé à un Héros à lui voler.
+      const hasContract = Object.values(state.players[idx].board)
+        .flat()
+        .some((c) => !!c.attachedTo && c.cardId.startsWith('pacte-'))
+      return hasContract ? 'slow' : null
+    }
+    case 'witches-of-morva':
+      // Les Sorcières bloquent la PRISE du Chaudron : bloc dur tant qu'il n'est pas
+      // réclamé. Une fois réclamé (claimed/powered), elles ne le « dé-réclament » pas
+      // → simple corps F3 (slow).
+      return state.players[idx].blackCauldron === 'set-aside' ? 'block-win' : 'slow'
     default:
       return base
   }
@@ -77,9 +104,12 @@ export function playerMalus(state: GameState, idx: number): number {
   let coveredLocations = 0
   for (const loc of p.locations) {
     const cell = p.board[loc.id] ?? []
-    if (cell.some((c) => c.type === 'hero')) coveredLocations++
+    // Un Héros PIÉGÉ est neutralisé (capacité ignorée, ne recouvre plus d'action) → il
+    // ne gêne plus le joueur ciblé : ni malus, ni « lieu recouvert ».
+    if (cell.some((c) => c.type === 'hero' && !c.trapped)) coveredLocations++
     for (const c of cell) {
       if (c.type !== 'hero' && c.type !== 'item' && c.type !== 'ally') continue
+      if (c.type === 'hero' && c.trapped) continue
       const cat = effectiveCategory(state, idx, c, loc.id)
       if (cat) raw += WEIGHT[cat]
     }

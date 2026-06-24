@@ -81,9 +81,15 @@ import { lotso } from '../../data/villains/lotso'
 import { lotsoCards } from '../../data/villains/lotso.cards'
 import { saSucrerie } from '../../data/villains/sa-sucrerie'
 import { saSucrerieCards } from '../../data/villains/sa-sucrerie.cards'
+import { shereKhan } from '../../data/villains/shereKhan'
+import { shereKhanCards } from '../../data/villains/shereKhan.cards'
+import { davyJones } from '../../data/villains/davyJones'
+import { davyJonesCards } from '../../data/villains/davyJones.cards'
+import { tamatoa } from '../../data/villains/tamatoa'
+import { tamatoaCards } from '../../data/villains/tamatoa.cards'
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'seigneurCles' | 'madameTremaine' | 'oogieBoogie' | 'seigneurTenebres' | 'madameMim' | 'syndrome' | 'lotso' | 'saSucrerie'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'seigneurCles' | 'madameTremaine' | 'oogieBoogie' | 'seigneurTenebres' | 'madameMim' | 'syndrome' | 'lotso' | 'saSucrerie' | 'shereKhan' | 'davyJones' | 'tamatoa'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -114,6 +120,9 @@ export const VILLAIN_REGISTRY = {
   lotso: { def: lotso, cards: lotsoCards, label: 'Lotso' },
   oogieBoogie: { def: oogieBoogie, cards: oogieBoogieCards, label: 'Oogie Boogie' },
   saSucrerie: { def: saSucrerie, cards: saSucrerieCards, label: 'Sa Sucrerie' },
+  shereKhan: { def: shereKhan, cards: shereKhanCards, label: 'Shere Khan' },
+  davyJones: { def: davyJones, cards: davyJonesCards, label: 'Davy Jones' },
+  tamatoa: { def: tamatoa, cards: tamatoaCards, label: 'Tamatoa' },
 } as const
 
 /** Qui contrôle chaque siège. Concept d'UI : le moteur, lui, ne sait pas qui
@@ -521,6 +530,8 @@ interface GameStore {
   activateCauldron: () => void
   /** Le Seigneur des Ténèbres — résout le choix « Chaudron OU Pouvoir ». */
   resolveCauldronChoice: (choice: 'cauldron' | 'power') => void
+  resolveMauiChoice: (choice: 'play' | 'discard') => void
+  resolveCrustaceanPlace: (to: string) => void
   /** Le Seigneur des Ténèbres — résout le choix « Nous avons conclu un marché ! ». */
   resolveBargainChoice: (choice: 'reshuffle' | 'sword') => void
   /** Le Seigneur des Ténèbres — joue gratuitement un Objet (Nous touchons du doigt la victoire). */
@@ -539,7 +550,7 @@ interface GameStore {
   /** Diablo (V2) : décline l'action gratuite. */
   diabloSkipFreeAction: () => void
   /** Gaston (Belle est à moi / Tous avec moi) : exécute l'action gratuite armée. */
-  performGrantedAction: (inner: Extract<GameAction, { type: 'VANQUISH' | 'MOVE_CARD' }>) => void
+  performGrantedAction: (inner: Extract<GameAction, { type: 'VANQUISH' | 'MOVE_CARD' | 'PLAY_CARD' }>) => void
   /** Gaston : décline l'action gratuite armée. */
   skipGrantedAction: () => void
   /** Gaston : retire/replace un jeton Obstacle sur un lieu (pendingObstacle). */
@@ -588,6 +599,40 @@ interface GameStore {
   /** Le Grand Génie du Mal : choisit de piocher (`'draw'`) ou gagner du Pouvoir (`'power'`). */
   resolveDrawOrGainPower: (choice: 'draw' | 'power') => void
   resolvePowerOrRacerBack: (choice: 'power' | 'racer') => void
+  /** Sa Sucrerie — Taffyta : reculer le Pilote de 2 (`'racer-back'`) ou action Jouer une carte (`'play-card'`). */
+  resolveTaffytaChoice: (choice: 'racer-back' | 'play-card') => void
+  /** Sa Sucrerie — Aigre Bill : fouiller la pioche Méchant (`true`) ou renoncer (`false`). */
+  resolveAigreBill: (dig: boolean) => void
+  /** Sa Sucrerie — L'important, c'est de payer : dépenser `amount` Pouvoir → avancer d'autant. */
+  resolvePayRace: (amount: number) => void
+  /** Sa Sucrerie — Princesse Vanellope : reculer le pion King Candy de `amount` cases (0..max). */
+  resolvePawnBack: (amount: number) => void
+  /** Sa Sucrerie — Le Faisceau : choisir le lieu de rassemblement, puis défausser/passer. */
+  resolveBeacon: (arg: { locationId?: string; cybugInstanceId?: string; skip?: boolean }) => void
+  /** Sa Sucrerie — Médaille de Vanellope : choisir le Héros puis le lieu (+1 Force). */
+  resolveMedal: (arg: { heroInstanceId?: string; locationId?: string }) => void
+  /** Shere Khan — Tout le monde fuit : choisir l'action gratuite (Activer / Vaincre). */
+  resolveActivateOrVanquish: (choice: 'activate' | 'vanquish') => void
+  /** Shere Khan — C'est moi, Shere Khan : retirer le jeton Feu choisi (lieu + action). */
+  resolveRemoveFire: (locationId: string, actionId: string) => void
+  /** Shere Khan — Lancé sur ses traces : éliminer le Héros choisi. */
+  resolveShereKhanDefeat: (heroInstanceId: string) => void
+  /** Shere Khan — C'est à moi que vous le direz : remettre une Fatalité dans la pioche (ou passer). */
+  resolveRecoverFate: (instanceId?: string) => void
+  /** Shere Khan — À toi de jouer, cousin : jouer l'Allié dévoilé sur le lieu choisi. */
+  resolveFreePlayAlly: (locationId: string) => void
+  /** Shere Khan — Jeune et sans défense : choix (move/gain) puis Héros / Allié. */
+  resolveYoung: (arg: { choice?: 'move' | 'gain'; heroInstanceId?: string; allyInstanceId?: string }) => void
+  /** Shere Khan — Aie confiance : choisir une carte de la défausse à récupérer (ou terminer). */
+  resolveRecoverToDeck: (arg: { instanceId?: string; done?: boolean }) => void
+  resolveInteressant: (arg: { option?: 'power' | 'draw' | 'fire'; done?: boolean }) => void
+  resolveKaaPlay: (instanceId: string) => void
+  resolveMonkeyKing: (arg: { macaqueInstanceId?: string; to?: string }) => void
+  resolveKaaShield: (arg: { itemInstanceId?: string; decline?: boolean }) => void
+  resolvePlaceTreasure: (arg: { heroInstanceId?: string; treasureId?: string }) => void
+  resolveRevealTreasure: (heroInstanceId: string) => void
+  resolveMoveSwapTreasure: (heroInstanceId: string) => void
+  resolveWakeKraken: (allyInstanceId: string) => void
   /** C'est votre dernière chance : choisir l'action gratuite (Déplacer / Activer). */
   resolveMoveOrActivate: (choice: 'move' | 'activate') => void
   /** Maximus (Gothel) : déplacer un Cavaliers du roi (phase 1) puis Maximus (phase 2). */
@@ -1050,6 +1095,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'VANQUISH', actionId, heroInstanceId, allyInstanceIds }),
   activateCauldron: () => get().submit({ type: 'ACTIVATE_CAULDRON' }),
   resolveCauldronChoice: (choice: 'cauldron' | 'power') => get().submit({ type: 'RESOLVE_CAULDRON_CHOICE', choice }),
+  resolveMauiChoice: (choice: 'play' | 'discard') => get().submit({ type: 'RESOLVE_MAUI_CHOICE', choice }),
+  resolveCrustaceanPlace: (to: string) => get().submit({ type: 'RESOLVE_CRUSTACEAN_PLACE', to }),
   resolveBargainChoice: (choice: 'reshuffle' | 'sword') => get().submit({ type: 'RESOLVE_BARGAIN_CHOICE', choice }),
   resolveFreeItemPlay: (instanceId: string, to: string) => get().submit({ type: 'RESOLVE_FREE_ITEM_PLAY', instanceId, to }),
   skipFreeItemPlay: () => get().submit({ type: 'SKIP_FREE_ITEM_PLAY' }),
@@ -1116,6 +1163,48 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_DRAW_OR_GAIN_POWER', choice }),
   resolvePowerOrRacerBack: (choice) =>
     get().submit({ type: 'RESOLVE_POWER_OR_RACER_BACK', choice }),
+  resolveTaffytaChoice: (choice) =>
+    get().submit({ type: 'RESOLVE_TAFFYTA_CHOICE', choice }),
+  resolveAigreBill: (dig) =>
+    get().submit({ type: 'RESOLVE_AIGRE_BILL', dig }),
+  resolvePayRace: (amount) =>
+    get().submit({ type: 'RESOLVE_PAY_RACE', amount }),
+  resolvePawnBack: (amount) =>
+    get().submit({ type: 'RESOLVE_PAWN_BACK', amount }),
+  resolveBeacon: (arg) =>
+    get().submit({ type: 'RESOLVE_BEACON', ...arg }),
+  resolveMedal: (arg) =>
+    get().submit({ type: 'RESOLVE_MEDAL', ...arg }),
+  resolveActivateOrVanquish: (choice) =>
+    get().submit({ type: 'RESOLVE_ACTIVATE_OR_VANQUISH', choice }),
+  resolveRemoveFire: (locationId, actionId) =>
+    get().submit({ type: 'RESOLVE_REMOVE_FIRE', locationId, actionId }),
+  resolveShereKhanDefeat: (heroInstanceId) =>
+    get().submit({ type: 'RESOLVE_SHERE_KHAN_DEFEAT', heroInstanceId }),
+  resolveRecoverFate: (instanceId) =>
+    get().submit({ type: 'RESOLVE_RECOVER_FATE', instanceId }),
+  resolveFreePlayAlly: (locationId) =>
+    get().submit({ type: 'RESOLVE_FREE_PLAY_ALLY', locationId }),
+  resolveYoung: (arg) =>
+    get().submit({ type: 'RESOLVE_YOUNG', ...arg }),
+  resolveRecoverToDeck: (arg) =>
+    get().submit({ type: 'RESOLVE_RECOVER_TO_DECK', ...arg }),
+  resolveInteressant: (arg) =>
+    get().submit({ type: 'RESOLVE_INTERESSANT', ...arg }),
+  resolveKaaPlay: (instanceId) =>
+    get().submit({ type: 'RESOLVE_KAA_PLAY', instanceId }),
+  resolveMonkeyKing: (arg) =>
+    get().submit({ type: 'RESOLVE_MONKEY_KING', ...arg }),
+  resolveKaaShield: (arg) =>
+    get().submit({ type: 'RESOLVE_KAA_SHIELD', ...arg }),
+  resolvePlaceTreasure: (arg) =>
+    get().submit({ type: 'RESOLVE_PLACE_TREASURE', ...arg }),
+  resolveRevealTreasure: (heroInstanceId) =>
+    get().submit({ type: 'RESOLVE_REVEAL_TREASURE', heroInstanceId }),
+  resolveMoveSwapTreasure: (heroInstanceId) =>
+    get().submit({ type: 'RESOLVE_MOVE_SWAP_TREASURE', heroInstanceId }),
+  resolveWakeKraken: (allyInstanceId) =>
+    get().submit({ type: 'RESOLVE_WAKE_KRAKEN', allyInstanceId }),
   resolveMoveOrActivate: (choice) =>
     get().submit({ type: 'RESOLVE_MOVE_OR_ACTIVATE', choice }),
   resolveMaximusCavaliers: (allyInstanceId, to) =>

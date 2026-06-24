@@ -8,8 +8,9 @@
 // Pantoufle de Verre. Pris au piège ! / Sale voleuse ! / Minuit neutralisent
 // les Héros ; la Canne retire les Pantoufles. Faces re-découpées des planches
 // re-traduites (2026-06-21) — noms mis à jour, effets inchangés.
-// NOTE : quelques EFFETS restent une interprétation jouable (le texte exact de
-// certaines cartes — choix multiples, défausses conditionnelles — est simplifié).
+// STATUT (2026-06-24) : effets Fatalité fidélisés — Jaq défausse un Objet (Cloches/
+// Canne), Sweet Nightingale un Allié, Bibbidi-Bobbidi-Boo libère un Héros piégé,
+// Marraine la Bonne Fée gèle les déplacements d'Alliés (blocksAllyMoves).
 // =============================================================================
 
 import type { CardDef } from '../types'
@@ -305,7 +306,8 @@ export const madameTremaineCards: CardDef[] = [
     type: 'hero',
     strength: 4,
     copies: 1,
-    text: 'Quand elle est jouée, cherchez et jouez Cendrillon en robe de bal. Recouvre la rangée du haut de son lieu.',
+    text: 'Tant qu’elle est en jeu, aucun Allié ne peut être déplacé. Quand elle est jouée, cherchez et jouez Cendrillon en robe de bal. Recouvre la rangée du haut de son lieu.',
+    blocksAllyMoves: true,
     onPlace: [{ type: 'SUMMON_FATE_HERO_TO_OWN_REALM', heroCardId: 'ball-gown-cinderella', locationId: 'salle-de-bal' }],
     image: img('fairy-godmother.png'),
   },
@@ -317,7 +319,8 @@ export const madameTremaineCards: CardDef[] = [
     type: 'hero',
     strength: 1,
     copies: 1,
-    text: 'Une des souris amies de Cendrillon.',
+    text: 'À son arrivée, défaussez un Objet du royaume de Madame de Trémaine (de préférence les Cloches de Mariage ou la Canne).',
+    onPlace: [{ type: 'FATE_DISCARD_STRONGEST_ALLY_OR_ITEM', onlyType: 'item', preferCardIds: ['cloches-mariage', 'canne-tremaine'] }],
     image: img('jaq.png'),
   },
   {
@@ -392,8 +395,8 @@ export const madameTremaineCards: CardDef[] = [
     deck: 'fate',
     type: 'effect',
     copies: 3,
-    text: 'La magie de la Bonne Fée : Madame de Trémaine défausse une carte au hasard de sa main.',
-    effects: [{ type: 'TARGET_DISCARD_RANDOM', count: 1 }],
+    text: 'La magie de la Bonne Fée : retirez le jeton « piégé » d’un Héros du royaume de Madame de Trémaine (il redevient actif).',
+    effects: [{ type: 'UNTRAP_HERO' }],
     image: img('bibbidi-bobbidi-boo.png'),
   },
   {
@@ -403,8 +406,8 @@ export const madameTremaineCards: CardDef[] = [
     deck: 'fate',
     type: 'effect',
     copies: 3,
-    text: 'Le chant de Cendrillon : Madame de Trémaine défausse une carte au hasard de sa main.',
-    effects: [{ type: 'TARGET_DISCARD_RANDOM', count: 1 }],
+    text: 'Le chant de Cendrillon : Madame de Trémaine défausse un Allié de son royaume (le plus fort).',
+    effects: [{ type: 'FATE_DISCARD_STRONGEST_ALLY_OR_ITEM', onlyType: 'ally' }],
     image: img('sweet-nightingale.png'),
   },
 ]

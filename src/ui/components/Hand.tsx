@@ -40,6 +40,12 @@ interface Props {
    *  deux options est réalisable (défausse non vide, OU Épée Magique défaussable pour le
    *  Chaudron). Injouable sinon. */
   bargainPlayable?: boolean
+  /** Sa Sucrerie — Il lui est défendu de courir : jouable si (Allié + Héros) OU course active. */
+  raceBanPlayable?: boolean
+  /** Shere Khan — vrai s'il y a au moins un jeton Feu dans le royaume (C'est moi, Shere Khan). */
+  realmHasFire?: boolean
+  /** Davy Jones — vrai s'il y a au moins un jeton Trésor FACE CACHÉE sur un Héros (La Marque Noire). */
+  realmHasFacedownTreasure?: boolean
   /** Le Seigneur des Ténèbres — On te tient : vrai si au moins une option est possible
    *  (chercher Tirelire OU éliminer un Héros de force 1). Injouable sinon. */
   pigKeeperPlayable?: boolean
@@ -56,6 +62,9 @@ interface Props {
   /** Vrai s'il y a au moins un Héros sur le lieu du pion — « Je vais vous broyer
    *  les os ! » est injouable sinon. */
   heroAtPawn: boolean
+  /** Shere Khan — Bravo ! Bravo ! : vrai si au moins une action est recouverte (Héros ou
+   *  jeton Feu) sur le lieu du pion. */
+  coveredAtPawn?: boolean
   /** Vrai s'il existe un Héros éliminable sur le lieu du pion (assez de Poison,
    *  priorité Prof) — « Croque ! » est injouable sinon. */
   canBite: boolean
@@ -145,6 +154,14 @@ interface Props {
    *  courant. Si défini, les cartes jouables deviennent saisissables (drag) vers le
    *  plateau, même sans avoir cliqué l'action au préalable. */
   dragPlayActionId?: string
+  /** Phase ACTION de l'humain : autorise le glissé des cartes « jouables sans action »
+   *  (Turbo-Statique) même sans action « Jouer une carte » disponible. */
+  canFreePlay?: boolean
+  /** Phase MOVE de l'humain : tant qu'il n'a pas déplacé son pion, saisir une carte rappelle
+   *  qu'il doit d'abord se déplacer. */
+  mustMoveFirst?: boolean
+  /** Saisie d'une carte NON jouable pendant son tour : remonte la raison (à afficher). */
+  onUnplayable?: (reason: string) => void
   /** Glissé au pointeur : début (seuil franchi), avec la position du curseur. */
   onCardDragStart?: (instanceId: string, x: number, y: number) => void
   /** Glissé au pointeur : déplacement du curseur (met à jour le fantôme). */
@@ -192,11 +209,15 @@ export function Hand({
   realmHasPuppyTile,
   realmHasHeroes,
   bargainPlayable = true,
+  raceBanPlayable = true,
+  realmHasFire = false,
+  realmHasFacedownTreasure = false,
   pigKeeperPlayable = true,
   canTransformGuards = true,
   hasHackInPlay,
   hasIngredients,
   heroAtPawn,
+  coveredAtPawn = false,
   canBite,
   realmHasHyena,
   hyenaElsewhere,
@@ -225,6 +246,9 @@ export function Hand({
   fateDiscardNonEmpty = true,
   villainDiscardNonEmpty = true,
   dragPlayActionId,
+  canFreePlay,
+  mustMoveFirst,
+  onUnplayable,
   onCardDragStart,
   onCardDragMove,
   onCardDragDrop,
@@ -366,9 +390,16 @@ export function Hand({
           const isArmed = armedConditionIds.includes(ci.instanceId)
           // Un Objet à associer exige un Allié présent sur le lieu.
           const needsAlly = ci.attach === 'ally'
-          // Joyeux non-anniversaire (gain par Allié) : injouable sans Allié au royaume.
+          // Objet à associer à un HÉROS (Bug → Vanellope von Schweetz) : injouable si le
+          // Héros-cible (attachOnlyCardId) — ou tout Héros si non restreint — n'est pas en jeu.
+          const needsHeroHost = ci.type === 'item' && ci.attach === 'hero'
+          const heroHostOk =
+            !needsHeroHost ||
+            (ci.attachOnlyCardId ? (realmCardIds ?? []).includes(ci.attachOnlyCardId) : realmHasHeroes)
+          // Joyeux non-anniversaire (gain par Allié), Go ! (déplacer des Alliés) et Tendre
+          // un Piège (déplacer un Allié puis Vanquish) : injouables sans Allié au royaume.
           const needsAllyInRealm = (card.effects ?? []).some(
-            (e) => e.type === 'GAIN_POWER_PER_ALLY_IN_REALM' || e.type === 'RELOCATE_ALLIES',
+            (e) => e.type === 'GAIN_POWER_PER_ALLY_IN_REALM' || e.type === 'RELOCATE_ALLIES' || e.type === 'MOVE_ALLY_FREELY',
           )
           // Cruella — J'adore les belles fourrures : injouable sans Tuile Chiots au royaume.
           const needsPuppyInRealm = (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_PUPPY_LOCATION')
@@ -397,7 +428,12 @@ export function Hand({
               // Madame de Trémaine — Piège : sans Héros à piéger, aucun effet.
               e.type === 'TRAP_HERO' ||
               // Madame de Trémaine — Douze coups de minuit : sans Héros, aucun effet.
-              e.type === 'INSTANT_VANQUISH_ALL_HEROES',
+              e.type === 'INSTANT_VANQUISH_ALL_HEROES' ||
+              // Tamatoa — Appât (pioche 1 par Héros) / Tu ressembles à des fruits de mer
+              // (éliminer un Héros) / Sans pouvoir (jetons Force −1) : sans Héros, aucun effet.
+              e.type === 'DRAW_PER_HERO_IN_REALM' ||
+              e.type === 'DEFEAT_HERO_PAY_STRENGTH' ||
+              e.type === 'ADD_MINUS_FORCE_TOKENS',
           )
           // Madame de Trémaine — Allié « en robe de bal » : injouable si sa version
           // ordinaire (`replacesCardId`) n'est pas en jeu.
@@ -418,8 +454,18 @@ export function Hand({
           // Foudre (duplique un Ingrédient) : injouable sans Ingrédient joué PAYABLE
           // (son coût = celui de l'Ingrédient reproduit ; cf. prop hasIngredients).
           const needsIngredient = (card.effects ?? []).some((e) => e.type === 'DUPLICATE_INGREDIENT')
-          // « Je vais vous broyer les os ! » : injouable sans Héros sur le lieu du pion.
-          const needsHeroHere = (card.effects ?? []).some((e) => e.type === 'USE_COVERED_ACTIONS_THIS_TURN')
+          // Il lui est défendu de courir : injouable si NI (Allié + Héros) NI jeton Pilote
+          // sur le circuit (rien à faire). Calcul fourni par App → `raceBanPlayable`.
+          const needsRaceBan = (card.effects ?? []).some((e) => e.type === 'RACE_BAN')
+          // L'important, c'est de payer : injouable sans Pouvoir à dépenser, ou si une
+          // action de lieu a déjà été jouée ce tour (jouable seulement AVANT les actions).
+          const needsPowerToSpend = (card.effects ?? []).some((e) => e.type === 'PAY_TO_RACE')
+          const needsBeforeActions = !!card.playableOnlyBeforeActions
+          // « Je vais vous broyer les os ! » (Méchante Reine) : injouable sans Héros sur le
+          // lieu du pion. Shere Khan — Bravo ! Bravo ! (`includeFire`) : injouable si AUCUNE
+          // action n'est recouverte (Héros OU jeton Feu) sur le lieu du pion → gate `coveredAtPawn`.
+          const needsHeroHere = (card.effects ?? []).some((e) => e.type === 'USE_COVERED_ACTIONS_THIS_TURN' && !e.includeFire)
+          const needsCoveredAtPawn = (card.effects ?? []).some((e) => e.type === 'USE_COVERED_ACTIONS_THIS_TURN' && e.includeFire)
           // « Croque ! » : injouable sans Héros éliminable sur le lieu du pion.
           const needsBite = (card.effects ?? []).some((e) => e.type === 'TAKE_A_BITE')
           // Festin (Scar) : injouable sans Hyène dans le royaume.
@@ -461,6 +507,15 @@ export function Hand({
           const needsRecoverTarget = (card.effects ?? []).some((e) => e.type === 'RECOVER_FROM_DISCARD_CHOICE')
           // Finissez le travail ! (Cruella) : injouable sans capacité activable.
           const needsActivatable = (card.effects ?? []).some((e) => e.type === 'GRANT_FREE_ACTIVATE')
+          // Shere Khan — Tout le monde fuit : injouable si NI capacité activable NI Héros à
+          // éliminer dans le royaume (les deux actions seraient impossibles).
+          const needsActivateOrVanquish = (card.effects ?? []).some((e) => e.type === 'GRANT_FREE_ACTIVATE_OR_VANQUISH')
+          // Shere Khan — C'est moi, Shere Khan : injouable si aucun jeton Feu dans le royaume.
+          const needsFireInRealm = (card.effects ?? []).some((e) => e.type === 'REMOVE_FIRE_AT_PAWN')
+          // Davy Jones — La Marque Noire : REVEAL_TREASURE sans `atHostLocation` (Bill le Bottier exclu).
+          const needsFacedownTreasure = (card.effects ?? []).some((e) => e.type === 'REVEAL_TREASURE' && !e.atHostLocation)
+          // Shere Khan — Jeune et sans défense : injouable s'il n'y a NI Héros NI Allié.
+          const needsHeroOrAlly = (card.effects ?? []).some((e) => e.type === 'MOVE_HERO_TO_ALLY_OR_POWER_PER_ALLY' || e.type === 'MOVE_ANY_HERO_TO_ALLY')
           // Gaston — cartes dont le SEUL effet est de retirer des Obstacles (Très mauvais
           // caractère, Laissez-moi vous regarder, Sortez !) : injouables si Belle bloque
           // ou s'il ne reste aucun Obstacle.
@@ -503,6 +558,7 @@ export function Hand({
             card.type !== 'condition' &&
             cost <= power &&
             (!needsAlly || attachTargetsAvailable) &&
+            heroHostOk &&
             (!needsAllyInRealm || realmHasAllies) &&
             (!needsPuppyInRealm || realmHasPuppyTile) &&
             (!needsHeroInRealm || realmHasHeroes) &&
@@ -510,7 +566,11 @@ export function Hand({
             (!needsPigKeeper || pigKeeperPlayable) &&
             (!needsTransformGuards || canTransformGuards) &&
             (!needsIngredient || hasIngredients) &&
+            (!needsPowerToSpend || power >= 1) &&
+            (!needsBeforeActions || !realActionUsed) &&
+            (!needsRaceBan || raceBanPlayable) &&
             (!needsHeroHere || heroAtPawn) &&
+            (!needsCoveredAtPawn || coveredAtPawn) &&
             (!needsBite || canBite) &&
             (!needsHyena || realmHasHyena) &&
             (!needsHyenaElsewhere || hyenaElsewhere) &&
@@ -526,6 +586,10 @@ export function Hand({
             (!needsRaiponceNotAtTour || !raiponceAtTour) &&
             (!needsRecoverTarget || recoverFromDiscardAvailable) &&
             (!needsActivatable || hasActivatableCard) &&
+            (!needsActivateOrVanquish || hasActivatableCard || realmHasHeroes) &&
+            (!needsFireInRealm || realmHasFire) &&
+            (!needsFacedownTreasure || realmHasFacedownTreasure) &&
+            (!needsHeroOrAlly || realmHasHeroes || realmHasAllies) &&
             (!needsRemoveObstacle || canRemoveObstacle) &&
             (!needsReplaceObstacle || canReplaceObstacle) &&
             (!needsMovableCard || realmHasMovableCard) &&
@@ -544,6 +608,119 @@ export function Hand({
             (!needsFateDiscardCard || fateDiscardNonEmpty) &&
             (!needsVillainDiscard || villainDiscardNonEmpty) &&
             !(blockEvents && card.type === 'effect')
+          // Raison d'injouabilité (1ʳᵉ condition qui échoue, MÊME ordre que `canPlay`) :
+          // affichée à l'écran quand on tente de saisir une carte non jouable.
+          const unplayableReason: string | null = !canPlay
+            ? card.type === 'condition'
+              ? 'Une Condition se joue en réaction, pendant le tour d’un adversaire.'
+              : cost > power
+                ? `Pas assez de Pouvoir : coût ${cost}, vous avez ${power}.`
+                : needsAlly && !attachTargetsAvailable
+                  ? 'Aucun Allié sur le plateau pour recevoir cet Objet.'
+                  : needsHeroHost && !heroHostOk
+                    ? ci.attachOnlyCardId
+                      ? `${getCardDef(ci.attachOnlyCardId)?.name ?? 'Le Héros requis'} n’est pas dans votre royaume.`
+                      : 'Aucun Héros dans votre royaume pour recevoir cet Objet.'
+                  : needsAllyInRealm && !realmHasAllies
+                    ? 'Aucun Allié dans votre royaume.'
+                    : needsPuppyInRealm && !realmHasPuppyTile
+                      ? 'Aucune Tuile Chiots dans votre royaume.'
+                      : needsHeroInRealm && !realmHasHeroes
+                        ? 'Aucun Héros dans votre royaume.'
+                        : needsBargain && !bargainPlayable
+                          ? 'Aucune option réalisable (défausse vide et pas d’Épée Magique à échanger).'
+                          : needsPigKeeper && !pigKeeperPlayable
+                            ? 'Tirelire déjà en jeu et aucun Héros de force 1 à éliminer.'
+                            : needsTransformGuards && !canTransformGuards
+                              ? 'Aucune Carte Garde transformable en arceau.'
+                              : needsIngredient && !hasIngredients
+                                ? 'Aucun Ingrédient en jeu payable à reproduire.'
+                                : needsPowerToSpend && power < 1
+                                  ? 'Aucun jeton Pouvoir à dépenser.'
+                                  : needsBeforeActions && realActionUsed
+                                    ? 'Jouable uniquement AVANT vos actions (vous avez déjà agi ce tour).'
+                                    : needsRaceBan && !raceBanPlayable
+                                      ? 'Ni Allié + Héros, ni course en cours : rien à faire.'
+                                      : needsHeroHere && !heroAtPawn
+                                        ? 'Aucun Héros sur le lieu de votre pion.'
+                                      : needsCoveredAtPawn && !coveredAtPawn
+                                        ? 'Aucune action recouverte (Héros ou jeton Feu) sur votre lieu.'
+                                        : needsBite && !canBite
+                                          ? 'Aucun Héros à croquer sur le lieu de votre pion.'
+                                          : needsHyena && !realmHasHyena
+                                            ? 'Aucune Hyène dans votre royaume.'
+                                            : needsHyenaElsewhere && !hyenaElsewhere
+                                              ? 'Aucune Hyène sur un autre lieu que votre pion.'
+                                              : needsFateDiscard && !fateDiscardHasCard
+                                                ? 'Défausse Fatalité vide.'
+                                                : needsFirstAction && realActionUsed
+                                                  ? 'Jouable uniquement en première action du tour.'
+                                                  : needsKronkToken && !kronkHasPowerToken
+                                                    ? 'Aucun jeton Pouvoir sur Kronk.'
+                                                    : needsFateDiscardHero && !fateDiscardHasHero
+                                                      ? 'Aucun Héros dans la défausse Fatalité.'
+                                                      : needsPoeticJustice && !poeticJusticeUsable
+                                                        ? 'Aucun Allié sur votre lieu, ou aucun Événement abordable en défausse.'
+                                                        : needsRelocateTarget && !relocateTargetAvailable
+                                                          ? 'Aucun Héros déplaçable.'
+                                                          : needsHackTarget && !hackTargetAvailable
+                                                            ? 'Aucun Héros à pirater.'
+                                                            : needsHackInPlay && !hasHackInPlay
+                                                              ? 'Aucun Piratage ni Héros piraté en jeu.'
+                                                              : needsPawnWithRaiponce && !pawnWithRaiponce
+                                                                ? 'Votre pion n’est pas sur le lieu de Raiponce.'
+                                                                : needsRaiponceNotAtTour && raiponceAtTour
+                                                                  ? 'Raiponce est déjà sur la Tour.'
+                                                                  : needsRecoverTarget && !recoverFromDiscardAvailable
+                                                                    ? 'Aucune carte récupérable dans votre défausse.'
+                                                                    : needsActivatable && !hasActivatableCard
+                                                                      ? 'Aucune capacité activable.'
+                                                                    : needsActivateOrVanquish && !hasActivatableCard && !realmHasHeroes
+                                                                      ? 'Aucune capacité à activer ni Héros à éliminer.'
+                                                                    : needsFireInRealm && !realmHasFire
+                                                                      ? 'Aucun jeton Feu à retirer dans votre royaume.'
+                                                                    : needsFacedownTreasure && !realmHasFacedownTreasure
+                                                                      ? 'Aucun jeton Trésor face cachée sur un Héros à révéler.'
+                                                                    : needsHeroOrAlly && !realmHasHeroes && !realmHasAllies
+                                                                      ? 'Aucun Héros ni Allié dans votre royaume.'
+                                                                      : needsRemoveObstacle && !canRemoveObstacle
+                                                                        ? 'Aucun Obstacle à retirer (ou Belle bloque).'
+                                                                        : needsReplaceObstacle && !canReplaceObstacle
+                                                                          ? 'Aucun Obstacle à replacer (les 8 sont posés).'
+                                                                          : needsMovableCard && !realmHasMovableCard
+                                                                            ? 'Aucun Allié ou Objet déplaçable.'
+                                                                            : needsMoveOrActivate && !(realmHasMovableCard || hasActivatableCard)
+                                                                              ? 'Rien à déplacer ni de capacité à activer.'
+                                                                              : needsIdentification && !(realmHasHeroes && realmHasMovableCard)
+                                                                                ? 'Il faut un Héros dans votre royaume ET un Allié/Objet déplaçable.'
+                                                                                : needsBookworm && !(realmHasHeroes && power >= 1)
+                                                                                  ? 'Il faut un Héros dans votre royaume et au moins 1 Pouvoir.'
+                                                                                  : needsToRoomCandidate && !lotsoToRoomAvailable
+                                                                                    ? 'Rien à amener sur la Salle des Chenilles.'
+                                                                                    : needsHeroOutsideRoom && !lotsoHeroOutsideRoom
+                                                                                      ? 'Aucun Héros réductible hors de la Salle des Chenilles.'
+                                                                                      : needsHeroInRoom && !lotsoHeroInRoom
+                                                                                        ? 'Aucun Héros dans la Salle des Chenilles.'
+                                                                                        : needsShowMeBeast && !showMeBeastUsable
+                                                                                          ? 'Ni la Bête ni Belle dans votre royaume.'
+                                                                                          : needsKeyAtPawn && !keyAtPawn
+                                                                                            ? 'Aucune clé sur le lieu de votre pion.'
+                                                                                            : needsKeysOnBoard && !keysOnBoard
+                                                                                              ? 'Aucune clé sur le plateau.'
+                                                                                              : needsOwnedKey && !ownsKey
+                                                                                                ? 'Vous ne possédez aucune clé.'
+                                                                                                : !replaceOk
+                                                                                                  ? 'Sa version ordinaire n’est pas en jeu.'
+                                                                                                  : !vanquishOnlyOk
+                                                                                                    ? 'Aucun des Héros visés n’est dans votre royaume.'
+                                                                                                    : needsFateDiscardCard && !fateDiscardNonEmpty
+                                                                                                      ? 'Défausse Fatalité vide (rien à remélanger).'
+                                                                                                      : needsVillainDiscard && !villainDiscardNonEmpty
+                                                                                                        ? 'Défausse de Méchant vide (rien à remélanger).'
+                                                                                                        : blockEvents && card.type === 'effect'
+                                                                                                          ? 'Un Héros (Roi Richard / Tirelire) empêche de jouer des Événements.'
+                                                                                                          : 'Cette carte n’est pas jouable pour le moment.'
+            : null
           const playable =
             mode === 'play'
               ? canPlay
@@ -552,7 +729,12 @@ export function Hand({
                 : false
           // Glisser-déposer : la carte est saisissable dès qu'une action « Jouer une
           // carte » est disponible et que la carte serait jouable (même hors mode 'play').
-          const dragEligible = !!dragPlayActionId && canPlay && mode !== 'discard'
+          // Turbo-Statique (playableWithoutAction) est saisissable même SANS action de
+          // pose, tant qu'on est en phase ACTION de l'humain (`canFreePlay`).
+          const dragEligible =
+            (!!dragPlayActionId || (!!card.playableWithoutAction && canFreePlay)) &&
+            canPlay &&
+            mode !== 'discard'
           const checked = selectedToDiscard.includes(ci.instanceId)
           // « Jouer une carte » ne se fait PLUS au clic : on glisse la carte sur le plateau.
           // Le clic reste utile uniquement pour la défausse et la réaction « condition-ally »
@@ -633,7 +815,20 @@ export function Hand({
                         ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
                         dragPointer.current = { id: ci.instanceId, startX: e.clientX, startY: e.clientY, dragging: false }
                       }
-                    : undefined
+                    : // Carte saisie alors qu'on ne peut pas la jouer : on affiche POURQUOI.
+                      // - Phase MOVE : il faut d'abord déplacer son pion.
+                      // - Phase ACTION : la vraie raison d'injouabilité (sauf défausse / réaction).
+                      mustMoveFirst
+                      ? (e) => {
+                          if (e.button !== 0) return
+                          onUnplayable?.('Vous devez déplacer votre pion avant de faire vos actions')
+                        }
+                      : canFreePlay && unplayableReason && mode !== 'discard' && mode !== 'condition-ally'
+                        ? (e) => {
+                            if (e.button !== 0) return
+                            onUnplayable?.(unplayableReason)
+                          }
+                        : undefined
                 }
                 onPointerMove={
                   dragEligible
@@ -680,7 +875,7 @@ export function Hand({
                       }
                     : undefined
                 }
-                className={`w-full rounded-lg border ${clickable ? 'cursor-pointer' : dragEligible ? 'cursor-grab' : ''} ${ring} ${
+                className={`w-full rounded-lg border ${clickable ? 'cursor-pointer' : dragEligible ? 'cursor-grab' : mustMoveFirst || (canFreePlay && unplayableReason) ? 'cursor-not-allowed' : ''} ${ring} ${
                   draggingInstanceId === ci.instanceId ? 'opacity-0' : ''
                 }`}
               />

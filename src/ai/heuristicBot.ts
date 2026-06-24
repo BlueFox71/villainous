@@ -22,6 +22,8 @@ import { applyAction } from '../engine/actions'
 import { playableConditions, hasReachedObjective, goalsBlockedByHero } from '../engine/rules'
 import { enumerateActions } from './enumerate'
 import { playerMalus } from './fateMalus'
+import { villainStrategyBonus, villainFateTargetingBonus } from './villainStrategy'
+import { fireCount } from '../engine/shereKhan'
 
 type Rand = () => number
 
@@ -51,11 +53,63 @@ export function objectiveScore(p: PlayerState): number {
         else s += Math.min(0.05, 0.01 * lead)
         return Math.min(0.99, s)
       }
-      let s = 0
-      if (vanellope) s += 0.3
-      if (bugOnV) s += 0.1
-      else if (p.hand.some((c) => c.cardId === 'bug')) s += 0.1
-      return Math.min(0.4, s)
+      // Avant la course : pipeline du guide — trouver le Médaillon des Héros de Ralph →
+      // sortir Ralph → le vaincre (→ Vanellope arrive) → l'« glitcher » (Bug) → la course
+      // démarre. On récompense chaque palier pour donner un gradient AVANT que Vanellope
+      // soit en jeu (sinon le bot ne « voit » pas l'intérêt de chercher le Médaillon).
+      if (vanellope) {
+        let s = 0.35
+        if (bugOnV || p.hand.some((c) => c.cardId === 'bug')) s += 0.1 // prêt à lancer la course
+        return Math.min(0.45, s)
+      }
+      const ralph = all.find((c) => c.type === 'hero' && c.cardId === 'ralph-la-casse')
+      const haveMedal = [...p.hand, ...all].some((c) => c.cardId === 'medaillon-des-heros-de-ralph')
+      if (ralph) {
+        // Ralph en jeu = passerelle vers Vanellope (le vaincre la fait entrer). Bonus si on
+        // est PRÊT à le vaincre (Duncan & Wynnchel, ou assez de force d'Alliés sur son lieu).
+        let s = 0.22
+        const ralphLoc = Object.entries(p.board).find(([, cs]) => cs.some((c) => c.instanceId === ralph.instanceId))?.[0]
+        const allyForce = ralphLoc
+          ? (p.board[ralphLoc] ?? []).filter((c) => c.type === 'ally' && !c.isWicket && !c.trapped).reduce((n, c) => n + (c.strength ?? 0), 0)
+          : 0
+        const dw = all.some((c) => c.cardId === 'duncan-et-wynnchel')
+        if (dw || allyForce >= (ralph.strength ?? 6)) s += 0.1
+        return s
+      }
+      // Pas encore Ralph : avoir le Médaillon en main/jeu (la clé) > simplement fouiller.
+      return haveMedal ? 0.12 : 0.04
+    }
+    case 'CLAIM_ALL_TREASURES': {
+      // Davy Jones : récupérer 5 Trésors. Progression = Trésors récupérés (poids fort) +
+      // crédit partiel pour les Trésors POSÉS sur des Héros (révélés = plus proches du
+      // Vanquish que face cachée).
+      const claimed = (p.claimedTreasures ?? []).length
+      const heroes = Object.values(p.board).flat().filter((c) => c.type === 'hero')
+      const faceUp = heroes.filter((h) => h.treasure?.faceUp).length
+      const faceDown = heroes.filter((h) => h.treasure && !h.treasure.faceUp).length
+      const s = claimed * 0.17 + faceUp * 0.05 + faceDown * 0.02
+      return Math.min(0.99, s)
+    }
+    case 'DEFEAT_HERO_NO_FIRE': {
+      // Shere Khan : faire venir Mowgli (0.5), retirer les jetons Feu (jusqu'à +0.3),
+      // réunir la force pour le vaincre. Plafonné tant que Baloo (bouclier) est présent.
+      const obj = p.objective
+      const all = Object.values(p.board).flat()
+      const mowgli = all.find((c) => c.type === 'hero' && c.cardId === obj.heroCardId)
+      if (!mowgli) {
+        const canFetch = p.hand.some((c) => (c.effects ?? []).some((e) => e.type === 'DEFEAT_OR_FETCH_HERO'))
+        return canFetch ? 0.2 : 0.1
+      }
+      const fire = fireCount(p)
+      const baloo = all.some((c) => c.type === 'hero' && c.shieldsOtherHeroesUntilTokens !== undefined)
+      const mowgliLoc = p.locations.find((l) => (p.board[l.id] ?? []).some((c) => c.instanceId === mowgli.instanceId))?.id
+      const allyForce = mowgliLoc
+        ? (p.board[mowgliLoc] ?? []).filter((c) => c.type === 'ally' && !c.isWicket && !c.trapped).reduce((n, c) => n + (c.strength ?? 0), 0)
+        : 0
+      const ready = Math.min(1, allyForce / Math.max(1, (mowgli.strength ?? 2) + (mowgli.permanentStrengthDelta ?? 0)))
+      let s = 0.5 + (fire === 0 ? 0.3 : Math.max(0, 0.25 - 0.05 * fire)) + 0.15 * ready
+      if (baloo) s = Math.min(s, 0.6)
+      return Math.min(0.97, s)
     }
     case 'CURSE_EACH_LOCATION': {
       const cursed = p.locations.filter((l) => (p.board[l.id] ?? []).some((c) => c.type === 'curse')).length
@@ -237,7 +291,11 @@ export function objectiveScore(p: PlayerState): number {
       const cell = p.board[obj.locationId] ?? []
       const inRealm = obj.itemCardIds.filter((id) => all.some((c) => c.cardId === id && !c.attachedTo)).length
       const atLoc = obj.itemCardIds.filter((id) => cell.some((c) => c.cardId === id && !c.attachedTo)).length
-      return (inRealm * 0.4 + atLoc * 0.6) / obj.itemCardIds.length
+      // Tamatoa : un Objet-objectif ASSOCIÉ (Hameçon/Cœur « volé » par Maui/Moana) compte
+      // pour un progrès PARTIEL — il suffit de vaincre le gardien pour le libérer. (Sans
+      // effet pour Ursula, dont le Trident/la Couronne ne sont jamais associés.)
+      const attached = obj.itemCardIds.filter((id) => all.some((c) => c.cardId === id && c.attachedTo)).length
+      return (inRealm * 0.4 + atLoc * 0.6 + attached * 0.25) / obj.itemCardIds.length
     }
     case 'UNTRAPPED_TITANS_AT_LOCATION': {
       // Hadès : récompense les Titans non entravés, davantage à mesure qu'ils se
@@ -459,48 +517,103 @@ export function objectiveScore(p: PlayerState): number {
     }
     case 'DEFEAT_ALL_MERLIN': {
       // Madame Mim : proportion des 7 Métamorphoses de Merlin vaincues (merlinDiscard),
-      // + petit bonus si la Métamorphose Mim qui vainc le Merlin ACTUEL du Lieu du Duel
-      // est déjà en jeu/main (défaite imminente).
+      // + bonus de POSITIONNEMENT — une défaite n'est possible que si la Métamorphose Mim
+      // tueuse est SUR LE MÊME LIEU que le Merlin. On valorise donc fortement la
+      // co-localisation (défaite imminente, « machine gun ») > simple disponibilité
+      // ailleurs/en main. Conséquence : côté Mim le bot rassemble Mim et Merlin (Cabane) ;
+      // côté Fatalité adverse, l'éval valorise d'ÉLOIGNER le Merlin de sa tueuse
+      // (Le Savoir conduit à la Puissance) ou de DÉFAUSSER cette tueuse (Merlin Microbe).
       const TOTAL = 7
       const defeated = p.merlinDiscard?.length ?? 0
       if (defeated >= TOTAL) return 1
-      // Merlin actuellement en jeu (au Lieu du Duel).
-      const current = Object.values(p.board).flat().find((c) => c.isMerlinTransformation)
-      const ready =
-        current &&
-        [...Object.values(p.board).flat(), ...p.hand].some(
-          (c) => c.isMimTransformation && c.transformationTarget === current.cardId,
+      // Localiser le Merlin actuellement en jeu (au Lieu du Duel sauf déplacement Fatalité).
+      let merlinLoc: string | undefined
+      let current: CardInstance | undefined
+      for (const [loc, cards] of Object.entries(p.board)) {
+        const m = cards.find((c) => c.isMerlinTransformation)
+        if (m) {
+          merlinLoc = loc
+          current = m
+          break
+        }
+      }
+      let bonus = 0
+      if (current && merlinLoc) {
+        const killerHere = (p.board[merlinLoc] ?? []).some(
+          (c) => c.isMimTransformation && c.transformationTarget === current!.cardId,
         )
-      return Math.min(0.99, defeated / TOTAL + (ready ? 0.08 : 0))
+        const killerReady = [...Object.values(p.board).flat(), ...p.hand].some(
+          (c) => c.isMimTransformation && c.transformationTarget === current!.cardId,
+        )
+        bonus = killerHere ? 0.12 : killerReady ? 0.05 : 0
+        // Staging « machine gun » : d'autres Métamorphoses Mim déjà postées au lieu du
+        // Merlin enchaîneront les défaites (chaque Mim donne sa propre action Éliminer).
+        const stagedKillers = (p.board[merlinLoc] ?? []).filter((c) => c.isMimTransformation).length
+        bonus += 0.02 * Math.min(3, Math.max(0, stagedKillers - 1))
+      }
+      return Math.min(0.99, defeated / TOTAL + bonus)
     }
     case 'DEFEAT_OMNIDROID_V10': {
       // Syndrome : progression v.X8 → v.X9 → v.10 → détruit, modulée par la présence de
       // la Télécommande et l'absence de Héros (l'objectif exige un royaume sans Héros).
       const stage = p.omnidroidStage
-      const hasHero = Object.values(p.board).flat().some((c) => c.type === 'hero')
-      if (stage === 'destroyed') return hasHero ? 0.9 : 1
+      const heroCount = Object.values(p.board).flat().filter((c) => c.type === 'hero').length
+      if (stage === 'destroyed') {
+        // Victoire = v.10 détruit ET royaume sans Héros. Chaque Héros restant = un Vanquish
+        // à faire → on s'éloigne légèrement de la victoire (et l'adversaire a intérêt à
+        // l'engorger de Héros, cf. guide « bog him down »).
+        return heroCount === 0 ? 1 : Math.max(0.85, 0.96 - 0.03 * heroCount)
+      }
       const base: Record<string, number> = { x8: 0.1, 'x9-hand': 0.25, x9: 0.4, 'x10-hand': 0.6, x10: 0.8 }
       let s = base[stage ?? 'x8'] ?? 0.1
-      const remote = [...p.hand, ...Object.values(p.board).flat()].some((c) => c.cardId === 'telecommande-de-syndrome')
-      if (stage === 'x10' && remote) s = 0.92
-      return Math.min(0.99, s)
+      if (stage === 'x10') {
+        // Télécommande PRÊTE = sur le MÊME lieu que l'Omnidroïde v.10 (Métroville,
+        // activation imminente) > simplement disponible (main/jeu) > absente.
+        let v10Loc: string | undefined
+        for (const [loc, cards] of Object.entries(p.board)) {
+          if (cards.some((c) => c.cardId === 'omnidroide-v-x10')) {
+            v10Loc = loc
+            break
+          }
+        }
+        const remoteWithV10 = !!v10Loc && (p.board[v10Loc] ?? []).some((c) => c.cardId === 'telecommande-de-syndrome')
+        const remoteReady = [...p.hand, ...Object.values(p.board).flat()].some((c) => c.cardId === 'telecommande-de-syndrome')
+        s = remoteWithV10 ? 0.93 : remoteReady ? 0.86 : 0.8
+        // « Save the Day » : tous les Héros doivent être éliminés AVANT la victoire.
+        s -= Math.min(0.1, 0.025 * heroCount)
+      }
+      return Math.min(0.99, Math.max(0, s))
     }
     case 'LOTSO_GATHER': {
-      // Lotso : proportion des 4 Héros sur la Salle des Chenilles à force 0, + bonus si
-      // Buzz y est. Force effective approximée (base + jetons − Chapeau de Woody).
+      // Lotso : pipeline en 3 phases (cf. guide) — (1) faire VENIR les 4 Héros en jeu,
+      // (2) les CORRALER sur la Salle des Chenilles, (3) réduire leur force à 0. Victoire
+      // quand les 4 sont dans la Salle à force 0 avec Buzz. On récompense chaque palier
+      // (gradient continu) — sans ça, un Héros en jeu non réduit ne vaudrait RIEN tout en
+      // étant pénalisé par le terme générique « Héros dans mon royaume » (alors qu'ici
+      // c'est une CIBLE d'objectif). Force effective approximée (base + jetons − Chapeau).
       const obj = p.objective
       const room = p.board[obj.roomId] ?? []
-      const hat = Object.values(p.board).flat().some((c) => c.cardId === 'chapeau-de-woody')
+      const all = Object.values(p.board).flat()
+      const hat = all.some((c) => c.cardId === 'chapeau-de-woody')
       const eff = (c: { strength?: number; permanentStrengthDelta?: number; cardId: string }) =>
         Math.max(0, (c.strength ?? 0) + (c.permanentStrengthDelta ?? 0) + (hat && c.cardId !== 'woody' ? -1 : 0))
       const buzzHere = room.some((c) => c.isBuzz)
-      const done = obj.heroCardIds.filter((id) => {
-        const h = room.find((c) => c.type === 'hero' && c.cardId === id)
-        return !!h && eff(h) === 0
-      }).length
-      if (done === obj.heroCardIds.length && buzzHere) return 1
-      const inPlayZero = Object.values(p.board).flat().filter((c) => c.type === 'hero' && obj.heroCardIds.includes(c.cardId) && eff(c) === 0).length
-      return Math.min(0.99, done * 0.18 + inPlayZero * 0.05 + (buzzHere ? 0.08 : 0))
+      let s = 0
+      let doneInRoom = 0
+      for (const id of obj.heroCardIds) {
+        const h = all.find((c) => c.type === 'hero' && c.cardId === id)
+        if (!h) continue // pas encore en jeu
+        s += 0.04 // phase 1 : présent dans le royaume
+        const inRoom = room.some((c) => c.instanceId === h.instanceId)
+        if (inRoom) s += 0.04 // phase 2 : corralé sur la Salle des Chenilles
+        if (eff(h) === 0) {
+          s += inRoom ? 0.1 : 0.03 // phase 3 : force 0 (surtout s'il est déjà dans la Salle)
+          if (inRoom) doneInRoom++
+        }
+      }
+      if (buzzHere) s += 0.08
+      if (doneInRoom === obj.heroCardIds.length && buzzHere) return 1
+      return Math.min(0.99, s)
     }
   }
 }
@@ -630,6 +743,9 @@ export function evaluate(state: GameState, idx: number, w: EvalWeights = DEFAULT
   }
   // Lieux maudits (objectif Maléfique + tempo), comptés PAR LIEU (empiler n'aide pas).
   score += cursedLocationCount(me) * w.cursePerLocation
+  // Couche « stratégie bot » : conseils de jeu propres au vilain (placements
+  // préférés, Héros à vaincre en priorité, cartes-moteurs). Cf. villainStrategy.ts.
+  score += villainStrategyBonus(me)
   // Bowser : les Alliés sur l'Observatoire de la Comète sont « prêts à drainer » une
   // Étoile (Dino Piranha/Kamella à la pose, ou la carte de drainage qui exige un Allié
   // présent). Tant qu'il reste des Étoiles, on récompense leur présence sur ce lieu
@@ -650,6 +766,10 @@ export function evaluate(state: GameState, idx: number, w: EvalWeights = DEFAULT
       if (c.type === 'hero') score += ((c.strength ?? 0) * oppHeroPerStr + w.oppHeroFlat) * fateScale
     }
   }
+  // Ciblage Fatalité propre au vilain adverse : Déguisement sur le bon Héros, Pouvoir
+  // volé sur le bon porteur (départage les cibles, que le terme objectif ne distingue
+  // pas). Modulé par la menace, comme les autres termes de Fatalité. Cf. villainStrategy.
+  score += villainFateTargetingBonus(opp) * fateScale
   // Cartes en main : avantage en cartes + potentiel des Alliés (force jouable).
   score += me.hand.length * w.hand
   for (const c of me.hand) {
@@ -721,19 +841,33 @@ function bestTurnScore(state: GameState, idx: number, budget: Budget, w: EvalWei
  * que c'est vrai, le bot s'abstient de fataliser (cf. mémoire « villainous-fate-malus »).
  * Piloté par le type d'objectif, donc générique pour tout futur vilain similaire.
  */
-function fateWouldHelpOpponent(state: GameState, oppIdx: number): boolean {
+export function fateWouldHelpOpponent(state: GameState, oppIdx: number): boolean {
   const opp = state.players[oppIdx]
   const inRealm = (cardId: string) =>
     Object.values(opp.board).some((cards) => cards.some((c) => c.cardId === cardId))
   const obj = opp.objective
   switch (obj.type) {
     case 'DEFEAT_HERO_AT_LOCATION': // Crochet/Peter Pan ; Méchante Reine/Blanche-Neige
-    case 'DEFEAT_HERO_WITH_ALLY': // Yzma/Kuzco
+      // Ces Héros-clés sont JOUÉS D'OFFICE dès qu'ils sont dévoilés (forcedFateLocation) :
+      // fataliser pendant qu'ils sont encore en pioche risque vraiment de les gifter.
       return !inRealm(obj.heroCardId)
+    case 'DEFEAT_HERO_WITH_ALLY':
+      // Yzma/Kuzco : sa Fatalité est INTERACTIVE (le fataliseur choisit la pioche ET la
+      // carte parmi 4 pioches) → il peut éviter de jouer Kuzco, et l'éval du bot l'évite
+      // déjà (jouer Kuzco augmente la jauge d'Yzma ; le lookahead ne fatalise pas si ça
+      // se retourne contre lui). On NE s'abstient donc PAS (cf. guide : « fatalisez Yzma
+      // pour scruter ses pioches » et y jouer les enfants / En fuite / Chemin de la droiture).
+      return false
     case 'DEPLETE_OBSERVATORY_AND_CAPTURE': // Bowser/Peach (ni en jeu ni capturée)
       return !opp.peachCaptured && !inRealm('peach')
-    case 'SUCCESSION_FORCE': // Scar/Mufasa (pas encore dans la pile Succession)
-      return !(opp.succession ?? []).some((c) => c.cardId === obj.firstHeroCardId)
+    case 'SUCCESSION_FORCE': {
+      // Scar/Mufasa : risque de « cadeau » seulement tant que Mufasa peut encore
+      // SORTIR de la pioche Fatalité. Une fois qu'il est EN JEU (royaume) ou déjà dans
+      // la pile Succession, le fataliser ne le gifte plus → le bot peut/doit fataliser
+      // (cf. guide : envoyer des Héros avant que la pile ne démarre).
+      const mufasaInSucc = (opp.succession ?? []).some((c) => c.cardId === obj.firstHeroCardId)
+      return !inRealm(obj.firstHeroCardId) && !mufasaInSucc
+    }
     default:
       return false
   }

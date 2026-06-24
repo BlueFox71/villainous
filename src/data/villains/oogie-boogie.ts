@@ -34,6 +34,7 @@ export const oogieBoogie: VillainDef = {
   // il n'y est jamais posé par la Fatalité (où il agit en Événement). Le vaincre à
   // l'Antre déclenche donc la victoire — modèle « éliminer un Héros précis sur un lieu ».
   objective: { type: 'DEFEAT_HERO_AT_LOCATION', heroCardId: 'jack-skellington', locationId: 'antre' },
+  boardObjective: 'Vous devez éliminer Jack Skellington.',
   objectiveDescription:
     "Convainquez Jack Skellington de revenir puis VAINQUEZ-le. Jouez des « Imposteur " +
     "Perce-Oreilles » (lancez les dés : 7+ = succès, posé près de Sandy Claws). À 4 " +

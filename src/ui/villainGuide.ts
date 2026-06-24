@@ -392,9 +392,9 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       'Tirelire (Hen Wen) est un atout : si elle débarque dans ton royaume, vaincs-la pour t’emparer du Chaudron Magique gratuitement.',
     ],
     counterTips: [
-      'Taram, la Princesse Éloïse et Ronchon recouvrent ses lieux : occupe-les pour l’empêcher d’y poser ses Soldats Ressuscités.',
-      'Les Sorcières de Morva le font perdre du Pouvoir ou défausser ; Sacrifice de Gurki rendort son Chaudron réveillé.',
-      'Garde Tirelire hors de son royaume si tu peux : la lui livrer revient à lui offrir le Chaudron Magique.',
+      'Taran (force 4), Fflewddur Fflam et le Petit Peuple recouvrent ses lieux ; le Petit Peuple empêche même d’y poser des Soldats Ressuscités.',
+      'Les Sorcières de Morva l’empêchent de s’emparer du Chaudron Magique tant qu’elles sont là : un verrou tant qu’il ne l’a pas encore réclamé.',
+      'Garde Tirelire hors de son royaume : la lui livrer revient à lui offrir le Chaudron Magique (il la vainc pour le réclamer).',
     ],
   },
   madameMim: {
@@ -443,7 +443,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
     ],
   },
   saSucrerie: {
-    difficulty: 4,
+    difficulty: 5,
     story:
       "King Candy (Les Mondes de Ralph, 2012) règne en tyran sur le jeu d'arcade Sugar Rush. C'est en réalité Turbo, un pilote jaloux qui a piraté le jeu et effacé les souvenirs de tous. Il s'acharne à empêcher Vanellope von Schweetz, une « Bug » au grand cœur, de prendre le départ — quitte à provoquer l'invasion des Cybugs.",
     playTips: [
@@ -456,6 +456,54 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       "Vanellope avance le jeton Pilote chaque tour tant qu'un Bug lui est associé — et Enfin un vrai Kart ! le propulse encore plus loin.",
       "Princesse Vanellope fait reculer King Candy de 4 cases ; Félix Fixe Jr. le contraint à n'avancer que de 2 ou 3 cases.",
       "Calhoun et Ralph la Casse renchérissent ses actions ; déplace Vanellope hors de portée d'un Bug pour casser sa mise en place.",
+    ],
+  },
+  shereKhan: {
+    difficulty: 1,
+    story:
+      "Shere Khan, le tigre du Bengale (Le Livre de la Jungle, 1967), règne par la terreur sur la jungle. Tous fuient à son approche. Il n'a qu'une obsession : retrouver et dévorer le « petit d'homme », Mowgli — mais il ne craint qu'une chose, le Feu Rouge des hommes.",
+    playTips: [
+      "Ton objectif : VAINCRE Mowgli alors qu'AUCUN jeton Feu n'est présent dans ton royaume.",
+      "Fais venir Mowgli : par Fatalité, par tromperie (Aie confiance), ou avec « Lancé sur ses traces » qui le cherche — et sert aussi à l'éliminer. À son arrivée, Mowgli pose un jeton Feu : tu en auras donc toujours au moins un à nettoyer.",
+      "Les jetons Feu recouvrent des ACTIONS de tes lieux (comme un Héros recouvre la rangée du haut) : ils t'empêchent de les utiliser. Retire-les avec « C'est moi, Shere Khan » ou en activant les Macaques (paie 1 Pouvoir par jeton du lieu).",
+      "Kaa devient redoutable avec ses Objets (Anneaux/Yeux : +2 Force chacun) ; les Yeux te laissent même agir sous un Héros. Le Roi Singe repositionne tes Macaques pour éteindre le feu là où il faut.",
+    ],
+    counterTips: [
+      "Le Feu Rouge des Hommes pose ou déplace des jetons Feu sur ses actions : couvre ses actions de Vaincre et d'Activer pour l'empêcher de nettoyer puis de gagner.",
+      "Baloo protège TOUS les autres Héros : tant qu'il est là, impossible d'éliminer Mowgli (chaque tentative pose un jeton sur Baloo, défaussé à 3). La Patrouille de la Jungle (force 6) est un mur.",
+      "Garde toujours au moins un jeton Feu sur son royaume : sans Feu et avec Mowgli vincible, il gagne aussitôt.",
+    ],
+  },
+  davyJones: {
+    difficulty: 3,
+    story:
+      "Davy Jones, capitaine maudit du Hollandais Volant (Pirates des Caraïbes), commande l'océan et son Kraken. Il convoite les cinq Trésors légendaires — dont son propre Cœur, arraché et caché dans le Coffre du Maudit.",
+    playTips: [
+      "Ton objectif : RÉCUPÉRER les 5 jetons Trésor. Pose-les FACE CACHÉE sur des Héros (As-tu peur de la mort ?, Ils sont là), RÉVÈLE-les (Bill le Bottier, Hadras, La Marque Noire), puis ÉLIMINE le Héros qui porte un trésor RÉVÉLÉ pour t'en emparer.",
+      "Un Héros ne porte qu'un trésor à la fois. Tant qu'un trésor est révélé sur un Héros, il te GÊNE (le Compas lui donne +2 Force ; le Coffre interdit les Alliés sur son lieu ; la Clé te fait défausser ta main à la révélation) : enchaîne révélation puis Vanquish au plus vite.",
+      "Tu n'as qu'UNE action Éliminer (Le Hollandais Volant) : pose Clanker ailleurs pour gagner une seconde action Éliminer. Le Kraken (force 8) n'est PAS défaussé après avoir vaincu un Héros à trésor révélé (contrairement à tes autres Alliés) : il reste en jeu et peut donc récupérer un trésor à chaque tour.",
+      "Déplace les Héros vers tes Alliés (La Poursuite) et réarrange les trésors (Les amis deviennent des ennemis) pour aligner force et bons trésors.",
+    ],
+    counterTips: [
+      "Maudit sois-tu, Jack Sparrow retire un trésor révélé d'un Héros et le remélange : tu effaces sa progression. L'amour de Calypso ramène son Pouvoir à 2.",
+      "Jack Sparrow (force 3) bloque toute action Éliminer tant que Davy partage son lieu. La Boîte à Musique empêche le Kraken de vaincre le Héros qui la porte.",
+      "James Norrington grossit (+1 Force par trésor récupéré) ; l'Équipage du Black Pearl grandit avec le nombre de Héros. Sature ses lieux de Héros costauds pour ralentir ses Vanquish.",
+    ],
+  },
+  tamatoa: {
+    difficulty: 2,
+    story:
+      "Crabe géant et cleptomane de Lalotai (Vaiana, 2016), Tamatoa collectionne tout ce qui BRILLE sur sa carapace dorée. Il rêve de remettre la main sur l'hameçon magique de Maui — et sur le Cœur de Te Fiti — pour parader, plus beau et brillant que jamais.",
+    playTips: [
+      "Ton objectif : réunir le CROCHET DE MAUI et le CŒUR DE TE FITI dans ton Antre.",
+      "Trouve le Cœur au plus vite : il est dans ta pioche Fatalité et il te faut presque toujours « Crustacé doté du pouvoir de création » pour l'y chercher. Défausse souvent pour piocher tes Crustacés… et compte un peu sur la chance (3 exemplaires, coût 3, pas d'action Gagner 3).",
+      "Moana et Maui s'emparent de tes Objets : vaincs-les pour les libérer. Élimine Moana d'ABORD, puis Maui (force 8, qui revient via « L'heure de Maui ») — idéalement gagne le tour même où tu bats Maui. « Tu ressembles à des fruits de mer » élimine un Héros en payant sa force.",
+      "Si tu pioches le Crochet avant que l'adversaire joue « L'heure de Maui », pose-le aussitôt (il te donne 2 Pouvoir à chaque Fatalité). Le Monstre Arboricole peut, après un combat, amener un Objet dans ton Antre pour conclure le tour même.",
+    ],
+    counterTips: [
+      "Joue « L'heure de Maui » tôt : sinon Tamatoa peut gagner très vite s'il a de la chance avec le Cœur et le Crochet. Maui (force 8) déclenche aussi sa pioche Maui chaque tour.",
+      "Le fataliser AVANT qu'il trouve le Cœur est à double tranchant : si tu révèles le Cœur sans le garder, tu le rapproches de son objectif.",
+      "« Quelque chose qui brille » est toujours un bon choix — surtout posé là où se trouve (ou ira) un Héros important : il le protège du Vanquish et recouvre une action.",
     ],
   },
 }

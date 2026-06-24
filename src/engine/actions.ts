@@ -35,10 +35,18 @@ import {
   updateActivePlayer,
   updatePlayer,
 } from './state'
-import { addKronkTokens, addPuppyFromReserve, bargainReshuffle, bargainSword, canEnterAuDela, capturePuppiesAt, doCapturePuppies, doQuelsMove, doQuelsTutor, enterQuelsMove, enterQuelsTutor, holdsTalisman, lotsoMoveToRoom, lotsoReduceHero, moveTitanTo, performVanquish, playChosenFateFromDiscard, processCurseDiscards, raiponceLocation, reformYzmaDecks, relocateCard, relocateRaiponce, reshuffleYzmaIfKuzcoDiscarded, resolveEffect, resolveEffects, rollColorDie, smartMoveAllyOrItem, titanReachableDests, triggerHeroArrival } from './effects'
+import { addKronkTokens, addPuppyFromReserve, bargainReshuffle, bargainSword, canEnterAuDela, capturePuppiesAt, doCapturePuppies, doQuelsMove, doQuelsTutor, enterQuelsMove, enterQuelsTutor, holdsTalisman, lotsoMoveToRoom, lotsoReduceHero, mauiHeroInRealm, moveTitanTo, performVanquish, freeEliminateHero, playChosenFateFromDiscard, playTopMauiCard, processCurseDiscards, raiponceLocation, reformYzmaDecks, relocateCard, relocateRaiponce, reshuffleYzmaIfKuzcoDiscarded, resolveEffect, resolveEffects, rollColorDie, smartMoveAllyOrItem, titanReachableDests, triggerHeroArrival } from './effects'
 import { crewmateEndOfTurn, freeCellAt, placeCrewmateAt } from './crewmates'
 import { pendingOwner } from './turn'
-import { isKingCandy, trackMoveRange, moveKingCandyTrack, advanceRacerByReveal, bugOnVanellope, moveRacerBack } from './kingCandy'
+import { isKingCandy, trackMoveRange, moveKingCandyTrack, advanceRacerByReveal, bugOnVanellope, moveRacerBack, cardLocationIds } from './kingCandy'
+import { removeAllFireOnLocation, removeFire, placeFire, listFire, fireFreeActions } from './shereKhan'
+import {
+  findHero as findTreasureHero,
+  placeFacedownTreasure,
+  revealTreasure,
+  moveOrSwapTreasure,
+  heroesWithFacedownTreasure,
+} from './davyJones'
 import {
   adjacentLocationIds,
   belleBlocksRemoval,
@@ -83,9 +91,14 @@ import {
 /** Nombre de cartes Fatalité révélées par une action Fatalité. */
 const FATE_REVEAL = 2
 
+/** actionId sentinelle pour jouer une carte « sans action Jouer une carte »
+ *  (Turbo-Statique) : aucune action de lieu n'est requise ni consommée. */
+export const FREE_PLAY_NO_ACTION_ID = 'free-play-no-action'
+
 /** Si l'action `action` était RECOUVERTE (top-row sur un lieu avec Héros) ET
  *  qu'elle vient d'être utilisée grâce à Persifleur, consomme le drapeau. */
-function consumePersifleur(state: GameState, action: LocationAction): GameState {
+function consumePersifleur(state: GameState, action: LocationAction | undefined): GameState {
+  if (!action) return state
   if (!state.persifleurAvailable) return state
   if (action.row !== 'top') return state
   const loc = currentLocation(state)
@@ -245,6 +258,19 @@ function applyMove(state: GameState, to: string): GameState {
     next = updateActivePlayer(next, (p) => ({ ...p, poison: (p.poison ?? 0) - 1 }))
     next = { ...next, log: [...next.log, `Puits aux souhaits : ${me.villainName} perd 1 jeton Poison.`] }
   }
+  // Chicha (Yzma) / Zirgouflex (Ursula) : le vilain perd du Pouvoir s'il arrive sur le
+  // lieu d'une carte Fatalité dotée de `powerLossOnPawnArrive` (cumulatif, plancher 0).
+  const arrivalLoss = (next.players[state.activePlayer].board[to] ?? []).reduce(
+    (n, c) => n + (c.powerLossOnPawnArrive ?? 0),
+    0,
+  )
+  if (arrivalLoss > 0) {
+    const lost = Math.min(arrivalLoss, next.players[state.activePlayer].power)
+    if (lost > 0) {
+      next = updateActivePlayer(next, (p) => ({ ...p, power: p.power - lost }))
+      next = { ...next, log: [...next.log, `${me.villainName} perd ${lost} Pouvoir en arrivant (carte Fatalité).`] }
+    }
+  }
   // Malédictions Feu Infernal : défaussées si le pion arrive sur leur lieu.
   return processCurseDiscards(next, state.activePlayer, to, 'pawn-moves-here')
 }
@@ -322,19 +348,36 @@ function applyPlayCard(
   const loc = currentLocation(state)
   if (!loc) throw new Error('Aucun lieu courant.')
 
-  // L'action « Jouer une carte » doit être disponible sur le LIEU COURANT —
-  // imprimée OU accordée par un Objet/Allié (Coéquipier imposteur → « Jouer une
-  // carte »), d'où l'usage de locationActions (qui inclut les actions accordées).
-  const action = locationActions(state, loc.id).find((a) => a.id === actionId)
-  if (!action || action.type !== 'PLAY_CARD') {
-    throw new Error(`« ${actionId} » n'est pas une action « Jouer une carte ».`)
-  }
-  if (isActionCovered(state, action)) {
-    throw new Error(`${action.label} est recouverte par un Héros.`)
-  }
-  // Action déjà utilisée : refusée, SAUF si Noir de nuit autorise une réutilisation.
-  if (state.usedActionIds.includes(actionId) && !activePlayer(state).repeatActionAvailable) {
-    throw new Error('Cette action a déjà été utilisée ce tour.')
+  // Carte « jouable sans action Jouer une carte » (Turbo-Statique) : actionId sentinelle.
+  // On contourne la recherche/validation d'une action « Jouer une carte » du lieu, et on
+  // ne consommera aucune action (cf. usedActionIds plus bas).
+  const freePlay = actionId === FREE_PLAY_NO_ACTION_ID
+  // `action` reste undefined en freePlay (aucune action de lieu requise/consommée).
+  let action: LocationAction | undefined
+  if (freePlay) {
+    const c = activePlayer(state).hand.find((cc) => cc.instanceId === instanceId)
+    if (!c?.playableWithoutAction) {
+      throw new Error(`${c?.name ?? 'Cette carte'} ne peut pas être jouée sans action.`)
+    }
+    // L'important, c'est de payer : jouable uniquement AVANT toute action de lieu.
+    if (c.playableOnlyBeforeActions && locationActionTaken(state)) {
+      throw new Error(`${c.name} ne peut être jouée qu'avant vos actions.`)
+    }
+  } else {
+    // L'action « Jouer une carte » doit être disponible sur le LIEU COURANT —
+    // imprimée OU accordée par un Objet/Allié (Coéquipier imposteur → « Jouer une
+    // carte »), d'où l'usage de locationActions (qui inclut les actions accordées).
+    action = locationActions(state, loc.id).find((a) => a.id === actionId)
+    if (!action || action.type !== 'PLAY_CARD') {
+      throw new Error(`« ${actionId} » n'est pas une action « Jouer une carte ».`)
+    }
+    if (isActionCovered(state, action)) {
+      throw new Error(`${action.label} est recouverte par un Héros.`)
+    }
+    // Action déjà utilisée : refusée, SAUF si Noir de nuit autorise une réutilisation.
+    if (state.usedActionIds.includes(actionId) && !activePlayer(state).repeatActionAvailable) {
+      throw new Error('Cette action a déjà été utilisée ce tour.')
+    }
   }
 
   const me = activePlayer(state)
@@ -360,13 +403,30 @@ function applyPlayCard(
   if (card.cardId === 'page' && me.noPagePlay) {
     throw new Error('Lever du jour : impossible de jouer une Page ce tour-ci.')
   }
-  // Joyeux non-anniversaire (gain par Allié) : injouable sans aucun Allié dans le
-  // royaume (elle n'aurait aucun effet). Donnée : on teste l'effet, pas le cardId.
+  // Joyeux non-anniversaire (gain par Allié) / Tendre un Piège (déplacer un Allié) :
+  // injouables sans aucun Allié dans le royaume. Donnée : on teste l'effet, pas le cardId.
   if (
-    (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_ALLY_IN_REALM') &&
+    (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_ALLY_IN_REALM' || e.type === 'MOVE_ALLY_FREELY') &&
     !Object.values(me.board).flat().some((c) => c.type === 'ally')
   ) {
     throw new Error('Aucun Allié dans votre royaume : cette carte n’aurait aucun effet.')
+  }
+  // Davy Jones — La Marque Noire (REVEAL_TREASURE sans `atHostLocation`) : injouable s'il
+  // n'y a aucun jeton Trésor FACE CACHÉE sur un Héros (rien à révéler). Bill le Bottier
+  // (atHostLocation, révélation facultative) n'est PAS concerné.
+  if (
+    (card.effects ?? []).some((e) => e.type === 'REVEAL_TREASURE' && !e.atHostLocation) &&
+    heroesWithFacedownTreasure(me).length === 0
+  ) {
+    throw new Error('Aucun jeton Trésor face cachée sur un Héros : cette carte n’aurait aucun effet.')
+  }
+  // Davy Jones — La Poursuite (MOVE_ANY_HERO_TO_ALLY) : injouable si NI Héros NI Allié dans
+  // le royaume (rien à déplacer ou aucune destination → aucun effet).
+  if (
+    (card.effects ?? []).some((e) => e.type === 'MOVE_ANY_HERO_TO_ALLY') &&
+    !Object.values(me.board).flat().some((c) => c.type === 'hero' || c.type === 'ally')
+  ) {
+    throw new Error('Aucun Héros ni Allié dans votre royaume : cette carte n’aurait aucun effet.')
   }
   // Reine de Cœur — Par ordre de la Reine ! : injouable s'il n'y a aucune Carte Garde
   // transformable en arceau (aucune Carte Garde, ou toutes déjà arceaux / sur le Dodo).
@@ -388,7 +448,14 @@ function applyPlayCard(
   // injouable sans aucun Héros dans le royaume (aucun effet). Donnée : on teste l'effet.
   if (
     (card.effects ?? []).some(
-      (e) => e.type === 'GAIN_POWER_PER_HERO_IN_REALM' || e.type === 'RELOCATE_OWN_HERO',
+      (e) =>
+        e.type === 'GAIN_POWER_PER_HERO_IN_REALM' ||
+        e.type === 'RELOCATE_OWN_HERO' ||
+        // Tamatoa — Appât (pioche par Héros) / Tu ressembles à des fruits de mer (élimine
+        // un Héros) / Sans pouvoir (jetons Force −1 à un Héros) : sans Héros, aucun effet.
+        e.type === 'DRAW_PER_HERO_IN_REALM' ||
+        e.type === 'DEFEAT_HERO_PAY_STRENGTH' ||
+        e.type === 'ADD_MINUS_FORCE_TOKENS',
     ) &&
     !Object.values(me.board).flat().some((c) => c.type === 'hero')
   ) {
@@ -726,6 +793,15 @@ function applyPlayCard(
     if (!targetHeroId) throw new Error('Hypnose nécessite un Héros cible.')
     cost = effectiveStrength(state, state.activePlayer, targetHeroId) ?? 0
   }
+  // Surcharges d'un Pacte liées à son HÉROS-CIBLE (effectiveCost ne connaît que le lieu) :
+  //  - Ursula — Bigette Bulbeuse associée au Héros : +3.
+  //  - Le Héros lui-même peut renchérir (Roi Triton : `pacteTargetSurcharge` +1).
+  // NB : « Événements ciblant Triton » non couverts (leur cible est choisie APRÈS le paiement).
+  if (card.contractLocationId && attachTo && to) {
+    const cell = me.board[to] ?? []
+    if (cell.some((c) => c.cardId === 'bigette' && c.attachedTo === attachTo)) cost += 3
+    cost += cell.find((c) => c.instanceId === attachTo)?.pacteTargetSurcharge ?? 0
+  }
   // Ratigan — Engrenages : pour jouer un Objet, on peut défausser des Engrenages EN
   // JEU (sur le plateau) — au choix du joueur via `engrenagesIds` — pour réduire son
   // coût de 3 par Engrenage.
@@ -893,7 +969,8 @@ function applyPlayCard(
   const assoc = host ? `, associé à **${host.name}**` : ''
   next = {
     ...next,
-    usedActionIds: [...next.usedActionIds, actionId],
+    // Turbo-Statique (freePlay) : ne consomme aucune action de lieu.
+    usedActionIds: freePlay ? next.usedActionIds : [...next.usedActionIds, actionId],
     log: [...next.log, `${me.villainName} joue **${card.name}** (coût ${cost})${where}${assoc}.`],
   }
 
@@ -1092,6 +1169,15 @@ function applyPlayCard(
     // pré-placement (resolveEffects ci-dessus) est un no-op faute de hostLocationId.
     if (card.type === 'ally' && (card.effects ?? []).some((e) => e.type === 'DRAIN_STAR_TO_SELF_IF_AT_OBSERVATORY')) {
       next = resolveEffects(next, [{ type: 'DRAIN_STAR_TO_SELF_IF_AT_OBSERVATORY' }], {
+        actorIndex: state.activePlayer,
+        hostInstanceId: placed.instanceId,
+        hostLocationId: destId,
+      })
+    }
+    // Sa Sucrerie — Médaillon des Héros de Ralph : Objet posé sur un lieu → cherche Ralph
+    // la Casse, le pose ici et s'y associe (effet résolu après placement, avec l'hôte).
+    if ((card.effects ?? []).some((e) => e.type === 'MEDAILLON_FETCH_RALPH')) {
+      next = resolveEffects(next, [{ type: 'MEDAILLON_FETCH_RALPH' }], {
         actorIndex: state.activePlayer,
         hostInstanceId: placed.instanceId,
         hostLocationId: destId,
@@ -1364,7 +1450,20 @@ function applyFate(state: GameState, actionId: string): GameState {
     throw new Error(`Le deck Fatalité de ${tgt.villainName} est vide.`)
   }
 
-  const r = revealFate(tgt, FATE_REVEAL, state.rngState)
+  const r0 = revealFate(tgt, FATE_REVEAL, state.rngState)
+  // Tamatoa — Hameçon de Maui : +N Pouvoir chaque fois que Tamatoa est ciblé par la
+  // Fatalité (tant qu'il le possède, non associé). On l'injecte dans le joueur cible.
+  const hookBonus =
+    tgt.villain === 'tamatoa'
+      ? Object.values(tgt.board)
+          .flat()
+          .filter((c) => c.cardId === 'hamecon-de-maui' && !c.attachedTo)
+          .reduce((n, c) => n + (c.gainPowerWhenFated ?? 0), 0)
+      : 0
+  const r = hookBonus > 0 ? { ...r0, player: { ...r0.player, power: r0.player.power + hookBonus } } : r0
+  if (hookBonus > 0) {
+    state = { ...state, log: [...state.log, `${tgt.villainName} possède l'Hameçon de Maui : +${hookBonus} Pouvoir.`] }
+  }
   // Héros « joué d'office dès qu'il est dévoilé » (Peter Pan → Arbre du Pendu,
   // Blanche-Neige → Maison des Nains) : data-driven via `forcedFateLocation`. Il
   // est posé immédiatement sur SON lieu (verrouillé ou non) et les autres cartes
@@ -2331,6 +2430,22 @@ export function fateCardPlayable(state: GameState, card: CardInstance, target: n
     const tgt = state.players[target]
     return (tgt.poison ?? 0) > 0 || tgt.fateDiscard.some((c) => c.type === 'hero')
   }
+  // Sa Sucrerie — Enfin un vrai Kart ! : injouable hors course (aucun jeton Pilote sur le
+  // circuit → rien à faire avancer). Donnée : on teste l'effet, pas le cardId.
+  if ((card.effects ?? []).some((e) => e.type === 'KING_CANDY_ADVANCE_RACER_BY_REVEAL')) {
+    const kc = state.players.find((p) => p.villain === 'sa-sucrerie')
+    return !!kc && !!kc.raceActive && kc.racerPos != null
+  }
+  // Sa Sucrerie — Le Faisceau : injouable sans Cybug en Sucre dans le royaume.
+  if ((card.effects ?? []).some((e) => e.type === 'BEACON_GATHER_CYBUGS')) {
+    const kc = state.players.find((p) => p.villain === 'sa-sucrerie')
+    return !!kc && Object.values(kc.board).flat().some((c) => c.cardId === 'cybug-en-sucre' && c.type === 'ally' && !c.attachedTo)
+  }
+  // Sa Sucrerie — Médaille de Vanellope : injouable sans Héros dans la défausse Fatalité.
+  if ((card.effects ?? []).some((e) => e.type === 'MEDAL_PLAY_FATE_HERO')) {
+    const kc = state.players.find((p) => p.villain === 'sa-sucrerie')
+    return !!kc && kc.fateDiscard.some((c) => c.type === 'hero')
+  }
   return true
 }
 
@@ -2983,13 +3098,16 @@ function applyResolveFateInner(
     return resolveEffects(next, [{ type: 'PUSH_TITAN_BACK_AUTO', steps: 2 }], { actorIndex: pending.target })
   }
 
-  // Du gospel pur ! (Hadès, Fatalité) : défausse un Allié ou un Objet du royaume
-  // de la cible (auto : un Allié non-Titan en priorité, sinon un Objet, sinon un Titan).
+  // Du gospel pur ! (Hadès, Fatalité) : défausse un Allié ou un Objet du royaume de
+  // la cible. Cible prioritaire : le CHAR (moteur de déplacement d'Hadès — cf. guide,
+  // « défausser le Char dès que possible »), puis un Allié non-Titan, un autre Objet,
+  // et en dernier un Titan.
   if (chosen.cardId === 'du-gospel-pur') {
     let next = updatePlayer(state, pending.target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, chosen, ...others] }))
     next = { ...next, pendingFate: null }
     const realm = tgt.locations.flatMap((l) => (next.players[pending.target].board[l.id] ?? []).map((c) => ({ c, loc: l.id })))
     const pick =
+      realm.find(({ c }) => c.cardId === 'char' && !c.attachedTo) ??
       realm.find(({ c }) => c.type === 'ally' && !c.isTitan && !c.attachedTo && !c.isWicket) ??
       realm.find(({ c }) => c.type === 'item' && !c.attachedTo) ??
       realm.find(({ c }) => c.type === 'ally' && !c.attachedTo)
@@ -3288,6 +3406,21 @@ function applyResolveFateInner(
     return resolveEffects(next, chosen.effects ?? [], { actorIndex: pending.target })
   }
 
+  // Gaston — Fatalités qui REPLACENT des Obstacles (Me masser gentiment les pieds, C'est
+  // gentil de m'avoir sauvé la vie, Je n'ai jamais vu autant de livres, C'est toi…) :
+  // résoudre leurs `effects` sur la CIBLE (Gaston) — l'interactif s'ouvre côté fataliseur
+  // (pendingObstacle, chooserIndex = joueur actif). Sans cette branche, elles tombaient
+  // dans le fallback et étaient défaussées SANS effet.
+  if ((chosen.effects ?? []).some((e) => e.type === 'REPLACE_OBSTACLE')) {
+    let next = updatePlayer(state, pending.target, (p) => ({
+      ...p,
+      fateDiscard: [...p.fateDiscard, chosen, ...others],
+    }))
+    next = { ...next, pendingFate: null }
+    next = pushShowcase(next, chosen.cardId, `${tgt.villainName} : Obstacles replacés`, state.activePlayer)
+    return resolveEffects(next, chosen.effects ?? [], { actorIndex: pending.target })
+  }
+
   // Fallback (carte Fatalité non implémentée) : simple défausse.
   const next = updatePlayer(state, pending.target, (p) => ({
     ...p,
@@ -3327,6 +3460,14 @@ function applyMoveCard(
   if (!from) throw new Error(`Carte « ${instanceId} » absente du plateau.`)
   if ((me.lockedLocations ?? []).includes(from)) {
     throw new Error(`Impossible de déplacer une carte depuis un lieu verrouillé.`)
+  }
+  // Ralph la Casse (Fatalité, Sa Sucrerie) : l'action « Déplacer un Objet/Allié » coûte
+  // N Pouvoir tant qu'un Héros doté de `moveActionSurcharge` est dans le royaume.
+  const moveSurcharge = Object.values(me.board)
+    .flat()
+    .reduce((n, c) => n + (c.type === 'hero' ? c.moveActionSurcharge ?? 0 : 0), 0)
+  if (moveSurcharge > 0 && me.power < moveSurcharge) {
+    throw new Error(`Déplacer un Objet/Allié coûte ${moveSurcharge} Pouvoir (Ralph la Casse).`)
   }
   const card = me.board[from].find((c) => c.instanceId === instanceId)!
   // Une Malédiction est traitée comme un Objet : elle est déplaçable.
@@ -3383,6 +3524,7 @@ function applyMoveCard(
 
   let next = updateActivePlayer(state, (p) => ({
     ...p,
+    power: p.power - moveSurcharge,
     board: {
       ...p.board,
       [from]: p.board[from].filter((c) => !movingIds.has(c.instanceId)),
@@ -3401,6 +3543,16 @@ function applyMoveCard(
   }
   // Animation UI : la carte « vole » du lieu de départ vers le lieu d'arrivée.
   next = pushFloatingFx(next, { kind: 'move-card', playerIndex: state.activePlayer, cardId: card.cardId, from, to })
+  // Carte « jouée OU déplacée » (donnée `effectsAlsoOnMove`) : on redéclenche ses
+  // effets de pose au déplacement. Ex. Pilotes (Sa Sucrerie) : GAIN_POWER 1.
+  if (card.effectsAlsoOnMove) {
+    next = resolveEffects(next, card.effects ?? [], {
+      actorIndex: state.activePlayer,
+      hostInstanceId: card.instanceId,
+      hostLocationId: to,
+      playDestination: to,
+    })
+  }
   // Yzma — Kronk gagne 1 jeton Pouvoir à chaque déplacement (devient Héros à 3+).
   if (card.cardId === 'kronk') {
     next = addKronkTokens(next, state.activePlayer, 1)
@@ -3488,6 +3640,40 @@ function applyMoveCard(
           optional: true,
         },
         log: [...next.log, `Garde royal : vous pouvez déplacer un Héros vers **${destName}**.`],
+      }
+    }
+  }
+  // Shere Khan — Anneaux de Kaa : quand KAA (porteur des Anneaux) est déplacé, on PEUT
+  // déplacer un Héros de son lieu de DÉPART (`from`) vers son lieu d'ARRIVÉE (`to`).
+  // Destination imposée (= `to`), choix facultatif et interactif (quel Héros). Même
+  // mécanique que le Garde royal de Mère Gothel.
+  if (card.cardId === 'kaa' && moving.some((c) => c.cardId === 'anneaux-de-kaa')) {
+    const ap = state.activePlayer
+    const destCell = next.players[ap].board[to] ?? []
+    const candidates = (next.players[ap].board[from] ?? [])
+      .filter((h) => {
+        if (h.type !== 'hero') return false
+        if ((h.forbiddenLocations ?? []).includes(to)) return false
+        return !destCell.some((c) => {
+          const r = c.placementRestriction
+          return (
+            r?.type === 'no-heroes' ||
+            (r?.type === 'min-hero-strength' && (h.strength ?? 0) < r.value)
+          )
+        })
+      })
+      .map((h) => h.instanceId)
+    if (candidates.length > 0) {
+      next = {
+        ...next,
+        pendingHeroRelocate: {
+          chooserIndex: ap,
+          targetIndex: ap,
+          candidateIds: candidates,
+          forcedLocationId: to,
+          optional: true,
+        },
+        log: [...next.log, `Anneaux de Kaa : vous pouvez déplacer un Héros vers **${destName}**.`],
       }
     }
   }
@@ -4258,6 +4444,64 @@ function applyActivateCore(
     }
   }
 
+  // --- Shere Khan -----------------------------------------------------------
+  if (card.cardId === 'macaques') {
+    // Macaques : payez 1 Pouvoir par jeton Feu sur ce lieu, retirez-les tous, défaussez
+    // les Macaques. Inutilisable si aucun jeton Feu sur le lieu.
+    const fires = me.fireTokens?.[cardLoc] ?? []
+    if (fires.length === 0) throw new Error('Aucun jeton Feu à retirer sur ce lieu.')
+    if (me.power < fires.length) throw new Error(`Pouvoir insuffisant : ${fires.length} jeton(s) Feu à payer.`)
+    let next = updateActivePlayer(state, (p) => ({
+      ...p,
+      power: p.power - fires.length,
+      board: { ...p.board, [cardLoc]: (p.board[cardLoc] ?? []).filter((c) => c.instanceId !== cardInstanceId) },
+      discard: [...p.discard, { ...card }],
+    }))
+    const r = removeAllFireOnLocation(next, state.activePlayer, cardLoc)
+    next = consumePersifleur(r.state, action)
+    return {
+      ...next,
+      usedActionIds: [...next.usedActionIds, actionId],
+      log: [...next.log, `${me.villainName} active les **Macaques** : retire ${r.removed} jeton(s) Feu de **${findLocation(me, cardLoc)!.name}** (−${fires.length} JT), puis les défausse.`],
+    }
+  }
+
+  if (card.cardId === 'le-roi-singe') {
+    // Le Roi Singe : déplace une carte MACAQUES vers n'importe quel lieu (choix interactif
+    // du Macaque puis du lieu, via pendingMonkeyKing). Si un seul Macaque, on le pré-choisit.
+    const allMacaques: string[] = []
+    for (const loc of me.locations) {
+      for (const c of me.board[loc.id] ?? []) if (c.cardId === 'macaques') allMacaques.push(c.instanceId)
+    }
+    if (allMacaques.length === 0) throw new Error('Aucune carte Macaques à déplacer.')
+    let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost! }))
+    next = consumePersifleur(next, action)
+    return {
+      ...next,
+      usedActionIds: [...next.usedActionIds, actionId],
+      activeMovedCard: true,
+      pendingMonkeyKing: {
+        playerIndex: state.activePlayer,
+        macaqueInstanceId: allMacaques.length === 1 ? allMacaques[0] : undefined,
+      },
+      log: [...next.log, `${me.villainName} active **Le Roi Singe** : choisissez un Macaque et son lieu de destination.`],
+    }
+  }
+
+  if (card.cardId === 'kaa') {
+    // Kaa : jouez un Objet de votre défausse en payant son coût (choix interactif via
+    // pendingKaaPlay ; le coût est payé à la résolution selon l'Objet choisi).
+    const affordable = me.discard.filter((c) => c.type === 'item' && (c.cost ?? 0) <= me.power)
+    if (affordable.length === 0) throw new Error('Aucun Objet abordable dans votre défausse.')
+    const next = consumePersifleur(state, action)
+    return {
+      ...next,
+      usedActionIds: [...next.usedActionIds, actionId],
+      pendingKaaPlay: { playerIndex: state.activePlayer, hostInstanceId: cardInstanceId, locationId: cardLoc },
+      log: [...next.log, `${me.villainName} active **Kaa** : choisissez un Objet de la défausse à jouer.`],
+    }
+  }
+
   throw new Error(`Capacité activée non implémentée pour ${card.name}.`)
 }
 
@@ -4280,9 +4524,80 @@ function applyVanquish(
   if (action.type !== 'VANQUISH') {
     throw new Error(`« ${actionId} » n'est pas une action « Éliminer ».`)
   }
+  // Davy Jones — Jack Sparrow : tant qu'il partage le lieu du pion, aucune action Éliminer.
+  if ((activePlayer(state).board[loc.id] ?? []).some((c) => c.type === 'hero' && c.blocksVanquishHere)) {
+    throw new Error('Jack Sparrow empêche toute action Éliminer un Héros sur ce lieu.')
+  }
+  // Davy Jones — La Boîte à Musique (Trésor révélé) : Le Kraken ne peut pas participer à
+  // l'élimination de ce Héros.
+  {
+    const meV = activePlayer(state)
+    const target = (meV.board[loc.id] ?? []).find((c) => c.instanceId === heroInstanceId)
+    const usesKraken = allyInstanceIds.some(
+      (id) => Object.values(meV.board).flat().find((c) => c.instanceId === id)?.cardId === 'le-kraken',
+    )
+    if (target?.treasure?.faceUp && target.treasure.id === 'boite-a-musique' && usesKraken) {
+      throw new Error('La Boîte à Musique empêche Le Kraken de vaincre ce Héros.')
+    }
+  }
+  // Shere Khan — Kaa : si Kaa est engagé dans ce Vanquish et porte ≥1 Objet bouclier,
+  // le joueur choisit de sacrifier un Objet à sa place (ou non) → pendingKaaShield.
+  const kaa = kaaShieldNeeded(state, allyInstanceIds)
+  if (kaa) {
+    const next = consumePersifleur(state, action)
+    return {
+      ...next,
+      usedActionIds: [...next.usedActionIds, actionId],
+      pendingKaaShield: {
+        playerIndex: state.activePlayer,
+        heroInstanceId,
+        allyInstanceIds,
+        itemInstanceIds: kaa.itemIds,
+        raceBan: false,
+      },
+    }
+  }
   let next = performVanquish(state, heroInstanceId, allyInstanceIds, false)
+  // Tamatoa — Monstre Arboricole : après ce Vanquish, on peut déplacer n'importe quelle
+  // carte. Auto : amener un Objet-objectif LIBÉRÉ (Hameçon/Cœur) vers l'Antre de Tamatoa.
+  const usedTree = allyInstanceIds.some((id) =>
+    Object.values(state.players[state.activePlayer].board).flat().some((c) => c.instanceId === id && c.moveAnyCardOnVanquish),
+  )
+  if (usedTree && next.players[state.activePlayer].villain === 'tamatoa') {
+    const aidx = state.activePlayer
+    for (const loc of next.players[aidx].locations) {
+      if (loc.id === 'repaire-tamatoa') continue
+      const item = (next.players[aidx].board[loc.id] ?? []).find(
+        (c) => (c.cardId === 'hamecon-de-maui' || c.cardId === 'coeur-de-te-fiti') && !c.attachedTo,
+      )
+      if (item) {
+        next = relocateCard(next, aidx, item.instanceId, loc.id, 'repaire-tamatoa')
+        next = { ...next, log: [...next.log, `Monstre Arboricole : **${item.name}** est amené dans l'Antre de Tamatoa.`] }
+        break
+      }
+    }
+  }
   next = consumePersifleur(next, action)
   return { ...next, usedActionIds: [...next.usedActionIds, actionId] }
+}
+
+/** Shere Khan — Kaa : si Kaa figure parmi les Alliés engagés dans un Vanquish et porte
+ *  au moins un Objet « bouclier » (shieldAllyFromDiscard), renvoie l'hôte + les Objets
+ *  sacrifiables ; sinon null (pas de choix de bouclier à proposer). */
+function kaaShieldNeeded(state: GameState, allyInstanceIds: string[]): { hostId: string; itemIds: string[] } | null {
+  const me = activePlayer(state)
+  const used = new Set(allyInstanceIds)
+  for (const loc of me.locations) {
+    for (const c of me.board[loc.id] ?? []) {
+      if (c.cardId === 'kaa' && used.has(c.instanceId)) {
+        const items = (me.board[loc.id] ?? []).filter(
+          (o) => o.attachedTo === c.instanceId && o.shieldAllyFromDiscard,
+        )
+        if (items.length > 0) return { hostId: c.instanceId, itemIds: items.map((i) => i.instanceId) }
+      }
+    }
+  }
+  return null
 }
 
 /** Défausser un Déguisement Fatalité associé à un Héros du plateau du joueur
@@ -4427,7 +4742,7 @@ function applyDiabloSkipFreeAction(state: GameState): GameState {
  */
 function applyPerformGrantedAction(
   state: GameState,
-  inner: Extract<GameAction, { type: 'VANQUISH' | 'MOVE_CARD' }>,
+  inner: Extract<GameAction, { type: 'VANQUISH' | 'MOVE_CARD' | 'PLAY_CARD' }>,
 ): GameState {
   const g = state.grantedAction
   if (!g) throw new Error("Aucune action gratuite n'est disponible.")
@@ -4683,7 +4998,8 @@ function applyTrapVanquish(
   if (required && !allyInstanceIds.includes(required)) {
     throw new Error("L'Allié portant l'Uniforme doit participer à l'élimination.")
   }
-  let next = performVanquish(state, heroInstanceId, allyInstanceIds, false)
+  // Il lui est défendu de courir : les Alliés utilisés ne sont PAS défaussés (keepAllies).
+  let next = performVanquish(state, heroInstanceId, allyInstanceIds, source === 'race-ban')
   // Tendre un Piège : showcase de la carte différé (apparaît une fois la séquence
   // terminée). Troupeau de gnous : la carte a déjà été montrée à sa pose.
   if (source === 'trap') {
@@ -5442,6 +5758,10 @@ function applyResolveHeroRelocate(state: GameState, heroInstanceId: string, to: 
     if (!target.locations.some((l) => l.id === to) || locked.has(to)) {
       throw new Error(`Lieu « ${to} » invalide (doit être non bloqué).`)
     }
+    // Davy Jones — La Poursuite : destination restreinte aux lieux portant un Allié.
+    if (pending.allowedLocationIds && !pending.allowedLocationIds.includes(to)) {
+      throw new Error(`Lieu « ${to} » invalide : le Héros doit aller sur un lieu où se trouve un Allié.`)
+    }
   } else {
     const ids = target.locations.map((l) => l.id)
     const i = ids.indexOf(from)
@@ -5529,7 +5849,21 @@ function applyResolveAllyRelocate(state: GameState, allyInstanceId: string, to: 
     pendingAllyRelocate: keepOpen ? { ...pending, remaining: nextRemaining, onlyInstanceIds: nextOnly } : null,
     log: [...next.log, `**${title}** : **${ally.name}** est déplacé(e) vers **${destName}**.`],
   }
-  return next
+  return keepOpen ? next : chainRaceBanVanquish(next, pending)
+}
+
+/** Il lui est défendu de courir : à la fermeture du déplacement d'Alliés, ouvre un
+ *  Vanquish facultatif gardant les Alliés (pendingTrapVanquish 'race-ban'), s'il reste
+ *  un Héros à éliminer dans le royaume. */
+function chainRaceBanVanquish(
+  state: GameState,
+  pending: NonNullable<GameState['pendingAllyRelocate']>,
+): GameState {
+  if (!pending.thenRaceBanVanquish) return state
+  const me = state.players[pending.targetIndex]
+  const hasHero = Object.values(me.board).flat().some((c) => c.type === 'hero')
+  if (!hasHero) return state
+  return { ...state, pendingTrapVanquish: { source: 'race-ban' } }
 }
 
 /** Sa Sucrerie — Go ! (et autres relocations facultatives) : arrêter de déplacer des
@@ -5538,7 +5872,7 @@ function applySkipAllyRelocate(state: GameState): GameState {
   const pending = state.pendingAllyRelocate
   if (!pending) return state
   if (!pending.optional) throw new Error('Ce déplacement d’Allié n’est pas facultatif.')
-  return { ...state, pendingAllyRelocate: null }
+  return chainRaceBanVanquish({ ...state, pendingAllyRelocate: null }, pending)
 }
 
 /** Syndrome — « Identification, je vous prie » : déplace l'Allié/Objet choisi (+ ses
@@ -5834,6 +6168,144 @@ function applyResolvePowerOrRacerBack(state: GameState, choice: 'power' | 'racer
   return resolveEffect(cleared, { type: 'GAIN_POWER', amount: power }, { actorIndex: playerIndex })
 }
 
+/** Sa Sucrerie — Taffyta Crème Brûlée : applique le choix « racer-back » (recule le
+ *  jeton Pilote de 2) ou « play-card » (arme une action Jouer une carte gratuite). */
+function applyResolveTaffytaChoice(state: GameState, choice: 'racer-back' | 'play-card'): GameState {
+  const pending = state.pendingTaffytaChoice
+  if (!pending) throw new Error('Aucun choix Taffyta en attente.')
+  const { playerIndex } = pending
+  const cleared = { ...state, pendingTaffytaChoice: null }
+  if (choice === 'racer-back') {
+    return resolveEffect(cleared, { type: 'KING_CANDY_MOVE_RACER_BACK', amount: 2 }, { actorIndex: playerIndex })
+  }
+  return resolveEffect(cleared, { type: 'GRANT_FREE_ACTION', actionType: 'PLAY_CARD' }, { actorIndex: playerIndex })
+}
+
+/** Sa Sucrerie — L'important, c'est de payer : dépense `amount` jetons Pouvoir (borné
+ *  à [1, max]) et avance le pion d'autant de cases (un franchissement de Départ/Arrivée
+ *  pendant une course déclenche la victoire, géré par moveKingCandyTrack). */
+function applyResolvePayRace(state: GameState, amount: number): GameState {
+  const pending = state.pendingPayRace
+  if (!pending) throw new Error('Aucun choix « L’important, c’est de payer » en attente.')
+  const { playerIndex, max } = pending
+  const n = Math.max(1, Math.min(amount, max))
+  let next = updatePlayer({ ...state, pendingPayRace: null }, playerIndex, (p) => ({ ...p, power: p.power - n }))
+  next = moveKingCandyTrack(next, playerIndex, n)
+  return {
+    ...next,
+    log: [...next.log, `${next.players[playerIndex].villainName} dépense ${n} Pouvoir et avance de ${n} case${n > 1 ? 's' : ''} (L'important, c'est de payer).`],
+  }
+}
+
+/** Sa Sucrerie — Princesse Vanellope : recule le pion King Candy de `amount` (borné [0,max]). */
+function applyResolvePawnBack(state: GameState, amount: number): GameState {
+  const pending = state.pendingPawnBack
+  if (!pending) throw new Error('Aucun recul de pion en attente.')
+  const { playerIndex, max } = pending
+  const n = Math.max(0, Math.min(amount, max))
+  const cleared = { ...state, pendingPawnBack: null }
+  return n === 0 ? cleared : moveKingCandyTrack(cleared, playerIndex, -n)
+}
+
+/** Sa Sucrerie — Le Faisceau : phase 'pick-location' (rassemble les Cybugs voisins sur le
+ *  lieu choisi) puis phase 'discard' (défausse FACULTATIVE d'un Cybug de ce lieu). */
+function applyResolveBeacon(
+  state: GameState,
+  arg: { locationId?: LocationId; cybugInstanceId?: string; skip?: boolean },
+): GameState {
+  const pending = state.pendingBeacon
+  if (!pending) throw new Error('Aucun Faisceau en attente.')
+  const kc = pending.playerIndex
+  const isCybug = (c: CardInstance) => c.cardId === 'cybug-en-sucre' && c.type === 'ally' && !c.attachedTo
+  if (pending.kind === 'pick-location') {
+    const to = arg.locationId
+    if (!to || !(pending.locationIds ?? []).includes(to)) throw new Error('Lieu invalide (Le Faisceau).')
+    const p = state.players[kc]
+    const zones = cardLocationIds(p)
+    const i = zones.indexOf(to)
+    const neighborIds = new Set([zones[i - 1], zones[i + 1]].filter((id): id is string => !!id))
+    // Cybugs des lieux voisins (+ leurs Objets associés) → déplacés sur `to`.
+    const movingIds = new Set<string>()
+    for (const locId of neighborIds) {
+      for (const c of p.board[locId] ?? []) {
+        if (isCybug(c)) {
+          movingIds.add(c.instanceId)
+          for (const o of p.board[locId] ?? []) if (o.attachedTo === c.instanceId) movingIds.add(o.instanceId)
+        }
+      }
+    }
+    let next = updatePlayer(state, kc, (pl) => {
+      const moving: CardInstance[] = []
+      const board: typeof pl.board = {}
+      for (const locId of Object.keys(pl.board)) {
+        board[locId] = (pl.board[locId] ?? []).filter((c) => {
+          if (neighborIds.has(locId) && movingIds.has(c.instanceId)) {
+            moving.push(c)
+            return false
+          }
+          return true
+        })
+      }
+      board[to] = [...(board[to] ?? []), ...moving]
+      return { ...pl, board }
+    })
+    const cybugsHere = (next.players[kc].board[to] ?? []).filter(isCybug)
+    next = {
+      ...next,
+      log: [...next.log, `Le Faisceau : les Cybugs en Sucre voisins sont rassemblés sur **${findLocation(next.players[kc], to)?.name ?? to}**.`],
+    }
+    // Phase 2 : défausse facultative d'un Cybug de ce lieu (s'il y en a).
+    if (cybugsHere.length > 0) {
+      return { ...next, pendingBeacon: { ...pending, kind: 'discard', cybugIds: cybugsHere.map((c) => c.instanceId), locationIds: undefined } }
+    }
+    return { ...next, pendingBeacon: null }
+  }
+  // Phase 'discard' : facultative.
+  if (arg.skip || !arg.cybugInstanceId) return { ...state, pendingBeacon: null }
+  if (!(pending.cybugIds ?? []).includes(arg.cybugInstanceId)) throw new Error('Cybug invalide (Le Faisceau).')
+  const loc = locationOfCard(state.players[kc], arg.cybugInstanceId)
+  if (!loc) return { ...state, pendingBeacon: null }
+  const cyb = (state.players[kc].board[loc] ?? []).find((c) => c.instanceId === arg.cybugInstanceId)!
+  const attached = (state.players[kc].board[loc] ?? []).filter((c) => c.attachedTo === arg.cybugInstanceId)
+  const removed = new Set([cyb.instanceId, ...attached.map((c) => c.instanceId)])
+  const next = updatePlayer(state, kc, (p) => ({
+    ...p,
+    board: { ...p.board, [loc]: (p.board[loc] ?? []).filter((c) => !removed.has(c.instanceId)) },
+    discard: [...p.discard, cyb, ...attached.map((c) => ({ ...c, attachedTo: undefined }))],
+  }))
+  return { ...next, pendingBeacon: null, log: [...next.log, `Le Faisceau : **${cyb.name}** est défaussé.`] }
+}
+
+/** Sa Sucrerie — Médaille de Vanellope : phase 'pick-hero' (choisir un Héros de la
+ *  défausse Fatalité) puis 'pick-location' (le jouer +1 Force sur le lieu choisi). */
+function applyResolveMedal(
+  state: GameState,
+  arg: { heroInstanceId?: string; locationId?: LocationId },
+): GameState {
+  const pending = state.pendingMedal
+  if (!pending) throw new Error('Aucune Médaille de Vanellope en attente.')
+  const kc = pending.playerIndex
+  if (pending.kind === 'pick-hero') {
+    const hid = arg.heroInstanceId
+    if (!hid || !(pending.heroIds ?? []).includes(hid)) throw new Error('Héros invalide (Médaille de Vanellope).')
+    const hero = state.players[kc].fateDiscard.find((c) => c.instanceId === hid)!
+    const locs = heroPlacementLocations(state, hero, kc)
+    if (locs.length === 0) return { ...state, pendingMedal: null }
+    return { ...state, pendingMedal: { ...pending, kind: 'pick-location', heroInstanceId: hid, locationIds: locs, heroIds: undefined } }
+  }
+  // Phase 'pick-location' : jouer le Héros (+1 Force) sur le lieu choisi.
+  const to = arg.locationId
+  const hid = pending.heroInstanceId!
+  if (!to || !(pending.locationIds ?? []).includes(to)) throw new Error('Lieu invalide (Médaille de Vanellope).')
+  const hero = state.players[kc].fateDiscard.find((c) => c.instanceId === hid)
+  if (!hero) return { ...state, pendingMedal: null }
+  let next = updatePlayer(state, kc, (p) => ({ ...p, fateDiscard: p.fateDiscard.filter((c) => c.instanceId !== hid) }))
+  next = { ...next, pendingMedal: null }
+  const boosted: CardInstance = { ...hero, permanentStrengthDelta: (hero.permanentStrengthDelta ?? 0) + 1 }
+  const destName = state.players[kc].locations.find((l) => l.id === to)?.name ?? to
+  return placeFateHeroWithEffects(next, kc, state.activePlayer, boosted, to, destName)
+}
+
 function applyResolveDrawOrGainPower(state: GameState, choice: 'draw' | 'power'): GameState {
   const pending = state.pendingDrawOrGainPower
   if (!pending) throw new Error('Aucun choix Piocher/Pouvoir en attente.')
@@ -5882,6 +6354,351 @@ function applyResolveMoveOrActivate(state: GameState, choice: 'move' | 'activate
   return resolveEffectsLocal(cleared, [effect], { actorIndex: pending.playerIndex })
 }
 
+/** Shere Khan — C'est moi, Shere Khan : retire le jeton Feu choisi. */
+function applyResolveRemoveFire(state: GameState, locationId: string, actionId: string): GameState {
+  const pending = state.pendingRemoveFire
+  if (!pending) throw new Error('Aucun retrait de jeton Feu en attente.')
+  const cleared = { ...state, pendingRemoveFire: null }
+  return removeFire(cleared, pending.playerIndex, locationId, actionId)
+}
+
+// --- Davy Jones (Jetons Trésor) ---------------------------------------------
+/** Davy Jones : phase 1 = choix du Héros (sans trésor), phase 2 = choix du jeton Trésor
+ *  de la réserve à y poser face cachée. */
+function applyResolvePlaceTreasure(state: GameState, arg: { heroInstanceId?: string; treasureId?: string }): GameState {
+  const pending = state.pendingPlaceTreasure
+  if (!pending) throw new Error('Aucune pose de jeton Trésor en attente (RESOLVE_PLACE_TREASURE).')
+  const idx = pending.playerIndex
+  // Phase 1 : choisir le Héros porteur.
+  if (!pending.heroInstanceId) {
+    if (!arg.heroInstanceId) throw new Error('Choisissez d’abord un Héros.')
+    const found = findTreasureHero(state.players[idx], arg.heroInstanceId)
+    if (!found || found.hero.treasure) throw new Error('Héros invalide pour poser un Trésor.')
+    return { ...state, pendingPlaceTreasure: { ...pending, heroInstanceId: arg.heroInstanceId } }
+  }
+  // Phase 2 : choisir QUEL jeton Trésor de la réserve poser (face cachée).
+  if (!arg.treasureId || !(state.players[idx].treasureReserve ?? []).includes(arg.treasureId)) {
+    throw new Error('Jeton Trésor invalide (absent de la réserve).')
+  }
+  const found = findTreasureHero(state.players[idx], pending.heroInstanceId)
+  const next = placeFacedownTreasure(state, idx, pending.heroInstanceId, arg.treasureId)
+  return {
+    ...next,
+    pendingPlaceTreasure: null,
+    log: [...next.log, `${next.players[idx].villainName} pose un jeton Trésor face cachée sur **${found?.hero.name ?? 'un Héros'}**.`],
+  }
+}
+
+/** Davy Jones : révèle le jeton Trésor du Héros choisi (applique l'effet « à la révélation »). */
+function applyResolveRevealTreasure(state: GameState, heroInstanceId: string): GameState {
+  const pending = state.pendingRevealTreasure
+  if (!pending) throw new Error('Aucune révélation de Trésor en attente (RESOLVE_REVEAL_TREASURE).')
+  if (!pending.candidateIds.includes(heroInstanceId)) throw new Error('Héros invalide pour révéler un Trésor.')
+  const next = revealTreasure(state, pending.playerIndex, heroInstanceId)
+  return { ...next, pendingRevealTreasure: null }
+}
+
+/** Davy Jones — Les amis deviennent des ennemis : phase 1 = Héros source (avec trésor),
+ *  phase 2 = Héros cible (déplace ou échange). */
+function applyResolveMoveSwapTreasure(state: GameState, heroInstanceId: string): GameState {
+  const pending = state.pendingMoveSwapTreasure
+  if (!pending) throw new Error('Aucun déplacement de Trésor en attente (RESOLVE_MOVE_SWAP_TREASURE).')
+  const idx = pending.playerIndex
+  if (!pending.fromHeroId) {
+    const found = findTreasureHero(state.players[idx], heroInstanceId)
+    if (!found || !found.hero.treasure) throw new Error('Le Héros source doit porter un trésor.')
+    return { ...state, pendingMoveSwapTreasure: { ...pending, fromHeroId: heroInstanceId } }
+  }
+  if (heroInstanceId === pending.fromHeroId) throw new Error('Choisissez un Héros cible différent.')
+  const next = moveOrSwapTreasure(state, idx, pending.fromHeroId, heroInstanceId)
+  return { ...next, pendingMoveSwapTreasure: null, log: [...next.log, `${next.players[idx].villainName} déplace/échange un jeton Trésor.`] }
+}
+
+/** Davy Jones — Réveillez le Kraken ! : défausse l'Allié choisi, puis joue Le Kraken
+ *  gratuitement sur le lieu du pion. */
+function applyResolveWakeKraken(state: GameState, allyInstanceId: string): GameState {
+  const pending = state.pendingWakeKraken
+  if (!pending) throw new Error('Aucun « Réveillez le Kraken ! » en attente (RESOLVE_WAKE_KRAKEN).')
+  const idx = pending.playerIndex
+  const me = state.players[idx]
+  // Localise l'Allié à défausser (+ ses Objets associés).
+  let allyLoc: LocationId | undefined
+  for (const loc of me.locations) {
+    if ((me.board[loc.id] ?? []).some((c) => c.instanceId === allyInstanceId)) { allyLoc = loc.id; break }
+  }
+  const ally = allyLoc ? (me.board[allyLoc] ?? []).find((c) => c.instanceId === allyInstanceId) : undefined
+  if (!allyLoc || !ally || ally.type !== 'ally') throw new Error('Allié à défausser invalide.')
+  const pawn = me.pawnLocation
+  if (!pawn) throw new Error('Le pion doit être posé.')
+  // Trouve Le Kraken dans la pioche puis la défausse.
+  const kraken = me.deck.find((c) => c.cardId === 'le-kraken') ?? me.discard.find((c) => c.cardId === 'le-kraken')
+  if (!kraken) throw new Error('Le Kraken est introuvable (déjà en jeu ?).')
+  const attached = (me.board[allyLoc] ?? []).filter((c) => c.attachedTo === allyInstanceId)
+  const removeIds = new Set([allyInstanceId, ...attached.map((c) => c.instanceId)])
+  const next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    deck: p.deck.filter((c) => c.instanceId !== kraken.instanceId),
+    discard: [...p.discard.filter((c) => c.instanceId !== kraken.instanceId), ally, ...attached],
+    board: {
+      ...p.board,
+      [allyLoc!]: (p.board[allyLoc!] ?? []).filter((c) => !removeIds.has(c.instanceId)),
+      [pawn]: [...(p.board[pawn] ?? []), kraken],
+    },
+  }))
+  let result: GameState = {
+    ...next,
+    pendingWakeKraken: null,
+    log: [...next.log, `${me.villainName} défausse **${ally.name}** et réveille **Le Kraken** sur **${findLocation(next.players[idx], pawn)!.name}**.`],
+  }
+  // Hadras défaussé pour réveiller le Kraken → il révèle un jeton Trésor face cachée (auto).
+  if (ally.revealTreasureOnDiscard) {
+    const target = heroesWithFacedownTreasure(result.players[idx])[0]
+    if (target) {
+      result = { ...result, log: [...result.log, `Hadras est défaussé : ${me.villainName} révèle un jeton Trésor.`] }
+      result = revealTreasure(result, idx, target.instanceId)
+    }
+  }
+  return result
+}
+
+/** Shere Khan — Lancé sur ses traces : élimine le Héros choisi (gratuit). */
+function applyResolveShereKhanDefeat(state: GameState, heroInstanceId: string): GameState {
+  const pending = state.pendingShereKhanDefeat
+  if (!pending) throw new Error('Aucune élimination Shere Khan en attente.')
+  const cleared = { ...state, pendingShereKhanDefeat: null }
+  return freeEliminateHero(cleared, pending.playerIndex, heroInstanceId)
+}
+
+/** Shere Khan — C'est très intéressant : effectue l'action choisie (gagner 1 Pouvoir,
+ *  piocher 1, déplacer 1 jeton Feu) ou termine. Chaque option n'est jouable qu'une fois. */
+function applyResolveInteressant(state: GameState, arg: { option?: 'power' | 'draw' | 'fire'; done?: boolean }): GameState {
+  const pending = state.pendingInteressant
+  if (!pending) throw new Error('Aucun choix « C\'est très intéressant » en attente.')
+  const idx = pending.playerIndex
+  if (arg.done || !arg.option || pending.done.includes(arg.option)) {
+    return { ...state, pendingInteressant: null }
+  }
+  let next = state
+  if (arg.option === 'power') {
+    next = resolveEffect(next, { type: 'GAIN_POWER', amount: 1 }, { actorIndex: idx })
+  } else if (arg.option === 'draw') {
+    next = resolveEffect(next, { type: 'DRAW_CARDS', count: 1 }, { actorIndex: idx })
+  } else {
+    // Déplacer 1 jeton Feu vers une autre action libre (auto : 1ᵉʳ Feu → 1ʳᵉ action libre).
+    const fires = listFire(next.players[idx])
+    const free = fireFreeActions(next.players[idx])
+    if (fires.length > 0 && free.length > 0) {
+      next = removeFire(next, idx, fires[0].locationId, fires[0].actionId)
+      next = placeFire(next, idx, free[0].locationId, free[0].actionId)
+    }
+  }
+  const done = [...pending.done, arg.option]
+  // Toutes les options faites → on ferme.
+  if (done.length >= 3) return { ...next, pendingInteressant: null }
+  return { ...next, pendingInteressant: { ...pending, done } }
+}
+
+/** Shere Khan — Kaa (bouclier) : rejoue le Vanquish différé avec la décision du joueur
+ *  (sacrifier l'Objet `itemInstanceId` à la place de Kaa, ou laisser Kaa être défaussé). */
+function applyResolveKaaShield(state: GameState, arg: { itemInstanceId?: string; decline?: boolean }): GameState {
+  const pending = state.pendingKaaShield
+  if (!pending) throw new Error('Aucun choix de bouclier Kaa en attente (RESOLVE_KAA_SHIELD).')
+  if (arg.itemInstanceId && !pending.itemInstanceIds.includes(arg.itemInstanceId)) {
+    throw new Error('Objet bouclier invalide pour Kaa.')
+  }
+  const decision: string | null = arg.decline ? null : (arg.itemInstanceId ?? null)
+  const cleared = { ...state, pendingKaaShield: null }
+  return performVanquish(cleared, pending.heroInstanceId, pending.allyInstanceIds, false, decision)
+}
+
+/** Shere Khan — Kaa (capacité activée) : joue l'Objet choisi depuis la défausse, paie son
+ *  coût et l'associe à Kaa sur son lieu. */
+function applyResolveKaaPlay(state: GameState, instanceId: string): GameState {
+  const pending = state.pendingKaaPlay
+  if (!pending) throw new Error('Aucune capacité Kaa en attente (RESOLVE_KAA_PLAY).')
+  const idx = pending.playerIndex
+  const me = state.players[idx]
+  const obj = me.discard.find((c) => c.instanceId === instanceId)
+  if (!obj || obj.type !== 'item') throw new Error('Objet introuvable dans la défausse.')
+  if ((obj.cost ?? 0) > me.power) throw new Error('Pouvoir insuffisant pour jouer cet Objet.')
+  const next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    power: p.power - (obj.cost ?? 0),
+    discard: p.discard.filter((c) => c.instanceId !== instanceId),
+    board: {
+      ...p.board,
+      [pending.locationId]: [...(p.board[pending.locationId] ?? []), { ...obj, attachedTo: pending.hostInstanceId }],
+    },
+  }))
+  return {
+    ...next,
+    pendingKaaPlay: null,
+    log: [...next.log, `${next.players[idx].villainName} (Kaa) : joue **${obj.name}** depuis la défausse et l'associe à Kaa (−${obj.cost ?? 0} JT).`],
+  }
+}
+
+/** Shere Khan — Le Roi Singe (capacité activée) : phase 1 choix du Macaque, phase 2 choix
+ *  du lieu de destination (déplace le Macaque et ses Objets associés). */
+function applyResolveMonkeyKing(state: GameState, arg: { macaqueInstanceId?: string; to?: LocationId }): GameState {
+  const pending = state.pendingMonkeyKing
+  if (!pending) throw new Error('Aucune capacité Le Roi Singe en attente (RESOLVE_MONKEY_KING).')
+  const idx = pending.playerIndex
+  const me = state.players[idx]
+  // Phase 1 : choisir le Macaque.
+  if (!pending.macaqueInstanceId) {
+    if (!arg.macaqueInstanceId) throw new Error('Choisissez d’abord un Macaque.')
+    return { ...state, pendingMonkeyKing: { ...pending, macaqueInstanceId: arg.macaqueInstanceId } }
+  }
+  // Phase 2 : choisir le lieu de destination et déplacer.
+  if (!arg.to) throw new Error('Choisissez un lieu de destination.')
+  const macaqueId = pending.macaqueInstanceId
+  let fromLoc: LocationId | undefined
+  for (const loc of me.locations) {
+    if ((me.board[loc.id] ?? []).some((c) => c.instanceId === macaqueId)) { fromLoc = loc.id; break }
+  }
+  if (!fromLoc) throw new Error('Macaque introuvable sur le plateau.')
+  const moving = (me.board[fromLoc] ?? []).filter((c) => c.instanceId === macaqueId || c.attachedTo === macaqueId)
+  const movingIds = new Set(moving.map((c) => c.instanceId))
+  const dest = arg.to
+  const next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    board: {
+      ...p.board,
+      [fromLoc!]: (p.board[fromLoc!] ?? []).filter((c) => !movingIds.has(c.instanceId)),
+      [dest]: [...(p.board[dest] ?? []), ...moving],
+    },
+  }))
+  return {
+    ...next,
+    pendingMonkeyKing: null,
+    log: [...next.log, `${next.players[idx].villainName} (Le Roi Singe) : déplace les Macaques vers **${findLocation(next.players[idx], dest)!.name}**.`],
+  }
+}
+
+/** Shere Khan — Aie confiance : choisit (jusqu'à `remaining`) des cartes de la défausse à
+ *  remélanger dans la pioche. Finalise quand on a tout choisi ou qu'on termine. */
+function applyResolveRecoverToDeck(state: GameState, arg: { instanceId?: string; done?: boolean }): GameState {
+  const pending = state.pendingRecoverToDeck
+  if (!pending) throw new Error('Aucune récupération en attente.')
+  const idx = pending.playerIndex
+  const me = state.players[idx]
+  const finalize = (chosen: string[]): GameState => {
+    const cleared = { ...state, pendingRecoverToDeck: null }
+    if (chosen.length === 0) return cleared
+    const chosenSet = new Set(chosen)
+    const cards = me.discard.filter((c) => chosenSet.has(c.instanceId))
+    const r = shuffle([...me.deck, ...cards], cleared.rngState)
+    const next = updatePlayer({ ...cleared, rngState: r.state }, idx, (p) => ({
+      ...p,
+      deck: r.result,
+      discard: p.discard.filter((c) => !chosenSet.has(c.instanceId)),
+    }))
+    return { ...next, log: [...next.log, `${next.players[idx].villainName} remélange ${cards.length} carte(s) de sa défausse dans sa pioche (Aie confiance).`] }
+  }
+  if (arg.done || !arg.instanceId) return finalize(pending.chosen)
+  if (pending.chosen.includes(arg.instanceId) || !me.discard.some((c) => c.instanceId === arg.instanceId)) {
+    throw new Error('Carte invalide (Aie confiance).')
+  }
+  const chosen = [...pending.chosen, arg.instanceId]
+  if (chosen.length >= pending.remaining) return finalize(chosen)
+  return { ...state, pendingRecoverToDeck: { ...pending, chosen } }
+}
+
+/** Shere Khan — Jeune et sans défense : résout le choix (déplacer un Héros sur le lieu d'un
+ *  Allié, ou gagner 1 Pouvoir par Allié) en plusieurs phases. */
+function applyResolveYoung(
+  state: GameState,
+  arg: { choice?: 'move' | 'gain'; heroInstanceId?: string; allyInstanceId?: string },
+): GameState {
+  const pending = state.pendingYoung
+  if (!pending) throw new Error('Aucun choix « Jeune et sans défense » en attente.')
+  const idx = pending.playerIndex
+  const me = state.players[idx]
+  if (pending.kind === 'choose') {
+    if (arg.choice === 'gain') {
+      const allies = Object.values(me.board).flat().filter((c) => c.type === 'ally' && !c.attachedTo).length
+      const next = updateActivePlayer({ ...state, pendingYoung: null }, (p) => ({ ...p, power: p.power + allies }))
+      return { ...next, log: [...next.log, `${me.villainName} (Jeune et sans défense) : +${allies} Pouvoir.`] }
+    }
+    // move : choisir le Héros (auto si un seul).
+    const heroes = Object.values(me.board).flat().filter((c) => c.type === 'hero')
+    if (heroes.length === 1) return { ...state, pendingYoung: { ...pending, kind: 'pick-ally', heroInstanceId: heroes[0].instanceId } }
+    return { ...state, pendingYoung: { ...pending, kind: 'pick-hero' } }
+  }
+  if (pending.kind === 'pick-hero') {
+    if (!arg.heroInstanceId) throw new Error('Héros à déplacer requis.')
+    return { ...state, pendingYoung: { ...pending, kind: 'pick-ally', heroInstanceId: arg.heroInstanceId } }
+  }
+  // pick-ally : déplace le Héros retenu sur le lieu de l'Allié choisi.
+  const heroId = pending.heroInstanceId!
+  const allyLoc = arg.allyInstanceId ? locationOfCard(me, arg.allyInstanceId) : undefined
+  const heroLoc = locationOfCard(me, heroId)
+  if (!allyLoc || !heroLoc) throw new Error('Allié/Héros invalide (Jeune et sans défense).')
+  const cleared = { ...state, pendingYoung: null }
+  if (allyLoc === heroLoc) return cleared
+  const moving = (me.board[heroLoc] ?? []).filter((c) => c.instanceId === heroId || c.attachedTo === heroId)
+  const movingIds = new Set(moving.map((c) => c.instanceId))
+  const next = updatePlayer(cleared, idx, (p) => ({
+    ...p,
+    board: {
+      ...p.board,
+      [heroLoc]: (p.board[heroLoc] ?? []).filter((c) => !movingIds.has(c.instanceId)),
+      [allyLoc]: [...(p.board[allyLoc] ?? []), ...moving],
+    },
+  }))
+  const heroName = moving.find((c) => c.instanceId === heroId)?.name ?? 'Le Héros'
+  return { ...next, log: [...next.log, `${me.villainName} déplace **${heroName}** sur **${findLocation(me, allyLoc)?.name}** (Jeune et sans défense).`] }
+}
+
+/** Shere Khan — À toi de jouer, cousin : joue gratuitement l'Allié dévoilé sur le lieu choisi. */
+function applyResolveFreePlayAlly(state: GameState, locationId: string): GameState {
+  const pending = state.pendingFreePlayAlly
+  if (!pending) throw new Error('Aucun Allié à jouer gratuitement en attente.')
+  const idx = pending.playerIndex
+  const me = state.players[idx]
+  const locked = new Set(me.lockedLocations ?? [])
+  if (!me.locations.some((l) => l.id === locationId) || locked.has(locationId)) {
+    throw new Error('Lieu de pose invalide (À toi de jouer, cousin).')
+  }
+  let next = updatePlayer({ ...state, pendingFreePlayAlly: null }, idx, (p) => ({
+    ...p,
+    board: { ...p.board, [locationId]: [...(p.board[locationId] ?? []), pending.ally] },
+  }))
+  next = { ...next, log: [...next.log, `${me.villainName} joue **${pending.ally.name}** gratuitement sur **${findLocation(me, locationId)?.name ?? locationId}**.`] }
+  return resolveEffects(next, pending.ally.effects ?? [], { actorIndex: idx, hostInstanceId: pending.ally.instanceId, hostLocationId: locationId })
+}
+
+/** Shere Khan — C'est à moi que vous le direz : remet (facultatif) une carte de la défausse
+ *  Fatalité dans la pioche Fatalité (remélangée). `instanceId` absent = on passe. */
+function applyResolveRecoverFate(state: GameState, instanceId?: string): GameState {
+  const pending = state.pendingRecoverFate
+  if (!pending) throw new Error('Aucun retour de carte Fatalité en attente.')
+  const idx = pending.playerIndex
+  const cleared = { ...state, pendingRecoverFate: null }
+  if (!instanceId) return cleared
+  const p = cleared.players[idx]
+  const card = p.fateDiscard.find((c) => c.instanceId === instanceId)
+  if (!card) return cleared
+  const r = shuffle([...p.fateDeck, card], cleared.rngState)
+  const next = updatePlayer({ ...cleared, rngState: r.state }, idx, (pl) => ({
+    ...pl,
+    fateDeck: r.result,
+    fateDiscard: pl.fateDiscard.filter((c) => c.instanceId !== instanceId),
+  }))
+  return { ...next, log: [...next.log, `${next.players[idx].villainName} remet **${card.name}** dans sa pioche Fatalité.`] }
+}
+
+/** Shere Khan — Tout le monde fuit : résout le choix « Activer une capacité » /
+ *  « Éliminer un Héros » (arme l'action gratuite correspondante). */
+function applyResolveActivateOrVanquish(state: GameState, choice: 'activate' | 'vanquish'): GameState {
+  const pending = state.pendingActivateOrVanquish
+  if (!pending) throw new Error('Aucun choix Activer/Vaincre en attente.')
+  const cleared = { ...state, pendingActivateOrVanquish: null }
+  const effect: Effect =
+    choice === 'vanquish' ? { type: 'GRANT_FREE_ACTION', actionType: 'VANQUISH' } : { type: 'GRANT_FREE_ACTIVATE' }
+  return resolveEffectsLocal(cleared, [effect], { actorIndex: pending.playerIndex })
+}
+
 /**
  * Le Seigneur des Ténèbres — résout le choix « s'emparer du Chaudron OU gagner du
  * Pouvoir » (Montre-moi le Chaudron Magique / Nous avons conclu un marché).
@@ -5893,6 +6710,29 @@ function applyResolveCauldronChoice(state: GameState, choice: 'cauldron' | 'powe
   const effect: Effect =
     choice === 'cauldron' ? { type: 'CLAIM_BLACK_CAULDRON' } : { type: 'GAIN_POWER', amount: pending.power }
   return resolveEffectsLocal(cleared, [effect], { actorIndex: pending.playerIndex })
+}
+
+/**
+ * Tamatoa — résout « Pas exactement l'heure de Maui » : JOUER la carte Maui dévoilée
+ * (résout ses effets) ou la DÉFAUSSER. Dans les deux cas elle rejoint la défausse Maui.
+ */
+function applyResolveMauiChoice(state: GameState, choice: 'play' | 'discard'): GameState {
+  const pending = state.pendingMauiChoice
+  if (!pending) throw new Error('Aucun choix « Pas exactement l’heure de Maui » en attente.')
+  const idx = pending.playerIndex
+  const top = (state.players[idx].mauiDeck ?? [])[0]
+  if (!top) return { ...state, pendingMauiChoice: null }
+  let next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    mauiDeck: (p.mauiDeck ?? []).slice(1),
+    mauiDiscard: [...(p.mauiDiscard ?? []), top],
+  }))
+  next = {
+    ...next,
+    pendingMauiChoice: null,
+    log: [...next.log, choice === 'play' ? `${next.players[idx].villainName} joue **${top.name}**.` : `${next.players[idx].villainName} défausse **${top.name}**.`],
+  }
+  return choice === 'play' ? resolveEffectsLocal(next, top.effects ?? [], { actorIndex: idx }) : next
 }
 
 /**
@@ -6446,12 +7286,19 @@ function applyResolveFateReorder(state: GameState, orderedIds: string[]): GameSt
   }
   // Sécurité : toute carte non citée revient ensuite, dans l'ordre d'origine.
   for (const c of cards) if (!used.has(c.instanceId)) ordered.push(c)
-  // Madame Mim — Pas de Tricherie : on replace sur la pioche de Métamorphoses de Merlin.
+  // Madame Mim — Pas de Tricherie : pioche Merlin. Sa Sucrerie — Aigre Bill : pioche Méchant.
+  // Niveau Inachevé : 2 premières sur le DESSUS, 2 dernières sous la pioche Méchant.
   const onMerlin = pending.deck === 'merlin'
+  const onVillain = pending.deck === 'villain'
+  const onSplit2 = pending.deck === 'villain-split2'
   const next = updatePlayer(state, playerIndex, (p) =>
     onMerlin
       ? { ...p, merlinDeck: [...ordered, ...(p.merlinDeck ?? [])] }
-      : { ...p, fateDeck: [...ordered, ...p.fateDeck] },
+      : onSplit2
+        ? { ...p, deck: [...ordered.slice(0, 2), ...p.deck, ...ordered.slice(2)] }
+        : onVillain
+          ? { ...p, deck: [...ordered, ...p.deck] }
+          : { ...p, fateDeck: [...ordered, ...p.fateDeck] },
   )
   return {
     ...next,
@@ -6460,9 +7307,71 @@ function applyResolveFateReorder(state: GameState, orderedIds: string[]): GameSt
       ...next.log,
       onMerlin
         ? `${state.players[playerIndex].villainName} réordonne le dessus de sa pioche de Métamorphoses de Merlin (Pas de Tricherie).`
-        : `${state.players[playerIndex].villainName} réordonne sa pioche Fatalité (Je ne reviens jamais).`,
+        : onSplit2
+          ? `Niveau Inachevé : 2 cartes sur le dessus, 2 sous la pioche Méchant de ${state.players[playerIndex].villainName}.`
+          : onVillain
+            ? `${state.players[playerIndex].villainName} réordonne le dessus de sa pioche Méchant (Aigre Bill).`
+            : `${state.players[playerIndex].villainName} réordonne sa pioche Fatalité (Je ne reviens jamais).`,
     ],
   }
+}
+
+/** Sa Sucrerie — Aigre Bill : résout le choix de fouille. `dig: false` → renonce.
+ *  `dig: true` → dévoile la pioche Méchant (remélange la défausse au besoin) jusqu'au
+ *  1ᵉʳ Allié, l'ajoute à la main, puis ouvre la réorganisation des autres cartes
+ *  dévoilées sur le dessus de la pioche (pendingFateReorder, deck 'villain'). */
+function applyResolveAigreBill(state: GameState, dig: boolean): GameState {
+  const pending = state.pendingAigreBill
+  if (!pending) throw new Error('Aucun choix Aigre Bill en attente.')
+  const idx = pending.playerIndex
+  const cleared = { ...state, pendingAigreBill: null }
+  if (!dig) {
+    return { ...cleared, log: [...cleared.log, `${cleared.players[idx].villainName} renonce à fouiller (Aigre Bill).`] }
+  }
+  const actor = cleared.players[idx]
+  let deck = actor.deck
+  let disc = actor.discard
+  let s = cleared.rngState
+  const total = deck.length + disc.length
+  const revealed: CardInstance[] = []
+  let found: CardInstance | undefined
+  while (revealed.length < total) {
+    if (deck.length === 0) {
+      if (disc.length === 0) break
+      const r = shuffle(disc, s)
+      deck = r.result
+      s = r.state
+      disc = []
+    }
+    const [top, ...rest] = deck
+    deck = rest
+    revealed.push(top)
+    if (top.type === 'ally') {
+      found = top
+      break
+    }
+  }
+  const others = found ? revealed.filter((c) => c.instanceId !== found!.instanceId) : revealed
+  let next = updatePlayer({ ...cleared, rngState: s }, idx, (p) => ({
+    ...p,
+    deck,
+    discard: disc,
+    hand: found ? [...p.hand, found] : p.hand,
+  }))
+  next = {
+    ...next,
+    log: [
+      ...next.log,
+      found
+        ? `${actor.villainName} dévoile ${revealed.length} carte${revealed.length > 1 ? 's' : ''} et ajoute **${found.name}** à sa main (Aigre Bill).`
+        : `${actor.villainName} ne trouve aucun Allié (Aigre Bill).`,
+    ],
+  }
+  // Les autres cartes dévoilées reviennent sur le dessus, dans l'ordre du joueur.
+  if (others.length > 0) {
+    return { ...next, pendingFateReorder: { playerIndex: idx, cards: others, deck: 'villain' } }
+  }
+  return next
 }
 
 function applyResolveScry(state: GameState, topInstanceIds: string[]): GameState {
@@ -6930,6 +7839,23 @@ function applyResolveFateChoice(state: GameState, instanceId: string): GameState
 
 /** Digne Adversaire / Obsession : joue le Héros dévoilé sur le lieu choisi (Peter
  *  Pan → Arbre du Pendu) ou le défausse ; défausse toujours les autres dévoilées. */
+/** Tamatoa — Crustacé : joue l'Objet dévoilé courant sur le lieu `to` (résout son onPlace,
+ *  ex. le Cœur fait venir Moana). Enchaîne sur l'Objet suivant, ou clôt le pending. */
+function applyResolveCrustaceanPlace(state: GameState, to: LocationId): GameState {
+  const pending = state.pendingCrustaceanPlace
+  if (!pending) throw new Error('Aucun Objet du Crustacé en attente (RESOLVE_CRUSTACEAN_PLACE).')
+  const idx = pending.playerIndex
+  const [item, ...rest] = pending.items
+  if (!item) return { ...state, pendingCrustaceanPlace: null }
+  let next = updatePlayer(state, idx, (p) => ({ ...p, board: { ...p.board, [to]: [...(p.board[to] ?? []), item] } }))
+  next = {
+    ...next,
+    pendingCrustaceanPlace: rest.length > 0 ? { playerIndex: idx, items: rest } : null,
+    log: [...next.log, `${next.players[idx].villainName} joue **${item.name}** sur ${findLocation(next.players[idx], to)?.name}.`],
+  }
+  return resolveEffects(next, item.onPlace ?? [], { actorIndex: idx, hostInstanceId: item.instanceId, hostLocationId: to })
+}
+
 function applyResolveFetchedHero(state: GameState, play: boolean, to?: LocationId): GameState {
   const pending = state.pendingFetchedHero
   if (!pending) throw new Error('Aucun Héros dévoilé en attente.')
@@ -6949,7 +7875,13 @@ function applyResolveFetchedHero(state: GameState, play: boolean, to?: LocationI
     throw new Error(`Lieu de pose invalide pour ${pending.hero.name}.`)
   }
   const destName = me.locations.find((l) => l.id === dest)?.name ?? dest
-  return placeFateHeroWithEffects(next, idx, idx, pending.hero, dest, destName)
+  next = placeFateHeroWithEffects(next, idx, idx, pending.hero, dest, destName)
+  // Davy Jones — As-tu peur de la mort ? : on pose un jeton Trésor face cachée sur le Héros
+  // joué — le joueur CHOISIT lequel (pendingPlaceTreasure avec le Héros déjà fixé).
+  if (pending.placeTreasureAfter && next.status === 'PLAYING' && (next.players[idx].treasureReserve ?? []).length > 0) {
+    next = { ...next, pendingPlaceTreasure: { playerIndex: idx, heroInstanceId: pending.hero.instanceId } }
+  }
+  return next
 }
 
 /** Vol du château : pose l'Allié/Objet dévoilé (`found`) sur le lieu `to` choisi
@@ -7080,6 +8012,17 @@ function applyResolveRecover(state: GameState, instanceId: string): GameState {
       ...next,
       rngState: sh.state,
       players: next.players.map((p, i) => (i === idx ? { ...p, deck: sh.result } : p)),
+    }
+  }
+  // Récupération multiple (Davy Jones — Je considère cela comme un non : 2) : on rouvre le
+  // choix tant qu'il reste des cartes à reprendre ET des candidats.
+  const remainingCount = (pending.count ?? 1) - 1
+  const remainingCandidates = pending.candidateIds.filter((id) => id !== instanceId)
+  if (remainingCount > 0 && remainingCandidates.length > 0) {
+    return {
+      ...next,
+      pendingRecover: { ...pending, candidateIds: remainingCandidates, count: remainingCount },
+      log: [...next.log, `${player.villainName} reprend **${card.name}** (${pending.label ?? 'Opportunisme'}).`],
     }
   }
   return {
@@ -8065,6 +9008,22 @@ function applyEndTurn(state: GameState): GameState {
       return { ...p, board, fateDiscard: [...p.fateDiscard, ...removed] }
     })
   }
+  // Tamatoa — Quelque chose qui brille : si Tamatoa termine son tour sur le lieu d'un de
+  // ces Objets (non associé), il est défaussé (défausse Fatalité).
+  if (state.players[state.activePlayer].villain === 'tamatoa') {
+    const aidx = state.activePlayer
+    const loc = state.players[aidx].pawnLocation
+    const shinies = loc ? (state.players[aidx].board[loc] ?? []).filter((c) => c.coversActionsLikeHero && !c.attachedTo) : []
+    if (loc && shinies.length > 0) {
+      const ids = new Set(shinies.map((c) => c.instanceId))
+      state = updateActivePlayer(state, (p) => ({
+        ...p,
+        board: { ...p.board, [loc]: (p.board[loc] ?? []).filter((c) => !ids.has(c.instanceId)) },
+        fateDiscard: [...p.fateDiscard, ...shinies],
+      }))
+      state = { ...state, log: [...state.log, `« Quelque chose qui brille » est défaussé (Tamatoa a fini son tour sur ${findLocation(state.players[aidx], loc)?.name}).`] }
+    }
+  }
   // Fin du tour courant : le joueur actif complète sa main à 4…
   const drawn0 = drawToLimit(state)
   // …puis la phase Coéquipiers (défausse des Tâches/Sabotages encombrés, compte à
@@ -8085,6 +9044,8 @@ function applyEndTurn(state: GameState): GameState {
     usedActionIds: [],
     persifleurAvailable: false,
     uncoverCoveredActions: false,
+    uncoverExceptFate: false,
+    uncoverFireThisTurn: false,
     lastVanquishedHeroStrength: undefined,
     lastPlayedCardCost: undefined,
     diabloFree: null,
@@ -8118,6 +9079,7 @@ function applyEndTurn(state: GameState): GameState {
     activeGainedPower: 0,
     activePlayedCount: 0,
     activePlayedItemCount: 0,
+    activePlayedAllyCount: 0,
     activeFateTargets: [],
     // Effets « jusqu'à la fin de votre tour » du joueur qui termine (Sablier Géant).
     players: drawn.players.map((p, i) =>
@@ -8238,6 +9200,18 @@ function applyEndTurn(state: GameState): GameState {
     }
     if (started.players[nextIdx].raceActive && bugOnVanellope(started.players[nextIdx])) {
       started = advanceRacerByReveal(started, nextIdx)
+    }
+  }
+
+  // Tamatoa — début de son tour : tant que Maui (Héros) est en jeu, il dévoile et joue
+  // la 1ʳᵉ carte de sa pioche Maui (avant de se déplacer). Le drapeau « déplacement
+  // facultatif » (Étoile de mer Maui) est consommé ici.
+  if (started.players[nextIdx].villain === 'tamatoa') {
+    if (started.players[nextIdx].tamatoaSkipMoveNext) {
+      started = updatePlayer(started, nextIdx, (p) => ({ ...p, tamatoaSkipMoveNext: false }))
+    }
+    if (mauiHeroInRealm(started.players[nextIdx])) {
+      started = playTopMauiCard(started, nextIdx)
     }
   }
 
@@ -8412,6 +9386,143 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   ) {
     throw new Error('Un choix Pouvoir/Pilote est en attente (RESOLVE_POWER_OR_RACER_BACK).')
   }
+  // Sa Sucrerie — Taffyta Crème Brûlée : choix Pilote/Jouer une carte en attente.
+  if (
+    state.pendingTaffytaChoice &&
+    action.type !== 'RESOLVE_TAFFYTA_CHOICE' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un choix Taffyta est en attente (RESOLVE_TAFFYTA_CHOICE).')
+  }
+  // Sa Sucrerie — Aigre Bill : choix Fouiller/Renoncer en attente.
+  if (
+    state.pendingAigreBill &&
+    action.type !== 'RESOLVE_AIGRE_BILL' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un choix Aigre Bill est en attente (RESOLVE_AIGRE_BILL).')
+  }
+  // Sa Sucrerie — L'important, c'est de payer : choix du montant en attente.
+  if (
+    state.pendingPayRace &&
+    action.type !== 'RESOLVE_PAY_RACE' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un choix « L’important, c’est de payer » est en attente (RESOLVE_PAY_RACE).')
+  }
+  // Sa Sucrerie — Princesse Vanellope : choix du recul du pion en attente.
+  if (
+    state.pendingPawnBack &&
+    action.type !== 'RESOLVE_PAWN_BACK' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un recul de pion est en attente (RESOLVE_PAWN_BACK).')
+  }
+  // Sa Sucrerie — Le Faisceau : choix de lieu / défausse de Cybug en attente.
+  if (
+    state.pendingBeacon &&
+    action.type !== 'RESOLVE_BEACON' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un choix « Le Faisceau » est en attente (RESOLVE_BEACON).')
+  }
+  // Sa Sucrerie — Médaille de Vanellope : choix Héros/lieu en attente.
+  if (
+    state.pendingMedal &&
+    action.type !== 'RESOLVE_MEDAL' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un choix « Médaille de Vanellope » est en attente (RESOLVE_MEDAL).')
+  }
+  // Shere Khan — Tout le monde fuit : choix Activer/Vaincre en attente.
+  if (
+    state.pendingActivateOrVanquish &&
+    action.type !== 'RESOLVE_ACTIVATE_OR_VANQUISH' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un choix Activer/Vaincre est en attente (RESOLVE_ACTIVATE_OR_VANQUISH).')
+  }
+  // Shere Khan — C'est moi, Shere Khan : choix du jeton Feu à retirer en attente.
+  if (
+    state.pendingRemoveFire &&
+    action.type !== 'RESOLVE_REMOVE_FIRE' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un retrait de jeton Feu est en attente (RESOLVE_REMOVE_FIRE).')
+  }
+  // Shere Khan — Lancé sur ses traces : choix du Héros à éliminer en attente.
+  if (
+    state.pendingShereKhanDefeat &&
+    action.type !== 'RESOLVE_SHERE_KHAN_DEFEAT' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un choix d’élimination est en attente (RESOLVE_SHERE_KHAN_DEFEAT).')
+  }
+  // Shere Khan — C'est à moi que vous le direz : retour facultatif d'une Fatalité en attente.
+  if (
+    state.pendingRecoverFate &&
+    action.type !== 'RESOLVE_RECOVER_FATE' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un retour de carte Fatalité est en attente (RESOLVE_RECOVER_FATE).')
+  }
+  // Shere Khan — À toi de jouer, cousin : pose gratuite de l'Allié dévoilé en attente.
+  if (
+    state.pendingFreePlayAlly &&
+    action.type !== 'RESOLVE_FREE_PLAY_ALLY' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Une pose d’Allié gratuite est en attente (RESOLVE_FREE_PLAY_ALLY).')
+  }
+  // Shere Khan — Jeune et sans défense : choix (déplacer Héros / gagner Pouvoir) en attente.
+  if (
+    state.pendingYoung &&
+    action.type !== 'RESOLVE_YOUNG' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un choix « Jeune et sans défense » est en attente (RESOLVE_YOUNG).')
+  }
+  // Shere Khan — Aie confiance : choix des cartes à récupérer en attente.
+  if (
+    state.pendingRecoverToDeck &&
+    action.type !== 'RESOLVE_RECOVER_TO_DECK' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Une récupération de cartes est en attente (RESOLVE_RECOVER_TO_DECK).')
+  }
+  // Shere Khan — C'est très intéressant : choix multi-action en attente.
+  if (
+    state.pendingInteressant &&
+    action.type !== 'RESOLVE_INTERESSANT' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un choix « C\'est très intéressant » est en attente (RESOLVE_INTERESSANT).')
+  }
+  // Shere Khan — Kaa : choix de l'Objet de la défausse à jouer en attente.
+  if (state.pendingKaaPlay && action.type !== 'RESOLVE_KAA_PLAY') {
+    throw new Error('Un choix d’Objet (Kaa) est en attente (RESOLVE_KAA_PLAY).')
+  }
+  // Shere Khan — Le Roi Singe : choix du Macaque / lieu en attente.
+  if (state.pendingMonkeyKing && action.type !== 'RESOLVE_MONKEY_KING') {
+    throw new Error('Un choix Le Roi Singe est en attente (RESOLVE_MONKEY_KING).')
+  }
+  // Shere Khan — Kaa (bouclier) : choix de défausser un Objet à la place de Kaa en attente.
+  if (state.pendingKaaShield && action.type !== 'RESOLVE_KAA_SHIELD') {
+    throw new Error('Un choix de bouclier (Kaa) est en attente (RESOLVE_KAA_SHIELD).')
+  }
+  // Davy Jones — choix de Trésor / déplacement en attente.
+  if (state.pendingPlaceTreasure && action.type !== 'RESOLVE_PLACE_TREASURE') {
+    throw new Error('Une pose de jeton Trésor est en attente (RESOLVE_PLACE_TREASURE).')
+  }
+  if (state.pendingRevealTreasure && action.type !== 'RESOLVE_REVEAL_TREASURE') {
+    throw new Error('Une révélation de jeton Trésor est en attente (RESOLVE_REVEAL_TREASURE).')
+  }
+  if (state.pendingMoveSwapTreasure && action.type !== 'RESOLVE_MOVE_SWAP_TREASURE') {
+    throw new Error('Un déplacement de jeton Trésor est en attente (RESOLVE_MOVE_SWAP_TREASURE).')
+  }
+  if (state.pendingWakeKraken && action.type !== 'RESOLVE_WAKE_KRAKEN') {
+    throw new Error('Un « Réveillez le Kraken ! » est en attente (RESOLVE_WAKE_KRAKEN).')
+  }
   // C'est votre dernière chance : choix Déplacer/Activer en attente.
   if (
     state.pendingMoveOrActivate &&
@@ -8427,6 +9538,14 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
     action.type !== 'PLAY_CONDITION'
   ) {
     throw new Error('Un choix Chaudron/Pouvoir est en attente (RESOLVE_CAULDRON_CHOICE).')
+  }
+  // Tamatoa : choix « Pas exactement l'heure de Maui » (jouer/défausser) en attente.
+  if (
+    state.pendingMauiChoice &&
+    action.type !== 'RESOLVE_MAUI_CHOICE' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un choix « Pas exactement l’heure de Maui » est en attente (RESOLVE_MAUI_CHOICE).')
   }
   // Le Seigneur des Ténèbres : choix « Nous avons conclu un marché ! » en attente.
   if (
@@ -8589,6 +9708,9 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
     throw new Error('Résolvez le choix de la carte Fatalité (RESOLVE_FATE_CHOICE).')
   }
   // Digne Adversaire / Obsession : jouer ou défausser le Héros dévoilé d'abord.
+  if (state.pendingCrustaceanPlace && action.type !== 'RESOLVE_CRUSTACEAN_PLACE' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Placez l’Objet dévoilé par le Crustacé (RESOLVE_CRUSTACEAN_PLACE).')
+  }
   if (state.pendingFetchedHero && action.type !== 'RESOLVE_FETCHED_HERO' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Jouez ou défaussez le Héros dévoilé (RESOLVE_FETCHED_HERO).')
   }
@@ -8793,10 +9915,27 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       // Un Omnidroïde (Allié `alsoItem`) compte aussi comme un Objet joué (conditions adverses).
       const playedCard = activePlayer(state).hand.find((c) => c.instanceId === action.instanceId)
       const playedItem = playedCard?.type === 'item' || !!playedCard?.alsoItem
+      // Tamatoa — Chauves-souris à huit yeux : chaque fois qu'un AUTRE Allié est joué, on
+      // peut les rejoindre sur ce lieu. Auto : on regroupe les Chauves-souris sur `to`.
+      let rr = r
+      if (
+        rr.players[state.activePlayer].villain === 'tamatoa' &&
+        playedCard?.type === 'ally' &&
+        playedCard.cardId !== 'chauves-souris-8-yeux' &&
+        action.to
+      ) {
+        const aidx = state.activePlayer
+        for (const loc of rr.players[aidx].locations) {
+          if (loc.id === action.to) continue
+          const bats = (rr.players[aidx].board[loc.id] ?? []).filter((c) => c.cardId === 'chauves-souris-8-yeux' && !c.attachedTo)
+          for (const b of bats) rr = relocateCard(rr, aidx, b.instanceId, loc.id, action.to)
+        }
+      }
       return {
-        ...r,
+        ...rr,
         activePlayedCount: (state.activePlayedCount ?? 0) + 1,
         activePlayedItemCount: (state.activePlayedItemCount ?? 0) + (playedItem ? 1 : 0),
+        activePlayedAllyCount: (state.activePlayedAllyCount ?? 0) + (playedCard?.type === 'ally' ? 1 : 0),
         // Coût de la carte jouée (Syndrome — « Qui est le plus super ? »).
         lastPlayedCardCost: playedCard?.cost ?? 0,
       }
@@ -8834,10 +9973,56 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveDrawOrGainPower(state, action.choice)
     case 'RESOLVE_POWER_OR_RACER_BACK':
       return applyResolvePowerOrRacerBack(state, action.choice)
+    case 'RESOLVE_TAFFYTA_CHOICE':
+      return applyResolveTaffytaChoice(state, action.choice)
+    case 'RESOLVE_AIGRE_BILL':
+      return applyResolveAigreBill(state, action.dig)
+    case 'RESOLVE_PAY_RACE':
+      return applyResolvePayRace(state, action.amount)
+    case 'RESOLVE_PAWN_BACK':
+      return applyResolvePawnBack(state, action.amount)
+    case 'RESOLVE_BEACON':
+      return applyResolveBeacon(state, { locationId: action.locationId, cybugInstanceId: action.cybugInstanceId, skip: action.skip })
+    case 'RESOLVE_MEDAL':
+      return applyResolveMedal(state, { heroInstanceId: action.heroInstanceId, locationId: action.locationId })
+    case 'RESOLVE_ACTIVATE_OR_VANQUISH':
+      return applyResolveActivateOrVanquish(state, action.choice)
+    case 'RESOLVE_REMOVE_FIRE':
+      return applyResolveRemoveFire(state, action.locationId, action.actionId)
+    case 'RESOLVE_SHERE_KHAN_DEFEAT':
+      return applyResolveShereKhanDefeat(state, action.heroInstanceId)
+    case 'RESOLVE_RECOVER_FATE':
+      return applyResolveRecoverFate(state, action.instanceId)
+    case 'RESOLVE_FREE_PLAY_ALLY':
+      return applyResolveFreePlayAlly(state, action.locationId)
+    case 'RESOLVE_YOUNG':
+      return applyResolveYoung(state, { choice: action.choice, heroInstanceId: action.heroInstanceId, allyInstanceId: action.allyInstanceId })
+    case 'RESOLVE_RECOVER_TO_DECK':
+      return applyResolveRecoverToDeck(state, { instanceId: action.instanceId, done: action.done })
+    case 'RESOLVE_INTERESSANT':
+      return applyResolveInteressant(state, { option: action.option, done: action.done })
+    case 'RESOLVE_KAA_PLAY':
+      return applyResolveKaaPlay(state, action.instanceId)
+    case 'RESOLVE_MONKEY_KING':
+      return applyResolveMonkeyKing(state, { macaqueInstanceId: action.macaqueInstanceId, to: action.to })
+    case 'RESOLVE_KAA_SHIELD':
+      return applyResolveKaaShield(state, { itemInstanceId: action.itemInstanceId, decline: action.decline })
+    case 'RESOLVE_PLACE_TREASURE':
+      return applyResolvePlaceTreasure(state, { heroInstanceId: action.heroInstanceId, treasureId: action.treasureId })
+    case 'RESOLVE_REVEAL_TREASURE':
+      return applyResolveRevealTreasure(state, action.heroInstanceId)
+    case 'RESOLVE_MOVE_SWAP_TREASURE':
+      return applyResolveMoveSwapTreasure(state, action.heroInstanceId)
+    case 'RESOLVE_WAKE_KRAKEN':
+      return applyResolveWakeKraken(state, action.allyInstanceId)
     case 'RESOLVE_MOVE_OR_ACTIVATE':
       return applyResolveMoveOrActivate(state, action.choice)
     case 'RESOLVE_CAULDRON_CHOICE':
       return applyResolveCauldronChoice(state, action.choice)
+    case 'RESOLVE_MAUI_CHOICE':
+      return applyResolveMauiChoice(state, action.choice)
+    case 'RESOLVE_CRUSTACEAN_PLACE':
+      return applyResolveCrustaceanPlace(state, action.to)
     case 'RESOLVE_BARGAIN_CHOICE':
       return applyResolveBargainChoice(state, action.choice)
     case 'RESOLVE_FREE_ITEM_PLAY':

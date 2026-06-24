@@ -2,10 +2,11 @@
 // Scar (Le Roi Lion) — cartes (deck Méchant de 30 + deck Fatalité de 15).
 //
 // Source : images FR du dossier assets/decks/Scar/ (texte recopié fidèlement) +
-// wiki Villainous FR. Le TEXTE est la source de vérité ; les `effects` sont
-// ajoutés au fil de l'eau. Beaucoup de cartes de Scar reposent sur des mécaniques
-// dédiées (Hyènes, pile Succession) implémentées progressivement — elles restent
-// « texte seul » en attendant.
+// wiki Villainous FR. Le TEXTE est la source de vérité.
+// STATUT : toutes les cartes sont implémentées (Hyènes + per-other-hyena-here,
+// pile Succession via Mufasa, Banzaï/Ed/Shenzi, Troupeau de gnous, Suivez-moi,
+// Festin, Petit secret, Longue vie au roi, Hakuna Matata, Bâton de Rafiki bouclier,
+// aura de Zazu). Aucune carte « texte seul ».
 //
 // =============================================================================
 

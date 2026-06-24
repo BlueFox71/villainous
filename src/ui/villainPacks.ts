@@ -89,16 +89,14 @@ export const VILLAIN_PACKS: VillainPack[] = [
     image: '/packs/pack-8.png',
     releaseUS: 'Juin 2024',
     releaseFR: 'Septembre 2024',
-    villains: ['saSucrerie'],
-    otherMembers: ['Shere Khan'],
+    villains: ['saSucrerie', 'shereKhan'],
   },
   {
     id: 'pack-9',
     name: 'Larmes de fond',
     releaseUS: 'Octobre 2023',
     releaseFR: 'Février 2024',
-    villains: [],
-    otherMembers: ['Davy Jones', 'Tamatoa'],
+    villains: ['davyJones', 'tamatoa'],
   },
 ]
 

@@ -264,6 +264,7 @@ export const ursulaCards: CardDef[] = [
     copies: 1,
     text: 'Les Pactes et Événements ciblant Le Roi Triton coûtent 1 jeton Pouvoir de plus.',
     image: img('roi-triton.png'),
+    pacteTargetSurcharge: 1,
   },
   {
     id: 'prince-eric',
@@ -374,6 +375,7 @@ export const ursulaCards: CardDef[] = [
     copies: 2,
     text: "Associez à un Héros. Quand Ursula se déplace sur le lieu de ce Héros, elle perd 1 jeton Pouvoir.",
     image: img('zirgouflex.png'),
+    powerLossOnPawnArrive: 1,
   },
 
   // ----------------------------------------------------------------------

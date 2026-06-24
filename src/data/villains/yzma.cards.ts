@@ -292,6 +292,7 @@ export const yzmaCards: CardDef[] = [
     copies: 1,
     text: 'Yzma perd jusqu’à 2 jetons Pouvoir si elle se déplace sur le lieu où se trouve Chicha.',
     image: img('chicha.png'),
+    powerLossOnPawnArrive: 2,
   },
   {
     id: 'kuzco',

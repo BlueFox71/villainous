@@ -294,6 +294,7 @@ export const mechanteReineCards: CardDef[] = [
     copies: 1,
     text: 'Vous pouvez défausser un Objet sur le lieu où vous jouez Atchoum.',
     image: img('atchoum.png'),
+    onPlace: [{ type: 'DISCARD_ITEM_AT_HOST', preferCardId: 'miroir-magique' }],
   },
   {
     id: 'dormeur',

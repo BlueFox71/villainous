@@ -195,3 +195,26 @@ describe('Madame Mim — Métamorphoses & objectif', () => {
     expect(hasReachedObjective(s, 0)).toBe(true)
   })
 })
+
+describe('Madame Mim — Le Savoir conduit à la Puissance (Fatalité) : destination', () => {
+  const emptyBoard = (s: GameState) => Object.fromEntries(s.players[0].locations.map((l) => [l.id, []])) as Record<string, CardInstance[]>
+
+  it('déplace le Merlin loin de sa tueuse, en préférant Le Marais', () => {
+    const base = game()
+    const merlin = card('merlin-souris', 'hero', { isMerlinTransformation: true })
+    const s = { ...base, players: [{ ...base.players[0], board: { ...emptyBoard(base), 'lieu-duel': [merlin] } }] } as GameState
+    const out = resolveEffects(s, [{ type: 'MOVE_MERLIN_ANYWHERE' }], { actorIndex: 0 })
+    expect((out.players[0].board['marais'] ?? []).some((c) => c.instanceId === merlin.instanceId)).toBe(true)
+    expect((out.players[0].board['lieu-duel'] ?? []).some((c) => c.isMerlinTransformation)).toBe(false)
+  })
+
+  it('évite un lieu où la Mim tueuse est prête (Marais occupé → La Forêt)', () => {
+    const base = game()
+    const merlin = card('merlin-souris', 'hero', { isMerlinTransformation: true })
+    const killer = card('mim-tigre', 'ally', { isMimTransformation: true, transformationTarget: 'merlin-souris' })
+    const s = { ...base, players: [{ ...base.players[0], board: { ...emptyBoard(base), 'lieu-duel': [merlin], marais: [killer] } }] } as GameState
+    const out = resolveEffects(s, [{ type: 'MOVE_MERLIN_ANYWHERE' }], { actorIndex: 0 })
+    expect((out.players[0].board['the-woods'] ?? []).some((c) => c.instanceId === merlin.instanceId)).toBe(true)
+    expect((out.players[0].board['marais'] ?? []).some((c) => c.isMerlinTransformation)).toBe(false)
+  })
+})

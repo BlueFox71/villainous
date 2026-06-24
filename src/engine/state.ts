@@ -13,6 +13,7 @@ import type {
 } from './types'
 import { shuffle, nextRandom } from './rng'
 import { KEY_COLORS, type KeyColor } from './types'
+import { TREASURE_IDS } from './davyJones'
 
 /** Nombre de cartes en main à compléter en fin de tour. */
 export const HAND_LIMIT = 4
@@ -579,6 +580,11 @@ export function createInitialGame(setups: PlayerSetup[], seed: number): GameStat
         keys: sh.result.map((color, i) => ({ id: `key-${i}`, color, location: locs[Math.floor(i / per)] })),
       }
     }
+    // Davy Jones — RÉSERVE des 5 jetons Trésor, mélangée et FACE CACHÉE au départ.
+    if (villain.objective.type === 'CLAIM_ALL_TREASURES') {
+      const sh = shuffle([...TREASURE_IDS], rngState); rngState = sh.state
+      player = { ...player, treasureReserve: sh.result, claimedTreasures: [] }
+    }
     // Oogie Boogie — Prisonnier (Perce-Oreilles / Sandy Claws) posé à l'Antre : on le
     // sort du deck Fatalité et on le place sur son lieu. Il ancre la pile d'Imposteurs.
     if (villain.prisonerSetup) {
@@ -612,6 +618,15 @@ export function createInitialGame(setups: PlayerSetup[], seed: number): GameStat
           ? { ...player.board, [duelLoc]: [...(player.board[duelLoc] ?? []), first] }
           : player.board,
       }
+    }
+    // Tamatoa — sépare la pioche Fatalité : TRADITIONNELLE (15) vs cartes MAUI (mauiDeck,
+    // 10). La pioche Maui est mélangée ; ses cartes sont jouées tant que Maui (Héros) est
+    // en jeu (et via « Pas exactement l'heure de Maui »).
+    if (villain.id === 'tamatoa') {
+      const traditional = player.fateDeck.filter((c) => !c.isMauiCard)
+      const sh = shuffle(player.fateDeck.filter((c) => c.isMauiCard), rngState)
+      rngState = sh.state
+      player = { ...player, fateDeck: traditional, mauiDeck: [...sh.result], mauiDiscard: [] }
     }
     // Syndrome — pose l'Omnidroïde v.X8 sur son lieu de départ ; v.X9 puis v.10 forment
     // la pile (jouées plus tard en défaussant des Modifications Majeures).

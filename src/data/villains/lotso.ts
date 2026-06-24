@@ -30,8 +30,7 @@ export const lotso: VillainDef = {
     heroCardIds: ['bayonne', 'jessie', 'rex', 'woody'],
   },
   boardObjective:
-    'Réduisez la force de vos 4 Héros à 0 et réunissez-les sur la Salle des Chenilles, avec ' +
-    'Buzz l’Éclair (n’importe quelle face) sur ce lieu.',
+    'Vous devez réunir 4 Héros de force 0 et Buzz l’Éclair dans la Salle des Chenilles.',
   objectiveDescription:
     'Faites venir les 4 Héros (Hamm, Jessie, Rex, Woody), réduisez leur force à 0 (en les éliminant — ' +
     'ils restent alors sur place à 0 — ou avec des jetons Force −1) et réunissez-les TOUS sur la Salle ' +

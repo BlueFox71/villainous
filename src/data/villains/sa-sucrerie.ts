@@ -20,7 +20,7 @@ export const saSucrerie: VillainDef = {
   objectiveDescription:
     "Faites entrer Vanellope von Schweetz dans votre royaume (par Fatalité, Filouterie, ou en jouant le Médaillon des Héros de Ralph puis en vainquant Ralph la Casse), puis associez-lui un BUG (Glitch) : la course démarre. Franchissez la case Départ/Arrivée du circuit AVANT le jeton Pilote de Vanellope pour gagner.",
   boardObjective:
-    "Atteindre la case Départ/Arrivée alors qu'un Bug est associé à Vanellope von Schweetz.",
+    "Vous devez atteindre la case Départ/Arrivée alors qu'un BUG est associé à VANELLOPE VON SCHWEETZ.",
   boardImage: img('board.png'),
   pawnImage: '/pion_sa-sucrerie.png',
   pawnHeightPx: 70,

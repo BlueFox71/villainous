@@ -33,7 +33,7 @@ describe('cartes de Sa Sucrerie (King Candy) — intégrité du paquet', () => {
     expect(bug?.attach).toBe('hero')
     expect(bug?.attachOnlyCardId).toBe('vanellope-von-schweetz')
     expect(bug?.copies).toBe(3)
-    expect(bug?.effects).toEqual([{ type: 'KING_CANDY_START_RACE' }])
+    expect(bug?.effects).toEqual([{ type: 'KING_CANDY_PLAY_BUG' }])
   })
 
   it('Vanellope von Schweetz est un Héros Fatalité (cible de l’objectif)', () => {

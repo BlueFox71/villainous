@@ -152,12 +152,12 @@ export function advanceRacer(state: GameState, idx: number, amount: number): Gam
 
 /** Vanellope (début de tour) / « Enfin un vrai Kart ! » : dévoile la 1ʳᵉ carte Méchant,
  *  avance le jeton Pilote de (coût + 2), remet la carte sous la pioche. */
-export function advanceRacerByReveal(state: GameState, idx: number): GameState {
+export function advanceRacerByReveal(state: GameState, idx: number, bonus = 2): GameState {
   const p = state.players[idx]
   if (!p.raceActive || p.racerPos == null) return state
-  if (p.deck.length === 0) return advanceRacer(state, idx, 2)
+  if (p.deck.length === 0) return advanceRacer(state, idx, bonus)
   const top = p.deck[0]
-  const amount = (top.cost ?? 0) + 2
+  const amount = (top.cost ?? 0) + bonus
   let next = updatePlayer(state, idx, (pl) => ({ ...pl, deck: [...pl.deck.slice(1), pl.deck[0]] }))
   next = {
     ...next,

@@ -25,7 +25,7 @@ export const sombra: VillainDef = {
   id: 'sombra',
   name: 'Sombra',
   objective: { type: 'SOMBRA', winCardId: 'protocole-sombra' },
-  boardObjective: 'Placez un piratage sur chaque lieu et effectuer le protocole Sombra',
+  boardObjective: 'Placez un piratage sur chaque lieu et effectuer le protocole Sombra.',
   objectiveDescription:
     'Piratez les quatre lieux : posez une carte de Piratage sur chacun d’eux ' +
     '(Lumérico compris, débloqué par Faille) puis jouez Protocole Sombra pour ' +

@@ -763,6 +763,92 @@ ACTION_POS['sa-sucrerie'] = {
   'sugar-rush': Object.fromEntries(SUGAR_RUSH_TRACK.map((p, i) => [`a${i}`, p])),
 }
 
+// Shere Khan — 4 lieux alignés comme Prince Jean (panneau portrait à gauche).
+// Coordonnées approximatives, calées visuellement (à affiner via l'inspecteur).
+ACTION_POS['shere-khan'] = {
+  riviere: {
+    discard: { x: 26.5, y: 21 },
+    fate: { x: 20.3, y: 66 },
+    'play-card': { x: 26.8, y: 66 },
+    vanquish: { x: 33.2, y: 66 },
+  },
+  'rocher-conseil': {
+    fate: { x: 47.6, y: 21 },
+    'play-card': { x: 41.3, y: 67 },
+    'gain-power': { x: 47.7, y: 66 },
+    move: { x: 54, y: 66 },
+  },
+  'ruines-anciennes': {
+    'gain-power': { x: 68.5, y: 21 },
+    'play-card': { x: 62, y: 66 },
+    activate: { x: 68.5, y: 66 },
+    discard: { x: 75, y: 66 },
+  },
+  'terres-desolees': {
+    activate: { x: 85.5, y: 21 },
+    'play-card': { x: 93.5, y: 21 },
+    'gain-power': { x: 85.5, y: 66 },
+    'play-card2': { x: 93.2, y: 66 },
+  },
+}
+
+// Davy Jones — positions ESTIMÉES (à caler via l'inspecteur). 4 lieux, 2 actions par
+// rangée (haut recouvrable / bas), de gauche à droite.
+ACTION_POS['davy-jones'] = {
+  'hollandais-volant': {
+    'play-card': { x: 22.5, y: 21.5 },
+    fate: { x: 30.5, y: 21.8 },
+    'gain-power': { x: 22.5, y: 67 },
+    vanquish: { x: 30.5, y: 67 },
+  },
+  'sous-le-pont': {
+    'gain-power': { x: 43.4, y: 21.5 },
+    'play-card': { x: 51.2, y: 21.5 },
+    discard: { x: 43.5, y: 67 },
+    'play-card2': { x: 51.3, y: 67 },
+  },
+  'quartiers-davy-jones': {
+    move: { x: 64.2, y: 21.8 },
+    'play-card': { x: 72, y: 21.5 },
+    'play-card2': { x: 64.3, y: 67 },
+    'gain-power': { x: 72.2, y: 67 },
+  },
+  'hauts-fonds': {
+    discard: { x: 85.1, y: 22 },
+    move: { x: 93, y: 22 },
+    fate: { x: 85, y: 67 },
+    'play-card': { x: 93, y: 67 },
+  },
+}
+
+// Tamatoa — coordonnées estimées (gabarit standard 4 lieux × 2 actions HAUT + 2 BAS).
+ACTION_POS['tamatoa'] = {
+  'falaises-impossibles': {
+    discard: { x: 22.5, y: 21.5 },
+    'play-card': { x: 30.5, y: 21.5 },
+    'gain-power': { x: 22.5, y: 67 },
+    'play-card-bottom': { x: 30.5, y: 67 },
+  },
+  lalotai: {
+    'gain-power': { x: 43.4, y: 21.5 },
+    'play-card': { x: 51.2, y: 21.5 },
+    discard: { x: 43.5, y: 67 },
+    'move-item-ally': { x: 51.3, y: 67 },
+  },
+  'repaire-tamatoa': {
+    'move-item-ally': { x: 64.2, y: 21.8 },
+    fate: { x: 72, y: 21.5 },
+    'play-card': { x: 64.3, y: 67 },
+    'gain-power': { x: 72.2, y: 67 },
+  },
+  'cage-d-os': {
+    'gain-power': { x: 85.1, y: 22 },
+    'play-card': { x: 93, y: 22 },
+    fate: { x: 85, y: 67 },
+    vanquish: { x: 93, y: 67 },
+  },
+}
+
 interface Props {
   player: PlayerState
   /** Ids des actions disponibles (lieu courant) → bouton jaune cliquable. */
@@ -921,6 +1007,25 @@ export function BoardActions({
           )
         }),
       )}
+      {/* Shere Khan — jetons FEU : image posée sur l'action recouverte (qui devient
+          indisponible). Indicateur visuel uniquement (non cliquable). */}
+      {player.villain === 'shere-khan' &&
+        player.locations.flatMap((loc) =>
+          (player.fireTokens?.[loc.id] ?? []).map((actionId) => {
+            const pos = layout[loc.id]?.[actionId]
+            if (!pos) return null
+            return (
+              <img
+                key={`fire:${loc.id}:${actionId}`}
+                src="/fire-token.png"
+                alt="Jeton Feu"
+                title="Action recouverte par un jeton Feu"
+                className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 drop-shadow"
+                style={{ left: `${pos.x}%`, top: `${pos.y}%`, width: `${BUTTON_SIZE * 1.5}%` }}
+              />
+            )
+          }),
+        )}
       {/* Les actions ACCORDÉES par un Objet (Canon, Boîte à Crochets, Ingénieux
           Mécanisme) sont cliquables SUR la carte posée (voir LocationCard),
           pas ici sur l'image du plateau. */}

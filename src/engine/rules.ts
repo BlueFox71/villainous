@@ -15,6 +15,7 @@ import type {
 } from './types'
 import { activePlayer, currentLocation } from './state'
 import { isKingCandy, accessibleActionIds, racerCoveredActionId, isTrackLocation } from './kingCandy'
+import { actionHasFire as shereKhanFire } from './shereKhan'
 
 /**
  * Types d'actions que le moteur sait actuellement traiter (affichées comme
@@ -92,17 +93,36 @@ export function isActionCovered(state: GameState, action: LocationAction): boole
   // Persifleur : le joueur peut utiliser UNE action recouverte → on les considère
   // toutes jouables le temps de cette utilisation.
   if (state.persifleurAvailable) return false
-  // « Je vais vous broyer les os ! » (La Méchante Reine) : ce tour-ci, toutes les
-  // actions recouvertes du lieu deviennent jouables.
-  if (state.uncoverCoveredActions) return false
+  // « Je vais vous broyer les os ! » (La Méchante Reine) / Piégé (Tamatoa) : ce tour-ci,
+  // les actions recouvertes du lieu deviennent jouables. Exception « Piégé » : les
+  // Fatalités recouvertes RESTENT indisponibles (on ne court-circuite pas → calcul normal).
+  if (state.uncoverCoveredActions && !(state.uncoverExceptFate && action.type === 'FATE')) return false
   // Sa Sucrerie — le jeton Pilote recouvre l'action où il se trouve (sauf Turbo-Statique
   // ce tour). Les Héros ne recouvrent pas d'action de circuit (placement non positionnel).
   const me = activePlayer(state)
+  // Shere Khan — un jeton Feu recouvre une action PRÉCISE (haut ou bas). Bravo ! Bravo !
+  // (uncoverFireThisTurn) lève cette couverture ce tour. Les Yeux de Kaa ne lèvent PAS le Feu.
+  if (me.villain === 'shere-khan' && !state.uncoverFireThisTurn && shereKhanFire(me, loc.id, action.id)) {
+    return true
+  }
   if (isKingCandy(me)) {
     if (me.turboUncoverThisTurn) return false
     return racerCoveredActionId(me) === action.id
   }
+  // Yeux de Kaa associé à Kaa sur le lieu du pion : les actions recouvertes par un HÉROS
+  // y sont utilisables (le Feu, lui, reste couvert — traité au-dessus).
+  if (me.villain === 'shere-khan' && kaaEyesUncoverHeroesAt(me, loc.id)) return false
   return coveredTopActionIdsAt(me, loc.id).has(action.id)
+}
+
+/** Yeux de Kaa : Kaa porte les Yeux ET se trouve sur `locationId` ET le pion y est aussi
+ *  → le joueur peut utiliser les actions recouvertes par un Héros de ce lieu. */
+function kaaEyesUncoverHeroesAt(player: PlayerState, locationId: LocationId): boolean {
+  if (player.pawnLocation !== locationId) return false
+  const cell = player.board[locationId] ?? []
+  const kaa = cell.find((c) => c.cardId === 'kaa')
+  if (!kaa) return false
+  return cell.some((c) => c.cardId === 'yeux-de-kaa' && c.attachedTo === kaa.instanceId)
 }
 
 /** Ids des actions du HAUT recouvertes sur un lieu donné, **indépendamment du
@@ -134,6 +154,11 @@ export function coveredTopActionIdsAt(player: PlayerState, locationId: LocationI
     } else {
       for (const a of tops) covered.add(a.id)
     }
+  }
+  // Tamatoa — Quelque chose qui brille (Objet, non associé) recouvre la rangée du haut
+  // comme un Héros.
+  if ((player.board[locationId] ?? []).some((c) => c.coversActionsLikeHero && !c.attachedTo)) {
+    for (const a of tops) covered.add(a.id)
   }
   // Le Seigneur des clés — Hellin (coversExtraAction) : recouvre AUSSI la 1ʳᵉ action
   // du bas (3 actions recouvertes au lieu de 2).
@@ -464,6 +489,15 @@ export function activatableCards(state: GameState): CardInstance[] {
       ) {
         continue
       }
+      // Shere Khan — Macaques : activable seulement s'il y a un jeton Feu sur leur lieu
+      // (et le Pouvoir pour le payer). Le Roi Singe : seulement s'il existe une carte
+      // Macaques à déplacer. Kaa : seulement avec un Objet abordable en défausse.
+      if (c.cardId === 'macaques') {
+        const fires = (me.fireTokens?.[loc.id] ?? []).length
+        if (fires === 0 || me.power < fires) continue
+      }
+      if (c.cardId === 'le-roi-singe' && !Object.values(me.board).flat().some((x) => x.cardId === 'macaques')) continue
+      if (c.cardId === 'kaa' && !me.discard.some((x) => x.type === 'item' && (x.cost ?? 0) <= me.power)) continue
       out.push(c)
     }
   }
@@ -601,6 +635,16 @@ export function effectiveStrength(
         const otherHeroesHere = cell.some((c) => c.type === 'hero' && c.instanceId !== card.instanceId)
         return sum + (otherHeroesHere ? 0 : m.delta)
       }
+      case 'if-attached-item': {
+        // Jean (Crochet) : +delta si au moins un Objet lui est associé.
+        const hasItem = cell.some((c) => c.type === 'item' && c.attachedTo === card.instanceId)
+        return sum + (hasItem ? m.delta : 0)
+      }
+      case 'per-location-with-hero': {
+        // Michel (Crochet) : +delta par lieu du royaume occupé par ≥1 Héros (le sien compris).
+        const n = p.locations.filter((l) => (p.board[l.id] ?? []).some((c) => c.type === 'hero')).length
+        return sum + m.delta * n
+      }
       case 'per-other-hyena-here': {
         const others = cell.filter((c) => c.isHyena && c.instanceId !== card.instanceId).length
         return sum + m.delta * others
@@ -625,11 +669,25 @@ export function effectiveStrength(
         const others = cell.filter((c) => c.type === m.cardType && c.instanceId !== card.instanceId).length
         return sum + m.delta * others
       }
+      case 'per-other-location-with-ally': {
+        // Davy Jones — L'Équipage du Hollandais Volant : +delta par AUTRE lieu (≠ le sien)
+        // portant au moins un Allié.
+        const n = p.locations.filter(
+          (l) => l.id !== loc && (p.board[l.id] ?? []).some((c) => c.type === 'ally'),
+        ).length
+        return sum + m.delta * n
+      }
+      case 'per-claimed-treasure':
+        // Davy Jones — James Norrington : +delta par jeton Trésor déjà récupéré.
+        return sum + m.delta * (p.claimedTreasures ?? []).length
       case 'match-strongest-hero-here':
         // Traité en amont (override de la force) ; neutre dans la somme.
         return sum
     }
   }, 0)
+
+  // Davy Jones — Le Compas de Jack (Trésor RÉVÉLÉ sur ce Héros) : +2 Force.
+  const treasureBonus = card.treasure?.faceUp && card.treasure.id === 'compas-de-jack' ? 2 : 0
 
   // Jetons de force permanents posés sur la carte (Oogie : Jack -1 par Imposteur
   // joué après son retour). Peut être négatif ; s'applique Allié comme Héros.
@@ -703,20 +761,9 @@ export function effectiveStrength(
     const pixieBonus = cell.filter(
       (c) => c.cardId === 'poussiere-fee' && c.attachedTo === card.instanceId,
     ).length * 2
-    //  - Wendy : +1 à tous les AUTRES Héros du royaume (→ strengthMod heroes-realm).
-    const wendyBonus =
-      card.cardId !== 'wendy' && heroesOf(state, playerIndex).some((h) => h.cardId === 'wendy') ? 1 : 0
-    //  - Jean : +1 si au moins un Objet lui est associé.
-    const jeanBonus =
-      card.cardId === 'jean' &&
-      cell.some((c) => c.type === 'item' && c.attachedTo === card.instanceId)
-        ? 1
-        : 0
-    //  - Michel : +1 par lieu du royaume occupé par au moins un Héros (le sien compris).
-    const michelBonus =
-      card.cardId === 'michel'
-        ? p.locations.filter((l) => (p.board[l.id] ?? []).some((c) => c.type === 'hero')).length
-        : 0
+    //  - Wendy / Jean / Michel : MIGRÉS en data (Wendy `strengthMod heroes-realm`,
+    //    Jean `selfStrengthMods if-attached-item`, Michel `per-location-with-hero`) →
+    //    gérés par `realmHeroAura`/`selfMod` ci-dessus, plus de bonus codé par cardId.
     // Scar — Zazu : -2 aux AUTRES Héros sur SON lieu ; +1 aux Héros des autres lieux.
     let zazuBonus = 0
     if (card.cardId !== 'zazu') {
@@ -725,7 +772,7 @@ export function effectiveStrength(
     }
     return Math.max(
       0,
-      card.strength + attachedStrengthBonus + selfMod + heroAura + realmHeroAura + pixieBonus + wendyBonus + jeanBonus + michelBonus + zazuBonus + tempBonus + forceTokens + permaDelta,
+      card.strength + attachedStrengthBonus + selfMod + heroAura + realmHeroAura + pixieBonus + zazuBonus + tempBonus + forceTokens + permaDelta + treasureBonus,
     )
   }
   return card.strength
@@ -828,9 +875,11 @@ export function lotsoToRoomCandidates(state: GameState, playerIndex: number): st
 export const GLASS_SLIPPER_IDS = ['pantoufle-chambre', 'pantoufle-chateau']
 export const isGlassSlipper = (cardId: string): boolean => GLASS_SLIPPER_IDS.includes(cardId)
 
-/** Mère Gothel — Ulf : vrai si un Héros du royaume immobilise tous les Alliés. */
+/** Mère Gothel — Ulf / Madame de Trémaine — Marraine la Bonne Fée : vrai si un Héros
+ *  NON piégé du royaume immobilise tous les Alliés (un Héros « piégé » voit sa capacité
+ *  ignorée → il ne bloque plus). */
 export function alliesCannotMove(player: PlayerState): boolean {
-  return Object.values(player.board).flat().some((c) => c.type === 'hero' && c.blocksAllyMoves)
+  return Object.values(player.board).flat().some((c) => c.type === 'hero' && c.blocksAllyMoves && !c.trapped)
 }
 
 /** Vrai si un Allié sur `locationId` ne peut PAS être déplacé : soit Ulf immobilise tout
@@ -838,7 +887,7 @@ export function alliesCannotMove(player: PlayerState): boolean {
  *  (`blocksAllyMovesHere`). */
 export function alliesCannotMoveFrom(player: PlayerState, locationId: LocationId): boolean {
   if (alliesCannotMove(player)) return true
-  return (player.board[locationId] ?? []).some((c) => c.type === 'hero' && c.blocksAllyMovesHere)
+  return (player.board[locationId] ?? []).some((c) => c.type === 'hero' && c.blocksAllyMovesHere && !c.trapped)
 }
 
 /** Vrai si AUCUN Allié ne peut être posé/déplacé sur ce lieu chez `playerIndex`,
@@ -849,6 +898,11 @@ export function allyBlockedAt(
   playerIndex: number,
   locationId: LocationId,
 ): boolean {
+  const cell = state.players[playerIndex].board[locationId] ?? []
+  // Davy Jones — Le Coffre au Trésor (Trésor révélé sur ce lieu) : aucun Allié jouable ici.
+  if (cell.some((c) => c.type === 'hero' && c.treasure?.faceUp && c.treasure.id === 'coffre-au-tresor')) {
+    return true
+  }
   return Object.values(state.players[playerIndex].board)
     .flat()
     .some((c) => c.type === 'hero' && c.blocksAlliesAtLocation === locationId)
@@ -985,6 +1039,11 @@ export function conditionIsTriggered(
   ) {
     return false
   }
+  // Shere Khan — Aie confiance (récupérer des cartes de la défausse → pioche) : injouable
+  // si la défausse est vide.
+  if ((card.effects ?? []).some((e) => e.type === 'RECOVER_CARDS_TO_DECK') && me.discard.length === 0) {
+    return false
+  }
   // Madame Mim — J'aime le sport (récupérer une carte de la défausse) : injouable si la
   // défausse ne contient aucune carte récupérable (rien à ajouter en main).
   const recover = (card.effects ?? []).find((e) => e.type === 'RECOVER_FROM_DISCARD_CHOICE')
@@ -1084,6 +1143,8 @@ export function conditionIsTriggered(
       return (state.activeFateTargets ?? []).includes(playerIndex)
     case 'opponent-played-item':
       return (state.activePlayedItemCount ?? 0) - (card.conditionBaseline?.playedItems ?? 0) >= card.trigger.value
+    case 'opponent-played-ally':
+      return (state.activePlayedAllyCount ?? 0) - (card.conditionBaseline?.playedAllies ?? 0) >= 1
   }
 }
 
@@ -1219,6 +1280,11 @@ export function effectiveCost(
   surcharge += Object.values(me.board).flat().filter(
     (c) => c.type === 'hero' && c.cardId === 'tiana',
   ).length
+  // Sergent Calhoun (Fatalité, Sa Sucrerie) : l'action Jouer une carte coûte +N par Héros
+  // doté de `playCardCostSurcharge` présent dans le royaume (toutes cartes confondues).
+  surcharge += Object.values(me.board)
+    .flat()
+    .reduce((n, c) => n + (c.type === 'hero' ? c.playCardCostSurcharge ?? 0 : 0), 0)
   // Madame de Trémaine — Cendrillon (Fatalité) : les Événements coûtent 2 de plus
   // tant qu'elle est dans le royaume.
   if (card.type === 'effect' && Object.values(me.board).flat().some(
@@ -1341,6 +1407,12 @@ export function hasReachedObjective(state: GameState, playerIndex: number = stat
       return false
     case 'DEFEAT_HERO_AT_LOCATION':
       // Victoire déclenchée à l'instant du Vanquish (performVanquish), pas ici.
+      return false
+    case 'DEFEAT_HERO_NO_FIRE':
+      // Shere Khan — victoire ÉVÉNEMENTIELLE : vaincre Mowgli sans jeton Feu (performVanquish).
+      return false
+    case 'CLAIM_ALL_TREASURES':
+      // Davy Jones — victoire ÉVÉNEMENTIELLE : récupérer le 5ᵉ Trésor au Vanquish (performVanquish).
       return false
     case 'KING_CANDY_RACE':
       // Sa Sucrerie — victoire ÉVÉNEMENTIELLE : déclenchée quand le pion franchit

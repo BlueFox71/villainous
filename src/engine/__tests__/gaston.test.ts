@@ -136,6 +136,53 @@ describe('Gaston — jetons Obstacle & objectif', () => {
     expect(totalObstacles(full.players[0])).toBe(8)
   })
 
+  it('REPLACE_OBSTACLE fill-location (C’est gentil de m’avoir sauvé la vie) : remplit un lieu à 2', () => {
+    let s = setObstacles(game(), { 'maison-belle': 0, taverne: 1, bois: 2, 'chateau-bete': 2 })
+    s = resolveEffects(s, [{ type: 'REPLACE_OBSTACLE', count: 2, mode: 'fill-location' }], { actorIndex: 0 })
+    expect(s.pendingObstacle?.fillLocation).toBe(true)
+    s = applyAction(s, { type: 'RESOLVE_OBSTACLE', locationId: 'maison-belle' })
+    expect(s.players[0].obstacles?.['maison-belle']).toBe(2) // lieu rempli à fond en un clic
+    expect(s.pendingObstacle ?? null).toBeNull()
+  })
+
+  it('Fatalités REPLACE_OBSTACLE résolues via le FLUX Fatalité (Me masser / C’est toi)', () => {
+    const mk = () => createInitialGame(
+      [
+        { villain: gaston, deckCards: buildDeckInstances(gastonCards, 'villain', 'p0:'), fateCards: buildDeckInstances(gastonCards, 'fate', 'p0f:') },
+        { villain: princeJohn, deckCards: buildDeckInstances(princeJohnCards, 'villain', 'p1:'), fateCards: buildDeckInstances(princeJohnCards, 'fate', 'p1f:') },
+      ],
+      7,
+    )
+    const fate = buildDeckInstances(gastonCards, 'fate', 'p0f:')
+    const masser = fate.find((c) => c.cardId === 'me-masser-les-pieds')!
+    const filler = fate.find((c) => c.cardId !== 'me-masser-les-pieds')!
+    // « Me masser les pieds » (count 2, libre) : le fataliseur (joueur 1) replace 2 Obstacles.
+    let s = mk()
+    s = {
+      ...s, activePlayer: 1, phase: 'ACTION',
+      players: [{ ...s.players[0], obstacles: { 'maison-belle': 0, taverne: 0, bois: 2, 'chateau-bete': 2 } }, s.players[1]],
+      pendingFate: { target: 0, revealed: [masser, filler] },
+    }
+    s = applyAction(s, { type: 'RESOLVE_FATE', instanceId: masser.instanceId })
+    expect(s.pendingObstacle?.kind).toBe('replace')
+    expect(s.pendingObstacle?.chooserIndex).toBe(1)
+    s = applyAction(s, { type: 'RESOLVE_OBSTACLE', locationId: 'maison-belle' })
+    s = applyAction(s, { type: 'RESOLVE_OBSTACLE', locationId: 'taverne' })
+    expect(totalObstacles(s.players[0])).toBe(6) // 4 → 6 (effet bien appliqué, plus de fallback)
+
+    // « C’est toi ! » (each-location, auto) : +1 sur chaque lieu non plein, sans choix.
+    const cestToi = fate.find((c) => c.cardId === 'cest-toi')!
+    let s2 = mk()
+    s2 = {
+      ...s2, activePlayer: 1, phase: 'ACTION',
+      players: [{ ...s2.players[0], obstacles: { 'maison-belle': 0, taverne: 0, bois: 0, 'chateau-bete': 0 } }, s2.players[1]],
+      pendingFate: { target: 0, revealed: [cestToi, filler] },
+    }
+    s2 = applyAction(s2, { type: 'RESOLVE_FATE', instanceId: cestToi.instanceId })
+    expect(s2.pendingObstacle ?? null).toBeNull() // auto, pas de choix
+    expect(totalObstacles(s2.players[0])).toBe(4) // +1 sur chacun des 4 lieux
+  })
+
   it('REPLACE_OBSTACLE auto (Sous le charme) et each-location ne demandent pas de choix', () => {
     const empty = { 'maison-belle': 0, taverne: 0, bois: 0, 'chateau-bete': 0 }
     const swoon = resolveEffects(setObstacles(game(), empty), [{ type: 'REPLACE_OBSTACLE', count: 1, auto: true }], { actorIndex: 0 })

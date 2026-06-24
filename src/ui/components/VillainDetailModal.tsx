@@ -142,7 +142,10 @@ export function VillainDetailModal({ villain, onClose }: Props) {
   // Madame Mim — les Métamorphoses de Merlin sont une pioche À PART (entre le deck
   // Vilain et la Fatalité traditionnelle), bien qu'elles portent `deck: 'fate'`.
   const merlinCards = v.cards.filter((c) => c.isMerlinTransformation).sort(byCopies)
-  const fateCards = v.cards.filter((c) => c.deck === 'fate' && !c.isMerlinTransformation).sort(byCopies)
+  // Tamatoa — la pioche MAUI est une pioche À PART (entre le deck Vilain et la Fatalité),
+  // bien que ses cartes portent `deck: 'fate'`.
+  const mauiCards = v.cards.filter((c) => c.isMauiCard).sort(byCopies)
+  const fateCards = v.cards.filter((c) => c.deck === 'fate' && !c.isMerlinTransformation && !c.isMauiCard).sort(byCopies)
   const sumCopies = (cards: CardDef[]) => cards.reduce((n, c) => n + c.copies, 0)
 
   return (
@@ -275,6 +278,9 @@ export function VillainDetailModal({ villain, onClose }: Props) {
               <DeckGallery title="Deck Vilain" cards={villainCards} count={sumCopies(villainCards)} />
               {merlinCards.length > 0 && (
                 <DeckGallery title="Métamorphoses de Merlin" cards={merlinCards} count={sumCopies(merlinCards)} />
+              )}
+              {mauiCards.length > 0 && (
+                <DeckGallery title="Cartes Maui" cards={mauiCards} count={sumCopies(mauiCards)} />
               )}
               <DeckGallery title="Deck Fatalité" cards={fateCards} count={sumCopies(fateCards)} />
             </div>

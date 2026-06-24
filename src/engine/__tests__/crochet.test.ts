@@ -124,7 +124,7 @@ describe('Capitaine Crochet — bonus de force', () => {
     expect(effectiveStrength(s, 0, 'b')).toBe(4)
   })
   it('Wendy donne +1 aux AUTRES Héros, pas à elle-même', () => {
-    const wendy: CardInstance = { instanceId: 'w', cardId: 'wendy', name: 'Wendy', type: 'hero', strength: 3 }
+    const wendy: CardInstance = { instanceId: 'w', cardId: 'wendy', name: 'Wendy', type: 'hero', strength: 3, strengthMod: { target: 'heroes-realm', delta: 1, excludeSelf: true } }
     const jean: CardInstance = { instanceId: 'j', cardId: 'jean', name: 'Jean', type: 'hero', strength: 2 }
     const s = withBoard('jolly-roger', [wendy, jean])
     expect(effectiveStrength(s, 0, 'w')).toBe(3) // Wendy : pas de bonus sur elle
