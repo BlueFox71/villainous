@@ -2992,6 +2992,309 @@ function CruellaDecor() {
   )
 }
 
+// SURPRISE « Lucifer » de Madame de Trémaine. Déroulé : Lucifer traverse la hall en semant des traces
+// de pattes sales ; une NUÉE DE POUSSIÈRE envahit le bas ; à son PIC, le fond bascule (fondu) vers la
+// version SALE du hall (qui reste). ~1 min plus tard, quelques SAVONS apparaissent et le fond revient
+// TRÈS LENTEMENT au propre. `TEST` → cadence rapide pour le réglage.
+const TREMAINE_LUCIFER_TEST = false
+const TREMAINE_LUCIFER_DUR_MS = 7000 // durée de la traversée de Lucifer
+const TREMAINE_SMOKE_START_MS = 500 // début de la nuée de poussière (peu après son entrée)
+const TREMAINE_SMOKE_DUR_MS = 5200 // durée de la nuée
+const TREMAINE_SMOKE_PEAK_FRAC = 0.46 // fraction de la nuée à laquelle on bascule vers le fond sale
+const TREMAINE_DIRTY_HOLD_MS = TREMAINE_LUCIFER_TEST ? 12_000 : 60_000 // temps « sale » avant nettoyage (~1 min)
+const TREMAINE_CLEAN_MS = 19_000 // retour TRÈS lent du fond sale au fond propre
+const TREMAINE_LUCIFER_GAP_MIN_MS = TREMAINE_LUCIFER_TEST ? 6_000 : 120_000
+const TREMAINE_LUCIFER_GAP_MAX_MS = TREMAINE_LUCIFER_TEST ? 10_000 : 240_000
+
+const TREMAINE_DIRTY_SRC = '/animations/background_tremaine_sale.png'
+
+/** Décor « tremaine » (Madame de Trémaine — Cendrillon) : l'entrée du manoir (image de fond `src` :
+ *  grand escalier, hall dallé) surmontée de couches d'ambiance — VIGNETTE froide, POUSSIÈRES pâles
+ *  et LUEUR de bougie. SURPRISE périodique en plusieurs temps : Lucifer traverse en salissant le sol,
+ *  une nuée de poussière monte → au pic, le fond bascule (fondu) vers la version SALE ; ~1 min après,
+ *  des savons apparaissent et le fond revient très lentement au propre. Tiré au montage ; CSS. */
+function TremaineDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'tremaine' }> }) {
+  // Poussières : fines particules pâles qui dérivent et montent lentement dans la pénombre
+  // (schéma proche de la poussière d'or, teinte froide), tirées une fois au montage.
+  const [motes] = useState(() =>
+    Array.from({ length: 42 }, () => ({
+      left: Math.random() * 100, // %
+      top: Math.random() * 100, // %
+      size: 1.8 + Math.random() * 4, // px
+      dur: 11 + Math.random() * 12, // s (dérive)
+      delay: -(Math.random() * 20), // s (déphasage → flux continu)
+      dx: (Math.random() - 0.5) * 8, // vw (dérive latérale)
+      dy: -(3 + Math.random() * 8), // vh (monte légèrement)
+      op: 0.3 + Math.random() * 0.45, // opacité de base
+      twinkle: Math.random() < 0.35, // ~1/3 scintille
+    })),
+  )
+
+  // SURPRISE : la scène entière (traces + nuée + savons) est tirée d'un coup dans `event`. Des drapeaux
+  // pilotent les phases successives : Lucifer visible, nuée visible, fond sale affiché, nettoyage en cours.
+  const [event, setEvent] = useState<{
+    seq: number
+    puffs: { key: string; left: number; size: number; delay: number; dx: number }[]
+    bubbles: { key: string; left: number; size: number; dur: number; delay: number }[]
+  } | null>(null)
+  const [luciferOn, setLuciferOn] = useState(false)
+  const [smokeOn, setSmokeOn] = useState(false)
+  const [dirty, setDirty] = useState(false)
+  const [cleaning, setCleaning] = useState(false)
+
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    const timers: ReturnType<typeof setTimeout>[] = []
+    let seq = 0
+    const at = (ms: number, fn: () => void) => timers.push(setTimeout(fn, ms))
+    const gap = () =>
+      TREMAINE_LUCIFER_GAP_MIN_MS + Math.random() * (TREMAINE_LUCIFER_GAP_MAX_MS - TREMAINE_LUCIFER_GAP_MIN_MS)
+
+    const fire = () => {
+      const s = seq++
+      // — Nuée de poussière : grosses bouffées réparties sur la largeur, qui montent et envahissent le
+      //   bas de l'image puis se dissipent (elles culminent ensemble pour masquer le basculement du fond).
+      const puffs = Array.from({ length: 9 }, (_, i) => ({
+        key: `${s}-p${i}`,
+        left: 4 + Math.random() * 92,
+        size: 20 + Math.random() * 20, // vh
+        delay: Math.random() * 0.9, // s (léger étalement → elles culminent ensemble)
+        dx: (Math.random() - 0.5) * 10, // vw (dérive)
+      }))
+      // — Mousse (phase nettoyage) : quelques GROSSES bulles de savon qui montent.
+      const bubbles = Array.from({ length: 10 }, (_, i) => ({
+        key: `${s}-b${i}`,
+        left: Math.random() * 60, // % (plutôt sur la gauche)
+        size: 10 + Math.random() * 8, // vh (XXL)
+        dur: 4 + Math.random() * 3.5, // s
+        delay: Math.random() * 5, // s (étalées sur la phase nettoyage)
+      }))
+
+      setDirty(false)
+      setCleaning(false)
+      setEvent({ seq: s, puffs, bubbles })
+      setLuciferOn(true)
+      setSmokeOn(true)
+
+      // Bascule vers le fond SALE au pic de la nuée (le swap est masqué par la poussière).
+      const tPeak = TREMAINE_SMOKE_START_MS + TREMAINE_SMOKE_DUR_MS * TREMAINE_SMOKE_PEAK_FRAC
+      at(tPeak, () => setDirty(true))
+      at(TREMAINE_SMOKE_START_MS + TREMAINE_SMOKE_DUR_MS, () => setSmokeOn(false))
+      at(TREMAINE_LUCIFER_DUR_MS + 200, () => setLuciferOn(false))
+      // ~1 min plus tard : savons + retour TRÈS lent au propre.
+      const tClean = tPeak + TREMAINE_DIRTY_HOLD_MS
+      at(tClean, () => {
+        setCleaning(true)
+        setDirty(false)
+      })
+      const tEnd = tClean + TREMAINE_CLEAN_MS + 400
+      at(tEnd, () => {
+        setEvent(null)
+        setCleaning(false)
+      })
+      at(tEnd + gap(), fire)
+    }
+    at(gap(), fire)
+    return () => timers.forEach(clearTimeout)
+  }, [])
+
+  return (
+    <div className="tremaine-decor" aria-hidden>
+      <div className="tremaine-bg" style={{ backgroundImage: `url(${decor.src})` }} />
+      {/* Fond SALE en fondu par-dessus le propre (opacité pilotée : `is-shown` apparaît vite, le retrait
+          en `is-cleaning` est très lent → nettoyage progressif). */}
+      <div
+        className={`tremaine-bg-dirty${dirty ? ' is-shown' : ''}${cleaning ? ' is-cleaning' : ''}`}
+        style={{ backgroundImage: `url(${TREMAINE_DIRTY_SRC})`, '--clean': `${TREMAINE_CLEAN_MS}ms` } as CSSProperties}
+      />
+      {/* Lueur de bougie (applique murale, à droite) qui vacille. */}
+      <div className="tremaine-candle" />
+      {/* Poussières dans la pénombre. */}
+      {motes.map((m, i) => (
+        <span
+          key={`mote-${i}`}
+          className={`tremaine-mote${m.twinkle ? ' is-twinkle' : ''}`}
+          style={{
+            left: `${m.left}%`,
+            top: `${m.top}%`,
+            width: `${m.size}px`,
+            height: `${m.size}px`,
+            opacity: m.op,
+            animationDuration: `${m.dur}s`,
+            animationDelay: `${m.delay}s`,
+            '--dx': `${m.dx}vw`,
+            '--dy': `${m.dy}vh`,
+            '--op': m.op,
+          } as CSSProperties}
+        />
+      ))}
+      {event && (
+        <>
+          {/* Nuée de poussière qui envahit le bas de l'image pendant le passage. */}
+          {smokeOn && (
+            <div className="tremaine-dust">
+              {event.puffs.map((pf) => (
+                <span
+                  key={pf.key}
+                  className="tremaine-dust-puff"
+                  style={{
+                    left: `${pf.left}%`,
+                    width: `${pf.size}vh`,
+                    height: `${pf.size}vh`,
+                    animationDuration: `${TREMAINE_SMOKE_DUR_MS}ms`,
+                    animationDelay: `${pf.delay}s`,
+                    '--dx': `${pf.dx}vw`,
+                  } as CSSProperties}
+                />
+              ))}
+            </div>
+          )}
+          {/* Lucifer : traverse de gauche à droite en faisant ses bêtises, puis dash hors champ. */}
+          {luciferOn && (
+            <div
+              key={event.seq}
+              className="tremaine-lucifer"
+              style={{ '--dur': `${TREMAINE_LUCIFER_DUR_MS}ms` } as CSSProperties}
+            >
+              <img src="/animations/lucifer.png" alt="" draggable={false} />
+            </div>
+          )}
+          {/* Phase nettoyage : grosses bulles de savon qui montent. */}
+          {cleaning && (
+            <div className="tremaine-soaps">
+              {event.bubbles.map((b) => (
+                <span
+                  key={b.key}
+                  className="tremaine-foam"
+                  style={{
+                    left: `${b.left}%`,
+                    width: `${b.size}vh`,
+                    height: `${b.size}vh`,
+                    animationDuration: `${b.dur}s`,
+                    animationDelay: `${b.delay}s`,
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+// Les supers « éliminés » par chaque version d'Omnidroïde (groupes 1→6 fournis par l'utilisateur) :
+// l'écran holo affiche l'Omnidroïde courant ET la colonne de ses victimes (mugshots tamponnés).
+const SYNDROME_HERO_GROUPS: string[][] = [
+  ['/animations/heroes/1/hero-05.png', '/animations/heroes/1/hero-09.png', '/animations/heroes/1/hero-20.png'],
+  ['/animations/heroes/2/hero-06.png', '/animations/heroes/2/hero-10.png'],
+  ['/animations/heroes/3/hero-11.png', '/animations/heroes/3/hero-12.png', '/animations/heroes/3/hero-14.png'],
+  ['/animations/heroes/4/hero-01.png', '/animations/heroes/4/hero-04.png', '/animations/heroes/4/hero-15.png'],
+  ['/animations/heroes/5/hero-03.png', '/animations/heroes/5/hero-07.png', '/animations/heroes/5/hero-08.png', '/animations/heroes/5/hero-16.png'],
+  ['/animations/heroes/6/hero-02.png', '/animations/heroes/6/hero-13.png', '/animations/heroes/6/hero-17.png'],
+]
+
+/** Décor « syndrome » (Les Indestructibles) : la base secrète high-tech de Syndrome baignée d'énergie
+ *  POINT-ZÉRO. Fond noir/rouge, GRILLE en perspective qui défile, PARTICULES rouges qui montent, LUEUR
+ *  pulsante, SCANLINES, ARCS électriques, vignette. ÉCRAN HOLOGRAPHIQUE : pour chaque version
+ *  d'Omnidroïde (cycle des 6), on affiche le robot ET la colonne de ses supers « éliminés » (mugshots
+ *  estampillés « TERMINATED »). Tiré au montage ; CSS. */
+function SyndromeDecor() {
+  // Particules d'énergie point-zéro : points cyan lumineux qui montent en dérivant et se fondent.
+  const [motes] = useState(() =>
+    Array.from({ length: 34 }, () => ({
+      left: Math.random() * 100, // %
+      top: Math.random() * 100, // %
+      size: 1.6 + Math.random() * 3.4, // px
+      dur: 9 + Math.random() * 10, // s
+      delay: -(Math.random() * 18), // s
+      dx: (Math.random() - 0.5) * 7, // vw
+      dy: -(6 + Math.random() * 12), // vh (monte)
+      op: 0.4 + Math.random() * 0.5,
+    })),
+  )
+  // Arcs électriques : éclairs cyan qui crépitent par à-coups (flash bref, à intervalles désynchronisés).
+  const [arcs] = useState(() =>
+    Array.from({ length: 6 }, () => ({
+      left: 6 + Math.random() * 88, // %
+      top: 8 + Math.random() * 64, // %
+      size: 7 + Math.random() * 10, // vh (hauteur de l'éclair)
+      rot: (Math.random() - 0.5) * 50, // deg
+      dur: 3.5 + Math.random() * 4, // s (période du cycle, l'éclat n'est qu'un court instant)
+      delay: -(Math.random() * 6), // s
+    })),
+  )
+  // Écran holographique : les 6 designs d'Omnidroïdes défilent un par un (cycle), en silhouette cyan.
+  // `holo` = index courant (re-déclenche le flicker d'apparition via `key`). Figé en reduced-motion.
+  const [holo, setHolo] = useState(0)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    const id = setInterval(() => setHolo((h) => (h + 1) % 6), 3600)
+    return () => clearInterval(id)
+  }, [])
+  return (
+    <div className="syndrome-decor" aria-hidden>
+      <div className="syndrome-grid" />
+      <div className="syndrome-glow" />
+      {/* Écran holographique : pour chaque Omnidroïde (cycle des 6, ~3,6 s), le robot en silhouette cyan
+          ET la colonne de ses supers « éliminés » (mugshots qui surgissent puis reçoivent un tampon rouge). */}
+      <div className="syndrome-holo">
+        <span
+          key={`bot-${holo}`}
+          className="syndrome-holo-bot"
+          style={{ '--bot': `url(/animations/omnidroide-${holo + 1}.png)` } as CSSProperties}
+        />
+        <div key={`vic-${holo}`} className="syndrome-holo-victims">
+          {SYNDROME_HERO_GROUPS[holo].map((src, i) => (
+            <span className="syndrome-victim" key={src} style={{ animationDelay: `${0.5 + i * 0.55}s` }}>
+              <img src={src} alt="" draggable={false} />
+              <span className="syndrome-victim-stamp" style={{ animationDelay: `${0.5 + i * 0.55 + 0.32}s` }}>
+                TERMINATED
+              </span>
+            </span>
+          ))}
+        </div>
+        <span className="syndrome-holo-scan" />
+      </div>
+      {/* Particules d'énergie point-zéro. */}
+      {motes.map((m, i) => (
+        <span
+          key={`smote-${i}`}
+          className="syndrome-mote"
+          style={{
+            left: `${m.left}%`,
+            top: `${m.top}%`,
+            width: `${m.size}px`,
+            height: `${m.size}px`,
+            opacity: m.op,
+            animationDuration: `${m.dur}s`,
+            animationDelay: `${m.delay}s`,
+            '--dx': `${m.dx}vw`,
+            '--dy': `${m.dy}vh`,
+            '--op': m.op,
+          } as CSSProperties}
+        />
+      ))}
+      {/* Arcs électriques qui crépitent. */}
+      {arcs.map((a, i) => (
+        <span
+          key={`sarc-${i}`}
+          className="syndrome-arc"
+          style={{
+            left: `${a.left}%`,
+            top: `${a.top}%`,
+            height: `${a.size}vh`,
+            animationDuration: `${a.dur}s`,
+            animationDelay: `${a.delay}s`,
+            transform: `translate(-50%, -50%) rotate(${a.rot}deg)`,
+          }}
+        />
+      ))}
+      <div className="syndrome-scan" />
+    </div>
+  )
+}
+
 // Jeu de glyphes de la pluie de code (binaire dominant + quelques symboles « hacker »).
 const CYBER_GLYPHS = '0101010101<>[]{}/#$%*+=01'
 // Construit une colonne de code : N glyphes empilés (un par ligne, rendus via white-space: pre).
@@ -3002,7 +3305,7 @@ function cyberColumnText(): string {
   return s.slice(0, -1)
 }
 
-// Crâne de piratage de Sombra en ASCII demi-teinte (cf. assets/ascii_sombra.png). Lignes alignées
+// Crâne de piratage de Sombra en ASCII demi-teinte (cf. assets/animations/ascii_sombra.png). Lignes alignées
 // en monospace (espaces de tête = centrage de la silhouette hexagonale).
 const SKULL_ART = [
   '                     :PB@Bk:',
@@ -3203,14 +3506,22 @@ function CastleAssaultDecor({ decor }: { decor: Extract<VillainDecorData, { kind
       thick: 0.8 + Math.random() * 0.9, // px
     })),
   )
-  // Torches du premier plan (la foule en marche) : flammes qui crépitent dans la bande basse.
+  // Torches de la foule : elles DÉFILENT vers la DROITE en boucle (la foule en marche qui arrive par
+  // la gauche, traverse, puis recycle hors champ). Réparties régulièrement, MÊME vitesse → espacement
+  // constant ; chaque torche a sa taille/hauteur/cadence de crépitement. Le défilement anime `left`
+  // (de -8 % à 108 %) ; un `left` statique sert de repli en reduced-motion (défilement coupé).
+  const TORCH_COUNT = 9
+  const TORCH_MARCH_S = 26 // s pour traverser la colonne
   const [torches] = useState(() =>
-    Array.from({ length: 7 }, (_, i) => ({
-      left: 6 + (i / 6) * 88 + (Math.random() - 0.5) * 7, // %
-      bottom: 3 + Math.random() * 13, // vh (profondeur variée)
+    Array.from({ length: TORCH_COUNT }, (_, i) => ({
+      left: 4 + (i / (TORCH_COUNT - 1)) * 92, // % (repli statique réparti)
+      bottom: 12 + Math.random() * 4, // vh (base, ~alignées)
       size: 2.6 + Math.random() * 2, // vh (hauteur de flamme)
       flickDur: 0.5 + Math.random() * 0.45, // s
-      delay: -(Math.random() * 1.5), // s
+      flickDelay: -(Math.random() * 1.5), // s
+      marchDelay: -((i / TORCH_COUNT) * TORCH_MARCH_S) - Math.random() * 0.5, // s (étalées sur le trajet)
+      bobDur: 0.5 + Math.random() * 0.3, // s (cadence du pas)
+      bobDelay: -(Math.random() * 1), // s (déphasage : pas désynchronisés)
     })),
   )
   // Braises qui montent des torches.
@@ -3224,6 +3535,31 @@ function CastleAssaultDecor({ decor }: { decor: Extract<VillainDecorData, { kind
       op: 0.4 + Math.random() * 0.4,
     })),
   )
+  // La FOULE : silhouettes de villageois qui MARCHENT avec les torches (mêmes animations `caTorchMarch`
+  // + `caTorchBob`). La plupart brandissent une FOURCHE (pole + dents). Décalées par rapport aux torches
+  // (marchDelay déphasé) pour s'entremêler. Silhouettes pures (presque noires) sur la lueur des torches.
+  const CROWD_COUNT = 7
+  const [crowd] = useState(() =>
+    Array.from({ length: CROWD_COUNT }, (_, i) => ({
+      left: 2 + (i / (CROWD_COUNT - 1)) * 96, // % (repli statique réparti)
+      bottom: 1 + Math.random() * 3, // vh (les pieds, ~au sol)
+      size: 9 + Math.random() * 4, // vh (hauteur de la silhouette)
+      fork: Math.random() < 0.72, // ~72 % portent une fourche
+      forkRot: (Math.random() < 0.5 ? -1 : 1) * (14 + Math.random() * 10), // deg (côté + inclinaison)
+      bobDur: 0.5 + Math.random() * 0.3, // s (cadence du pas)
+      bobDelay: -(Math.random() * 1), // s
+      marchDelay: -(((i + 0.5) / CROWD_COUNT) * TORCH_MARCH_S) - Math.random() * 0.5, // s (déphasées vs torches)
+    })),
+  )
+  // FENÊTRES du château allumées : petites lueurs chaudes (la Bête veille à l'intérieur) qui vacillent
+  // doucement, groupées sur la tour (centre-haut de l'image). Positions/réglages à ajuster si besoin.
+  const CASTLE_WINDOWS = [
+    { left: 44, top: 15, size: 1.5, dur: 3.2, delay: 0 },
+    { left: 51.8, top: 15.5, size: 1.2, dur: 4.1, delay: -1.2 },
+    { left: 44, top: 20, size: 1.1, dur: 3.6, delay: -2.1 },
+    { left: 47.4, top: 6.5, size: 1.3, dur: 4.6, delay: -0.6 },
+    { left: 47.6, top: 12, size: 1.0, dur: 3.9, delay: -3 },
+  ]
   // Éclair : on incrémente un compteur à intervalle aléatoire ; le calque, monté avec `key={flash}`,
   // rejoue son animation de flash à chaque incrément.
   const [flash, setFlash] = useState(0)
@@ -3245,6 +3581,21 @@ function CastleAssaultDecor({ decor }: { decor: Extract<VillainDecorData, { kind
       <div className="ca-bg" style={{ backgroundImage: `url(${decor.src})` }} />
       {/* Voile d'orage bleu-nuit par-dessus l'image. */}
       <div className="ca-storm" />
+      {/* Fenêtres du château allumées (lueurs chaudes qui vacillent ; derrière la pluie). */}
+      {CASTLE_WINDOWS.map((w, i) => (
+        <span
+          key={`win-${i}`}
+          className="ca-window"
+          style={{
+            left: `${w.left}%`,
+            top: `${w.top}%`,
+            width: `${w.size}vh`,
+            height: `${w.size * 1.5}vh`,
+            animationDuration: `${w.dur}s`,
+            animationDelay: `${w.delay}s`,
+          }}
+        />
+      ))}
       {/* Pluie battante diagonale. */}
       <div className="ca-rain">
         {rain.map((r, i) => (
@@ -3264,19 +3615,56 @@ function CastleAssaultDecor({ decor }: { decor: Extract<VillainDecorData, { kind
       </div>
       {/* Lueur chaude collective au sol (les torches de la foule). */}
       <div className="ca-fireglow" />
-      {/* Torches : halo + flamme qui crépite. */}
-      {torches.map((t, i) => (
-        <div key={`torch-${i}`} className="ca-torch" style={{ left: `${t.left}%`, bottom: `${t.bottom}vh` }}>
-          <span
-            className="ca-torch-glow"
-            style={{ width: `${t.size * 3}vh`, height: `${t.size * 3}vh`, animationDuration: `${t.flickDur}s`, animationDelay: `${t.delay}s` }}
-          />
-          <span
-            className="ca-flame"
-            style={{ width: `${t.size * 0.6}vh`, height: `${t.size}vh`, animationDuration: `${t.flickDur}s`, animationDelay: `${t.delay}s` }}
-          />
+      {/* La FOULE : silhouettes de villageois qui marchent (mêmes animations que les torches), la
+          plupart brandissant une fourche. Rendues AVANT les torches → les flammes passent devant. */}
+      {crowd.map((c, i) => (
+        <div
+          key={`vil-${i}`}
+          className="ca-villager"
+          style={{
+            left: `${c.left}%`,
+            bottom: `${c.bottom}vh`,
+            animationDuration: `${TORCH_MARCH_S}s, ${c.bobDur}s`,
+            animationDelay: `${c.marchDelay}s, ${c.bobDelay}s`,
+          }}
+        >
+          {c.fork && (
+            <span
+              className="ca-pitchfork"
+              style={{ height: `${c.size * 0.95}vh`, bottom: `${c.size * 0.55}vh`, transform: `rotate(${c.forkRot}deg)` }}
+            />
+          )}
+          <span className="ca-villager-body" style={{ width: `${c.size * 0.4}vh`, height: `${c.size * 0.78}vh` }} />
+          <span className="ca-villager-head" style={{ width: `${c.size * 0.26}vh`, height: `${c.size * 0.26}vh`, bottom: `${c.size * 0.72}vh` }} />
         </div>
       ))}
+      {/* Torches : bâton + halo + flamme qui crépite. La flamme et le halo sont posés au SOMMET du
+          bâton (bottom = hauteur du bâton). */}
+      {torches.map((t, i) => {
+        const stickH = t.size * 1.6 // vh (hauteur du bâton sous la flamme)
+        return (
+          <div
+            key={`torch-${i}`}
+            className="ca-torch"
+            style={{
+              left: `${t.left}%`,
+              bottom: `${t.bottom}vh`,
+              animationDuration: `${TORCH_MARCH_S}s, ${t.bobDur}s`,
+              animationDelay: `${t.marchDelay}s, ${t.bobDelay}s`,
+            }}
+          >
+            <span className="ca-torch-stick" style={{ width: `${t.size * 0.22}vh`, height: `${stickH}vh` }} />
+            <span
+              className="ca-torch-glow"
+              style={{ width: `${t.size * 3}vh`, height: `${t.size * 3}vh`, bottom: `${stickH}vh`, animationDuration: `${t.flickDur}s`, animationDelay: `${t.flickDelay}s` }}
+            />
+            <span
+              className="ca-flame"
+              style={{ width: `${t.size * 0.6}vh`, height: `${t.size}vh`, bottom: `${stickH}vh`, animationDuration: `${t.flickDur}s`, animationDelay: `${t.flickDelay}s` }}
+            />
+          </div>
+        )
+      })}
       {/* Braises qui montent des torches. */}
       {embers.map((e, i) => (
         <span
@@ -3295,6 +3683,294 @@ function CastleAssaultDecor({ decor }: { decor: Extract<VillainDecorData, { kind
       ))}
       {/* Éclair (rejoué à chaque incrément de `flash`). */}
       <div className="ca-lightning" key={flash} />
+    </div>
+  )
+}
+
+// Teintes de la magie de Mim (rose dominant + un peu de violet — « I love PINK! »).
+const MIM_SMOKE_TINTS = [
+  'radial-gradient(circle, rgba(255, 120, 210, 0.9) 0%, rgba(220, 90, 200, 0.45) 45%, rgba(150, 60, 160, 0) 72%)', // rose
+  'radial-gradient(circle, rgba(214, 130, 255, 0.85) 0%, rgba(170, 90, 230, 0.42) 45%, rgba(110, 60, 170, 0) 72%)', // violet
+]
+const MIM_SPARK_COLORS = ['#ff8de0', '#ff5fc8', '#e07bff', '#ffb3ec']
+
+// Les transformations du DUEL DE SORCIERS (images détourées, fond transparent). Chaque sorcier se
+// balade dans la colonne et passe d'un animal à l'autre toutes les minutes. Mim = fumée ROSE, Merlin
+// (son adversaire) = fumée BLEUE.
+const MIM_ANIMALS = [
+  '/animations/mim-crocodile.png',
+  '/animations/mim-lion.png',
+  '/animations/mim-fox.png',
+  '/animations/mim-snake.png',
+  '/animations/mim-elephant.png',
+  '/animations/mim-rhinoceros.png',
+  '/animations/mim-poule.png',
+  '/animations/mim-dragon.png',
+]
+const MERLIN_ANIMALS = Array.from({ length: 7 }, (_, i) => `/animations/merlin-${i + 1}.png`)
+const MIM_MORPH_MS = 60_000 // une transformation par minute
+// SURPRISE : des flammes roses surgissent un peu partout sur la colonne, le temps de la scène, puis
+// s'éteignent. Minuterie aléatoire (comme les surprises de Scar/Yzma).
+// ⚠️ Flag de réglage : true → flambée toutes les ~6–10 s ; À REMETTRE false avant commit.
+const MIM_FLAME_TEST = true
+const MIM_FLAME_DURATION_MS = 5000 // durée d'une flambée
+const MIM_FLAME_GAP_MIN_MS = MIM_FLAME_TEST ? 6000 : 28000
+const MIM_FLAME_GAP_MAX_MS = MIM_FLAME_TEST ? 10000 : 55000
+// Teinte ROSE appliquée au sprite de feu de Hadès (`fire_sprite.png`) : orange → magenta + halo rose.
+const MIM_FIRE_TINT = 'hue-rotate(285deg) saturate(1.7) brightness(1.05) drop-shadow(0 0 0.8vh rgba(255, 80, 200, 0.7))'
+// Bouffées de fumée (radial-gradient posé en inline sur `.duel-puff`) et halo de la créature.
+const MIM_PUFF_BG = 'radial-gradient(circle, rgba(255, 150, 225, 0.95) 0%, rgba(230, 110, 220, 0.7) 40%, rgba(180, 80, 190, 0) 72%)'
+const MERLIN_PUFF_BG = 'radial-gradient(circle, rgba(150, 200, 255, 0.95) 0%, rgba(100, 150, 235, 0.7) 40%, rgba(70, 110, 190, 0) 72%)'
+
+/** Un sorcier transformé qui SE BALADE dans la colonne en rebondissant sur les bords (façon écran de
+ *  veille, même mécanique que la fiole d'Yzma) et se TRANSFORME toutes les minutes : une bouffée de
+ *  fumée (`puffBg`) recouvre le swap, et le nouvel animal SURGIT de la fumée (`.duel-creature-pop`).
+ *  `firstMs` décale la 1ʳᵉ transformation (pour désynchroniser Mim et Merlin → effet de duel). Ordre
+ *  tiré au montage. Position en requestAnimationFrame (UI). En reduced-motion : placé au centre,
+ *  immobile, sans transformation. */
+function DuelWanderer({ animals, puffBg, halo, firstMs }: { animals: string[]; puffBg: string; halo: string; firstMs: number }) {
+  const [order] = useState(() => [...animals].sort(() => Math.random() - 0.5))
+  const [v] = useState(() => ({
+    size: 15 + Math.random() * 4, // vh (hauteur de l'animal)
+    speed: 4 + Math.random() * 3, // % de la plus petite dim / s
+    dir: Math.random() * Math.PI * 2, // rad (direction initiale)
+    lean: 2 + Math.random() * 3, // deg (tangage léger)
+    leanDur: 4 + Math.random() * 2, // s
+  }))
+  const [step, setStep] = useState(0) // index dans `order`
+  const [puffKey, setPuffKey] = useState(0) // remonte le puff à chaque transformation
+  const ref = useRef<HTMLSpanElement>(null)
+  // Déplacement en rebond (RAF), comme la fiole d'Yzma.
+  useEffect(() => {
+    const el = ref.current
+    const box = el?.parentElement // .mim-decor
+    if (!el || !box) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      el.style.transform = `translate(${(box.clientWidth - el.offsetWidth) / 2}px, ${(box.clientHeight - el.offsetHeight) / 2}px)`
+      return
+    }
+    let x = Math.random() * Math.max(1, box.clientWidth - el.offsetWidth)
+    let y = Math.random() * Math.max(1, box.clientHeight - el.offsetHeight)
+    const px = (Math.min(box.clientWidth, box.clientHeight) * v.speed) / 100 / 1000 // px/ms
+    let vx = Math.cos(v.dir) * px
+    let vy = Math.sin(v.dir) * px
+    let raf = 0
+    let last = 0
+    const stepFn = (t: number) => {
+      const dt = last ? Math.min(t - last, 50) : 0 // ms (borné : pas de saut au retour d'onglet)
+      last = t
+      const W = box.clientWidth
+      const H = box.clientHeight
+      const w = el.offsetWidth
+      const h = el.offsetHeight
+      x += vx * dt
+      y += vy * dt
+      if (x <= 0) { x = 0; vx = Math.abs(vx) } else if (x >= W - w) { x = W - w; vx = -Math.abs(vx) }
+      if (y <= 0) { y = 0; vy = Math.abs(vy) } else if (y >= H - h) { y = H - h; vy = -Math.abs(vy) }
+      el.style.transform = `translate(${x}px, ${y}px)`
+      raf = requestAnimationFrame(stepFn)
+    }
+    raf = requestAnimationFrame(stepFn)
+    return () => cancelAnimationFrame(raf)
+  }, [v])
+  // Transformation toutes les minutes (1ʳᵉ après `firstMs`) : animal suivant + bouffée de fumée.
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let interval = 0
+    const morph = () => {
+      setStep((s) => (s + 1) % order.length)
+      setPuffKey((k) => k + 1)
+    }
+    const lead = window.setTimeout(() => {
+      morph()
+      interval = window.setInterval(morph, MIM_MORPH_MS)
+    }, firstMs)
+    return () => {
+      window.clearTimeout(lead)
+      window.clearInterval(interval)
+    }
+  }, [order.length, firstMs])
+  return (
+    <span ref={ref} className="duel-wanderer">
+      {/* Bouffée de fumée qui recouvre la transformation (rejouée à chaque step ; couleur en inline). */}
+      {puffKey > 0 && <span key={`puff-${puffKey}`} className="duel-puff" style={{ height: `${v.size * 1.7}vh`, background: puffBg }} />}
+      {/* L'animal courant : surgit de la fumée (pop, rejoué via key) ; l'image tangue doucement. */}
+      <span key={`an-${step}`} className="duel-creature-pop">
+        <img
+          src={order[step]}
+          alt=""
+          className="duel-creature"
+          draggable={false}
+          style={{ height: `${v.size}vh`, filter: `drop-shadow(0 0 1.4vh ${halo})`, animationDuration: `${v.leanDur}s`, '--lean': `${v.lean}deg` } as CSSProperties}
+        />
+      </span>
+    </span>
+  )
+}
+
+/** Décor « magie de Mad Madam Mim » (Merlin l'Enchanteur) — 100 % CSS (hors transformations). Pénombre
+ *  VIOLETTE, LUEUR magenta pulsante, VOLUTES de fumée ROSE & violette qui montent (réutilise `vaporRise`)
+ *  et fines ÉTINCELLES roses qui montent en scintillant. Par-dessus, le DUEL DE SORCIERS : Mim (fumée
+ *  rose) et Merlin (fumée bleue) se baladent dans la colonne et se transforment chacun toutes les
+ *  minutes (cf. `DuelWanderer`). */
+function MimDecor() {
+  // Volutes de fumée rose/violette : quelques évents en bas, bouffées étagées par évent → colonnes.
+  const VENTS = 5
+  const PER_VENT = 4
+  const SMOKE_DUR = 12 // s (sert à étager les départs)
+  const [smoke] = useState(() =>
+    Array.from({ length: VENTS }, (_, v) => ({
+      left: 8 + (v / (VENTS - 1)) * 84, // %
+      puffs: Array.from({ length: PER_VENT }, (_, p) => ({
+        size: 16 + Math.random() * 14, // vh
+        dur: SMOKE_DUR + Math.random() * 5, // s
+        delay: -((p / PER_VENT) * SMOKE_DUR) - Math.random() * 2, // s (étagé → colonne continue)
+        sx: (Math.random() - 0.5) * 9, // vw (enroulement latéral)
+        op: 0.16 + Math.random() * 0.16,
+        tint: MIM_SMOKE_TINTS[Math.floor(Math.random() * MIM_SMOKE_TINTS.length)],
+      })),
+    })),
+  )
+  // Étincelles roses qui montent en ondulant et en scintillant (enveloppe = montée, milieu =
+  // ondulation, pastille = scintillement — réutilise les motes de Facilier).
+  const [motes] = useState(() =>
+    Array.from({ length: 40 }, () => ({
+      left: Math.random() * 100, // %
+      size: 1.6 + Math.random() * 2.8, // px
+      dur: 8 + Math.random() * 8, // s (montée lente)
+      delay: -(Math.random() * 16), // s
+      sway: 2 + Math.random() * 5, // vw
+      swayDur: 3 + Math.random() * 3, // s
+      twkDur: 1.3 + Math.random() * 1.8, // s
+      twkDelay: -(Math.random() * 3), // s
+      op: 0.4 + Math.random() * 0.5,
+      color: MIM_SPARK_COLORS[Math.floor(Math.random() * MIM_SPARK_COLORS.length)],
+    })),
+  )
+  // SURPRISE : flambée de flammes roses dispersées sur toute la colonne. Calque (dé)monté le temps de
+  // la scène, piloté par un timer. Désactivé en reduced-motion (le timer ne démarre pas).
+  const [flames, setFlames] = useState<{
+    seq: number
+    items: { key: string; left: number; top: number; size: number; loop: number; phase: number; delay: number }[]
+  } | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let next: ReturnType<typeof setTimeout>
+    let clear: ReturnType<typeof setTimeout>
+    let seq = 0
+    const gap = () => MIM_FLAME_GAP_MIN_MS + Math.random() * (MIM_FLAME_GAP_MAX_MS - MIM_FLAME_GAP_MIN_MS)
+    const fire = () => {
+      const s = seq++
+      const n = 34 + Math.floor(Math.random() * 16) // 34..49 flammes
+      const items = Array.from({ length: n }, (_, i) => ({
+        key: `${s}-${i}`,
+        left: 4 + Math.random() * 92, // %
+        top: 6 + Math.random() * 86, // %
+        size: 4.8 + Math.random() * 4.8, // vh (hauteur de flamme, +20 %)
+        loop: 1.8 + Math.random() * 1, // s (vitesse de la boucle du sprite)
+        phase: -(Math.random() * 2), // s (phase du sprite décalée → flammes désynchronisées)
+        delay: Math.random() * 0.8, // s (apparition échelonnée)
+      }))
+      setFlames({ seq: s, items })
+      clear = setTimeout(() => {
+        setFlames(null)
+        next = setTimeout(fire, gap())
+      }, MIM_FLAME_DURATION_MS)
+    }
+    next = setTimeout(fire, gap())
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
+  return (
+    <div className="mim-decor" aria-hidden>
+      {/* Lueur magenta pulsante (par-dessous). */}
+      <div className="mim-glow" />
+      {/* Volutes de fumée rose/violette. */}
+      {smoke.map((vent, v) =>
+        vent.puffs.map((p, i) => (
+          <span
+            key={`smoke-${v}-${i}`}
+            className="mim-smoke"
+            style={{
+              left: `${vent.left}%`,
+              width: `${p.size}vh`,
+              height: `${p.size}vh`,
+              background: p.tint,
+              animationDuration: `${p.dur}s`,
+              animationDelay: `${p.delay}s`,
+              '--sx': `${p.sx}vw`,
+              '--vop': p.op,
+            } as CSSProperties}
+          />
+        )),
+      )}
+      {/* Étincelles roses (montée > ondulation > scintillement). */}
+      {motes.map((m, i) => (
+        <span
+          key={`mote-${i}`}
+          className="voodoo-mote-rise"
+          style={{ left: `${m.left}%`, animationDuration: `${m.dur}s`, animationDelay: `${m.delay}s` }}
+        >
+          <span
+            className="voodoo-mote-sway"
+            style={{ animationDuration: `${m.swayDur}s`, animationDelay: `${m.delay}s`, '--sway': `${m.sway}vw` } as CSSProperties}
+          >
+            <span
+              className="voodoo-mote"
+              style={{
+                width: `${m.size}px`,
+                height: `${m.size}px`,
+                opacity: m.op,
+                background: m.color,
+                animationDuration: `${m.twkDur}s`,
+                animationDelay: `${m.twkDelay}s`,
+                '--mote-color': m.color,
+              } as CSSProperties}
+            />
+          </span>
+        </span>
+      ))}
+      {/* Le DUEL DE SORCIERS : Mim (fumée rose) et Merlin (fumée bleue) se baladent et se transforment
+          chacun toutes les minutes, décalés d'une demi-minute pour un effet d'échange. */}
+      <DuelWanderer animals={MIM_ANIMALS} puffBg={MIM_PUFF_BG} halo="rgba(255, 110, 210, 0.7)" firstMs={MIM_MORPH_MS} />
+      <DuelWanderer animals={MERLIN_ANIMALS} puffBg={MERLIN_PUFF_BG} halo="rgba(110, 170, 255, 0.7)" firstMs={MIM_MORPH_MS / 2} />
+      {/* SURPRISE : flambée de flammes roses dispersées (enveloppe = vie + apparition ; flamme = flicker). */}
+      {flames && (
+        <div className="mim-flames">
+          {flames.items.map((f) => (
+            // Enveloppe = cycle de vie (apparition → maintien → extinction) ; à l'intérieur, le SPRITE
+            // de feu de Hadès (`.fire-flame`/`fire_sprite.png`) joué en boucle et TEINTÉ EN ROSE.
+            <span
+              key={f.key}
+              className="mim-flame-life"
+              style={{
+                left: `${f.left}%`,
+                top: `${f.top}%`,
+                width: `${f.size * FLAME_ASPECT}vh`,
+                height: `${f.size}vh`,
+                animationDuration: `${MIM_FLAME_DURATION_MS}ms`,
+                animationDelay: `${f.delay}s`,
+              }}
+            >
+              <div
+                className="fire-flame"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  backgroundImage: 'url(/animations/fire_sprite.png)',
+                  filter: MIM_FIRE_TINT,
+                  animationDuration: `${f.loop}s`,
+                  animationDelay: `${f.phase}s`,
+                  '--frames': 39,
+                  '--fh': `${f.size}vh`,
+                } as CSSProperties}
+              />
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -3342,10 +4018,16 @@ export function VillainDecor({ villain, side }: { villain: VillainKey; side?: 'l
       return <ClockworkDecor side={side} />
     case 'cruella':
       return <CruellaDecor />
+    case 'tremaine':
+      return <TremaineDecor decor={decor} />
     case 'cyber':
       return <CyberDecor side={side} />
     case 'castleAssault':
       return <CastleAssaultDecor decor={decor} />
+    case 'mim':
+      return <MimDecor />
+    case 'syndrome':
+      return <SyndromeDecor />
     case 'scar':
       return <ScarDecor decor={decor} />
     case 'image':

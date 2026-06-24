@@ -9,6 +9,18 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.84',
+    date: '2026-06-25',
+    title: 'Trois nouveaux décors d’arrière-plan + animations Gaston & Trémaine',
+    changes: [
+      'Nouveau décor d’arrière-plan pour Madame de Trémaine (Cendrillon) : l’entrée du manoir (grand escalier, hall dallé) en pénombre froide, poussières flottantes et lueur de bougie vacillante. Par surprise, Lucifer le chat traverse le hall en y laissant des traces de pattes sales partout, puis s’enfuit.',
+      'Nouveau décor d’arrière-plan pour Madame Mim (Merlin l’Enchanteur) : sa magie rose et violette — pénombre violette, lueur magenta pulsante, volutes de fumée qui montent et étincelles roses scintillantes.',
+      'Nouveau décor d’arrière-plan pour Syndrome (Les Indestructibles) : sa base secrète high-tech baignée d’énergie point-zéro bleue — grille en perspective, particules d’énergie, lueur pulsante, scanlines holographiques et arcs électriques. Par surprise, une manta-fusée décolle dans une gerbe de flammes.',
+      'Nouvelle animation pour Gaston : les pétales de la rose enchantée tombent en voletant, nimbés d’une lueur rose et portant de petites flammèches.',
+      'Nouvelle animation pour Madame de Trémaine : ses filles, Anastasia et Drizella, traversent le haut de l’écran en se pavanant.',
+    ],
+  },
+  {
     version: '0.83',
     date: '2026-06-24',
     title: 'Décor d’arrière-plan de Gaston + bouton « Passer » au jet de début',

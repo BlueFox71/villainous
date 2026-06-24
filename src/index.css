@@ -546,6 +546,78 @@ body {
     transform: translateY(115vh) rotate(var(--coin-spin, 360deg));
   }
 }
+
+/* ----- Animation temporaire Gaston : pétales de la rose enchantée (path `petals`) -----
+   Classes préfixées `gp-` / keyframes `gp…` pour NE PAS entrer en collision avec le décor `petals`
+   de la Reine de Cœur (qui définit déjà `.petal` + `@keyframes petalFall`). Schéma nesté (chaque
+   wrapper en inline-block → se cale sur le pétale) : chute verticale (`.gp-petal`) > ondulation
+   latérale (`.gp-petal-flutter`, pendule ±--sx) > oscillation de rotation (`.gp-petal-spin`,
+   ±40° selon --rotdir) > image du pétale (lueur ROSE) + flammèche éventuelle. */
+.gp-petal {
+  position: absolute;
+  top: 0;
+  display: inline-block;
+  will-change: transform;
+  animation-name: gpPetalFall;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+@keyframes gpPetalFall {
+  from { transform: translateY(-12vh); }
+  to { transform: translateY(112vh); }
+}
+.gp-petal-flutter {
+  display: inline-block;
+  will-change: transform;
+  animation-name: gpPetalSway;
+  animation-timing-function: ease-in-out;
+  animation-direction: alternate;
+  animation-iteration-count: infinite;
+}
+@keyframes gpPetalSway {
+  from { transform: translateX(calc(var(--sx) * -0.5)); }
+  to { transform: translateX(calc(var(--sx) * 0.5)); }
+}
+.gp-petal-spin {
+  position: relative;
+  display: inline-block;
+  will-change: transform;
+  animation-name: gpPetalSpin;
+  animation-timing-function: ease-in-out;
+  animation-direction: alternate;
+  animation-iteration-count: infinite;
+}
+@keyframes gpPetalSpin {
+  from { transform: rotate(calc(var(--rotdir) * -40deg)); }
+  to { transform: rotate(calc(var(--rotdir) * 40deg)); }
+}
+.gp-petal-img {
+  display: block;
+  width: auto;
+  /* Lueur ROSE de la rose enchantée (double halo). */
+  filter: drop-shadow(0 0 0.8vh rgba(255, 120, 190, 0.9)) drop-shadow(0 0 1.8vh rgba(255, 80, 160, 0.5));
+}
+/* Petite flammèche posée en haut du pétale (tailles en % du pétale). */
+.gp-petal-flame {
+  position: absolute;
+  left: 50%;
+  top: -26%;
+  width: 62%;
+  height: 60%;
+  transform: translateX(-50%);
+  transform-origin: 50% 100%;
+  border-radius: 50% 50% 50% 50% / 72% 72% 30% 30%;
+  background: radial-gradient(ellipse at 50% 78%, #fff3b0 0%, #ffd24d 28%, #ff8a1e 56%, rgba(229, 58, 18, 0) 92%);
+  mix-blend-mode: screen;
+  filter: blur(0.2vh);
+  will-change: transform, opacity;
+  animation: gpPetalFlameFlicker 0.5s ease-in-out infinite alternate;
+}
+@keyframes gpPetalFlameFlicker {
+  0% { transform: translateX(-50%) scaleY(0.85) scaleX(1.05); opacity: 0.85; }
+  100% { transform: translateX(-50%) scaleY(1.2) scaleX(0.9); opacity: 1; }
+}
+
 /* Brillance des jetons de Pouvoir quand on en gagne : halo doré qui pulse + léger
    « pop » d'échelle, puis retour à la normale. */
 @keyframes powerGlow {
@@ -602,6 +674,21 @@ body {
 @keyframes waterFloat {
   from { transform: translateY(-1.1vh); }
   to { transform: translateY(1.1vh); }
+}
+/* Démarche posée (filles de Trémaine) : léger rebond vertical + balancement (un peu de vibration,
+   bien plus doux que la course de Kronk). */
+.water-step {
+  display: block;
+  height: 100%;
+  will-change: transform;
+  animation: waterStep 0.62s ease-in-out infinite;
+}
+@keyframes waterStep {
+  0% { transform: translateY(0) rotate(-0.7deg); }
+  25% { transform: translateY(-0.7vh) rotate(0deg); }
+  50% { transform: translateY(0) rotate(0.7deg); }
+  75% { transform: translateY(-0.7vh) rotate(0deg); }
+  100% { transform: translateY(0) rotate(-0.7deg); }
 }
 /* Traînée de pas de Kronk : des triangles isocèles violets marquent le sol DERRIÈRE l'image (à
    hauteur de ses pieds), puis chacun s'efface en fondu sur 3 s (apparition cadencée par animation-delay). */
@@ -3863,12 +3950,13 @@ body {
   pointer-events: none;
   background: radial-gradient(120% 100% at 50% 28%, transparent 42%, rgba(2, 4, 10, 0.82) 100%);
 }
-/* Image du château : plein cadre, ASSOMBRIE (jour → nuit d'orage) par un filtre. */
+/* Image du château : plein cadre, ASSOMBRIE (jour → nuit d'orage) par un filtre. Légèrement zoomée
+   en hauteur (112 %) et ANCRÉE EN BAS → l'image est remontée (le château apparaît plus haut). */
 .ca-bg {
   position: absolute;
   inset: 0;
-  background-size: cover;
-  background-position: center;
+  background-size: auto 112%;
+  background-position: center bottom;
   filter: brightness(0.4) saturate(0.7) contrast(1.05);
 }
 /* Voile d'orage bleu-nuit posé sur l'image (froid en haut, plus sombre en bas). */
@@ -3876,7 +3964,7 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(to bottom, rgba(22, 32, 64, 0.55) 0%, rgba(14, 20, 44, 0.4) 45%, rgba(6, 9, 20, 0.66) 100%);
+  background: linear-gradient(to bottom, rgba(5, 8, 22, 0.82) 0%, rgba(10, 16, 36, 0.5) 30%, rgba(12, 18, 40, 0.4) 55%, rgba(6, 9, 20, 0.66) 100%);
 }
 /* Pluie : conteneur + gouttes (traits dégradés clairs) qui tombent en diagonale. */
 .ca-rain {
@@ -3895,16 +3983,18 @@ body {
   animation-iteration-count: infinite;
 }
 @keyframes caRain {
-  from { transform: translate(0, -20vh); }
-  to { transform: translate(-9vh, 120vh); } /* diagonale : poussée par le vent */
+  /* Traits INCLINÉS (~12° vers la gauche) ET trajectoire down-left assortie → pluie penchée par le
+     vent. La rotation est constante ; seule la translation varie sur le cycle. */
+  from { transform: translate(0, -20vh) rotate(12deg); }
+  to { transform: translate(-30vh, 120vh) rotate(12deg); }
 }
 /* Lueur chaude collective au sol (la lumière des torches de la foule). */
 .ca-fireglow {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -8vh;
-  height: 28vh;
+  bottom: 4vh;
+  height: 30vh;
   pointer-events: none;
   mix-blend-mode: screen;
   background: radial-gradient(ellipse 85% 100% at 50% 100%, rgba(255, 140, 40, 0.32) 0%, rgba(255, 90, 20, 0.1) 42%, transparent 70%);
@@ -3915,11 +4005,41 @@ body {
   from { opacity: 0.7; }
   to { opacity: 1; }
 }
-/* Torche : conteneur positionné (left/bottom posés en inline), centré horizontalement. */
-.ca-torch {
+/* Torche ET villageois : conteneur positionné (bottom posé en inline), centré horizontalement. Il
+   DÉFILE vers la droite en boucle (anime `left` de -8 % à 108 %) → la foule arrive par la gauche et
+   traverse ; durée et déphasage posés en inline. Le `left` inline sert de repli statique en
+   reduced-motion. */
+.ca-torch,
+.ca-villager {
   position: absolute;
   transform: translateX(-50%);
   pointer-events: none;
+  will-change: left, transform;
+  /* 2 animations : défilement (anime `left`, linéaire) + balancement de marche (anime `transform`,
+     va-et-vient). Durées/déphasages posés en inline, dans le même ordre (march, bob). */
+  animation-name: caTorchMarch, caTorchBob;
+  animation-timing-function: linear, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+}
+@keyframes caTorchMarch {
+  from { left: -8%; }
+  to { left: 108%; }
+}
+@keyframes caTorchBob {
+  /* Petit haut-bas + léger roulis = cadence du pas (la translateX(-50%) de centrage est conservée). */
+  0% { transform: translateX(-50%) translateY(0) rotate(-1.6deg); }
+  50% { transform: translateX(-50%) translateY(-1.3vh) rotate(1.6deg); }
+  100% { transform: translateX(-50%) translateY(0) rotate(-1.6deg); }
+}
+/* Bâton de la torche : manche en bois sous la flamme (taille posée en inline). */
+.ca-torch-stick {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  border-radius: 0.3vh;
+  background: linear-gradient(to right, #2c1a0c 0%, #6b4524 45%, #3d2614 100%);
+  box-shadow: 0 0.2vh 0.5vh rgba(0, 0, 0, 0.55);
 }
 /* Halo chaud autour de la flamme (taille posée en inline) qui respire. */
 .ca-torch-glow {
@@ -3963,7 +4083,7 @@ body {
 /* Braise : étincelle chaude qui monte des torches en dérivant. */
 .ca-ember {
   position: absolute;
-  bottom: 5vh;
+  bottom: 16vh;
   border-radius: 50%;
   background: radial-gradient(circle, #ffd98a 0%, #ff8a2e 60%, rgba(255, 138, 46, 0) 100%);
   will-change: transform, opacity;
@@ -3975,6 +4095,67 @@ body {
   0% { transform: translate(0, 0) scale(1); opacity: 0; }
   15% { opacity: var(--op); }
   100% { transform: translate(var(--drift), -32vh) scale(0.4); opacity: 0; }
+}
+/* Villageois : silhouette presque noire (corps + tête), marche avec les torches (animations partagées
+   avec `.ca-torch`). Tailles posées en inline. */
+.ca-villager-body {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  background: #07070b;
+  border-radius: 45% 45% 22% 22% / 32% 32% 10% 10%;
+}
+.ca-villager-head {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: #07070b;
+}
+/* Fourche brandie : un manche (hauteur/bottom/rotation posés en inline) + 3 dents reliées par une
+   traverse (::before). Penche selon la rotation inline (côté variable). */
+.ca-pitchfork {
+  position: absolute;
+  left: 50%;
+  width: 0.5vh;
+  margin-left: -0.25vh;
+  background: #07070b;
+  border-radius: 0.25vh;
+  transform-origin: bottom center;
+}
+.ca-pitchfork::before {
+  content: '';
+  position: absolute;
+  top: -1.5vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1.6vh;
+  height: 1.6vh;
+  /* 3 dents verticales + une traverse en bas (fond composé de 4 barres). */
+  background:
+    linear-gradient(#07070b, #07070b) 0 0 / 0.32vh 100% no-repeat,
+    linear-gradient(#07070b, #07070b) 50% 0 / 0.32vh 100% no-repeat,
+    linear-gradient(#07070b, #07070b) 100% 0 / 0.32vh 100% no-repeat,
+    linear-gradient(#07070b, #07070b) 0 100% / 100% 0.32vh no-repeat;
+}
+/* Fenêtre allumée du château : petite lueur chaude (radial doux) qui vacille faiblement. */
+.ca-window {
+  position: absolute;
+  border-radius: 40% 40% 30% 30%;
+  background: radial-gradient(ellipse at 50% 45%, rgba(255, 210, 120, 0.95) 0%, rgba(255, 165, 60, 0.6) 45%, rgba(255, 140, 40, 0) 100%);
+  filter: blur(0.4vh);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  will-change: opacity;
+  animation-name: caWindowFlicker;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes caWindowFlicker {
+  from { opacity: 0.5; }
+  to { opacity: 1; }
 }
 /* Éclair : voile bleu-blanc qui illumine la scène depuis le haut (double-clignotement). Monté avec
    key={flash} → joué une seule fois à chaque incrément du compteur. */
@@ -3998,6 +4179,9 @@ body {
 @media (prefers-reduced-motion: reduce) {
   /* On fige pluie / flammes / halos / braises / lueur et on masque l'éclair (le timer ne démarre
      pas). Le château assombri + la pluie figée restent visibles. */
+  .ca-torch,
+  .ca-villager,
+  .ca-window,
   .ca-raindrop,
   .ca-flame,
   .ca-torch-glow,
@@ -4008,6 +4192,597 @@ body {
   }
   .ca-lightning {
     opacity: 0;
+  }
+}
+
+/* ============================================================================
+   Décor permanent : l'entrée du manoir (Madame de Trémaine — Cendrillon, kind `tremaine`).
+   Image de fond (escalier + hall dallé) + vignette froide + poussières + lueur de bougie.
+   ============================================================================ */
+.tremaine-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #0a0e16;
+}
+/* Image de fond : la hall du manoir, cadrée pour garder l'escalier et le sol dallé visibles. */
+.tremaine-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center 35%;
+  background-repeat: no-repeat;
+  opacity: 0.92;
+}
+/* Version SALE du hall, posée en fondu PAR-DESSUS le propre (même cadrage). Masquée par défaut ;
+   `is-shown` la révèle vite (au pic de la nuée) ; `is-cleaning` rallonge la transition de RETRAIT
+   → le hall « se nettoie » très lentement vers le fond propre. */
+.tremaine-bg-dirty {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center 35%;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transition: opacity 1100ms ease;
+}
+.tremaine-bg-dirty.is-shown {
+  opacity: 0.96;
+}
+.tremaine-bg-dirty.is-cleaning {
+  transition-duration: var(--clean, 12s);
+}
+/* Vignette froide : assombrit les bords pour fondre le décor dans l'UI. Sous la bougie/poussières
+   (z-index 1) — sinon le `::after`, peint en dernier, masquerait la bougie placée près du bord. */
+.tremaine-decor::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(120% 95% at 50% 42%, transparent 52%, rgba(4, 7, 14, 0.72) 100%);
+}
+/* Lueur chaude de l'applique murale (droite) qui vacille dans le froid. Au-dessus de la vignette. */
+.tremaine-candle {
+  position: absolute;
+  right: 3%;
+  top: 16%;
+  z-index: 2;
+  width: 26vh;
+  height: 26vh;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 198, 120, 0.6) 0%, rgba(255, 170, 90, 0.26) 38%, transparent 68%);
+  mix-blend-mode: screen;
+  will-change: opacity, transform;
+  animation: tremaineCandle 3.4s ease-in-out infinite;
+}
+@keyframes tremaineCandle {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  25% { opacity: 1; transform: scale(1.08); }
+  45% { opacity: 0.62; transform: scale(0.96); }
+  70% { opacity: 1; transform: scale(1.05); }
+}
+/* Poussières pâles qui dérivent/montent dans la pénombre (--dx/--dy) et se fondent (--op).
+   Au-dessus de la vignette (z-index 2) pour rester visibles jusque dans les marges. */
+.tremaine-mote {
+  position: absolute;
+  z-index: 2;
+  border-radius: 50%;
+  background: rgba(225, 236, 255, 0.95);
+  box-shadow: 0 0 3px 0.5px rgba(200, 222, 255, 0.5);
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation-name: tremaineMoteDrift;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+.tremaine-mote.is-twinkle {
+  box-shadow: 0 0 6px 1.5px rgba(210, 228, 255, 0.85);
+}
+@keyframes tremaineMoteDrift {
+  0% { transform: translate(0, 0); opacity: 0; }
+  20% { opacity: var(--op); }
+  80% { opacity: var(--op); }
+  100% { transform: translate(var(--dx), var(--dy)); opacity: 0; }
+}
+/* SURPRISE : traces de pattes sales. Conteneur = position + orientation ; l'intérieur est la patte
+   « boue » (forme = patte.png en masque, remplie d'un brun sombre) qui s'imprime puis se cale. */
+.tremaine-paws {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+.tremaine-paw {
+  position: absolute;
+}
+.tremaine-paw-mark {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(160deg, #4a3520, #241808);
+  -webkit-mask: url(/animations/patte.png) center / contain no-repeat;
+  mask: url(/animations/patte.png) center / contain no-repeat;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: tremainePawStamp 0.4s ease-out forwards;
+}
+@keyframes tremainePawStamp {
+  0% { opacity: 0; transform: scale(1.6); }
+  100% { opacity: var(--op); transform: scale(1); }
+}
+/* Sortie : les traces se fondent (l'animation d'impression retirée → transition vers 0). */
+.tremaine-paws.is-leaving .tremaine-paw-mark {
+  animation: none;
+  opacity: 0;
+  transition: opacity var(--paw-fade, 900ms) ease;
+}
+/* Lucifer : traverse la hall (bande basse) de gauche à droite en faisant ses bêtises, puis dash hors
+   champ à droite (fuite). Image de base orientée vers la gauche → miroir (scaleX -1) pour aller à droite. */
+.tremaine-lucifer {
+  position: absolute;
+  bottom: 24%;
+  z-index: 3;
+  width: 15vh;
+  pointer-events: none;
+  animation: tremaineLuciferCross var(--dur) ease-in forwards;
+}
+.tremaine-lucifer img {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.6));
+  animation: tremaineLuciferBob 0.5s ease-in-out infinite;
+}
+@keyframes tremaineLuciferCross {
+  0% { left: -26%; opacity: 0; }
+  5% { opacity: 1; }
+  80% { left: 80%; opacity: 1; }
+  100% { left: 152%; opacity: 1; }
+}
+@keyframes tremaineLuciferBob {
+  0%, 100% { transform: scaleX(-1) translateY(0); }
+  50% { transform: scaleX(-1) translateY(-7px); }
+}
+/* Nuée de POUSSIÈRE : bouffées brun-gris qui montent du bas et envahissent ~la moitié basse de l'image
+   pendant le passage de Lucifer, culminent (masquent le basculement du fond) puis se dissipent. */
+.tremaine-dust {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  overflow: hidden;
+}
+.tremaine-dust-puff {
+  position: absolute;
+  bottom: -6vh;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(150, 134, 104, 0.62) 0%, rgba(110, 98, 78, 0.42) 45%, transparent 72%);
+  filter: blur(10px);
+  transform: translate(-50%, 0) scale(0.7);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation-name: tremaineDust;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: forwards;
+}
+@keyframes tremaineDust {
+  0% { transform: translate(-50%, 10vh) scale(0.7); opacity: 0; }
+  46% { transform: translate(calc(-50% + var(--dx)), -8vh) scale(1.25); opacity: 0.92; }
+  100% { transform: translate(calc(-50% + var(--dx)), -22vh) scale(1.6); opacity: 0; }
+}
+/* Phase NETTOYAGE : grosses bulles de savon qui montent. */
+.tremaine-soaps {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+/* Bulles de savon : verre quasi TRANSPARENT (centre vide), reflets iridescents COLORÉS et un éclat
+   spéculaire BRILLANT. Plusieurs fonds superposés : éclat blanc · voile arc-en-ciel · liseré vitreux. */
+.tremaine-foam {
+  position: absolute;
+  bottom: 16%;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0) 16%),
+    radial-gradient(circle at 70% 74%, rgba(255, 150, 210, 0.4), rgba(150, 200, 255, 0.32) 38%, rgba(180, 255, 205, 0.26) 66%, transparent 82%),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.03) 52%, rgba(255, 255, 255, 0.28) 80%, rgba(200, 225, 255, 0.06) 100%);
+  box-shadow: inset 0 0 1.4vh rgba(255, 255, 255, 0.55), inset 0 0 0.5vh rgba(255, 200, 240, 0.5), 0 0 1.2vh rgba(190, 215, 255, 0.4);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation-name: tremaineFoamRise;
+  animation-timing-function: ease-in;
+  animation-iteration-count: infinite;
+}
+@keyframes tremaineFoamRise {
+  0% { transform: translateY(0) scale(0.7); opacity: 0; }
+  20% { opacity: 0.7; }
+  100% { transform: translateY(-52vh) scale(1.1); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* On fige la bougie et les poussières (qui restent visibles à leur opacité de base). La surprise
+     Lucifer ne se déclenche pas (le minuteur ne démarre pas en reduced-motion). */
+  .tremaine-candle,
+  .tremaine-mote {
+    animation: none !important;
+  }
+}
+
+/* ============================================================================
+   Décor permanent : base secrète high-tech de Syndrome (Les Indestructibles — kind `syndrome`).
+   Énergie POINT-ZÉRO cyan/bleue : grille en perspective + particules + lueur pulsante + scanlines + arcs.
+   ============================================================================ */
+.syndrome-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: radial-gradient(120% 100% at 50% 24%, #1a0606 0%, #0a0303 46%, #000 100%);
+}
+/* Vignette (au-dessus des couches, sous l'UI). */
+.syndrome-decor::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: radial-gradient(120% 95% at 50% 42%, transparent 54%, rgba(2, 5, 10, 0.82) 100%);
+}
+/* Grille en perspective au sol (couloir d'énergie) qui défile vers l'avant. */
+.syndrome-grid {
+  position: absolute;
+  left: -30%;
+  right: -30%;
+  bottom: -12%;
+  height: 58%;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(to right, rgba(70, 205, 255, 0.22) 0 1px, transparent 1px 7%),
+    repeating-linear-gradient(to bottom, rgba(70, 205, 255, 0.22) 0 1px, transparent 1px 9%);
+  transform: perspective(38vh) rotateX(66deg);
+  transform-origin: bottom center;
+  -webkit-mask-image: linear-gradient(to top, #000 0%, transparent 88%);
+  mask-image: linear-gradient(to top, #000 0%, transparent 88%);
+  animation: syndromeGrid 5s linear infinite;
+}
+@keyframes syndromeGrid {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 0, 0 9%; }
+}
+/* Cœur d'énergie : large lueur bleue qui pulse. */
+.syndrome-glow {
+  position: absolute;
+  left: 50%;
+  top: 33%;
+  width: 72vh;
+  height: 72vh;
+  z-index: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(45, 185, 255, 0.24) 0%, rgba(40, 130, 255, 0.1) 42%, transparent 64%);
+  mix-blend-mode: screen;
+  will-change: opacity, transform;
+  animation: syndromePulse 3.8s ease-in-out infinite;
+}
+@keyframes syndromePulse {
+  0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+}
+/* Particules d'énergie : points ROUGES lumineux qui montent et se fondent (--dx/--dy/--op). */
+.syndrome-mote {
+  position: absolute;
+  z-index: 1;
+  border-radius: 50%;
+  background: rgba(255, 110, 90, 0.95);
+  box-shadow: 0 0 6px 1px rgba(255, 50, 35, 0.85);
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation-name: syndromeMote;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes syndromeMote {
+  0% { transform: translate(0, 0); opacity: 0; }
+  20% { opacity: var(--op); }
+  80% { opacity: var(--op); }
+  100% { transform: translate(var(--dx), var(--dy)); opacity: 0; }
+}
+/* Arcs électriques : éclair cyan (forme en zigzag via clip-path) qui crépite par à-coups. */
+.syndrome-arc {
+  position: absolute;
+  z-index: 2;
+  width: 1.6vh;
+  background: linear-gradient(rgba(210, 245, 255, 0.98), rgba(60, 175, 255, 0.7));
+  filter: drop-shadow(0 0 4px rgba(90, 210, 255, 0.95));
+  clip-path: polygon(48% 0, 60% 26%, 44% 30%, 66% 56%, 46% 60%, 64% 100%, 40% 62%, 56% 58%, 34% 32%, 52% 28%, 38% 0);
+  opacity: 0;
+  pointer-events: none;
+  will-change: opacity;
+  animation-name: syndromeArc;
+  animation-timing-function: steps(1, end);
+  animation-iteration-count: infinite;
+}
+@keyframes syndromeArc {
+  0%, 90%, 100% { opacity: 0; }
+  91% { opacity: 1; }
+  93% { opacity: 0.15; }
+  95% { opacity: 0.9; }
+  97% { opacity: 0; }
+}
+/* Scanlines holographiques (fin voile de lignes). */
+.syndrome-scan {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.5;
+  background: repeating-linear-gradient(to bottom, rgba(120, 220, 255, 0.05) 0 2px, transparent 2px 4px);
+}
+/* Écran holographique (bande haute) : l'Omnidroïde (gauche) + la colonne de ses victimes (droite). */
+.syndrome-holo {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  top: 2.5%;
+  width: 40vh;
+  height: 24vh;
+  transform: translateX(-50%);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.4vh;
+  padding: 0 1vh;
+  background: radial-gradient(ellipse 72% 82% at 50% 52%, rgba(50, 190, 255, 0.14), transparent 74%);
+  animation: syndromeHoloFlickerBox 5s ease-in-out infinite;
+}
+/* Silhouette de l'Omnidroïde : forme = image en masque, remplie d'un dégradé cyan + glow. Re-montée
+   à chaque changement (`key`) → rejoue le flicker d'apparition « projection ». */
+.syndrome-holo-bot {
+  flex: 0 0 44%;
+  height: 92%;
+  background: linear-gradient(180deg, rgba(170, 245, 255, 0.95) 0%, rgba(45, 175, 255, 0.82) 100%);
+  -webkit-mask: var(--bot) center / contain no-repeat;
+  mask: var(--bot) center / contain no-repeat;
+  filter: drop-shadow(0 0 7px rgba(90, 210, 255, 0.9));
+  will-change: opacity, transform;
+  animation: syndromeHoloIn 0.5s ease-out both, syndromeHoloFlicker 2.7s ease-in-out 0.5s infinite;
+}
+/* Colonne des victimes (mugshots). */
+.syndrome-holo-victims {
+  flex: 1 1 auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0.7vh;
+}
+/* Un mugshot de super « éliminé » : photo en duotone cyan (hologramme) dans un cadre, qui surgit en
+   projection (scaleY), avec un tampon rouge par-dessus. */
+.syndrome-victim {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  border: 1px solid rgba(90, 210, 255, 0.55);
+  box-shadow: 0 0 5px rgba(60, 190, 255, 0.4), inset 0 0 6px rgba(40, 150, 255, 0.25);
+  overflow: hidden;
+  opacity: 1;
+  will-change: transform, opacity;
+  animation: syndromeVictimIn 0.45s ease-out both;
+}
+.syndrome-victim img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  /* Duotone cyan (hologramme) : grayscale → sepia → hue vers le cyan. */
+  filter: grayscale(1) sepia(1) hue-rotate(155deg) saturate(3.5) brightness(0.95);
+}
+/* Tampon « TERMINATED » : texte rouge encadré, incliné, qui claque sur la photo. */
+.syndrome-victim-stamp {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(-13deg) scale(1);
+  padding: 0.15vh 0.5vh;
+  border: 0.28vh solid rgba(255, 45, 35, 0.92);
+  border-radius: 0.4vh;
+  color: rgba(255, 60, 48, 0.95);
+  font-weight: 900;
+  font-size: 1.15vh;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  text-shadow: 0 0 3px rgba(255, 0, 0, 0.6);
+  box-shadow: 0 0 4px rgba(255, 30, 20, 0.5);
+  opacity: 1;
+  will-change: transform, opacity;
+  animation: syndromeStamp 0.4s cubic-bezier(0.3, 1.5, 0.6, 1) both;
+}
+@keyframes syndromeVictimIn {
+  0% { opacity: 0; transform: scaleY(0.08); }
+  100% { opacity: 1; transform: scaleY(1); }
+}
+@keyframes syndromeStamp {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(-13deg) scale(2.6); }
+  60% { opacity: 1; transform: translate(-50%, -50%) rotate(-13deg) scale(0.92); }
+  100% { opacity: 1; transform: translate(-50%, -50%) rotate(-13deg) scale(1); }
+}
+@keyframes syndromeHoloIn {
+  0% { opacity: 0; transform: scaleY(0.06); }
+  60% { opacity: 0.9; transform: scaleY(1.04); }
+  100% { opacity: 1; transform: scaleY(1); }
+}
+@keyframes syndromeHoloFlicker {
+  0%, 100% { opacity: 1; }
+  48% { opacity: 0.86; }
+  50% { opacity: 0.7; }
+  52% { opacity: 0.92; }
+}
+@keyframes syndromeHoloFlickerBox {
+  0%, 100% { opacity: 0.95; }
+  50% { opacity: 0.78; }
+}
+/* Scanlines propres à l'écran (par-dessus tout le contenu de l'écran). */
+.syndrome-holo-scan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(150, 230, 255, 0.12) 0 1px, transparent 1px 4px);
+  mix-blend-mode: screen;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* On fige la grille, la lueur, les particules, les arcs et l'écran holo (couches visibles, figées). */
+  .syndrome-grid,
+  .syndrome-glow,
+  .syndrome-mote,
+  .syndrome-arc,
+  .syndrome-holo,
+  .syndrome-holo-bot,
+  .syndrome-victim,
+  .syndrome-victim-stamp {
+    animation: none !important;
+  }
+  .syndrome-arc { opacity: 0; }
+}
+
+/* ============================================================================
+   Décor permanent : magie de Mad Madam Mim (Merlin l'Enchanteur — kind `mim`).
+   Pénombre violette + lueur magenta pulsante + volutes de fumée rose/violette (réutilise `vaporRise`)
+   + étincelles roses (réutilise les motes `.voodoo-mote-*`). Cf. MimDecor dans VillainDecor.tsx.
+   ============================================================================ */
+.mim-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* Pénombre violette, un peu plus lumineuse (magenta) vers le bas. */
+  background:
+    radial-gradient(130% 80% at 50% 112%, rgba(220, 70, 200, 0.35) 0%, rgba(120, 40, 130, 0.16) 45%, rgba(30, 12, 36, 0) 72%),
+    linear-gradient(to top, #2a0f33 0%, #1d0a26 50%, #120618 100%);
+}
+/* Vignette violette (coins assombris). */
+.mim-decor::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 92% at 50% 50%, transparent 52%, rgba(12, 4, 16, 0.7) 100%);
+}
+/* Lueur magenta pulsante (au bas, par-dessous la fumée). */
+.mim-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(95% 80% at 50% 80%, rgba(255, 90, 210, 0.3) 0%, rgba(200, 70, 220, 0) 62%);
+  will-change: opacity;
+  animation: mimGlowPulse 4.5s ease-in-out infinite alternate;
+}
+@keyframes mimGlowPulse {
+  from { opacity: 0.6; }
+  to { opacity: 1; }
+}
+/* Volute de fumée rose/violette qui monte (réutilise `vaporRise`). Couleur posée en inline (--tint
+   via `background`). */
+.mim-smoke {
+  position: absolute;
+  bottom: -6vh;
+  border-radius: 50%;
+  filter: blur(10px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation-name: vaporRise;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+/* Un sorcier du duel (Mim/Merlin) qui se balade : conteneur positionné par JS (translate en RAF). */
+.duel-wanderer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+}
+/* Le « pop » de transformation (remonté à chaque step → rejoue l'apparition « surgit de la fumée »). */
+.duel-creature-pop {
+  display: inline-block;
+  animation: duelCreaturePop 0.7s cubic-bezier(0.2, 0.8, 0.3, 1) 0.15s both;
+}
+@keyframes duelCreaturePop {
+  0% { opacity: 0; transform: scale(0.45) rotate(-8deg); }
+  60% { opacity: 1; }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+/* L'image de l'animal : halo magique (couleur posée en inline) + tangage doux continu (±--lean). */
+.duel-creature {
+  display: block;
+  width: auto;
+  transform-origin: 50% 90%;
+  will-change: transform;
+  animation-name: duelCreatureLean;
+  animation-timing-function: ease-in-out;
+  animation-direction: alternate;
+  animation-iteration-count: infinite;
+}
+@keyframes duelCreatureLean {
+  from { transform: rotate(calc(var(--lean) * -1)); }
+  to { transform: rotate(var(--lean)); }
+}
+/* Bouffée de fumée qui recouvre la transformation (hauteur + couleur posées en inline ; jouée 1 fois). */
+.duel-puff {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  filter: blur(8px);
+  mix-blend-mode: screen;
+  animation: duelPuff 0.9s ease-out both;
+}
+@keyframes duelPuff {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+  35% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); }
+}
+/* SURPRISE : flammes roses dispersées. Enveloppe (`.mim-flame-life`) = cycle de vie (apparition →
+   maintien → extinction, jouée une fois) ; enfant = le sprite de feu de Hadès (`.fire-flame`/
+   `fire_sprite.png`) joué en boucle et teinté en rose (filtre posé en inline). */
+.mim-flames {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.mim-flame-life {
+  position: absolute;
+  display: inline-block;
+  transform-origin: 50% 100%;
+  will-change: transform, opacity;
+  animation-name: mimFlameLife;
+  animation-timing-function: ease-out;
+  animation-fill-mode: both;
+}
+@keyframes mimFlameLife {
+  0% { opacity: 0; transform: translateX(-50%) scale(0.4); }
+  10% { opacity: 1; transform: translateX(-50%) scale(1); }
+  82% { opacity: 1; transform: translateX(-50%) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) scale(0.9); }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* On fige fumée, étincelles, lueur et le tangage des créatures (Mim et Merlin restent posés au
+     centre sur leur 1ᵉʳ animal — le minuteur de transformation ne démarre pas). */
+  .mim-smoke,
+  .mim-glow,
+  .duel-creature,
+  .duel-creature-pop,
+  .mim-decor .voodoo-mote-rise,
+  .mim-decor .voodoo-mote-sway,
+  .mim-decor .voodoo-mote {
+    animation: none !important;
   }
 }
 

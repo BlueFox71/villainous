@@ -68,10 +68,13 @@ export interface VillainAnimation {
    *  - `paws` : une traînée d'empreintes (`image`, fond transparent → affichée en blanc via
    *    `invert`) s'imprime une à une en travers de la bande haute, de DROITE à GAUCHE (comme la
    *    traversée d'Yzma), marque un temps, puis s'efface une par une — un chien invisible qui
-   *    passe dans la neige (Cruella). */
+   *    passe dans la neige (Cruella).
+   *  - `petals` : des pétales (images tirées au hasard parmi `images`) tombent du haut en VOLETANT
+   *    (chute + ondulation latérale + rotation), nimbés d'une LUEUR ROSE, la plupart portant une
+   *    petite FLAMME — les pétales de la rose enchantée (Gaston). Densité réglable via `count`. */
   path?:
     | 'cross' | 'sky-arc' | 'drift-spin' | 'pages' | 'roses' | 'coins' | 'water-cross'
-    | 'rise' | 'voodoo' | 'fire-bottom' | 'fade' | 'paws'
+    | 'rise' | 'voodoo' | 'fire-bottom' | 'fade' | 'paws' | 'petals'
   /** Tire quelques coups de canon (lueur + fumée à la bouche du canon avant)
    *  pendant le vol. Réservé aux trajectoires `sky-arc`. */
   cannons?: boolean
@@ -98,6 +101,9 @@ export interface VillainAnimation {
   /** Trajectoire `water-cross` avec une IMAGE : l'élément MARCHE (Kronk de Yzma) → ajoute une traînée de
    *  pas au sol + une vibration de course. Sans ça, l'image DÉRIVE simplement (ex. dirigeable de Ratigan). */
   onFoot?: boolean
+  /** Trajectoire `water-cross` avec une IMAGE, sans `onFoot` : démarche posée — léger rebond + balancement
+   *  subtil (un peu de vibration, sans traînée ni secousse de course) (Madame de Trémaine : ses filles). */
+  gait?: boolean
 }
 
 // Un vilain peut avoir UNE animation, ou PLUSIEURS (tableau) : dans ce cas le planificateur
@@ -178,6 +184,18 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
     durationSec: 12, // une traversée complète
     path: 'water-cross',
     onFoot: true, // Kronk court → traînée de pas + vibration de course
+  },
+  // Madame de Trémaine (Cendrillon) : ses deux filles, Anastasia et Drizella, défilent en se pavanant
+  // dans le HAUT de l'écran (trajectoire `water-cross`). L'image regarde vers la droite (comme Kronk)
+  // → pas de `facesLeft` ; retournée selon le sens du camp. Pas d'`onFoot` → dérive douce (léger
+  // flottement, sans traînée de pas ni vibration de course).
+  madameTremaine: {
+    image: '/animations/soeurs_cendrillon.png',
+    heightPct: 17, // les deux sœurs (image 580×386)
+    topPct: 3, // hauteur de la traversée
+    durationSec: 13, // une traversée complète, démarche posée
+    path: 'water-cross',
+    gait: true, // léger rebond + balancement (un peu de vibration, sans traînée)
   },
   // Ratigan (Basil, détective privé) : son DIRIGEABLE traverse le HAUT de l'écran (même trajectoire que le
   // Tic-Tac de Crochet, `water-cross` droite → gauche), en dérivant simplement (pas à pied).
@@ -298,6 +316,16 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
     durationSec: 11.5, // couvre impression échelonnée + temps de pose + effacement échelonné
     path: 'paws',
   },
+  // Gaston (La Belle et la Bête) : les pétales de la ROSE ENCHANTÉE tombent en voletant, nimbés
+  // d'une lueur rose, la plupart portant une petite flammèche (3 formes de pétale tirées au hasard).
+  gaston: {
+    images: ['/animations/petale-1.png', '/animations/petale-2.png', '/animations/petale-3.png'],
+    heightPct: 5, // taille de base d'un pétale (variée par pétale dans le composant)
+    durationSec: 15, // couvre l'étalement des chutes (délais + chute lente)
+    path: 'petals',
+  },
+  // (Madame Mim : le duel de sorciers est un DÉCOR PERMANENT — une Mim qui se balade dans la colonne
+  // et se transforme toutes les minutes ; cf. MimDecor dans villainDecor.ts / components/VillainDecor.tsx.)
   // L'Imposteur (Among Us) : un équipier éjecté (couleur au hasard) dérive en ligne
   // droite du haut-gauche vers le bas-droite en tournant lentement sur lui-même.
   imposteur: {

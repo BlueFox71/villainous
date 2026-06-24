@@ -181,6 +181,33 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     }
   })
 
+  // Pétales de la rose enchantée (Gaston) : 16 à 21 pétales tombent en VOLETANT (chute + ondulation
+  // latérale + oscillation de rotation), nimbés d'une lueur rose, la plupart portant une flammèche.
+  // Image/colonne/taille/vitesse/phases tirées au hasard, figées au montage ; tout est joué en CSS.
+  const [petalItems] = useState<
+    {
+      img: string; left: number; size: number; dur: number; delay: number
+      sway: number; swayDur: number; rotDur: number; rotDir: number; flame: boolean
+    }[]
+  >(() => {
+    if (path !== 'petals' || !anim?.images) return []
+    const imgs = anim.images
+    const base = anim.heightPct ?? 5
+    const n = anim.count ?? 16 + Math.floor(Math.random() * 6) // 16..21
+    return Array.from({ length: n }, () => ({
+      img: imgs[Math.floor(Math.random() * imgs.length)],
+      left: 2 + Math.random() * 94, // % de la largeur
+      size: base * (0.7 + Math.random() * 0.7), // vh (tailles variées)
+      dur: 6 + Math.random() * 5, // s (chute lente, 6..11)
+      delay: Math.random() * 4, // s (étalement)
+      sway: 3 + Math.random() * 5, // vw (amplitude du voletement latéral)
+      swayDur: 2.2 + Math.random() * 1.8, // s (période d'ondulation)
+      rotDur: 2.5 + Math.random() * 2.5, // s (oscillation de rotation)
+      rotDir: Math.random() < 0.5 ? -1 : 1, // sens de l'oscillation
+      flame: Math.random() < 0.7, // ~70 % portent une flammèche
+    }))
+  })
+
   // Pièces (Prince Jean) : pluie de 16 à 22 pièces tombant du haut vers le bas, sur
   // toute la largeur. Image/colonne/taille/vitesse/spin tirées au hasard, figées au
   // montage. La chute elle-même est jouée en CSS (cf. coinFall).
@@ -602,6 +629,37 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     )
   }
 
+  if (path === 'petals') {
+    // Pétales de la rose enchantée : chaque pétale tombe (`.gp-petal`), ondule latéralement
+    // (`.gp-petal-flutter`) et oscille en rotation (`.gp-petal-spin`) ; l'image porte la lueur rose,
+    // et ~70 % portent une petite flamme. Wrappers en inline-block → chacun se cale sur le pétale.
+    // (Préfixe `gp-` : évite la collision avec le décor `petals` de la Reine de Cœur.)
+    return (
+      <div className="gp-petal-layer pointer-events-none absolute inset-0" aria-hidden>
+        {petalItems.map((p, i) => (
+          <span
+            key={i}
+            className="gp-petal"
+            style={{ left: `${p.left}%`, animationDuration: `${p.dur}s`, animationDelay: `${p.delay}s` }}
+          >
+            <span
+              className="gp-petal-flutter"
+              style={{ animationDuration: `${p.swayDur}s`, animationDelay: `${p.delay}s`, '--sx': `${p.sway}vw` } as CSSProperties}
+            >
+              <span
+                className="gp-petal-spin"
+                style={{ animationDuration: `${p.rotDur}s`, animationDelay: `${p.delay}s`, '--rotdir': p.rotDir } as CSSProperties}
+              >
+                <img src={p.img} alt="" className="gp-petal-img" style={{ height: `${p.size}vh` }} draggable={false} />
+                {p.flame && <span className="gp-petal-flame" />}
+              </span>
+            </span>
+          </span>
+        ))}
+      </div>
+    )
+  }
+
   if (path === 'water-cross') {
     // Traverse le HAUT de l'écran. La VIDÉO (Tic-Tac de Crochet) garde son sens d'origine (toujours RTL,
     // clip déjà retourné en CSS). L'IMAGE (Kronk de Yzma) part dans le SENS du camp (comme `cross`/
@@ -643,6 +701,11 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
             // À pied (Kronk) : wrapper = vibration de course (rebond + secousse) ; l'image regarde dans le sens.
             <span className="water-run">
               <img src={anim.image} alt="" className="h-full w-auto select-none opacity-90" style={imgStyle} draggable={false} />
+            </span>
+          ) : anim.gait ? (
+            // Démarche posée (filles de Trémaine) : wrapper = léger rebond + balancement (un peu de vibration).
+            <span className="water-step">
+              <img src={anim.image} alt="" className="h-full w-auto select-none" style={imgStyle} draggable={false} />
             </span>
           ) : (
             // Dérive simple (ex. dirigeable de Ratigan) : wrapper = léger flottement vertical (`water-float`).
@@ -829,7 +892,7 @@ export function BackgroundAnimation({
   // (chaque animation d'un vilain a sa propre file d'images).
   const imageQueues = useRef<Record<string, string[]>>({})
   const pickImage = (villain: VillainKey, animIdx: number, a: VillainAnimation): string => {
-    if (a.path === 'pages' || a.path === 'coins' || a.path === 'rise' || a.path === 'water-cross' || a.path === 'voodoo' || a.path === 'fire-bottom' || a.path === 'paws') return '' // pas d'image unique ici
+    if (a.path === 'pages' || a.path === 'coins' || a.path === 'rise' || a.path === 'water-cross' || a.path === 'voodoo' || a.path === 'fire-bottom' || a.path === 'paws' || a.path === 'petals') return '' // pas d'image unique ici
     if (!a.images || a.images.length === 0) return a.image ?? ''
     const key = `${villain}#${animIdx}`
     const q = imageQueues.current

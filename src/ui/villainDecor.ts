@@ -111,6 +111,20 @@ export type VillainDecor =
   // sous une PLUIE battante, avec des TORCHES qui crépitent au premier plan (la foule en marche) et,
   // par moments, un ÉCLAIR qui illumine la scène.
   | { kind: 'castleAssault'; src: string }
+  // `tremaine` : l'entrée du manoir de Madame de Trémaine (Cendrillon) — l'image de fond `src`
+  // (grand escalier, hall dallé) surmontée d'une vignette froide, de poussières qui flottent dans
+  // la pénombre et d'une faible lueur de bougie qui vacille. Par moments, SURPRISE : Lucifer le chat
+  // traverse le hall en y laissant des traces de pattes sales partout, puis s'enfuit.
+  | { kind: 'tremaine'; src: string }
+  // `mim` : la magie de Mad Madam Mim (Merlin l'Enchanteur) — pénombre VIOLETTE, lueur magenta
+  // pulsante, volutes de fumée ROSE & violette qui montent et fines étincelles roses scintillantes
+  // (Mim adore le rose). 100 % CSS. (Le duel de sorciers / transformations = animation temporaire.)
+  | { kind: 'mim' }
+  // `syndrome` : la base secrète de Syndrome (Les Indestructibles) — salle de contrôle high-tech
+  // SOMBRE baignée d'énergie POINT-ZÉRO cyan/bleue : grille en perspective, particules d'énergie qui
+  // montent, lueur bleue pulsante, scanlines holographiques et arcs électriques qui crépitent.
+  // Par moments, SURPRISE : une manta-fusée décolle (gerbe de flammes). 100 % CSS.
+  | { kind: 'syndrome' }
 
 export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   patHibulaire: { kind: 'film' },
@@ -155,6 +169,16 @@ export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   // Gaston (La Belle et la Bête) : l'assaut du château — image `background_gaston.png` assombrie en
   // nuit d'orage, pluie battante, torches de la foule au premier plan et éclairs.
   gaston: { kind: 'castleAssault', src: '/animations/background_gaston.png' },
+  // Madame de Trémaine (Cendrillon) : l'entrée du manoir (image `background_tremaine.jpg`) avec
+  // vignette froide, poussières et lueur de bougie ; surprise = Lucifer salit le hall de traces de
+  // pattes puis s'enfuit.
+  madameTremaine: { kind: 'tremaine', src: '/animations/background_tremaine.jpg' },
+  // Madame Mim (Merlin l'Enchanteur) : sa magie rose/violette — pénombre violette, lueur magenta
+  // pulsante, fumée rose & violette qui monte, étincelles roses. (Transformations = anim temporaire.)
+  madameMim: { kind: 'mim' },
+  // Syndrome (Les Indestructibles) : sa base high-tech baignée d'énergie point-zéro bleue — grille,
+  // particules, lueur pulsante, scanlines, arcs électriques ; surprise = manta-fusée qui décolle.
+  syndrome: { kind: 'syndrome' },
 }
 
 /** Décor permanent d'un vilain (undefined si non défini). */
@@ -184,6 +208,24 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
     case 'scar':
     case 'castleAssault':
       return { images: [decor.src], videos: [] }
+    case 'tremaine':
+      return {
+        images: [decor.src, '/animations/background_tremaine_sale.png', '/animations/lucifer.png'],
+        videos: [],
+      }
+    case 'mim':
+      // Les transformations du duel (Mim + Merlin) + le sprite de feu de la surprise « flammes roses »
+      // (cf. MIM_ANIMALS / MERLIN_ANIMALS dans components/VillainDecor.tsx).
+      return {
+        images: [
+          '/animations/mim-crocodile.png', '/animations/mim-lion.png', '/animations/mim-fox.png',
+          '/animations/mim-snake.png', '/animations/mim-elephant.png', '/animations/mim-rhinoceros.png',
+          '/animations/mim-poule.png', '/animations/mim-dragon.png',
+          ...Array.from({ length: 7 }, (_, i) => `/animations/merlin-${i + 1}.png`),
+          '/animations/fire_sprite.png',
+        ],
+        videos: [],
+      }
     case 'clockwork':
       return {
         images: [
@@ -196,6 +238,21 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
       }
     case 'yzma':
       return { images: ['/animations/potion_yzma.png', '/animations/potion_neutre.png', '/animations/cat_yzma.png'], videos: [] }
+    case 'syndrome':
+      // Les 6 designs d'Omnidroïdes + les 18 portraits de supers « éliminés » (groupes 1→6) affichés
+      // sur l'écran holographique de la base.
+      return {
+        images: [
+          ...Array.from({ length: 6 }, (_, i) => `/animations/omnidroide-${i + 1}.png`),
+          '/animations/heroes/1/hero-05.png', '/animations/heroes/1/hero-09.png', '/animations/heroes/1/hero-20.png',
+          '/animations/heroes/2/hero-06.png', '/animations/heroes/2/hero-10.png',
+          '/animations/heroes/3/hero-11.png', '/animations/heroes/3/hero-12.png', '/animations/heroes/3/hero-14.png',
+          '/animations/heroes/4/hero-01.png', '/animations/heroes/4/hero-04.png', '/animations/heroes/4/hero-15.png',
+          '/animations/heroes/5/hero-03.png', '/animations/heroes/5/hero-07.png', '/animations/heroes/5/hero-08.png', '/animations/heroes/5/hero-16.png',
+          '/animations/heroes/6/hero-02.png', '/animations/heroes/6/hero-13.png', '/animations/heroes/6/hero-17.png',
+        ],
+        videos: [],
+      }
     case 'cruella':
       return { images: ['/animations/patte.png'], videos: [] }
     case 'video':
