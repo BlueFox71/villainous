@@ -106,6 +106,11 @@ export type VillainDecor =
   // une ligne de scan qui balaie l'écran, et par moments des SURPRISES : une vague de glitch qui
   // parcourt l'écran, et le crâne de piratage qui se tape en ASCII.
   | { kind: 'cyber' }
+  // `castleAssault` : l'assaut du château de la Bête par Gaston et la foule (La Belle et la Bête).
+  // Une IMAGE du château dans la forêt (`src`) ASSOMBRIE en nuit d'orage (voile bleu-nuit + vignette),
+  // sous une PLUIE battante, avec des TORCHES qui crépitent au premier plan (la foule en marche) et,
+  // par moments, un ÉCLAIR qui illumine la scène.
+  | { kind: 'castleAssault'; src: string }
 
 export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   patHibulaire: { kind: 'film' },
@@ -147,6 +152,9 @@ export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   // Sombra (Overwatch) : son interface de piratage — pluie de code violet/cyan, distorsion glitch
   // en arrière-plan, ligne de scan, vagues de glitch et crâne ASCII occasionnels.
   sombra: { kind: 'cyber' },
+  // Gaston (La Belle et la Bête) : l'assaut du château — image `background_gaston.png` assombrie en
+  // nuit d'orage, pluie battante, torches de la foule au premier plan et éclairs.
+  gaston: { kind: 'castleAssault', src: '/animations/background_gaston.png' },
 }
 
 /** Décor permanent d'un vilain (undefined si non défini). */
@@ -174,6 +182,7 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
       }
     case 'image':
     case 'scar':
+    case 'castleAssault':
       return { images: [decor.src], videos: [] }
     case 'clockwork':
       return {

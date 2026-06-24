@@ -9,6 +9,16 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.83',
+    date: '2026-06-24',
+    title: 'Décor d’arrière-plan de Gaston + bouton « Passer » au jet de début',
+    changes: [
+      'Nouveau décor d’arrière-plan pour Gaston (La Belle et la Bête) : l’assaut du château de la Bête — image du château assombrie en nuit d’orage, pluie battante diagonale, torches de la foule qui crépitent au premier plan (avec braises) et éclairs périodiques.',
+      'L’écran de jet de dé de début de partie a désormais un bouton « Passer » : il saute l’animation des chiffres et affiche directement le gagnant.',
+      'La séquence d’intro (voix « X contre Y » + jet de dé de début) se rejoue désormais même après un rechargement de page (F5), au lieu d’être sautée.',
+    ],
+  },
+  {
     version: '0.82',
     date: '2026-06-24',
     title: 'Nouveau vilain Tamatoa (Vaiana) + IA — 24 vilains affinés et nombreuses cartes complétées',

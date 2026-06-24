@@ -197,6 +197,35 @@ export function StartRollModal({ names, images, villainKeys, onResult, versusOnl
     timers.current.push(stop)
   }
 
+  // Bouton « Passer » : stoppe toute animation/minuterie en cours, tire un résultat
+  // définitif (jamais d'égalité) et affiche directement le gagnant, puis enchaîne la
+  // fermeture comme la fin normale du lancer.
+  function skip() {
+    if (cancelledRef.current || versusOnly || winner !== null) return
+    timers.current.forEach((t) => { window.clearTimeout(t); window.clearInterval(t) })
+    timers.current = []
+    stopStartBarFill()
+    startedRef.current = true
+    let a = d20()
+    let b = d20()
+    while (a === b) { a = d20(); b = d20() }
+    const w = a > b ? 0 : 1
+    setRevealRoll(true)
+    setRolling(false)
+    setTie(false)
+    setDice([a, b])
+    setWinner(w)
+    playStartBarFlip()
+    timers.current.push(
+      window.setTimeout(() => {
+        if (cancelledRef.current) return
+        playStartBarDrop()
+        setClosing(true)
+        timers.current.push(window.setTimeout(() => onResult?.(w, [a, b]), DROP_MS))
+      }, ANNOUNCE_MS),
+    )
+  }
+
   // Révèle les dés UNE seule fois : on attend la FIN de la voix d'intro adverse
   // (voiceDone) après une présentation minimale ; le garde-fou (maxElapsed) débloque
   // si la voix ne se termine jamais. Le son « la barre descend » joue en entier
@@ -321,6 +350,22 @@ export function StartRollModal({ names, images, villainKeys, onResult, versusOnl
           </div>
         )}
       </div>
+
+      {/* Bouton « Passer » (bas droite) : saute l'animation des chiffres et affiche
+          directement le résultat. Caché en réseau, une fois le gagnant connu ou à la fermeture. */}
+      {!versusOnly && !closing && winner === null && (
+        <button
+          type="button"
+          onClick={skip}
+          className="absolute bottom-6 right-6 z-20 inline-flex items-center gap-2 rounded-lg border border-white/25 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+        >
+          Passer
+          {/* Icône « lecture suivante » : double flèche vers la droite + barre. */}
+          <svg viewBox="0 0 24 24" aria-hidden className="h-4 w-4" fill="currentColor">
+            <path d="M5 6v12l7-6zM12 6v12l7-6zM19 6h2v12h-2z" />
+          </svg>
+        </button>
+      )}
 
       <style>{`
         /* Fermeture : l'écran s'efface (sur la durée du son « drop »). Les portraits

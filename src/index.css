@@ -3845,6 +3845,173 @@ body {
 }
 
 /* ============================================================================
+   Décor permanent : assaut du château (Gaston — La Belle et la Bête, kind `castleAssault`).
+   Image du château ASSOMBRIE en nuit d'orage + voile bleu-nuit + vignette + pluie diagonale +
+   torches de la foule (flamme CSS + halo + braises) + éclairs périodiques. Cf. VillainDecor.tsx.
+   ============================================================================ */
+.ca-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #05070d;
+}
+/* Vignette d'orage (coins très sombres). */
+.ca-decor::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 100% at 50% 28%, transparent 42%, rgba(2, 4, 10, 0.82) 100%);
+}
+/* Image du château : plein cadre, ASSOMBRIE (jour → nuit d'orage) par un filtre. */
+.ca-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: brightness(0.4) saturate(0.7) contrast(1.05);
+}
+/* Voile d'orage bleu-nuit posé sur l'image (froid en haut, plus sombre en bas). */
+.ca-storm {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(22, 32, 64, 0.55) 0%, rgba(14, 20, 44, 0.4) 45%, rgba(6, 9, 20, 0.66) 100%);
+}
+/* Pluie : conteneur + gouttes (traits dégradés clairs) qui tombent en diagonale. */
+.ca-rain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.ca-raindrop {
+  position: absolute;
+  top: 0;
+  border-radius: 0 0 40% 40%;
+  background: linear-gradient(to bottom, rgba(200, 220, 255, 0) 0%, rgba(205, 222, 255, 0.9) 100%);
+  will-change: transform;
+  animation-name: caRain;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes caRain {
+  from { transform: translate(0, -20vh); }
+  to { transform: translate(-9vh, 120vh); } /* diagonale : poussée par le vent */
+}
+/* Lueur chaude collective au sol (la lumière des torches de la foule). */
+.ca-fireglow {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -8vh;
+  height: 28vh;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(ellipse 85% 100% at 50% 100%, rgba(255, 140, 40, 0.32) 0%, rgba(255, 90, 20, 0.1) 42%, transparent 70%);
+  will-change: opacity;
+  animation: caFireGlow 2.6s ease-in-out infinite alternate;
+}
+@keyframes caFireGlow {
+  from { opacity: 0.7; }
+  to { opacity: 1; }
+}
+/* Torche : conteneur positionné (left/bottom posés en inline), centré horizontalement. */
+.ca-torch {
+  position: absolute;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+/* Halo chaud autour de la flamme (taille posée en inline) qui respire. */
+.ca-torch-glow {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translate(-50%, 30%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 175, 65, 0.6) 0%, rgba(255, 120, 30, 0.2) 45%, transparent 70%);
+  mix-blend-mode: screen;
+  will-change: opacity, transform;
+  animation-name: caTorchGlow;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes caTorchGlow {
+  from { opacity: 0.7; transform: translate(-50%, 30%) scale(0.92); }
+  to { opacity: 1; transform: translate(-50%, 30%) scale(1.08); }
+}
+/* Flamme de torche : goutte (gradient chaud) qui crépite (taille posée en inline). */
+.ca-flame {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  transform-origin: 50% 100%;
+  border-radius: 50% 50% 50% 50% / 72% 72% 30% 30%;
+  background: radial-gradient(ellipse at 50% 78%, #fff3b0 0%, #ffd24d 26%, #ff8a1e 54%, #e53a12 78%, rgba(180, 30, 10, 0) 100%);
+  filter: blur(0.3px);
+  will-change: transform, opacity;
+  animation-name: caFlameFlicker;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes caFlameFlicker {
+  0% { transform: translateX(-50%) scaleY(0.92) scaleX(1.04) skewX(-4deg); opacity: 0.9; }
+  100% { transform: translateX(-50%) scaleY(1.16) scaleX(0.9) skewX(4deg); opacity: 1; }
+}
+/* Braise : étincelle chaude qui monte des torches en dérivant. */
+.ca-ember {
+  position: absolute;
+  bottom: 5vh;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffd98a 0%, #ff8a2e 60%, rgba(255, 138, 46, 0) 100%);
+  will-change: transform, opacity;
+  animation-name: caEmber;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+@keyframes caEmber {
+  0% { transform: translate(0, 0) scale(1); opacity: 0; }
+  15% { opacity: var(--op); }
+  100% { transform: translate(var(--drift), -32vh) scale(0.4); opacity: 0; }
+}
+/* Éclair : voile bleu-blanc qui illumine la scène depuis le haut (double-clignotement). Monté avec
+   key={flash} → joué une seule fois à chaque incrément du compteur. */
+.ca-lightning {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0;
+  background: radial-gradient(120% 95% at 50% 0%, rgba(214, 228, 255, 0.92) 0%, rgba(150, 180, 255, 0.5) 30%, rgba(120, 150, 230, 0) 62%);
+  animation: caLightning 0.7s ease-out 1;
+}
+@keyframes caLightning {
+  0% { opacity: 0; }
+  5% { opacity: 0.95; }
+  12% { opacity: 0.25; }
+  20% { opacity: 0.85; }
+  45% { opacity: 0; }
+  100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* On fige pluie / flammes / halos / braises / lueur et on masque l'éclair (le timer ne démarre
+     pas). Le château assombri + la pluie figée restent visibles. */
+  .ca-raindrop,
+  .ca-flame,
+  .ca-torch-glow,
+  .ca-ember,
+  .ca-fireglow,
+  .ca-lightning {
+    animation: none !important;
+  }
+  .ca-lightning {
+    opacity: 0;
+  }
+}
+
+/* ============================================================================
    Décor permanent : interface de piratage (Sombra — kind `cyber`).
    Fond violet sombre + pluie de code (clip texte) + distorsion glitch + ligne de scan + glitch.
    ============================================================================ */

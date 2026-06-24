@@ -3181,6 +3181,124 @@ function CyberDecor({ side }: { side?: 'left' | 'right' }) {
   )
 }
 
+// Éclair de l'orage : flash bref (double-clignotement géré par le keyframe `caLightning`) à
+// intervalle aléatoire. Désactivé en reduced-motion (le timer ne démarre pas).
+const CA_LIGHTNING_GAP_MIN_MS = 7000
+const CA_LIGHTNING_GAP_MAX_MS = 20000
+
+/** Décor « assaut du château » (Gaston — La Belle et la Bête) : l'IMAGE du château de la Bête (`src`)
+ *  ASSOMBRIE en nuit d'orage (filtre + voile bleu-nuit + vignette), sous une PLUIE battante et diagonale,
+ *  avec des TORCHES qui crépitent au premier plan (la foule qui marche sur le château) d'où montent des
+ *  braises, et par moments un ÉCLAIR qui illumine la scène. Éléments tirés une fois au montage ; éclair
+ *  piloté par un timer (cf. index.css, section « assaut du château »). */
+function CastleAssaultDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'castleAssault' }> }) {
+  // Pluie : traits fins et diagonaux qui tombent vite, répartis sur toute la largeur, déphasés.
+  const [rain] = useState(() =>
+    Array.from({ length: 150 }, () => ({
+      left: Math.random() * 100, // %
+      len: 6 + Math.random() * 12, // vh (longueur du trait)
+      dur: 0.45 + Math.random() * 0.5, // s (chute rapide)
+      delay: -(Math.random() * 1.2), // s
+      op: 0.16 + Math.random() * 0.34,
+      thick: 0.8 + Math.random() * 0.9, // px
+    })),
+  )
+  // Torches du premier plan (la foule en marche) : flammes qui crépitent dans la bande basse.
+  const [torches] = useState(() =>
+    Array.from({ length: 7 }, (_, i) => ({
+      left: 6 + (i / 6) * 88 + (Math.random() - 0.5) * 7, // %
+      bottom: 3 + Math.random() * 13, // vh (profondeur variée)
+      size: 2.6 + Math.random() * 2, // vh (hauteur de flamme)
+      flickDur: 0.5 + Math.random() * 0.45, // s
+      delay: -(Math.random() * 1.5), // s
+    })),
+  )
+  // Braises qui montent des torches.
+  const [embers] = useState(() =>
+    Array.from({ length: 26 }, () => ({
+      left: Math.random() * 100, // %
+      size: 1 + Math.random() * 2, // px
+      dur: 3 + Math.random() * 3, // s
+      delay: -(Math.random() * 6), // s
+      drift: (Math.random() - 0.5) * 9, // vw
+      op: 0.4 + Math.random() * 0.4,
+    })),
+  )
+  // Éclair : on incrémente un compteur à intervalle aléatoire ; le calque, monté avec `key={flash}`,
+  // rejoue son animation de flash à chaque incrément.
+  const [flash, setFlash] = useState(0)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let next: ReturnType<typeof setTimeout>
+    const schedule = () => {
+      next = setTimeout(() => {
+        setFlash((f) => f + 1)
+        schedule()
+      }, CA_LIGHTNING_GAP_MIN_MS + Math.random() * (CA_LIGHTNING_GAP_MAX_MS - CA_LIGHTNING_GAP_MIN_MS))
+    }
+    schedule()
+    return () => clearTimeout(next)
+  }, [])
+  return (
+    <div className="ca-decor" aria-hidden>
+      {/* Image du château assombrie (filtre nuit d'orage). */}
+      <div className="ca-bg" style={{ backgroundImage: `url(${decor.src})` }} />
+      {/* Voile d'orage bleu-nuit par-dessus l'image. */}
+      <div className="ca-storm" />
+      {/* Pluie battante diagonale. */}
+      <div className="ca-rain">
+        {rain.map((r, i) => (
+          <span
+            key={`rain-${i}`}
+            className="ca-raindrop"
+            style={{
+              left: `${r.left}%`,
+              width: `${r.thick}px`,
+              height: `${r.len}vh`,
+              opacity: r.op,
+              animationDuration: `${r.dur}s`,
+              animationDelay: `${r.delay}s`,
+            }}
+          />
+        ))}
+      </div>
+      {/* Lueur chaude collective au sol (les torches de la foule). */}
+      <div className="ca-fireglow" />
+      {/* Torches : halo + flamme qui crépite. */}
+      {torches.map((t, i) => (
+        <div key={`torch-${i}`} className="ca-torch" style={{ left: `${t.left}%`, bottom: `${t.bottom}vh` }}>
+          <span
+            className="ca-torch-glow"
+            style={{ width: `${t.size * 3}vh`, height: `${t.size * 3}vh`, animationDuration: `${t.flickDur}s`, animationDelay: `${t.delay}s` }}
+          />
+          <span
+            className="ca-flame"
+            style={{ width: `${t.size * 0.6}vh`, height: `${t.size}vh`, animationDuration: `${t.flickDur}s`, animationDelay: `${t.delay}s` }}
+          />
+        </div>
+      ))}
+      {/* Braises qui montent des torches. */}
+      {embers.map((e, i) => (
+        <span
+          key={`ember-${i}`}
+          className="ca-ember"
+          style={{
+            left: `${e.left}%`,
+            width: `${e.size}px`,
+            height: `${e.size}px`,
+            animationDuration: `${e.dur}s`,
+            animationDelay: `${e.delay}s`,
+            '--drift': `${e.drift}vw`,
+            '--op': e.op,
+          } as CSSProperties}
+        />
+      ))}
+      {/* Éclair (rejoué à chaque incrément de `flash`). */}
+      <div className="ca-lightning" key={flash} />
+    </div>
+  )
+}
+
 /** Décor permanent d'arrière-plan d'un vilain (rien si aucun décor défini). */
 export function VillainDecor({ villain, side }: { villain: VillainKey; side?: 'left' | 'right' }) {
   const decor = villainDecor(villain)
@@ -3226,6 +3344,8 @@ export function VillainDecor({ villain, side }: { villain: VillainKey; side?: 'l
       return <CruellaDecor />
     case 'cyber':
       return <CyberDecor side={side} />
+    case 'castleAssault':
+      return <CastleAssaultDecor decor={decor} />
     case 'scar':
       return <ScarDecor decor={decor} />
     case 'image':

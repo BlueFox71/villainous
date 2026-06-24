@@ -757,18 +757,6 @@ const BOT_STEP_MS = 700
 // adverse lire les cartes dévoilées (modale affichée des deux côtés).
 const CASTLE_THEFT_READ_MS = 2400
 
-// Vrai si la page a été RECHARGÉE (F5) plutôt qu'ouverte par navigation. Dans ce cas la partie est déjà
-// en cours → on SAUTE la séquence d'intro (voix « X contre Y » + jet de dé de début), au lieu de la
-// rejouer. Évalué une fois au chargement du module (= un chargement de page).
-const PAGE_RELOADED: boolean = (() => {
-  try {
-    const nav = performance.getEntriesByType?.('navigation')?.[0] as PerformanceNavigationTiming | undefined
-    return nav?.type === 'reload'
-  } catch {
-    return false
-  }
-})()
-
 export default function App({ onExit }: { onExit?: () => void } = {}) {
   const state = useGameStore((s) => s.state)
   const move = useGameStore((s) => s.move)
@@ -987,18 +975,17 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     }
   }, [addPlaytime])
 
-  // Voix d'intro : « mon vilain » → « Contre » → « vilain adverse », une seule
-  // fois en entrant dans la partie (jamais en mode test). Le ref évite tout
-  // rejeu si les clés (stables sur une partie) déclenchent un nouveau rendu.
+  // Voix d'intro : « mon vilain » → « Contre » → « vilain adverse », jouée une
+  // seule fois en entrant dans la partie. Le ref évite tout rejeu si les clés
+  // (stables sur une partie) déclenchent un nouveau rendu.
   // `introVoiceDone` passe à vrai à la FIN de la voix → l'écran de dés attend.
   const introPlayedRef = useRef(false)
-  // Sur un rechargement de page, la partie est déjà en cours : on ne rejoue pas la voix d'intro.
-  const [introVoiceDone, setIntroVoiceDone] = useState(PAGE_RELOADED)
+  const [introVoiceDone, setIntroVoiceDone] = useState(false)
   useEffect(() => {
-    if (testMode || PAGE_RELOADED || introPlayedRef.current) return
+    if (introPlayedRef.current) return
     introPlayedRef.current = true
     playVillainIntro(humanVillainKey, opponentVillainKey, () => setIntroVoiceDone(true))
-  }, [testMode, humanVillainKey, opponentVillainKey])
+  }, [humanVillainKey, opponentVillainKey])
 
   // Victoire/défaite : enregistrée une seule fois quand la partie se termine. Tout
   // est relatif au siège LOCAL (HUMAN/BOT) — correct en solo comme en réseau (où
@@ -1051,11 +1038,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const [showOptions, setShowOptions] = useState(false)
   // Réseau : confirmation avant de quitter la partie (l'autre joueur sera prévenu).
   const [showQuitConfirm, setShowQuitConfirm] = useState(false)
-  // Intro de début de partie. Sautée en mode test. En réseau : présentation
-  // « versus » SANS jet de dé (v1 : l'hôte commence — activePlayer 0).
-  // Sur un rechargement de page (ou en mode test), on saute le jet de dé de début : la partie est déjà
-  // en cours (joueur actif déjà décidé dans l'état), inutile de rejouer la séquence « X contre X ».
-  const [startRollDone, setStartRollDone] = useState(testMode || PAGE_RELOADED)
+  // Intro de début de partie : la séquence « X contre X » + jet de dé se joue
+  // TOUJOURS en entrant dans une partie (y compris en mode test ou après un
+  // rechargement). En réseau : présentation « versus » SANS jet de dé (v1 :
+  // l'hôte commence — activePlayer 0).
+  const [startRollDone, setStartRollDone] = useState(false)
   // Affiche « À vous de jouer » (4 s) au début de chaque tour du joueur humain.
   const [showTurnSplash, setShowTurnSplash] = useState(false)
   // L'Imposteur — bandeau « DEAD BODY REPORTED » (Corps découvert), affiché ~2,4 s.
