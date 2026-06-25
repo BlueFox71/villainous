@@ -26,7 +26,7 @@ export const VILLAIN_COLOR: Record<string, string> = {
   'oogie-boogie': '#2F5E3A',
   oogieBoogie: '#2F5E3A',
   'seigneur-tenebres': '#3B5A2E',
-  'madame-mim': '#7A2E8F',
+  'madame-mim': '#695E7C',
   syndrome: '#A8431C',
   lotso: '#B0285A',
   'sa-sucrerie': '#B81E63',

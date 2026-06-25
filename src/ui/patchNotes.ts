@@ -9,6 +9,16 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.85',
+    date: '2026-06-25',
+    title: 'Compte à rebours « Projet Kronos » (Syndrome) + manta-jet & tailles des animaux de Mim',
+    changes: [
+      'Syndrome : nouvelle surprise « Compte à rebours — Projet Kronos » qui recouvre par moments l’écran de la base — un minuteur (heures/minutes/secondes) qui défile en continu, façon film. Le fond de la base a été retravaillé (teinte d’écran).',
+      'Syndrome : son manta-jet traverse désormais l’écran en diagonale (du côté du joueur vers le bord opposé), avec une trajectoire miroir selon le camp.',
+      'Madame Mim : les animaux du duel de sorciers (Mim et Merlin) s’affichent enfin à des tailles cohérentes et proportionnées entre elles (fini le minuscule félin à côté d’une tortue géante).',
+    ],
+  },
+  {
     version: '0.84',
     date: '2026-06-25',
     title: 'Trois nouveaux décors d’arrière-plan + animations Gaston & Trémaine',

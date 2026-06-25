@@ -321,6 +321,34 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Trajectoire `jet-cross` (Syndrome : manta-jet) : vol en DIAGONALE descendante, les DEUX extrémités
+  // HORS ÉCRAN. Miroité HORIZONTALEMENT selon le camp (comme cross / sky-arc) : côté JOUEUR, il entre
+  // au-dessus du bord haut (milieu de la moitié GAUCHE) et sort par le bord DROIT en bas ; côté
+  // ADVERSAIRE, miroir gauche/droite → entre côté DROIT et sort par le bord GAUCHE en bas.
+  useLayoutEffect(() => {
+    if (FREEZE_DEBUG || path !== 'jet-cross') return
+    const el = ref.current
+    if (!el || !anim) return
+    const { width: w, height: h } = el.getBoundingClientRect()
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    const mirror = !isPlayer // adversaire : miroir gauche/droite de la trajectoire du joueur
+    // Départ : hors écran en HAUT, au milieu de la moitié GAUCHE (joueur) ou DROITE (adversaire).
+    const start = { x: (mirror ? vw * 0.75 : vw * 0.25) - w / 2, y: -h - vh * 0.04 }
+    // Arrivée : sort en BAS, par le bord DROIT (joueur) ou GAUCHE (adversaire).
+    const end = { x: mirror ? -w - w / 2 : vw + w / 2, y: vh * 0.82 - h / 2 }
+    const tilt = mirror ? -12 : 12 // le nez pique dans le sens du vol (bas-droite / bas-gauche)
+    const anim2 = el.animate(
+      [
+        { transform: `translate(${start.x}px, ${start.y}px) rotate(${tilt}deg) scale(0.9)`, opacity: 1 },
+        { transform: `translate(${end.x}px, ${end.y}px) rotate(${tilt}deg) scale(1.1)`, opacity: 1 },
+      ],
+      { duration: (anim.durationSec ?? 6) * 1000, easing: 'cubic-bezier(0.4, 0, 0.5, 1)', fill: 'both' },
+    )
+    return () => anim2.cancel()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Trajectoire `sky-arc` : calculée après montage (taille de l'élément + écran).
   useLayoutEffect(() => {
     if (FREEZE_DEBUG || path !== 'sky-arc') return
@@ -732,6 +760,29 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     )
   }
 
+  if (path === 'jet-cross') {
+    // Vol diagonal piloté en JS (cf. useLayoutEffect). Côté ADVERSAIRE, le vol part vers la GAUCHE :
+    // on RETOURNE l'image HORIZONTALEMENT (scaleX) pour que le nez pointe dans le sens du vol — sauf si
+    // l'image regarde déjà à gauche au naturel (`facesLeft`), auquel cas c'est le côté joueur qu'on miroite.
+    const flipX = !isPlayer !== !!anim.facesLeft
+    const flips = flipX ? ['scaleX(-1)'] : []
+    return (
+      <div
+        ref={ref}
+        className="villain-prop villain-prop--free"
+        style={{ height: `${heightPct}vh`, opacity: 0, transformOrigin: 'center', ...freezeStyle }}
+      >
+        <img
+          src={src}
+          alt=""
+          className="h-full w-auto select-none"
+          style={{ transform: flips.length ? flips.join(' ') : undefined }}
+          draggable={false}
+        />
+      </div>
+    )
+  }
+
   if (path === 'sky-arc') {
     // Joueur = vol vers la DROITE ; adversaire = miroir (vol vers la GAUCHE). On
     // oriente l'image dans le sens du déplacement (facesLeft = l'image pointe à
@@ -812,6 +863,20 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
   // Trajectoire `cross` : joueur de gauche à droite (LTR) ; adversaire l'inverse.
   const movingLeft = !isPlayer
   const flip = movingLeft ? !anim.facesLeft : !!anim.facesLeft
+  // Retournements : scaleX combine le sens de marche (`flip`) et le retournement horizontal de donnée
+  // (`flipHorizontal`) ; scaleY = retournement vertical de donnée (`flipVertical`, haut/bas).
+  const sx = (flip ? -1 : 1) * (anim.flipHorizontal ? -1 : 1)
+  const sy = anim.flipVertical ? -1 : 1
+  const imgTransform = sx !== 1 || sy !== 1 ? `scale(${sx}, ${sy})` : undefined
+  const img = (
+    <img
+      src={src}
+      alt=""
+      className="h-full w-auto select-none opacity-90"
+      style={{ transform: imgTransform }}
+      draggable={false}
+    />
+  )
   return (
     <div
       className="villain-prop"
@@ -822,13 +887,8 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
         animationDuration: `${durationSec}s`,
       }}
     >
-      <img
-        src={src}
-        alt=""
-        className="h-full w-auto select-none opacity-90"
-        style={{ transform: flip ? 'scaleX(-1)' : undefined }}
-        draggable={false}
-      />
+      {/* Vibration légère (donnée `vibrate`) : un wrapper tremble pendant que le conteneur dérive. */}
+      {anim.vibrate ? <span className="prop-vibrate inline-block h-full">{img}</span> : img}
     </div>
   )
 }

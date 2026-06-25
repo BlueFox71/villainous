@@ -71,10 +71,13 @@ export interface VillainAnimation {
    *    passe dans la neige (Cruella).
    *  - `petals` : des pétales (images tirées au hasard parmi `images`) tombent du haut en VOLETANT
    *    (chute + ondulation latérale + rotation), nimbés d'une LUEUR ROSE, la plupart portant une
-   *    petite FLAMME — les pétales de la rose enchantée (Gaston). Densité réglable via `count`. */
+   *    petite FLAMME — les pétales de la rose enchantée (Gaston). Densité réglable via `count`.
+   *  - `jet-cross` : `image` (un vaisseau) FILE en DIAGONALE — départ en haut, au milieu du plateau
+   *    JOUEUR (moitié gauche), arrivée au bord DROIT à mi-hauteur de l'écran — en fondu aux extrémités
+   *    (Syndrome : son manta-jet). Trajectoire relative à l'écran (API Web Animations). */
   path?:
     | 'cross' | 'sky-arc' | 'drift-spin' | 'pages' | 'roses' | 'coins' | 'water-cross'
-    | 'rise' | 'voodoo' | 'fire-bottom' | 'fade' | 'paws' | 'petals'
+    | 'rise' | 'voodoo' | 'fire-bottom' | 'fade' | 'paws' | 'petals' | 'jet-cross'
   /** Tire quelques coups de canon (lueur + fumée à la bouche du canon avant)
    *  pendant le vol. Réservé aux trajectoires `sky-arc`. */
   cannons?: boolean
@@ -104,6 +107,13 @@ export interface VillainAnimation {
   /** Trajectoire `water-cross` avec une IMAGE, sans `onFoot` : démarche posée — léger rebond + balancement
    *  subtil (un peu de vibration, sans traînée ni secousse de course) (Madame de Trémaine : ses filles). */
   gait?: boolean
+  /** Trajectoire `cross` : RETOURNE l'image verticalement (haut/bas, scaleY(-1)) (Madame Mim). */
+  flipVertical?: boolean
+  /** Trajectoire `cross` : RETOURNE l'image horizontalement (miroir gauche/droite, scaleX(-1)), en plus
+   *  du sens de marche (Madame Mim). */
+  flipHorizontal?: boolean
+  /** Trajectoire `cross` : ajoute une LÉGÈRE VIBRATION continue à l'image pendant la traversée (Madame Mim). */
+  vibrate?: boolean
 }
 
 // Un vilain peut avoir UNE animation, ou PLUSIEURS (tableau) : dans ce cas le planificateur
@@ -128,6 +138,15 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
     heightPct: 6, // taille de base d'une pièce (variée par pièce dans le composant)
     durationSec: 9, // couvre l'étalement des chutes (délais + durée de chute)
     path: 'coins',
+  },
+  // Syndrome (Les Indestructibles) : son MANTA-JET file en DIAGONALE (du haut-milieu du plateau joueur,
+  // à gauche, vers le bord droit à mi-hauteur), contrairement au dirigeable de Ratigan qui dérive à
+  // l'horizontale. Le nez de l'image pointe déjà vers la droite (sens du vol) → pas de retournement.
+  syndrome: {
+    image: '/animations/manta_jet.png',
+    heightPct: 16, // taille du jet
+    durationSec: 6, // une traversée diagonale rapide
+    path: 'jet-cross',
   },
   // Bowser (Super Mario Galaxy) : le bateau pirate volant entre par le milieu-gauche
   // et s'élève en arc dans le ciel jusqu'à sortir en haut à droite, canons tonnants.
@@ -324,8 +343,33 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
     durationSec: 15, // couvre l'étalement des chutes (délais + chute lente)
     path: 'petals',
   },
-  // (Madame Mim : le duel de sorciers est un DÉCOR PERMANENT — une Mim qui se balade dans la colonne
-  // et se transforme toutes les minutes ; cf. MimDecor dans villainDecor.ts / components/VillainDecor.tsx.)
+  // (Le duel de sorciers de Madame Mim est un DÉCOR PERMANENT — cf. MimDecor dans villainDecor.ts.)
+  // Deux animations temporaires (tirées au hasard à chaque passage).
+  madameMim: [
+    // 1) Mim transformée en lapin poursuivie par le renard (rabbit_fox_mim) traverse le HAUT de l'écran
+    //    (trajectoire `cross` : joueur gauche→droite, adversaire droite→gauche).
+    {
+      image: '/animations/rabbit_fox_mim.png',
+      heightPct: 14,
+      durationSec: 11, // traversée un peu plus rapide
+      path: 'cross',
+      flipHorizontal: true, // image retournée horizontalement (miroir)
+      vibrate: true, // légère vibration pendant le passage
+    },
+    // 2) SURPRISE : pluie de cartes de jeu — les 54 cartes (planche cards_game découpée, cf.
+    //    public/animations/cards/) tombent du haut en tournoyant, image tirée au hasard par carte
+    //    (même trajectoire `coins` que les pièces de Prince Jean / les pommes de la Méchante Reine).
+    {
+      images: Array.from(
+        { length: 54 },
+        (_, i) => `/animations/cards/card-${String(i + 1).padStart(2, '0')}.png`,
+      ),
+      heightPct: 9, // hauteur d'une carte
+      durationSec: 10, // couvre l'étalement des chutes
+      count: 26, // pluie modérée de cartes
+      path: 'coins',
+    },
+  ],
   // L'Imposteur (Among Us) : un équipier éjecté (couleur au hasard) dérive en ligne
   // droite du haut-gauche vers le bas-droite en tournant lentement sur lui-même.
   imposteur: {

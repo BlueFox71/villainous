@@ -198,6 +198,17 @@ body {
   will-change: transform, opacity;
   animation: none;
 }
+/* Légère vibration continue (trajectoire `cross`, donnée `vibrate`) : wrapper qui tremble pendant que
+   le conteneur dérive (Madame Mim). Petits décalages + micro-rotation, en boucle rapide. */
+.prop-vibrate {
+  will-change: transform;
+  animation: propVibrate 0.12s steps(2, end) infinite;
+}
+@keyframes propVibrate {
+  0% { transform: translate(0.6px, -0.6px) rotate(0.5deg); }
+  50% { transform: translate(-0.6px, 0.6px) rotate(-0.5deg); }
+  100% { transform: translate(0.5px, 0.4px) rotate(0.4deg); }
+}
 /* Le joueur : part de la droite et dérive vers la gauche. */
 @keyframes villainDriftRTL {
   from {
@@ -2924,6 +2935,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .villain-prop,
+  .prop-vibrate,
   .page-layer,
   .rose-layer,
   .coin-layer,
@@ -4420,7 +4432,7 @@ body {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: radial-gradient(120% 100% at 50% 24%, #1a0606 0%, #0a0303 46%, #000 100%);
+  background: rgba(159, 188, 189, 0.5);
 }
 /* Vignette (au-dessus des couches, sous l'UI). */
 .syndrome-decor::after {
@@ -4441,8 +4453,8 @@ body {
   z-index: 0;
   pointer-events: none;
   background-image:
-    repeating-linear-gradient(to right, rgba(70, 205, 255, 0.22) 0 1px, transparent 1px 7%),
-    repeating-linear-gradient(to bottom, rgba(70, 205, 255, 0.22) 0 1px, transparent 1px 9%);
+    repeating-linear-gradient(to right, rgba(30, 150, 200, 0.7) 0 1px, transparent 1px 7%),
+    repeating-linear-gradient(to bottom, rgba(30, 150, 200, 0.7) 0 1px, transparent 1px 9%);
   transform: perspective(38vh) rotateX(66deg);
   transform-origin: bottom center;
   -webkit-mask-image: linear-gradient(to top, #000 0%, transparent 88%);
@@ -4527,11 +4539,10 @@ body {
 .syndrome-holo {
   position: absolute;
   z-index: 1;
-  left: 50%;
-  top: 2.5%;
-  width: 40vh;
-  height: 24vh;
-  transform: translateX(-50%);
+  left: 2.5%;
+  bottom: 25%;
+  width: 22vh;
+  height: 13vh;
   pointer-events: none;
   display: flex;
   align-items: center;
@@ -4543,15 +4554,37 @@ body {
 }
 /* Silhouette de l'Omnidroïde : forme = image en masque, remplie d'un dégradé cyan + glow. Re-montée
    à chaque changement (`key`) → rejoue le flicker d'apparition « projection ». */
-.syndrome-holo-bot {
+/* Colonne « bot » : la silhouette de l'Omnidroïde + son numéro juste en dessous. */
+.syndrome-holo-botwrap {
   flex: 0 0 44%;
   height: 92%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4vh;
+}
+.syndrome-holo-bot {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
   background: linear-gradient(180deg, rgba(170, 245, 255, 0.95) 0%, rgba(45, 175, 255, 0.82) 100%);
   -webkit-mask: var(--bot) center / contain no-repeat;
   mask: var(--bot) center / contain no-repeat;
   filter: drop-shadow(0 0 7px rgba(90, 210, 255, 0.9));
   will-change: opacity, transform;
   animation: syndromeHoloIn 0.5s ease-out both, syndromeHoloFlicker 2.7s ease-in-out 0.5s infinite;
+}
+/* Numéro de l'Omnidroïde affiché (1 → 6), façon étiquette holographique. */
+.syndrome-holo-num {
+  flex: 0 0 auto;
+  color: rgba(170, 245, 255, 0.95);
+  font-weight: 900;
+  font-size: 1.8vh;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 6px rgba(90, 210, 255, 0.9);
+  animation: syndromeHoloIn 0.5s ease-out both;
 }
 /* Colonne des victimes (mugshots). */
 .syndrome-holo-victims {
@@ -4580,6 +4613,7 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center 30%;
   display: block;
   /* Duotone cyan (hologramme) : grayscale → sepia → hue vers le cyan. */
   filter: grayscale(1) sepia(1) hue-rotate(155deg) saturate(3.5) brightness(0.95);
@@ -4635,6 +4669,107 @@ body {
   pointer-events: none;
   background: repeating-linear-gradient(to bottom, rgba(150, 230, 255, 0.12) 0 1px, transparent 1px 4px);
   mix-blend-mode: screen;
+}
+/* SURPRISE : compte à rebours « PROJECT KRONOS COUNTDOWN » (cf. assets/compteur.png). Panneau qui
+   recouvre l'écran de la base (fond teinté facon écran), apparaît puis se retire en fondu sur `--dur`. */
+.syndrome-kronos {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1.7vh;
+  padding: 3.5vh 0 4vh;
+  pointer-events: none;
+  text-align: center;
+  font-family: 'Arial Narrow', 'Oswald', 'Bahnschrift', system-ui, sans-serif;
+  color: #eef6f6;
+  background: #78aea7;
+  overflow: hidden;
+  will-change: opacity;
+  animation: kronosShow var(--dur) ease-in-out both;
+}
+/* Apparition/retrait en fondu intégrés dans la durée d'affichage. */
+@keyframes kronosShow {
+  0% { opacity: 0; }
+  7% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.syndrome-kronos-title {
+  font-size: 3vh;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.32);
+}
+/* Bande pleine largeur (couleur d'écran plus claire) qui court derrière le minuteur. */
+.syndrome-kronos-band {
+  align-self: stretch;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 0.5vh 0;
+  background: #9fbcbd;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.14);
+}
+.syndrome-kronos-clock {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.4vh;
+}
+.syndrome-kronos-grp {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5vh;
+}
+.syndrome-kronos-digits {
+  font-size: 7.4vh;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+  color: #0b1417;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.25);
+}
+.syndrome-kronos-digits.is-tick {
+  animation: kronosTick 1s ease-out;
+}
+@keyframes kronosTick {
+  0% { opacity: 0.3; transform: translateY(-10%); }
+  35% { opacity: 1; transform: none; }
+}
+.syndrome-kronos-colon {
+  font-size: 6vh;
+  font-weight: 800;
+  line-height: 1;
+  margin-top: 0.3vh;
+  color: #0b1417;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.25);
+}
+.syndrome-kronos-label {
+  font-size: 1.5vh;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: #c0392b; /* rouge, comme dans le film */
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+}
+.syndrome-kronos-launch {
+  font-size: 2.9vh;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+/* Sol éclairé (bas du panneau) sur lequel se découpe la silhouette. */
+.syndrome-kronos-floor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 18%;
+  background: linear-gradient(to top, rgba(16, 34, 38, 0.5) 0%, rgba(16, 34, 38, 0.16) 60%, transparent 100%);
 }
 @media (prefers-reduced-motion: reduce) {
   /* On fige la grille, la lueur, les particules, les arcs et l'écran holo (couches visibles, figées). */
@@ -4701,6 +4836,35 @@ body {
   animation-timing-function: ease-out;
   animation-iteration-count: infinite;
 }
+/* Étoile colorée flottante (nombre de branches variable) : scintille (opacité). La couleur vient de
+   `color` (inline) → `fill: currentColor` sur le polygone + halo assorti. La rotation/centrage est posée
+   en inline (transform) ; le scintillement n'anime QUE l'opacité pour ne pas écraser ce transform. */
+.mim-star {
+  position: absolute;
+  pointer-events: none;
+  overflow: visible;
+  filter: drop-shadow(0 0 0.5vh currentColor);
+  will-change: opacity;
+  animation-name: mimTwinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+/* Point coloré (pastille) qui scintille. */
+.mim-dot {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0.5vh currentColor;
+  will-change: opacity;
+  animation-name: mimTwinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes mimTwinkle {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
 /* Un sorcier du duel (Mim/Merlin) qui se balade : conteneur positionné par JS (translate en RAF). */
 .duel-wanderer {
   position: absolute;
@@ -4749,29 +4913,6 @@ body {
   35% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
   100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); }
 }
-/* SURPRISE : flammes roses dispersées. Enveloppe (`.mim-flame-life`) = cycle de vie (apparition →
-   maintien → extinction, jouée une fois) ; enfant = le sprite de feu de Hadès (`.fire-flame`/
-   `fire_sprite.png`) joué en boucle et teinté en rose (filtre posé en inline). */
-.mim-flames {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-.mim-flame-life {
-  position: absolute;
-  display: inline-block;
-  transform-origin: 50% 100%;
-  will-change: transform, opacity;
-  animation-name: mimFlameLife;
-  animation-timing-function: ease-out;
-  animation-fill-mode: both;
-}
-@keyframes mimFlameLife {
-  0% { opacity: 0; transform: translateX(-50%) scale(0.4); }
-  10% { opacity: 1; transform: translateX(-50%) scale(1); }
-  82% { opacity: 1; transform: translateX(-50%) scale(1); }
-  100% { opacity: 0; transform: translateX(-50%) scale(0.9); }
-}
 @media (prefers-reduced-motion: reduce) {
   /* On fige fumée, étincelles, lueur et le tangage des créatures (Mim et Merlin restent posés au
      centre sur leur 1ᵉʳ animal — le minuteur de transformation ne démarre pas). */
@@ -4781,7 +4922,9 @@ body {
   .duel-creature-pop,
   .mim-decor .voodoo-mote-rise,
   .mim-decor .voodoo-mote-sway,
-  .mim-decor .voodoo-mote {
+  .mim-decor .voodoo-mote,
+  .mim-star,
+  .mim-dot {
     animation: none !important;
   }
 }

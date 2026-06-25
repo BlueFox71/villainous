@@ -3194,11 +3194,23 @@ const SYNDROME_HERO_GROUPS: string[][] = [
   ['/animations/heroes/6/hero-02.png', '/animations/heroes/6/hero-13.png', '/animations/heroes/6/hero-17.png'],
 ]
 
+// SURPRISE « PROJECT KRONOS COUNTDOWN » (Les Indestructibles) : le compte à rebours de lancement de la
+// fusée Kronos s'affiche par-dessus l'écran de la base — minuteur HH:MM:SS qui DÉFILE seconde par seconde
+// (façon film, cf. assets/compteur.png), puis disparaît. Intervalle aléatoire entre deux apparitions
+// (`..._GAP_MIN/MAX_MS`). MODE TEST : à `true`, apparitions fréquentes (~8 s) pour régler ; À REMETTRE
+// `false` avant commit.
+const KRONOS_TEST = false
+const KRONOS_DUR_MS = 15000 // durée d'affichage du compte à rebours
+const KRONOS_GAP_MIN_MS = KRONOS_TEST ? 7000 : 95000
+const KRONOS_GAP_MAX_MS = KRONOS_TEST ? 11000 : 190000
+const pad2 = (n: number) => String(n).padStart(2, '0')
+
 /** Décor « syndrome » (Les Indestructibles) : la base secrète high-tech de Syndrome baignée d'énergie
  *  POINT-ZÉRO. Fond noir/rouge, GRILLE en perspective qui défile, PARTICULES rouges qui montent, LUEUR
  *  pulsante, SCANLINES, ARCS électriques, vignette. ÉCRAN HOLOGRAPHIQUE : pour chaque version
  *  d'Omnidroïde (cycle des 6), on affiche le robot ET la colonne de ses supers « éliminés » (mugshots
- *  estampillés « TERMINATED »). Tiré au montage ; CSS. */
+ *  estampillés « TERMINATED »). SURPRISE périodique : le compte à rebours « PROJECT KRONOS COUNTDOWN »
+ *  recouvre l'écran et défile en direct. Tiré au montage ; CSS. */
 function SyndromeDecor() {
   // Particules d'énergie point-zéro : points cyan lumineux qui montent en dérivant et se fondent.
   const [motes] = useState(() =>
@@ -3232,6 +3244,38 @@ function SyndromeDecor() {
     const id = setInterval(() => setHolo((h) => (h + 1) % 6), 3600)
     return () => clearInterval(id)
   }, [])
+  // SURPRISE « PROJECT KRONOS COUNTDOWN ». Le compte à rebours est PERSISTANT : il défile en continu
+  // (même quand le panneau est masqué), si bien qu'à chaque réapparition on reprend là où on en était
+  // — pas de reset. `remain` = secondes restantes avant lancement (départ 08:10:42, façon film).
+  const [remain, setRemain] = useState(8 * 3600 + 10 * 60 + 42)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    const id = setInterval(() => setRemain((r) => (r > 0 ? r - 1 : 0)), 1000)
+    return () => clearInterval(id)
+  }, [])
+  // Apparitions par à-coups : on ne fait que basculer la VISIBILITÉ (`kronos` = n° du tir, null = masqué) ;
+  // la valeur affichée suit `remain`, qui n'est jamais remis à zéro entre deux affichages.
+  const [kronos, setKronos] = useState<number | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    const timers: ReturnType<typeof setTimeout>[] = []
+    let seq = 0
+    const gap = () => KRONOS_GAP_MIN_MS + Math.random() * (KRONOS_GAP_MAX_MS - KRONOS_GAP_MIN_MS)
+    const fire = () => {
+      setKronos(seq++)
+      timers.push(
+        setTimeout(() => {
+          setKronos(null)
+          timers.push(setTimeout(fire, gap()))
+        }, KRONOS_DUR_MS),
+      )
+    }
+    timers.push(setTimeout(fire, gap()))
+    return () => timers.forEach(clearTimeout)
+  }, [])
+  const kh = Math.floor(remain / 3600)
+  const km = Math.floor((remain % 3600) / 60)
+  const ks = remain % 60
   return (
     <div className="syndrome-decor" aria-hidden>
       <div className="syndrome-grid" />
@@ -3239,11 +3283,16 @@ function SyndromeDecor() {
       {/* Écran holographique : pour chaque Omnidroïde (cycle des 6, ~3,6 s), le robot en silhouette cyan
           ET la colonne de ses supers « éliminés » (mugshots qui surgissent puis reçoivent un tampon rouge). */}
       <div className="syndrome-holo">
-        <span
-          key={`bot-${holo}`}
-          className="syndrome-holo-bot"
-          style={{ '--bot': `url(/animations/omnidroide-${holo + 1}.png)` } as CSSProperties}
-        />
+        <div className="syndrome-holo-botwrap">
+          <span
+            key={`bot-${holo}`}
+            className="syndrome-holo-bot"
+            style={{ '--bot': `url(/animations/omnidroide-${holo + 1}.png)` } as CSSProperties}
+          />
+          <span key={`num-${holo}`} className="syndrome-holo-num">
+            {holo + 1}
+          </span>
+        </div>
         <div key={`vic-${holo}`} className="syndrome-holo-victims">
           {SYNDROME_HERO_GROUPS[holo].map((src, i) => (
             <span className="syndrome-victim" key={src} style={{ animationDelay: `${0.5 + i * 0.55}s` }}>
@@ -3291,6 +3340,42 @@ function SyndromeDecor() {
         />
       ))}
       <div className="syndrome-scan" />
+      {/* SURPRISE : panneau « PROJECT KRONOS COUNTDOWN » qui recouvre l'écran, minuteur HH:MM:SS en
+          direct, puis se retire en fondu (animation calée sur `--dur`). Le bloc se re-monte par `key`
+          → la séquence d'apparition rejoue ; la silhouette de Syndrome pointe l'écran (SVG). */}
+      {kronos !== null && (
+        <div
+          key={kronos}
+          className="syndrome-kronos"
+          style={{ '--dur': `${KRONOS_DUR_MS}ms` } as CSSProperties}
+        >
+          <div className="syndrome-kronos-title">COMPTE À REBOURS — PROJET KRONOS</div>
+          {/* Bande pleine largeur (couleur d'écran plus claire) qui court derrière le minuteur. */}
+          <div className="syndrome-kronos-band">
+            <div className="syndrome-kronos-clock">
+              <div className="syndrome-kronos-grp">
+                <span className="syndrome-kronos-digits">{pad2(kh)}</span>
+                <span className="syndrome-kronos-label">HEURES</span>
+              </div>
+              <span className="syndrome-kronos-colon">:</span>
+              <div className="syndrome-kronos-grp">
+                <span className="syndrome-kronos-digits">{pad2(km)}</span>
+                <span className="syndrome-kronos-label">MINUTES</span>
+              </div>
+              <span className="syndrome-kronos-colon">:</span>
+              <div className="syndrome-kronos-grp">
+                {/* La `key` sur les secondes les re-monte chaque tic → petit « flip » de défilement. */}
+                <span key={ks} className="syndrome-kronos-digits is-tick">
+                  {pad2(ks)}
+                </span>
+                <span className="syndrome-kronos-label">SECONDES</span>
+              </div>
+            </div>
+          </div>
+          <div className="syndrome-kronos-launch">AVANT LANCEMENT</div>
+          <div className="syndrome-kronos-floor" />
+        </div>
+      )}
     </div>
   )
 }
@@ -3693,80 +3778,103 @@ const MIM_SMOKE_TINTS = [
   'radial-gradient(circle, rgba(214, 130, 255, 0.85) 0%, rgba(170, 90, 230, 0.42) 45%, rgba(110, 60, 170, 0) 72%)', // violet
 ]
 const MIM_SPARK_COLORS = ['#ff8de0', '#ff5fc8', '#e07bff', '#ffb3ec']
+// Palette des étoiles + points colorés flottant dans le décor (couleurs demandées).
+const MIM_DECO_COLORS = ['#EE8B2D', '#C79C3B', '#C5CBD7', '#AA578A', '#328498']
+// Sommets d'une étoile à `points` branches, centrée (50,50) dans un viewBox 100×100. `innerRatio` =
+// rapport rayon intérieur / extérieur (creux des branches). Pointe du haut en premier.
+function mimStarPolygon(points: number, innerRatio: number): string {
+  const outer = 48
+  const inner = outer * innerRatio
+  const verts: string[] = []
+  const step = Math.PI / points
+  for (let i = 0; i < points * 2; i++) {
+    const r = i % 2 === 0 ? outer : inner
+    const a = -Math.PI / 2 + i * step
+    verts.push(`${(50 + r * Math.cos(a)).toFixed(2)},${(50 + r * Math.sin(a)).toFixed(2)}`)
+  }
+  return verts.join(' ')
+}
 
 // Les transformations du DUEL DE SORCIERS (images détourées, fond transparent). Chaque sorcier se
 // balade dans la colonne et passe d'un animal à l'autre toutes les minutes. Mim = fumée ROSE, Merlin
 // (son adversaire) = fumée BLEUE.
-const MIM_ANIMALS = [
-  '/animations/mim-crocodile.png',
-  '/animations/mim-lion.png',
-  '/animations/mim-fox.png',
-  '/animations/mim-snake.png',
-  '/animations/mim-elephant.png',
-  '/animations/mim-rhinoceros.png',
-  '/animations/mim-poule.png',
-  '/animations/mim-dragon.png',
+// Les PNG sont DÉTOURÉS AU PLUS JUSTE (bordures transparentes retirées) → la hauteur de l'image = la
+// hauteur visible de l'animal. On applique alors un facteur `scale` propre à chaque animal pour une
+// taille relative NATURELLE (souris minuscule, éléphant imposant), au lieu de tout afficher à l'identique.
+type DuelAnimal = { src: string; scale: number }
+const MIM_ANIMALS: DuelAnimal[] = [
+  { src: '/animations/mim-crocodile.png', scale: 1.35 },
+  { src: '/animations/mim-lion.png', scale: 1.3 }, // « tigre » (félin)
+  { src: '/animations/mim-fox.png', scale: 0.82 },
+  { src: '/animations/mim-snake.png', scale: 0.8 }, // serpent lové, compact
+  { src: '/animations/mim-elephant.png', scale: 1.55 },
+  { src: '/animations/mim-rhinoceros.png', scale: 1.15 },
+  { src: '/animations/mim-poule.png', scale: 0.6 },
+  { src: '/animations/mim-dragon.png', scale: 4.2 },
 ]
-const MERLIN_ANIMALS = Array.from({ length: 7 }, (_, i) => `/animations/merlin-${i + 1}.png`)
-const MIM_MORPH_MS = 60_000 // une transformation par minute
-// SURPRISE : des flammes roses surgissent un peu partout sur la colonne, le temps de la scène, puis
-// s'éteignent. Minuterie aléatoire (comme les surprises de Scar/Yzma).
-// ⚠️ Flag de réglage : true → flambée toutes les ~6–10 s ; À REMETTRE false avant commit.
-const MIM_FLAME_TEST = true
-const MIM_FLAME_DURATION_MS = 5000 // durée d'une flambée
-const MIM_FLAME_GAP_MIN_MS = MIM_FLAME_TEST ? 6000 : 28000
-const MIM_FLAME_GAP_MAX_MS = MIM_FLAME_TEST ? 10000 : 55000
-// Teinte ROSE appliquée au sprite de feu de Hadès (`fire_sprite.png`) : orange → magenta + halo rose.
-const MIM_FIRE_TINT = 'hue-rotate(285deg) saturate(1.7) brightness(1.05) drop-shadow(0 0 0.8vh rgba(255, 80, 200, 0.7))'
+const MERLIN_ANIMALS: DuelAnimal[] = [
+  { src: '/animations/merlin-1.png', scale: 0.92 }, // bouc
+  { src: '/animations/merlin-2.png', scale: 0.62 }, // souris
+  { src: '/animations/merlin-3.png', scale: 0.66 }, // crabe (large, bas)
+  { src: '/animations/merlin-4.png', scale: 0.4 }, // tortue
+  { src: '/animations/merlin-5.png', scale: 0.136 }, // chenille
+  { src: '/animations/merlin-6.png', scale: 1.3 }, // morse / phoque
+  { src: '/animations/merlin-7.png', scale: 0.78 }, // lièvre
+]
+// ⚠️ Réglage : 10_000 pour défiler vite et VOIR toutes les transformations. À REMETTRE 60_000 avant commit.
+const MIM_MORPH_MS = 10_000 // une transformation par minute (réglage temporaire : 10 s)
 // Bouffées de fumée (radial-gradient posé en inline sur `.duel-puff`) et halo de la créature.
 const MIM_PUFF_BG = 'radial-gradient(circle, rgba(255, 150, 225, 0.95) 0%, rgba(230, 110, 220, 0.7) 40%, rgba(180, 80, 190, 0) 72%)'
 const MERLIN_PUFF_BG = 'radial-gradient(circle, rgba(150, 200, 255, 0.95) 0%, rgba(100, 150, 235, 0.7) 40%, rgba(70, 110, 190, 0) 72%)'
 
-/** Un sorcier transformé qui SE BALADE dans la colonne en rebondissant sur les bords (façon écran de
- *  veille, même mécanique que la fiole d'Yzma) et se TRANSFORME toutes les minutes : une bouffée de
- *  fumée (`puffBg`) recouvre le swap, et le nouvel animal SURGIT de la fumée (`.duel-creature-pop`).
- *  `firstMs` décale la 1ʳᵉ transformation (pour désynchroniser Mim et Merlin → effet de duel). Ordre
- *  tiré au montage. Position en requestAnimationFrame (UI). En reduced-motion : placé au centre,
- *  immobile, sans transformation. */
-function DuelWanderer({ animals, puffBg, halo, firstMs }: { animals: string[]; puffBg: string; halo: string; firstMs: number }) {
+/** Un sorcier transformé qui DÉFILE horizontalement le long du BAS de la colonne (ancré au sol, pour
+ *  rester visible sous le plateau) et se TRANSFORME toutes les minutes : une bouffée de fumée (`puffBg`)
+ *  recouvre le swap, et le nouvel animal SURGIT de la fumée (`.duel-creature-pop`). Il fait demi-tour aux
+ *  bords. `firstMs` décale la 1ʳᵉ transformation (pour désynchroniser Mim et Merlin → effet de duel).
+ *  Ordre tiré au montage. Position en requestAnimationFrame (UI). En reduced-motion : posé au sol, au
+ *  centre, immobile, sans transformation. */
+function DuelWanderer({ animals, puffBg, halo, firstMs }: { animals: DuelAnimal[]; puffBg: string; halo: string; firstMs: number }) {
   const [order] = useState(() => [...animals].sort(() => Math.random() - 0.5))
   const [v] = useState(() => ({
     size: 15 + Math.random() * 4, // vh (hauteur de l'animal)
-    speed: 4 + Math.random() * 3, // % de la plus petite dim / s
-    dir: Math.random() * Math.PI * 2, // rad (direction initiale)
+    speed: 4 + Math.random() * 3, // % de la largeur / s
+    dir: Math.random() < 0.5 ? -1 : 1, // sens de marche initial
     lean: 2 + Math.random() * 3, // deg (tangage léger)
     leanDur: 4 + Math.random() * 2, // s
   }))
   const [step, setStep] = useState(0) // index dans `order`
   const [puffKey, setPuffKey] = useState(0) // remonte le puff à chaque transformation
   const ref = useRef<HTMLSpanElement>(null)
-  // Déplacement en rebond (RAF), comme la fiole d'Yzma.
+  // Marche horizontale ancrée au bas de la colonne (RAF) : seul `x` bouge, `y` est recollé au sol à
+  // chaque frame (la hauteur change à la transformation → la créature « pousse » vers le haut depuis le sol).
   useEffect(() => {
     const el = ref.current
     const box = el?.parentElement // .mim-decor
     if (!el || !box) return
+    // Hauteur au-dessus du sol (les animaux ne défilent pas tout en bas de la colonne).
+    const lift = box.clientHeight * 0.22
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-      el.style.transform = `translate(${(box.clientWidth - el.offsetWidth) / 2}px, ${(box.clientHeight - el.offsetHeight) / 2}px)`
+      el.style.transform = `translate(${(box.clientWidth - el.offsetWidth) / 2}px, ${box.clientHeight - el.offsetHeight - lift}px)`
       return
     }
     let x = Math.random() * Math.max(1, box.clientWidth - el.offsetWidth)
-    let y = Math.random() * Math.max(1, box.clientHeight - el.offsetHeight)
-    const px = (Math.min(box.clientWidth, box.clientHeight) * v.speed) / 100 / 1000 // px/ms
-    let vx = Math.cos(v.dir) * px
-    let vy = Math.sin(v.dir) * px
+    const px = (box.clientWidth * v.speed) / 100 / 1000 // px/ms (horizontal)
+    let vx = v.dir * px
     let raf = 0
     let last = 0
     const stepFn = (t: number) => {
       const dt = last ? Math.min(t - last, 50) : 0 // ms (borné : pas de saut au retour d'onglet)
       last = t
       const W = box.clientWidth
-      const H = box.clientHeight
       const w = el.offsetWidth
       const h = el.offsetHeight
+      // Marge horizontale : on rétrécit la plage de marche (demi-tour avant les bords de la colonne).
+      const margin = W * 0.2
+      const minX = margin
+      const maxX = Math.max(minX, W - w - margin)
       x += vx * dt
-      y += vy * dt
-      if (x <= 0) { x = 0; vx = Math.abs(vx) } else if (x >= W - w) { x = W - w; vx = -Math.abs(vx) }
-      if (y <= 0) { y = 0; vy = Math.abs(vy) } else if (y >= H - h) { y = H - h; vy = -Math.abs(vy) }
+      if (x <= minX) { x = minX; vx = Math.abs(vx) } else if (x >= maxX) { x = maxX; vx = -Math.abs(vx) }
+      const y = box.clientHeight - h - lift // ancré au sol, remonté de `lift`
       el.style.transform = `translate(${x}px, ${y}px)`
       raf = requestAnimationFrame(stepFn)
     }
@@ -3797,11 +3905,11 @@ function DuelWanderer({ animals, puffBg, halo, firstMs }: { animals: string[]; p
       {/* L'animal courant : surgit de la fumée (pop, rejoué via key) ; l'image tangue doucement. */}
       <span key={`an-${step}`} className="duel-creature-pop">
         <img
-          src={order[step]}
+          src={order[step].src}
           alt=""
           className="duel-creature"
           draggable={false}
-          style={{ height: `${v.size}vh`, filter: `drop-shadow(0 0 1.4vh ${halo})`, animationDuration: `${v.leanDur}s`, '--lean': `${v.lean}deg` } as CSSProperties}
+          style={{ height: `${v.size * order[step].scale}vh`, filter: `drop-shadow(0 0 1.4vh ${halo})`, animationDuration: `${v.leanDur}s`, '--lean': `${v.lean}deg` } as CSSProperties}
         />
       </span>
     </span>
@@ -3847,42 +3955,35 @@ function MimDecor() {
       color: MIM_SPARK_COLORS[Math.floor(Math.random() * MIM_SPARK_COLORS.length)],
     })),
   )
-  // SURPRISE : flambée de flammes roses dispersées sur toute la colonne. Calque (dé)monté le temps de
-  // la scène, piloté par un timer. Désactivé en reduced-motion (le timer ne démarre pas).
-  const [flames, setFlames] = useState<{
-    seq: number
-    items: { key: string; left: number; top: number; size: number; loop: number; phase: number; delay: number }[]
-  } | null>(null)
-  useEffect(() => {
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
-    let next: ReturnType<typeof setTimeout>
-    let clear: ReturnType<typeof setTimeout>
-    let seq = 0
-    const gap = () => MIM_FLAME_GAP_MIN_MS + Math.random() * (MIM_FLAME_GAP_MAX_MS - MIM_FLAME_GAP_MIN_MS)
-    const fire = () => {
-      const s = seq++
-      const n = 34 + Math.floor(Math.random() * 16) // 34..49 flammes
-      const items = Array.from({ length: n }, (_, i) => ({
-        key: `${s}-${i}`,
-        left: 4 + Math.random() * 92, // %
-        top: 6 + Math.random() * 86, // %
-        size: 4.8 + Math.random() * 4.8, // vh (hauteur de flamme, +20 %)
-        loop: 1.8 + Math.random() * 1, // s (vitesse de la boucle du sprite)
-        phase: -(Math.random() * 2), // s (phase du sprite décalée → flammes désynchronisées)
-        delay: Math.random() * 0.8, // s (apparition échelonnée)
-      }))
-      setFlames({ seq: s, items })
-      clear = setTimeout(() => {
-        setFlames(null)
-        next = setTimeout(fire, gap())
-      }, MIM_FLAME_DURATION_MS)
-    }
-    next = setTimeout(fire, gap())
-    return () => {
-      clearTimeout(next)
-      clearTimeout(clear)
-    }
-  }, [])
+  // Étoiles colorées (nombre de branches variable 4→8) qui scintillent, dispersées dans la colonne.
+  const [stars] = useState(() =>
+    Array.from({ length: 16 }, () => {
+      const points = 4 + Math.floor(Math.random() * 5) // 4..8 branches
+      return {
+        left: Math.random() * 100, // %
+        top: Math.random() * 100, // %
+        size: 1.5 + Math.random() * 2.6, // vh
+        rot: Math.random() * 360, // deg
+        color: MIM_DECO_COLORS[Math.floor(Math.random() * MIM_DECO_COLORS.length)],
+        poly: mimStarPolygon(points, 0.4 + Math.random() * 0.14),
+        twkDur: 2.2 + Math.random() * 2.6, // s
+        twkDelay: -(Math.random() * 5), // s
+        op: 0.45 + Math.random() * 0.45,
+      }
+    }),
+  )
+  // Points colorés (pastilles) qui scintillent.
+  const [dots] = useState(() =>
+    Array.from({ length: 24 }, () => ({
+      left: Math.random() * 100, // %
+      top: Math.random() * 100, // %
+      size: 2 + Math.random() * 4, // px
+      color: MIM_DECO_COLORS[Math.floor(Math.random() * MIM_DECO_COLORS.length)],
+      twkDur: 1.6 + Math.random() * 2.4, // s
+      twkDelay: -(Math.random() * 5), // s
+      op: 0.4 + Math.random() * 0.5,
+    })),
+  )
   return (
     <div className="mim-decor" aria-hidden>
       {/* Lueur magenta pulsante (par-dessous). */}
@@ -3932,45 +4033,49 @@ function MimDecor() {
           </span>
         </span>
       ))}
+      {/* Étoiles colorées (nombre de branches variable) qui scintillent. */}
+      {stars.map((s, i) => (
+        <svg
+          key={`star-${i}`}
+          className="mim-star"
+          viewBox="0 0 100 100"
+          style={{
+            left: `${s.left}%`,
+            top: `${s.top}%`,
+            width: `${s.size}vh`,
+            height: `${s.size}vh`,
+            color: s.color,
+            opacity: s.op,
+            transform: `translate(-50%, -50%) rotate(${s.rot}deg)`,
+            animationDuration: `${s.twkDur}s`,
+            animationDelay: `${s.twkDelay}s`,
+          }}
+        >
+          <polygon points={s.poly} fill="currentColor" />
+        </svg>
+      ))}
+      {/* Points colorés (pastilles) qui scintillent. */}
+      {dots.map((d, i) => (
+        <span
+          key={`dot-${i}`}
+          className="mim-dot"
+          style={{
+            left: `${d.left}%`,
+            top: `${d.top}%`,
+            width: `${d.size}px`,
+            height: `${d.size}px`,
+            background: d.color,
+            color: d.color,
+            opacity: d.op,
+            animationDuration: `${d.twkDur}s`,
+            animationDelay: `${d.twkDelay}s`,
+          }}
+        />
+      ))}
       {/* Le DUEL DE SORCIERS : Mim (fumée rose) et Merlin (fumée bleue) se baladent et se transforment
           chacun toutes les minutes, décalés d'une demi-minute pour un effet d'échange. */}
       <DuelWanderer animals={MIM_ANIMALS} puffBg={MIM_PUFF_BG} halo="rgba(255, 110, 210, 0.7)" firstMs={MIM_MORPH_MS} />
       <DuelWanderer animals={MERLIN_ANIMALS} puffBg={MERLIN_PUFF_BG} halo="rgba(110, 170, 255, 0.7)" firstMs={MIM_MORPH_MS / 2} />
-      {/* SURPRISE : flambée de flammes roses dispersées (enveloppe = vie + apparition ; flamme = flicker). */}
-      {flames && (
-        <div className="mim-flames">
-          {flames.items.map((f) => (
-            // Enveloppe = cycle de vie (apparition → maintien → extinction) ; à l'intérieur, le SPRITE
-            // de feu de Hadès (`.fire-flame`/`fire_sprite.png`) joué en boucle et TEINTÉ EN ROSE.
-            <span
-              key={f.key}
-              className="mim-flame-life"
-              style={{
-                left: `${f.left}%`,
-                top: `${f.top}%`,
-                width: `${f.size * FLAME_ASPECT}vh`,
-                height: `${f.size}vh`,
-                animationDuration: `${MIM_FLAME_DURATION_MS}ms`,
-                animationDelay: `${f.delay}s`,
-              }}
-            >
-              <div
-                className="fire-flame"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  backgroundImage: 'url(/animations/fire_sprite.png)',
-                  filter: MIM_FIRE_TINT,
-                  animationDuration: `${f.loop}s`,
-                  animationDelay: `${f.phase}s`,
-                  '--frames': 39,
-                  '--fh': `${f.size}vh`,
-                } as CSSProperties}
-              />
-            </span>
-          ))}
-        </div>
-      )}
     </div>
   )
 }

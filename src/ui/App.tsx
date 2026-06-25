@@ -4442,7 +4442,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               {(() => {
                 const anim = villainAnimation(testVillain)
                 const hasAnim = !!anim
-                const twoSidedPaths = new Set(['cross', 'sky-arc', 'drift-spin'])
+                const twoSidedPaths = new Set(['cross', 'sky-arc', 'drift-spin', 'jet-cross'])
                 // `water-cross` est bidirectionnel quand c'est une IMAGE (Kronk de Yzma…) ; la vidéo
                 // (Tic-Tac de Crochet) reste toujours RTL → un seul bouton.
                 const twoSided =
