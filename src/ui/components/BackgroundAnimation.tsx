@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { villainAnimation, villainAnimationList, type VillainAnimation } from '../villainAnimations'
 import type { VillainKey } from '../store/gameStore'
 
@@ -254,6 +255,24 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
       swayDur: 2.2 + Math.random() * 1.8, // s (période d'ondulation)
       swayDelay: -(Math.random() * 3), // s (phase d'ondulation décalée)
       op: 0.5 + Math.random() * 0.4, // opacité de pointe
+    }))
+  })
+
+  // Nappe de FUMÉE VERTE (Le Seigneur des Ténèbres, path `smoke-field`) : des bouffées vertes
+  // apparaissent PARTOUT sur l'écran (positions au hasard sur toute la surface), montent légèrement en
+  // gonflant et se fondent ; départs échelonnés → la fumée envahit tout l'écran le temps du passage.
+  const [smokeField] = useState<
+    { left: number; top: number; size: number; dur: number; delay: number; op: number }[]
+  >(() => {
+    if (path !== 'smoke-field') return []
+    const n = anim?.count ?? 46
+    return Array.from({ length: n }, () => ({
+      left: -4 + Math.random() * 108, // % (déborde un peu les bords → fumée jusqu'aux bords)
+      top: -4 + Math.random() * 108, // % (partout, du haut au bas)
+      size: 16 + Math.random() * 26, // vh (grosses bouffées)
+      dur: 3.8 + Math.random() * 2.6, // s (apparition → gonflement → disparition)
+      delay: Math.random() * 3.2, // s (étalement de l'invasion)
+      op: 0.2 + Math.random() * 0.22,
     }))
   })
 
@@ -632,6 +651,32 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     )
   }
 
+  if (path === 'smoke-field') {
+    // Nappe de fumée verte qui envahit TOUT l'écran. Contrairement aux autres props (calque de fond
+    // `z-index: -1`), on la monte DEVANT la scène via un portail (calque fixe plein écran au-dessus du
+    // plateau, sous les modales) → la fumée passe « un plan » devant l'UI. pointer-events: none.
+    return createPortal(
+      <div className="smoke-field-layer pointer-events-none fixed inset-0 overflow-hidden" style={{ zIndex: 40 }} aria-hidden>
+        {smokeField.map((p, i) => (
+          <span
+            key={i}
+            className="smoke-field-puff"
+            style={{
+              left: `${p.left}%`,
+              top: `${p.top}%`,
+              width: `${p.size}vh`,
+              height: `${p.size}vh`,
+              animationDuration: `${p.dur}s`,
+              animationDelay: `${p.delay}s`,
+              '--op': p.op,
+            } as CSSProperties}
+          />
+        ))}
+      </div>,
+      document.body,
+    )
+  }
+
   if (path === 'coins') {
     // Pluie de pièces : chaque pièce tombe du haut (hors écran) jusqu'en bas (clippée
     // par le calque), en tournoyant. Position/taille/vitesse/délai/spin posés en inline.
@@ -952,7 +997,7 @@ export function BackgroundAnimation({
   // (chaque animation d'un vilain a sa propre file d'images).
   const imageQueues = useRef<Record<string, string[]>>({})
   const pickImage = (villain: VillainKey, animIdx: number, a: VillainAnimation): string => {
-    if (a.path === 'pages' || a.path === 'coins' || a.path === 'rise' || a.path === 'water-cross' || a.path === 'voodoo' || a.path === 'fire-bottom' || a.path === 'paws' || a.path === 'petals') return '' // pas d'image unique ici
+    if (a.path === 'pages' || a.path === 'coins' || a.path === 'rise' || a.path === 'water-cross' || a.path === 'voodoo' || a.path === 'fire-bottom' || a.path === 'paws' || a.path === 'petals' || a.path === 'smoke-field') return '' // pas d'image unique ici
     if (!a.images || a.images.length === 0) return a.image ?? ''
     const key = `${villain}#${animIdx}`
     const q = imageQueues.current

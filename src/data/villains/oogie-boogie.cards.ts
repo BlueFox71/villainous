@@ -3,14 +3,16 @@
 //
 // Noms / coûts / forces / textes / ILLUSTRATIONS tirés des planches du jeu réel
 // (faces découpées depuis assets/decks/Oogie Boogie/). Le TEXTE français est la
-// source de vérité ; les `effects` exécutables sont ajoutés au fil des phases.
+// source de vérité.
 //
-// PHASE 1 (squelette) : données + texte + champs passifs évidents (mustDefeatFirst
-// des Citoyens, attach des Objets). Les comportements liés aux DÉS et à l'objectif
-// (Imposteur, Jack, Sandy Claws, synergies du trio, Conditions…) arrivent en
-// phases 2-4. « Tricherie » (Dés pipés) est modélisée en type `effect` (pas de
-// type Cheat dans le moteur). Jack et Perce-Oreilles (Prisonnier) reçoivent un
-// traitement spécial en phase 3.
+// ÉTAT : vilain ENTIÈREMENT JOUABLE (humain + bot). La mécanique des DÉS (2d6) et
+// l'objectif (4 imposteurs → retour de Jack → victoire en le vainquant) sont
+// implémentés dans le moteur. Les cartes portent soit des `effects` (lancers de
+// dés : ROLL_IMPOSTOR, ROLL_MAKING_CHRISTMAS…), soit des champs passifs
+// (selfStrengthMods du trio, mustDefeatFirst des Citoyens, attach des Objets),
+// soit un comportement câblé en hook moteur par cardId (Chauves-souris/Araignées
+// dans performVanquish, Stram dans applyMove, Sally onPlace, Baignoire, Maire,
+// Finkelstein, Diversion, Salut Oogie…). « Dés pipés » = type `effect` réactif.
 // =============================================================================
 
 import type { CardDef } from '../types'

@@ -394,6 +394,22 @@ function GoldenHairDecor() {
       delay: -(Math.random() * 15), // s
     })),
   )
+  // Pétales d'or qui tombent en voletant (chute + ondulation latérale + rotation lente). On réutilise
+  // les 3 images de pétale de Gaston, colorées en JAUNE DORÉ via un filtre (cf. `.hair-petal-img`).
+  const [petals] = useState(() =>
+    Array.from({ length: 14 }, () => ({
+      img: `/animations/petale-${1 + Math.floor(Math.random() * 3)}.png`,
+      left: Math.random() * 100, // %
+      size: 2.4 + Math.random() * 2.4, // vh (hauteur du pétale)
+      dur: 8 + Math.random() * 7, // s (chute lente)
+      delay: -(Math.random() * 15), // s (déphasage)
+      sway: 2 + Math.random() * 4, // vw (amplitude d'ondulation)
+      swayDur: 3 + Math.random() * 2, // s
+      rotDur: 4 + Math.random() * 4, // s (rotation sur soi)
+      rotDir: Math.random() < 0.5 ? 'normal' : 'reverse', // sens de rotation
+      op: 0.45 + Math.random() * 0.4,
+    })),
+  )
   // Incantation « Fleur aux pétales d'or… » : à intervalle aléatoire, une vague de
   // lumière jaune vif court du haut vers le bas le long des mèches (classe `is-singing`
   // → animation CSS `hairSing`), puis s'estompe. On reprogramme une incantation après.
@@ -451,6 +467,29 @@ function GoldenHairDecor() {
           }}
         />
       ))}
+      {/* Pétales d'or qui tombent en voletant (images de Gaston colorées en doré). */}
+      {petals.map((p, i) => (
+        <span
+          key={`hp-${i}`}
+          className="hair-petal-fall"
+          style={{ left: `${p.left}%`, animationDuration: `${p.dur}s`, animationDelay: `${p.delay}s` }}
+        >
+          <span
+            className="hair-petal-sway"
+            style={{ animationDuration: `${p.swayDur}s`, animationDelay: `${p.delay}s`, '--sway': `${p.sway}vw` } as CSSProperties}
+          >
+            <img
+              src={p.img}
+              alt=""
+              className="hair-petal-img"
+              draggable={false}
+              style={{ height: `${p.size}vh`, opacity: p.op, animationDuration: `${p.rotDur}s`, animationDirection: p.rotDir }}
+            />
+          </span>
+        </span>
+      ))}
+      {/* La FLEUR D'OR magique (sun-drop) au bas de la colonne : elle luit, et plus fort pendant l'incantation. */}
+      <img src="/animations/flower.png" alt="" className="hair-flower" draggable={false} />
       {/* Halo doré qui pulse au rythme de l'incantation. */}
       <div className="hair-glow" />
     </div>
@@ -3826,6 +3865,16 @@ const MIM_MORPH_MS = 10_000 // une transformation par minute (réglage temporair
 // Bouffées de fumée (radial-gradient posé en inline sur `.duel-puff`) et halo de la créature.
 const MIM_PUFF_BG = 'radial-gradient(circle, rgba(255, 150, 225, 0.95) 0%, rgba(230, 110, 220, 0.7) 40%, rgba(180, 80, 190, 0) 72%)'
 const MERLIN_PUFF_BG = 'radial-gradient(circle, rgba(150, 200, 255, 0.95) 0%, rgba(100, 150, 235, 0.7) 40%, rgba(70, 110, 190, 0) 72%)'
+// SURPRISE : pluie des 54 cartes (planche cards_game découpée, cf. public/animations/cards/) qui tombent
+// en tournoyant dans la colonne, par moments, puis cesse. Minuterie aléatoire (comme les surprises de
+// Scar/Yzma). Image tirée au hasard par carte.
+const MIM_CARD_IMAGES = Array.from(
+  { length: 54 },
+  (_, i) => `/animations/cards/card-${String(i + 1).padStart(2, '0')}.png`,
+)
+const MIM_CARD_DURATION_MS = 6500 // durée d'une averse de cartes
+const MIM_CARD_GAP_MIN_MS = 60_000 // averse toutes les 1 à 3 min
+const MIM_CARD_GAP_MAX_MS = 180_000
 
 /** Un sorcier transformé qui DÉFILE horizontalement le long du BAS de la colonne (ancré au sol, pour
  *  rester visible sous le plateau) et se TRANSFORME toutes les minutes : une bouffée de fumée (`puffBg`)
@@ -3984,6 +4033,42 @@ function MimDecor() {
       op: 0.4 + Math.random() * 0.5,
     })),
   )
+  // SURPRISE : averse de cartes qui tombent en tournoyant. Calque (dé)monté le temps de la scène,
+  // piloté par un timer aléatoire. Désactivé en reduced-motion (le timer ne démarre pas).
+  const [cards, setCards] = useState<{
+    seq: number
+    items: { key: string; img: string; left: number; size: number; dur: number; delay: number; spin: number }[]
+  } | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let next: ReturnType<typeof setTimeout>
+    let clear: ReturnType<typeof setTimeout>
+    let seq = 0
+    const gap = () => MIM_CARD_GAP_MIN_MS + Math.random() * (MIM_CARD_GAP_MAX_MS - MIM_CARD_GAP_MIN_MS)
+    const fire = () => {
+      const s = seq++
+      const n = 14 + Math.floor(Math.random() * 10) // 14..23 cartes
+      const items = Array.from({ length: n }, (_, i) => ({
+        key: `${s}-${i}`,
+        img: MIM_CARD_IMAGES[Math.floor(Math.random() * MIM_CARD_IMAGES.length)],
+        left: 2 + Math.random() * 92, // % de la largeur de la colonne
+        size: 7 + Math.random() * 5, // vh (hauteur de carte)
+        dur: 2.6 + Math.random() * 2.4, // s (vitesse de chute)
+        delay: Math.random() * 2.8, // s (étalement de l'averse)
+        spin: (Math.random() < 0.5 ? -1 : 1) * (120 + Math.random() * 480), // tours, sens au hasard
+      }))
+      setCards({ seq: s, items })
+      clear = setTimeout(() => {
+        setCards(null)
+        next = setTimeout(fire, gap())
+      }, MIM_CARD_DURATION_MS)
+    }
+    next = setTimeout(fire, gap())
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
   return (
     <div className="mim-decor" aria-hidden>
       {/* Lueur magenta pulsante (par-dessous). */}
@@ -4072,10 +4157,707 @@ function MimDecor() {
           }}
         />
       ))}
+      {/* SURPRISE : averse de cartes (les 54 cartes) qui tombent en tournoyant, par moments. */}
+      {cards && (
+        <div className="mim-cards">
+          {cards.items.map((c) => (
+            <img
+              key={c.key}
+              src={c.img}
+              alt=""
+              className="mim-card-fall"
+              draggable={false}
+              style={{
+                left: `${c.left}%`,
+                height: `${c.size}vh`,
+                animationDuration: `${c.dur}s`,
+                animationDelay: `${c.delay}s`,
+                '--spin': `${c.spin}deg`,
+              } as CSSProperties}
+            />
+          ))}
+        </div>
+      )}
       {/* Le DUEL DE SORCIERS : Mim (fumée rose) et Merlin (fumée bleue) se baladent et se transforment
           chacun toutes les minutes, décalés d'une demi-minute pour un effet d'échange. */}
       <DuelWanderer animals={MIM_ANIMALS} puffBg={MIM_PUFF_BG} halo="rgba(255, 110, 210, 0.7)" firstMs={MIM_MORPH_MS} />
       <DuelWanderer animals={MERLIN_ANIMALS} puffBg={MERLIN_PUFF_BG} halo="rgba(110, 170, 255, 0.7)" firstMs={MIM_MORPH_MS / 2} />
+    </div>
+  )
+}
+
+// Teinte des volutes de vapeur du Chaudron (radial-gradient vert posé en inline) + couleurs des âmes.
+const CAULDRON_SMOKE_TINT =
+  'radial-gradient(circle, rgba(150, 255, 165, 0.55) 0%, rgba(60, 200, 110, 0.32) 45%, rgba(20, 100, 55, 0) 72%)'
+// Teinte DORÉE (#FFD70C) de la 2ᵉ surprise : la vapeur du chaudron vire à l'or.
+const CAULDRON_SMOKE_TINT_GOLD =
+  'radial-gradient(circle, rgba(255, 240, 140, 0.6) 0%, rgba(255, 215, 12, 0.34) 45%, rgba(150, 115, 0, 0) 72%)'
+const CAULDRON_SOUL_COLORS = ['#9dffb0', '#6bffae', '#bfffd0', '#7cffa0', '#5fe39a']
+// SURPRISE « Éruption du Chaudron » : par moments, la gueule s'embrase, une gerbe de vapeur verte
+// jaillit et les SOLDATS RESSUSCITÉS (image `squelettes.png`) se dressent hors du chaudron puis y
+// retombent. Intervalle aléatoire (`..._GAP_MIN/MAX_MS`). MODE TEST : à `true`, éruptions fréquentes
+// (~8 s) pour régler ; À REMETTRE `false` avant commit.
+const CAULDRON_ERUPT_TEST = false
+const CAULDRON_ERUPT_DUR_MS = 16500 // durée d'une éruption : montée (~2 s) + maintien (~12,5 s) + retombée (~2 s)
+const CAULDRON_ERUPT_GAP_MIN_MS = CAULDRON_ERUPT_TEST ? 6000 : 80000
+const CAULDRON_ERUPT_GAP_MAX_MS = CAULDRON_ERUPT_TEST ? 10000 : 160000
+// 2ᵉ SURPRISE « Vapeur dorée » : par moments, la vapeur verte du chaudron VIRE À L'OR (#FFD70C) — la
+// fumée et la lueur passent au doré le temps de la scène, puis reviennent au vert (fondu croisé).
+// MODE TEST : à `true`, fréquent (~8 s) pour régler ; À REMETTRE `false` avant commit.
+const CAULDRON_GOLD_TEST = false
+const CAULDRON_GOLD_DUR_MS = 9000 // durée de la scène dorée (fondus d'entrée/sortie inclus)
+const CAULDRON_GOLD_GAP_MIN_MS = CAULDRON_GOLD_TEST ? 6000 : 70000
+const CAULDRON_GOLD_GAP_MAX_MS = CAULDRON_GOLD_TEST ? 10000 : 150000
+
+/** Décor « salle du Chaudron Noir » (Le Seigneur des Ténèbres — Le Chaudron Magique) — 100 % CSS (hors
+ *  l'image des squelettes). Crypte de pierre SOMBRE, lueur verte pulsante au sol, le CHAUDRON NOIR au
+ *  centre-bas avec sa gueule de bouillon VERT lumineux qui palpite, VOLUTES de vapeur verte qui montent
+ *  (réutilise `vaporRise`) et ÂMES/feux follets verts qui s'élèvent. SURPRISE périodique : éruption —
+ *  flash vert + gerbe de vapeur + les Soldats Ressuscités se dressent hors du chaudron puis y retombent. */
+function CauldronDecor() {
+  // Volutes de vapeur VERTE qui montent de la gueule du Chaudron (concentrées au centre, au-dessus du pot).
+  const SMOKE = 30
+  const SMOKE_DUR = 11 // s (sert à étager les départs → colonne continue)
+  const [smoke] = useState(() =>
+    Array.from({ length: SMOKE }, (_, i) => ({
+      left: 34 + Math.random() * 32, // % (centré sur le chaudron, un peu plus large)
+      size: 14 + Math.random() * 16, // vh
+      dur: SMOKE_DUR + Math.random() * 5, // s
+      delay: -((i / SMOKE) * SMOKE_DUR) - Math.random() * 2, // s (étagé → colonne dense et continue)
+      sx: (Math.random() - 0.5) * 11, // vw (enroulement latéral)
+      op: 0.16 + Math.random() * 0.18,
+    })),
+  )
+  // Âmes / feux follets verts qui montent en ondulant et scintillant (enveloppe = montée, milieu =
+  // ondulation, pastille = scintillement — réutilise les motes de Facilier, comme le décor de Mim).
+  const [souls] = useState(() =>
+    Array.from({ length: 30 }, () => ({
+      left: Math.random() * 100, // %
+      size: 1.8 + Math.random() * 3, // px
+      dur: 9 + Math.random() * 8, // s (montée lente)
+      delay: -(Math.random() * 17), // s
+      sway: 2 + Math.random() * 5, // vw
+      swayDur: 3 + Math.random() * 3, // s
+      twkDur: 1.4 + Math.random() * 1.8, // s
+      twkDelay: -(Math.random() * 3), // s
+      op: 0.4 + Math.random() * 0.5,
+      color: CAULDRON_SOUL_COLORS[Math.floor(Math.random() * CAULDRON_SOUL_COLORS.length)],
+    })),
+  )
+  // SURPRISE « éruption » : tirée par à-coups (timer aléatoire). `erupt` porte la séquence (re-monte les
+  // calques via `key`) + des bouffées de vapeur qui jaillissent. Désactivée en reduced-motion.
+  const [erupt, setErupt] = useState<{
+    seq: number
+    puffs: { key: string; left: number; size: number; delay: number; sx: number; op: number }[]
+  } | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let next: ReturnType<typeof setTimeout>
+    let clear: ReturnType<typeof setTimeout>
+    let seq = 0
+    const gap = () => CAULDRON_ERUPT_GAP_MIN_MS + Math.random() * (CAULDRON_ERUPT_GAP_MAX_MS - CAULDRON_ERUPT_GAP_MIN_MS)
+    const fire = () => {
+      const s = seq++
+      // Grosses bouffées de vapeur verte qui jaillissent de la gueule, étalées sur le début de l'éruption.
+      const puffs = Array.from({ length: 12 }, (_, i) => ({
+        key: `${s}-${i}`,
+        left: 36 + Math.random() * 28, // % (centré sur le chaudron)
+        size: 18 + Math.random() * 18, // vh
+        delay: Math.random() * 1.1, // s (jaillissent ~ensemble)
+        sx: (Math.random() - 0.5) * 16, // vw (enroulement)
+        op: 0.22 + Math.random() * 0.2,
+      }))
+      setErupt({ seq: s, puffs })
+      clear = setTimeout(() => {
+        setErupt(null)
+        next = setTimeout(fire, gap())
+      }, CAULDRON_ERUPT_DUR_MS)
+    }
+    next = setTimeout(fire, gap())
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
+  // 2ᵉ SURPRISE « vapeur dorée » : timer aléatoire indépendant. `golden` = n° de la scène (null = vert
+  // normal). Pendant la scène, une COUCHE de vapeur dorée (mêmes positions) se fond par-dessus le vert.
+  const [golden, setGolden] = useState<number | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let next: ReturnType<typeof setTimeout>
+    let clear: ReturnType<typeof setTimeout>
+    let seq = 0
+    const gap = () => CAULDRON_GOLD_GAP_MIN_MS + Math.random() * (CAULDRON_GOLD_GAP_MAX_MS - CAULDRON_GOLD_GAP_MIN_MS)
+    const fire = () => {
+      setGolden(seq++)
+      clear = setTimeout(() => {
+        setGolden(null)
+        next = setTimeout(fire, gap())
+      }, CAULDRON_GOLD_DUR_MS)
+    }
+    next = setTimeout(fire, gap())
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
+  return (
+    <div className="cauldron-decor" aria-hidden>
+      {/* Lueur verte pulsante (au sol, par-dessous). */}
+      <div className="cauldron-glow" />
+      {/* Âmes vertes qui montent (montée > ondulation > scintillement). */}
+      {souls.map((m, i) => (
+        <span
+          key={`soul-${i}`}
+          className="voodoo-mote-rise"
+          style={{ left: `${m.left}%`, animationDuration: `${m.dur}s`, animationDelay: `${m.delay}s` }}
+        >
+          <span
+            className="voodoo-mote-sway"
+            style={{ animationDuration: `${m.swayDur}s`, animationDelay: `${m.delay}s`, '--sway': `${m.sway}vw` } as CSSProperties}
+          >
+            <span
+              className="voodoo-mote"
+              style={{
+                width: `${m.size}px`,
+                height: `${m.size}px`,
+                opacity: m.op,
+                background: m.color,
+                animationDuration: `${m.twkDur}s`,
+                animationDelay: `${m.twkDelay}s`,
+                '--mote-color': m.color,
+              } as CSSProperties}
+            />
+          </span>
+        </span>
+      ))}
+      {/* SURPRISE — les SOLDATS RESSUSCITÉS se dressent hors du chaudron (rendus AVANT le pot → leur bas
+          est masqué par le corps du chaudron, ils semblent en émerger), puis y retombent. */}
+      {erupt && (
+        <img
+          key={`sk-${erupt.seq}`}
+          src="/animations/squelettes.png"
+          alt=""
+          className="cauldron-skeletons"
+          draggable={false}
+          style={{ '--dur': `${CAULDRON_ERUPT_DUR_MS}ms` } as CSSProperties}
+        />
+      )}
+      {/* Le CHAUDRON NOIR au centre-bas : corps sombre, gueule de bouillon vert lumineux qui palpite. */}
+      <div className="cauldron-pot">
+        <span className="cauldron-rim" />
+        <span className={`cauldron-mouth${erupt ? ' is-erupting' : ''}`} />
+      </div>
+      {/* Volutes de vapeur verte par-dessus la gueule du chaudron. */}
+      {smoke.map((p, i) => (
+        <span
+          key={`csmoke-${i}`}
+          className="cauldron-smoke"
+          style={{
+            left: `${p.left}%`,
+            width: `${p.size}vh`,
+            height: `${p.size}vh`,
+            background: CAULDRON_SMOKE_TINT,
+            animationDuration: `${p.dur}s`,
+            animationDelay: `${p.delay}s`,
+            '--sx': `${p.sx}vw`,
+            '--vop': p.op,
+          } as CSSProperties}
+        />
+      ))}
+      {/* 2ᵉ SURPRISE — la vapeur vire à l'OR (#FFD70C) : couche dorée (mêmes positions que le vert) qui
+          se fond par-dessus le temps de la scène, plus une lueur dorée. */}
+      {golden !== null && (
+        <div key={`gold-${golden}`} className="cauldron-gold" style={{ '--dur': `${CAULDRON_GOLD_DUR_MS}ms` } as CSSProperties}>
+          <div className="cauldron-glow-gold" />
+          {smoke.map((p, i) => (
+            <span
+              key={`gsmoke-${i}`}
+              className="cauldron-smoke"
+              style={{
+                left: `${p.left}%`,
+                width: `${p.size}vh`,
+                height: `${p.size}vh`,
+                background: CAULDRON_SMOKE_TINT_GOLD,
+                animationDuration: `${p.dur}s`,
+                animationDelay: `${p.delay}s`,
+                '--sx': `${p.sx}vw`,
+                '--vop': p.op,
+              } as CSSProperties}
+            />
+          ))}
+        </div>
+      )}
+      {/* SURPRISE — flash vert + gerbe de vapeur qui jaillit (par-dessus le chaudron). */}
+      {erupt && (
+        <>
+          <span key={`fl-${erupt.seq}`} className="cauldron-flash" style={{ '--dur': `${CAULDRON_ERUPT_DUR_MS}ms` } as CSSProperties} />
+          {erupt.puffs.map((p) => (
+            <span
+              key={p.key}
+              className="cauldron-erupt-puff"
+              style={{
+                left: `${p.left}%`,
+                width: `${p.size}vh`,
+                height: `${p.size}vh`,
+                background: CAULDRON_SMOKE_TINT,
+                animationDelay: `${p.delay}s`,
+                '--sx': `${p.sx}vw`,
+                '--vop': p.op,
+              } as CSSProperties}
+            />
+          ))}
+        </>
+      )}
+    </div>
+  )
+}
+
+// SURPRISE : averse de JOUETS de Sunnyside (détourés, public/animations/toys/) qui tombent en tournoyant,
+// par moments, puis cesse. Minuterie aléatoire (comme la pluie de cartes de Mim).
+// Chaque jouet apparaît UNE seule fois par averse, SAUF l'alien (les petits aliens vont en bande →
+// plusieurs exemplaires).
+const SUNNY_TOY_ALIEN = '/animations/toys/toy_alien.png'
+const SUNNY_TOY_UNIQUE = [
+  'baby', 'chenille', 'chunk', 'clown', 'insecte',
+  'ken', 'petit_bois', 'phone', 'pieuvre', 'robot', 'singe',
+].map((n) => `/animations/toys/toy_${n}.png`)
+const SUNNY_TOY_DURATION_MS = 7000 // durée d'une averse de jouets
+const SUNNY_TOY_GAP_MIN_MS = 60_000 // averse toutes les 1 à 3 min
+const SUNNY_TOY_GAP_MAX_MS = 180_000
+// Couleurs des ballons de garderie qui montent.
+const SUNNY_BALLOON_COLORS = ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#c77dff', '#ff9ec7']
+
+/** Décor « sunnyside » (Lotso — Toy Story 3) : la garderie Sunnyside, sur fond du PAPIER PEINT D'ANDY
+ *  (ciel bleu + nuages blancs floconneux). Les nuages DÉRIVENT lentement en boucle (vitesse/altitude/
+ *  taille variées) ; une teinte ROSE FRAISE chaude baigne le bas (Lotso sent la fraise) ; de douces
+ *  PAILLETTES montent en scintillant et une vignette tiède encadre le tout. Par moments, SURPRISE : une
+ *  averse de JOUETS tombe en tournoyant. 100 % CSS. En reduced-motion : tout est figé. */
+function SunnysideDecor() {
+  // Nuages floconneux qui dérivent : altitude (top), taille, vitesse et phase variées. Chacun est un
+  // amas de bosses (`.sunny-cloud` + pseudo-éléments en CSS) ; `--drift` = sens/longueur du trajet.
+  const [clouds] = useState(() =>
+    Array.from({ length: 9 }, (_, i) => ({
+      top: 4 + Math.random() * 62, // % (réparti sur le haut/milieu)
+      size: 9 + Math.random() * 12, // vh (hauteur de l'amas)
+      dur: 38 + Math.random() * 40, // s (dérive lente)
+      delay: -(Math.random() * 70), // s (phase décalée → déjà en place au montage)
+      dir: i % 2 === 0 ? 1 : -1, // sens de dérive alterné
+      op: 0.82 + Math.random() * 0.18,
+    })),
+  )
+  // Douces paillettes chaudes qui montent en ondulant et scintillant (réutilise les motes de Facilier).
+  const [motes] = useState(() =>
+    Array.from({ length: 28 }, () => ({
+      left: Math.random() * 100, // %
+      size: 1.4 + Math.random() * 2.6, // px
+      dur: 9 + Math.random() * 8, // s (montée lente)
+      delay: -(Math.random() * 17), // s
+      sway: 2 + Math.random() * 4, // vw
+      swayDur: 3 + Math.random() * 3, // s
+      twkDur: 1.4 + Math.random() * 1.8, // s
+      twkDelay: -(Math.random() * 3), // s
+      op: 0.35 + Math.random() * 0.4,
+    })),
+  )
+  // Ballons colorés qui montent en ondulant (ambiance garderie) : enveloppe = montée, intérieur = sway.
+  const [balloons] = useState(() =>
+    Array.from({ length: 6 }, () => ({
+      left: 4 + Math.random() * 92, // %
+      size: 7 + Math.random() * 5, // vh (hauteur du ballon)
+      dur: 16 + Math.random() * 12, // s (montée lente)
+      delay: -(Math.random() * 26), // s (phase décalée → déjà en route au montage)
+      sway: 2 + Math.random() * 4, // vw
+      swayDur: 3.5 + Math.random() * 2.5, // s
+      color: SUNNY_BALLOON_COLORS[Math.floor(Math.random() * SUNNY_BALLOON_COLORS.length)],
+    })),
+  )
+  // SURPRISE : averse de jouets qui tombent en tournoyant. Calque (dé)monté le temps de la scène, piloté
+  // par un timer aléatoire. Désactivé en reduced-motion (le timer ne démarre pas).
+  const [toys, setToys] = useState<{
+    seq: number
+    items: { key: string; img: string; left: number; size: number; dur: number; delay: number; spin: number }[]
+  } | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let next: ReturnType<typeof setTimeout>
+    let clear: ReturnType<typeof setTimeout>
+    let seq = 0
+    const gap = () => SUNNY_TOY_GAP_MIN_MS + Math.random() * (SUNNY_TOY_GAP_MAX_MS - SUNNY_TOY_GAP_MIN_MS)
+    const fire = () => {
+      const s = seq++
+      // Chaque jouet unique une fois + une bande d'aliens (3 à 7 exemplaires), le tout mélangé.
+      const aliens = 3 + Math.floor(Math.random() * 5) // 3..7 aliens
+      const imgs = [...SUNNY_TOY_UNIQUE, ...Array.from({ length: aliens }, () => SUNNY_TOY_ALIEN)]
+      for (let i = imgs.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[imgs[i], imgs[j]] = [imgs[j], imgs[i]]
+      }
+      const items = imgs.map((img, i) => ({
+        key: `${s}-${i}`,
+        img,
+        left: 2 + Math.random() * 92, // % de la largeur de la colonne
+        // Les aliens sont plus petits que les autres jouets.
+        size: img === SUNNY_TOY_ALIEN ? 5 + Math.random() * 2.5 : 8 + Math.random() * 6, // vh
+        dur: 2.8 + Math.random() * 2.6, // s (vitesse de chute)
+        delay: Math.random() * 3, // s (étalement de l'averse)
+        spin: (Math.random() < 0.5 ? -1 : 1) * (90 + Math.random() * 360), // tours, sens au hasard
+      }))
+      setToys({ seq: s, items })
+      clear = setTimeout(() => {
+        setToys(null)
+        next = setTimeout(fire, gap())
+      }, SUNNY_TOY_DURATION_MS)
+    }
+    next = setTimeout(fire, gap())
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
+  return (
+    <div className="sunnyside-decor" aria-hidden>
+      {/* Arc-en-ciel pastel discret (derrière les nuages). */}
+      <div className="sunny-rainbow" />
+      {/* Soleil chaleureux dans un coin haut : disque + halo qui pulse + rayons qui tournent lentement. */}
+      <div className="sunny-sun">
+        <span className="sunny-sun-rays" />
+        <span className="sunny-sun-core" />
+      </div>
+      {/* Teinte rose fraise chaude qui baigne le bas (Lotso). */}
+      <div className="sunny-strawberry" />
+      {/* Nuages blancs floconneux qui dérivent. */}
+      {clouds.map((c, i) => (
+        <span
+          key={`cloud-${i}`}
+          className="sunny-cloud"
+          style={{
+            top: `${c.top}%`,
+            height: `${c.size}vh`,
+            width: `${c.size * 1.7}vh`,
+            opacity: c.op,
+            animationName: c.dir === 1 ? 'sunnyCloudDriftR' : 'sunnyCloudDriftL',
+            animationDuration: `${c.dur}s`,
+            animationDelay: `${c.delay}s`,
+          }}
+        />
+      ))}
+      {/* Ballons colorés qui montent en ondulant. */}
+      {balloons.map((b, i) => (
+        <span
+          key={`balloon-${i}`}
+          className="sunny-balloon-rise"
+          style={{ left: `${b.left}%`, animationDuration: `${b.dur}s`, animationDelay: `${b.delay}s` }}
+        >
+          <span
+            className="sunny-balloon-sway"
+            style={{ animationDuration: `${b.swayDur}s`, animationDelay: `${b.delay}s`, '--sway': `${b.sway}vw` } as CSSProperties}
+          >
+            <span className="sunny-balloon" style={{ height: `${b.size}vh`, width: `${b.size * 0.82}vh`, background: b.color }} />
+          </span>
+        </span>
+      ))}
+      {/* Paillettes chaudes (montée > ondulation > scintillement). */}
+      {motes.map((m, i) => (
+        <span
+          key={`smote-${i}`}
+          className="voodoo-mote-rise"
+          style={{ left: `${m.left}%`, animationDuration: `${m.dur}s`, animationDelay: `${m.delay}s` }}
+        >
+          <span
+            className="voodoo-mote-sway"
+            style={{ animationDuration: `${m.swayDur}s`, animationDelay: `${m.delay}s`, '--sway': `${m.sway}vw` } as CSSProperties}
+          >
+            <span
+              className="voodoo-mote"
+              style={{
+                width: `${m.size}px`,
+                height: `${m.size}px`,
+                opacity: m.op,
+                background: '#fff4c2',
+                animationDuration: `${m.twkDur}s`,
+                animationDelay: `${m.twkDelay}s`,
+                '--mote-color': '#fff4c2',
+              } as CSSProperties}
+            />
+          </span>
+        </span>
+      ))}
+      {/* SURPRISE : averse de jouets qui tombent en tournoyant, par moments. */}
+      {toys && (
+        <div className="sunny-toys">
+          {toys.items.map((t) => (
+            <img
+              key={t.key}
+              src={t.img}
+              alt=""
+              className="sunny-toy-fall"
+              draggable={false}
+              style={{
+                left: `${t.left}%`,
+                height: `${t.size}vh`,
+                animationDuration: `${t.dur}s`,
+                animationDelay: `${t.delay}s`,
+                '--spin': `${t.spin}deg`,
+              } as CSSProperties}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Disposition des points (pips) d'une face de dé (1→6), en % dans la face (grille 3×3).
+const OOGIE_DIE_PIPS: Record<number, [number, number][]> = {
+  1: [[50, 50]],
+  2: [[28, 28], [72, 72]],
+  3: [[28, 28], [50, 50], [72, 72]],
+  4: [[28, 28], [72, 28], [28, 72], [72, 72]],
+  5: [[28, 28], [72, 28], [50, 50], [28, 72], [72, 72]],
+  6: [[28, 28], [72, 28], [28, 50], [72, 50], [28, 72], [72, 72]],
+}
+// Teintes des feux follets sous la lumière noire (vert dominant + quelques violets).
+const OOGIE_MOTE_COLORS = ['#8aff9a', '#b6ff7a', '#7cff9f', '#c69cff', '#a878ff']
+// SURPRISE « les insectes se déversent » : par moments, une nuée d'insectes grouille depuis le bas et
+// envahit l'écran en frétillant, puis se disperse. Intervalle aléatoire (`..._GAP_MIN/MAX_MS`).
+// MODE TEST : à `true`, fréquent (~8 s) pour régler ; À REMETTRE `false` avant commit.
+const OOGIE_BUGS_TEST = true
+const OOGIE_BUGS_DUR_MS = 6000 // durée de l'invasion (montée + grouillement + dispersion)
+const OOGIE_BUGS_GAP_MIN_MS = OOGIE_BUGS_TEST ? 6000 : 70000
+const OOGIE_BUGS_GAP_MAX_MS = OOGIE_BUGS_TEST ? 10000 : 150000
+
+/** Décor « tanière-casino d'Oogie Boogie » (L'Étrange Noël de Monsieur Jack) — 100 % CSS. Pénombre,
+ *  LUEUR de LUMIÈRE NOIRE verte & violette qui pulse, DÉS lumineux qui flottent en tournant lentement
+ *  (clin d'œil à sa mécanique 2d6) et fine POUSSIÈRE verte qui monte (réutilise les motes de Facilier).
+ *  [La surprise et l'animation showcase viendront ensuite.] */
+function OogieDecor() {
+  // Dés lumineux qui flottent : position / taille / face / sens & vitesse de rotation / flottement.
+  const [dice] = useState(() =>
+    Array.from({ length: 9 }, () => ({
+      left: 6 + Math.random() * 86, // %
+      top: 8 + Math.random() * 78, // %
+      size: 5 + Math.random() * 4.5, // vh
+      face: 1 + Math.floor(Math.random() * 6),
+      spinDur: 14 + Math.random() * 12, // s (rotation lente)
+      cw: Math.random() < 0.5, // sens de rotation
+      bobDur: 4 + Math.random() * 3, // s (flottement vertical)
+      bobDelay: -(Math.random() * 5), // s
+      bob: 2 + Math.random() * 3, // vh (amplitude du flottement)
+      op: 0.5 + Math.random() * 0.4,
+    })),
+  )
+  // Poussière verte (feux follets) qui monte en ondulant et scintillant (motes de Facilier).
+  const [motes] = useState(() =>
+    Array.from({ length: 26 }, () => ({
+      left: Math.random() * 100, // %
+      size: 1.6 + Math.random() * 2.6, // px
+      dur: 9 + Math.random() * 8, // s
+      delay: -(Math.random() * 17), // s
+      sway: 2 + Math.random() * 5, // vw
+      swayDur: 3 + Math.random() * 3, // s
+      twkDur: 1.4 + Math.random() * 1.8, // s
+      twkDelay: -(Math.random() * 3), // s
+      op: 0.35 + Math.random() * 0.4,
+      color: OOGIE_MOTE_COLORS[Math.floor(Math.random() * OOGIE_MOTE_COLORS.length)],
+    })),
+  )
+  // SURPRISE « les insectes se déversent » : tirée par à-coups (timer aléatoire). Chaque insecte grimpe
+  // du bas vers une destination au hasard (dérive latérale) en frétillant, puis se disperse en fondu.
+  const [bugs, setBugs] = useState<{
+    seq: number
+    items: { key: string; left: number; size: number; dx: number; dy: number; dur: number; delay: number; wig: number; rot: number }[]
+  } | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let next: ReturnType<typeof setTimeout>
+    let clear: ReturnType<typeof setTimeout>
+    let seq = 0
+    const gap = () => OOGIE_BUGS_GAP_MIN_MS + Math.random() * (OOGIE_BUGS_GAP_MAX_MS - OOGIE_BUGS_GAP_MIN_MS)
+    const fire = () => {
+      const s = seq++
+      const items = Array.from({ length: 54 }, (_, i) => ({
+        key: `${s}-${i}`,
+        left: Math.random() * 100, // % (point de départ sur la largeur)
+        size: 6 + Math.random() * 7, // px (longueur du corps)
+        dx: (Math.random() - 0.5) * 40, // vw (dérive latérale en grimpant)
+        dy: 18 + Math.random() * 80, // vh (hauteur atteinte)
+        dur: 2.6 + Math.random() * 2.2, // s (vitesse de reptation)
+        delay: Math.random() * 1.6, // s (la nuée se déverse progressivement)
+        wig: 0.18 + Math.random() * 0.16, // s (frétillement rapide)
+        rot: (Math.random() - 0.5) * 50, // deg (orientation du corps)
+      }))
+      setBugs({ seq: s, items })
+      clear = setTimeout(() => {
+        setBugs(null)
+        next = setTimeout(fire, gap())
+      }, OOGIE_BUGS_DUR_MS)
+    }
+    next = setTimeout(fire, gap())
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
+  return (
+    <div className="oogie-decor" aria-hidden>
+      {/* Lueur de lumière noire (verte + violette) qui pulse. */}
+      <div className="oogie-glow" />
+      {/* Poussière verte qui monte (montée > ondulation > scintillement). */}
+      {motes.map((m, i) => (
+        <span
+          key={`omote-${i}`}
+          className="voodoo-mote-rise"
+          style={{ left: `${m.left}%`, animationDuration: `${m.dur}s`, animationDelay: `${m.delay}s` }}
+        >
+          <span
+            className="voodoo-mote-sway"
+            style={{ animationDuration: `${m.swayDur}s`, animationDelay: `${m.delay}s`, '--sway': `${m.sway}vw` } as CSSProperties}
+          >
+            <span
+              className="voodoo-mote"
+              style={{
+                width: `${m.size}px`,
+                height: `${m.size}px`,
+                opacity: m.op,
+                background: m.color,
+                animationDuration: `${m.twkDur}s`,
+                animationDelay: `${m.twkDelay}s`,
+                '--mote-color': m.color,
+              } as CSSProperties}
+            />
+          </span>
+        </span>
+      ))}
+      {/* Dés lumineux qui flottent (wrapper = flottement vertical ; le dé tourne lentement sur lui-même). */}
+      {dice.map((d, i) => (
+        <span
+          key={`die-${i}`}
+          className="oogie-die-bob"
+          style={{ left: `${d.left}%`, top: `${d.top}%`, animationDuration: `${d.bobDur}s`, animationDelay: `${d.bobDelay}s`, '--bob': `${d.bob}vh` } as CSSProperties}
+        >
+          <span
+            className="oogie-die"
+            style={{
+              width: `${d.size}vh`,
+              height: `${d.size}vh`,
+              opacity: d.op,
+              animationDuration: `${d.spinDur}s`,
+              animationDirection: d.cw ? 'normal' : 'reverse',
+            }}
+          >
+            {OOGIE_DIE_PIPS[d.face].map(([x, y], k) => (
+              <span key={k} className="oogie-pip" style={{ left: `${x}%`, top: `${y}%` }} />
+            ))}
+          </span>
+        </span>
+      ))}
+      {/* SURPRISE — les insectes se déversent : nuée qui grimpe du bas en frétillant puis se disperse. */}
+      {bugs && (
+        <div className="oogie-bugs">
+          {bugs.items.map((b) => (
+            <span
+              key={b.key}
+              className="oogie-bug-crawl"
+              style={{
+                left: `${b.left}%`,
+                animationDuration: `${b.dur}s`,
+                animationDelay: `${b.delay}s`,
+                '--dx': `${b.dx}vw`,
+                '--dy': `${b.dy}vh`,
+              } as CSSProperties}
+            >
+              {/* Orientation du corps (statique) ; le frétillement est sur l'enfant. */}
+              <span className="oogie-bug-orient" style={{ transform: `rotate(${b.rot}deg)` }}>
+                <span
+                  className="oogie-bug"
+                  style={{ width: `${b.size}px`, height: `${b.size * 0.6}px`, animationDuration: `${b.wig}s` }}
+                />
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Couleurs des bonbons de Sugar Rush (vermicelles + bokeh).
+const CANDY_COLORS = ['#ff5fa2', '#ffffff', '#7be0c2', '#ffe14d', '#5fb8ff', '#c79bff', '#ff7a7a', '#ffa14d']
+
+/** Décor « candy » (Sa Sucrerie / Roi Candy — Les Mondes de Ralph) : le monde de bonbons de Sugar Rush.
+ *  Fond rose/magenta gourmand, des VERMICELLES colorés (sprinkles) tombent en voletant (chute + ondulation
+ *  + rotation), un BOKEH sucré (ronds doux colorés) dérive et scintille en fond, une bande de GLAÇAGE
+ *  blanc ondulé borde le bas, et une vignette encadre le tout. 100 % CSS. En reduced-motion : tout figé. */
+function CandyDecor() {
+  // Vermicelles colorés (petites capsules) qui tombent en voletant.
+  const [sprinkles] = useState(() =>
+    Array.from({ length: 30 }, () => ({
+      left: Math.random() * 100, // %
+      size: 1.4 + Math.random() * 1.4, // vh (longueur de la capsule)
+      dur: 6 + Math.random() * 6, // s (chute)
+      delay: -(Math.random() * 12), // s
+      sway: 2 + Math.random() * 4, // vw
+      swayDur: 2.5 + Math.random() * 2, // s
+      rotDur: 2.5 + Math.random() * 3, // s
+      rotDir: Math.random() < 0.5 ? 'normal' : 'reverse', // sens de rotation
+      color: CANDY_COLORS[Math.floor(Math.random() * CANDY_COLORS.length)],
+      op: 0.7 + Math.random() * 0.3,
+    })),
+  )
+  // Bokeh sucré : ronds doux flous qui dérivent vers le haut en scintillant (profondeur gourmande).
+  const [bokeh] = useState(() =>
+    Array.from({ length: 16 }, () => ({
+      left: Math.random() * 100, // %
+      size: 5 + Math.random() * 10, // vh (gros ronds flous)
+      dur: 16 + Math.random() * 14, // s (dérive lente)
+      delay: -(Math.random() * 28), // s
+      sway: 1.5 + Math.random() * 3, // vw
+      swayDur: 5 + Math.random() * 4, // s
+      color: CANDY_COLORS[Math.floor(Math.random() * CANDY_COLORS.length)],
+      op: 0.12 + Math.random() * 0.16,
+    })),
+  )
+  return (
+    <div className="candy-decor" aria-hidden>
+      {/* Bokeh sucré (derrière). */}
+      {bokeh.map((b, i) => (
+        <span
+          key={`cbok-${i}`}
+          className="candy-bokeh-rise"
+          style={{ left: `${b.left}%`, animationDuration: `${b.dur}s`, animationDelay: `${b.delay}s` }}
+        >
+          <span
+            className="candy-bokeh-sway"
+            style={{ animationDuration: `${b.swayDur}s`, animationDelay: `${b.delay}s`, '--sway': `${b.sway}vw` } as CSSProperties}
+          >
+            <span
+              className="candy-bokeh"
+              style={{ width: `${b.size}vh`, height: `${b.size}vh`, opacity: b.op, background: `radial-gradient(circle, ${b.color} 0%, ${b.color}00 70%)` }}
+            />
+          </span>
+        </span>
+      ))}
+      {/* Glaçage blanc ondulé en bas. */}
+      <div className="candy-frosting" />
+      {/* Vermicelles colorés qui tombent en voletant. */}
+      {sprinkles.map((s, i) => (
+        <span
+          key={`cspr-${i}`}
+          className="candy-sprinkle-fall"
+          style={{ left: `${s.left}%`, animationDuration: `${s.dur}s`, animationDelay: `${s.delay}s` }}
+        >
+          <span
+            className="candy-sprinkle-sway"
+            style={{ animationDuration: `${s.swayDur}s`, animationDelay: `${s.delay}s`, '--sway': `${s.sway}vw` } as CSSProperties}
+          >
+            <span
+              className="candy-sprinkle"
+              style={{ height: `${s.size}vh`, width: `${s.size * 0.32}vh`, background: s.color, opacity: s.op, animationDuration: `${s.rotDur}s`, animationDirection: s.rotDir }}
+            />
+          </span>
+        </span>
+      ))}
     </div>
   )
 }
@@ -4131,8 +4913,16 @@ export function VillainDecor({ villain, side }: { villain: VillainKey; side?: 'l
       return <CastleAssaultDecor decor={decor} />
     case 'mim':
       return <MimDecor />
+    case 'cauldron':
+      return <CauldronDecor />
     case 'syndrome':
       return <SyndromeDecor />
+    case 'sunnyside':
+      return <SunnysideDecor />
+    case 'oogie':
+      return <OogieDecor />
+    case 'candy':
+      return <CandyDecor />
     case 'scar':
       return <ScarDecor decor={decor} />
     case 'image':

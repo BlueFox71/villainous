@@ -125,6 +125,23 @@ export type VillainDecor =
   // montent, lueur bleue pulsante, scanlines holographiques et arcs électriques qui crépitent.
   // Par moments, SURPRISE : une manta-fusée décolle (gerbe de flammes). 100 % CSS.
   | { kind: 'syndrome' }
+  // `cauldron` : la salle du Chaudron Noir (Le Seigneur des Ténèbres — Le Chaudron Magique). Crypte de
+  // pierre sombre, le CHAUDRON NOIR au centre-bas avec sa gueule de bouillon VERT lumineux qui pulse,
+  // VOLUTES de vapeur verte qui montent (réutilise `vaporRise`), ÂMES/feux follets verts qui s'élèvent
+  // en ondulant et lueur verte pulsante. 100 % CSS. [surprise + animation à venir]
+  | { kind: 'cauldron' }
+  // `sunnyside` : la garderie Sunnyside (Lotso — Toy Story 3). Ciel bleu du papier peint d'Andy avec
+  // NUAGES blancs floconneux qui dérivent lentement, teinte chaude ROSE FRAISE (Lotso sent la fraise),
+  // douces paillettes flottantes et vignette tiède. 100 % CSS. [surprise = pluie de jouets, à venir]
+  | { kind: 'sunnyside' }
+  // `oogie` : la tanière-casino d'Oogie Boogie (L'Étrange Noël de Monsieur Jack). Pénombre, LUEUR de
+  // LUMIÈRE NOIRE verte & violette qui pulse, DÉS lumineux qui flottent en tournant lentement (clin
+  // d'œil à sa mécanique 2d6) et fine poussière verte qui monte. 100 % CSS. [surprise + animation à venir]
+  | { kind: 'oogie' }
+  // `candy` : le monde de bonbons de Sugar Rush (Sa Sucrerie / Roi Candy — Les Mondes de Ralph). Fond
+  // rose/magenta gourmand, VERMICELLES colorés (sprinkles) qui tombent en voletant, BOKEH sucré qui
+  // dérive et scintille, bande de GLAÇAGE blanc en bas et vignette. 100 % CSS. [surprise à venir]
+  | { kind: 'candy' }
 
 export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   patHibulaire: { kind: 'film' },
@@ -179,6 +196,18 @@ export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   // Syndrome (Les Indestructibles) : sa base high-tech baignée d'énergie point-zéro bleue — grille,
   // particules, lueur pulsante, scanlines, arcs électriques ; surprise = manta-fusée qui décolle.
   syndrome: { kind: 'syndrome' },
+  // Le Seigneur des Ténèbres (Le Chaudron Magique) : la salle du Chaudron Noir — crypte sombre, chaudron
+  // au bouillon vert pulsant, vapeur verte, âmes vertes qui montent. 100 % CSS.
+  seigneurTenebres: { kind: 'cauldron' },
+  // Lotso (Toy Story 3) : la garderie Sunnyside — ciel bleu du papier peint d'Andy, nuages blancs qui
+  // dérivent, teinte rose fraise chaude, paillettes douces. 100 % CSS.
+  lotso: { kind: 'sunnyside' },
+  // Oogie Boogie (L'Étrange Noël de Monsieur Jack) : sa tanière-casino — lumière noire verte/violette
+  // pulsante, dés lumineux qui flottent en tournant, poussière verte. 100 % CSS.
+  oogieBoogie: { kind: 'oogie' },
+  // Sa Sucrerie (Roi Candy — Les Mondes de Ralph) : le monde de bonbons de Sugar Rush — fond rose
+  // gourmand, vermicelles colorés qui voletent, bokeh sucré, glaçage blanc en bas. 100 % CSS.
+  saSucrerie: { kind: 'candy' },
 }
 
 /** Décor permanent d'un vilain (undefined si non défini). */
@@ -253,8 +282,17 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
         ],
         videos: [],
       }
+    case 'cauldron':
+      // Les Soldats Ressuscités de la surprise « éruption du Chaudron » (cf. CauldronDecor).
+      return { images: ['/animations/squelettes.png'], videos: [] }
     case 'cruella':
       return { images: ['/animations/patte.png'], videos: [] }
+    case 'goldenHair':
+      // La fleur d'or magique + les 3 pétales de Gaston (colorés en doré) qui tombent.
+      return {
+        images: ['/animations/flower.png', '/animations/petale-1.png', '/animations/petale-2.png', '/animations/petale-3.png'],
+        videos: [],
+      }
     case 'video':
       return { images: [], videos: [decor.src] }
     case 'evilQueen':
@@ -286,8 +324,8 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
         ],
         videos: [],
       }
-    // Décors 100 % CSS (aucun fichier à précharger) : film, sand, space, goldenHair, petals,
-    // clockwork, cruella, cyber.
+    // Décors 100 % CSS (aucun fichier à précharger) : film, sand, space, petals,
+    // clockwork, cyber, cauldron, sunnyside, oogie, candy.
     default:
       return none
   }

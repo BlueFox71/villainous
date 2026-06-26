@@ -74,10 +74,14 @@ export interface VillainAnimation {
    *    petite FLAMME — les pétales de la rose enchantée (Gaston). Densité réglable via `count`.
    *  - `jet-cross` : `image` (un vaisseau) FILE en DIAGONALE — départ en haut, au milieu du plateau
    *    JOUEUR (moitié gauche), arrivée au bord DROIT à mi-hauteur de l'écran — en fondu aux extrémités
-   *    (Syndrome : son manta-jet). Trajectoire relative à l'écran (API Web Animations). */
+   *    (Syndrome : son manta-jet). Trajectoire relative à l'écran (API Web Animations).
+   *  - `smoke-field` : pas de trajet ; des bouffées de FUMÉE VERTE (CSS, sans image) apparaissent PARTOUT
+   *    sur l'écran (positions au hasard sur toute la surface), gonflent en montant un peu et se fondent,
+   *    départs échelonnés → la fumée envahit tout l'écran le temps du passage (Le Seigneur des Ténèbres).
+   *    Densité réglable via `count`. */
   path?:
     | 'cross' | 'sky-arc' | 'drift-spin' | 'pages' | 'roses' | 'coins' | 'water-cross'
-    | 'rise' | 'voodoo' | 'fire-bottom' | 'fade' | 'paws' | 'petals' | 'jet-cross'
+    | 'rise' | 'voodoo' | 'fire-bottom' | 'fade' | 'paws' | 'petals' | 'jet-cross' | 'smoke-field'
   /** Tire quelques coups de canon (lueur + fumée à la bouche du canon avant)
    *  pendant le vol. Réservé aux trajectoires `sky-arc`. */
   cannons?: boolean
@@ -147,6 +151,22 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
     heightPct: 16, // taille du jet
     durationSec: 6, // une traversée diagonale rapide
     path: 'jet-cross',
+  },
+  // Le Seigneur des Ténèbres (Le Chaudron Magique) : une nappe de FUMÉE VERTE envahit tout l'écran le
+  // temps d'un passage (bouffées qui apparaissent partout, gonflent et se fondent). 100 % CSS.
+  seigneurTenebres: {
+    durationSec: 9, // le temps que la fumée envahisse tout l'écran puis se dissipe
+    path: 'smoke-field',
+  },
+  // Oogie Boogie (L'Étrange Noël de Monsieur Jack) : le trio Am/Stram/Gram (Lock/Shock/Barrel) traverse
+  // l'écran dans leur BAIGNOIRE À PATTES, comme Kronk de Yzma (water-cross à pied, traînée de pas).
+  oogieBoogie: {
+    image: '/animations/am_stram_gram.png',
+    heightPct: 15, // la baignoire et le trio (image carrée 650×650)
+    topPct: 3, // hauteur de la traversée
+    durationSec: 12, // une traversée complète
+    path: 'water-cross',
+    gait: true, // la baignoire marche → léger dandinement (rebond + balancement), SANS traînée de pas
   },
   // Bowser (Super Mario Galaxy) : le bateau pirate volant entre par le milieu-gauche
   // et s'élève en arc dans le ciel jusqu'à sortir en haut à droite, canons tonnants.
@@ -343,33 +363,28 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
     durationSec: 15, // couvre l'étalement des chutes (délais + chute lente)
     path: 'petals',
   },
-  // (Le duel de sorciers de Madame Mim est un DÉCOR PERMANENT — cf. MimDecor dans villainDecor.ts.)
-  // Deux animations temporaires (tirées au hasard à chaque passage).
-  madameMim: [
-    // 1) Mim transformée en lapin poursuivie par le renard (rabbit_fox_mim) traverse le HAUT de l'écran
-    //    (trajectoire `cross` : joueur gauche→droite, adversaire droite→gauche).
-    {
-      image: '/animations/rabbit_fox_mim.png',
-      heightPct: 14,
-      durationSec: 11, // traversée un peu plus rapide
-      path: 'cross',
-      flipHorizontal: true, // image retournée horizontalement (miroir)
-      vibrate: true, // légère vibration pendant le passage
-    },
-    // 2) SURPRISE : pluie de cartes de jeu — les 54 cartes (planche cards_game découpée, cf.
-    //    public/animations/cards/) tombent du haut en tournoyant, image tirée au hasard par carte
-    //    (même trajectoire `coins` que les pièces de Prince Jean / les pommes de la Méchante Reine).
-    {
-      images: Array.from(
-        { length: 54 },
-        (_, i) => `/animations/cards/card-${String(i + 1).padStart(2, '0')}.png`,
-      ),
-      heightPct: 9, // hauteur d'une carte
-      durationSec: 10, // couvre l'étalement des chutes
-      count: 26, // pluie modérée de cartes
-      path: 'coins',
-    },
-  ],
+  // Lotso (Toy Story 3) : pluie de FRAISES (Lotso sent la fraise) — elles tombent du haut en tournoyant
+  // (trajectoire `coins`, comme les pièces de Prince Jean). (La garderie Sunnyside + l'averse de jouets
+  // surprise sont un DÉCOR PERMANENT — cf. SunnysideDecor dans components/VillainDecor.tsx.)
+  lotso: {
+    images: ['/animations/fraise.png'],
+    heightPct: 6, // taille d'une fraise
+    durationSec: 10, // couvre l'étalement des chutes
+    count: 30, // pluie de fraises
+    path: 'coins',
+  },
+  // (Le duel de sorciers de Madame Mim ET la pluie de cartes surprise sont un DÉCOR PERMANENT —
+  // cf. MimDecor dans components/VillainDecor.tsx.)
+  // Animation temporaire : Mim transformée en lapin poursuivie par le renard (rabbit_fox_mim) traverse
+  // le HAUT de l'écran (trajectoire `cross` : joueur gauche→droite, adversaire droite→gauche).
+  madameMim: {
+    image: '/animations/rabbit_fox_mim.png',
+    heightPct: 14,
+    durationSec: 11, // traversée un peu plus rapide
+    path: 'cross',
+    flipHorizontal: true, // image retournée horizontalement (miroir)
+    vibrate: true, // légère vibration pendant le passage
+  },
   // L'Imposteur (Among Us) : un équipier éjecté (couleur au hasard) dérive en ligne
   // droite du haut-gauche vers le bas-droite en tournant lentement sur lui-même.
   imposteur: {

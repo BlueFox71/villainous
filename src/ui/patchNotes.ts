@@ -10,9 +10,18 @@ export interface PatchNote {
 export const PATCH_NOTES: PatchNote[] = [
   {
     version: '0.85',
-    date: '2026-06-25',
-    title: 'Compte à rebours « Projet Kronos » (Syndrome) + manta-jet & tailles des animaux de Mim',
+    date: '2026-06-26',
+    title: 'Quatre nouveaux décors (Oogie Boogie, Lotso, Seigneur des Ténèbres, Sa Sucrerie) + animations',
     changes: [
+      'Nouveau décor d’arrière-plan pour Oogie Boogie (L’Étrange Noël de Monsieur Jack) : sa tanière-casino baignée de lumière noire verte et violette qui pulse, des dés lumineux qui flottent en tournant lentement (clin d’œil à sa mécanique de dés) et une fine poussière verte.',
+      'Nouveau décor d’arrière-plan pour Lotso (Toy Story 3) : la garderie Sunnyside — le ciel bleu du papier peint d’Andy avec ses nuages blancs qui dérivent, une teinte rose fraise chaude (Lotso sent la fraise) et de douces paillettes flottantes.',
+      'Nouveau décor d’arrière-plan pour Le Seigneur des Ténèbres (Le Chaudron Magique) : la salle du Chaudron Noir — crypte de pierre sombre, le chaudron au bouillon vert lumineux qui pulse, volutes de vapeur verte et âmes (feux follets) verts qui s’élèvent.',
+      'Nouveau décor d’arrière-plan pour Sa Sucrerie / Roi Candy (Les Mondes de Ralph) : le monde de bonbons de Sugar Rush — fond rose gourmand, vermicelles colorés qui tombent en voletant, bokeh sucré qui scintille et une bande de glaçage blanc en bas.',
+      'Décor de Mère Gothel (Raiponce) enrichi : une fleur d’or magique qui luit et se balance, des pétales dorés qui tombent en tournoyant, et une lumière qui court le long des mèches lors du « chant ».',
+      'Nouvelle animation pour Le Seigneur des Ténèbres : une nappe de fumée verte envahit peu à peu tout l’écran (par-dessus le plateau) avant de se dissiper.',
+      'Nouvelle animation pour Oogie Boogie : le trio Am, Stram et Gram traverse l’écran dans leur baignoire à pattes, en se dandinant.',
+      'Nouvelle animation pour Lotso : une pluie de fraises tombe du haut de l’écran en tournoyant.',
+      'Madame Mim : sa pluie de cartes surprise (les 54 cartes) fait désormais partie intégrante de son décor permanent (le duel de sorciers), au lieu d’une animation séparée.',
       'Syndrome : nouvelle surprise « Compte à rebours — Projet Kronos » qui recouvre par moments l’écran de la base — un minuteur (heures/minutes/secondes) qui défile en continu, façon film. Le fond de la base a été retravaillé (teinte d’écran).',
       'Syndrome : son manta-jet traverse désormais l’écran en diagonale (du côté du joueur vers le bord opposé), avec une trajectoire miroir selon le camp.',
       'Madame Mim : les animaux du duel de sorciers (Mim et Merlin) s’affichent enfin à des tailles cohérentes et proportionnées entre elles (fini le minuscule félin à côté d’une tortue géante).',
