@@ -93,6 +93,9 @@ export function FateModal({ revealed, target, onResolve, optional = false, onPas
     // Apparence Retrouvée : il faut un Héros (force ≤4) dans la défausse Fatalité.
     if (c.cardId === 'apparence-retrouvee')
       return target.fateDiscard.some((x) => x.type === 'hero' && (x.strength ?? 0) <= 4)
+    // En retard ! (Reine de Cœur) : il faut un Héros (force ≤3) dans la défausse Fatalité.
+    if (c.cardId === 'en-retard')
+      return target.fateDiscard.some((x) => x.type === 'hero' && (x.strength ?? 0) <= 3)
     // Retour à la vie de Gurki : injouable si la défausse Fatalité est vide (rien à
     // remélanger dans la pioche).
     if (c.cardId === 'gurgis-happy-day') return target.fateDiscard.length > 0
@@ -107,6 +110,9 @@ export function FateModal({ revealed, target, onResolve, optional = false, onPas
       })
     }
     if (c.cardId === 'ko') return realm.some((x) => x.type === 'ally' && !x.isWicket && (x.strength ?? 0) <= 3)
+    // Majorité (L'Imposteur) : il faut un Allié OU un Objet (non associé, hors Sabotage) à défausser.
+    if (c.cardId === 'majorite')
+      return realm.some((x) => !x.attachedTo && (x.type === 'ally' || (x.type === 'item' && !x.isSabotage)))
     // Premier baiser d'amour : sans effet si la cible n'a ni Poison ni Héros dans
     // sa défausse Fatalité.
     if (c.cardId === 'premier-baiser')

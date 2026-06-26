@@ -68,3 +68,43 @@ describe('Reine de Cœur — Flèche de Mome Raths', () => {
     expect(s.players[0].fateDiscard.some((c) => c.instanceId === 'fl1')).toBe(true)
   })
 })
+
+describe('Reine de Cœur — En retard !', () => {
+  const enRetard: CardInstance = { instanceId: 'er1', cardId: 'en-retard', name: 'En retard !', type: 'effect' }
+  const filler: CardInstance = { instanceId: 'o2', cardId: 'coup-royal', name: 'X', type: 'effect' }
+
+  it('rejoue un Héros ≤3 de la défausse Fatalité sur le lieu CHOISI', () => {
+    const dodo: CardInstance = { instanceId: 'd1', cardId: 'dodo', name: 'Dodo', type: 'hero', strength: 3 }
+    let s = game()
+    s = {
+      ...s,
+      activePlayer: 1,
+      phase: 'ACTION',
+      pendingFate: { target: 0, revealed: [enRetard, filler] },
+      // En jeu réel, Dodo (copies:1) éliminé est dans la défausse, PAS dans le deck.
+      players: s.players.map((p, i) => (i === 0 ? { ...p, fateDeck: p.fateDeck.filter((c) => c.cardId !== 'dodo'), fateDiscard: [dodo] } : p)),
+    }
+    s = applyAction(s, { type: 'RESOLVE_FATE', instanceId: 'er1' })
+    expect(s.pendingFateHeroPlace?.heroCardId).toBe('dodo')
+    expect(s.pendingFateHeroPlace?.chooserIndex).toBe(1)
+    s = applyAction(s, { type: 'RESOLVE_FATE_HERO_PLACE', locationId: 'cour-palais' })
+    expect((s.players[0].board['cour-palais'] ?? []).some((c) => c.cardId === 'dodo')).toBe(true)
+    expect(s.players[0].fateDiscard.some((c) => c.cardId === 'dodo')).toBe(false)
+  })
+
+  it('sans Héros ≤3 dans la défausse Fatalité → aucun effet (carte défaussée)', () => {
+    const bigHero: CardInstance = { instanceId: 'a1', cardId: 'alice', name: 'Alice', type: 'hero', strength: 5 }
+    let s = game()
+    s = {
+      ...s,
+      activePlayer: 1,
+      phase: 'ACTION',
+      pendingFate: { target: 0, revealed: [enRetard, filler] },
+      players: s.players.map((p, i) => (i === 0 ? { ...p, fateDiscard: [bigHero] } : p)),
+    }
+    s = applyAction(s, { type: 'RESOLVE_FATE', instanceId: 'er1' })
+    expect(s.pendingFateHeroPlace ?? null).toBeNull()
+    expect(s.players[0].fateDiscard.some((c) => c.cardId === 'en-retard')).toBe(true)
+    expect((s.players[0].board['cour-palais'] ?? []).some((c) => c.cardId === 'alice')).toBe(false)
+  })
+})

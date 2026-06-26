@@ -59,6 +59,9 @@ const NO_CAN_DO_SRC = '/audio/no-can-do.ogg' // tentative de jouer une carte inj
 const NO_CAN_DO_GAIN = 0.5
 const MANA_ADD_SRC = '/audio/mana-crystal-add.ogg' // le joueur gagne ≥1 jeton Pouvoir
 const MANA_ADD_GAIN = 0.5
+// Pioche : 3 variantes jouées au hasard, une par carte piochée (séquencé).
+const DRAW_CARD_SRCS = ['/audio/draw_card_1.ogg', '/audio/draw_card_2.ogg', '/audio/draw_card_3.ogg']
+const DRAW_CARD_GAIN = 0.45
 const CARD_DRAG_LOOP_SRC = '/audio/card-drag-loop.ogg' // boucle pendant qu'on tient une carte au curseur
 const CARD_DRAG_LOOP_GAIN = 0.08 // volume final discret
 const CARD_DRAG_FADE_MS = 700 // durée du fondu d'entrée (montée progressive)
@@ -92,6 +95,7 @@ let crackBase: HTMLAudioElement | null = null
 let lieuPirateBase: HTMLAudioElement | null = null
 let noCanDoBase: HTMLAudioElement | null = null
 let manaAddBase: HTMLAudioElement | null = null
+let drawCardBases: HTMLAudioElement[] = []
 if (typeof Audio !== 'undefined') {
   base = new Audio(CLICK_SRC)
   base.preload = 'auto'
@@ -147,6 +151,11 @@ if (typeof Audio !== 'undefined') {
   noCanDoBase.preload = 'auto'
   manaAddBase = new Audio(MANA_ADD_SRC)
   manaAddBase.preload = 'auto'
+  drawCardBases = DRAW_CARD_SRCS.map((s) => {
+    const a = new Audio(s)
+    a.preload = 'auto'
+    return a
+  })
 }
 
 /** Joue le son d'erreur quand on tente de jouer une carte injouable. */
@@ -166,6 +175,17 @@ export function playManaAdd() {
   if (sfxVolume <= 0) return
   const a = manaAddBase.cloneNode() as HTMLAudioElement
   a.volume = Math.min(1, sfxVolume) * MANA_ADD_GAIN
+  void a.play().catch(() => {})
+}
+
+/** Joue un son de pioche (une variante au hasard) — appelé une fois par carte piochée. */
+export function playDrawCard() {
+  if (drawCardBases.length === 0) return
+  const { sfxVolume } = useSettingsStore.getState()
+  if (sfxVolume <= 0) return
+  const base = drawCardBases[Math.floor(Math.random() * drawCardBases.length)]
+  const a = base.cloneNode() as HTMLAudioElement
+  a.volume = Math.min(1, sfxVolume) * DRAW_CARD_GAIN
   void a.play().catch(() => {})
 }
 

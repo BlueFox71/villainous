@@ -173,7 +173,7 @@ export const FATE_MALUS: Record<string, FateMalus> = {
   // --- Sombra (un Piratage sur chaque lieu + Protocole Sombra) ---
   'l-oeil': 'block-win', // retire un Piratage de son lieu ET empêche d'y pirater
   'guillermo-portero': 'block-win', // sur Lumérico : empêche d'y pirater
-  zarya: 'block-advance', // détruit un Objet (donc un Piratage) de son lieu
+  zarya: 'slow', // détruit un VRAI Objet (pas un Piratage/IEM) → simple corps F5 vs Sombra
   'lynx-seventeen': 'slow2', // Piratages/IEM coûtent +1
   'soldat-76': 'slow',
   'katya-volskaya': 'slow',

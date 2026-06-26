@@ -387,6 +387,57 @@ export function CauldronTile({
 }
 
 /**
+ * Oogie Boogie — PILE Perce-Oreilles (face VISIBLE), à la même place que la Pile de
+ * l'Au-delà. Affiche les Imposteur Perce-Oreilles RÉUSSIS empilés près de Sandy Claws
+ * et le compte /4 (objectif). Rendue uniquement pour Oogie (champ `impostorPile`).
+ */
+export function ImpostorPile({
+  player,
+  uprightWidth = 'w-14',
+}: {
+  player: PlayerState
+  uprightWidth?: string
+}) {
+  const [open, setOpen] = useState(false)
+  if (player.impostorPile === undefined) return null
+  const pile = player.impostorPile
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <span className="text-[8px] font-bold uppercase tracking-wide text-lime-300/90">
+        Perce-Oreilles {pile.length}/4
+      </span>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); if (pile.length > 0) { playHistoryEvent(); setOpen(true) } }}
+        className={`flex flex-wrap justify-center gap-1 ${pile.length > 0 ? 'cursor-pointer' : 'cursor-default'}`}
+        title={pile.length > 0 ? 'Voir la pile Perce-Oreilles' : 'Pile Perce-Oreilles vide'}
+      >
+        {pile.length === 0 ? (
+          <div className={`aspect-[5/7] ${uprightWidth} rounded border border-dashed border-lime-400/40 bg-white/5`} />
+        ) : (
+          pile.map((c) => (
+            <img
+              key={c.instanceId}
+              src={imgOf(c)}
+              alt={c.name}
+              title={c.name}
+              className={`${uprightWidth} rounded border-2 border-lime-400/70 shadow-[0_0_6px_rgba(163,230,53,0.5)] transition hover:brightness-110`}
+            />
+          ))
+        )}
+      </button>
+      {open && (
+        <DiscardModal
+          cards={pile}
+          label={`Pile Perce-Oreilles — ${player.villainName}`}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
  * Scar — pile SUCCESSION (face VISIBLE), à la même place que la Pile de l'Au-delà.
  * Affiche les Héros éliminés qui s'y trouvent (Mufasa puis les suivants) et la
  * Force combinée /15 (objectif). Rendue uniquement pour Scar (champ `succession`).

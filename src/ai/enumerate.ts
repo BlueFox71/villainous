@@ -690,7 +690,7 @@ export function enumerateActions(state: GameState): GameAction[] {
     const heroLocs = p.locations.map((l) => l.id).filter((id) => (p.board[id] ?? []).some((c) => c.type === 'hero'))
     const out: GameAction[] = []
     for (const loc of p.locations) {
-      for (const c of (p.board[loc.id] ?? []).filter((c) => (c.type === 'ally' || c.type === 'item') && !c.attachedTo && !c.isWicket && !c.immuneToAllyItemEffects)) {
+      for (const c of (p.board[loc.id] ?? []).filter((c) => (c.type === 'ally' || c.type === 'item') && !c.attachedTo && !c.isWicket)) {
         for (const to of heroLocs.filter((id) => id !== loc.id)) {
           out.push({ type: 'RESOLVE_IDENTIFICATION', cardInstanceId: c.instanceId, to })
         }
@@ -709,6 +709,57 @@ export function enumerateActions(state: GameState): GameAction[] {
     return p.locations
       .filter((l) => !locked.has(l.id))
       .map((l) => ({ type: 'RESOLVE_CRUSTACEAN_PLACE', to: l.id }))
+  }
+  // Dr Facilier — L'étoile du soir : le « chooser » envoie un Allié de la cible dans
+  // l'Au-delà (le bot choisit via l'éval ; à défaut, le plus fort est un bon défaut).
+  if (state.pendingFateAllyToAuDela) {
+    const pa = state.pendingFateAllyToAuDela
+    const tgt = state.players[pa.targetIndex]
+    const out: GameAction[] = []
+    for (const l of tgt.locations) {
+      for (const c of tgt.board[l.id] ?? []) {
+        if (c.type === 'ally' && !c.attachedTo && !c.isWicket) {
+          out.push({ type: 'RESOLVE_FATE_ALLY_TO_AUDELA', allyInstanceId: c.instanceId })
+        }
+      }
+    }
+    if (out.length > 0) return out
+  }
+  // Oogie Boogie — Mettons fin à ce cauchemar : le « chooser » défausse une carte de la main
+  // de la cible. Priorité au bot : Imposteur Perce-Oreilles (clé de l'objectif), sinon coût élevé.
+  if (state.pendingFateDiscardHand) {
+    const pd = state.pendingFateDiscardHand
+    const hand = state.players[pd.targetIndex].hand ?? []
+    if (hand.length > 0) {
+      const ranked = [...hand].sort((a, b) => {
+        const score = (c: typeof a) => (c.cardId === 'imposteur-perce-oreilles' ? 100 : 0) + (c.cardId === 'affaire-dans-le-sac' ? 50 : 0) + (c.cost ?? 0)
+        return score(b) - score(a)
+      })
+      return ranked.map((c) => ({ type: 'RESOLVE_FATE_DISCARD_HAND', cardInstanceId: c.instanceId }))
+    }
+  }
+  // Oogie Boogie — Diversion (2ᵉ temps) : défausse un Allié/Objet du lieu d'arrivée.
+  // Bot → le plus fort (défaut raisonnable).
+  if (state.pendingDiversionDiscard) {
+    const pdd = state.pendingDiversionDiscard
+    const cell = state.players[pdd.targetIndex].board[pdd.locationId] ?? []
+    const cands = cell.filter((c) => (c.type === 'ally' || c.type === 'item') && !c.attachedTo && !c.isWicket)
+    if (cands.length > 0) {
+      return cands.map((c) => ({ type: 'RESOLVE_DIVERSION_DISCARD', cardInstanceId: c.instanceId }))
+    }
+  }
+  // Hadès — Alignement des planètes : le bot désentrave les Titans entravés les plus avancés
+  // qu'il peut financer (1 JT chacun).
+  if (state.pendingUntrapTitans) {
+    const p = state.players[state.pendingUntrapTitans.playerIndex]
+    const order = p.locations.map((l) => l.id)
+    const trapped: { id: string; i: number }[] = []
+    order.forEach((lid, i) => {
+      for (const c of p.board[lid] ?? []) if (c.isTitan && c.trapped) trapped.push({ id: c.instanceId, i })
+    })
+    trapped.sort((a, b) => b.i - a.i)
+    const chosen = trapped.slice(0, p.power).map((t) => t.id)
+    return [{ type: 'RESOLVE_UNTRAP_TITANS', instanceIds: chosen }]
   }
   if (state.pendingFetchedHero) {
     const pfh = state.pendingFetchedHero
@@ -913,6 +964,19 @@ export function enumerateActions(state: GameState): GameAction[] {
         if (tgt.fateDiscard.some((c) => c.type === 'hero' && (c.strength ?? 0) <= 4)) {
           out.push({ type: 'RESOLVE_FATE', instanceId: card.instanceId })
         }
+      } else if (card.cardId === 'en-retard') {
+        // Reine de Cœur — En retard ! : jouable seulement si un Héros (force ≤3) est
+        // dans la défausse Fatalité de la cible (sinon sans effet).
+        const tgt = state.players[target]
+        if (tgt.fateDiscard.some((c) => c.type === 'hero' && (c.strength ?? 0) <= 3)) {
+          out.push({ type: 'RESOLVE_FATE', instanceId: card.instanceId })
+        }
+      } else if (card.cardId === 'majorite') {
+        // L'Imposteur — Majorité : jouable seulement s'il y a un Allié/Objet (hors Sabotage)
+        // à défausser dans le royaume de la cible.
+        if (fateCardPlayable(state, card, target)) {
+          out.push({ type: 'RESOLVE_FATE', instanceId: card.instanceId })
+        }
       } else if (card.cardId === 'gurgis-happy-day') {
         // Le Seigneur des Ténèbres — Retour à la vie de Gurki : jouable seulement si la
         // défausse Fatalité de la cible n'est pas vide (sinon rien à remélanger).
@@ -1058,8 +1122,22 @@ export function enumerateActions(state: GameState): GameAction[] {
         if (
           (card.effects ?? []).some((e) => e.type === 'MOVE_ALLY_OR_ITEM_TO_HERO_LOCATION') &&
           (!me.locations.some((l) => (me.board[l.id] ?? []).some((c) => c.type === 'hero')) ||
-            !Object.values(me.board).flat().some((c) => (c.type === 'ally' || c.type === 'item') && !c.attachedTo && !c.isWicket && !c.immuneToAllyItemEffects))
+            !Object.values(me.board).flat().some((c) => (c.type === 'ally' || c.type === 'item') && !c.attachedTo && !c.isWicket))
         ) continue
+        // Dr Facilier — Divination : sans effet hors du Royaume du vaudou.
+        if ((card.effects ?? []).some((e) => e.type === 'DIVINATION') && me.pawnLocation !== 'royaume-vaudou') continue
+        // Hadès — Préparez-vous au combat ! : inutile sans Titan non entravé déplaçable (+ Pouvoir).
+        {
+          const tm = (card.effects ?? []).find((e) => e.type === 'MOVE_TITAN_INTERACTIVE')
+          if (
+            tm &&
+            tm.type === 'MOVE_TITAN_INTERACTIVE' &&
+            ((tm.paid && me.power < 2) ||
+              !Object.values(me.board)
+                .flat()
+                .some((c) => c.isTitan && !c.trapped && titanReachableDests(state, state.activePlayer, c.instanceId, tm.maxSteps).length > 0))
+          ) continue
+        }
         // Reine de Cœur — Par ordre de la Reine ! : inutile sans Carte Garde transformable.
         if ((card.effects ?? []).some((e) => e.type === 'TRANSFORM_GUARDS') && transformableGuards(state, state.activePlayer).length === 0) continue
         // Cruella — J'adore les belles fourrures : inutile sans Tuile Chiots dans le royaume.
@@ -1128,7 +1206,7 @@ export function enumerateActions(state: GameState): GameAction[] {
             const placeLocs =
               card.requiresPoweredCauldron || card.consumesItemCardId ? cauldronBornLocations(me, card) : locs
             for (const to of placeLocs) {
-              if (card.type === 'curse' && !canPlaceCurseAt(state, state.activePlayer, to, card)) continue
+              if (card.type === 'curse' && !canPlaceCurseAt(state, state.activePlayer, to)) continue
               if (card.playOnlyAt && to !== card.playOnlyAt) continue
               if (card.isOmnidroid && card.omnidroidForceLocation && to !== card.omnidroidForceLocation) continue
               // Anastasie/Javotte : pas dans la Salle de Bal (lieux interdits par carte).
@@ -1310,9 +1388,15 @@ export function enumerateActions(state: GameState): GameAction[] {
           // Foudre : injouable sans Ingrédient déjà joué (rien à reproduire).
           const needsIngredient = (card.effects ?? []).some((e) => e.type === 'DUPLICATE_INGREDIENT')
           if (needsIngredient && (me.ingredients ?? []).length === 0) continue
-          // « Je vais vous broyer les os ! » : inutile sans Héros sur le lieu du pion.
-          const needsHeroHere = (card.effects ?? []).some((e) => e.type === 'USE_COVERED_ACTIONS_THIS_TURN')
-          if (needsHeroHere && !(me.pawnLocation && (me.board[me.pawnLocation] ?? []).some((c) => c.type === 'hero'))) continue
+          // Actions recouvertes : « Je vais vous broyer les os ! » / Bravo ! → Héros sur le
+          // lieu du pion ; Tamatoa — Piégé (`exceptFate`, « n'importe quel Héros ») → Héros
+          // n'importe où dans le royaume.
+          const covEffect = (card.effects ?? []).find((e) => e.type === 'USE_COVERED_ACTIONS_THIS_TURN')
+          if (covEffect && covEffect.type === 'USE_COVERED_ACTIONS_THIS_TURN') {
+            if (covEffect.exceptFate) {
+              if (!Object.values(me.board).flat().some((c) => c.type === 'hero')) continue
+            } else if (!(me.pawnLocation && (me.board[me.pawnLocation] ?? []).some((c) => c.type === 'hero'))) continue
+          }
           // « Croque ! » : inutile si aucun Héros éliminable ici (Poison insuffisant).
           const needsBite = (card.effects ?? []).some((e) => e.type === 'TAKE_A_BITE')
           if (needsBite && !canTakeABite(state)) continue

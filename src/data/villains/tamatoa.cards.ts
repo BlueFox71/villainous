@@ -157,7 +157,7 @@ export const tamatoaCards: CardDef[] = [
     cost: 1,
     copies: 2,
     text:
-      'Vous pouvez effectuer une action recouverte par un Héros (en dehors d’une action Fatalité) sur le lieu de votre figurine.',
+      'Vous pouvez effectuer une action recouverte (en dehors d’une action Fatalité) par n’importe quel Héros.',
     image: img('piege-tamatoa.png'),
     effects: [{ type: 'USE_COVERED_ACTIONS_THIS_TURN', exceptFate: true }],
   },

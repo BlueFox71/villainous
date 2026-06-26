@@ -127,6 +127,38 @@ export function oogieRollModifier(p: PlayerState): number {
   return mod
 }
 
+/** Dr Facilier — L'étoile du soir : retire l'Allié `allyInstanceId` du royaume du joueur
+ *  `targetIdx` et le place dans sa Pile de l'Au-delà ; ses Objets associés partent en
+ *  défausse. Sans effet si l'Allié est introuvable. */
+export function placeAllyInAuDela(state: GameState, targetIdx: number, allyInstanceId: string): GameState {
+  const target = state.players[targetIdx]
+  let loc: LocationId | undefined
+  let ally: CardInstance | undefined
+  for (const l of target.locations) {
+    const found = (target.board[l.id] ?? []).find((c) => c.instanceId === allyInstanceId)
+    if (found) {
+      ally = found
+      loc = l.id
+      break
+    }
+  }
+  if (!ally || !loc) return state
+  const allyLoc = loc
+  const allyCard = ally
+  const attached = (target.board[allyLoc] ?? []).filter((c) => c.attachedTo === allyCard.instanceId)
+  const removed = new Set([allyCard.instanceId, ...attached.map((c) => c.instanceId)])
+  const next = updatePlayer(state, targetIdx, (p) => ({
+    ...p,
+    board: { ...p.board, [allyLoc]: (p.board[allyLoc] ?? []).filter((c) => !removed.has(c.instanceId)) },
+    discard: [...p.discard, ...attached.map((c) => ({ ...c, attachedTo: undefined }))],
+    auDela: [...p.auDela, { ...allyCard, attachedTo: undefined }],
+  }))
+  return {
+    ...next,
+    log: [...next.log, `L'étoile du soir : **${allyCard.name}** est placé dans la Pile de l'Au-delà de ${target.villainName}.`],
+  }
+}
+
 /** Lance 2 dés à 6 faces (déterministe). */
 function rollTwoDice(rngState: number): { dice: [number, number]; rngState: number } {
   const a = rollD6(rngState)
@@ -2499,7 +2531,10 @@ export function resolveEffect(
       const host = ctx?.hostLocationId
       if (!host) return state
       const p = state.players[idx]
-      const movers = (p.board[host] ?? []).filter((c) => (c.type === 'hero' || c.type === 'ally') && !c.attachedTo)
+      // Bagheera elle-même (l'hôte) ne se déplace PAS : elle disperse les AUTRES Héros/Alliés.
+      const movers = (p.board[host] ?? []).filter(
+        (c) => (c.type === 'hero' || c.type === 'ally') && !c.attachedTo && c.instanceId !== ctx?.hostInstanceId,
+      )
       const dests = p.locations.map((l) => l.id).filter((id) => id !== host)
       if (movers.length === 0 || dests.length === 0) return state
       let next = state
@@ -2760,7 +2795,9 @@ export function resolveEffect(
       // la modale, le bot auto-résout (App.tsx / enumerate). Injouable garde-fou en amont.
       const p = state.players[idx]
       const heroLocs = p.locations.map((l) => l.id).filter((id) => (p.board[id] ?? []).some((c) => c.type === 'hero'))
-      const movable = Object.values(p.board).flat().some((c) => (c.type === 'ally' || c.type === 'item') && !c.attachedTo && !c.isWicket && !c.immuneToAllyItemEffects)
+      // L'Omnidroïde (immuneToAllyItemEffects) reste déplaçable : ce flag protège des effets
+      // ADVERSES, mais Identification est la propre carte de Syndrome (déplacer son Allié est légitime).
+      const movable = Object.values(p.board).flat().some((c) => (c.type === 'ally' || c.type === 'item') && !c.attachedTo && !c.isWicket)
       if (heroLocs.length === 0 || !movable) {
         return { ...state, log: [...state.log, `${p.villainName} (Identification) : aucun déplacement possible.`] }
       }
@@ -3359,7 +3396,15 @@ export function resolveEffect(
     case 'JACK_FATE_DISCARD_IMPOSTOR': {
       const before = state.players[idx].impostorsPlaced ?? 0
       const after = Math.max(0, before - 1)
-      const next = updatePlayer(state, idx, (pp) => ({ ...pp, impostorsPlaced: after }))
+      // Retire aussi la carte du sommet de la pile Perce-Oreilles → défausse.
+      const pile = state.players[idx].impostorPile ?? []
+      const popped = pile[pile.length - 1]
+      const next = updatePlayer(state, idx, (pp) => ({
+        ...pp,
+        impostorsPlaced: after,
+        impostorPile: popped ? pile.slice(0, -1) : pile,
+        discard: popped ? [...pp.discard, popped] : pp.discard,
+      }))
       return {
         ...next,
         log: [...next.log, `Jack Skellington (Fatalité) : un Imposteur Perce-Oreilles est retiré de la pile (${after}/4).`],
@@ -4566,7 +4611,7 @@ export function resolveEffect(
       }
       return {
         ...state,
-        pendingTypeChoice: { playerIndex: idx, count: 0, types: effect.types, untilFound: true },
+        pendingTypeChoice: { playerIndex: idx, count: 0, types: effect.types, untilFound: true, excludePiratage: effect.excludePiratage },
         log: [...state.log, `${actor.villainName} : choisissez un type (Prédiction).`],
       }
     }
@@ -5983,26 +6028,16 @@ export function resolveEffect(
       }
     }
     case 'UNTRAP_TITANS_PAY': {
-      // Alignement des planètes : désentrave les Titans entravés que l'acteur peut
-      // se payer (1 JT chacun), des plus avancés vers Les Enfers.
+      // Alignement des planètes : le joueur CHOISIT quels Titans entravés désentraver
+      // (1 JT chacun, max = son Pouvoir). On ouvre le choix (humain via modale ; bot auto :
+      // les plus avancés finançables). Sans Titan entravé finançable, aucun effet.
       const actor = state.players[idx]
-      const order = actor.locations.map((l) => l.id)
-      const trapped: { id: string; name: string; i: number }[] = []
-      order.forEach((locId, i) => {
-        for (const c of actor.board[locId] ?? []) if (c.isTitan && c.trapped) trapped.push({ id: c.instanceId, name: c.name, i })
-      })
-      trapped.sort((a, b) => b.i - a.i) // les plus avancés d'abord
-      const affordable = trapped.slice(0, actor.power)
-      if (affordable.length === 0) {
+      const hasAffordable =
+        actor.power >= 1 && Object.values(actor.board).flat().some((c) => c.isTitan && c.trapped)
+      if (!hasAffordable) {
         return { ...state, log: [...state.log, 'Alignement des planètes : aucun Titan entravé à désentraver (ou Pouvoir insuffisant).'] }
       }
-      let next = state
-      for (const t of affordable) next = patchCard(next, idx, t.id, (c) => ({ ...c, trapped: false }))
-      next = updatePlayer(next, idx, (p) => ({ ...p, power: p.power - affordable.length }))
-      return {
-        ...next,
-        log: [...next.log, `${actor.villainName} désentrave ${affordable.length} Titan(s) (−${affordable.length} JT) : ${affordable.map((t) => t.name).join(', ')}.`],
-      }
+      return { ...state, pendingUntrapTitans: { playerIndex: idx } }
     }
     case 'GAIN_POWER_PER_TYPE_IN_DISCARD': {
       const actor = state.players[idx]
@@ -6247,35 +6282,44 @@ export function resolveEffect(
       return next
     }
     case 'FATE_ALLY_TO_AUDELA': {
-      // L'étoile du soir : place l'Allié le plus FORT du royaume de la cible dans
-      // sa Pile de l'Au-delà (auto). Ses Objets associés partent en défausse.
+      // L'étoile du soir : un Allié du royaume de la cible part dans sa Pile de l'Au-delà.
+      // S'il y a ≥2 Alliés, le joueur qui pose la Fatalité CHOISIT lequel (pending) ; sinon
+      // (0 ou 1 Allié) c'est automatique. Auto (le plus fort) côté bot via App/enumerate.
       const target = state.players[idx]
-      let bestLoc: LocationId | undefined
-      let best: CardInstance | undefined
+      const allies: CardInstance[] = []
       for (const loc of target.locations) {
         for (const c of target.board[loc.id] ?? []) {
-          if (c.type === 'ally' && !c.attachedTo && !c.isWicket && (!best || (c.strength ?? 0) > (best.strength ?? 0))) {
-            best = c
-            bestLoc = loc.id
-          }
+          if (c.type === 'ally' && !c.attachedTo && !c.isWicket) allies.push(c)
         }
       }
-      if (!best || !bestLoc) {
+      if (allies.length === 0) {
         return { ...state, log: [...state.log, `L'étoile du soir : aucun Allié à placer dans l'Au-delà.`] }
       }
-      const ally = best
-      const loc = bestLoc
-      const attached = (target.board[loc] ?? []).filter((c) => c.attachedTo === ally.instanceId)
-      const removed = new Set([ally.instanceId, ...attached.map((c) => c.instanceId)])
-      const next = updatePlayer(state, idx, (p) => ({
-        ...p,
-        board: { ...p.board, [loc]: (p.board[loc] ?? []).filter((c) => !removed.has(c.instanceId)) },
-        discard: [...p.discard, ...attached.map((c) => ({ ...c, attachedTo: undefined }))],
-        auDela: [...p.auDela, { ...ally, attachedTo: undefined }],
-      }))
+      if (allies.length >= 2) {
+        // Choix interactif (humain via modale ; bot auto). `state.activePlayer` = le joueur
+        // qui pose la Fatalité (le « chooser ») ; `idx` = la cible (Facilier).
+        return { ...state, pendingFateAllyToAuDela: { chooserIndex: state.activePlayer, targetIndex: idx } }
+      }
+      return placeAllyInAuDela(state, idx, allies[0].instanceId)
+    }
+    case 'DIVERSION': {
+      // Oogie Boogie — Diversion : le joueur qui pose la Fatalité déplace un Héros de la
+      // cible (Oogie) vers un lieu VOISIN, puis défausse un Allié/Objet du lieu d'arrivée
+      // (thenDiscardAllyItem). `state.activePlayer` = le « chooser » ; `idx` = la cible.
+      const target = state.players[idx]
+      const heroes: string[] = []
+      for (const loc of target.locations) {
+        for (const c of target.board[loc.id] ?? []) {
+          if (c.type === 'hero' && !c.attachedTo) heroes.push(c.instanceId)
+        }
+      }
+      if (heroes.length === 0) {
+        return { ...state, log: [...state.log, `Diversion : aucun Héros à déplacer chez ${target.villainName}.`] }
+      }
       return {
-        ...next,
-        log: [...next.log, `L'étoile du soir : **${ally.name}** est placé dans la Pile de l'Au-delà de ${target.villainName}.`],
+        ...state,
+        pendingHeroRelocate: { chooserIndex: state.activePlayer, targetIndex: idx, candidateIds: heroes, thenDiscardAllyItem: true },
+        log: [...state.log, `Diversion : déplacez un Héros de ${target.villainName} vers un lieu voisin.`],
       }
     }
     case 'FATE_TOP_DECK_TO_AUDELA': {
@@ -7996,11 +8040,14 @@ export function resolveEffect(
     case 'DISCARD_ITEM_AT_HOST': {
       // Défausse un Objet non associé du lieu hôte (auto : `preferCardId` en priorité,
       // sinon le plus cher). Utilisé par Ratigan/Basil (vise la Reine Robot) et la
-      // Méchante Reine/Atchoum (vise le Miroir magique).
+      // Méchante Reine/Atchoum (vise le Miroir magique). `excludePiratage` : ignore les
+      // cartes de Piratage/IEM (Sombra — Zarya ne détruit qu'un VRAI Objet).
       if (!ctx?.hostLocationId) throw new Error('DISCARD_ITEM_AT_HOST nécessite un hostLocationId.')
       const loc = ctx.hostLocationId
       const actor = state.players[idx]
-      const items = (actor.board[loc] ?? []).filter((c) => c.type === 'item' && !c.attachedTo)
+      const items = (actor.board[loc] ?? []).filter(
+        (c) => c.type === 'item' && !c.attachedTo && !(effect.excludePiratage && c.isPiratage),
+      )
       if (items.length === 0) {
         return { ...state, log: [...state.log, `${actor.villainName} : aucun Objet à défausser sur ce lieu.`] }
       }

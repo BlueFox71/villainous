@@ -49,6 +49,9 @@ interface Props {
   /** Le Seigneur des Ténèbres — On te tient : vrai si au moins une option est possible
    *  (chercher Tirelire OU éliminer un Héros de force 1). Injouable sinon. */
   pigKeeperPlayable?: boolean
+  /** Hadès — Préparez-vous au combat ! : vrai s'il existe un Titan non entravé déplaçable
+   *  (destination atteignable) ET assez de Pouvoir (≥2). Injouable sinon. */
+  titanMovePlayable?: boolean
   /** Reine de Cœur — Par ordre de la Reine ! : vrai s'il existe au moins une Carte Garde
    *  transformable en arceau. Injouable sinon. */
   canTransformGuards?: boolean
@@ -126,6 +129,12 @@ interface Props {
   /** Le Seigneur des clés — vrai s'il y a au moins une clé sur le lieu du pion.
    *  Toute Puissance / C'est moi qui décide / Pierre tombale sont injouables sinon. */
   keyAtPawn?: boolean
+  /** Slenderman — vrai s'il y a au moins une Page sur le lieu du pion. « Dessin
+   *  inquiétant » (+1 JT/Page) est injouable sinon (0 JT → aucun effet). */
+  pageAtPawn?: boolean
+  /** Identifiant du lieu où se trouve le pion (Dr Facilier — Divination : jouable
+   *  uniquement au Royaume du vaudou). */
+  pawnLocationId?: string
   /** Le Seigneur des clés — vrai s'il y a au moins une clé posée sur le plateau.
    *  00:00 est injouable sinon (aucune clé à prendre au dé). */
   keysOnBoard?: boolean
@@ -186,6 +195,13 @@ interface Props {
   layout?: 'panel' | 'fan'
   /** Largeur (classe Tailwind) des cartes ; par défaut w-48 (éventail) / w-24 (panel). */
   cardWidthClass?: string
+  /** Distribution / pioche animée : instanceId des cartes encore « en vol » dans l'overlay
+   *  (cf. OpeningDeal). Elles occupent leur place dans l'éventail mais restent invisibles
+   *  (opacité 0) jusqu'à leur atterrissage, puis apparaissent en fondu. */
+  dealHiddenIds?: string[]
+  /** Vrai si l'apparition des cartes est pilotée par l'overlay de pioche (cf. OpeningDeal) :
+   *  on désactive alors le fondu d'entrée interne `enterDelays` (sinon double animation). */
+  dealManaged?: boolean
   onPlayCard: (instanceId: string) => void
   /** Clic sur une Condition « armée » (clignotante) dans la main pendant le tour
    *  d'un adversaire : déclenche la réaction (raccourci du panneau « Réaction
@@ -213,6 +229,7 @@ export function Hand({
   realmHasFire = false,
   realmHasFacedownTreasure = false,
   pigKeeperPlayable = true,
+  titanMovePlayable = true,
   canTransformGuards = true,
   hasHackInPlay,
   hasIngredients,
@@ -237,6 +254,8 @@ export function Hand({
   realmHasMovableCard = true,
   showMeBeastUsable = true,
   keyAtPawn = true,
+  pageAtPawn = true,
+  pawnLocationId,
   keysOnBoard = true,
   ownsKey = true,
   lotsoToRoomAvailable = true,
@@ -264,6 +283,8 @@ export function Hand({
   // milieu) — voir App. On garde ces props dans l'interface pour ne pas casser les
   // appelants, sans les lire ici.
   layout = 'panel',
+  dealHiddenIds,
+  dealManaged,
   cardWidthClass,
   onPlayCard,
   onActivateReaction,
@@ -287,6 +308,8 @@ export function Hand({
     const cur = hand.map((c) => c.instanceId)
     const added = cur.filter((id) => !prev.includes(id))
     prevIdsRef.current = cur
+    // Apparition pilotée par l'overlay de pioche (cf. OpeningDeal) : pas de fondu interne.
+    if (dealManaged) return
     if (added.length === 0) return
     setEnterDelays((m) => {
       const next = { ...m }
@@ -305,7 +328,7 @@ export function Hand({
       480 + added.length * 110 + 400,
     )
     return () => window.clearTimeout(clear)
-  }, [hand])
+  }, [hand, dealManaged])
 
   const fan = layout === 'fan'
 
@@ -322,17 +345,23 @@ export function Hand({
               const off = i - mid
               const fanAngle = off * 5 // degrés par cran
               const fanLift = Math.abs(off) * Math.abs(off) * 3 // px vers le bas (arc)
+              // Pioche animée de l'adversaire : on masque le dos tant qu'il « vole »
+              // dans l'overlay (cf. OpeningDeal), puis il apparaît à son atterrissage.
+              const dealHidden = dealHiddenIds?.includes(ci.instanceId) ?? false
               return (
                 <img
                   key={ci.instanceId}
+                  data-hand-card={ci.instanceId}
                   src={backImage}
                   alt="Carte cachée"
-                  className="m-0 w-24 shrink-0 rounded-lg border border-white/10 opacity-90"
+                  className="m-0 w-24 shrink-0 rounded-lg border border-white/10 opacity-90 transition-opacity duration-300"
                   style={{
                     marginLeft: i === 0 ? 0 : '-2.5rem',
                     transformOrigin: 'bottom center',
                     transform: `translateY(${fanLift}px) rotate(${fanAngle}deg)`,
                     zIndex: i,
+                    opacity: dealHidden ? 0 : undefined,
+                    transitionDuration: dealHidden ? '0ms' : '300ms',
                   }}
                 />
               )
@@ -464,7 +493,10 @@ export function Hand({
           // « Je vais vous broyer les os ! » (Méchante Reine) : injouable sans Héros sur le
           // lieu du pion. Shere Khan — Bravo ! Bravo ! (`includeFire`) : injouable si AUCUNE
           // action n'est recouverte (Héros OU jeton Feu) sur le lieu du pion → gate `coveredAtPawn`.
-          const needsHeroHere = (card.effects ?? []).some((e) => e.type === 'USE_COVERED_ACTIONS_THIS_TURN' && !e.includeFire)
+          // Tamatoa — Piégé (`exceptFate`) : « n'importe quel Héros » → injouable sans Héros
+          // dans le ROYAUME (pas forcément sur le lieu du pion).
+          const needsHeroInRealmCovered = (card.effects ?? []).some((e) => e.type === 'USE_COVERED_ACTIONS_THIS_TURN' && e.exceptFate)
+          const needsHeroHere = (card.effects ?? []).some((e) => e.type === 'USE_COVERED_ACTIONS_THIS_TURN' && !e.includeFire && !e.exceptFate)
           const needsCoveredAtPawn = (card.effects ?? []).some((e) => e.type === 'USE_COVERED_ACTIONS_THIS_TURN' && e.includeFire)
           // « Croque ! » : injouable sans Héros éliminable sur le lieu du pion.
           const needsBite = (card.effects ?? []).some((e) => e.type === 'TAKE_A_BITE')
@@ -530,6 +562,10 @@ export function Hand({
           // Syndrome — Identification, je vous prie : injouable sans lieu portant un Héros
           // OU sans Allié/Objet (non associé) à déplacer.
           const needsIdentification = cardFx.some((e) => e.type === 'MOVE_ALLY_OR_ITEM_TO_HERO_LOCATION')
+          // Dr Facilier — Divination : sans effet hors du Royaume du vaudou → injouable ailleurs.
+          const needsVaudou = cardFx.some((e) => e.type === 'DIVINATION')
+          // Hadès — Préparez-vous au combat ! : injouable sans Titan déplaçable (+ Pouvoir).
+          const needsTitanMove = cardFx.some((e) => e.type === 'MOVE_TITAN_INTERACTIVE')
           // Lotso — Le Bibliothécaire (coût variable) : injouable sans jeton Pouvoir à
           // dépenser OU sans Héros au royaume (rien à réduire).
           const needsBookworm = cardFx.some((e) => e.type === 'LOTSO_BOOKWORM')
@@ -546,6 +582,8 @@ export function Hand({
           // Le Seigneur des clés — Toute Puissance / C'est moi qui décide / Pierre tombale :
           // injouables sans clé sur le lieu du pion. 00:00 : injouable sans clé sur le plateau.
           const needsKeyAtPawn = cardFx.some((e) => e.type === 'TAKE_KEY_AT_PAWN' || e.type === 'ROLL_DIE_TAKE_KEY_AT_PAWN')
+          // Slenderman — Dessin inquiétant : injouable sans Page sur le lieu du pion (0 JT).
+          const needsPageAtPawn = cardFx.some((e) => e.type === 'GAIN_POWER_PER_CARD_AT_PAWN')
           const needsKeysOnBoard = cardFx.some((e) => e.type === 'CHOOSE_COLOR_ROLL_TAKE_KEY' || e.type === 'ROLL_DIE_TAKE_KEY_FROM_BOARD')
           // Cartes qui exigent une clé POSSÉDÉE : Répondez ! (0 Pouvoir sinon),
           // Trop facile / Plus qu'une minute (« perdez une clé de votre choix »).
@@ -570,6 +608,7 @@ export function Hand({
             (!needsBeforeActions || !realActionUsed) &&
             (!needsRaceBan || raceBanPlayable) &&
             (!needsHeroHere || heroAtPawn) &&
+            (!needsHeroInRealmCovered || realmHasHeroes) &&
             (!needsCoveredAtPawn || coveredAtPawn) &&
             (!needsBite || canBite) &&
             (!needsHyena || realmHasHyena) &&
@@ -595,12 +634,15 @@ export function Hand({
             (!needsMovableCard || realmHasMovableCard) &&
             (!needsMoveOrActivate || realmHasMovableCard || hasActivatableCard) &&
             (!needsIdentification || (realmHasHeroes && realmHasMovableCard)) &&
+            (!needsVaudou || pawnLocationId === 'royaume-vaudou') &&
+            (!needsTitanMove || titanMovePlayable) &&
             (!needsBookworm || (realmHasHeroes && power >= 1)) &&
             (!needsToRoomCandidate || lotsoToRoomAvailable) &&
             (!needsHeroOutsideRoom || lotsoHeroOutsideRoom) &&
             (!needsHeroInRoom || lotsoHeroInRoom) &&
             (!needsShowMeBeast || showMeBeastUsable) &&
             (!needsKeyAtPawn || keyAtPawn) &&
+            (!needsPageAtPawn || pageAtPawn) &&
             (!needsKeysOnBoard || keysOnBoard) &&
             (!needsOwnedKey || ownsKey) &&
             replaceOk &&
@@ -641,6 +683,8 @@ export function Hand({
                                     ? 'Jouable uniquement AVANT vos actions (vous avez déjà agi ce tour).'
                                     : needsRaceBan && !raceBanPlayable
                                       ? 'Ni Allié + Héros, ni course en cours : rien à faire.'
+                                      : needsHeroInRealmCovered && !realmHasHeroes
+                                        ? 'Aucun Héros dans votre royaume.'
                                       : needsHeroHere && !heroAtPawn
                                         ? 'Aucun Héros sur le lieu de votre pion.'
                                       : needsCoveredAtPawn && !coveredAtPawn
@@ -693,6 +737,10 @@ export function Hand({
                                                                               ? 'Rien à déplacer ni de capacité à activer.'
                                                                               : needsIdentification && !(realmHasHeroes && realmHasMovableCard)
                                                                                 ? 'Il faut un Héros dans votre royaume ET un Allié/Objet déplaçable.'
+                                                                                : needsVaudou && pawnLocationId !== 'royaume-vaudou'
+                                                                                  ? 'Jouable uniquement au Royaume du vaudou.'
+                                                                                : needsTitanMove && !titanMovePlayable
+                                                                                  ? 'Aucun Titan déplaçable (Titan non entravé + Pouvoir requis).'
                                                                                 : needsBookworm && !(realmHasHeroes && power >= 1)
                                                                                   ? 'Il faut un Héros dans votre royaume et au moins 1 Pouvoir.'
                                                                                   : needsToRoomCandidate && !lotsoToRoomAvailable
@@ -705,6 +753,8 @@ export function Hand({
                                                                                           ? 'Ni la Bête ni Belle dans votre royaume.'
                                                                                           : needsKeyAtPawn && !keyAtPawn
                                                                                             ? 'Aucune clé sur le lieu de votre pion.'
+                                                                                            : needsPageAtPawn && !pageAtPawn
+                                                                                            ? 'Aucune Page sur le lieu de votre pion.'
                                                                                             : needsKeysOnBoard && !keysOnBoard
                                                                                               ? 'Aucune clé sur le plateau.'
                                                                                               : needsOwnedKey && !ownsKey
@@ -771,6 +821,10 @@ export function Hand({
           const enterDelay = enterDelays[ci.instanceId]
           const enterAnim =
             enterDelay !== undefined ? `handDeal 260ms ease-out ${enterDelay}ms both` : undefined
+          // Distribution d'ouverture : carte encore « en vol » dans l'overlay → on garde
+          // sa place dans l'éventail mais on la masque, puis elle apparaît en fondu à son
+          // atterrissage (cf. OpeningDeal).
+          const dealHidden = dealHiddenIds?.includes(ci.instanceId) ?? false
 
           return (
             <figure
@@ -778,8 +832,8 @@ export function Hand({
               data-hand-card={ci.instanceId}
               onMouseEnter={() => setHovered(ci.instanceId)}
               onMouseLeave={() => setHovered((h) => (h === ci.instanceId ? null : h))}
-              className={`relative m-0 shrink-0 ${cardWidthClass ?? (fan ? 'w-36' : 'w-24')} ${dimmed ? 'opacity-40' : ''} ${
-                fan ? 'transition-transform duration-150 ease-out' : ''
+              className={`relative m-0 shrink-0 ${cardWidthClass ?? (fan ? 'w-36' : 'w-24')} ${dimmed ? 'opacity-40' : ''} ${dealHidden ? 'pointer-events-none' : ''} ${
+                fan ? 'transition-[transform,opacity] duration-150 ease-out' : ''
               }`}
               style={
                 fan
@@ -791,8 +845,10 @@ export function Hand({
                         : `translateY(${fanLift}px) rotate(${fanAngle}deg)`,
                       zIndex: isHovered ? 40 : i,
                       animation: enterAnim,
+                      opacity: dealHidden ? 0 : undefined,
+                      transitionDuration: dealHidden ? '0ms' : '300ms',
                     }
-                  : { zIndex: isHovered ? 30 : 0, animation: enterAnim }
+                  : { zIndex: isHovered ? 30 : 0, animation: enterAnim, opacity: dealHidden ? 0 : undefined }
               }
             >
               <img

@@ -77,6 +77,28 @@ function randomVoice(prefix: string, max = 4): string | undefined {
 // Lecteur courant, pour pouvoir couper une séquence encore en cours.
 let current: HTMLAudioElement | null = null
 
+/** Coupe `audio` en FONDU (volume → 0 sur `ms`) puis le met en pause, au lieu d'un
+ *  arrêt net. Sert à ne pas couper brusquement une phrase en cours (remplacée par une
+ *  autre, ou interrompue par le début d'une séquence). */
+function fadeOutAndStop(audio: HTMLAudioElement, ms = 450): void {
+  const start = audio.volume
+  if (start <= 0 || audio.paused) { audio.pause(); return }
+  const steps = 15
+  let i = 0
+  const id = setInterval(() => {
+    i++
+    audio.volume = Math.max(0, start * (1 - i / steps))
+    if (i >= steps) { clearInterval(id); audio.pause() }
+  }, ms / steps)
+}
+
+/** Arrête la piste courante en fondu (jamais d'arrêt net). */
+function stopCurrent(): void {
+  if (!current) return
+  fadeOutAndStop(current)
+  current = null
+}
+
 /**
  * Joue la séquence d'intro : voix de `myKey`, puis « Contre », puis voix de
  * `oppKey`, enchaînées. Respecte le volume des bruitages (coupé si à zéro).
@@ -99,11 +121,8 @@ export function playVillainIntro(myKey: VillainKey, oppKey: VillainKey, onDone?:
   ].filter((u): u is string => !!u)
   if (seq.length === 0) { onDone?.(); return }
 
-  // Coupe une éventuelle séquence précédente.
-  if (current) {
-    current.pause()
-    current = null
-  }
+  // Coupe une éventuelle séquence/phrase précédente (en fondu, sauf phrase `noFade`).
+  stopCurrent()
 
   const audio = new Audio()
   audio.volume = volume
@@ -129,7 +148,9 @@ export function playVillainIntro(myKey: VillainKey, oppKey: VillainKey, onDone?:
 // --- Phrases de fermeture d'intro -------------------------------------------
 // Quand les portraits quittent l'écran (fin de l'intro), un vilain peut « lâcher »
 // une phrase. Fichiers .mp3 à la RACINE de `assets/` (ex. « Scar phrase.mp3 »).
-const PHRASE_FILES = import.meta.glob('/assets/*phrase*.mp3', {
+// On capte « phrase » ET « Phrase » (selon la casse du nom de fichier, ex. « Mère
+// Gothel Phrase.mp3 ») : le glob de Vite est sensible à la casse.
+const PHRASE_FILES = import.meta.glob(['/assets/*phrase*.mp3', '/assets/*Phrase*.mp3'], {
   eager: true,
   query: '?url',
   import: 'default',
@@ -141,17 +162,24 @@ for (const [path, url] of Object.entries(PHRASE_FILES)) {
 }
 // Nom de fichier (sans extension) par vilain + gain relatif optionnel (1 = plein
 // volume ; <1 pour atténuer une phrase trop forte). Seuls quelques vilains en ont.
-const PHRASE_FILE: Partial<Record<VillainKey, { file: string; gain?: number }>> = {
-  scar: { file: 'Scar phrase' },
+// `fadeEndS` : durée (s) du fondu de FIN de la phrase (défaut 0.6). Plus petit = le
+// fondu démarre plus près de la fin (Scar : fondu court, presque toute la phrase à plein
+// volume).
+const PHRASE_FILE: Partial<Record<VillainKey, { file: string; gain?: number; fadeEndS?: number }>> = {
+  scar: { file: 'Scar phrase', fadeEndS: 0.3 },
   maleficent: { file: 'Maléfique phrase', gain: 0.7 },
   sombra: { file: 'Sombra phrase', gain: 0.5 },
   ursula: { file: 'Ursula phrase', gain: 0.5 },
+  gothel: { file: 'Mère Gothel Phrase' },
+  madameTremaine: { file: 'Phrase madame de trémaine' },
+  facilier: { file: 'Phrase Dr facilier' },
+  syndrome: { file: 'Phrase syndrome' },
 }
-function phraseTrack(key: VillainKey): { url: string; gain: number } | undefined {
+function phraseTrack(key: VillainKey): { url: string; gain: number; fadeEndS: number } | undefined {
   const entry = PHRASE_FILE[key]
   if (!entry) return undefined
   const url = PHRASE_BY_NAME[entry.file.toLowerCase().normalize('NFC')]
-  return url ? { url, gain: entry.gain ?? 1 } : undefined
+  return url ? { url, gain: entry.gain ?? 1, fadeEndS: entry.fadeEndS ?? 0.6 } : undefined
 }
 
 /** Joue la phrase d'un vilain (si elle existe), p. ex. à sa sélection dans l'écran
@@ -163,11 +191,21 @@ export function playVillainPhrase(key: VillainKey) {
   if (sfxVolume <= 0) return
   const track = phraseTrack(key)
   if (!track) return
-  if (current) { current.pause(); current = null }
+  stopCurrent()
   const audio = new Audio()
-  audio.volume = Math.min(1, sfxVolume * 2 * track.gain)
+  const baseVolume = Math.min(1, sfxVolume * 2 * track.gain)
+  audio.volume = baseVolume
   audio.src = track.url
   current = audio
+  // Fondu en fin de phrase : sur les dernières `fadeEndS` secondes, on baisse le volume
+  // jusqu'à 0 pour éviter une coupure sèche. Désactivé si la phrase est remplacée
+  // (audio ≠ current → `fadeOutAndStop` gère le fondu d'interruption).
+  const FADE_S = track.fadeEndS
+  audio.addEventListener('timeupdate', () => {
+    if (audio !== current || !isFinite(audio.duration)) return
+    const left = audio.duration - audio.currentTime
+    if (left < FADE_S) audio.volume = Math.max(0, baseVolume * (left / FADE_S))
+  })
   void audio.play().catch(() => {})
 }
 
@@ -183,10 +221,10 @@ export function playClosingPhrases(myKey: VillainKey, oppKey: VillainKey, onDone
   const volume = Math.min(1, sfxVolume * 2)
   // D'abord l'adversaire, puis notre personnage.
   const seq = [phraseTrack(oppKey), phraseTrack(myKey)].filter(
-    (t): t is { url: string; gain: number } => !!t,
+    (t): t is { url: string; gain: number; fadeEndS: number } => !!t,
   )
   if (seq.length === 0) { onDone?.(); return }
-  if (current) { current.pause(); current = null }
+  stopCurrent()
   const audio = new Audio()
   current = audio
   let i = 0

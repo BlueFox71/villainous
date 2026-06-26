@@ -329,17 +329,35 @@ export function objectiveScore(p: PlayerState): number {
       return Math.min(1, s)
     }
     case 'KEEP_SABOTAGE': {
-      // L'Imposteur : poser un Sabotage et le TENIR `turns` tours. Poser le Sabotage
-      // est déjà une menace forte (base 0.4), qui grandit à chaque tour survécu
-      // (compte `sabotageTurns` par carte) jusqu'à la victoire. Permet à l'adversaire
-      // d'ANTICIPER (pression de blocage + escalade de Fatalité via la menace).
+      // L'Imposteur : poser un Sabotage et le TENIR `turns` tours. Un Sabotage (comme
+      // une Tâche) est défaussé dès que son lieu porte assez de Coéquipiers : la VRAIE
+      // proximité de victoire dépend donc aussi du nombre de Coéquipiers encore VIVANTS
+      // (peu = une fenêtre de Sabotage s'ouvre) et de combien le SUSPECTENT (un suspect
+      // recouvre une action du haut → tour moins productif). On encode ces deux leviers :
+      //  - côté JEU : pousse le bot Imposteur à éliminer les Coéquipiers tôt ;
+      //  - côté CONTRE : Arrivée tardive (ranime un Coéquipier → +vivants) et les
+      //    Fatalités de suspicion (Corps découvert, Tâche visuelle, Carte, Caméra) font
+      //    BAISSER ce score → le fataliseur les valorise (cf. mémoire « fate-malus »).
       const turns = p.objective.turns
+      const crew = p.crewmates ?? []
+      const live = crew.filter((c) => !c.discarded)
+      const liveN = live.length
+      const totalN = crew.length || 8
+      const suspectN = live.filter((c) => c.suspect).length
+      // Suspicion : pénalité LÉGÈRE (≤ 0.1) — la suspicion « n'est pas si grave », mais
+      // chaque suspect recouvre une action → progression un peu plus lente.
+      const suspectPenalty = liveN > 0 ? 0.1 * (suspectN / liveN) : 0
       const placed = Object.values(p.board)
         .flat()
         .filter((c) => c.isSabotage && !c.attachedTo)
-      if (placed.length === 0) return 0
+      if (placed.length === 0) {
+        // Pas encore de Sabotage : gradient « éliminer les Coéquipiers tôt », plafonné
+        // SOUS 0.4 pour que POSER un Sabotage reste toujours prioritaire à une élimination.
+        return Math.max(0, 0.3 * (1 - liveN / totalN) - suspectPenalty)
+      }
+      // Sabotage posé : base 0.4, escalade à chaque tour survécu (compte `sabotageTurns`).
       const best = Math.max(...placed.map((c) => c.sabotageTurns ?? 0))
-      return Math.min(1, 0.4 + 0.6 * (best / Math.max(1, turns)))
+      return Math.max(0, Math.min(1, 0.4 + 0.6 * (best / Math.max(1, turns)) - suspectPenalty))
     }
     case 'DEPLETE_OBSERVATORY_AND_CAPTURE': {
       // Bowser : récompense l'épuisement de l'Observatoire (moins d'Étoiles =

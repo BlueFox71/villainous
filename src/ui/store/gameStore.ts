@@ -532,6 +532,14 @@ interface GameStore {
   resolveCauldronChoice: (choice: 'cauldron' | 'power') => void
   resolveMauiChoice: (choice: 'play' | 'discard') => void
   resolveCrustaceanPlace: (to: string) => void
+  /** Dr Facilier — L'étoile du soir : place l'Allié choisi dans l'Au-delà de la cible. */
+  resolveFateAllyToAuDela: (allyInstanceId: string) => void
+  /** Oogie Boogie — Mettons fin à ce cauchemar : défausse la carte choisie de la main cible. */
+  resolveFateDiscardHand: (cardInstanceId: string) => void
+  /** Hadès — Alignement des planètes : désentrave les Titans choisis (1 JT chacun). */
+  resolveUntrapTitans: (instanceIds: string[]) => void
+  /** Oogie Boogie — Diversion : défausse l'Allié/Objet choisi du lieu d'arrivée. */
+  resolveDiversionDiscard: (cardInstanceId: string) => void
   /** Le Seigneur des Ténèbres — résout le choix « Nous avons conclu un marché ! ». */
   resolveBargainChoice: (choice: 'reshuffle' | 'sword') => void
   /** Le Seigneur des Ténèbres — joue gratuitement un Objet (Nous touchons du doigt la victoire). */
@@ -1097,6 +1105,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   resolveCauldronChoice: (choice: 'cauldron' | 'power') => get().submit({ type: 'RESOLVE_CAULDRON_CHOICE', choice }),
   resolveMauiChoice: (choice: 'play' | 'discard') => get().submit({ type: 'RESOLVE_MAUI_CHOICE', choice }),
   resolveCrustaceanPlace: (to: string) => get().submit({ type: 'RESOLVE_CRUSTACEAN_PLACE', to }),
+  resolveFateAllyToAuDela: (allyInstanceId: string) => get().submit({ type: 'RESOLVE_FATE_ALLY_TO_AUDELA', allyInstanceId }),
+  resolveFateDiscardHand: (cardInstanceId: string) => get().submit({ type: 'RESOLVE_FATE_DISCARD_HAND', cardInstanceId }),
+  resolveUntrapTitans: (instanceIds: string[]) => get().submit({ type: 'RESOLVE_UNTRAP_TITANS', instanceIds }),
+  resolveDiversionDiscard: (cardInstanceId: string) => get().submit({ type: 'RESOLVE_DIVERSION_DISCARD', cardInstanceId }),
   resolveBargainChoice: (choice: 'reshuffle' | 'sword') => get().submit({ type: 'RESOLVE_BARGAIN_CHOICE', choice }),
   resolveFreeItemPlay: (instanceId: string, to: string) => get().submit({ type: 'RESOLVE_FREE_ITEM_PLAY', instanceId, to }),
   skipFreeItemPlay: () => get().submit({ type: 'SKIP_FREE_ITEM_PLAY' }),

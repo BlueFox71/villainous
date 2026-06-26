@@ -18,9 +18,11 @@ export function IdentificationModal({ player, onResolve }: Props) {
   const nameOf = (id: string) => player.locations.find((l) => l.id === id)?.name ?? id
 
   // Alliés + Objets non associés (un arceau reste un Allié, mais ici exclu pour rester simple).
+  // L'Omnidroïde/Télécommande (immuneToAllyItemEffects) RESTENT déplaçables : le flag ne
+  // bloque que les effets adverses, pas la propre carte de Syndrome.
   const movables = player.locations.flatMap((loc) =>
     (player.board[loc.id] ?? [])
-      .filter((c) => (c.type === 'ally' || c.type === 'item') && !c.attachedTo && !c.isWicket && !c.immuneToAllyItemEffects)
+      .filter((c) => (c.type === 'ally' || c.type === 'item') && !c.attachedTo && !c.isWicket)
       .map((c) => ({ id: c.instanceId, cardId: c.cardId, name: c.name, from: loc.id })),
   )
   // Lieux portant au moins un Héros.

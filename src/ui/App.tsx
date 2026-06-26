@@ -49,7 +49,7 @@ import { BoardImage, LOCATIONS_LEFT, PAWN_FIRST_LEFT, PAWN_STEP } from './compon
 import { BoardActions } from './components/BoardActions'
 import { SUGAR_RUSH_TRACK } from './components/sugarRushTrack'
 import { HeroRow } from './components/HeroRow'
-import { DeckPiles, AuDelaPile, IngredientsPile, SuccessionPile, CapturedPuppiesPile, ClaimedTreasuresPile, CauldronTile, MerlinPiles, MauiPiles, OmnidroidPile, DiscardModal } from './components/DeckPiles'
+import { DeckPiles, AuDelaPile, IngredientsPile, SuccessionPile, ImpostorPile, CapturedPuppiesPile, ClaimedTreasuresPile, CauldronTile, MerlinPiles, MauiPiles, OmnidroidPile, DiscardModal } from './components/DeckPiles'
 import { StacksCards } from './components/StacksCards'
 import { GoalTilesRow } from './components/GoalTilesRow'
 import { FateModal } from './components/FateModal'
@@ -69,6 +69,10 @@ import { TypeChoiceModal } from './components/TypeChoiceModal'
 import { HeroRelocateModal } from './components/HeroRelocateModal'
 import { AllyRelocateModal } from './components/AllyRelocateModal'
 import { IdentificationModal } from './components/IdentificationModal'
+import { EtoileDuSoirModal } from './components/EtoileDuSoirModal'
+import { SetThingsRightModal } from './components/SetThingsRightModal'
+import { DiversionDiscardModal } from './components/DiversionDiscardModal'
+import { UntrapTitansModal } from './components/UntrapTitansModal'
 import { LotsoTargetModal } from './components/LotsoTargetModal'
 import { LotsoBuzzMoveModal } from './components/LotsoBuzzMoveModal'
 import { LotsoBookwormModal } from './components/LotsoBookwormModal'
@@ -111,6 +115,7 @@ import { TestFateBar } from './components/TestFateBar'
 import { TestChecklist } from './components/TestChecklist'
 import { CardPicker } from './components/CardPicker'
 import { CardFlights, type CardFlight, type FlightRect } from './components/CardFlights'
+import { OpeningDeal, type DealCard, DEAL_FLY_IN } from './components/OpeningDeal'
 import { Scroller } from './components/Scroller'
 import { FloatingGains, type FloatingGain } from './components/FloatingGains'
 import { GameTimer } from './components/GameTimer'
@@ -819,6 +824,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveCauldronChoice = useGameStore((s) => s.resolveCauldronChoice)
   const resolveMauiChoice = useGameStore((s) => s.resolveMauiChoice)
   const resolveCrustaceanPlace = useGameStore((s) => s.resolveCrustaceanPlace)
+  const resolveFateAllyToAuDela = useGameStore((s) => s.resolveFateAllyToAuDela)
+  const resolveFateDiscardHand = useGameStore((s) => s.resolveFateDiscardHand)
+  const resolveDiversionDiscard = useGameStore((s) => s.resolveDiversionDiscard)
+  const resolveUntrapTitans = useGameStore((s) => s.resolveUntrapTitans)
   const resolveBargainChoice = useGameStore((s) => s.resolveBargainChoice)
   const resolveFreeItemPlay = useGameStore((s) => s.resolveFreeItemPlay)
   const skipFreeItemPlay = useGameStore((s) => s.skipFreeItemPlay)
@@ -1043,6 +1052,25 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // rechargement). En réseau : présentation « versus » SANS jet de dé (v1 :
   // l'hôte commence — activePlayer 0).
   const [startRollDone, setStartRollDone] = useState(false)
+  // Distribution d'OUVERTURE : avant le tout premier tour, la main de départ est
+  // piochée carte par carte (vol + retournement au centre + son), au lieu d'apparaître
+  // d'un bloc. `openingDealDone` débloque le bot, le splash « À vous de jouer » et le
+  // chrono une fois la distribution terminée. `dealOverlay` porte les données de
+  // l'overlay (cartes + rectangles) ; `dealHiddenIds` masque dans l'éventail les cartes
+  // encore en vol (révélées une à une à leur atterrissage).
+  const [openingDealDone, setOpeningDealDone] = useState(false)
+  const [dealOverlay, setDealOverlay] = useState<{
+    key: number
+    cards: DealCard[]
+    isOpening: boolean
+    // Bloque le tour (bot en pause + splash « À vous de jouer » différé) le temps de
+    // l'animation. Vrai pour MA pioche (révélation plein écran) et l'ouverture ; faux pour
+    // la pioche de l'adversaire (discrète, sur son plateau → ne doit pas figer le jeu).
+    blocking: boolean
+  } | null>(null)
+  const [dealHiddenIds, setDealHiddenIds] = useState<string[]>([])
+  const openingStartedRef = useRef(false)
+  const dealKeyRef = useRef(0)
   // Affiche « À vous de jouer » (4 s) au début de chaque tour du joueur humain.
   const [showTurnSplash, setShowTurnSplash] = useState(false)
   // L'Imposteur — bandeau « DEAD BODY REPORTED » (Corps découvert), affiché ~2,4 s.
@@ -1050,6 +1078,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // L'Imposteur — bandeau « EMERGENCY MEETING » (Réunion d'urgence), affiché ~2,4 s.
   const [showEmergency, setShowEmergency] = useState(false)
   const lastHumanTurnRef = useRef<number | null>(null)
+  // Minuteur de masquage du splash « À vous de jouer », conservé dans une ref pour qu'un
+  // re-rendu quelconque ne l'annule pas (sinon le splash resterait affiché au tour adverse).
+  const splashTimerRef = useRef<number | null>(null)
   // Sombra — son « Lieu piraté » : on le joue dès qu'une nouvelle « piraterie »
   // apparaît (action désactivée par un Piratage OU Héros piraté par Boop), tous
   // joueurs confondus. Un compteur suivi par ref évite de le rejouer à chaque rendu.
@@ -1213,44 +1244,126 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     }
     flyCard(def.image, from, to2)
   }
-  // Animation de PIOCHE : quand de nouvelles cartes apparaissent dans la main du
-  // joueur (fin de tour, Prédiction…), un dos de carte « vole » de la pioche
-  // Vilain vers la zone de main, au lieu d'apparaître instantanément.
-  const handIdsRef = useRef<Set<string>>(
-    new Set(state.players[HUMAN].hand.map((c) => c.instanceId)),
-  )
+  // Animation de PIOCHE (joueur ET adversaire) : quand de nouvelles cartes apparaissent
+  // dans une main, elles sont révélées une à une via l'overlay `OpeningDeal` — vol depuis
+  // la pioche → agrandissement au centre → rangement dans l'éventail, un son par carte.
+  // Côté JOUEUR : face visible (lisible) ; côté ADVERSAIRE : `faceDown` (on ne voit que
+  // le dos). Même mécanique pour la distribution d'ouverture.
+  const handIdsRef = useRef<Set<string>>(new Set(state.players[HUMAN].hand.map((c) => c.instanceId)))
+  // Construit les trajectoires (specs) pour `cardsToReveal` de `playerIndex` (mesure de la
+  // pioche + des cases de l'éventail). `faceDown` (adversaire) → on ne montre que le dos,
+  // révélation au centre de SON plateau et plus petite (discrète) ; sinon (joueur) →
+  // grande, au centre de l'écran (lisible). Renvoie null si rien à animer.
+  const buildDealSpecs = (
+    playerIndex: number,
+    cardsToReveal: CardInstance[],
+    back: string,
+    faceDown: boolean,
+    holdMs: number,
+    cadence: number,
+  ): DealCard[] | null => {
+    const pileEl = document.querySelector(`[data-deck-pile="${playerIndex}"]`)
+    if (cardsToReveal.length === 0 || !back || !pileEl) return null
+    // Départ = taille/position RÉELLES de la pioche Vilain (la carte colle au sommet du paquet).
+    const pr = (pileEl as HTMLElement).getBoundingClientRect()
+    const pile: FlightRect = { left: pr.left, top: pr.top, width: pr.width, height: pr.height }
+    // JOUEUR (face visible) → grand agrandissement au centre de l'écran (lisible).
+    // ADVERSAIRE (dos) → AUCUN détour par le centre : la carte file directement de la
+    // pioche vers sa main (petite, rapide). On ne voit que le dos, rien à lire ; cela
+    // évite toute carte qui « resterait » au milieu.
+    const screenCenter: FlightRect = (() => {
+      const ch = Math.min(window.innerHeight * 0.46, 440)
+      const cw = ch / 1.4
+      return { left: window.innerWidth / 2 - cw / 2, top: window.innerHeight / 2 - ch / 2, width: cw, height: ch }
+    })()
+    // Adversaire : taille alignée sur ses dos de main (w-24 ≈ 96 px) → révélation sans à-coup.
+    const slotW = faceDown ? 96 : 120
+    const slotH = slotW * 1.4
+    return cardsToReveal.map((c, k) => {
+      const el = document.querySelector(`[data-hand-card="${c.instanceId}"]`)
+      const def = getCardDef(c.cardId)
+      const r = el ? (el as HTMLElement).getBoundingClientRect() : null
+      const slot: FlightRect = r
+        ? { left: r.left + r.width / 2 - slotW / 2, top: r.top + r.height / 2 - slotH / 2, width: slotW, height: slotH }
+        : pile
+      return {
+        instanceId: c.instanceId,
+        image: faceDown ? back : def?.image ?? back, // adversaire : dos uniquement
+        back,
+        pile,
+        // Adversaire : pas d'arrêt central → le point « central » EST sa case de main.
+        center: faceDown ? slot : screenCenter,
+        slot,
+        faceDown,
+        holdMs,
+        startDelay: k * cadence,
+      }
+    })
+  }
+  // Lance une distribution (mesure au frame suivant, après peinture). Plusieurs « groupes »
+  // (joueurs) sont animés SIMULTANÉMENT dans un même overlay (ex. ouverture : ma main au
+  // centre + celle du bot sur son plateau). Pour rester EN PHASE quand plusieurs joueurs
+  // sont distribués ensemble, on impose un maintien et une cadence COMMUNS (la carte n° k
+  // de chacun part au même instant).
+  const launchDeal = (
+    groups: { playerIndex: number; cards: CardInstance[]; back: string; faceDown: boolean }[],
+    opts: { isOpening: boolean; blocking: boolean },
+  ) => {
+    const raf = requestAnimationFrame(() => {
+      // Maintien : JOUEUR (face visible) → 620 ms au centre, le temps de lire ; ADVERSAIRE
+      // (dos) → 0 (il file dans sa main sans stationner). La CADENCE est commune (la plus
+      // longue) pour que, à l'ouverture, la carte n° k de chacun parte au même instant.
+      const groupHold = (g: { faceDown: boolean }) => (g.faceDown ? 0 : 620)
+      const cadence = DEAL_FLY_IN + Math.max(...groups.map(groupHold))
+      const specs: DealCard[] = []
+      for (const g of groups) {
+        const s = buildDealSpecs(g.playerIndex, g.cards, g.back, g.faceDown, groupHold(g), cadence)
+        if (s) specs.push(...s)
+      }
+      if (specs.length === 0) {
+        if (opts.isOpening) setOpeningDealDone(true)
+        return
+      }
+      setDealHiddenIds(specs.map((s) => s.instanceId))
+      setDealOverlay({ key: ++dealKeyRef.current, cards: specs, isOpening: opts.isOpening, blocking: opts.blocking })
+    })
+    return () => cancelAnimationFrame(raf)
+  }
+  // Pioche en cours de partie — JOUEUR (face visible).
   useEffect(() => {
     const human = state.players[HUMAN]
     const cur = human.hand.map((c) => c.instanceId)
     const added = cur.filter((id) => !handIdsRef.current.has(id))
     handIdsRef.current = new Set(cur)
     if (added.length === 0) return
-    const pile = document.querySelector(`[data-deck-pile="${HUMAN}"]`)
-    const zone = document.querySelector(`[data-hand-zone="${HUMAN}"]`)
-    const back = human.backVillainImage
-    if (!pile || !zone || !back) return
-    const pr = pile.getBoundingClientRect()
-    const zr = zone.getBoundingClientRect()
-    const cardW = 60
-    const cardH = cardW * 1.4
-    const from: FlightRect = {
-      left: pr.left + pr.width / 2 - cardW / 2,
-      top: pr.top + pr.height / 2 - cardH / 2,
-      width: cardW,
-      height: cardH,
-    }
-    added.forEach((_, k) => {
-      const spread = added.length > 1 ? (k - (added.length - 1) / 2) * (cardW + 8) : 0
-      const to: FlightRect = {
-        left: zr.left + zr.width / 2 - cardW / 2 + spread,
-        top: zr.top + zr.height / 2 - cardH / 2,
-        width: cardW,
-        height: cardH,
-      }
-      window.setTimeout(() => flyCard(back, from, to), k * 110)
-    })
+    if (!startRollDone || !openingDealDone) return // l'ouverture est gérée séparément
+    const cards = human.hand.filter((c) => added.includes(c.instanceId) && !c.isOmnidroid)
+    if (cards.length === 0) return
+    return launchDeal([{ playerIndex: HUMAN, cards, back: human.backVillainImage, faceDown: false }], { isOpening: false, blocking: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.players[HUMAN].hand])
+  }, [state.players[HUMAN].hand, startRollDone, openingDealDone])
+  // NB : l'adversaire (bot) n'a PAS d'animation de pioche — ses cartes (dos secrets)
+  // apparaissent directement dans sa main. L'animation volante pour le bot provoquait un
+  // bug récurrent (carte qui restait figée dans sa main) sans réelle valeur (rien à révéler
+  // sur un dos). Seules MES pioches sont animées.
+  // Distribution d'OUVERTURE (MA main uniquement) : à la fin du jet de dés, ma main de départ
+  // (déjà présente dans l'état) est révélée carte par carte au centre. (Sur « Rejouer » App
+  // reste monté et `startRollDone` reste vrai → l'intro et cette distribution sont sautées ;
+  // une vraie nouvelle partie remonte App.)
+  useEffect(() => {
+    if (!startRollDone || openingStartedRef.current) return
+    openingStartedRef.current = true
+    if (testMode) {
+      const raf = requestAnimationFrame(() => setOpeningDealDone(true))
+      return () => cancelAnimationFrame(raf)
+    }
+    const human = state.players[HUMAN]
+    return launchDeal(
+      [{ playerIndex: HUMAN, cards: human.hand.filter((c) => !c.isOmnidroid), back: human.backVillainImage, faceDown: false }],
+      { isOpening: true, blocking: true },
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startRollDone, testMode])
   // Gains de pouvoir flottants (« +N 🪙 »), ex. bonus du Shérif.
   const [gains, setGains] = useState<FloatingGain[]>([])
   const gainSeq = useRef(0)
@@ -1436,7 +1549,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
 
   // Affiche « À vous de jouer » (4 s) à chaque NOUVEAU tour du joueur humain.
   useEffect(() => {
-    if (testMode || !startRollDone) return
+    if (testMode || !startRollDone || !openingDealDone) return
+    if (dealOverlay?.blocking) return // MA pioche plein écran en cours : on patiente
     if (state.status !== 'PLAYING' || state.activePlayer !== HUMAN) return
     if (lastHumanTurnRef.current === state.turn) return
     lastHumanTurnRef.current = state.turn
@@ -1444,9 +1558,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Alerte sonore « À vous de jouer » — sauf si on incarne L'Imposteur (qui a
     // sa propre ambiance Among Us).
     if (humanVillainKeyRef.current !== 'imposteur') playYourTurn()
-    const t = window.setTimeout(() => setShowTurnSplash(false), 4000)
-    return () => window.clearTimeout(t)
-  }, [state.activePlayer, state.turn, state.status, startRollDone, testMode, HUMAN])
+    // Minuteur conservé dans une ref : il n'est PAS annulé par les re-rendus suivants
+    // (sinon, à la fin d'un tour rapide, le splash ne se masquerait jamais et resterait
+    // affiché pendant le tour adverse). Il n'est ré-armé qu'au prochain tour du joueur.
+    if (splashTimerRef.current) window.clearTimeout(splashTimerRef.current)
+    splashTimerRef.current = window.setTimeout(() => setShowTurnSplash(false), 4000)
+  }, [state.activePlayer, state.turn, state.status, startRollDone, openingDealDone, dealOverlay, testMode, HUMAN])
 
   // Réseau : prévient l'adversaire quand je prépare une Condition (sélection d'une
   // cible) pour qu'il patiente, et le libère quand je la joue ou l'annule.
@@ -1613,6 +1730,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   useEffect(() => {
     if (state.status !== 'PLAYING') return
     if (!startRollDone) return // jet de dé de début de partie en cours
+    if (!openingDealDone) return // distribution d'ouverture en cours (cartes révélées une à une)
+    if (dealOverlay?.blocking) return // MA pioche (plein écran) en cours : on patiente (pas la pioche adverse, discrète)
     // Gaston — retrait/replacement de jetons Obstacle. Bot → retire en priorité les
     // lieux non vidables par un Vanquish (Taverne/Bois) ; replace en dispersant (lieu
     // le plus vide d'abord) ; humain → bandeau de lieux.
@@ -2663,6 +2782,73 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       }
       return
     }
+    // Dr Facilier — L'étoile du soir : le « chooser » envoie un Allié de la cible dans
+    // l'Au-delà. Bot → le plus fort ; humain → modale (clic direct sur le plateau cible).
+    const paud = state.pendingFateAllyToAuDela
+    if (paud) {
+      if (seats[paud.chooserIndex] === 'bot') {
+        const tgt = state.players[paud.targetIndex]
+        const allies = tgt.locations.flatMap((l) =>
+          (tgt.board[l.id] ?? []).filter((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket),
+        )
+        const pick = [...allies].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+        if (pick) {
+          const timer = setTimeout(() => resolveFateAllyToAuDela(pick.instanceId), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
+    // Oogie Boogie — Mettons fin à ce cauchemar : le « chooser » défausse une carte de la
+    // main de la cible. Bot → Imposteur en priorité (puis coût élevé) ; humain → modale.
+    const pdh = state.pendingFateDiscardHand
+    if (pdh) {
+      if (seats[pdh.chooserIndex] === 'bot') {
+        const hand = state.players[pdh.targetIndex].hand ?? []
+        const pick = [...hand].sort((a, b) => {
+          const sc = (c: (typeof hand)[number]) => (c.cardId === 'imposteur-perce-oreilles' ? 100 : 0) + (c.cardId === 'affaire-dans-le-sac' ? 50 : 0) + (c.cost ?? 0)
+          return sc(b) - sc(a)
+        })[0]
+        if (pick) {
+          const timer = setTimeout(() => resolveFateDiscardHand(pick.instanceId), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
+    // Hadès — Alignement des planètes : désentraver des Titans. Bot → les plus avancés
+    // finançables ; humain → modale.
+    const put = state.pendingUntrapTitans
+    if (put) {
+      if (seats[put.playerIndex] === 'bot') {
+        const p = state.players[put.playerIndex]
+        const order = p.locations.map((l) => l.id)
+        const trapped: { id: string; i: number }[] = []
+        order.forEach((lid, i) => {
+          for (const c of p.board[lid] ?? []) if (c.isTitan && c.trapped) trapped.push({ id: c.instanceId, i })
+        })
+        trapped.sort((a, b) => b.i - a.i)
+        const chosen = trapped.slice(0, p.power).map((t) => t.id)
+        const timer = setTimeout(() => resolveUntrapTitans(chosen), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Oogie Boogie — Diversion (2ᵉ temps) : le « chooser » défausse un Allié/Objet du lieu
+    // d'arrivée. Bot → le plus fort ; humain → modale.
+    const pdd = state.pendingDiversionDiscard
+    if (pdd) {
+      if (seats[pdd.chooserIndex] === 'bot') {
+        const cell = state.players[pdd.targetIndex].board[pdd.locationId] ?? []
+        const cands = cell.filter((c) => (c.type === 'ally' || c.type === 'item') && !c.attachedTo && !c.isWicket)
+        const pick = [...cands].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+        if (pick) {
+          const timer = setTimeout(() => resolveDiversionDiscard(pick.instanceId), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
     // Lotso — choix de cible (réduire / déplacer vers la Salle). Bot → meilleure cible
     // (Héros le plus fort) ; humain → modale.
     const plTarget = state.pendingLotsoTarget
@@ -2795,6 +2981,49 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       }
       return
     }
+    // Shere Khan — Conditions interactives jouées en RÉACTION (pendant le tour
+    // adverse) et dont l'effet ouvre un pending : tant qu'il est ouvert, le tour
+    // doit s'interrompre. Bot → auto-résout ; humain → on met le tour adverse en
+    // PAUSE — sinon le bot reprenait la main (botAct) et écrasait le pending, faisant
+    // « disparaître » la modale avant que le joueur ait pu résoudre l'effet.
+    const pint = state.pendingInteressant
+    if (pint) {
+      if (seats[pint.playerIndex] === 'bot') {
+        // C'est très intéressant : le bot prend Pouvoir puis Pioche (toujours utiles),
+        // ignore le déplacement de Feu (gain marginal), puis termine.
+        const done = new Set(pint.done)
+        const opt: 'power' | 'draw' | null = !done.has('power') ? 'power' : !done.has('draw') ? 'draw' : null
+        const timer = setTimeout(
+          () => (opt ? resolveInteressant({ option: opt }) : resolveInteressant({ done: true })),
+          BOT_STEP_MS,
+        )
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    const prtd = state.pendingRecoverToDeck
+    if (prtd) {
+      if (seats[prtd.playerIndex] === 'bot') {
+        // Aie confiance / Je te le dirai en chantant : le bot récupère ses meilleures
+        // cartes de la défausse (force puis coût), jusqu'à `remaining`, puis termine.
+        const chosen = new Set(prtd.chosen)
+        const cands = state.players[prtd.playerIndex].discard.filter((c) => !chosen.has(c.instanceId))
+        const pick =
+          prtd.chosen.length < prtd.remaining
+            ? [...cands].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0) || (b.cost ?? 0) - (a.cost ?? 0))[0]
+            : undefined
+        const timer = setTimeout(
+          () => (pick ? resolveRecoverToDeck({ instanceId: pick.instanceId }) : resolveRecoverToDeck({ done: true })),
+          BOT_STEP_MS,
+        )
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // C'est très intéressant (option « déplacer un jeton Feu ») jouée en réaction par
+    // l'humain pendant le tour du bot : on met aussi en pause le temps de son choix.
+    // (Le bot, lui, résout son propre pendingRemoveFire via sa recherche de tour.)
+    if (state.pendingRemoveFire && seats[state.pendingRemoveFire.playerIndex] !== 'bot') return
     // Mode test : l'adversaire est masqué, on ne le fait pas réagir/jouer.
     if (testMode) return
     if (isBotTurn) {
@@ -2810,7 +3039,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [seats, HUMAN, isBotTurn, startRollDone, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveCrustaceanPlace, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolveIdentification, resolveLotsoTarget, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey])
+  }, [seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolveIdentification, resolveLotsoTarget, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck])
 
   // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
   // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
@@ -3851,6 +4080,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           itemInstanceId: items[0]?.instanceId,
         })
       }
+    } else if (card.cardId === 'baignoire' && from) {
+      // Oogie — Baignoire : choisir le lieu où la déplacer (les Alliés de son ancien lieu
+      // l'y suivront). Réutilise le mode de choix de destination d'Iago.
+      setMode({ kind: 'activate-iago-dest', actionId, cardInstanceId: card.instanceId, from })
     } else {
       activate(actionId, card.instanceId)
       setMode(null)
@@ -3897,6 +4130,22 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         doVanquish(mode.diablo, mode.actionId, heroInstanceId, [mim.instanceId])
       }
       return setMode(null)
+    }
+    // Lotso — Buzz l'Éclair (Gardien) protège SON lieu : aucun Héros qui s'y trouve ne peut
+    // être éliminé. On le signale TOUT DE SUITE (son d'erreur + message), avant le choix des
+    // Alliés, plutôt que de laisser le moteur refuser à la validation.
+    {
+      const heroLoc = user.locations
+        .map((l) => l.id)
+        .find((id) => (user.board[id] ?? []).some((c) => c.instanceId === heroInstanceId))
+      if (heroCard?.isBuzz) {
+        showUnplayable('Buzz l’Éclair ne peut pas être éliminé.')
+        return
+      }
+      if (!!heroLoc && (user.board[heroLoc] ?? []).some((c) => c.isBuzz && c.buzzMode === 'guardian')) {
+        showUnplayable('Buzz l’Éclair (Gardien) protège ce Héros : impossible de l’éliminer.')
+        return
+      }
     }
     setMode({
       kind: 'vanquish-pick-allies',
@@ -4058,7 +4307,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               return (user.board[id] ?? []).some(
                 (c) => c.type === 'ally' || (c.type === 'hero' && c.hypnotized),
               )
-            if (cardInPlay?.type === 'curse') return canPlaceCurseAt(state, HUMAN, id, cardInPlay)
+            if (cardInPlay?.type === 'curse') return canPlaceCurseAt(state, HUMAN, id)
             // Limite d'exemplaires par lieu (Page : max 2 posées librement).
             if (cardInPlay?.maxAtLocation !== undefined) {
               const here = (user.board[id] ?? []).filter(
@@ -4081,14 +4330,24 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             // Cendrillon en robe de bal : un Allié ne peut pas rejoindre la Salle de Bal.
             return moving?.type === 'ally' ? noForbidden.filter((id) => !allyBlockedAt(state, HUMAN, id)) : noForbidden
           })()
-      : mode?.kind === 'move-hero-dest' || mode?.kind === 'activate-iago-dest'
+      : mode?.kind === 'activate-iago-dest'
+        ? // Oogie — Baignoire : « un AUTRE lieu » (tous les lieux non verrouillés sauf le sien) ;
+          // Iago : un lieu VOISIN. On distingue via la carte activée.
+          (user.board[mode.from] ?? []).some((c) => c.instanceId === mode.cardInstanceId && c.cardId === 'baignoire')
+          ? user.locations.map((l) => l.id).filter((id) => id !== mode.from && !(user.lockedLocations ?? []).includes(id))
+          : adjacentLocationIds(state, mode.from)
+      : mode?.kind === 'move-hero-dest'
         ? adjacentLocationIds(state, mode.from)
         : mode?.kind === 'trap-pick-dest'
           ? user.locations.map((l) => l.id) // n'importe quel lieu (Tendre un Piège)
-          : mode?.kind === 'sheriff-dest' || mode?.kind === 'diablo-dest'
+          : mode?.kind === 'sheriff-dest'
             ? user.locations
                 .map((l) => l.id)
                 .filter((id) => (user.board[id] ?? []).every((c) => c.instanceId !== mode.instanceId))
+          : mode?.kind === 'diablo-dest'
+            ? // Diablo peut RESTER sur son lieu (action gratuite sur place) OU se déplacer :
+              // on propose donc TOUS les lieux, lieu actuel inclus.
+              user.locations.map((l) => l.id)
             : mode?.kind === 'condition-pick-place'
               ? user.locations.map((l) => l.id) // Lâcheté : n'importe quel lieu
               : []
@@ -4709,6 +4968,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               <AuDelaPile player={user} uprightWidth="w-20" />
               <IngredientsPile player={user} uprightWidth="w-14" />
               <SuccessionPile player={user} uprightWidth="w-14" />
+              <ImpostorPile player={user} uprightWidth="w-14" />
               <CapturedPuppiesPile
                 player={user}
                 uprightWidth="w-9"
@@ -5467,7 +5727,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 </div>
               )}
               <div className="mt-0.5 font-mono text-xs text-white/55">
-                ⏱ <GameTimer running={state.status === 'PLAYING' && startRollDone} />
+                ⏱ <GameTimer running={state.status === 'PLAYING' && startRollDone && openingDealDone} />
               </div>
             </div>
             {handMode === 'discard' ? (
@@ -5656,6 +5916,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               <AuDelaPile player={bot} uprightWidth="w-20" />
               <IngredientsPile player={bot} uprightWidth="w-14" />
               <SuccessionPile player={bot} uprightWidth="w-14" />
+              <ImpostorPile player={bot} uprightWidth="w-14" />
               <CapturedPuppiesPile player={bot} uprightWidth="w-9" />
               <ClaimedTreasuresPile player={bot} />
               <CauldronTile player={bot} />
@@ -5747,6 +6008,21 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             hand={user.hand.filter((c) => !c.isOmnidroid)}
             accent={BLUE}
             hidden={false}
+            dealManaged
+            dealHiddenIds={
+              // Cartes masquées car « en vol » dans l'overlay. Ouverture : la main reste
+              // masquée dès l'écran « versus » jusqu'à la fin de la distribution (avant la
+              // construction de l'overlay → tout masqué, sinon on l'apercevrait derrière
+              // l'écran semi-transparent). En cours de partie : seules les cartes de la pioche
+              // en cours (`dealHiddenIds`). Mode test → rien.
+              testMode
+                ? undefined
+                : !openingDealDone
+                  ? dealOverlay
+                    ? dealHiddenIds
+                    : user.hand.filter((c) => !c.isOmnidroid).map((c) => c.instanceId)
+                  : dealHiddenIds
+            }
             backImage={user.backVillainImage}
             mode={handMode}
             power={user.power}
@@ -5826,6 +6102,16 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             realmHasMovableCard={Object.values(user.board).flat().some((c) => (c.type === 'ally' || c.type === 'item' || c.type === 'curse') && !c.attachedTo)}
             showMeBeastUsable={Object.values(user.board).flat().some((c) => c.type === 'hero' && (c.cardId === 'la-bete' || c.cardId === 'belle'))}
             keyAtPawn={(user.keys ?? []).some((k) => k.location === user.pawnLocation && !k.stolenBy)}
+            pageAtPawn={!!user.pawnLocation && (user.board[user.pawnLocation] ?? []).some((c) => c.cardId === 'page' && !c.attachedTo)}
+            pawnLocationId={user.pawnLocation ?? undefined}
+            titanMovePlayable={
+              // Préparez-vous au combat ! : ≥2 Pouvoir ET un Titan non entravé avec une
+              // destination atteignable (sinon la carte n'aurait aucun effet).
+              user.power >= 2 &&
+              Object.values(user.board)
+                .flat()
+                .some((c) => c.isTitan && !c.trapped && titanReachableDests(state, HUMAN, c.instanceId, 2).length > 0)
+            }
             keysOnBoard={(user.keys ?? []).some((k) => k.location !== null && !k.stolenBy)}
             ownsKey={(user.keys ?? []).some((k) => k.location === null && !k.stolenBy)}
             lotsoToRoomAvailable={lotsoToRoomCandidates(state, HUMAN).length > 0}
@@ -6845,6 +7131,42 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         />
       )}
 
+      {/* Dr Facilier — L'étoile du soir : c'est MOI qui pose la Fatalité → je choisis l'Allié
+          de l'adversaire (Facilier) qui part dans sa Pile de l'Au-delà. */}
+      {state.pendingFateAllyToAuDela && state.pendingFateAllyToAuDela.chooserIndex === HUMAN && (
+        <EtoileDuSoirModal
+          target={state.players[state.pendingFateAllyToAuDela.targetIndex]}
+          onResolve={resolveFateAllyToAuDela}
+        />
+      )}
+
+      {/* Oogie Boogie — Mettons fin à ce cauchemar : c'est MOI qui pose la Fatalité → je
+          vois la main d'Oogie et j'en défausse une carte. */}
+      {state.pendingFateDiscardHand && state.pendingFateDiscardHand.chooserIndex === HUMAN && (
+        <SetThingsRightModal
+          target={state.players[state.pendingFateDiscardHand.targetIndex]}
+          onResolve={resolveFateDiscardHand}
+        />
+      )}
+
+      {/* Hadès — Alignement des planètes : je choisis les Titans à désentraver. */}
+      {state.pendingUntrapTitans && state.pendingUntrapTitans.playerIndex === HUMAN && (
+        <UntrapTitansModal
+          player={state.players[state.pendingUntrapTitans.playerIndex]}
+          power={state.players[state.pendingUntrapTitans.playerIndex].power}
+          onResolve={resolveUntrapTitans}
+        />
+      )}
+
+      {/* Oogie Boogie — Diversion (2ᵉ temps) : je défausse un Allié/Objet du lieu d'arrivée. */}
+      {state.pendingDiversionDiscard && state.pendingDiversionDiscard.chooserIndex === HUMAN && (
+        <DiversionDiscardModal
+          target={state.players[state.pendingDiversionDiscard.targetIndex]}
+          locationId={state.pendingDiversionDiscard.locationId}
+          onResolve={resolveDiversionDiscard}
+        />
+      )}
+
       {/* Lotso — choix de cible (réduire un Héros / déplacer vers la Salle des Chenilles). */}
       {state.pendingLotsoTarget && state.pendingLotsoTarget.playerIndex === HUMAN && (
         <LotsoTargetModal
@@ -7264,6 +7586,35 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         </div>
       )}
 
+      {/* Tamatoa — Crustacé doté du pouvoir de création : les Objets dévoilés se posent par
+          CLIC sur un lieu. Bandeau (non bloquant) montrant les Objets dévoilés, celui à poser
+          en surbrillance, pour qu'on voie clairement ce qu'on joue. */}
+      {state.pendingCrustaceanPlace && state.pendingCrustaceanPlace.playerIndex === HUMAN && (() => {
+        const items = state.pendingCrustaceanPlace.items
+        const cur = items[0]
+        return (
+          <div className="pointer-events-none fixed left-1/2 top-3 z-[60] -translate-x-1/2 flex flex-col items-center gap-2 rounded-xl border border-amber-300/70 bg-[#1a1226]/95 px-4 py-3 text-center text-sm font-bold text-amber-100 shadow-2xl">
+            <span>
+              Crustacé : posez <span className="text-amber-300">{cur?.name}</span> — cliquez un lieu.
+              {items.length > 1 ? ` (${items.length - 1} autre${items.length - 1 > 1 ? 's' : ''} ensuite)` : ''}
+            </span>
+            <div className="flex items-end justify-center gap-2">
+              {items.map((it, i) => {
+                const img = getCardDef(it.cardId)?.image
+                return img ? (
+                  <img
+                    key={it.instanceId}
+                    src={img}
+                    alt={it.name}
+                    className={`w-auto rounded-md ${i === 0 ? 'h-28 ring-2 ring-amber-300 shadow-[0_0_18px_rgba(251,191,36,0.6)]' : 'h-20 opacity-50 ring-1 ring-white/20'}`}
+                  />
+                ) : null
+              })}
+            </div>
+          </div>
+        )
+      })()}
+
       {/* Sombra — Information : garder la pioche (défausser 2 de la main) ou défausser les cartes piochées. */}
       {state.pendingInformation && state.pendingInformation.playerIndex === HUMAN && (
         <InformationModal
@@ -7540,9 +7891,26 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         />
       )}
 
+      {/* Distribution d'OUVERTURE : la main de départ est piochée carte par carte
+          (vol → retournement + agrandissement au centre → rangement dans l'éventail),
+          avant le tout premier tour. */}
+      {dealOverlay && (
+        <OpeningDeal
+          key={dealOverlay.key}
+          cards={dealOverlay.cards}
+          onLanded={(id) => setDealHiddenIds((ids) => ids.filter((x) => x !== id))}
+          onComplete={() => {
+            const wasOpening = dealOverlay.isOpening
+            setDealOverlay(null)
+            setDealHiddenIds([])
+            if (wasOpening) setOpeningDealDone(true)
+          }}
+        />
+      )}
+
       {/* Affiche « À vous de jouer » au début du tour du joueur (key = tour → l'anim
           redémarre à chaque tour). */}
-      {showTurnSplash && (
+      {showTurnSplash && isHumanTurn && (
         <TurnSplash key={state.turn} villainName={user.villainName} image={villainPresentation(villainKeyOf(state.players[HUMAN].villain))} />
       )}
 

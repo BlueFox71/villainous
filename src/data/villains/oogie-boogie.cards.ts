@@ -99,6 +99,10 @@ export const oogieBoogieCards: CardDef[] = [
     cost: 2,
     attach: 'location',
     copies: 1,
+    // Le lieu portant la Baignoire gagne l'action « Activer » ; l'activation (gratuite)
+    // déplace la Baignoire vers un autre lieu en y amenant les Alliés de son ancien lieu.
+    grantsAction: { type: 'ACTIVATE', label: 'Activer' },
+    activatedCost: 0,
     text: "Ce lieu gagne l'action : Activer. Effectuez une action Activer une capacité pour déplacer la Baignoire vers un autre lieu, puis déplacez-y autant d'Alliés que vous le désirez.",
     image: img('baignoire.png'),
   },
@@ -220,6 +224,8 @@ export const oogieBoogieCards: CardDef[] = [
     type: 'hero',
     strength: 2,
     copies: 1,
+    // Zéro renforce Jack (+2) mais, en pratique, a peu d'impact (cf. guide) → simple corps.
+    fateMalus: 'slow',
     text: 'La force de Jack Skellington augmente de 2.',
     image: img('zero.png'),
   },
@@ -232,6 +238,8 @@ export const oogieBoogieCards: CardDef[] = [
     strength: 3,
     copies: 1,
     onVanquish: [{ type: 'RESHUFFLE_HOST_INTO_FATE_DECK' }],
+    // Revient sans cesse (remélangé dans la pioche à sa mort) → nuisance récurrente.
+    fateMalus: 'slow2',
     text: 'Si le Docteur Finkelstein est éliminé, placez-le sur le dessus de la pioche de cartes Fatalité puis remélangez-la.',
     image: img('docteur-finkelstein.png'),
   },
@@ -244,6 +252,8 @@ export const oogieBoogieCards: CardDef[] = [
     strength: 3,
     copies: 1,
     onPlace: [{ type: 'SALLY_PLACED' }],
+    // Restreint les déplacements d'Oogie (voisins seulement) → l'empêche d'avancer.
+    fateMalus: 'block-advance',
     text: "Déplacez Oogie Boogie sur le lieu où vous jouez Sally. Au début de chaque tour, Oogie Boogie ne peut se déplacer que sur un lieu voisin.",
     image: img('sally.png'),
   },
@@ -274,6 +284,8 @@ export const oogieBoogieCards: CardDef[] = [
     // « jouez-le sur un lieu de votre choix » — interprété ici : posé sur la Ville
     // d'Halloween (lieu par défaut). Réutilise REVEAL_FATE_UNTIL_HERO_PLAY.
     onVanquish: [{ type: 'REVEAL_FATE_UNTIL_HERO_PLAY', locationId: 'ville-halloween' }],
+    // Recouvre une action (le vaincre invoque un autre Héros) → simple ralentissement.
+    fateMalus: 'slow',
     text: "Si le Maire d'Halloween est éliminé, dévoilez des cartes Fatalité de votre pioche jusqu'à ce que vous trouviez un Héros, puis jouez-le sur un lieu de votre choix.",
     image: img('maire-halloween.png'),
   },
@@ -286,6 +298,8 @@ export const oogieBoogieCards: CardDef[] = [
     strength: 1,
     copies: 4,
     mustDefeatFirst: true,
+    // Doivent être vaincus en premier (défendent Jack) → ralentissent la mise à mort.
+    fateMalus: 'slow',
     text: "Oogie Boogie doit éliminer les Citoyens d'Halloween avant les autres Héros du même lieu.",
     image: img('citoyens-halloween.png'),
   },
@@ -311,6 +325,7 @@ export const oogieBoogieCards: CardDef[] = [
     type: 'effect',
     copies: 2,
     text: "Déplacez un Héros sur un lieu voisin, puis défaussez un Allié ou un Objet qui s'y trouve.",
+    effects: [{ type: 'DIVERSION' }],
     image: img('diversion.png'),
   },
   {

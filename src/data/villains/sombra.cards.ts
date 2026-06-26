@@ -178,7 +178,8 @@ export const sombraCards: CardDef[] = [
     copies: 2,
     text: 'Choisissez Objet ou Événement, puis piochez jusqu’à trouver une carte de ce type, ajoutez-la à votre main et placez les autres sous votre pioche.',
     image: img('glitch.png'),
-    effects: [{ type: 'REVEAL_UNTIL_TYPE', types: ['item', 'effect'] }],
+    // Pour SA propre recherche, un Piratage/IEM ne compte pas comme « Objet ».
+    effects: [{ type: 'REVEAL_UNTIL_TYPE', types: ['item', 'effect'], excludePiratage: true }],
   },
   {
     id: 'adios',
@@ -261,7 +262,8 @@ export const sombraCards: CardDef[] = [
     copies: 1,
     text: 'Détruisez un Objet sur le lieu où Zarya est jouée.',
     image: img('zarya.png'),
-    onPlace: [{ type: 'DISCARD_ITEM_AT_HOST', preferCardId: 'piratage' }],
+    // Un VRAI Objet seulement : les cartes de Piratage/IEM ne sont pas ciblables.
+    onPlace: [{ type: 'DISCARD_ITEM_AT_HOST', excludePiratage: true }],
   },
   {
     id: 'katya-volskaya',

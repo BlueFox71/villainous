@@ -108,6 +108,29 @@ describe('Oogie Boogie — Imposteur Perce-Oreilles & objectif', () => {
     expect(s.players[0].impostorsPlaced).toBe(1)
   })
 
+  it('un imposteur réussi rejoint la PILE Perce-Oreilles (pas la défausse)', () => {
+    let s = game()
+    const imp: CardInstance = { instanceId: 'imp1', cardId: 'imposteur-perce-oreilles', name: 'Imposteur Perce-Oreilles', type: 'effect' }
+    // En jeu réel la carte jouée est au sommet de la défausse au moment du jet.
+    s = { ...s, players: [{ ...s.players[0], discard: [imp] }, ...s.players.slice(1)] }
+    s = applyAction(armImpostor(s, 9), { type: 'RESOLVE_DICE' })
+    expect(s.players[0].impostorPile?.map((c) => c.instanceId)).toEqual(['imp1'])
+    expect(s.players[0].discard.some((c) => c.instanceId === 'imp1')).toBe(false)
+    expect(s.players[0].impostorsPlaced).toBe(1)
+  })
+
+  it('le 4ᵉ imposteur consomme la pile (→ défausse) en faisant revenir Jack', () => {
+    let s = game()
+    const piled: CardInstance[] = [0, 1, 2].map((i) => ({ instanceId: `i${i}`, cardId: 'imposteur-perce-oreilles', name: 'Imposteur', type: 'effect' }))
+    const imp4: CardInstance = { instanceId: 'i3', cardId: 'imposteur-perce-oreilles', name: 'Imposteur', type: 'effect' }
+    s = { ...s, players: [{ ...s.players[0], impostorsPlaced: 3, impostorPile: piled, discard: [imp4] }, ...s.players.slice(1)] }
+    s = applyAction(armImpostor(s, 8), { type: 'RESOLVE_DICE' })
+    expect(s.players[0].jackReturned).toBe(true)
+    expect(s.players[0].impostorPile).toEqual([])
+    // Les 4 Imposteurs (3 empilés + le 4ᵉ) sont défaussés une fois Jack de retour.
+    expect(s.players[0].discard.filter((c) => c.cardId === 'imposteur-perce-oreilles').length).toBe(4)
+  })
+
   it('le 4ᵉ imposteur fait revenir Jack à l’Antre et retire Sandy Claws', () => {
     let s = game()
     s = { ...s, players: [{ ...s.players[0], impostorsPlaced: 3 }, ...s.players.slice(1)] }

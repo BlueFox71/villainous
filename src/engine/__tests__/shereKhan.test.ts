@@ -168,6 +168,27 @@ describe('Shere Khan — cartes interactives', () => {
     expect(g.players[0].power).toBe(1)
   })
 
+  it('Jeune et sans défense : injouable si NI Héros NI Allié dans le royaume', () => {
+    const base = game()
+    const jeune = buildDeckInstances(shereKhanCards, 'villain', 'j:').find((d) => d.cardId === 'jeune-et-sans-defense')!
+    const loc = base.players[0].locations.find((l) => l.actions.some((a) => a.type === 'PLAY_CARD'))!
+    const actionId = loc.actions.find((a) => a.type === 'PLAY_CARD')!.id
+    // Royaume VIDE → la carte n'aurait aucun effet : le moteur refuse de la jouer.
+    const empty: GameState = {
+      ...base,
+      phase: 'ACTION',
+      players: base.players.map((p, i) => (i === 0 ? { ...p, pawnLocation: loc.id, power: 5, hand: [jeune] } : p)),
+    }
+    expect(() => applyAction(empty, { type: 'PLAY_CARD', actionId, instanceId: jeune.instanceId })).toThrow()
+    // Avec un Allié dans le royaume → jouable (gagne 1 Pouvoir par Allié, sans Héros à déplacer).
+    const ally = card('macaques', 'ally', { strength: 2, instanceId: 'a1' })
+    const withAlly: GameState = {
+      ...empty,
+      players: empty.players.map((p, i) => (i === 0 ? { ...p, board: { [loc.id]: [ally] } } : p)),
+    }
+    expect(() => applyAction(withAlly, { type: 'PLAY_CARD', actionId, instanceId: jeune.instanceId })).not.toThrow()
+  })
+
   it('C\'est très intéressant : choix multi-action (Pouvoir / piocher / Feu)', () => {
     const base = game()
     let s: GameState = { ...base, players: [{ ...base.players[0], power: 0 }] }

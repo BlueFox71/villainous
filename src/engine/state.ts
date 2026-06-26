@@ -596,6 +596,7 @@ export function createInitialGame(setups: PlayerSetup[], seed: number): GameStat
           fateDeck: player.fateDeck.filter((c) => c.instanceId !== prisoner.instanceId),
           board: { ...player.board, [locationId]: [...(player.board[locationId] ?? []), prisoner] },
           impostorsPlaced: 0,
+          impostorPile: [],
         }
       }
     }

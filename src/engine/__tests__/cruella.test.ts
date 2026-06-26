@@ -172,6 +172,20 @@ describe('Cruella d’Enfer — Tuiles Chiots & objectif', () => {
     expect(after.players[0].discard.some((c) => c.instanceId === 'a')).toBe(false) // pas l'Allié
   })
 
+  it('un Héros Fatalité éliminé (Horace sauvé par le Tisonnier) va en défausse Fatalité, PAS dans la pioche', () => {
+    let s = game()
+    const pongo: CardInstance = { instanceId: 'pg', cardId: 'pongo', name: 'Pongo', type: 'hero', strength: 4 }
+    const horace: CardInstance = { instanceId: 'ho', cardId: 'horace-cruella', name: 'Horace', type: 'ally', strength: 4 }
+    const tis: CardInstance = { instanceId: 'ti', cardId: 'tisonnier', name: 'Tisonnier', type: 'item', attach: 'ally', attachStrengthBonus: 1, shieldAllyFromDiscard: true, attachedTo: 'ho' }
+    const filler = Array.from({ length: 7 }, (_, i) => ({ instanceId: `f${i}`, cardId: 'evasion', name: 'F', type: 'effect' as const, deck: 'fate' as const }))
+    s = { ...s, phase: 'ACTION', players: [{ ...s.players[0], fateDeck: filler, fateDiscard: [], board: { ...s.players[0].board, campagne: [pongo, horace, tis] } }] }
+    const after = performVanquish(s, 'pg', ['ho'], false)
+    expect((after.players[0].board['campagne'] ?? []).some((c) => c.instanceId === 'pg')).toBe(false) // Pongo éliminé
+    expect((after.players[0].board['campagne'] ?? []).some((c) => c.instanceId === 'ho')).toBe(true) // Horace survit (Tisonnier)
+    expect(after.players[0].fateDiscard.some((c) => c.instanceId === 'pg')).toBe(true) // Pongo → défausse Fatalité
+    expect(after.players[0].fateDeck.some((c) => c.instanceId === 'pg')).toBe(false) // PAS la pioche Fatalité
+  })
+
   it('Quels idiots ! : choix déplacer/chercher, puis choix de l’Allié', () => {
     let s = game()
     const jasper: CardInstance = { instanceId: 'j', cardId: 'jasper', name: 'Jasper', type: 'ally', strength: 4 }

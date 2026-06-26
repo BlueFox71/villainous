@@ -406,8 +406,11 @@ export const madameTremaineCards: CardDef[] = [
     deck: 'fate',
     type: 'effect',
     copies: 3,
-    text: 'Le chant de Cendrillon : Madame de Trémaine défausse un Allié de son royaume (le plus fort).',
-    effects: [{ type: 'FATE_DISCARD_STRONGEST_ALLY_OR_ITEM', onlyType: 'ally' }],
+    // Déplacement (PAS défausse) : le joueur qui pose la Fatalité déplace un Allié du
+    // royaume de Madame de Trémaine vers n'importe quel lieu (non bloqué). Résolu par
+    // un branchement cardId dans resolveFate (pendingAllyRelocate, comme Flèche de Mome
+    // Raths) → pas d'`effects` ici.
+    text: 'Déplacez un Allié du royaume de Madame de Trémaine vers n’importe quel lieu.',
     image: img('sweet-nightingale.png'),
   },
 ]

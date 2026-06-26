@@ -280,7 +280,7 @@ describe('Syndrome — forces particulières', () => {
     expect(cell.some((c) => c.instanceId === ally.instanceId)).toBe(false) // Allié défaussé
   })
 
-  it('Identification ne peut pas cibler l’Omnidroïde', () => {
+  it('Identification PEUT cibler l’Omnidroïde (propre carte de Syndrome)', () => {
     const base = game()
     const omni = card('omnidroide-v-x8', 'ally', { strength: 5, isOmnidroid: true, omnidroidStage: 'x8', immuneToAllyItemEffects: true })
     const hero = card('h', 'hero', { strength: 3 })
@@ -289,7 +289,10 @@ describe('Syndrome — forces particulières', () => {
       pendingIdentification: { playerIndex: 0 },
       players: [{ ...base.players[0], board: { ...base.players[0].board, 'base-syndrome': [omni], metroville: [hero] } }],
     } as GameState
-    expect(() => applyAction(s0, { type: 'RESOLVE_IDENTIFICATION', cardInstanceId: omni.instanceId, to: 'metroville' })).toThrow(/Omnidroïde|invalide/)
+    const s1 = applyAction(s0, { type: 'RESOLVE_IDENTIFICATION', cardInstanceId: omni.instanceId, to: 'metroville' })
+    expect(s1.pendingIdentification).toBeNull()
+    expect((s1.players[0].board['metroville'] ?? []).some((c) => c.instanceId === omni.instanceId)).toBe(true)
+    expect((s1.players[0].board['base-syndrome'] ?? []).some((c) => c.instanceId === omni.instanceId)).toBe(false)
   })
 
   it('un Omnidroïde compte comme un Objet pour les conditions adverses (items-in-realm)', () => {

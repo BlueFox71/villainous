@@ -937,11 +937,13 @@ export function BoardActions({
               />
             )
           }
-          // Sombra — action piratée : recouverte par l'image Hack, désactivée.
+          // Sombra — action piratée : recouverte par l'image Hack, désactivée. Marqueur
+          // PUREMENT visuel (pointer-events-none) → affiché aussi sur le plateau du bot
+          // (mode `flashOnly`), pour qu'on VOIE quelle action Sombra adverse a désactivée.
           const hacked = (player.board[loc.id] ?? []).some(
             (c) => c.isPiratage && c.hackedActionId === a.id,
           )
-          if (hacked && !flashOnly) {
+          if (hacked) {
             return (
               <div
                 key={`${loc.id}:${a.id}`}

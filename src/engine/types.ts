@@ -1063,8 +1063,10 @@ export type Effect =
   | { type: 'CHOOSE_TYPE_REVEAL_DRAW'; count: number }
   /** Demande à l'acteur un type parmi `types` (2 options), puis dévoile sa pioche
    *  JUSQU'À trouver une carte de ce type : il l'ajoute à sa main et défausse les
-   *  autres dévoilées. Jafar : Prédiction (Objet / Allié). */
-  | { type: 'REVEAL_UNTIL_TYPE'; types: CardType[] }
+   *  autres dévoilées. Jafar : Prédiction (Objet / Allié). `excludePiratage` : une
+   *  carte de Piratage/IEM ne compte PAS comme « Objet » (Sombra — Glitch : les
+   *  Piratages comptent comme Objets pour l'adversaire, pas pour Sombra elle-même). */
+  | { type: 'REVEAL_UNTIL_TYPE'; types: CardType[]; excludePiratage?: boolean }
   /** Active la récompense Apparence de Dragon (+3 JT si fatalisé avant son prochain tour). */
   | { type: 'ARM_DRAGON_FORM_REWARD' }
   /** Élimine instantanément le Héros cible (ctx.targetHeroId) si sa force est
@@ -1238,6 +1240,9 @@ export type Effect =
   /** Dr Facilier (Fatalité, résolu sur la CIBLE = Facilier) — L'étoile du soir :
    *  place un Allié du royaume (auto : le plus fort) dans la Pile de l'Au-delà. */
   | { type: 'FATE_ALLY_TO_AUDELA' }
+  /** Oogie Boogie (Fatalité, résolu sur la CIBLE = Oogie) — Diversion : déplace un Héros
+   *  vers un lieu voisin, puis défausse un Allié/Objet du lieu d'arrivée. */
+  | { type: 'DIVERSION' }
   /** Dr Facilier (Fatalité) — Si près du but / Charlotte : place les `count`
    *  premières cartes de la pioche Vilain de la cible dans sa Pile de l'Au-delà. */
   | { type: 'FATE_TOP_DECK_TO_AUDELA'; count: number }
@@ -1485,8 +1490,10 @@ export type Effect =
   | { type: 'TUTOR_CARD_TO_HAND'; cardId: string }
   /** Ratigan — Basil (Fatalité, à la pose) : défausse un Objet non associé du lieu
    *  hôte (auto : `preferCardId` — la Reine Robot — en priorité, sinon le plus cher).
-   *  Défausser la Reine Robot bascule l'objectif de Ratigan côté « Le Rat ». */
-  | { type: 'DISCARD_ITEM_AT_HOST'; preferCardId?: string }
+   *  Défausser la Reine Robot bascule l'objectif de Ratigan côté « Le Rat ».
+   *  `excludePiratage` : ignore les Piratages/IEM (Sombra — Zarya ne détruit qu'un
+   *  vrai Objet, pas une carte de Piratage). */
+  | { type: 'DISCARD_ITEM_AT_HOST'; preferCardId?: string; excludePiratage?: boolean }
   /** Ratigan — Félicia (à la pose) : défausse un Héros du lieu hôte (auto : le plus
    *  À la pose, le joueur DOIT soit défausser un Allié de son lieu (ctx.allyInstanceIds[0]),
    *  soit payer `power` jetons Pouvoir de plus (géré dans applyPlayCard). Injouable si
@@ -2266,6 +2273,11 @@ export interface PlayerState {
   /** Oogie Boogie — nombre d'Imposteur Perce-Oreilles réussis posés près de Sandy
    *  Claws (0→4). À 4, Jack Skellington revient et Sandy Claws est retiré. */
   impostorsPlaced?: number
+  /** Oogie Boogie — PILE Perce-Oreilles : les cartes Imposteur réussies, EMPILÉES à
+   *  côté de Sandy Claws (et non défaussées) tant que Jack n'est pas revenu. Affichée
+   *  comme la Pile de l'Au-delà. À 4 (ou au retour de Jack), la pile part en défausse.
+   *  Reste synchronisée avec `impostorsPlaced` (le compteur fait foi pour la logique). */
+  impostorPile?: CardInstance[]
   /** Oogie Boogie — Jack Skellington est revenu (Héros à l'Antre) : les Imposteurs
    *  joués ensuite lui collent un jeton Force -1 au lieu d'alimenter la pile. */
   jackReturned?: boolean
@@ -2525,6 +2537,8 @@ export interface GameState {
     /** true = on dévoile JUSQU'À trouver le type (Prédiction) ; false = on
      *  dévoile `count` cartes et on garde la 1ʳᵉ du type (Tombée de la nuit). */
     untilFound?: boolean
+    /** Sombra — Glitch : une carte de Piratage/IEM ne compte pas comme « Objet ». */
+    excludePiratage?: boolean
   } | null
   /**
    * Ratigan — Le Grand Génie du Mal / Gaston — Sous le charme : `playerIndex` choisit
@@ -2832,6 +2846,9 @@ export interface GameState {
     thenTrapVanquish?: boolean
     /** Madame de Trémaine — La Clé : le Héros déplacé reçoit un jeton Enfermé (piège). */
     thenTrap?: boolean
+    /** Oogie Boogie — Diversion : après le déplacement, défausse un Allié ou un Objet sur
+     *  le lieu d'arrivée (ouvre pendingDiversionDiscard). */
+    thenDiscardAllyItem?: boolean
     /** Davy Jones — La Poursuite : destinations AUTORISÉES restreintes à ces lieux (ceux
      *  portant un Allié). Combiné avec `anyLocation` (sinon = voisins). Absent = pas de
      *  restriction supplémentaire. */
@@ -3099,6 +3116,23 @@ export interface GameState {
    *  choix (RESOLVE_DIVINATION, `topInstanceIds` = ordre de résolution). Absent /
    *  `null` hors d'une Divination. */
   pendingDivination?: { playerIndex: number; cards: CardInstance[] } | null
+  /** Dr Facilier (Fatalité) — L'étoile du soir : le joueur qui pose la Fatalité
+   *  (`chooserIndex`) choisit un Allié du royaume de la cible (`targetIndex`, = Facilier)
+   *  à placer dans sa Pile de l'Au-delà (RESOLVE_FATE_ALLY_TO_AUDELA). Ouvert seulement
+   *  s'il y a ≥2 Alliés à départager ; auto (le plus fort) sinon. */
+  pendingFateAllyToAuDela?: { chooserIndex: number; targetIndex: number } | null
+  /** Oogie Boogie (Fatalité) — Mettons fin à ce cauchemar : le joueur qui pose la
+   *  Fatalité (`chooserIndex`) voit la main de la cible (`targetIndex`, = Oogie) et en
+   *  défausse une carte (RESOLVE_FATE_DISCARD_HAND). Ouvert seulement si la main n'est
+   *  pas vide. */
+  pendingFateDiscardHand?: { chooserIndex: number; targetIndex: number } | null
+  /** Hadès — Alignement des planètes : `playerIndex` choisit quels Titans entravés
+   *  désentraver (1 JT chacun, max = son Pouvoir). RESOLVE_UNTRAP_TITANS. */
+  pendingUntrapTitans?: { playerIndex: number } | null
+  /** Oogie Boogie (Fatalité) — Diversion, 2ᵉ temps : après avoir déplacé un Héros vers
+   *  `locationId`, le joueur qui pose la Fatalité (`chooserIndex`) défausse un Allié ou un
+   *  Objet (non associé) qui s'y trouve (RESOLVE_DIVERSION_DISCARD). */
+  pendingDiversionDiscard?: { chooserIndex: number; targetIndex: number; locationId: LocationId } | null
   /** Dr Facilier — Tour de passe-passe : `playerIndex` regarde les `cards`
    *  premières cartes de sa pioche et en choisit `take` à ajouter à sa main ; les
    *  autres sont défaussées (RESOLVE_LOOK_TOP). Absent / `null` sinon. */
@@ -3681,6 +3715,17 @@ export type GameAction =
   /** Dr Facilier — Divination : résout les cartes révélées (pendingDivination)
    *  dans l'ordre `topInstanceIds` (1ʳᵉ résolue en premier). */
   | { type: 'RESOLVE_DIVINATION'; topInstanceIds: string[] }
+  /** Dr Facilier — L'étoile du soir : place l'Allié choisi (`allyInstanceId`, du royaume
+   *  de la cible) dans sa Pile de l'Au-delà (résout pendingFateAllyToAuDela). */
+  | { type: 'RESOLVE_FATE_ALLY_TO_AUDELA'; allyInstanceId: string }
+  /** Oogie Boogie — Mettons fin à ce cauchemar : défausse la carte `cardInstanceId` de la
+   *  main de la cible (résout pendingFateDiscardHand). */
+  | { type: 'RESOLVE_FATE_DISCARD_HAND'; cardInstanceId: string }
+  /** Hadès — Alignement des planètes : désentrave les Titans `instanceIds` (1 JT chacun). */
+  | { type: 'RESOLVE_UNTRAP_TITANS'; instanceIds: string[] }
+  /** Oogie Boogie — Diversion : défausse l'Allié/Objet `cardInstanceId` du lieu d'arrivée
+   *  (résout pendingDiversionDiscard). */
+  | { type: 'RESOLVE_DIVERSION_DISCARD'; cardInstanceId: string }
   /** Dr Facilier — Tour de passe-passe : garde `keepInstanceIds` (parmi les cartes
    *  révélées de pendingLookTop) en main ; les autres sont défaussées. */
   | { type: 'RESOLVE_LOOK_TOP'; keepInstanceIds: string[] }

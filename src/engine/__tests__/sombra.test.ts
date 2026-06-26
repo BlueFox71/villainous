@@ -80,6 +80,35 @@ describe('Sombra — Piratage (hack d’une action)', () => {
   })
 })
 
+describe('Sombra — Piratage/IEM ≠ Objet pour SES propres cartes (pas pour l’adversaire)', () => {
+  it('Zarya (excludePiratage) détruit un VRAI Objet, jamais un Piratage', () => {
+    const s0 = withBoard(game(), { castillo: [piratage('pi'), item('o', 'arme-uzi')] })
+    const s = resolveEffect(s0, { type: 'DISCARD_ITEM_AT_HOST', excludePiratage: true }, { actorIndex: 0, hostLocationId: 'castillo' })
+    const cell = s.players[0].board['castillo'] ?? []
+    expect(cell.some((c) => c.instanceId === 'pi')).toBe(true) // Piratage intact
+    expect(cell.some((c) => c.instanceId === 'o')).toBe(false) // Objet détruit
+  })
+
+  it('Zarya : avec seulement des Piratages/IEM, aucun Objet à détruire', () => {
+    const s0 = withBoard(game(), { castillo: [piratage('pi'), iem('e')] })
+    const s = resolveEffect(s0, { type: 'DISCARD_ITEM_AT_HOST', excludePiratage: true }, { actorIndex: 0, hostLocationId: 'castillo' })
+    expect((s.players[0].board['castillo'] ?? []).length).toBe(2) // rien retiré
+  })
+
+  it('Glitch (REVEAL_UNTIL_TYPE excludePiratage) : « Objet » saute les Piratages/IEM', () => {
+    const base = game()
+    const obj = item('o', 'arme-uzi')
+    const s0: GameState = {
+      ...base,
+      players: base.players.map((p, i) => (i === 0 ? { ...p, deck: [piratage('pi'), iem('e'), obj], discard: [], hand: [] } : p)),
+    }
+    let s = resolveEffect(s0, { type: 'REVEAL_UNTIL_TYPE', types: ['item', 'effect'], excludePiratage: true }, { actorIndex: 0 })
+    s = applyAction(s, { type: 'RESOLVE_TYPE_CHOICE', cardType: 'item' })
+    expect(s.players[0].hand.some((c) => c.instanceId === 'o')).toBe(true) // vrai Objet trouvé
+    expect(s.players[0].hand.some((c) => c.isPiratage)).toBe(false) // ni Piratage ni IEM en main
+  })
+})
+
 describe('Sombra — objectif & Protocole Sombra', () => {
   it('Protocole Sombra avec TOUS les lieux piratés = victoire', () => {
     const s = withBoard(game(), {

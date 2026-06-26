@@ -182,6 +182,23 @@ describe('Tamatoa — Piégé', () => {
     const allUncover = resolveEffects(s, [{ type: 'USE_COVERED_ACTIONS_THIS_TURN' }], { actorIndex: 0 })
     expect(isActionAvailable(allUncover, 'fate')).toBe(true)
   })
+
+  it('jouable tant qu’un Héros est dans le royaume (même PAS sur le lieu du pion) ; sinon refus', () => {
+    const base = game()
+    const piege = { ...buildDeckInstances(tamatoaCards, 'villain', 'pg:').find((c) => c.cardId === 'piege-tamatoa')!, instanceId: 'pg1' }
+    const heroElsewhere = card('moana', 'hero', { strength: 4 })
+    // Pion aux Falaises ; un Héros à La Cage d'Os (autre lieu).
+    const withHero: GameState = {
+      ...base,
+      activePlayer: 0,
+      phase: 'ACTION',
+      players: [{ ...base.players[0], power: 3, pawnLocation: 'falaises-impossibles', hand: [piege], board: { 'cage-d-os': [heroElsewhere] } }],
+    }
+    expect(() => applyAction(withHero, { type: 'PLAY_CARD', actionId: 'play-card-bottom', instanceId: 'pg1' })).not.toThrow()
+    // Aucun Héros : injouable, message « royaume ».
+    const noHero: GameState = { ...withHero, players: [{ ...withHero.players[0], board: {} }] }
+    expect(() => applyAction(noHero, { type: 'PLAY_CARD', actionId: 'play-card-bottom', instanceId: 'pg1' })).toThrow(/royaume/i)
+  })
 })
 
 describe('Tamatoa — pioche Maui', () => {

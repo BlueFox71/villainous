@@ -122,7 +122,10 @@ export const reineCoeurCards: CardDef[] = [
     cost: 1,
     attach: 'location',
     copies: 1,
-    text: 'Gagnez 1 jeton Pouvoir par arceau dans votre royaume.',
+    // Capacité Activer (gratuite) : +1 Pouvoir par arceau du royaume. Non activable
+    // s'il n'y a aucun arceau (cf. activatableCards + branche dans applyActivateCore).
+    activatedCost: 0,
+    text: 'Activer : gagnez 1 jeton Pouvoir par arceau dans votre royaume.',
     image: img('montre-gousset.png'),
   },
 

@@ -165,15 +165,15 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
     story:
       "Le saboteur masqué (Among Us, 2018). Sous sa combinaison de Coéquipier se cache un Imposteur : il sabote le vaisseau, élimine l'équipage un à un dans les couloirs d'Electrical, du Réacteur, d'Admin et de la Cafétaria, puis fait porter le chapeau aux innocents lors des réunions d'urgence.",
     playTips: [
-      "Objectif : pose un Sabotage (O2 à Admin, Réacteur au Réacteur) et tiens-le 3 tours.",
-      "Surveille tes 8 Coéquipiers : un Coéquipier « suspect » recouvre l'action sous lui — élimine (Tuer) ou rassure (Assurance) ceux qui te gênent.",
-      "Les Tâches se défaussent quand trop de Coéquipiers s'y rassemblent : le Coéquipier imposteur en exige un de plus et t'ouvre l'action « Jouer une carte ».",
-      "Joue avec leurs déplacements de fin de tour (Porte / Lumière désactivées, Conduit) pour protéger ton Sabotage le temps qu'il faut.",
+      "Objectif : pose un Sabotage (O2 à Admin, Réacteur au Réacteur) et tiens-le 3 tours. Mais il saute dès 2 Coéquipiers sur son lieu : commence par en ÉLIMINER le plus possible (Tuer, Fausse accusation) — qu'ils te suspectent n'est pas grave.",
+      "Tâche Électricité est GRATUITE et rapporte du Pouvoir : empiles-en. Les autres Tâches ne tiennent qu'une fois des Coéquipiers morts — avant ça, ne les pose que pour les activer dans la foulée.",
+      "Ne gaspille pas tes Sabotages tôt (ils sautent aussitôt) ; au besoin récupère-les avec Tâche Téléchargement. Une fois la voie dégagée, protège ton Sabotage avec Lumière / Porte désactivées.",
+      "Coéquipier imposteur est ta meilleure carte : pose-le vite — il protège tes Tâches (1 Coéquipier de plus pour les défausser) et t'ouvre « Jouer une carte ».",
     ],
     counterTips: [
-      "Sa Fatalité ne contient pas de Héros : ce sont des Coéquipiers et des indices (Carte, Vidéo de surveillance) qui le rendent suspect et recouvrent ses actions.",
-      "Corps découvert et Tâche visuelle braquent les soupçons sur lui et font monter le compte à rebours : casse sa fenêtre de 3 tours.",
-      "Majorité défausse ses Objets et Alliés (hors sabotages) ; Réunion d'urgence regroupe les Coéquipiers pour saturer son lieu de Sabotage.",
+      "Pas de Héros chez lui : ce sont les Coéquipiers qui le gênent. Suspecte-les (Corps découvert, Tâche visuelle, Carte, Caméra) pour recouvrir ses actions.",
+      "Arrivée tardive est ta meilleure carte dès qu'un Coéquipier est éliminé : elle en remet un en jeu (plus il y a de Coéquipiers, plus il peine à sabotter).",
+      "Corps découvert pendant un Sabotage repousse sa victoire d'un tour : garde-la pour ce moment. Majorité défausse ses Objets et Alliés (hors sabotages).",
     ],
   },
   bowser: {
@@ -248,10 +248,10 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       "Ton objectif : pose une carte de Piratage sur CHACUN des 4 lieux (Lumérico compris) puis joue Protocole Sombra pour gagner.",
       "Lumérico est verrouillé au départ : joue Faille pour le déverrouiller (et enchaîne un Piratage gratuit).",
       "Quand tu pirates un lieu, tu désactives une de ses actions : coupe les actions les plus gênantes (ou les Fatalités) de tes adversaires.",
-      "Tes Piratages ne se déplacent pas mais comptent comme des Objets : attention aux Héros qui les retirent (l’Œil, Zarya, Réinitialisation).",
+      "Tes Piratages ne se déplacent pas : seuls l’Œil et Réinitialisation peuvent les retirer (Zarya, elle, ne détruit qu’un vrai Objet).",
     ],
     counterTips: [
-      "Retire ses Piratages : l’Œil et Zarya nettoient un lieu, Réinitialisation annule un piratage à distance.",
+      "Retire ses Piratages : l’Œil nettoie un lieu et Réinitialisation annule un piratage à distance.",
       "Guillermo Portero se pose sur Lumérico (même bloqué) et empêche Sombra d’y poser un Piratage : un verrou sur son lieu le plus difficile.",
       "Vol de données la saigne (−1 Pouvoir par Piratage/IEM) et Shutdown gèle un lieu un tour : ralentis sa course aux 4 piratages.",
     ],
@@ -362,7 +362,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
     counterTips: [
       'La Bonne Fée et les Pantoufles de Verre sont tes meilleures armes : tant qu’une Pantoufle est dans son royaume, le mariage est impossible.',
       'Cendrillon, Cendrillon en robe de bal et la Bonne Fée recouvrent ses lieux : ralentis sa mise en place de la Salle de Bal.',
-      'Bibbidi-Bobbidi-Boo et Doux Rossignol lui font défausser des cartes : casse ses combinaisons (Invitation, Robe, Cloches) avant qu’elles n’arrivent en jeu.',
+      'Jaq lui fait défausser un Objet clé (Cloches de Mariage, Canne) ; « Chante, Rossignol, Chante » déloge un de ses Alliés vers n’importe quel lieu et Bibbidi-Bobbidi-Boo libère un Héros qu’elle avait piégé : perturbe sa mise en place.',
     ],
   },
   oogieBoogie: {
@@ -370,15 +370,15 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
     story:
       "Croquemitaine de Halloween Town (L’Étrange Noël de Monsieur Jack, 1993), Oogie Boogie est un sac de toile grouillant d’insectes, accro au jeu et aux dés pipés. Il enlève « Perce-Oreilles » (Sandy Claws) et veut convaincre Jack Skellington de lui laisser Noël… avant de le faire tomber dans son antre.",
     playTips: [
-      'Ton objectif : faire revenir Jack Skellington puis le VAINCRE. Joue des « Imposteur Perce-Oreilles » : à chaque fois, lance les dés (7+ = succès, la carte rejoint la pile à côté de Sandy Claws).',
-      'À 4 imposteurs réussis, Jack revient (Héros force 8, sans capacité) à l’Antre d’Oogie Boogie : réunis-y assez d’Alliés pour l’éliminer (le Trio Am/Stram/Gram se renforce mutuellement).',
-      'Tu lances DEUX dés (somme 2–12). Gram ajoute +1 quand ton pion est sur son lieu ; les Dés pipés relancent un dé ; « Cette fois l’affaire est dans le sac » te laisse choisir le résultat.',
-      'Les imposteurs joués APRÈS le retour de Jack lui collent un jeton force −1 : continue d’en jouer pour l’affaiblir avant le combat.',
+      'Joue tes « Imposteur Perce-Oreilles » (lance les dés : 7+ = succès). À 4 réussis, Jack revient (force 8) à l’Antre.',
+      'Truque les dés : Gram donne +1 sur son lieu, les Dés pipés relancent un dé, et « Cette fois l’affaire est dans le sac » choisit le résultat (souvent ton 4ᵉ imposteur).',
+      'Empile tes Alliés à l’Antre, où Jack apparaît, puis vaincs-le (élimine d’abord les Citoyens, qui le protègent).',
+      'Garde « Gagner 3 » libre : dégage les Héros qui recouvrent tes actions — mais laisse Le Maire d’Halloween tranquille.',
     ],
     counterTips: [
-      'Jouer Jack Skellington en Fatalité défausse un imposteur de sa pile : casse sa progression au bon moment.',
-      'Salut, Oogie ! lui retire 2 à son prochain lancer — sabote un jet d’imposteur décisif.',
-      'Les Citoyens d’Halloween doivent être éliminés avant les autres Héros : empile-les pour protéger Jack et les Héros gênants.',
+      'Joue Sally à la Ville d’Halloween : elle bloque ses déplacements (lieu voisin seulement).',
+      'Empile les Citoyens d’Halloween à l’Antre : ils doivent être éliminés en premier et servent de bouclier à Jack.',
+      'Sabote-le quand il monte ses imposteurs : « Salut, Oogie ! » (−2 au dé) ou Jack en Fatalité (défausse un imposteur).',
     ],
   },
   seigneurTenebres: {

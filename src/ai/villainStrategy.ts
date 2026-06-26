@@ -738,6 +738,26 @@ export const VILLAIN_STRATEGY: Record<string, VillainStrategy> = {
     },
   },
 
+  // --- L'Imposteur (objectif : tenir un Sabotage 3 tours) ------------------------
+  // Cf. stratégie : ÉLIMINER les Coéquipiers tôt (porté par la jauge objectif, qui
+  // récompense le faible nombre de vivants) pour ouvrir une fenêtre de Sabotage ; ne pas
+  // gaspiller les Sabotages tant que les lieux sont bondés (le lookahead l'évite déjà :
+  // un Sabotage défaussé en fin de tour ne vaut rien) ; s'appuyer sur ses cartes-moteurs.
+  // Pas de fateTargeting (sa Fatalité n'a AUCUN Héros) : le volet « contre » est entièrement
+  // porté par la jauge objectif — Arrivée tardive (ranime un Coéquipier) et les Fatalités de
+  // suspicion (Corps découvert, Tâche visuelle, Carte, Caméra) en font baisser le score.
+  imposteur: {
+    enginePieces: {
+      // Coéquipier imposteur : exige 1 Coéquipier de plus pour défausser les Tâches de
+      // son lieu ET donne l'action « Jouer une carte » → meilleur Allié, à poser tôt.
+      'coequipier-imposteur': 4,
+      // Tâche : Électricité — moteur de Pouvoir GRATUIT (+1/exemplaire) : à empiler.
+      'tache-electricite': 2,
+      // Tâche : Téléchargement — récupère un Sabotage (ou autre) de la défausse.
+      'tache-telechargement': 1,
+    },
+  },
+
   // --- Tamatoa (objectif : Hameçon + Cœur de Te Fiti au Repaire) -----------------
   // Cf. guide officiel : trouver le Cœur (Crustacé doté du pouvoir de création), récupérer
   // l'Hameçon, vaincre Moana/Maui (qui s'emparent des Objets) pour les libérer, puis les

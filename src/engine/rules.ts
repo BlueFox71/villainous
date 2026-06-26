@@ -450,6 +450,9 @@ export function activatableCards(state: GameState): CardInstance[] {
       // Gaston — Monsieur D'Arque : retire un Obstacle. Inutile (non activable) si
       // Belle bloque le retrait ou s'il ne reste aucun Obstacle.
       if (c.cardId === 'monsieur-darque' && (belleBlocksRemoval(me) || totalObstacles(me) === 0)) continue
+      // Reine de Cœur — Montre à gousset : gagne 1 Pouvoir par arceau. Non activable
+      // s'il n'y a aucune carte transformée en arceau (isWicket) dans le royaume.
+      if (c.cardId === 'montre-gousset' && !Object.values(me.board).flat().some((x) => x.isWicket)) continue
       // Madame de Trémaine — Canne : retire une Pantoufle de Verre. Non activable s'il
       // n'y a aucune Pantoufle dans le royaume.
       if (
@@ -918,23 +921,16 @@ export function canPlaceCurseAt(
   state: GameState,
   playerIndex: number,
   locationId: LocationId,
-  card?: CardInstance,
 ): boolean {
   // Plusieurs Malédictions peuvent cohabiter sur un même lieu (règle officielle) :
   // on ne bloque que les lieux portant une restriction `no-curses`.
   const cell = state.players[playerIndex].board[locationId] ?? []
   if (cell.some((c) => c.placementRestriction?.type === 'no-curses')) return false
-  const r = card?.placementRestriction
-  if (r) {
-    const heroes = cell.filter((c) => c.type === 'hero' && !c.hypnotized)
-    if (r.type === 'no-heroes' && heroes.length > 0) return false
-    if (
-      r.type === 'min-hero-strength' &&
-      heroes.some((h) => (effectiveStrength(state, playerIndex, h.instanceId) ?? h.strength ?? 0) < r.value)
-    ) {
-      return false
-    }
-  }
+  // La `placementRestriction` d'une Malédiction (Forêt de Ronces → min-force 4 ;
+  // Feu Infernal → no-heroes) restreint les HÉROS JOUÉS ENSUITE sur ce lieu — PAS la pose
+  // de la Malédiction elle-même : on peut donc la jouer sur un lieu portant déjà un Héros
+  // (même non conforme). Cette restriction est appliquée à la pose/au déplacement des Héros
+  // (cf. heroPlacementLocations, applyPlayCard Héros, arrivées Fatalité).
   return true
 }
 
@@ -1297,6 +1293,10 @@ export function effectiveCost(
     discount += Object.values(me.board)
       .flat()
       .filter((c) => c.cardId === 'outils' && !c.attachedTo).length
+  }
+  // Oogie Boogie — Am (Lock) : jouer un Allié coûte 1 de moins tant qu'Am est dans le royaume.
+  if (card.type === 'ally' && Object.values(me.board).flat().some((c) => c.cardId === 'am' && !c.attachedTo)) {
+    discount += 1
   }
   // Sombra — Lynx Seventeen (Fatalité) : Piratages/IEM coûtent 1 de plus par Lynx
   // présent (sa capacité ignorée s'il est piraté par Boop).

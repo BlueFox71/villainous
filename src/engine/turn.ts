@@ -74,6 +74,10 @@ export function pendingOwner(state: GameState): number | null {
   if (state.pendingGiantAction) return state.pendingGiantAction.playerIndex
   if (state.pendingTitanMove) return state.pendingTitanMove.playerIndex
   if (state.pendingDivination) return state.pendingDivination.playerIndex
+  if (state.pendingFateAllyToAuDela) return state.pendingFateAllyToAuDela.chooserIndex
+  if (state.pendingFateDiscardHand) return state.pendingFateDiscardHand.chooserIndex
+  if (state.pendingUntrapTitans) return state.pendingUntrapTitans.playerIndex
+  if (state.pendingDiversionDiscard) return state.pendingDiversionDiscard.chooserIndex
   if (state.pendingLookTop) return state.pendingLookTop.playerIndex
   if (state.pendingReveal) return state.pendingReveal.playerIndex
   if (state.pendingHack) return state.pendingHack.playerIndex

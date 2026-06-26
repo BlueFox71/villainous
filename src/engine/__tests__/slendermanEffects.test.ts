@@ -32,6 +32,28 @@ describe('Slenderman — effets divers', () => {
     expect(next.players[0].power).toBe(2)
   })
 
+  it('Dessin inquiétant : injouable s’il n’y a aucune Page sur le lieu du pion', () => {
+    const base = createInitialGame(
+      [{ villain: slenderman, deckCards: buildDeckInstances(slendermanCards, 'villain', 'p0:'), fateCards: buildDeckInstances(slendermanCards, 'fate', 'p0f:') }],
+      5,
+    )
+    const dessin = buildDeckInstances(slendermanCards, 'villain', 'd:').find((c) => c.cardId === 'dessin-inquietant')!
+    const loc = base.players[0].locations.find((l) => l.actions.some((a) => a.type === 'PLAY_CARD'))!
+    const actionId = loc.actions.find((a) => a.type === 'PLAY_CARD')!.id
+    const s: GameState = {
+      ...base,
+      phase: 'ACTION',
+      players: base.players.map((p) => ({ ...p, pawnLocation: loc.id, power: 5, hand: [dessin] })),
+    }
+    expect(() => applyAction(s, { type: 'PLAY_CARD', actionId, instanceId: dessin.instanceId })).toThrow()
+    // Avec une Page sur le lieu → jouable.
+    const withPage: GameState = {
+      ...s,
+      players: s.players.map((p) => ({ ...p, board: { ...p.board, [loc.id]: [page('pg')] } })),
+    }
+    expect(() => applyAction(withPage, { type: 'PLAY_CARD', actionId, instanceId: dessin.instanceId })).not.toThrow()
+  })
+
   it('Téléportation : lieux cibles = ceux avec un Héros sans Lampe de poche', () => {
     const s = game((g) => ({
       ...g,
