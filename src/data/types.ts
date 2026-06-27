@@ -142,6 +142,12 @@ export interface CardDef {
   /** Hadès — Titan (Lythos, Hydros, Pyros, Stratos, Argès) : Allié spécial déplacé
    *  vers le Mont Olympe pour l'objectif. */
   isTitan?: boolean
+  /** Team Rocket — Pokémon : Héros (deck Fatalité) capturé via l'action Attraper
+   *  (CATCH_POKEMON) au lieu d'être vaincu. Compte pour l'objectif CAPTURE_POKEMON. */
+  isPokemon?: boolean
+  /** Team Rocket — Dresseur (Héros Fatalité) : à sa pose, cherche l'un de ces Pokémon
+   *  (cardId) dans la pioche Fatalité et le pose sur le même lieu. */
+  summonsPokemonCardIds?: string[]
   /** L'Allié peut Éliminer un Héros sur un lieu VOISIN (Flibustiers, Cerbère). */
   reachesAdjacentVanquish?: boolean
   /** Objet « véhicule » : sur son lieu, on peut 1×/tour déplacer la figurine + cet
@@ -352,6 +358,8 @@ export function buildDeckInstances(
           grantsAction: c.grantsAction,
           contractLocationId: c.contractLocationId,
           isTitan: c.isTitan,
+          isPokemon: c.isPokemon,
+          summonsPokemonCardIds: c.summonsPokemonCardIds,
           reachesAdjacentVanquish: c.reachesAdjacentVanquish,
           ridesWithPawn: c.ridesWithPawn,
           returnToHandOnVanquish: c.returnToHandOnVanquish,

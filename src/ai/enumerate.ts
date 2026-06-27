@@ -305,7 +305,7 @@ export function enumerateActions(state: GameState): GameAction[] {
   // autres modes proposent les lieux voisins.
   if (state.pendingGiantAction) {
     const pending = state.pendingGiantAction
-    if (pending.viaFollowMe) {
+    if (pending.viaFollowMe || pending.viaChristmas) {
       return (pending.locations ?? []).map((loc) => ({ type: 'RESOLVE_GIANT_LOCATION', locationId: loc }))
     }
     const p = state.players[pending.playerIndex]
@@ -1548,6 +1548,8 @@ export function enumerateActions(state: GameState): GameAction[] {
           (me.board[adj] ?? []).filter((c) => !c.trapped && (c.reachesAdjacentVanquish || c.cardId === 'archers-loups' || c.cardId === 'flibustiers')),
         )
         for (const h of heroes) {
+          // Team Rocket — un Pokémon déjà COUCHÉ (K.O.) ne se re-vainc pas (il s'attrape).
+          if (h.pokemonKO) continue
           const guarded = cell.some((c) => c.cardId === 'deguisement' && c.attachedTo === h.instanceId)
           if (guarded) continue
           const heroForce = effectiveStrength(state, state.activePlayer, h.instanceId) ?? 0
@@ -1573,6 +1575,16 @@ export function enumerateActions(state: GameState): GameAction[] {
           const allyForce = usable.reduce((n, a) => n + (effectiveStrength(state, state.activePlayer, a.instanceId) ?? 0), 0)
           if (allyForce >= heroForce) {
             out.push({ type: 'VANQUISH', actionId: action.id, heroInstanceId: h.instanceId, allyInstanceIds: usable.map((a) => a.instanceId) })
+          }
+        }
+      }
+    } else if (action.type === 'CATCH_POKEMON') {
+      // Team Rocket — Attraper : prend un Pokémon DÉJÀ COUCHÉ (K.O.) → pile de Captures.
+      // Aucun combat ni Allié (le Pokémon a déjà été vaincu via l'action Vaincre).
+      for (const cell of Object.values(me.board)) {
+        for (const h of cell) {
+          if (h.isPokemon && h.pokemonKO) {
+            out.push({ type: 'CATCH_POKEMON', actionId: action.id, heroInstanceId: h.instanceId, allyInstanceIds: [] })
           }
         }
       }

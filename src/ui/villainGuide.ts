@@ -506,4 +506,20 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       "« Quelque chose qui brille » est toujours un bon choix — surtout posé là où se trouve (ou ira) un Héros important : il le protège du Vanquish et recouvre une action.",
     ],
   },
+  teamRocket: {
+    difficulty: 3,
+    story:
+      "Jessie, James et leur Miaouss parlant : le trio de bras cassés de la Team Rocket, lancés à la poursuite des Pokémon de Sacha à bord de leur montgolfière. Maladroits mais increvables, ils multiplient pièges, déguisements et machines pour s'emparer des Pokémon les plus rares. (Pokémon, série animée.)",
+    playTips: [
+      "Ton objectif : CAPTURER au moins 4 Pokémon, dont Pikachu, dans ta pile de Captures.",
+      "Les Pokémon arrivent par la Fatalité (chaque dresseur invoque le sien) : laisse-les venir, puis réunis assez de Force d'Alliés pour les ATTRAPER (action Pokéball) au lieu de simplement les vaincre.",
+      "Fais évoluer tes Alliés (Abo→Arbok, Smogo→Smogogo, Miaouss→Persian) pour frapper plus fort et plus loin.",
+      "Garde tes Conditions (Oui la guerre !, Pour vous jouer un mauvais tour, Oh des pokémons !) pour réagir au tour de l'adversaire.",
+    ],
+    counterTips: [
+      "ATTENTION, inversion : lui envoyer des Pokémon par la Fatalité l'AIDE (ce sont ses cibles de capture), surtout Pikachu. Évite de le fataliser avec des Pokémon-clés.",
+      "Défausse ses Objets et ses Alliés évolués pour qu'il manque de Force au moment d'attraper un gros Pokémon.",
+      "Garde un œil sur sa pile de Captures : tant qu'il n'a pas Pikachu + 3 autres, il ne peut pas gagner.",
+    ],
+  },
 }

@@ -11,6 +11,12 @@ const AVATAR_TWEAK: Partial<Record<VillainKey, Partial<typeof AVATAR_BASE>>> = {
   bowser: { dyPct: 0 }, // déjà bien cadré « tête en haut »
   imposteur: { dyPct: 12, scale: 1 }, // plus petit et plus bas
   scar: { dxPct: -12 }, // décalé vers la gauche
+  sombra: { dxPct: 44, dyPct: -70, scale: 3.7 }, // zoomé, décalé droite + haut
+  gothel: { dyPct: 0 }, // décalé vers le bas
+  seigneurCles: { dyPct: 0 }, // décalé vers le bas
+  seigneurTenebres: { dyPct: 0 }, // décalé vers le bas
+  teamRocket: { dyPct: 0, scale: 1.05 }, // décalé vers le bas + dézoomé
+  shereKhan: { dxPct: 12 }, // décalé vers la droite
 }
 
 /**

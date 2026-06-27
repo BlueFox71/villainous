@@ -262,13 +262,24 @@ export function HeroRow({
                         draggingInstanceId === c.instanceId ? 'opacity-0' : ''
                       }`}
                       style={
-                        c.heroSize === 'shrunk'
-                          ? { transform: `rotate(${shrinkRotate}deg)` }
-                          : c.heroSize === 'enlarged'
-                            ? { transform: `scale(1.2) rotate(${enlargeRotate}deg)` }
-                            : undefined
+                        c.pokemonKO
+                          ? { transform: 'rotate(78deg)', filter: 'grayscale(0.6)', opacity: 0.85 }
+                          : c.heroSize === 'shrunk'
+                            ? { transform: `rotate(${shrinkRotate}deg)` }
+                            : c.heroSize === 'enlarged'
+                              ? { transform: `scale(1.2) rotate(${enlargeRotate}deg)` }
+                              : undefined
                       }
                     />
+                    {/* Team Rocket — Pokémon VAINCU (couché, K.O.) en attente d'être attrapé. */}
+                    {c.pokemonKO && (
+                      <span
+                        title="Pokémon vaincu — attrapez-le (action Attraper) avant la fin de votre prochain tour"
+                        className="pointer-events-none absolute -top-1 left-1/2 -translate-x-1/2 rounded-full border border-white/40 bg-rose-700/90 px-1 text-[8px] font-black text-white"
+                      >
+                        K.O.
+                      </span>
+                    )}
                     {/* Madame de Trémaine — Héros CAPTURÉ (Capturé) : sa capacité est
                         ignorée (comme un Héros piraté par Boop). Overlay « Capturé ». */}
                     {c.trapped && (

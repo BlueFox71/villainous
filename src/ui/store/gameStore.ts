@@ -87,9 +87,11 @@ import { davyJones } from '../../data/villains/davyJones'
 import { davyJonesCards } from '../../data/villains/davyJones.cards'
 import { tamatoa } from '../../data/villains/tamatoa'
 import { tamatoaCards } from '../../data/villains/tamatoa.cards'
+import { teamRocket } from '../../data/villains/team-rocket'
+import { teamRocketCards } from '../../data/villains/team-rocket.cards'
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'seigneurCles' | 'madameTremaine' | 'oogieBoogie' | 'seigneurTenebres' | 'madameMim' | 'syndrome' | 'lotso' | 'saSucrerie' | 'shereKhan' | 'davyJones' | 'tamatoa'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'seigneurCles' | 'madameTremaine' | 'oogieBoogie' | 'seigneurTenebres' | 'madameMim' | 'syndrome' | 'lotso' | 'saSucrerie' | 'shereKhan' | 'davyJones' | 'tamatoa' | 'teamRocket'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -123,6 +125,7 @@ export const VILLAIN_REGISTRY = {
   shereKhan: { def: shereKhan, cards: shereKhanCards, label: 'Shere Khan' },
   davyJones: { def: davyJones, cards: davyJonesCards, label: 'Davy Jones' },
   tamatoa: { def: tamatoa, cards: tamatoaCards, label: 'Tamatoa' },
+  teamRocket: { def: teamRocket, cards: teamRocketCards, label: 'Team Rocket' },
 } as const
 
 /** Qui contrôle chaque siège. Concept d'UI : le moteur, lui, ne sait pas qui
@@ -524,8 +527,10 @@ interface GameStore {
     cardInstanceId: string,
     to?: string,
     itemInstanceId?: string,
+    allyInstanceIds?: string[],
   ) => void
   vanquish: (actionId: string, heroInstanceId: string, allyInstanceIds: string[]) => void
+  catchPokemon: (actionId: string, heroInstanceId: string) => void
   /** Le Seigneur des Ténèbres — active le Chaudron Magique réclamé (face Pouvoir). */
   activateCauldron: () => void
   /** Le Seigneur des Ténèbres — résout le choix « Chaudron OU Pouvoir ». */
@@ -710,6 +715,8 @@ interface GameStore {
   skipAllyMoveBuff: () => void
   /** Abu/Aladdin/K.O. : applique le choix (Objet volé / Allié retiré). */
   resolveFateChoice: (instanceId: string) => void
+  /** Mim — Le Savoir conduit à la Puissance : Merlin choisi déplacé vers `to`. */
+  resolveMerlinMove: (merlinInstanceId: string, to: string) => void
   /** Digne Adversaire / Obsession : joue (sur `to`) ou défausse le Héros dévoilé. */
   resolveFetchedHero: (play: boolean, to?: string) => void
   resolveCastleTheft: (to?: string) => void
@@ -748,6 +755,8 @@ interface GameStore {
   resolveDice: () => void
   /** Oogie Boogie : joue un Dés pipés pour relancer le dé `dieIndex` (0/1). */
   resolveDiceReroll: (instanceId: string, dieIndex: 0 | 1) => void
+  /** Oogie Boogie — Affaire dans le sac : choisit la valeur des deux dés. */
+  resolveDiceChoice: (dice: [number, number]) => void
   /** Oogie Boogie : renonce à l'action de royaume gratuite (Préparation de Noël ≥8). */
   skipFreeRealmAction: () => void
   /** Tuer (L'Imposteur) : défausse le Coéquipier `color` choisi. */
@@ -780,6 +789,8 @@ interface GameStore {
   resolveHack: (actionId: string) => void
   /** Sombra — Information : défausser les cartes piochées (true) ou 2 de la main. */
   resolveInformation: (discardDrawn: boolean) => void
+  /** Oogie — Père Noël : défausse les cartes choisies puis pioche. */
+  resolveDiscardThenDraw: (instanceIds: string[]) => void
   resolveTakeABite: (heroInstanceId: string) => void
   resolveDuplicateIngredient: (ingredientInstanceId: string) => void
   cancelDuplicateIngredient: () => void
@@ -1097,10 +1108,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'MOVE_CARD', actionId, instanceId, to }),
   moveHero: (actionId, heroInstanceId, to) =>
     get().submit({ type: 'MOVE_HERO', actionId, heroInstanceId, to }),
-  activate: (actionId, cardInstanceId, to, itemInstanceId) =>
-    get().submit({ type: 'ACTIVATE', actionId, cardInstanceId, to, itemInstanceId }),
+  activate: (actionId, cardInstanceId, to, itemInstanceId, allyInstanceIds) =>
+    get().submit({ type: 'ACTIVATE', actionId, cardInstanceId, to, itemInstanceId, allyInstanceIds }),
   vanquish: (actionId, heroInstanceId, allyInstanceIds) =>
     get().submit({ type: 'VANQUISH', actionId, heroInstanceId, allyInstanceIds }),
+  catchPokemon: (actionId, heroInstanceId) =>
+    get().submit({ type: 'CATCH_POKEMON', actionId, heroInstanceId, allyInstanceIds: [] }),
   activateCauldron: () => get().submit({ type: 'ACTIVATE_CAULDRON' }),
   resolveCauldronChoice: (choice: 'cauldron' | 'power') => get().submit({ type: 'RESOLVE_CAULDRON_CHOICE', choice }),
   resolveMauiChoice: (choice: 'play' | 'discard') => get().submit({ type: 'RESOLVE_MAUI_CHOICE', choice }),
@@ -1286,6 +1299,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'SKIP_ALLY_MOVE_BUFF' }),
   resolveFateChoice: (instanceId) =>
     get().submit({ type: 'RESOLVE_FATE_CHOICE', instanceId }),
+  resolveMerlinMove: (merlinInstanceId, to) =>
+    get().submit({ type: 'RESOLVE_MERLIN_MOVE', merlinInstanceId, to }),
   resolveFetchedHero: (play, to) =>
     get().submit({ type: 'RESOLVE_FETCHED_HERO', play, to }),
   resolveCastleTheft: (to) =>
@@ -1319,6 +1334,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   resolveDice: () => get().submit({ type: 'RESOLVE_DICE' }),
   resolveDiceReroll: (instanceId, dieIndex) =>
     get().submit({ type: 'RESOLVE_DICE_REROLL', instanceId, dieIndex }),
+  resolveDiceChoice: (dice) => get().submit({ type: 'RESOLVE_DICE_CHOICE', dice }),
   skipFreeRealmAction: () => get().submit({ type: 'SKIP_FREE_REALM_ACTION' }),
   resolveCrewmateKill: (color) =>
     get().submit({ type: 'RESOLVE_CREWMATE_KILL', color }),
@@ -1347,6 +1363,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   acknowledgeReveal: () => get().submit({ type: 'ACKNOWLEDGE_REVEAL' }),
   resolveHack: (actionId) => get().submit({ type: 'RESOLVE_HACK', actionId }),
   resolveInformation: (discardDrawn) => get().submit({ type: 'RESOLVE_INFORMATION', discardDrawn }),
+  resolveDiscardThenDraw: (instanceIds) => get().submit({ type: 'RESOLVE_DISCARD_THEN_DRAW', instanceIds }),
   resolveTakeABite: (heroInstanceId) =>
     get().submit({ type: 'RESOLVE_TAKE_A_BITE', heroInstanceId }),
   resolveDuplicateIngredient: (ingredientInstanceId) =>

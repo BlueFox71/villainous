@@ -37,6 +37,17 @@ export function objectiveScore(p: PlayerState): number {
   switch (p.objective.type) {
     case 'POWER_THRESHOLD':
       return Math.min(p.power, p.objective.threshold) / p.objective.threshold
+    case 'CAPTURE_POKEMON': {
+      // Team Rocket : capturer `count` Pokémon dont Pikachu. Progression = Pokémon
+      // capturés / objectif ; sans Pikachu la victoire est impossible → plafonné.
+      // TODO phase 4 : affiner (crédit pour Pokémon présents à portée de capture,
+      // force d'Alliés réunie) et valider la jauge avec l'utilisateur.
+      const obj = p.objective
+      const pile = p.capturedPokemon ?? []
+      const hasRequired = pile.some((c) => c.cardId === obj.requiredCardId)
+      const s = Math.min(pile.length, obj.count) / obj.count
+      return hasRequired ? s : Math.min(s, 0.85)
+    }
     case 'KING_CANDY_RACE': {
       // Sa Sucrerie : avant la course, jalonner l'arrivée de Vanellope dans le royaume
       // puis l'attache d'un Bug. Pendant la course, refléter la VRAIE proximité : la

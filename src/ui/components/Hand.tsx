@@ -594,6 +594,7 @@ export function Hand({
           // sert au clic (mode 'play') ET au glisser-déposer (dragPlayActionId).
           const canPlay =
             card.type !== 'condition' &&
+            !card.reactiveOnly &&
             cost <= power &&
             (!needsAlly || attachTargetsAvailable) &&
             heroHostOk &&
@@ -655,6 +656,8 @@ export function Hand({
           const unplayableReason: string | null = !canPlay
             ? card.type === 'condition'
               ? 'Une Condition se joue en réaction, pendant le tour d’un adversaire.'
+              : card.reactiveOnly
+                ? 'Cette carte se joue en réaction, juste après un lancer de dés (pas via Jouer une carte).'
               : cost > power
                 ? `Pas assez de Pouvoir : coût ${cost}, vous avez ${power}.`
                 : needsAlly && !attachTargetsAvailable

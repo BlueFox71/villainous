@@ -9,6 +9,31 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.88',
+    date: '2026-06-27',
+    title: 'Nouveau vilain : la Team Rocket !',
+    changes: [
+      'Un nouveau vilain jouable : la Team Rocket (Jessie, James et Miaouss) ! Son plateau (Laboratoire du Pr Chen, Forêt, Centre Pokémon, Arène), son pion, sa présentation et ses 33 cartes sont en jeu.',
+      'Objectif inédit : CAPTURER au moins 4 Pokémon dont Pikachu. La capture se fait en DEUX temps : 1) VAINCRE le Pokémon (réunissez assez de Force d’Alliés) — il n’est pas défaussé mais COUCHÉ (K.O.) sur place ; 2) utilisez l’action « Attraper un Pokémon » (la Pokéball, au Laboratoire) pour l’ajouter à votre pile de Captures.',
+      'Attention : un Pokémon couché que vous n’attrapez pas avant la fin de votre prochain tour s’échappe (défausse). Une carte couchée est affichée inclinée avec un repère « K.O. ».',
+      'Chaque dresseur (Sacha, Ondine, Pierre) fait APPARAÎTRE son Pokémon : dès qu’il arrive, il sort l’un de ses Pokémon de la pioche Fatalité et le pose sur le même lieu (Sacha → Pikachu ou Dracaufeu, etc.).',
+      'Dracaufeu renforce de +1 la Force de tous les autres Pokémon ; Togepi fait perdre du Pouvoir à la Team Rocket (1 par Héros présent) ; « Oh des pokémons ! » se joue au tour adverse pour gagner 3 Pouvoir. Vos Alliés peuvent évoluer en bêtes plus puissantes (Abo→Arbok, Smogo→Smogogo, Miaouss→Persian), Arbok et Abo affaiblissent les Héros de leur lieu, et la Mongolfière vous transporte d’un lieu à l’autre.',
+      'Voix d’intro de la Team Rocket à l’écran de présentation.',
+      'IA : le bot joue Team Rocket (il vise la capture) et, quand il la fatalise, il ÉVITE de lui offrir des Pokémon ou des dresseurs — ce serait lui faire un cadeau ! — sauf le Badge, qui rend une capture plus coûteuse.',
+      'Première version du vilain : quelques cartes (Évolution, Conditions « Oui la guerre ! » et « Pour vous jouer un mauvais tour », Repérage, Toilettage, James, Onix, Stari, Smogo/Smogogo, rose de James, Pokédex volé) sont encore en cours d’implémentation et arriveront dans une prochaine mise à jour.',
+    ],
+  },
+  {
+    version: '0.87',
+    date: '2026-06-26',
+    title: 'Nouveau décor d’arrière-plan : la jungle de Shere Khan',
+    changes: [
+      'Nouveau décor d’arrière-plan pour Shere Khan (Le Livre de la Jungle) : une jungle à contre-jour au crépuscule — lianes qui pendent du haut et se balancent en silhouette, touffes de feuillage, feuilles qui dérivent en tournoyant, rais de lumière chaude qui filtrent à travers la canopée et lucioles ambrées qui flottent et clignotent.',
+      'Et par moments, Shere Khan lui-même traverse le bas de la jungle en rôdant (silhouette noire qui marche de gauche à droite), puis disparaît dans la végétation.',
+      'Deuxième surprise : « la Fleur Rouge » — tout s’embrase d’un coup (le fond vire à l’orangé, un mur de flammes monte avec braises et lueur), puis l’incendie se dissipe. Un clin d’œil au feu que le tigre redoute (et à ses jetons Feu).',
+    ],
+  },
+  {
     version: '0.86',
     date: '2026-06-26',
     title: 'Nouvelle animation de pioche : les cartes sont révélées au centre',

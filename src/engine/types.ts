@@ -37,6 +37,10 @@ export type LocationActionType =
   /** Le Seigneur des clés : « Obtenir une clé » — ramasse une clé présente sur le
    *  lieu courant (choix interactif). */
   | 'OBTAIN_KEY'
+  /** Team Rocket : « Attraper un Pokémon » — comme un Vanquish, mais cible un
+   *  Pokémon (Héros `isPokemon`) présent : il part dans la pile de Captures au lieu
+   *  de la défausse Fatalité. Compte pour l'objectif CAPTURE_POKEMON. */
+  | 'CATCH_POKEMON'
 
 /** Rangée d'une action sur le plateau. Les héros recouvrent la rangée du HAUT
  *  d'un lieu : la position est donc structurante pour la mécanique de Fatalité
@@ -301,6 +305,11 @@ export type ObjectiveDef =
    *  révéler → vaincre ce Héros). Victoire ÉVÉNEMENTIELLE — déclenchée quand
    *  `claimedTreasures.length` atteint `count` (au Vanquish d'un Héros à trésor révélé). */
   | { type: 'CLAIM_ALL_TREASURES'; count: number }
+  /** Team Rocket : au début de son tour, avoir au moins `count` Pokémon dans la pile
+   *  de Captures (`capturedPokemon`), dont obligatoirement celui de cardId `requiredCardId`
+   *  (Pikachu). Les Pokémon arrivent par la Fatalité et sont capturés via l'action
+   *  CATCH_POKEMON (Attraper). */
+  | { type: 'CAPTURE_POKEMON'; count: number; requiredCardId: string }
 
 /** Pat Hibulaire — les 5 types de tuile Objectif (4 tirés par partie) :
  *  - `win-big`        : gagner ≥4 Pouvoir via UNE SEULE Petite Partie ? sur le lieu ;
@@ -448,6 +457,9 @@ export type Effect =
   | { type: 'DORMANT_BLACK_CAULDRON' }
   /** Pioche `count` cartes (Capturés). */
   | { type: 'DRAW_CARDS'; count: number }
+  /** Oogie — Père Noël : défausse FACULTATIVE d'autant de cartes que voulu (choix
+   *  du joueur, ouvre pendingDiscardThenDraw), PUIS pioche `draw` cartes. */
+  | { type: 'DISCARD_ANY_THEN_DRAW'; draw: number }
   // --- Sa Sucrerie (King Candy / Sugar Rush) --------------------------------
   /** Bug (Glitch) : la carte vient d'être associée à Vanellope → LANCE la course :
    *  place le pion King Candy ET le jeton Pilote sur Départ/Arrivée (index 0),
@@ -980,6 +992,9 @@ export type Effect =
   | { type: 'REASSURE_ANY' }
   /** Gagne `amount` pouvoir par Héros présent dans le royaume (Magnifiques Taxes). */
   | { type: 'GAIN_POWER_PER_HERO_IN_REALM'; amount: number }
+  /** Team Rocket — Togepi (Fatalité) : RETIRE `amount` pouvoir à l'acteur par Héros
+   *  présent dans son royaume (plancher 0). */
+  | { type: 'LOSE_POWER_PER_HERO_IN_REALM'; amount: number }
   /** Gagne `amount` pouvoir par Allié présent dans le royaume (arceaux inclus —
    *  ils comptent comme Alliés). Reine de Cœur : Joyeux non-anniversaire. */
   | { type: 'GAIN_POWER_PER_ALLY_IN_REALM'; amount: number }
@@ -1597,6 +1612,11 @@ export interface CardInstance {
    *  ou Métamorphose de Merlin (Héros, deck Merlin, posée au Lieu du Duel). */
   isMimTransformation?: boolean
   isMerlinTransformation?: boolean
+  /** Oogie Boogie — Prisonnier (Perce-Oreilles) posé à l'Antre au setup. C'est une
+   *  carte de type 'hero' mais qui n'est PAS un Héros au sens du jeu : non vaincable,
+   *  ignorée par tous les prédicats « Héros » (ciblage Vaincre, comptages, présence,
+   *  auras de force). Sert uniquement d'ancre à la pile d'Imposteurs (objectif). */
+  isPrisoner?: boolean
   /** Tamatoa — carte de la pioche MAUI (séparée du deck Fatalité au setup). */
   isMauiCard?: boolean
   /** Tamatoa — Chauves-souris à huit yeux : peuvent rejoindre un Allié qu'on vient de jouer. */
@@ -1737,6 +1757,23 @@ export interface CardInstance {
    *  sur Les Enfers, déplacé (en payant du Pouvoir) vers le Mont Olympe. Compte
    *  pour l'objectif s'il y arrive sans être entravé. Recopié de CardDef. */
   isTitan?: boolean
+  /** Team Rocket — POKÉMON : Héros (deck Fatalité) qui se CAPTURE (action Attraper /
+   *  CATCH_POKEMON) au lieu de se vaincre — il rejoint la pile de Captures. Compte
+   *  pour l'objectif CAPTURE_POKEMON. Recopié de CardDef. */
+  isPokemon?: boolean
+  /** Team Rocket — DRESSEUR (Héros Fatalité) : à sa pose, on cherche l'un de ces
+   *  Pokémon (cardId) dans la pioche Fatalité et on le pose sur le même lieu (Sacha →
+   *  Pikachu/Dracaufeu…). Recopié de CardDef. */
+  summonsPokemonCardIds?: string[]
+  /** Team Rocket — Pokémon invoqué : instanceId du dresseur qui l'a fait venir (lien
+   *  « si ce Pokémon est défaussé, défaussez aussi le dresseur »). */
+  summonedByInstanceId?: string
+  /** Team Rocket — Pokémon VAINCU mais pas encore attrapé : « couché » (K.O.), il
+   *  RESTE sur son lieu (ne recouvre plus d'action, n'est plus vaincable). On l'attrape
+   *  via l'action Attraper (→ pile de Captures). `koOnTurn` = n° du tour où il a été
+   *  vaincu ; non attrapé à la fin du tour suivant, il part en défausse Fatalité. */
+  pokemonKO?: boolean
+  koOnTurn?: number
   /** Hadès — Titan « entravé » par un Héros (Zeus, Héra, Éclairs…). Un Titan
    *  entravé ne peut plus être déplacé, ne participe pas aux Vanquish et ne compte
    *  pas pour l'objectif tant qu'il n'est pas désentravé. État de jeu (runtime). */
@@ -1945,7 +1982,7 @@ export type StrengthMod =
    *  lieu). `excludeSelf` : la carte source ne s'affecte pas (Adam de la Halle :
    *  +1 à tous les AUTRES Héros). `exceptCardId` : un Héros de ce cardId n'est PAS
    *  affecté (Lotso — Chapeau de Woody : −1 à tous les Héros SAUF Woody). */
-  | { target: 'heroes-realm'; delta: number; excludeSelf?: boolean; exceptCardId?: string }
+  | { target: 'heroes-realm'; delta: number; excludeSelf?: boolean; exceptCardId?: string; onlyPokemon?: boolean }
 
 /** Modificateur passif qu'une carte applique à SA PROPRE force selon une
  *  condition. Donnée réutilisable : le moteur évalue chaque variant, la carte ne
@@ -2326,6 +2363,10 @@ export interface PlayerState {
    *  accessibles même si elles sont recouvertes (Héros ou jeton Pilote). Consommé en
    *  fin de tour. */
   turboUncoverThisTurn?: boolean
+  /** Team Rocket — PILE DE CAPTURES : les Pokémon (Héros `isPokemon`) capturés via
+   *  l'action Attraper (CATCH_POKEMON), conservés ici au lieu d'être défaussés.
+   *  Objectif CAPTURE_POKEMON : en avoir ≥ count dont Pikachu. `undefined` ailleurs. */
+  capturedPokemon?: CardInstance[]
 }
 
 /**
@@ -2364,10 +2405,15 @@ export interface PendingDice {
   total: number
   /** Libellé de la carte/contexte (journal + modale). */
   context: string
+  /** Id de la carte à l'origine du lancer (affichée à côté de la modale). */
+  cardId?: string
   /** Ce qu'il faut faire du total une fois confirmé. */
   outcome: DiceOutcome
   /** Vrai si le joueur peut encore relancer (un Dés pipés en main). Recalculé. */
   canReroll: boolean
+  /** Oogie — Cette fois l'affaire est dans le sac : le joueur CHOISIT le résultat des
+   *  dés (au lieu de lancer). Le bot garde l'auto-best (dice par défaut). */
+  chooseDice?: boolean
 }
 
 /**
@@ -2473,6 +2519,9 @@ export interface GameState {
     drawnIds: string[]
     discardCount: number
   } | null
+  /** Oogie — Qu'est-ce que le Père Noël t'a apporté ? : le joueur défausse autant de
+   *  cartes qu'il veut de sa main (RESOLVE_DISCARD_THEN_DRAW), puis pioche `draw`. */
+  pendingDiscardThenDraw?: { playerIndex: number; draw: number } | null
   /**
    * Aurore : un Héros révélé doit être posé sur le plateau de `targetIndex`, et
    * c'est `chooserIndex` (le joueur qui a joué la Fatalité) qui choisit le lieu
@@ -2790,7 +2839,7 @@ export interface GameState {
   lastDieColor?: KeyColor | null
   /** Oogie Boogie — dernier lancer des 2 dés, pour l'animation UI. `seq` croît à
    *  chaque lancer (relances comprises) ; `by` = index du joueur qui lance. */
-  diceRoll?: { seq: number; dice: [number, number]; total: number; modifier: number; by: number; context: string } | null
+  diceRoll?: { seq: number; dice: [number, number]; total: number; modifier: number; by: number; context: string; cardId?: string } | null
   /** Oogie Boogie — fenêtre de résolution d'un lancer en cours (RESOLVE_DICE /
    *  RESOLVE_DICE_REROLL). `null` hors d'un lancer. */
   pendingDice?: PendingDice | null
@@ -2986,6 +3035,10 @@ export interface GameState {
     hostInstanceId?: string
     candidateIds: string[]
   } | null
+  /** Madame Mim — Le Savoir conduit à la Puissance (Fatalité) : `chooserIndex`
+   *  choisit une Métamorphose de Merlin (`candidateIds`) du royaume de `targetIndex`
+   *  et un lieu de destination (RESOLVE_MERLIN_MOVE). */
+  pendingMerlinMove?: { chooserIndex: number; targetIndex: number; candidateIds: string[] } | null
   /** Digne Adversaire / Obsession (Capitaine Crochet) : `playerIndex` a dévoilé son
    *  deck Fatalité jusqu'à `hero` ; il choisit de le JOUER (et où) ou de le DÉFAUSSER
    *  (RESOLVE_FETCHED_HERO). `discarded` = autres cartes dévoilées (à défausser),
@@ -3072,6 +3125,9 @@ export interface GameState {
     playerIndex: number
     viaCanne?: boolean
     viaFollowMe?: boolean
+    /** Oogie — Préparation de Noël (≥8) : action gratuite sur N'IMPORTE QUEL lieu du
+     *  royaume (hors Fatalité). Les lieux candidats sont listés dans `locations`. */
+    viaChristmas?: boolean
     locations?: string[]
   } | null
   /** Colère Titanesque : tant que ce champ est posé, le joueur actif agit comme
@@ -3157,6 +3213,11 @@ export interface GameState {
     cards: CardInstance[]
     keptInstanceId?: string
     title?: string
+    /** Texte explicatif sous le titre (sinon texte par défaut « Objet trouvé… »). */
+    subtitle?: string
+    /** Cartes à surligner comme Héros (Oogie — Ce sont des vacances : les Héros
+     *  dévoilés qui déclenchent une pioche). */
+    heroInstanceIds?: string[]
   } | null
   /** Sombra — Piratage : `playerIndex` vient de poser le Piratage `instanceId` sur
    *  `locationId` et doit CHOISIR l'action de ce lieu à désactiver (recouverte par un
@@ -3424,10 +3485,17 @@ export type GameAction =
       cardInstanceId: string
       to?: LocationId
       itemInstanceId?: string
+      /** Oogie — Baignoire : Alliés (de l'ancien lieu) à emmener vers `to`. Absent =
+       *  tous (comportement par défaut / bot). */
+      allyInstanceIds?: string[]
     }
   /** Éliminer un Héros : somme des forces des alliés ≥ force du héros. Le héros
    *  va à la défausse Fatalité, les alliés (et leurs objets associés) à la défausse. */
   | { type: 'VANQUISH'; actionId: string; heroInstanceId: string; allyInstanceIds: string[] }
+  /** Team Rocket — Attraper un Pokémon : comme VANQUISH, mais la cible est un Pokémon
+   *  (Héros `isPokemon`) ; il rejoint la pile de Captures (`capturedPokemon`) au lieu de
+   *  la défausse Fatalité. Compte pour l'objectif CAPTURE_POKEMON. */
+  | { type: 'CATCH_POKEMON'; actionId: string; heroInstanceId: string; allyInstanceIds: string[] }
   /** Le joueur actif paie 2 JT pour défausser un Déguisement Fatalité associé
    *  à un Héros adverse de SON plateau. Action hors-tour-de-lieu. */
   | { type: 'DISCARD_DEGUISEMENT'; instanceId: string }
@@ -3737,6 +3805,12 @@ export type GameAction =
   /** Sombra — Information : `discardDrawn` = true → défausse les cartes piochées ;
    *  false → ouvre la sélection pour défausser `discardCount` cartes de la main. */
   | { type: 'RESOLVE_INFORMATION'; discardDrawn: boolean }
+  /** Oogie — Père Noël : défausse les cartes choisies de la main puis pioche. */
+  | { type: 'RESOLVE_DISCARD_THEN_DRAW'; instanceIds: string[] }
+  /** Oogie — Affaire dans le sac : le joueur choisit la valeur des deux dés. */
+  | { type: 'RESOLVE_DICE_CHOICE'; dice: [number, number] }
+  /** Mim — Le Savoir conduit à la Puissance : Merlin choisi déplacé vers `to`. */
+  | { type: 'RESOLVE_MERLIN_MOVE'; merlinInstanceId: string; to: LocationId }
   /** La Méchante Reine — « Croque ! » : élimine le Héros choisi (`heroInstanceId`)
    *  en défaussant autant de Poison que sa force. */
   | { type: 'RESOLVE_TAKE_A_BITE'; heroInstanceId: string }

@@ -135,13 +135,23 @@ export type VillainDecor =
   // douces paillettes flottantes et vignette tiède. 100 % CSS. [surprise = pluie de jouets, à venir]
   | { kind: 'sunnyside' }
   // `oogie` : la tanière-casino d'Oogie Boogie (L'Étrange Noël de Monsieur Jack). Pénombre, LUEUR de
-  // LUMIÈRE NOIRE verte & violette qui pulse, DÉS lumineux qui flottent en tournant lentement (clin
-  // d'œil à sa mécanique 2d6) et fine poussière verte qui monte. 100 % CSS. [surprise + animation à venir]
+  // LUMIÈRE NOIRE verte & violette qui pulse et poussière verte qui monte, surmontées d'une déco
+  // HALLOWEEN : guirlande de fanions/fantômes en haut, citrouille à chapeau qui luit dans un coin, un
+  // gros DÉ unique (faces réelles du dé en os rouge) qui flotte et bascule sur une nouvelle face toutes
+  // les 10 s, et 2-3 PERCE-OREILLES qui se baladent. Surprise : une nuée de perce-oreilles se déverse.
   | { kind: 'oogie' }
   // `candy` : le monde de bonbons de Sugar Rush (Sa Sucrerie / Roi Candy — Les Mondes de Ralph). Fond
   // rose/magenta gourmand, VERMICELLES colorés (sprinkles) qui tombent en voletant, BOKEH sucré qui
-  // dérive et scintille, bande de GLAÇAGE blanc en bas et vignette. 100 % CSS. [surprise à venir]
+  // dérive et scintille, bande de GLAÇAGE blanc en bas, et la COURSE de Sugar Rush : une PISTE (route) qui
+  // défile en bas, des TRAÎNÉES de vitesse et des BONBONS-BOLIDES qui la filent.
   | { kind: 'candy' }
+  // `jungle` : la jungle À CONTRE-JOUR de Shere Khan (Le Livre de la Jungle). Fond vert-jungle sombre +
+  // lueur chaude au centre + vignette, RAIS de lumière chaude qui filtrent, LIANES (images) qui pendent du
+  // haut et se balancent en silhouette, FEUILLES (image) en silhouette qui encadrent et dérivent, LUCIOLES
+  // ambrées qui flottent et clignotent. Deux SURPRISES minutées : SHERE KHAN (silhouette noire) qui TRAVERSE
+  // le bas de la colonne de gauche à droite en rôdant ; et « la Fleur Rouge » où tout S'EMBRASE (voile
+  // orangé + mur de flammes + braises + lueur) le temps d'une bouffée, puis se dissipe.
+  | { kind: 'jungle' }
 
 export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   patHibulaire: { kind: 'film' },
@@ -203,11 +213,16 @@ export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   // dérivent, teinte rose fraise chaude, paillettes douces. 100 % CSS.
   lotso: { kind: 'sunnyside' },
   // Oogie Boogie (L'Étrange Noël de Monsieur Jack) : sa tanière-casino — lumière noire verte/violette
-  // pulsante, dés lumineux qui flottent en tournant, poussière verte. 100 % CSS.
+  // pulsante, poussière verte, déco Halloween (guirlande, citrouille, perce-oreilles) et un gros dé aux
+  // faces réelles qui flotte et change de face toutes les 10 s. Surprise : nuée de perce-oreilles.
   oogieBoogie: { kind: 'oogie' },
   // Sa Sucrerie (Roi Candy — Les Mondes de Ralph) : le monde de bonbons de Sugar Rush — fond rose
-  // gourmand, vermicelles colorés qui voletent, bokeh sucré, glaçage blanc en bas. 100 % CSS.
+  // gourmand, vermicelles colorés qui voletent, bokeh sucré, glaçage blanc en bas, et la course de
+  // Sugar Rush : piste (route) qui défile, traînées de vitesse et bonbons-bolides.
   saSucrerie: { kind: 'candy' },
+  // Shere Khan (Le Livre de la Jungle) : la jungle à contre-jour — lianes & feuilles en silhouette,
+  // rais de lumière chaude, lucioles, et Shere Khan qui traverse en rôdant (surprise).
+  shereKhan: { kind: 'jungle' },
 }
 
 /** Décor permanent d'un vilain (undefined si non défini). */
@@ -282,11 +297,40 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
         ],
         videos: [],
       }
+    case 'candy':
+      // La PISTE de course (route) + les bonbons-bolides (cf. CANDY_RACERS dans CandyDecor).
+      return {
+        images: [
+          '/animations/candy-street.jpg',
+          '/animations/bonbon-1.png', '/animations/bonbon-2.png', '/animations/bonbon-5.png',
+          '/animations/bonbon-9.png', '/animations/bonbon-11.png', '/animations/bonbon-13.png',
+          '/animations/bonbon-11-jaune.png', '/animations/bonbon-11-vert.png',
+          '/animations/bonbon-11-bleu.png', '/animations/bonbon-11-violet.png',
+        ],
+        videos: [],
+      }
+    case 'oogie':
+      // Les 6 faces réelles du dé en os rouge + la déco Halloween (guirlande, citrouille, perce-oreille).
+      return {
+        images: [
+          ...Array.from({ length: 6 }, (_, i) => `/cards/oogie-boogie/die-${i + 1}.png`),
+          '/animations/guirlande_halloween.png', '/animations/citrouille.png', '/animations/perce_oreille.png',
+        ],
+        videos: [],
+      }
     case 'cauldron':
       // Les Soldats Ressuscités de la surprise « éruption du Chaudron » (cf. CauldronDecor).
       return { images: ['/animations/squelettes.png'], videos: [] }
     case 'cruella':
       return { images: ['/animations/patte.png'], videos: [] }
+    case 'jungle':
+      return {
+        images: [
+          '/animations/shere_khan.png', '/animations/feuille.png',
+          '/animations/liane-1.png', '/animations/liane-3.png', '/animations/liane-4.png', '/animations/liane-5.png',
+        ],
+        videos: [],
+      }
     case 'goldenHair':
       // La fleur d'or magique + les 3 pétales de Gaston (colorés en doré) qui tombent.
       return {
@@ -325,7 +369,7 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
         videos: [],
       }
     // Décors 100 % CSS (aucun fichier à précharger) : film, sand, space, petals,
-    // clockwork, cyber, cauldron, sunnyside, oogie, candy.
+    // clockwork, cyber, cauldron, sunnyside.
     default:
       return none
   }

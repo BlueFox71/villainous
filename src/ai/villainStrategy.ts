@@ -814,6 +814,27 @@ export const VILLAIN_STRATEGY: Record<string, VillainStrategy> = {
       'equipage-hollandais': 1,
     },
   },
+
+  // --- Team Rocket (objectif : capturer 4 Pokémon dont Pikachu) ------------------
+  // INVERSION : les Pokémon (et les dresseurs qui les invoquent) sont ses CIBLES de
+  // capture → les lui jouer en Fatalité l'AIDE (surtout Pikachu, requis pour gagner).
+  // Le bot qui fatalise Team Rocket les évite ; sa gêne réelle = Badge (capture plus
+  // dure) et les cartes qui retirent ses outils/Captures. Quand le bot JOUE Team
+  // Rocket, son moteur = ses gros Alliés (capteurs).
+  'team-rocket': {
+    enginePieces: {
+      persian: 3, // force 4, portée n'importe quel lieu (capteur premium)
+      arbok: 2, // force 3 + affaiblit les Héros de son lieu
+      smogogo: 2, // force 3 + action distante
+      miaouss: 1, // force 3, portée lieu voisin
+    },
+    fateTargeting: {
+      avoidPlayingHeroes: [
+        'pikachu', 'dracaufeu', 'stari', 'togepi', 'goupix', 'onix', // Pokémon = cibles de capture
+        'sacha', 'ondine', 'pierre', // dresseurs : invoquent un Pokémon (cadeau)
+      ],
+    },
+  },
 }
 
 /** Bonus de placement gagné quand une carte est sur son lieu préféré. */

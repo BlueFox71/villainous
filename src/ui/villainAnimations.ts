@@ -78,10 +78,15 @@ export interface VillainAnimation {
    *  - `smoke-field` : pas de trajet ; des bouffées de FUMÉE VERTE (CSS, sans image) apparaissent PARTOUT
    *    sur l'écran (positions au hasard sur toute la surface), gonflent en montant un peu et se fondent,
    *    départs échelonnés → la fumée envahit tout l'écran le temps du passage (Le Seigneur des Ténèbres).
-   *    Densité réglable via `count`. */
+   *    Densité réglable via `count`.
+   *  - `overgrowth` : pas de trajet ; la JUNGLE envahit tout l'écran — des LIANES poussent depuis le haut
+   *    (elles s'allongent vers le bas) et des FEUILLES éclosent un peu partout (apparition en grandissant),
+   *    départs échelonnés, puis tout se dissipe en fondu (Shere Khan). Assets de jungle (liane-1/3/4/5,
+   *    feuille) câblés dans le rendu. */
   path?:
     | 'cross' | 'sky-arc' | 'drift-spin' | 'pages' | 'roses' | 'coins' | 'water-cross'
     | 'rise' | 'voodoo' | 'fire-bottom' | 'fade' | 'paws' | 'petals' | 'jet-cross' | 'smoke-field'
+    | 'overgrowth'
   /** Tire quelques coups de canon (lueur + fumée à la bouche du canon avant)
    *  pendant le vol. Réservé aux trajectoires `sky-arc`. */
   cannons?: boolean
@@ -113,11 +118,20 @@ export interface VillainAnimation {
   gait?: boolean
   /** Trajectoire `cross` : RETOURNE l'image verticalement (haut/bas, scaleY(-1)) (Madame Mim). */
   flipVertical?: boolean
+  /** Trajectoire `water-cross` avec une IMAGE : ADOUCIT les bords (masque radial, comme le clip Tic-Tac
+   *  de Crochet) → le bord du GIF/image se fond au lieu d'un cadre net (Pat Hibulaire : son steamboat). */
+  softEdges?: boolean
   /** Trajectoire `cross` : RETOURNE l'image horizontalement (miroir gauche/droite, scaleX(-1)), en plus
    *  du sens de marche (Madame Mim). */
   flipHorizontal?: boolean
   /** Trajectoire `cross` : ajoute une LÉGÈRE VIBRATION continue à l'image pendant la traversée (Madame Mim). */
   vibrate?: boolean
+  /** Trajectoire `petals` : couleur (CSS) de la LUEUR autour des pétales (double halo). Défaut : rose de
+   *  la rose enchantée (Gaston). Ex. doré pour la fleur magique de Mère Gothel. */
+  petalGlow?: string
+  /** Trajectoire `petals` : les pétales portent-ils une petite FLAMMÈCHE ? Défaut `true` (rose enflammée
+   *  de Gaston). Mettre `false` pour des pétales sans flamme (fleur d'or de Mère Gothel). */
+  petalFlame?: boolean
 }
 
 // Un vilain peut avoir UNE animation, ou PLUSIEURS (tableau) : dans ce cas le planificateur
@@ -168,6 +182,24 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
     path: 'water-cross',
     gait: true, // la baignoire marche → léger dandinement (rebond + balancement), SANS traînée de pas
   },
+  // Sa Sucrerie (Roi Candy — Les Mondes de Ralph) : une PLUIE DE BONBONS (15 gommes/oursons colorés tirés
+  // au hasard) tombe du ciel en tournoyant, sur toute la largeur — comme la pluie de pièces de Prince Jean.
+  saSucrerie: {
+    images: [
+      '/animations/bonbon-1.png', '/animations/bonbon-2.png', '/animations/bonbon-3.png',
+      '/animations/bonbon-4.png', '/animations/bonbon-5.png', '/animations/bonbon-6.png',
+      '/animations/bonbon-7.png', '/animations/bonbon-8.png', '/animations/bonbon-9.png',
+      '/animations/bonbon-10.png', '/animations/bonbon-11.png', '/animations/bonbon-12.png',
+      '/animations/bonbon-13.png', '/animations/bonbon-14.png', '/animations/bonbon-15.png',
+      // Variantes de couleur du nounours (bonbon-11) : jaune / vert / bleu / violet.
+      '/animations/bonbon-11-jaune.png', '/animations/bonbon-11-vert.png',
+      '/animations/bonbon-11-bleu.png', '/animations/bonbon-11-violet.png',
+    ],
+    heightPct: 6, // taille de base d'un bonbon (variée par bonbon dans le composant)
+    durationSec: 9, // couvre l'étalement des chutes (délais + durée de chute)
+    count: 40,
+    path: 'coins',
+  },
   // Bowser (Super Mario Galaxy) : le bateau pirate volant entre par le milieu-gauche
   // et s'élève en arc dans le ciel jusqu'à sortir en haut à droite, canons tonnants.
   bowser: {
@@ -213,6 +245,18 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
     heightPct: 22, // hauteur du clip (ratio 4:3 conservé)
     durationSec: 9.6, // = durée du clip → une lecture complète pendant la traversée
     path: 'water-cross',
+  },
+  // Pat Hibulaire (vieux cartoons Mickey) : le STEAMBOAT WILLIE (GIF animé) traverse le HAUT de l'écran
+  // en dérivant, comme le Tic-Tac de Crochet / le dirigeable de Ratigan (`water-cross`). Le GIF anime
+  // tout seul le bateau (fumée, etc.). (Le décor permanent « vieille pellicule » est dans villainDecor.ts.)
+  patHibulaire: {
+    image: '/animations/steamboat.gif',
+    heightPct: 20, // taille du bateau (GIF 402×336)
+    topPct: 3, // hauteur de la traversée
+    durationSec: 13, // une traversée complète, dérive tranquille
+    path: 'water-cross',
+    facesLeft: true, // le bateau regarde à gauche au naturel → miroité dans son sens de marche
+    softEdges: true, // bords adoucis (masque radial), comme le clip Tic-Tac
   },
   // Yzma (Kuzco) : Kronk traverse le HAUT de l'écran (les deux camps) en courant, portant le
   // palanquin — même trajectoire que le Tic-Tac de Crochet (`water-cross`, droite → gauche).
@@ -363,6 +407,16 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
     durationSec: 15, // couvre l'étalement des chutes (délais + chute lente)
     path: 'petals',
   },
+  // Mère Gothel (Raiponce) : les pétales de la FLEUR D'OR magique tombent en voletant, nimbés d'une
+  // LUEUR DORÉE et SANS flamme (même trajectoire que les pétales de Gaston, variante dorée).
+  gothel: {
+    images: ['/animations/flower_sans_tige.png'],
+    heightPct: 5, // taille de base d'un pétale (variée par pétale dans le composant)
+    durationSec: 15, // couvre l'étalement des chutes (délais + chute lente)
+    path: 'petals',
+    petalGlow: 'rgba(255, 214, 120, 0.9)', // lueur dorée de la fleur magique
+    petalFlame: false, // pas de flammèche : ce sont des pétales d'or, pas la rose enflammée
+  },
   // Lotso (Toy Story 3) : pluie de FRAISES (Lotso sent la fraise) — elles tombent du haut en tournoyant
   // (trajectoire `coins`, comme les pièces de Prince Jean). (La garderie Sunnyside + l'averse de jouets
   // surprise sont un DÉCOR PERMANENT — cf. SunnysideDecor dans components/VillainDecor.tsx.)
@@ -384,6 +438,13 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
     path: 'cross',
     flipHorizontal: true, // image retournée horizontalement (miroir)
     vibrate: true, // légère vibration pendant le passage
+  },
+  // Shere Khan (Le Livre de la Jungle) : la JUNGLE envahit tout l'écran — des lianes poussent depuis le
+  // haut et des feuilles éclosent partout, puis tout se dissipe. (Le décor permanent de jungle + ses
+  // surprises feu/tigre sont, eux, dans villainDecor.ts, kind `jungle`.)
+  shereKhan: {
+    durationSec: 9, // le temps que la jungle envahisse l'écran (départs échelonnés) puis se dissipe
+    path: 'overgrowth',
   },
   // L'Imposteur (Among Us) : un équipier éjecté (couleur au hasard) dérive en ligne
   // droite du haut-gauche vers le bas-droite en tournant lentement sur lui-même.
