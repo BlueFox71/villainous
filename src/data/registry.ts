@@ -42,6 +42,7 @@ import { saSucrerieCards } from './villains/sa-sucrerie.cards'
 import { shereKhanCards } from './villains/shereKhan.cards'
 import { davyJonesCards } from './villains/davyJones.cards'
 import { tamatoaCards } from './villains/tamatoa.cards'
+import { dioCards } from './villains/dio.cards'
 
 /** Toutes les cartes, tous vilains confondus. Source unique : ajouter un vilain
  *  ici le fait entrer dans le registre ET dans les tests d'intégrité globaux
@@ -78,6 +79,7 @@ export const allCards: CardDef[] = [
   ...shereKhanCards,
   ...davyJonesCards,
   ...tamatoaCards,
+  ...dioCards,
 ]
 
 // On attache le classement « malus Fatalité » (data IA) au CardDef, sans muter
@@ -86,9 +88,20 @@ const byId: Record<string, CardDef> = Object.fromEntries(
   allCards.map((c) => [c.id, FATE_MALUS[c.id] ? { ...c, fateMalus: FATE_MALUS[c.id] } : c]),
 )
 
-/** Résout une CardDef depuis son cardId (toutes vilains confondus). Renvoie
- *  undefined si la carte est inconnue (typiquement une carte « truquée » dans
- *  les tests qui n'a pas de fiche). */
+/** Cartes de vilains PERSONNALISÉS, enregistrées au runtime (éditeur intégré).
+ *  Surcouche mutable consultée en priorité par getCardDef — elle n'affecte ni
+ *  `allCards` ni les tests d'intégrité (qui ne portent que sur les vilains natifs). */
+const customById: Record<string, CardDef> = {}
+
+/** Enregistre (ou met à jour) des CardDef de vilains personnalisés pour que
+ *  getCardDef les résolve. Appelé par l'UI au lancement d'une partie perso. */
+export function registerCustomCardDefs(defs: CardDef[]): void {
+  for (const d of defs) customById[d.id] = d
+}
+
+/** Résout une CardDef depuis son cardId (toutes vilains confondus, persos inclus).
+ *  Renvoie undefined si la carte est inconnue (typiquement une carte « truquée »
+ *  dans les tests qui n'a pas de fiche). */
 export function getCardDef(cardId: string): CardDef | undefined {
-  return byId[cardId]
+  return customById[cardId] ?? byId[cardId]
 }

@@ -296,6 +296,21 @@ export interface CardDef {
   revealTreasureOnDiscard?: boolean
   /** Objet Fatalité (Le Black Pearl) : à la mort de l'hôte, se réassocie à un autre Héros du lieu. */
   reattachOnHostDefeat?: boolean
+  // --- Dio Brando ----------------------------------------------------------
+  /** Dio — carte « Stand » HORS deck (sauf The World) : séparée dans `standPile` au setup,
+   *  entre en jeu uniquement par fetch (associée à sa carte invocatrice). */
+  isStand?: boolean
+  /** Dio — The World : suit toujours le pion (déplacé avec lui). */
+  followsPawn?: boolean
+  /** Dio — The World : ne peut jamais être défaussé. */
+  cannotBeDiscarded?: boolean
+  /** Dio — carte invocatrice : va chercher ce Stand dans `standPile` et se l'associe. */
+  summonsStandCardId?: string
+  /** Dio — Héros (Jotaro / Joseph) retiré du jeu quand il est vaincu (pas en défausse). */
+  removedFromGameOnDefeat?: boolean
+  /** Effets résolus UNIQUEMENT via « Activer une capacité » (Objets/Stands « Activer » :
+   *  La flèche, Masque de pierre, Justice). Distinct de `effects` (qui se résout à la pose). */
+  activatedEffects?: Effect[]
 }
 
 /** Développe une liste de définitions en un paquet concret (un élément par
@@ -406,6 +421,12 @@ export function buildDeckInstances(
           survivesVanquishWithRevealedTreasure: c.survivesVanquishWithRevealedTreasure,
           revealTreasureOnDiscard: c.revealTreasureOnDiscard,
           reattachOnHostDefeat: c.reattachOnHostDefeat,
+          isStand: c.isStand,
+          followsPawn: c.followsPawn,
+          cannotBeDiscarded: c.cannotBeDiscarded,
+          summonsStandCardId: c.summonsStandCardId,
+          removedFromGameOnDefeat: c.removedFromGameOnDefeat,
+          activatedEffects: c.activatedEffects,
         }),
       ),
     )

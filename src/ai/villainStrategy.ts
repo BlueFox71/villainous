@@ -814,6 +814,29 @@ export const VILLAIN_STRATEGY: Record<string, VillainStrategy> = {
       'equipage-hollandais': 1,
     },
   },
+
+  // --- Dio Brando (objectif : retirer du jeu Jotaro + Joseph, puis balayer le royaume
+  // via ZA WARUDO!) ---------------------------------------------------------------
+  // Volet « jouer » : The World est CENTRAL (suit le pion, double les gains une fois les
+  // Joestar retirés) ; les Alliés à Stand (Vanilla Ice → Cream, Enya → Justice) servent à
+  // vaincre les Héros qui recouvrent ses actions. Volet « contre » : ne PAS lui donner
+  // Jotaro/Joseph (ses CIBLES — sans eux, il ne peut jamais compléter la 1ʳᵉ moitié) ;
+  // garder Jotaro en jeu (Star Platinum) interdit ZA WARUDO! tant qu'il est là.
+  dio: {
+    enginePieces: {
+      'the-world': 3, // double les gains une fois les Joestar retirés : son moteur endgame
+      'vanilla-ice': 1, // → Cream (force 7) pour nettoyer les Héros bloquants
+      'enya-geil': 1, // → Justice + pioche La flèche (relance la main)
+    },
+    fateTargeting: {
+      // Jotaro & Joseph sont ses CIBLES d'objectif : les lui jouer le rapproche de la
+      // victoire (il doit les vaincre). Le bot joue plutôt un autre Héros révélé.
+      avoidPlayingHeroes: ['jotaro-kujo', 'joseph-joestar'],
+      // Encombrer Le Caire (haut = 2 « Jouer une carte ») : un Héros y recouvre des actions
+      // que le balayage ZA WARUDO! devra pourtant TOUTES réaliser dans le même tour.
+      clogLocation: 'le-caire',
+    },
+  },
 }
 
 /** Bonus de placement gagné quand une carte est sur son lieu préféré. */

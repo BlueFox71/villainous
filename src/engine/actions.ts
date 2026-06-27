@@ -23,6 +23,7 @@ import {
   activePlayer,
   annotateShowcaseGain,
   currentLocation,
+  dioPowerFactor,
   drawPlayerToLimit,
   drawToLimit,
   findLocation,
@@ -121,7 +122,8 @@ function resolveLocationAction(state: GameState, action: LocationAction, count?:
       // Pénalité passive Robin des Bois : −1 JT (min 0) sur les gains du royaume.
       const gross = action.amount ?? 0
       const penalty = hasHeroInRealm(state, state.activePlayer, 'robin-des-bois') ? 1 : 0
-      const amount = Math.max(0, gross - penalty)
+      // Dio — The World double les gains une fois Jotaro + Joseph retirés du jeu.
+      const amount = Math.max(0, gross - penalty) * dioPowerFactor(state.players[state.activePlayer])
       let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power + amount }))
       const note = penalty > 0 ? ' (Robin des Bois : −1)' : ''
       next = {
@@ -224,6 +226,27 @@ function applyMove(state: GameState, to: string): GameState {
         },
       }))
       next = { ...next, log: [...next.log, `L'**Ombre du Dr Facilier** suit ${me.villainName} sur **${dest.name}**.`] }
+    }
+  }
+  // Dio — The World (followsPawn) : suit TOUJOURS le pion depuis le lieu de départ.
+  if (from && from !== to) {
+    const followers = (next.players[state.activePlayer].board[from] ?? []).filter((c) => c.followsPawn)
+    if (followers.length > 0) {
+      const fIds = new Set(followers.map((c) => c.instanceId))
+      const moving = (next.players[state.activePlayer].board[from] ?? []).filter(
+        (c) => fIds.has(c.instanceId) || (c.attachedTo !== undefined && fIds.has(c.attachedTo)),
+      )
+      const movingIds = new Set(moving.map((c) => c.instanceId))
+      const fromId = from
+      next = updateActivePlayer(next, (p) => ({
+        ...p,
+        board: {
+          ...p.board,
+          [fromId]: (p.board[fromId] ?? []).filter((c) => !movingIds.has(c.instanceId)),
+          [to]: [...(p.board[to] ?? []), ...moving],
+        },
+      }))
+      next = { ...next, log: [...next.log, `**The World** suit ${me.villainName} sur **${dest.name}**.`] }
     }
   }
   // Dr Facilier — Louis (Fatalité) : si Facilier arrive sur le lieu de Louis, il
@@ -402,6 +425,17 @@ function applyPlayCard(
   // Lever du jour : interdit de jouer une Page ce tour-ci.
   if (card.cardId === 'page' && me.noPagePlay) {
     throw new Error('Lever du jour : impossible de jouer une Page ce tour-ci.')
+  }
+  // Dio — ZA WARUDO! : injouable sans The World en jeu (« votre Stand ») ou si Star
+  // Platinum (Stand de Jotaro) est présent dans le royaume (il contre l'arrêt du temps).
+  if ((card.effects ?? []).some((e) => e.type === 'ZA_WARUDO_ACTIVATE')) {
+    const inPlay = Object.values(me.board).flat()
+    if (!inPlay.some((c) => c.cardId === 'the-world')) {
+      throw new Error('ZA WARUDO ! nécessite The World dans votre royaume.')
+    }
+    if (inPlay.some((c) => c.cardId === 'star-platinum')) {
+      throw new Error('ZA WARUDO ! est contré par Star Platinum.')
+    }
   }
   // Joyeux non-anniversaire (gain par Allié) / Tendre un Piège (déplacer un Allié) :
   // injouables sans aucun Allié dans le royaume. Donnée : on teste l'effet, pas le cardId.
@@ -1111,6 +1145,16 @@ function applyPlayCard(
       ...p,
       board: { ...p.board, [destId]: [...(p.board[destId] ?? []), placed] },
     }))
+    // Dio Brando — carte invocatrice (Vanilla Ice → Cream, Enya Geil → Justice) : va
+    // chercher son Stand dans standPile et se l'associe (avec l'instanceId réel, maintenant
+    // que la carte est posée).
+    if (placed.summonsStandCardId) {
+      next = resolveEffects(next, [{ type: 'FETCH_STAND_ATTACH', standCardId: placed.summonsStandCardId }], {
+        actorIndex: state.activePlayer,
+        hostInstanceId: placed.instanceId,
+        hostLocationId: destId,
+      })
+    }
     // Madame de Trémaine — Allié « en robe de bal » : défausse UNE version ordinaire
     // (`replacesCardId`) déjà en jeu (elle est « remplacée »).
     if (card.replacesCardId) {
@@ -4686,6 +4730,25 @@ function applyActivateCore(
       usedActionIds: [...next.usedActionIds, actionId],
       pendingKaaPlay: { playerIndex: state.activePlayer, hostInstanceId: cardInstanceId, locationId: cardLoc },
       log: [...next.log, `${me.villainName} active **Kaa** : choisissez un Objet de la défausse à jouer.`],
+    }
+  }
+
+  // Dio Brando — capacités activées génériques (Objets/Stands portant le symbole Activer
+  // sans logique dédiée) : paie le coût d'activation et résout les `activatedEffects` de la
+  // carte. (Masque de pierre, La flèche, Justice.) On utilise `activatedEffects` (et NON
+  // `effects`) pour que l'effet ne se déclenche PAS à la pose / à l'invocation du Stand.
+  if (card.activatedEffects && card.activatedEffects.length > 0) {
+    let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost! }))
+    next = resolveEffects(next, card.activatedEffects, {
+      actorIndex: state.activePlayer,
+      hostInstanceId: cardInstanceId,
+      hostLocationId: cardLoc,
+    })
+    next = consumePersifleur(next, action)
+    return {
+      ...next,
+      usedActionIds: [...next.usedActionIds, actionId],
+      log: [...next.log, `${me.villainName} active **${card.name}** (−${card.activatedCost} JT).`],
     }
   }
 
@@ -9163,6 +9226,49 @@ function applyChariotMove(state: GameState, instanceId: string, to: string): Gam
   }
 }
 
+/** Dio — ZA WARUDO! (temps arrêté) : déplace LIBREMENT la figurine vers `to` (autant de
+ *  fois que voulu ce tour), pour accéder à ses actions. Gratuit (le coût croissant est
+ *  prélevé par ACTION, cf. applyDioZaWarudoCost). The World (et ce qui le suit) accompagne
+ *  le pion. Les marqueurs d'action de l'ancien lieu sont réinitialisés (le nouveau lieu est
+ *  jouable). Les actions déjà effectuées ce tour restent comptées dans dioRealmActionsThisTurn. */
+function applyZaWarudoRelocate(state: GameState, to: string): GameState {
+  if (state.phase !== 'ACTION') throw new Error(`ZA WARUDO ! : déplacement impossible en phase ${state.phase}.`)
+  const me = activePlayer(state)
+  if (!me.zaWarudoActive) throw new Error("ZA WARUDO ! n'est pas actif.")
+  const dest = findLocation(me, to)
+  if (!dest) throw new Error(`Lieu inconnu : « ${to} ».`)
+  const from = me.pawnLocation
+  let next: GameState
+  if (from && from !== to) {
+    const followers = (me.board[from] ?? []).filter((c) => c.followsPawn)
+    const fIds = new Set(followers.map((c) => c.instanceId))
+    const moving = (me.board[from] ?? []).filter(
+      (c) => fIds.has(c.instanceId) || (c.attachedTo !== undefined && fIds.has(c.attachedTo)),
+    )
+    const movingIds = new Set(moving.map((c) => c.instanceId))
+    const fromId = from
+    next = updateActivePlayer(state, (p) => ({
+      ...p,
+      pawnLocation: to,
+      board: {
+        ...p.board,
+        [fromId]: (p.board[fromId] ?? []).filter((c) => !movingIds.has(c.instanceId)),
+        [to]: [...(p.board[to] ?? []), ...moving],
+      },
+    }))
+  } else {
+    next = updateActivePlayer(state, (p) => ({ ...p, pawnLocation: to }))
+  }
+  // Réinitialise les marqueurs d'action (le lieu d'arrivée est jouable) ; on conserve les
+  // ids scopés (`:`). dioRealmActionsThisTurn (suivi de l'objectif) n'est PAS réinitialisé.
+  const preserved = next.usedActionIds.filter((a) => a.includes(':'))
+  return {
+    ...next,
+    usedActionIds: preserved,
+    log: [...next.log, `⏱️ ZA WARUDO ! — ${me.villainName} apparaît sur **${dest.name}**.`],
+  }
+}
+
 /** Ratigan — Brutes : ouvre une fenêtre d'action distante FACULTATIVE sur
  *  `locationId` (le lieu où les Brutes viennent d'être jouées, différent du pion).
  *  Même mécanique que « Suivez-moi ! » : pendant la fenêtre, seules les actions
@@ -9390,6 +9496,11 @@ function applyEndTurn(state: GameState): GameState {
             vengeanceConfianceArmed: false,
             // Cruella — Finissez le travail ! : l'activation gratuite non utilisée expire.
             freeActivate: false,
+            // Dio — ZA WARUDO! : l'arrêt du temps et le suivi des actions expirent en fin de tour.
+            zaWarudoActive: false,
+            zaWarudoActionsDone: 0,
+            dioRealmActionsThisTurn: [],
+            dioRealmSweepDone: false,
             board: Object.fromEntries(
               Object.entries(p.board).map(([loc, cards]) => [
                 loc,
@@ -9608,7 +9719,80 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   // Après chaque action : (1) bascule éventuelle de l'objectif double de Ratigan
   // (Reine Robot défaussée → « Le Rat ») ; (2) Pat Hibulaire — complétion de la
   // tuile Power Play si ≥6 Pouvoir dépensés ce tour sur le bon lieu.
-  return syncLuciferTrap(syncRoseChain(syncPetePowerPlay(syncRatiganObjectiveAll(applyActionCore(state, action)))))
+  const after = syncLuciferTrap(syncRoseChain(syncPetePowerPlay(syncRatiganObjectiveAll(applyActionCore(state, action)))))
+  // Dio — ZA WARUDO! : coût croissant par action + suivi des 14 actions du royaume.
+  return applyDioZaWarudo(state, action, after)
+}
+
+/** Types de GameAction qui correspondent à « faire une action de lieu » (hors Fatalité,
+ *  traitée à part et exclue du temps arrêté). */
+const DIO_LOCATION_ACTION_TYPES = new Set([
+  'EXECUTE_ACTION',
+  'PLAY_CARD',
+  'DISCARD_CARDS',
+  'MOVE_CARD',
+  'MOVE_HERO',
+  'ACTIVATE',
+  'VANQUISH',
+])
+
+/**
+ * Dio — ZA WARUDO! : pendant le temps arrêté, CHAQUE action de lieu effectuée coûte un
+ * Pouvoir croissant (1, 2, 3…) et est comptée dans `dioRealmActionsThisTurn` (clé
+ * `lieu:action`). Quand les 14 actions HORS-Fatalité du royaume ont été faites ce tour ET
+ * que Jotaro + Joseph sont retirés du jeu, c'est la VICTOIRE (événementielle).
+ */
+function applyDioZaWarudo(before: GameState, action: GameAction, after: GameState): GameState {
+  if (after.status !== 'PLAYING') return after
+  const idx = after.activePlayer
+  const p = after.players[idx]
+  if (!p.zaWarudoActive) return after
+  if (!('actionId' in action)) return after
+  const actionId = (action as { actionId?: string }).actionId
+  if (typeof actionId !== 'string' || actionId === FREE_PLAY_NO_ACTION_ID) return after
+  if (!DIO_LOCATION_ACTION_TYPES.has(action.type)) return after
+  // L'action doit avoir été RÉELLEMENT consommée ce coup-ci (nouvelle dans usedActionIds).
+  if (before.usedActionIds.includes(actionId) || !after.usedActionIds.includes(actionId)) return after
+
+  const cost = (p.zaWarudoActionsDone ?? 0) + 1
+  const loc = p.pawnLocation
+  if (!loc) return after
+  const key = `${loc}:${actionId}`
+  const done = p.dioRealmActionsThisTurn ?? []
+  const nextDone = done.includes(key) ? done : [...done, key]
+  let next = updatePlayer(after, idx, (pl) => ({
+    ...pl,
+    power: Math.max(0, pl.power - cost),
+    zaWarudoActionsDone: (pl.zaWarudoActionsDone ?? 0) + 1,
+    dioRealmActionsThisTurn: nextDone,
+  }))
+  next = {
+    ...next,
+    log: [...next.log, `⏱️ ZA WARUDO ! — action n°${cost} : −${cost} Pouvoir.`],
+  }
+  // Toutes les actions HORS-Fatalité du royaume (les 14 cases) faites ce tour ?
+  const required = next.players[idx].locations.flatMap((l) =>
+    l.actions.filter((a) => a.type !== 'FATE').map((a) => `${l.id}:${a.id}`),
+  )
+  const sweep = required.every((k) => nextDone.includes(k))
+  if (!sweep) return next
+  next = updatePlayer(next, idx, (pl) => ({ ...pl, dioRealmSweepDone: true }))
+  // Victoire = balayage complet + Jotaro et Joseph retirés du jeu.
+  if (next.players[idx].objective.type === 'DIO_ALL_ACTIONS') {
+    const removed = next.players[idx].removedFromGame ?? []
+    if (next.players[idx].objective.joestarCardIds.every((id) => removed.includes(id))) {
+      return {
+        ...next,
+        status: 'WON',
+        winner: idx,
+        log: [
+          ...next.log,
+          `🏆 ${p.villainName} a effectué TOUTES les actions de son royaume en un tour, les Joestar éliminés — victoire !`,
+        ],
+      }
+    }
+  }
+  return next
 }
 
 /** Madame de Trémaine — Lucifer : tout Héros qui se retrouve sur le lieu de Lucifer
@@ -10501,6 +10685,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return state
     case 'CHARIOT_MOVE':
       return applyChariotMove(state, action.instanceId, action.to)
+    case 'ZA_WARUDO_RELOCATE':
+      return applyZaWarudoRelocate(state, action.to)
     case 'USE_NEVERLAND_MAP':
       return applyUseNeverlandMap(state, action.itemInstanceId, action.to, action.attachTo)
     case 'TEST_PLACE_FATE':

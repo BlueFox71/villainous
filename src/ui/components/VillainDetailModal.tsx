@@ -138,14 +138,23 @@ export function VillainDetailModal({ villain, onClose }: Props) {
 
   // Cartes du vilain, séparées par paquet et triées par nombre d'exemplaires.
   const byCopies = (a: CardDef, b: CardDef) => b.copies - a.copies || a.name.localeCompare(b.name)
-  const villainCards = v.cards.filter((c) => c.deck === 'villain').sort(byCopies)
+  const villainCards = v.cards.filter((c) => c.deck === 'villain' && !c.isStand).sort(byCopies)
   // Madame Mim — les Métamorphoses de Merlin sont une pioche À PART (entre le deck
   // Vilain et la Fatalité traditionnelle), bien qu'elles portent `deck: 'fate'`.
   const merlinCards = v.cards.filter((c) => c.isMerlinTransformation).sort(byCopies)
   // Tamatoa — la pioche MAUI est une pioche À PART (entre le deck Vilain et la Fatalité),
   // bien que ses cartes portent `deck: 'fate'`.
   const mauiCards = v.cards.filter((c) => c.isMauiCard).sort(byCopies)
-  const fateCards = v.cards.filter((c) => c.deck === 'fate' && !c.isMerlinTransformation && !c.isMauiCard).sort(byCopies)
+  // Dio — les Stands sont une « pioche » À PART (entre le deck Vilain et la Fatalité) :
+  // hors deck, invoqués/associés en jeu (The World, lui, reste dans le deck Vilain).
+  // On affiche d'abord les Stands « côté Vilain » (Cream, Justice — associés aux Alliés de
+  // Dio), puis les Stands « côté Fatalité » (associés aux Héros Joestar).
+  const standCards = v.cards
+    .filter((c) => c.isStand)
+    .sort((a, b) => (a.deck === 'villain' ? 0 : 1) - (b.deck === 'villain' ? 0 : 1) || byCopies(a, b))
+  const fateCards = v.cards
+    .filter((c) => c.deck === 'fate' && !c.isMerlinTransformation && !c.isMauiCard && !c.isStand)
+    .sort(byCopies)
   const sumCopies = (cards: CardDef[]) => cards.reduce((n, c) => n + c.copies, 0)
 
   return (
@@ -281,6 +290,9 @@ export function VillainDetailModal({ villain, onClose }: Props) {
               )}
               {mauiCards.length > 0 && (
                 <DeckGallery title="Cartes Maui" cards={mauiCards} count={sumCopies(mauiCards)} />
+              )}
+              {standCards.length > 0 && (
+                <DeckGallery title="Stands" cards={standCards} count={sumCopies(standCards)} />
               )}
               <DeckGallery title="Deck Fatalité" cards={fateCards} count={sumCopies(fateCards)} />
             </div>

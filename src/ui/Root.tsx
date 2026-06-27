@@ -10,6 +10,7 @@ import {
 import App from './App'
 import { MainMenu } from './screens/MainMenu'
 import { VillainList } from './screens/VillainList'
+import { VillainEditor } from './screens/VillainEditor'
 import { VillainSelect } from './screens/VillainSelect'
 import { GameLoading } from './screens/GameLoading'
 import { GameModeSelect } from './screens/GameModeSelect'
@@ -20,6 +21,7 @@ import { MenuMusicPlayer } from './components/MenuMusicPlayer'
 import { MenuBackground } from './components/MenuBackground'
 import { IntroCinematic } from './components/IntroCinematic'
 import { useSettingsStore } from './store/settingsStore'
+import { useGameStore, VILLAIN_REGISTRY, type VillainKey } from './store/gameStore'
 import { playClick } from './sfx'
 
 /** Chemins des écrans (une route par page). */
@@ -31,6 +33,7 @@ const ROUTES = {
   loading: '/chargement',
   game: '/partie',
   villains: '/vilains',
+  editor: '/editeur',
   profile: '/profil',
   sounds: '/sons',
 } as const
@@ -43,6 +46,7 @@ function MenuRoute({ onReplayIntro }: { onReplayIntro: () => void }) {
     <MainMenu
       onNewGame={() => navigate(ROUTES.modeSelect)}
       onVillainList={() => navigate(ROUTES.villains)}
+      onEditor={() => navigate(ROUTES.editor)}
       onProfile={() => navigate(ROUTES.profile)}
       onReplayIntro={onReplayIntro}
     />
@@ -99,6 +103,22 @@ function GameRoute() {
 function VillainListRoute() {
   const navigate = useNavigate()
   return <VillainList onBack={() => navigate(ROUTES.menu)} />
+}
+
+function EditorRoute() {
+  const navigate = useNavigate()
+  return (
+    <VillainEditor
+      onBack={() => navigate(ROUTES.menu)}
+      onPlay={(custom) => {
+        // Adversaire : un vilain natif tiré au hasard parmi le registre.
+        const keys = Object.keys(VILLAIN_REGISTRY) as VillainKey[]
+        const opponent = keys[Math.floor(Math.random() * keys.length)]
+        useGameStore.getState().startCustomGame(custom, opponent)
+        navigate(ROUTES.game)
+      }}
+    />
+  )
 }
 
 function ProfileRoute() {
@@ -188,6 +208,7 @@ export default function Root() {
         <Route path={ROUTES.loading} element={<LoadingRoute />} />
         <Route path={ROUTES.game} element={<GameRoute />} />
         <Route path={ROUTES.villains} element={<VillainListRoute />} />
+        <Route path={ROUTES.editor} element={<EditorRoute />} />
         <Route path={ROUTES.profile} element={<ProfileRoute />} />
         <Route path={ROUTES.sounds} element={<SoundTestRoute />} />
         {/* Route inconnue → menu. */}

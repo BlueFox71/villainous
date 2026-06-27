@@ -916,6 +916,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // Renommé sans préfixe « use » (action du store, pas un hook React).
   const activateCanne = useGameStore((s) => s.useCanne)
   const chariotMove = useGameStore((s) => s.chariotMove)
+  const zaWarudoRelocate = useGameStore((s) => s.zaWarudoRelocate)
   const skipRemoteAction = useGameStore((s) => s.skipRemoteAction)
   const endTurn = useGameStore((s) => s.endTurn)
   const reset = useGameStore((s) => s.reset)
@@ -3059,7 +3060,13 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   }, [state])
 
   // Coups légaux / actions : seulement pour le joueur humain et à son tour.
-  const legalMoves = isHumanTurn ? getLegalMoves(state) : []
+  // Dio — ZA WARUDO! (temps arrêté) : pendant la phase ACTION, le pion peut se déplacer
+  // librement vers tout autre lieu (relocalisation gratuite) pour y faire ses actions.
+  const zaActive = isHumanTurn && state.phase === 'ACTION' && !!user.zaWarudoActive
+  const zaWarudoTargets = zaActive
+    ? user.locations.map((l) => l.id).filter((l) => l !== user.pawnLocation)
+    : []
+  const legalMoves = isHumanTurn ? (zaActive ? zaWarudoTargets : getLegalMoves(state)) : []
   const availableActions = isHumanTurn ? getAvailableActions(state) : []
   const canEnd = isHumanTurn && state.phase === 'ACTION'
   // Glisser-déposer : action « Jouer une carte » utilisable (mode 'play' actif → son
@@ -3973,7 +3980,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     if (loc && legalMoves.includes(loc)) {
       setDropPulseLoc(loc)
       window.setTimeout(() => setDropPulseLoc((l) => (l === loc ? null : l)), 450)
-      handleMove(loc) // lâché sur un lieu légal → déplacement
+      // ZA WARUDO! : relocalisation gratuite ; sinon déplacement de tour classique.
+      if (zaActive) zaWarudoRelocate(loc)
+      else handleMove(loc)
     }
     // Lâché ailleurs (ou sur le lieu courant) : le pion reste sur place.
   }
@@ -3988,7 +3997,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // le pion est déjà posé (au 1ᵉʳ déplacement, on clique le lieu : pas encore de pion).
   const pawnDraggable =
     isHumanTurn &&
-    state.phase === 'MOVE' &&
+    // Phase MOVE classique, OU phase ACTION pendant ZA WARUDO! (relocalisation libre).
+    (state.phase === 'MOVE' || zaActive) &&
     user.pawnLocation != null &&
     // Sa Sucrerie : le pion avance sur le circuit (pas de legalMoves de lieu) → toujours
     // saisissable pendant sa phase MOVE. Autres vilains : au moins un lieu légal.

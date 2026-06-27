@@ -9,6 +9,37 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.88',
+    date: '2026-06-27',
+    title: 'Atelier des vilains : créez vos propres méchants',
+    changes: [
+      'Nouveau dans le menu principal : **Atelier des vilains**, un éditeur complet pour créer vos propres méchants et les jouer directement contre le bot.',
+      'Identité : nom, difficulté, **couleur thématique**, **couleur du dos** des cartes Vilain ET Fatalité, portrait et illustration de présentation, avec aperçu en direct des dos.',
+'Éditeur de plateau : le plateau est **généré à partir du gabarit neutre « Realm »** (le vrai habillage Villainous, recoloré à votre couleur) — ajoutez/réordonnez vos lieux, définissez leurs actions (Gagner du pouvoir, Jouer, Fatalité, Vaincre, Déplacer, Défausser, Activer…) et leur rangée, importez une illustration par lieu et le pion, avec un aperçu rendu en direct. Les pastilles d’action cliquables en jeu sont automatiquement alignées sur le plateau généré.',
+      'Les **médaillons d’action** du plateau généré utilisent désormais les **vraies icônes Villainous** (anneau doré + symbole) au lieu d’un dessin approché ; le montant de « Gagner du pouvoir » s’affiche dans la gemme.',
+      'Éditeur de cartes : nom, type, coût, force, texte et nombre d’exemplaires ; l’illustration que vous importez est **automatiquement habillée** au format Villainous (gabarits officiels Card / Card Back : cadre, pastille de coût, étoile de force) avec zoom et recadrage réglables, et un aperçu en temps réel. Le **dos** des cartes est généré depuis le gabarit officiel, teinté à la couleur choisie.',
+      'Effets jouables : un catalogue d’effets prêts à l’emploi (gagner du pouvoir, piocher, pouvoir par Héros/Allié, payer pour piocher, défausser et repiocher) qui sont réellement exécutés en partie.',
+      'Objectif : choisissez une condition de victoire (atteindre un seuil de pouvoir, ou réunir N exemplaires d’une carte dans votre royaume).',
+      'Bouton **Tester** : lance aussitôt une partie avec votre vilain (cartes et dos générés automatiquement) face à un méchant tiré au hasard. **Exporter/Importer** un vilain en fichier .json pour le sauvegarder ou le partager.',
+      'Correctif : **The World** (Dio) ne peut désormais plus jamais être défaussé, même lorsqu’il sert à vaincre un Héros (il reste en jeu et continue de suivre votre pion).',
+    ],
+  },
+  {
+    version: '0.87',
+    date: '2026-06-27',
+    title: 'Nouveau vilain : Dio Brando (collaboration JoJo, 3★)',
+    changes: [
+      'Nouveau vilain jouable : **Dio Brando** (Stardust Crusaders), une collaboration 3★. Son double objectif : RETIRER DU JEU la famille Joestar (Jotaro ET Joseph — vaincus, ils quittent définitivement la partie), puis effectuer TOUTES les actions de son royaume (hors Fatalité) au cours d’un même tour.',
+      'Mécanique des Stands : les Stands (Cream, Justice, Star Platinum, Silver Chariot, Hierophant Green, Magician Red, The Fool) ne sont dans aucun deck. Ils sont invoqués automatiquement quand leur carte arrive en jeu et s’y associent : Vanilla Ice → Cream (+6), Enya Geil → Justice (+2), et chaque Héros Joestar invoque SON Stand (Jotaro → Star Platinum +9, etc.). Vaincu, un Stand retourne dans la réserve (jamais en défausse).',
+      'ZA WARUDO ! : jouable juste après votre déplacement (sans action « Jouer une carte ») si The World est en jeu — et impossible tant que Star Platinum (le Stand de Jotaro) est présent. Le temps est arrêté : votre pion se déplace LIBREMENT entre les lieux (glissez-le sur n’importe quel lieu) et vous faites les actions de tous vos lieux, chacune coûtant un Pouvoir croissant (1, puis 2, 3…). Réaliser les 14 actions hors-Fatalité en un tour, Joestar éliminés = victoire.',
+      'The World suit toujours votre pion, ne peut être défaussé, et DOUBLE tous vos gains de Pouvoir une fois Jotaro et Joseph retirés du jeu.',
+      'Les Stands des Héros vous gênent durablement : Star Platinum interdit ZA WARUDO !, Hierophant Green renchérit vos cartes (+1), Magician Red vous fait piocher 1 carte de moins, Silver Chariot vous oblige à éliminer Polnareff avant les autres.',
+      'Toutes les cartes sont jouables (Vampirisme, Soif de sang, Indigne de moi, Quête vers le paradis, Tu oses t’approcher de moi, Masque de pierre, La flèche, JOTARO !, et les Fatalités Hermit Purple, Cartomancie, Fondation Speedwagon, ORA ! ORA ! ORA !, Lumière du Soleil, plus la Condition MUDA ! MUDA ! MUDA ! jouée en réaction à une Fatalité).',
+      'IA : le bot module sa Fatalité face à Dio (il évite de lui donner Jotaro/Joseph, ses cibles, et privilégie les Héros à Stand gênant) et évalue sa vraie proximité de victoire (Joestar retirés, The World en jeu, réserve de Pouvoir).',
+      'Pion provisoire (celui du Prince Jean) en attendant un pion dédié.',
+    ],
+  },
+  {
     version: '0.86',
     date: '2026-06-26',
     title: 'Nouvelle animation de pioche : les cartes sont révélées au centre',

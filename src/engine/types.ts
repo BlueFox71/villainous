@@ -301,6 +301,13 @@ export type ObjectiveDef =
    *  révéler → vaincre ce Héros). Victoire ÉVÉNEMENTIELLE — déclenchée quand
    *  `claimedTreasures.length` atteint `count` (au Vanquish d'un Héros à trésor révélé). */
   | { type: 'CLAIM_ALL_TREASURES'; count: number }
+  /** Dio Brando : objectif DOUBLE et ÉVÉNEMENTIEL. (1) Avoir RETIRÉ DU JEU les Héros
+   *  `joestarCardIds` (Jotaro + Joseph — ils quittent la partie, pas la défausse, quand
+   *  vaincus : cf. `removedFromGame`) ET (2) avoir effectué, dans un MÊME tour, TOUTES
+   *  les actions HORS-Fatalité de son royaume (les 14 cases non-Fatalité des 4 lieux),
+   *  rendu possible par ZA WARUDO!. Victoire déclenchée à l'instant où la dernière action
+   *  requise est effectuée (le drapeau `dioRealmSweepDone` est posé par la boucle d'action). */
+  | { type: 'DIO_ALL_ACTIONS'; joestarCardIds: string[] }
 
 /** Pat Hibulaire — les 5 types de tuile Objectif (4 tirés par partie) :
  *  - `win-big`        : gagner ≥4 Pouvoir via UNE SEULE Petite Partie ? sur le lieu ;
@@ -560,6 +567,51 @@ export type Effect =
   | { type: 'RECOVER_N_FROM_DISCARD'; count: number }
   /** Will Turner (Fatalité, à la pose) : défausse un Allié de force ≤ 2 de son lieu. */
   | { type: 'WILL_TURNER_DISCARD' }
+  // --- Dio Brando -----------------------------------------------------------
+  /** Va chercher le Stand `standCardId` dans `standPile` et l'associe à la carte hôte
+   *  (ctx.hostInstanceId / hostLocationId) : la carte invocatrice qui vient d'entrer en
+   *  jeu (Héros Joestar via onPlace, ou Allié de Dio). No-op si le Stand est introuvable. */
+  | { type: 'FETCH_STAND_ATTACH'; standCardId: string }
+  /** Va chercher la carte `cardId` (pioche/défausse Méchant) et l'ajoute à la main
+   *  (Enya Geil → « La flèche »). No-op si introuvable. */
+  | { type: 'FETCH_CARD_TO_HAND'; cardId: string }
+  /** Dio — The Fool (Stand d'Iggy, à la pose côté fataliseur) : disperse les Alliés du
+   *  lieu d'Iggy vers d'autres lieux (auto/interactif selon le joueur). */
+  | { type: 'DIO_THE_FOOL_SCATTER' }
+  /** Dio — ZA WARUDO! : ARRÊTE LE TEMPS pour ce tour (`zaWarudoActive`). Le pion peut
+   *  ensuite se déplacer librement entre les lieux (ZA_WARUDO_RELOCATE) et faire les
+   *  actions de n'importe quel lieu (hors Fatalité), chacune coûtant un Pouvoir croissant
+   *  (1, 2, 3…). Sans effet si The World n'est pas en jeu, ou si Star Platinum est présent. */
+  | { type: 'ZA_WARUDO_ACTIVATE' }
+  /** Dio — Vampirisme : défausse un Allié (auto : le plus faible, The World épargné) pour
+   *  gagner `amount` Pouvoir. */
+  | { type: 'DIO_DISCARD_ALLY_GAIN'; amount: number }
+  /** Dio — Masque de pierre (Activer) : défausse TOUTE la main, gagne 1 Pouvoir par carte. */
+  | { type: 'DIO_DISCARD_HAND_GAIN_POWER' }
+  /** Dio — Justice (Activer) : récupère un Allié de la défausse (auto : le plus fort) en main. */
+  | { type: 'DIO_RECOVER_ALLY_FROM_DISCARD' }
+  /** Dio — Fondation Speedwagon (Fatalité) : défausse un Objet non associé du royaume de Dio
+   *  (auto : le plus précieux). */
+  | { type: 'DIO_DISCARD_ITEM_IN_REALM' }
+  /** Dio — Cartomancie (Fatalité) : réduit de `amount` la force d'un Allié de Dio (auto : le
+   *  plus fort), via un jeton permanent (plancher 0). */
+  | { type: 'DIO_REDUCE_ALLY_STRENGTH'; amount: number }
+  /** Dio — Lumière du Soleil (Fatalité) : Dio choisit entre défausser sa main ou perdre
+   *  `lose` Pouvoir (auto : l'option la moins coûteuse pour lui). */
+  | { type: 'DIO_SUNLIGHT_CHOICE'; lose: number }
+  /** Dio — Tu oses t'approcher de moi : dévoile les `count` 1ʳᵉˢ cartes Fatalité, joue TOUS
+   *  les Héros révélés sur le lieu du pion (chacun déclenche son Stand), défausse le reste. */
+  | { type: 'DIO_REVEAL_FATE_HEROES_AT_PAWN'; count: number }
+  /** Dio — CREAM (Stand de Vanilla Ice, à l'invocation) : défausse un Héros de force
+   *  inférieure à Vanilla Ice présent sur le lieu de Cream (auto). */
+  | { type: 'DIO_CREAM_DISCARD_HERO' }
+  /** Dio — Quête vers le paradis : choisit un type (Objet/Événement ; auto : le plus
+   *  nombreux), mélange la défausse, en dévoile 6, ajoute les cartes de ce type à la main
+   *  et laisse les autres dans la défausse. */
+  | { type: 'DIO_QUEST_FOR_HEAVEN' }
+  /** Dio — MUDA! (Condition) : élimine sans Allié un Héros du lieu du pion (auto : le plus
+   *  fort) et gagne `gain` Pouvoir. */
+  | { type: 'DIO_MUDA'; gain: number }
   /** Vanellope (début de tour) & « Enfin un vrai Kart ! » (Fatalité) : dévoile la 1ʳᵉ
    *  carte Méchant de la pioche de Sa Sucrerie, avance le jeton Pilote de (coût + 2)
    *  cases, puis remet la carte SOUS la pioche. Sans effet hors course. */
@@ -1641,6 +1693,25 @@ export interface CardInstance {
   /** Objet Fatalité (Davy Jones — Le Black Pearl) : à la mort de l'hôte, se réassocie
    *  à un autre Héros du lieu. */
   reattachOnHostDefeat?: boolean
+  // --- Dio Brando (Stands + The World) -------------------------------------
+  /** Dio — carte « Stand » : HORS deck (sauf The World). Séparée dans `standPile` au
+   *  setup ; n'entre en jeu que par fetch (`FETCH_STAND_ATTACH`) quand sa carte
+   *  invocatrice est jouée, puis associée à elle (bonus de force + aura passive). */
+  isStand?: boolean
+  /** Dio — The World : suit TOUJOURS le pion (déplacé avec lui) et ne peut jamais être
+   *  défaussé. */
+  followsPawn?: boolean
+  cannotBeDiscarded?: boolean
+  /** Dio — carte invocatrice : quand elle entre en jeu (Allié de Dio, ou Héros Joestar
+   *  via la Fatalité), elle va chercher ce Stand dans `standPile` et se l'associe. */
+  summonsStandCardId?: string
+  /** Dio — Héros (Jotaro / Joseph) RETIRÉ DU JEU lorsqu'il est vaincu : il ne va pas en
+   *  défausse Fatalité mais dans `removedFromGame` (objectif + déblocage de The World). */
+  removedFromGameOnDefeat?: boolean
+  /** Effets résolus UNIQUEMENT via l'action « Activer une capacité » (et NON à la pose ni
+   *  à l'invocation). Pour les Objets/Stands « Activer » dont le moteur résout l'effet
+   *  générique (Dio — La flèche : piocher 4 ; Masque de pierre ; Justice). */
+  activatedEffects?: Effect[]
   /** Ursula — Pacte : lieu lié au Pacte. Le Héros porteur est éliminé s'il est
    *  déplacé sur ce lieu. */
   contractLocationId?: LocationId
@@ -2300,6 +2371,28 @@ export interface PlayerState {
    *  de Maui »). `undefined` pour les autres vilains. */
   mauiDeck?: CardInstance[]
   mauiDiscard?: CardInstance[]
+  // --- Dio Brando ----------------------------------------------------------
+  /** Dio — RÉSERVE de Stands HORS deck (Cream, Justice, Star Platinum, Silver Chariot,
+   *  Hierophant green, Magician Red, The fool), séparée des deux pioches au setup.
+   *  Chaque Stand entre en jeu par fetch quand sa carte invocatrice est jouée. The World
+   *  n'est PAS ici (il est dans le deck Méchant). `undefined` pour les autres vilains. */
+  standPile?: CardInstance[]
+  /** Dio — cardId des Héros RETIRÉS DU JEU (Jotaro, Joseph) : vaincus, ils quittent la
+   *  partie au lieu d'aller en défausse Fatalité (et débloquent The World + l'objectif). */
+  removedFromGame?: string[]
+  /** Dio — ZA WARUDO! est ACTIF ce tour : le joueur peut faire les actions de n'importe
+   *  quel lieu (hors Fatalité), chacune coûtant un Pouvoir croissant. */
+  zaWarudoActive?: boolean
+  /** Dio — nombre d'actions déjà payées via ZA WARUDO! ce tour (coût de la suivante =
+   *  ce compteur + 1). Remis à 0 en début de tour. */
+  zaWarudoActionsDone?: number
+  /** Dio — clés « locId:actionId » des actions HORS-Fatalité du royaume effectuées ce
+   *  tour (pour l'objectif « toutes les actions en un même tour »). Remis à [] au début
+   *  du tour. */
+  dioRealmActionsThisTurn?: string[]
+  /** Dio — posé quand les 14 actions hors-Fatalité ont été effectuées dans le tour : la
+   *  vérification de victoire (combinée à Jotaro+Joseph retirés) se fait alors. */
+  dioRealmSweepDone?: boolean
   /** Tamatoa — Étoile de mer Maui : au prochain tour, le déplacement de la figurine
    *  n'est pas obligatoire (le joueur peut rester sur place). */
   tamatoaSkipMoveNext?: boolean
@@ -3439,6 +3532,10 @@ export type GameAction =
   /** Hadès — Char : déplace la figurine + le Char vers `to` (n'importe quel lieu),
    *  1×/tour, et donne accès aux actions de ce lieu (hors Fatalité). */
   | { type: 'CHARIOT_MOVE'; instanceId: string; to: LocationId }
+  /** Dio — ZA WARUDO! (temps arrêté) : déplace LIBREMENT le pion vers `to` (autant de
+   *  fois que voulu ce tour), pour accéder aux actions de ce lieu. Gratuit. Le coût
+   *  croissant est prélevé par ACTION effectuée, pas par déplacement. */
+  | { type: 'ZA_WARUDO_RELOCATE'; to: LocationId }
   /** Déplacement gratuit de Diablo (1×/tour) vers n'importe quel autre lieu, en
    *  phase MOVE uniquement (« avant que Maléfique ne se déplace »). Arme ensuite
    *  une action gratuite (DIABLO_FREE_ACTION) sur ce lieu. */

@@ -33,6 +33,7 @@ const PORTRAIT: Partial<Record<VillainKey, string>> = {
   shereKhan: '/shere-khan.png',
   davyJones: '/davy-jones.png',
   tamatoa: '/tamatoa.png',
+  dio: '/dio.png',
 }
 
 /** Portrait d'un vilain, avec repli sur son dos de carte si non défini. */
@@ -73,6 +74,7 @@ const PRESENTATION: Partial<Record<VillainKey, string>> = {
   shereKhan: '/presentations/shere-khan.png',
   davyJones: '/presentations/davy-jones.png',
   tamatoa: '/presentations/tamatoa.png',
+  dio: '/presentations/dio.png',
 }
 
 /** Illustration de présentation d'un vilain (undefined si non disponible). */

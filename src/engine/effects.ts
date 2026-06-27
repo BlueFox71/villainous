@@ -12,7 +12,7 @@
 // =============================================================================
 
 import type { CardInstance, Crewmate, CurseDiscardTrigger, DiceOutcome, Effect, GameState, LocationId, PlayerState } from './types'
-import { activePlayer, drawPlayerToLimit, findLocation, pushDiscardShowcase, pushFloatingFx, pushRevealShowcase, pushRobinSteal, pushScryDiscardShowcase, pushShowcase, revealFate, syncObservatoryLock, updateActivePlayer, updatePlayer } from './state'
+import { activePlayer, dioPowerFactor, drawPlayerToLimit, findLocation, pushDiscardShowcase, pushFloatingFx, pushRevealShowcase, pushRobinSteal, pushScryDiscardShowcase, pushShowcase, revealFate, syncObservatoryLock, updateActivePlayer, updatePlayer } from './state'
 import { neighborLocIds, placeCrewmateAt } from './crewmates'
 import { startRace, advanceRacer, advanceRacerByReveal, moveRacerBack, moveKingCandyTrack, vanellopeInstance, cardLocationIds } from './kingCandy'
 import { noFireInRealm as shereKhanNoFire, placeFire, removeFire, fireOnLocation, fireFreeActions, listFire } from './shereKhan'
@@ -991,10 +991,11 @@ export function performVanquish(
   if (aTaunterExists && !targetHasTaunt) {
     throw new Error('Vous devez d’abord éliminer un Héros provocateur (Provocation).')
   }
-  // Prof (La Méchante Reine) : doit être éliminé AVANT les autres Héros.
-  const aPriorityHeroExists = Object.values(me.board).flat().some((c) => c.type === 'hero' && c.mustDefeatFirst)
-  if (aPriorityHeroExists && !heroCard.mustDefeatFirst) {
-    throw new Error('Vous devez d’abord éliminer Prof (priorité).')
+  // Prof (La Méchante Reine), Polnareff/Silver Chariot (Dio)… : Héros à éliminer AVANT
+  // les autres (donnée `mustDefeatFirst`).
+  const priorityHero = Object.values(me.board).flat().find((c) => c.type === 'hero' && c.mustDefeatFirst)
+  if (priorityHero && !heroCard.mustDefeatFirst) {
+    throw new Error(`Vous devez d’abord éliminer ${priorityHero.name} (priorité).`)
   }
   // Yzma — règles de Fatalité spécifiques (gardées sur le vilain Yzma) :
   if (me.villain === 'yzma') {
@@ -1172,6 +1173,9 @@ export function performVanquish(
       // Syndrome — l'Omnidroïde n'est jamais « défaussé » : sa transition (retrait
       // v.X8/v.X9 ou maintien v.10) est gérée après le Vanquish (cf. bloc Omnidroïde).
       if (a.isOmnidroid) continue
+      // Dio — The World : indéfaussable. Utilisé pour un Vanquish, il RESTE en jeu
+      // (il suit le pion) au lieu d'être défaussé comme un Allié normal.
+      if (a.cannotBeDiscarded) continue
       if (a.isTitan && heroHasPotion) continue // Titan préservé par la Potion
       // Yzma — Kronk n'est PAS défaussé quand il sert à éliminer un Héros : il reste
       // sur le lieu (avec ses Objets associés, ex. Couteau).
@@ -1292,6 +1296,9 @@ export function performVanquish(
   // Madame Mim — Métamorphose de Merlin vaincue : elle va dans `merlinDiscard` (objectif),
   // pas dans la défausse Fatalité, et sera remplacée au Lieu du Duel (cf. plus bas).
   const merlinDefeated = !!heroCard.isMerlinTransformation
+  // Dio — Jotaro / Joseph RETIRÉS DU JEU : ils ne vont pas en défausse Fatalité mais dans
+  // `removedFromGame` (objectif + déblocage du doublement de Pouvoir de The World).
+  const removedFromGameNow = !!heroCard.removedFromGameOnDefeat
   // Mère Gothel — Poignard : si l'Allié qui élimine Raiponce porte un Poignard,
   // Gothel gagne 1 jeton Confiance.
   const poignardKillsRaiponce =
@@ -1320,9 +1327,10 @@ export function performVanquish(
       ]),
     ),
     fateDiscard:
-      raiponceReturns || toSuccession || kronkToVillain || merlinDefeated
+      raiponceReturns || toSuccession || kronkToVillain || merlinDefeated || removedFromGameNow
         ? p.fateDiscard
         : [...p.fateDiscard, heroDiscarded],
+    removedFromGame: removedFromGameNow ? [...(p.removedFromGame ?? []), heroCard.cardId] : p.removedFromGame,
     merlinDiscard: merlinDefeated ? [...(p.merlinDiscard ?? []), heroDiscarded] : p.merlinDiscard,
     succession: toSuccession ? [...(p.succession ?? []), heroDiscarded] : p.succession,
     discard: [
@@ -1448,6 +1456,22 @@ export function performVanquish(
           : `**Le Black Pearl** part en défausse Fatalité (aucun autre Héros sur ${heroLocName}).`,
       ],
     }
+  }
+  // Dio — Stand associé au Héros vaincu : il ne va JAMAIS en défausse. Il retourne dans
+  // `standPile` (réserve hors deck), prêt à être ré-invoqué si la carte hôte revient.
+  const heroStands = heroAttached.filter((c) => c.isStand)
+  if (heroStands.length > 0) {
+    const standIds = new Set(heroStands.map((c) => c.instanceId))
+    next = updateActivePlayer(next, (p) => ({
+      ...p,
+      board: { ...p.board, [heroLoc]: (p.board[heroLoc] ?? []).filter((c) => !standIds.has(c.instanceId)) },
+      standPile: [...(p.standPile ?? []), ...heroStands.map((c) => ({ ...c, attachedTo: undefined }))],
+    }))
+    next = { ...next, log: [...next.log, `Le Stand de **${heroCard.name}** se dissipe (retour à la réserve de Dio).`] }
+  }
+  // Dio — Jotaro / Joseph retirés du jeu : trace au journal (ils débloquent The World).
+  if (removedFromGameNow) {
+    next = { ...next, log: [...next.log, `**${heroCard.name}** est RETIRÉ DE LA PARTIE.`] }
   }
   // Mémorise la force du héros pour le trigger Méchanceté (réinitialisé à chaque tour).
   next = { ...next, lastVanquishedHeroStrength: heroCard.strength ?? 0 }
@@ -2127,6 +2151,278 @@ export function resolveEffect(
       const p = state.players[idx]
       const next = drawNCards(state, idx, effect.count)
       return { ...next, log: [...next.log, `${p.villainName} pioche ${effect.count} carte${effect.count > 1 ? 's' : ''}.`] }
+    }
+    // --- Dio Brando : Stands -------------------------------------------------
+    case 'FETCH_STAND_ATTACH': {
+      // Va chercher le Stand dans standPile et l'associe à la carte hôte qui vient
+      // d'entrer en jeu (Héros Joestar via onPlace, ou Allié de Dio via summonsStandCardId).
+      const hostId = ctx?.hostInstanceId
+      const hostLoc = ctx?.hostLocationId
+      if (!hostId || !hostLoc) return state
+      const p = state.players[idx]
+      const stand = (p.standPile ?? []).find((c) => c.cardId === effect.standCardId)
+      if (!stand) return state // déjà en jeu / indisponible : la carte hôte reste sans Stand
+      const hostName =
+        (p.board[hostLoc] ?? []).find((c) => c.instanceId === hostId)?.name ?? 'son invocateur'
+      const placed: CardInstance = { ...stand, attachedTo: hostId }
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        standPile: (pl.standPile ?? []).filter((c) => c.instanceId !== stand.instanceId),
+        board: { ...pl.board, [hostLoc]: [...(pl.board[hostLoc] ?? []), placed] },
+      }))
+      let out = { ...next, log: [...next.log, `Le Stand **${stand.name}** est invoqué et associé à **${hostName}**.`] }
+      // Le Stand peut porter un effet immédiat « à l'invocation » (The Fool disperse les
+      // Alliés du lieu d'Iggy). On le résout en conservant le contexte de l'hôte.
+      if (stand.effects && stand.effects.length > 0) {
+        out = resolveEffects(out, stand.effects, { actorIndex: idx, hostInstanceId: hostId, hostLocationId: hostLoc })
+      }
+      return out
+    }
+    case 'FETCH_CARD_TO_HAND': {
+      // Enya Geil → « La flèche » : cherche la carte (pioche puis défausse Méchant) et
+      // l'ajoute à la main. No-op si introuvable.
+      const p = state.players[idx]
+      const found =
+        p.deck.find((c) => c.cardId === effect.cardId) ?? p.discard.find((c) => c.cardId === effect.cardId)
+      if (!found) return state
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        deck: pl.deck.filter((c) => c.instanceId !== found.instanceId),
+        discard: pl.discard.filter((c) => c.instanceId !== found.instanceId),
+        hand: [...pl.hand, found],
+      }))
+      return { ...next, log: [...next.log, `${p.villainName} va chercher **${found.name}** et l'ajoute à sa main.`] }
+    }
+    case 'ZA_WARUDO_ACTIVATE': {
+      // ZA WARUDO! : arrête le temps pour ce tour. Nécessite The World en jeu ; Star
+      // Platinum (Stand de Jotaro) l'empêche. Active la fenêtre de temps arrêté.
+      const p = state.players[idx]
+      const inPlay = Object.values(p.board).flat()
+      if (!inPlay.some((c) => c.cardId === 'the-world')) {
+        return { ...state, log: [...state.log, `ZA WARUDO ! échoue : The World n'est pas en jeu.`] }
+      }
+      if (inPlay.some((c) => c.cardId === 'star-platinum')) {
+        return { ...state, log: [...state.log, `ZA WARUDO ! est contré par **Star Platinum** !`] }
+      }
+      const next = updatePlayer(state, idx, (pl) => ({ ...pl, zaWarudoActive: true, zaWarudoActionsDone: 0 }))
+      return {
+        ...next,
+        log: [
+          ...next.log,
+          `**ZA WARUDO !** ${p.villainName} arrête le temps : il peut agir sur n'importe quel lieu ce tour (coût croissant).`,
+        ],
+      }
+    }
+    case 'DIO_DISCARD_ALLY_GAIN': {
+      // Vampirisme : défausse l'Allié le plus faible (The World épargné), gagne `amount`.
+      const p = state.players[idx]
+      let best: { c: CardInstance; loc: LocationId } | undefined
+      for (const loc of p.locations)
+        for (const c of p.board[loc.id] ?? []) {
+          if (c.type === 'ally' && !c.attachedTo && !c.isWicket && !c.cannotBeDiscarded) {
+            const s = effectiveStrength(state, idx, c.instanceId) ?? 0
+            if (!best || s < (effectiveStrength(state, idx, best.c.instanceId) ?? 0)) best = { c, loc: loc.id }
+          }
+        }
+      if (!best) return { ...state, log: [...state.log, `Vampirisme : aucun Allié à défausser.`] }
+      const bc = best.c, bl = best.loc
+      const attached = (p.board[bl] ?? []).filter((c) => c.attachedTo === bc.instanceId)
+      const stands = attached.filter((c) => c.isStand)
+      const normal = attached.filter((c) => !c.isStand)
+      const rm = new Set([bc.instanceId, ...attached.map((c) => c.instanceId)])
+      const gain = effect.amount * dioPowerFactor(p)
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        board: { ...pl.board, [bl]: (pl.board[bl] ?? []).filter((c) => !rm.has(c.instanceId)) },
+        discard: [...pl.discard, ...[bc, ...normal].map((c) => ({ ...c, attachedTo: undefined }))],
+        standPile: [...(pl.standPile ?? []), ...stands.map((c) => ({ ...c, attachedTo: undefined }))],
+        power: pl.power + gain,
+      }))
+      return { ...next, log: [...next.log, `Vampirisme : ${p.villainName} défausse **${bc.name}** et gagne ${gain} JT.`] }
+    }
+    case 'DIO_DISCARD_HAND_GAIN_POWER': {
+      // Masque de pierre : défausse TOUTE la main, gagne 1 Pouvoir par carte.
+      const p = state.players[idx]
+      const n = p.hand.length
+      const gain = n * dioPowerFactor(p)
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        discard: [...pl.discard, ...pl.hand],
+        hand: [],
+        power: pl.power + gain,
+      }))
+      return { ...next, log: [...next.log, `Masque de pierre : ${p.villainName} défausse ${n} carte(s) et gagne ${gain} JT.`] }
+    }
+    case 'DIO_RECOVER_ALLY_FROM_DISCARD': {
+      // Justice : récupère l'Allié le plus fort de la défausse en main.
+      const p = state.players[idx]
+      const allies = p.discard.filter((c) => c.type === 'ally')
+      if (allies.length === 0) return { ...state, log: [...state.log, `Justice : aucun Allié en défausse.`] }
+      const best = allies.reduce((a, b) => ((b.strength ?? 0) > (a.strength ?? 0) ? b : a))
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        discard: pl.discard.filter((c) => c.instanceId !== best.instanceId),
+        hand: [...pl.hand, best],
+      }))
+      return { ...next, log: [...next.log, `Justice : ${p.villainName} récupère **${best.name}** en main.`] }
+    }
+    case 'DIO_DISCARD_ITEM_IN_REALM': {
+      // Fondation Speedwagon (Fatalité) : défausse l'Objet non associé le plus précieux du
+      // royaume de Dio (The World épargné : indéfaussable).
+      const p = state.players[idx]
+      let best: { c: CardInstance; loc: LocationId } | undefined
+      for (const loc of p.locations)
+        for (const c of p.board[loc.id] ?? []) {
+          if (c.type === 'item' && !c.attachedTo && !c.cannotBeDiscarded) {
+            const v = (c.cost ?? 0) + (c.strength ?? 0)
+            if (!best || v > ((best.c.cost ?? 0) + (best.c.strength ?? 0))) best = { c, loc: loc.id }
+          }
+        }
+      if (!best) return { ...state, log: [...state.log, `Fondation Speedwagon : aucun Objet à défausser.`] }
+      const bc = best.c, bl = best.loc
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        board: { ...pl.board, [bl]: (pl.board[bl] ?? []).filter((c) => c.instanceId !== bc.instanceId) },
+        discard: [...pl.discard, { ...bc, attachedTo: undefined }],
+      }))
+      return { ...next, log: [...next.log, `Fondation Speedwagon : **${bc.name}** est défaussé.`] }
+    }
+    case 'DIO_REDUCE_ALLY_STRENGTH': {
+      // Cartomancie (Fatalité) : réduit de `amount` la force de l'Allié le plus fort de Dio.
+      const p = state.players[idx]
+      let best: { c: CardInstance; loc: LocationId } | undefined
+      for (const loc of p.locations)
+        for (const c of p.board[loc.id] ?? []) {
+          if (c.type === 'ally' && !c.attachedTo && !c.isWicket) {
+            const s = effectiveStrength(state, idx, c.instanceId) ?? 0
+            if (!best || s > (effectiveStrength(state, idx, best.c.instanceId) ?? 0)) best = { c, loc: loc.id }
+          }
+        }
+      if (!best) return { ...state, log: [...state.log, `Cartomancie : aucun Allié à affaiblir.`] }
+      const bid = best.c.instanceId
+      const next = patchCard(state, idx, bid, (c) => ({
+        ...c,
+        permanentStrengthDelta: (c.permanentStrengthDelta ?? 0) - effect.amount,
+      }))
+      return { ...next, log: [...next.log, `Cartomancie : **${best.c.name}** perd ${effect.amount} de force.`] }
+    }
+    case 'DIO_SUNLIGHT_CHOICE': {
+      // Lumière du Soleil (Fatalité) : Dio choisit entre défausser sa main ou perdre `lose`
+      // Pouvoir. Auto : garde la main si possible (perd le Pouvoir) ; sinon défausse la main.
+      const p = state.players[idx]
+      if (p.power >= effect.lose) {
+        const next = updatePlayer(state, idx, (pl) => ({ ...pl, power: pl.power - effect.lose }))
+        return { ...next, log: [...next.log, `Lumière du Soleil : ${p.villainName} perd ${effect.lose} JT (garde sa main).`] }
+      }
+      const n = p.hand.length
+      const next = updatePlayer(state, idx, (pl) => ({ ...pl, discard: [...pl.discard, ...pl.hand], hand: [] }))
+      return { ...next, log: [...next.log, `Lumière du Soleil : ${p.villainName} défausse sa main (${n} carte(s)).`] }
+    }
+    case 'DIO_REVEAL_FATE_HEROES_AT_PAWN': {
+      // Tu oses t'approcher de moi : dévoile les `count` 1ʳᵉˢ cartes Fatalité ; joue TOUS
+      // les Héros révélés sur le lieu du pion (chacun déclenche son Stand), défausse le reste.
+      const p = state.players[idx]
+      const revealed = p.fateDeck.slice(0, effect.count)
+      const rest = p.fateDeck.slice(effect.count)
+      if (revealed.length === 0) return { ...state, log: [...state.log, `Tu oses t'approcher : pioche Fatalité vide.`] }
+      const heroes = revealed.filter((c) => c.type === 'hero')
+      const others = revealed.filter((c) => c.type !== 'hero')
+      let next = updatePlayer(state, idx, (pl) => ({ ...pl, fateDeck: rest, fateDiscard: [...pl.fateDiscard, ...others] }))
+      for (const h of heroes) next = placeScarHero(next, idx, h)
+      return {
+        ...next,
+        log: [
+          ...next.log,
+          `Tu oses t'approcher : ${heroes.length} Héros entre${heroes.length > 1 ? 'nt' : ''} sur le lieu de ${p.villainName}, le reste est défaussé.`,
+        ],
+      }
+    }
+    case 'DIO_CREAM_DISCARD_HERO': {
+      // CREAM (Stand de Vanilla Ice) : défausse un Héros de force < celle de Vanilla Ice,
+      // présent sur le lieu de Vanilla Ice (auto : le plus fort éligible).
+      const loc = ctx?.hostLocationId
+      const viId = ctx?.hostInstanceId
+      if (!loc || !viId) return state
+      const viStr = effectiveStrength(state, idx, viId) ?? 0
+      const cell = state.players[idx].board[loc] ?? []
+      const targets = cell
+        .filter((c) => c.type === 'hero' && (effectiveStrength(state, idx, c.instanceId) ?? 0) < viStr)
+        .sort((a, b) => (effectiveStrength(state, idx, b.instanceId) ?? 0) - (effectiveStrength(state, idx, a.instanceId) ?? 0))
+      if (targets.length === 0) return state
+      return dioDiscardHero(state, idx, loc, targets[0])
+    }
+    case 'DIO_QUEST_FOR_HEAVEN': {
+      // Quête vers le paradis : choisit le type le plus nombreux en défausse (Objet/Événement),
+      // mélange la défausse, en dévoile 6, ajoute les cartes de ce type à la main, laisse le reste.
+      const p = state.players[idx]
+      const items = p.discard.filter((c) => c.type === 'item').length
+      const effs = p.discard.filter((c) => c.type === 'effect').length
+      const chosen: 'item' | 'effect' = items >= effs ? 'item' : 'effect'
+      const sh = shuffle(p.discard, state.rngState)
+      const top6 = sh.result.slice(0, 6)
+      const remainder = sh.result.slice(6)
+      const taken = top6.filter((c) => c.type === chosen)
+      const left = top6.filter((c) => c.type !== chosen)
+      const next = updatePlayer({ ...state, rngState: sh.state }, idx, (pl) => ({
+        ...pl,
+        hand: [...pl.hand, ...taken],
+        discard: [...remainder, ...left],
+      }))
+      return {
+        ...next,
+        log: [
+          ...next.log,
+          `Quête vers le paradis : ${p.villainName} récupère ${taken.length} ${chosen === 'item' ? 'Objet(s)' : 'Événement(s)'} (sur 6 dévoilés).`,
+        ],
+      }
+    }
+    case 'DIO_MUDA': {
+      // MUDA! (Condition) : élimine sans Allié le Héros le plus fort du lieu du pion et gagne `gain`.
+      const p = state.players[idx]
+      const loc = p.pawnLocation
+      const cell = loc ? p.board[loc] ?? [] : []
+      const hero = cell
+        .filter((c) => c.type === 'hero')
+        .sort((a, b) => (effectiveStrength(state, idx, b.instanceId) ?? 0) - (effectiveStrength(state, idx, a.instanceId) ?? 0))[0]
+      let next = state
+      if (hero && loc) {
+        next = dioDiscardHero(next, idx, loc, hero)
+      }
+      const gain = effect.gain * dioPowerFactor(next.players[idx])
+      next = updatePlayer(next, idx, (pl) => ({ ...pl, power: pl.power + gain }))
+      return {
+        ...next,
+        log: [...next.log, `MUDA ! MUDA ! MUDA ! : ${p.villainName}${hero ? ` élimine **${hero.name}** et` : ''} gagne ${gain} JT.`],
+      }
+    }
+    case 'DIO_THE_FOOL_SCATTER': {
+      // The Fool (Stand d'Iggy) : disperse les Alliés du lieu d'Iggy vers d'autres lieux.
+      // Contrôlé par le fataliseur → auto : répartition tournante sur les autres lieux.
+      const loc = ctx?.hostLocationId
+      if (!loc) return state
+      const p = state.players[idx]
+      const movable = (p.board[loc] ?? []).filter((c) => c.type === 'ally' && !c.attachedTo)
+      if (movable.length === 0) return state
+      const others = p.locations.map((l) => l.id).filter((l) => l !== loc)
+      if (others.length === 0) return state
+      let out = state
+      movable.forEach((ally, i) => {
+        const dest = others[i % others.length]
+        out = updatePlayer(out, idx, (pl) => {
+          const fromCell = (pl.board[loc] ?? []).filter(
+            (c) => c.instanceId !== ally.instanceId && c.attachedTo !== ally.instanceId,
+          )
+          const moved = (pl.board[loc] ?? []).filter(
+            (c) => c.instanceId === ally.instanceId || c.attachedTo === ally.instanceId,
+          )
+          return {
+            ...pl,
+            board: { ...pl.board, [loc]: fromCell, [dest]: [...(pl.board[dest] ?? []), ...moved] },
+          }
+        })
+      })
+      const iggyName = (state.players[idx].board[loc] ?? []).find((c) => c.cardId === 'iggy')?.name ?? 'Iggy'
+      return { ...out, log: [...out.log, `**The Fool** disperse les Alliés du lieu de ${iggyName}.`] }
     }
     // --- Sa Sucrerie (King Candy / Sugar Rush) ------------------------------
     // Les effets de circuit/course visent TOUJOURS le joueur King Candy (qu'ils
@@ -3340,7 +3636,8 @@ export function resolveEffect(
       return { ...next, log: [...next.log, `Ritournel attire ${allyIds.size} Allié${allyIds.size > 1 ? 's' : ''} sur **${locName(p, hostLoc)}**.`] }
     }
     case 'GAIN_POWER': {
-      const gained = Math.max(0, effect.amount - realmPowerPenalty(state, idx))
+      // Dio — The World double les gains une fois Jotaro + Joseph retirés du jeu.
+      const gained = Math.max(0, effect.amount - realmPowerPenalty(state, idx)) * dioPowerFactor(state.players[idx])
       let next = updatePlayer(state, idx, (p) => ({ ...p, power: p.power + gained }))
       const actor = next.players[idx]
       const note = gained < effect.amount ? ' (Robin des Bois : −1)' : ''
@@ -4188,7 +4485,7 @@ export function resolveEffect(
     }
     case 'GAIN_POWER_PER_HERO_IN_REALM': {
       const heroes = countHeroesInRealm(state, idx)
-      const gross = heroes * effect.amount
+      const gross = heroes * effect.amount * dioPowerFactor(state.players[idx])
       const gained = Math.max(0, gross - realmPowerPenalty(state, idx))
       let next = updatePlayer(state, idx, (p) => ({ ...p, power: p.power + gained }))
       const actor = next.players[idx]
@@ -7656,11 +7953,11 @@ export function resolveEffect(
       // Yzma — Fausses funérailles : +1 JT par Héros dans la défausse Fatalité (plafond).
       const actor = state.players[idx]
       const heroes = actor.fateDiscard.filter((c) => c.type === 'hero').length
-      const gain = Math.min(effect.max, heroes)
+      const gain = Math.min(effect.max, heroes) * dioPowerFactor(actor)
       const next = updatePlayer(state, idx, (p) => ({ ...p, power: p.power + gain }))
       return {
         ...next,
-        log: [...next.log, `Fausses funérailles : +${gain} JT (${heroes} Héros en défausse Fatalité).`],
+        log: [...next.log, `+${gain} JT (${heroes} Héros en défausse Fatalité).`],
       }
     }
     case 'LOSE_HALF_POWER': {
@@ -8890,6 +9187,31 @@ export function addKronkTokens(state: GameState, idx: number, amount: number): G
 
 /** Scar — pose un Héros (déjà retiré de sa source) dans son royaume, sur le lieu de
  *  son pion, et résout ses effets « à la pose ». */
+/** Dio — élimine DIRECTEMENT un Héros (sans Allié : CREAM, MUDA!) du lieu `loc`. Son Stand
+ *  associé retourne dans `standPile` ; Jotaro/Joseph sont RETIRÉS DU JEU (removedFromGame),
+ *  les autres vont en défausse Fatalité. */
+function dioDiscardHero(state: GameState, idx: number, loc: LocationId, hero: CardInstance): GameState {
+  const cell = state.players[idx].board[loc] ?? []
+  const attached = cell.filter((c) => c.attachedTo === hero.instanceId)
+  const stands = attached.filter((c) => c.isStand)
+  const otherAttached = attached.filter((c) => !c.isStand)
+  const rm = new Set([hero.instanceId, ...attached.map((c) => c.instanceId)])
+  const removedNow = !!hero.removedFromGameOnDefeat
+  const next = updatePlayer(state, idx, (pl) => ({
+    ...pl,
+    board: { ...pl.board, [loc]: (pl.board[loc] ?? []).filter((c) => !rm.has(c.instanceId)) },
+    fateDiscard: removedNow
+      ? [...pl.fateDiscard, ...otherAttached.map((c) => ({ ...c, attachedTo: undefined }))]
+      : [...pl.fateDiscard, { ...hero, attachedTo: undefined }, ...otherAttached.map((c) => ({ ...c, attachedTo: undefined }))],
+    removedFromGame: removedNow ? [...(pl.removedFromGame ?? []), hero.cardId] : pl.removedFromGame,
+    standPile: [...(pl.standPile ?? []), ...stands.map((c) => ({ ...c, attachedTo: undefined }))],
+  }))
+  return {
+    ...next,
+    log: [...next.log, removedNow ? `**${hero.name}** est RETIRÉ DE LA PARTIE.` : `**${hero.name}** est éliminé.`],
+  }
+}
+
 function placeScarHero(state: GameState, idx: number, hero: CardInstance): GameState {
   const p = state.players[idx]
   const dest = p.pawnLocation ?? p.locations[0]?.id

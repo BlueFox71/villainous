@@ -260,7 +260,21 @@ export function handLimitFor(player: PlayerState): number {
   const cards = Object.values(player.board).flat()
   const scarab = cards.some((c) => c.cardId === 'scarabee-or') ? 1 : 0
   const jasmine = cards.some((c) => c.type === 'hero' && c.cardId === 'jasmine') ? 1 : 0
-  return Math.max(1, HAND_LIMIT + scarab - jasmine)
+  // Dio — Magician Red (Stand de Mohammed Abdul) : Dio pioche 1 carte de moins en fin de tour.
+  const magicianRed = cards.some((c) => c.cardId === 'magician-red') ? 1 : 0
+  return Math.max(1, HAND_LIMIT + scarab - jasmine - magicianRed)
+}
+
+/**
+ * Dio Brando — facteur multiplicateur sur les gains de Pouvoir. The World (en jeu)
+ * double TOUS les gains de Pouvoir une fois Jotaro ET Joseph retirés du jeu. Renvoie 2
+ * dans ce cas, 1 sinon (et toujours 1 pour les autres vilains).
+ */
+export function dioPowerFactor(player: PlayerState): number {
+  if (player.villain !== 'dio') return 1
+  const removed = player.removedFromGame ?? []
+  const worldInPlay = Object.values(player.board).flat().some((c) => c.cardId === 'the-world')
+  return worldInPlay && removed.includes('jotaro-kujo') && removed.includes('joseph-joestar') ? 2 : 1
 }
 
 /**
@@ -628,6 +642,19 @@ export function createInitialGame(setups: PlayerSetup[], seed: number): GameStat
       const sh = shuffle(player.fateDeck.filter((c) => c.isMauiCard), rngState)
       rngState = sh.state
       player = { ...player, fateDeck: traditional, mauiDeck: [...sh.result], mauiDiscard: [] }
+    }
+    // Dio Brando — sépare les Stands (isStand) des DEUX pioches vers `standPile` (hors deck).
+    // Ils n'entrent en jeu que par fetch quand leur carte invocatrice est jouée. The World
+    // (Stand mais SANS isStand) reste dans le deck Méchant. removedFromGame suit Jotaro/Joseph.
+    if (villain.id === 'dio') {
+      const stands = [...player.deck, ...player.fateDeck].filter((c) => c.isStand)
+      player = {
+        ...player,
+        deck: player.deck.filter((c) => !c.isStand),
+        fateDeck: player.fateDeck.filter((c) => !c.isStand),
+        standPile: stands,
+        removedFromGame: [],
+      }
     }
     // Syndrome — pose l'Omnidroïde v.X8 sur son lieu de départ ; v.X9 puis v.10 forment
     // la pile (jouées plus tard en défaussant des Modifications Majeures).

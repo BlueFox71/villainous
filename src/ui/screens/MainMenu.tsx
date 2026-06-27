@@ -11,6 +11,8 @@ interface Props {
   onNewGame: () => void
   /** Ouvrir la liste des vilains. */
   onVillainList: () => void
+  /** Ouvrir l'atelier de création de vilains (éditeur). */
+  onEditor: () => void
   /** Ouvrir l'écran de profil (statistiques). */
   onProfile: () => void
   /** Rejouer la cinématique d'intro. */
@@ -103,7 +105,7 @@ function CreditsModal({ onClose }: { onClose: () => void }) {
  * Menu principal : logo, entrées (Nouvelle partie, Liste des villains, Options),
  * et un panneau de notes de version listant les changements récents.
  */
-export function MainMenu({ onNewGame, onVillainList, onProfile, onReplayIntro }: Props) {
+export function MainMenu({ onNewGame, onVillainList, onEditor, onProfile, onReplayIntro }: Props) {
   const playerName = usePlayerStore((s) => s.name)
   // Confirmation avant de fermer l'application (bouton « Quitter »).
   const [confirmQuit, setConfirmQuit] = useState(false)
@@ -164,6 +166,7 @@ export function MainMenu({ onNewGame, onVillainList, onProfile, onReplayIntro }:
       <nav className="relative z-10 flex w-[32rem] max-w-[90vw] flex-col gap-5">
         <MenuButton label="Nouvelle partie" onClick={onNewGame} />
         <MenuButton label="Liste des villains" onClick={onVillainList} />
+        <MenuButton label="Atelier des vilains" onClick={onEditor} />
         <MenuButton label="Quitter" onClick={() => setConfirmQuit(true)} />
       </nav>
 

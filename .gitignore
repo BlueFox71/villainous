@@ -40,3 +40,7 @@ Villainous.lnk
 # Découpes intermédiaires de préparation d'assets (jetables).
 /_crops/
 _crop.cjs
+
+# Générateur de cartes Unity (outil externe, ~1,8 Go : .exe + data). Gardé en
+# local ; les exports utiles sont copiés dans public/editor/.
+/Villainous Card Generator (neutre)/

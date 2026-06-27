@@ -23,7 +23,11 @@ import { createClientSession, createHostSession, type ClientSession, type HostSe
 import type { LobbySeat } from '../../net/messages'
 import { isTauri, ensureRelay, lanAddresses } from '../../net/desktop'
 import { buildDeckInstances } from '../../data/types'
-import { getCardDef } from '../../data/registry'
+import { getCardDef, registerCustomCardDefs } from '../../data/registry'
+import { toVillainDef, toCardDefs, type CustomVillain } from '../../data/customVillain'
+import { customActionPositions } from '../editor/boardLayout'
+import { registerActionPos } from '../components/customActionPos'
+import { VILLAIN_COLOR } from '../villainColors'
 import { usePlayerStore } from './playerStore'
 import { princeJohn } from '../../data/villains/princeJohn'
 import { princeJohnCards } from '../../data/villains/princeJohn.cards'
@@ -87,9 +91,11 @@ import { davyJones } from '../../data/villains/davyJones'
 import { davyJonesCards } from '../../data/villains/davyJones.cards'
 import { tamatoa } from '../../data/villains/tamatoa'
 import { tamatoaCards } from '../../data/villains/tamatoa.cards'
+import { dio } from '../../data/villains/dio'
+import { dioCards } from '../../data/villains/dio.cards'
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'seigneurCles' | 'madameTremaine' | 'oogieBoogie' | 'seigneurTenebres' | 'madameMim' | 'syndrome' | 'lotso' | 'saSucrerie' | 'shereKhan' | 'davyJones' | 'tamatoa'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'seigneurCles' | 'madameTremaine' | 'oogieBoogie' | 'seigneurTenebres' | 'madameMim' | 'syndrome' | 'lotso' | 'saSucrerie' | 'shereKhan' | 'davyJones' | 'tamatoa' | 'dio'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -123,6 +129,7 @@ export const VILLAIN_REGISTRY = {
   shereKhan: { def: shereKhan, cards: shereKhanCards, label: 'Shere Khan' },
   davyJones: { def: davyJones, cards: davyJonesCards, label: 'Davy Jones' },
   tamatoa: { def: tamatoa, cards: tamatoaCards, label: 'Tamatoa' },
+  dio: { def: dio, cards: dioCards, label: 'Dio Brando' },
 } as const
 
 /** Qui contrôle chaque siège. Concept d'UI : le moteur, lui, ne sait pas qui
@@ -334,6 +341,33 @@ function newGame(
   ]
   const base = createInitialGame(setups, seed)
   return DEV_TEST_HAND ? withDevTestHand(base) : base
+}
+
+/**
+ * Démarre une partie solo avec un vilain PERSONNALISÉ (joueur 0) contre un vilain
+ * natif (bot, joueur 1). Enregistre les cartes du vilain perso dans le registre
+ * (pour `getCardDef`) et sa couleur thématique (pour l'habillage en jeu).
+ */
+function customGame(custom: CustomVillain, opponent: VillainKey): GameState {
+  registerCustomCardDefs(toCardDefs(custom))
+  VILLAIN_COLOR[custom.id] = custom.color
+  registerActionPos(custom.id, customActionPositions(custom.locations))
+  const seed = (Math.random() * 0xffffffff) >>> 0
+  const def = toVillainDef(custom)
+  const opp = VILLAIN_REGISTRY[opponent]
+  const setups: PlayerSetup[] = [
+    {
+      villain: { ...def, name: custom.name },
+      deckCards: buildDeckInstances(custom.cards, 'villain', 'p0:'),
+      fateCards: buildDeckInstances(custom.cards, 'fate', 'p0f:'),
+    },
+    {
+      villain: { ...opp.def, name: opp.label },
+      deckCards: buildDeckInstances(opp.cards, 'villain', 'p1:'),
+      fateCards: buildDeckInstances(opp.cards, 'fate', 'p1f:'),
+    },
+  ]
+  return createInitialGame(setups, seed)
 }
 
 // =============================================================================
@@ -791,8 +825,12 @@ interface GameStore {
   useCanne: () => void
   /** Char (Hadès) : déplace la figurine + le Char vers `to`. */
   chariotMove: (instanceId: string, to: string) => void
+  /** Dio — ZA WARUDO! (temps arrêté) : déplace librement le pion vers `to`. */
+  zaWarudoRelocate: (to: string) => void
   endTurn: () => void
   reset: (villains?: [VillainKey, VillainKey]) => void
+  /** Démarre une partie solo : vilain PERSONNALISÉ (joueur) vs vilain natif (bot). */
+  startCustomGame: (custom: CustomVillain, opponent: VillainKey) => void
   /** Fait jouer UN coup au bot, si le joueur actif est un bot. */
   botAct: () => void
   /** Fait jouer une Condition en réaction par un bot non-actif (Avarice,
@@ -1359,12 +1397,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'USE_CANNE' }),
   chariotMove: (instanceId, to) =>
     get().submit({ type: 'CHARIOT_MOVE', instanceId, to }),
+  zaWarudoRelocate: (to) =>
+    get().submit({ type: 'ZA_WARUDO_RELOCATE', to }),
   endTurn: () =>
     get().submit({ type: 'END_TURN' }),
   reset: (villains) => {
     teardownNet()
     set({
       state: newGame(villains), testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0,
+      mode: 'solo', netStatus: 'idle', hostRoom: null, hostAddrs: null, netError: null, netLeftNotice: null, peerReacting: null, lobby: null,
+    })
+  },
+  startCustomGame: (custom, opponent) => {
+    teardownNet()
+    set({
+      state: customGame(custom, opponent), testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0,
       mode: 'solo', netStatus: 'idle', hostRoom: null, hostAddrs: null, netError: null, netLeftNotice: null, peerReacting: null, lobby: null,
     })
   },

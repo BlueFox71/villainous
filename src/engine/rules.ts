@@ -255,9 +255,15 @@ export function getAvailableActions(state: GameState): LocationAction[] {
   // + devant + derrière) sont jouables ce tour.
   const kc = isKingCandy(activePlayer(state))
   const accessible = kc ? accessibleActionIds(activePlayer(state)) : null
+  // Dio — ZA WARUDO! (temps arrêté) : la Fatalité est exclue, et chaque action coûte un
+  // Pouvoir croissant — une action n'est jouable que si Dio peut payer ce coût.
+  const za = activePlayer(state).zaWarudoActive
+  const zaCost = (activePlayer(state).zaWarudoActionsDone ?? 0) + 1
+  if (za && activePlayer(state).power < zaCost) return []
   return locationActions(state, loc.id).filter(
     (a) =>
       isSupportedType(a.type) &&
+      (!za || a.type !== 'FATE') &&
       (!accessible || accessible.has(a.id)) &&
       (!state.usedActionIds.includes(a.id) ||
         (canRepeat && REPEATABLE.has(a.type)) ||
@@ -501,6 +507,10 @@ export function activatableCards(state: GameState): CardInstance[] {
       }
       if (c.cardId === 'le-roi-singe' && !Object.values(me.board).flat().some((x) => x.cardId === 'macaques')) continue
       if (c.cardId === 'kaa' && !me.discard.some((x) => x.type === 'item' && (x.cost ?? 0) <= me.power)) continue
+      // Dio — Masque de pierre : défausse la main pour du Pouvoir. Inutile si main vide.
+      if (c.cardId === 'masque-de-pierre' && me.hand.length === 0) continue
+      // Dio — Justice : récupère un Allié de la défausse. Inutile sans Allié en défausse.
+      if (c.cardId === 'justice' && !me.discard.some((x) => x.type === 'ally')) continue
       out.push(c)
     }
   }
@@ -1276,11 +1286,12 @@ export function effectiveCost(
   surcharge += Object.values(me.board).flat().filter(
     (c) => c.type === 'hero' && c.cardId === 'tiana',
   ).length
-  // Sergent Calhoun (Fatalité, Sa Sucrerie) : l'action Jouer une carte coûte +N par Héros
-  // doté de `playCardCostSurcharge` présent dans le royaume (toutes cartes confondues).
+  // Sergent Calhoun (Fatalité, Sa Sucrerie) : l'action Jouer une carte coûte +N par carte
+  // dotée de `playCardCostSurcharge` présente dans le royaume. Compte TOUTES les cartes
+  // (Héros, mais aussi un Objet associé : Dio — Hierophant Green attaché à Kakyoin, +1).
   surcharge += Object.values(me.board)
     .flat()
-    .reduce((n, c) => n + (c.type === 'hero' ? c.playCardCostSurcharge ?? 0 : 0), 0)
+    .reduce((n, c) => n + (c.playCardCostSurcharge ?? 0), 0)
   // Madame de Trémaine — Cendrillon (Fatalité) : les Événements coûtent 2 de plus
   // tant qu'elle est dans le royaume.
   if (card.type === 'effect' && Object.values(me.board).flat().some(
@@ -1414,6 +1425,14 @@ export function hasReachedObjective(state: GameState, playerIndex: number = stat
     case 'CLAIM_ALL_TREASURES':
       // Davy Jones — victoire ÉVÉNEMENTIELLE : récupérer le 5ᵉ Trésor au Vanquish (performVanquish).
       return false
+    case 'DIO_ALL_ACTIONS':
+      // Dio — victoire ÉVÉNEMENTIELLE : déclenchée à l'instant où la dernière action
+      // hors-Fatalité du royaume est effectuée dans le tour (boucle d'action), Jotaro et
+      // Joseph déjà retirés du jeu. `dioRealmSweepDone` matérialise cette fenêtre courte.
+      return (
+        !!p.dioRealmSweepDone &&
+        p.objective.joestarCardIds.every((id) => (p.removedFromGame ?? []).includes(id))
+      )
     case 'KING_CANDY_RACE':
       // Sa Sucrerie — victoire ÉVÉNEMENTIELLE : déclenchée quand le pion franchit
       // Départ/Arrivée pendant une course (moveKingCandyTrack), pas en début de tour.

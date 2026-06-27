@@ -31,7 +31,7 @@ type Origin = 'Disney' | 'Collaborations'
 /** Catégories de vilains, dans leur ordre de SORTIE (les collaborations en dernier). */
 const CATEGORIES: { title: Origin; villains: VillainKey[] }[] = [
   { title: 'Disney', villains: ['princeJohn', 'maleficent', 'jafar', 'reineCoeur', 'crochet', 'ursula', 'hades', 'facilier', 'mechanteReine', 'scar', 'yzma', 'ratigan', 'patHibulaire', 'gothel', 'cruella', 'gaston', 'madameTremaine', 'seigneurTenebres', 'madameMim', 'syndrome', 'lotso', 'oogieBoogie', 'saSucrerie', 'shereKhan', 'davyJones', 'tamatoa'] },
-  { title: 'Collaborations', villains: ['slenderman', 'imposteur', 'bowser', 'sombra', 'seigneurCles'] },
+  { title: 'Collaborations', villains: ['slenderman', 'imposteur', 'bowser', 'sombra', 'seigneurCles', 'dio'] },
 ]
 
 interface VillainMeta {

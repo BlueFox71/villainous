@@ -1,6 +1,7 @@
 import type { LocationAction, PlayerState } from '../../engine/types'
 import { enlargeCoveredAction } from '../../engine/rules'
 import { SUGAR_RUSH_TRACK } from './sugarRushTrack'
+import { customActionPosFor } from './customActionPos'
 
 // Diamètre d'un bouton rond, en % de la largeur de l'image (carré via aspect-ratio).
 const BUTTON_SIZE = 4.9 // %
@@ -849,6 +850,37 @@ ACTION_POS['tamatoa'] = {
   },
 }
 
+// Dio Brando — coordonnées calées sur la planche (objectif à gauche + 4 lieux).
+// Manoir : Fatalité/Gagner 1 (haut), Jouer/Activer (bas) ; Le Caire : Jouer/Jouer (haut),
+// Défausser/Gagner 3 (bas) ; Singapour : Défausser/Jouer (haut), Activer/Fatalité (bas) ;
+// Tokyo : Déplacer un Héros/Jouer (haut), Éliminer/Gagner 2 (bas).
+ACTION_POS['dio'] = {
+  manoir: {
+    fate: { x: 23.5, y: 24 },
+    'gain-power': { x: 32, y: 24 },
+    'play-card': { x: 23.5, y: 68 },
+    activate: { x: 32, y: 68 },
+  },
+  'le-caire': {
+    'play-card-top-1': { x: 44.5, y: 24 },
+    'play-card-top-2': { x: 53, y: 24 },
+    discard: { x: 44.5, y: 68 },
+    'gain-power': { x: 53, y: 68 },
+  },
+  singapour: {
+    discard: { x: 65, y: 24 },
+    'play-card': { x: 73.5, y: 24 },
+    activate: { x: 65, y: 68 },
+    fate: { x: 73.5, y: 68 },
+  },
+  tokyo: {
+    'move-hero': { x: 85.7, y: 24 },
+    'play-card': { x: 94.2, y: 24 },
+    vanquish: { x: 85.7, y: 68 },
+    'gain-power': { x: 94.2, y: 68 },
+  },
+}
+
 interface Props {
   player: PlayerState
   /** Ids des actions disponibles (lieu courant) → bouton jaune cliquable. */
@@ -894,7 +926,7 @@ export function BoardActions({
   hackActionIds,
   onHackPick,
 }: Props) {
-  const layout = ACTION_POS[player.villain]
+  const layout = ACTION_POS[player.villain] ?? customActionPosFor(player.villain) ?? {}
   if (!layout) return null
   const currentLoc = activeLocationId ?? player.pawnLocation
 

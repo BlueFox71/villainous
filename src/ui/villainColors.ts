@@ -36,6 +36,7 @@ export const VILLAIN_COLOR: Record<string, string> = {
   'davy-jones': '#1E7A6F',
   davyJones: '#1E7A6F',
   tamatoa: '#C79A2E',
+  dio: '#7A1326',
 }
 
 /** Teintes de repli (camp joueur / adversaire) quand la couleur d'un vilain est

@@ -15,7 +15,9 @@ export default defineConfig({
       // `assets/` contient des milliers d'images de decks (sources hors runtime,
       // les images servies vivent dans `public/`). Sous Windows, certaines sont
       // verrouillées et faisaient planter le watcher (EBUSY). On l'ignore.
-      ignored: ['**/assets/**'],
+      // Idem pour le générateur de cartes (outil hors-app) dont les exports PNG
+      // sont parfois verrouillés par un autre programme.
+      ignored: ['**/assets/**', '**/Villainous Card Generator*/**'],
     },
   },
   test: {

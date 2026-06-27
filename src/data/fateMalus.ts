@@ -301,6 +301,18 @@ export const FATE_MALUS: Record<string, FateMalus> = {
   // james-norrington / equipage-black-pearl / elizabeth-swann : grossissent mais restent
   // des CIBLES — NEUTRE (non listés). black-pearl-objet : +3 Force au Héros porté (gêne le
   // Vanquish) mais reste sur une cible → on le laisse NEUTRE en v1.
+
+  // --- Dio Brando (retirer du jeu Jotaro + Joseph, puis balayer le royaume via ZA WARUDO).
+  // Jotaro & Joseph sont les CIBLES de l'objectif → NEUTRE (non listés) : ils sont
+  // NÉCESSAIRES à sa victoire (le bot évite plutôt de les lui donner). On classe le Stand
+  // qui bloque DUR la victoire et les Héros dont le Stand gêne durablement. Les Stands
+  // (autres que Star Platinum) ne sont PAS listés à part : leur effet est intégré au Héros
+  // invocateur, pour ne pas compter deux fois. ---
+  'star-platinum': 'block-win', // Stand de Jotaro : interdit ZA WARUDO! → la victoire est impossible tant qu'il est là
+  'jean-pierre-polnareff': 'block-advance', // Silver Chariot : à éliminer AVANT les autres → retarde les Joestar
+  'noriaki-kakyoin': 'slow2', // Hierophant Green : +1 au coût de toutes ses cartes
+  'mohammed-abdul': 'slow2', // Magician Red : −1 carte piochée par tour
+  iggy: 'slow', // The Fool : disperse ses Alliés (une fois)
 }
 
 /** cardId dont le « block-win » n'est valable que sous condition (gérée par l'IA). */

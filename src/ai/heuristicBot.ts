@@ -90,6 +90,28 @@ export function objectiveScore(p: PlayerState): number {
       const s = claimed * 0.17 + faceUp * 0.05 + faceDown * 0.02
       return Math.min(0.99, s)
     }
+    case 'DIO_ALL_ACTIONS': {
+      // Dio Brando : objectif DOUBLE et endgame. (1) Retirer du jeu Jotaro + Joseph ;
+      // (2) balayer les 14 actions hors-Fatalité du royaume EN UN TOUR via ZA WARUDO! (coût
+      // 1+2+…+14 = 105 Pouvoir, divisé de moitié par le doublement de The World). La vraie
+      // proximité dépend donc surtout de : Joestar retirés, The World en jeu, carburant, et
+      // l'ABSENCE de Star Platinum (qui interdit ZA WARUDO).
+      const obj = p.objective
+      const removed = (p.removedFromGame ?? []).filter((id) => obj.joestarCardIds.includes(id)).length
+      const joestarPart = removed / obj.joestarCardIds.length // 0, 0.5, 1
+      const inPlay = Object.values(p.board).flat()
+      const worldOut = inPlay.some((c) => c.cardId === 'the-world')
+      const starPlat = inPlay.some((c) => c.cardId === 'star-platinum') // bloque ZA WARUDO!
+      const hasZaWarudo = [...p.hand, ...p.deck, ...p.discard].some((c) => c.cardId === 'za-warudo')
+      const fuel = Math.min(1, p.power / 105)
+      let s = 0.45 * joestarPart + (worldOut ? 0.15 : 0) + 0.25 * fuel + (hasZaWarudo ? 0.05 : 0)
+      // Tant que les DEUX Joestar ne sont pas retirés, la 2ᵉ moitié de l'objectif est hors
+      // d'atteinte → plafond.
+      if (removed < obj.joestarCardIds.length) s = Math.min(s, 0.7)
+      // Star Platinum en jeu → ZA WARUDO! impossible → victoire bloquée (plafond bas).
+      if (starPlat) s = Math.min(s, 0.5)
+      return Math.min(0.95, Math.max(0, s))
+    }
     case 'DEFEAT_HERO_NO_FIRE': {
       // Shere Khan : faire venir Mowgli (0.5), retirer les jetons Feu (jusqu'à +0.3),
       // réunir la force pour le vaincre. Plafonné tant que Baloo (bouclier) est présent.
