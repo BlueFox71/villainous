@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { VILLAIN_REGISTRY, type VillainKey } from '../store/gameStore'
 import { useStatsStore, type VillainStats } from '../store/statsStore'
-import { usePlayerStore, AVATAR_COLORS } from '../store/playerStore'
+import { usePlayerStore, GENERIC_AVATAR_COLORS, VILLAIN_AVATAR_COLORS } from '../store/playerStore'
 import { villainPortrait } from '../villainArt'
 import { VILLAIN_COLOR } from '../villainColors'
 import { Scroller } from '../components/Scroller'
@@ -127,6 +127,10 @@ export function Profile({ onBack }: Props) {
   const [confirmReset, setConfirmReset] = useState(false)
   // Bascule entre l'affichage visuel du profil et son édition (avatar + nom).
   const [editing, setEditing] = useState(false)
+  // Vilain survolé dans la grille de choix d'avatar (pour afficher sa couleur en bordure).
+  const [hoveredVillain, setHoveredVillain] = useState<VillainKey | null>(null)
+  // Pastille de couleur survolée (pour illuminer le(s) vilain(s) associé(s)).
+  const [hoveredSwatch, setHoveredSwatch] = useState<string | null>(null)
 
   // Profil joueur (nom + avatar).
   const name = usePlayerStore((s) => s.name)
@@ -140,6 +144,41 @@ export function Profile({ onBack }: Props) {
     VillainKey,
     (typeof VILLAIN_REGISTRY)[VillainKey],
   ][]
+
+  // Couleur thématique du vilain survolé (minuscule, pour matcher les pastilles
+  // de la palette qui sont normalisées en minuscules).
+  const hoveredColor = hoveredVillain
+    ? VILLAIN_COLOR[VILLAIN_REGISTRY[hoveredVillain].def.id]?.toLowerCase()
+    : undefined
+
+  // Une pastille de couleur de fond : sélectionnée (anneau blanc), associée au vilain
+  // survolé (doré, en miroir), sinon doré au survol direct.
+  const renderSwatch = (c: string) => {
+    const selected = avatarColor === c
+    const associated = hoveredVillain != null && hoveredColor === c
+    return (
+      <button
+        key={c}
+        type="button"
+        onClick={() => setAvatarColor(c)}
+        onMouseEnter={() => {
+          setHoveredSwatch(c)
+          playHover()
+        }}
+        onMouseLeave={() => setHoveredSwatch((h) => (h === c ? null : h))}
+        aria-label={`Couleur ${c}`}
+        aria-pressed={selected}
+        style={{ backgroundColor: c }}
+        className={`h-8 w-8 rounded-full border transition ${
+          selected
+            ? 'border-white ring-2 ring-white/80'
+            : associated
+              ? 'border-amber-400 ring-2 ring-amber-400/70'
+              : 'border-white/20 hover:border-amber-400'
+        }`}
+      />
+    )
+  }
 
   // Totaux tous vilains confondus.
   const totals = villains.reduce<VillainStats>(
@@ -229,24 +268,49 @@ export function Profile({ onBack }: Props) {
                     <div className="grid grid-cols-6 gap-2 sm:grid-cols-8 lg:grid-cols-10">
                       {villains.map(([key, v]) => {
                         const selected = avatarVillain === key
+                        const color = VILLAIN_COLOR[v.def.id]
+                        // Illuminé si survolé directement OU si sa couleur correspond
+                        // à la pastille survolée (lien réciproque vilain ↔ pastille).
+                        const hovered =
+                          hoveredVillain === key ||
+                          (hoveredSwatch != null && color?.toLowerCase() === hoveredSwatch)
                         return (
                           <button
                             key={key}
                             type="button"
                             title={v.def.name}
                             onClick={() => setAvatarVillain(key)}
-                            onMouseEnter={playHover}
+                            onMouseEnter={() => {
+                              setHoveredVillain(key)
+                              playHover()
+                            }}
+                            onMouseLeave={() =>
+                              setHoveredVillain((h) => (h === key ? null : h))
+                            }
                             aria-pressed={selected}
-                            className={`overflow-hidden rounded-lg border transition ${
+                            style={
+                              !selected && hovered && color
+                                ? {
+                                    backgroundColor: color,
+                                    borderColor: `color-mix(in srgb, ${color}, white 40%)`,
+                                    boxShadow: `0 0 8px 1px color-mix(in srgb, ${color}, white 25%)`,
+                                  }
+                                : undefined
+                            }
+                            className={`overflow-hidden rounded-lg border-2 transition ${
                               selected
                                 ? 'border-transparent ring-2 ring-amber-400'
-                                : 'border-white/10 hover:border-white/40'
+                                : hovered
+                                  ? ''
+                                  : 'border-white/10'
                             }`}
                           >
                             <img
                               src={villainPortrait(key)}
                               alt={v.def.name}
-                              className="aspect-square w-full object-cover"
+                              className={`aspect-square w-full object-cover transition-transform duration-150 ${
+                                !selected && hovered ? 'scale-90' : ''
+                              }`}
                             />
                           </button>
                         )
@@ -254,31 +318,23 @@ export function Profile({ onBack }: Props) {
                     </div>
                   </div>
 
-                  {/* Choix de la couleur de fond. */}
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-[11px] font-bold uppercase tracking-wide text-white/50">
-                      Couleur de fond
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                      {AVATAR_COLORS.map((c) => {
-                        const selected = avatarColor === c
-                        return (
-                          <button
-                            key={c}
-                            type="button"
-                            onClick={() => setAvatarColor(c)}
-                            onMouseEnter={playHover}
-                            aria-label={`Couleur ${c}`}
-                            aria-pressed={selected}
-                            style={{ backgroundColor: c }}
-                            className={`h-8 w-8 rounded-full border transition ${
-                              selected
-                                ? 'border-white ring-2 ring-white/80'
-                                : 'border-white/20 hover:border-white/60'
-                            }`}
-                          />
-                        )
-                      })}
+                  {/* Choix de la couleur de fond : deux groupes (génériques + vilains). */}
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[11px] font-bold uppercase tracking-wide text-white/50">
+                        Couleur de fond — génériques
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        {GENERIC_AVATAR_COLORS.map(renderSwatch)}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-[11px] font-bold uppercase tracking-wide text-white/50">
+                        Couleur de fond — méchants
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        {VILLAIN_AVATAR_COLORS.map(renderSwatch)}
+                      </div>
                     </div>
                   </div>
 

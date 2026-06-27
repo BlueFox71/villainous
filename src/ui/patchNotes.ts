@@ -9,25 +9,9 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '0.88',
-    date: '2026-06-27',
-    title: 'Atelier des vilains : créez vos propres méchants',
-    changes: [
-      'Nouveau dans le menu principal : **Atelier des vilains**, un éditeur complet pour créer vos propres méchants et les jouer directement contre le bot.',
-      'Identité : nom, difficulté, **couleur thématique**, **couleur du dos** des cartes Vilain ET Fatalité, portrait et illustration de présentation, avec aperçu en direct des dos.',
-'Éditeur de plateau : le plateau est **généré à partir du gabarit neutre « Realm »** (le vrai habillage Villainous, recoloré à votre couleur) — ajoutez/réordonnez vos lieux, définissez leurs actions (Gagner du pouvoir, Jouer, Fatalité, Vaincre, Déplacer, Défausser, Activer…) et leur rangée, importez une illustration par lieu et le pion, avec un aperçu rendu en direct. Les pastilles d’action cliquables en jeu sont automatiquement alignées sur le plateau généré.',
-      'Les **médaillons d’action** du plateau généré utilisent désormais les **vraies icônes Villainous** (anneau doré + symbole) au lieu d’un dessin approché ; le montant de « Gagner du pouvoir » s’affiche dans la gemme.',
-      'Éditeur de cartes : nom, type, coût, force, texte et nombre d’exemplaires ; l’illustration que vous importez est **automatiquement habillée** au format Villainous (gabarits officiels Card / Card Back : cadre, pastille de coût, étoile de force) avec zoom et recadrage réglables, et un aperçu en temps réel. Le **dos** des cartes est généré depuis le gabarit officiel, teinté à la couleur choisie.',
-      'Effets jouables : un catalogue d’effets prêts à l’emploi (gagner du pouvoir, piocher, pouvoir par Héros/Allié, payer pour piocher, défausser et repiocher) qui sont réellement exécutés en partie.',
-      'Objectif : choisissez une condition de victoire (atteindre un seuil de pouvoir, ou réunir N exemplaires d’une carte dans votre royaume).',
-      'Bouton **Tester** : lance aussitôt une partie avec votre vilain (cartes et dos générés automatiquement) face à un méchant tiré au hasard. **Exporter/Importer** un vilain en fichier .json pour le sauvegarder ou le partager.',
-      'Correctif : **The World** (Dio) ne peut désormais plus jamais être défaussé, même lorsqu’il sert à vaincre un Héros (il reste en jeu et continue de suivre votre pion).',
-    ],
-  },
-  {
-    version: '0.87',
-    date: '2026-06-27',
-    title: 'Nouveau vilain : Dio Brando (collaboration JoJo, 3★)',
+    version: '0.89',
+    date: '2026-06-28',
+    title: 'Dio Brando (collaboration JoJo) + Atelier des vilains',
     changes: [
       'Nouveau vilain jouable : **Dio Brando** (Stardust Crusaders), une collaboration 3★. Son double objectif : RETIRER DU JEU la famille Joestar (Jotaro ET Joseph — vaincus, ils quittent définitivement la partie), puis effectuer TOUTES les actions de son royaume (hors Fatalité) au cours d’un même tour.',
       'Mécanique des Stands : les Stands (Cream, Justice, Star Platinum, Silver Chariot, Hierophant Green, Magician Red, The Fool) ne sont dans aucun deck. Ils sont invoqués automatiquement quand leur carte arrive en jeu et s’y associent : Vanilla Ice → Cream (+6), Enya Geil → Justice (+2), et chaque Héros Joestar invoque SON Stand (Jotaro → Star Platinum +9, etc.). Vaincu, un Stand retourne dans la réserve (jamais en défausse).',
@@ -37,6 +21,39 @@ export const PATCH_NOTES: PatchNote[] = [
       'Toutes les cartes sont jouables (Vampirisme, Soif de sang, Indigne de moi, Quête vers le paradis, Tu oses t’approcher de moi, Masque de pierre, La flèche, JOTARO !, et les Fatalités Hermit Purple, Cartomancie, Fondation Speedwagon, ORA ! ORA ! ORA !, Lumière du Soleil, plus la Condition MUDA ! MUDA ! MUDA ! jouée en réaction à une Fatalité).',
       'IA : le bot module sa Fatalité face à Dio (il évite de lui donner Jotaro/Joseph, ses cibles, et privilégie les Héros à Stand gênant) et évalue sa vraie proximité de victoire (Joestar retirés, The World en jeu, réserve de Pouvoir).',
       'Pion provisoire (celui du Prince Jean) en attendant un pion dédié.',
+      'Nouveau dans le menu principal : **Atelier des vilains**, un éditeur complet pour créer vos propres méchants et les jouer directement contre le bot.',
+      'Identité : nom, difficulté, **couleur thématique**, **couleur du dos** des cartes Vilain ET Fatalité, portrait et illustration de présentation, avec aperçu en direct des dos.',
+      'Éditeur de plateau : le plateau est **généré à partir du gabarit neutre « Realm »** (le vrai habillage Villainous, recoloré à votre couleur) — ajoutez/réordonnez vos lieux, définissez leurs actions (Gagner du pouvoir, Jouer, Fatalité, Vaincre, Déplacer, Défausser, Activer…) et leur rangée, importez une illustration par lieu et le pion, avec un aperçu rendu en direct. Les pastilles d’action cliquables en jeu sont automatiquement alignées sur le plateau généré.',
+      'Les **médaillons d’action** du plateau généré utilisent désormais les **vraies icônes Villainous** (anneau doré + symbole) au lieu d’un dessin approché ; le montant de « Gagner du pouvoir » s’affiche dans la gemme.',
+      'Éditeur de cartes : nom, type, coût, force, texte et nombre d’exemplaires ; l’illustration que vous importez est **automatiquement habillée** au format Villainous (gabarits officiels Card / Card Back : cadre, pastille de coût, étoile de force) avec zoom et recadrage réglables, et un aperçu en temps réel. Le **dos** des cartes est généré depuis le gabarit officiel, teinté à la couleur choisie.',
+      'Effets jouables : un catalogue d’effets prêts à l’emploi (gagner du pouvoir, piocher, pouvoir par Héros/Allié, payer pour piocher, défausser et repiocher) qui sont réellement exécutés en partie.',
+      'Objectif : choisissez une condition de victoire (atteindre un seuil de pouvoir, ou réunir N exemplaires d’une carte dans votre royaume).',
+      'Bouton **Tester** : lance aussitôt une partie avec votre vilain (cartes et dos générés automatiquement) face à un méchant tiré au hasard. **Exporter/Importer** un vilain en fichier .json pour le sauvegarder ou le partager.',
+    ],
+  },
+  {
+    version: '0.88',
+    date: '2026-06-27',
+    title: 'Nouveau vilain : la Team Rocket !',
+    changes: [
+      'Un nouveau vilain jouable : la Team Rocket (Jessie, James et Miaouss) ! Son plateau (Laboratoire du Pr Chen, Forêt, Centre Pokémon, Arène), son pion, sa présentation et ses 33 cartes sont en jeu.',
+      'Objectif inédit : CAPTURER au moins 4 Pokémon dont Pikachu. La capture se fait en DEUX temps : 1) VAINCRE le Pokémon (réunissez assez de Force d’Alliés) — il n’est pas défaussé mais COUCHÉ (K.O.) sur place ; 2) utilisez l’action « Attraper un Pokémon » (la Pokéball, au Laboratoire) pour l’ajouter à votre pile de Captures.',
+      'Attention : un Pokémon couché que vous n’attrapez pas avant la fin de votre prochain tour s’échappe (défausse). Une carte couchée est affichée inclinée avec un repère « K.O. ».',
+      'Chaque dresseur (Sacha, Ondine, Pierre) fait APPARAÎTRE son Pokémon : dès qu’il arrive, il sort l’un de ses Pokémon de la pioche Fatalité et le pose sur le même lieu (Sacha → Pikachu ou Dracaufeu, etc.).',
+      'Dracaufeu renforce de +1 la Force de tous les autres Pokémon ; Togepi fait perdre du Pouvoir à la Team Rocket (1 par Héros présent) ; « Oh des pokémons ! » se joue au tour adverse pour gagner 3 Pouvoir. Vos Alliés peuvent évoluer en bêtes plus puissantes (Abo→Arbok, Smogo→Smogogo, Miaouss→Persian), Arbok et Abo affaiblissent les Héros de leur lieu, et la Mongolfière vous transporte d’un lieu à l’autre.',
+      'Voix d’intro de la Team Rocket à l’écran de présentation.',
+      'IA : le bot joue Team Rocket (il vise la capture) et, quand il la fatalise, il ÉVITE de lui offrir des Pokémon ou des dresseurs — ce serait lui faire un cadeau ! — sauf le Badge, qui rend une capture plus coûteuse.',
+      'Première version du vilain : quelques cartes (Évolution, Conditions « Oui la guerre ! » et « Pour vous jouer un mauvais tour », Repérage, Toilettage, James, Onix, Stari, Smogo/Smogogo, rose de James, Pokédex volé) sont encore en cours d’implémentation et arriveront dans une prochaine mise à jour.',
+    ],
+  },
+  {
+    version: '0.87',
+    date: '2026-06-26',
+    title: 'Nouveau décor d’arrière-plan : la jungle de Shere Khan',
+    changes: [
+      'Nouveau décor d’arrière-plan pour Shere Khan (Le Livre de la Jungle) : une jungle à contre-jour au crépuscule — lianes qui pendent du haut et se balancent en silhouette, touffes de feuillage, feuilles qui dérivent en tournoyant, rais de lumière chaude qui filtrent à travers la canopée et lucioles ambrées qui flottent et clignotent.',
+      'Et par moments, Shere Khan lui-même traverse le bas de la jungle en rôdant (silhouette noire qui marche de gauche à droite), puis disparaît dans la végétation.',
+      'Deuxième surprise : « la Fleur Rouge » — tout s’embrase d’un coup (le fond vire à l’orangé, un mur de flammes monte avec braises et lueur), puis l’incendie se dissipe. Un clin d’œil au feu que le tigre redoute (et à ses jetons Feu).',
     ],
   },
   {

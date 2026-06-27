@@ -60,6 +60,74 @@ describe('Oogie Boogie — mise en place', () => {
   })
 })
 
+describe('Oogie Boogie — Baignoire', () => {
+  it('ne déplace QUE les Alliés choisis (allyInstanceIds)', () => {
+    const def = oogieBoogieCards.find((c) => c.id === 'baignoire')!
+    const tub: CardInstance = {
+      instanceId: 'baignoire#1', cardId: 'baignoire', name: def.name, type: 'item',
+      cost: def.cost, attach: def.attach, grantsAction: def.grantsAction, activatedCost: def.activatedCost,
+    }
+    let s = game()
+    s = withBoard(s, 'ville-halloween', [tub, inst('am'), inst('stram')])
+    s = { ...s, phase: 'ACTION', players: [{ ...s.players[0], pawnLocation: 'ville-halloween', power: 0 }, ...s.players.slice(1)] }
+    // Active la Baignoire vers le Cimetière en n'emmenant QUE « am ».
+    const s1 = applyAction(s, {
+      type: 'ACTIVATE', actionId: 'granted:baignoire#1', cardInstanceId: 'baignoire#1',
+      to: 'cimetiere', allyInstanceIds: ['am#x1'],
+    })
+    const cim = s1.players[0].board['cimetiere'] ?? []
+    const ville = s1.players[0].board['ville-halloween'] ?? []
+    expect(cim.some((c) => c.cardId === 'baignoire')).toBe(true)
+    expect(cim.some((c) => c.cardId === 'am')).toBe(true)
+    expect(cim.some((c) => c.cardId === 'stram')).toBe(false)
+    expect(ville.some((c) => c.cardId === 'stram')).toBe(true)
+  })
+
+  it('sans allyInstanceIds → emmène tous les Alliés (bot / défaut)', () => {
+    const def = oogieBoogieCards.find((c) => c.id === 'baignoire')!
+    const tub: CardInstance = {
+      instanceId: 'baignoire#2', cardId: 'baignoire', name: def.name, type: 'item',
+      cost: def.cost, attach: def.attach, grantsAction: def.grantsAction, activatedCost: def.activatedCost,
+    }
+    let s = game()
+    s = withBoard(s, 'ville-halloween', [tub, inst('am'), inst('stram')])
+    s = { ...s, phase: 'ACTION', players: [{ ...s.players[0], pawnLocation: 'ville-halloween', power: 0 }, ...s.players.slice(1)] }
+    const s1 = applyAction(s, {
+      type: 'ACTIVATE', actionId: 'granted:baignoire#2', cardInstanceId: 'baignoire#2', to: 'cimetiere',
+    })
+    const cim = s1.players[0].board['cimetiere'] ?? []
+    expect(cim.filter((c) => c.type === 'ally').length).toBe(2)
+  })
+})
+
+describe('Oogie Boogie — Père Noël (défausse libre puis pioche)', () => {
+  it('ouvre pendingDiscardThenDraw, défausse les cartes choisies puis pioche', () => {
+    let s = game()
+    // Main connue : 3 cartes.
+    const hand = [inst('chauves-souris', 1), inst('araignees', 2), inst('preparation-noel', 3)]
+    s = { ...s, players: [{ ...s.players[0], hand }, ...s.players.slice(1)] }
+    s = resolveEffects(s, [{ type: 'DISCARD_ANY_THEN_DRAW', draw: 2 }], { actorIndex: 0 })
+    expect(s.pendingDiscardThenDraw?.playerIndex).toBe(0)
+    expect(s.pendingDiscardThenDraw?.draw).toBe(2)
+    const handBefore = s.players[0].hand.length // 3
+    // Défausse 2 cartes choisies, puis pioche 2.
+    const s1 = applyAction(s, { type: 'RESOLVE_DISCARD_THEN_DRAW', instanceIds: ['chauves-souris#x1', 'araignees#x2'] })
+    expect(s1.pendingDiscardThenDraw ?? null).toBeNull()
+    expect(s1.players[0].discard.some((c) => c.instanceId === 'chauves-souris#x1')).toBe(true)
+    expect(s1.players[0].discard.some((c) => c.instanceId === 'araignees#x2')).toBe(true)
+    // 3 − 2 défaussées + 2 piochées = 3.
+    expect(s1.players[0].hand.length).toBe(handBefore - 2 + 2)
+  })
+
+  it('défausser aucune carte → pioche quand même', () => {
+    let s = game()
+    s = { ...s, players: [{ ...s.players[0], hand: [inst('araignees', 9)] }, ...s.players.slice(1)] }
+    s = resolveEffects(s, [{ type: 'DISCARD_ANY_THEN_DRAW', draw: 2 }], { actorIndex: 0 })
+    const s1 = applyAction(s, { type: 'RESOLVE_DISCARD_THEN_DRAW', instanceIds: [] })
+    expect(s1.players[0].hand.length).toBe(1 + 2)
+  })
+})
+
 describe('Oogie Boogie — synergie du Trio (Am/Stram/Gram)', () => {
   it('+1 force par autre membre du trio présent dans le royaume (royaume entier)', () => {
     let s = game()
@@ -173,7 +241,33 @@ describe('Oogie Boogie — Préparation de Noël', () => {
     expect(s1.players[0].hand.length).toBe(before + 1)
     const penHigh: PendingDice = { playerIndex: 0, dice: [6, 6], modifier: 0, total: 12, context: 'Noël', outcome: { kind: 'making-christmas' }, canReroll: false }
     s1 = applyAction({ ...s, pendingDice: penHigh }, { type: 'RESOLVE_DICE' })
-    expect(s1.pendingFreeRealmAction?.playerIndex).toBe(0)
+    // ≥8 : action de royaume gratuite sur N'IMPORTE QUEL lieu (machinerie « géante »).
+    expect(s1.pendingGiantAction?.playerIndex).toBe(0)
+    expect(s1.pendingGiantAction?.viaChristmas).toBe(true)
+    // Tous les lieux sont candidats (pas seulement le lieu du pion).
+    expect(s1.pendingGiantAction?.locations?.length).toBe(s.players[0].locations.length)
+  })
+
+  it('≥8 → l’action gratuite s’effectue sur un AUTRE lieu (hors Fatalité), sans consommer l’économie d’actions', () => {
+    const g = game()
+    const pawn0 = g.players[0].locations[0].id
+    // Phase ACTION + pion placé (la carte se joue pendant les actions).
+    const s: GameState = { ...g, phase: 'ACTION', players: g.players.map((p, i) => (i === 0 ? { ...p, pawnLocation: pawn0 } : p)) }
+    const penHigh: PendingDice = { playerIndex: 0, dice: [6, 6], modifier: 0, total: 12, context: 'Noël', outcome: { kind: 'making-christmas' }, canReroll: false }
+    let s1 = applyAction({ ...s, pendingDice: penHigh }, { type: 'RESOLVE_DICE' })
+    const pawn = s1.players[0].pawnLocation
+    // Choisit un lieu DIFFÉRENT du pion : Gagner du pouvoir y est gratuit.
+    const other = s1.players[0].locations.find((l) => l.id !== pawn)!
+    const gainAction = other.actions.find((a) => a.type === 'GAIN_POWER')!
+    const usedBefore = s1.usedActionIds
+    s1 = applyAction(s1, { type: 'RESOLVE_GIANT_LOCATION', locationId: other.id })
+    expect(s1.actAtLocation).toBe(other.id)
+    const power0 = s1.players[0].power
+    s1 = applyAction(s1, { type: 'EXECUTE_ACTION', actionId: gainAction.id })
+    // Pouvoir gagné, fenêtre refermée et économie d'actions restaurée (action gratuite).
+    expect(s1.players[0].power).toBeGreaterThan(power0)
+    expect(s1.actAtLocation ?? null).toBeNull()
+    expect(s1.usedActionIds).toEqual(usedBefore)
   })
 })
 
@@ -225,9 +319,36 @@ describe('Oogie Boogie — Ce sont des vacances', () => {
     let s = game()
     const before = s.players[0].hand.length
     const heroesInTop3 = (s.players[0].fateDeck ?? []).slice(0, 3).filter((c) => c.type === 'hero').length
+    const top3 = (s.players[0].fateDeck ?? []).slice(0, 3)
     s = resolveEffects(s, [{ type: 'DISCARD_TOP_FATE_DRAW_PER_HERO', count: 3 }], { actorIndex: 0 })
     expect(s.players[0].fateDiscard.length).toBe(3)
     expect(s.players[0].hand.length).toBe(before + heroesInTop3)
+    // Les 3 cartes dévoilées sont montrées (pendingReveal) avec les Héros surlignés.
+    expect(s.pendingReveal?.cards.map((c) => c.instanceId)).toEqual(top3.map((c) => c.instanceId))
+    expect(s.pendingReveal?.heroInstanceIds?.length).toBe(heroesInTop3)
+  })
+})
+
+describe('Oogie Boogie — Affaire dans le sac (dés choisis)', () => {
+  it('un lancer contrôlé (bagControlledDice) ouvre un choix de dés', () => {
+    let s = game()
+    s = { ...s, bagControlledDice: true, players: [{ ...s.players[0], pawnLocation: 'ville-halloween' }, ...s.players.slice(1)] }
+    s = resolveEffects(s, [{ type: 'ROLL_IMPOSTOR' }], { actorIndex: 0 })
+    expect(s.pendingDice?.chooseDice).toBe(true)
+  })
+
+  it('RESOLVE_DICE_CHOICE applique le résultat choisi (impostor réussi)', () => {
+    const pen: PendingDice = {
+      playerIndex: 0, dice: [6, 6], modifier: 0, total: 12, context: 'Imposteur Perce-Oreilles',
+      cardId: 'imposteur-perce-oreilles', outcome: { kind: 'impostor' }, canReroll: false, chooseDice: true,
+    }
+    let s = game()
+    // Imposteur en défausse (sera empilé en cas de réussite).
+    s = { ...s, pendingDice: pen, players: [{ ...s.players[0], discard: [inst('imposteur-perce-oreilles', 1)] }, ...s.players.slice(1)] }
+    const before = s.players[0].impostorsPlaced ?? 0
+    const s1 = applyAction(s, { type: 'RESOLVE_DICE_CHOICE', dice: [4, 4] }) // total 8 ≥ 7 → réussite
+    expect(s1.pendingDice ?? null).toBeNull()
+    expect(s1.players[0].impostorsPlaced).toBe(before + 1)
   })
 })
 

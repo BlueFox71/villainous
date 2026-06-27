@@ -302,6 +302,12 @@ export const FATE_MALUS: Record<string, FateMalus> = {
   // des CIBLES — NEUTRE (non listés). black-pearl-objet : +3 Force au Héros porté (gêne le
   // Vanquish) mais reste sur une cible → on le laisse NEUTRE en v1.
 
+  // --- Team Rocket (capturer 4 Pokémon dont Pikachu) — INVERSION : les Pokémon et les
+  // dresseurs sont ses CIBLES (les lui donner l'AIDE → NEUTRE + évités, cf.
+  // villainStrategy.avoidPlayingHeroes). Seule gêne durable : le Badge, qui renforce un
+  // Pokémon de +2 et rend donc sa capture plus coûteuse en Force d'Alliés. ---
+  badge: 'slow', // +2 Force sur un Pokémon → capture plus dure
+
   // --- Dio Brando (retirer du jeu Jotaro + Joseph, puis balayer le royaume via ZA WARUDO).
   // Jotaro & Joseph sont les CIBLES de l'objectif → NEUTRE (non listés) : ils sont
   // NÉCESSAIRES à sa victoire (le bot évite plutôt de les lui donner). On classe le Stand

@@ -151,6 +151,18 @@ describe('Madame Mim — Métamorphoses & objectif', () => {
     expect(s.players[0].discard.some((c) => c.instanceId === mim.instanceId)).toBe(true)
   })
 
+  it('Le Savoir conduit à la Puissance : choix interactif (Merlin + lieu) puis déplacement', () => {
+    const { state, merlin } = setup([])
+    const s = resolveEffects(state, [{ type: 'MOVE_MERLIN_ANYWHERE' }], { actorIndex: 0 })
+    // Ouvre un pending au lieu de déplacer automatiquement.
+    expect(s.pendingMerlinMove?.candidateIds).toContain(merlin.instanceId)
+    expect((s.players[0].board['lieu-duel'] ?? []).some((c) => c.instanceId === merlin.instanceId)).toBe(true)
+    const s1 = applyAction(s, { type: 'RESOLVE_MERLIN_MOVE', merlinInstanceId: merlin.instanceId, to: 'marais' })
+    expect(s1.pendingMerlinMove ?? null).toBeNull()
+    expect((s1.players[0].board['marais'] ?? []).some((c) => c.instanceId === merlin.instanceId)).toBe(true)
+    expect((s1.players[0].board['lieu-duel'] ?? []).some((c) => c.instanceId === merlin.instanceId)).toBe(false)
+  })
+
   it('Merlin (RECYCLE_DEFEATED_MERLIN) remet une Métamorphose vaincue dans la pioche', () => {
     const base = game()
     const beaten = card('merlin-tortue', 'hero', { instanceId: 'mt', isMerlinTransformation: true })
@@ -196,25 +208,27 @@ describe('Madame Mim — Métamorphoses & objectif', () => {
   })
 })
 
-describe('Madame Mim — Le Savoir conduit à la Puissance (Fatalité) : destination', () => {
+describe('Madame Mim — Le Savoir conduit à la Puissance (Fatalité) : interactif', () => {
   const emptyBoard = (s: GameState) => Object.fromEntries(s.players[0].locations.map((l) => [l.id, []])) as Record<string, CardInstance[]>
 
-  it('déplace le Merlin loin de sa tueuse, en préférant Le Marais', () => {
+  it('ouvre un choix (Merlin + lieu) puis déplace vers le lieu choisi', () => {
     const base = game()
     const merlin = card('merlin-souris', 'hero', { isMerlinTransformation: true })
     const s = { ...base, players: [{ ...base.players[0], board: { ...emptyBoard(base), 'lieu-duel': [merlin] } }] } as GameState
     const out = resolveEffects(s, [{ type: 'MOVE_MERLIN_ANYWHERE' }], { actorIndex: 0 })
-    expect((out.players[0].board['marais'] ?? []).some((c) => c.instanceId === merlin.instanceId)).toBe(true)
-    expect((out.players[0].board['lieu-duel'] ?? []).some((c) => c.isMerlinTransformation)).toBe(false)
+    // N'AUTO-déplace pas : ouvre un pending avec le Merlin comme candidat.
+    expect(out.pendingMerlinMove?.candidateIds).toContain(merlin.instanceId)
+    expect((out.players[0].board['lieu-duel'] ?? []).some((c) => c.instanceId === merlin.instanceId)).toBe(true)
+    // Le joueur choisit Le Marais → déplacement effectif.
+    const done = applyAction(out, { type: 'RESOLVE_MERLIN_MOVE', merlinInstanceId: merlin.instanceId, to: 'marais' })
+    expect((done.players[0].board['marais'] ?? []).some((c) => c.instanceId === merlin.instanceId)).toBe(true)
+    expect((done.players[0].board['lieu-duel'] ?? []).some((c) => c.isMerlinTransformation)).toBe(false)
   })
 
-  it('évite un lieu où la Mim tueuse est prête (Marais occupé → La Forêt)', () => {
+  it('aucune Métamorphose de Merlin en jeu → aucun pending', () => {
     const base = game()
-    const merlin = card('merlin-souris', 'hero', { isMerlinTransformation: true })
-    const killer = card('mim-tigre', 'ally', { isMimTransformation: true, transformationTarget: 'merlin-souris' })
-    const s = { ...base, players: [{ ...base.players[0], board: { ...emptyBoard(base), 'lieu-duel': [merlin], marais: [killer] } }] } as GameState
+    const s = { ...base, players: [{ ...base.players[0], board: emptyBoard(base) }] } as GameState
     const out = resolveEffects(s, [{ type: 'MOVE_MERLIN_ANYWHERE' }], { actorIndex: 0 })
-    expect((out.players[0].board['the-woods'] ?? []).some((c) => c.instanceId === merlin.instanceId)).toBe(true)
-    expect((out.players[0].board['marais'] ?? []).some((c) => c.isMerlinTransformation)).toBe(false)
+    expect(out.pendingMerlinMove ?? null).toBeNull()
   })
 })

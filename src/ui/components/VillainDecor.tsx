@@ -4608,15 +4608,10 @@ function SunnysideDecor() {
   )
 }
 
-// Disposition des points (pips) d'une face de dé (1→6), en % dans la face (grille 3×3).
-const OOGIE_DIE_PIPS: Record<number, [number, number][]> = {
-  1: [[50, 50]],
-  2: [[28, 28], [72, 72]],
-  3: [[28, 28], [50, 50], [72, 72]],
-  4: [[28, 28], [72, 28], [28, 72], [72, 72]],
-  5: [[28, 28], [72, 28], [50, 50], [28, 72], [72, 72]],
-  6: [[28, 28], [72, 28], [28, 50], [72, 50], [28, 72], [72, 72]],
-}
+// Dé UNIQUE qui bascule sur une nouvelle face toutes les 10 s. Faces RÉELLES du jeu
+// (mêmes images que le lancer de dés : le dé en os rouge d'Oogie Boogie).
+const OOGIE_DIE_SWAP_MS = 10000
+const oogieDieSrc = (face: number) => `/cards/oogie-boogie/die-${face}.png`
 // Teintes des feux follets sous la lumière noire (vert dominant + quelques violets).
 const OOGIE_MOTE_COLORS = ['#8aff9a', '#b6ff7a', '#7cff9f', '#c69cff', '#a878ff']
 // SURPRISE « les insectes se déversent » : par moments, une nuée d'insectes grouille depuis le bas et
@@ -4627,24 +4622,37 @@ const OOGIE_BUGS_DUR_MS = 6000 // durée de l'invasion (montée + grouillement +
 const OOGIE_BUGS_GAP_MIN_MS = OOGIE_BUGS_TEST ? 6000 : 70000
 const OOGIE_BUGS_GAP_MAX_MS = OOGIE_BUGS_TEST ? 10000 : 150000
 
-/** Décor « tanière-casino d'Oogie Boogie » (L'Étrange Noël de Monsieur Jack) — 100 % CSS. Pénombre,
- *  LUEUR de LUMIÈRE NOIRE verte & violette qui pulse, DÉS lumineux qui flottent en tournant lentement
- *  (clin d'œil à sa mécanique 2d6) et fine POUSSIÈRE verte qui monte (réutilise les motes de Facilier).
- *  [La surprise et l'animation showcase viendront ensuite.] */
+/** Décor « tanière-casino d'Oogie Boogie » (L'Étrange Noël de Monsieur Jack). Pénombre, LUEUR de
+ *  LUMIÈRE NOIRE verte & violette qui pulse et fine POUSSIÈRE verte qui monte (motes de Facilier),
+ *  surmontées d'une DÉCO HALLOWEEN : guirlande de fanions/fantômes en haut, citrouille à chapeau qui
+ *  luit dans un coin, un gros DÉ unique (faces réelles du dé en os rouge) qui flotte et bascule sur une
+ *  nouvelle face toutes les 10 s, et 2-3 PERCE-OREILLES qui se baladent. SURPRISE : par moments une nuée
+ *  de perce-oreilles se déverse depuis le bas. */
 function OogieDecor() {
-  // Dés lumineux qui flottent : position / taille / face / sens & vitesse de rotation / flottement.
-  const [dice] = useState(() =>
-    Array.from({ length: 9 }, () => ({
-      left: 6 + Math.random() * 86, // %
-      top: 8 + Math.random() * 78, // %
-      size: 5 + Math.random() * 4.5, // vh
-      face: 1 + Math.floor(Math.random() * 6),
-      spinDur: 14 + Math.random() * 12, // s (rotation lente)
-      cw: Math.random() < 0.5, // sens de rotation
-      bobDur: 4 + Math.random() * 3, // s (flottement vertical)
-      bobDelay: -(Math.random() * 5), // s
-      bob: 2 + Math.random() * 3, // vh (amplitude du flottement)
-      op: 0.5 + Math.random() * 0.4,
+  // Dé UNIQUE : la face affichée + un compteur de bascule (sert de clé React pour rejouer l'anim de
+  // tumble). Toutes les 10 s, on tire une nouvelle face (jamais deux fois la même d'affilée).
+  const [die, setDie] = useState(() => ({ face: 1 + Math.floor(Math.random() * 6), flip: 0 }))
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    const id = setInterval(() => {
+      setDie((d) => {
+        let face = 1 + Math.floor(Math.random() * 6)
+        if (face === d.face) face = (d.face % 6) + 1 // évite de retomber sur la même face
+        return { face, flip: d.flip + 1 }
+      })
+    }, OOGIE_DIE_SWAP_MS)
+    return () => clearInterval(id)
+  }, [])
+  // Perce-oreilles qui se baladent en permanence (2 ou 3) : traversent lentement l'écran en frétillant.
+  const [earwigs] = useState(() =>
+    Array.from({ length: 2 + Math.floor(Math.random() * 2) }, () => ({
+      top: 70 + Math.random() * 22, // % (le long du bas)
+      size: 4.5 + Math.random() * 2.5, // vh (longueur du corps)
+      dur: 26 + Math.random() * 20, // s (traversée lente)
+      delay: -(Math.random() * 30), // s (déjà en route au montage)
+      rtl: Math.random() < 0.5, // sens de marche (droite→gauche)
+      wig: 0.22 + Math.random() * 0.12, // s (frétillement des pattes)
+      tilt: (Math.random() - 0.5) * 12, // deg (légère inclinaison du corps)
     })),
   )
   // Poussière verte (feux follets) qui monte en ondulant et scintillant (motes de Facilier).
@@ -4703,6 +4711,8 @@ function OogieDecor() {
     <div className="oogie-decor" aria-hidden>
       {/* Lueur de lumière noire (verte + violette) qui pulse. */}
       <div className="oogie-glow" />
+      {/* Guirlande Halloween (fanions + fantômes + citrouilles) suspendue en haut, qui se balance. */}
+      <img className="oogie-garland" src="/animations/guirlande_halloween.png" alt="" draggable={false} />
       {/* Poussière verte qui monte (montée > ondulation > scintillement). */}
       {motes.map((m, i) => (
         <span
@@ -4729,30 +4739,44 @@ function OogieDecor() {
           </span>
         </span>
       ))}
-      {/* Dés lumineux qui flottent (wrapper = flottement vertical ; le dé tourne lentement sur lui-même). */}
-      {dice.map((d, i) => (
+      {/* Dé unique aux faces réelles : flotte (wrapper bob) et bascule à chaque changement de face
+          (l'img est re-montée via key={die.flip} → l'anim de tumble rejoue). */}
+      <div className="oogie-die-anchor">
+        <div className="oogie-die-bob">
+          <img
+            key={die.flip}
+            className="oogie-die-img oogie-die-tumble"
+            src={oogieDieSrc(die.face)}
+            alt=""
+            draggable={false}
+          />
+        </div>
+      </div>
+      {/* Citrouille à chapeau de sorcière, posée dans un coin, qui luit (jack-o'-lantern) et se balance. */}
+      <img className="oogie-pumpkin" src="/animations/citrouille.png" alt="" draggable={false} />
+      {/* Perce-oreilles qui se baladent : traversée lente (sens via animation-direction + miroir de l'img). */}
+      {earwigs.map((w, i) => (
         <span
-          key={`die-${i}`}
-          className="oogie-die-bob"
-          style={{ left: `${d.left}%`, top: `${d.top}%`, animationDuration: `${d.bobDur}s`, animationDelay: `${d.bobDelay}s`, '--bob': `${d.bob}vh` } as CSSProperties}
+          key={`ew-${i}`}
+          className="oogie-earwig-walk"
+          style={{
+            top: `${w.top}%`,
+            animationDuration: `${w.dur}s`,
+            animationDelay: `${w.delay}s`,
+            animationDirection: w.rtl ? 'reverse' : 'normal',
+          }}
         >
-          <span
-            className="oogie-die"
-            style={{
-              width: `${d.size}vh`,
-              height: `${d.size}vh`,
-              opacity: d.op,
-              animationDuration: `${d.spinDur}s`,
-              animationDirection: d.cw ? 'normal' : 'reverse',
-            }}
-          >
-            {OOGIE_DIE_PIPS[d.face].map(([x, y], k) => (
-              <span key={k} className="oogie-pip" style={{ left: `${x}%`, top: `${y}%` }} />
-            ))}
+          <span className="oogie-earwig-wig" style={{ animationDuration: `${w.wig}s` }}>
+            <img
+              src="/animations/perce_oreille.png"
+              alt=""
+              draggable={false}
+              style={{ width: `${w.size}vh`, transform: `scaleX(${w.rtl ? -1 : 1}) rotate(${w.tilt}deg)` }}
+            />
           </span>
         </span>
       ))}
-      {/* SURPRISE — les insectes se déversent : nuée qui grimpe du bas en frétillant puis se disperse. */}
+      {/* SURPRISE — les perce-oreilles se déversent : nuée qui grimpe du bas en frétillant puis se disperse. */}
       {bugs && (
         <div className="oogie-bugs">
           {bugs.items.map((b) => (
@@ -4769,9 +4793,12 @@ function OogieDecor() {
             >
               {/* Orientation du corps (statique) ; le frétillement est sur l'enfant. */}
               <span className="oogie-bug-orient" style={{ transform: `rotate(${b.rot}deg)` }}>
-                <span
-                  className="oogie-bug"
-                  style={{ width: `${b.size}px`, height: `${b.size * 0.6}px`, animationDuration: `${b.wig}s` }}
+                <img
+                  src="/animations/perce_oreille.png"
+                  alt=""
+                  draggable={false}
+                  className="oogie-bug-img"
+                  style={{ width: `${b.size * 2.4}px`, animationDuration: `${b.wig}s` }}
                 />
               </span>
             </span>
@@ -4784,11 +4811,26 @@ function OogieDecor() {
 
 // Couleurs des bonbons de Sugar Rush (vermicelles + bokeh).
 const CANDY_COLORS = ['#ff5fa2', '#ffffff', '#7be0c2', '#ffe14d', '#5fb8ff', '#c79bff', '#ff7a7a', '#ffa14d']
+// Quelques bonbons qui font office de BOLIDES sur la piste (les concurrents de la course de Sugar Rush).
+const CANDY_RACERS = [
+  '/animations/bonbon-1.png', '/animations/bonbon-2.png', '/animations/bonbon-5.png',
+  '/animations/bonbon-9.png', '/animations/bonbon-11.png', '/animations/bonbon-13.png',
+  // Variantes de couleur du nounours (bonbon-11) : jaune / vert / bleu / violet.
+  '/animations/bonbon-11-jaune.png', '/animations/bonbon-11-vert.png',
+  '/animations/bonbon-11-bleu.png', '/animations/bonbon-11-violet.png',
+]
+// Bonbons « crocodile » : images VERTICALES (tête en bas) → sur la route, on les couche d'un quart de
+// tour vers la GAUCHE (tête vers l'avant) pour qu'ils roulent comme des bolides.
+const CANDY_CROCS = new Set([
+  '/animations/bonbon-1.png', '/animations/bonbon-12.png', '/animations/bonbon-13.png',
+  '/animations/bonbon-14.png', '/animations/bonbon-15.png',
+])
 
 /** Décor « candy » (Sa Sucrerie / Roi Candy — Les Mondes de Ralph) : le monde de bonbons de Sugar Rush.
  *  Fond rose/magenta gourmand, des VERMICELLES colorés (sprinkles) tombent en voletant (chute + ondulation
  *  + rotation), un BOKEH sucré (ronds doux colorés) dérive et scintille en fond, une bande de GLAÇAGE
- *  blanc ondulé borde le bas, et une vignette encadre le tout. 100 % CSS. En reduced-motion : tout figé. */
+ *  blanc ondulé borde le bas, et — la COURSE de Sugar Rush — une PISTE (route) qui défile en bas, des
+ *  TRAÎNÉES de vitesse qui la zèbrent et des BONBONS-BOLIDES qui la filent. En reduced-motion : tout figé. */
 function CandyDecor() {
   // Vermicelles colorés (petites capsules) qui tombent en voletant.
   const [sprinkles] = useState(() =>
@@ -4818,6 +4860,28 @@ function CandyDecor() {
       op: 0.12 + Math.random() * 0.16,
     })),
   )
+  // Bonbons-bolides : quelques bonbons qui FILENT le long de la piste (rebond + passage rapide).
+  const [racers] = useState(() =>
+    Array.from({ length: 3 }, () => ({
+      img: CANDY_RACERS[Math.floor(Math.random() * CANDY_RACERS.length)],
+      size: 6 + Math.random() * 2.5, // vh
+      dur: 38 + Math.random() * 6, // s (~40 s par traversée)
+      delay: -(Math.random() * 44), // s
+      hopDur: 0.9 + Math.random() * 0.5, // s (rebond)
+      bottom: 22.5 + Math.random() * 2, // vh (voie sur la route)
+    })),
+  )
+  // Traînées de vitesse qui zèbrent la piste (sensation de course au sol).
+  const [streaks] = useState(() =>
+    Array.from({ length: 7 }, () => ({
+      bottom: 23 + Math.random() * 10, // vh (dans la bande de route)
+      width: 8 + Math.random() * 16, // vw
+      dur: 20 + Math.random() * 6, // s (très lente)
+      delay: -(Math.random() * 26), // s
+      color: CANDY_COLORS[Math.floor(Math.random() * CANDY_COLORS.length)],
+      op: 0.5 + Math.random() * 0.4,
+    })),
+  )
   return (
     <div className="candy-decor" aria-hidden>
       {/* Bokeh sucré (derrière). */}
@@ -4838,8 +4902,42 @@ function CandyDecor() {
           </span>
         </span>
       ))}
-      {/* Glaçage blanc ondulé en bas. */}
+      {/* Piste de course : la route défile horizontalement (sensation de vitesse). */}
+      <div className="candy-street" />
+      {/* Glaçage blanc ondulé en bas (le bord de la piste). */}
       <div className="candy-frosting" />
+      {/* Bonbons-bolides qui filent le long de la piste (course > rebond > bonbon). */}
+      {racers.map((r, i) => (
+        <span
+          key={`crace-${i}`}
+          className="candy-racer"
+          style={{ bottom: `${r.bottom}vh`, animationDuration: `${r.dur}s`, animationDelay: `${r.delay}s` }}
+        >
+          <span className="candy-racer-hop" style={{ animationDuration: `${r.hopDur}s` }}>
+            <img
+              src={r.img}
+              alt=""
+              draggable={false}
+              style={{ height: `${r.size}vh`, transform: CANDY_CROCS.has(r.img) ? 'rotate(-90deg)' : undefined }}
+            />
+          </span>
+        </span>
+      ))}
+      {/* Traînées de vitesse qui zèbrent la piste. */}
+      {streaks.map((s, i) => (
+        <span
+          key={`cstreak-${i}`}
+          className="candy-streak"
+          style={{
+            bottom: `${s.bottom}vh`,
+            width: `${s.width}vw`,
+            opacity: s.op,
+            background: `linear-gradient(to right, ${s.color}00, ${s.color})`,
+            animationDuration: `${s.dur}s`,
+            animationDelay: `${s.delay}s`,
+          }}
+        />
+      ))}
       {/* Vermicelles colorés qui tombent en voletant. */}
       {sprinkles.map((s, i) => (
         <span
@@ -4858,6 +4956,377 @@ function CandyDecor() {
           </span>
         </span>
       ))}
+    </div>
+  )
+}
+
+// Surprise « Shere Khan traverse » : durée de la traversée (doit correspondre au keyframe `jungleTigerCross`)
+// et intervalle aléatoire entre deux passages. Flag de test → passages rapprochés pour régler.
+const JUNGLE_TIGER_TEST = false
+const JUNGLE_TIGER_WALK_MS = 15000 // ~15 s pour traverser la colonne en rôdant
+const JUNGLE_TIGER_GAP_MIN_MS = JUNGLE_TIGER_TEST ? 4000 : 70000 // 1 min 10
+const JUNGLE_TIGER_GAP_MAX_MS = JUNGLE_TIGER_TEST ? 8000 : 150000 // 2 min 30
+
+// Surprise « la Fleur Rouge » : tout s'embrase (voile orangé + mur de flammes + braises + lueur), puis la
+// PLUIE arrive et éteint le feu. Séquence : embrasement (BURN) → la pluie tombe sur le feu (OVERLAP) → le
+// feu s'éteint en fondu (FADE) → la pluie continue seule (ALONE) → les dernières gouttes (TAPER).
+const JUNGLE_FIRE_TEST = false
+const JUNGLE_FIRE_BURN_MS = 13000 // embrasement seul avant la pluie
+const JUNGLE_FIRE_OVERLAP_MS = 5000 // 5 s de pluie pendant que le feu brûle encore
+const JUNGLE_FIRE_FADE_MS = 1800 // fondu d'extinction du feu (doit correspondre à `jungleFireOut`)
+const JUNGLE_RAIN_ALONE_MS = 5000 // 5 s de pluie après la disparition du feu
+const JUNGLE_RAIN_TAPER_MS = 4000 // dissipation : les dernières gouttes tombent (fondu `jungleRainTaper`)
+const JUNGLE_FIRE_GAP_MIN_MS = JUNGLE_FIRE_TEST ? 6000 : 90000 // 1 min 30
+const JUNGLE_FIRE_GAP_MAX_MS = JUNGLE_FIRE_TEST ? 11000 : 180000 // 3 min
+
+/** Décor « jungle » (Shere Khan — Le Livre de la Jungle) : une jungle À CONTRE-JOUR. Fond vert sombre +
+ *  lueur chaude au centre + vignette, des RAIS de lumière chaude qui filtrent à travers la canopée, des
+ *  LIANES (images) qui pendent du haut et se balancent (pivot en haut), des FEUILLES (image) en silhouette
+ *  qui encadrent les coins et quelques-unes qui dérivent en tombant, des LUCIOLES ambrées qui flottent et
+ *  clignotent, et SHERE KHAN en silhouette noire tapi en bas (respiration subtile). Éléments tirés une
+ *  fois au montage, animations en CSS (cf. index.css, section « jungle »). */
+function JungleDecor() {
+  // Lianes suspendues : image / position / largeur / longueur / amplitude & période de balancement /
+  // déphasage / miroir / opacité de la silhouette, tirés une fois au montage. On distingue les lianes
+  // FINES (liane 1/4/5, longues et étroites) des TOUFFES de feuillage (liane-3, large et courte) :
+  // ces dernières sont plus GROSSES et en PLUSIEURS exemplaires.
+  const THIN_LIANAS = ['/animations/liane-1.png', '/animations/liane-4.png', '/animations/liane-5.png']
+  const [lianas] = useState(() => [
+    // Lianes fines (longues, étroites).
+    ...Array.from({ length: 6 }, (_, i) => ({
+      img: THIN_LIANAS[i % THIN_LIANAS.length],
+      left: 3 + Math.random() * 94, // %
+      top: -1, // % (accrochées tout en haut)
+      w: 4 + Math.random() * 7, // vh (largeur de la liane)
+      hPct: 30 + Math.random() * 45, // % (longueur : pend plus ou moins bas)
+      swing: 1.5 + Math.random() * 3.5, // deg
+      dur: 6 + Math.random() * 5, // s
+      delay: -(Math.random() * 11), // s
+      flip: Math.random() < 0.5,
+      op: 0.6 + Math.random() * 0.35,
+    })),
+    // Touffes de feuillage (liane-3) : plus grosses, plusieurs exemplaires, accrochées PLUS HAUT
+    // (elles débordent par le haut du cadre → on n'en voit que la retombée).
+    ...Array.from({ length: 5 }, () => ({
+      img: '/animations/liane-3.png',
+      left: 6 + Math.random() * 88, // %
+      top: -8 - Math.random() * 5, // % (remontées en haut, sans descendre trop bas : -8 à -13 %)
+      w: 13 + Math.random() * 11, // vh (bien plus large)
+      hPct: 24 + Math.random() * 14, // % (touffe : retombée visible)
+      swing: 1 + Math.random() * 2.5, // deg (balancement plus ample mais lent)
+      dur: 7 + Math.random() * 5, // s
+      delay: -(Math.random() * 11), // s
+      flip: Math.random() < 0.5,
+      op: 0.65 + Math.random() * 0.3,
+    })),
+  ])
+  // Feuilles qui encadrent les coins (silhouettes fixes, légèrement bercées par le vent). Repoussées
+  // hors-cadre (une partie déborde) pour ne montrer qu'un bord de feuillage, sans dominer.
+  const [frameLeaves] = useState(() =>
+    [
+      { left: -6, top: -8, w: 13, rot: 18, flip: false },
+      { left: 106, top: -6, w: 14, rot: -22, flip: true },
+      { left: -8, top: 96, w: 11, rot: -150, flip: true },
+      { left: 105, top: 98, w: 10, rot: 156, flip: false },
+    ].map((l, i) => ({ ...l, dur: 7 + i * 1.3, delay: -(Math.random() * 8), sway: 1.5 + Math.random() * 2 })),
+  )
+  // Feuilles qui dérivent en tombant (silhouette) : chute lente + voletement latéral + rotation sur soi.
+  const [fallLeaves] = useState(() =>
+    Array.from({ length: 9 }, () => ({
+      left: Math.random() * 100, // %
+      size: 2.2 + Math.random() * 2.6, // vh
+      dur: 11 + Math.random() * 9, // s (chute lente)
+      delay: -(Math.random() * 20), // s
+      sway: 3 + Math.random() * 6, // vw (voletement)
+      swayDur: 3 + Math.random() * 2.5, // s
+      rotDur: 5 + Math.random() * 5, // s
+      rotDir: Math.random() < 0.5 ? 'normal' : 'reverse',
+      flip: Math.random() < 0.5,
+      op: 0.45 + Math.random() * 0.4,
+    })),
+  )
+  // Lucioles ambrées : flottent (montée ondulante) et clignotent (opacité), comme la poussière d'or.
+  const [fireflies] = useState(() =>
+    Array.from({ length: 30 }, () => ({
+      left: Math.random() * 100, // %
+      size: 1.6 + Math.random() * 2.6, // px
+      dur: 9 + Math.random() * 9, // s (montée lente)
+      delay: -(Math.random() * 18), // s
+      sway: 2 + Math.random() * 5, // vw (ondulation latérale)
+      swayDur: 2.6 + Math.random() * 2.6, // s
+      twkDur: 1.1 + Math.random() * 1.8, // s (clignotement)
+      twkDelay: -(Math.random() * 3), // s
+      op: 0.4 + Math.random() * 0.5,
+    })),
+  )
+  // Rais de lumière chaude qui filtrent (vacillent doucement). Positions/largeurs tirées au montage.
+  const [rays] = useState(() =>
+    Array.from({ length: 5 }, () => ({
+      left: 8 + Math.random() * 84, // %
+      w: 6 + Math.random() * 10, // vh
+      rot: -22 + Math.random() * 18, // deg
+      dur: 5 + Math.random() * 4, // s (vacillement)
+      delay: -(Math.random() * 8), // s
+      op: 0.06 + Math.random() * 0.08,
+    })),
+  )
+  // SURPRISE : Shere Khan traverse le bas de la colonne de GAUCHE À DROITE en rôdant, puis disparaît
+  // hors champ. État `walk` monté/démonté par une minuterie (durée = la traversée, intervalle aléatoire),
+  // comme les surprises de Scar/Yzma. Désactivée en `prefers-reduced-motion`.
+  const [walk, setWalk] = useState(false)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let cross: ReturnType<typeof setTimeout>
+    let next: ReturnType<typeof setTimeout>
+    const schedule = (delay: number) => {
+      next = setTimeout(() => {
+        setWalk(true)
+        cross = setTimeout(() => {
+          setWalk(false)
+          schedule(JUNGLE_TIGER_GAP_MIN_MS + Math.random() * (JUNGLE_TIGER_GAP_MAX_MS - JUNGLE_TIGER_GAP_MIN_MS))
+        }, JUNGLE_TIGER_WALK_MS)
+      }, delay)
+    }
+    schedule(JUNGLE_TIGER_TEST ? 2000 : 12000 + Math.random() * 18000) // 1ʳᵉ traversée après ~12–30 s
+    return () => {
+      clearTimeout(next)
+      clearTimeout(cross)
+    }
+  }, [])
+  // SURPRISE « la Fleur Rouge » : mur de flammes orangées (réutilise le sprite `.fire-flame`) qui s'embrase
+  // au bas de la colonne. Flammes tirées une fois au montage (positions/tailles/phases).
+  const [flames] = useState(() => {
+    const n = 90 + Math.floor(Math.random() * 24) // 90..113 (mur TRÈS dense, double rangée)
+    return Array.from({ length: n }, (_, i) => ({
+      left: (i / (n - 1)) * 100 + (Math.random() - 0.5) * (140 / n), // % (réparties + jitter qui les chevauche)
+      size: 34 * (0.5 + Math.random() * 1.05), // vh (hauteur de flamme, variées)
+      loop: 2.1 + Math.random() * 1.2, // s (vitesse de la boucle de feu)
+      delay: -(Math.random() * 3), // s (phase décalée)
+      flip: Math.random() < 0.5, // miroir horizontal
+      op: 0.85 + Math.random() * 0.15,
+    }))
+  })
+  // Braises orangées qui montent en scintillant pendant l'embrasement.
+  const [embers] = useState(() =>
+    Array.from({ length: 60 }, () => ({
+      left: Math.random() * 100, // %
+      size: 1.6 + Math.random() * 3, // px
+      dur: 3 + Math.random() * 3.5, // s (montée)
+      delay: -(Math.random() * 6), // s
+      drift: (Math.random() - 0.5) * 9, // vw (dérive latérale)
+      op: 0.5 + Math.random() * 0.4,
+    })),
+  )
+  // Gouttes de pluie (réparties, fines, légèrement inclinées) qui éteignent le feu. Tirées au montage.
+  const [drops] = useState(() =>
+    Array.from({ length: 140 }, () => ({
+      left: Math.random() * 100, // %
+      len: 5 + Math.random() * 7, // vh (longueur de la traînée)
+      w: 1 + Math.random() * 1.2, // px (épaisseur)
+      dur: 0.5 + Math.random() * 0.5, // s (chute rapide)
+      delay: -(Math.random() * 1), // s (déphasage : flux continu)
+      op: 0.35 + Math.random() * 0.45,
+    })),
+  )
+  // SURPRISE « la Fleur Rouge » + extinction par la pluie, en PHASES (chaîne de timers, cf. PotionBrew) :
+  // `fire` = flammes/lueur ; `fireOut` = fondu d'extinction ; `rain` = pluie ; `rainTaper` = dernières
+  // gouttes (la pluie se dissipe). Désactivée en `prefers-reduced-motion`.
+  const [fire, setFire] = useState(false)
+  const [fireOut, setFireOut] = useState(false)
+  const [rain, setRain] = useState(false)
+  const [rainTaper, setRainTaper] = useState(false)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    const timers: ReturnType<typeof setTimeout>[] = []
+    const at = (ms: number, fn: () => void) => timers.push(setTimeout(fn, ms))
+    const run = () => {
+      setFire(true)
+      setFireOut(false)
+      setRain(false)
+      setRainTaper(false)
+      const tRain = JUNGLE_FIRE_BURN_MS // la pluie commence (le feu brûle encore)
+      const tFireOut = tRain + JUNGLE_FIRE_OVERLAP_MS // 5 s plus tard, le feu s'éteint
+      const tFireGone = tFireOut + JUNGLE_FIRE_FADE_MS // feu disparu (fin du fondu)
+      const tTaper = tFireGone + JUNGLE_RAIN_ALONE_MS // 5 s de pluie seule, puis dernières gouttes
+      const tEnd = tTaper + JUNGLE_RAIN_TAPER_MS
+      at(tRain, () => setRain(true))
+      at(tFireOut, () => setFireOut(true))
+      at(tFireGone, () => {
+        setFire(false)
+        setFireOut(false)
+      })
+      at(tTaper, () => setRainTaper(true))
+      at(tEnd, () => {
+        setRain(false)
+        setRainTaper(false)
+        at(JUNGLE_FIRE_GAP_MIN_MS + Math.random() * (JUNGLE_FIRE_GAP_MAX_MS - JUNGLE_FIRE_GAP_MIN_MS), run)
+      })
+    }
+    at(JUNGLE_FIRE_TEST ? 3000 : 40000 + Math.random() * 30000, run) // 1ʳᵉ bouffée après ~40–70 s
+    return () => timers.forEach(clearTimeout)
+  }, [])
+  return (
+    <div className="jungle-decor" aria-hidden>
+      {/* Lueur chaude au centre + vignette (posées via ::before/::after dans index.css). */}
+      {/* Rais de lumière chaude qui filtrent à travers la canopée. */}
+      {rays.map((r, i) => (
+        <span
+          key={`ray-${i}`}
+          className="jungle-ray"
+          style={{
+            left: `${r.left}%`,
+            width: `${r.w}vh`,
+            opacity: r.op,
+            transform: `translateX(-50%) rotate(${r.rot}deg)`,
+            animationDuration: `${r.dur}s`,
+            animationDelay: `${r.delay}s`,
+          }}
+        />
+      ))}
+      {/* Lucioles ambrées (enveloppe = montée ; milieu = ondulation ; image = clignotement). */}
+      {fireflies.map((f, i) => (
+        <span key={`fly-${i}`} className="jungle-firefly-rise" style={{ left: `${f.left}%`, animationDuration: `${f.dur}s`, animationDelay: `${f.delay}s` }}>
+          <span className="jungle-firefly-sway" style={{ animationDuration: `${f.swayDur}s`, animationDelay: `${f.delay}s`, '--sway': `${f.sway}vw` } as CSSProperties}>
+            <span
+              className="jungle-firefly"
+              style={{ width: `${f.size}px`, height: `${f.size}px`, opacity: f.op, animationDuration: `${f.twkDur}s`, animationDelay: `${f.twkDelay}s` }}
+            />
+          </span>
+        </span>
+      ))}
+      {/* SURPRISE : Shere Khan traverse le bas de la colonne de gauche à droite en rôdant (silhouette
+          noire). L'enveloppe glisse (translateX) ; l'enfant porte la silhouette + le balancement de
+          démarche (bob vertical). Monté seulement pendant la traversée. */}
+      {walk && (
+        <div className="jungle-tiger-walk">
+          <div className="jungle-tiger" style={{ backgroundImage: 'url(/animations/shere_khan.png)' }} />
+        </div>
+      )}
+      {/* Lianes qui pendent du haut et se balancent (pivot en haut), en silhouette. Enveloppe =
+          centrage + miroir (transform statique) ; enfant = balancement (rotate animé). */}
+      {lianas.map((l, i) => (
+        <span
+          key={`liana-${i}`}
+          className="jungle-liana"
+          style={{ left: `${l.left}%`, top: `${l.top}%`, width: `${l.w}vh`, height: `${l.hPct}%`, transform: `translateX(-50%) scaleX(${l.flip ? -1 : 1})` }}
+        >
+          <span
+            className="jungle-liana-swing"
+            style={{
+              opacity: l.op,
+              backgroundImage: `url(${l.img})`,
+              animationDuration: `${l.dur}s`,
+              animationDelay: `${l.delay}s`,
+              '--swing': `${l.swing}deg`,
+            } as CSSProperties}
+          />
+        </span>
+      ))}
+      {/* Feuilles qui encadrent les coins (grandes silhouettes bercées par le vent). Enveloppe =
+          position + orientation de base ; enfant = bercement (rotate animé). */}
+      {frameLeaves.map((l, i) => (
+        <span
+          key={`frame-${i}`}
+          className="jungle-leaf-frame"
+          style={{ left: `${l.left}%`, top: `${l.top}%`, width: `${l.w}vh`, transform: `rotate(${l.rot}deg) scaleX(${l.flip ? -1 : 1})` }}
+        >
+          <span
+            className="jungle-leaf-frame-sway"
+            style={{
+              backgroundImage: 'url(/animations/feuille.png)',
+              animationDuration: `${l.dur}s`,
+              animationDelay: `${l.delay}s`,
+              '--sway': `${l.sway}deg`,
+            } as CSSProperties}
+          />
+        </span>
+      ))}
+      {/* Feuilles qui dérivent en tombant (silhouette). */}
+      {fallLeaves.map((l, i) => (
+        <span key={`fall-${i}`} className="jungle-leaf-fall" style={{ left: `${l.left}%`, animationDuration: `${l.dur}s`, animationDelay: `${l.delay}s` }}>
+          <span className="jungle-leaf-sway" style={{ animationDuration: `${l.swayDur}s`, animationDelay: `${l.delay}s`, '--sway': `${l.sway}vw` } as CSSProperties}>
+            <span
+              className="jungle-leaf-img"
+              style={{
+                width: `${l.size}vh`,
+                height: `${l.size * (740 / 641)}vh`,
+                opacity: l.op,
+                backgroundImage: 'url(/animations/feuille.png)',
+                animationDuration: `${l.rotDur}s`,
+                animationDirection: l.rotDir,
+              }}
+            />
+          </span>
+        </span>
+      ))}
+      {/* SURPRISE « la Fleur Rouge » : tout s'embrase (voile orangé + mur de flammes + braises + lueur),
+          posé AU-DESSUS de tout le décor (mais derrière l'UI). Le feu fond en entrée, puis s'éteint en
+          fondu (`is-out`) quand la pluie l'a noyé. */}
+      {fire && (
+        <div className={`jungle-fire${fireOut ? ' is-out' : ''}`}>
+          {/* Voile orangé qui envahit toute la colonne (le « fond devient orangé »). */}
+          <div className="jungle-fire-veil" />
+          {/* Lueur chaude pulsante au bas. */}
+          <div className="jungle-fire-glow" />
+          {/* Mur de flammes (réutilise le sprite `.fire-flame`, déjà orangé). */}
+          {flames.map((f, i) => (
+            <div
+              key={`flame-${i}`}
+              className="fire-flame"
+              style={{
+                left: `${f.left}%`,
+                height: `${f.size}vh`,
+                width: `${f.size * FLAME_ASPECT}vh`,
+                opacity: f.op,
+                backgroundImage: 'url(/animations/fire_sprite.png)',
+                animationDuration: `${f.loop}s`,
+                animationDelay: `${f.delay}s`,
+                transform: f.flip ? 'translateX(-50%) scaleX(-1)' : 'translateX(-50%)',
+                '--frames': 39,
+                '--fh': `${f.size}vh`,
+              } as CSSProperties}
+            />
+          ))}
+          {/* Braises orangées qui montent. */}
+          {embers.map((e, i) => (
+            <span
+              key={`ember-${i}`}
+              className="jungle-ember"
+              style={{
+                left: `${e.left}%`,
+                width: `${e.size}px`,
+                height: `${e.size}px`,
+                animationDuration: `${e.dur}s`,
+                animationDelay: `${e.delay}s`,
+                '--drift': `${e.drift}vw`,
+                '--op': e.op,
+              } as CSSProperties}
+            />
+          ))}
+        </div>
+      )}
+      {/* PLUIE qui éteint le feu : posée au-dessus du feu. Quand `is-tapering`, la pluie se dissipe
+          (dernières gouttes). */}
+      {rain && (
+        <div className={`jungle-rain${rainTaper ? ' is-tapering' : ''}`}>
+          {/* Léger voile froid/bleuté (la pluie rafraîchit la scène orangée). */}
+          <div className="jungle-rain-veil" />
+          {drops.map((d, i) => (
+            <span
+              key={`drop-${i}`}
+              className="jungle-raindrop"
+              style={{
+                left: `${d.left}%`,
+                height: `${d.len}vh`,
+                width: `${d.w}px`,
+                opacity: d.op,
+                animationDuration: `${d.dur}s`,
+                animationDelay: `${d.delay}s`,
+              }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -4923,6 +5392,8 @@ export function VillainDecor({ villain, side }: { villain: VillainKey; side?: 'l
       return <OogieDecor />
     case 'candy':
       return <CandyDecor />
+    case 'jungle':
+      return <JungleDecor />
     case 'scar':
       return <ScarDecor decor={decor} />
     case 'image':

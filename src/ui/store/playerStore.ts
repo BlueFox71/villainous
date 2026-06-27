@@ -1,11 +1,12 @@
 import { create } from 'zustand'
 import type { VillainKey } from './gameStore'
+import { VILLAIN_COLOR } from '../villainColors'
 
 const LS_KEY = 'villainous:player'
 
-/** Palette de couleurs proposée pour le fond de l'avatar (derrière le vilain).
- *  Teintes saturées mais sombres, qui se marient avec l'ambiance « méchants ». */
-export const AVATAR_COLORS: string[] = [
+/** Palette générique : teintes saturées mais sombres, qui se marient avec
+ *  l'ambiance « méchants » (groupe présenté à part dans le choix de couleur). */
+export const GENERIC_AVATAR_COLORS: string[] = [
   '#6d28d9', // violet
   '#4c1d95', // indigo profond
   '#7c1f4e', // bordeaux
@@ -21,6 +22,15 @@ export const AVATAR_COLORS: string[] = [
   '#111111', // noir
   '#f5f5f5', // blanc
 ]
+
+/** Couleurs thématiques des vilains, dédoublonnées (`VILLAIN_COLOR` indexe par clé
+ *  kebab ET camel) puis triées par valeur hexadécimale (groupe présenté à part). */
+export const VILLAIN_AVATAR_COLORS: string[] = [
+  ...new Set(Object.values(VILLAIN_COLOR).map((c) => c.toLowerCase())),
+].sort()
+
+/** Toutes les couleurs proposées (génériques + vilains), pour validation/usage global. */
+export const AVATAR_COLORS: string[] = [...GENERIC_AVATAR_COLORS, ...VILLAIN_AVATAR_COLORS]
 
 /** Profil du joueur (présentation pure, hors logique de jeu) : un nom, un vilain
  *  servant d'avatar et la couleur de fond de cet avatar. */

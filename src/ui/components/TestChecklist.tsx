@@ -13,7 +13,6 @@ import { Scroller } from './Scroller'
 // =============================================================================
 
 const LS_KEY = 'villainous:test:validated'
-const LS_COLLAPSED = 'villainous:test:checklist-collapsed'
 
 interface CatalogCard {
   id: string
@@ -72,10 +71,6 @@ function saveValidated(s: Set<string>) {
     /* quota / mode privé : on ignore */
   }
 }
-function loadCollapsed(): boolean {
-  if (typeof localStorage === 'undefined') return false
-  return localStorage.getItem(LS_COLLAPSED) === '1'
-}
 
 /** Carte cliquable (chip) avec pastille de couleur du vilain + indicateur de paquet. */
 function CardChip({
@@ -117,7 +112,6 @@ export function TestChecklist() {
   // Filtre par méchant (null = tous).
   const [villainFilter, setVillainFilter] = useState<VillainKey | null>(null)
   const [hovered, setHovered] = useState<{ card: CatalogCard; rect: DOMRect } | null>(null)
-  const [collapsed, setCollapsed] = useState(loadCollapsed)
 
   const handleHover = (c: CatalogCard | null, rect?: DOMRect) =>
     setHovered(c && rect ? { card: c, rect } : null)
@@ -130,11 +124,6 @@ export function TestChecklist() {
       saveValidated(next)
       return next
     })
-
-  const setCollapsedPersist = (v: boolean) => {
-    setCollapsed(v)
-    if (typeof localStorage !== 'undefined') localStorage.setItem(LS_COLLAPSED, v ? '1' : '0')
-  }
 
   const q = query.trim().toLowerCase()
   const { toTest, done } = useMemo(() => {
@@ -173,22 +162,15 @@ export function TestChecklist() {
   const totalDone = validated.size
 
   return (
-    <div className="rounded-xl border border-emerald-500/30 bg-[#15131f] p-2 text-white">
+    <div className="w-full rounded-xl border border-emerald-500/30 bg-[#15131f] p-2 text-white">
       <div className="mb-1.5 flex items-center gap-2">
         <span className="text-xs font-semibold text-emerald-200">🧪 Suivi de test</span>
         <span className="text-[10px] text-white/40">
           {totalDone}/{CATALOG.length} validées
         </span>
-        <button
-          onClick={() => setCollapsedPersist(!collapsed)}
-          className="ml-auto rounded border border-white/15 px-1.5 py-0.5 text-[10px] text-white/70 hover:bg-white/10"
-        >
-          {collapsed ? 'Déplier' : 'Replier'}
-        </button>
       </div>
 
-      {!collapsed && (
-        <>
+      <>
           <div className="mb-1.5 flex items-center gap-1.5">
             <input
               value={query}
@@ -239,7 +221,7 @@ export function TestChecklist() {
             })}
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="flex flex-col gap-2">
             <div>
               <div className="mb-0.5 text-[10px] font-semibold text-amber-300">À tester ({toTest.length})</div>
               {renderColumn(toTest, false)}
@@ -250,7 +232,6 @@ export function TestChecklist() {
             </div>
           </div>
         </>
-      )}
 
       {/* Aperçu de la carte survolée : tooltip ancré juste à droite de la ligne,
           centré verticalement dessus et borné dans la fenêtre. */}

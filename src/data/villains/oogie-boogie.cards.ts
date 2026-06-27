@@ -208,7 +208,7 @@ export const oogieBoogieCards: CardDef[] = [
     cost: 0,
     copies: 2,
     trigger: { type: 'opponent-played-cards-ge', value: 1 },
-    effects: [{ type: 'DRAW_CARDS', count: 2 }],
+    effects: [{ type: 'DISCARD_ANY_THEN_DRAW', draw: 2 }],
     text: "Cette carte est jouable pendant le tour d'un adversaire s'il utilise une action Jouer une carte. Défaussez autant de cartes que vous le désirez de votre main, puis piochez-en 2.",
     image: img('pere-noel-apporte.png'),
   },

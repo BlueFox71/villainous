@@ -33,6 +33,7 @@ export const SUPPORTED_ACTION_TYPES: readonly LocationActionType[] = [
   'MOVE_ITEM_ALLY',
   'MOVE_HERO',
   'VANQUISH',
+  'CATCH_POKEMON',
   'ACTIVATE',
   'BREW_POISON',
   'OBTAIN_KEY',
@@ -71,9 +72,10 @@ export function isLegalMove(state: GameState, to: LocationId): boolean {
   return getLegalMoves(state).includes(to)
 }
 
-/** Les Héros présents sur un lieu donné du joueur actif. */
+/** Les Héros présents sur un lieu donné du joueur actif. Exclut le Prisonnier
+ *  (Oogie — Perce-Oreilles : n'est pas un Héros au sens du jeu). */
 export function heroesAt(state: GameState, locationId: LocationId): CardInstance[] {
-  return (activePlayer(state).board[locationId] ?? []).filter((c) => c.type === 'hero')
+  return (activePlayer(state).board[locationId] ?? []).filter((c) => c.type === 'hero' && !c.isPrisoner)
 }
 
 /**
@@ -144,7 +146,8 @@ export function coveredTopActionIdsAt(player: PlayerState, locationId: LocationI
     // de Madame de Trémaine) ne recouvre aucune action.
     // Lotso — Buzz l'Éclair en mode GARDIEN recouvre la rangée du haut comme un Héros.
     (c) =>
-      (c.type === 'hero' && !c.hypnotized && !c.trapped && c.cardId !== 'the-prince') ||
+      // Team Rocket — un Pokémon COUCHÉ (K.O.) ne recouvre plus d'action (il est vaincu).
+      (c.type === 'hero' && !c.hypnotized && !c.trapped && !c.pokemonKO && c.cardId !== 'the-prince') ||
       (c.isBuzz && c.buzzMode === 'guardian'),
   )
   for (const h of heroesHere) {
@@ -580,7 +583,8 @@ export function canTakeABite(state: GameState, playerIndex: number = state.activ
  *  Riches et Déguisement — Fatalité non-Héros qui ciblent un Héros adverse). */
 export function heroesOf(state: GameState, playerIndex: number): CardInstance[] {
   const p = state.players[playerIndex]
-  return Object.values(p.board).flatMap((cards) => cards.filter((c) => c.type === 'hero'))
+  // Exclut le Prisonnier (Oogie — Perce-Oreilles : pas un Héros au sens du jeu).
+  return Object.values(p.board).flatMap((cards) => cards.filter((c) => c.type === 'hero' && !c.isPrisoner))
 }
 
 /** Force effective d'un Allié ou d'un Héros présent sur le plateau d'un joueur,
@@ -763,7 +767,9 @@ export function effectiveStrength(
           m &&
           m.target === 'heroes-realm' &&
           !(m.excludeSelf && c.instanceId === card.instanceId) &&
-          !(m.exceptCardId && m.exceptCardId === card.cardId)
+          !(m.exceptCardId && m.exceptCardId === card.cardId) &&
+          // Team Rocket — Dracaufeu : aura réservée aux Pokémon (« tous les autres Pokémon »).
+          !(m.onlyPokemon && !card.isPokemon)
         ) {
           return sum + m.delta
         }
@@ -1375,6 +1381,11 @@ export function hasReachedObjective(state: GameState, playerIndex: number = stat
       return (p.confiance ?? 0) >= p.objective.threshold
     case 'PUPPY_THRESHOLD':
       return capturedPuppies(p) >= p.objective.threshold
+    case 'CAPTURE_POKEMON': {
+      const obj = p.objective
+      const pile = p.capturedPokemon ?? []
+      return pile.length >= obj.count && pile.some((c) => c.cardId === obj.requiredCardId)
+    }
     case 'REMOVE_ALL_OBSTACLES':
       return totalObstacles(p) === 0
     case 'KEYS_ALL_COLORS':

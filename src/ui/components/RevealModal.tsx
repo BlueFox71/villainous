@@ -9,6 +9,10 @@ interface Props {
   keptInstanceId?: string
   /** Titre affiché (défaut : « Cartes dévoilées »). */
   title?: string
+  /** Texte explicatif sous le titre (sinon texte par défaut « Objet trouvé… »). */
+  subtitle?: string
+  /** Cartes à surligner comme Héros (label « Héros » au lieu de « Défaussée »). */
+  heroInstanceIds?: string[]
   /** Ferme le modal (acquittement). */
   onAcknowledge: () => void
 }
@@ -18,31 +22,39 @@ interface Props {
  * La carte gardée (ajoutée à la main) est mise en avant ; les autres sont
  * défaussées. Purement informatif : un bouton « Compris » referme le modal.
  */
-export function RevealModal({ cards, keptInstanceId, title = 'Cartes dévoilées', onAcknowledge }: Props) {
+export function RevealModal({ cards, keptInstanceId, title = 'Cartes dévoilées', subtitle, heroInstanceIds, onAcknowledge }: Props) {
+  const heroSet = new Set(heroInstanceIds ?? [])
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-4">
       <div className="flex w-full max-w-2xl flex-col items-center gap-4 rounded-2xl border border-amber-400/30 bg-[#181206] p-6 text-white">
         <h2 className="text-xl font-black text-amber-200">{title}</h2>
         <p className="text-center text-sm text-white/70">
-          {keptInstanceId
-            ? 'L’Objet trouvé est ajouté à votre main ; les autres cartes dévoilées sont défaussées.'
-            : 'Aucun Objet trouvé : toutes les cartes dévoilées sont défaussées.'}
+          {subtitle
+            ? subtitle
+            : keptInstanceId
+              ? 'L’Objet trouvé est ajouté à votre main ; les autres cartes dévoilées sont défaussées.'
+              : 'Aucun Objet trouvé : toutes les cartes dévoilées sont défaussées.'}
         </p>
 
         <div className="flex flex-wrap items-start justify-center gap-4">
           {cards.map((c) => {
             const def = getCardDef(c.cardId)
             const kept = c.instanceId === keptInstanceId
+            const isHero = heroSet.has(c.instanceId)
             return (
               <div key={c.instanceId} className="flex flex-col items-center gap-1">
-                <span className={`h-4 text-[11px] font-bold ${kept ? 'text-emerald-300' : 'text-white/40'}`}>
-                  {kept ? '✓ Dans votre main' : 'Défaussée'}
+                <span className={`h-4 text-[11px] font-bold ${kept ? 'text-emerald-300' : isHero ? 'text-rose-300' : 'text-white/40'}`}>
+                  {kept ? '✓ Dans votre main' : isHero ? '🦸 Héros' : 'Défaussée'}
                 </span>
                 <img
                   src={def?.image}
                   alt={c.name}
                   className={`h-60 w-auto rounded-lg border-2 transition ${
-                    kept ? 'border-emerald-400 ring-2 ring-emerald-400/50' : 'border-white/15 opacity-70'
+                    kept
+                      ? 'border-emerald-400 ring-2 ring-emerald-400/50'
+                      : isHero
+                        ? 'border-rose-400 ring-2 ring-rose-400/40'
+                        : 'border-white/15 opacity-70'
                   }`}
                 />
                 <span className="max-w-[12rem] text-center text-xs font-semibold text-white/80">{c.name}</span>

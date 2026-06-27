@@ -33,6 +33,7 @@ const PORTRAIT: Partial<Record<VillainKey, string>> = {
   shereKhan: '/shere-khan.png',
   davyJones: '/davy-jones.png',
   tamatoa: '/tamatoa.png',
+  teamRocket: '/team-rocket.png',
   dio: '/dio.png',
 }
 
@@ -74,6 +75,7 @@ const PRESENTATION: Partial<Record<VillainKey, string>> = {
   shereKhan: '/presentations/shere-khan.png',
   davyJones: '/presentations/davy-jones.png',
   tamatoa: '/presentations/tamatoa.png',
+  teamRocket: '/presentations/team-rocket.png',
   dio: '/presentations/dio.png',
 }
 
@@ -93,8 +95,9 @@ export const PRESENTATION_TWEAK: Partial<
   // sinon on reprend `dyPct` (écran de choix).
   imposteur: { scale: 0.55, dxPct: 0, dyPct: -5, versusDyPct: -12 },
   // Mère Gothel : illustration légèrement trop grande → on la rétrécit un poil, et
-  // un peu trop haute sur l'écran de choix → on la descend légèrement.
-  gothel: { scale: 0.9, dyPct: 4 },
+  // un peu trop haute sur l'écran de choix → on la descend légèrement. Sur l'écran
+  // versus, en revanche, elle est trop BASSE → on la remonte (versusDyPct négatif).
+  gothel: { scale: 0.9, dyPct: 4, versusDyPct: -6 },
   // Le Seigneur des clés : on baisse légèrement sa position (sans le rétrécir).
   seigneurCles: { dyPct: 6 },
   // Maléfique : nouvelle illustration carrée (1000×1000) — on la remonte pour caler la

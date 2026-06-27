@@ -205,7 +205,7 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
       swayDur: 2.2 + Math.random() * 1.8, // s (période d'ondulation)
       rotDur: 2.5 + Math.random() * 2.5, // s (oscillation de rotation)
       rotDir: Math.random() < 0.5 ? -1 : 1, // sens de l'oscillation
-      flame: Math.random() < 0.7, // ~70 % portent une flammèche
+      flame: anim.petalFlame !== false && Math.random() < 0.7, // ~70 % portent une flammèche (sauf si désactivé)
     }))
   })
 
@@ -273,6 +273,39 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
       dur: 3.8 + Math.random() * 2.6, // s (apparition → gonflement → disparition)
       delay: Math.random() * 3.2, // s (étalement de l'invasion)
       op: 0.2 + Math.random() * 0.22,
+    }))
+  })
+
+  // Invasion de JUNGLE (Shere Khan, path `overgrowth`) : des LIANES poussent depuis le haut (réparties sur
+  // toute la largeur, elles s'allongent vers le bas) et des FEUILLES éclosent un peu partout sur l'écran,
+  // départs échelonnés, puis tout se dissipe. Tirées une fois au montage.
+  const [ogLianas] = useState<
+    { img: string; left: number; w: number; hPct: number; delay: number; fx: number; op: number }[]
+  >(() => {
+    if (path !== 'overgrowth') return []
+    const imgs = ['/animations/liane-1.png', '/animations/liane-3.png', '/animations/liane-4.png', '/animations/liane-5.png']
+    return Array.from({ length: 14 }, (_, i) => ({
+      img: imgs[i % imgs.length],
+      left: 2 + Math.random() * 96, // % (toute la largeur)
+      w: 6 + Math.random() * 8, // vh (largeur de la liane)
+      hPct: 38 + Math.random() * 46, // % (s'allonge plus ou moins bas)
+      delay: Math.random() * 1.8, // s (poussent les unes après les autres)
+      fx: Math.random() < 0.5 ? -1 : 1, // miroir horizontal
+      op: 0.55 + Math.random() * 0.35,
+    }))
+  })
+  const [ogLeaves] = useState<
+    { left: number; top: number; size: number; rot: number; delay: number; fx: number; op: number }[]
+  >(() => {
+    if (path !== 'overgrowth') return []
+    return Array.from({ length: 36 }, () => ({
+      left: -2 + Math.random() * 104, // % (partout, déborde un peu les bords)
+      top: -2 + Math.random() * 104, // %
+      size: 5 + Math.random() * 8, // vh
+      rot: Math.random() * 360, // deg (orientations variées)
+      delay: Math.random() * 2.2, // s (éclosent les unes après les autres)
+      fx: Math.random() < 0.5 ? -1 : 1,
+      op: 0.5 + Math.random() * 0.4,
     }))
   })
 
@@ -677,6 +710,51 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     )
   }
 
+  if (path === 'overgrowth') {
+    // Invasion de jungle plein écran (comme smoke-field : portail fixe au-dessus de la scène). Les lianes
+    // poussent depuis le haut (scaleY 0→1, pivot en haut), les feuilles éclosent partout (scale 0→1), puis
+    // tout se dissipe. Chaque élément finit son cycle à `durationSec` (durée = durationSec − délai).
+    return createPortal(
+      <div className="jungle-overgrowth-layer pointer-events-none fixed inset-0 overflow-hidden" style={{ zIndex: 40 }} aria-hidden>
+        {ogLianas.map((l, i) => (
+          <span
+            key={`ogl-${i}`}
+            className="jungle-og-liana"
+            style={{
+              left: `${l.left}%`,
+              width: `${l.w}vh`,
+              height: `${l.hPct}%`,
+              backgroundImage: `url(${l.img})`,
+              animationDuration: `${Math.max(2, durationSec - l.delay)}s`,
+              animationDelay: `${l.delay}s`,
+              '--fx': l.fx,
+              '--op': l.op,
+            } as CSSProperties}
+          />
+        ))}
+        {ogLeaves.map((l, i) => (
+          <span
+            key={`ogf-${i}`}
+            className="jungle-og-leaf"
+            style={{
+              left: `${l.left}%`,
+              top: `${l.top}%`,
+              width: `${l.size}vh`,
+              height: `${l.size * (740 / 641)}vh`,
+              backgroundImage: 'url(/animations/feuille.png)',
+              animationDuration: `${Math.max(2, durationSec - l.delay)}s`,
+              animationDelay: `${l.delay}s`,
+              '--rot': `${l.rot}deg`,
+              '--fx': l.fx,
+              '--op': l.op,
+            } as CSSProperties}
+          />
+        ))}
+      </div>,
+      document.body,
+    )
+  }
+
   if (path === 'coins') {
     // Pluie de pièces : chaque pièce tombe du haut (hors écran) jusqu'en bas (clippée
     // par le calque), en tournoyant. Position/taille/vitesse/délai/spin posés en inline.
@@ -708,7 +786,11 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     // et ~70 % portent une petite flamme. Wrappers en inline-block → chacun se cale sur le pétale.
     // (Préfixe `gp-` : évite la collision avec le décor `petals` de la Reine de Cœur.)
     return (
-      <div className="gp-petal-layer pointer-events-none absolute inset-0" aria-hidden>
+      <div
+        className="gp-petal-layer pointer-events-none absolute inset-0"
+        style={anim.petalGlow ? ({ '--petal-glow': anim.petalGlow } as CSSProperties) : undefined}
+        aria-hidden
+      >
         {petalItems.map((p, i) => (
           <span
             key={i}
@@ -783,7 +865,7 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
           ) : (
             // Dérive simple (ex. dirigeable de Ratigan) : wrapper = léger flottement vertical (`water-float`).
             <span className="water-float">
-              <img src={anim.image} alt="" className="h-full w-auto select-none" style={imgStyle} draggable={false} />
+              <img src={anim.image} alt="" className={`h-full w-auto select-none${anim.softEdges ? ' water-soft' : ''}`} style={imgStyle} draggable={false} />
             </span>
           )}
         </div>
@@ -997,7 +1079,7 @@ export function BackgroundAnimation({
   // (chaque animation d'un vilain a sa propre file d'images).
   const imageQueues = useRef<Record<string, string[]>>({})
   const pickImage = (villain: VillainKey, animIdx: number, a: VillainAnimation): string => {
-    if (a.path === 'pages' || a.path === 'coins' || a.path === 'rise' || a.path === 'water-cross' || a.path === 'voodoo' || a.path === 'fire-bottom' || a.path === 'paws' || a.path === 'petals' || a.path === 'smoke-field') return '' // pas d'image unique ici
+    if (a.path === 'pages' || a.path === 'coins' || a.path === 'rise' || a.path === 'water-cross' || a.path === 'voodoo' || a.path === 'fire-bottom' || a.path === 'paws' || a.path === 'petals' || a.path === 'smoke-field' || a.path === 'overgrowth') return '' // pas d'image unique ici
     if (!a.images || a.images.length === 0) return a.image ?? ''
     const key = `${villain}#${animIdx}`
     const q = imageQueues.current

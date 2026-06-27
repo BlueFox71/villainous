@@ -218,8 +218,9 @@ export function MirrorShatter({ src, targetRef, onStart, onDone }: Props) {
           className={`absolute ${phase === 'crack' ? 'mirror-shake' : ''}`}
           style={{ left: rect.left, top: rect.top, width: rect.width, height: rect.height }}
         >
-          {/* Fond sombre : masque le vrai plateau dessous (révélé quand ça part). */}
-          <div className="absolute inset-0 rounded-lg bg-[#08060f]" />
+          {/* Pas de fond derrière les éclats : le plateau vivant est déjà masqué côté
+              App (visibility:hidden) et les morceaux pavent toute l'image pendant les
+              fissures. Au boom ils s'envolent et laissent voir le fond de la page. */}
 
           {/* Les éclats : image entière clippée à chaque polygone irrégulier. À
               l'explosion, transition CSS → projection + rotation + rétrécissement

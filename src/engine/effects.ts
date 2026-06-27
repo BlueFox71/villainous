@@ -183,6 +183,7 @@ export function openDiceRoll(
   idx: number,
   context: string,
   outcome: DiceOutcome,
+  cardId?: string,
 ): GameState {
   const controlled = !!state.bagControlledDice
   const r = controlled
@@ -197,8 +198,8 @@ export function openDiceRoll(
   const canReroll = !controlled && (next.players[idx].hand ?? []).some((c) => c.cardId === 'des-pipes')
   next = {
     ...next,
-    diceRoll: { seq, dice: r.dice, total, modifier, by: idx, context },
-    pendingDice: { playerIndex: idx, dice: r.dice, modifier, total, context, outcome, canReroll },
+    diceRoll: { seq, dice: r.dice, total, modifier, by: idx, context, cardId },
+    pendingDice: { playerIndex: idx, dice: r.dice, modifier, total, context, cardId, outcome, canReroll, chooseDice: controlled },
   }
   const modStr = modifier !== 0 ? ` (${modifier > 0 ? '+' : ''}${modifier})` : ''
   return {
@@ -910,6 +911,11 @@ export function performVanquish(
   if (heroCard.type !== 'hero') {
     throw new Error(`${heroCard.name} n'est pas un Héros.`)
   }
+  // Oogie Boogie — le Prisonnier (Perce-Oreilles) n'est pas un Héros vaincable : il
+  // n'est retiré que par l'objectif (4 Imposteurs → retour de Jack).
+  if (heroCard.isPrisoner) {
+    throw new Error(`${heroCard.name} (Prisonnier) ne peut pas être éliminé.`)
+  }
   const heroLocName = findLocation(me, heroLoc)?.name ?? heroLoc
   const hasDeguisement = (me.board[heroLoc] ?? []).some(
     (c) => c.cardId === 'deguisement' && c.attachedTo === heroCard.instanceId,
@@ -991,8 +997,8 @@ export function performVanquish(
   if (aTaunterExists && !targetHasTaunt) {
     throw new Error('Vous devez d’abord éliminer un Héros provocateur (Provocation).')
   }
-  // Prof (La Méchante Reine), Polnareff/Silver Chariot (Dio)… : Héros à éliminer AVANT
-  // les autres (donnée `mustDefeatFirst`).
+  // Héros prioritaire (Prof / Citoyens d'Halloween / Polnareff–Silver Chariot…) : doit être
+  // éliminé AVANT les autres (donnée `mustDefeatFirst`).
   const priorityHero = Object.values(me.board).flat().find((c) => c.type === 'hero' && c.mustDefeatFirst)
   if (priorityHero && !heroCard.mustDefeatFirst) {
     throw new Error(`Vous devez d’abord éliminer ${priorityHero.name} (priorité).`)
@@ -1146,7 +1152,12 @@ export function performVanquish(
   // Flèches : si un Allié utilisé porte ≥1 Arc et Flèches, on défausse TOUS les
   // Arcs À LA PLACE de l'Allié — l'Allié (et ses autres Objets, ex. Flèche d'Or)
   // RESTE en jeu. Sinon l'Allié et tous ses Objets associés sont défaussés.
-  const removedIds = new Set<string>([heroCard.instanceId])
+  // Team Rocket — POKÉMON : on ne le défausse PAS quand il est vaincu. Il est COUCHÉ
+  // (K.O., `pokemonKO`) et RESTE sur son lieu ; on l'attrape ensuite (action Attraper /
+  // rose de James) → pile de Captures. Non attrapé à la fin du tour SUIVANT, il part en
+  // défausse Fatalité (cf. sweepKoPokemon, appelé en fin de tour).
+  const tiltPokemon = !!heroCard.isPokemon
+  const removedIds = new Set<string>(tiltPokemon ? [] : [heroCard.instanceId])
   const discardedAllyCards: CardInstance[] = []
   // Hadès — Hydre : utilisée pour un Vanquish, elle retourne en MAIN au lieu d'être
   // défaussée (ses Objets associés partent quand même en défausse). On la retire du
@@ -1323,11 +1334,14 @@ export function performVanquish(
           ? [...cards.filter((c) => !removedIds.has(c.instanceId)), { ...heroCard, lockedPower: undefined, attachedTo: undefined }]
           : locId === p.pawnLocation && relocatedToPawn.length > 0
             ? [...cards.filter((c) => !removedIds.has(c.instanceId)), ...relocatedToPawn]
-            : cards.filter((c) => !removedIds.has(c.instanceId)),
+            // Team Rocket — Pokémon vaincu : il RESTE couché (K.O.) sur son lieu.
+            : tiltPokemon
+              ? cards.map((c) => (c.instanceId === heroCard.instanceId ? { ...c, pokemonKO: true, koOnTurn: state.turn } : c))
+              : cards.filter((c) => !removedIds.has(c.instanceId)),
       ]),
     ),
     fateDiscard:
-      raiponceReturns || toSuccession || kronkToVillain || merlinDefeated || removedFromGameNow
+      raiponceReturns || toSuccession || kronkToVillain || merlinDefeated || removedFromGameNow || tiltPokemon
         ? p.fateDiscard
         : [...p.fateDiscard, heroDiscarded],
     removedFromGame: removedFromGameNow ? [...(p.removedFromGame ?? []), heroCard.cardId] : p.removedFromGame,
@@ -1479,7 +1493,9 @@ export function performVanquish(
     ...next,
     log: [
       ...next.log,
-      `${me.villainName} élimine **${heroCard.name}** (alliés : ${allies.map((a) => a.name).join(', ')})${keepAllies ? ' — Intimidation, alliés gardés.' : '.'}`,
+      tiltPokemon
+        ? `${me.villainName} met **${heroCard.name}** K.O. (couché) — attrapez-le avant la fin du prochain tour ! (alliés : ${allies.map((a) => a.name).join(', ')})`
+        : `${me.villainName} élimine **${heroCard.name}** (alliés : ${allies.map((a) => a.name).join(', ')})${keepAllies ? ' — Intimidation, alliés gardés.' : '.'}`,
       ...(locked > 0
         ? [`${locked} JT verrouillé${locked > 1 ? 's' : ''} restitué${locked > 1 ? 's' : ''} à ${me.villainName}.`]
         : []),
@@ -1509,9 +1525,9 @@ export function performVanquish(
   next = pushDiscardShowcase(
     next,
     showcaseCardIds,
-    `${me.villainName} élimine ${heroCard.name}`,
+    tiltPokemon ? `${me.villainName} met ${heroCard.name} K.O.` : `${me.villainName} élimine ${heroCard.name}`,
     state.activePlayer,
-    'red',
+    tiltPokemon ? 'dark' : 'red',
     'bottom',
     vanquishGain > 0 ? { gainedPower: vanquishGain } : undefined,
   )
@@ -2423,6 +2439,20 @@ export function resolveEffect(
       })
       const iggyName = (state.players[idx].board[loc] ?? []).find((c) => c.cardId === 'iggy')?.name ?? 'Iggy'
       return { ...out, log: [...out.log, `**The Fool** disperse les Alliés du lieu de ${iggyName}.`] }
+    }
+    case 'DISCARD_ANY_THEN_DRAW': {
+      // Père Noël : défausse FACULTATIVE d'autant de cartes que voulu, puis pioche.
+      // Main vide → on pioche directement (rien à défausser).
+      const p = state.players[idx]
+      if (p.hand.length === 0) {
+        const next = drawNCards(state, idx, effect.draw)
+        return { ...next, log: [...next.log, `${p.villainName} (Père Noël) pioche ${effect.draw} carte(s).`] }
+      }
+      return {
+        ...state,
+        pendingDiscardThenDraw: { playerIndex: idx, draw: effect.draw },
+        log: [...state.log, `${p.villainName} (Père Noël) : défaussez autant de cartes que vous voulez, puis piochez ${effect.draw}.`],
+      }
     }
     // --- Sa Sucrerie (King Candy / Sugar Rush) ------------------------------
     // Les effets de circuit/course visent TOUJOURS le joueur King Candy (qu'ils
@@ -3654,9 +3684,9 @@ export function resolveEffect(
     }
     // --- Oogie Boogie -------------------------------------------------------
     case 'ROLL_IMPOSTOR':
-      return openDiceRoll(state, idx, 'Imposteur Perce-Oreilles', { kind: 'impostor' })
+      return openDiceRoll(state, idx, 'Imposteur Perce-Oreilles', { kind: 'impostor' }, 'imposteur-perce-oreilles')
     case 'ROLL_MAKING_CHRISTMAS':
-      return openDiceRoll(state, idx, 'Préparation de Noël', { kind: 'making-christmas' })
+      return openDiceRoll(state, idx, 'Préparation de Noël', { kind: 'making-christmas' }, 'preparation-noel')
     case 'ROLL_MERVEILLE': {
       // Effectue d'abord l'élimination (Alliés → défausse ; déclenche les triggers
       // Chauves-souris/Araignées et onVanquish du Héros), puis lance les dés. Le
@@ -3672,7 +3702,7 @@ export function resolveEffect(
         kind: 'merveille',
         allyInstanceIds: ctx?.allyInstanceIds ?? [],
         locationId: loc,
-      })
+      }, 'mais-quelle-merveille')
     }
     case 'DISCARD_TOP_FATE_DRAW_PER_HERO': {
       const p = state.players[idx]
@@ -3688,6 +3718,23 @@ export function resolveEffect(
         log: [...next.log, `${p.villainName} (Ce sont des vacances) défausse ${top.length} carte(s) Fatalité (${heroes} Héros).`],
       }
       if (heroes > 0) next = drawNCards(next, idx, heroes)
+      // Montre les cartes Fatalité dévoilées + le nombre de cartes piochées (les
+      // Héros y sont surlignés via heroInstanceIds).
+      if (top.length > 0) {
+        next = {
+          ...next,
+          pendingReveal: {
+            playerIndex: idx,
+            cards: top,
+            title: 'Ce sont des vacances',
+            subtitle:
+              heroes > 0
+                ? `${heroes} Héros dévoilé${heroes > 1 ? 's' : ''} → vous piochez ${heroes} carte${heroes > 1 ? 's' : ''}.`
+                : 'Aucun Héros dévoilé : vous ne piochez aucune carte.',
+            heroInstanceIds: top.filter((c) => c.type === 'hero').map((c) => c.instanceId),
+          },
+        }
+      }
       return next
     }
     case 'JACK_FATE_DISCARD_IMPOSTOR': {
@@ -3729,7 +3776,7 @@ export function resolveEffect(
       let next: GameState = {
         ...state,
         rngState: r.rngState,
-        diceRoll: { seq, dice: r.dice, total, modifier: 0, by: idx, context: 'Joyeux Halloween !' },
+        diceRoll: { seq, dice: r.dice, total, modifier: 0, by: idx, context: 'Joyeux Halloween !', cardId: 'joyeux-halloween' },
         log: [...state.log, `${state.players[idx].villainName} lance les dés — Joyeux Halloween ! : ${r.dice[0]} + ${r.dice[1]} = **${total}**.`],
       }
       if (total >= 8) {
@@ -4506,6 +4553,22 @@ export function resolveEffect(
         }
       }
       return pushRobinSteal(next, idx, gross - gained)
+    }
+    case 'LOSE_POWER_PER_HERO_IN_REALM': {
+      // Team Rocket — Togepi : l'acteur (le joueur ciblé par la Fatalité) perd `amount`
+      // pouvoir par Héros présent dans son royaume (plancher 0).
+      const heroes = countHeroesInRealm(state, idx)
+      const loss = Math.min(state.players[idx].power, heroes * effect.amount)
+      if (loss <= 0) return state
+      const next = updatePlayer(state, idx, (p) => ({ ...p, power: p.power - loss }))
+      const actor = next.players[idx]
+      return {
+        ...next,
+        log: [
+          ...next.log,
+          `${actor.villainName} perd ${loss} JT (${heroes} héros × ${effect.amount}) (total : ${actor.power}).`,
+        ],
+      }
     }
     case 'GAIN_POWER_PER_ALLY_IN_REALM': {
       const allies = Object.values(state.players[idx].board)
@@ -7470,33 +7533,23 @@ export function resolveEffect(
       }
     }
     case 'MOVE_MERLIN_ANYWHERE': {
-      // Le Savoir conduit à la Puissance (Fatalité) : déplace la Métamorphose de Merlin
-      // en jeu vers un lieu où Madame Mim n'a PAS de Métamorphose Mim prête (auto).
+      // Le Savoir conduit à la Puissance (Fatalité) : l'adversaire (state.activePlayer)
+      // choisit QUELLE Métamorphose de Merlin déplacer ET vers QUEL lieu. On ouvre un
+      // pending interactif (humain : modale ; bot : auto-résolu côté UI).
       const p = state.players[idx]
-      const found = findMerlinInRealm(p)
-      if (!found) return { ...state, log: [...state.log, `Le Savoir conduit à la Puissance : aucune Métamorphose de Merlin en jeu.`] }
-      const readyAt = (loc: LocationId) =>
-        (p.board[loc] ?? []).some((c) => c.isMimTransformation && c.transformationTarget === found.card.cardId)
-      // Préférence (conseil du guide) : Le Marais (« harder to undo from Cabane » : la
-      // Cabane ne peut pas y ramener le Merlin en un seul déplacement) puis La Forêt (qui
-      // dissuade Mim de fataliser), sinon n'importe quel lieu sans Mim prête.
-      const PREF: LocationId[] = ['marais', 'the-woods', 'lieu-duel', 'cabane']
-      const noReady = p.locations.map((l) => l.id).filter((id) => id !== found.loc && !readyAt(id))
-      const dest =
-        PREF.find((id) => noReady.includes(id)) ??
-        noReady[0] ??
-        p.locations.map((l) => l.id).find((id) => id !== found.loc) ??
-        found.loc
-      if (dest === found.loc) return state
-      const next = updatePlayer(state, idx, (pl) => ({
-        ...pl,
-        board: {
-          ...pl.board,
-          [found.loc]: (pl.board[found.loc] ?? []).filter((c) => c.instanceId !== found.card.instanceId),
-          [dest]: [...(pl.board[dest] ?? []), found.card],
+      const merlins = p.locations.flatMap((l) => (p.board[l.id] ?? []).filter((c) => c.isMerlinTransformation))
+      if (merlins.length === 0) {
+        return { ...state, log: [...state.log, `Le Savoir conduit à la Puissance : aucune Métamorphose de Merlin en jeu.`] }
+      }
+      return {
+        ...state,
+        pendingMerlinMove: {
+          chooserIndex: state.activePlayer,
+          targetIndex: idx,
+          candidateIds: merlins.map((c) => c.instanceId),
         },
-      }))
-      return { ...next, log: [...next.log, `Le Savoir conduit à la Puissance : **${found.card.name}** est déplacé vers **${locName(p, dest)}**.`] }
+        log: [...state.log, `Le Savoir conduit à la Puissance : choisissez une Métamorphose de Merlin et son lieu de destination.`],
+      }
     }
     case 'RECYCLE_DEFEATED_MERLIN': {
       // Merlin (Fatalité) : remet une Métamorphose vaincue (au hasard) dans la pioche Merlin.

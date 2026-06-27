@@ -1946,6 +1946,26 @@ function applyResolveDiceReroll(state: GameState, instanceId: string, dieIndex: 
   }
 }
 
+/** Oogie — Cette fois l'affaire est dans le sac : le joueur a CHOISI la valeur des
+ *  deux dés. On fixe le lancer puis on applique l'issue (comme RESOLVE_DICE). */
+function applyResolveDiceChoice(state: GameState, dice: [number, number]): GameState {
+  const pen = state.pendingDice
+  if (!pen) throw new Error('Aucun lancer de dés en cours.')
+  if (!pen.chooseDice) throw new Error('Ce lancer ne se choisit pas.')
+  for (const d of dice) if (d < 1 || d > 6 || !Number.isInteger(d)) throw new Error('Valeur de dé invalide (1–6).')
+  const idx = pen.playerIndex
+  const total = dice[0] + dice[1] + pen.modifier
+  const seq = (state.diceRoll?.seq ?? 0) + 1
+  const modStr = pen.modifier !== 0 ? ` (${pen.modifier > 0 ? '+' : ''}${pen.modifier})` : ''
+  const chosen: GameState = {
+    ...state,
+    diceRoll: { seq, dice, total, modifier: pen.modifier, by: idx, context: pen.context, cardId: pen.cardId },
+    pendingDice: { ...pen, dice, total },
+    log: [...state.log, `${state.players[idx].villainName} CHOISIT le résultat des dés : ${dice[0]} + ${dice[1]}${modStr} = **${total}**.`],
+  }
+  return applyResolveDice(chosen)
+}
+
 /** Confirme le lancer de dés en cours et applique son issue (cf. PendingDice.outcome). */
 function applyResolveDice(state: GameState): GameState {
   const pen = state.pendingDice
@@ -2016,10 +2036,17 @@ function applyResolveDice(state: GameState): GameState {
         next = resolveEffects(next, [{ type: 'DRAW_CARDS', count: 1 }], { actorIndex: idx })
         next = { ...next, log: [...next.log, `Préparation de Noël (${total}) : ${name} pioche 1 carte.`] }
       } else {
+        // ≥8 : une action de royaume gratuite sur N'IMPORTE QUEL lieu (hors Fatalité).
+        // Réutilise la machinerie « action géante » (actAtLocation + clearGiant) en
+        // listant TOUS les lieux comme candidats.
         next = {
           ...next,
-          pendingFreeRealmAction: { playerIndex: idx },
-          log: [...next.log, `Préparation de Noël (${total}) : ${name} peut effectuer une action de royaume gratuite (sur son lieu).`],
+          pendingGiantAction: {
+            playerIndex: idx,
+            viaChristmas: true,
+            locations: next.players[idx].locations.map((l) => l.id),
+          },
+          log: [...next.log, `Préparation de Noël (${total}) : ${name} peut effectuer une action de royaume gratuite (n'importe quel lieu, hors Fatalité).`],
         }
       }
       break
@@ -2230,6 +2257,25 @@ export function placeFateHeroWithEffects(
   }
   // Dr Facilier — déclencheurs « à la pose d'un Héros » (Talisman, Lawrence).
   next = applyFacilierHeroPlayTriggers(next, targetIndex, hero.instanceId, to)
+  // Team Rocket — DRESSEUR : à sa pose, il INVOQUE l'un de ses Pokémon depuis la pioche
+  // Fatalité (auto : le 1ᵉʳ trouvé) sur le MÊME lieu. Le Pokémon porte le lien vers le
+  // dresseur (summonedByInstanceId). (S'il n'est pas dans la pioche, rien ne se passe.)
+  if (hero.summonsPokemonCardIds && hero.summonsPokemonCardIds.length > 0) {
+    const deck = next.players[targetIndex].fateDeck
+    const pokeIdx = deck.findIndex((c) => hero.summonsPokemonCardIds!.includes(c.cardId))
+    if (pokeIdx >= 0) {
+      const poke: CardInstance = { ...deck[pokeIdx], summonedByInstanceId: hero.instanceId }
+      next = updatePlayer(next, targetIndex, (p) => ({
+        ...p,
+        fateDeck: p.fateDeck.filter((_, i) => i !== pokeIdx),
+      }))
+      next = {
+        ...next,
+        log: [...next.log, `**${hero.name}** fait apparaître **${poke.name}** sur **${destName}** !`],
+      }
+      next = placeFateHeroWithEffects(next, targetIndex, playedBy, poke, to, destName)
+    }
+  }
   return next
 }
 
@@ -3949,10 +3995,11 @@ function applyActivate(
   cardInstanceId: string,
   to: LocationId | undefined,
   itemInstanceId: string | undefined,
+  allyInstanceIds?: string[],
 ): GameState {
   const useFree = !!activePlayer(state).freeActivate
   const before = state.usedActionIds
-  const result = applyActivateCore(state, actionId, cardInstanceId, to, itemInstanceId)
+  const result = applyActivateCore(state, actionId, cardInstanceId, to, itemInstanceId, allyInstanceIds)
   if (useFree && result !== state) {
     // Activation gratuite : on ne consomme pas l'action de lieu, mais le drapeau.
     return updateActivePlayer({ ...result, usedActionIds: before }, (p) => ({ ...p, freeActivate: false }))
@@ -3966,6 +4013,7 @@ function applyActivateCore(
   cardInstanceId: string,
   to: LocationId | undefined,
   itemInstanceId: string | undefined,
+  allyInstanceIds?: string[],
 ): GameState {
   if (state.phase !== 'ACTION') {
     throw new Error(`Impossible d'activer en phase ${state.phase}.`)
@@ -4045,16 +4093,19 @@ function applyActivateCore(
   }
 
   if (card.cardId === 'baignoire') {
-    // Oogie Boogie — Baignoire : déplace la Baignoire vers un AUTRE lieu, puis y amène les
-    // Alliés (non associés) de son ancien lieu, avec leurs Objets associés. (Simplification :
-    // on amène TOUS les Alliés de l'ancien lieu — le texte dit « autant que vous le désirez ».)
+    // Oogie Boogie — Baignoire : déplace la Baignoire vers un AUTRE lieu, puis y amène
+    // « autant d'Alliés que vous le désirez » de son ancien lieu (avec leurs Objets
+    // associés). `allyInstanceIds` = la sélection du joueur ; absent = tous (bot).
     if (!to) throw new Error('Baignoire : lieu de destination requis.')
     if (to === cardLoc) throw new Error('Baignoire : choisissez un AUTRE lieu.')
     if (!me.locations.some((l) => l.id === to) || (me.lockedLocations ?? []).includes(to)) {
       throw new Error(`Lieu « ${to} » invalide.`)
     }
     const cell = me.board[cardLoc] ?? []
-    const allies = cell.filter((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket)
+    const movableAllies = cell.filter((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket)
+    const allies = allyInstanceIds
+      ? movableAllies.filter((a) => allyInstanceIds.includes(a.instanceId))
+      : movableAllies
     const movingIds = new Set<string>([cardInstanceId])
     for (const a of allies) {
       movingIds.add(a.instanceId)
@@ -4829,6 +4880,94 @@ function applyVanquish(
   }
   next = consumePersifleur(next, action)
   return { ...next, usedActionIds: [...next.usedActionIds, actionId] }
+}
+
+/** Team Rocket — « Attraper un Pokémon » : prend un Pokémon DÉJÀ VAINCU (couché, K.O.)
+ *  présent dans le royaume et l'ajoute à la pile de Captures (objectif). Aucun combat
+ *  ni Allié requis : le Pokémon a déjà été vaincu (action Vaincre) au préalable. */
+function applyCatch(state: GameState, actionId: string, heroInstanceId: string): GameState {
+  if (state.phase !== 'ACTION') {
+    throw new Error(`Impossible d'attraper en phase ${state.phase}.`)
+  }
+  if (!isActionAvailable(state, actionId)) {
+    throw new Error(`Action indisponible : « ${actionId} ».`)
+  }
+  const loc = currentLocation(state)!
+  const action = locationActions(state, loc.id).find((a) => a.id === actionId)!
+  if (action.type !== 'CATCH_POKEMON') {
+    throw new Error(`« ${actionId} » n'est pas une action « Attraper ».`)
+  }
+  const next = capturePokemonInstance(state, state.activePlayer, heroInstanceId)
+  return { ...next, usedActionIds: [...next.usedActionIds, actionId] }
+}
+
+/** Team Rocket — en fin de tour : tout Pokémon COUCHÉ (K.O.) non attrapé dont le tour
+ *  K.O. est antérieur au tour courant (donc « la fin du prochain tour » est atteinte)
+ *  part en défausse Fatalité (avec ses Objets associés). Scanne tous les joueurs. */
+function sweepKoPokemon(state: GameState): GameState {
+  let next = state
+  for (let idx = 0; idx < next.players.length; idx++) {
+    const p = next.players[idx]
+    // Vaincu au tour N : Team Rocket doit l'attraper avant la fin de SON prochain tour
+    // (N+2 en 1v1). Au-delà (≥ 2 tours écoulés), il part en défausse Fatalité.
+    const expired = Object.values(p.board)
+      .flat()
+      .filter((c) => c.pokemonKO && c.koOnTurn !== undefined && next.turn - c.koOnTurn >= 2)
+    if (expired.length === 0) continue
+    const expiredIds = new Set(expired.map((c) => c.instanceId))
+    const attached = Object.values(p.board).flat().filter((c) => c.attachedTo && expiredIds.has(c.attachedTo))
+    const removeIds = new Set<string>([...expiredIds, ...attached.map((c) => c.instanceId)])
+    next = updatePlayer(next, idx, (pl) => ({
+      ...pl,
+      board: Object.fromEntries(
+        Object.entries(pl.board).map(([lid, cards]) => [lid, cards.filter((c) => !removeIds.has(c.instanceId))]),
+      ),
+      fateDiscard: [
+        ...pl.fateDiscard,
+        ...expired.map((c) => ({ ...c, pokemonKO: undefined, koOnTurn: undefined, summonedByInstanceId: undefined })),
+        ...attached.map((c) => ({ ...c, attachedTo: undefined })),
+      ],
+    }))
+    next = {
+      ...next,
+      log: [...next.log, ...expired.map((c) => `**${c.name}** (couché, non attrapé) part en défausse Fatalité.`)],
+    }
+  }
+  return next
+}
+
+/** Déplace un Pokémon COUCHÉ (K.O.) du plateau de `idx` vers sa pile de Captures
+ *  (objectif CAPTURE_POKEMON). Ses Objets associés partent en défausse Fatalité.
+ *  Réutilisable par l'action Attraper ET par les cartes (rose de James…). */
+export function capturePokemonInstance(state: GameState, idx: number, heroInstanceId: string): GameState {
+  const p = state.players[idx]
+  const heroLoc = Object.keys(p.board).find((lid) =>
+    (p.board[lid] ?? []).some((c) => c.instanceId === heroInstanceId),
+  )
+  if (!heroLoc) throw new Error('Pokémon introuvable dans le royaume.')
+  const poke = (p.board[heroLoc] ?? []).find((c) => c.instanceId === heroInstanceId)!
+  if (!poke.isPokemon || !poke.pokemonKO) {
+    throw new Error('Seul un Pokémon vaincu (couché) peut être attrapé.')
+  }
+  // Objets associés au Pokémon (Badge, Griffure…) : défaussés (Fatalité).
+  const attached = (p.board[heroLoc] ?? []).filter((c) => c.attachedTo === heroInstanceId)
+  const removeIds = new Set<string>([heroInstanceId, ...attached.map((c) => c.instanceId)])
+  const captured: CardInstance = {
+    ...poke, pokemonKO: undefined, koOnTurn: undefined, summonedByInstanceId: undefined, attachedTo: undefined,
+  }
+  let next = updatePlayer(state, idx, (pl) => ({
+    ...pl,
+    board: { ...pl.board, [heroLoc]: (pl.board[heroLoc] ?? []).filter((c) => !removeIds.has(c.instanceId)) },
+    fateDiscard: [...pl.fateDiscard, ...attached.map((c) => ({ ...c, attachedTo: undefined }))],
+    capturedPokemon: [...(pl.capturedPokemon ?? []), captured],
+  }))
+  const total = (next.players[idx].capturedPokemon ?? []).length
+  next = {
+    ...next,
+    log: [...next.log, `${p.villainName} **attrape ${poke.name}** ! (${total} Pokémon capturé${total > 1 ? 's' : ''})`],
+  }
+  next = pushDiscardShowcase(next, [poke.cardId], `${p.villainName} attrape ${poke.name}`, idx, 'dark', 'bottom')
+  return next
 }
 
 /** Shere Khan — Kaa : si Kaa figure parmi les Alliés engagés dans un Vanquish et porte
@@ -8031,6 +8170,34 @@ function applySkipAllyMoveBuff(state: GameState): GameState {
 
 /** Abu/Aladdin (vol d'un Objet → associé au Héros) / K.O. (retrait d'un Allié) :
  *  applique le choix de l'adversaire sur la carte `instanceId`. */
+/** Mim — Le Savoir conduit à la Puissance : déplace la Métamorphose de Merlin choisie
+ *  (`merlinInstanceId`) vers le lieu `to` dans le royaume de la cible. */
+function applyResolveMerlinMove(state: GameState, merlinInstanceId: string, to: LocationId): GameState {
+  const pending = state.pendingMerlinMove
+  if (!pending) throw new Error('Aucun déplacement de Merlin en attente.')
+  if (!pending.candidateIds.includes(merlinInstanceId)) {
+    throw new Error('Métamorphose de Merlin invalide (Le Savoir conduit à la Puissance).')
+  }
+  const tIdx = pending.targetIndex
+  const target = state.players[tIdx]
+  if (!target.locations.some((l) => l.id === to)) throw new Error(`Lieu « ${to} » invalide.`)
+  const from = target.locations.map((l) => l.id).find((id) => (target.board[id] ?? []).some((c) => c.instanceId === merlinInstanceId))
+  if (!from) throw new Error('Métamorphose de Merlin introuvable.')
+  const card = (target.board[from] ?? []).find((c) => c.instanceId === merlinInstanceId)!
+  const next = updatePlayer({ ...state, pendingMerlinMove: null }, tIdx, (pl) => ({
+    ...pl,
+    board: {
+      ...pl.board,
+      [from]: (pl.board[from] ?? []).filter((c) => c.instanceId !== merlinInstanceId),
+      [to]: [...(pl.board[to] ?? []), card],
+    },
+  }))
+  return {
+    ...next,
+    log: [...next.log, `Le Savoir conduit à la Puissance : **${card.name}** est déplacé vers **${findLocation(target, to)?.name ?? to}**.`],
+  }
+}
+
 function applyResolveFateChoice(state: GameState, instanceId: string): GameState {
   const pending = state.pendingFateChoice
   if (!pending) throw new Error('Aucun choix de Fatalité en attente.')
@@ -8677,6 +8844,27 @@ function applyResolveInformation(state: GameState, discardDrawn: boolean): GameS
   }
 }
 
+/** Oogie — Père Noël : défausse les cartes choisies de la main (facultatif), puis
+ *  pioche `draw` cartes. */
+function applyResolveDiscardThenDraw(state: GameState, instanceIds: string[]): GameState {
+  const pending = state.pendingDiscardThenDraw
+  if (!pending) throw new Error('Aucune défausse (Père Noël) en attente.')
+  const idx = pending.playerIndex
+  const toDiscard = new Set(instanceIds)
+  const player = state.players[idx]
+  const discarded = player.hand.filter((c) => toDiscard.has(c.instanceId))
+  let next = updatePlayer({ ...state, pendingDiscardThenDraw: null }, idx, (p) => ({
+    ...p,
+    hand: p.hand.filter((c) => !toDiscard.has(c.instanceId)),
+    discard: [...p.discard, ...discarded],
+  }))
+  if (discarded.length > 0) {
+    next = { ...next, log: [...next.log, `${player.villainName} défausse ${discarded.length} carte(s) (Père Noël).`] }
+  }
+  next = resolveEffect(next, { type: 'DRAW_CARDS', count: pending.draw }, { actorIndex: idx })
+  return next
+}
+
 /** Assurance (L'Imposteur) : déplace le Coéquipier rassuré vers le lieu choisi. */
 function applyResolveCrewmateMove(state: GameState, to: LocationId): GameState {
   const pending = state.pendingCrewmateMove
@@ -8742,6 +8930,25 @@ function applyResolveGiantLocation(state: GameState, locationId: LocationId): Ga
       usedActionIds: [...preserved, ...fateIds],
       usedBeforeGiant: state.usedActionIds,
       log: [...state.log, `Suivez-moi ! : ${p.villainName} agit depuis **${dest?.name ?? locationId}** (hors Fatalité).`],
+    }
+  }
+  if (pending.viaChristmas) {
+    // Oogie — Préparation de Noël (≥8) : UNE action disponible de N'IMPORTE QUEL lieu,
+    // Fatalité EXCLUE. Aucune restriction de voisinage. On rend les actions du lieu
+    // choisi disponibles (on ne garde que les marqueurs « : »), on bloque ses actions
+    // Fatalité, et clearGiant restaure l'économie d'actions après l'unique action.
+    if (!(pending.locations ?? []).includes(locationId)) {
+      throw new Error(`Lieu « ${locationId} » hors du royaume.`)
+    }
+    const preserved = state.usedActionIds.filter((a) => a.includes(':'))
+    const fateIds = (dest?.actions ?? []).filter((a) => a.type === 'FATE').map((a) => a.id)
+    return {
+      ...state,
+      pendingGiantAction: null,
+      actAtLocation: locationId,
+      usedActionIds: [...preserved, ...fateIds],
+      usedBeforeGiant: state.usedActionIds,
+      log: [...state.log, `Préparation de Noël : ${p.villainName} effectue une action gratuite sur **${dest?.name ?? locationId}** (hors Fatalité).`],
     }
   }
   if (!neighbors.includes(locationId)) throw new Error(`Lieu « ${locationId} » non voisin.`)
@@ -9391,6 +9598,8 @@ function applyEndTurn(state: GameState): GameState {
   if (!canEndTurn(state)) {
     throw new Error(`Impossible de terminer le tour en phase ${state.phase}.`)
   }
+  // Team Rocket — Pokémon couchés (K.O.) non attrapés à la fin du tour suivant → défausse.
+  state = sweepKoPokemon(state)
   // Lever du jour : le blocage des Pages du joueur dont le tour se termine est consommé.
   if (state.players[state.activePlayer].noPagePlay) {
     state = updateActivePlayer(state, (p) => ({ ...p, noPagePlay: false }))
@@ -10189,6 +10398,10 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   if (state.pendingFateChoice && action.type !== 'RESOLVE_FATE_CHOICE' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Résolvez le choix de la carte Fatalité (RESOLVE_FATE_CHOICE).')
   }
+  // Mim — Le Savoir conduit à la Puissance : choisir le Merlin et son lieu d'abord.
+  if (state.pendingMerlinMove && action.type !== 'RESOLVE_MERLIN_MOVE' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Le Savoir conduit à la Puissance : choisissez la Métamorphose de Merlin et son lieu (RESOLVE_MERLIN_MOVE).')
+  }
   // Digne Adversaire / Obsession : jouer ou défausser le Héros dévoilé d'abord.
   if (state.pendingCrustaceanPlace && action.type !== 'RESOLVE_CRUSTACEAN_PLACE' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Placez l’Objet dévoilé par le Crustacé (RESOLVE_CRUSTACEAN_PLACE).')
@@ -10306,6 +10519,10 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   if (state.pendingInformation && action.type !== 'RESOLVE_INFORMATION' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Information : choisissez quoi défausser (RESOLVE_INFORMATION).')
   }
+  // Oogie — Père Noël : défausse libre puis pioche, à résoudre avant tout autre coup.
+  if (state.pendingDiscardThenDraw && action.type !== 'RESOLVE_DISCARD_THEN_DRAW' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Père Noël : défaussez puis piochez (RESOLVE_DISCARD_THEN_DRAW).')
+  }
   // La Méchante Reine — « Croque ! » : le choix du Héros à croquer doit être résolu
   // avant tout autre coup.
   if (state.pendingTakeABite && action.type !== 'RESOLVE_TAKE_A_BITE' && action.type !== 'PLAY_CONDITION') {
@@ -10363,6 +10580,7 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
     state.pendingDice &&
     action.type !== 'RESOLVE_DICE' &&
     action.type !== 'RESOLVE_DICE_REROLL' &&
+    action.type !== 'RESOLVE_DICE_CHOICE' &&
     action.type !== 'PLAY_CONDITION'
   ) {
     throw new Error('Résolvez le lancer de dés en cours (RESOLVE_DICE).')
@@ -10448,7 +10666,7 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
     case 'ACTIVATE':
       return clearGiant(
         state,
-        applyActivate(state, action.actionId, action.cardInstanceId, action.to, action.itemInstanceId),
+        applyActivate(state, action.actionId, action.cardInstanceId, action.to, action.itemInstanceId, action.allyInstanceIds),
       )
     case 'FATE':
       return clearGiant(state, applyFate(state, action.actionId))
@@ -10600,6 +10818,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applySkipAllyMoveBuff(state)
     case 'RESOLVE_FATE_CHOICE':
       return applyResolveFateChoice(state, action.instanceId)
+    case 'RESOLVE_MERLIN_MOVE':
+      return applyResolveMerlinMove(state, action.merlinInstanceId, action.to)
     case 'RESOLVE_FETCHED_HERO':
       return applyResolveFetchedHero(state, action.play, action.to)
     case 'RESOLVE_CASTLE_THEFT':
@@ -10650,6 +10870,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveHack(state, action.actionId)
     case 'RESOLVE_INFORMATION':
       return applyResolveInformation(state, action.discardDrawn)
+    case 'RESOLVE_DISCARD_THEN_DRAW':
+      return applyResolveDiscardThenDraw(state, action.instanceIds)
     case 'RESOLVE_TAKE_A_BITE':
       return applyResolveTakeABite(state, action.heroInstanceId)
     case 'RESOLVE_DUPLICATE_INGREDIENT':
@@ -10680,6 +10902,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveDice(state)
     case 'RESOLVE_DICE_REROLL':
       return applyResolveDiceReroll(state, action.instanceId, action.dieIndex)
+    case 'RESOLVE_DICE_CHOICE':
+      return applyResolveDiceChoice(state, action.dice)
     case 'SKIP_FREE_REALM_ACTION':
       // Hors fenêtre d'action gratuite : sans effet (la fenêtre est gérée plus haut).
       return state
@@ -10697,6 +10921,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyTestPlayFateCard(state, action.card, action.targetHeroId, action.enlargeToward)
     case 'VANQUISH':
       return clearGiant(state, applyVanquish(state, action.actionId, action.heroInstanceId, action.allyInstanceIds))
+    case 'CATCH_POKEMON':
+      return clearGiant(state, applyCatch(state, action.actionId, action.heroInstanceId))
     case 'DISCARD_DEGUISEMENT':
       return applyDiscardDeguisement(state, action.instanceId)
     case 'SKIP_MOVE':

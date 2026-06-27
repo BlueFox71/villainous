@@ -100,6 +100,10 @@ export function FateModal({ revealed, target, onResolve, optional = false, onPas
     // remélanger dans la pioche).
     if (c.cardId === 'gurgis-happy-day') return target.fateDiscard.length > 0
     if (c.cardId === 'migraine-atroce') return realm.some((x) => x.type === 'item')
+    // Merlin Microbe (vs Madame Mim) : il faut une Métamorphose Mim en jeu à défausser.
+    if (c.cardId === 'merlin-microbe') return realm.some((x) => x.isMimTransformation)
+    // Le Savoir conduit à la Puissance : il faut une Métamorphose de Merlin à déplacer.
+    if (c.cardId === 'le-savoir-conduit-puissance') return realm.some((x) => x.isMerlinTransformation)
     // Réinitialisation (Sombra) : il faut un Piratage à retirer.
     if (c.cardId === 'reinitialisation') return realm.some((x) => x.isPiratage)
     // Sabotage : il faut un Objet (≤3, non associé) sur un lieu portant un Héros.

@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import type { LocationAction, PlayerState } from '../../engine/types'
 import { enlargeCoveredAction } from '../../engine/rules'
 import { SUGAR_RUSH_TRACK } from './sugarRushTrack'
@@ -769,9 +770,9 @@ ACTION_POS['sa-sucrerie'] = {
 ACTION_POS['shere-khan'] = {
   riviere: {
     discard: { x: 26.5, y: 21 },
-    fate: { x: 20.3, y: 66 },
-    'play-card': { x: 26.8, y: 66 },
-    vanquish: { x: 33.2, y: 66 },
+    fate: { x: 20.3, y: 66.3 },
+    'play-card': { x: 26.7, y: 66.6 },
+    vanquish: { x: 33.1, y: 66.6 },
   },
   'rocher-conseil': {
     fate: { x: 47.6, y: 21 },
@@ -781,9 +782,9 @@ ACTION_POS['shere-khan'] = {
   },
   'ruines-anciennes': {
     'gain-power': { x: 68.5, y: 21 },
-    'play-card': { x: 62, y: 66 },
-    activate: { x: 68.5, y: 66 },
-    discard: { x: 75, y: 66 },
+    'play-card': { x: 62.1, y: 66.6 },
+    activate: { x: 68.5, y: 66.4 },
+    discard: { x: 74.9, y: 66.7 },
   },
   'terres-desolees': {
     activate: { x: 85.5, y: 21 },
@@ -819,6 +820,35 @@ ACTION_POS['davy-jones'] = {
     move: { x: 93, y: 22 },
     fate: { x: 85, y: 67 },
     'play-card': { x: 93, y: 67 },
+  },
+}
+
+// Oogie Boogie — gabarit standard (board.png 4481×1254, ratio 3,57). Centres des
+// pastilles vertes MESURÉS directement sur l'image (détection des anneaux). L'Antre
+// n'a pas de rangée HAUT (prison de Sandy Claws) et porte 3 actions en bas, étalées.
+ACTION_POS['oogie-boogie'] = {
+  'ville-halloween': {
+    'play-card': { x: 22.8, y: 20.2 },
+    'gain-power': { x: 30.7, y: 20.4 },
+    discard: { x: 22.8, y: 67.7 },
+    'play-card2': { x: 30.65, y: 67.8 },
+  },
+  'cabane-trio': {
+    'move-item-ally': { x: 43.6, y: 20.4 },
+    fate: { x: 51.4, y: 20.3 },
+    'gain-power': { x: 43.6, y: 67.8 },
+    'play-card': { x: 51.5, y: 67.8 },
+  },
+  cimetiere: {
+    vanquish: { x: 64.4, y: 20.4 },
+    discard: { x: 72.2, y: 20.5 },
+    'play-card': { x: 64.4, y: 67.6 },
+    fate: { x: 72.1, y: 68 },
+  },
+  antre: {
+    vanquish: { x: 82.7, y: 67.9 },
+    'play-card': { x: 89.1, y: 67.8 },
+    'gain-power': { x: 95.5, y: 67.8 },
   },
 }
 
@@ -881,6 +911,63 @@ ACTION_POS['dio'] = {
   },
 }
 
+// Team Rocket — 4 lieux (panneau objectif à gauche). Coordonnées approximatives,
+// mesurées sur Realm.png (à affiner via l'inspecteur). Le Labo a 3 actions en bas
+// (Gagner / Déplacer / Attraper).
+ACTION_POS['team-rocket'] = {
+  labo: {
+    vanquish: { x: 22.4, y: 19.6 },
+    'play-card': { x: 30.3, y: 19.6 },
+    'gain-power': { x: 20.1, y: 67.3 },
+    'move-item-ally': { x: 26.5, y: 67.6 },
+    catch: { x: 32.8, y: 67.6 },
+  },
+  foret: {
+    'play-card': { x: 43.4, y: 19.4 },
+    fate: { x: 51.2, y: 19.7 },
+    'gain-power': { x: 43.4, y: 67.5 },
+    'play-card2': { x: 51.2, y: 67.3 },
+  },
+  'centre-pokemon': {
+    'play-card': { x: 64.3, y: 19.6 },
+    'play-card2': { x: 72.1, y: 19.6 },
+    'move-item-ally': { x: 64.3, y: 67.5 },
+    vanquish: { x: 72.1, y: 67.7 },
+  },
+  arene: {
+    'play-card': { x: 85.1, y: 19.6 },
+    'gain-power': { x: 92.9, y: 19.6 },
+    vanquish: { x: 85.1, y: 67.5 },
+    fate: { x: 92.9, y: 67.5 },
+  },
+}
+
+ACTION_POS['princeJohn'] = {
+  sherwood: {
+    'gain-power': { x: 22.5, y: 20 },
+    discard: { x: 30.4, y: 20 },
+    'play-card': { x: 22.5, y: 67.4 },
+    fate: { x: 30.3, y: 66.9 },
+  },
+  church: {
+    'gain-power': { x: 43.4, y: 20 },
+    'play-card-top': { x: 51.3, y: 20 },
+    'play-card-bottom': { x: 43.3, y: 67.4 },
+    'move-item-ally': { x: 51.2, y: 67.2 },
+  },
+  nottingham: {
+    fate: { x: 64.2, y: 20 },
+    'gain-power': { x: 72.1, y: 20 },
+    vanquish: { x: 64.2, y: 67.1 },
+    'play-card': { x: 72.1, y: 66.8 },
+  },
+  jail: {
+    'gain-power': { x: 82.8, y: 66.8 },
+    'play-card': { x: 88.8, y: 67.1 },
+    discard: { x: 94.7, y: 67.1 },
+  },
+}
+
 interface Props {
   player: PlayerState
   /** Ids des actions disponibles (lieu courant) → bouton jaune cliquable. */
@@ -906,6 +993,29 @@ interface Props {
   hackLocationId?: string | null
   hackActionIds?: string[]
   onHackPick?: (actionId: string) => void
+  /** Outil de dév (mode test) : illumine TOUTES les actions du plateau (non
+   *  cliquables), pour caler visuellement les positions des boutons. */
+  highlightAll?: boolean
+  /** Éditeur de positions (plateau joueur) : pastilles cliquables pour sélectionner
+   *  une action. Implique `highlightAll`. */
+  editMode?: boolean
+  /** Positions de remplacement (clé `locId:actionId` → {x,y} en %) appliquées en mode
+   *  illuminé/édition (pour bouger les boutons en direct). */
+  posOverride?: Record<string, { x: number; y: number }>
+  /** Clé `locId:actionId` de l'action sélectionnée (clignote). */
+  selectedKey?: string | null
+  /** Sélection d'une action (édition). */
+  onSelectAction?: (locationId: string, actionId: string, label: string, locationName: string) => void
+  /** Déplacement par glisser (édition) : nouvelle position en % du plateau. */
+  onMoveAction?: (locationId: string, actionId: string, x: number, y: number) => void
+}
+
+/** Positions d'action d'un vilain (mode test — éditeur de positions). */
+// eslint-disable-next-line react-refresh/only-export-components
+export function getVillainActionPos(
+  villain: string,
+): Record<string, Record<string, { x: number; y: number }>> | undefined {
+  return ACTION_POS[villain]
 }
 
 /**
@@ -925,9 +1035,83 @@ export function BoardActions({
   hackLocationId = null,
   hackActionIds,
   onHackPick,
+  highlightAll = false,
+  editMode = false,
+  posOverride,
+  selectedKey = null,
+  onSelectAction,
+  onMoveAction,
 }: Props) {
+  // Éditeur de positions : action en cours de glisser (pointer capturé).
+  const dragRef = useRef<{ loc: string; act: string } | null>(null)
   const layout = ACTION_POS[player.villain] ?? customActionPosFor(player.villain) ?? {}
   if (!layout) return null
+
+  // Mode test (dév) : illumine TOUTES les actions du plateau pour caler les positions.
+  // `editMode` (plateau joueur) : pastilles CLIQUABLES (sélection), positions surchargées
+  // par `posOverride`, la sélection (`selectedKey`) clignote. Court-circuite la logique
+  // normale (recouvrement, disponibilité, flashOnly…).
+  if (highlightAll) {
+    return (
+      <>
+        {player.locations.flatMap((loc) =>
+          loc.actions.map((a) => {
+            const key = `${loc.id}:${a.id}`
+            const pos = posOverride?.[key] ?? layout[loc.id]?.[a.id]
+            if (!pos) return null
+            const selected = editMode && selectedKey === key
+            return (
+              <button
+                key={`hl:${key}`}
+                type="button"
+                disabled={!editMode}
+                onPointerDown={
+                  editMode
+                    ? (e) => {
+                        e.preventDefault()
+                        onSelectAction?.(loc.id, a.id, a.label, loc.name)
+                        // Les pastilles sont positionnées en % de leur conteneur positionné
+                        // (offsetParent) : on mesure SON rect pour convertir le curseur en %.
+                        const boardEl = (e.currentTarget as HTMLElement).offsetParent as HTMLElement | null
+                        if (!boardEl) return
+                        const rect = boardEl.getBoundingClientRect()
+                        dragRef.current = { loc: loc.id, act: a.id }
+                        const onMove = (ev: PointerEvent) => {
+                          if (!dragRef.current) return
+                          const x = Math.max(0, Math.min(100, ((ev.clientX - rect.left) / rect.width) * 100))
+                          const y = Math.max(0, Math.min(100, ((ev.clientY - rect.top) / rect.height) * 100))
+                          onMoveAction?.(loc.id, a.id, x, y)
+                        }
+                        const onUp = () => {
+                          dragRef.current = null
+                          window.removeEventListener('pointermove', onMove)
+                          window.removeEventListener('pointerup', onUp)
+                        }
+                        window.addEventListener('pointermove', onMove)
+                        window.addEventListener('pointerup', onUp)
+                      }
+                    : undefined
+                }
+                title={`${loc.name} — ${a.label} (glisser pour positionner)`}
+                className={`absolute -translate-x-1/2 -translate-y-1/2 touch-none rounded-full border-2 ${
+                  editMode ? 'z-30 cursor-grab active:cursor-grabbing' : 'pointer-events-none'
+                } ${selected ? 'border-yellow-300 bg-yellow-400/50' : 'border-lime-400 bg-lime-400/30'}`}
+                style={{
+                  left: `${pos.x}%`,
+                  top: `${pos.y}%`,
+                  width: `${BUTTON_SIZE}%`,
+                  aspectRatio: '1',
+                  boxShadow: selected
+                    ? '0 0 16px 5px rgba(250,204,21,0.95)'
+                    : '0 0 10px 3px rgba(163,230,53,0.85)',
+                }}
+              />
+            )
+          }),
+        )}
+      </>
+    )
+  }
   const currentLoc = activeLocationId ?? player.pawnLocation
 
   // Actions recouvertes par le débordement d'un Héros agrandi voisin (Reine de
