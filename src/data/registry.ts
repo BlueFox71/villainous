@@ -42,7 +42,6 @@ import { saSucrerieCards } from './villains/sa-sucrerie.cards'
 import { shereKhanCards } from './villains/shereKhan.cards'
 import { davyJonesCards } from './villains/davyJones.cards'
 import { tamatoaCards } from './villains/tamatoa.cards'
-import { dioCards } from './villains/dio.cards'
 import { teamRocketCards } from './villains/team-rocket.cards'
 
 /** Toutes les cartes, tous vilains confondus. Source unique : ajouter un vilain
@@ -80,7 +79,6 @@ export const allCards: CardDef[] = [
   ...shereKhanCards,
   ...davyJonesCards,
   ...tamatoaCards,
-  ...dioCards,
   ...teamRocketCards,
 ]
 

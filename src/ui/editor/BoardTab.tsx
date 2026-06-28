@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import type { CustomVillain, CustomLocation, CustomAction } from '../../data/customVillain'
 import type { ActionRow, LocationActionType } from '../../engine/types'
-import { Field, NumberField, ImageField, SelectField, CropSliders, inputClass } from './fields'
+import { Field, TextField, NumberField, ImageField, SelectField, inputClass } from './fields'
 import { renderBoard } from './boardRender'
+import { PAWN_FIRST_LEFT, PAWN_TOP } from '../components/BoardImage'
 
 /** Types d'action GÉNÉRIQUES exposés à l'éditeur (tous gérés génériquement par le
  *  moteur, sans mécanique propre à un vilain). On exclut les actions spéciales
@@ -196,7 +197,7 @@ function BoardPreview({ v }: { v: CustomVillain }) {
     c: v.color,
     n: v.name,
     o: v.boardObjective,
-    art: (v.presentation ?? v.portrait)?.slice(0, 48),
+    art: v.boardArt?.slice(0, 48),
     pp: v.portraitPos,
     locs: v.locations.map((l) => ({
       n: l.name,
@@ -216,12 +217,28 @@ function BoardPreview({ v }: { v: CustomVillain }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
+  // Hauteur du pion en % de la hauteur du plateau (responsive). On calque la
+  // proportion du jeu : pawnHeightPx est calibré pour un plateau d'environ 290 px
+  // de haut (≈ 1000 px de large pour ce gabarit 4455×1248).
+  const PAWN_REF_H = 290
+  const pawnPct = (v.pawnHeightPx / PAWN_REF_H) * 100
   return (
-    <div className="overflow-hidden rounded-xl border border-white/10 bg-black/40">
+    <div className="relative overflow-hidden rounded-xl border border-white/10 bg-black/40">
       {src ? (
         <img src={src} alt="Aperçu du plateau" className="w-full" />
       ) : (
         <div className="flex h-40 items-center justify-center text-white/30">Génération de l’aperçu…</div>
+      )}
+      {/* Pion superposé (visualisation) : placé EXACTEMENT comme en jeu (centré sur la
+          1re case : PAWN_FIRST_LEFT / PAWN_TOP). */}
+      {src && v.pawnImage && (
+        <img
+          src={v.pawnImage}
+          alt="Pion"
+          title="Pion (aperçu de placement)"
+          className="pointer-events-none absolute w-auto -translate-x-1/2 -translate-y-1/2 drop-shadow-[0_2px_3px_rgba(0,0,0,0.6)]"
+          style={{ left: `${PAWN_FIRST_LEFT}%`, top: `${PAWN_TOP}%`, height: `${pawnPct}%` }}
+        />
       )}
     </div>
   )
@@ -255,6 +272,14 @@ export function BoardTab({
         vilain, illustrations de lieux et icônes d’action. Ajoute une image par lieu ci-dessous.
       </p>
 
+      <TextField
+        label="Objectif (texte du plateau)"
+        value={draft.boardObjective}
+        onChange={(boardObjective) => patch({ boardObjective })}
+        textarea
+        placeholder="Ex. : Atteignez 20 jetons Pouvoir au début de votre tour."
+      />
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="flex items-start gap-4">
           <ImageField
@@ -262,6 +287,7 @@ export function BoardTab({
             value={draft.pawnImage}
             onChange={(pawnImage) => patch({ pawnImage })}
             aspect="pawn"
+            fit="contain"
           />
           <Field label="Hauteur du pion (px)">
             <input
@@ -276,32 +302,18 @@ export function BoardTab({
           </Field>
         </div>
 
-        {/* Cadrage du portrait affiché sur le plateau (panneau de gauche). */}
-        {(draft.presentation ?? draft.portrait) && (
-          <div className="flex items-start gap-4">
-            <div className="aspect-[716/1248] w-16 shrink-0 overflow-hidden rounded-lg border border-white/15 bg-black/30">
-              <img
-                src={draft.presentation ?? draft.portrait}
-                alt=""
-                className="h-full w-full object-cover"
-                style={{
-                  objectPosition: `${draft.portraitPos?.x ?? 50}% ${draft.portraitPos?.y ?? 50}%`,
-                  transform: `scale(${draft.portraitPos?.zoom ?? 1})`,
-                  transformOrigin: `${draft.portraitPos?.x ?? 50}% ${draft.portraitPos?.y ?? 50}%`,
-                }}
-              />
-            </div>
-            <div className="flex flex-1 flex-col gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-white/50">
-                Cadrage du portrait sur le plateau
-              </span>
-              <CropSliders
-                pos={draft.portraitPos ?? { x: 50, y: 50 }}
-                onChange={(portraitPos) => patch({ portraitPos })}
-              />
-            </div>
-          </div>
-        )}
+        {/* Illustration du vilain sur le plateau (panneau de gauche) : image dédiée,
+            choisie et cadrée comme un lieu. */}
+        <ImageField
+          label="Image du vilain (plateau)"
+          value={draft.boardArt}
+          onChange={(boardArt) => patch({ boardArt })}
+          aspect="portrait"
+          crop={{
+            pos: draft.portraitPos ?? { x: 50, y: 50 },
+            onChange: (portraitPos) => patch({ portraitPos }),
+          }}
+        />
       </div>
 
       <div className="flex flex-col gap-4">

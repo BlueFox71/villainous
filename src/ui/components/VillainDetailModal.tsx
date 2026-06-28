@@ -1,8 +1,8 @@
 import { useState, type MouseEvent } from 'react'
 import type { CardDef } from '../../data/types'
-import { VILLAIN_REGISTRY, type VillainKey } from '../store/gameStore'
+import { VILLAIN_REGISTRY, villainEntry, isCustomKey, customVillainOf, type VillainKey } from '../store/gameStore'
 import { villainPortrait, villainPresentation, PRESENTATION_TWEAK } from '../villainArt'
-import { VILLAIN_GUIDE } from '../villainGuide'
+import { villainGuideOf } from '../villainGuide'
 import { VILLAIN_COLOR } from '../villainColors'
 import { villainPack, villainCreator } from '../villainPacks'
 import { useIsDesktopApp } from '../store/settingsStore'
@@ -10,7 +10,8 @@ import { Scroller } from './Scroller'
 import { playPageFlip, playCardHover, playTinyButtonPress } from '../sfx'
 
 interface Props {
-  villain: VillainKey
+  /** Clé du vilain : native (VillainKey) ou publiée (id `custom-…`). */
+  villain: string
   onClose: () => void
 }
 
@@ -114,27 +115,37 @@ function TipList({ title, tips, color }: { title: string; tips: string[]; color:
  * conseils pour le jouer / le contrer. Affichée en surimpression (modale).
  */
 export function VillainDetailModal({ villain, onClose }: Props) {
-  const v = VILLAIN_REGISTRY[villain]
-  const guide = VILLAIN_GUIDE[villain]
-  const presentation = villainPresentation(villain)
-  // Même réglage de taille/position que le choix des vilains et l'écran versus
-  // (ex. l'Imposteur, scale 0.55) — sinon l'illustration est trop grande ici.
-  const tweak = PRESENTATION_TWEAK[villain]
-  const presentationTransform =
-    `translateX(7rem) translateY(-50%) scale(${tweak?.scale ?? 1}) translate(${tweak?.dxPct ?? 0}%, ${tweak?.dyPct ?? 0}%)`
   const [showCards, setShowCards] = useState(false)
   const [showBoard, setShowBoard] = useState(false)
   // Outil de dév (caché en exe / simulation .exe) : la couleur thématique du vilain.
   const isDesktopApp = useIsDesktopApp()
+  const [packHover, setPackHover] = useState(false)
+
+  const custom = isCustomKey(villain)
+  const v = villainEntry(villain)
+  const guide = villainGuideOf(villain)
+  const presentation = villainPresentation(villain)
+  // Même réglage de taille/position que le choix des vilains et l'écran versus
+  // (ex. l'Imposteur, scale 0.55) — sinon l'illustration est trop grande ici.
+  const tweak = PRESENTATION_TWEAK[villain as VillainKey]
+  const presentationTransform =
+    `translateX(7rem) translateY(-50%) scale(${tweak?.scale ?? 1}) translate(${tweak?.dxPct ?? 0}%, ${tweak?.dyPct ?? 0}%)`
+  // Vilain inconnu (clé invalide) : rien à afficher.
+  if (!v) return null
   const villainColor = VILLAIN_COLOR[v.def.id]
   // Pack du vilain (boîte) : affiche, nom, date de sortie ; tooltip = liste des vilains du pack.
-  const pack = villainPack(villain)
+  // Les vilains PUBLIÉS n'ont pas de pack : on affichera plutôt leur créateur.
+  const pack = custom ? undefined : villainPack(villain as VillainKey)
   const packMembers = pack
     ? [...pack.villains.map((k) => VILLAIN_REGISTRY[k].def.name), ...(pack.otherMembers ?? [])]
     : []
-  // Vilain de collaboration (pas de pack officiel) : on affiche son créateur à la place.
-  const creator = !pack ? villainCreator(villain) : undefined
-  const [packHover, setPackHover] = useState(false)
+  // Créateur : pour un vilain publié, celui saisi à la publication ; sinon, le créateur
+  // d'une collaboration native (les vilains à pack officiel n'en affichent pas).
+  const creator = custom
+    ? customVillainOf(villain)?.creator
+    : !pack
+      ? villainCreator(villain as VillainKey)
+      : undefined
 
   // Cartes du vilain, séparées par paquet et triées par nombre d'exemplaires.
   const byCopies = (a: CardDef, b: CardDef) => b.copies - a.copies || a.name.localeCompare(b.name)
@@ -304,11 +315,17 @@ export function VillainDetailModal({ villain, onClose }: Props) {
             <p className="mt-2 text-sm leading-relaxed text-white/80">{guide.story}</p>
           </section>
 
-          {/* Conseils */}
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <TipList title="Bien le jouer" tips={guide.playTips} color="text-emerald-300" />
-            <TipList title="Le contrer" tips={guide.counterTips} color="text-red-300" />
-          </div>
+          {/* Conseils (masqués si aucun n'est rédigé — vilains publiés). */}
+          {(guide.playTips.length > 0 || guide.counterTips.length > 0) && (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              {guide.playTips.length > 0 && (
+                <TipList title="Bien le jouer" tips={guide.playTips} color="text-emerald-300" />
+              )}
+              {guide.counterTips.length > 0 && (
+                <TipList title="Le contrer" tips={guide.counterTips} color="text-red-300" />
+              )}
+            </div>
+          )}
 
           {/* Pack du vilain (bas du modal) : affiche + nom ; survol → tooltip à gauche. */}
           {pack && (

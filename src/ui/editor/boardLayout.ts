@@ -46,6 +46,9 @@ const COL_CENTER_PCT = [26.48, 47.35, 68.23, 89.10]
 
 /** Écart horizontal entre deux médaillons voisins d'une rangée (% largeur). */
 const ACTION_PITCH_PCT = 6.7
+/** Pas un peu plus large pour une rangée de 2 (typiquement la disposition 2+2) :
+ *  les deux actions sont ainsi légèrement plus aérées. */
+const ACTION_PITCH_PAIR_PCT = 7.7
 
 /** Y des rangées d'action, en % de la hauteur (centres relevés sur le gabarit). */
 export const ROW_Y: Record<ActionRow, number> = { top: 19.6, bottom: 67.7 }
@@ -61,8 +64,9 @@ export interface XY {
 /** Répartit `n` actions autour du centre d'une colonne, à pas constant (% largeur). */
 function spreadX(centerPct: number, n: number): number[] {
   if (n <= 1) return [centerPct]
-  const span = (n - 1) * ACTION_PITCH_PCT
-  return Array.from({ length: n }, (_, i) => centerPct - span / 2 + i * ACTION_PITCH_PCT)
+  const pitch = n === 2 ? ACTION_PITCH_PAIR_PCT : ACTION_PITCH_PCT
+  const span = (n - 1) * pitch
+  return Array.from({ length: n }, (_, i) => centerPct - span / 2 + i * pitch)
 }
 
 /** Centre horizontal d'une colonne par index (% largeur). Au-delà de 4 lieux, réparti. */

@@ -2,8 +2,8 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { readFileSync, writeFileSync, readdirSync } from 'node:fs'
-import { resolve, join } from 'node:path'
+import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync, copyFileSync } from 'node:fs'
+import { resolve, join, dirname } from 'node:path'
 
 /**
  * Plugin DEV uniquement : endpoint POST `/__save-action-pos` qui réécrit le bloc
@@ -117,6 +117,14 @@ function savePortraitPlugin(): Plugin {
             if (!dest.startsWith(PUBLIC)) throw new Error('chemin hors public/')
             const m = /^data:[^;]+;base64,(.+)$/s.exec(dataUrl)
             if (!m) throw new Error('data URL invalide')
+            // Conserve une copie du portrait BRUT (avant 1er encadrement) sous
+            // `public/portraits-raw/<rel>` : l'éditeur ré-encadre toujours à partir de
+            // cette image, sans empiler les cadres. Ne l'écrase jamais une fois créée.
+            const rawDest = resolve(PUBLIC, 'portraits-raw', rel)
+            if (rawDest.startsWith(PUBLIC) && !existsSync(rawDest) && existsSync(dest)) {
+              mkdirSync(dirname(rawDest), { recursive: true })
+              copyFileSync(dest, rawDest)
+            }
             writeFileSync(dest, Buffer.from(m[1], 'base64'))
             res.statusCode = 200
             res.end('ok')
@@ -175,9 +183,95 @@ function saveVillainColorPlugin(): Plugin {
   }
 }
 
+/**
+ * Plugin DEV uniquement : endpoint POST `/__save-villain-assets` qui écrit les images
+ * d'un vilain personnalisé (« Terminé » dans l'Atelier) dans les dossiers SOURCES
+ * `assets/` — comme les vilains natifs (corps : `{ files: [{ path, dataUrl }] }`, où
+ * `path` est relatif à `assets/`, ex. `decks/Mon Vilain/Plateau.png`). Crée les
+ * dossiers au besoin. Absent du build de production (`apply: 'serve'`).
+ */
+function saveVillainAssetsPlugin(): Plugin {
+  const ASSETS = resolve(process.cwd(), 'assets')
+  return {
+    name: 'save-villain-assets',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__save-villain-assets', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return }
+        let body = ''
+        req.on('data', (c) => { body += c })
+        req.on('end', () => {
+          try {
+            const { files } = JSON.parse(body) as { files: { path: string; dataUrl: string }[] }
+            if (!Array.isArray(files)) throw new Error('payload invalide')
+            let written = 0
+            for (const f of files) {
+              if (typeof f?.path !== 'string' || typeof f?.dataUrl !== 'string') continue
+              const rel = f.path.replace(/^\/+/, '')
+              if (!rel || rel.includes('..')) throw new Error(`chemin invalide : ${f.path}`)
+              const dest = resolve(ASSETS, rel)
+              if (!dest.startsWith(ASSETS)) throw new Error('chemin hors assets/')
+              const m = /^data:[^;]+;base64,(.+)$/s.exec(f.dataUrl)
+              if (!m) continue
+              mkdirSync(dirname(dest), { recursive: true })
+              writeFileSync(dest, Buffer.from(m[1], 'base64'))
+              written++
+            }
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ written }))
+          } catch (e) {
+            res.statusCode = 400
+            res.end(String((e as Error)?.message ?? e))
+          }
+        })
+      })
+    },
+  }
+}
+
+/**
+ * Plugin DEV uniquement : endpoint POST `/__save-villain-json` qui écrit le JSON
+ * (allégé, sans images) d'un vilain personnalisé dans `assets/custom-exports/<id>.json`
+ * — pour pouvoir le relire/transmettre facilement (corps : `{ id, json }`). Absent du
+ * build de production (`apply: 'serve'`).
+ */
+function saveVillainJsonPlugin(): Plugin {
+  const ASSETS = resolve(process.cwd(), 'assets')
+  return {
+    name: 'save-villain-json',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__save-villain-json', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return }
+        let body = ''
+        req.on('data', (c) => { body += c })
+        req.on('end', () => {
+          try {
+            const { id, json } = JSON.parse(body) as { id: string; json: string }
+            if (typeof id !== 'string' || typeof json !== 'string') throw new Error('payload invalide')
+            const safe = id.replace(/[^a-z0-9_-]+/gi, '-')
+            const rel = `custom-exports/${safe}.json`
+            const dest = resolve(ASSETS, rel)
+            if (!dest.startsWith(ASSETS)) throw new Error('chemin hors assets/')
+            mkdirSync(dirname(dest), { recursive: true })
+            writeFileSync(dest, json, 'utf8')
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ path: `assets/${rel}` }))
+          } catch (e) {
+            res.statusCode = 400
+            res.end(String((e as Error)?.message ?? e))
+          }
+        })
+      })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), saveActionPosPlugin(), savePawnSizePlugin(), savePortraitPlugin(), saveVillainColorPlugin()],
+  plugins: [react(), tailwindcss(), saveActionPosPlugin(), savePawnSizePlugin(), savePortraitPlugin(), saveVillainColorPlugin(), saveVillainAssetsPlugin(), saveVillainJsonPlugin()],
   server: {
     // Expose le serveur de dév sur le réseau local (0.0.0.0) pour que l'invité
     // puisse ouvrir l'app depuis l'IP de l'hôte (http://<ip-hôte>:5173) — requis

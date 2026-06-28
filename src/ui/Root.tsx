@@ -138,7 +138,8 @@ function SoundTestRoute() {
 function MenuMusic() {
   const { pathname } = useLocation()
   if (pathname === ROUTES.game || pathname === ROUTES.sounds) return null
-  const onVillains = pathname === ROUTES.villains
+  // La liste des vilains ET l'Atelier des vilains partagent la même piste.
+  const onVillains = pathname === ROUTES.villains || pathname === ROUTES.editor
   const src = onVillains ? '/audio/villain-list.mp3' : '/audio/the-magic-mirror.mp3'
   // Piste de la liste des vilains un peu moins forte que la musique du menu.
   const gain = onVillains ? 0.8 : 1

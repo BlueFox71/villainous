@@ -8,9 +8,10 @@
 // =============================================================================
 
 import type { CustomVillain } from '../../data/customVillain'
-import type { LocationActionType } from '../../engine/types'
 import { loadImage } from './imageUtils'
 import { EDITOR_FONT, ensureFonts } from './fonts'
+import { drawActionIcon, ACTION_ICON_FILE } from './actionIcons'
+import { UI_FONT } from './cardRender'
 import { BOARD_W, BOARD_H, OBJ_PANEL, COL_RECTS, LOC_IMG, NAME_Y_PCT, customActionPositions } from './boardLayout'
 
 const DIR = '/editor/board'
@@ -29,21 +30,6 @@ function asset(name: string): Promise<HTMLImageElement> {
 // (nom du vilain, objectif, noms de lieux). Repli serif si elle ne charge pas.
 const FONT = EDITOR_FONT
 const GOLD = '#c9a14a'
-const INK = '#f4ecd8'
-
-/** Icône d'action authentique (médaillon double-anneau + symbole) exportée du
- *  gabarit Realm. Chaque PNG contient déjà l'anneau ; on le dessine tel quel à la
- *  position de l'action. `GAIN_POWER` est une gemme VIDE : on superpose le chiffre. */
-const ACTION_ICONS: Partial<Record<LocationActionType, string>> = {
-  GAIN_POWER: 'action-gain-power.png',
-  VANQUISH: 'action-vanquish.png',
-  PLAY_CARD: 'action-play-card.png',
-  FATE: 'action-fate.png',
-  MOVE_HERO: 'action-move-hero.png',
-  MOVE_ITEM_ALLY: 'action-move-item-ally.png',
-  DISCARD_CARDS: 'action-discard-cards.png',
-  ACTIVATE: 'action-activate.png',
-}
 
 /** Dessine `img` en « cover » dans (x,y,w,h). `posX`/`posY` (0..1) choisissent la
  *  partie visible quand l'image déborde (0 = bord gauche/haut, 0.5 = centre, 1 =
@@ -105,13 +91,19 @@ async function tintedDisc(
     oc.width = px
     oc.height = px
     const octx = oc.getContext('2d')!
-    octx.drawImage(fill, 0, 0, px, px)
-    octx.globalCompositeOperation = 'source-in' // ne garde que la forme du disque
+    // 1) Base = couleur du vilain. 2) Texture du disque en MULTIPLY (on garde le grain
+    // du gabarit, teinté). 3) Masque à la FORME du disque (destination-in). 4) Léger
+    // assombrissement pour garder l'icône dorée lisible.
     octx.fillStyle = color
     octx.fillRect(0, 0, px, px)
-    octx.globalCompositeOperation = 'source-atop' // assombrit la couleur du vilain
+    octx.globalCompositeOperation = 'multiply'
+    octx.drawImage(fill, 0, 0, px, px)
+    octx.globalCompositeOperation = 'destination-in'
+    octx.drawImage(fill, 0, 0, px, px)
+    octx.globalCompositeOperation = 'source-atop'
     octx.fillStyle = 'rgba(0,0,0,0.34)'
     octx.fillRect(0, 0, px, px)
+    octx.globalCompositeOperation = 'source-over'
     discCache = { size: px, color, canvas: oc }
     return oc
   } catch {
@@ -155,113 +147,6 @@ function drawMedallion(ctx: CanvasRenderingContext2D, cx: number, cy: number, rx
   ctx.restore()
 }
 
-/** Dessine une icône dorée (style line-art) centrée, taille ~`s`. */
-function drawIcon(ctx: CanvasRenderingContext2D, type: LocationActionType, cx: number, cy: number, s: number, amount?: number) {
-  ctx.save()
-  ctx.strokeStyle = GOLD
-  ctx.fillStyle = GOLD
-  ctx.lineWidth = 13
-  ctx.lineJoin = 'round'
-  ctx.lineCap = 'round'
-  const h = s / 2
-  switch (type) {
-    case 'GAIN_POWER': {
-      // Gemme octogonale + nombre.
-      ctx.beginPath()
-      for (let i = 0; i < 8; i++) {
-        const a = (Math.PI / 4) * i + Math.PI / 8
-        const px = cx + Math.cos(a) * h
-        const py = cy + Math.sin(a) * h
-        if (i === 0) ctx.moveTo(px, py)
-        else ctx.lineTo(px, py)
-      }
-      ctx.closePath()
-      ctx.stroke()
-      ctx.font = `bold ${s * 0.8}px ${FONT}`
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillText(String(amount ?? 1), cx, cy + s * 0.04)
-      break
-    }
-    case 'VANQUISH': {
-      // Étoile-explosion à 8 branches.
-      ctx.beginPath()
-      for (let i = 0; i < 16; i++) {
-        const a = (Math.PI / 8) * i
-        const rr = i % 2 === 0 ? h : h * 0.45
-        const px = cx + Math.cos(a) * rr
-        const py = cy + Math.sin(a) * rr
-        if (i === 0) ctx.moveTo(px, py)
-        else ctx.lineTo(px, py)
-      }
-      ctx.closePath()
-      ctx.stroke()
-      break
-    }
-    case 'PLAY_CARD': {
-      // Carte (rectangle arrondi) + chevron vers le haut.
-      const cw = s * 0.62
-      const ch = s * 0.82
-      roundRect(ctx, cx - cw / 2, cy - ch / 2 + s * 0.08, cw, ch, 14)
-      ctx.stroke()
-      ctx.beginPath()
-      ctx.moveTo(cx - s * 0.18, cy - ch / 2 - s * 0.04)
-      ctx.lineTo(cx, cy - ch / 2 - s * 0.24)
-      ctx.lineTo(cx + s * 0.18, cy - ch / 2 - s * 0.04)
-      ctx.stroke()
-      break
-    }
-    case 'FATE': {
-      // Croissant / lune renversée (Fatalité).
-      ctx.beginPath()
-      ctx.arc(cx, cy, h, Math.PI * 0.15, Math.PI * 0.85, false)
-      ctx.stroke()
-      ctx.beginPath()
-      ctx.arc(cx, cy - s * 0.18, h * 0.95, Math.PI * 0.2, Math.PI * 0.8, false)
-      ctx.stroke()
-      break
-    }
-    case 'MOVE_HERO': {
-      arrow(ctx, cx - h * 0.7, cy, cx + h * 0.8, cy, s * 0.3)
-      break
-    }
-    case 'MOVE_ITEM_ALLY': {
-      // Double flèche horizontale.
-      arrow(ctx, cx, cy, cx + h * 0.9, cy, s * 0.26)
-      arrow(ctx, cx, cy, cx - h * 0.9, cy, s * 0.26)
-      break
-    }
-    case 'DISCARD_CARDS': {
-      const cw = s * 0.6
-      const ch = s * 0.8
-      roundRect(ctx, cx - cw / 2, cy - ch / 2, cw, ch, 12)
-      ctx.stroke()
-      arrow(ctx, cx, cy - ch * 0.1, cx, cy + ch * 0.55, s * 0.26)
-      break
-    }
-    case 'ACTIVATE': {
-      // Soleil : disque + rayons.
-      ctx.beginPath()
-      ctx.arc(cx, cy, h * 0.45, 0, Math.PI * 2)
-      ctx.stroke()
-      for (let i = 0; i < 8; i++) {
-        const a = (Math.PI / 4) * i
-        ctx.beginPath()
-        ctx.moveTo(cx + Math.cos(a) * h * 0.62, cy + Math.sin(a) * h * 0.62)
-        ctx.lineTo(cx + Math.cos(a) * h, cy + Math.sin(a) * h)
-        ctx.stroke()
-      }
-      break
-    }
-    default: {
-      ctx.beginPath()
-      ctx.arc(cx, cy, h * 0.5, 0, Math.PI * 2)
-      ctx.stroke()
-    }
-  }
-  ctx.restore()
-}
-
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath()
   ctx.moveTo(x + r, y)
@@ -270,20 +155,6 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.arcTo(x, y + h, x, y, r)
   ctx.arcTo(x, y, x + w, y, r)
   ctx.closePath()
-}
-
-function arrow(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, head: number) {
-  ctx.beginPath()
-  ctx.moveTo(x1, y1)
-  ctx.lineTo(x2, y2)
-  ctx.stroke()
-  const ang = Math.atan2(y2 - y1, x2 - x1)
-  ctx.beginPath()
-  ctx.moveTo(x2, y2)
-  ctx.lineTo(x2 - head * Math.cos(ang - 0.5), y2 - head * Math.sin(ang - 0.5))
-  ctx.moveTo(x2, y2)
-  ctx.lineTo(x2 - head * Math.cos(ang + 0.5), y2 - head * Math.sin(ang + 0.5))
-  ctx.stroke()
 }
 
 /** Rend le plateau complet d'un vilain personnalisé en dataURL PNG. */
@@ -354,7 +225,9 @@ export async function renderBoard(v: CustomVillain): Promise<string> {
   // Portrait du vilain : PLEINE HAUTEUR, un peu plus étroit que le panneau pour ne
   //  pas serrer le bord droit (la 1re colonne commence à x=730).
   const PORTRAIT_W = 697
-  const villainArt = v.presentation ?? v.portrait
+  // Illustration du vilain sur le plateau : UNIQUEMENT l'image de plateau dédiée
+  // (boardArt). Ni le portrait carré ni la présentation ne servent ici.
+  const villainArt = v.boardArt
   if (villainArt) {
     try {
       const px = (v.portraitPos?.x ?? 50) / 100
@@ -373,13 +246,29 @@ export async function renderBoard(v: CustomVillain): Promise<string> {
     ctx.fillRect(0, 0, PORTRAIT_W, 230)
   }
 
-  // Fond sombre de la boîte Objectif (intérieur du cadre doré) : lisibilité du
-  // texte par-dessus le portrait.
-  ctx.save()
-  roundRect(ctx, 90, 812, 507, 352, 10)
-  ctx.fillStyle = 'rgba(16,14,20,0.78)'
-  ctx.fill()
-  ctx.restore()
+  // Fond de la boîte Objectif : MÊME teinte que le plateau (couleur du vilain ×
+  // texture ardoise). Comme sur les plateaux officiels, le remplissage DÉBORDE
+  // légèrement AUTOUR du cadre d'ornements (bbox des pixels dorés de
+  // realm-objective.png : x 77→610, y 799→1176) : on l'étend d'une marge constante.
+  {
+    const M = 25 // débord (px) tout autour du cadre d'ornements
+    const fx = 77 - M
+    const fy = 799 - M
+    const fw = 534 + M * 2
+    const fh = 378 + M * 2
+    ctx.save()
+    roundRect(ctx, fx, fy, fw, fh, 14)
+    ctx.clip()
+    ctx.fillStyle = v.color
+    ctx.fillRect(fx, fy, fw, fh)
+    try {
+      const tex = await asset('objective-fill.png')
+      ctx.globalCompositeOperation = 'multiply'
+      ctx.drawImage(tex, fx, fy, fw, fh)
+      ctx.globalCompositeOperation = 'source-over'
+    } catch { /* sans texture : aplat de couleur */ }
+    ctx.restore()
+  }
 
   // Cadre doré de l'objectif + ligne de séparation (calques du gabarit).
   try {
@@ -396,10 +285,10 @@ export async function renderBoard(v: CustomVillain): Promise<string> {
   // Nom du vilain (bandeau du haut).
   {
     let s = 58
-    ctx.font = `bold ${s}px ${FONT}`
+    ctx.font = `${s}px ${FONT}`
     while (ctx.measureText(v.name.toUpperCase()).width > pw - 60 && s > 26) {
       s -= 2
-      ctx.font = `bold ${s}px ${FONT}`
+      ctx.font = `${s}px ${FONT}`
     }
     ctx.fillText(v.name.toUpperCase(), cx, 56)
   }
@@ -407,23 +296,24 @@ export async function renderBoard(v: CustomVillain): Promise<string> {
   // Intitulé « OBJECTIF DE {nom} » sur deux lignes, AU-DESSUS de la ligne (y≈938).
   {
     const boxW = 507 - 56
-    fitFont(ctx, 'OBJECTIF DE', boxW, 34, 22, '600 ')
+    fitFont(ctx, 'OBJECTIF DE', boxW, 34, 22)
     ctx.fillText('OBJECTIF DE', cx, 858)
     const nm = v.name.toUpperCase()
-    fitFont(ctx, nm, boxW, 42, 22, 'bold ')
+    fitFont(ctx, nm, boxW, 42, 22)
     ctx.fillText(nm, cx, 905)
   }
 
   if (v.boardObjective.trim()) {
-    ctx.fillStyle = INK
+    ctx.fillStyle = '#e8c879' // doré (même or que le titre « OBJECTIF DE »)
     ctx.textBaseline = 'top'
     const boxW = 507 - 56
-    let s = 32
-    ctx.font = `${s}px ${FONT}`
+    let s = 40
+    // Même police que le TEXTE DE RÈGLE des cartes (UI_FONT), doré et SANS gras.
+    ctx.font = `${s}px ${UI_FONT}`
     let lines = wrap(ctx, v.boardObjective.trim(), boxW)
-    while (lines.length * (s + 8) > 196 && s > 18) {
+    while (lines.length * (s + 8) > 196 && s > 24) {
       s -= 2
-      ctx.font = `${s}px ${FONT}`
+      ctx.font = `${s}px ${UI_FONT}`
       lines = wrap(ctx, v.boardObjective.trim(), boxW)
     }
     let y = 966
@@ -439,15 +329,15 @@ export async function renderBoard(v: CustomVillain): Promise<string> {
     const loc = v.locations[i]
     const r = COL_RECTS[i]
     const name = loc.name.toUpperCase()
-    ctx.fillStyle = INK
+    ctx.fillStyle = '#e8c879' // doré (même or que le nom du vilain / l'objectif)
     ctx.textAlign = 'center'
     ctx.shadowColor = 'rgba(0,0,0,0.85)'
     ctx.shadowBlur = 14
     let s = 54
-    ctx.font = `bold ${s}px ${FONT}`
+    ctx.font = `${s}px ${FONT}`
     while (ctx.measureText(name).width > r.x1 - r.x0 - 40 && s > 22) {
       s -= 2
-      ctx.font = `bold ${s}px ${FONT}`
+      ctx.font = `${s}px ${FONT}`
     }
     ctx.fillText(name, (r.x0 + r.x1) / 2, BOARD_H * (NAME_Y_PCT / 100))
     ctx.shadowBlur = 0
@@ -471,7 +361,7 @@ export async function renderBoard(v: CustomVillain): Promise<string> {
       if (!p) continue
       const px = (p.x / 100) * BOARD_W
       const py = (p.y / 100) * BOARD_H
-      const file = ACTION_ICONS[a.type]
+      const file = ACTION_ICON_FILE[a.type]
       let drawn = false
       if (file) {
         try {
@@ -483,7 +373,7 @@ export async function renderBoard(v: CustomVillain): Promise<string> {
       }
       if (!drawn) {
         drawMedallion(ctx, px, py, RX, RY)
-        drawIcon(ctx, a.type, px, py, 84, a.amount)
+        drawActionIcon(ctx, a.type, px, py, 84, GOLD, a.type === 'GAIN_POWER' ? (a.amount ?? 1) : a.amount)
       }
       // Gemme « Gagner du pouvoir » : le PNG est vide, on imprime le montant —
       // via les chiffres dorés du gabarit (1/2/3), sinon en typo dorée.

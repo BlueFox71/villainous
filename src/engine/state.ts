@@ -271,7 +271,7 @@ export function handLimitFor(player: PlayerState): number {
  * dans ce cas, 1 sinon (et toujours 1 pour les autres vilains).
  */
 export function dioPowerFactor(player: PlayerState): number {
-  if (player.villain !== 'dio') return 1
+  if (player.villain !== 'dio' && player.villain !== 'custom-dio') return 1
   const removed = player.removedFromGame ?? []
   const worldInPlay = Object.values(player.board).flat().some((c) => c.cardId === 'the-world')
   return worldInPlay && removed.includes('jotaro-kujo') && removed.includes('joseph-joestar') ? 2 : 1
@@ -647,7 +647,7 @@ export function createInitialGame(setups: PlayerSetup[], seed: number): GameStat
     // Dio Brando — sépare les Stands (isStand) des DEUX pioches vers `standPile` (hors deck).
     // Ils n'entrent en jeu que par fetch quand leur carte invocatrice est jouée. The World
     // (Stand mais SANS isStand) reste dans le deck Méchant. removedFromGame suit Jotaro/Joseph.
-    if (villain.id === 'dio') {
+    if (villain.id === 'dio' || villain.id === 'custom-dio') {
       const stands = [...player.deck, ...player.fateDeck].filter((c) => c.isStand)
       player = {
         ...player,

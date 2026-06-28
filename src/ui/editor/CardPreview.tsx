@@ -21,12 +21,17 @@ export function CardPreview({
   const key = JSON.stringify({
     n: card.name,
     t: card.type,
+    tlbl: card.typeLabel,
+    tcol: card.typeColor,
     d: card.deck,
     c: card.cost,
     s: card.strength,
     x: card.text,
     a: card.artImage?.slice(0, 64),
     tr: card.artTransform,
+    tl: card.textLayout,
+    tb: card.textBoxes,
+    st: card.stickers,
     col: color,
     fcol: fateColor,
   })

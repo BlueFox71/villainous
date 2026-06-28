@@ -1,22 +1,22 @@
 import { create } from 'zustand'
-import type { VillainKey } from './gameStore'
 
 const LS_KEY = 'villainous:favorites'
 
-/** Lit/valide la liste des vilains favoris persistée (clés de vilain). */
-function read(): VillainKey[] {
+/** Lit/valide la liste des vilains favoris persistée (clés de vilain, natives ou
+ *  publiées `custom-…`). */
+function read(): string[] {
   if (typeof localStorage === 'undefined') return []
   try {
     const raw = localStorage.getItem(LS_KEY)
     if (!raw) return []
     const arr = JSON.parse(raw) as unknown
-    return Array.isArray(arr) ? arr.filter((k): k is VillainKey => typeof k === 'string') : []
+    return Array.isArray(arr) ? arr.filter((k): k is string => typeof k === 'string') : []
   } catch {
     return []
   }
 }
 
-function persist(keys: VillainKey[]) {
+function persist(keys: string[]) {
   if (typeof localStorage === 'undefined') return
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(keys))
@@ -27,9 +27,9 @@ function persist(keys: VillainKey[]) {
 
 interface FavoritesStore {
   /** Vilains marqués comme favoris par le joueur. */
-  favorites: VillainKey[]
+  favorites: string[]
   /** Ajoute/retire un vilain des favoris. */
-  toggleFavorite: (key: VillainKey) => void
+  toggleFavorite: (key: string) => void
 }
 
 /** Favoris du joueur (persistants), pour filtrer/mettre en avant des vilains. */

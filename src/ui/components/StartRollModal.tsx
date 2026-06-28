@@ -15,8 +15,9 @@ interface Props {
   /** Illustrations de présentation des deux vilains (gauche / droite). */
   images?: [string | undefined, string | undefined]
   /** Clés des deux vilains (gauche / droite) — pour appliquer leur réglage de
-   *  présentation (échelle/décalage), comme sur l'écran de choix. */
-  villainKeys?: [VillainKey, VillainKey]
+   *  présentation (échelle/décalage), comme sur l'écran de choix. Peut être un id de
+   *  vilain personnalisé (sans réglage → présentation par défaut). */
+  villainKeys?: [string, string]
   /** Appelé une fois le gagnant déterminé : (indexGagnant, [jet0, jet1]).
    *  Ignoré en mode `versusOnly`. */
   onResult?: (winner: number, rolls: [number, number]) => void
@@ -260,7 +261,7 @@ export function StartRollModal({ names, images, villainKeys, onResult, versusOnl
         if (!src) return null
         const left = i === 0
         const mirror = left ? 1 : -1
-        const tweak = villainKeys ? PRESENTATION_TWEAK[villainKeys[i]] : undefined
+        const tweak = villainKeys ? PRESENTATION_TWEAK[villainKeys[i] as VillainKey] : undefined
         const dy = tweak?.versusDyPct ?? tweak?.dyPct ?? 0
         const transform = tweak
           ? `translate(${tweak.dxPct ?? 0}%, ${dy}%) scale(${tweak.scale ?? 1}) scaleX(${mirror})`

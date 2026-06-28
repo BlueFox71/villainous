@@ -36,7 +36,7 @@ import {
   updateActivePlayer,
   updatePlayer,
 } from './state'
-import { addKronkTokens, addPuppyFromReserve, bargainReshuffle, bargainSword, canEnterAuDela, capturePuppiesAt, doCapturePuppies, doQuelsMove, doQuelsTutor, enterQuelsMove, enterQuelsTutor, holdsTalisman, lotsoMoveToRoom, lotsoReduceHero, mauiHeroInRealm, moveTitanTo, performVanquish, freeEliminateHero, placeAllyInAuDela, playChosenFateFromDiscard, playTopMauiCard, processCurseDiscards, raiponceLocation, reformYzmaDecks, relocateCard, relocateRaiponce, reshuffleYzmaIfKuzcoDiscarded, resolveEffect, resolveEffects, rollColorDie, smartMoveAllyOrItem, titanReachableDests, triggerHeroArrival } from './effects'
+import { addKronkTokens, addPuppyFromReserve, bargainReshuffle, bargainSword, canEnterAuDela, capturePuppiesAt, dioDiscardHero, doCapturePuppies, doQuelsMove, doQuelsTutor, enterQuelsMove, enterQuelsTutor, holdsTalisman, lotsoMoveToRoom, lotsoReduceHero, mauiHeroInRealm, moveTitanTo, performVanquish, freeEliminateHero, placeAllyInAuDela, playChosenFateFromDiscard, playTopMauiCard, processCurseDiscards, raiponceLocation, reformYzmaDecks, relocateCard, relocateRaiponce, reshuffleYzmaIfKuzcoDiscarded, resolveEffect, resolveEffects, rollColorDie, smartMoveAllyOrItem, titanReachableDests, triggerHeroArrival } from './effects'
 import { crewmateEndOfTurn, freeCellAt, placeCrewmateAt } from './crewmates'
 import { pendingOwner } from './turn'
 import { isKingCandy, trackMoveRange, moveKingCandyTrack, advanceRacerByReveal, bugOnVanellope, moveRacerBack, cardLocationIds } from './kingCandy'
@@ -7334,6 +7334,104 @@ function applyResolveMauiChoice(state: GameState, choice: 'play' | 'discard'): G
   return choice === 'play' ? resolveEffectsLocal(next, top.effects ?? [], { actorIndex: idx }) : next
 }
 
+/** Dio — Vampirisme : défausse l'Allié choisi (+ Objets associés ; Stands → réserve) et
+ *  gagne le Pouvoir prévu (×2 si The World est au pouvoir). */
+function applyResolveDioDiscardAlly(state: GameState, allyInstanceId: string): GameState {
+  const pending = state.pendingDioDiscardAlly
+  if (!pending) throw new Error('Aucun Vampirisme en attente (RESOLVE_DIO_DISCARD_ALLY).')
+  const idx = pending.playerIndex
+  const me = state.players[idx]
+  let loc: LocationId | undefined
+  for (const l of me.locations) if ((me.board[l.id] ?? []).some((c) => c.instanceId === allyInstanceId)) { loc = l.id; break }
+  const ally = loc ? (me.board[loc] ?? []).find((c) => c.instanceId === allyInstanceId) : undefined
+  if (!loc || !ally || ally.type !== 'ally' || ally.attachedTo || ally.cannotBeDiscarded)
+    throw new Error('Allié à défausser invalide (Vampirisme).')
+  const attached = (me.board[loc] ?? []).filter((c) => c.attachedTo === allyInstanceId)
+  const stands = attached.filter((c) => c.isStand)
+  const normal = attached.filter((c) => !c.isStand)
+  const rm = new Set([allyInstanceId, ...attached.map((c) => c.instanceId)])
+  const gain = pending.gain * dioPowerFactor(me)
+  const next = updatePlayer(state, idx, (pl) => ({
+    ...pl,
+    board: { ...pl.board, [loc!]: (pl.board[loc!] ?? []).filter((c) => !rm.has(c.instanceId)) },
+    discard: [...pl.discard, ...[ally, ...normal].map((c) => ({ ...c, attachedTo: undefined }))],
+    standPile: [...(pl.standPile ?? []), ...stands.map((c) => ({ ...c, attachedTo: undefined }))],
+    power: pl.power + gain,
+  }))
+  return { ...next, pendingDioDiscardAlly: null, log: [...next.log, `Vampirisme : ${me.villainName} défausse **${ally.name}** et gagne ${gain} JT.`] }
+}
+
+/** Dio — CREAM : défausse le Héros choisi (force < Vanilla Ice) sur le lieu de Cream. */
+function applyResolveDioCream(state: GameState, heroInstanceId: string): GameState {
+  const pending = state.pendingDioCream
+  if (!pending) throw new Error('Aucun CREAM en attente (RESOLVE_DIO_CREAM).')
+  if (!pending.candidateIds.includes(heroInstanceId)) throw new Error('Héros invalide (CREAM).')
+  const idx = pending.playerIndex
+  const hero = (state.players[idx].board[pending.locationId] ?? []).find((c) => c.instanceId === heroInstanceId)
+  if (!hero) throw new Error('Héros introuvable (CREAM).')
+  return dioDiscardHero({ ...state, pendingDioCream: null }, idx, pending.locationId, hero)
+}
+
+/** Dio — MUDA! : élimine le Héros choisi (facultatif) sur le lieu du pion et gagne le
+ *  Pouvoir prévu (×2 si The World est au pouvoir). */
+function applyResolveDioMuda(state: GameState, heroInstanceId?: string): GameState {
+  const pending = state.pendingDioMuda
+  if (!pending) throw new Error('Aucun MUDA en attente (RESOLVE_DIO_MUDA).')
+  const idx = pending.playerIndex
+  const me = state.players[idx]
+  let next: GameState = { ...state, pendingDioMuda: null }
+  let eliminated: CardInstance | undefined
+  if (heroInstanceId) {
+    if (!pending.candidateIds.includes(heroInstanceId)) throw new Error('Héros invalide (MUDA).')
+    const loc = me.pawnLocation
+    const hero = loc ? (me.board[loc] ?? []).find((c) => c.instanceId === heroInstanceId) : undefined
+    if (loc && hero) { eliminated = hero; next = dioDiscardHero(next, idx, loc, hero) }
+  }
+  const gain = pending.gain * dioPowerFactor(next.players[idx])
+  next = updatePlayer(next, idx, (pl) => ({ ...pl, power: pl.power + gain }))
+  return { ...next, log: [...next.log, `MUDA ! MUDA ! MUDA ! : ${me.villainName}${eliminated ? ` élimine **${eliminated.name}** et` : ''} gagne ${gain} JT.`] }
+}
+
+/** Dio — Quête vers le paradis : mélange la défausse, en dévoile 6 et reprend en main les
+ *  cartes du type choisi (Objet/Événement) ; le reste retourne dans la défausse. */
+function applyResolveDioQuest(state: GameState, cardType: 'item' | 'effect'): GameState {
+  const pending = state.pendingDioQuest
+  if (!pending) throw new Error('Aucune Quête vers le paradis en attente (RESOLVE_DIO_QUEST).')
+  const idx = pending.playerIndex
+  const me = state.players[idx]
+  const sh = shuffle(me.discard, state.rngState)
+  const top6 = sh.result.slice(0, 6)
+  const remainder = sh.result.slice(6)
+  const taken = top6.filter((c) => c.type === cardType)
+  const left = top6.filter((c) => c.type !== cardType)
+  const next = updatePlayer({ ...state, rngState: sh.state }, idx, (pl) => ({
+    ...pl,
+    hand: [...pl.hand, ...taken],
+    discard: [...remainder, ...left],
+  }))
+  return {
+    ...next,
+    pendingDioQuest: null,
+    log: [...next.log, `Quête vers le paradis : ${me.villainName} récupère ${taken.length} ${cardType === 'item' ? 'Objet(s)' : 'Événement(s)'} (sur 6 dévoilés).`],
+  }
+}
+
+/** Dio — Lumière du Soleil (Fatalité) : DIO défausse sa main OU perd le Pouvoir prévu. */
+function applyResolveDioSunlight(state: GameState, choice: 'discard' | 'lose'): GameState {
+  const pending = state.pendingDioSunlight
+  if (!pending) throw new Error('Aucune Lumière du Soleil en attente (RESOLVE_DIO_SUNLIGHT).')
+  const idx = pending.playerIndex
+  const me = state.players[idx]
+  const cleared = { ...state, pendingDioSunlight: null }
+  if (choice === 'lose') {
+    const next = updatePlayer(cleared, idx, (pl) => ({ ...pl, power: Math.max(0, pl.power - pending.lose) }))
+    return { ...next, log: [...next.log, `Lumière du Soleil : ${me.villainName} perd ${pending.lose} JT.`] }
+  }
+  const n = me.hand.length
+  const next = updatePlayer(cleared, idx, (pl) => ({ ...pl, discard: [...pl.discard, ...pl.hand], hand: [] }))
+  return { ...next, log: [...next.log, `Lumière du Soleil : ${me.villainName} défausse sa main (${n} carte(s)).`] }
+}
+
 /**
  * Le Seigneur des Ténèbres — résout le choix « Nous avons conclu un marché ! » :
  * mélanger sa défausse Vilain dans sa pioche, OU payer le supplément pour défausser
@@ -10348,6 +10446,22 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   ) {
     throw new Error('Un choix « Pas exactement l’heure de Maui » est en attente (RESOLVE_MAUI_CHOICE).')
   }
+  // Dio : choix interactifs en attente (Vampirisme, CREAM, MUDA, Quête, Lumière du Soleil).
+  if (state.pendingDioDiscardAlly && action.type !== 'RESOLVE_DIO_DISCARD_ALLY') {
+    throw new Error('Un choix Vampirisme est en attente (RESOLVE_DIO_DISCARD_ALLY).')
+  }
+  if (state.pendingDioCream && action.type !== 'RESOLVE_DIO_CREAM') {
+    throw new Error('Un choix CREAM est en attente (RESOLVE_DIO_CREAM).')
+  }
+  if (state.pendingDioMuda && action.type !== 'RESOLVE_DIO_MUDA') {
+    throw new Error('Un choix MUDA ! est en attente (RESOLVE_DIO_MUDA).')
+  }
+  if (state.pendingDioQuest && action.type !== 'RESOLVE_DIO_QUEST') {
+    throw new Error('Un choix Quête vers le paradis est en attente (RESOLVE_DIO_QUEST).')
+  }
+  if (state.pendingDioSunlight && action.type !== 'RESOLVE_DIO_SUNLIGHT') {
+    throw new Error('Un choix Lumière du Soleil est en attente (RESOLVE_DIO_SUNLIGHT).')
+  }
   // Le Seigneur des Ténèbres : choix « Nous avons conclu un marché ! » en attente.
   if (
     state.pendingBargainChoice &&
@@ -10848,6 +10962,16 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveCauldronChoice(state, action.choice)
     case 'RESOLVE_MAUI_CHOICE':
       return applyResolveMauiChoice(state, action.choice)
+    case 'RESOLVE_DIO_DISCARD_ALLY':
+      return applyResolveDioDiscardAlly(state, action.allyInstanceId)
+    case 'RESOLVE_DIO_CREAM':
+      return applyResolveDioCream(state, action.heroInstanceId)
+    case 'RESOLVE_DIO_MUDA':
+      return applyResolveDioMuda(state, action.heroInstanceId)
+    case 'RESOLVE_DIO_QUEST':
+      return applyResolveDioQuest(state, action.cardType)
+    case 'RESOLVE_DIO_SUNLIGHT':
+      return applyResolveDioSunlight(state, action.choice)
     case 'RESOLVE_CRUSTACEAN_PLACE':
       return applyResolveCrustaceanPlace(state, action.to)
     case 'RESOLVE_BARGAIN_CHOICE':

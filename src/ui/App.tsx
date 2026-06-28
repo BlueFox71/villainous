@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useGameStore, villainKeyOf, VILLAIN_REGISTRY, type VillainKey } from './store/gameStore'
+import { useGameStore, villainKeyOf, isCustomKey, VILLAIN_REGISTRY, type VillainKey } from './store/gameStore'
+import { useTestWinStore } from './store/testWinStore'
 import { usePlayerStore } from './store/playerStore'
 import { useStatsStore } from './store/statsStore'
 import { useIsDesktopApp } from './store/settingsStore'
@@ -1096,6 +1097,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveMoveOrActivate = useGameStore((s) => s.resolveMoveOrActivate)
   const resolveCauldronChoice = useGameStore((s) => s.resolveCauldronChoice)
   const resolveMauiChoice = useGameStore((s) => s.resolveMauiChoice)
+  const resolveDioDiscardAlly = useGameStore((s) => s.resolveDioDiscardAlly)
+  const resolveDioCream = useGameStore((s) => s.resolveDioCream)
+  const resolveDioMuda = useGameStore((s) => s.resolveDioMuda)
+  const resolveDioQuest = useGameStore((s) => s.resolveDioQuest)
+  const resolveDioSunlight = useGameStore((s) => s.resolveDioSunlight)
   const resolveCrustaceanPlace = useGameStore((s) => s.resolveCrustaceanPlace)
   const resolveFateAllyToAuDela = useGameStore((s) => s.resolveFateAllyToAuDela)
   const resolveFateDiscardHand = useGameStore((s) => s.resolveFateDiscardHand)
@@ -1238,8 +1244,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const recordResult = useStatsStore((s) => s.recordResult)
   const recordGame = useStatsStore((s) => s.recordGame)
   const addPlaytime = useStatsStore((s) => s.addPlaytime)
+  const markTestWon = useTestWinStore((s) => s.markWon)
   const humanVillainKey = villainKeyOf(state.players[0].villain)
   const opponentVillainKey = villainKeyOf(state.players[1].villain)
+  // Clé de PRÉSENTATION/voix qui PRÉSERVE l'identité d'un vilain personnalisé
+  // (villainKeyOf le rabattrait sur un natif). Custom → son id ; natif → sa VillainKey.
+  const presKey = (villainId: string): string => (isCustomKey(villainId) ? villainId : villainKeyOf(villainId))
 
   // Temps de jeu : on mémorise l'instant d'entrée et on verse la durée écoulée
   // au démontage (retour au menu / fermeture). Un ref suit le vilain courant
@@ -1271,8 +1281,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   useEffect(() => {
     if (introPlayedRef.current) return
     introPlayedRef.current = true
-    playVillainIntro(humanVillainKey, opponentVillainKey, () => setIntroVoiceDone(true))
-  }, [humanVillainKey, opponentVillainKey])
+    playVillainIntro(state.players[0].villain, state.players[1].villain, () => setIntroVoiceDone(true))
+  }, [state.players])
 
   // Victoire/défaite : enregistrée une seule fois quand la partie se termine. Tout
   // est relatif au siège LOCAL (HUMAN/BOT) — correct en solo comme en réseau (où
@@ -1282,6 +1292,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     if (state.status === 'WON' && !resultRecordedRef.current) {
       resultRecordedRef.current = true
       const humanWon = state.winner === HUMAN
+      // Vilain PERSONNALISÉ gagné par le joueur : on le marque « test réussi » (débloque
+      // le bouton « Terminer » de l'Atelier pour une première publication).
+      const humanVillainId = state.players[HUMAN].villain
+      if (humanWon && isCustomKey(humanVillainId)) markTestWon(humanVillainId)
       const localKey = villainKeyOf(state.players[HUMAN].villain)
       const oppKey = villainKeyOf(state.players[BOT].villain)
       const oppSeat = lobby?.find((s) => s.seat === BOT)
@@ -1304,7 +1318,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     }
   }, [
     state.status, state.winner, state.players, HUMAN, BOT, lobby, gameMode,
-    myProfileName, myAvatarVillain, myAvatarColor, recordResult, recordGame,
+    myProfileName, myAvatarVillain, myAvatarColor, recordResult, recordGame, markTestWon,
   ])
 
   const [mode, setMode] = useState<Mode>(null)
@@ -2339,6 +2353,68 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         const beneficial = new Set(['poisson-maui', 'etoile-de-mer-maui', 'tete-de-requin-maui', 'queue-de-requin-maui'])
         const choice = top && beneficial.has(top.cardId) ? 'play' : 'discard'
         const timer = setTimeout(() => resolveMauiChoice(choice), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Dio — Vampirisme : choisir un Allié à défausser. Bot → le plus faible (sacrifice
+    // minimal) ; humain → modale.
+    const pdda = state.pendingDioDiscardAlly
+    if (pdda) {
+      if (seats[pdda.playerIndex] === 'bot') {
+        const p = state.players[pdda.playerIndex]
+        const allies = Object.values(p.board).flat().filter((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket && !c.cannotBeDiscarded)
+        const pick = [...allies].sort((a, b) => (effectiveStrength(state, pdda.playerIndex, a.instanceId) ?? 0) - (effectiveStrength(state, pdda.playerIndex, b.instanceId) ?? 0))[0]
+        if (pick) {
+          const timer = setTimeout(() => resolveDioDiscardAlly(pick.instanceId), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
+    // Dio — CREAM : choisir un Héros à défausser. Bot → le plus fort éligible ; humain → modale.
+    const pdc = state.pendingDioCream
+    if (pdc) {
+      if (seats[pdc.playerIndex] === 'bot') {
+        const pick = [...pdc.candidateIds].sort((a, b) => (effectiveStrength(state, pdc.playerIndex, b) ?? 0) - (effectiveStrength(state, pdc.playerIndex, a) ?? 0))[0]
+        if (pick) {
+          const timer = setTimeout(() => resolveDioCream(pick), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
+    // Dio — MUDA! : éliminer un Héros (facultatif). Bot → le plus fort ; humain → modale.
+    const pdm = state.pendingDioMuda
+    if (pdm) {
+      if (seats[pdm.playerIndex] === 'bot') {
+        const pick = [...pdm.candidateIds].sort((a, b) => (effectiveStrength(state, pdm.playerIndex, b) ?? 0) - (effectiveStrength(state, pdm.playerIndex, a) ?? 0))[0]
+        const timer = setTimeout(() => resolveDioMuda(pick), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Dio — Quête vers le paradis : choisir Objet/Événement. Bot → le type le plus nombreux
+    // en défausse ; humain → modale.
+    const pdq = state.pendingDioQuest
+    if (pdq) {
+      if (seats[pdq.playerIndex] === 'bot') {
+        const disc = state.players[pdq.playerIndex].discard
+        const items = disc.filter((c) => c.type === 'item').length
+        const effs = disc.filter((c) => c.type === 'effect').length
+        const choice: 'item' | 'effect' = items >= effs ? 'item' : 'effect'
+        const timer = setTimeout(() => resolveDioQuest(choice), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Dio — Lumière du Soleil (Fatalité) : Dio choisit défausser sa main OU perdre du Pouvoir.
+    // Bot → garde sa main s'il a assez de Pouvoir (perd le Pouvoir), sinon défausse ; humain → modale.
+    const pds = state.pendingDioSunlight
+    if (pds) {
+      if (seats[pds.playerIndex] === 'bot') {
+        const choice = state.players[pds.playerIndex].power >= pds.lose ? 'lose' : 'discard'
+        const timer = setTimeout(() => resolveDioSunlight(choice), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
       return
@@ -3492,7 +3568,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove])
+  }, [seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioQuest, resolveDioSunlight, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove])
 
   // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
   // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
@@ -7470,6 +7546,73 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       {state.pendingMauiChoice && state.pendingMauiChoice.playerIndex === HUMAN && (
         <MauiChoiceModal card={state.players[HUMAN].mauiDeck?.[0]} onChoose={resolveMauiChoice} />
       )}
+
+      {/* Dio — Vampirisme : l'humain choisit l'Allié à défausser (gagne 4 JT, doublé si The World). */}
+      {state.pendingDioDiscardAlly && state.pendingDioDiscardAlly.playerIndex === HUMAN && (() => {
+        const allies = Object.values(user.board).flat().filter((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket && !c.cannotBeDiscarded)
+        return (
+          <CardChoiceModal
+            title="Vampirisme : défausse un Allié pour gagner du Pouvoir"
+            cards={allies}
+            onClose={() => allies[0] && resolveDioDiscardAlly(allies[0].instanceId)}
+            onPick={(card) => resolveDioDiscardAlly(card.instanceId)}
+          />
+        )
+      })()}
+
+      {/* Dio — CREAM : l'humain choisit le Héros (force < Vanilla Ice) à défausser. */}
+      {state.pendingDioCream && state.pendingDioCream.playerIndex === HUMAN && (() => {
+        const ids = new Set(state.pendingDioCream.candidateIds)
+        const heroes = (user.board[state.pendingDioCream.locationId] ?? []).filter((c) => ids.has(c.instanceId))
+        return (
+          <CardChoiceModal
+            title="CREAM : défausse un Héros plus faible que Vanilla Ice"
+            cards={heroes}
+            onClose={() => heroes[0] && resolveDioCream(heroes[0].instanceId)}
+            onPick={(card) => resolveDioCream(card.instanceId)}
+          />
+        )
+      })()}
+
+      {/* Dio — MUDA! : l'humain peut éliminer un Héros du lieu du pion (facultatif), gagne 5 JT. */}
+      {state.pendingDioMuda && state.pendingDioMuda.playerIndex === HUMAN && (() => {
+        const ids = new Set(state.pendingDioMuda.candidateIds)
+        const heroes = Object.values(user.board).flat().filter((c) => ids.has(c.instanceId))
+        return (
+          <CardChoiceModal
+            title="MUDA ! MUDA ! MUDA ! : élimine un Héros (facultatif)"
+            cards={heroes}
+            noneLabel="Ne pas éliminer (gagner 5 JT)"
+            onNone={() => resolveDioMuda(undefined)}
+            onClose={() => resolveDioMuda(undefined)}
+            onPick={(card) => resolveDioMuda(card.instanceId)}
+          />
+        )
+      })()}
+
+      {/* Dio — Quête vers le paradis : l'humain choisit le type de carte à récupérer. */}
+      {state.pendingDioQuest && state.pendingDioQuest.playerIndex === HUMAN && (
+        <ChoiceModal
+          title="Quête vers le paradis"
+          prompt="Choisis un type de carte : les cartes de ce type parmi les 6 dévoilées rejoignent ta main."
+          options={[
+            { key: 'quest-item', label: 'Objet', onSelect: () => resolveDioQuest('item') },
+            { key: 'quest-effect', label: 'Événement', onSelect: () => resolveDioQuest('effect') },
+          ]}
+        />
+      )}
+
+      {/* Dio — Lumière du Soleil : Dio choisit défausser sa main OU perdre du Pouvoir. */}
+      {state.pendingDioSunlight && state.pendingDioSunlight.playerIndex === HUMAN && (
+        <ChoiceModal
+          title="Lumière du Soleil"
+          prompt="DIO doit faire un choix."
+          options={[
+            { key: 'sun-lose', label: `Perdre ${state.pendingDioSunlight.lose} jetons Pouvoir`, onSelect: () => resolveDioSunlight('lose') },
+            { key: 'sun-discard', label: `Défausser toute ma main (${user.hand.length} carte(s))`, onSelect: () => resolveDioSunlight('discard') },
+          ]}
+        />
+      )}
       {state.pendingBargainChoice && state.pendingBargainChoice.playerIndex === HUMAN && (
         <BargainChoiceModal power={state.pendingBargainChoice.power} onChoose={resolveBargainChoice} />
       )}
@@ -7984,7 +8127,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               ? 'Extravagance : reprends un Objet de ta défausse'
               : state.pendingRecover.label === 'Terreur'
                 ? 'Terreur : reprends un Allié ou un Événement de ta défausse'
-                : 'Opportunisme : reprends un Objet ou un Événement'
+                : state.pendingRecover.label === 'Justice'
+                  ? 'Justice : reprends un Allié de ta défausse'
+                  : 'Opportunisme : reprends un Objet ou un Événement'
         return (
           <CardChoiceModal
             title={title}
@@ -8595,12 +8740,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         <StartRollModal
           names={[state.players[HUMAN].villainName, state.players[BOT].villainName]}
           images={[
-            villainPresentation(villainKeyOf(state.players[HUMAN].villain)),
-            villainPresentation(villainKeyOf(state.players[BOT].villain)),
+            villainPresentation(presKey(state.players[HUMAN].villain)),
+            villainPresentation(presKey(state.players[BOT].villain)),
           ]}
           villainKeys={[
-            villainKeyOf(state.players[HUMAN].villain),
-            villainKeyOf(state.players[BOT].villain),
+            presKey(state.players[HUMAN].villain),
+            presKey(state.players[BOT].villain),
           ]}
           voiceDone={introVoiceDone}
           boardRefs={[userBoardRef, botBoardRef]}
@@ -8617,8 +8762,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           versusOnly
           names={[state.players[HUMAN].villainName, state.players[BOT].villainName]}
           images={[
-            villainPresentation(villainKeyOf(state.players[HUMAN].villain)),
-            villainPresentation(villainKeyOf(state.players[BOT].villain)),
+            villainPresentation(presKey(state.players[HUMAN].villain)),
+            villainPresentation(presKey(state.players[BOT].villain)),
           ]}
           onDone={() => setStartRollDone(true)}
         />
@@ -8644,7 +8789,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       {/* Affiche « À vous de jouer » au début du tour du joueur (key = tour → l'anim
           redémarre à chaque tour). */}
       {showTurnSplash && isHumanTurn && (
-        <TurnSplash key={state.turn} villainName={user.villainName} image={villainPresentation(villainKeyOf(state.players[HUMAN].villain))} />
+        <TurnSplash key={state.turn} villainName={user.villainName} image={villainPresentation(presKey(state.players[HUMAN].villain))} />
       )}
 
       {/* Confirmation avant de quitter la partie (solo ou réseau). */}

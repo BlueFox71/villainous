@@ -1,4 +1,4 @@
-import type { VillainKey } from './store/gameStore'
+import { isCustomKey, customVillainOf, type VillainKey } from './store/gameStore'
 
 /**
  * Contenu « encyclopédie » d'un vilain (hors moteur) : difficulté, histoire et
@@ -506,22 +506,6 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       "« Quelque chose qui brille » est toujours un bon choix — surtout posé là où se trouve (ou ira) un Héros important : il le protège du Vanquish et recouvre une action.",
     ],
   },
-  dio: {
-    difficulty: 3,
-    story:
-      "Vampire immortel né du Masque de Pierre (JoJo's Bizarre Adventure — Stardust Crusaders, 1989), Dio Brando a volé le corps de Jonathan Joestar et déchaîne son Stand surpuissant, The World, capable d'arrêter le temps : « ZA WARUDO ! ». Du Caire à Tokyo, il dresse ses sbires à Stand contre les Joestar venus l'abattre.",
-    playTips: [
-      "Double objectif : RETIRER DU JEU Jotaro et Joseph (ils quittent la partie quand tu les vaincs), puis enchaîner TOUTES les actions de ton royaume (hors Fatalité) en un seul tour.",
-      "ZA WARUDO ! est la clé de la victoire : jouée juste après ton déplacement (sans action), elle ouvre les actions de n'importe quel lieu — mais chaque action coûte de plus en plus cher (1, puis 2, 3…). Accumule un énorme tas de Pouvoir avant de lancer la rafale.",
-      "The World suit ton pion et double tes gains de Pouvoir une fois Jotaro ET Joseph retirés : élimine-les pour faire exploser ton carburant.",
-      "Tes Stands renforcent tes Alliés (Cream sur Vanilla Ice, Justice sur Enya Geil) : sors-les pour nettoyer les Héros qui recouvrent tes actions.",
-    ],
-    counterTips: [
-      "Star Platinum (sur Jotaro) interdit ZA WARUDO ! : garde Jotaro en jeu le plus longtemps possible.",
-      "Empile les Héros sur ses lieux : il doit TOUT débloquer le même tour pour gagner, chaque action recouverte est un grain de sable.",
-      "Hierophant Green (sur Kakyoin) renchérit ses cartes, Magician Red (sur Abdul) lui fait piocher moins : ces Stands l'étranglent en ressources.",
-    ],
-  },
   teamRocket: {
     difficulty: 3,
     story:
@@ -538,4 +522,21 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       "Garde un œil sur sa pile de Captures : tant qu'il n'a pas Pikachu + 3 autres, il ne peut pas gagner.",
     ],
   },
+}
+
+/** Guide d'un vilain par sa clé (natif ou PUBLIÉ). Les vilains publiés n'ont pas de
+ *  fiche encyclopédie rédigée : on synthétise leur difficulté (étoiles) et leur récit
+ *  depuis la description d'objectif ; les listes de conseils restent vides (la fiche
+ *  les masque alors). */
+export function villainGuideOf(key: string): VillainGuide {
+  if (isCustomKey(key)) {
+    const c = customVillainOf(key)
+    return {
+      difficulty: c?.stars ?? 3,
+      story: c?.objectiveDescription || 'Vilain personnalisé créé dans l’Atelier des vilains.',
+      playTips: [],
+      counterTips: [],
+    }
+  }
+  return VILLAIN_GUIDE[key as VillainKey]
 }

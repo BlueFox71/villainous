@@ -56,6 +56,11 @@ export function pendingOwner(state: GameState): number | null {
   if (state.pendingMoveOrActivate) return state.pendingMoveOrActivate.playerIndex
   if (state.pendingCauldronChoice) return state.pendingCauldronChoice.playerIndex
   if (state.pendingMauiChoice) return state.pendingMauiChoice.playerIndex
+  if (state.pendingDioDiscardAlly) return state.pendingDioDiscardAlly.playerIndex
+  if (state.pendingDioCream) return state.pendingDioCream.playerIndex
+  if (state.pendingDioMuda) return state.pendingDioMuda.playerIndex
+  if (state.pendingDioQuest) return state.pendingDioQuest.playerIndex
+  if (state.pendingDioSunlight) return state.pendingDioSunlight.playerIndex
   if (state.pendingBargainChoice) return state.pendingBargainChoice.playerIndex
   if (state.pendingFreeItemPlay) return state.pendingFreeItemPlay.playerIndex
   if (state.pendingMaximus) return state.pendingMaximus.chooserIndex

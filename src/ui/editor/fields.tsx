@@ -162,12 +162,16 @@ export function ImageField({
   value,
   onChange,
   aspect = 'square',
+  fit = 'cover',
   crop,
 }: {
   label: string
   value: string | undefined
   onChange: (v: string | undefined) => void
-  aspect?: 'square' | 'card' | 'board' | 'pawn'
+  aspect?: 'square' | 'card' | 'board' | 'pawn' | 'portrait'
+  /** Ajustement de l'aperçu : `cover` (remplit, peut rogner) ou `contain` (image
+   *  entière, peut laisser des bords). Le recadrage (`crop`) n'a de sens qu'en `cover`. */
+  fit?: 'cover' | 'contain'
   crop?: { pos: CropPos; onChange: (p: CropPos) => void }
 }) {
   const pos = crop?.pos ?? CENTER
@@ -179,10 +183,12 @@ export function ImageField({
         ? 'aspect-[1440/2044]'
         : aspect === 'pawn'
           ? 'aspect-[3/4]'
-          : 'aspect-[1.4]'
+          : aspect === 'portrait'
+            ? 'aspect-[716/1248]'
+            : 'aspect-[1.4]'
   const onPick = async (file: File | undefined) => {
     if (!file) return
-    const max = aspect === 'board' ? 1600 : aspect === 'card' ? 1024 : 800
+    const max = aspect === 'board' ? 1600 : aspect === 'card' || aspect === 'portrait' ? 1024 : 800
     onChange(await readImageForStorage(file, max))
   }
   return (
@@ -195,7 +201,7 @@ export function ImageField({
             <img
               src={value}
               alt=""
-              className="h-full w-full object-cover"
+              className={`h-full w-full ${fit === 'contain' ? 'object-contain' : 'object-cover'}`}
               style={
                 crop
                   ? {

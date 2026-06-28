@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
-import { VILLAIN_REGISTRY, useGameStore, type VillainKey } from '../store/gameStore'
+import { useEffect, useMemo, useState } from 'react'
+import { VILLAIN_REGISTRY, villainEntry, isCustomKey, useGameStore, type VillainKey } from '../store/gameStore'
+import { useCustomVillainStore } from '../store/customVillainStore'
 import { usePlayerStore } from '../store/playerStore'
 import { villainPortrait, villainPresentation, PRESENTATION_TWEAK } from '../villainArt'
 import { VILLAIN_COLOR, villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from '../villainColors'
@@ -15,13 +16,15 @@ interface Props {
   onBack: () => void
 }
 
-/** Un choix possible : un vilain précis ou « aléatoire ». */
-type Choice = VillainKey | 'random'
+/** Un choix possible : un vilain précis (clé native OU id `custom-…` d'un vilain
+ *  publié) ou « aléatoire ». */
+type Choice = string | 'random'
 
 /** Camp en cours d'attribution (solo). */
 type Side = 'mine' | 'opp'
 
-const KEYS = Object.keys(VILLAIN_REGISTRY) as VillainKey[]
+/** Clés des vilains natifs (statiques). Les vilains publiés s'y ajoutent au runtime. */
+const BUILTIN_KEYS = Object.keys(VILLAIN_REGISTRY) as VillainKey[]
 
 /** Apparence d'un camp (toi / adversaire). */
 const SIDE_STYLE: Record<Side, { label: string; badge: string; ring: string; text: string }> = {
@@ -58,7 +61,7 @@ function Tile({
   onHoverEnter?: () => void
 }) {
   const isRandom = choice === 'random'
-  const v = isRandom ? null : VILLAIN_REGISTRY[choice]
+  const v = isRandom ? null : villainEntry(choice)
   // Anneau de la tuile : amber si à toi, violet si à l'adversaire (toi prioritaire).
   const ring = mineIs ? SIDE_STYLE.mine.ring : oppIs ? SIDE_STYLE.opp.ring : ''
   return (
@@ -68,7 +71,7 @@ function Tile({
       onMouseEnter={() => { if (!disabled) { playHeroHover(); onHoverEnter?.() } }}
       disabled={disabled}
       aria-pressed={mineIs || oppIs}
-      title={disabled ? 'Déjà choisi par l’autre camp' : isRandom ? 'Un vilain au hasard' : v!.def.objectiveDescription}
+      title={disabled ? 'Déjà choisi par l’autre camp' : isRandom ? 'Un vilain au hasard' : v?.def.objectiveDescription}
       className={`group relative flex flex-col overflow-hidden rounded-xl border text-left transition ${
         disabled
           ? 'cursor-not-allowed border-white/5 bg-black/40 opacity-40'
@@ -80,10 +83,10 @@ function Tile({
       {isRandom ? (
         <span className="flex aspect-square w-full items-center justify-center bg-white/5 text-4xl">🎲</span>
       ) : (
-        <img src={villainPortrait(choice)} alt={v!.def.name} className="aspect-square w-full object-cover" />
+        <img src={villainPortrait(choice)} alt={v?.def.name} className="aspect-square w-full object-cover" />
       )}
       <span className="truncate px-2 py-1.5 text-center text-xs font-bold text-amber-100">
-        {isRandom ? 'Aléatoire' : v!.def.name}
+        {isRandom ? 'Aléatoire' : v?.def.name}
       </span>
       {/* Pastilles des camps ayant choisi cette tuile (random peut être les deux). */}
       <div className="pointer-events-none absolute left-1 top-1 flex flex-col gap-1">
@@ -135,7 +138,7 @@ function SlotCard({
   const style = SIDE_STYLE[side]
   const sideLabel = label ?? style.label
   const isRandom = value === 'random'
-  const v = value && value !== 'random' ? VILLAIN_REGISTRY[value] : null
+  const v = value && value !== 'random' ? villainEntry(value) : null
   return (
     <button
       type="button"
@@ -150,7 +153,7 @@ function SlotCard({
         {isRandom ? (
           <span className="text-2xl">🎲</span>
         ) : v ? (
-          <img src={villainPortrait(value as VillainKey)} alt={v.def.name} className="h-full w-full object-cover" />
+          <img src={villainPortrait(value as string)} alt={v.def.name} className="h-full w-full object-cover" />
         ) : (
           <span className="text-xl text-white/30">?</span>
         )}
@@ -177,7 +180,7 @@ const SIDE_ART_BASE = 'pointer-events-none absolute inset-y-0 z-0 hidden h-full 
  *  est figé tant que le composant reste monté. */
 function RandomArt({ side }: { side: 'left' | 'right' }) {
   const [key] = useState<VillainKey | null>(() => {
-    const withArt = KEYS.filter((k) => villainPresentation(k))
+    const withArt = BUILTIN_KEYS.filter((k) => villainPresentation(k))
     return withArt[Math.floor(Math.random() * withArt.length)] ?? null
   })
   const src = key ? villainPresentation(key) : undefined
@@ -223,7 +226,7 @@ function PresentationArt({ choice, side }: { choice: Choice | null; side: 'left'
   if (!src) return null
   // Réglage exceptionnel par vilain (échelle + décalage). Quand présent, on pilote
   // la transform en inline (mirror inclus) au lieu de la classe -scale-x-100.
-  const tweak = choice ? PRESENTATION_TWEAK[choice] : undefined
+  const tweak = choice ? PRESENTATION_TWEAK[choice as VillainKey] : undefined
   const mirror = side === 'right' ? -1 : 1
   const transform = tweak
     ? `translate(${tweak.dxPct ?? 0}%, ${tweak.dyPct ?? 0}%) scale(${tweak.scale ?? 1}) scaleX(${mirror})`
@@ -264,6 +267,22 @@ export function VillainSelect({ onStart, onBack }: Props) {
   const netLeftNotice = useGameStore((s) => s.netLeftNotice)
   const network = mode !== 'solo'
 
+  // Vilains PUBLIÉS (« Terminés » dans l'Atelier) : ils rejoignent la grille en SOLO.
+  // (Exclus en réseau : l'autre joueur ne possède pas ces vilains chez lui.)
+  const customLoaded = useCustomVillainStore((s) => s.loaded)
+  const loadCustom = useCustomVillainStore((s) => s.load)
+  const customVillains = useCustomVillainStore((s) => s.villains)
+  useEffect(() => { if (!customLoaded) void loadCustom() }, [customLoaded, loadCustom])
+  const publishedKeys = useMemo(
+    () => customVillains.filter((v) => v.published).map((v) => v.id),
+    [customVillains],
+  )
+  // Toutes les clés sélectionnables (natives + publiées en solo).
+  const allKeys = useMemo<string[]>(
+    () => (network ? [...BUILTIN_KEYS] : [...BUILTIN_KEYS, ...publishedKeys]),
+    [network, publishedKeys],
+  )
+
   // Libellé du camp « toi » : nom du joueur (profil), en solo comme en réseau.
   const playerName = usePlayerStore((s) => s.name)
   const mineLabel = playerName.trim() || SIDE_STYLE.mine.label
@@ -294,13 +313,16 @@ export function VillainSelect({ onStart, onBack }: Props) {
   }, [network, netLeftNotice, leaveNet, onBack])
 
   /** Tire un vilain au hasard, en excluant éventuellement une clé. */
-  const randomKey = (exclude?: VillainKey): VillainKey => {
-    const pool = KEYS.filter((k) => k !== exclude)
-    return pool[Math.floor(Math.random() * pool.length)] ?? KEYS[0]
+  const randomKey = (exclude?: string): string => {
+    const pool = allKeys.filter((k) => k !== exclude)
+    return pool[Math.floor(Math.random() * pool.length)] ?? allKeys[0]
   }
 
   // Le vilain réservé par un camp (jamais « random ») : interdit à l'autre.
-  const takenBy = (c: Choice | null): VillainKey | null => (c && c !== 'random' ? c : null)
+  const takenBy = (c: Choice | null): string | null => (c && c !== 'random' ? c : null)
+
+  // Joue la réplique d'un vilain choisi (uniquement les natifs : pas de voix custom).
+  const playPhrase = (key: string) => { if (!isCustomKey(key)) playVillainPhrase(key as VillainKey) }
 
   // Affecte un vilain à un camp (avec anti-miroir : on le retire à l'autre s'il l'avait).
   const assignSide = (c: Choice, side: Side) => {
@@ -318,7 +340,7 @@ export function VillainSelect({ onStart, onBack }: Props) {
   // pour changer un vilain, on clique d'abord sa carte « Toi » / « Adversaire ».
   const pickSolo = (c: Choice) => {
     if (!activeSide) return // aucun camp actif : choisis-en un via sa carte d'abord
-    if (c !== 'random') playVillainPhrase(c) // phrase du vilain choisi (Scar, Maléfique…)
+    if (c !== 'random') playPhrase(c) // phrase du vilain choisi (Scar, Maléfique…)
     // Le camp actif avait-il DÉJÀ un vilain ? Si oui, on est en train de le MODIFIER :
     // on garde ce camp actif (pas de désélection) pour pouvoir le changer en série.
     const editingChosen = !!(activeSide === 'mine' ? mineSolo : oppSolo)
@@ -336,13 +358,13 @@ export function VillainSelect({ onStart, onBack }: Props) {
   // un vilain disponible (on exclut celui pris par l'adversaire) puis confirmé.
   const pickMineNet = (c: Choice) => {
     const key = c === 'random' ? randomKey(takenBy(opp) ?? undefined) : c
-    playVillainPhrase(key) // phrase du vilain choisi (Scar, Maléfique…)
-    selectVillain(key)
+    playPhrase(key) // phrase du vilain choisi (Scar, Maléfique…)
+    selectVillain(key as VillainKey)
   }
   const pickTile = network ? pickMineNet : pickSolo
 
-  // Tuiles de la grille : « Aléatoire » d'abord, puis tous les vilains (solo ET réseau).
-  const tiles: Choice[] = ['random', ...KEYS]
+  // Tuiles de la grille : « Aléatoire » d'abord, puis tous les vilains (natifs + publiés en solo).
+  const tiles: Choice[] = ['random', ...allKeys]
 
   const launchSolo = () => {
     if (!mineSolo || !oppSolo) return
@@ -427,7 +449,7 @@ export function VillainSelect({ onStart, onBack }: Props) {
                   // Réseau : le vilain pris par l'adversaire est verrouillé (pas de miroir).
                   disabled={network ? c !== mine && c === opp : false}
                   onPick={() => pickTile(c)}
-                  onHoverEnter={network ? () => setHoverVillain(c === 'random' ? null : c) : undefined}
+                  onHoverEnter={network ? () => setHoverVillain(c === 'random' ? null : (c as VillainKey)) : undefined}
                 />
               ))}
             </div>

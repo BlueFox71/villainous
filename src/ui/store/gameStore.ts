@@ -24,7 +24,10 @@ import type { LobbySeat } from '../../net/messages'
 import { isTauri, ensureRelay, lanAddresses } from '../../net/desktop'
 import { buildDeckInstances } from '../../data/types'
 import { getCardDef, registerCustomCardDefs } from '../../data/registry'
-import { toVillainDef, toCardDefs, type CustomVillain } from '../../data/customVillain'
+import { toVillainDef, toCardDefs, CUSTOM_ID_PREFIX, type CustomVillain } from '../../data/customVillain'
+import { CUSTOM_DIO_ID, patchCustomDio } from '../../data/villains/customDio'
+import type { VillainDef } from '../../engine/types'
+import type { CardDef } from '../../data/types'
 import { customActionPositions } from '../editor/boardLayout'
 import { registerActionPos } from '../components/customActionPos'
 import { VILLAIN_COLOR } from '../villainColors'
@@ -91,13 +94,11 @@ import { davyJones } from '../../data/villains/davyJones'
 import { davyJonesCards } from '../../data/villains/davyJones.cards'
 import { tamatoa } from '../../data/villains/tamatoa'
 import { tamatoaCards } from '../../data/villains/tamatoa.cards'
-import { dio } from '../../data/villains/dio'
-import { dioCards } from '../../data/villains/dio.cards'
 import { teamRocket } from '../../data/villains/team-rocket'
 import { teamRocketCards } from '../../data/villains/team-rocket.cards'
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'seigneurCles' | 'madameTremaine' | 'oogieBoogie' | 'seigneurTenebres' | 'madameMim' | 'syndrome' | 'lotso' | 'saSucrerie' | 'shereKhan' | 'davyJones' | 'tamatoa' | 'dio' | 'teamRocket'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'seigneurCles' | 'madameTremaine' | 'oogieBoogie' | 'seigneurTenebres' | 'madameMim' | 'syndrome' | 'lotso' | 'saSucrerie' | 'shereKhan' | 'davyJones' | 'tamatoa' | 'teamRocket'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -131,9 +132,18 @@ export const VILLAIN_REGISTRY = {
   shereKhan: { def: shereKhan, cards: shereKhanCards, label: 'Shere Khan' },
   davyJones: { def: davyJones, cards: davyJonesCards, label: 'Davy Jones' },
   tamatoa: { def: tamatoa, cards: tamatoaCards, label: 'Tamatoa' },
-  dio: { def: dio, cards: dioCards, label: 'Dio Brando' },
   teamRocket: { def: teamRocket, cards: teamRocketCards, label: 'Team Rocket' },
 } as const
+
+/** Vilains « collaboration » (hors univers Disney) — éditables/clonables dans l'Atelier. */
+export const COLLAB_VILLAINS: VillainKey[] = [
+  'slenderman',
+  'imposteur',
+  'teamRocket',
+  'bowser',
+  'sombra',
+  'seigneurCles',
+]
 
 /** Qui contrôle chaque siège. Concept d'UI : le moteur, lui, ne sait pas qui
  *  joue. 'local' = ce navigateur ; 'remote' = l'autre joueur (réseau, à venir) ;
@@ -231,6 +241,59 @@ export function villainKeyOf(villainId: string): VillainKey {
   ) ?? 'princeJohn'
 }
 
+// =============================================================================
+// VILAINS PUBLIÉS (« Terminés ») — surcouche RUNTIME.
+//
+// Un vilain de l'Atelier marqué `published` rejoint la liste/le choix des vilains
+// et se joue comme un natif. Comme `VILLAIN_REGISTRY` (statique) et `VillainKey`
+// (union littérale) sont figés à la compilation, on tient un registre MUTABLE des
+// vilains publiés, indexé par leur id (`custom-…`). Les écrans/lanceur résolvent
+// un « clé » via `villainEntry()` qui retombe ici pour les ids custom.
+// =============================================================================
+
+/** Entrée résolue d'un vilain (natif ou publié) : tout ce qu'il faut pour jouer/afficher. */
+export interface VillainEntry {
+  def: VillainDef
+  cards: CardDef[]
+  label: string
+}
+
+/** Registre runtime des vilains publiés (id `custom-…` → entrée + bundle brut). */
+const customRegistry: Record<string, { entry: VillainEntry; custom: CustomVillain }> = {}
+
+/** Une clé désigne-t-elle un vilain PERSONNALISÉ (publié) plutôt qu'un natif ? */
+export function isCustomKey(key: string): boolean {
+  return key.startsWith(CUSTOM_ID_PREFIX)
+}
+
+/**
+ * Enregistre (ou met à jour) un vilain publié au runtime : cartes (pour
+ * `getCardDef`), couleur thématique et positions d'actions du plateau. Idempotent.
+ */
+export function registerPublishedVillain(custom: CustomVillain): void {
+  // Patch de comportement éventuel (ex. custom-dio : rebranche Stands/ZA WARUDO!/objectif).
+  const eff = custom.id === CUSTOM_DIO_ID ? patchCustomDio(custom) : custom
+  const cards = toCardDefs(eff)
+  registerCustomCardDefs(cards)
+  VILLAIN_COLOR[eff.id] = eff.color
+  registerActionPos(eff.id, customActionPositions(eff.locations))
+  customRegistry[eff.id] = {
+    entry: { def: toVillainDef(eff), cards, label: eff.name },
+    custom: eff,
+  }
+}
+
+/** Résout l'entrée d'un vilain par sa clé (natif ou publié). undefined si inconnu. */
+export function villainEntry(key: string): VillainEntry | undefined {
+  if (key in VILLAIN_REGISTRY) return VILLAIN_REGISTRY[key as VillainKey]
+  return customRegistry[key]?.entry
+}
+
+/** Bundle brut d'un vilain publié (pour portrait/présentation/objectif…). */
+export function customVillainOf(key: string): CustomVillain | undefined {
+  return customRegistry[key]?.custom
+}
+
 // ⚠️ ÉCHAFAUDAGE DE TEST — temporaire. Passer à `true` pour : main truquée
 // (2 Alliés + 2 Objets), 10 JT d'avance, et Dame Gertrude en tête du deck
 // Fatalité du bot (tester la restriction de pose D.2).
@@ -313,64 +376,67 @@ function readSavedVillains(): [VillainKey, VillainKey] | undefined {
 }
 
 /** Mémorise le choix de vilains pour la prochaine session. */
-function saveVillains(villains: [VillainKey, VillainKey]) {
+function saveVillains(villains: [string, string]) {
   if (typeof localStorage === 'undefined') return
   try { localStorage.setItem(VILLAINS_LS_KEY, JSON.stringify(villains)) } catch { /* ignore */ }
 }
 
+/** Construit la configuration d'un camp depuis sa clé (vilain natif OU publié).
+ *  `deckPrefix`/`fatePrefix` préfixent les instanceId pour distinguer les joueurs.
+ *  Les cartes des paquets PERSONNALISÉS (`group`) restent hors-deck (codées à la
+ *  main). Repli sur Prince Jean si la clé est inconnue (custom non chargé). */
+function setupForKey(key: string, deckPrefix: string, fatePrefix: string): PlayerSetup {
+  if (isCustomKey(key)) {
+    const custom = customVillainOf(key)
+    if (custom) {
+      const mainCards = custom.cards.filter((c) => !c.group)
+      return {
+        villain: { ...toVillainDef(custom), name: custom.name },
+        deckCards: buildDeckInstances(mainCards, 'villain', deckPrefix),
+        fateCards: buildDeckInstances(mainCards, 'fate', fatePrefix),
+      }
+    }
+  }
+  const k = (key in VILLAIN_REGISTRY ? key : 'princeJohn') as VillainKey
+  const e = VILLAIN_REGISTRY[k]
+  return {
+    villain: { ...e.def, name: e.label },
+    deckCards: buildDeckInstances(e.cards, 'villain', deckPrefix),
+    fateCards: buildDeckInstances(e.cards, 'fate', fatePrefix),
+  }
+}
+
+/** État initial d'une partie pour deux clés (natives ou publiées). */
+function buildGameFromKeys(keys: [string, string]): GameState {
+  const seed = (Math.random() * 0xffffffff) >>> 0
+  const setups: PlayerSetup[] = [
+    setupForKey(keys[0], 'p0:', 'p0f:'),
+    setupForKey(keys[1], 'p1:', 'p1f:'),
+  ]
+  return createInitialGame(setups, seed)
+}
+
 /**
- * Démarre une nouvelle partie avec les deux vilains choisis. Mémorise le choix
- * en localStorage pour survivre à un rechargement.
+ * Démarre une nouvelle partie avec les deux vilains choisis (natifs et/ou publiés).
+ * Mémorise le choix en localStorage pour survivre à un rechargement (les ids custom
+ * sont rejetés à la relecture → repli sur le duo par défaut).
  */
 function newGame(
-  villains: [VillainKey, VillainKey] = readSavedVillains() ?? ['princeJohn', 'maleficent'],
+  villains: [string, string] = readSavedVillains() ?? ['princeJohn', 'maleficent'],
 ): GameState {
   saveVillains(villains)
-  const seed = (Math.random() * 0xffffffff) >>> 0
-  const [p0Key, p1Key] = villains
-  const p0 = VILLAIN_REGISTRY[p0Key]
-  const p1 = VILLAIN_REGISTRY[p1Key]
-  const setups: PlayerSetup[] = [
-    {
-      villain: { ...p0.def, name: p0.label },
-      deckCards: buildDeckInstances(p0.cards, 'villain', 'p0:'),
-      fateCards: buildDeckInstances(p0.cards, 'fate', 'p0f:'),
-    },
-    {
-      villain: { ...p1.def, name: p1.label },
-      deckCards: buildDeckInstances(p1.cards, 'villain', 'p1:'),
-      fateCards: buildDeckInstances(p1.cards, 'fate', 'p1f:'),
-    },
-  ]
-  const base = createInitialGame(setups, seed)
+  const base = buildGameFromKeys(villains)
   return DEV_TEST_HAND ? withDevTestHand(base) : base
 }
 
 /**
  * Démarre une partie solo avec un vilain PERSONNALISÉ (joueur 0) contre un vilain
- * natif (bot, joueur 1). Enregistre les cartes du vilain perso dans le registre
- * (pour `getCardDef`) et sa couleur thématique (pour l'habillage en jeu).
+ * natif (bot, joueur 1). Sert l'option « Tester » de l'Atelier : le brouillon
+ * fourni n'est pas forcément publié, on l'enregistre donc au runtime avant de jouer.
  */
 function customGame(custom: CustomVillain, opponent: VillainKey): GameState {
-  registerCustomCardDefs(toCardDefs(custom))
-  VILLAIN_COLOR[custom.id] = custom.color
-  registerActionPos(custom.id, customActionPositions(custom.locations))
-  const seed = (Math.random() * 0xffffffff) >>> 0
-  const def = toVillainDef(custom)
-  const opp = VILLAIN_REGISTRY[opponent]
-  const setups: PlayerSetup[] = [
-    {
-      villain: { ...def, name: custom.name },
-      deckCards: buildDeckInstances(custom.cards, 'villain', 'p0:'),
-      fateCards: buildDeckInstances(custom.cards, 'fate', 'p0f:'),
-    },
-    {
-      villain: { ...opp.def, name: opp.label },
-      deckCards: buildDeckInstances(opp.cards, 'villain', 'p1:'),
-      fateCards: buildDeckInstances(opp.cards, 'fate', 'p1f:'),
-    },
-  ]
-  return createInitialGame(setups, seed)
+  registerPublishedVillain(custom)
+  return buildGameFromKeys([custom.id, opponent])
 }
 
 // =============================================================================
@@ -574,6 +640,16 @@ interface GameStore {
   /** Le Seigneur des Ténèbres — résout le choix « Chaudron OU Pouvoir ». */
   resolveCauldronChoice: (choice: 'cauldron' | 'power') => void
   resolveMauiChoice: (choice: 'play' | 'discard') => void
+  /** Dio — Vampirisme : défausse l'Allié choisi pour gagner du Pouvoir. */
+  resolveDioDiscardAlly: (allyInstanceId: string) => void
+  /** Dio — CREAM : défausse le Héros choisi sur le lieu de Cream. */
+  resolveDioCream: (heroInstanceId: string) => void
+  /** Dio — MUDA! : élimine le Héros choisi (ou aucun) et gagne du Pouvoir. */
+  resolveDioMuda: (heroInstanceId?: string) => void
+  /** Dio — Quête vers le paradis : récupère les cartes du type choisi. */
+  resolveDioQuest: (cardType: 'item' | 'effect') => void
+  /** Dio — Lumière du Soleil : défausse la main OU perd du Pouvoir. */
+  resolveDioSunlight: (choice: 'discard' | 'lose') => void
   resolveCrustaceanPlace: (to: string) => void
   /** Dr Facilier — L'étoile du soir : place l'Allié choisi dans l'Au-delà de la cible. */
   resolveFateAllyToAuDela: (allyInstanceId: string) => void
@@ -845,7 +921,8 @@ interface GameStore {
   /** Dio — ZA WARUDO! (temps arrêté) : déplace librement le pion vers `to`. */
   zaWarudoRelocate: (to: string) => void
   endTurn: () => void
-  reset: (villains?: [VillainKey, VillainKey]) => void
+  /** (Re)démarre une partie solo avec deux clés de vilains (natifs et/ou publiés). */
+  reset: (villains?: [string, string]) => void
   /** Démarre une partie solo : vilain PERSONNALISÉ (joueur) vs vilain natif (bot). */
   startCustomGame: (custom: CustomVillain, opponent: VillainKey) => void
   /** Fait jouer UN coup au bot, si le joueur actif est un bot. */
@@ -1161,6 +1238,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   activateCauldron: () => get().submit({ type: 'ACTIVATE_CAULDRON' }),
   resolveCauldronChoice: (choice: 'cauldron' | 'power') => get().submit({ type: 'RESOLVE_CAULDRON_CHOICE', choice }),
   resolveMauiChoice: (choice: 'play' | 'discard') => get().submit({ type: 'RESOLVE_MAUI_CHOICE', choice }),
+  resolveDioDiscardAlly: (allyInstanceId) => get().submit({ type: 'RESOLVE_DIO_DISCARD_ALLY', allyInstanceId }),
+  resolveDioCream: (heroInstanceId) => get().submit({ type: 'RESOLVE_DIO_CREAM', heroInstanceId }),
+  resolveDioMuda: (heroInstanceId) => get().submit({ type: 'RESOLVE_DIO_MUDA', heroInstanceId }),
+  resolveDioQuest: (cardType) => get().submit({ type: 'RESOLVE_DIO_QUEST', cardType }),
+  resolveDioSunlight: (choice) => get().submit({ type: 'RESOLVE_DIO_SUNLIGHT', choice }),
   resolveCrustaceanPlace: (to: string) => get().submit({ type: 'RESOLVE_CRUSTACEAN_PLACE', to }),
   resolveFateAllyToAuDela: (allyInstanceId: string) => get().submit({ type: 'RESOLVE_FATE_ALLY_TO_AUDELA', allyInstanceId }),
   resolveFateDiscardHand: (cardInstanceId: string) => get().submit({ type: 'RESOLVE_FATE_DISCARD_HAND', cardInstanceId }),

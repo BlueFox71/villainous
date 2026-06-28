@@ -10,10 +10,23 @@ const SIZE = 1000
 // Couleur du titre (or Villainous).
 const TITLE_COLOR = '#AF9569'
 
+/** Mode ATELIER : encadrer le portrait d'un vilain PERSONNALISÉ (dataURL) et
+ *  appliquer le rendu (pas d'écriture fichier — on renvoie le dataURL encadré). */
+interface CustomMode {
+  /** Portrait brut à encadrer (dataURL) ; undefined si pas encore choisi. */
+  portrait: string | undefined
+  /** Titre par défaut (nom du vilain). */
+  name: string
+  /** Reçoit le portrait encadré (dataURL) à appliquer au brouillon. */
+  onApply: (dataUrl: string) => void
+}
+
 interface Props {
   onClose: () => void
   /** Vilain ciblé à l'ouverture (rabattu sur un collaborateur si besoin). */
   initialVillain?: VillainKey
+  /** Présent → mode Atelier (vilain perso) au lieu du mode dev (vilains natifs). */
+  custom?: CustomMode
 }
 
 /** Charge une image (Promise). Même origine (public/) → pas de souillure canvas. */
@@ -50,7 +63,7 @@ function drawTitle(ctx: CanvasRenderingContext2D, title: string, size: number) {
     /* navigateur sans letterSpacing : on ignore */
   }
   let fontPx = Math.round(size * 0.085)
-  const fontFor = (px: number) => `700 ${px}px Georgia, "Times New Roman", serif`
+  const fontFor = (px: number) => `${px}px Georgia, "Times New Roman", serif`
   ctx.font = fontFor(fontPx)
   while (fontPx > 18 && ctx.measureText(text).width > maxWidth) {
     fontPx -= 2
@@ -70,21 +83,30 @@ function drawTitle(ctx: CanvasRenderingContext2D, title: string, size: number) {
  * Seuls les portraits des collaborateurs sont éditables (les officiels ont déjà
  * leur cadre/titre).
  */
-export function PortraitEditorModal({ onClose, initialVillain }: Props) {
-  // Liste des vilains éditables : ceux qui ont un créateur (collaboration).
+export function PortraitEditorModal({ onClose, initialVillain, custom }: Props) {
+  const isCustom = !!custom
+  // Liste des vilains éditables : ceux qui ont un créateur (collaboration). Vide en
+  // mode Atelier (on encadre le portrait du vilain perso en cours).
   const editable = useMemo(
-    () => (Object.keys(VILLAIN_REGISTRY) as VillainKey[]).filter((k) => villainCreator(k)),
-    [],
+    () => (isCustom ? [] : (Object.keys(VILLAIN_REGISTRY) as VillainKey[]).filter((k) => villainCreator(k))),
+    [isCustom],
   )
   const [villain, setVillain] = useState<VillainKey>(
-    initialVillain && editable.includes(initialVillain) ? initialVillain : editable[0],
+    initialVillain && editable.includes(initialVillain) ? initialVillain : (editable[0] ?? ('princeJohn' as VillainKey)),
   )
-  const [title, setTitle] = useState(VILLAIN_REGISTRY[villain].def.name.toUpperCase())
-  const [framed, setFramed] = useState(false)
+  const [title, setTitle] = useState(
+    (isCustom ? custom!.name : VILLAIN_REGISTRY[villain].def.name).toUpperCase(),
+  )
+  // Mode Atelier : on montre le rendu encadré d'emblée (le bouton « Appliquer » suit).
+  const [framed, setFramed] = useState(isCustom)
   const [saveMsg, setSaveMsg] = useState<string | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  const portraitSrc = villainPortrait(villain)
+  const portraitSrc = isCustom ? (custom!.portrait ?? '') : villainPortrait(villain)
+  // Mode dev : on encadre à partir du portrait BRUT conservé sous `public/portraits-raw/`
+  // (créé à la 1re sauvegarde). S'il n'existe pas encore, le fichier servi EST le brut.
+  // Mode Atelier : la source fournie est déjà le brut (géré côté éditeur de vilain).
+  const rawUrl = isCustom ? null : `/portraits-raw${portraitSrc}`
 
   // Changement de vilain : on réinitialise titre (= nom en majuscules) et vue (brute).
   const changeVillain = (k: VillainKey) => {
@@ -102,7 +124,9 @@ export function PortraitEditorModal({ onClose, initialVillain }: Props) {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     ;(async () => {
-      const portrait = await loadImage(portraitSrc).catch(() => null)
+      // Base à encadrer : le brut (copie portraits-raw) si elle existe, sinon le fichier servi.
+      let portrait = rawUrl ? await loadImage(rawUrl).catch(() => null) : null
+      if (!portrait) portrait = await loadImage(portraitSrc).catch(() => null)
       if (cancelled || !portrait) return
       ctx.clearRect(0, 0, SIZE, SIZE)
       ctx.fillStyle = '#000'
@@ -118,12 +142,18 @@ export function PortraitEditorModal({ onClose, initialVillain }: Props) {
     return () => {
       cancelled = true
     }
-  }, [portraitSrc, framed, title])
+  }, [portraitSrc, rawUrl, framed, title])
 
-  // Remplace le fichier portrait par le rendu courant (canvas → endpoint dev).
+  // Remplace le fichier portrait par le rendu courant (canvas → endpoint dev), ou en
+  // mode Atelier, applique le rendu encadré (dataURL) au brouillon du vilain perso.
   const replacePortrait = async () => {
     const canvas = canvasRef.current
     if (!canvas) return
+    if (isCustom) {
+      custom!.onApply(canvas.toDataURL('image/png'))
+      onClose()
+      return
+    }
     setSaveMsg('Sauvegarde…')
     // Mime selon l'extension du fichier cible (jpg → jpeg, sinon png).
     const isJpg = /\.jpe?g($|\?)/i.test(portraitSrc)
@@ -148,17 +178,23 @@ export function PortraitEditorModal({ onClose, initialVillain }: Props) {
       >
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-lg font-black text-lime-200">🖼 Éditeur de portrait</span>
-          <select
-            value={villain}
-            onChange={(e) => changeVillain(e.target.value as VillainKey)}
-            className="rounded border border-white/25 bg-black/40 px-2 py-1 text-sm text-white"
-          >
-            {editable.map((k) => (
-              <option key={k} value={k}>
-                {VILLAIN_REGISTRY[k].def.name} — {villainCreator(k)}
-              </option>
-            ))}
-          </select>
+          {isCustom ? (
+            <span className="rounded border border-white/15 bg-black/40 px-2 py-1 text-sm text-white/80">
+              {custom!.name}
+            </span>
+          ) : (
+            <select
+              value={villain}
+              onChange={(e) => changeVillain(e.target.value as VillainKey)}
+              className="rounded border border-white/25 bg-black/40 px-2 py-1 text-sm text-white"
+            >
+              {editable.map((k) => (
+                <option key={k} value={k}>
+                  {VILLAIN_REGISTRY[k].def.name} — {villainCreator(k)}
+                </option>
+              ))}
+            </select>
+          )}
           <button
             onClick={onClose}
             className="ml-auto rounded-lg border border-white/25 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"
@@ -211,11 +247,17 @@ export function PortraitEditorModal({ onClose, initialVillain }: Props) {
           </button>
           <button
             onClick={replacePortrait}
-            disabled={!framed}
-            title={framed ? 'Écrit le rendu dans le fichier portrait' : 'Cliquez d’abord « Mettre encadré + titre »'}
+            disabled={!framed || (isCustom && !custom!.portrait)}
+            title={
+              !framed
+                ? 'Cliquez d’abord « Mettre encadré + titre »'
+                : isCustom
+                  ? 'Applique le portrait encadré au vilain'
+                  : 'Écrit le rendu dans le fichier portrait'
+            }
             className="rounded-lg border border-amber-400/60 px-3 py-2 text-sm font-semibold text-amber-200 enabled:hover:bg-amber-500/15 disabled:opacity-40"
           >
-            💾 Remplacer le portrait actuel
+            {isCustom ? '💾 Appliquer au portrait' : '💾 Remplacer le portrait actuel'}
           </button>
           {saveMsg && <span className="text-xs text-lime-300">{saveMsg}</span>}
         </div>

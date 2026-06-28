@@ -815,26 +815,21 @@ export const VILLAIN_STRATEGY: Record<string, VillainStrategy> = {
     },
   },
 
-  // --- Dio Brando (objectif : retirer du jeu Jotaro + Joseph, puis balayer le royaume
-  // via ZA WARUDO!) ---------------------------------------------------------------
-  // Volet « jouer » : The World est CENTRAL (suit le pion, double les gains une fois les
-  // Joestar retirés) ; les Alliés à Stand (Vanilla Ice → Cream, Enya → Justice) servent à
-  // vaincre les Héros qui recouvrent ses actions. Volet « contre » : ne PAS lui donner
-  // Jotaro/Joseph (ses CIBLES — sans eux, il ne peut jamais compléter la 1ʳᵉ moitié) ;
-  // garder Jotaro en jeu (Star Platinum) interdit ZA WARUDO! tant qu'il est là.
-  dio: {
+  // --- Dio Brando (custom : retirer du jeu Jotaro + Joseph, puis balayer le royaume
+  // via ZA WARUDO!) — vilain personnalisé recréé dans l'Atelier (ids natifs après
+  // remap). The World = moteur endgame (double les gains une fois les Joestar retirés) ;
+  // les Alliés à Stand (Vanilla Ice → Cream, Enya → Justice) nettoient les Héros
+  // bloquants. Contre : ne PAS lui donner Jotaro/Joseph (ses cibles) ; encombrer Le
+  // Caire (loc-2 : 2 « Jouer une carte ») que le balayage devra pourtant réaliser.
+  'custom-dio': {
     enginePieces: {
-      'the-world': 3, // double les gains une fois les Joestar retirés : son moteur endgame
-      'vanilla-ice': 1, // → Cream (force 7) pour nettoyer les Héros bloquants
-      'enya-geil': 1, // → Justice + pioche La flèche (relance la main)
+      'the-world': 3,
+      'vanilla-ice': 1,
+      'enya-geil': 1,
     },
     fateTargeting: {
-      // Jotaro & Joseph sont ses CIBLES d'objectif : les lui jouer le rapproche de la
-      // victoire (il doit les vaincre). Le bot joue plutôt un autre Héros révélé.
       avoidPlayingHeroes: ['jotaro-kujo', 'joseph-joestar'],
-      // Encombrer Le Caire (haut = 2 « Jouer une carte ») : un Héros y recouvre des actions
-      // que le balayage ZA WARUDO! devra pourtant TOUTES réaliser dans le même tour.
-      clogLocation: 'le-caire',
+      clogLocation: 'loc-2',
     },
   },
 

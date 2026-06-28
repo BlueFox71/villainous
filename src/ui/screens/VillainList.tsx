@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
-import { VILLAIN_REGISTRY, type VillainKey } from '../store/gameStore'
+import { useEffect, useMemo, useState } from 'react'
+import { VILLAIN_REGISTRY, COLLAB_VILLAINS, type VillainKey } from '../store/gameStore'
+import { useCustomVillainStore } from '../store/customVillainStore'
 import { villainPortrait } from '../villainArt'
 import { playHeroHover, playHover, playHeroSelect } from '../sfx'
 import { VILLAIN_GUIDE } from '../villainGuide'
@@ -31,11 +32,12 @@ type Origin = 'Disney' | 'Collaborations'
 /** Catégories de vilains, dans leur ordre de SORTIE (les collaborations en dernier). */
 const CATEGORIES: { title: Origin; villains: VillainKey[] }[] = [
   { title: 'Disney', villains: ['princeJohn', 'maleficent', 'jafar', 'reineCoeur', 'crochet', 'ursula', 'hades', 'facilier', 'mechanteReine', 'scar', 'yzma', 'ratigan', 'patHibulaire', 'gothel', 'cruella', 'gaston', 'madameTremaine', 'seigneurTenebres', 'madameMim', 'syndrome', 'lotso', 'oogieBoogie', 'saSucrerie', 'shereKhan', 'davyJones', 'tamatoa'] },
-  { title: 'Collaborations', villains: ['slenderman', 'imposteur', 'teamRocket', 'bowser', 'sombra', 'seigneurCles', 'dio'] },
+  { title: 'Collaborations', villains: COLLAB_VILLAINS },
 ]
 
 interface VillainMeta {
-  key: VillainKey
+  /** Clé du vilain : native (VillainKey) ou publiée (id `custom-…`). */
+  key: string
   name: string
   difficulty: number
   origin: Origin
@@ -174,7 +176,7 @@ function persistColumns(n: number) {
 }
 
 export function VillainList({ onBack }: Props) {
-  const [selected, setSelected] = useState<VillainKey | null>(null)
+  const [selected, setSelected] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [difficulties, setDifficulties] = useState<Set<number>>(new Set())
   const [origins, setOrigins] = useState<Set<Origin>>(new Set())
@@ -202,14 +204,36 @@ export function VillainList({ onBack }: Props) {
   const [decorFilter, setDecorFilter] = useState<DevFilter>('all')
   const [animFilter, setAnimFilter] = useState<DevFilter>('all')
 
+  // Vilains PUBLIÉS (« Terminés » dans l'Atelier) : ils rejoignent la galerie comme
+  // n'importe quel vilain. Placés en fin de leur section d'origine (release élevé).
+  const customLoaded = useCustomVillainStore((s) => s.loaded)
+  const loadCustom = useCustomVillainStore((s) => s.load)
+  const customVillains = useCustomVillainStore((s) => s.villains)
+  useEffect(() => { if (!customLoaded) void loadCustom() }, [customLoaded, loadCustom])
+  const publishedMetas = useMemo<VillainMeta[]>(
+    () =>
+      customVillains
+        .filter((v) => v.published)
+        .map((v, i) => ({
+          key: v.id,
+          name: v.name,
+          difficulty: v.stars,
+          origin: v.origin ?? 'Collaborations',
+          release: 10000 + i,
+          hasDecor: false,
+          hasAnim: false,
+        })),
+    [customVillains],
+  )
+
   // Liste filtrée puis triée selon les réglages de la barre latérale.
   const villains = useMemo<GridItem[]>(() => {
     const q = query.trim().toLowerCase()
-    const isPlayed = (key: VillainKey) => {
-      const st = stats[key]
+    const isPlayed = (key: string) => {
+      const st = stats[key as VillainKey]
       return !!st && st.wins + st.losses > 0
     }
-    const real: GridItem[] = ALL_VILLAINS.filter(
+    const real: GridItem[] = [...ALL_VILLAINS, ...publishedMetas].filter(
       (v) =>
         (q === '' || v.name.toLowerCase().includes(q)) &&
         (difficulties.size === 0 || difficulties.has(v.difficulty)) &&
@@ -230,7 +254,7 @@ export function VillainList({ onBack }: Props) {
       if (sort === 'difficulty') return a.difficulty - b.difficulty || a.release - b.release
       return a.release - b.release
     })
-  }, [query, difficulties, origins, sort, onlyFavorites, playedFilter, favSet, stats, decorFilter, animFilter, showUpcoming])
+  }, [query, difficulties, origins, sort, onlyFavorites, playedFilter, favSet, stats, decorFilter, animFilter, showUpcoming, publishedMetas])
 
   const hasFilters =
     query.trim() !== '' ||

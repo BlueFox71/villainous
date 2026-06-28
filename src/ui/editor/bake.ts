@@ -12,18 +12,37 @@ const FACE_STORE_W = 720
 const BACK_STORE_W = 600
 const BOARD_STORE_W = 2000
 
-/** Rend toutes les faces de cartes + les dos, et renvoie un CustomVillain prêt à jouer. */
-export async function bakeVillain(v: CustomVillain): Promise<CustomVillain> {
-  const cards = await Promise.all(
-    v.cards.map(async (c) => {
-      const face = await renderCardFace(c, v.color, FATE_CARD_COLOR)
-      const image = await downscaleDataUrl(face, FACE_STORE_W)
-      return { ...c, image }
-    }),
-  )
+/** Rend toutes les faces de cartes + les dos, et renvoie un CustomVillain prêt à jouer.
+ *  `onProgress(done, total)` est appelé après chaque image figée (pour une barre de
+ *  chargement). Total = nb de cartes + 3 (dos Vilain, dos Fatalité, plateau). */
+export async function bakeVillain(
+  v: CustomVillain,
+  onProgress?: (done: number, total: number) => void,
+): Promise<CustomVillain> {
+  const total = v.cards.length + 3
+  let done = 0
+  const tick = () => onProgress?.(++done, total)
+  // Séquentiel (et non Promise.all) pour une progression fluide de la barre.
+  const cards: typeof v.cards = []
+  for (const c of v.cards) {
+    const face = await renderCardFace(c, v.color, FATE_CARD_COLOR)
+    const image = await downscaleDataUrl(face, FACE_STORE_W)
+    cards.push({ ...c, image })
+    tick()
+  }
   // Dos Vilain = couleur thématique ; dos Fatalité = blanc (parchemin d'origine).
-  const backVillainImage = await downscaleDataUrl(await renderCardBack(v.color, v.name), BACK_STORE_W)
-  const backFateImage = await downscaleDataUrl(await renderCardBack(FATE_CARD_COLOR, v.name), BACK_STORE_W)
+  // Les ornements importés (backOverlays) sont superposés aux DEUX dos.
+  const backVillainImage = await downscaleDataUrl(
+    await renderCardBack(v.color, v.name, { overlays: v.backOverlays }),
+    BACK_STORE_W,
+  )
+  tick()
+  const backFateImage = await downscaleDataUrl(
+    await renderCardBack(FATE_CARD_COLOR, v.name, { paper: true, overlays: v.backOverlays }),
+    BACK_STORE_W,
+  )
+  tick()
   const boardImage = await downscaleDataUrl(await renderBoard(v), BOARD_STORE_W, 'image/jpeg', 0.9)
+  tick()
   return { ...v, cards, backVillainImage, backFateImage, boardImage }
 }

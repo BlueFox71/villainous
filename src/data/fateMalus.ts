@@ -307,18 +307,6 @@ export const FATE_MALUS: Record<string, FateMalus> = {
   // villainStrategy.avoidPlayingHeroes). Seule gêne durable : le Badge, qui renforce un
   // Pokémon de +2 et rend donc sa capture plus coûteuse en Force d'Alliés. ---
   badge: 'slow', // +2 Force sur un Pokémon → capture plus dure
-
-  // --- Dio Brando (retirer du jeu Jotaro + Joseph, puis balayer le royaume via ZA WARUDO).
-  // Jotaro & Joseph sont les CIBLES de l'objectif → NEUTRE (non listés) : ils sont
-  // NÉCESSAIRES à sa victoire (le bot évite plutôt de les lui donner). On classe le Stand
-  // qui bloque DUR la victoire et les Héros dont le Stand gêne durablement. Les Stands
-  // (autres que Star Platinum) ne sont PAS listés à part : leur effet est intégré au Héros
-  // invocateur, pour ne pas compter deux fois. ---
-  'star-platinum': 'block-win', // Stand de Jotaro : interdit ZA WARUDO! → la victoire est impossible tant qu'il est là
-  'jean-pierre-polnareff': 'block-advance', // Silver Chariot : à éliminer AVANT les autres → retarde les Joestar
-  'noriaki-kakyoin': 'slow2', // Hierophant Green : +1 au coût de toutes ses cartes
-  'mohammed-abdul': 'slow2', // Magician Red : −1 carte piochée par tour
-  iggy: 'slow', // The Fool : disperse ses Alliés (une fois)
 }
 
 /** cardId dont le « block-win » n'est valable que sous condition (gérée par l'IA). */

@@ -10,6 +10,13 @@
 import { create } from 'zustand'
 import type { CustomVillain } from '../../data/customVillain'
 import { CUSTOM_VILLAIN_FORMAT } from '../../data/customVillain'
+import { registerPublishedVillain } from './gameStore'
+
+/** Enregistre au runtime tous les vilains PUBLIÉS d'une liste (cartes/couleur/
+ *  positions d'actions) pour qu'ils soient jouables/affichables comme des natifs. */
+function registerPublished(villains: CustomVillain[]): void {
+  for (const v of villains) if (v.published) registerPublishedVillain(v)
+}
 
 const DB_NAME = 'villainous-editor'
 const STORE = 'villains'
@@ -111,12 +118,14 @@ export const useCustomVillainStore = create<CustomVillainStore>((set, get) => ({
   load: async () => {
     const villains = await idbGetAll()
     villains.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))
+    registerPublished(villains)
     set({ villains, loaded: true })
   },
 
   save: async (v) => {
     const next = { ...v, updatedAt: new Date().toISOString() }
     await idbPut(next)
+    if (next.published) registerPublishedVillain(next)
     set((s) => {
       const others = s.villains.filter((x) => x.id !== next.id)
       return { villains: [next, ...others] }

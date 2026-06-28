@@ -1,14 +1,29 @@
 import { useEffect, useRef, useState } from 'react'
 import { useCustomVillainStore } from '../store/customVillainStore'
-import { emptyCustomVillain, FATE_CARD_COLOR, type CustomVillain } from '../../data/customVillain'
+import { useTestWinStore } from '../store/testWinStore'
+import { PortraitEditorModal } from '../components/PortraitEditorModal'
+import { CardBackLayout } from '../editor/CardBackLayout'
+import { exportVillainAssets } from '../editor/exportAssets'
+import type { BackOverlay } from '../../data/customVillain'
+import {
+  emptyCustomVillain,
+  FATE_CARD_COLOR,
+  VILLAIN_DECK_SIZE,
+  FATE_DECK_SIZE,
+  deckCounts,
+  isDeckComplete,
+  type CustomVillain,
+  type VillainOrigin,
+} from '../../data/customVillain'
 import { villainsBackground } from '../villainColors'
 import { Scroller } from '../components/Scroller'
-import type { ObjectiveDef } from '../../engine/types'
-import { Field, TextField, ColorField, ImageField, SelectField, NumberField } from '../editor/fields'
+import { Field, TextField, ColorField, ImageField } from '../editor/fields'
 import { BoardTab } from '../editor/BoardTab'
 import { CardsTab } from '../editor/CardsTab'
+import { QuantityTab } from '../editor/QuantityTab'
 import { bakeVillain } from '../editor/bake'
 import { renderCardBack } from '../editor/cardRender'
+import { parseExcelVillains, type ExcelVillain } from '../editor/importExcel'
 
 interface Props {
   onBack: () => void
@@ -17,87 +32,19 @@ interface Props {
 }
 
 /** Onglets de l'éditeur. */
-type Tab = 'identity' | 'board' | 'cards'
-
-// --- Objectif (sous-ensemble réutilisable, jouable par le moteur) ------------
-
-type ObjKind = 'POWER_THRESHOLD' | 'CARDS_IN_REALM'
-
-function ObjectiveEditor({
-  draft,
-  patch,
-}: {
-  draft: CustomVillain
-  patch: (p: Partial<CustomVillain>) => void
-}) {
-  const obj = draft.objective
-  const villainCards = draft.cards.filter((c) => c.deck === 'villain')
-
-  const setKind = (kind: ObjKind) => {
-    if (kind === 'POWER_THRESHOLD') patch({ objective: { type: 'POWER_THRESHOLD', threshold: 20 } })
-    else
-      patch({
-        objective: { type: 'CARDS_IN_REALM', cardId: villainCards[0]?.id ?? '', count: 4 },
-      })
-  }
-  const setObj = (o: ObjectiveDef) => patch({ objective: o })
-
-  return (
-    <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-black/20 p-4">
-      <span className="text-xs font-semibold uppercase tracking-wide text-white/50">
-        Condition de victoire (jouable)
-      </span>
-      <SelectField
-        label="Type d'objectif"
-        value={obj.type === 'CARDS_IN_REALM' ? 'CARDS_IN_REALM' : 'POWER_THRESHOLD'}
-        options={[
-          { value: 'POWER_THRESHOLD', label: 'Atteindre un seuil de pouvoir' },
-          { value: 'CARDS_IN_REALM', label: 'Réunir N exemplaires d’une carte' },
-        ]}
-        onChange={(v) => setKind(v as ObjKind)}
-      />
-      {obj.type === 'POWER_THRESHOLD' && (
-        <NumberField
-          label="Pouvoir à atteindre"
-          value={obj.threshold}
-          min={5}
-          max={60}
-          onChange={(threshold) => setObj({ type: 'POWER_THRESHOLD', threshold })}
-        />
-      )}
-      {obj.type === 'CARDS_IN_REALM' && (
-        <div className="flex flex-wrap items-end gap-3">
-          <SelectField
-            label="Carte à réunir"
-            value={obj.cardId}
-            options={
-              villainCards.length
-                ? villainCards.map((c) => ({ value: c.id, label: c.name }))
-                : [{ value: '', label: '(ajoute une carte Vilain)' }]
-            }
-            onChange={(cardId) => setObj({ type: 'CARDS_IN_REALM', cardId, count: obj.count })}
-          />
-          <NumberField
-            label="Nombre"
-            value={obj.count}
-            min={1}
-            max={12}
-            onChange={(count) => setObj({ type: 'CARDS_IN_REALM', cardId: obj.cardId, count })}
-          />
-        </div>
-      )}
-    </div>
-  )
-}
+type Tab = 'identity' | 'board' | 'cards' | 'quantity'
 
 // --- Onglet Identité ---------------------------------------------------------
 
 function IdentityTab({
   draft,
   patch,
+  onFramePortrait,
 }: {
   draft: CustomVillain
   patch: (p: Partial<CustomVillain>) => void
+  /** Ouvre l'Éditeur de portrait (cadre doré + nom) pour le portrait carré. */
+  onFramePortrait: () => void
 }) {
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -107,7 +54,7 @@ function IdentityTab({
           <input
             type="range"
             min={1}
-            max={6}
+            max={5}
             value={draft.stars}
             onChange={(e) => patch({ stars: Number(e.target.value) })}
             className="accent-amber-400"
@@ -123,23 +70,27 @@ function IdentityTab({
         <ImageField
           label="Portrait (carré)"
           value={draft.portrait}
-          onChange={(portrait) => patch({ portrait })}
+          // Nouveau portrait choisi → c'est le nouveau « brut » (on oublie l'ancien
+          // cadre conservé), pour que l'Éditeur de portrait reparte de cette image.
+          onChange={(portrait) => patch({ portrait, portraitRaw: undefined })}
           aspect="square"
         />
+        <button
+          type="button"
+          onClick={onFramePortrait}
+          disabled={!draft.portrait}
+          title={draft.portrait ? 'Encadrer le portrait (cadre doré + nom)' : 'Choisis d’abord un portrait'}
+          className="self-start rounded-lg border border-amber-300/50 px-3 py-1.5 text-sm font-semibold text-amber-200 transition hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          🖼 Éditeur de portrait (cadre + nom)
+        </button>
         <ImageField
           label="Présentation (corps entier)"
           value={draft.presentation}
           onChange={(presentation) => patch({ presentation })}
-          aspect="square"
+          aspect="card"
+          fit="contain"
         />
-        <TextField
-          label="Objectif (texte du plateau)"
-          value={draft.boardObjective}
-          onChange={(boardObjective) => patch({ boardObjective })}
-          textarea
-          placeholder="Ex. : Atteignez 20 jetons Pouvoir au début de votre tour."
-        />
-        <ObjectiveEditor draft={draft} patch={patch} />
       </div>
     </div>
   )
@@ -147,21 +98,35 @@ function IdentityTab({
 
 // --- Aperçu des dos de cartes (template officiel tinté) ---------------------
 
-function CardBackPreview({ color, name, caption }: { color: string; name: string; caption: string }) {
+function CardBackPreview({
+  color,
+  name,
+  caption,
+  paper,
+  overlays,
+}: {
+  color: string
+  name: string
+  caption: string
+  paper?: boolean
+  overlays?: BackOverlay[]
+}) {
   const [src, setSrc] = useState<string | null>(null)
+  const overlaysKey = JSON.stringify(overlays ?? [])
   useEffect(() => {
     let alive = true
     const h = setTimeout(() => {
-      void renderCardBack(color, name).then((url) => alive && setSrc(url))
+      void renderCardBack(color, name, { paper, overlays }).then((url) => alive && setSrc(url))
     }, 250)
     return () => {
       alive = false
       clearTimeout(h)
     }
-  }, [color, name])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [color, name, paper, overlaysKey])
   return (
     <div className="flex flex-col items-center gap-1">
-      <div className="aspect-[1440/2044] w-24 overflow-hidden rounded-lg border border-white/20 shadow-lg">
+      <div className="aspect-[1440/2044] w-48 overflow-hidden rounded-lg border border-white/20 shadow-lg">
         {src && <img src={src} alt={caption} className="h-full w-full object-cover" />}
       </div>
       <span className="text-[10px] text-white/50">{caption}</span>
@@ -169,15 +134,118 @@ function CardBackPreview({ color, name, caption }: { color: string; name: string
   )
 }
 
+// --- Modale de publication (« Terminer ») -----------------------------------
+
+/** Demande le nom du créateur et l'origine (Disney / Collaboration) avant de
+ *  publier le vilain. Pré-remplie si le vilain a déjà été publié (réédition). */
+function PublishModal({
+  draft,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  draft: CustomVillain
+  busy: boolean
+  onCancel: () => void
+  onConfirm: (creator: string, origin: VillainOrigin) => void
+}) {
+  const [creator, setCreator] = useState(draft.creator ?? '')
+  const [origin, setOrigin] = useState<VillainOrigin>(draft.origin ?? 'Collaborations')
+  const ORIGINS: { value: VillainOrigin; label: string; hint: string }[] = [
+    { value: 'Disney', label: 'Disney / Pixar', hint: 'Univers Disney' },
+    { value: 'Collaborations', label: 'Collaboration', hint: 'Hors Disney (jeux, anime…)' },
+  ]
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onCancel}>
+      <div
+        className="flex w-full max-w-md flex-col gap-4 rounded-2xl border border-white/15 bg-[#1a1620] p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-amber-200">
+            {draft.published ? 'Mettre à jour le vilain' : 'Terminer le vilain'}
+          </h2>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg px-2 py-1 text-sm text-white/50 transition hover:text-white"
+          >
+            ✕
+          </button>
+        </div>
+        <p className="text-xs text-white/45">
+          {draft.published
+            ? 'Les modifications seront appliquées à la version jouable de ce vilain.'
+            : '« ' + draft.name + ' » rejoindra la liste et le choix des vilains, jouable comme un vilain officiel.'}
+        </p>
+
+        <label className="flex flex-col gap-1 text-sm text-white/80">
+          Nom du créateur
+          <input
+            type="text"
+            value={creator}
+            onChange={(e) => setCreator(e.target.value)}
+            placeholder="Ton pseudo…"
+            className="rounded-lg border border-white/15 bg-black/30 px-3 py-1.5 text-sm text-white placeholder:text-white/30 focus:border-amber-300/50 focus:outline-none"
+          />
+        </label>
+
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm text-white/80">Catégorie</span>
+          <div className="grid grid-cols-2 gap-2">
+            {ORIGINS.map((o) => {
+              const active = origin === o.value
+              return (
+                <button
+                  key={o.value}
+                  type="button"
+                  onClick={() => setOrigin(o.value)}
+                  className={`flex flex-col gap-0.5 rounded-lg border px-3 py-2 text-left text-sm transition ${
+                    active
+                      ? 'border-amber-300/60 bg-amber-400/20 text-amber-200'
+                      : 'border-white/15 text-white/70 hover:bg-white/10'
+                  }`}
+                >
+                  <span className="font-semibold">{o.label}</span>
+                  <span className="text-[11px] text-white/45">{o.hint}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onConfirm(creator, origin)}
+          className="mt-1 rounded-lg border border-emerald-400/60 bg-emerald-400/20 px-4 py-2 text-sm font-bold text-emerald-100 transition hover:bg-emerald-400/30 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {busy ? '⏳ génération…' : draft.published ? 'Appliquer les modifications' : 'Publier le vilain'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // --- Écran principal ---------------------------------------------------------
 
 export function VillainEditor({ onBack, onPlay }: Props) {
-  const { villains, loaded, load, save, remove, exportJson, importJson } = useCustomVillainStore()
+  const { villains, loaded, load, save, remove } = useCustomVillainStore()
   const [draft, setDraft] = useState<CustomVillain | null>(null)
   const [tab, setTab] = useState<Tab>('identity')
   const [dirty, setDirty] = useState(false)
   const [busy, setBusy] = useState(false)
-  const importRef = useRef<HTMLInputElement>(null)
+  // Modale de publication (« Terminer ») : ouverte tant qu'elle collecte créateur + origine.
+  const [publishOpen, setPublishOpen] = useState(false)
+  // Éditeur de portrait (cadre doré + nom) pour le portrait carré du vilain perso.
+  const [portraitFrameOpen, setPortraitFrameOpen] = useState(false)
+  const excelRef = useRef<HTMLInputElement>(null)
+  // Vilains trouvés dans une feuille Excel, en attente de choix (modale).
+  const [excelChoices, setExcelChoices] = useState<ExcelVillain[] | null>(null)
+  // Vilains custom ayant déjà gagné une partie de test (condition de 1re publication).
+  const testWonIds = useTestWinStore((s) => s.wonIds)
+  // Progression du « bake » (génération des images) pour la barre de chargement.
+  const [bakeProgress, setBakeProgress] = useState<{ done: number; total: number } | null>(null)
 
   useEffect(() => {
     if (!loaded) void load()
@@ -201,17 +269,20 @@ export function VillainEditor({ onBack, onPlay }: Props) {
     setDirty(true)
   }
 
-  /** Fige toutes les images (faces + dos) puis persiste. Renvoie le vilain baké. */
+  /** Fige toutes les images (faces + dos) puis persiste. Renvoie le vilain baké.
+   *  Alimente la barre de chargement via `bakeProgress`. */
   const bakeAndSave = async (v: CustomVillain): Promise<CustomVillain> => {
     setBusy(true)
+    setBakeProgress({ done: 0, total: v.cards.length + 3 })
     try {
-      const baked = await bakeVillain(v)
+      const baked = await bakeVillain(v, (done, total) => setBakeProgress({ done, total }))
       await save(baked)
       setDraft(baked)
       setDirty(false)
       return baked
     } finally {
       setBusy(false)
+      setBakeProgress(null)
     }
   }
 
@@ -220,38 +291,137 @@ export function VillainEditor({ onBack, onPlay }: Props) {
     await bakeAndSave(draft)
   }
 
+  /** Exporte le vilain en cours en .json ALLÉGÉ (sans les images, lourdes en dataURL) :
+   *  uniquement les données de jeu (cartes, lieux, objectif…) — suffisant pour relire /
+   *  coder ses effets. Écrit dans le dépôt (`assets/custom-exports/`) si le serveur de
+   *  dév est là ; sinon, repli sur un téléchargement. */
+  const onExportJson = async () => {
+    if (!draft) return
+    // Clone puis retire toutes les images (dataURL) pour un fichier léger et lisible.
+    const light = JSON.parse(JSON.stringify(draft)) as Record<string, unknown>
+    for (const k of ['portrait', 'presentation', 'portraitRaw', 'boardArt', 'boardImage', 'pawnImage', 'backVillainImage', 'backFateImage']) {
+      delete light[k]
+    }
+    if (Array.isArray(light.backOverlays)) {
+      light.backOverlays = (light.backOverlays as Record<string, unknown>[]).map((o) => { delete o.image; return o })
+    }
+    if (Array.isArray(light.cards)) {
+      light.cards = (light.cards as Record<string, unknown>[]).map((c) => { delete c.image; delete c.artImage; return c })
+    }
+    const json = JSON.stringify(light, null, 2)
+    // 1) Tente d'écrire dans le dépôt (serveur de dév).
+    try {
+      const res = await fetch('/__save-villain-json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: draft.id, json }),
+      })
+      if (res.ok) {
+        const { path } = (await res.json()) as { path: string }
+        alert(`Vilain exporté (sans images) dans ${path}`)
+        return
+      }
+    } catch {
+      /* pas de serveur de dév → téléchargement */
+    }
+    // 2) Repli : téléchargement.
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${draft.id}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const onPlayClick = async () => {
     if (!draft || busy) return
-    if (draft.cards.filter((c) => c.deck === 'villain').length === 0) {
-      alert('Ajoute au moins une carte au deck Vilain avant de tester.')
+    if (!isDeckComplete(draft)) {
+      const c = deckCounts(draft)
+      alert(
+        `La planche doit être pleine pour tester : ${c.villain}/${VILLAIN_DECK_SIZE} cartes Vilain et ${c.fate}/${FATE_DECK_SIZE} Fatalité (onglet « Quantité »).`,
+      )
+      setTab('quantity')
       return
     }
     const baked = await bakeAndSave(draft)
     onPlay(baked)
   }
 
-  const onImport = async (file: File | undefined) => {
-    if (!file) return
+  /** Lit un fichier Excel/ODS (template Villainous) et propose ses vilains à importer. */
+  const onImportExcel = async (file: File | undefined) => {
+    if (!file || busy) return
+    setBusy(true)
     try {
-      await importJson(await file.text())
+      const found = await parseExcelVillains(file, new Date().toISOString())
+      if (found.length === 0) {
+        alert('Aucun vilain reconnu dans ce fichier (format « Villainous Card Generator » attendu).')
+        return
+      }
+      setExcelChoices(found)
     } catch (e) {
-      alert((e as Error).message)
+      alert(`Lecture du fichier impossible : ${(e as Error).message}`)
+    } finally {
+      setBusy(false)
     }
   }
 
-  const onExport = (id: string) => {
-    const json = exportJson(id)
-    if (!json) return
-    const blob = new Blob([json], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${id}.json`
-    a.click()
-    URL.revokeObjectURL(url)
+  /** Importe le vilain choisi depuis l'Excel : id unique, sauvegarde, ouverture. */
+  const chooseExcelVillain = async (ev: ExcelVillain) => {
+    const taken = new Set(villains.map((v) => v.id))
+    let id = ev.villain.id
+    for (let n = 2; taken.has(id); n++) id = `${ev.villain.id}-${n}`
+    const copy = { ...ev.villain, id }
+    setExcelChoices(null)
+    await save(copy)
+    startEdit(copy)
+  }
+
+  // « Terminer » : publie le vilain (il rejoint la liste + le choix des vilains).
+  // Exige une planche pleine, puis ouvre la modale créateur/origine.
+  const onFinishClick = () => {
+    if (!draft || busy) return
+    if (!isDeckComplete(draft)) {
+      const c = deckCounts(draft)
+      alert(
+        `La planche doit être pleine pour terminer : ${c.villain}/${VILLAIN_DECK_SIZE} cartes Vilain et ${c.fate}/${FATE_DECK_SIZE} Fatalité (onglet « Quantité »).`,
+      )
+      setTab('quantity')
+      return
+    }
+    // Première publication : exiger une victoire en partie de test (bouton « Tester »).
+    if (!draft.published && !testWonIds.includes(draft.id)) {
+      alert('Pour terminer ce vilain, gagne d’abord une partie avec lui via le bouton « ▶ Tester ».')
+      return
+    }
+    setPublishOpen(true)
+  }
+
+  /** Confirme la publication : fige les images, marque `published` + créateur/origine,
+   *  sauvegarde (le store l'enregistre alors au runtime → jouable comme un natif). */
+  const doPublish = async (creator: string, origin: VillainOrigin) => {
+    if (!draft || busy) return
+    setPublishOpen(false)
+    const name = draft.name
+    const wasPublished = draft.published
+    const baked = await bakeAndSave({ ...draft, published: true, creator: creator.trim() || undefined, origin })
+    // Écrit aussi ses fichiers dans assets/ (decks/<Nom>/, portraits, presentations,
+    // pions) comme un vilain natif. Best-effort : sans serveur de dév, on n'affiche rien.
+    const exp = await exportVillainAssets(baked)
+    const filesMsg = exp.ok ? `\n\n${exp.written} fichier(s) rangés dans assets/.` : ''
+    alert(
+      (wasPublished
+        ? `Les modifications de « ${name} » ont été appliquées à sa version jouable.`
+        : `« ${name} » a rejoint la liste et le choix des vilains !`) + filesMsg,
+    )
   }
 
   const bg = villainsBackground(draft?.color ?? '#3a2d6b', draft?.color ?? '#3a2d6b')
+  const complete = draft ? isDeckComplete(draft) : false
+  // Test réussi (victoire) avec ce vilain ? Requis pour une PREMIÈRE publication
+  // (les rééditions d'un vilain déjà publié n'y sont plus soumises).
+  const testWon = !!draft && testWonIds.includes(draft.id)
+  const canPublish = complete && (!!draft?.published || testWon)
 
   return (
     <div className="flex h-screen flex-col text-white" style={{ background: bg }}>
@@ -276,18 +446,48 @@ export function VillainEditor({ onBack, onPlay }: Props) {
             ) : (
               dirty && <span className="text-xs text-amber-300/70">● non enregistré</span>
             )}
+            {!complete && (
+              <span className="text-xs text-amber-300/70" title="Remplis la planche dans l’onglet Quantité">
+                ⚠ planche incomplète
+              </span>
+            )}
+            {complete && !draft.published && !testWon && (
+              <span className="text-xs text-amber-300/70" title="Gagne une partie avec ce vilain via « ▶ Tester » pour pouvoir le terminer">
+                🏆 gagne un test pour terminer
+              </span>
+            )}
             <button
               type="button"
-              onClick={() => onExport(draft.id)}
-              className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200"
+              onClick={onFinishClick}
+              disabled={busy || !canPublish}
+              title={
+                !complete
+                  ? 'Planche incomplète (onglet Quantité)'
+                  : draft.published
+                    ? 'Appliquer les modifications à la version jouable'
+                    : testWon
+                      ? 'Terminer : rejoindre la liste et le choix des vilains'
+                      : 'Gagne d’abord une partie avec lui via « ▶ Tester »'
+              }
+              className="rounded-lg border border-amber-300/60 bg-amber-400/20 px-4 py-1.5 text-sm font-bold text-amber-100 transition hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Exporter
+              {draft.published ? '✓ Terminé' : '✓ Terminer'}
+            </button>
+            <button
+              type="button"
+              onClick={onExportJson}
+              disabled={busy}
+              title="Exporter ce vilain en fichier .json (sauvegarde / partage)"
+              className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200 disabled:opacity-50"
+            >
+              ⬇ .json
             </button>
             <button
               type="button"
               onClick={onPlayClick}
-              disabled={busy}
-              className="rounded-lg border border-emerald-400/60 bg-emerald-400/20 px-4 py-1.5 text-sm font-bold text-emerald-100 transition hover:bg-emerald-400/30 disabled:opacity-50"
+              disabled={busy || !complete}
+              title={complete ? 'Tester contre le bot' : 'Planche incomplète (onglet Quantité)'}
+              className="rounded-lg border border-emerald-400/60 bg-emerald-400/20 px-4 py-1.5 text-sm font-bold text-emerald-100 transition hover:bg-emerald-400/30 disabled:cursor-not-allowed disabled:opacity-50"
             >
               ▶ Tester
             </button>
@@ -317,18 +517,22 @@ export function VillainEditor({ onBack, onPlay }: Props) {
                 + Nouveau vilain
               </button>
               <input
-                ref={importRef}
+                ref={excelRef}
                 type="file"
-                accept="application/json"
+                accept=".xlsx,.ods,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.oasis.opendocument.spreadsheet"
                 className="hidden"
-                onChange={(e) => void onImport(e.target.files?.[0])}
+                onChange={(e) => {
+                  void onImportExcel(e.target.files?.[0])
+                  e.target.value = ''
+                }}
               />
               <button
                 type="button"
-                onClick={() => importRef.current?.click()}
-                className="rounded-xl border border-white/20 bg-white/5 px-5 py-2.5 font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200"
+                onClick={() => excelRef.current?.click()}
+                disabled={busy}
+                className="rounded-xl border border-emerald-400/50 bg-emerald-400/15 px-5 py-2.5 font-semibold text-emerald-100 transition hover:bg-emerald-400/25 disabled:opacity-50"
               >
-                Importer (.json)
+                Importer (feuille Excel)
               </button>
             </div>
 
@@ -362,6 +566,11 @@ export function VillainEditor({ onBack, onPlay }: Props) {
                       <span className="text-xs text-white/40">
                         {'★'.repeat(v.stars)} · {v.cards.length} cartes · {v.locations.length} lieux
                       </span>
+                      {v.published && (
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300/80">
+                          ✓ Publié
+                        </span>
+                      )}
                       <div className="mt-2 flex gap-2">
                         <button
                           type="button"
@@ -370,15 +579,25 @@ export function VillainEditor({ onBack, onPlay }: Props) {
                         >
                           Éditer
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (confirm(`Supprimer « ${v.name} » ?`)) void remove(v.id)
-                          }}
-                          className="rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-xs text-white/50 transition hover:border-red-400/60 hover:text-red-300"
-                        >
-                          🗑
-                        </button>
+                        {v.published ? (
+                          // Vilain publié : non supprimable (toujours disponible pour le modifier).
+                          <span
+                            title="Vilain publié — non supprimable. Tu peux toujours le modifier via « Éditer »."
+                            className="cursor-not-allowed rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/30"
+                          >
+                            🔒
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm(`Supprimer « ${v.name} » ?`)) void remove(v.id)
+                            }}
+                            className="rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-xs text-white/50 transition hover:border-red-400/60 hover:text-red-300"
+                          >
+                            🗑
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -396,6 +615,7 @@ export function VillainEditor({ onBack, onPlay }: Props) {
               ['identity', 'Identité'],
               ['board', 'Plateau'],
               ['cards', `Cartes (${draft.cards.length})`],
+              ['quantity', complete ? 'Quantité ✓' : 'Quantité'],
             ] as [Tab, string][]).map(([key, label]) => (
               <button
                 key={key}
@@ -416,23 +636,124 @@ export function VillainEditor({ onBack, onPlay }: Props) {
             <div className="mx-auto max-w-5xl">
               {tab === 'identity' && (
                 <div className="flex flex-col gap-8">
-                  <IdentityTab draft={draft} patch={patch} />
+                  <IdentityTab draft={draft} patch={patch} onFramePortrait={() => setPortraitFrameOpen(true)} />
                   <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-black/20 p-4">
                     <span className="text-xs font-semibold uppercase tracking-wide text-white/50">
-                      Aperçu des dos (couleurs)
+                      Dos des cartes — ornements
                     </span>
-                    <div className="flex gap-6">
-                      <CardBackPreview color={draft.color} name={draft.name} caption="Vilain" />
-                      <CardBackPreview color={FATE_CARD_COLOR} name={draft.name} caption="Fatalité" />
+                    <div className="flex flex-wrap items-start gap-6">
+                      {/* Dos Vilain : éditeur interactif (importer / déplacer / redimensionner). */}
+                      <div className="flex flex-col items-center gap-1">
+                        <CardBackLayout
+                          color={draft.color}
+                          name={draft.name}
+                          overlays={draft.backOverlays ?? []}
+                          onChange={(backOverlays) => patch({ backOverlays })}
+                        />
+                        <span className="text-[10px] text-white/50">Vilain</span>
+                      </div>
+                      {/* Dos Fatalité : aperçu (mêmes ornements, parchemin). */}
+                      <CardBackPreview
+                        color={FATE_CARD_COLOR}
+                        name={draft.name}
+                        caption="Fatalité"
+                        paper
+                        overlays={draft.backOverlays}
+                      />
                     </div>
                   </div>
                 </div>
               )}
               {tab === 'board' && <BoardTab draft={draft} patch={patch} />}
               {tab === 'cards' && <CardsTab draft={draft} patch={patch} />}
+              {tab === 'quantity' && <QuantityTab draft={draft} patch={patch} />}
             </div>
           </Scroller>
         </div>
+      )}
+
+      {/* Modale : choix du vilain à importer depuis la feuille Excel. */}
+      {excelChoices && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setExcelChoices(null)}
+        >
+          <div
+            className="flex max-h-[80vh] w-full max-w-lg flex-col gap-3 overflow-hidden rounded-2xl border border-white/15 bg-[#1a1620] p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-amber-200">Importer un vilain</h2>
+              <button
+                type="button"
+                onClick={() => setExcelChoices(null)}
+                className="rounded-lg px-2 py-1 text-sm text-white/50 transition hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-white/45">
+              Choisis le vilain à importer. Ses cartes (nom, type, coût, force, texte, quantité) sont
+              reprises. Tu ajouteras ensuite les <strong>images</strong> et ajusteras le plateau /
+              l’objectif dans l’Atelier.
+            </p>
+            <div className="flex flex-col gap-2 overflow-y-auto">
+              {excelChoices.map((ev) => (
+                <button
+                  key={ev.villain.id}
+                  type="button"
+                  onClick={() => void chooseExcelVillain(ev)}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-white/15 bg-white/5 px-4 py-3 text-left transition hover:border-amber-300/70 hover:bg-amber-400/10"
+                >
+                  <span className="font-semibold">{ev.name}</span>
+                  <span className="shrink-0 text-xs text-white/45">{ev.cardCount} carte(s)</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modale : publication (« Terminer ») — créateur + catégorie. */}
+      {publishOpen && draft && (
+        <PublishModal
+          draft={draft}
+          busy={busy}
+          onCancel={() => setPublishOpen(false)}
+          onConfirm={(creator, origin) => void doPublish(creator, origin)}
+        />
+      )}
+
+      {/* Barre de chargement pendant la génération des images (bake). */}
+      {bakeProgress && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4">
+          <div className="flex w-80 max-w-full flex-col gap-3 rounded-2xl border border-white/15 bg-[#1a1620] p-6 shadow-2xl">
+            <span className="text-sm font-bold text-amber-200">⏳ Génération du vilain…</span>
+            <div className="h-3 w-full overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-amber-400 transition-[width] duration-150"
+                style={{ width: `${Math.round((bakeProgress.done / bakeProgress.total) * 100)}%` }}
+              />
+            </div>
+            <span className="text-xs text-white/50">
+              {bakeProgress.done} / {bakeProgress.total} images
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Éditeur de portrait (cadre doré + nom). On l'encadre TOUJOURS à partir du
+          portrait BRUT (portraitRaw, sinon le portrait actuel) pour ne pas empiler les
+          cadres ; on conserve ce brut pour les ré-éditions. */}
+      {portraitFrameOpen && draft && (
+        <PortraitEditorModal
+          onClose={() => setPortraitFrameOpen(false)}
+          custom={{
+            portrait: draft.portraitRaw ?? draft.portrait,
+            name: draft.name,
+            onApply: (portrait) => patch({ portrait, portraitRaw: draft.portraitRaw ?? draft.portrait }),
+          }}
+        />
       )}
     </div>
   )

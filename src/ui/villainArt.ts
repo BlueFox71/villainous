@@ -1,4 +1,4 @@
-import { VILLAIN_REGISTRY, type VillainKey } from './store/gameStore'
+import { VILLAIN_REGISTRY, isCustomKey, customVillainOf, type VillainKey } from './store/gameStore'
 
 /** Portraits dédiés des vilains (illustrations carrées). */
 const PORTRAIT: Partial<Record<VillainKey, string>> = {
@@ -34,12 +34,16 @@ const PORTRAIT: Partial<Record<VillainKey, string>> = {
   davyJones: '/davy-jones.png',
   tamatoa: '/tamatoa.png',
   teamRocket: '/team-rocket.png',
-  dio: '/dio.png',
 }
 
-/** Portrait d'un vilain, avec repli sur son dos de carte si non défini. */
-export function villainPortrait(key: VillainKey): string {
-  return PORTRAIT[key] ?? VILLAIN_REGISTRY[key].def.backVillainImage
+/** Portrait d'un vilain, avec repli sur son dos de carte si non défini. Les vilains
+ *  PUBLIÉS (clé `custom-…`) fournissent leur portrait via leur bundle (dataURL). */
+export function villainPortrait(key: string): string {
+  if (isCustomKey(key)) {
+    const c = customVillainOf(key)
+    return c?.portrait ?? c?.backVillainImage ?? ''
+  }
+  return PORTRAIT[key as VillainKey] ?? VILLAIN_REGISTRY[key as VillainKey].def.backVillainImage
 }
 
 /** Illustrations de présentation « en grand » (corps entier), par vilain. */
@@ -76,12 +80,13 @@ const PRESENTATION: Partial<Record<VillainKey, string>> = {
   davyJones: '/presentations/davy-jones.png',
   tamatoa: '/presentations/tamatoa.png',
   teamRocket: '/presentations/team-rocket.png',
-  dio: '/presentations/dio.png',
 }
 
-/** Illustration de présentation d'un vilain (undefined si non disponible). */
-export function villainPresentation(key: VillainKey): string | undefined {
-  return PRESENTATION[key]
+/** Illustration de présentation d'un vilain (undefined si non disponible). Les
+ *  vilains PUBLIÉS retombent sur leur illustration de présentation (dataURL). */
+export function villainPresentation(key: string): string | undefined {
+  if (isCustomKey(key)) return customVillainOf(key)?.presentation
+  return PRESENTATION[key as VillainKey]
 }
 
 /** Réglage EXCEPTIONNEL de la présentation par vilain (l'illustration de base est

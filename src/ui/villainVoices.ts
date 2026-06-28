@@ -1,7 +1,7 @@
 // Voix d'intro de début de partie. Séquence : voix de MON vilain → « Contre »
 // → voix du vilain ADVERSE. Chaque entrée a 4 variantes ; on en tire une au
 // hasard. Les fichiers vivent dans `assets/Voix Villainous/`.
-import type { VillainKey } from './store/gameStore'
+import { villainKeyOf, isCustomKey, customVillainOf, type VillainKey } from './store/gameStore'
 import { useSettingsStore } from './store/settingsStore'
 
 // Glob EAGER des voix en URL (fichiers .wav légers, simples références d'URL —
@@ -55,10 +55,17 @@ const VOICE_PREFIX: Record<VillainKey, string> = {
   davyJones: 'Davy jones', // 4 variantes présentes
   tamatoa: 'Tamatoa', // 4 variantes présentes
   teamRocket: 'La team rocket', // fichiers « La team rocket N.wav »
-  dio: 'Dio brando', // 4 variantes présentes
 }
 
 const CONTRE_PREFIX = 'Contre'
+
+/** Préfixe de fichier de voix pour un vilain (par id porté par le PlayerState) :
+ *  natif → table `VOICE_PREFIX` ; PERSONNALISÉ → le NOM du vilain (les fichiers
+ *  « <Nom> 1.wav »… ajoutés à la main dans `Voix Villainous`). undefined si inconnu. */
+function voicePrefixOf(villainId: string): string | undefined {
+  if (isCustomKey(villainId)) return customVillainOf(villainId)?.name
+  return VOICE_PREFIX[villainKeyOf(villainId)]
+}
 
 /** URL d'une variante précise (`<prefix> <n>`), insensible à la casse. */
 function urlFor(prefix: string, n: number): string | undefined {
@@ -105,7 +112,7 @@ function stopCurrent(): void {
  * Joue la séquence d'intro : voix de `myKey`, puis « Contre », puis voix de
  * `oppKey`, enchaînées. Respecte le volume des bruitages (coupé si à zéro).
  */
-export function playVillainIntro(myKey: VillainKey, oppKey: VillainKey, onDone?: () => void) {
+export function playVillainIntro(myVillainId: string, oppVillainId: string, onDone?: () => void) {
   // `onDone` est appelé quand la séquence est terminée — ou tout de suite si rien
   // n'est joué (audio indisponible, son coupé, aucune voix) — pour que l'appelant
   // puisse enchaîner (ex. faire apparaître les dés APRÈS la voix).
@@ -116,10 +123,12 @@ export function playVillainIntro(myKey: VillainKey, oppKey: VillainKey, onDone?:
   // canal bruitages (qui est volontairement discret).
   const volume = Math.min(1, sfxVolume * 2)
 
+  const myPrefix = voicePrefixOf(myVillainId)
+  const oppPrefix = voicePrefixOf(oppVillainId)
   const seq = [
-    randomVoice(VOICE_PREFIX[myKey]),
+    myPrefix ? randomVoice(myPrefix) : undefined,
     randomVoice(CONTRE_PREFIX),
-    randomVoice(VOICE_PREFIX[oppKey]),
+    oppPrefix ? randomVoice(oppPrefix) : undefined,
   ].filter((u): u is string => !!u)
   if (seq.length === 0) { onDone?.(); return }
 

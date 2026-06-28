@@ -595,34 +595,33 @@ export type Effect =
    *  actions de n'importe quel lieu (hors Fatalité), chacune coûtant un Pouvoir croissant
    *  (1, 2, 3…). Sans effet si The World n'est pas en jeu, ou si Star Platinum est présent. */
   | { type: 'ZA_WARUDO_ACTIVATE' }
-  /** Dio — Vampirisme : défausse un Allié (auto : le plus faible, The World épargné) pour
-   *  gagner `amount` Pouvoir. */
+  /** Dio — Vampirisme : ouvre un choix interactif (pendingDioDiscardAlly) de l'Allié à
+   *  défausser (The World épargné) pour gagner `amount` Pouvoir. Bot : le plus faible. */
   | { type: 'DIO_DISCARD_ALLY_GAIN'; amount: number }
   /** Dio — Masque de pierre (Activer) : défausse TOUTE la main, gagne 1 Pouvoir par carte. */
   | { type: 'DIO_DISCARD_HAND_GAIN_POWER' }
-  /** Dio — Justice (Activer) : récupère un Allié de la défausse (auto : le plus fort) en main. */
-  | { type: 'DIO_RECOVER_ALLY_FROM_DISCARD' }
   /** Dio — Fondation Speedwagon (Fatalité) : défausse un Objet non associé du royaume de Dio
-   *  (auto : le plus précieux). */
+   *  (auto : le plus précieux — choix du fataliseur). */
   | { type: 'DIO_DISCARD_ITEM_IN_REALM' }
   /** Dio — Cartomancie (Fatalité) : réduit de `amount` la force d'un Allié de Dio (auto : le
-   *  plus fort), via un jeton permanent (plancher 0). */
+   *  plus fort — choix du fataliseur), via un jeton permanent (plancher 0). */
   | { type: 'DIO_REDUCE_ALLY_STRENGTH'; amount: number }
-  /** Dio — Lumière du Soleil (Fatalité) : Dio choisit entre défausser sa main ou perdre
-   *  `lose` Pouvoir (auto : l'option la moins coûteuse pour lui). */
+  /** Dio — Lumière du Soleil (Fatalité) : ouvre le choix de DIO (pendingDioSunlight) entre
+   *  défausser sa main ou perdre `lose` Pouvoir. Bot : l'option la moins coûteuse pour lui. */
   | { type: 'DIO_SUNLIGHT_CHOICE'; lose: number }
   /** Dio — Tu oses t'approcher de moi : dévoile les `count` 1ʳᵉˢ cartes Fatalité, joue TOUS
    *  les Héros révélés sur le lieu du pion (chacun déclenche son Stand), défausse le reste. */
   | { type: 'DIO_REVEAL_FATE_HEROES_AT_PAWN'; count: number }
-  /** Dio — CREAM (Stand de Vanilla Ice, à l'invocation) : défausse un Héros de force
-   *  inférieure à Vanilla Ice présent sur le lieu de Cream (auto). */
+  /** Dio — CREAM (Stand de Vanilla Ice, à l'invocation) : ouvre un choix interactif
+   *  (pendingDioCream) du Héros à défausser parmi ceux de force inférieure à Vanilla Ice
+   *  présents sur son lieu. Bot : le plus fort éligible. */
   | { type: 'DIO_CREAM_DISCARD_HERO' }
-  /** Dio — Quête vers le paradis : choisit un type (Objet/Événement ; auto : le plus
-   *  nombreux), mélange la défausse, en dévoile 6, ajoute les cartes de ce type à la main
-   *  et laisse les autres dans la défausse. */
+  /** Dio — Quête vers le paradis : ouvre le choix du type (pendingDioQuest ; Objet/Événement),
+   *  puis mélange la défausse, en dévoile 6 et ajoute les cartes de ce type à la main.
+   *  Bot : le type le plus nombreux. */
   | { type: 'DIO_QUEST_FOR_HEAVEN' }
-  /** Dio — MUDA! (Condition) : élimine sans Allié un Héros du lieu du pion (auto : le plus
-   *  fort) et gagne `gain` Pouvoir. */
+  /** Dio — MUDA! (Condition) : ouvre un choix interactif (pendingDioMuda) du Héros à éliminer
+   *  sur le lieu du pion (facultatif) et gagne `gain` Pouvoir. Bot : le plus fort. */
   | { type: 'DIO_MUDA'; gain: number }
   /** Vanellope (début de tour) & « Enfin un vrai Kart ! » (Fatalité) : dévoile la 1ʳᵉ
    *  carte Méchant de la pioche de Sa Sucrerie, avance le jeton Pilote de (coût + 2)
@@ -2827,6 +2826,21 @@ export interface GameState {
    *  dévoilée (toujours en tête de `mauiDeck`) ; `playerIndex` choisit de la JOUER ou de
    *  la DÉFAUSSER (RESOLVE_MAUI_CHOICE). */
   pendingMauiChoice?: { playerIndex: number } | null
+  /** Dio — Vampirisme : `playerIndex` choisit un Allié de son royaume à défausser (The World
+   *  épargné) pour gagner `gain` Pouvoir (RESOLVE_DIO_DISCARD_ALLY). */
+  pendingDioDiscardAlly?: { playerIndex: number; gain: number } | null
+  /** Dio — CREAM (Stand de Vanilla Ice) : `playerIndex` choisit un Héros (`candidateIds`,
+   *  force < Vanilla Ice) sur `locationId` à défausser (RESOLVE_DIO_CREAM). */
+  pendingDioCream?: { playerIndex: number; locationId: LocationId; candidateIds: string[] } | null
+  /** Dio — MUDA! : `playerIndex` choisit (facultatif) un Héros (`candidateIds`) du lieu du
+   *  pion à éliminer ; gagne `gain` Pouvoir dans tous les cas (RESOLVE_DIO_MUDA). */
+  pendingDioMuda?: { playerIndex: number; gain: number; candidateIds: string[] } | null
+  /** Dio — Quête vers le paradis : `playerIndex` choisit le type de carte (Objet/Événement)
+   *  à récupérer parmi les 6 cartes dévoilées de sa défausse mélangée (RESOLVE_DIO_QUEST). */
+  pendingDioQuest?: { playerIndex: number } | null
+  /** Dio — Lumière du Soleil (Fatalité) : DIO (`playerIndex`) choisit entre défausser sa main
+   *  et perdre `lose` Pouvoir (RESOLVE_DIO_SUNLIGHT). */
+  pendingDioSunlight?: { playerIndex: number; lose: number } | null
   /** Le Seigneur des Ténèbres — Montre-moi le Chaudron Magique / Nous avons conclu un
    *  marché : `playerIndex` choisit entre s'emparer du Chaudron Magique et gagner
    *  `power` Pouvoir (RESOLVE_CAULDRON_CHOICE). N'apparaît que si le Chaudron est encore
@@ -4022,6 +4036,16 @@ export type GameAction =
    *  Pouvoir » (Montre-moi le Chaudron Magique). */
   | { type: 'RESOLVE_CAULDRON_CHOICE'; choice: 'cauldron' | 'power' }
   | { type: 'RESOLVE_MAUI_CHOICE'; choice: 'play' | 'discard' }
+  /** Dio — Vampirisme : défausse l'Allié choisi et gagne le Pouvoir prévu. */
+  | { type: 'RESOLVE_DIO_DISCARD_ALLY'; allyInstanceId: string }
+  /** Dio — CREAM : défausse le Héros choisi (force < Vanilla Ice) sur le lieu de Cream. */
+  | { type: 'RESOLVE_DIO_CREAM'; heroInstanceId: string }
+  /** Dio — MUDA! : élimine le Héros choisi (ou aucun si omis) et gagne le Pouvoir prévu. */
+  | { type: 'RESOLVE_DIO_MUDA'; heroInstanceId?: string }
+  /** Dio — Quête vers le paradis : récupère les cartes du type choisi (Objet/Événement). */
+  | { type: 'RESOLVE_DIO_QUEST'; cardType: 'item' | 'effect' }
+  /** Dio — Lumière du Soleil : défausse la main ('discard') ou perd du Pouvoir ('lose'). */
+  | { type: 'RESOLVE_DIO_SUNLIGHT'; choice: 'discard' | 'lose' }
   | { type: 'RESOLVE_CRUSTACEAN_PLACE'; to: LocationId }
   /** Le Seigneur des Ténèbres — résout le choix « mélanger sa défausse OU défausser
    *  l'Épée Magique pour s'emparer du Chaudron » (Nous avons conclu un marché !). */
