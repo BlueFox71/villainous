@@ -147,7 +147,18 @@ export function Board({
             .reduce((m, c) => m + (strengths[c.instanceId] ?? c.strength ?? 0), 0),
         0,
       )
-    return here + archersAround
+    // Team Rocket — Persian (reachesAnyLocationVanquish) : compte sur CHAQUE lieu, où qu'il soit.
+    const anyLocAround = displayLocations
+      .filter((_, i) => i !== index)
+      .reduce(
+        (n, nl) =>
+          n +
+          (player.board[nl.id] ?? [])
+            .filter((c) => c.type === 'ally' && !c.isWicket && c.reachesAnyLocationVanquish)
+            .reduce((m, c) => m + (strengths[c.instanceId] ?? c.strength ?? 0), 0),
+        0,
+      )
+    return here + archersAround + anyLocAround
   }
 
   return (

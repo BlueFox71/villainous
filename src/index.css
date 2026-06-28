@@ -5730,6 +5730,133 @@ body {
 }
 
 /* ============================================================================
+   Décor permanent : le ciel de la Team Rocket (Pokémon — kind `teamRocket`).
+   Ciel bleu de jour + nuages (réutilise `.sunny-cloud`) + soleil (réutilise `.sunny-sun`) + la
+   mongolfière Miaouss qui traverse en tanguant. Surprise = blast-off : le trio file vers le coin
+   haut en rétrécissant puis disparaît dans un éclat d'étoile (DING).
+   ============================================================================ */
+.tr-sky-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* Ciel bleu de jour, plus clair vers le bas (horizon). */
+  background: linear-gradient(to bottom, #2f6fc9 0%, #4f93dd 40%, #8fc1f1 78%, #cfe6fa 100%);
+}
+/* Vignette douce (coins légèrement assombris). */
+.tr-sky-decor::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 95% at 50% 40%, transparent 58%, rgba(30, 55, 110, 0.34) 100%);
+}
+/* La mongolfière Miaouss : enveloppe = dérive horizontale lente ; intérieur = tangage (bob). */
+.tr-balloon-drift {
+  position: absolute;
+  top: 10%;
+  left: 0;
+  will-change: transform;
+  animation: trBalloonDrift 95s linear infinite;
+}
+.tr-balloon-bob {
+  display: inline-block;
+  will-change: transform;
+  animation: trBalloonBob 6s ease-in-out infinite alternate;
+}
+.tr-balloon-img {
+  display: block;
+  height: 28vh;
+  width: auto;
+  filter: drop-shadow(0 1vh 1.6vh rgba(30, 55, 110, 0.32));
+}
+@keyframes trBalloonDrift {
+  from { transform: translateX(-28vw); }
+  to { transform: translateX(120vw); }
+}
+@keyframes trBalloonBob {
+  from { transform: translateY(-1.3vh) rotate(-2deg); }
+  to { transform: translateY(1.3vh) rotate(2deg); }
+}
+/* SURPRISE blast-off. `.tr-blast-fly` = point d'ancrage qui monte vers le coin haut-droit ; le trio
+   rétrécit vers ce point (transform-origin bas-centre) puis le scintillement y jaillit. */
+.tr-blast {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.tr-blast-fly {
+  position: absolute;
+  bottom: 4vh;
+  width: 0;
+  height: 0;
+  will-change: transform;
+  animation: trBlastFly 3800ms cubic-bezier(0.3, 0, 0.45, 1) forwards;
+}
+@keyframes trBlastFly {
+  from { transform: translate(0, 0); }
+  to { transform: translate(28vw, -84vh); }
+}
+.tr-blast-trio {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 30vh;
+  width: auto;
+  transform-origin: bottom center;
+  filter: drop-shadow(0 0.6vh 1vh rgba(30, 55, 110, 0.4));
+  will-change: transform, opacity;
+  animation: trBlastTrio 3800ms ease-in forwards;
+}
+@keyframes trBlastTrio {
+  0% { transform: translateX(-50%) scale(1) rotate(0deg); opacity: 0; }
+  8% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translateX(-50%) scale(0.05) rotate(var(--spin)); opacity: 0.15; }
+}
+/* Éclat d'étoile à 4 branches (le *DING* de fin d'épisode) : flash radial + étoile blanche qui pulse. */
+.tr-twinkle {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 9vh;
+  height: 9vh;
+  transform: translate(-50%, 50%) scale(0);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: trTwinkle 1000ms ease-out forwards;
+}
+.tr-twinkle::before,
+.tr-twinkle::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+/* Halo radial. */
+.tr-twinkle::before {
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(255, 248, 200, 0.5) 32%, rgba(255, 240, 160, 0) 66%);
+}
+/* Étoile à 4 branches effilées. */
+.tr-twinkle::after {
+  background: #fffefb;
+  clip-path: polygon(50% 0%, 57% 43%, 100% 50%, 57% 57%, 50% 100%, 43% 57%, 0% 50%, 43% 43%);
+  filter: drop-shadow(0 0 0.6vh rgba(255, 245, 190, 0.9));
+}
+@keyframes trTwinkle {
+  0% { transform: translate(-50%, 50%) scale(0) rotate(0deg); opacity: 0; }
+  35% { transform: translate(-50%, 50%) scale(1.35) rotate(30deg); opacity: 1; }
+  100% { transform: translate(-50%, 50%) scale(0) rotate(70deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Ciel posé : on fige le tangage/la dérive du ballon (les nuages sont déjà figés par la règle Sunnyside). */
+  .tr-balloon-drift,
+  .tr-balloon-bob {
+    animation: none !important;
+  }
+}
+
+/* ============================================================================
    Décor permanent : le monde de bonbons de Sugar Rush (Sa Sucrerie — kind `candy`).
    Fond rose gourmand + vermicelles colorés qui voletent + bokeh sucré + glaçage blanc + vignette.
    ============================================================================ */

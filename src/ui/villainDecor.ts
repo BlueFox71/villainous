@@ -152,6 +152,13 @@ export type VillainDecor =
   // le bas de la colonne de gauche à droite en rôdant ; et « la Fleur Rouge » où tout S'EMBRASE (voile
   // orangé + mur de flammes + braises + lueur) le temps d'une bouffée, puis se dissipe.
   | { kind: 'jungle' }
+  // `teamRocket` : le ciel de la Team Rocket — ciel bleu de jour, nuages blancs qui dérivent,
+  // soleil chaud et la MONGOLFIÈRE Miaouss (le ballon « R ») qui traverse lentement le ciel en
+  // tanguant. SURPRISE minutée : « La Team Rocket s'envole vers d'autres cieux ! » — Jessie, James
+  // et Miaouss (image `team_rocket_cieux.png`) jaillissent du plateau, filent en diagonale vers le
+  // haut en rétrécissant (ils s'éloignent), puis disparaissent dans un éclat d'étoile (le *DING*
+  // classique de fin d'épisode). 100 % CSS + l'asset de la fuite.
+  | { kind: 'teamRocket' }
 
 export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   patHibulaire: { kind: 'film' },
@@ -223,6 +230,9 @@ export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   // Shere Khan (Le Livre de la Jungle) : la jungle à contre-jour — lianes & feuilles en silhouette,
   // rais de lumière chaude, lucioles, et Shere Khan qui traverse en rôdant (surprise).
   shereKhan: { kind: 'jungle' },
+  // Team Rocket (Pokémon) : le ciel de jour — nuages qui dérivent, soleil, la mongolfière Miaouss qui
+  // traverse ; surprise = « s'envole vers d'autres cieux ! » (le trio file vers le haut → éclat d'étoile).
+  teamRocket: { kind: 'teamRocket' },
 }
 
 /** Décor permanent d'un vilain (undefined si non défini). */
@@ -323,6 +333,9 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
       return { images: ['/animations/squelettes.png'], videos: [] }
     case 'cruella':
       return { images: ['/animations/patte.png'], videos: [] }
+    case 'teamRocket':
+      // La mongolfière Miaouss (ballon permanent) + le trio qui s'envole (surprise blast-off).
+      return { images: ['/animations/team_rocket_ballon.png', '/animations/team_rocket_cieux.png'], videos: [] }
     case 'jungle':
       return {
         images: [

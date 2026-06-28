@@ -1,6 +1,23 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { villainDecor, type VillainDecor as VillainDecorData } from '../villainDecor'
 import type { VillainKey } from '../store/gameStore'
+import { onSurprise } from '../surpriseBus'
+
+// Côté du décor courant (joueur = left, adversaire = right), fourni par le wrapper
+// <VillainDecor> pour que chaque décor à surprise puisse s'abonner au bon canal du
+// bus de test sans qu'on ait à lui passer `side` en prop.
+const DecorSideContext = createContext<'left' | 'right'>('left')
+
+/**
+ * MODE TEST — abonne le décor courant au déclencheur de surprise (par côté). Le
+ * composant déclare un `fireRef = useRef(...)`, y dépose sa fonction de surprise
+ * (`fireRef.current = fire`), et passe le ref ici : il est appelé quand l'outil de
+ * test tire la surprise de ce côté.
+ */
+function useSurpriseSub(fireRef: React.MutableRefObject<() => void>) {
+  const side = useContext(DecorSideContext)
+  useEffect(() => onSurprise(side, () => fireRef.current()), [side, fireRef])
+}
 
 // Grain de pellicule : bruit (feTurbulence) généré par un petit SVG encodé en
 // data-URI — auto-contenu, aucun fichier externe. Répété en mosaïque et déplacé en
@@ -236,6 +253,8 @@ function FireDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'fire' 
  *  (classe `is-angry`) : le feu vire au rouge/orange et grossit, un voile de rage rougeoie.
  *  Éléments tirés une fois au montage ; colère pilotée par un timer (cf. `index.css`). */
 function UnderworldDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
   const base = 32
   const [flames] = useState(() => {
     const n = 48 + Math.floor(Math.random() * 17)
@@ -294,6 +313,11 @@ function UnderworldDecor() {
       }, 16000 + Math.random() * 20000) // 16–36 s entre deux colères
     }
     schedule()
+    // MODE TEST : déclenche le coup de colère à la demande.
+    fireRef.current = () => {
+      setAngry(true)
+      rage = setTimeout(() => setAngry(false), 3500)
+    }
     return () => {
       clearTimeout(next)
       clearTimeout(rage)
@@ -372,6 +396,8 @@ function UnderworldDecor() {
  *  particules tirées une fois au montage, animation jouée en CSS (cf. `index.css`,
  *  section « Décor permanent : chevelure dorée »). */
 function GoldenHairDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
   // Mèches : position / épaisseur / hauteur / durée d'oscillation / déphasage /
   // amplitude du balancement / opacité, tirées une fois au montage.
   const [strands] = useState(() =>
@@ -430,6 +456,11 @@ function GoldenHairDecor() {
       }, delay)
     }
     schedule(75000) // première incantation après 1 min 15 s
+    // MODE TEST : déclenche l'incantation à la demande.
+    fireRef.current = () => {
+      setSinging(true)
+      glow = setTimeout(() => setSinging(false), SING_MS)
+    }
     return () => {
       clearTimeout(next)
       clearTimeout(glow)
@@ -1005,6 +1036,8 @@ function fogBlobStyle(b: FogBlob): CSSProperties {
   } as CSSProperties
 }
 function ForestDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
   // Glitch « bug pixel » psychologique (Slenderman) : par bouffées aléatoires toutes les 2–3 min,
   // toute la scène se déchire ~1–2 s (esprit datamosh de Sombra) ET la SILHOUETTE de Slenderman
   // apparaît furtivement à un endroit au hasard (le glitch « révèle » sa présence).
@@ -1024,6 +1057,12 @@ function ForestDecor() {
       }, 60000 + Math.random() * 60000) // 1–2 min entre deux bouffées
     }
     schedule()
+    // MODE TEST : déclenche l'apparition de Slenderman à la demande.
+    fireRef.current = () => {
+      setFigureLeft(12 + Math.random() * 76)
+      setGlitch(true)
+      burst = setTimeout(() => setGlitch(false), 1600)
+    }
     return () => {
       clearTimeout(next)
       clearTimeout(burst)
@@ -1282,6 +1321,8 @@ const GROTTO_BUBBLES = [
  *  des bulles (surtout roses) montent du fond. Vapeur/bulles tirées une fois au montage, animations
  *  jouées en CSS (cf. `index.css`, section « grotte d'Ursula »). */
 function GrottoDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
   // Colonnes de vapeur : quelques ÉVENTS au fond (position/taille de base) émettent chacun
   // plusieurs bouffées étagées dans le temps → colonne continue qui s'enroule en montant.
   const [puffs] = useState(() => {
@@ -1389,6 +1430,11 @@ function GrottoDecor() {
       }, delay)
     }
     schedule(70000 + Math.random() * 40000) // première invasion entre 1 min 10 et 1 min 50
+    // MODE TEST : déclenche l'invasion d'encre à la demande.
+    fireRef.current = () => {
+      setInking(true)
+      clear = setTimeout(() => setInking(false), INK_MS)
+    }
     return () => {
       clearTimeout(next)
       clearTimeout(clear)
@@ -1541,6 +1587,8 @@ const VOODOO_MOTE_COLORS = ['#d11ad1', '#b026ff', '#5ee84b', '#7CFC00', '#e040fb
  *  (luminosité + halo) et une vague de magie déferle. Éléments tirés une fois au montage,
  *  animations jouées en CSS (cf. `index.css`, section « masques vaudou »). */
 function VoodooDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
   // Masques : positions/tailles figées validées (deux bandes visibles, cf. VOODOO_MASK_LAYOUT) ;
   // l'IMAGE de chaque emplacement est tirée au hasard au montage (11 masques mélangés). Chacun se
   // berce (translation verticale) et « respire » en opacité (émerge de l'ombre puis s'y fond) avec
@@ -1582,6 +1630,11 @@ function VoodooDecor() {
       }, delay)
     }
     schedule(55000 + Math.random() * 35000) // première invocation entre 55 s et 1 min 30
+    // MODE TEST : déclenche l'invocation à la demande.
+    fireRef.current = () => {
+      setSummoning(true)
+      end = setTimeout(() => setSummoning(false), SUMMON_MS)
+    }
     return () => {
       clearTimeout(next)
       clearTimeout(end)
@@ -1696,6 +1749,8 @@ const GALAXY_TEST_SHOWER_KIND: 'alternate' | 'stars' | 'fragments' = 'fragments'
  *  décline puis revient en boucle (comme s'il perdait son énergie). Éléments tirés une fois au
  *  montage, animations en CSS (cf. index.css, section « galaxie de Bowser »). */
 function GalaxyDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
   // Préchargement des images d'averse (étoile + 6 fragments) au montage : sinon, au 1ᵉʳ
   // déclenchement, les images jamais affichées se décodent en direct et « popent » à l'écran.
   useEffect(() => {
@@ -1804,7 +1859,7 @@ function GalaxyDecor() {
       if (GALAXY_TEST_SHOWER_KIND === 'alternate') return n % 2 === 1 ? 'fragments' : 'stars'
       return GALAXY_TEST_SHOWER_KIND
     }
-    const fire = () => {
+    const fire = fireRef.current = () => {
       const useFragments = pickKind(seq) === 'fragments'
       showerActiveRef.current = true // pendant la surprise, les mondes sont décalés
       const TOTAL = 22 // s (durée totale visée de l'averse)
@@ -1987,6 +2042,8 @@ const SCAR_JET_GAP_MAX_MS = SCAR_JET_TEST ? 10000 : 240000 // 10 s en test, sino
  *   • YEUX luisants (hyènes / crâne) qui s'allument et clignent dans l'ombre.
  *  Éléments tirés une fois au montage ; animations en CSS (cf. index.css, section « Scar »). */
 function ScarDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'scar' }> }) {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
   // Geysers : évents fixes au sol émettant chacun une colonne continue de vapeur verte (bouffées
   // étagées dans le temps → flux régulier qui s'enroule en montant).
   const [puffs] = useState(() => {
@@ -2093,7 +2150,7 @@ function ScarDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'scar' 
     let next: ReturnType<typeof setTimeout>
     let clear: ReturnType<typeof setTimeout>
     let seq = 0
-    const fire = () => {
+    const fire = fireRef.current = () => {
       const left = 15 + Math.random() * 70 // % (évent qui entre en éruption)
       const n = 9
       const plumes = Array.from({ length: n }, (_, i) => ({
@@ -2333,6 +2390,8 @@ function YzmaVial({ img }: { img: { src: string; aspect: number; scale: number }
  *  une SURPRISE « Pull the lever » : une potion explose en un nuage de fumée de transformation multicolore.
  *  Éléments tirés une fois au montage ; animations CSS (cf. index.css) sauf la balade (requestAnimationFrame). */
 function YzmaDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
   // Bulles multicolores qui montent du fond en ondulant (enveloppe = montée, milieu = ondulation,
   // pastille = la bulle colorée). Schéma nesté de la poussière d'or / des motes vaudou.
   const [bubbles] = useState(() =>
@@ -2411,7 +2470,7 @@ function YzmaDecor() {
       })
       return { key: `${seqId}-${bi}`, left: 22 + Math.random() * 56, top: 26 + Math.random() * 48, delay, puffs }
     }
-    const fire = () => {
+    const fire = fireRef.current = () => {
       // DOUBLE BOOM : deux foyers à des endroits différents, le second décalé d'un court instant.
       const s = seq++
       const blasts = [makeBlast(0, s, 0), makeBlast(1, s, 0.45 + Math.random() * 0.4)]
@@ -2438,7 +2497,7 @@ function YzmaDecor() {
     let clear: ReturnType<typeof setTimeout>
     let seq = 0
     const gap = () => YZMA_CAT_GAP_MIN_MS + Math.random() * (YZMA_CAT_GAP_MAX_MS - YZMA_CAT_GAP_MIN_MS)
-    const fire = () => {
+    const fire = fireRef.current = () => {
       const s = seq++
       // Grosse fumée noire DENSE : beaucoup de grosses bouffées qui montent du bas-centre en s'évasant et
       // recouvrent entièrement le chat, puis se dissipent (le révèlent).
@@ -2595,6 +2654,8 @@ const DIAMOND_TINTS = [
  *  rouge/bleu/blanc) + une cloche sans teinte. SURPRISE ponctuelle : une cascade d'EAU (#B93A59) se
  *  déverse ~7 s par moments. Éléments tirés une fois au montage ; rotations multiples de 360° (bouclage net). */
 function ClockworkDecor({ side }: { side?: 'left' | 'right' }) {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
   // La colonne du décor déborde de 10 % (de la largeur écran) vers le bord EXTÉRIEUR (gauche pour le
   // joueur, droite pour l'adversaire), donc une partie de la boîte est hors écran de ce côté. On biaise
   // la répartition horizontale vers le bord INTÉRIEUR (visible) pour que la pluie reste centrée sur la
@@ -2709,6 +2770,11 @@ function ClockworkDecor({ side }: { side?: 'left' | 'right' }) {
       }, delay)
     }
     schedule(15000 + Math.random() * 15000) // première cascade entre 15 et 30 s
+    // MODE TEST : déclenche la cascade d'eau à la demande.
+    fireRef.current = () => {
+      setWaterOn(true)
+      off = setTimeout(() => setWaterOn(false), 7000)
+    }
     return () => {
       clearTimeout(next)
       clearTimeout(off)
@@ -2841,6 +2907,8 @@ function randomBlobRadius(): string {
  *  tachetée). Une traînée d'EMPREINTES de pattes de chiot s'imprimera par moments dans la neige
  *  (étape 2). Éléments tirés une fois au montage, animations jouées en CSS (cf. index.css). */
 function CruellaDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
   // Flocons : profondeur (0 lointain → 1 proche) qui pilote taille / vitesse / flou / opacité, plus
   // un voletement latéral (--sx) et un déphasage pour un flux continu.
   const [flakes] = useState(() =>
@@ -2910,7 +2978,7 @@ function CruellaDecor() {
         }
       })
     }
-    const fire = () => {
+    const fire = fireRef.current = () => {
       const s = seq++
       setPawsLeaving(false)
       // Deux chiens en sens OPPOSÉS : un en HAUT (5–11 %), un un peu plus bas (62–69 %). La 2ᵉ traînée
@@ -3053,6 +3121,8 @@ const TREMAINE_DIRTY_SRC = '/animations/background_tremaine_sale.png'
  *  une nuée de poussière monte → au pic, le fond bascule (fondu) vers la version SALE ; ~1 min après,
  *  des savons apparaissent et le fond revient très lentement au propre. Tiré au montage ; CSS. */
 function TremaineDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'tremaine' }> }) {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
   // Poussières : fines particules pâles qui dérivent et montent lentement dans la pénombre
   // (schéma proche de la poussière d'or, teinte froide), tirées une fois au montage.
   const [motes] = useState(() =>
@@ -3089,7 +3159,7 @@ function TremaineDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'tr
     const gap = () =>
       TREMAINE_LUCIFER_GAP_MIN_MS + Math.random() * (TREMAINE_LUCIFER_GAP_MAX_MS - TREMAINE_LUCIFER_GAP_MIN_MS)
 
-    const fire = () => {
+    const fire = fireRef.current = () => {
       const s = seq++
       // — Nuée de poussière : grosses bouffées réparties sur la largeur, qui montent et envahissent le
       //   bas de l'image puis se dissipent (elles culminent ensemble pour masquer le basculement du fond).
@@ -3251,6 +3321,8 @@ const pad2 = (n: number) => String(n).padStart(2, '0')
  *  estampillés « TERMINATED »). SURPRISE périodique : le compte à rebours « PROJECT KRONOS COUNTDOWN »
  *  recouvre l'écran et défile en direct. Tiré au montage ; CSS. */
 function SyndromeDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
   // Particules d'énergie point-zéro : points cyan lumineux qui montent en dérivant et se fondent.
   const [motes] = useState(() =>
     Array.from({ length: 34 }, () => ({
@@ -3300,7 +3372,7 @@ function SyndromeDecor() {
     const timers: ReturnType<typeof setTimeout>[] = []
     let seq = 0
     const gap = () => KRONOS_GAP_MIN_MS + Math.random() * (KRONOS_GAP_MAX_MS - KRONOS_GAP_MIN_MS)
-    const fire = () => {
+    const fire = fireRef.current = () => {
       setKronos(seq++)
       timers.push(
         setTimeout(() => {
@@ -3501,6 +3573,10 @@ function CyberSkull({ leaving }: { leaving: boolean }) {
  *  se tape en ASCII caractère par caractère puis s'efface. Aléas figés au montage ; animations
  *  jouées en CSS (cf. index.css). */
 function CyberDecor({ side }: { side?: 'left' | 'right' }) {
+  const fireRef = useRef<() => void>(() => {}) // surprise : crâne ASCII
+  useSurpriseSub(fireRef)
+  const fireRef2 = useRef<() => void>(() => {}) // surprise : vague de glitch
+  useSurpriseSub(fireRef2)
   // La colonne du décor déborde vers le bord EXTÉRIEUR : on biaise la répartition horizontale vers
   // le bord INTÉRIEUR visible (comme Ratigan / Crochet).
   const [lo, hi] = side === 'right' ? [-8, 100] : side === 'left' ? [0, 108] : [0, 100]
@@ -3538,6 +3614,11 @@ function CyberDecor({ side }: { side?: 'left' | 'right' }) {
       }, delay)
     }
     schedule(8000 + Math.random() * 10000) // première vague entre 8 et 18 s
+    // MODE TEST : déclenche la vague de glitch à la demande.
+    fireRef2.current = () => {
+      setGlitchOn(true)
+      on = setTimeout(() => setGlitchOn(false), 1100)
+    }
     return () => {
       clearTimeout(next)
       clearTimeout(on)
@@ -3568,6 +3649,16 @@ function CyberDecor({ side }: { side?: 'left' | 'right' }) {
       }, delay)
     }
     schedule(12000 + Math.random() * 12000) // première apparition entre 12 et 24 s
+    // MODE TEST : déclenche l'apparition du crâne à la demande.
+    fireRef.current = () => {
+      setSkullLeaving(false)
+      setSkull(true)
+      leave = setTimeout(() => setSkullLeaving(true), SKULL_TYPE_MS + HOLD_MS)
+      clear = setTimeout(() => {
+        setSkull(false)
+        setSkullLeaving(false)
+      }, SKULL_TYPE_MS + HOLD_MS + FADE_MS)
+    }
     return () => {
       clearTimeout(show)
       clearTimeout(leave)
@@ -3619,6 +3710,8 @@ const CA_LIGHTNING_GAP_MAX_MS = 20000
  *  braises, et par moments un ÉCLAIR qui illumine la scène. Éléments tirés une fois au montage ; éclair
  *  piloté par un timer (cf. index.css, section « assaut du château »). */
 function CastleAssaultDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'castleAssault' }> }) {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
   // Pluie : traits fins et diagonaux qui tombent vite, répartis sur toute la largeur, déphasés.
   const [rain] = useState(() =>
     Array.from({ length: 150 }, () => ({
@@ -3697,6 +3790,8 @@ function CastleAssaultDecor({ decor }: { decor: Extract<VillainDecorData, { kind
       }, CA_LIGHTNING_GAP_MIN_MS + Math.random() * (CA_LIGHTNING_GAP_MAX_MS - CA_LIGHTNING_GAP_MIN_MS))
     }
     schedule()
+    // MODE TEST : déclenche un éclair à la demande.
+    fireRef.current = () => setFlash((f) => f + 1)
     return () => clearTimeout(next)
   }, [])
   return (
@@ -3971,6 +4066,8 @@ function DuelWanderer({ animals, puffBg, halo, firstMs }: { animals: DuelAnimal[
  *  rose) et Merlin (fumée bleue) se baladent dans la colonne et se transforment chacun toutes les
  *  minutes (cf. `DuelWanderer`). */
 function MimDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
   // Volutes de fumée rose/violette : quelques évents en bas, bouffées étagées par évent → colonnes.
   const VENTS = 5
   const PER_VENT = 4
@@ -4045,7 +4142,7 @@ function MimDecor() {
     let clear: ReturnType<typeof setTimeout>
     let seq = 0
     const gap = () => MIM_CARD_GAP_MIN_MS + Math.random() * (MIM_CARD_GAP_MAX_MS - MIM_CARD_GAP_MIN_MS)
-    const fire = () => {
+    const fire = fireRef.current = () => {
       const s = seq++
       const n = 14 + Math.floor(Math.random() * 10) // 14..23 cartes
       const items = Array.from({ length: n }, (_, i) => ({
@@ -4215,6 +4312,8 @@ const CAULDRON_GOLD_GAP_MAX_MS = CAULDRON_GOLD_TEST ? 10000 : 150000
  *  (réutilise `vaporRise`) et ÂMES/feux follets verts qui s'élèvent. SURPRISE périodique : éruption —
  *  flash vert + gerbe de vapeur + les Soldats Ressuscités se dressent hors du chaudron puis y retombent. */
 function CauldronDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
   // Volutes de vapeur VERTE qui montent de la gueule du Chaudron (concentrées au centre, au-dessus du pot).
   const SMOKE = 30
   const SMOKE_DUR = 11 // s (sert à étager les départs → colonne continue)
@@ -4256,7 +4355,7 @@ function CauldronDecor() {
     let clear: ReturnType<typeof setTimeout>
     let seq = 0
     const gap = () => CAULDRON_ERUPT_GAP_MIN_MS + Math.random() * (CAULDRON_ERUPT_GAP_MAX_MS - CAULDRON_ERUPT_GAP_MIN_MS)
-    const fire = () => {
+    const fire = fireRef.current = () => {
       const s = seq++
       // Grosses bouffées de vapeur verte qui jaillissent de la gueule, étalées sur le début de l'éruption.
       const puffs = Array.from({ length: 12 }, (_, i) => ({
@@ -4288,7 +4387,7 @@ function CauldronDecor() {
     let clear: ReturnType<typeof setTimeout>
     let seq = 0
     const gap = () => CAULDRON_GOLD_GAP_MIN_MS + Math.random() * (CAULDRON_GOLD_GAP_MAX_MS - CAULDRON_GOLD_GAP_MIN_MS)
-    const fire = () => {
+    const fire = fireRef.current = () => {
       setGolden(seq++)
       clear = setTimeout(() => {
         setGolden(null)
@@ -4434,6 +4533,8 @@ const SUNNY_BALLOON_COLORS = ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#c77d
  *  PAILLETTES montent en scintillant et une vignette tiède encadre le tout. Par moments, SURPRISE : une
  *  averse de JOUETS tombe en tournoyant. 100 % CSS. En reduced-motion : tout est figé. */
 function SunnysideDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
   // Nuages floconneux qui dérivent : altitude (top), taille, vitesse et phase variées. Chacun est un
   // amas de bosses (`.sunny-cloud` + pseudo-éléments en CSS) ; `--drift` = sens/longueur du trajet.
   const [clouds] = useState(() =>
@@ -4484,7 +4585,7 @@ function SunnysideDecor() {
     let clear: ReturnType<typeof setTimeout>
     let seq = 0
     const gap = () => SUNNY_TOY_GAP_MIN_MS + Math.random() * (SUNNY_TOY_GAP_MAX_MS - SUNNY_TOY_GAP_MIN_MS)
-    const fire = () => {
+    const fire = fireRef.current = () => {
       const s = seq++
       // Chaque jouet unique une fois + une bande d'aliens (3 à 7 exemplaires), le tout mélangé.
       const aliens = 3 + Math.floor(Math.random() * 5) // 3..7 aliens
@@ -4608,6 +4709,122 @@ function SunnysideDecor() {
   )
 }
 
+// ============================================================================
+// Décor « teamRocket » (Team Rocket — Pokémon) : le CIEL de la Team Rocket.
+// ============================================================================
+const TR_BLAST_DURATION_MS = 3800 // durée d'un blast-off (fuite + scintillement) — synchro avec le CSS
+const TR_BLAST_GAP_MIN_MS = 120_000 // « s'envole vers d'autres cieux » toutes les 2 à 4 min
+const TR_BLAST_GAP_MAX_MS = 240_000
+const TR_BLAST_TEST = true // ⚠️ true → blast-off toutes les ~10 s pour régler (à remettre false avant commit)
+
+/** Décor « teamRocket » : ciel bleu de jour — nuages blancs floconneux qui dérivent (réutilise
+ *  `.sunny-cloud`), soleil chaud (réutilise `.sunny-sun`), et la MONGOLFIÈRE Miaouss (image) qui
+ *  traverse lentement le ciel en tanguant. SURPRISE minutée : « La Team Rocket s'envole vers d'autres
+ *  cieux ! » — le trio (image `team_rocket_cieux.png`) jaillit du plateau, file en diagonale vers le
+ *  haut en rétrécissant (il s'éloigne), puis disparaît dans un éclat d'étoile (le *DING* de fin
+ *  d'épisode). 100 % CSS + l'asset de la fuite. En reduced-motion : ciel posé, dérives figées,
+ *  blast-off désactivé (le timer ne démarre pas). */
+function TeamRocketDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
+  // Le ballon est une image fournie (transparente) ; s'il manque, on l'escamote sans rien casser.
+  const [balloonOk, setBalloonOk] = useState(true)
+  // Nuages blancs floconneux qui dérivent (mêmes amas que Lotso, altitude/taille/vitesse/phase variées).
+  const [clouds] = useState(() =>
+    Array.from({ length: 8 }, (_, i) => ({
+      top: 4 + Math.random() * 56, // % (réparti sur le haut/milieu)
+      size: 8 + Math.random() * 12, // vh (hauteur de l'amas)
+      dur: 42 + Math.random() * 44, // s (dérive lente)
+      delay: -(Math.random() * 80), // s (phase décalée → déjà en place au montage)
+      dir: i % 2 === 0 ? 1 : -1, // sens de dérive alterné
+      op: 0.85 + Math.random() * 0.15,
+    })),
+  )
+  // SURPRISE : blast-off. Calque (dé)monté le temps de la scène, piloté par un timer aléatoire.
+  // Position de départ (x) et sens de la culbute (spin) tirés à chaque tir. Désactivé en reduced-motion.
+  const [blast, setBlast] = useState<{ seq: number; x: number; spin: number } | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let next: ReturnType<typeof setTimeout>
+    let clear: ReturnType<typeof setTimeout>
+    let seq = 0
+    const gap = () =>
+      TR_BLAST_TEST ? 10_000 : TR_BLAST_GAP_MIN_MS + Math.random() * (TR_BLAST_GAP_MAX_MS - TR_BLAST_GAP_MIN_MS)
+    const fire = (fireRef.current = () => {
+      const s = seq++
+      setBlast({
+        seq: s,
+        x: 28 + Math.random() * 24, // % (départ plutôt vers la gauche → fuite en diagonale vers le coin haut-droit)
+        spin: (Math.random() < 0.5 ? -1 : 1) * (120 + Math.random() * 140), // tours de la culbute, sens au hasard
+      })
+      clear = setTimeout(() => {
+        setBlast(null)
+        next = setTimeout(fire, gap())
+      }, TR_BLAST_DURATION_MS)
+    })
+    next = setTimeout(fire, gap())
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
+  return (
+    <div className="tr-sky-decor" aria-hidden>
+      {/* Soleil chaleureux dans un coin haut (réutilise le soleil de Sunnyside). */}
+      <div className="sunny-sun">
+        <span className="sunny-sun-rays" />
+        <span className="sunny-sun-core" />
+      </div>
+      {/* Nuages blancs floconneux qui dérivent. */}
+      {clouds.map((c, i) => (
+        <span
+          key={`tr-cloud-${i}`}
+          className="sunny-cloud"
+          style={{
+            top: `${c.top}%`,
+            height: `${c.size}vh`,
+            width: `${c.size * 1.7}vh`,
+            opacity: c.op,
+            animationName: c.dir === 1 ? 'sunnyCloudDriftR' : 'sunnyCloudDriftL',
+            animationDuration: `${c.dur}s`,
+            animationDelay: `${c.delay}s`,
+          }}
+        />
+      ))}
+      {/* La mongolfière Miaouss (ballon « R ») traverse lentement le ciel en tanguant. */}
+      {balloonOk && (
+        <span className="tr-balloon-drift" style={{ animationDelay: '-42s' }}>
+          <span className="tr-balloon-bob">
+            <img
+              className="tr-balloon-img"
+              src="/animations/team_rocket_ballon.png"
+              alt=""
+              draggable={false}
+              onError={() => setBalloonOk(false)}
+            />
+          </span>
+        </span>
+      )}
+      {/* SURPRISE : « s'envole vers d'autres cieux ! ». Le trio file vers le coin haut en rétrécissant,
+          puis un éclat d'étoile (DING) jaillit au point de fuite. */}
+      {blast && (
+        <div className="tr-blast" key={blast.seq}>
+          <div className="tr-blast-fly" style={{ left: `${blast.x}%` }}>
+            <img
+              className="tr-blast-trio"
+              src="/animations/team_rocket_cieux.png"
+              alt=""
+              draggable={false}
+              style={{ '--spin': `${blast.spin}deg` } as CSSProperties}
+            />
+            <span className="tr-twinkle" style={{ animationDelay: `${Math.round(TR_BLAST_DURATION_MS * 0.72)}ms` }} />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // Dé UNIQUE qui bascule sur une nouvelle face toutes les 10 s. Faces RÉELLES du jeu
 // (mêmes images que le lancer de dés : le dé en os rouge d'Oogie Boogie).
 const OOGIE_DIE_SWAP_MS = 10000
@@ -4629,6 +4846,8 @@ const OOGIE_BUGS_GAP_MAX_MS = OOGIE_BUGS_TEST ? 10000 : 150000
  *  nouvelle face toutes les 10 s, et 2-3 PERCE-OREILLES qui se baladent. SURPRISE : par moments une nuée
  *  de perce-oreilles se déverse depuis le bas. */
 function OogieDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
   // Dé UNIQUE : la face affichée + un compteur de bascule (sert de clé React pour rejouer l'anim de
   // tumble). Toutes les 10 s, on tire une nouvelle face (jamais deux fois la même d'affilée).
   const [die, setDie] = useState(() => ({ face: 1 + Math.floor(Math.random() * 6), flip: 0 }))
@@ -4682,7 +4901,7 @@ function OogieDecor() {
     let clear: ReturnType<typeof setTimeout>
     let seq = 0
     const gap = () => OOGIE_BUGS_GAP_MIN_MS + Math.random() * (OOGIE_BUGS_GAP_MAX_MS - OOGIE_BUGS_GAP_MIN_MS)
-    const fire = () => {
+    const fire = fireRef.current = () => {
       const s = seq++
       const items = Array.from({ length: 54 }, (_, i) => ({
         key: `${s}-${i}`,
@@ -4986,6 +5205,10 @@ const JUNGLE_FIRE_GAP_MAX_MS = JUNGLE_FIRE_TEST ? 11000 : 180000 // 3 min
  *  clignotent, et SHERE KHAN en silhouette noire tapi en bas (respiration subtile). Éléments tirés une
  *  fois au montage, animations en CSS (cf. index.css, section « jungle »). */
 function JungleDecor() {
+  const fireRef = useRef<() => void>(() => {}) // surprise : traversée du tigre
+  useSurpriseSub(fireRef)
+  const fireRef2 = useRef<() => void>(() => {}) // surprise : la Fleur Rouge (embrasement + pluie)
+  useSurpriseSub(fireRef2)
   // Lianes suspendues : image / position / largeur / longueur / amplitude & période de balancement /
   // déphasage / miroir / opacité de la silhouette, tirés une fois au montage. On distingue les lianes
   // FINES (liane 1/4/5, longues et étroites) des TOUFFES de feuillage (liane-3, large et courte) :
@@ -5088,6 +5311,11 @@ function JungleDecor() {
       }, delay)
     }
     schedule(JUNGLE_TIGER_TEST ? 2000 : 12000 + Math.random() * 18000) // 1ʳᵉ traversée après ~12–30 s
+    // MODE TEST : déclenche la traversée du tigre à la demande.
+    fireRef.current = () => {
+      setWalk(true)
+      cross = setTimeout(() => setWalk(false), JUNGLE_TIGER_WALK_MS)
+    }
     return () => {
       clearTimeout(next)
       clearTimeout(cross)
@@ -5163,6 +5391,7 @@ function JungleDecor() {
       })
     }
     at(JUNGLE_FIRE_TEST ? 3000 : 40000 + Math.random() * 30000, run) // 1ʳᵉ bouffée après ~40–70 s
+    fireRef2.current = run // MODE TEST : déclenche « la Fleur Rouge » à la demande.
     return () => timers.forEach(clearTimeout)
   }, [])
   return (
@@ -5335,6 +5564,15 @@ function JungleDecor() {
 export function VillainDecor({ villain, side }: { villain: VillainKey; side?: 'left' | 'right' }) {
   const decor = villainDecor(villain)
   if (!decor) return null
+  // Côté fourni à tous les décors (abonnement au bus de surprise du mode test).
+  return (
+    <DecorSideContext.Provider value={side ?? 'left'}>
+      {renderDecorBody(decor, side)}
+    </DecorSideContext.Provider>
+  )
+}
+
+function renderDecorBody(decor: VillainDecorData, side?: 'left' | 'right') {
   switch (decor.kind) {
     case 'film':
       return <FilmDecor />
@@ -5388,6 +5626,8 @@ export function VillainDecor({ villain, side }: { villain: VillainKey; side?: 'l
       return <SyndromeDecor />
     case 'sunnyside':
       return <SunnysideDecor />
+    case 'teamRocket':
+      return <TeamRocketDecor />
     case 'oogie':
       return <OogieDecor />
     case 'candy':

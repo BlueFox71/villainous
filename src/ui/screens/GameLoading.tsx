@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useGameStore, villainKeyOf, type VillainKey } from '../store/gameStore'
 import { villainDecor, decorAssets } from '../villainDecor'
-import { villainPortrait } from '../villainArt'
 import { VILLAIN_COLOR, DEFAULT_TINT_A, DEFAULT_TINT_B } from '../villainColors'
 
 interface Props {
@@ -116,21 +115,13 @@ export function GameLoading({ onReady }: Props) {
         backgroundImage: `radial-gradient(circle at 30% 40%, ${colorOf(keys[0])}cc, transparent 60%), radial-gradient(circle at 70% 60%, ${colorOf(keys[1]) ?? DEFAULT_TINT_B}cc, transparent 60%), linear-gradient(#0a0814, #0a0814)`,
       }}
     >
-      {/* Les deux vilains qui s'affrontent. */}
-      <div className="flex items-center gap-8">
-        {keys.map((k, i) => (
-          <div key={i} className="flex flex-col items-center gap-3">
-            <img
-              src={villainPortrait(k)}
-              alt=""
-              draggable={false}
-              className="h-36 w-36 rounded-2xl border-2 border-white/20 object-cover shadow-2xl sm:h-44 sm:w-44"
-              style={{ boxShadow: `0 0 40px ${colorOf(k)}99` }}
-            />
-            {i === 0 && <span className="text-2xl font-black text-white/30">VS</span>}
-          </div>
-        ))}
-      </div>
+      {/* Logo Villainous (identique à l'accueil). */}
+      <img
+        src="/titre_villainous.png"
+        alt="Disney Villainous"
+        draggable={false}
+        className="w-[40rem] max-w-[88vw] drop-shadow-[0_6px_24px_rgba(0,0,0,0.95)]"
+      />
 
       <div className="flex w-72 flex-col items-center gap-3">
         <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-200/80">

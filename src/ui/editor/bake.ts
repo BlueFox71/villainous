@@ -2,6 +2,7 @@
 // cartes (compositing canvas) + dos Vilain/Fatalité (depuis les couleurs). Le
 // résultat est entièrement autosuffisant pour être stocké et JOUÉ tel quel.
 import type { CustomVillain } from '../../data/customVillain'
+import { FATE_CARD_COLOR } from '../../data/customVillain'
 import { renderCardFace, renderCardBack } from './cardRender'
 import { renderBoard } from './boardRender'
 import { downscaleDataUrl } from './imageUtils'
@@ -15,13 +16,14 @@ const BOARD_STORE_W = 2000
 export async function bakeVillain(v: CustomVillain): Promise<CustomVillain> {
   const cards = await Promise.all(
     v.cards.map(async (c) => {
-      const face = await renderCardFace(c, v.color, v.fateBackColor)
+      const face = await renderCardFace(c, v.color, FATE_CARD_COLOR)
       const image = await downscaleDataUrl(face, FACE_STORE_W)
       return { ...c, image }
     }),
   )
-  const backVillainImage = await downscaleDataUrl(await renderCardBack(v.villainBackColor, v.name), BACK_STORE_W)
-  const backFateImage = await downscaleDataUrl(await renderCardBack(v.fateBackColor, v.name), BACK_STORE_W)
+  // Dos Vilain = couleur thématique ; dos Fatalité = blanc (parchemin d'origine).
+  const backVillainImage = await downscaleDataUrl(await renderCardBack(v.color, v.name), BACK_STORE_W)
+  const backFateImage = await downscaleDataUrl(await renderCardBack(FATE_CARD_COLOR, v.name), BACK_STORE_W)
   const boardImage = await downscaleDataUrl(await renderBoard(v), BOARD_STORE_W, 'image/jpeg', 0.9)
   return { ...v, cards, backVillainImage, backFateImage, boardImage }
 }

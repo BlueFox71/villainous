@@ -36,8 +36,8 @@ export const VILLAIN_COLOR: Record<string, string> = {
   'davy-jones': '#1E3836',
   davyJones: '#1E3836',
   tamatoa: '#47457F',
-  'team-rocket': '#7E1E29',
-  teamRocket: '#7E1E29',
+  'team-rocket': '#9D2B3A',
+  teamRocket: '#9D2B3A',
   dio: '#7A1326',
 }
 

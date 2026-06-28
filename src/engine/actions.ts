@@ -638,6 +638,10 @@ function applyPlayCard(
   if (card.requiresHyenaInRealm && !Object.values(me.board).flat().some((c) => c.isHyena)) {
     throw new Error('Aucune Hyène dans votre royaume : cette carte n’aurait aucun effet.')
   }
+  // Team Rocket — Évolution : injouable s'il n'y a aucun Allié dans le royaume (rien à faire évoluer).
+  if (card.requiresAllyInRealm && !Object.values(me.board).flat().some((c) => c.type === 'ally')) {
+    throw new Error('Aucun Allié dans votre royaume : cette carte n’aurait aucun effet.')
+  }
   // Scar — Suivez-moi ! : injouable s'il n'y a aucune Hyène sur un AUTRE lieu que
   // celui du pion (aucune Hyène à « suivre »).
   if (
@@ -1309,8 +1313,9 @@ function applyPlayCard(
       // fenêtre d'action distante FACULTATIVE (une action disponible de ce lieu,
       // hors Fatalité). On la pose après placement (l'économie d'actions est gérée
       // comme « Suivez-moi ! »). Sur le lieu du pion : aucun bonus (carte normale).
-      if ((card.effects ?? []).some((e) => e.type === 'ALLY_REMOTE_ACTION') && destId !== activePlayer(next).pawnLocation) {
-        next = openRemoteActionWindow(next, state.activePlayer, destId)
+      const remoteFx = (card.effects ?? []).find((e) => e.type === 'ALLY_REMOTE_ACTION')
+      if (remoteFx?.type === 'ALLY_REMOTE_ACTION' && destId !== activePlayer(next).pawnLocation) {
+        next = openRemoteActionWindow(next, state.activePlayer, destId, remoteFx.includeCovered)
       }
       // Mère Gothel — Frères Stabbington : joués sur le lieu de Raiponce (hors Tour),
       // on PEUT la déplacer sur la Tour (choix facultatif → pendingRaiponceToTower).
@@ -1573,6 +1578,26 @@ function applyFate(state: GameState, actionId: string): GameState {
       log: [...next.log, `${me.villainName} lance la Fatalité : **${pp.name}** est dévoilé(e) et joué(e) d'office sur **${forcedName}** !`],
     }
     return placeFateHeroWithEffects(next, target, state.activePlayer, pp, forced, forcedName)
+  }
+  // Héros « joué d'office dès qu'il est dévoilé » SANS lieu fixe (Team Rocket — Pikachu) :
+  // pas de choix de carte (les autres dévoilées sont défaussées), mais le fataliseur CHOISIT
+  // le lieu de pose chez la cible (pendingHeroPlacement).
+  const ppAny = r.revealed.find((c) => c.type === 'hero' && c.playWhenRevealed && !c.forcedFateLocation)
+  if (ppAny) {
+    const others = r.revealed.filter((c) => c.instanceId !== ppAny.instanceId)
+    let next = updatePlayer(state, target, () => ({ ...r.player, fateDiscard: [...r.player.fateDiscard, ...others] }))
+    next = consumeDragonFormReward(next, target)
+    next = consumePersifleur(next, action)
+    next = drawOnFateTargeted(next, target)
+    return {
+      ...next,
+      rngState: r.rngState,
+      usedActionIds: [...next.usedActionIds, actionId],
+      pendingFate: null,
+      activeFateTargets: [...(next.activeFateTargets ?? []), target],
+      pendingHeroPlacement: { chooserIndex: state.activePlayer, targetIndex: target, hero: ppAny },
+      log: [...next.log, `${me.villainName} lance la Fatalité : **${ppAny.name}** est dévoilé(e) et doit être joué(e) d'office — choisissez son lieu chez ${tgt.villainName}.`],
+    }
   }
   let next = updatePlayer(state, target, () => r.player)
   next = { ...next, rngState: r.rngState }
@@ -2199,6 +2224,14 @@ export function placeFateHeroWithEffects(
     ...p,
     board: { ...p.board, [to]: [...(p.board[to] ?? []), hero] },
   }))
+  // Suivi : Héros (Fatalité) joué CE TOUR par l'actif contre un adversaire (playedBy ≠ cible)
+  // → déclencheur Team Rocket « Pour vous jouer un mauvais tour » (Héros ≤3 reçu).
+  if (playedBy !== targetIndex) {
+    next = {
+      ...next,
+      activeFateHeroesAgainst: [...(next.activeFateHeroesAgainst ?? []), { target: targetIndex, strength: hero.strength ?? 0 }],
+    }
+  }
   next = {
     ...next,
     log: [
@@ -4878,6 +4911,23 @@ function applyVanquish(
       }
     }
   }
+  // Team Rocket — rose de James : si un Allié engagé dans ce Vanquish porte une rose de
+  // James, après avoir « éliminé un Héros » on déclenche l'action Attraper (auto : le
+  // Pokémon couché le plus fort). La rose est déjà défaussée avec l'Allié dépensé.
+  const roseUsed = allyInstanceIds.some((id) =>
+    Object.values(state.players[state.activePlayer].board)
+      .flat()
+      .some((c) => c.cardId === 'rose-de-james' && c.attachedTo === id),
+  )
+  if (roseUsed) {
+    const aidx = state.activePlayer
+    const couched = Object.values(next.players[aidx].board).flat().filter((c) => c.isPokemon && c.pokemonKO)
+    if (couched.length > 0) {
+      const target = [...couched].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+      next = { ...next, log: [...next.log, `rose de James : l'action Attraper se déclenche !`] }
+      next = capturePokemonInstance(next, aidx, target.instanceId)
+    }
+  }
   next = consumePersifleur(next, action)
   return { ...next, usedActionIds: [...next.usedActionIds, actionId] }
 }
@@ -4910,13 +4960,24 @@ function sweepKoPokemon(state: GameState): GameState {
     const p = next.players[idx]
     // Vaincu au tour N : Team Rocket doit l'attraper avant la fin de SON prochain tour
     // (N+2 en 1v1). Au-delà (≥ 2 tours écoulés), il part en défausse Fatalité.
+    // Pokédex volé (dans le royaume) : sursis d'UN tour supplémentaire (seuil ≥ 3).
+    const hasPokedex = Object.values(p.board).flat().some((c) => c.cardId === 'pokedex-vole')
+    const expiryAfter = hasPokedex ? 3 : 2
     const expired = Object.values(p.board)
       .flat()
-      .filter((c) => c.pokemonKO && c.koOnTurn !== undefined && next.turn - c.koOnTurn >= 2)
+      .filter((c) => c.pokemonKO && c.koOnTurn !== undefined && next.turn - c.koOnTurn >= expiryAfter)
     if (expired.length === 0) continue
     const expiredIds = new Set(expired.map((c) => c.instanceId))
-    const attached = Object.values(p.board).flat().filter((c) => c.attachedTo && expiredIds.has(c.attachedTo))
-    const removeIds = new Set<string>([...expiredIds, ...attached.map((c) => c.instanceId)])
+    // Lien dresseur↔Pokémon : un Pokémon invoqué qui part en défausse entraîne la
+    // défausse de SON dresseur (« Si ce Pokémon est défaussé, défaussez Sacha »). La
+    // CAPTURE n'y touche pas (capture ≠ défausse → le dresseur reste à vaincre).
+    const dresseurIds = new Set(expired.map((c) => c.summonedByInstanceId).filter((id): id is string => !!id))
+    const dresseurs = Object.values(p.board).flat().filter((c) => dresseurIds.has(c.instanceId))
+    const dresseurIdSet = new Set(dresseurs.map((c) => c.instanceId))
+    const attached = Object.values(p.board)
+      .flat()
+      .filter((c) => c.attachedTo && (expiredIds.has(c.attachedTo) || dresseurIdSet.has(c.attachedTo)))
+    const removeIds = new Set<string>([...expiredIds, ...dresseurIdSet, ...attached.map((c) => c.instanceId)])
     next = updatePlayer(next, idx, (pl) => ({
       ...pl,
       board: Object.fromEntries(
@@ -4925,12 +4986,17 @@ function sweepKoPokemon(state: GameState): GameState {
       fateDiscard: [
         ...pl.fateDiscard,
         ...expired.map((c) => ({ ...c, pokemonKO: undefined, koOnTurn: undefined, summonedByInstanceId: undefined })),
+        ...dresseurs.map((c) => ({ ...c })),
         ...attached.map((c) => ({ ...c, attachedTo: undefined })),
       ],
     }))
     next = {
       ...next,
-      log: [...next.log, ...expired.map((c) => `**${c.name}** (couché, non attrapé) part en défausse Fatalité.`)],
+      log: [
+        ...next.log,
+        ...expired.map((c) => `**${c.name}** (couché, non attrapé) part en défausse Fatalité.`),
+        ...dresseurs.map((c) => `**${c.name}** est défaussé : son Pokémon a quitté le jeu.`),
+      ],
     }
   }
   return next
@@ -5510,6 +5576,37 @@ function applyPlayCondition(
   return annotateShowcaseGain(next, scIdx, next.players[playerIndex].power - powerBefore)
 }
 
+/** Dévoile la 1ʳᵉ carte Fatalité de l'ADVERSAIRE actif et la joue immédiatement CONTRE lui.
+ *  Partagé par Tromperie (Jafar), Illusion (Ursula) et « Pour vous jouer un mauvais tour »
+ *  (Team Rocket). Héros → posé chez l'adversaire (le joueur réactif choisit le lieu via
+ *  pendingHeroPlacement) ; non-Héros → effet non encore géré, remis en défausse Fatalité. */
+function playOpponentTopFate(state: GameState, playerIndex: number, sourceName: string): GameState {
+  const oppIdx = state.activePlayer
+  const opp = state.players[oppIdx]
+  const reactorName = state.players[playerIndex].villainName
+  if (opp.fateDeck.length === 0 && opp.fateDiscard.length === 0) {
+    return { ...state, log: [...state.log, `${sourceName} : pioche Fatalité adverse vide.`] }
+  }
+  const r = revealFate(opp, 1, state.rngState)
+  let next: GameState = { ...updatePlayer(state, oppIdx, () => r.player), rngState: r.rngState }
+  const revealed = r.revealed[0]
+  if (!revealed) return next
+  if (revealed.type === 'hero') {
+    const locs = heroPlacementLocations(next, revealed, oppIdx)
+    if (locs.length === 0) {
+      next = updatePlayer(next, oppIdx, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, revealed] }))
+      return { ...next, log: [...next.log, `${sourceName} : **${revealed.name}** révélé, aucun lieu valide → défaussé.`] }
+    }
+    return {
+      ...next,
+      pendingHeroPlacement: { chooserIndex: playerIndex, targetIndex: oppIdx, hero: revealed },
+      log: [...next.log, `${reactorName} dévoile **${revealed.name}** (${sourceName}) — à placer chez ${next.players[oppIdx].villainName}.`],
+    }
+  }
+  next = updatePlayer(next, oppIdx, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, revealed] }))
+  return { ...next, log: [...next.log, `${sourceName} : **${revealed.name}** (non-Héros) — effet non encore géré, défaussé.`] }
+}
+
 /**
  * Résout l'EFFET d'une Condition déjà « jouée » (carte en défausse, showcase
  * poussé) pour le joueur `playerIndex`. Séparé d'applyPlayCondition pour être
@@ -5751,39 +5848,12 @@ function resolveConditionEffect(
     return { ...next, pendingManipulation: { playerIndex } }
   }
   if (card.cardId === 'tromperie') {
-    // Tromperie (Jafar) : dévoile la 1ʳᵉ carte Fatalité de l'ADVERSAIRE (joueur
-    // actif) et la joue immédiatement CONTRE lui. Héros → posé sur son plateau
-    // (1ᵉʳ lieu valide) ; non-Héros → non géré pour l'instant (remis en défausse).
-    const oppIdx = state.activePlayer
-    const opp = next.players[oppIdx]
-    if (opp.fateDeck.length === 0 && opp.fateDiscard.length === 0) {
-      return { ...next, log: [...next.log, 'Tromperie : pioche Fatalité adverse vide.'] }
-    }
-    const r = revealFate(opp, 1, next.rngState)
-    next = { ...updatePlayer(next, oppIdx, () => r.player), rngState: r.rngState }
-    const revealed = r.revealed[0]
-    if (!revealed) return next
-    if (revealed.type === 'hero') {
-      const locs = heroPlacementLocations(next, revealed, oppIdx)
-      if (locs.length === 0) {
-        next = updatePlayer(next, oppIdx, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, revealed] }))
-        return { ...next, log: [...next.log, `Tromperie : **${revealed.name}** révélé, aucun lieu valide → défaussé.`] }
-      }
-      // Le joueur qui a joué Tromperie choisit où poser le Héros (RESOLVE_HERO_PLACEMENT).
-      return {
-        ...next,
-        pendingHeroPlacement: { chooserIndex: playerIndex, targetIndex: oppIdx, hero: revealed },
-        log: [
-          ...next.log,
-          `${player.villainName} dévoile **${revealed.name}** (Tromperie) — à placer chez ${next.players[oppIdx].villainName}.`,
-        ],
-      }
-    }
-    next = updatePlayer(next, oppIdx, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, revealed] }))
-    return {
-      ...next,
-      log: [...next.log, `Tromperie : **${revealed.name}** (non-Héros) — effet non encore géré, défaussé.`],
-    }
+    // Tromperie (Jafar) : dévoile la 1ʳᵉ Fatalité de l'adversaire et la lui joue.
+    return playOpponentTopFate(next, playerIndex, 'Tromperie')
+  }
+  if (card.cardId === 'mauvais-tour') {
+    // Team Rocket — Pour vous jouer un mauvais tour : idem (réutilise la même logique).
+    return playOpponentTopFate(next, playerIndex, 'Pour vous jouer un mauvais tour')
   }
   if (card.cardId === 'obsession') {
     // Obsession (Crochet) : dévoile son propre deck Fatalité jusqu'à un Héros et
@@ -5823,31 +5893,8 @@ function resolveConditionEffect(
     return { ...next, pendingTyrannyDiscard: { playerIndex, count: discardCount } }
   }
   if (card.cardId === 'illusion') {
-    // Illusion (Ursula) : dévoile la 1ʳᵉ carte Fatalité de l'adversaire et la joue
-    // immédiatement contre lui (comme Tromperie).
-    const oppIdx = state.activePlayer
-    const opp = next.players[oppIdx]
-    if (opp.fateDeck.length === 0 && opp.fateDiscard.length === 0) {
-      return { ...next, log: [...next.log, 'Illusion : pioche Fatalité adverse vide.'] }
-    }
-    const r = revealFate(opp, 1, next.rngState)
-    next = { ...updatePlayer(next, oppIdx, () => r.player), rngState: r.rngState }
-    const revealed = r.revealed[0]
-    if (!revealed) return next
-    if (revealed.type === 'hero') {
-      const locs = heroPlacementLocations(next, revealed, oppIdx)
-      if (locs.length === 0) {
-        next = updatePlayer(next, oppIdx, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, revealed] }))
-        return { ...next, log: [...next.log, `Illusion : **${revealed.name}** révélé, aucun lieu valide → défaussé.`] }
-      }
-      return {
-        ...next,
-        pendingHeroPlacement: { chooserIndex: playerIndex, targetIndex: oppIdx, hero: revealed },
-        log: [...next.log, `${player.villainName} dévoile **${revealed.name}** (Illusion) — à placer chez ${next.players[oppIdx].villainName}.`],
-      }
-    }
-    next = updatePlayer(next, oppIdx, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, revealed] }))
-    return { ...next, log: [...next.log, `Illusion : **${revealed.name}** (non-Héros) — effet non géré, défaussé.`] }
+    // Illusion (Ursula) : dévoile la 1ʳᵉ Fatalité de l'adversaire et la lui joue (comme Tromperie).
+    return playOpponentTopFate(next, playerIndex, 'Illusion')
   }
   if (card.cardId === 'rage') {
     // Rage (Hadès) : déplace un Héros n'importe où dans son royaume (auto : le
@@ -6416,6 +6463,63 @@ function applyResolveLotsoTarget(state: GameState, instanceId: string): GameStat
   if (pending.kind === 'reduce') next = { ...lotsoReduceHero(next, idx, instanceId, pending.amount, pending.toZero), pendingLotsoTarget: null }
   else next = { ...lotsoMoveToRoom(next, idx, instanceId), pendingLotsoTarget: null }
   return next
+}
+
+/** Team Rocket — résout `pendingEvolveAlly` : fait évoluer l'Allié choisi (Abo→Arbok,
+ *  Smogo→Smogogo, Miaouss→Persian). L'Allié de base (et ses Objets associés) est défaussé ;
+ *  son évolution est cherchée (pioche → défausse → main) et posée sur le même lieu. La
+ *  pioche est mélangée si l'évolution en a été tirée (tutor). */
+function applyResolveEvolveAlly(state: GameState, instanceId: string): GameState {
+  const pending = state.pendingEvolveAlly
+  if (!pending) throw new Error('Aucune évolution en attente.')
+  if (!pending.candidateIds.includes(instanceId)) throw new Error('Allié invalide pour cette évolution.')
+  const idx = pending.playerIndex
+  const p = state.players[idx]
+  const loc = p.locations.find((l) => (p.board[l.id] ?? []).some((c) => c.instanceId === instanceId))?.id
+  const base = loc ? (p.board[loc] ?? []).find((c) => c.instanceId === instanceId) : undefined
+  if (!loc || !base || !base.evolvesToCardId) return { ...state, pendingEvolveAlly: null }
+  const evoCardId = base.evolvesToCardId
+  // Cherche l'évolution : pioche → défausse → main (copies: 1 → forcément trouvable
+  // hors royaume, puisqu'elle n'y est pas déjà — condition des candidats).
+  let evo: CardInstance | undefined
+  let source: 'deck' | 'discard' | 'hand' | undefined
+  if (p.deck.some((c) => c.cardId === evoCardId)) { evo = p.deck.find((c) => c.cardId === evoCardId); source = 'deck' }
+  else if (p.discard.some((c) => c.cardId === evoCardId)) { evo = p.discard.find((c) => c.cardId === evoCardId); source = 'discard' }
+  else if (p.hand.some((c) => c.cardId === evoCardId)) { evo = p.hand.find((c) => c.cardId === evoCardId); source = 'hand' }
+  if (!evo || !source) {
+    return { ...state, pendingEvolveAlly: null, log: [...state.log, `${p.villainName} : évolution (${evoCardId}) introuvable.`] }
+  }
+  const evoId = evo.instanceId
+  // Objets associés à l'Allié de base : défaussés avec lui.
+  const attached = (p.board[loc] ?? []).filter((c) => c.attachedTo === instanceId)
+  const removeFromBoard = new Set<string>([instanceId, ...attached.map((c) => c.instanceId)])
+  let next = updatePlayer(state, idx, (pl) => ({
+    ...pl,
+    board: {
+      ...pl.board,
+      [loc]: [
+        ...(pl.board[loc] ?? []).filter((c) => !removeFromBoard.has(c.instanceId)),
+        { ...evo!, attachedTo: undefined },
+      ],
+    },
+    deck: source === 'deck' ? pl.deck.filter((c) => c.instanceId !== evoId) : pl.deck,
+    discard: [
+      ...(source === 'discard' ? pl.discard.filter((c) => c.instanceId !== evoId) : pl.discard),
+      { ...base, attachedTo: undefined },
+      ...attached.map((c) => ({ ...c, attachedTo: undefined })),
+    ],
+    hand: source === 'hand' ? pl.hand.filter((c) => c.instanceId !== evoId) : pl.hand,
+  }))
+  if (source === 'deck') {
+    const sh = shuffle(next.players[idx].deck, next.rngState)
+    next = { ...updatePlayer(next, idx, (pl) => ({ ...pl, deck: sh.result })), rngState: sh.state }
+  }
+  const locLabel = p.locations.find((l) => l.id === loc)?.name ?? loc
+  return {
+    ...next,
+    pendingEvolveAlly: null,
+    log: [...next.log, `**${base.name}** évolue en **${evo.name}** sur **${locLabel}** !`],
+  }
 }
 
 /** Lotso — Réinitialisation : déplace la tuile Buzz (mode Démo) vers le lieu choisi
@@ -9481,7 +9585,7 @@ function applyZaWarudoRelocate(state: GameState, to: string): GameState {
  *  Même mécanique que « Suivez-moi ! » : pendant la fenêtre, seules les actions
  *  NON-Fatalité de ce lieu sont jouables ; après UNE action (clearGiant) ou un
  *  renoncement (SKIP_REMOTE_ACTION), l'économie d'actions normale est restaurée. */
-function openRemoteActionWindow(state: GameState, idx: number, locationId: LocationId): GameState {
+function openRemoteActionWindow(state: GameState, idx: number, locationId: LocationId, includeCovered = false): GameState {
   const p = state.players[idx]
   const dest = findLocation(p, locationId)
   if (!dest) return state
@@ -9493,9 +9597,11 @@ function openRemoteActionWindow(state: GameState, idx: number, locationId: Locat
     ...state,
     actAtLocation: locationId,
     actAtLocationSkippable: true,
+    // Smogogo : « recouverte ou non » → les actions recouvertes du lieu sont aussi jouables.
+    actAtLocationIgnoreCover: includeCovered ? true : null,
     usedActionIds: [...preserved, ...fateIds],
     usedBeforeGiant: state.usedActionIds,
-    log: [...state.log, `Brutes : ${p.villainName} peut effectuer une action sur **${dest.name}** (hors Fatalité).`],
+    log: [...state.log, `${p.villainName} peut effectuer une action sur **${dest.name}** (hors Fatalité${includeCovered ? ', recouverte ou non' : ''}).`],
   }
 }
 
@@ -9506,6 +9612,7 @@ function applySkipRemoteAction(state: GameState): GameState {
     ...state,
     actAtLocation: null,
     actAtLocationSkippable: null,
+    actAtLocationIgnoreCover: null,
     usedActionIds: state.usedBeforeGiant ?? state.usedActionIds,
     usedBeforeGiant: null,
     log: [...state.log, `Brutes : ${activePlayer(state).villainName} renonce à l'action distante.`],
@@ -9521,6 +9628,7 @@ function clearGiant(before: GameState, after: GameState): GameState {
     ...after,
     actAtLocation: null,
     actAtLocationSkippable: null,
+    actAtLocationIgnoreCover: null,
     usedActionIds: before.usedBeforeGiant ?? after.usedActionIds,
     usedBeforeGiant: null,
   }
@@ -9678,6 +9786,7 @@ function applyEndTurn(state: GameState): GameState {
     pendingTrapVanquish: null,
     actAtLocation: null,
     actAtLocationSkippable: null,
+    actAtLocationIgnoreCover: null,
     usedBeforeGiant: null,
     pendingGiantAction: null,
     pendingTitanMove: null,
@@ -9694,6 +9803,7 @@ function applyEndTurn(state: GameState): GameState {
     activePlayedItemCount: 0,
     activePlayedAllyCount: 0,
     activeFateTargets: [],
+    activeFateHeroesAgainst: [],
     // Effets « jusqu'à la fin de votre tour » du joueur qui termine (Sablier Géant).
     players: drawn.players.map((p, i) =>
       i === drawn.activePlayer
@@ -10778,6 +10888,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveIdentification(state, action.cardInstanceId, action.to)
     case 'RESOLVE_LOTSO_TARGET':
       return applyResolveLotsoTarget(state, action.instanceId)
+    case 'RESOLVE_EVOLVE_ALLY':
+      return applyResolveEvolveAlly(state, action.instanceId)
     case 'RESOLVE_LOTSO_BUZZ_MOVE':
       return applyResolveLotsoBuzzMove(state, action.to)
     case 'RESOLVE_LOTSO_BOOKWORM':

@@ -10,7 +10,8 @@
 import type { CustomVillain } from '../../data/customVillain'
 import type { LocationActionType } from '../../engine/types'
 import { loadImage } from './imageUtils'
-import { BOARD_W, BOARD_H, OBJ_PANEL, COL_RECTS, NAME_Y_PCT, customActionPositions } from './boardLayout'
+import { EDITOR_FONT, ensureFonts } from './fonts'
+import { BOARD_W, BOARD_H, OBJ_PANEL, COL_RECTS, LOC_IMG, NAME_Y_PCT, customActionPositions } from './boardLayout'
 
 const DIR = '/editor/board'
 const cache = new Map<string, Promise<HTMLImageElement>>()
@@ -24,7 +25,9 @@ function asset(name: string): Promise<HTMLImageElement> {
   return p
 }
 
-const FONT = 'Georgia, "Times New Roman", serif'
+// Police « Esteban » du gabarit, utilisée pour TOUTE la typographie du plateau
+// (nom du vilain, objectif, noms de lieux). Repli serif si elle ne charge pas.
+const FONT = EDITOR_FONT
 const GOLD = '#c9a14a'
 const INK = '#f4ecd8'
 
@@ -42,15 +45,29 @@ const ACTION_ICONS: Partial<Record<LocationActionType, string>> = {
   ACTIVATE: 'action-activate.png',
 }
 
-function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, w: number, h: number) {
-  const scale = Math.max(w / img.width, h / img.height)
+/** Dessine `img` en « cover » dans (x,y,w,h). `posX`/`posY` (0..1) choisissent la
+ *  partie visible quand l'image déborde (0 = bord gauche/haut, 0.5 = centre, 1 =
+ *  bord droit/bas), à la manière de CSS object-position. `zoom` (≥1) agrandit. */
+function drawCover(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  radius = 0,
+  posX = 0.5,
+  posY = 0.5,
+  zoom = 1,
+) {
+  const scale = Math.max(w / img.width, h / img.height) * zoom
   const dw = img.width * scale
   const dh = img.height * scale
   ctx.save()
-  ctx.beginPath()
-  ctx.rect(x, y, w, h)
+  if (radius > 0) roundRect(ctx, x, y, w, h, radius)
+  else { ctx.beginPath(); ctx.rect(x, y, w, h) }
   ctx.clip()
-  ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh)
+  ctx.drawImage(img, x + (w - dw) * posX, y + (h - dh) * posY, dw, dh)
   ctx.restore()
 }
 
@@ -71,6 +88,56 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, maxW: number): string
   return lines
 }
 
+/** Disque de fond (gabarit « Fill #4 ») teinté à la COULEUR DU VILAIN (légèrement
+ *  assombrie pour garder l'icône dorée lisible), prêt à composer sous les anneaux
+ *  d'action. Renvoie null si l'image est illisible. */
+let discCache: { size: number; color: string; canvas: HTMLCanvasElement } | null = null
+async function tintedDisc(
+  asset: (name: string) => Promise<HTMLImageElement>,
+  size: number,
+  color: string,
+): Promise<HTMLCanvasElement | null> {
+  const px = Math.round(size)
+  if (discCache && discCache.size === px && discCache.color === color) return discCache.canvas
+  try {
+    const fill = await asset('action-fill.png')
+    const oc = document.createElement('canvas')
+    oc.width = px
+    oc.height = px
+    const octx = oc.getContext('2d')!
+    octx.drawImage(fill, 0, 0, px, px)
+    octx.globalCompositeOperation = 'source-in' // ne garde que la forme du disque
+    octx.fillStyle = color
+    octx.fillRect(0, 0, px, px)
+    octx.globalCompositeOperation = 'source-atop' // assombrit la couleur du vilain
+    octx.fillStyle = 'rgba(0,0,0,0.34)'
+    octx.fillRect(0, 0, px, px)
+    discCache = { size: px, color, canvas: oc }
+    return oc
+  } catch {
+    return null
+  }
+}
+
+/** Règle `ctx.font` (police Esteban) à la plus grande taille ≤ `start` (et ≥ `min`)
+ *  telle que `text` tienne dans `maxW`. Renvoie la taille retenue. */
+function fitFont(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxW: number,
+  start: number,
+  min: number,
+  weight = '',
+): number {
+  let s = start
+  ctx.font = `${weight}${s}px ${FONT}`
+  while (ctx.measureText(text).width > maxW && s > min) {
+    s -= 2
+    ctx.font = `${weight}${s}px ${FONT}`
+  }
+  return s
+}
+
 /** Médaillon ovale : fond ardoise + double anneau doré (style Realm). */
 function drawMedallion(ctx: CanvasRenderingContext2D, cx: number, cy: number, rx: number, ry: number) {
   ctx.save()
@@ -78,12 +145,12 @@ function drawMedallion(ctx: CanvasRenderingContext2D, cx: number, cy: number, rx
   ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
   ctx.fillStyle = 'rgba(26,24,30,0.92)'
   ctx.fill()
-  ctx.lineWidth = 11
+  ctx.lineWidth = Math.max(4, rx * 0.062)
   ctx.strokeStyle = GOLD
   ctx.stroke()
   ctx.beginPath()
-  ctx.ellipse(cx, cy, rx - 26, ry - 22, 0, 0, Math.PI * 2)
-  ctx.lineWidth = 5
+  ctx.ellipse(cx, cy, rx - rx * 0.15, ry - ry * 0.15, 0, 0, Math.PI * 2)
+  ctx.lineWidth = Math.max(2, rx * 0.028)
   ctx.stroke()
   ctx.restore()
 }
@@ -221,6 +288,7 @@ function arrow(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number
 
 /** Rend le plateau complet d'un vilain personnalisé en dataURL PNG. */
 export async function renderBoard(v: CustomVillain): Promise<string> {
+  await ensureFonts()
   const canvas = document.createElement('canvas')
   canvas.width = BOARD_W
   canvas.height = BOARD_H
@@ -238,26 +306,38 @@ export async function renderBoard(v: CustomVillain): Promise<string> {
     ctx.globalCompositeOperation = 'source-over'
   } catch { /* sans texture */ }
 
-  // 3) Illustrations de lieux (par colonne).
+  // 3) Illustrations de lieux : confinées à la BOÎTE de la colonne (sous le bord
+  //    haut, au-dessus du nom), coins arrondis pour épouser la bordure dorée.
+  const imgH = LOC_IMG.y1 - LOC_IMG.y0
   for (let i = 0; i < v.locations.length && i < COL_RECTS.length; i++) {
     const loc = v.locations[i]
     const r = COL_RECTS[i]
     if (loc.image) {
       try {
-        drawCover(ctx, await loadImage(loc.image), r.x0, 0, r.x1 - r.x0, BOARD_H)
+        const px = (loc.imagePos?.x ?? 50) / 100
+        const py = (loc.imagePos?.y ?? 50) / 100
+        const z = loc.imagePos?.zoom ?? 1
+        drawCover(ctx, await loadImage(loc.image), r.x0, LOC_IMG.y0, r.x1 - r.x0, imgH, 36, px, py, z)
       } catch { /* illisible */ }
     }
-    const grad = ctx.createLinearGradient(0, BOARD_H * 0.74, 0, BOARD_H)
+    // Léger assombrissement en bas de l'illustration (lisibilité du nom).
+    const grad = ctx.createLinearGradient(0, LOC_IMG.y1 - imgH * 0.28, 0, LOC_IMG.y1)
     grad.addColorStop(0, 'rgba(0,0,0,0)')
-    grad.addColorStop(1, 'rgba(0,0,0,0.78)')
+    grad.addColorStop(1, 'rgba(0,0,0,0.72)')
+    ctx.save()
+    roundRect(ctx, r.x0, LOC_IMG.y0, r.x1 - r.x0, imgH, 36)
+    ctx.clip()
     ctx.fillStyle = grad
-    ctx.fillRect(r.x0, BOARD_H * 0.74, r.x1 - r.x0, BOARD_H * 0.26)
+    ctx.fillRect(r.x0, LOC_IMG.y1 - imgH * 0.28, r.x1 - r.x0, imgH * 0.28)
+    ctx.restore()
   }
 
   // 4) Bandeaux sombres en haut des colonnes (zone des Héros / rangée du haut).
+  //    Le PNG est noir opaque ; on l'applique en semi-transparence pour laisser
+  //    transparaître l'illustration assombrie (look « zone Héros » du gabarit).
   try {
     const hd = await asset('realm-herodark.png')
-    ctx.globalAlpha = 0.34
+    ctx.globalAlpha = 0.5
     ctx.drawImage(hd, 0, 0, BOARD_W, BOARD_H)
     ctx.globalAlpha = 1
   } catch { /* sans bandeaux */ }
@@ -269,21 +349,51 @@ export async function renderBoard(v: CustomVillain): Promise<string> {
 
   // 6) Panneau Objectif (gauche).
   const pw = OBJ_PANEL.x1 - OBJ_PANEL.x0
-  ctx.fillStyle = 'rgba(0,0,0,0.30)'
-  ctx.fillRect(OBJ_PANEL.x0, 0, pw, BOARD_H)
+  const cx = (OBJ_PANEL.x0 + OBJ_PANEL.x1) / 2
+
+  // Portrait du vilain : PLEINE HAUTEUR, un peu plus étroit que le panneau pour ne
+  //  pas serrer le bord droit (la 1re colonne commence à x=730).
+  const PORTRAIT_W = 697
   const villainArt = v.presentation ?? v.portrait
   if (villainArt) {
     try {
-      drawCover(ctx, await loadImage(villainArt), OBJ_PANEL.x0 + 30, 110, pw - 60, 600)
+      const px = (v.portraitPos?.x ?? 50) / 100
+      const py = (v.portraitPos?.y ?? 50) / 100
+      const z = v.portraitPos?.zoom ?? 1
+      drawCover(ctx, await loadImage(villainArt), 0, 0, PORTRAIT_W, BOARD_H, 0, px, py, z)
     } catch { /* sans illustration */ }
   }
+
+  // Dégradé sombre en haut (lisibilité du nom du vilain par-dessus le portrait).
+  {
+    const g = ctx.createLinearGradient(0, 0, 0, 230)
+    g.addColorStop(0, 'rgba(0,0,0,0.62)')
+    g.addColorStop(1, 'rgba(0,0,0,0)')
+    ctx.fillStyle = g
+    ctx.fillRect(0, 0, PORTRAIT_W, 230)
+  }
+
+  // Fond sombre de la boîte Objectif (intérieur du cadre doré) : lisibilité du
+  // texte par-dessus le portrait.
+  ctx.save()
+  roundRect(ctx, 90, 812, 507, 352, 10)
+  ctx.fillStyle = 'rgba(16,14,20,0.78)'
+  ctx.fill()
+  ctx.restore()
+
+  // Cadre doré de l'objectif + ligne de séparation (calques du gabarit).
   try {
     ctx.drawImage(await asset('realm-objective.png'), 0, 0, BOARD_W, BOARD_H)
   } catch { /* sans cadre */ }
-  const cx = (OBJ_PANEL.x0 + OBJ_PANEL.x1) / 2
+  try {
+    ctx.drawImage(await asset('realm-objective-line.png'), 0, 0, BOARD_W, BOARD_H)
+  } catch { /* sans ligne */ }
+
   ctx.fillStyle = '#e8c879'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
+
+  // Nom du vilain (bandeau du haut).
   {
     let s = 58
     ctx.font = `bold ${s}px ${FONT}`
@@ -293,21 +403,30 @@ export async function renderBoard(v: CustomVillain): Promise<string> {
     }
     ctx.fillText(v.name.toUpperCase(), cx, 56)
   }
-  ctx.fillStyle = '#e8c879'
-  ctx.font = `600 40px ${FONT}`
-  ctx.fillText('OBJECTIF', cx, 872)
+
+  // Intitulé « OBJECTIF DE {nom} » sur deux lignes, AU-DESSUS de la ligne (y≈938).
+  {
+    const boxW = 507 - 56
+    fitFont(ctx, 'OBJECTIF DE', boxW, 34, 22, '600 ')
+    ctx.fillText('OBJECTIF DE', cx, 858)
+    const nm = v.name.toUpperCase()
+    fitFont(ctx, nm, boxW, 42, 22, 'bold ')
+    ctx.fillText(nm, cx, 905)
+  }
+
   if (v.boardObjective.trim()) {
     ctx.fillStyle = INK
     ctx.textBaseline = 'top'
-    let s = 34
+    const boxW = 507 - 56
+    let s = 32
     ctx.font = `${s}px ${FONT}`
-    let lines = wrap(ctx, v.boardObjective.trim(), pw - 90)
-    while (lines.length * (s + 8) > 280 && s > 20) {
+    let lines = wrap(ctx, v.boardObjective.trim(), boxW)
+    while (lines.length * (s + 8) > 196 && s > 18) {
       s -= 2
       ctx.font = `${s}px ${FONT}`
-      lines = wrap(ctx, v.boardObjective.trim(), pw - 90)
+      lines = wrap(ctx, v.boardObjective.trim(), boxW)
     }
-    let y = 940
+    let y = 966
     for (const line of lines) {
       ctx.fillText(line, cx, y)
       y += s + 8
@@ -319,26 +438,33 @@ export async function renderBoard(v: CustomVillain): Promise<string> {
   for (let i = 0; i < v.locations.length && i < COL_RECTS.length; i++) {
     const loc = v.locations[i]
     const r = COL_RECTS[i]
+    const name = loc.name.toUpperCase()
     ctx.fillStyle = INK
     ctx.textAlign = 'center'
     ctx.shadowColor = 'rgba(0,0,0,0.85)'
     ctx.shadowBlur = 14
     let s = 54
     ctx.font = `bold ${s}px ${FONT}`
-    while (ctx.measureText(loc.name).width > r.x1 - r.x0 - 40 && s > 22) {
+    while (ctx.measureText(name).width > r.x1 - r.x0 - 40 && s > 22) {
       s -= 2
       ctx.font = `bold ${s}px ${FONT}`
     }
-    ctx.fillText(loc.name, (r.x0 + r.x1) / 2, BOARD_H * (NAME_Y_PCT / 100))
+    ctx.fillText(name, (r.x0 + r.x1) / 2, BOARD_H * (NAME_Y_PCT / 100))
     ctx.shadowBlur = 0
   }
 
   // 8) Médaillons d'action aux positions canoniques. On privilégie l'icône
   //    AUTHENTIQUE du gabarit (PNG, anneau inclus) ; à défaut, fallback vectoriel.
   const pos = customActionPositions(v.locations)
-  const RX = 178
-  const RY = 150
-  const ICON = 320 // taille de dessin de l'icône PNG (carrée), en px
+  const RX = 108
+  const RY = 100
+  const ICON = 210 // taille de dessin de l'icône PNG (carrée), en px — calée sur le gabarit
+  const DISC = ICON * 0.97 // disque de fond, juste à l'intérieur de l'anneau doré
+
+  // Disque sombre commun à tous les médaillons (gabarit « Fill #4 » teinté en
+  // ardoise) : sans lui, l'arrière-plan transparaîtrait à travers l'anneau ajouré.
+  const disc = await tintedDisc(asset, DISC, v.color)
+
   for (const loc of v.locations) {
     for (const a of loc.actions) {
       const p = pos[loc.id]?.[a.id]
@@ -349,23 +475,39 @@ export async function renderBoard(v: CustomVillain): Promise<string> {
       let drawn = false
       if (file) {
         try {
-          ctx.drawImage(await asset(file), px - ICON / 2, py - ICON / 2, ICON, ICON)
+          const ring = await asset(file)
+          if (disc) ctx.drawImage(disc, px - DISC / 2, py - DISC / 2, DISC, DISC)
+          ctx.drawImage(ring, px - ICON / 2, py - ICON / 2, ICON, ICON)
           drawn = true
         } catch { /* image illisible → fallback vectoriel */ }
       }
       if (!drawn) {
         drawMedallion(ctx, px, py, RX, RY)
-        drawIcon(ctx, a.type, px, py, 124, a.amount)
+        drawIcon(ctx, a.type, px, py, 84, a.amount)
       }
-      // Gemme « Gagner du pouvoir » : le PNG est vide, on imprime le chiffre.
+      // Gemme « Gagner du pouvoir » : le PNG est vide, on imprime le montant —
+      // via les chiffres dorés du gabarit (1/2/3), sinon en typo dorée.
       if (drawn && a.type === 'GAIN_POWER') {
-        ctx.save()
-        ctx.fillStyle = GOLD
-        ctx.font = `bold 118px ${FONT}`
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-        ctx.fillText(String(a.amount ?? 1), px, py + 6)
-        ctx.restore()
+        const amt = a.amount ?? 1
+        let printed = false
+        if (amt >= 1 && amt <= 3) {
+          try {
+            const num = await asset(`power-${amt}.png`)
+            const h = ICON * 0.42
+            const w = (num.width * h) / num.height
+            ctx.drawImage(num, px - w / 2, py - h / 2, w, h)
+            printed = true
+          } catch { /* image illisible → typo */ }
+        }
+        if (!printed) {
+          ctx.save()
+          ctx.fillStyle = GOLD
+          ctx.font = `bold 78px ${FONT}`
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(String(amt), px, py + 6)
+          ctx.restore()
+        }
       }
     }
   }

@@ -1297,8 +1297,10 @@ export type Effect =
   | { type: 'MOVE_HERO_FROM_HOST_ANYWHERE' }
   /** Hadès — Œil des Moires : dévoile la pioche Vilain jusqu'à une carte de type
    *  `cardType` (Allié — Titans inclus), l'ajoute à la main, défausse les autres.
-   *  Variante NON interactive de REVEAL_UNTIL_TYPE (un seul type, pas de choix). */
-  | { type: 'REVEAL_VILLAIN_UNTIL_TYPE'; cardType: CardType }
+   *  Variante NON interactive de REVEAL_UNTIL_TYPE (un seul type, pas de choix).
+   *  `keepOthersOnTop` (Team Rocket — James) : remet les autres dévoilées sur le
+   *  DESSUS de la pioche (ordre conservé) au lieu de les défausser. */
+  | { type: 'REVEAL_VILLAIN_UNTIL_TYPE'; cardType: CardType; keepOthersOnTop?: boolean }
   /** Dr Facilier — Divination : si l'acteur est au Royaume du Vaudou, mélange sa
    *  Pile de l'Au-delà et révèle `count` cartes (2 si Mama Odie est dans son
    *  royaume), puis l'acteur résout leurs effets Au-delà dans l'ordre de son choix
@@ -1405,6 +1407,23 @@ export type Effect =
   /** Bowser — Comète farceuse (Fatalité) : défausse un Objet du royaume de la
    *  cible (auto : un Objet non associé). */
   | { type: 'DISCARD_ONE_ITEM' }
+  /** Team Rocket — Onix (Pokémon Fatalité, à la pose) : défausse un Allié OU un Objet
+   *  du royaume de la cible (auto : le plus « précieux » — force d'Allié ou coût d'Objet). */
+  | { type: 'DISCARD_ALLY_OR_ITEM' }
+  /** Team Rocket — Évolution : fait évoluer un Allié du royaume (choix interactif via
+   *  `pendingEvolveAlly`). L'Allié choisi est défaussé, son évolution cherchée et posée
+   *  sur le même lieu. */
+  | { type: 'EVOLVE_ALLY' }
+  /** Team Rocket — « Oui, la guerre ! » : couche (K.O.) un Pokémon de force ≥ `minStrength`
+   *  du royaume (auto : le plus fort), gratuitement — il devient attrapable. */
+  | { type: 'KO_POKEMON_GE'; minStrength: number }
+  /** Team Rocket — Stari (Pokémon Fatalité, à la pose) : déplace un Allié du royaume vers
+   *  un lieu voisin (auto : le 1ᵉʳ Allié déplaçable). « Vous pouvez » → no-op si rien. */
+  | { type: 'MOVE_OWN_ALLY_ADJACENT' }
+  /** Team Rocket — « On n'abandonne pas ses amis » (Fatalité) : reprend un Pokémon CAPTURÉ
+   *  de force ≤ `maxStrength` (auto : le plus fort éligible) et le remet sur le dessus de la
+   *  pioche Fatalité. Ne fonctionne qu'une fois par Pokémon (`noReturnFromCapture`). */
+  | { type: 'UNCAPTURE_POKEMON_LE'; maxStrength: number }
   /** La Méchante Reine — gagne `amount` jetons Poison (Trône, Jalousie…). */
   | { type: 'GAIN_POISON'; amount: number }
   /** La Méchante Reine — Caquet de vieille mégère : gagne `amount` Pouvoir par lieu
@@ -1574,8 +1593,9 @@ export type Effect =
   | { type: 'ELIMINATE_ALL_HEROES_AT'; locationId: LocationId }
   /** Ratigan — Brutes (à la pose) : si l'Allié est joué sur un lieu où le pion n'est
    *  PAS, le joueur peut effectuer UNE action disponible de ce lieu, hors Fatalité
-   *  (fenêtre `actAtLocation` skippable, comme « Suivez-moi ! » / la Canne). */
-  | { type: 'ALLY_REMOTE_ACTION' }
+   *  (fenêtre `actAtLocation` skippable, comme « Suivez-moi ! » / la Canne).
+   *  `includeCovered` (Team Rocket — Smogogo) : autorise aussi les actions RECOUVERTES. */
+  | { type: 'ALLY_REMOTE_ACTION'; includeCovered?: boolean }
   /** Pat Hibulaire — Une Petite Partie ? : révèle les `reveal` premières cartes
    *  Méchant de la pioche, gagne la somme de leur coût (−1 si un Héros
    *  `reducerHeroCardId` (Oswald) est présent), puis les défausse. Si le gain ≥ 4 et
@@ -1856,6 +1876,9 @@ export interface CardInstance {
   /** L'Allié peut Éliminer un Héros sur son lieu OU sur un lieu voisin (Flibustiers,
    *  Archers Loups, Cerbère). Donnée réutilisable, recopiée de CardDef. */
   reachesAdjacentVanquish?: boolean
+  /** L'Allié peut Éliminer un Héros sur N'IMPORTE QUEL lieu (Team Rocket — Persian).
+   *  Recopié de CardDef. */
+  reachesAnyLocationVanquish?: boolean
   /** Objet « véhicule » : 1×/tour, déplace la figurine + cet Objet vers n'importe
    *  quel lieu pour y agir (hors Fatalité). Char (Hadès) / Bateau (Bowser).
    *  Recopié de CardDef ; consommé via CHARIOT_MOVE / applyChariotMove. */
@@ -1932,6 +1955,16 @@ export interface CardInstance {
   moveActionSurcharge?: number
   /** Scar — injouable sans Hyène dans le royaume (Festin). Recopié de CardDef. */
   requiresHyenaInRealm?: boolean
+  /** Team Rocket — Évolution : injouable sans Allié dans le royaume. Recopié de CardDef. */
+  requiresAllyInRealm?: boolean
+  /** Team Rocket — Allié évolutif : `cardId` de son évolution. Recopié de CardDef. */
+  evolvesToCardId?: string
+  /** Team Rocket — Pikachu : Pokémon Fatalité « joué d'office dès qu'il est dévoilé »
+   *  (la Fatalité ne laisse pas le choix). Recopié de CardDef. */
+  playWhenRevealed?: boolean
+  /** Team Rocket — Pokémon déjà repris une fois de la pile de Captures par « On n'abandonne
+   *  pas ses amis » : ne peut plus l'être (drapeau runtime, posé à la reprise). */
+  noReturnFromCapture?: boolean
   /** Sombra — carte de Piratage (Piratage, IEM) : posée sur un lieu, NON déplaçable,
    *  comptée comme Objet pour les conditions adverses. Recopié de CardDef. */
   isPiratage?: boolean
@@ -2173,6 +2206,9 @@ export type ConditionTrigger =
   /** L'adversaire actif a joué au moins un Allié ce tour-ci (Davy Jones — Wyvern
    *  s'exprime). */
   | { type: 'opponent-played-ally' }
+  /** L'adversaire actif t'a joué (par la Fatalité) un Héros de force ≤ `value` ce tour-ci
+   *  (Team Rocket — « Pour vous jouer un mauvais tour »). */
+  | { type: 'opponent-played-fate-hero-le'; value: number }
 
 /** Déclencheur de défausse automatique d'une carte (typiquement une Malédiction). */
 export type CurseDiscardTrigger =
@@ -3021,6 +3057,10 @@ export interface GameState {
    *  un de ses Alliés OU Objets (non associé) vers un lieu de son royaume portant ≥1 Héros
    *  (RESOLVE_IDENTIFICATION). Absent / `null` hors de ce choix. */
   pendingIdentification?: { playerIndex: number } | null
+  /** Team Rocket — Évolution : `playerIndex` choisit l'Allié à faire évoluer parmi
+   *  `candidateIds` (Alliés évolutifs du royaume dont l'évolution n'est pas déjà en jeu).
+   *  Résolu par RESOLVE_EVOLVE_ALLY. Absent / `null` hors de ce choix. */
+  pendingEvolveAlly?: { playerIndex: number; candidateIds: string[] } | null
   /** Lotso — choix interactif d'une CIBLE (carte du royaume) : `kind` 'reduce' (réduire un
    *  Héros, de `amount` ou jusqu'à 0 si `toZero`) ou 'move-to-room' (déplacer un Héros ou
    *  Buzz sur la Salle des Chenilles). `candidateIds` = cibles valides (RESOLVE_LOTSO_TARGET). */
@@ -3233,6 +3273,9 @@ export interface GameState {
    *  renoncer (SKIP_REMOTE_ACTION) au lieu d'agir. Absent pour les fenêtres
    *  obligatoires (Char/Bateau, Suivez-moi !, Canne). */
   actAtLocationSkippable?: boolean | null
+  /** Fenêtre `actAtLocation` où les actions RECOUVERTES sont aussi jouables (Team Rocket —
+   *  Smogogo : « une action, recouverte ou non »). Effacé à la fermeture de la fenêtre. */
+  actAtLocationIgnoreCover?: boolean | null
   /** Le joueur actif a déplacé un Allié/Objet ce tour-ci (déclencheur Sombres desseins). */
   activeMovedCard?: boolean
   /** Le joueur actif a pioché ≥1 carte ce tour-ci via un effet (déclencheur Sans visage). */
@@ -3255,6 +3298,10 @@ export interface GameState {
   /** Indices des joueurs ciblés par une action Fatalité du joueur actif ce tour-ci
    *  (déclencheur Scar — La vie n'est pas juste). Remis à [] en fin de tour. */
   activeFateTargets?: number[]
+  /** Héros (Fatalité) joués CE TOUR par l'actif contre un adversaire : `{ target, strength }`.
+   *  Sert au déclencheur Team Rocket « Pour vous jouer un mauvais tour » (Héros ≤3 reçu).
+   *  Remis à [] en fin de tour. */
+  activeFateHeroesAgainst?: { target: number; strength: number }[]
   /** Hadès — Préparez-vous au combat ! / action « Déplacer » sur un Titan :
    *  `playerIndex` (Hadès) choisit un de ses Titans non entravés (`titanCandidateIds`)
    *  et un lieu de destination, puis le déplace (RESOLVE_TITAN_MOVE). `paid` : le
@@ -3802,6 +3849,8 @@ export type GameAction =
   /** Lotso — résout `pendingLotsoTarget` : applique l'effet (réduction / déplacement vers
    *  la Salle) à la carte choisie. */
   | { type: 'RESOLVE_LOTSO_TARGET'; instanceId: string }
+  /** Team Rocket — résout `pendingEvolveAlly` : fait évoluer l'Allié choisi. */
+  | { type: 'RESOLVE_EVOLVE_ALLY'; instanceId: string }
   /** Lotso — résout `pendingLotsoBuzzMove` : déplace la tuile Buzz (mode Démo) vers le lieu choisi. */
   | { type: 'RESOLVE_LOTSO_BUZZ_MOVE'; to: LocationId }
   /** Lotso — Le Bibliothécaire : applique une réduction de −1 (et −1 Pouvoir) au Héros

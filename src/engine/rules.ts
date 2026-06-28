@@ -273,7 +273,8 @@ export function getAvailableActions(state: GameState): LocationAction[] {
         // Cruella — Finissez le travail ! : une action Activer gratuite reste possible
         // même si l'action de lieu a déjà servi ce tour.
         (a.type === 'ACTIVATE' && !!activePlayer(state).freeActivate)) &&
-      !isActionCovered(state, a) &&
+      // Smogogo (actAtLocationIgnoreCover) : « recouverte ou non » → la couverture est ignorée.
+      (!isActionCovered(state, a) || !!state.actAtLocationIgnoreCover) &&
       // Sombra : une action piratée (recouverte par un Hack) est désactivée.
       !isActionHacked(activePlayer(state), loc.id, a.id) &&
       // « Activer » n'est disponible que s'il existe une carte activable OU, pour le
@@ -1157,6 +1158,10 @@ export function conditionIsTriggered(
       return (state.activePlayedItemCount ?? 0) - (card.conditionBaseline?.playedItems ?? 0) >= card.trigger.value
     case 'opponent-played-ally':
       return (state.activePlayedAllyCount ?? 0) - (card.conditionBaseline?.playedAllies ?? 0) >= 1
+    case 'opponent-played-fate-hero-le': {
+      const max = card.trigger.value
+      return (state.activeFateHeroesAgainst ?? []).some((e) => e.target === playerIndex && e.strength <= max)
+    }
   }
 }
 

@@ -33,7 +33,7 @@ export const princeJohn: VillainDef = {
   objectiveDescription: 'Avoir 20 points de pouvoir au début de son tour.',
   boardImage: '/cards/prince-jean/board.png',
   pawnImage: '/pion_prince_jean.png',
-  pawnHeightPx: 56,
+  pawnHeightPx: 72,
   backVillainImage: '/cards/prince-jean/back_villain.png',
   backFateImage: '/cards/prince-jean/back_fatality.png',
   locations: [

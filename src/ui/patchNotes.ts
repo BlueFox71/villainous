@@ -9,6 +9,22 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.90',
+    date: '2026-06-28',
+    title: 'Atelier des vilains : plateau recalé sur le gabarit',
+    changes: [
+      'Correction de l’**Atelier des vilains** : sur le plateau généré, les illustrations de lieux et les médaillons d’action étaient mal positionnés. Tout est désormais **calé au pixel près sur le gabarit Villainous** — bordures dorées, bandeaux « zone Héros » et médaillons d’action (taille et écartement corrects, bien centrés dans chaque colonne).',
+      'Les illustrations de lieux sont maintenant **confinées au cadre doré** de leur colonne (coins arrondis), sans déborder en haut ni en bas.',
+      'Chaque médaillon d’action a retrouvé son **disque de fond sombre** (l’anneau doré n’est plus ajouré sur l’arrière-plan), et le montant de « Gagner du pouvoir » utilise les **vrais chiffres dorés** du gabarit (1, 2, 3).',
+      'La **typographie du plateau** (nom du vilain, objectif, noms de lieux) utilise désormais la police **Esteban** du gabarit Villainous.',
+      'Le **portrait du vilain** occupe maintenant toute la hauteur du panneau de gauche (sur toute sa largeur) ; l’intitulé de l’objectif devient « **OBJECTIF DE {nom}** » avec une ligne de séparation dorée, sur un fond assombri pour rester lisible.',
+      'Les **médaillons d’action** sont teintés à la **couleur du vilain** (légèrement assombrie) pour s’accorder au thème du plateau.',
+      'Éditeur (formulaire) : les **noms de lieux** se saisissent en **majuscules**, le champ « libellé » d’action (superflu) a été retiré, et on peut désormais **recadrer** l’image d’un lieu et le portrait du vilain via des curseurs (gauche/droite, haut/bas et **zoom**).',
+      'Éditeur : le plateau garde **4 lieux fixes** (plus d’ajout/suppression), les actions se configurent en **deux rangées** (max **2** en haut, **3** en bas), et le gain de pouvoir est **plafonné à 3**.',
+      'Éditeur (cartes) : les couleurs de dos manuelles ont été retirées — le **dos des cartes Vilain reprend la couleur thématique** et le **dos Fatalité reste blanc** (parchemin d’origine). Les cartes utilisent désormais la même **police Esteban** que le plateau.',
+    ],
+  },
+  {
     version: '0.89',
     date: '2026-06-28',
     title: 'Dio Brando (collaboration JoJo) + Atelier des vilains',

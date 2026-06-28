@@ -24,6 +24,10 @@ export const CUSTOM_ID_PREFIX = 'custom-'
 export const CARD_W = 1440
 export const CARD_H = 2044
 
+/** Couleur du panneau ET du dos des cartes Fatalité : toujours blanc (parchemin
+ *  d'origine — le tint en multiply ne modifie alors pas le gabarit). */
+export const FATE_CARD_COLOR = '#ffffff'
+
 /** Une action de lieu, côté éditeur (miroir de LocationAction sans `grantedBy`,
  *  qui est un concept runtime). */
 export interface CustomAction {
@@ -35,12 +39,27 @@ export interface CustomAction {
   amount?: number
 }
 
+/** Position de cadrage d'une image « cover » dans sa zone (façon object-position) :
+ *  x/y en % (0 = bord gauche/haut, 50 = centre, 100 = bord droit/bas) + zoom
+ *  (1 = remplit la zone en « cover », >1 = agrandi). */
+export interface CropPos {
+  x: number
+  y: number
+  /** Facteur de zoom (1 = cover). Optionnel : absent = 1. */
+  zoom?: number
+}
+
+/** Cadrage par défaut : centré, sans zoom. */
+export const CENTER_CROP: CropPos = { x: 50, y: 50, zoom: 1 }
+
 /** Un lieu du plateau, côté éditeur. */
 export interface CustomLocation {
   id: string
   name: string
   /** Image du lieu (dataURL) — illustration de fond de la colonne. Optionnelle. */
   image?: string
+  /** Cadrage de l'image dans la colonne (left/right + top/bottom). Défaut : centré. */
+  imagePos?: CropPos
   actions: CustomAction[]
 }
 
@@ -77,18 +96,16 @@ export interface CustomVillain {
   stars: number
 
   // --- Couleurs --------------------------------------------------------------
-  /** Couleur thématique (cases du méchant, masque de recouvrement). */
+  /** Couleur thématique : cases du méchant, panneau + dos des cartes Vilain. */
   color: string
-  /** Couleur de fond du dos des cartes Vilain. */
-  villainBackColor: string
-  /** Couleur de fond du dos des cartes Fatalité. */
-  fateBackColor: string
 
   // --- Images (dataURL) ------------------------------------------------------
   /** Portrait carré du vilain. */
   portrait?: string
   /** Illustration de présentation (corps entier). */
   presentation?: string
+  /** Cadrage du portrait affiché sur le plateau (left/right + top/bottom). Défaut : centré. */
+  portraitPos?: CropPos
   /** Image du plateau. */
   boardImage?: string
   /** Pion. */
@@ -138,7 +155,7 @@ export function emptyLocation(index: number): CustomLocation {
   const id = newLocationId(index)
   return {
     id,
-    name: `Lieu ${index + 1}`,
+    name: `LIEU ${index + 1}`,
     actions: [
       { id: 'gain-power', type: 'GAIN_POWER', amount: 1, row: 'top', label: 'Gagner 1 pouvoir' },
       { id: 'play-card', type: 'PLAY_CARD', row: 'top', label: 'Jouer une carte' },
@@ -157,8 +174,6 @@ export function emptyCustomVillain(now: string): CustomVillain {
     name: 'Nouveau vilain',
     stars: 3,
     color: '#5a2d6b',
-    villainBackColor: '#3a1f4d',
-    fateBackColor: '#6b2d3a',
     pawnHeightPx: 56,
     boardObjective: '',
     objectiveDescription: '',

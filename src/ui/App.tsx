@@ -113,6 +113,9 @@ import { playVillainIntro } from './villainVoices'
 import { Showcase } from './components/Showcase'
 import { TestFateBar } from './components/TestFateBar'
 import { TestChecklist } from './components/TestChecklist'
+import { VillainPortraitPicker } from './components/VillainPortraitPicker'
+import { PortraitEditorModal } from './components/PortraitEditorModal'
+import { VillainColorModal } from './components/VillainColorModal'
 import { CardPicker } from './components/CardPicker'
 import { CardFlights, type CardFlight, type FlightRect } from './components/CardFlights'
 import { OpeningDeal, type DealCard, DEAL_FLY_IN } from './components/OpeningDeal'
@@ -123,6 +126,7 @@ import { TurnSplash } from './components/TurnSplash'
 import { BackgroundAnimation } from './components/BackgroundAnimation'
 import { VillainDecor } from './components/VillainDecor'
 import { villainAnimation } from './villainAnimations'
+import { fireSurprise, villainHasSurprise } from './surpriseBus'
 import { villainPresentation } from './villainArt'
 
 // `diablo: true` sur un mode interactif = l'action en cours est l'action gratuite
@@ -1119,6 +1123,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const skipAllyRelocate = useGameStore((s) => s.skipAllyRelocate)
   const resolveIdentification = useGameStore((s) => s.resolveIdentification)
   const resolveLotsoTarget = useGameStore((s) => s.resolveLotsoTarget)
+  const resolveEvolveAlly = useGameStore((s) => s.resolveEvolveAlly)
   const resolveLotsoBuzzMove = useGameStore((s) => s.resolveLotsoBuzzMove)
   const resolveLotsoBookworm = useGameStore((s) => s.resolveLotsoBookworm)
   const resolveLotsoFlex = useGameStore((s) => s.resolveLotsoFlex)
@@ -1312,6 +1317,23 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   } | null>(null)
   const fireDebugAnim = (villain: VillainKey, side: 'player' | 'opponent') =>
     setDebugAnim((d) => ({ seq: (d?.seq ?? 0) + 1, villain, side }))
+  // Mode test : compte à rebours par bouton (clé `côté:type`) avant de jouer l'animation —
+  // laisse le temps de regarder le décor. La valeur = secondes restantes (3 → 1), absente = inactif.
+  const [animCountdown, setAnimCountdown] = useState<Record<string, number>>({})
+  const startAnimCountdown = (key: string, fire: () => void) => {
+    if (animCountdown[key] != null) return // déjà en cours
+    setAnimCountdown((c) => ({ ...c, [key]: 3 }))
+    setTimeout(() => setAnimCountdown((c) => (c[key] != null ? { ...c, [key]: 2 } : c)), 1000)
+    setTimeout(() => setAnimCountdown((c) => (c[key] != null ? { ...c, [key]: 1 } : c)), 2000)
+    setTimeout(() => {
+      setAnimCountdown((c) => {
+        const next = { ...c }
+        delete next[key]
+        return next
+      })
+      fire()
+    }, 3000)
+  }
   // Mode test : vilain choisi dans le select pour prévisualiser son animation (n'importe lequel).
   const [testVillain, setTestVillain] = useState<VillainKey>(humanVillainKey)
   const [mapModalOpen, setMapModalOpen] = useState(false)
@@ -1448,6 +1470,30 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const [editVillain, setEditVillain] = useState<VillainKey>('princeJohn')
   // Message de retour du bouton « Sauvegarder les positions ».
   const [savePosMsg, setSavePosMsg] = useState<string | null>(null)
+  // MODE TEST : éditeur de TAILLE DU PION (curseur). `pawnEdit` = vilain édité + taille de
+  // travail (px) ; null = éditeur fermé. La taille est prévisualisée en direct sur le plateau.
+  const [pawnEdit, setPawnEdit] = useState<{ villain: VillainKey; size: number } | null>(null)
+  // Message de retour du bouton « Sauvegarder la taille du pion ».
+  const [savePawnMsg, setSavePawnMsg] = useState<string | null>(null)
+  // MODE TEST : ouverture de l'éditeur de portrait (collaborateurs uniquement).
+  const [portraitEdit, setPortraitEdit] = useState(false)
+  // MODE TEST : ouverture de l'éditeur de couleur du méchant (tous les vilains).
+  const [colorEdit, setColorEdit] = useState(false)
+  // Écrit `pawnHeightPx` dans le fichier du vilain (via l'endpoint dev de Vite).
+  const savePawnSize = async () => {
+    if (!pawnEdit) return
+    setSavePawnMsg('Sauvegarde…')
+    try {
+      const res = await fetch('/__save-pawn-size', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ villain: VILLAIN_REGISTRY[pawnEdit.villain].def.id, size: pawnEdit.size }),
+      })
+      setSavePawnMsg(res.ok ? '✓ Sauvegardé' : `Échec : ${await res.text()}`)
+    } catch {
+      setSavePawnMsg('Erreur réseau (serveur de dév requis).')
+    }
+  }
   // MODE TEST : aperçu de l'écran de fin (Victoire/Défaite) sans vraie partie
   // gagnée. `humanWon` = VICTOIRE/DÉFAITE ; l'image = winnerKey si victoire, sinon
   // loserKey. `null` = aucun aperçu.
@@ -1622,12 +1668,13 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     const added = cur.filter((id) => !handIdsRef.current.has(id))
     handIdsRef.current = new Set(cur)
     if (added.length === 0) return
+    if (testMode) return // mode test : les cartes apparaissent directement, sans animation de pioche
     if (!startRollDone || !openingDealDone) return // l'ouverture est gérée séparément
     const cards = human.hand.filter((c) => added.includes(c.instanceId) && !c.isOmnidroid)
     if (cards.length === 0) return
     return launchDeal([{ playerIndex: HUMAN, cards, back: human.backVillainImage, faceDown: false }], { isOpening: false, blocking: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.players[HUMAN].hand, startRollDone, openingDealDone])
+  }, [state.players[HUMAN].hand, startRollDone, openingDealDone, testMode])
   // NB : l'adversaire (bot) n'a PAS d'animation de pioche — ses cartes (dos secrets)
   // apparaissent directement dans sa main. L'animation volante pour le bot provoquait un
   // bug récurrent (carte qui restait figée dans sa main) sans réelle valeur (rien à révéler
@@ -3255,6 +3302,21 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       }
       return
     }
+    // Team Rocket — Évolution : choix de l'Allié à faire évoluer. Bot → le plus fort
+    // (évoluer est bénéfique) ; humain → modale.
+    const plEvolve = state.pendingEvolveAlly
+    if (plEvolve) {
+      if (seats[plEvolve.playerIndex] === 'bot') {
+        const p = state.players[plEvolve.playerIndex]
+        const cards = Object.values(p.board).flat().filter((c) => plEvolve.candidateIds.includes(c.instanceId))
+        const pick = [...cards].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+        if (pick) {
+          const timer = setTimeout(() => resolveEvolveAlly(pick.instanceId), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
     // Lotso — Réinitialisation : choix du lieu où placer Buzz (mode Démo). Bot → lieu du pion ;
     // humain → modale.
     const plBuzz = state.pendingLotsoBuzzMove
@@ -3430,7 +3492,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolveIdentification, resolveLotsoTarget, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove])
+  }, [seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove])
 
   // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
   // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
@@ -4978,6 +5040,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 !c.isWicket,
             ),
           )
+          // Team Rocket — Persian (reachesAnyLocationVanquish) : utilisable depuis n'importe
+          // quel lieu pour éliminer un Héros (hors le lieu du Héros, déjà compté en local).
+          const anyReach = user.locations
+            .filter((l) => l.id !== heroLoc)
+            .flatMap((l) => simulatedAt(l.id).filter((c) => c.type === 'ally' && !c.isWicket && c.reachesAnyLocationVanquish))
           const heroCard = (user.board[heroLoc] ?? []).find(
             (c) => c.instanceId === mode.heroInstanceId,
           )
@@ -4988,7 +5055,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             ? localAllies.filter((a) => a.cardId !== 'archers-loups')
             : heroCard?.isMerlinTransformation
               ? localAllies.filter((a) => a.transformationTarget === heroCard.cardId)
-              : [...localAllies, ...adjArchers]
+              : [...localAllies, ...adjArchers, ...anyReach]
           return combined.map((c) => c.instanceId)
         })()
       : []
@@ -5150,34 +5217,82 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               <div className="rounded-lg border border-emerald-400/40 bg-black/60 p-2">
                 <div className="mb-1 font-semibold uppercase tracking-wide text-emerald-300/80">Changement de plateau</div>
                 <div className="flex flex-col gap-1">
-                  <label className="flex items-center justify-between gap-2">
-                    <span className="text-sky-300">{user.villainName}</span>
-                    <select
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sky-300">Joueur</span>
+                    <VillainPortraitPicker
                       value={currentVillains[0]}
-                      onChange={(e) => handlePickVillain(0, e.target.value as VillainKey)}
-                      className="rounded bg-black/40 px-1 py-0.5 text-white"
-                    >
-                      {(Object.entries(VILLAIN_REGISTRY) as [VillainKey, { label: string }][]).map(([k, v]) => (
-                        <option key={k} value={k}>{v.label}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="flex items-center justify-between gap-2">
-                    <span className="text-red-300">{bot.villainName}</span>
-                    <select
+                      onChange={(k) => handlePickVillain(0, k)}
+                      accent={VILLAIN_COLOR[user.villain]}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-red-300">Adversaire</span>
+                    <VillainPortraitPicker
                       value={currentVillains[1]}
-                      onChange={(e) => handlePickVillain(1, e.target.value as VillainKey)}
-                      className="rounded bg-black/40 px-1 py-0.5 text-white"
-                    >
-                      {(Object.entries(VILLAIN_REGISTRY) as [VillainKey, { label: string }][]).map(([k, v]) => (
-                        <option key={k} value={k}>{v.label}</option>
-                      ))}
-                    </select>
-                  </label>
+                      onChange={(k) => handlePickVillain(1, k)}
+                      accent={VILLAIN_COLOR[bot.villain]}
+                    />
+                  </div>
                 </div>
               </div>
               <div className="rounded-lg border border-emerald-400/40 bg-black/60 p-2">
                 <div className="mb-1 font-semibold uppercase tracking-wide text-emerald-300/80">Animation</div>
+                {/* Les deux vilains EN JEU (joueur / adversaire) : test direct de leurs
+                    animations — « Passage » (traversée) et « Surprise » (décor). */}
+                <div className="mb-2 flex flex-col gap-1">
+                  {([
+                    ['player', 'left', humanVillainKey],
+                    ['opponent', 'right', opponentVillainKey],
+                  ] as const).map(([sideKey, busSide, vk]) => {
+                    const anim = villainAnimation(vk)
+                    const hasAnim = !!anim
+                    // Animations bi-directionnelles : on propose « bas » (joueur) ET « haut » (adversaire).
+                    // `water-cross` n'est bidirectionnel que pour une IMAGE (la vidéo Tic-Tac reste RTL).
+                    const twoSidedPaths = new Set(['cross', 'sky-arc', 'drift-spin', 'jet-cross'])
+                    const twoSided =
+                      hasAnim &&
+                      (twoSidedPaths.has(anim!.path ?? 'cross') ||
+                        (anim!.path === 'water-cross' && !anim!.video))
+                    const tempButtons: { label: string; side: 'player' | 'opponent'; key: string }[] = twoSided
+                      ? [
+                          { label: 'bas', side: 'player', key: `${sideKey}:temp:bas` },
+                          { label: 'haut', side: 'opponent', key: `${sideKey}:temp:haut` },
+                        ]
+                      : [{ label: 'Passage', side: sideKey, key: `${sideKey}:temp` }]
+                    const surpKey = `${sideKey}:surprise`
+                    const surpCd = animCountdown[surpKey]
+                    const hasSurp = villainHasSurprise(vk)
+                    return (
+                      <div key={sideKey} className="flex items-center gap-1.5">
+                        <span className={`w-24 shrink-0 truncate text-xs ${sideKey === 'player' ? 'text-sky-300' : 'text-red-300'}`}>
+                          {VILLAIN_REGISTRY[vk].def.name}
+                        </span>
+                        {tempButtons.map((b) => {
+                          const cd = animCountdown[b.key]
+                          return (
+                            <button
+                              key={b.key}
+                              onClick={() => startAnimCountdown(b.key, () => fireDebugAnim(vk, b.side))}
+                              disabled={!hasAnim || cd != null}
+                              title="Rejouer l'animation de passage (traversée) après 3 s"
+                              className="rounded border border-white/20 px-2 py-0.5 text-xs text-white/80 enabled:hover:bg-white/10 disabled:opacity-30"
+                            >
+                              🎬 {b.label}{cd != null ? ` — ${cd}s` : ''}
+                            </button>
+                          )
+                        })}
+                        <button
+                          onClick={() => startAnimCountdown(surpKey, () => fireSurprise(busSide))}
+                          disabled={!hasSurp || surpCd != null}
+                          title={hasSurp ? 'Déclencher la surprise du décor après 3 s' : 'Ce vilain n’a pas de surprise'}
+                          className="rounded border border-fuchsia-400/50 px-2 py-0.5 text-xs text-fuchsia-200 enabled:hover:bg-fuchsia-500/10 disabled:opacity-30"
+                        >
+                          ✨ Surprise{surpCd != null ? ` — ${surpCd}s` : ''}
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
                 {(() => {
                   const anim = villainAnimation(testVillain)
                   const hasAnim = !!anim
@@ -5193,18 +5308,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                   return (
                     <div className="flex flex-wrap items-center gap-1">
                       <span className="text-sm">🚢</span>
-                      <select
+                      <VillainPortraitPicker
                         value={testVillain}
-                        onChange={(e) => setTestVillain(e.target.value as VillainKey)}
-                        className="rounded border border-white/20 bg-black/40 px-1.5 py-0.5 text-xs text-white/90"
-                      >
-                        {(Object.keys(VILLAIN_REGISTRY) as VillainKey[]).map((k) => (
-                          <option key={k} value={k}>
-                            {VILLAIN_REGISTRY[k].def.name}
-                            {villainAnimation(k) ? '' : ' (—)'}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(k) => setTestVillain(k)}
+                        dim={(k) => !villainAnimation(k)}
+                      />
                       {twoSided ? (
                         <>
                           <button onClick={() => fireDebugAnim(testVillain, 'player')} disabled={!hasAnim} title="Côté joueur (bas)" className={btn}>
@@ -5251,23 +5359,33 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                     💡 Actions
                   </button>
                   <button
-                    disabled
-                    title="Éditer le portrait (à venir)"
-                    className="rounded border border-white/15 px-2 py-0.5 text-white/50 opacity-50"
+                    onClick={() => setPortraitEdit(true)}
+                    title="Éditer le portrait d'un vilain collaborateur (cadre + titre)"
+                    className={`rounded border px-2 py-0.5 hover:bg-lime-500/10 ${
+                      portraitEdit ? 'border-lime-400 bg-lime-400/15 text-lime-200' : 'border-lime-400/60 text-lime-200'
+                    }`}
                   >
                     🖼 Portrait
                   </button>
                   <button
-                    disabled
-                    title="Éditer le pion (à venir)"
-                    className="rounded border border-white/15 px-2 py-0.5 text-white/50 opacity-50"
+                    onClick={() => {
+                      const key = villainKeyOf(user.villain)
+                      setPawnEdit({ villain: key, size: user.pawnHeightPx })
+                      setSavePawnMsg(null)
+                    }}
+                    title="Régler la taille du pion (plateau joueur)"
+                    className={`rounded border px-2 py-0.5 hover:bg-lime-500/10 ${
+                      pawnEdit ? 'border-lime-400 bg-lime-400/15 text-lime-200' : 'border-lime-400/60 text-lime-200'
+                    }`}
                   >
                     ♟ Pion
                   </button>
                   <button
-                    disabled
-                    title="Éditer la couleur du méchant (à venir)"
-                    className="rounded border border-white/15 px-2 py-0.5 text-white/50 opacity-50"
+                    onClick={() => setColorEdit(true)}
+                    title="Éditer la couleur d'un vilain (pipette sur le dos de carte)"
+                    className={`rounded border px-2 py-0.5 hover:bg-lime-500/10 ${
+                      colorEdit ? 'border-lime-400 bg-lime-400/15 text-lime-200' : 'border-lime-400/60 text-lime-200'
+                    }`}
                   >
                     🎨 Couleur méchant
                   </button>
@@ -5403,7 +5521,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             // la mesure du rect par MirrorShatter reste correcte).
             style={userBoardDestroyed ? { visibility: 'hidden' } : undefined}
           >
-            <BoardImage player={user} showPawn pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[user.villain]}, white 45%)`} imgClassName="border border-[color:var(--pa-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} unmaskHeroLocationId={persifleurLoc} obstacleTargets={state.pendingObstacle && state.pendingObstacle.chooserIndex === HUMAN && state.pendingObstacle.kind === 'remove' ? user.locations.map((l) => l.id).filter((id) => (user.obstacles?.[id] ?? 0) > 0 && (!state.pendingObstacle!.sameLocation || !state.pendingObstacle!.lockedLocationId || state.pendingObstacle!.lockedLocationId === id)) : undefined} onObstacleClick={resolveObstacle} keyPick={state.pendingKey && state.pendingKey.playerIndex === HUMAN && state.pendingKey.kind === 'take' && !dieAnim ? { locationId: state.pendingKey.locationId, color: state.pendingKey.color } : undefined} onKeyClick={resolveKey} crewmateCandidates={state.pendingCrewmateKill?.playerIndex === HUMAN ? state.pendingCrewmateKill.candidateColors : undefined} onCrewmateClick={(color) => { if (state.pendingCrewmateKill?.mode === 'kill') playKillSound(); resolveCrewmateKill(color) }} crewmateSelectVerb={state.pendingCrewmateKill?.mode === 'reassure' ? 'Rassurer' : state.pendingCrewmateKill?.mode === 'kill-normal' ? 'Éliminer' : state.pendingCrewmateKill?.mode === 'move' ? 'Déplacer' : 'Défausser'} pawnDraggable={pawnDraggable} pawnDragging={draggingPawn} onPawnDragStart={handlePawnDragStart} onPawnDragMove={handlePawnDragMove} onPawnDragDrop={handlePawnDragDrop} onPawnDragCancel={handlePawnDragCancel} />
+            <BoardImage player={user} showPawn pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[user.villain]}, white 45%)`} imgClassName="border border-[color:var(--pa-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} unmaskHeroLocationId={persifleurLoc} obstacleTargets={state.pendingObstacle && state.pendingObstacle.chooserIndex === HUMAN && state.pendingObstacle.kind === 'remove' ? user.locations.map((l) => l.id).filter((id) => (user.obstacles?.[id] ?? 0) > 0 && (!state.pendingObstacle!.sameLocation || !state.pendingObstacle!.lockedLocationId || state.pendingObstacle!.lockedLocationId === id)) : undefined} onObstacleClick={resolveObstacle} keyPick={state.pendingKey && state.pendingKey.playerIndex === HUMAN && state.pendingKey.kind === 'take' && !dieAnim ? { locationId: state.pendingKey.locationId, color: state.pendingKey.color } : undefined} onKeyClick={resolveKey} crewmateCandidates={state.pendingCrewmateKill?.playerIndex === HUMAN ? state.pendingCrewmateKill.candidateColors : undefined} onCrewmateClick={(color) => { if (state.pendingCrewmateKill?.mode === 'kill') playKillSound(); resolveCrewmateKill(color) }} crewmateSelectVerb={state.pendingCrewmateKill?.mode === 'reassure' ? 'Rassurer' : state.pendingCrewmateKill?.mode === 'kill-normal' ? 'Éliminer' : state.pendingCrewmateKill?.mode === 'move' ? 'Déplacer' : 'Défausser'} pawnDraggable={pawnDraggable} pawnDragging={draggingPawn} pawnHeightOverride={pawnEdit && pawnEdit.villain === villainKeyOf(user.villain) ? pawnEdit.size : undefined} onPawnDragStart={handlePawnDragStart} onPawnDragMove={handlePawnDragMove} onPawnDragDrop={handlePawnDragDrop} onPawnDragCancel={handlePawnDragCancel} />
             <BoardActions
               player={user}
               availableActionIds={availableActions.map((a) => a.id)}
@@ -6395,7 +6513,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             // Idem côté bot : masquer le plateau vivant pendant qu'il est « détruit ».
             style={botBoardDestroyed ? { visibility: 'hidden' } : undefined}
           >
-            <BoardImage player={bot} showPawn pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[bot.villain]}, white 45%)`} imgClassName="border border-[color:var(--po-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} crewmateCandidates={state.pendingCrewmateSuspect?.chooserIndex === HUMAN && state.pendingCrewmateSuspect.targetIndex === BOT ? (bot.crewmates ?? []).filter((c) => !c.discarded && !c.suspect).map((c) => c.color) : undefined} onCrewmateClick={resolveCrewmateSuspect} crewmateSelectVerb="Rendre suspect" />
+            <BoardImage player={bot} showPawn pawnHeightOverride={pawnEdit && pawnEdit.villain === villainKeyOf(bot.villain) ? pawnEdit.size : undefined} pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[bot.villain]}, white 45%)`} imgClassName="border border-[color:var(--po-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} crewmateCandidates={state.pendingCrewmateSuspect?.chooserIndex === HUMAN && state.pendingCrewmateSuspect.targetIndex === BOT ? (bot.crewmates ?? []).filter((c) => !c.discarded && !c.suspect).map((c) => c.color) : undefined} onCrewmateClick={resolveCrewmateSuspect} crewmateSelectVerb="Rendre suspect" />
             {/* Aucune pastille d'action affichée pour le bot, SAUF le flash one-shot
                 de l'action qu'il vient de jouer (pour visualiser ses coups). */}
             <BoardActions
@@ -7709,6 +7827,16 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         />
       )}
 
+      {/* Team Rocket — Évolution : choix de l'Allié à faire évoluer. */}
+      {state.pendingEvolveAlly && state.pendingEvolveAlly.playerIndex === HUMAN && (
+        <LotsoTargetModal
+          player={state.players[state.pendingEvolveAlly.playerIndex]}
+          candidateIds={state.pendingEvolveAlly.candidateIds}
+          label="Faire évoluer un Allié"
+          onResolve={resolveEvolveAlly}
+        />
+      )}
+
       {/* Lotso — Réinitialisation : choix du lieu où placer Buzz (mode Démo). */}
       {state.pendingLotsoBuzzMove && state.pendingLotsoBuzzMove.playerIndex === HUMAN && (
         <LotsoBuzzMoveModal
@@ -8822,6 +8950,55 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* MODE TEST : éditeur de TAILLE DU PION — panneau flottant avec un curseur (preview
+          en direct sur le plateau) et un bouton de sauvegarde (écrit `pawnHeightPx`). */}
+      {testMode && pawnEdit && (
+        <div className="fixed left-1/2 top-4 z-[100] flex -translate-x-1/2 flex-wrap items-center gap-3 rounded-xl border border-lime-400/40 bg-[#120c22]/95 px-4 py-3 text-sm text-white shadow-2xl backdrop-blur-sm">
+          <span className="font-black text-lime-200">♟ Taille du pion</span>
+          <span className="text-cyan-200">{VILLAIN_REGISTRY[pawnEdit.villain].def.name}</span>
+          <input
+            type="range"
+            min={40}
+            max={160}
+            step={1}
+            value={pawnEdit.size}
+            onChange={(e) => { setPawnEdit({ ...pawnEdit, size: Number(e.target.value) }); setSavePawnMsg(null) }}
+            className="h-2 w-56 cursor-pointer accent-lime-400"
+            aria-label="Taille du pion"
+          />
+          <span className="w-16 text-right font-mono text-white/80">{pawnEdit.size}px</span>
+          <button
+            onClick={savePawnSize}
+            className="rounded-lg border border-lime-400/60 px-3 py-1.5 font-semibold text-lime-200 hover:bg-lime-500/15"
+          >
+            💾 Sauvegarder
+          </button>
+          {savePawnMsg && <span className="text-xs text-lime-300">{savePawnMsg}</span>}
+          <button
+            onClick={() => { setPawnEdit(null); setSavePawnMsg(null) }}
+            className="rounded-lg border border-white/25 px-3 py-1.5 text-white/80 hover:bg-white/10"
+          >
+            ✕ Fermer
+          </button>
+        </div>
+      )}
+
+      {/* MODE TEST : éditeur de portrait (collaborateurs) — cadre + titre, puis remplacement. */}
+      {testMode && portraitEdit && (
+        <PortraitEditorModal
+          onClose={() => setPortraitEdit(false)}
+          initialVillain={villainKeyOf(user.villain)}
+        />
+      )}
+
+      {/* MODE TEST : éditeur de couleur du méchant (pipette sur le dos de carte). */}
+      {testMode && colorEdit && (
+        <VillainColorModal
+          onClose={() => setColorEdit(false)}
+          initialVillain={villainKeyOf(user.villain)}
+        />
       )}
 
       {/* MODE TEST : aperçu d'un écran de fin (les trois boutons ferment l'aperçu). */}

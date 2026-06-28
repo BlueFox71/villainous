@@ -59,6 +59,14 @@ function objectiveCriticalCardIds(p: PlayerState): Set<string> {
   }
 }
 
+/** Alliés capables d'éliminer un Héros depuis N'IMPORTE QUEL lieu (Team Rocket — Persian :
+ *  `reachesAnyLocationVanquish`), hors le lieu du Héros (déjà comptés en local). */
+function anyLocReachers(me: PlayerState, heroLocId: string) {
+  return me.locations
+    .filter((l) => l.id !== heroLocId)
+    .flatMap((l) => (me.board[l.id] ?? []).filter((c) => !c.trapped && c.reachesAnyLocationVanquish))
+}
+
 /** Tous les coups légaux disponibles dans l'état courant. Toujours non vide tant
  *  que la partie est en cours (END_TURN / MOVE / résolutions sont garantis). */
 export function enumerateActions(state: GameState): GameAction[] {
@@ -120,7 +128,7 @@ export function enumerateActions(state: GameState): GameAction[] {
           (me.board[adj] ?? []).filter(
             (c) => !c.trapped && (c.reachesAdjacentVanquish || c.cardId === 'archers-loups' || c.cardId === 'flibustiers'),
           ),
-        )
+        ).concat(anyLocReachers(me, loc.id))
         for (const h of heroes) {
           if (cell.some((c) => c.cardId === 'deguisement' && c.attachedTo === h.instanceId)) continue
           const heroForce = effectiveStrength(state, state.activePlayer, h.instanceId) ?? 0
@@ -251,7 +259,7 @@ export function enumerateActions(state: GameState): GameAction[] {
         (me.board[adj] ?? []).filter(
           (c) => !c.trapped && (c.reachesAdjacentVanquish || c.cardId === 'archers-loups' || c.cardId === 'flibustiers'),
         ),
-      )
+      ).concat(anyLocReachers(me, locId))
       const usable = [...localAllies, ...adjAllies]
       // Uniforme : si l'Allié porteur n'est pas disponible ici, ce lieu est inéligible.
       if (pv.requiredAllyInstanceId && !usable.some((a) => a.instanceId === pv.requiredAllyInstanceId)) continue
@@ -658,6 +666,9 @@ export function enumerateActions(state: GameState): GameAction[] {
   if (state.pendingLotsoTarget) {
     const ptl = state.pendingLotsoTarget
     return ptl.candidateIds.map((instanceId) => ({ type: 'RESOLVE_LOTSO_TARGET', instanceId }))
+  }
+  if (state.pendingEvolveAlly) {
+    return state.pendingEvolveAlly.candidateIds.map((instanceId) => ({ type: 'RESOLVE_EVOLVE_ALLY', instanceId }))
   }
 
   // Lotso — Réinitialisation : choix du lieu où placer Buzz (mode Démo).
@@ -1223,7 +1234,7 @@ export function enumerateActions(state: GameState): GameAction[] {
             const localAllies = cell.filter((c) => c.type === 'ally' && !c.isWicket && !c.trapped)
             const adjAllies = adjacentLocationIds(state, loc.id).flatMap((adj) =>
               (me.board[adj] ?? []).filter((c) => !c.trapped && (c.reachesAdjacentVanquish || c.cardId === 'archers-loups' || c.cardId === 'flibustiers')),
-            )
+            ).concat(anyLocReachers(me, loc.id))
             for (const h of heroes) {
               const guarded = cell.some((c) => c.cardId === 'deguisement' && c.attachedTo === h.instanceId)
               if (guarded) continue
@@ -1402,6 +1413,8 @@ export function enumerateActions(state: GameState): GameAction[] {
           if (needsBite && !canTakeABite(state)) continue
           // Festin (Scar) : inutile sans Hyène dans le royaume.
           if (card.requiresHyenaInRealm && !Object.values(me.board).flat().some((c) => c.isHyena)) continue
+          // Évolution (Team Rocket) : inutile sans Allié dans le royaume.
+          if (card.requiresAllyInRealm && !Object.values(me.board).flat().some((c) => c.type === 'ally')) continue
           // Suivez-moi ! (Scar) : injouable sans Hyène sur un autre lieu que le pion.
           if (
             (card.effects ?? []).some((e) => e.type === 'FOLLOW_ME') &&
@@ -1546,7 +1559,7 @@ export function enumerateActions(state: GameState): GameAction[] {
         const localAllies = cell.filter((c) => c.type === 'ally' && !c.isWicket && !c.trapped)
         const adjAllies = adjacentLocationIds(state, loc.id).flatMap((adj) =>
           (me.board[adj] ?? []).filter((c) => !c.trapped && (c.reachesAdjacentVanquish || c.cardId === 'archers-loups' || c.cardId === 'flibustiers')),
-        )
+        ).concat(anyLocReachers(me, loc.id))
         for (const h of heroes) {
           // Team Rocket — un Pokémon déjà COUCHÉ (K.O.) ne se re-vainc pas (il s'attrape).
           if (h.pokemonKO) continue

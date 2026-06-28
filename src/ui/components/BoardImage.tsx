@@ -135,6 +135,8 @@ interface Props {
   pawnDraggable?: boolean
   /** Masque le pion réel pendant le glissé (le fantôme le remplace). */
   pawnDragging?: boolean
+  /** Mode test (éditeur de pion) : remplace la hauteur du pion en direct (px). */
+  pawnHeightOverride?: number
   onPawnDragStart?: (x: number, y: number) => void
   onPawnDragMove?: (x: number, y: number) => void
   onPawnDragDrop?: (x: number, y: number) => void
@@ -164,6 +166,7 @@ export function BoardImage({
   onKeyClick,
   pawnDraggable = false,
   pawnDragging = false,
+  pawnHeightOverride,
   onPawnDragStart,
   onPawnDragMove,
   onPawnDragDrop,
@@ -286,7 +289,7 @@ export function BoardImage({
               : undefined
           }
           style={{
-            height: `${player.pawnHeightPx}px`,
+            height: `${pawnHeightOverride ?? player.pawnHeightPx}px`,
             left: `${pawnLeft}%`,
             top: `${pawnTop}%`,
             // Contour doux (drop-shadows flous) à la couleur du camp ; halo plus marqué

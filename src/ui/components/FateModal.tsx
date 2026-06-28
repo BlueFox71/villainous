@@ -114,6 +114,12 @@ export function FateModal({ revealed, target, onResolve, optional = false, onPas
       })
     }
     if (c.cardId === 'ko') return realm.some((x) => x.type === 'ally' && !x.isWicket && (x.strength ?? 0) <= 3)
+    // Alors ça, c'est un truc de dingue ! (Syndrome) : injouable si rien à défausser —
+    // les Omnidroïdes/Télécommande (immuneToAllyItemEffects) et le Champ de Force ne comptent pas.
+    if (c.cardId === 'alors-ca-truc-de-dingue')
+      return realm.some(
+        (x) => (x.type === 'ally' || x.type === 'item') && !x.immuneToAllyItemEffects && x.cardId !== 'champ-de-force',
+      )
     // Majorité (L'Imposteur) : il faut un Allié OU un Objet (non associé, hors Sabotage) à défausser.
     if (c.cardId === 'majorite')
       return realm.some((x) => !x.attachedTo && (x.type === 'ally' || (x.type === 'item' && !x.isSabotage)))

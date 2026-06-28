@@ -18,6 +18,7 @@ import type { CustomCard, ArtTransform } from '../../data/customVillain'
 import { CARD_W, CARD_H } from '../../data/customVillain'
 import type { CardType } from '../../data/types'
 import { loadImage } from './imageUtils'
+import { EDITOR_FONT, ensureFonts } from './fonts'
 
 const LAYOUT_DIR = '/editor/layout'
 
@@ -121,8 +122,8 @@ function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxW: number): s
   return lines
 }
 
-/** Police thématique (serif). */
-const FONT = 'Georgia, "Times New Roman", serif'
+/** Police thématique : Esteban (même topographie que le plateau). */
+const FONT = EDITOR_FONT
 
 /** Écrit un nombre centré dans une pastille. */
 function drawBadgeNumber(
@@ -154,6 +155,7 @@ export async function renderCardFace(
   villainColor: string,
   fateColor: string,
 ): Promise<string> {
+  await ensureFonts()
   const canvas = document.createElement('canvas')
   canvas.width = CARD_W
   canvas.height = CARD_H
@@ -261,6 +263,7 @@ export async function renderCardFace(
  * MULTIPLY → ornements dorés (cadre + axe) → libellé centré en bas.
  */
 export async function renderCardBack(color: string, label: string): Promise<string> {
+  await ensureFonts()
   const canvas = document.createElement('canvas')
   canvas.width = CARD_W
   canvas.height = CARD_H

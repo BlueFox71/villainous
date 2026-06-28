@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useCustomVillainStore } from '../store/customVillainStore'
-import { emptyCustomVillain, type CustomVillain } from '../../data/customVillain'
+import { emptyCustomVillain, FATE_CARD_COLOR, type CustomVillain } from '../../data/customVillain'
 import { villainsBackground } from '../villainColors'
 import { Scroller } from '../components/Scroller'
 import type { ObjectiveDef } from '../../engine/types'
@@ -114,16 +114,10 @@ function IdentityTab({
           />
         </Field>
         <ColorField label="Couleur thématique" value={draft.color} onChange={(color) => patch({ color })} />
-        <ColorField
-          label="Couleur du dos — cartes Vilain"
-          value={draft.villainBackColor}
-          onChange={(villainBackColor) => patch({ villainBackColor })}
-        />
-        <ColorField
-          label="Couleur du dos — cartes Fatalité"
-          value={draft.fateBackColor}
-          onChange={(fateBackColor) => patch({ fateBackColor })}
-        />
+        <p className="text-xs text-white/45">
+          Le dos des cartes Vilain reprend la <strong>couleur thématique</strong> ; le dos des
+          cartes Fatalité reste blanc (parchemin d’origine).
+        </p>
       </div>
       <div className="flex flex-col gap-4">
         <ImageField
@@ -257,7 +251,7 @@ export function VillainEditor({ onBack, onPlay }: Props) {
     URL.revokeObjectURL(url)
   }
 
-  const bg = villainsBackground(draft?.color ?? '#3a2d6b', draft?.fateBackColor ?? '#6b2d3a')
+  const bg = villainsBackground(draft?.color ?? '#3a2d6b', draft?.color ?? '#3a2d6b')
 
   return (
     <div className="flex h-screen flex-col text-white" style={{ background: bg }}>
@@ -428,8 +422,8 @@ export function VillainEditor({ onBack, onPlay }: Props) {
                       Aperçu des dos (couleurs)
                     </span>
                     <div className="flex gap-6">
-                      <CardBackPreview color={draft.villainBackColor} name={draft.name} caption="Vilain" />
-                      <CardBackPreview color={draft.fateBackColor} name={draft.name} caption="Fatalité" />
+                      <CardBackPreview color={draft.color} name={draft.name} caption="Vilain" />
+                      <CardBackPreview color={FATE_CARD_COLOR} name={draft.name} caption="Fatalité" />
                     </div>
                   </div>
                 </div>

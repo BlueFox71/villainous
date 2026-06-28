@@ -427,9 +427,11 @@ export function Hand({
             (ci.attachOnlyCardId ? (realmCardIds ?? []).includes(ci.attachOnlyCardId) : realmHasHeroes)
           // Joyeux non-anniversaire (gain par Allié), Go ! (déplacer des Alliés) et Tendre
           // un Piège (déplacer un Allié puis Vanquish) : injouables sans Allié au royaume.
-          const needsAllyInRealm = (card.effects ?? []).some(
-            (e) => e.type === 'GAIN_POWER_PER_ALLY_IN_REALM' || e.type === 'RELOCATE_ALLIES' || e.type === 'MOVE_ALLY_FREELY',
-          )
+          const needsAllyInRealm =
+            !!card.requiresAllyInRealm ||
+            (card.effects ?? []).some(
+              (e) => e.type === 'GAIN_POWER_PER_ALLY_IN_REALM' || e.type === 'RELOCATE_ALLIES' || e.type === 'MOVE_ALLY_FREELY',
+            )
           // Cruella — J'adore les belles fourrures : injouable sans Tuile Chiots au royaume.
           const needsPuppyInRealm = (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_PUPPY_LOCATION')
           // Magnifiques Taxes (gain par Héros) / Cruelle diablesse (déplace un Héros) :

@@ -1,0 +1,47 @@
+nom;x;y;largeur;hauteur
+1;1258;187;180;148
+Power;1139;87;384;312
+2;2204;191;154;148
+Power-Kopie #5;2070;90;384;312
+3;4174;787;154;148
+Power-Kopie #1;4037;681;384;312
+Move-Ally;2736;697;285;327
+Activate;1286;643;350;384
+Discard Cards Top;2693;91;366;321
+Discard Cards Bottom;2110;689;366;321
+Fate Top;815;72;390;330
+Fate Bottom;3025;671;390;330
+Play Card 1;760;686;291;309
+Play Card 2;1797;91;291;309
+Play Card 3;1795;688;291;309
+Play Card 4;3078;91;291;309
+Play Card 5;3832;688;291;309
+Vanquish;1023;693;340;327
+Move Hero;3543;697;297;300
+Lock Symbol;1;0;4452;1248
+Five actions Multiplier;1;0;4452;1248
+Fill these with any color you want #2;728;0;904;1248
+Three actions at bottom Multiplier;1;0;4452;1248
+Fill these with any color you want #3;3519;587;899;457
+Four actions regular 1 Multiplier;1;0;4452;1248
+Fill these with any color you want #5;1658;0;904;1248
+Four actions regular 2 Multilpier;1;0;4452;1248
+Fill these with any color you want #6;2590;0;900;1248
+One action at top Multiplier-Kopie;1;0;4452;1248
+Fill these with any color you want #4;732;-10;899;457
+LOCATION ONE;971;1024;423;74
+LOCATION TWO;1890;1024;467;74
+LOCATION THREE;2818;1024;447;74
+LOCATION FOUR;3752;1024;469;74
+Borders;3;0;4452;1248
+Darkening for Heroes;3;0;4452;1248
+Realm Multiplier;1;0;4452;1248
+Fill this with any color you want #1;3;0;4452;1248
+VILLAIN NAME;0;32;696;55
+Objective Headline;104;820;482;124
+Do something mean and villaino...;87;976;512;191
+Ornaments;57;317;670;951
+Objective Line;14;0;685;1248
+Objective Box Multiplier;1;0;4452;1248
+Fill this with any color you want;34;744;624;488
+Darkness behind name;0;0;716;1136

@@ -1,6 +1,9 @@
 // Champs de formulaire réutilisables par les onglets de l'éditeur de vilains.
 import { useRef } from 'react'
 import { readImageForStorage } from './imageUtils'
+import type { CropPos } from '../../data/customVillain'
+
+const CENTER: CropPos = { x: 50, y: 50 }
 
 export const inputClass =
   'rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm text-white outline-none transition focus:border-amber-300/70'
@@ -103,18 +106,71 @@ export function ColorField({
   )
 }
 
-/** Champ image : aperçu + bouton « Choisir » + « Retirer ». */
+/** Curseurs de cadrage (gauche/droite, haut/bas, zoom) pour une image « cover ». */
+export function CropSliders({
+  pos,
+  onChange,
+}: {
+  pos: CropPos
+  onChange: (p: CropPos) => void
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="flex items-center gap-4 text-xs text-white/50">
+        <span className="w-1/4 shrink-0 font-semibold uppercase tracking-wide">↔ Gauche/Droite</span>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={pos.x}
+          onChange={(e) => onChange({ ...pos, x: Number(e.target.value) })}
+          className="w-32 accent-amber-400"
+        />
+      </label>
+      <label className="flex items-center gap-4 text-xs text-white/50">
+        <span className="w-1/4 shrink-0 font-semibold uppercase tracking-wide">↕ Haut/Bas</span>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={pos.y}
+          onChange={(e) => onChange({ ...pos, y: Number(e.target.value) })}
+          className="w-32 accent-amber-400"
+        />
+      </label>
+      <label className="flex items-center gap-4 text-xs text-white/50">
+        <span className="w-1/4 shrink-0 font-semibold uppercase tracking-wide">🔍 Zoom</span>
+        <input
+          type="range"
+          min={100}
+          max={300}
+          step={5}
+          value={Math.round((pos.zoom ?? 1) * 100)}
+          onChange={(e) => onChange({ ...pos, zoom: Number(e.target.value) / 100 })}
+          className="w-32 accent-amber-400"
+        />
+      </label>
+    </div>
+  )
+}
+
+/** Champ image : aperçu + bouton « Choisir » + « Retirer ». Si `crop` est fourni,
+ *  ajoute deux curseurs de cadrage (gauche/droite + haut/bas) et applique le
+ *  cadrage à l'aperçu. */
 export function ImageField({
   label,
   value,
   onChange,
   aspect = 'square',
+  crop,
 }: {
   label: string
   value: string | undefined
   onChange: (v: string | undefined) => void
   aspect?: 'square' | 'card' | 'board' | 'pawn'
+  crop?: { pos: CropPos; onChange: (p: CropPos) => void }
 }) {
+  const pos = crop?.pos ?? CENTER
   const inputRef = useRef<HTMLInputElement>(null)
   const ratio =
     aspect === 'square'
@@ -136,12 +192,25 @@ export function ImageField({
           className={`${ratio} w-24 shrink-0 overflow-hidden rounded-lg border border-white/15 bg-black/30`}
         >
           {value ? (
-            <img src={value} alt="" className="h-full w-full object-cover" />
+            <img
+              src={value}
+              alt=""
+              className="h-full w-full object-cover"
+              style={
+                crop
+                  ? {
+                      objectPosition: `${pos.x}% ${pos.y}%`,
+                      transform: `scale(${pos.zoom ?? 1})`,
+                      transformOrigin: `${pos.x}% ${pos.y}%`,
+                    }
+                  : undefined
+              }
+            />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-2xl text-white/20">🖼️</div>
           )}
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-1 flex-col gap-2">
           <input
             ref={inputRef}
             type="file"
@@ -152,7 +221,7 @@ export function ImageField({
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200"
+            className="self-start rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200"
           >
             Choisir une image
           </button>
@@ -165,6 +234,7 @@ export function ImageField({
               Retirer
             </button>
           )}
+          {crop && value && <CropSliders pos={pos} onChange={crop.onChange} />}
         </div>
       </div>
     </Field>
@@ -184,9 +254,14 @@ export function SelectField<T extends string>({
   onChange: (v: T) => void
 }) {
   const select = (
-    <select className={inputClass} value={value} onChange={(e) => onChange(e.target.value as T)}>
+    <select
+      className={inputClass}
+      style={{ backgroundColor: '#15131b', color: '#fff' }}
+      value={value}
+      onChange={(e) => onChange(e.target.value as T)}
+    >
       {options.map((o) => (
-        <option key={o.value} value={o.value}>
+        <option key={o.value} value={o.value} style={{ backgroundColor: '#15131b', color: '#fff' }}>
           {o.label}
         </option>
       ))}

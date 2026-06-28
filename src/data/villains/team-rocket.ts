@@ -17,7 +17,7 @@
 //
 // Disposition (4 lieux, gauche → droite) :
 //   Laboratoire du Pr Chen  haut: Vaincre · Jouer          bas: Gagner 1 · Déplacer objet/allié · Attraper
-//   Forêt                   haut: Jouer · Fatalité          bas: Gagner 3 · Jouer
+//   Forêt                   haut: Jouer · Défausser         bas: Gagner 3 · Jouer
 //   Centre Pokémon          haut: Jouer · Jouer             bas: Déplacer objet/allié · Vaincre
 //   Arène                   haut: Jouer · Gagner 2          bas: Vaincre · Fatalité
 // =============================================================================
@@ -58,7 +58,7 @@ export const teamRocket: VillainDef = {
       name: 'Forêt',
       actions: [
         { id: 'play-card', type: 'PLAY_CARD', row: 'top', label: 'Jouer une carte' },
-        { id: 'fate', type: 'FATE', row: 'top', label: 'Fatalité' },
+        { id: 'discard', type: 'DISCARD_CARDS', row: 'top', label: 'Défausser' },
         { id: 'gain-power', type: 'GAIN_POWER', amount: 3, row: 'bottom', label: 'Gagner 3 pouvoir' },
         { id: 'play-card2', type: 'PLAY_CARD', row: 'bottom', label: 'Jouer une carte' },
       ],

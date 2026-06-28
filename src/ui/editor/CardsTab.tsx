@@ -2,7 +2,7 @@
 // illustration auto-adaptée + constructeur d'effets catalogue) et aperçu live.
 import { useState } from 'react'
 import type { CustomVillain, CustomCard } from '../../data/customVillain'
-import { emptyCustomCard } from '../../data/customVillain'
+import { emptyCustomCard, FATE_CARD_COLOR } from '../../data/customVillain'
 import type { CardType, DeckKind } from '../../data/types'
 import type { Effect } from '../../engine/types'
 import { Field, TextField, NumberField, ImageField, SelectField } from './fields'
@@ -334,14 +334,14 @@ export function CardsTab({
           </span>
         </div>
 
-        <CardRow title="Deck Vilain" cards={villainCards} selId={selId} onSelect={setSelId} onRemove={removeCard} color={draft.color} fateColor={draft.fateBackColor} />
-        <CardRow title="Deck Fatalité" cards={fateCards} selId={selId} onSelect={setSelId} onRemove={removeCard} color={draft.color} fateColor={draft.fateBackColor} />
+        <CardRow title="Deck Vilain" cards={villainCards} selId={selId} onSelect={setSelId} onRemove={removeCard} color={draft.color} fateColor={FATE_CARD_COLOR} />
+        <CardRow title="Deck Fatalité" cards={fateCards} selId={selId} onSelect={setSelId} onRemove={removeCard} color={draft.color} fateColor={FATE_CARD_COLOR} />
       </div>
 
       {/* Formulaire de la carte sélectionnée */}
       {selected ? (
         <div className="rounded-xl border border-white/15 bg-black/25 p-4">
-          <CardForm card={selected} color={draft.color} fateColor={draft.fateBackColor} onChange={updateCard} />
+          <CardForm card={selected} color={draft.color} fateColor={FATE_CARD_COLOR} onChange={updateCard} />
         </div>
       ) : (
         <p className="text-white/50">Sélectionne une carte ou ajoutes-en une pour l’éditer.</p>

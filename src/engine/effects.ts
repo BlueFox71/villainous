@@ -962,7 +962,8 @@ export function performVanquish(
     // éliminent aussi un Héros sur un lieu VOISIN non bloqué (donnée
     // `reachesAdjacentVanquish` ; cardId conservés pour compat héritée).
     const reachesAdjacent = a.reachesAdjacentVanquish || a.cardId === 'archers-loups' || a.cardId === 'flibustiers'
-    if (allyLoc !== heroLoc && !(reachesAdjacent && adjacents.has(allyLoc))) {
+    // Persian (reachesAnyLocationVanquish) : utilisable depuis n'importe quel lieu.
+    if (!a.reachesAnyLocationVanquish && allyLoc !== heroLoc && !(reachesAdjacent && adjacents.has(allyLoc))) {
       throw new Error(`${a.name} doit être sur ${heroLocName}${reachesAdjacent ? ' ou un lieu voisin' : ''}.`)
     }
     allies.push(a)
@@ -6598,16 +6599,18 @@ export function resolveEffect(
         }
       }
       const others = revealed.filter((c) => c !== found)
+      // James (keepOthersOnTop) : les autres dévoilées repartent sur le DESSUS de la
+      // pioche (ordre conservé) ; sinon (Œil des Moires) elles sont défaussées.
       let next = updatePlayer(state, idx, (p) => ({
         ...p,
-        deck,
-        discard: [...disc, ...others],
+        deck: effect.keepOthersOnTop ? [...others, ...deck] : deck,
+        discard: effect.keepOthersOnTop ? disc : [...disc, ...others],
         hand: found ? [...p.hand, found] : p.hand,
       }))
       next = { ...next, rngState: s }
       return {
         ...next,
-        log: [...next.log, found ? `${actor.villainName} ajoute **${found.name}** à sa main (Œil des Moires).` : `${actor.villainName} ne trouve aucun Allié (Œil des Moires).`],
+        log: [...next.log, found ? `${actor.villainName} ajoute **${found.name}** à sa main.` : `${actor.villainName} ne trouve aucune carte du type voulu.`],
       }
     }
     // ===================== Dr Facilier — Pile de l'Au-delà =====================
@@ -7362,6 +7365,132 @@ export function resolveEffect(
         discard: [...p.discard, pick!],
       }))
       return { ...next, log: [...next.log, `Comète farceuse : **${pick.name}** est défaussé du royaume de ${actor.villainName}.`] }
+    }
+    case 'DISCARD_ALLY_OR_ITEM': {
+      // Onix (Pokémon Fatalité) : défausse un Allié OU un Objet du royaume de la cible.
+      // Auto : la carte la plus « précieuse » (force d'un Allié, ou coût d'un Objet) parmi
+      // les Alliés/Objets non associés et non immunisés. Les Objets associés à la cible
+      // partent avec elle.
+      const actor = state.players[idx]
+      type Cand = { c: CardInstance; loc: LocationId; value: number }
+      const cands: Cand[] = []
+      for (const l of actor.locations) {
+        for (const c of actor.board[l.id] ?? []) {
+          if (c.attachedTo || c.immuneToAllyItemEffects) continue
+          if (c.type === 'ally') cands.push({ c, loc: l.id, value: c.strength ?? 0 })
+          else if (c.type === 'item') cands.push({ c, loc: l.id, value: c.cost ?? 0 })
+        }
+      }
+      if (cands.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : aucun Allié ni Objet à défausser (Onix).`] }
+      }
+      const target = [...cands].sort((a, b) => b.value - a.value)[0]
+      const loc = target.loc
+      const attachedIds = new Set((actor.board[loc] ?? []).filter((c) => c.attachedTo === target.c.instanceId).map((c) => c.instanceId))
+      const removeIds = new Set<string>([target.c.instanceId, ...attachedIds])
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        board: { ...pl.board, [loc]: (pl.board[loc] ?? []).filter((c) => !removeIds.has(c.instanceId)) },
+        discard: [
+          ...pl.discard,
+          { ...target.c, attachedTo: undefined },
+          ...(actor.board[loc] ?? []).filter((c) => attachedIds.has(c.instanceId)).map((c) => ({ ...c, attachedTo: undefined })),
+        ],
+      }))
+      return { ...next, log: [...next.log, `Onix : **${target.c.name}** est défaussé du royaume de ${actor.villainName}.`] }
+    }
+    case 'EVOLVE_ALLY': {
+      // Évolution : ouvre le choix de l'Allié à faire évoluer. Candidats = Alliés évolutifs
+      // (`evolvesToCardId`) du royaume dont l'évolution n'est PAS déjà en jeu.
+      const p = state.players[idx]
+      const realmCardIds = new Set(Object.values(p.board).flat().map((c) => c.cardId))
+      const candidates = Object.values(p.board)
+        .flat()
+        .filter((c) => c.type === 'ally' && c.evolvesToCardId && !realmCardIds.has(c.evolvesToCardId))
+      if (candidates.length === 0) {
+        return { ...state, log: [...state.log, `${p.villainName} : aucun Allié évoluable (Évolution).`] }
+      }
+      return {
+        ...state,
+        pendingEvolveAlly: { playerIndex: idx, candidateIds: candidates.map((c) => c.instanceId) },
+        log: [...state.log, `${p.villainName} : choisissez l'Allié à faire évoluer.`],
+      }
+    }
+    case 'KO_POKEMON_GE': {
+      // « Oui, la guerre ! » : couche (K.O.) gratuitement un Pokémon de force ≥ minStrength
+      // du royaume (auto : le plus fort non encore couché) — il devient attrapable.
+      const p = state.players[idx]
+      const candidates: { c: CardInstance; loc: LocationId }[] = []
+      for (const l of p.locations) {
+        for (const c of p.board[l.id] ?? []) {
+          if (c.isPokemon && !c.pokemonKO && (effectiveStrength(state, idx, c.instanceId) ?? 0) >= effect.minStrength) {
+            candidates.push({ c, loc: l.id })
+          }
+        }
+      }
+      if (candidates.length === 0) {
+        return { ...state, log: [...state.log, `${p.villainName} : aucun Pokémon de force ≥${effect.minStrength} à coucher (Oui, la guerre !).`] }
+      }
+      const target = [...candidates].sort(
+        (a, b) => (effectiveStrength(state, idx, b.c.instanceId) ?? 0) - (effectiveStrength(state, idx, a.c.instanceId) ?? 0),
+      )[0]
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        board: {
+          ...pl.board,
+          [target.loc]: (pl.board[target.loc] ?? []).map((c) =>
+            c.instanceId === target.c.instanceId ? { ...c, pokemonKO: true, koOnTurn: state.turn } : c,
+          ),
+        },
+      }))
+      return { ...next, log: [...next.log, `Oui, la guerre ! : **${target.c.name}** est couché (K.O.) — prêt à être attrapé.`] }
+    }
+    case 'MOVE_OWN_ALLY_ADJACENT': {
+      // Stari (à la pose) : déplace un Allié du royaume vers un lieu voisin (auto : le 1ᵉʳ
+      // Allié non associé déplaçable, vers son 1ᵉʳ lieu voisin). « Vous pouvez » → no-op sinon.
+      const p = state.players[idx]
+      for (const l of p.locations) {
+        const ally = (p.board[l.id] ?? []).find((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket)
+        const adj = adjacentLocationIds(state, l.id)
+        if (ally && adj.length > 0) {
+          const to = adj[0]
+          const attached = (p.board[l.id] ?? []).filter((c) => c.attachedTo === ally.instanceId)
+          const moveIds = new Set([ally.instanceId, ...attached.map((c) => c.instanceId)])
+          const next = updatePlayer(state, idx, (pl) => ({
+            ...pl,
+            board: {
+              ...pl.board,
+              [l.id]: (pl.board[l.id] ?? []).filter((c) => !moveIds.has(c.instanceId)),
+              [to]: [...(pl.board[to] ?? []), ally, ...attached],
+            },
+          }))
+          const toName = p.locations.find((x) => x.id === to)?.name ?? to
+          return { ...next, log: [...next.log, `Stari : **${ally.name}** est déplacé vers **${toName}**.`] }
+        }
+      }
+      return state
+    }
+    case 'UNCAPTURE_POKEMON_LE': {
+      // « On n'abandonne pas ses amis » (Fatalité) : reprend un Pokémon CAPTURÉ de force
+      // ≤ maxStrength (auto : le plus fort éligible, revers maximal) et le remet sur le
+      // dessus de la pioche Fatalité. Une seule fois par Pokémon (`noReturnFromCapture`).
+      const p = state.players[idx]
+      const candidates = (p.capturedPokemon ?? []).filter(
+        (c) => (c.strength ?? 0) <= effect.maxStrength && !c.noReturnFromCapture,
+      )
+      if (candidates.length === 0) {
+        return { ...state, log: [...state.log, `${p.villainName} : aucun Pokémon capturé de force ≤${effect.maxStrength} à reprendre (On n'abandonne pas ses amis).`] }
+      }
+      const target = [...candidates].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+      const returned: CardInstance = {
+        ...target, noReturnFromCapture: true, pokemonKO: undefined, koOnTurn: undefined, summonedByInstanceId: undefined, attachedTo: undefined,
+      }
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        capturedPokemon: (pl.capturedPokemon ?? []).filter((c) => c.instanceId !== target.instanceId),
+        fateDeck: [returned, ...pl.fateDeck],
+      }))
+      return { ...next, log: [...next.log, `On n'abandonne pas ses amis : **${target.name}** quitte la pile de Captures de ${p.villainName} et retourne sur la pioche Fatalité.`] }
     }
     case 'GAIN_POISON': {
       const next = updatePlayer(state, idx, (p) => ({ ...p, poison: (p.poison ?? 0) + effect.amount }))

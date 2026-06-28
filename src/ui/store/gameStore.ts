@@ -416,6 +416,7 @@ function instanceOf(cardId: string, n: number): CardInstance | null {
     contractLocationId: def.contractLocationId,
     isTitan: def.isTitan,
     reachesAdjacentVanquish: def.reachesAdjacentVanquish,
+    reachesAnyLocationVanquish: def.reachesAnyLocationVanquish,
     ridesWithPawn: def.ridesWithPawn,
     returnToHandOnVanquish: def.returnToHandOnVanquish,
     auDela: def.auDela,
@@ -426,6 +427,9 @@ function instanceOf(cardId: string, n: number): CardInstance | null {
     fatePlayBoth: def.fatePlayBoth,
     isHyena: def.isHyena,
     requiresHyenaInRealm: def.requiresHyenaInRealm,
+    requiresAllyInRealm: def.requiresAllyInRealm,
+    evolvesToCardId: def.evolvesToCardId,
+    playWhenRevealed: def.playWhenRevealed,
   }
 }
 
@@ -718,6 +722,8 @@ interface GameStore {
   resolveIdentification: (cardInstanceId: string, to: string) => void
   /** Lotso — résout le choix de cible (réduire un Héros / déplacer vers la Salle des Chenilles). */
   resolveLotsoTarget: (instanceId: string) => void
+  /** Team Rocket — Évolution : résout le choix de l'Allié à faire évoluer. */
+  resolveEvolveAlly: (instanceId: string) => void
   /** Lotso — Réinitialisation : résout le choix du lieu où placer Buzz (mode Démo). */
   resolveLotsoBuzzMove: (to: string) => void
   /** Lotso — Le Bibliothécaire : réduit le Héros choisi (−1) ou termine (null). */
@@ -1306,6 +1312,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   resolveIdentification: (cardInstanceId, to) =>
     get().submit({ type: 'RESOLVE_IDENTIFICATION', cardInstanceId, to }),
   resolveLotsoTarget: (instanceId) => get().submit({ type: 'RESOLVE_LOTSO_TARGET', instanceId }),
+  resolveEvolveAlly: (instanceId) => get().submit({ type: 'RESOLVE_EVOLVE_ALLY', instanceId }),
   resolveLotsoBuzzMove: (to) => get().submit({ type: 'RESOLVE_LOTSO_BUZZ_MOVE', to }),
   resolveLotsoBookworm: (heroInstanceId) => get().submit({ type: 'RESOLVE_LOTSO_BOOKWORM', heroInstanceId }),
   resolveLotsoFlex: (arg) => get().submit({ type: 'RESOLVE_LOTSO_FLEX', ...arg }),

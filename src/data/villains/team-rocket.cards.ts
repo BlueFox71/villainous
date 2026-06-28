@@ -35,6 +35,7 @@ export const teamRocketCards: CardDef[] = [
     strength: 2,
     copies: 1,
     strengthMod: { target: 'heroes-here', delta: -1 },
+    evolvesToCardId: 'arbok',
     text: "Les Héros qui se trouvent sur le même lieu qu'Abo ont une force diminuée de 1. (peut s'évoluer en Arbok)",
     image: img('abo.png'),
   },
@@ -60,6 +61,9 @@ export const teamRocketCards: CardDef[] = [
     cost: 1,
     strength: 2,
     copies: 1,
+    evolvesToCardId: 'smogogo',
+    // Réutilise la fenêtre d'action distante de « Brutes » (Ratigan).
+    effects: [{ type: 'ALLY_REMOTE_ACTION' }],
     text: "Si vous jouez Smogo sur un lieu où vous ne vous trouvez pas, vous pouvez effectuer une action disponible de ce lieu, en dehors d'une action Fatalité. (peut s'évoluer en Smogogo)",
     image: img('smogo.png'),
   },
@@ -72,6 +76,8 @@ export const teamRocketCards: CardDef[] = [
     cost: 2,
     strength: 3,
     copies: 1,
+    // Comme Smogo, mais « recouverte ou non » → includeCovered (ignore la couverture).
+    effects: [{ type: 'ALLY_REMOTE_ACTION', includeCovered: true }],
     text: "Si vous jouez Smogogo sur un lieu où vous ne vous trouvez pas, vous pouvez effectuer 1 action, recouverte ou non, de ce lieu, en dehors d'une action Fatalité.",
     image: img('smogogo.png'),
   },
@@ -85,6 +91,7 @@ export const teamRocketCards: CardDef[] = [
     strength: 3,
     copies: 1,
     reachesAdjacentVanquish: true,
+    evolvesToCardId: 'persian',
     text: "Lors d'une action Éliminer un Héros, Miaouss peut être utilisé pour éliminer un Héros sur son lieu ou sur un lieu voisin. (peut s'évoluer en Persian)",
     image: img('miaouss.png'),
   },
@@ -97,8 +104,7 @@ export const teamRocketCards: CardDef[] = [
     cost: 2,
     strength: 4,
     copies: 1,
-    // TODO phase 3 : « n'importe quel lieu » (pour l'instant approximé en lieu voisin).
-    reachesAdjacentVanquish: true,
+    reachesAnyLocationVanquish: true,
     text: "Lors d'une action Éliminer un Héros, Persian peut être utilisé pour éliminer un Héros sur n'importe quel lieu.",
     image: img('persian.png'),
   },
@@ -140,7 +146,8 @@ export const teamRocketCards: CardDef[] = [
     cost: 2,
     attach: 'ally',
     copies: 2,
-    // TODO phase 3 : déclenche une action Attraper si l'Allié hôte a éliminé un Héros, puis se défausse.
+    // Déclenche l'action Attraper si l'Allié hôte a éliminé un Héros (géré dans applyVanquish) ;
+    // la rose est défaussée avec l'Allié dépensé.
     text: "Associez cet Objet à un Allié. Si cet Allié a été utilisé pour éliminer un Héros, vous pouvez effectuer l'action « Attraper un Pokémon ». Défaussez cette carte ensuite.",
     image: img('rose-de-james.png'),
   },
@@ -152,8 +159,9 @@ export const teamRocketCards: CardDef[] = [
     type: 'item',
     cost: 2,
     copies: 1,
-    // TODO phase 3 : étend la portée de l'action Attraper d'un lieu (lieux voisins).
-    text: "Allonge d'un lieu votre portée pour attraper un Pokémon.",
+    // Sursis : tant que le Pokédex est dans le royaume, un Pokémon couché survit UN tour de
+    // plus avant d'aller en défausse Fatalité (seuil d'expiration 3 au lieu de 2 ; cf. sweepKoPokemon).
+    text: "Allonge d'un tour votre délai pour attraper un Pokémon couché (avant qu'il ne file).",
     image: img('pokedex-vole.png'),
   },
   {
@@ -190,7 +198,7 @@ export const teamRocketCards: CardDef[] = [
     type: 'effect',
     cost: 2,
     copies: 2,
-    effects: [{ type: 'REVEAL_VILLAIN_UNTIL_TYPE', cardType: 'item' }],
+    effects: [{ type: 'REVEAL_VILLAIN_UNTIL_TYPE', cardType: 'item', keepOthersOnTop: true }],
     text: "Dévoilez les cartes de votre pioche jusqu'à ce que vous trouviez un Objet. Jouez-le et remettez les autres cartes sur le dessus de votre pioche.",
     image: img('james.png'),
   },
@@ -202,7 +210,7 @@ export const teamRocketCards: CardDef[] = [
     type: 'effect',
     cost: 3,
     copies: 3,
-    // TODO phase 3 : dévoiler le deck Fatalité jusqu'à un Héros (dresseur), le jouer, défausser le reste.
+    effects: [{ type: 'REVEAL_OWN_FATE_PLAY_HERO' }],
     text: "Dévoilez les cartes Fatalité jusqu'à ce que vous trouviez un Héros. Jouez-le et défaussez les autres cartes dévoilées.",
     image: img('reperage.png'),
   },
@@ -214,7 +222,10 @@ export const teamRocketCards: CardDef[] = [
     type: 'effect',
     cost: 1,
     copies: 3,
-    // TODO phase 3 : faire évoluer un Allié (Abo→Arbok, Smogo→Smogogo, Miaouss→Persian).
+    // Injouable sans Allié au royaume (rien à faire évoluer).
+    requiresAllyInRealm: true,
+    // Fait évoluer un Allié (Abo→Arbok, Smogo→Smogogo, Miaouss→Persian) : choix interactif.
+    effects: [{ type: 'EVOLVE_ALLY' }],
     text: "Choisissez un Allié dans votre royaume. S'il peut s'évoluer et que son évolution n'est pas déjà dans votre royaume, défaussez-le, cherchez l'Allié indiqué et jouez-le sur le même lieu.",
     image: img('evolution.png'),
   },
@@ -226,7 +237,7 @@ export const teamRocketCards: CardDef[] = [
     type: 'effect',
     cost: 2,
     copies: 2,
-    // TODO phase 3 : regarder les 2 premières cartes Fatalité de sa pioche (scry).
+    effects: [{ type: 'SCRY_OWN_FATE_TOP2' }],
     text: "Regardez secrètement les deux premières cartes Fatalité de votre pioche. Défaussez-les ou remettez-les sur le dessus de la pioche dans n'importe quel ordre.",
     image: img('toilettage.png'),
   },
@@ -240,7 +251,9 @@ export const teamRocketCards: CardDef[] = [
     type: 'condition',
     cost: 0,
     copies: 1,
-    // TODO phase 3 : trigger (adversaire élimine un Héros de force ≥3) → éliminer un Héros de force ≥3.
+    trigger: { type: 'opponent-vanquished-hero-strength-ge', value: 3 },
+    // « Éliminer un Héros ≥3 » = chez Team Rocket, COUCHER un Pokémon ≥3 (gratuit) → attrapable.
+    effects: [{ type: 'KO_POKEMON_GE', minStrength: 3 }],
     text: "Cette carte est jouable pendant le tour d'un adversaire s'il élimine un Héros de force 3 ou plus. Éliminez un Héros de force 3 ou plus.",
     image: img('oui-la-guerre.png'),
   },
@@ -252,7 +265,8 @@ export const teamRocketCards: CardDef[] = [
     type: 'condition',
     cost: 0,
     copies: 2,
-    // TODO phase 3 : trigger (adversaire vous joue un Héros de force ≤3) → dévoiler et jouer sa 1ʳᵉ Fatalité.
+    trigger: { type: 'opponent-played-fate-hero-le', value: 3 },
+    // Effet géré par cardId dans resolveConditionEffect (réutilise la logique Tromperie/Illusion).
     text: "Cette carte est jouable pendant le tour d'un adversaire s'il vous joue un Héros de force 3 ou moins. Dévoilez la première carte Fatalité de sa pioche et jouez-la immédiatement.",
     image: img('mauvais-tour.png'),
   },
@@ -322,7 +336,7 @@ export const teamRocketCards: CardDef[] = [
     isPokemon: true,
     strength: 5,
     copies: 1,
-    // TODO phase 2 : « joué dès qu'il est dévoilé » + défausse des autres Fatalités dévoilées.
+    playWhenRevealed: true,
     text: "Vous devez immédiatement jouer Pikachu dès qu'il est dévoilé. Défaussez les autres cartes Fatalité qui ont été dévoilées.",
     image: img('pikachu.png'),
   },
@@ -348,7 +362,7 @@ export const teamRocketCards: CardDef[] = [
     isPokemon: true,
     strength: 3,
     copies: 1,
-    // TODO phase 2/3 : déplacer un Allié de la Team Rocket sur un lieu voisin (à la pose).
+    onPlace: [{ type: 'MOVE_OWN_ALLY_ADJACENT' }],
     text: "Vous pouvez déplacer un Allié sur un lieu voisin.",
     image: img('stari.png'),
   },
@@ -387,7 +401,7 @@ export const teamRocketCards: CardDef[] = [
     isPokemon: true,
     strength: 4,
     copies: 1,
-    // TODO phase 2/3 : défausser un Allié ou un Objet de la Team Rocket (à la pose).
+    onPlace: [{ type: 'DISCARD_ALLY_OR_ITEM' }],
     text: "Défaussez un Allié ou un Objet de votre choix.",
     image: img('onix.png'),
   },
@@ -412,7 +426,7 @@ export const teamRocketCards: CardDef[] = [
     deck: 'fate',
     type: 'effect',
     copies: 2,
-    // TODO phase 2 : reprend un Pokémon de force ≤3 de la pile de Captures et le remet sur la pioche Fatalité.
+    effects: [{ type: 'UNCAPTURE_POKEMON_LE', maxStrength: 3 }],
     text: "Choisissez un Pokémon de force 3 ou moins dans la pile de Captures et remettez-le sur le dessus de la pioche (ne fonctionne qu'une seule fois sur un Pokémon).",
     image: img('on-abandonne-pas.png'),
   },
@@ -423,7 +437,7 @@ export const teamRocketCards: CardDef[] = [
     deck: 'fate',
     type: 'effect',
     copies: 2,
-    // TODO phase 3 : défausser un Objet de la Team Rocket.
+    effects: [{ type: 'DISCARD_ONE_ITEM' }],
     text: "Défaussez un Objet de votre choix.",
     image: img('degonflage.png'),
   },

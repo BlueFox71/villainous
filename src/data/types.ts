@@ -148,8 +148,15 @@ export interface CardDef {
   /** Team Rocket — Dresseur (Héros Fatalité) : à sa pose, cherche l'un de ces Pokémon
    *  (cardId) dans la pioche Fatalité et le pose sur le même lieu. */
   summonsPokemonCardIds?: string[]
+  /** Team Rocket — Allié évolutif : `cardId` de son évolution (Abo→Arbok, Smogo→Smogogo,
+   *  Miaouss→Persian). Utilisé par l'Événement « Évolution ». */
+  evolvesToCardId?: string
+  /** Team Rocket — Pikachu : Pokémon Fatalité « joué d'office dès qu'il est dévoilé ». */
+  playWhenRevealed?: boolean
   /** L'Allié peut Éliminer un Héros sur un lieu VOISIN (Flibustiers, Cerbère). */
   reachesAdjacentVanquish?: boolean
+  /** L'Allié peut Éliminer un Héros sur N'IMPORTE QUEL lieu (Team Rocket — Persian). */
+  reachesAnyLocationVanquish?: boolean
   /** Objet « véhicule » : sur son lieu, on peut 1×/tour déplacer la figurine + cet
    *  Objet vers n'importe quel lieu et y faire une action (hors Fatalité).
    *  Hadès — Char ; Bowser — Bateau (même mécanisme, voir applyChariotMove). */
@@ -181,6 +188,9 @@ export interface CardDef {
   /** Scar — carte injouable s'il n'y a aucune Hyène dans le royaume (Festin :
    *  rien à déplacer sinon). */
   requiresHyenaInRealm?: boolean
+  /** Team Rocket — Évolution : injouable s'il n'y a aucun Allié dans le royaume
+   *  (rien à faire évoluer). */
+  requiresAllyInRealm?: boolean
   /** Le Seigneur des Ténèbres — Mort-vivant du Chaudron : jouable seulement quand le
    *  Chaudron Noir est activé (`blackCauldron === 'powered'`). */
   requiresPoweredCauldron?: boolean
@@ -376,6 +386,7 @@ export function buildDeckInstances(
           isPokemon: c.isPokemon,
           summonsPokemonCardIds: c.summonsPokemonCardIds,
           reachesAdjacentVanquish: c.reachesAdjacentVanquish,
+          reachesAnyLocationVanquish: c.reachesAnyLocationVanquish,
           ridesWithPawn: c.ridesWithPawn,
           returnToHandOnVanquish: c.returnToHandOnVanquish,
           auDela: c.auDela,
@@ -386,6 +397,9 @@ export function buildDeckInstances(
           fatePlayBoth: c.fatePlayBoth,
           isHyena: c.isHyena,
           requiresHyenaInRealm: c.requiresHyenaInRealm,
+          requiresAllyInRealm: c.requiresAllyInRealm,
+          evolvesToCardId: c.evolvesToCardId,
+          playWhenRevealed: c.playWhenRevealed,
           requiresPoweredCauldron: c.requiresPoweredCauldron,
           consumesItemCardId: c.consumesItemCardId,
           blocksVillainEvents: c.blocksVillainEvents,

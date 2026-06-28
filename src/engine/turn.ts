@@ -46,6 +46,7 @@ export function pendingOwner(state: GameState): number | null {
   // playerIndex : la main revient au joueur explicitement désigné.
   if (state.pendingTyrannyDiscard) return state.pendingTyrannyDiscard.playerIndex
   if (state.pendingLotsoTarget) return state.pendingLotsoTarget.playerIndex
+  if (state.pendingEvolveAlly) return state.pendingEvolveAlly.playerIndex
   if (state.pendingLotsoBuzzMove) return state.pendingLotsoBuzzMove.playerIndex
   if (state.pendingLotsoBookworm) return state.pendingLotsoBookworm.playerIndex
   if (state.pendingLotsoFlex) return state.pendingLotsoFlex.playerIndex
