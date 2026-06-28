@@ -916,15 +916,15 @@ ACTION_POS['dio'] = {
 // (Gagner / Déplacer / Attraper).
 ACTION_POS['team-rocket'] = {
   labo: {
-    vanquish: { x: 22.4, y: 19.6 },
+    fate: { x: 22.4, y: 19.6 },
     'play-card': { x: 30.3, y: 19.6 },
     'gain-power': { x: 20.1, y: 67.3 },
-    'move-item-ally': { x: 26.5, y: 67.6 },
+    'move-hero': { x: 26.5, y: 67.6 },
     catch: { x: 32.8, y: 67.6 },
   },
   foret: {
     'play-card': { x: 43.4, y: 19.4 },
-    fate: { x: 51.2, y: 19.7 },
+    discard: { x: 51.2, y: 19.7 },
     'gain-power': { x: 43.4, y: 67.5 },
     'play-card2': { x: 51.2, y: 67.3 },
   },
@@ -932,13 +932,40 @@ ACTION_POS['team-rocket'] = {
     'play-card': { x: 64.3, y: 19.6 },
     'play-card2': { x: 72.1, y: 19.6 },
     'move-item-ally': { x: 64.3, y: 67.5 },
-    vanquish: { x: 72.1, y: 67.7 },
+    fate: { x: 72.1, y: 67.7 },
   },
   arene: {
     'play-card': { x: 85.1, y: 19.6 },
     'gain-power': { x: 92.9, y: 19.6 },
     vanquish: { x: 85.1, y: 67.5 },
-    fate: { x: 92.9, y: 67.5 },
+    discard: { x: 92.9, y: 67.5 },
+  },
+}
+
+// La Bonne Fée — même gabarit de plateau que Team Rocket (Realm.png 4455×1248).
+ACTION_POS['la-bonne-fee'] = {
+  marais: {
+    fate: { x: 22.5, y: 19.5 },
+    'play-card': { x: 30.3, y: 19.6 },
+    'gain-power': { x: 22.5, y: 67.1 },
+    discard: { x: 30.3, y: 67.5 },
+  },
+  'pomme-empoisonnee': {
+    'play-card': { x: 43.4, y: 19.6 },
+    discard: { x: 51.2, y: 19.6 },
+    'gain-power': { x: 43.4, y: 67.5 },
+    'play-card2': { x: 51.2, y: 67.5 },
+  },
+  'usine-potions': {
+    'move-item-ally': { x: 64.3, y: 19.6 },
+    activate: { x: 72.1, y: 19.6 },
+    'play-card': { x: 64.3, y: 67.5 },
+    fate: { x: 72.1, y: 67.5 },
+  },
+  'salle-de-bal': {
+    'play-card': { x: 82.7, y: 67.5 },
+    activate: { x: 89.1, y: 67.6 },
+    'gain-power': { x: 95.4, y: 67.5 },
   },
 }
 

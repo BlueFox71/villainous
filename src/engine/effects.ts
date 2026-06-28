@@ -1335,9 +1335,13 @@ export function performVanquish(
           ? [...cards.filter((c) => !removedIds.has(c.instanceId)), { ...heroCard, lockedPower: undefined, attachedTo: undefined }]
           : locId === p.pawnLocation && relocatedToPawn.length > 0
             ? [...cards.filter((c) => !removedIds.has(c.instanceId)), ...relocatedToPawn]
-            // Team Rocket — Pokémon vaincu : il RESTE couché (K.O.) sur son lieu.
+            // Team Rocket — Pokémon vaincu : il RESTE couché (K.O.) sur son lieu, mais
+            // les Alliés/Objets dépensés (dans removedIds) doivent quand même quitter le
+            // plateau (sinon ils restent visibles ET se retrouvent en double en défausse).
             : tiltPokemon
-              ? cards.map((c) => (c.instanceId === heroCard.instanceId ? { ...c, pokemonKO: true, koOnTurn: state.turn } : c))
+              ? cards
+                  .filter((c) => !removedIds.has(c.instanceId))
+                  .map((c) => (c.instanceId === heroCard.instanceId ? { ...c, pokemonKO: true, koOnTurn: state.turn } : c))
               : cards.filter((c) => !removedIds.has(c.instanceId)),
       ]),
     ),
@@ -5701,6 +5705,101 @@ export function resolveEffect(
         log: [...state.log, `${state.players[chooserIndex].villainName} choisit un Objet à voler à ${tgt.villainName}.`],
       }
     }
+    case 'DISCARD_TRANSFORMED_HEROES': {
+      // La Bonne Fée — Nettoyage de fond : défausse (pile Fatalité) tous les Héros
+      // transformés du royaume de l'acteur (portant un Objet `zeroesHostStrength`),
+      // avec leurs Objets associés. Auto, sans choix.
+      const p0 = state.players[idx]
+      let next = state
+      const names: string[] = []
+      for (const loc of p0.locations) {
+        const cell = p0.board[loc.id] ?? []
+        const transformed = cell.filter(
+          (h) =>
+            h.type === 'hero' &&
+            cell.some((it) => it.attachedTo === h.instanceId && it.zeroesHostStrength),
+        )
+        for (const hero of transformed) {
+          const c2 = next.players[idx].board[loc.id] ?? []
+          const attached = c2.filter((c) => c.attachedTo === hero.instanceId)
+          const rm = new Set([hero.instanceId, ...attached.map((c) => c.instanceId)])
+          names.push(hero.name)
+          next = updatePlayer(next, idx, (pl) => ({
+            ...pl,
+            board: { ...pl.board, [loc.id]: (pl.board[loc.id] ?? []).filter((c) => !rm.has(c.instanceId)) },
+            fateDiscard: [
+              ...pl.fateDiscard,
+              { ...hero, attachedTo: undefined },
+              ...attached.map((c) => ({ ...c, attachedTo: undefined })),
+            ],
+          }))
+        }
+      }
+      if (names.length === 0) return state
+      return { ...next, log: [...next.log, `${p0.villainName} fait le ménage : ${names.join(', ')} défaussé(s).`] }
+    }
+    case 'CAP_SELF_NEXT_TURN': {
+      // La Bonne Fée — On est presque arrivé ? : plafonne le prochain tour de l'acteur.
+      const next = updatePlayer(state, idx, (pl) => ({ ...pl, actionsCapNextTurn: effect.actions }))
+      return {
+        ...next,
+        log: [
+          ...next.log,
+          `On est presque arrivé ? : ${state.players[idx].villainName} ne pourra réaliser que ${effect.actions} actions à son prochain tour.`,
+        ],
+      }
+    }
+    case 'DISCARD_ONE_OR_LOSE': {
+      // La Bonne Fée — Infiltration : défausser une carte OU perdre `lose` Pouvoir.
+      // Auto (malus subi) : on garde la main et on perd le Pouvoir si possible.
+      const p = state.players[idx]
+      if (p.power >= effect.lose) {
+        const next = updatePlayer(state, idx, (pl) => ({ ...pl, power: pl.power - effect.lose }))
+        return { ...next, log: [...next.log, `Infiltration : ${p.villainName} perd ${effect.lose} JT (garde sa main).`] }
+      }
+      if (p.hand.length === 0) {
+        const lost = Math.min(p.power, effect.lose)
+        const next = updatePlayer(state, idx, (pl) => ({ ...pl, power: Math.max(0, pl.power - effect.lose) }))
+        return { ...next, log: [...next.log, `Infiltration : ${p.villainName} perd ${lost} JT (main vide).`] }
+      }
+      const victim = [...p.hand].sort((a, b) => (a.cost ?? 0) - (b.cost ?? 0))[0]
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        hand: pl.hand.filter((c) => c.instanceId !== victim.instanceId),
+        discard: [...pl.discard, victim],
+      }))
+      return { ...next, log: [...next.log, `Infiltration : ${p.villainName} défausse ${victim.name}.`] }
+    }
+    case 'FETCH_POTION': {
+      // La Bonne Fée — Réserve de potions : cherche une Potion (pioche ou défausse) → main.
+      // Auto : la potion ABSENTE de la main en priorité (l'objectif en veut 2 différentes),
+      // d'abord dans la défausse (pas de mélange), sinon dans la pioche (mélangée ensuite).
+      const p = state.players[idx]
+      const inHand = new Set(p.hand.filter((c) => c.isPotion).map((c) => c.cardId))
+      const pick = (cards: CardInstance[]) =>
+        cards.find((c) => c.isPotion && !inHand.has(c.cardId)) ?? cards.find((c) => c.isPotion)
+      const fromDiscard = pick(p.discard)
+      if (fromDiscard) {
+        const next = updatePlayer(state, idx, (pl) => ({
+          ...pl,
+          discard: pl.discard.filter((c) => c.instanceId !== fromDiscard.instanceId),
+          hand: [...pl.hand, fromDiscard],
+        }))
+        return { ...next, log: [...next.log, `${p.villainName} récupère ${fromDiscard.name} (défausse) → main.`] }
+      }
+      const fromDeck = pick(p.deck)
+      if (fromDeck) {
+        const remaining = p.deck.filter((c) => c.instanceId !== fromDeck.instanceId)
+        const r = shuffle(remaining, state.rngState)
+        const next = updatePlayer({ ...state, rngState: r.state }, idx, (pl) => ({
+          ...pl,
+          deck: r.result,
+          hand: [...pl.hand, fromDeck],
+        }))
+        return { ...next, log: [...next.log, `${p.villainName} cherche ${fromDeck.name} dans la pioche → main (pioche mélangée).`] }
+      }
+      return { ...state, log: [...state.log, `${p.villainName} : aucune Potion à récupérer.`] }
+    }
     case 'REVEAL_OWN_FATE_PLAY_HERO': {
       // Dévoile le deck Fatalité de l'acteur jusqu'à un Héros, le joue dans SON
       // royaume, défausse les autres cartes dévoilées.
@@ -7379,7 +7478,8 @@ export function resolveEffect(
     }
     case 'KO_POKEMON_GE': {
       // « Oui, la guerre ! » : couche (K.O.) gratuitement un Pokémon de force ≥ minStrength
-      // du royaume (auto : le plus fort non encore couché) — il devient attrapable.
+      // du royaume — il devient attrapable. Choix INTERACTIF (clic plateau) dès qu'il y a
+      // ≥2 candidats ; auto si un seul ; no-op si aucun.
       const p = state.players[idx]
       const candidates: { c: CardInstance; loc: LocationId }[] = []
       for (const l of p.locations) {
@@ -7392,9 +7492,14 @@ export function resolveEffect(
       if (candidates.length === 0) {
         return { ...state, log: [...state.log, `${p.villainName} : aucun Pokémon de force ≥${effect.minStrength} à coucher (Oui, la guerre !).`] }
       }
-      const target = [...candidates].sort(
-        (a, b) => (effectiveStrength(state, idx, b.c.instanceId) ?? 0) - (effectiveStrength(state, idx, a.c.instanceId) ?? 0),
-      )[0]
+      if (candidates.length >= 2) {
+        return {
+          ...state,
+          pendingKoPokemon: { chooserIndex: idx, candidateIds: candidates.map((x) => x.c.instanceId) },
+          log: [...state.log, `${p.villainName} : choisissez le Pokémon à coucher (Oui, la guerre !).`],
+        }
+      }
+      const target = candidates[0]
       const next = updatePlayer(state, idx, (pl) => ({
         ...pl,
         board: {
@@ -7407,29 +7512,26 @@ export function resolveEffect(
       return { ...next, log: [...next.log, `Oui, la guerre ! : **${target.c.name}** est couché (K.O.) — prêt à être attrapé.`] }
     }
     case 'MOVE_OWN_ALLY_ADJACENT': {
-      // Stari (à la pose) : déplace un Allié du royaume vers un lieu voisin (auto : le 1ᵉʳ
-      // Allié non associé déplaçable, vers son 1ᵉʳ lieu voisin). « Vous pouvez » → no-op sinon.
+      // Stari (à la pose) : « Vous pouvez déplacer un Allié sur un lieu voisin. » Choix
+      // INTERACTIF (clic plateau) : on ouvre pendingAllyRelocate (facultatif, restreint aux
+      // lieux voisins). No-op s'il n'existe aucun Allié déplaçable vers un lieu voisin libre.
       const p = state.players[idx]
-      for (const l of p.locations) {
-        const ally = (p.board[l.id] ?? []).find((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket)
-        const adj = adjacentLocationIds(state, l.id)
-        if (ally && adj.length > 0) {
-          const to = adj[0]
-          const attached = (p.board[l.id] ?? []).filter((c) => c.attachedTo === ally.instanceId)
-          const moveIds = new Set([ally.instanceId, ...attached.map((c) => c.instanceId)])
-          const next = updatePlayer(state, idx, (pl) => ({
-            ...pl,
-            board: {
-              ...pl.board,
-              [l.id]: (pl.board[l.id] ?? []).filter((c) => !moveIds.has(c.instanceId)),
-              [to]: [...(pl.board[to] ?? []), ally, ...attached],
-            },
-          }))
-          const toName = p.locations.find((x) => x.id === to)?.name ?? to
-          return { ...next, log: [...next.log, `Stari : **${ally.name}** est déplacé vers **${toName}**.`] }
-        }
+      const locked = new Set(p.lockedLocations ?? [])
+      const canMove = p.locations.some((l) => {
+        const hasAlly = (p.board[l.id] ?? []).some((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket)
+        return hasAlly && adjacentLocationIds(state, l.id).some((to) => !locked.has(to))
+      })
+      if (!canMove) return state
+      return {
+        ...state,
+        pendingAllyRelocate: {
+          chooserIndex: idx,
+          targetIndex: idx,
+          optional: true,
+          adjacentOnly: true,
+          title: 'Stari',
+        },
       }
-      return state
     }
     case 'UNCAPTURE_POKEMON_LE': {
       // « On n'abandonne pas ses amis » (Fatalité) : reprend un Pokémon CAPTURÉ de force
@@ -8681,21 +8783,35 @@ export function resolveEffect(
       return { ...next, log: [...next.log, `Une tuile Objectif de ${actor.villainName} est révélée.`] }
     }
     case 'DISCARD_ALLY_BY_CARDID': {
-      // Planqués : défausse un Allié de `cardId` (Bandit) du royaume de la cible.
+      // Planqués : défausse un Allié de `cardId` (Bandit) du royaume de la cible. Choix
+      // INTERACTIF si plusieurs candidats — le joueur qui pose la Fatalité (activePlayer)
+      // choisit lequel ; un seul → auto ; aucun → no-op.
       const actor = state.players[idx]
-      let loc: LocationId | undefined
-      let card: CardInstance | undefined
+      const candidates: { c: CardInstance; loc: LocationId }[] = []
       for (const l of actor.locations) {
-        const f = (actor.board[l.id] ?? []).find(
-          (c) => c.type === 'ally' && c.cardId === effect.cardId && !c.attachedTo,
-        )
-        if (f) { loc = l.id; card = f; break }
+        for (const c of actor.board[l.id] ?? []) {
+          if (c.type === 'ally' && c.cardId === effect.cardId && !c.attachedTo) {
+            candidates.push({ c, loc: l.id })
+          }
+        }
       }
-      if (!loc || !card) {
+      if (candidates.length === 0) {
         return { ...state, log: [...state.log, `${actor.villainName} : aucun ${effect.cardId} à défausser (Planqués).`] }
       }
-      const ll = loc
-      const target = card
+      if (candidates.length >= 2) {
+        return {
+          ...state,
+          pendingFateDiscardAlly: {
+            chooserIndex: state.activePlayer,
+            targetIndex: idx,
+            candidateIds: candidates.map((x) => x.c.instanceId),
+            cardName: 'Planqués',
+          },
+          log: [...state.log, `Planqués : choisissez le ${effect.cardId} à défausser du royaume de ${actor.villainName}.`],
+        }
+      }
+      const ll = candidates[0].loc
+      const target = candidates[0].c
       const ids = new Set([
         target.instanceId,
         ...(actor.board[ll] ?? []).filter((c) => c.attachedTo === target.instanceId).map((c) => c.instanceId),

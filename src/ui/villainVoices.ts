@@ -55,6 +55,7 @@ const VOICE_PREFIX: Record<VillainKey, string> = {
   davyJones: 'Davy jones', // 4 variantes présentes
   tamatoa: 'Tamatoa', // 4 variantes présentes
   teamRocket: 'La team rocket', // fichiers « La team rocket N.wav »
+  laBonneFee: 'La bonne fée', // pas (encore) de fichiers de voix → intro silencieuse
 }
 
 const CONTRE_PREFIX = 'Contre'
@@ -158,10 +159,10 @@ export function playVillainIntro(myVillainId: string, oppVillainId: string, onDo
 
 // --- Phrases de fermeture d'intro -------------------------------------------
 // Quand les portraits quittent l'écran (fin de l'intro), un vilain peut « lâcher »
-// une phrase. Fichiers .mp3 à la RACINE de `assets/` (ex. « Scar phrase.mp3 »).
+// une phrase. Fichiers .mp3 dans `assets/Voix Villainous/` (ex. « Scar phrase.mp3 »).
 // On capte « phrase » ET « Phrase » (selon la casse du nom de fichier, ex. « Mère
 // Gothel Phrase.mp3 ») : le glob de Vite est sensible à la casse.
-const PHRASE_FILES = import.meta.glob(['/assets/*phrase*.mp3', '/assets/*Phrase*.mp3'], {
+const PHRASE_FILES = import.meta.glob(['/assets/Voix Villainous/*phrase*.mp3', '/assets/Voix Villainous/*Phrase*.mp3'], {
   eager: true,
   query: '?url',
   import: 'default',

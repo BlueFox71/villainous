@@ -152,12 +152,12 @@ export type VillainDecor =
   // le bas de la colonne de gauche à droite en rôdant ; et « la Fleur Rouge » où tout S'EMBRASE (voile
   // orangé + mur de flammes + braises + lueur) le temps d'une bouffée, puis se dissipe.
   | { kind: 'jungle' }
-  // `teamRocket` : le ciel de la Team Rocket — ciel bleu de jour, nuages blancs qui dérivent,
-  // soleil chaud et la MONGOLFIÈRE Miaouss (le ballon « R ») qui traverse lentement le ciel en
-  // tanguant. SURPRISE minutée : « La Team Rocket s'envole vers d'autres cieux ! » — Jessie, James
-  // et Miaouss (image `team_rocket_cieux.png`) jaillissent du plateau, filent en diagonale vers le
-  // haut en rétrécissant (ils s'éloignent), puis disparaissent dans un éclat d'étoile (le *DING*
-  // classique de fin d'épisode). 100 % CSS + l'asset de la fuite.
+  // `teamRocket` : le décor de la Team Rocket — l'image de fond `background_team_rocket.jpg` (plein
+  // cadre) surmontée de la MONGOLFIÈRE Miaouss (le ballon « R », petite) qui traverse lentement le
+  // ciel en tanguant. SURPRISE minutée : « La Team Rocket s'envole vers d'autres cieux ! » — Jessie,
+  // James et Miaouss (image `team_rocket_cieux.png`) jaillissent du plateau, filent en diagonale vers
+  // le haut en rétrécissant (ils s'éloignent), puis disparaissent dans un éclat d'étoile (le *DING*
+  // classique de fin d'épisode).
   | { kind: 'teamRocket' }
 
 export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
@@ -334,8 +334,25 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
     case 'cruella':
       return { images: ['/animations/patte.png'], videos: [] }
     case 'teamRocket':
-      // La mongolfière Miaouss (ballon permanent) + le trio qui s'envole (surprise blast-off).
-      return { images: ['/animations/team_rocket_ballon.png', '/animations/team_rocket_cieux.png'], videos: [] }
+      // L'image de fond + la mongolfière Miaouss (ballon permanent) + les Pokémon qui dérivent dans le
+      // ciel + le trio qui s'envole (surprise blast-off) + le logo R (surprise).
+      return {
+        images: [
+          '/animations/background_team_rocket.jpg',
+          '/animations/team_rocket_ballon.png',
+          '/animations/team_rocket_cieux.png',
+          '/animations/R_team_rocket.png',
+          '/animations/ptera.png', '/animations/papilusion.png', '/animations/insecateur.png',
+          '/animations/nosferapti.png', '/animations/nosferalto.png', '/animations/dracolosse.png',
+          '/animations/dardargnan.png', '/animations/aeromite.png', '/animations/fantominus.png',
+          '/animations/spectrum.png', '/animations/mew.png', '/animations/dracaufeu.png', '/animations/abra.png',
+          '/animations/mewtwo.png', '/animations/togetic.png', '/animations/magneton.png', '/animations/magneti.png',
+          '/animations/rapasdepic.png', '/animations/porygon.png', '/animations/baudrive.png', '/animations/goelise.png',
+          '/animations/floravol.png', '/animations/granivol.png', '/animations/nostenfer.png', '/animations/xatu.png',
+          '/animations/noarfang.png',
+        ],
+        videos: [],
+      }
     case 'jungle':
       return {
         images: [

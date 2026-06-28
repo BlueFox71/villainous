@@ -180,6 +180,7 @@ mémoire projet « villainous-fate-malus ».
   `assets/` ne contient que des **sources** (l'app ne sert que `public/`), organisées
   par type : `portraits/`, `ui/`, `pions/`, `animations/` (sources de décor/anim),
   `decks/` (par vilain), `presentations/`, `Sounds/`, `Voix Villainous/`.
-  ⚠️ Ne déplace JAMAIS les fichiers lus par `import.meta.glob` (cf. `villainVoices.ts`,
-  `SoundTest.tsx`) : `assets/Sounds/**`, `assets/Voix Villainous/*.wav` et les
-  `assets/*phrase*.mp3` **à la racine** doivent rester en place, sinon ça casse le build.
+  ⚠️ Ne déplace pas hors de leur dossier les fichiers lus par `import.meta.glob`
+  (cf. `villainVoices.ts`, `SoundTest.tsx`) : `assets/Sounds/**`, les `.wav` et les
+  `*phrase*.mp3`/`*Phrase*.mp3` de `assets/Voix Villainous/` doivent y rester (si tu
+  les déplaces, mets à jour le glob en conséquence), sinon ça casse le build.

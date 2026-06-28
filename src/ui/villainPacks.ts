@@ -119,6 +119,7 @@ const VILLAIN_CREATOR: Partial<Record<VillainKey, string>> = {
   seigneurCles: 'Alexis',
   bowser: 'Jules',
   teamRocket: 'Jules',
+  laBonneFee: 'Jules',
 }
 
 /** Créateur d'un vilain de collaboration (undefined si vilain officiel / inconnu). */

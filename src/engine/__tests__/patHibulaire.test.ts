@@ -223,11 +223,56 @@ describe('Pat Hibulaire — effets de cartes', () => {
     expect(after.players[0].power).toBe(4) // 7 − floor(3.5)=3
   })
 
-  it('Planqués : défausse un Bandit du royaume', () => {
+  it('Planqués : défausse un Bandit du royaume (un seul → auto)', () => {
     const s = withP0(game(), { board: { ponton: [ally('b1', 3), item('i1')] } })
     const after = resolveEffects(s, [{ type: 'DISCARD_ALLY_BY_CARDID', cardId: 'bandit' }], { actorIndex: 0 })
     expect(after.players[0].board.ponton.map((c) => c.instanceId)).toEqual(['i1'])
     expect(after.players[0].discard.some((c) => c.instanceId === 'b1')).toBe(true)
+  })
+
+  it('Planqués via le FLUX Fatalité (RESOLVE_FATE) : ouvre bien le choix du Bandit', () => {
+    const base = withP0(game(), { board: { ponton: [ally('b1', 3)], aeroport: [ally('b2', 3)] } })
+    const planques: CardInstance = { instanceId: 'pl1', cardId: 'planques', name: 'Planqués', type: 'effect', effects: [{ type: 'DISCARD_ALLY_BY_CARDID', cardId: 'bandit' }] }
+    const other: CardInstance = { instanceId: 'o1', cardId: 'magot', name: 'Magot', type: 'item' }
+    const s = { ...base, activePlayer: 1, phase: 'ACTION' as const, pendingFate: { target: 0, revealed: [planques, other] } }
+    const after = applyAction(s, { type: 'RESOLVE_FATE', instanceId: 'pl1' })
+    expect(after.pendingFateDiscardAlly).toMatchObject({ chooserIndex: 1, targetIndex: 0 })
+    expect(after.pendingFateDiscardAlly!.candidateIds.sort()).toEqual(['b1', 'b2'])
+    expect(after.players[0].fateDiscard.some((c) => c.instanceId === 'pl1')).toBe(true) // Planqués défaussée
+  })
+
+  it('Hors-la-loi via le FLUX Fatalité : Pat perd 2 JT et une tuile est dévoilée', () => {
+    const goals: GoalToken[] = [
+      { kind: 'round-up', locationId: 'frontier-town', completed: false, revealed: false },
+      { kind: 'win-big', locationId: 'station-service', completed: false, revealed: false },
+    ]
+    let base = withGoals(game(), goals)
+    base = withP0(base, { power: 5 })
+    const horsLaLoi: CardInstance = { instanceId: 'h1', cardId: 'hors-la-loi', name: 'Hors-la-loi', type: 'effect', effects: [{ type: 'LOSE_POWER', amount: 2 }, { type: 'REVEAL_PETE_GOAL' }] }
+    const other: CardInstance = { instanceId: 'o1', cardId: 'magot', name: 'Magot', type: 'item' }
+    const s = { ...base, activePlayer: 1, phase: 'ACTION' as const, pendingFate: { target: 0, revealed: [horsLaLoi, other] } }
+    const after = applyAction(s, { type: 'RESOLVE_FATE', instanceId: 'h1' })
+    expect(after.players[0].power).toBe(3) // 5 − 2
+    expect((after.players[0].goals ?? []).some((g) => g.revealed)).toBe(true) // une tuile dévoilée
+  })
+
+  it('Planqués : plusieurs Bandits → CHOIX interactif (le poseur de Fatalité choisit)', () => {
+    // p1 (actif) joue Planqués contre p0 (Pat) qui a deux Bandits.
+    const base = withP0(game(), { board: { ponton: [ally('b1', 3)], aeroport: [ally('b2', 3)] } })
+    const s = { ...base, activePlayer: 1 }
+    const opened = resolveEffects(s, [{ type: 'DISCARD_ALLY_BY_CARDID', cardId: 'bandit' }], { actorIndex: 0 })
+    // Pas d'auto-défausse : un pending de choix s'ouvre (chooser = p1, cible = p0).
+    expect(opened.pendingFateDiscardAlly).toMatchObject({ chooserIndex: 1, targetIndex: 0 })
+    expect(opened.pendingFateDiscardAlly!.candidateIds.sort()).toEqual(['b1', 'b2'])
+    expect(Object.values(opened.players[0].board).flat().filter((c) => c.cardId === 'bandit')).toHaveLength(2)
+    // Un Allié hors candidats est refusé...
+    expect(() => applyAction(opened, { type: 'RESOLVE_FATE_DISCARD_ALLY', instanceId: 'zzz' })).toThrow()
+    // ...le Bandit choisi est défaussé, l'autre reste.
+    const after = applyAction(opened, { type: 'RESOLVE_FATE_DISCARD_ALLY', instanceId: 'b2' })
+    expect(after.players[0].discard.some((c) => c.instanceId === 'b2')).toBe(true)
+    expect(Object.values(after.players[0].board).flat().some((c) => c.instanceId === 'b1')).toBe(true)
+    expect(Object.values(after.players[0].board).flat().some((c) => c.instanceId === 'b2')).toBe(false)
+    expect(after.pendingFateDiscardAlly).toBeNull()
   })
 
   it('Minnie : défausse l’Allié le plus fort', () => {
@@ -268,5 +313,24 @@ describe('Pat Hibulaire — effets de cartes', () => {
     const after = triggerHeroArrival(s, 0, 'aeroport')
     expect(after.players[0].board.ponton).toHaveLength(0)
     expect(after.players[0].board.aeroport.some((c) => c.instanceId === 'g')).toBe(true)
+  })
+})
+
+describe('Pat Hibulaire — Dingo (échange de tuiles)', () => {
+  it('intervertit deux tuiles voisines SANS les dévoiler', () => {
+    const goals: GoalToken[] = [
+      { kind: 'round-up', locationId: 'frontier-town', completed: false, revealed: false },
+      { kind: 'win-big', locationId: 'station-service', completed: false, revealed: false },
+    ]
+    const base = withGoals(game(), goals)
+    const s = { ...base, pendingDingo: { chooserIndex: 1, targetIndex: 0 } }
+    const after = applyAction(s, { type: 'RESOLVE_DINGO', from: 'frontier-town', to: 'station-service' })
+    const g = after.players[0].goals!
+    // Les tuiles ont bien changé de lieu...
+    expect(g.find((x) => x.kind === 'round-up')!.locationId).toBe('station-service')
+    expect(g.find((x) => x.kind === 'win-big')!.locationId).toBe('frontier-town')
+    // ...mais restent FACE CACHÉE (Dingo ne dévoile pas).
+    expect(g.every((x) => x.revealed === false)).toBe(true)
+    expect(after.pendingDingo).toBeNull()
   })
 })

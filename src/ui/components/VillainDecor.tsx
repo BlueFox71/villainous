@@ -4712,37 +4712,122 @@ function SunnysideDecor() {
 // ============================================================================
 // Décor « teamRocket » (Team Rocket — Pokémon) : le CIEL de la Team Rocket.
 // ============================================================================
-const TR_BLAST_DURATION_MS = 3800 // durée d'un blast-off (fuite + scintillement) — synchro avec le CSS
+const TR_BLAST_DURATION_MS = 10000 // durée d'un blast-off (fuite + scintillement) — synchro avec le CSS
 const TR_BLAST_GAP_MIN_MS = 120_000 // « s'envole vers d'autres cieux » toutes les 2 à 4 min
 const TR_BLAST_GAP_MAX_MS = 240_000
-const TR_BLAST_TEST = true // ⚠️ true → blast-off toutes les ~10 s pour régler (à remettre false avant commit)
+const TR_BLAST_TEST = false // ⚠️ true → blast-off toutes les ~10 s pour régler (à remettre false avant commit)
+// Paires de couleurs des bandes (rayons) du fond flashy : on en change à CHAQUE apparition (cycle
+// sur `seq`) pour varier d'une surprise à l'autre (violet/rose, mauve/bleu foncé, bleu foncé/rouge…).
+const TR_BLAST_BAND_PAIRS: [string, string][] = [
+  ['#7b3a83', '#ec72b6'], // violet / rose
+  ['#b89bb9', '#1e2a52'], // mauve / bleu foncé
+  ['#1e2a52', '#d6334b'], // bleu foncé / rouge
+  ['#d6334b', '#66bbe2'], // rouge / bleu ciel
+]
+// Pokémon de type Vol / lévitants qui DÉRIVENT en permanence dans le ciel derrière la montgolfière
+// (couche de parallaxe). Par Pokémon : `big` (grand sur la bande basse), `fast` (vitesse) et `rev`
+// (image qui regarde à DROITE au naturel, au lieu de gauche → retournement inversé).
+const TR_SKY_POKEMON: { src: string; big: boolean; fast: boolean; rev?: boolean }[] = [
+  { src: '/animations/ptera.png', big: true, fast: true }, // 1 Ptéra
+  { src: '/animations/papilusion.png', big: false, fast: false }, // 2 Papilusion
+  { src: '/animations/insecateur.png', big: true, fast: true }, // 3 Insécateur
+  { src: '/animations/nosferapti.png', big: false, fast: false }, // 4 Nosferapti
+  { src: '/animations/nosferalto.png', big: true, fast: false }, // 5 Nosferalto
+  { src: '/animations/dracolosse.png', big: true, fast: true }, // 6 Dracolosse
+  { src: '/animations/dardargnan.png', big: true, fast: true }, // 7 Dardargnan
+  { src: '/animations/aeromite.png', big: false, fast: true }, // 8 Aéromite
+  { src: '/animations/fantominus.png', big: false, fast: false }, // 9 Fantominus
+  { src: '/animations/spectrum.png', big: true, fast: false }, // 10 Spectrum
+  { src: '/animations/mew.png', big: false, fast: true, rev: true }, // 11 Mew (regarde à droite)
+  { src: '/animations/dracaufeu.png', big: true, fast: true, rev: true }, // 12 Dracaufeu (regarde à droite)
+  { src: '/animations/abra.png', big: false, fast: false }, // 13 Abra
+  { src: '/animations/mewtwo.png', big: true, fast: true, rev: true }, // Mewtwo (regarde à droite)
+  // Lot ajouté : tous petits & lents sauf indication.
+  { src: '/animations/togetic.png', big: false, fast: false }, // A Togetic
+  { src: '/animations/magneton.png', big: false, fast: false }, // B Magnéton
+  { src: '/animations/magneti.png', big: false, fast: false }, // C Magnéti
+  { src: '/animations/rapasdepic.png', big: true, fast: true }, // D Rapasdepic (grand, rapide)
+  { src: '/animations/porygon.png', big: false, fast: false }, // E Porygon
+  { src: '/animations/baudrive.png', big: false, fast: false }, // F Baudrive
+  { src: '/animations/goelise.png', big: false, fast: false }, // G Goélise
+  { src: '/animations/floravol.png', big: false, fast: false }, // H Floravol
+  { src: '/animations/granivol.png', big: false, fast: false }, // I Granivol
+  { src: '/animations/nostenfer.png', big: true, fast: true, rev: true }, // J Nostenfer (grand, rapide, regarde à droite)
+  { src: '/animations/xatu.png', big: true, fast: false }, // K Xatu (grand, lent)
+  { src: '/animations/noarfang.png', big: true, fast: true }, // L Noarfang (grand, rapide)
+]
+// Bandes de ciel (en % de la hauteur) où les Pokémon traversent, SANS recouvrir le plateau :
+//  - le ciel du HAUT (au-dessus des lieux, là où vole le ballon) ;
+//  - la bande entre les LIEUX et les OBJECTIFS, en bas. Ajuste les % au besoin.
+const TR_SKY_BANDS: [number, number][] = [
+  [1, 14], // haut
+  [54, 66], // entre lieux et objectifs (bas)
+]
 
-/** Décor « teamRocket » : ciel bleu de jour — nuages blancs floconneux qui dérivent (réutilise
- *  `.sunny-cloud`), soleil chaud (réutilise `.sunny-sun`), et la MONGOLFIÈRE Miaouss (image) qui
- *  traverse lentement le ciel en tanguant. SURPRISE minutée : « La Team Rocket s'envole vers d'autres
- *  cieux ! » — le trio (image `team_rocket_cieux.png`) jaillit du plateau, file en diagonale vers le
- *  haut en rétrécissant (il s'éloigne), puis disparaît dans un éclat d'étoile (le *DING* de fin
- *  d'épisode). 100 % CSS + l'asset de la fuite. En reduced-motion : ciel posé, dérives figées,
+/** Décor « teamRocket » : l'image de fond `background_team_rocket.jpg` (plein cadre) surmontée de la
+ *  MONGOLFIÈRE Miaouss (image, petite) qui traverse lentement le ciel en tanguant. SURPRISE minutée :
+ *  « La Team Rocket s'envole vers d'autres cieux ! » — le trio (image `team_rocket_cieux.png`) jaillit
+ *  du plateau, file en diagonale vers le haut en rétrécissant (il s'éloigne), puis disparaît dans un
+ *  éclat d'étoile (le *DING* de fin d'épisode). En reduced-motion : décor posé, dérives figées,
  *  blast-off désactivé (le timer ne démarre pas). */
 function TeamRocketDecor() {
   const fireRef = useRef<() => void>(() => {})
   useSurpriseSub(fireRef)
   // Le ballon est une image fournie (transparente) ; s'il manque, on l'escamote sans rien casser.
   const [balloonOk, setBalloonOk] = useState(true)
-  // Nuages blancs floconneux qui dérivent (mêmes amas que Lotso, altitude/taille/vitesse/phase variées).
-  const [clouds] = useState(() =>
-    Array.from({ length: 8 }, (_, i) => ({
-      top: 4 + Math.random() * 56, // % (réparti sur le haut/milieu)
-      size: 8 + Math.random() * 12, // vh (hauteur de l'amas)
-      dur: 42 + Math.random() * 44, // s (dérive lente)
-      delay: -(Math.random() * 80), // s (phase décalée → déjà en place au montage)
-      dir: i % 2 === 0 ? 1 : -1, // sens de dérive alterné
-      op: 0.85 + Math.random() * 0.15,
+  // Pokémon par VAGUES : 2 par passage (un dans la bande HAUTE, un dans la bande BASSE), tirés au
+  // hasard, qui traversent UNE fois ; la vague suivante démarre quand ils sont sortis de l'écran.
+  const [wave, setWave] = useState<{
+    id: number
+    mons: { src: string; rev: boolean; top: number; size: number; dur: number; dir: number; bobDur: number; behind: boolean }[]
+  }>({ id: 0, mons: [] })
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>
+    let id = 0
+    // Construit un Pokémon de la vague pour la bande `bandIdx` (0 = haut, 1 = bas).
+    const build = (mon: (typeof TR_SKY_POKEMON)[number], bandIdx: number) => {
+      const [bandMin, bandMax] = TR_SKY_BANDS[bandIdx]
+      const size = bandIdx === 1
+        ? (mon.big ? 13 + Math.random() * 4 : 8 + Math.random() * 3) // bas : grand 13–17, petit 8–11
+        : 4 + Math.random() * 5 // haut : 4–9 (lointain)
+      const dur = mon.fast ? 20 + Math.random() * 10 : 45 + Math.random() * 25 // rapide 20–30 s, lent 45–70 s
+      return {
+        src: mon.src,
+        rev: !!mon.rev,
+        top: bandMin + Math.random() * (bandMax - bandMin), // % dans sa bande
+        size,
+        dur,
+        dir: Math.random() < 0.5 ? 1 : -1, // sens de traversée au hasard
+        bobDur: 3 + Math.random() * 3, // s (flottement vertical)
+        // Bande HAUTE : les PETITS (taille basse) passent DERRIÈRE la montgolfière (profondeur).
+        behind: bandIdx === 0 && size < 6.5,
+      }
+    }
+    const spawn = () => {
+      id += 1
+      const shuffled = [...TR_SKY_POKEMON].sort(() => Math.random() - 0.5)
+      const mons = [build(shuffled[0], 0), build(shuffled[1], 1)] // 1 haut + 1 bas
+      setWave({ id, mons })
+      const maxDur = Math.max(...mons.map((m) => m.dur))
+      timer = setTimeout(spawn, (maxDur + 1) * 1000) // vague suivante une fois sortis (+1 s de marge)
+    }
+    spawn()
+    return () => clearTimeout(timer)
+  }, [])
+  // Plein d'étoiles qui scintillent PENDANT la surprise (position/taille/rythme/phase variés).
+  const [stars] = useState(() =>
+    Array.from({ length: 70 }, () => ({
+      top: Math.random() * 100, // %
+      left: Math.random() * 100, // %
+      size: 0.8 + Math.random() * 2, // vh
+      dur: 0.9 + Math.random() * 1.8, // s (clignotement)
+      delay: Math.random() * 1.2, // s (phase décalée)
+      pink: Math.random() < 0.4, // 40 % rose, sinon blanc
     })),
   )
   // SURPRISE : blast-off. Calque (dé)monté le temps de la scène, piloté par un timer aléatoire.
   // Position de départ (x) et sens de la culbute (spin) tirés à chaque tir. Désactivé en reduced-motion.
-  const [blast, setBlast] = useState<{ seq: number; x: number; spin: number } | null>(null)
+  const [blast, setBlast] = useState<{ seq: number; x: number; spin: number; bandA: string; bandB: string } | null>(null)
   useEffect(() => {
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
     let next: ReturnType<typeof setTimeout>
@@ -4752,10 +4837,13 @@ function TeamRocketDecor() {
       TR_BLAST_TEST ? 10_000 : TR_BLAST_GAP_MIN_MS + Math.random() * (TR_BLAST_GAP_MAX_MS - TR_BLAST_GAP_MIN_MS)
     const fire = (fireRef.current = () => {
       const s = seq++
+      const [bandA, bandB] = TR_BLAST_BAND_PAIRS[s % TR_BLAST_BAND_PAIRS.length] // paire qui change à chaque apparition
       setBlast({
         seq: s,
         x: 28 + Math.random() * 24, // % (départ plutôt vers la gauche → fuite en diagonale vers le coin haut-droit)
         spin: (Math.random() < 0.5 ? -1 : 1) * (120 + Math.random() * 140), // tours de la culbute, sens au hasard
+        bandA,
+        bandB,
       })
       clear = setTimeout(() => {
         setBlast(null)
@@ -4770,30 +4858,10 @@ function TeamRocketDecor() {
   }, [])
   return (
     <div className="tr-sky-decor" aria-hidden>
-      {/* Soleil chaleureux dans un coin haut (réutilise le soleil de Sunnyside). */}
-      <div className="sunny-sun">
-        <span className="sunny-sun-rays" />
-        <span className="sunny-sun-core" />
-      </div>
-      {/* Nuages blancs floconneux qui dérivent. */}
-      {clouds.map((c, i) => (
-        <span
-          key={`tr-cloud-${i}`}
-          className="sunny-cloud"
-          style={{
-            top: `${c.top}%`,
-            height: `${c.size}vh`,
-            width: `${c.size * 1.7}vh`,
-            opacity: c.op,
-            animationName: c.dir === 1 ? 'sunnyCloudDriftR' : 'sunnyCloudDriftL',
-            animationDuration: `${c.dur}s`,
-            animationDelay: `${c.delay}s`,
-          }}
-        />
-      ))}
-      {/* La mongolfière Miaouss (ballon « R ») traverse lentement le ciel en tanguant. */}
+      {/* La mongolfière Miaouss (ballon « R ») : posée en DERNIER PLAN (juste après le fond), donc
+          DERRIÈRE les Pokémon. Traverse lentement le ciel en tanguant. */}
       {balloonOk && (
-        <span className="tr-balloon-drift" style={{ animationDelay: '-42s' }}>
+        <span className="tr-balloon-drift">
           <span className="tr-balloon-bob">
             <img
               className="tr-balloon-img"
@@ -4805,10 +4873,58 @@ function TeamRocketDecor() {
           </span>
         </span>
       )}
-      {/* SURPRISE : « s'envole vers d'autres cieux ! ». Le trio file vers le coin haut en rétrécissant,
-          puis un éclat d'étoile (DING) jaillit au point de fuite. */}
+      {/* Pokémon par vagues (2 par passage : un par bande), DEVANT la montgolfière. Chacun traverse
+          UNE fois (iteration 1, fill forwards → reste hors champ à la fin, jusqu'à la vague suivante). */}
+      {wave.mons.map((p, i) => (
+        <span
+          key={`tr-poke-${wave.id}-${i}`}
+          className="tr-poke"
+          style={{
+            top: `${p.top}%`,
+            zIndex: p.behind ? 0 : 2, // derrière (0) ou devant (2) la montgolfière (z-index 1)
+            animationName: p.dir === 1 ? 'trPokeDriftR' : 'trPokeDriftL',
+            animationDuration: `${p.dur}s`,
+            animationIterationCount: 1,
+            animationFillMode: 'forwards',
+          }}
+        >
+          <span className="tr-poke-bob" style={{ animationDuration: `${p.bobDur}s` }}>
+            {/* Images orientées à GAUCHE au naturel → retournées quand le Pokémon part à DROITE. Pour
+                celles qui regardent déjà à droite (`rev`), c'est l'inverse (retournées vers la gauche). */}
+            <img
+              className="tr-poke-img"
+              src={p.src}
+              alt=""
+              draggable={false}
+              style={{ height: `${p.size}vh`, transform: (p.rev ? p.dir === -1 : p.dir === 1) ? 'scaleX(-1)' : undefined }}
+            />
+          </span>
+        </span>
+      ))}
+      {/* SURPRISE : « s'envole vers d'autres cieux ! ». Un fond flashy (rayons rouge/blanc qui
+          tournent + flash) s'allume, le logo « R » surgit en haut centré, et le trio file vers le
+          coin haut en rétrécissant, puis un éclat d'étoile (DING) jaillit au point de fuite. */}
       {blast && (
         <div className="tr-blast" key={blast.seq}>
+          {/* Fond flashy : rayons en éventail (2 couleurs, variables selon l'apparition) qui tournent. */}
+          <div className="tr-blast-flash" style={{ '--band-a': blast.bandA, '--band-b': blast.bandB } as CSSProperties} />
+          {/* Plein d'étoiles qui scintillent par-dessus le fond flashy. */}
+          {stars.map((s, i) => (
+            <span
+              key={`tr-star-${i}`}
+              className={`tr-star${s.pink ? ' tr-star-pink' : ''}`}
+              style={{
+                top: `${s.top}%`,
+                left: `${s.left}%`,
+                width: `${s.size}vh`,
+                height: `${s.size}vh`,
+                animationDuration: `${s.dur}s`,
+                animationDelay: `${s.delay}s`,
+              }}
+            />
+          ))}
+          {/* Logo « R » de la Team Rocket en haut centré (pop puis disparition). */}
+          <img className="tr-blast-logo" src="/animations/R_team_rocket.png" alt="" draggable={false} />
           <div className="tr-blast-fly" style={{ left: `${blast.x}%` }}>
             <img
               className="tr-blast-trio"

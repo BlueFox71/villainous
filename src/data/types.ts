@@ -327,6 +327,24 @@ export interface CardDef {
   /** Effets résolus UNIQUEMENT via « Activer une capacité » (Objets/Stands « Activer » :
    *  La flèche, Masque de pierre, Justice). Distinct de `effects` (qui se résout à la pose). */
   activatedEffects?: Effect[]
+  // --- La Bonne Fée --------------------------------------------------------
+  /** Objet de TRANSFORMATION (Héros en Meuble ! / en Colombe !) : associé à un Héros,
+   *  réduit la force EFFECTIVE de son hôte à 0 (réversible : retiré = force restaurée).
+   *  Marque aussi le Héros comme « transformé » (défaussable par « Nettoyage de fond »). */
+  zeroesHostStrength?: boolean
+  /** Héros (Fatalité) qui renchérit de N le coût de l'action « Activer » une capacité
+   *  d'un Objet/Allié situé sur SON lieu (La Bonne Fée — l'Âne, +1). Cumulatif. */
+  activateCostSurchargeHere?: number
+  /** Héros (Fatalité) qui interdit de jouer OU de déplacer un Objet sur SON lieu
+   *  (La Bonne Fée — Harold & Lillian). */
+  blocksAllItemsHere?: boolean
+  /** Objet associé à un Héros qui empêche d'associer à ce même Héros un Objet dont le
+   *  cardId figure dans cette liste (La Bonne Fée — Humainement beau protège de
+   *  « Héros en Meuble ! »). */
+  protectsHostFromCardIds?: string[]
+  /** Potion (La Bonne Fée — Filtre d'amour / Heureux pour toujours) : cible de la
+   *  « Réserve de potions » et des 2 potions requises par l'objectif. */
+  isPotion?: boolean
 }
 
 /** Développe une liste de définitions en un paquet concret (un élément par
@@ -449,6 +467,11 @@ export function buildDeckInstances(
           summonsStandCardId: c.summonsStandCardId,
           removedFromGameOnDefeat: c.removedFromGameOnDefeat,
           activatedEffects: c.activatedEffects,
+          zeroesHostStrength: c.zeroesHostStrength,
+          activateCostSurchargeHere: c.activateCostSurchargeHere,
+          blocksAllItemsHere: c.blocksAllItemsHere,
+          protectsHostFromCardIds: c.protectsHostFromCardIds,
+          isPotion: c.isPotion,
         }),
       ),
     )

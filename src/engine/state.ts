@@ -376,6 +376,8 @@ function makePlayer(
     cottageLocationId: villain.id === 'mechante-reine' ? 'maison-des-nains' : undefined,
     // Scar — pile Succession (vide au départ ; alimentée par les Héros éliminés).
     succession: villain.id === 'scar' ? [] : undefined,
+    // Team Rocket — pile de Captures (vide au départ ; affichée dès le début → 0/4).
+    capturedPokemon: villain.objective.type === 'CAPTURE_POKEMON' ? [] : undefined,
     // Yzma — objectif (Kronk élimine Kuzco) ; Ratigan — côté « Le Rat » (éliminer
     // Basil) : drapeau initialisé à faux.
     objectiveHeroDefeated:
@@ -730,6 +732,8 @@ export function createInitialGame(setups: PlayerSetup[], seed: number): GameStat
     persifleurAvailable: false,
     lastVanquishedHeroStrength: undefined,
     showcaseEvents: [],
+    turnEvents: [],
+    lastTurnEvents: null,
     floatingFx: [],
     log: ['Début de partie.', ...setupLog],
   }

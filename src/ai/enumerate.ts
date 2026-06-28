@@ -459,8 +459,13 @@ export function enumerateActions(state: GameState): GameAction[] {
     const locked = new Set(tgt.lockedLocations ?? [])
     const out: GameAction[] = []
     for (const loc of tgt.locations) {
+      const li = tgt.locations.findIndex((l) => l.id === loc.id)
       for (const a of (tgt.board[loc.id] ?? []).filter((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket)) {
-        for (const to of ids.filter((id) => id !== loc.id && !locked.has(id))) {
+        // Stari (adjacentOnly) : destinations restreintes aux lieux voisins.
+        const dests = ids.filter((id, i) =>
+          id !== loc.id && !locked.has(id) && (!par.adjacentOnly || Math.abs(i - li) === 1),
+        )
+        for (const to of dests) {
           out.push({ type: 'RESOLVE_ALLY_RELOCATE', allyInstanceId: a.instanceId, to })
         }
       }
@@ -468,6 +473,30 @@ export function enumerateActions(state: GameState): GameAction[] {
     // Go ! (facultatif) : on peut s'arrêter avant d'avoir déplacé tous les Alliés.
     if (par.optional) out.push({ type: 'SKIP_ALLY_RELOCATE' })
     if (out.length > 0) return out
+  }
+
+  // Team Rocket — un dresseur invoque l'un de ses Pokémon : un choix par candidat.
+  if (state.pendingPokemonSummon) {
+    return state.pendingPokemonSummon.candidateCardIds.map((cardId) => ({
+      type: 'RESOLVE_POKEMON_SUMMON' as const,
+      cardId,
+    }))
+  }
+
+  // Team Rocket — « Oui, la guerre ! » : un choix par Pokémon à coucher.
+  if (state.pendingKoPokemon) {
+    return state.pendingKoPokemon.candidateIds.map((instanceId) => ({
+      type: 'RESOLVE_KO_POKEMON' as const,
+      instanceId,
+    }))
+  }
+
+  // Pat Hibulaire — « Planqués » : un choix par Allié (Bandit) défaussable.
+  if (state.pendingFateDiscardAlly) {
+    return state.pendingFateDiscardAlly.candidateIds.map((instanceId) => ({
+      type: 'RESOLVE_FATE_DISCARD_ALLY' as const,
+      instanceId,
+    }))
   }
 
   // Mémoire Verrouillée : choix Pouvoir OU reculer le jeton Pilote.

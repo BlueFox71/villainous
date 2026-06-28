@@ -310,6 +310,21 @@ export type ObjectiveDef =
    *  (Pikachu). Les Pokémon arrivent par la Fatalité et sont capturés via l'action
    *  CATCH_POKEMON (Attraper). */
   | { type: 'CAPTURE_POKEMON'; count: number; requiredCardId: string }
+  /** La Bonne Fée (Marraine de Shrek) : MARIER Fiona au Prince Charmant. Victoire
+   *  ÉVÉNEMENTIELLE — déclenchée en activant `winCardId` (« Embrasse-la tout de
+   *  suite ! ») quand le Héros `heroCardId` (Fiona), portant ses deux potions
+   *  `potionCardIds` (Filtre d'amour + Heureux pour toujours), ET l'Allié `allyCardId`
+   *  (Prince Charmant) sont présents sur `ballroomId` (Salle de Bal). Tant qu'un Héros
+   *  de `blockerHeroCardId` (Shrek) est dans le royaume, la victoire est impossible. */
+  | {
+      type: 'KISS_AT_BALL'
+      ballroomId: LocationId
+      heroCardId: string
+      allyCardId: string
+      potionCardIds: string[]
+      blockerHeroCardId: string
+      winCardId: string
+    }
   /** Dio Brando : objectif DOUBLE et ÉVÉNEMENTIEL. (1) Avoir RETIRÉ DU JEU les Héros
    *  `joestarCardIds` (Jotaro + Joseph — ils quittent la partie, pas la défausse, quand
    *  vaincus : cf. `removedFromGame`) ET (2) avoir effectué, dans un MÊME tour, TOUTES
@@ -1250,6 +1265,20 @@ export type Effect =
    *  de l'acteur jusqu'à trouver un Héros, le joue dans SON royaume (Peter Pan →
    *  Arbre du Pendu, sinon lieu du pion), défausse les autres cartes dévoilées. */
   | { type: 'REVEAL_OWN_FATE_PLAY_HERO' }
+  /** La Bonne Fée — Nettoyage de fond : défausse (vers la pile Fatalité) TOUS les Héros
+   *  transformés du royaume de l'acteur — ceux portant un Objet `zeroesHostStrength`
+   *  (Héros en Meuble / en Colombe) — avec leurs Objets associés. Auto (pas de choix). */
+  | { type: 'DISCARD_TRANSFORMED_HEROES' }
+  /** La Bonne Fée — On est presque arrivé ? (Fatalité) : plafonne le PROCHAIN tour de
+   *  l'acteur (la cible de la Fatalité) à `actions` actions (réutilise actionsCapNextTurn). */
+  | { type: 'CAP_SELF_NEXT_TURN'; actions: number }
+  /** La Bonne Fée — Infiltration (Fatalité) : l'acteur doit défausser une carte OU perdre
+   *  `lose` Pouvoir. Auto (malus subi) : garde sa main et perd le Pouvoir si possible,
+   *  sinon défausse une carte (la moins coûteuse). */
+  | { type: 'DISCARD_ONE_OR_LOSE'; lose: number }
+  /** La Bonne Fée — Réserve de potions : cherche une Potion (`isPotion`) dans la pioche
+   *  OU la défausse et l'ajoute à la main (auto : la potion manquante, défausse d'abord). */
+  | { type: 'FETCH_POTION' }
   /** Capitaine Crochet — Monsieur Starkey : ouvre le déplacement d'un Héros du
    *  royaume de l'acteur vers un lieu voisin (pendingHeroRelocate). `anyLocation`
    *  (Tourbillon/Ursula) autorise N'IMPORTE quel lieu non bloqué. */
@@ -1751,6 +1780,18 @@ export interface CardInstance {
    *  à l'invocation). Pour les Objets/Stands « Activer » dont le moteur résout l'effet
    *  générique (Dio — La flèche : piocher 4 ; Masque de pierre ; Justice). */
   activatedEffects?: Effect[]
+  /** La Bonne Fée — Objet de transformation (Meuble / Colombe) associé à un Héros :
+   *  réduit la force EFFECTIVE de l'hôte à 0 et le marque « transformé ». */
+  zeroesHostStrength?: boolean
+  /** La Bonne Fée — l'Âne : +N au coût de l'action « Activer » sur son lieu. */
+  activateCostSurchargeHere?: number
+  /** La Bonne Fée — Harold & Lillian : interdit de jouer/déplacer un Objet sur son lieu. */
+  blocksAllItemsHere?: boolean
+  /** La Bonne Fée — Humainement beau : empêche d'associer à l'hôte un Objet de ces cardId. */
+  protectsHostFromCardIds?: string[]
+  /** La Bonne Fée — Potion (Filtre d'amour / Heureux pour toujours) : cible de la
+   *  « Réserve de potions » (FETCH_POTION) et des 2 potions de l'objectif. */
+  isPotion?: boolean
   /** Ursula — Pacte : lieu lié au Pacte. Le Héros porteur est éliminé s'il est
    *  déplacé sur ce lieu. */
   contractLocationId?: LocationId
@@ -2572,6 +2613,13 @@ export interface GameState {
    *  joué, Condition jouée, effet déclenché remarquable). Le moteur n'efface
    *  jamais ; l'UI suit un curseur local pour savoir ce qu'elle a déjà montré. */
   showcaseEvents: ShowcaseEvent[]
+  /** File append-only des actions effectuées par le joueur actif CE TOUR (récap du
+   *  tour adverse). Remplie par `applyAction` selon le type d'action ; remise à []
+   *  au début de chaque tour. Voir `lastTurnEvents` pour le tour précédent figé. */
+  turnEvents?: TurnEvent[]
+  /** Récap FIGÉ du dernier tour terminé (snapshot de `turnEvents` à END_TURN) :
+   *  l'UI l'affiche au joueur quand l'adversaire a fini de jouer. `null` au départ. */
+  lastTurnEvents?: TurnRecap | null
   /** Vrai si le joueur actif vient de bouger sur un lieu portant Persifleur :
    *  il peut utiliser UNE action recouverte de ce lieu. Consommé à l'usage. */
   persifleurAvailable: boolean
@@ -3063,6 +3111,9 @@ export interface GameState {
     /** Restreint les Alliés déplaçables à ces instanceId (Cybug en Sucre : seuls les
      *  Cybugs survivants). Absent = tous les Alliés du royaume. */
     onlyInstanceIds?: string[]
+    /** Stari (Team Rocket) : la destination doit être un lieu VOISIN de l'Allié déplacé
+     *  (et non n'importe quel lieu). Défaut false. */
+    adjacentOnly?: boolean
     /** Sa Sucrerie — Il lui est défendu de courir : à la fermeture de la fenêtre, ouvre un
      *  Vanquish facultatif (pendingTrapVanquish `source: 'race-ban'`, Alliés non défaussés). */
     thenRaceBanVanquish?: boolean
@@ -3075,6 +3126,31 @@ export interface GameState {
    *  `candidateIds` (Alliés évolutifs du royaume dont l'évolution n'est pas déjà en jeu).
    *  Résolu par RESOLVE_EVOLVE_ALLY. Absent / `null` hors de ce choix. */
   pendingEvolveAlly?: { playerIndex: number; candidateIds: string[] } | null
+  /** Team Rocket — un DRESSEUR (Sacha/Ondine/Pierre) posé invoque l'un de ses deux Pokémon
+   *  (« Cherchez X ou Y et jouez-le »). `chooserIndex` (le joueur qui pose la Fatalité)
+   *  choisit lequel parmi `candidateCardIds` (présents dans la pioche Fatalité) ; le Pokémon
+   *  est posé dans le royaume de `targetIndex` sur `locationId`, lié au dresseur
+   *  `dresserInstanceId`. Résolu par RESOLVE_POKEMON_SUMMON. Absent / `null` sinon. */
+  pendingPokemonSummon?: {
+    chooserIndex: number
+    targetIndex: number
+    dresserInstanceId: string
+    locationId: LocationId
+    candidateCardIds: string[]
+  } | null
+  /** Team Rocket — « Oui, la guerre ! » : `chooserIndex` choisit (clic plateau) le Pokémon
+   *  à coucher (K.O.) parmi `candidateIds` (ses Pokémon ≥ force requise non encore couchés).
+   *  Résolu par RESOLVE_KO_POKEMON. Absent / `null` sinon. */
+  pendingKoPokemon?: { chooserIndex: number; candidateIds: string[] } | null
+  /** Pat Hibulaire — « Planqués » : le joueur qui pose la Fatalité (`chooserIndex`) choisit
+   *  quel Allié (`candidateIds`, p. ex. plusieurs Bandits) défausser du royaume de
+   *  `targetIndex`. `cardName` = libellé pour la modale. Résolu par RESOLVE_FATE_DISCARD_ALLY. */
+  pendingFateDiscardAlly?: {
+    chooserIndex: number
+    targetIndex: number
+    candidateIds: string[]
+    cardName: string
+  } | null
   /** Lotso — choix interactif d'une CIBLE (carte du royaume) : `kind` 'reduce' (réduire un
    *  Héros, de `amount` ou jusqu'à 0 si `toZero`) ou 'move-to-room' (déplacer un Héros ou
    *  Buzz sur la Salle des Chenilles). `candidateIds` = cibles valides (RESOLVE_LOTSO_TARGET). */
@@ -3515,6 +3591,53 @@ export type FloatingFx =
 /** Événement « cinématique » émis par le moteur pour que l'UI affiche la
  *  carte en grand avec un message d'effet. Purement informatif (n'affecte pas
  *  la logique de jeu) ; le moteur le pousse, l'UI le consomme à son rythme. */
+
+/** Catégorie d'icône d'un `TurnEvent` (correspond à une image public/actions/). */
+export type TurnEventKind =
+  | 'play-card' // Jouer une carte (Allié/Objet/Événement)
+  | 'fate' // Lancer puis résoudre une Fatalité
+  | 'discard' // Défausser des cartes
+  | 'vanquish' // Vaincre un Héros (ou Attraper un Pokémon)
+  | 'move-hero' // Déplacer un Héros
+  | 'move-ally' // Déplacer un Allié/Objet
+  | 'gain-power' // Gagner du Pouvoir
+  | 'activate' // Activer la capacité d'une carte
+
+/**
+ * Une action effectuée par le joueur actif pendant son tour, telle que résumée
+ * dans le récap « tour adverse ». Données pures (sérialisables) ; l'UI choisit
+ * l'icône d'après `kind` et compose le tooltip à partir de `detail`.
+ */
+export interface TurnEvent {
+  kind: TurnEventKind
+  /** Libellé court affiché SOUS l'icône (nom de carte, Héros vaincu, « 3 cartes »…). */
+  label?: string
+  /** Pouvoir gagné (kind='gain-power') → affiché en surimpression de l'icône Pouvoir. */
+  amount?: number
+  /** cardId principal (carte jouée, Fatalité résolue, Héros vaincu/déplacé, carte
+   *  déplacée/activée) → l'UI peut afficher l'image de la carte dans le tooltip. */
+  cardId?: string
+  /** cardIds secondaires (cartes défaussées, Alliés ayant vaincu le Héros). */
+  cardIds?: string[]
+  /** Nom du lieu de destination (déplacements) → libellé « → Lieu ». */
+  toLocationName?: string
+  /** Lignes de `log` produites par cette action (et ses continuations) : sert de
+   *  description détaillée au survol, sans avoir à re-formuler les effets. */
+  detail: string[]
+}
+
+/** Snapshot du récap d'un tour terminé (cf. `GameState.lastTurnEvents`). */
+export interface TurnRecap {
+  /** Index du joueur dont le tour vient de se terminer. */
+  playerIndex: number
+  /** Nom du vilain (pour le titre du récap). */
+  villainName: string
+  /** Numéro du tour terminé. */
+  turn: number
+  /** Les actions jouées, dans l'ordre chronologique. */
+  records: TurnEvent[]
+}
+
 export interface ShowcaseEvent {
   /** Carte mise en avant (utilisée pour retrouver l'image et le texte). */
   cardId: string
@@ -3857,6 +3980,12 @@ export type GameAction =
   /** Flèche de Mome Raths : déplace l'Allié choisi vers le lieu (non bloqué) choisi. */
   | { type: 'RESOLVE_ALLY_RELOCATE'; allyInstanceId: string; to: LocationId }
   | { type: 'SKIP_ALLY_RELOCATE' }
+  /** Team Rocket — un dresseur invoque le Pokémon `cardId` choisi (cf. pendingPokemonSummon). */
+  | { type: 'RESOLVE_POKEMON_SUMMON'; cardId: string }
+  /** Team Rocket — « Oui, la guerre ! » : couche le Pokémon choisi (cf. pendingKoPokemon). */
+  | { type: 'RESOLVE_KO_POKEMON'; instanceId: string }
+  /** Pat Hibulaire — « Planqués » : défausse l'Allié choisi (cf. pendingFateDiscardAlly). */
+  | { type: 'RESOLVE_FATE_DISCARD_ALLY'; instanceId: string }
   /** Syndrome — « Identification, je vous prie » : déplace l'Allié/Objet choisi vers le
    *  lieu (portant un Héros) choisi. */
   | { type: 'RESOLVE_IDENTIFICATION'; cardInstanceId: string; to: LocationId }

@@ -46,6 +46,7 @@ import { Avatar, PlayerAvatar } from './components/PlayerAvatar'
 import { Board } from './components/Board'
 import { Hand } from './components/Hand'
 import { GameLog } from './components/GameLog'
+import { OpponentTurnRecap } from './components/OpponentTurnRecap'
 import { BoardImage, LOCATIONS_LEFT, PAWN_FIRST_LEFT, PAWN_STEP } from './components/BoardImage'
 import { BoardActions, getVillainActionPos } from './components/BoardActions'
 import { SUGAR_RUSH_TRACK } from './components/sugarRushTrack'
@@ -69,6 +70,9 @@ import { DingoModal } from './components/DingoModal'
 import { TypeChoiceModal } from './components/TypeChoiceModal'
 import { HeroRelocateModal } from './components/HeroRelocateModal'
 import { AllyRelocateModal } from './components/AllyRelocateModal'
+import { PokemonSummonModal } from './components/PokemonSummonModal'
+import { FateDiscardAllyModal } from './components/FateDiscardAllyModal'
+import { CapturePile } from './components/CapturePile'
 import { IdentificationModal } from './components/IdentificationModal'
 import { EtoileDuSoirModal } from './components/EtoileDuSoirModal'
 import { SetThingsRightModal } from './components/SetThingsRightModal'
@@ -1127,6 +1131,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const skipHeroRelocate = useGameStore((s) => s.skipHeroRelocate)
   const resolveAllyRelocate = useGameStore((s) => s.resolveAllyRelocate)
   const skipAllyRelocate = useGameStore((s) => s.skipAllyRelocate)
+  const resolvePokemonSummon = useGameStore((s) => s.resolvePokemonSummon)
+  const resolveKoPokemon = useGameStore((s) => s.resolveKoPokemon)
+  const resolveFateDiscardAlly = useGameStore((s) => s.resolveFateDiscardAlly)
   const resolveIdentification = useGameStore((s) => s.resolveIdentification)
   const resolveLotsoTarget = useGameStore((s) => s.resolveLotsoTarget)
   const resolveEvolveAlly = useGameStore((s) => s.resolveEvolveAlly)
@@ -1928,6 +1935,15 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // Tour de l'adversaire (bot en solo, ou joueur distant en réseau) : sert au
   // flash d'action sur SON plateau, qui doit aussi apparaître en réseau.
   const isOpponentTurn = state.status === 'PLAYING' && state.activePlayer === BOT
+
+  // --- Récap « tour adverse » ------------------------------------------------
+  // Bande O — O — O — O des actions de l'adversaire, figée à la fin de son tour
+  // (state.lastTurnEvents). On NE l'ouvre PAS automatiquement : seul le bouton
+  // « Récap. tour adverse » l'affiche, à la demande du joueur.
+  const [recapOpen, setRecapOpen] = useState(false)
+  const lastTurn = state.lastTurnEvents
+  // Récap pertinent = celui de l'ADVERSAIRE (pas le récap de nos propres tours).
+  const opponentRecap = lastTurn && lastTurn.playerIndex === BOT ? lastTurn : null
 
   // Persifleur actif sur un lieu portant un Héros : on révèle (démasque) la rangée
   // du haut et on la fait clignoter tant que le joueur n'a pas choisi une action.
@@ -3266,13 +3282,65 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             (c) => c.type === 'ally' && !c.attachedTo,
           )
           if (ally) {
-            const to = ids.find((id) => id !== loc.id && !locked.has(id))
+            // Stari (adjacentOnly) : destination restreinte aux lieux voisins.
+            const li = ids.indexOf(loc.id)
+            const candidates = par.adjacentOnly
+              ? ids.filter((_, i) => Math.abs(i - li) === 1)
+              : ids.filter((id) => id !== loc.id)
+            const to = candidates.find((id) => !locked.has(id))
             if (to) {
               const timer = setTimeout(() => resolveAllyRelocate(ally.instanceId, to), BOT_STEP_MS)
               return () => clearTimeout(timer)
             }
           }
         }
+      }
+      return
+    }
+    // Team Rocket — un dresseur invoque un Pokémon : le bot choisit le plus FORT
+    // (Pokémon le plus difficile à attraper = le plus pénible pour l'adversaire).
+    const pps = state.pendingPokemonSummon
+    if (pps) {
+      if (seats[pps.chooserIndex] === 'bot') {
+        const best = [...pps.candidateCardIds].sort(
+          (a, b) => (getCardDef(b)?.strength ?? 0) - (getCardDef(a)?.strength ?? 0),
+        )[0]
+        const timer = setTimeout(() => resolvePokemonSummon(best), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Team Rocket — « Oui, la guerre ! » : le bot couche le Pokémon le plus FORT
+    // (le plus utile à attraper) parmi les candidats.
+    const pkp = state.pendingKoPokemon
+    if (pkp) {
+      if (seats[pkp.chooserIndex] === 'bot') {
+        const tgt = state.players[pkp.chooserIndex]
+        const cards = Object.values(tgt.board).flat()
+        const best = [...pkp.candidateIds].sort(
+          (a, b) =>
+            (cards.find((c) => c.instanceId === b)?.strength ?? 0) -
+            (cards.find((c) => c.instanceId === a)?.strength ?? 0),
+        )[0]
+        const timer = setTimeout(() => resolveKoPokemon(best), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Pat Hibulaire — « Planqués » : le bot (s'il pose la Fatalité) défausse l'Allié
+    // candidat le plus FORT du royaume adverse.
+    const pfda = state.pendingFateDiscardAlly
+    if (pfda) {
+      if (seats[pfda.chooserIndex] === 'bot') {
+        const tgt = state.players[pfda.targetIndex]
+        const cards = Object.values(tgt.board).flat()
+        const best = [...pfda.candidateIds].sort(
+          (a, b) =>
+            (cards.find((c) => c.instanceId === b)?.strength ?? 0) -
+            (cards.find((c) => c.instanceId === a)?.strength ?? 0),
+        )[0]
+        const timer = setTimeout(() => resolveFateDiscardAlly(best), BOT_STEP_MS)
+        return () => clearTimeout(timer)
       }
       return
     }
@@ -3568,7 +3636,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioQuest, resolveDioSunlight, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove])
+  }, [seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioQuest, resolveDioSunlight, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove])
 
   // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
   // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
@@ -3639,6 +3707,20 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         })
       })()
     : []
+
+  // Déplacement d'un Héros — lieux de destination à surligner sur la RANGÉE HÉROS (case
+  // du haut), plutôt qu'un « poser ici » sur la case du bas. Deux sources :
+  //  · flux clic (move-hero-dest) : lieux voisins du Héros choisi ;
+  //  · glisser un Héros : lieux voisins du Héros en cours de glissement.
+  const heroMoveDestTargets: string[] =
+    mode?.kind === 'move-hero-dest'
+      ? adjacentLocationIds(state, mode.from)
+      : draggingCardId && movableHeroIds.includes(draggingCardId)
+        ? adjacentLocationIds(
+            state,
+            user.locations.find((l) => (user.board[l.id] ?? []).some((c) => c.instanceId === draggingCardId))?.id ?? '',
+          )
+        : []
 
   // Yzma — choix d'une pioche Fatalité par clic DIRECT sur le plateau (au lieu d'une
   // modale). Deux flux où le HUMAIN choisit : ses propres cartes (À l'attaque ! /
@@ -4328,6 +4410,17 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       }
       return null
     }
+    // Lâcher sur la RANGÉE HÉROS (rangée du haut, AU-DESSUS de l'image du plateau) : on
+    // teste les rectangles des cases Héros (data-hero-cell). Indispensable pour déplacer un
+    // Héros en le glissant directement sur la case Héros d'un lieu voisin (sinon le lâcher,
+    // trop haut au-dessus du plateau, était rejeté par la logique d'image ci-dessous).
+    for (const cell of document.querySelectorAll(`[data-hero-cell^="${user.villain}:"]`)) {
+      const r = cell.getBoundingClientRect()
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+        const locId = cell.getAttribute('data-hero-cell')!.split(':').slice(1).join(':')
+        if (user.locations.some((l) => l.id === locId)) return locId
+      }
+    }
     const rect = userBoardRef.current?.getBoundingClientRect()
     if (!rect) return null
     // Zone de dépose ÉLARGIE : on tolère une marge autour du plateau (vertical surtout,
@@ -4412,8 +4505,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     const overImage = !!rect && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
     const isKC = user.villain === 'sa-sucrerie'
     // Sa Sucrerie : `loc` couvre déjà les 4 zones (cellule de grille OU rectangle dessiné
-    // sur l'image, mappé par l'abscisse). On pose donc dès qu'une zone est visée.
-    const onBoard = isKC ? loc != null : overImage
+    // sur l'image, mappé par l'abscisse). On pose donc dès qu'une zone est visée. Pour les
+    // autres : on pose si on est sur l'image OU si `loc` a été déduit (ex. lâcher sur la
+    // RANGÉE HÉROS, au-dessus de l'image — nécessaire pour déplacer un Héros au curseur).
+    const onBoard = isKC ? loc != null : overImage || loc != null
     if (onBoard) {
       // Petite animation de « pose » sur le lieu visé (pulse), puis on joue/déplace.
       if (loc) {
@@ -4930,7 +5025,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           ? user.locations.map((l) => l.id).filter((id) => id !== mode.from && !(user.lockedLocations ?? []).includes(id))
           : adjacentLocationIds(state, mode.from)
       : mode?.kind === 'move-hero-dest'
-        ? adjacentLocationIds(state, mode.from)
+        ? [] // déplacement de Héros : la destination se choisit sur la CASE HÉROS (cf. HeroRow destTargets), pas via « poser ici »
         : mode?.kind === 'trap-pick-dest'
           ? user.locations.map((l) => l.id) // n'importe quel lieu (Tendre un Piège)
           : mode?.kind === 'sheriff-dest'
@@ -5324,7 +5419,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                     const hasAnim = !!anim
                     // Animations bi-directionnelles : on propose « bas » (joueur) ET « haut » (adversaire).
                     // `water-cross` n'est bidirectionnel que pour une IMAGE (la vidéo Tic-Tac reste RTL).
-                    const twoSidedPaths = new Set(['cross', 'sky-arc', 'drift-spin', 'jet-cross'])
+                    const twoSidedPaths = new Set(['cross', 'sky-arc', 'drift-spin', 'jet-cross', 'eject-arc'])
                     const twoSided =
                       hasAnim &&
                       (twoSidedPaths.has(anim!.path ?? 'cross') ||
@@ -5570,6 +5665,13 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                     const phr = state.pendingHeroRelocate
                     if (phr?.forcedLocationId) resolveHeroRelocate(id, phr.forcedLocationId)
                   }}
+                  koTargets={
+                    state.pendingKoPokemon?.chooserIndex === HUMAN ? state.pendingKoPokemon.candidateIds : []
+                  }
+                  onKoPickPokemon={resolveKoPokemon}
+                  destTargets={heroMoveDestTargets}
+                  onDestPick={handlePlace}
+                  gameTurn={state.turn}
                   canDiscardDeguisement={isHumanTurn && state.phase === 'ACTION' && user.power >= 2}
                   onDiscardDeguisement={discardDeguisement}
                   hiddenInstanceIds={showcaseHiddenIds}
@@ -5695,6 +5797,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             <div className="piles-secondaires flex items-start justify-center pt-1" style={{ width: `${LOCATIONS_LEFT}%` }}>
               <AuDelaPile player={user} uprightWidth="w-20" />
               <IngredientsPile player={user} uprightWidth="w-14" />
+              <CapturePile player={user} uprightWidth="w-9" />
               <SuccessionPile player={user} uprightWidth="w-14" />
               <ImpostorPile player={user} uprightWidth="w-14" />
               <CapturedPuppiesPile
@@ -6477,6 +6580,17 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               </button>
             )}
           </div>
+          {/* Récap du dernier tour adverse : rouvre la bande O — O — O — O. */}
+          {opponentRecap && !recapOpen && isHumanTurn && (
+            <button
+              type="button"
+              onClick={() => setRecapOpen(true)}
+              className="mt-1 flex items-center gap-1.5 rounded-lg border border-amber-400/40 bg-slate-900/70 px-2.5 py-1 text-xs text-amber-100 hover:bg-slate-800/80"
+              title={`Revoir ce que ${opponentRecap.villainName} a fait à son tour`}
+            >
+              <span className="text-base">🔁</span> Récap. tour adverse
+            </button>
+          )}
           {humanReactions.length > 0 && !reactionPassed && !state.pendingTyrannyDiscard && (
             <div className="armed-blink-rose rounded-xl border border-fuchsia-500/60 bg-fuchsia-500/10 p-2 text-xs text-fuchsia-100">
               <div className="mb-1 font-semibold">⚡ Réaction disponible</div>
@@ -6579,6 +6693,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                   fatePickable={botFatePick.pickable}
                   onFatePick={botFatePick.onPick}
                   offset={false}
+                  gameTurn={state.turn}
                 />
               </div>
             </div>
@@ -6623,6 +6738,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             <div className="piles-secondaires flex items-start justify-center pt-1" style={{ width: `${LOCATIONS_LEFT}%` }}>
               <AuDelaPile player={bot} uprightWidth="w-20" />
               <IngredientsPile player={bot} uprightWidth="w-14" />
+              <CapturePile player={bot} uprightWidth="w-9" />
               <SuccessionPile player={bot} uprightWidth="w-14" />
               <ImpostorPile player={bot} uprightWidth="w-14" />
               <CapturedPuppiesPile player={bot} uprightWidth="w-9" />
@@ -6987,6 +7103,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       )}
 
       {/* Dingo : l'humain (qui a posé la Fatalité) intervertit/déplace une tuile. */}
+      {/* Récap « tour adverse » : bande chronologique des actions de l'adversaire. */}
+      {recapOpen && opponentRecap && (
+        <OpponentTurnRecap recap={opponentRecap} onClose={() => setRecapOpen(false)} />
+      )}
+
       {state.pendingDingo && state.pendingDingo.chooserIndex === HUMAN && (
         <DingoModal
           target={state.players[state.pendingDingo.targetIndex]}
@@ -7913,6 +8034,26 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           remaining={state.pendingAllyRelocate.remaining ?? 1}
           optional={state.pendingAllyRelocate.optional}
           onSkip={skipAllyRelocate}
+          onlyInstanceIds={state.pendingAllyRelocate.onlyInstanceIds}
+          adjacentOnly={state.pendingAllyRelocate.adjacentOnly}
+        />
+      )}
+
+      {/* Team Rocket — un dresseur invoque un Pokémon : l'humain choisit lequel (Stari/Togepi…). */}
+      {state.pendingPokemonSummon && state.pendingPokemonSummon.chooserIndex === HUMAN && (
+        <PokemonSummonModal
+          candidateCardIds={state.pendingPokemonSummon.candidateCardIds}
+          onResolve={resolvePokemonSummon}
+        />
+      )}
+
+      {/* Pat Hibulaire — « Planqués » : l'humain (s'il pose la Fatalité) choisit le Bandit à défausser. */}
+      {state.pendingFateDiscardAlly && state.pendingFateDiscardAlly.chooserIndex === HUMAN && (
+        <FateDiscardAllyModal
+          target={state.players[state.pendingFateDiscardAlly.targetIndex]}
+          candidateIds={state.pendingFateDiscardAlly.candidateIds}
+          cardName={state.pendingFateDiscardAlly.cardName}
+          onResolve={resolveFateDiscardAlly}
         />
       )}
 

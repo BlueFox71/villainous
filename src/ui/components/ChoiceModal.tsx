@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 /**
  * Modale de CHOIX générique et réutilisable. Centrée à l'écran, fond sombre
  * identique au reste de l'UI (#0b0a12). À utiliser pour tout choix « prends une
@@ -34,9 +36,28 @@ interface Props {
   /** Bouton d'annulation/fermeture (optionnel). */
   onCancel?: () => void
   cancelLabel?: string
+  /** Ajoute un bouton « Voir le plateau » : escamote temporairement la modale pour
+   *  consulter le plateau (ex. Dingo : voir où sont les tuiles avant de choisir). */
+  peekable?: boolean
 }
 
-export function ChoiceModal({ title, prompt, header, options, layout = 'list', onCancel, cancelLabel = 'Annuler' }: Props) {
+export function ChoiceModal({ title, prompt, header, options, layout = 'list', onCancel, cancelLabel = 'Annuler', peekable = false }: Props) {
+  const [peek, setPeek] = useState(false)
+  // Mode « voir le plateau » : on n'affiche qu'un bouton flottant pour revenir au choix,
+  // le reste de l'écran (plateau) est visible et inerte.
+  if (peek) {
+    return (
+      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[60] flex justify-center">
+        <button
+          type="button"
+          onClick={() => setPeek(false)}
+          className="pointer-events-auto rounded-full border border-white/30 bg-[#0b0a12]/95 px-4 py-2 text-sm font-semibold text-amber-200 shadow-2xl hover:bg-[#0b0a12]"
+        >
+          ↩ Revenir au choix
+        </button>
+      </div>
+    )
+  }
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-4">
       <div className="w-full max-w-md rounded-2xl border border-white/20 bg-[#0b0a12] p-4 shadow-2xl">
@@ -62,15 +83,28 @@ export function ChoiceModal({ title, prompt, header, options, layout = 'list', o
             </button>
           ))}
         </div>
-        {onCancel && (
-          <div className="mt-3 flex justify-end">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="rounded-lg border border-white/20 px-3 py-1 text-xs text-white/70 hover:bg-white/10"
-            >
-              {cancelLabel}
-            </button>
+        {(onCancel || peekable) && (
+          <div className="mt-3 flex justify-between gap-2">
+            {peekable ? (
+              <button
+                type="button"
+                onClick={() => setPeek(true)}
+                className="rounded-lg border border-white/20 px-3 py-1 text-xs text-amber-200/90 hover:bg-white/10"
+              >
+                👁 Voir le plateau
+              </button>
+            ) : (
+              <span />
+            )}
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="rounded-lg border border-white/20 px-3 py-1 text-xs text-white/70 hover:bg-white/10"
+              >
+                {cancelLabel}
+              </button>
+            )}
           </div>
         )}
       </div>

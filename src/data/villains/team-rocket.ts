@@ -16,10 +16,10 @@
 // pile de Captures.
 //
 // Disposition (4 lieux, gauche → droite) :
-//   Laboratoire du Pr Chen  haut: Vaincre · Jouer          bas: Gagner 1 · Déplacer objet/allié · Attraper
-//   Forêt                   haut: Jouer · Défausser         bas: Gagner 3 · Jouer
-//   Centre Pokémon          haut: Jouer · Jouer             bas: Déplacer objet/allié · Vaincre
-//   Arène                   haut: Jouer · Gagner 2          bas: Vaincre · Fatalité
+//   Laboratoire du Pr Chen  haut: Fatalité · Jouer          bas: Gagner 1 · Déplacer héros · Attraper
+//   Forêt                   haut: Jouer · Défausser          bas: Gagner 3 · Jouer
+//   Centre Pokémon          haut: Jouer · Jouer              bas: Déplacer objet/allié · Fatalité
+//   Arène                   haut: Jouer · Gagner 2           bas: Vaincre · Défausser
 // =============================================================================
 
 import type { VillainDef } from '../../engine/types'
@@ -46,10 +46,10 @@ export const teamRocket: VillainDef = {
       id: 'labo',
       name: 'Laboratoire du Professeur Chen',
       actions: [
-        { id: 'vanquish', type: 'VANQUISH', row: 'top', label: 'Vaincre' },
+        { id: 'fate', type: 'FATE', row: 'top', label: 'Fatalité' },
         { id: 'play-card', type: 'PLAY_CARD', row: 'top', label: 'Jouer une carte' },
         { id: 'gain-power', type: 'GAIN_POWER', amount: 1, row: 'bottom', label: 'Gagner 1 pouvoir' },
-        { id: 'move-item-ally', type: 'MOVE_ITEM_ALLY', row: 'bottom', label: 'Déplacer un objet ou un allié' },
+        { id: 'move-hero', type: 'MOVE_HERO', row: 'bottom', label: 'Déplacer un héros' },
         { id: 'catch', type: 'CATCH_POKEMON', row: 'bottom', label: 'Attraper un Pokémon' },
       ],
     },
@@ -70,7 +70,7 @@ export const teamRocket: VillainDef = {
         { id: 'play-card', type: 'PLAY_CARD', row: 'top', label: 'Jouer une carte' },
         { id: 'play-card2', type: 'PLAY_CARD', row: 'top', label: 'Jouer une carte' },
         { id: 'move-item-ally', type: 'MOVE_ITEM_ALLY', row: 'bottom', label: 'Déplacer un objet ou un allié' },
-        { id: 'vanquish', type: 'VANQUISH', row: 'bottom', label: 'Vaincre' },
+        { id: 'fate', type: 'FATE', row: 'bottom', label: 'Fatalité' },
       ],
     },
     {
@@ -80,7 +80,7 @@ export const teamRocket: VillainDef = {
         { id: 'play-card', type: 'PLAY_CARD', row: 'top', label: 'Jouer une carte' },
         { id: 'gain-power', type: 'GAIN_POWER', amount: 2, row: 'top', label: 'Gagner 2 pouvoir' },
         { id: 'vanquish', type: 'VANQUISH', row: 'bottom', label: 'Vaincre' },
-        { id: 'fate', type: 'FATE', row: 'bottom', label: 'Fatalité' },
+        { id: 'discard', type: 'DISCARD_CARDS', row: 'bottom', label: 'Défausser' },
       ],
     },
   ],

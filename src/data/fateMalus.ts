@@ -307,6 +307,20 @@ export const FATE_MALUS: Record<string, FateMalus> = {
   // villainStrategy.avoidPlayingHeroes). Seule gêne durable : le Badge, qui renforce un
   // Pokémon de +2 et rend donc sa capture plus coûteuse en Force d'Alliés. ---
   badge: 'slow', // +2 Force sur un Pokémon → capture plus dure
+
+  // NB : Dio Brando (custom-dio) porte ses malus Fatalité PAR CARTE (champ `fateMalus`
+  // dans data/villains/customDio.ts), car ses cartes ne sont pas dans le registre statique
+  // (enregistrées dynamiquement à la publication) → pas d'entrées globales ici.
+
+  // --- La Bonne Fée (marier Fiona au Prince Charmant au bal). FIONA = CIBLE → NEUTRE
+  // (non listée : la lui donner l'AIDE → le bot l'évite, cf. villainStrategy). Les autres
+  // héros de Shrek la gênent ; SHREK bloque DUR la victoire tant qu'il est présent. ---
+  shrek: 'block-win', // tant que Shrek est dans le royaume, la victoire est impossible
+  parents: 'slow2', // Harold & Lillian : aucun Objet jouable/déplaçable sur leur lieu
+  ane: 'slow', // l'Âne : +1 au coût d'activation sur son lieu
+  chat: 'slow', // Chat Potté : −2 Pouvoir à l'arrivée + recouvre une action du haut
+  creatures: 'slow', // Créatures enchantées : −1 Pouvoir à l'arrivée + recouvre une action
+  humain: 'slow', // Humainement beau : protège un Héros de « Meuble » (gêne mineure : Colombe reste)
 }
 
 /** cardId dont le « block-win » n'est valable que sous condition (gérée par l'IA). */

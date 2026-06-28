@@ -853,6 +853,15 @@ export const VILLAIN_STRATEGY: Record<string, VillainStrategy> = {
       ],
     },
   },
+  // --- La Bonne Fée (objectif : marier Fiona au Prince Charmant au bal) -------
+  // Inversion : FIONA est sa CIBLE (elle doit l'amener au bal). La lui donner par
+  // la Fatalité l'AIDE → le bot l'évite. Les autres héros de Shrek la gênent
+  // (cf. fateMalus), surtout SHREK (bloque la victoire) : ceux-là, on les joue.
+  'la-bonne-fee': {
+    fateTargeting: {
+      avoidPlayingHeroes: ['fiona'],
+    },
+  },
 }
 
 /** Bonus de placement gagné quand une carte est sur son lieu préféré. */
