@@ -32,6 +32,7 @@ export function DingoModal({ target, onResolve, onSkip }: Props) {
       }))}
       onCancel={onSkip}
       cancelLabel="Ne rien faire"
+      peekable
     />
   )
 }

@@ -82,11 +82,16 @@ export interface VillainAnimation {
    *  - `overgrowth` : pas de trajet ; la JUNGLE envahit tout l'écran — des LIANES poussent depuis le haut
    *    (elles s'allongent vers le bas) et des FEUILLES éclosent un peu partout (apparition en grandissant),
    *    départs échelonnés, puis tout se dissipe en fondu (Shere Khan). Assets de jungle (liane-1/3/4/5,
-   *    feuille) câblés dans le rendu. */
+   *    feuille) câblés dans le rendu.
+   *  - `eject-arc` : `image` est ÉJECTÉE dans le ciel — départ HORS écran en bas à GAUCHE, montée en
+   *    arc jusqu'AU-DESSUS de la rangée de Héros adverse (haut de l'écran), en TOURNANT dans le sens
+   *    HORAIRE et en rétrécissant (elle s'éloigne) ; à l'arrivée, un ÉCLAT d'étoile à 4 branches (le
+   *    *DING* de fin) jaillit pour marquer la fin (Team Rocket : « on s'envole ! »). Nb de tours via
+   *    `spinTurns`. Trajectoire relative à l'écran (API Web Animations). */
   path?:
     | 'cross' | 'sky-arc' | 'drift-spin' | 'pages' | 'roses' | 'coins' | 'water-cross'
     | 'rise' | 'voodoo' | 'fire-bottom' | 'fade' | 'paws' | 'petals' | 'jet-cross' | 'smoke-field'
-    | 'overgrowth'
+    | 'overgrowth' | 'eject-arc'
   /** Tire quelques coups de canon (lueur + fumée à la bouche du canon avant)
    *  pendant le vol. Réservé aux trajectoires `sky-arc`. */
   cannons?: boolean
@@ -445,6 +450,16 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
   shereKhan: {
     durationSec: 9, // le temps que la jungle envahisse l'écran (départs échelonnés) puis se dissipe
     path: 'overgrowth',
+  },
+  // Team Rocket (Pokémon) : le trio est ÉJECTÉ « on s'envole ! » — il jaillit d'en bas à gauche, monte
+  // en arc au-dessus des Héros adverses en tournant dans le sens horaire et en rétrécissant, puis un
+  // éclat d'étoile (le *DING* de fin d'épisode) marque l'arrivée.
+  teamRocket: {
+    image: '/animations/team_rocket_cieux.png',
+    heightPct: 18, // taille du trio au départ (rétrécit en s'éloignant)
+    durationSec: 3.4, // une éjection rapide
+    spinTurns: 3, // tours (sens horaire) sur tout le trajet
+    path: 'eject-arc',
   },
   // L'Imposteur (Among Us) : un équipier éjecté (couleur au hasard) dérive en ligne
   // droite du haut-gauche vers le bas-droite en tournant lentement sur lui-même.

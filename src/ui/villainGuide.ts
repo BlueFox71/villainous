@@ -538,4 +538,19 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       "Garde un œil sur sa pile de Captures : tant qu'il n'a pas Pikachu + 3 autres, il ne peut pas gagner.",
     ],
   },
+  laBonneFee: {
+    difficulty: 3,
+    story:
+      "La Marraine la bonne fée, marraine intrigante du royaume de Fort Fort Lointain. Sous ses airs charmants, elle manigance pour marier son fils, le Prince Charmant, à la princesse Fiona — quitte à transformer, ensorceler et faire disparaître quiconque se met en travers de son conte de fées. (Shrek 2.)",
+    playTips: [
+      "Ton objectif : amener FIONA dans la Salle de Bal avec ses 2 potions (« Filtre d'amour » + « Heureux pour toujours ») et le PRINCE CHARMANT, puis activer « Embrasse-la tout de suite ! ».",
+      "Les héros de Shrek arrivent par la Fatalité sur TON royaume — Fiona y compris, qui est ta cible : récupère-la (ou pioche-la toi-même via « Une petite chanson », « Observation », « Incarnation de la beauté ») et associe-lui les deux potions.",
+      "Tu n'as pas d'action Vaincre : pour éliminer un Héros gênant (surtout SHREK, qui bloque la victoire), transforme-le (« Héros en Meuble ! » / « Héros en Colombe ! » → force 0) puis défausse-le avec « Nettoyage de fond ».",
+    ],
+    counterTips: [
+      "La fataliser est risqué : tu peux lui offrir FIONA, dont elle a justement besoin. Évite de révéler des Fatalités quand sa Salle de Bal est prête.",
+      "Garde SHREK en jeu : tant qu'il est dans son royaume, elle ne peut pas gagner.",
+      "Défausse ses potions et son Prince Charmant, ou bloque la Salle de Bal, pour casser sa combinaison de mariage.",
+    ],
+  },
 }

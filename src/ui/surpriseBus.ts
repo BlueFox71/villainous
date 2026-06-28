@@ -14,7 +14,7 @@ type Side = 'left' | 'right'
 const SURPRISE_KINDS = new Set<VillainDecor['kind']>([
   'underworld', 'goldenHair', 'forest', 'grotto', 'voodoo', 'galaxy', 'scar', 'yzma',
   'clockwork', 'cruella', 'tremaine', 'syndrome', 'cyber', 'castleAssault', 'mim',
-  'cauldron', 'sunnyside', 'oogie', 'jungle',
+  'cauldron', 'sunnyside', 'oogie', 'jungle', 'teamRocket',
 ])
 
 /** Vrai si le vilain a une surprise de décor déclenchable (mode test). */

@@ -95,9 +95,11 @@ import { dio } from '../../data/villains/dio'
 import { dioCards } from '../../data/villains/dio.cards'
 import { teamRocket } from '../../data/villains/team-rocket'
 import { teamRocketCards } from '../../data/villains/team-rocket.cards'
+import { laBonneFee } from '../../data/villains/la-bonne-fee'
+import { laBonneFeeCards } from '../../data/villains/la-bonne-fee.cards'
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'seigneurCles' | 'madameTremaine' | 'oogieBoogie' | 'seigneurTenebres' | 'madameMim' | 'syndrome' | 'lotso' | 'saSucrerie' | 'shereKhan' | 'davyJones' | 'tamatoa' | 'dio' | 'teamRocket'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'seigneurCles' | 'madameTremaine' | 'oogieBoogie' | 'seigneurTenebres' | 'madameMim' | 'syndrome' | 'lotso' | 'saSucrerie' | 'shereKhan' | 'davyJones' | 'tamatoa' | 'dio' | 'teamRocket' | 'laBonneFee'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -133,6 +135,7 @@ export const VILLAIN_REGISTRY = {
   tamatoa: { def: tamatoa, cards: tamatoaCards, label: 'Tamatoa' },
   dio: { def: dio, cards: dioCards, label: 'Dio Brando' },
   teamRocket: { def: teamRocket, cards: teamRocketCards, label: 'Team Rocket' },
+  laBonneFee: { def: laBonneFee, cards: laBonneFeeCards, label: 'La Bonne Fée' },
 } as const
 
 /** Qui contrôle chaque siège. Concept d'UI : le moteur, lui, ne sait pas qui
@@ -718,6 +721,12 @@ interface GameStore {
   /** Flèche de Mome Raths : déplace l'Allié choisi vers le lieu (non bloqué) choisi. */
   resolveAllyRelocate: (allyInstanceId: string, to: string) => void
   skipAllyRelocate: () => void
+  /** Team Rocket — un dresseur invoque le Pokémon choisi. */
+  resolvePokemonSummon: (cardId: string) => void
+  /** Team Rocket — « Oui, la guerre ! » : couche le Pokémon choisi. */
+  resolveKoPokemon: (instanceId: string) => void
+  /** Pat Hibulaire — « Planqués » : défausse l'Allié choisi. */
+  resolveFateDiscardAlly: (instanceId: string) => void
   /** Syndrome — Identification, je vous prie : déplace l'Allié/Objet choisi vers le lieu (avec Héros) choisi. */
   resolveIdentification: (cardInstanceId: string, to: string) => void
   /** Lotso — résout le choix de cible (réduire un Héros / déplacer vers la Salle des Chenilles). */
@@ -1309,6 +1318,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   resolveAllyRelocate: (allyInstanceId, to) =>
     get().submit({ type: 'RESOLVE_ALLY_RELOCATE', allyInstanceId, to }),
   skipAllyRelocate: () => get().submit({ type: 'SKIP_ALLY_RELOCATE' }),
+  resolvePokemonSummon: (cardId) => get().submit({ type: 'RESOLVE_POKEMON_SUMMON', cardId }),
+  resolveKoPokemon: (instanceId) => get().submit({ type: 'RESOLVE_KO_POKEMON', instanceId }),
+  resolveFateDiscardAlly: (instanceId) => get().submit({ type: 'RESOLVE_FATE_DISCARD_ALLY', instanceId }),
   resolveIdentification: (cardInstanceId, to) =>
     get().submit({ type: 'RESOLVE_IDENTIFICATION', cardInstanceId, to }),
   resolveLotsoTarget: (instanceId) => get().submit({ type: 'RESOLVE_LOTSO_TARGET', instanceId }),

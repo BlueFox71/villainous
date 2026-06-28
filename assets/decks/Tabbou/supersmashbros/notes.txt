@@ -1,0 +1,2 @@
+20 franchises/familles dont 10 individuels  => 21 familles pour jeu
+35 personnages

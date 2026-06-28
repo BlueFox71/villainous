@@ -319,6 +319,16 @@ export const FATE_MALUS: Record<string, FateMalus> = {
   'noriaki-kakyoin': 'slow2', // Hierophant Green : +1 au coût de toutes ses cartes
   'mohammed-abdul': 'slow2', // Magician Red : −1 carte piochée par tour
   iggy: 'slow', // The Fool : disperse ses Alliés (une fois)
+
+  // --- La Bonne Fée (marier Fiona au Prince Charmant au bal). FIONA = CIBLE → NEUTRE
+  // (non listée : la lui donner l'AIDE → le bot l'évite, cf. villainStrategy). Les autres
+  // héros de Shrek la gênent ; SHREK bloque DUR la victoire tant qu'il est présent. ---
+  shrek: 'block-win', // tant que Shrek est dans le royaume, la victoire est impossible
+  parents: 'slow2', // Harold & Lillian : aucun Objet jouable/déplaçable sur leur lieu
+  ane: 'slow', // l'Âne : +1 au coût d'activation sur son lieu
+  chat: 'slow', // Chat Potté : −2 Pouvoir à l'arrivée + recouvre une action du haut
+  creatures: 'slow', // Créatures enchantées : −1 Pouvoir à l'arrivée + recouvre une action
+  humain: 'slow', // Humainement beau : protège un Héros de « Meuble » (gêne mineure : Colombe reste)
 }
 
 /** cardId dont le « block-win » n'est valable que sous condition (gérée par l'IA). */

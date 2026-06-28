@@ -9,6 +9,21 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.91',
+    date: '2026-06-28',
+    title: 'Nouveau vilain La Bonne Fée + récap du tour adverse',
+    changes: [
+      'Nouveau vilain jouable : **La Bonne Fée** (la Marraine de *Shrek 2*), une collaboration créée par **Jules**.',
+      '**Objectif** : amener **Fiona** dans la **Salle de Bal** sous l’effet de ses **deux potions** (« Filtre d’amour » + « Heureux pour toujours »), avec le **Prince Charmant**, puis activer **« Embrasse-la tout de suite ! »** pour gagner.',
+      '**Tant que Shrek est dans le royaume, la victoire est impossible.** La Bonne Fée n’a **aucune action Vaincre** : elle neutralise les Héros en les **transformant** (« Héros en Meuble ! » / « en Colombe ! » → force 0) puis en les défaussant avec **« Nettoyage de fond »**.',
+      'Tout son arsenal est en place : potions, **Baguette Magique** (Objets moins chers sur son lieu), **Réserve de potions** et **Contes de fée** (chercher des cartes), invocation de ses héros (Une petite chanson, Observation, Incarnation de la beauté), Disparition / Il n’y a pas d’ogre (éliminer un Héros faible), Blocage / Tasses (déplacer un Héros).',
+      'Côté Fatalité : **l’Âne** (activations plus chères sur son lieu), **Harold & Lillian** (aucun Objet sur leur lieu), **Humainement beau** (protège un Héros de la transformation), **Infiltration** et **On est presque arrivé ?** (qui la ralentit).',
+      '**Récap du tour adverse** : après le tour de l’adversaire, un bouton **« 🔁 Récap. tour adverse »** affiche une **bande récapitulative** — chaque action jouée est représentée par son **icône** (Jouer une carte, Fatalité, Défausser, Vaincre, Déplacer un Héros/Allié, Gagner du Pouvoir, Activer), dans l’**ordre chronologique**.',
+      'Sous chaque icône : le **nom de la carte** jouée (ou révélée en Fatalité), le **Héros vaincu**, la carte **déplacée → lieu**, le nombre de **cartes défaussées**, ou le **Pouvoir gagné** (avec le chiffre). Au **survol**, le détail complet de l’effet (et la/les **carte(s)** concernée(s) en image).',
+      '**Team Rocket** : la **disposition des actions** sur le plateau a été revue (Fatalité au Laboratoire et au Centre Pokémon, Déplacer un Héros au Laboratoire, Défausser à l’Arène) pour mieux coller à son identité.',
+    ],
+  },
+  {
     version: '0.90',
     date: '2026-06-28',
     title: 'Atelier des vilains : plateau recalé sur le gabarit',

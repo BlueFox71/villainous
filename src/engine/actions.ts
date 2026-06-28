@@ -17,6 +17,7 @@ import type {
   LocationId,
   PeteGoalKind,
   PlayerState,
+  TurnEvent,
 } from './types'
 import { shuffle, rollD6 } from './rng'
 import {
@@ -52,6 +53,7 @@ import {
   adjacentLocationIds,
   belleBlocksRemoval,
   activatableCards,
+  kissAtBallConditionMet,
   cauldronBornLocations,
   alliesCannotMoveFrom,
   allyBlockedAt,
@@ -961,6 +963,10 @@ function applyPlayCard(
     if ((me.board[to] ?? []).some((c) => c.type === 'hero' && c.blocksItemPlacement === card.cardId)) {
       throw new Error(`${card.name} ne peut pas être posé(e) ici (Les Elfes).`)
     }
+    // La Bonne Fée — Harold & Lillian : aucun Objet ne peut être joué sur leur lieu.
+    if (card.type === 'item' && (me.board[to] ?? []).some((c) => c.type === 'hero' && c.blocksAllItemsHere)) {
+      throw new Error(`${card.name} ne peut pas être joué(e) ici (Harold & Lillian).`)
+    }
     if (card.type === 'curse' && !canPlaceCurseAt(state, state.activePlayer, to)) {
       throw new Error(`Aucune Malédiction ne peut être posée ici (Pimprenelle).`)
     }
@@ -1006,6 +1012,14 @@ function applyPlayCard(
       // Sa Sucrerie — le Bug ne peut s'associer qu'à Vanellope von Schweetz.
       if (card.attachOnlyCardId && host.cardId !== card.attachOnlyCardId) {
         throw new Error(`${card.name} ne peut être associé qu'à un Héros précis.`)
+      }
+      // La Bonne Fée — Humainement beau protège son hôte de « Héros en Meuble ! ».
+      if (
+        (me.board[to] ?? []).some(
+          (c) => c.attachedTo === host!.instanceId && (c.protectsHostFromCardIds ?? []).includes(card.cardId),
+        )
+      ) {
+        throw new Error(`${card.name} ne peut pas être associé à ce Héros (Humainement beau).`)
       }
     } else if (attachTo !== undefined) {
       throw new Error(`${card.name} ne s'associe pas à un Allié.`)
@@ -2290,26 +2304,57 @@ export function placeFateHeroWithEffects(
   }
   // Dr Facilier — déclencheurs « à la pose d'un Héros » (Talisman, Lawrence).
   next = applyFacilierHeroPlayTriggers(next, targetIndex, hero.instanceId, to)
-  // Team Rocket — DRESSEUR : à sa pose, il INVOQUE l'un de ses Pokémon depuis la pioche
-  // Fatalité (auto : le 1ᵉʳ trouvé) sur le MÊME lieu. Le Pokémon porte le lien vers le
-  // dresseur (summonedByInstanceId). (S'il n'est pas dans la pioche, rien ne se passe.)
+  // Team Rocket — DRESSEUR : à sa pose, il INVOQUE l'un de ses Pokémon (« Cherchez X ou Y »)
+  // depuis la pioche Fatalité, sur le MÊME lieu. Si les DEUX candidats sont disponibles, le
+  // joueur qui pose la Fatalité CHOISIT (pendingPokemonSummon) ; s'il n'y en a qu'un, il est
+  // invoqué directement ; aucun → rien. Le Pokémon porte le lien vers le dresseur.
   if (hero.summonsPokemonCardIds && hero.summonsPokemonCardIds.length > 0) {
     const deck = next.players[targetIndex].fateDeck
-    const pokeIdx = deck.findIndex((c) => hero.summonsPokemonCardIds!.includes(c.cardId))
-    if (pokeIdx >= 0) {
-      const poke: CardInstance = { ...deck[pokeIdx], summonedByInstanceId: hero.instanceId }
-      next = updatePlayer(next, targetIndex, (p) => ({
-        ...p,
-        fateDeck: p.fateDeck.filter((_, i) => i !== pokeIdx),
-      }))
+    const available = hero.summonsPokemonCardIds.filter((id) => deck.some((c) => c.cardId === id))
+    if (available.length >= 2) {
+      // Choix interactif : on diffère la pose (résolue par RESOLVE_POKEMON_SUMMON).
       next = {
         ...next,
-        log: [...next.log, `**${hero.name}** fait apparaître **${poke.name}** sur **${destName}** !`],
+        pendingPokemonSummon: {
+          chooserIndex: playedBy,
+          targetIndex,
+          dresserInstanceId: hero.instanceId,
+          locationId: to,
+          candidateCardIds: available,
+        },
+        log: [...next.log, `**${hero.name}** peut faire apparaître l'un de ses Pokémon sur **${destName}**.`],
       }
-      next = placeFateHeroWithEffects(next, targetIndex, playedBy, poke, to, destName)
+    } else if (available.length === 1) {
+      next = summonPokemonForDresser(next, targetIndex, playedBy, hero.instanceId, available[0], to, destName)
     }
   }
   return next
+}
+
+/** Team Rocket — invoque le Pokémon `cardId` (retiré de la pioche Fatalité) sur `to`, lié
+ *  au dresseur `dresserInstanceId`, en déclenchant ses effets de pose. */
+function summonPokemonForDresser(
+  state: GameState,
+  targetIndex: number,
+  playedBy: number,
+  dresserInstanceId: string,
+  cardId: string,
+  to: LocationId,
+  destName: string,
+): GameState {
+  const deck = state.players[targetIndex].fateDeck
+  const pokeIdx = deck.findIndex((c) => c.cardId === cardId)
+  if (pokeIdx < 0) return state
+  const poke: CardInstance = { ...deck[pokeIdx], summonedByInstanceId: dresserInstanceId }
+  let next = updatePlayer(state, targetIndex, (p) => ({
+    ...p,
+    fateDeck: p.fateDeck.filter((_, i) => i !== pokeIdx),
+  }))
+  next = {
+    ...next,
+    log: [...next.log, `**${poke.name}** apparaît sur **${destName}** !`],
+  }
+  return placeFateHeroWithEffects(next, targetIndex, playedBy, poke, to, destName)
 }
 
 /** Dr Facilier — déclencheurs lorsqu'un Héros est joué dans le royaume de
@@ -3679,6 +3724,21 @@ function applyResolveFateInner(
     return resolveEffects(next, chosen.effects ?? [], { actorIndex: pending.target })
   }
 
+  // Générique : toute carte Fatalité de type 'effect' portant des `effects` non traitée
+  // spécifiquement plus haut → on résout ses effets sur la CIBLE (le joueur fatalisé).
+  // Couvre Planqués / Hors-la-loi (Pat Hibulaire), « On n'abandonne pas » / « Dégonflage »
+  // (Team Rocket), et tout Événement Fatalité simple. L'interactivité éventuelle s'ouvre
+  // côté fataliseur (chooserIndex = joueur actif, géré par l'effet lui-même).
+  if (chosen.type === 'effect' && (chosen.effects ?? []).length > 0) {
+    let next = updatePlayer(state, pending.target, (p) => ({
+      ...p,
+      fateDiscard: [...p.fateDiscard, chosen, ...others],
+    }))
+    next = { ...next, pendingFate: null }
+    next = pushShowcase(next, chosen.cardId, `${tgt.villainName} subit ${chosen.name}`, state.activePlayer)
+    return resolveEffects(next, chosen.effects ?? [], { actorIndex: pending.target })
+  }
+
   // Fallback (carte Fatalité non implémentée) : simple défausse.
   const next = updatePlayer(state, pending.target, (p) => ({
     ...p,
@@ -3734,6 +3794,10 @@ function applyMoveCard(
   }
   if (card.attachedTo) {
     throw new Error('Un Objet associé suit son Allié : déplacez l’Allié.')
+  }
+  // La Bonne Fée — Harold & Lillian : aucun Objet ne peut être déplacé sur leur lieu.
+  if (card.type === 'item' && (me.board[to] ?? []).some((c) => c.type === 'hero' && c.blocksAllItemsHere)) {
+    throw new Error(`Aucun Objet ne peut être déplacé ici (Harold & Lillian).`)
   }
   if (isItemFrozen(me, card)) {
     throw new Error(`${card.name} est gelé par Ariel : impossible de le déplacer.`)
@@ -4079,8 +4143,34 @@ function applyActivateCore(
   }
   // Cruella — Nanny : activer un Allié/Objet sur SON lieu coûte 1 Pouvoir de plus.
   const nannyTax = (me.board[cardLoc] ?? []).some((c) => c.type === 'hero' && c.cardId === 'nanny') ? 1 : 0
-  if (me.power < card.activatedCost + nannyTax) {
+  // La Bonne Fée — l'Âne : +1 (cumulatif) au coût d'activation sur son lieu.
+  const aneTax = (me.board[cardLoc] ?? []).reduce((n, c) => n + (c.activateCostSurchargeHere ?? 0), 0)
+  if (me.power < card.activatedCost + nannyTax + aneTax) {
     throw new Error(`Pouvoir insuffisant pour activer ${card.name}.`)
+  }
+  // Le surcoût « lieu » de l'Âne est payé d'emblée (uniformément à toutes les branches).
+  if (aneTax > 0) {
+    state = updateActivePlayer(state, (p) => ({ ...p, power: p.power - aneTax }))
+  }
+
+  // La Bonne Fée — Embrasse-la tout de suite ! : VICTOIRE (Prince Charmant + Fiona avec
+  // ses 2 potions en Salle de Bal, sans Shrek). Garde-fou via activatableCards.
+  if (card.cardId === 'embrasser') {
+    if (!kissAtBallConditionMet(state, state.activePlayer)) {
+      throw new Error('« Embrasse-la » : conditions de victoire non réunies.')
+    }
+    let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost! }))
+    next = consumePersifleur(next, action)
+    return {
+      ...next,
+      status: 'WON',
+      winner: state.activePlayer,
+      usedActionIds: [...next.usedActionIds, actionId],
+      log: [
+        ...next.log,
+        `${me.villainName} active **Embrasse-la tout de suite !** : le Prince Charmant embrasse Fiona au bal — 🏆 Victoire !`,
+      ],
+    }
   }
 
   if (card.cardId === 'iago') {
@@ -6296,6 +6386,10 @@ function applyResolveAllyRelocate(state: GameState, allyInstanceId: string, to: 
   if (!target.locations.some((l) => l.id === to) || locked.has(to)) {
     throw new Error(`Lieu « ${to} » invalide (doit être non bloqué).`)
   }
+  // Stari : la destination doit être un lieu VOISIN de l'Allié.
+  if (pending.adjacentOnly && from !== to && !adjacentLocationIds(state, from).includes(to)) {
+    throw new Error(`Lieu « ${to} » invalide (doit être voisin).`)
+  }
   const title = pending.title ?? 'Flèche de Mome Raths'
   if (from === to) return { ...state, pendingAllyRelocate: null }
   // L'Allié emmène ses Objets associés (cohérence avec les autres déplacements).
@@ -6490,23 +6584,25 @@ function applyResolveEvolveAlly(state: GameState, instanceId: string): GameState
     return { ...state, pendingEvolveAlly: null, log: [...state.log, `${p.villainName} : évolution (${evoCardId}) introuvable.`] }
   }
   const evoId = evo.instanceId
-  // Objets associés à l'Allié de base : défaussés avec lui.
+  // Objets associés à l'Allié de base : ils SUIVENT l'évolution (ré-associés au nouvel
+  // Allié), ils ne sont PAS défaussés (ex. une Pokéball reste sur le Pokémon évolué).
   const attached = (p.board[loc] ?? []).filter((c) => c.attachedTo === instanceId)
-  const removeFromBoard = new Set<string>([instanceId, ...attached.map((c) => c.instanceId)])
+  const reattached = attached.map((c) => ({ ...c, attachedTo: evoId }))
   let next = updatePlayer(state, idx, (pl) => ({
     ...pl,
     board: {
       ...pl.board,
       [loc]: [
-        ...(pl.board[loc] ?? []).filter((c) => !removeFromBoard.has(c.instanceId)),
+        // On retire seulement l'Allié de base (ses Objets associés restent, ré-associés).
+        ...(pl.board[loc] ?? []).filter((c) => c.instanceId !== instanceId && c.attachedTo !== instanceId),
         { ...evo!, attachedTo: undefined },
+        ...reattached,
       ],
     },
     deck: source === 'deck' ? pl.deck.filter((c) => c.instanceId !== evoId) : pl.deck,
     discard: [
       ...(source === 'discard' ? pl.discard.filter((c) => c.instanceId !== evoId) : pl.discard),
       { ...base, attachedTo: undefined },
-      ...attached.map((c) => ({ ...c, attachedTo: undefined })),
     ],
     hand: source === 'hand' ? pl.hand.filter((c) => c.instanceId !== evoId) : pl.hand,
   }))
@@ -6515,11 +6611,20 @@ function applyResolveEvolveAlly(state: GameState, instanceId: string): GameState
     next = { ...updatePlayer(next, idx, (pl) => ({ ...pl, deck: sh.result })), rngState: sh.state }
   }
   const locLabel = p.locations.find((l) => l.id === loc)?.name ?? loc
-  return {
+  next = {
     ...next,
     pendingEvolveAlly: null,
     log: [...next.log, `**${base.name}** évolue en **${evo.name}** sur **${locLabel}** !`],
   }
+  // L'évolution est « jouée » : son effet à la pose s'applique. Seul Smogogo (Team Rocket)
+  // porte un effet déclenché à la pose (ALLY_REMOTE_ACTION) ; posé sur un lieu ≠ pion, il
+  // ouvre une fenêtre d'action distante (comme s'il avait été joué là). Les autres évolutions
+  // (Arbok, Persian) ont des effets PASSIFS (force/portée) appliqués automatiquement.
+  const remoteFx = (evo.effects ?? []).find((e) => e.type === 'ALLY_REMOTE_ACTION')
+  if (remoteFx?.type === 'ALLY_REMOTE_ACTION' && loc !== next.players[idx].pawnLocation) {
+    next = openRemoteActionWindow(next, idx, loc, remoteFx.includeCovered)
+  }
+  return next
 }
 
 /** Lotso — Réinitialisation : déplace la tuile Buzz (mode Démo) vers le lieu choisi
@@ -8208,8 +8313,10 @@ function applyResolveDingo(
   const ga = goals.find((g) => g.locationId === from && !g.completed)
   const gb = goals.find((g) => g.locationId === to)
   if (!ga || !gb) throw new Error('Dingo : tuile introuvable.')
+  // Dingo ne DÉVOILE pas les tuiles : il ne fait que les déplacer. On conserve l'état
+  // `revealed` antérieur de chaque tuile (seuls Clarabelle / Hors-la-loi révèlent).
   const newGoals = goals.map((g) =>
-    g === ga ? { ...g, locationId: to, revealed: true } : g === gb ? { ...g, locationId: from, revealed: true } : g,
+    g === ga ? { ...g, locationId: to } : g === gb ? { ...g, locationId: from } : g,
   )
   const next = updatePlayer(state, idx, (p) => ({ ...p, goals: newGoals }))
   const fromName = findLocation(player, from)?.name ?? from
@@ -8514,6 +8621,76 @@ function applyResolveFetchedHero(state: GameState, play: boolean, to?: LocationI
     next = { ...next, pendingPlaceTreasure: { playerIndex: idx, heroInstanceId: pending.hero.instanceId } }
   }
   return next
+}
+
+/** Team Rocket — résout le choix du Pokémon invoqué par un dresseur (cf. pendingPokemonSummon) :
+ *  pose le Pokémon `cardId` (retiré de la pioche Fatalité) sur le lieu du dresseur. */
+function applyResolvePokemonSummon(state: GameState, cardId: string): GameState {
+  const pending = state.pendingPokemonSummon
+  if (!pending) throw new Error('Aucune invocation de Pokémon en attente.')
+  if (!pending.candidateCardIds.includes(cardId)) {
+    throw new Error(`Pokémon « ${cardId} » non invocable par ce dresseur.`)
+  }
+  const target = state.players[pending.targetIndex]
+  const destName = findLocation(target, pending.locationId)?.name ?? pending.locationId
+  return summonPokemonForDresser(
+    { ...state, pendingPokemonSummon: null },
+    pending.targetIndex,
+    pending.chooserIndex,
+    pending.dresserInstanceId,
+    cardId,
+    pending.locationId,
+    destName,
+  )
+}
+
+/** Team Rocket — « Oui, la guerre ! » : couche (K.O.) le Pokémon choisi (cf. pendingKoPokemon). */
+function applyResolveKoPokemon(state: GameState, instanceId: string): GameState {
+  const pending = state.pendingKoPokemon
+  if (!pending) throw new Error('Aucun Pokémon à coucher en attente.')
+  if (!pending.candidateIds.includes(instanceId)) {
+    throw new Error('Ce Pokémon ne peut pas être couché par cet effet.')
+  }
+  const idx = pending.chooserIndex
+  const loc = locationOfCard(state.players[idx], instanceId)
+  if (!loc) throw new Error(`Pokémon « ${instanceId} » introuvable.`)
+  const name = (state.players[idx].board[loc] ?? []).find((c) => c.instanceId === instanceId)?.name ?? 'Pokémon'
+  const next = updatePlayer({ ...state, pendingKoPokemon: null }, idx, (pl) => ({
+    ...pl,
+    board: {
+      ...pl.board,
+      [loc]: (pl.board[loc] ?? []).map((c) =>
+        c.instanceId === instanceId ? { ...c, pokemonKO: true, koOnTurn: state.turn } : c,
+      ),
+    },
+  }))
+  return { ...next, log: [...next.log, `Oui, la guerre ! : **${name}** est couché (K.O.) — prêt à être attrapé.`] }
+}
+
+/** Pat Hibulaire — « Planqués » : défausse l'Allié choisi (+ ses Objets associés) du
+ *  royaume de la cible (cf. pendingFateDiscardAlly). */
+function applyResolveFateDiscardAlly(state: GameState, instanceId: string): GameState {
+  const pending = state.pendingFateDiscardAlly
+  if (!pending) throw new Error('Aucun Allié à défausser en attente.')
+  if (!pending.candidateIds.includes(instanceId)) {
+    throw new Error('Cet Allié ne peut pas être défaussé par cet effet.')
+  }
+  const idx = pending.targetIndex
+  const target = state.players[idx]
+  const loc = locationOfCard(target, instanceId)
+  if (!loc) throw new Error(`Allié « ${instanceId} » introuvable.`)
+  const card = (target.board[loc] ?? []).find((c) => c.instanceId === instanceId)!
+  const ids = new Set([
+    instanceId,
+    ...(target.board[loc] ?? []).filter((c) => c.attachedTo === instanceId).map((c) => c.instanceId),
+  ])
+  const removed = (target.board[loc] ?? []).filter((c) => ids.has(c.instanceId))
+  const next = updatePlayer({ ...state, pendingFateDiscardAlly: null }, idx, (p) => ({
+    ...p,
+    board: { ...p.board, [loc]: (p.board[loc] ?? []).filter((c) => !ids.has(c.instanceId)) },
+    discard: [...p.discard, ...removed.map((c) => ({ ...c, attachedTo: undefined }))],
+  }))
+  return { ...next, log: [...next.log, `${target.villainName} défausse **${card.name}** (${pending.cardName}).`] }
 }
 
 /** Vol du château : pose l'Allié/Objet dévoilé (`found`) sur le lieu `to` choisi
@@ -9763,6 +9940,14 @@ function applyEndTurn(state: GameState): GameState {
     turn: drawn.turn + 1,
     phase: 'MOVE',
     usedActionIds: [],
+    // Récap : on fige les actions du tour qui se termine, et on repart à vide.
+    lastTurnEvents: {
+      playerIndex: drawn.activePlayer,
+      villainName: endedName,
+      turn: drawn.turn,
+      records: drawn.turnEvents ?? [],
+    },
+    turnEvents: [],
     persifleurAvailable: false,
     uncoverCoveredActions: false,
     uncoverExceptFate: false,
@@ -10040,7 +10225,128 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   // tuile Power Play si ≥6 Pouvoir dépensés ce tour sur le bon lieu.
   const after = syncLuciferTrap(syncRoseChain(syncPetePowerPlay(syncRatiganObjectiveAll(applyActionCore(state, action)))))
   // Dio — ZA WARUDO! : coût croissant par action + suivi des 14 actions du royaume.
-  return applyDioZaWarudo(state, action, after)
+  const result = applyDioZaWarudo(state, action, after)
+  // Récap du tour : enregistre l'action (icône + détail) dans `turnEvents`.
+  return recordTurnEvent(state, result, action)
+}
+
+/** Types de GameAction qui DÉMARRENT une action visible dans le récap de tour
+ *  (créent une nouvelle icône). Tout le reste (RESOLVE_*, PASS_FATE, SKIP_*…) est
+ *  une CONTINUATION : ses lignes de log sont rattachées à la dernière icône. */
+const TURN_EVENT_STARTERS = new Set<GameAction['type']>([
+  'PLAY_CARD',
+  'EXECUTE_ACTION',
+  'DISCARD_CARDS',
+  'MOVE_CARD',
+  'MOVE_HERO',
+  'ACTIVATE',
+  'VANQUISH',
+  'CATCH_POKEMON',
+  'FATE',
+])
+
+/** Cherche un exemplaire par instanceId dans la main et le plateau d'un joueur. */
+function findInstanceInPlayer(p: PlayerState, instanceId: string): CardInstance | undefined {
+  const inHand = p.hand.find((c) => c.instanceId === instanceId)
+  if (inHand) return inHand
+  for (const cards of Object.values(p.board)) {
+    const found = cards.find((c) => c.instanceId === instanceId)
+    if (found) return found
+  }
+  return undefined
+}
+
+/**
+ * Récap « tour adverse » : à chaque action, on ajoute (ou on enrichit) une entrée
+ * `turnEvents` du joueur ACTIF. Les actions « starter » créent une icône ; les
+ * continuations (résolutions de pending) rattachent leurs nouvelles lignes de log
+ * — et, pour la Fatalité, le nom de la carte enfin choisie — à la dernière icône.
+ * Le tooltip détaillé réutilise donc directement le `log` produit, sans re-formuler.
+ */
+function recordTurnEvent(before: GameState, after: GameState, action: GameAction): GameState {
+  // Nouvelles lignes de log produites par cette action (sert de tooltip détaillé).
+  const newLog = after.log.slice(before.log.length)
+  const actor = before.activePlayer
+  // On ne récapitule que ce que fait le JOUEUR ACTIF pendant SON tour (les réactions
+  // de l'adversaire — Conditions — ne font pas partie de son récap).
+  if (after.activePlayer !== actor && action.type !== 'END_TURN') {
+    return after
+  }
+  const events = after.turnEvents ?? []
+  const push = (ev: TurnEvent): GameState => ({ ...after, turnEvents: [...events, ev] })
+  // Rattache de nouvelles lignes de log (et éventuellement un cardId) à la dernière icône.
+  const enrichLast = (extra: Partial<TurnEvent>): GameState => {
+    if (events.length === 0) return after
+    const last = events[events.length - 1]
+    const merged: TurnEvent = {
+      ...last,
+      ...extra,
+      detail: [...last.detail, ...(extra.detail ?? [])],
+    }
+    return { ...after, turnEvents: [...events.slice(0, -1), merged] }
+  }
+
+  const pActor = before.players[actor]
+
+  switch (action.type) {
+    case 'PLAY_CARD': {
+      const card = findInstanceInPlayer(pActor, action.instanceId)
+      const toName = action.to ? findLocation(after.players[actor], action.to)?.name : undefined
+      return push({ kind: 'play-card', label: card?.name, cardId: card?.cardId, toLocationName: toName, detail: newLog })
+    }
+    case 'EXECUTE_ACTION': {
+      // Seul « Gagner du Pouvoir » a une icône dédiée ; on déduit le montant gagné.
+      const gained = (after.players[actor].power ?? 0) - (pActor.power ?? 0)
+      const loc = currentLocation(before)
+      const la = loc?.actions.find((a) => a.id === action.actionId)
+      if (la?.type === 'GAIN_POWER') {
+        const amount = gained > 0 ? gained : (la.amount ?? 0)
+        return push({ kind: 'gain-power', amount, label: `+${amount} Pouvoir`, detail: newLog })
+      }
+      // Autres actions instantanées sans icône dédiée (Préparer du Poison…) : on les
+      // rattache à la dernière icône si possible, sinon on les ignore.
+      return enrichLast({ detail: newLog })
+    }
+    case 'DISCARD_CARDS': {
+      const cards = action.instanceIds.map((id) => findInstanceInPlayer(pActor, id)).filter(Boolean) as CardInstance[]
+      const n = action.instanceIds.length
+      return push({ kind: 'discard', label: `${n} carte${n > 1 ? 's' : ''}`, cardIds: cards.map((c) => c.cardId), detail: newLog })
+    }
+    case 'MOVE_CARD': {
+      const card = findInstanceInPlayer(pActor, action.instanceId)
+      const toName = findLocation(after.players[actor], action.to)?.name
+      return push({ kind: 'move-ally', label: card?.name, cardId: card?.cardId, toLocationName: toName, detail: newLog })
+    }
+    case 'MOVE_HERO': {
+      const hero = findInstanceInPlayer(pActor, action.heroInstanceId)
+      const toName = findLocation(after.players[actor], action.to)?.name
+      return push({ kind: 'move-hero', label: hero?.name, cardId: hero?.cardId, toLocationName: toName, detail: newLog })
+    }
+    case 'ACTIVATE': {
+      const card = findInstanceInPlayer(pActor, action.cardInstanceId)
+      return push({ kind: 'activate', label: card?.name, cardId: card?.cardId, detail: newLog })
+    }
+    case 'VANQUISH':
+    case 'CATCH_POKEMON': {
+      const hero = findInstanceInPlayer(pActor, action.heroInstanceId)
+      const allies = action.allyInstanceIds.map((id) => findInstanceInPlayer(pActor, id)).filter(Boolean) as CardInstance[]
+      return push({ kind: 'vanquish', label: hero?.name, cardId: hero?.cardId, cardIds: allies.map((a) => a.cardId), detail: newLog })
+    }
+    case 'FATE': {
+      // L'icône Fatalité apparaît ici ; la carte choisie est connue à RESOLVE_FATE.
+      return push({ kind: 'fate', detail: newLog })
+    }
+    case 'RESOLVE_FATE': {
+      // Renseigne la carte enfin jouée sur la dernière icône Fatalité.
+      const card = before.pendingFate?.revealed.find((c) => c.instanceId === action.instanceId)
+      return enrichLast({ label: card?.name, cardId: card?.cardId, detail: newLog })
+    }
+    default:
+      // Continuation d'une action en cours (résolution de pending, choix…) : on
+      // rattache les nouvelles lignes de log à la dernière icône.
+      if (TURN_EVENT_STARTERS.has(action.type)) return after
+      return enrichLast({ detail: newLog })
+  }
 }
 
 /** Types de GameAction qui correspondent à « faire une action de lieu » (hors Fatalité,
@@ -10519,6 +10825,15 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   if (state.pendingFetchedHero && action.type !== 'RESOLVE_FETCHED_HERO' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Jouez ou défaussez le Héros dévoilé (RESOLVE_FETCHED_HERO).')
   }
+  if (state.pendingPokemonSummon && action.type !== 'RESOLVE_POKEMON_SUMMON' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Choisissez le Pokémon invoqué par le dresseur (RESOLVE_POKEMON_SUMMON).')
+  }
+  if (state.pendingKoPokemon && action.type !== 'RESOLVE_KO_POKEMON' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Choisissez le Pokémon à coucher (RESOLVE_KO_POKEMON).')
+  }
+  if (state.pendingFateDiscardAlly && action.type !== 'RESOLVE_FATE_DISCARD_ALLY' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Choisissez l’Allié à défausser (RESOLVE_FATE_DISCARD_ALLY).')
+  }
   if (state.pendingCastleTheft && action.type !== 'RESOLVE_CASTLE_THEFT' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Choisissez où poser la carte dévoilée (RESOLVE_CASTLE_THEFT).')
   }
@@ -10884,6 +11199,12 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveAllyRelocate(state, action.allyInstanceId, action.to)
     case 'SKIP_ALLY_RELOCATE':
       return applySkipAllyRelocate(state)
+    case 'RESOLVE_POKEMON_SUMMON':
+      return applyResolvePokemonSummon(state, action.cardId)
+    case 'RESOLVE_KO_POKEMON':
+      return applyResolveKoPokemon(state, action.instanceId)
+    case 'RESOLVE_FATE_DISCARD_ALLY':
+      return applyResolveFateDiscardAlly(state, action.instanceId)
     case 'RESOLVE_IDENTIFICATION':
       return applyResolveIdentification(state, action.cardInstanceId, action.to)
     case 'RESOLVE_LOTSO_TARGET':

@@ -16,6 +16,8 @@ interface Props {
   onSkip?: () => void
   /** Restreint les Alliés déplaçables à ces instanceId (Cybug en Sucre). */
   onlyInstanceIds?: string[]
+  /** Stari : la destination doit être un lieu VOISIN de l'Allié. */
+  adjacentOnly?: boolean
 }
 
 /**
@@ -23,11 +25,16 @@ interface Props {
  * (Fatalité, Reine de Cœur) : 1 Allié de la cible. Go ! (Sa Sucrerie) : jusqu'à 2
  * de ses propres Alliés (`remaining`, `optional` → bouton Terminer).
  */
-export function AllyRelocateModal({ target, onResolve, title = 'Flèche de Mome Raths', remaining = 1, optional = false, onSkip, onlyInstanceIds }: Props) {
+export function AllyRelocateModal({ target, onResolve, title = 'Flèche de Mome Raths', remaining = 1, optional = false, onSkip, onlyInstanceIds, adjacentOnly = false }: Props) {
   const [allyId, setAllyId] = useState<string | null>(null)
   const ids = target.locations.map((l) => l.id)
   const locked = new Set(target.lockedLocations ?? [])
   const nameOf = (id: string) => target.locations.find((l) => l.id === id)?.name ?? id
+  // Voisins d'un lieu = ses adjacents dans la rangée linéaire des lieux (index ±1).
+  const adjacentOf = (id: string) => {
+    const i = ids.indexOf(id)
+    return [ids[i - 1], ids[i + 1]].filter(Boolean) as string[]
+  }
 
   // Un arceau (Carte Garde transformée) reste un Allié : la Flèche peut le déplacer.
   const only = onlyInstanceIds ? new Set(onlyInstanceIds) : null
@@ -37,7 +44,14 @@ export function AllyRelocateModal({ target, onResolve, title = 'Flèche de Mome 
       .map((c) => ({ id: c.instanceId, cardId: c.cardId, name: c.name, from: loc.id })),
   )
   const picked = allies.find((a) => a.id === allyId)
-  const dests = picked ? ids.filter((id) => id !== picked.from && !locked.has(id)) : []
+  const dests = picked
+    ? ids.filter(
+        (id) =>
+          id !== picked.from &&
+          !locked.has(id) &&
+          (!adjacentOnly || adjacentOf(picked.from).includes(id)),
+      )
+    : []
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">

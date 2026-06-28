@@ -20,6 +20,15 @@ interface HeroRowProps {
    *  Capture). Anneau ambre, distinct du rouge Vanquish. */
   relocateTargets?: string[]
   onRelocatePickHero?: (instanceId: string) => void
+  /** Team Rocket — Pokémon cliquables à COUCHER (Oui, la guerre !). Anneau rose clignotant. */
+  koTargets?: string[]
+  onKoPickPokemon?: (instanceId: string) => void
+  /** Déplacement d'un Héros : lieux (locationId) où le déposer. La CASE HÉROS (haut) du
+   *  lieu s'allume et devient cliquable (alternative au glisser-déposer). */
+  destTargets?: string[]
+  onDestPick?: (locationId: string) => void
+  /** Numéro du tour courant (GameState.turn) — pour le compte à rebours des Pokémon K.O. */
+  gameTurn?: number
   /** Vrai si le joueur peut payer 2 JT pour défausser un Déguisement
    *  (tour du joueur, JT suffisants). Affiche un bouton sous le Héros porteur. */
   canDiscardDeguisement?: boolean
@@ -54,6 +63,11 @@ export function HeroRow({
   onVanquishPickHero,
   relocateTargets = [],
   onRelocatePickHero,
+  koTargets = [],
+  onKoPickPokemon,
+  destTargets = [],
+  onDestPick,
+  gameTurn = 0,
   canDiscardDeguisement = false,
   onDiscardDeguisement,
   hiddenInstanceIds = [],
@@ -113,6 +127,20 @@ export function HeroRow({
           >
             {/* Indicateur : contour blanc sur toute case héros contenant ≥1 Héros. */}
             {heroes.length > 0 && <GlowBorder color="#ffffff" radius={8} />}
+            {/* Déplacement d'un Héros : cette case Héros est une destination valide →
+                surbrillance ambre cliquable (« déplacer ici »), alternative au glisser. */}
+            {destTargets.includes(loc.id) && (
+              <button
+                type="button"
+                onClick={() => onDestPick?.(loc.id)}
+                title={`Déplacer le Héros ici (${loc.name})`}
+                className="absolute inset-0 z-30 flex items-center justify-center rounded-lg border-2 border-amber-300 bg-amber-400/20 animate-pulse"
+              >
+                <span className="rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200">
+                  déplacer ici
+                </span>
+              </button>
+            )}
             {/* Yzma — pioche Fatalité de CE lieu (face cachée), posée AU-DESSUS de la
                 zone de Fatalité. Positionnée en absolu (bottom-full) : elle ne prend
                 pas de place dans le flux et ne décale donc PAS les autres éléments.
@@ -159,9 +187,10 @@ export function HeroRow({
               const locked = c.lockedPower ?? 0
               const isTarget = vanquishTargets.includes(c.instanceId)
               const isRelocateTarget = !isTarget && relocateTargets.includes(c.instanceId)
+              const isKoTarget = !isTarget && !isRelocateTarget && koTargets.includes(c.instanceId)
               // Saisissable (glisser pour déplacer) si l'action « Déplacer un Héros »
               // est active et que ce Héros n'est pas déjà une cible de clic.
-              const dragEligible = dragHeroIds.includes(c.instanceId) && !isTarget && !isRelocateTarget
+              const dragEligible = dragHeroIds.includes(c.instanceId) && !isTarget && !isRelocateTarget && !isKoTarget
               const deguisement = attached.find((a) => a.cardId === 'deguisement')
               // Héros agrandi : on incline la carte à 90° vers le lieu voisin sur
               // lequel il déborde (à droite → +90°, à gauche → −90°).
@@ -203,7 +232,9 @@ export function HeroRow({
                           ? () => onVanquishPickHero?.(c.instanceId, c.name)
                           : isRelocateTarget
                             ? () => onRelocatePickHero?.(c.instanceId)
-                            : undefined
+                            : isKoTarget
+                              ? () => onKoPickPokemon?.(c.instanceId)
+                              : undefined
                       }
                       onPointerDown={
                         dragEligible
@@ -255,7 +286,9 @@ export function HeroRow({
                           ? 'cursor-pointer border-red-500 ring-2 ring-red-500'
                           : isRelocateTarget
                             ? 'cursor-pointer border-amber-400 ring-2 ring-amber-400 animate-pulse'
-                            : dragEligible
+                            : isKoTarget
+                              ? 'cursor-pointer border-rose-400 ring-2 ring-rose-400 animate-pulse'
+                              : dragEligible
                               ? 'cursor-grab touch-none border-amber-300/70 ring-1 ring-amber-300/60 hover:ring-2 hover:ring-amber-300 active:cursor-grabbing'
                               : 'border-white/40'
                       } ${redBlinkInstanceIds.includes(c.instanceId) ? 'red-flash' : ''} ${
@@ -263,7 +296,7 @@ export function HeroRow({
                       }`}
                       style={
                         c.pokemonKO
-                          ? { transform: 'rotate(78deg)', filter: 'grayscale(0.6)', opacity: 0.85 }
+                          ? { transform: 'rotate(90deg)', filter: 'grayscale(0.6)', opacity: 0.85 }
                           : c.heroSize === 'shrunk'
                             ? { transform: `rotate(${shrinkRotate}deg)` }
                             : c.heroSize === 'enlarged'
@@ -271,15 +304,27 @@ export function HeroRow({
                               : undefined
                       }
                     />
-                    {/* Team Rocket — Pokémon VAINCU (couché, K.O.) en attente d'être attrapé. */}
-                    {c.pokemonKO && (
-                      <span
-                        title="Pokémon vaincu — attrapez-le (action Attraper) avant la fin de votre prochain tour"
-                        className="pointer-events-none absolute -top-1 left-1/2 -translate-x-1/2 rounded-full border border-white/40 bg-rose-700/90 px-1 text-[8px] font-black text-white"
-                      >
-                        K.O.
-                      </span>
-                    )}
+    {/* Team Rocket — Pokémon VAINCU (couché, K.O.) en attente d'être attrapé : compte à
+        rebours avant qu'il ne file en défausse Fatalité (seuil 2 tours, +1 avec Pokédex volé). */}
+                    {c.pokemonKO && (() => {
+                      const hasPokedex = Object.values(player.board).flat().some((x) => x.cardId === 'pokedex-vole')
+                      const expiryAfter = hasPokedex ? 3 : 2
+                      const turnsLeft = Math.max(0, (c.koOnTurn ?? gameTurn) + expiryAfter - gameTurn)
+                      const phrase =
+                        turnsLeft <= 0
+                          ? 'Sera défaussé à la fin de ce tour s’il n’est pas attrapé.'
+                          : turnsLeft === 1
+                            ? 'Sera défaussé à la fin du prochain tour s’il n’est pas attrapé.'
+                            : `S’échappe dans ${turnsLeft} tours s’il n’est pas attrapé.`
+                      return (
+                        <span
+                          title={`Pokémon vaincu (couché) — ${phrase}`}
+                          className="pointer-events-none absolute -top-1 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-white/40 bg-rose-700/90 px-1 text-[8px] font-black text-white"
+                        >
+                          K.O. ⏳{turnsLeft}
+                        </span>
+                      )
+                    })()}
                     {/* Madame de Trémaine — Héros CAPTURÉ (Capturé) : sa capacité est
                         ignorée (comme un Héros piraté par Boop). Overlay « Capturé ». */}
                     {c.trapped && (

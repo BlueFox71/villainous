@@ -46,6 +46,11 @@ const FREEZE_DEBUG: boolean = false
 // Trajectoire `paws` (Cruella) : empreintes qui s'impriment puis s'effacent une par une.
 const PAW_CROSS_STEP = 0.16 // s — écart d'apparition (et de disparition) entre deux empreintes
 const PAW_CROSS_LIFE = 8 // s — durée de vie d'une empreinte (impression → pose → effacement ; cf. CSS)
+// Trajectoire `eject-arc` (Team Rocket) : fractions d'écran du départ (bas-gauche, hors champ) et de
+// l'arrivée (au-dessus des Héros adverses, haut-centre). Réglables pour caler la trajectoire.
+const TR_EJECT_START_X = 0.12 // x du départ (fraction de la largeur)
+const TR_EJECT_END_X = 0.62 // x de l'arrivée
+const TR_EJECT_END_Y = 0.12 // y de l'arrivée (haut de l'écran)
 
 /** Un décor de vilain qui passe à l'écran (UN passage). Deux trajectoires :
  *  - `cross` : traversée linéaire de la bande haute (joueur de gauche à droite,
@@ -397,6 +402,53 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
       ],
       { duration: (anim.durationSec ?? 6) * 1000, easing: 'cubic-bezier(0.4, 0, 0.5, 1)', fill: 'both' },
     )
+    return () => anim2.cancel()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Trajectoire `eject-arc` (Team Rocket : « on s'envole ! ») : le trio est éjecté HORS écran en bas à
+  // GAUCHE et monte en ARC jusqu'au-dessus de la rangée de Héros adverse (haut de l'écran), en tournant
+  // dans le sens HORAIRE et en rétrécissant (il s'éloigne) ; fondu de disparition juste avant l'arrivée
+  // (l'étoile prend le relais). Échantillonné sur une courbe de Bézier comme `sky-arc`.
+  useLayoutEffect(() => {
+    if (FREEZE_DEBUG || path !== 'eject-arc') return
+    const el = ref.current
+    if (!el || !anim) return
+    const { width: w, height: h } = el.getBoundingClientRect()
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    // Les deux camps s'éjectent vers le HAUT ; on MIROITE horizontalement selon le camp : le joueur part
+    // d'en bas à GAUCHE, l'adversaire d'en bas à DROITE (positions en X retournées par `mir`).
+    const mir = (xFrac: number) => (isPlayer ? xFrac : 1 - xFrac)
+    const p0 = { x: vw * mir(TR_EJECT_START_X), y: vh + h * 0.6 }
+    const p2 = { x: vw * mir(TR_EJECT_END_X), y: vh * TR_EJECT_END_Y }
+    // Point de contrôle relevé et tiré vers son bord → un vrai arc de lancer (s'élance puis revient vers le centre).
+    const p1 = { x: vw * mir(TR_EJECT_START_X + 0.04), y: vh * 0.42 }
+    const bezier = (t: number) => {
+      const u = 1 - t
+      return {
+        x: u * u * p0.x + 2 * u * t * p1.x + t * t * p2.x,
+        y: u * u * p0.y + 2 * u * t * p1.y + t * t * p2.y,
+      }
+    }
+    // Sens HORAIRE côté joueur ; miroité (anti-horaire) côté adversaire pour rester symétrique.
+    const turns = (isPlayer ? 1 : -1) * (anim.spinTurns ?? 3) * 360
+    const frames: Keyframe[] = []
+    for (let i = 0; i <= ASCENT_SAMPLES; i++) {
+      const t = i / ASCENT_SAMPLES
+      const pt = bezier(t)
+      const scale = 1 - 0.45 * t // rétrécit (1 → 0.55) en s'éloignant dans le ciel
+      const left = pt.x - w / 2
+      const top = pt.y - h / 2
+      // Fondu : apparition rapide au départ, disparition sur les 12 derniers % (l'étoile marque la fin).
+      const opacity = t < 0.06 ? t / 0.06 : t > 0.88 ? Math.max(0, (1 - t) / 0.12) : 1
+      frames.push({ transform: `translate(${left}px, ${top}px) rotate(${turns * t}deg) scale(${scale})`, opacity })
+    }
+    const anim2 = el.animate(frames, {
+      duration: (anim.durationSec ?? 3.4) * 1000,
+      easing: 'cubic-bezier(0.2, 0.6, 0.4, 1)', // départ vif (éjection) puis ralentit à l'arrivée
+      fill: 'both',
+    })
     return () => anim2.cancel()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -884,6 +936,31 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
       >
         <img src={src} alt="" className="h-full w-auto select-none" draggable={false} />
       </div>
+    )
+  }
+
+  if (path === 'eject-arc') {
+    // Le trio (piloté en JS, cf. useLayoutEffect) tourne sur lui-même → aucune orientation à gérer.
+    // À l'arrivée (haut-centre, au-dessus des Héros adverses), un éclat d'étoile à 4 branches jaillit
+    // (réutilise `.tr-twinkle` du décor Team Rocket), calé en fin de trajet. Le wrapper 0×0 ancre
+    // l'étoile sur le point d'arrivée (comme dans `.tr-blast-fly`).
+    // Même miroir horizontal que la trajectoire : arrivée à droite (joueur) ou à gauche (adversaire), en haut.
+    const starX = window.innerWidth * (isPlayer ? TR_EJECT_END_X : 1 - TR_EJECT_END_X)
+    const starY = window.innerHeight * TR_EJECT_END_Y
+    const starDelay = Math.round((durationSec * 0.9) * 1000) // jaillit quand le trio arrive
+    return (
+      <Fragment>
+        <div
+          ref={ref}
+          className="villain-prop villain-prop--free"
+          style={{ height: `${heightPct}vh`, opacity: 0, transformOrigin: 'center', ...freezeStyle }}
+        >
+          <img src={src} alt="" className="h-full w-auto select-none" draggable={false} />
+        </div>
+        <div className="tr-eject-star" style={{ left: `${starX}px`, top: `${starY}px` }} aria-hidden>
+          <span className="tr-twinkle" style={{ animationDelay: `${starDelay}ms` }} />
+        </div>
+      </Fragment>
     )
   }
 

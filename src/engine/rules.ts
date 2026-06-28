@@ -515,6 +515,17 @@ export function activatableCards(state: GameState): CardInstance[] {
       if (c.cardId === 'masque-de-pierre' && me.hand.length === 0) continue
       // Dio — Justice : récupère un Allié de la défausse. Inutile sans Allié en défausse.
       if (c.cardId === 'justice' && !me.discard.some((x) => x.type === 'ally')) continue
+      // La Bonne Fée — Embrasse-la : activable seulement quand la victoire est réunie.
+      if (c.cardId === 'embrasser' && !kissAtBallConditionMet(state, state.activePlayer)) continue
+      // La Bonne Fée — Nettoyage de fond : activable seulement s'il existe un Héros
+      // transformé (Objet Meuble/Colombe associé) à défausser.
+      if (c.cardId === 'rangement' && !Object.values(me.board).flat().some((x) => x.zeroesHostStrength && x.attachedTo)) continue
+      // La Bonne Fée — Les contes de fée : activable seulement s'il y a un Objet ou un
+      // Événement dans la défausse à récupérer.
+      if (c.cardId === 'contes' && !me.discard.some((x) => x.type === 'item' || x.type === 'effect')) continue
+      // La Bonne Fée — Réserve de potions : activable seulement s'il existe une Potion
+      // dans la pioche ou la défausse à récupérer.
+      if (c.cardId === 'reserve' && ![...me.deck, ...me.discard].some((x) => x.isPotion)) continue
       out.push(c)
     }
   }
@@ -608,6 +619,8 @@ export function effectiveStrength(
   if (!card || card.strength === undefined) return undefined
   // Syndrome — Unité de Confinement : la force de ce Héros est réduite à 0.
   if (card.forceZeroed) return 0
+  // La Bonne Fée — Héros transformé (Meuble / Colombe associé) : force EFFECTIVE 0.
+  if (cell.some((c) => c.attachedTo === card.instanceId && c.zeroesHostStrength)) return 0
   // Syndrome — Jack-Jack : sa force devient celle du Héros le plus fort sur son lieu
   // (comparaison sur la force de base, sans récursion).
   if ((card.selfStrengthMods ?? []).some((m) => m.kind === 'match-strongest-hero-here')) {
@@ -1271,6 +1284,11 @@ export function effectiveCost(
     if (card.type === 'effect' || card.type === 'curse') {
       discount += cell.filter((c) => c.cardId === 'baton-magique').length
     }
+    // La Bonne Fée — Baguette Magique : les Objets coûtent 1 de moins par Baguette
+    // présente sur le lieu du pion.
+    if (card.type === 'item') {
+      discount += cell.filter((c) => c.cardId === 'baguette').length
+    }
   }
   if (card.type === 'curse' && destination) {
     const destCell = me.board[destination] ?? []
@@ -1373,6 +1391,32 @@ export function holdsBlackKey(p: PlayerState): boolean {
   return Object.values(p.board).flat().some((c) => c.cardId === 'cle-noire')
 }
 
+/** La Bonne Fée — les conditions de « Embrasse-la tout de suite ! » sont-elles réunies ?
+ *  Prince Charmant (Allié) ET Fiona portant ses 2 potions sont en Salle de Bal, et aucun
+ *  Shrek (bloqueur) n'est présent dans le royaume. Sert au garde-fou d'activation ET à
+ *  la résolution de la victoire (applyActivate). */
+export function kissAtBallConditionMet(
+  state: GameState,
+  playerIndex: number = state.activePlayer,
+): boolean {
+  const p = state.players[playerIndex]
+  if (p.objective.type !== 'KISS_AT_BALL') return false
+  const obj = p.objective
+  const all = Object.values(p.board).flat()
+  // Shrek présent → victoire impossible.
+  if (all.some((c) => c.type === 'hero' && c.cardId === obj.blockerHeroCardId)) return false
+  const ballroom = p.board[obj.ballroomId] ?? []
+  const fiona = ballroom.find((c) => c.type === 'hero' && c.cardId === obj.heroCardId)
+  if (!fiona) return false
+  // Fiona doit porter ses 2 potions (associées à elle, sur le même lieu).
+  const bothPotions = obj.potionCardIds.every((pid) =>
+    ballroom.some((c) => c.cardId === pid && c.attachedTo === fiona.instanceId),
+  )
+  if (!bothPotions) return false
+  // Prince Charmant (Allié) présent en Salle de Bal.
+  return ballroom.some((c) => c.type === 'ally' && c.cardId === obj.allyCardId)
+}
+
 /** Le joueur `playerIndex` (défaut : joueur actif) a-t-il atteint son objectif de
  *  victoire ? Dispatch sur le type d'objectif (POWER_THRESHOLD, CURSE_EACH_LOCATION,
  *  …). Les objectifs déclenchés « à l'instant » (Coup Royal, Vanquish, Divination)
@@ -1431,6 +1475,10 @@ export function hasReachedObjective(state: GameState, playerIndex: number = stat
     }
     case 'ROYAL_CROQUET':
       // Victoire déclenchée par la carte Coup Royal (pas un contrôle passif).
+      return false
+    case 'KISS_AT_BALL':
+      // La Bonne Fée — victoire ÉVÉNEMENTIELLE : déclenchée en activant « Embrasse-la
+      // tout de suite ! » (phase moteur ultérieure), pas par un contrôle passif ici.
       return false
     case 'DEFEAT_HERO_AT_LOCATION':
       // Victoire déclenchée à l'instant du Vanquish (performVanquish), pas ici.

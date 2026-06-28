@@ -180,6 +180,32 @@ export function objectiveScore(p: PlayerState): number {
       if (slipper) s = Math.min(s, 0.6)
       return Math.min(0.99, s)
     }
+    case 'KISS_AT_BALL': {
+      // La Bonne Fée : amener Fiona (avec ses 2 potions) + le Prince Charmant en
+      // Salle de Bal, sans Shrek dans le royaume. Jauge validée avec l'utilisateur :
+      // Fiona en jeu .2 + Fiona au bal .2 + .15/potion (max .3) + Prince au bal .2 ;
+      // =1 quand tout est prêt ; plafond .5 tant que Shrek (bloqueur) est présent.
+      const obj = p.objective
+      const all = Object.values(p.board).flat()
+      const ballroom = p.board[obj.ballroomId] ?? []
+      const shrekPresent = all.some((c) => c.type === 'hero' && c.cardId === obj.blockerHeroCardId)
+      const fiona = all.find((c) => c.type === 'hero' && c.cardId === obj.heroCardId)
+      const fionaAtBall = !!fiona && ballroom.some((c) => c.instanceId === fiona.instanceId)
+      const potionsOnFiona = fiona
+        ? obj.potionCardIds.filter((pid) =>
+            all.some((c) => c.cardId === pid && c.attachedTo === fiona.instanceId),
+          ).length
+        : 0
+      const princeAtBall = ballroom.some((c) => c.cardId === obj.allyCardId && c.type === 'ally')
+      if (!shrekPresent && fionaAtBall && potionsOnFiona >= 2 && princeAtBall) return 1
+      let s = 0
+      if (fiona) s += 0.2
+      if (fionaAtBall) s += 0.2
+      s += 0.15 * Math.min(2, potionsOnFiona)
+      if (princeAtBall) s += 0.2
+      if (shrekPresent) s = Math.min(s, 0.5)
+      return Math.min(0.95, s)
+    }
     case 'REMOVE_ALL_OBSTACLES': {
       // Gaston : proportion d'Obstacles RETIRÉS (8 au départ). Si Belle est dans le
       // royaume, elle bloque TOUT retrait : on plafonne la jauge pour pousser le bot

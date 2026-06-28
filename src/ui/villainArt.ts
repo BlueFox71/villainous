@@ -35,6 +35,7 @@ const PORTRAIT: Partial<Record<VillainKey, string>> = {
   tamatoa: '/tamatoa.png',
   teamRocket: '/team-rocket.png',
   dio: '/dio.png',
+  laBonneFee: '/la-bonne-fee.png',
 }
 
 /** Portrait d'un vilain, avec repli sur son dos de carte si non défini. */
@@ -77,6 +78,7 @@ const PRESENTATION: Partial<Record<VillainKey, string>> = {
   tamatoa: '/presentations/tamatoa.png',
   teamRocket: '/presentations/team-rocket.png',
   dio: '/presentations/dio.png',
+  laBonneFee: '/presentations/la-bonne-fee.png',
 }
 
 /** Illustration de présentation d'un vilain (undefined si non disponible). */

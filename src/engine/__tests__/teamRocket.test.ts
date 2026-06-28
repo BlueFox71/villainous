@@ -40,18 +40,21 @@ function captured(cardId: string): CardInstance {
 
 describe('Team Rocket — Attraper un Pokémon (CATCH_POKEMON)', () => {
   it('Vaincre un Pokémon le COUCHE (K.O.) sur place au lieu de le défausser', () => {
-    // Le Vaincre du Centre Pokémon est en bas (non recouvert par le Pokémon présent).
-    let s = applyAction(trGame(), { type: 'MOVE', to: 'centre-pokemon' })
+    // Le Vaincre de l'Arène est en bas (non recouvert par le Pokémon présent).
+    let s = applyAction(trGame(), { type: 'MOVE', to: 'arene' })
     s = withActive(s, {
-      board: { ...me(s).board, 'centre-pokemon': [pokemon('pk', 'togepi', 1), ally('a1', 'miaouss', 3)] },
+      board: { ...me(s).board, arene: [pokemon('pk', 'togepi', 1), ally('a1', 'miaouss', 3)] },
     })
     s = applyAction(s, { type: 'VANQUISH', actionId: 'vanquish', heroInstanceId: 'pk', allyInstanceIds: ['a1'] })
     const p = me(s)
-    const ko = (p.board['centre-pokemon'] ?? []).find((c) => c.instanceId === 'pk')
+    const ko = (p.board['arene'] ?? []).find((c) => c.instanceId === 'pk')
     expect(ko?.pokemonKO).toBe(true) // reste sur le plateau, couché
     expect(p.capturedPokemon ?? []).toHaveLength(0) // pas encore attrapé
     expect(p.fateDiscard.map((c) => c.instanceId)).not.toContain('pk')
     expect(p.discard.map((c) => c.instanceId)).toContain('a1') // l'Allié est dépensé
+    // L'Allié dépensé QUITTE le plateau (pas de doublon plateau + défausse).
+    expect(Object.values(p.board).flat().some((c) => c.instanceId === 'a1')).toBe(false)
+    expect(p.discard.filter((c) => c.instanceId === 'a1')).toHaveLength(1)
   })
 
   it('Attraper prend un Pokémon DÉJÀ couché (depuis n’importe quel lieu) → pile de Captures', () => {
@@ -138,21 +141,42 @@ describe('Team Rocket — Attraper un Pokémon (CATCH_POKEMON)', () => {
     expect(effectiveStrength(s, s.activePlayer, 'drac')).toBe(4)
   })
 
-  it('un dresseur invoque son Pokémon (depuis la pioche Fatalité) sur le même lieu', () => {
+  it('un dresseur (2 Pokémon dispo) ouvre le CHOIX du Pokémon invoqué (pendingPokemonSummon)', () => {
     const s0 = trGame()
     const sacha = {
       instanceId: 'sacha1', cardId: 'sacha', name: 'Sacha', type: 'hero' as const,
       strength: 1, summonsPokemonCardIds: ['pikachu', 'dracaufeu'],
     }
     const s = placeFateHeroWithEffects(s0, 0, 0, sacha, 'foret', 'Forêt')
-    const cell = s.players[0].board['foret'] ?? []
-    expect(cell.some((c) => c.instanceId === 'sacha1')).toBe(true)
-    const poke = cell.find((c) => c.isPokemon)
-    expect(poke).toBeDefined()
-    expect(['pikachu', 'dracaufeu']).toContain(poke!.cardId)
-    expect(poke!.summonedByInstanceId).toBe('sacha1')
-    // Le Pokémon invoqué a quitté la pioche Fatalité.
-    expect(s.players[0].fateDeck.some((c) => c.instanceId === poke!.instanceId)).toBe(false)
+    // Le dresseur est posé, mais le Pokémon n'est pas encore là : un choix s'ouvre.
+    expect((s.players[0].board['foret'] ?? []).some((c) => c.instanceId === 'sacha1')).toBe(true)
+    expect((s.players[0].board['foret'] ?? []).some((c) => c.isPokemon)).toBe(false)
+    expect(s.pendingPokemonSummon).toMatchObject({
+      chooserIndex: 0, targetIndex: 0, dresserInstanceId: 'sacha1', locationId: 'foret',
+    })
+    expect(s.pendingPokemonSummon!.candidateCardIds.sort()).toEqual(['dracaufeu', 'pikachu'])
+    // Choix de Pikachu → il est posé sur le même lieu, lié au dresseur, retiré de la pioche.
+    const after = applyAction(s, { type: 'RESOLVE_POKEMON_SUMMON', cardId: 'pikachu' })
+    const poke = (after.players[0].board['foret'] ?? []).find((c) => c.isPokemon)
+    expect(poke?.cardId).toBe('pikachu')
+    expect(poke?.summonedByInstanceId).toBe('sacha1')
+    expect(after.players[0].fateDeck.some((c) => c.cardId === 'pikachu')).toBe(false)
+    expect(after.pendingPokemonSummon).toBeNull()
+  })
+
+  it('un dresseur invoque DIRECTEMENT son Pokémon si un seul candidat est disponible', () => {
+    let s = trGame()
+    // On retire Dracaufeu de la pioche Fatalité : seul Pikachu reste invocable par Sacha.
+    s = { ...s, players: s.players.map((p, i) => i === 0 ? { ...p, fateDeck: p.fateDeck.filter((c) => c.cardId !== 'dracaufeu') } : p) }
+    const sacha = {
+      instanceId: 'sacha1', cardId: 'sacha', name: 'Sacha', type: 'hero' as const,
+      strength: 1, summonsPokemonCardIds: ['pikachu', 'dracaufeu'],
+    }
+    s = placeFateHeroWithEffects(s, 0, 0, sacha, 'foret', 'Forêt')
+    expect(s.pendingPokemonSummon ?? null).toBeNull() // pas de choix
+    const poke = (s.players[0].board['foret'] ?? []).find((c) => c.isPokemon)
+    expect(poke?.cardId).toBe('pikachu')
+    expect(poke?.summonedByInstanceId).toBe('sacha1')
   })
 
   it('lien dresseur↔Pokémon : un Pokémon couché expiré entraîne la défausse de son dresseur', () => {
@@ -234,6 +258,24 @@ describe('Team Rocket — Attraper un Pokémon (CATCH_POKEMON)', () => {
     expect(p.hand.some((c) => c.cardId === 'arbok')).toBe(false)
   })
 
+  it('Évolution : Smogo → Smogogo GARDE son Objet associé et déclenche l’action distante', () => {
+    const pokeball: CardInstance = { instanceId: 'pb1', cardId: 'pokeball', name: 'Pokéball', type: 'item', attach: 'ally', attachedTo: 's1', attachStrengthBonus: 1 }
+    let s = withActive(trGame(), { pawnLocation: 'labo', board: { arene: [ally('s1', 'smogo', 2), pokeball] } })
+    s = resolveEffects(s, [{ type: 'EVOLVE_ALLY' }], { actorIndex: 0 })
+    expect(s.pendingEvolveAlly?.candidateIds).toEqual(['s1'])
+    s = applyAction(s, { type: 'RESOLVE_EVOLVE_ALLY', instanceId: 's1' })
+    const p = me(s)
+    const smogogo = (p.board['arene'] ?? []).find((c) => c.cardId === 'smogogo')
+    expect(smogogo).toBeDefined()
+    // La Pokéball reste sur le plateau, ré-associée au Smogogo évolué (pas défaussée).
+    const pb = (p.board['arene'] ?? []).find((c) => c.cardId === 'pokeball')
+    expect(pb?.attachedTo).toBe(smogogo!.instanceId)
+    expect(p.discard.some((c) => c.cardId === 'pokeball')).toBe(false)
+    // Smogogo posé hors du lieu du pion → fenêtre d'action distante (recouverte ou non).
+    expect(s.actAtLocation).toBe('arene')
+    expect(s.actAtLocationIgnoreCover).toBe(true)
+  })
+
   it('Évolution : un Allié dont l’évolution est DÉJÀ en jeu n’est pas candidat', () => {
     let s = withActive(trGame(), { board: { foret: [ally('a1', 'abo', 2), ally('a2', 'arbok', 3)] } })
     s = resolveEffects(s, [{ type: 'EVOLVE_ALLY' }], { actorIndex: 0 })
@@ -248,6 +290,24 @@ describe('Team Rocket — Attraper un Pokémon (CATCH_POKEMON)', () => {
     const all = Object.values(me(s).board).flat()
     expect(all.find((c) => c.instanceId === 'p2')?.pokemonKO).toBe(true) // ≥3 → couché
     expect(all.find((c) => c.instanceId === 'p1')?.pokemonKO ?? false).toBe(false) // <3 → épargné
+  })
+
+  it('Oui, la guerre ! : avec ≥2 Pokémon ≥3, ouvre le CHOIX interactif (clic plateau)', () => {
+    let s = withActive(trGame(), {
+      board: { foret: [pokemon('p1', 'stari', 3)], arene: [pokemon('p2', 'dracaufeu', 4)] },
+    })
+    s = resolveEffects(s, [{ type: 'KO_POKEMON_GE', minStrength: 3 }], { actorIndex: 0 })
+    // Pas d'auto-couché : un pending de choix s'ouvre avec les deux candidats.
+    expect(s.pendingKoPokemon).toMatchObject({ chooserIndex: 0 })
+    expect(s.pendingKoPokemon!.candidateIds.sort()).toEqual(['p1', 'p2'])
+    expect(Object.values(me(s).board).flat().every((c) => !c.pokemonKO)).toBe(true)
+    // Un Pokémon hors candidats est refusé...
+    expect(() => applyAction(s, { type: 'RESOLVE_KO_POKEMON', instanceId: 'zzz' })).toThrow()
+    // ...le candidat choisi est couché.
+    const after = applyAction(s, { type: 'RESOLVE_KO_POKEMON', instanceId: 'p1' })
+    expect(Object.values(me(after).board).flat().find((c) => c.instanceId === 'p1')?.pokemonKO).toBe(true)
+    expect(Object.values(me(after).board).flat().find((c) => c.instanceId === 'p2')?.pokemonKO ?? false).toBe(false)
+    expect(after.pendingKoPokemon).toBeNull()
   })
 
   it('Pour vous jouer un mauvais tour : déclencheur — Héros Fatalité ≤3 joué contre toi', () => {
@@ -279,17 +339,35 @@ describe('Team Rocket — Attraper un Pokémon (CATCH_POKEMON)', () => {
     expect(p.discard.some((c) => c.instanceId === 'e1')).toBe(false) // pas défaussé
   })
 
-  it('Stari (à la pose) déplace un Allié vers un lieu voisin', () => {
+  it('Stari (à la pose) ouvre le choix INTERACTIF de déplacement d’un Allié (lieu voisin)', () => {
     const stari: CardInstance = {
       instanceId: 'st', cardId: 'stari', name: 'Stari', type: 'hero', isPokemon: true, strength: 3,
       onPlace: [{ type: 'MOVE_OWN_ALLY_ADJACENT' }],
     }
     let s = withActive(trGame(), { board: { labo: [ally('a1', 'abo', 2)] } })
     s = placeFateHeroWithEffects(s, 0, 0, stari, 'foret', 'Forêt')
-    const p = me(s)
-    // Abo (Laboratoire) → lieu voisin (Forêt).
-    expect((p.board['foret'] ?? []).some((c) => c.instanceId === 'a1')).toBe(true)
-    expect((p.board['labo'] ?? []).some((c) => c.instanceId === 'a1')).toBe(false)
+    // Pas d'auto-déplacement : un pending facultatif restreint aux lieux voisins s'ouvre.
+    expect(s.pendingAllyRelocate).toMatchObject({ targetIndex: 0, optional: true, adjacentOnly: true })
+    expect((me(s).board['labo'] ?? []).some((c) => c.instanceId === 'a1')).toBe(true) // pas encore déplacé
+    // Un lieu NON voisin (Centre Pokémon) est refusé...
+    expect(() => applyAction(s, { type: 'RESOLVE_ALLY_RELOCATE', allyInstanceId: 'a1', to: 'centre-pokemon' })).toThrow()
+    // ...un lieu voisin (Laboratoire ← Forêt) est accepté.
+    const after = applyAction(s, { type: 'RESOLVE_ALLY_RELOCATE', allyInstanceId: 'a1', to: 'foret' })
+    expect((me(after).board['foret'] ?? []).some((c) => c.instanceId === 'a1')).toBe(true)
+    expect((me(after).board['labo'] ?? []).some((c) => c.instanceId === 'a1')).toBe(false)
+    expect(after.pendingAllyRelocate).toBeNull()
+  })
+
+  it('Stari (à la pose) peut PASSER (déplacement facultatif)', () => {
+    const stari: CardInstance = {
+      instanceId: 'st', cardId: 'stari', name: 'Stari', type: 'hero', isPokemon: true, strength: 3,
+      onPlace: [{ type: 'MOVE_OWN_ALLY_ADJACENT' }],
+    }
+    let s = withActive(trGame(), { board: { labo: [ally('a1', 'abo', 2)] } })
+    s = placeFateHeroWithEffects(s, 0, 0, stari, 'foret', 'Forêt')
+    const after = applyAction(s, { type: 'SKIP_ALLY_RELOCATE' })
+    expect(after.pendingAllyRelocate).toBeNull()
+    expect((me(after).board['labo'] ?? []).some((c) => c.instanceId === 'a1')).toBe(true) // resté en place
   })
 
   it("On n'abandonne pas ses amis : reprend un Pokémon capturé ≤3 sur le dessus de la pioche Fatalité", () => {
@@ -314,12 +392,12 @@ describe('Team Rocket — Attraper un Pokémon (CATCH_POKEMON)', () => {
   })
 
   it("Persian : élimine un Héros sur un lieu NON voisin (n'importe quel lieu)", () => {
-    let s = applyAction(trGame(), { type: 'MOVE', to: 'centre-pokemon' })
+    let s = applyAction(trGame(), { type: 'MOVE', to: 'arene' })
     s = withActive(s, {
       board: {
         ...me(s).board,
-        'centre-pokemon': [{ instanceId: 'h', cardId: 'cible', name: 'Héros', type: 'hero', strength: 4 }],
-        labo: [ally('per', 'persian', 4)], // Labo et Centre Pokémon ne sont PAS voisins
+        arene: [{ instanceId: 'h', cardId: 'cible', name: 'Héros', type: 'hero', strength: 4 }],
+        labo: [ally('per', 'persian', 4)], // Labo et Arène ne sont PAS voisins
       },
     })
     s = applyAction(s, { type: 'VANQUISH', actionId: 'vanquish', heroInstanceId: 'h', allyInstanceIds: ['per'] })
@@ -329,11 +407,11 @@ describe('Team Rocket — Attraper un Pokémon (CATCH_POKEMON)', () => {
   })
 
   it('rose de James : vaincre un Pokémon avec l’Allié porteur déclenche Attraper', () => {
-    let s = applyAction(trGame(), { type: 'MOVE', to: 'centre-pokemon' })
+    let s = applyAction(trGame(), { type: 'MOVE', to: 'arene' })
     s = withActive(s, {
       board: {
         ...me(s).board,
-        'centre-pokemon': [
+        arene: [
           pokemon('pk', 'togepi', 1),
           ally('a1', 'miaouss', 3),
           { instanceId: 'rose', cardId: 'rose-de-james', name: 'rose de James', type: 'item', attach: 'ally', attachedTo: 'a1' },
