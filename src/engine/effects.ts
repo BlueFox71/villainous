@@ -16,6 +16,7 @@ import { activePlayer, dioPowerFactor, drawPlayerToLimit, findLocation, pushDisc
 import { neighborLocIds, placeCrewmateAt } from './crewmates'
 import { startRace, advanceRacer, advanceRacerByReveal, moveRacerBack, moveKingCandyTrack, vanellopeInstance, cardLocationIds } from './kingCandy'
 import { noFireInRealm as shereKhanNoFire, placeFire, removeFire, fireOnLocation, fireFreeActions, listFire } from './shereKhan'
+import { nextTileLocationId, judgmentBlockedAt } from './pyramidHead'
 import {
   isDavyJones,
   realmHeroes,
@@ -915,6 +916,10 @@ export function performVanquish(
   // n'est retiré que par l'objectif (4 Imposteurs → retour de Jack).
   if (heroCard.isPrisoner) {
     throw new Error(`${heroCard.name} (Prisonnier) ne peut pas être éliminé.`)
+  }
+  // Pyramid Head — Protection de l'âme : un Objet associé rend son Héros inéliminable.
+  if ((me.board[heroLoc] ?? []).some((c) => c.attachedTo === heroCard.instanceId && c.shieldsHostFromVanquish)) {
+    throw new Error(`${heroCard.name} est protégé (Protection de l'âme) et ne peut pas être éliminé.`)
   }
   const heroLocName = findLocation(me, heroLoc)?.name ?? heroLoc
   const hasDeguisement = (me.board[heroLoc] ?? []).some(
@@ -2241,6 +2246,92 @@ export function resolveEffect(
           `**ZA WARUDO !** ${p.villainName} arrête le temps : il peut agir sur n'importe quel lieu ce tour (coût croissant).`,
         ],
       }
+    }
+    case 'PYRAMID_PLACE_RITES': {
+      // Rites de Jugement (à la pose) : 1ʳᵉ tuile sur le lieu le plus à droite (Silent Hill).
+      const p = state.players[idx]
+      if ((p.judgmentTiles ?? 0) >= 1) return state
+      const next = updatePlayer(state, idx, (pl) => ({ ...pl, judgmentTiles: 1 }))
+      const locName = p.locations[p.locations.length - 1]?.name ?? 'Silent Hill'
+      return { ...next, log: [...next.log, `Rites de Jugement : une tuile de Jugement est posée sur **${locName}**.`] }
+    }
+    case 'PYRAMID_PROPAGATE': {
+      // Propager la souffrance : −1 souffrance, étend les tuiles d'un cran VERS LA GAUCHE.
+      const p = state.players[idx]
+      const dest = nextTileLocationId(p)
+      if ((p.souffrance ?? 0) < 1 || dest === null || judgmentBlockedAt(p, dest)) return state
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        souffrance: (pl.souffrance ?? 0) - 1,
+        judgmentTiles: (pl.judgmentTiles ?? 0) + 1,
+      }))
+      const locName = p.locations.find((l) => l.id === dest)?.name ?? dest
+      return { ...next, log: [...next.log, `Propager la souffrance : une tuile de Jugement s'étend sur **${locName}** (−1 souffrance).`] }
+    }
+    case 'PYRAMID_REMOVE_TILE': {
+      // Dissipation (Fatalité) : retire la tuile la plus à GAUCHE.
+      const p = state.players[idx]
+      if ((p.judgmentTiles ?? 0) <= 0) return state
+      const next = updatePlayer(state, idx, (pl) => ({ ...pl, judgmentTiles: (pl.judgmentTiles ?? 0) - 1 }))
+      return { ...next, log: [...next.log, `Dissipation : la tuile de Jugement la plus à gauche est retirée.`] }
+    }
+    case 'GAIN_SOUFFRANCE': {
+      // Métatron (Activer) : gagne `amount` piste(s) de souffrance (coût d'activation déjà
+      // prélevé). James (disablesMetatron) annule l'effet ; Laura (souffranceSurcharge)
+      // ajoute +1 au coût en Pouvoir.
+      const p = state.players[idx]
+      const heroes = Object.values(p.board).flat().filter((c) => c.type === 'hero')
+      if (heroes.some((c) => c.disablesMetatron)) {
+        return { ...state, log: [...state.log, `Métatron est sans effet (James Sunderland en jeu).`] }
+      }
+      const surcharge = heroes.some((c) => c.souffranceSurcharge) ? 1 : 0
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        power: Math.max(0, pl.power - surcharge),
+        souffrance: (pl.souffrance ?? 0) + effect.amount,
+      }))
+      return {
+        ...next,
+        log: [...next.log, `${p.villainName} gagne ${effect.amount} piste(s) de souffrance${surcharge ? ` (−${surcharge} Pouvoir : Laura)` : ''}.`],
+      }
+    }
+    case 'LOSE_SOUFFRANCE': {
+      // Angela (à la pose) : Pyramid Head perd des pistes de souffrance.
+      const p = state.players[idx]
+      const next = updatePlayer(state, idx, (pl) => ({ ...pl, souffrance: Math.max(0, (pl.souffrance ?? 0) - effect.amount) }))
+      return { ...next, log: [...next.log, `${p.villainName} perd ${effect.amount} piste(s) de souffrance (Angela).`] }
+    }
+    case 'DISCARD_REALM_CARD': {
+      // James (à la pose) : défausse l'Objet `cardId` (Métatron) du royaume + ses associés.
+      const p = state.players[idx]
+      let loc: LocationId | undefined
+      let card: CardInstance | undefined
+      for (const l of p.locations) {
+        const f = (p.board[l.id] ?? []).find((c) => c.cardId === effect.cardId && !c.attachedTo)
+        if (f) { loc = l.id; card = f; break }
+      }
+      if (!loc || !card) return state
+      const attached = (p.board[loc] ?? []).filter((c) => c.attachedTo === card!.instanceId)
+      const rm = new Set([card.instanceId, ...attached.map((c) => c.instanceId)])
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        board: { ...pl.board, [loc!]: (pl.board[loc!] ?? []).filter((c) => !rm.has(c.instanceId)) },
+        discard: [...pl.discard, card!, ...attached.map((c) => ({ ...c, attachedTo: undefined }))],
+      }))
+      return { ...next, log: [...next.log, `**${card.name}** est défaussé (James Sunderland).`] }
+    }
+    case 'DISCARD_OWN_CARDS': {
+      // Redemption (Fatalité) : Pyramid Head défausse `count` cartes de sa main (auto).
+      const p = state.players[idx]
+      const toDiscard = p.hand.slice(0, effect.count)
+      if (toDiscard.length === 0) return state
+      const ids = new Set(toDiscard.map((c) => c.instanceId))
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        hand: pl.hand.filter((c) => !ids.has(c.instanceId)),
+        discard: [...pl.discard, ...toDiscard],
+      }))
+      return { ...next, log: [...next.log, `${p.villainName} défausse ${toDiscard.length} carte(s) (Redemption).`] }
     }
     case 'DIO_DISCARD_ALLY_GAIN': {
       // Défausser un Allié (The World épargné) pour gagner `amount` (×2 si The World au
@@ -5030,6 +5121,10 @@ export function resolveEffect(
       if (hero.type !== 'hero') throw new Error(`${hero.name} n'est pas un Héros.`)
       if ((hero.strength ?? 0) > effect.maxStrength) {
         throw new Error(`${hero.name} (force ${hero.strength}) > ${effect.maxStrength} : non vaincu.`)
+      }
+      // Pyramid Head — Protection de l'âme : Héros inéliminable tant que l'Objet lui est associé.
+      if ((actor.board[heroLoc] ?? []).some((c) => c.attachedTo === hero!.instanceId && c.shieldsHostFromVanquish)) {
+        throw new Error(`${hero.name} est protégé (Protection de l'âme) et ne peut pas être éliminé.`)
       }
       // Sale voleuse ! : cible restreinte à certains Héros (Cendrillon / robe de bal).
       if (effect.onlyCardIds && !effect.onlyCardIds.includes(hero.cardId)) {

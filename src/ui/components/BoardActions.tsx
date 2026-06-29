@@ -3,6 +3,7 @@ import type { LocationAction, PlayerState } from '../../engine/types'
 import { enlargeCoveredAction } from '../../engine/rules'
 import { SUGAR_RUSH_TRACK } from './sugarRushTrack'
 import { customActionPosFor } from './customActionPos'
+import { COL_RECTS, HERO_BAND, BOARD_W, BOARD_H } from '../editor/boardLayout'
 
 // Diamètre d'un bouton rond, en % de la largeur de l'image (carré via aspect-ratio).
 const BUTTON_SIZE = 4.9 // %
@@ -1287,6 +1288,33 @@ export function BoardActions({
             )
           }),
         )}
+      {/* Pyramid Head — TUILES DE JUGEMENT : un rectangle (largeur du lieu, hauteur de la
+          bande Héros, coins arrondis) recouvrant la partie haute des lieux tuilés (les
+          `judgmentTiles` lieux les plus à DROITE). */}
+      {player.villain === 'custom-pyramid-head' &&
+        (() => {
+          const n = player.judgmentTiles ?? 0
+          if (n <= 0) return null
+          const start = player.locations.length - n
+          return player.locations.slice(start).map((loc, k) => {
+            const rect = COL_RECTS[start + k]
+            if (!rect) return null
+            const left = (rect.x0 / BOARD_W) * 100
+            const width = ((rect.x1 - rect.x0) / BOARD_W) * 100
+            const top = (HERO_BAND.y0 / BOARD_H) * 100
+            const height = ((HERO_BAND.y1 - HERO_BAND.y0) / BOARD_H) * 100
+            return (
+              <img
+                key={`tile:${loc.id}`}
+                src="/pyramid-head/tuile-jugement.png"
+                alt="Tuile de Jugement"
+                title="Tuile de Jugement (recouvre les actions du haut)"
+                className="pointer-events-none absolute z-[12] rounded-lg shadow-lg"
+                style={{ left: `${left}%`, top: `${top}%`, width: `${width}%`, height: `${height}%`, objectFit: 'fill' }}
+              />
+            )
+          })
+        })()}
       {/* Les actions ACCORDÉES par un Objet (Canon, Boîte à Crochets, Ingénieux
           Mécanisme) sont cliquables SUR la carte posée (voir LocationCard),
           pas ici sur l'image du plateau. */}

@@ -26,6 +26,7 @@ import { buildDeckInstances } from '../../data/types'
 import { getCardDef, registerCustomCardDefs } from '../../data/registry'
 import { toVillainDef, toCardDefs, CUSTOM_ID_PREFIX, type CustomVillain } from '../../data/customVillain'
 import { CUSTOM_DIO_ID, patchCustomDio } from '../../data/villains/customDio'
+import { CUSTOM_PYRAMID_HEAD_ID, patchCustomPyramidHead } from '../../data/villains/customPyramidHead'
 import type { VillainDef } from '../../engine/types'
 import type { CardDef } from '../../data/types'
 import { customActionPositions } from '../editor/boardLayout'
@@ -275,8 +276,14 @@ export function isCustomKey(key: string): boolean {
  * `getCardDef`), couleur thématique et positions d'actions du plateau. Idempotent.
  */
 export function registerPublishedVillain(custom: CustomVillain): void {
-  // Patch de comportement éventuel (ex. custom-dio : rebranche Stands/ZA WARUDO!/objectif).
-  const eff = custom.id === CUSTOM_DIO_ID ? patchCustomDio(custom) : custom
+  // Patch de comportement éventuel (custom-dio : Stands/ZA WARUDO! ; custom-pyramid-head :
+  // tuiles de Jugement/souffrance/objectif).
+  const eff =
+    custom.id === CUSTOM_DIO_ID
+      ? patchCustomDio(custom)
+      : custom.id === CUSTOM_PYRAMID_HEAD_ID
+        ? patchCustomPyramidHead(custom)
+        : custom
   const cards = toCardDefs(eff)
   registerCustomCardDefs(cards)
   VILLAIN_COLOR[eff.id] = eff.color

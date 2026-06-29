@@ -9,6 +9,18 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.96',
+    date: '2026-06-29',
+    title: 'Nouveau vilain Pyramid Head + Dio partagé',
+    changes: [
+      'Nouveau vilain jouable : **Pyramid Head** (*Silent Hill*). **Objectif** : propager une **tuile de Jugement** sur chacun de tes lieux (elle démarre à Silent Hill, à droite, puis s’étend vers la gauche).',
+      'Gagne des **pistes de souffrance** en **activant Métatron** (3 Pouvoir → 1 souffrance), puis joue **« Propager la souffrance »** (−1 souffrance) pour étendre les tuiles. Une **tuile recouvre les actions du haut** de son lieu (comme un Héros). Un **compteur de Souffrance** et les **tuiles** s’affichent à l’écran.',
+      'Tout son deck est en place : Rites de Jugement, Châtiment des damnés, Fanatisme, Jugement Final, Lien mortel, Infirmière (+1 par autre Infirmière), Mannequin (action *Activer*), et les Conditions **Pénitence forcée** / **Alliance inhibée** (réactions au tour adverse).',
+      'Côté Fatalité : **James** (annule Métatron), **Maria** (bloque la propagation sur son lieu), **Laura** (souffrance plus chère), **Eddie**, **Angela** (−1 souffrance), **Protection de l’âme** (Héros inéliminable), Dissipation (retire une tuile), Redemption, Farce de Laura.',
+      '**Dio Brando** est désormais **embarqué dans l’app avec ses illustrations** : tous les joueurs le voient et y jouent avec ses images.',
+    ],
+  },
+  {
     version: '0.95',
     date: '2026-06-29',
     title: 'Vilains publiés disponibles pour tous',

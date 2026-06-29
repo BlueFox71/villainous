@@ -79,6 +79,12 @@ export interface CardDef {
   /** Objet « bouclier » associé à un Allié (Cruella — Tisonnier) : défaussé à la
    *  place de son Allié quand celui-ci devrait être défaussé. */
   shieldAllyFromDiscard?: boolean
+  /** Pyramid Head — flags Héros/Objet Fatalité (cf. CardInstance). */
+  blocksJudgmentTile?: boolean
+  immuneToCage?: boolean
+  souffranceSurcharge?: boolean
+  disablesMetatron?: boolean
+  shieldsHostFromVanquish?: boolean
   /** Nombre d'exemplaires dans le paquet. */
   copies: number
   /** Texte de règle français, recopié de la carte. Source de vérité. */
@@ -379,6 +385,11 @@ export function buildDeckInstances(
           attachOnlyCardId: c.attachOnlyCardId,
           attachStrengthBonus: c.attachStrengthBonus,
           shieldAllyFromDiscard: c.shieldAllyFromDiscard,
+          blocksJudgmentTile: c.blocksJudgmentTile,
+          immuneToCage: c.immuneToCage,
+          souffranceSurcharge: c.souffranceSurcharge,
+          disablesMetatron: c.disablesMetatron,
+          shieldsHostFromVanquish: c.shieldsHostFromVanquish,
           effects: c.effects,
           onPlace: c.onPlace,
           onVanquish: c.onVanquish,

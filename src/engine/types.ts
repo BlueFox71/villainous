@@ -179,6 +179,10 @@ export type ObjectiveDef =
   /** Avoir au moins une carte de type 'curse' (Malédiction Maléfique) sur
    *  chacun des 4 lieux du royaume. */
   | { type: 'CURSE_EACH_LOCATION' }
+  /** Pyramid Head : avoir une TUILE DE JUGEMENT sur chacun des lieux du royaume au
+   *  début de son tour (`judgmentTiles` = nombre de lieux tuilés, depuis Silent Hill
+   *  à droite vers la gauche). */
+  | { type: 'JUDGMENT_TILES_ALL' }
   /** Avoir au moins `count` exemplaires d'une carte donnée (`cardId`) posés dans
    *  le royaume, tous lieux confondus (Slenderman : 8 Pages). */
   | { type: 'CARDS_IN_REALM'; cardId: string; count: number }
@@ -613,6 +617,26 @@ export type Effect =
   /** Dio — Vampirisme : défausser un Allié du royaume (The World épargné) pour PIOCHER
    *  `count` cartes — choix interactif (pendingDioDiscardAlly). Bot : le plus faible. */
   | { type: 'DIO_DISCARD_ALLY_DRAW'; count: number }
+  /** Pyramid Head — Rites de Jugement (à la pose) : pose la 1ʳᵉ TUILE DE JUGEMENT sur le
+   *  lieu le plus à droite (Silent Hill). */
+  | { type: 'PYRAMID_PLACE_RITES' }
+  /** Pyramid Head — Propager la souffrance : dépense 1 piste de souffrance pour étendre les
+   *  tuiles d'un lieu vers la GAUCHE (contigu). Injouable sans souffrance / sans tuile / si
+   *  tout est tuilé / si Maria bloque le prochain lieu. */
+  | { type: 'PYRAMID_PROPAGATE' }
+  /** Pyramid Head — Dissipation (Fatalité) : retire la tuile la plus à GAUCHE. */
+  | { type: 'PYRAMID_REMOVE_TILE' }
+  /** Pyramid Head — Métatron (Activer) : gagne `amount` piste(s) de souffrance (le coût en
+   *  Pouvoir est prélevé par `activatedCost`). Annulé si James est en jeu ; Laura ajoute
+   *  +1 au coût en Pouvoir. */
+  | { type: 'GAIN_SOUFFRANCE'; amount: number }
+  /** Pyramid Head — Angela (à la pose) : le joueur perd `amount` piste(s) de souffrance. */
+  | { type: 'LOSE_SOUFFRANCE'; amount: number }
+  /** Pyramid Head — James (à la pose) : défausse l'Objet `cardId` (Métatron) du royaume. */
+  | { type: 'DISCARD_REALM_CARD'; cardId: string }
+  /** Défausse (de la main du joueur actif) `count` cartes, choisies par le moteur (auto :
+   *  les moins utiles). Sert Redemption (Fatalité Pyramid Head). */
+  | { type: 'DISCARD_OWN_CARDS'; count: number }
   /** Dio — Masque de pierre (Activer) : défausse TOUTE la main, gagne 1 Pouvoir par carte. */
   | { type: 'DIO_DISCARD_HAND_GAIN_POWER' }
   /** Dio — Fondation Speedwagon (Fatalité) : défausse un Objet non associé du royaume de Dio
@@ -1980,6 +2004,19 @@ export interface CardInstance {
   /** Shere Khan — Baloo : protège tous les autres Héros (jeton Pouvoir à la place ; défaussé
    *  à N jetons). Recopié de CardDef. */
   shieldsOtherHeroesUntilTokens?: number
+  /** Pyramid Head — Maria : tant qu'elle est sur un lieu, aucune TUILE DE JUGEMENT ne peut
+   *  y être propagée. Recopié de CardDef. */
+  blocksJudgmentTile?: boolean
+  /** Pyramid Head — Eddie : ne peut pas être éliminé par la Cage de l'Expiation. */
+  immuneToCage?: boolean
+  /** Pyramid Head — Laura : tant qu'elle est en jeu, obtenir une piste de souffrance
+   *  (Métatron) coûte 1 Pouvoir de plus. */
+  souffranceSurcharge?: boolean
+  /** Pyramid Head — James : tant qu'il est en jeu, Métatron n'a aucun effet. */
+  disablesMetatron?: boolean
+  /** Pyramid Head — Protection de l'âme (Objet associé) : le Héros porteur ne peut pas
+   *  être éliminé tant que cet Objet lui est associé. */
+  shieldsHostFromVanquish?: boolean
   /** Shere Khan — Baloo : nombre de jetons Pouvoir accumulés sur lui (runtime). */
   protectionTokens?: number
   /** Héros (Fatalité) qui augmente de N le coût de toute carte jouée tant qu'il est dans
@@ -2170,6 +2207,9 @@ export type SelfStrengthMod =
   /** +delta par AUTRE carte de type `cardType` présente sur le même lieu (Syndrome —
    *  Gardes : +1 par autre Allié). Exclut la carte elle-même. */
   | { kind: 'per-other-type-here'; cardType: CardType; delta: number }
+  /** +delta par AUTRE carte du MÊME cardId présente sur le même lieu (Pyramid Head —
+   *  Infirmière : +1 par autre Infirmière). Exclut la carte elle-même. */
+  | { kind: 'per-other-same-here'; delta: number }
   /** Syndrome — Jack-Jack : sa force EFFECTIVE devient celle du Héros le plus fort sur
    *  son lieu (comparaison sur la force de base, sans récursion). */
   | { kind: 'match-strongest-hero-here' }
@@ -2402,6 +2442,14 @@ export interface PlayerState {
   /** La Méchante Reine — jetons POISON accumulés (défaussés par « Croque ! » pour
    *  éliminer un Héros). `undefined` pour les autres vilains. */
   poison?: number
+  /** Pyramid Head — pistes de SOUFFRANCE accumulées (monnaie, comme le Poison ;
+   *  gagnées en activant Métatron, dépensées par « Propager la souffrance »). */
+  souffrance?: number
+  /** Pyramid Head — nombre de TUILES DE JUGEMENT posées. Les tuiles occupent les
+   *  lieux les plus à DROITE (depuis Silent Hill) vers la gauche, de façon contiguë :
+   *  `judgmentTiles` lieux tuilés = les `judgmentTiles` derniers de `locations`. Une
+   *  tuile recouvre les actions du HAUT de son lieu (comme un Héros). */
+  judgmentTiles?: number
   /** La Méchante Reine — zone INGRÉDIENTS : un exemplaire de chaque Ingrédient
    *  déjà joué (Caquet, Hurlement, Noir de nuit, Poussière de momie). Quand les 4
    *  Ingrédients DIFFÉRENTS y sont, la Maison des Nains est déverrouillée. */

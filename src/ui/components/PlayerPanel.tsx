@@ -97,6 +97,18 @@ export function PlayerPanel({ player, accent, isActive, isWinner, showObjective 
           </div>
         )}
 
+        {/* Pyramid Head — pistes de Souffrance + progression des tuiles de Jugement. */}
+        {player.villain === 'custom-pyramid-head' && (
+          <div
+            className="flex flex-col items-center justify-center rounded-lg border border-rose-400/30 bg-black/20 px-3 py-3"
+            title={`Souffrance : ${player.souffrance ?? 0} · Tuiles de Jugement : ${player.judgmentTiles ?? 0}/${player.locations.length}`}
+          >
+            <span className="-mt-1.5 text-[9px] uppercase tracking-wide text-rose-300/70">Souffrance</span>
+            <span className="text-2xl font-bold text-rose-200">🩸 {player.souffrance ?? 0}</span>
+            <span className="text-[10px] text-white/50">Tuiles {player.judgmentTiles ?? 0}/{player.locations.length}</span>
+          </div>
+        )}
+
         {/* Mère Gothel — jetons Confiance (objectif : 10). */}
         {player.confiance !== undefined && (
           <div

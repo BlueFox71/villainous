@@ -5873,6 +5873,27 @@ function resolveConditionEffect(
       targetHeroId: target.instanceId,
     })
   }
+  if (card.cardId === 'custom-pyramid-head-penitence-forcee') {
+    // Pyramid Head — Pénitence forcée : dévoile la 1ʳᵉ Fatalité de l'adversaire et la lui joue.
+    return playOpponentTopFate(next, playerIndex, 'Pénitence forcée')
+  }
+  if (card.cardId === 'custom-pyramid-head-alliance-inhibee') {
+    // Pyramid Head — Alliance inhibée : éliminer un Héros de force ≤ celle du Héros que
+    // l'adversaire vient d'éliminer (cible via allyInstanceId, sinon le plus fort éligible).
+    const max = next.lastVanquishedHeroStrength ?? 0
+    const acting = next.players[playerIndex]
+    const heroes = Object.values(acting.board).flat().filter((c) => c.type === 'hero' && (c.strength ?? 0) <= max)
+    if (heroes.length === 0) {
+      return { ...next, log: [...next.log, `Alliance inhibée : aucun Héros de force ≤ ${max}.`] }
+    }
+    const target = allyInstanceId
+      ? heroes.find((h) => h.instanceId === allyInstanceId) ?? heroes[0]
+      : [...heroes].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+    return resolveEffectsLocal(next, [{ type: 'INSTANT_VANQUISH_HERO_LE', maxStrength: max }], {
+      actorIndex: playerIndex,
+      targetHeroId: target.instanceId,
+    })
+  }
   if (card.cardId === 'mauvais-coup') {
     // Pat Hibulaire — Mauvais Coup : révèle les 2 dernières cartes de la pioche.
     // Le joueur en garde 1 en main, l'autre repart sur le dessus OU le dessous

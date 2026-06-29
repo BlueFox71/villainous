@@ -16,6 +16,7 @@ import type {
 import { activePlayer, currentLocation } from './state'
 import { isKingCandy, accessibleActionIds, racerCoveredActionId, isTrackLocation } from './kingCandy'
 import { actionHasFire as shereKhanFire } from './shereKhan'
+import { locationHasJudgmentTile } from './pyramidHead'
 
 /**
  * Types d'actions que le moteur sait actuellement traiter (affichées comme
@@ -105,6 +106,10 @@ export function isActionCovered(state: GameState, action: LocationAction): boole
   // Shere Khan — un jeton Feu recouvre une action PRÉCISE (haut ou bas). Bravo ! Bravo !
   // (uncoverFireThisTurn) lève cette couverture ce tour. Les Yeux de Kaa ne lèvent PAS le Feu.
   if (me.villain === 'shere-khan' && !state.uncoverFireThisTurn && shereKhanFire(me, loc.id, action.id)) {
+    return true
+  }
+  // Pyramid Head — une TUILE DE JUGEMENT recouvre les actions du HAUT de son lieu (comme un Héros).
+  if (me.villain === 'custom-pyramid-head' && action.row === 'top' && locationHasJudgmentTile(me, loc.id)) {
     return true
   }
   if (isKingCandy(me)) {
@@ -706,6 +711,11 @@ export function effectiveStrength(
       }
       case 'per-other-type-here': {
         const others = cell.filter((c) => c.type === m.cardType && c.instanceId !== card.instanceId).length
+        return sum + m.delta * others
+      }
+      case 'per-other-same-here': {
+        // Pyramid Head — Infirmière : +delta par AUTRE carte du même cardId sur le lieu.
+        const others = cell.filter((c) => c.cardId === card.cardId && c.instanceId !== card.instanceId).length
         return sum + m.delta * others
       }
       case 'per-other-location-with-ally': {
@@ -1456,6 +1466,9 @@ export function hasReachedObjective(state: GameState, playerIndex: number = stat
       const slipper = Object.values(p.board).flat().some((c) => obj.slipperCardIds.includes(c.cardId))
       return gown && prince && bells && !slipper
     }
+    case 'JUDGMENT_TILES_ALL':
+      // Pyramid Head : une tuile de Jugement sur CHAQUE lieu (toutes propagées).
+      return (p.judgmentTiles ?? 0) >= p.locations.length
     case 'CURSE_EACH_LOCATION':
       return p.locations.every((loc) =>
         (p.board[loc.id] ?? []).some((c) => c.type === 'curse'),

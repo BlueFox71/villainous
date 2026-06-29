@@ -144,6 +144,9 @@ export function objectiveScore(p: PlayerState): number {
       if (baloo) s = Math.min(s, 0.6)
       return Math.min(0.97, s)
     }
+    case 'JUDGMENT_TILES_ALL':
+      // Pyramid Head : proportion de lieux tuilés (Phase 1 — jauge à affiner avec l'IA).
+      return (p.judgmentTiles ?? 0) / Math.max(1, p.locations.length)
     case 'CURSE_EACH_LOCATION': {
       const cursed = p.locations.filter((l) => (p.board[l.id] ?? []).some((c) => c.type === 'curse')).length
       return cursed / Math.max(1, p.locations.length)
