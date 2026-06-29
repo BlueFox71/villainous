@@ -13,23 +13,16 @@
 
 import type { CustomVillain } from '../customVillain'
 
-const urls = import.meta.glob('./*.json', { eager: true, query: '?url', import: 'default' }) as Record<
-  string,
-  string
->
+// Import DIRECT (inliné dans le bundle) de chaque JSON embarqué : pas de fetch runtime ni
+// d'URL à résoudre → fiable en dev comme en prod, chez tout le monde après un simple pull.
+const mods = import.meta.glob('./*.json', { eager: true, import: 'default' }) as Record<string, unknown>
 
 /** Charge tous les vilains publiés embarqués (toujours marqués `published`). */
-export async function loadBundledVillains(): Promise<CustomVillain[]> {
+export function loadBundledVillains(): CustomVillain[] {
   const out: CustomVillain[] = []
-  await Promise.all(
-    Object.values(urls).map(async (url) => {
-      try {
-        const v = (await (await fetch(url)).json()) as CustomVillain
-        if (v && typeof v.id === 'string' && Array.isArray(v.cards)) out.push({ ...v, published: true })
-      } catch {
-        /* JSON illisible → ignoré (ne casse pas le chargement des autres) */
-      }
-    }),
-  )
+  for (const v of Object.values(mods)) {
+    const cv = v as CustomVillain
+    if (cv && typeof cv.id === 'string' && Array.isArray(cv.cards)) out.push({ ...cv, published: true })
+  }
   return out
 }

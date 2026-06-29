@@ -9,6 +9,14 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.97',
+    date: '2026-06-29',
+    title: 'Correctif : vilains partagés visibles pour tous',
+    changes: [
+      'Les vilains **embarqués** (ex. Dio Brando) sont désormais **chargés de façon fiable** : ils apparaissent avec leurs images chez tout le monde après un simple `git pull` (plus de chargement aléatoire selon l’environnement).',
+    ],
+  },
+  {
     version: '0.96',
     date: '2026-06-29',
     title: 'Nouveau vilain Pyramid Head + Dio partagé',
