@@ -26,8 +26,9 @@ export interface VillainAnimation {
   images?: string[]
   /** Hauteur de l'élément en % de la hauteur d'écran (défaut 8 %). */
   heightPct?: number
-  /** Position verticale du haut de l'élément, en % de la hauteur d'écran (trajectoire `water-cross` ;
-   *  défaut 2 %). Permet de remonter/descendre la traversée. */
+  /** Position verticale du haut de l'élément, en % de la hauteur d'écran (trajectoires `water-cross`,
+   *  défaut 2 %, et `cross`, défaut 1 %). Permet de remonter/descendre la traversée (ex. Davy Jones :
+   *  le Kraken traverse au MILIEU de l'écran). */
   topPct?: number
   /** Durée d'une traversée complète, en secondes (défaut 30 s). */
   durationSec?: number
@@ -35,7 +36,8 @@ export interface VillainAnimation {
    *  vaisseau dans son sens de déplacement (défaut : regarde à droite). */
   facesLeft?: boolean
   /** Trajectoire :
-   *  - `cross` (défaut) : traversée linéaire de la bande haute (sens selon camp).
+   *  - `cross` (défaut) : traversée linéaire (sens selon camp), bande haute par défaut ; `topPct`
+ *    permet de descendre la traversée (ex. Davy Jones : le Kraken traverse au milieu de l'écran).
    *  - `sky-arc` : arrive par le milieu-gauche de l'écran et s'élève en arc pour
    *    sortir en haut à droite (≈ 3/4). Trajectoire relative à l'écran, variée à
    *    chaque passage (hauteur d'entrée, point de sortie, amplitude de l'arc).
@@ -87,11 +89,17 @@ export interface VillainAnimation {
    *    arc jusqu'AU-DESSUS de la rangée de Héros adverse (haut de l'écran), en TOURNANT dans le sens
    *    HORAIRE et en rétrécissant (elle s'éloigne) ; à l'arrivée, un ÉCLAT d'étoile à 4 branches (le
    *    *DING* de fin) jaillit pour marquer la fin (Team Rocket : « on s'envole ! »). Nb de tours via
-   *    `spinTurns`. Trajectoire relative à l'écran (API Web Animations). */
+   *    `spinTurns`. Trajectoire relative à l'écran (API Web Animations).
+   *  - `stardust` : pas de trajet ; une PLUIE de POUSSIÈRE D'ÉTOILES — des étincelles (CSS, sans image,
+   *    teintes or/blanc/bleu/rose) tombent du haut sur toute la largeur en dérivant un peu et en scintillant,
+   *    départs échelonnés le temps du passage, puis se fondent (La Bonne Fée). Densité réglable via `count`.
+   *  - `drop` : UNE seule image (tirée parmi `images`, une par passage) tombe LENTEMENT et tout droit du
+   *    haut vers le bas, à une position horizontale au hasard, en s'inclinant légèrement (Tamatoa : son
+   *    hameçon de Maui et Te Fiti). Vitesse via `durationSec`. */
   path?:
     | 'cross' | 'sky-arc' | 'drift-spin' | 'pages' | 'roses' | 'coins' | 'water-cross'
     | 'rise' | 'voodoo' | 'fire-bottom' | 'fade' | 'paws' | 'petals' | 'jet-cross' | 'smoke-field'
-    | 'overgrowth' | 'eject-arc'
+    | 'overgrowth' | 'eject-arc' | 'stardust' | 'drop'
   /** Tire quelques coups de canon (lueur + fumée à la bouche du canon avant)
    *  pendant le vol. Réservé aux trajectoires `sky-arc`. */
   cannons?: boolean
@@ -131,6 +139,12 @@ export interface VillainAnimation {
   flipHorizontal?: boolean
   /** Trajectoire `cross` : ajoute une LÉGÈRE VIBRATION continue à l'image pendant la traversée (Madame Mim). */
   vibrate?: boolean
+  /** Trajectoire `cross` : affiche l'image en SILHOUETTE NOIRE (filtre `brightness(0)`) — une masse
+   *  sombre dans l'eau (Davy Jones : le Kraken). */
+  silhouette?: boolean
+  /** Trajectoire `cross` : donne à l'image un mouvement de NAGE (ondulation verticale + léger roulis)
+   *  pendant la traversée (Davy Jones : le Kraken qui nage). */
+  swim?: boolean
   /** Trajectoire `petals` : couleur (CSS) de la LUEUR autour des pétales (double halo). Défaut : rose de
    *  la rose enchantée (Gaston). Ex. doré pour la fleur magique de Mère Gothel. */
   petalGlow?: string
@@ -142,6 +156,30 @@ export interface VillainAnimation {
 // Un vilain peut avoir UNE animation, ou PLUSIEURS (tableau) : dans ce cas le planificateur
 // en tire une au hasard à chaque passage.
 export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | VillainAnimation[]>> = {
+  // Tamatoa (Vaiana) : à chaque passage, l'HAMEÇON de Maui OU TE FITI (une seule, en alternance via la
+  // file mélangée de `images`) tombe LENTEMENT et tout droit, de haut en bas (path `drop`).
+  tamatoa: {
+    images: ['/animations/hamecon.png', '/animations/te_fiti.png'],
+    heightPct: 16, // taille de l'objet qui tombe
+    durationSec: 15, // chute LENTE
+    path: 'drop',
+  },
+  // Le Seigneur des clés : une PLUIE DE CLÉS colorées (6 couleurs) tombe du ciel en tournoyant,
+  // sur toute la largeur — comme la pluie de pièces de Prince Jean (path `coins`).
+  seigneurCles: {
+    images: [
+      '/cards/seigneur-cles/cle-bleu.png',
+      '/cards/seigneur-cles/cle-jaune.png',
+      '/cards/seigneur-cles/cle-orange.png',
+      '/cards/seigneur-cles/cle-rouge.png',
+      '/cards/seigneur-cles/cle-vert.png',
+      '/cards/seigneur-cles/cle-violet.png',
+    ],
+    heightPct: 7, // taille de base d'une clé (variée par clé dans le composant)
+    durationSec: 9, // couvre l'étalement des chutes (délais + durée de chute)
+    count: 40,
+    path: 'coins',
+  },
   // Prince Jean (Robin des Bois) : une pluie de pièces d'or (11 angles découpés de
   // pieces.png) tombe du ciel jusqu'en bas, sur toute la largeur, chacune tournoyant.
   princeJohn: {
@@ -384,6 +422,13 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
     path: 'sky-arc',
     feathers: true,
   },
+  // La Bonne Fée (Marraine de Shrek) : une PLUIE de poussière d'étoiles tombe du haut sur tout l'écran
+  // (étincelles or/blanc/bleu/rose qui scintillent), le temps d'un passage.
+  laBonneFee: {
+    durationSec: 9,
+    path: 'stardust',
+    count: 260,
+  },
   // Sombra (Overwatch) : ses crânes de Piratage (« BOOP! ») s'affichent un à un en fondu à des
   // endroits au hasard (hors plateaux), comme autant de systèmes compromis, en clignotant d'un
   // glitch chromatique (cyan/magenta). Même trajectoire que les pages de Slenderman (`pages`).
@@ -460,6 +505,18 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
     durationSec: 3.4, // une éjection rapide
     spinTurns: 3, // tours (sens horaire) sur tout le trajet
     path: 'eject-arc',
+  },
+  // Davy Jones (Pirates des Caraïbes) : le KRAKEN, énorme, traverse le MILIEU de l'écran (path `cross`
+  // avec `topPct` pour le descendre au centre). Image très large (640×360) → sa traversée prend tout
+  // le cadre. (Le décor permanent « mer démontée » est dans villainDecor.ts, kind `flyingDutchman`.)
+  davyJones: {
+    image: '/animations/kraken.png',
+    heightPct: 150, // gigantesque (×3) — déborde en haut/bas de l'écran
+    topPct: -25, // centré verticalement (−25 % + 150 % → milieu de l'écran)
+    durationSec: 16, // traversée lente et imposante
+    path: 'cross',
+    silhouette: true, // masse noire dans l'eau
+    swim: true, // ondulation verticale + léger roulis (il nage)
   },
   // L'Imposteur (Among Us) : un équipier éjecté (couleur au hasard) dérive en ligne
   // droite du haut-gauche vers le bas-droite en tournant lentement sur lui-même.

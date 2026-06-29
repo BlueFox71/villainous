@@ -204,6 +204,10 @@ function SpaceDecor() {
 
 // Ratio largeur/hauteur d'une frame du sprite de flamme (cf. fire_sprite.png).
 const FLAME_ASPECT = 403 / 360
+// Marge transparente SOUS la flamme dans chaque frame (92 px sur 360 = constante, cf. mesure).
+// La flamme étant ancrée par le bas (`bottom: 0`), cette marge grandit avec la taille et fait
+// « remonter » la base visible → on compense par un `bottom` négatif de `gap × hauteur`.
+const FLAME_BASE_GAP = 92 / 360
 
 /** Décor « feu » : un mur de flammes permanent en bas de l'écran. Chaque flamme joue le
  *  sprite vertical en boucle (cf. `.fire-flame` dans index.css) ; teinte (`tint`) posée
@@ -1294,6 +1298,384 @@ function WaterDecor({ side }: { side?: 'left' | 'right' }) {
           } as CSSProperties}
         />
       ))}
+    </div>
+  )
+}
+
+// Intervalle (ms) entre deux éclairs de la tempête de Davy Jones (timer aléatoire).
+const FD_LIGHTNING_GAP_MIN_MS = 5000
+const FD_LIGHTNING_GAP_MAX_MS = 13000
+
+// Silhouette de vague tuilable (1 crête + 1 creux par tuile, viewBox 1440×320, étirée par
+// `preserveAspectRatio=none`). Remplie d'un dégradé vertical (clair en crête → sombre au pied) pour
+// donner du VOLUME à la vague. Auto-contenue (data-URI) → réutilisée en fond `repeat-x` qui défile.
+const fdWaveSvg = (top: string, bottom: string) =>
+  `url("data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320' preserveAspectRatio='none'>` +
+      `<defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'>` +
+      `<stop offset='0' stop-color='${top}'/><stop offset='1' stop-color='${bottom}'/></linearGradient></defs>` +
+      `<path fill='url(%23g)' d='M0,150 C240,70 480,70 720,150 C960,230 1200,230 1440,150 L1440,320 L0,320 Z'/>` +
+      `</svg>`,
+  )}")`
+
+// Couches de vagues, du LOINTAIN (sombre, lent, haut) au PROCHE (clair, rapide, bas). Chaque couche
+// défile horizontalement à sa vitesse (parallaxe → impression de houle/profondeur). `rev` inverse le
+// sens d'une couche sur deux pour casser le défilement uniforme.
+// La 1ʳᵉ couche est la LIGNE D'HORIZON : large et lente, posée à la hauteur de l'horizon (bottom ~27vh)
+// et teintée comme la mer → sa crête qui ondule fait la séparation mer/ciel (plus de trait droit).
+const FD_WAVE_LAYERS = [
+  { top: '#1f5a4b', bot: '#123129', h: 7, bottom: 27, tile: 135, dur: 22, op: 1, rev: false },
+  { top: '#1c4a40', bot: '#0a201c', h: 17, bottom: 0, tile: 92, dur: 15, op: 0.92, rev: false },
+  { top: '#246055', bot: '#0e2a24', h: 14, bottom: 0, tile: 74, dur: 11, op: 0.95, rev: true },
+  { top: '#2f7766', bot: '#123128', h: 11, bottom: 0, tile: 60, dur: 8, op: 1, rev: false },
+] as const
+
+// SURPRISE « Le Hollandais plonge ». Chronologie : la BRUME monte d'abord en fondu lent (10 s, navire
+// en surface) → le navire COULE sous la ligne d'eau (clip, pas de fondu) → il REMONTE → puis la brume
+// se DISSIPE lentement (10 s). Minuteur aléatoire (comme les autres décors). FD_DIVE_TEST → cadence
+// rapide pour régler (à remettre false).
+const FD_DIVE_TEST = false
+const FD_DIVE_GAP_MIN_MS = FD_DIVE_TEST ? 4000 : 150000
+const FD_DIVE_GAP_MAX_MS = FD_DIVE_TEST ? 9000 : 300000
+const FD_MIST_IN_MS = 10000 // entrée lente de la brume (navire encore en surface)
+const FD_DIVE_DOWN_MS = 3000 // descente sous les flots
+const FD_DIVE_SUBMERGED_MS = 20000 // temps immergé avant de remonter (20 s)
+const FD_DIVE_UP_MS = 3000 // émersion (remontée)
+const FD_MIST_OUT_MS = 10000 // dissipation lente de la brume (navire de nouveau en surface)
+
+// Gerbe d'écume de la plongée : gouttelettes qui jaillissent en éventail vers le haut (motif fixe,
+// varié par l'index). dx en vw, dy en vh (négatif = vers le haut).
+const FD_SPLASH_DROPS = Array.from({ length: 18 }, (_, i) => {
+  const t = i / 17
+  const ang = -Math.PI * (0.12 + 0.76 * t) // éventail de ~-22° à ~-155° (vers le haut, des 2 côtés)
+  const dist = 7 + (i % 5) * 2.6
+  return {
+    dx: +(Math.cos(ang) * dist).toFixed(1), // vw
+    dy: +(Math.sin(ang) * dist * 1.7).toFixed(1), // vh (négatif = monte)
+    size: 0.8 + (i % 3) * 0.5, // vh
+    delay: +((i % 6) * 0.04).toFixed(2), // s
+    dur: +(0.75 + (i % 4) * 0.16).toFixed(2), // s
+    op: 0.7 + (i % 3) * 0.1,
+  }
+})
+
+// Brume de surface (pendant l'immersion) : nappes blanchâtres basses qui dérivent le long de la ligne
+// d'eau. Réutilisent le keyframe `waterCloudDrift` (dérive latérale alternée). Motif fixe varié par index.
+const FD_MIST_PUFFS = Array.from({ length: 15 }, (_, i) => ({
+  left: -10 + (i / 14) * 120, // % (réparties d'un bord à l'autre, débordant légèrement)
+  bottom: 9 + (i % 3) * 4, // vh (bande basse, à la surface)
+  w: 40 + (i % 4) * 12, // vh (larges, recouvrement jusqu'aux côtés)
+  h: 9 + (i % 3) * 4, // vh (aplaties)
+  amp: 4 + (i % 4) * 2, // vw (dérive)
+  dur: 16 + (i % 5) * 3, // s
+  delay: -((i % 7) * 2.5), // s
+}))
+
+/** Décor « Hollandais Volant » de Davy Jones (Pirates des Caraïbes) : une mer démontée vue de nuit.
+ *  Ciel d'orage vert-sarcelle, des couches de HOULE qui ondulent en bas de l'écran (crêtes d'écume),
+ *  une TEMPÊTE de pluie battante diagonale (réutilise le modèle de `castleAssault`) avec voile d'orage
+ *  et ÉCLAIRS verdâtres occasionnels, et le HOLLANDAIS VOLANT (image) qui tangue et roule au centre.
+ *  Tous les paramètres aléatoires sont figés au montage ; l'animation est jouée en CSS (cf. index.css,
+ *  section « Décor permanent : la mer de Davy Jones »). */
+function FlyingDutchmanDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'flyingDutchman' }> }) {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
+  // Nuages d'orage : masses gris-vert basses et lourdes qui dérivent lentement dans le ciel (au-dessus
+  // de l'horizon). Réutilisent le keyframe `waterCloudDrift` (dérive latérale alternée).
+  const [clouds] = useState(() =>
+    Array.from({ length: 12 }, () => ({
+      left: Math.random() * 100, // %
+      top: 2 + Math.random() * 46, // % (ciel, au-dessus de l'horizon ~69 %)
+      w: 40 + Math.random() * 48, // vh (larges)
+      h: 12 + Math.random() * 16, // vh (aplatis)
+      op: 0.5 + Math.random() * 0.45,
+      amp: 5 + Math.random() * 12, // vw (dérive latérale)
+      dur: 26 + Math.random() * 24, // s (lent)
+      delay: -(Math.random() * 50), // s
+    })),
+  )
+  // Houle : larges traînées vert-sarcelle qui ondulent (sway) et scintillent (opacité) sur l'eau.
+  const [swells] = useState(() =>
+    Array.from({ length: 9 }, () => ({
+      left: Math.random() * 100, // %
+      top: 66 + Math.random() * 30, // % (la mer occupe le bas)
+      w: 45 + Math.random() * 50, // vh (larges)
+      h: 2.5 + Math.random() * 5, // vh
+      op: 0.08 + Math.random() * 0.14,
+      sway: 4 + Math.random() * 6, // vw
+      swayDur: 6 + Math.random() * 5, // s
+      shimDur: 4 + Math.random() * 3.5, // s
+      delay: -(Math.random() * 12), // s
+    })),
+  )
+  // Crêtes d'écume : petites bandes blanches qui apparaissent et s'effacent sur la houle.
+  const [foam] = useState(() =>
+    Array.from({ length: 16 }, () => ({
+      left: Math.random() * 100, // %
+      top: 70 + Math.random() * 26, // %
+      w: 6 + Math.random() * 14, // vh
+      sway: 2 + Math.random() * 4, // vw
+      swayDur: 4 + Math.random() * 3, // s
+      fadeDur: 2.5 + Math.random() * 3, // s
+      delay: -(Math.random() * 8), // s
+    })),
+  )
+  // Pluie battante : traits fins diagonaux qui tombent vite (réutilise le keyframe `caRain`).
+  const [rain] = useState(() =>
+    Array.from({ length: 160 }, () => ({
+      left: Math.random() * 100, // %
+      len: 7 + Math.random() * 13, // vh
+      dur: 0.4 + Math.random() * 0.45, // s (chute rapide)
+      delay: -(Math.random() * 1.2), // s
+      op: 0.16 + Math.random() * 0.34,
+      thick: 0.8 + Math.random() * 1, // px
+    })),
+  )
+  // Embruns qui s'élèvent de la houle (gouttelettes claires qui montent et retombent).
+  const [spray] = useState(() =>
+    Array.from({ length: 22 }, () => ({
+      left: Math.random() * 100, // %
+      size: 1 + Math.random() * 2.5, // px
+      dur: 2.6 + Math.random() * 2.4, // s
+      delay: -(Math.random() * 6), // s
+      drift: (Math.random() - 0.5) * 8, // vw
+      op: 0.3 + Math.random() * 0.4,
+    })),
+  )
+  // Éclair : compteur incrémenté à intervalle aléatoire ; le calque (monté avec key={flash}) rejoue
+  // son animation de flash à chaque incrément (même mécanique que `castleAssault`). Sur son propre
+  // minuteur (l'éclair n'est PAS la surprise — la surprise est la plongée du navire).
+  const [flash, setFlash] = useState(0)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let next: ReturnType<typeof setTimeout>
+    const schedule = () => {
+      next = setTimeout(() => {
+        setFlash((f) => f + 1)
+        schedule()
+      }, FD_LIGHTNING_GAP_MIN_MS + Math.random() * (FD_LIGHTNING_GAP_MAX_MS - FD_LIGHTNING_GAP_MIN_MS))
+    }
+    schedule()
+    return () => clearTimeout(next)
+  }, [])
+  // SURPRISE « Le Hollandais plonge » : phase de l'animation + gerbe d'écume. Séquence :
+  // misting-in (brume monte 10 s, navire en surface) → diving (coule) → submerged → surfacing (remonte)
+  // → misting-out (brume se dissipe 10 s, navire en surface) → idle. Pas de fondu du navire : il passe
+  // sous la ligne d'eau (clip) et revient au même endroit.
+  type FdPhase = 'idle' | 'misting-in' | 'diving' | 'submerged' | 'surfacing' | 'misting-out'
+  const [shipPhase, setShipPhase] = useState<FdPhase>('idle')
+  const [splash, setSplash] = useState(0) // incrémenté pour rejouer la gerbe (plongée + émersion)
+  const phaseRef = useRef<FdPhase>('idle')
+  const setPhase = (p: FdPhase) => {
+    phaseRef.current = p
+    setShipPhase(p)
+  }
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let timers: ReturnType<typeof setTimeout>[] = []
+    const dive = () => {
+      if (phaseRef.current !== 'idle') return // pas de nouvelle plongée pendant une plongée
+      setPhase('misting-in') // 1) la brume monte en fondu lent (navire encore en surface)
+      timers.push(
+        setTimeout(() => {
+          setPhase('diving') // 2) le navire coule sous la ligne d'eau
+          setSplash((s) => s + 1) // gerbe d'écume au moment où il s'enfonce
+          timers.push(
+            setTimeout(() => {
+              setPhase('submerged') // 3) immergé un court instant
+              timers.push(
+                setTimeout(() => {
+                  setPhase('surfacing') // 4) il remonte
+                  setSplash((s) => s + 1) // gerbe d'écume à l'émersion
+                  timers.push(
+                    setTimeout(() => {
+                      setPhase('misting-out') // 5) la brume se dissipe lentement
+                      timers.push(setTimeout(() => setPhase('idle'), FD_MIST_OUT_MS))
+                    }, FD_DIVE_UP_MS),
+                  )
+                }, FD_DIVE_SUBMERGED_MS),
+              )
+            }, FD_DIVE_DOWN_MS),
+          )
+        }, FD_MIST_IN_MS),
+      )
+    }
+    const schedule = () => {
+      timers.push(
+        setTimeout(() => {
+          dive()
+          schedule()
+        }, FD_DIVE_GAP_MIN_MS + Math.random() * (FD_DIVE_GAP_MAX_MS - FD_DIVE_GAP_MIN_MS)),
+      )
+    }
+    schedule()
+    fireRef.current = dive // MODE TEST : déclenche une plongée à la demande.
+    return () => {
+      timers.forEach(clearTimeout)
+      timers = []
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return (
+    <div className="fd-decor" aria-hidden>
+      {/* Plan de mer (bas de l'écran) : sa crête est la ligne d'horizon (séparation mer/ciel). */}
+      <div className="fd-sea" />
+      {/* Voile d'orage froid (bleuté en haut, vignette en bas). */}
+      <div className="fd-storm" />
+      {/* Nuages d'orage qui dérivent dans le ciel (au-dessus de l'horizon). */}
+      {clouds.map((c, i) => (
+        <span
+          key={`cloud-${i}`}
+          className="fd-cloud"
+          style={{
+            left: `${c.left}%`,
+            top: `${c.top}%`,
+            width: `${c.w}vh`,
+            height: `${c.h}vh`,
+            opacity: c.op,
+            animationDuration: `${c.dur}s`,
+            animationDelay: `${c.delay}s`,
+            '--amp': `${c.amp}vw`,
+          } as CSSProperties}
+        />
+      ))}
+      {/* Vagues : couches de silhouettes ondulées qui défilent en parallaxe (la mer démontée). */}
+      {FD_WAVE_LAYERS.map((w, i) => (
+        <div
+          key={`wave-${i}`}
+          className="fd-wave"
+          style={{
+            height: `${w.h}vh`,
+            bottom: `${w.bottom}vh`,
+            opacity: w.op,
+            backgroundImage: fdWaveSvg(w.top, w.bot),
+            backgroundSize: `${w.tile}vh 100%`,
+            animationDuration: `${w.dur}s`,
+            animationDirection: w.rev ? 'reverse' : 'normal',
+            '--tile': `${w.tile}vh`,
+          } as CSSProperties}
+        />
+      ))}
+      {/* Houle : larges traînées qui ondulent et scintillent. */}
+      {swells.map((g, i) => (
+        <span
+          key={`swell-${i}`}
+          className="fd-swell"
+          style={{
+            left: `${g.left}%`,
+            top: `${g.top}%`,
+            width: `${g.w}vh`,
+            height: `${g.h}vh`,
+            animationDuration: `${g.swayDur}s, ${g.shimDur}s`,
+            animationDelay: `${g.delay}s, ${g.delay}s`,
+            '--sway': `${g.sway}vw`,
+            '--op': g.op,
+          } as CSSProperties}
+        />
+      ))}
+      {/* Crêtes d'écume sur la houle. */}
+      {foam.map((f, i) => (
+        <span
+          key={`foam-${i}`}
+          className="fd-foam"
+          style={{
+            left: `${f.left}%`,
+            top: `${f.top}%`,
+            width: `${f.w}vh`,
+            animationDuration: `${f.swayDur}s, ${f.fadeDur}s`,
+            animationDelay: `${f.delay}s, ${f.delay}s`,
+            '--sway': `${f.sway}vw`,
+          } as CSSProperties}
+        />
+      ))}
+      {/* Embruns qui montent de la mer. */}
+      {spray.map((s, i) => (
+        <span
+          key={`spray-${i}`}
+          className="fd-spray"
+          style={{
+            left: `${s.left}%`,
+            width: `${s.size}px`,
+            height: `${s.size}px`,
+            animationDuration: `${s.dur}s`,
+            animationDelay: `${s.delay}s`,
+            '--drift': `${s.drift}vw`,
+            '--op': s.op,
+          } as CSSProperties}
+        />
+      ))}
+      {/* Le Hollandais Volant. Posé APRÈS les vagues → au PREMIER PLAN, mais AVANT la pluie → la pluie
+          tombe devant lui. Le STAGE clippe à la ligne de flottaison (overflow hidden) : quand le navire
+          COULE (translateY vers le bas via `fd-ship-sink`), il passe sous ce bord et disparaît sans
+          fondu. L'image porte le tangage continu. */}
+      <div className="fd-ship-stage">
+        <div
+          className={`fd-ship-sink${shipPhase === 'diving' ? ' is-diving' : shipPhase === 'submerged' ? ' is-submerged' : shipPhase === 'surfacing' ? ' is-surfacing' : ''}`}
+        >
+          <img className="fd-ship" src={decor.ship} alt="" />
+        </div>
+      </div>
+      {/* Brume de surface : nappes blanchâtres basses qui dérivent le long de la ligne d'eau. Présente
+          de l'entrée de brume jusqu'à sa dissipation ; entre en fondu (is-entering), reste pleine, puis
+          se dissipe (is-clearing). */}
+      {shipPhase !== 'idle' && (
+        <div className={`fd-mist${shipPhase === 'misting-in' ? ' is-entering' : shipPhase === 'misting-out' ? ' is-clearing' : ''}`}>
+          {FD_MIST_PUFFS.map((m, i) => (
+            <span
+              key={`mist-${i}`}
+              className="fd-mist-puff"
+              style={{
+                left: `${m.left}%`,
+                bottom: `${m.bottom}vh`,
+                width: `${m.w}vh`,
+                height: `${m.h}vh`,
+                animationDuration: `${m.dur}s`,
+                animationDelay: `${m.delay}s`,
+                '--amp': `${m.amp}vw`,
+              } as CSSProperties}
+            />
+          ))}
+        </div>
+      )}
+      {/* Gerbe d'écume de la plongée/émersion (rejouée à chaque incrément de `splash`). */}
+      {splash > 0 && (
+        <div className="fd-splash" key={splash}>
+          {FD_SPLASH_DROPS.map((d, i) => (
+            <span
+              key={`drop-${i}`}
+              className="fd-splash-drop"
+              style={{
+                width: `${d.size}vh`,
+                height: `${d.size}vh`,
+                animationDuration: `${d.dur}s`,
+                animationDelay: `${d.delay}s`,
+                '--dx': `${d.dx}vw`,
+                '--dy': `${d.dy}vh`,
+                '--op': d.op,
+              } as CSSProperties}
+            />
+          ))}
+        </div>
+      )}
+      {/* Pluie battante diagonale. */}
+      <div className="fd-rain">
+        {rain.map((r, i) => (
+          <span
+            key={`rain-${i}`}
+            className="fd-raindrop"
+            style={{
+              left: `${r.left}%`,
+              width: `${r.thick}px`,
+              height: `${r.len}vh`,
+              opacity: r.op,
+              animationDuration: `${r.dur}s`,
+              animationDelay: `${r.delay}s`,
+            }}
+          />
+        ))}
+      </div>
+      {/* Éclair verdâtre (rejoué à chaque incrément de `flash`). */}
+      <div className="fd-lightning" key={flash} />
     </div>
   )
 }
@@ -2630,6 +3012,145 @@ function YzmaDecor() {
           </span>
         </div>
       )}
+    </div>
+  )
+}
+
+// ----- Décor « laBonneFee » : la magie de la Bonne Fée (Marraine de Shrek) qui retombe -----
+// Décor : des volutes de fumée lumineuse TEXTURÉES (bruit fractal) qui TOMBENT du haut en dérivant et en se
+// dissipant (sa magie qui retombe), sur un fond violacé. Toute la fumée est d'UNE seule couleur à la fois,
+// qui CYCLE dans l'ordre toutes les minutes ; à chaque changement, une lumière blanc-bleu s'illumine derrière
+// la fumée (et masque la bascule de couleur). 100 % CSS.
+// Les 3 couleurs de fumée, parcourues dans l'ordre (1 par minute) : violet → magenta → rouge.
+const BF_SMOKE_COLORS = ['#C674F1', '#C33976', '#F9012E']
+// Durée pendant laquelle une couleur reste affichée avant de passer à la suivante.
+const BF_COLOR_PERIOD_MS = 60000 // 1 min
+// Fioles « potion_fee » qui TOMBENT une à une (assets copiés dans public/animations) : une toutes les
+// BF_POTION_PERIOD_MS, chacune chute de haut en bas, démontée après BF_POTION_FALL_MS (couvre la descente).
+const BF_POTION_IMAGES = [
+  // #2 retiré (image écartée) → fioles 1, 3, 4, 5.
+  ...[1, 3, 4, 5].map((n) => `/animations/potion_fee${n}.png`),
+  '/animations/baguette_magique.png', // la baguette tombe aussi, parmi les potions
+]
+const BF_POTION_PERIOD_MS = 30000 // une potion (ou la baguette) tombe toutes les 30 s
+const BF_POTION_FALL_MS = 21000 // marge couvrant la chute (~20 s) avant démontage
+
+/** Décor « laBonneFee » (Marraine de Shrek) : sa MAGIE ROSE qui retombe — des volutes de fumée rose lumineuse
+ *  qui TOMBENT lentement du haut en dérivant latéralement et en se dissipant, sur un fond violacé, surmontées
+ *  d'une lueur rose pulsante en haut (la source) et vignetté. Éléments tirés une fois au montage ; animations
+ *  CSS (cf. index.css). */
+function LaBonneFeeDecor() {
+  // Volutes de fumée qui tombent : enveloppe = descente (bfSmokeFall), milieu = dérive latérale (bfSmokeSway),
+  // pastille = la bouffée floue. Tailles/vitesses/dérives/textures variées, figées au montage (la COULEUR, elle,
+  // est gérée à part car elle cycle dans le temps).
+  const [smoke] = useState(() =>
+    Array.from({ length: 200 }, () => ({
+      left: -20 + Math.random() * 140, // % (déborde au-delà des bords → fumée répartie sur tout l'espace)
+      size: 16 + Math.random() * 34, // vh (grosses bouffées floues)
+      dur: 5 + Math.random() * 6, // s (descente plus rapide)
+      delay: -(Math.random() * 11), // s (flux continu, déphasé)
+      sway: 2 + Math.random() * 6, // vw (ondulation latérale)
+      swayDur: 4 + Math.random() * 4, // s
+      drift: (Math.random() - 0.5) * 70, // vw (DÉRIVE diagonale nette pendant la chute → ne descend pas tout droit)
+      op: 0.18 + Math.random() * 0.28, // opacité de pointe (diffuse)
+      // Masque de bruit fractal (cf. .bf-smoke en CSS) décalé/pivoté/zoomé par volute → chacune a une texture
+      // nuageuse DIFFÉRENTE (sinon toutes identiques car même masque).
+      mx: Math.random() * 100, // % (position X du masque)
+      my: Math.random() * 100, // % (position Y du masque)
+      rot: Math.random() * 360, // deg (rotation de la volute → texture orientée autrement)
+      texScale: 130 + Math.random() * 90, // % (zoom du masque → grain variable)
+    })),
+  )
+  // COULEUR DE LA FUMÉE : toute la fumée partage une seule couleur, qui passe à la suivante (dans l'ordre) toutes
+  // les BF_COLOR_PERIOD_MS. À chaque bascule, on incrémente `flashSeq` → la lumière blanc-bleu derrière la fumée
+  // se rejoue (calque `.bf-color-flash` remonté par sa `key`), ce qui masque le changement de teinte.
+  const [colorIdx, setColorIdx] = useState(0)
+  const [flashSeq, setFlashSeq] = useState(0)
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout>
+    const tick = () => {
+      setColorIdx((c) => (c + 1) % BF_SMOKE_COLORS.length)
+      setFlashSeq((s) => s + 1)
+      t = setTimeout(tick, BF_COLOR_PERIOD_MS)
+    }
+    t = setTimeout(tick, BF_COLOR_PERIOD_MS)
+    return () => clearTimeout(t)
+  }, [])
+  const color = BF_SMOKE_COLORS[colorIdx]
+  // POTION QUI TOMBE : toutes les BF_POTION_PERIOD_MS, une fiole (au hasard parmi les 5) chute de haut en bas
+  // à une position/taille/rotation tirées au sort. Démontée après sa chute. Désactivé en reduced-motion.
+  const [potion, setPotion] = useState<{ seq: number; src: string; left: number; size: number; rot: number; dur: number } | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let next: ReturnType<typeof setTimeout>
+    let clear: ReturnType<typeof setTimeout>
+    let seq = 0
+    const drop = () => {
+      const s = seq++
+      setPotion({
+        seq: s,
+        src: BF_POTION_IMAGES[Math.floor(Math.random() * BF_POTION_IMAGES.length)],
+        left: 8 + Math.random() * 80, // % (position horizontale)
+        size: 11 + Math.random() * 5, // vh (hauteur de la fiole)
+        rot: (Math.random() - 0.5) * 70, // deg (rotation cumulée pendant la chute)
+        dur: 20, // s (durée de la chute)
+      })
+      clear = setTimeout(() => setPotion(null), BF_POTION_FALL_MS)
+      next = setTimeout(drop, BF_POTION_PERIOD_MS)
+    }
+    next = setTimeout(drop, 4000) // 1re potion peu après le chargement, puis toutes les 30 s
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
+  return (
+    <div className="bf-decor" aria-hidden>
+      {/* Lueur rose pulsante en haut (la source de la magie). */}
+      <div className="bf-glow" />
+      {/* Lumière blanc-bleu qui s'illumine DERRIÈRE la fumée à chaque changement de couleur (rejouée via sa key). */}
+      {flashSeq > 0 && <div key={flashSeq} className="bf-color-flash" />}
+      {/* Volutes de fumée qui TOMBENT en dérivant et se dissipant (couleur commune `color`, qui cycle). */}
+      {smoke.map((s, i) => (
+        <span
+          key={`smoke-${i}`}
+          className="bf-smoke-fall"
+          style={{ left: `${s.left}%`, animationDuration: `${s.dur}s`, animationDelay: `${s.delay}s`, '--drift': `${s.drift}vw` } as CSSProperties}
+        >
+          <span
+            className="bf-smoke-sway"
+            style={{ animationDuration: `${s.swayDur}s`, animationDelay: `${s.delay}s`, '--sway': `${s.sway}vw` } as CSSProperties}
+          >
+            <span
+              className="bf-smoke"
+              style={{
+                width: `${s.size}vh`,
+                height: `${s.size}vh`,
+                opacity: s.op,
+                background: `radial-gradient(circle, ${color} 0%, ${color}88 40%, ${color}00 72%)`,
+                transform: `rotate(${s.rot}deg)`,
+                maskPosition: `${s.mx}% ${s.my}%`,
+                maskSize: `${s.texScale}% ${s.texScale}%`,
+                WebkitMaskPosition: `${s.mx}% ${s.my}%`,
+                WebkitMaskSize: `${s.texScale}% ${s.texScale}%`,
+              }}
+            />
+          </span>
+        </span>
+      ))}
+      {/* Potion qui TOMBE de haut en bas (une toutes les 30 s, image au hasard ; rejouée via sa key). */}
+      {potion && (
+        <img
+          key={potion.seq}
+          src={potion.src}
+          alt=""
+          className="bf-potion"
+          draggable={false}
+          style={{ left: `${potion.left}%`, height: `${potion.size}vh`, animationDuration: `${potion.dur}s`, '--rot': `${potion.rot}deg` } as CSSProperties}
+        />
+      )}
+      {/* Vignette : coins assombris. */}
+      <div className="bf-vignette" />
     </div>
   )
 }
@@ -5677,18 +6198,268 @@ function JungleDecor() {
 }
 
 /** Décor permanent d'arrière-plan d'un vilain (rien si aucun décor défini). */
-export function VillainDecor({ villain, side }: { villain: VillainKey; side?: 'left' | 'right' }) {
+/** Décor « atmosfear » (Le Seigneur des clés — le Gardien d'Atmosfear) : sa CASSETTE VHS.
+ *  Fond NOIR avec un CHRONOMÈTRE au format MM:SS en haut, centré, qui égrène le temps écoulé
+ *  depuis le début de la partie (police EvanstonTavern), précédé à sa gauche d'une LUNE dont la
+ *  PHASE suit la PROGRESSION D'OBJECTIF (`objectivePct`, 0→100) : à 0 % fin croissant (forme
+ *  initiale), à 100 % pleine lune (forme finale). Base sobre destinée à recevoir des couches
+ *  VHS par-dessus. */
+// Cycle des animations du bas : RIEN → BOUGIES (15 s) → RIEN → FLAMMES (15 s) → RIEN → … (cross-fade).
+// Chaque animation s'affiche 15 s, séparée par un temps « rien ». Réglage : `ATMOSFEAR_FLAME_TEST`
+// accélère le cycle pour la mise au point (les 15 s deviennent ~5 s).
+const ATMOSFEAR_FLAME_TEST = false
+const ATMOSFEAR_TIME = ATMOSFEAR_FLAME_TEST ? 0.34 : 1 // facteur d'accélération (mise au point)
+const ATMOSFEAR_SHOW_MS = 15_000 * ATMOSFEAR_TIME // durée d'affichage de chaque animation (15 s)
+const ATMOSFEAR_GAP_MS = 5_000 * ATMOSFEAR_TIME // temps « rien » entre les deux
+
+function AtmosfearDecor({
+  side,
+  objectivePct = 0,
+  timerRunning = false,
+}: {
+  side?: 'left' | 'right'
+  objectivePct?: number
+  timerRunning?: boolean
+}) {
+  // CHRONOMÈTRE : même mécanique que le `GameTimer` (cf. components/GameTimer.tsx) → démarre au
+  // premier instant où la partie « tourne » et se fige à la fin. Capture `Date.now` dans l'effet
+  // au même rendu que le GameTimer → les deux minuteurs démarrent EXACTEMENT en même temps. Tant
+  // que la partie n'a pas démarré → 00:00. Pur UI (pas le moteur) : l'horloge réelle est permise.
+  const startRef = useRef<number | null>(null)
+  const [elapsedMs, setElapsedMs] = useState(0)
+  useEffect(() => {
+    if (!timerRunning) return
+    if (startRef.current === null) startRef.current = Date.now()
+    const tick = () => setElapsedMs(Date.now() - (startRef.current ?? Date.now()))
+    tick()
+    const id = window.setInterval(tick, 1000)
+    return () => window.clearInterval(id)
+  }, [timerRunning])
+  const elapsed = Math.floor(elapsedMs / 1000)
+  const mm = String(Math.floor(elapsed / 60)).padStart(2, '0')
+  const ss = String(elapsed % 60).padStart(2, '0')
+  // Cycle RIEN → BOUGIES → RIEN → FLAMMES → … : on démarre sur RIEN, puis on enchaîne les phases via
+  // des setTimeout (première bascule après le temps « rien » initial, donc rien à la base).
+  const [decorPhase, setDecorPhase] = useState<'none' | 'candles' | 'flames'>('none')
+  useEffect(() => {
+    const seq: { kind: 'none' | 'candles' | 'flames'; dur: number }[] = [
+      { kind: 'candles', dur: ATMOSFEAR_SHOW_MS },
+      { kind: 'none', dur: ATMOSFEAR_GAP_MS },
+      { kind: 'flames', dur: ATMOSFEAR_SHOW_MS },
+      { kind: 'none', dur: ATMOSFEAR_GAP_MS },
+    ]
+    let i = 0
+    let id: number
+    const advance = () => {
+      setDecorPhase(seq[i].kind)
+      const d = seq[i].dur
+      i = (i + 1) % seq.length
+      id = window.setTimeout(advance, d)
+    }
+    id = window.setTimeout(advance, ATMOSFEAR_GAP_MS) // rien au départ, puis on lance la séquence
+    return () => window.clearTimeout(id)
+  }, [])
+  // La colonne du décor déborde de 10 % vers son bord EXTÉRIEUR (marginLeft pour le joueur,
+  // marginRight pour l'adversaire, cf. App.tsx) → son axe `left:50%` n'est plus le centre visible.
+  // On recale le minuteur de 5 % vers le bord INTÉRIEUR : joueur (left) → vers la droite, adversaire
+  // (right) → vers la gauche.
+  const timerLeft = side === 'right' ? '45%' : '55%'
+  // Phase de la lune (fraction éclairée, light venant de la GAUCHE) pilotée par la progression
+  // d'objectif : 0 % → fin croissant (0,06), 100 % → pleine (1). La moitié GAUCHE est toujours
+  // peinte ; un TERMINATEUR elliptique (cercle aplati horizontalement, donc bord courbe comme une
+  // vraie phase) se superpose au centre :
+  //  - croissant (f < 0,5) : ellipse NOIRE qui ronge la moitié gauche → il ne reste qu'un croissant ;
+  //  - gibbeuse (f > 0,5) : ellipse BLEUE qui complète la moitié droite → vers la pleine lune.
+  // Sa largeur (scaleX) va de la pleine largeur (croissant fin / pleine lune) à 0 (premier quartier,
+  // terminateur droit vertical).
+  const moonProgress = Math.min(1, Math.max(0, objectivePct / 100))
+  const moonPhase = 0.06 + 0.94 * moonProgress
+  // Même principe que la lune : la TAILLE des flammes suit la progression d'objectif. Facteur
+  // appliqué à la taille de base de chaque flamme : 0 % → ×25 (petite flamme déjà visible),
+  // 100 % → ×200 (grande flamme). Base ~0,2 vh → ~5 vh à 0 %, ~40 vh à 100 %.
+  const flameGrow = 25 + 175 * moonProgress
+  const moonCrescent = moonPhase < 0.5
+  const moonTermColor = moonCrescent ? '#000' : '#558cf4'
+  const moonTermScale = moonCrescent ? (0.5 - moonPhase) * 2 : (moonPhase - 0.5) * 2
+  // Rangée de PETITES FLAMMES alignées (réutilise le sprite `fire_sprite.png` / `.fire-flame`),
+  // réparties régulièrement sur toute la largeur. Posée juste au-dessus de la barre d'objectif
+  // (offset `--atmosfear-flames-bottom` dans index.css). Tirées une fois au montage.
+  const [flames] = useState(() => {
+    const n = 32
+    return Array.from({ length: n }, (_, i) => ({
+      left: (i / (n - 1)) * 100, // % (répartition régulière)
+      size: 0.2 + Math.random() * 0.08, // vh (taille de BASE = ×1 ; ×100 à 100 % d'objectif → ~20-28 vh)
+      loop: 2.3 + Math.random() * 1.1, // s (vitesse de la boucle de feu)
+      delay: -(Math.random() * 3), // s (phase décalée)
+      flip: Math.random() < 0.5, // miroir horizontal pour varier
+      op: 0.85 + Math.random() * 0.15, // opacité
+    }))
+  })
+  // Rotation aléatoire (figée au montage) de chaque image de bougies : entre -10° et +5°.
+  const [candleRot] = useState(() => Array.from({ length: 14 }, () => -10 + Math.random() * 15))
+  // « Fonte » des bougies selon la progression d'objectif : on coupe le BAS du contenu (clip-path
+  // s'enfonce vers la base. Pas de coupe/masque sur l'image : la bougie DESCEND simplement (translateY)
+  // et c'est le `overflow:hidden` du conteneur qui la clippe à la ligne de sol → elle s'enfonce dans
+  // le sol au fil de l'objectif, en gardant sa flamme. À 0 % rien ne descend ; à 100 % ~58 % de descente.
+  const candleCutPx = 0.9 * 334 * moonProgress // px de bougie « fondus » (utilisé pour la descente)
+  // Descente de l'image MOINS une légère remontée d'autant que l'objectif avance (à 100 % on remonte un peu).
+  const candleSink = (candleCutPx / 384) * 100 - 20 * moonProgress // % (translateY, positif = bas)
+  return (
+    <div className="atmosfear-decor" aria-hidden>
+      {/* Chronomètre MM:SS en haut, centré (les deux groupes de chiffres en tabular-nums pour
+          ne pas frémir, le « : » fixe entre les deux), précédé de la lune à sa gauche. */}
+      <div className="atmosfear-timer" style={{ left: timerLeft }}>
+        {/* Lune qui se remplit : moitié gauche éclairée + terminateur elliptique par-dessus. */}
+        <span className="atmosfear-moon">
+          <span className="atmosfear-moon-half" />
+          <span
+            className="atmosfear-moon-term"
+            style={{ background: moonTermColor, transform: `scaleX(${moonTermScale})` }}
+          />
+        </span>
+        {/* Chaque chiffre dans une case de largeur fixe (la police EvanstonTavern n'a pas de
+            chiffres à chasse fixe → sans ça le texte se décale à chaque changement). */}
+        <span className="atmosfear-num">
+          {mm.split('').map((c, i) => (
+            <span key={i} className="atmosfear-digit">{c}</span>
+          ))}
+        </span>
+        <span className="atmosfear-colon">:</span>
+        <span className="atmosfear-num">
+          {ss.split('').map((c, i) => (
+            <span key={i} className="atmosfear-digit">{c}</span>
+          ))}
+        </span>
+      </div>
+      {/* Rangée de BOUGIES (candles.gif), même emplacement que les flammes. Le gif a un grand vide
+          transparent à droite → on superpose plusieurs images qui se chevauchent (marge négative en
+          CSS) pour rapprocher les groupes. Affichée 15 s dans le cycle (rien → bougies → rien → flammes). */}
+      <div className={`atmosfear-candles${decorPhase === 'candles' ? ' is-shown' : ''}`} aria-hidden>
+        {candleRot.map((r, i) => (
+          <img
+            key={i}
+            src="/animations/candles.gif"
+            alt=""
+            className="atmosfear-candle-img"
+            style={{ transform: `translateY(${candleSink}%) rotate(${r}deg)` }}
+          />
+        ))}
+      </div>
+      {/* Rangée de petites flammes alignées, au-dessus de la barre d'objectif. La taille suit la
+          progression d'objectif (`flameGrow`) ; affichée 15 s dans le cycle (alterne avec les bougies). */}
+      <div className={`atmosfear-flames${decorPhase === 'flames' ? ' is-shown' : ''}`}>
+        {flames.map((f, i) => {
+          const s = f.size * flameGrow // taille effective = base × croissance liée à l'objectif
+          return (
+            <div
+              key={i}
+              className="fire-flame"
+              style={{
+                left: `${f.left}%`,
+                // Compense la marge transparente sous la flamme → base visible fixe quelle que soit la taille.
+                bottom: `${-FLAME_BASE_GAP * s}vh`,
+                height: `${s}vh`,
+                width: `${s * FLAME_ASPECT}vh`,
+                opacity: f.op,
+                backgroundImage: 'url(/animations/fire_sprite.png)',
+                animationDuration: `${f.loop}s`,
+                animationDelay: `${f.delay}s`,
+                transform: f.flip ? 'translateX(-50%) scaleX(-1)' : 'translateX(-50%)',
+                '--frames': 39,
+                '--fh': `${s}vh`,
+              } as CSSProperties}
+            />
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// Couleur unique des triangles « bling-bling » de Tamatoa + vitesse de défilement commune (identique
+// pour tous → ils avancent à la même allure, comme un tapis).
+const TAMATOA_YELLOW = '#FFD11A'
+const TAMATOA_SCROLL_SEC = 20
+// Triangle aux SOMMETS ARRONDIS : SVG data-URI dont le contour épais en `stroke-linejoin: round`
+// (même couleur que le remplissage) arrondit les trois coins. Auto-contenu (aucun fichier).
+const TAMATOA_TRI_SVG =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpolygon points='50,18 18,82 82,82' fill='%23FFD11A' stroke='%23FFD11A' stroke-width='20' stroke-linejoin='round'/%3E%3C/svg%3E\")"
+
+/** Décor « tamatoa » (Vaiana — l'antre « Shiny / Bling Bling » du crabe) : un fond de GROTTE sombre
+ *  sur lequel défilent vers la DROITE plein de petits TRIANGLES JAUNES FLOUTÉS et BRILLANTS (le
+ *  bling-bling de son trésor) — couleur et vitesse identiques, rotation FIXE aléatoire. 100 % CSS. */
+function TamatoaDecor() {
+  const [tris] = useState(() =>
+    Array.from({ length: 180 }, () => ({
+      top: Math.random() * 100, // % (réparti sur toute la hauteur)
+      size: 0.8 + Math.random() * 2.4, // vh (PETITS)
+      delay: -(Math.random() * TAMATOA_SCROLL_SEC), // s (flux continu, déphasé sur une période)
+      blur: 1.5 + Math.random() * 4, // px (léger flou)
+      op: 0.7 + Math.random() * 0.3, // opacité de pointe (vif)
+      glow: 9 + Math.random() * 10, // px (halo lumineux marqué = bling brillant)
+      twDur: 1.2 + Math.random() * 2.2, // s (scintillement)
+      twDelay: -(Math.random() * 3), // s
+      rot: Math.random() * 360, // ° (rotation FIXE, non animée)
+    })),
+  )
+  return (
+    <div className="tamatoa-decor" aria-hidden>
+      {tris.map((t, i) => (
+        <span
+          key={i}
+          className="tamatoa-tri-scroll"
+          style={{ top: `${t.top}%`, animationDuration: `${TAMATOA_SCROLL_SEC}s`, animationDelay: `${t.delay}s` }}
+        >
+          <span
+            className="tamatoa-tri"
+            style={{
+              width: `${t.size}vh`,
+              height: `${t.size}vh`,
+              backgroundImage: TAMATOA_TRI_SVG,
+              transform: `rotate(${t.rot}deg)`,
+              filter: `blur(${t.blur}px) drop-shadow(0 0 ${t.glow}px ${TAMATOA_YELLOW}) drop-shadow(0 0 ${t.glow / 2}px #fff8c4)`,
+              animationDuration: `${t.twDur}s`,
+              animationDelay: `${t.twDelay}s`,
+              '--op': t.op,
+            } as CSSProperties}
+          />
+        </span>
+      ))}
+      <div className="tamatoa-vignette" />
+    </div>
+  )
+}
+
+export function VillainDecor({
+  villain,
+  side,
+  objectivePct,
+  timerRunning,
+}: {
+  villain: VillainKey
+  side?: 'left' | 'right'
+  /** Progression d'objectif (0→100) de CE camp — utilisée par le décor `atmosfear` (phase de lune). */
+  objectivePct?: number
+  /** La partie « tourne » (même condition que le `GameTimer`) — le décor `atmosfear` y synchronise
+   *  le démarrage de son minuteur. */
+  timerRunning?: boolean
+}) {
   const decor = villainDecor(villain)
   if (!decor) return null
   // Côté fourni à tous les décors (abonnement au bus de surprise du mode test).
   return (
     <DecorSideContext.Provider value={side ?? 'left'}>
-      {renderDecorBody(decor, side)}
+      {renderDecorBody(decor, side, objectivePct, timerRunning)}
     </DecorSideContext.Provider>
   )
 }
 
-function renderDecorBody(decor: VillainDecorData, side?: 'left' | 'right') {
+function renderDecorBody(
+  decor: VillainDecorData,
+  side?: 'left' | 'right',
+  objectivePct?: number,
+  timerRunning?: boolean,
+) {
   switch (decor.kind) {
     case 'film':
       return <FilmDecor />
@@ -5716,6 +6487,8 @@ function renderDecorBody(decor: VillainDecorData, side?: 'left' | 'right') {
       return <PetalsDecor />
     case 'water':
       return <WaterDecor side={side} />
+    case 'flyingDutchman':
+      return <FlyingDutchmanDecor decor={decor} />
     case 'grotto':
       return <GrottoDecor />
     case 'voodoo':
@@ -5724,6 +6497,8 @@ function renderDecorBody(decor: VillainDecorData, side?: 'left' | 'right') {
       return <GalaxyDecor />
     case 'yzma':
       return <YzmaDecor />
+    case 'laBonneFee':
+      return <LaBonneFeeDecor />
     case 'clockwork':
       return <ClockworkDecor side={side} />
     case 'cruella':
@@ -5744,6 +6519,10 @@ function renderDecorBody(decor: VillainDecorData, side?: 'left' | 'right') {
       return <SunnysideDecor />
     case 'teamRocket':
       return <TeamRocketDecor />
+    case 'atmosfear':
+      return <AtmosfearDecor side={side} objectivePct={objectivePct} timerRunning={timerRunning} />
+    case 'tamatoa':
+      return <TamatoaDecor />
     case 'oogie':
       return <OogieDecor />
     case 'candy':

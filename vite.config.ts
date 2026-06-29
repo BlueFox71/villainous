@@ -308,9 +308,50 @@ function savePublishedVillainPlugin(): Plugin {
   }
 }
 
+/**
+ * Plugin DEV uniquement : endpoint POST `/__save-villain-difficulty` qui réécrit la
+ * difficulté (`difficulty: <n>`) d'un vilain natif dans `src/ui/villainGuide.ts`
+ * (corps : `{ villain, difficulty }`, où `villain` = clé registre camelCase). On
+ * localise le bloc `<villain>: { difficulty: … }`. Absent du build de prod.
+ */
+function saveVillainDifficultyPlugin(): Plugin {
+  const FILE = resolve(process.cwd(), 'src/ui/villainGuide.ts')
+  return {
+    name: 'save-villain-difficulty',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__save-villain-difficulty', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return }
+        let body = ''
+        req.on('data', (c) => { body += c })
+        req.on('end', () => {
+          try {
+            const { villain, difficulty } = JSON.parse(body) as { villain: string; difficulty: number }
+            if (typeof villain !== 'string') throw new Error('vilain invalide')
+            if (!Number.isInteger(difficulty) || difficulty < 1 || difficulty > 5)
+              throw new Error('difficulté invalide (1–5)')
+            let src = readFileSync(FILE, 'utf8')
+            const esc = villain.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            // Bloc `<villain>: { difficulty: <n>` — la difficulté est le 1er champ.
+            const re = new RegExp(`(\\b${esc}:\\s*\\{\\s*difficulty:\\s*)\\d+`)
+            if (!re.test(src)) throw new Error(`vilain « ${villain} » introuvable`)
+            src = src.replace(re, `$1${difficulty}`)
+            writeFileSync(FILE, src, 'utf8')
+            res.statusCode = 200
+            res.end('ok')
+          } catch (e) {
+            res.statusCode = 400
+            res.end(String((e as Error)?.message ?? e))
+          }
+        })
+      })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), saveActionPosPlugin(), savePawnSizePlugin(), savePortraitPlugin(), saveVillainColorPlugin(), saveVillainAssetsPlugin(), saveVillainJsonPlugin(), savePublishedVillainPlugin()],
+  plugins: [react(), tailwindcss(), saveActionPosPlugin(), savePawnSizePlugin(), savePortraitPlugin(), saveVillainColorPlugin(), saveVillainAssetsPlugin(), saveVillainJsonPlugin(), savePublishedVillainPlugin(), saveVillainDifficultyPlugin()],
   server: {
     // Expose le serveur de dév sur le réseau local (0.0.0.0) pour que l'invité
     // puisse ouvrir l'app depuis l'IP de l'hôte (http://<ip-hôte>:5173) — requis

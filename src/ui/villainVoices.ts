@@ -55,7 +55,7 @@ const VOICE_PREFIX: Record<VillainKey, string> = {
   davyJones: 'Davy jones', // 4 variantes présentes
   tamatoa: 'Tamatoa', // 4 variantes présentes
   teamRocket: 'La team rocket', // fichiers « La team rocket N.wav »
-  laBonneFee: 'La bonne fée', // pas (encore) de fichiers de voix → intro silencieuse
+  laBonneFee: 'Marraine la bonne fée', // 4 variantes présentes
 }
 
 const CONTRE_PREFIX = 'Contre'

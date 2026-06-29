@@ -54,6 +54,7 @@ export function pendingOwner(state: GameState): number | null {
   if (state.pendingDeckPeek) return state.pendingDeckPeek.playerIndex
   if (state.pendingTypeChoice) return state.pendingTypeChoice.playerIndex
   if (state.pendingDrawOrGainPower) return state.pendingDrawOrGainPower.playerIndex
+  if (state.pendingInfiltration) return state.pendingInfiltration.playerIndex
   if (state.pendingMoveOrActivate) return state.pendingMoveOrActivate.playerIndex
   if (state.pendingCauldronChoice) return state.pendingCauldronChoice.playerIndex
   if (state.pendingMauiChoice) return state.pendingMauiChoice.playerIndex

@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { VILLAIN_REGISTRY, type VillainKey } from '../store/gameStore'
 import { villainPortrait } from '../villainArt'
 import { VILLAIN_COLOR } from '../villainColors'
+import { byRelease } from '../villainOrder'
 
-const VILLAIN_KEYS = Object.keys(VILLAIN_REGISTRY) as VillainKey[]
+const VILLAIN_KEYS = (Object.keys(VILLAIN_REGISTRY) as VillainKey[]).sort(byRelease)
 
 interface Props {
   value: VillainKey

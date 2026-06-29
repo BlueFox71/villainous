@@ -101,6 +101,31 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
       sz: hp * (0.08 + Math.random() * 0.06), // vh (petite)
     }))
   })
+  // Pluie de POUSSIÈRE D'ÉTOILES (La Bonne Fée, path `stardust`) : des étincelles tombent du haut sur toute
+  // la largeur, départs échelonnés sur la durée du passage, en dérivant un peu (--dx) et en scintillant.
+  // Décidée une fois au montage (= un passage). Teintes or/blanc/bleu/rose.
+  const [stardust] = useState<
+    { left: number; size: number; dur: number; delay: number; dx: number; rot: number; twDur: number; twDelay: number; color: string }[]
+  >(() => {
+    if (path !== 'stardust') return []
+    const n = anim?.count ?? 120
+    const total = anim?.durationSec ?? 9
+    const colors = ['#ffffff', '#ffe08a', '#bcd4ff', '#ff9ed6', '#c9a0ff'] // blanc / or / bleu / rose / violet
+    return Array.from({ length: n }, () => {
+      const dur = 3.5 + Math.random() * 2.5 // s (chute)
+      return {
+        left: Math.random() * 100, // %
+        size: 0.3 + Math.random() * 0.7, // vh (petite paillette plate)
+        dur,
+        delay: Math.random() * Math.max(0, total - dur), // échelonné → toutes finissent avant le démontage
+        dx: (Math.random() - 0.5) * 18, // vw (dérive latérale en tombant)
+        rot: Math.random() * 90, // deg (orientation du losange, variée)
+        twDur: 0.5 + Math.random() * 0.9, // s (cadence du scintillement = éclat bref)
+        twDelay: -(Math.random() * 1.5), // s (déphasage des éclats → pas tous en même temps)
+        color: colors[Math.floor(Math.random() * colors.length)],
+      }
+    })
+  })
 
   // Pages (Slenderman) : positions tirées au hasard sur TOUT l'écran (avec marges),
   // une fois au montage. Rendues dans le calque de fond (même plan que le bateau),
@@ -232,6 +257,13 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
       spin: (Math.random() < 0.5 ? -1 : 1) * (180 + Math.random() * 540), // tours, sens au hasard
     }))
   })
+
+  // Chute LENTE d'un seul objet (Tamatoa : hameçon / Te Fiti) : position horizontale + légère
+  // inclinaison, figées au montage.
+  const [dropCfg] = useState(() => ({
+    left: 12 + Math.random() * 76, // % de la largeur
+    tilt: -12 + Math.random() * 24, // ° (inclinaison constante)
+  }))
 
   // Montée (Ursula : bulles ; Hadès : âmes) : 18 à 30 éléments par défaut (ou `count`),
   // taille/colonne/vitesse/ondulation au hasard, figés au montage. `sides` les concentre
@@ -762,6 +794,38 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     )
   }
 
+  if (path === 'stardust') {
+    // Pluie de poussière d'étoiles plein écran (comme smoke-field : portail fixe au-dessus de la scène).
+    // Chaque étincelle = une enveloppe `.stardust-fall` (chute + dérive --dx + fondu) contenant un point
+    // `.stardust` qui scintille. pointer-events: none.
+    return createPortal(
+      <div className="stardust-layer pointer-events-none fixed inset-0 overflow-hidden" style={{ zIndex: 40 }} aria-hidden>
+        {stardust.map((s, i) => (
+          <span
+            key={i}
+            className="stardust-fall"
+            style={{ left: `${s.left}%`, animationDuration: `${s.dur}s`, animationDelay: `${s.delay}s`, '--dx': `${s.dx}vw` } as CSSProperties}
+          >
+            <span
+              className="stardust"
+              style={{
+                width: `${s.size}vh`,
+                height: `${s.size}vh`,
+                // Paillette PLATE et vive : remplissage solide (centre blanc) + petit éclat net (pas de gros halo flou).
+                background: `radial-gradient(circle, #ffffff 0%, ${s.color} 60%, ${s.color} 100%)`,
+                boxShadow: `0 0 ${s.size * 0.8}vh ${s.color}, 0 0 ${s.size * 0.35}vh #ffffff`,
+                transform: `rotate(${s.rot}deg)`,
+                animationDuration: `${s.twDur}s`,
+                animationDelay: `${s.twDelay}s`,
+              }}
+            />
+          </span>
+        ))}
+      </div>,
+      document.body,
+    )
+  }
+
   if (path === 'overgrowth') {
     // Invasion de jungle plein écran (comme smoke-field : portail fixe au-dessus de la scène). Les lianes
     // poussent depuis le haut (scaleY 0→1, pivot en haut), les feuilles éclosent partout (scale 0→1), puis
@@ -828,6 +892,26 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
             draggable={false}
           />
         ))}
+      </div>
+    )
+  }
+
+  if (path === 'drop') {
+    // Un seul objet (`src`, choisi par passage) tombe lentement et tout droit, légèrement incliné.
+    return (
+      <div className="drop-layer pointer-events-none absolute inset-0" aria-hidden>
+        <img
+          src={src}
+          alt=""
+          className="prop-drop"
+          style={{
+            left: `${dropCfg.left}%`,
+            height: `${heightPct}vh`,
+            animationDuration: `${anim.durationSec ?? 15}s`,
+            '--tilt': `${dropCfg.tilt}deg`,
+          } as CSSProperties}
+          draggable={false}
+        />
       </div>
     )
   }
@@ -1077,7 +1161,7 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
       src={src}
       alt=""
       className="h-full w-auto select-none opacity-90"
-      style={{ transform: imgTransform }}
+      style={{ transform: imgTransform, filter: anim.silhouette ? 'brightness(0)' : undefined }}
       draggable={false}
     />
   )
@@ -1085,14 +1169,21 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     <div
       className="villain-prop"
       style={{
-        top: '1%',
+        top: `${anim.topPct ?? 1}%`,
         height: `${heightPct}vh`,
         animationName: movingLeft ? 'villainDriftRTL' : 'villainDriftLTR',
         animationDuration: `${durationSec}s`,
       }}
     >
-      {/* Vibration légère (donnée `vibrate`) : un wrapper tremble pendant que le conteneur dérive. */}
-      {anim.vibrate ? <span className="prop-vibrate inline-block h-full">{img}</span> : img}
+      {/* Vibration légère (`vibrate`) ou NAGE (`swim` : ondulation + roulis) : un wrapper anime l'image
+          pendant que le conteneur dérive horizontalement. */}
+      {anim.vibrate ? (
+        <span className="prop-vibrate inline-block h-full">{img}</span>
+      ) : anim.swim ? (
+        <span className={`prop-swim inline-block h-full${movingLeft ? ' is-rev' : ''}`}>{img}</span>
+      ) : (
+        img
+      )}
     </div>
   )
 }
@@ -1156,7 +1247,7 @@ export function BackgroundAnimation({
   // (chaque animation d'un vilain a sa propre file d'images).
   const imageQueues = useRef<Record<string, string[]>>({})
   const pickImage = (villain: VillainKey, animIdx: number, a: VillainAnimation): string => {
-    if (a.path === 'pages' || a.path === 'coins' || a.path === 'rise' || a.path === 'water-cross' || a.path === 'voodoo' || a.path === 'fire-bottom' || a.path === 'paws' || a.path === 'petals' || a.path === 'smoke-field' || a.path === 'overgrowth') return '' // pas d'image unique ici
+    if (a.path === 'pages' || a.path === 'coins' || a.path === 'rise' || a.path === 'water-cross' || a.path === 'voodoo' || a.path === 'fire-bottom' || a.path === 'paws' || a.path === 'petals' || a.path === 'smoke-field' || a.path === 'overgrowth' || a.path === 'stardust') return '' // pas d'image unique ici
     if (!a.images || a.images.length === 0) return a.image ?? ''
     const key = `${villain}#${animIdx}`
     const q = imageQueues.current

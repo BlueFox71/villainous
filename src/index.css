@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* Police « EvanstonTavern » (fichier local servi depuis public/). Utilisée par le
+   décor du Seigneur des clés (chronomètre de la cassette Atmosfear). */
+@font-face {
+  font-family: "EvanstonTavern";
+  src: url("/editor/fonts/EvanstonTavern-1858Light.ttf") format("truetype");
+  font-weight: 300;
+  font-display: swap;
+}
+
 html,
 body,
 #root {
@@ -209,6 +218,27 @@ body {
   50% { transform: translate(-0.6px, 0.6px) rotate(-0.5deg); }
   100% { transform: translate(0.5px, 0.4px) rotate(0.4deg); }
 }
+/* Nage (`swim`, Kraken de Davy Jones) : ondulation verticale + léger roulis pendant la traversée
+   (combinée à la dérive horizontale du conteneur → il nage à travers l'écran). */
+.prop-swim {
+  will-change: transform;
+  transform-origin: 50% 50%;
+  animation: propSwim 3.6s ease-in-out infinite;
+}
+@keyframes propSwim {
+  0% { transform: translateY(-1.8vh) rotate(-5deg); }
+  50% { transform: translateY(1.8vh) rotate(-20deg); }
+  100% { transform: translateY(-1.8vh) rotate(-5deg); }
+}
+/* Variante MIROIR : quand le Kraken nage dans l'AUTRE sens (camp opposé), il penche de l'autre côté. */
+.prop-swim.is-rev {
+  animation-name: propSwimRev;
+}
+@keyframes propSwimRev {
+  0% { transform: translateY(-1.8vh) rotate(5deg); }
+  50% { transform: translateY(1.8vh) rotate(20deg); }
+  100% { transform: translateY(-1.8vh) rotate(5deg); }
+}
 /* Le joueur : part de la droite et dérive vers la gauche. */
 @keyframes villainDriftRTL {
   from {
@@ -402,6 +432,44 @@ body {
     transform: translate(320%, -360%) rotate(280deg) scale(0.4);
     opacity: 0;
   }
+}
+/* Pluie de POUSSIÈRE D'ÉTOILES (La Bonne Fée, path `stardust`) : enveloppe `.stardust-fall` = chute du haut
+   vers le bas avec dérive latérale (--dx) et fondu entrée/sortie ; enfant `.stardust` = l'étincelle (couleur +
+   halo posés inline) qui SCINTILLE. Calque fixe plein écran (portail), au-dessus de la scène. */
+.stardust-fall {
+  position: absolute;
+  top: -6vh;
+  will-change: transform, opacity;
+  animation-name: stardustFall;
+  animation-timing-function: linear;
+  animation-iteration-count: 1;
+  animation-fill-mode: both;
+}
+@keyframes stardustFall {
+  0% { transform: translate(0, 0); opacity: 0; }
+  10% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translate(var(--dx, 0), 112vh); opacity: 0; }
+}
+.stardust {
+  display: block;
+  border-radius: 22%; /* carré à coins légers = paillette (losange via la rotation inline) */
+  mix-blend-mode: screen;
+  opacity: 0.25;
+  will-change: opacity;
+  /* Pas de grossissement : la paillette reste PLATE et ÉCLATE brièvement (flash d'opacité). */
+  animation-name: stardustGlint;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes stardustGlint {
+  0%, 38%, 100% { opacity: 0.22; }
+  50% { opacity: 1; } /* éclat vif et bref */
+  64% { opacity: 0.3; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stardust-fall,
+  .stardust { animation: none !important; }
 }
 /* Pages de Slenderman : apparition/disparition en fondu (3 s), ancrées par leur
    centre à une position aléatoire. Le décalage temporel est posé par span. */
@@ -2528,6 +2596,128 @@ body {
   to { transform: rotate(calc(var(--spin-dir, 1) * 360deg)); }
 }
 
+/* ----- Décor permanent : la magie ROSE de la Bonne Fée (Marraine de Shrek) qui retombe -----
+   La magie de la Bonne Fée (Shrek 2) est ROSE. Des volutes de fumée rose lumineuse TOMBENT doucement du haut
+   en dérivant latéralement et en se dissipant (sa magie qui retombe), sur un fond violacé, surmontées d'une
+   lueur rose pulsante en haut (la source) et vignetté. Cf. LaBonneFeeDecor dans components/VillainDecor.tsx. */
+.bf-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: linear-gradient(to bottom, #2c1838 0%, #3a1f44 48%, #241026 100%);
+}
+.bf-glow {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 46%;
+  pointer-events: none;
+  background: radial-gradient(120% 100% at 50% 0%, rgba(255, 120, 190, 0.38) 0%, rgba(255, 120, 190, 0.12) 42%, rgba(255, 120, 190, 0) 72%);
+  mix-blend-mode: screen;
+  will-change: opacity;
+  animation: bfGlowPulse 7s ease-in-out infinite alternate;
+}
+@keyframes bfGlowPulse {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+/* Lumière BLANC-BLEU qui s'illumine DERRIÈRE la fumée à chaque changement de couleur (placée avant les volutes
+   dans le DOM → peinte dessous). Rejouée une fois à chaque bascule via le remontage par `key`. */
+.bf-color-flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(80% 70% at 50% 45%, rgba(220, 235, 255, 0.9) 0%, rgba(150, 190, 255, 0.55) 35%, rgba(120, 170, 255, 0) 72%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  will-change: opacity;
+  animation: bfColorFlash 2.6s ease-in-out both;
+}
+@keyframes bfColorFlash {
+  0% { opacity: 0; }
+  28% { opacity: 1; }
+  100% { opacity: 0; }
+}
+/* Volute de fumée : enveloppe = DESCENTE (bfSmokeFall), milieu = dérive latérale (bfSmokeSway), pastille
+   = la bouffée floue (couleur posée inline, commune à toute la fumée et cyclée dans le temps). */
+.bf-smoke-fall {
+  position: absolute;
+  top: -16vh;
+  will-change: transform, opacity;
+  animation-name: bfSmokeFall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes bfSmokeFall {
+  0% { transform: translate(0, 0); opacity: 0; }
+  14% { opacity: 1; }
+  86% { opacity: 1; }
+  100% { transform: translate(var(--drift, 0), 126vh); opacity: 0; } /* dérive diagonale (--drift) → descente de travers */
+}
+.bf-smoke-sway {
+  display: block;
+  will-change: transform;
+  animation-name: bfSmokeSway;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes bfSmokeSway {
+  from { transform: translateX(calc(var(--sway) * -1)); }
+  to { transform: translateX(var(--sway)); }
+}
+/* La bouffée = un dégradé rose, CARVÉ par un masque de BRUIT FRACTAL (feTurbulence, data-URI auto-contenu) →
+   des bords vaporeux et des trous nuageux (texture de fumée) au lieu d'un disque flou uniforme. Le masque est
+   décalé/pivoté/zoomé par volute (inline) pour que chacune diffère. Flou modéré pour ne pas gommer la texture. */
+.bf-smoke {
+  display: block;
+  border-radius: 50%;
+  filter: blur(7px);
+  mix-blend-mode: screen;
+  will-change: opacity;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='s'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.014' numOctaves='4' seed='4' stitchTiles='stitch' result='n'/%3E%3CfeColorMatrix in='n' type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1.6 0 0 0 -0.45'/%3E%3C/filter%3E%3Crect width='320' height='320' filter='url(%23s)'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cfilter id='s'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.014' numOctaves='4' seed='4' stitchTiles='stitch' result='n'/%3E%3CfeColorMatrix in='n' type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1.6 0 0 0 -0.45'/%3E%3C/filter%3E%3Crect width='320' height='320' filter='url(%23s)'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+}
+.bf-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(125% 95% at 50% 35%, transparent 42%, rgba(30, 14, 40, 0.45) 76%, rgba(14, 6, 22, 0.82) 100%);
+}
+/* Potion qui TOMBE de haut en bas (une toutes les 30 s) en accélérant (ease-in) et en tournant un peu
+   (`--rot`). Position/taille posées inline ; largeur auto (ratio de l'image conservé). */
+.bf-potion {
+  position: absolute;
+  top: -18vh;
+  width: auto;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
+  will-change: transform, opacity;
+  animation-name: bfPotionFall;
+  animation-timing-function: ease-in;
+  animation-iteration-count: 1;
+  animation-fill-mode: both;
+}
+@keyframes bfPotionFall {
+  0% { transform: translateY(0) rotate(0); opacity: 0; }
+  8% { opacity: 1; }
+  92% { opacity: 1; }
+  100% { transform: translateY(132vh) rotate(var(--rot, 0deg)); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* On fige la fumée, la lueur et le flash de changement de couleur (le décor reste visible, statique).
+     La potion qui tombe n'est jamais montée en reduced-motion (la minuterie ne se lance pas). */
+  .bf-glow,
+  .bf-smoke-fall,
+  .bf-smoke-sway,
+  .bf-color-flash {
+    animation: none !important;
+  }
+}
+
 /* ----- Décor permanent : pluie de rouages & diamants (Ratigan — Basil, détective privé) -----
    Une pluie continue d'images (rouages + diamants) tombe du haut en tournoyant, comme les pièces de
    Prince Jean (réutilise le keyframe `coinFall` en boucle linéaire). Cf. components/VillainDecor.tsx. */
@@ -3090,6 +3280,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .villain-prop,
   .prop-vibrate,
+  .prop-swim,
   .page-layer,
   .rose-layer,
   .coin-layer,
@@ -4369,6 +4560,316 @@ body {
     animation: none !important;
   }
   .ca-lightning {
+    opacity: 0;
+  }
+}
+
+/* ============================================================================
+   Décor permanent : la mer de Davy Jones (Pirates des Caraïbes, kind `flyingDutchman`).
+   Ciel d'orage vert-sarcelle, houle agitée en bas (.fd-swell + crêtes d'écume .fd-foam), tempête de
+   pluie battante (.fd-rain/.fd-raindrop, réutilise le keyframe `caRain`), embruns (.fd-spray),
+   éclairs verdâtres (.fd-lightning) et le Hollandais Volant (.fd-ship) qui tangue. Cf.
+   components/VillainDecor.tsx.
+   ============================================================================ */
+.fd-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* CIEL d'orage GRIS-VERT (sombre en haut → gris-vert plus clair vers l'horizon). La mer est posée
+     par-dessus dans le bas (.fd-sea) avec sa propre teinte → la séparation crée la ligne d'horizon. */
+  background: linear-gradient(to bottom, #16221f 0%, #324039 60%, #45554c 100%);
+}
+/* Plan de MER : occupe le bas de la colonne (l'horizon est son bord SUPÉRIEUR). Teinte vert-sarcelle
+   (couleur du vilain #1E3836) qui s'assombrit vers le bas. Une fine LIGNE D'HORIZON lumineuse souligne
+   sa crête (::before) → séparation nette mer/ciel. Les vagues du premier plan se posent dessus. */
+.fd-sea {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 28vh;
+  pointer-events: none;
+  /* Le bord supérieur droit est volontairement caché sous les creux de la VAGUE D'HORIZON (1ʳᵉ couche
+     de FD_WAVE_LAYERS, bottom 27vh) qui ondule au-dessus → la séparation mer/ciel n'est plus droite. */
+  background: linear-gradient(to bottom, #15463c 0%, #0e2f29 35%, #06140f 100%);
+}
+/* Nuage d'orage : masse gris-vert basse et floue qui dérive lentement (réutilise `waterCloudDrift`).
+   Taille / position / opacité / amplitude posées en inline. */
+.fd-cloud {
+  position: absolute;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, rgba(20, 28, 25, 1) 0%, rgba(16, 24, 21, 0.7) 45%, rgba(14, 20, 18, 0) 72%);
+  filter: blur(13px);
+  pointer-events: none;
+  will-change: transform;
+  animation-name: waterCloudDrift;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+/* Voile d'orage froid posé par-dessus (assombrit légèrement le haut, vignette le bas). Bleuté pour ne
+   pas verdir le ciel. */
+.fd-storm {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 80% at 50% 12%, rgba(160, 175, 165, 0.1) 0%, transparent 55%),
+    linear-gradient(to bottom, rgba(22, 30, 28, 0.42) 0%, rgba(28, 36, 32, 0.1) 32%, rgba(20, 28, 24, 0.12) 60%, rgba(6, 12, 10, 0.62) 100%);
+}
+/* Le Hollandais Volant — 3 niveaux :
+   • .fd-ship-stage : fenêtre de CLIP à la ligne de flottaison (son bord BAS = la surface de l'eau).
+     `overflow: hidden` → tout ce qui descend sous ce bord est masqué. Porte la position + le centrage.
+   • .fd-ship-sink : porte l'animation de PLONGÉE (translateY vers le bas, SANS fondu) → le navire
+     passe sous le bord du stage et disparaît « sous l'eau ».
+   • .fd-ship (image) : porte le tangage continu. Séparer les transforms évite qu'ils se télescopent. */
+.fd-ship-stage {
+  position: absolute;
+  left: 17%;
+  bottom: 16vh; /* ligne de flottaison (bord de clip) */
+  width: 31vh;
+  height: 80vh;
+  transform: translateX(-50%);
+  overflow: hidden;
+  pointer-events: none;
+}
+/* Wrap de plongée : ancré au BAS du stage (la coque repose sur la ligne d'eau). */
+.fd-ship-sink {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  will-change: transform;
+}
+.fd-ship-sink.is-diving {
+  animation: fdShipDive 3s ease-in forwards;
+}
+.fd-ship-sink.is-submerged {
+  transform: translateY(40vh); /* maintenu immergé sous le bord de clip */
+}
+.fd-ship-sink.is-surfacing {
+  animation: fdShipSurface 3s ease-out;
+}
+@keyframes fdShipDive {
+  from { transform: translateY(0); }
+  to { transform: translateY(40vh); }
+}
+@keyframes fdShipSurface {
+  from { transform: translateY(40vh); }
+  to { transform: translateY(0); }
+}
+/* Image du navire : largeur en vh (suit la hauteur de l'écran), assombrie, fondu sombre en pied par
+   drop-shadow. Tangage (roulis + haut-bas) façon navire sur la houle. */
+.fd-ship {
+  display: block;
+  width: 100%;
+  height: auto;
+  transform-origin: 50% 90%;
+  opacity: 0.9;
+  filter: brightness(0.4) saturate(0.78) drop-shadow(0 0 1.4vh rgba(0, 0, 0, 0.7));
+  will-change: transform;
+  animation: fdShipPitch 9s ease-in-out infinite;
+}
+@keyframes fdShipPitch {
+  0% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-1.4vh) rotate(2.2deg); }
+  100% { transform: translateY(0) rotate(-2deg); }
+}
+/* Brume de surface (pendant l'immersion) : voile qui apparaît en fondu, surmonté de nappes basses qui
+   dérivent le long de la ligne d'eau ; se dissipe (.is-clearing) à l'émersion. */
+.fd-mist {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 1; /* pleine pendant la plongée ; l'entrée/sortie sont portées par les classes */
+}
+.fd-mist.is-entering {
+  animation: fdMistIn 10s ease forwards;
+}
+.fd-mist.is-clearing {
+  animation: fdMistOut 10s ease forwards;
+}
+@keyframes fdMistIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fdMistOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+.fd-mist-puff {
+  position: absolute;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, rgba(214, 232, 226, 0.55) 0%, rgba(198, 220, 214, 0.28) 45%, transparent 72%);
+  filter: blur(12px);
+  mix-blend-mode: screen;
+  will-change: transform;
+  animation-name: waterCloudDrift;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+/* Gerbe d'écume de la plongée : point d'émission à la ligne de flottaison, à la position du navire.
+   Une bouffée d'écume (::before) + des gouttelettes qui jaillissent en éventail. */
+.fd-splash {
+  position: absolute;
+  left: 17%;
+  bottom: 15vh;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.fd-splash::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 16vh;
+  height: 6vh;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(225, 255, 248, 0.92) 0%, rgba(180, 230, 215, 0.4) 50%, transparent 75%);
+  filter: blur(2px);
+  mix-blend-mode: screen;
+  animation: fdSplashPuff 1s ease-out forwards;
+}
+@keyframes fdSplashPuff {
+  0% { transform: translateX(-50%) scale(0.3); opacity: 0; }
+  20% { opacity: 0.95; }
+  100% { transform: translateX(-50%) scale(1.6); opacity: 0; }
+}
+.fd-splash-drop {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(230, 255, 248, 0.95) 0%, rgba(160, 220, 205, 0.5) 60%, transparent 100%);
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+  animation-name: fdSplashDrop;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
+}
+@keyframes fdSplashDrop {
+  0% { transform: translate(-50%, 0) scale(1); opacity: 0; }
+  15% { opacity: var(--op, 0.9); }
+  100% { transform: translate(calc(-50% + var(--dx)), var(--dy)) scale(0.3); opacity: 0; }
+}
+/* Couche de vague : silhouette ondulée (SVG en fond, posée en inline) tuilée horizontalement, qui
+   DÉFILE en boucle (anime `background-position-x` d'une tuile → bouclage sans couture). Hauteur /
+   couleur / vitesse / sens posés en inline (cf. FD_WAVE_LAYERS). */
+.fd-wave {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background-repeat: repeat-x;
+  background-position: 0 bottom;
+  pointer-events: none;
+  will-change: background-position;
+  animation-name: fdWaveScroll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes fdWaveScroll {
+  from { background-position-x: 0; }
+  to { background-position-x: var(--tile); }
+}
+/* Houle : large traînée diffuse vert-clair, fondue aux deux bouts, qui ondule + scintille
+   (réutilise le schéma `waterSway`/`waterShimmer` de Crochet, ici teinté vert). */
+.fd-swell {
+  position: absolute;
+  border-radius: 50%;
+  background: linear-gradient(to right, rgba(150, 220, 200, 0) 0%, rgba(170, 230, 210, 0.8) 50%, rgba(150, 220, 200, 0) 100%);
+  filter: blur(7px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation-name: waterSway, waterShimmer;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-direction: alternate, alternate;
+}
+/* Crête d'écume : fine bande blanche qui glisse (sway) et apparaît/s'efface (fade). */
+.fd-foam {
+  position: absolute;
+  height: 0.8vh;
+  border-radius: 50%;
+  background: linear-gradient(to right, rgba(220, 255, 245, 0) 0%, rgba(230, 255, 250, 0.85) 50%, rgba(220, 255, 245, 0) 100%);
+  filter: blur(2px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation-name: waterSway, fdFoamFade;
+  animation-timing-function: ease-in-out, ease-in-out;
+  animation-iteration-count: infinite, infinite;
+  animation-direction: alternate, alternate;
+}
+@keyframes fdFoamFade {
+  from { opacity: 0; }
+  to { opacity: 0.7; }
+}
+/* Embrun : gouttelette claire qui s'élève de la mer en dérivant puis retombe (opacité). */
+.fd-spray {
+  position: absolute;
+  bottom: 8vh;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(220, 255, 245, 0.95) 0%, rgba(150, 220, 200, 0.5) 55%, rgba(150, 220, 200, 0) 100%);
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation-name: fdSpray;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+@keyframes fdSpray {
+  0% { transform: translate(0, 0) scale(1); opacity: 0; }
+  18% { opacity: var(--op); }
+  100% { transform: translate(var(--drift), -22vh) scale(0.4); opacity: 0; }
+}
+/* Pluie battante : conteneur + gouttes (traits dégradés clairs) qui tombent en diagonale (keyframe
+   `caRain` partagé avec `castleAssault`). */
+.fd-rain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.fd-raindrop {
+  position: absolute;
+  top: 0;
+  border-radius: 0 0 40% 40%;
+  background: linear-gradient(to bottom, rgba(190, 230, 220, 0) 0%, rgba(205, 245, 235, 0.9) 100%);
+  will-change: transform;
+  animation-name: caRain;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+/* Éclair verdâtre : voile qui illumine la scène depuis le haut (double-clignotement). Monté avec
+   key={flash} → joué une seule fois à chaque incrément du compteur. */
+.fd-lightning {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0;
+  background: radial-gradient(120% 95% at 50% 0%, rgba(200, 255, 235, 0.9) 0%, rgba(120, 220, 190, 0.5) 30%, rgba(90, 180, 160, 0) 62%);
+  animation: caLightning 0.7s ease-out 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* On fige houle / écume / embruns / pluie / tangage et on masque l'éclair (le timer ne démarre
+     pas). La mer figée + le navire restent visibles. */
+  .fd-cloud,
+  .fd-wave,
+  .fd-swell,
+  .fd-foam,
+  .fd-spray,
+  .fd-raindrop,
+  .fd-ship,
+  .fd-ship-sink {
+    animation: none !important;
+  }
+  .fd-lightning {
     opacity: 0;
   }
 }
@@ -6696,4 +7197,223 @@ body {
   /* La traversée du tigre ne se déclenche pas en reduced-motion (minuterie non lancée). */
   .jungle-tiger-walk,
   .jungle-tiger { animation: none !important; }
+}
+
+/* ============================================================================
+   Décor permanent : la CASSETTE VHS du Seigneur des clés (le Gardien d'Atmosfear).
+   Base sobre — fond NOIR + chronomètre MM:SS en haut, centré. ============= */
+.atmosfear-decor {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  overflow: hidden;
+}
+
+/* Le chronomètre MM:SS, en haut et centré dans la colonne. */
+.atmosfear-timer {
+  position: absolute;
+  top: 4.5vh;
+  /* `left` posé en inline (décalé selon le côté pour compenser le débordement -10 % de la colonne). */
+  transform: translateX(-50%);
+  display: flex;
+  align-items: baseline;
+  gap: 0.04em;
+  font-family: "EvanstonTavern", "Courier New", monospace;
+  font-size: clamp(2.4rem, 6vw, 4.6rem);
+  font-weight: 300;
+  line-height: 1;
+  color: #4b4e7c;
+  letter-spacing: 0.06em;
+  text-shadow: 0 0 18px rgba(75, 78, 124, 0.55);
+  white-space: nowrap;
+}
+/* Chaque chiffre occupe une case de largeur fixe et centrée → MM et SS ne frémissent pas à
+   chaque tick (la police n'a pas de chiffres à chasse fixe, d'où la case manuelle). */
+.atmosfear-digit {
+  display: inline-block;
+  width: 0.62em;
+  text-align: center;
+}
+.atmosfear-colon {
+  /* Le deux-points légèrement remonté pour un meilleur centrage optique. */
+  transform: translateY(-0.06em);
+}
+
+/* La LUNE, accrochée à GAUCHE du minuteur (sans décaler les chiffres : posée en absolu hors du
+   flux, son bord droit calé sur le bord gauche du bloc). Disque clippé en cercle ; le `drop-shadow`
+   ne nimbe que la partie EFFECTIVEMENT éclairée (le croissant), pas le disque entier. */
+.atmosfear-moon {
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  margin-right: 0.5em;
+  transform: translateY(-50%);
+  width: 0.82em;
+  height: 0.82em;
+  border-radius: 50%;
+  background: #000; /* disque noir derrière → la face sombre est un vrai disque (donne du relief) */
+  overflow: hidden; /* clippe la moitié + le terminateur au cercle de la lune */
+  filter: drop-shadow(0 0 0.3em rgba(85, 140, 244, 0.6)); /* halo épousant la partie éclairée */
+}
+/* Moitié GAUCHE éclairée (la base de la phase). */
+.atmosfear-moon-half {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: #558cf4;
+}
+/* Terminateur : cercle plein centré, aplati horizontalement (scaleX inline) → ellipse au bord
+   courbe. Couleur posée inline (noire pour ronger en croissant, bleue pour compléter en gibbeuse). */
+.atmosfear-moon-term {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  transform-origin: 50% 50%;
+  transition: transform 1s linear; /* lisse le pas d'une seconde */
+}
+@media (prefers-reduced-motion: reduce) {
+  .atmosfear-moon-term {
+    transition: none;
+  }
+}
+
+/* Rangée de PETITES FLAMMES alignées (sprite `.fire-flame`), réparties sur toute la largeur,
+   posée juste AU-DESSUS de la barre d'objectif. Le décalage depuis le bas (`bottom`) doit dégager
+   la `bottom-bar` (hauteur dépendant du contenu) → valeur à ajuster ici. */
+.atmosfear-flames {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 12rem; /* au-dessus de la barre d'objectif (réglable) */
+  height: 8vh;
+  pointer-events: none;
+  opacity: 0; /* masquée par défaut ; visible une minute sur deux (alterne avec les bougies) */
+  transition: opacity 1.5s ease-in-out; /* cross-fade de l'alternance */
+}
+/* Rangée de BOUGIES (candles.gif) : même emplacement (bottom) que les flammes, bas aligné. Le gif
+   (576×384) a son contenu sur ~280 px à gauche (x 58→337) puis un grand vide transparent à droite ;
+   on superpose donc des copies qui CHEVAUCHENT (marge négative) pour rapprocher les groupes : chaque
+   image avance de ~la largeur du contenu (≈10,2 vh à hauteur 14 vh) au lieu de ses 21 vh. Affichée en
+   permanence pour l'instant. */
+.atmosfear-candles {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 12rem; /* même ligne que les flammes */
+  height: 18.7vh;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0; /* visible une minute sur deux (alterne avec les flammes) */
+  transition: opacity 1.5s ease-in-out; /* cross-fade de l'alternance */
+}
+/* Camp visible du moment (bougies OU flammes) : opacité 1. */
+.atmosfear-candles.is-shown,
+.atmosfear-flames.is-shown {
+  opacity: 1;
+}
+.atmosfear-candle-img {
+  height: 100%;
+  width: auto;
+  flex: 0 0 auto;
+  margin-right: -14.4vh; /* chevauche le vide droit du gif → groupes rapprochés (lié à height:18.7vh) */
+  transform-origin: bottom center; /* la rotation aléatoire (inline) pivote sur la base des bougies */
+  filter: sepia(0.85) saturate(3) hue-rotate(-18deg) brightness(1.05); /* teinte la cire en jaune orangé */
+  transition: transform 1s linear; /* la « fonte » (descente dans le sol) suit l'objectif en douceur */
+}
+/* Décale la rangée vers la gauche du padding transparent gauche du gif (≈58 px ≈ 2,8 vh à 18,7 vh). */
+.atmosfear-candle-img:first-child {
+  margin-left: -2.8vh;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Bascule instantanée (pas de cross-fade) et sprite de feu figé. */
+  .atmosfear-candles,
+  .atmosfear-flames {
+    transition: none;
+  }
+  .atmosfear-flames .fire-flame {
+    animation: none;
+  }
+}
+
+/* ============================================================================
+   Décor permanent : l'antre « Shiny / Bling Bling » de Tamatoa (Vaiana). Fond NOIR sur lequel
+   défilent vers la DROITE plein de triangles jaunes floutés et brillants. */
+.tamatoa-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #000;
+}
+/* Enveloppe de défilement : translation horizontale gauche → droite (le triangle est l'enfant). */
+.tamatoa-tri-scroll {
+  position: absolute;
+  left: 0;
+  will-change: transform;
+  animation-name: tamatoaScroll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes tamatoaScroll {
+  from { transform: translateX(-16vw); }
+  to { transform: translateX(116vw); }
+}
+/* Le petit triangle jaune flouté (taille / couleur / rotation fixe / flou+halo / opacité posés en inline). Il
+   SCINTILLE (opacité qui pulse jusqu'à `--op`) pour un effet bling-bling flashy. */
+.tamatoa-tri {
+  display: block;
+  /* Triangle aux sommets arrondis = SVG (backgroundImage posé en inline), étiré à la taille de l'élément. */
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: var(--op, 0.8);
+  animation-name: tamatoaTwinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes tamatoaTwinkle {
+  from { opacity: calc(var(--op, 0.8) * 0.25); }
+  to { opacity: var(--op, 0.8); }
+}
+/* Vignette : coins assombris pour renforcer l'effet grotte. */
+.tamatoa-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 50%, transparent 45%, rgba(0, 0, 0, 0.65) 100%);
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Triangles figés (ni défilement ni scintillement ; la rotation est déjà fixe). */
+  .tamatoa-tri-scroll,
+  .tamatoa-tri {
+    animation: none;
+  }
+}
+
+/* Animation de passage « drop » : un objet (Tamatoa : hameçon / Te Fiti) tombe LENTEMENT et tout
+   droit du haut vers le bas, légèrement incliné (--tilt). Joué une fois par passage. */
+.prop-drop {
+  position: absolute;
+  top: 0;
+  width: auto;
+  will-change: transform;
+  animation-name: propDrop;
+  animation-timing-function: linear;
+  animation-iteration-count: 1;
+  animation-fill-mode: forwards;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.5));
+}
+@keyframes propDrop {
+  from { transform: translateY(-28vh) rotate(var(--tilt, 0deg)); }
+  to { transform: translateY(128vh) rotate(var(--tilt, 0deg)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .prop-drop { animation: none; }
 }

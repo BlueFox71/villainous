@@ -4,6 +4,7 @@ import { useStatsStore, type VillainStats } from '../store/statsStore'
 import { usePlayerStore, GENERIC_AVATAR_COLORS, VILLAIN_AVATAR_COLORS } from '../store/playerStore'
 import { villainPortrait } from '../villainArt'
 import { VILLAIN_COLOR } from '../villainColors'
+import { byRelease } from '../villainOrder'
 import { Scroller } from '../components/Scroller'
 import { PlayerAvatar, Avatar } from '../components/PlayerAvatar'
 import { playProfileHover, playHover } from '../sfx'
@@ -140,10 +141,11 @@ export function Profile({ onBack }: Props) {
   const setAvatarVillain = usePlayerStore((s) => s.setAvatarVillain)
   const setAvatarColor = usePlayerStore((s) => s.setAvatarColor)
 
-  const villains = Object.entries(VILLAIN_REGISTRY) as [
+  // Vilains dans l'ordre de SORTIE (comme la galerie), pour l'avatar et les stats.
+  const villains = (Object.entries(VILLAIN_REGISTRY) as [
     VillainKey,
     (typeof VILLAIN_REGISTRY)[VillainKey],
-  ][]
+  ][]).sort(([a], [b]) => byRelease(a, b))
 
   // Couleur thématique du vilain survolé (minuscule, pour matcher les pastilles
   // de la palette qui sont normalisées en minuscules).

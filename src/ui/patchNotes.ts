@@ -9,6 +9,20 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.98',
+    date: '2026-06-30',
+    title: 'Nouveaux décors : Seigneur des clés, Tamatoa, Davy Jones + nouveau vilain La Bonne Fée',
+    changes: [
+      '**Décor d’arrière-plan** pour **Le Seigneur des clés** (le Gardien d’*Atmosfear*) : sa **cassette VHS** — fond noir, un **chronomètre** MM:SS en haut (synchronisé au temps de la partie), précédé d’une **lune** dont la phase suit ta **progression d’objectif** (fin croissant → pleine lune). En bas, une **rangée de bougies** et un **mur de petites flammes** qui **alternent** toutes les minutes : les bougies **fondent** et les flammes **grandissent** à mesure que tu approches de la victoire. **Animation** : une **pluie de clés** colorées.',
+      '**Décor d’arrière-plan** pour **Tamatoa** (*Vaiana*) : son antre **« Shiny / Bling Bling »** — sur fond noir, une nuée de **triangles dorés** floutés et brillants qui **scintillent** en défilant lentement vers la droite. **Animation** : son trésor qui tombe du ciel — l’**hameçon de Maui** ou **Te Fiti**.',
+      '**Décor d’arrière-plan** pour **Davy Jones** (*Pirates des Caraïbes*) : une **mer démontée** sous un **ciel d’orage** vert-sarcelle. La **houle** ondule et l’**écume** moutonne en bas de l’écran, une **tempête de pluie** battante tombe en diagonale avec des **embruns**, des **éclairs** verdâtres illuminent la scène par moments, et le **Hollandais Volant** tangue et roule au centre.',
+      'Nouveau vilain jouable : **La Bonne Fée** (la Marraine de *Shrek 2*). **Objectif** : amener **le Prince Charmant et Fiona (sous l’effet de ses deux potions) à la Salle de Bal**, puis jouer **« Embrasse-la tout de suite ! »** pour gagner.',
+      'Elle ne **vainc** aucun Héros : elle les **transforme** (en Meuble / en Colombe → Force 0) puis les **range** avec « Nettoyage de fond ». **Shrek** (Force 5) **bloque** la victoire tant qu’il est là.',
+      'Tout son deck est en place : Une petite chanson, l’Atelier de potions (Filtre d’amour, Heureux pour toujours), la Baguette (potions moins chères), Harold & Lillian (bloque les Objets), Humainement beau (protège un Héros), et ses Conditions jouables au tour adverse.',
+      '**Décor de La Bonne Fée** : sa **magie** qui retombe — des volutes de **fumée texturée** qui tombent du haut en dérivant, sur un fond violacé. La fumée **change de couleur** (violet → magenta → rouge) **toutes les minutes**, et à chaque bascule une **lumière blanc-bleu** s’illumine derrière elle. Une **fiole de potion** (ou sa **baguette**) tombe du haut **toutes les 30 s**, et de temps en temps une **pluie de poussière d’étoiles** scintillante traverse l’écran.',
+    ],
+  },
+  {
     version: '0.97',
     date: '2026-06-29',
     title: 'Correctif : vilains partagés visibles pour tous',

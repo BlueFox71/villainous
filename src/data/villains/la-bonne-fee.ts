@@ -27,7 +27,7 @@ const img = (f: string) => `/cards/la-bonne-fee/${f}`
 
 export const laBonneFee: VillainDef = {
   id: 'la-bonne-fee',
-  name: 'La Bonne Fée',
+  name: 'Marraine la Bonne Fée',
   objective: {
     type: 'KISS_AT_BALL',
     ballroomId: 'salle-de-bal',

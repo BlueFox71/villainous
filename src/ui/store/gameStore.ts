@@ -136,7 +136,7 @@ export const VILLAIN_REGISTRY = {
   davyJones: { def: davyJones, cards: davyJonesCards, label: 'Davy Jones' },
   tamatoa: { def: tamatoa, cards: tamatoaCards, label: 'Tamatoa' },
   teamRocket: { def: teamRocket, cards: teamRocketCards, label: 'Team Rocket' },
-  laBonneFee: { def: laBonneFee, cards: laBonneFeeCards, label: 'La Bonne Fée' },
+  laBonneFee: { def: laBonneFee, cards: laBonneFeeCards, label: 'Marraine la Bonne Fée' },
 } as const
 
 /** Vilains « collaboration » (hors univers Disney) — éditables/clonables dans l'Atelier. */
@@ -735,6 +735,8 @@ interface GameStore {
   resolveTypeChoice: (cardType: import('../../engine/types').CardType) => void
   /** Le Grand Génie du Mal : choisit de piocher (`'draw'`) ou gagner du Pouvoir (`'power'`). */
   resolveDrawOrGainPower: (choice: 'draw' | 'power') => void
+  /** Infiltration : la cible perd du Pouvoir (`'lose'`) ou défausse la carte `instanceId`. */
+  resolveInfiltration: (payload: { choice: 'lose' } | { choice: 'discard'; instanceId: string }) => void
   resolvePowerOrRacerBack: (choice: 'power' | 'racer') => void
   /** Sa Sucrerie — Taffyta : reculer le Pilote de 2 (`'racer-back'`) ou action Jouer une carte (`'play-card'`). */
   resolveTaffytaChoice: (choice: 'racer-back' | 'play-card') => void
@@ -1329,6 +1331,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_TYPE_CHOICE', cardType }),
   resolveDrawOrGainPower: (choice) =>
     get().submit({ type: 'RESOLVE_DRAW_OR_GAIN_POWER', choice }),
+  resolveInfiltration: (payload) =>
+    get().submit({ type: 'RESOLVE_INFILTRATION', ...payload }),
   resolvePowerOrRacerBack: (choice) =>
     get().submit({ type: 'RESOLVE_POWER_OR_RACER_BACK', choice }),
   resolveTaffytaChoice: (choice) =>

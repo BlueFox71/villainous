@@ -120,8 +120,6 @@ import { Showcase } from './components/Showcase'
 import { TestFateBar } from './components/TestFateBar'
 import { TestChecklist } from './components/TestChecklist'
 import { VillainPortraitPicker } from './components/VillainPortraitPicker'
-import { PortraitEditorModal } from './components/PortraitEditorModal'
-import { VillainColorModal } from './components/VillainColorModal'
 import { CardPicker } from './components/CardPicker'
 import { CardFlights, type CardFlight, type FlightRect } from './components/CardFlights'
 import { OpeningDeal, type DealCard, DEAL_FLY_IN } from './components/OpeningDeal'
@@ -131,6 +129,7 @@ import { GameTimer } from './components/GameTimer'
 import { TurnSplash } from './components/TurnSplash'
 import { BackgroundAnimation } from './components/BackgroundAnimation'
 import { VillainDecor } from './components/VillainDecor'
+import { objectiveScore } from '../ai/heuristicBot'
 import { villainAnimation } from './villainAnimations'
 import { fireSurprise, villainHasSurprise } from './surpriseBus'
 import { villainPresentation } from './villainArt'
@@ -771,6 +770,58 @@ function DrawOrGainPowerModal({
   )
 }
 
+function InfiltrationModal({
+  hand,
+  lose,
+  power,
+  onChoose,
+}: {
+  hand: CardInstance[]
+  lose: number
+  power: number
+  onChoose: (payload: { choice: 'lose' } | { choice: 'discard'; instanceId: string }) => void
+}) {
+  const def = getCardDef('infiltration')
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+      <div className="flex w-[34rem] max-w-[94vw] flex-col gap-4 rounded-2xl border border-white/15 bg-[#15101f] p-6 shadow-2xl">
+        <h2 className="text-center text-lg font-bold text-amber-200">{def?.name ?? 'Infiltration'}</h2>
+        <p className="text-center text-sm text-white/80">
+          Défaussez une carte de votre main OU perdez {lose} jetons Pouvoir.
+        </p>
+        <div className="flex flex-wrap justify-center gap-2">
+          {hand.map((c) => {
+            const cd = getCardDef(c.cardId)
+            return (
+              <button
+                key={c.instanceId}
+                type="button"
+                onClick={() => onChoose({ choice: 'discard', instanceId: c.instanceId })}
+                title={`Défausser ${c.name}`}
+                className="group flex w-24 flex-col items-center gap-1 rounded-lg border border-sky-400/50 bg-sky-500/10 p-1 hover:bg-sky-500/25"
+              >
+                {cd?.image ? (
+                  <img src={cd.image} alt={c.name} className="w-full rounded border border-white/15" />
+                ) : (
+                  <span className="py-4 text-xs text-white/80">{c.name}</span>
+                )}
+                <span className="text-[10px] text-sky-100">Défausser</span>
+              </button>
+            )
+          })}
+        </div>
+        <button
+          type="button"
+          onClick={() => onChoose({ choice: 'lose' })}
+          className="mx-auto rounded-lg border border-amber-400/60 bg-amber-500/20 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-500/30"
+        >
+          Perdre {Math.min(power, lose)} Pouvoir{power < lose ? ` (il vous en reste ${power})` : ''}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function MoveOrActivateModal({
   canMove,
   canActivate,
@@ -1077,6 +1128,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveDeckPeek = useGameStore((s) => s.resolveDeckPeek)
   const resolveTypeChoice = useGameStore((s) => s.resolveTypeChoice)
   const resolveDrawOrGainPower = useGameStore((s) => s.resolveDrawOrGainPower)
+  const resolveInfiltration = useGameStore((s) => s.resolveInfiltration)
   const resolvePowerOrRacerBack = useGameStore((s) => s.resolvePowerOrRacerBack)
   const resolveTaffytaChoice = useGameStore((s) => s.resolveTaffytaChoice)
   const resolveAigreBill = useGameStore((s) => s.resolveAigreBill)
@@ -1358,6 +1410,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   }
   // Mode test : vilain choisi dans le select pour prévisualiser son animation (n'importe lequel).
   const [testVillain, setTestVillain] = useState<VillainKey>(humanVillainKey)
+  // Mode test — Seigneur des clés : surcharge de la progression d'objectif (0→100) par côté pour
+  // tester la phase de lune du décor `atmosfear`. `null` = utiliser le % réel de l'objectif.
+  const [atmosfearObjOverride, setAtmosfearObjOverride] = useState<{ left: number | null; right: number | null }>({
+    left: null,
+    right: null,
+  })
   const [mapModalOpen, setMapModalOpen] = useState(false)
   // Mère Gothel — Couronne : instanceId en attente de confirmation de défausse (→ 1 Confiance).
   const [crownConfirm, setCrownConfirm] = useState<string | null>(null)
@@ -1376,6 +1434,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // l'overlay (cartes + rectangles) ; `dealHiddenIds` masque dans l'éventail les cartes
   // encore en vol (révélées une à une à leur atterrissage).
   const [openingDealDone, setOpeningDealDone] = useState(false)
+  // Le chrono de partie « tourne » : même condition que le `GameTimer`. Passé au décor du Seigneur
+  // des clés pour que son minuteur démarre EXACTEMENT en même temps (chacun capture Date.now dans
+  // son effet au même rendu où `running` passe à vrai).
+  const gameTimerRunning = state.status === 'PLAYING' && startRollDone && openingDealDone
   const [dealOverlay, setDealOverlay] = useState<{
     key: number
     cards: DealCard[]
@@ -1497,10 +1559,6 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const [pawnEdit, setPawnEdit] = useState<{ villain: VillainKey; size: number } | null>(null)
   // Message de retour du bouton « Sauvegarder la taille du pion ».
   const [savePawnMsg, setSavePawnMsg] = useState<string | null>(null)
-  // MODE TEST : ouverture de l'éditeur de portrait (collaborateurs uniquement).
-  const [portraitEdit, setPortraitEdit] = useState(false)
-  // MODE TEST : ouverture de l'éditeur de couleur du méchant (tous les vilains).
-  const [colorEdit, setColorEdit] = useState(false)
   // Écrit `pawnHeightPx` dans le fichier du vilain (via l'endpoint dev de Vite).
   const savePawnSize = async () => {
     if (!pawnEdit) return
@@ -2330,6 +2388,22 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       if (seats[pdgp.playerIndex] === 'bot') {
         const choice = state.players[pdgp.playerIndex].hand.length >= 3 ? 'power' : 'draw'
         const timer = setTimeout(() => resolveDrawOrGainPower(choice), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Infiltration (Fatalité subie) : défausser une carte OU perdre du Pouvoir. Bot →
+    // garde sa main et perd le Pouvoir si possible, sinon défausse la carte la moins
+    // chère (cf. l'ancien auto-résolu) ; humain → modale.
+    const pInfil = state.pendingInfiltration
+    if (pInfil) {
+      if (seats[pInfil.playerIndex] === 'bot') {
+        const bp = state.players[pInfil.playerIndex]
+        const payload: { choice: 'lose' } | { choice: 'discard'; instanceId: string } =
+          bp.power >= pInfil.lose
+            ? { choice: 'lose' }
+            : { choice: 'discard', instanceId: [...bp.hand].sort((a, b) => (a.cost ?? 0) - (b.cost ?? 0))[0].instanceId }
+        const timer = setTimeout(() => resolveInfiltration(payload), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
       return
@@ -3645,7 +3719,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire])
+  }, [seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire])
 
   // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
   // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
@@ -5332,6 +5406,18 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     else startDefeatBuildup()
   }
 
+  // Progression d'objectif (0→100) par côté, pour la phase de lune du décor du Seigneur des clés.
+  // Côté joueur = siège 0 (colonne gauche), adversaire = siège 1 (colonne droite). En mode test,
+  // une surcharge manuelle (`atmosfearObjOverride`) prend le pas sur le % réel.
+  const atmosfearObjReal = {
+    left: Math.round(objectiveScore(state.players[0]) * 100),
+    right: Math.round(objectiveScore(state.players[1]) * 100),
+  }
+  const atmosfearObjPct = {
+    left: atmosfearObjOverride.left ?? atmosfearObjReal.left,
+    right: atmosfearObjOverride.right ?? atmosfearObjReal.right,
+  }
+
   return (
     <div
       className={`villain-bg isolate flex flex-col bg-[#0a0814] text-white ${
@@ -5361,11 +5447,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             gouttière `px-3` (sur un item de grille étiré, une marge négative AGRANDIT la
             boîte de ce côté) → on ne voit plus le trait qui délimitait le décor. */}
         <div className="relative overflow-hidden" style={{ marginLeft: '-10%' }}>
-          <VillainDecor villain={humanVillainKey} side="left" />
+          <VillainDecor villain={humanVillainKey} side="left" objectivePct={atmosfearObjPct.left} timerRunning={gameTimerRunning} />
         </div>
         <div className="hidden lg:block" />
         <div className="relative overflow-hidden" style={{ marginRight: '-10%' }}>
-          <VillainDecor villain={opponentVillainKey} side="right" />
+          <VillainDecor villain={opponentVillainKey} side="right" objectivePct={atmosfearObjPct.right} timerRunning={gameTimerRunning} />
         </div>
       </div>
       {/* Décor animé : juste au-dessus du fond, derrière toute l'UI. Visible là où
@@ -5486,6 +5572,31 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                         >
                           ✨ Surprise{surpCd != null ? ` — ${surpCd}s` : ''}
                         </button>
+                        {/* Seigneur des clés : surcharge de la progression d'objectif (0→100) pour
+                            tester la phase de lune du décor. Reset = revenir au % réel. */}
+                        {vk === 'seigneurCles' && (
+                          <span className="ml-1 flex items-center gap-1 text-xs text-white/70">
+                            <span className="shrink-0">Obj.&nbsp;%</span>
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={atmosfearObjPct[busSide]}
+                              onChange={(e) => {
+                                const v = Math.max(0, Math.min(100, Math.round(Number(e.target.value) || 0)))
+                                setAtmosfearObjOverride((o) => ({ ...o, [busSide]: v }))
+                              }}
+                              className="w-14 rounded border border-white/20 bg-black/40 px-1 py-0.5 text-white/90"
+                            />
+                            <button
+                              onClick={() => setAtmosfearObjOverride((o) => ({ ...o, [busSide]: null }))}
+                              title="Revenir au pourcentage réel de l'objectif"
+                              className="rounded border border-white/20 px-1.5 py-0.5 text-white/80 hover:bg-white/10"
+                            >
+                              ↺
+                            </button>
+                          </span>
+                        )}
                       </div>
                     )
                   })}
@@ -5556,15 +5667,6 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                     💡 Actions
                   </button>
                   <button
-                    onClick={() => setPortraitEdit(true)}
-                    title="Éditer le portrait d'un vilain collaborateur (cadre + titre)"
-                    className={`rounded border px-2 py-0.5 hover:bg-lime-500/10 ${
-                      portraitEdit ? 'border-lime-400 bg-lime-400/15 text-lime-200' : 'border-lime-400/60 text-lime-200'
-                    }`}
-                  >
-                    🖼 Portrait
-                  </button>
-                  <button
                     onClick={() => {
                       const key = villainKeyOf(user.villain)
                       setPawnEdit({ villain: key, size: user.pawnHeightPx })
@@ -5576,15 +5678,6 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                     }`}
                   >
                     ♟ Pion
-                  </button>
-                  <button
-                    onClick={() => setColorEdit(true)}
-                    title="Éditer la couleur d'un vilain (pipette sur le dos de carte)"
-                    className={`rounded border px-2 py-0.5 hover:bg-lime-500/10 ${
-                      colorEdit ? 'border-lime-400 bg-lime-400/15 text-lime-200' : 'border-lime-400/60 text-lime-200'
-                    }`}
-                  >
-                    🎨 Couleur méchant
                   </button>
                 </div>
               </div>
@@ -7162,6 +7255,16 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           power={state.pendingDrawOrGainPower.power}
           cardId={state.pendingDrawOrGainPower.cardId}
           onChoose={resolveDrawOrGainPower}
+        />
+      )}
+
+      {/* La Bonne Fée — Infiltration : l'humain (cible) choisit défausser une carte OU perdre du Pouvoir. */}
+      {state.pendingInfiltration && state.pendingInfiltration.playerIndex === HUMAN && (
+        <InfiltrationModal
+          hand={state.players[HUMAN].hand}
+          lose={state.pendingInfiltration.lose}
+          power={state.players[HUMAN].power}
+          onChoose={resolveInfiltration}
         />
       )}
 
@@ -9318,22 +9421,6 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             ✕ Fermer
           </button>
         </div>
-      )}
-
-      {/* MODE TEST : éditeur de portrait (collaborateurs) — cadre + titre, puis remplacement. */}
-      {testMode && portraitEdit && (
-        <PortraitEditorModal
-          onClose={() => setPortraitEdit(false)}
-          initialVillain={villainKeyOf(user.villain)}
-        />
-      )}
-
-      {/* MODE TEST : éditeur de couleur du méchant (pipette sur le dos de carte). */}
-      {testMode && colorEdit && (
-        <VillainColorModal
-          onClose={() => setColorEdit(false)}
-          initialVillain={villainKeyOf(user.villain)}
-        />
       )}
 
       {/* MODE TEST : aperçu d'un écran de fin (les trois boutons ferment l'aperçu). */}

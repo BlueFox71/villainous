@@ -8,6 +8,8 @@ interface Props {
   onClose: () => void
   /** Vilain ciblé à l'ouverture. */
   initialVillain?: VillainKey
+  /** Verrouille sur `initialVillain` (cache le sélecteur) — édition d'un vilain précis. */
+  lockVillain?: boolean
 }
 
 /** Composante 0–255 → hex 2 chiffres. */
@@ -20,7 +22,7 @@ const toHex = (r: number, g: number, b: number) => `#${hx(r)}${hx(g)}${hx(b)}`.t
  * extraire la couleur, puis de valider (réécrit `VILLAIN_COLOR` dans villainColors.ts).
  * Tous les vilains sont éditables.
  */
-export function VillainColorModal({ onClose, initialVillain }: Props) {
+export function VillainColorModal({ onClose, initialVillain, lockVillain }: Props) {
   const [villain, setVillain] = useState<VillainKey>(
     initialVillain && VILLAIN_KEYS.includes(initialVillain) ? initialVillain : VILLAIN_KEYS[0],
   )
@@ -102,15 +104,21 @@ export function VillainColorModal({ onClose, initialVillain }: Props) {
       >
         <div className="flex flex-wrap items-center gap-3">
           <span className="text-lg font-black text-lime-200">🎨 Couleur du méchant</span>
-          <select
-            value={villain}
-            onChange={(e) => changeVillain(e.target.value as VillainKey)}
-            className="rounded border border-white/25 bg-black/40 px-2 py-1 text-sm text-white"
-          >
-            {VILLAIN_KEYS.map((k) => (
-              <option key={k} value={k}>{VILLAIN_REGISTRY[k].def.name}</option>
-            ))}
-          </select>
+          {lockVillain ? (
+            <span className="rounded border border-white/15 bg-black/40 px-2 py-1 text-sm text-white/80">
+              {def.name}
+            </span>
+          ) : (
+            <select
+              value={villain}
+              onChange={(e) => changeVillain(e.target.value as VillainKey)}
+              className="rounded border border-white/25 bg-black/40 px-2 py-1 text-sm text-white"
+            >
+              {VILLAIN_KEYS.map((k) => (
+                <option key={k} value={k}>{VILLAIN_REGISTRY[k].def.name}</option>
+              ))}
+            </select>
+          )}
           <button
             onClick={onClose}
             className="ml-auto rounded-lg border border-white/25 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"

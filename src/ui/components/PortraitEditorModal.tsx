@@ -25,6 +25,8 @@ interface Props {
   onClose: () => void
   /** Vilain ciblé à l'ouverture (rabattu sur un collaborateur si besoin). */
   initialVillain?: VillainKey
+  /** Verrouille sur `initialVillain` (cache le sélecteur) — édition d'un vilain précis. */
+  lockVillain?: boolean
   /** Présent → mode Atelier (vilain perso) au lieu du mode dev (vilains natifs). */
   custom?: CustomMode
 }
@@ -83,7 +85,7 @@ function drawTitle(ctx: CanvasRenderingContext2D, title: string, size: number) {
  * Seuls les portraits des collaborateurs sont éditables (les officiels ont déjà
  * leur cadre/titre).
  */
-export function PortraitEditorModal({ onClose, initialVillain, custom }: Props) {
+export function PortraitEditorModal({ onClose, initialVillain, lockVillain, custom }: Props) {
   const isCustom = !!custom
   // Liste des vilains éditables : ceux qui ont un créateur (collaboration). Vide en
   // mode Atelier (on encadre le portrait du vilain perso en cours).
@@ -181,6 +183,10 @@ export function PortraitEditorModal({ onClose, initialVillain, custom }: Props) 
           {isCustom ? (
             <span className="rounded border border-white/15 bg-black/40 px-2 py-1 text-sm text-white/80">
               {custom!.name}
+            </span>
+          ) : lockVillain ? (
+            <span className="rounded border border-white/15 bg-black/40 px-2 py-1 text-sm text-white/80">
+              {VILLAIN_REGISTRY[villain].def.name}
             </span>
           ) : (
             <select

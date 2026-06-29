@@ -6,8 +6,10 @@ import { playHeroHover, playHover, playHeroSelect } from '../sfx'
 import { VILLAIN_GUIDE } from '../villainGuide'
 import { villainDecor } from '../villainDecor'
 import { villainAnimationList } from '../villainAnimations'
-import { VILLAIN_PACKS } from '../villainPacks'
+import { VILLAIN_PACKS, villainCreator } from '../villainPacks'
 import { useFavoritesStore } from '../store/favoritesStore'
+import { useVillainOrderStore, orderRank } from '../store/villainOrderStore'
+import { DISNEY_RELEASE_ORDER, CREATOR_ORDER } from '../villainOrder'
 import { useStatsStore } from '../store/statsStore'
 import { useIsDesktopApp } from '../store/settingsStore'
 import { Scroller } from '../components/Scroller'
@@ -29,9 +31,10 @@ interface Props {
  */
 type Origin = 'Disney' | 'Collaborations'
 
-/** Catégories de vilains, dans leur ordre de SORTIE (les collaborations en dernier). */
+/** Catégories de vilains, dans leur ordre de SORTIE (les collaborations en dernier).
+ *  L'ordre vient de la source de vérité partagée `villainOrder.ts`. */
 const CATEGORIES: { title: Origin; villains: VillainKey[] }[] = [
-  { title: 'Disney', villains: ['princeJohn', 'maleficent', 'jafar', 'reineCoeur', 'crochet', 'ursula', 'hades', 'facilier', 'mechanteReine', 'scar', 'yzma', 'ratigan', 'patHibulaire', 'gothel', 'cruella', 'gaston', 'madameTremaine', 'seigneurTenebres', 'madameMim', 'syndrome', 'lotso', 'oogieBoogie', 'saSucrerie', 'shereKhan', 'davyJones', 'tamatoa'] },
+  { title: 'Disney', villains: DISNEY_RELEASE_ORDER },
   { title: 'Collaborations', villains: COLLAB_VILLAINS },
 ]
 
@@ -41,6 +44,8 @@ interface VillainMeta {
   name: string
   difficulty: number
   origin: Origin
+  /** Créateur (collaborations) : sépare les sous-sections « Jules » / « Alexis »… */
+  creator?: string
   /** Rang de sortie (ordre aplati des catégories : Disney puis Collaborations). */
   release: number
   /** A un décor d'arrière-plan permanent animé (dév). */
@@ -56,6 +61,7 @@ const ALL_VILLAINS: VillainMeta[] = CATEGORIES.flatMap((cat) =>
     name: VILLAIN_REGISTRY[key].def.name,
     difficulty: VILLAIN_GUIDE[key].difficulty,
     origin: cat.title,
+    creator: villainCreator(key),
     hasDecor: villainDecor(key) !== undefined,
     hasAnim: villainAnimationList(key).length > 0,
   })),
@@ -120,6 +126,17 @@ const ORIGIN_LABELS: Record<Origin, string> = {
   Disney: 'Disney / Pixar',
   Collaborations: 'Collaborations',
 }
+/** Sous-sections de Collaborations par créateur, dans l'ordre d'affichage souhaité
+ *  (`CREATOR_ORDER` partagé). Les créateurs hors liste suivent (ordre alpha) ; les
+ *  vilains sans créateur vont dans « Autres ». */
+const NO_CREATOR_LABEL = 'Autres'
+
+/** Clé de groupe d'un vilain pour le réordonnage : par origine, et par créateur au
+ *  sein des Collaborations (un vilain reste dans la sous-section de son créateur). */
+function groupKeyOf(meta: VillainMeta): string {
+  return meta.origin === 'Collaborations' ? `collab:${meta.creator ?? NO_CREATOR_LABEL}` : meta.origin
+}
+
 type SortKey = 'release' | 'difficulty' | 'name'
 const SORTS: { key: SortKey; label: string }[] = [
   { key: 'release', label: 'Sortie' },
@@ -195,9 +212,23 @@ export function VillainList({ onBack }: Props) {
   const [showUpcoming, setShowUpcoming] = useState(false)
   const favorites = useFavoritesStore((s) => s.favorites)
   const toggleFavorite = useFavoritesStore((s) => s.toggleFavorite)
+  // Ordre personnalisé des vilains (persistant) + mode « Modifier l'ordre ».
+  const customOrder = useVillainOrderStore((s) => s.order)
+  const setOrder = useVillainOrderStore((s) => s.setOrder)
+  const resetOrder = useVillainOrderStore((s) => s.reset)
+  const [reorderModeRaw, setReorderModeRaw] = useState(false)
+  // Vilain en cours de glisser-déposer (clé) et point d'insertion survolé (cible +
+  // côté), pour afficher une barre d'insertion plutôt qu'un surlignage de remplacement.
+  const [dragKey, setDragKey] = useState<string | null>(null)
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null)
+  const [dropSide, setDropSide] = useState<'before' | 'after'>('before')
   const stats = useStatsStore((s) => s.stats)
   const favSet = useMemo(() => new Set(favorites), [favorites])
   const isDesktopApp = useIsDesktopApp()
+  // La réorganisation est un outil de dév : neutralisée en mode application (exe réelle
+  // ou simulation). On DÉRIVE l'état effectif plutôt que de le synchroniser — ainsi tout
+  // le rendu (boutons, glisser-déposer, encadré) redevient inerte dès qu'on simule l'exe.
+  const reorderMode = reorderModeRaw && !isDesktopApp
   // Filtres « Développeur » (masqués en exe) : tri-état par fonctionnalité —
   // 'all' (les deux), 'yes' (a la fonctionnalité), 'no' (ne l'a pas).
   const [decorFilter, setDecorFilter] = useState<DevFilter>('all')
@@ -218,6 +249,7 @@ export function VillainList({ onBack }: Props) {
           name: v.name,
           difficulty: v.stars,
           origin: v.origin ?? 'Collaborations',
+          creator: v.creator,
           release: 10000 + i,
           hasDecor: false,
           hasAnim: false,
@@ -248,12 +280,16 @@ export function VillainList({ onBack }: Props) {
           (u) => (q === '' || u.name.toLowerCase().includes(q)) && (origins.size === 0 || origins.has(u.origin)),
         ).map((u) => ({ kind: 'upcoming', name: u.name, origin: u.origin, release: u.release, difficulty: Infinity, image: u.image }))
       : []
+    const rank = orderRank(customOrder)
+    const keyOf = (it: GridItem) => (it.kind === 'villain' ? it.meta.key : '')
     return [...real, ...upcoming].sort((a, b) => {
       if (sort === 'name') return a.name.localeCompare(b.name, 'fr')
       if (sort === 'difficulty') return a.difficulty - b.difficulty || a.release - b.release
-      return a.release - b.release
+      // « Sortie » : ordre personnalisé d'abord (vilains réordonnés à la main),
+      // puis ordre de sortie pour les vilains non encore placés (et les « à venir »).
+      return rank(keyOf(a)) - rank(keyOf(b)) || a.release - b.release
     })
-  }, [query, difficulties, origins, sort, onlyFavorites, playedFilter, favSet, stats, decorFilter, animFilter, showUpcoming, publishedMetas])
+  }, [query, difficulties, origins, sort, onlyFavorites, playedFilter, favSet, stats, decorFilter, animFilter, showUpcoming, publishedMetas, customOrder])
 
   const hasFilters =
     query.trim() !== '' ||
@@ -273,6 +309,45 @@ export function VillainList({ onBack }: Props) {
     setShowUpcoming(false)
     setDecorFilter('all')
     setAnimFilter('all')
+  }
+
+  // Entrer/sortir du mode « Modifier l'ordre des villains » : on remet le tri sur
+  // « Sortie » (sections) et on efface les filtres pour réordonner sur la vraie galerie.
+  const enterReorder = () => {
+    resetFilters()
+    setSort('release')
+    setReorderModeRaw(true)
+  }
+  const exitReorder = () => {
+    setReorderModeRaw(false)
+    setDragKey(null)
+    setDragOverKey(null)
+  }
+
+  // Glisser-déposer : insère le vilain `from` avant ou après le vilain `to` — uniquement
+  // au sein du MÊME groupe (origine, et créateur pour les Collaborations), pour conserver
+  // les sections (Disney/Pixar · Collaborations) et leurs sous-sections par créateur.
+  // Reconstruit l'ordre complet des vilains réels (ordre d'affichage courant) et le persiste.
+  const moveVillain = (from: string, to: string, side: 'before' | 'after') => {
+    if (from === to) return
+    const realItems = villains.filter((v): v is Extract<GridItem, { kind: 'villain' }> => v.kind === 'villain')
+    const fromItem = realItems.find((v) => v.meta.key === from)
+    const toItem = realItems.find((v) => v.meta.key === to)
+    if (!fromItem || !toItem || groupKeyOf(fromItem.meta) !== groupKeyOf(toItem.meta)) return
+    const keys = realItems.map((v) => v.meta.key)
+    keys.splice(keys.indexOf(from), 1)
+    const toIdx = keys.indexOf(to)
+    keys.splice(side === 'after' ? toIdx + 1 : toIdx, 0, from)
+    setOrder(keys)
+  }
+
+  // Place le vilain `from` en DERNIER d'un groupe (liste affichée d'une sous-section) —
+  // via la zone de dépôt en fin de grille.
+  const dropAtEnd = (from: string, list: GridItem[]) => {
+    const last = list
+      .filter((v): v is Extract<GridItem, { kind: 'villain' }> => v.kind === 'villain' && v.meta.key !== from)
+      .at(-1)
+    if (last) moveVillain(from, last.meta.key, 'after')
   }
 
   // Carte d'un élément de grille : vilain réel (cliquable) ou placeholder « à venir »
@@ -302,20 +377,60 @@ export function VillainList({ onBack }: Props) {
       )
     }
     const v = item.meta
+    // Mode réorganisation : la carte devient une poignée de glisser-déposer (pas de
+    // clic vers la fiche, pas de favori). Retour visuel : carte saisie estompée, cible
+    // survolée surlignée en vert.
+    const isDragging = reorderMode && dragKey === v.key
+    const showInsert = reorderMode && dragOverKey === v.key && dragKey !== null && dragKey !== v.key
     return (
       <button
         key={v.key}
         type="button"
-        onClick={(e) => { e.stopPropagation(); playHeroSelect(); setSelected(v.key) }}
-        onMouseEnter={playHeroHover}
-        className={`relative flex cursor-pointer flex-col gap-2 rounded-xl border p-3 text-left transition duration-200 hover:-translate-y-1 hover:scale-[1.03] hover:shadow-xl hover:shadow-black/40 ${
+        draggable={reorderMode}
+        onClick={(e) => {
+          e.stopPropagation()
+          if (reorderMode) return
+          playHeroSelect()
+          setSelected(v.key)
+        }}
+        onMouseEnter={reorderMode ? undefined : playHeroHover}
+        onDragStart={reorderMode ? () => setDragKey(v.key) : undefined}
+        onDragEnd={reorderMode ? () => { setDragKey(null); setDragOverKey(null) } : undefined}
+        onDragOver={reorderMode ? (e) => {
+          e.preventDefault()
+          // Côté d'insertion d'après la position horizontale du curseur dans la carte.
+          const rect = e.currentTarget.getBoundingClientRect()
+          const side: 'before' | 'after' = e.clientX < rect.left + rect.width / 2 ? 'before' : 'after'
+          if (dragOverKey !== v.key) setDragOverKey(v.key)
+          if (dropSide !== side) setDropSide(side)
+        } : undefined}
+        onDrop={reorderMode ? (e) => {
+          e.preventDefault()
+          if (dragKey) moveVillain(dragKey, v.key, dropSide)
+          setDragKey(null)
+          setDragOverKey(null)
+        } : undefined}
+        className={`relative flex flex-col gap-2 rounded-xl border p-3 text-left transition duration-200 ${
+          reorderMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer hover:-translate-y-1 hover:scale-[1.03] hover:shadow-xl hover:shadow-black/40'
+        } ${
           v.origin === 'Collaborations'
             ? 'border-sky-300/25 bg-sky-400/10 hover:border-sky-300/60 hover:bg-sky-400/20'
             : 'border-white/10 bg-white/5 hover:border-white/40 hover:bg-white/10'
-        }`}
+        } ${isDragging ? 'opacity-30' : ''}`}
       >
+        {/* Barre d'insertion verte : indique où le vilain glissé va se poser (avant/après
+            cette carte), pour ne pas donner l'impression d'un remplacement. */}
+        {showInsert && (
+          <span
+            aria-hidden
+            className={`pointer-events-none absolute inset-y-1 z-20 w-1 rounded-full bg-emerald-400 shadow-[0_0_8px_2px_rgba(52,211,153,0.7)] ${
+              dropSide === 'before' ? '-left-2.5' : '-right-2.5'
+            }`}
+          />
+        )}
         {/* Cœur favori : <span> cliquable (pas un <button> imbriqué) ; stopPropagation
-            pour ne pas ouvrir la fiche. */}
+            pour ne pas ouvrir la fiche. Masqué en mode réorganisation. */}
+        {!reorderMode && (
         <span
           role="button"
           aria-label={favSet.has(v.key) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
@@ -326,6 +441,7 @@ export function VillainList({ onBack }: Props) {
         >
           {favSet.has(v.key) ? '♥' : '♡'}
         </span>
+        )}
         <img
           src={villainPortrait(v.key)}
           alt={v.name}
@@ -353,17 +469,43 @@ export function VillainList({ onBack }: Props) {
   }
 
   // Grille de cartes pour une liste donnée (colonnes pilotées par le curseur).
-  const grid = (list: GridItem[]) => (
-    <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
-      {list.map(renderCard)}
-    </div>
-  )
+  // En mode réorganisation, une zone de dépôt « fin de liste » clôt chaque (sous-)section
+  // — identifiée par `groupKey` — pour pouvoir y déposer un vilain en dernier.
+  const grid = (list: GridItem[], groupKey?: string) => {
+    const endKey = groupKey ? `__end__:${groupKey}` : null
+    const overEnd = reorderMode && endKey !== null && dragOverKey === endKey && dragKey !== null
+    return (
+      <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+        {list.map(renderCard)}
+        {reorderMode && endKey && list.length > 0 && (
+          <div
+            onDragOver={(e) => { e.preventDefault(); if (dragOverKey !== endKey) setDragOverKey(endKey) }}
+            onDragLeave={() => { if (dragOverKey === endKey) setDragOverKey(null) }}
+            onDrop={(e) => {
+              e.preventDefault()
+              if (dragKey) dropAtEnd(dragKey, list)
+              setDragKey(null)
+              setDragOverKey(null)
+            }}
+            className={`flex min-h-[8rem] items-center justify-center rounded-xl border-2 border-dashed text-center text-xs transition ${
+              overEnd
+                ? 'border-emerald-400 bg-emerald-500/15 text-emerald-200'
+                : 'border-white/15 text-white/40'
+            }`}
+          >
+            Déposer ici<br />pour mettre en dernier
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="relative flex h-screen flex-col bg-[#0b0a12] text-white">
-      <header className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+      <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-white/10 px-4 py-3">
         <div className="flex items-center gap-3">
-          {/* Ouvre/ferme le volet des filtres. */}
+          {/* Ouvre/ferme le volet des filtres (masqué en mode réorganisation). */}
+          {!reorderMode && (
           <button
             type="button"
             onClick={() => setFiltersOpen((o) => !o)}
@@ -378,22 +520,47 @@ export function VillainList({ onBack }: Props) {
           >
             ☰ Filtres
           </button>
+          )}
           <h1 className="text-lg font-bold text-purple-200">Liste des villains</h1>
         </div>
-        <button
-          type="button"
-          onClick={onBack}
-          onMouseEnter={playHover}
-          className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"
-        >
-          ← Menu
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Réorganisation (outil de dév) : masqué en exe ET quand on simule le mode
+              application (`!isDesktopApp`). */}
+          {!isDesktopApp && (reorderMode ? (
+            <button
+              type="button"
+              onClick={exitReorder}
+              onMouseEnter={playHover}
+              className="rounded-lg border border-emerald-400/60 bg-emerald-500/20 px-3 py-1.5 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/30"
+            >
+              ✓ Enregistrer
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={enterReorder}
+              onMouseEnter={playHover}
+              className="rounded-lg border border-emerald-400/60 bg-emerald-500/20 px-3 py-1.5 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/30"
+            >
+              ↕ Modifier l'ordre des villains
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={onBack}
+            onMouseEnter={playHover}
+            className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"
+          >
+            ← Menu
+          </button>
+        </div>
       </header>
 
       <div className="flex min-h-0 flex-1">
         {/* Barre latérale repliable (bouton « ☰ Filtres ») : l'enveloppe anime sa LARGEUR
             (w-64 ↔ 0) en `overflow-hidden`, le contenu interne reste à largeur fixe pour ne
-            pas se déformer pendant la transition. */}
+            pas se déformer pendant la transition. Masquée en mode réorganisation. */}
+        {!reorderMode && (
         <div
           className={`hidden shrink-0 overflow-hidden border-white/10 transition-[width,border] duration-300 ease-in-out md:block ${
             filtersOpen ? 'w-64 border-r' : 'w-0 border-r-0'
@@ -607,6 +774,18 @@ export function VillainList({ onBack }: Props) {
             </div>
           )}
 
+          {/* Compteur de vilains (résultat des filtres) — mis en valeur. */}
+          <div className="flex items-center gap-3 rounded-lg border border-amber-300/30 bg-amber-400/10 px-3 py-2">
+            <span className="text-3xl font-extrabold leading-none text-amber-300 tabular-nums">
+              {villains.length}
+            </span>
+            <span className="text-[11px] font-bold uppercase leading-tight tracking-[0.15em] text-amber-200/80">
+              vilain{villains.length > 1 ? 's' : ''}
+              <br />
+              affiché{villains.length > 1 ? 's' : ''}
+            </span>
+          </div>
+
           {hasFilters && (
             <button
               type="button"
@@ -619,13 +798,42 @@ export function VillainList({ onBack }: Props) {
           )}
         </aside>
         </div>
+        )}
 
         {/* Grille des vilains (filtrée + triée). */}
         <Scroller element="main" className="min-h-0 flex-1 p-6">
           <div className="mx-auto flex max-w-6xl flex-col gap-6">
-            <p className="text-xs text-white/40">
-              {villains.length} vilain{villains.length > 1 ? 's' : ''}
-            </p>
+            {/* Encadré vert du mode « Modifier l'ordre des villains ». */}
+            {reorderMode && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-400/60 bg-emerald-500/10 px-4 py-3">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-bold text-emerald-200">↕ Modifier l'ordre des villains</span>
+                  <span className="text-xs text-emerald-100/70">
+                    Glisse un vilain avec la souris pour le déposer à côté d'un autre. Le réordonnage
+                    se fait à l'intérieur de chaque section (Disney / Pixar · Collaborations) et,
+                    pour les Collaborations, de chaque sous-section de créateur (Jules / Alexis).
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={resetOrder}
+                    onMouseEnter={playHover}
+                    className="rounded-lg border border-white/20 px-3 py-1.5 text-xs text-white/80 hover:bg-white/10"
+                  >
+                    Réinitialiser l'ordre
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exitReorder}
+                    onMouseEnter={playHover}
+                    className="rounded-lg border border-emerald-400/60 bg-emerald-500/20 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/30"
+                  >
+                    ✓ Enregistrer
+                  </button>
+                </div>
+              </div>
+            )}
             {villains.length === 0 ? (
               <p className="py-12 text-center text-sm text-white/40">Aucun vilain ne correspond aux filtres.</p>
             ) : sort === 'release' ? (
@@ -639,7 +847,39 @@ export function VillainList({ onBack }: Props) {
                       {ORIGIN_LABELS[o]}
                       <span className="h-px flex-1 bg-white/10" />
                     </h2>
-                    {grid(list)}
+                    {o === 'Collaborations' ? (
+                      // Collaborations : sous-sections par CRÉATEUR (Jules / Alexis…),
+                      // les vilains rangés selon leur créateur.
+                      (() => {
+                        const byCreator = new Map<string, GridItem[]>()
+                        for (const v of list) {
+                          const c = (v.kind === 'villain' ? v.meta.creator : undefined) ?? NO_CREATOR_LABEL
+                          const arr = byCreator.get(c) ?? []
+                          arr.push(v)
+                          byCreator.set(c, arr)
+                        }
+                        const creators = [
+                          ...CREATOR_ORDER.filter((c) => byCreator.has(c)),
+                          ...[...byCreator.keys()]
+                            .filter((c) => !CREATOR_ORDER.includes(c))
+                            .sort((a, b) => a.localeCompare(b, 'fr')),
+                        ]
+                        return (
+                          <div className="flex flex-col gap-5">
+                            {creators.map((c) => (
+                              <div key={c}>
+                                <h3 className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-sky-300/80">
+                                  {c}
+                                </h3>
+                                {grid(byCreator.get(c)!, `collab:${c}`)}
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      })()
+                    ) : (
+                      grid(list, o)
+                    )}
                   </section>
                 )
               })

@@ -3,6 +3,7 @@ import { VILLAIN_REGISTRY, villainEntry, isCustomKey, useGameStore, type Villain
 import { useCustomVillainStore } from '../store/customVillainStore'
 import { usePlayerStore } from '../store/playerStore'
 import { villainPortrait, villainPresentation, PRESENTATION_TWEAK } from '../villainArt'
+import { byRelease } from '../villainOrder'
 import { VILLAIN_COLOR, villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from '../villainColors'
 import { Scroller } from '../components/Scroller'
 import { OptionsButton } from '../components/OptionsButton'
@@ -23,8 +24,9 @@ type Choice = string | 'random'
 /** Camp en cours d'attribution (solo). */
 type Side = 'mine' | 'opp'
 
-/** Clés des vilains natifs (statiques). Les vilains publiés s'y ajoutent au runtime. */
-const BUILTIN_KEYS = Object.keys(VILLAIN_REGISTRY) as VillainKey[]
+/** Clés des vilains natifs (statiques), dans l'ordre de SORTIE (comme la galerie).
+ *  Les vilains publiés s'y ajoutent au runtime (après, façon nouveautés). */
+const BUILTIN_KEYS = (Object.keys(VILLAIN_REGISTRY) as VillainKey[]).sort(byRelease)
 
 /** Apparence d'un camp (toi / adversaire). */
 const SIDE_STYLE: Record<Side, { label: string; badge: string; ring: string; text: string }> = {
@@ -85,7 +87,7 @@ function Tile({
       ) : (
         <img src={villainPortrait(choice)} alt={v?.def.name} className="aspect-square w-full object-cover" />
       )}
-      <span className="truncate px-2 py-1.5 text-center text-xs font-bold text-amber-100">
+      <span className="px-2 py-1.5 text-center text-xs font-bold leading-tight text-amber-100">
         {isRandom ? 'Aléatoire' : v?.def.name}
       </span>
       {/* Pastilles des camps ayant choisi cette tuile (random peut être les deux). */}

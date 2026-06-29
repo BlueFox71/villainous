@@ -7,6 +7,7 @@ import { VILLAIN_COLOR } from '../villainColors'
 import { villainPack, villainCreator } from '../villainPacks'
 import { useIsDesktopApp } from '../store/settingsStore'
 import { Scroller } from './Scroller'
+import { VillainEditModal } from './VillainEditModal'
 import { playPageFlip, playCardHover, playTinyButtonPress } from '../sfx'
 
 interface Props {
@@ -120,6 +121,8 @@ export function VillainDetailModal({ villain, onClose }: Props) {
   // Outil de dév (caché en exe / simulation .exe) : la couleur thématique du vilain.
   const isDesktopApp = useIsDesktopApp()
   const [packHover, setPackHover] = useState(false)
+  // Édition du vilain (outil de dév, masqué en exe ; vilains natifs uniquement).
+  const [editing, setEditing] = useState(false)
 
   const custom = isCustomKey(villain)
   const v = villainEntry(villain)
@@ -172,6 +175,7 @@ export function VillainDetailModal({ villain, onClose }: Props) {
   const sumCopies = (cards: CardDef[]) => cards.reduce((n, c) => n + c.copies, 0)
 
   return (
+    <>
     <div
       className={`fixed inset-0 z-50 flex items-center bg-black/75 p-4 transition-all duration-300 ${
         // En vue « cartes », on pousse le modal vers la DROITE (avec une marge à
@@ -220,6 +224,19 @@ export function VillainDetailModal({ villain, onClose }: Props) {
                       style={{ backgroundColor: villainColor }}
                       title={`Couleur ${villainColor}`}
                     />
+                  )}
+                  {/* Modifier (outil de dév) : couleur / portrait / difficulté. Masqué en
+                      exe ET quand on simule le mode application (`!isDesktopApp`) — comme les
+                      autres outils de dév. Vilains natifs uniquement (perso → Atelier).
+                      Affiché seulement sur la FICHE (ni en vue cartes, ni en vue plateau). */}
+                  {!isDesktopApp && !custom && !showCards && !showBoard && (
+                    <button
+                      type="button"
+                      onClick={() => { playTinyButtonPress(); setEditing(true) }}
+                      className="rounded-lg border border-lime-400/60 px-3 py-1 text-sm font-semibold text-lime-200 hover:bg-lime-500/15"
+                    >
+                      ✏️ Modifier
+                    </button>
                   )}
                   <button
                     type="button"
@@ -388,5 +405,12 @@ export function VillainDetailModal({ villain, onClose }: Props) {
         </Scroller>
       </div>
     </div>
+
+      {/* Éditeur du vilain (couleur / portrait / difficulté) — outil de dév. Hors du
+          backdrop de la fiche pour qu'un clic sur son fond ne ferme pas aussi la fiche. */}
+      {editing && (
+        <VillainEditModal villain={villain as VillainKey} onClose={() => setEditing(false)} />
+      )}
+    </>
   )
 }

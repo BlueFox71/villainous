@@ -2821,6 +2821,10 @@ export interface GameState {
    * Mal. Absent / `null` hors de ce choix.
    */
   pendingDrawOrGainPower?: { playerIndex: number; draw: number; power: number; cardId?: string } | null
+  /** La Bonne Fée — Infiltration (Fatalité) : `playerIndex` (la CIBLE) choisit de
+   *  défausser une carte de sa main OU de perdre `lose` Pouvoir (RESOLVE_INFILTRATION).
+   *  Ouvert uniquement quand la main n'est pas vide (sinon perte de Pouvoir auto). */
+  pendingInfiltration?: { playerIndex: number; lose: number } | null
   /** Sa Sucrerie — Mémoire Verrouillée : choix « gagner `power` Pouvoir » OU « reculer
    *  le jeton Pilote de `racerBack` » (RESOLVE_POWER_OR_RACER_BACK). Ouvert seulement en
    *  course active. */
@@ -3911,6 +3915,9 @@ export type GameAction =
   /** Ratigan — Le Grand Génie du Mal : `choice` = piocher (`'draw'`) OU gagner du
    *  Pouvoir (`'power'`). */
   | { type: 'RESOLVE_DRAW_OR_GAIN_POWER'; choice: 'draw' | 'power' }
+  /** La Bonne Fée — Infiltration : la cible défausse la carte `instanceId` (`'discard'`)
+   *  OU perd le Pouvoir (`'lose'`). */
+  | { type: 'RESOLVE_INFILTRATION'; choice: 'lose' } | { type: 'RESOLVE_INFILTRATION'; choice: 'discard'; instanceId: string }
   | { type: 'RESOLVE_POWER_OR_RACER_BACK'; choice: 'power' | 'racer' }
   /** Madame de Trémaine — C'est votre dernière chance : résout le choix entre
    *  « Déplacer un Objet ou un Allié » (`move`) et « Activer » (`activate`). */

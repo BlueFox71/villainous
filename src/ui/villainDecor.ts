@@ -100,6 +100,10 @@ export type VillainDecor =
   // moments, une traînée d'EMPREINTES de pattes de chiot qui s'imprime dans la neige puis s'efface
   // (Cruella d'Enfer).
   | { kind: 'cruella' }
+  // `laBonneFee` : la MAGIE ROSE de la Bonne Fée (Marraine de Shrek) qui retombe — des volutes de fumée rose
+  // lumineuse qui TOMBENT doucement du haut en dérivant et en se dissipant, sur un fond violacé, surmontées
+  // d'une lueur rose pulsante (la source). 100 % CSS.
+  | { kind: 'laBonneFee' }
   // `cyber` : Sombra (Overwatch) — son interface de piratage. Fond violet très sombre, une PLUIE
   // de code (colonnes de glyphes binaires/symboles qui tombent, tête claire + traîne qui s'estompe)
   // en violet/cyan, une DISTORSION glitch en arrière-plan (copies décalées magenta/cyan tranchées),
@@ -159,6 +163,21 @@ export type VillainDecor =
   // le haut en rétrécissant (ils s'éloignent), puis disparaissent dans un éclat d'étoile (le *DING*
   // classique de fin d'épisode).
   | { kind: 'teamRocket' }
+  // `flyingDutchman` : la mer démontée de Davy Jones (Pirates des Caraïbes) — ciel d'orage
+  // vert-sarcelle, une MER agitée dont la houle ondule en bas de l'écran (crêtes d'écume), une
+  // TEMPÊTE de pluie battante diagonale avec voile d'orage et ÉCLAIRS verdâtres occasionnels, et
+  // le HOLLANDAIS VOLANT (image `bateau_hollandais.png`) qui tangue et roule sur la houle au centre.
+  | { kind: 'flyingDutchman'; ship: string }
+  // `atmosfear` : le Seigneur des clés (le Gardien d'Atmosfear) — sa CASSETTE VHS. Fond NOIR
+  // et un CHRONOMÈTRE au format MM:SS en haut, centré (police EvanstonTavern), précédé à sa
+  // gauche d'une LUNE (#558CF4) dont la phase suit la progression d'objectif (croissant → pleine),
+  // et une RANGÉE DE PETITES FLAMMES alignées au-dessus de la barre d'objectif.
+  // [base — couches VHS/Gardien à venir]
+  | { kind: 'atmosfear' }
+  // `tamatoa` : l'antre du crabe Tamatoa (Vaiana, chanson « Shiny / Bling Bling »). Fond NOIR sur
+  // lequel défilent vers la DROITE plein de TRIANGLES JAUNES FLOUTÉS et brillants (le bling-bling),
+  // rotation fixe, couleur/vitesse identiques. 100 % CSS.
+  | { kind: 'tamatoa' }
 
 export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   patHibulaire: { kind: 'film' },
@@ -191,6 +210,9 @@ export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   scar: { kind: 'scar', src: '/animations/background_scar.jpg' },
   // Yzma (Kuzco) : son laboratoire secret de potions — bulles et vapeurs multicolores (couches en construction).
   yzma: { kind: 'yzma' },
+  // La Bonne Fée (Marraine de Shrek) : sa magie ROSE qui retombe — des volutes de fumée rose lumineuse qui
+  // tombent du haut en dérivant et se dissipant, sur un fond violacé, surmontées d'une lueur rose pulsante.
+  laBonneFee: { kind: 'laBonneFee' },
   // Ratigan (Basil, détective privé) : pluie de rouages & diamants qui tombent en tournoyant
   // (comme les pièces de Prince Jean, ×3).
   ratigan: { kind: 'clockwork' },
@@ -233,6 +255,15 @@ export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   // Team Rocket (Pokémon) : le ciel de jour — nuages qui dérivent, soleil, la mongolfière Miaouss qui
   // traverse ; surprise = « s'envole vers d'autres cieux ! » (le trio file vers le haut → éclat d'étoile).
   teamRocket: { kind: 'teamRocket' },
+  // Le Seigneur des clés (le Gardien d'Atmosfear) : sa cassette VHS — fond noir + chronomètre
+  // MM:SS en haut, centré (#3E4371, police EvanstonTavern). 100 % CSS.
+  seigneurCles: { kind: 'atmosfear' },
+  // Davy Jones (Pirates des Caraïbes) : la mer démontée — ciel d'orage vert-sarcelle, houle agitée
+  // en bas, tempête de pluie battante + éclairs verdâtres, et le Hollandais Volant qui tangue.
+  davyJones: { kind: 'flyingDutchman', ship: '/animations/bateau_hollandais.png' },
+  // Tamatoa (Vaiana) : l'antre « Shiny / Bling Bling » — fond noir + triangles jaunes floutés et
+  // brillants qui défilent vers la droite.
+  tamatoa: { kind: 'tamatoa' },
 }
 
 /** Décor permanent d'un vilain (undefined si non défini). */
@@ -380,8 +411,13 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
         images: ['/animations/tronc1.png', '/animations/tronc2.png', '/animations/tronc3.png', '/animations/slenderman_animation.png'],
         videos: [],
       }
+    case 'atmosfear':
+      // La rangée de petites flammes réutilise le sprite de feu ; les bougies sont un gif.
+      return { images: ['/animations/fire_sprite.png', '/animations/candles.gif'], videos: [] }
     case 'water':
       return { images: ['/animations/neverland.png'], videos: [] }
+    case 'flyingDutchman':
+      return { images: [decor.ship], videos: [] }
     case 'grotto':
       return { images: ['/animations/bulle-bleu.png', '/animations/bulle.png', '/animations/bulle-rose.png'], videos: [] }
     case 'voodoo':
@@ -396,6 +432,12 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
           '/animations/observatory.png',
           '/animations/trou_noir.png',
         ],
+        videos: [],
+      }
+    // La Bonne Fée : les fioles `potion_fee*` (1, 3, 4, 5 — #2 retiré) + la baguette (cf. LaBonneFeeDecor).
+    case 'laBonneFee':
+      return {
+        images: [...[1, 3, 4, 5].map((n) => `/animations/potion_fee${n}.png`), '/animations/baguette_magique.png'],
         videos: [],
       }
     // Décors 100 % CSS (aucun fichier à précharger) : film, sand, space, petals,

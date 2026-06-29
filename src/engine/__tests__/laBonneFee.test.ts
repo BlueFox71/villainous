@@ -198,21 +198,75 @@ describe('La Bonne Fée — effets inédits divers', () => {
     expect(me(after).discard.some((c) => c.cardId === 'filtre')).toBe(false)
   })
 
-  it('Infiltration : perd le Pouvoir si possible (garde la main)', () => {
+  it('Infiltration : main vide → perte de Pouvoir automatique (cas forcé)', () => {
     const g = lbfGame()
     const s = withActive(g, { power: 5, hand: [] })
     const after = resolveEffects(s, [{ type: 'DISCARD_ONE_OR_LOSE', lose: 3 }], { actorIndex: s.activePlayer })
     expect(me(after).power).toBe(2)
+    expect(after.pendingInfiltration ?? null).toBeNull()
   })
 
-  it('Infiltration : défausse une carte si le Pouvoir est insuffisant', () => {
+  it('Infiltration : main non vide → ouvre le choix interactif (cible)', () => {
+    const g = lbfGame()
+    const c: CardInstance = { instanceId: 'x', cardId: 'as', name: 'As', type: 'effect', cost: 0 }
+    const s = withActive(g, { power: 5, hand: [c] })
+    const after = resolveEffects(s, [{ type: 'DISCARD_ONE_OR_LOSE', lose: 3 }], { actorIndex: s.activePlayer })
+    expect(after.pendingInfiltration).toEqual({ playerIndex: s.activePlayer, lose: 3 })
+  })
+
+  it('Infiltration : choix « perdre du Pouvoir » garde la main', () => {
+    const g = lbfGame()
+    const c: CardInstance = { instanceId: 'x', cardId: 'as', name: 'As', type: 'effect', cost: 0 }
+    const s = withActive(g, { power: 5, hand: [c] })
+    const opened = resolveEffects(s, [{ type: 'DISCARD_ONE_OR_LOSE', lose: 3 }], { actorIndex: s.activePlayer })
+    const after = applyAction(opened, { type: 'RESOLVE_INFILTRATION', choice: 'lose' })
+    expect(me(after).power).toBe(2)
+    expect(me(after).hand).toHaveLength(1)
+    expect(after.pendingInfiltration ?? null).toBeNull()
+  })
+
+  it('Infiltration : choix « défausser une carte » garde le Pouvoir', () => {
     const g = lbfGame()
     const c: CardInstance = { instanceId: 'x', cardId: 'as', name: 'As', type: 'effect', cost: 0 }
     const s = withActive(g, { power: 1, hand: [c] })
-    const after = resolveEffects(s, [{ type: 'DISCARD_ONE_OR_LOSE', lose: 3 }], { actorIndex: s.activePlayer })
+    const opened = resolveEffects(s, [{ type: 'DISCARD_ONE_OR_LOSE', lose: 3 }], { actorIndex: s.activePlayer })
+    const after = applyAction(opened, { type: 'RESOLVE_INFILTRATION', choice: 'discard', instanceId: 'x' })
     expect(me(after).power).toBe(1)
     expect(me(after).hand).toHaveLength(0)
     expect(me(after).discard.some((d) => d.instanceId === 'x')).toBe(true)
+    expect(after.pendingInfiltration ?? null).toBeNull()
+  })
+
+  it('Tasses rééchangées (Fatalité) : c’est le fataliseur qui déplace le Héros', () => {
+    // 2 joueurs : LBF (cible, p0) avec un Héros ; le Prince Jean (p1) pose la Fatalité.
+    let s = createInitialGame(
+      [
+        {
+          villain: laBonneFee,
+          deckCards: buildDeckInstances(laBonneFeeCards, 'villain', 'p0:'),
+          fateCards: buildDeckInstances(laBonneFeeCards, 'fate', 'p0f:'),
+        },
+        {
+          villain: princeJohn,
+          deckCards: buildDeckInstances(princeJohnCards, 'villain', 'p1:'),
+          fateCards: buildDeckInstances(princeJohnCards, 'fate', 'p1f:'),
+        },
+      ],
+      7,
+    )
+    const loc0 = s.players[0].locations[0].id
+    s = {
+      ...s,
+      activePlayer: 1,
+      players: [
+        { ...s.players[0], board: { ...s.players[0].board, [loc0]: [hero('h', 'shrek', 5)] } },
+        s.players[1],
+      ],
+    }
+    const tasses = s.players[0].fateDeck.find((c) => c.cardId === 'tasses')!
+    s = { ...s, pendingFate: { target: 0, revealed: [tasses] } as never }
+    s = applyAction(s, { type: 'RESOLVE_FATE', instanceId: tasses.instanceId })
+    expect(s.pendingHeroRelocate).toMatchObject({ chooserIndex: 1, targetIndex: 0 })
   })
 
   it('On est presque arrivé ? : plafonne le prochain tour à 2 actions', () => {

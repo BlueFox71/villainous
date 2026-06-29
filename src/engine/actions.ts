@@ -3738,6 +3738,41 @@ function applyResolveFateInner(
     return resolveEffects(next, chosen.effects ?? [], { actorIndex: pending.target })
   }
 
+  // La Bonne Fée — Tasses rééchangées (Fatalité) : « Déplacez un Héros d'un lieu ».
+  // Comme Vent de panique, c'est le joueur qui POSE la Fatalité (joueur actif) qui
+  // déplace un Héros du royaume de la cible vers un lieu voisin. Sans Héros → simple
+  // défausse. (Le générique mettrait à tort chooserIndex = cible.)
+  if (chosen.cardId === 'tasses') {
+    const hasHero = Object.values(tgt.board).some((cards) => cards.some((c) => c.type === 'hero'))
+    let next = updatePlayer(state, pending.target, (p) => ({
+      ...p,
+      fateDiscard: [...p.fateDiscard, chosen, ...others],
+    }))
+    next = { ...next, pendingFate: null }
+    if (!hasHero) {
+      return { ...next, log: [...next.log, `Tasses rééchangées : aucun Héros chez ${tgt.villainName}.`] }
+    }
+    return {
+      ...next,
+      pendingHeroRelocate: { chooserIndex: state.activePlayer, targetIndex: pending.target },
+      log: [...next.log, `**Tasses rééchangées** : déplacez un Héros de ${tgt.villainName} vers un lieu voisin.`],
+    }
+  }
+
+  // La Bonne Fée — Infiltration (Fatalité) : la CIBLE choisit de défausser une carte
+  // de sa main OU de perdre `lose` Pouvoir. L'effet DISCARD_ONE_OR_LOSE ouvre le choix
+  // interactif (pendingInfiltration, propriétaire = cible) ou auto-résout les cas forcés
+  // (main vide). On le résout sur la cible.
+  if (chosen.cardId === 'infiltration') {
+    let next = updatePlayer(state, pending.target, (p) => ({
+      ...p,
+      fateDiscard: [...p.fateDiscard, chosen, ...others],
+    }))
+    next = { ...next, pendingFate: null }
+    next = pushShowcase(next, chosen.cardId, `${tgt.villainName} subit ${chosen.name}`, state.activePlayer)
+    return resolveEffects(next, chosen.effects ?? [], { actorIndex: pending.target })
+  }
+
   // Générique : toute carte Fatalité de type 'effect' portant des `effects` non traitée
   // spécifiquement plus haut → on résout ses effets sur la CIBLE (le joueur fatalisé).
   // Couvre Planqués / Hors-la-loi (Pat Hibulaire), « On n'abandonne pas » / « Dégonflage »
@@ -7043,6 +7078,32 @@ function applyResolveMedal(
   const boosted: CardInstance = { ...hero, permanentStrengthDelta: (hero.permanentStrengthDelta ?? 0) + 1 }
   const destName = state.players[kc].locations.find((l) => l.id === to)?.name ?? to
   return placeFateHeroWithEffects(next, kc, state.activePlayer, boosted, to, destName)
+}
+
+/** La Bonne Fée — Infiltration : la cible perd `lose` Pouvoir (`'lose'`) ou défausse
+ *  la carte choisie (`'discard'`). */
+function applyResolveInfiltration(
+  state: GameState,
+  payload: { choice: 'lose' } | { choice: 'discard'; instanceId: string },
+): GameState {
+  const pending = state.pendingInfiltration
+  if (!pending) throw new Error('Aucun choix Infiltration en attente.')
+  const { playerIndex, lose } = pending
+  const cleared = { ...state, pendingInfiltration: null }
+  const p = cleared.players[playerIndex]
+  if (payload.choice === 'lose') {
+    const lost = Math.min(p.power, lose)
+    const next = updatePlayer(cleared, playerIndex, (pl) => ({ ...pl, power: Math.max(0, pl.power - lose) }))
+    return { ...next, log: [...next.log, `Infiltration : ${p.villainName} perd ${lost} JT (garde sa main).`] }
+  }
+  const victim = p.hand.find((c) => c.instanceId === payload.instanceId)
+  if (!victim) throw new Error(`Carte « ${payload.instanceId} » absente de la main.`)
+  const next = updatePlayer(cleared, playerIndex, (pl) => ({
+    ...pl,
+    hand: pl.hand.filter((c) => c.instanceId !== victim.instanceId),
+    discard: [...pl.discard, victim],
+  }))
+  return { ...next, log: [...next.log, `Infiltration : ${p.villainName} défausse ${victim.name}.`] }
 }
 
 function applyResolveDrawOrGainPower(state: GameState, choice: 'draw' | 'power'): GameState {
@@ -10591,6 +10652,14 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   ) {
     throw new Error('Un choix Piocher/Pouvoir est en attente (RESOLVE_DRAW_OR_GAIN_POWER).')
   }
+  // La Bonne Fée — Infiltration : choix défausser/perdre du Pouvoir en attente.
+  if (
+    state.pendingInfiltration &&
+    action.type !== 'RESOLVE_INFILTRATION' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un choix Infiltration est en attente (RESOLVE_INFILTRATION).')
+  }
   // Sa Sucrerie — Mémoire Verrouillée : choix Pouvoir/Pilote en attente.
   if (
     state.pendingPowerOrRacerBack &&
@@ -11236,6 +11305,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveTypeChoice(state, action.cardType)
     case 'RESOLVE_DRAW_OR_GAIN_POWER':
       return applyResolveDrawOrGainPower(state, action.choice)
+    case 'RESOLVE_INFILTRATION':
+      return applyResolveInfiltration(state, action)
     case 'RESOLVE_POWER_OR_RACER_BACK':
       return applyResolvePowerOrRacerBack(state, action.choice)
     case 'RESOLVE_TAFFYTA_CHOICE':

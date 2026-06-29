@@ -5849,25 +5849,21 @@ export function resolveEffect(
       }
     }
     case 'DISCARD_ONE_OR_LOSE': {
-      // La Bonne Fée — Infiltration : défausser une carte OU perdre `lose` Pouvoir.
-      // Auto (malus subi) : on garde la main et on perd le Pouvoir si possible.
+      // La Bonne Fée — Infiltration : la CIBLE choisit de défausser une carte OU de
+      // perdre `lose` Pouvoir. Choix INTERACTIF (pendingInfiltration, résolu par la
+      // cible — modale humaine, auto côté bot). Cas FORCÉ (main vide) → perte de
+      // Pouvoir auto, sans pending.
       const p = state.players[idx]
-      if (p.power >= effect.lose) {
-        const next = updatePlayer(state, idx, (pl) => ({ ...pl, power: pl.power - effect.lose }))
-        return { ...next, log: [...next.log, `Infiltration : ${p.villainName} perd ${effect.lose} JT (garde sa main).`] }
-      }
       if (p.hand.length === 0) {
         const lost = Math.min(p.power, effect.lose)
         const next = updatePlayer(state, idx, (pl) => ({ ...pl, power: Math.max(0, pl.power - effect.lose) }))
         return { ...next, log: [...next.log, `Infiltration : ${p.villainName} perd ${lost} JT (main vide).`] }
       }
-      const victim = [...p.hand].sort((a, b) => (a.cost ?? 0) - (b.cost ?? 0))[0]
-      const next = updatePlayer(state, idx, (pl) => ({
-        ...pl,
-        hand: pl.hand.filter((c) => c.instanceId !== victim.instanceId),
-        discard: [...pl.discard, victim],
-      }))
-      return { ...next, log: [...next.log, `Infiltration : ${p.villainName} défausse ${victim.name}.`] }
+      return {
+        ...state,
+        pendingInfiltration: { playerIndex: idx, lose: effect.lose },
+        log: [...state.log, `Infiltration : ${p.villainName} doit défausser une carte OU perdre ${effect.lose} JT.`],
+      }
     }
     case 'FETCH_POTION': {
       // La Bonne Fée — Réserve de potions : cherche une Potion (pioche ou défausse) → main.
