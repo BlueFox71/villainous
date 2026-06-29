@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { MenuOrbs } from './MenuOrbs'
 import { villainPresentation, villainPortrait } from '../villainArt'
-import { VILLAIN_REGISTRY, type VillainKey } from '../store/gameStore'
+import { villainEntry } from '../store/gameStore'
 import { playVictoryJingle, playDefeatJingle } from '../sfx'
 
 /** Une goutte de pluie (position + cadence aléatoires), façon CodePen « rain ». */
@@ -32,10 +32,11 @@ function makeDrops(): Drop[] {
 }
 
 interface Props {
-  /** Vilain VAINQUEUR (son nom apparaît dans le texte « … l'emporte / triomphe »). */
-  winnerKey: VillainKey
+  /** Vilain VAINQUEUR (son nom apparaît dans le texte « … l'emporte / triomphe »).
+   *  Clé de PRÉSENTATION : VillainKey native OU id `custom-…` d'un vilain publié. */
+  winnerKey: string
   /** Vilain PERDANT (affiché à la place du vainqueur en cas de défaite). */
-  loserKey: VillainKey
+  loserKey: string
   /** Le joueur humain a-t-il gagné ? (titre « Victoire » sinon « Défaite »). */
   humanWon: boolean
   /** « Regarder le plateau » : ferme le modal, le plateau reste inactif. */
@@ -73,8 +74,8 @@ export function VictoryModal({ winnerKey, loserKey, humanWon, onWatch, onReplay,
   // Image : le vainqueur si victoire, sinon le perdant (le vilain du joueur).
   const shownKey = humanWon ? winnerKey : loserKey
   const img = villainPresentation(shownKey) ?? villainPortrait(shownKey)
-  // Le texte cite TOUJOURS le vainqueur.
-  const winnerName = VILLAIN_REGISTRY[winnerKey]?.def.name ?? ''
+  // Le texte cite TOUJOURS le vainqueur (résolution custom-aware via villainEntry).
+  const winnerName = villainEntry(winnerKey)?.def.name ?? ''
 
   return createPortal(
     <div className="fixed inset-0 z-[80] flex flex-col items-center justify-center overflow-hidden bg-black/85">
@@ -112,7 +113,7 @@ export function VictoryModal({ winnerKey, loserKey, humanWon, onWatch, onReplay,
 
         <img
           src={img}
-          alt={VILLAIN_REGISTRY[shownKey]?.def.name ?? ''}
+          alt={villainEntry(shownKey)?.def.name ?? ''}
           className={`villain-fade-bottom victory-pop max-h-[46vh] w-auto object-contain drop-shadow-[0_12px_44px_rgba(0,0,0,0.75)] ${
             humanWon ? '' : 'brightness-75 grayscale-[0.4]'
           }`}

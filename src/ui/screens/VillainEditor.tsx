@@ -16,6 +16,7 @@ import {
   type VillainOrigin,
 } from '../../data/customVillain'
 import { villainsBackground } from '../villainColors'
+import { VILLAIN_REGISTRY, type VillainKey } from '../store/gameStore'
 import { Scroller } from '../components/Scroller'
 import { Field, TextField, ColorField, ImageField } from '../editor/fields'
 import { BoardTab } from '../editor/BoardTab'
@@ -27,8 +28,9 @@ import { parseExcelVillains, type ExcelVillain } from '../editor/importExcel'
 
 interface Props {
   onBack: () => void
-  /** Lance une partie de test avec ce vilain (déjà figé/baké). */
-  onPlay: (custom: CustomVillain) => void
+  /** Lance une partie de test avec ce vilain (déjà figé/baké). `opponent` = clé du vilain
+   *  adverse choisi (undefined = adversaire aléatoire). */
+  onPlay: (custom: CustomVillain, opponent?: VillainKey) => void
 }
 
 /** Onglets de l'éditeur. */
@@ -235,6 +237,8 @@ export function VillainEditor({ onBack, onPlay }: Props) {
   const [tab, setTab] = useState<Tab>('identity')
   const [dirty, setDirty] = useState(false)
   const [busy, setBusy] = useState(false)
+  // Adversaire choisi pour la partie de TEST ('' = aléatoire). Liste des vilains natifs.
+  const [testOpponent, setTestOpponent] = useState<VillainKey | ''>('')
   // Modale de publication (« Terminer ») : ouverte tant qu'elle collecte créateur + origine.
   const [publishOpen, setPublishOpen] = useState(false)
   // Éditeur de portrait (cadre doré + nom) pour le portrait carré du vilain perso.
@@ -345,7 +349,7 @@ export function VillainEditor({ onBack, onPlay }: Props) {
       return
     }
     const baked = await bakeAndSave(draft)
-    onPlay(baked)
+    onPlay(baked, testOpponent || undefined)
   }
 
   /** Lit un fichier Excel/ODS (template Villainous) et propose ses vilains à importer. */
@@ -496,6 +500,20 @@ export function VillainEditor({ onBack, onPlay }: Props) {
             >
               ⬇ .json
             </button>
+            <select
+              value={testOpponent}
+              onChange={(ev) => setTestOpponent(ev.target.value as VillainKey | '')}
+              title="Adversaire de la partie de test"
+              className="rounded-lg border border-white/20 bg-slate-900/80 px-2 py-1.5 text-sm font-semibold text-white/80 transition hover:border-emerald-300/70"
+            >
+              <option value="">Adversaire : aléatoire</option>
+              {(Object.keys(VILLAIN_REGISTRY) as VillainKey[])
+                .map((k) => ({ k, name: VILLAIN_REGISTRY[k].def.name }))
+                .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+                .map(({ k, name }) => (
+                  <option key={k} value={k}>{name}</option>
+                ))}
+            </select>
             <button
               type="button"
               onClick={onPlayClick}

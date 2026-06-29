@@ -61,6 +61,9 @@ export interface CardDef {
   /** Coût en pouvoir pour jouer la carte. Cartes Vilain uniquement
    *  (les cartes Fatalité n'ont pas de coût). */
   cost?: number
+  /** Coût VARIABLE : affiche « ? » dans la pastille de coût (le vrai coût est calculé au
+   *  jeu, ex. Banqueroute = Force du Héros ciblé). Purement visuel. */
+  costVariable?: boolean
   /** Force au combat. Alliés et Héros uniquement. */
   strength?: number
   /** Pour un Objet : à quoi il s'associe une fois joué. `'ally'` = posé sur un
@@ -85,6 +88,21 @@ export interface CardDef {
   souffranceSurcharge?: boolean
   disablesMetatron?: boolean
   shieldsHostFromVanquish?: boolean
+  /** Mr. Monopoly — flags Maisons/Loyer (cf. CardInstance). */
+  shadowReducesHouseCost?: boolean
+  blocksRent?: boolean
+  blocksHousePlacement?: boolean
+  reducesPowerGains?: boolean
+  /** Mr. Monopoly — Banqueroute : le coût de la carte = la Force (effective) du Héros ciblé. */
+  costEqualsTargetStrength?: boolean
+  /** Mr. Monopoly — Chien : se déplace vers le pion à la fin de chaque tour. */
+  movesTowardPawnEndOfTurn?: boolean
+  /** Mr. Monopoly — Règles inventées : +N au coût d'une carte ciblant le Héros porteur. */
+  eventTargetSurcharge?: number
+  /** Mr. Monopoly — Officier de police : id du lieu Prison où il envoie un Héros à son arrivée. */
+  sendsHeroToPrisonOnMove?: string
+  /** Mr. Monopoly — Case Départ : +N Pouvoir quand le pion se rend sur ce lieu ou le dépasse. */
+  powerOnPawnCrossOrLand?: number
   /** Nombre d'exemplaires dans le paquet. */
   copies: number
   /** Texte de règle français, recopié de la carte. Source de vérité. */
@@ -390,6 +408,15 @@ export function buildDeckInstances(
           souffranceSurcharge: c.souffranceSurcharge,
           disablesMetatron: c.disablesMetatron,
           shieldsHostFromVanquish: c.shieldsHostFromVanquish,
+          shadowReducesHouseCost: c.shadowReducesHouseCost,
+          blocksRent: c.blocksRent,
+          blocksHousePlacement: c.blocksHousePlacement,
+          reducesPowerGains: c.reducesPowerGains,
+          costEqualsTargetStrength: c.costEqualsTargetStrength,
+          movesTowardPawnEndOfTurn: c.movesTowardPawnEndOfTurn,
+          eventTargetSurcharge: c.eventTargetSurcharge,
+          sendsHeroToPrisonOnMove: c.sendsHeroToPrisonOnMove,
+          powerOnPawnCrossOrLand: c.powerOnPawnCrossOrLand,
           effects: c.effects,
           onPlace: c.onPlace,
           onVanquish: c.onVanquish,

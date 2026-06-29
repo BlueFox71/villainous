@@ -525,6 +525,43 @@ export type Effect =
    *  défausse Fatalité de Sa Sucrerie et le joue sur le lieu de son choix avec +1 Force
    *  (pendingMedal). Sans Héros en défausse Fatalité → aucun effet. */
   | { type: 'MEDAL_PLAY_FATE_HERO' }
+  // --- Mr. Monopoly : mécanique des Maisons / Loyer --------------------------
+  /** Affaire : pose des MAISONS sur le lieu où se trouve l'adversaire (choix interactif
+   *  de la quantité, paie le coût de chacune). Ouvre `pendingBuyHouses`. */
+  | { type: 'MONOPOLY_BUY_HOUSES' }
+  /** Monopoly (Condition) / pose forcée : ajoute 1 maison sur le lieu courant de
+   *  l'adversaire et paie son coût (sans choix). Sans effet si non posable. */
+  | { type: 'MONOPOLY_ADD_ONE_HOUSE' }
+  /** Erreur de la banque en votre faveur : gagne 1 Pouvoir par maison posée (plafonné
+   *  à `max`). */
+  | { type: 'MONOPOLY_GAIN_PER_HOUSE'; max: number }
+  /** Carte bancaire : déplace `count` maisons d'un lieu adverse vers un autre (choix
+   *  interactif). Ouvre `pendingMoveHouses`. */
+  | { type: 'MONOPOLY_MOVE_HOUSES'; count: number }
+  /** Chapeau haut de forme : si une carte Affaire (`affaireCardId`) est dans la défausse,
+   *  rejoue son effet (pose de maisons). Sans Affaire en défausse → aucun effet. */
+  | { type: 'MONOPOLY_FETCH_AFFAIRE'; affaireCardId: string }
+  /** Rénovation (Fatalité) : Mr. Monopoly perd la MOITIÉ de son Pouvoir (arrondi au
+   *  supérieur), plafonnée à `max`. */
+  | { type: 'MONOPOLY_LOSE_HALF_POWER'; max: number }
+  /** Voiture (Fatalité, onPlace) : le FATALISEUR peut déplacer un Héros (au choix) du
+   *  royaume vers n'importe quel lieu (pendingHeroRelocate anyLocation/optional). */
+  | { type: 'RELOCATE_ANY_HERO_FATE' }
+  /** Libéré de prison (Fatalité) : le FATALISEUR choisit — déplacer un Héros vers
+   *  n'importe quel lieu, OU déplacer le pion de Mr. Monopoly vers la Prison (`prisonLocationId`). */
+  | { type: 'MONOPOLY_FREE_FROM_JAIL'; prisonLocationId: LocationId }
+  /** Chaussure (Fatalité, onPlace) : le FATALISEUR choisit un lieu (de l'un ou l'autre
+   *  royaume) où Mr. Monopoly ne pourra plus poser de maison tant que Chaussure est là. */
+  | { type: 'MONOPOLY_BLOCK_LOCATION' }
+  /** Reculez de trois cases : déplace le pion vers n'importe quel lieu, autorise UNE action
+   *  de ce lieu (hors Fatalité), puis le tour se termine. Ouvre `pendingBackwardMove`. */
+  | { type: 'MONOPOLY_BACKWARD_MOVE' }
+  /** Monotonie (Condition) : rejoue GRATUITEMENT une carte (hors Condition) de la défausse. */
+  | { type: 'MONOPOLY_MONOTONY' }
+  /** Beaucoup trop de versions (Fatalité) / Bateau : DÉTRUIT une maison au choix
+   *  (ouvre `pendingMoveHouses` en mode destruction si plusieurs lieux maisonnés ;
+   *  sinon retire directement). */
+  | { type: 'MONOPOLY_DESTROY_HOUSE' }
   // --- Shere Khan (Le Livre de la Jungle) : mécanique des Jetons Feu ----------
   /** Feu Rouge des Hommes (Fatalité) : le fataliseur POSE un jeton Feu sur une action au
    *  choix d'un lieu de Shere Khan, OU déplace un jeton Feu existant vers une autre action. */
@@ -637,6 +674,20 @@ export type Effect =
   /** Défausse (de la main du joueur actif) `count` cartes, choisies par le moteur (auto :
    *  les moins utiles). Sert Redemption (Fatalité Pyramid Head). */
   | { type: 'DISCARD_OWN_CARDS'; count: number }
+  /** Pyramid Head — Pacte de Sang : défausser une carte de la main (au choix), puis
+   *  récupérer une carte du MÊME type dans la défausse (au choix) → main. Deux choix
+   *  interactifs (pendingPacteSang puis pendingRecover, label « Pacte de sang »). */
+  | { type: 'PACTE_DE_SANG' }
+  /** Pyramid Head — Sacrifice Humain (capacité ACTIVÉE) : ouvre un choix (pendingSacrifice) :
+   *  regarder les 3 1ʳᵉˢ cartes de la pioche et en garder 1 (le reste défaussé), OU gagner
+   *  2 Pouvoir. */
+  | { type: 'SACRIFICE_HUMAIN_CHOICE' }
+  /** Pyramid Head — Cage de l'Expiation (à la pose, après association à un Héros sur une
+   *  tuile) : ouvre le choix du lieu où DÉPLACER le Héros porteur (pendingCageMove). */
+  | { type: 'CAGE_MOVE_HOST' }
+  /** Pyramid Head — Cage de l'Expiation (capacité ACTIVÉE) : ARME la Cage → au début du
+   *  prochain tour, le Héros porteur est éliminé (sauf Eddie, `immuneToCage`). */
+  | { type: 'CAGE_ARM' }
   /** Dio — Masque de pierre (Activer) : défausse TOUTE la main, gagne 1 Pouvoir par carte. */
   | { type: 'DIO_DISCARD_HAND_GAIN_POWER' }
   /** Dio — Fondation Speedwagon (Fatalité) : défausse un Objet non associé du royaume de Dio
@@ -2017,6 +2068,39 @@ export interface CardInstance {
   /** Pyramid Head — Protection de l'âme (Objet associé) : le Héros porteur ne peut pas
    *  être éliminé tant que cet Objet lui est associé. */
   shieldsHostFromVanquish?: boolean
+  // --- Mr. Monopoly --------------------------------------------------------
+  /** Mr. Monopoly — L'Ombre de Monopoly (Objet) : tant que le pion partage son lieu, le
+   *  coût d'ACHAT d'une maison est réduit de 1. Recopié de CardDef. */
+  shadowReducesHouseCost?: boolean
+  /** Mr. Monopoly — Fer à repasser (Héros Fatalité) : tant qu'il est dans le royaume,
+   *  Mr. Monopoly ne gagne plus aucun loyer. Recopié de CardDef. */
+  blocksRent?: boolean
+  /** Mr. Monopoly — Haut de forme (Héros Fatalité) : tant qu'il est dans le royaume,
+   *  Mr. Monopoly ne peut poser AUCUNE nouvelle maison. Recopié de CardDef. */
+  blocksHousePlacement?: boolean
+  /** Mr. Monopoly — Brouette (Héros Fatalité) : tant qu'il est dans le royaume, les
+   *  cartes/actions/loyers rapportent 1 Pouvoir de moins. Recopié de CardDef. */
+  reducesPowerGains?: boolean
+  /** Mr. Monopoly — Chaussure (Héros Fatalité) : lieu (de n'importe quel joueur) où
+   *  Mr. Monopoly ne peut plus poser de maison tant que Chaussure est présent. Choisi à
+   *  la pose (runtime). */
+  blockedHouseLocationId?: LocationId
+  /** Mr. Monopoly — Banqueroute : le coût de la carte = la Force (effective) du Héros
+   *  ciblé (résolu au moment de jouer la carte). Recopié de CardDef. */
+  costEqualsTargetStrength?: boolean
+  /** Mr. Monopoly — Chien (Héros Fatalité) : à la fin de chaque tour, se déplace d'un
+   *  lieu vers le pion de Mr. Monopoly. Recopié de CardDef. */
+  movesTowardPawnEndOfTurn?: boolean
+  /** Mr. Monopoly — Règles inventées (Objet Fatalité associé à un Héros) : jouer une carte
+   *  qui CIBLE ce Héros coûte N Pouvoir de plus. Recopié de CardDef. */
+  eventTargetSurcharge?: number
+  /** Mr. Monopoly — Officier de police (Allié) : quand il SE DÉPLACE sur un lieu portant
+   *  un Héros, ce Héros est envoyé à la Prison (id de lieu porté ici). Recopié de CardDef. */
+  sendsHeroToPrisonOnMove?: LocationId
+  /** Mr. Monopoly — Case Départ (Objet) : chaque fois que le pion du propriétaire SE REND
+   *  sur le lieu de cet Objet OU le DÉPASSE (déplacement qui le franchit), gagne N Pouvoir.
+   *  Recopié de CardDef. */
+  powerOnPawnCrossOrLand?: number
   /** Shere Khan — Baloo : nombre de jetons Pouvoir accumulés sur lui (runtime). */
   protectionTokens?: number
   /** Héros (Fatalité) qui augmente de N le coût de toute carte jouée tant qu'il est dans
@@ -2290,6 +2374,12 @@ export type ConditionTrigger =
   /** L'adversaire actif t'a joué (par la Fatalité) un Héros de force ≤ `value` ce tour-ci
    *  (Team Rocket — « Pour vous jouer un mauvais tour »). */
   | { type: 'opponent-played-fate-hero-le'; value: number }
+  /** L'adversaire actif a déplacé SON PION ce tour-ci (Mr. Monopoly — Monopoly : on
+   *  pose alors une maison sur son lieu d'arrivée). */
+  | { type: 'opponent-moved-pawn' }
+  /** La partie dure depuis au moins `ms` millisecondes (temps réel estampillé par l'UI
+   *  dans `state.elapsedMs` — Mr. Monopoly : Monotonie). */
+  | { type: 'game-elapsed-ge'; ms: number }
 
 /** Déclencheur de défausse automatique d'une carte (typiquement une Malédiction). */
 export type CurseDiscardTrigger =
@@ -2585,6 +2675,11 @@ export interface PlayerState {
    *  l'action Attraper (CATCH_POKEMON), conservés ici au lieu d'être défaussés.
    *  Objectif CAPTURE_POKEMON : en avoir ≥ count dont Pikachu. `undefined` ailleurs. */
   capturedPokemon?: CardInstance[]
+  /** Mr. Monopoly — MAISONS posées sur les lieux du royaume ADVERSE (clé = id du lieu
+   *  adverse, valeur = nombre de maisons, 0..4). 4 = HÔTEL (plafond). Quand le pion
+   *  adverse arrive sur un lieu maisonné, Mr. Monopoly encaisse le loyer. Objectif
+   *  POWER_THRESHOLD 30. `undefined` pour les autres vilains. */
+  houses?: Record<LocationId, number>
 }
 
 /**
@@ -2646,6 +2741,11 @@ export interface GameState {
   activePlayer: number
   /** Numéro de tour global (incrémenté à chaque passage de joueur), à partir de 1. */
   turn: number
+  /** Durée réelle écoulée depuis le début de la partie, en millisecondes. ESTAMPILLÉE
+   *  par la couche UI/store (le moteur ne lit jamais l'horloge : déterminisme). Sert au
+   *  garde-fou de jouabilité de la Condition « Monotonie » de Mr. Monopoly (≥ 10 min).
+   *  `undefined` tant que l'UI ne l'a pas renseignée (≈ 0). */
+  elapsedMs?: number
   phase: TurnPhase
   /** Ids des actions déjà exécutées ce tour-ci par le joueur actif. */
   usedActionIds: string[]
@@ -2836,6 +2936,37 @@ export interface GameState {
   /** Sa Sucrerie — L'important, c'est de payer : `playerIndex` choisit combien de jetons
    *  Pouvoir dépenser (1 à `max`) pour avancer son pion d'autant (RESOLVE_PAY_RACE). */
   pendingPayRace?: { playerIndex: number; max: number } | null
+  /** Mr. Monopoly — Affaire : `playerIndex` choisit combien de MAISONS (1 à `max`) poser
+   *  sur le lieu adverse `locationId` (chacune coûte `unitCost` Pouvoir). RESOLVE_BUY_HOUSES. */
+  pendingBuyHouses?: { playerIndex: number; locationId: LocationId; max: number; unitCost: number } | null
+  /** Mr. Monopoly — Carte bancaire : déplacer des maisons. Phase 'from' : choisir le lieu
+   *  source parmi `sources` (lieux maisonnés). Phase 'to' : choisir le lieu destination
+   *  parmi `dests`. `remaining` maisons restant à déplacer ; `from` = source en cours.
+   *  `destroy` = mode destruction (retire au lieu de déplacer). RESOLVE_MOVE_HOUSES. */
+  pendingMoveHouses?: {
+    playerIndex: number
+    phase: 'from' | 'to'
+    remaining: number
+    from?: LocationId
+    destroy?: boolean
+  } | null
+  /** Mr. Monopoly — Libéré de prison (Fatalité) : `chooserIndex` (le fataliseur) choisit de
+   *  déplacer un Héros du royaume `targetIndex` (RESOLVE_FREE_FROM_JAIL avec heroInstanceId +
+   *  locationId), ou d'envoyer le pion de Mr. Monopoly à la Prison (`toPrison`). */
+  pendingFreeFromJail?: { chooserIndex: number; targetIndex: number; prisonLocationId: LocationId } | null
+  /** Mr. Monopoly — Chaussure (Fatalité) : `chooserIndex` (le fataliseur) choisit un lieu
+   *  (`locationId`) où Mr. Monopoly ne pourra plus poser de maison ; mémorisé sur l'instance
+   *  `hostInstanceId` de Chaussure dans le royaume `targetIndex`. RESOLVE_BLOCK_LOCATION. */
+  pendingBlockLocation?: { chooserIndex: number; targetIndex: number; hostInstanceId: string } | null
+  /** Mr. Monopoly — Reculez de trois cases : `playerIndex` choisit le lieu où déplacer son
+   *  pion (RESOLVE_BACKWARD_MOVE), après quoi il ne pourra effectuer qu'UNE action puis finir. */
+  pendingBackwardMove?: { playerIndex: number } | null
+  /** Mr. Monopoly — `noFateThisTurn` : pendant la fenêtre « Reculez de trois cases », l'action
+   *  Fatalité est interdite (l'unique action accordée doit être hors Fatalité). */
+  monopolyNoFate?: boolean
+  /** Mr. Monopoly — Canne : `playerIndex` choisit une action EMPRUNTÉE parmi `options`
+   *  (actions hors Fatalité des lieux adverses maisonnés). RESOLVE_CANNE_BORROW. */
+  pendingCanneBorrow?: { playerIndex: number; options: { locationId: LocationId; actionId: string; label: string }[] } | null
   /** Sa Sucrerie — Princesse Vanellope (Fatalité) : `chooserIndex` (le fataliseur) choisit
    *  de combien (0 à `max`) reculer le pion King Candy de `playerIndex` (RESOLVE_PAWN_BACK). */
   pendingPawnBack?: { playerIndex: number; chooserIndex: number; max: number } | null
@@ -2945,6 +3076,15 @@ export interface GameState {
   /** Dio — Lumière du Soleil (Fatalité) : DIO (`playerIndex`) choisit entre défausser sa main
    *  et perdre `lose` Pouvoir (RESOLVE_DIO_SUNLIGHT). */
   pendingDioSunlight?: { playerIndex: number; lose: number } | null
+  /** Pyramid Head — Pacte de Sang : `playerIndex` choisit une carte de sa main à défausser
+   *  (RESOLVE_PACTE_SANG) ; on enchaîne ensuite sur un pendingRecover (même type). */
+  pendingPacteSang?: { playerIndex: number } | null
+  /** Pyramid Head — Sacrifice Humain : `playerIndex` choisit « regarder 3 / garder 1 » OU
+   *  « gagner 2 Pouvoir » (RESOLVE_SACRIFICE). */
+  pendingSacrifice?: { playerIndex: number } | null
+  /** Pyramid Head — Cage de l'Expiation : `playerIndex` choisit le lieu où déplacer le Héros
+   *  `heroInstanceId` (porteur de la Cage) — RESOLVE_CAGE_MOVE. */
+  pendingCageMove?: { playerIndex: number; heroInstanceId: string } | null
   /** Le Seigneur des Ténèbres — Montre-moi le Chaudron Magique / Nous avons conclu un
    *  marché : `playerIndex` choisit entre s'emparer du Chaudron Magique et gagner
    *  `power` Pouvoir (RESOLVE_CAULDRON_CHOICE). N'apparaît que si le Chaudron est encore
@@ -3424,6 +3564,8 @@ export interface GameState {
   actAtLocationIgnoreCover?: boolean | null
   /** Le joueur actif a déplacé un Allié/Objet ce tour-ci (déclencheur Sombres desseins). */
   activeMovedCard?: boolean
+  /** Le joueur actif a déplacé SON PION ce tour-ci (déclencheur Mr. Monopoly — Monopoly). */
+  activeMovedPawn?: boolean
   /** Le joueur actif a pioché ≥1 carte ce tour-ci via un effet (déclencheur Sans visage). */
   activeDrewCard?: boolean
   /** Nombre de cartes défaussées par le joueur actif ce tour-ci (déclencheur
@@ -3595,7 +3737,7 @@ export interface GameState {
   pendingBeautySleep?: { playerIndex: number } | null
   /** Yzma — Ironie du sort : `playerIndex` choisit un Événement de sa défausse
    *  (`candidateIds`, abordables), en paie le coût et le rejoue (RESOLVE_REPLAY_EVENT). */
-  pendingReplayEvent?: { playerIndex: number; candidateIds: string[]; free?: boolean; bagControlledDice?: boolean } | null
+  pendingReplayEvent?: { playerIndex: number; candidateIds: string[]; free?: boolean; bagControlledDice?: boolean; playFromDiscard?: boolean } | null
   /** Hadès (Fatalité) — Héra / Pégase : `chooserIndex` (le joueur qui a joué la
    *  Fatalité) choisit un Titan parmi `titanCandidateIds` (du royaume de Hadès =
    *  `playerIndex`) à entraver (`kind: 'trap'`) ou à repousser de `pushSteps` lieux
@@ -3995,6 +4137,22 @@ export type GameAction =
   /** Sa Sucrerie — L'important, c'est de payer : dépenser `amount` jetons Pouvoir (1..max)
    *  pour avancer le pion d'autant de cases. */
   | { type: 'RESOLVE_PAY_RACE'; amount: number }
+  /** Mr. Monopoly — Affaire : poser `amount` maisons (1..max) sur le lieu adverse en attente. */
+  | { type: 'RESOLVE_BUY_HOUSES'; amount: number }
+  /** Mr. Monopoly — Carte bancaire / destruction : choisir un lieu (`locationId`). En phase
+   *  'from' = lieu source (ou lieu à détruire) ; en phase 'to' = lieu destination. */
+  | { type: 'RESOLVE_MOVE_HOUSES'; locationId: LocationId }
+  /** Mr. Monopoly — Libéré de prison : soit déplacer un Héros (`heroInstanceId` + `locationId`),
+   *  soit envoyer Mr. Monopoly en Prison (`toPrison: true`). */
+  | { type: 'RESOLVE_FREE_FROM_JAIL'; heroInstanceId?: string; locationId?: LocationId; toPrison?: boolean }
+  /** Mr. Monopoly — Chaussure : choisir le lieu (`locationId`) bloqué pour la pose de maisons. */
+  | { type: 'RESOLVE_BLOCK_LOCATION'; locationId: LocationId }
+  /** Mr. Monopoly — Reculez de trois cases : déplacer le pion vers `locationId` (n'importe lequel). */
+  | { type: 'RESOLVE_BACKWARD_MOVE'; locationId: LocationId }
+  /** Mr. Monopoly — Canne : ouvre le choix d'une action empruntée à un lieu maisonné adverse. */
+  | { type: 'USE_CANNE_MONOPOLY' }
+  /** Mr. Monopoly — Canne : exécute l'action empruntée (`actionId` du lieu adverse `locationId`). */
+  | { type: 'RESOLVE_CANNE_BORROW'; locationId: LocationId; actionId: string }
   /** Sa Sucrerie — Princesse Vanellope : reculer le pion King Candy de `amount` (0..max). */
   | { type: 'RESOLVE_PAWN_BACK'; amount: number }
   /** Sa Sucrerie — Le Faisceau : choisir le lieu de rassemblement (`locationId`) puis,
@@ -4234,6 +4392,13 @@ export type GameAction =
   | { type: 'RESOLVE_DIO_MUDA'; heroInstanceId?: string }
   /** Dio — Lumière du Soleil : défausse la main ('discard') ou perd du Pouvoir ('lose'). */
   | { type: 'RESOLVE_DIO_SUNLIGHT'; choice: 'discard' | 'lose' }
+  /** Pyramid Head — Pacte de Sang : défausse la carte `instanceId` de la main, puis ouvre
+   *  la récupération d'une carte du même type. */
+  | { type: 'RESOLVE_PACTE_SANG'; instanceId: string }
+  /** Pyramid Head — Sacrifice Humain : applique le choix (regarder 3 / garder 1, ou gagner 2). */
+  | { type: 'RESOLVE_SACRIFICE'; choice: 'look' | 'gain' }
+  /** Pyramid Head — Cage de l'Expiation : déplace le Héros porteur vers `locationId`. */
+  | { type: 'RESOLVE_CAGE_MOVE'; locationId: LocationId }
   | { type: 'RESOLVE_CRUSTACEAN_PLACE'; to: LocationId }
   /** Le Seigneur des Ténèbres — résout le choix « mélanger sa défausse OU défausser
    *  l'Épée Magique pour s'emparer du Chaudron » (Nous avons conclu un marché !). */

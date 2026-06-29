@@ -1133,6 +1133,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveTaffytaChoice = useGameStore((s) => s.resolveTaffytaChoice)
   const resolveAigreBill = useGameStore((s) => s.resolveAigreBill)
   const resolvePayRace = useGameStore((s) => s.resolvePayRace)
+  const resolveBuyHouses = useGameStore((s) => s.resolveBuyHouses)
+  const resolveMoveHouses = useGameStore((s) => s.resolveMoveHouses)
+  const resolveFreeFromJail = useGameStore((s) => s.resolveFreeFromJail)
+  const resolveBlockLocation = useGameStore((s) => s.resolveBlockLocation)
+  const resolveBackwardMove = useGameStore((s) => s.resolveBackwardMove)
   const resolvePawnBack = useGameStore((s) => s.resolvePawnBack)
   const resolveBeacon = useGameStore((s) => s.resolveBeacon)
   const resolveMedal = useGameStore((s) => s.resolveMedal)
@@ -1159,6 +1164,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveDioCream = useGameStore((s) => s.resolveDioCream)
   const resolveDioMuda = useGameStore((s) => s.resolveDioMuda)
   const resolveDioSunlight = useGameStore((s) => s.resolveDioSunlight)
+  const resolvePacteSang = useGameStore((s) => s.resolvePacteSang)
+  const resolveSacrifice = useGameStore((s) => s.resolveSacrifice)
+  const resolveCageMove = useGameStore((s) => s.resolveCageMove)
   const resolveCrustaceanPlace = useGameStore((s) => s.resolveCrustaceanPlace)
   const resolveFateAllyToAuDela = useGameStore((s) => s.resolveFateAllyToAuDela)
   const resolveFateDiscardHand = useGameStore((s) => s.resolveFateDiscardHand)
@@ -1258,6 +1266,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveStealKey = useGameStore((s) => s.resolveStealKey)
   // Renommé sans préfixe « use » (action du store, pas un hook React).
   const activateCanne = useGameStore((s) => s.useCanne)
+  const activateCanneMonopoly = useGameStore((s) => s.useCanneMonopoly)
+  const resolveCanneBorrow = useGameStore((s) => s.resolveCanneBorrow)
   const chariotMove = useGameStore((s) => s.chariotMove)
   const zaWarudoRelocate = useGameStore((s) => s.zaWarudoRelocate)
   const skipRemoteAction = useGameStore((s) => s.skipRemoteAction)
@@ -1578,7 +1588,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // gagnée. `humanWon` = VICTOIRE/DÉFAITE ; l'image = winnerKey si victoire, sinon
   // loserKey. `null` = aucun aperçu.
   const [victoryPreview, setVictoryPreview] = useState<
-    { humanWon: boolean; winnerKey: VillainKey; loserKey: VillainKey } | null
+    { humanWon: boolean; winnerKey: string; loserKey: string } | null
   >(null)
   // Inflige un Héros en capturant les refus de pose (sinon l'erreur est avalée).
   const handleInflict = (cardId: string, to: string) => {
@@ -2127,6 +2137,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     Object.values(user.board).some((cards) =>
       cards.some((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket && !c.cannotBeDiscarded),
     )
+  // Pyramid Head — Pacte de Sang : une carte de la main a-t-elle un équivalent (même type) en défausse ?
+  const pacteSangPossible =
+    isHumanTurn && (() => { const t = new Set(user.discard.map((c) => c.type)); return user.hand.some((c) => t.has(c.type)) })()
   // Au moins un Héros dans le royaume du joueur : « Magnifiques Taxes » l'exige.
   const anyHeroOnBoard =
     isHumanTurn && Object.values(user.board).some((cards) => cards.some((c) => c.type === 'hero' && !c.isPrisoner))
@@ -2172,6 +2185,14 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     !state.usedActionIds.includes('canne-action') &&
     !state.actAtLocation &&
     (user.board[user.pawnLocation] ?? []).some((c) => c.cardId === 'canne')
+  // Canne (Mr. Monopoly) : pion sur la Canne, non utilisée, et au moins un lieu adverse maisonné.
+  const canneMonopolyAvailable: boolean =
+    isHumanTurn &&
+    state.phase === 'ACTION' &&
+    !!user.pawnLocation &&
+    !state.usedActionIds.includes('canne-action') &&
+    (user.board[user.pawnLocation] ?? []).some((c) => c.cardId === 'custom-mr-monopoly-canne') &&
+    state.players[BOT].locations.some((l) => (user.houses?.[l.id] ?? 0) > 0)
   // Diablo encore mobile (UI inline). Règle : « avant que Maléfique ne se
   // déplace » → uniquement en phase MOVE (donc pas le tour où on vient de jouer
   // Diablo, qui se pose en phase ACTION).
@@ -2499,6 +2520,49 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         const choice = state.players[pds.playerIndex].power >= pds.lose ? 'lose' : 'discard'
         const timer = setTimeout(() => resolveDioSunlight(choice), BOT_STEP_MS)
         return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Pyramid Head — Pacte de Sang : choisir la carte de la main à défausser. Bot → sacrifie
+    // la moins chère dont le type a un équivalent en défausse ; humain → modale.
+    const ppacte = state.pendingPacteSang
+    if (ppacte) {
+      if (seats[ppacte.playerIndex] === 'bot') {
+        const me2 = state.players[ppacte.playerIndex]
+        const typesInDiscard = new Set(me2.discard.map((c) => c.type))
+        const pick = [...me2.hand].filter((c) => typesInDiscard.has(c.type)).sort((a, b) => (a.cost ?? 0) - (b.cost ?? 0))[0] ?? me2.hand[0]
+        if (pick) {
+          const timer = setTimeout(() => resolvePacteSang(pick.instanceId), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
+    // Pyramid Head — Sacrifice Humain : choix « regarder 3 » / « gagner 2 ». Bot → regarder
+    // si la pioche n'est pas vide (avantage en cartes), sinon gagner 2 ; humain → modale.
+    const psac = state.pendingSacrifice
+    if (psac) {
+      if (seats[psac.playerIndex] === 'bot') {
+        const choice = state.players[psac.playerIndex].deck.length > 0 ? 'look' : 'gain'
+        const timer = setTimeout(() => resolveSacrifice(choice), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Pyramid Head — Cage de l'Expiation : choisir le lieu où déplacer le Héros enfermé.
+    // Bot → un lieu non tuilé de préférence (l'éloigner), sinon le 1ᵉʳ autre lieu ; humain → modale.
+    const pcage = state.pendingCageMove
+    if (pcage) {
+      if (seats[pcage.playerIndex] === 'bot') {
+        const p2 = state.players[pcage.playerIndex]
+        let from: string | undefined
+        for (const l of p2.locations) if ((p2.board[l.id] ?? []).some((c) => c.instanceId === pcage.heroInstanceId)) { from = l.id; break }
+        const others = p2.locations.filter((l) => l.id !== from)
+        const dest = others[0]
+        if (dest) {
+          const timer = setTimeout(() => resolveCageMove(dest.id), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
       }
       return
     }
@@ -3719,7 +3783,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire])
+  }, [seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolvePacteSang, resolveSacrifice, resolveCageMove, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire])
 
   // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
   // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
@@ -5205,6 +5269,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 .filter((h) => (h.strength ?? 0) <= limit.maxStrength)
                 // Sale voleuse ! : cible restreinte (Cendrillon / robe de bal).
                 .filter((h) => !limit.onlyCardIds || limit.onlyCardIds.includes(h.cardId))
+                // Banqueroute : coût = Force du Héros → seuls les Héros abordables.
+                .filter((h) => !card?.costEqualsTargetStrength || (h.strength ?? 0) <= user.power)
                 .map((c) => c.instanceId)
             }
             // Sombra — Boop ! : seuls les Héros PAS déjà piratés sont ciblables.
@@ -5370,9 +5436,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const userBoardRef = useRef<HTMLDivElement>(null)
   const botBoardRef = useRef<HTMLDivElement>(null)
   const winnerIndex = won ? state.winner ?? null : null
-  const winnerKey = winnerIndex != null ? villainKeyOf(state.players[winnerIndex].villain) : null
+  // Clés de PRÉSENTATION (préservent l'id `custom-…` d'un vilain publié ; villainKeyOf
+  // les rabattrait sur 'princeJohn' → image erronée pour Dio & co.).
+  const winnerKey = winnerIndex != null ? presKey(state.players[winnerIndex].villain) : null
   const loserKey =
-    winnerIndex != null ? villainKeyOf(state.players[1 - winnerIndex].villain) : null
+    winnerIndex != null ? presKey(state.players[1 - winnerIndex].villain) : null
   // Siège (panneau) du perdant : 'user' (siège HUMAIN) ou 'bot'.
   const loserSeat: 'user' | 'bot' | null =
     winnerIndex == null ? null : 1 - winnerIndex === HUMAN ? 'user' : 'bot'
@@ -5821,6 +5889,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             <BoardImage player={user} showPawn pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[user.villain]}, white 45%)`} imgClassName="border border-[color:var(--pa-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} unmaskHeroLocationId={persifleurLoc} obstacleTargets={state.pendingObstacle && state.pendingObstacle.chooserIndex === HUMAN && state.pendingObstacle.kind === 'remove' ? user.locations.map((l) => l.id).filter((id) => (user.obstacles?.[id] ?? 0) > 0 && (!state.pendingObstacle!.sameLocation || !state.pendingObstacle!.lockedLocationId || state.pendingObstacle!.lockedLocationId === id)) : undefined} onObstacleClick={resolveObstacle} keyPick={state.pendingKey && state.pendingKey.playerIndex === HUMAN && state.pendingKey.kind === 'take' && !dieAnim ? { locationId: state.pendingKey.locationId, color: state.pendingKey.color } : undefined} onKeyClick={resolveKey} crewmateCandidates={state.pendingCrewmateKill?.playerIndex === HUMAN ? state.pendingCrewmateKill.candidateColors : undefined} onCrewmateClick={(color) => { if (state.pendingCrewmateKill?.mode === 'kill') playKillSound(); resolveCrewmateKill(color) }} crewmateSelectVerb={state.pendingCrewmateKill?.mode === 'reassure' ? 'Rassurer' : state.pendingCrewmateKill?.mode === 'kill-normal' ? 'Éliminer' : state.pendingCrewmateKill?.mode === 'move' ? 'Déplacer' : 'Défausser'} pawnDraggable={pawnDraggable} pawnDragging={draggingPawn} pawnHeightOverride={pawnEdit && pawnEdit.villain === villainKeyOf(user.villain) ? pawnEdit.size : undefined} onPawnDragStart={handlePawnDragStart} onPawnDragMove={handlePawnDragMove} onPawnDragDrop={handlePawnDragDrop} onPawnDragCancel={handlePawnDragCancel} />
             <BoardActions
               player={user}
+              housesHere={bot.houses}
               availableActionIds={availableActions.map((a) => a.id)}
               usedActionIds={isHumanTurn ? state.usedActionIds : []}
               blinkTopAtLocation={persifleurLoc}
@@ -5904,7 +5973,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                     // Test « Défaite » : après l'éclat de MON plateau → écran DÉFAITE.
                     setTestShatterSeat(null)
                     setTestEndKind(null)
-                    setVictoryPreview({ humanWon: false, winnerKey: opponentVillainKey, loserKey: humanVillainKey })
+                    setVictoryPreview({ humanWon: false, winnerKey: presKey(state.players[1].villain), loserKey: presKey(state.players[0].villain) })
                   } else setEndShatterDone(true)
                 }}
               />
@@ -6611,6 +6680,20 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               </button>
             </div>
           )}
+          {/* Canne (Mr. Monopoly) : emprunter une action d'un lieu adverse maisonné, +1 Pouvoir. */}
+          {canneMonopolyAvailable && !mode && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-400/70 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+              <span>
+                🦯 <b>Canne</b> : emprunte une action d'un lieu adverse maisonné (hors Fatalité) + 1 Pouvoir.
+              </span>
+              <button
+                onClick={() => activateCanneMonopoly()}
+                className="rounded bg-emerald-600 px-2 py-1 font-medium text-white hover:bg-emerald-500"
+              >
+                Utiliser
+              </button>
+            </div>
+          )}
           {/* Ratigan — Brutes : action distante FACULTATIVE sur leur lieu (les
               pastilles d'action de ce lieu, hors Fatalité, sont cliquables sur le
               plateau). Bouton « Passer » pour y renoncer. */}
@@ -6831,6 +6914,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 de l'action qu'il vient de jouer (pour visualiser ses coups). */}
             <BoardActions
               player={bot}
+              housesHere={user.houses}
               availableActionIds={[]}
               usedActionIds={[]}
               flashKey={isOpponentTurn ? actionFlash : null}
@@ -6849,7 +6933,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                     // Test « Victoire » : après l'éclat du plateau ADVERSE → écran VICTOIRE.
                     setTestShatterSeat(null)
                     setTestEndKind(null)
-                    setVictoryPreview({ humanWon: true, winnerKey: humanVillainKey, loserKey: opponentVillainKey })
+                    setVictoryPreview({ humanWon: true, winnerKey: presKey(state.players[0].villain), loserKey: presKey(state.players[1].villain) })
                   } else setEndShatterDone(true)
                 }}
               />
@@ -6976,6 +7060,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             blockEvents={humanEventsBlocked}
             realmHasAllies={anyAllyOnBoard}
             realmHasDiscardableAlly={anyDiscardableAlly}
+            pacteSangPlayable={pacteSangPossible}
             realmHasPuppyTile={(user.puppyTiles ?? []).some((t) => t.state === 'board')}
             realmHasHeroes={anyHeroOnBoard}
             raceBanPlayable={(anyAllyOnBoard && anyHeroOnBoard) || !!user.raceActive}
@@ -7439,6 +7524,106 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         />
       )}
 
+      {/* Mr. Monopoly — Affaire : combien de maisons poser (chacune coûte unitCost). */}
+      {state.pendingBuyHouses && state.pendingBuyHouses.playerIndex === HUMAN && (() => {
+        const pbh = state.pendingBuyHouses
+        const opp = state.players[pbh.playerIndex === 0 ? 1 : 0]
+        const locName = opp.locations.find((l) => l.id === pbh.locationId)?.name ?? pbh.locationId
+        return (
+          <ChoiceModal
+            title="Affaire"
+            prompt={`Combien de maisons poser sur ${locName} ? (${pbh.unitCost} JT chacune)`}
+            options={Array.from({ length: pbh.max }, (_, i) => i + 1).map((n) => ({
+              key: `buy-${n}`,
+              label: `Poser ${n} maison${n > 1 ? 's' : ''} (−${n * pbh.unitCost} JT)`,
+              onSelect: () => resolveBuyHouses(n),
+            }))}
+          />
+        )
+      })()}
+
+      {/* Mr. Monopoly — Carte bancaire / destruction : choisir un lieu (source/destination). */}
+      {state.pendingMoveHouses && state.pendingMoveHouses.playerIndex === HUMAN && (() => {
+        const pmh = state.pendingMoveHouses
+        const mm = state.players[pmh.playerIndex]
+        const opp = state.players[pmh.playerIndex === 0 ? 1 : 0]
+        const opts = opp.locations
+          .filter((l) => {
+            const count = mm.houses?.[l.id] ?? 0
+            return pmh.phase === 'from' ? count > 0 : count < 4 && l.id !== pmh.from
+          })
+          .map((l) => {
+            const count = mm.houses?.[l.id] ?? 0
+            return {
+              key: `mh-${l.id}`,
+              label: `${l.name} (${count} maison${count > 1 ? 's' : ''})`,
+              onSelect: () => resolveMoveHouses(l.id),
+            }
+          })
+        const title = pmh.destroy ? 'Détruire une maison' : 'Carte bancaire'
+        const prompt =
+          pmh.destroy
+            ? 'Sur quel lieu détruire une maison ?'
+            : pmh.phase === 'from'
+              ? 'De quel lieu retirer une maison ?'
+              : `Vers quel lieu déplacer la maison ? (encore ${pmh.remaining} à déplacer)`
+        return <ChoiceModal title={title} prompt={prompt} options={opts} />
+      })()}
+
+      {/* Mr. Monopoly — Libéré de prison (Fatalité) : le fataliseur choisit. */}
+      {state.pendingFreeFromJail && state.pendingFreeFromJail.chooserIndex === HUMAN && (() => {
+        const pj = state.pendingFreeFromJail
+        const target = state.players[pj.targetIndex]
+        const heroes = target.locations.flatMap((l) => (target.board[l.id] ?? []).filter((c) => c.type === 'hero'))
+        const opts = [
+          { key: 'jail', label: `🏚️ Envoyer ${target.villainName} en Prison`, onSelect: () => resolveFreeFromJail({ toPrison: true }) },
+          ...heroes.flatMap((h) =>
+            target.locations.map((l) => ({
+              key: `mv-${h.instanceId}-${l.id}`,
+              label: `Déplacer ${h.name} → ${l.name}`,
+              onSelect: () => resolveFreeFromJail({ heroInstanceId: h.instanceId, locationId: l.id }),
+            })),
+          ),
+        ]
+        return <ChoiceModal title="Libéré de prison" prompt="Choisissez une action." options={opts} />
+      })()}
+
+      {/* Mr. Monopoly — Chaussure (Fatalité) : le fataliseur choisit le lieu bloqué. */}
+      {state.pendingBlockLocation && state.pendingBlockLocation.chooserIndex === HUMAN && (() => {
+        const pb = state.pendingBlockLocation
+        const opp = state.players[pb.targetIndex === 0 ? 1 : 0]
+        const opts = opp.locations.map((l) => ({
+          key: `block-${l.id}`,
+          label: l.name,
+          onSelect: () => resolveBlockLocation(l.id),
+        }))
+        return <ChoiceModal title="Chaussure" prompt="Sur quel lieu Mr. Monopoly ne pourra plus poser de maison ?" options={opts} />
+      })()}
+
+      {/* Mr. Monopoly — Reculez de trois cases : choisir le lieu de destination. */}
+      {state.pendingBackwardMove && state.pendingBackwardMove.playerIndex === HUMAN && (() => {
+        const me = state.players[HUMAN]
+        const opts = me.locations.map((l) => ({
+          key: `back-${l.id}`,
+          label: l.name,
+          onSelect: () => resolveBackwardMove(l.id),
+        }))
+        return <ChoiceModal title="Reculez de trois cases" prompt="Où déplacer votre pion ? (une action de ce lieu, hors Fatalité, puis fin de tour)" options={opts} />
+      })()}
+
+      {/* Mr. Monopoly — Canne : choisir l'action empruntée à un lieu maisonné adverse. */}
+      {state.pendingCanneBorrow && state.pendingCanneBorrow.playerIndex === HUMAN && (
+        <ChoiceModal
+          title="Canne"
+          prompt="Quelle action emprunter ? (+1 Pouvoir)"
+          options={state.pendingCanneBorrow.options.map((o) => ({
+            key: `canne-${o.locationId}-${o.actionId}`,
+            label: o.label,
+            onSelect: () => resolveCanneBorrow(o.locationId, o.actionId),
+          }))}
+        />
+      )}
+
       {/* Shere Khan — Aie confiance : choisir des cartes de la défausse à remélanger. */}
       {state.pendingRecoverToDeck && state.pendingRecoverToDeck.playerIndex === HUMAN && (() => {
         const prd = state.pendingRecoverToDeck
@@ -7884,6 +8069,46 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           ]}
         />
       )}
+
+      {/* Pyramid Head — Pacte de Sang : choisir la carte de la main à défausser (on récupère
+          ensuite une carte du même type). On ne propose que les types présents en défausse. */}
+      {state.pendingPacteSang && state.pendingPacteSang.playerIndex === HUMAN && (() => {
+        const typesInDiscard = new Set(user.discard.map((c) => c.type))
+        const choices = user.hand.filter((c) => typesInDiscard.has(c.type))
+        return (
+          <CardChoiceModal
+            title="Pacte de Sang : défausse une carte (tu récupéreras une carte du même type)"
+            cards={choices}
+            onClose={() => choices[0] && resolvePacteSang(choices[0].instanceId)}
+            onPick={(card) => resolvePacteSang(card.instanceId)}
+          />
+        )
+      })()}
+      {/* Pyramid Head — Sacrifice Humain : regarder 3 (garder 1) OU gagner 2 Pouvoir. */}
+      {state.pendingSacrifice && state.pendingSacrifice.playerIndex === HUMAN && (
+        <ChoiceModal
+          title="Sacrifice Humain"
+          prompt="Choisis l'effet de la capacité."
+          options={[
+            { key: 'sac-look', label: 'Regarder les 3 premières cartes (en garder 1)', onSelect: () => resolveSacrifice('look') },
+            { key: 'sac-gain', label: 'Gagner 2 jetons Pouvoir', onSelect: () => resolveSacrifice('gain') },
+          ]}
+        />
+      )}
+      {/* Pyramid Head — Cage de l'Expiation : choisir le lieu où déplacer le Héros enfermé. */}
+      {state.pendingCageMove && state.pendingCageMove.playerIndex === HUMAN && (() => {
+        const pcm = state.pendingCageMove
+        const from = user.locations.find((l) => (user.board[l.id] ?? []).some((c) => c.instanceId === pcm.heroInstanceId))?.id
+        return (
+          <ChoiceModal
+            title="Cage de l'Expiation"
+            prompt="Déplace le Héros enfermé vers quel lieu ?"
+            options={user.locations
+              .filter((l) => l.id !== from)
+              .map((l) => ({ key: `cage-${l.id}`, label: l.name, onSelect: () => resolveCageMove(l.id) }))}
+          />
+        )
+      })()}
       {state.pendingBargainChoice && state.pendingBargainChoice.playerIndex === HUMAN && (
         <BargainChoiceModal power={state.pendingBargainChoice.power} onChoose={resolveBargainChoice} />
       )}
@@ -8422,6 +8647,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                   ? 'Justice : reprends un Allié de ta défausse'
                   : state.pendingRecover.label === 'Quête vers le paradis'
                     ? 'Quête vers le paradis : choisis la carte à ajouter à ta main'
+                  : state.pendingRecover.label === 'Pacte de sang'
+                    ? 'Pacte de Sang : récupère une carte du même type'
                     : 'Opportunisme : reprends un Objet ou un Événement'
         return (
           <CardChoiceModal

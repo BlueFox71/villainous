@@ -62,6 +62,9 @@ export function pendingOwner(state: GameState): number | null {
   if (state.pendingDioCream) return state.pendingDioCream.playerIndex
   if (state.pendingDioMuda) return state.pendingDioMuda.playerIndex
   if (state.pendingDioSunlight) return state.pendingDioSunlight.playerIndex
+  if (state.pendingPacteSang) return state.pendingPacteSang.playerIndex
+  if (state.pendingSacrifice) return state.pendingSacrifice.playerIndex
+  if (state.pendingCageMove) return state.pendingCageMove.playerIndex
   if (state.pendingBargainChoice) return state.pendingBargainChoice.playerIndex
   if (state.pendingFreeItemPlay) return state.pendingFreeItemPlay.playerIndex
   if (state.pendingMaximus) return state.pendingMaximus.chooserIndex
@@ -97,6 +100,8 @@ export function pendingOwner(state: GameState): number | null {
   if (state.pendingKeyColor) return state.pendingKeyColor.playerIndex
   if (state.pendingPlaisir) return state.pendingPlaisir.playerIndex
   if (state.pendingStealKey) return state.pendingStealKey.chooserIndex
+  if (state.pendingFreeFromJail) return state.pendingFreeFromJail.chooserIndex
+  if (state.pendingBlockLocation) return state.pendingBlockLocation.chooserIndex
   // pendingFate / diabloFree / pendingTrapVanquish appartiennent TOUJOURS au
   // joueur actif (il vient de jouer la Fatalité / Diablo / le Piège) → pris en
   // charge par le repli sur activePlayer dans whoseInput, pas listés ici.

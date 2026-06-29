@@ -169,7 +169,7 @@ function CardForm({
                   value={card.cost ?? 0}
                   min={0}
                   max={9}
-                  disabled={card.cost === undefined}
+                  disabled={card.cost === undefined || !!card.costVariable}
                   onChange={(e) => set({ cost: Number(e.target.value) })}
                 />
                 <label className="flex cursor-pointer items-center gap-1 text-[11px] text-white/55">
@@ -177,9 +177,19 @@ function CardForm({
                     type="checkbox"
                     className="accent-amber-400"
                     checked={card.cost === undefined}
+                    disabled={!!card.costVariable}
                     onChange={(e) => set({ cost: e.target.checked ? undefined : 1 })}
                   />
                   Sans coût
+                </label>
+                <label className="flex cursor-pointer items-center gap-1 text-[11px] text-white/55" title="Affiche « ? » (coût calculé en jeu, ex. = la Force du Héros ciblé)">
+                  <input
+                    type="checkbox"
+                    className="accent-amber-400"
+                    checked={!!card.costVariable}
+                    onChange={(e) => set({ costVariable: e.target.checked, cost: e.target.checked ? (card.cost ?? 0) : card.cost })}
+                  />
+                  Coût variable (?)
                 </label>
               </div>
             </Field>

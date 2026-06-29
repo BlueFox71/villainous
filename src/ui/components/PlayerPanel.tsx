@@ -166,6 +166,24 @@ export function PlayerPanel({ player, accent, isActive, isWinner, showObjective 
           )
         })()}
 
+        {/* Mr. Monopoly — MAISONS posées sur le royaume adverse (loyer). 4 sur un même
+            lieu = HÔTEL. L'objectif (≥30 Pouvoir) est la jauge de Pouvoir habituelle. */}
+        {player.houses !== undefined && (() => {
+          const counts = Object.values(player.houses)
+          const total = counts.reduce((n, v) => n + v, 0)
+          const hotels = counts.filter((v) => v >= 4).length
+          return (
+            <div
+              className="flex flex-col items-center justify-center rounded-lg border border-emerald-400/30 bg-black/20 px-3 py-3"
+              title={`Maisons posées : ${total}${hotels > 0 ? ` · Hôtels : ${hotels}` : ''}`}
+            >
+              <span className="-mt-1.5 text-[9px] uppercase tracking-wide text-emerald-300/70">Maisons</span>
+              <span className="text-2xl font-bold text-emerald-200">🏠 {total}</span>
+              {hotels > 0 && <span className="text-[10px] text-red-300/80">🏨 {hotels} hôtel{hotels > 1 ? 's' : ''}</span>}
+            </div>
+          )
+        })()}
+
         {/* Le Seigneur des Ténèbres — le Chaudron Magique est affiché parmi les piles
             secondaires du plateau (CauldronTile dans la marge gauche), pas ici. */}
 

@@ -28,6 +28,7 @@ export function CardPreview({
     tcol: card.typeColor,
     d: card.deck,
     c: card.cost,
+    cv: card.costVariable,
     s: card.strength,
     x: card.text,
     a: card.artImage?.slice(0, 64),

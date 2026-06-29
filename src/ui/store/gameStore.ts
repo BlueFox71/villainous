@@ -27,6 +27,7 @@ import { getCardDef, registerCustomCardDefs } from '../../data/registry'
 import { toVillainDef, toCardDefs, CUSTOM_ID_PREFIX, type CustomVillain } from '../../data/customVillain'
 import { CUSTOM_DIO_ID, patchCustomDio } from '../../data/villains/customDio'
 import { CUSTOM_PYRAMID_HEAD_ID, patchCustomPyramidHead } from '../../data/villains/customPyramidHead'
+import { CUSTOM_MONOPOLY_ID, patchCustomMonopoly } from '../../data/villains/customMonopoly'
 import type { VillainDef } from '../../engine/types'
 import type { CardDef } from '../../data/types'
 import { customActionPositions } from '../editor/boardLayout'
@@ -283,7 +284,9 @@ export function registerPublishedVillain(custom: CustomVillain): void {
       ? patchCustomDio(custom)
       : custom.id === CUSTOM_PYRAMID_HEAD_ID
         ? patchCustomPyramidHead(custom)
-        : custom
+        : custom.id === CUSTOM_MONOPOLY_ID
+          ? patchCustomMonopoly(custom)
+          : custom
   const cards = toCardDefs(eff)
   registerCustomCardDefs(cards)
   VILLAIN_COLOR[eff.id] = eff.color
@@ -461,6 +464,17 @@ function customGame(custom: CustomVillain, opponent: VillainKey): GameState {
 /** Compteur global d'instances de test (insertions / Héros infligés). */
 let testFateCounter = 0
 
+// Mr. Monopoly — Monotonie : horodatage (temps réel) du début de la partie courante.
+// Le moteur reste pur ; c'est ici (couche store/UI) qu'on lit l'horloge et qu'on estampille
+// `state.elapsedMs` à chaque action. Réinitialisé quand un état sans `elapsedMs` apparaît
+// (nouvelle partie).
+let monopolyGameStartMs = 0
+function stampElapsed(state: GameState): GameState {
+  const now = Date.now()
+  if (state.elapsedMs === undefined) monopolyGameStartMs = now
+  return { ...state, elapsedMs: now - monopolyGameStartMs }
+}
+
 /** Fabrique un exemplaire jouable depuis un cardId (recopie les champs de jeu
  *  pour que le moteur soit autosuffisant). Renvoie null si la carte est inconnue. */
 function instanceOf(cardId: string, n: number): CardInstance | null {
@@ -512,8 +526,11 @@ function instanceOf(cardId: string, n: number): CardInstance | null {
 
 /** Construit l'état d'entrée du mode test : partie neuve (decks/Fatalité valides),
  *  plateaux des DEUX joueurs vidés, phase Action, pouvoir confortable au joueur. */
-function buildTestState(): GameState {
-  const base = newGame()
+function buildTestState(current?: GameState): GameState {
+  // On REPART des vilains de la partie en cours (s'il y en a une) pour qu'un vilain custom
+  // déjà en jeu (ex. Dio) ne disparaisse pas en passant en mode test ; sinon, partie par défaut.
+  const keys = current?.players.map((p) => p.villain) as [string, string] | undefined
+  const base = newGame(keys)
   const players = base.players.map((p, i) => ({
     ...p,
     board: Object.fromEntries(p.locations.map((l) => [l.id, []])) as GameState['players'][number]['board'],
@@ -660,6 +677,9 @@ interface GameStore {
   /** Dio — Quête vers le paradis : va chercher une carte du type choisi (Objet ou Stand). */
   /** Dio — Lumière du Soleil : défausse la main OU perd du Pouvoir. */
   resolveDioSunlight: (choice: 'discard' | 'lose') => void
+  resolvePacteSang: (instanceId: string) => void
+  resolveSacrifice: (choice: 'look' | 'gain') => void
+  resolveCageMove: (locationId: string) => void
   resolveCrustaceanPlace: (to: string) => void
   /** Dr Facilier — L'étoile du soir : place l'Allié choisi dans l'Au-delà de la cible. */
   resolveFateAllyToAuDela: (allyInstanceId: string) => void
@@ -744,6 +764,16 @@ interface GameStore {
   resolveAigreBill: (dig: boolean) => void
   /** Sa Sucrerie — L'important, c'est de payer : dépenser `amount` Pouvoir → avancer d'autant. */
   resolvePayRace: (amount: number) => void
+  /** Mr. Monopoly — Affaire : poser `amount` maisons sur le lieu adverse en attente. */
+  resolveBuyHouses: (amount: number) => void
+  /** Mr. Monopoly — Carte bancaire / destruction : choisir un lieu (source ou destination). */
+  resolveMoveHouses: (locationId: string) => void
+  /** Mr. Monopoly — Libéré de prison : déplacer un Héros, ou envoyer Mr. Monopoly en Prison. */
+  resolveFreeFromJail: (arg: { heroInstanceId?: string; locationId?: string; toPrison?: boolean }) => void
+  /** Mr. Monopoly — Chaussure : choisir le lieu bloqué pour la pose de maisons. */
+  resolveBlockLocation: (locationId: string) => void
+  /** Mr. Monopoly — Reculez de trois cases : déplacer le pion vers le lieu choisi. */
+  resolveBackwardMove: (locationId: string) => void
   /** Sa Sucrerie — Princesse Vanellope : reculer le pion King Candy de `amount` cases (0..max). */
   resolvePawnBack: (amount: number) => void
   /** Sa Sucrerie — Le Faisceau : choisir le lieu de rassemblement, puis défausser/passer. */
@@ -936,6 +966,10 @@ interface GameStore {
   resolveFateScry: (toAudelaIds: string[], deckTopOrder: string[]) => void
   /** Canne (Dr Facilier) : ouvre le choix d'un lieu voisin où agir. */
   useCanne: () => void
+  /** Mr. Monopoly — Canne : ouvre le choix d'une action empruntée à un lieu maisonné adverse. */
+  useCanneMonopoly: () => void
+  /** Mr. Monopoly — Canne : exécute l'action empruntée choisie. */
+  resolveCanneBorrow: (locationId: string, actionId: string) => void
   /** Char (Hadès) : déplace la figurine + le Char vers `to`. */
   chariotMove: (instanceId: string, to: string) => void
   /** Dio — ZA WARUDO! (temps arrêté) : déplace librement le pion vers `to`. */
@@ -968,7 +1002,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   testMode: false,
   submit: (action) => {
     if (get().mode === 'solo') {
-      set((s) => ({ state: applyAction(s.state, action) }))
+      set((s) => ({ state: applyAction(stampElapsed(s.state), action) }))
       return
     }
     // Réseau : l'hôte applique+diffuse, le client envoie. Le store se met à jour
@@ -1110,7 +1144,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     teardownNet()
     set({ mode: 'solo', seats: SOLO_SEATS, localPlayerIndex: 0, netStatus: 'idle', hostRoom: null, hostAddrs: null, netError: null, netLeftNotice: null, peerReacting: null, peerHover: null, lobby: null })
   },
-  enterTestMode: () => set({ state: buildTestState(), testMode: true }),
+  enterTestMode: () => set((s) => ({ state: buildTestState(s.state), testMode: true })),
   testInsertCard: (playerIndex, locationId, cardId) =>
     set((s) => {
       const card = instanceOf(cardId, ++testFateCounter)
@@ -1262,6 +1296,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   resolveDioCream: (heroInstanceId) => get().submit({ type: 'RESOLVE_DIO_CREAM', heroInstanceId }),
   resolveDioMuda: (heroInstanceId) => get().submit({ type: 'RESOLVE_DIO_MUDA', heroInstanceId }),
   resolveDioSunlight: (choice) => get().submit({ type: 'RESOLVE_DIO_SUNLIGHT', choice }),
+  resolvePacteSang: (instanceId) => get().submit({ type: 'RESOLVE_PACTE_SANG', instanceId }),
+  resolveSacrifice: (choice) => get().submit({ type: 'RESOLVE_SACRIFICE', choice }),
+  resolveCageMove: (locationId) => get().submit({ type: 'RESOLVE_CAGE_MOVE', locationId }),
   resolveCrustaceanPlace: (to: string) => get().submit({ type: 'RESOLVE_CRUSTACEAN_PLACE', to }),
   resolveFateAllyToAuDela: (allyInstanceId: string) => get().submit({ type: 'RESOLVE_FATE_ALLY_TO_AUDELA', allyInstanceId }),
   resolveFateDiscardHand: (cardInstanceId: string) => get().submit({ type: 'RESOLVE_FATE_DISCARD_HAND', cardInstanceId }),
@@ -1341,6 +1378,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_AIGRE_BILL', dig }),
   resolvePayRace: (amount) =>
     get().submit({ type: 'RESOLVE_PAY_RACE', amount }),
+  resolveBuyHouses: (amount) =>
+    get().submit({ type: 'RESOLVE_BUY_HOUSES', amount }),
+  resolveMoveHouses: (locationId) =>
+    get().submit({ type: 'RESOLVE_MOVE_HOUSES', locationId }),
+  resolveFreeFromJail: (arg) =>
+    get().submit({ type: 'RESOLVE_FREE_FROM_JAIL', ...arg }),
+  resolveBlockLocation: (locationId) =>
+    get().submit({ type: 'RESOLVE_BLOCK_LOCATION', locationId }),
+  resolveBackwardMove: (locationId) =>
+    get().submit({ type: 'RESOLVE_BACKWARD_MOVE', locationId }),
   resolvePawnBack: (amount) =>
     get().submit({ type: 'RESOLVE_PAWN_BACK', amount }),
   resolveBeacon: (arg) =>
@@ -1527,6 +1574,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_FATE_SCRY', toAudelaIds, deckTopOrder }),
   useCanne: () =>
     get().submit({ type: 'USE_CANNE' }),
+  useCanneMonopoly: () =>
+    get().submit({ type: 'USE_CANNE_MONOPOLY' }),
+  resolveCanneBorrow: (locationId, actionId) =>
+    get().submit({ type: 'RESOLVE_CANNE_BORROW', locationId, actionId }),
   chariotMove: (instanceId, to) =>
     get().submit({ type: 'CHARIOT_MOVE', instanceId, to }),
   zaWarudoRelocate: (to) =>

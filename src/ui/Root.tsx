@@ -110,10 +110,10 @@ function EditorRoute() {
   return (
     <VillainEditor
       onBack={() => navigate(ROUTES.menu)}
-      onPlay={(custom) => {
-        // Adversaire : un vilain natif tiré au hasard parmi le registre.
+      onPlay={(custom, chosen) => {
+        // Adversaire : celui choisi dans l'éditeur, sinon un vilain natif au hasard.
         const keys = Object.keys(VILLAIN_REGISTRY) as VillainKey[]
-        const opponent = keys[Math.floor(Math.random() * keys.length)]
+        const opponent = chosen ?? keys[Math.floor(Math.random() * keys.length)]
         useGameStore.getState().startCustomGame(custom, opponent)
         navigate(ROUTES.game)
       }}

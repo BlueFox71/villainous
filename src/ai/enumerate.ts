@@ -530,6 +530,63 @@ export function enumerateActions(state: GameState): GameAction[] {
     return out
   }
 
+  // Mr. Monopoly — Affaire : choisir combien de maisons poser (1..max).
+  if (state.pendingBuyHouses) {
+    const out: GameAction[] = []
+    for (let n = 1; n <= state.pendingBuyHouses.max; n++) out.push({ type: 'RESOLVE_BUY_HOUSES', amount: n })
+    return out
+  }
+
+  // Mr. Monopoly — Libéré de prison : envoyer Mr. Monopoly en Prison, ou déplacer un Héros.
+  if (state.pendingFreeFromJail) {
+    const pj = state.pendingFreeFromJail
+    const target = state.players[pj.targetIndex]
+    const out: GameAction[] = [{ type: 'RESOLVE_FREE_FROM_JAIL', toPrison: true }]
+    const heroes = Object.values(target.board).flat().filter((c) => c.type === 'hero')
+    for (const h of heroes) {
+      for (const l of target.locations) {
+        out.push({ type: 'RESOLVE_FREE_FROM_JAIL', heroInstanceId: h.instanceId, locationId: l.id })
+      }
+    }
+    return out
+  }
+
+  // Mr. Monopoly — Chaussure : choisir un lieu à bloquer pour la pose de maisons.
+  if (state.pendingBlockLocation) {
+    const pb = state.pendingBlockLocation
+    const opp = state.players[pb.targetIndex === 0 ? 1 : 0]
+    return opp.locations.map((l) => ({ type: 'RESOLVE_BLOCK_LOCATION', locationId: l.id }))
+  }
+
+  // Mr. Monopoly — Reculez de trois cases : choisir le lieu de destination du pion.
+  if (state.pendingBackwardMove) {
+    const me = state.players[state.pendingBackwardMove.playerIndex]
+    return me.locations.map((l) => ({ type: 'RESOLVE_BACKWARD_MOVE', locationId: l.id }))
+  }
+
+  // Mr. Monopoly — Canne : choisir l'action empruntée.
+  if (state.pendingCanneBorrow) {
+    return state.pendingCanneBorrow.options.map((o) => ({ type: 'RESOLVE_CANNE_BORROW', locationId: o.locationId, actionId: o.actionId }))
+  }
+
+  // Mr. Monopoly — Carte bancaire / destruction : choisir un lieu (source ou destination).
+  if (state.pendingMoveHouses) {
+    const pmh = state.pendingMoveHouses
+    const mm = state.players[pmh.playerIndex]
+    const opp = state.players[pmh.playerIndex === 0 ? 1 : 0]
+    const out: GameAction[] = []
+    for (const l of opp.locations) {
+      const count = mm.houses?.[l.id] ?? 0
+      if (pmh.phase === 'from') {
+        if (count > 0) out.push({ type: 'RESOLVE_MOVE_HOUSES', locationId: l.id })
+      } else {
+        // destination : non plein (plafond 4) et différent de la source
+        if (count < 4 && l.id !== pmh.from) out.push({ type: 'RESOLVE_MOVE_HOUSES', locationId: l.id })
+      }
+    }
+    return out
+  }
+
   // Princesse Vanellope : le fataliseur recule le pion King Candy de 0 à max.
   if (state.pendingPawnBack) {
     const out: GameAction[] = []
@@ -542,6 +599,32 @@ export function enumerateActions(state: GameState): GameAction[] {
     return [
       { type: 'RESOLVE_ACTIVATE_OR_VANQUISH', choice: 'vanquish' },
       { type: 'RESOLVE_ACTIVATE_OR_VANQUISH', choice: 'activate' },
+    ]
+  }
+
+  // Pyramid Head — Pacte de Sang : choisir une carte de la main (dont le type a un
+  // équivalent en défausse) à défausser.
+  if (state.pendingPacteSang) {
+    const typesInDiscard = new Set(me.discard.map((c) => c.type))
+    const out = me.hand
+      .filter((c) => typesInDiscard.has(c.type))
+      .map((c) => ({ type: 'RESOLVE_PACTE_SANG', instanceId: c.instanceId }) as GameAction)
+    return out.length > 0 ? out : me.hand.map((c) => ({ type: 'RESOLVE_PACTE_SANG', instanceId: c.instanceId }))
+  }
+
+  // Pyramid Head — Cage de l'Expiation : choisir le lieu où déplacer le Héros enfermé.
+  if (state.pendingCageMove) {
+    const me2 = state.players[state.pendingCageMove.playerIndex]
+    let from: string | undefined
+    for (const l of me2.locations) if ((me2.board[l.id] ?? []).some((c) => c.instanceId === state.pendingCageMove!.heroInstanceId)) { from = l.id; break }
+    return me2.locations.filter((l) => l.id !== from).map((l) => ({ type: 'RESOLVE_CAGE_MOVE', locationId: l.id }))
+  }
+
+  // Pyramid Head — Sacrifice Humain : choisir « regarder 3 / garder 1 » ou « gagner 2 ».
+  if (state.pendingSacrifice) {
+    return [
+      { type: 'RESOLVE_SACRIFICE', choice: 'look' },
+      { type: 'RESOLVE_SACRIFICE', choice: 'gain' },
     ]
   }
 
@@ -1329,6 +1412,8 @@ export function enumerateActions(state: GameState): GameAction[] {
             if ((h.strength ?? 0) > maxStrength) continue
             const hForce = effectiveStrength(state, state.activePlayer, h.instanceId) ?? 0
             if (isHypnose && hForce > me.power) continue
+            // Banqueroute : coût = Force du Héros → seules les cibles abordables.
+            if (card.costEqualsTargetStrength && hForce > me.power) continue
             // Rapetisser sur un Héros NORMAL : une option par action du haut à
             // laisser libre (l'autre est recouverte). Sur un Héros agrandi, Rapetisser
             // le ramène à la normale → pas de choix.
@@ -1695,6 +1780,18 @@ export function enumerateActions(state: GameState): GameAction[] {
     (me.board[me.pawnLocation] ?? []).some((c) => c.cardId === 'canne')
   ) {
     out.push({ type: 'USE_CANNE' })
+  }
+
+  // Canne (Mr. Monopoly) : si le pion est sur la Canne, qu'elle n'a pas servi et qu'il
+  // existe au moins un lieu adverse maisonné, ouvrir le choix d'action empruntée.
+  if (
+    state.phase === 'ACTION' &&
+    me.pawnLocation &&
+    !state.usedActionIds.includes('canne-action') &&
+    (me.board[me.pawnLocation] ?? []).some((c) => c.cardId === 'custom-mr-monopoly-canne') &&
+    state.players[state.activePlayer === 0 ? 1 : 0].locations.some((l) => (me.houses?.[l.id] ?? 0) > 0)
+  ) {
+    out.push({ type: 'USE_CANNE_MONOPOLY' })
   }
 
   return out

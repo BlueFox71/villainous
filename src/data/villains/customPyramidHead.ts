@@ -51,6 +51,18 @@ const FIELDS: Record<string, Partial<CustomCard>> = {
   infirmiere: { selfStrengthMods: [{ kind: 'per-other-same-here', delta: 1 }] },
   // Mannequin : son lieu gagne l'action « Activer une capacité ».
   mannequin: { grantsAction: { type: 'ACTIVATE', label: 'Activer une capacité' } },
+  // Pacte de Sang : défausser une carte → récupérer une carte du même type (2 choix).
+  'pacte-de-sang': { effects: e({ type: 'PACTE_DE_SANG' }) },
+  // Sacrifice Humain : capacité ACTIVÉE (gratuite) → choix « regarder 3, garder 1 » OU « +2 Pouvoir ».
+  'sacrifice-humain': { activatedCost: 0, activatedEffects: e({ type: 'SACRIFICE_HUMAIN_CHOICE' }) },
+  // Cage de l'Expiation : Objet associé à un Héros sur une tuile (à la pose → déplace le
+  // Héros, CAGE_MOVE_HOST) ; capacité ACTIVÉE (CAGE_ARM) → élimination au début du tour suivant.
+  'cage-de-l-expiation': {
+    attach: 'hero',
+    effects: e({ type: 'CAGE_MOVE_HOST' }),
+    activatedCost: 0,
+    activatedEffects: e({ type: 'CAGE_ARM' }),
+  },
   // Pénitence forcée (Condition) : réaction à une Fatalité → jouer la 1ʳᵉ carte Fatalité
   // de l'adversaire (cf. branche `penitence-forcee` dans resolveConditionEffect).
   'penitence-forcee': { trigger: { type: 'opponent-fate-targeted-me' } },

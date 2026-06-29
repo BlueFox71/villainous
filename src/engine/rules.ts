@@ -17,6 +17,7 @@ import { activePlayer, currentLocation } from './state'
 import { isKingCandy, accessibleActionIds, racerCoveredActionId, isTrackLocation } from './kingCandy'
 import { actionHasFire as shereKhanFire } from './shereKhan'
 import { locationHasJudgmentTile } from './pyramidHead'
+import { placeableHouses as monopolyPlaceableHouses, buyHouseCost as monopolyBuyHouseCost } from './monopoly'
 
 /**
  * Types d'actions que le moteur sait actuellement traiter (affichées comme
@@ -277,7 +278,8 @@ export function getAvailableActions(state: GameState): LocationAction[] {
   return locationActions(state, loc.id).filter(
     (a) =>
       isSupportedType(a.type) &&
-      (!za || a.type !== 'FATE') &&
+      // FATE exclue pendant ZA WARUDO! (Dio) et pendant « Reculez de trois cases » (Monopoly).
+      (a.type !== 'FATE' || (!za && !state.monopolyNoFate)) &&
       (!accessible || accessible.has(a.id)) &&
       (za
         ? !zaDone.includes(`${loc.id}:${a.id}`)
@@ -1193,6 +1195,18 @@ export function conditionIsTriggered(
       const max = card.trigger.value
       return (state.activeFateHeroesAgainst ?? []).some((e) => e.target === playerIndex && e.strength <= max)
     }
+    case 'opponent-moved-pawn': {
+      // Mr. Monopoly — Monopoly : jouable une fois que l'adversaire a déplacé son pion,
+      // et seulement si une maison peut être posée sur son lieu (plafond/blocage/Pouvoir).
+      if (!state.activeMovedPawn) return false
+      const loc = opp.pawnLocation
+      if (!loc) return false
+      return monopolyPlaceableHouses(me, loc) >= 1 && me.power >= monopolyBuyHouseCost(me, opp, loc)
+    }
+    case 'game-elapsed-ge':
+      // Mr. Monopoly — Monotonie : ≥ N ms réelles ET au moins une carte rejouable
+      // (hors Condition) dans la défausse (sinon la carte serait sans effet).
+      return (state.elapsedMs ?? 0) >= card.trigger.ms && me.discard.some((c) => c.type !== 'condition')
   }
 }
 

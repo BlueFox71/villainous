@@ -9,6 +9,19 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.99',
+    date: '2026-06-30',
+    title: 'Nouveau vilain Mr. Monopoly + correctifs & Atelier',
+    changes: [
+      'Nouveau vilain jouable : **Mr. Monopoly**. **Objectif** : avoir au moins **30 jetons Pouvoir** au début de ton tour.',
+      'Sa mécanique : pose des **MAISONS** sur les lieux de l’adversaire (carte **Affaire**) ; chaque fois que son pion **se rend** sur un lieu maisonné, tu encaisses le **LOYER**. **4 maisons = HÔTEL** ; le **repaire adverse** (lieu le plus à gauche) coûte 2 mais rapporte double. Un **compteur de maisons** 🏠 et les **maisons/hôtels** s’affichent sur le plateau.',
+      'Tout son deck est en place : Erreur de la banque (+1/maison), Carte bancaire (déplace des maisons), Chapeau haut de forme, Deuxième prix de beauté, Allez en prison, Reculez de trois cases, **Banqueroute** (élimine un Héros pour un coût = sa Force), L’Ombre de Monopoly, la **Canne** (emprunte une action d’un lieu maisonné), **Case Départ** (+1 Pouvoir en passant), et les Conditions **Monopoly** / **Monotonie**. Côté Fatalité : Haut de forme & Fer à repasser (étranglent son moteur), Brouette, Chaussure, Dé à coudre, Chien, Bateau, etc.',
+      'Correctif : à la **victoire/défaite**, l’illustration affichée est désormais celle du **bon vilain personnalisé** (Dio Brando n’affiche plus le Prince Jean).',
+      'Étoiles de difficulté ajustées : **La Bonne Fée** passe à **2 étoiles**, **Team Rocket** à **4 étoiles**.',
+      '**Atelier des vilains** : on peut désormais mettre un **coût « ? »** sur une carte (coût variable, calculé en jeu — ex. Banqueroute), et **choisir l’adversaire** pour la partie de test (au lieu d’un vilain au hasard).',
+    ],
+  },
+  {
     version: '0.98',
     date: '2026-06-30',
     title: 'Nouveaux décors : Seigneur des clés, Tamatoa, Davy Jones + nouveau vilain La Bonne Fée',

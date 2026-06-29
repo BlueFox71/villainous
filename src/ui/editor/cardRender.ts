@@ -637,9 +637,11 @@ export async function renderCardFace(
 
   // 6) Pastille de COÛT (cartes Vilain uniquement) — intérieur teinté à la couleur
   //    du vilain (zone « Fill #1 »), liseré doré conservé ; numéraux dorés du plateau.
-  if (!isFate && card.cost !== undefined) {
+  if (!isFate && (card.cost !== undefined || card.costVariable)) {
     ctx.drawImage(await tintedBadge('VillainCost.png', panelColor), 0, 0, CARD_W, CARD_H)
-    await drawBoardNumber(ctx, card.cost, GEO.cost.cx, GEO.cost.cy, GEO.cost.size)
+    // Coût variable → « ? » ; sinon le numéral du coût.
+    if (card.costVariable) drawBadgeNumber(ctx, '?', GEO.cost.cx, GEO.cost.cy, GEO.cost.size, '#cda14e')
+    else await drawBoardNumber(ctx, card.cost!, GEO.cost.cx, GEO.cost.cy, GEO.cost.size)
   }
 
   // 7) Étoile de FORCE (Alliés / Héros) — numéraux DORÉS du plateau dans les deux

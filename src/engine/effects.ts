@@ -18,6 +18,14 @@ import { startRace, advanceRacer, advanceRacerByReveal, moveRacerBack, moveKingC
 import { noFireInRealm as shereKhanNoFire, placeFire, removeFire, fireOnLocation, fireFreeActions, listFire } from './shereKhan'
 import { nextTileLocationId, judgmentBlockedAt } from './pyramidHead'
 import {
+  opponentIndex as monopolyOpponent,
+  houseCount,
+  totalHouses,
+  buyHouseCost,
+  placeableHouses,
+  HOTEL_THRESHOLD,
+} from './monopoly'
+import {
   isDavyJones,
   realmHeroes,
   heroesWithoutTreasure,
@@ -114,7 +122,11 @@ export function countHeroesInRealm(state: GameState, actorIndex?: number): numbe
 
 /** Pénalité passive sur les gains de pouvoir dans le royaume (Robin → −1). */
 function realmPowerPenalty(state: GameState, idx: number): number {
-  return hasHeroInRealm(state, idx, 'robin-des-bois') ? 1 : 0
+  // Robin des Bois (Prince Jean) ET Brouette (Mr. Monopoly, flag `reducesPowerGains`) :
+  // chaque gain de Pouvoir (cartes, actions, loyers) est réduit de 1.
+  if (hasHeroInRealm(state, idx, 'robin-des-bois')) return 1
+  if (Object.values(state.players[idx].board).flat().some((c) => c.reducesPowerGains)) return 1
+  return 0
 }
 
 // --- Oogie Boogie : lancers de dés ------------------------------------------
@@ -2269,9 +2281,13 @@ export function resolveEffect(
       return { ...next, log: [...next.log, `Propager la souffrance : une tuile de Jugement s'étend sur **${locName}** (−1 souffrance).`] }
     }
     case 'PYRAMID_REMOVE_TILE': {
-      // Dissipation (Fatalité) : retire la tuile la plus à GAUCHE.
+      // Dissipation (Fatalité) : retire la tuile la plus à GAUCHE. La 1ʳᵉ tuile (Silent Hill,
+      // la plus à droite, posée par Rites de Jugement) est INRETIRABLE → on ne descend
+      // jamais sous 1 tuile.
       const p = state.players[idx]
-      if ((p.judgmentTiles ?? 0) <= 0) return state
+      if ((p.judgmentTiles ?? 0) <= 1) {
+        return { ...state, log: [...state.log, `Dissipation : aucune tuile retirable (la tuile de Silent Hill est inretirable).`] }
+      }
       const next = updatePlayer(state, idx, (pl) => ({ ...pl, judgmentTiles: (pl.judgmentTiles ?? 0) - 1 }))
       return { ...next, log: [...next.log, `Dissipation : la tuile de Jugement la plus à gauche est retirée.`] }
     }
@@ -2319,6 +2335,60 @@ export function resolveEffect(
         discard: [...pl.discard, card!, ...attached.map((c) => ({ ...c, attachedTo: undefined }))],
       }))
       return { ...next, log: [...next.log, `**${card.name}** est défaussé (James Sunderland).`] }
+    }
+    case 'SACRIFICE_HUMAIN_CHOICE': {
+      // Sacrifice Humain (capacité activée) : ouvre le choix « regarder 3 / garder 1 » OU
+      // « gagner 2 Pouvoir » (RESOLVE_SACRIFICE ; bot via handler UI).
+      const p = state.players[idx]
+      return {
+        ...state,
+        pendingSacrifice: { playerIndex: idx },
+        log: [...state.log, `${p.villainName} active Sacrifice Humain : choisissez l'effet.`],
+      }
+    }
+    case 'CAGE_MOVE_HOST': {
+      // Cage de l'Expiation (à la pose) : ouvre le choix du lieu où déplacer le Héros porteur.
+      const cageId = ctx?.hostInstanceId
+      if (!cageId) return state
+      const p = state.players[idx]
+      let host: string | undefined
+      for (const loc of p.locations) {
+        const cage = (p.board[loc.id] ?? []).find((c) => c.instanceId === cageId)
+        if (cage) { host = cage.attachedTo; break }
+      }
+      if (!host) return state
+      return {
+        ...state,
+        pendingCageMove: { playerIndex: idx, heroInstanceId: host },
+        log: [...state.log, `Cage de l'Expiation : choisissez le lieu où déplacer le Héros enfermé.`],
+      }
+    }
+    case 'CAGE_ARM': {
+      // Cage de l'Expiation (activée) : ARME la Cage (trapArmed) → élimination du porteur au
+      // début du prochain tour (resolveArmedTraps).
+      const cageId = ctx?.hostInstanceId
+      if (!cageId) return state
+      const p = state.players[idx]
+      let loc: LocationId | undefined
+      for (const l of p.locations) if ((p.board[l.id] ?? []).some((c) => c.instanceId === cageId)) { loc = l.id; break }
+      if (!loc) return state
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        board: { ...pl.board, [loc!]: (pl.board[loc!] ?? []).map((c) => (c.instanceId === cageId ? { ...c, trapArmed: true } : c)) },
+      }))
+      return { ...next, log: [...next.log, `Cage de l'Expiation amorcée : le Héros enfermé sera éliminé au début de votre prochain tour.`] }
+    }
+    case 'PACTE_DE_SANG': {
+      // Pacte de Sang : choix INTERACTIF d'une carte de la main à défausser ; la récupération
+      // (même type) suit (RESOLVE_PACTE_SANG → pendingRecover). Auto-pick réservé au bot.
+      const p = state.players[idx]
+      const typesInDiscard = new Set(p.discard.map((c) => c.type))
+      if (!p.hand.some((c) => typesInDiscard.has(c.type))) return state // aucun échange utile
+      return {
+        ...state,
+        pendingPacteSang: { playerIndex: idx },
+        log: [...state.log, `${p.villainName} : Pacte de Sang — choisissez une carte à défausser.`],
+      }
     }
     case 'DISCARD_OWN_CARDS': {
       // Redemption (Fatalité) : Pyramid Head défausse `count` cartes de sa main (auto).
@@ -2572,6 +2642,139 @@ export function resolveEffect(
         next = advanceRacer(next, kc, 3)
       }
       return next
+    }
+    // --- Mr. Monopoly : Maisons / Loyer ------------------------------------
+    case 'MONOPOLY_BUY_HOUSES': {
+      // Affaire : pose des maisons sur le lieu où se trouve l'adversaire (choix de la
+      // quantité, paie le coût de chacune). Sans cible posable / sans Pouvoir → aucun effet.
+      const mm = state.players[idx]
+      const oppIdx = monopolyOpponent(state, idx)
+      const opp = state.players[oppIdx]
+      const loc = opp.pawnLocation
+      if (!loc) return state
+      const unitCost = buyHouseCost(mm, opp, loc)
+      const room = placeableHouses(mm, loc)
+      const affordable = unitCost > 0 ? Math.floor(mm.power / unitCost) : room
+      const max = Math.min(room, affordable)
+      if (max < 1) {
+        return { ...state, log: [...state.log, `${mm.villainName} ne peut poser aucune maison (Affaire).`] }
+      }
+      return { ...state, pendingBuyHouses: { playerIndex: idx, locationId: loc, max, unitCost } }
+    }
+    case 'MONOPOLY_ADD_ONE_HOUSE': {
+      // Pose forcée d'1 maison sur le lieu courant de l'adversaire (Monopoly, Condition).
+      const mm = state.players[idx]
+      const oppIdx = monopolyOpponent(state, idx)
+      const opp = state.players[oppIdx]
+      const loc = opp.pawnLocation
+      if (!loc) return state
+      const unitCost = buyHouseCost(mm, opp, loc)
+      if (placeableHouses(mm, loc) < 1 || mm.power < unitCost) return state
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        power: p.power - unitCost,
+        houses: { ...(p.houses ?? {}), [loc]: houseCount(p, loc) + 1 },
+      }))
+      const count = houseCount(next.players[idx], loc)
+      return {
+        ...next,
+        log: [...next.log, `${mm.villainName} pose une maison sur ${opp.locations.find((l) => l.id === loc)?.name ?? loc}${count >= HOTEL_THRESHOLD ? ' (HÔTEL !)' : ''} (−${unitCost} JT).`],
+      }
+    }
+    case 'MONOPOLY_GAIN_PER_HOUSE': {
+      // Erreur de la banque en votre faveur : +1 Pouvoir par maison (plafonné à `max`).
+      const mm = state.players[idx]
+      const gain = Math.min(totalHouses(mm), effect.max)
+      if (gain < 1) return { ...state, log: [...state.log, `${mm.villainName} : aucune maison posée (Erreur de la banque).`] }
+      return resolveEffect(state, { type: 'GAIN_POWER', amount: gain }, { actorIndex: idx })
+    }
+    case 'MONOPOLY_MOVE_HOUSES': {
+      // Carte bancaire : déplacer `count` maisons d'un lieu vers un autre (choix interactif).
+      const mm = state.players[idx]
+      if (totalHouses(mm) < 1) return { ...state, log: [...state.log, `${mm.villainName} : aucune maison à déplacer (Carte bancaire).`] }
+      return { ...state, pendingMoveHouses: { playerIndex: idx, phase: 'from', remaining: effect.count } }
+    }
+    case 'MONOPOLY_BACKWARD_MOVE': {
+      // Reculez de trois cases : choix du lieu de destination (n'importe lequel).
+      return { ...state, pendingBackwardMove: { playerIndex: idx } }
+    }
+    case 'MONOPOLY_MONOTONY': {
+      // Monotonie : rejoue gratuitement une carte (hors Condition) de la défausse.
+      const actor = state.players[idx]
+      const candidateIds = actor.discard.filter((c) => c.type !== 'condition').map((c) => c.instanceId)
+      if (candidateIds.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : aucune carte à rejouer (Monotonie).`] }
+      }
+      return {
+        ...state,
+        pendingReplayEvent: { playerIndex: idx, candidateIds, free: true, playFromDiscard: true },
+        log: [...state.log, `${actor.villainName} : Monotonie — rejouez gratuitement une carte de votre défausse.`],
+      }
+    }
+    case 'MONOPOLY_FETCH_AFFAIRE': {
+      // Chapeau haut de forme : récupère une Affaire de la défausse et rejoue son effet
+      // (pose de maisons). L'Affaire reste en défausse (coût 0). Sans Affaire → aucun effet.
+      const mm = state.players[idx]
+      if (!mm.discard.some((c) => c.cardId === effect.affaireCardId)) {
+        return { ...state, log: [...state.log, `${mm.villainName} : aucune Affaire en défausse (Chapeau haut de forme).`] }
+      }
+      return resolveEffect(state, { type: 'MONOPOLY_BUY_HOUSES' }, { actorIndex: idx })
+    }
+    case 'MONOPOLY_LOSE_HALF_POWER': {
+      // Rénovation (Fatalité) : Mr. Monopoly perd la moitié de son Pouvoir (arrondi au
+      // supérieur), plafonnée à `max`.
+      const p = state.players[idx]
+      const loss = Math.min(effect.max, Math.ceil(p.power / 2))
+      if (loss < 1) return state
+      const next = updatePlayer(state, idx, (pl) => ({ ...pl, power: pl.power - loss }))
+      return { ...next, log: [...next.log, `${p.villainName} perd ${loss} Pouvoir (Rénovation).`] }
+    }
+    case 'RELOCATE_ANY_HERO_FATE': {
+      // Voiture (Fatalité, onPlace) : le FATALISEUR peut déplacer un Héros du royaume
+      // vers n'importe quel lieu (facultatif).
+      const me = state.players[idx]
+      const heroes = Object.values(me.board).flat().filter((c) => c.type === 'hero').map((c) => c.instanceId)
+      if (heroes.length === 0) return state
+      return {
+        ...state,
+        pendingHeroRelocate: { chooserIndex: state.activePlayer, targetIndex: idx, candidateIds: heroes, anyLocation: true, optional: true },
+        log: [...state.log, `${state.players[state.activePlayer].villainName} peut déplacer un Héros vers le lieu de son choix (Voiture).`],
+      }
+    }
+    case 'MONOPOLY_FREE_FROM_JAIL': {
+      // Libéré de prison (Fatalité) : le FATALISEUR choisit — déplacer un Héros n'importe
+      // où, OU déplacer le pion de Mr. Monopoly vers la Prison.
+      return {
+        ...state,
+        pendingFreeFromJail: { chooserIndex: state.activePlayer, targetIndex: idx, prisonLocationId: effect.prisonLocationId },
+        log: [...state.log, `${state.players[state.activePlayer].villainName} : Libéré de prison (déplacer un Héros ou envoyer Mr. Monopoly en Prison).`],
+      }
+    }
+    case 'MONOPOLY_BLOCK_LOCATION': {
+      // Chaussure (Fatalité, onPlace) : le FATALISEUR choisit un lieu où Mr. Monopoly ne
+      // pourra plus poser de maison (mémorisé sur l'instance de Chaussure = hostInstanceId).
+      if (!ctx?.hostInstanceId) return state
+      return {
+        ...state,
+        pendingBlockLocation: { chooserIndex: state.activePlayer, targetIndex: idx, hostInstanceId: ctx.hostInstanceId },
+        log: [...state.log, `${state.players[state.activePlayer].villainName} : Chaussure bloque un lieu (aucune maison ne pourra y être posée).`],
+      }
+    }
+    case 'MONOPOLY_DESTROY_HOUSE': {
+      // Détruit une maison au choix. Direct si un seul lieu maisonné, sinon choix.
+      const mm = state.players[idx]
+      const opp = state.players[monopolyOpponent(state, idx)]
+      const maisoned = opp.locations.filter((l) => houseCount(mm, l.id) > 0)
+      if (maisoned.length === 0) return state
+      if (maisoned.length === 1) {
+        const loc = maisoned[0].id
+        const next = updatePlayer(state, idx, (p) => ({
+          ...p,
+          houses: { ...(p.houses ?? {}), [loc]: Math.max(0, houseCount(p, loc) - 1) },
+        }))
+        return { ...next, log: [...next.log, `Une maison est détruite sur ${maisoned[0].name}.`] }
+      }
+      return { ...state, pendingMoveHouses: { playerIndex: idx, phase: 'from', remaining: 1, destroy: true } }
     }
     // --- Shere Khan : Jetons Feu + cartes ----------------------------------
     case 'PLACE_OR_MOVE_FIRE': {

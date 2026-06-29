@@ -35,8 +35,20 @@ function pick<T>(items: T[], rand: Rand): T {
  *  de la progression en % côté UI (même jauge que celle qui guide le bot). */
 export function objectiveScore(p: PlayerState): number {
   switch (p.objective.type) {
-    case 'POWER_THRESHOLD':
-      return Math.min(p.power, p.objective.threshold) / p.objective.threshold
+    case 'POWER_THRESHOLD': {
+      const threshold = p.objective.threshold
+      const base = Math.min(p.power, threshold) / threshold
+      // Mr. Monopoly : le Pouvoir SEUL fait foi pour la victoire (≥ threshold au début du
+      // tour). Mais poser des maisons COÛTE du Pouvoir maintenant pour un loyer FUTUR : sans
+      // crédit, le bot fuirait cet investissement (baisse de Pouvoir). On ajoute donc un
+      // petit bonus pour le parc de maisons installé (plafonné, jamais 1 tant que le Pouvoir
+      // réel n'atteint pas le seuil) afin que le bot bâtisse son moteur de loyer.
+      if (p.villain === 'custom-mr-monopoly' && p.power < threshold) {
+        const houses = Object.values(p.houses ?? {}).reduce((n, v) => n + v, 0)
+        return Math.min(0.95, base + (Math.min(houses, 8) / 8) * 0.2)
+      }
+      return base
+    }
     case 'CAPTURE_POKEMON': {
       // Team Rocket : capturer `count` Pokémon dont Pikachu. Progression = Pokémon
       // capturés / objectif ; sans Pikachu la victoire est impossible → plafonné.

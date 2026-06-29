@@ -53,6 +53,9 @@ interface Props {
   /** Dio — vrai s'il y a au moins un Allié DÉFAUSSABLE dans le royaume (The World / Stands /
    *  associés exclus) — Vampirisme (défausser un Allié pour piocher) est injouable sinon. */
   realmHasDiscardableAlly?: boolean
+  /** Pyramid Head — vrai s'il existe en main une carte dont le TYPE a un exemplaire en
+   *  défausse — Pacte de Sang est injouable sinon (rien à récupérer). */
+  pacteSangPlayable?: boolean
   /** Vrai s'il y a au moins une Tuile Chiots posée (Cruella) — « J'adore les belles
    *  fourrures » est injouable sinon. */
   realmHasPuppyTile: boolean
@@ -246,6 +249,7 @@ export function Hand({
   blockEvents,
   realmHasAllies,
   realmHasDiscardableAlly = false,
+  pacteSangPlayable = true,
   realmHasPuppyTile,
   realmHasHeroes,
   bargainPlayable = true,
@@ -546,6 +550,8 @@ export function Hand({
           const needsFateDiscardHero = (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_FATE_DISCARD_HERO')
           // Dio — Vampirisme : injouable sans Allié défaussable dans le royaume.
           const needsDiscardableAlly = (card.effects ?? []).some((e) => e.type === 'DIO_DISCARD_ALLY_DRAW')
+          // Pyramid Head — Pacte de Sang : injouable sans carte de même type récupérable.
+          const needsPacteSang = (card.effects ?? []).some((e) => e.type === 'PACTE_DE_SANG')
           // Ironie du sort (Yzma) : injouable sans Allié sur le lieu / sans Événement
           // abordable en défausse (elle gaspillerait sinon du Pouvoir).
           const needsPoeticJustice = (card.effects ?? []).some((e) => e.type === 'POETIC_JUSTICE')
@@ -653,6 +659,7 @@ export function Hand({
             (!needsKronkToken || kronkHasPowerToken) &&
             (!needsFateDiscardHero || fateDiscardHasHero) &&
             (!needsDiscardableAlly || realmHasDiscardableAlly) &&
+            (!needsPacteSang || pacteSangPlayable) &&
             (!needsPoeticJustice || poeticJusticeUsable) &&
             (!needsRelocateTarget || relocateTargetAvailable) &&
             (!needsHackTarget || hackTargetAvailable) &&
@@ -743,6 +750,8 @@ export function Hand({
                                                       ? 'Aucun Héros dans la défausse Fatalité.'
                                                       : needsDiscardableAlly && !realmHasDiscardableAlly
                                                         ? 'Aucun Allié à défausser dans votre royaume.'
+                                                      : needsPacteSang && !pacteSangPlayable
+                                                        ? 'Aucune carte de votre main n’a d’équivalent (même type) en défausse.'
                                                       : needsPoeticJustice && !poeticJusticeUsable
                                                         ? 'Aucun Allié sur votre lieu, ou aucun Événement abordable en défausse.'
                                                         : needsRelocateTarget && !relocateTargetAvailable

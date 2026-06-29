@@ -998,6 +998,9 @@ ACTION_POS['princeJohn'] = {
 
 interface Props {
   player: PlayerState
+  /** Mr. Monopoly — MAISONS posées par l'adversaire sur les lieux de CE plateau (clé =
+   *  id du lieu, valeur = nombre, 4 = hôtel). Affichées en surcouche sur la bande haute. */
+  housesHere?: Record<string, number>
   /** Ids des actions disponibles (lieu courant) → bouton jaune cliquable. */
   availableActionIds: string[]
   /** Ids des actions déjà utilisées ce tour (lieu courant) → bouton assombri. */
@@ -1059,6 +1062,7 @@ export function getVillainActionPos(
  */
 export function BoardActions({
   player,
+  housesHere,
   availableActionIds,
   usedActionIds,
   blinkTopAtLocation = null,
@@ -1315,6 +1319,35 @@ export function BoardActions({
             )
           })
         })()}
+      {/* Mr. Monopoly — MAISONS posées par l'adversaire sur CE plateau. Une rangée de
+          petites maisons (ou une icône hôtel à 4) au coin haut-gauche de chaque lieu. */}
+      {housesHere &&
+        player.locations.map((loc, k) => {
+          const count = housesHere[loc.id] ?? 0
+          if (count <= 0) return null
+          const rect = COL_RECTS[k]
+          if (!rect) return null
+          const left = (rect.x0 / BOARD_W) * 100
+          const width = ((rect.x1 - rect.x0) / BOARD_W) * 100
+          const top = (HERO_BAND.y0 / BOARD_H) * 100
+          const hotel = count >= 4
+          return (
+            <div
+              key={`house:${loc.id}`}
+              className="pointer-events-none absolute z-[13] flex items-center justify-center gap-[2px]"
+              style={{ left: `${left}%`, top: `${top}%`, width: `${width}%`, height: '14%' }}
+              title={hotel ? 'Hôtel (4 maisons)' : `${count} maison${count > 1 ? 's' : ''}`}
+            >
+              {hotel ? (
+                <img src="/mr-monopoly/hotel.png" alt="Hôtel" className="h-full w-auto drop-shadow-lg" />
+              ) : (
+                Array.from({ length: count }, (_, i) => (
+                  <img key={i} src="/mr-monopoly/maison.png" alt="Maison" className="h-3/4 w-auto drop-shadow-lg" />
+                ))
+              )}
+            </div>
+          )
+        })}
       {/* Les actions ACCORDÉES par un Objet (Canon, Boîte à Crochets, Ingénieux
           Mécanisme) sont cliquables SUR la carte posée (voir LocationCard),
           pas ici sur l'image du plateau. */}

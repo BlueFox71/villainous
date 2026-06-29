@@ -507,7 +507,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
     ],
   },
   teamRocket: {
-    difficulty: 3,
+    difficulty: 4,
     story:
       "Jessie, James et leur Miaouss parlant : le trio de bras cassés de la Team Rocket, lancés à la poursuite des Pokémon de Sacha à bord de leur montgolfière. Maladroits mais increvables, ils multiplient pièges, déguisements et machines pour s'emparer des Pokémon les plus rares. (Pokémon, série animée.)",
     playTips: [
@@ -523,7 +523,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
     ],
   },
   laBonneFee: {
-    difficulty: 3,
+    difficulty: 2,
     story:
       "La Marraine la bonne fée, marraine intrigante du royaume de Fort Fort Lointain. Sous ses airs charmants, elle manigance pour marier son fils, le Prince Charmant, à la princesse Fiona — quitte à transformer, ensorceler et faire disparaître quiconque se met en travers de son conte de fées. (Shrek 2.)",
     playTips: [
@@ -547,17 +547,44 @@ const CUSTOM_GUIDES: Record<string, VillainGuide> = {
     story:
       "Dio Brando (JoJo's Bizarre Adventure) est l'ambition faite homme. Recueilli enfant par le riche George Joestar, il trahit sa famille adoptive et coiffe le Masque de Pierre pour devenir un vampire immortel. Un siècle plus tard, ressuscité et doté du Stand « The World », capable d'ARRÊTER LE TEMPS d'un cri — « ZA WARUDO ! » —, il affronte Jotaro Kujo et les Joestar lancés à sa poursuite (Stardust Crusaders). « Inutile, inutile, inutile… MUDA MUDA MUDA ! »",
     playTips: [
-      "Ton objectif : RETIRER DU JEU Jotaro ET Joseph (en les vainquant), PUIS réaliser les 14 actions hors-Fatalité de ton royaume en un SEUL tour grâce à ZA WARUDO!.",
-      "The World est en jeu dès le début et suit ton pion. Mais il ne DOUBLE tes gains de Pouvoir qu'une fois Jotaro et Joseph retirés du jeu : tant qu'ils sont là, concentre-toi sur leur élimination.",
-      "Les Joestar arrivent par la Fatalité et sont joués d'office. Jotaro invoque Star Platinum (+8) qui INTERDIT ZA WARUDO! : impossible de gagner avant de l'avoir vaincu et retiré du jeu. Réunis assez de Force (Alliés, Stands) pour passer ces gros Héros.",
-      "Avant de déclencher ZA WARUDO!, accumule un GROS tas de Pouvoir : pendant le temps arrêté, tu te déplaces librement de lieu en lieu, mais chaque action coûte un Pouvoir croissant (1, 2, 3… plafonné à 10).",
-      "Fais tourner ta main : Vampirisme défausse un Allié pour piocher 4 cartes ; Indigne de moi gagne du Pouvoir par Joestar retiré ; MUDA! MUDA! MUDA! se joue en réaction quand un adversaire te cible avec une Fatalité.",
+      "Objectif : VAINCRE puis RETIRER DU JEU Jotaro ET Joseph, puis enchaîner tes 14 actions de royaume en un SEUL tour avec ZA WARUDO!.",
+      "Star Platinum (invoqué par Jotaro) INTERDIT ZA WARUDO! : tant que Jotaro est là, tu ne peux pas gagner. Réunis assez de Force pour vaincre les Joestar (joués d'office par la Fatalité).",
+      "Avant ZA WARUDO!, amasse un GROS tas de Pouvoir : chaque action du temps arrêté coûte de plus en plus cher (1, 2, 3… max 10). The World double ton Pouvoir une fois les Joestar retirés.",
     ],
     counterTips: [
-      "Joue Jotaro Kujo au plus vite : son Stand Star Platinum le rend coriace ET BLOQUE totalement ZA WARUDO! tant qu'il est en jeu. Sans avoir vaincu et retiré Jotaro, Dio ne peut pas gagner.",
-      "Garde Jotaro OU Joseph en vie le plus longtemps possible : tant que l'un des deux n'est pas retiré du jeu, l'objectif de Dio est hors d'atteinte (et The World ne double pas encore son Pouvoir).",
-      "Empile les Stands pour l'étouffer : Polnareff (Silver Chariot) doit être vaincu avant les autres, Kakyoin (Hierophant Green) renchérit ses cartes, Abdul (Magician Red) lui fait piocher moins, Iggy (The Fool) affaiblit ses Alliés.",
-      "Les Stands gonflent la Force des Joestar : Dio devra réunir beaucoup de puissance pour les vaincre. Maintiens la pression pour l'empêcher d'amasser le Pouvoir nécessaire à la rafale finale de ZA WARUDO!.",
+      "Joue Jotaro vite : son Stand Star Platinum BLOQUE ZA WARUDO! tant qu'il est en jeu. Sans avoir retiré Jotaro, Dio ne peut pas gagner.",
+      "Garde Jotaro OU Joseph en vie : tant qu'un seul des deux subsiste, l'objectif de Dio est hors d'atteinte (et The World ne double pas son Pouvoir).",
+      "Empile les Stands : ils gonflent la Force des Joestar, forçant Dio à réunir énormément de puissance pour les vaincre.",
+    ],
+  },
+  'custom-pyramid-head': {
+    difficulty: 3,
+    story:
+      "Pyramid Head — le Bourreau — est l'incarnation monstrueuse de la culpabilité et du châtiment qui hante Silent Hill, la ville maudite noyée dans le brouillard. Traînant son immense Grande Lame, ce colosse sans visage à la tête de métal pyramidale n'existe que pour juger et punir. Manifestation du tourment de James Sunderland, venu chercher dans la ville sa femme défunte, il propage la souffrance d'un lieu à l'autre jusqu'à soumettre son monde entier au Jugement. (Silent Hill 2.)",
+    playTips: [
+      "Objectif : RECOUVRIR LES 4 LIEUX d'une Tuile de Jugement et garder cette emprise jusqu'au début d'un de tes tours.",
+      "Rites de Jugement pose la 1ʳᵉ tuile (indestructible) à Silent Hill, à droite ; elles s'étendent ensuite vers la gauche via Propager la souffrance. Pour propager, il faut de la SOUFFRANCE : Métatron (3 Pouvoir → 1 souffrance), accéléré par le Mannequin.",
+      "Une tuile recouvre les actions du HAUT de son lieu : agis AVANT de tout recouvrir. Élimine les Héros gênants avec Châtiment des damnés, Jugement Final ou la Cage de l'Expiation.",
+    ],
+    counterTips: [
+      "Coupe sa souffrance : James désactive le Métatron, Laura et Angela lui coûtent du Pouvoir — sans souffrance, plus de nouvelles tuiles.",
+      "Bloque et fais reculer : Maria empêche de poser de nouvelles tuiles, Dissipation retire la plus à gauche (jamais celle de Silent Hill, indestructible).",
+      "Protection de l'âme rend un Héros INVINCIBLE : pose-le sur un lieu pour empêcher Pyramid Head de le recouvrir.",
+    ],
+  },
+  'custom-mr-monopoly': {
+    difficulty: 3,
+    story:
+      "Mr. Monopoly — l'Oncle Picsou au haut-de-forme du célèbre jeu de société — est le capitalisme fait moustache. Magnat impitoyable, il achète, construit et perçoit des loyers sans le moindre scrupule, couvrant le plateau de maisons et d'hôtels jusqu'à ruiner ses adversaires. Sa devise : tout a un prix, et tout finit par lui appartenir.",
+    playTips: [
+      "Objectif : avoir au moins 30 jetons Pouvoir au début de ton tour.",
+      "Pose des MAISONS sur les lieux de l'adversaire (Affaire) : chaque fois que son pion s'y rend, tu encaisses le LOYER. Vise les lieux qu'il traverse souvent ; 4 maisons = HÔTEL (le repaire adverse, à gauche, coûte 2 mais rapporte double).",
+      "Accélère ta fortune : Erreur de la banque (+1/maison), Case Départ (+1 en passant), Monopoly (maison gratuite quand il bouge), la Canne (emprunte une action d'un lieu maisonné + 1). Banqueroute et Allez en prison écartent les Héros gênants.",
+    ],
+    counterTips: [
+      "Étrangle son moteur : Haut de forme l'empêche de poser la moindre maison, Fer à repasser annule tous ses loyers — ce sont tes meilleures Fatalités.",
+      "Taxe et démolis : Brouette retire 1 à tous ses gains, Chaussure bloque un lieu, Bateau et Beaucoup trop de versions détruisent une maison, Rénovation lui fait perdre la moitié de son Pouvoir.",
+      "Limite tes passages sur les lieux qu'il a maisonnés : chaque arrivée lui paie un loyer. Ne lui offre pas de tours gratuits.",
     ],
   },
 }

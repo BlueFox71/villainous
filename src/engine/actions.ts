@@ -42,6 +42,8 @@ import { crewmateEndOfTurn, freeCellAt, placeCrewmateAt } from './crewmates'
 import { pendingOwner } from './turn'
 import { isKingCandy, trackMoveRange, moveKingCandyTrack, advanceRacerByReveal, bugOnVanellope, moveRacerBack, cardLocationIds } from './kingCandy'
 import { removeAllFireOnLocation, removeFire, placeFire, listFire, fireFreeActions } from './shereKhan'
+import { locationHasJudgmentTile } from './pyramidHead'
+import { isMonopoly, rentAt, houseCount, totalHouses, buyHouseCost, placeableHouses, opponentIndex as monopolyOpponent } from './monopoly'
 import {
   findHero as findTreasureHero,
   placeFacedownTreasure,
@@ -193,6 +195,7 @@ function applyMove(state: GameState, to: string): GameState {
     ...next,
     phase: 'ACTION',
     usedActionIds: [],
+    activeMovedPawn: true,
     persifleurAvailable: hasPersifleur,
     // Le déplacement de Maléfique referme la fenêtre d'action gratuite de Diablo
     // (« avant que Maléfique ne se déplace »).
@@ -294,6 +297,36 @@ function applyMove(state: GameState, to: string): GameState {
     if (lost > 0) {
       next = updateActivePlayer(next, (p) => ({ ...p, power: p.power - lost }))
       next = { ...next, log: [...next.log, `${me.villainName} perd ${lost} Pouvoir en arrivant (carte Fatalité).`] }
+    }
+  }
+  // Mr. Monopoly — Case Départ (Objet) : +N Pouvoir si le pion SE REND sur le lieu de
+  // l'Objet, ou le DÉPASSE (déplacement qui le franchit). `from` = lieu de départ, `to` = arrivée.
+  {
+    const order = me.locations.map((l) => l.id)
+    const toI = order.indexOf(to)
+    const fromI = from ? order.indexOf(from) : toI
+    for (const l of me.locations) {
+      const obj = (next.players[state.activePlayer].board[l.id] ?? []).find((c) => (c.powerOnPawnCrossOrLand ?? 0) > 0)
+      if (!obj) continue
+      const caseI = order.indexOf(l.id)
+      const lands = caseI === toI
+      const crosses = caseI > Math.min(fromI, toI) && caseI < Math.max(fromI, toI)
+      if (lands || crosses) {
+        const gain = obj.powerOnPawnCrossOrLand ?? 0
+        next = resolveEffects(next, [{ type: 'GAIN_POWER', amount: gain }], { actorIndex: state.activePlayer })
+        next = { ...next, log: [...next.log, `🎲 Case Départ : ${me.villainName} gagne ${gain} Pouvoir.`] }
+      }
+    }
+  }
+  // Mr. Monopoly — LOYER : si l'adversaire (Mr. Monopoly) a posé des maisons sur le
+  // lieu d'arrivée, il encaisse le loyer (= Σ coût standard des maisons) à chaque arrivée.
+  const mmIdx = monopolyOpponent(next, state.activePlayer)
+  const mm = next.players[mmIdx]
+  if (mm && isMonopoly(mm)) {
+    const rent = rentAt(mm, next.players[state.activePlayer], to)
+    if (rent > 0) {
+      next = resolveEffects(next, [{ type: 'GAIN_POWER', amount: rent }], { actorIndex: mmIdx })
+      next = { ...next, log: [...next.log, `🏠 Loyer : ${mm.villainName} encaisse ${rent} JT (${me.villainName} arrive sur un lieu maisonné).`] }
     }
   }
   // Malédictions Feu Infernal : défaussées si le pion arrive sur leur lieu.
@@ -674,6 +707,54 @@ function applyPlayCard(
   ) {
     throw new Error('Aucun Allié à défausser dans votre royaume : Vampirisme est injouable.')
   }
+  // Pyramid Head — Pacte de Sang : injouable si aucune carte de la main (hors Pacte) n'a un
+  // exemplaire du MÊME type dans la défausse (rien à récupérer).
+  if ((card.effects ?? []).some((e) => e.type === 'PACTE_DE_SANG')) {
+    const typesInDiscard = new Set(me.discard.map((c) => c.type))
+    if (!me.hand.some((c) => c.instanceId !== card.instanceId && typesInDiscard.has(c.type))) {
+      throw new Error('Pacte de Sang : aucune carte de votre main n’a d’équivalent (même type) dans votre défausse.')
+    }
+  }
+  // Pyramid Head — Cage de l'Expiation : injouable s'il n'y a aucun Héros sur un lieu TUILÉ.
+  if ((card.effects ?? []).some((e) => e.type === 'CAGE_MOVE_HOST')) {
+    const onTile = me.locations.some(
+      (l) => locationHasJudgmentTile(me, l.id) && (me.board[l.id] ?? []).some((c) => c.type === 'hero'),
+    )
+    if (!onTile) throw new Error('Cage de l’Expiation : aucun Héros sur un lieu portant une tuile de Jugement.')
+  }
+  // Mr. Monopoly — Affaire : injouable si aucune maison ne peut être posée sur le lieu
+  // où se trouve l'adversaire (lieu plein/bloqué, ou pas assez de Pouvoir).
+  if ((card.effects ?? []).some((e) => e.type === 'MONOPOLY_BUY_HOUSES')) {
+    const oppIdx = monopolyOpponent(state, state.activePlayer)
+    const opp = state.players[oppIdx]
+    const loc = opp.pawnLocation
+    const room = loc ? placeableHouses(me, loc) : 0
+    const unit = loc ? buyHouseCost(me, opp, loc) : 0
+    if (!loc || room < 1 || me.power < unit) {
+      throw new Error('Affaire : impossible de poser une maison (lieu plein/bloqué ou Pouvoir insuffisant).')
+    }
+  }
+  // Mr. Monopoly — Carte bancaire : injouable s'il n'y a aucune maison à déplacer.
+  if ((card.effects ?? []).some((e) => e.type === 'MONOPOLY_MOVE_HOUSES') && totalHouses(me) < 1) {
+    throw new Error('Carte bancaire : aucune maison à déplacer.')
+  }
+  // Mr. Monopoly — Chapeau haut de forme : injouable sans Affaire en défausse, ou si
+  // aucune maison ne peut être posée (lieu plein/bloqué ou Pouvoir insuffisant).
+  {
+    const fetchA = (card.effects ?? []).find((e) => e.type === 'MONOPOLY_FETCH_AFFAIRE')
+    if (fetchA && fetchA.type === 'MONOPOLY_FETCH_AFFAIRE') {
+      if (!me.discard.some((c) => c.cardId === fetchA.affaireCardId)) {
+        throw new Error('Chapeau haut de forme : aucune Affaire dans votre défausse.')
+      }
+      const opp = state.players[monopolyOpponent(state, state.activePlayer)]
+      const loc = opp.pawnLocation
+      const room = loc ? placeableHouses(me, loc) : 0
+      const unit = loc ? buyHouseCost(me, opp, loc) : 0
+      if (!loc || room < 1 || me.power < unit) {
+        throw new Error('Chapeau haut de forme : impossible de poser une maison via l’Affaire.')
+      }
+    }
+  }
   // Yzma — Le chemin qui balance : injouable s'il n'y a aucun jeton Pouvoir sur
   // Kronk (Kronk absent du royaume ou sans jeton) → elle n'aurait aucun effet.
   if (
@@ -887,6 +968,18 @@ function applyPlayCard(
   if ((card.effects ?? []).some((e) => e.type === 'HYPNOTIZE_HERO')) {
     if (!targetHeroId) throw new Error('Hypnose nécessite un Héros cible.')
     cost = effectiveStrength(state, state.activePlayer, targetHeroId) ?? 0
+  }
+  // Mr. Monopoly — Banqueroute : coût = Force (effective) du Héros ciblé.
+  if (card.costEqualsTargetStrength) {
+    if (!targetHeroId) throw new Error('Banqueroute nécessite un Héros cible.')
+    cost = effectiveStrength(state, state.activePlayer, targetHeroId) ?? 0
+  }
+  // Mr. Monopoly — Règles inventées : jouer une carte ciblant ce Héros coûte +N.
+  if (targetHeroId) {
+    cost += Object.values(me.board)
+      .flat()
+      .filter((c) => c.attachedTo === targetHeroId)
+      .reduce((n, c) => n + (c.eventTargetSurcharge ?? 0), 0)
   }
   // Surcharges d'un Pacte liées à son HÉROS-CIBLE (effectiveCost ne connaît que le lieu) :
   //  - Ursula — Bigette Bulbeuse associée au Héros : +3.
@@ -1286,6 +1379,18 @@ function applyPlayCard(
     // pré-placement (resolveEffects ci-dessus) est un no-op faute de hostLocationId.
     if (card.type === 'ally' && (card.effects ?? []).some((e) => e.type === 'DRAIN_STAR_TO_SELF_IF_AT_OBSERVATORY')) {
       next = resolveEffects(next, [{ type: 'DRAIN_STAR_TO_SELF_IF_AT_OBSERVATORY' }], {
+        actorIndex: state.activePlayer,
+        hostInstanceId: placed.instanceId,
+        hostLocationId: destId,
+      })
+    }
+    // Pyramid Head — Cage de l'Expiation : associée à un Héros (sur une tuile), on déplace
+    // ensuite ce Héros (choix du lieu). L'hôte DOIT être sur un lieu tuilé.
+    if ((card.effects ?? []).some((e) => e.type === 'CAGE_MOVE_HOST')) {
+      if (!locationHasJudgmentTile(activePlayer(next), destId)) {
+        throw new Error('Cage de l’Expiation : le Héros doit être sur un lieu portant une tuile de Jugement.')
+      }
+      next = resolveEffects(next, [{ type: 'CAGE_MOVE_HOST' }], {
         actorIndex: state.activePlayer,
         hostInstanceId: placed.instanceId,
         hostLocationId: destId,
@@ -1963,6 +2068,20 @@ function applyResolveReplayEvent(state: GameState, instanceId: string | null): G
     bagControlledDice: pending.bagControlledDice ? true : state.bagControlledDice,
   }
   next = { ...next, log: [...next.log, `${label} : **${ev.name}** est rejoué${free ? ' (gratuitement)' : ` (coût ${cost})`}.`] }
+  // Mr. Monopoly — Monotonie (playFromDiscard) : un Allié/Objet rejoué est RETIRÉ de la
+  // défausse et POSÉ sur le lieu du pion (resolution des effets « à la pose »).
+  if (pending.playFromDiscard && (ev.type === 'ally' || ev.type === 'item' || ev.type === 'curse')) {
+    const loc = next.players[idx].pawnLocation
+    if (loc) {
+      next = updatePlayer(next, idx, (pp) => ({
+        ...pp,
+        discard: pp.discard.filter((c) => c.instanceId !== instanceId),
+        board: { ...pp.board, [loc]: [...(pp.board[loc] ?? []), ev] },
+      }))
+      next = resolveEffects(next, ev.effects ?? [], { actorIndex: idx, hostInstanceId: ev.instanceId, hostLocationId: loc })
+      return next
+    }
+  }
   next = resolveEffects(next, ev.effects ?? [], { actorIndex: idx })
   // Le drapeau « dés contrôlés » ne vaut que pour ce rejeu (sauf si un pendingDice
   // s'est ouvert : il sera consommé/nettoyé à la résolution du lancer).
@@ -3927,6 +4046,18 @@ function applyMoveCard(
   // Yzma — Kronk gagne 1 jeton Pouvoir à chaque déplacement (devient Héros à 3+).
   if (card.cardId === 'kronk') {
     next = addKronkTokens(next, state.activePlayer, 1)
+  }
+  // Mr. Monopoly — Officier de police : en arrivant sur un lieu avec un (des) Héros, il
+  // l'(les) envoie à la Prison (sauf si le lieu d'arrivée EST la Prison).
+  if (card.sendsHeroToPrisonOnMove && to !== card.sendsHeroToPrisonOnMove) {
+    const prison = card.sendsHeroToPrisonOnMove
+    const heroesHere = (next.players[state.activePlayer].board[to] ?? []).filter((c) => c.type === 'hero')
+    for (const h of heroesHere) {
+      next = resolveEffects(next, [{ type: 'MOVE_HERO_TO_LOCATION', locationId: prison }], {
+        actorIndex: state.activePlayer,
+        targetHeroId: h.instanceId,
+      })
+    }
   }
   // Hadès — Peine : quand elle est déplacée, elle peut emmener un Héros de son
   // lieu de départ avec elle (résolution automatique).
@@ -6971,6 +7102,148 @@ function applyResolvePayRace(state: GameState, amount: number): GameState {
   }
 }
 
+/** Mr. Monopoly — Affaire : pose `amount` maisons (borné [1,max]) sur le lieu adverse
+ *  en attente, paie `unitCost` chacune. */
+function applyResolveBuyHouses(state: GameState, amount: number): GameState {
+  const pending = state.pendingBuyHouses
+  if (!pending) throw new Error('Aucun achat de maison en attente (RESOLVE_BUY_HOUSES).')
+  const { playerIndex, locationId, max, unitCost } = pending
+  const n = Math.max(1, Math.min(amount, max))
+  const oppIdx = monopolyOpponent(state, playerIndex)
+  const opp = state.players[oppIdx]
+  const cleared = { ...state, pendingBuyHouses: null }
+  const next = updatePlayer(cleared, playerIndex, (p) => ({
+    ...p,
+    power: p.power - n * unitCost,
+    houses: { ...(p.houses ?? {}), [locationId]: houseCount(p, locationId) + n },
+  }))
+  const count = houseCount(next.players[playerIndex], locationId)
+  const locName = opp.locations.find((l) => l.id === locationId)?.name ?? locationId
+  return {
+    ...next,
+    log: [
+      ...next.log,
+      `${next.players[playerIndex].villainName} pose ${n} maison${n > 1 ? 's' : ''} sur ${locName}${count >= 4 ? ' (HÔTEL !)' : ''} (−${n * unitCost} JT).`,
+    ],
+  }
+}
+
+/** Mr. Monopoly — Carte bancaire (déplacement) / destruction : choix de lieu en deux
+ *  temps. Phase 'from' = lieu source (ou lieu à détruire) ; phase 'to' = destination. */
+function applyResolveMoveHouses(state: GameState, locationId: LocationId): GameState {
+  const pending = state.pendingMoveHouses
+  if (!pending) throw new Error('Aucun déplacement de maison en attente (RESOLVE_MOVE_HOUSES).')
+  const { playerIndex, phase, remaining, from, destroy } = pending
+  const oppIdx = monopolyOpponent(state, playerIndex)
+  const opp = state.players[oppIdx]
+  const locName = (id: LocationId) => opp.locations.find((l) => l.id === id)?.name ?? id
+
+  if (phase === 'from') {
+    if (houseCount(state.players[playerIndex], locationId) < 1) {
+      throw new Error('Ce lieu ne porte aucune maison.')
+    }
+    if (destroy) {
+      // Destruction immédiate d'une maison du lieu choisi.
+      const next = updatePlayer({ ...state, pendingMoveHouses: null }, playerIndex, (p) => ({
+        ...p,
+        houses: { ...(p.houses ?? {}), [locationId]: houseCount(p, locationId) - 1 },
+      }))
+      return { ...next, log: [...next.log, `Une maison est détruite sur ${locName(locationId)}.`] }
+    }
+    // Retire 1 maison de la source et passe à la phase destination.
+    const next = updatePlayer(state, playerIndex, (p) => ({
+      ...p,
+      houses: { ...(p.houses ?? {}), [locationId]: houseCount(p, locationId) - 1 },
+    }))
+    return { ...next, pendingMoveHouses: { playerIndex, phase: 'to', remaining, from: locationId } }
+  }
+
+  // phase 'to' : pose la maison retirée sur la destination choisie (plafond hôtel).
+  if (placeableHouses(state.players[playerIndex], locationId) < 1) {
+    throw new Error('Destination invalide (lieu plein ou bloqué).')
+  }
+  let next = updatePlayer(state, playerIndex, (p) => ({
+    ...p,
+    houses: { ...(p.houses ?? {}), [locationId]: houseCount(p, locationId) + 1 },
+  }))
+  next = {
+    ...next,
+    log: [...next.log, `${next.players[playerIndex].villainName} déplace une maison de ${locName(from!)} vers ${locName(locationId)} (Carte bancaire).`],
+  }
+  // Reste-t-il des maisons à déplacer (et au moins une source possible) ?
+  const left = remaining - 1
+  const stillSources = next.players[playerIndex].houses
+    ? Object.entries(next.players[playerIndex].houses!).some(([, n]) => n > 0)
+    : false
+  if (left > 0 && stillSources) {
+    return { ...next, pendingMoveHouses: { playerIndex, phase: 'from', remaining: left } }
+  }
+  return { ...next, pendingMoveHouses: null }
+}
+
+/** Mr. Monopoly — Libéré de prison : déplace un Héros, ou envoie Mr. Monopoly en Prison. */
+function applyResolveFreeFromJail(
+  state: GameState,
+  arg: { heroInstanceId?: string; locationId?: LocationId; toPrison?: boolean },
+): GameState {
+  const pending = state.pendingFreeFromJail
+  if (!pending) throw new Error('Aucun « Libéré de prison » en attente (RESOLVE_FREE_FROM_JAIL).')
+  const { targetIndex, prisonLocationId } = pending
+  const cleared = { ...state, pendingFreeFromJail: null }
+  if (arg.toPrison) {
+    const next = updatePlayer(cleared, targetIndex, (p) => ({ ...p, pawnLocation: prisonLocationId }))
+    const locName = next.players[targetIndex].locations.find((l) => l.id === prisonLocationId)?.name ?? prisonLocationId
+    return { ...next, log: [...next.log, `${next.players[targetIndex].villainName} est envoyé à ${locName} (Libéré de prison).`] }
+  }
+  if (!arg.heroInstanceId || !arg.locationId) throw new Error('Libéré de prison : Héros et lieu requis.')
+  return resolveEffects(cleared, [{ type: 'MOVE_HERO_TO_LOCATION', locationId: arg.locationId }], {
+    actorIndex: targetIndex,
+    targetHeroId: arg.heroInstanceId,
+  })
+}
+
+/** Mr. Monopoly — Reculez de trois cases : déplace le pion vers `locationId` (n'importe
+ *  lequel), puis n'autorise qu'UNE action (hors Fatalité) avant la fin du tour. */
+function applyResolveBackwardMove(state: GameState, locationId: LocationId): GameState {
+  const pending = state.pendingBackwardMove
+  if (!pending) throw new Error('Aucun « Reculez de trois cases » en attente (RESOLVE_BACKWARD_MOVE).')
+  const idx = pending.playerIndex
+  const me = state.players[idx]
+  if (!me.locations.some((l) => l.id === locationId)) throw new Error('Lieu de destination invalide.')
+  const next = updatePlayer({ ...state, pendingBackwardMove: null, monopolyNoFate: true }, idx, (p) => ({
+    ...p,
+    pawnLocation: locationId,
+    actionsCap: 1, // exactement une action (hors Fatalité) puis fin de tour
+  }))
+  const locName = me.locations.find((l) => l.id === locationId)?.name ?? locationId
+  return {
+    ...next,
+    phase: 'ACTION',
+    usedActionIds: [],
+    log: [...next.log, `${me.villainName} déplace son pion vers **${locName}** (Reculez de trois cases : une action puis fin de tour).`],
+  }
+}
+
+/** Mr. Monopoly — Chaussure : mémorise le lieu bloqué sur l'instance de Chaussure. */
+function applyResolveBlockLocation(state: GameState, locationId: LocationId): GameState {
+  const pending = state.pendingBlockLocation
+  if (!pending) throw new Error('Aucun blocage de lieu en attente (RESOLVE_BLOCK_LOCATION).')
+  const { targetIndex, hostInstanceId } = pending
+  const cleared = { ...state, pendingBlockLocation: null }
+  const next = updatePlayer(cleared, targetIndex, (p) => ({
+    ...p,
+    board: Object.fromEntries(
+      Object.entries(p.board).map(([loc, cards]) => [
+        loc,
+        cards.map((c) => (c.instanceId === hostInstanceId ? { ...c, blockedHouseLocationId: locationId } : c)),
+      ]),
+    ),
+  }))
+  const opp = next.players[targetIndex === 0 ? 1 : 0]
+  const locName = opp.locations.find((l) => l.id === locationId)?.name ?? locationId
+  return { ...next, log: [...next.log, `Chaussure : Mr. Monopoly ne peut plus poser de maison sur ${locName}.`] }
+}
+
 /** Sa Sucrerie — Princesse Vanellope : recule le pion King Candy de `amount` (borné [0,max]). */
 function applyResolvePawnBack(state: GameState, amount: number): GameState {
   const pending = state.pendingPawnBack
@@ -7620,6 +7893,76 @@ function applyResolveDioSunlight(state: GameState, choice: 'discard' | 'lose'): 
   const n = me.hand.length
   const next = updatePlayer(cleared, idx, (pl) => ({ ...pl, discard: [...pl.discard, ...pl.hand], hand: [] }))
   return { ...next, log: [...next.log, `Lumière du Soleil : ${me.villainName} défausse sa main (${n} carte(s)).`] }
+}
+
+/** Pyramid Head — Pacte de Sang : défausse la carte choisie de la main, puis ouvre la
+ *  récupération (pendingRecover) d'une carte du MÊME type dans la défausse. */
+function applyResolvePacteSang(state: GameState, instanceId: string): GameState {
+  const pending = state.pendingPacteSang
+  if (!pending) throw new Error('Aucun Pacte de Sang en attente (RESOLVE_PACTE_SANG).')
+  const idx = pending.playerIndex
+  const me = state.players[idx]
+  const card = me.hand.find((c) => c.instanceId === instanceId)
+  if (!card) throw new Error('Carte à défausser absente de la main (Pacte de Sang).')
+  let next = updatePlayer({ ...state, pendingPacteSang: null }, idx, (pl) => ({
+    ...pl,
+    hand: pl.hand.filter((c) => c.instanceId !== instanceId),
+    discard: [...pl.discard, card],
+  }))
+  next = { ...next, log: [...next.log, `${me.villainName} défausse **${card.name}** (Pacte de Sang).`] }
+  // Récupération : une carte du MÊME type dans la défausse (hors celle qu'on vient de défausser).
+  const candidates = next.players[idx].discard.filter((c) => c.type === card.type && c.instanceId !== instanceId)
+  if (candidates.length === 0) {
+    return { ...next, log: [...next.log, `Pacte de Sang : aucune carte du même type à récupérer.`] }
+  }
+  return {
+    ...next,
+    pendingRecover: { playerIndex: idx, candidateIds: candidates.map((c) => c.instanceId), label: 'Pacte de sang' },
+    log: [...next.log, `Pacte de Sang : récupérez une carte du même type.`],
+  }
+}
+
+/** Pyramid Head — Sacrifice Humain : applique le choix. « gain » → +2 Pouvoir ; « look » →
+ *  regarder les 3 1ʳᵉˢ cartes de la pioche, en garder 1, défausser le reste (interactif). */
+function applyResolveSacrifice(state: GameState, choice: 'look' | 'gain'): GameState {
+  const pending = state.pendingSacrifice
+  if (!pending) throw new Error('Aucun Sacrifice Humain en attente (RESOLVE_SACRIFICE).')
+  const idx = pending.playerIndex
+  const me = state.players[idx]
+  const cleared: GameState = { ...state, pendingSacrifice: null }
+  if (choice === 'gain') {
+    const next = updatePlayer(cleared, idx, (p) => ({ ...p, power: p.power + 2 }))
+    return { ...next, log: [...next.log, `Sacrifice Humain : ${me.villainName} gagne 2 JT.`] }
+  }
+  return resolveEffects(cleared, [{ type: 'LOOK_TOP_DRAW_DISCARD', look: 3, take: 1, title: 'Sacrifice Humain' }], { actorIndex: idx })
+}
+
+/** Pyramid Head — Cage de l'Expiation : déplace le Héros porteur (+ ses cartes associées,
+ *  dont la Cage) vers le lieu choisi. */
+function applyResolveCageMove(state: GameState, locationId: LocationId): GameState {
+  const pending = state.pendingCageMove
+  if (!pending) throw new Error('Aucun déplacement de Cage en attente (RESOLVE_CAGE_MOVE).')
+  const idx = pending.playerIndex
+  const me = state.players[idx]
+  const heroId = pending.heroInstanceId
+  const cleared: GameState = { ...state, pendingCageMove: null }
+  let from: LocationId | undefined
+  for (const l of me.locations) if ((me.board[l.id] ?? []).some((c) => c.instanceId === heroId)) { from = l.id; break }
+  if (!from) return cleared
+  if (!me.locations.some((l) => l.id === locationId)) throw new Error('Lieu de destination invalide (Cage).')
+  const moving = (me.board[from] ?? []).filter((c) => c.instanceId === heroId || c.attachedTo === heroId)
+  const movingIds = new Set(moving.map((c) => c.instanceId))
+  const next = updatePlayer(cleared, idx, (p) => ({
+    ...p,
+    board: {
+      ...p.board,
+      [from!]: (p.board[from!] ?? []).filter((c) => !movingIds.has(c.instanceId)),
+      [locationId]: [...(p.board[locationId] ?? []), ...moving],
+    },
+  }))
+  const heroName = moving.find((c) => c.instanceId === heroId)?.name ?? 'le Héros'
+  const locName = findLocation(me, locationId)?.name ?? locationId
+  return { ...next, log: [...next.log, `Cage de l'Expiation : **${heroName}** est déplacé sur **${locName}**.`] }
 }
 
 /**
@@ -9468,6 +9811,69 @@ function applyUseCanne(state: GameState): GameState {
   }
 }
 
+/** Mr. Monopoly — Canne : actions EMPRUNTABLES = les actions (hors Fatalité) des lieux du
+ *  royaume adverse où Mr. Monopoly a posé au moins une maison. */
+function canneBorrowOptions(state: GameState, idx: number): { locationId: LocationId; actionId: string; label: string }[] {
+  const opp = state.players[monopolyOpponent(state, idx)]
+  const out: { locationId: LocationId; actionId: string; label: string }[] = []
+  for (const l of opp.locations) {
+    if (houseCount(state.players[idx], l.id) < 1) continue
+    for (const a of l.actions) {
+      if (a.type === 'FATE') continue
+      out.push({ locationId: l.id, actionId: a.id, label: `${l.name} : ${a.label}` })
+    }
+  }
+  return out
+}
+
+/** Mr. Monopoly — Canne : ouvre le choix d'une action empruntée à un lieu maisonné adverse. */
+function applyUseCanneMonopoly(state: GameState): GameState {
+  if (state.phase !== 'ACTION') throw new Error(`Impossible d'utiliser la Canne en phase ${state.phase}.`)
+  const idx = state.activePlayer
+  const me = state.players[idx]
+  const loc = me.pawnLocation
+  if (!loc || !(me.board[loc] ?? []).some((c) => c.cardId === 'custom-mr-monopoly-canne')) {
+    throw new Error('La Canne n’est pas sur votre lieu.')
+  }
+  if (state.usedActionIds.includes('canne-action')) throw new Error('La Canne a déjà été utilisée ce tour.')
+  const options = canneBorrowOptions(state, idx)
+  if (options.length === 0) throw new Error('Aucun lieu adverse maisonné : la Canne est sans effet.')
+  return { ...state, pendingCanneBorrow: { playerIndex: idx, options }, log: [...state.log, `${me.villainName} utilise la Canne : choisissez une action à emprunter.`] }
+}
+
+/** Mr. Monopoly — Canne : exécute l'action empruntée pour Mr. Monopoly (+1 Pouvoir),
+ *  marque la Canne comme utilisée ce tour. */
+function applyResolveCanneBorrow(state: GameState, locationId: LocationId, actionId: string): GameState {
+  const pending = state.pendingCanneBorrow
+  if (!pending) throw new Error('Aucune action de Canne en attente (RESOLVE_CANNE_BORROW).')
+  const idx = pending.playerIndex
+  if (!pending.options.some((o) => o.locationId === locationId && o.actionId === actionId)) {
+    throw new Error('Action empruntée invalide.')
+  }
+  const opp = state.players[monopolyOpponent(state, idx)]
+  const action = opp.locations.find((l) => l.id === locationId)?.actions.find((a) => a.id === actionId)
+  if (!action) throw new Error('Action empruntée introuvable.')
+  let next: GameState = { ...state, pendingCanneBorrow: null, usedActionIds: [...state.usedActionIds, 'canne-action'] }
+  // Exécute l'EFFET de l'action empruntée pour Mr. Monopoly (action gratuite selon le type).
+  switch (action.type) {
+    case 'GAIN_POWER':
+      next = resolveEffects(next, [{ type: 'GAIN_POWER', amount: action.amount ?? 1 }], { actorIndex: idx })
+      break
+    case 'PLAY_CARD':
+    case 'MOVE_ITEM_ALLY':
+    case 'VANQUISH':
+    case 'ACTIVATE':
+    case 'DISCARD_CARDS':
+      next = resolveEffects(next, [{ type: 'GRANT_FREE_ACTION', actionType: action.type }], { actorIndex: idx })
+      break
+    default:
+      break
+  }
+  // +1 Pouvoir garanti (texte de la Canne).
+  next = resolveEffects(next, [{ type: 'GAIN_POWER', amount: 1 }], { actorIndex: idx })
+  return { ...next, log: [...next.log, `Canne : ${next.players[idx].villainName} emprunte « ${action.label} » et gagne 1 Pouvoir.`] }
+}
+
 /** Préparez-vous au combat ! (Hadès) : déplace le Titan choisi vers `to` (1 ou 2
  *  lieux) ; le coût (2 JT pour 1 lieu, 5 pour 2) est prélevé si `paid`. */
 function applyResolveTitanMove(state: GameState, titanInstanceId: string, to: LocationId): GameState {
@@ -10000,6 +10406,39 @@ function resolveArmedTraps(state: GameState, idx: number): GameState {
     }))
     next = { ...next, log: [...next.log, `Le **Piège ingénieux** se referme puis est défaussé.`] }
   }
+  // Pyramid Head — Cages de l'Expiation ARMÉES (objet attaché à un Héros) : au début du
+  // tour, le Héros porteur est éliminé (sauf Eddie, `immuneToCage`) ; la Cage est défaussée.
+  const armedCages: { loc: LocationId; cageId: string; hostId?: string }[] = []
+  for (const loc of player.locations) {
+    for (const c of player.board[loc.id] ?? []) {
+      if (c.trapArmed && c.attachedTo) armedCages.push({ loc: loc.id, cageId: c.instanceId, hostId: c.attachedTo })
+    }
+  }
+  for (const cg of armedCages) {
+    const cell = next.players[idx].board[cg.loc] ?? []
+    const cage = cell.find((c) => c.instanceId === cg.cageId)
+    const host = cell.find((c) => c.instanceId === cg.hostId)
+    if (!cage) continue
+    if (host && !host.immuneToCage) {
+      const attached = cell.filter((c) => c.attachedTo === host.instanceId)
+      const rm = new Set([host.instanceId, ...attached.map((c) => c.instanceId)])
+      next = updatePlayer(next, idx, (p) => ({
+        ...p,
+        board: { ...p.board, [cg.loc]: (p.board[cg.loc] ?? []).filter((c) => !rm.has(c.instanceId)) },
+        fateDiscard: [...p.fateDiscard, { ...host, attachedTo: undefined }],
+        discard: [...p.discard, ...attached.map((c) => ({ ...c, attachedTo: undefined, trapArmed: undefined }))],
+      }))
+      next = { ...next, log: [...next.log, `Cage de l'Expiation : **${host.name}** est éliminé au début du tour.`] }
+    } else {
+      // Eddie (immunisé) : la Cage se brise, le Héros survit.
+      next = updatePlayer(next, idx, (p) => ({
+        ...p,
+        board: { ...p.board, [cg.loc]: (p.board[cg.loc] ?? []).filter((c) => c.instanceId !== cg.cageId) },
+        discard: [...p.discard, { ...cage, attachedTo: undefined, trapArmed: undefined }],
+      }))
+      next = { ...next, log: [...next.log, `Cage de l'Expiation : ${host?.name ?? 'le Héros'} y résiste — la Cage se brise.`] }
+    }
+  }
   return next
 }
 
@@ -10040,10 +10479,45 @@ function gothelStartOfTurn(state: GameState, idx: number): GameState {
   return resolveEffects(state, [{ type: 'LOSE_CONFIANCE', amount: 1 }], { actorIndex: idx })
 }
 
+/** Mr. Monopoly — Chien (Fatalité) : à la fin de CHAQUE tour, tout Héros doté de
+ *  `movesTowardPawnEndOfTurn` se déplace d'un lieu vers le pion de son royaume. Pur. */
+function moveDogsEndOfTurn(state: GameState): GameState {
+  let next = state
+  for (let i = 0; i < next.players.length; i++) {
+    const p = next.players[i]
+    const pawn = p.pawnLocation
+    if (!pawn) continue
+    const order = p.locations.map((l) => l.id)
+    const pawnI = order.indexOf(pawn)
+    for (const loc of p.locations) {
+      const dog = (p.board[loc.id] ?? []).find((c) => c.movesTowardPawnEndOfTurn)
+      if (!dog) continue
+      const from = loc.id
+      const fromI = order.indexOf(from)
+      if (fromI === pawnI || fromI < 0) continue
+      const to = order[fromI + (fromI < pawnI ? 1 : -1)]
+      const idx = i
+      next = updatePlayer(next, idx, (pl) => ({
+        ...pl,
+        board: {
+          ...pl.board,
+          [from]: (pl.board[from] ?? []).filter((c) => c.instanceId !== dog.instanceId),
+          [to]: [...(pl.board[to] ?? []), dog],
+        },
+      }))
+      next = { ...next, log: [...next.log, `🐕 ${dog.name} se rapproche de ${next.players[idx].villainName} (${next.players[idx].locations.find((l) => l.id === to)?.name}).`] }
+      break // un seul Chien déplacé par royaume et par tour
+    }
+  }
+  return next
+}
+
 function applyEndTurn(state: GameState): GameState {
   if (!canEndTurn(state)) {
     throw new Error(`Impossible de terminer le tour en phase ${state.phase}.`)
   }
+  // Mr. Monopoly — Chien : se rapproche du pion à la fin de chaque tour.
+  state = moveDogsEndOfTurn(state)
   // Team Rocket — Pokémon couchés (K.O.) non attrapés à la fin du tour suivant → défausse.
   state = sweepKoPokemon(state)
   // Lever du jour : le blocage des Pages du joueur dont le tour se termine est consommé.
@@ -10142,6 +10616,8 @@ function applyEndTurn(state: GameState): GameState {
     pendingFateScry: null,
     pendingHeroRelocate: null,
     activeMovedCard: false,
+    activeMovedPawn: false,
+    monopolyNoFate: false,
     activeDrewCard: false,
     activeDiscardedCount: 0,
     activeGainedPower: 0,
@@ -10692,6 +11168,54 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   ) {
     throw new Error('Un choix « L’important, c’est de payer » est en attente (RESOLVE_PAY_RACE).')
   }
+  // Mr. Monopoly — Affaire : choix du nombre de maisons en attente.
+  if (
+    state.pendingBuyHouses &&
+    action.type !== 'RESOLVE_BUY_HOUSES' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un achat de maison est en attente (RESOLVE_BUY_HOUSES).')
+  }
+  // Mr. Monopoly — Carte bancaire : choix de lieu (source/destination) en attente.
+  if (
+    state.pendingMoveHouses &&
+    action.type !== 'RESOLVE_MOVE_HOUSES' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un déplacement de maison est en attente (RESOLVE_MOVE_HOUSES).')
+  }
+  // Mr. Monopoly — Libéré de prison : choix du fataliseur en attente.
+  if (
+    state.pendingFreeFromJail &&
+    action.type !== 'RESOLVE_FREE_FROM_JAIL' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un choix « Libéré de prison » est en attente (RESOLVE_FREE_FROM_JAIL).')
+  }
+  // Mr. Monopoly — Chaussure : choix du lieu bloqué en attente.
+  if (
+    state.pendingBlockLocation &&
+    action.type !== 'RESOLVE_BLOCK_LOCATION' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un blocage de lieu (Chaussure) est en attente (RESOLVE_BLOCK_LOCATION).')
+  }
+  // Mr. Monopoly — Reculez de trois cases : choix du lieu de destination en attente.
+  if (
+    state.pendingBackwardMove &&
+    action.type !== 'RESOLVE_BACKWARD_MOVE' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un « Reculez de trois cases » est en attente (RESOLVE_BACKWARD_MOVE).')
+  }
+  // Mr. Monopoly — Canne : choix de l'action empruntée en attente.
+  if (
+    state.pendingCanneBorrow &&
+    action.type !== 'RESOLVE_CANNE_BORROW' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un choix d’action de Canne est en attente (RESOLVE_CANNE_BORROW).')
+  }
   // Sa Sucrerie — Princesse Vanellope : choix du recul du pion en attente.
   if (
     state.pendingPawnBack &&
@@ -10845,6 +11369,15 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   }
   if (state.pendingDioSunlight && action.type !== 'RESOLVE_DIO_SUNLIGHT') {
     throw new Error('Un choix Lumière du Soleil est en attente (RESOLVE_DIO_SUNLIGHT).')
+  }
+  if (state.pendingPacteSang && action.type !== 'RESOLVE_PACTE_SANG') {
+    throw new Error('Un choix Pacte de Sang est en attente (RESOLVE_PACTE_SANG).')
+  }
+  if (state.pendingSacrifice && action.type !== 'RESOLVE_SACRIFICE') {
+    throw new Error('Un choix Sacrifice Humain est en attente (RESOLVE_SACRIFICE).')
+  }
+  if (state.pendingCageMove && action.type !== 'RESOLVE_CAGE_MOVE') {
+    throw new Error('Un déplacement de Cage est en attente (RESOLVE_CAGE_MOVE).')
   }
   // Le Seigneur des Ténèbres : choix « Nous avons conclu un marché ! » en attente.
   if (
@@ -11315,6 +11848,20 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveAigreBill(state, action.dig)
     case 'RESOLVE_PAY_RACE':
       return applyResolvePayRace(state, action.amount)
+    case 'RESOLVE_BUY_HOUSES':
+      return applyResolveBuyHouses(state, action.amount)
+    case 'RESOLVE_MOVE_HOUSES':
+      return applyResolveMoveHouses(state, action.locationId)
+    case 'RESOLVE_FREE_FROM_JAIL':
+      return applyResolveFreeFromJail(state, { heroInstanceId: action.heroInstanceId, locationId: action.locationId, toPrison: action.toPrison })
+    case 'RESOLVE_BLOCK_LOCATION':
+      return applyResolveBlockLocation(state, action.locationId)
+    case 'RESOLVE_BACKWARD_MOVE':
+      return applyResolveBackwardMove(state, action.locationId)
+    case 'USE_CANNE_MONOPOLY':
+      return applyUseCanneMonopoly(state)
+    case 'RESOLVE_CANNE_BORROW':
+      return applyResolveCanneBorrow(state, action.locationId, action.actionId)
     case 'RESOLVE_PAWN_BACK':
       return applyResolvePawnBack(state, action.amount)
     case 'RESOLVE_BEACON':
@@ -11367,6 +11914,12 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveDioMuda(state, action.heroInstanceId)
     case 'RESOLVE_DIO_SUNLIGHT':
       return applyResolveDioSunlight(state, action.choice)
+    case 'RESOLVE_PACTE_SANG':
+      return applyResolvePacteSang(state, action.instanceId)
+    case 'RESOLVE_SACRIFICE':
+      return applyResolveSacrifice(state, action.choice)
+    case 'RESOLVE_CAGE_MOVE':
+      return applyResolveCageMove(state, action.locationId)
     case 'RESOLVE_CRUSTACEAN_PLACE':
       return applyResolveCrustaceanPlace(state, action.to)
     case 'RESOLVE_BARGAIN_CHOICE':
