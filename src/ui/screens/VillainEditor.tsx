@@ -409,10 +409,24 @@ export function VillainEditor({ onBack, onPlay }: Props) {
     // pions) comme un vilain natif. Best-effort : sans serveur de dév, on n'affiche rien.
     const exp = await exportVillainAssets(baked)
     const filesMsg = exp.ok ? `\n\n${exp.written} fichier(s) rangés dans assets/.` : ''
+    // EMBARQUE le vilain (JSON complet avec images) dans `src/data/published/` : chargé au
+    // démarrage, il devient disponible pour TOUS les joueurs (après commit + redéploiement).
+    // Best-effort : ne marche qu'avec le serveur de dév (apply: 'serve').
+    let sharedMsg = ''
+    try {
+      const res = await fetch('/__publish-villain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: baked.id, json: JSON.stringify(baked) }),
+      })
+      if (res.ok) sharedMsg = '\n\nEmbarqué dans l’app (src/data/published/) — committe + redéploie pour le rendre disponible à tous.'
+    } catch {
+      /* pas de serveur de dév : le vilain reste local (IndexedDB) */
+    }
     alert(
       (wasPublished
         ? `Les modifications de « ${name} » ont été appliquées à sa version jouable.`
-        : `« ${name} » a rejoint la liste et le choix des vilains !`) + filesMsg,
+        : `« ${name} » a rejoint la liste et le choix des vilains !`) + filesMsg + sharedMsg,
     )
   }
 

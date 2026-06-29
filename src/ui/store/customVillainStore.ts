@@ -10,6 +10,7 @@
 import { create } from 'zustand'
 import type { CustomVillain } from '../../data/customVillain'
 import { CUSTOM_VILLAIN_FORMAT } from '../../data/customVillain'
+import { loadBundledVillains } from '../../data/published/load'
 import { registerPublishedVillain } from './gameStore'
 
 /** Enregistre au runtime tous les vilains PUBLIÉS d'une liste (cartes/couleur/
@@ -116,7 +117,12 @@ export const useCustomVillainStore = create<CustomVillainStore>((set, get) => ({
   loaded: false,
 
   load: async () => {
-    const villains = await idbGetAll()
+    // Vilains LOCAUX (IndexedDB de ce navigateur) + vilains EMBARQUÉS (committés dans
+    // l'app, disponibles pour tous). Un vilain local prime sur sa version embarquée de
+    // même id (l'auteur garde ses éditions en cours).
+    const [local, bundled] = await Promise.all([idbGetAll(), loadBundledVillains()])
+    const localIds = new Set(local.map((v) => v.id))
+    const villains = [...local, ...bundled.filter((b) => !localIds.has(b.id))]
     villains.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))
     registerPublished(villains)
     set({ villains, loaded: true })

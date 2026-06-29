@@ -9,6 +9,16 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '0.95',
+    date: '2026-06-29',
+    title: 'Vilains publiés disponibles pour tous',
+    changes: [
+      'Quand tu **publies** un vilain dans l’Atelier (« Terminer »), il est désormais **embarqué dans l’app** : il est **chargé au démarrage pour TOUS les joueurs** (et plus seulement sur ta machine).',
+      'Concrètement, la publication enregistre le vilain **complet (avec ses images)** dans le projet ; après **commit + redéploiement**, tout le monde le voit dans la liste et peut y jouer.',
+      'Ta version **en cours d’édition** (locale) prime toujours sur la version embarquée : tu peux continuer à le retoucher sans perdre tes modifications.',
+    ],
+  },
+  {
     version: '0.94',
     date: '2026-06-29',
     title: 'Dio Brando (interactif, ZA WARUDO!) + Atelier & correctifs',
