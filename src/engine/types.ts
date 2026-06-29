@@ -602,17 +602,17 @@ export type Effect =
   /** Va chercher la carte `cardId` (pioche/défausse Méchant) et l'ajoute à la main
    *  (Enya Geil → « La flèche »). No-op si introuvable. */
   | { type: 'FETCH_CARD_TO_HAND'; cardId: string }
-  /** Dio — The Fool (Stand d'Iggy, à la pose côté fataliseur) : disperse les Alliés du
-   *  lieu d'Iggy vers d'autres lieux (auto/interactif selon le joueur). */
-  | { type: 'DIO_THE_FOOL_SCATTER' }
   /** Dio — ZA WARUDO! : ARRÊTE LE TEMPS pour ce tour (`zaWarudoActive`). Le pion peut
    *  ensuite se déplacer librement entre les lieux (ZA_WARUDO_RELOCATE) et faire les
    *  actions de n'importe quel lieu (hors Fatalité), chacune coûtant un Pouvoir croissant
    *  (1, 2, 3…). Sans effet si The World n'est pas en jeu, ou si Star Platinum est présent. */
   | { type: 'ZA_WARUDO_ACTIVATE' }
-  /** Dio — Vampirisme : ouvre un choix interactif (pendingDioDiscardAlly) de l'Allié à
-   *  défausser (The World épargné) pour gagner `amount` Pouvoir. Bot : le plus faible. */
+  /** Dio — défausser un Allié du royaume (The World épargné) pour gagner `amount` Pouvoir :
+   *  ouvre un choix interactif (pendingDioDiscardAlly). Bot : le plus faible. Effet générique. */
   | { type: 'DIO_DISCARD_ALLY_GAIN'; amount: number }
+  /** Dio — Vampirisme : défausser un Allié du royaume (The World épargné) pour PIOCHER
+   *  `count` cartes — choix interactif (pendingDioDiscardAlly). Bot : le plus faible. */
+  | { type: 'DIO_DISCARD_ALLY_DRAW'; count: number }
   /** Dio — Masque de pierre (Activer) : défausse TOUTE la main, gagne 1 Pouvoir par carte. */
   | { type: 'DIO_DISCARD_HAND_GAIN_POWER' }
   /** Dio — Fondation Speedwagon (Fatalité) : défausse un Objet non associé du royaume de Dio
@@ -625,15 +625,16 @@ export type Effect =
    *  défausser sa main ou perdre `lose` Pouvoir. Bot : l'option la moins coûteuse pour lui. */
   | { type: 'DIO_SUNLIGHT_CHOICE'; lose: number }
   /** Dio — Tu oses t'approcher de moi : dévoile les `count` 1ʳᵉˢ cartes Fatalité, joue TOUS
-   *  les Héros révélés sur le lieu du pion (chacun déclenche son Stand), défausse le reste. */
+   *  les Héros révélés sur LE MANOIR (repaire de Dio = 1ᵉʳ lieu ; chacun déclenche son Stand),
+   *  défausse le reste. */
   | { type: 'DIO_REVEAL_FATE_HEROES_AT_PAWN'; count: number }
   /** Dio — CREAM (Stand de Vanilla Ice, à l'invocation) : ouvre un choix interactif
    *  (pendingDioCream) du Héros à défausser parmi ceux de force inférieure à Vanilla Ice
    *  présents sur son lieu. Bot : le plus fort éligible. */
   | { type: 'DIO_CREAM_DISCARD_HERO' }
-  /** Dio — Quête vers le paradis : ouvre le choix du type (pendingDioQuest ; Objet/Événement),
-   *  puis mélange la défausse, en dévoile 6 et ajoute les cartes de ce type à la main.
-   *  Bot : le type le plus nombreux. */
+  /** Dio — Quête vers le paradis : va chercher un OBJET (non-Stand) dans la pioche ou la
+   *  défausse et l'ajoute à la main (choix interactif via pendingRecover, label « Quête
+   *  vers le paradis » ; pioche remélangée ensuite). */
   | { type: 'DIO_QUEST_FOR_HEAVEN' }
   /** Dio — MUDA! (Condition) : ouvre un choix interactif (pendingDioMuda) du Héros à éliminer
    *  sur le lieu du pion (facultatif) et gagne `gain` Pouvoir. Bot : le plus fort. */
@@ -958,7 +959,7 @@ export type Effect =
    *  n'importe où sur le plateau (auto). */
   | { type: 'ROLL_DIE_TAKE_KEY_FROM_BOARD' }
   /** Madame de Trémaine — Piège : PIÈGE un Héros choisi (`trapped`) : sa capacité est
-   *  ignorée et il ne recouvre plus aucune action. */
+   *  ignorée, mais il continue de recouvrir les actions (présence physique). */
   | { type: 'TRAP_HERO' }
   /** Madame de Trémaine — Canne : retire (défausse) toutes les Pantoufles de Verre du
    *  royaume. */
@@ -2820,6 +2821,12 @@ export interface GameState {
   /** Shere Khan — C'est moi, Shere Khan : `playerIndex` choisit quel jeton Feu retirer
    *  (lieu + action) quand il y en a plusieurs (RESOLVE_REMOVE_FIRE). */
   pendingRemoveFire?: { playerIndex: number } | null
+  /** Shere Khan — pose interactive d'un jeton Feu : `chooserIndex` choisit l'action du
+   *  royaume de `targetIndex` à recouvrir (RESOLVE_PLACE_FIRE). Deux cas :
+   *   - Feu Rouge des Hommes (Fatalité) : le fataliseur choisit, n'importe quel lieu.
+   *   - Mowgli (à son arrivée) : Shere Khan choisit, mais UNIQUEMENT sur son lieu d'arrivée
+   *     (`locationId` renseigné → le choix est restreint à ce lieu). */
+  pendingPlaceFire?: { chooserIndex: number; targetIndex: number; locationId?: string } | null
   /** Shere Khan — Lancé sur ses traces : `playerIndex` choisit quel Héros de son royaume
    *  éliminer (gratuitement) quand il y en a plusieurs (RESOLVE_SHERE_KHAN_DEFEAT). */
   pendingShereKhanDefeat?: { playerIndex: number } | null
@@ -2874,18 +2881,15 @@ export interface GameState {
    *  dévoilée (toujours en tête de `mauiDeck`) ; `playerIndex` choisit de la JOUER ou de
    *  la DÉFAUSSER (RESOLVE_MAUI_CHOICE). */
   pendingMauiChoice?: { playerIndex: number } | null
-  /** Dio — Vampirisme : `playerIndex` choisit un Allié de son royaume à défausser (The World
-   *  épargné) pour gagner `gain` Pouvoir (RESOLVE_DIO_DISCARD_ALLY). */
-  pendingDioDiscardAlly?: { playerIndex: number; gain: number } | null
+  /** Dio — `playerIndex` choisit un Allié de son royaume à défausser (The World épargné),
+   *  pour gagner `gain` Pouvoir ET/OU piocher `draw` cartes (RESOLVE_DIO_DISCARD_ALLY). */
+  pendingDioDiscardAlly?: { playerIndex: number; gain?: number; draw?: number } | null
   /** Dio — CREAM (Stand de Vanilla Ice) : `playerIndex` choisit un Héros (`candidateIds`,
    *  force < Vanilla Ice) sur `locationId` à défausser (RESOLVE_DIO_CREAM). */
   pendingDioCream?: { playerIndex: number; locationId: LocationId; candidateIds: string[] } | null
-  /** Dio — MUDA! : `playerIndex` choisit (facultatif) un Héros (`candidateIds`) du lieu du
-   *  pion à éliminer ; gagne `gain` Pouvoir dans tous les cas (RESOLVE_DIO_MUDA). */
-  pendingDioMuda?: { playerIndex: number; gain: number; candidateIds: string[] } | null
-  /** Dio — Quête vers le paradis : `playerIndex` choisit le type de carte (Objet/Événement)
-   *  à récupérer parmi les 6 cartes dévoilées de sa défausse mélangée (RESOLVE_DIO_QUEST). */
-  pendingDioQuest?: { playerIndex: number } | null
+  /** Dio — MUDA! : le Pouvoir (5) est DÉJÀ gagné ; `playerIndex` choisit (facultatif) un
+   *  Héros (`candidateIds`) de son lieu à éliminer en plus (RESOLVE_DIO_MUDA). */
+  pendingDioMuda?: { playerIndex: number; candidateIds: string[] } | null
   /** Dio — Lumière du Soleil (Fatalité) : DIO (`playerIndex`) choisit entre défausser sa main
    *  et perdre `lose` Pouvoir (RESOLVE_DIO_SUNLIGHT). */
   pendingDioSunlight?: { playerIndex: number; lose: number } | null
@@ -3867,6 +3871,8 @@ export type GameAction =
   | { type: 'RESOLVE_ACTIVATE_OR_VANQUISH'; choice: 'activate' | 'vanquish' }
   /** Shere Khan — C'est moi, Shere Khan : retire le jeton Feu de (locationId, actionId). */
   | { type: 'RESOLVE_REMOVE_FIRE'; locationId: LocationId; actionId: string }
+  /** Shere Khan — Feu Rouge des Hommes : pose le jeton Feu sur l'action choisie. */
+  | { type: 'RESOLVE_PLACE_FIRE'; locationId: LocationId; actionId: string }
   /** Shere Khan — Lancé sur ses traces : éliminer le Héros choisi (gratuit). */
   | { type: 'RESOLVE_SHERE_KHAN_DEFEAT'; heroInstanceId: string }
   /** Shere Khan — C'est à moi que vous le direz : remettre la carte Fatalité `instanceId`
@@ -4171,8 +4177,6 @@ export type GameAction =
   | { type: 'RESOLVE_DIO_CREAM'; heroInstanceId: string }
   /** Dio — MUDA! : élimine le Héros choisi (ou aucun si omis) et gagne le Pouvoir prévu. */
   | { type: 'RESOLVE_DIO_MUDA'; heroInstanceId?: string }
-  /** Dio — Quête vers le paradis : récupère les cartes du type choisi (Objet/Événement). */
-  | { type: 'RESOLVE_DIO_QUEST'; cardType: 'item' | 'effect' }
   /** Dio — Lumière du Soleil : défausse la main ('discard') ou perd du Pouvoir ('lose'). */
   | { type: 'RESOLVE_DIO_SUNLIGHT'; choice: 'discard' | 'lose' }
   | { type: 'RESOLVE_CRUSTACEAN_PLACE'; to: LocationId }

@@ -43,12 +43,32 @@ describe('Shere Khan — mise en place', () => {
 })
 
 describe('Shere Khan — Jetons Feu', () => {
-  it('Mowgli (onPlace) pose un jeton Feu sur son lieu', () => {
+  it('Mowgli (onPlace) : Shere Khan CHOISIT l’action à recouvrir sur le lieu d’arrivée', () => {
     const base = game()
     const mowgli = card('mowgli', 'hero', { strength: 2, instanceId: 'm1' })
     const s0: GameState = { ...base, players: [{ ...base.players[0], board: { riviere: [mowgli] } }] }
+    // Plusieurs actions libres → on ouvre le choix (pas d'auto-pose), restreint à La Rivière.
+    const opened = resolveEffects(s0, [{ type: 'PLACE_FIRE_AT_HOST' }], { actorIndex: 0, hostLocationId: 'riviere' })
+    expect(opened.pendingPlaceFire?.chooserIndex).toBe(0)
+    expect(opened.pendingPlaceFire?.locationId).toBe('riviere')
+    expect(fireCount(opened.players[0])).toBe(0) // rien posé tant qu'on n'a pas choisi
+    const actionId = opened.players[0].locations.find((l) => l.id === 'riviere')!.actions[0].id
+    const out = applyAction(opened, { type: 'RESOLVE_PLACE_FIRE', locationId: 'riviere', actionId })
+    expect(out.pendingPlaceFire ?? null).toBeNull()
+    expect(actionHasFire(out.players[0], 'riviere', actionId)).toBe(true)
+    expect(fireCount(out.players[0])).toBe(1)
+  })
+
+  it('Mowgli (onPlace) : une seule action libre → pose AUTOMATIQUE (pas de choix)', () => {
+    const base = game()
+    const mowgli = card('mowgli', 'hero', { strength: 2, instanceId: 'm1' })
+    let s0: GameState = { ...base, players: [{ ...base.players[0], board: { riviere: [mowgli] } }] }
+    const acts = s0.players[0].locations.find((l) => l.id === 'riviere')!.actions
+    for (const a of acts.slice(0, -1)) s0 = placeFire(s0, 0, 'riviere', a.id) // ne laisse qu'une action libre
+    const lastFree = acts[acts.length - 1].id
     const s = resolveEffects(s0, [{ type: 'PLACE_FIRE_AT_HOST' }], { actorIndex: 0, hostLocationId: 'riviere' })
-    expect(fireCount(s.players[0])).toBe(1)
+    expect(s.pendingPlaceFire ?? null).toBeNull() // auto : aucun pending
+    expect(actionHasFire(s.players[0], 'riviere', lastFree)).toBe(true)
   })
 
   it('une action recouverte par un jeton Feu est indisponible', () => {
@@ -69,6 +89,21 @@ describe('Shere Khan — Jetons Feu', () => {
     expect(fireCount(s.players[0])).toBe(1)
     s = resolveEffects(s, [{ type: 'REMOVE_FIRE_AT_PAWN' }], { actorIndex: 0 })
     expect(fireCount(s.players[0])).toBe(0)
+  })
+
+  it('Feu Rouge des Hommes : choix INTERACTIF de l’action où poser le jeton Feu', () => {
+    const base = game()
+    const s0: GameState = { ...base, activePlayer: 0, players: [{ ...base.players[0] }] }
+    // L'effet ouvre un pending (pas d'auto-pose) côté fataliseur.
+    const opened = resolveEffects(s0, [{ type: 'PLACE_OR_MOVE_FIRE' }], { actorIndex: 0 })
+    expect(opened.pendingPlaceFire?.chooserIndex).toBe(0)
+    expect(opened.pendingPlaceFire?.targetIndex).toBe(0)
+    expect(fireCount(opened.players[0])).toBe(0) // rien posé tant qu'on n'a pas choisi
+    // On choisit explicitement « fate » sur La Rivière : le jeton Feu s'y pose.
+    const out = applyAction(opened, { type: 'RESOLVE_PLACE_FIRE', locationId: 'riviere', actionId: 'fate' })
+    expect(out.pendingPlaceFire ?? null).toBeNull()
+    expect(actionHasFire(out.players[0], 'riviere', 'fate')).toBe(true)
+    expect(fireCount(out.players[0])).toBe(1)
   })
 
   it('Macaques (Activer) retire tous les jetons Feu de leur lieu, contre 1 Pouvoir chacun', () => {

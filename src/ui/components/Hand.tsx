@@ -5,6 +5,26 @@ import { getCardDef } from '../../data/registry'
 
 type HandMode = 'idle' | 'play' | 'discard' | 'condition-ally'
 
+/** Largeur d'une carte (rem) d'après sa classe Tailwind (défaut éventail : w-36 = 9rem). */
+const remForCardWidth = (cls?: string) =>
+  cls === 'w-28' ? 7 : cls === 'w-24' ? 6 : cls === 'w-48' ? 12 : 9
+
+/** Géométrie de l'éventail, ADAPTÉE au nombre de cartes. Jusqu'à 9 cartes : aspect
+ *  habituel (recouvrement `baseOverlapRem`, 5°/carte, arc ×3). À partir de 10 (Dio peut
+ *  en accumuler beaucoup), on RESSERRE fortement : recouvrement accru pour BORNER la
+ *  largeur de l'éventail (≈ sa largeur à 8 cartes) afin de ne plus pousser l'interface,
+ *  et angle/arc aplatis (moins « en éventail »). */
+function fanGeometry(count: number, cardWidthRem: number, baseOverlapRem: number) {
+  const baseStep = cardWidthRem - baseOverlapRem // pas horizontal habituel entre 2 cartes
+  const cappedSpread = cardWidthRem + 7 * baseStep // largeur cible au-delà du seuil
+  const step = count <= 9 ? baseStep : Math.max(1.4, (cappedSpread - cardWidthRem) / (count - 1))
+  return {
+    marginRem: step - cardWidthRem, // marginLeft (négatif = recouvrement)
+    anglePer: count <= 9 ? 5 : Math.max(1.5, 30 / (count - 1)),
+    liftCoeff: count <= 9 ? 3 : Math.min(3, 48 / Math.pow((count - 1) / 2, 2)),
+  }
+}
+
 interface Props {
   hand: CardInstance[]
   accent: Accent
@@ -30,6 +50,9 @@ interface Props {
   /** Vrai s'il y a au moins un Allié dans le royaume — une carte « gain par Allié »
    *  (Joyeux non-anniversaire) est injouable sinon. */
   realmHasAllies: boolean
+  /** Dio — vrai s'il y a au moins un Allié DÉFAUSSABLE dans le royaume (The World / Stands /
+   *  associés exclus) — Vampirisme (défausser un Allié pour piocher) est injouable sinon. */
+  realmHasDiscardableAlly?: boolean
   /** Vrai s'il y a au moins une Tuile Chiots posée (Cruella) — « J'adore les belles
    *  fourrures » est injouable sinon. */
   realmHasPuppyTile: boolean
@@ -222,6 +245,7 @@ export function Hand({
   attachTargetsAvailable,
   blockEvents,
   realmHasAllies,
+  realmHasDiscardableAlly = false,
   realmHasPuppyTile,
   realmHasHeroes,
   bargainPlayable = true,
@@ -340,11 +364,13 @@ export function Hand({
       return (
         <section className="relative flex w-full flex-col items-center px-2 pb-1">
           <div className="flex items-end justify-center pt-2">
-            {hand.map((ci, i) => {
+            {(() => {
+              const geo = fanGeometry(hand.length, 6, 2.5) // dos = w-24, recouvrement -2.5rem
+              return hand.map((ci, i) => {
               const mid = (hand.length - 1) / 2
               const off = i - mid
-              const fanAngle = off * 5 // degrés par cran
-              const fanLift = Math.abs(off) * Math.abs(off) * 3 // px vers le bas (arc)
+              const fanAngle = off * geo.anglePer // degrés par cran
+              const fanLift = Math.abs(off) * Math.abs(off) * geo.liftCoeff // px vers le bas (arc)
               // Pioche animée de l'adversaire : on masque le dos tant qu'il « vole »
               // dans l'overlay (cf. OpeningDeal), puis il apparaît à son atterrissage.
               const dealHidden = dealHiddenIds?.includes(ci.instanceId) ?? false
@@ -356,7 +382,7 @@ export function Hand({
                   alt="Carte cachée"
                   className="m-0 w-24 shrink-0 rounded-lg border border-white/10 opacity-90 transition-opacity duration-300"
                   style={{
-                    marginLeft: i === 0 ? 0 : '-2.5rem',
+                    marginLeft: i === 0 ? 0 : `${geo.marginRem}rem`,
                     transformOrigin: 'bottom center',
                     transform: `translateY(${fanLift}px) rotate(${fanAngle}deg)`,
                     zIndex: i,
@@ -365,7 +391,8 @@ export function Hand({
                   }}
                 />
               )
-            })}
+            })
+            })()}
           </div>
         </section>
       )
@@ -387,6 +414,9 @@ export function Hand({
   }
 
   const active = mode !== 'idle'
+
+  // Éventail adaptatif : resserre fortement la main du joueur dès 10 cartes (Dio).
+  const geo = fanGeometry(hand.length, remForCardWidth(cardWidthClass), 3.5)
 
   return (
     <section
@@ -412,8 +442,8 @@ export function Hand({
           // d'autant plus que sa distance au centre est grande, et descend en arc.
           const mid = (hand.length - 1) / 2
           const off = i - mid
-          const fanAngle = off * 5 // degrés par cran
-          const fanLift = Math.abs(off) * Math.abs(off) * 3 // px vers le bas (arc)
+          const fanAngle = off * geo.anglePer // degrés par cran
+          const fanLift = Math.abs(off) * Math.abs(off) * geo.liftCoeff // px vers le bas (arc)
           const baseCost = card.cost ?? 0
           const cost = costFor ? costFor(ci) : baseCost
           const isArmed = armedConditionIds.includes(ci.instanceId)
@@ -512,8 +542,10 @@ export function Hand({
           const needsFirstAction = (card.effects ?? []).some((e) => e.type === 'BEAUTY_SLEEP')
           // Le chemin qui balance (Yzma) : injouable sans jeton Pouvoir sur Kronk.
           const needsKronkToken = (card.effects ?? []).some((e) => e.type === 'KRONK_DISCARD_TOKENS')
-          // Fausses funérailles (Yzma) : injouable sans Héros en défausse Fatalité.
+          // Fausses funérailles (Yzma) / Indigne de moi (Dio) : injouable sans Héros à compter.
           const needsFateDiscardHero = (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_FATE_DISCARD_HERO')
+          // Dio — Vampirisme : injouable sans Allié défaussable dans le royaume.
+          const needsDiscardableAlly = (card.effects ?? []).some((e) => e.type === 'DIO_DISCARD_ALLY_DRAW')
           // Ironie du sort (Yzma) : injouable sans Allié sur le lieu / sans Événement
           // abordable en défausse (elle gaspillerait sinon du Pouvoir).
           const needsPoeticJustice = (card.effects ?? []).some((e) => e.type === 'POETIC_JUSTICE')
@@ -620,6 +652,7 @@ export function Hand({
             (!needsFirstAction || !realActionUsed) &&
             (!needsKronkToken || kronkHasPowerToken) &&
             (!needsFateDiscardHero || fateDiscardHasHero) &&
+            (!needsDiscardableAlly || realmHasDiscardableAlly) &&
             (!needsPoeticJustice || poeticJusticeUsable) &&
             (!needsRelocateTarget || relocateTargetAvailable) &&
             (!needsHackTarget || hackTargetAvailable) &&
@@ -708,6 +741,8 @@ export function Hand({
                                                     ? 'Aucun jeton Pouvoir sur Kronk.'
                                                     : needsFateDiscardHero && !fateDiscardHasHero
                                                       ? 'Aucun Héros dans la défausse Fatalité.'
+                                                      : needsDiscardableAlly && !realmHasDiscardableAlly
+                                                        ? 'Aucun Allié à défausser dans votre royaume.'
                                                       : needsPoeticJustice && !poeticJusticeUsable
                                                         ? 'Aucun Allié sur votre lieu, ou aucun Événement abordable en défausse.'
                                                         : needsRelocateTarget && !relocateTargetAvailable
@@ -843,7 +878,7 @@ export function Hand({
               style={
                 fan
                   ? {
-                      marginLeft: i === 0 ? 0 : '-3.5rem',
+                      marginLeft: i === 0 ? 0 : `${geo.marginRem}rem`,
                       transformOrigin: 'bottom center',
                       transform: isHovered
                         ? 'translateY(-3.5rem) rotate(0deg) scale(1.6)'

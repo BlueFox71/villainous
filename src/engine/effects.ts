@@ -2175,20 +2175,28 @@ export function resolveEffect(
     }
     // --- Dio Brando : Stands -------------------------------------------------
     case 'FETCH_STAND_ATTACH': {
-      // Va chercher le Stand dans standPile et l'associe à la carte hôte qui vient
-      // d'entrer en jeu (Héros Joestar via onPlace, ou Allié de Dio via summonsStandCardId).
+      // Va chercher le Stand et l'associe à la carte hôte qui vient d'entrer en jeu (Héros
+      // Joestar via onPlace, ou Allié de Dio via summonsStandCardId). On le retrouve dans la
+      // RÉSERVE (standPile) en priorité, mais AUSSI dans les défausses (Méchant / Fatalité) :
+      // un Stand qui y aurait atterri (hôte défaussé) est quand même ré-invoqué. Seul un
+      // Stand DÉJÀ EN JEU (attaché à un autre hôte) reste indisponible (introuvable ici).
       const hostId = ctx?.hostInstanceId
       const hostLoc = ctx?.hostLocationId
       if (!hostId || !hostLoc) return state
       const p = state.players[idx]
-      const stand = (p.standPile ?? []).find((c) => c.cardId === effect.standCardId)
+      const matches = (c: CardInstance) => c.cardId === effect.standCardId && c.isStand
+      const stand =
+        (p.standPile ?? []).find(matches) ?? p.discard.find(matches) ?? p.fateDiscard.find(matches)
       if (!stand) return state // déjà en jeu / indisponible : la carte hôte reste sans Stand
       const hostName =
         (p.board[hostLoc] ?? []).find((c) => c.instanceId === hostId)?.name ?? 'son invocateur'
       const placed: CardInstance = { ...stand, attachedTo: hostId }
       const next = updatePlayer(state, idx, (pl) => ({
         ...pl,
+        // Retiré de toute provenance possible (réserve OU défausses) — l'instanceId est unique.
         standPile: (pl.standPile ?? []).filter((c) => c.instanceId !== stand.instanceId),
+        discard: pl.discard.filter((c) => c.instanceId !== stand.instanceId),
+        fateDiscard: pl.fateDiscard.filter((c) => c.instanceId !== stand.instanceId),
         board: { ...pl.board, [hostLoc]: [...(pl.board[hostLoc] ?? []), placed] },
       }))
       let out = { ...next, log: [...next.log, `Le Stand **${stand.name}** est invoqué et associé à **${hostName}**.`] }
@@ -2235,17 +2243,32 @@ export function resolveEffect(
       }
     }
     case 'DIO_DISCARD_ALLY_GAIN': {
-      // Vampirisme : choix INTERACTIF de l'Allié à défausser (The World épargné), gagne
-      // `amount` (×2 si The World au pouvoir). Auto-pick réservé au bot (handler UI).
+      // Défausser un Allié (The World épargné) pour gagner `amount` (×2 si The World au
+      // pouvoir) : choix INTERACTIF de l'Allié. Auto-pick réservé au bot (handler UI).
       const p = state.players[idx]
       const candidates: CardInstance[] = []
       for (const loc of p.locations)
         for (const c of p.board[loc.id] ?? [])
           if (c.type === 'ally' && !c.attachedTo && !c.isWicket && !c.cannotBeDiscarded) candidates.push(c)
-      if (candidates.length === 0) return { ...state, log: [...state.log, `Vampirisme : aucun Allié à défausser.`] }
+      if (candidates.length === 0) return { ...state, log: [...state.log, `Aucun Allié à défausser.`] }
       return {
         ...state,
         pendingDioDiscardAlly: { playerIndex: idx, gain: effect.amount },
+        log: [...state.log, `${p.villainName} choisit un Allié à défausser.`],
+      }
+    }
+    case 'DIO_DISCARD_ALLY_DRAW': {
+      // Vampirisme : défausser un Allié du royaume (The World épargné) pour PIOCHER `count`
+      // cartes — choix INTERACTIF de l'Allié. Auto-pick réservé au bot (handler UI).
+      const p = state.players[idx]
+      const candidates: CardInstance[] = []
+      for (const loc of p.locations)
+        for (const c of p.board[loc.id] ?? [])
+          if (c.type === 'ally' && !c.attachedTo && !c.isWicket && !c.cannotBeDiscarded) candidates.push(c)
+      if (candidates.length === 0) return { ...state, log: [...state.log, `Aucun Allié à défausser.`] }
+      return {
+        ...state,
+        pendingDioDiscardAlly: { playerIndex: idx, draw: effect.count },
         log: [...state.log, `Vampirisme : ${p.villainName} choisit un Allié à défausser.`],
       }
     }
@@ -2313,21 +2336,24 @@ export function resolveEffect(
       }
     }
     case 'DIO_REVEAL_FATE_HEROES_AT_PAWN': {
-      // Tu oses t'approcher de moi : dévoile les `count` 1ʳᵉˢ cartes Fatalité ; joue TOUS
-      // les Héros révélés sur le lieu du pion (chacun déclenche son Stand), défausse le reste.
+      // Tu oses t'approcher de moi : dévoile les `count` 1ʳᵉˢ cartes Fatalité ; joue TOUS les
+      // Héros révélés sur LE MANOIR (le repaire de Dio = 1ᵉʳ lieu ; chacun déclenche son Stand),
+      // défausse le reste.
       const p = state.players[idx]
+      const lair = p.locations[0]?.id
       const revealed = p.fateDeck.slice(0, effect.count)
       const rest = p.fateDeck.slice(effect.count)
       if (revealed.length === 0) return { ...state, log: [...state.log, `Tu oses t'approcher : pioche Fatalité vide.`] }
       const heroes = revealed.filter((c) => c.type === 'hero')
       const others = revealed.filter((c) => c.type !== 'hero')
       let next = updatePlayer(state, idx, (pl) => ({ ...pl, fateDeck: rest, fateDiscard: [...pl.fateDiscard, ...others] }))
-      for (const h of heroes) next = placeScarHero(next, idx, h)
+      for (const h of heroes) next = placeScarHero(next, idx, h, lair)
+      const lairName = p.locations[0]?.name ?? 'son repaire'
       return {
         ...next,
         log: [
           ...next.log,
-          `Tu oses t'approcher : ${heroes.length} Héros entre${heroes.length > 1 ? 'nt' : ''} sur le lieu de ${p.villainName}, le reste est défaussé.`,
+          `Tu oses t'approcher : ${heroes.length} Héros entre${heroes.length > 1 ? 'nt' : ''} sur **${lairName}**, le reste est défaussé.`,
         ],
       }
     }
@@ -2350,61 +2376,37 @@ export function resolveEffect(
       }
     }
     case 'DIO_QUEST_FOR_HEAVEN': {
-      // Quête vers le paradis : choix INTERACTIF du type (Objet/Événement) à récupérer ;
-      // la résolution mélange la défausse, en dévoile 6 et reprend les cartes du type choisi.
-      // Bot : le type le plus nombreux en défausse (handler UI).
+      // Quête vers le paradis : va chercher un OBJET (non-Stand) dans la PIOCHE ou la
+      // DÉFAUSSE et l'ajoute à la main (choix INTERACTIF de la carte via pendingRecover ;
+      // bot : handler UI). La pioche est remélangée ensuite (`thenShuffle`).
       const p = state.players[idx]
+      const candidates = [...p.deck, ...p.discard].filter((c) => c.type === 'item' && !c.isStand)
+      const label = 'Quête vers le paradis'
+      if (candidates.length === 0) {
+        return { ...state, log: [...state.log, `${label} : aucun Objet dans la pioche ou la défausse.`] }
+      }
       return {
         ...state,
-        pendingDioQuest: { playerIndex: idx },
-        log: [...state.log, `Quête vers le paradis : ${p.villainName} choisit un type de carte (Objet ou Événement).`],
+        pendingRecover: { playerIndex: idx, candidateIds: candidates.map((c) => c.instanceId), label, thenShuffle: true },
+        log: [...state.log, `${label} : ${p.villainName} cherche un Objet à ajouter à sa main.`],
       }
     }
     case 'DIO_MUDA': {
-      // MUDA! (Condition) : choix INTERACTIF (facultatif) du Héros à éliminer sur le lieu du
-      // pion ; gagne `gain` Pouvoir dans tous les cas. Sans Héros présent → gain direct.
+      // MUDA! (Condition) : gagne TOUJOURS `gain` Pouvoir (immédiat), ET peut éliminer un
+      // Héros présent sur le lieu du pion (choix INTERACTIF facultatif). Sans Héros → rien
+      // d'autre à faire (le Pouvoir est déjà gagné).
       const p = state.players[idx]
+      const gain = effect.gain * dioPowerFactor(p)
+      let next = updatePlayer(state, idx, (pl) => ({ ...pl, power: pl.power + gain }))
+      next = { ...next, log: [...next.log, `MUDA ! MUDA ! MUDA ! : ${p.villainName} gagne ${gain} JT.`] }
       const loc = p.pawnLocation
-      const heroes = loc ? (p.board[loc] ?? []).filter((c) => c.type === 'hero') : []
-      if (heroes.length === 0) {
-        const gain = effect.gain * dioPowerFactor(p)
-        const next = updatePlayer(state, idx, (pl) => ({ ...pl, power: pl.power + gain }))
-        return { ...next, log: [...next.log, `MUDA ! MUDA ! MUDA ! : ${p.villainName} gagne ${gain} JT.`] }
-      }
+      const heroes = loc ? (next.players[idx].board[loc] ?? []).filter((c) => c.type === 'hero') : []
+      if (heroes.length === 0) return next
       return {
-        ...state,
-        pendingDioMuda: { playerIndex: idx, gain: effect.gain, candidateIds: heroes.map((c) => c.instanceId) },
-        log: [...state.log, `MUDA ! MUDA ! MUDA ! : ${p.villainName} peut éliminer un Héros.`],
+        ...next,
+        pendingDioMuda: { playerIndex: idx, candidateIds: heroes.map((c) => c.instanceId) },
+        log: [...next.log, `MUDA ! MUDA ! MUDA ! : ${p.villainName} peut aussi éliminer un Héros de son lieu.`],
       }
-    }
-    case 'DIO_THE_FOOL_SCATTER': {
-      // The Fool (Stand d'Iggy) : disperse les Alliés du lieu d'Iggy vers d'autres lieux.
-      // Contrôlé par le fataliseur → auto : répartition tournante sur les autres lieux.
-      const loc = ctx?.hostLocationId
-      if (!loc) return state
-      const p = state.players[idx]
-      const movable = (p.board[loc] ?? []).filter((c) => c.type === 'ally' && !c.attachedTo)
-      if (movable.length === 0) return state
-      const others = p.locations.map((l) => l.id).filter((l) => l !== loc)
-      if (others.length === 0) return state
-      let out = state
-      movable.forEach((ally, i) => {
-        const dest = others[i % others.length]
-        out = updatePlayer(out, idx, (pl) => {
-          const fromCell = (pl.board[loc] ?? []).filter(
-            (c) => c.instanceId !== ally.instanceId && c.attachedTo !== ally.instanceId,
-          )
-          const moved = (pl.board[loc] ?? []).filter(
-            (c) => c.instanceId === ally.instanceId || c.attachedTo === ally.instanceId,
-          )
-          return {
-            ...pl,
-            board: { ...pl.board, [loc]: fromCell, [dest]: [...(pl.board[dest] ?? []), ...moved] },
-          }
-        })
-      })
-      const iggyName = (state.players[idx].board[loc] ?? []).find((c) => c.cardId === 'iggy')?.name ?? 'Iggy'
-      return { ...out, log: [...out.log, `**The Fool** disperse les Alliés du lieu de ${iggyName}.`] }
     }
     case 'DISCARD_ANY_THEN_DRAW': {
       // Père Noël : défausse FACULTATIVE d'autant de cartes que voulu, puis pioche.
@@ -2482,31 +2484,33 @@ export function resolveEffect(
     }
     // --- Shere Khan : Jetons Feu + cartes ----------------------------------
     case 'PLACE_OR_MOVE_FIRE': {
-      // Feu Rouge des Hommes (Fatalité) : pose un jeton Feu sur une action LIBRE de Shere
-      // Khan (auto : priorité Vaincre/Activer/Jouer, et lieux portant un Héros).
-      const p = state.players[idx]
-      const free = fireFreeActions(p)
-      if (free.length === 0) return state
-      const score = (a: { locationId: string; actionId: string }) => {
-        const act = p.locations.find((l) => l.id === a.locationId)?.actions.find((x) => x.id === a.actionId)
-        const t = act?.type
-        const heroHere = (p.board[a.locationId] ?? []).some((c) => c.type === 'hero')
-        const base = t === 'VANQUISH' ? 4 : t === 'ACTIVATE' ? 3 : t === 'PLAY_CARD' ? 2 : t === 'FATE' ? 1 : 0
-        return base + (heroHere ? 2 : 0)
+      // Feu Rouge des Hommes (Fatalité) : le FATALISEUR choisit l'action LIBRE de Shere Khan
+      // où poser le jeton Feu (choix INTERACTIF — pendingPlaceFire ; bot : auto via
+      // rankedFireTargets). Sans action libre (royaume entièrement en feu) → no-op.
+      const free = fireFreeActions(state.players[idx])
+      if (free.length === 0) return { ...state, log: [...state.log, `Feu Rouge des Hommes : aucune action libre.`] }
+      return {
+        ...state,
+        pendingPlaceFire: { chooserIndex: state.activePlayer, targetIndex: idx },
+        log: [...state.log, `Feu Rouge des Hommes : choisissez où poser le jeton Feu.`],
       }
-      const pick = [...free].sort((a, b) => score(b) - score(a))[0]
-      return placeFire(state, idx, pick.locationId, pick.actionId)
     }
     case 'PLACE_FIRE_AT_HOST': {
-      // Mowgli (onPlace) : pose un jeton Feu sur une action libre de son lieu d'arrivée.
+      // Mowgli (onPlace) : Shere Khan pose un jeton Feu sur une action libre de son lieu
+      // d'arrivée — CHOIX INTERACTIF de l'action (pendingPlaceFire restreint à ce lieu ;
+      // bot : auto via rankedFireTargets filtré). Auto si une seule action libre.
       const loc = ctx?.hostLocationId
       if (!loc) return state
       const p = state.players[idx]
       const onLoc = fireOnLocation(p, loc)
       const acts = (p.locations.find((l) => l.id === loc)?.actions ?? []).filter((a) => !onLoc.includes(a.id))
       if (acts.length === 0) return state
-      const pick = acts.find((a) => a.type === 'VANQUISH') ?? acts[0]
-      return placeFire(state, idx, loc, pick.id)
+      if (acts.length === 1) return placeFire(state, idx, loc, acts[0].id)
+      return {
+        ...state,
+        pendingPlaceFire: { chooserIndex: idx, targetIndex: idx, locationId: loc },
+        log: [...state.log, `${p.villainName} place un jeton Feu : choisissez l'action à recouvrir.`],
+      }
     }
     case 'REMOVE_FIRE_AT_PAWN': {
       // C'est moi, Shere Khan : retire un jeton Feu du royaume. S'il y en a plusieurs, le
@@ -8195,14 +8199,17 @@ export function resolveEffect(
       }
     }
     case 'GAIN_POWER_PER_FATE_DISCARD_HERO': {
-      // Yzma — Fausses funérailles : +1 JT par Héros dans la défausse Fatalité (plafond).
+      // Yzma — Fausses funérailles / Dio — Indigne de moi : +1 JT par Héros dans la défausse
+      // Fatalité (plafond). Pour Dio, les Héros RETIRÉS DU JEU (Jotaro/Joseph) comptent AUSSI
+      // — `removedFromGame` n'est peuplé que pour Dio, donc neutre pour les autres vilains.
       const actor = state.players[idx]
-      const heroes = actor.fateDiscard.filter((c) => c.type === 'hero').length
+      const heroes =
+        actor.fateDiscard.filter((c) => c.type === 'hero').length + (actor.removedFromGame ?? []).length
       const gain = Math.min(effect.max, heroes) * dioPowerFactor(actor)
       const next = updatePlayer(state, idx, (p) => ({ ...p, power: p.power + gain }))
       return {
         ...next,
-        log: [...next.log, `+${gain} JT (${heroes} Héros en défausse Fatalité).`],
+        log: [...next.log, `+${gain} JT (${heroes} Héros en défausse Fatalité / retirés du jeu).`],
       }
     }
     case 'LOSE_HALF_POWER': {
@@ -9471,9 +9478,9 @@ export function dioDiscardHero(state: GameState, idx: number, loc: LocationId, h
   }
 }
 
-function placeScarHero(state: GameState, idx: number, hero: CardInstance): GameState {
+function placeScarHero(state: GameState, idx: number, hero: CardInstance, destId?: string): GameState {
   const p = state.players[idx]
-  const dest = p.pawnLocation ?? p.locations[0]?.id
+  const dest = destId ?? p.pawnLocation ?? p.locations[0]?.id
   if (!dest) return state
   let next = updatePlayer(state, idx, (pp) => ({
     ...pp,

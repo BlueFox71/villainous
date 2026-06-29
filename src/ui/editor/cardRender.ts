@@ -71,13 +71,26 @@ const TYPE_WORD_COLOR: Record<string, string> = Object.fromEntries(
 )
 
 /** Couleur de type d'un mot du texte (« Allié », « Objets »…), ou null si non typé.
- *  Gère le pluriel simple (suffixe « s »). */
-function typeWordColor(raw: string): string | null {
+ *  Gère le pluriel simple (suffixe « s »). `map` = table normalisée mot→couleur (types
+ *  intégrés + types PERSONNALISÉS du vilain, cf. buildTypeColorMap). */
+function typeWordColor(raw: string, map: Record<string, string> = TYPE_WORD_COLOR): string | null {
   const w = normalizeTypeWord(raw)
   if (!w) return null
-  if (TYPE_WORD_COLOR[w]) return TYPE_WORD_COLOR[w]
-  if (w.endsWith('s') && TYPE_WORD_COLOR[w.slice(0, -1)]) return TYPE_WORD_COLOR[w.slice(0, -1)]
+  if (map[w]) return map[w]
+  if (w.endsWith('s') && map[w.slice(0, -1)]) return map[w.slice(0, -1)]
   return null
+}
+
+/** Construit la table normalisée mot→couleur : types intégrés + types personnalisés
+ *  (bibliothèque + type propre de la carte). Permet de colorer dans le texte de règle
+ *  les références à un type créé par le joueur (ex. « stand » en violet). */
+function buildTypeColorMap(customTypes: { label: string; color: string }[]): Record<string, string> {
+  const map: Record<string, string> = { ...TYPE_WORD_COLOR }
+  for (const t of customTypes) {
+    const w = normalizeTypeWord(t.label)
+    if (w && t.color) map[w] = t.color
+  }
+  return map
 }
 
 // --- Cache d'images de gabarit ----------------------------------------------
@@ -321,6 +334,7 @@ function drawRuleLines(
   iconW: number,
   gold: string,
   iconImgs: Map<LocationActionType, HTMLImageElement>,
+  typeColors: Record<string, string> = TYPE_WORD_COLOR,
 ) {
   ctx.fillStyle = gold
   ctx.textAlign = 'left'
@@ -337,9 +351,9 @@ function drawRuleLines(
           else drawActionIcon(ctx, seg.icon, x + iconW / 2, cy, iconW, gold)
           x += iconW
         } else {
-          // Mots de type (Allié, Objet, Héros…) colorés à la couleur de leur type ;
-          // le reste reste doré.
-          ctx.fillStyle = typeWordColor(seg.text) ?? gold
+          // Mots de type (Allié, Objet, Héros… ET types personnalisés) colorés à la couleur
+          // de leur type ; le reste reste doré.
+          ctx.fillStyle = typeWordColor(seg.text, typeColors) ?? gold
           ctx.fillText(seg.text, x, cy)
           x += ctx.measureText(seg.text).width
         }
@@ -361,6 +375,7 @@ function renderTextBlock(
   L: { x: number; y: number; w: number; size: number },
   gold: string,
   iconImgs: Map<LocationActionType, HTMLImageElement>,
+  typeColors: Record<string, string> = TYPE_WORD_COLOR,
 ) {
   const t = text.trim()
   if (!t) return
@@ -373,7 +388,7 @@ function renderTextBlock(
   const lineH = L.size * TEXT_LINE_FACTOR
   const lines = layoutText(ctx, t, w, iconW, spaceW)
   const startY = centerY - (lines.length * lineH) / 2
-  drawRuleLines(ctx, lines, startY, centerX, lineH, spaceW, iconW, gold, iconImgs)
+  drawRuleLines(ctx, lines, startY, centerX, lineH, spaceW, iconW, gold, iconImgs, typeColors)
 }
 
 /** Hauteur (px, espace carte) du bloc de texte de règle pour une largeur et une
@@ -392,7 +407,7 @@ export function ruleTextBlockHeight(text: string, wPx: number, sizePx: number): 
 /** Écrit un nombre centré dans une pastille. */
 function drawBadgeNumber(
   ctx: CanvasRenderingContext2D,
-  value: number,
+  value: number | string,
   cx: number,
   cy: number,
   size: number,
@@ -436,8 +451,12 @@ async function drawBoardNumber(
   cx: number,
   cy: number,
   size: number,
+  // `signed` : préfixe explicitement le « + » des valeurs positives (Force d'un Objet,
+  // qui est un modificateur). On bascule alors en fonte (les numéraux-images n'ont pas
+  // de signe). Le « − » des négatifs est déjà rendu par `String(value)`.
+  signed = false,
 ) {
-  if (value >= 1 && value <= 3) {
+  if (!signed && value >= 1 && value <= 3) {
     try {
       const num = await asset(`power-${value}.png`)
       const h = size * 0.78
@@ -452,7 +471,7 @@ async function drawBoardNumber(
       /* image illisible → repli fonte dorée */
     }
   }
-  drawBadgeNumber(ctx, value, cx, cy, size, '#cda14e')
+  drawBadgeNumber(ctx, signed && value > 0 ? `+${value}` : value, cx, cy, size, '#cda14e')
 }
 
 /**
@@ -465,8 +484,15 @@ export async function renderCardFace(
   villainColor: string,
   fateColor: string,
   opts: { skipText?: boolean; skipStickers?: boolean } = {},
+  customTypes: { label: string; color: string }[] = [],
 ): Promise<string> {
   await ensureFonts()
+  // Couleurs des mots de type dans le texte de règle : types intégrés + types perso
+  // (bibliothèque) + type propre de la carte (pour colorer ses propres références).
+  const typeColors = buildTypeColorMap([
+    ...customTypes,
+    ...(card.typeLabel && card.typeColor ? [{ label: card.typeLabel, color: card.typeColor }] : []),
+  ])
   const canvas = document.createElement('canvas')
   canvas.width = CARD_W
   canvas.height = CARD_H
@@ -567,7 +593,7 @@ export async function renderCardFace(
     // Texte principal : disposition LIBRE (card.textLayout) ou AUTO (boîte basse).
     if (card.text.trim()) {
       if (card.textLayout) {
-        renderTextBlock(ctx, card.text, card.textLayout, gold, iconImgs)
+        renderTextBlock(ctx, card.text, card.textLayout, gold, iconImgs, typeColors)
       } else {
         const text = card.text.trim()
         const avail = GEO.text.bottom - GEO.text.top
@@ -581,7 +607,7 @@ export async function renderCardFace(
           const totalH = lines.length * lineH
           if (totalH <= avail || size <= 26) {
             const startY = GEO.text.top + Math.max(0, (avail - totalH) / 2)
-            drawRuleLines(ctx, lines, startY, CARD_W / 2, lineH, spaceW, iconW, gold, iconImgs)
+            drawRuleLines(ctx, lines, startY, CARD_W / 2, lineH, spaceW, iconW, gold, iconImgs, typeColors)
             break
           }
           size -= 2
@@ -592,7 +618,7 @@ export async function renderCardFace(
 
     // Zones de texte SUPPLÉMENTAIRES (toujours en disposition libre).
     for (const box of card.textBoxes ?? []) {
-      renderTextBlock(ctx, box.text, box, gold, iconImgs)
+      renderTextBlock(ctx, box.text, box, gold, iconImgs, typeColors)
     }
   }
 
@@ -619,14 +645,20 @@ export async function renderCardFace(
   // 7) Étoile de FORCE (Alliés / Héros) — numéraux DORÉS du plateau dans les deux
   //    decks. Vilain : intérieur teinté à la couleur du vilain (zone « Fill #2 »),
   //    liseré doré conservé. Fatalité : étoile claire d'origine conservée.
-  if (card.strength !== undefined && (card.type === 'ally' || card.type === 'hero')) {
+  //    Les Objets peuvent AUSSI afficher une étoile : facultative (seulement si une
+  //    valeur ≠ 0 est saisie) et SIGNÉE (+N / −N), car c'est un modificateur de force.
+  const isStrengthBearer = card.type === 'ally' || card.type === 'hero'
+  const showStrength = isStrengthBearer
+    ? card.strength !== undefined
+    : card.type === 'item' && !!card.strength
+  if (showStrength) {
     const str = await asset(isFate ? 'FateStrength.png' : 'VillainStrength.png')
     if (isFate) {
       ctx.drawImage(str, 0, 0, CARD_W, CARD_H)
     } else {
       ctx.drawImage(await tintedBadge('VillainStrength.png', panelColor), 0, 0, CARD_W, CARD_H)
     }
-    await drawBoardNumber(ctx, card.strength, GEO.strength.cx, GEO.strength.cy, GEO.strength.size)
+    await drawBoardNumber(ctx, card.strength ?? 0, GEO.strength.cx, GEO.strength.cy, GEO.strength.size, !isStrengthBearer)
   }
 
   return canvas.toDataURL('image/png')

@@ -539,13 +539,40 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
 }
 
-/** Guide d'un vilain par sa clé (natif ou PUBLIÉ). Les vilains publiés n'ont pas de
- *  fiche encyclopédie rédigée : on synthétise leur difficulté (étoiles) et leur récit
- *  depuis la description d'objectif ; les listes de conseils restent vides (la fiche
- *  les masque alors). */
+/** Fiches RÉDIGÉES pour certains vilains publiés (collaborations fixes), indexées par
+ *  leur id custom. Priorité sur la synthèse automatique de `villainGuideOf`. */
+const CUSTOM_GUIDES: Record<string, VillainGuide> = {
+  'custom-dio': {
+    difficulty: 3,
+    story:
+      "Dio Brando (JoJo's Bizarre Adventure) est l'ambition faite homme. Recueilli enfant par le riche George Joestar, il trahit sa famille adoptive et coiffe le Masque de Pierre pour devenir un vampire immortel. Un siècle plus tard, ressuscité et doté du Stand « The World », capable d'ARRÊTER LE TEMPS d'un cri — « ZA WARUDO ! » —, il affronte Jotaro Kujo et les Joestar lancés à sa poursuite (Stardust Crusaders). « Inutile, inutile, inutile… MUDA MUDA MUDA ! »",
+    playTips: [
+      "Ton objectif : RETIRER DU JEU Jotaro ET Joseph (en les vainquant), PUIS réaliser les 14 actions hors-Fatalité de ton royaume en un SEUL tour grâce à ZA WARUDO!.",
+      "The World est en jeu dès le début et suit ton pion. Mais il ne DOUBLE tes gains de Pouvoir qu'une fois Jotaro et Joseph retirés du jeu : tant qu'ils sont là, concentre-toi sur leur élimination.",
+      "Les Joestar arrivent par la Fatalité et sont joués d'office. Jotaro invoque Star Platinum (+8) qui INTERDIT ZA WARUDO! : impossible de gagner avant de l'avoir vaincu et retiré du jeu. Réunis assez de Force (Alliés, Stands) pour passer ces gros Héros.",
+      "Avant de déclencher ZA WARUDO!, accumule un GROS tas de Pouvoir : pendant le temps arrêté, tu te déplaces librement de lieu en lieu, mais chaque action coûte un Pouvoir croissant (1, 2, 3… plafonné à 10).",
+      "Fais tourner ta main : Vampirisme défausse un Allié pour piocher 4 cartes ; Indigne de moi gagne du Pouvoir par Joestar retiré ; MUDA! MUDA! MUDA! se joue en réaction quand un adversaire te cible avec une Fatalité.",
+    ],
+    counterTips: [
+      "Joue Jotaro Kujo au plus vite : son Stand Star Platinum le rend coriace ET BLOQUE totalement ZA WARUDO! tant qu'il est en jeu. Sans avoir vaincu et retiré Jotaro, Dio ne peut pas gagner.",
+      "Garde Jotaro OU Joseph en vie le plus longtemps possible : tant que l'un des deux n'est pas retiré du jeu, l'objectif de Dio est hors d'atteinte (et The World ne double pas encore son Pouvoir).",
+      "Empile les Stands pour l'étouffer : Polnareff (Silver Chariot) doit être vaincu avant les autres, Kakyoin (Hierophant Green) renchérit ses cartes, Abdul (Magician Red) lui fait piocher moins, Iggy (The Fool) affaiblit ses Alliés.",
+      "Les Stands gonflent la Force des Joestar : Dio devra réunir beaucoup de puissance pour les vaincre. Maintiens la pression pour l'empêcher d'amasser le Pouvoir nécessaire à la rafale finale de ZA WARUDO!.",
+    ],
+  },
+}
+
+/** Guide d'un vilain par sa clé (natif ou PUBLIÉ). Une fiche rédigée (native ou collab
+ *  via CUSTOM_GUIDES) prime. Sinon, pour un vilain publié, on synthétise sa difficulté
+ *  (étoiles) et son récit depuis la description d'objectif ; les conseils restent vides
+ *  (la fiche les masque alors). */
 export function villainGuideOf(key: string): VillainGuide {
   if (isCustomKey(key)) {
     const c = customVillainOf(key)
+    // La difficulté affichée suit TOUJOURS les étoiles choisies dans l'Atelier (on n'en
+    // fige jamais une dans CUSTOM_GUIDES, qui ne fournit que l'histoire et les conseils).
+    const written = CUSTOM_GUIDES[key]
+    if (written) return { ...written, difficulty: c?.stars ?? written.difficulty }
     return {
       difficulty: c?.stars ?? 3,
       story: c?.objectiveDescription || 'Vilain personnalisé créé dans l’Atelier des vilains.',

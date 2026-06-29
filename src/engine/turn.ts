@@ -28,6 +28,7 @@ import type { GameState } from './types'
 export function pendingOwner(state: GameState): number | null {
   // chooserIndex : la main revient au joueur qui a DÉCLENCHÉ la Fatalité.
   if (state.pendingHeroPlacement) return state.pendingHeroPlacement.chooserIndex
+  if (state.pendingPlaceFire) return state.pendingPlaceFire.chooserIndex
   if (state.pendingPawnMove) return state.pendingPawnMove.chooserIndex
   if (state.pendingHubertPull) return state.pendingHubertPull.chooserIndex
   if (state.pendingHeroRelocate) return state.pendingHeroRelocate.chooserIndex
@@ -59,7 +60,6 @@ export function pendingOwner(state: GameState): number | null {
   if (state.pendingDioDiscardAlly) return state.pendingDioDiscardAlly.playerIndex
   if (state.pendingDioCream) return state.pendingDioCream.playerIndex
   if (state.pendingDioMuda) return state.pendingDioMuda.playerIndex
-  if (state.pendingDioQuest) return state.pendingDioQuest.playerIndex
   if (state.pendingDioSunlight) return state.pendingDioSunlight.playerIndex
   if (state.pendingBargainChoice) return state.pendingBargainChoice.playerIndex
   if (state.pendingFreeItemPlay) return state.pendingFreeItemPlay.playerIndex

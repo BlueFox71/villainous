@@ -6,7 +6,7 @@ import { useState } from 'react'
 import type { CustomVillain, CustomCard } from '../../data/customVillain'
 import { emptyCustomCard, FATE_CARD_COLOR } from '../../data/customVillain'
 import type { CardType, DeckKind } from '../../data/types'
-import { Field, TextField, NumberField, ImageField, SelectField, ColorField } from './fields'
+import { Field, TextField, NumberField, ImageField, SelectField, ColorField, inputClass } from './fields'
 import { CardPreview } from './CardPreview'
 import { CardLayoutEditor } from './CardLayout'
 import { TYPE_LABEL, TYPE_COLOR } from './cardRender'
@@ -23,9 +23,12 @@ const ALL_TYPES: { value: CardType; label: string }[] = [
   { value: 'ingredient', label: TYPE_LABEL.ingredient },
 ]
 
-/** Le coût s'applique aux cartes Vilain ; la force aux Alliés/Héros. */
+/** Le coût s'applique aux cartes Vilain ; la force (de base) aux Alliés/Héros. */
 const hasCost = (c: CustomCard) => c.deck === 'villain'
 const hasStrength = (c: CustomCard) => c.type === 'ally' || c.type === 'hero'
+/** Un Objet peut afficher une FORCE FACULTATIVE et SIGNÉE (+N / −N) : purement
+ *  visuel (ex. « +2 Force au Héros porteur »). 0 / vide = pas d'étoile sur la carte. */
+const isItem = (c: CustomCard) => c.type === 'item'
 
 // --- Formulaire d'une carte --------------------------------------------------
 
@@ -156,13 +159,30 @@ function CardForm({
             onChange={(type) => set({ type, typeLabel: TYPE_LABEL[type], typeColor: TYPE_COLOR[type] })}
           />
           {hasCost(card) && (
-            <NumberField
-              label="Coût"
-              value={card.cost ?? 0}
-              min={0}
-              max={9}
-              onChange={(cost) => set({ cost })}
-            />
+            // Coût avec option « sans coût » : décocher retire la pastille de coût de la
+            // carte (`cost: undefined` → le rendu ne dessine pas l'icône).
+            <Field label="Coût">
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  className={`${inputClass} w-16`}
+                  value={card.cost ?? 0}
+                  min={0}
+                  max={9}
+                  disabled={card.cost === undefined}
+                  onChange={(e) => set({ cost: Number(e.target.value) })}
+                />
+                <label className="flex cursor-pointer items-center gap-1 text-[11px] text-white/55">
+                  <input
+                    type="checkbox"
+                    className="accent-amber-400"
+                    checked={card.cost === undefined}
+                    onChange={(e) => set({ cost: e.target.checked ? undefined : 1 })}
+                  />
+                  Sans coût
+                </label>
+              </div>
+            </Field>
           )}
           {hasStrength(card) && (
             <NumberField
@@ -171,6 +191,16 @@ function CardForm({
               min={0}
               max={20}
               onChange={(strength) => set({ strength })}
+            />
+          )}
+          {isItem(card) && (
+            <NumberField
+              // Force affichée sur l'Objet : signée (+N / −N), facultative. 0 = pas d'étoile.
+              label="Force (± , facultatif)"
+              value={card.strength ?? 0}
+              min={-20}
+              max={20}
+              onChange={(strength) => set({ strength: strength || undefined })}
             />
           )}
         </div>

@@ -671,6 +671,22 @@ export function enumerateActions(state: GameState): GameAction[] {
     return out.length > 0 ? out : [{ type: 'RESOLVE_REMOVE_FIRE', locationId: me.locations[0].id, actionId: 'x' }]
   }
 
+  // Shere Khan — pose d'un jeton Feu : choisir l'action à recouvrir. `locationId` (Mowgli)
+  // restreint le choix au lieu d'arrivée ; absent (Feu Rouge) = tout le royaume.
+  if (state.pendingPlaceFire) {
+    const pf = state.pendingPlaceFire
+    const tgt = state.players[pf.targetIndex]
+    const onFire = tgt.fireTokens ?? {}
+    const out: GameAction[] = []
+    for (const loc of tgt.locations) {
+      if (pf.locationId && loc.id !== pf.locationId) continue
+      for (const a of loc.actions) {
+        if (!(onFire[loc.id] ?? []).includes(a.id)) out.push({ type: 'RESOLVE_PLACE_FIRE', locationId: loc.id, actionId: a.id })
+      }
+    }
+    return out
+  }
+
   // Le Faisceau : choisir le lieu de rassemblement, puis défausser (ou non) un Cybug.
   if (state.pendingBeacon) {
     const pb = state.pendingBeacon
@@ -1462,10 +1478,12 @@ export function enumerateActions(state: GameState): GameAction[] {
             !Object.values(me.board).flat().some((c) => c.cardId === 'kronk' && (c.kronkPower ?? 0) > 0)
           )
             continue
-          // Fausses funérailles (Yzma) : inutile sans Héros en défausse Fatalité.
+          // Fausses funérailles (Yzma) / Indigne de moi (Dio) : inutile sans Héros en
+          // défausse Fatalité NI Héros retiré du jeu (Jotaro/Joseph, Dio uniquement).
           if (
             (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_FATE_DISCARD_HERO') &&
-            !me.fateDiscard.some((c) => c.type === 'hero')
+            !me.fateDiscard.some((c) => c.type === 'hero') &&
+            (me.removedFromGame ?? []).length === 0
           )
             continue
           // Beauté endormie (Yzma) : jouable uniquement en PREMIÈRE action du tour.

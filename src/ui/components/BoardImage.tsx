@@ -524,8 +524,16 @@ export function BoardImage({
       {!isSugarRush && player.locations.flatMap((loc, i) => {
         // Persifleur : on révèle les actions du haut de ce lieu (pas de recouvrement).
         if (loc.id === unmaskHeroLocationId) return []
+        // Mêmes règles que coveredTopActionIdsAt : un Héros hypnotisé (contrôlé), COUCHÉ/K.O.
+        // (Team Rocket) ou le Prince (allié de Trémaine) ne recouvre AUCUNE action. Un Héros
+        // PIÉGÉ (jeton Enfermé), lui, CONTINUE de recouvrir (seule sa capacité est désactivée).
         const heroes = (player.board[loc.id] ?? []).filter(
-          (c) => c.type === 'hero' && !c.hypnotized && !hiddenHeroInstanceIds.includes(c.instanceId),
+          (c) =>
+            c.type === 'hero' &&
+            !c.hypnotized &&
+            !c.pokemonKO &&
+            c.cardId !== 'the-prince' &&
+            !hiddenHeroInstanceIds.includes(c.instanceId),
         )
         if (heroes.length === 0) return []
         const tops = loc.actions.filter((a) => a.row === 'top')

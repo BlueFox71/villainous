@@ -176,14 +176,16 @@ describe('Madame de Trémaine — Objets clés', () => {
 })
 
 describe('Madame de Trémaine — Piège & Prince', () => {
-  it('TRAP_HERO piège un Héros : il ne recouvre plus d’action', () => {
+  it('TRAP_HERO piège un Héros : il perd sa capacité mais CONTINUE de recouvrir les actions', () => {
     let s = setBoard(game(), { chateau: [card('cendrillon', 'hero', { strength: 4 })] })
     const heroId = s.players[0].board['chateau'][0].instanceId
     // Avant : Cendrillon recouvre la rangée du haut du Château.
-    expect(coveredTopActionIdsAt(s.players[0], 'chateau').size).toBeGreaterThan(0)
+    const before = coveredTopActionIdsAt(s.players[0], 'chateau').size
+    expect(before).toBeGreaterThan(0)
     s = resolveEffects(s, [{ type: 'TRAP_HERO' }], { actorIndex: 0, targetHeroId: heroId })
     expect(s.players[0].board['chateau'][0].trapped).toBe(true)
-    expect(coveredTopActionIdsAt(s.players[0], 'chateau').size).toBe(0)
+    // Piégé (Enfermé) : il recouvre TOUJOURS la rangée du haut (seule sa capacité est désactivée).
+    expect(coveredTopActionIdsAt(s.players[0], 'chateau').size).toBe(before)
   })
 
   it('le Prince ne recouvre aucune action et est déplaçable', () => {

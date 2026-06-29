@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { CustomCard } from '../../data/customVillain'
 import { renderCardFace } from './cardRender'
+import { useCustomTypesStore } from '../store/customTypesStore'
 
 /** Aperçu d'une carte : rend la face en dataURL (asynchrone, débanché léger). */
 export function CardPreview({
@@ -15,6 +16,8 @@ export function CardPreview({
   className?: string
 }) {
   const [src, setSrc] = useState<string | null>(null)
+  // Types personnalisés (bibliothèque globale) → coloration de leurs noms dans le texte.
+  const customTypes = useCustomTypesStore((s) => s.types)
 
   // Re-rend dès qu'un champ visuel change. On sérialise les champs pertinents pour
   // une dépendance stable (évite de re-render sur des changements non visuels).
@@ -34,12 +37,13 @@ export function CardPreview({
     st: card.stickers,
     col: color,
     fcol: fateColor,
+    ct: customTypes,
   })
 
   useEffect(() => {
     let alive = true
     const handle = setTimeout(() => {
-      void renderCardFace(card, color, fateColor).then((url) => {
+      void renderCardFace(card, color, fateColor, {}, customTypes).then((url) => {
         if (alive) setSrc(url)
       })
     }, 250)

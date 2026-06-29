@@ -97,3 +97,17 @@ export function fireFreeActions(p: PlayerState): { locationId: string; actionId:
   }
   return out
 }
+
+/** Actions libres triées par valeur de gêne DÉCROISSANTE (pour l'auto-pick du bot fataliseur) :
+ *  priorité Vaincre > Activer > Jouer > Fatalité, bonus si un Héros est présent sur le lieu. */
+export function rankedFireTargets(p: PlayerState): { locationId: string; actionId: string }[] {
+  const free = fireFreeActions(p)
+  const score = (a: { locationId: string; actionId: string }) => {
+    const act = p.locations.find((l) => l.id === a.locationId)?.actions.find((x) => x.id === a.actionId)
+    const t = act?.type
+    const heroHere = (p.board[a.locationId] ?? []).some((c) => c.type === 'hero')
+    const base = t === 'VANQUISH' ? 4 : t === 'ACTIVATE' ? 3 : t === 'PLAY_CARD' ? 2 : t === 'FATE' ? 1 : 0
+    return base + (heroHere ? 2 : 0)
+  }
+  return [...free].sort((a, b) => score(b) - score(a))
+}

@@ -1014,6 +1014,12 @@ interface Props {
    *  bot, qui ne montre pas ses pastilles d'action en temps normal. */
   flashOnly?: boolean
   onActionClick: (action: LocationAction) => void
+  /** Dio — ZA WARUDO! actif : on peut agir sur les actions de TOUS les lieux. */
+  zaWarudoActive?: boolean
+  /** Clés `lieu:action` jouables pendant ZA WARUDO! (toutes positions confondues). */
+  zaWarudoKeys?: Set<string> | null
+  /** Clic sur une action pendant ZA WARUDO! (porte le lieu, pour focaliser puis agir). */
+  onZaActionClick?: (locationId: string, action: LocationAction) => void
   /** Sombra — Piratage : lieu dont une action doit être DÉSACTIVÉE par clic direct
    *  (remplace la modale). Les actions listées dans `hackActionIds` y clignotent en
    *  fuchsia et `onHackPick` est appelé au clic. */
@@ -1059,6 +1065,9 @@ export function BoardActions({
   flashKey = null,
   flashOnly = false,
   onActionClick,
+  zaWarudoActive = false,
+  zaWarudoKeys = null,
+  onZaActionClick,
   hackLocationId = null,
   hackActionIds,
   onHackPick,
@@ -1204,9 +1213,16 @@ export function BoardActions({
           const flashing = flashKey === `${loc.id}:${a.id}`
           // Mode bot : on n'affiche QUE le bouton en flash (pas les pastilles neutres).
           if (flashOnly && !flashing) return null
+          // ZA WARUDO! : toutes les actions jouables de TOUS les lieux sont cliquables
+          // (clé `lieu:action`) ; le « déjà fait » se suit par lieu (dioRealmActionsThisTurn).
+          const zaKey = `${loc.id}:${a.id}`
           const isCurrent = currentLoc === loc.id
-          const available = isCurrent && availableActionIds.includes(a.id)
-          const used = isCurrent && usedActionIds.includes(a.id)
+          const available = zaWarudoActive
+            ? (zaWarudoKeys?.has(zaKey) ?? false)
+            : isCurrent && availableActionIds.includes(a.id)
+          const used = zaWarudoActive
+            ? (player.dioRealmActionsThisTurn ?? []).includes(zaKey)
+            : isCurrent && usedActionIds.includes(a.id)
           // Un Héros posé recouvre la rangée du HAUT de son lieu : on masque ces
           // boutons (sauf s'ils restent jouables, ex. Persifleur → available). Sur le
           // circuit en huit (Sa Sucrerie), les Héros NE recouvrent PAS positionnellement
@@ -1230,7 +1246,7 @@ export function BoardActions({
               key={`${loc.id}:${a.id}`}
               type="button"
               disabled={!available}
-              onClick={() => onActionClick(a)}
+              onClick={() => (zaWarudoActive ? onZaActionClick?.(loc.id, a) : onActionClick(a))}
               title={a.label}
               // Un bouton NON disponible ne doit pas intercepter le clic : sinon, là où
               // deux cases se superposent (Sa Sucrerie — croisement du huit : a4 ET a13

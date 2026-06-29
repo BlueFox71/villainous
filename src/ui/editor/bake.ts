@@ -22,10 +22,15 @@ export async function bakeVillain(
   const total = v.cards.length + 3
   let done = 0
   const tick = () => onProgress?.(++done, total)
+  // Types personnalisés utilisés dans le deck (nom + couleur) → coloration de leurs
+  // références dans le texte de règle, comme dans l'éditeur.
+  const customTypes = v.cards
+    .filter((c) => c.typeLabel && c.typeColor)
+    .map((c) => ({ label: c.typeLabel!, color: c.typeColor! }))
   // Séquentiel (et non Promise.all) pour une progression fluide de la barre.
   const cards: typeof v.cards = []
   for (const c of v.cards) {
-    const face = await renderCardFace(c, v.color, FATE_CARD_COLOR)
+    const face = await renderCardFace(c, v.color, FATE_CARD_COLOR, {}, customTypes)
     const image = await downscaleDataUrl(face, FACE_STORE_W)
     cards.push({ ...c, image })
     tick()

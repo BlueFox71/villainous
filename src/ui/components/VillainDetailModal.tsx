@@ -149,7 +149,10 @@ export function VillainDetailModal({ villain, onClose }: Props) {
 
   // Cartes du vilain, séparées par paquet et triées par nombre d'exemplaires.
   const byCopies = (a: CardDef, b: CardDef) => b.copies - a.copies || a.name.localeCompare(b.name)
-  const villainCards = v.cards.filter((c) => c.deck === 'villain' && !c.isStand).sort(byCopies)
+  // Dio — cartes du paquet « Stand » (hors deck) : les Stands invoqués (`isStand`) ET The
+  // World, qui en fait partie même s'il entre en jeu d'emblée (il n'est pas `isStand`).
+  const isStandPile = (c: CardDef) => c.isStand || c.id === 'the-world'
+  const villainCards = v.cards.filter((c) => c.deck === 'villain' && !isStandPile(c)).sort(byCopies)
   // Madame Mim — les Métamorphoses de Merlin sont une pioche À PART (entre le deck
   // Vilain et la Fatalité traditionnelle), bien qu'elles portent `deck: 'fate'`.
   const merlinCards = v.cards.filter((c) => c.isMerlinTransformation).sort(byCopies)
@@ -157,11 +160,11 @@ export function VillainDetailModal({ villain, onClose }: Props) {
   // bien que ses cartes portent `deck: 'fate'`.
   const mauiCards = v.cards.filter((c) => c.isMauiCard).sort(byCopies)
   // Dio — les Stands sont une « pioche » À PART (entre le deck Vilain et la Fatalité) :
-  // hors deck, invoqués/associés en jeu (The World, lui, reste dans le deck Vilain).
-  // On affiche d'abord les Stands « côté Vilain » (Cream, Justice — associés aux Alliés de
-  // Dio), puis les Stands « côté Fatalité » (associés aux Héros Joestar).
+  // hors deck, invoqués/associés en jeu. The World en fait partie (posé en jeu dès le
+  // début). On affiche d'abord les Stands « côté Vilain » (The World, Cream, Justice…),
+  // puis les Stands « côté Fatalité » (associés aux Héros Joestar).
   const standCards = v.cards
-    .filter((c) => c.isStand)
+    .filter(isStandPile)
     .sort((a, b) => (a.deck === 'villain' ? 0 : 1) - (b.deck === 'villain' ? 0 : 1) || byCopies(a, b))
   const fateCards = v.cards
     .filter((c) => c.deck === 'fate' && !c.isMerlinTransformation && !c.isMauiCard && !c.isStand)

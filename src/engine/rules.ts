@@ -142,12 +142,13 @@ export function coveredTopActionIdsAt(player: PlayerState, locationId: LocationI
   if (!loc) return covered
   const tops = loc.actions.filter((a) => a.row === 'top')
   const heroesHere = (player.board[locationId] ?? []).filter(
-    // Un Héros hypnotisé (contrôlé), PIÉGÉ (Madame de Trémaine), ou le Prince (allié
-    // de Madame de Trémaine) ne recouvre aucune action.
+    // Un Héros hypnotisé (contrôlé) ou le Prince (allié de Madame de Trémaine) ne recouvre
+    // aucune action. Un Héros PIÉGÉ (jeton Enfermé — Madame de Trémaine) perd sa CAPACITÉ
+    // mais reste physiquement présent → il CONTINUE de recouvrir la rangée du haut.
     // Lotso — Buzz l'Éclair en mode GARDIEN recouvre la rangée du haut comme un Héros.
     (c) =>
       // Team Rocket — un Pokémon COUCHÉ (K.O.) ne recouvre plus d'action (il est vaincu).
-      (c.type === 'hero' && !c.hypnotized && !c.trapped && !c.pokemonKO && c.cardId !== 'the-prince') ||
+      (c.type === 'hero' && !c.hypnotized && !c.pokemonKO && c.cardId !== 'the-prince') ||
       (c.isBuzz && c.buzzMode === 'guardian'),
   )
   for (const h of heroesHere) {
@@ -259,20 +260,27 @@ export function getAvailableActions(state: GameState): LocationAction[] {
   const kc = isKingCandy(activePlayer(state))
   const accessible = kc ? accessibleActionIds(activePlayer(state)) : null
   // Dio — ZA WARUDO! (temps arrêté) : la Fatalité est exclue, et chaque action coûte un
-  // Pouvoir croissant — une action n'est jouable que si Dio peut payer ce coût.
+  // Pouvoir croissant (1, 2, 3…), PLAFONNÉ à 10 — une action n'est jouable que si Dio peut
+  // payer ce coût.
   const za = activePlayer(state).zaWarudoActive
-  const zaCost = (activePlayer(state).zaWarudoActionsDone ?? 0) + 1
+  const zaCost = Math.min(10, (activePlayer(state).zaWarudoActionsDone ?? 0) + 1)
   if (za && activePlayer(state).power < zaCost) return []
+  // Pendant ZA WARUDO! le « déjà fait ce tour » se suit PAR LIEU (clé `lieu:action`)
+  // via dioRealmActionsThisTurn : chaque action de chaque lieu n'est jouable QU'UNE fois,
+  // indépendamment de usedActionIds (qui n'est pas réinitialisé entre les lieux focalisés).
+  const zaDone = activePlayer(state).dioRealmActionsThisTurn ?? []
   return locationActions(state, loc.id).filter(
     (a) =>
       isSupportedType(a.type) &&
       (!za || a.type !== 'FATE') &&
       (!accessible || accessible.has(a.id)) &&
-      (!state.usedActionIds.includes(a.id) ||
-        (canRepeat && REPEATABLE.has(a.type)) ||
-        // Cruella — Finissez le travail ! : une action Activer gratuite reste possible
-        // même si l'action de lieu a déjà servi ce tour.
-        (a.type === 'ACTIVATE' && !!activePlayer(state).freeActivate)) &&
+      (za
+        ? !zaDone.includes(`${loc.id}:${a.id}`)
+        : !state.usedActionIds.includes(a.id) ||
+          (canRepeat && REPEATABLE.has(a.type)) ||
+          // Cruella — Finissez le travail ! : une action Activer gratuite reste possible
+          // même si l'action de lieu a déjà servi ce tour.
+          (a.type === 'ACTIVATE' && !!activePlayer(state).freeActivate)) &&
       // Smogogo (actAtLocationIgnoreCover) : « recouverte ou non » → la couverture est ignorée.
       (!isActionCovered(state, a) || !!state.actAtLocationIgnoreCover) &&
       // Sombra : une action piratée (recouverte par un Hack) est désactivée.

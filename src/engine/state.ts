@@ -648,16 +648,21 @@ export function createInitialGame(setups: PlayerSetup[], seed: number): GameStat
     }
     // Dio Brando — sépare les Stands (isStand) des DEUX pioches vers `standPile` (hors deck).
     // Ils n'entrent en jeu que par fetch quand leur carte invocatrice est jouée. The World
-    // (Stand mais SANS isStand) reste dans le deck Méchant. removedFromGame suit Jotaro/Joseph.
+    // (Stand SANS isStand) est posé EN JEU dès le début, sur le lieu de départ du pion (il
+    // suit le pion et ne peut être défaussé). removedFromGame suit Jotaro/Joseph.
     if (villain.id === 'dio' || villain.id === 'custom-dio') {
       const stands = [...player.deck, ...player.fateDeck].filter((c) => c.isStand)
-      player = {
-        ...player,
-        deck: player.deck.filter((c) => !c.isStand),
-        fateDeck: player.fateDeck.filter((c) => !c.isStand),
-        standPile: stands,
-        removedFromGame: [],
+      let deck = player.deck.filter((c) => !c.isStand)
+      let fateDeck = player.fateDeck.filter((c) => !c.isStand)
+      let board = player.board
+      const world = [...deck, ...fateDeck].find((c) => c.cardId === 'the-world')
+      if (world) {
+        deck = deck.filter((c) => c.instanceId !== world.instanceId)
+        fateDeck = fateDeck.filter((c) => c.instanceId !== world.instanceId)
+        const startLoc = villain.locations[0].id
+        board = { ...board, [startLoc]: [...(board[startLoc] ?? []), world] }
       }
+      player = { ...player, deck, fateDeck, standPile: stands, board, removedFromGame: [] }
     }
     // Syndrome — pose l'Omnidroïde v.X8 sur son lieu de départ ; v.X9 puis v.10 forment
     // la pile (jouées plus tard en défaussant des Modifications Majeures).

@@ -9,6 +9,7 @@ import type { LocationActionType } from '../../engine/types'
 import { renderCardFace, ruleTextBlockHeight } from './cardRender'
 import { ACTION_TOKEN_LIST, ACTION_ICON_FILE, BOARD_ICON_DIR } from './actionIcons'
 import { inputClass } from './fields'
+import { useCustomTypesStore } from '../store/customTypesStore'
 
 const ASPECT = CARD_W / CARD_H
 
@@ -45,6 +46,7 @@ export function CardLayoutEditor({
   const [sel, setSel] = useState<Selection>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<DragState | null>(null)
+  const customTypes = useCustomTypesStore((s) => s.types)
 
   // Rendu de fond (réel) — débanché pour rester fluide pendant l'édition.
   const key = JSON.stringify({
@@ -63,11 +65,12 @@ export function CardLayoutEditor({
     st: card.stickers,
     col: color,
     fcol: fateColor,
+    ct: customTypes,
   })
   useEffect(() => {
     let alive = true
     const h = setTimeout(() => {
-      void renderCardFace(card, color, fateColor).then((url) => {
+      void renderCardFace(card, color, fateColor, {}, customTypes).then((url) => {
         if (alive) setBg(url)
       })
     }, 140)

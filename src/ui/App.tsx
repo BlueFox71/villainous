@@ -37,6 +37,7 @@ import {
   transformableGuards,
 } from '../engine/rules'
 import { titanReachableDests } from '../engine/effects'
+import { rankedFireTargets } from '../engine/shereKhan'
 import { FREE_PLAY_NO_ACTION_ID } from '../engine/actions'
 import type { CardInstance, KeyColor, LocationAction, PendingDice, PlayerState, ShowcaseEvent } from '../engine/types'
 import { BLUE, RED, accentVars } from './accents'
@@ -1085,6 +1086,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveMedal = useGameStore((s) => s.resolveMedal)
   const resolveActivateOrVanquish = useGameStore((s) => s.resolveActivateOrVanquish)
   const resolveRemoveFire = useGameStore((s) => s.resolveRemoveFire)
+  const resolvePlaceFire = useGameStore((s) => s.resolvePlaceFire)
   const resolveShereKhanDefeat = useGameStore((s) => s.resolveShereKhanDefeat)
   const resolveRecoverFate = useGameStore((s) => s.resolveRecoverFate)
   const resolveFreePlayAlly = useGameStore((s) => s.resolveFreePlayAlly)
@@ -1104,7 +1106,6 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveDioDiscardAlly = useGameStore((s) => s.resolveDioDiscardAlly)
   const resolveDioCream = useGameStore((s) => s.resolveDioCream)
   const resolveDioMuda = useGameStore((s) => s.resolveDioMuda)
-  const resolveDioQuest = useGameStore((s) => s.resolveDioQuest)
   const resolveDioSunlight = useGameStore((s) => s.resolveDioSunlight)
   const resolveCrustaceanPlace = useGameStore((s) => s.resolveCrustaceanPlace)
   const resolveFateAllyToAuDela = useGameStore((s) => s.resolveFateAllyToAuDela)
@@ -2062,6 +2063,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     Object.values(user.board).some((cards) =>
       cards.some((c) => c.type === 'ally' || (c.type === 'hero' && c.hypnotized)),
     )
+  // Dio — au moins un Allié DÉFAUSSABLE (The World/Stands/associés exclus) : Vampirisme l'exige.
+  const anyDiscardableAlly =
+    isHumanTurn &&
+    Object.values(user.board).some((cards) =>
+      cards.some((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket && !c.cannotBeDiscarded),
+    )
   // Au moins un Héros dans le royaume du joueur : « Magnifiques Taxes » l'exige.
   const anyHeroOnBoard =
     isHumanTurn && Object.values(user.board).some((cards) => cards.some((c) => c.type === 'hero' && !c.isPrisoner))
@@ -2406,20 +2413,6 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       if (seats[pdm.playerIndex] === 'bot') {
         const pick = [...pdm.candidateIds].sort((a, b) => (effectiveStrength(state, pdm.playerIndex, b) ?? 0) - (effectiveStrength(state, pdm.playerIndex, a) ?? 0))[0]
         const timer = setTimeout(() => resolveDioMuda(pick), BOT_STEP_MS)
-        return () => clearTimeout(timer)
-      }
-      return
-    }
-    // Dio — Quête vers le paradis : choisir Objet/Événement. Bot → le type le plus nombreux
-    // en défausse ; humain → modale.
-    const pdq = state.pendingDioQuest
-    if (pdq) {
-      if (seats[pdq.playerIndex] === 'bot') {
-        const disc = state.players[pdq.playerIndex].discard
-        const items = disc.filter((c) => c.type === 'item').length
-        const effs = disc.filter((c) => c.type === 'effect').length
-        const choice: 'item' | 'effect' = items >= effs ? 'item' : 'effect'
-        const timer = setTimeout(() => resolveDioQuest(choice), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
       return
@@ -3617,6 +3610,22 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       }
       return
     }
+    // Shere Khan — pose d'un jeton Feu (Feu Rouge des Hommes ou Mowgli). Bot → action la
+    // plus gênante (rankedFireTargets) ; humain → modale. `locationId` (Mowgli) restreint
+    // le choix au lieu d'arrivée.
+    const ppf = state.pendingPlaceFire
+    if (ppf) {
+      if (seats[ppf.chooserIndex] === 'bot') {
+        const pick = rankedFireTargets(state.players[ppf.targetIndex]).filter(
+          (t) => !ppf.locationId || t.locationId === ppf.locationId,
+        )[0]
+        if (pick) {
+          const timer = setTimeout(() => resolvePlaceFire(pick.locationId, pick.actionId), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
     // C'est très intéressant (option « déplacer un jeton Feu ») jouée en réaction par
     // l'humain pendant le tour du bot : on met aussi en pause le temps de son choix.
     // (Le bot, lui, résout son propre pendingRemoveFire via sa recherche de tour.)
@@ -3636,7 +3645,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioQuest, resolveDioSunlight, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove])
+  }, [seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire])
 
   // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
   // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
@@ -3659,11 +3668,21 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // Dio — ZA WARUDO! (temps arrêté) : pendant la phase ACTION, le pion peut se déplacer
   // librement vers tout autre lieu (relocalisation gratuite) pour y faire ses actions.
   const zaActive = isHumanTurn && state.phase === 'ACTION' && !!user.zaWarudoActive
-  const zaWarudoTargets = zaActive
-    ? user.locations.map((l) => l.id).filter((l) => l !== user.pawnLocation)
-    : []
-  const legalMoves = isHumanTurn ? (zaActive ? zaWarudoTargets : getLegalMoves(state)) : []
+  // ZA WARUDO! : le pion ne se déplace PLUS pendant le temps arrêté (il a bougé une seule
+  // fois, avant de jouer la carte). On agit directement sur les actions de N'IMPORTE quel
+  // lieu (focus interne via actAtLocation), donc aucun déplacement de pion.
+  const legalMoves = isHumanTurn && !zaActive ? getLegalMoves(state) : []
   const availableActions = isHumanTurn ? getAvailableActions(state) : []
+  // ZA WARUDO! : actions jouables (clé `lieu:action`) sur TOUS les lieux. On réutilise
+  // getAvailableActions par lieu focalisé → faisabilité, Fatalité exclue, coût croissant
+  // et « une seule fois par action » (dioRealmActionsThisTurn) sont gérés par le moteur.
+  const zaWarudoKeys = zaActive
+    ? new Set(
+        user.locations.flatMap((l) =>
+          getAvailableActions({ ...state, actAtLocation: l.id }).map((a) => `${l.id}:${a.id}`),
+        ),
+      )
+    : null
   const canEnd = isHumanTurn && state.phase === 'ACTION'
   // Glisser-déposer : action « Jouer une carte » utilisable (mode 'play' actif → son
   // actionId ; sinon la 1ʳᵉ action « Jouer » libre du lieu courant). Désactivé pendant
@@ -4698,6 +4717,13 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     }
     else if (a.type === 'OBTAIN_KEY') obtainKey(a.id) // Seigneur des clés → ouvre pendingKey
   }
+  /** Dio — ZA WARUDO! : clic sur une action de N'IMPORTE quel lieu. On « focalise » le lieu
+   *  cliqué (actAtLocation, sans bouger le pion) puis on lance le flux d'action normal. */
+  const handleZaAction = (locationId: string, a: LocationAction) => {
+    const focus = state.actAtLocation ?? user.pawnLocation
+    if (focus !== locationId) zaWarudoRelocate(locationId)
+    handleBoardAction(a)
+  }
   /** Capitaine Crochet : clic sur une carte-Objet qui DONNE une action au lieu
    *  (Canon, Boîte à Crochets, Ingénieux Mécanisme) → déclenche cette action. */
   const handleGrantedAction = (card: CardInstance) => {
@@ -5707,6 +5733,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               blinkTopAtLocation={persifleurLoc}
               activeLocationId={state.actAtLocation || user.pawnLocation || undefined}
               flashKey={isHumanTurn ? actionFlash : null}
+              zaWarudoActive={zaActive}
+              zaWarudoKeys={zaWarudoKeys}
+              onZaActionClick={handleZaAction}
               onActionClick={handleBoardAction}
               hackLocationId={state.pendingHack?.playerIndex === HUMAN ? state.pendingHack.locationId : null}
               hackActionIds={state.pendingHack?.playerIndex === HUMAN ? state.pendingHack.actionIds : undefined}
@@ -6853,6 +6882,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             attachTargetsAvailable={anyAllyOnBoard}
             blockEvents={humanEventsBlocked}
             realmHasAllies={anyAllyOnBoard}
+            realmHasDiscardableAlly={anyDiscardableAlly}
             realmHasPuppyTile={(user.puppyTiles ?? []).some((t) => t.state === 'board')}
             realmHasHeroes={anyHeroOnBoard}
             raceBanPlayable={(anyAllyOnBoard && anyHeroOnBoard) || !!user.raceActive}
@@ -6892,7 +6922,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             fateDiscardHasCard={user.fateDiscard.some((c) => c.type === 'hero' || c.type === 'effect')}
             realActionUsed={state.usedActionIds.some((a) => !a.includes(':'))}
             kronkHasPowerToken={Object.values(user.board).flat().some((c) => c.cardId === 'kronk' && (c.kronkPower ?? 0) > 0)}
-            fateDiscardHasHero={user.fateDiscard.some((c) => c.type === 'hero')}
+            fateDiscardHasHero={user.fateDiscard.some((c) => c.type === 'hero') || (user.removedFromGame ?? []).length > 0}
             poeticJusticeUsable={(() => {
               // Ironie du sort : Allié sur le lieu du pion ET Événement de la défausse
               // abordable après avoir payé Ironie (coût effectif, Bâton Magique inclus).
@@ -7639,6 +7669,30 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         />
       )}
 
+      {/* Shere Khan — pose d'un jeton Feu (humain) : Feu Rouge des Hommes (tout le royaume)
+          ou Mowgli (restreint à son lieu d'arrivée via `locationId`). */}
+      {state.pendingPlaceFire && state.pendingPlaceFire.chooserIndex === HUMAN && (() => {
+        const pf = state.pendingPlaceFire
+        const target = state.players[pf.targetIndex]
+        const targets = rankedFireTargets(target).filter((t) => !pf.locationId || t.locationId === pf.locationId)
+        const atLoc = pf.locationId ? target.locations.find((l) => l.id === pf.locationId)?.name : undefined
+        return (
+          <ChoiceModal
+            title={pf.locationId ? 'Mowgli — jeton Feu' : 'Feu Rouge des Hommes'}
+            prompt={atLoc ? `Quelle action recouvrir d'un jeton Feu sur ${atLoc} ?` : `Où poser le jeton Feu (royaume de ${target.villainName}) ?`}
+            options={targets.map(({ locationId, actionId }) => {
+              const loc = target.locations.find((l) => l.id === locationId)
+              const actLabel = loc?.actions.find((a) => a.id === actionId)?.label ?? actionId
+              return {
+                key: `pf-${locationId}-${actionId}`,
+                label: `${loc?.name ?? locationId} — ${actLabel}`,
+                onSelect: () => resolvePlaceFire(locationId, actionId),
+              }
+            })}
+          />
+        )
+      })()}
+
       {/* Shere Khan — Tout le monde fuit : l'humain choisit Activer une capacité OU Éliminer un Héros. */}
       {state.pendingActivateOrVanquish && state.pendingActivateOrVanquish.playerIndex === HUMAN && (
         <ChoiceModal
@@ -7668,12 +7722,16 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         <MauiChoiceModal card={state.players[HUMAN].mauiDeck?.[0]} onChoose={resolveMauiChoice} />
       )}
 
-      {/* Dio — Vampirisme : l'humain choisit l'Allié à défausser (gagne 4 JT, doublé si The World). */}
+      {/* Dio — défausser un Allié du royaume : pour piocher (Vampirisme) ou gagner du Pouvoir. */}
       {state.pendingDioDiscardAlly && state.pendingDioDiscardAlly.playerIndex === HUMAN && (() => {
+        const pd = state.pendingDioDiscardAlly
         const allies = Object.values(user.board).flat().filter((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket && !c.cannotBeDiscarded)
+        const title = pd.draw
+          ? `Vampirisme : défausse un Allié pour piocher ${pd.draw} carte${pd.draw > 1 ? 's' : ''}`
+          : 'Défausse un Allié pour gagner du Pouvoir'
         return (
           <CardChoiceModal
-            title="Vampirisme : défausse un Allié pour gagner du Pouvoir"
+            title={title}
             cards={allies}
             onClose={() => allies[0] && resolveDioDiscardAlly(allies[0].instanceId)}
             onPick={(card) => resolveDioDiscardAlly(card.instanceId)}
@@ -7695,33 +7753,22 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         )
       })()}
 
-      {/* Dio — MUDA! : l'humain peut éliminer un Héros du lieu du pion (facultatif), gagne 5 JT. */}
+      {/* Dio — MUDA! : les 5 JT sont déjà gagnés ; l'humain peut EN PLUS éliminer un Héros
+          de son lieu (facultatif). */}
       {state.pendingDioMuda && state.pendingDioMuda.playerIndex === HUMAN && (() => {
         const ids = new Set(state.pendingDioMuda.candidateIds)
         const heroes = Object.values(user.board).flat().filter((c) => ids.has(c.instanceId))
         return (
           <CardChoiceModal
-            title="MUDA ! MUDA ! MUDA ! : élimine un Héros (facultatif)"
+            title="MUDA ! MUDA ! MUDA ! (+5 JT) : élimine aussi un Héros de ton lieu ?"
             cards={heroes}
-            noneLabel="Ne pas éliminer (gagner 5 JT)"
+            noneLabel="Ne pas éliminer"
             onNone={() => resolveDioMuda(undefined)}
             onClose={() => resolveDioMuda(undefined)}
             onPick={(card) => resolveDioMuda(card.instanceId)}
           />
         )
       })()}
-
-      {/* Dio — Quête vers le paradis : l'humain choisit le type de carte à récupérer. */}
-      {state.pendingDioQuest && state.pendingDioQuest.playerIndex === HUMAN && (
-        <ChoiceModal
-          title="Quête vers le paradis"
-          prompt="Choisis un type de carte : les cartes de ce type parmi les 6 dévoilées rejoignent ta main."
-          options={[
-            { key: 'quest-item', label: 'Objet', onSelect: () => resolveDioQuest('item') },
-            { key: 'quest-effect', label: 'Événement', onSelect: () => resolveDioQuest('effect') },
-          ]}
-        />
-      )}
 
       {/* Dio — Lumière du Soleil : Dio choisit défausser sa main OU perdre du Pouvoir. */}
       {state.pendingDioSunlight && state.pendingDioSunlight.playerIndex === HUMAN && (
@@ -8270,7 +8317,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 ? 'Terreur : reprends un Allié ou un Événement de ta défausse'
                 : state.pendingRecover.label === 'Justice'
                   ? 'Justice : reprends un Allié de ta défausse'
-                  : 'Opportunisme : reprends un Objet ou un Événement'
+                  : state.pendingRecover.label === 'Quête vers le paradis'
+                    ? 'Quête vers le paradis : choisis la carte à ajouter à ta main'
+                    : 'Opportunisme : reprends un Objet ou un Événement'
         return (
           <CardChoiceModal
             title={title}

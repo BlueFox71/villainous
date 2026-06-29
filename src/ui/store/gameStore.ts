@@ -650,8 +650,7 @@ interface GameStore {
   resolveDioCream: (heroInstanceId: string) => void
   /** Dio — MUDA! : élimine le Héros choisi (ou aucun) et gagne du Pouvoir. */
   resolveDioMuda: (heroInstanceId?: string) => void
-  /** Dio — Quête vers le paradis : récupère les cartes du type choisi. */
-  resolveDioQuest: (cardType: 'item' | 'effect') => void
+  /** Dio — Quête vers le paradis : va chercher une carte du type choisi (Objet ou Stand). */
   /** Dio — Lumière du Soleil : défausse la main OU perd du Pouvoir. */
   resolveDioSunlight: (choice: 'discard' | 'lose') => void
   resolveCrustaceanPlace: (to: string) => void
@@ -746,6 +745,8 @@ interface GameStore {
   resolveActivateOrVanquish: (choice: 'activate' | 'vanquish') => void
   /** Shere Khan — C'est moi, Shere Khan : retirer le jeton Feu choisi (lieu + action). */
   resolveRemoveFire: (locationId: string, actionId: string) => void
+  /** Shere Khan — Feu Rouge des Hommes : poser le jeton Feu sur l'action choisie. */
+  resolvePlaceFire: (locationId: string, actionId: string) => void
   /** Shere Khan — Lancé sur ses traces : éliminer le Héros choisi. */
   resolveShereKhanDefeat: (heroInstanceId: string) => void
   /** Shere Khan — C'est à moi que vous le direz : remettre une Fatalité dans la pioche (ou passer). */
@@ -1251,7 +1252,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
   resolveDioDiscardAlly: (allyInstanceId) => get().submit({ type: 'RESOLVE_DIO_DISCARD_ALLY', allyInstanceId }),
   resolveDioCream: (heroInstanceId) => get().submit({ type: 'RESOLVE_DIO_CREAM', heroInstanceId }),
   resolveDioMuda: (heroInstanceId) => get().submit({ type: 'RESOLVE_DIO_MUDA', heroInstanceId }),
-  resolveDioQuest: (cardType) => get().submit({ type: 'RESOLVE_DIO_QUEST', cardType }),
   resolveDioSunlight: (choice) => get().submit({ type: 'RESOLVE_DIO_SUNLIGHT', choice }),
   resolveCrustaceanPlace: (to: string) => get().submit({ type: 'RESOLVE_CRUSTACEAN_PLACE', to }),
   resolveFateAllyToAuDela: (allyInstanceId: string) => get().submit({ type: 'RESOLVE_FATE_ALLY_TO_AUDELA', allyInstanceId }),
@@ -1340,6 +1340,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_ACTIVATE_OR_VANQUISH', choice }),
   resolveRemoveFire: (locationId, actionId) =>
     get().submit({ type: 'RESOLVE_REMOVE_FIRE', locationId, actionId }),
+  resolvePlaceFire: (locationId, actionId) =>
+    get().submit({ type: 'RESOLVE_PLACE_FIRE', locationId, actionId }),
   resolveShereKhanDefeat: (heroInstanceId) =>
     get().submit({ type: 'RESOLVE_SHERE_KHAN_DEFEAT', heroInstanceId }),
   resolveRecoverFate: (instanceId) =>

@@ -399,8 +399,13 @@ function applyPlayCard(
     if (isActionCovered(state, action)) {
       throw new Error(`${action.label} est recouverte par un Héros.`)
     }
-    // Action déjà utilisée : refusée, SAUF si Noir de nuit autorise une réutilisation.
-    if (state.usedActionIds.includes(actionId) && !activePlayer(state).repeatActionAvailable) {
+    // Action déjà utilisée : refusée, SAUF si Noir de nuit autorise une réutilisation, ou
+    // pendant ZA WARUDO! (où le « déjà fait » se suit par lieu, cf. dioRealmActionsThisTurn).
+    if (
+      state.usedActionIds.includes(actionId) &&
+      !activePlayer(state).repeatActionAvailable &&
+      !activePlayer(state).zaWarudoActive
+    ) {
       throw new Error('Cette action a déjà été utilisée ce tour.')
     }
   }
@@ -656,9 +661,18 @@ function applyPlayCard(
   // Fatalité (elle n'aurait aucun effet : 0 jeton gagné).
   if (
     (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_FATE_DISCARD_HERO') &&
-    !me.fateDiscard.some((c) => c.type === 'hero')
+    !me.fateDiscard.some((c) => c.type === 'hero') &&
+    (me.removedFromGame ?? []).length === 0
   ) {
-    throw new Error('Aucun Héros dans votre défausse Fatalité : « Fausses funérailles » est injouable.')
+    throw new Error('Aucun Héros dans votre défausse Fatalité (ni retiré du jeu) : carte injouable.')
+  }
+  // Dio — Vampirisme : injouable s'il n'y a aucun Allié DÉFAUSSABLE dans le royaume
+  // (The World/Stands/associés exclus) — rien à défausser pour piocher.
+  if (
+    (card.effects ?? []).some((e) => e.type === 'DIO_DISCARD_ALLY_DRAW') &&
+    !Object.values(me.board).flat().some((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket && !c.cannotBeDiscarded)
+  ) {
+    throw new Error('Aucun Allié à défausser dans votre royaume : Vampirisme est injouable.')
   }
   // Yzma — Le chemin qui balance : injouable s'il n'y a aucun jeton Pouvoir sur
   // Kronk (Kronk absent du royaume ou sans jeton) → elle n'aurait aucun effet.
@@ -1430,7 +1444,7 @@ function applyDiscardCards(
     throw new Error(`${action.label} est recouverte par un Héros.`)
   }
   const reusedDiscard = state.usedActionIds.includes(actionId)
-  if (reusedDiscard && !activePlayer(state).repeatActionAvailable) {
+  if (reusedDiscard && !activePlayer(state).repeatActionAvailable && !activePlayer(state).zaWarudoActive) {
     throw new Error('Cette action a déjà été utilisée ce tour.')
   }
   if (instanceIds.length === 0) {
@@ -7066,6 +7080,15 @@ function applyResolveRemoveFire(state: GameState, locationId: string, actionId: 
   return removeFire(cleared, pending.playerIndex, locationId, actionId)
 }
 
+/** Shere Khan — Feu Rouge des Hommes : le fataliseur a choisi l'action ; on y pose le
+ *  jeton Feu (dans le royaume de la cible). */
+function applyResolvePlaceFire(state: GameState, locationId: string, actionId: string): GameState {
+  const pending = state.pendingPlaceFire
+  if (!pending) throw new Error('Aucune pose de jeton Feu en attente (RESOLVE_PLACE_FIRE).')
+  const cleared = { ...state, pendingPlaceFire: null }
+  return placeFire(cleared, pending.targetIndex, locationId, actionId)
+}
+
 // --- Davy Jones (Jetons Trésor) ---------------------------------------------
 /** Davy Jones : phase 1 = choix du Héros (sans trésor), phase 2 = choix du jeton Trésor
  *  de la réserve à y poser face cachée. */
@@ -7439,31 +7462,37 @@ function applyResolveMauiChoice(state: GameState, choice: 'play' | 'discard'): G
   return choice === 'play' ? resolveEffectsLocal(next, top.effects ?? [], { actorIndex: idx }) : next
 }
 
-/** Dio — Vampirisme : défausse l'Allié choisi (+ Objets associés ; Stands → réserve) et
- *  gagne le Pouvoir prévu (×2 si The World est au pouvoir). */
+/** Dio — défausse l'Allié choisi (+ Objets associés ; Stands → réserve), puis applique la
+ *  récompense du pending : gagner du Pouvoir (`gain`, ×2 si The World au pouvoir) ET/OU
+ *  piocher des cartes (`draw`). Sert l'effet générique de gain ET Vampirisme (pioche). */
 function applyResolveDioDiscardAlly(state: GameState, allyInstanceId: string): GameState {
   const pending = state.pendingDioDiscardAlly
-  if (!pending) throw new Error('Aucun Vampirisme en attente (RESOLVE_DIO_DISCARD_ALLY).')
+  if (!pending) throw new Error('Aucune défausse d’Allié en attente (RESOLVE_DIO_DISCARD_ALLY).')
   const idx = pending.playerIndex
   const me = state.players[idx]
   let loc: LocationId | undefined
   for (const l of me.locations) if ((me.board[l.id] ?? []).some((c) => c.instanceId === allyInstanceId)) { loc = l.id; break }
   const ally = loc ? (me.board[loc] ?? []).find((c) => c.instanceId === allyInstanceId) : undefined
   if (!loc || !ally || ally.type !== 'ally' || ally.attachedTo || ally.cannotBeDiscarded)
-    throw new Error('Allié à défausser invalide (Vampirisme).')
+    throw new Error('Allié à défausser invalide.')
   const attached = (me.board[loc] ?? []).filter((c) => c.attachedTo === allyInstanceId)
   const stands = attached.filter((c) => c.isStand)
   const normal = attached.filter((c) => !c.isStand)
   const rm = new Set([allyInstanceId, ...attached.map((c) => c.instanceId)])
-  const gain = pending.gain * dioPowerFactor(me)
-  const next = updatePlayer(state, idx, (pl) => ({
+  const gain = (pending.gain ?? 0) * dioPowerFactor(me)
+  let next: GameState = updatePlayer({ ...state, pendingDioDiscardAlly: null }, idx, (pl) => ({
     ...pl,
     board: { ...pl.board, [loc!]: (pl.board[loc!] ?? []).filter((c) => !rm.has(c.instanceId)) },
     discard: [...pl.discard, ...[ally, ...normal].map((c) => ({ ...c, attachedTo: undefined }))],
     standPile: [...(pl.standPile ?? []), ...stands.map((c) => ({ ...c, attachedTo: undefined }))],
     power: pl.power + gain,
   }))
-  return { ...next, pendingDioDiscardAlly: null, log: [...next.log, `Vampirisme : ${me.villainName} défausse **${ally.name}** et gagne ${gain} JT.`] }
+  next = { ...next, log: [...next.log, `${me.villainName} défausse **${ally.name}**${gain > 0 ? ` et gagne ${gain} JT` : ''}.`] }
+  // Pioche éventuelle (Vampirisme) — réutilise l'effet DRAW_CARDS (journalise la pioche).
+  if (pending.draw && pending.draw > 0) {
+    next = resolveEffects(next, [{ type: 'DRAW_CARDS', count: pending.draw }], { actorIndex: idx })
+  }
+  return next
 }
 
 /** Dio — CREAM : défausse le Héros choisi (force < Vanilla Ice) sur le lieu de Cream. */
@@ -7484,41 +7513,15 @@ function applyResolveDioMuda(state: GameState, heroInstanceId?: string): GameSta
   if (!pending) throw new Error('Aucun MUDA en attente (RESOLVE_DIO_MUDA).')
   const idx = pending.playerIndex
   const me = state.players[idx]
-  let next: GameState = { ...state, pendingDioMuda: null }
-  let eliminated: CardInstance | undefined
-  if (heroInstanceId) {
-    if (!pending.candidateIds.includes(heroInstanceId)) throw new Error('Héros invalide (MUDA).')
-    const loc = me.pawnLocation
-    const hero = loc ? (me.board[loc] ?? []).find((c) => c.instanceId === heroInstanceId) : undefined
-    if (loc && hero) { eliminated = hero; next = dioDiscardHero(next, idx, loc, hero) }
-  }
-  const gain = pending.gain * dioPowerFactor(next.players[idx])
-  next = updatePlayer(next, idx, (pl) => ({ ...pl, power: pl.power + gain }))
-  return { ...next, log: [...next.log, `MUDA ! MUDA ! MUDA ! : ${me.villainName}${eliminated ? ` élimine **${eliminated.name}** et` : ''} gagne ${gain} JT.`] }
-}
-
-/** Dio — Quête vers le paradis : mélange la défausse, en dévoile 6 et reprend en main les
- *  cartes du type choisi (Objet/Événement) ; le reste retourne dans la défausse. */
-function applyResolveDioQuest(state: GameState, cardType: 'item' | 'effect'): GameState {
-  const pending = state.pendingDioQuest
-  if (!pending) throw new Error('Aucune Quête vers le paradis en attente (RESOLVE_DIO_QUEST).')
-  const idx = pending.playerIndex
-  const me = state.players[idx]
-  const sh = shuffle(me.discard, state.rngState)
-  const top6 = sh.result.slice(0, 6)
-  const remainder = sh.result.slice(6)
-  const taken = top6.filter((c) => c.type === cardType)
-  const left = top6.filter((c) => c.type !== cardType)
-  const next = updatePlayer({ ...state, rngState: sh.state }, idx, (pl) => ({
-    ...pl,
-    hand: [...pl.hand, ...taken],
-    discard: [...remainder, ...left],
-  }))
-  return {
-    ...next,
-    pendingDioQuest: null,
-    log: [...next.log, `Quête vers le paradis : ${me.villainName} récupère ${taken.length} ${cardType === 'item' ? 'Objet(s)' : 'Événement(s)'} (sur 6 dévoilés).`],
-  }
+  const cleared: GameState = { ...state, pendingDioMuda: null }
+  // Le Pouvoir (5) a déjà été gagné à la résolution de l'effet : ici on ne fait QUE
+  // l'élimination facultative du Héros choisi.
+  if (!heroInstanceId) return cleared
+  if (!pending.candidateIds.includes(heroInstanceId)) throw new Error('Héros invalide (MUDA).')
+  const loc = me.pawnLocation
+  const hero = loc ? (me.board[loc] ?? []).find((c) => c.instanceId === heroInstanceId) : undefined
+  if (!loc || !hero) return cleared
+  return dioDiscardHero(cleared, idx, loc, hero)
 }
 
 /** Dio — Lumière du Soleil (Fatalité) : DIO défausse sa main OU perd le Pouvoir prévu. */
@@ -8570,6 +8573,7 @@ function applyResolveFateChoice(state: GameState, instanceId: string): GameState
     // Scar — Petit secret : joue la carte Fatalité (Héros ou Événement) choisie.
     return playChosenFateFromDiscard({ ...state, pendingFateChoice: null }, pending.chooserIndex, instanceId)
   }
+
 
   if (pending.kind === 'play-revealed-fate-hero') {
     // Scar — Longue vie au roi ! : le Héros choisi (déposé dans la défausse Fatalité)
@@ -9812,46 +9816,20 @@ function applyChariotMove(state: GameState, instanceId: string, to: string): Gam
   }
 }
 
-/** Dio — ZA WARUDO! (temps arrêté) : déplace LIBREMENT la figurine vers `to` (autant de
- *  fois que voulu ce tour), pour accéder à ses actions. Gratuit (le coût croissant est
- *  prélevé par ACTION, cf. applyDioZaWarudoCost). The World (et ce qui le suit) accompagne
- *  le pion. Les marqueurs d'action de l'ancien lieu sont réinitialisés (le nouveau lieu est
- *  jouable). Les actions déjà effectuées ce tour restent comptées dans dioRealmActionsThisTurn. */
+/** Dio — ZA WARUDO! (temps arrêté) : FOCALISE le lieu `to` sans déplacer le pion (le pion
+ *  ne bouge qu'UNE fois, avant ZA WARUDO!). On agit alors sur les actions de ce lieu via
+ *  `actAtLocation` (cf. currentLocation) ; chaque action n'est jouable qu'une fois (suivi
+ *  par dioRealmActionsThisTurn) et coûte un Pouvoir croissant (cf. applyDioZaWarudo). */
 function applyZaWarudoRelocate(state: GameState, to: string): GameState {
-  if (state.phase !== 'ACTION') throw new Error(`ZA WARUDO ! : déplacement impossible en phase ${state.phase}.`)
+  if (state.phase !== 'ACTION') throw new Error(`ZA WARUDO ! : action impossible en phase ${state.phase}.`)
   const me = activePlayer(state)
   if (!me.zaWarudoActive) throw new Error("ZA WARUDO ! n'est pas actif.")
   const dest = findLocation(me, to)
   if (!dest) throw new Error(`Lieu inconnu : « ${to} ».`)
-  const from = me.pawnLocation
-  let next: GameState
-  if (from && from !== to) {
-    const followers = (me.board[from] ?? []).filter((c) => c.followsPawn)
-    const fIds = new Set(followers.map((c) => c.instanceId))
-    const moving = (me.board[from] ?? []).filter(
-      (c) => fIds.has(c.instanceId) || (c.attachedTo !== undefined && fIds.has(c.attachedTo)),
-    )
-    const movingIds = new Set(moving.map((c) => c.instanceId))
-    const fromId = from
-    next = updateActivePlayer(state, (p) => ({
-      ...p,
-      pawnLocation: to,
-      board: {
-        ...p.board,
-        [fromId]: (p.board[fromId] ?? []).filter((c) => !movingIds.has(c.instanceId)),
-        [to]: [...(p.board[to] ?? []), ...moving],
-      },
-    }))
-  } else {
-    next = updateActivePlayer(state, (p) => ({ ...p, pawnLocation: to }))
-  }
-  // Réinitialise les marqueurs d'action (le lieu d'arrivée est jouable) ; on conserve les
-  // ids scopés (`:`). dioRealmActionsThisTurn (suivi de l'objectif) n'est PAS réinitialisé.
-  const preserved = next.usedActionIds.filter((a) => a.includes(':'))
   return {
-    ...next,
-    usedActionIds: preserved,
-    log: [...next.log, `⏱️ ZA WARUDO ! — ${me.villainName} apparaît sur **${dest.name}**.`],
+    ...state,
+    actAtLocation: to,
+    log: [...state.log, `⏱️ ZA WARUDO ! — ${me.villainName} agit sur **${dest.name}**.`],
   }
 }
 
@@ -9898,6 +9876,9 @@ function applySkipRemoteAction(state: GameState): GameState {
  *  restaure usedActionIds (cette action d'un lieu voisin ne consomme pas l'économie
  *  d'actions du lieu courant). */
 function clearGiant(before: GameState, after: GameState): GameState {
+  // Dio — ZA WARUDO! : le lieu focalisé (actAtLocation) doit PERSISTER d'une action à
+  // l'autre (le pion ne bouge pas) ; on ne « nettoie » donc pas après chaque action.
+  if (activePlayer(before).zaWarudoActive) return after
   if (!before.actAtLocation) return after
   return {
     ...after,
@@ -10323,7 +10304,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   // tuile Power Play si ≥6 Pouvoir dépensés ce tour sur le bon lieu.
   const after = syncLuciferTrap(syncRoseChain(syncPetePowerPlay(syncRatiganObjectiveAll(applyActionCore(state, action)))))
   // Dio — ZA WARUDO! : coût croissant par action + suivi des 14 actions du royaume.
-  const result = applyDioZaWarudo(state, action, after)
+  const result = applyDioZaWarudo(action, after)
   // Récap du tour : enregistre l'action (icône + détail) dans `turnEvents`.
   return recordTurnEvent(state, result, action)
 }
@@ -10465,7 +10446,7 @@ const DIO_LOCATION_ACTION_TYPES = new Set([
  * `lieu:action`). Quand les 14 actions HORS-Fatalité du royaume ont été faites ce tour ET
  * que Jotaro + Joseph sont retirés du jeu, c'est la VICTOIRE (événementielle).
  */
-function applyDioZaWarudo(before: GameState, action: GameAction, after: GameState): GameState {
+function applyDioZaWarudo(action: GameAction, after: GameState): GameState {
   if (after.status !== 'PLAYING') return after
   const idx = after.activePlayer
   const p = after.players[idx]
@@ -10474,15 +10455,19 @@ function applyDioZaWarudo(before: GameState, action: GameAction, after: GameStat
   const actionId = (action as { actionId?: string }).actionId
   if (typeof actionId !== 'string' || actionId === FREE_PLAY_NO_ACTION_ID) return after
   if (!DIO_LOCATION_ACTION_TYPES.has(action.type)) return after
-  // L'action doit avoir été RÉELLEMENT consommée ce coup-ci (nouvelle dans usedActionIds).
-  if (before.usedActionIds.includes(actionId) || !after.usedActionIds.includes(actionId)) return after
-
-  const cost = (p.zaWarudoActionsDone ?? 0) + 1
-  const loc = p.pawnLocation
+  // L'action doit avoir été RÉELLEMENT consommée ce coup-ci (marquée dans usedActionIds).
+  if (!after.usedActionIds.includes(actionId)) return after
+  // Lieu où l'action a été faite = lieu FOCALISÉ (actAtLocation) pendant le temps arrêté,
+  // sinon le lieu du pion (1ʳᵉ action sur place avant tout focus).
+  const loc = after.actAtLocation ?? p.pawnLocation
   if (!loc) return after
   const key = `${loc}:${actionId}`
   const done = p.dioRealmActionsThisTurn ?? []
-  const nextDone = done.includes(key) ? done : [...done, key]
+  // Déjà facturée/comptée ce tour (clé `lieu:action`) → ne pas recharger (anti-double).
+  if (done.includes(key)) return after
+  // Coût croissant (1, 2, 3…) PLAFONNÉ à 10 : une action supplémentaire ne coûte jamais plus de 10.
+  const cost = Math.min(10, (p.zaWarudoActionsDone ?? 0) + 1)
+  const nextDone = [...done, key]
   let next = updatePlayer(after, idx, (pl) => ({
     ...pl,
     power: Math.max(0, pl.power - cost),
@@ -10519,8 +10504,8 @@ function applyDioZaWarudo(before: GameState, action: GameAction, after: GameStat
 }
 
 /** Madame de Trémaine — Lucifer : tout Héros qui se retrouve sur le lieu de Lucifer
- *  reçoit un jeton Enfermé (piégé : capacité ignorée, ne recouvre plus d'action). Le
- *  jeton est PERMANENT (reste même si Lucifer s'en va). Passe idempotente post-action. */
+ *  reçoit un jeton Enfermé (piégé : capacité ignorée, mais recouvre toujours les actions).
+ *  Le jeton est PERMANENT (reste même si Lucifer s'en va). Passe idempotente post-action. */
 function syncLuciferTrap(state: GameState): GameState {
   let changed = false
   const players = state.players.map((p) => {
@@ -10555,14 +10540,16 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   }
   // Une Fatalité révélée doit être résolue avant tout autre coup — sauf une
   // Condition jouée par le non-actif (réaction « à tout moment ») ET la résolution
-  // d'un sondage ouvert PAR cette réaction (Scar — La vie n'est pas juste ouvre
-  // pendingScry alors que la Fatalité de l'adversaire est encore en attente).
+  // d'un choix ouvert PAR cette réaction alors que la Fatalité adverse est encore en
+  // attente : pendingScry (Scar — La vie n'est pas juste) ou pendingDioMuda (Dio —
+  // MUDA ! MUDA ! MUDA !, jouée en réaction à une Fatalité ciblant Dio).
   if (
     state.pendingFate &&
     action.type !== 'RESOLVE_FATE' &&
     action.type !== 'PASS_FATE' &&
     action.type !== 'PLAY_CONDITION' &&
-    action.type !== 'RESOLVE_SCRY'
+    action.type !== 'RESOLVE_SCRY' &&
+    action.type !== 'RESOLVE_DIO_MUDA'
   ) {
     throw new Error('Une Fatalité est en attente de résolution (RESOLVE_FATE).')
   }
@@ -10654,6 +10641,10 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
     action.type !== 'PLAY_CONDITION'
   ) {
     throw new Error('Un retrait de jeton Feu est en attente (RESOLVE_REMOVE_FIRE).')
+  }
+  // Shere Khan — Feu Rouge des Hommes : pose d'un jeton Feu (par le fataliseur) en attente.
+  if (state.pendingPlaceFire && action.type !== 'RESOLVE_PLACE_FIRE') {
+    throw new Error('Une pose de jeton Feu est en attente (RESOLVE_PLACE_FIRE).')
   }
   // Shere Khan — Lancé sur ses traces : choix du Héros à éliminer en attente.
   if (
@@ -10761,9 +10752,6 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   }
   if (state.pendingDioMuda && action.type !== 'RESOLVE_DIO_MUDA') {
     throw new Error('Un choix MUDA ! est en attente (RESOLVE_DIO_MUDA).')
-  }
-  if (state.pendingDioQuest && action.type !== 'RESOLVE_DIO_QUEST') {
-    throw new Error('Un choix Quête vers le paradis est en attente (RESOLVE_DIO_QUEST).')
   }
   if (state.pendingDioSunlight && action.type !== 'RESOLVE_DIO_SUNLIGHT') {
     throw new Error('Un choix Lumière du Soleil est en attente (RESOLVE_DIO_SUNLIGHT).')
@@ -11245,6 +11233,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveActivateOrVanquish(state, action.choice)
     case 'RESOLVE_REMOVE_FIRE':
       return applyResolveRemoveFire(state, action.locationId, action.actionId)
+    case 'RESOLVE_PLACE_FIRE':
+      return applyResolvePlaceFire(state, action.locationId, action.actionId)
     case 'RESOLVE_SHERE_KHAN_DEFEAT':
       return applyResolveShereKhanDefeat(state, action.heroInstanceId)
     case 'RESOLVE_RECOVER_FATE':
@@ -11283,8 +11273,6 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveDioCream(state, action.heroInstanceId)
     case 'RESOLVE_DIO_MUDA':
       return applyResolveDioMuda(state, action.heroInstanceId)
-    case 'RESOLVE_DIO_QUEST':
-      return applyResolveDioQuest(state, action.cardType)
     case 'RESOLVE_DIO_SUNLIGHT':
       return applyResolveDioSunlight(state, action.choice)
     case 'RESOLVE_CRUSTACEAN_PLACE':
