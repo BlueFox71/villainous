@@ -179,6 +179,8 @@ export function LocationCard({
           ? {
               backgroundColor: `${cellColor}40`,
               borderColor: `color-mix(in srgb, ${cellColor}, white 45%)`,
+              // Fondu de la couleur du méchant (durée pilotée par le décor, 0 s au repos). Cf. Tamatoa.
+              transition: 'background-color var(--villain-color-fade, 0s) ease-out, border-color var(--villain-color-fade, 0s) ease-out',
             }
           : undefined
       }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { PATCH_NOTES } from '../patchNotes'
+import { PATCH_NOTES, PATCH_TAG_META } from '../patchNotes'
 import { OptionsButton } from '../components/OptionsButton'
 import { Scroller } from '../components/Scroller'
 import { PlayerAvatar } from '../components/PlayerAvatar'
@@ -32,33 +32,87 @@ function MenuButton({ label, onClick }: { label: string; onClick: () => void }) 
   )
 }
 
-/** Panneau « notes de version » : liste claire des changements, du plus récent au plus ancien. */
+/**
+ * Rend un texte de note en convertissant les marqueurs Markdown de gras `**…**`
+ * en vrai gras. (Les textes des notes utilisent ce balisage ; on ne veut pas
+ * afficher les astérisques bruts.)
+ */
+function renderRichText(text: string) {
+  // Découpe en alternant segments normaux / segments gras (groupe capturé).
+  const parts = text.split(/\*\*(.+?)\*\*/g)
+  return parts.map((part, i) =>
+    // Index impair = contenu entre `**…**` → en gras.
+    i % 2 === 1 ? (
+      <strong key={i} className="font-semibold text-white/95">
+        {part}
+      </strong>
+    ) : (
+      part
+    ),
+  )
+}
+
+/**
+ * Panneau « notes de version » sous forme d'accordéon : seuls les titres sont
+ * listés (du plus récent au plus ancien) ; un clic sur une note la développe pour
+ * révéler le détail des changements. La plus récente est ouverte par défaut.
+ */
 function PatchNotesPanel() {
+  // Version actuellement développée (la plus récente au démarrage), ou null si tout replié.
+  const [openVersion, setOpenVersion] = useState<string | null>(PATCH_NOTES[0]?.version ?? null)
   return (
     <div className="flex w-[22rem] max-w-[90vw] flex-col rounded-2xl border border-white/15 bg-black/40 p-4 backdrop-blur-sm">
       <h2 className="mb-1 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-amber-200">
         📋 Notes de version
       </h2>
       <Scroller className="max-h-[36rem]">
-        <ul className="flex flex-col gap-4 pr-2">
-          {PATCH_NOTES.map((note, noteIdx) => (
-            <li key={`${note.version}-${noteIdx}`}>
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="text-sm font-semibold text-purple-200">
-                  v{note.version} — {note.title}
-                </span>
-                <span className="shrink-0 font-mono text-[10px] text-white/40">{note.date}</span>
-              </div>
-              <ul className="mt-1 space-y-1">
-                {note.changes.map((c, i) => (
-                  <li key={i} className="flex gap-2 text-xs leading-snug text-white/75">
-                    <span className="shrink-0 text-amber-300/80">•</span>
-                    <span>{c}</span>
-                  </li>
-                ))}
-              </ul>
-            </li>
-          ))}
+        <ul className="flex flex-col gap-1 pr-2">
+          {PATCH_NOTES.map((note, noteIdx) => {
+            const isOpen = openVersion === note.version
+            return (
+              <li key={`${note.version}-${noteIdx}`}>
+                <button
+                  type="button"
+                  onClick={() => setOpenVersion(isOpen ? null : note.version)}
+                  onMouseEnter={playHover}
+                  className="flex w-full flex-col gap-1 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-white/5"
+                >
+                  <span className="flex items-baseline justify-between gap-2">
+                    <span className="flex items-baseline gap-1.5 text-sm font-semibold text-purple-200">
+                      <span className="shrink-0 text-amber-300/70">{isOpen ? '▾' : '▸'}</span>
+                      v{note.version} — {note.title}
+                    </span>
+                    <span className="shrink-0 font-mono text-[10px] text-white/40">{note.date}</span>
+                  </span>
+                  {note.tags && note.tags.length > 0 && (
+                    <span className="flex flex-wrap gap-1 pl-4">
+                      {note.tags.map((tag) => {
+                        const meta = PATCH_TAG_META[tag]
+                        return (
+                          <span
+                            key={tag}
+                            className={`rounded-full border px-1.5 py-0.5 text-[9px] font-medium ${meta.className}`}
+                          >
+                            {meta.emoji} {meta.label}
+                          </span>
+                        )
+                      })}
+                    </span>
+                  )}
+                </button>
+                {isOpen && (
+                  <ul className="mt-1 space-y-1 pb-2 pl-4 pr-2">
+                    {note.changes.map((c, i) => (
+                      <li key={i} className="flex gap-2 text-xs leading-snug text-white/75">
+                        <span className="shrink-0 text-amber-300/80">•</span>
+                        <span>{renderRichText(c)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            )
+          })}
         </ul>
       </Scroller>
     </div>

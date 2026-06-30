@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, type CSSPropert
 import { villainDecor, type VillainDecor as VillainDecorData } from '../villainDecor'
 import type { VillainKey } from '../store/gameStore'
 import { onSurprise } from '../surpriseBus'
+import { setVillainColorOverride } from '../villainColorState'
 
 // Côté du décor courant (joueur = left, adversaire = right), fourni par le wrapper
 // <VillainDecor> pour que chaque décor à surprise puisse s'abonner au bon canal du
@@ -3092,7 +3093,8 @@ function LaBonneFeeDecor() {
         src: BF_POTION_IMAGES[Math.floor(Math.random() * BF_POTION_IMAGES.length)],
         left: 8 + Math.random() * 80, // % (position horizontale)
         size: 11 + Math.random() * 5, // vh (hauteur de la fiole)
-        rot: (Math.random() - 0.5) * 70, // deg (rotation cumulée pendant la chute)
+        // pivot lent et régulier pendant la chute : ~1 tour (sens au hasard), étalé linéairement sur la descente
+        rot: (Math.random() < 0.5 ? -1 : 1) * (270 + Math.random() * 180), // deg
         dur: 20, // s (durée de la chute)
       })
       clear = setTimeout(() => setPotion(null), BF_POTION_FALL_MS)
@@ -3138,16 +3140,23 @@ function LaBonneFeeDecor() {
           </span>
         </span>
       ))}
-      {/* Potion qui TOMBE de haut en bas (une toutes les 30 s, image au hasard ; rejouée via sa key). */}
+      {/* Potion qui TOMBE de haut en bas (une toutes les 30 s, image au hasard ; rejouée via sa key).
+          Deux mouvements séparés : le conteneur gère la CHUTE (ease-in, accélère) ; l'image gère
+          le PIVOT lent et régulier (linéaire) — d'où les deux animation-timing-function distinctes. */}
       {potion && (
-        <img
+        <span
           key={potion.seq}
-          src={potion.src}
-          alt=""
-          className="bf-potion"
-          draggable={false}
-          style={{ left: `${potion.left}%`, height: `${potion.size}vh`, animationDuration: `${potion.dur}s`, '--rot': `${potion.rot}deg` } as CSSProperties}
-        />
+          className="bf-potion-fall"
+          style={{ left: `${potion.left}%`, animationDuration: `${potion.dur}s` } as CSSProperties}
+        >
+          <img
+            src={potion.src}
+            alt=""
+            className="bf-potion"
+            draggable={false}
+            style={{ height: `${potion.size}vh`, animationDuration: `${potion.dur}s`, '--rot': `${potion.rot}deg` } as CSSProperties}
+          />
+        </span>
       )}
       {/* Vignette : coins assombris. */}
       <div className="bf-vignette" />
@@ -6384,11 +6393,45 @@ const TAMATOA_SCROLL_SEC = 20
 // (même couleur que le remplissage) arrondit les trois coins. Auto-contenu (aucun fichier).
 const TAMATOA_TRI_SVG =
   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpolygon points='50,18 18,82 82,82' fill='%23FFD11A' stroke='%23FFD11A' stroke-width='20' stroke-linejoin='round'/%3E%3C/svg%3E\")"
+// Pluie « bling-bling » permanente de Tamatoa : les PIÈCES d'or de Prince Jean (cf. COIN_IMAGES) + les
+// 4 diamants laissés BLANCS (couleurs d'origine), avec une discrète lueur. Ombre portée chaude commune.
+const TAMATOA_SHADOW = 'drop-shadow(0 3px 5px rgba(0, 0, 0, 0.45))'
+const TAMATOA_DIAMANTS = Array.from({ length: 4 }, (_, i) => `/animations/diamant-${i + 1}.png`)
+// Filtres de la pluie : MÊME liste de fonctions (et même ORDRE) en normal et pendant la surprise, pour que
+// `transition: filter` interpole proprement à l'entrée ET à la sortie (sinon le filtre « saute »). En normal
+// les valeurs sont neutres (grayscale 0, sepia 0, saturate 1, hue-rotate 0) ; les diamants juste un peu plus
+// lumineux pour rester bien blancs. Pendant la surprise, on bascule vers la teinte cyan.
+const TAMATOA_RAIN_FILTER = `grayscale(0) brightness(1) sepia(0) saturate(1) hue-rotate(0deg) ${TAMATOA_SHADOW}`
+const TAMATOA_DIAMOND_FILTER = `grayscale(0) brightness(1.18) sepia(0) saturate(1) hue-rotate(0deg) ${TAMATOA_SHADOW}`
+// Bulles de Tamatoa (le crabe vit sous l'eau, à Lalotai) : surtout bleues/transparentes.
+const TAMATOA_BUBBLES = ['/animations/bulle-bleu.png', '/animations/bulle-bleu.png', '/animations/bulle.png']
+// Animation SURPRISE de Tamatoa : les triangles « bling-bling » disparaissent, des POINTS BLEUS fixes
+// (#0001FB) s'allument partout, la pluie se teinte en CYAN (#64D9FE) et la couleur du vilain vire au
+// MAGENTA (#FD27FC) le temps de l'animation.
+const TAMATOA_SURPRISE_DOT = '#0001FB'
+const TAMATOA_SURPRISE_VILLAIN_COLOR = '#FD27FC'
+// La couleur du vilain ADVERSE vire au BLEU (#0001FB) le temps de la surprise.
+const TAMATOA_SURPRISE_OPPONENT_COLOR = '#0001FB'
+// Teinte cyan #64D9FE approchée par filtre (même technique que les teintes de diamants de Ratigan :
+// grayscale → sepia → saturate → hue-rotate), appliquée à toute la pluie pendant la surprise.
+const TAMATOA_SURPRISE_RAIN_FILTER = `grayscale(1) brightness(1.4) sepia(1) saturate(6) hue-rotate(165deg) ${TAMATOA_SHADOW}`
+// La surprise du décor est INDÉPENDANTE de l'animation de passage `disco` (les deux couches sont
+// découplées) : elle a sa propre minuterie interne (toutes les TAMATOA_SURPRISE_EVERY_MS) et dure
+// TAMATOA_SURPRISE_MS. Le bus de test peut aussi la déclencher à la demande.
+const TAMATOA_SURPRISE_MS = 10000
+const TAMATOA_SURPRISE_EVERY_MS = 150000 // ~2 min 30 entre deux surprises
 
 /** Décor « tamatoa » (Vaiana — l'antre « Shiny / Bling Bling » du crabe) : un fond de GROTTE sombre
  *  sur lequel défilent vers la DROITE plein de petits TRIANGLES JAUNES FLOUTÉS et BRILLANTS (le
- *  bling-bling de son trésor) — couleur et vitesse identiques, rotation FIXE aléatoire. 100 % CSS. */
-function TamatoaDecor() {
+ *  bling-bling de son trésor) — couleur et vitesse identiques, rotation FIXE aléatoire. Par-dessus, une
+ *  pluie permanente de pièces/diamants et des bulles qui montent.
+ *  SURPRISE (minutée + déclencheur de test) : les triangles s'éteignent, des POINTS BLEUS fixes (#0001FB)
+ *  s'allument partout, la pluie se teinte en cyan (#64D9FE), la couleur du vilain vire au magenta
+ *  (#FD27FC) ET celle de l'ADVERSAIRE au bleu (#0001FB) le temps de l'animation, puis tout revient. */
+function TamatoaDecor({ opponentVillain }: { opponentVillain?: VillainKey }) {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
+  const [surpriseOn, setSurpriseOn] = useState(false)
   const [tris] = useState(() =>
     Array.from({ length: 180 }, () => ({
       top: Math.random() * 100, // % (réparti sur toute la hauteur)
@@ -6402,8 +6445,116 @@ function TamatoaDecor() {
       rot: Math.random() * 360, // ° (rotation FIXE, non animée)
     })),
   )
+  // Pluie PERMANENTE qui tombe en tournoyant (réutilise la mécanique `coinFall` / `cw-fall` de Ratigan,
+  // en boucle). 10 % de diamants (blancs, un peu plus gros), 90 % de pièces ; PLUS, plus rares et plus
+  // GROS, l'HAMEÇON de Maui et TE FITI (les trésors que convoite le crabe) tombent dans la même pluie.
+  const [rain] = useState(() => {
+    const drops = Array.from({ length: 90 }, () => {
+      const isDiamond = Math.random() < 0.1
+      const img = isDiamond
+        ? TAMATOA_DIAMANTS[Math.floor(Math.random() * TAMATOA_DIAMANTS.length)]
+        : COIN_IMAGES[Math.floor(Math.random() * COIN_IMAGES.length)]
+      return {
+        img,
+        filter: isDiamond ? TAMATOA_DIAMOND_FILTER : TAMATOA_RAIN_FILTER,
+        left: 2 + Math.random() * 96, // %
+        size: isDiamond ? 2 + Math.random() * 1.8 : 1.8 + Math.random() * 2.2, // vh (diamants un peu plus gros)
+        dur: 18 + Math.random() * 14, // s (chute lente, 18–32 s)
+        delay: -(Math.random() * 32), // s (étalées sur tout le trajet → flux continu)
+        spin: (Math.random() < 0.5 ? -1 : 1) * 360 * (1 + Math.floor(Math.random() * 3)), // ±360/720/1080°
+        op: 0.55 + Math.random() * 0.35,
+      }
+    })
+    // UN SEUL exemplaire de chaque gros trésor : l'HAMEÇON de Maui et TE FITI (plus petit), qui tombent
+    // un peu plus lentement que les pièces. Chacun est confiné à une MOITIÉ distincte de la colonne (gauche
+    // / droite) pour qu'ils ne tombent jamais au même endroit.
+    const treasures = [
+      { img: '/animations/hamecon.png', size: 12 + Math.random() * 4, left: 6 + Math.random() * 32 }, // vh / % (moitié gauche)
+      { img: '/animations/te_fiti.png', size: 3.5 + Math.random() * 1.5, left: 56 + Math.random() * 34 }, // vh / % (moitié droite)
+    ].map((t) => ({
+      img: t.img,
+      filter: TAMATOA_RAIN_FILTER,
+      left: t.left, // %
+      size: t.size,
+      dur: 24 + Math.random() * 12, // s (chute plus lente, 24–36 s)
+      delay: -(Math.random() * 36), // s
+      spin: (Math.random() < 0.5 ? -1 : 1) * 360 * (1 + Math.floor(Math.random() * 2)), // ±360/720°
+      op: 0.7 + Math.random() * 0.3,
+    }))
+    return [...drops, ...treasures]
+  })
+  // Quelques BULLES qui montent en ondulant, AU-DESSUS de la pluie (réutilise `.bubble-rise`/`.bubble-sway`).
+  const [bubbles] = useState(() =>
+    Array.from({ length: 16 }, () => ({
+      img: TAMATOA_BUBBLES[Math.floor(Math.random() * TAMATOA_BUBBLES.length)],
+      left: Math.random() * 100, // %
+      size: 1.6 + Math.random() * 3.4, // vh (tailles variées)
+      dur: 14 + Math.random() * 12, // s (montée lente, 14–26 s)
+      delay: -(Math.random() * 26), // s (flux continu, déphasé)
+      sway: 1.5 + Math.random() * 3, // vw (amplitude d'ondulation)
+      swayDur: 2.6 + Math.random() * 2.4, // s (période d'ondulation)
+      op: 0.7 + Math.random() * 0.25, // opacité de pointe (PNG transparents → on pousse)
+    })),
+  )
+  // POINTS BLEUS de la surprise : semés partout, position/taille FIXES (aucun défilement). Tirés une
+  // fois au montage ; rendus en permanence mais visibles seulement quand `surpriseOn`.
+  const [dots] = useState(() =>
+    Array.from({ length: 120 }, () => ({
+      top: Math.random() * 100, // %
+      left: Math.random() * 100, // %
+      size: 0.5 + Math.random() * 1.6, // vh
+    })),
+  )
+  // SURPRISE : INDÉPENDANTE de l'animation de passage `disco` (couches découplées). Minuterie interne
+  // (toutes les TAMATOA_SURPRISE_EVERY_MS) ; l'outil de test peut aussi la déclencher via le bus.
+  // Joue TAMATOA_SURPRISE_MS, puis tout revient.
+  useEffect(() => {
+    let onT: ReturnType<typeof setTimeout>
+    let next: ReturnType<typeof setTimeout>
+    let restT: ReturnType<typeof setTimeout>
+    // Durée de fondu des couleurs de méchant (variable CSS lue par les éléments colorés du plateau —
+    // cases, masque Héros, bordure du plateau). Fondu de 3 s à l'entrée comme à la sortie, puis repos
+    // instantané (0 s) pour ne pas ralentir les changements de couleur hors surprise.
+    const setColorFade = (d: string) => document.documentElement.style.setProperty('--villain-color-fade', d)
+    const begin = () => {
+      setColorFade('3s') // entrée : bascule vers le magenta / bleu en fondu de 3 s
+      setSurpriseOn(true)
+      setVillainColorOverride('tamatoa', TAMATOA_SURPRISE_VILLAIN_COLOR)
+      // La couleur du vilain ADVERSE vire au bleu le temps de la surprise (s'il y a un adversaire).
+      if (opponentVillain) setVillainColorOverride(opponentVillain, TAMATOA_SURPRISE_OPPONENT_COLOR)
+      clearTimeout(onT) // si re-déclenchée pendant qu'elle joue, on prolonge proprement
+      onT = setTimeout(() => {
+        setColorFade('3s') // sortie : les couleurs reviennent en fondu lent (comme le décor)
+        setSurpriseOn(false)
+        setVillainColorOverride('tamatoa', null)
+        if (opponentVillain) setVillainColorOverride(opponentVillain, null)
+        clearTimeout(restT)
+        restT = setTimeout(() => setColorFade('0s'), 3000) // une fois le fondu fini, retour instantané au repos
+      }, TAMATOA_SURPRISE_MS)
+    }
+    fireRef.current = begin
+    // Minuterie interne qui se ré-arme : déclenche la surprise périodiquement (1ʳᵉ après une période).
+    const schedule = () => {
+      next = setTimeout(() => {
+        begin()
+        schedule()
+      }, TAMATOA_SURPRISE_EVERY_MS)
+    }
+    schedule()
+    return () => {
+      clearTimeout(onT)
+      clearTimeout(next)
+      clearTimeout(restT)
+      setColorFade('0s')
+      // Garde-fou : on n'abandonne jamais un override posé.
+      setVillainColorOverride('tamatoa', null)
+      if (opponentVillain) setVillainColorOverride(opponentVillain, null)
+    }
+  }, [opponentVillain])
   return (
     <div className="tamatoa-decor" aria-hidden>
+      {/* Triangles « bling-bling » : s'éteignent pendant la surprise. Fondu de 3 s à l'entrée comme à la sortie. */}
+      <div style={{ position: 'absolute', inset: 0, opacity: surpriseOn ? 0 : 1, transition: 'opacity 3s ease-out' }}>
       {tris.map((t, i) => (
         <span
           key={i}
@@ -6425,6 +6576,72 @@ function TamatoaDecor() {
           />
         </span>
       ))}
+      </div>
+      {/* POINTS BLEUS fixes (#0001FB) : remplacent les triangles pendant la surprise (aucun défilement). */}
+      <div style={{ position: 'absolute', inset: 0, opacity: surpriseOn ? 1 : 0, transition: 'opacity 3s ease-out' }}>
+        {dots.map((d, i) => (
+          <span
+            key={`dot-${i}`}
+            style={{
+              position: 'absolute',
+              top: `${d.top}%`,
+              left: `${d.left}%`,
+              width: `${d.size}vh`,
+              height: `${d.size}vh`,
+              borderRadius: '50%',
+              backgroundColor: TAMATOA_SURPRISE_DOT,
+              boxShadow: `0 0 ${d.size * 2.5}vh ${TAMATOA_SURPRISE_DOT}`,
+            }}
+          />
+        ))}
+      </div>
+      {/* Pluie permanente de pièces & diamants qui tombent en tournoyant (devant les triangles).
+          Pendant la surprise, toute la pluie se teinte en cyan (#64D9FE). */}
+      {rain.map((c, i) => (
+        <img
+          key={`rain-${i}`}
+          src={c.img}
+          alt=""
+          className="cw-fall"
+          style={{
+            left: `${c.left}%`,
+            height: `${c.size}vh`,
+            opacity: c.op,
+            filter: surpriseOn ? TAMATOA_SURPRISE_RAIN_FILTER : c.filter,
+            transition: 'filter 3s ease-out',
+            animationDuration: `${c.dur}s`,
+            animationDelay: `${c.delay}s`,
+            '--coin-spin': `${c.spin}deg`,
+          } as CSSProperties}
+          draggable={false}
+        />
+      ))}
+      {/* Quelques bulles qui montent en ondulant, AU-DESSUS de la pluie. */}
+      {bubbles.map((b, i) => (
+        <span
+          key={`bub-${i}`}
+          className="bubble-rise"
+          style={{
+            left: `${b.left}%`,
+            animationDuration: `${b.dur}s`,
+            animationDelay: `${b.delay}s`,
+            '--bubble-op': b.op,
+          } as CSSProperties}
+        >
+          <img
+            src={b.img}
+            alt=""
+            className="bubble-sway"
+            draggable={false}
+            style={{
+              height: `${b.size}vh`,
+              animationDuration: `${b.swayDur}s`,
+              animationDelay: `${b.delay}s`,
+              '--bubble-sway': `${b.sway}vw`,
+            } as CSSProperties}
+          />
+        </span>
+      ))}
       <div className="tamatoa-vignette" />
     </div>
   )
@@ -6433,11 +6650,15 @@ function TamatoaDecor() {
 export function VillainDecor({
   villain,
   side,
+  opponentVillain,
   objectivePct,
   timerRunning,
 }: {
   villain: VillainKey
   side?: 'left' | 'right'
+  /** Vilain ADVERSE (l'autre camp) — utilisé par le décor `tamatoa` : sa surprise teinte temporairement
+   *  la couleur de l'adversaire en bleu. */
+  opponentVillain?: VillainKey
   /** Progression d'objectif (0→100) de CE camp — utilisée par le décor `atmosfear` (phase de lune). */
   objectivePct?: number
   /** La partie « tourne » (même condition que le `GameTimer`) — le décor `atmosfear` y synchronise
@@ -6449,7 +6670,7 @@ export function VillainDecor({
   // Côté fourni à tous les décors (abonnement au bus de surprise du mode test).
   return (
     <DecorSideContext.Provider value={side ?? 'left'}>
-      {renderDecorBody(decor, side, objectivePct, timerRunning)}
+      {renderDecorBody(decor, side, objectivePct, timerRunning, opponentVillain)}
     </DecorSideContext.Provider>
   )
 }
@@ -6459,6 +6680,7 @@ function renderDecorBody(
   side?: 'left' | 'right',
   objectivePct?: number,
   timerRunning?: boolean,
+  opponentVillain?: VillainKey,
 ) {
   switch (decor.kind) {
     case 'film':
@@ -6522,7 +6744,7 @@ function renderDecorBody(
     case 'atmosfear':
       return <AtmosfearDecor side={side} objectivePct={objectivePct} timerRunning={timerRunning} />
     case 'tamatoa':
-      return <TamatoaDecor />
+      return <TamatoaDecor opponentVillain={opponentVillain} />
     case 'oogie':
       return <OogieDecor />
     case 'candy':

@@ -265,6 +265,10 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     tilt: -12 + Math.random() * 24, // ° (inclinaison constante)
   }))
 
+  // Transition DISCO (Tamatoa, path `disco`) : un voile néon plein écran qui transitionne en douceur
+  // entre les teintes (`colors`). Plus de faisceaux.
+  const discoColors = anim?.colors?.length ? anim.colors : ['#0001FB', '#FD27FC', '#64D9FE']
+
   // Montée (Ursula : bulles ; Hadès : âmes) : 18 à 30 éléments par défaut (ou `count`),
   // taille/colonne/vitesse/ondulation au hasard, figés au montage. `sides` les concentre
   // sur les deux marges. La montée est jouée en CSS (cf. bubbleRise).
@@ -826,6 +830,23 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     )
   }
 
+  if (path === 'disco') {
+    // Transition « Shiny » de Tamatoa, plein écran. Un VOILE recolore la scène en TRANSITIONNANT en douceur
+    // entre les teintes néon. Le calque entre/sort en fondu. Rendu DANS LE PLAN DE FOND (z -1, comme les
+    // autres props) → DERRIÈRE les plateaux/cartes : la teinte transparaît à travers les panneaux
+    // translucides et dans les vides, sans recouvrir les cartes. (Teintes en ALPHA et non mix-blend.)
+    return (
+      <div className="tamatoa-disco-layer pointer-events-none absolute inset-0 overflow-hidden" style={{ animationDuration: `${durationSec}s` }} aria-hidden>
+        {/* Voile plein écran : transitionne en douceur entre les 3 teintes (les « changements de couleur
+            généraux »), puis fige la dernière le temps du fondu de sortie. Cycle étalé sur toute la durée. */}
+        <div
+          className="tamatoa-disco-wash"
+          style={{ animationDuration: `${durationSec}s`, '--c1': discoColors[0], '--c2': discoColors[1 % discoColors.length], '--c3': discoColors[2 % discoColors.length] } as CSSProperties}
+        />
+      </div>
+    )
+  }
+
   if (path === 'overgrowth') {
     // Invasion de jungle plein écran (comme smoke-field : portail fixe au-dessus de la scène). Les lianes
     // poussent depuis le haut (scaleY 0→1, pivot en haut), les feuilles éclosent partout (scale 0→1), puis
@@ -1247,7 +1268,7 @@ export function BackgroundAnimation({
   // (chaque animation d'un vilain a sa propre file d'images).
   const imageQueues = useRef<Record<string, string[]>>({})
   const pickImage = (villain: VillainKey, animIdx: number, a: VillainAnimation): string => {
-    if (a.path === 'pages' || a.path === 'coins' || a.path === 'rise' || a.path === 'water-cross' || a.path === 'voodoo' || a.path === 'fire-bottom' || a.path === 'paws' || a.path === 'petals' || a.path === 'smoke-field' || a.path === 'overgrowth' || a.path === 'stardust') return '' // pas d'image unique ici
+    if (a.path === 'pages' || a.path === 'coins' || a.path === 'rise' || a.path === 'water-cross' || a.path === 'voodoo' || a.path === 'fire-bottom' || a.path === 'paws' || a.path === 'petals' || a.path === 'smoke-field' || a.path === 'overgrowth' || a.path === 'stardust' || a.path === 'disco') return '' // pas d'image unique ici
     if (!a.images || a.images.length === 0) return a.image ?? ''
     const key = `${villain}#${animIdx}`
     const q = imageQueues.current

@@ -471,6 +471,51 @@ body {
   .stardust-fall,
   .stardust { animation: none !important; }
 }
+/* ----- Tamatoa « Shiny » : transition disco (path `disco`) -----
+   Transition plein écran : la grotte aux trésors baigne dans une LUMIÈRE NOIRE — un voile néon recolore
+   toute la scène en TRANSITIONNANT en douceur entre 3 teintes (bleu / magenta / cyan). Le calque
+   entre/sort en fondu. Rendu dans le plan de fond (z -1) → DERRIÈRE les plateaux/cartes ; la teinte
+   (alpha) transparaît à travers les panneaux translucides et dans les vides, sans recouvrir les cartes. */
+.tamatoa-disco-layer {
+  animation-name: tamatoaDiscoFade;
+  animation-timing-function: ease-out;
+  animation-iteration-count: 1;
+  animation-fill-mode: both;
+}
+/* Entrée rapide, puis une SORTIE longue et douce (fondu sur les ~40 % de fin = atterrissage progressif :
+   le voile s'éteint en douceur AVANT que le décor de grotte ne revienne, plutôt qu'une coupure nette). */
+@keyframes tamatoaDiscoFade {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  60% { opacity: 1; }
+  100% { opacity: 0; }
+}
+/* Voile plein écran : TRANSITIONNE en douceur entre les 3 teintes (UN seul passage sur toute la durée,
+   `ease-in-out` → le fond interpole d'une couleur à l'autre), puis FIGE la dernière teinte sur les ~40 %
+   de fin (pendant le fondu de sortie). Durée posée inline (= durationSec). */
+.tamatoa-disco-wash {
+  position: absolute;
+  inset: 0;
+  opacity: 0.4;
+  animation-name: tamatoaDiscoHue;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: 1;
+  animation-fill-mode: both;
+}
+@keyframes tamatoaDiscoHue {
+  0% { background-color: var(--c1); }
+  12% { background-color: var(--c2); }
+  24% { background-color: var(--c3); }
+  36% { background-color: var(--c1); }
+  48% { background-color: var(--c2); }
+  60% { background-color: var(--c3); } /* dernière teinte : tenue de 60 % à 100 % (pendant le fondu) */
+  100% { background-color: var(--c3); }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* On fige tout (calque visible, teinte douce et statique). */
+  .tamatoa-disco-layer { animation: none !important; }
+  .tamatoa-disco-wash { animation: none !important; opacity: 0.3; background-color: var(--c2); }
+}
 /* Pages de Slenderman : apparition/disparition en fondu (3 s), ancrées par leur
    centre à une position aléatoire. Le décalage temporel est posé par span. */
 .page-note {
@@ -2687,25 +2732,44 @@ body {
   pointer-events: none;
   background: radial-gradient(125% 95% at 50% 35%, transparent 42%, rgba(30, 14, 40, 0.45) 76%, rgba(14, 6, 22, 0.82) 100%);
 }
-/* Potion qui TOMBE de haut en bas (une toutes les 30 s) en accélérant (ease-in) et en tournant un peu
-   (`--rot`). Position/taille posées inline ; largeur auto (ratio de l'image conservé). */
-.bf-potion {
+/* Potion qui TOMBE de haut en bas (une toutes les 30 s). Deux mouvements séparés sur deux éléments,
+   car ils ont des courbes de vitesse différentes :
+   - le conteneur `.bf-potion-fall` gère la CHUTE (translateY, ease-in → accélère) ;
+   - l'image `.bf-potion` gère le PIVOT lent et régulier (rotate, linéaire) + le fondu d'apparition/sortie.
+   Position posée inline sur le conteneur ; taille inline sur l'image (largeur auto, ratio conservé). */
+.bf-potion-fall {
   position: absolute;
   top: -18vh;
-  width: auto;
   pointer-events: none;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
-  will-change: transform, opacity;
+  will-change: transform;
   animation-name: bfPotionFall;
   animation-timing-function: ease-in;
   animation-iteration-count: 1;
   animation-fill-mode: both;
 }
+.bf-potion {
+  display: block;
+  width: auto;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
+  will-change: transform, opacity;
+  animation-name: bfPotionSpin, bfPotionFade;
+  animation-timing-function: linear;
+  animation-iteration-count: 1;
+  animation-fill-mode: both;
+}
 @keyframes bfPotionFall {
-  0% { transform: translateY(0) rotate(0); opacity: 0; }
+  0% { transform: translateY(0); }
+  100% { transform: translateY(132vh); }
+}
+@keyframes bfPotionSpin {
+  0% { transform: rotate(0); }
+  100% { transform: rotate(var(--rot, 360deg)); }
+}
+@keyframes bfPotionFade {
+  0% { opacity: 0; }
   8% { opacity: 1; }
   92% { opacity: 1; }
-  100% { transform: translateY(132vh) rotate(var(--rot, 0deg)); opacity: 0; }
+  100% { opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   /* On fige la fumée, la lueur et le flash de changement de couleur (le décor reste visible, statique).

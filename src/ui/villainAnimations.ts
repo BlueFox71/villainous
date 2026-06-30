@@ -95,11 +95,14 @@ export interface VillainAnimation {
    *    départs échelonnés le temps du passage, puis se fondent (La Bonne Fée). Densité réglable via `count`.
    *  - `drop` : UNE seule image (tirée parmi `images`, une par passage) tombe LENTEMENT et tout droit du
    *    haut vers le bas, à une position horizontale au hasard, en s'inclinant légèrement (Tamatoa : son
-   *    hameçon de Maui et Te Fiti). Vitesse via `durationSec`. */
+   *    hameçon de Maui et Te Fiti). Vitesse via `durationSec`.
+   *  - `disco` : pas de trajet ; une TRANSITION plein écran — un voile néon recolore la scène en
+   *    TRANSITIONNANT en douceur entre des teintes (`colors`), en fondu d'entrée/sortie (Tamatoa :
+   *    « Shiny », la grotte aux trésors sous lumière noire). Teintes via `colors`, durée via `durationSec`. */
   path?:
     | 'cross' | 'sky-arc' | 'drift-spin' | 'pages' | 'roses' | 'coins' | 'water-cross'
     | 'rise' | 'voodoo' | 'fire-bottom' | 'fade' | 'paws' | 'petals' | 'jet-cross' | 'smoke-field'
-    | 'overgrowth' | 'eject-arc' | 'stardust' | 'drop'
+    | 'overgrowth' | 'eject-arc' | 'stardust' | 'drop' | 'disco'
   /** Tire quelques coups de canon (lueur + fumée à la bouche du canon avant)
    *  pendant le vol. Réservé aux trajectoires `sky-arc`. */
   cannons?: boolean
@@ -151,18 +154,22 @@ export interface VillainAnimation {
   /** Trajectoire `petals` : les pétales portent-ils une petite FLAMMÈCHE ? Défaut `true` (rose enflammée
    *  de Gaston). Mettre `false` pour des pétales sans flamme (fleur d'or de Mère Gothel). */
   petalFlame?: boolean
+  /** Trajectoire `disco` : les teintes néon cyclées (voile plein écran + faisceaux). Au moins 3 couleurs
+   *  CSS conseillées (Tamatoa : bleu / magenta / cyan). Défaut : les 3 teintes de Tamatoa. */
+  colors?: string[]
 }
 
 // Un vilain peut avoir UNE animation, ou PLUSIEURS (tableau) : dans ce cas le planificateur
 // en tire une au hasard à chaque passage.
 export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | VillainAnimation[]>> = {
-  // Tamatoa (Vaiana) : à chaque passage, l'HAMEÇON de Maui OU TE FITI (une seule, en alternance via la
-  // file mélangée de `images`) tombe LENTEMENT et tout droit, de haut en bas (path `drop`).
+  // Tamatoa (Vaiana) : transition « Shiny » — la grotte aux trésors baigne dans une LUMIÈRE NOIRE.
+  // Toute la scène se recolore en TRANSITIONNANT en douceur entre ses 3 teintes néon (bleu / magenta /
+  // cyan) (path `disco`, 5 s). (Son « bling-bling » — pièces, diamants, hameçon de Maui & Te Fiti —
+  // tombe, lui, dans la pluie PERMANENTE de son décor.)
   tamatoa: {
-    images: ['/animations/hamecon.png', '/animations/te_fiti.png'],
-    heightPct: 16, // taille de l'objet qui tombe
-    durationSec: 15, // chute LENTE
-    path: 'drop',
+    durationSec: 5,
+    path: 'disco',
+    colors: ['#0001FB', '#FD27FC', '#64D9FE'], // bleu / magenta / cyan (lumière noire de la grotte)
   },
   // Le Seigneur des clés : une PLUIE DE CLÉS colorées (6 couleurs) tombe du ciel en tournoyant,
   // sur toute la largeur — comme la pluie de pièces de Prince Jean (path `coins`).

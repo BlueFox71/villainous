@@ -6,6 +6,7 @@ import { playHeroHover, playHover, playHeroSelect } from '../sfx'
 import { VILLAIN_GUIDE } from '../villainGuide'
 import { villainDecor } from '../villainDecor'
 import { villainAnimationList } from '../villainAnimations'
+import { villainHasSurprise } from '../surpriseBus'
 import { VILLAIN_PACKS, villainCreator } from '../villainPacks'
 import { useFavoritesStore } from '../store/favoritesStore'
 import { useVillainOrderStore, orderRank } from '../store/villainOrderStore'
@@ -50,8 +51,10 @@ interface VillainMeta {
   release: number
   /** A un décor d'arrière-plan permanent animé (dév). */
   hasDecor: boolean
-  /** A au moins une animation de décor temporaire (dév). */
+  /** A au moins une animation de décor de passage (dév). */
   hasAnim: boolean
+  /** A une surprise de décor déclenchable (dév). */
+  hasSurprise: boolean
 }
 
 /** Liste plate de tous les vilains avec leurs métadonnées (construite une fois). */
@@ -64,6 +67,7 @@ const ALL_VILLAINS: VillainMeta[] = CATEGORIES.flatMap((cat) =>
     creator: villainCreator(key),
     hasDecor: villainDecor(key) !== undefined,
     hasAnim: villainAnimationList(key).length > 0,
+    hasSurprise: villainHasSurprise(key),
   })),
 ).map((v, i) => ({ ...v, release: i }))
 
@@ -233,6 +237,7 @@ export function VillainList({ onBack }: Props) {
   // 'all' (les deux), 'yes' (a la fonctionnalité), 'no' (ne l'a pas).
   const [decorFilter, setDecorFilter] = useState<DevFilter>('all')
   const [animFilter, setAnimFilter] = useState<DevFilter>('all')
+  const [surpriseFilter, setSurpriseFilter] = useState<DevFilter>('all')
 
   // Vilains PUBLIÉS (« Terminés » dans l'Atelier) : ils rejoignent la galerie comme
   // n'importe quel vilain. Placés en fin de leur section d'origine (release élevé).
@@ -253,6 +258,7 @@ export function VillainList({ onBack }: Props) {
           release: 10000 + i,
           hasDecor: false,
           hasAnim: false,
+          hasSurprise: false,
         })),
     [customVillains],
   )
@@ -272,7 +278,8 @@ export function VillainList({ onBack }: Props) {
         (!onlyFavorites || favSet.has(v.key)) &&
         (playedFilter === 'all' || (playedFilter === 'played') === isPlayed(v.key)) &&
         matchesDevFilter(decorFilter, v.hasDecor) &&
-        matchesDevFilter(animFilter, v.hasAnim),
+        matchesDevFilter(animFilter, v.hasAnim) &&
+        matchesDevFilter(surpriseFilter, v.hasSurprise),
     ).map((v) => ({ kind: 'villain', name: v.name, origin: v.origin, release: v.release, difficulty: v.difficulty, meta: v }))
     // « À venir » : vilains de packs non développés (filtrés seulement par recherche + origine).
     const upcoming: GridItem[] = showUpcoming
@@ -289,7 +296,7 @@ export function VillainList({ onBack }: Props) {
       // puis ordre de sortie pour les vilains non encore placés (et les « à venir »).
       return rank(keyOf(a)) - rank(keyOf(b)) || a.release - b.release
     })
-  }, [query, difficulties, origins, sort, onlyFavorites, playedFilter, favSet, stats, decorFilter, animFilter, showUpcoming, publishedMetas, customOrder])
+  }, [query, difficulties, origins, sort, onlyFavorites, playedFilter, favSet, stats, decorFilter, animFilter, surpriseFilter, showUpcoming, publishedMetas, customOrder])
 
   const hasFilters =
     query.trim() !== '' ||
@@ -299,7 +306,8 @@ export function VillainList({ onBack }: Props) {
     playedFilter !== 'all' ||
     showUpcoming ||
     decorFilter !== 'all' ||
-    animFilter !== 'all'
+    animFilter !== 'all' ||
+    surpriseFilter !== 'all'
   const resetFilters = () => {
     setQuery('')
     setDifficulties(new Set())
@@ -309,6 +317,7 @@ export function VillainList({ onBack }: Props) {
     setShowUpcoming(false)
     setDecorFilter('all')
     setAnimFilter('all')
+    setSurpriseFilter('all')
   }
 
   // Entrer/sortir du mode « Modifier l'ordre des villains » : on remet le tri sur
@@ -760,10 +769,22 @@ export function VillainList({ onBack }: Props) {
                 </select>
               </label>
               <label className="flex flex-col gap-1 text-sm text-white/80">
-                Animation temporaire
+                Animation de passage
                 <select
                   value={animFilter}
                   onChange={(e) => setAnimFilter(e.target.value as DevFilter)}
+                  className="rounded-lg border border-white/15 bg-black px-2 py-1 text-sm text-white focus:border-emerald-300/50 focus:outline-none"
+                >
+                  {DEV_FILTER_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value} className="bg-black text-white">{o.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1 text-sm text-white/80">
+                Animation surprise
+                <select
+                  value={surpriseFilter}
+                  onChange={(e) => setSurpriseFilter(e.target.value as DevFilter)}
                   className="rounded-lg border border-white/15 bg-black px-2 py-1 text-sm text-white focus:border-emerald-300/50 focus:outline-none"
                 >
                   {DEV_FILTER_OPTIONS.map((o) => (
