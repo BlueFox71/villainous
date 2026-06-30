@@ -165,15 +165,29 @@ mémoire projet « villainous-fate-malus ».
 - Ne committe que sur demande. **On committe toujours directement sur `main`** :
   ne crée pas de branche, ne propose pas de PR.
 - **Avant chaque commit, ajoute une note de version** en tête de `PATCH_NOTES`
-  (`src/ui/patchNotes.ts`) : nouvelle `version` (incrémentée), `date`, `title`
-  court et `changes` résumant les modifications en langage joueur (FR).
+  (`src/ui/patchNotes.ts`) : nouvelle `version`, `date`, `title` court, des `tags`
+  et des `changes` **brefs** en langage joueur (FR).
+  - **`tags`** : OBLIGATOIRE, 1 à 4 tags de l'union `PatchTag` (cf. `patchNotes.ts`),
+    du plus important au moins important, résumant les domaines touchés (🦹 villain,
+    ✨ animation, 📜 liste-villains, 🧪 atelier, 🌐 reseau, 🐛 correctif,
+    ⚖️ equilibrage, 🤖 ia, 🎴 cartes, 📐 regles, 🔊 son, 🖥️ interface, 👤 profil).
+    `villain` dès qu'un nouveau vilain est introduit ; n'ajoute `cartes` que pour
+    les notes **sans** nouveau vilain.
+  - **`changes`** : reste **concis** — une phrase courte par point, l'essentiel
+    (ce qui change + les noms-clés), **gras** Markdown sur quelques termes. Pas de
+    justifications ni de détails techniques.
+- **Numérotation `MAJOR.MINOR.PATCH`** (on est en `1.x.y` depuis `1.0.0`) :
+  - **MAJOR** : reste à **1**.
+  - **MINOR** : **+1 dès qu'un nouveau vilain est créé** ; le PATCH **repart à 0**
+    (ex. `1.4.7` + nouveau vilain → `1.5.0`).
+  - **PATCH** : **+1 pour toute autre modification** (sans nouveau vilain)
+    (ex. `1.5.0` → `1.5.1`).
 - **Tant que les commits ne sont pas poussés** (`git log origin/main..main`), ne
   laisse pas s'accumuler une note de version par commit : **fusionne-les en une
-  seule entrée** en tête de `PATCH_NOTES` (changes regroupés, doublons retirés).
-  Le numéro de cette entrée fusionnée suit la logique de **l'avant-dernière**
-  entrée (la première déjà poussée, juste en dessous) : on l'incrémente d'un cran
-  (ex. dernière poussée = `0.61` → l'entrée fusionnée devient `0.62`). Une fois
-  poussé, repars d'une nouvelle entrée au commit suivant.
+  seule entrée** en tête de `PATCH_NOTES` (changes et tags regroupés, doublons
+  retirés). Son numéro suit la même règle MINOR/PATCH à partir de la dernière
+  entrée **déjà poussée**. Une fois poussé, repars d'une nouvelle entrée au commit
+  suivant.
 - **Avant chaque commit, range les nouveaux fichiers d'`assets/`.** Si `git status`
   montre des fichiers non rangés à la racine d'`assets/` (ou mal placés), déplace-les
   dans le sous-dossier adapté **— mais demande validation avant de déplacer/supprimer.**

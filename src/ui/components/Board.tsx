@@ -2,7 +2,7 @@ import type { CardInstance, LocationId, PlayerState } from '../../engine/types'
 import type { Accent } from '../accents'
 import { LocationCard } from './LocationCard'
 import { LOCATIONS_LEFT } from './BoardImage'
-import { VILLAIN_COLOR } from '../villainColors'
+import { villainColor } from '../villainColorState'
 
 interface Props {
   player: PlayerState
@@ -116,7 +116,7 @@ export function Board({
   onCardDragCancel,
   draggingInstanceId = null,
 }: Props) {
-  const cellColor = VILLAIN_COLOR[player.villain]
+  const cellColor = villainColor(player.villain)
 
   // Sa Sucrerie — le circuit (sugar-rush) n'est PAS une zone de cartes : la grille du
   // bas n'affiche que les 4 zones de pose (Alliés/Objets/Héros). Les actions du circuit

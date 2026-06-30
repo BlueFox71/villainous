@@ -176,7 +176,9 @@ export type VillainDecor =
   | { kind: 'atmosfear' }
   // `tamatoa` : l'antre du crabe Tamatoa (Vaiana, chanson « Shiny / Bling Bling »). Fond NOIR sur
   // lequel défilent vers la DROITE plein de TRIANGLES JAUNES FLOUTÉS et brillants (le bling-bling),
-  // rotation fixe, couleur/vitesse identiques. 100 % CSS.
+  // rotation fixe, couleur/vitesse identiques ; PAR-DESSUS, une pluie PERMANENTE de pièces d'or
+  // (Prince Jean, 90 %) et de diamants blancs (10 %) qui tombent en tournoyant (`coinFall` en boucle),
+  // plus un gros hameçon de Maui & Te Fiti ; et quelques BULLES qui montent par-dessus le tout.
   | { kind: 'tamatoa' }
 
 export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
@@ -262,7 +264,7 @@ export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   // en bas, tempête de pluie battante + éclairs verdâtres, et le Hollandais Volant qui tangue.
   davyJones: { kind: 'flyingDutchman', ship: '/animations/bateau_hollandais.png' },
   // Tamatoa (Vaiana) : l'antre « Shiny / Bling Bling » — fond noir + triangles jaunes floutés et
-  // brillants qui défilent vers la droite.
+  // brillants qui défilent vers la droite, sous une pluie permanente de pièces d'or & diamants.
   tamatoa: { kind: 'tamatoa' },
 }
 
@@ -404,6 +406,20 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
       return { images: [decor.apple], videos: [decor.src] }
     case 'goldDust':
       return { images: Array.from({ length: 11 }, (_, i) => `/animations/piece-${i + 1}.png`), videos: [] }
+    case 'tamatoa':
+      // La pluie « bling-bling » permanente : les 11 pièces de Prince Jean + les 4 diamants + les
+      // gros trésors (hameçon de Maui & Te Fiti) + les bulles qui montent par-dessus.
+      return {
+        images: [
+          ...Array.from({ length: 11 }, (_, i) => `/animations/piece-${i + 1}.png`),
+          ...Array.from({ length: 4 }, (_, i) => `/animations/diamant-${i + 1}.png`),
+          '/animations/hamecon.png',
+          '/animations/te_fiti.png',
+          '/animations/bulle-bleu.png',
+          '/animations/bulle.png',
+        ],
+        videos: [],
+      }
     case 'thorns':
       return { images: ['/animations/ronces.png'], videos: [] }
     case 'forest':

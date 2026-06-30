@@ -41,7 +41,8 @@ import { rankedFireTargets } from '../engine/shereKhan'
 import { FREE_PLAY_NO_ACTION_ID } from '../engine/actions'
 import type { CardInstance, KeyColor, LocationAction, PendingDice, PlayerState, ShowcaseEvent } from '../engine/types'
 import { BLUE, RED, accentVars } from './accents'
-import { VILLAIN_COLOR, villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from './villainColors'
+import { villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from './villainColors'
+import { villainColor, useVillainColorVersion } from './villainColorState'
 import { PlayerPanel } from './components/PlayerPanel'
 import { Avatar, PlayerAvatar } from './components/PlayerAvatar'
 import { Board } from './components/Board'
@@ -1092,6 +1093,9 @@ const BOT_STEP_MS = 700
 const CASTLE_THEFT_READ_MS = 2400
 
 export default function App({ onExit }: { onExit?: () => void } = {}) {
+  // S'abonne aux overrides temporaires de couleur de vilain (ex. surprise Tamatoa) : tout le sous-arbre
+  // se redessine quand un override est posé/retiré, et les lectures `villainColor()` reflètent la couleur.
+  useVillainColorVersion()
   const state = useGameStore((s) => s.state)
   const move = useGameStore((s) => s.move)
   const moveTrack = useGameStore((s) => s.moveTrack)
@@ -1418,8 +1422,6 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       fire()
     }, 3000)
   }
-  // Mode test : vilain choisi dans le select pour prévisualiser son animation (n'importe lequel).
-  const [testVillain, setTestVillain] = useState<VillainKey>(humanVillainKey)
   // Mode test — Seigneur des clés : surcharge de la progression d'objectif (0→100) par côté pour
   // tester la phase de lune du décor `atmosfear`. `null` = utiliser le % réel de l'objectif.
   const [atmosfearObjOverride, setAtmosfearObjOverride] = useState<{ left: number | null; right: number | null }>({
@@ -2103,8 +2105,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     }
   }
   // Couleurs des deux vilains en présence (repli sur teintes neutres si inconnue).
-  const userColor = VILLAIN_COLOR[user.villain] ?? DEFAULT_TINT_A
-  const botColor = VILLAIN_COLOR[bot.villain] ?? DEFAULT_TINT_B
+  const userColor = villainColor(user.villain) ?? DEFAULT_TINT_A
+  const botColor = villainColor(bot.villain) ?? DEFAULT_TINT_B
   // Sous-titres + avatars des panneaux : pseudo du joueur local (avec son avatar de
   // profil) ; « Ordinateur » pour un bot (avec la vignette de son vilain) ; nom + avatar
   // du lobby pour un adversaire réseau.
@@ -5515,11 +5517,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             gouttière `px-3` (sur un item de grille étiré, une marge négative AGRANDIT la
             boîte de ce côté) → on ne voit plus le trait qui délimitait le décor. */}
         <div className="relative overflow-hidden" style={{ marginLeft: '-10%' }}>
-          <VillainDecor villain={humanVillainKey} side="left" objectivePct={atmosfearObjPct.left} timerRunning={gameTimerRunning} />
+          <VillainDecor villain={humanVillainKey} side="left" opponentVillain={opponentVillainKey} objectivePct={atmosfearObjPct.left} timerRunning={gameTimerRunning} />
         </div>
         <div className="hidden lg:block" />
         <div className="relative overflow-hidden" style={{ marginRight: '-10%' }}>
-          <VillainDecor villain={opponentVillainKey} side="right" objectivePct={atmosfearObjPct.right} timerRunning={gameTimerRunning} />
+          <VillainDecor villain={opponentVillainKey} side="right" opponentVillain={humanVillainKey} objectivePct={atmosfearObjPct.right} timerRunning={gameTimerRunning} />
         </div>
       </div>
       {/* Décor animé : juste au-dessus du fond, derrière toute l'UI. Visible là où
@@ -5573,7 +5575,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                     <VillainPortraitPicker
                       value={currentVillains[0]}
                       onChange={(k) => handlePickVillain(0, k)}
-                      accent={VILLAIN_COLOR[user.villain]}
+                      accent={villainColor(user.villain)}
                     />
                   </div>
                   <div className="flex items-center justify-between gap-2">
@@ -5581,7 +5583,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                     <VillainPortraitPicker
                       value={currentVillains[1]}
                       onChange={(k) => handlePickVillain(1, k)}
-                      accent={VILLAIN_COLOR[bot.villain]}
+                      accent={villainColor(bot.villain)}
                     />
                   </div>
                 </div>
@@ -5670,53 +5672,27 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                   })}
                 </div>
                 {(() => {
-                  const anim = villainAnimation(testVillain)
-                  const hasAnim = !!anim
-                  const twoSidedPaths = new Set(['cross', 'sky-arc', 'drift-spin', 'jet-cross'])
-                  // `water-cross` est bidirectionnel quand c'est une IMAGE (Kronk de Yzma…) ; la vidéo
-                  // (Tic-Tac de Crochet) reste toujours RTL → un seul bouton.
-                  const twoSided =
-                    hasAnim &&
-                    (twoSidedPaths.has(anim!.path ?? 'cross') ||
-                      (anim!.path === 'water-cross' && !anim!.video))
-                  const btn =
-                    'rounded px-1.5 py-0.5 text-xs text-white/80 enabled:hover:bg-white/10 disabled:opacity-30'
+                  // Aperçu de fin de partie : 3 s de compte à rebours (comme les animations) avant que
+                  // l'éclat du plateau + l'écran Victoire/Défaite ne se déclenchent.
+                  const vCd = animCountdown['victory']
+                  const dCd = animCountdown['defeat']
                   return (
-                    <div className="flex flex-wrap items-center gap-1">
-                      <span className="text-sm">🚢</span>
-                      <VillainPortraitPicker
-                        value={testVillain}
-                        onChange={(k) => setTestVillain(k)}
-                        dim={(k) => !villainAnimation(k)}
-                      />
-                      {twoSided ? (
-                        <>
-                          <button onClick={() => fireDebugAnim(testVillain, 'player')} disabled={!hasAnim} title="Côté joueur (bas)" className={btn}>
-                            bas
-                          </button>
-                          <button onClick={() => fireDebugAnim(testVillain, 'opponent')} disabled={!hasAnim} title="Côté adversaire (haut)" className={btn}>
-                            haut
-                          </button>
-                        </>
-                      ) : (
-                        <button onClick={() => fireDebugAnim(testVillain, 'player')} disabled={!hasAnim} title="Jouer l'animation" className={btn}>
-                          jouer
-                        </button>
-                      )}
-                      <span className="mx-1 w-px self-stretch bg-white/20" />
+                    <div className="mt-3 flex flex-wrap items-center gap-1">
                       <button
-                        onClick={() => { setTestEndKind('victory'); setTestShatterSeat('bot') }}
-                        title="Aperçu : VICTOIRE (le plateau adverse explose puis l'écran de victoire)"
-                        className="rounded border border-amber-400/60 px-2 py-0.5 text-amber-200 hover:bg-amber-500/10"
+                        onClick={() => startAnimCountdown('victory', () => { setTestEndKind('victory'); setTestShatterSeat('bot') })}
+                        disabled={vCd != null}
+                        title="Aperçu : VICTOIRE (le plateau adverse explose puis l'écran de victoire) — après 3 s"
+                        className="rounded border border-amber-400/60 px-2 py-0.5 text-amber-200 enabled:hover:bg-amber-500/10 disabled:opacity-30"
                       >
-                        🏆 Victoire
+                        🏆 Victoire{vCd != null ? ` — ${vCd}s` : ''}
                       </button>
                       <button
-                        onClick={() => { setTestEndKind('defeat'); setTestShatterSeat('user') }}
-                        title="Aperçu : DÉFAITE (votre plateau explose puis l'écran de défaite)"
-                        className="rounded border border-slate-400/60 px-2 py-0.5 text-slate-200 hover:bg-slate-500/10"
+                        onClick={() => startAnimCountdown('defeat', () => { setTestEndKind('defeat'); setTestShatterSeat('user') })}
+                        disabled={dCd != null}
+                        title="Aperçu : DÉFAITE (votre plateau explose puis l'écran de défaite) — après 3 s"
+                        className="rounded border border-slate-400/60 px-2 py-0.5 text-slate-200 enabled:hover:bg-slate-500/10 disabled:opacity-30"
                       >
-                        💀 Défaite
+                        💀 Défaite{dCd != null ? ` — ${dCd}s` : ''}
                       </button>
                     </div>
                   )
@@ -5886,7 +5862,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             // la mesure du rect par MirrorShatter reste correcte).
             style={userBoardDestroyed ? { visibility: 'hidden' } : undefined}
           >
-            <BoardImage player={user} showPawn pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[user.villain]}, white 45%)`} imgClassName="border border-[color:var(--pa-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} unmaskHeroLocationId={persifleurLoc} obstacleTargets={state.pendingObstacle && state.pendingObstacle.chooserIndex === HUMAN && state.pendingObstacle.kind === 'remove' ? user.locations.map((l) => l.id).filter((id) => (user.obstacles?.[id] ?? 0) > 0 && (!state.pendingObstacle!.sameLocation || !state.pendingObstacle!.lockedLocationId || state.pendingObstacle!.lockedLocationId === id)) : undefined} onObstacleClick={resolveObstacle} keyPick={state.pendingKey && state.pendingKey.playerIndex === HUMAN && state.pendingKey.kind === 'take' && !dieAnim ? { locationId: state.pendingKey.locationId, color: state.pendingKey.color } : undefined} onKeyClick={resolveKey} crewmateCandidates={state.pendingCrewmateKill?.playerIndex === HUMAN ? state.pendingCrewmateKill.candidateColors : undefined} onCrewmateClick={(color) => { if (state.pendingCrewmateKill?.mode === 'kill') playKillSound(); resolveCrewmateKill(color) }} crewmateSelectVerb={state.pendingCrewmateKill?.mode === 'reassure' ? 'Rassurer' : state.pendingCrewmateKill?.mode === 'kill-normal' ? 'Éliminer' : state.pendingCrewmateKill?.mode === 'move' ? 'Déplacer' : 'Défausser'} pawnDraggable={pawnDraggable} pawnDragging={draggingPawn} pawnHeightOverride={pawnEdit && pawnEdit.villain === villainKeyOf(user.villain) ? pawnEdit.size : undefined} onPawnDragStart={handlePawnDragStart} onPawnDragMove={handlePawnDragMove} onPawnDragDrop={handlePawnDragDrop} onPawnDragCancel={handlePawnDragCancel} />
+            <BoardImage player={user} showPawn pawnOutline={`color-mix(in srgb, ${villainColor(user.villain)}, white 45%)`} imgClassName="border border-[color:var(--pa-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} unmaskHeroLocationId={persifleurLoc} obstacleTargets={state.pendingObstacle && state.pendingObstacle.chooserIndex === HUMAN && state.pendingObstacle.kind === 'remove' ? user.locations.map((l) => l.id).filter((id) => (user.obstacles?.[id] ?? 0) > 0 && (!state.pendingObstacle!.sameLocation || !state.pendingObstacle!.lockedLocationId || state.pendingObstacle!.lockedLocationId === id)) : undefined} onObstacleClick={resolveObstacle} keyPick={state.pendingKey && state.pendingKey.playerIndex === HUMAN && state.pendingKey.kind === 'take' && !dieAnim ? { locationId: state.pendingKey.locationId, color: state.pendingKey.color } : undefined} onKeyClick={resolveKey} crewmateCandidates={state.pendingCrewmateKill?.playerIndex === HUMAN ? state.pendingCrewmateKill.candidateColors : undefined} onCrewmateClick={(color) => { if (state.pendingCrewmateKill?.mode === 'kill') playKillSound(); resolveCrewmateKill(color) }} crewmateSelectVerb={state.pendingCrewmateKill?.mode === 'reassure' ? 'Rassurer' : state.pendingCrewmateKill?.mode === 'kill-normal' ? 'Éliminer' : state.pendingCrewmateKill?.mode === 'move' ? 'Déplacer' : 'Défausser'} pawnDraggable={pawnDraggable} pawnDragging={draggingPawn} pawnHeightOverride={pawnEdit && pawnEdit.villain === villainKeyOf(user.villain) ? pawnEdit.size : undefined} onPawnDragStart={handlePawnDragStart} onPawnDragMove={handlePawnDragMove} onPawnDragDrop={handlePawnDragDrop} onPawnDragCancel={handlePawnDragCancel} />
             <BoardActions
               player={user}
               housesHere={bot.houses}
@@ -6833,7 +6809,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             <GameLog
               log={state.log}
               playerNames={state.players.map((p) => p.villainName)}
-              playerColors={state.players.map((p) => VILLAIN_COLOR[p.villain])}
+              playerColors={state.players.map((p) => villainColor(p.villain))}
             />
           </div>
           {/* Case d'actions : boutons de confirmation/annulation déplacés hors de la
@@ -6909,7 +6885,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             // Idem côté bot : masquer le plateau vivant pendant qu'il est « détruit ».
             style={botBoardDestroyed ? { visibility: 'hidden' } : undefined}
           >
-            <BoardImage player={bot} showPawn pawnHeightOverride={pawnEdit && pawnEdit.villain === villainKeyOf(bot.villain) ? pawnEdit.size : undefined} pawnOutline={`color-mix(in srgb, ${VILLAIN_COLOR[bot.villain]}, white 45%)`} imgClassName="border border-[color:var(--po-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} crewmateCandidates={state.pendingCrewmateSuspect?.chooserIndex === HUMAN && state.pendingCrewmateSuspect.targetIndex === BOT ? (bot.crewmates ?? []).filter((c) => !c.discarded && !c.suspect).map((c) => c.color) : undefined} onCrewmateClick={resolveCrewmateSuspect} crewmateSelectVerb="Rendre suspect" />
+            <BoardImage player={bot} showPawn pawnHeightOverride={pawnEdit && pawnEdit.villain === villainKeyOf(bot.villain) ? pawnEdit.size : undefined} pawnOutline={`color-mix(in srgb, ${villainColor(bot.villain)}, white 45%)`} imgClassName="border border-[color:var(--po-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} crewmateCandidates={state.pendingCrewmateSuspect?.chooserIndex === HUMAN && state.pendingCrewmateSuspect.targetIndex === BOT ? (bot.crewmates ?? []).filter((c) => !c.discarded && !c.suspect).map((c) => c.color) : undefined} onCrewmateClick={resolveCrewmateSuspect} crewmateSelectVerb="Rendre suspect" />
             {/* Aucune pastille d'action affichée pour le bot, SAUF le flash one-shot
                 de l'action qu'il vient de jouer (pour visualiser ses coups). */}
             <BoardActions
@@ -8229,7 +8205,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               height: `${Math.round(user.pawnHeightPx * 1.3)}px`,
               transform: 'translate(-50%, -50%)',
               willChange: 'left, top, transform',
-              filter: `drop-shadow(0 0 2px #fff) drop-shadow(0 0 7px ${VILLAIN_COLOR[user.villain]})`,
+              filter: `drop-shadow(0 0 2px #fff) drop-shadow(0 0 7px ${villainColor(user.villain)})`,
             }}
           />,
           document.body,

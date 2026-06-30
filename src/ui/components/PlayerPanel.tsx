@@ -3,7 +3,7 @@ import type { PlayerState } from '../../engine/types'
 import type { Accent } from '../accents'
 import { useAnimatedNumber } from '../hooks/useAnimatedNumber'
 import { objectiveScore } from '../../ai/heuristicBot'
-import { VILLAIN_COLOR } from '../villainColors'
+import { villainColor } from '../villainColorState'
 
 interface Props {
   player: PlayerState
@@ -40,7 +40,7 @@ export function PlayerPanel({ player, accent, isActive, isWinner, showObjective 
   }, [player.power])
   useEffect(() => () => { if (glowTimer.current) clearTimeout(glowTimer.current) }, [])
   // Fond teinté à la couleur du méchant (plus marqué quand c'est son tour).
-  const color = VILLAIN_COLOR[player.villain]
+  const color = villainColor(player.villain)
   return (
     <div
       className={`player rounded-xl border-2 px-4 py-5 shadow-lg backdrop-blur-sm transition-colors ${isActive ? accent.panelActive : accent.panelIdle}`}

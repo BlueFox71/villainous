@@ -12,6 +12,8 @@ interface Props {
   onStart?: () => void
   /** Appelé une fois l'animation terminée (éclats partis → écran de fin). */
   onDone?: () => void
+  /** Couleur des fissures. Défaut : noir. */
+  color?: string
 }
 
 // Phase « fissures » calée sur la DURÉE du son « craquement » (≈ 1,95 s) ; puis
@@ -173,7 +175,7 @@ function buildShatter(): { shards: Shard[]; cracks: { d: string; delay: number }
  * l'écran comme un miroir brisé (inspiration Hearthstone), avant l'écran de fin.
  * Overlay plein écran (portail) calé sur le plateau `targetRef`. `onDone` en fin.
  */
-export function MirrorShatter({ src, targetRef, onStart, onDone }: Props) {
+export function MirrorShatter({ src, targetRef, onStart, onDone, color = 'rgba(8,10,14,0.95)' }: Props) {
   const { shards, cracks } = useMemo(() => buildShatter(), [])
   const [phase, setPhase] = useState<'crack' | 'boom'>('crack')
   const [rect, setRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
@@ -248,14 +250,14 @@ export function MirrorShatter({ src, targetRef, onStart, onDone }: Props) {
             className="absolute inset-0 h-full w-full"
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
-            style={{ opacity: phase === 'crack' ? 1 : 0, transition: 'opacity 0.3s ease-out', filter: 'drop-shadow(0 0 1.2px rgba(180,220,255,0.9))' }}
+            style={{ opacity: phase === 'crack' ? 1 : 0, transition: 'opacity 0.3s ease-out', filter: 'drop-shadow(0 0 1.4px rgba(255,255,255,0.85))' }}
           >
             {cracks.map((c, i) => (
               <path
                 key={i}
                 d={c.d}
                 fill="none"
-                stroke="rgba(248,252,255,0.97)"
+                stroke={color}
                 strokeWidth={0.75}
                 strokeLinecap="round"
                 strokeLinejoin="round"

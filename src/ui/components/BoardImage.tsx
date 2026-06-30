@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import type { PlayerState } from '../../engine/types'
 import { getCardDef } from '../../data/registry'
 import { enlargeCoveredAction } from '../../engine/rules'
-import { VILLAIN_COLOR } from '../villainColors'
+import { villainColor } from '../villainColorState'
 import { SUGAR_RUSH_TRACK } from './sugarRushTrack'
 
 // Géométrie mesurée sur board.png (Prince Jean). Le panneau de gauche (portrait
@@ -176,7 +176,7 @@ export function BoardImage({
   // déclencher, capture du pointeur, clic droit = annulation).
   const pawnDragRef = useRef<{ startX: number; startY: number; dragging: boolean } | null>(null)
   const pawnIndex = player.locations.findIndex((l) => l.id === player.pawnLocation)
-  const coverColor = VILLAIN_COLOR[player.villain] ?? '#000000'
+  const coverColor = villainColor(player.villain) ?? '#000000'
   const cover = HERO_COVER[player.villain] ?? { top: 0, height: TOP_ACTIONS_HEIGHT }
 
   // Sa Sucrerie — CIRCUIT EN HUIT : le pion ne change pas de lieu mais avance sur la
@@ -198,7 +198,7 @@ export function BoardImage({
         src={player.boardImage}
         alt={`Plateau de ${player.villainName}`}
         className={`w-full rounded-lg ${imgClassName}`}
-        style={{ borderColor: `color-mix(in srgb, ${coverColor}, white 45%)` }}
+        style={{ borderColor: `color-mix(in srgb, ${coverColor}, white 45%)`, transition: 'border-color var(--villain-color-fade, 0s) ease-out' }}
       />
 
       {/* Ratigan — tuile Objectif posée dans le panneau gauche du plateau (qui
@@ -567,6 +567,7 @@ export function BoardImage({
                 width: `${PAWN_STEP}%`,
                 height: `${cover.height}%`,
                 backgroundColor: coverColor,
+                transition: 'background-color var(--villain-color-fade, 0s) ease-out',
               }}
               title={title}
             >
@@ -597,6 +598,7 @@ export function BoardImage({
                   width: `${PAWN_STEP / 2}%`,
                   height: `${cover.height}%`,
                   backgroundColor: coverColor,
+                  transition: 'background-color var(--villain-color-fade, 0s) ease-out',
                 }}
                 title={title}
               >
@@ -636,6 +638,7 @@ export function BoardImage({
                 width: `${PAWN_STEP / 2}%`,
                 height: `${cover.height}%`,
                 backgroundColor: coverColor,
+                transition: 'background-color var(--villain-color-fade, 0s) ease-out',
               }}
               title={`${h.name} (agrandi) déborde sur ce lieu`}
             />,
