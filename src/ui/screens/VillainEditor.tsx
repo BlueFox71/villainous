@@ -458,7 +458,7 @@ export function VillainEditor({ onBack, onPlay }: Props) {
           </h1>
         </div>
         {draft && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {busy ? (
               <span className="text-xs text-amber-300/70">⏳ génération…</span>
             ) : (
@@ -500,20 +500,24 @@ export function VillainEditor({ onBack, onPlay }: Props) {
             >
               ⬇ .json
             </button>
-            <select
-              value={testOpponent}
-              onChange={(ev) => setTestOpponent(ev.target.value as VillainKey | '')}
-              title="Adversaire de la partie de test"
-              className="rounded-lg border border-white/20 bg-slate-900/80 px-2 py-1.5 text-sm font-semibold text-white/80 transition hover:border-emerald-300/70"
-            >
-              <option value="">Adversaire : aléatoire</option>
-              {(Object.keys(VILLAIN_REGISTRY) as VillainKey[])
-                .map((k) => ({ k, name: VILLAIN_REGISTRY[k].def.name }))
-                .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
-                .map(({ k, name }) => (
-                  <option key={k} value={k}>{name}</option>
-                ))}
-            </select>
+            {/* Choix de l'ADVERSAIRE pour la partie de test (sinon aléatoire). */}
+            <label className="flex items-center gap-1 rounded-lg border border-emerald-400/60 bg-emerald-400/10 px-2 py-1.5 text-xs font-semibold text-emerald-100">
+              🆚
+              <select
+                value={testOpponent}
+                onChange={(ev) => setTestOpponent(ev.target.value as VillainKey | '')}
+                title="Adversaire de la partie de test"
+                className="max-w-[10rem] bg-transparent text-sm font-semibold text-emerald-100 outline-none [&>option]:bg-slate-900 [&>option]:text-white"
+              >
+                <option value="">Adversaire : aléatoire</option>
+                {(Object.keys(VILLAIN_REGISTRY) as VillainKey[])
+                  .map((k) => ({ k, name: VILLAIN_REGISTRY[k].def.name }))
+                  .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+                  .map(({ k, name }) => (
+                    <option key={k} value={k}>{name}</option>
+                  ))}
+              </select>
+            </label>
             <button
               type="button"
               onClick={onPlayClick}

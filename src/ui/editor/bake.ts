@@ -4,13 +4,15 @@
 import type { CustomVillain } from '../../data/customVillain'
 import { FATE_CARD_COLOR } from '../../data/customVillain'
 import { renderCardFace, renderCardBack } from './cardRender'
-import { renderBoard } from './boardRender'
+import { renderBoard, renderLocationColumnB, renderAltObjectiveBoard } from './boardRender'
 import { downscaleDataUrl } from './imageUtils'
 
 /** Largeur de stockage des faces (suffisante à l'affichage en jeu, plus légère). */
 const FACE_STORE_W = 720
 const BACK_STORE_W = 600
 const BOARD_STORE_W = 2000
+/** Largeur de stockage d'une image de colonne (face B d'un lieu). */
+const COLUMN_STORE_W = 520
 
 /** Rend toutes les faces de cartes + les dos, et renvoie un CustomVillain prêt à jouer.
  *  `onProgress(done, total)` est appelé après chaque image figée (pour une barre de
@@ -19,7 +21,10 @@ export async function bakeVillain(
   v: CustomVillain,
   onProgress?: (done: number, total: number) => void,
 ): Promise<CustomVillain> {
-  const total = v.cards.length + 3
+  // +3 : dos Vilain, dos Fatalité, plateau. +1 par lieu transformable (colonne face B).
+  // +1 si objectif alternatif (plateau face B).
+  const altLocCount = v.locations.filter((l) => l.alt).length
+  const total = v.cards.length + 3 + altLocCount + (v.altObjective ? 1 : 0)
   let done = 0
   const tick = () => onProgress?.(++done, total)
   // Types personnalisés utilisés dans le deck (nom + couleur) → coloration de leurs
@@ -49,5 +54,22 @@ export async function bakeVillain(
   tick()
   const boardImage = await downscaleDataUrl(await renderBoard(v), BOARD_STORE_W, 'image/jpeg', 0.9)
   tick()
-  return { ...v, cards, backVillainImage, backFateImage, boardImage }
+  // Lieux TRANSFORMABLES : image de colonne bakée pour la face B (superposée en jeu).
+  const locations: CustomVillain['locations'] = []
+  for (let i = 0; i < v.locations.length; i++) {
+    const loc = v.locations[i]
+    if (!loc.alt) {
+      locations.push(loc)
+      continue
+    }
+    const columnImage = await downscaleDataUrl(await renderLocationColumnB(v, i), COLUMN_STORE_W)
+    locations.push({ ...loc, alt: { ...loc.alt, columnImage } })
+    tick()
+  }
+  // Objectif ALTERNATIF : plateau de la face B (image vilain + texte alternatifs).
+  const altBoardImage = v.altObjective
+    ? await downscaleDataUrl(await renderAltObjectiveBoard(v), BOARD_STORE_W, 'image/jpeg', 0.9)
+    : undefined
+  if (v.altObjective) tick()
+  return { ...v, cards, backVillainImage, backFateImage, boardImage, locations, altBoardImage }
 }

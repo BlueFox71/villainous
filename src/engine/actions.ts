@@ -7123,7 +7123,7 @@ function applyResolveBuyHouses(state: GameState, amount: number): GameState {
     ...next,
     log: [
       ...next.log,
-      `${next.players[playerIndex].villainName} pose ${n} maison${n > 1 ? 's' : ''} sur ${locName}${count >= 4 ? ' (HÔTEL !)' : ''} (−${n * unitCost} JT).`,
+      `${next.players[playerIndex].villainName} pose ${n} maison${n > 1 ? 's' : ''} sur ${locName}${count >= 5 ? ' (HÔTEL !)' : ''} (−${n * unitCost} JT).`,
     ],
   }
 }
@@ -7222,26 +7222,6 @@ function applyResolveBackwardMove(state: GameState, locationId: LocationId): Gam
     usedActionIds: [],
     log: [...next.log, `${me.villainName} déplace son pion vers **${locName}** (Reculez de trois cases : une action puis fin de tour).`],
   }
-}
-
-/** Mr. Monopoly — Chaussure : mémorise le lieu bloqué sur l'instance de Chaussure. */
-function applyResolveBlockLocation(state: GameState, locationId: LocationId): GameState {
-  const pending = state.pendingBlockLocation
-  if (!pending) throw new Error('Aucun blocage de lieu en attente (RESOLVE_BLOCK_LOCATION).')
-  const { targetIndex, hostInstanceId } = pending
-  const cleared = { ...state, pendingBlockLocation: null }
-  const next = updatePlayer(cleared, targetIndex, (p) => ({
-    ...p,
-    board: Object.fromEntries(
-      Object.entries(p.board).map(([loc, cards]) => [
-        loc,
-        cards.map((c) => (c.instanceId === hostInstanceId ? { ...c, blockedHouseLocationId: locationId } : c)),
-      ]),
-    ),
-  }))
-  const opp = next.players[targetIndex === 0 ? 1 : 0]
-  const locName = opp.locations.find((l) => l.id === locationId)?.name ?? locationId
-  return { ...next, log: [...next.log, `Chaussure : Mr. Monopoly ne peut plus poser de maison sur ${locName}.`] }
 }
 
 /** Sa Sucrerie — Princesse Vanellope : recule le pion King Candy de `amount` (borné [0,max]). */
@@ -11192,14 +11172,6 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   ) {
     throw new Error('Un choix « Libéré de prison » est en attente (RESOLVE_FREE_FROM_JAIL).')
   }
-  // Mr. Monopoly — Chaussure : choix du lieu bloqué en attente.
-  if (
-    state.pendingBlockLocation &&
-    action.type !== 'RESOLVE_BLOCK_LOCATION' &&
-    action.type !== 'PLAY_CONDITION'
-  ) {
-    throw new Error('Un blocage de lieu (Chaussure) est en attente (RESOLVE_BLOCK_LOCATION).')
-  }
   // Mr. Monopoly — Reculez de trois cases : choix du lieu de destination en attente.
   if (
     state.pendingBackwardMove &&
@@ -11854,8 +11826,6 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveMoveHouses(state, action.locationId)
     case 'RESOLVE_FREE_FROM_JAIL':
       return applyResolveFreeFromJail(state, { heroInstanceId: action.heroInstanceId, locationId: action.locationId, toPrison: action.toPrison })
-    case 'RESOLVE_BLOCK_LOCATION':
-      return applyResolveBlockLocation(state, action.locationId)
     case 'RESOLVE_BACKWARD_MOVE':
       return applyResolveBackwardMove(state, action.locationId)
     case 'USE_CANNE_MONOPOLY':

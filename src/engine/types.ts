@@ -68,6 +68,16 @@ export interface Location {
   id: LocationId
   name: string
   actions: LocationAction[]
+  /** Face ALTERNATIVE (« B ») d'un lieu TRANSFORMABLE (Atelier — vilains à lieux
+   *  mutables). `name`/`actions` portent toujours la face ACTIVE (lue partout dans le
+   *  moteur/l'UI) ; `altName`/`altActions` gardent la face INACTIVE pour pouvoir
+   *  (re)basculer via l'effet `SWITCH_LOCATION_VERSION`. `version` = face active
+   *  ('a' par défaut). `bColumnImage` = image de colonne bakée de la face B,
+   *  superposée en jeu quand le lieu est en B. Absent = lieu non transformable. */
+  altName?: string
+  altActions?: LocationAction[]
+  version?: 'a' | 'b'
+  bColumnImage?: string
 }
 
 /**
@@ -100,6 +110,11 @@ export interface VillainDef {
   /** Lieux VERROUILLÉS à la mise en place (Jafar : la Caverne aux Merveilles).
    *  Recopié dans PlayerState.lockedLocations. Absent = aucun verrou. */
   lockedLocationsAtStart?: LocationId[]
+  /** Atelier — objectif ALTERNATIF activable par l'effet `SWITCH_OBJECTIVE` (vilains à
+   *  objectif transformable). `boardImage` = plateau alternatif optionnel (image du
+   *  vilain + panneau objectif de la face B). Recopié dans PlayerState (alt*). Absent =
+   *  objectif non transformable. */
+  altObjective?: { objective: ObjectiveDef; objectiveDescription: string; boardImage?: string }
   /** Bowser : mise en place des Étoiles. `locationId` = l'Observatoire de la
    *  Comète ; `count` = Étoiles posées au départ. Ce lieu est VERROUILLÉ
    *  dynamiquement dès qu'il tombe à 0 Étoile. Absent = vilain sans Étoiles. */
@@ -550,9 +565,6 @@ export type Effect =
   /** Libéré de prison (Fatalité) : le FATALISEUR choisit — déplacer un Héros vers
    *  n'importe quel lieu, OU déplacer le pion de Mr. Monopoly vers la Prison (`prisonLocationId`). */
   | { type: 'MONOPOLY_FREE_FROM_JAIL'; prisonLocationId: LocationId }
-  /** Chaussure (Fatalité, onPlace) : le FATALISEUR choisit un lieu (de l'un ou l'autre
-   *  royaume) où Mr. Monopoly ne pourra plus poser de maison tant que Chaussure est là. */
-  | { type: 'MONOPOLY_BLOCK_LOCATION' }
   /** Reculez de trois cases : déplace le pion vers n'importe quel lieu, autorise UNE action
    *  de ce lieu (hors Fatalité), puis le tour se termine. Ouvre `pendingBackwardMove`. */
   | { type: 'MONOPOLY_BACKWARD_MOVE' }
@@ -1256,6 +1268,12 @@ export type Effect =
   | { type: 'RELEASE_CAPTURED_TO_HAND'; cardId?: string }
   /** Jafar — Scarabée d'Or : déverrouille un lieu (retire le Cadenas). */
   | { type: 'UNLOCK_LOCATION'; locationId: LocationId }
+  /** Atelier — bascule la FACE d'un lieu transformable (échange name/actions avec la
+   *  face alternative). `to` : 'a' | 'b' | 'toggle' (sens au choix de la carte). */
+  | { type: 'SWITCH_LOCATION_VERSION'; locationId: LocationId; to: 'a' | 'b' | 'toggle' }
+  /** Atelier — bascule l'OBJECTIF actif (remplace condition + description + image de
+   *  plateau par la face alternative). `to` : 'a' | 'b' | 'toggle'. */
+  | { type: 'SWITCH_OBJECTIVE'; to: 'a' | 'b' | 'toggle' }
   /** Jafar — Lampe Merveilleuse : cherche un Héros (`heroCardId`) dans le deck
    *  Fatalité de l'acteur lui-même et le pose sur SON board au lieu `locationId`. */
   | { type: 'SUMMON_FATE_HERO_TO_OWN_REALM'; heroCardId: string; locationId: LocationId }
@@ -2078,13 +2096,12 @@ export interface CardInstance {
   /** Mr. Monopoly — Haut de forme (Héros Fatalité) : tant qu'il est dans le royaume,
    *  Mr. Monopoly ne peut poser AUCUNE nouvelle maison. Recopié de CardDef. */
   blocksHousePlacement?: boolean
+  /** Mr. Monopoly — Chaussure (Héros Fatalité) : Mr. Monopoly ne peut pas poser de maison
+   *  TANT QUE son pion se trouve sur le lieu de ce Héros. Recopié de CardDef. */
+  blocksHousesWhenPawnHere?: boolean
   /** Mr. Monopoly — Brouette (Héros Fatalité) : tant qu'il est dans le royaume, les
    *  cartes/actions/loyers rapportent 1 Pouvoir de moins. Recopié de CardDef. */
   reducesPowerGains?: boolean
-  /** Mr. Monopoly — Chaussure (Héros Fatalité) : lieu (de n'importe quel joueur) où
-   *  Mr. Monopoly ne peut plus poser de maison tant que Chaussure est présent. Choisi à
-   *  la pose (runtime). */
-  blockedHouseLocationId?: LocationId
   /** Mr. Monopoly — Banqueroute : le coût de la carte = la Force (effective) du Héros
    *  ciblé (résolu au moment de jouer la carte). Recopié de CardDef. */
   costEqualsTargetStrength?: boolean
@@ -2419,6 +2436,16 @@ export interface PlayerState {
   objective: ObjectiveDef
   /** Description de la condition de victoire. */
   objectiveDescription: string
+  /** Atelier — objectif ALTERNATIF (« face B ») d'un vilain à objectif transformable.
+   *  `objective`/`objectiveDescription` portent toujours l'objectif ACTIF ; les champs
+   *  `alt*` gardent l'objectif INACTIF pour pouvoir (re)basculer via `SWITCH_OBJECTIVE`.
+   *  `altBoardImage` = image de plateau alternative (image du vilain + panneau objectif),
+   *  échangée avec `boardImage` à la bascule. `objectiveVersion` = face active ('a'
+   *  par défaut). Absents = objectif non transformable. */
+  altObjective?: ObjectiveDef
+  altObjectiveDescription?: string
+  altBoardImage?: string
+  objectiveVersion?: 'a' | 'b'
   /** Pioche (deck Vilain mélangé). On pioche depuis l'avant (index 0). */
   deck: CardInstance[]
   /** Cartes en main. */
@@ -2954,10 +2981,6 @@ export interface GameState {
    *  déplacer un Héros du royaume `targetIndex` (RESOLVE_FREE_FROM_JAIL avec heroInstanceId +
    *  locationId), ou d'envoyer le pion de Mr. Monopoly à la Prison (`toPrison`). */
   pendingFreeFromJail?: { chooserIndex: number; targetIndex: number; prisonLocationId: LocationId } | null
-  /** Mr. Monopoly — Chaussure (Fatalité) : `chooserIndex` (le fataliseur) choisit un lieu
-   *  (`locationId`) où Mr. Monopoly ne pourra plus poser de maison ; mémorisé sur l'instance
-   *  `hostInstanceId` de Chaussure dans le royaume `targetIndex`. RESOLVE_BLOCK_LOCATION. */
-  pendingBlockLocation?: { chooserIndex: number; targetIndex: number; hostInstanceId: string } | null
   /** Mr. Monopoly — Reculez de trois cases : `playerIndex` choisit le lieu où déplacer son
    *  pion (RESOLVE_BACKWARD_MOVE), après quoi il ne pourra effectuer qu'UNE action puis finir. */
   pendingBackwardMove?: { playerIndex: number } | null
@@ -4145,8 +4168,6 @@ export type GameAction =
   /** Mr. Monopoly — Libéré de prison : soit déplacer un Héros (`heroInstanceId` + `locationId`),
    *  soit envoyer Mr. Monopoly en Prison (`toPrison: true`). */
   | { type: 'RESOLVE_FREE_FROM_JAIL'; heroInstanceId?: string; locationId?: LocationId; toPrison?: boolean }
-  /** Mr. Monopoly — Chaussure : choisir le lieu (`locationId`) bloqué pour la pose de maisons. */
-  | { type: 'RESOLVE_BLOCK_LOCATION'; locationId: LocationId }
   /** Mr. Monopoly — Reculez de trois cases : déplacer le pion vers `locationId` (n'importe lequel). */
   | { type: 'RESOLVE_BACKWARD_MOVE'; locationId: LocationId }
   /** Mr. Monopoly — Canne : ouvre le choix d'une action empruntée à un lieu maisonné adverse. */

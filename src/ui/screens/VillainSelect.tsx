@@ -230,8 +230,15 @@ function PresentationArt({ choice, side }: { choice: Choice | null; side: 'left'
   // la transform en inline (mirror inclus) au lieu de la classe -scale-x-100.
   const tweak = choice ? PRESENTATION_TWEAK[choice as VillainKey] : undefined
   const mirror = side === 'right' ? -1 : 1
+  // Art de côté : `selectDxPct` = décalage VERS LE CENTRE (côté gauche/joueur → vers la
+  // droite ; côté droit/adversaire → vers la gauche). Sinon le `dxPct` de la fiche.
+  const dx = tweak
+    ? tweak.selectDxPct != null
+      ? tweak.selectDxPct * (side === 'left' ? 1 : -1)
+      : tweak.dxPct ?? 0
+    : 0
   const transform = tweak
-    ? `translate(${tweak.dxPct ?? 0}%, ${tweak.dyPct ?? 0}%) scale(${tweak.scale ?? 1}) scaleX(${mirror})`
+    ? `translate(${dx}%, ${tweak.dyPct ?? 0}%) scale(${tweak.scale ?? 1}) scaleX(${mirror})`
     : undefined
   return (
     <img

@@ -72,6 +72,8 @@ describe('Mr. Monopoly — coût des maisons', () => {
     // Achat sur le repaire : 2 − 1 = 1 ; loyer reste basé sur 2.
     expect(buyHouseCost(withShadow.players[0], opp, opp.locations[0].id)).toBe(1)
     expect(baseHouseCost(opp, opp.locations[0].id)).toBe(2)
+    // Sur un lieu adverse normal (coût 1), L'Ombre rend la maison GRATUITE (1 − 1 = 0).
+    expect(buyHouseCost(withShadow.players[0], opp, opp.locations[1].id)).toBe(0)
   })
 })
 
@@ -104,11 +106,11 @@ describe('Mr. Monopoly — Affaire (pose de maisons)', () => {
     expect(s.pendingBuyHouses?.max).toBe(1)
   })
 
-  it('plafond hôtel : on ne pose pas au-delà de 4 maisons', () => {
+  it('plafond hôtel : 4 maisons → on peut encore poser la 5ᵉ (hôtel), puis plus rien', () => {
     const g = monoGame()
     const loc = g.players[1].locations[1].id
-    const full = monoGame({ houses: { [loc]: 4 } })
-    expect(placeableHouses(full.players[0], loc)).toBe(0)
+    expect(placeableHouses(monoGame({ houses: { [loc]: 4 } }).players[0], loc)).toBe(1) // la 5ᵉ = hôtel
+    expect(placeableHouses(monoGame({ houses: { [loc]: 5 } }).players[0], loc)).toBe(0) // hôtel atteint
   })
 })
 
@@ -135,6 +137,17 @@ describe('Mr. Monopoly — loyer', () => {
       board: { ...g.players[0].board, [g.players[0].pawnLocation!]: [card('hero', { blocksRent: true })] },
     }
     expect(rentAt(mm, g.players[1], loc)).toBe(0)
+  })
+
+  it('Fer à repasser bloque le LOYER mais PAS les autres gains de Pouvoir (action/cartes)', () => {
+    const base = monoGame({ power: 0 })
+    const loc0 = base.players[0].locations[0].id
+    const withFer = monoGame({
+      power: 0,
+      board: { ...base.players[0].board, [loc0]: [card('hero', { blocksRent: true })] },
+    })
+    const s = resolveEffect(withFer, { type: 'GAIN_POWER', amount: 3 }, { actorIndex: 0 })
+    expect(s.players[0].power).toBe(3) // GAIN_POWER (action « Gagner du Pouvoir », cartes) intact
   })
 })
 
@@ -184,6 +197,19 @@ describe('Mr. Monopoly — Chapeau, destruction, Brouette', () => {
     const start = monoGame({ houses: { [loc]: 2 } })
     const s = resolveEffect(start, { type: 'MONOPOLY_DESTROY_HOUSE' }, { actorIndex: 0 })
     expect(s.players[0].houses?.[loc]).toBe(1)
+  })
+
+  it('Chaussure : bloque la pose de maisons UNIQUEMENT quand le pion est sur son lieu', () => {
+    const base = monoGame()
+    const shoeLoc = base.players[0].locations[1].id
+    const oppLoc = base.players[1].locations[1].id
+    const shoe = card('hero', { blocksHousesWhenPawnHere: true })
+    // Pion AILLEURS que sur la Chaussure → pose possible.
+    const away = monoGame({ pawnLocation: base.players[0].locations[0].id, board: { ...base.players[0].board, [shoeLoc]: [shoe] } })
+    expect(placeableHouses(away.players[0], oppLoc)).toBeGreaterThan(0)
+    // Pion SUR le lieu de la Chaussure → pose bloquée partout.
+    const onShoe = monoGame({ pawnLocation: shoeLoc, board: { ...base.players[0].board, [shoeLoc]: [shoe] } })
+    expect(placeableHouses(onShoe.players[0], oppLoc)).toBe(0)
   })
 
   it('Brouette (reducesPowerGains) : chaque gain de Pouvoir est réduit de 1', () => {

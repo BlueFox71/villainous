@@ -73,8 +73,9 @@ const FIELDS: Record<string, Partial<CustomCard>> = {
   'regles-inventees': { attach: 'hero', eventTargetSurcharge: 2, fateMalus: 'slow' },
   // Officier de police : Allié (deck Vilain), pas de malus.
   'officier-de-police': { sendsHeroToPrisonOnMove: 'loc-4' },
-  // Chaussure : bloque un lieu de pose (durable) → RALENTIT.
-  chaussure: { onPlace: e({ type: 'MONOPOLY_BLOCK_LOCATION' }), fateMalus: 'slow' },
+  // Chaussure : Mr. Monopoly ne peut pas poser de maison tant que son pion est sur le lieu
+  // de ce Héros (durable) → RALENTIT.
+  chaussure: { blocksHousesWhenPawnHere: true, fateMalus: 'slow' },
   // Libéré de prison : déplacer un Héros n'importe où, ou envoyer Mr. Monopoly en Prison.
   'libere-de-prison': { effects: e({ type: 'MONOPOLY_FREE_FROM_JAIL', prisonLocationId: 'loc-4' }) },
   // Monopoly (Condition) : pendant le tour adverse, s'il a déplacé son pion, pose une

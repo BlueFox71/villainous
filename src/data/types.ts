@@ -92,6 +92,7 @@ export interface CardDef {
   shadowReducesHouseCost?: boolean
   blocksRent?: boolean
   blocksHousePlacement?: boolean
+  blocksHousesWhenPawnHere?: boolean
   reducesPowerGains?: boolean
   /** Mr. Monopoly — Banqueroute : le coût de la carte = la Force (effective) du Héros ciblé. */
   costEqualsTargetStrength?: boolean
@@ -411,6 +412,7 @@ export function buildDeckInstances(
           shadowReducesHouseCost: c.shadowReducesHouseCost,
           blocksRent: c.blocksRent,
           blocksHousePlacement: c.blocksHousePlacement,
+          blocksHousesWhenPawnHere: c.blocksHousesWhenPawnHere,
           reducesPowerGains: c.reducesPowerGains,
           costEqualsTargetStrength: c.costEqualsTargetStrength,
           movesTowardPawnEndOfTurn: c.movesTowardPawnEndOfTurn,

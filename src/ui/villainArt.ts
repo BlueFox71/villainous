@@ -95,8 +95,9 @@ export function villainPresentation(key: string): string | undefined {
  *  pensée pour remplir la hauteur). `scale` rétrécit, `dxPct`/`dyPct` décalent en
  *  % de la taille de l'image (dx > 0 = vers la droite ; dy > 0 = vers le bas, le
  *  personnage descend sous le bord, derrière le footer). Origine = bas. */
-export const PRESENTATION_TWEAK: Partial<
-  Record<VillainKey, { scale?: number; dxPct?: number; dyPct?: number; versusDyPct?: number }>
+export const PRESENTATION_TWEAK: Record<
+  string,
+  { scale?: number; dxPct?: number; dyPct?: number; versusDyPct?: number; selectDxPct?: number }
 > = {
   // `versusDyPct` : décalage vertical SPÉCIFIQUE à l'écran versus (début de partie),
   // sinon on reprend `dyPct` (écran de choix).
@@ -110,4 +111,11 @@ export const PRESENTATION_TWEAK: Partial<
   // Maléfique : nouvelle illustration carrée (1000×1000) — on la remonte pour caler la
   // figure dans le cadre (négatif = vers le haut).
   maleficent: { dyPct: -6 },
+  // Pyramid Head (custom) : décalé vers la gauche dans la FICHE (dxPct). Sur l'art de côté
+  // (choix + versus), `selectDxPct` est un décalage VERS LE CENTRE (côté joueur = vers la
+  // droite, côté adversaire = vers la gauche).
+  'custom-pyramid-head': { dxPct: -14, selectDxPct: 15 },
+  // Mr. Monopoly (custom) : présentation rétrécie, bien décalée à gauche dans la FICHE ;
+  // tirée vers le centre sur l'art de côté.
+  'custom-mr-monopoly': { scale: 0.85, dxPct: -30, selectDxPct: 15 },
 }

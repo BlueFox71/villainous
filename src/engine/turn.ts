@@ -101,7 +101,6 @@ export function pendingOwner(state: GameState): number | null {
   if (state.pendingPlaisir) return state.pendingPlaisir.playerIndex
   if (state.pendingStealKey) return state.pendingStealKey.chooserIndex
   if (state.pendingFreeFromJail) return state.pendingFreeFromJail.chooserIndex
-  if (state.pendingBlockLocation) return state.pendingBlockLocation.chooserIndex
   // pendingFate / diabloFree / pendingTrapVanquish appartiennent TOUJOURS au
   // joueur actif (il vient de jouer la Fatalité / Diablo / le Piège) → pris en
   // charge par le repli sur activePlayer dans whoseInput, pas listés ici.

@@ -171,7 +171,7 @@ export function PlayerPanel({ player, accent, isActive, isWinner, showObjective 
         {player.houses !== undefined && (() => {
           const counts = Object.values(player.houses)
           const total = counts.reduce((n, v) => n + v, 0)
-          const hotels = counts.filter((v) => v >= 4).length
+          const hotels = counts.filter((v) => v >= 5).length
           return (
             <div
               className="flex flex-col items-center justify-center rounded-lg border border-emerald-400/30 bg-black/20 px-3 py-3"

@@ -32,6 +32,9 @@ function cloneLocations(locations: Location[]): Location[] {
   return locations.map((loc) => ({
     ...loc,
     actions: loc.actions.map((a) => ({ ...a })),
+    // Face alternative (lieux transformables) : copie profonde pour que la bascule
+    // n'affecte pas la définition partagée du vilain.
+    altActions: loc.altActions ? loc.altActions.map((a) => ({ ...a })) : undefined,
   }))
 }
 
@@ -352,6 +355,12 @@ function makePlayer(
     power: startingPower,
     objective: villain.objective,
     objectiveDescription: villain.objectiveDescription,
+    // Atelier — objectif transformable : on garde la face B en réserve (alt*) pour la
+    // bascule via SWITCH_OBJECTIVE. Absent si le vilain n'a pas d'objectif alternatif.
+    altObjective: villain.altObjective?.objective,
+    altObjectiveDescription: villain.altObjective?.objectiveDescription,
+    altBoardImage: villain.altObjective?.boardImage,
+    objectiveVersion: villain.altObjective ? 'a' : undefined,
     deck,
     hand: [],
     discard: [],

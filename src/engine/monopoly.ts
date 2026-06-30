@@ -13,8 +13,9 @@
 import type { GameState, PlayerState, LocationId } from './types'
 
 export const CUSTOM_MONOPOLY_ID = 'custom-mr-monopoly'
-/** 4 maisons sur un même lieu = un HÔTEL (et plafond : on ne pose pas au-delà). */
-export const HOTEL_THRESHOLD = 4
+/** 4 maisons, puis la 5ᵉ mise transforme le lieu en HÔTEL (comme au vrai Monopoly).
+ *  Le compteur `houses` va donc de 1 à 4 (maisons) puis 5 = HÔTEL, et plafonne à 5. */
+export const HOTEL_THRESHOLD = 5
 
 /** Index de l'adversaire de `idx` (partie à 2 joueurs). Le paramètre `_state` n'est pas
  *  utilisé (2 joueurs) mais conservé pour l'homogénéité des appels et une extension future. */
@@ -37,7 +38,7 @@ export function totalHouses(mm: PlayerState): number {
   return Object.values(mm.houses ?? {}).reduce((n, v) => n + v, 0)
 }
 
-/** Un lieu est un HÔTEL dès `HOTEL_THRESHOLD` maisons. */
+/** Un lieu est un HÔTEL dès `HOTEL_THRESHOLD` (5ᵉ mise). */
 export function isHotel(count: number): boolean {
   return count >= HOTEL_THRESHOLD
 }
@@ -58,30 +59,26 @@ export function shadowDiscount(mm: PlayerState): number {
   return here.some((c) => c.shadowReducesHouseCost) ? 1 : 0
 }
 
-/** Coût d'ACHAT d'une maison sur `locId` (coût standard − remise L'Ombre, plancher 0). */
+/** Coût d'ACHAT d'une maison sur `locId` (coût standard − remise L'Ombre, plancher 0).
+ *  Avec L'Ombre de Monopoly sur le lieu du pion, une maison à coût 1 (lieu adverse normal)
+ *  tombe à 0 = GRATUITE ; sur le repaire adverse (coût 2) elle passe à 1. */
 export function buyHouseCost(mm: PlayerState, opp: PlayerState, locId: LocationId): number {
   return Math.max(0, baseHouseCost(opp, locId) - shadowDiscount(mm))
 }
 
-/** Vrai si Mr. Monopoly ne peut PAS poser de nouvelle maison du tout (Haut de forme). */
+/** Vrai si Mr. Monopoly ne peut PAS poser de nouvelle maison du tout : soit Haut de forme
+ *  (toujours, tant qu'il est dans le royaume), soit Chaussure SUR LE LIEU DU PION (il ne
+ *  peut pas construire tant qu'il se tient sur le lieu de Chaussure). */
 export function housePlacementBlocked(mm: PlayerState): boolean {
-  return Object.values(mm.board)
-    .flat()
-    .some((c) => c.blocksHousePlacement)
-}
-
-/** Vrai si Mr. Monopoly ne peut pas poser de maison sur le lieu adverse `locId`
- *  (Chaussure : bloque un lieu choisi, mémorisé sur l'instance du Héros). */
-export function locationHouseBlocked(mm: PlayerState, locId: LocationId): boolean {
-  return Object.values(mm.board)
-    .flat()
-    .some((c) => c.blockedHouseLocationId === locId)
+  if (Object.values(mm.board).flat().some((c) => c.blocksHousePlacement)) return true
+  const loc = mm.pawnLocation
+  return !!loc && (mm.board[loc] ?? []).some((c) => c.blocksHousesWhenPawnHere)
 }
 
 /** Combien de maisons Mr. Monopoly peut encore poser sur `locId` (plafond hôtel,
  *  blocages Haut de forme / Chaussure). */
 export function placeableHouses(mm: PlayerState, locId: LocationId): number {
-  if (housePlacementBlocked(mm) || locationHouseBlocked(mm, locId)) return 0
+  if (housePlacementBlocked(mm)) return 0
   return Math.max(0, HOTEL_THRESHOLD - houseCount(mm, locId))
 }
 

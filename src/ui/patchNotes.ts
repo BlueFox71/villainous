@@ -49,9 +49,12 @@ export const PATCH_NOTES: PatchNote[] = [
   {
     version: '1.1.0',
     date: '2026-06-30',
-    title: 'Nouveau vilain Mr. Monopoly + correctifs & Atelier',
+    title: 'Mr. Monopoly + Atelier (verrous, cadenas, lieux transformables)',
     tags: ['villain', 'atelier', 'correctif', 'equilibrage'],
     changes: [
+      '**Atelier — lieux verrouillables** : dans l’onglet Plateau, un bouton 🔒/🔓 par lieu. Un lieu verrouillé démarre **bloqué** (voile + cadenas, aucune action/pose/déplacement possible) tant qu’une carte ne le **déverrouille** pas.',
+      '**Atelier — cadenas décoratifs** : pose **un ou plusieurs cadenas** où tu veux sur le plateau (glisser pour placer, poignée pour redimensionner). Ils se rangent au niveau des actions (derrière le voile des lieux verrouillés).',
+      '**Atelier — lieux & objectif TRANSFORMABLES** (façon Ratigan) : donne à un lieu une **Face B** (nom, image et actions alternatifs) et/ou un **2ᵉ objectif** (image du vilain + texte différents). En jeu, une carte peut **transformer** le lieu (passer en B / revenir en A / inverser) ou **changer d’objectif** — le plateau s’adapte aussitôt. Un bouton **« 👁 Face A / Face B »** sur l’aperçu permet de voir le plateau transformé dans l’Atelier.',
       'Nouveau vilain jouable : **Mr. Monopoly**. **Objectif** : avoir au moins **30 jetons Pouvoir** au début de ton tour.',
       'Sa mécanique : pose des **MAISONS** sur les lieux de l’adversaire (carte **Affaire**) ; chaque fois que son pion **se rend** sur un lieu maisonné, tu encaisses le **LOYER**. **4 maisons = HÔTEL** ; le **repaire adverse** (lieu le plus à gauche) coûte 2 mais rapporte double. Un **compteur de maisons** 🏠 et les **maisons/hôtels** s’affichent sur le plateau.',
       'Tout son deck est en place : Erreur de la banque (+1/maison), Carte bancaire (déplace des maisons), Chapeau haut de forme, Deuxième prix de beauté, Allez en prison, Reculez de trois cases, **Banqueroute** (élimine un Héros pour un coût = sa Force), L’Ombre de Monopoly, la **Canne** (emprunte une action d’un lieu maisonné), **Case Départ** (+1 Pouvoir en passant), et les Conditions **Monopoly** / **Monotonie**. Côté Fatalité : Haut de forme & Fer à repasser (étranglent son moteur), Brouette, Chaussure, Dé à coudre, Chien, Bateau, etc.',

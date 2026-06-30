@@ -7,7 +7,7 @@
 // en jeu (cf. boardLayout.ts).
 // =============================================================================
 
-import type { CustomVillain } from '../../data/customVillain'
+import type { CustomVillain, CustomLocation } from '../../data/customVillain'
 import { loadImage } from './imageUtils'
 import { EDITOR_FONT, ensureFonts } from './fonts'
 import { drawActionIcon, ACTION_ICON_FILE } from './actionIcons'
@@ -157,8 +157,13 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath()
 }
 
-/** Rend le plateau complet d'un vilain personnalisé en dataURL PNG. */
-export async function renderBoard(v: CustomVillain): Promise<string> {
+/** Fichier du cadenas (partagé avec l'overlay « lieu verrouillé » en jeu). */
+const LOCK_SRC = '/cards/jafar/lock.png'
+
+/** Rend le plateau complet d'un vilain personnalisé en dataURL PNG.
+ *  `skipLocks` : ne bake PAS les cadenas décoratifs (l'éditeur les affiche en
+ *  overlay live à la place, pour rester réactif pendant le glisser). */
+export async function renderBoard(v: CustomVillain, opts: { skipLocks?: boolean } = {}): Promise<string> {
   await ensureFonts()
   const canvas = document.createElement('canvas')
   canvas.width = BOARD_W
@@ -402,5 +407,72 @@ export async function renderBoard(v: CustomVillain): Promise<string> {
     }
   }
 
+  // 9) Cadenas DÉCORATIFS posés librement (cosmétique). Bakés dans l'image du
+  //    plateau → visibles en jeu sans toucher au moteur. L'éditeur peut les sauter
+  //    (skipLocks) pour les afficher en overlay live pendant l'édition.
+  if (!opts.skipLocks && v.boardLocks?.length) {
+    try {
+      const lock = await loadImage(LOCK_SRC)
+      const aspect = lock.height / lock.width
+      for (const l of v.boardLocks) {
+        const w = (l.size / 100) * BOARD_W
+        const h = w * aspect
+        const cxp = (l.x / 100) * BOARD_W
+        const cyp = (l.y / 100) * BOARD_H
+        ctx.save()
+        ctx.shadowColor = 'rgba(0,0,0,0.9)'
+        ctx.shadowBlur = 18
+        ctx.drawImage(lock, cxp - w / 2, cyp - h / 2, w, h)
+        ctx.restore()
+      }
+    } catch { /* cadenas illisible : on l'ignore */ }
+  }
+
   return canvas.toDataURL('image/png')
+}
+
+/** Découpe la COLONNE `i` (intérieur des bordures, hauteur pleine) d'un plateau baké
+ *  en une image autonome — pour superposer la face B d'un lieu en jeu. Les bordures
+ *  dorées (identiques A/B) restent celles du plateau de base : le raccord est invisible. */
+async function cropColumn(boardUrl: string, i: number): Promise<string> {
+  const img = await loadImage(boardUrl)
+  const sx = (COL_RECTS[i].x0 / BOARD_W) * img.width
+  const sw = ((COL_RECTS[i].x1 - COL_RECTS[i].x0) / BOARD_W) * img.width
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(sw))
+  canvas.height = img.height
+  const ctx = canvas.getContext('2d')!
+  ctx.drawImage(img, sx, 0, sw, img.height, 0, 0, canvas.width, canvas.height)
+  return canvas.toDataURL('image/png')
+}
+
+/** Rend la COLONNE (face B) du lieu d'index `i` : on rend un plateau complet où ce
+ *  lieu prend sa face B, puis on en découpe la colonne. Lève si le lieu n'a pas de
+ *  face B. */
+export async function renderLocationColumnB(v: CustomVillain, i: number): Promise<string> {
+  const loc = v.locations[i]
+  if (!loc?.alt) throw new Error('lieu sans face B')
+  const tempLoc: CustomLocation = {
+    ...loc,
+    name: loc.alt.name || loc.name,
+    image: loc.alt.image ?? loc.image,
+    imagePos: loc.alt.imagePos ?? loc.imagePos,
+    actions: loc.alt.actions ?? loc.actions,
+  }
+  const temp: CustomVillain = { ...v, locations: v.locations.map((l, j) => (j === i ? tempLoc : l)) }
+  return cropColumn(await renderBoard(temp), i)
+}
+
+/** Rend le plateau de la FACE B de l'objectif : image du vilain + texte d'objectif
+ *  alternatifs (les colonnes restent en face A — les bascules de lieu sont superposées
+ *  par-dessus en jeu). Lève si pas d'objectif alternatif. */
+export async function renderAltObjectiveBoard(v: CustomVillain): Promise<string> {
+  if (!v.altObjective) throw new Error('pas d’objectif alternatif')
+  const temp: CustomVillain = {
+    ...v,
+    boardObjective: v.altObjective.boardObjective,
+    boardArt: v.altObjective.boardArt ?? v.boardArt,
+    portraitPos: v.altObjective.portraitPos ?? v.portraitPos,
+  }
+  return renderBoard(temp)
 }

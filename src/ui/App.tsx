@@ -1140,7 +1140,6 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveBuyHouses = useGameStore((s) => s.resolveBuyHouses)
   const resolveMoveHouses = useGameStore((s) => s.resolveMoveHouses)
   const resolveFreeFromJail = useGameStore((s) => s.resolveFreeFromJail)
-  const resolveBlockLocation = useGameStore((s) => s.resolveBlockLocation)
   const resolveBackwardMove = useGameStore((s) => s.resolveBackwardMove)
   const resolvePawnBack = useGameStore((s) => s.resolvePawnBack)
   const resolveBeacon = useGameStore((s) => s.resolveBeacon)
@@ -7526,7 +7525,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         const opts = opp.locations
           .filter((l) => {
             const count = mm.houses?.[l.id] ?? 0
-            return pmh.phase === 'from' ? count > 0 : count < 4 && l.id !== pmh.from
+            return pmh.phase === 'from' ? count > 0 : count < 5 && l.id !== pmh.from
           })
           .map((l) => {
             const count = mm.houses?.[l.id] ?? 0
@@ -7562,18 +7561,6 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           ),
         ]
         return <ChoiceModal title="Libéré de prison" prompt="Choisissez une action." options={opts} />
-      })()}
-
-      {/* Mr. Monopoly — Chaussure (Fatalité) : le fataliseur choisit le lieu bloqué. */}
-      {state.pendingBlockLocation && state.pendingBlockLocation.chooserIndex === HUMAN && (() => {
-        const pb = state.pendingBlockLocation
-        const opp = state.players[pb.targetIndex === 0 ? 1 : 0]
-        const opts = opp.locations.map((l) => ({
-          key: `block-${l.id}`,
-          label: l.name,
-          onSelect: () => resolveBlockLocation(l.id),
-        }))
-        return <ChoiceModal title="Chaussure" prompt="Sur quel lieu Mr. Monopoly ne pourra plus poser de maison ?" options={opts} />
       })()}
 
       {/* Mr. Monopoly — Reculez de trois cases : choisir le lieu de destination. */}

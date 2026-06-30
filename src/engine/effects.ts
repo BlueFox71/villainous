@@ -2750,16 +2750,6 @@ export function resolveEffect(
         log: [...state.log, `${state.players[state.activePlayer].villainName} : Libéré de prison (déplacer un Héros ou envoyer Mr. Monopoly en Prison).`],
       }
     }
-    case 'MONOPOLY_BLOCK_LOCATION': {
-      // Chaussure (Fatalité, onPlace) : le FATALISEUR choisit un lieu où Mr. Monopoly ne
-      // pourra plus poser de maison (mémorisé sur l'instance de Chaussure = hostInstanceId).
-      if (!ctx?.hostInstanceId) return state
-      return {
-        ...state,
-        pendingBlockLocation: { chooserIndex: state.activePlayer, targetIndex: idx, hostInstanceId: ctx.hostInstanceId },
-        log: [...state.log, `${state.players[state.activePlayer].villainName} : Chaussure bloque un lieu (aucune maison ne pourra y être posée).`],
-      }
-    }
     case 'MONOPOLY_DESTROY_HOUSE': {
       // Détruit une maison au choix. Direct si un seul lieu maisonné, sinon choix.
       const mm = state.players[idx]
@@ -5686,6 +5676,57 @@ export function resolveEffect(
         ...next,
         log: [...next.log, `${actor.villainName} déverrouille **${name}** (Scarabée d'Or).`],
       }
+    }
+    case 'SWITCH_LOCATION_VERSION': {
+      // Atelier — lieu transformable : échange la face active (name/actions) avec la
+      // face alternative. Les zones cliquables et la force suivent (data-driven sur
+      // player.locations) ; l'UI superpose bColumnImage quand la face B est active.
+      const actor = state.players[idx]
+      const loc = findLocation(actor, effect.locationId)
+      // Lieu non transformable (aucune face alternative définie) → no-op.
+      if (!loc || (loc.altActions === undefined && loc.altName === undefined)) return state
+      const cur = loc.version ?? 'a'
+      const target = effect.to === 'toggle' ? (cur === 'a' ? 'b' : 'a') : effect.to
+      if (target === cur) return state // déjà sur la face demandée
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        locations: p.locations.map((l) =>
+          l.id === effect.locationId
+            ? {
+                ...l,
+                name: l.altName ?? l.name,
+                actions: l.altActions ?? l.actions,
+                altName: l.name,
+                altActions: l.actions,
+                version: target,
+              }
+            : l,
+        ),
+      }))
+      const newName = findLocation(next.players[idx], effect.locationId)?.name ?? effect.locationId
+      return { ...next, log: [...next.log, `${actor.villainName} transforme un lieu en **${newName}**.`] }
+    }
+    case 'SWITCH_OBJECTIVE': {
+      // Atelier — objectif transformable : échange l'objectif actif (condition +
+      // description + image de plateau) avec la face alternative. La victoire étant
+      // évaluée sur player.objective, le changement d'objectif s'applique aussitôt.
+      const actor = state.players[idx]
+      if (actor.altObjective === undefined) return state // objectif non transformable
+      const cur = actor.objectiveVersion ?? 'a'
+      const target = effect.to === 'toggle' ? (cur === 'a' ? 'b' : 'a') : effect.to
+      if (target === cur) return state
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        objective: p.altObjective!,
+        objectiveDescription: p.altObjectiveDescription ?? p.objectiveDescription,
+        // Échange les images de plateau si une face alternative existe.
+        boardImage: p.altBoardImage ?? p.boardImage,
+        altObjective: p.objective,
+        altObjectiveDescription: p.objectiveDescription,
+        altBoardImage: p.altBoardImage ? p.boardImage : undefined,
+        objectiveVersion: target,
+      }))
+      return { ...next, log: [...next.log, `${actor.villainName} change d'objectif.`] }
     }
     case 'SUMMON_FATE_HERO_TO_OWN_REALM': {
       // Jafar (Lampe Merveilleuse) : cherche le Génie dans SON deck/défausse

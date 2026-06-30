@@ -52,6 +52,18 @@ export interface CropPos {
 /** Cadrage par défaut : centré, sans zoom. */
 export const CENTER_CROP: CropPos = { x: 50, y: 50, zoom: 1 }
 
+/** Face ALTERNATIVE (« B ») d'un lieu TRANSFORMABLE : nom / image / actions de
+ *  remplacement, activés en jeu par une carte (effet SWITCH_LOCATION_VERSION). Champs
+ *  absents = identiques à la face A. `columnImage` = image de colonne bakée (par le
+ *  bake) superposée en jeu quand la face B est active. */
+export interface CustomLocationAlt {
+  name?: string
+  image?: string
+  imagePos?: CropPos
+  actions?: CustomAction[]
+  columnImage?: string
+}
+
 /** Un lieu du plateau, côté éditeur. */
 export interface CustomLocation {
   id: string
@@ -61,6 +73,13 @@ export interface CustomLocation {
   /** Cadrage de l'image dans la colonne (left/right + top/bottom). Défaut : centré. */
   imagePos?: CropPos
   actions: CustomAction[]
+  /** Face ALTERNATIVE (« B ») optionnelle : rend le lieu transformable par carte. */
+  alt?: CustomLocationAlt
+  /** Lieu VERROUILLÉ à la mise en place (voile + cadenas, actions/poses/déplacements
+   *  bloqués tant qu'il n'est pas ouvert). Devient `lockedLocationsAtStart` dans le
+   *  VillainDef ; un effet `UNLOCK_LOCATION` (porté par une carte) peut le rouvrir.
+   *  Absent/false = lieu ouvert. */
+  lockedAtStart?: boolean
 }
 
 /** Cadrage d'une illustration dans sa zone (recadrage « cover » ajustable). */
@@ -149,6 +168,20 @@ export interface CustomCard extends CardDef {
   stickers?: CardSticker[]
 }
 
+/** Un cadenas DÉCORATIF posé librement sur le plateau (en plus du cadenas centré
+ *  automatique des lieux verrouillés). Purement cosmétique : baké dans l'image du
+ *  plateau. `x`/`y` = centre en % du plateau ; `size` = largeur en % de la largeur
+ *  du plateau (la hauteur suit le ratio de l'image). */
+export interface BoardLock {
+  id: string
+  x: number
+  y: number
+  size: number
+}
+
+/** Taille par défaut d'un cadenas posé (en % de la largeur du plateau). */
+export const DEFAULT_BOARD_LOCK_SIZE = 6
+
 /** Un vilain personnalisé complet. */
 export interface CustomVillain {
   formatVersion: number
@@ -199,6 +232,22 @@ export interface CustomVillain {
 
   // --- Contenu ---------------------------------------------------------------
   locations: CustomLocation[]
+  /** Cadenas décoratifs posés librement sur le plateau (cosmétique, baké dans
+   *  l'image du plateau). Absent = aucun. */
+  boardLocks?: BoardLock[]
+  /** Objectif ALTERNATIF (« face B ») activable par une carte (effet SWITCH_OBJECTIVE) :
+   *  image du vilain + texte + condition de victoire de remplacement (façon Ratigan).
+   *  Absent = objectif unique. */
+  altObjective?: {
+    boardObjective: string
+    objectiveDescription: string
+    objective: ObjectiveDef
+    boardArt?: string
+    portraitPos?: CropPos
+  }
+  /** Image de plateau ALTERNATIVE bakée (face B de l'objectif). Renseignée par le bake
+   *  quand `altObjective` existe ; échangée avec `boardImage` à la bascule en jeu. */
+  altBoardImage?: string
   cards: CustomCard[]
   /** Paquets PERSONNALISÉS hors Vilain/Fatalité (ex. « Transformation », « Stands »,
    *  « Maui »). Pools « hors-deck » : non mélangés au jeu, mécaniques codées à la main. */
@@ -318,9 +367,11 @@ export function emptyCustomCard(id: string, deck: DeckKind, type: CardType): Cus
 /** Convertit un CustomVillain en VillainDef consommable par le moteur. Les images
  *  manquantes retombent sur un placeholder neutre pour ne jamais casser le rendu. */
 export function toVillainDef(v: CustomVillain): VillainDef {
+  const lockedAtStart = v.locations.filter((l) => l.lockedAtStart).map((l) => l.id)
   return {
     id: v.id,
     name: v.name,
+    lockedLocationsAtStart: lockedAtStart.length > 0 ? lockedAtStart : undefined,
     objective: v.objective,
     objectiveDescription: v.objectiveDescription,
     boardObjective: v.boardObjective || undefined,
@@ -329,17 +380,30 @@ export function toVillainDef(v: CustomVillain): VillainDef {
     pawnHeightPx: v.pawnHeightPx,
     backVillainImage: v.backVillainImage ?? '',
     backFateImage: v.backFateImage ?? '',
-    locations: v.locations.map((l) => ({
-      id: l.id,
-      name: l.name,
-      actions: l.actions.map((a) => ({
-        id: a.id,
-        type: a.type,
-        label: a.label,
-        row: a.row,
-        amount: a.amount,
-      })),
-    })),
+    altObjective: v.altObjective
+      ? {
+          objective: v.altObjective.objective,
+          objectiveDescription: v.altObjective.objectiveDescription,
+          boardImage: v.altBoardImage,
+        }
+      : undefined,
+    locations: v.locations.map((l) => {
+      const mapActions = (as: CustomAction[]) =>
+        as.map((a) => ({ id: a.id, type: a.type, label: a.label, row: a.row, amount: a.amount }))
+      const base = { id: l.id, name: l.name, actions: mapActions(l.actions) }
+      // Lieu TRANSFORMABLE : on embarque la face B (name/actions de remplacement) ;
+      // la face A reste active au départ (version 'a').
+      if (l.alt) {
+        return {
+          ...base,
+          altName: l.alt.name || l.name,
+          altActions: mapActions(l.alt.actions ?? l.actions),
+          version: 'a' as const,
+          bColumnImage: l.alt.columnImage,
+        }
+      }
+      return base
+    }),
   }
 }
 

@@ -770,8 +770,6 @@ interface GameStore {
   resolveMoveHouses: (locationId: string) => void
   /** Mr. Monopoly — Libéré de prison : déplacer un Héros, ou envoyer Mr. Monopoly en Prison. */
   resolveFreeFromJail: (arg: { heroInstanceId?: string; locationId?: string; toPrison?: boolean }) => void
-  /** Mr. Monopoly — Chaussure : choisir le lieu bloqué pour la pose de maisons. */
-  resolveBlockLocation: (locationId: string) => void
   /** Mr. Monopoly — Reculez de trois cases : déplacer le pion vers le lieu choisi. */
   resolveBackwardMove: (locationId: string) => void
   /** Sa Sucrerie — Princesse Vanellope : reculer le pion King Candy de `amount` cases (0..max). */
@@ -1384,8 +1382,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_MOVE_HOUSES', locationId }),
   resolveFreeFromJail: (arg) =>
     get().submit({ type: 'RESOLVE_FREE_FROM_JAIL', ...arg }),
-  resolveBlockLocation: (locationId) =>
-    get().submit({ type: 'RESOLVE_BLOCK_LOCATION', locationId }),
   resolveBackwardMove: (locationId) =>
     get().submit({ type: 'RESOLVE_BACKWARD_MOVE', locationId }),
   resolvePawnBack: (amount) =>

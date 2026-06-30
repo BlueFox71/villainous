@@ -1320,7 +1320,7 @@ export function BoardActions({
           })
         })()}
       {/* Mr. Monopoly — MAISONS posées par l'adversaire sur CE plateau. Une rangée de
-          petites maisons (ou une icône hôtel à 4) au coin haut-gauche de chaque lieu. */}
+          petites maisons (1 à 4), ou une icône hôtel à la 5ᵉ mise, en haut de chaque lieu. */}
       {housesHere &&
         player.locations.map((loc, k) => {
           const count = housesHere[loc.id] ?? 0
@@ -1330,13 +1330,13 @@ export function BoardActions({
           const left = (rect.x0 / BOARD_W) * 100
           const width = ((rect.x1 - rect.x0) / BOARD_W) * 100
           const top = (HERO_BAND.y0 / BOARD_H) * 100
-          const hotel = count >= 4
+          const hotel = count >= 5
           return (
             <div
               key={`house:${loc.id}`}
               className="pointer-events-none absolute z-[13] flex items-center justify-center gap-[2px]"
               style={{ left: `${left}%`, top: `${top}%`, width: `${width}%`, height: '14%' }}
-              title={hotel ? 'Hôtel (4 maisons)' : `${count} maison${count > 1 ? 's' : ''}`}
+              title={hotel ? 'Hôtel' : `${count} maison${count > 1 ? 's' : ''}`}
             >
               {hotel ? (
                 <img src="/mr-monopoly/hotel.png" alt="Hôtel" className="h-full w-auto drop-shadow-lg" />

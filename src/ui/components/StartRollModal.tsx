@@ -263,8 +263,11 @@ export function StartRollModal({ names, images, villainKeys, onResult, versusOnl
         const mirror = left ? 1 : -1
         const tweak = villainKeys ? PRESENTATION_TWEAK[villainKeys[i] as VillainKey] : undefined
         const dy = tweak?.versusDyPct ?? tweak?.dyPct ?? 0
+        // Art de côté : selectDxPct = décalage VERS LE CENTRE (gauche/joueur → droite,
+        // droit/adversaire → gauche). Sinon le dxPct de la fiche.
+        const dx = tweak?.selectDxPct != null ? tweak.selectDxPct * (left ? 1 : -1) : (tweak?.dxPct ?? 0)
         const transform = tweak
-          ? `translate(${tweak.dxPct ?? 0}%, ${dy}%) scale(${tweak.scale ?? 1}) scaleX(${mirror})`
+          ? `translate(${dx}%, ${dy}%) scale(${tweak.scale ?? 1}) scaleX(${mirror})`
           : undefined
         return (
           <div

@@ -551,13 +551,6 @@ export function enumerateActions(state: GameState): GameAction[] {
     return out
   }
 
-  // Mr. Monopoly — Chaussure : choisir un lieu à bloquer pour la pose de maisons.
-  if (state.pendingBlockLocation) {
-    const pb = state.pendingBlockLocation
-    const opp = state.players[pb.targetIndex === 0 ? 1 : 0]
-    return opp.locations.map((l) => ({ type: 'RESOLVE_BLOCK_LOCATION', locationId: l.id }))
-  }
-
   // Mr. Monopoly — Reculez de trois cases : choisir le lieu de destination du pion.
   if (state.pendingBackwardMove) {
     const me = state.players[state.pendingBackwardMove.playerIndex]
@@ -580,8 +573,8 @@ export function enumerateActions(state: GameState): GameAction[] {
       if (pmh.phase === 'from') {
         if (count > 0) out.push({ type: 'RESOLVE_MOVE_HOUSES', locationId: l.id })
       } else {
-        // destination : non plein (plafond 4) et différent de la source
-        if (count < 4 && l.id !== pmh.from) out.push({ type: 'RESOLVE_MOVE_HOUSES', locationId: l.id })
+        // destination : non plein (plafond 5 = hôtel) et différent de la source
+        if (count < 5 && l.id !== pmh.from) out.push({ type: 'RESOLVE_MOVE_HOUSES', locationId: l.id })
       }
     }
     return out

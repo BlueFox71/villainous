@@ -4,6 +4,13 @@ import { getCardDef } from '../../data/registry'
 import { enlargeCoveredAction } from '../../engine/rules'
 import { villainColor } from '../villainColorState'
 import { SUGAR_RUSH_TRACK } from './sugarRushTrack'
+import { COL_RECTS, BOARD_W } from '../editor/boardLayout'
+
+/** Position (% largeur) d'une colonne de lieu, calée sur le gabarit Realm — pour
+ *  superposer l'image de colonne d'une face B (lieux transformables, cf. Atelier).
+ *  Les % correspondent EXACTEMENT au découpage opéré au bake (cropColumn). */
+const colLeftPct = (i: number) => (COL_RECTS[i].x0 / BOARD_W) * 100
+const colWidthPct = (i: number) => ((COL_RECTS[i].x1 - COL_RECTS[i].x0) / BOARD_W) * 100
 
 // Géométrie mesurée sur board.png (Prince Jean). Le panneau de gauche (portrait
 // + objectif) décale le 1ᵉʳ lieu, puis les 4 lieux sont régulièrement espacés.
@@ -200,6 +207,22 @@ export function BoardImage({
         className={`w-full rounded-lg ${imgClassName}`}
         style={{ borderColor: `color-mix(in srgb, ${coverColor}, white 45%)`, transition: 'border-color var(--villain-color-fade, 0s) ease-out' }}
       />
+
+      {/* Lieux TRANSFORMÉS (face B active) : on superpose l'image de colonne bakée de
+          la face B sur la colonne correspondante. Rendu JUSTE après le plateau (avant
+          pion/héros) pour rester SOUS eux. Les bordures dorées (identiques A/B) restent
+          celles du plateau de base → raccord invisible. */}
+      {player.locations.map((loc, i) =>
+        loc.version === 'b' && loc.bColumnImage && i < COL_RECTS.length ? (
+          <img
+            key={`colB-${loc.id}`}
+            src={loc.bColumnImage}
+            alt=""
+            className="pointer-events-none absolute top-0 h-full"
+            style={{ left: `${colLeftPct(i)}%`, width: `${colWidthPct(i)}%` }}
+          />
+        ) : null,
+      )}
 
       {/* Ratigan — tuile Objectif posée dans le panneau gauche du plateau (qui
           porte l'emplacement « Placez la tuile Objectif ici »). Côté « L'Esprit
