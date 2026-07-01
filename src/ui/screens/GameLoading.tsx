@@ -13,7 +13,7 @@ interface Props {
 // Affichage minimum (évite un flash quand tout est déjà en cache) et garde-fou : au-delà de
 // SAFETY_MS on entre dans la partie quelle que soit la progression (on ne bloque JAMAIS le joueur
 // si un asset ne se charge pas). Délai par vidéo : `loadeddata` peut tarder → on n'attend pas plus.
-const MIN_MS = 700
+const MIN_MS = 3000
 const SAFETY_MS = 9000
 const PER_VIDEO_MS = 4500
 

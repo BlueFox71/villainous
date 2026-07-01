@@ -120,6 +120,8 @@ export const teamRocketCards: CardDef[] = [
     attach: 'ally',
     attachStrengthBonus: 1,
     shieldAllyFromDiscard: true,
+    // Défausse Fatalité (Dégonflage) : après la Mongolfière (cf. fateRemovalPriority).
+    fateRemovalPriority: 3,
     copies: 2,
     text: "Associez cette carte à un Allié, sa force augmente de 1. Si cet Allié doit être défaussé, défaussez cet Objet à la place.",
     image: img('pokeball.png'),
@@ -145,6 +147,8 @@ export const teamRocketCards: CardDef[] = [
     type: 'item',
     cost: 2,
     attach: 'ally',
+    // Défausse Fatalité (Dégonflage) : en dernier parmi les Objets TR (cf. fateRemovalPriority).
+    fateRemovalPriority: 1,
     copies: 2,
     // Déclenche l'action Attraper si l'Allié hôte a éliminé un Héros (géré dans applyVanquish) ;
     // la rose est défaussée avec l'Allié dépensé.
@@ -158,6 +162,8 @@ export const teamRocketCards: CardDef[] = [
     deck: 'villain',
     type: 'item',
     cost: 2,
+    // Défausse Fatalité (Dégonflage) : après la Pokéball (cf. fateRemovalPriority).
+    fateRemovalPriority: 2,
     copies: 1,
     // Sursis : tant que le Pokédex est dans le royaume, un Pokémon couché survit UN tour de
     // plus avant d'aller en défausse Fatalité (seuil d'expiration 3 au lieu de 2 ; cf. sweepKoPokemon).
@@ -172,6 +178,9 @@ export const teamRocketCards: CardDef[] = [
     type: 'item',
     cost: 3,
     ridesWithPawn: true,
+    // Défausse Fatalité (Dégonflage / Onix) : cible n°1 (tempo). Tier HAUT (≥5) → retirée
+    // AVANT les Alliés dans Onix (cf. fateRemovalPriority, DISCARD_ALLY_OR_ITEM).
+    fateRemovalPriority: 10,
     copies: 1,
     text: "Lorsque vous êtes sur le même lieu que la Mongolfière, vous pouvez, une fois par tour, déplacer votre figurine et la Mongolfière vers n'importe quel lieu et y effectuer une action disponible, en dehors d'une action Fatalité.",
     image: img('mongolfiere.png'),

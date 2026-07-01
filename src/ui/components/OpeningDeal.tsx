@@ -165,7 +165,11 @@ export function OpeningDeal({ cards, onLanded, onComplete }: Props) {
   }, [])
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[78]">
+    // z-index EN LIGNE (pas seulement la classe Tailwind) : l'overlay est `fixed`, donc il
+    // crée son propre contexte d'empilement. Sans z-index effectif il resterait au niveau
+    // `auto`, SOUS la pioche (élément positionné en z-index:1) — la carte volante semblait
+    // alors « sortir de derrière » le paquet. On force l'overlay bien au-dessus du plateau.
+    <div className="pointer-events-none fixed inset-0" style={{ zIndex: 78 }}>
       {cards.map((c) => (
         <DealtCard key={c.instanceId} card={c} onLanded={onLanded} />
       ))}

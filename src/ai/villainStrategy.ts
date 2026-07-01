@@ -37,6 +37,14 @@ export interface VillainStrategy {
    */
   enginePieces?: Record<string, number>
   /**
+   * Héros qui sont les CIBLES DE CAPTURE de CE vilain (son propre objectif les veut
+   * dans son royaume, pas dehors) : Peach pour Bowser. Contrairement à un Héros
+   * ordinaire (nuisible chez soi), un Héros-cible présent dans le royaume est un
+   * ATOUT (prérequis de la capture) → l'évaluation ne le pénalise pas. Le gradient
+   * de progression (« cible présente, prête à capturer ») est porté par `objectiveScore`.
+   */
+  captureTargetHeroes?: string[]
+  /**
    * Conseils pour le bot qui FATALISE ce vilain (volet « contre ») : sur quels
    * Héros concentrer les Objets de protection et le Pouvoir volé. Sert à départager
    * le CHOIX DE LA CIBLE d'une carte Fatalité, à valeur d'objectif égale (le terme
@@ -100,6 +108,16 @@ export interface VillainStrategy {
      * Mont Olympe entrave les Titans qui arrivent ; Hercule aux Enfers les y bloque).
      */
     placeHeroAt?: Record<string, string>
+    /**
+     * Héros Fatalité à poser sur le lieu qui porte le PLUS d'Alliés porteurs d'Étoile
+     * (Luigi contre Bowser : il défausse tous les Alliés de son lieu ET renvoie leurs
+     * Étoiles à l'Observatoire — revers maximal là où Bowser a drainé le plus). Placement
+     * DYNAMIQUE (dépend de l'état des Étoiles) : le bot RESTREINT ses lieux candidats dans
+     * `enumerate.ts` (résolution de `pendingFate`), au lieu de s'en remettre à l'évaluation
+     * de l'état résultant — où les Alliés visés ont DÉJÀ été défaussés (invisibles a posteriori)
+     * et où le seul signal restant (Étoiles remontées) est nul tant qu'aucun Allié n'en porte.
+     */
+    placeHeroOnStarAllies?: string[]
     /**
      * Héros Fatalité dont l'aura AFFAIBLIT les Héros co-localisés (Zazu : −2 aux autres
      * Héros de son lieu) : à NE PAS poser sur le lieu d'un Héros que le vilain veut
@@ -845,6 +863,14 @@ export const VILLAIN_STRATEGY: Record<string, VillainStrategy> = {
       arbok: 2, // force 3 + affaiblit les Héros de son lieu
       smogogo: 2, // force 3 + action distante
       miaouss: 1, // force 3, portée lieu voisin
+      // Objets qui font tourner la boucle Vaincre→Attraper (bonus tant qu'ils sont en jeu,
+      // non associés = « prêts à servir ») : Mongolfière (tempo : déplacer + action hors
+      // Fatalité), Pokédex volé (sursis d'un tour sur un Pokémon couché), rose de James
+      // (2-en-1 : éliminer un Héros ET attraper), Pokéball (économise un Allié au Vanquish).
+      mongolfiere: 2,
+      'pokedex-vole': 2,
+      'rose-de-james': 2,
+      pokeball: 1,
     },
     fateTargeting: {
       avoidPlayingHeroes: [
@@ -862,6 +888,62 @@ export const VILLAIN_STRATEGY: Record<string, VillainStrategy> = {
       avoidPlayingHeroes: ['fiona'],
     },
   },
+
+  // --- Bowser (objectif : Observatoire à 0 Étoile + capturer Peach) — collab ------
+  // Mécanique des Étoiles : drainer les 4 Étoiles de l'Observatoire vers ses Alliés
+  // (épuisement d'énergie ; ou Kamella/Dino Piranha qui en prennent une À LA POSE sur
+  // l'Observatoire), puis capturer Peach — UNIQUEMENT via Impuissance. Peach est sa
+  // CIBLE de capture (deck Fatalité) : la lui donner l'AIDE → le bot qui fatalise
+  // l'évite. Mario (bloque la victoire), Harmonie (garde la dernière Étoile), Luigi
+  // (défausse les Alliés de son lieu) sont ses pires gêneurs → à vaincre (cf. fateMalus).
+  bowser: {
+    // Peach est sa cible de capture : présente dans SON royaume, c'est un atout
+    // (prérequis de l'Impuissance), pas une gêne → non pénalisée par l'évaluation.
+    captureTargetHeroes: ['peach'],
+    // NB : pas de preferredPlacements pour Kamella/Dino Piranha sur l'Observatoire.
+    // Leur intérêt là-bas (drainer une Étoile À LA POSE) est déjà porté par le terme
+    // objectif (l'Étoile drainée fait monter objectiveScore) ; y ajouter un bonus de
+    // placement PERMANENT contredirait le positionnement anti-Luigi (heuristicBot),
+    // qui veut au contraire ÉLOIGNER de l'Observatoire un Allié une fois qu'il porte
+    // une Étoile.
+    enginePieces: {
+      // Bowser Jr. : va chercher Peach (Activer 3 JT) ET pioche quand il est fatalisé
+      // → pièce maîtresse pour amorcer la capture. Bateau : transport + 1 action bonus
+      // (gagne du tempo pour avancer/gagner des JT). Galaxie hantée : creuse la pioche
+      // (4 cartes → 1 gardée) pour trouver épuisement/Impuissance. Réacteur galactique :
+      // moteur de Pouvoir (action Gagner 1). Kamella/Dino Piranha : Alliés draineurs.
+      'bowser-jr': 4,
+      bateau: 3,
+      ghostly: 2,
+      'boule-feu': 2,
+      kamella: 2,
+      'dino-piranha': 2,
+    },
+    priorityVanquish: {
+      // Mario : tant qu'il est là, Bowser NE PEUT PAS gagner → à dégager en priorité.
+      // Harmonie : impose ≥1 Étoile à l'Observatoire → empêche de finir l'épuisement.
+      // Luigi : défausse les Alliés de son lieu (et renvoie leurs Étoiles) → menace les
+      // draineurs regroupés (surtout s'ils sont encore sur l'Observatoire non verrouillé).
+      mario: 10,
+      harmonie: 8,
+      luigi: 4,
+    },
+    fateTargeting: {
+      // Peach est le Héros-CIBLE de Bowser (il DOIT l'avoir dans son royaume pour la
+      // capturer) : la lui jouer en Fatalité l'AIDE → le bot qui fatalise l'évite.
+      avoidPlayingHeroes: ['peach'],
+      // Luigi défausse TOUS les Alliés de son lieu et renvoie leurs Étoiles à
+      // l'Observatoire → le bot le pose sur le lieu qui porte le plus d'Alliés porteurs
+      // d'Étoile (revers maximal : Bowser doit re-drainer). Cf. placeHeroOnStarAllies.
+      placeHeroOnStarAllies: ['luigi'],
+    },
+  },
+}
+
+/** Vrai si `cardId` est un Héros-cible de capture de ce vilain (Peach pour Bowser) :
+ *  présent dans SON royaume, c'est un atout, pas une gêne. Cf. `captureTargetHeroes`. */
+export function isCaptureTargetHero(villain: string, cardId: string): boolean {
+  return VILLAIN_STRATEGY[villain]?.captureTargetHeroes?.includes(cardId) ?? false
 }
 
 /** Bonus de placement gagné quand une carte est sur son lieu préféré. */

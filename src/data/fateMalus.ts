@@ -27,6 +27,7 @@ export const FATE_MALUS: Record<string, FateMalus> = {
   mario: 'block-win',
   harmonie: 'block-advance',
   luigi: 'slow',
+  luma: 'slow', // aura +1 à TOUS les autres Héros du royaume (protège les gêneurs)
 
   // --- Maléfique (une Malédiction par lieu) — pas de Héros-cible ; ce qui la gêne =
   // ce qui DÉFAUSSE ses Malédictions ou tue Diablo. Gardes = NEUTRE (« assez inutiles » :

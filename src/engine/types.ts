@@ -1795,6 +1795,10 @@ export interface CardInstance {
   /** Objet « bouclier » associé à un Allié (Cruella — Tisonnier) : quand l'Allié
    *  devrait être défaussé, cet Objet est défaussé À SA PLACE et l'Allié survit. */
   shieldAllyFromDiscard?: boolean
+  /** Indice IA (recopié de CardDef) : priorité de RETRAIT par une Fatalité de défausse
+   *  (Dégonflage / Onix). Plus c'est haut, plus l'auto-résolution vise cet Objet ; non
+   *  renseigné = 0 (retombe sur coût/force). Cf. Team Rocket (Mongolfière ≫ Pokéball…). */
+  fateRemovalPriority?: number
   /** Capitaine Crochet : Objet qui DONNE une action à son lieu tant qu'il y est
    *  posé (Canon → Vaincre, Boîte à Crochets → Gagner 1, Ingénieux Mécanisme →
    *  Déplacer un Héros). */
@@ -2789,13 +2793,6 @@ export interface GameState {
    *  joué, Condition jouée, effet déclenché remarquable). Le moteur n'efface
    *  jamais ; l'UI suit un curseur local pour savoir ce qu'elle a déjà montré. */
   showcaseEvents: ShowcaseEvent[]
-  /** File append-only des actions effectuées par le joueur actif CE TOUR (récap du
-   *  tour adverse). Remplie par `applyAction` selon le type d'action ; remise à []
-   *  au début de chaque tour. Voir `lastTurnEvents` pour le tour précédent figé. */
-  turnEvents?: TurnEvent[]
-  /** Récap FIGÉ du dernier tour terminé (snapshot de `turnEvents` à END_TURN) :
-   *  l'UI l'affiche au joueur quand l'adversaire a fini de jouer. `null` au départ. */
-  lastTurnEvents?: TurnRecap | null
   /** Vrai si le joueur actif vient de bouger sur un lieu portant Persifleur :
    *  il peut utiliser UNE action recouverte de ce lieu. Consommé à l'usage. */
   persifleurAvailable: boolean
@@ -3812,53 +3809,6 @@ export type FloatingFx =
 /** Événement « cinématique » émis par le moteur pour que l'UI affiche la
  *  carte en grand avec un message d'effet. Purement informatif (n'affecte pas
  *  la logique de jeu) ; le moteur le pousse, l'UI le consomme à son rythme. */
-
-/** Catégorie d'icône d'un `TurnEvent` (correspond à une image public/actions/). */
-export type TurnEventKind =
-  | 'play-card' // Jouer une carte (Allié/Objet/Événement)
-  | 'fate' // Lancer puis résoudre une Fatalité
-  | 'discard' // Défausser des cartes
-  | 'vanquish' // Vaincre un Héros (ou Attraper un Pokémon)
-  | 'move-hero' // Déplacer un Héros
-  | 'move-ally' // Déplacer un Allié/Objet
-  | 'gain-power' // Gagner du Pouvoir
-  | 'activate' // Activer la capacité d'une carte
-
-/**
- * Une action effectuée par le joueur actif pendant son tour, telle que résumée
- * dans le récap « tour adverse ». Données pures (sérialisables) ; l'UI choisit
- * l'icône d'après `kind` et compose le tooltip à partir de `detail`.
- */
-export interface TurnEvent {
-  kind: TurnEventKind
-  /** Libellé court affiché SOUS l'icône (nom de carte, Héros vaincu, « 3 cartes »…). */
-  label?: string
-  /** Pouvoir gagné (kind='gain-power') → affiché en surimpression de l'icône Pouvoir. */
-  amount?: number
-  /** cardId principal (carte jouée, Fatalité résolue, Héros vaincu/déplacé, carte
-   *  déplacée/activée) → l'UI peut afficher l'image de la carte dans le tooltip. */
-  cardId?: string
-  /** cardIds secondaires (cartes défaussées, Alliés ayant vaincu le Héros). */
-  cardIds?: string[]
-  /** Nom du lieu de destination (déplacements) → libellé « → Lieu ». */
-  toLocationName?: string
-  /** Lignes de `log` produites par cette action (et ses continuations) : sert de
-   *  description détaillée au survol, sans avoir à re-formuler les effets. */
-  detail: string[]
-}
-
-/** Snapshot du récap d'un tour terminé (cf. `GameState.lastTurnEvents`). */
-export interface TurnRecap {
-  /** Index du joueur dont le tour vient de se terminer. */
-  playerIndex: number
-  /** Nom du vilain (pour le titre du récap). */
-  villainName: string
-  /** Numéro du tour terminé. */
-  turn: number
-  /** Les actions jouées, dans l'ordre chronologique. */
-  records: TurnEvent[]
-}
-
 export interface ShowcaseEvent {
   /** Carte mise en avant (utilisée pour retrouver l'image et le texte). */
   cardId: string
@@ -3997,6 +3947,11 @@ export type GameAction =
   /** Le joueur actif paie 2 JT pour défausser un Déguisement Fatalité associé
    *  à un Héros adverse de SON plateau. Action hors-tour-de-lieu. */
   | { type: 'DISCARD_DEGUISEMENT'; instanceId: string }
+  /** Défausse volontaire de cartes de la MAIN, sans coût ni pioche de remplacement.
+   *  Utilisé par le BOT (via chooseAction) pour ne pas thésauriser : en fin de tour,
+   *  s'il dépasse sa limite de main, il jette l'excédent (les cartes les moins
+   *  importantes). Non énuméré dans la recherche ; l'UI humaine ne l'expose pas. */
+  | { type: 'DISCARD_HAND_CARDS'; instanceIds: string[] }
   /** Disparition : passer la phase MOVE obligatoire sans déplacer le pion. */
   | { type: 'SKIP_MOVE' }
   /** Déplacement gratuit du Shérif de Nottingham (1×/tour par Shérif) vers

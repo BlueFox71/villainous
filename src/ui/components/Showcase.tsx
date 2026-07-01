@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { PlayerState, ShowcaseEvent } from '../../engine/types'
 import { getCardDef } from '../../data/registry'
 import { VILLAIN_COLOR } from '../villainColors'
+import { speedScaled } from '../botSpeed'
 
 // Position du showcase « défausse » par nombre de cartes, calée à la main. `top`
 // commun aux deux camps ; `left` (joueur) et `leftBot` (adverse) dissociés. En %
@@ -108,7 +109,8 @@ export function Showcase({ events, humanIndex, players, onHiddenIdsChange, onCar
     // Mode « fixe » (test) : reste affiché jusqu'à fermeture manuelle.
     if (current.fixed) return
     // Défausse : 1 s de moins (montre la/les cartes retirées plus brièvement).
-    const baseMs = current.durationMs ?? 3000
+    // La durée est réduite par le multiplicateur de vitesse des bots (ORDI vs ORDI).
+    const baseMs = speedScaled(current.durationMs ?? 3000)
     const totalMs = current.discard ? Math.max(1200, baseMs - 1000) : baseMs
     const flightMs = current.destination
       ? Math.min(700, totalMs)

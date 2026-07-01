@@ -82,6 +82,11 @@ export interface CardDef {
   /** Objet « bouclier » associé à un Allié (Cruella — Tisonnier) : défaussé à la
    *  place de son Allié quand celui-ci devrait être défaussé. */
   shieldAllyFromDiscard?: boolean
+  /** Indice IA (donnée réutilisable) : à quel point RETIRER cet Objet gêne son
+   *  propriétaire — plus c'est haut, plus une Fatalité de défausse (Dégonflage, Onix…)
+   *  vise cet Objet en priorité. Team Rocket : Mongolfière (tempo) ≫ Pokéball > Pokédex
+   *  volé > rose de James. Non renseigné = 0 (l'auto-résolution retombe sur coût/force). */
+  fateRemovalPriority?: number
   /** Pyramid Head — flags Héros/Objet Fatalité (cf. CardInstance). */
   blocksJudgmentTile?: boolean
   immuneToCage?: boolean
@@ -404,6 +409,7 @@ export function buildDeckInstances(
           attachOnlyCardId: c.attachOnlyCardId,
           attachStrengthBonus: c.attachStrengthBonus,
           shieldAllyFromDiscard: c.shieldAllyFromDiscard,
+          fateRemovalPriority: c.fateRemovalPriority,
           blocksJudgmentTile: c.blocksJudgmentTile,
           immuneToCage: c.immuneToCage,
           souffranceSurcharge: c.souffranceSurcharge,

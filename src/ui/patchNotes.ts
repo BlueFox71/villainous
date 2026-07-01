@@ -47,6 +47,27 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.1.1',
+    date: '2026-07-02',
+    title: 'Mode Ordi contre Ordi, bots plus malins & journal refondu',
+    tags: ['ia', 'interface', 'animation', 'correctif'],
+    changes: [
+      'Nouveau mode **Ordi contre Ordi** : lance une partie où **deux bots s’affrontent** et regarde-les jouer.',
+      'Le **journal de partie** est **refondu** : affichage plus clair et lisible des événements.',
+      "Le **crâne de piratage de Sombra** (décor) est redessiné, repositionné **en bas à gauche** et plus discret.",
+      "L'**IA de Bowser** joue enfin sa stratégie : elle draine les **Étoiles**, part **chercher Peach** (Bowser Jr.) pour la **capturer** (Impuissance), garde ses **cartes-clés** et vise **Mario/Harmonie/Luigi**.",
+      'Elle **protège ses Étoiles** : éloigne les Alliés porteurs du **piège de Luigi** et les **sacrifie au combat** pour verrouiller sa progression.',
+      "Le bot **hésite moins à éliminer les Héros** qui **recouvrent ses actions** (Mario & co. ne s'installent plus tranquillement).",
+      "Le bot qui **affronte Bowser** pose désormais **Luigi** là où ça fait mal : le lieu avec le **plus d'Alliés porteurs d'Étoile**.",
+      "Bowser sait enfin **clôturer** face au renvoi d'Étoiles : quand Mario/Luigi/Harmonie sont là, il **sacrifie ses Alliés porteurs** pour **retirer les Étoiles du jeu** (progrès verrouillé) au lieu de tourner en rond.",
+      "Les bots **ne thésaurisent plus** : au-delà de **4 cartes** en main, ils **défaussent l'excédent** (les moins importantes), au lieu d'empiler des cartes inutiles.",
+      "L'**IA de Team Rocket** enchaîne mieux sa **boucle de capture** (elle valorise **Poké Ball**, **Pokédex volé**, **Mongolfière**, **rose de James** et fonce **attraper** les Pokémon couchés).",
+      "En défense, elle **reprend un Pokémon capturé** en priorité (**On n'abandonne pas ses amis**) et **défausse au mieux** sous **Dégonflage/Onix** (Mongolfière d'abord).",
+      'Les **décors animés** gagnent en **fluidité** : nettement **moins de saccades** en partie, surtout sur les décors chargés (**Bowser**, **sable**, **Tamatoa**, **La Bonne Fée**).',
+      'Le **fond animé du menu** ne tourne plus **inutilement** en arrière-plan pendant une partie.',
+    ],
+  },
+  {
     version: '1.1.0',
     date: '2026-06-30',
     title: 'Mr. Monopoly + Atelier (verrous, cadenas, lieux transformables)',
@@ -1484,6 +1505,15 @@ export const PATCH_NOTES: PatchNote[] = [
       '**Menu principal** (Nouvelle partie, Liste des villains) avec le logo.',
       'Écran de **choix du vilain** avant la partie.',
       '**Fiches vilains** : difficulté, objectif, histoire, conseils jouer/contrer.',
+    ],
+  },
+  {
+    version: '0.0',
+    date: '2026-05-26',
+    title: 'Naissance du projet',
+    tags: ['interface'],
+    changes: [
+      'Début du développement de **Disney Villainous** (Vite + React + TypeScript) — les toutes premières fondations de l’application.',
     ],
   },
 ]

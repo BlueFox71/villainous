@@ -7745,13 +7745,19 @@ export function resolveEffect(
       }
     }
     case 'DISCARD_ONE_ITEM': {
-      // Comète farceuse (Fatalité) : défausse un Objet (non associé) du royaume cible.
+      // Comète farceuse / Dégonflage (Fatalité) : défausse un Objet (non associé) du royaume
+      // cible. Auto : l'Objet le plus GÊNANT à perdre — priorité de retrait (`fateRemovalPriority`,
+      // p. ex. Team Rocket Mongolfière ≫ Pokéball > Pokédex > rose de James), à défaut le plus cher.
       const actor = state.players[idx]
       let pickLoc: LocationId | undefined
       let pick: CardInstance | undefined
+      let pickRank = -Infinity
       for (const l of actor.locations) {
-        const found = (actor.board[l.id] ?? []).find((c) => c.type === 'item' && !c.attachedTo)
-        if (found) { pickLoc = l.id; pick = found; break }
+        for (const c of actor.board[l.id] ?? []) {
+          if (c.type !== 'item' || c.attachedTo) continue
+          const rank = (c.fateRemovalPriority ?? 0) * 100 + (c.cost ?? 0)
+          if (rank > pickRank) { pickRank = rank; pick = c; pickLoc = l.id }
+        }
       }
       if (!pick || !pickLoc) {
         return { ...state, log: [...state.log, `${actor.villainName} : aucun Objet à défausser (Comète farceuse).`] }
@@ -7767,23 +7773,31 @@ export function resolveEffect(
     }
     case 'DISCARD_ALLY_OR_ITEM': {
       // Onix (Pokémon Fatalité) : défausse un Allié OU un Objet du royaume de la cible.
-      // Auto : la carte la plus « précieuse » (force d'un Allié, ou coût d'un Objet) parmi
-      // les Alliés/Objets non associés et non immunisés. Les Objets associés à la cible
-      // partent avec elle.
+      // Auto en TIERS (cf. stratégie Team Rocket) : un Objet-moteur à haute priorité de
+      // retrait (`fateRemovalPriority` ≥ HIGH, p. ex. Mongolfière) d'abord, puis les Alliés
+      // (par force), puis les autres Objets (par priorité de retrait, à défaut le coût).
+      // Alliés/Objets non associés et non immunisés ; les Objets associés partent avec la cible.
       const actor = state.players[idx]
-      type Cand = { c: CardInstance; loc: LocationId; value: number }
+      const HIGH_REMOVAL = 5 // seuil « Objet-moteur retiré avant les Alliés »
+      type Cand = { c: CardInstance; loc: LocationId }
       const cands: Cand[] = []
       for (const l of actor.locations) {
         for (const c of actor.board[l.id] ?? []) {
           if (c.attachedTo || c.immuneToAllyItemEffects) continue
-          if (c.type === 'ally') cands.push({ c, loc: l.id, value: c.strength ?? 0 })
-          else if (c.type === 'item') cands.push({ c, loc: l.id, value: c.cost ?? 0 })
+          if (c.type === 'ally' || c.type === 'item') cands.push({ c, loc: l.id })
         }
       }
       if (cands.length === 0) {
         return { ...state, log: [...state.log, `${actor.villainName} : aucun Allié ni Objet à défausser (Onix).`] }
       }
-      const target = [...cands].sort((a, b) => b.value - a.value)[0]
+      const rank = ({ c }: Cand) => {
+        if (c.type === 'item') {
+          const p = c.fateRemovalPriority ?? 0
+          return p >= HIGH_REMOVAL ? 300_000 + p : p * 100 + (c.cost ?? 0)
+        }
+        return 100_000 + (c.strength ?? 0) // Allié : tier intermédiaire
+      }
+      const target = [...cands].sort((a, b) => rank(b) - rank(a))[0]
       const loc = target.loc
       const attachedIds = new Set((actor.board[loc] ?? []).filter((c) => c.attachedTo === target.c.instanceId).map((c) => c.instanceId))
       const removeIds = new Set<string>([target.c.instanceId, ...attachedIds])

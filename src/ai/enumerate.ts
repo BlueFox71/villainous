@@ -7,7 +7,7 @@
 // l'état et n'utilise aucune source d'aléa.
 // =============================================================================
 
-import type { GameAction, GameState, PlayerState } from '../engine/types'
+import type { CardInstance, GameAction, GameState, PlayerState } from '../engine/types'
 import { KEY_COLORS } from '../engine/types'
 import { canEnterAuDela, raiponceLocation, titanReachableDests } from '../engine/effects'
 import { fateCardPlayable, FREE_PLAY_NO_ACTION_ID } from '../engine/actions'
@@ -45,7 +45,7 @@ import {
 /** cardId des cartes CRUCIALES pour l'objectif du joueur (à NE PAS défausser par le
  *  bot) : les Objets/cartes qui doivent finir dans le royaume. Le Trident et la
  *  Couronne d'Ursula, la carte amassée (Cartes dans le royaume), la Lampe de Jafar… */
-function objectiveCriticalCardIds(p: PlayerState): Set<string> {
+export function objectiveCriticalCardIds(p: PlayerState): Set<string> {
   const o = p.objective
   switch (o.type) {
     case 'CARDS_IN_REALM':
@@ -54,6 +54,20 @@ function objectiveCriticalCardIds(p: PlayerState): Set<string> {
       return new Set([o.itemCardId])
     case 'ITEMS_AT_LOCATION':
       return new Set(o.itemCardIds)
+    case 'DEPLETE_OBSERVATORY_AND_CAPTURE': {
+      // Bowser : ne pas JETER ses cartes-clés pour cycler la main. Impuissance = SEULE
+      // capture de Peach (et seul moyen hors-combat de vaincre un Héros ≤3 : Luigi /
+      // Harmonie) ; Te revoilà (rencontre) récupère une carte-clé défaussée ; épuisement
+      // d'énergie (puissance-stellaire) draine une Étoile TANT QU'IL EN RESTE ; Bowser Jr.
+      // va chercher Peach tant qu'elle n'est ni capturée ni déjà dans le royaume.
+      const keep = new Set<string>(['impuissance', 'rencontre'])
+      if ((p.observatoryStars ?? 0) > 0) keep.add('puissance-stellaire')
+      const peachInRealm = Object.values(p.board)
+        .flat()
+        .some((c) => c.type === 'hero' && c.cardId === 'peach')
+      if (!p.peachCaptured && !peachInRealm) keep.add('bowser-jr')
+      return keep
+    }
     default:
       return new Set<string>()
   }
@@ -65,6 +79,35 @@ function anyLocReachers(me: PlayerState, heroLocId: string) {
   return me.locations
     .filter((l) => l.id !== heroLocId)
     .flatMap((l) => (me.board[l.id] ?? []).filter((c) => !c.trapped && c.reachesAnyLocationVanquish))
+}
+
+/** Pour un Héros Fatalité qui frappe les Alliés de son lieu (Luigi contre Bowser :
+ *  il défausse les Alliés de SON lieu et renvoie leurs Étoiles à l'Observatoire), on
+ *  restreint les lieux candidats à celui/ceux qui MAXIMISENT le revers : d'abord le
+ *  nombre d'Alliés PORTEURS d'Étoile (chaque Étoile remontée = un drain à refaire),
+ *  puis le nombre d'Alliés, puis leur force. On ne peut pas s'en remettre à l'éval de
+ *  l'état résultant : les Alliés visés y sont DÉJÀ défaussés (donc invisibles), et les
+ *  Étoiles remontées ne bougent l'objectif adverse que si un Allié en portait. Renvoie
+ *  tous les ex æquo (l'éval tranche) ; ne restreint pas si aucun lieu ne porte d'Allié. */
+function bestStarAllyLocations(target: PlayerState, locs: string[]): string[] {
+  const score = (locId: string) => {
+    const allies = (target.board[locId] ?? []).filter(
+      (c) => c.type === 'ally' && !c.isWicket && !c.attachedTo,
+    )
+    const starCarriers = allies.filter((a) => (a.stars ?? 0) > 0).length
+    const strength = allies.reduce((n, a) => n + (a.strength ?? 0), 0)
+    return starCarriers * 1000 + allies.length * 50 + strength
+  }
+  let best = -1
+  let out: string[] = []
+  for (const l of locs) {
+    const s = score(l)
+    if (s > best) {
+      best = s
+      out = [l]
+    } else if (s === best) out.push(l)
+  }
+  return best > 0 ? out : locs
 }
 
 /** Tous les coups légaux disponibles dans l'état courant. Toujours non vide tant
@@ -1055,7 +1098,13 @@ export function enumerateActions(state: GameState): GameAction[] {
     for (const card of revealed) {
       if (isAvoid(card) && hasAlternative) continue
       if (card.type === 'hero') {
-        const locs = heroPlacementLocations(state, card, target)
+        let locs = heroPlacementLocations(state, card, target)
+        // Héros qui frappe les Alliés de son lieu (Luigi/Bowser) : le poser là où Bowser
+        // a le plus d'Alliés porteurs d'Étoile (revers maximal). Cf. placeHeroOnStarAllies.
+        const onStarAllies = VILLAIN_STRATEGY[state.players[target].villain]?.fateTargeting?.placeHeroOnStarAllies
+        if (onStarAllies?.includes(card.cardId) && locs.length > 1) {
+          locs = bestStarAllyLocations(state.players[target], locs)
+        }
         if (locs.length === 0) {
           // Aucun lieu légal → résolution sans cible (l'engine défausse le Héros).
           out.push({ type: 'RESOLVE_FATE', instanceId: card.instanceId })
@@ -1713,6 +1762,36 @@ export function enumerateActions(state: GameState): GameAction[] {
           const allyForce = usable.reduce((n, a) => n + (effectiveStrength(state, state.activePlayer, a.instanceId) ?? 0), 0)
           if (allyForce >= heroForce) {
             out.push({ type: 'VANQUISH', actionId: action.id, heroInstanceId: h.instanceId, allyInstanceIds: usable.map((a) => a.instanceId) })
+            // Bowser : proposer AUSSI un sous-ensemble MINIMAL qui priorise les Alliés
+            // PORTEURS d'Étoile (les défausser au Vanquish retire l'Étoile du jeu →
+            // épuisement verrouillé) tout en préservant les autres Alliés (on complète
+            // avec les plus FAIBLES). Option en plus : la recherche tranche via l'éval.
+            if (
+              me.objective.type === 'DEPLETE_OBSERVATORY_AND_CAPTURE' &&
+              usable.length > 1 &&
+              usable.some((a) => (a.stars ?? 0) > 0)
+            ) {
+              const str = (a: CardInstance) => effectiveStrength(state, state.activePlayer, a.instanceId) ?? 0
+              const ordered = [...usable].sort((a, b) => {
+                const sa = (a.stars ?? 0) > 0 ? 1 : 0
+                const sb = (b.stars ?? 0) > 0 ? 1 : 0
+                if (sa !== sb) return sb - sa // porteurs d'Étoile d'abord
+                return str(a) - str(b) // puis les plus faibles (préserver les gros Alliés)
+              })
+              const subset: string[] = []
+              let acc = 0
+              for (const a of ordered) {
+                if (acc >= heroForce) break
+                subset.push(a.instanceId)
+                acc += str(a)
+              }
+              const carriesStar = subset.some(
+                (id) => (usable.find((u) => u.instanceId === id)?.stars ?? 0) > 0,
+              )
+              if (subset.length < usable.length && carriesStar) {
+                out.push({ type: 'VANQUISH', actionId: action.id, heroInstanceId: h.instanceId, allyInstanceIds: subset })
+              }
+            }
           }
         }
       }

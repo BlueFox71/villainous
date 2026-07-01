@@ -17,7 +17,6 @@ import type {
   LocationId,
   PeteGoalKind,
   PlayerState,
-  TurnEvent,
 } from './types'
 import { shuffle, rollD6 } from './rng'
 import {
@@ -130,13 +129,16 @@ function resolveLocationAction(state: GameState, action: LocationAction, count?:
       const amount = Math.max(0, gross - penalty) * dioPowerFactor(state.players[state.activePlayer])
       let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power + amount }))
       const note = penalty > 0 ? ' (Robin des Bois : −1)' : ''
+      // Action accordée par un Objet (ex. Réacteur galactique) → marqueur « action bonus »
+      // (l'UI en fait une pastille). L'action imprimée du lieu n'a pas de `grantedBy`.
+      const bonus = action.grantedBy ? ' (action bonus)' : ''
       next = {
         ...next,
         // Suivi du Pouvoir gagné ce tour-ci (déclencheur Terreur, Dr Facilier).
         activeGainedPower: (next.activeGainedPower ?? 0) + amount,
         log: [
           ...next.log,
-          `${activePlayer(next).villainName} gagne ${amount} JT${note} (total : ${activePlayer(next).power}).`,
+          `${activePlayer(next).villainName} gagne ${amount} JT${note}${bonus} (total : ${activePlayer(next).power}).`,
         ],
       }
       return pushRobinSteal(next, state.activePlayer, gross - amount)
@@ -1577,7 +1579,9 @@ function applyDiscardCards(
     activeDiscardedCount: (consumed.activeDiscardedCount ?? 0) + discarded.length,
     log: [
       ...consumed.log,
-      `${me.villainName} défausse ${discarded.length} carte${discarded.length > 1 ? 's' : ''}.`,
+      `${me.villainName} défausse ${discarded.length} carte${discarded.length > 1 ? 's' : ''}${
+        discarded.length > 0 ? ` (${discarded.map((c) => c.name).join(', ')})` : ''
+      }.`,
     ],
   }
   // Showcase « défausse volontaire » (foncé + couleur du vilain qui défile) :
@@ -5350,6 +5354,25 @@ function applyDiscardDeguisement(state: GameState, instanceId: string): GameStat
   return {
     ...next,
     log: [...next.log, `${me.villainName} paie 2 JT pour défausser **${card.name}**.`],
+  }
+}
+
+/** Défausse volontaire de cartes de la MAIN du joueur actif (bot anti-thésaurisation),
+ *  sans coût ni pioche de remplacement. Ignore les instanceId absents de la main. */
+function applyDiscardHandCards(state: GameState, instanceIds: string[]): GameState {
+  const me = activePlayer(state)
+  const ids = new Set(instanceIds)
+  const discarded = me.hand.filter((c) => ids.has(c.instanceId))
+  if (discarded.length === 0) return state
+  const next = updateActivePlayer(state, (p) => ({
+    ...p,
+    hand: p.hand.filter((c) => !ids.has(c.instanceId)),
+    discard: [...p.discard, ...discarded],
+  }))
+  const names = discarded.map((c) => c.name).join(', ')
+  return {
+    ...next,
+    log: [...next.log, `${me.villainName} défausse ${discarded.length} carte${discarded.length > 1 ? 's' : ''} en trop de sa main (${names}).`],
   }
 }
 
@@ -10555,14 +10578,6 @@ function applyEndTurn(state: GameState): GameState {
     turn: drawn.turn + 1,
     phase: 'MOVE',
     usedActionIds: [],
-    // Récap : on fige les actions du tour qui se termine, et on repart à vide.
-    lastTurnEvents: {
-      playerIndex: drawn.activePlayer,
-      villainName: endedName,
-      turn: drawn.turn,
-      records: drawn.turnEvents ?? [],
-    },
-    turnEvents: [],
     persifleurAvailable: false,
     uncoverCoveredActions: false,
     uncoverExceptFate: false,
@@ -10842,128 +10857,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   // tuile Power Play si ≥6 Pouvoir dépensés ce tour sur le bon lieu.
   const after = syncLuciferTrap(syncRoseChain(syncPetePowerPlay(syncRatiganObjectiveAll(applyActionCore(state, action)))))
   // Dio — ZA WARUDO! : coût croissant par action + suivi des 14 actions du royaume.
-  const result = applyDioZaWarudo(action, after)
-  // Récap du tour : enregistre l'action (icône + détail) dans `turnEvents`.
-  return recordTurnEvent(state, result, action)
-}
-
-/** Types de GameAction qui DÉMARRENT une action visible dans le récap de tour
- *  (créent une nouvelle icône). Tout le reste (RESOLVE_*, PASS_FATE, SKIP_*…) est
- *  une CONTINUATION : ses lignes de log sont rattachées à la dernière icône. */
-const TURN_EVENT_STARTERS = new Set<GameAction['type']>([
-  'PLAY_CARD',
-  'EXECUTE_ACTION',
-  'DISCARD_CARDS',
-  'MOVE_CARD',
-  'MOVE_HERO',
-  'ACTIVATE',
-  'VANQUISH',
-  'CATCH_POKEMON',
-  'FATE',
-])
-
-/** Cherche un exemplaire par instanceId dans la main et le plateau d'un joueur. */
-function findInstanceInPlayer(p: PlayerState, instanceId: string): CardInstance | undefined {
-  const inHand = p.hand.find((c) => c.instanceId === instanceId)
-  if (inHand) return inHand
-  for (const cards of Object.values(p.board)) {
-    const found = cards.find((c) => c.instanceId === instanceId)
-    if (found) return found
-  }
-  return undefined
-}
-
-/**
- * Récap « tour adverse » : à chaque action, on ajoute (ou on enrichit) une entrée
- * `turnEvents` du joueur ACTIF. Les actions « starter » créent une icône ; les
- * continuations (résolutions de pending) rattachent leurs nouvelles lignes de log
- * — et, pour la Fatalité, le nom de la carte enfin choisie — à la dernière icône.
- * Le tooltip détaillé réutilise donc directement le `log` produit, sans re-formuler.
- */
-function recordTurnEvent(before: GameState, after: GameState, action: GameAction): GameState {
-  // Nouvelles lignes de log produites par cette action (sert de tooltip détaillé).
-  const newLog = after.log.slice(before.log.length)
-  const actor = before.activePlayer
-  // On ne récapitule que ce que fait le JOUEUR ACTIF pendant SON tour (les réactions
-  // de l'adversaire — Conditions — ne font pas partie de son récap).
-  if (after.activePlayer !== actor && action.type !== 'END_TURN') {
-    return after
-  }
-  const events = after.turnEvents ?? []
-  const push = (ev: TurnEvent): GameState => ({ ...after, turnEvents: [...events, ev] })
-  // Rattache de nouvelles lignes de log (et éventuellement un cardId) à la dernière icône.
-  const enrichLast = (extra: Partial<TurnEvent>): GameState => {
-    if (events.length === 0) return after
-    const last = events[events.length - 1]
-    const merged: TurnEvent = {
-      ...last,
-      ...extra,
-      detail: [...last.detail, ...(extra.detail ?? [])],
-    }
-    return { ...after, turnEvents: [...events.slice(0, -1), merged] }
-  }
-
-  const pActor = before.players[actor]
-
-  switch (action.type) {
-    case 'PLAY_CARD': {
-      const card = findInstanceInPlayer(pActor, action.instanceId)
-      const toName = action.to ? findLocation(after.players[actor], action.to)?.name : undefined
-      return push({ kind: 'play-card', label: card?.name, cardId: card?.cardId, toLocationName: toName, detail: newLog })
-    }
-    case 'EXECUTE_ACTION': {
-      // Seul « Gagner du Pouvoir » a une icône dédiée ; on déduit le montant gagné.
-      const gained = (after.players[actor].power ?? 0) - (pActor.power ?? 0)
-      const loc = currentLocation(before)
-      const la = loc?.actions.find((a) => a.id === action.actionId)
-      if (la?.type === 'GAIN_POWER') {
-        const amount = gained > 0 ? gained : (la.amount ?? 0)
-        return push({ kind: 'gain-power', amount, label: `+${amount} Pouvoir`, detail: newLog })
-      }
-      // Autres actions instantanées sans icône dédiée (Préparer du Poison…) : on les
-      // rattache à la dernière icône si possible, sinon on les ignore.
-      return enrichLast({ detail: newLog })
-    }
-    case 'DISCARD_CARDS': {
-      const cards = action.instanceIds.map((id) => findInstanceInPlayer(pActor, id)).filter(Boolean) as CardInstance[]
-      const n = action.instanceIds.length
-      return push({ kind: 'discard', label: `${n} carte${n > 1 ? 's' : ''}`, cardIds: cards.map((c) => c.cardId), detail: newLog })
-    }
-    case 'MOVE_CARD': {
-      const card = findInstanceInPlayer(pActor, action.instanceId)
-      const toName = findLocation(after.players[actor], action.to)?.name
-      return push({ kind: 'move-ally', label: card?.name, cardId: card?.cardId, toLocationName: toName, detail: newLog })
-    }
-    case 'MOVE_HERO': {
-      const hero = findInstanceInPlayer(pActor, action.heroInstanceId)
-      const toName = findLocation(after.players[actor], action.to)?.name
-      return push({ kind: 'move-hero', label: hero?.name, cardId: hero?.cardId, toLocationName: toName, detail: newLog })
-    }
-    case 'ACTIVATE': {
-      const card = findInstanceInPlayer(pActor, action.cardInstanceId)
-      return push({ kind: 'activate', label: card?.name, cardId: card?.cardId, detail: newLog })
-    }
-    case 'VANQUISH':
-    case 'CATCH_POKEMON': {
-      const hero = findInstanceInPlayer(pActor, action.heroInstanceId)
-      const allies = action.allyInstanceIds.map((id) => findInstanceInPlayer(pActor, id)).filter(Boolean) as CardInstance[]
-      return push({ kind: 'vanquish', label: hero?.name, cardId: hero?.cardId, cardIds: allies.map((a) => a.cardId), detail: newLog })
-    }
-    case 'FATE': {
-      // L'icône Fatalité apparaît ici ; la carte choisie est connue à RESOLVE_FATE.
-      return push({ kind: 'fate', detail: newLog })
-    }
-    case 'RESOLVE_FATE': {
-      // Renseigne la carte enfin jouée sur la dernière icône Fatalité.
-      const card = before.pendingFate?.revealed.find((c) => c.instanceId === action.instanceId)
-      return enrichLast({ label: card?.name, cardId: card?.cardId, detail: newLog })
-    }
-    default:
-      // Continuation d'une action en cours (résolution de pending, choix…) : on
-      // rattache les nouvelles lignes de log à la dernière icône.
-      if (TURN_EVENT_STARTERS.has(action.type)) return after
-      return enrichLast({ detail: newLog })
-  }
+  return applyDioZaWarudo(action, after)
 }
 
 /** Types de GameAction qui correspondent à « faire une action de lieu » (hors Fatalité,
@@ -12085,6 +11979,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return clearGiant(state, applyCatch(state, action.actionId, action.heroInstanceId))
     case 'DISCARD_DEGUISEMENT':
       return applyDiscardDeguisement(state, action.instanceId)
+    case 'DISCARD_HAND_CARDS':
+      return applyDiscardHandCards(state, action.instanceIds)
     case 'SKIP_MOVE':
       return applySkipMove(state)
     case 'SHERIFF_MOVE':

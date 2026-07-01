@@ -370,5 +370,9 @@ export default defineConfig({
     // Le moteur est pur (aucune dépendance navigateur) → environnement node.
     environment: 'node',
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    // Les tests de self-play des bots (centaines de recherches complètes de tour)
+    // sont lourds et frôlaient le défaut de 5 s sous charge parallèle → flaky. Marge
+    // confortable pour fiabiliser la suite (n'affecte pas la logique).
+    testTimeout: 20000,
   },
 })

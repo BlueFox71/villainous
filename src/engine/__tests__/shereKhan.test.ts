@@ -347,7 +347,9 @@ describe('Shere Khan — partie pilotée par le bot (anti-soft-lock)', () => {
       steps++
     }
     expect(s.turn).toBeGreaterThan(3)
-  })
+    // Self-play lourd : jusqu'à 400 tours de recherche complète → 5 s est trop juste
+    // sous charge parallèle (le test flottait à la limite). Timeout confortable.
+  }, 20000)
 })
 
 describe('Shere Khan — effets Fatalité de déplacement (auto, gênent Shere Khan)', () => {

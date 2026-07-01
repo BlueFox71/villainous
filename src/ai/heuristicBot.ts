@@ -19,16 +19,46 @@
 
 import type { CardInstance, GameAction, GameState, PlayerState } from '../engine/types'
 import { applyAction } from '../engine/actions'
+import { handLimitFor } from '../engine/state'
 import { playableConditions, hasReachedObjective, goalsBlockedByHero } from '../engine/rules'
-import { enumerateActions } from './enumerate'
+import { enumerateActions, objectiveCriticalCardIds } from './enumerate'
 import { playerMalus } from './fateMalus'
-import { villainStrategyBonus, villainFateTargetingBonus } from './villainStrategy'
+import { villainStrategyBonus, villainFateTargetingBonus, isCaptureTargetHero, VILLAIN_STRATEGY } from './villainStrategy'
 import { fireCount } from '../engine/shereKhan'
 
 type Rand = () => number
 
 function pick<T>(items: T[], rand: Rand): T {
   return items[Math.floor(rand() * items.length)]
+}
+
+/**
+ * Choix du bot pour un « récupérer une carte de la défausse » (pendingRecover :
+ * Te revoilà !, Magie noire…). Renvoie la meilleure carte à reprendre, ou undefined
+ * si aucune candidate. Pur (testable) ; appelé par l'auto-résolution du bot (App.tsx).
+ *
+ * Générique : la carte la plus chère (Magie noire de la Méchante Reine privilégie le
+ * Miroir magique puis les Ingrédients). Bowser (Te revoilà !) a ses propres priorités :
+ * Impuissance (SEULE capture de Peach), Bowser Jr. (va la chercher), épuisement
+ * d'énergie (draine une Étoile tant qu'il en reste), puis ses Alliés.
+ */
+export function pickRecoverCandidate(p: PlayerState, cands: CardInstance[]): CardInstance | undefined {
+  if (cands.length === 0) return undefined
+  const rank = (c: CardInstance): number => {
+    if (p.objective.type === 'DEPLETE_OBSERVATORY_AND_CAPTURE') {
+      const starsLeft = (p.observatoryStars ?? 0) > 0
+      const peachInRealm = Object.values(p.board)
+        .flat()
+        .some((x) => x.type === 'hero' && x.cardId === 'peach')
+      if (c.cardId === 'impuissance') return peachInRealm ? 130 : 95 // capture Peach / vainc un Héros ≤3
+      if (c.cardId === 'bowser-jr') return !p.peachCaptured && !peachInRealm ? 120 : 40 // va chercher Peach
+      if (c.cardId === 'puissance-stellaire') return starsLeft ? 110 : 20 // draine encore une Étoile
+      if (c.type === 'ally') return 50 + (c.cost ?? 0)
+    }
+    // Générique : Magie noire privilégie le Miroir magique puis les Ingrédients ; sinon coût.
+    return c.cardId === 'miroir-magique' ? 100 : c.type === 'ingredient' ? 50 + (c.cost ?? 0) : (c.cost ?? 0)
+  }
+  return [...cands].sort((a, b) => rank(b) - rank(a))[0]
 }
 
 /** Proportion de l'objectif atteinte par un joueur (0..1). Exportée pour l'affichage
@@ -52,12 +82,17 @@ export function objectiveScore(p: PlayerState): number {
     case 'CAPTURE_POKEMON': {
       // Team Rocket : capturer `count` Pokémon dont Pikachu. Progression = Pokémon
       // capturés / objectif ; sans Pikachu la victoire est impossible → plafonné.
-      // TODO phase 4 : affiner (crédit pour Pokémon présents à portée de capture,
-      // force d'Alliés réunie) et valider la jauge avec l'utilisateur.
+      // Gradient de boucle Repérage→Vaincre→Attraper : un Pokémon COUCHÉ (K.O., vaincu
+      // mais pas encore attrapé) vaut un demi-Pokémon capturé — récompense l'étape
+      // « Vaincre » et fait de l'« Attraper » un vrai finisseur (sinon le bot ne « voit »
+      // le progrès qu'au tout dernier pas et hésite à coucher un Pokémon).
       const obj = p.objective
       const pile = p.capturedPokemon ?? []
       const hasRequired = pile.some((c) => c.cardId === obj.requiredCardId)
-      const s = Math.min(pile.length, obj.count) / obj.count
+      const koReady = Object.values(p.board)
+        .flat()
+        .filter((c) => c.isPokemon && c.pokemonKO).length
+      const s = Math.min(pile.length + 0.5 * koReady, obj.count) / obj.count
       return hasRequired ? s : Math.min(s, 0.85)
     }
     case 'KING_CANDY_RACE': {
@@ -441,9 +476,18 @@ export function objectiveScore(p: PlayerState): number {
       const stars = p.observatoryStars ?? 0
       const depletion = stars <= 0 ? 1 : Math.max(0, 1 - stars / 4)
       // Peach capturée vaut 0.4 ; les Étoiles complètent le reste (0.6) → 1.0 quand
-      // l'Observatoire est à 0 ET Peach capturée.
+      // l'Observatoire est à 0 ET Peach capturée. Gradient intermédiaire : Peach
+      // simplement PRÉSENTE dans le royaume (prête pour l'Impuissance) vaut déjà une
+      // fraction — sinon le plan « chercher Peach (Bowser Jr.) → la capturer » n'aurait
+      // aucun palier et resterait hors de portée de la recherche.
       let s = 0.6 * depletion
       if (p.peachCaptured) s += 0.4
+      else if (
+        Object.values(p.board).some((cards) =>
+          cards.some((c) => c.type === 'hero' && isCaptureTargetHero(p.villain, c.cardId)),
+        )
+      )
+        s += 0.15
       const blocked = obj.blockerHeroCardId
         ? Object.values(p.board).some((cards) =>
             cards.some((c) => c.type === 'hero' && c.cardId === obj.blockerHeroCardId),
@@ -737,6 +781,7 @@ export type EvalWeights = {
   handAllyStr: number // potentiel d'un Allié en main (× force)
   oppPawnDisrupt: number // perturbation : déplacer la figurine adverse loin de ses Alliés/Objets (× cartes, plafonné)
   fateThreatFloor: number // part MIN de la valeur des Héros chez l'adversaire quand il n'est PAS menaçant (1 = valeur fixe ; <1 = Fatalité escaladée selon la menace)
+  myCoveredAction: number // pénalité par action de la rangée HAUTE recouverte par un Héros sur MON plateau (au-delà de la pénalité de force : incite à dégager les gêneurs)
 }
 
 /** Baseline pour l'A/B : le comportement V3 d'avant tuning — pouvoir valorisé à
@@ -760,6 +805,7 @@ export const BASELINE_WEIGHTS: EvalWeights = {
   handAllyStr: 0,
   oppPawnDisrupt: 4,
   fateThreatFloor: 1, // baseline : valeur de Fatalité fixe (pas de modulation)
+  myCoveredAction: 0, // baseline : on n'évaluait pas le recouvrement de ses propres actions
 }
 
 /** Poids par défaut (tunés). Pouvoir conscient de l'objectif (Maléfique ne
@@ -770,6 +816,12 @@ export const DEFAULT_WEIGHTS: EvalWeights = {
   oppPower: 5,
   fuelCap: 6,
   fuelPower: 3,
+  // Au-delà du carburant plafonné (6), chaque JT vaut une miette (0,5) : sans effet
+  // sur les vrais choix (objectif ×1000, Allié ×2…), mais suffisant pour que « banker
+  // du pouvoir » batte toujours « ne rien faire ». Supprime les tours vides d'un
+  // objectif non-pouvoir (Team Rocket au plafond passait des tours à idler faute de
+  // gain valorisé) et oriente la figurine vers un lieu « Gagner » quand rien de mieux
+  // n'est jouable — ce pouvoir accumulé finance ensuite les gros tours (Repérage, James…).
   myAllyStr: 2,
   myHeroVsPower: 4,
   myHeroVsCurse: 1,
@@ -781,6 +833,12 @@ export const DEFAULT_WEIGHTS: EvalWeights = {
   hand: 1,
   handAllyStr: 0,
   oppPawnDisrupt: 4,
+  // Un Héros qui recouvre les actions de la rangée HAUTE d'un de MES lieux me freine
+  // (drainer/jouer/gagner y devient indisponible) au-delà de sa seule force. Petit
+  // poids : incite à dégager les gêneurs (surtout pour un objectif non-Pouvoir, où la
+  // pénalité de force seule — ×1 — ne suffit pas à motiver le Vanquish) sans pousser à
+  // gaspiller des Alliés (le coût d'un Allié sacrifié, ×2, reste devant).
+  myCoveredAction: 2,
   // Le bot privilégie SON objectif ; la Fatalité (Héros chez l'adversaire) n'est
   // pleinement valorisée que si la MENACE réelle est haute (progrès − malus). Plancher
   // bas : quand l'adversaire est déjà bien bloqué (menace ~0), le bot lâche presque
@@ -798,15 +856,29 @@ function pawnSupport(p: PlayerState): number {
   return Math.min(n, 3)
 }
 
+/** Plafond de carburant EFFECTIF, conscient de l'objectif. La plupart des objectifs
+ *  non-pouvoir se contentent de `w.fuelCap` (au-delà, le pouvoir ne sert à rien). Mais
+ *  certains DÉPENSENT le pouvoir par grosses rafales en un seul tour → un plafond bas
+ *  les fait « idler » dès qu'ils l'atteignent (Team Rocket au plafond passait des tours
+ *  vides). On relève donc le plafond pour ces objectifs afin qu'ils BANKENT de quoi
+ *  financer un gros tour (Team Rocket : Repérage 3 + James 2 + Allié 2 + … ≈ 10). Reste
+ *  BORNÉ (pas de résidu illimité → aucune thésaurisation ni livelock). */
+function fuelCapFor(p: PlayerState, w: EvalWeights): number {
+  if (w.fuelCap === Infinity) return Infinity
+  if (p.objective.type === 'CAPTURE_POKEMON') return Math.max(w.fuelCap, 10)
+  return w.fuelCap
+}
+
 /** Valeur du pouvoir pour un joueur, consciente de l'objectif. Pour un objectif
  *  de POUVOIR : pouvoir = progrès (plafonné au seuil). Sinon : simple carburant
- *  (utile jusqu'à `fuelCap`, au-delà sans valeur). `mult` = poids du camp. */
+ *  (utile jusqu'au plafond effectif, au-delà sans valeur). `mult` = poids du camp. */
 function powerValue(p: PlayerState, w: EvalWeights, mult: number): number {
   if (p.objective.type === 'POWER_THRESHOLD') {
     const eff = w.fuelCap === Infinity ? p.power : Math.min(p.power, p.objective.threshold)
     return eff * mult
   }
-  return Math.min(p.power, w.fuelCap) * (w.fuelCap === Infinity ? mult : w.fuelPower)
+  const cap = fuelCapFor(p, w)
+  return Math.min(p.power, cap) * (cap === Infinity ? mult : w.fuelPower)
 }
 
 /** Évalue la position du joueur `idx` (plus c'est haut, mieux c'est pour lui). */
@@ -830,21 +902,96 @@ export function evaluate(state: GameState, idx: number, w: EvalWeights = DEFAULT
   for (const cards of Object.values(me.board)) {
     for (const c of cards) {
       if (c.type === 'ally') score += (c.strength ?? 0) * w.myAllyStr
-      else if (c.type === 'hero') score -= (c.strength ?? 0) * myHeroPerStr + w.myHeroFlat
+      // Un Héros-CIBLE de capture (Peach chez Bowser) présent dans mon royaume est un
+      // ATOUT, pas une gêne → pas de pénalité (le gradient est porté par objectiveScore).
+      else if (c.type === 'hero' && !isCaptureTargetHero(me.villain, c.cardId))
+        score -= (c.strength ?? 0) * myHeroPerStr + w.myHeroFlat
     }
+  }
+  // Actions de la rangée HAUTE recouvertes par des Héros sur MON plateau : chaque action
+  // indisponible me freine (drainer une Étoile, Jouer, Gagner…). Au-delà de la pénalité de
+  // force du Héros — décisive pour un objectif non-Pouvoir où cette pénalité seule (×1) ne
+  // motive pas assez le Vanquish (cf. Bowser qui hésitait à dégager Mario & co.).
+  // Approximation LÉGÈRE de `coveredTopActionIdsAt` (pas le scan agrandissement/coéquipiers,
+  // rares) : `evaluate` est dans la boucle chaude de la recherche → on reste en O(cartes).
+  if (w.myCoveredAction) {
+    let covered = 0
+    for (const loc of me.locations) {
+      const cards = me.board[loc.id]
+      if (!cards || cards.length === 0) continue
+      const coveringHero = cards.some(
+        (c) =>
+          (c.type === 'hero' && !c.hypnotized && !c.pokemonKO && c.cardId !== 'the-prince') ||
+          (c.isBuzz && c.buzzMode === 'guardian') ||
+          (c.coversActionsLikeHero && !c.attachedTo),
+      )
+      if (coveringHero) {
+        for (const a of loc.actions) if (a.row === 'top') covered++
+      }
+    }
+    score -= covered * w.myCoveredAction
   }
   // Lieux maudits (objectif Maléfique + tempo), comptés PAR LIEU (empiler n'aide pas).
   score += cursedLocationCount(me) * w.cursePerLocation
   // Couche « stratégie bot » : conseils de jeu propres au vilain (placements
   // préférés, Héros à vaincre en priorité, cartes-moteurs). Cf. villainStrategy.ts.
   score += villainStrategyBonus(me)
-  // Bowser : les Alliés sur l'Observatoire de la Comète sont « prêts à drainer » une
-  // Étoile (Dino Piranha/Kamella à la pose, ou la carte de drainage qui exige un Allié
-  // présent). Tant qu'il reste des Étoiles, on récompense leur présence sur ce lieu
-  // pour que le bot les y rassemble au lieu de les éparpiller.
+  // Bowser — positionnement des Alliés autour de l'Observatoire. Tant qu'il RESTE des
+  // Étoiles, l'Observatoire n'est PAS verrouillé → Luigi peut y débarquer et défausser
+  // TOUS les Alliés du lieu (renvoyant leurs Étoiles à l'Observatoire). D'où deux
+  // consignes opposées selon que l'Allié a déjà drainé une Étoile ou non :
+  //  - Allié SANS Étoile : le rassembler SUR l'Observatoire (prêt à drainer — épuisement
+  //    d'énergie exige un Allié présent ; Dino Piranha/Kamella y drainent à la pose).
+  //  - Allié PORTEUR d'Étoile : l'ÉLOIGNER de l'Observatoire (à l'abri du piège de Luigi).
+  // Une fois l'Observatoire à 0 (verrouillé), ce lieu et ses Alliés sont protégés → on
+  // n'applique plus ces consignes (bloc entier sauté).
+  // Un « renvoyeur d'Étoile » présent dans MON royaume (Mario/Harmonie à la pose, Luigi
+  // sur ses Alliés) va remettre à l'Observatoire toute Étoile posée sur un Allié → tant
+  // qu'il est là, une Étoile sur un Allié n'est PAS sûre : seule une Étoile BANKÉE
+  // (retirée du jeu au Vanquish) constitue un progrès verrouillé. C'est LA clé pour
+  // clôturer contre la boucle de renvoi (cf. parties qui n'aboutissaient jamais).
+  const starReturnerPresent =
+    me.objective.type === 'DEPLETE_OBSERVATORY_AND_CAPTURE' &&
+    Object.values(me.board)
+      .flat()
+      .some((c) => c.type === 'hero' && (c.cardId === 'mario' || c.cardId === 'harmonie' || c.cardId === 'luigi'))
   if (me.objective.type === 'DEPLETE_OBSERVATORY_AND_CAPTURE' && (me.observatoryStars ?? 0) > 0 && me.starLocationId) {
-    const onObservatory = (me.board[me.starLocationId] ?? []).filter((c) => c.type === 'ally' && !c.isWicket).length
-    score += Math.min(onObservatory, 3) * 4
+    let readyToDrain = 0 // Alliés sans Étoile sur l'Observatoire
+    let starCarriersSafe = 0 // Alliés porteurs d'Étoile hors de l'Observatoire
+    for (const [locId, cards] of Object.entries(me.board)) {
+      for (const c of cards) {
+        if (c.type !== 'ally' || c.isWicket || c.attachedTo) continue
+        const hasStar = (c.stars ?? 0) > 0
+        if (locId === me.starLocationId) {
+          if (!hasStar) readyToDrain++
+        } else if (hasStar) {
+          starCarriersSafe++
+        }
+      }
+    }
+    score += Math.min(readyToDrain, 3) * 4
+    // Le « positionnement sûr » d'un porteur d'Étoile est une illusion tant qu'un renvoyeur
+    // est là (il la reprendra où qu'elle soit) → on n'en récompense la mise à l'abri que
+    // SANS renvoyeur ; avec renvoyeur, c'est le banking (ci-dessous) qui prime.
+    if (!starReturnerPresent) score += Math.min(starCarriersSafe, 3) * 3
+  }
+  // Bowser — sécurisation des Étoiles. Une Étoile posée sur un Allié est drainée (elle
+  // compte déjà pour l'objectif) mais reste RÉCUPÉRABLE : une Fatalité (grande étoile,
+  // Luigi, Mario) peut la renvoyer à l'Observatoire. Une Étoile DÉFAUSSÉE avec l'Allié
+  // (au Vanquish) quitte définitivement le jeu → épuisement verrouillé. On récompense les
+  // Étoiles ainsi retirées du jeu pour qu'à Vanquish égal le bot préfère y consacrer un
+  // Allié PORTEUR d'Étoile — FORTEMENT quand un renvoyeur est présent (banker devient la
+  // SEULE façon de progresser : sacrifier le porteur, idéalement EN vainquant le renvoyeur).
+  if (me.objective.type === 'DEPLETE_OBSERVATORY_AND_CAPTURE') {
+    const TOTAL_STARS = 4 // l'Observatoire de la Comète démarre à 4 (VillainDef.starSetup)
+    const starsOnAllies = Object.values(me.board)
+      .flat()
+      .reduce((n, c) => n + (c.type === 'ally' ? c.stars ?? 0 : 0), 0)
+    const banked = Math.max(0, TOTAL_STARS - (me.observatoryStars ?? 0) - starsOnAllies)
+    // Sans renvoyeur : poids modéré (une Étoile sur Allié est presque aussi bien). Avec
+    // renvoyeur : poids fort (> coût d'un Allié sacrifié, myAllyStr×force) → le bot sacrifie
+    // ses porteurs d'Étoile pour verrouiller, plutôt que de les garder à portée du renvoi.
+    score += banked * (starReturnerPresent ? 12 : 6)
   }
   // Héros dans le royaume ADVERSE : bon pour le bot (ils gênent l'adversaire). On
   // MODULE leur valeur par la MENACE RÉELLE adverse = progrès objectif − malus déjà
@@ -855,7 +1002,11 @@ export function evaluate(state: GameState, idx: number, w: EvalWeights = DEFAULT
   const fateScale = w.fateThreatFloor + (1 - w.fateThreatFloor) * oppThreat
   for (const cards of Object.values(opp.board)) {
     for (const c of cards) {
-      if (c.type === 'hero') score += ((c.strength ?? 0) * oppHeroPerStr + w.oppHeroFlat) * fateScale
+      // Un Héros-cible de capture dans le royaume adverse (Peach chez un Bowser
+      // adverse) l'AIDE : ce n'est pas un « déni » à valoriser (sa menace accrue est
+      // déjà portée en négatif par l'objectiveScore adverse ci-dessus).
+      if (c.type === 'hero' && !isCaptureTargetHero(opp.villain, c.cardId))
+        score += ((c.strength ?? 0) * oppHeroPerStr + w.oppHeroFlat) * fateScale
     }
   }
   // Ciblage Fatalité propre au vilain adverse : Déguisement sur le bon Héros, Pouvoir
@@ -1056,8 +1207,41 @@ export function chooseAction(
       best.push(action)
     }
   }
-  if (best.length === 0) return { type: 'END_TURN' }
-  return pick(best, rand)
+  const chosen = best.length === 0 ? { type: 'END_TURN' as const } : pick(best, rand)
+  // Anti-thésaurisation : si le bot en a fini pour ce tour (END_TURN) mais garde une main
+  // au-delà de sa limite (pioches en cours de tour non jouées — Galaxie hantée, Bowser Jr.
+  // fatalisé…), il défausse d'abord l'excédent (les cartes les moins importantes) au lieu de
+  // l'empiler. Bot only (l'humain choisit lui-même) → géré ici, pas dans le moteur.
+  if (chosen.type === 'END_TURN' && state.phase === 'ACTION') {
+    const trim = trimHandAction(state, idx)
+    if (trim) return trim
+  }
+  return chosen
+}
+
+/** Coup de défausse de l'EXCÉDENT de main du bot (au-delà de sa limite), ou null si
+ *  la main tient dans la limite. Jette les cartes les MOINS importantes : les cartes
+ *  cruciales pour l'objectif sont gardées en dernier (poids énorme), puis on privilégie
+ *  les moteurs (enginePieces), les gros Alliés et les Objets chers. Exporté pour les tests. */
+export function trimHandAction(state: GameState, idx: number): GameAction | null {
+  const me = state.players[idx]
+  const excess = me.hand.length - handLimitFor(me)
+  if (excess <= 0) return null
+  const critical = objectiveCriticalCardIds(me)
+  const engine = VILLAIN_STRATEGY[me.villain]?.enginePieces
+  const keepValue = (c: CardInstance): number => {
+    if (critical.has(c.cardId)) return 100_000
+    let v = (engine?.[c.cardId] ?? 0) * 10
+    if (c.type === 'ally') v += (c.strength ?? 0) * 2
+    else if (c.type === 'item') v += c.cost ?? 0
+    else v += 1 // Événements / Conditions : valeur de base faible
+    return v
+  }
+  const toDiscard = [...me.hand]
+    .sort((a, b) => keepValue(a) - keepValue(b)) // moins importantes d'abord
+    .slice(0, excess)
+    .map((c) => c.instanceId)
+  return { type: 'DISCARD_HAND_CARDS', instanceIds: toDiscard }
 }
 
 /** Construit l'action PLAY_CONDITION pour une Condition donnée (cibles auto). */

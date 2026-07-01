@@ -746,8 +746,6 @@ export function createInitialGame(setups: PlayerSetup[], seed: number): GameStat
     persifleurAvailable: false,
     lastVanquishedHeroStrength: undefined,
     showcaseEvents: [],
-    turnEvents: [],
-    lastTurnEvents: null,
     floatingFx: [],
     log: ['Début de partie.', ...setupLog],
   }

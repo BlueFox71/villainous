@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { VILLAIN_REGISTRY, villainEntry, isCustomKey, useGameStore, type VillainKey } from '../store/gameStore'
 import { useCustomVillainStore } from '../store/customVillainStore'
 import { usePlayerStore } from '../store/playerStore'
+import { useIsDesktopApp } from '../store/settingsStore'
 import { villainPortrait, villainPresentation, PRESENTATION_TWEAK } from '../villainArt'
 import { byRelease } from '../villainOrder'
 import { VILLAIN_COLOR, villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from '../villainColors'
@@ -263,6 +264,7 @@ function PresentationArt({ choice, side }: { choice: Choice | null; side: 'left'
  */
 export function VillainSelect({ onStart, onBack }: Props) {
   const reset = useGameStore((s) => s.reset)
+  const startBotMatch = useGameStore((s) => s.startBotMatch)
   const mode = useGameStore((s) => s.mode)
   const lobby = useGameStore((s) => s.lobby)
   const localPlayerIndex = useGameStore((s) => s.localPlayerIndex)
@@ -299,6 +301,11 @@ export function VillainSelect({ onStart, onBack }: Props) {
   // en solo c'est le bot, on garde « Adversaire ».
   const oppName = network ? (lobby?.find((s) => s.seat === 1 - localPlayerIndex)?.name ?? '').trim() : ''
   const oppLabel = oppName || SIDE_STYLE.opp.label
+
+  // DEV UNIQUEMENT : mode ORDI vs ORDI (les deux camps en IA) pour observer/analyser.
+  // Gardé par `!isDesktopApp` → absent de l'exe ET de la simulation « mode application ».
+  const devBuild = !useIsDesktopApp()
+  const [aiVsAi, setAiVsAi] = useState(false)
 
   // SOLO : choix local des deux camps + camp actif (alimenté par les clics grille).
   const [mineSolo, setMineSolo] = useState<Choice | null>(null)
@@ -379,7 +386,9 @@ export function VillainSelect({ onStart, onBack }: Props) {
     if (!mineSolo || !oppSolo) return
     const playerKey = mineSolo === 'random' ? randomKey(takenBy(oppSolo) ?? undefined) : mineSolo
     const botKey = oppSolo === 'random' ? randomKey(playerKey) : oppSolo
-    reset([playerKey, botKey])
+    // DEV : ORDI vs ORDI → les deux sièges sont des bots (partie auto-jouée à observer).
+    if (devBuild && aiVsAi) startBotMatch([playerKey, botKey])
+    else reset([playerKey, botKey])
     onStart()
   }
 
@@ -473,14 +482,35 @@ export function VillainSelect({ onStart, onBack }: Props) {
             <span className={`text-xs text-white/40 ${!mineSolo || !oppSolo ? '' : 'invisible'}`}>
               {!mineSolo ? 'Clic 1 : choisis ton vilain.' : 'Clic 2 : choisis le vilain du bot.'}
             </span>
+            {/* DEV : bascule ORDI vs ORDI (absente du build/exe). Bouton vert dont
+                l'état actif/inactif (plein vs. estompé) reflète l'activation. */}
+            {devBuild && (
+              <button
+                type="button"
+                onClick={() => setAiVsAi((v) => !v)}
+                onMouseEnter={playPlayButtonHover}
+                aria-pressed={aiVsAi}
+                title={aiVsAi ? 'Mode ORDI vs ORDI activé — clic pour désactiver' : 'Activer le mode ORDI vs ORDI (les deux camps en IA)'}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors ${
+                  aiVsAi
+                    ? 'border-emerald-300 bg-emerald-500 text-emerald-950 shadow-[0_0_12px_rgba(16,185,129,0.5)] hover:bg-emerald-400'
+                    : 'border-emerald-500/40 bg-emerald-900/30 text-emerald-300/60 opacity-70 hover:opacity-100 hover:bg-emerald-800/40'
+                }`}
+              >
+                🤖 Entre Ordis
+              </button>
+            )}
             <div className="w-72">
-              <button type="button" disabled={!mineSolo || !oppSolo} onClick={(e) => { e.stopPropagation(); playHeroSelect(); launchSolo() }} onMouseEnter={playPlayButtonHover} className="hs-wrapper classique">
-                <span className="hs-button classique">
-                  <span className="hs-border classique">
-                    <span className="hs-text classique">Lancer la partie</span>
+              {/* Variante « vert » quand le mode ORDI vs ORDI (dev) est actif — le libellé reste « Lancer la partie ». */}
+              {(() => { const v = devBuild && aiVsAi ? 'vert' : 'classique'; return (
+              <button type="button" disabled={!mineSolo || !oppSolo} onClick={(e) => { e.stopPropagation(); playHeroSelect(); launchSolo() }} onMouseEnter={playPlayButtonHover} className={`hs-wrapper ${v}`}>
+                <span className={`hs-button ${v}`}>
+                  <span className={`hs-border ${v}`}>
+                    <span className={`hs-text ${v}`}>Lancer la partie</span>
                   </span>
                 </span>
               </button>
+              ) })()}
             </div>
           </>
         )}

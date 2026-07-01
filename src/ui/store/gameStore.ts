@@ -975,6 +975,9 @@ interface GameStore {
   endTurn: () => void
   /** (Re)démarre une partie solo avec deux clés de vilains (natifs et/ou publiés). */
   reset: (villains?: [string, string]) => void
+  /** DEV UNIQUEMENT : démarre une partie ORDI vs ORDI (les DEUX sièges en IA) pour
+   *  observation/analyse. Non exposé dans le build/exe (garde `import.meta.env.DEV`). */
+  startBotMatch: (villains: [string, string]) => void
   /** Démarre une partie solo : vilain PERSONNALISÉ (joueur) vs vilain natif (bot). */
   startCustomGame: (custom: CustomVillain, opponent: VillainKey) => void
   /** Fait jouer UN coup au bot, si le joueur actif est un bot. */
@@ -1240,7 +1243,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const names = s.state.players.map((p) => p.villainName)
       // Compensation : le joueur qui NE commence PAS démarre avec 1 Pouvoir.
       const players = s.state.players.map((p, i) => ({ ...p, power: i === index ? 0 : 1 }))
-      const loser = index === 0 ? 1 : 0
       return {
         state: {
           ...s.state,
@@ -1249,7 +1251,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
           log: [
             ...s.state.log,
             `🎲 Jet de dé : ${names[0]} fait ${rolls[0]}, ${names[1]} fait ${rolls[1]} → ${names[index]} commence !`,
-            `${names[loser]} commence avec 1 jeton Pouvoir (compensation).`,
           ],
         },
       }
@@ -1591,6 +1592,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     teardownNet()
     set({
       state: customGame(custom, opponent), testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0,
+      mode: 'solo', netStatus: 'idle', hostRoom: null, hostAddrs: null, netError: null, netLeftNotice: null, peerReacting: null, lobby: null,
+    })
+  },
+  // DEV : partie ordi vs ordi — identique à `reset` mais les DEUX sièges sont des bots
+  // (le pilote de tour d'App.tsx auto-joue alors les deux camps en alternance). On reste
+  // en `mode: 'solo'` (point de vue local 0) : on observe la partie se dérouler.
+  startBotMatch: (villains) => {
+    teardownNet()
+    set({
+      state: newGame(villains), testMode: false, seats: ['bot', 'bot'], localPlayerIndex: 0,
       mode: 'solo', netStatus: 'idle', hostRoom: null, hostAddrs: null, netError: null, netLeftNotice: null, peerReacting: null, lobby: null,
     })
   },

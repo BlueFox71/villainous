@@ -6,6 +6,12 @@ import { MenuOrbs } from './MenuOrbs'
  * persistant entre les navigations, pour que les orbes ne « repartent » pas à
  * chaque changement de page. On le masque (opacité) sur les écrans qui ont leur
  * propre fond plutôt que de le démonter.
+ *
+ * En revanche, les orbes (77 divs animés en CSS) ne sont rendus QUE lorsque le
+ * fond est visible : sinon leurs animations continueraient de tourner en tâche
+ * de fond (opacity:0 n'arrête pas une animation CSS) et feraient ramer les
+ * animations de la partie. Tous les écrans de menu étant « visibles », les
+ * orbes restent continus entre eux ; ils ne se démontent qu'en entrant en jeu.
  */
 export function MenuBackground({ visible }: { visible: boolean }) {
   return (
@@ -27,8 +33,9 @@ export function MenuBackground({ visible }: { visible: boolean }) {
             'radial-gradient(120% 90% at 50% 0%, rgba(37,20,71,0.38) 0%, rgba(19,12,36,0.48) 45%, rgba(11,10,18,0.6) 100%)',
         }}
       />
-      {/* Orbes lumineux flottants. */}
-      <MenuOrbs />
+      {/* Orbes lumineux flottants — rendus seulement quand le fond est visible,
+          pour ne pas laisser 77 animations CSS tourner sur la page de jeu. */}
+      {visible && <MenuOrbs />}
     </div>
   )
 }

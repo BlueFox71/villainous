@@ -3766,6 +3766,20 @@ body {
   color: #eaf4ff;
 }
 
+/* Variante « vert » : pierre émeraude (bouton « Lancer » en mode ORDI vs ORDI, dev). */
+.hs-button.vert {
+  border-color: #0f3d2a;
+  background: linear-gradient(#123a2a, #08221a);
+}
+.hs-border.vert {
+  background: linear-gradient(#4ade80 0%, #22a35a 45%, #157a41 100%);
+  box-shadow: inset 0 1px 0 rgba(190, 255, 214, 0.6),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.45);
+}
+.hs-text.vert {
+  color: #eafff2;
+}
+
 /* Clignotants « halo pulsé ». Jaune = Persifleur ; rose = Conditions (réaction). */
 @keyframes persifleurCardBlink {
   0%, 100% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0); }
@@ -4107,7 +4121,9 @@ body {
 .galaxy-star {
   position: absolute;
   border-radius: 50%;
-  will-change: opacity, transform;
+  /* PAS de will-change ici : appliqué à des centaines d'étoiles, il forcerait autant de calques
+     GPU permanents (mémoire + compositing) pour un coût largement supérieur au gain. Le navigateur
+     composite déjà de lui-même un élément dont l'animation transform/opacity est active. */
   animation-name: galaxyTwinkle;
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
@@ -6884,9 +6900,8 @@ body {
    lumineux, et le curseur clignote tant que la frappe n'est pas finie. */
 .cyber-skull-wrap {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  left: 4vw;
+  bottom: 22vh;
   pointer-events: none;
   opacity: 1;
   transition: opacity 0.9s ease;
@@ -6897,7 +6912,7 @@ body {
 .cyber-skull {
   margin: 0;
   font-family: 'Consolas', 'SFMono-Regular', ui-monospace, monospace;
-  font-size: clamp(5px, 1.45vh, 13px);
+  font-size: clamp(3px, 0.95vh, 9px);
   line-height: 1.04;
   font-weight: 700;
   white-space: pre;

@@ -63,7 +63,10 @@ function Pile({
       onMouseLeave={() => setHover(false)}
       onClick={clickable ? onClick : undefined}
       title={clickable ? 'Voir la défausse' : undefined}
-      style={{ zIndex: hover ? 50 : 1 }}
+      // On ne remonte au-dessus du reste (dont l'éventail de la main) QUE s'il y a un
+      // aperçu zoom à afficher au survol (défausse). La pioche (sans zoom) reste au plan
+      // du fond → elle passe sous les cartes de la main / de la distribution.
+      style={{ zIndex: hover && zoom ? 50 : 1 }}
     >
       {upright ? (
         src ? (

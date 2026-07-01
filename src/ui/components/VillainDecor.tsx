@@ -117,7 +117,7 @@ function SandDecor() {
   const BAND = 9 // % de la colonne : largeur du rideau central
   const [grains] = useState(() => [
     // Rideau central, dense.
-    ...Array.from({ length: 420 }, (_, i) => ({
+    ...Array.from({ length: 200 }, (_, i) => ({
       left: 50 + (Math.random() - 0.5) * BAND, // % (réparti sur toute la bande)
       w: 0.7 + Math.random() * 1.3, // px (grain très fin)
       h: (0.7 + Math.random() * 1.3) * (1.6 + Math.random() * 1.8), // px (léger flou de chute)
@@ -127,7 +127,7 @@ function SandDecor() {
       tone: SAND_TONES[i % SAND_TONES.length], // teinte de sable
     })),
     // Grains épars hors du rideau (toute la largeur), un peu plus lents.
-    ...Array.from({ length: 45 }, (_, i) => ({
+    ...Array.from({ length: 30 }, (_, i) => ({
       left: Math.random() * 100, // % (n'importe où dans la colonne)
       w: 0.9 + Math.random() * 1.4, // px (un peu plus gros → visibles)
       h: (0.9 + Math.random() * 1.4) * (1.5 + Math.random() * 1.7), // px
@@ -2143,8 +2143,11 @@ function GalaxyDecor() {
     }
   }, [])
   // Champ d'étoiles : points bleus/blancs qui scintillent (taille/teinte/cadence variées).
+  // Nombre volontairement modéré : un champ plein écran reste très dense à ~400, et CHAQUE
+  // étoile est un élément animé (twinkle) — au-delà, le coût de compositing explose sans gain
+  // visuel. Cf. `.galaxy-star` (index.css) qui, pour la même raison, n'utilise PAS `will-change`.
   const [stars] = useState(() =>
-    Array.from({ length: 960 }, () => {
+    Array.from({ length: 400 }, () => {
       const blue = Math.random() < 0.45
       return {
         left: Math.random() * 100, // %
@@ -3045,7 +3048,7 @@ function LaBonneFeeDecor() {
   // pastille = la bouffée floue. Tailles/vitesses/dérives/textures variées, figées au montage (la COULEUR, elle,
   // est gérée à part car elle cycle dans le temps).
   const [smoke] = useState(() =>
-    Array.from({ length: 200 }, () => ({
+    Array.from({ length: 130 }, () => ({
       left: -20 + Math.random() * 140, // % (déborde au-delà des bords → fumée répartie sur tout l'espace)
       size: 16 + Math.random() * 34, // vh (grosses bouffées floues)
       dur: 5 + Math.random() * 6, // s (descente plus rapide)
@@ -4034,31 +4037,31 @@ function cyberColumnText(): string {
 // Crâne de piratage de Sombra en ASCII demi-teinte (cf. assets/animations/ascii_sombra.png). Lignes alignées
 // en monospace (espaces de tête = centrage de la silhouette hexagonale).
 const SKULL_ART = [
-  '                     :PB@Bk:',
-  '                  ,jB@@B@B@B@BBL.',
-  '                7G@B@B@BMMMMMB@B@B@Nr',
-  '              :kB@B@@@MMOMOMOMOMMMM@B@B@B1,',
-  '            :5@B@B@B@BBMMOMOMOMOMOMM@@@B@B@BBu.',
-  '          70@@@B@B@B@BXBMOMOMOMOMOMMBMPB@B@B@B@B@Nr',
-  '        G@@@BJ iB@B@@  OBMOMOMOMOMOMOM@2  B@B@B. EB@B@S',
+  '                           :PB@Bk:',
+  '                       ,jB@@B@B@B@BBL.',
+  '                    7G@B@B@BMMMMMB@B@B@Nr',
+  '                :kB@B@@@MMOMOMOMOMMMM@B@B@B1,',
+  '            :5@B@B@B@BBMMOMOMOMOMOMOMM@@@B@B@BBu.',
+  '         70@@@B@B@B@BXBBOMOMOMOMOMOMMBMPB@B@B@B@B@Nr',
+  '       G@@@BJ iB@B@@  OBMOMOMOMOMOMOM@2  B@B@B. EB@B@S',
   '       @@BM@GJBU.  iSuB@OMOMOMOMOMOMM@OU1:  .kBLM@M@B@',
-  '       B@MMB@B        7@BBMMOMOMOMOMOBB@:        B@BMM@B',
-  '       @@@B@B          7@@@MMMOMOMOMM@@:          @@B@B@',
-  '       @@OLB.         BNB@MMOMOMM@BEB           rBjM@B',
-  '       @@  @          M  OBOMOMM@q  M           .@  @@',
-  '       @@OvB          B:u@MMOMOMMBJiB           .BvM@B',
+  '       B@MMB@B       7@BBMMOMOMOMOMOBB@:       B@BMM@B',
+  '       @@@B@B         7@@@MMOMOMOMM@B@:         @@B@B@',
+  '       @@OLB.          BNB@MMOMOMM@BEB          rBjM@B',
+  '       @@  @           M  OBOMOMM@q  M          .@  @@',
+  '       @@OvB           B:u@MMOMOMMBJiB          .BvM@B',
   '       @B@B@J         0@B@MMOMOMOMB@B@u         q@@@B@',
   '       B@MBB@v       G@@BMMMMMMMMMMMBB@5       F@BMM@B',
-  '       @BBM@BPNi   LMEB@OMMMMM@B@MMMOM@BzM7   rEqB@MBB@',
+  '       @BBM@BPNi   LMEB@OMMMM@B@MMOMM@BZM7   rEqB@MBB@',
   '       B@@@BM  B@B@B  qBMOMB@B@B@BMOMBL  B@B@B  @B@B@M',
-  '       J@@@@PB@B@B@B7G@OMBB.    ,@MMM@qLB@B@@@BqB@BBv',
-  '         iGB@,i0@M@B@MMO@E  :  M@OMM@@@B@Pii@@N:',
-  '       .     B@M@B@MMM@B@B@B@MMM@@@M@B',
-  '             @B@B.i@MBB@B@B@@BM@::B@B@',
-  '             B@@@ .B@B.:@B@ :B@B  @B@O',
-  '              :0 r@B@ .@B@  :B@B: P:',
-  '                vMB :@B@ :BO7',
-  '                   ,B@B',
+  '        J@@@@PB@B@B@B7G@OMBB.   ,@MMM@qLB@B@@@BqB@BBv',
+  '           iGB@,i0@M@B@MMO@E  :  M@OMM@@@B@Pii@@N:',
+  '              .   B@M@B@MMM@B@B@B@MMM@@@M@B',
+  '                  @B@B.i@MBB@B@B@@BM@::B@B@',
+  '                  B@@@ .B@B.:@B@ :B@B  @B@O',
+  '                    :0 r@B@  B@@ .@B@: P:',
+  '                        vMB :@B@ :BO7',
+  '                            ,B@B',
 ].join('\n')
 // Durée de la frappe : on révèle SKULL_STEP caractères toutes les ~16 ms.
 const SKULL_STEP = 3
@@ -6433,7 +6436,7 @@ function TamatoaDecor({ opponentVillain }: { opponentVillain?: VillainKey }) {
   useSurpriseSub(fireRef)
   const [surpriseOn, setSurpriseOn] = useState(false)
   const [tris] = useState(() =>
-    Array.from({ length: 180 }, () => ({
+    Array.from({ length: 120 }, () => ({
       top: Math.random() * 100, // % (réparti sur toute la hauteur)
       size: 0.8 + Math.random() * 2.4, // vh (PETITS)
       delay: -(Math.random() * TAMATOA_SCROLL_SEC), // s (flux continu, déphasé sur une période)

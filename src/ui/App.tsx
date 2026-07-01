@@ -48,7 +48,7 @@ import { Avatar, PlayerAvatar } from './components/PlayerAvatar'
 import { Board } from './components/Board'
 import { Hand } from './components/Hand'
 import { GameLog } from './components/GameLog'
-import { OpponentTurnRecap } from './components/OpponentTurnRecap'
+import { getBotSpeed, setBotSpeed, speedScaled } from './botSpeed'
 import { BoardImage, LOCATIONS_LEFT, PAWN_FIRST_LEFT, PAWN_STEP } from './components/BoardImage'
 import { BoardActions, getVillainActionPos } from './components/BoardActions'
 import { SUGAR_RUSH_TRACK } from './components/sugarRushTrack'
@@ -130,10 +130,11 @@ import { GameTimer } from './components/GameTimer'
 import { TurnSplash } from './components/TurnSplash'
 import { BackgroundAnimation } from './components/BackgroundAnimation'
 import { VillainDecor } from './components/VillainDecor'
-import { objectiveScore } from '../ai/heuristicBot'
+import { objectiveScore, pickRecoverCandidate } from '../ai/heuristicBot'
 import { villainAnimation } from './villainAnimations'
 import { fireSurprise, villainHasSurprise } from './surpriseBus'
-import { villainPresentation } from './villainArt'
+import { villainPresentation, villainPortrait } from './villainArt'
+import { villainGender, villainArticle } from './villainGender'
 
 // `diablo: true` sur un mode interactif = l'action en cours est l'action gratuite
 // de Diablo (V2) : le dispatch final est encapsulé dans DIABLO_FREE_ACTION au lieu
@@ -1087,7 +1088,7 @@ function RaiponceHomewardModal({
   )
 }
 
-const BOT_STEP_MS = 700
+const BOT_STEP_BASE_MS = 700
 // Délai avant que le bot ne pose la carte de Vol du château : laisse le joueur
 // adverse lire les cartes dévoilées (modale affichée des deux côtés).
 const CASTLE_THEFT_READ_MS = 2400
@@ -1623,6 +1624,20 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // de tour, sans useEffect/setState.
   const turnKey = `${state.activePlayer}:${state.turn}`
   const [passedTurnKey, setPassedTurnKey] = useState<string | null>(null)
+  // PAUSE : gèle l'auto-progression des bots (utile surtout en ORDI vs ORDI pour
+  // observer/analyser). N'empêche pas les interactions humaines (qui passent par
+  // d'autres handlers) — seule la boucle qui pilote bots/pendings est suspendue.
+  const [paused, setPaused] = useState(false)
+  // Feedback éphémère du bouton « Copier le journal » (mode ORDI vs ORDI, dev).
+  const [logCopied, setLogCopied] = useState(false)
+  // Vitesse d'accélération des bots (1 = normal, 2/3/5 = accéléré). Miroir React du
+  // singleton `botSpeed` (lu par les animations) ; sert aussi à surligner le bouton actif.
+  const [botSpeed, setBotSpeedState] = useState(1)
+  const changeBotSpeed = (s: number) => {
+    const next = botSpeed === s ? 1 : s // recliquer la vitesse active → retour à ×1
+    setBotSpeed(next)
+    setBotSpeedState(next)
+  }
   // Carte de la main survolée depuis l'extérieur (boutons « Jouer Avarice »…).
   const [hoveredReactionId, setHoveredReactionId] = useState<string | null>(null)
   // instanceId actuellement « en showcase » (à masquer du plateau le temps du vol).
@@ -1736,7 +1751,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       // Maintien : JOUEUR (face visible) → 620 ms au centre, le temps de lire ; ADVERSAIRE
       // (dos) → 0 (il file dans sa main sans stationner). La CADENCE est commune (la plus
       // longue) pour que, à l'ouverture, la carte n° k de chacun parte au même instant.
-      const groupHold = (g: { faceDown: boolean }) => (g.faceDown ? 0 : 620)
+      const groupHold = (g: { faceDown: boolean }) => (g.faceDown ? 0 : speedScaled(620))
       const cadence = DEAL_FLY_IN + Math.max(...groups.map(groupHold))
       const specs: DealCard[] = []
       for (const g of groups) {
@@ -1825,12 +1840,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         // L'Imposteur : Corps découvert → bandeau « DEAD BODY REPORTED » + son.
         playDeadBody()
         setShowDeadBody(true)
-        window.setTimeout(() => setShowDeadBody(false), 2400)
+        window.setTimeout(() => setShowDeadBody(false), speedScaled(2400))
       } else if (e.kind === 'emergency-meeting') {
         // L'Imposteur : Réunion d'urgence → bandeau « EMERGENCY MEETING » + son.
         playEmergencyMeeting()
         setShowEmergency(true)
-        window.setTimeout(() => setShowEmergency(false), 2400)
+        window.setTimeout(() => setShowEmergency(false), speedScaled(2400))
       } else if (e.kind === 'robin-steal') {
         const robin = (state.players[e.playerIndex]?.board[e.locationId] ?? []).find(
           (c) => c.cardId === 'robin-des-bois',
@@ -1976,6 +1991,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     if (testMode || !startRollDone || !openingDealDone) return
     if (dealOverlay?.blocking) return // MA pioche plein écran en cours : on patiente
     if (state.status !== 'PLAYING' || state.activePlayer !== HUMAN) return
+    if (seats[HUMAN] === 'bot') return // ORDI vs ORDI : pas de splash « À vous de jouer »
     if (lastHumanTurnRef.current === state.turn) return
     lastHumanTurnRef.current = state.turn
     setShowTurnSplash(true)
@@ -1987,7 +2003,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // affiché pendant le tour adverse). Il n'est ré-armé qu'au prochain tour du joueur.
     if (splashTimerRef.current) window.clearTimeout(splashTimerRef.current)
     splashTimerRef.current = window.setTimeout(() => setShowTurnSplash(false), 4000)
-  }, [state.activePlayer, state.turn, state.status, startRollDone, openingDealDone, dealOverlay, testMode, HUMAN])
+  }, [state.activePlayer, state.turn, state.status, startRollDone, openingDealDone, dealOverlay, testMode, HUMAN, seats])
 
   // Réseau : prévient l'adversaire quand je prépare une Condition (sélection d'une
   // cible) pour qu'il patiente, et le libère quand je la joue ou l'annule.
@@ -2000,20 +2016,13 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     setReacting(reacting, state.players[HUMAN].villainName)
   }, [mode, gameMode, setReacting, state, HUMAN])
 
+  // ORDI vs ORDI : les DEUX sièges sont des bots (mode dev « Partie entre ordis »).
+  const botVsBot = seats[0] === 'bot' && seats[1] === 'bot'
   const isBotTurn = state.status === 'PLAYING' && seats[state.activePlayer] === 'bot'
   const isHumanTurn = state.status === 'PLAYING' && state.activePlayer === HUMAN
   // Tour de l'adversaire (bot en solo, ou joueur distant en réseau) : sert au
   // flash d'action sur SON plateau, qui doit aussi apparaître en réseau.
   const isOpponentTurn = state.status === 'PLAYING' && state.activePlayer === BOT
-
-  // --- Récap « tour adverse » ------------------------------------------------
-  // Bande O — O — O — O des actions de l'adversaire, figée à la fin de son tour
-  // (state.lastTurnEvents). On NE l'ouvre PAS automatiquement : seul le bouton
-  // « Récap. tour adverse » l'affiche, à la demande du joueur.
-  const [recapOpen, setRecapOpen] = useState(false)
-  const lastTurn = state.lastTurnEvents
-  // Récap pertinent = celui de l'ADVERSAIRE (pas le récap de nos propres tours).
-  const opponentRecap = lastTurn && lastTurn.playerIndex === BOT ? lastTurn : null
 
   // Persifleur actif sur un lieu portant un Héros : on révèle (démasque) la rangée
   // du haut et on la fait clignoter tant que le joueur n'a pas choisi une action.
@@ -2149,7 +2158,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // Flora chez le bot → sa main est révélée à l'humain (Flora rend la main publique).
   const botHandRevealed = hasHeroInRealm(state, BOT, 'flora')
   // Conditions jouables par l'humain pendant le tour du bot (D — réaction).
-  const humanReactions: CardInstance[] = !isHumanTurn ? playableConditions(state, HUMAN) : []
+  // Conditions jouables par l'humain LOCAL en réaction (tour adverse). En ORDI vs ORDI
+  // (siège local = bot), aucune invite humaine : c'est le bot qui réagit via botReact.
+  const humanReactions: CardInstance[] =
+    !isHumanTurn && seats[HUMAN] !== 'bot' ? playableConditions(state, HUMAN) : []
   // Clé de réaction : le tour + l'ENSEMBLE des Conditions actuellement déclenchables.
   // « Passer » ne verrouille QUE cet ensemble : si une NOUVELLE Condition devient
   // jouable plus tard dans le tour adverse (ex. « Pas si vite ! » dès qu'il lance une
@@ -2254,9 +2266,14 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // Si l'humain a une Condition jouable et n'a pas explicitement passé, on
   // met le bot en PAUSE pour laisser le temps de réagir.
   useEffect(() => {
+    // Cadence courante = cadence de base réduite par le multiplicateur de vitesse
+    // (bouton ORDI vs ORDI). Recalculée à chaque passage de l'effet (déclenché par
+    // `state`) → une éventuelle accélération s'applique dès le coup suivant.
+    const BOT_STEP_MS = Math.round(BOT_STEP_BASE_MS / getBotSpeed())
     if (state.status !== 'PLAYING') return
     if (!startRollDone) return // jet de dé de début de partie en cours
     if (!openingDealDone) return // distribution d'ouverture en cours (cartes révélées une à une)
+    if (paused) return // PAUSE demandée : on gèle toute auto-progression des bots/pendings
     if (dealOverlay?.blocking) return // MA pioche (plein écran) en cours : on patiente (pas la pioche adverse, discrète)
     // Gaston — retrait/replacement de jetons Obstacle. Bot → retire en priorité les
     // lieux non vidables par un Vanquish (Taverne/Bois) ; replace en dispersant (lieu
@@ -2827,7 +2844,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           ? undefined
           : (p.pawnLocation && !locked.has(p.pawnLocation) ? p.pawnLocation : undefined) ??
             p.locations.find((l) => !locked.has(l.id))?.id
-        const timer = setTimeout(() => resolveCastleTheft(dest), CASTLE_THEFT_READ_MS)
+        const timer = setTimeout(() => resolveCastleTheft(dest), speedScaled(CASTLE_THEFT_READ_MS))
         return () => clearTimeout(timer)
       }
       return
@@ -2841,10 +2858,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         const cands = prec.candidateIds
           .map((id) => pool.find((c) => c.instanceId === id))
           .filter((c): c is NonNullable<typeof c> => !!c)
-        // Magie noire : le bot privilégie le Miroir magique puis les Ingrédients.
-        const rank = (c: typeof cands[number]) =>
-          c.cardId === 'miroir-magique' ? 100 : c.type === 'ingredient' ? 50 + (c.cost ?? 0) : (c.cost ?? 0)
-        const pick = [...cands].sort((a, b) => rank(b) - rank(a))[0]
+        // Priorités du bot (générique + Bowser) centralisées dans pickRecoverCandidate.
+        const pick = pickRecoverCandidate(p, cands)
         if (pick) {
           const timer = setTimeout(() => resolveRecover(pick.instanceId), BOT_STEP_MS)
           return () => clearTimeout(timer)
@@ -3776,15 +3791,22 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       // avant de poursuivre : ainsi le bot ne joue son END_TURN — donc ne bascule
       // au tour du joueur — qu'une fois ses showcases terminés.
       if (showcaseBusy) return
-      const humanCanReact = playableConditions(state, HUMAN).length > 0 && !reactionPassed
+      // On ne se met en pause pour une réaction que si l'humain LOCAL en a une (siège
+      // non-bot) : en ORDI vs ORDI (siège HUMAIN = bot), on ne l'attend pas.
+      const humanCanReact =
+        seats[HUMAN] !== 'bot' && playableConditions(state, HUMAN).length > 0 && !reactionPassed
       if (humanCanReact) return // pause : on attend que l'humain joue ou passe
-      const timer = setTimeout(botAct, BOT_STEP_MS)
+      // Le bot NON-ACTIF tente d'abord ses réactions (Conditions) ; sinon le bot ACTIF
+      // joue son coup. En solo, botReact ne trouve aucun bot non-actif (l'autre siège est
+      // l'humain) → renvoie false → botAct, comportement inchangé. En ORDI vs ORDI, cela
+      // laisse le bot adverse réagir pendant le tour de l'autre.
+      const timer = setTimeout(() => { if (!botReact()) botAct() }, BOT_STEP_MS)
       return () => clearTimeout(timer)
     }
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolvePacteSang, resolveSacrifice, resolveCageMove, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire])
+  }, [paused, seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolvePacteSang, resolveSacrifice, resolveCageMove, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire])
 
   // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
   // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
@@ -5751,6 +5773,66 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               🧪 Mode test
             </button>
           )}
+          {/* Pause : gèle l'auto-progression des bots. RÉSERVÉE au mode ORDI vs ORDI hors
+              application (`!isDesktopApp` → absente de l'exe ET de la simulation exe). */}
+          {!isDesktopApp && botVsBot && !testMode && (
+            <button
+              onClick={() => setPaused((p) => !p)}
+              onMouseEnter={playHover}
+              title={paused ? 'Reprendre la partie' : 'Mettre la partie en pause (gèle les bots)'}
+              className={`rounded-lg border px-3 py-1.5 text-sm font-semibold ${
+                paused
+                  ? 'border-amber-300 bg-amber-500 text-amber-950 hover:bg-amber-400'
+                  : 'border-amber-500 bg-amber-600 text-white hover:bg-amber-500'
+              }`}
+            >
+              {paused ? '▶ Reprendre' : '⏸ Pause'}
+            </button>
+          )}
+          {/* Copier le journal : dump brut de state.log (une action par ligne) dans le
+              presse-papiers, pour signaler les cas à corriger. Même condition que Pause. */}
+          {!isDesktopApp && botVsBot && !testMode && (
+            <button
+              onClick={() => {
+                const report = `Tour ${state.turn}\n\n${state.log.join('\n')}`
+                void navigator.clipboard.writeText(report).then(() => {
+                  setLogCopied(true)
+                  window.setTimeout(() => setLogCopied(false), 1500)
+                })
+              }}
+              onMouseEnter={playHover}
+              title="Copier tout le journal dans le presse-papiers"
+              className={`rounded-lg border px-3 py-1.5 text-sm font-semibold ${
+                logCopied
+                  ? 'border-emerald-300 bg-emerald-500 text-emerald-950 hover:bg-emerald-400'
+                  : 'border-sky-500 bg-sky-600 text-white hover:bg-sky-500'
+              }`}
+            >
+              {logCopied ? '✓ Copié' : '📋 Copier le journal'}
+            </button>
+          )}
+          {/* Vitesse des bots : mini-boutons ×2/×3/×5 (recliquer = retour ×1). Accélère
+              la cadence des bots ET réduit d'autant la durée des animations. Même condition. */}
+          {!isDesktopApp && botVsBot && !testMode && (
+            <div className="flex items-center gap-1 rounded-lg border border-violet-500 bg-violet-950/60 px-1.5 py-1">
+              <span className="px-0.5 text-xs font-semibold text-violet-200">⏩</span>
+              {[2, 5].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => changeBotSpeed(s)}
+                  onMouseEnter={playHover}
+                  title={`Accélérer les bots ×${s}`}
+                  className={`rounded-md border px-2 py-0.5 text-xs font-bold ${
+                    botSpeed === s
+                      ? 'border-violet-300 bg-violet-500 text-white'
+                      : 'border-violet-600/60 bg-violet-800/50 text-violet-100 hover:bg-violet-700/60'
+                  }`}
+                >
+                  ×{s}
+                </button>
+              ))}
+            </div>
+          )}
           <button
             onClick={() => setShowOptions(true)}
             onMouseEnter={playHover}
@@ -6760,17 +6842,6 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               </button>
             )}
           </div>
-          {/* Récap du dernier tour adverse : rouvre la bande O — O — O — O. */}
-          {opponentRecap && !recapOpen && isHumanTurn && (
-            <button
-              type="button"
-              onClick={() => setRecapOpen(true)}
-              className="mt-1 flex items-center gap-1.5 rounded-lg border border-amber-400/40 bg-slate-900/70 px-2.5 py-1 text-xs text-amber-100 hover:bg-slate-800/80"
-              title={`Revoir ce que ${opponentRecap.villainName} a fait à son tour`}
-            >
-              <span className="text-base">🔁</span> Récap. tour adverse
-            </button>
-          )}
           {humanReactions.length > 0 && !reactionPassed && !state.pendingTyrannyDiscard && (
             <div className="armed-blink-rose rounded-xl border border-fuchsia-500/60 bg-fuchsia-500/10 p-2 text-xs text-fuchsia-100">
               <div className="mb-1 font-semibold">⚡ Réaction disponible</div>
@@ -6809,6 +6880,15 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               log={state.log}
               playerNames={state.players.map((p) => p.villainName)}
               playerColors={state.players.map((p) => villainColor(p.villain))}
+              playerAvatars={state.players.map((p) =>
+                villainPortrait(isCustomKey(p.villain) ? p.villain : villainKeyOf(p.villain)),
+              )}
+              playerBoards={state.players.map((p) => ({
+                image: p.boardImage,
+                locations: p.locations.map((l) => l.name),
+              }))}
+              playerGenders={state.players.map((p) => villainGender(p.villain))}
+              playerArticles={state.players.map((p) => villainArticle(p.villain))}
             />
           </div>
           {/* Case d'actions : boutons de confirmation/annulation déplacés hors de la
@@ -7286,11 +7366,6 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       )}
 
       {/* Dingo : l'humain (qui a posé la Fatalité) intervertit/déplace une tuile. */}
-      {/* Récap « tour adverse » : bande chronologique des actions de l'adversaire. */}
-      {recapOpen && opponentRecap && (
-        <OpponentTurnRecap recap={opponentRecap} onClose={() => setRecapOpen(false)} />
-      )}
-
       {state.pendingDingo && state.pendingDingo.chooserIndex === HUMAN && (
         <DingoModal
           target={state.players[state.pendingDingo.targetIndex]}
@@ -9629,7 +9704,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       {/* Mode « Regarder le plateau » : le plateau reste inactif ; les deux autres
           choix de fin de partie restent accessibles en haut à droite. */}
       {won && watchBoard && (
-        <div className="fixed right-4 top-4 z-[78] flex items-center gap-2 rounded-xl border border-white/15 bg-[#120c22]/95 px-3 py-2 shadow-lg backdrop-blur-sm">
+        <div className="fixed right-4 top-[calc(1rem+5vh)] z-[78] flex items-center gap-2 rounded-xl border border-white/15 bg-[#120c22]/95 px-3 py-2 shadow-lg backdrop-blur-sm">
           <span className="px-1 text-sm font-bold text-amber-200">
             {state.winner === HUMAN ? '🏆 Victoire' : '💀 Défaite'}
           </span>

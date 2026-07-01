@@ -37,6 +37,15 @@ function pokemon(id: string, cardId: string, strength: number): CardInstance {
 function captured(cardId: string): CardInstance {
   return { instanceId: cardId, cardId, name: cardId, type: 'hero', isPokemon: true, strength: 1 }
 }
+function item(id: string, cardId: string): CardInstance {
+  const def = getCardDef(cardId)
+  return {
+    instanceId: id, cardId, name: def?.name ?? cardId, type: 'item',
+    cost: def?.cost, attach: def?.attach, attachStrengthBonus: def?.attachStrengthBonus,
+    shieldAllyFromDiscard: def?.shieldAllyFromDiscard, ridesWithPawn: def?.ridesWithPawn,
+    fateRemovalPriority: def?.fateRemovalPriority,
+  }
+}
 
 describe('Team Rocket — Attraper un Pokémon (CATCH_POKEMON)', () => {
   it('Vaincre un Pokémon le COUCHE (K.O.) sur place au lieu de le défausser', () => {
@@ -224,23 +233,59 @@ describe('Team Rocket — Attraper un Pokémon (CATCH_POKEMON)', () => {
     let s = withActive(trGame(), {
       board: {
         foret: [ally('a1', 'abo', 2)],
-        arene: [{ instanceId: 'it1', cardId: 'mongolfiere', name: 'Mongolfière', type: 'item', cost: 3 }],
+        arene: [item('it1', 'mongolfiere')],
       },
     })
     s = placeFateHeroWithEffects(s, 0, 0, onix, 'labo', 'Laboratoire')
     const p = me(s)
-    // L'Objet (coût 3) est plus « précieux » que l'Allié Abo (force 2) → c'est lui qui saute.
+    // La Mongolfière (fateRemovalPriority élevée = Objet-moteur) est retirée AVANT l'Allié Abo.
     expect(p.discard.map((c) => c.cardId)).toContain('mongolfiere')
     expect(Object.values(p.board).flat().some((c) => c.instanceId === 'a1')).toBe(true)
   })
 
   it('Dégonflage défausse un Objet (non associé) du royaume', () => {
     let s = withActive(trGame(), {
-      board: { foret: [{ instanceId: 'it1', cardId: 'mongolfiere', name: 'Mongolfière', type: 'item', cost: 3 }] },
+      board: { foret: [item('it1', 'mongolfiere')] },
     })
     s = resolveEffects(s, [{ type: 'DISCARD_ONE_ITEM' }], { actorIndex: 0 })
     expect(me(s).discard.map((c) => c.cardId)).toContain('mongolfiere')
     expect(Object.values(me(s).board).flat().some((c) => c.instanceId === 'it1')).toBe(false)
+  })
+
+  it('Dégonflage suit l’ordre de priorité : Mongolfière > Pokéball > Pokédex > rose de James', () => {
+    // Ordre inverse dans le royaume pour vérifier que le tri, pas la position, décide.
+    let s = withActive(trGame(), {
+      board: {
+        labo: [item('r', 'rose-de-james'), item('px', 'pokedex-vole')],
+        arene: [item('pb', 'pokeball'), item('m', 'mongolfiere')],
+      },
+    })
+    const order: string[] = []
+    for (let i = 0; i < 4; i++) {
+      s = resolveEffects(s, [{ type: 'DISCARD_ONE_ITEM' }], { actorIndex: 0 })
+      const last = me(s).discard[me(s).discard.length - 1]
+      order.push(last.cardId)
+    }
+    expect(order).toEqual(['mongolfiere', 'pokeball', 'pokedex-vole', 'rose-de-james'])
+  })
+
+  it('Onix retire en TIERS : Mongolfière (moteur) avant les Alliés, puis les autres Objets', () => {
+    const onix: CardInstance = {
+      instanceId: 'onix1', cardId: 'onix', name: 'Onix', type: 'hero', isPokemon: true,
+      strength: 4, onPlace: [{ type: 'DISCARD_ALLY_OR_ITEM' }],
+    }
+    // 1er Onix : Mongolfière (tier haut) part avant l'Allié fort et le Pokédex.
+    let s = withActive(trGame(), {
+      board: { foret: [ally('a1', 'persian', 4), item('px', 'pokedex-vole'), item('m', 'mongolfiere')] },
+    })
+    s = placeFateHeroWithEffects(s, 0, 0, onix, 'labo', 'Laboratoire')
+    expect(me(s).discard.map((c) => c.cardId)).toContain('mongolfiere')
+    expect(Object.values(me(s).board).flat().some((c) => c.cardId === 'persian')).toBe(true)
+    // 2e Onix (plus de Mongolfière) : l'Allié part AVANT le Pokédex (Allié > Objet ordinaire).
+    const onix2 = { ...onix, instanceId: 'onix2' }
+    s = placeFateHeroWithEffects(s, 0, 0, onix2, 'centre-pokemon', 'Centre Pokémon')
+    expect(me(s).discard.filter((c) => c.cardId === 'persian')).toHaveLength(1)
+    expect(Object.values(me(s).board).flat().some((c) => c.cardId === 'pokedex-vole')).toBe(true)
   })
 
   it('Évolution : Abo → Arbok sur le même lieu (choix interactif)', () => {
