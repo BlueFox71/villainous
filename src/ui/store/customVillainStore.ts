@@ -64,6 +64,48 @@ async function idbGetAll(): Promise<CustomVillain[]> {
   return all ?? []
 }
 
+// --- Filet de sécurité disque (serveur de dév uniquement) -------------------
+// L'IndexedDB est cloisonnée par origine (navigateur + hôte:port) et effaçable : un
+// brouillon peut « disparaître » alors qu'il a bien été sauvegardé. On en écrit donc une
+// copie COMPLÈTE sur le disque (`src/data/drafts/<id>.json`, cf. `villainBackupPlugin`
+// dans vite.config.ts), partagée entre origines et persistante, pour pouvoir RESTAURER
+// tout brouillon absent de l'IndexedDB. Best-effort : silencieux si pas de serveur de dév
+// (build de prod), sans jamais bloquer le save.
+
+/** Écrit une copie disque complète du vilain (best-effort). */
+async function backupToDisk(v: CustomVillain): Promise<void> {
+  try {
+    await fetch('/__save-villain-backup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: v.id, json: JSON.stringify(v) }),
+    })
+  } catch { /* pas de serveur de dév → on ignore */ }
+}
+
+/** Supprime la copie disque d'un vilain (best-effort). */
+async function deleteBackup(id: string): Promise<void> {
+  try {
+    await fetch('/__delete-villain-backup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+  } catch { /* pas de serveur de dév → on ignore */ }
+}
+
+/** Lit les brouillons sauvegardés sur disque (best-effort, [] si indisponible). */
+async function listBackups(): Promise<CustomVillain[]> {
+  try {
+    const res = await fetch('/__list-villain-backups')
+    if (!res.ok) return []
+    const { villains } = (await res.json()) as { villains: unknown[] }
+    return villains.filter(isCustomVillain)
+  } catch {
+    return []
+  }
+}
+
 async function idbPut(v: CustomVillain): Promise<void> {
   await tx('readwrite', (s) => void s.put(v))
 }
@@ -117,13 +159,20 @@ export const useCustomVillainStore = create<CustomVillainStore>((set, get) => ({
   loaded: false,
 
   load: async () => {
-    // Vilains LOCAUX (IndexedDB de ce navigateur) + vilains EMBARQUÉS (committés dans
-    // l'app, disponibles pour tous). Un vilain local prime sur sa version embarquée de
-    // même id (l'auteur garde ses éditions en cours).
+    // Vilains LOCAUX (IndexedDB de ce navigateur) + brouillons RESTAURÉS du disque (filet
+    // de sécurité, cf. backupToDisk) + vilains EMBARQUÉS (committés dans l'app, dispo pour
+    // tous). Priorité : IndexedDB > brouillon disque > embarqué, par id. L'IndexedDB prime
+    // (les éditions en cours de ce navigateur), le disque ne comble que les ids absents
+    // (autre port/navigateur, ou base effacée), l'embarqué comble le reste.
     const local = await idbGetAll()
-    const bundled = loadBundledVillains()
     const localIds = new Set(local.map((v) => v.id))
-    const villains = [...local, ...bundled.filter((b) => !localIds.has(b.id))]
+    // Brouillons disque absents de l'IndexedDB → on les ré-injecte ET on les re-persiste en
+    // IndexedDB pour qu'ils soient de nouveau éditables sur cette origine.
+    const restored = (await listBackups()).filter((v) => !localIds.has(v.id))
+    for (const v of restored) { await idbPut(v); localIds.add(v.id) }
+    const known = new Set([...local, ...restored].map((v) => v.id))
+    const bundled = loadBundledVillains().filter((b) => !known.has(b.id))
+    const villains = [...local, ...restored, ...bundled]
     villains.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))
     registerPublished(villains)
     set({ villains, loaded: true })
@@ -132,6 +181,7 @@ export const useCustomVillainStore = create<CustomVillainStore>((set, get) => ({
   save: async (v) => {
     const next = { ...v, updatedAt: new Date().toISOString() }
     await idbPut(next)
+    void backupToDisk(next) // filet de sécurité disque (best-effort, non bloquant)
     if (next.published) registerPublishedVillain(next)
     set((s) => {
       const others = s.villains.filter((x) => x.id !== next.id)
@@ -141,6 +191,7 @@ export const useCustomVillainStore = create<CustomVillainStore>((set, get) => ({
 
   remove: async (id) => {
     await idbDelete(id)
+    void deleteBackup(id) // retire aussi la copie disque (best-effort)
     set((s) => ({ villains: s.villains.filter((x) => x.id !== id) }))
   },
 
@@ -165,6 +216,7 @@ export const useCustomVillainStore = create<CustomVillainStore>((set, get) => ({
       updatedAt: now,
     }
     await idbPut(imported)
+    void backupToDisk(imported) // filet de sécurité disque (best-effort)
     set((s) => ({ villains: [imported, ...s.villains.filter((x) => x.id !== id)] }))
     return id
   },

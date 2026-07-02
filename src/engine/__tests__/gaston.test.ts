@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createInitialGame } from '../state'
-import { applyAction } from '../actions'
+import { applyAction, placeFateHeroWithEffects } from '../actions'
 import { hasReachedObjective, totalObstacles, belleBlocksRemoval, effectiveStrength } from '../rules'
 import { performVanquish, resolveEffects } from '../effects'
 import { gaston } from '../../data/villains/gaston'
@@ -47,6 +47,17 @@ describe('Gaston — jetons Obstacle & objectif', () => {
     expect(hasReachedObjective(s, 0)).toBe(true)
     const one = setObstacles(game(), { 'maison-belle': 0, taverne: 0, bois: 0, 'chateau-bete': 1 })
     expect(hasReachedObjective(one, 0)).toBe(false)
+  })
+
+  it('victoire IMMÉDIATE dès le retrait du dernier Obstacle (et non au début du tour)', () => {
+    // Un seul Obstacle restant : le retirer via une action doit déclarer la victoire tout de suite.
+    let s = setObstacles(game(), { 'maison-belle': 0, taverne: 0, bois: 0, 'chateau-bete': 1 })
+    expect(s.status).toBe('PLAYING')
+    s = resolveEffects(s, [{ type: 'REMOVE_OBSTACLE', max: 1 }], { actorIndex: 0 })
+    s = applyAction(s, { type: 'RESOLVE_OBSTACLE', locationId: 'chateau-bete' })
+    expect(totalObstacles(s.players[0])).toBe(0)
+    expect(s.status).toBe('WON')
+    expect(s.winner).toBe(0)
   })
 
   it('REMOVE_OBSTACLE ouvre un choix interactif puis retire les Obstacles cliqués', () => {
@@ -320,6 +331,20 @@ describe('Gaston — effets « à la pose » des Héros Fatalité', () => {
     expect(effectiveStrength(s, 0, 'w')).toBe(0) // Loup 1 − 1 (aura Invention)
   })
 
+  it('Maurice (flux complet) : posé via placeFateHeroWithEffects, son Bidule arrive attaché sur son lieu', () => {
+    // Reproduit le vrai chemin d'une résolution de Fatalité : la pioche Fatalité
+    // contient l'Invention (comme en partie), et Maurice est posé sur un lieu.
+    const s = game()
+    const maurice = buildDeckInstances(gastonCards, 'fate', 'p0f:').find((c) => c.cardId === 'maurice')!
+    const after = placeFateHeroWithEffects(s, 0, 0, maurice, 'maison-belle', 'Maison de Belle')
+    const placed = (after.players[0].board['maison-belle'] ?? []).find((c) => c.cardId === 'invention-de-maurice')
+    expect(placed).toBeDefined() // le Bidule a bien été cherché et posé
+    expect(placed?.attachedTo).toBe(maurice.instanceId) // associé à Maurice, sur son lieu
+    // Il n'est plus ni dans la pioche ni dans la défausse Fatalité.
+    expect(after.players[0].fateDeck.some((c) => c.cardId === 'invention-de-maurice')).toBe(false)
+    expect(after.players[0].fateDiscard.some((c) => c.cardId === 'invention-de-maurice')).toBe(false)
+  })
+
   it('La Bête : éloigne les Alliés de son lieu', () => {
     let s = game()
     const beast: CardInstance = { instanceId: 'beast', cardId: 'la-bete', name: 'La Bête', type: 'hero', strength: 6 }
@@ -346,18 +371,41 @@ describe('Gaston — effets « à la pose » des Héros Fatalité', () => {
     expect(s.pendingHeroRelocate?.candidateIds).not.toContain('l') // Lumière (hôte) exclue
   })
 
-  it('Mrs Samovar et Zip : disperse les autres Héros (round-robin)', () => {
-    let s = game()
+  const samovarBoard = (s0: GameState) => {
     const mrs: CardInstance = { instanceId: 'mrs', cardId: 'mrs-samovar-et-zip', name: 'Mrs Samovar', type: 'hero', strength: 1 }
     const h1: CardInstance = { instanceId: 'h1', cardId: 'belle', name: 'Belle', type: 'hero', strength: 2 }
     const h2: CardInstance = { instanceId: 'h2', cardId: 'big-ben', name: 'Big Ben', type: 'hero', strength: 2 }
-    s = setBoard(s, 'maison-belle', [mrs, h1, h2])
+    return setBoard(s0, 'maison-belle', [mrs, h1, h2])
+  }
+  const locOf = (s0: GameState, id: string) =>
+    s0.players[0].locations.map((l) => l.id).find((loc) => (s0.players[0].board[loc] ?? []).some((c) => c.instanceId === id))
+
+  it('Mrs Samovar et Zip : ouvre un déplacement INTERACTIF des autres Héros (au choix, répétable)', () => {
+    let s = samovarBoard(game())
     s = resolveEffects(s, [{ type: 'SCATTER_REALM_HEROES' }], { actorIndex: 0, hostInstanceId: 'mrs', hostLocationId: 'maison-belle' })
-    // h1/h2 dispersés sur des lieux ≠ maison-belle ; Mrs reste.
-    const locOf = (id: string) => s.players[0].locations.map((l) => l.id).find((loc) => (s.players[0].board[loc] ?? []).some((c) => c.instanceId === id))
-    expect(locOf('mrs')).toBe('maison-belle')
-    expect(locOf('h1')).not.toBe('maison-belle')
-    expect(locOf('h2')).not.toBe('maison-belle')
+    // Pending interactif : choix parmi h1/h2 (pas Mrs), n'importe quel lieu, facultatif, répétable.
+    expect(s.pendingHeroRelocate?.candidateIds).toEqual(['h1', 'h2'])
+    expect(s.pendingHeroRelocate?.anyLocation).toBe(true)
+    expect(s.pendingHeroRelocate?.optional).toBe(true)
+    expect(s.pendingHeroRelocate?.repeatCandidates).toBe(true)
+    // Déplace h1 (où l'on veut) → le pending SE ROUVRE avec seulement h2.
+    s = applyAction(s, { type: 'RESOLVE_HERO_RELOCATE', heroInstanceId: 'h1', to: 'taverne' })
+    expect(locOf(s, 'h1')).toBe('taverne')
+    expect(s.pendingHeroRelocate?.candidateIds).toEqual(['h2'])
+    // Déplace h2 → plus de candidat → pending fermé. Mrs n'a pas bougé.
+    s = applyAction(s, { type: 'RESOLVE_HERO_RELOCATE', heroInstanceId: 'h2', to: 'bois' })
+    expect(locOf(s, 'h2')).toBe('bois')
+    expect(s.pendingHeroRelocate ?? null).toBeNull()
+    expect(locOf(s, 'mrs')).toBe('maison-belle')
+  })
+
+  it('Mrs Samovar et Zip : facultatif — SKIP referme sans déplacer', () => {
+    let s = samovarBoard(game())
+    s = resolveEffects(s, [{ type: 'SCATTER_REALM_HEROES' }], { actorIndex: 0, hostInstanceId: 'mrs', hostLocationId: 'maison-belle' })
+    s = applyAction(s, { type: 'SKIP_HERO_RELOCATE' })
+    expect(s.pendingHeroRelocate ?? null).toBeNull()
+    expect(locOf(s, 'h1')).toBe('maison-belle') // rien n'a bougé
+    expect(locOf(s, 'h2')).toBe('maison-belle')
   })
 })
 

@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "id": "custom-gul-dan",
   "name": "Gul'dan",
-  "stars": 3,
+  "stars": 2,
   "color": "#378e27",
   "pawnHeightPx": 56,
   "boardObjective": "Vous devez ouvrir la porte des ténèbres",
@@ -359,7 +359,7 @@
         "offsetXPct": 50,
         "offsetYPct": 41
       },
-      "cost": 2,
+      "cost": 0,
       "typeLabel": "Artéfact",
       "typeColor": "#76528e",
       "textLayout": {
@@ -397,7 +397,7 @@
       "deck": "villain",
       "type": "effect",
       "copies": 1,
-      "text": "Allez cherchez un Objet ou un Événement dans la défausse ou votre pioche et ajoutez-le à votre main.",
+      "text": "Allez cherchez un Objet ou un Événement dans la défausse et ajoutez le à votre main.",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -472,6 +472,13 @@
           "y": 70.92974811757061,
           "w": 50,
           "size": 67
+        }
+      ],
+      "activatedCost": 1,
+      "activatedEffects": [
+        {
+          "type": "FETCH_CARD_TO_HAND",
+          "cardId": "custom-gul-dan-trait-du-chaos"
         }
       ]
     },
@@ -887,7 +894,7 @@
     }
   ],
   "createdAt": "2026-06-30T13:12:58.879Z",
-  "updatedAt": "2026-06-30T16:55:56.614Z",
+  "updatedAt": "2026-07-01T12:36:16.973Z",
   "boardLocks": [
     {
       "id": "blk-1",

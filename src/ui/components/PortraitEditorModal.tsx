@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { VILLAIN_REGISTRY, type VillainKey } from '../store/gameStore'
 import { villainPortrait } from '../villainArt'
 import { villainCreator } from '../villainPacks'
+import { CropSliders } from '../editor/fields'
+import type { CropPos } from '../../data/customVillain'
 
 // Cadre doré (double liseré) servi depuis public/. Dessiné PAR-DESSUS le portrait.
 const GUIDE_SRC = '/villain-guide.png'
@@ -17,9 +19,13 @@ interface CustomMode {
   portrait: string | undefined
   /** Titre par défaut (nom du vilain). */
   name: string
-  /** Reçoit le portrait encadré (dataURL) à appliquer au brouillon. */
-  onApply: (dataUrl: string) => void
+  /** Cadrage initial (zoom + décalage) à restaurer sur les curseurs. Défaut : centré. */
+  crop?: CropPos
+  /** Reçoit le portrait rendu (dataURL) ET son cadrage, à appliquer au brouillon. */
+  onApply: (dataUrl: string, crop: CropPos) => void
 }
+
+const CENTER: CropPos = { x: 50, y: 50, zoom: 1 }
 
 interface Props {
   onClose: () => void
@@ -41,12 +47,17 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   })
 }
 
-/** Dessine `img` en COVER (remplit, recadre) dans un carré `size`. */
-function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, size: number) {
-  const scale = Math.max(size / img.width, size / img.height)
+/** Dessine `img` en COVER (remplit, recadre) dans un carré `size`, avec cadrage
+ *  optionnel : `zoom` (≥1) agrandit ; `x`/`y` (0..100) décalent façon object-position
+ *  (0 = bord gauche/haut, 50 = centre, 100 = bord droit/bas). */
+function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, size: number, crop: CropPos = CENTER) {
+  const scale = Math.max(size / img.width, size / img.height) * (crop.zoom ?? 1)
   const dw = img.width * scale
   const dh = img.height * scale
-  ctx.drawImage(img, (size - dw) / 2, (size - dh) / 2, dw, dh)
+  // Fraction 0..1 (x/y) : positionne l'excédent (dw−size) selon le décalage choisi.
+  const fx = (crop.x ?? 50) / 100
+  const fy = (crop.y ?? 50) / 100
+  ctx.drawImage(img, -(dw - size) * fx, -(dh - size) * fy, dw, dh)
 }
 
 /** Écrit le titre centré en haut, rétréci pour tenir dans ~84 % de la largeur. */
@@ -101,6 +112,8 @@ export function PortraitEditorModal({ onClose, initialVillain, lockVillain, cust
   )
   // Mode Atelier : on montre le rendu encadré d'emblée (le bouton « Appliquer » suit).
   const [framed, setFramed] = useState(isCustom)
+  // Cadrage (zoom + décalage) du portrait carré — Atelier uniquement.
+  const [crop, setCrop] = useState<CropPos>(custom?.crop ?? CENTER)
   const [saveMsg, setSaveMsg] = useState<string | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -133,7 +146,7 @@ export function PortraitEditorModal({ onClose, initialVillain, lockVillain, cust
       ctx.clearRect(0, 0, SIZE, SIZE)
       ctx.fillStyle = '#000'
       ctx.fillRect(0, 0, SIZE, SIZE)
-      drawCover(ctx, portrait, SIZE)
+      drawCover(ctx, portrait, SIZE, crop)
       if (framed) {
         const guide = await loadImage(GUIDE_SRC).catch(() => null)
         if (cancelled) return
@@ -144,7 +157,7 @@ export function PortraitEditorModal({ onClose, initialVillain, lockVillain, cust
     return () => {
       cancelled = true
     }
-  }, [portraitSrc, rawUrl, framed, title])
+  }, [portraitSrc, rawUrl, framed, title, crop])
 
   // Remplace le fichier portrait par le rendu courant (canvas → endpoint dev), ou en
   // mode Atelier, applique le rendu encadré (dataURL) au brouillon du vilain perso.
@@ -152,7 +165,7 @@ export function PortraitEditorModal({ onClose, initialVillain, lockVillain, cust
     const canvas = canvasRef.current
     if (!canvas) return
     if (isCustom) {
-      custom!.onApply(canvas.toDataURL('image/png'))
+      custom!.onApply(canvas.toDataURL('image/png'), crop)
       onClose()
       return
     }
@@ -233,7 +246,23 @@ export function PortraitEditorModal({ onClose, initialVillain, lockVillain, cust
           </div>
         </div>
 
-        {/* Titre éditable. */}
+        {/* Cadrage (zoom + déplacement) — Atelier : redimensionner/déplacer l'image dans le carré. */}
+        {isCustom && custom!.portrait && (
+          <div className="flex flex-col gap-1.5 rounded-lg border border-white/10 bg-black/20 p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs uppercase tracking-wide text-white/50">Cadrage (zoom / déplacement)</span>
+              <button
+                onClick={() => setCrop(CENTER)}
+                className="rounded border border-white/20 px-2 py-0.5 text-[11px] text-white/70 hover:bg-white/10"
+              >
+                Réinitialiser
+              </button>
+            </div>
+            <CropSliders pos={crop} onChange={setCrop} />
+          </div>
+        )}
+
+        {/* Titre éditable (pertinent seulement avec le cadre). */}
         <label className="flex flex-col gap-1">
           <span className="text-xs uppercase tracking-wide text-white/50">Titre (majuscules, or)</span>
           <input
@@ -246,19 +275,21 @@ export function PortraitEditorModal({ onClose, initialVillain, lockVillain, cust
 
         <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={() => { setFramed(true); setSaveMsg(null) }}
+            onClick={() => { setFramed((f) => !f); setSaveMsg(null) }}
             className="rounded-lg border border-lime-400/60 px-3 py-2 text-sm font-semibold text-lime-200 hover:bg-lime-500/15"
           >
-            🖼 Mettre encadré + titre
+            {framed ? '🚫 Retirer le cadre' : '🖼 Mettre encadré + titre'}
           </button>
           <button
             onClick={replacePortrait}
-            disabled={!framed || (isCustom && !custom!.portrait)}
+            // Atelier : applicable dès qu'un portrait existe (cadrage seul autorisé, sans
+            // cadre). Mode dev : on exige le cadre (écriture du fichier encadré).
+            disabled={isCustom ? !custom!.portrait : !framed}
             title={
-              !framed
-                ? 'Cliquez d’abord « Mettre encadré + titre »'
-                : isCustom
-                  ? 'Applique le portrait encadré au vilain'
+              isCustom
+                ? 'Applique le portrait (cadrage + éventuel cadre) au vilain'
+                : !framed
+                  ? 'Cliquez d’abord « Mettre encadré + titre »'
                   : 'Écrit le rendu dans le fichier portrait'
             }
             className="rounded-lg border border-amber-400/60 px-3 py-2 text-sm font-semibold text-amber-200 enabled:hover:bg-amber-500/15 disabled:opacity-40"

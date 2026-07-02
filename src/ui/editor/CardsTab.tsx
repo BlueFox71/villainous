@@ -30,18 +30,104 @@ const hasStrength = (c: CustomCard) => c.type === 'ally' || c.type === 'hero'
  *  visuel (ex. « +2 Force au Héros porteur »). 0 / vide = pas d'étoile sur la carte. */
 const isItem = (c: CustomCard) => c.type === 'item'
 
+// --- Mots-clés colorés (niveau vilain) ---------------------------------------
+
+/** Éditeur de MOTS-CLÉS colorés du vilain : chaque mot listé est coloré (à sa couleur)
+ *  partout où il apparaît dans le texte des cartes, comme un nom de type. */
+function KeywordColorsField({
+  value,
+  onChange,
+}: {
+  value: { label: string; color: string }[]
+  onChange: (v: { label: string; color: string }[]) => void
+}) {
+  const [word, setWord] = useState('')
+  const [col, setCol] = useState('#e0a53a')
+  const list = value ?? []
+  const add = () => {
+    const w = word.trim()
+    if (!w) return
+    // Remplace une entrée existante du même mot (insensible à la casse).
+    const rest = list.filter((k) => k.label.toLowerCase() !== w.toLowerCase())
+    onChange([...rest, { label: w, color: col }])
+    setWord('')
+  }
+  const remove = (label: string) => onChange(list.filter((k) => k.label !== label))
+  return (
+    <Field label="Mots-clés colorés (toutes les cartes)">
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <input
+            value={word}
+            onChange={(e) => setWord(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                add()
+              }
+            }}
+            placeholder="Mot (ex. Corruption)"
+            className={`${inputClass} min-w-0 flex-1`}
+          />
+          <input
+            type="color"
+            value={col}
+            onChange={(e) => setCol(e.target.value)}
+            className="h-8 w-10 shrink-0 cursor-pointer rounded border border-white/20 bg-transparent"
+          />
+          <button
+            type="button"
+            onClick={add}
+            disabled={!word.trim()}
+            className="shrink-0 rounded-lg border border-amber-300/50 px-3 py-1.5 text-sm font-semibold text-amber-200 transition hover:bg-amber-400/10 disabled:opacity-40"
+          >
+            + Ajouter
+          </button>
+        </div>
+        {list.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {list.map((k) => (
+              <span
+                key={k.label}
+                className="flex items-center gap-1.5 rounded-full border border-white/15 bg-black/30 px-2 py-0.5 text-xs"
+              >
+                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: k.color }} />
+                <span style={{ color: k.color }}>{k.label}</span>
+                <button
+                  type="button"
+                  onClick={() => remove(k.label)}
+                  className="text-white/40 transition hover:text-rose-300"
+                  title="Retirer"
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <p className="text-[11px] text-white/40">
+          Un mot par entrée. Toutes ses occurrences (singulier/pluriel, quelle que soit la casse) seront
+          colorées dans le texte de <strong>toutes</strong> les cartes du vilain, comme un type.
+        </p>
+      </div>
+    </Field>
+  )
+}
+
 // --- Formulaire d'une carte --------------------------------------------------
 
 function CardForm({
   card,
   color,
   fateColor,
+  keywordColors = [],
   extraDecks,
   onChange,
 }: {
   card: CustomCard
   color: string
   fateColor: string
+  keywordColors?: { label: string; color: string }[]
   extraDecks: string[]
   onChange: (c: CustomCard) => void
 }) {
@@ -298,7 +384,7 @@ function CardForm({
 
       {/* Aperçu interactif : glisser le texte et les symboles sur la carte */}
       <div className="w-72 shrink-0">
-        <CardLayoutEditor card={card} color={color} fateColor={fateColor} onChange={onChange} />
+        <CardLayoutEditor card={card} color={color} fateColor={fateColor} keywordColors={keywordColors} onChange={onChange} />
       </div>
     </div>
   )
@@ -369,6 +455,14 @@ export function CardsTab({
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Mots-clés colorés — réglage du vilain, appliqué au texte de toutes ses cartes. */}
+      <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+        <KeywordColorsField
+          value={draft.keywordColors ?? []}
+          onChange={(keywordColors) => patch({ keywordColors })}
+        />
+      </div>
+
       {/* Galerie */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">
@@ -399,8 +493,8 @@ export function CardsTab({
           </span>
         </div>
 
-        <CardRow title="Deck Vilain" cards={villainCards} selId={selId} onSelect={setSelId} onRemove={removeCard} color={draft.color} fateColor={FATE_CARD_COLOR} />
-        <CardRow title="Deck Fatalité" cards={fateCards} selId={selId} onSelect={setSelId} onRemove={removeCard} color={draft.color} fateColor={FATE_CARD_COLOR} />
+        <CardRow title="Deck Vilain" cards={villainCards} selId={selId} onSelect={setSelId} onRemove={removeCard} color={draft.color} fateColor={FATE_CARD_COLOR} keywordColors={draft.keywordColors} />
+        <CardRow title="Deck Fatalité" cards={fateCards} selId={selId} onSelect={setSelId} onRemove={removeCard} color={draft.color} fateColor={FATE_CARD_COLOR} keywordColors={draft.keywordColors} />
 
         {/* Paquets personnalisés (hors-deck) */}
         {extraDecks.map((name) => (
@@ -438,6 +532,7 @@ export function CardsTab({
               onRemove={removeCard}
               color={draft.color}
               fateColor={FATE_CARD_COLOR}
+              keywordColors={draft.keywordColors}
               emptyHint="Aucune carte : « + Carte » pour en ajouter."
             />
           </div>
@@ -451,6 +546,7 @@ export function CardsTab({
             card={selected}
             color={draft.color}
             fateColor={FATE_CARD_COLOR}
+            keywordColors={draft.keywordColors}
             extraDecks={extraDecks}
             onChange={updateCard}
           />
@@ -470,6 +566,7 @@ function CardRow({
   onRemove,
   color,
   fateColor,
+  keywordColors = [],
   emptyHint,
 }: {
   title?: string
@@ -479,6 +576,7 @@ function CardRow({
   onRemove: (id: string) => void
   color: string
   fateColor: string
+  keywordColors?: { label: string; color: string }[]
   emptyHint?: string
 }) {
   if (cards.length === 0) {
@@ -498,7 +596,7 @@ function CardRow({
                 selId === c.id ? 'border-amber-400' : 'border-transparent hover:border-white/30'
               }`}
             >
-              <CardPreview card={c} color={color} fateColor={fateColor} />
+              <CardPreview card={c} color={color} fateColor={fateColor} keywordColors={keywordColors} />
               <span className="block truncate px-1 py-0.5 text-center text-[11px] text-white/70">
                 {c.name}
               </span>

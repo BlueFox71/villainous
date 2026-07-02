@@ -107,6 +107,9 @@ export interface VillainDef {
   backVillainImage: string
   /** Dos de carte Fatalité. */
   backFateImage: string
+  /** Dos de carte des paquets PERSONNALISÉS (3e dos, vilains persos). Absent = les
+   *  cartes de paquet perso reprennent le dos Vilain. */
+  backExtraImage?: string
   /** Lieux VERROUILLÉS à la mise en place (Jafar : la Caverne aux Merveilles).
    *  Recopié dans PlayerState.lockedLocations. Absent = aucun verrou. */
   lockedLocationsAtStart?: LocationId[]
@@ -191,6 +194,10 @@ export interface KeyToken {
 export type ObjectiveDef =
   /** Atteindre un seuil de pouvoir au début de son tour (Prince Jean = 20). */
   | { type: 'POWER_THRESHOLD'; threshold: number }
+  /** Isabella — HORLOGE : valider les 6 heures (XII, II, IV, VI, VIII, X) en jouant au
+   *  moins une Activité à chacune (cumulatif). Victoire au début de son tour quand
+   *  `validatedHours` contient les 6 indices. */
+  | { type: 'ISABELLA_CLOCK' }
   /** Avoir au moins une carte de type 'curse' (Malédiction Maléfique) sur
    *  chacun des 4 lieux du royaume. */
   | { type: 'CURSE_EACH_LOCATION' }
@@ -351,6 +358,10 @@ export type ObjectiveDef =
    *  rendu possible par ZA WARUDO!. Victoire déclenchée à l'instant où la dernière action
    *  requise est effectuée (le drapeau `dioRealmSweepDone` est posé par la boucle d'action). */
   | { type: 'DIO_ALL_ACTIONS'; joestarCardIds: string[] }
+  /** Le Piégeur (Dead by Daylight) : ÉLIMINER les 4 Survivants. Victoire ÉVÉNEMENTIELLE
+   *  — déclenchée à l'instant où le dernier Survivant est éliminé (plus aucun Survivant
+   *  ni sur le plateau, ni dans la pile). */
+  | { type: 'PIEGEUR_ELIMINATE_ALL_SURVIVORS' }
 
 /** Pat Hibulaire — les 5 types de tuile Objectif (4 tirés par partie) :
  *  - `win-big`        : gagner ≥4 Pouvoir via UNE SEULE Petite Partie ? sur le lieu ;
@@ -479,6 +490,9 @@ export type Effect =
   | { type: 'LOSE_POWER_DRAW'; lose: number; draw: number }
   /** Carte Maui (Lézard) — défausse un Allié, gagne Pouvoir = sa force. */
   | { type: 'DISCARD_ALLY_GAIN_POWER' }
+  /** Gul'dan — Drain d'Âme : défausse un Allié (au choix) puis pioche `draw` cartes. Si
+   *  l'Allié défaussé est `bonusCardId` (Esclave Draenei), gagne aussi `bonusPower` Pouvoir. */
+  | { type: 'DISCARD_ALLY_DRAW'; draw: number; bonusCardId?: string; bonusPower?: number }
   /** Carte Maui (Heihei) — défaussée, puis dévoile et joue les `count` prochaines cartes Maui. */
   | { type: 'MAUI_CHAIN'; count: number }
   /** Carte Maui (Poisson) — gagne 1 Pouvoir par Condition en main, puis les défausse. */
@@ -501,6 +515,9 @@ export type Effect =
   /** Oogie — Père Noël : défausse FACULTATIVE d'autant de cartes que voulu (choix
    *  du joueur, ouvre pendingDiscardThenDraw), PUIS pioche `draw` cartes. */
   | { type: 'DISCARD_ANY_THEN_DRAW'; draw: number }
+  /** Gul'dan — Connexion : défausse autant de cartes de la main que voulu (choix
+   *  interactif), gagne `amount` Pouvoir par carte défaussée. */
+  | { type: 'DISCARD_ANY_FOR_POWER'; amount: number }
   // --- Sa Sucrerie (King Candy / Sugar Rush) --------------------------------
   /** Bug (Glitch) : la carte vient d'être associée à Vanellope → LANCE la course :
    *  place le pion King Candy ET le jeton Pilote sur Départ/Arrivée (index 0),
@@ -773,6 +790,14 @@ export type Effect =
   /** Fatalité — Violette (à la pose) : défausse toutes les cartes `cardId` du royaume
    *  de la cible (Énergie au Point Zéro). */
   | { type: 'DISCARD_ALL_OF_CARDID_IN_REALM'; cardId: string }
+  /** Gul'dan — Défaite (Fatalité) : le fataliseur CHOISIT un type (Alliés OU Objets) et
+   *  défausse TOUTES les cartes de ce type du royaume de la cible (choix via
+   *  pendingFateDiscardType ; le bot auto-résout). */
+  | { type: 'FATE_DISCARD_TYPE_CHOICE' }
+  /** Gul'dan — Prophète Velen (Fatalité, onPlace) : cherche la carte `cardId` (Armée de
+   *  la Lumière) dans la défausse/pioche Fatalité de la cible et la REJOUE (posée sur un
+   *  lieu choisi par le fataliseur, via pendingFateObjectPlace). */
+  | { type: 'FATE_REPLAY_CARD_FROM_DISCARD'; cardId: string }
   /** Fatalité — effet COMMUN aux Indestructibles + Frozone (à la pose) : si la
    *  Télécommande de Syndrome est dans le royaume (non associée), associez-la
    *  IMMÉDIATEMENT à ce Héros (il « vole » la Télécommande → Syndrome ne peut plus
@@ -844,6 +869,37 @@ export type Effect =
   /** Fatalité — Pas de Capes ! : au PROCHAIN tour de la cible, son déplacement est
    *  ANNULÉ (le pion reste sur place ; flag `skipMoveForcedNextTurn`). */
   | { type: 'FORCE_SKIP_NEXT_MOVE' }
+  // --- Le Piégeur (Dead by Daylight) --------------------------------------
+  /** RÉVÉLER un Survivant face cachée (ouvre pendingPiegeur, phase 'target'). `atPawn` =
+   *  seulement sur le lieu du pion (Marque d'éraflure) ; sinon n'importe où (Explosion).
+   *  `thenMove` = après révélation, le déplacer vers un voisin (phase 'dest'). La révélation
+   *  déclenche l'effet « Lorsque révélé » du Survivant (auto). */
+  | { type: 'PIEGEUR_REVEAL'; atPawn?: boolean; thenMove?: boolean }
+  /** FORCE BRUTE : blesse un Survivant révélé du lieu du pion (sain→blessé + déplacement),
+   *  OU le passe en critique s'il est déjà blessé. Direct critique si PERSONNE N'ÉCHAPPE
+   *  À LA MORT est en jeu. Ouvre pendingPiegeur (phase 'target'). */
+  | { type: 'PIEGEUR_INJURE' }
+  /** SANCTUAIRE MONSTRUEUX : accroche un Survivant CRITIQUE du lieu du pion au crochet de
+   *  ce lieu (−1 vie + hookedThisTurn). Ouvre pendingPiegeur. */
+  | { type: 'PIEGEUR_HOOK' }
+  /** MEMENTO MORI : élimine un Survivant CRITIQUE à 1 vie sur le lieu du pion. */
+  | { type: 'PIEGEUR_FINISH' }
+  /** RAYON DE TERREUR : déplace un Survivant (n'importe lequel) vers un lieu voisin. */
+  | { type: 'PIEGEUR_MOVE_SURVIVOR' }
+  /** PUDDING DE SURVIVANTS : +1 Pouvoir, +1 par Survivant éliminé OU révélé. */
+  | { type: 'PIEGEUR_PUDDING_POWER' }
+  /** Effet « Lorsque révélé » AUTO d'un Survivant (résolu à la révélation, hostInstanceId
+   *  = le Survivant). HEAL = un Survivant récupère un segment ; UNHOOK = décrocher un
+   *  Survivant (→ blessé) ; MEG_FLEE = ce Survivant fuit au lieu le plus loin du pion ;
+   *  JAKE_SABOTAGE = désactiver un crochet 1 tour OU défausser un piège à ours. */
+  | { type: 'PIEGEUR_HEAL' }
+  | { type: 'PIEGEUR_UNHOOK' }
+  | { type: 'PIEGEUR_MEG_FLEE' }
+  | { type: 'PIEGEUR_JAKE_SABOTAGE' }
+  /** ADRÉNALINE (Fatalité) : un Survivant récupère un segment PUIS fuit (lieu le plus loin). */
+  | { type: 'PIEGEUR_ADRENALINE' }
+  /** PURIFICATION (Fatalité) : défausse PERSONNE N'ÉCHAPPE À LA MORT (main ou royaume du Piégeur). */
+  | { type: 'PIEGEUR_PURIFY' }
   // --- Madame Mim ---------------------------------------------------------
   /** J'établis les règles : vainc directement une Métamorphose de Merlin du royaume
    *  (→ merlinDiscard + remplacement au Lieu du Duel). 2ᵉ voie de victoire. */
@@ -1144,8 +1200,9 @@ export type Effect =
   | { type: 'KILL_NORMAL_CREWMATE' }
   /** L'Imposteur — Insidieux : un Coéquipier suspect (n'importe où) redevient normal. */
   | { type: 'REASSURE_ANY' }
-  /** Gagne `amount` pouvoir par Héros présent dans le royaume (Magnifiques Taxes). */
-  | { type: 'GAIN_POWER_PER_HERO_IN_REALM'; amount: number }
+  /** Gagne `amount` pouvoir par Héros présent dans le royaume (Magnifiques Taxes).
+   *  `atPawn` : ne compte que les Héros du lieu du pion (Gul'dan — Sceptre de Sargeras). */
+  | { type: 'GAIN_POWER_PER_HERO_IN_REALM'; amount: number; atPawn?: boolean }
   /** Team Rocket — Togepi (Fatalité) : RETIRE `amount` pouvoir à l'acteur par Héros
    *  présent dans son royaume (plancher 0). */
   | { type: 'LOSE_POWER_PER_HERO_IN_REALM'; amount: number }
@@ -1269,8 +1326,19 @@ export type Effect =
   /** Jafar — Scarabée d'Or : déverrouille un lieu (retire le Cadenas). */
   | { type: 'UNLOCK_LOCATION'; locationId: LocationId }
   /** Atelier — bascule la FACE d'un lieu transformable (échange name/actions avec la
-   *  face alternative). `to` : 'a' | 'b' | 'toggle' (sens au choix de la carte). */
-  | { type: 'SWITCH_LOCATION_VERSION'; locationId: LocationId; to: 'a' | 'b' | 'toggle' }
+   *  face alternative). `to` : 'a' | 'b' | 'toggle' (sens au choix de la carte).
+   *  `atPlayedLocation` : cible le LIEU OÙ LA CARTE EST JOUÉE (le lieu du pion), pour une
+   *  carte « jouée sur un lieu pour le transformer » (ex. Gul'dan — Corruption). Dans ce
+   *  cas `locationId` est ignoré/optionnel. */
+  | { type: 'SWITCH_LOCATION_VERSION'; locationId?: LocationId; to: 'a' | 'b' | 'toggle'; atPlayedLocation?: boolean }
+  /** Gul'dan — Ouverture de la Porte des Ténèbres : victoire immédiate. Ne réussit (et
+   *  la carte n'est jouable) que si les 3 conditions sont réunies : pion sur la Porte
+   *  des Ténèbres (dernier lieu), les 4 lieux corrompus (face B), et les 4 Artéfacts
+   *  possédés (joués). */
+  | { type: 'DARK_PORTAL_WIN' }
+  /** Gul'dan — Corruption : quand au moins `count` lieux sont corrompus (face B),
+   *  déverrouille le DERNIER lieu du royaume (la Porte des Ténèbres, verrouillée au départ). */
+  | { type: 'UNLOCK_LAST_LOCATION_IF_CORRUPTED'; count: number }
   /** Atelier — bascule l'OBJECTIF actif (remplace condition + description + image de
    *  plateau par la face alternative). `to` : 'a' | 'b' | 'toggle'. */
   | { type: 'SWITCH_OBJECTIVE'; to: 'a' | 'b' | 'toggle' }
@@ -1314,6 +1382,17 @@ export type Effect =
    *  (force inchangée) et ne recouvre plus les actions. Coût (= force du Héros)
    *  prélevé à la pose, hors de cet effet. */
   | { type: 'HYPNOTIZE_HERO' }
+  /** Isabella — AMOUR : un Héros du royaume « aime » Isabella (choix interactif via
+   *  pendingGrantLove ; le bot auto-résout). Il devient un ALLIÉ (zone basse), capacités
+   *  annulées sauf sa clause « Amour ». Sans Héros aimable (non déjà aimé) : aucun effet. */
+  | { type: 'GRANT_LOVE' }
+  /** Isabella — Fatalité (Maman est un ennemi / Évasion) : un Héros qui aime Isabella
+   *  cesse de l'aimer (redevient un Héros) — auto : le plus fort des Héros aimés. Sans
+   *  Héros aimé : aucun effet. */
+  | { type: 'UNGRANT_LOVE' }
+  /** Isabella — INCENDIE (Fatalité) : arme le blocage des Activités « à la prochaine heure »
+   *  (pose `incendiePending` sur la cible). Sans effet si Phil aime Isabella (immunité). */
+  | { type: 'INCENDIE' }
   /** Capitaine Crochet — Clochette (à la pose) : défausse un Allié sur le lieu où
    *  elle arrive (ctx.hostLocationId). */
   | { type: 'DISCARD_ALLY_AT_HOST' }
@@ -1396,7 +1475,7 @@ export type Effect =
   | { type: 'UNTRAP_TITANS_PAY' }
   /** Hadès — Quel talent ! : gagne `amount` Pouvoir par carte du type `cardType`
    *  (Allié — les Titans sont des Alliés) dans sa défausse. */
-  | { type: 'GAIN_POWER_PER_TYPE_IN_DISCARD'; cardType: CardType; amount: number }
+  | { type: 'GAIN_POWER_PER_TYPE_IN_DISCARD'; cardType: CardType; amount: number; cardTypes?: CardType[]; cap?: number }
   /** Hadès — Talon d'Achille : réduit de `amount` la force du Héros cible
    *  (ctx.targetHeroId) jusqu'à la fin du tour (via tempStrengthBonus négatif). */
   | { type: 'REDUCE_HERO_STRENGTH_TEMP'; amount: number }
@@ -1450,12 +1529,12 @@ export type Effect =
   /** Dr Facilier — Tour de passe-passe : regarde les `look` premières cartes de la
    *  pioche de l'acteur, en ajoute `take` à la main (auto : les plus utiles) et
    *  défausse les autres. */
-  | { type: 'LOOK_TOP_DRAW_DISCARD'; look: number; take: number; title?: string }
+  | { type: 'LOOK_TOP_DRAW_DISCARD'; look: number; take: number; title?: string; returnToDeck?: boolean }
   /** Ratigan — Liste de Fidget : dévoile les cartes de la pioche de l'acteur une à
    *  une jusqu'à en trouver une du type `cardType` (Objet). Cette carte rejoint sa
    *  main, les AUTRES cartes dévoilées sont défaussées. Toutes les cartes dévoilées
    *  sont montrées au joueur (pendingReveal). `title` : titre du modal d'info. */
-  | { type: 'REVEAL_DECK_UNTIL_TYPE'; cardType: CardType; title?: string }
+  | { type: 'REVEAL_DECK_UNTIL_TYPE'; cardType: CardType; title?: string; cardTypes?: CardType[]; keepOnTop?: boolean }
   /** Sa Sucrerie — Aigre Bill (joué OU déplacé) : ouvre le choix FACULTATIF de fouiller
    *  la pioche Méchant (dévoiler jusqu'à un Allié → main, réordonner le reste sur le
    *  dessus). Sans Allié dans la pioche+défausse → aucun effet. */
@@ -1467,6 +1546,13 @@ export type Effect =
    *  Événement) dans sa défausse et l'ajoute à sa main (ouvre pendingRecover ; bot :
    *  auto-pick). `label` : titre de la modale de choix. */
   | { type: 'RECOVER_TYPE_FROM_DISCARD'; types: CardType[]; label?: string }
+  /** Isabella — Activité : VALIDE l'heure courante de l'horloge (ajoute l'index à
+   *  `validatedHours`). Placé en tête des `effects` d'une Activité ; les bonus suivent. */
+  | { type: 'VALIDATE_HOUR' }
+  /** Isabella — RADAR DE POCHE (capacité activée) : ce tour-ci les Activités sont jouables
+   *  à toute heure ; EN CONTREPARTIE, pioche dans la pioche Fatalité jusqu'à un Héros, le
+   *  joue sur un lieu au choix (pendingFateHeroPlace) et défausse les autres cartes piochées. */
+  | { type: 'RADAR_POCHE' }
   /** Ratigan — Extravagance : le joueur CHOISIT une carte d'un des `types` (Objet)
    *  dans sa défausse et l'ajoute à sa main (ouvre pendingRecover). `label` : titre
    *  affiché. Paramétrable et réutilisable (variante « avec choix » de RECOVER…). */
@@ -1586,9 +1672,12 @@ export type Effect =
   /** La Méchante Reine — Magie noire : récupère en main un Objet/Ingrédient de la
    *  pioche ou de la défausse (auto : le plus utile) puis mélange la pioche. */
   | { type: 'BLACK_MAGIC_TUTOR' }
-  /** La Méchante Reine — Foudre : reproduit l'effet d'un Ingrédient déjà joué
-   *  (auto : Caquet en priorité). */
-  | { type: 'DUPLICATE_INGREDIENT' }
+  /** La Méchante Reine — Foudre : reproduit l'effet d'un Ingrédient déjà joué.
+   *  `zone` = pile source ('ingredients' par défaut ; 'artifacts' pour Gul'dan —
+   *  Manipulation). `freeDuplication` : la reproduction est gratuite (Manipulation
+   *  paie son coût fixe à la pose) ; sinon le coût = celui de la carte reproduite
+   *  (Foudre), payé à la reproduction. */
+  | { type: 'DUPLICATE_INGREDIENT'; zone?: 'ingredients' | 'artifacts'; freeDuplication?: boolean }
   /** La Méchante Reine — Hurlement d'effroi : déplace chaque Héros de force ≤ 3 du
    *  lieu le plus menaçant vers un lieu voisin non bloqué (auto). */
   | { type: 'SCREAM_OF_FRIGHT' }
@@ -1821,6 +1910,9 @@ export interface CardInstance {
   joinsAlliesOnAllyPlay?: boolean
   /** Tamatoa — Monstre Arboricole : déplacer n'importe quelle carte après un Vanquish. */
   moveAnyCardOnVanquish?: boolean
+  /** Isabella — Activité : heures (index 0..5 = XII, II, IV, VI, VIII, X) auxquelles cette
+   *  carte peut être jouée. Injouable si l'heure courante n'y figure pas. Recopié de CardDef. */
+  allowedHours?: number[]
   /** Tamatoa — Hameçon de Maui : gagne N Pouvoir chaque fois que Tamatoa est ciblé par la Fatalité. */
   gainPowerWhenFated?: number
   /** Tamatoa — Maui (Héros) : déclenche la pioche Maui en début de tour tant qu'il est en jeu. */
@@ -1859,6 +1951,28 @@ export interface CardInstance {
   /** Objet Fatalité (Davy Jones — Le Black Pearl) : à la mort de l'hôte, se réassocie
    *  à un autre Héros du lieu. */
   reattachOnHostDefeat?: boolean
+  // --- Le Piégeur (Dead by Daylight) ---------------------------------------
+  /** Carte SURVIVANT (hors-deck) : posée FACE CACHÉE 1/lieu au setup. Recopié de CardDef. */
+  isSurvivor?: boolean
+  /** Survivant RÉVÉLÉ (face visible) : recouvre alors les actions comme un Héros.
+   *  Absent/false = face cachée (ne recouvre rien, ne peut être attaqué). */
+  revealed?: boolean
+  /** Survivant — SEGMENT de santé (état) : sain → blessé → critique. `critical` = immobile
+   *  (ne fuit plus) et seul état où il peut être mis sur un crochet. Distinct des vies. */
+  survivorState?: 'healthy' | 'injured' | 'critical'
+  /** Survivant — POINTS DE VIE (3 au départ), perdus UNIQUEMENT sur un crochet
+   *  (−1 à l'accrochage, −1 par fin de tour du Piégeur encore accroché). 0 = éliminé. */
+  survivorLives?: number
+  /** Survivant — accroché à un crochet : immobile, perd 1 vie à chaque fin de tour du
+   *  Piégeur. Éliminé à 0 vie (le crochet est alors retiré du jeu). */
+  onHook?: boolean
+  /** Survivant — accroché CE tour-ci (via Sanctuaire Monstrueux) : la perte de vie « par
+   *  tour supplémentaire » de la fin de tour du Piégeur est sautée une fois (le −1 de
+   *  l'accrochage a déjà été appliqué). Nettoyé en fin de tour. */
+  hookedThisTurn?: boolean
+  /** Survivant — immobilisé par un PIÈGE À OURS : saute la fuite tant que > 0
+   *  (décrémenté en fin de tour du Piégeur). */
+  trapImmobilizedTurns?: number
   // --- Dio Brando (Stands + The World) -------------------------------------
   /** Dio — carte « Stand » : HORS deck (sauf The World). Séparée dans `standPile` au
    *  setup ; n'entre en jeu que par fetch (`FETCH_STAND_ATTACH`) quand sa carte
@@ -1902,6 +2016,10 @@ export interface CardInstance {
   attachedTo?: string
   /** Effets immédiats résolus à la mise en jeu. */
   effects?: Effect[]
+  /** Gul'dan — carte « Artéfact » (comptée dans les Artéfacts possédés). Recopié de CardDef. */
+  isArtifact?: boolean
+  /** Gul'dan — Corruption : reste posée sur le lieu du pion à la pose. Recopié de CardDef. */
+  staysOnLocationOnPlay?: boolean
   /** Effets « à la pose » d'un Héros (Fatalité), résolus sur la CIBLE après que
    *  le Héros est entré sur son plateau. Vide pour les autres types. */
   onPlace?: Effect[]
@@ -1955,6 +2073,40 @@ export interface CardInstance {
    *  comme un Allié (force inchangée, capacité ignorée) et ne recouvre plus les
    *  actions du lieu. Il reste de type 'hero' pour l'objectif CONTROL_HERO. */
   hypnotized?: boolean
+  /** Isabella — AMOUR : ce Héros « aime » Isabella. Il devient alors un ALLIÉ (zone basse,
+   *  force inchangée) : ses capacités de Héros sont annulées (il ne recouvre plus les
+   *  actions), SEULE sa clause « Amour » reste active. Reste de type 'hero'. Jumeau de
+   *  `hypnotized`. */
+  loved?: boolean
+  // --- Isabella : passifs des Héros Fatalité (base = actif tant que NON aimé ; « Amour »
+  //     = actif une fois aimé). Tous data-driven, portés par la carte Héros. -----------
+  /** GILDA/NORMAN (base, non aimé) : les Événements d'Isabella coûtent +N. */
+  eventCostSurcharge?: number
+  /** NORMAN (Amour) : les Événements coûtent −N une fois aimé. */
+  eventCostDiscountWhenLoved?: number
+  /** EMMA (base, non aimé) : l'action « Activer une capacité » coûte +N. */
+  activateSurcharge?: number
+  /** PHIL (Amour) : les Activités coûtent −N une fois aimé. */
+  activiteCostDiscountWhenLoved?: number
+  /** GILDA (Amour) : à la fin du tour d'Isabella, compléter la main à N cartes. */
+  drawToAtEndOfTurnWhenLoved?: number
+  /** DON (Amour) : au début du tour d'Isabella, +N Pouvoir par Héros qui l'aime. */
+  powerPerLovedAtTurnStartWhenLoved?: number
+  /** Isabella — SŒUR KRONE (Allié) : si Isabella est sur son lieu, elle peut utiliser les
+   *  actions recouvertes par un Héros de ce lieu (comme les Yeux de Kaa). */
+  unlocksCoveredActionsHere?: boolean
+  /** Isabella — DON (Héros) : arrive AGRANDI (façon Reine de Cœur) → recouvre ses 2 actions
+   *  du haut + une action du haut d'un lieu voisin. À la pose, on fixe `heroSize:'enlarged'`
+   *  + `enlargeTargetId` (un lieu voisin). Recopié de CardDef. */
+  bornEnlarged?: boolean
+  /** PHIL (Amour) : tant qu'il aime Isabella, elle est IMMUNISÉE à Incendie. */
+  immuneToIncendieWhenLoved?: boolean
+  /** CONNY (Amour) : tant qu'il aime Isabella, piocher 1 carte quand elle subit une Fatalité. */
+  drawWhenFatedWhenLoved?: boolean
+  /** TÉLÉPHONE À FICELLE (Objet Fatalité associé) : si Isabella arrive sur ce lieu, −N Pouvoir. */
+  powerPenaltyOnPawnArrive?: number
+  /** PARALYSIE DES ÉMETTEURS (Objet Fatalité associé) : si Isabella arrive sur ce lieu, défausse un Objet. */
+  discardItemOnPawnArrive?: boolean
   /** Jafar — capacité activée : coût (en Pouvoir) de l'action « Activer » pour
    *  cette carte (Iago : 1). Présence du champ = la carte porte le symbole
    *  Activer. La capacité elle-même est dispatchée par cardId dans le moteur. */
@@ -2037,6 +2189,29 @@ export interface CardInstance {
   alsoItem?: boolean
   /** Héros à éliminer avant les autres (Prof). Recopié de CardDef. */
   mustDefeatFirst?: boolean
+  /** Gul'dan — Medivh : renchérit les Artéfacts de N tant qu'il est en jeu. Recopié de CardDef. */
+  increasesArtifactCost?: number
+  /** Gul'dan — Illidan : rend injouables ces cardIds tant qu'il est en jeu. Recopié de CardDef. */
+  blocksCardIds?: string[]
+  /** Gul'dan — Khadgar : tant que ce Héros est en jeu, un Artéfact posé ne déclenche
+   *  PAS son effet et Manipulation ne peut rien dupliquer (la victoire reste possible).
+   *  Recopié de CardDef. */
+  nullifiesArtifacts?: boolean
+  /** Gul'dan — Fatalités qui se POSENT sur un lieu (Armée de la Lumière, Kil'jaeden) au
+   *  lieu de se défausser : routées vers pendingFateObjectPlace. Recopié de CardDef. */
+  fateAttachesToLocation?: boolean
+  /** Gul'dan — Armée de la Lumière : tant que cette carte (posée) est sur un lieu,
+   *  Gul'dan ne peut pas le corrompre. Recopié de CardDef. */
+  blocksCorruptionHere?: boolean
+  /** Gul'dan — Kil'jaeden : Gul'dan perd N Pouvoir au début de chacun de ses tours tant
+   *  que cette carte (posée) est en jeu. Recopié de CardDef. */
+  drainsPowerAtTurnStart?: number
+  /** Gul'dan — Armée de la Lumière : Gul'dan peut défausser cette carte (posée) en payant
+   *  N Pouvoir (action REMOVE_FATE_LOCATION_CARD). Recopié de CardDef. */
+  fateRemovalPowerCost?: number
+  /** Gul'dan — Kil'jaeden : cette carte (posée) ne peut être défaussée que si les 4 lieux
+   *  sont corrompus (puis gratuitement). Recopié de CardDef. */
+  discardWhenAllCorrupted?: boolean
   /** Héros Fatalité posé d'office sur ce lieu (Blanche-Neige → Maison des Nains).
    *  Recopié de CardDef. */
   forcedFateLocation?: LocationId
@@ -2171,6 +2346,11 @@ export interface CardInstance {
   /** Gaston — Lefou : un Vanquish effectué sur SON lieu ne défausse pas les Alliés
    *  utilisés (ils retournent en main). Recopié de CardDef. */
   keepAlliesOnVanquishHere?: boolean
+  /** Le Seigneur des Ténèbres — Soldats Ressuscités : cet Allié n'est PAS défaussé
+   *  lorsqu'il participe à une action Éliminer un Héros — il RESTE en jeu à sa place
+   *  (armée immortelle), contrairement à `keepAlliesOnVanquishHere` (retour en main).
+   *  N'affecte QUE le Vanquish : il reste défaussable par d'autres effets. Recopié de CardDef. */
+  survivesVanquishInPlace?: boolean
   /** Le Seigneur des clés — Appel : pioche 1 carte quand le Seigneur est ciblé par
    *  une Fatalité. Recopié de CardDef. */
   drawCardOnFateTargeted?: boolean
@@ -2392,6 +2572,9 @@ export type ConditionTrigger =
   /** L'adversaire actif a joué au moins un Allié ce tour-ci (Davy Jones — Wyvern
    *  s'exprime). */
   | { type: 'opponent-played-ally' }
+  /** L'adversaire actif a joué un ÉVÉNEMENT de coût ≥ `value` ce tour-ci (Le Piégeur —
+   *  Fermeture de la trappe). */
+  | { type: 'opponent-played-event-cost-ge'; value: number }
   /** L'adversaire actif t'a joué (par la Fatalité) un Héros de force ≤ `value` ce tour-ci
    *  (Team Rocket — « Pour vous jouer un mauvais tour »). */
   | { type: 'opponent-played-fate-hero-le'; value: number }
@@ -2432,6 +2615,9 @@ export interface PlayerState {
   backVillainImage: string
   /** Dos de carte Fatalité (copié depuis VillainDef). */
   backFateImage: string
+  /** Dos de carte des paquets PERSONNALISÉS (copié depuis VillainDef). Absent =
+   *  les cartes de paquet perso reprennent le dos Vilain. */
+  backExtraImage?: string
   /** Lieu où se trouve le pion. `null` tant qu'il n'a pas joué son 1ᵉʳ déplacement. */
   pawnLocation: LocationId | null
   /** Points de pouvoir accumulés. */
@@ -2534,6 +2720,15 @@ export interface PlayerState {
    *  (face Chaudron, inactive), 'powered' = activée (face Pouvoir → permet de jouer
    *  les Morts-vivants du Chaudron). `undefined` pour les autres vilains. */
   blackCauldron?: 'set-aside' | 'claimed' | 'powered'
+  /** Le Seigneur des Ténèbres — la capacité « échange » du Chaudron réveillé (payer 2
+   *  Pouvoir pour transformer un Squelette de Soldat en Soldat Ressuscité) a déjà été
+   *  utilisée CE TOUR (une seule fois par tour). Réinitialisé au début du tour. */
+  cauldronExchangeUsedThisTurn?: boolean
+  /** Gul'dan — zone ARTÉFACTS (comme les Ingrédients de la Méchante Reine) : un
+   *  exemplaire de chaque Artéfact joué (Livre de Medivh, Œil de Dalaran, Sceptre de
+   *  Sargeras, Crâne de Gul'dan), affichée au même endroit que la pile Ingrédients.
+   *  Posséder les 4 est requis pour ouvrir la Porte des Ténèbres. `undefined` ailleurs. */
+  artifacts?: CardInstance[]
   /** Mère Gothel — jetons CONFIANCE accumulés (au-dessus de son plateau). Objectif :
    *  en atteindre 10 au début de son tour. Pris dans la Réserve quand elle en gagne
    *  (n'entame pas son Pouvoir), rendus quand elle en perd. `undefined` ailleurs. */
@@ -2571,6 +2766,21 @@ export interface PlayerState {
    *  `judgmentTiles` lieux tuilés = les `judgmentTiles` derniers de `locations`. Une
    *  tuile recouvre les actions du HAUT de son lieu (comme un Héros). */
   judgmentTiles?: number
+  /** Isabella — HORLOGE : heure courante (index 0..5 = XII, II, IV, VI, VIII, X).
+   *  Démarre à XII (0) et avance d'un cran au DÉBUT de chacun de ses tours (sauf le
+   *  tout premier). Défini uniquement pour Isabella (objectif ISABELLA_CLOCK). */
+  clockHour?: number
+  /** Isabella — indices des heures VALIDÉES (une Activité y a été jouée). Victoire
+   *  quand les 6 heures sont validées. */
+  validatedHours?: number[]
+  /** Isabella — RADAR DE POCHE : ce tour-ci, les Activités sont jouables quelle que soit
+   *  l'heure (verrou d'heure ignoré). Expire en fin de tour. */
+  activiteAnyHourThisTurn?: boolean
+  /** Isabella — INCENDIE (Fatalité) : posé pour bloquer les Activités « à la prochaine
+   *  heure ». `incendiePending` = armé par la carte ; au prochain début de tour d'Isabella
+   *  il devient `incendieActive` (Activités bloquées ce tour) puis se dissipe. */
+  incendiePending?: boolean
+  incendieActive?: boolean
   /** La Méchante Reine — zone INGRÉDIENTS : un exemplaire de chaque Ingrédient
    *  déjà joué (Caquet, Hurlement, Noir de nuit, Poussière de momie). Quand les 4
    *  Ingrédients DIFFÉRENTS y sont, la Maison des Nains est déverrouillée. */
@@ -2711,6 +2921,16 @@ export interface PlayerState {
    *  adverse arrive sur un lieu maisonné, Mr. Monopoly encaisse le loyer. Objectif
    *  POWER_THRESHOLD 30. `undefined` pour les autres vilains. */
   houses?: Record<LocationId, number>
+  // --- Le Piégeur (Dead by Daylight) ---------------------------------------
+  /** RÉSERVE hors-deck des 4 Survivants avant placement (vide une fois posés au setup).
+   *  Sert aussi à retenir l'ordre ; `undefined` pour les autres vilains. */
+  survivorPile?: CardInstance[]
+  /** Le Piégeur — CROCHETS par lieu (1 par lieu au départ). `present` = un crochet est
+   *  là (retiré quand un survivant y est éliminé) ; `disabledTurns` > 0 = désactivé par
+   *  une carte Fatalité (Sabotage) pendant N tours. `undefined` pour les autres vilains.
+   *  Les PIÈGES À OURS ne sont pas comptés ici : ils sont détectés par la présence de la
+   *  carte-objet (cardId `custom-le-piegeur-piege-a-ours`) sur le lieu. */
+  hooks?: Record<LocationId, { present: boolean; disabledTurns: number }>
 }
 
 /**
@@ -2870,7 +3090,7 @@ export interface GameState {
   } | null
   /** Oogie — Qu'est-ce que le Père Noël t'a apporté ? : le joueur défausse autant de
    *  cartes qu'il veut de sa main (RESOLVE_DISCARD_THEN_DRAW), puis pioche `draw`. */
-  pendingDiscardThenDraw?: { playerIndex: number; draw: number } | null
+  pendingDiscardThenDraw?: { playerIndex: number; draw: number; powerPerCard?: number } | null
   /**
    * Aurore : un Héros révélé doit être posé sur le plateau de `targetIndex`, et
    * c'est `chooserIndex` (le joueur qui a joué la Fatalité) qui choisit le lieu
@@ -3086,7 +3306,7 @@ export interface GameState {
   pendingMauiChoice?: { playerIndex: number } | null
   /** Dio — `playerIndex` choisit un Allié de son royaume à défausser (The World épargné),
    *  pour gagner `gain` Pouvoir ET/OU piocher `draw` cartes (RESOLVE_DIO_DISCARD_ALLY). */
-  pendingDioDiscardAlly?: { playerIndex: number; gain?: number; draw?: number } | null
+  pendingDioDiscardAlly?: { playerIndex: number; gain?: number; draw?: number; bonusCardId?: string; bonusPower?: number } | null
   /** Dio — CREAM (Stand de Vanilla Ice) : `playerIndex` choisit un Héros (`candidateIds`,
    *  force < Vanilla Ice) sur `locationId` à défausser (RESOLVE_DIO_CREAM). */
   pendingDioCream?: { playerIndex: number; locationId: LocationId; candidateIds: string[] } | null
@@ -3309,6 +3529,26 @@ export interface GameState {
      *  portant un Allié). Combiné avec `anyLocation` (sinon = voisins). Absent = pas de
      *  restriction supplémentaire. */
     allowedLocationIds?: LocationId[]
+    /** Gaston — Mrs Samovar et Zip : mode « plusieurs Héros ». Après chaque déplacement,
+     *  le pending SE ROUVRE avec les `candidateIds` restants (le Héros déplacé est retiré),
+     *  jusqu'à ce qu'il n'en reste plus ou que le joueur s'arrête (optional). */
+    repeatCandidates?: boolean
+  } | null
+  /**
+   * Le Piégeur — choix interactif d'une carte d'attaque, en DEUX phases :
+   *  - `phase: 'target'` : choisir QUEL Survivant cibler (clic sur un Survivant de
+   *    `candidateIds`) — révéler / blesser / accrocher / achever / déplacer ;
+   *  - `phase: 'dest'` : choisir vers quel lieu VOISIN déplacer `chosenSurvivorId`
+   *    (après révélation Marque, blessure, ou Rayon), parmi `destLocs`.
+   * `kind` = effet en cours. Absent / `null` hors de ce choix.
+   */
+  pendingPiegeur?: {
+    chooserIndex: number
+    kind: 'reveal' | 'reveal-move' | 'injure' | 'hook' | 'finish' | 'move'
+    phase: 'target' | 'dest'
+    candidateIds: string[]
+    chosenSurvivorId?: string
+    destLocs?: LocationId[]
   } | null
   /**
    * Flèche de Mome Raths (Fatalité, Reine de Cœur) : `chooserIndex` (joueur qui pose
@@ -3543,6 +3783,10 @@ export interface GameState {
    *  (l'adversaire qui joue la Fatalité) associe l'Objet `card` à un lieu du
    *  royaume de `targetIndex` (l'Imposteur). RESOLVE_FATE_OBJECT_PLACE. */
   pendingFateObjectPlace?: { chooserIndex: number; targetIndex: number; card: CardInstance } | null
+  /** Gul'dan — Défaite (Fatalité) : `chooserIndex` (l'adversaire qui joue la Fatalité)
+   *  choisit un type (Alliés OU Objets) ; toutes les cartes de ce type du royaume de
+   *  `targetIndex` (Gul'dan) sont défaussées. RESOLVE_FATE_DISCARD_TYPE. */
+  pendingFateDiscardType?: { chooserIndex: number; targetIndex: number } | null
   /** Ratigan — Appel à l'aide (Fatalité) : `chooserIndex` (l'adversaire qui joue la
    *  Fatalité) choisit le lieu du royaume de `targetIndex` (Ratigan) où poser le
    *  Héros `heroCardId` (cherché dans la pioche/défausse Fatalité) — ou l'y déplacer
@@ -3553,6 +3797,9 @@ export interface GameState {
     heroCardId: string
     heroName: string
     mode: 'place' | 'move'
+    /** Isabella — Radar de poche : après la pose du Héros, ouvrir une action de royaume
+     *  GRATUITE (pendingFreeRealmAction) pour jouer une Activité sans dépenser d'action. */
+    thenFreeRealmAction?: boolean
   } | null
   /** Colère Titanesque (Ursula) / Canne (Dr Facilier) : `playerIndex` doit choisir
    *  un lieu voisin sur lequel effectuer une action (RESOLVE_GIANT_LOCATION).
@@ -3600,6 +3847,9 @@ export interface GameState {
   /** Nombre d'OBJETS joués par le joueur actif ce tour-ci (déclencheur Le Seigneur des
    *  Ténèbres — Nous touchons du doigt la victoire). Remis à 0 en fin de tour. */
   activePlayedItemCount?: number
+  /** Coût MAXIMUM d'un ÉVÉNEMENT joué par le joueur actif ce tour-ci (déclencheur Le
+   *  Piégeur — Fermeture de la trappe). 0 si aucun. Remis à 0 en fin de tour. */
+  activePlayedEventMaxCost?: number
   /** Nombre d'ALLIÉS joués par le joueur actif ce tour-ci (déclencheur Davy Jones —
    *  Wyvern s'exprime). Remis à 0 en fin de tour. */
   activePlayedAllyCount?: number
@@ -3651,6 +3901,9 @@ export interface GameState {
     /** Tour de passe-passe révélé pendant une Divination : une fois ce choix résolu,
      *  reprendre la Divination avec ces cartes restantes (à résoudre dans l'ordre). */
     resumeDivination?: { playerIndex: number; cards: CardInstance[] }
+    /** Isabella — Cloche : les cartes NON gardées sont remises dans le deck (puis mélangé)
+     *  au lieu d'être défaussées. */
+    returnToDeck?: boolean
   } | null
   /** Ratigan — Liste de Fidget : cartes dévoilées de la pioche montrées au joueur
    *  (purement informatif). La carte gardée (`keptInstanceId`) est DÉJÀ dans la main
@@ -3681,6 +3934,9 @@ export interface GameState {
    *  `candidateIds` (présents sur son lieu et payables avec son Poison) éliminer
    *  en défaussant autant de Poison que sa force (RESOLVE_TAKE_A_BITE). */
   pendingTakeABite?: { playerIndex: number; candidateIds: string[] } | null
+  /** Isabella — AMOUR : `playerIndex` choisit un Héros de son royaume (`candidateIds`,
+   *  Héros non déjà aimés) qui va « aimer » Isabella (RESOLVE_GRANT_LOVE). Le bot auto-résout. */
+  pendingGrantLove?: { playerIndex: number; candidateIds: string[] } | null
   /** La Méchante Reine — Hurlement d'effroi : `playerIndex` choisit un déplacement
    *  parmi `options` (déplacer les Héros de force ≤ 3 d'un lieu `from` vers un lieu
    *  voisin non bloqué `to`), ou décline (RESOLVE_SCREAM sans option). */
@@ -3692,6 +3948,10 @@ export interface GameState {
   pendingDuplicateIngredient?: {
     playerIndex: number
     candidateIds: string[]
+    /** Pile source des candidats ('ingredients' par défaut ; 'artifacts' pour Manipulation). */
+    zone?: 'ingredients' | 'artifacts'
+    /** Reproduction gratuite (Manipulation) : ne pas prélever le coût de la carte reproduite. */
+    freeDuplication?: boolean
     foudreInstanceId?: string
     actionId?: string
   } | null
@@ -4172,6 +4432,12 @@ export type GameAction =
   | { type: 'RESOLVE_HERO_RELOCATE'; heroInstanceId: string; to: LocationId }
   /** Décline un déplacement de Héros FACULTATIF (Poupées vaudou). */
   | { type: 'SKIP_HERO_RELOCATE' }
+  /** Le Piégeur — choisit le Survivant ciblé (phase 'target' de pendingPiegeur). */
+  | { type: 'RESOLVE_PIEGEUR_TARGET'; survivorInstanceId: string }
+  /** Le Piégeur — choisit le lieu voisin de destination (phase 'dest' de pendingPiegeur). */
+  | { type: 'RESOLVE_PIEGEUR_DEST'; to: LocationId }
+  /** Le Piégeur — paie 2 Pouvoir pour défausser une PALETTE (Objet Fatalité) qui bloque un lieu. */
+  | { type: 'DISCARD_PALETTE'; instanceId: string }
   /** Flèche de Mome Raths : déplace l'Allié choisi vers le lieu (non bloqué) choisi. */
   | { type: 'RESOLVE_ALLY_RELOCATE'; allyInstanceId: string; to: LocationId }
   | { type: 'SKIP_ALLY_RELOCATE' }
@@ -4247,6 +4513,11 @@ export type GameAction =
   | { type: 'RESOLVE_FATE_OBJECT_PLACE'; locationId: LocationId }
   /** Ratigan — Appel à l'aide : pose/déplace le Héros cherché sur le lieu choisi. */
   | { type: 'RESOLVE_FATE_HERO_PLACE'; locationId: LocationId }
+  /** Gul'dan — Défaite : le fataliseur choisit le type à défausser (Alliés OU Objets). */
+  | { type: 'RESOLVE_FATE_DISCARD_TYPE'; cardType: CardType }
+  /** Gul'dan — défausse une Fatalité posée sur un lieu (Armée de la Lumière : −3 Pouvoir ;
+   *  Kil'jaeden : gratuit une fois les 4 lieux corrompus). */
+  | { type: 'REMOVE_FATE_LOCATION_CARD'; instanceId: string }
   /** Carte du Pays Imaginaire : défausse la Carte (du royaume) et joue
    *  gratuitement l'Objet `itemInstanceId` de la main sur le lieu `to`
    *  (associé à `attachTo` si l'Objet s'associe). */
@@ -4298,6 +4569,8 @@ export type GameAction =
   /** La Méchante Reine — « Croque ! » : élimine le Héros choisi (`heroInstanceId`)
    *  en défaussant autant de Poison que sa force. */
   | { type: 'RESOLVE_TAKE_A_BITE'; heroInstanceId: string }
+  /** Isabella — AMOUR : le Héros choisi (`heroInstanceId`) se met à aimer Isabella. */
+  | { type: 'RESOLVE_GRANT_LOVE'; heroInstanceId: string }
   /** La Méchante Reine — Foudre : reproduit l'Ingrédient choisi (`ingredientInstanceId`). */
   | { type: 'RESOLVE_DUPLICATE_INGREDIENT'; ingredientInstanceId: string }
   /** La Méchante Reine — Foudre : ANNULE le choix (Foudre revient en main, l'action
@@ -4356,6 +4629,11 @@ export type GameAction =
    *  face Pouvoir : `blackCauldron` 'claimed' → 'powered'). Permet ensuite de jouer
    *  les Morts-vivants du Chaudron. Action gratuite (ne consomme pas d'action de lieu). */
   | { type: 'ACTIVATE_CAULDRON' }
+  /** Le Seigneur des Ténèbres — capacité du Chaudron RÉVEILLÉ, une fois par tour AVANT
+   *  de déplacer le pion (phase MOVE) : payer 2 Pouvoir pour remplacer un Objet
+   *  « Squelettes de Soldats » (`squeletteInstanceId`, sur n'importe quel lieu) par un
+   *  « Soldat Ressuscité » de la main (`soldierInstanceId`), posé sur le lieu du Squelette. */
+  | { type: 'CAULDRON_EXCHANGE'; squeletteInstanceId: string; soldierInstanceId: string }
   /** Le Seigneur des Ténèbres — résout le choix « s'emparer du Chaudron OU gagner du
    *  Pouvoir » (Montre-moi le Chaudron Magique). */
   | { type: 'RESOLVE_CAULDRON_CHOICE'; choice: 'cauldron' | 'power' }

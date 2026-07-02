@@ -470,6 +470,30 @@ describe('Team Rocket — Attraper un Pokémon (CATCH_POKEMON)', () => {
     expect(p.discard.some((c) => c.cardId === 'rose-de-james')).toBe(true) // rose défaussée avec l'Allié
   })
 
+  it('rose de James + Pokéball : l’Allié survit mais la rose est bien défaussée « ensuite »', () => {
+    let s = applyAction(trGame(), { type: 'MOVE', to: 'arene' })
+    s = withActive(s, {
+      board: {
+        ...me(s).board,
+        arene: [
+          pokemon('pk', 'togepi', 1),
+          ally('a1', 'miaouss', 3),
+          { instanceId: 'ball', cardId: 'pokeball', name: 'Pokéball', type: 'item', attach: 'ally', attachedTo: 'a1', shieldAllyFromDiscard: true },
+          { instanceId: 'rose', cardId: 'rose-de-james', name: 'rose de James', type: 'item', attach: 'ally', attachedTo: 'a1' },
+        ],
+      },
+    })
+    s = applyAction(s, { type: 'VANQUISH', actionId: 'vanquish', heroInstanceId: 'pk', allyInstanceIds: ['a1'] })
+    const p = me(s)
+    expect((p.capturedPokemon ?? []).some((c) => c.instanceId === 'pk')).toBe(true) // attrapé
+    // L'Allié survit (protégé par la Pokéball), qui est défaussée à sa place…
+    expect(Object.values(p.board).flat().some((c) => c.instanceId === 'a1')).toBe(true)
+    expect(p.discard.some((c) => c.cardId === 'pokeball')).toBe(true)
+    // …mais la rose part quand même en défausse après l'action Attraper.
+    expect(p.discard.some((c) => c.cardId === 'rose-de-james')).toBe(true)
+    expect(Object.values(p.board).flat().some((c) => c.cardId === 'rose-de-james')).toBe(false)
+  })
+
   it('Pokédex volé : un Pokémon couché (qui aurait expiré) survit un tour de plus', () => {
     // koOnTurn = turn-2 : SANS Pokédex il partirait en défausse ; AVEC, il survit (seuil 3).
     let s = withActive(trGame(), {

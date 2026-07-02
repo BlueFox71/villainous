@@ -28,11 +28,17 @@ export function CardBackLayout({
   name,
   overlays,
   onChange,
+  ornamentColor,
+  paper,
 }: {
   color: string
   name: string
   overlays: BackOverlay[]
   onChange: (overlays: BackOverlay[]) => void
+  /** Recoloration des ornements dorés (3e dos). Absent = or d'origine. */
+  ornamentColor?: string
+  /** Rendu « parchemin » clair (comme la Fatalité). */
+  paper?: boolean
 }) {
   const [bg, setBg] = useState<string | null>(null)
   const [sel, setSel] = useState<string | null>(null)
@@ -41,11 +47,11 @@ export function CardBackLayout({
   const fileRef = useRef<HTMLInputElement>(null)
 
   // Aperçu réel du dos (avec ornements), débanché pour rester fluide pendant l'édition.
-  const key = JSON.stringify({ color, name, overlays })
+  const key = JSON.stringify({ color, name, overlays, ornamentColor, paper })
   useEffect(() => {
     let alive = true
     const h = setTimeout(() => {
-      void renderCardBack(color, name, { overlays }).then((url) => { if (alive) setBg(url) })
+      void renderCardBack(color, name, { overlays, ornamentColor, paper }).then((url) => { if (alive) setBg(url) })
     }, 140)
     return () => { alive = false; clearTimeout(h) }
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -2,7 +2,7 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync, copyFileSync } from 'node:fs'
+import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync, copyFileSync, rmSync } from 'node:fs'
 import { resolve, join, dirname } from 'node:path'
 
 /**
@@ -309,6 +309,97 @@ function savePublishedVillainPlugin(): Plugin {
 }
 
 /**
+ * Plugin DEV uniquement : FILET DE SÉCURITÉ des brouillons de l'Atelier. Les vilains
+ * persos vivent dans l'IndexedDB du navigateur (cf. `customVillainStore`), qui est
+ * cloisonnée par origine (navigateur + hôte:port) et volatile (effaçable). Pour ne plus
+ * jamais perdre un brouillon, on en écrit AUSSI une copie COMPLÈTE (avec images) sur le
+ * disque, dans `src/data/drafts/<id>.json`. Ces fichiers, partagés entre toutes les
+ * origines et persistants, servent à RESTAURER un brouillon absent de l'IndexedDB (autre
+ * port/navigateur, ou base effacée). Ils ne sont PAS committés (cf. .gitignore) et ne
+ * marquent pas le vilain comme publié.
+ *   - POST `/__save-villain-backup`   corps `{ id, json }`  → écrit le fichier
+ *   - POST `/__delete-villain-backup` corps `{ id }`        → supprime le fichier
+ *   - GET  `/__list-villain-backups`                        → `{ villains: CustomVillain[] }`
+ * Absents du build de production (`apply: 'serve'`).
+ */
+function villainBackupPlugin(): Plugin {
+  const DRAFTS = resolve(process.cwd(), 'src/data/drafts')
+  /** Chemin disque sûr pour un id (id assaini, confiné à DRAFTS). */
+  const draftPath = (id: string): string => {
+    const safe = id.replace(/[^a-z0-9_-]+/gi, '-')
+    const dest = resolve(DRAFTS, `${safe}.json`)
+    if (!dest.startsWith(DRAFTS)) throw new Error('chemin hors src/data/drafts/')
+    return dest
+  }
+  /** Lit le corps JSON d'une requête POST. */
+  const readBody = (req: import('node:http').IncomingMessage): Promise<string> =>
+    new Promise((res) => {
+      let body = ''
+      req.on('data', (c) => { body += c })
+      req.on('end', () => res(body))
+    })
+  return {
+    name: 'villain-backup',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__save-villain-backup', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return }
+        void readBody(req).then((body) => {
+          try {
+            const { id, json } = JSON.parse(body) as { id: string; json: string }
+            if (typeof id !== 'string' || typeof json !== 'string') throw new Error('payload invalide')
+            const dest = draftPath(id)
+            mkdirSync(DRAFTS, { recursive: true })
+            writeFileSync(dest, json, 'utf8')
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ ok: true }))
+          } catch (e) {
+            res.statusCode = 400
+            res.end(String((e as Error)?.message ?? e))
+          }
+        })
+      })
+      server.middlewares.use('/__delete-villain-backup', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return }
+        void readBody(req).then((body) => {
+          try {
+            const { id } = JSON.parse(body) as { id: string }
+            if (typeof id !== 'string') throw new Error('payload invalide')
+            const dest = draftPath(id)
+            if (existsSync(dest)) rmSync(dest)
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ ok: true }))
+          } catch (e) {
+            res.statusCode = 400
+            res.end(String((e as Error)?.message ?? e))
+          }
+        })
+      })
+      server.middlewares.use('/__list-villain-backups', (req, res) => {
+        if (req.method !== 'GET') { res.statusCode = 405; res.end('GET only'); return }
+        try {
+          const villains: unknown[] = []
+          if (existsSync(DRAFTS)) {
+            for (const f of readdirSync(DRAFTS)) {
+              if (!f.endsWith('.json')) continue
+              try { villains.push(JSON.parse(readFileSync(join(DRAFTS, f), 'utf8'))) } catch { /* fichier illisible → ignoré */ }
+            }
+          }
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ villains }))
+        } catch (e) {
+          res.statusCode = 400
+          res.end(String((e as Error)?.message ?? e))
+        }
+      })
+    },
+  }
+}
+
+/**
  * Plugin DEV uniquement : endpoint POST `/__save-villain-difficulty` qui réécrit la
  * difficulté (`difficulty: <n>`) d'un vilain natif dans `src/ui/villainGuide.ts`
  * (corps : `{ villain, difficulty }`, où `villain` = clé registre camelCase). On
@@ -351,7 +442,7 @@ function saveVillainDifficultyPlugin(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), saveActionPosPlugin(), savePawnSizePlugin(), savePortraitPlugin(), saveVillainColorPlugin(), saveVillainAssetsPlugin(), saveVillainJsonPlugin(), savePublishedVillainPlugin(), saveVillainDifficultyPlugin()],
+  plugins: [react(), tailwindcss(), saveActionPosPlugin(), savePawnSizePlugin(), savePortraitPlugin(), saveVillainColorPlugin(), saveVillainAssetsPlugin(), saveVillainJsonPlugin(), savePublishedVillainPlugin(), villainBackupPlugin(), saveVillainDifficultyPlugin()],
   server: {
     // Expose le serveur de dév sur le réseau local (0.0.0.0) pour que l'invité
     // puisse ouvrir l'app depuis l'IP de l'hôte (http://<ip-hôte>:5173) — requis

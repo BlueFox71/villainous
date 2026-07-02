@@ -41,6 +41,11 @@ Villainous.lnk
 /_crops/
 _crop.cjs
 
+# Brouillons de l'Atelier des vilains : filet de sécurité disque des vilains persos
+# (cf. villainBackupPlugin / customVillainStore). Copies locales et personnelles, non
+# versionnées — les vilains partagés passent par la publication (src/data/published/).
+/src/data/drafts/
+
 # Générateur de cartes Unity (outil externe, ~1,8 Go : .exe + data). Gardé en
 # local ; les exports utiles sont copiés dans public/editor/.
 /Villainous Card Generator (neutre)/

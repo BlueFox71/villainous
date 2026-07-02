@@ -47,6 +47,35 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.2.0',
+    date: '2026-07-02',
+    title: 'Nouveau vilain : Le Piégeur (Dead by Daylight)',
+    tags: ['villain', 'atelier', 'ia'],
+    changes: [
+      'Nouveau vilain **Le Piégeur** (Dead by Daylight) : 4 **Survivants** posés **face cachée**, à **révéler** pour les attaquer.',
+      'Deux jauges : **santé** (Pleine santé → Blessé → **Critique**, immobile) et **vies** (perdues sur un **crochet**).',
+      'Traque-les : **Force brute** (blesse), **Sanctuaire monstrueux** (accroche), **Memento Mori** (achève). **Objectif : éliminer les 4.**',
+      'À chaque fin de tour, les Survivants **fuient** loin du pion ; en face, la Fatalité les **soigne, décroche et protège** (Palette, Sabotage…).',
+      'Atelier : dès qu’un vilain a un **paquet personnalisé**, un **3e dos** de carte dédié — couleur au choix (**Vilain**, **Fatalité** ou **libre**), **ornements recolorables** et **ornements importés**.',
+    ],
+  },
+  {
+    version: '1.1.2',
+    date: '2026-07-02',
+    title: 'Correctifs : Gaston, Mère Gothel, Seigneur des Ténèbres & compagnie',
+    tags: ['correctif', 'regles', 'cartes', 'interface'],
+    changes: [
+      '**Gaston** : la victoire est désormais **immédiate** dès le retrait du dernier Obstacle (plus besoin d’attendre le début du tour).',
+      '**Mrs Samovar et Zip** : tu choisis toi-même **quel Héros** déplacer et **où** (un par un, facultatif).',
+      '**Officier de police** (Mr. Monopoly) : envoie un Héros en **Prison** aussi quand il est **joué** sur son lieu (et pas seulement déplacé).',
+      '**Seigneur des Ténèbres** — **Soldats Ressuscités** : se jouent en **défaussant un Squelettes de Soldats** de leur lieu ; ils **restent en jeu** (ne sont plus défaussés) après une action Éliminer un Héros.',
+      '**Chaudron réveillé** : nouvelle capacité **1×/tour, avant de te déplacer** — paie **2 Pouvoir** pour transformer un **Squelette** (n’importe quel lieu) en **Soldat Ressuscité** de ta main.',
+      '**Mère Gothel** : **Raiponce** ne fait perdre 1 **Confiance** que si elle **campe déjà sur Corona** en fin de ton tour ; sa présentation est un peu **agrandie et abaissée** (choix des vilains & affrontement).',
+      '**Team Rocket** : la **rose de James** est bien **défaussée** après avoir déclenché « Attraper un Pokémon », même quand une **Pokéball** a sauvé l’Allié.',
+      '**Historique des parties** : le **vilain joué** s’affiche désormais sous le nom du joueur.',
+    ],
+  },
+  {
     version: '1.1.1',
     date: '2026-07-02',
     title: 'Mode Ordi contre Ordi, bots plus malins & journal refondu',

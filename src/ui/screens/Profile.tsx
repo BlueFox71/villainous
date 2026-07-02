@@ -42,6 +42,9 @@ function villainName(key: string): string {
 /** Descripteur d'un camp dans l'historique : libellé + avatar (vilain + couleur). */
 interface HistorySide {
   label: string
+  /** Nom du vilain JOUÉ cette partie-là (affiché sous le nom du joueur quand il
+   *  diffère du label — l'avatar peut être un autre vilain que celui joué). */
+  sublabel: string
   villain: VillainKey | null
   color: string
 }
@@ -51,6 +54,7 @@ interface HistorySide {
 function humanSide(g: GameRecord): HistorySide {
   return {
     label: g.humanName?.trim() || villainName(g.human),
+    sublabel: villainName(g.human),
     villain: (g.humanAvatarVillain !== undefined ? g.humanAvatarVillain : g.human) as VillainKey | null,
     color: g.humanAvatarColor ?? VILLAIN_COLOR[g.human] ?? '#111111',
   }
@@ -63,12 +67,14 @@ function opponentSide(g: GameRecord): HistorySide {
   if (net) {
     return {
       label: g.opponentName?.trim() || villainName(g.opponent),
+      sublabel: villainName(g.opponent),
       villain: (g.opponentAvatarVillain !== undefined ? g.opponentAvatarVillain : g.opponent) as VillainKey | null,
       color: g.opponentAvatarColor ?? VILLAIN_COLOR[g.opponent] ?? '#111111',
     }
   }
   return {
     label: villainName(g.opponent),
+    sublabel: villainName(g.opponent),
     villain: g.opponent as VillainKey,
     color: VILLAIN_COLOR[g.opponent] ?? '#111111',
   }
@@ -425,13 +431,23 @@ export function Profile({ onBack }: Props) {
                       className="flex items-center gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm"
                     >
                       <Avatar villain={me.villain} color={me.color} size={36} />
-                      <span className={humanWon ? 'font-semibold text-emerald-300' : 'text-white/80'}>
-                        {me.label}
+                      <span className="flex min-w-0 flex-col leading-tight">
+                        <span className={humanWon ? 'font-semibold text-emerald-300' : 'text-white/80'}>
+                          {me.label}
+                        </span>
+                        {me.sublabel !== me.label && (
+                          <span className="truncate text-[11px] text-white/45">{me.sublabel}</span>
+                        )}
                       </span>
                       <span className="text-white/30">vs</span>
                       <Avatar villain={opp.villain} color={opp.color} size={36} />
-                      <span className={!humanWon ? 'font-semibold text-red-300' : 'text-white/80'}>
-                        {opp.label}
+                      <span className="flex min-w-0 flex-col leading-tight">
+                        <span className={!humanWon ? 'font-semibold text-red-300' : 'text-white/80'}>
+                          {opp.label}
+                        </span>
+                        {opp.sublabel !== opp.label && (
+                          <span className="truncate text-[11px] text-white/45">{opp.sublabel}</span>
+                        )}
                       </span>
                       <span
                         className={`ml-auto shrink-0 rounded px-2 py-0.5 text-xs font-bold ${

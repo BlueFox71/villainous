@@ -36,12 +36,21 @@ import {
   updateActivePlayer,
   updatePlayer,
 } from './state'
-import { addKronkTokens, addPuppyFromReserve, bargainReshuffle, bargainSword, canEnterAuDela, capturePuppiesAt, dioDiscardHero, doCapturePuppies, doQuelsMove, doQuelsTutor, enterQuelsMove, enterQuelsTutor, holdsTalisman, lotsoMoveToRoom, lotsoReduceHero, mauiHeroInRealm, moveTitanTo, performVanquish, freeEliminateHero, placeAllyInAuDela, playChosenFateFromDiscard, playTopMauiCard, processCurseDiscards, raiponceLocation, reformYzmaDecks, relocateCard, relocateRaiponce, reshuffleYzmaIfKuzcoDiscarded, resolveEffect, resolveEffects, rollColorDie, smartMoveAllyOrItem, titanReachableDests, triggerHeroArrival } from './effects'
+import { addKronkTokens, addPuppyFromReserve, bargainReshuffle, bargainSword, canEnterAuDela, capturePuppiesAt, dioDiscardHero, discardAllOfTypeInRealm, doCapturePuppies, doQuelsMove, doQuelsTutor, enterQuelsMove, enterQuelsTutor, holdsTalisman, lotsoMoveToRoom, lotsoReduceHero, mauiHeroInRealm, moveTitanTo, performVanquish, freeEliminateHero, placeAllyInAuDela, playChosenFateFromDiscard, playTopMauiCard, processCurseDiscards, raiponceLocation, reformYzmaDecks, relocateCard, relocateRaiponce, reshuffleYzmaIfKuzcoDiscarded, resolveEffect, resolveEffects, rollColorDie, smartMoveAllyOrItem, titanReachableDests, triggerHeroArrival } from './effects'
 import { crewmateEndOfTurn, freeCellAt, placeCrewmateAt } from './crewmates'
 import { pendingOwner } from './turn'
 import { isKingCandy, trackMoveRange, moveKingCandyTrack, advanceRacerByReveal, bugOnVanellope, moveRacerBack, cardLocationIds } from './kingCandy'
 import { removeAllFireOnLocation, removeFire, placeFire, listFire, fireFreeActions } from './shereKhan'
 import { locationHasJudgmentTile } from './pyramidHead'
+import {
+  locationOfInstance as piegeurLocOf,
+  piegeurNeighbors,
+  personnePresent as piegeurPersonnePresent,
+  nextHealth as piegeurNextHealth,
+  noSurvivorsLeft as piegeurNoSurvivorsLeft,
+  moveSurvivorWithTrap as piegeurMoveSurvivor,
+  PIEGEUR_PALETTE_ID,
+} from './piegeur'
 import { isMonopoly, rentAt, houseCount, totalHouses, buyHouseCost, placeableHouses, opponentIndex as monopolyOpponent } from './monopoly'
 import {
   findHero as findTreasureHero,
@@ -56,6 +65,10 @@ import {
   activatableCards,
   kissAtBallConditionMet,
   cauldronBornLocations,
+  canCauldronExchange,
+  darkPortalReady,
+  guldanCorruptedCount,
+  activitePlayableAtHour,
   alliesCannotMoveFrom,
   allyBlockedAt,
   isGlassSlipper,
@@ -212,6 +225,33 @@ function applyMove(state: GameState, to: string): GameState {
   if ((next.players[state.activePlayer].board[to] ?? []).some((c) => c.cardId === 'stram')) {
     next = resolveEffects(next, [{ type: 'DRAW_CARDS', count: 1 }], { actorIndex: state.activePlayer })
     next = { ...next, log: [...next.log, `Stram : ${me.villainName} pioche 1 carte en arrivant ici.`] }
+  }
+  // Isabella — Objets Fatalité associés (Téléphone à ficelle / Paralysie des émetteurs) : si
+  // Isabella arrive sur leur lieu, elle perd du Pouvoir / défausse un Objet.
+  {
+    const arrivals = (next.players[state.activePlayer].board[to] ?? [])
+    const powerPenalty = arrivals.reduce((n, c) => n + (c.powerPenaltyOnPawnArrive ?? 0), 0)
+    if (powerPenalty > 0) {
+      const applied = Math.min(powerPenalty, next.players[state.activePlayer].power)
+      next = updateActivePlayer(next, (p) => ({ ...p, power: p.power - applied }))
+      next = { ...next, log: [...next.log, `${me.villainName} perd ${applied} Pouvoir (Téléphone à ficelle).`] }
+    }
+    if (arrivals.some((c) => c.discardItemOnPawnArrive)) {
+      // Défausse l'Objet non associé le moins précieux du royaume (auto).
+      let victim: { loc: LocationId; c: CardInstance } | undefined
+      for (const l of next.players[state.activePlayer].locations)
+        for (const c of next.players[state.activePlayer].board[l.id] ?? [])
+          if (c.type === 'item' && !c.attachedTo && !c.fromFate && (!victim || (c.cost ?? 0) < (victim.c.cost ?? 0))) victim = { loc: l.id, c }
+      if (victim) {
+        const v = victim
+        next = updateActivePlayer(next, (p) => ({
+          ...p,
+          board: { ...p.board, [v.loc]: (p.board[v.loc] ?? []).filter((c) => c.instanceId !== v.c.instanceId) },
+          discard: [...p.discard, { ...v.c, attachedTo: undefined }],
+        }))
+        next = { ...next, log: [...next.log, `${me.villainName} défausse **${v.c.name}** (Paralysie des émetteurs).`] }
+      }
+    }
   }
   // Dr Facilier — Ombre du Dr Facilier : si elle est sur le lieu de départ du
   // pion, elle se déplace en même temps que lui (auto).
@@ -468,6 +508,11 @@ function applyPlayCard(
   if (card.cardId === 'page' && me.noPagePlay) {
     throw new Error('Lever du jour : impossible de jouer une Page ce tour-ci.')
   }
+  // Gul'dan — Illidan (Fatalité) : rend injouables certaines cartes (le Crâne de Gul'dan)
+  // tant qu'il est présent dans le royaume. Donnée : `blocksCardIds` sur le Héros.
+  if (Object.values(me.board).flat().some((c) => c.type === 'hero' && (c.blocksCardIds ?? []).includes(card.cardId))) {
+    throw new Error(`Un Héros empêche de jouer ${card.name} tant qu'il est présent.`)
+  }
   // Dio — ZA WARUDO! : injouable sans The World en jeu (« votre Stand ») ou si Star
   // Platinum (Stand de Jotaro) est présent dans le royaume (il contre l'arrêt du temps).
   if ((card.effects ?? []).some((e) => e.type === 'ZA_WARUDO_ACTIVATE')) {
@@ -526,6 +571,26 @@ function applyPlayCard(
   ) {
     throw new Error('Aucune Carte Garde à transformer en arceau.')
   }
+  // Gul'dan — Ouverture de la Porte des Ténèbres : injouable tant que les 3 conditions
+  // (pion sur la Porte, 4 lieux corrompus, 4 Artéfacts possédés) ne sont pas réunies.
+  if ((card.effects ?? []).some((e) => e.type === 'DARK_PORTAL_WIN') && !darkPortalReady(state, state.activePlayer)) {
+    throw new Error('La Porte des Ténèbres exige : le pion sur la Porte, les 4 lieux corrompus et les 4 Artéfacts en votre possession.')
+  }
+  // Gul'dan — Corruption : posée sur un lieu TRANSFORMABLE, NON verrouillé et PAS déjà
+  // corrompu (face A). Le joueur choisit le lieu (`to`) ; à défaut, le lieu du pion.
+  if (card.staysOnLocationOnPlay) {
+    const loc = to ?? me.pawnLocation
+    const l = loc ? findLocation(me, loc) : undefined
+    if (!l || (l.altActions === undefined && l.altName === undefined)) {
+      throw new Error('Corruption doit être posée sur un lieu transformable.')
+    }
+    if (l.version === 'b') throw new Error('Ce lieu est déjà corrompu.')
+    if (loc && (me.lockedLocations ?? []).includes(loc)) throw new Error('Ce lieu est verrouillé.')
+    // Gul'dan — Armée de la Lumière : un lieu qui la porte ne peut pas être corrompu.
+    if (loc && (me.board[loc] ?? []).some((c) => c.blocksCorruptionHere)) {
+      throw new Error('Ce lieu est protégé par l’Armée de la Lumière : impossible de le corrompre.')
+    }
+  }
   // Cruella — J'adore les belles fourrures (gain par lieu à Tuile Chiots) : injouable
   // s'il n'y a aucune Tuile Chiots dans le royaume (0 jeton gagné → aucun effet).
   if (
@@ -547,6 +612,9 @@ function applyPlayCard(
         e.type === 'DEFEAT_HERO_PAY_STRENGTH' ||
         e.type === 'ADD_MINUS_FORCE_TOKENS',
     ) &&
+    // Gul'dan — un Artéfact (Sceptre de Sargeras) reste jouable même sans Héros : il a
+    // toujours l'effet de rejoindre la pile Artéfacts (quitte à gagner 0 Pouvoir).
+    !card.isArtifact &&
     !Object.values(me.board).flat().some((c) => c.type === 'hero')
   ) {
     throw new Error('Aucun Héros dans votre royaume : cette carte n’aurait aucun effet.')
@@ -642,18 +710,32 @@ function applyPlayCard(
       }
     }
   }
-  // Foudre (duplique un Ingrédient) : injouable s'il n'y a rien à reproduire ou
-  // si aucun Ingrédient joué n'est payable (son coût = celui de l'Ingrédient).
-  if ((card.effects ?? []).some((e) => e.type === 'DUPLICATE_INGREDIENT')) {
-    const zone = me.ingredients ?? []
-    if (zone.length === 0) {
-      throw new Error('Aucun Ingrédient joué : Foudre ne peut rien reproduire.')
+  // Foudre / Manipulation (duplique un Ingrédient / Artéfact) : injouable s'il n'y a
+  // rien à reproduire. Foudre exige en plus une carte payable (son coût = celui de la
+  // carte reproduite) ; Manipulation est gratuite (coût fixe déjà payé à la pose).
+  {
+    const dup = (card.effects ?? []).find((e) => e.type === 'DUPLICATE_INGREDIENT')
+    if (dup && dup.type === 'DUPLICATE_INGREDIENT') {
+      const useArtifacts = dup.zone === 'artifacts'
+      const label = useArtifacts ? 'Manipulation' : 'Foudre'
+      const thing = useArtifacts ? 'Artéfact' : 'Ingrédient'
+      const zone = (useArtifacts ? me.artifacts : me.ingredients) ?? []
+      // Gul'dan — Khadgar : tant qu'il est en jeu, les Artéfacts n'ont aucun effet →
+      // Manipulation ne peut rien reproduire.
+      const khadgar = useArtifacts && Object.values(me.board).flat().some((c) => c.type === 'hero' && c.nullifiesArtifacts)
+      if (zone.length === 0 || khadgar) {
+        throw new Error(`Aucun ${thing} à reproduire : ${label} est injouable.`)
+      }
+      if (!dup.freeDuplication && !zone.some((c) => (c.cost ?? 0) <= me.power)) {
+        throw new Error(`Pas assez de Pouvoir pour reproduire un ${thing} (${label}).`)
+      }
     }
-    // Le coût de Foudre = coût de l'Ingrédient reproduit : il faut pouvoir payer
-    // au moins l'un des Ingrédients déjà joués.
-    if (!zone.some((c) => (c.cost ?? 0) <= me.power)) {
-      throw new Error('Pas assez de Pouvoir pour reproduire un Ingrédient (Foudre).')
-    }
+  }
+  // Isabella — Activité : injouable si l'heure courante de l'horloge n'est pas autorisée.
+  if (!activitePlayableAtHour(me, card)) {
+    const HOURS = ['XII', 'II', 'IV', 'VI', 'VIII', 'X']
+    const allowed = (card.allowedHours ?? []).map((h) => HOURS[h]).join(', ')
+    throw new Error(`« ${card.name} » ne peut être jouée qu'à ${allowed} (il est ${HOURS[me.clockHour ?? 0]}).`)
   }
   // Actions recouvertes (« Je vais vous broyer les os ! » / Bravo ! / Piégé) : injouable
   // sans Héros à « découvrir ». Tamatoa — Piégé (« n'importe quel Héros », exceptFate) :
@@ -701,13 +783,14 @@ function applyPlayCard(
   ) {
     throw new Error('Aucun Héros dans votre défausse Fatalité (ni retiré du jeu) : carte injouable.')
   }
-  // Dio — Vampirisme : injouable s'il n'y a aucun Allié DÉFAUSSABLE dans le royaume
-  // (The World/Stands/associés exclus) — rien à défausser pour piocher.
+  // Dio — Vampirisme / Gul'dan — Drain d'Âme : injouable s'il n'y a aucun Allié
+  // DÉFAUSSABLE dans le royaume (associés/arceaux/indéfaussables exclus) — rien à
+  // défausser pour piocher.
   if (
-    (card.effects ?? []).some((e) => e.type === 'DIO_DISCARD_ALLY_DRAW') &&
+    (card.effects ?? []).some((e) => e.type === 'DIO_DISCARD_ALLY_DRAW' || e.type === 'DISCARD_ALLY_DRAW') &&
     !Object.values(me.board).flat().some((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket && !c.cannotBeDiscarded)
   ) {
-    throw new Error('Aucun Allié à défausser dans votre royaume : Vampirisme est injouable.')
+    throw new Error('Aucun Allié à défausser dans votre royaume : carte injouable.')
   }
   // Pyramid Head — Pacte de Sang : injouable si aucune carte de la main (hors Pacte) n'a un
   // exemplaire du MÊME type dans la défausse (rien à récupérer).
@@ -1093,7 +1176,7 @@ function applyPlayCard(
     // Un Héros hypnotisé (= Allié sous contrôle) et un arceau sont des porteurs valides.
     if (requiresAllyTarget(card)) {
       const allies = (me.board[to] ?? []).filter(
-        (c) => c.type === 'ally' || (c.type === 'hero' && c.hypnotized),
+        (c) => c.type === 'ally' || (c.type === 'hero' && (c.hypnotized || c.loved)),
       )
       if (allies.length === 0) {
         throw new Error(`Aucun Allié sur ${dest.name} pour y associer ${card.name}.`)
@@ -1107,7 +1190,7 @@ function applyPlayCard(
       }
     } else if (card.type === 'item' && card.attach === 'hero') {
       // Hadès — Potion de mortalité : Objet Vilain associé à un Héros du royaume.
-      const heroes = (me.board[to] ?? []).filter((c) => c.type === 'hero' && !c.hypnotized)
+      const heroes = (me.board[to] ?? []).filter((c) => c.type === 'hero' && !c.hypnotized && !c.loved)
       if (heroes.length === 0) {
         throw new Error(`Aucun Héros sur ${dest.name} pour y associer ${card.name}.`)
       }
@@ -1248,6 +1331,13 @@ function applyPlayCard(
       // Chemin interactif : Vanquish facultatif → showcase différé à sa résolution.
       next = { ...next, pendingTrapVanquish: { source: 'trap' } }
     }
+  } else if (
+    card.isArtifact &&
+    Object.values(activePlayer(next).board).flat().some((c) => c.type === 'hero' && c.nullifiesArtifacts)
+  ) {
+    // Gul'dan — Khadgar : tant qu'il est en jeu, un Artéfact posé ne DÉCLENCHE PAS son
+    // effet (il rejoint quand même la pile Artéfacts, plus bas, pour la victoire).
+    next = { ...next, log: [...next.log, `**${card.name}** est posé mais son effet est ANNULÉ (Khadgar).`] }
   } else {
     next = resolveEffects(next, card.effects ?? [], { targetHeroId, allyInstanceIds, allyMove, shrinkFreeActionId, playDestination: to })
   }
@@ -1281,6 +1371,19 @@ function applyPlayCard(
         hostInstanceId: placed.instanceId,
         hostLocationId: destId,
       })
+    }
+    // Mr. Monopoly — Officier de police : « joué OU déplacé » sur un lieu portant un
+    // (des) Héros → il l'(les) envoie à la Prison (le cas « déplacé » est géré dans
+    // applyMoveCard). Sauf si le lieu de pose EST déjà la Prison.
+    if (placed.sendsHeroToPrisonOnMove && destId !== placed.sendsHeroToPrisonOnMove) {
+      const prison = placed.sendsHeroToPrisonOnMove
+      const heroesHere = (next.players[state.activePlayer].board[destId] ?? []).filter((c) => c.type === 'hero')
+      for (const h of heroesHere) {
+        next = resolveEffects(next, [{ type: 'MOVE_HERO_TO_LOCATION', locationId: prison }], {
+          actorIndex: state.activePlayer,
+          targetHeroId: h.instanceId,
+        })
+      }
     }
     // Madame de Trémaine — Allié « en robe de bal » : défausse UNE version ordinaire
     // (`replacesCardId`) déjà en jeu (elle est « remplacée »).
@@ -1512,6 +1615,26 @@ function applyPlayCard(
         lockedLocations: (p.lockedLocations ?? []).filter((l) => l !== cottage),
       }))
       next = { ...next, log: [...next.log, `🔓 Les 4 Ingrédients sont réunis : la **Maison des Nains** est déverrouillée !`] }
+    }
+  } else if (card.isArtifact) {
+    // Gul'dan — la 1ʳᵉ fois qu'un Artéfact DIFFÉRENT est joué, il rejoint la zone
+    // ARTÉFACTS (comme les Ingrédients) au lieu de la défausse. Posséder les 4 est requis
+    // pour ouvrir la Porte des Ténèbres. Un doublon (2ᵉ exemplaire) part en défausse.
+    if ((activePlayer(next).artifacts ?? []).some((c) => c.cardId === card.cardId)) {
+      next = updateActivePlayer(next, (p) => ({ ...p, discard: [...p.discard, card] }))
+    } else {
+      next = updateActivePlayer(next, (p) => ({ ...p, artifacts: [...(p.artifacts ?? []), card] }))
+      const count = activePlayer(next).artifacts?.length ?? 0
+      next = { ...next, log: [...next.log, `**${card.name}** rejoint les Artéfacts (${count}/4).`] }
+    }
+  } else if (card.staysOnLocationOnPlay) {
+    // Gul'dan — Corruption : la carte RESTE posée sur le lieu CHOISI (`to`, sinon le lieu
+    // du pion), qu'elle corrompt (l'effet SWITCH_LOCATION_VERSION a basculé ce lieu en B).
+    const loc = (to && findLocation(activePlayer(next), to)) ? to : activePlayer(next).pawnLocation
+    if (loc) {
+      next = updateActivePlayer(next, (p) => ({ ...p, board: { ...p.board, [loc]: [...(p.board[loc] ?? []), card] } }))
+    } else {
+      next = updateActivePlayer(next, (p) => ({ ...p, discard: [...p.discard, card] }))
     }
   } else {
     next = updateActivePlayer(next, (p) => ({ ...p, discard: [...p.discard, card] }))
@@ -2371,9 +2494,16 @@ export function placeFateHeroWithEffects(
   destName: string,
 ): GameState {
   const targetName = state.players[targetIndex].villainName
+  // Isabella — DON (bornEnlarged) : arrive AGRANDI et déborde sur un lieu voisin (recouvre
+  // une action du haut de ce voisin en plus de ses 2 actions). On fixe la cible à la pose.
+  let placed = hero
+  if (hero.bornEnlarged && hero.type === 'hero' && !hero.enlargeTargetId) {
+    const adj = adjacentLocationIds(state, to)
+    if (adj.length > 0) placed = { ...hero, heroSize: 'enlarged', enlargeTargetId: adj[0] }
+  }
   let next = updatePlayer(state, targetIndex, (p) => ({
     ...p,
-    board: { ...p.board, [to]: [...(p.board[to] ?? []), hero] },
+    board: { ...p.board, [to]: [...(p.board[to] ?? []), placed] },
   }))
   // Suivi : Héros (Fatalité) joué CE TOUR par l'actif contre un adversaire (playedBy ≠ cible)
   // → déclencheur Team Rocket « Pour vous jouer un mauvais tour » (Héros ≤3 reçu).
@@ -3740,6 +3870,19 @@ function applyResolveFateInner(
     return next
   }
 
+  // Gul'dan — Fatalités qui se POSENT sur un lieu (Armée de la Lumière, Kil'jaeden) au lieu
+  // de se défausser : le fataliseur CHOISIT le lieu (pendingFateObjectPlace ; auto côté bot).
+  // Leurs effets (blocage corruption, drain de début de tour) vivent tant qu'elles sont posées.
+  if (chosen.fateAttachesToLocation) {
+    const next = updatePlayer(state, pending.target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, ...others] }))
+    return {
+      ...next,
+      pendingFate: null,
+      pendingFateObjectPlace: { chooserIndex: state.activePlayer, targetIndex: pending.target, card: chosen },
+      log: [...next.log, `${state.players[state.activePlayer].villainName} associe **${chosen.name}** à un lieu de ${tgt.villainName}.`],
+    }
+  }
+
   // Ursula (Fatalité) — Apparence Retrouvée : récupère un Héros de force ≤4 dans la
   // défausse Fatalité d'Ursula et le pose sur le lieu d'Ursula (le plus fort ≤4).
   // Non sélectionnable sans Héros valide (cf. FateModal.playable / enumerate).
@@ -4329,12 +4472,16 @@ function applyActivateCore(
   const nannyTax = (me.board[cardLoc] ?? []).some((c) => c.type === 'hero' && c.cardId === 'nanny') ? 1 : 0
   // La Bonne Fée — l'Âne : +1 (cumulatif) au coût d'activation sur son lieu.
   const aneTax = (me.board[cardLoc] ?? []).reduce((n, c) => n + (c.activateCostSurchargeHere ?? 0), 0)
-  if (me.power < card.activatedCost + nannyTax + aneTax) {
+  // Isabella — EMMA (Fatalité, NON aimée) : « Activer une capacité » coûte +N par Emma présente.
+  const emmaTax = Object.values(me.board)
+    .flat()
+    .reduce((n, c) => n + (c.type === 'hero' && !c.loved ? (c.activateSurcharge ?? 0) : 0), 0)
+  if (me.power < card.activatedCost + nannyTax + aneTax + emmaTax) {
     throw new Error(`Pouvoir insuffisant pour activer ${card.name}.`)
   }
-  // Le surcoût « lieu » de l'Âne est payé d'emblée (uniformément à toutes les branches).
-  if (aneTax > 0) {
-    state = updateActivePlayer(state, (p) => ({ ...p, power: p.power - aneTax }))
+  // Les surcoûts « lieu » (Âne) et Emma sont payés d'emblée (uniformément à toutes les branches).
+  if (aneTax + emmaTax > 0) {
+    state = updateActivePlayer(state, (p) => ({ ...p, power: p.power - aneTax - emmaTax }))
   }
 
   // La Bonne Fée — Embrasse-la tout de suite ! : VICTOIRE (Prince Charmant + Fiona avec
@@ -5187,7 +5334,7 @@ function applyVanquish(
   }
   // Team Rocket — rose de James : si un Allié engagé dans ce Vanquish porte une rose de
   // James, après avoir « éliminé un Héros » on déclenche l'action Attraper (auto : le
-  // Pokémon couché le plus fort). La rose est déjà défaussée avec l'Allié dépensé.
+  // Pokémon couché le plus fort), puis la rose est défaussée « ensuite ».
   const roseUsed = allyInstanceIds.some((id) =>
     Object.values(state.players[state.activePlayer].board)
       .flat()
@@ -5200,6 +5347,39 @@ function applyVanquish(
       const target = [...couched].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
       next = { ...next, log: [...next.log, `rose de James : l'action Attraper se déclenche !`] }
       next = capturePokemonInstance(next, aidx, target.instanceId)
+    }
+    // « Défaussez cette carte ensuite. » — la rose part toujours en défausse APRÈS
+    // l'action Attraper, y compris quand l'Allié porteur a survécu au Vanquish grâce à
+    // une Pokéball (il n'a alors pas emporté la rose avec lui). Si l'Allié a bien été
+    // défaussé, la rose l'a déjà suivi et n'est plus sur le plateau : ce balayage est
+    // simplement sans effet dans ce cas.
+    const roseIds = new Set<string>()
+    for (const cards of Object.values(next.players[aidx].board)) {
+      for (const c of cards) {
+        if (c.cardId === 'rose-de-james' && c.attachedTo && allyInstanceIds.includes(c.attachedTo)) {
+          roseIds.add(c.instanceId)
+        }
+      }
+    }
+    if (roseIds.size > 0) {
+      const removed: CardInstance[] = []
+      next = updatePlayer(next, aidx, (pl) => ({
+        ...pl,
+        board: Object.fromEntries(
+          Object.entries(pl.board).map(([locId, cards]) => [
+            locId,
+            cards.filter((c) => {
+              if (roseIds.has(c.instanceId)) {
+                removed.push(c)
+                return false
+              }
+              return true
+            }),
+          ]),
+        ),
+        discard: [...pl.discard, ...removed],
+      }))
+      next = { ...next, log: [...next.log, `rose de James est défaussée.`] }
     }
   }
   next = consumePersifleur(next, action)
@@ -6558,6 +6738,20 @@ function applyResolveHeroRelocate(state: GameState, heroInstanceId: string, to: 
       pendingDiversionDiscard: { chooserIndex: pending.chooserIndex, targetIndex, locationId: to },
     }
   }
+  // Mrs Samovar et Zip : mode « plusieurs Héros » — on ROUVRE le déplacement avec les
+  // Héros restants (celui qu'on vient de déplacer est retiré), tant qu'il en reste et
+  // qu'ils sont encore des Héros du royaume. Facultatif : le joueur peut s'arrêter.
+  if (pending.repeatCandidates) {
+    const remaining = (pending.candidateIds ?? [])
+      .filter((id) => id !== heroInstanceId)
+      .filter((id) => {
+        const loc = locationOfCard(next.players[targetIndex], id)
+        return !!loc && (next.players[targetIndex].board[loc] ?? []).some((c) => c.instanceId === id && c.type === 'hero')
+      })
+    if (remaining.length > 0) {
+      return { ...next, pendingHeroRelocate: { ...pending, candidateIds: remaining } }
+    }
+  }
   return { ...next, pendingHeroRelocate: null }
 }
 
@@ -7849,6 +8043,12 @@ function applyResolveDioDiscardAlly(state: GameState, allyInstanceId: string): G
   // Pioche éventuelle (Vampirisme) — réutilise l'effet DRAW_CARDS (journalise la pioche).
   if (pending.draw && pending.draw > 0) {
     next = resolveEffects(next, [{ type: 'DRAW_CARDS', count: pending.draw }], { actorIndex: idx })
+  }
+  // Gul'dan — Drain d'Âme : bonus Pouvoir si l'Allié défaussé était l'Esclave (bonusCardId).
+  if (pending.bonusCardId && pending.bonusPower && ally.cardId === pending.bonusCardId) {
+    const bonus = pending.bonusPower
+    next = updatePlayer(next, idx, (pl) => ({ ...pl, power: pl.power + bonus }))
+    next = { ...next, log: [...next.log, `${me.villainName} gagne ${bonus} JT (Drain d'Âme sur un Esclave).`] }
   }
   return next
 }
@@ -9566,6 +9766,49 @@ function applyResolveFateObjectPlace(state: GameState, locationId: LocationId): 
   }
 }
 
+/** Gul'dan — Défaite : le fataliseur a choisi le type (Alliés OU Objets) ; défausse toutes
+ *  ces cartes du royaume de la cible. */
+function applyResolveFateDiscardType(state: GameState, cardType: CardType): GameState {
+  const pending = state.pendingFateDiscardType
+  if (!pending) throw new Error('Aucune Défaite en attente.')
+  if (cardType !== 'ally' && cardType !== 'item') throw new Error('Défaite : type invalide (Alliés ou Objets).')
+  const next = discardAllOfTypeInRealm({ ...state, pendingFateDiscardType: null }, pending.targetIndex, cardType)
+  return { ...next, pendingFateDiscardType: null }
+}
+
+/** Gul'dan — défausse une Fatalité POSÉE sur un lieu (Armée de la Lumière : −`fateRemovalPowerCost`
+ *  Pouvoir ; Kil'jaeden : gratuit une fois les 4 lieux corrompus). Action du joueur Gul'dan. */
+function applyRemoveFateLocationCard(state: GameState, instanceId: string): GameState {
+  const idx = state.activePlayer
+  const me = state.players[idx]
+  const loc = locationOfCard(me, instanceId)
+  if (!loc) throw new Error('Carte Fatalité introuvable dans le royaume.')
+  const card = (me.board[loc] ?? []).find((c) => c.instanceId === instanceId)!
+  // Coût / condition de retrait selon la carte.
+  if (card.discardWhenAllCorrupted) {
+    if (guldanCorruptedCount(me) < 4) {
+      throw new Error(`${card.name} ne peut être défaussée qu'une fois les 4 lieux corrompus.`)
+    }
+  } else if (card.fateRemovalPowerCost !== undefined) {
+    if (me.power < card.fateRemovalPowerCost) {
+      throw new Error(`Pas assez de Pouvoir pour défausser ${card.name} (${card.fateRemovalPowerCost}).`)
+    }
+  } else {
+    throw new Error(`${card.name} n'est pas une Fatalité défaussable.`)
+  }
+  const cost = card.discardWhenAllCorrupted ? 0 : (card.fateRemovalPowerCost ?? 0)
+  const next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    power: p.power - cost,
+    board: { ...p.board, [loc]: (p.board[loc] ?? []).filter((c) => c.instanceId !== instanceId) },
+    fateDiscard: [...p.fateDiscard, { ...card, attachedTo: undefined }],
+  }))
+  return {
+    ...next,
+    log: [...next.log, `${me.villainName} défausse **${card.name}**${cost ? ` (−${cost} Pouvoir)` : ''}.`],
+  }
+}
+
 /** Ratigan — Appel à l'aide : pose le Héros cherché (Basil) sur le lieu choisi, ou
  *  l'y déplace s'il est déjà en jeu. Déclenche son onPlace dans les deux cas. */
 function applyResolveFateHeroPlace(state: GameState, locationId: LocationId): GameState {
@@ -9575,6 +9818,12 @@ function applyResolveFateHeroPlace(state: GameState, locationId: LocationId): Ga
   if (!tgt.locations.some((l) => l.id === locationId)) throw new Error('Lieu de destination invalide.')
   const destName = findLocation(tgt, locationId)?.name ?? locationId
   let next: GameState = { ...state, pendingFateHeroPlace: null }
+  // Isabella — Radar de poche : après la pose, ouvrir une action de royaume GRATUITE
+  // (jouer une Activité sans dépenser d'action).
+  const withFreeAction = (s: GameState): GameState =>
+    pending.thenFreeRealmAction
+      ? { ...s, pendingFreeRealmAction: { playerIndex: pending.targetIndex }, log: [...s.log, `Radar de poche : jouez une Activité gratuitement (sans action).`] }
+      : s
   // Basil déjà en jeu → on le déplace (MOVE_HERO_TO_LOCATION redéclenche son onPlace).
   let basilLoc: LocationId | undefined
   let basil: CardInstance | undefined
@@ -9584,19 +9833,20 @@ function applyResolveFateHeroPlace(state: GameState, locationId: LocationId): Ga
   }
   if (basil && basilLoc) {
     next = resolveEffects(next, [{ type: 'MOVE_HERO_TO_LOCATION', locationId }], { actorIndex: pending.targetIndex, targetHeroId: basil.instanceId })
-    return resolveEffects(next, basil.onPlace ?? [], { actorIndex: pending.targetIndex, hostInstanceId: basil.instanceId, hostLocationId: locationId })
+    next = resolveEffects(next, basil.onPlace ?? [], { actorIndex: pending.targetIndex, hostInstanceId: basil.instanceId, hostLocationId: locationId })
+    return withFreeAction(next)
   }
   // Sinon : cherche Basil dans la pioche/défausse Fatalité et le pose.
   const found = tgt.fateDeck.find((c) => c.cardId === pending.heroCardId) ?? tgt.fateDiscard.find((c) => c.cardId === pending.heroCardId)
   if (!found) {
-    return { ...next, log: [...next.log, `Appel à l'aide : ${pending.heroName} est introuvable.`] }
+    return withFreeAction({ ...next, log: [...next.log, `Appel à l'aide : ${pending.heroName} est introuvable.`] })
   }
   next = updatePlayer(next, pending.targetIndex, (p) => ({
     ...p,
     fateDeck: p.fateDeck.filter((c) => c.instanceId !== found.instanceId),
     fateDiscard: p.fateDiscard.filter((c) => c.instanceId !== found.instanceId),
   }))
-  return placeFateHeroWithEffects(next, pending.targetIndex, pending.chooserIndex, found, locationId, destName)
+  return withFreeAction(placeFateHeroWithEffects(next, pending.targetIndex, pending.chooserIndex, found, locationId, destName))
 }
 
 /** Sombra — Piratage : désactive l'action choisie du lieu piraté (le Piratage
@@ -9670,9 +9920,15 @@ function applyResolveDiscardThenDraw(state: GameState, instanceIds: string[]): G
     discard: [...p.discard, ...discarded],
   }))
   if (discarded.length > 0) {
-    next = { ...next, log: [...next.log, `${player.villainName} défausse ${discarded.length} carte(s) (Père Noël).`] }
+    next = { ...next, log: [...next.log, `${player.villainName} défausse ${discarded.length} carte(s).`] }
   }
-  next = resolveEffect(next, { type: 'DRAW_CARDS', count: pending.draw }, { actorIndex: idx })
+  // Gul'dan — Connexion : Pouvoir gagné par carte défaussée (powerPerCard).
+  if (pending.powerPerCard && discarded.length > 0) {
+    const gain = pending.powerPerCard * discarded.length
+    next = updatePlayer(next, idx, (p) => ({ ...p, power: p.power + gain }))
+    next = { ...next, log: [...next.log, `${player.villainName} gagne ${gain} JT (Connexion).`] }
+  }
+  if (pending.draw > 0) next = resolveEffect(next, { type: 'DRAW_CARDS', count: pending.draw }, { actorIndex: idx })
   return next
 }
 
@@ -10052,18 +10308,27 @@ function applyResolveLookTop(state: GameState, keepInstanceIds: string[]): GameS
   const keepSet = new Set(valid.slice(0, pending.take))
   const kept = pending.cards.filter((c) => keepSet.has(c.instanceId))
   const dumped = pending.cards.filter((c) => !keepSet.has(c.instanceId))
-  let next = updatePlayer(state, idx, (p) => ({
-    ...p,
-    hand: [...p.hand, ...kept],
-    discard: [...p.discard, ...dumped],
-  }))
+  // Isabella — Cloche : les cartes NON gardées retournent dans le deck (puis mélange) au lieu
+  // d'être défaussées.
+  let rng = state.rngState
+  let next: GameState
+  if (pending.returnToDeck) {
+    const r = shuffle([...state.players[idx].deck, ...dumped], rng)
+    rng = r.state
+    next = updatePlayer(state, idx, (p) => ({ ...p, hand: [...p.hand, ...kept], deck: r.result }))
+  } else {
+    next = updatePlayer(state, idx, (p) => ({ ...p, hand: [...p.hand, ...kept], discard: [...p.discard, ...dumped] }))
+  }
   next = {
     ...next,
+    rngState: rng,
     pendingLookTop: null,
     activeDrewCard: kept.length > 0 ? true : state.activeDrewCard,
     log: [
       ...next.log,
-      `${next.players[idx].villainName} garde **${kept.map((c) => c.name).join(', ') || '—'}** et défausse ${dumped.length} carte${dumped.length > 1 ? 's' : ''} (${pending.title ?? 'Tour de passe-passe'}).`,
+      pending.returnToDeck
+        ? `${next.players[idx].villainName} garde **${kept.map((c) => c.name).join(', ') || '—'}** et remélange ${dumped.length} carte${dumped.length > 1 ? 's' : ''} dans son deck (${pending.title ?? 'Cloche'}).`
+        : `${next.players[idx].villainName} garde **${kept.map((c) => c.name).join(', ') || '—'}** et défausse ${dumped.length} carte${dumped.length > 1 ? 's' : ''} (${pending.title ?? 'Tour de passe-passe'}).`,
     ],
   }
   // Tour de passe-passe révélé en Divination : reprendre la Divination avec les
@@ -10117,26 +10382,58 @@ function applyResolveTakeABite(state: GameState, heroInstanceId: string): GameSt
   return next
 }
 
-/** La Méchante Reine — Foudre : reproduit la capacité de l'Ingrédient choisi
- *  (présent dans la zone Ingrédients). */
+/** Isabella — AMOUR : le Héros choisi se met à aimer Isabella (marqué `loved`) : il devient
+ *  un Allié (zone basse), capacités annulées sauf sa clause « Amour ». Reste sur son lieu. */
+function applyResolveGrantLove(state: GameState, heroInstanceId: string): GameState {
+  const pending = state.pendingGrantLove
+  if (!pending) throw new Error('Aucun choix « Amour » en attente.')
+  if (!pending.candidateIds.includes(heroInstanceId)) {
+    throw new Error('Ce Héros n’est pas un choix valide (Amour).')
+  }
+  const idx = pending.playerIndex
+  const actor = state.players[idx]
+  const loc = locationOfCard(actor, heroInstanceId)
+  if (!loc) throw new Error('Héros introuvable (Amour).')
+  const hero = (actor.board[loc] ?? []).find((c) => c.instanceId === heroInstanceId)!
+  const next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    board: {
+      ...p.board,
+      [loc]: (p.board[loc] ?? []).map((c) => (c.instanceId === heroInstanceId ? { ...c, loved: true } : c)),
+    },
+  }))
+  return {
+    ...next,
+    pendingGrantLove: null,
+    log: [...next.log, `💕 **${hero.name}** aime désormais ${actor.villainName} : il devient un Allié (ses capacités de Héros sont annulées).`],
+  }
+}
+
+/** Foudre (Méchante Reine) / Manipulation (Gul'dan) : reproduit la capacité de la
+ *  carte choisie dans sa pile source (Ingrédients ou Artéfacts). Foudre paie le coût
+ *  de la carte reproduite ; Manipulation est gratuite. */
 function applyResolveDuplicateIngredient(state: GameState, ingredientInstanceId: string): GameState {
   const pending = state.pendingDuplicateIngredient
   if (!pending) throw new Error('Aucune Foudre en attente.')
+  const useArtifacts = pending.zone === 'artifacts'
+  const label = useArtifacts ? 'Manipulation' : 'Foudre'
+  const thing = useArtifacts ? 'Artéfact' : 'Ingrédient'
   if (!pending.candidateIds.includes(ingredientInstanceId)) {
-    throw new Error('Cet Ingrédient n’est pas un choix valide pour Foudre.')
+    throw new Error(`Cet ${thing} n’est pas un choix valide pour ${label}.`)
   }
   const idx = pending.playerIndex
-  const ing = (state.players[idx].ingredients ?? []).find((c) => c.instanceId === ingredientInstanceId)
-  if (!ing) throw new Error('Ingrédient introuvable (Foudre).')
-  // Le coût de Foudre est celui de l'Ingrédient reproduit, payé maintenant.
-  const cost = ing.cost ?? 0
+  const zone = (useArtifacts ? state.players[idx].artifacts : state.players[idx].ingredients) ?? []
+  const ing = zone.find((c) => c.instanceId === ingredientInstanceId)
+  if (!ing) throw new Error(`${thing} introuvable (${label}).`)
+  // Foudre : coût = celui de la carte reproduite, payé maintenant. Manipulation : gratuit.
+  const cost = pending.freeDuplication ? 0 : (ing.cost ?? 0)
   if (state.players[idx].power < cost) {
     throw new Error(`Pas assez de Pouvoir pour reproduire ${ing.name} (coût ${cost}).`)
   }
   let next: GameState = { ...state, pendingDuplicateIngredient: null }
   next = updatePlayer(next, idx, (p) => ({ ...p, power: p.power - cost }))
   next = resolveEffects(next, ing.effects ?? [], { actorIndex: idx })
-  return { ...next, log: [...next.log, `Foudre reproduit la capacité de **${ing.name}** (coût ${cost}).`] }
+  return { ...next, log: [...next.log, `${label} reproduit la capacité de **${ing.name}**${cost ? ` (coût ${cost})` : ''}.`] }
 }
 
 /** La Méchante Reine — Hurlement d'effroi : déplace les Héros (force ≤ 3) du lieu
@@ -10445,40 +10742,30 @@ function resolveArmedTraps(state: GameState, idx: number): GameState {
   return next
 }
 
-/** Mère Gothel — à la fin de son tour, Raiponce (Héros-tuile) se déplace d'un lieu
- *  vers la DROITE si elle le peut (Tour → Canard boiteux → Forêt → Corona). Ses
- *  Objets associés (Poêle à frire…) la suivent. No-op pour les autres vilains ou si
- *  elle est déjà au lieu le plus à droite. Pur.
- *  NB : la pénalité −1 Confiance « Raiponce sur Corona » n'est PAS appliquée ici —
- *  elle est vérifiée au DÉBUT du tour suivant de Gothel (cf. gothelStartOfTurn) : si
- *  Raiponce a quitté Corona entre-temps (vaincue, ramenée vers la Tour…), aucune perte. */
+/** Mère Gothel — à la fin de son tour, Raiponce (Héros-tuile) tente de se déplacer
+ *  d'un lieu vers la DROITE (Tour → Canard boiteux → Forêt → Corona). Ses Objets
+ *  associés (Poêle à frire…) la suivent. Si elle NE PEUT PAS avancer parce qu'elle
+ *  est déjà tout à droite (Corona), Gothel perd 1 jeton Confiance à la place — c'est
+ *  le déclenchement exact de la règle : la pénalité tombe en fin de tour, quand
+ *  Raiponce « voudrait » rejoindre Corona mais y est déjà. No-op pour les autres
+ *  vilains ou si Raiponce n'est pas en jeu. Pur. */
 function moveRaiponceEndOfTurn(state: GameState, idx: number): GameState {
   const p = state.players[idx]
   if (p.villain !== 'gothel') return state
-  // N'écoute que moi : Raiponce ne se déplace pas à la fin de ce tour (drapeau consommé).
+  // N'écoute que moi : Raiponce ne se déplace pas à la fin de ce tour (drapeau
+  // consommé) — et n'entraîne donc aucune perte de Confiance ce tour-ci.
   if (p.raiponceSkipMove) {
     return updatePlayer(state, idx, (pl) => ({ ...pl, raiponceSkipMove: false }))
   }
   const from = raiponceLocation(p)
   const order = p.locations.map((l) => l.id)
   const i = from ? order.indexOf(from) : -1
-  // Glisse d'un lieu vers la droite, sauf si elle est déjà tout à droite (Corona).
-  if (i >= 0 && i < order.length - 1) {
+  if (i < 0) return state // Raiponce hors jeu : rien.
+  // Glisse d'un lieu vers la droite si elle le peut…
+  if (i < order.length - 1) {
     return relocateRaiponce(state, idx, order[i + 1])
   }
-  return state
-}
-
-/** Mère Gothel — au DÉBUT de son tour : si Raiponce se trouve (encore) sur Corona
- *  (lieu le plus à droite du royaume), Gothel perd 1 jeton Confiance. Vérifié à
- *  l'ouverture du tour, et non quand Raiponce y glisse en fin de tour : un Héros
- *  ramené vers la Tour (Lance-moi ta chevelure, Stabbington…) ou vaincu d'ici là
- *  échappe à la pénalité. No-op pour les autres vilains. Pur. */
-function gothelStartOfTurn(state: GameState, idx: number): GameState {
-  const p = state.players[idx]
-  if (p.villain !== 'gothel') return state
-  const order = p.locations.map((l) => l.id)
-  if (raiponceLocation(p) !== order[order.length - 1]) return state
+  // …sinon elle est déjà sur Corona : −1 Confiance.
   return resolveEffects(state, [{ type: 'LOSE_CONFIANCE', amount: 1 }], { actorIndex: idx })
 }
 
@@ -10515,12 +10802,240 @@ function moveDogsEndOfTurn(state: GameState): GameState {
   return next
 }
 
+/** Le Piégeur — applique un patch à UN Survivant (par instanceId), tous lieux confondus. */
+function patchSurvivor(state: GameState, idx: number, id: string, patch: Partial<CardInstance>): GameState {
+  return updatePlayer(state, idx, (p) => ({
+    ...p,
+    board: Object.fromEntries(
+      Object.entries(p.board).map(([loc, cards]) => [loc, cards.map((c) => (c.instanceId === id ? { ...c, ...patch } : c))]),
+    ),
+  }))
+}
+
+/** Le Piégeur — ÉLIMINE un Survivant (retiré du jeu). Retire aussi son crochet s'il y était
+ *  accroché. Déclenche la VICTOIRE si plus aucun Survivant ne subsiste. */
+function eliminatePiegeurSurvivor(state: GameState, idx: number, id: string, loc: LocationId, reason: string): GameState {
+  const survivor = (state.players[idx].board[loc] ?? []).find((c) => c.instanceId === id)
+  const wasHooked = !!survivor?.onHook
+  let next = updatePlayer(state, idx, (p) => {
+    const hooks = { ...(p.hooks ?? {}) }
+    if (wasHooked && hooks[loc]) hooks[loc] = { ...hooks[loc], present: false }
+    return { ...p, board: { ...p.board, [loc]: (p.board[loc] ?? []).filter((c) => c.instanceId !== id) }, hooks }
+  })
+  next = {
+    ...next,
+    log: [...next.log, `☠️ **${survivor?.name}** est éliminé (${reason})${wasHooked ? ' — crochet retiré' : ''}.`],
+  }
+  if (piegeurNoSurvivorsLeft(next.players[idx])) {
+    return {
+      ...next,
+      status: 'WON',
+      winner: idx,
+      log: [...next.log, `🏆 ${next.players[idx].villainName} a éliminé tous les Survivants et l'emporte !`],
+    }
+  }
+  return next
+}
+
+/** Le Piégeur — résout le choix du Survivant ciblé (phase 'target' de pendingPiegeur) : applique
+ *  l'effet (révéler / blesser / accrocher / achever / déplacer) puis ouvre la phase 'dest' si un
+ *  déplacement est requis, sinon clôt le pending. */
+function applyResolvePiegeurTarget(state: GameState, survivorInstanceId: string): GameState {
+  const pending = state.pendingPiegeur
+  if (!pending || pending.phase !== 'target') throw new Error('Aucun choix de Survivant en attente.')
+  if (!pending.candidateIds.includes(survivorInstanceId)) throw new Error('Survivant non ciblable.')
+  const idx = pending.chooserIndex
+  const actor = state.players[idx]
+  const loc = piegeurLocOf(actor, survivorInstanceId)
+  const survivor = loc ? (actor.board[loc] ?? []).find((c) => c.instanceId === survivorInstanceId) : undefined
+  if (!survivor || !loc) throw new Error('Survivant introuvable.')
+  const cleared: GameState = { ...state, pendingPiegeur: null }
+  const openDest = (kind: NonNullable<GameState['pendingPiegeur']>['kind'], from: LocationId, base: GameState): GameState => {
+    const dests = piegeurNeighbors(base.players[idx], from)
+    if (dests.length === 0) return base
+    return { ...base, pendingPiegeur: { chooserIndex: idx, kind, phase: 'dest', candidateIds: [], chosenSurvivorId: survivorInstanceId, destLocs: dests } }
+  }
+  switch (pending.kind) {
+    case 'reveal':
+    case 'reveal-move': {
+      let next = patchSurvivor(cleared, idx, survivorInstanceId, { revealed: true })
+      next = { ...next, log: [...next.log, `**${survivor.name}** est RÉVÉLÉ !`] }
+      // Effet « Lorsque révélé » (auto), porté par survivor.effects (peut le déplacer : Meg).
+      if ((survivor.effects ?? []).length) {
+        next = resolveEffects(next, survivor.effects!, { actorIndex: idx, hostInstanceId: survivorInstanceId })
+      }
+      // Marque d'éraflure : déplacement ensuite (si le Survivant est encore là et non accroché).
+      if (pending.kind === 'reveal-move') {
+        const curLoc = piegeurLocOf(next.players[idx], survivorInstanceId)
+        if (curLoc) return openDest('reveal-move', curLoc, next)
+      }
+      return next
+    }
+    case 'injure': {
+      const direct = piegeurPersonnePresent(actor)
+      const ns = piegeurNextHealth(survivor.survivorState, direct)
+      let next = patchSurvivor(cleared, idx, survivorInstanceId, { survivorState: ns })
+      next = {
+        ...next,
+        log: [...next.log, `**${survivor.name}** ${ns === 'critical' ? 'passe en état CRITIQUE' : 'est BLESSÉ'} (Force brute).`],
+      }
+      // Blessé (pas critique) → déplacement vers un voisin. Critique = immobile (pas de déplacement).
+      if (ns === 'injured') return openDest('injure', loc, next)
+      return next
+    }
+    case 'hook': {
+      const lives = (survivor.survivorLives ?? 3) - 1
+      if (lives <= 0) return eliminatePiegeurSurvivor(cleared, idx, survivorInstanceId, loc, 'accroché')
+      let next = patchSurvivor(cleared, idx, survivorInstanceId, { onHook: true, hookedThisTurn: true, survivorLives: lives })
+      next = { ...next, log: [...next.log, `🪝 **${survivor.name}** est accroché (−1 vie, ${lives} restante${lives > 1 ? 's' : ''}).`] }
+      return next
+    }
+    case 'finish':
+      return eliminatePiegeurSurvivor(cleared, idx, survivorInstanceId, loc, 'achevé — Memento Mori')
+    case 'move':
+      return openDest('move', loc, cleared)
+  }
+}
+
+/** Le Piégeur — paie 2 Pouvoir pour défausser une PALETTE (Objet Fatalité) qui bloque un lieu. */
+function applyDiscardPalette(state: GameState, instanceId: string): GameState {
+  const idx = state.activePlayer
+  const actor = state.players[idx]
+  const loc = piegeurLocOf(actor, instanceId)
+  const card = loc ? (actor.board[loc] ?? []).find((c) => c.instanceId === instanceId) : undefined
+  if (!loc || !card || card.cardId !== PIEGEUR_PALETTE_ID) throw new Error('Palette introuvable.')
+  if (actor.power < 2) throw new Error('Pas assez de Pouvoir pour défausser la Palette (2 requis).')
+  const next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    power: p.power - 2,
+    board: { ...p.board, [loc]: (p.board[loc] ?? []).filter((c) => c.instanceId !== instanceId) },
+    fateDiscard: [...p.fateDiscard, card],
+  }))
+  return { ...next, log: [...next.log, `${actor.villainName} paie 2 Pouvoir pour défausser une Palette.`] }
+}
+
+/** Le Piégeur — résout le lieu de destination (phase 'dest') : déplace le Survivant choisi vers
+ *  un lieu voisin (déclenche un éventuel Piège à ours). */
+function applyResolvePiegeurDest(state: GameState, to: LocationId): GameState {
+  const pending = state.pendingPiegeur
+  if (!pending || pending.phase !== 'dest' || !pending.chosenSurvivorId) {
+    throw new Error('Aucun déplacement de Survivant en attente.')
+  }
+  if (!pending.destLocs?.includes(to)) throw new Error('Lieu de destination invalide.')
+  const next = piegeurMoveSurvivor(state, pending.chooserIndex, pending.chosenSurvivorId, to)
+  return { ...next, pendingPiegeur: null }
+}
+
+/** Le Piégeur (Dead by Daylight) — traitement de FIN DE TOUR (uniquement quand le joueur
+ *  actif est le Piégeur) :
+ *   1) CROCHET : chaque Survivant accroché perd 1 vie (sauf celui accroché ce tour-ci, dont
+ *      le −1 d'accrochage vient d'être appliqué) ; à 0 vie il est ÉLIMINÉ (retiré du plateau)
+ *      et son crochet est retiré du jeu.
+ *   2) FUITE : chaque Survivant NON critique, NON accroché et NON immobilisé se déplace vers
+ *      le lieu voisin le PLUS LOIN du pion Piégeur.
+ *   3) Décrémente les immobilisations (piège à ours) et les désactivations de crochet. Pur. */
+function piegeurEndOfTurn(state: GameState): GameState {
+  const i = state.activePlayer
+  if (state.players[i].objective.type !== 'PIEGEUR_ELIMINATE_ALL_SURVIVORS') return state
+  let next = state
+  const order = next.players[i].locations.map((l) => l.id)
+  const pawnI = order.indexOf(next.players[i].pawnLocation ?? '')
+
+  // 1) Crochet : perte de vie / élimination.
+  {
+    const removedHookLocs: string[] = []
+    next = updatePlayer(next, i, (p) => {
+      const board = { ...p.board }
+      const hooks = { ...(p.hooks ?? {}) }
+      for (const loc of Object.keys(board)) {
+        board[loc] = (board[loc] ?? []).flatMap((c) => {
+          if (!c.isSurvivor || !c.onHook) return [c]
+          if (c.hookedThisTurn) return [{ ...c, hookedThisTurn: false }] // accroché ce tour → pas de −1
+          const lives = (c.survivorLives ?? 0) - 1
+          if (lives > 0) return [{ ...c, survivorLives: lives }]
+          removedHookLocs.push(loc) // éliminé : son crochet part aussi
+          return []
+        })
+      }
+      for (const loc of removedHookLocs) if (hooks[loc]) hooks[loc] = { ...hooks[loc], present: false }
+      return { ...p, board, hooks }
+    })
+    for (const loc of removedHookLocs) {
+      const name = next.players[i].locations.find((l) => l.id === loc)?.name
+      next = { ...next, log: [...next.log, `☠️ Un Survivant est éliminé sur le crochet de **${name}** (crochet retiré).`] }
+    }
+  }
+
+  // 2) Fuite : cible = voisin le plus loin du pion.
+  const fleeTarget = (fromI: number): string | null => {
+    const n = order.length
+    const hasL = fromI - 1 >= 0
+    const hasR = fromI + 1 < n
+    if (!hasL && !hasR) return null
+    if (fromI < pawnI) return hasL ? order[fromI - 1] : order[fromI + 1]
+    if (fromI > pawnI) return hasR ? order[fromI + 1] : order[fromI - 1]
+    // Même lieu que le pion : fuir vers le bord le plus éloigné (plus de place pour fuir).
+    const goRight = pawnI <= (n - 1) / 2
+    if (goRight) return hasR ? order[fromI + 1] : hasL ? order[fromI - 1] : null
+    return hasL ? order[fromI - 1] : hasR ? order[fromI + 1] : null
+  }
+  {
+    const moves: { instanceId: string; from: string; to: string; name: string }[] = []
+    const p = next.players[i]
+    for (const loc of order) {
+      for (const c of p.board[loc] ?? []) {
+        if (!c.isSurvivor || c.survivorState === 'critical' || c.onHook || (c.trapImmobilizedTurns ?? 0) > 0) continue
+        const to = fleeTarget(order.indexOf(loc))
+        if (to && to !== loc) moves.push({ instanceId: c.instanceId, from: loc, to, name: c.name })
+      }
+    }
+    // Cibles calculées sur les positions D'ORIGINE ; on applique chaque déplacement via le
+    // helper (déclenche un éventuel Piège à ours au lieu d'arrivée).
+    for (const m of moves) {
+      next = piegeurMoveSurvivor(next, i, m.instanceId, m.to)
+    }
+  }
+
+  // 3) Décrémentation des compteurs (immobilisation piège, désactivation crochet).
+  next = updatePlayer(next, i, (p) => {
+    const board = Object.fromEntries(
+      Object.entries(p.board).map(([loc, cards]) => [
+        loc,
+        cards.map((c) =>
+          c.isSurvivor && (c.trapImmobilizedTurns ?? 0) > 0
+            ? { ...c, trapImmobilizedTurns: (c.trapImmobilizedTurns ?? 0) - 1 }
+            : c,
+        ),
+      ]),
+    )
+    const hooks = p.hooks
+      ? Object.fromEntries(
+          Object.entries(p.hooks).map(([loc, h]) => [
+            loc,
+            h.disabledTurns > 0 ? { ...h, disabledTurns: h.disabledTurns - 1 } : h,
+          ]),
+        )
+      : p.hooks
+    return { ...p, board, hooks }
+  })
+  return next
+}
+
 function applyEndTurn(state: GameState): GameState {
   if (!canEndTurn(state)) {
     throw new Error(`Impossible de terminer le tour en phase ${state.phase}.`)
   }
+  // Isabella — HORLOGE : l'aiguille avance d'un cran (XII→II→IV→VI→VIII→X→XII) à la FIN de
+  // chacun de ses tours. Ainsi son PREMIER tour est toujours à XII, qu'elle joue en 1er ou
+  // en 2e (indépendant de l'ordre/de l'index).
+  if (state.players[state.activePlayer].objective.type === 'ISABELLA_CLOCK') {
+    state = updateActivePlayer(state, (p) => ({ ...p, clockHour: ((p.clockHour ?? 0) + 1) % 6 }))
+  }
   // Mr. Monopoly — Chien : se rapproche du pion à la fin de chaque tour.
   state = moveDogsEndOfTurn(state)
+  // Le Piégeur — fin de son tour : perte de vie des Survivants accrochés, fuite des autres
+  // (loin du pion), décroissance des immobilisations/désactivations de crochet.
+  state = piegeurEndOfTurn(state)
   // Team Rocket — Pokémon couchés (K.O.) non attrapés à la fin du tour suivant → défausse.
   state = sweepKoPokemon(state)
   // Lever du jour : le blocage des Pages du joueur dont le tour se termine est consommé.
@@ -10619,6 +11134,7 @@ function applyEndTurn(state: GameState): GameState {
     activePlayedCount: 0,
     activePlayedItemCount: 0,
     activePlayedAllyCount: 0,
+    activePlayedEventMaxCost: 0,
     activeFateTargets: [],
     activeFateHeroesAgainst: [],
     // Effets « jusqu'à la fin de votre tour » du joueur qui termine (Sablier Géant).
@@ -10628,6 +11144,8 @@ function applyEndTurn(state: GameState): GameState {
             ...p,
             // Noir de nuit : la possibilité de refaire une action expire en fin de tour.
             repeatActionAvailable: false,
+            // Isabella — Radar de poche : l'override d'heure des Activités expire en fin de tour.
+            activiteAnyHourThisTurn: false,
             // Mère Gothel — Vengeance : le bonus de Confiance non consommé expire.
             vengeanceConfianceArmed: false,
             // Cruella — Finissez le travail ! : l'activation gratuite non utilisée expire.
@@ -10671,6 +11189,11 @@ function applyEndTurn(state: GameState): GameState {
   if (started.players[nextIdx].dragonFormReward) {
     started = updatePlayer(started, nextIdx, (p) => ({ ...p, dragonFormReward: false }))
   }
+  // Le Seigneur des Ténèbres — la capacité « échange » du Chaudron réveillé redevient
+  // disponible (une fois par tour).
+  if (started.players[nextIdx].cauldronExchangeUsedThisTurn) {
+    started = updatePlayer(started, nextIdx, (p) => ({ ...p, cauldronExchangeUsedThisTurn: false }))
+  }
   // Poussière de momie : le bonus « Poison sur Fatalité subie » expire au début du
   // tour de la Méchante Reine.
   if (started.players[nextIdx].poisonOnFateTargeted) {
@@ -10679,6 +11202,50 @@ function applyEndTurn(state: GameState): GameState {
   // Le verrou « seule action » de Beauté endormie expire au début du tour suivant.
   if (started.players[nextIdx].soleActionLock) {
     started = updatePlayer(started, nextIdx, (p) => ({ ...p, soleActionLock: false }))
+  }
+  // Isabella — HORLOGE : au DÉBUT de son tour, l'aiguille est déjà à la bonne heure (elle
+  // a avancé à la FIN de son tour précédent — cf. plus haut). Son 1er tour reste donc à XII,
+  // qu'elle joue en 1er ou en 2e. On applique ici l'INCENDIE, le log d'heure et le bonus Don.
+  if (started.players[nextIdx].objective.type === 'ISABELLA_CLOCK') {
+    // Isabella — INCENDIE : « à la prochaine heure » → au début de ce tour, l'armement
+    // (incendiePending) devient actif (Activités bloquées ce tour), puis se dissipe.
+    started = updatePlayer(started, nextIdx, (p) => ({
+      ...p,
+      incendieActive: !!p.incendiePending,
+      incendiePending: false,
+    }))
+    if (started.players[nextIdx].incendieActive) {
+      started = { ...started, log: [...started.log, `🔥 Incendie : aucune Activité jouable ce tour-ci.`] }
+    }
+    const HOURS = ['XII', 'II', 'IV', 'VI', 'VIII', 'X']
+    started = {
+      ...started,
+      log: [...started.log, `⏰ Il est ${HOURS[started.players[nextIdx].clockHour ?? 0]} chez ${started.players[nextIdx].villainName}.`],
+    }
+    // Isabella — DON (Amour) : au début de son tour, +N Pouvoir par Héros qui l'aime.
+    const board = Object.values(started.players[nextIdx].board).flat()
+    const lovedCount = board.filter((c) => c.type === 'hero' && c.loved).length
+    const donGain = board
+      .filter((c) => c.type === 'hero' && c.loved)
+      .reduce((n, c) => n + (c.powerPerLovedAtTurnStartWhenLoved ?? 0), 0) * lovedCount
+    if (donGain > 0) {
+      started = updatePlayer(started, nextIdx, (p) => ({ ...p, power: p.power + donGain }))
+      started = { ...started, log: [...started.log, `${started.players[nextIdx].villainName} gagne ${donGain} Pouvoir (Don, Amour).`] }
+    }
+  }
+  // Gul'dan — Kil'jaeden : le joueur perd N Pouvoir au début de chacun de ses tours tant
+  // qu'une carte `drainsPowerAtTurnStart` est posée dans son royaume (plancher à 0).
+  {
+    const drain = Object.values(started.players[nextIdx].board)
+      .flat()
+      .reduce((n, c) => n + (c.drainsPowerAtTurnStart ?? 0), 0)
+    if (drain > 0) {
+      const applied = Math.min(drain, started.players[nextIdx].power)
+      if (applied > 0) {
+        started = updatePlayer(started, nextIdx, (p) => ({ ...p, power: p.power - applied }))
+        started = { ...started, log: [...started.log, `${started.players[nextIdx].villainName} perd ${applied} Pouvoir (Kil'jaeden).`] }
+      }
+    }
   }
   // Sombra — Invisibilité : l'immunité à la Fatalité expire au début de son tour.
   if (started.players[nextIdx].noFate) {
@@ -10733,9 +11300,9 @@ function applyEndTurn(state: GameState): GameState {
   started = resolvePeteStartOfTurn(started, nextIdx)
   if (started.status === 'WON') return started
 
-  // Mère Gothel — début de son tour : pénalité si Raiponce campe sur Corona
-  // (vérifiée AVANT la victoire — la perte peut repasser Gothel sous le seuil).
-  started = gothelStartOfTurn(started, nextIdx)
+  // (Mère Gothel : la pénalité −1 Confiance « Raiponce sur Corona » est désormais
+  // appliquée en FIN de tour, quand Raiponce ne peut plus avancer — cf.
+  // moveRaiponceEndOfTurn — et non plus au début du tour suivant.)
 
   // Sa Sucrerie — début de son tour : Turbo-Statique expire ; si une course est active
   // et qu'un Bug est associé à Vanellope, le jeton Pilote avance (effet de Vanellope).
@@ -10850,6 +11417,24 @@ function syncPetePowerPlay(state: GameState): GameState {
   return completeGoal(state, idx, 'power-play')
 }
 
+/** Gaston — sa victoire (« retirer tous les Obstacles ») est IMMÉDIATE : dès que le
+ *  dernier Obstacle disparaît (via une carte ou un Vanquish de la Bête/Maurice), et
+ *  non « au début de son tour ». Vérifié après chaque action du joueur actif — seul
+ *  lui peut retirer ses propres Obstacles, donc l'actif est bien le vainqueur. Pur. */
+function checkImmediateObstacleWin(state: GameState): GameState {
+  if (state.status !== 'PLAYING') return state
+  const idx = state.activePlayer
+  const w = state.players[idx]
+  if (w.objective.type !== 'REMOVE_ALL_OBSTACLES') return state
+  if (!hasReachedObjective(state, idx)) return state
+  return {
+    ...state,
+    status: 'WON',
+    winner: idx,
+    log: [...state.log, `🏆 ${w.villainName} a fait disparaître tous les Obstacles et l'emporte !`],
+  }
+}
+
 /** Applique une action de jeu et renvoie le nouvel état. Pur, déterministe. */
 export function applyAction(state: GameState, action: GameAction): GameState {
   // Après chaque action : (1) bascule éventuelle de l'objectif double de Ratigan
@@ -10857,7 +11442,8 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   // tuile Power Play si ≥6 Pouvoir dépensés ce tour sur le bon lieu.
   const after = syncLuciferTrap(syncRoseChain(syncPetePowerPlay(syncRatiganObjectiveAll(applyActionCore(state, action)))))
   // Dio — ZA WARUDO! : coût croissant par action + suivi des 14 actions du royaume.
-  return applyDioZaWarudo(action, after)
+  // Puis Gaston : victoire immédiate si le dernier Obstacle vient d'être retiré.
+  return checkImmediateObstacleWin(applyDioZaWarudo(action, after))
 }
 
 /** Types de GameAction qui correspondent à « faire une action de lieu » (hors Fatalité,
@@ -11441,6 +12027,15 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   if (state.pendingRecover && action.type !== 'RESOLVE_RECOVER' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Récupérez une carte de votre défausse (RESOLVE_RECOVER).')
   }
+  // Le Piégeur : un choix de Survivant (cible) ou de destination est en attente.
+  if (
+    state.pendingPiegeur &&
+    action.type !== 'RESOLVE_PIEGEUR_TARGET' &&
+    action.type !== 'RESOLVE_PIEGEUR_DEST' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Résolvez le choix du Piégeur (RESOLVE_PIEGEUR_TARGET / RESOLVE_PIEGEUR_DEST).')
+  }
   // Tuer (L'Imposteur) : choisir le Coéquipier à défausser d'abord.
   if (
     state.pendingCrewmateKill &&
@@ -11482,6 +12077,14 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
     action.type !== 'PLAY_CONDITION'
   ) {
     throw new Error('Choisissez le lieu où placer le Héros (RESOLVE_FATE_HERO_PLACE).')
+  }
+  // Défaite (Gul'dan) : le fataliseur choisit le type à défausser (Alliés OU Objets) d'abord.
+  if (
+    state.pendingFateDiscardType &&
+    action.type !== 'RESOLVE_FATE_DISCARD_TYPE' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Choisissez le type à défausser : Alliés ou Objets (RESOLVE_FATE_DISCARD_TYPE).')
   }
   // Colère Titanesque : choisir le lieu voisin où agir d'abord.
   if (state.pendingGiantAction && action.type !== 'RESOLVE_GIANT_LOCATION' && action.type !== 'PLAY_CONDITION') {
@@ -11543,6 +12146,10 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   // avant tout autre coup.
   if (state.pendingTakeABite && action.type !== 'RESOLVE_TAKE_A_BITE' && action.type !== 'PLAY_CONDITION') {
     throw new Error('Choisissez le Héros à croquer (RESOLVE_TAKE_A_BITE).')
+  }
+  // Isabella — AMOUR : choisir le Héros qui aime Isabella d'abord.
+  if (state.pendingGrantLove && action.type !== 'RESOLVE_GRANT_LOVE' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Choisissez le Héros qui vous aime (RESOLVE_GRANT_LOVE).')
   }
   if (
     state.pendingDuplicateIngredient &&
@@ -11669,6 +12276,11 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
         activePlayedCount: (state.activePlayedCount ?? 0) + 1,
         activePlayedItemCount: (state.activePlayedItemCount ?? 0) + (playedItem ? 1 : 0),
         activePlayedAllyCount: (state.activePlayedAllyCount ?? 0) + (playedCard?.type === 'ally' ? 1 : 0),
+        // Coût max d'un Événement joué (Le Piégeur — Fermeture de la trappe).
+        activePlayedEventMaxCost: Math.max(
+          state.activePlayedEventMaxCost ?? 0,
+          playedCard?.type === 'effect' ? playedCard?.cost ?? 0 : 0,
+        ),
         // Coût de la carte jouée (Syndrome — « Qui est le plus super ? »).
         lastPlayedCardCost: playedCard?.cost ?? 0,
       }
@@ -11816,6 +12428,12 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applySacrificeCrown(state, action.instanceId)
     case 'RESOLVE_HERO_RELOCATE':
       return applyResolveHeroRelocate(state, action.heroInstanceId, action.to)
+    case 'RESOLVE_PIEGEUR_TARGET':
+      return applyResolvePiegeurTarget(state, action.survivorInstanceId)
+    case 'RESOLVE_PIEGEUR_DEST':
+      return applyResolvePiegeurDest(state, action.to)
+    case 'DISCARD_PALETTE':
+      return applyDiscardPalette(state, action.instanceId)
     case 'RESOLVE_ALLY_RELOCATE':
       return applyResolveAllyRelocate(state, action.allyInstanceId, action.to)
     case 'SKIP_ALLY_RELOCATE':
@@ -11900,6 +12518,10 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveFateObjectPlace(state, action.locationId)
     case 'RESOLVE_FATE_HERO_PLACE':
       return applyResolveFateHeroPlace(state, action.locationId)
+    case 'RESOLVE_FATE_DISCARD_TYPE':
+      return applyResolveFateDiscardType(state, action.cardType)
+    case 'REMOVE_FATE_LOCATION_CARD':
+      return applyRemoveFateLocationCard(state, action.instanceId)
     case 'RESOLVE_GIANT_LOCATION':
       return applyResolveGiantLocation(state, action.locationId)
     case 'RESOLVE_TITAN_MOVE':
@@ -11928,6 +12550,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveDiscardThenDraw(state, action.instanceIds)
     case 'RESOLVE_TAKE_A_BITE':
       return applyResolveTakeABite(state, action.heroInstanceId)
+    case 'RESOLVE_GRANT_LOVE':
+      return applyResolveGrantLove(state, action.heroInstanceId)
     case 'RESOLVE_DUPLICATE_INGREDIENT':
       return applyResolveDuplicateIngredient(state, action.ingredientInstanceId)
     case 'CANCEL_DUPLICATE_INGREDIENT':
@@ -12026,6 +12650,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       )
     case 'ACTIVATE_CAULDRON':
       return applyActivateCauldron(state)
+    case 'CAULDRON_EXCHANGE':
+      return applyCauldronExchange(state, action.squeletteInstanceId, action.soldierInstanceId)
     case 'END_TURN':
       return applyEndTurn(state)
   }
@@ -12043,5 +12669,46 @@ function applyActivateCauldron(state: GameState): GameState {
   return {
     ...next,
     log: [...next.log, `${me.villainName} RÉVEILLE le **Chaudron Magique** : il peut désormais jouer des Soldats Ressuscités.`],
+  }
+}
+
+/** Le Seigneur des Ténèbres — capacité du Chaudron RÉVEILLÉ (une fois par tour, AVANT de
+ *  déplacer le pion) : paie 2 Pouvoir pour remplacer un Objet « Squelettes de Soldats »
+ *  (n'importe quel lieu) par un « Soldat Ressuscité » de la main, posé sur le lieu du
+ *  Squelette (qui est défaussé). */
+function applyCauldronExchange(state: GameState, squeletteInstanceId: string, soldierInstanceId: string): GameState {
+  const idx = state.activePlayer
+  const me = state.players[idx]
+  if (!canCauldronExchange(state)) {
+    throw new Error("La capacité d'échange du Chaudron n'est pas disponible (Chaudron réveillé, avant de déplacer le pion, ≤ 1 fois par tour, 2 Pouvoir requis).")
+  }
+  let sqLoc: LocationId | undefined
+  for (const [loc, cards] of Object.entries(me.board)) {
+    if (cards.some((c) => c.instanceId === squeletteInstanceId && c.cardId === 'ancient-soldiers' && c.type === 'item' && !c.attachedTo)) {
+      sqLoc = loc as LocationId
+      break
+    }
+  }
+  if (!sqLoc) throw new Error('Squelettes de Soldats introuvable (Objet posé requis).')
+  const soldier = me.hand.find((c) => c.instanceId === soldierInstanceId && c.cardId === 'cauldron-born')
+  if (!soldier) throw new Error('Soldat Ressuscité introuvable dans votre main.')
+  const loc = sqLoc
+  const next = updatePlayer(state, idx, (p) => {
+    const squelette = (p.board[loc] ?? []).find((c) => c.instanceId === squeletteInstanceId)!
+    return {
+      ...p,
+      power: p.power - 2,
+      hand: p.hand.filter((c) => c.instanceId !== soldierInstanceId),
+      board: {
+        ...p.board,
+        [loc]: [...(p.board[loc] ?? []).filter((c) => c.instanceId !== squeletteInstanceId), { ...soldier, attachedTo: undefined }],
+      },
+      discard: [...p.discard, squelette],
+      cauldronExchangeUsedThisTurn: true,
+    }
+  })
+  return {
+    ...next,
+    log: [...next.log, `${me.villainName} paie 2 Pouvoir : un **Squelettes de Soldats** de **${findLocation(next.players[idx], loc)?.name ?? loc}** devient un **Soldat Ressuscité**.`],
   }
 }

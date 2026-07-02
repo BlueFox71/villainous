@@ -507,7 +507,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
     ],
   },
   teamRocket: {
-    difficulty: 4,
+    difficulty: 3,
     story:
       "Jessie, James et leur Miaouss parlant : le trio de bras cassés de la Team Rocket, lancés à la poursuite des Pokémon de Sacha à bord de leur montgolfière. Maladroits mais increvables, ils multiplient pièges, déguisements et machines pour s'emparer des Pokémon les plus rares. (Pokémon, série animée.)",
     playTips: [
@@ -542,6 +542,22 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
 /** Fiches RÉDIGÉES pour certains vilains publiés (collaborations fixes), indexées par
  *  leur id custom. Priorité sur la synthèse automatique de `villainGuideOf`. */
 const CUSTOM_GUIDES: Record<string, VillainGuide> = {
+  'custom-isabella': {
+    difficulty: 4,
+    story:
+      "Isabella (The Promised Neverland) est la « Maman » de l'orphelinat de Grace Field. Douce, cultivée et adorée des enfants, elle cache un rôle glaçant : élever des petits heureux et brillants pour mieux les livrer, à l'heure dite, aux démons qui s'en nourrissent. Rien n'échappe à cette gardienne calculatrice — ni une évasion, ni un cœur qui se rebelle. Derrière son sourire maternel, elle règle chaque geste comme une horloge dont l'aiguille finit toujours par sonner la Moisson.",
+    playTips: [
+      "Objectif : faire TOURNER L'HORLOGE. Une aiguille parcourt 6 heures (XII, II, IV, VI, VIII, X) et avance d'un cran au début de chacun de tes tours. Joue au moins une ACTIVITÉ à chaque heure pour la VALIDER — les 6 heures validées = victoire.",
+      "Chaque Activité n'est jouable qu'à certaines heures (elle est grisée sinon) : planifie tes tours pour toujours avoir une carte jouable à l'heure courante. RADAR DE POCHE libère les Activités à N'IMPORTE QUELLE heure pour un tour (mais fait piocher un Héros Fatalité).",
+      "Fais AIMER les Héros : DÎNER EN FAMILLE, TEMPS LIBRE et TU AS L'AIR UN PEU PÂLE transforment un Héros en Allié docile (capacités annulées) et débloquent ses clauses « Amour ». Neutralise les gêneurs avec SUPPRIMÉS DE L'ÉQUATION ou GRAND-MÈRE SARAH.",
+      "LA VIDA va chercher MOISSON, CLOCHE creuse ton deck, SŒUR KRONE te laisse réutiliser une action recouverte par un Héros de ton lieu. Garde un œil sur INCENDIE (Fatalité) qui bloque tes Activités à la prochaine heure.",
+    ],
+    counterTips: [
+      "Casse son tempo : elle DOIT valider l'heure courante avant qu'elle ne passe. Chaque tour sans Activité jouable est une heure perdue qu'elle devra re-parcourir au tour suivant.",
+      "Joue INCENDIE au bon moment : à la prochaine heure, aucune Activité n'est jouable — sauf si PHIL aime déjà Isabella (immunité). Encombre ses lieux et sa main pour l'empêcher d'avoir la bonne carte à la bonne heure.",
+      "Empêche l'Amour : tant qu'un Héros n'aime pas Isabella, ses capacités la gênent (GILDA renchérit tes Événements, NORMAN les bloque, EMMA taxe tes activations, PHIL te fait perdre du Pouvoir). MAMAN EST UN ENNEMI et ÉVASION font redevenir un Héros aimé un vrai Héros.",
+    ],
+  },
   'custom-dio': {
     difficulty: 3,
     story:
@@ -585,6 +601,22 @@ const CUSTOM_GUIDES: Record<string, VillainGuide> = {
       "Étrangle son moteur : Haut de forme l'empêche de poser la moindre maison, Fer à repasser annule tous ses loyers — ce sont tes meilleures Fatalités.",
       "Taxe et démolis : Brouette retire 1 à tous ses gains, Chaussure bloque un lieu, Bateau et Beaucoup trop de versions détruisent une maison, Rénovation lui fait perdre la moitié de son Pouvoir.",
       "Limite tes passages sur les lieux qu'il a maisonnés : chaque arrivée lui paie un loyer. Ne lui offre pas de tours gratuits.",
+    ],
+  },
+  'custom-gul-dan': {
+    difficulty: 2,
+    story:
+      "Gul'dan (Warcraft) est le premier sorcier des ténèbres de la Horde. Assoiffé de pouvoir, il trahit son peuple orc et se voue à la Légion ardente : il boit le sang de démon, corrompt les clans et ouvre la Porte des Ténèbres pour déverser l'invasion sur Azeroth. Manipulateur né, il ne recule devant aucun sacrifice — pas même le sien — pour arracher la puissance des Anciens Dieux et des Titans déchus.",
+    playTips: [
+      "Objectif : posséder les 4 ARTÉFACTS, CORROMPRE les 4 lieux, amener ton pion sur la Porte des Ténèbres et jouer OUVERTURE.",
+      "Joue tes 4 Artéfacts (Livre de Medivh, Œil de Dalaran, Sceptre de Sargeras, Crâne de Gul'dan) : ils s'empilent comme des Ingrédients et déclenchent leur effet à la pose.",
+      "Étale la CORRUPTION : chaque Corruption bascule un lieu en face B et y reste ; à 3 lieux corrompus, la Porte des Ténèbres se déverrouille.",
+      "MANIPULATION rejoue GRATUITEMENT la capacité d'un Artéfact déjà posé ; MAGIE GANGRENÉ pioche 2 (garde 0, 1 ou 2) ; DRAIN D'ÂME sacrifie un Allié pour piocher.",
+    ],
+    counterTips: [
+      "ARMÉE DE LA LUMIÈRE est ta meilleure arme : posée sur un lieu, elle EMPÊCHE sa corruption (il doit payer 3 Pouvoir pour la retirer). Garde toujours un lieu non corrompu → sa victoire est hors d'atteinte.",
+      "KHADGAR annule l'effet des Artéfacts posés ET rend Manipulation injouable tant qu'il est là (mais ne bloque pas la victoire) ; KIL'JAEDEN lui prend 1 Pouvoir chaque tour et ne part qu'une fois les 4 lieux corrompus.",
+      "Ralentis ses Artéfacts : MEDIVH les renchérit de 2, ILLIDAN interdit le Crâne de Gul'dan, ANDUIN LOTHAR doit être vaincu avant les autres Héros. Attention : PROPHÈTE VELEN redéploie une Armée de la Lumière depuis la défausse.",
     ],
   },
 }

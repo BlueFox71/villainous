@@ -44,10 +44,13 @@ export const seigneurTenebresCards: CardDef[] = [
     cost: 3,
     strength: 3,
     copies: 5,
-    // Jouable UNIQUEMENT quand le Chaudron Magique est réveillé (face Pouvoir).
+    // Jouable UNIQUEMENT quand le Chaudron Magique est réveillé (face Pouvoir) ET sur un
+    // lieu portant un Objet « Squelettes de Soldats », que l'on défausse pour le jouer
+    // (échange, à la manière d'Anastasie « en robe de bal »).
     requiresPoweredCauldron: true,
-    keepAlliesOnVanquishHere: true,
-    text: 'Vous ne pouvez jouer cette carte que si le Chaudron Magique est réveillé. Les Soldats Ressuscités ne sont pas défaussés lorsqu’ils participent à une action Éliminer un Héros — l’armée immortelle du Seigneur des Ténèbres.',
+    consumesItemCardId: 'ancient-soldiers',
+    survivesVanquishInPlace: true,
+    text: 'Vous ne pouvez jouer cette carte que si le Chaudron Magique est réveillé, en défaussant un Objet « Squelettes de Soldats » de son lieu. Les Soldats Ressuscités ne sont pas défaussés lorsqu’ils participent à une action Éliminer un Héros — ils restent en jeu, l’armée immortelle du Seigneur des Ténèbres.',
     image: img('cauldron-born.png'),
   },
   {

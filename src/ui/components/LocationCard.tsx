@@ -227,22 +227,22 @@ export function LocationCard({
         </div>
       )}
 
-      {placedCards.some((c) => !c.attachedTo && (c.type !== 'hero' || c.hypnotized) && !c.fromFate && !(c.isBuzz && c.buzzMode === 'guardian')) && (
+      {placedCards.some((c) => !c.attachedTo && (c.type !== 'hero' || c.hypnotized || c.loved) && !c.fromFate && !(c.isBuzz && c.buzzMode === 'guardian')) && (
         <div className="flex flex-wrap items-end justify-center gap-1.5">
           {placedCards
             // Alliés/Objets « racine » dans la zone basse. Les Héros sont en haut,
             // SAUF un Héros hypnotisé (Jafar) qui devient un Allié → affiché ici.
             // Les Objets posés par la Fatalité (`fromFate`) sont dans la zone Fatalité.
             // Lotso — Buzz l'Éclair en mode GARDIEN siège en haut (côté Héros), pas ici.
-            .filter((c) => !c.attachedTo && (c.type !== 'hero' || c.hypnotized) && !c.fromFate && !(c.isBuzz && c.buzzMode === 'guardian'))
+            .filter((c) => !c.attachedTo && (c.type !== 'hero' || c.hypnotized || c.loved) && !c.fromFate && !(c.isBuzz && c.buzzMode === 'guardian'))
             .map((c) => {
               const def = getCardDef(c.cardId)
               const attached = placedCards.filter((a) => a.attachedTo === c.instanceId)
               const isTarget =
-                attachHere && (c.type === 'ally' || (c.type === 'hero' && !!c.hypnotized))
+                attachHere && (c.type === 'ally' || (c.type === 'hero' && (!!c.hypnotized || !!c.loved)))
               const canMovePick =
                 selectableCards &&
-                (c.type === 'ally' || c.type === 'item' || (c.type === 'hero' && !!c.hypnotized)) &&
+                (c.type === 'ally' || c.type === 'item' || (c.type === 'hero' && (!!c.hypnotized || !!c.loved))) &&
                 // Restriction précise (épuisement d'énergie, Tendre un Piège) : seuls
                 // les instanceId listés sont cliquables → pas d'Objet surligné à tort.
                 (selectableCardIds == null || selectableCardIds.includes(c.instanceId))

@@ -288,6 +288,121 @@ export function IngredientsPile({
 }
 
 /**
+ * Gul'dan — zone ARTÉFACTS, au même emplacement et sur le même modèle que la pile
+ * Ingrédients de la Méchante Reine. Affiche les Artéfacts déjà joués (face up) + le
+ * compteur n/4. Rendue uniquement pour Gul'dan (champ `artifacts` défini).
+ */
+export function ArtifactsPile({
+  player,
+  uprightWidth = 'w-20',
+}: {
+  player: PlayerState
+  uprightWidth?: string
+}) {
+  const [open, setOpen] = useState(false)
+  if (player.artifacts === undefined) return null
+  const artifacts = player.artifacts
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <span className="text-[8px] font-bold uppercase tracking-wide text-violet-300/90">
+        Artéfacts {artifacts.length}/4
+      </span>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); if (artifacts.length > 0) { playHistoryEvent(); setOpen(true) } }}
+        className={`grid grid-cols-2 gap-1 ${artifacts.length > 0 ? 'cursor-pointer' : 'cursor-default'}`}
+        title={artifacts.length > 0 ? 'Voir les Artéfacts' : 'Aucun Artéfact joué'}
+      >
+        {artifacts.length === 0
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className={`aspect-[5/7] ${uprightWidth} rounded border border-dashed border-violet-400/40 bg-white/5`}
+              />
+            ))
+          : artifacts.map((c) => (
+              <img
+                key={c.instanceId}
+                src={imgOf(c)}
+                alt={c.name}
+                title={c.name}
+                className={`${uprightWidth} rounded border-2 border-violet-400/70 shadow-[0_0_6px_rgba(167,139,250,0.5)] transition hover:brightness-110`}
+              />
+            ))}
+      </button>
+      {open && (
+        <DiscardModal
+          cards={artifacts}
+          label={`Artéfacts — ${player.villainName}`}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
+ * Isabella — HORLOGE, à la même place que les piles secondaires (Au-delà, Ingrédients,
+ * Artéfacts…). Affiche l'horloge (Horloge.png), une AIGUILLE orientée sur l'heure courante
+ * (XII→II→IV→VI→VIII→X) et une ✓ sur chaque heure VALIDÉE (une Activité y a été jouée).
+ * Rendue uniquement pour Isabella (champ `validatedHours` défini).
+ */
+export function ClockPile({ player, size = 'w-24' }: { player: PlayerState; size?: string }) {
+  if (player.validatedHours === undefined || player.clockHour === undefined) return null
+  const HOURS = ['XII', 'II', 'IV', 'VI', 'VIII', 'X']
+  const hour = player.clockHour
+  const validated = new Set(player.validatedHours)
+  // Géométrie estimée sur Horloge.png (691×940) : pivot du cadran + rayon jusqu'aux chiffres.
+  const CX = 50, CY = 61.5 // centre du cadran (% de l'image)
+  const RX = 30, RY = 22 // rayon (% largeur / hauteur) — le cadran est ~circulaire en pixels
+  const mark = (i: number) => {
+    const th = ((-90 + i * 60) * Math.PI) / 180
+    return { left: `${CX + RX * Math.cos(th)}%`, top: `${CY + RY * Math.sin(th)}%` }
+  }
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <span className="text-[8px] font-bold uppercase tracking-wide text-amber-200/90">
+        Horloge {validated.size}/6
+      </span>
+      <div
+        className={`relative ${size} aspect-[691/940]`}
+        title={`Heure : ${HOURS[hour]} — validées : ${[...validated].sort((a, b) => a - b).map((i) => HOURS[i]).join(', ') || 'aucune'} (${validated.size}/6)`}
+      >
+        <img src="/isabella-horloge.png" alt="Horloge" className="h-full w-full object-contain" />
+        {/* Aiguille : part du pivot vers le haut (XII), tourne de heure×60°. */}
+        <div
+          className="absolute w-[3px] rounded bg-amber-300 shadow-[0_0_4px_rgba(252,211,77,0.8)]"
+          style={{
+            left: `${CX}%`,
+            top: `${CY}%`,
+            height: `${RY}%`,
+            transform: `translate(-50%, -100%) rotate(${hour * 60}deg)`,
+            transformOrigin: '50% 100%',
+          }}
+        />
+        {/* Pivot central. */}
+        <div
+          className="absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-200"
+          style={{ left: `${CX}%`, top: `${CY}%` }}
+        />
+        {/* ✓ sur chaque heure validée. */}
+        {HOURS.map((h, i) =>
+          validated.has(i) ? (
+            <span
+              key={h}
+              className="absolute -translate-x-1/2 -translate-y-1/2 text-[10px] font-black text-emerald-300 drop-shadow-[0_0_2px_rgba(0,0,0,0.9)]"
+              style={mark(i)}
+            >
+              ✓
+            </span>
+          ) : null,
+        )}
+      </div>
+    </div>
+  )
+}
+
+/**
  * Davy Jones — TRÉSORS RÉCUPÉRÉS (face visible), à la même place que les piles
  * secondaires (Au-delà, Ingrédients…). Affiche les jetons Trésor déjà récupérés et le
  * compteur n/5. Rendu uniquement pour Davy Jones (champ `claimedTreasures` défini).

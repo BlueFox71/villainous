@@ -77,6 +77,26 @@ describe('Mr. Monopoly — coût des maisons', () => {
   })
 })
 
+describe('Mr. Monopoly — Officier de police', () => {
+  it('joué sur un lieu portant un Héros → l’envoie en Prison', () => {
+    // Plateau minimal : action « Jouer une carte » en bas (NON recouverte par le Héros).
+    const LOCS = [
+      { id: 'loc-1', name: 'Rue', actions: [{ id: 'play-1', type: 'PLAY_CARD' as const, label: 'Jouer une carte', row: 'bottom' as const }] },
+      { id: 'loc-4', name: 'Prison', actions: [] },
+    ]
+    const officier = card('ally', { instanceId: 'off', cardId: 'officier-de-police', name: 'Officier de police', cost: 0, strength: 2, sendsHeroToPrisonOnMove: 'loc-4' })
+    const hero = card('hero', { instanceId: 'h', cardId: 'heroX', name: 'Héros', strength: 3 })
+    const g = {
+      ...monoGame({ power: 5, pawnLocation: 'loc-1', locations: LOCS, hand: [officier], board: { 'loc-1': [hero], 'loc-4': [] } }),
+      phase: 'ACTION' as const,
+    }
+    const s = applyAction(g, { type: 'PLAY_CARD', actionId: 'play-1', instanceId: 'off', to: 'loc-1' })
+    expect((s.players[0].board['loc-1'] ?? []).some((c) => c.instanceId === 'off')).toBe(true) // Officier posé
+    expect((s.players[0].board['loc-4'] ?? []).some((c) => c.instanceId === 'h')).toBe(true) // Héros en Prison
+    expect((s.players[0].board['loc-1'] ?? []).some((c) => c.instanceId === 'h')).toBe(false)
+  })
+})
+
 describe('Mr. Monopoly — Affaire (pose de maisons)', () => {
   it('MONOPOLY_BUY_HOUSES ouvre le choix sur le lieu de l’adversaire', () => {
     const g = monoGame({ power: 5 })

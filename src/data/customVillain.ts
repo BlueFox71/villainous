@@ -143,6 +143,57 @@ export interface BackOverlay {
   aspect: number
 }
 
+/** Source de la couleur de fond du 3e dos (paquets personnalisés) : reprendre la
+ *  couleur du deck Vilain, celle de la Fatalité (parchemin clair), ou une couleur libre. */
+export type ExtraBackColorMode = 'villain' | 'fate' | 'custom'
+
+/** Configuration du DOS des cartes de paquet PERSONNALISÉ (3e dos), affiché seulement
+ *  quand le vilain a au moins un paquet perso (`extraDecks`). Plus personnalisable que
+ *  les dos Vilain/Fatalité : couleur au choix + recoloration des ornements dorés +
+ *  ses propres ornements importés (indépendants des deux autres dos). */
+export interface ExtraBack {
+  /** Source de la couleur de fond. */
+  colorMode: ExtraBackColorMode
+  /** Couleur libre (utilisée si `colorMode === 'custom'`). */
+  color?: string
+  /** Couleur des ornements dorés (cadre + axe + libellé). Absent = or d'origine. */
+  ornamentColor?: string
+  /** Ornements importés propres à ce dos (indépendants des dos Vilain/Fatalité). */
+  overlays?: BackOverlay[]
+}
+
+/** Configuration par défaut du 3e dos : reprend la couleur du deck Vilain. */
+export const DEFAULT_EXTRA_BACK: ExtraBack = { colorMode: 'villain' }
+
+/** Couleur de fond effective du 3e dos, d'après son mode et la couleur du vilain. */
+export function extraBackColor(v: CustomVillain): string {
+  const cfg = v.backExtra
+  if (!cfg || cfg.colorMode === 'villain') return v.color
+  if (cfg.colorMode === 'fate') return FATE_CARD_COLOR
+  return cfg.color || v.color
+}
+
+/** Une couleur #rrggbb est-elle claire (luminance relative élevée) ? */
+function isLightHex(hex: string): boolean {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
+  if (!m) return false
+  const n = parseInt(m[1], 16)
+  const r = (n >> 16) & 255
+  const g = (n >> 8) & 255
+  const b = n & 255
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 > 0.62
+}
+
+/** Le 3e dos doit-il être rendu en « parchemin » clair (mode Fatalité, ou couleur
+ *  libre claire) plutôt qu'en ardoise sombre teintée ? */
+export function extraBackPaper(v: CustomVillain): boolean {
+  const cfg = v.backExtra
+  if (!cfg) return false
+  if (cfg.colorMode === 'fate') return true
+  if (cfg.colorMode === 'custom') return isLightHex(cfg.color || v.color)
+  return false
+}
+
 /** Une carte, côté éditeur : une CardDef enrichie des champs de travail (l'illustration
  *  brute uploadée + son cadrage) que l'éditeur conserve pour pouvoir re-générer l'image
  *  finale. `image` (héritée de CardDef) contient l'image de carte BAKÉE (dataURL). */
@@ -195,6 +246,10 @@ export interface CustomVillain {
   // --- Couleurs --------------------------------------------------------------
   /** Couleur thématique : cases du méchant, panneau + dos des cartes Vilain. */
   color: string
+  /** Mots-clés colorés du vilain : chaque mot du TEXTE des cartes correspondant à un
+   *  `label` (insensible à la casse/aux accents, singulier/pluriel) est coloré à sa
+   *  `color`, comme le sont les noms de type. S'applique à TOUTES les cartes du vilain. */
+  keywordColors?: { label: string; color: string }[]
 
   // --- Images (dataURL) ------------------------------------------------------
   /** Portrait carré du vilain (éventuellement déjà encadré via l'Éditeur de portrait). */
@@ -202,6 +257,10 @@ export interface CustomVillain {
   /** Portrait BRUT (sans cadre) conservé pour ré-encadrer proprement sans empiler les
    *  cadres. Absent tant qu'aucun encadrement n'a été appliqué (le brut = `portrait`). */
   portraitRaw?: string
+  /** Cadrage du portrait carré (zoom + décalage gauche/droite/haut/bas) appliqué au BRUT
+   *  lors de la (ré)génération du portrait via l'Éditeur de portrait. Conservé pour
+   *  restaurer les curseurs à la réouverture. Défaut : centré, zoom 1. */
+  portraitCrop?: CropPos
   /** Illustration de présentation (corps entier). */
   presentation?: string
   /** Illustration du vilain affichée sur le PLATEAU (panneau de gauche). Choisie et
@@ -221,6 +280,12 @@ export interface CustomVillain {
   backFateImage?: string
   /** Ornements importés superposés au dos des cartes (déplaçables/redimensionnables). */
   backOverlays?: BackOverlay[]
+  /** Configuration du 3e dos (paquets personnalisés). Absent = pas de dos dédié
+   *  (les cartes de paquet perso retombent sur le dos Vilain). */
+  backExtra?: ExtraBack
+  /** Dos de carte de paquet personnalisé (bakée). Renseigné par le bake quand
+   *  `backExtra` existe et qu'au moins un paquet perso est défini. */
+  backExtraImage?: string
 
   // --- Objectif --------------------------------------------------------------
   /** Texte d'objectif tel qu'« imprimé » sur le plateau. */
@@ -380,6 +445,7 @@ export function toVillainDef(v: CustomVillain): VillainDef {
     pawnHeightPx: v.pawnHeightPx,
     backVillainImage: v.backVillainImage ?? '',
     backFateImage: v.backFateImage ?? '',
+    backExtraImage: v.backExtraImage || undefined,
     altObjective: v.altObjective
       ? {
           objective: v.altObjective.objective,

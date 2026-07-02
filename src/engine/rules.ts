@@ -18,6 +18,7 @@ import { isKingCandy, accessibleActionIds, racerCoveredActionId, isTrackLocation
 import { actionHasFire as shereKhanFire } from './shereKhan'
 import { locationHasJudgmentTile } from './pyramidHead'
 import { placeableHouses as monopolyPlaceableHouses, buyHouseCost as monopolyBuyHouseCost } from './monopoly'
+import { paletteBlockedLocations } from './piegeur'
 
 /**
  * Types d'actions que le moteur sait actuellement traiter (affichées comme
@@ -62,10 +63,21 @@ export function getLegalMoves(state: GameState): LocationId[] {
   const locked = new Set(p.lockedLocations ?? [])
   // Oogie Boogie — Sally : tant qu'elle est dans le royaume, le pion ne peut se
   // déplacer que vers un lieu VOISIN de sa position.
+  // Le Piégeur (Dead by Daylight) : il ne se déplace QUE d'un lieu par tour → voisin.
   const sallyPresent = Object.values(p.board).flat().some((c) => c.type === 'hero' && c.cardId === 'sally')
-  const adj = sallyPresent && p.pawnLocation ? new Set(adjacentLocationIds(state, p.pawnLocation)) : null
+  const isPiegeur = p.objective.type === 'PIEGEUR_ELIMINATE_ALL_SURVIVORS'
+  const adjacentOnly = sallyPresent || isPiegeur
+  const adj = adjacentOnly && p.pawnLocation ? new Set(adjacentLocationIds(state, p.pawnLocation)) : null
+  // Le Piégeur — une PALETTE (Objet Fatalité) bloque son accès au lieu tant qu'elle y est.
+  const paletteBlocked = isPiegeur ? paletteBlockedLocations(p) : null
   return p.locations
-    .filter((loc) => loc.id !== p.pawnLocation && !locked.has(loc.id) && (!adj || adj.has(loc.id)))
+    .filter(
+      (loc) =>
+        loc.id !== p.pawnLocation &&
+        !locked.has(loc.id) &&
+        (!adj || adj.has(loc.id)) &&
+        (!paletteBlocked || !paletteBlocked.has(loc.id)),
+    )
     .map((loc) => loc.id)
 }
 
@@ -120,6 +132,9 @@ export function isActionCovered(state: GameState, action: LocationAction): boole
   // Yeux de Kaa associé à Kaa sur le lieu du pion : les actions recouvertes par un HÉROS
   // y sont utilisables (le Feu, lui, reste couvert — traité au-dessus).
   if (me.villain === 'shere-khan' && kaaEyesUncoverHeroesAt(me, loc.id)) return false
+  // Isabella — SŒUR KRONE : si elle est sur le lieu du pion, Isabella peut utiliser les
+  // actions recouvertes par un Héros de ce lieu (approx : toutes, comme les Yeux de Kaa).
+  if ((me.board[loc.id] ?? []).some((c) => c.unlocksCoveredActionsHere)) return false
   return coveredTopActionIdsAt(me, loc.id).has(action.id)
 }
 
@@ -154,7 +169,14 @@ export function coveredTopActionIdsAt(player: PlayerState, locationId: LocationI
     // Lotso — Buzz l'Éclair en mode GARDIEN recouvre la rangée du haut comme un Héros.
     (c) =>
       // Team Rocket — un Pokémon COUCHÉ (K.O.) ne recouvre plus d'action (il est vaincu).
-      (c.type === 'hero' && !c.hypnotized && !c.pokemonKO && c.cardId !== 'the-prince') ||
+      // Le Piégeur — un Survivant FACE CACHÉE (non révélé) ne recouvre rien ; une fois
+      // révélé, il recouvre la rangée du haut comme un Héros classique.
+      (c.type === 'hero' &&
+        !c.hypnotized &&
+        !c.loved &&
+        !c.pokemonKO &&
+        c.cardId !== 'the-prince' &&
+        (!c.isSurvivor || c.revealed)) ||
       (c.isBuzz && c.buzzMode === 'guardian'),
   )
   for (const h of heroesHere) {
@@ -204,7 +226,7 @@ export function enlargeCoveredAction(
   player: PlayerState,
   hero: CardInstance,
 ): { locationId: LocationId; actionId: string } | null {
-  if (hero.type !== 'hero' || hero.heroSize !== 'enlarged' || hero.hypnotized) return null
+  if (hero.type !== 'hero' || hero.heroSize !== 'enlarged' || hero.hypnotized || hero.loved) return null
   if (!hero.enlargeTargetId) return null
   const heroLoc = locationOfCard(player, hero.instanceId)
   if (!heroLoc) return null
@@ -430,7 +452,7 @@ export function movableCards(state: GameState): { instanceId: string; from: Loca
       // Une Malédiction est traitée comme un Objet : elle se déplace aussi. Un
       // Héros hypnotisé (Jafar) compte comme un Allié → déplaçable lui aussi.
       // Héros hypnotisé (Jafar) OU le Prince (Madame de Trémaine) → déplaçable comme un Allié.
-      const isControlledAlly = (c.type === 'hero' && c.hypnotized) || c.cardId === 'the-prince'
+      const isControlledAlly = (c.type === 'hero' && (c.hypnotized || c.loved)) || c.cardId === 'the-prince'
       // Sombra : une carte de Piratage ne peut JAMAIS être déplacée.
       if (c.isPiratage) continue
       // Ulf (Gothel) / Frozone (Syndrome) : les Alliés immobilisés (Objets/Malédictions bougent).
@@ -453,6 +475,14 @@ export function activatableCards(state: GameState): CardInstance[] {
     if (locked.has(loc.id)) continue
     for (const c of me.board[loc.id] ?? []) {
       if (c.activatedCost === undefined || c.activatedCost > me.power) continue
+      // Isabella — Grand-mère Sarah : capacité « Éliminer un Héros » ; non activable (ne pas
+      // payer pour rien) s'il n'y a aucun Héros dans le royaume.
+      if (
+        (c.activatedEffects ?? []).some((e) => e.type === 'OPTIONAL_FREE_VANQUISH') &&
+        !Object.values(me.board).flat().some((x) => x.type === 'hero')
+      ) {
+        continue
+      }
       // Bowser Jr. : sa capacité (chercher Peach et la jouer) n'a de sens que tant
       // que Peach n'est NI en jeu NI déjà capturée.
       if (c.cardId === 'bowser-jr') {
@@ -565,6 +595,46 @@ export function cauldronBornLocations(player: PlayerState, card: CardInstance): 
     )
 }
 
+/** Le Seigneur des Ténèbres — un Objet « Squelettes de Soldats » (posé, non associé)
+ *  est-il présent quelque part dans le royaume ? */
+export function hasLooseAncientSoldiers(player: PlayerState): boolean {
+  return Object.values(player.board)
+    .flat()
+    .some((c) => c.cardId === 'ancient-soldiers' && c.type === 'item' && !c.attachedTo)
+}
+
+/** Le Seigneur des Ténèbres — la capacité « échange » du Chaudron RÉVEILLÉ est-elle
+ *  disponible pour `playerIndex` ? Conditions : Chaudron actif, phase MOVE (= avant de
+ *  déplacer le pion), pas déjà utilisée ce tour, au moins 2 Pouvoir, au moins un
+ *  Squelette de Soldat posé, et au moins un Soldat Ressuscité en main. */
+export function canCauldronExchange(state: GameState, playerIndex: number = state.activePlayer): boolean {
+  const p = state.players[playerIndex]
+  if (p.blackCauldron !== 'powered') return false
+  if (state.phase !== 'MOVE') return false
+  if (p.cauldronExchangeUsedThisTurn) return false
+  if (p.power < 2) return false
+  return hasLooseAncientSoldiers(p) && p.hand.some((c) => c.cardId === 'cauldron-born')
+}
+
+/** Gul'dan — nombre de lieux CORROMPUS (basculés en face B). */
+export function guldanCorruptedCount(player: PlayerState): number {
+  return player.locations.filter((l) => l.version === 'b').length
+}
+
+/** Gul'dan — les 3 conditions de la Porte des Ténèbres sont-elles réunies pour
+ *  `playerIndex` ? Pion sur le DERNIER lieu (Porte des Ténèbres), TOUS les lieux
+ *  corrompus (face B) et les 4 Artéfacts possédés (joués). Sert au garde-fou de
+ *  jouabilité d'OUVERTURE, au grisé UI et à l'effet DARK_PORTAL_WIN. */
+export function darkPortalReady(state: GameState, playerIndex: number = state.activePlayer): boolean {
+  const p = state.players[playerIndex]
+  const locs = p.locations
+  if (locs.length === 0) return false
+  const onPortal = p.pawnLocation === locs[locs.length - 1].id
+  const allCorrupted = locs.every((l) => l.version === 'b')
+  const artifacts = (p.artifacts ?? []).length
+  return onPortal && allCorrupted && artifacts >= 4
+}
+
 /** Joueur ciblé par la Fatalité du joueur actif (en 2 joueurs : l'autre). */
 export function fateTarget(state: GameState): number {
   return (state.activePlayer + 1) % state.players.length
@@ -598,7 +668,7 @@ export function canTakeABite(state: GameState, playerIndex: number = state.activ
   const p = state.players[playerIndex]
   const loc = p.pawnLocation
   if (!loc) return false
-  const heroes = (p.board[loc] ?? []).filter((c) => c.type === 'hero' && !c.hypnotized)
+  const heroes = (p.board[loc] ?? []).filter((c) => c.type === 'hero' && !c.hypnotized && !c.loved)
   if (heroes.length === 0) return false
   const priorityExists = Object.values(p.board).flat().some((c) => c.type === 'hero' && c.mustDefeatFirst)
   const pool = priorityExists ? heroes.filter((h) => h.mustDefeatFirst) : heroes
@@ -1191,6 +1261,9 @@ export function conditionIsTriggered(
       return (state.activePlayedItemCount ?? 0) - (card.conditionBaseline?.playedItems ?? 0) >= card.trigger.value
     case 'opponent-played-ally':
       return (state.activePlayedAllyCount ?? 0) - (card.conditionBaseline?.playedAllies ?? 0) >= 1
+    case 'opponent-played-event-cost-ge':
+      // Le Piégeur — Fermeture de la trappe : l'adversaire a joué un Événement de coût ≥ N.
+      return (state.activePlayedEventMaxCost ?? 0) >= card.trigger.value
     case 'opponent-played-fate-hero-le': {
       const max = card.trigger.value
       return (state.activeFateHeroesAgainst ?? []).some((e) => e.target === playerIndex && e.strength <= max)
@@ -1347,6 +1420,12 @@ export function effectiveCost(
   surcharge += Object.values(me.board).flat().filter(
     (c) => c.type === 'hero' && c.cardId === 'tiana',
   ).length
+  // Gul'dan — Medivh (Fatalité) : un Artéfact coûte +N par Héros « renchérisseur » présent.
+  if (card.isArtifact) {
+    surcharge += Object.values(me.board)
+      .flat()
+      .reduce((n, c) => n + (c.type === 'hero' ? (c.increasesArtifactCost ?? 0) : 0), 0)
+  }
   // Sergent Calhoun (Fatalité, Sa Sucrerie) : l'action Jouer une carte coûte +N par carte
   // dotée de `playCardCostSurcharge` présente dans le royaume. Compte TOUTES les cartes
   // (Héros, mais aussi un Objet associé : Dio — Hierophant Green attaché à Kakyoin, +1).
@@ -1359,6 +1438,22 @@ export function effectiveCost(
     (c) => c.type === 'hero' && c.cardId === 'cendrillon',
   )) {
     surcharge += 2
+  }
+  // Isabella — Héros Fatalité (passifs data-driven). Les Événements coûtent +N (Gilda/Norman
+  // NON aimés) ou −N (Norman aimé) ; les Activités (cartes à `allowedHours`) coûtent −N par
+  // Héros aimé porteur (Phil aimé).
+  {
+    const heroesRealm = Object.values(me.board).flat().filter((c) => c.type === 'hero')
+    if (card.type === 'effect') {
+      // Gilda/Norman (non aimés) : Événements +N (partout dans le royaume).
+      surcharge += heroesRealm.filter((h) => !h.loved).reduce((n, h) => n + (h.eventCostSurcharge ?? 0), 0)
+      // Norman (aimé) : Événement −N seulement s'il est joué SUR SON LIEU (= lieu du pion).
+      const hereHeroes = loc ? (me.board[loc] ?? []).filter((c) => c.type === 'hero') : []
+      discount += hereHeroes.filter((h) => h.loved).reduce((n, h) => n + (h.eventCostDiscountWhenLoved ?? 0), 0)
+    }
+    if (card.allowedHours && card.allowedHours.length > 0) {
+      discount += heroesRealm.filter((h) => h.loved).reduce((n, h) => n + (h.activiteCostDiscountWhenLoved ?? 0), 0)
+    }
   }
   // Ratigan — Outils : jouer un Objet coûte 1 de moins par Outils dans le royaume.
   if (card.type === 'item') {
@@ -1453,11 +1548,26 @@ export function kissAtBallConditionMet(
  *  victoire ? Dispatch sur le type d'objectif (POWER_THRESHOLD, CURSE_EACH_LOCATION,
  *  …). Les objectifs déclenchés « à l'instant » (Coup Royal, Vanquish, Divination)
  *  renvoient `false` ici : ils n'ont pas de fenêtre « atteint mais en attente ». */
+/** Isabella — une Activité (carte portant `allowedHours`) n'est jouable que si l'heure
+ *  courante de l'horloge (`clockHour`) figure dans ses heures autorisées. Les cartes
+ *  sans `allowedHours` ne sont pas concernées (toujours « vrai » ici). */
+export function activitePlayableAtHour(player: PlayerState, card: CardInstance): boolean {
+  if (!card.allowedHours || card.allowedHours.length === 0) return true
+  // Incendie : ce tour-ci, AUCUNE Activité (prioritaire, même sur le Radar de poche).
+  if (player.incendieActive) return false
+  // Radar de poche : ce tour-ci, toute Activité est jouable quelle que soit l'heure.
+  if (player.activiteAnyHourThisTurn) return true
+  return card.allowedHours.includes(player.clockHour ?? 0)
+}
+
 export function hasReachedObjective(state: GameState, playerIndex: number = state.activePlayer): boolean {
   const p = state.players[playerIndex]
   switch (p.objective.type) {
     case 'POWER_THRESHOLD':
       return p.power >= p.objective.threshold
+    case 'ISABELLA_CLOCK':
+      // Isabella — les 6 heures (XII, II, IV, VI, VIII, X) ont chacune reçu une Activité.
+      return (p.validatedHours ?? []).length >= 6
     case 'CONFIANCE_THRESHOLD':
       return (p.confiance ?? 0) >= p.objective.threshold
     case 'PUPPY_THRESHOLD':
@@ -1644,6 +1754,14 @@ export function hasReachedObjective(state: GameState, playerIndex: number = stat
         const hero = room.find((c) => c.type === 'hero' && c.cardId === id)
         return !!hero && (effectiveStrength(state, playerIndex, hero.instanceId) ?? 0) === 0
       })
+    }
+    case 'PIEGEUR_ELIMINATE_ALL_SURVIVORS': {
+      // Le Piégeur : victoire quand plus aucun Survivant ne subsiste (ni sur le plateau,
+      // ni dans la pile). Vérification passive de repli ; l'élimination du dernier
+      // survivant déclenche aussi la victoire (Phase 2, effets d'élimination).
+      const onBoard = Object.values(p.board).flat().some((c) => c.isSurvivor)
+      const inPile = (p.survivorPile ?? []).length > 0
+      return !onBoard && !inPile
     }
   }
 }

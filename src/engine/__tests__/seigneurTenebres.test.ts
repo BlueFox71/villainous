@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { createInitialGame } from '../state'
-import { resolveEffects } from '../effects'
+import { resolveEffects, performVanquish } from '../effects'
 import { applyAction } from '../actions'
-import { hasReachedObjective, cauldronBornLocations, effectiveStrength, getAvailableActions } from '../rules'
+import { hasReachedObjective, cauldronBornLocations, canCauldronExchange, effectiveStrength, getAvailableActions } from '../rules'
 import { enumerateActions } from '../../ai/enumerate'
 import { seigneurTenebres } from '../../data/villains/seigneurTenebres'
 import { seigneurTenebresCards } from '../../data/villains/seigneurTenebres.cards'
@@ -83,22 +83,47 @@ describe('Le Seigneur des Ténèbres — Chaudron Noir', () => {
 })
 
 describe('Le Seigneur des Ténèbres — Soldats Ressuscités', () => {
-  const cbCard = () => ({ ...card('cauldron-born', 'ally', { strength: 3, requiresPoweredCauldron: true }), instanceId: 'cb1' })
+  const cbCard = () => ({ ...card('cauldron-born', 'ally', { strength: 3, requiresPoweredCauldron: true, consumesItemCardId: 'ancient-soldiers' }), instanceId: 'cb1' })
+  const skeleton = (id = 'sk1') => ({ ...card('ancient-soldiers', 'item'), instanceId: id })
 
   it('injouable si le Chaudron Magique n’est pas réveillé', () => {
     const cb = cbCard()
-    const s = { ...game(), phase: 'ACTION' as const, players: [{ ...game().players[0], pawnLocation: 'morva', power: 5, hand: [cb], blackCauldron: 'claimed' as const }] }
+    const s = { ...game(), phase: 'ACTION' as const, players: [{ ...game().players[0], pawnLocation: 'morva', power: 5, hand: [cb], board: { ...game().players[0].board, morva: [skeleton()] }, blackCauldron: 'claimed' as const }] }
     expect(() =>
       applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: 'cb1', to: 'morva' }),
     ).toThrow(/Chaudron Magique/i)
   })
 
-  it('jouable sur n’importe quel lieu une fois le Chaudron réveillé', () => {
+  it('injouable sur un lieu sans « Squelettes de Soldats », même Chaudron réveillé', () => {
     const cb = cbCard()
-    let s = { ...game(), phase: 'ACTION' as const, players: [{ ...game().players[0], pawnLocation: 'morva', power: 5, hand: [cb], blackCauldron: 'powered' as const }] }
+    const s = { ...game(), phase: 'ACTION' as const, players: [{ ...game().players[0], pawnLocation: 'morva', power: 5, hand: [cb], blackCauldron: 'powered' as const }] }
+    expect(cauldronBornLocations(s.players[0], cb)).not.toContain('morva')
+    expect(() =>
+      applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: 'cb1', to: 'morva' }),
+    ).toThrow()
+  })
+
+  it('jouable en défaussant un « Squelettes de Soldats » de son lieu (échange)', () => {
+    const cb = cbCard()
+    let s = { ...game(), phase: 'ACTION' as const, players: [{ ...game().players[0], pawnLocation: 'morva', power: 5, hand: [cb], board: { ...game().players[0].board, morva: [skeleton('sk1')] }, blackCauldron: 'powered' as const }] }
     expect(cauldronBornLocations(s.players[0], cb)).toContain('morva')
     s = applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: 'cb1', to: 'morva' })
+    // Le Soldat Ressuscité est posé ; le Squelette a été défaussé (échange).
     expect((s.players[0].board['morva'] ?? []).some((c) => c.cardId === 'cauldron-born')).toBe(true)
+    expect((s.players[0].board['morva'] ?? []).some((c) => c.cardId === 'ancient-soldiers')).toBe(false)
+    expect(s.players[0].discard.some((c) => c.cardId === 'ancient-soldiers')).toBe(true)
+  })
+
+  it('les Soldats Ressuscités ne sont PAS défaussés au Vanquish (restent en jeu à leur place)', () => {
+    const hero = { ...card('cavalier-du-roi', 'hero', { strength: 3 }), instanceId: 'h1' }
+    const soldier = { ...card('cauldron-born', 'ally', { strength: 3, survivesVanquishInPlace: true }), instanceId: 'cb1' }
+    const s = { ...setBoard(game(), { morva: [hero, soldier] }), players: [{ ...setBoard(game(), { morva: [hero, soldier] }).players[0], pawnLocation: 'morva' as const }] }
+    const after = performVanquish(s, 'h1', ['cb1'], false)
+    // Héros vaincu, mais CE Soldat (cb1) reste sur morva (ni défaussé, ni repris en main).
+    expect((after.players[0].board['morva'] ?? []).some((c) => c.instanceId === 'cb1')).toBe(true)
+    expect(after.players[0].discard.some((c) => c.instanceId === 'cb1')).toBe(false)
+    expect(after.players[0].hand.some((c) => c.instanceId === 'cb1')).toBe(false)
+    expect((after.players[0].board['morva'] ?? []).some((c) => c.instanceId === 'h1')).toBe(false)
   })
 
   it('« Notre heure est venue ! » réveille le Chaudron en sa possession', () => {
@@ -106,6 +131,44 @@ describe('Le Seigneur des Ténèbres — Soldats Ressuscités', () => {
     s = resolveEffects(s, [{ type: 'CLAIM_BLACK_CAULDRON' }], { actorIndex: 0 })
     s = resolveEffects(s, [{ type: 'POWER_BLACK_CAULDRON' }], { actorIndex: 0 })
     expect(s.players[0].blackCauldron).toBe('powered')
+  })
+})
+
+describe('Le Seigneur des Ténèbres — échange du Chaudron réveillé (1/tour, avant le déplacement)', () => {
+  const setup = () => {
+    const skeleton = { ...card('ancient-soldiers', 'item'), instanceId: 'sk1' }
+    const soldier = { ...card('cauldron-born', 'ally', { strength: 3 }), instanceId: 'cb1' }
+    const g = game()
+    return {
+      ...g,
+      phase: 'MOVE' as const,
+      players: [{ ...g.players[0], power: 5, blackCauldron: 'powered' as const, hand: [soldier], board: { ...g.players[0].board, morva: [skeleton] } }],
+    }
+  }
+
+  it('paie 2 Pouvoir, remplace un Squelette (n’importe quel lieu) par un Soldat de la main sur ce lieu', () => {
+    let s = setup()
+    expect(canCauldronExchange(s, 0)).toBe(true)
+    s = applyAction(s, { type: 'CAULDRON_EXCHANGE', squeletteInstanceId: 'sk1', soldierInstanceId: 'cb1' })
+    expect(s.players[0].power).toBe(3) // −2 Pouvoir
+    expect((s.players[0].board['morva'] ?? []).some((c) => c.instanceId === 'cb1')).toBe(true) // Soldat posé
+    expect((s.players[0].board['morva'] ?? []).some((c) => c.instanceId === 'sk1')).toBe(false)
+    expect(s.players[0].discard.some((c) => c.instanceId === 'sk1')).toBe(true) // Squelette défaussé
+    expect(s.players[0].hand.some((c) => c.instanceId === 'cb1')).toBe(false) // Soldat sorti de la main
+    expect(s.players[0].cauldronExchangeUsedThisTurn).toBe(true)
+    expect(canCauldronExchange(s, 0)).toBe(false) // une seule fois par tour
+  })
+
+  it('indisponible si Chaudron non réveillé, après le déplacement (ACTION), ou sans Pouvoir', () => {
+    const base = setup()
+    expect(canCauldronExchange({ ...base, players: [{ ...base.players[0], blackCauldron: 'claimed' as const }] }, 0)).toBe(false)
+    expect(canCauldronExchange({ ...base, phase: 'ACTION' as const }, 0)).toBe(false)
+    expect(canCauldronExchange({ ...base, players: [{ ...base.players[0], power: 1 }] }, 0)).toBe(false)
+  })
+
+  it('refuse l’action hors des conditions (garde-fou moteur)', () => {
+    const acted = { ...setup(), phase: 'ACTION' as const }
+    expect(() => applyAction(acted, { type: 'CAULDRON_EXCHANGE', squeletteInstanceId: 'sk1', soldierInstanceId: 'cb1' })).toThrow()
   })
 })
 

@@ -265,7 +265,12 @@ export function handLimitFor(player: PlayerState): number {
   const jasmine = cards.some((c) => c.type === 'hero' && c.cardId === 'jasmine') ? 1 : 0
   // Dio — Magician Red (Stand de Mohammed Abdul) : Dio pioche 1 carte de moins en fin de tour.
   const magicianRed = cards.some((c) => c.cardId === 'magician-red') ? 1 : 0
-  return Math.max(1, HAND_LIMIT + scarab - jasmine - magicianRed)
+  // Isabella — GILDA (Amour) : tant qu'elle aime Isabella, la main est complétée jusqu'à sa
+  // valeur `drawToAtEndOfTurnWhenLoved` (5) — on relève la limite si c'est plus haut.
+  const lovedDrawTo = cards
+    .filter((c) => c.type === 'hero' && c.loved)
+    .reduce((m, c) => Math.max(m, c.drawToAtEndOfTurnWhenLoved ?? 0), 0)
+  return Math.max(1, lovedDrawTo, HAND_LIMIT + scarab - jasmine - magicianRed)
 }
 
 /**
@@ -348,6 +353,7 @@ function makePlayer(
     pawnHeightPx: villain.pawnHeightPx,
     backVillainImage: villain.backVillainImage,
     backFateImage: villain.backFateImage,
+    backExtraImage: villain.backExtraImage,
     // Règle de mise en place : le pion démarre sur le lieu le plus à gauche.
     // Le déplacement étant obligatoire vers un lieu différent, ce lieu n'est
     // donc pas jouable au premier tour.
@@ -383,6 +389,8 @@ function makePlayer(
     poison: villain.id === 'mechante-reine' ? 0 : undefined,
     ingredients: villain.id === 'mechante-reine' ? [] : undefined,
     cottageLocationId: villain.id === 'mechante-reine' ? 'maison-des-nains' : undefined,
+    // Gul'dan — zone Artéfacts (affichée dès le début → 0/4) si le deck en contient.
+    artifacts: deck.some((c) => c.isArtifact) ? [] : undefined,
     // Scar — pile Succession (vide au départ ; alimentée par les Héros éliminés).
     succession: villain.id === 'scar' ? [] : undefined,
     // Team Rocket — pile de Captures (vide au départ ; affichée dès le début → 0/4).
@@ -413,6 +421,10 @@ function makePlayer(
         : undefined,
     // Le Seigneur des Ténèbres — tuile Chaudron Noir : mise de côté au départ.
     blackCauldron: villain.objective.type === 'CAULDRON_BORN_EVERYWHERE' ? 'set-aside' : undefined,
+    // Isabella — HORLOGE : démarre à XII (index 0), aucune heure validée. L'aiguille avance
+    // à la FIN de chacun de ses tours → son 1er tour est toujours XII (peu importe l'ordre).
+    clockHour: villain.objective.type === 'ISABELLA_CLOCK' ? 0 : undefined,
+    validatedHours: villain.objective.type === 'ISABELLA_CLOCK' ? [] : undefined,
   }
 }
 
@@ -672,6 +684,38 @@ export function createInitialGame(setups: PlayerSetup[], seed: number): GameStat
         board = { ...board, [startLoc]: [...(board[startLoc] ?? []), world] }
       }
       player = { ...player, deck, fateDeck, standPile: stands, board, removedFromGame: [] }
+    }
+    // Le Piégeur (Dead by Daylight) — sépare les 4 SURVIVANTS (isSurvivor) du paquet
+    // Fatalité et les pose FACE CACHÉE, un par lieu (assignation aléatoire : survivants
+    // mélangés → posés dans l'ordre des lieux). Chaque survivant démarre en pleine santé,
+    // 3 vies, non révélé. Un CROCHET est présent sur chaque lieu.
+    if (villain.objective.type === 'PIEGEUR_ELIMINATE_ALL_SURVIVORS') {
+      const survivors = player.fateDeck.filter((c) => c.isSurvivor)
+      const fateDeck = player.fateDeck.filter((c) => !c.isSurvivor)
+      const sh = shuffle(survivors, rngState)
+      rngState = sh.state
+      const locs = villain.locations
+      let board = player.board
+      const placed = sh.result.slice(0, locs.length)
+      const leftover = sh.result.slice(locs.length)
+      placed.forEach((s, k) => {
+        const survivor: CardInstance = {
+          ...s,
+          revealed: false,
+          survivorState: 'healthy',
+          survivorLives: 3,
+          onHook: false,
+        }
+        const loc = locs[k].id
+        board = { ...board, [loc]: [...(board[loc] ?? []), survivor] }
+      })
+      player = {
+        ...player,
+        fateDeck,
+        board,
+        survivorPile: leftover,
+        hooks: Object.fromEntries(locs.map((l) => [l.id, { present: true, disabledTurns: 0 }])),
+      }
     }
     // Syndrome — pose l'Omnidroïde v.X8 sur son lieu de départ ; v.X9 puis v.10 forment
     // la pile (jouées plus tard en défaussant des Modifications Majeures).

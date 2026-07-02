@@ -83,6 +83,23 @@ describe('SWITCH_LOCATION_VERSION — lieux transformables (Atelier)', () => {
     const others = (s: GameState) => s.players[0].locations.filter((l) => l.id !== 'big-ben')
     expect(others(after)).toEqual(others(start))
   })
+
+  it("'atPlayedLocation' cible le lieu où la carte est jouée (playDestination) — Gul'dan Corruption", () => {
+    const start = withTransformable()
+    // Carte jouée SUR big-ben (playDestination) → ce lieu passe en face B.
+    const after = resolveEffects(start, [{ type: 'SWITCH_LOCATION_VERSION', to: 'b', atPlayedLocation: true }], {
+      actorIndex: 0,
+      playDestination: 'big-ben',
+    })
+    expect(bigBen(after).version).toBe('b')
+    expect(bigBen(after).name).toBe('Face B')
+  })
+
+  it("'atPlayedLocation' retombe sur le lieu du pion si playDestination est absent", () => {
+    const start = { ...withTransformable(), players: [{ ...withTransformable().players[0], pawnLocation: 'big-ben' as const }] }
+    const after = resolveEffects(start, [{ type: 'SWITCH_LOCATION_VERSION', to: 'b', atPlayedLocation: true }], { actorIndex: 0 })
+    expect(bigBen(after).version).toBe('b')
+  })
 })
 
 /** État de départ : objectif TRANSFORMABLE (face A active, face B en réserve). */

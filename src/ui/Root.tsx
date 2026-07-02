@@ -20,7 +20,7 @@ import { SoundTest } from './screens/SoundTest'
 import { MenuMusicPlayer } from './components/MenuMusicPlayer'
 import { MenuBackground } from './components/MenuBackground'
 import { IntroCinematic } from './components/IntroCinematic'
-import { useSettingsStore } from './store/settingsStore'
+import { useSettingsStore, useIsDesktopApp } from './store/settingsStore'
 import { useGameStore, VILLAIN_REGISTRY, type VillainKey } from './store/gameStore'
 import { playClick } from './sfx'
 
@@ -107,6 +107,10 @@ function VillainListRoute() {
 
 function EditorRoute() {
   const navigate = useNavigate()
+  // Atelier réservé au dév : inaccessible dans l'exe (et en simulation « .exe »),
+  // même par navigation directe.
+  const isDesktopApp = useIsDesktopApp()
+  if (isDesktopApp) return <Navigate to={ROUTES.menu} replace />
   return (
     <VillainEditor
       onBack={() => navigate(ROUTES.menu)}
@@ -128,6 +132,9 @@ function ProfileRoute() {
 
 function SoundTestRoute() {
   const navigate = useNavigate()
+  // Banque de sons = outil de dév : inaccessible dans l'exe, même en direct.
+  const isDesktopApp = useIsDesktopApp()
+  if (isDesktopApp) return <Navigate to={ROUTES.menu} replace />
   return <SoundTest onBack={() => navigate(ROUTES.menu)} />
 }
 

@@ -8,16 +8,20 @@ export function CardPreview({
   card,
   color,
   fateColor,
+  keywordColors = [],
   className,
 }: {
   card: CustomCard
   color: string
   fateColor: string
+  /** Mots-clés colorés du vilain (label → couleur), colorés comme les types. */
+  keywordColors?: { label: string; color: string }[]
   className?: string
 }) {
   const [src, setSrc] = useState<string | null>(null)
   // Types personnalisés (bibliothèque globale) → coloration de leurs noms dans le texte.
   const customTypes = useCustomTypesStore((s) => s.types)
+  const wordColors = [...customTypes, ...keywordColors]
 
   // Re-rend dès qu'un champ visuel change. On sérialise les champs pertinents pour
   // une dépendance stable (évite de re-render sur des changements non visuels).
@@ -39,12 +43,13 @@ export function CardPreview({
     col: color,
     fcol: fateColor,
     ct: customTypes,
+    kw: keywordColors,
   })
 
   useEffect(() => {
     let alive = true
     const handle = setTimeout(() => {
-      void renderCardFace(card, color, fateColor, {}, customTypes).then((url) => {
+      void renderCardFace(card, color, fateColor, {}, wordColors).then((url) => {
         if (alive) setSrc(url)
       })
     }, 250)

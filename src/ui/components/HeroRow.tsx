@@ -23,6 +23,9 @@ interface HeroRowProps {
   /** Team Rocket — Pokémon cliquables à COUCHER (Oui, la guerre !). Anneau rose clignotant. */
   koTargets?: string[]
   onKoPickPokemon?: (instanceId: string) => void
+  /** Isabella — Héros cliquables pour les faire « aimer » Isabella (AMOUR). Anneau rose. */
+  loveTargets?: string[]
+  onLovePickHero?: (instanceId: string) => void
   /** Déplacement d'un Héros : lieux (locationId) où le déposer. La CASE HÉROS (haut) du
    *  lieu s'allume et devient cliquable (alternative au glisser-déposer). */
   destTargets?: string[]
@@ -33,6 +36,10 @@ interface HeroRowProps {
    *  (tour du joueur, JT suffisants). Affiche un bouton sous le Héros porteur. */
   canDiscardDeguisement?: boolean
   onDiscardDeguisement?: (instanceId: string) => void
+  /** Gul'dan — Fatalités POSÉES sur un lieu défaussables maintenant (Armée de la Lumière :
+   *  −3 JT ; Kil'jaeden : gratuit à 4 lieux corrompus). Map instanceId → libellé du bouton. */
+  removableFateCards?: Record<string, string>
+  onRemoveFateCard?: (instanceId: string) => void
   /** instanceIds des Héros en attente de showcase (courant + en file) — à masquer
    *  du plateau tant que leur showcase n'a pas atterri. */
   hiddenInstanceIds?: string[]
@@ -65,11 +72,15 @@ export function HeroRow({
   onRelocatePickHero,
   koTargets = [],
   onKoPickPokemon,
+  loveTargets = [],
+  onLovePickHero,
   destTargets = [],
   onDestPick,
   gameTurn = 0,
   canDiscardDeguisement = false,
   onDiscardDeguisement,
+  removableFateCards = {},
+  onRemoveFateCard,
   hiddenInstanceIds = [],
   redBlinkInstanceIds = [],
   fatePickable = [],
@@ -110,7 +121,7 @@ export function HeroRow({
         const heroes = cellCards.filter(
           (c) =>
             // Lotso — Buzz l'Éclair en mode GARDIEN siège dans la zone du haut (côté Héros).
-            ((c.type === 'hero' && !c.hypnotized) || c.fromFate || (c.isBuzz && c.buzzMode === 'guardian')) &&
+            ((c.type === 'hero' && !c.hypnotized && !c.loved) || c.fromFate || (c.isBuzz && c.buzzMode === 'guardian')) &&
             !hiddenInstanceIds.includes(c.instanceId),
         )
         const previewPos =
@@ -127,6 +138,21 @@ export function HeroRow({
           >
             {/* Indicateur : contour blanc sur toute case héros contenant ≥1 Héros. */}
             {heroes.length > 0 && <GlowBorder color="#ffffff" radius={8} />}
+            {/* Le Piégeur — CROCHET du lieu (🪝). Grisé quand désactivé (Sabotage). Absent
+                une fois retiré (Survivant éliminé dessus). Placeholder emoji (art Crochet.png
+                intégré ultérieurement). */}
+            {(() => {
+              const hook = player.hooks?.[loc.id]
+              if (!hook?.present) return null
+              return (
+                <span
+                  title={hook.disabledTurns > 0 ? `Crochet désactivé (${hook.disabledTurns} tour(s))` : 'Crochet'}
+                  className={`pointer-events-none absolute right-1 top-1 z-20 text-base ${hook.disabledTurns > 0 ? 'opacity-30 grayscale' : ''}`}
+                >
+                  🪝
+                </span>
+              )
+            })()}
             {/* Déplacement d'un Héros : cette case Héros est une destination valide →
                 surbrillance ambre cliquable (« déplacer ici »), alternative au glisser. */}
             {destTargets.includes(loc.id) && (
@@ -182,12 +208,17 @@ export function HeroRow({
             })()}
             {heroes.map((c) => {
               const def = getCardDef(c.cardId)
+              // Le Piégeur — Survivant FACE CACHÉE : on affiche le DOS du paquet perso
+              // (« Survivant ») au lieu de sa face, tant qu'il n'est pas révélé.
+              const faceDownSurvivor = !!c.isSurvivor && !c.revealed
+              const cardImg = faceDownSurvivor ? player.backExtraImage || player.backFateImage : def?.image
               const isHovered = hovered === c.instanceId
               const attached = cellCards.filter((a) => a.attachedTo === c.instanceId)
               const locked = c.lockedPower ?? 0
               const isTarget = vanquishTargets.includes(c.instanceId)
               const isRelocateTarget = !isTarget && relocateTargets.includes(c.instanceId)
               const isKoTarget = !isTarget && !isRelocateTarget && koTargets.includes(c.instanceId)
+              const isLoveTarget = !isTarget && !isRelocateTarget && !isKoTarget && loveTargets.includes(c.instanceId)
               // Saisissable (glisser pour déplacer) si l'action « Déplacer un Héros »
               // est active et que ce Héros n'est pas déjà une cible de clic.
               const dragEligible = dragHeroIds.includes(c.instanceId) && !isTarget && !isRelocateTarget && !isKoTarget
@@ -219,11 +250,13 @@ export function HeroRow({
                 >
                   <div className="relative">
                     <img
-                      src={def?.image}
-                      alt={c.name}
+                      src={cardImg}
+                      alt={faceDownSurvivor ? 'Survivant (face cachée)' : c.name}
                       draggable={false}
                       title={
-                        dragEligible
+                        faceDownSurvivor
+                          ? 'Survivant caché — à révéler pour l’attaquer'
+                          : dragEligible
                           ? `Glissez ${c.name} sur un lieu voisin pour le déplacer`
                           : `${c.name}${def ? ` — ${def.text}` : ''}`
                       }
@@ -234,7 +267,9 @@ export function HeroRow({
                             ? () => onRelocatePickHero?.(c.instanceId)
                             : isKoTarget
                               ? () => onKoPickPokemon?.(c.instanceId)
-                              : undefined
+                              : isLoveTarget
+                                ? () => onLovePickHero?.(c.instanceId)
+                                : undefined
                       }
                       onPointerDown={
                         dragEligible
@@ -288,6 +323,8 @@ export function HeroRow({
                             ? 'cursor-pointer border-amber-400 ring-2 ring-amber-400 animate-pulse'
                             : isKoTarget
                               ? 'cursor-pointer border-rose-400 ring-2 ring-rose-400 animate-pulse'
+                              : isLoveTarget
+                              ? 'cursor-pointer border-pink-400 ring-2 ring-pink-400 animate-pulse'
                               : dragEligible
                               ? 'cursor-grab touch-none border-amber-300/70 ring-1 ring-amber-300/60 hover:ring-2 hover:ring-amber-300 active:cursor-grabbing'
                               : 'border-white/40'
@@ -439,6 +476,21 @@ export function HeroRow({
                         style={{ zIndex: 30 }}
                       />
                     )}
+                    {/* Le Piégeur — Survivant RÉVÉLÉ : badge d'état (santé) + vies + crochet.
+                        Sain 🟢 / Blessé 🟠 / Critique 🔴 ; vies ❤️ (perdues sur crochet). */}
+                    {c.isSurvivor && c.revealed && (
+                      <span
+                        title={`Survivant — ${
+                          c.survivorState === 'critical' ? 'état critique (immobile)' : c.survivorState === 'injured' ? 'blessé' : 'pleine santé'
+                        }${c.onHook ? ', accroché' : ''} — ${c.survivorLives ?? 3} vie(s)`}
+                        className="pointer-events-none absolute -top-1 left-1/2 flex -translate-x-1/2 items-center gap-0.5 whitespace-nowrap rounded-full border border-white/40 bg-black/80 px-1 text-[9px] font-bold text-white"
+                        style={{ zIndex: 31 }}
+                      >
+                        {c.onHook && '🪝'}
+                        {c.survivorState === 'critical' ? '🔴' : c.survivorState === 'injured' ? '🟠' : '🟢'}
+                        <span className="text-rose-300">{'❤'.repeat(Math.max(0, c.survivorLives ?? 3))}</span>
+                      </span>
+                    )}
                   </div>
                   {isHovered && (() => {
                     // Davy Jones — jeton Trésor agrandi dans l'aperçu (révélé = visible, sinon dos).
@@ -454,7 +506,7 @@ export function HeroRow({
                     return (
                       <div className={`absolute top-full ${previewPos} mt-1 flex w-max flex-col items-center`}>
                         <div className="flex items-end gap-1 rounded-lg border border-white/20 bg-[#0b0a12] p-1 shadow-2xl">
-                          <img src={def?.image} alt={c.name} className="h-[22rem] w-auto max-w-none shrink-0 rounded" />
+                          <img src={cardImg} alt={faceDownSurvivor ? 'Survivant (face cachée)' : c.name} className="h-[22rem] w-auto max-w-none shrink-0 rounded" />
                           {attached.map((a) => (
                             <img
                               key={a.instanceId}
@@ -476,6 +528,15 @@ export function HeroRow({
                       className="mt-0.5 w-full rounded bg-fuchsia-700 px-1 py-0.5 text-[9px] font-bold text-white hover:bg-fuchsia-600"
                     >
                       −2 JT 🗡
+                    </button>
+                  )}
+                  {removableFateCards[c.instanceId] && (
+                    <button
+                      onClick={() => onRemoveFateCard?.(c.instanceId)}
+                      title={`Défausser ${c.name}`}
+                      className="mt-0.5 w-full rounded bg-amber-600 px-1 py-0.5 text-[9px] font-bold text-white hover:bg-amber-500"
+                    >
+                      {removableFateCards[c.instanceId]}
                     </button>
                   )}
                 </figure>

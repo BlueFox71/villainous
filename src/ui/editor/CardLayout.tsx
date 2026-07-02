@@ -35,11 +35,14 @@ export function CardLayoutEditor({
   card,
   color,
   fateColor,
+  keywordColors = [],
   onChange,
 }: {
   card: CustomCard
   color: string
   fateColor: string
+  /** Mots-clés colorés du vilain (label → couleur), colorés comme les types. */
+  keywordColors?: { label: string; color: string }[]
   onChange: (c: CustomCard) => void
 }) {
   const [bg, setBg] = useState<string | null>(null)
@@ -47,6 +50,7 @@ export function CardLayoutEditor({
   const containerRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<DragState | null>(null)
   const customTypes = useCustomTypesStore((s) => s.types)
+  const wordColors = [...customTypes, ...keywordColors]
 
   // Rendu de fond (réel) — débanché pour rester fluide pendant l'édition.
   const key = JSON.stringify({
@@ -67,11 +71,12 @@ export function CardLayoutEditor({
     col: color,
     fcol: fateColor,
     ct: customTypes,
+    kw: keywordColors,
   })
   useEffect(() => {
     let alive = true
     const h = setTimeout(() => {
-      void renderCardFace(card, color, fateColor, {}, customTypes).then((url) => {
+      void renderCardFace(card, color, fateColor, {}, wordColors).then((url) => {
         if (alive) setBg(url)
       })
     }, 140)

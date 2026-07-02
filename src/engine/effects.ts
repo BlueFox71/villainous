@@ -11,12 +11,21 @@
 // Ajouter un comportement = ajouter un variant à Effect + un `case` ici.
 // =============================================================================
 
-import type { CardInstance, Crewmate, CurseDiscardTrigger, DiceOutcome, Effect, GameState, LocationId, PlayerState } from './types'
+import type { CardInstance, CardType, Crewmate, CurseDiscardTrigger, DiceOutcome, Effect, GameState, LocationId, PlayerState } from './types'
 import { activePlayer, dioPowerFactor, drawPlayerToLimit, findLocation, pushDiscardShowcase, pushFloatingFx, pushRevealShowcase, pushRobinSteal, pushScryDiscardShowcase, pushShowcase, revealFate, syncObservatoryLock, updateActivePlayer, updatePlayer } from './state'
 import { neighborLocIds, placeCrewmateAt } from './crewmates'
 import { startRace, advanceRacer, advanceRacerByReveal, moveRacerBack, moveKingCandyTrack, vanellopeInstance, cardLocationIds } from './kingCandy'
 import { noFireInRealm as shereKhanNoFire, placeFire, removeFire, fireOnLocation, fireFreeActions, listFire } from './shereKhan'
 import { nextTileLocationId, judgmentBlockedAt } from './pyramidHead'
+import {
+  allSurvivors as piegeurSurvivors,
+  locationOfInstance as piegeurLocOf,
+  farthestLocationFromPawn as piegeurFarthest,
+  bearTrapAt as piegeurBearTrapAt,
+  moveSurvivorWithTrap as piegeurMoveSurvivor,
+  PIEGEUR_BEAR_TRAP_ID,
+  PIEGEUR_PERSONNE_ID,
+} from './piegeur'
 import {
   opponentIndex as monopolyOpponent,
   houseCount,
@@ -43,6 +52,7 @@ import {
   activatableCards,
   adjacentLocationIds,
   belleBlocksRemoval,
+  darkPortalReady,
   dingoSwapOptions,
   isGlassSlipper,
   movableCards,
@@ -1205,6 +1215,9 @@ export function performVanquish(
       // Dio — The World : indéfaussable. Utilisé pour un Vanquish, il RESTE en jeu
       // (il suit le pion) au lieu d'être défaussé comme un Allié normal.
       if (a.cannotBeDiscarded) continue
+      // Le Seigneur des Ténèbres — Soldats Ressuscités : armée immortelle. Utilisés
+      // pour un Vanquish, ils RESTENT en jeu à leur place (ni défaussés, ni repris).
+      if (a.survivesVanquishInPlace) continue
       if (a.isTitan && heroHasPotion) continue // Titan préservé par la Potion
       // Yzma — Kronk n'est PAS défaussé quand il sert à éliminer un Héros : il reste
       // sur le lieu (avec ses Objets associés, ex. Couteau).
@@ -2140,6 +2153,36 @@ export function lotsoMoveToRoom(state: GameState, idx: number, instanceId: strin
   return { ...next, log: [...next.log, `${p.villainName} déplace **${card.name}** sur la Salle des Chenilles.`] }
 }
 
+/** Gul'dan — Défaite : défausse TOUS les Alliés OU Objets (non associés, hors arceaux /
+ *  Sabotage) du royaume de `idx`, avec leurs cartes associées. Utilisé par l'effet
+ *  FATE_DISCARD_TYPE_CHOICE (choix direct ou après résolution du pending). */
+export function discardAllOfTypeInRealm(state: GameState, idx: number, cardType: CardType): GameState {
+  const p = state.players[idx]
+  const removedHosts = new Set<string>()
+  for (const l of p.locations)
+    for (const c of p.board[l.id] ?? [])
+      if (c.type === cardType && !c.attachedTo && !c.isWicket && !c.isSabotage) removedHosts.add(c.instanceId)
+  const removed: CardInstance[] = []
+  const board: typeof p.board = {}
+  for (const l of p.locations) {
+    board[l.id] = (p.board[l.id] ?? []).filter((c) => {
+      const drop = removedHosts.has(c.instanceId) || (c.attachedTo != null && removedHosts.has(c.attachedTo))
+      if (drop) {
+        removed.push({ ...c, attachedTo: undefined })
+        return false
+      }
+      return true
+    })
+  }
+  if (removed.length === 0) return state
+  const next = updatePlayer(state, idx, (pl) => ({ ...pl, board, discard: [...pl.discard, ...removed] }))
+  const label = cardType === 'ally' ? 'Alliés' : 'Objets'
+  return {
+    ...next,
+    log: [...next.log, `Défaite : ${removed.length} ${label} du royaume de ${p.villainName} défaussé${removed.length > 1 ? 's' : ''}.`],
+  }
+}
+
 export function resolveEffect(
   state: GameState,
   effect: Effect,
@@ -2431,6 +2474,22 @@ export function resolveEffect(
         ...state,
         pendingDioDiscardAlly: { playerIndex: idx, draw: effect.count },
         log: [...state.log, `Vampirisme : ${p.villainName} choisit un Allié à défausser.`],
+      }
+    }
+    case 'DISCARD_ALLY_DRAW': {
+      // Gul'dan — Drain d'Âme : défausser un Allié du royaume (choix INTERACTIF) pour
+      // piocher `draw` cartes ; +`bonusPower` si l'Allié est `bonusCardId` (Esclave).
+      // Réutilise la mécanique pendingDioDiscardAlly (bot auto-résout, +bonus au résolveur).
+      const p = state.players[idx]
+      const candidates: CardInstance[] = []
+      for (const loc of p.locations)
+        for (const c of p.board[loc.id] ?? [])
+          if (c.type === 'ally' && !c.attachedTo && !c.isWicket && !c.cannotBeDiscarded) candidates.push(c)
+      if (candidates.length === 0) return { ...state, log: [...state.log, `${p.villainName} : aucun Allié à défausser (Drain d'Âme).`] }
+      return {
+        ...state,
+        pendingDioDiscardAlly: { playerIndex: idx, draw: effect.draw, bonusCardId: effect.bonusCardId, bonusPower: effect.bonusPower },
+        log: [...state.log, `Drain d'Âme : ${p.villainName} choisit un Allié à défausser.`],
       }
     }
     case 'DIO_DISCARD_HAND_GAIN_POWER': {
@@ -3463,6 +3522,47 @@ export function resolveEffect(
       if (removed.length === 0) return state
       const next = updatePlayer(state, idx, (pl) => ({ ...pl, board, discard: [...pl.discard, ...removed] }))
       return { ...next, log: [...next.log, `${removed.length} carte${removed.length > 1 ? 's' : ''} défaussée${removed.length > 1 ? 's' : ''} du royaume de ${p.villainName} (Violette).`] }
+    }
+    case 'FATE_DISCARD_TYPE_CHOICE': {
+      // Défaite (Gul'dan) : le fataliseur (joueur actif) choisit Alliés OU Objets ; tout
+      // ce type du royaume de la cible (idx) est défaussé. Un seul type présent → défausse
+      // directe (pas de choix inutile) ; les deux → choix (pendingFateDiscardType).
+      const target = state.players[idx]
+      const flat = Object.values(target.board).flat()
+      const hasAlly = flat.some((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket)
+      const hasItem = flat.some((c) => c.type === 'item' && !c.attachedTo && !c.isSabotage)
+      if (!hasAlly && !hasItem) {
+        return { ...state, log: [...state.log, `Défaite : aucun Allié ni Objet à défausser chez ${target.villainName}.`] }
+      }
+      if (hasAlly !== hasItem) {
+        return discardAllOfTypeInRealm(state, idx, hasAlly ? 'ally' : 'item')
+      }
+      return {
+        ...state,
+        pendingFateDiscardType: { chooserIndex: state.activePlayer, targetIndex: idx },
+        log: [...state.log, `Défaite : ${state.players[state.activePlayer].villainName} choisit de défausser les Alliés OU les Objets de ${target.villainName}.`],
+      }
+    }
+    case 'FATE_REPLAY_CARD_FROM_DISCARD': {
+      // Prophète Velen (onPlace) : cherche `cardId` (Armée de la Lumière) dans la défausse
+      // (puis la pioche) Fatalité de la cible et la REJOUE — posée sur un lieu choisi par
+      // le fataliseur (pendingFateObjectPlace ; bot auto-résout).
+      const p = state.players[idx]
+      const found =
+        p.fateDiscard.find((c) => c.cardId === effect.cardId) ?? p.fateDeck.find((c) => c.cardId === effect.cardId)
+      if (!found) {
+        return { ...state, log: [...state.log, `Prophète Velen : « Armée de la Lumière » introuvable dans la Fatalité de ${p.villainName}.`] }
+      }
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        fateDiscard: pl.fateDiscard.filter((c) => c.instanceId !== found.instanceId),
+        fateDeck: pl.fateDeck.filter((c) => c.instanceId !== found.instanceId),
+      }))
+      return {
+        ...next,
+        pendingFateObjectPlace: { chooserIndex: state.activePlayer, targetIndex: idx, card: found },
+        log: [...next.log, `Prophète Velen : rejoue **${found.name}** dans le royaume de ${p.villainName} — choisissez le lieu.`],
+      }
     }
     case 'ATTACH_REMOTE_IF_IN_REALM': {
       // Effet commun (Indestructibles + Frozone) : si la Télécommande est dans le royaume
@@ -4552,7 +4652,9 @@ export function resolveEffect(
       return { ...next, log: [...next.log, `La Bête éloigne ${allies.length} Allié${allies.length > 1 ? 's' : ''} de **${locName(p, hostLoc)}**.`] }
     }
     case 'SCATTER_REALM_HEROES': {
-      // Mrs Samovar et Zip (à la pose) : disperse les autres Héros du royaume.
+      // Mrs Samovar et Zip (à la pose) : le joueur qui pose la Fatalité peut déplacer
+      // les autres Héros du royaume — INTERACTIF : il choisit QUEL Héros et VERS QUEL
+      // lieu, un par un (facultatif → il s'arrête quand il veut). Le bot auto-résout.
       const p = state.players[idx]
       const heroes = Object.values(p.board)
         .flat()
@@ -4561,8 +4663,18 @@ export function resolveEffect(
       if (heroes.length === 0 || dests.length === 0) {
         return { ...state, log: [...state.log, `Mrs Samovar et Zip : aucun autre Héros à déplacer.`] }
       }
-      const next = scatterCards(state, idx, heroes, dests)
-      return { ...next, log: [...next.log, `Mrs Samovar et Zip dispersent ${heroes.length} Héros dans le royaume de ${p.villainName}.`] }
+      return {
+        ...state,
+        pendingHeroRelocate: {
+          chooserIndex: state.activePlayer,
+          targetIndex: idx,
+          anyLocation: true,
+          optional: true,
+          repeatCandidates: true,
+          candidateIds: heroes.map((h) => h.instanceId),
+        },
+        log: [...state.log, `Mrs Samovar et Zip : déplacez les Héros du royaume de ${p.villainName} (au choix, où vous voulez).`],
+      }
     }
     // --- Le Seigneur des clés : clés + dé ------------------------------------
     case 'TAKE_KEY_AT_PAWN': {
@@ -4785,7 +4897,14 @@ export function resolveEffect(
       return { ...next, log: [...next.log, `${actor.villainName} gagne ${gain} Confiance (avec Raiponce${rLoc === p.locations[0]?.id ? ' à la Tour' : ''}).`] }
     }
     case 'GAIN_POWER_PER_HERO_IN_REALM': {
-      const heroes = countHeroesInRealm(state, idx)
+      // `atPawn` (Gul'dan — Sceptre de Sargeras) : ne compte que les Héros du lieu du pion.
+      const heroes = effect.atPawn
+        ? (() => {
+            const p = state.players[idx]
+            const loc = p.pawnLocation
+            return loc ? (p.board[loc] ?? []).filter((c) => c.type === 'hero').length : 0
+          })()
+        : countHeroesInRealm(state, idx)
       const gross = heroes * effect.amount * dioPowerFactor(state.players[idx])
       const gained = Math.max(0, gross - realmPowerPenalty(state, idx))
       let next = updatePlayer(state, idx, (p) => ({ ...p, power: p.power + gained }))
@@ -5094,6 +5213,182 @@ export function resolveEffect(
         log: [...state.log, `${actor.villainName} : déplacez un Héros vers un lieu voisin (Apparition).`],
       }
     }
+    // --- Le Piégeur (Dead by Daylight) ---------------------------------------
+    case 'PIEGEUR_REVEAL': {
+      const actor = state.players[idx]
+      const atPawn = !!effect.atPawn
+      const cands = piegeurSurvivors(actor).filter(
+        (c) => !c.revealed && (!atPawn || piegeurLocOf(actor, c.instanceId) === actor.pawnLocation),
+      )
+      if (cands.length === 0) return { ...state, log: [...state.log, `${actor.villainName} : aucun Survivant à révéler.`] }
+      return {
+        ...state,
+        pendingPiegeur: {
+          chooserIndex: idx,
+          kind: effect.thenMove ? 'reveal-move' : 'reveal',
+          phase: 'target',
+          candidateIds: cands.map((c) => c.instanceId),
+        },
+        log: [...state.log, `${actor.villainName} : choisissez un Survivant à révéler.`],
+      }
+    }
+    case 'PIEGEUR_INJURE': {
+      const actor = state.players[idx]
+      const cands = piegeurSurvivors(actor).filter(
+        (c) => c.revealed && c.survivorState !== 'critical' && piegeurLocOf(actor, c.instanceId) === actor.pawnLocation,
+      )
+      if (cands.length === 0) return { ...state, log: [...state.log, `${actor.villainName} : aucun Survivant révélé à blesser sur son lieu.`] }
+      return {
+        ...state,
+        pendingPiegeur: { chooserIndex: idx, kind: 'injure', phase: 'target', candidateIds: cands.map((c) => c.instanceId) },
+        log: [...state.log, `${actor.villainName} : choisissez un Survivant à blesser (Force brute).`],
+      }
+    }
+    case 'PIEGEUR_HOOK': {
+      const actor = state.players[idx]
+      const loc = actor.pawnLocation
+      const hook = loc ? actor.hooks?.[loc] : undefined
+      const canHook = !!loc && !!hook?.present && hook.disabledTurns === 0
+      const cands = canHook
+        ? piegeurSurvivors(actor).filter((c) => c.survivorState === 'critical' && !c.onHook && piegeurLocOf(actor, c.instanceId) === loc)
+        : []
+      if (cands.length === 0) return { ...state, log: [...state.log, `${actor.villainName} : aucun Survivant critique à accrocher (crochet actif requis).`] }
+      return {
+        ...state,
+        pendingPiegeur: { chooserIndex: idx, kind: 'hook', phase: 'target', candidateIds: cands.map((c) => c.instanceId) },
+        log: [...state.log, `${actor.villainName} : accrochez un Survivant critique (Sanctuaire monstrueux).`],
+      }
+    }
+    case 'PIEGEUR_FINISH': {
+      const actor = state.players[idx]
+      const loc = actor.pawnLocation
+      const cands = piegeurSurvivors(actor).filter(
+        (c) => c.survivorState === 'critical' && (c.survivorLives ?? 3) <= 1 && piegeurLocOf(actor, c.instanceId) === loc,
+      )
+      if (cands.length === 0) return { ...state, log: [...state.log, `${actor.villainName} : aucun Survivant à achever (critique, 1 vie, sur son lieu).`] }
+      return {
+        ...state,
+        pendingPiegeur: { chooserIndex: idx, kind: 'finish', phase: 'target', candidateIds: cands.map((c) => c.instanceId) },
+        log: [...state.log, `${actor.villainName} : achevez un Survivant (Memento Mori).`],
+      }
+    }
+    case 'PIEGEUR_MOVE_SURVIVOR': {
+      const actor = state.players[idx]
+      const cands = piegeurSurvivors(actor).filter((c) => !c.onHook)
+      if (cands.length === 0) return { ...state, log: [...state.log, `${actor.villainName} : aucun Survivant à déplacer.`] }
+      return {
+        ...state,
+        pendingPiegeur: { chooserIndex: idx, kind: 'move', phase: 'target', candidateIds: cands.map((c) => c.instanceId) },
+        log: [...state.log, `${actor.villainName} : déplacez un Survivant (Rayon de terreur).`],
+      }
+    }
+    case 'PIEGEUR_PUDDING_POWER': {
+      const actor = state.players[idx]
+      const living = piegeurSurvivors(actor)
+      const eliminated = Math.max(0, 4 - living.length - (actor.survivorPile?.length ?? 0))
+      const revealedAlive = living.filter((c) => c.revealed).length
+      const gain = 1 + eliminated + revealedAlive
+      const next = updatePlayer(state, idx, (p) => ({ ...p, power: p.power + gain }))
+      return { ...next, log: [...next.log, `${actor.villainName} gagne ${gain} Pouvoir (Pudding de survivants).`] }
+    }
+    case 'PIEGEUR_HEAL': {
+      // Un Survivant récupère un segment de santé (auto : priorité au critique).
+      const actor = state.players[idx]
+      const hurt = piegeurSurvivors(actor).filter((c) => c.survivorState && c.survivorState !== 'healthy')
+      if (hurt.length === 0) return { ...state, log: [...state.log, 'Aucun Survivant blessé à soigner.'] }
+      const target = hurt.find((c) => c.survivorState === 'critical') ?? hurt[0]
+      const ns: CardInstance['survivorState'] = target.survivorState === 'critical' ? 'injured' : 'healthy'
+      const next = patchCard(state, idx, target.instanceId, (c) => ({ ...c, survivorState: ns }))
+      return { ...next, log: [...next.log, `**${target.name}** récupère un segment de santé (${ns}).`] }
+    }
+    case 'PIEGEUR_UNHOOK': {
+      // Décroche un Survivant → il devient blessé (auto).
+      const actor = state.players[idx]
+      const hooked = piegeurSurvivors(actor).filter((c) => c.onHook)
+      if (hooked.length === 0) return { ...state, log: [...state.log, 'Aucun Survivant accroché à décrocher.'] }
+      const target = hooked[0]
+      const next = patchCard(state, idx, target.instanceId, (c) => ({ ...c, onHook: false, hookedThisTurn: false, survivorState: 'injured' }))
+      return { ...next, log: [...next.log, `**${target.name}** est décroché (blessé).`] }
+    }
+    case 'PIEGEUR_MEG_FLEE': {
+      // Meg (hostInstanceId) est déplacée au lieu le plus loin du pion.
+      const actor = state.players[idx]
+      const id = ctx?.hostInstanceId
+      const to = piegeurFarthest(actor)
+      if (!id || !to) return state
+      const next = piegeurMoveSurvivor(state, idx, id, to)
+      return { ...next, log: [...next.log, `**Meg** fuit au plus loin du Piégeur.`] }
+    }
+    case 'PIEGEUR_JAKE_SABOTAGE': {
+      // Désactive un crochet 1 tour (priorité au lieu du pion) OU défausse un piège à ours (auto).
+      const actor = state.players[idx]
+      const hooks = actor.hooks ?? {}
+      const order = actor.locations.map((l) => l.id)
+      const activeHook = (id: string) => hooks[id]?.present && hooks[id].disabledTurns === 0
+      const hookLoc = (actor.pawnLocation && activeHook(actor.pawnLocation) ? actor.pawnLocation : order.find(activeHook)) as
+        | string
+        | undefined
+      if (hookLoc) {
+        const next = updatePlayer(state, idx, (p) => ({
+          ...p,
+          hooks: { ...(p.hooks ?? {}), [hookLoc]: { ...(p.hooks![hookLoc]), disabledTurns: 1 } },
+        }))
+        const name = actor.locations.find((l) => l.id === hookLoc)?.name ?? hookLoc
+        return { ...next, log: [...next.log, `🔧 Crochet de ${name} désactivé 1 tour (Jake).`] }
+      }
+      // Sinon : défausse un Piège à ours s'il y en a un.
+      const trapLoc = order.find((id) => piegeurBearTrapAt(actor, id))
+      if (trapLoc) {
+        const trap = (actor.board[trapLoc] ?? []).find((c) => c.cardId === PIEGEUR_BEAR_TRAP_ID && !c.attachedTo)!
+        const next = updatePlayer(state, idx, (p) => ({
+          ...p,
+          board: { ...p.board, [trapLoc]: (p.board[trapLoc] ?? []).filter((c) => c.instanceId !== trap.instanceId) },
+          discard: [...p.discard, trap],
+        }))
+        return { ...next, log: [...next.log, `🧰 Un Piège à ours est saboté (Jake).`] }
+      }
+      return { ...state, log: [...state.log, 'Jake : aucun crochet actif ni piège à défausser.'] }
+    }
+    case 'PIEGEUR_ADRENALINE': {
+      // Un Survivant récupère un segment PUIS fuit vers le lieu le plus loin du pion.
+      const actor = state.players[idx]
+      const movable = piegeurSurvivors(actor).filter((c) => !c.onHook)
+      if (movable.length === 0) return { ...state, log: [...state.log, 'Adrénaline : aucun Survivant.'] }
+      const hurt = movable.filter((c) => c.survivorState && c.survivorState !== 'healthy')
+      const target = hurt.find((c) => c.survivorState === 'critical') ?? hurt[0] ?? movable[0]
+      let next = state
+      if (target.survivorState && target.survivorState !== 'healthy') {
+        const ns: CardInstance['survivorState'] = target.survivorState === 'critical' ? 'injured' : 'healthy'
+        next = patchCard(next, idx, target.instanceId, (c) => ({ ...c, survivorState: ns }))
+      }
+      const to = piegeurFarthest(next.players[idx])
+      if (to) next = piegeurMoveSurvivor(next, idx, target.instanceId, to)
+      return { ...next, log: [...next.log, `**${target.name}** récupère un segment et fuit (Adrénaline).`] }
+    }
+    case 'PIEGEUR_PURIFY': {
+      // Défausse PERSONNE N'ÉCHAPPE À LA MORT (royaume prioritaire, sinon main du Piégeur).
+      const actor = state.players[idx]
+      const loc = actor.locations.map((l) => l.id).find((id) => (actor.board[id] ?? []).some((c) => c.cardId === PIEGEUR_PERSONNE_ID))
+      if (loc) {
+        const card = (actor.board[loc] ?? []).find((c) => c.cardId === PIEGEUR_PERSONNE_ID)!
+        const next = updatePlayer(state, idx, (p) => ({
+          ...p,
+          board: { ...p.board, [loc]: (p.board[loc] ?? []).filter((c) => c.instanceId !== card.instanceId) },
+          discard: [...p.discard, card],
+        }))
+        return { ...next, log: [...next.log, '**PERSONNE N’ÉCHAPPE À LA MORT** est défaussée (Purification).'] }
+      }
+      const inHand = actor.hand.find((c) => c.cardId === PIEGEUR_PERSONNE_ID)
+      if (inHand) {
+        const next = updatePlayer(state, idx, (p) => ({
+          ...p,
+          hand: p.hand.filter((c) => c.instanceId !== inHand.instanceId),
+          discard: [...p.discard, inHand],
+        }))
+        return { ...next, log: [...next.log, '**PERSONNE N’ÉCHAPPE À LA MORT** est défaussée de la main (Purification).'] }
+      }
+      return { ...state, log: [...state.log, 'Purification : PERSONNE N’ÉCHAPPE À LA MORT introuvable.'] }
+    }
     case 'TELEPORT_TO_HERO': {
       // Téléportation : le pion ira sur un lieu portant un Héros (sans Lampe de
       // poche). Le choix du lieu est interactif (RESOLVE_TELEPORT).
@@ -5176,6 +5471,19 @@ export function resolveEffect(
         return updatePlayer(next, idx, (p) => ({ ...p, fateDeck: [...top, ...p.fateDeck] }))
       }
       return { ...next, pendingFateReorder: { playerIndex: idx, cards: top } }
+    }
+    case 'DISCARD_ANY_FOR_POWER': {
+      // Gul'dan — Connexion : défausse un nombre libre de cartes (choix interactif), +`amount`
+      // Pouvoir par carte. Réutilise pendingDiscardThenDraw (draw 0 + powerPerCard).
+      const p = state.players[idx]
+      if (p.hand.length === 0) {
+        return { ...state, log: [...state.log, `${p.villainName} (Connexion) : main vide, aucun Pouvoir gagné.`] }
+      }
+      return {
+        ...state,
+        pendingDiscardThenDraw: { playerIndex: idx, draw: 0, powerPerCard: effect.amount },
+        log: [...state.log, `${p.villainName} (Connexion) : défaussez autant de cartes que voulu (+${effect.amount} Pouvoir chacune).`],
+      }
     }
     case 'DISCARD_ANY_THEN_REFILL': {
       // J'allais oublier un détail : l'acteur défausse un nombre libre de cartes
@@ -5682,7 +5990,11 @@ export function resolveEffect(
       // face alternative. Les zones cliquables et la force suivent (data-driven sur
       // player.locations) ; l'UI superpose bColumnImage quand la face B est active.
       const actor = state.players[idx]
-      const loc = findLocation(actor, effect.locationId)
+      // `atPlayedLocation` : la carte transforme le LIEU OÙ ELLE EST JOUÉE (lieu du pion,
+      // ex. Gul'dan — Corruption) ; sinon un lieu fixe (`locationId`).
+      const targetLocId = effect.atPlayedLocation ? (ctx?.playDestination ?? actor.pawnLocation) : effect.locationId
+      if (!targetLocId) return state
+      const loc = findLocation(actor, targetLocId)
       // Lieu non transformable (aucune face alternative définie) → no-op.
       if (!loc || (loc.altActions === undefined && loc.altName === undefined)) return state
       const cur = loc.version ?? 'a'
@@ -5691,7 +6003,7 @@ export function resolveEffect(
       const next = updatePlayer(state, idx, (p) => ({
         ...p,
         locations: p.locations.map((l) =>
-          l.id === effect.locationId
+          l.id === targetLocId
             ? {
                 ...l,
                 name: l.altName ?? l.name,
@@ -5703,7 +6015,7 @@ export function resolveEffect(
             : l,
         ),
       }))
-      const newName = findLocation(next.players[idx], effect.locationId)?.name ?? effect.locationId
+      const newName = findLocation(next.players[idx], targetLocId)?.name ?? targetLocId
       return { ...next, log: [...next.log, `${actor.villainName} transforme un lieu en **${newName}**.`] }
     }
     case 'SWITCH_OBJECTIVE': {
@@ -5727,6 +6039,33 @@ export function resolveEffect(
         objectiveVersion: target,
       }))
       return { ...next, log: [...next.log, `${actor.villainName} change d'objectif.`] }
+    }
+    case 'DARK_PORTAL_WIN': {
+      // Gul'dan — Ouverture de la Porte des Ténèbres : victoire immédiate si les 3
+      // conditions sont réunies (garde-fou : la carte est déjà injouable sinon).
+      const actor = state.players[idx]
+      if (!darkPortalReady(state, idx)) {
+        return { ...state, log: [...state.log, `${actor.villainName} : la Porte des Ténèbres ne peut pas encore s'ouvrir.`] }
+      }
+      return {
+        ...state,
+        status: 'WON',
+        winner: idx,
+        log: [...state.log, `🏆 ${actor.villainName} ouvre la **Porte des Ténèbres** et l'emporte !`],
+      }
+    }
+    case 'UNLOCK_LAST_LOCATION_IF_CORRUPTED': {
+      // Gul'dan — Corruption : à `count` lieux corrompus (face B), la Porte des Ténèbres
+      // (dernier lieu, verrouillée au départ) se déverrouille.
+      const actor = state.players[idx]
+      const corrupted = actor.locations.filter((l) => l.version === 'b').length
+      const portal = actor.locations[actor.locations.length - 1]
+      if (!portal || corrupted < effect.count || !(actor.lockedLocations ?? []).includes(portal.id)) return state
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        lockedLocations: (p.lockedLocations ?? []).filter((l) => l !== portal.id),
+      }))
+      return { ...next, log: [...next.log, `🔓 ${effect.count} lieux corrompus : la **${portal.name}** est déverrouillée !`] }
     }
     case 'SUMMON_FATE_HERO_TO_OWN_REALM': {
       // Jafar (Lampe Merveilleuse) : cherche le Génie dans SON deck/défausse
@@ -6760,6 +7099,93 @@ export function resolveEffect(
         ],
       }
     }
+    case 'GRANT_LOVE': {
+      // Isabella — AMOUR : ouvre le choix d'un Héros du royaume (non déjà aimé) qui va
+      // aimer Isabella (pendingGrantLove ; le bot auto-résout). Sans Héros aimable : no-op.
+      const actor = state.players[idx]
+      const candidates = actor.locations
+        .flatMap((l) => actor.board[l.id] ?? [])
+        .filter((c) => c.type === 'hero' && !c.loved && !c.isPrisoner)
+      if (candidates.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : aucun Héros à séduire (Amour).`] }
+      }
+      return {
+        ...state,
+        pendingGrantLove: { playerIndex: idx, candidateIds: candidates.map((c) => c.instanceId) },
+        log: [...state.log, `${actor.villainName} : choisissez un Héros qui vous aime.`],
+      }
+    }
+    case 'INCENDIE': {
+      // Isabella — Fatalité : bloque les Activités À LA PROCHAINE HEURE (arme incendiePending ;
+      // il devient incendieActive au prochain début de tour). Sans effet si Phil aime Isabella.
+      const actor = state.players[idx]
+      const immune = Object.values(actor.board).flat().some((c) => c.type === 'hero' && c.loved && c.immuneToIncendieWhenLoved)
+      if (immune) {
+        return { ...state, log: [...state.log, `Incendie : ${actor.villainName} est immunisé (Phil).`] }
+      }
+      const next = updatePlayer(state, idx, (p) => ({ ...p, incendiePending: true }))
+      return { ...next, log: [...next.log, `🔥 Incendie : aucune Activité ne pourra être jouée à la prochaine heure de ${actor.villainName}.`] }
+    }
+    case 'RADAR_POCHE': {
+      // Isabella — RADAR DE POCHE : les Activités deviennent jouables à toute heure ce tour ;
+      // en contrepartie, pioche la Fatalité jusqu'à un Héros → le joue sur un lieu au choix
+      // (pendingFateHeroPlace), les autres cartes piochées sont défaussées (Fatalité).
+      const actor = state.players[idx]
+      let deck = [...actor.fateDeck]
+      let disc = [...actor.fateDiscard]
+      let s = state.rngState
+      const nonHeroes: CardInstance[] = []
+      let hero: CardInstance | undefined
+      // Borne : au plus le total de cartes Fatalité disponibles (évite toute boucle infinie).
+      let guard = deck.length + disc.length
+      while (guard-- > 0) {
+        if (deck.length === 0) {
+          if (disc.length === 0) break
+          const r = shuffle(disc, s)
+          deck = r.result
+          s = r.state
+          disc = []
+        }
+        const [top, ...rest] = deck
+        deck = rest
+        if (top.type === 'hero') { hero = top; break }
+        nonHeroes.push(top)
+      }
+      // Le Héros trouvé reste dans la défausse Fatalité (pendingFateHeroPlace l'y retrouvera).
+      let next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        fateDeck: deck,
+        fateDiscard: [...disc, ...nonHeroes, ...(hero ? [hero] : [])],
+        activiteAnyHourThisTurn: true,
+      }))
+      next = { ...next, rngState: s, log: [...next.log, `📟 ${actor.villainName} : Activités jouables à toute heure ce tour-ci (Radar de poche).`] }
+      if (!hero) {
+        // Aucun Héros à poser → on ouvre directement l'action gratuite (jouer une Activité).
+        return { ...next, pendingFreeRealmAction: { playerIndex: idx }, log: [...next.log, `Radar de poche : aucun Héros dans la Fatalité — jouez une Activité gratuitement.`] }
+      }
+      return {
+        ...next,
+        // Placement interactif du Héros tiré, PUIS action gratuite (jouer une Activité sans dépenser d'action).
+        pendingFateHeroPlace: { chooserIndex: idx, targetIndex: idx, heroCardId: hero.cardId, heroName: hero.name, mode: 'place', thenFreeRealmAction: true },
+        log: [...next.log, `Radar de poche : ${actor.villainName} joue **${hero.name}** — choisissez le lieu (${nonHeroes.length} carte(s) défaussée(s)).`],
+      }
+    }
+    case 'UNGRANT_LOVE': {
+      // Isabella — Fatalité : le Héros aimé le plus FORT cesse d'aimer Isabella (redevient
+      // un Héros qui recouvre à nouveau les actions). Sans Héros aimé : no-op.
+      const actor = state.players[idx]
+      let best: { loc: LocationId; c: CardInstance } | undefined
+      for (const l of actor.locations)
+        for (const c of actor.board[l.id] ?? [])
+          if (c.type === 'hero' && c.loved && (!best || (c.strength ?? 0) > (best.c.strength ?? 0))) best = { loc: l.id, c }
+      if (!best) return { ...state, log: [...state.log, `${actor.villainName} : aucun Héros amoureux à libérer.`] }
+      const { loc, c } = best
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        board: { ...p.board, [loc]: (p.board[loc] ?? []).map((x) => (x.instanceId === c.instanceId ? { ...x, loved: undefined } : x)) },
+      }))
+      return { ...next, log: [...next.log, `💔 **${c.name}** n'aime plus ${actor.villainName} : il redevient un Héros.`] }
+    }
     case 'MOVE_TITAN_INTERACTIVE': {
       // Hadès — Préparez-vous au combat ! : ouvre le choix d'un Titan non entravé
       // (déplaçable) et d'un lieu de destination (pendingTitanMove). Sans Titan
@@ -6801,7 +7227,11 @@ export function resolveEffect(
     }
     case 'GAIN_POWER_PER_TYPE_IN_DISCARD': {
       const actor = state.players[idx]
-      const n = actor.discard.filter((c) => c.type === effect.cardType).length
+      // `cardTypes` (Gul'dan — Œil de Dalaran : Objet OU Événement) sinon `cardType`
+      // seul ; `cap` plafonne le nombre compté.
+      const types = effect.cardTypes ?? [effect.cardType]
+      const raw = actor.discard.filter((c) => types.includes(c.type)).length
+      const n = effect.cap !== undefined ? Math.min(raw, effect.cap) : raw
       const gross = n * effect.amount
       const gained = Math.max(0, gross - realmPowerPenalty(state, idx))
       let next = updatePlayer(state, idx, (p) => ({ ...p, power: p.power + gained }))
@@ -7213,7 +7643,7 @@ export function resolveEffect(
       next = {
         ...next,
         rngState: s,
-        pendingLookTop: { playerIndex: idx, cards: seen, take: Math.min(effect.take, seen.length), title: effect.title },
+        pendingLookTop: { playerIndex: idx, cards: seen, take: Math.min(effect.take, seen.length), title: effect.title, returnToDeck: effect.returnToDeck },
         log: [...next.log, `${actor.villainName} regarde les ${seen.length} première${seen.length > 1 ? 's' : ''} carte${seen.length > 1 ? 's' : ''} de sa pioche (${ltTitle}).`],
       }
       return next
@@ -7261,7 +7691,9 @@ export function resolveEffect(
         const [top, ...rest] = deck
         deck = rest
         revealed.push(top)
-        if (top.type === effect.cardType) {
+        // `cardTypes` (Gul'dan — Livre de Medivh : Événement/Objet) sinon `cardType` seul.
+        const matchTypes = effect.cardTypes ?? [effect.cardType]
+        if (matchTypes.includes(top.type)) {
           found = top
           break
         }
@@ -7270,11 +7702,13 @@ export function resolveEffect(
         return { ...state, log: [...state.log, `${actor.villainName} : pioche et défausse vides (Liste de Fidget).`] }
       }
       const others = found ? revealed.filter((c) => c.instanceId !== found!.instanceId) : revealed
+      // `keepOnTop` (Gul'dan — Livre de Medivh) : les autres cartes dévoilées reviennent
+      // sur le DESSUS de la pioche (dans l'ordre) au lieu d'être défaussées.
       let next = updatePlayer(state, idx, (p) => ({
         ...p,
-        deck,
+        deck: effect.keepOnTop ? [...others, ...deck] : deck,
         hand: found ? [...p.hand, found] : p.hand,
-        discard: [...disc, ...others],
+        discard: effect.keepOnTop ? disc : [...disc, ...others],
       }))
       next = {
         ...next,
@@ -7475,6 +7909,23 @@ export function resolveEffect(
         ...next,
         log: [...next.log, `${actor.villainName} récupère **${pick.name}** de la Pile de l'Au-delà (Désespoir).`],
       }
+    }
+    case 'VALIDATE_HOUR': {
+      // Isabella — Activité : valide l'heure courante de l'horloge (index 0..5). Idempotent.
+      const actor = state.players[idx]
+      const h = actor.clockHour ?? 0
+      const HOURS = ['XII', 'II', 'IV', 'VI', 'VIII', 'X']
+      if ((actor.validatedHours ?? []).includes(h)) {
+        return { ...state, log: [...state.log, `${actor.villainName} : l'heure ${HOURS[h]} était déjà validée.`] }
+      }
+      let next = updatePlayer(state, idx, (p) => ({ ...p, validatedHours: [...(p.validatedHours ?? []), h] }))
+      const done = (next.players[idx].validatedHours ?? []).length
+      next = { ...next, log: [...next.log, `⏰ ${actor.villainName} valide l'heure **${HOURS[h]}** (${done}/6).`] }
+      // VICTOIRE IMMÉDIATE dès que les 6 heures sont validées (pas au début du tour).
+      if (done >= 6 && next.status === 'PLAYING') {
+        return { ...next, status: 'WON', winner: idx, log: [...next.log, `🏆 ${actor.villainName} a validé les 6 heures de l'horloge et l'emporte !`] }
+      }
+      return next
     }
     case 'RECOVER_TYPE_FROM_DISCARD': {
       // Terreur : le joueur CHOISIT une carte d'un des `types` (Allié/Événement) dans sa
@@ -8233,29 +8684,41 @@ export function resolveEffect(
     }
     case 'DUPLICATE_INGREDIENT': {
       const actor = state.players[idx]
-      const zone = actor.ingredients ?? []
-      if (zone.length === 0) {
-        return { ...state, log: [...state.log, `Foudre : aucun Ingrédient déjà joué à reproduire.`] }
+      // Foudre reproduit un Ingrédient (payant) ; Manipulation (Gul'dan) reproduit un
+      // Artéfact (gratuit, la carte a déjà payé son coût fixe à la pose).
+      const useArtifacts = effect.zone === 'artifacts'
+      const label = useArtifacts ? 'Manipulation' : 'Foudre'
+      const thing = useArtifacts ? 'Artéfact' : 'Ingrédient'
+      const zone = (useArtifacts ? actor.artifacts : actor.ingredients) ?? []
+      // Gul'dan — Khadgar : Artéfacts sans effet tant qu'il est en jeu → rien à reproduire.
+      const khadgar = useArtifacts && Object.values(actor.board).flat().some((c) => c.type === 'hero' && c.nullifiesArtifacts)
+      if (zone.length === 0 || khadgar) {
+        return { ...state, log: [...state.log, `${label} : aucun ${thing} à reproduire.`] }
       }
-      // Le coût de Foudre = coût de l'Ingrédient reproduit : on ne propose (et ne
-      // reproduit) que les Ingrédients que le joueur peut PAYER.
-      const affordable = zone.filter((c) => (c.cost ?? 0) <= actor.power)
+      // Reproduction gratuite : tout est éligible. Sinon (Foudre) le coût = celui de la
+      // carte reproduite : on ne propose que les cartes payables.
+      const affordable = effect.freeDuplication ? zone : zone.filter((c) => (c.cost ?? 0) <= actor.power)
       if (affordable.length === 0) {
-        return { ...state, log: [...state.log, `Foudre : pas assez de Pouvoir pour reproduire un Ingrédient.`] }
+        return { ...state, log: [...state.log, `${label} : pas assez de Pouvoir pour reproduire un ${thing}.`] }
       }
-      // Un seul Ingrédient payable : paiement + reproduction directe. Plusieurs :
-      // le joueur CHOISIT lequel (pendingDuplicateIngredient).
+      // Un seul candidat : paiement + reproduction directe. Plusieurs : le joueur
+      // CHOISIT lequel (pendingDuplicateIngredient).
       if (affordable.length === 1) {
         const pick = affordable[0]
-        const cost = pick.cost ?? 0
+        const cost = effect.freeDuplication ? 0 : (pick.cost ?? 0)
         let next = updatePlayer(state, idx, (p) => ({ ...p, power: p.power - cost }))
         next = resolveEffects(next, pick.effects ?? [], { actorIndex: idx })
-        return { ...next, log: [...next.log, `Foudre reproduit la capacité de **${pick.name}** (coût ${cost}).`] }
+        return { ...next, log: [...next.log, `${label} reproduit la capacité de **${pick.name}**${cost ? ` (coût ${cost})` : ''}.`] }
       }
       return {
         ...state,
-        pendingDuplicateIngredient: { playerIndex: idx, candidateIds: affordable.map((c) => c.instanceId) },
-        log: [...state.log, `Foudre : ${actor.villainName} choisit l'Ingrédient à reproduire.`],
+        pendingDuplicateIngredient: {
+          playerIndex: idx,
+          candidateIds: affordable.map((c) => c.instanceId),
+          zone: effect.zone,
+          freeDuplication: effect.freeDuplication,
+        },
+        log: [...state.log, `${label} : ${actor.villainName} choisit l'${thing} à reproduire.`],
       }
     }
     case 'SCREAM_OF_FRIGHT': {

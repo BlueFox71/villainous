@@ -65,6 +65,9 @@ export function pickRecoverCandidate(p: PlayerState, cands: CardInstance[]): Car
  *  de la progression en % côté UI (même jauge que celle qui guide le bot). */
 export function objectiveScore(p: PlayerState): number {
   switch (p.objective.type) {
+    case 'ISABELLA_CLOCK':
+      // Isabella — proximité = heures validées / 6 (jauge simple ; tuning fin en Phase 2).
+      return (p.validatedHours ?? []).length / 6
     case 'POWER_THRESHOLD': {
       const threshold = p.objective.threshold
       const base = Math.min(p.power, threshold) / threshold
@@ -76,6 +79,25 @@ export function objectiveScore(p: PlayerState): number {
       if (p.villain === 'custom-mr-monopoly' && p.power < threshold) {
         const houses = Object.values(p.houses ?? {}).reduce((n, v) => n + v, 0)
         return Math.min(0.95, base + (Math.min(houses, 8) / 8) * 0.2)
+      }
+      // Gul'dan : la victoire ne passe PAS par le Pouvoir (seuil 999 factice) mais par la
+      // Porte des Ténèbres. Vraie proximité = 4 Artéfacts + 4 lieux corrompus (poids forts,
+      // symétriques) ; dernière ligne droite quand les deux sont complets : pion sur la Porte
+      // et OUVERTURE disponible. Jamais 1 tant que la partie n'est pas gagnée.
+      if (p.villain === 'custom-gul-dan') {
+        const artifacts = Math.min((p.artifacts ?? []).length, 4)
+        const corrupted = p.locations.filter((l) => l.version === 'b').length
+        const portalId = p.locations[p.locations.length - 1]?.id
+        const onPortal = !!portalId && p.pawnLocation === portalId
+        const hasOuverture = [...p.hand, ...p.deck, ...p.discard].some((c) =>
+          (c.effects ?? []).some((e) => e.type === 'DARK_PORTAL_WIN'),
+        )
+        let s = 0.45 * (artifacts / 4) + 0.45 * (Math.min(corrupted, 4) / 4)
+        if (artifacts === 4 && corrupted >= 4) {
+          if (onPortal) s += 0.06
+          if (hasOuverture) s += 0.04
+        }
+        return Math.min(0.99, s)
       }
       return base
     }
@@ -751,6 +773,24 @@ export function objectiveScore(p: PlayerState): number {
       if (doneInRoom === obj.heroCardIds.length && buzzHere) return 1
       return Math.min(0.99, s)
     }
+    case 'PIEGEUR_ELIMINATE_ALL_SURVIVORS': {
+      // Le Piégeur : proximité = fraction des 4 Survivants éliminés + progression graduée
+      // sur les vivants (révélé < blessé < critique < accroché < vies perdues). Jauge de
+      // Phase 1 (tuning fin en Phase 3). Poids par état/étape, plafonné < 1 par survivant.
+      const TOTAL = 4
+      const living = [...Object.values(p.board).flat().filter((c) => c.isSurvivor), ...(p.survivorPile ?? [])]
+      const eliminated = Math.max(0, TOTAL - living.length)
+      let s = eliminated
+      for (const c of living) {
+        let prog = c.revealed ? 0.1 : 0
+        if (c.survivorState === 'injured') prog = Math.max(prog, 0.35)
+        else if (c.survivorState === 'critical') prog = Math.max(prog, 0.55)
+        if (c.onHook) prog = Math.max(prog, 0.7 + ((3 - (c.survivorLives ?? 3)) / 3) * 0.25)
+        s += Math.min(0.95, prog)
+      }
+      const score = s / TOTAL
+      return eliminated >= TOTAL ? 1 : Math.min(0.99, score)
+    }
   }
 }
 
@@ -904,7 +944,9 @@ export function evaluate(state: GameState, idx: number, w: EvalWeights = DEFAULT
       if (c.type === 'ally') score += (c.strength ?? 0) * w.myAllyStr
       // Un Héros-CIBLE de capture (Peach chez Bowser) présent dans mon royaume est un
       // ATOUT, pas une gêne → pas de pénalité (le gradient est porté par objectiveScore).
-      else if (c.type === 'hero' && !isCaptureTargetHero(me.villain, c.cardId))
+      // Idem pour un SURVIVANT du Piégeur : c'est une CIBLE à éliminer, pas une menace
+      // (sa progression révélé/blessé/critique/accroché est portée par objectiveScore).
+      else if (c.type === 'hero' && !isCaptureTargetHero(me.villain, c.cardId) && !c.isSurvivor)
         score -= (c.strength ?? 0) * myHeroPerStr + w.myHeroFlat
     }
   }
@@ -936,6 +978,22 @@ export function evaluate(state: GameState, idx: number, w: EvalWeights = DEFAULT
   // Couche « stratégie bot » : conseils de jeu propres au vilain (placements
   // préférés, Héros à vaincre en priorité, cartes-moteurs). Cf. villainStrategy.ts.
   score += villainStrategyBonus(me)
+  // Le Piégeur — bonus POSITIONNEL : le pion sur un lieu portant un Survivant sur lequel il
+  // peut agir (face cachée → révéler ; révélé → blesser ; critique + crochet actif →
+  // accrocher) le rapproche d'une action d'attaque. Petit poids (le gradient d'élimination
+  // reste porté par objectiveScore) pour que le bot aille CHASSER plutôt qu'errer.
+  if (me.objective.type === 'PIEGEUR_ELIMINATE_ALL_SURVIVORS' && me.pawnLocation) {
+    const here = me.board[me.pawnLocation] ?? []
+    const hookOk = !!me.hooks?.[me.pawnLocation]?.present && me.hooks[me.pawnLocation].disabledTurns === 0
+    let posBonus = 0
+    for (const c of here) {
+      if (!c.isSurvivor) continue
+      if (!c.revealed) posBonus += 2
+      else if (c.survivorState === 'critical') posBonus += hookOk ? 4 : 2
+      else posBonus += 3
+    }
+    score += Math.min(posBonus, 8)
+  }
   // Bowser — positionnement des Alliés autour de l'Observatoire. Tant qu'il RESTE des
   // Étoiles, l'Observatoire n'est PAS verrouillé → Luigi peut y débarquer et défausser
   // TOUS les Alliés du lieu (renvoyant leurs Étoiles à l'Observatoire). D'où deux

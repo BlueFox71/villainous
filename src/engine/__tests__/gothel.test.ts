@@ -106,28 +106,36 @@ describe('Mère Gothel — mécanique Confiance & Raiponce', () => {
     expect(s.pendingFate ?? null).toBeNull()
   })
 
-  it('Raiponce qui glisse jusqu’à Corona puis y campe au début du tour → −1 Confiance', () => {
+  it('Raiponce glisse jusqu’à Corona (pas de perte), puis y campe le tour suivant → −1 Confiance', () => {
     let s = game()
     const rap = Object.values(s.players[0].board).flat().find((c) => c.cardId === 'raiponce')!
-    // Raiponce sur la Forêt : la dérive de fin de tour l'amène sur Corona ; en
-    // partie mono-joueur, le début du tour suivant (= ce même joueur) applique
-    // aussitôt la pénalité « Raiponce sur Corona ».
+    // Raiponce sur la Forêt : la dérive de fin de tour l'amène sur Corona — elle a PU
+    // avancer, donc aucune perte ce tour-ci.
     s = { ...s, phase: 'ACTION', players: [{ ...s.players[0], confiance: 5, board: { ...s.players[0].board, tour: [], foret: [{ ...rap }] } }] }
     const after = applyAction(s, { type: 'END_TURN' })
     expect(raiponceOf(after)).toBe('corona')
-    expect(after.players[0].confiance).toBe(4)
+    expect(after.players[0].confiance).toBe(5)
+    // Fin du tour SUIVANT : Raiponce campe sur Corona et ne peut plus avancer → −1.
+    const after2 = applyAction({ ...after, phase: 'ACTION' }, { type: 'END_TURN' })
+    expect(raiponceOf(after2)).toBe('corona')
+    expect(after2.players[0].confiance).toBe(4)
   })
 
-  it('Raiponce déjà sur Corona : −1 Confiance au début de chaque tour (plancher 0)', () => {
+  it('Raiponce déjà sur Corona en fin de tour : −1 Confiance (plancher 0)', () => {
     let s = game()
     const rap = Object.values(s.players[0].board).flat().find((c) => c.cardId === 'raiponce')!
-    s = { ...s, phase: 'ACTION', players: [{ ...s.players[0], confiance: 0, board: { ...s.players[0].board, tour: [], corona: [{ ...rap }] } }] }
+    // Raiponce déjà sur Corona (ne peut plus avancer), 3 Confiance.
+    s = { ...s, phase: 'ACTION', players: [{ ...s.players[0], confiance: 3, board: { ...s.players[0].board, tour: [], corona: [{ ...rap }] } }] }
     const after = applyAction(s, { type: 'END_TURN' })
     expect(raiponceOf(after)).toBe('corona') // déjà tout à droite : reste sur place
-    expect(after.players[0].confiance).toBe(0) // plancher
+    expect(after.players[0].confiance).toBe(2) // −1 en fin de tour
+    // Plancher à 0 : depuis 0, pas de valeur négative.
+    const s0 = { ...s, players: [{ ...s.players[0], confiance: 0, board: { ...s.players[0].board, tour: [], corona: [{ ...rap }] } }] }
+    const after0 = applyAction(s0, { type: 'END_TURN' })
+    expect(after0.players[0].confiance).toBe(0)
   })
 
-  it('report (2 joueurs) : pas de perte quand Raiponce glisse sur Corona en fin de tour', () => {
+  it('report (2 joueurs) : la perte tombe à la FIN du tour où Raiponce ne peut plus avancer', () => {
     let s = game2()
     const rap = Object.values(s.players[0].board).flat().find((c) => c.cardId === 'raiponce')!
     // Gothel (p0) actif, Raiponce sur la Forêt, 5 Confiance.
@@ -140,15 +148,18 @@ describe('Mère Gothel — mécanique Confiance & Raiponce', () => {
         s.players[1],
       ],
     }
-    // Fin du tour de p0 : Raiponce glisse sur Corona MAIS aucune perte immédiate
-    // (c'est au tour de p1 de commencer).
+    // Fin du tour de p0 : Raiponce PEUT avancer (Forêt → Corona) → aucune perte.
     const afterP0 = applyAction(s, { type: 'END_TURN' })
     expect(raiponceOf(afterP0)).toBe('corona')
     expect(afterP0.players[0].confiance).toBe(5)
-    // Fin du tour de p1 → début du tour de Gothel : Raiponce campe sur Corona → −1.
+    // Tour de p1 → retour à Gothel : aucune perte au DÉBUT du tour.
     const backToGothel = applyAction({ ...afterP0, phase: 'ACTION' }, { type: 'END_TURN' })
     expect(backToGothel.activePlayer).toBe(0)
-    expect(backToGothel.players[0].confiance).toBe(4)
+    expect(backToGothel.players[0].confiance).toBe(5)
+    // Fin du tour SUIVANT de Gothel : Raiponce campe sur Corona, ne peut plus avancer → −1.
+    const afterP0Again = applyAction({ ...backToGothel, phase: 'ACTION' }, { type: 'END_TURN' })
+    expect(raiponceOf(afterP0Again)).toBe('corona')
+    expect(afterP0Again.players[0].confiance).toBe(4)
   })
 
   it('report (2 joueurs) : Raiponce quittée de Corona avant le tour de Gothel → pas de perte', () => {
@@ -168,7 +179,8 @@ describe('Mère Gothel — mécanique Confiance & Raiponce', () => {
     // Pendant le tour de p1, Raiponce est ramenée vers la Tour (ex. Lance-moi ta chevelure).
     const moved = resolveEffects(afterP0, [{ type: 'MOVE_RAIPONCE', to: 'tour' }], { actorIndex: 0 })
     expect(raiponceOf(moved)).toBe('tour')
-    // Début du tour de Gothel : Raiponce n'est plus sur Corona → aucune perte.
+    // Retour à Gothel : Raiponce n'est plus sur Corona → aucune perte (ni au début, ni
+    // en fin de tour, puisqu'elle peut de nouveau avancer).
     const backToGothel = applyAction({ ...moved, phase: 'ACTION' }, { type: 'END_TURN' })
     expect(backToGothel.activePlayer).toBe(0)
     expect(backToGothel.players[0].confiance).toBe(5)

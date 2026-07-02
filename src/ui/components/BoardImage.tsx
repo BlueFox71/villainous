@@ -554,6 +554,7 @@ export function BoardImage({
           (c) =>
             c.type === 'hero' &&
             !c.hypnotized &&
+            !c.loved &&
             !c.pokemonKO &&
             c.cardId !== 'the-prince' &&
             !hiddenHeroInstanceIds.includes(c.instanceId),
@@ -639,6 +640,7 @@ export function BoardImage({
           (c) =>
             c.type === 'hero' &&
             !c.hypnotized &&
+            !c.loved &&
             c.heroSize === 'enlarged' &&
             !hiddenHeroInstanceIds.includes(c.instanceId),
         )

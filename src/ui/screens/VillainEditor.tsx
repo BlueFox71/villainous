@@ -4,7 +4,7 @@ import { useTestWinStore } from '../store/testWinStore'
 import { PortraitEditorModal } from '../components/PortraitEditorModal'
 import { CardBackLayout } from '../editor/CardBackLayout'
 import { exportVillainAssets } from '../editor/exportAssets'
-import type { BackOverlay } from '../../data/customVillain'
+import type { BackOverlay, ExtraBack, ExtraBackColorMode } from '../../data/customVillain'
 import {
   emptyCustomVillain,
   FATE_CARD_COLOR,
@@ -12,13 +12,16 @@ import {
   FATE_DECK_SIZE,
   deckCounts,
   isDeckComplete,
+  DEFAULT_EXTRA_BACK,
+  extraBackColor,
+  extraBackPaper,
   type CustomVillain,
   type VillainOrigin,
 } from '../../data/customVillain'
 import { villainsBackground } from '../villainColors'
 import { VILLAIN_REGISTRY, type VillainKey } from '../store/gameStore'
 import { Scroller } from '../components/Scroller'
-import { Field, TextField, ColorField, ImageField } from '../editor/fields'
+import { Field, TextField, ColorField, ImageField, SelectField } from '../editor/fields'
 import { BoardTab } from '../editor/BoardTab'
 import { CardsTab } from '../editor/CardsTab'
 import { QuantityTab } from '../editor/QuantityTab'
@@ -81,10 +84,10 @@ function IdentityTab({
           type="button"
           onClick={onFramePortrait}
           disabled={!draft.portrait}
-          title={draft.portrait ? 'Encadrer le portrait (cadre doré + nom)' : 'Choisis d’abord un portrait'}
+          title={draft.portrait ? 'Ajuster le portrait (zoom / déplacement / cadre + nom)' : 'Choisis d’abord un portrait'}
           className="self-start rounded-lg border border-amber-300/50 px-3 py-1.5 text-sm font-semibold text-amber-200 transition hover:bg-amber-400/10 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          🖼 Éditeur de portrait (cadre + nom)
+          🖼 Ajuster le portrait (zoom / déplacement / cadre)
         </button>
         <ImageField
           label="Présentation (corps entier)"
@@ -132,6 +135,89 @@ function CardBackPreview({
         {src && <img src={src} alt={caption} className="h-full w-full object-cover" />}
       </div>
       <span className="text-[10px] text-white/50">{caption}</span>
+    </div>
+  )
+}
+
+// --- 3e dos (paquets personnalisés) -----------------------------------------
+
+/** Éditeur du DOS des cartes de paquet PERSONNALISÉ : couleur au choix (deck Vilain /
+ *  Fatalité / libre), recoloration des ornements dorés, et ses propres ornements
+ *  importés. N'apparaît que si le vilain a au moins un paquet perso (`extraDecks`). */
+function ExtraBackSection({
+  draft,
+  patch,
+}: {
+  draft: CustomVillain
+  patch: (p: Partial<CustomVillain>) => void
+}) {
+  const cfg: ExtraBack = draft.backExtra ?? DEFAULT_EXTRA_BACK
+  const setCfg = (p: Partial<ExtraBack>) => patch({ backExtra: { ...cfg, ...p } })
+  // Couleur + traitement effectifs pour l'aperçu (mêmes règles que le bake).
+  const color = extraBackColor({ ...draft, backExtra: cfg })
+  const paper = extraBackPaper({ ...draft, backExtra: cfg })
+
+  const MODE_OPTIONS: readonly { value: ExtraBackColorMode; label: string }[] = [
+    { value: 'villain', label: 'Couleur du deck Vilain' },
+    { value: 'fate', label: 'Couleur de la Fatalité (parchemin)' },
+    { value: 'custom', label: 'Couleur libre' },
+  ]
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-black/20 p-4">
+      <span className="text-xs font-semibold uppercase tracking-wide text-white/50">
+        Dos des cartes — paquet personnalisé
+      </span>
+      <div className="flex flex-wrap items-start gap-6">
+        {/* Réglages de couleur / ornements. */}
+        <div className="flex w-64 flex-col gap-3">
+          <SelectField<ExtraBackColorMode>
+            label="Couleur du dos"
+            value={cfg.colorMode}
+            options={MODE_OPTIONS}
+            onChange={(colorMode) => setCfg({ colorMode })}
+          />
+          {cfg.colorMode === 'custom' && (
+            <ColorField
+              label="Couleur libre"
+              value={cfg.color ?? draft.color}
+              onChange={(c) => setCfg({ color: c })}
+            />
+          )}
+          <label className="flex items-center gap-2 text-xs text-white/60">
+            <input
+              type="checkbox"
+              checked={cfg.ornamentColor !== undefined}
+              onChange={(e) => setCfg({ ornamentColor: e.target.checked ? '#c9a14e' : undefined })}
+              className="accent-amber-400"
+            />
+            Recolorer les ornements (cadre + axe)
+          </label>
+          {cfg.ornamentColor !== undefined && (
+            <ColorField
+              label="Couleur des ornements"
+              value={cfg.ornamentColor}
+              onChange={(c) => setCfg({ ornamentColor: c })}
+            />
+          )}
+        </div>
+        {/* Éditeur interactif d'ornements importés (propres à ce dos). */}
+        <div className="flex flex-col items-center gap-1">
+          <CardBackLayout
+            color={color}
+            name={draft.name}
+            overlays={cfg.overlays ?? []}
+            onChange={(overlays) => setCfg({ overlays })}
+            ornamentColor={cfg.ornamentColor}
+            paper={paper}
+          />
+          <span className="text-[10px] text-white/50">Paquet perso</span>
+        </div>
+      </div>
+      <p className="text-[11px] text-white/40">
+        Ce dos s’applique aux cartes de tes paquets personnalisés (hors decks Vilain et
+        Fatalité).
+      </p>
     </div>
   )
 }
@@ -303,11 +389,17 @@ export function VillainEditor({ onBack, onPlay }: Props) {
     if (!draft) return
     // Clone puis retire toutes les images (dataURL) pour un fichier léger et lisible.
     const light = JSON.parse(JSON.stringify(draft)) as Record<string, unknown>
-    for (const k of ['portrait', 'presentation', 'portraitRaw', 'boardArt', 'boardImage', 'pawnImage', 'backVillainImage', 'backFateImage']) {
+    for (const k of ['portrait', 'presentation', 'portraitRaw', 'boardArt', 'boardImage', 'pawnImage', 'backVillainImage', 'backFateImage', 'backExtraImage']) {
       delete light[k]
     }
     if (Array.isArray(light.backOverlays)) {
       light.backOverlays = (light.backOverlays as Record<string, unknown>[]).map((o) => { delete o.image; return o })
+    }
+    if (light.backExtra && typeof light.backExtra === 'object') {
+      const be = light.backExtra as Record<string, unknown>
+      if (Array.isArray(be.overlays)) {
+        be.overlays = (be.overlays as Record<string, unknown>[]).map((o) => { delete o.image; return o })
+      }
     }
     if (Array.isArray(light.cards)) {
       light.cards = (light.cards as Record<string, unknown>[]).map((c) => { delete c.image; delete c.artImage; return c })
@@ -698,6 +790,10 @@ export function VillainEditor({ onBack, onPlay }: Props) {
                       />
                     </div>
                   </div>
+                  {/* 3e dos : uniquement si le vilain a au moins un paquet perso. */}
+                  {(draft.extraDecks?.length ?? 0) > 0 && (
+                    <ExtraBackSection draft={draft} patch={patch} />
+                  )}
                 </div>
               )}
               {tab === 'board' && <BoardTab draft={draft} patch={patch} />}
@@ -787,7 +883,9 @@ export function VillainEditor({ onBack, onPlay }: Props) {
           custom={{
             portrait: draft.portraitRaw ?? draft.portrait,
             name: draft.name,
-            onApply: (portrait) => patch({ portrait, portraitRaw: draft.portraitRaw ?? draft.portrait }),
+            crop: draft.portraitCrop,
+            onApply: (portrait, portraitCrop) =>
+              patch({ portrait, portraitRaw: draft.portraitRaw ?? draft.portrait, portraitCrop }),
           }}
         />
       )}

@@ -17,6 +17,7 @@ import {
   cardNeedsSacrificeTarget,
   cardNeedsStarAllyTarget,
   cardNeedsVanquishTarget,
+  canCauldronExchange,
   drainStarAllies,
   effectiveCost,
   effectiveStrength,
@@ -39,7 +40,7 @@ import {
 import { titanReachableDests } from '../engine/effects'
 import { rankedFireTargets } from '../engine/shereKhan'
 import { FREE_PLAY_NO_ACTION_ID } from '../engine/actions'
-import type { CardInstance, KeyColor, LocationAction, PendingDice, PlayerState, ShowcaseEvent } from '../engine/types'
+import type { CardInstance, CardType, KeyColor, LocationAction, PendingDice, PlayerState, ShowcaseEvent } from '../engine/types'
 import { BLUE, RED, accentVars } from './accents'
 import { villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from './villainColors'
 import { villainColor, useVillainColorVersion } from './villainColorState'
@@ -53,7 +54,7 @@ import { BoardImage, LOCATIONS_LEFT, PAWN_FIRST_LEFT, PAWN_STEP } from './compon
 import { BoardActions, getVillainActionPos } from './components/BoardActions'
 import { SUGAR_RUSH_TRACK } from './components/sugarRushTrack'
 import { HeroRow } from './components/HeroRow'
-import { DeckPiles, AuDelaPile, IngredientsPile, SuccessionPile, ImpostorPile, CapturedPuppiesPile, ClaimedTreasuresPile, CauldronTile, MerlinPiles, MauiPiles, OmnidroidPile, DiscardModal } from './components/DeckPiles'
+import { DeckPiles, AuDelaPile, IngredientsPile, ArtifactsPile, ClockPile, SuccessionPile, ImpostorPile, CapturedPuppiesPile, ClaimedTreasuresPile, CauldronTile, MerlinPiles, MauiPiles, OmnidroidPile, DiscardModal } from './components/DeckPiles'
 import { StacksCards } from './components/StacksCards'
 import { GoalTilesRow } from './components/GoalTilesRow'
 import { FateModal } from './components/FateModal'
@@ -905,6 +906,83 @@ function CauldronChoiceModal({
   )
 }
 
+/** Le Seigneur des Ténèbres — capacité du Chaudron RÉVEILLÉ : le joueur choisit un
+ *  Squelette de Soldat (n'importe quel lieu) et un Soldat Ressuscité de sa main ; il
+ *  paie 2 Pouvoir et le Squelette devient le Soldat sur ce lieu. */
+function CauldronExchangeModal({
+  player,
+  onConfirm,
+  onClose,
+}: {
+  player: PlayerState
+  onConfirm: (squeletteInstanceId: string, soldierInstanceId: string) => void
+  onClose: () => void
+}) {
+  const skeletons: { id: string; locName: string }[] = []
+  for (const l of player.locations) {
+    for (const c of player.board[l.id] ?? []) {
+      if (c.cardId === 'ancient-soldiers' && c.type === 'item' && !c.attachedTo) {
+        skeletons.push({ id: c.instanceId, locName: l.name })
+      }
+    }
+  }
+  const soldiers = player.hand.filter((c) => c.cardId === 'cauldron-born')
+  const [sq, setSq] = useState<string | null>(skeletons[0]?.id ?? null)
+  const [sol, setSol] = useState<string | null>(soldiers[0]?.instanceId ?? null)
+  const pill = (on: boolean) =>
+    `rounded-lg border px-3 py-1.5 text-sm font-semibold ${
+      on ? 'border-lime-400/70 bg-lime-500/25 text-lime-100' : 'border-white/20 bg-white/5 text-white/80 hover:bg-white/10'
+    }`
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+      <div className="flex w-[30rem] max-w-[94vw] flex-col gap-4 rounded-2xl border border-white/15 bg-[#15101f] p-6 shadow-2xl">
+        <h2 className="text-center text-lg font-bold text-lime-200">Chaudron Magique — Échange</h2>
+        <img src="/cards/seigneur-tenebres/cauldron.png" alt="Chaudron Magique" className="mx-auto h-20 w-auto object-contain drop-shadow" />
+        <p className="text-center text-sm text-white/80">
+          Payez <b>2 Pouvoir</b> : un <b>Squelettes de Soldats</b> devient un <b>Soldat Ressuscité</b> (posé sur son lieu).
+        </p>
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-bold uppercase tracking-wide text-white/50">Squelette à transformer</span>
+          <div className="flex flex-wrap gap-2">
+            {skeletons.map((s) => (
+              <button key={s.id} type="button" onClick={() => setSq(s.id)} className={pill(sq === s.id)}>
+                {s.locName}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-bold uppercase tracking-wide text-white/50">Soldat Ressuscité (main) — {soldiers.length}</span>
+          <div className="flex flex-wrap gap-2">
+            {soldiers.map((s, i) => (
+              <button key={s.instanceId} type="button" onClick={() => setSol(s.instanceId)} className={pill(sol === s.instanceId)}>
+                Soldat {i + 1}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex justify-center gap-3 pt-1">
+          <button
+            type="button"
+            disabled={!sq || !sol}
+            onClick={() => sq && sol && onConfirm(sq, sol)}
+            className="flex-1 rounded-lg border border-lime-400/60 bg-lime-500/20 px-4 py-2 text-sm font-semibold text-lime-100 enabled:hover:bg-lime-500/30 disabled:opacity-40"
+          >
+            🜕 Échanger (−2 Pouvoir)
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-lg border border-white/30 bg-white/10 px-4 py-2 text-sm font-semibold text-white/80 hover:bg-white/20"
+          >
+            Annuler
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /** Tamatoa — Pas exactement l'heure de Maui : la 1ʳᵉ carte Maui est dévoilée ; le joueur
  *  choisit de la JOUER (résout son effet) ou de la DÉFAUSSER. */
 function MauiChoiceModal({
@@ -1109,6 +1187,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const setStartingPlayer = useGameStore((s) => s.setStartingPlayer)
   const activate = useGameStore((s) => s.activate)
   const activateCauldron = useGameStore((s) => s.activateCauldron)
+  const cauldronExchange = useGameStore((s) => s.cauldronExchange)
   const vanquish = useGameStore((s) => s.vanquish)
   const catchPokemon = useGameStore((s) => s.catchPokemon)
   const discardDeguisement = useGameStore((s) => s.discardDeguisement)
@@ -1194,6 +1273,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const sacrificeCrown = useGameStore((s) => s.sacrificeCrown)
   const resolveHeroRelocate = useGameStore((s) => s.resolveHeroRelocate)
   const skipHeroRelocate = useGameStore((s) => s.skipHeroRelocate)
+  const resolvePiegeurTarget = useGameStore((s) => s.resolvePiegeurTarget)
+  const resolvePiegeurDest = useGameStore((s) => s.resolvePiegeurDest)
+  const discardPalette = useGameStore((s) => s.discardPalette)
   const resolveAllyRelocate = useGameStore((s) => s.resolveAllyRelocate)
   const skipAllyRelocate = useGameStore((s) => s.skipAllyRelocate)
   const resolvePokemonSummon = useGameStore((s) => s.resolvePokemonSummon)
@@ -1245,6 +1327,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const doneCrewmateMove = useGameStore((s) => s.doneCrewmateMove)
   const resolveFateObjectPlace = useGameStore((s) => s.resolveFateObjectPlace)
   const resolveFateHeroPlace = useGameStore((s) => s.resolveFateHeroPlace)
+  const resolveFateDiscardType = useGameStore((s) => s.resolveFateDiscardType)
+  const removeFateLocationCard = useGameStore((s) => s.removeFateLocationCard)
   const resolveGiantLocation = useGameStore((s) => s.resolveGiantLocation)
   const resolveTitanMove = useGameStore((s) => s.resolveTitanMove)
   const resolveTitanSelect = useGameStore((s) => s.resolveTitanSelect)
@@ -1255,6 +1339,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveInformation = useGameStore((s) => s.resolveInformation)
   const resolveDiscardThenDraw = useGameStore((s) => s.resolveDiscardThenDraw)
   const resolveTakeABite = useGameStore((s) => s.resolveTakeABite)
+  const resolveGrantLove = useGameStore((s) => s.resolveGrantLove)
   const resolveDuplicateIngredient = useGameStore((s) => s.resolveDuplicateIngredient)
   const cancelDuplicateIngredient = useGameStore((s) => s.cancelDuplicateIngredient)
   const resolveScream = useGameStore((s) => s.resolveScream)
@@ -1396,6 +1481,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   ])
 
   const [mode, setMode] = useState<Mode>(null)
+  // Le Seigneur des Ténèbres — ouverture de la modale d'échange du Chaudron réveillé.
+  const [showCauldronExchange, setShowCauldronExchange] = useState(false)
   // Mode test : relance l'animation de décor au clic (boutons 🚢). On choisit le
   // vilain ET le camp (joueur/adversaire) pour tester chaque trajectoire des deux côtés.
   const [debugAnim, setDebugAnim] = useState<{
@@ -2139,7 +2226,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const anyAllyOnBoard =
     isHumanTurn &&
     Object.values(user.board).some((cards) =>
-      cards.some((c) => c.type === 'ally' || (c.type === 'hero' && c.hypnotized)),
+      cards.some((c) => c.type === 'ally' || (c.type === 'hero' && (c.hypnotized || c.loved))),
     )
   // Dio — au moins un Allié DÉFAUSSABLE (The World/Stands/associés exclus) : Vampirisme l'exige.
   const anyDiscardableAlly =
@@ -3131,6 +3218,21 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       }
       return
     }
+    // Défaite (Gul'dan) : le bot (fataliseur) défausse le type le plus nombreux du royaume
+    // de la cible (max de dégâts).
+    const pfdt = state.pendingFateDiscardType
+    if (pfdt) {
+      if (seats[pfdt.chooserIndex] === 'bot') {
+        const tgt = state.players[pfdt.targetIndex]
+        const flat = Object.values(tgt.board).flat()
+        const nAllies = flat.filter((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket).length
+        const nItems = flat.filter((c) => c.type === 'item' && !c.attachedTo && !c.isSabotage).length
+        const pick: CardType = nItems > nAllies ? 'item' : 'ally'
+        const timer = setTimeout(() => resolveFateDiscardType(pick), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
     // Appel à l'aide (Ratigan) : le bot (qui pose la Fatalité) vise le lieu de la
     // Reine Robot (pour que Basil la défausse → bascule « Le Rat »), sinon Buckingham.
     const pfhp = state.pendingFateHeroPlace
@@ -3322,6 +3424,22 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       }
       return
     }
+    // Isabella — AMOUR : le bot fait aimer le Héros le plus fort (le neutralise en Allié).
+    const pgl = state.pendingGrantLove
+    if (pgl) {
+      if (seats[pgl.playerIndex] === 'bot') {
+        const owner = state.players[pgl.playerIndex]
+        const cards = pgl.candidateIds
+          .map((id) => Object.values(owner.board).flat().find((c) => c.instanceId === id))
+          .filter((c): c is NonNullable<typeof c> => !!c)
+        const pick = [...cards].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+        if (pick) {
+          const timer = setTimeout(() => resolveGrantLove(pick.instanceId), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
     // La Méchante Reine — Foudre : le bot reproduit Caquet en priorité, sinon le 1er.
     const pdup = state.pendingDuplicateIngredient
     if (pdup) {
@@ -3412,6 +3530,33 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         if (phr.optional) {
           const timer = setTimeout(() => skipHeroRelocate(), BOT_STEP_MS)
           return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
+
+    // Le Piégeur — choix du Survivant (phase 'target') ou du lieu voisin (phase 'dest').
+    const pp = state.pendingPiegeur
+    if (pp) {
+      if (seats[pp.chooserIndex] === 'bot') {
+        if (pp.phase === 'target') {
+          // Bot : privilégie le Survivant le plus « avancé » (critique > blessé > révélé).
+          const cands = pp.candidateIds
+            .map((id) => Object.values(state.players[pp.chooserIndex].board).flat().find((c) => c.instanceId === id))
+            .filter((c): c is NonNullable<typeof c> => !!c)
+          const rank = (c: (typeof cands)[number]) =>
+            (c.survivorState === 'critical' ? 3 : c.survivorState === 'injured' ? 2 : 0) + (c.revealed ? 1 : 0)
+          const pick = [...cands].sort((a, b) => rank(b) - rank(a))[0]?.instanceId ?? pp.candidateIds[0]
+          if (pick) {
+            const timer = setTimeout(() => resolvePiegeurTarget(pick), BOT_STEP_MS)
+            return () => clearTimeout(timer)
+          }
+        } else {
+          const to = (pp.destLocs ?? [])[0]
+          if (to) {
+            const timer = setTimeout(() => resolvePiegeurDest(to), BOT_STEP_MS)
+            return () => clearTimeout(timer)
+          }
         }
       }
       return
@@ -3806,7 +3951,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [paused, seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolvePacteSang, resolveSacrifice, resolveCageMove, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire])
+  }, [paused, seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolvePacteSang, resolveSacrifice, resolveCageMove, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveFateDiscardType, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveGrantLove, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire, resolvePiegeurTarget, resolvePiegeurDest])
 
   // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
   // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
@@ -3882,7 +4027,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           if (locked.has(l.id)) return []
           if (adjacentLocationIds(state, l.id).every((d) => locked.has(d))) return []
           return (user.board[l.id] ?? [])
-            .filter((c) => c.type === 'hero' && !c.hypnotized)
+            .filter((c) => c.type === 'hero' && !c.hypnotized && !c.loved)
             .map((c) => c.instanceId)
         })
       })()
@@ -4114,8 +4259,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     if (card.type === 'item' && card.attach === 'hero') {
       return setMode({ kind: 'item-attach-hero', actionId: mode.actionId, instanceId, cardName: card.name, diablo: mode.diablo })
     }
-    if (card.type === 'ally' || card.type === 'item' || card.type === 'curse') {
-      // Allié/Objet/Malédiction : on choisit ensuite le LIEU de destination.
+    if (card.type === 'ally' || card.type === 'item' || card.type === 'curse' || card.staysOnLocationOnPlay) {
+      // Allié/Objet/Malédiction — ou Gul'dan/Corruption (`staysOnLocationOnPlay`) : on
+      // choisit ensuite le LIEU de destination (clic sur le plateau).
       return setMode({
         kind: 'place',
         actionId: mode.actionId,
@@ -4453,7 +4599,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     }
     if (mode.isAttach) {
       const allies = (user.board[to] ?? []).filter(
-        (c) => c.type === 'ally' || (c.type === 'hero' && c.hypnotized),
+        (c) => c.type === 'ally' || (c.type === 'hero' && (c.hypnotized || c.loved)),
       )
       if (allies.length === 0) return // lieu non cliquable en principe
       if (allies.length === 1) {
@@ -4488,6 +4634,18 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     if (card.type === 'item' && card.attach === 'hero') {
       return setMode({ kind: 'item-attach-hero', actionId, instanceId, cardName: card.name })
     }
+    // Gul'dan — Corruption (`staysOnLocationOnPlay`) : se POSE sur le lieu déposé, à
+    // condition qu'il soit TRANSFORMABLE, NON verrouillé et PAS déjà corrompu (face A).
+    if (card.staysOnLocationOnPlay) {
+      if (!dropLocationId) return // déposé hors d'un lieu : ignoré
+      const loc = user.locations.find((l) => l.id === dropLocationId)
+      if (!loc || (loc.altActions === undefined && loc.altName === undefined)) return
+      if (loc.version === 'b') return // déjà corrompu
+      if ((user.lockedLocations ?? []).includes(dropLocationId)) return // verrouillé
+      doPlayCard(undefined, actionId, instanceId, dropLocationId)
+      setMode(null)
+      return
+    }
     // Allié / Objet / Malédiction : se POSE sur un lieu → on utilise le lieu déposé.
     if (card.type === 'ally' || card.type === 'item' || card.type === 'curse') {
       if (!dropLocationId) return // déposé hors d'un lieu : on ignore (carte de lieu)
@@ -4505,7 +4663,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         return setMode({ kind: 'place', actionId, instanceId, cardName: card.name, isAttach: false })
       }
       if (card.type === 'item' && card.attach === 'ally') {
-        const allies = (user.board[dropLocationId] ?? []).filter((c) => c.type === 'ally' || (c.type === 'hero' && c.hypnotized))
+        const allies = (user.board[dropLocationId] ?? []).filter((c) => c.type === 'ally' || (c.type === 'hero' && (c.hypnotized || c.loved)))
         if (allies.length === 0) return // aucun hôte sur ce lieu
         if (allies.length === 1) return playItemMaybeEngrenages(undefined, actionId, instanceId, dropLocationId, allies[0].instanceId)
         return setMode({ kind: 'attach', actionId, instanceId, cardName: card.name, to: dropLocationId })
@@ -4621,7 +4779,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const draggedIsLocationCard = (instanceId: string): boolean => {
     if (dragKindRef.current === 'move' || dragKindRef.current === 'hero') return true
     const card = user.hand.find((c) => c.instanceId === instanceId)
-    return !!card && (card.type === 'ally' || card.type === 'curse' || (card.type === 'item' && card.attach !== 'hero'))
+    // Gul'dan/Corruption (`staysOnLocationOnPlay`) se pose aussi sur un lieu → surbrillance.
+    return !!card && (card.type === 'ally' || card.type === 'curse' || card.staysOnLocationOnPlay === true || (card.type === 'item' && card.attach !== 'hero'))
   }
   // Boucle d'animation : le fantôme rattrape le curseur avec une micro-inertie (lerp) et
   // s'incline selon la vitesse horizontale. Pilotée en impératif (style DOM) → aucun
@@ -5152,6 +5311,16 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           .filter((id) => {
             // Sa Sucrerie : on pose dans les 4 zones, jamais sur le circuit.
             if (user.villain === 'sa-sucrerie' && id === 'sugar-rush') return false
+            // Gul'dan — Corruption : uniquement un lieu TRANSFORMABLE, NON verrouillé et
+            // PAS déjà corrompu (face A). Interdit donc un lieu déjà corrompu ou la Porte
+            // encore verrouillée.
+            if (cardInPlay?.staysOnLocationOnPlay) {
+              const loc = user.locations.find((l) => l.id === id)
+              if (!loc || (loc.altActions === undefined && loc.altName === undefined)) return false
+              if (loc.version === 'b') return false
+              if ((user.lockedLocations ?? []).includes(id)) return false
+              return true
+            }
             // Carte à pose restreinte (Lampe Merveilleuse → Caverne uniquement).
             if (cardInPlay?.playOnlyAt && id !== cardInPlay.playOnlyAt) return false
             // Anastasie/Javotte : pas dans la Salle de Bal (lieux interdits par carte).
@@ -5180,7 +5349,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             }
             if (mode.isAttach)
               return (user.board[id] ?? []).some(
-                (c) => c.type === 'ally' || (c.type === 'hero' && c.hypnotized),
+                (c) => c.type === 'ally' || (c.type === 'hero' && (c.hypnotized || c.loved)),
               )
             if (cardInPlay?.type === 'curse') return canPlaceCurseAt(state, HUMAN, id)
             // Limite d'exemplaires par lieu (Page : max 2 posées librement).
@@ -5281,7 +5450,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           )
           // Objet associé à un Héros (Forme de grenouille…) : Héros non hypnotisés.
           if (mode?.kind === 'item-attach-hero') {
-            return allHeroes.filter((h) => !h.hypnotized).map((c) => c.instanceId)
+            return allHeroes.filter((h) => !h.hypnotized && !h.loved).map((c) => c.instanceId)
           }
           // Apparence de Dragon : seuls les Héros ≤ maxStrength sont des cibles.
           if (mode?.kind === 'play-pick-hero') {
@@ -5361,6 +5530,30 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       .map((c) => c.instanceId)
     return phr.candidateIds ? heroes.filter((id) => phr.candidateIds!.includes(id)) : heroes
   })()
+
+  // Le Piégeur — Survivants cliquables (phase 'target') et lieux voisins cliquables (phase 'dest').
+  const piegeurPending = state.pendingPiegeur
+  const piegeurTargets: string[] =
+    piegeurPending?.chooserIndex === HUMAN && piegeurPending.phase === 'target' ? piegeurPending.candidateIds : []
+  const piegeurDestTargets: string[] =
+    piegeurPending?.chooserIndex === HUMAN && piegeurPending.phase === 'dest' ? piegeurPending.destLocs ?? [] : []
+  // Le Piégeur — disponibilité des cibles pour ses cartes d'attaque (grise la main sinon).
+  const piegeurGates =
+    user.objective.type === 'PIEGEUR_ELIMINATE_ALL_SURVIVORS'
+      ? (() => {
+          const pawn = user.pawnLocation
+          const here = pawn ? user.board[pawn] ?? [] : []
+          const survHere = here.filter((c) => c.isSurvivor)
+          const hookOk = !!pawn && !!user.hooks?.[pawn]?.present && user.hooks[pawn].disabledTurns === 0
+          return {
+            reveal: survHere.some((c) => !c.revealed),
+            injure: survHere.some((c) => c.revealed && c.survivorState !== 'critical'),
+            hook: hookOk && survHere.some((c) => c.survivorState === 'critical' && !c.onHook),
+            finish: survHere.some((c) => c.survivorState === 'critical' && (c.survivorLives ?? 3) <= 1),
+            move: Object.values(user.board).flat().some((c) => c.isSurvivor && !c.onHook),
+          }
+        })()
+      : undefined
 
   // Localisation du héros ciblé (mode pick-allies).
   const heroLoc = (() => {
@@ -5904,8 +6097,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                     else if (mode?.kind === 'item-attach-hero') handleItemAttachHero(id)
                     else handleVanquishPickHero(id, name)
                   }}
-                  relocateTargets={relocateHeroTargets}
+                  relocateTargets={[...relocateHeroTargets, ...piegeurTargets]}
                   onRelocatePickHero={(id) => {
+                    if (piegeurTargets.includes(id)) {
+                      resolvePiegeurTarget(id)
+                      return
+                    }
                     const phr = state.pendingHeroRelocate
                     if (phr?.forcedLocationId) resolveHeroRelocate(id, phr.forcedLocationId)
                   }}
@@ -5913,11 +6110,38 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                     state.pendingKoPokemon?.chooserIndex === HUMAN ? state.pendingKoPokemon.candidateIds : []
                   }
                   onKoPickPokemon={resolveKoPokemon}
-                  destTargets={heroMoveDestTargets}
-                  onDestPick={handlePlace}
+                  loveTargets={state.pendingGrantLove?.playerIndex === HUMAN ? state.pendingGrantLove.candidateIds : []}
+                  onLovePickHero={resolveGrantLove}
+                  destTargets={piegeurDestTargets.length > 0 ? piegeurDestTargets : heroMoveDestTargets}
+                  onDestPick={(loc) => {
+                    if (piegeurDestTargets.includes(loc)) resolvePiegeurDest(loc)
+                    else handlePlace(loc)
+                  }}
                   gameTurn={state.turn}
                   canDiscardDeguisement={isHumanTurn && state.phase === 'ACTION' && user.power >= 2}
                   onDiscardDeguisement={discardDeguisement}
+                  removableFateCards={(() => {
+                    // Gul'dan — Fatalités posées défaussables pendant son tour (Armée de la
+                    // Lumière : −3 JT si payable ; Kil'jaeden : gratuit à 4 lieux corrompus).
+                    // Le Piégeur — Palette défaussable pour 2 JT (débloque le lieu).
+                    if (!isHumanTurn || state.phase !== 'ACTION') return {}
+                    const out: Record<string, string> = {}
+                    const corrupted = user.locations.filter((l) => l.version === 'b').length
+                    for (const cards of Object.values(user.board))
+                      for (const c of cards) {
+                        if (c.cardId === 'custom-le-piegeur-palette' && !c.attachedTo && user.power >= 2)
+                          out[c.instanceId] = '−2 JT'
+                        else if (c.discardWhenAllCorrupted && corrupted >= 4) out[c.instanceId] = 'Défausser'
+                        else if (c.fateRemovalPowerCost !== undefined && user.power >= c.fateRemovalPowerCost)
+                          out[c.instanceId] = `−${c.fateRemovalPowerCost} JT`
+                      }
+                    return out
+                  })()}
+                  onRemoveFateCard={(id) => {
+                    const card = Object.values(user.board).flat().find((c) => c.instanceId === id)
+                    if (card?.cardId === 'custom-le-piegeur-palette') discardPalette(id)
+                    else removeFateLocationCard(id)
+                  }}
                   hiddenInstanceIds={showcaseHiddenIds}
                   redBlinkInstanceIds={robinBlinkIds}
                   fatePickable={userFatePick.pickable}
@@ -5998,9 +6222,17 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 : user.locations.findIndex((l) => l.id === dragOverLoc)
               if (i < 0) return null
               const locked = (user.lockedLocations ?? []).includes(dragOverLoc)
+              // Gul'dan — Corruption : un lieu déjà corrompu (face B) ou non transformable
+              // est une cible INVALIDE (surbrillance rouge, comme un lieu verrouillé).
+              const dragged = draggingCardId ? user.hand.find((c) => c.instanceId === draggingCardId) : undefined
+              const loc = user.locations.find((l) => l.id === dragOverLoc)
+              const corruptInvalid =
+                dragged?.staysOnLocationOnPlay === true &&
+                (!loc || loc.version === 'b' || (loc.altActions === undefined && loc.altName === undefined))
+              const invalid = locked || corruptInvalid
               return (
                 <div
-                  className={`pointer-events-none absolute inset-y-0 rounded-lg ring-2 transition-all duration-150 ${locked ? 'bg-red-500/10 ring-red-400/70' : 'bg-amber-300/15 ring-amber-300/80'}`}
+                  className={`pointer-events-none absolute inset-y-0 rounded-lg ring-2 transition-all duration-150 ${invalid ? 'bg-red-500/10 ring-red-400/70' : 'bg-amber-300/15 ring-amber-300/80'}`}
                   style={{ left: `${PAWN_FIRST_LEFT + i * PAWN_STEP - PAWN_STEP / 2}%`, width: `${PAWN_STEP}%` }}
                 />
               )
@@ -6045,6 +6277,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             <div className="piles-secondaires flex items-start justify-center pt-1" style={{ width: `${LOCATIONS_LEFT}%` }}>
               <AuDelaPile player={user} uprightWidth="w-20" />
               <IngredientsPile player={user} uprightWidth="w-14" />
+              <ArtifactsPile player={user} uprightWidth="w-14" />
+              <ClockPile player={user} />
               <CapturePile player={user} uprightWidth="w-9" />
               <SuccessionPile player={user} uprightWidth="w-14" />
               <ImpostorPile player={user} uprightWidth="w-14" />
@@ -6092,6 +6326,23 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                   </div>
                 )
               })()}
+              {/* Le Seigneur des Ténèbres — capacité du Chaudron réveillé : AVANT de
+                  déplacer le pion, échanger (1×/tour) un Squelette contre un Soldat
+                  Ressuscité de la main pour 2 Pouvoir. */}
+              {isHumanTurn && canCauldronExchange(state) && (
+                <div className="mb-2 flex flex-wrap items-center gap-2 rounded-xl border border-lime-300/40 bg-[#0e1a12]/90 px-4 py-2 shadow-lg">
+                  <span className="text-sm font-semibold text-lime-100">
+                    🜕 Chaudron réveillé : tu peux transformer un <b>Squelettes de Soldats</b> en <b>Soldat Ressuscité</b> (avant de te déplacer).
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowCauldronExchange(true)}
+                    className="ml-auto rounded-lg border border-lime-400/60 bg-lime-500/20 px-3 py-1 text-sm font-semibold text-lime-100 hover:bg-lime-500/30"
+                  >
+                    Échanger (−2 Pouvoir)
+                  </button>
+                </div>
+              )}
               <Board
                 player={user}
                 accent={BLUE}
@@ -6999,6 +7250,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             <div className="piles-secondaires flex items-start justify-center pt-1" style={{ width: `${LOCATIONS_LEFT}%` }}>
               <AuDelaPile player={bot} uprightWidth="w-20" />
               <IngredientsPile player={bot} uprightWidth="w-14" />
+              <ArtifactsPile player={bot} uprightWidth="w-14" />
+              <ClockPile player={bot} />
               <CapturePile player={bot} uprightWidth="w-9" />
               <SuccessionPile player={bot} uprightWidth="w-14" />
               <ImpostorPile player={bot} uprightWidth="w-14" />
@@ -7111,6 +7364,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             backImage={user.backVillainImage}
             mode={handMode}
             power={user.power}
+            clockHour={user.clockHour}
             attachTargetsAvailable={anyAllyOnBoard}
             blockEvents={humanEventsBlocked}
             realmHasAllies={anyAllyOnBoard}
@@ -7142,7 +7396,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             })()}
             canTransformGuards={transformableGuards(state, HUMAN).length > 0}
             hasHackInPlay={Object.values(user.board).flat().some((c) => c.isPiratage || (c.type === 'hero' && c.abilityHacked))}
-            hasIngredients={(user.ingredients ?? []).some((c) => (c.cost ?? 0) <= user.power)}
+            hasIngredients={(user.ingredients ?? []).some((c) => (c.cost ?? 0) <= user.power) || (user.artifacts ?? []).length > 0}
             heroAtPawn={!!user.pawnLocation && (user.board[user.pawnLocation] ?? []).some((c) => c.type === 'hero')}
             coveredAtPawn={
               !!user.pawnLocation &&
@@ -7191,6 +7445,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             keyAtPawn={(user.keys ?? []).some((k) => k.location === user.pawnLocation && !k.stolenBy)}
             pageAtPawn={!!user.pawnLocation && (user.board[user.pawnLocation] ?? []).some((c) => c.cardId === 'page' && !c.attachedTo)}
             pawnLocationId={user.pawnLocation ?? undefined}
+            piegeurGates={piegeurGates}
             titanMovePlayable={
               // Préparez-vous au combat ! : ≥2 Pouvoir ET un Titan non entravé avec une
               // destination atteignable (sinon la carte n'aurait aucun effet).
@@ -7301,6 +7556,43 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           onPlace={resolveFateHeroPlace}
         />
       )}
+
+      {/* Défaite (Gul'dan) : l'humain (qui pose la Fatalité) choisit Alliés OU Objets. */}
+      {state.pendingFateDiscardType && state.pendingFateDiscardType.chooserIndex === HUMAN && (() => {
+        const tgt = state.players[state.pendingFateDiscardType.targetIndex]
+        const flat = Object.values(tgt.board).flat()
+        const nAllies = flat.filter((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket).length
+        const nItems = flat.filter((c) => c.type === 'item' && !c.attachedTo && !c.isSabotage).length
+        return createPortal(
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4">
+            <div className="flex w-full max-w-sm flex-col gap-3 rounded-2xl border border-fuchsia-400/30 bg-[#160a18] p-5 text-white">
+              <h2 className="text-lg font-black text-fuchsia-200">Défaite</h2>
+              <p className="text-sm text-white/70">
+                Choisissez le type de cartes à défausser du royaume de {tgt.villainName}.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  disabled={nAllies === 0}
+                  onClick={() => resolveFateDiscardType('ally')}
+                  className="flex-1 rounded-lg border border-fuchsia-400/50 px-3 py-2 text-sm font-bold text-fuchsia-100 hover:bg-fuchsia-500/20 disabled:opacity-40"
+                >
+                  Alliés ({nAllies})
+                </button>
+                <button
+                  type="button"
+                  disabled={nItems === 0}
+                  onClick={() => resolveFateDiscardType('item')}
+                  className="flex-1 rounded-lg border border-fuchsia-400/50 px-3 py-2 text-sm font-bold text-fuchsia-100 hover:bg-fuchsia-500/20 disabled:opacity-40"
+                >
+                  Objets ({nItems})
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )
+      })()}
 
       {/* Roi Stéphane / Le Satyre / Anneau étoile : l'humain (qui a joué la Fatalité)
           peut déplacer le pion adverse. */}
@@ -8046,6 +8338,18 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       )}
       {state.pendingMauiChoice && state.pendingMauiChoice.playerIndex === HUMAN && (
         <MauiChoiceModal card={state.players[HUMAN].mauiDeck?.[0]} onChoose={resolveMauiChoice} />
+      )}
+
+      {/* Le Seigneur des Ténèbres : échange du Chaudron réveillé (Squelette → Soldat). */}
+      {showCauldronExchange && canCauldronExchange(state) && (
+        <CauldronExchangeModal
+          player={user}
+          onConfirm={(sq, sol) => {
+            cauldronExchange(sq, sol)
+            setShowCauldronExchange(false)
+          }}
+          onClose={() => setShowCauldronExchange(false)}
+        />
       )}
 
       {/* Dio — défausser un Allié du royaume : pour piocher (Vampirisme) ou gagner du Pouvoir. */}
@@ -9062,11 +9366,13 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
 
       {/* Foudre (La Méchante Reine) : choisir l'Ingrédient à reproduire. */}
       {state.pendingDuplicateIngredient && state.pendingDuplicateIngredient.playerIndex === HUMAN && (() => {
+        const useArtifacts = state.pendingDuplicateIngredient.zone === 'artifacts'
         const ids = new Set(state.pendingDuplicateIngredient.candidateIds)
-        const cards = (user.ingredients ?? []).filter((c) => ids.has(c.instanceId))
+        const zone = (useArtifacts ? user.artifacts : user.ingredients) ?? []
+        const cards = zone.filter((c) => ids.has(c.instanceId))
         return (
           <CardChoiceModal
-            title="Foudre : choisis l'Ingrédient à reproduire"
+            title={useArtifacts ? "Manipulation : choisis l'Artéfact à reproduire" : "Foudre : choisis l'Ingrédient à reproduire"}
             cards={cards}
             onClose={cancelDuplicateIngredient}
             onPick={(card) => resolveDuplicateIngredient(card.instanceId)}

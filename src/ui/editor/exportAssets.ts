@@ -43,6 +43,7 @@ function buildFiles(v: CustomVillain): AssetFile[] {
   add(`${deck}/Plateau.${extOf(v.boardImage ?? '')}`, v.boardImage)
   add(`${deck}/Card Back mechant.${extOf(v.backVillainImage ?? '')}`, v.backVillainImage)
   add(`${deck}/Card Back fata.${extOf(v.backFateImage ?? '')}`, v.backFateImage)
+  add(`${deck}/Card Back perso.${extOf(v.backExtraImage ?? '')}`, v.backExtraImage)
 
   // Faces de cartes (une par CardDef), nom = nom de la carte (dédoublonné).
   const used = new Set<string>()

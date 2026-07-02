@@ -28,6 +28,9 @@ import { toVillainDef, toCardDefs, CUSTOM_ID_PREFIX, type CustomVillain } from '
 import { CUSTOM_DIO_ID, patchCustomDio } from '../../data/villains/customDio'
 import { CUSTOM_PYRAMID_HEAD_ID, patchCustomPyramidHead } from '../../data/villains/customPyramidHead'
 import { CUSTOM_MONOPOLY_ID, patchCustomMonopoly } from '../../data/villains/customMonopoly'
+import { CUSTOM_GULDAN_ID, patchCustomGuldan } from '../../data/villains/customGuldan'
+import { CUSTOM_ISABELLA_ID, patchCustomIsabella } from '../../data/villains/customIsabella'
+import { CUSTOM_PIEGEUR_ID, patchCustomPiegeur } from '../../data/villains/customPiegeur'
 import type { VillainDef } from '../../engine/types'
 import type { CardDef } from '../../data/types'
 import { customActionPositions } from '../editor/boardLayout'
@@ -286,7 +289,13 @@ export function registerPublishedVillain(custom: CustomVillain): void {
         ? patchCustomPyramidHead(custom)
         : custom.id === CUSTOM_MONOPOLY_ID
           ? patchCustomMonopoly(custom)
-          : custom
+          : custom.id === CUSTOM_GULDAN_ID || custom.id.startsWith(`${CUSTOM_GULDAN_ID}-`)
+            ? patchCustomGuldan(custom)
+            : custom.id === CUSTOM_ISABELLA_ID || custom.id.startsWith(`${CUSTOM_ISABELLA_ID}-`)
+              ? patchCustomIsabella(custom)
+              : custom.id === CUSTOM_PIEGEUR_ID || custom.id.startsWith(`${CUSTOM_PIEGEUR_ID}-`)
+                ? patchCustomPiegeur(custom)
+                : custom
   const cards = toCardDefs(eff)
   registerCustomCardDefs(cards)
   VILLAIN_COLOR[eff.id] = eff.color
@@ -665,6 +674,9 @@ interface GameStore {
   catchPokemon: (actionId: string, heroInstanceId: string) => void
   /** Le Seigneur des Ténèbres — active le Chaudron Magique réclamé (face Pouvoir). */
   activateCauldron: () => void
+  /** Le Seigneur des Ténèbres — capacité du Chaudron réveillé : remplace un Squelette
+   *  de Soldat par un Soldat Ressuscité de la main (paie 2 Pouvoir, 1×/tour, avant le déplacement). */
+  cauldronExchange: (squeletteInstanceId: string, soldierInstanceId: string) => void
   /** Le Seigneur des Ténèbres — résout le choix « Chaudron OU Pouvoir ». */
   resolveCauldronChoice: (choice: 'cauldron' | 'power') => void
   resolveMauiChoice: (choice: 'play' | 'discard') => void
@@ -833,6 +845,12 @@ interface GameStore {
   resolveHeroRelocate: (heroInstanceId: string, to: string) => void
   /** Décline un déplacement de Héros facultatif (Poupées vaudou). */
   skipHeroRelocate: () => void
+  /** Le Piégeur — choisit le Survivant ciblé (phase 'target' de pendingPiegeur). */
+  resolvePiegeurTarget: (survivorInstanceId: string) => void
+  /** Le Piégeur — choisit le lieu voisin de destination (phase 'dest'). */
+  resolvePiegeurDest: (to: string) => void
+  /** Le Piégeur — paie 2 Pouvoir pour défausser une Palette. */
+  discardPalette: (instanceId: string) => void
   /** Flèche de Mome Raths : déplace l'Allié choisi vers le lieu (non bloqué) choisi. */
   resolveAllyRelocate: (allyInstanceId: string, to: string) => void
   skipAllyRelocate: () => void
@@ -936,6 +954,8 @@ interface GameStore {
   /** Vidéo de surveillance / Carte : associe l'Objet Fatalité au lieu `locationId`. */
   resolveFateObjectPlace: (locationId: string) => void
   resolveFateHeroPlace: (locationId: string) => void
+  resolveFateDiscardType: (cardType: import('../../engine/types').CardType) => void
+  removeFateLocationCard: (instanceId: string) => void
   /** Colère Titanesque : choisit le lieu voisin où effectuer une action. */
   resolveGiantLocation: (locationId: string) => void
   /** Préparez-vous au combat ! (Hadès) : déplace le Titan choisi vers `to`. */
@@ -956,6 +976,7 @@ interface GameStore {
   /** Oogie — Père Noël : défausse les cartes choisies puis pioche. */
   resolveDiscardThenDraw: (instanceIds: string[]) => void
   resolveTakeABite: (heroInstanceId: string) => void
+  resolveGrantLove: (heroInstanceId: string) => void
   resolveDuplicateIngredient: (ingredientInstanceId: string) => void
   cancelDuplicateIngredient: () => void
   resolveScream: (from?: string, to?: string) => void
@@ -1289,6 +1310,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   catchPokemon: (actionId, heroInstanceId) =>
     get().submit({ type: 'CATCH_POKEMON', actionId, heroInstanceId, allyInstanceIds: [] }),
   activateCauldron: () => get().submit({ type: 'ACTIVATE_CAULDRON' }),
+  cauldronExchange: (squeletteInstanceId, soldierInstanceId) => get().submit({ type: 'CAULDRON_EXCHANGE', squeletteInstanceId, soldierInstanceId }),
   resolveCauldronChoice: (choice: 'cauldron' | 'power') => get().submit({ type: 'RESOLVE_CAULDRON_CHOICE', choice }),
   resolveMauiChoice: (choice: 'play' | 'discard') => get().submit({ type: 'RESOLVE_MAUI_CHOICE', choice }),
   resolveDioDiscardAlly: (allyInstanceId) => get().submit({ type: 'RESOLVE_DIO_DISCARD_ALLY', allyInstanceId }),
@@ -1455,6 +1477,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_HERO_RELOCATE', heroInstanceId, to }),
   skipHeroRelocate: () =>
     get().submit({ type: 'SKIP_HERO_RELOCATE' }),
+  resolvePiegeurTarget: (survivorInstanceId) =>
+    get().submit({ type: 'RESOLVE_PIEGEUR_TARGET', survivorInstanceId }),
+  resolvePiegeurDest: (to) => get().submit({ type: 'RESOLVE_PIEGEUR_DEST', to }),
+  discardPalette: (instanceId) => get().submit({ type: 'DISCARD_PALETTE', instanceId }),
   resolveAllyRelocate: (allyInstanceId, to) =>
     get().submit({ type: 'RESOLVE_ALLY_RELOCATE', allyInstanceId, to }),
   skipAllyRelocate: () => get().submit({ type: 'SKIP_ALLY_RELOCATE' }),
@@ -1547,6 +1573,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_FATE_OBJECT_PLACE', locationId }),
   resolveFateHeroPlace: (locationId) =>
     get().submit({ type: 'RESOLVE_FATE_HERO_PLACE', locationId }),
+  resolveFateDiscardType: (cardType) =>
+    get().submit({ type: 'RESOLVE_FATE_DISCARD_TYPE', cardType }),
+  removeFateLocationCard: (instanceId) =>
+    get().submit({ type: 'REMOVE_FATE_LOCATION_CARD', instanceId }),
   resolveGiantLocation: (locationId) =>
     get().submit({ type: 'RESOLVE_GIANT_LOCATION', locationId }),
   resolveTitanMove: (titanInstanceId, to) =>
@@ -1563,6 +1593,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   resolveDiscardThenDraw: (instanceIds) => get().submit({ type: 'RESOLVE_DISCARD_THEN_DRAW', instanceIds }),
   resolveTakeABite: (heroInstanceId) =>
     get().submit({ type: 'RESOLVE_TAKE_A_BITE', heroInstanceId }),
+  resolveGrantLove: (heroInstanceId) =>
+    get().submit({ type: 'RESOLVE_GRANT_LOVE', heroInstanceId }),
   resolveDuplicateIngredient: (ingredientInstanceId) =>
     get().submit({ type: 'RESOLVE_DUPLICATE_INGREDIENT', ingredientInstanceId }),
   cancelDuplicateIngredient: () => get().submit({ type: 'CANCEL_DUPLICATE_INGREDIENT' }),

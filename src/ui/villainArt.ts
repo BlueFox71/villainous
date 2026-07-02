@@ -102,10 +102,10 @@ export const PRESENTATION_TWEAK: Record<
   // `versusDyPct` : décalage vertical SPÉCIFIQUE à l'écran versus (début de partie),
   // sinon on reprend `dyPct` (écran de choix).
   imposteur: { scale: 0.55, dxPct: 0, dyPct: -5, versusDyPct: -12 },
-  // Mère Gothel : illustration légèrement trop grande → on la rétrécit un poil, et
-  // un peu trop haute sur l'écran de choix → on la descend légèrement. Sur l'écran
-  // versus, en revanche, elle est trop BASSE → on la remonte (versusDyPct négatif).
-  gothel: { scale: 0.9, dyPct: 4, versusDyPct: -6 },
+  // Mère Gothel : illustration un peu trop petite et trop haute aux deux endroits
+  // (choix ET versus) → on l'agrandit légèrement et on la descend (dyPct/versusDyPct
+  // positifs = vers le bas).
+  gothel: { scale: 1.05, dyPct: 10, versusDyPct: 8 },
   // Le Seigneur des clés : on baisse légèrement sa position (sans le rétrécir).
   seigneurCles: { dyPct: 6 },
   // Maléfique : nouvelle illustration carrée (1000×1000) — on la remonte pour caler la
@@ -118,4 +118,6 @@ export const PRESENTATION_TWEAK: Record<
   // Mr. Monopoly (custom) : présentation rétrécie, bien décalée à gauche dans la FICHE ;
   // tirée vers le centre sur l'art de côté.
   'custom-mr-monopoly': { scale: 0.85, dxPct: -30, selectDxPct: 15 },
+  // Isabella (custom) : illustration un peu trop grande → légèrement rétrécie.
+  'custom-isabella': { scale: 0.9 },
 }

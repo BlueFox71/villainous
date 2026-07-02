@@ -31,6 +31,7 @@ import {
   effectiveStrength,
   getAvailableActions,
   getLegalMoves,
+  canCauldronExchange,
   heroPlacementLocations,
   heroesOf,
   locationOfCard,
@@ -429,6 +430,9 @@ export function enumerateActions(state: GameState): GameAction[] {
   if (state.pendingTakeABite) {
     return state.pendingTakeABite.candidateIds.map((id) => ({ type: 'RESOLVE_TAKE_A_BITE', heroInstanceId: id }))
   }
+  if (state.pendingGrantLove) {
+    return state.pendingGrantLove.candidateIds.map((id) => ({ type: 'RESOLVE_GRANT_LOVE', heroInstanceId: id }))
+  }
 
   // La Méchante Reine — Foudre : une option par Ingrédient reproductible.
   if (state.pendingDuplicateIngredient) {
@@ -491,6 +495,15 @@ export function enumerateActions(state: GameState): GameAction[] {
     // Poupées vaudou : déplacement facultatif → le bot peut aussi décliner.
     if (phr.optional) out.push({ type: 'SKIP_HERO_RELOCATE' })
     if (out.length > 0) return out
+  }
+
+  // Le Piégeur — choix du Survivant (phase 'target') ou du lieu de destination (phase 'dest').
+  if (state.pendingPiegeur) {
+    const pp = state.pendingPiegeur
+    if (pp.phase === 'target') {
+      return pp.candidateIds.map((id) => ({ type: 'RESOLVE_PIEGEUR_TARGET', survivorInstanceId: id }))
+    }
+    return (pp.destLocs ?? []).map((to) => ({ type: 'RESOLVE_PIEGEUR_DEST', to }))
   }
 
   // Flèche de Mome Raths : déplacer un Allié de la cible vers n'importe quel lieu
@@ -1199,6 +1212,18 @@ export function enumerateActions(state: GameState): GameAction[] {
     }
     const out: GameAction[] = getLegalMoves(state).map((to) => ({ type: 'MOVE', to }))
     if (me.skipNextMove) out.push({ type: 'SKIP_MOVE' })
+    // Le Seigneur des Ténèbres — capacité du Chaudron réveillé (AVANT le déplacement) :
+    // remplacer un Squelette de Soldat (chaque lieu porteur) par un Soldat Ressuscité
+    // de la main. Le pion devra ensuite être déplacé (le drapeau bloque toute répétition).
+    if (canCauldronExchange(state)) {
+      const soldier = me.hand.find((c) => c.cardId === 'cauldron-born')
+      if (soldier) {
+        for (const loc of me.locations) {
+          const sk = (me.board[loc.id] ?? []).find((c) => c.cardId === 'ancient-soldiers' && c.type === 'item' && !c.attachedTo)
+          if (sk) out.push({ type: 'CAULDRON_EXCHANGE', squeletteInstanceId: sk.instanceId, soldierInstanceId: soldier.instanceId })
+        }
+      }
+    }
     for (const loc of me.locations) {
       for (const c of me.board[loc.id] ?? []) {
         if (c.cardId !== 'diablo') continue
@@ -1516,7 +1541,10 @@ export function enumerateActions(state: GameState): GameAction[] {
           // Téléportation (se rendre sur le lieu d'un Héros), Brouillage (faire les
           // actions recouvertes par un Héros) et Tourbillon (déplacer un Héros). Le
           // bot ne doit pas les jouer à vide.
-          const needsHeroPresent = (card.effects ?? []).some(
+          // Isabella — une ACTIVITÉ (à `allowedHours`) se joue pour valider l'heure même sans
+          // Héros (son 2e effet est alors sans effet) : on ne l'exclut pas pour « pas de Héros ».
+          const isActivite = !!(card.allowedHours && card.allowedHours.length > 0)
+          const needsHeroPresent = !isActivite && (card.effects ?? []).some(
             (e) =>
               e.type === 'TELEPORT_TO_HERO' ||
               e.type === 'GRANT_USE_COVERED_ACTION' ||
@@ -1568,9 +1596,18 @@ export function enumerateActions(state: GameState): GameAction[] {
               e.type === 'ADD_MINUS_FORCE_TOKENS',
           )
           if (needsHeroInRealm && !Object.values(me.board).flat().some((c) => c.type === 'hero')) continue
-          // Foudre : injouable sans Ingrédient déjà joué (rien à reproduire).
-          const needsIngredient = (card.effects ?? []).some((e) => e.type === 'DUPLICATE_INGREDIENT')
-          if (needsIngredient && (me.ingredients ?? []).length === 0) continue
+          // Foudre / Manipulation : injouable sans carte à reproduire dans la pile source
+          // (Ingrédients pour Foudre, Artéfacts pour Manipulation).
+          const dupEffect = (card.effects ?? []).find((e) => e.type === 'DUPLICATE_INGREDIENT')
+          if (dupEffect && dupEffect.type === 'DUPLICATE_INGREDIENT') {
+            const dupArtifacts = dupEffect.zone === 'artifacts'
+            const dupZone = dupArtifacts ? (me.artifacts ?? []) : (me.ingredients ?? [])
+            // Khadgar (nullifiesArtifacts) neutralise les Artéfacts → Manipulation inutile.
+            const khadgar = dupArtifacts && Object.values(me.board).flat().some((c) => c.type === 'hero' && c.nullifiesArtifacts)
+            if (dupZone.length === 0 || khadgar) continue
+          }
+          // Isabella — Activité : jouable seulement si l'heure courante figure dans allowedHours.
+          if (card.allowedHours && card.allowedHours.length > 0 && !card.allowedHours.includes(me.clockHour ?? 0)) continue
           // Actions recouvertes : « Je vais vous broyer les os ! » / Bravo ! → Héros sur le
           // lieu du pion ; Tamatoa — Piégé (`exceptFate`, « n'importe quel Héros ») → Héros
           // n'importe où dans le royaume.
@@ -1633,6 +1670,13 @@ export function enumerateActions(state: GameState): GameAction[] {
             if (rec && rec.type === 'RECOVER_FROM_DISCARD_CHOICE' && !me.discard.some((c) => rec.types.includes(c.type)))
               continue
           }
+          // Dio — Vampirisme / Gul'dan — Drain d'Âme : injouable sans Allié défaussable
+          // dans le royaume (associés/arceaux/indéfaussables exclus).
+          if (
+            (card.effects ?? []).some((e) => e.type === 'DIO_DISCARD_ALLY_DRAW' || e.type === 'DISCARD_ALLY_DRAW') &&
+            !Object.values(me.board).flat().some((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket && !c.cannotBeDiscarded)
+          )
+            continue
           // Finissez le travail ! (Cruella) : inutile sans capacité activable finançable.
           if (
             (card.effects ?? []).some((e) => e.type === 'GRANT_FREE_ACTIVATE') &&

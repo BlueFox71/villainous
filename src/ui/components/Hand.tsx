@@ -5,6 +5,9 @@ import { getCardDef } from '../../data/registry'
 
 type HandMode = 'idle' | 'play' | 'discard' | 'condition-ally'
 
+/** Isabella — libellés des 6 heures de l'horloge (index 0..5). */
+const CLOCK_HOURS = ['XII', 'II', 'IV', 'VI', 'VIII', 'X']
+
 /** Largeur d'une carte (rem) d'après sa classe Tailwind (défaut éventail : w-36 = 9rem). */
 const remForCardWidth = (cls?: string) =>
   cls === 'w-28' ? 7 : cls === 'w-24' ? 6 : cls === 'w-48' ? 12 : 9
@@ -34,6 +37,8 @@ interface Props {
   /** URL du dos de carte vilain (varie selon le joueur). */
   backImage: string
   power: number
+  /** Isabella — heure courante de l'horloge (index 0..5) ; grise les Activités hors heure. */
+  clockHour?: number
   /** instanceId des Conditions actuellement déclenchables (cadre rose). */
   armedConditionIds?: string[]
   /** instanceId de la carte en cours de sélection : garde un cadre jaune le temps
@@ -161,6 +166,9 @@ interface Props {
   /** Identifiant du lieu où se trouve le pion (Dr Facilier — Divination : jouable
    *  uniquement au Royaume du vaudou). */
   pawnLocationId?: string
+  /** Le Piégeur — disponibilité des cibles pour ses cartes d'attaque (calculée par App).
+   *  Grise Marque/Force brute/Sanctuaire/Memento/Rayon quand aucune cible valide. */
+  piegeurGates?: { reveal: boolean; injure: boolean; hook: boolean; finish: boolean; move: boolean }
   /** Le Seigneur des clés — vrai s'il y a au moins une clé posée sur le plateau.
    *  00:00 est injouable sinon (aucune clé à prendre au dé). */
   keysOnBoard?: boolean
@@ -245,6 +253,7 @@ export function Hand({
   hidden,
   backImage,
   power,
+  clockHour,
   attachTargetsAvailable,
   blockEvents,
   realmHasAllies,
@@ -284,6 +293,7 @@ export function Hand({
   keyAtPawn = true,
   pageAtPawn = true,
   pawnLocationId,
+  piegeurGates,
   keysOnBoard = true,
   ownsKey = true,
   lotsoToRoomAvailable = true,
@@ -479,7 +489,12 @@ export function Hand({
           const needsPigKeeper = (card.effects ?? []).some((e) => e.type === 'PIGKEEPER_RESOLVE')
           // Par ordre de la Reine ! : injouable sans Carte Garde transformable (calcul App).
           const needsTransformGuards = (card.effects ?? []).some((e) => e.type === 'TRANSFORM_GUARDS')
-          const needsHeroInRealm = (card.effects ?? []).some(
+          // Gul'dan — un Artéfact (Sceptre de Sargeras) reste JOUABLE sans Héros : il a
+          // toujours l'effet de rejoindre la pile Artéfacts (quitte à gagner 0 Pouvoir).
+          // Isabella — une ACTIVITÉ (à `allowedHours`) reste jouable dès la bonne heure, même
+          // si son 2e effet (déplacer un Héros…) n'est pas réalisable (il est alors sans effet).
+          const isActivite = !!(ci.allowedHours && ci.allowedHours.length > 0)
+          const needsHeroInRealm = !ci.isArtifact && !isActivite && (card.effects ?? []).some(
             (e) =>
               e.type === 'GAIN_POWER_PER_HERO_IN_REALM' ||
               e.type === 'RELOCATE_OWN_HERO' ||
@@ -516,9 +531,13 @@ export function Hand({
           const needsFateDiscardCard = (card.effects ?? []).some((e) => e.type === 'RESHUFFLE_FATE_DISCARD')
           // J'ai dit « Si » : injouable si la défausse de Méchant est vide.
           const needsVillainDiscard = (card.effects ?? []).some((e) => e.type === 'RESHUFFLE_DISCARD_AND_DRAW')
-          // Foudre (duplique un Ingrédient) : injouable sans Ingrédient joué PAYABLE
-          // (son coût = celui de l'Ingrédient reproduit ; cf. prop hasIngredients).
+          // Foudre / Manipulation (duplique un Ingrédient / Artéfact) : injouable sans
+          // carte à reproduire dans la pile source (Foudre exige aussi qu'elle soit
+          // payable) ; cf. prop hasIngredients (Ingrédient payable OU Artéfact joué).
           const needsIngredient = (card.effects ?? []).some((e) => e.type === 'DUPLICATE_INGREDIENT')
+          // Isabella — Activité : injouable si l'heure courante n'est pas dans ses heures autorisées.
+          const wrongHour =
+            !!card.allowedHours && card.allowedHours.length > 0 && !card.allowedHours.includes(clockHour ?? 0)
           // Il lui est défendu de courir : injouable si NI (Allié + Héros) NI jeton Pilote
           // sur le circuit (rien à faire). Calcul fourni par App → `raceBanPlayable`.
           const needsRaceBan = (card.effects ?? []).some((e) => e.type === 'RACE_BAN')
@@ -548,8 +567,8 @@ export function Hand({
           const needsKronkToken = (card.effects ?? []).some((e) => e.type === 'KRONK_DISCARD_TOKENS')
           // Fausses funérailles (Yzma) / Indigne de moi (Dio) : injouable sans Héros à compter.
           const needsFateDiscardHero = (card.effects ?? []).some((e) => e.type === 'GAIN_POWER_PER_FATE_DISCARD_HERO')
-          // Dio — Vampirisme : injouable sans Allié défaussable dans le royaume.
-          const needsDiscardableAlly = (card.effects ?? []).some((e) => e.type === 'DIO_DISCARD_ALLY_DRAW')
+          // Dio — Vampirisme / Gul'dan — Drain d'Âme : injouable sans Allié défaussable dans le royaume.
+          const needsDiscardableAlly = (card.effects ?? []).some((e) => e.type === 'DIO_DISCARD_ALLY_DRAW' || e.type === 'DISCARD_ALLY_DRAW')
           // Pyramid Head — Pacte de Sang : injouable sans carte de même type récupérable.
           const needsPacteSang = (card.effects ?? []).some((e) => e.type === 'PACTE_DE_SANG')
           // Ironie du sort (Yzma) : injouable sans Allié sur le lieu / sans Événement
@@ -592,6 +611,15 @@ export function Hand({
           // caractère, Laissez-moi vous regarder, Sortez !) : injouables si Belle bloque
           // ou s'il ne reste aucun Obstacle.
           const cardFx = card.effects ?? []
+          // Le Piégeur — cartes d'attaque : injouables sans cible valide (cf. piegeurGates,
+          // calculé par App). Marque = révéler un Survivant sur le lieu du pion ; Force brute
+          // = un révélé non critique ; Sanctuaire = un critique + crochet actif ; Memento =
+          // un critique à 1 vie ; Rayon = un Survivant non accroché.
+          const needsPiegeurReveal = cardFx.some((e) => e.type === 'PIEGEUR_REVEAL' && e.atPawn)
+          const needsPiegeurInjure = cardFx.some((e) => e.type === 'PIEGEUR_INJURE')
+          const needsPiegeurHook = cardFx.some((e) => e.type === 'PIEGEUR_HOOK')
+          const needsPiegeurFinish = cardFx.some((e) => e.type === 'PIEGEUR_FINISH')
+          const needsPiegeurMove = cardFx.some((e) => e.type === 'PIEGEUR_MOVE_SURVIVOR')
           const needsRemoveObstacle = cardFx.length > 0 && cardFx.every((e) => e.type === 'REMOVE_OBSTACLE')
           // Sous le charme : injouable si les 8 Obstacles sont déjà posés (rien à replacer).
           const needsReplaceObstacle = cardFx.some((e) => e.type === 'REPLACE_OBSTACLE')
@@ -645,6 +673,7 @@ export function Hand({
             (!needsPigKeeper || pigKeeperPlayable) &&
             (!needsTransformGuards || canTransformGuards) &&
             (!needsIngredient || hasIngredients) &&
+            !wrongHour &&
             (!needsPowerToSpend || power >= 1) &&
             (!needsBeforeActions || !realActionUsed) &&
             (!needsRaceBan || raceBanPlayable) &&
@@ -688,6 +717,11 @@ export function Hand({
             (!needsPageAtPawn || pageAtPawn) &&
             (!needsKeysOnBoard || keysOnBoard) &&
             (!needsOwnedKey || ownsKey) &&
+            (!needsPiegeurReveal || !!piegeurGates?.reveal) &&
+            (!needsPiegeurInjure || !!piegeurGates?.injure) &&
+            (!needsPiegeurHook || !!piegeurGates?.hook) &&
+            (!needsPiegeurFinish || !!piegeurGates?.finish) &&
+            (!needsPiegeurMove || !!piegeurGates?.move) &&
             replaceOk &&
             vanquishOnlyOk &&
             (!needsFateDiscardCard || fateDiscardNonEmpty) &&
@@ -722,6 +756,8 @@ export function Hand({
                               ? 'Aucune Carte Garde transformable en arceau.'
                               : needsIngredient && !hasIngredients
                                 ? 'Aucun Ingrédient en jeu payable à reproduire.'
+                                : wrongHour
+                                  ? `Activité jouable seulement à ${(card.allowedHours ?? []).map((h) => CLOCK_HOURS[h] ?? '?').join(', ')} — il est ${CLOCK_HOURS[clockHour ?? 0] ?? '?'}.`
                                 : needsPowerToSpend && power < 1
                                   ? 'Aucun jeton Pouvoir à dépenser.'
                                   : needsBeforeActions && realActionUsed

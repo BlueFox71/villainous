@@ -4,6 +4,7 @@ import { OptionsButton } from '../components/OptionsButton'
 import { Scroller } from '../components/Scroller'
 import { PlayerAvatar } from '../components/PlayerAvatar'
 import { usePlayerStore } from '../store/playerStore'
+import { useIsDesktopApp } from '../store/settingsStore'
 import { playHover, playProfileHover } from '../sfx'
 
 interface Props {
@@ -161,6 +162,9 @@ function CreditsModal({ onClose }: { onClose: () => void }) {
  */
 export function MainMenu({ onNewGame, onVillainList, onEditor, onProfile, onReplayIntro }: Props) {
   const playerName = usePlayerStore((s) => s.name)
+  // L'Atelier des vilains est un outil de création réservé au dév : masqué dans
+  // l'exe (et en simulation « .exe »), comme le Mode test et la Banque de sons.
+  const isDesktopApp = useIsDesktopApp()
   // Confirmation avant de fermer l'application (bouton « Quitter »).
   const [confirmQuit, setConfirmQuit] = useState(false)
   // Ouverture de la modale « Crédits » (bouton sous les notes de version).
@@ -220,7 +224,7 @@ export function MainMenu({ onNewGame, onVillainList, onEditor, onProfile, onRepl
       <nav className="relative z-10 flex w-[32rem] max-w-[90vw] flex-col gap-5">
         <MenuButton label="Nouvelle partie" onClick={onNewGame} />
         <MenuButton label="Liste des villains" onClick={onVillainList} />
-        <MenuButton label="Atelier des vilains" onClick={onEditor} />
+        {!isDesktopApp && <MenuButton label="Atelier des vilains" onClick={onEditor} />}
         <MenuButton label="Quitter" onClick={() => setConfirmQuit(true)} />
       </nav>
 

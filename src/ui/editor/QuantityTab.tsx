@@ -45,6 +45,7 @@ export function QuantityTab({
         target={VILLAIN_DECK_SIZE}
         color={draft.color}
         fateColor={FATE_CARD_COLOR}
+        keywordColors={draft.keywordColors}
         onSetCopies={setCopies}
         emptyHint="Aucune carte Vilain : ajoute-en dans l’onglet « Cartes »."
       />
@@ -56,6 +57,7 @@ export function QuantityTab({
         target={FATE_DECK_SIZE}
         color={draft.color}
         fateColor={FATE_CARD_COLOR}
+        keywordColors={draft.keywordColors}
         onSetCopies={setCopies}
         emptyHint="Aucune carte Fatalité : ajoute-en dans l’onglet « Cartes »."
       />
@@ -83,6 +85,7 @@ function DeckSection({
   target,
   color,
   fateColor,
+  keywordColors = [],
   onSetCopies,
   emptyHint,
 }: {
@@ -92,6 +95,7 @@ function DeckSection({
   target?: number
   color: string
   fateColor: string
+  keywordColors?: { label: string; color: string }[]
   onSetCopies: (id: string, copies: number) => void
   emptyHint: string
 }) {
@@ -124,7 +128,7 @@ function DeckSection({
               key={c.id}
               className="flex flex-col gap-2 rounded-xl border border-white/10 bg-black/20 p-2"
             >
-              <CardPreview card={c} color={color} fateColor={fateColor} />
+              <CardPreview card={c} color={color} fateColor={fateColor} keywordColors={keywordColors} />
               <span className="truncate text-center text-[11px] text-white/70" title={c.name}>
                 {c.name}
               </span>

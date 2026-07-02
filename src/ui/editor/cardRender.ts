@@ -675,10 +675,33 @@ export async function renderCardFace(
  * teinte CLAIRE du recto Fatalité plutôt qu'à l'ardoise sombre du deck Vilain.
  * On n'applique alors la texture qu'en grain léger pour ne pas griser le fond.
  */
+/** Recolore les ornements dorés (cadre + axe) d'un dos vers `color`, en préservant
+ *  le relief : multiply de la couleur sur l'or, remasqué à l'alpha de l'ornement.
+ *  Sans couleur, l'image d'origine est renvoyée telle quelle (or). */
+function tintOrnaments(
+  img: HTMLImageElement,
+  color?: string,
+): HTMLImageElement | HTMLCanvasElement {
+  if (!color) return img
+  const c = document.createElement('canvas')
+  c.width = img.width
+  c.height = img.height
+  const x = c.getContext('2d')!
+  x.drawImage(img, 0, 0)
+  // Multiply : teinte l'or tout en gardant les hautes lumières du relief.
+  x.globalCompositeOperation = 'multiply'
+  x.fillStyle = color
+  x.fillRect(0, 0, c.width, c.height)
+  // Remasque à la silhouette exacte de l'ornement (le fillRect a débordé partout).
+  x.globalCompositeOperation = 'destination-in'
+  x.drawImage(img, 0, 0)
+  return c
+}
+
 export async function renderCardBack(
   color: string,
   label: string,
-  opts: { paper?: boolean; overlays?: BackOverlay[] } = {},
+  opts: { paper?: boolean; overlays?: BackOverlay[]; ornamentColor?: string } = {},
 ): Promise<string> {
   await ensureFonts()
   const canvas = document.createElement('canvas')
@@ -704,18 +727,19 @@ export async function renderCardBack(
     /* pas de texture : on garde l'aplat */
   }
 
-  // 3) Ornements dorés (cadre + axe central).
+  // 3) Ornements dorés (cadre + axe central), éventuellement RECOLORÉS (3e dos).
   try {
     const orn = await asset('back-ornaments.png')
-    ctx.drawImage(orn, 0, 0, CARD_W, CARD_H)
+    ctx.drawImage(tintOrnaments(orn, opts.ornamentColor), 0, 0, CARD_W, CARD_H)
   } catch {
     /* pas d'ornements */
   }
 
   // 4) Libellé centré dans le bandeau bas (emplacement du « Villain Name »).
   if (label) {
-    // Même doré que les chiffres de pouvoir 1/2/3 du gabarit.
-    ctx.fillStyle = POWER_GOLD
+    // Même doré que les chiffres de pouvoir 1/2/3 du gabarit ; recoloré comme les
+    // ornements sur le 3e dos.
+    ctx.fillStyle = opts.ornamentColor || POWER_GOLD
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     let size = 70

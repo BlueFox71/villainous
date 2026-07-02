@@ -117,6 +117,13 @@ export interface CardDef {
   image: string
   /** Effets immédiats résolus à la mise en jeu (optionnel, ajouté au fil de l'eau). */
   effects?: Effect[]
+  /** Gul'dan — carte « Artéfact » : jouée, elle est comptée dans les Artéfacts
+   *  possédés (objectif : posséder les 4 pour ouvrir la Porte des Ténèbres). Sert aussi
+   *  aux Héros qui renchérissent (Medivh) ou neutralisent (Khadgar) les Artéfacts. */
+  isArtifact?: boolean
+  /** Gul'dan — Corruption : une fois jouée, la carte RESTE posée sur le lieu du pion
+   *  (elle « corrompt » le lieu) au lieu d'aller en défausse. */
+  staysOnLocationOnPlay?: boolean
   /** Effets « à la pose » d'un Héros (Fatalité), résolus sur la CIBLE quand
    *  le Héros est posé sur son plateau. Optionnel — ajouté au fil de l'eau. */
   onPlace?: Effect[]
@@ -205,6 +212,42 @@ export interface CardDef {
   /** Héros qui doit être éliminé AVANT les autres Héros du royaume (Prof —
    *  La Méchante Reine ; même logique que Provocation). */
   mustDefeatFirst?: boolean
+  /** Gul'dan — Medivh (Fatalité) : tant que ce Héros est en jeu, jouer un Artéfact
+   *  (`isArtifact`) coûte N Pouvoir de plus (cumulatif par Héros de ce type). */
+  increasesArtifactCost?: number
+  /** Gul'dan — Illidan (Fatalité) : tant que ce Héros est en jeu, les cartes dont le
+   *  cardId figure ici sont INJOUABLES (ex. le Crâne de Gul'dan). */
+  blocksCardIds?: string[]
+  /** Gul'dan — Khadgar (Fatalité) : tant que ce Héros est en jeu, un Artéfact posé ne
+   *  déclenche PAS son effet et Manipulation ne peut rien dupliquer. */
+  nullifiesArtifacts?: boolean
+  /** Isabella — Activité : heures (index 0..5 = XII, II, IV, VI, VIII, X) auxquelles la
+   *  carte peut être jouée. Injouable hors de ces heures. */
+  allowedHours?: number[]
+  /** Isabella — passifs des Héros Fatalité (cf. CardInstance). */
+  eventCostSurcharge?: number
+  eventCostDiscountWhenLoved?: number
+  activateSurcharge?: number
+  activiteCostDiscountWhenLoved?: number
+  drawToAtEndOfTurnWhenLoved?: number
+  powerPerLovedAtTurnStartWhenLoved?: number
+  unlocksCoveredActionsHere?: boolean
+  bornEnlarged?: boolean
+  immuneToIncendieWhenLoved?: boolean
+  drawWhenFatedWhenLoved?: boolean
+  powerPenaltyOnPawnArrive?: number
+  discardItemOnPawnArrive?: boolean
+  /** Gul'dan — Fatalité (Événement) qui se POSE sur un lieu au lieu de se défausser
+   *  (Armée de la Lumière, Kil'jaeden) : routée vers le choix de lieu (pendingFateObjectPlace). */
+  fateAttachesToLocation?: boolean
+  /** Gul'dan — Armée de la Lumière (Fatalité posée) : empêche la corruption de son lieu. */
+  blocksCorruptionHere?: boolean
+  /** Gul'dan — Kil'jaeden (Fatalité posée) : Gul'dan perd N Pouvoir au début de chaque tour. */
+  drainsPowerAtTurnStart?: number
+  /** Gul'dan — Armée de la Lumière : défaussable en payant N Pouvoir (à tout moment). */
+  fateRemovalPowerCost?: number
+  /** Gul'dan — Kil'jaeden : défaussable seulement une fois les 4 lieux corrompus. */
+  discardWhenAllCorrupted?: boolean
   /** Héros Fatalité posé OBLIGATOIREMENT sur ce lieu (même verrouillé), quel que
    *  soit le choix de l'adversaire (Blanche-Neige → Maison des Nains). */
   forcedFateLocation?: LocationId
@@ -291,6 +334,10 @@ export interface CardDef {
   /** Gaston — Lefou : un Vanquish effectué sur SON lieu ne défausse pas les Alliés
    *  utilisés (ils retournent en main). */
   keepAlliesOnVanquishHere?: boolean
+  /** Le Seigneur des Ténèbres — Soldats Ressuscités : cet Allié n'est PAS défaussé
+   *  lorsqu'il participe à une action Éliminer un Héros — il RESTE en jeu à sa place
+   *  (armée immortelle). N'affecte QUE le Vanquish. */
+  survivesVanquishInPlace?: boolean
   /** Le Seigneur des clés — Appel : pioche 1 carte quand le Seigneur est ciblé par
    *  une Fatalité. */
   drawCardOnFateTargeted?: boolean
@@ -342,6 +389,11 @@ export interface CardDef {
   revealTreasureOnDiscard?: boolean
   /** Objet Fatalité (Le Black Pearl) : à la mort de l'hôte, se réassocie à un autre Héros du lieu. */
   reattachOnHostDefeat?: boolean
+  // --- Le Piégeur (Dead by Daylight) ---------------------------------------
+  /** Le Piégeur — carte SURVIVANT (hors-deck, paquet « Survivant ») : séparée du deck
+   *  Fatalité au setup et posée FACE CACHÉE, une par lieu. Révélée par une carte du
+   *  Piégeur (elle recouvre alors les actions comme un Héros + déclenche son effet). */
+  isSurvivor?: boolean
   // --- Dio Brando ----------------------------------------------------------
   /** Dio — carte « Stand » HORS deck (sauf The World) : séparée dans `standPile` au setup,
    *  entre en jeu uniquement par fetch (associée à sa carte invocatrice). */
@@ -426,6 +478,8 @@ export function buildDeckInstances(
           sendsHeroToPrisonOnMove: c.sendsHeroToPrisonOnMove,
           powerOnPawnCrossOrLand: c.powerOnPawnCrossOrLand,
           effects: c.effects,
+          isArtifact: c.isArtifact,
+          staysOnLocationOnPlay: c.staysOnLocationOnPlay,
           onPlace: c.onPlace,
           onVanquish: c.onVanquish,
           forbiddenLocations: c.forbiddenLocations,
@@ -457,6 +511,27 @@ export function buildDeckInstances(
           goesToAuDelaOnPlay: c.goesToAuDelaOnPlay,
           alsoItem: c.alsoItem,
           mustDefeatFirst: c.mustDefeatFirst,
+          increasesArtifactCost: c.increasesArtifactCost,
+          blocksCardIds: c.blocksCardIds,
+          nullifiesArtifacts: c.nullifiesArtifacts,
+          allowedHours: c.allowedHours,
+          eventCostSurcharge: c.eventCostSurcharge,
+          eventCostDiscountWhenLoved: c.eventCostDiscountWhenLoved,
+          activateSurcharge: c.activateSurcharge,
+          activiteCostDiscountWhenLoved: c.activiteCostDiscountWhenLoved,
+          drawToAtEndOfTurnWhenLoved: c.drawToAtEndOfTurnWhenLoved,
+          powerPerLovedAtTurnStartWhenLoved: c.powerPerLovedAtTurnStartWhenLoved,
+          unlocksCoveredActionsHere: c.unlocksCoveredActionsHere,
+          bornEnlarged: c.bornEnlarged,
+          immuneToIncendieWhenLoved: c.immuneToIncendieWhenLoved,
+          drawWhenFatedWhenLoved: c.drawWhenFatedWhenLoved,
+          powerPenaltyOnPawnArrive: c.powerPenaltyOnPawnArrive,
+          discardItemOnPawnArrive: c.discardItemOnPawnArrive,
+          fateAttachesToLocation: c.fateAttachesToLocation,
+          blocksCorruptionHere: c.blocksCorruptionHere,
+          drainsPowerAtTurnStart: c.drainsPowerAtTurnStart,
+          fateRemovalPowerCost: c.fateRemovalPowerCost,
+          discardWhenAllCorrupted: c.discardWhenAllCorrupted,
           forcedFateLocation: c.forcedFateLocation,
           fatePlayBoth: c.fatePlayBoth,
           isHyena: c.isHyena,
@@ -484,6 +559,7 @@ export function buildDeckInstances(
           followsHeroes: c.followsHeroes,
           playMultiplePerAction: c.playMultiplePerAction,
           keepAlliesOnVanquishHere: c.keepAlliesOnVanquishHere,
+          survivesVanquishInPlace: c.survivesVanquishInPlace,
           drawCardOnFateTargeted: c.drawCardOnFateTargeted,
           coversExtraAction: c.coversExtraAction,
           replacesCardId: c.replacesCardId,
@@ -507,6 +583,7 @@ export function buildDeckInstances(
           survivesVanquishWithRevealedTreasure: c.survivesVanquishWithRevealedTreasure,
           revealTreasureOnDiscard: c.revealTreasureOnDiscard,
           reattachOnHostDefeat: c.reattachOnHostDefeat,
+          isSurvivor: c.isSurvivor,
           isStand: c.isStand,
           followsPawn: c.followsPawn,
           cannotBeDiscarded: c.cannotBeDiscarded,
