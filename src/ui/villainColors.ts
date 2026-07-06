@@ -12,6 +12,7 @@ export const VILLAIN_COLOR: Record<string, string> = {
   facilier: '#822364',
   imposteur: '#222222',
   bowser: '#5C1F00',
+  tabbou: '#40325C',
   'mechante-reine': '#4E3463',
   scar: '#874B39',
   yzma: '#7B3772',

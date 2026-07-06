@@ -79,6 +79,10 @@ export type VillainDecor =
   // (Méla-Méla, Bulle de lave, Comète) et, par moments, un BILL BOURRIN (obus Banzai Bill) qui
   // traverse l'écran (Bowser — Super Mario Galaxy).
   | { kind: 'galaxy' }
+  // `underwater` : vue SOUS L'EAU vers la surface. Fond NOIR, avec la SURFACE de l'eau miroitante
+  // tout en haut (caustiques bleutées qui ondulent), des RAYONS de lumière qui descendent en
+  // éventail depuis la surface et se balancent, et des BULLES qui remontent (Tabbou).
+  | { kind: 'underwater' }
   // `image` : une simple IMAGE d'arrière-plan fixe, affichée en plein cadre (`cover`, centrée).
   // Base sobre et générique → point de départ pour construire un décor par couches par-dessus.
   | { kind: 'image'; src: string }
@@ -207,6 +211,9 @@ export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   // Bowser (Super Mario Galaxy) : sa galaxie — nébuleuse rouge/orange + étoiles + méchants flottants
   // + Bill Bourrin qui traverse.
   bowser: { kind: 'galaxy' },
+  // Tabbou : vue sous l'eau vers la surface — fond noir, surface miroitante en haut, rayons de
+  // lumière descendants et bulles qui remontent.
+  tabbou: { kind: 'underwater' },
   // Scar (Le Roi Lion) : image `background_scar.jpg` en fond + geysers de vapeur verte (couches en
   // construction).
   scar: { kind: 'scar', src: '/animations/background_scar.jpg' },
@@ -272,6 +279,9 @@ export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
 export function villainDecor(key: VillainKey): VillainDecor | undefined {
   return VILLAIN_DECOR[key]
 }
+
+/** Images « carte de monde » (Brawl) affichées à l'intérieur des orbes du décor `underwater`. */
+export const UNDERWATER_ORB_IMAGES = Array.from({ length: 5 }, (_, i) => `/animations/map_tabbou_${i + 1}.png`)
 
 /** Manifeste des fichiers (images / vidéos) qu'un décor charge à l'exécution. Sert à les
  *  PRÉCHARGER pendant l'écran de chargement (cf. `screens/GameLoading.tsx`) pour éviter le
@@ -436,6 +446,9 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
       return { images: [decor.ship], videos: [] }
     case 'grotto':
       return { images: ['/animations/bulle-bleu.png', '/animations/bulle.png', '/animations/bulle-rose.png'], videos: [] }
+    case 'underwater':
+      // Orbes des mondes + l'image « Tabbou ailé » de la surprise Coup Fatal.
+      return { images: [...UNDERWATER_ORB_IMAGES, '/animations/tabbou_ailes.png'], videos: [] }
     case 'voodoo':
       return { images: Array.from({ length: 11 }, (_, i) => `/animations/masque${i + 1}.png`), videos: [] }
     case 'galaxy':

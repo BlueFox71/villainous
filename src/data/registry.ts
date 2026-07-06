@@ -41,6 +41,7 @@ import { lotsoCards } from './villains/lotso.cards'
 import { saSucrerieCards } from './villains/sa-sucrerie.cards'
 import { shereKhanCards } from './villains/shereKhan.cards'
 import { davyJonesCards } from './villains/davyJones.cards'
+import { tabbouCards } from './villains/tabbou.cards'
 import { tamatoaCards } from './villains/tamatoa.cards'
 import { teamRocketCards } from './villains/team-rocket.cards'
 import { laBonneFeeCards } from './villains/la-bonne-fee.cards'
@@ -80,6 +81,7 @@ export const allCards: CardDef[] = [
   ...shereKhanCards,
   ...davyJonesCards,
   ...tamatoaCards,
+  ...tabbouCards,
   ...teamRocketCards,
   ...laBonneFeeCards,
 ]

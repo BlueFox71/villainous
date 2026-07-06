@@ -37,6 +37,7 @@ export const SUPPORTED_ACTION_TYPES: readonly LocationActionType[] = [
   'MOVE_HERO',
   'VANQUISH',
   'CATCH_POKEMON',
+  'REVEAL_FIGHTER',
   'ACTIVATE',
   'BREW_POISON',
   'OBTAIN_KEY',
@@ -323,7 +324,11 @@ export function getAvailableActions(state: GameState): LocationAction[] {
       (a.type !== 'BREW_POISON' || maxBrewPoison(state) >= 1) &&
       // Le Seigneur des clés — « Obtenir une clé » (lancer du dé) indisponible si plus
       // aucune clé sur le plateau (le dé n'aurait rien à ramasser).
-      (a.type !== 'OBTAIN_KEY' || (activePlayer(state).keys ?? []).some((k) => k.location !== null && !k.stolenBy)),
+      (a.type !== 'OBTAIN_KEY' || (activePlayer(state).keys ?? []).some((k) => k.location !== null && !k.stolenBy)) &&
+      // Tabbou — « Dévoiler une tuile Combattant » indisponible si l'action n'aurait
+      // aucun effet : pioche de tuiles vide, ou pas assez de Pouvoir (1 JT/tuile, surcoût
+      // Kirby inclus). Le plafond Link ne rend pas l'action indisponible (≥1 reste possible).
+      (a.type !== 'REVEAL_FIGHTER' || maxRevealFighters(state) >= 1),
   )
 }
 
@@ -556,6 +561,14 @@ export function activatableCards(state: GameState): CardInstance[] {
       }
       if (c.cardId === 'le-roi-singe' && !Object.values(me.board).flat().some((x) => x.cardId === 'macaques')) continue
       if (c.cardId === 'kaa' && !me.discard.some((x) => x.type === 'item' && (x.cost ?? 0) <= me.power)) continue
+      // Tabbou — Bowser (et tout Objet/Allié « tuer une couleur ») : inutile (non activable)
+      // s'il n'y a aucun Combattant en réserve à tuer.
+      if (
+        (c.activatedEffects ?? []).some((e) => e.type === 'KILL_FIGHTERS_COLOR') &&
+        !(me.fighterTiles ?? []).some((t) => t.state === 'reserve')
+      ) {
+        continue
+      }
       // Dio — Masque de pierre : défausse la main pour du Pouvoir. Inutile si main vide.
       if (c.cardId === 'masque-de-pierre' && me.hand.length === 0) continue
       // Dio — Justice : récupère un Allié de la défausse. Inutile sans Allié en défausse.
@@ -658,6 +671,23 @@ export function maxBrewPoison(state: GameState, playerIndex: number = state.acti
   const p = state.players[playerIndex]
   const surcharge = hasHeroInRealm(state, playerIndex, 'timide') ? 1 : 0
   return Math.max(0, p.power - surcharge)
+}
+
+/** Tabbou — « Dévoiler une tuile Combattant » : chaque tuile coûte 1 Pouvoir
+ *  (1 JT = 1 Combattant). Kirby ajoute un surcoût fixe par usage (`fighterRevealSurcharge`),
+ *  Link plafonne le nombre dévoilable par usage (`fighterRevealCap`, = 3). Renvoie le
+ *  nombre MAX de tuiles dévoilables en un usage : min(pioche, plafond Link, Pouvoir
+ *  disponible après surcoût). 0 si l'action n'aurait aucun effet. */
+export function maxRevealFighters(state: GameState, playerIndex: number = state.activePlayer): number {
+  const p = state.players[playerIndex]
+  const inRealm = Object.values(p.board).flat()
+  const pile = (p.fighterTiles ?? []).filter((t) => t.state === 'pile').length
+  if (pile === 0) return 0
+  const surcharge = inRealm.reduce((n, c) => n + (c.fighterRevealSurcharge ?? 0), 0)
+  const caps = inRealm.map((c) => c.fighterRevealCap).filter((v): v is number => v !== undefined)
+  const cap = caps.length > 0 ? Math.min(...caps) : Infinity
+  const affordable = Math.max(0, p.power - surcharge) // 1 Pouvoir par tuile
+  return Math.max(0, Math.min(pile, cap, affordable))
 }
 
 /** La Méchante Reine — « Croque ! » est-il utilisable ? Vrai s'il existe, sur le
@@ -780,6 +810,11 @@ export function effectiveStrength(
       case 'per-other-hero-here': {
         const others = cell.filter((c) => c.type === 'hero' && c.instanceId !== card.instanceId).length
         return sum + m.delta * others
+      }
+      case 'if-other-hero-here': {
+        // Meta Knight (Tabbou) : bonus FORFAITAIRE dès qu'un autre Héros partage son lieu.
+        const hasOther = cell.some((c) => c.type === 'hero' && c.instanceId !== card.instanceId)
+        return sum + (hasOther ? m.delta : 0)
       }
       case 'per-other-type-here': {
         const others = cell.filter((c) => c.type === m.cardType && c.instanceId !== card.instanceId).length
@@ -1393,6 +1428,9 @@ export function effectiveCost(
     // présente sur le lieu du pion.
     if (card.type === 'item') {
       discount += cell.filter((c) => c.cardId === 'baguette').length
+      // Tabbou — Canon Obscur : les Objets coûtent N de moins par carte portant
+      // `itemCostReductionHere` sur le lieu du pion (data-driven).
+      discount += cell.reduce((n, c) => n + (c.itemCostReductionHere ?? 0), 0)
     }
   }
   if (card.type === 'curse' && destination) {
@@ -1572,6 +1610,19 @@ export function hasReachedObjective(state: GameState, playerIndex: number = stat
       return (p.confiance ?? 0) >= p.objective.threshold
     case 'PUPPY_THRESHOLD':
       return capturedPuppies(p) >= p.objective.threshold
+    case 'KILL_FIGHTERS': {
+      // Tabbou : ≥ threshold Combattants tués (30 tant que Samus est présente).
+      const obj = p.objective
+      const killed = (p.fighterTiles ?? []).filter((t) => t.state === 'killed').length
+      let threshold = obj.threshold
+      if (obj.raiseHeroCardId !== undefined && obj.raiseTo !== undefined) {
+        const samusPresent = Object.values(p.board).some((cards) =>
+          cards.some((c) => c.type === 'hero' && c.cardId === obj.raiseHeroCardId),
+        )
+        if (samusPresent) threshold = obj.raiseTo
+      }
+      return killed >= threshold
+    }
     case 'CAPTURE_POKEMON': {
       const obj = p.objective
       const pile = p.capturedPokemon ?? []

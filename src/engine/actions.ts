@@ -10,6 +10,7 @@ import type {
   CardInstance,
   CardType,
   Effect,
+  FighterColor,
   GameAction,
   GameState,
   Location,
@@ -98,6 +99,7 @@ import {
   isPassiveGoalMet,
   locationActions,
   locationOfCard,
+  maxRevealFighters,
   movableCards,
   realmRelocateCandidates,
   requiresAllyTarget,
@@ -185,6 +187,28 @@ function resolveLocationAction(state: GameState, action: LocationAction, count?:
           `${me.villainName} prépare du Poison (${n} Pouvoir → ${n} Poison${surcharge ? ', −1 JT : Timide' : ''}, total Poison : ${activePlayer(next).poison}).`,
         ],
       }
+    }
+    case 'REVEAL_FIGHTER': {
+      // Tabbou — « Dévoiler une tuile Combattant » : dévoile N tuiles (pioche → réserve),
+      // 1 JT = 1 Combattant. Kirby ajoute un surcoût fixe par usage ; Link plafonne N à 3.
+      const me = activePlayer(state)
+      const inRealm = Object.values(me.board).flat()
+      const maxN = maxRevealFighters(state)
+      if (maxN < 1) {
+        throw new Error('Dévoiler une tuile Combattant est impossible (pioche vide ou Pouvoir insuffisant).')
+      }
+      const n = Math.max(1, Math.min(count ?? 1, maxN))
+      const surcharge = inRealm.reduce((s, c) => s + (c.fighterRevealSurcharge ?? 0), 0)
+      const spent = n + surcharge
+      let next: GameState = updateActivePlayer(state, (p) => ({ ...p, power: p.power - spent }))
+      next = {
+        ...next,
+        log: [
+          ...next.log,
+          `${me.villainName} paie ${spent} JT${surcharge > 0 ? ` (dont ${surcharge} : Kirby)` : ''} pour dévoiler ${n} Combattant${n > 1 ? 's' : ''}.`,
+        ],
+      }
+      return resolveEffect(next, { type: 'REVEAL_FIGHTERS', count: n }, { actorIndex: next.activePlayer })
     }
     default:
       throw new Error(`Type d'action non géré : ${action.type}`)
@@ -408,13 +432,94 @@ function applyExecuteAction(state: GameState, actionId: string, count?: number):
   const loc = currentLocation(state)! // garanti par isActionAvailable
   // Inclut les actions accordées par un Objet (Boîte à Crochets → Gagner 1).
   const action = locationActions(state, loc.id).find((a) => a.id === actionId)!
-  if (action.type !== 'GAIN_POWER' && action.type !== 'BREW_POISON') {
+  if (action.type !== 'GAIN_POWER' && action.type !== 'BREW_POISON' && action.type !== 'REVEAL_FIGHTER') {
     throw new Error(`EXECUTE_ACTION ne gère pas « ${action.type} ».`)
   }
   let next = resolveLocationAction(state, action, count)
   next = consumePersifleur(next, action)
   next = consumeRepeatAction(next, actionId)
   return { ...next, usedActionIds: [...next.usedActionIds, actionId] }
+}
+
+// --- Tabbou : dévoilement, mises à mort de Combattants & choix Destin --------
+
+/** Tabbou — dévoile une tuile Combattant face cachée choisie (pioche → réserve). */
+function applyResolveFighterReveal(state: GameState, tileId: string): GameState {
+  const pending = state.pendingFighterReveal
+  if (!pending) throw new Error('Aucun dévoilement de Combattant en attente.')
+  const idx = pending.playerIndex
+  const p = state.players[idx]
+  const tile = (p.fighterTiles ?? []).find((t) => t.id === tileId && t.state === 'pile')
+  if (!tile) throw new Error('Tuile Combattant introuvable (déjà dévoilée ?).')
+  const players = state.players.map((pl, i) =>
+    i === idx
+      ? { ...pl, fighterTiles: (pl.fighterTiles ?? []).map((t) => (t.id === tileId ? { ...t, state: 'reserve' as const } : t)) }
+      : pl,
+  )
+  const remaining = pending.remaining - 1
+  const hiddenLeft = (players[idx].fighterTiles ?? []).some((t) => t.state === 'pile')
+  return {
+    ...state,
+    players,
+    pendingFighterReveal: remaining > 0 && hiddenLeft ? { playerIndex: idx, remaining } : null,
+    log: [...state.log, `${p.villainName} dévoile un Combattant « ${tile.color} ».`],
+  }
+}
+
+/** Tabbou — tue toutes les tuiles Combattants de la couleur choisie (réserve → tuées). */
+function applyResolveFighterKillColor(state: GameState, color: FighterColor): GameState {
+  const pending = state.pendingFighterKillColor
+  if (!pending) throw new Error('Aucun choix de couleur de Combattant en attente.')
+  const idx = pending.playerIndex
+  const p = state.players[idx]
+  const toKill = (p.fighterTiles ?? []).filter((t) => t.state === 'reserve' && t.color === color)
+  if (toKill.length === 0) throw new Error('Aucun Combattant de cette couleur en réserve.')
+  const ids = new Set(toKill.map((t) => t.id))
+  const players = state.players.map((pl, i) =>
+    i === idx
+      ? { ...pl, fighterTiles: (pl.fighterTiles ?? []).map((t) => (ids.has(t.id) ? { ...t, state: 'killed' as const } : t)) }
+      : pl,
+  )
+  return {
+    ...state,
+    players,
+    pendingFighterKillColor: null,
+    log: [...state.log, `${p.villainName} tue ${toKill.length} Combattant(s) « ${color} ».`],
+  }
+}
+
+/** Tabbou — Coup Fatal : tue une tuile Combattant de la réserve (pas à pas, jusqu'à `remaining`). */
+function applyResolveFighterKillFree(state: GameState, tileId: string): GameState {
+  const pending = state.pendingFighterKillFree
+  if (!pending) throw new Error('Aucun Coup Fatal en attente.')
+  const idx = pending.playerIndex
+  const p = state.players[idx]
+  const tile = (p.fighterTiles ?? []).find((t) => t.id === tileId && t.state === 'reserve')
+  if (!tile) throw new Error('Combattant introuvable en réserve.')
+  const players = state.players.map((pl, i) =>
+    i === idx
+      ? { ...pl, fighterTiles: (pl.fighterTiles ?? []).map((t) => (t.id === tileId ? { ...t, state: 'killed' as const } : t)) }
+      : pl,
+  )
+  const remaining = pending.remaining - 1
+  const stillReserve = (players[idx].fighterTiles ?? []).some((t) => t.state === 'reserve')
+  return {
+    ...state,
+    players,
+    pendingFighterKillFree: remaining > 0 && stillReserve ? { playerIndex: idx, remaining } : null,
+    log: [...state.log, `${p.villainName} tue un Combattant « ${tile.color} » (Coup Fatal).`],
+  }
+}
+
+/** Tabbou — Destin : dévoiler 3 Combattants OU gagner 4 Pouvoir. */
+function applyResolveDestinChoice(state: GameState, choice: 'reveal' | 'power'): GameState {
+  const pending = state.pendingDestinChoice
+  if (!pending) throw new Error('Aucun choix Destin en attente.')
+  const idx = pending.playerIndex
+  const cleared: GameState = { ...state, pendingDestinChoice: null }
+  return choice === 'reveal'
+    ? resolveEffect(cleared, { type: 'REVEAL_FIGHTERS', count: 3 }, { actorIndex: idx })
+    : resolveEffect(cleared, { type: 'GAIN_POWER', amount: 4 }, { actorIndex: idx })
 }
 
 /** La Méchante Reine — Noir de nuit : si l'action `actionId` est REJOUÉE (déjà dans
@@ -1489,6 +1594,16 @@ function applyPlayCard(
         hostLocationId: destId,
       })
     }
+    // Tabbou — Orbe subspatial : déblocage de l'Émissaire résolu APRÈS placement
+    // (l'Orbe doit être sur le board pour que les 3 lieux soient comptés). Le passage
+    // générique pré-placement (resolveEffects ci-dessus) est un no-op à ce moment.
+    if ((card.effects ?? []).some((e) => e.type === 'SUBSPACE_ORB_PLACED')) {
+      next = resolveEffects(next, [{ type: 'SUBSPACE_ORB_PLACED' }], {
+        actorIndex: state.activePlayer,
+        hostInstanceId: placed.instanceId,
+        hostLocationId: destId,
+      })
+    }
     // Pyramid Head — Cage de l'Expiation : associée à un Héros (sur une tuile), on déplace
     // ensuite ce Héros (choix du lieu). L'hôte DOIT être sur un lieu tuilé.
     if ((card.effects ?? []).some((e) => e.type === 'CAGE_MOVE_HOST')) {
@@ -1983,7 +2098,7 @@ function applyResolveYzmaFateCard(state: GameState, instanceId: string | null): 
     return placeFateHeroWithEffects(next, targetIndex, chooserIndex, chosen, locationId, locName)
   }
   // Carte Fatalité non-Héros (Événement) : résout ses effets (Phase 3) puis défausse.
-  next = resolveEffects(next, chosen.effects ?? [], { actorIndex: targetIndex })
+  next = resolveEffects(next, chosen.effects ?? [], { actorIndex: targetIndex, playedBy: chooserIndex })
   next = updatePlayer(next, targetIndex, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, chosen] }))
   return { ...next, log: [...next.log, `**${chosen.name}** est jouée sur **${locName}**.`] }
 }
@@ -2537,6 +2652,7 @@ export function placeFateHeroWithEffects(
   const cellBefore = next.players[targetIndex].board[to] ?? []
   next = resolveEffects(next, hero.onPlace ?? [], {
     actorIndex: targetIndex,
+    playedBy,
     hostInstanceId: hero.instanceId,
     hostLocationId: to,
   })
@@ -3800,26 +3916,28 @@ function applyResolveFateInner(
   }
 
   // Majorité : défausse un Objet ou un Allié du royaume de la cible (hors Sabotage).
+  // Le joueur qui pose la Fatalité CHOISIT lequel (RESOLVE_FATE_CHOICE, kind 'remove-card' ;
+  // bot auto-résout via enumerate). Sans cible valide : simple défausse de la carte.
   if (chosen.cardId === 'majorite') {
     let next = updatePlayer(state, pending.target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, chosen, ...others] }))
     next = { ...next, pendingFate: null }
-    const realm = tgt.locations.flatMap((l) =>
-      (next.players[pending.target].board[l.id] ?? []).map((c) => ({ c, loc: l.id })),
-    )
-    const pick =
-      realm.find(({ c }) => c.type === 'ally' && !c.attachedTo) ??
-      realm.find(({ c }) => c.type === 'item' && !c.isSabotage && !c.attachedTo)
-    if (!pick) {
+    const candidates = tgt.locations
+      .flatMap((l) => next.players[pending.target].board[l.id] ?? [])
+      .filter((c) => (c.type === 'ally' || (c.type === 'item' && !c.isSabotage)) && !c.attachedTo)
+    if (candidates.length === 0) {
       return { ...next, log: [...next.log, `**Majorité** : aucun Objet/Allié (hors Sabotage) à défausser chez ${tgt.villainName}.`] }
     }
-    const attached = (next.players[pending.target].board[pick.loc] ?? []).filter((c) => c.attachedTo === pick.c.instanceId)
-    const removed = new Set([pick.c.instanceId, ...attached.map((c) => c.instanceId)])
-    next = updatePlayer(next, pending.target, (p) => ({
-      ...p,
-      board: { ...p.board, [pick.loc]: (p.board[pick.loc] ?? []).filter((c) => !removed.has(c.instanceId)) },
-      discard: [...p.discard, pick.c, ...attached],
-    }))
-    return { ...next, log: [...next.log, `**Majorité** : **${pick.c.name}** est défaussé(e) du royaume de ${tgt.villainName}.`] }
+    return {
+      ...next,
+      pendingFateChoice: {
+        chooserIndex: state.activePlayer,
+        targetIndex: pending.target,
+        kind: 'remove-card',
+        candidateIds: candidates.map((c) => c.instanceId),
+        via: 'Majorité',
+      },
+      log: [...next.log, `**Majorité** : ${state.players[state.activePlayer].villainName} défausse un Objet ou un Allié (hors Sabotage) du royaume de ${tgt.villainName}.`],
+    }
   }
 
   // Oogie Boogie — Salut, Oogie ! : place un jeton sous la figurine d'Oogie → −2 à son
@@ -4039,6 +4157,26 @@ function applyResolveFateInner(
     return resolveEffects(next, chosen.effects ?? [], { actorIndex: pending.target })
   }
 
+  // Générique : Objet Fatalité NON associé (ni à un Héros ni à un Allié) et SANS lieu
+  // imposé, non traité par une branche `cardId` plus haut → le joueur qui pose la
+  // Fatalité CHOISIT le lieu du royaume de la cible où l'Objet est posé
+  // (pendingFateObjectPlace ; bot auto-résout). Couvre « Quelque chose qui brille » et
+  // « Cœur de Te Fiti » (Tamatoa) ainsi que la « Clé Noire » (Le Seigneur des clés).
+  // Sans ce cas, ces Objets tombaient dans le fallback « défausse » → aucune invite de pose.
+  if (chosen.type === 'item' && chosen.attach !== 'hero' && chosen.attach !== 'ally' && !chosen.forcedFateLocation) {
+    let next = updatePlayer(state, pending.target, (p) => ({
+      ...p,
+      fateDiscard: [...p.fateDiscard, ...others],
+    }))
+    next = {
+      ...next,
+      pendingFate: null,
+      pendingFateObjectPlace: { chooserIndex: state.activePlayer, targetIndex: pending.target, card: chosen },
+      log: [...next.log, `${state.players[state.activePlayer].villainName} pose **${chosen.name}** sur un lieu de ${tgt.villainName}.`],
+    }
+    return next
+  }
+
   // Générique : toute carte Fatalité de type 'effect' portant des `effects` non traitée
   // spécifiquement plus haut → on résout ses effets sur la CIBLE (le joueur fatalisé).
   // Couvre Planqués / Hors-la-loi (Pat Hibulaire), « On n'abandonne pas » / « Dégonflage »
@@ -4051,7 +4189,9 @@ function applyResolveFateInner(
     }))
     next = { ...next, pendingFate: null }
     next = pushShowcase(next, chosen.cardId, `${tgt.villainName} subit ${chosen.name}`, state.activePlayer)
-    return resolveEffects(next, chosen.effects ?? [], { actorIndex: pending.target })
+    // `playedBy` = fataliseur : permet aux effets « de votre choix » (Ressuscité) de laisser
+    // le choix au lanceur plutôt qu'à la cible.
+    return resolveEffects(next, chosen.effects ?? [], { actorIndex: pending.target, playedBy: state.activePlayer, sourceCardName: chosen.name })
   }
 
   // Fallback (carte Fatalité non implémentée) : simple défausse.
@@ -4873,6 +5013,21 @@ function applyActivateCore(
       ...next,
       usedActionIds: [...next.usedActionIds, actionId],
       log: [...next.log, `${me.villainName} active **${card.name}** : regarde 4 cartes, en garde 1.`],
+    }
+  }
+
+  if (card.cardId === 'canon-geant') {
+    // Tabbou — Canon Géant : regarde les 4 premières cartes de la pioche, en garde 1
+    // (choix interactif côté humain, auto côté bot), défausse les autres.
+    let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost! }))
+    next = resolveEffects(next, [{ type: 'LOOK_TOP_DRAW_DISCARD', look: 4, take: 1, title: 'Canon Géant' }], {
+      actorIndex: state.activePlayer,
+    })
+    next = consumePersifleur(next, action)
+    return {
+      ...next,
+      usedActionIds: [...next.usedActionIds, actionId],
+      log: [...next.log, `${me.villainName} active le **Canon Géant** : regarde 4 cartes, en garde 1.`],
     }
   }
 
@@ -9257,7 +9412,7 @@ function applyResolveFateChoice(state: GameState, instanceId: string): GameState
     return {
       ...next,
       pendingFateChoice: null,
-      log: [...next.log, `Vieillissement : **${card.name}** est défaussé(e) du royaume de ${tgt.villainName}.`],
+      log: [...next.log, `${pending.via ?? 'Vieillissement'} : **${card.name}** est défaussé(e) du royaume de ${tgt.villainName}.`],
     }
   }
 
@@ -10565,6 +10720,7 @@ function applyChariotMove(state: GameState, instanceId: string, to: string): Gam
   if (from === to) throw new Error(`Le ${card.name} est déjà sur ce lieu.`)
   const dest = findLocation(me, to)
   if (!dest) throw new Error(`Lieu inconnu : « ${to} ».`)
+  if ((me.lockedLocations ?? []).includes(to)) throw new Error('Lieu verrouillé.')
   const usedKey = `chariot-move:${instanceId}`
   if (state.usedActionIds.includes(usedKey)) throw new Error('Le Char a déjà été utilisé ce tour.')
   const moving = (me.board[from] ?? []).filter(
@@ -11559,15 +11715,17 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   // Une Fatalité révélée doit être résolue avant tout autre coup — sauf une
   // Condition jouée par le non-actif (réaction « à tout moment ») ET la résolution
   // d'un choix ouvert PAR cette réaction alors que la Fatalité adverse est encore en
-  // attente : pendingScry (Scar — La vie n'est pas juste) ou pendingDioMuda (Dio —
-  // MUDA ! MUDA ! MUDA !, jouée en réaction à une Fatalité ciblant Dio).
+  // attente : pendingScry (Scar — La vie n'est pas juste), pendingDioMuda (Dio —
+  // MUDA ! MUDA ! MUDA !) ou pendingFighterReveal (Tabbou — Flèche, jouée en réaction
+  // à une Fatalité ciblant Tabbou : dévoile jusqu'à 3 tuiles Combattants).
   if (
     state.pendingFate &&
     action.type !== 'RESOLVE_FATE' &&
     action.type !== 'PASS_FATE' &&
     action.type !== 'PLAY_CONDITION' &&
     action.type !== 'RESOLVE_SCRY' &&
-    action.type !== 'RESOLVE_DIO_MUDA'
+    action.type !== 'RESOLVE_DIO_MUDA' &&
+    action.type !== 'RESOLVE_FIGHTER_REVEAL'
   ) {
     throw new Error('Une Fatalité est en attente de résolution (RESOLVE_FATE).')
   }
@@ -11893,6 +12051,40 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
     action.type !== 'PLAY_CONDITION'
   ) {
     throw new Error('Révélez des Tuiles Chiots ou terminez (RESOLVE_PUPPY_REVEAL / DONE_PUPPY_REVEAL).')
+  }
+  // Tabbou — dévoilement interactif de Combattants (clic sur les dos).
+  if (
+    state.pendingFighterReveal &&
+    action.type !== 'RESOLVE_FIGHTER_REVEAL' &&
+    action.type !== 'DONE_FIGHTER_REVEAL' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Dévoilez des Combattants ou terminez (RESOLVE_FIGHTER_REVEAL / DONE_FIGHTER_REVEAL).')
+  }
+  // Tabbou — choix de la couleur de Combattants à tuer.
+  if (
+    state.pendingFighterKillColor &&
+    action.type !== 'RESOLVE_FIGHTER_KILL_COLOR' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Choisissez une couleur de Combattants à tuer (RESOLVE_FIGHTER_KILL_COLOR).')
+  }
+  // Tabbou — Coup Fatal : tuer des Combattants un à un, ou terminer.
+  if (
+    state.pendingFighterKillFree &&
+    action.type !== 'RESOLVE_FIGHTER_KILL_FREE' &&
+    action.type !== 'DONE_FIGHTER_KILL_FREE' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Tuez des Combattants ou terminez (RESOLVE_FIGHTER_KILL_FREE / DONE_FIGHTER_KILL_FREE).')
+  }
+  // Tabbou — Destin : dévoiler 3 Combattants OU gagner 4 Pouvoir.
+  if (
+    state.pendingDestinChoice &&
+    action.type !== 'RESOLVE_DESTIN_CHOICE' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Résolvez Destin (RESOLVE_DESTIN_CHOICE).')
   }
   // Cruella — Horace : le choix capturer / amener est en attente.
   if (
@@ -12402,6 +12594,18 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveBargainChoice(state, action.choice)
     case 'RESOLVE_FREE_ITEM_PLAY':
       return applyResolveFreeItemPlay(state, action.instanceId, action.to)
+    case 'RESOLVE_FIGHTER_REVEAL':
+      return applyResolveFighterReveal(state, action.tileId)
+    case 'DONE_FIGHTER_REVEAL':
+      return { ...state, pendingFighterReveal: null }
+    case 'RESOLVE_FIGHTER_KILL_COLOR':
+      return applyResolveFighterKillColor(state, action.color)
+    case 'RESOLVE_FIGHTER_KILL_FREE':
+      return applyResolveFighterKillFree(state, action.tileId)
+    case 'DONE_FIGHTER_KILL_FREE':
+      return { ...state, pendingFighterKillFree: null }
+    case 'RESOLVE_DESTIN_CHOICE':
+      return applyResolveDestinChoice(state, action.choice)
     case 'SKIP_FREE_ITEM_PLAY':
       return applySkipFreeItemPlay(state)
     case 'RESOLVE_FATE_REORDER':

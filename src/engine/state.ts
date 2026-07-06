@@ -425,6 +425,18 @@ function makePlayer(
     // à la FIN de chacun de ses tours → son 1er tour est toujours XII (peu importe l'ordre).
     clockHour: villain.objective.type === 'ISABELLA_CLOCK' ? 0 : undefined,
     validatedHours: villain.objective.type === 'ISABELLA_CLOCK' ? [] : undefined,
+    // Tabbou — pioche de tuiles Combattants (toutes en `pile` au départ ; le tirage
+    // aléatoire se fait à chaque dévoilement). Émissaire mémorisé pour le déblocage.
+    fighterTiles: villain.fighterSetup
+      ? villain.fighterSetup.tiles.map((t, k) => ({
+          id: `fighter-${k}`,
+          color: t.color,
+          art: t.art,
+          name: t.name,
+          state: 'pile' as const,
+        }))
+      : undefined,
+    emissaireLocationId: villain.fighterSetup?.emissaireLocationId,
   }
 }
 
@@ -595,6 +607,13 @@ export function createInitialGame(setups: PlayerSetup[], seed: number): GameStat
       const r = shuffle(player.puppyTiles, rngState)
       rngState = r.state
       player = { ...player, puppyTiles: r.result }
+    }
+    // Tabbou — mélange les tuiles Combattants : les couleurs sont ainsi réparties
+    // ALÉATOIREMENT sur la grille (l'ordre du tableau = position sur la grille).
+    if (player.fighterTiles) {
+      const r = shuffle(player.fighterTiles, rngState)
+      rngState = r.state
+      player = { ...player, fighterTiles: r.result }
     }
     // Le Seigneur des clés — génère 12 clés (3/lieu) : une de chaque couleur (≥1 garanti)
     // + le reste tiré au hasard (max 4/couleur), mélangées puis réparties par lieu.

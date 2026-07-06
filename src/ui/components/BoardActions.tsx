@@ -970,6 +970,38 @@ ACTION_POS['la-bonne-fee'] = {
   },
 }
 
+// Tabbou — même gabarit de plateau que Team Rocket / La Bonne Fée (Realm.png
+// 4455×1248, panneau objectif à gauche + 4 lieux). L'Émissaire Subspatial porte
+// 3 actions en bas (Jouer · Dévoiler une tuile Combattant · Gagner 2). MESURES À
+// AFFINER via l'inspecteur si besoin.
+ACTION_POS['tabbou'] = {
+  stade: {
+    activate: { x: 22.5, y: 19.6 },
+    'play-card': { x: 30.3, y: 19.6 },
+    discard: { x: 22.5, y: 67.5 },
+    'gain-power': { x: 30.4, y: 67.6 },
+  },
+  chateau: {
+    'play-card': { x: 43.4, y: 19.6 },
+    'gain-power': { x: 51.2, y: 19.6 },
+    fate: { x: 43.4, y: 67.5 },
+    vanquish: { x: 51.2, y: 67.5 },
+  },
+  halberd: {
+    'play-card-top': { x: 64.3, y: 19.6 },
+    discard: { x: 72.1, y: 19.6 },
+    'play-card-bottom': { x: 64.3, y: 67.5 },
+    'gain-power': { x: 72.1, y: 67.5 },
+  },
+  emissaire: {
+    fate: { x: 85.1, y: 19.6 },
+    'move-item-ally': { x: 92.9, y: 19.6 },
+    'play-card': { x: 82.7, y: 67.5 },
+    'reveal-fighter': { x: 89.1, y: 67.5 },
+    'gain-power': { x: 95.4, y: 67.5 },
+  },
+}
+
 ACTION_POS['princeJohn'] = {
   sherwood: {
     'gain-power': { x: 22.5, y: 20 },

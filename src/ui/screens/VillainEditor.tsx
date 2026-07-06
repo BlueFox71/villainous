@@ -55,6 +55,11 @@ function IdentityTab({
     <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
       <div className="flex flex-col gap-4">
         <TextField label="Nom du vilain" value={draft.name} onChange={(name) => patch({ name })} />
+        <TextField
+          label="Devise du vilain"
+          value={draft.devise ?? ''}
+          onChange={(devise) => patch({ devise })}
+        />
         <Field label={`Difficulté — ${draft.stars} ★`}>
           <input
             type="range"
@@ -318,7 +323,7 @@ function PublishModal({
 // --- Écran principal ---------------------------------------------------------
 
 export function VillainEditor({ onBack, onPlay }: Props) {
-  const { villains, loaded, load, save, remove } = useCustomVillainStore()
+  const { villains, loaded, load, save, remove, unpublish } = useCustomVillainStore()
   const [draft, setDraft] = useState<CustomVillain | null>(null)
   const [tab, setTab] = useState<Tab>('identity')
   const [dirty, setDirty] = useState(false)
@@ -327,6 +332,9 @@ export function VillainEditor({ onBack, onPlay }: Props) {
   const [testOpponent, setTestOpponent] = useState<VillainKey | ''>('')
   // Modale de publication (« Terminer ») : ouverte tant qu'elle collecte créateur + origine.
   const [publishOpen, setPublishOpen] = useState(false)
+  // Modale de DÉPUBLICATION : vilain visé (null = fermée) + indicateur d'opération en cours.
+  const [unpublishTarget, setUnpublishTarget] = useState<CustomVillain | null>(null)
+  const [unpublishBusy, setUnpublishBusy] = useState(false)
   // Éditeur de portrait (cadre doré + nom) pour le portrait carré du vilain perso.
   const [portraitFrameOpen, setPortraitFrameOpen] = useState(false)
   const excelRef = useRef<HTMLInputElement>(null)
@@ -471,6 +479,19 @@ export function VillainEditor({ onBack, onPlay }: Props) {
     setExcelChoices(null)
     await save(copy)
     startEdit(copy)
+  }
+
+  /** Dépublie le vilain visé : retiré du jeu et de la liste des vilains, et de son
+   *  fichier embarqué (« dans le code »). Il redevient un brouillon éditable. */
+  const doUnpublish = async (v: CustomVillain) => {
+    if (unpublishBusy) return
+    setUnpublishBusy(true)
+    try {
+      await unpublish(v.id)
+      setUnpublishTarget(null)
+    } finally {
+      setUnpublishBusy(false)
+    }
   }
 
   // « Terminer » : publie le vilain (il rejoint la liste + le choix des vilains).
@@ -708,13 +729,15 @@ export function VillainEditor({ onBack, onPlay }: Props) {
                           Éditer
                         </button>
                         {v.published ? (
-                          // Vilain publié : non supprimable (toujours disponible pour le modifier).
-                          <span
-                            title="Vilain publié — non supprimable. Tu peux toujours le modifier via « Éditer »."
-                            className="cursor-not-allowed rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/30"
+                          // Vilain publié : bouton DÉPUBLIER (retire du jeu + de la liste).
+                          <button
+                            type="button"
+                            onClick={() => setUnpublishTarget(v)}
+                            title="Dépublier ce vilain (le retirer du jeu et de la liste des vilains)"
+                            className="rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-xs text-white/50 transition hover:border-red-400/60 hover:text-red-300"
                           >
-                            🔒
-                          </span>
+                            ✕
+                          </button>
                         ) : (
                           <button
                             type="button"
@@ -854,6 +877,44 @@ export function VillainEditor({ onBack, onPlay }: Props) {
           onCancel={() => setPublishOpen(false)}
           onConfirm={(creator, origin) => void doPublish(creator, origin)}
         />
+      )}
+
+      {/* Modale : dépublication d'un vilain publié (« Souhaitez-vous le dépublier ? »). */}
+      {unpublishTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => !unpublishBusy && setUnpublishTarget(null)}
+        >
+          <div
+            className="flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-white/15 bg-[#1a1620] p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-bold text-amber-200">Dépublier le vilain</h2>
+            <p className="text-sm text-white/70">
+              Souhaitez-vous dépublier « <strong>{unpublishTarget.name}</strong> » ? Il ne sera
+              plus visible dans le jeu ni dans la liste des vilains. Il restera un brouillon
+              éditable ici (tu pourras le republier plus tard).
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={unpublishBusy}
+                onClick={() => setUnpublishTarget(null)}
+                className="rounded-lg border border-white/20 bg-white/5 px-4 py-1.5 text-sm font-semibold text-white/80 transition hover:bg-white/10 disabled:opacity-50"
+              >
+                Non
+              </button>
+              <button
+                type="button"
+                disabled={unpublishBusy}
+                onClick={() => void doUnpublish(unpublishTarget)}
+                className="rounded-lg border border-red-400/60 bg-red-500/20 px-4 py-1.5 text-sm font-bold text-red-100 transition hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {unpublishBusy ? '⏳…' : 'Oui, dépublier'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Barre de chargement pendant la génération des images (bake). */}

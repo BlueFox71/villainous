@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties } from 'react'
-import { villainDecor, type VillainDecor as VillainDecorData } from '../villainDecor'
+import { villainDecor, UNDERWATER_ORB_IMAGES, type VillainDecor as VillainDecorData } from '../villainDecor'
 import type { VillainKey } from '../store/gameStore'
 import { onSurprise } from '../surpriseBus'
 import { setVillainColorOverride } from '../villainColorState'
@@ -6678,6 +6678,307 @@ export function VillainDecor({
   )
 }
 
+// ---------------------------------------------------------------------------
+// Décor permanent : Tabbou — vue SOUS L'EAU vers la surface. Fond NOIR pur ; la
+// SURFACE de l'eau miroitante (deux calques de caustiques bleutées qui ondulent
+// en dérivant, réutilisant la turbulence SVG du décor grotte) recouvre TOUT le
+// décor.
+// ---------------------------------------------------------------------------
+// Caustiques utilisées comme MASQUE : la turbulence SVG donne, via feColorMatrix, un ALPHA selon
+// la somme RVB du bruit (alpha = 1.7·(R+V+B) − `cut`) → forme des caustiques dans le canal alpha.
+// `cut` élevé = calque CLAIRSEMÉ (seules les crêtes du bruit passent). La couleur de sortie est sans
+// importance (masquage alpha) : c'est le dégradé du calque, en dessous, qui donne la couleur.
+const UNDERWATER_CAUSTIC_URL = (freq: string, seed: number, cut: number) =>
+  `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='600'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='turbulence' baseFrequency='${freq}' numOctaves='2' seed='${seed}' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 1.7 1.7 1.7 0 -${cut}'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23c)'/%3E%3C/svg%3E")`
+
+// Beaucoup de calques, chacun CLAIRSEMÉ (seuil `cut` élevé → peu de caustiques), avec fréquence,
+// graine, taille de tuile, dérive et respiration d'opacité propres → miroitement dense mais fin.
+const UNDERWATER_LAYERS = 4
+
+// Nombre d'éclairs bleus qui claquent par intermittence (chacun sur son propre cycle décalé).
+const UNDERWATER_BOLTS = 5
+
+// Surprise « Coup Fatal » : durée totale (ms) de l'anim boule → explosion → cercles, après laquelle
+// on démonte les éléments. À GARDER en phase avec la timeline CSS (keyframes `uwSmash*`, index.css).
+const UNDERWATER_SMASH_MS = 9600
+
+type BoltPt = [number, number]
+interface BoltFork {
+  x: number
+  y: number
+  ang: number
+}
+
+// Un sous-tracé (tronc ou branche) par DÉPLACEMENT DE POINT-MILIEU (« fractal lightning ») : on part
+// d'un segment [a→b] et, à chaque niveau, on coupe chaque segment en son milieu que l'on décale
+// PERPENDICULAIREMENT d'un montant aléatoire dont l'amplitude est DIVISÉE PAR 2 à chaque niveau →
+// tracé chaotique naturel (technique de référence des jeux). Renvoie la polyligne + des milieux
+// candidats pour accrocher des branches.
+function fractalBolt(ax: number, ay: number, bx: number, by: number, depth: number, spread: number) {
+  let segs: Array<[number, number, number, number]> = [[ax, ay, bx, by]]
+  const forks: BoltFork[] = []
+  for (let d = 0; d < depth; d++) {
+    const amp = spread * Math.pow(0.5, d) // amplitude décroissante
+    const next: Array<[number, number, number, number]> = []
+    for (const [x1, y1, x2, y2] of segs) {
+      const dx = x2 - x1
+      const dy = y2 - y1
+      const len = Math.hypot(dx, dy) || 1
+      const off = (Math.random() - 0.5) * amp
+      // Milieu décalé perpendiculairement (normale = (-dy, dx)/len), clampé dans le cadre.
+      const nx = Math.max(2, Math.min(98, (x1 + x2) / 2 + (-dy / len) * off))
+      const ny = (y1 + y2) / 2 + (dx / len) * off
+      next.push([x1, y1, nx, ny], [nx, ny, x2, y2])
+      if (d === 2) forks.push({ x: nx, y: ny, ang: Math.atan2(dy, dx) }) // candidats de fourche
+    }
+    segs = next
+  }
+  const pts: BoltPt[] = [[segs[0][0], segs[0][1]]]
+  for (const s of segs) pts.push([s[2], s[3]])
+  return { pts, forks }
+}
+
+// Assemble un éclair complet : le TRONC (haut → bas) puis 1 à 3 BRANCHES accrochées à des milieux,
+// réunis en UN SEUL `d` (sous-tracés M…L…) et dans l'ordre tronc→branches → le `stroke-dashoffset`
+// révèle le tronc d'abord puis les branches, et l'ensemble s'efface d'un bloc (pas de segment détaché).
+function buildBolt(): string {
+  const fmt = (pts: BoltPt[]) =>
+    pts.map((p, i) => `${i ? 'L' : 'M'} ${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ')
+  const trunk = fractalBolt(44 + Math.random() * 12, 0, 30 + Math.random() * 40, 200, 6, 46)
+  const subpaths = [fmt(trunk.pts)]
+  const forks = trunk.forks.sort((a, b) => a.y - b.y) // de haut en bas → révélées dans l'ordre
+  const nBranch = 1 + Math.floor(Math.random() * 3)
+  for (let k = 0; k < nBranch && forks.length; k++) {
+    const f = forks.splice(Math.floor(Math.random() * forks.length), 1)[0]
+    const blen = 34 + Math.random() * 46
+    const ang = f.ang + (Math.random() < 0.5 ? -1 : 1) * (0.45 + Math.random() * 0.55) // s'écarte du tronc
+    const ex = Math.max(2, Math.min(98, f.x + Math.cos(ang) * blen))
+    const ey = f.y + Math.abs(Math.sin(ang)) * blen // toujours vers le bas
+    subpaths.push(fmt(fractalBolt(f.x, f.y, ex, ey, 4, 22).pts))
+  }
+  return subpaths.join(' ')
+}
+
+function UnderwaterDecor() {
+  // SURPRISE « Coup Fatal » (Tabbou élimine tous les combattants) : une boule d'énergie apparaît en
+  // haut au centre, se charge, puis EXPLOSE en projetant trois rayons #992C0A vers le plateau.
+  // Déclenchée par le bus de surprise (mode test ; à terme, l'événement moteur du coup fatal). `seq`
+  // sert de clé React pour REJOUER l'anim à chaque déclenchement.
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
+  const [smash, setSmash] = useState<number | null>(null)
+  useEffect(() => {
+    let clear: ReturnType<typeof setTimeout>
+    let seq = 0
+    fireRef.current = () => {
+      setSmash(seq++)
+      clearTimeout(clear)
+      clear = setTimeout(() => setSmash(null), UNDERWATER_SMASH_MS)
+    }
+    return () => clearTimeout(clear)
+  }, [])
+  const [layers] = useState(() =>
+    Array.from({ length: UNDERWATER_LAYERS }, (_, i) => {
+      const bf = 0.008 + Math.random() * 0.02 // fréquence de base du bruit
+      const seed = 1 + Math.floor(Math.random() * 90)
+      const cut = 2.0 + Math.random() * 0.5 // seuil alpha : moyen → densité intermédiaire
+      const dur = 14 + Math.random() * 16 // s (respiration lente)
+      const size = 34 + Math.random() * 30 // vh (taille de tuile du masque)
+      const dir = Math.random() < 0.5 ? -1 : 1
+      const sx = dir * (10 + Math.random() * 16) // vh (dérive horizontale du masque)
+      const sy = (Math.random() - 0.5) * 30 // vh (dérive verticale)
+      const s0 = 1 + Math.random() * 0.1 // zoom de départ
+      const s2 = s0 + 0.08 + Math.random() * 0.14 // zoom d'arrivée
+      // Enveloppe d'opacité : pic OU creux au milieu (chaque calque respire à son rythme).
+      const base = 0.4 + Math.random() * 0.35
+      const swing = 0.25 + Math.random() * 0.3
+      const up = Math.random() < 0.5
+      return {
+        url: UNDERWATER_CAUSTIC_URL(`${bf.toFixed(4)} ${(bf * 1.5).toFixed(4)}`, seed, cut),
+        dur,
+        size,
+        sx,
+        sy,
+        s0,
+        s1: (s0 + s2) / 2,
+        s2,
+        o0: base,
+        o1: up ? Math.min(1, base + swing) : Math.max(0.08, base - swing),
+        o2: base * (0.75 + Math.random() * 0.3),
+        // Décalage RÉPARTI par indice (phase distincte garantie pour chaque calque) + jitter :
+        // les respirations d'opacité ne battent jamais en phase.
+        delay: -(((i + Math.random() * 0.6) / UNDERWATER_LAYERS) * dur),
+      }
+    }),
+  )
+  // Nappes de BRUME BLEUE floues qui traversent lentement l'écran (par-dessus les caustiques),
+  // en montant/descendant légèrement et en apparaissant/disparaissant en fondu.
+  const [mist] = useState(() =>
+    Array.from({ length: 4 }, () => {
+      const dir = Math.random() < 0.5 ? 1 : -1 // sens de traversée
+      const w = 80 + Math.random() * 80 // vh (nappe large)
+      return {
+        top: Math.random() * 100, // %
+        w, // vh
+        h: w * (0.4 + Math.random() * 0.7), // vh (dimensions inégales → difforme)
+        radius: randomBlobRadius(), // bords organiques → forme irrégulière
+        dur: 28 + Math.random() * 26, // s (traversée lente)
+        delay: -(Math.random() * 45), // s (déphasées)
+        x0: -85 * dir, // vw (départ hors champ)
+        x1: 85 * dir, // vw (arrivée hors champ)
+        y: (Math.random() - 0.5) * 12, // vh (léger dénivelé)
+        op: 0.24 + Math.random() * 0.16, // opacité de pointe (plus discrète)
+      }
+    }),
+  )
+  // Orbes des mondes (Brawl) : boules lumineuses qui flottent doucement et pulsent ; UN SEUL
+  // exemplaire par carte de monde (halo blanc/bleu autour).
+  const [orbs] = useState(() =>
+    UNDERWATER_ORB_IMAGES.map((img) => ({
+      img,
+      zoom: 1.0 + Math.random() * 0.15, // effet « petite planète » : très léger gros plan
+      left: Math.random() * 100, // %
+      top: Math.random() * 100, // %
+      size: 4 + Math.random() * 6, // vh
+      dx: (Math.random() - 0.5) * 12, // vw (amplitude de flottement)
+      dy: (Math.random() - 0.5) * 12, // vh
+      floatDur: 16 + Math.random() * 16, // s
+      pulseDur: 3 + Math.random() * 3, // s
+      delay: -(Math.random() * 20), // s (déphasés)
+      op: 0.55 + Math.random() * 0.4, // opacité de pointe
+    })),
+  )
+  // Éclairs bleus : tracés fixés au montage, chacun claque brièvement une fois par cycle, à un
+  // moment décalé (delay réparti par indice → ils ne flashent pas ensemble).
+  const [bolts] = useState(() =>
+    Array.from({ length: UNDERWATER_BOLTS }, (_, i) => {
+      const dur = 8 + Math.random() * 10 // s (cadence des frappes)
+      return {
+        d: buildBolt(),
+        left: 6 + Math.random() * 84, // %
+        top: -4 + Math.random() * 84, // % (n'importe où dans la colonne, pas seulement en haut)
+        w: 5 + Math.random() * 6, // vw (éclair étroit)
+        h: 24 + Math.random() * 22, // vh (plus court)
+        dur,
+        delay: -(((i + Math.random() * 0.6) / UNDERWATER_BOLTS) * dur), // décalage réparti
+      }
+    }),
+  )
+  return (
+    <div className="underwater-decor" aria-hidden>
+      {/* Chaque calque masque le même dégradé (couleur) avec ses propres caustiques clairsemées. */}
+      {layers.map((l, i) => (
+        <div
+          key={i}
+          className="underwater-surface"
+          style={
+            {
+              WebkitMaskImage: l.url,
+              maskImage: l.url,
+              WebkitMaskSize: `${l.size}vh ${l.size}vh`,
+              maskSize: `${l.size}vh ${l.size}vh`,
+              animationDuration: `${l.dur}s`,
+              animationDelay: `${l.delay}s`,
+              '--sx': `${l.sx}vh`,
+              '--sy': `${l.sy}vh`,
+              '--s0': l.s0,
+              '--s1': l.s1,
+              '--s2': l.s2,
+              '--o0': l.o0,
+              '--o1': l.o1,
+              '--o2': l.o2,
+            } as CSSProperties
+          }
+        />
+      ))}
+      {/* Nappes de brume bleue qui traversent l'écran. */}
+      {mist.map((m, i) => (
+        <span
+          key={`mist-${i}`}
+          className="underwater-mist"
+          style={
+            {
+              top: `${m.top}%`,
+              width: `${m.w}vh`,
+              height: `${m.h}vh`,
+              borderRadius: m.radius,
+              animationDuration: `${m.dur}s`,
+              animationDelay: `${m.delay}s`,
+              '--x0': `${m.x0}vw`,
+              '--x1': `${m.x1}vw`,
+              '--y': `${m.y}vh`,
+              '--op': m.op,
+            } as CSSProperties
+          }
+        />
+      ))}
+      {/* Orbes des mondes : boules blanches lumineuses qui flottent et pulsent. */}
+      {orbs.map((o, i) => (
+        <span
+          key={`orb-${i}`}
+          className="underwater-orb"
+          style={
+            {
+              left: `${o.left}%`,
+              top: `${o.top}%`,
+              width: `${o.size}vh`,
+              height: `${o.size}vh`,
+              animationDelay: `${o.delay}s`,
+              '--float-dur': `${o.floatDur}s`,
+              '--pulse-dur': `${o.pulseDur}s`,
+              '--dx': `${o.dx}vw`,
+              '--dy': `${o.dy}vh`,
+              '--op': o.op,
+            } as CSSProperties
+          }
+        >
+          <img className="underwater-orb-img" src={o.img} alt="" style={{ '--zoom': o.zoom } as CSSProperties} />
+          {/* Calque blanc par-dessus l'image (éclaircit la carte → aspect orbe lumineuse). */}
+          <span className="underwater-orb-veil" />
+        </span>
+      ))}
+      {/* Éclairs bleus qui claquent par intermittence : tracé fin (halo + cœur). */}
+      {bolts.map((b, i) => (
+        <div
+          key={`bolt-${i}`}
+          className="underwater-bolt"
+          style={
+            {
+              left: `${b.left}%`,
+              top: `${b.top}%`,
+              width: `${b.w}vw`,
+              height: `${b.h}vh`,
+              // Durée/décalage transmis aux enfants (les propriétés perso héritent).
+              '--dur': `${b.dur}s`,
+              '--delay': `${b.delay}s`,
+            } as CSSProperties
+          }
+        >
+          <svg className="underwater-bolt-svg" viewBox="0 0 100 200" preserveAspectRatio="none">
+            {/* Halo bleu sous le cœur, puis cœur fin quasi-blanc (même tracé, synchronisés). */}
+            <path className="underwater-bolt-glow" d={b.d} pathLength={100} />
+            <path className="underwater-bolt-core" d={b.d} pathLength={100} />
+          </svg>
+        </div>
+      ))}
+      {/* Surprise « Coup Fatal » : Tabbou AILÉ apparaît 3 s au centre en haut, PUIS enchaîne sur la
+          boule d'énergie qui se charge → explose → émet trois cercles (onde de choc) #992C0A décalés. */}
+      {smash != null && (
+        <div key={smash} className="uw-smash">
+          {/* Halo lumineux derrière les ailes (screen) → transperce les panneaux translucides du plateau. */}
+          <span className="uw-smash-wings-glow" />
+          <img className="uw-smash-wings" src="/animations/tabbou_ailes.png" alt="" draggable={false} />
+          <span className="uw-smash-ball" />
+          <span className="uw-smash-burst" />
+          <span className="uw-smash-ring" style={{ '--ring-delay': '0s' } as CSSProperties} />
+          <span className="uw-smash-ring" style={{ '--ring-delay': '0.13s' } as CSSProperties} />
+          <span className="uw-smash-ring" style={{ '--ring-delay': '0.26s' } as CSSProperties} />
+        </div>
+      )}
+    </div>
+  )
+}
+
 function renderDecorBody(
   decor: VillainDecorData,
   side?: 'left' | 'right',
@@ -6720,6 +7021,8 @@ function renderDecorBody(
       return <VoodooDecor />
     case 'galaxy':
       return <GalaxyDecor />
+    case 'underwater':
+      return <UnderwaterDecor />
     case 'yzma':
       return <YzmaDecor />
     case 'laBonneFee':

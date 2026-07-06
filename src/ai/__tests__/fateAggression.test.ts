@@ -7,6 +7,8 @@ import { bowser } from '../../data/villains/bowser'
 import { bowserCards } from '../../data/villains/bowser.cards'
 import { reineCoeur } from '../../data/villains/reineCoeur'
 import { reineCoeurCards } from '../../data/villains/reineCoeur.cards'
+import { tabbou } from '../../data/villains/tabbou'
+import { tabbouCards } from '../../data/villains/tabbou.cards'
 import { buildDeckInstances } from '../../data/types'
 import type { CardInstance, GameState } from '../../engine/types'
 
@@ -36,6 +38,24 @@ describe('malus Fatalité — playerMalus', () => {
     const m = playerMalus(s, 1)
     expect(m).toBeGreaterThan(0)
     expect(m).toBeLessThan(0.3)
+  })
+  it('Tabbou (KILL_FIGHTERS, aucun blocage dur) : ses ralentisseurs pèsent un peu plus', () => {
+    // Deux ralentisseurs slow2 (Link + Kirby) : raw 4 → ×1.3 (Tabbou) / 12 ≈ 0.43,
+    // au-dessus du 0.33 non-échelonné → le bot lâche la Fatalité un peu plus tôt.
+    const base = createInitialGame(
+      [
+        { villain: tabbou, deckCards: buildDeckInstances(tabbouCards, 'villain', 'p0:'), fateCards: buildDeckInstances(tabbouCards, 'fate', 'p0f:') },
+        { villain: bowser, deckCards: buildDeckInstances(bowserCards, 'villain', 'p1:'), fateCards: buildDeckInstances(bowserCards, 'fate', 'p1f:') },
+      ],
+      7,
+    )
+    const loc = tabbou.locations[0].id
+    const link: CardInstance = { instanceId: 'lk', cardId: 'link', name: 'Link', type: 'hero', strength: 3 }
+    const kirby: CardInstance = { instanceId: 'kb', cardId: 'kirby', name: 'Kirby', type: 'hero', strength: 2 }
+    const s: GameState = { ...base, players: [{ ...base.players[0], board: { ...base.players[0].board, [loc]: [link, kirby] } }, base.players[1]] }
+    const m = playerMalus(s, 0)
+    expect(m).toBeGreaterThan(0.4)
+    expect(m).toBeLessThan(0.5)
   })
 })
 

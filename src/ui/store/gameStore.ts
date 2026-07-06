@@ -8,7 +8,7 @@
 // =============================================================================
 
 import { create } from 'zustand'
-import type { CardInstance, GameAction, GameState, KeyColor, LocationId } from '../../engine/types'
+import type { CardInstance, FighterColor, GameAction, GameState, KeyColor, LocationId } from '../../engine/types'
 import {
   createInitialGame,
   drawPlayerToLimit,
@@ -59,6 +59,8 @@ import { imposteur } from '../../data/villains/imposteur'
 import { imposteurCards } from '../../data/villains/imposteur.cards'
 import { bowser } from '../../data/villains/bowser'
 import { bowserCards } from '../../data/villains/bowser.cards'
+import { tabbou } from '../../data/villains/tabbou'
+import { tabbouCards } from '../../data/villains/tabbou.cards'
 import { mechanteReine } from '../../data/villains/mechanteReine'
 import { mechanteReineCards } from '../../data/villains/mechanteReine.cards'
 import { scar } from '../../data/villains/scar'
@@ -105,7 +107,7 @@ import { laBonneFee } from '../../data/villains/la-bonne-fee'
 import { laBonneFeeCards } from '../../data/villains/la-bonne-fee.cards'
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'seigneurCles' | 'madameTremaine' | 'oogieBoogie' | 'seigneurTenebres' | 'madameMim' | 'syndrome' | 'lotso' | 'saSucrerie' | 'shereKhan' | 'davyJones' | 'tamatoa' | 'teamRocket' | 'laBonneFee'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'seigneurCles' | 'madameTremaine' | 'oogieBoogie' | 'seigneurTenebres' | 'madameMim' | 'syndrome' | 'lotso' | 'saSucrerie' | 'shereKhan' | 'davyJones' | 'tamatoa' | 'teamRocket' | 'laBonneFee' | 'tabbou'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -119,6 +121,7 @@ export const VILLAIN_REGISTRY = {
   facilier: { def: facilier, cards: facilierCards, label: 'Dr Facilier' },
   imposteur: { def: imposteur, cards: imposteurCards, label: "L'Imposteur" },
   bowser: { def: bowser, cards: bowserCards, label: 'Bowser' },
+  tabbou: { def: tabbou, cards: tabbouCards, label: 'Tabbou' },
   mechanteReine: { def: mechanteReine, cards: mechanteReineCards, label: 'La Méchante Reine' },
   scar: { def: scar, cards: scarCards, label: 'Scar' },
   yzma: { def: yzma, cards: yzmaCards, label: 'Yzma' },
@@ -152,6 +155,7 @@ export const COLLAB_VILLAINS: VillainKey[] = [
   'sombra',
   'seigneurCles',
   'laBonneFee',
+  'tabbou',
 ]
 
 /** Qui contrôle chaque siège. Concept d'UI : le moteur, lui, ne sait pas qui
@@ -304,6 +308,12 @@ export function registerPublishedVillain(custom: CustomVillain): void {
     entry: { def: toVillainDef(eff), cards, label: eff.name },
     custom: eff,
   }
+}
+
+/** Dépublication : retire un vilain publié du registre runtime → `villainEntry`
+ *  ne le résout plus, donc il n'est ni jouable ni proposé/listé. Idempotent. */
+export function unregisterPublishedVillain(id: string): void {
+  delete customRegistry[id]
 }
 
 /** Résout l'entrée d'un vilain par sa clé (natif ou publié). undefined si inconnu. */
@@ -540,11 +550,18 @@ function buildTestState(current?: GameState): GameState {
   // déjà en jeu (ex. Dio) ne disparaisse pas en passant en mode test ; sinon, partie par défaut.
   const keys = current?.players.map((p) => p.villain) as [string, string] | undefined
   const base = newGame(keys)
-  const players = base.players.map((p, i) => ({
-    ...p,
-    board: Object.fromEntries(p.locations.map((l) => [l.id, []])) as GameState['players'][number]['board'],
-    power: i === 0 ? 10 : 1,
-  }))
+  const players = base.players.map((p, i) => {
+    const cur = current?.players[i]
+    return {
+      ...p,
+      // Le mode test ne doit PAS rebattre les cartes : on conserve la main ET le
+      // paquet de la partie en cours (sinon la main changeait à chaque entrée).
+      hand: cur?.hand ?? p.hand,
+      deck: cur?.deck ?? p.deck,
+      board: Object.fromEntries(p.locations.map((l) => [l.id, []])) as GameState['players'][number]['board'],
+      power: i === 0 ? 10 : 1,
+    }
+  })
   return {
     ...base,
     players,
@@ -574,6 +591,11 @@ interface GameStore {
   hostAddrs: string[] | null
   /** Dernier message d'erreur réseau (affiché par le lobby). */
   netError: string | null
+  /** Message transitoire affiché en toast quand un coup est REFUSÉ par le moteur
+   *  (ex. cliquer ailleurs alors qu'un dévoilement de Combattants est en attente).
+   *  null sinon ; l'UI l'efface après quelques secondes. */
+  actionNotice: string | null
+  clearActionNotice: () => void
   /** Renseigné quand l'autre joueur a quitté / la connexion est perdue : l'UI
    *  affiche un avis puis renvoie à l'accueil. null sinon. */
   netLeftNotice: string | null
@@ -612,8 +634,14 @@ interface GameStore {
   leaveNet: () => void
   /** Vrai quand on est en mode test (édition live des deux plateaux, bot figé). */
   testMode: boolean
+  /** Instantané de la partie AVANT l'entrée en mode test : restauré tel quel à la
+   *  sortie pour que le mode test soit NON destructif (main, plateaux et vilains
+   *  conservés). `null` hors mode test. */
+  preTestState: GameState | null
   /** Entre en mode test (ou le réinitialise) : vide les deux plateaux. */
   enterTestMode: () => void
+  /** Sort du mode test : restaure la partie d'avant (instantané) telle quelle. */
+  exitTestMode: () => void
   /** MODE TEST : insère une carte (par cardId) sur un lieu d'un joueur donné. */
   testInsertCard: (playerIndex: number, locationId: string, cardId: string) => void
   /** MODE TEST : t'inflige un Héros Fatalité (par cardId) sur un lieu donné. */
@@ -831,6 +859,18 @@ interface GameStore {
   resolvePuppyReveal: (tileId: string) => void
   /** Cruella — Repéré ! : terminer la révélation. */
   donePuppyReveal: () => void
+  /** Tabbou — Dévoiler : retourne une tuile Combattant face cachée de la grille. */
+  resolveFighterReveal: (tileId: string) => void
+  /** Tabbou — Dévoiler : arrêter de dévoiler. */
+  doneFighterReveal: () => void
+  /** Tabbou — Tuer des Combattants : couleur choisie (toute la couleur en réserve). */
+  resolveFighterKillColor: (color: FighterColor) => void
+  /** Tabbou — Coup Fatal : tuer une tuile Combattant de la réserve. */
+  resolveFighterKillFree: (tileId: string) => void
+  /** Tabbou — Coup Fatal : arrêter de tuer. */
+  doneFighterKillFree: () => void
+  /** Tabbou — Destin : dévoiler 3 Combattants OU gagner 4 Pouvoir. */
+  resolveDestinChoice: (choice: 'reveal' | 'power') => void
   /** Cruella — Horace : capturer (true) ou amener une Tuile de la réserve (false). */
   resolveHoraceChoice: (capture: boolean) => void
   /** Cruella — choisir une Tuile Chiots à capturer (plusieurs sur le lieu). */
@@ -1017,14 +1057,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
   hostRoom: null,
   hostAddrs: null,
   netError: null,
+  actionNotice: null,
+  clearActionNotice: () => set({ actionNotice: null }),
   netLeftNotice: null,
   peerReacting: null,
   peerHover: null,
   lobby: null,
   testMode: false,
+  preTestState: null,
   submit: (action) => {
     if (get().mode === 'solo') {
-      set((s) => ({ state: applyAction(stampElapsed(s.state), action) }))
+      // Un coup refusé (moteur qui `throw`) ne modifie pas l'état (applyAction est pur) :
+      // au lieu de laisser l'erreur remonter (crash), on affiche son message en toast
+      // (ex. « Dévoilez des Combattants ou terminez… » quand on clique ailleurs).
+      try {
+        set((s) => ({ state: applyAction(stampElapsed(s.state), action), actionNotice: null }))
+      } catch (e) {
+        set({ actionNotice: (e as Error)?.message ?? 'Coup impossible.' })
+      }
       return
     }
     // Réseau : l'hôte applique+diffuse, le client envoie. Le store se met à jour
@@ -1166,7 +1216,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
     teardownNet()
     set({ mode: 'solo', seats: SOLO_SEATS, localPlayerIndex: 0, netStatus: 'idle', hostRoom: null, hostAddrs: null, netError: null, netLeftNotice: null, peerReacting: null, peerHover: null, lobby: null })
   },
-  enterTestMode: () => set((s) => ({ state: buildTestState(s.state), testMode: true })),
+  enterTestMode: () =>
+    set((s) => ({
+      // On mémorise la partie AVANT le test (sauf si on est DÉJÀ en test : on garde
+      // alors l'instantané d'origine pour pouvoir revenir à la vraie partie).
+      preTestState: s.testMode ? s.preTestState : s.state,
+      state: buildTestState(s.state),
+      testMode: true,
+    })),
+  exitTestMode: () =>
+    set((s) => {
+      // Restaure la partie d'avant telle quelle (main, plateaux, vilains conservés).
+      // Repli défensif : si aucun instantané, on relance avec les vilains courants.
+      const restored = s.preTestState ?? newGame(s.state.players.map((p) => p.villain) as [string, string])
+      return { state: restored, testMode: false, preTestState: null }
+    }),
   testInsertCard: (playerIndex, locationId, cardId) =>
     set((s) => {
       const card = instanceOf(cardId, ++testFateCounter)
@@ -1463,6 +1527,18 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_PUPPY_REVEAL', tileId }),
   donePuppyReveal: () =>
     get().submit({ type: 'DONE_PUPPY_REVEAL' }),
+  resolveFighterReveal: (tileId) =>
+    get().submit({ type: 'RESOLVE_FIGHTER_REVEAL', tileId }),
+  doneFighterReveal: () =>
+    get().submit({ type: 'DONE_FIGHTER_REVEAL' }),
+  resolveFighterKillColor: (color) =>
+    get().submit({ type: 'RESOLVE_FIGHTER_KILL_COLOR', color }),
+  resolveFighterKillFree: (tileId) =>
+    get().submit({ type: 'RESOLVE_FIGHTER_KILL_FREE', tileId }),
+  doneFighterKillFree: () =>
+    get().submit({ type: 'DONE_FIGHTER_KILL_FREE' }),
+  resolveDestinChoice: (choice) =>
+    get().submit({ type: 'RESOLVE_DESTIN_CHOICE', choice }),
   resolveHoraceChoice: (capture) =>
     get().submit({ type: 'RESOLVE_HORACE_CHOICE', capture }),
   resolvePuppyCapture: (tileId) =>

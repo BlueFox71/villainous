@@ -1,12 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { applyAction, placeFateHeroWithEffects } from '../actions'
-import { resolveEffects } from '../effects'
+import { resolveEffect, resolveEffects } from '../effects'
 import { effectiveStrength } from '../rules'
 import { createInitialGame } from '../state'
 import { buildDeckInstances } from '../../data/types'
 import { getCardDef } from '../../data/registry'
 import { teamRocket } from '../../data/villains/team-rocket'
 import { teamRocketCards } from '../../data/villains/team-rocket.cards'
+import { tabbou } from '../../data/villains/tabbou'
+import { tabbouCards } from '../../data/villains/tabbou.cards'
 import type { CardInstance, GameState } from '../types'
 import { me, withActive } from './_helpers'
 
@@ -58,6 +60,9 @@ describe('Team Rocket — Attraper un Pokémon (CATCH_POKEMON)', () => {
     const p = me(s)
     const ko = (p.board['arene'] ?? []).find((c) => c.instanceId === 'pk')
     expect(ko?.pokemonKO).toBe(true) // reste sur le plateau, couché
+    // Le K.O. d'un Héros compte comme un « Vaincre » (déclencheur des Conditions
+    // adverses : Tabbou — Surprise! peut réagir si force ≤ 3).
+    expect(s.lastVanquishedHeroStrength).toBe(1) // Togepi (force 1)
     expect(p.capturedPokemon ?? []).toHaveLength(0) // pas encore attrapé
     expect(p.fateDiscard.map((c) => c.instanceId)).not.toContain('pk')
     expect(p.discard.map((c) => c.instanceId)).toContain('a1') // l'Allié est dépensé
@@ -225,7 +230,7 @@ describe('Team Rocket — Attraper un Pokémon (CATCH_POKEMON)', () => {
     expect(Object.values(p.board).flat().some((c) => c.instanceId === 'sacha1')).toBe(true)
   })
 
-  it('Onix (à la pose) défausse l’Allié OU l’Objet le plus précieux du royaume', () => {
+  it('Onix (à la pose) ouvre le choix de défausse (Allié OU Objet) pour le lanceur', () => {
     const onix: CardInstance = {
       instanceId: 'onix1', cardId: 'onix', name: 'Onix', type: 'hero', isPokemon: true,
       strength: 4, onPlace: [{ type: 'DISCARD_ALLY_OR_ITEM' }],
@@ -237,10 +242,12 @@ describe('Team Rocket — Attraper un Pokémon (CATCH_POKEMON)', () => {
       },
     })
     s = placeFateHeroWithEffects(s, 0, 0, onix, 'labo', 'Laboratoire')
-    const p = me(s)
-    // La Mongolfière (fateRemovalPriority élevée = Objet-moteur) est retirée AVANT l'Allié Abo.
-    expect(p.discard.map((c) => c.cardId)).toContain('mongolfiere')
-    expect(Object.values(p.board).flat().some((c) => c.instanceId === 'a1')).toBe(true)
+    // 2 candidats → choix ouvert (pas d'auto-défausse).
+    expect((s.pendingFateDiscardAlly?.candidateIds ?? []).sort()).toEqual(['a1', 'it1'])
+    // Le lanceur peut viser la Mongolfière (Objet-moteur) ; l'Allié Abo reste.
+    s = applyAction(s, { type: 'RESOLVE_FATE_DISCARD_ALLY', instanceId: 'it1' })
+    expect(me(s).discard.map((c) => c.cardId)).toContain('mongolfiere')
+    expect(Object.values(me(s).board).flat().some((c) => c.instanceId === 'a1')).toBe(true)
   })
 
   it('Dégonflage défausse un Objet (non associé) du royaume', () => {
@@ -269,23 +276,24 @@ describe('Team Rocket — Attraper un Pokémon (CATCH_POKEMON)', () => {
     expect(order).toEqual(['mongolfiere', 'pokeball', 'pokedex-vole', 'rose-de-james'])
   })
 
-  it('Onix retire en TIERS : Mongolfière (moteur) avant les Alliés, puis les autres Objets', () => {
+  it('Onix : le LANCEUR choisit l’Allié/Objet à défausser (choix interactif)', () => {
     const onix: CardInstance = {
       instanceId: 'onix1', cardId: 'onix', name: 'Onix', type: 'hero', isPokemon: true,
       strength: 4, onPlace: [{ type: 'DISCARD_ALLY_OR_ITEM' }],
     }
-    // 1er Onix : Mongolfière (tier haut) part avant l'Allié fort et le Pokédex.
     let s = withActive(trGame(), {
       board: { foret: [ally('a1', 'persian', 4), item('px', 'pokedex-vole'), item('m', 'mongolfiere')] },
     })
+    // Onix ouvre le choix (3 candidats) au lieu d'auto-défausser.
     s = placeFateHeroWithEffects(s, 0, 0, onix, 'labo', 'Laboratoire')
-    expect(me(s).discard.map((c) => c.cardId)).toContain('mongolfiere')
+    expect(s.pendingFateDiscardAlly?.chooserIndex).toBe(0)
+    expect((s.pendingFateDiscardAlly?.candidateIds ?? []).sort()).toEqual(['a1', 'm', 'px'])
+    // Le lanceur choisit le Pokédex : lui seul part, le reste demeure.
+    s = applyAction(s, { type: 'RESOLVE_FATE_DISCARD_ALLY', instanceId: 'px' })
+    expect(s.pendingFateDiscardAlly ?? null).toBeNull()
+    expect(me(s).discard.map((c) => c.cardId)).toContain('pokedex-vole')
     expect(Object.values(me(s).board).flat().some((c) => c.cardId === 'persian')).toBe(true)
-    // 2e Onix (plus de Mongolfière) : l'Allié part AVANT le Pokédex (Allié > Objet ordinaire).
-    const onix2 = { ...onix, instanceId: 'onix2' }
-    s = placeFateHeroWithEffects(s, 0, 0, onix2, 'centre-pokemon', 'Centre Pokémon')
-    expect(me(s).discard.filter((c) => c.cardId === 'persian')).toHaveLength(1)
-    expect(Object.values(me(s).board).flat().some((c) => c.cardId === 'pokedex-vole')).toBe(true)
+    expect(Object.values(me(s).board).flat().some((c) => c.cardId === 'mongolfiere')).toBe(true)
   })
 
   it('Évolution : Abo → Arbok sur le même lieu (choix interactif)', () => {
@@ -536,5 +544,53 @@ describe('Team Rocket — Attraper un Pokémon (CATCH_POKEMON)', () => {
     s = applyAction(s, { type: 'MOVE', to: 'foret' })
     s = applyAction(s, { type: 'END_TURN' })
     expect(s.status).not.toBe('WON')
+  })
+})
+
+describe('Team Rocket — Onix & Stari : le LANCEUR de Fatalité choisit', () => {
+  // Jeu à 2 : Team Rocket (0) est la cible, Tabbou (1) est le lanceur de Fatalité.
+  const duoGame = (): GameState =>
+    createInitialGame(
+      [
+        {
+          villain: teamRocket,
+          deckCards: buildDeckInstances(teamRocketCards, 'villain', 'p0:'),
+          fateCards: buildDeckInstances(teamRocketCards, 'fate', 'p0f:'),
+        },
+        {
+          villain: tabbou,
+          deckCards: buildDeckInstances(tabbouCards, 'villain', 'p1:'),
+          fateCards: buildDeckInstances(tabbouCards, 'fate', 'p1f:'),
+        },
+      ],
+      7,
+    )
+  const loc = teamRocket.locations[0].id
+
+  it('Onix : défausse d’un Allié/Objet ouverte pour le lanceur (chooser=1, cible=0)', () => {
+    let s = duoGame()
+    s = {
+      ...s,
+      players: s.players.map((p, i) =>
+        i === 0 ? { ...p, board: { ...p.board, [loc]: [ally('a1', 'abo', 3), item('i1', 'poke-ball')] } } : p,
+      ),
+    }
+    const after = resolveEffect(s, { type: 'DISCARD_ALLY_OR_ITEM' }, { actorIndex: 0, playedBy: 1 })
+    expect(after.pendingFateDiscardAlly?.chooserIndex).toBe(1)
+    expect(after.pendingFateDiscardAlly?.targetIndex).toBe(0)
+    expect((after.pendingFateDiscardAlly?.candidateIds ?? []).sort()).toEqual(['a1', 'i1'])
+  })
+
+  it('Stari : déplacement d’Allié ouvert pour le lanceur (chooser=1, cible=0)', () => {
+    let s = duoGame()
+    s = {
+      ...s,
+      players: s.players.map((p, i) =>
+        i === 0 ? { ...p, board: { ...p.board, [loc]: [ally('a1', 'abo', 3)] } } : p,
+      ),
+    }
+    const after = resolveEffect(s, { type: 'MOVE_OWN_ALLY_ADJACENT' }, { actorIndex: 0, playedBy: 1 })
+    expect(after.pendingAllyRelocate?.chooserIndex).toBe(1)
+    expect(after.pendingAllyRelocate?.targetIndex).toBe(0)
   })
 })

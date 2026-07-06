@@ -126,6 +126,31 @@ describe('Tamatoa — Quelque chose qui brille', () => {
     expect(covered.has('gain-power')).toBe(true)
     expect(covered.has('play-card')).toBe(true)
   })
+
+  it('jouée en Fatalité, ouvre le choix du lieu de pose (pas de défausse silencieuse)', () => {
+    // 2 Tamatoas : le fataliseur (joueur 1) pose l'Objet sur le royaume de la cible (0).
+    const two = createInitialGame(
+      [
+        { villain: tamatoa, deckCards: buildDeckInstances(tamatoaCards, 'villain', 'p0:'), fateCards: buildDeckInstances(tamatoaCards, 'fate', 'p0f:') },
+        { villain: tamatoa, deckCards: buildDeckInstances(tamatoaCards, 'villain', 'p1:'), fateCards: buildDeckInstances(tamatoaCards, 'fate', 'p1f:') },
+      ],
+      3,
+    )
+    const shiny = { ...fateById['quelque-chose-brillant'], instanceId: 'shiny' }
+    const other = card('fuite', 'effect', { instanceId: 'o' })
+    let s: GameState = { ...two, activePlayer: 1, phase: 'ACTION', pendingFate: { target: 0, revealed: [shiny, other] } }
+    s = applyAction(s, { type: 'RESOLVE_FATE', instanceId: 'shiny' })
+    // Le choix du lieu s'ouvre (chooser = fataliseur, cible = joueur 0).
+    expect(s.pendingFateObjectPlace?.chooserIndex).toBe(1)
+    expect(s.pendingFateObjectPlace?.targetIndex).toBe(0)
+    expect(s.pendingFateObjectPlace?.card.cardId).toBe('quelque-chose-brillant')
+    // La carte n'a PAS été défaussée en douce.
+    expect(s.players[0].fateDiscard.some((c) => c.cardId === 'quelque-chose-brillant')).toBe(false)
+    // On la pose : elle atterrit sur le lieu choisi du royaume de la cible.
+    s = applyAction(s, { type: 'RESOLVE_FATE_OBJECT_PLACE', locationId: LAIR })
+    expect((s.players[0].board[LAIR] ?? []).some((c) => c.cardId === 'quelque-chose-brillant')).toBe(true)
+    expect(s.pendingFateObjectPlace ?? null).toBeNull()
+  })
 })
 
 describe('Tamatoa — Mini Maui', () => {

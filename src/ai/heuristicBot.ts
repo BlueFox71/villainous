@@ -117,6 +117,23 @@ export function objectiveScore(p: PlayerState): number {
       const s = Math.min(pile.length + 0.5 * koReady, obj.count) / obj.count
       return hasRequired ? s : Math.min(s, 0.85)
     }
+    case 'KILL_FIGHTERS': {
+      // Tabbou : ≥ threshold Combattants tués (30 tant que Samus est là). Crédit
+      // partiel pour les tuiles DÉVOILÉES (réserve) : elles sont à portée d'une carte
+      // de mise à mort, donc valent 0,25 chacune (récompense « dévoiler puis tuer »).
+      const obj = p.objective
+      const tiles = p.fighterTiles ?? []
+      const killed = tiles.filter((t) => t.state === 'killed').length
+      const reserve = tiles.filter((t) => t.state === 'reserve').length
+      let threshold = obj.threshold
+      if (obj.raiseHeroCardId !== undefined && obj.raiseTo !== undefined) {
+        const samusPresent = Object.values(p.board)
+          .flat()
+          .some((c) => c.type === 'hero' && c.cardId === obj.raiseHeroCardId)
+        if (samusPresent) threshold = obj.raiseTo
+      }
+      return Math.min(1, (killed + 0.25 * reserve) / threshold)
+    }
     case 'KING_CANDY_RACE': {
       // Sa Sucrerie : avant la course, jalonner l'arrivée de Vanellope dans le royaume
       // puis l'attache d'un Bug. Pendant la course, refléter la VRAIE proximité : la

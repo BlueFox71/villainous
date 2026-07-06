@@ -62,7 +62,7 @@ export const gaston: VillainDef = {
     },
     {
       id: 'bois',
-      name: 'Bois',
+      name: 'Forêt',
       actions: [
         { id: 'play-card-top', type: 'PLAY_CARD', row: 'top', label: 'Jouer une carte' },
         { id: 'discard', type: 'DISCARD_CARDS', row: 'top', label: 'Défausser des cartes' },

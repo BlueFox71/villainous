@@ -2,11 +2,32 @@ import { Fragment, useEffect, useRef, useState, type CSSProperties } from 'react
 import { OverlayScrollbarsComponent, type OverlayScrollbarsComponentRef } from 'overlayscrollbars-react'
 import { COL_RECTS, LOC_IMG, BOARD_W, BOARD_H } from '../editor/boardLayout'
 import { allCards } from '../../data/registry'
+import { consolidateFighterDetails, isFighterOutcomeLine, isFighterPromptLine } from './gameLogFighters'
 
 /** Index nom de carte → image (1ʳᵉ occurrence) : pour afficher les vignettes des
  *  cartes défaussées, dont le journal ne porte que les noms. */
 const CARD_IMAGE_BY_NAME = new Map<string, string>()
 for (const c of allCards) if (!CARD_IMAGE_BY_NAME.has(c.name)) CARD_IMAGE_BY_NAME.set(c.name, c.image)
+
+/** Index nom → TOUTES les images (plusieurs vilains peuvent avoir une carte du même nom,
+ *  ex. « Flèche » chez Tabbou ET Syndrome). Sert à lever l'ambiguïté par vilain. */
+const CARD_IMAGES_BY_NAME = new Map<string, string[]>()
+for (const c of allCards) {
+  const list = CARD_IMAGES_BY_NAME.get(c.name)
+  if (list) list.push(c.image)
+  else CARD_IMAGES_BY_NAME.set(c.name, [c.image])
+}
+/** Image d'une carte défaussée par son nom, désambiguïsée par le vilain qui la défausse
+ *  (son dossier `/cards/<vilain>/` dans l'URL). À défaut : 1ʳᵉ image connue. */
+function cardImageForName(name: string, villainKey?: string): string | undefined {
+  const list = CARD_IMAGES_BY_NAME.get(name)
+  if (!list || list.length === 0) return undefined
+  if (list.length > 1 && villainKey) {
+    const scoped = list.find((img) => img.includes(`/cards/${villainKey}/`))
+    if (scoped) return scoped
+  }
+  return list[0]
+}
 
 interface PlayerBoard {
   /** URL de l'image du plateau du joueur. */
@@ -29,6 +50,9 @@ interface Props {
   playerGenders?: ('m' | 'f')[]
   /** Article défini de chaque méchant (« la »…), ou '' (nom propre). Pour « contre la X ». */
   playerArticles?: string[]
+  /** Clé de vilain de chaque joueur (pour lever l'ambiguïté d'image quand deux vilains
+   *  ont une carte du même nom — ex. « Flèche » Tabbou vs Syndrome). */
+  playerVillains?: string[]
 }
 
 /**
@@ -135,10 +159,16 @@ function isTopLevelAction(body: string): boolean {
     /^se déplace vers /.test(body) ||
     /^entre en jeu/i.test(body) ||
     /^lance la fatalité/i.test(body) ||
-    /^active \*\*/.test(body) ||
+    // « active **X** » et ses formes avec article « active le/la/les/l' **X** »
+    // (Canon Géant, Sceptre Serpent, Montre à gousset…) : chaque activation = bloc.
+    /^active (?:le |la |les |l'|\*\*)/i.test(body) ||
     /^déplace /.test(body) ||
     /^défausse /.test(body) ||
     /^vainc/i.test(body) ||
+    // Action « Vaincre » loguée « élimine **Héros** (alliés : …) » (Tabbou & co.) :
+    // bloc à part. Le suffixe « (alliés : » l'isole des éliminations de SOUS-effet
+    // de cartes (Sonde Bio, Apparence de Dragon…), qui restent rattachées à leur bloc.
+    /^élimine \*\*.*\(alliés\s*:/i.test(body) ||
     /^(?:gagne|commence avec|reçoit|récupère|regagne)\s+\d+\s*(?:jt\b|jetons?\s+pouvoir|pouvoir)/i.test(body)
   )
 }
@@ -177,8 +207,33 @@ function groupLog(log: string[], playerNames: string[]): LogBlock[] {
   for (const line of log) {
     // Lignes masquées : fin de tour, jet de dé, prompt « choisir l'Allié à faire évoluer ».
     if (/^fin du tour|jet de dé|choisissez l'Allié à faire évoluer/i.test(line)) continue
+    // L'Imposteur — déplacement des Coéquipiers (« Les Coéquipiers de X se déplacent. »)
+    // et le Conduit qui suit : événement AUTONOME, pas rattaché à l'action/Fatalité
+    // précédente. On coupe le bloc courant → ces lignes forment un bloc neutre à part.
+    if (/^les coéquipiers de .+ (?:se déplacent|ne se déplacent pas)/i.test(line)) {
+      current = null
+      absorbNext = false
+      nextEffect = null
+    }
     const idx = playerNames.findIndex((n) => n && line.startsWith(n))
     const body = idx >= 0 ? line.slice(playerNames[idx].length).trim() || line : line
+    // Tabbou — prompts UI de Combattants (dévoilez… / choisissez une couleur… / Coup Fatal) :
+    // bruit, masqués (le résumé est porté par les lignes de résultat qui suivent).
+    if (idx >= 0 && isFighterPromptLine(body)) continue
+    // Tabbou — dévoilement/mise à mort d'un Combattant : rattaché en détail à la carte
+    // jouée en cours (Primides/Collection/Flèche/Coup Fatal → tête « joue … »), sinon
+    // (action « Dévoiler » de l'Émissaire) → bloc dédié à part.
+    if (idx >= 0 && isFighterOutcomeLine(body)) {
+      if (current && idx === current.playerIndex && /^joue /i.test(current.head)) {
+        current.details.push(body)
+      } else {
+        current = { type: 'action', playerIndex: idx, head: body, details: [] }
+        blocks.push(current)
+        absorbNext = false
+        nextEffect = null
+      }
+      continue
+    }
     // « pioche N cartes » → case à part, sans image (ne se rattache à aucun bloc).
     if (idx >= 0 && /^pioche \d+ cartes?/i.test(body)) {
       blocks.push({ type: 'draw', playerIndex: idx, text: body })
@@ -250,6 +305,9 @@ function groupLog(log: string[], playerNames: string[]): LogBlock[] {
         // …et attribution parenthétique « (<Carte>) » n'importe où dans la ligne.
         d = d.replace(new RegExp(`\\s*\\(${c}\\)`, 'g'), '')
       }
+      // Deux-points résiduel : le préfixe « <Vilain> : » a laissé un « : » en tête
+      // une fois le nom de l'acteur retiré (ex. « : prochain déplacement… »).
+      d = d.replace(/^:\s*/, '')
       current.details.push(d)
     } else {
       // Aucune action ouverte (début de partie, bannières) → ligne neutre isolée.
@@ -290,6 +348,7 @@ export function GameLog({
   playerBoards,
   playerGenders,
   playerArticles,
+  playerVillains,
 }: Props) {
   const osRef = useRef<OverlayScrollbarsComponentRef>(null)
   // Aperçu agrandi (image de carte) au survol d'une vignette — rendu en `fixed`
@@ -392,7 +451,7 @@ export function GameLog({
             // Action « Défausser » : « ×N » + vignettes des cartes (noms → images).
             const discardMatch = icon?.icon === 'discard' ? head.match(/^défausse (\d+) cartes?(?: \((.+)\))?\.?$/i) : null
             const discardCards = discardMatch?.[2]
-              ? discardMatch[2].split(', ').map((nm) => ({ name: nm, image: CARD_IMAGE_BY_NAME.get(nm) }))
+              ? discardMatch[2].split(', ').map((nm) => ({ name: nm, image: cardImageForName(nm, playerVillains?.[idx]) }))
               : null
             // Gain de Pouvoir : on isole « (total : N) » → pastille centrée.
             const totalMatch = head.match(/^(.*?)\s*\(total\s*:\s*(\d+)\)\s*\.?$/)
@@ -417,7 +476,7 @@ export function GameLog({
             const pillStyle: CSSProperties | undefined = color
               ? { backgroundColor: `${color}40`, borderColor: `color-mix(in srgb, ${color}, white 40%)` }
               : undefined
-            blockDetails = simplifyDetails(blockDetails)
+            blockDetails = consolidateFighterDetails(simplifyDetails(blockDetails))
             return (
               <div
                 key={i}
@@ -564,6 +623,15 @@ function ActionGlyph({
           }`}
           draggable={false}
         />
+      )}
+      {/* Montants ≥ 4 (Destin : +4 JT) : pas d'image dédiée → chiffre en texte doré. */}
+      {icon.badge && icon.badge > 3 && (
+        <span
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[13px] font-black leading-none text-amber-100"
+          style={{ textShadow: '0 1px 2px rgba(0,0,0,0.9)' }}
+        >
+          {icon.badge}
+        </span>
       )}
     </div>
   )

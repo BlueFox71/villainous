@@ -44,6 +44,46 @@ function saveActionPosPlugin(): Plugin {
 }
 
 /**
+ * Plugin DEV uniquement : endpoint POST `/__save-blocked-overlay` qui réécrit le bloc
+ * `BLOCKED_OVERLAY['<vilain>'] = { … }` de `src/ui/components/BoardImage.tsx` depuis
+ * l'éditeur de positions du mode test (corps : `{ villain, block }`, `villain` = id du
+ * VillainDef). Absent du build de production (`apply: 'serve'`).
+ */
+function saveBlockedOverlayPlugin(): Plugin {
+  const FILE = resolve(process.cwd(), 'src/ui/components/BoardImage.tsx')
+  const MARKER = '// >>> BLOCKED_OVERLAY entries (éditeur de positions) — ne pas éditer à la main <<<'
+  return {
+    name: 'save-blocked-overlay',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__save-blocked-overlay', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return }
+        let body = ''
+        req.on('data', (c) => { body += c })
+        req.on('end', () => {
+          try {
+            const { villain, block } = JSON.parse(body) as { villain: string; block: string }
+            if (typeof villain !== 'string' || typeof block !== 'string') throw new Error('payload invalide')
+            let src = readFileSync(FILE, 'utf8')
+            const esc = villain.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            const re = new RegExp(`BLOCKED_OVERLAY\\['${esc}'\\] = \\{[\\s\\S]*?\\n\\}`)
+            if (re.test(src)) src = src.replace(re, block)
+            else if (src.includes(MARKER)) src = src.replace(MARKER, `${MARKER}\n${block}`)
+            else throw new Error('marqueur BLOCKED_OVERLAY introuvable')
+            writeFileSync(FILE, src, 'utf8')
+            res.statusCode = 200
+            res.end('ok')
+          } catch (e) {
+            res.statusCode = 400
+            res.end(String((e as Error)?.message ?? e))
+          }
+        })
+      })
+    },
+  }
+}
+
+/**
  * Plugin DEV uniquement : endpoint POST `/__save-pawn-size` qui réécrit la ligne
  * `pawnHeightPx: <n>,` du fichier `src/data/villains/<vilain>.ts` depuis l'éditeur
  * de pion du mode test (corps : `{ villain, size }`, où `villain` = id du VillainDef).
@@ -304,6 +344,30 @@ function savePublishedVillainPlugin(): Plugin {
           }
         })
       })
+      // DÉPUBLICATION : supprime le JSON embarqué `src/data/published/<id>.json` (corps
+      // `{ id }`) → après commit + redéploiement, le vilain n'est plus proposé à personne.
+      server.middlewares.use('/__unpublish-villain', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return }
+        let body = ''
+        req.on('data', (c) => { body += c })
+        req.on('end', () => {
+          try {
+            const { id } = JSON.parse(body) as { id: string }
+            if (typeof id !== 'string') throw new Error('payload invalide')
+            const safe = id.replace(/[^a-z0-9_-]+/gi, '-')
+            const dest = resolve(PUBLISHED, `${safe}.json`)
+            if (!dest.startsWith(PUBLISHED)) throw new Error('chemin hors src/data/published/')
+            const removed = existsSync(dest)
+            if (removed) rmSync(dest)
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ removed, path: `src/data/published/${safe}.json` }))
+          } catch (e) {
+            res.statusCode = 400
+            res.end(String((e as Error)?.message ?? e))
+          }
+        })
+      })
     },
   }
 }
@@ -442,7 +506,7 @@ function saveVillainDifficultyPlugin(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), saveActionPosPlugin(), savePawnSizePlugin(), savePortraitPlugin(), saveVillainColorPlugin(), saveVillainAssetsPlugin(), saveVillainJsonPlugin(), savePublishedVillainPlugin(), villainBackupPlugin(), saveVillainDifficultyPlugin()],
+  plugins: [react(), tailwindcss(), saveActionPosPlugin(), saveBlockedOverlayPlugin(), savePawnSizePlugin(), savePortraitPlugin(), saveVillainColorPlugin(), saveVillainAssetsPlugin(), saveVillainJsonPlugin(), savePublishedVillainPlugin(), villainBackupPlugin(), saveVillainDifficultyPlugin()],
   server: {
     // Expose le serveur de dév sur le réseau local (0.0.0.0) pour que l'invité
     // puisse ouvrir l'app depuis l'IP de l'hôte (http://<ip-hôte>:5173) — requis

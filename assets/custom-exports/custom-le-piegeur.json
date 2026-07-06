@@ -5,7 +5,7 @@
   "stars": 4,
   "color": "#a9633d",
   "pawnHeightPx": 65,
-  "boardObjective": "Éliminez les 4 survivants",
+  "boardObjective": "",
   "objectiveDescription": "",
   "objective": {
     "type": "POWER_THRESHOLD",
@@ -640,7 +640,7 @@
     }
   ],
   "createdAt": "2026-07-02T10:47:07.592Z",
-  "updatedAt": "2026-07-02T20:00:38.047Z",
+  "updatedAt": "2026-07-02T15:54:32.443Z",
   "portraitCrop": {
     "x": 50,
     "y": 50,
@@ -674,5 +674,8 @@
       }
     ],
     "color": "#468ad2"
-  }
+  },
+  "published": true,
+  "creator": "Alexis",
+  "origin": "Collaborations"
 }

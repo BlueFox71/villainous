@@ -29,6 +29,15 @@ export const FATE_MALUS: Record<string, FateMalus> = {
   luigi: 'slow',
   luma: 'slow', // aura +1 à TOUS les autres Héros du royaume (protège les gêneurs)
 
+  // --- Tabbou (tuer ≥ 20 Combattants) — pas de Héros-cible ; tout en RALENTIT gradué ---
+  samus: 'slow2', // objectif 20 → 30 tant qu'elle est là
+  link: 'slow2', // bloque l'action « Dévoiler une tuile Combattant »
+  kirby: 'slow2', // « Dévoiler » coûte +1 Pouvoir
+  'mario-tabbou': 'slow2', // draine le Pouvoir selon le nombre de Héros présents
+  'pikachu-tabbou': 'slow', // activer un Objet sur son lieu coûte +1
+  'meta-knight': 'slow', // +1 force si d'autres Héros présents (se protège)
+  'balle-smash': 'slow', // +2 à un Héros (le rend plus dur à vaincre)
+
   // --- Maléfique (une Malédiction par lieu) — pas de Héros-cible ; ce qui la gêne =
   // ce qui DÉFAUSSE ses Malédictions ou tue Diablo. Gardes = NEUTRE (« assez inutiles » :
   // ne retirent rien ; le terme « lieux recouverts » couvre déjà leur présence). ---

@@ -11,10 +11,23 @@ interface Props {
   placeholder?: string
   /** Largeur du bouton (classe Tailwind). */
   widthClass?: string
+  /** Affiche une pastille de TYPE devant chaque carte (utile quand la liste mêle
+   *  plusieurs types, ex. « Ajouter à la main » : Événements + Alliés + Objets). */
+  showType?: boolean
 }
 
 const MENU_W = 176
 const PREVIEW_W = 230
+
+/** Libellé FR court du type de carte (pastille du menu quand `showType`). */
+const TYPE_LABEL: Record<string, string> = {
+  hero: 'Héros',
+  ally: 'Allié',
+  item: 'Objet',
+  effect: 'Événement',
+  condition: 'Condition',
+  ingredient: 'Ingrédient',
+}
 
 /**
  * Liste déroulante de cartes avec aperçu : le bouton montre la sélection
@@ -23,7 +36,7 @@ const PREVIEW_W = 230
  * être rogné par le `overflow` des colonnes. Réutilisé pour choisir un Héros ou
  * une Condition à infliger (mode test).
  */
-export function CardSelect({ cards, value, onChange, placeholder = 'Choisir…', widthClass = 'w-44' }: Props) {
+export function CardSelect({ cards, value, onChange, placeholder = 'Choisir…', widthClass = 'w-44', showType = false }: Props) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null)
   const [preview, setPreview] = useState<CardDef | null>(null)
   const selected = cards.find((c) => c.id === value)
@@ -77,6 +90,11 @@ export function CardSelect({ cards, value, onChange, placeholder = 'Choisir…',
                     c.id === value ? 'bg-white/10 text-emerald-200' : 'text-white/85'
                   }`}
                 >
+                  {showType && (
+                    <span className="shrink-0 rounded bg-emerald-500/20 px-1 text-[8px] font-semibold uppercase tracking-wide text-emerald-200/80">
+                      {TYPE_LABEL[c.type] ?? c.type}
+                    </span>
+                  )}
                   <span className="flex-1 truncate">{c.name}</span>
                   {c.strength !== undefined && (
                     <span className="shrink-0 text-[9px] text-white/50">F{c.strength}</span>

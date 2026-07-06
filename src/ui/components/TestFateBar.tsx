@@ -75,12 +75,16 @@ export function TestFateBar({ villain, locations, handAllies, boardHeroes, onInf
     .filter((c) => c.deck === 'fate' && c.type !== 'hero' && c.type !== 'condition')
     .sort((a, b) => a.name.localeCompare(b.name))
 
+  // Cartes ajoutables à la MAIN, TOUS TYPES confondus (Événements + Alliés + Objets) :
+  // une seule liste au lieu de trois lignes indistinctes ; le type est affiché dans le
+  // menu (CardSelect `showType`). Chaque sous-liste est déjà triée par nom → l'ordre
+  // reste groupé par type (Événements, puis Alliés, puis Objets).
+  const handCards = [...events, ...allies, ...items]
+
   const [heroId, setHeroId] = useState(heroes[0]?.id ?? '')
   const [loc, setLoc] = useState(locations[0]?.id ?? '')
   const [condId, setCondId] = useState(conditions[0]?.id ?? '')
-  const [evtId, setEvtId] = useState(events[0]?.id ?? '')
-  const [allyId, setAllyId] = useState(allies[0]?.id ?? '')
-  const [itemId, setItemId] = useState(items[0]?.id ?? '')
+  const [handCardId, setHandCardId] = useState(handCards[0]?.id ?? '')
   const [auDelaCardId, setAuDelaCardId] = useState(auDelaCards[0]?.id ?? '')
   const [fateCardId, setFateCardId] = useState(fateCards[0]?.id ?? '')
   const [fateHeroId, setFateHeroId] = useState('')
@@ -216,44 +220,15 @@ export function TestFateBar({ villain, locations, handAllies, boardHeroes, onInf
         </div>
       )}
 
-      {/* Tester un Événement : on l'ajoute à la main, puis on le joue via « Jouer
-          une carte » sur le plateau (sélection des cibles + animations réelles). */}
-      {events.length > 0 && (
+      {/* Ajouter une carte à la MAIN (Événement, Allié ou Objet — tous types dans
+          une seule liste, le type est indiqué dans le menu), puis la jouer via
+          « Jouer une carte » sur le plateau (cibles + animations réelles). */}
+      {handCards.length > 0 && (
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-          <CardSelect cards={events} value={evtId} onChange={setEvtId} placeholder="Événement…" />
+          <CardSelect cards={handCards} value={handCardId} onChange={setHandCardId} placeholder="Carte…" showType />
           <button
-            onClick={() => evtId && onAddToHand(evtId)}
-            disabled={!evtId}
-            className="rounded bg-sky-500 px-3 py-0.5 font-medium text-sky-950 hover:bg-sky-400 disabled:opacity-40"
-          >
-            Ajouter à la main
-          </button>
-          <span className="text-[10px] text-emerald-200/70">puis « Jouer une carte » sur le plateau</span>
-        </div>
-      )}
-
-      {/* Ajouter un Allié de son choix à la main, puis le poser via « Jouer une carte ». */}
-      {allies.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-          <CardSelect cards={allies} value={allyId} onChange={setAllyId} placeholder="Allié…" />
-          <button
-            onClick={() => allyId && onAddToHand(allyId)}
-            disabled={!allyId}
-            className="rounded bg-sky-500 px-3 py-0.5 font-medium text-sky-950 hover:bg-sky-400 disabled:opacity-40"
-          >
-            Ajouter à la main
-          </button>
-          <span className="text-[10px] text-emerald-200/70">puis « Jouer une carte » sur le plateau</span>
-        </div>
-      )}
-
-      {/* Ajouter un Objet de son choix à la main, puis le poser via « Jouer une carte ». */}
-      {items.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-          <CardSelect cards={items} value={itemId} onChange={setItemId} placeholder="Objet…" />
-          <button
-            onClick={() => itemId && onAddToHand(itemId)}
-            disabled={!itemId}
+            onClick={() => handCardId && onAddToHand(handCardId)}
+            disabled={!handCardId}
             className="rounded bg-sky-500 px-3 py-0.5 font-medium text-sky-950 hover:bg-sky-400 disabled:opacity-40"
           >
             Ajouter à la main

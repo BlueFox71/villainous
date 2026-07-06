@@ -654,6 +654,41 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     )
   }
 
+  if (path === 'dash-right') {
+    // Tabbou : l'image d'attaque apparaît en FONDU LUMINEUX (lueur noire), reste ~3 s, puis FILE EN FLÈCHE.
+    // Deux bandes : JOUEUR en BAS, part de GAUCHE→DROITE (orientation de base) ; ADVERSAIRE en HAUT, part de
+    // DROITE→GAUCHE = miroir horizontal (`--fx: -1`, porté par le SPAN → image + tracé miroités, sens inversé).
+    return (
+      <div className="page-layer pointer-events-none absolute inset-0" aria-hidden>
+        <span
+          className="tabbou-dash"
+          style={
+            {
+              // Joueur : bande basse ancrée à gauche (→ droite) ; adversaire : bande haute ancrée à droite (→ gauche).
+              top: isPlayer ? undefined : '3vh',
+              bottom: isPlayer ? '3vh' : undefined,
+              left: isPlayer ? '2vw' : undefined,
+              right: isPlayer ? undefined : '2vw',
+              animationDuration: `${durationSec}s`,
+              '--fx': isPlayer ? 1 : -1, // adversaire = miroir horizontal (part à gauche)
+              ...freezeStyle,
+            } as CSSProperties
+          }
+        >
+          {/* Tracé de vitesse bleu #62ECEA derrière l'image, révélé au départ en flèche. */}
+          <span className="tabbou-dash-trail" style={{ animationDuration: `${durationSec}s` }} />
+          <img
+            src={anim.image}
+            alt=""
+            className="tabbou-dash-img"
+            draggable={false}
+            style={{ height: `${heightPct}vh` }}
+          />
+        </span>
+      </div>
+    )
+  }
+
   if (path === 'paws') {
     // Traînée d'empreintes en travers de la bande haute (R→L) : chaque empreinte s'imprime à son tour
     // (cruellaPawCross : surgit en grossissant), reste posée, puis s'efface — décalage `PAW_CROSS_STEP`

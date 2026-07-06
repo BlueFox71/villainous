@@ -118,6 +118,7 @@ const VILLAIN_CREATOR: Partial<Record<VillainKey, string>> = {
   sombra: 'Alexis',
   seigneurCles: 'Alexis',
   bowser: 'Jules',
+  tabbou: 'Jules',
   teamRocket: 'Jules',
   laBonneFee: 'Jules',
 }

@@ -352,3 +352,35 @@ describe("L'Imposteur — effets de cartes (suspicion / défausse)", () => {
     expect(out.pendingTyrannyDiscard).toBeUndefined()
   })
 })
+
+describe("L'Imposteur — Majorité (Fatalité) : choix interactif de la carte à défausser", () => {
+  it('ouvre le choix (Allié OU Objet, hors Sabotage) puis défausse celle choisie', () => {
+    const two = createInitialGame(
+      [
+        { villain: imposteur, deckCards: buildDeckInstances(imposteurCards, 'villain', 'p0:'), fateCards: buildDeckInstances(imposteurCards, 'fate', 'p0f:') },
+        { villain: imposteur, deckCards: buildDeckInstances(imposteurCards, 'villain', 'p1:'), fateCards: buildDeckInstances(imposteurCards, 'fate', 'p1f:') },
+      ],
+      7,
+    )
+    const majorite = { ...fateInstances.find((c) => c.cardId === 'majorite')!, instanceId: 'maj' }
+    const other = { ...fateInstances.find((c) => c.cardId !== 'majorite')!, instanceId: 'oth' }
+    const ally = { instanceId: 'ally1', cardId: 'coequipier-imposteur', name: 'Coéquipier', type: 'ally' as const, strength: 2 }
+    const item = { instanceId: 'item1', cardId: 'sabotage', name: 'Sabotage', type: 'item' as const, isSabotage: true }
+    const loc = two.players[0].locations[0].id
+    let s: GameState = {
+      ...two,
+      activePlayer: 1,
+      phase: 'ACTION',
+      pendingFate: { target: 0, revealed: [majorite, other] },
+      players: two.players.map((p, i) => (i === 0 ? { ...p, board: { ...p.board, [loc]: [ally, item] } } : p)),
+    }
+    s = applyAction(s, { type: 'RESOLVE_FATE', instanceId: 'maj' })
+    // Le Sabotage n'est PAS candidat ; l'Allié l'est. Choix ouvert (chooser = joueur 1).
+    expect(s.pendingFateChoice?.kind).toBe('remove-card')
+    expect(s.pendingFateChoice?.candidateIds).toEqual(['ally1'])
+    s = applyAction(s, { type: 'RESOLVE_FATE_CHOICE', instanceId: 'ally1' })
+    expect((s.players[0].board[loc] ?? []).some((c) => c.instanceId === 'ally1')).toBe(false)
+    expect(s.players[0].discard.some((c) => c.instanceId === 'ally1')).toBe(true)
+    expect(s.pendingFateChoice ?? null).toBeNull()
+  })
+})

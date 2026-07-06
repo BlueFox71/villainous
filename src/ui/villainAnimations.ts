@@ -98,11 +98,14 @@ export interface VillainAnimation {
    *    hameçon de Maui et Te Fiti). Vitesse via `durationSec`.
    *  - `disco` : pas de trajet ; une TRANSITION plein écran — un voile néon recolore la scène en
    *    TRANSITIONNANT en douceur entre des teintes (`colors`), en fondu d'entrée/sortie (Tamatoa :
-   *    « Shiny », la grotte aux trésors sous lumière noire). Teintes via `colors`, durée via `durationSec`. */
+   *    « Shiny », la grotte aux trésors sous lumière noire). Teintes via `colors`, durée via `durationSec`.
+   *  - `dash-right` : `image` apparaît en FONDU LUMINEUX en haut à GAUCHE (côté joueur ; haut à DROITE,
+   *    miroité, côté adversaire), reste ~3 s, puis FILE EN FLÈCHE à l'horizontale (avec léger étirement)
+   *    jusqu'à sortir par le bord opposé (Tabbou). Durée totale via `durationSec`. */
   path?:
     | 'cross' | 'sky-arc' | 'drift-spin' | 'pages' | 'roses' | 'coins' | 'water-cross'
     | 'rise' | 'voodoo' | 'fire-bottom' | 'fade' | 'paws' | 'petals' | 'jet-cross' | 'smoke-field'
-    | 'overgrowth' | 'eject-arc' | 'stardust' | 'drop' | 'disco'
+    | 'overgrowth' | 'eject-arc' | 'stardust' | 'drop' | 'disco' | 'dash-right'
   /** Tire quelques coups de canon (lueur + fumée à la bouche du canon avant)
    *  pendant le vol. Réservé aux trajectoires `sky-arc`. */
   cannons?: boolean
@@ -162,6 +165,14 @@ export interface VillainAnimation {
 // Un vilain peut avoir UNE animation, ou PLUSIEURS (tableau) : dans ce cas le planificateur
 // en tire une au hasard à chaque passage.
 export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | VillainAnimation[]>> = {
+  // Tabbou : son image d'attaque apparaît en FONDU LUMINEUX en haut à gauche (haut à droite, miroité,
+  // côté adversaire), reste 3 s, puis FILE EN FLÈCHE à l'horizontale vers le bord opposé (path `dash-right`).
+  tabbou: {
+    image: '/animations/tabbou_attack.png',
+    heightPct: 11,
+    durationSec: 4.2,
+    path: 'dash-right',
+  },
   // Tamatoa (Vaiana) : transition « Shiny » — la grotte aux trésors baigne dans une LUMIÈRE NOIRE.
   // Toute la scène se recolore en TRANSITIONNANT en douceur entre ses 3 teintes néon (bleu / magenta /
   // cyan) (path `disco`, 5 s). (Son « bling-bling » — pièces, diamants, hameçon de Maui & Te Fiti —

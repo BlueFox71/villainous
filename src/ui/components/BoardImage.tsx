@@ -27,6 +27,31 @@ export const LOCATIONS_LEFT = PAWN_FIRST_LEFT - PAWN_STEP / 2 // = 16 %, bord ga
 // Hauteur de la rangée d'actions du HAUT (en % de l'image) : un Héros la recouvre.
 export const TOP_ACTIONS_HEIGHT = 33 // %
 
+// Géométrie (en % de l'image du plateau) du VOILE d'un lieu VERROUILLÉ, réglable par
+// vilain → lieu via l'éditeur de positions (mode test). À défaut de réglage, on la
+// calcule depuis l'index du lieu (gabarit standard, colonnes régulières). Les blocs
+// `BLOCKED_OVERLAY['<id>'] = { … }` ci-dessous sont réécrits par l'endpoint dev
+// `/__save-blocked-overlay` — ne pas les éditer à la main.
+export interface BlockedGeo { x: number; y: number; width: number; height: number }
+const BLOCKED_OVERLAY: Record<string, Record<string, BlockedGeo>> = {}
+// >>> BLOCKED_OVERLAY entries (éditeur de positions) — ne pas éditer à la main <<<
+BLOCKED_OVERLAY['tabbou'] = {
+  emissaire: { x: 79.2, y: 8.1, width: 20.1, height: 70.5 },
+}
+// Voile par défaut (aucun réglage) : colonne du lieu i, gabarit standard.
+// eslint-disable-next-line react-refresh/only-export-components
+export const defaultBlockedGeo = (i: number): BlockedGeo => ({
+  x: LOCATIONS_LEFT + i * PAWN_STEP,
+  y: 8.7,
+  width: 20.1,
+  height: 70.5,
+})
+// Lecture des réglages (éditeur de positions du mode test).
+// eslint-disable-next-line react-refresh/only-export-components
+export function getBlockedOverlay(villain: string): Record<string, BlockedGeo> | undefined {
+  return BLOCKED_OVERLAY[villain]
+}
+
 // Emplacements des Étoiles (en % de board.png : x = largeur, y = hauteur), par
 // vilain → lieu → 4 slots. Les Étoiles de l'Observatoire occupent les 1ᵉʳˢ slots de
 // son lieu. Calés sur l'Observatoire (centre ≈ 68,5 % : décalages −5,5/+4,5 en haut
@@ -676,15 +701,17 @@ export function BoardImage({
       {(player.lockedLocations ?? []).map((lockedId) => {
         const i = player.locations.findIndex((l) => l.id === lockedId)
         if (i < 0) return null
+        // Géométrie réglée par vilain (éditeur de positions) sinon calcul par index.
+        const geo = BLOCKED_OVERLAY[player.villain]?.[lockedId] ?? defaultBlockedGeo(i)
         return (
           <div
             key={`lock-${lockedId}`}
             className="blocked-location pointer-events-none absolute z-[5] flex items-center justify-center"
             style={{
-              left: `${LOCATIONS_LEFT + i * PAWN_STEP}%`,
-              top: '8.7%',
-              width: '20.1%',
-              height: '70.5%',
+              left: `${geo.x}%`,
+              top: `${geo.y}%`,
+              width: `${geo.width}%`,
+              height: `${geo.height}%`,
             }}
             title={`Lieu verrouillé — ${player.locations[i].name}`}
           >

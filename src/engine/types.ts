@@ -41,6 +41,10 @@ export type LocationActionType =
    *  Pokémon (Héros `isPokemon`) présent : il part dans la pile de Captures au lieu
    *  de la défausse Fatalité. Compte pour l'objectif CAPTURE_POKEMON. */
   | 'CATCH_POKEMON'
+  /** Tabbou : « Dévoiler une tuile Combattant » — révèle 1 tuile Combattant depuis
+   *  la pioche (face cachée) vers la réserve commune (face visible). Action custom
+   *  imprimée sur l'Émissaire Subspatial ; aussi accordée par des cartes. */
+  | 'REVEAL_FIGHTER'
 
 /** Rangée d'une action sur le plateau. Les héros recouvrent la rangée du HAUT
  *  d'un lieu : la position est donc structurante pour la mécanique de Fatalité
@@ -122,6 +126,15 @@ export interface VillainDef {
    *  Comète ; `count` = Étoiles posées au départ. Ce lieu est VERROUILLÉ
    *  dynamiquement dès qu'il tombe à 0 Étoile. Absent = vilain sans Étoiles. */
   starSetup?: { locationId: LocationId; count: number }
+  /** Tabbou : mise en place des tuiles Combattants. `tiles` = la pioche (couleur +
+   *  illustration de chaque tuile), mélangée au départ ; `emissaireLocationId` = le
+   *  4ᵉ lieu (Émissaire Subspatial), VERROUILLÉ au départ et débloqué en posant 3 Orbes
+   *  subspatiaux sur les 3 autres lieux (`orbLocationIds`). Absent = vilain sans Combattants. */
+  fighterSetup?: {
+    tiles: { color: FighterColor; art: string; name?: string }[]
+    emissaireLocationId: LocationId
+    orbLocationIds: LocationId[]
+  }
   /** Pat Hibulaire : les 5 « tuiles Objectif » candidates (objectif
    *  COMPLETE_GOAL_TOKENS). À la mise en place, on en tire 4 au hasard, une par
    *  lieu (la 5ᵉ reste hors-jeu). Recopié vers PlayerState.goals. Absent = vilain
@@ -362,6 +375,11 @@ export type ObjectiveDef =
    *  — déclenchée à l'instant où le dernier Survivant est éliminé (plus aucun Survivant
    *  ni sur le plateau, ni dans la pile). */
   | { type: 'PIEGEUR_ELIMINATE_ALL_SURVIVORS' }
+  /** Tabbou : au début de son tour, avoir TUÉ au moins `threshold` Combattants (tuiles
+   *  Combattants à l'état `killed`). Tant qu'un Héros de `raiseHeroCardId` (Samus) est
+   *  présent dans le royaume, le seuil monte à `raiseTo` (30). Les Combattants sont
+   *  dévoilés (pioche → réserve) puis tués par couleur via des cartes. */
+  | { type: 'KILL_FIGHTERS'; threshold: number; raiseHeroCardId?: string; raiseTo?: number }
 
 /** Pat Hibulaire — les 5 types de tuile Objectif (4 tirés par partie) :
  *  - `win-big`        : gagner ≥4 Pouvoir via UNE SEULE Petite Partie ? sur le lieu ;
@@ -442,6 +460,32 @@ export interface PuppyTile {
   state: 'reserve' | 'board' | 'captured'
   /** Révélée une fois pour toutes (face visible). Une tuile posée/capturée l'est toujours. */
   revealed: boolean
+}
+
+/** Tabbou — couleur d'une tuile Combattant (groupe pour « tuer d'une même couleur »). */
+export type FighterColor =
+  | 'magenta'
+  | 'orange'
+  | 'rouge'
+  | 'marron'
+  | 'bleu'
+  | 'violet'
+  | 'vert'
+  | 'jaune'
+  | 'gris'
+
+/** Tabbou — une tuile Combattant. Flux : `pile` (pioche face cachée) → `reserve`
+ *  (dévoilée, face visible, en attente) → `killed` (tuée, compte vers l'objectif).
+ *  Quand la pioche se vide, les tuiles `killed` sont remélangées en `pile`. */
+export interface FighterTile {
+  /** Identifiant stable et unique (ex. 'fighter-12'). */
+  id: string
+  color: FighterColor
+  /** URL de l'illustration du combattant (public/cards/tabbou/tuiles/…). */
+  art: string
+  /** Nom du combattant (Meta Knight, Kirby…), affiché en infobulle. Optionnel. */
+  name?: string
+  state: 'pile' | 'reserve' | 'killed'
 }
 
 /**
@@ -1028,6 +1072,25 @@ export type Effect =
   /** Fatalité — Sergent Tibs : déplace jusqu'à `max` Tuiles Chiots non capturées
    *  vers le lieu hôte du Héros (hostLocationId). */
   | { type: 'MOVE_BOARD_PUPPIES_TO_HERO'; max: number }
+  /** Tabbou — dévoile `count` tuile(s) Combattant : pioche (`pile`) → réserve
+   *  (`reserve`, face visible). Tirage aléatoire (rngState). Si la pioche est vide,
+   *  les tuiles `killed` y sont remélangées d'abord. (Émissaire, Destin, Flèche, Primides). */
+  | { type: 'REVEAL_FIGHTERS'; count: number }
+  /** Tabbou — tue TOUTES les tuiles Combattants d'UNE couleur choisie dans la réserve
+   *  (`reserve` → `killed`). Choix interactif de la couleur (Collection, Bowser). */
+  | { type: 'KILL_FIGHTERS_COLOR' }
+  /** Tabbou — tue jusqu'à `max` tuiles Combattants de la réserve, toutes couleurs
+   *  confondues (choix interactif tuile par tuile). Coup Fatal (`max` = 10). */
+  | { type: 'KILL_FIGHTERS_FREE'; max: number }
+  /** Tabbou (Fatalité) — remet `count` tuile(s) TUÉE(s) dans la réserve (`killed` →
+   *  `reserve`), même couleur si possible (Réveil = 2, Rassemblement = 3). Recul. */
+  | { type: 'RETURN_KILLED_FIGHTERS'; count: number; sameColorIfPossible?: boolean }
+  /** Tabbou — Orbe subspatial : à la pose (Objet sur un lieu), si les 3 lieux hors
+   *  Émissaire portent chacun ≥ 1 Orbe, déverrouille l'Émissaire Subspatial. */
+  | { type: 'SUBSPACE_ORB_PLACED' }
+  /** Tabbou — Destin : ouvre le choix « Dévoiler 3 Combattants » OU « Gagner 4 Pouvoir »
+   *  (pendingDestinChoice). */
+  | { type: 'DESTIN_CHOICE' }
   /** Fatalité — Perdita : prend 1 Tuile Chiots capturée et la repose (non capturée)
    *  sur le lieu hôte du Héros. */
   | { type: 'PLACE_CAPTURED_PUPPY_AT_HERO' }
@@ -1204,8 +1267,8 @@ export type Effect =
    *  `atPawn` : ne compte que les Héros du lieu du pion (Gul'dan — Sceptre de Sargeras). */
   | { type: 'GAIN_POWER_PER_HERO_IN_REALM'; amount: number; atPawn?: boolean }
   /** Team Rocket — Togepi (Fatalité) : RETIRE `amount` pouvoir à l'acteur par Héros
-   *  présent dans son royaume (plancher 0). */
-  | { type: 'LOSE_POWER_PER_HERO_IN_REALM'; amount: number }
+   *  présent dans son royaume (plancher 0). `max` : perte totale plafonnée (Tabbou — Mario). */
+  | { type: 'LOSE_POWER_PER_HERO_IN_REALM'; amount: number; max?: number }
   /** Gagne `amount` pouvoir par Allié présent dans le royaume (arceaux inclus —
    *  ils comptent comme Alliés). Reine de Cœur : Joyeux non-anniversaire. */
   | { type: 'GAIN_POWER_PER_ALLY_IN_REALM'; amount: number }
@@ -2004,6 +2067,14 @@ export interface CardInstance {
   /** La Bonne Fée — Potion (Filtre d'amour / Heureux pour toujours) : cible de la
    *  « Réserve de potions » (FETCH_POTION) et des 2 potions de l'objectif. */
   isPotion?: boolean
+  /** Tabbou — Link : plafonne à N le nombre de tuiles Combattants dévoilables en UN
+   *  usage de l'action « Dévoiler une tuile Combattant » tant qu'il est là. */
+  fighterRevealCap?: number
+  /** Tabbou — Kirby : renchérit de N le coût de l'action « Dévoiler une tuile Combattant ». */
+  fighterRevealSurcharge?: number
+  /** Tabbou — Canon Obscur : les cartes Objets coûtent N de moins tant que le pion
+   *  se trouve sur le même lieu que cette carte (cumulatif). */
+  itemCostReductionHere?: number
   /** Ursula — Pacte : lieu lié au Pacte. Le Héros porteur est éliminé s'il est
    *  déplacé sur ce lieu. */
   contractLocationId?: LocationId
@@ -2489,6 +2560,9 @@ export type SelfStrengthMod =
   | { kind: 'per-other-in-set-realm'; cardIds: string[]; delta: number }
   /** +delta par AUTRE Héros présent sur le même lieu (Taram). */
   | { kind: 'per-other-hero-here'; delta: number }
+  /** +delta FORFAITAIRE s'il y a AU MOINS un autre Héros sur le même lieu (Tabbou —
+   *  Meta Knight : +1 dès qu'un autre Héros l'accompagne, quel qu'en soit le nombre). */
+  | { kind: 'if-other-hero-here'; delta: number }
   /** +delta par AUTRE carte de type `cardType` présente sur le même lieu (Syndrome —
    *  Gardes : +1 par autre Allié). Exclut la carte elle-même. */
   | { kind: 'per-other-type-here'; cardType: CardType; delta: number }
@@ -2746,6 +2820,13 @@ export interface PlayerState {
    *  `homeLocation` = lieu indiqué sur la tuile ; `location` = lieu courant (peut différer
    *  après un déplacement Roadster/Sergent Tibs). `undefined` pour les autres vilains. */
   puppyTiles?: PuppyTile[]
+  /** Tabbou — ses tuiles Combattants (pioche `pile` → réserve `reserve` → tuées
+   *  `killed`). Le nombre de `killed` est comparé au seuil de l'objectif KILL_FIGHTERS.
+   *  `undefined` pour les autres vilains. */
+  fighterTiles?: FighterTile[]
+  /** Tabbou — id du lieu Émissaire Subspatial (recopié de fighterSetup), pour savoir
+   *  quel lieu déverrouiller quand 3 Orbes subspatiaux sont posés. */
+  emissaireLocationId?: LocationId
   /** Cruella d'Enfer — Finissez le travail ! : une action « Activer » gratuite est
    *  disponible ce tour sur le lieu courant (consommée à l'usage). */
   freeActivate?: boolean
@@ -3383,6 +3464,21 @@ export interface GameState {
    * RESOLVE_PUPPY_REVEAL (une tuile) ou DONE_PUPPY_REVEAL (arrêter). `null` sinon.
    */
   pendingPuppyReveal?: { playerIndex: number; remaining: number } | null
+  /** Tabbou — Dévoiler des Combattants : `playerIndex` retourne jusqu'à `remaining`
+   *  tuiles FACE CACHÉE de la grille (clic direct sur les dos) — pioche → réserve.
+   *  RESOLVE_FIGHTER_REVEAL (une tuile) ou DONE_FIGHTER_REVEAL (arrêter). `null` sinon. */
+  pendingFighterReveal?: { playerIndex: number; remaining: number } | null
+  /** Tabbou — Tuer des Combattants d'une même couleur : `playerIndex` choisit une
+   *  couleur présente dans la réserve (RESOLVE_FIGHTER_KILL_COLOR) ; toutes les tuiles
+   *  de cette couleur sont tuées. `null` sinon. */
+  pendingFighterKillColor?: { playerIndex: number } | null
+  /** Tabbou — Coup Fatal : `playerIndex` tue jusqu'à `remaining` tuiles Combattants de
+   *  la réserve (RESOLVE_FIGHTER_KILL_FREE une tuile, DONE_FIGHTER_KILL_FREE arrête).
+   *  `null` sinon. */
+  pendingFighterKillFree?: { playerIndex: number; remaining: number } | null
+  /** Tabbou — Destin : `playerIndex` choisit « Dévoiler 3 Combattants » OU « Gagner 4
+   *  Pouvoir » (RESOLVE_DESTIN_CHOICE). `null` sinon. */
+  pendingDestinChoice?: { playerIndex: number } | null
   /**
    * Cruella d'Enfer — Horace : quand SES DEUX options sont possibles (capturer une
    * Tuile Chiots sur son lieu OU en amener une de la réserve), `playerIndex` choisit
@@ -3713,6 +3809,9 @@ export interface GameState {
       | 'hand-to-deck-top'
     hostInstanceId?: string
     candidateIds: string[]
+    /** Nom de la carte Fatalité déclencheuse (Vieillissement, Majorité…), pour le log
+     *  du retrait (`remove-card`). Absent → libellé par défaut. */
+    via?: string
   } | null
   /** Madame Mim — Le Savoir conduit à la Puissance (Fatalité) : `chooserIndex`
    *  choisit une Métamorphose de Merlin (`candidateIds`) du royaume de `targetIndex`
@@ -4352,6 +4451,19 @@ export type GameAction =
   | { type: 'RESOLVE_PUPPY_REVEAL'; tileId: string }
   /** Cruella d'Enfer — Repéré ! : arrête de révéler (révélation facultative). */
   | { type: 'DONE_PUPPY_REVEAL' }
+  /** Tabbou — Dévoiler : retourne une tuile Combattant face cachée (pioche → réserve). */
+  | { type: 'RESOLVE_FIGHTER_REVEAL'; tileId: string }
+  /** Tabbou — Dévoiler : arrête de dévoiler (facultatif). */
+  | { type: 'DONE_FIGHTER_REVEAL' }
+  /** Tabbou — Tuer des Combattants : couleur choisie (toutes les tuiles de cette
+   *  couleur dans la réserve sont tuées). */
+  | { type: 'RESOLVE_FIGHTER_KILL_COLOR'; color: FighterColor }
+  /** Tabbou — Coup Fatal : tue une tuile Combattant de la réserve. */
+  | { type: 'RESOLVE_FIGHTER_KILL_FREE'; tileId: string }
+  /** Tabbou — Coup Fatal : arrête de tuer (facultatif). */
+  | { type: 'DONE_FIGHTER_KILL_FREE' }
+  /** Tabbou — Destin : `reveal` = dévoiler 3 Combattants ; `power` = gagner 4 Pouvoir. */
+  | { type: 'RESOLVE_DESTIN_CHOICE'; choice: 'reveal' | 'power' }
   /** Cruella d'Enfer — Horace : `capture` = capturer sur son lieu (true) OU amener
    *  une Tuile de la réserve (false). */
   | { type: 'RESOLVE_HORACE_CHOICE'; capture: boolean }

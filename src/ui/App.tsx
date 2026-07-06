@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { useGameStore, villainKeyOf, isCustomKey, VILLAIN_REGISTRY, type VillainKey } from './store/gameStore'
 import { useTestWinStore } from './store/testWinStore'
@@ -29,6 +29,7 @@ import {
   lotsoToRoomCandidates,
   lotsoHasHeroInRoom,
   maxBrewPoison,
+  maxRevealFighters,
   movableCards,
   dingoSwapOptions,
   playableConditions,
@@ -40,7 +41,7 @@ import {
 import { titanReachableDests } from '../engine/effects'
 import { rankedFireTargets } from '../engine/shereKhan'
 import { FREE_PLAY_NO_ACTION_ID } from '../engine/actions'
-import type { CardInstance, CardType, KeyColor, LocationAction, PendingDice, PlayerState, ShowcaseEvent } from '../engine/types'
+import type { CardInstance, CardType, FighterColor, GameState, KeyColor, LocationAction, PendingDice, PlayerState, ShowcaseEvent } from '../engine/types'
 import { BLUE, RED, accentVars } from './accents'
 import { villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from './villainColors'
 import { villainColor, useVillainColorVersion } from './villainColorState'
@@ -50,7 +51,7 @@ import { Board } from './components/Board'
 import { Hand } from './components/Hand'
 import { GameLog } from './components/GameLog'
 import { getBotSpeed, setBotSpeed, speedScaled } from './botSpeed'
-import { BoardImage, LOCATIONS_LEFT, PAWN_FIRST_LEFT, PAWN_STEP } from './components/BoardImage'
+import { BoardImage, LOCATIONS_LEFT, PAWN_FIRST_LEFT, PAWN_STEP, getBlockedOverlay, defaultBlockedGeo, type BlockedGeo } from './components/BoardImage'
 import { BoardActions, getVillainActionPos } from './components/BoardActions'
 import { SUGAR_RUSH_TRACK } from './components/sugarRushTrack'
 import { HeroRow } from './components/HeroRow'
@@ -732,6 +733,273 @@ function MerlinMoveModal({
 
 /** Ratigan — Le Grand Génie du Mal : l'humain choisit entre piocher `draw` cartes
  *  OU gagner `power` jetons Pouvoir. */
+/** Tabbou — libellé FR + couleur d'affichage de chaque couleur de Combattant. */
+const FIGHTER_COLOR_FR: Record<string, { label: string; hex: string }> = {
+  magenta: { label: 'Magenta', hex: '#d21f6f' },
+  orange: { label: 'Orange', hex: '#e7a336' },
+  rouge: { label: 'Rouge', hex: '#e30613' },
+  marron: { label: 'Marron', hex: '#926037' },
+  bleu: { label: 'Bleu', hex: '#009fe3' },
+  violet: { label: 'Violet', hex: '#4b2f8c' },
+  vert: { label: 'Vert', hex: '#3c9737' },
+  jaune: { label: 'Jaune', hex: '#c9be22' },
+  gris: { label: 'Gris', hex: '#8b8b8b' },
+}
+
+/** Tabbou — modale interactive « Destin » (choix). NB : « tuer une couleur »
+ *  (Collection/Bowser) ET « Coup Fatal » (tuer N au choix) se font désormais EN DIRECT
+ *  sur la grille (clic sur une tuile réserve), cf. FighterGrid `killColorMode` /
+ *  `killFreeMode`. */
+function TabbouModals({
+  state,
+  human,
+  onDestin,
+}: {
+  state: GameState
+  human: number
+  onDestin: (c: 'reveal' | 'power') => void
+}) {
+  const destin = state.pendingDestinChoice?.playerIndex === human
+  if (!destin) return null
+  const wrap = 'fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm'
+  const box = 'flex w-[32rem] max-w-[94vw] flex-col gap-4 rounded-2xl border border-white/15 bg-[#15101f] p-6 shadow-2xl'
+  return (
+    <div className={wrap}>
+      <div className={box}>
+        <h2 className="text-center text-lg font-bold text-amber-200">Destin</h2>
+        <p className="text-center text-sm text-white/80">Choisis ton effet :</p>
+        <div className="flex justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => onDestin('reveal')}
+            className="flex-1 rounded-lg border border-sky-400/60 bg-sky-500/20 px-4 py-2 text-sm font-semibold text-sky-100 hover:bg-sky-500/30"
+          >
+            Dévoiler 3 Tuiles Combattant
+          </button>
+          <button
+            type="button"
+            onClick={() => onDestin('power')}
+            className="flex-1 rounded-lg border border-amber-400/60 bg-amber-500/20 px-4 py-2 text-sm font-semibold text-amber-100 hover:bg-amber-500/30"
+          >
+            Gagner 4 Jetons Pouvoir
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Tabbou — grille 9×4 des 35 tuiles Combattants (bas-gauche). Dos (logo Smash sur
+ *  fond noir) tant que face cachée ; illustration colorée une fois dévoilée ; croix
+ *  rouge une fois tuée. Pendant un dévoilement (humain), les dos clignotent et sont
+ *  cliquables pour choisir les tuiles à retourner. En mode `killColorMode` (Collection/
+ *  Bowser) : survoler une tuile réserve surligne TOUTES les tuiles réserve de la même
+ *  couleur (bordure colorée + badge du nombre), et cliquer les tue toutes. */
+function FighterGrid({
+  tiles,
+  revealRemaining,
+  onReveal,
+  killColorMode = false,
+  onKillColor,
+  killFreeMode = false,
+  killFreeRemaining = 0,
+  onKillFree,
+  onDoneKillFree,
+}: {
+  tiles: NonNullable<PlayerState['fighterTiles']>
+  revealRemaining: number
+  onReveal: (id: string) => void
+  killColorMode?: boolean
+  onKillColor?: (color: FighterColor) => void
+  // Coup Fatal : tuer des tuiles réserve UNE PAR UNE (jusqu'à `killFreeRemaining`),
+  // directement sur la grille (clic sur une tuile réserve), puis « Terminer ».
+  killFreeMode?: boolean
+  killFreeRemaining?: number
+  onKillFree?: (id: string) => void
+  onDoneKillFree?: () => void
+}) {
+  // Couleur/tuile survolée en mode « tuer une couleur » (surlignage + badge).
+  const [hover, setHover] = useState<{ id: string; color: FighterColor } | null>(null)
+  // « Coupure » : tuiles qui viennent de passer en `killed` (reserve → killed), à animer.
+  // Pattern React « ajuster l'état quand les props changent » (sans effet ni ref) : on
+  // mémorise le tableau `tiles` du rendu précédent ; quand sa référence change (le moteur
+  // a modifié les tuiles), on compare tuile par tuile et on marque les nouvellement tuées.
+  // Le setState est gardé (converge : `prevTiles === tiles` juste après). L'overlay se
+  // retire de lui-même à la fin de l'animation (onAnimationEnd).
+  const [prevTiles, setPrevTiles] = useState(tiles)
+  const [slashing, setSlashing] = useState<string[]>([])
+  // « Apparition » : tuiles qui viennent d'être dévoilées (pile → reserve), à animer
+  // (flash + pop) sur le même modèle que la coupure. Retirées à la fin de l'animation.
+  const [appearing, setAppearing] = useState<string[]>([])
+  if (prevTiles !== tiles) {
+    const prevMap = new Map(prevTiles.map((t) => [t.id, t.state]))
+    const newlyKilled = tiles
+      .filter((t) => {
+        const p = prevMap.get(t.id)
+        return p && p !== 'killed' && t.state === 'killed'
+      })
+      .map((t) => t.id)
+    const newlyRevealed = tiles
+      .filter((t) => prevMap.get(t.id) === 'pile' && t.state === 'reserve')
+      .map((t) => t.id)
+    setPrevTiles(tiles)
+    if (newlyKilled.length > 0) setSlashing((s) => [...s, ...newlyKilled.filter((id) => !s.includes(id))])
+    if (newlyRevealed.length > 0) setAppearing((s) => [...s, ...newlyRevealed.filter((id) => !s.includes(id))])
+  }
+  if (tiles.length === 0) return null
+  const revealing = revealRemaining > 0
+  const BACK = '/cards/tabbou/back_fighter.png'
+  // Nombre de tuiles réserve de la couleur survolée (affiché dans le badge).
+  const killCount = hover ? tiles.filter((t) => t.state === 'reserve' && t.color === hover.color).length : 0
+  return (
+    <div
+      className={`absolute -bottom-[21.25rem] left-1 z-50 rounded-lg border border-white/15 bg-black/75 p-2 shadow-2xl backdrop-blur-sm ${
+        killColorMode || killFreeMode ? 'fighter-kill-pulse' : ''
+      }`}
+    >
+      {/* Coup Fatal : bandeau + « Terminer » (on tue les tuiles UNE PAR UNE sur la grille). */}
+      {killFreeMode && (
+        <div className="mb-1.5 flex items-center justify-between gap-2 rounded bg-amber-500/20 px-2 py-1.5">
+          <span className="text-xs font-semibold text-amber-100">
+            Coup Fatal — cliquez les Combattants à tuer ({killFreeRemaining} restant{killFreeRemaining > 1 ? 's' : ''})
+          </span>
+          <button
+            type="button"
+            onClick={() => onDoneKillFree?.()}
+            className="shrink-0 rounded-md border border-amber-300/70 bg-amber-500/30 px-3 py-1 text-xs font-bold text-amber-50 hover:bg-amber-500/50"
+          >
+            Terminer
+          </button>
+        </div>
+      )}
+      <div className="grid grid-cols-[repeat(4,2rem)] gap-x-px gap-y-[3px]">
+        {tiles.map((t) => {
+          const revealClickable = revealing && t.state === 'pile'
+          const killClickable = killColorMode && t.state === 'reserve'
+          const killFreeClickable = killFreeMode && t.state === 'reserve'
+          const clickable = revealClickable || killClickable || killFreeClickable
+          const revealed = t.state !== 'pile' // dévoilée (réserve) ou tuée : art connu
+          const hex = FIGHTER_COLOR_FR[t.color]?.hex ?? '#888'
+          const colorLabel = FIGHTER_COLOR_FR[t.color]?.label ?? t.color
+          // Libellé de la tuile : nom du combattant (Meta Knight…) si connu, sinon la couleur.
+          const tileLabel = t.name ?? colorLabel
+          // Tuile visée par le survol en mode kill : elle fait partie des tuiles de la
+          // couleur survolée → bordure colorée + halo. En Coup Fatal, seule la tuile
+          // survolée s'illumine (on tue une tuile précise, pas toute la couleur).
+          const inKillPreview =
+            (killClickable && hover?.color === t.color) || (killFreeClickable && hover?.id === t.id)
+          return (
+            <div
+              key={t.id}
+              className="group relative"
+              onMouseEnter={
+                killClickable || killFreeClickable ? () => setHover({ id: t.id, color: t.color }) : undefined
+              }
+              onMouseLeave={
+                killClickable || killFreeClickable ? () => setHover((h) => (h?.id === t.id ? null : h)) : undefined
+              }
+            >
+              <button
+                type="button"
+                disabled={!clickable}
+                onClick={
+                  revealClickable
+                    ? () => onReveal(t.id)
+                    : killClickable
+                      ? () => onKillColor?.(t.color)
+                      : killFreeClickable
+                        ? () => onKillFree?.(t.id)
+                        : undefined
+                }
+                title={
+                  killClickable
+                    ? `Tuer les ${killCount} Combattant(s) ${colorLabel}`
+                    : killFreeClickable
+                      ? `Tuer ce Combattant : ${tileLabel} (${colorLabel})`
+                      : revealed
+                        ? `${tileLabel} (${colorLabel})`
+                        : undefined
+                }
+                className={`relative block h-8 w-8 overflow-hidden rounded-sm border border-white/60 bg-black ${
+                  revealClickable
+                    ? 'cursor-pointer ring-2 ring-amber-300 animate-pulse'
+                    : killClickable || killFreeClickable
+                      ? 'cursor-pointer'
+                      : 'cursor-default'
+                }`}
+                style={inKillPreview ? { borderColor: hex, boxShadow: `0 0 0 2px ${hex}, 0 0 9px 2px ${hex}` } : undefined}
+              >
+                {t.state === 'pile' && <img src={BACK} alt="dos" className="h-full w-full object-contain p-1 opacity-90" />}
+                {t.state === 'reserve' && (
+                  <img
+                    src={t.art}
+                    alt={t.color}
+                    className={`h-full w-full object-cover ${appearing.includes(t.id) ? 'fighter-reveal-pop' : ''}`}
+                  />
+                )}
+                {t.state === 'killed' && (
+                  <>
+                    <img src={t.art} alt={t.color} className="h-full w-full object-cover grayscale" />
+                    {/* Teinte « doré sombre » sur la tuile tuée. */}
+                    <span className="absolute inset-0 bg-[#6b5417] mix-blend-multiply" />
+                  </>
+                )}
+              </button>
+              {/* « Coupure » au passage en doré (tuée) : trait doré diagonal qui balaie
+                  la tuile, retiré à la fin de l'animation. */}
+              {slashing.includes(t.id) && (
+                <span
+                  className="fighter-slash"
+                  onAnimationEnd={() => setSlashing((s) => s.filter((x) => x !== t.id))}
+                />
+              )}
+              {/* « Apparition » au dévoilement (pile → reserve) : éclat radial + anneau
+                  qui se dilate sur la tuile, retiré à la fin de l'animation. */}
+              {appearing.includes(t.id) && (
+                <span
+                  className="fighter-reveal"
+                  style={{ '--fighter-hex': hex } as CSSProperties}
+                  onAnimationEnd={() => setAppearing((s) => s.filter((x) => x !== t.id))}
+                />
+              )}
+              {/* Badge du nombre de tuiles de la couleur visée (sur la tuile survolée). */}
+              {killClickable && hover?.id === t.id && (
+                <span
+                  className="pointer-events-none absolute -right-1.5 -top-1.5 z-[110] flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[9px] font-bold text-white shadow"
+                  style={{ background: hex }}
+                >
+                  {killCount}
+                </span>
+              )}
+              {/* Zoom au survol d'une tuile dévoilée : tooltip CARRÉ (illustration + nom).
+                  Désactivé en mode kill / Coup Fatal (le surlignage prime). */}
+              {revealed && !killColorMode && !killFreeMode && (
+                <div
+                  className="pointer-events-none absolute left-full top-1/2 z-[100] ml-1 hidden h-32 w-32 -translate-y-1/2 overflow-hidden rounded-md border-2 bg-black shadow-2xl group-hover:block"
+                  style={{ borderColor: hex }}
+                >
+                  <img
+                    src={t.art}
+                    alt={tileLabel}
+                    className={`h-full w-full object-cover ${t.state === 'killed' ? 'grayscale' : ''}`}
+                  />
+                  {t.state === 'killed' && <span className="absolute inset-0 bg-[#6b5417] mix-blend-multiply" />}
+                  {/* Nom du combattant en bas de la vignette. */}
+                  {t.name && (
+                    <span className="absolute inset-x-0 bottom-0 bg-black/70 px-1 py-0.5 text-center text-[9px] font-semibold leading-tight text-white">
+                      {t.name}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function DrawOrGainPowerModal({
   draw,
   power,
@@ -1212,6 +1480,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveDeckPeek = useGameStore((s) => s.resolveDeckPeek)
   const resolveTypeChoice = useGameStore((s) => s.resolveTypeChoice)
   const resolveDrawOrGainPower = useGameStore((s) => s.resolveDrawOrGainPower)
+  const resolveFighterReveal = useGameStore((s) => s.resolveFighterReveal)
+  const doneFighterReveal = useGameStore((s) => s.doneFighterReveal)
+  const resolveFighterKillColor = useGameStore((s) => s.resolveFighterKillColor)
+  const resolveFighterKillFree = useGameStore((s) => s.resolveFighterKillFree)
+  const doneFighterKillFree = useGameStore((s) => s.doneFighterKillFree)
+  const resolveDestinChoice = useGameStore((s) => s.resolveDestinChoice)
   const resolveInfiltration = useGameStore((s) => s.resolveInfiltration)
   const resolvePowerOrRacerBack = useGameStore((s) => s.resolvePowerOrRacerBack)
   const resolveTaffytaChoice = useGameStore((s) => s.resolveTaffytaChoice)
@@ -1367,6 +1641,14 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const quitNet = useGameStore((s) => s.quitNet)
   const leaveNet = useGameStore((s) => s.leaveNet)
   const netLeftNotice = useGameStore((s) => s.netLeftNotice)
+  const actionNotice = useGameStore((s) => s.actionNotice)
+  const clearActionNotice = useGameStore((s) => s.clearActionNotice)
+  // Le toast d'avis de coup refusé s'efface tout seul après quelques secondes.
+  useEffect(() => {
+    if (!actionNotice) return
+    const t = setTimeout(clearActionNotice, 3000)
+    return () => clearTimeout(t)
+  }, [actionNotice, clearActionNotice])
   const peerReacting = useGameStore((s) => s.peerReacting)
   const setReacting = useGameStore((s) => s.setReacting)
   // Contrôleur de chaque siège : remplace l'ancien BOTS[]. seats[i] === 'bot'
@@ -1388,6 +1670,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const myAvatarVillain = usePlayerStore((s) => s.avatarVillain)
   const myAvatarColor = usePlayerStore((s) => s.avatarColor)
   const enterTestMode = useGameStore((s) => s.enterTestMode)
+  const exitTestMode = useGameStore((s) => s.exitTestMode)
   const testInsertCard = useGameStore((s) => s.testInsertCard)
   const testPlaceFate = useGameStore((s) => s.testPlaceFate)
   const testPlayCondition = useGameStore((s) => s.testPlayCondition)
@@ -1624,6 +1907,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const [brewPick, setBrewPick] = useState<
     { actionId: string; max: number; surcharge: number; count: number } | null
   >(null)
+  // Tabbou — « Dévoiler une tuile Combattant » : sélecteur du nombre de tuiles à
+  // dévoiler (1 → max). 1 JT = 1 Combattant ; `surcharge` = surcoût fixe (Kirby).
+  const [revealPick, setRevealPick] = useState<
+    { actionId: string; max: number; surcharge: number; count: number } | null
+  >(null)
   // Iago : choix de l'Objet à emmener quand plusieurs Objets sont sur son lieu.
   const [iagoItemPick, setIagoItemPick] = useState<
     { actionId: string; cardInstanceId: string; from: string } | null
@@ -1653,6 +1941,12 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const [editVillain, setEditVillain] = useState<VillainKey>('princeJohn')
   // Message de retour du bouton « Sauvegarder les positions ».
   const [savePosMsg, setSavePosMsg] = useState<string | null>(null)
+  // MODE TEST — sous-mode « Configurer le lieu bloqué » : géométrie de travail du voile
+  // sombre par lieu verrouillé (`locId` → {x,y,width,height} en %), lieu sélectionné, et
+  // message du bouton de sauvegarde. `blockedEdit = null` = sous-mode inactif.
+  const [blockedEdit, setBlockedEdit] = useState<Record<string, BlockedGeo> | null>(null)
+  const [selectedBlocked, setSelectedBlocked] = useState<string | null>(null)
+  const [saveBlockedMsg, setSaveBlockedMsg] = useState<string | null>(null)
   // MODE TEST : éditeur de TAILLE DU PION (curseur). `pawnEdit` = vilain édité + taille de
   // travail (px) ; null = éditeur fermé. La taille est prévisualisée en direct sur le plateau.
   const [pawnEdit, setPawnEdit] = useState<{ villain: VillainKey; size: number } | null>(null)
@@ -2136,6 +2430,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     setActionEdit(flat)
     setSelectedAction(null)
     setSavePosMsg(null)
+    // Quitte le sous-mode « lieu bloqué » (il dépend du vilain édité).
+    setBlockedEdit(null)
+    setSelectedBlocked(null)
+    setSaveBlockedMsg(null)
   }
   // Ouvre/ferme le modal d'édition (à l'ouverture : cible le vilain du joueur).
   const toggleHighlightActions = () =>
@@ -2197,6 +2495,83 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       setSavePosMsg(res.ok ? '✓ Sauvegardé dans BoardActions.tsx' : `Échec : ${await res.text()}`)
     } catch {
       setSavePosMsg('Erreur réseau (serveur de dév requis).')
+    }
+  }
+  // --- Sous-mode « Configurer le lieu bloqué » (voile sombre) -----------------------
+  // Lieux verrouillables du vilain édité (ordre du plateau) — le sous-mode n'existe que
+  // si cette liste est non vide.
+  const blockedLocIds = (editDef.lockedLocationsAtStart ?? []).filter((id) =>
+    editDef.locations.some((l) => l.id === id),
+  )
+  // Ouvre le sous-mode : initialise la géométrie de chaque lieu verrouillé depuis le
+  // réglage existant (sinon le calcul par index) et sélectionne le premier.
+  const openBlockedEditor = () => {
+    const cur = getBlockedOverlay(editDef.id)
+    const init: Record<string, BlockedGeo> = {}
+    for (const id of blockedLocIds) {
+      const i = editDef.locations.findIndex((l) => l.id === id)
+      init[id] = cur?.[id] ?? defaultBlockedGeo(i)
+    }
+    setBlockedEdit(init)
+    setSelectedBlocked(blockedLocIds[0] ?? null)
+    setSaveBlockedMsg(null)
+  }
+  const closeBlockedEditor = () => {
+    setBlockedEdit(null)
+    setSelectedBlocked(null)
+    setSaveBlockedMsg(null)
+  }
+  // Modifie une dimension du voile sélectionné (champ numérique).
+  const updateBlockedGeo = (axis: keyof BlockedGeo, value: number) => {
+    if (!selectedBlocked || Number.isNaN(value)) return
+    setBlockedEdit((m) => (m ? { ...m, [selectedBlocked]: { ...m[selectedBlocked], [axis]: value } } : m))
+  }
+  // Déplacement par GLISSER du voile (curseur) → nouveau coin haut-gauche en %.
+  const handleMoveBlocked = (locId: string, x: number, y: number) =>
+    setBlockedEdit((m) =>
+      m ? { ...m, [locId]: { ...m[locId], x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 } } : m,
+    )
+  // Redimensionnement par GLISSER de la poignée (coin bas-droit) → largeur/hauteur en %.
+  const handleResizeBlocked = (locId: string, width: number, height: number) =>
+    setBlockedEdit((m) =>
+      m
+        ? {
+            ...m,
+            [locId]: {
+              ...m[locId],
+              width: Math.max(2, Math.round(width * 10) / 10),
+              height: Math.max(2, Math.round(height * 10) / 10),
+            },
+          }
+        : m,
+    )
+  // Construit le bloc `BLOCKED_OVERLAY['<vilain>'] = { … }` (ordre des lieux verrouillés).
+  const buildBlockedBlock = (): string => {
+    const tok = (id: string) => (/^[a-zA-Z_$][\w$]*$/.test(id) ? id : `'${id}'`)
+    const r = (n: number) => Math.round(n * 10) / 10
+    const body = blockedLocIds
+      .map((id) => {
+        const g = blockedEdit?.[id]
+        return g
+          ? `  ${tok(id)}: { x: ${r(g.x)}, y: ${r(g.y)}, width: ${r(g.width)}, height: ${r(g.height)} },`
+          : null
+      })
+      .filter(Boolean)
+      .join('\n')
+    return `BLOCKED_OVERLAY['${editDef.id}'] = {\n${body}\n}`
+  }
+  // Écrit la géométrie du voile dans BoardImage.tsx (via l'endpoint dev de Vite).
+  const saveBlockedOverlay = async () => {
+    setSaveBlockedMsg('Sauvegarde…')
+    try {
+      const res = await fetch('/__save-blocked-overlay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ villain: editDef.id, block: buildBlockedBlock() }),
+      })
+      setSaveBlockedMsg(res.ok ? '✓ Sauvegardé dans BoardImage.tsx' : `Échec : ${await res.text()}`)
+    } catch {
+      setSaveBlockedMsg('Erreur réseau (serveur de dév requis).')
     }
   }
   // Couleurs des deux vilains en présence (repli sur teintes neutres si inconnue).
@@ -2514,6 +2889,53 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       if (seats[pdgp.playerIndex] === 'bot') {
         const choice = state.players[pdgp.playerIndex].hand.length >= 3 ? 'power' : 'draw'
         const timer = setTimeout(() => resolveDrawOrGainPower(choice), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Tabbou — Dévoiler des Combattants : bot retourne une tuile face cachée au hasard ;
+    // humain → clic direct sur les dos de la grille.
+    const pfrv = state.pendingFighterReveal
+    if (pfrv) {
+      if (seats[pfrv.playerIndex] === 'bot') {
+        const hidden = (state.players[pfrv.playerIndex].fighterTiles ?? []).find((t) => t.state === 'pile')
+        const timer = setTimeout(() => (hidden ? resolveFighterReveal(hidden.id) : doneFighterReveal()), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Tabbou — Tuer des Combattants d'une couleur : bot tue la couleur la plus fournie
+    // (progrès max) ; humain → modale de choix de couleur.
+    const pfkc = state.pendingFighterKillColor
+    if (pfkc) {
+      if (seats[pfkc.playerIndex] === 'bot') {
+        const reserve = (state.players[pfkc.playerIndex].fighterTiles ?? []).filter((t) => t.state === 'reserve')
+        const counts = new Map<string, number>()
+        reserve.forEach((t) => counts.set(t.color, (counts.get(t.color) ?? 0) + 1))
+        const best = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]
+        if (best) {
+          const timer = setTimeout(() => resolveFighterKillColor(best[0] as never), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
+    // Tabbou — Coup Fatal : bot tue une tuile réserve à la fois (max de tués) ; humain → clics + « Terminer ».
+    const pfkf = state.pendingFighterKillFree
+    if (pfkf) {
+      if (seats[pfkf.playerIndex] === 'bot') {
+        const tile = (state.players[pfkf.playerIndex].fighterTiles ?? []).find((t) => t.state === 'reserve')
+        const timer = setTimeout(() => (tile ? resolveFighterKillFree(tile.id) : doneFighterKillFree()), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Tabbou — Destin : bot dévoile s'il reste des tuiles en pioche, sinon gagne 4 Pouvoir ; humain → modale.
+    const pdch = state.pendingDestinChoice
+    if (pdch) {
+      if (seats[pdch.playerIndex] === 'bot') {
+        const hasPile = (state.players[pdch.playerIndex].fighterTiles ?? []).some((t) => t.state === 'pile')
+        const timer = setTimeout(() => resolveDestinChoice(hasPile ? 'reveal' : 'power'), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
       return
@@ -3951,7 +4373,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [paused, seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolvePacteSang, resolveSacrifice, resolveCageMove, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveFateDiscardType, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveGrantLove, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire, resolvePiegeurTarget, resolvePiegeurDest])
+  }, [paused, seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveFighterReveal, doneFighterReveal, resolveFighterKillColor, resolveFighterKillFree, doneFighterKillFree, resolveDestinChoice, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolvePacteSang, resolveSacrifice, resolveCageMove, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveFateDiscardType, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveGrantLove, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire, resolvePiegeurTarget, resolvePiegeurDest])
 
   // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
   // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
@@ -5004,6 +5426,15 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // Clic sur un bouton d'action de l'image → traitement selon le type d'action.
   const handleBoardAction = (a: LocationAction) => {
     if (a.type === 'GAIN_POWER') handleAction(a.id)
+    else if (a.type === 'REVEAL_FIGHTER') {
+      // Tabbou : ouvre le sélecteur de quantité (N JT → N Combattants). Kirby = surcoût
+      // fixe en plus ; Link plafonne le max à 3.
+      const max = maxRevealFighters(state)
+      const surcharge = Object.values(state.players[state.activePlayer].board)
+        .flat()
+        .reduce((n, c) => n + (c.fighterRevealSurcharge ?? 0), 0)
+      if (max >= 1) setRevealPick({ actionId: a.id, max, surcharge, count: 1 })
+    }
     else if (a.type === 'BREW_POISON') {
       // Ouvre le sélecteur de quantité (N Pouvoir → N Poison). Timide = +1 perdu.
       const max = maxBrewPoison(state)
@@ -5815,7 +6246,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                     const hasAnim = !!anim
                     // Animations bi-directionnelles : on propose « bas » (joueur) ET « haut » (adversaire).
                     // `water-cross` n'est bidirectionnel que pour une IMAGE (la vidéo Tic-Tac reste RTL).
-                    const twoSidedPaths = new Set(['cross', 'sky-arc', 'drift-spin', 'jet-cross', 'eject-arc'])
+                    const twoSidedPaths = new Set(['cross', 'sky-arc', 'drift-spin', 'jet-cross', 'eject-arc', 'dash-right'])
                     const twoSided =
                       hasAnim &&
                       (twoSidedPaths.has(anim!.path ?? 'cross') ||
@@ -5966,25 +6397,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               🧪 Mode test
             </button>
           )}
-          {/* Pause : gèle l'auto-progression des bots. RÉSERVÉE au mode ORDI vs ORDI hors
-              application (`!isDesktopApp` → absente de l'exe ET de la simulation exe). */}
-          {!isDesktopApp && botVsBot && !testMode && (
-            <button
-              onClick={() => setPaused((p) => !p)}
-              onMouseEnter={playHover}
-              title={paused ? 'Reprendre la partie' : 'Mettre la partie en pause (gèle les bots)'}
-              className={`rounded-lg border px-3 py-1.5 text-sm font-semibold ${
-                paused
-                  ? 'border-amber-300 bg-amber-500 text-amber-950 hover:bg-amber-400'
-                  : 'border-amber-500 bg-amber-600 text-white hover:bg-amber-500'
-              }`}
-            >
-              {paused ? '▶ Reprendre' : '⏸ Pause'}
-            </button>
-          )}
           {/* Copier le journal : dump brut de state.log (une action par ligne) dans le
-              presse-papiers, pour signaler les cas à corriger. Même condition que Pause. */}
-          {!isDesktopApp && botVsBot && !testMode && (
+              presse-papiers, pour signaler les cas à corriger. Outil de dév (comme Mode
+              test) : masqué dans l'exe et une fois en mode test. */}
+          {!isDesktopApp && !testMode && (
             <button
               onClick={() => {
                 const report = `Tour ${state.turn}\n\n${state.log.join('\n')}`
@@ -6002,6 +6418,22 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               }`}
             >
               {logCopied ? '✓ Copié' : '📋 Copier le journal'}
+            </button>
+          )}
+          {/* Pause : gèle l'auto-progression des bots. RÉSERVÉE au mode ORDI vs ORDI hors
+              application (`!isDesktopApp` → absente de l'exe ET de la simulation exe). */}
+          {!isDesktopApp && botVsBot && !testMode && (
+            <button
+              onClick={() => setPaused((p) => !p)}
+              onMouseEnter={playHover}
+              title={paused ? 'Reprendre la partie' : 'Mettre la partie en pause (gèle les bots)'}
+              className={`rounded-lg border px-3 py-1.5 text-sm font-semibold ${
+                paused
+                  ? 'border-amber-300 bg-amber-500 text-amber-950 hover:bg-amber-400'
+                  : 'border-amber-500 bg-amber-600 text-white hover:bg-amber-500'
+              }`}
+            >
+              {paused ? '▶ Reprendre' : '⏸ Pause'}
             </button>
           )}
           {/* Vitesse des bots : mini-boutons ×2/×3/×5 (recliquer = retour ×1). Accélère
@@ -6044,11 +6476,27 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               {gameMode !== 'solo' ? '⏻ Quitter' : '☰ Menu'}
             </button>
           )}
-          {/* Sortir du mode test (relance une partie normale) — à droite du Menu. */}
+          {/* Sortir du mode test (restaure la partie d'avant) — à droite du Menu. */}
           {testMode && (
             <button
-              onClick={() => { reset(); setTestPicker(null); setTestFateError(null) }}
-              title="Sortir du mode test (relance une partie normale)"
+              onClick={() => {
+                // Sortie NON destructive : on restaure la partie d'avant le test
+                // (main, plateaux et vilains inchangés).
+                exitTestMode()
+                // `App` reste monté en sortie de test (contrairement à une vraie
+                // nouvelle partie) : les drapeaux d'ouverture restent à `true`, donc
+                // la main restaurée serait vue comme « piochée en cours de partie » et
+                // rejouerait l'animation de pioche. On synchronise `handIdsRef` sur la
+                // main restaurée pour qu'AUCUNE carte ne soit détectée comme ajoutée →
+                // la main réapparaît directement, sans animation.
+                const s = useGameStore.getState()
+                handIdsRef.current = new Set(
+                  s.state.players[s.localPlayerIndex].hand.map((c) => c.instanceId),
+                )
+                setTestPicker(null)
+                setTestFateError(null)
+              }}
+              title="Sortir du mode test (restaure la partie d'avant : main, plateaux et vilains inchangés)"
               className="rounded-lg border border-emerald-400/60 px-3 py-1.5 text-sm text-emerald-200 hover:bg-emerald-500/10"
             >
               ✖ Sortir du mode test
@@ -6210,6 +6658,25 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                   title={`Avancer de ${c.steps} case${c.steps > 1 ? 's' : ''} (clic ou glissé du pion)`}
                 />
               ))}
+            {/* Tabbou — grille 9×4 des tuiles Combattants, INCRUSTÉE en bas-gauche du
+                plateau. Dévoilement interactif par clic sur les dos. */}
+            {(user.fighterTiles?.length ?? 0) > 0 && (
+              <FighterGrid
+                tiles={user.fighterTiles!}
+                revealRemaining={
+                  state.pendingFighterReveal?.playerIndex === HUMAN ? state.pendingFighterReveal.remaining : 0
+                }
+                onReveal={resolveFighterReveal}
+                killColorMode={state.pendingFighterKillColor?.playerIndex === HUMAN}
+                onKillColor={resolveFighterKillColor}
+                killFreeMode={state.pendingFighterKillFree?.playerIndex === HUMAN}
+                killFreeRemaining={
+                  state.pendingFighterKillFree?.playerIndex === HUMAN ? state.pendingFighterKillFree.remaining : 0
+                }
+                onKillFree={resolveFighterKillFree}
+                onDoneKillFree={doneFighterKillFree}
+              />
+            )}
             {/* Le Seigneur des Ténèbres — on RÉVEILLE le Chaudron Magique via l'action
                 « Activer une capacité » donnée par les Squelettes de Soldats (clic sur la
                 carte/le bouton d'action de leur lieu), pas par un bouton/clic dédié. */}
@@ -6784,26 +7251,45 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               return n < 2
             })
             // RETRAIT : on clique directement le jeton Obstacle sur le plateau
-            // (surligné en jaune) → pas de boutons de lieu, juste « Terminer ».
-            // REPLACEMENT : pas de jeton à cliquer (emplacement vide) → boutons de lieu.
-            return (
-              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-400/70 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-                <span>🚧 <b>{pen.label}</b> — {pen.kind === 'remove' ? 'cliquez un jeton Obstacle (surligné) sur le plateau.' : 'cliquez un lieu où replacer un Obstacle.'}</span>
-                {pen.kind === 'replace' && eligible.map((l) => (
+            // (surligné en jaune) → bandeau inline + « Terminer ».
+            if (pen.kind === 'remove') {
+              return (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-400/70 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                  <span>🚧 <b>{pen.label}</b> — cliquez un jeton Obstacle (surligné) sur le plateau.</span>
                   <button
-                    key={l.id}
-                    onClick={() => resolveObstacle(l.id)}
-                    className="rounded bg-amber-600 px-2 py-1 text-white hover:bg-amber-500"
+                    onClick={doneObstacle}
+                    className="rounded border border-amber-400/60 px-2 py-1 hover:bg-amber-400/10"
                   >
-                    {l.name} ({tp.obstacles?.[l.id] ?? 0})
+                    Terminer
                   </button>
-                ))}
-                <button
-                  onClick={doneObstacle}
-                  className="rounded border border-amber-400/60 px-2 py-1 hover:bg-amber-400/10"
-                >
-                  Terminer
-                </button>
+                </div>
+              )
+            }
+            // REPLACEMENT (ex. Gaston « C'est gentil de m'avoir sauvé la vie ») : modale
+            // centrée pour CHOISIR le lieu où replacer les Obstacles.
+            return (
+              <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+                <div className="flex w-[30rem] max-w-[94vw] flex-col gap-4 rounded-2xl border border-amber-400/40 bg-[#1a1220] p-6 shadow-2xl">
+                  <h2 className="text-center text-lg font-bold text-amber-200">🚧 {pen.label}</h2>
+                  <p className="text-center text-sm text-white/80">Choisissez le lieu où replacer des Obstacles :</p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {eligible.map((l) => (
+                      <button
+                        key={l.id}
+                        onClick={() => resolveObstacle(l.id)}
+                        className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-500"
+                      >
+                        {l.name} ({tp.obstacles?.[l.id] ?? 0})
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={doneObstacle}
+                    className="mx-auto rounded-lg border border-white/20 px-4 py-2 text-sm text-white/80 hover:bg-white/10"
+                  >
+                    Terminer
+                  </button>
+                </div>
               </div>
             )
           })()}
@@ -6957,12 +7443,19 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           {/* Véhicule (Char d'Hadès / Bateau de Bowser) : déplacer figurine + Objet
               vers n'importe quel lieu (1×/tour). */}
           {chariotCard && !mode && (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-sky-400/70 bg-sky-500/10 px-3 py-2 text-xs text-sky-100">
+            <div
+              className="flex flex-wrap items-center gap-2 rounded-lg border border-sky-400/70 bg-sky-500/10 px-3 py-2 text-xs text-sky-100"
+              style={{ width: '80%', marginLeft: '18%' }}
+            >
               <span>
                 🏛️ <b>{chariotName}</b> : déplace ta figurine et le {chariotName} vers
               </span>
               {user.locations
-                .filter((l) => l.id !== user.pawnLocation)
+                .filter(
+                  (l) =>
+                    l.id !== user.pawnLocation &&
+                    !(user.lockedLocations ?? []).includes(l.id),
+                )
                 .map((l) => (
                   <button
                     key={l.id}
@@ -7051,25 +7544,38 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             </div>
             {handMode === 'discard' ? (
               // Pendant la défausse, le bouton « Fin de tour » est remplacé par un
-              // bouton « Défausser » identique mais BLEU (confirme la défausse).
-              <button
-                type="button"
-                onClick={handleConfirmDiscard}
-                disabled={!discardCanConfirm}
-                className="hs-wrapper bleu"
-              >
-                <span className="hs-button bleu">
-                  <span className="hs-border bleu">
-                    <span
-                      className="hs-text bleu"
-                      style={{ fontSize: '1rem', letterSpacing: '0.5px', whiteSpace: 'nowrap', padding: '0.6rem 0.5rem' }}
-                    >
-                      Défausser ({discardSelected.length}
-                      {discardRequired !== undefined ? `/${discardRequired}` : ''})
+              // bouton « Défausser » identique mais BLEU (confirme la défausse). En
+              // défausse normale, « Annuler » est placé JUSTE EN DESSOUS (au lieu de la
+              // « actions-case ») ; en défausse forcée (Tyrannie), pas d'annulation.
+              <div className="flex flex-col items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleConfirmDiscard}
+                  disabled={!discardCanConfirm}
+                  className="hs-wrapper bleu"
+                >
+                  <span className="hs-button bleu">
+                    <span className="hs-border bleu">
+                      <span
+                        className="hs-text bleu"
+                        style={{ fontSize: '1rem', letterSpacing: '0.5px', whiteSpace: 'nowrap', padding: '0.6rem 0.5rem' }}
+                      >
+                        Défausser ({discardSelected.length}
+                        {discardRequired !== undefined ? `/${discardRequired}` : ''})
+                      </span>
                     </span>
                   </span>
-                </span>
-              </button>
+                </button>
+                {!tyrannyDiscard && (
+                  <button
+                    type="button"
+                    onClick={() => setMode(null)}
+                    className="rounded border border-red-500/60 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/10"
+                  >
+                    Annuler
+                  </button>
+                )}
+              </div>
             ) : (
               <button
                 type="button"
@@ -7140,13 +7646,16 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               }))}
               playerGenders={state.players.map((p) => villainGender(p.villain))}
               playerArticles={state.players.map((p) => villainArticle(p.villain))}
+              playerVillains={state.players.map((p) => p.villain)}
             />
           </div>
           {/* Case d'actions : boutons de confirmation/annulation déplacés hors de la
-              main. Apparaît pour tout mode actif (jouer une carte, défausser…). En
-              défausse, « Fin de tour » reste grisé tant qu'on n'a pas cliqué
-              « Défausser » ou « Annuler ». */}
-          {handMode !== 'idle' && (
+              main. Apparaît pour les modes hors défausse normale (jouer une carte…) et
+              pour la défausse forcée (Tyrannie : message d'instruction). En défausse
+              NORMALE, elle est masquée : « Défausser » + « Annuler » vivent dans l'encart
+              du tour. */}
+          {handMode !== 'idle' &&
+            (handMode !== 'discard' || discardRequired !== undefined || !!tyrannyDiscard?.optional) && (
             <div className="actions-case rounded-xl border border-amber-400/60 bg-sky-500/20 p-3">
               {discardRequired !== undefined && (
                 <p className="mb-2 text-center text-[11px] font-medium text-amber-200">
@@ -7159,11 +7668,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 </p>
               )}
               <div className="flex items-center justify-center gap-2">
-                {/* La confirmation de défausse est portée par le bouton bleu
-                    « Défausser » (qui remplace « Fin de tour »). Ici, seul reste
-                    « Annuler » — sauf en défausse obligatoire (Tyrannie / facultative
-                    en attente, qui ne passent pas par `mode` et seraient bloquées). */}
-                {discardRequired === undefined && !tyrannyDiscard && (
+                {/* « Annuler » pour les modes hors défausse (jouer une carte…). En
+                    défausse normale, il est désormais placé sous le bouton bleu
+                    « Défausser » (voir l'encart du tour) ; en défausse obligatoire
+                    (Tyrannie), pas d'annulation. */}
+                {handMode !== 'discard' && discardRequired === undefined && !tyrannyDiscard && (
                   <button
                     onClick={() => setMode(null)}
                     className="rounded border border-red-500/60 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/10"
@@ -7227,6 +7736,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               flashOnly
               onActionClick={noop}
             />
+            {/* Tabbou côté ADVERSE : grille des Combattants en affichage seul (le bot
+                dévoile/tue automatiquement ; l'humain ne clique pas). */}
+            {(bot.fighterTiles?.length ?? 0) > 0 && (
+              <FighterGrid tiles={bot.fighterTiles!} revealRemaining={0} onReveal={noop} />
+            )}
             {/* Éclat « miroir brisé » du plateau (fin de partie : perdant ; ou test).
                 Reste affiché (fond sombre) tant que l'écran de fin est là. */}
             {botBoardDestroyed && (
@@ -7684,6 +8198,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           onChoose={resolveDrawOrGainPower}
         />
       )}
+
+      {/* Tabbou — modale « Destin » (dévoiler 3 / gagner 4). Tuer une couleur (Collection)
+          et Coup Fatal se font en direct sur la grille des Combattants. */}
+      <TabbouModals state={state} human={HUMAN} onDestin={resolveDestinChoice} />
 
       {/* La Bonne Fée — Infiltration : l'humain (cible) choisit défausser une carte OU perdre du Pouvoir. */}
       {state.pendingInfiltration && state.pendingInfiltration.playerIndex === HUMAN && (
@@ -9747,6 +10265,76 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         </div>
       )}
 
+      {/* Tabbou — « Dévoiler une tuile Combattant » : choisir combien de tuiles
+          dévoiler (1 → max). 1 JT = 1 Combattant ; Kirby ajoute un surcoût fixe. */}
+      {revealPick && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4">
+          <div className="flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-white/15 bg-[#140d24] p-6 text-center">
+            <h2 className="text-lg font-bold text-sky-200">Dévoiler des Combattants</h2>
+            <p className="text-sm text-white/70">
+              Dépense tes jetons Pouvoir pour dévoiler des tuiles Combattants (1 Pouvoir = 1 Combattant).
+            </p>
+            <div className="flex items-center justify-center gap-4">
+              <button
+                type="button"
+                onClick={() => setRevealPick((b) => (b ? { ...b, count: Math.max(1, b.count - 1) } : b))}
+                disabled={revealPick.count <= 1}
+                className="h-10 w-10 rounded-full border border-white/20 text-xl font-bold text-white/80 hover:bg-white/10 disabled:opacity-30"
+              >
+                −
+              </button>
+              <div className="flex min-w-[9rem] items-center justify-center gap-1.5 text-lg font-bold">
+                <span className="flex items-center gap-1 text-amber-100">
+                  <img src="/jeton_pouvoir.png" alt="" className="h-6 w-6 rounded-full" />
+                  {revealPick.count}
+                </span>
+                <span className="px-1 text-white/50">→</span>
+                <span className="flex items-center gap-1 text-sky-200">
+                  {/* Logo Smash en blanc (brightness(0) invert(1) → blanc pur). */}
+                  <img
+                    src="/cards/tabbou/smash.png"
+                    alt=""
+                    className="h-6 w-6"
+                    style={{ filter: 'brightness(0) invert(1)' }}
+                  />
+                  {revealPick.count}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRevealPick((b) => (b ? { ...b, count: Math.min(b.max, b.count + 1) } : b))}
+                disabled={revealPick.count >= revealPick.max}
+                className="h-10 w-10 rounded-full border border-white/20 text-xl font-bold text-white/80 hover:bg-white/10 disabled:opacity-30"
+              >
+                +
+              </button>
+            </div>
+            {revealPick.surcharge > 0 && (
+              <p className="text-xs text-rose-300">
+                Kirby : dévoiler coûte {revealPick.surcharge} Pouvoir de plus.
+                Total dépensé : {revealPick.count + revealPick.surcharge} Pouvoir.
+              </p>
+            )}
+            <div className="flex justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setRevealPick(null)}
+                className="rounded-lg border border-white/20 px-4 py-2 text-sm text-white/80 hover:bg-white/10"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={() => { handleAction(revealPick.actionId, revealPick.count); setRevealPick(null) }}
+                className="rounded-lg border border-sky-400/50 bg-sky-500/20 px-4 py-2 text-sm font-semibold text-sky-100 hover:bg-sky-500/30"
+              >
+                Dévoiler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* RÉSEAU : l'adversaire prépare une Condition → on bloque le joueur actif. */}
       {peerReacting && !netLeftNotice && (
         <div className="fixed inset-0 z-[75] flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px]">
@@ -9754,6 +10342,15 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             <span className="text-3xl">⏳</span>
             <p className="text-lg font-bold text-amber-200">{peerReacting} joue une condition !</p>
             <p className="text-sm text-white/60">Patiente le temps qu’il la résolve…</p>
+          </div>
+        </div>
+      )}
+
+      {/* Coup refusé par le moteur (ex. clic ailleurs pendant un dévoilement) : toast fugace. */}
+      {actionNotice && (
+        <div className="pointer-events-none fixed left-1/2 top-6 z-[130] -translate-x-1/2 px-4">
+          <div className="rounded-lg border border-amber-400/60 bg-[#241528]/95 px-4 py-2 text-center text-sm font-semibold text-amber-100 shadow-2xl backdrop-blur-sm">
+            {actionNotice}
           </div>
         </div>
       )}
@@ -9912,50 +10509,159 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 <option key={k} value={k}>{VILLAIN_REGISTRY[k].def.name}</option>
               ))}
             </select>
-            {selectedAction ? (
+            {blockedEdit ? (
+              /* Sous-mode « lieu bloqué » : réglage x/y/largeur/hauteur du voile sombre. */
               <>
-                <span className="text-cyan-200">{selectedAction.locName} · <b>{selectedAction.label}</b></span>
-                <label className="flex items-center gap-1">left%
-                  <input type="number" step={0.5} value={actionEdit[selectedAction.key]?.x ?? 0}
-                    onChange={(e) => updateActionPos('x', parseFloat(e.target.value))}
-                    className="w-20 rounded border border-white/20 bg-white/10 px-1.5 py-0.5 text-right" />
-                </label>
-                <label className="flex items-center gap-1">top%
-                  <input type="number" step={0.5} value={actionEdit[selectedAction.key]?.y ?? 0}
-                    onChange={(e) => updateActionPos('y', parseFloat(e.target.value))}
-                    className="w-20 rounded border border-white/20 bg-white/10 px-1.5 py-0.5 text-right" />
-                </label>
+                <span className="font-semibold text-amber-200">🔒 Lieu bloqué</span>
+                {blockedLocIds.length > 1 && (
+                  <select
+                    value={selectedBlocked ?? ''}
+                    onChange={(e) => setSelectedBlocked(e.target.value)}
+                    className="rounded border border-white/25 bg-[#1a0a24] px-2 py-1 text-white"
+                  >
+                    {blockedLocIds.map((id) => (
+                      <option key={id} value={id}>{editDef.locations.find((l) => l.id === id)?.name ?? id}</option>
+                    ))}
+                  </select>
+                )}
+                {selectedBlocked && blockedEdit[selectedBlocked] &&
+                  ([['x', 'left%'], ['y', 'top%'], ['width', 'larg%'], ['height', 'haut%']] as const).map(
+                    ([axis, label]) => (
+                      <label key={axis} className="flex items-center gap-1">{label}
+                        <input type="number" step={0.5} value={blockedEdit[selectedBlocked][axis]}
+                          onChange={(e) => updateBlockedGeo(axis, parseFloat(e.target.value))}
+                          className="w-16 rounded border border-white/20 bg-white/10 px-1.5 py-0.5 text-right" />
+                      </label>
+                    ),
+                  )}
+                <button onClick={saveBlockedOverlay}
+                  className="rounded-lg border border-amber-400/60 px-3 py-1.5 font-semibold text-amber-200 hover:bg-amber-500/15">
+                  💾 Sauvegarder le voile
+                </button>
+                {saveBlockedMsg && <span className="text-xs text-amber-300">{saveBlockedMsg}</span>}
+                <button onClick={closeBlockedEditor}
+                  className="rounded-lg border border-white/25 px-3 py-1.5 text-white/80 hover:bg-white/10">
+                  ◀ Retour aux actions
+                </button>
+                <button onClick={() => { closeBlockedEditor(); setHighlightActions(false) }}
+                  className="ml-auto rounded-lg border border-white/25 px-3 py-1.5 text-white/80 hover:bg-white/10">
+                  ✕ Fermer
+                </button>
               </>
             ) : (
-              <span className="text-white/60">Clique une pastille puis glisse-la (ou ajuste left/top).</span>
+              /* Mode normal : positions des actions + bouton d'accès au voile de lieu bloqué. */
+              <>
+                {selectedAction ? (
+                  <>
+                    <span className="text-cyan-200">{selectedAction.locName} · <b>{selectedAction.label}</b></span>
+                    <label className="flex items-center gap-1">left%
+                      <input type="number" step={0.5} value={actionEdit[selectedAction.key]?.x ?? 0}
+                        onChange={(e) => updateActionPos('x', parseFloat(e.target.value))}
+                        className="w-20 rounded border border-white/20 bg-white/10 px-1.5 py-0.5 text-right" />
+                    </label>
+                    <label className="flex items-center gap-1">top%
+                      <input type="number" step={0.5} value={actionEdit[selectedAction.key]?.y ?? 0}
+                        onChange={(e) => updateActionPos('y', parseFloat(e.target.value))}
+                        className="w-20 rounded border border-white/20 bg-white/10 px-1.5 py-0.5 text-right" />
+                    </label>
+                  </>
+                ) : (
+                  <span className="text-white/60">Clique une pastille puis glisse-la (ou ajuste left/top).</span>
+                )}
+                <button onClick={saveActionPositions}
+                  className="rounded-lg border border-lime-400/60 px-3 py-1.5 font-semibold text-lime-200 hover:bg-lime-500/15">
+                  💾 Sauvegarder les positions
+                </button>
+                {savePosMsg && <span className="text-xs text-lime-300">{savePosMsg}</span>}
+                {blockedLocIds.length > 0 && (
+                  <button onClick={openBlockedEditor}
+                    className="rounded-lg border border-amber-400/60 px-3 py-1.5 font-semibold text-amber-200 hover:bg-amber-500/15">
+                    🔒 Configurer le lieu bloqué
+                  </button>
+                )}
+                <button onClick={() => setHighlightActions(false)}
+                  className="ml-auto rounded-lg border border-white/25 px-3 py-1.5 text-white/80 hover:bg-white/10">
+                  ✕ Fermer
+                </button>
+              </>
             )}
-            <button onClick={saveActionPositions}
-              className="rounded-lg border border-lime-400/60 px-3 py-1.5 font-semibold text-lime-200 hover:bg-lime-500/15">
-              💾 Sauvegarder les positions
-            </button>
-            {savePosMsg && <span className="text-xs text-lime-300">{savePosMsg}</span>}
-            <button onClick={() => setHighlightActions(false)}
-              className="ml-auto rounded-lg border border-white/25 px-3 py-1.5 text-white/80 hover:bg-white/10">
-              ✕ Fermer
-            </button>
           </div>
           <div className="min-h-0 flex-1 overflow-auto">
-            <div className="relative mx-auto w-full">
+            <div className="blocked-board-wrap relative mx-auto w-full">
               <img src={editDef.boardImage} alt="" className="w-full select-none rounded-lg" draggable={false} />
-              <BoardActions
-                // Player factice : en mode `highlightAll`, BoardActions n'utilise que
-                // `player.villain` (clé ACTION_POS) et `player.locations`.
-                player={{ villain: editDef.id, locations: editDef.locations } as unknown as PlayerState}
-                availableActionIds={[]}
-                usedActionIds={[]}
-                onActionClick={noop}
-                highlightAll
-                editMode
-                posOverride={actionEdit}
-                selectedKey={selectedAction?.key ?? null}
-                onSelectAction={handleSelectActionPos}
-                onMoveAction={handleMoveActionPos}
-              />
+              {blockedEdit ? (
+                /* Voile(s) sombre(s) déplaçable(s) (corps) et redimensionnable(s) (poignée). */
+                blockedLocIds.map((id) => {
+                  const g = blockedEdit[id]
+                  if (!g) return null
+                  const sel = selectedBlocked === id
+                  const name = editDef.locations.find((l) => l.id === id)?.name ?? id
+                  return (
+                    <div
+                      key={id}
+                      onPointerDown={(e) => {
+                        e.preventDefault()
+                        setSelectedBlocked(id)
+                        const wrap = (e.currentTarget as HTMLElement).closest('.blocked-board-wrap') as HTMLElement | null
+                        if (!wrap) return
+                        const rect = wrap.getBoundingClientRect()
+                        const sx = e.clientX, sy = e.clientY, g0 = g
+                        const onMove = (ev: PointerEvent) => {
+                          const dx = ((ev.clientX - sx) / rect.width) * 100
+                          const dy = ((ev.clientY - sy) / rect.height) * 100
+                          handleMoveBlocked(id, Math.max(0, Math.min(100, g0.x + dx)), Math.max(0, Math.min(100, g0.y + dy)))
+                        }
+                        const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp) }
+                        window.addEventListener('pointermove', onMove)
+                        window.addEventListener('pointerup', onUp)
+                      }}
+                      title={`${name} — glisser pour déplacer`}
+                      className={`absolute flex touch-none cursor-grab items-center justify-center rounded-lg active:cursor-grabbing ${sel ? 'ring-2 ring-amber-300' : ''}`}
+                      style={{ left: `${g.x}%`, top: `${g.y}%`, width: `${g.width}%`, height: `${g.height}%`, zIndex: sel ? 30 : 20 }}
+                    >
+                      <div className="pointer-events-none flex h-full w-full items-center justify-center rounded-lg bg-black/55 backdrop-grayscale">
+                        <img src="/cards/jafar/lock.png" alt="" className="w-1/5 opacity-95 drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]" />
+                      </div>
+                      <div
+                        onPointerDown={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setSelectedBlocked(id)
+                          const wrap = (e.currentTarget as HTMLElement).closest('.blocked-board-wrap') as HTMLElement | null
+                          if (!wrap) return
+                          const rect = wrap.getBoundingClientRect()
+                          const sx = e.clientX, sy = e.clientY, g0 = g
+                          const onMove = (ev: PointerEvent) => {
+                            const dw = ((ev.clientX - sx) / rect.width) * 100
+                            const dh = ((ev.clientY - sy) / rect.height) * 100
+                            handleResizeBlocked(id, g0.width + dw, g0.height + dh)
+                          }
+                          const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp) }
+                          window.addEventListener('pointermove', onMove)
+                          window.addEventListener('pointerup', onUp)
+                        }}
+                        title="Glisser pour redimensionner"
+                        className="absolute -bottom-1.5 -right-1.5 h-4 w-4 cursor-nwse-resize touch-none rounded-sm border-2 border-amber-300 bg-amber-400/70"
+                      />
+                    </div>
+                  )
+                })
+              ) : (
+                <BoardActions
+                  // Player factice : en mode `highlightAll`, BoardActions n'utilise que
+                  // `player.villain` (clé ACTION_POS) et `player.locations`.
+                  player={{ villain: editDef.id, locations: editDef.locations } as unknown as PlayerState}
+                  availableActionIds={[]}
+                  usedActionIds={[]}
+                  onActionClick={noop}
+                  highlightAll
+                  editMode
+                  posOverride={actionEdit}
+                  selectedKey={selectedAction?.key ?? null}
+                  onSelectAction={handleSelectActionPos}
+                  onMoveAction={handleMoveActionPos}
+                />
+              )}
             </div>
           </div>
         </div>

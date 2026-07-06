@@ -115,5 +115,10 @@ export function playerMalus(state: GameState, idx: number): number {
     }
   }
   if (coveredLocations > 2) raw += COVER_WEIGHT
+  // Tabbou (objectif KILL_FIGHTERS) ne peut JAMAIS être bloqué dur : aucune de ses cartes
+  // Fatalité n'atteint block-*, elles ne font que RALENTIR. Ses cartes « slow » pèsent donc
+  // un peu plus dans le calcul, pour que le bot cesse de le fataliser sans relâche une fois
+  // plusieurs Héros posés (agressivité légèrement réduite ; cf. « moins agressif avec Tabbou »).
+  if (p.objective.type === 'KILL_FIGHTERS') raw *= 1.3
   return Math.min(1, raw / MALUS_CAP)
 }

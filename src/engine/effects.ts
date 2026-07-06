@@ -11,7 +11,7 @@
 // Ajouter un comportement = ajouter un variant à Effect + un `case` ici.
 // =============================================================================
 
-import type { CardInstance, CardType, Crewmate, CurseDiscardTrigger, DiceOutcome, Effect, GameState, LocationId, PlayerState } from './types'
+import type { CardInstance, CardType, Crewmate, CurseDiscardTrigger, DiceOutcome, Effect, FighterColor, GameState, LocationId, PlayerState } from './types'
 import { activePlayer, dioPowerFactor, drawPlayerToLimit, findLocation, pushDiscardShowcase, pushFloatingFx, pushRevealShowcase, pushRobinSteal, pushScryDiscardShowcase, pushShowcase, revealFate, syncObservatoryLock, updateActivePlayer, updatePlayer } from './state'
 import { neighborLocIds, placeCrewmateAt } from './crewmates'
 import { startRace, advanceRacer, advanceRacerByReveal, moveRacerBack, moveKingCandyTrack, vanellopeInstance, cardLocationIds } from './kingCandy'
@@ -74,6 +74,10 @@ import {
 export interface EffectContext {
   /** Index du joueur qui SUBIT/PROVOQUE l'effet. Défaut : joueur actif. */
   actorIndex?: number
+  /** Index du joueur qui a POSÉ la Fatalité (le lanceur), quand l'effet vient d'une
+   *  carte Fatalité placée chez `actorIndex`. Permet aux effets « de votre choix » de
+   *  laisser le CHOIX au lanceur (Team Rocket — Onix, Stari). Défaut : non défini. */
+  playedBy?: number
   /** Carte hôte sur laquelle s'ancrer (Héros qui vient d'être posé, etc.). */
   hostInstanceId?: string
   /** Lieu où se trouve la carte hôte. */
@@ -94,6 +98,9 @@ export interface EffectContext {
   /** Reine de Cœur — Rapetisser : action du haut que le Héros rapetissé laisse
    *  LIBRE (choisie par le joueur). Absent = la 1ʳᵉ action du haut (auto). */
   shrinkFreeActionId?: string
+  /** Nom de la carte source de l'effet (pour l'inclure dans le journal — ex. Fatalité
+   *  « Rassemblement » qui remet des Combattants en réserve). Absent = non indiqué. */
+  sourceCardName?: string
 }
 
 // --- Helpers Coéquipiers (L'Imposteur) ---------------------------------------
@@ -2190,6 +2197,104 @@ export function resolveEffect(
 ): GameState {
   const idx = ctx?.actorIndex ?? state.activePlayer
   switch (effect.type) {
+    // --- Tabbou : tuiles Combattants -----------------------------------------
+    case 'REVEAL_FIGHTERS': {
+      // Ouvre le dévoilement INTERACTIF : le joueur retourne jusqu'à `count` tuiles
+      // face cachée de la grille (clic direct sur les dos). Bot auto (au hasard).
+      const p = state.players[idx]
+      const hidden = (p.fighterTiles ?? []).filter((t) => t.state === 'pile').length
+      if (hidden === 0) {
+        return { ...state, log: [...state.log, `${p.villainName} : aucune tuile Combattant à dévoiler (pioche vide).`] }
+      }
+      const remaining = Math.min(effect.count, hidden)
+      return {
+        ...state,
+        pendingFighterReveal: { playerIndex: idx, remaining },
+        log: [...state.log, `${p.villainName} : dévoilez ${remaining} tuile${remaining > 1 ? 's' : ''} Combattant (cliquez sur les dos).`],
+      }
+    }
+    case 'KILL_FIGHTERS_COLOR': {
+      // Ouvre le choix de la couleur à tuer (toutes les tuiles de cette couleur en réserve).
+      const p = state.players[idx]
+      if (!(p.fighterTiles ?? []).some((t) => t.state === 'reserve')) {
+        return { ...state, log: [...state.log, `${p.villainName} : aucun Combattant en réserve à tuer.`] }
+      }
+      return {
+        ...state,
+        pendingFighterKillColor: { playerIndex: idx },
+        log: [...state.log, `${p.villainName} : choisissez une couleur de Combattants à tuer.`],
+      }
+    }
+    case 'KILL_FIGHTERS_FREE': {
+      // Coup Fatal : tuer jusqu'à `max` Combattants de la réserve (choix tuile par tuile).
+      const p = state.players[idx]
+      const reserve = (p.fighterTiles ?? []).filter((t) => t.state === 'reserve').length
+      if (reserve === 0) {
+        return { ...state, log: [...state.log, `${p.villainName} : aucun Combattant en réserve à tuer.`] }
+      }
+      return {
+        ...state,
+        pendingFighterKillFree: { playerIndex: idx, remaining: Math.min(effect.max, reserve) },
+        log: [...state.log, `${p.villainName} (Coup Fatal) : tuez jusqu'à ${Math.min(effect.max, reserve)} Combattant(s).`],
+      }
+    }
+    case 'RETURN_KILLED_FIGHTERS': {
+      // Fatalité : remet `count` tuile(s) TUÉE(s) dans la réserve (recul), même couleur si possible.
+      const p = state.players[idx]
+      const killed = (p.fighterTiles ?? []).filter((t) => t.state === 'killed')
+      if (killed.length === 0) {
+        return { ...state, log: [...state.log, `${p.villainName} : aucun Combattant tué à remettre en réserve.`] }
+      }
+      const target = Math.min(effect.count, killed.length)
+      let ordered = killed
+      if (effect.sameColorIfPossible) {
+        const counts = new Map<FighterColor, number>()
+        killed.forEach((t) => counts.set(t.color, (counts.get(t.color) ?? 0) + 1))
+        const bestColor = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0]
+        ordered = [...killed.filter((t) => t.color === bestColor), ...killed.filter((t) => t.color !== bestColor)]
+      }
+      const ids = new Set(ordered.slice(0, target).map((t) => t.id))
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        fighterTiles: (pl.fighterTiles ?? []).map((t) => (ids.has(t.id) ? { ...t, state: 'reserve' as const } : t)),
+      }))
+      const pl = target > 1 ? 's' : ''
+      const src = ctx?.sourceCardName ? `**${ctx.sourceCardName}** — ` : ''
+      return {
+        ...next,
+        log: [...next.log, `${p.villainName} : ${src}${target} Combattant${pl} tué${pl} ${target > 1 ? 'reviennent' : 'revient'} en réserve.`],
+      }
+    }
+    case 'SUBSPACE_ORB_PLACED': {
+      // Si les 3 lieux hors Émissaire portent chacun ≥ 1 Orbe, déverrouille l'Émissaire.
+      const p = state.players[idx]
+      const emissaire = p.emissaireLocationId
+      if (emissaire === undefined) return state
+      if (!(p.lockedLocations ?? []).includes(emissaire)) return state
+      const orbLocs = p.locations.map((l) => l.id).filter((id) => id !== emissaire)
+      const allHaveOrb = orbLocs.every((locId) =>
+        (p.board[locId] ?? []).some(
+          (c) => !c.attachedTo && (c.effects ?? []).some((e) => e.type === 'SUBSPACE_ORB_PLACED'),
+        ),
+      )
+      if (!allHaveOrb) return state
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        lockedLocations: (pl.lockedLocations ?? []).filter((l) => l !== emissaire),
+      }))
+      return {
+        ...next,
+        log: [...next.log, `${p.villainName} : les 3 Orbes subspatiaux sont posés — l'Émissaire Subspatial est débloqué !`],
+      }
+    }
+    case 'DESTIN_CHOICE': {
+      const p = state.players[idx]
+      return {
+        ...state,
+        pendingDestinChoice: { playerIndex: idx },
+        log: [...state.log, `${p.villainName} (Destin) : dévoiler 3 Combattants OU gagner 4 Pouvoir ?`],
+      }
+    }
     case 'CLAIM_BLACK_CAULDRON': {
       // Le Seigneur des Ténèbres : s'emparer du Chaudron Magique (tuile hors deck). Sans
       // effet s'il est déjà réclamé/réveillé. Passe 'set-aside' → 'claimed'.
@@ -4931,7 +5036,8 @@ export function resolveEffect(
       // Team Rocket — Togepi : l'acteur (le joueur ciblé par la Fatalité) perd `amount`
       // pouvoir par Héros présent dans son royaume (plancher 0).
       const heroes = countHeroesInRealm(state, idx)
-      const loss = Math.min(state.players[idx].power, heroes * effect.amount)
+      const wanted = effect.max !== undefined ? Math.min(heroes * effect.amount, effect.max) : heroes * effect.amount
+      const loss = Math.min(state.players[idx].power, wanted)
       if (loss <= 0) return state
       const next = updatePlayer(state, idx, (p) => ({ ...p, power: p.power - loss }))
       const actor = next.players[idx]
@@ -8223,13 +8329,12 @@ export function resolveEffect(
       return { ...next, log: [...next.log, `Comète farceuse : **${pick.name}** est défaussé du royaume de ${actor.villainName}.`] }
     }
     case 'DISCARD_ALLY_OR_ITEM': {
-      // Onix (Pokémon Fatalité) : défausse un Allié OU un Objet du royaume de la cible.
-      // Auto en TIERS (cf. stratégie Team Rocket) : un Objet-moteur à haute priorité de
-      // retrait (`fateRemovalPriority` ≥ HIGH, p. ex. Mongolfière) d'abord, puis les Alliés
-      // (par force), puis les autres Objets (par priorité de retrait, à défaut le coût).
-      // Alliés/Objets non associés et non immunisés ; les Objets associés partent avec la cible.
+      // Onix (Pokémon Fatalité) : le LANCEUR de la Fatalité défausse un Allié OU un Objet
+      // « de son choix » du royaume de la cible (choix INTERACTIF via pendingFateDiscardAlly ;
+      // le bot auto-résout). Alliés/Objets non associés et non immunisés ; un seul candidat →
+      // auto ; aucun → no-op. Les Objets associés partent avec leur hôte.
       const actor = state.players[idx]
-      const HIGH_REMOVAL = 5 // seuil « Objet-moteur retiré avant les Alliés »
+      const chooser = ctx?.playedBy ?? state.activePlayer
       type Cand = { c: CardInstance; loc: LocationId }
       const cands: Cand[] = []
       for (const l of actor.locations) {
@@ -8241,14 +8346,20 @@ export function resolveEffect(
       if (cands.length === 0) {
         return { ...state, log: [...state.log, `${actor.villainName} : aucun Allié ni Objet à défausser (Onix).`] }
       }
-      const rank = ({ c }: Cand) => {
-        if (c.type === 'item') {
-          const p = c.fateRemovalPriority ?? 0
-          return p >= HIGH_REMOVAL ? 300_000 + p : p * 100 + (c.cost ?? 0)
+      if (cands.length >= 2) {
+        return {
+          ...state,
+          pendingFateDiscardAlly: {
+            chooserIndex: chooser,
+            targetIndex: idx,
+            candidateIds: cands.map((x) => x.c.instanceId),
+            cardName: 'Onix',
+          },
+          log: [...state.log, `Onix : choisissez un Allié ou un Objet à défausser du royaume de ${actor.villainName}.`],
         }
-        return 100_000 + (c.strength ?? 0) // Allié : tier intermédiaire
       }
-      const target = [...cands].sort((a, b) => rank(b) - rank(a))[0]
+      // Candidat unique : défausse directe (avec ses Objets associés).
+      const target = cands[0]
       const loc = target.loc
       const attachedIds = new Set((actor.board[loc] ?? []).filter((c) => c.attachedTo === target.c.instanceId).map((c) => c.instanceId))
       const removeIds = new Set<string>([target.c.instanceId, ...attachedIds])
@@ -8316,10 +8427,12 @@ export function resolveEffect(
       return { ...next, log: [...next.log, `Oui, la guerre ! : **${target.c.name}** est couché (K.O.) — prêt à être attrapé.`] }
     }
     case 'MOVE_OWN_ALLY_ADJACENT': {
-      // Stari (à la pose) : « Vous pouvez déplacer un Allié sur un lieu voisin. » Choix
-      // INTERACTIF (clic plateau) : on ouvre pendingAllyRelocate (facultatif, restreint aux
-      // lieux voisins). No-op s'il n'existe aucun Allié déplaçable vers un lieu voisin libre.
+      // Stari (à la pose, Fatalité) : le LANCEUR de la Fatalité « peut déplacer un Allié
+      // [de la cible] sur un lieu voisin ». Choix INTERACTIF (modale) : pendingAllyRelocate
+      // facultatif, restreint aux lieux voisins ; chooser = lanceur, cible = royaume où
+      // l'Allié se trouve. No-op s'il n'existe aucun Allié déplaçable vers un lieu voisin libre.
       const p = state.players[idx]
+      const chooser = ctx?.playedBy ?? state.activePlayer
       const locked = new Set(p.lockedLocations ?? [])
       const canMove = p.locations.some((l) => {
         const hasAlly = (p.board[l.id] ?? []).some((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket)
@@ -8329,7 +8442,7 @@ export function resolveEffect(
       return {
         ...state,
         pendingAllyRelocate: {
-          chooserIndex: idx,
+          chooserIndex: chooser,
           targetIndex: idx,
           optional: true,
           adjacentOnly: true,
@@ -8952,6 +9065,9 @@ export function resolveEffect(
       // défausse Fatalité. S'il y en a plusieurs, le joueur CHOISIT laquelle
       // (pendingFateChoice `play-fate-card-from-discard`) ; sinon c'est automatique.
       const actor = state.players[idx]
+      // Le CHOIX revient au lanceur : Scar joue « Petit secret » sur lui-même (playedBy = idx) ;
+      // Tabbou « Ressuscité » est une Fatalité posée par l'adversaire, qui choisit alors le Héros.
+      const chooser = ctx?.playedBy ?? idx
       const candidates = actor.fateDiscard.filter((c) => c.type === 'hero' || c.type === 'effect')
       if (candidates.length === 0) {
         return { ...state, log: [...state.log, 'Petit secret : aucune carte Fatalité jouable dans la défausse.'] }
@@ -8962,7 +9078,7 @@ export function resolveEffect(
       return {
         ...state,
         pendingFateChoice: {
-          chooserIndex: idx,
+          chooserIndex: chooser,
           targetIndex: idx,
           kind: 'play-fate-card-from-discard',
           candidateIds: candidates.map((c) => c.instanceId),

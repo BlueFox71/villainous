@@ -11,7 +11,7 @@ import { create } from 'zustand'
 import type { CustomVillain } from '../../data/customVillain'
 import { CUSTOM_VILLAIN_FORMAT } from '../../data/customVillain'
 import { loadBundledVillains } from '../../data/published/load'
-import { registerPublishedVillain } from './gameStore'
+import { registerPublishedVillain, unregisterPublishedVillain } from './gameStore'
 
 /** Enregistre au runtime tous les vilains PUBLIÉS d'une liste (cartes/couleur/
  *  positions d'actions) pour qu'ils soient jouables/affichables comme des natifs. */
@@ -94,6 +94,18 @@ async function deleteBackup(id: string): Promise<void> {
   } catch { /* pas de serveur de dév → on ignore */ }
 }
 
+/** Supprime la copie EMBARQUÉE (`src/data/published/<id>.json`) d'un vilain publié
+ *  (dépublication persistée « dans le code »). Best-effort : silencieux hors serveur de dév. */
+async function deletePublished(id: string): Promise<void> {
+  try {
+    await fetch('/__unpublish-villain', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    })
+  } catch { /* pas de serveur de dév → on ignore */ }
+}
+
 /** Lit les brouillons sauvegardés sur disque (best-effort, [] si indisponible). */
 async function listBackups(): Promise<CustomVillain[]> {
   try {
@@ -137,6 +149,9 @@ interface CustomVillainStore {
   save: (v: CustomVillain) => Promise<void>
   /** Supprime un vilain par id. */
   remove: (id: string) => Promise<void>
+  /** Dépublie un vilain : `published=false`, retiré du runtime (plus jouable/listé) ET
+   *  du code embarqué (`src/data/published`). Il reste un brouillon éditable dans l'Atelier. */
+  unpublish: (id: string) => Promise<void>
   /** Récupère un vilain par id (depuis la liste en mémoire). */
   get: (id: string) => CustomVillain | undefined
   /** Exporte un vilain en chaîne JSON formatée. */
@@ -193,6 +208,17 @@ export const useCustomVillainStore = create<CustomVillainStore>((set, get) => ({
     await idbDelete(id)
     void deleteBackup(id) // retire aussi la copie disque (best-effort)
     set((s) => ({ villains: s.villains.filter((x) => x.id !== id) }))
+  },
+
+  unpublish: async (id) => {
+    const v = get().villains.find((x) => x.id === id)
+    if (!v) return
+    const next = { ...v, published: false, updatedAt: new Date().toISOString() }
+    await idbPut(next) // persiste `published=false` (prime sur le JSON embarqué au chargement)
+    void backupToDisk(next) // conserve le brouillon (filet de sécurité disque)
+    void deletePublished(id) // retire src/data/published/<id>.json — dépublication « dans le code »
+    unregisterPublishedVillain(id) // retire du registre runtime → plus jouable/listé
+    set((s) => ({ villains: [next, ...s.villains.filter((x) => x.id !== id)] }))
   },
 
   get: (id) => get().villains.find((v) => v.id === id),

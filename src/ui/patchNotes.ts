@@ -47,6 +47,21 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.3.0',
+    date: '2026-07-07',
+    title: 'Nouveau vilain : Tabbou (Super Smash Bros.)',
+    tags: ['villain', 'ia', 'correctif', 'interface'],
+    changes: [
+      'Nouveau vilain **Tabbou** (Émissaire Subspatial) : sa mécanique inédite de **tuiles Combattants** colorées.',
+      "**Choix des vilains** amélioré, et chaque vilain affiche désormais sa **devise**.",
+      "**IA** : l'adversaire se montre un peu **moins agressif** en Fatalité contre Tabbou.",
+      "**Team Rocket** : c'est le **lanceur** de la Fatalité qui choisit désormais — **Onix** (défausser un Allié/Objet), **Stari** (déplacer un Allié), **Ressuscité** (Héros ramené).",
+      "**Correctif** : plus de **blocage** quand **Flèche** réagit à une Fatalité ; **animation de pioche** corrigée.",
+      "**Interface** : **journal** plus clair (**élimination** et **activation** en blocs à part, **montant de Pouvoir** affiché) ; un **message** apparaît quand un coup est refusé ; modales **Destin**, **Coup Fatal** et **choix de lieu** (Gaston) revues.",
+      "**Gaston** : le troisième lieu s'appelle désormais **Forêt**.",
+    ],
+  },
+  {
     version: '1.2.0',
     date: '2026-07-02',
     title: 'Nouveau vilain : Le Piégeur (Dead by Daylight)',

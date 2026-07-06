@@ -9,11 +9,16 @@ import { useIsDesktopApp } from '../store/settingsStore'
 import { Scroller } from './Scroller'
 import { VillainEditModal } from './VillainEditModal'
 import { playPageFlip, playCardHover, playTinyButtonPress } from '../sfx'
+import { playVillainPhrase, villainPhraseUrl } from '../villainVoices'
 
 interface Props {
   /** Clé du vilain : native (VillainKey) ou publiée (id `custom-…`). */
   villain: string
   onClose: () => void
+  /** Aller à la fiche du vilain précédent (absent = pas de précédent). */
+  onPrev?: () => void
+  /** Aller à la fiche du vilain suivant (absent = pas de suivant). */
+  onNext?: () => void
 }
 
 /** Libellé court du type de carte (pour le survol). */
@@ -115,7 +120,7 @@ function TipList({ title, tips, color }: { title: string; tips: string[]; color:
  * Fiche détaillée d'un vilain : portrait, difficulté, objectif, histoire et
  * conseils pour le jouer / le contrer. Affichée en surimpression (modale).
  */
-export function VillainDetailModal({ villain, onClose }: Props) {
+export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) {
   const [showCards, setShowCards] = useState(false)
   const [showBoard, setShowBoard] = useState(false)
   // Outil de dév (caché en exe / simulation .exe) : la couleur thématique du vilain.
@@ -136,6 +141,9 @@ export function VillainDetailModal({ villain, onClose }: Props) {
   // Vilain inconnu (clé invalide) : rien à afficher.
   if (!v) return null
   const villainColor = VILLAIN_COLOR[v.def.id]
+  // Réplique audio du vilain (si un fichier de phrase existe) : bouton « écouter »
+  // à droite du nom. Vilains natifs uniquement (les publiés n'en ont pas).
+  const hasPhrase = !!villainPhraseUrl(villain)
   // Pack du vilain (boîte) : affiche, nom, date de sortie ; tooltip = liste des vilains du pack.
   // Les vilains PUBLIÉS n'ont pas de pack : on affichera plutôt leur créateur.
   const pack = custom ? undefined : villainPack(villain as VillainKey)
@@ -184,6 +192,33 @@ export function VillainDetailModal({ villain, onClose }: Props) {
       }`}
       onClick={onClose}
     >
+      {/* Flèches de navigation entre fiches : centrées verticalement, aux bords gauche
+          et droit de l'écran. Masquées aux extrémités de la liste (onPrev/onNext absent).
+          stopPropagation pour ne pas fermer la fiche en cliquant sur le fond. */}
+      {onPrev && (
+        <button
+          type="button"
+          onClick={(e: MouseEvent) => { e.stopPropagation(); playPageFlip(); onPrev() }}
+          onMouseEnter={playCardHover}
+          title="Vilain précédent"
+          aria-label="Vilain précédent"
+          className="fixed left-3 top-1/2 z-[70] flex h-16 w-16 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/60 text-6xl leading-none text-white/80 transition hover:scale-110 hover:border-amber-300/60 hover:bg-black/80 hover:text-amber-200"
+        >
+          <span className="-translate-y-1.5">‹</span>
+        </button>
+      )}
+      {onNext && (
+        <button
+          type="button"
+          onClick={(e: MouseEvent) => { e.stopPropagation(); playPageFlip(); onNext() }}
+          onMouseEnter={playCardHover}
+          title="Vilain suivant"
+          aria-label="Vilain suivant"
+          className="fixed right-3 top-1/2 z-[70] flex h-16 w-16 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/60 text-6xl leading-none text-white/80 transition hover:scale-110 hover:border-amber-300/60 hover:bg-black/80 hover:text-amber-200"
+        >
+          <span className="-translate-y-1.5">›</span>
+        </button>
+      )}
       <div
         className={`relative flex max-h-full w-full items-center transition-[max-width] duration-300 ${
           showCards ? 'max-w-6xl' : showBoard ? 'max-w-5xl' : 'max-w-2xl'
@@ -215,7 +250,22 @@ export function VillainDetailModal({ villain, onClose }: Props) {
             />
             <div className="flex min-w-0 flex-1 flex-col">
               <div className="flex items-start justify-between gap-3">
-                <h2 className="text-2xl font-black text-amber-200">{v.def.name}</h2>
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <h2 className="text-2xl font-black text-amber-200">{v.def.name}</h2>
+                  {/* Réplique audio : jouée au clic (icône haut-parleur). Affichée
+                      seulement si le vilain a un fichier de phrase. */}
+                  {hasPhrase && (
+                    <button
+                      type="button"
+                      onClick={() => playVillainPhrase(villain as VillainKey)}
+                      title="Écouter sa réplique"
+                      aria-label="Écouter sa réplique"
+                      className="shrink-0 rounded-full border border-amber-400/50 px-2 py-1 text-base leading-none text-amber-200 hover:bg-amber-400/15"
+                    >
+                      🔊
+                    </button>
+                  )}
+                </div>
                 <div className="flex shrink-0 items-center gap-2">
                   {/* Couleur du vilain (dév, masqué en exe / simulation .exe). */}
                   {!isDesktopApp && villainColor && (
@@ -247,6 +297,10 @@ export function VillainDetailModal({ villain, onClose }: Props) {
                   </button>
                 </div>
               </div>
+              {/* Devise / réplique emblématique du vilain, sous le nom. */}
+              {guide.devise && (
+                <p className="mt-1 text-sm italic leading-snug text-amber-100/70">« {guide.devise} »</p>
+              )}
               <div className="mt-2 flex items-center gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wide text-white/40">
                   Difficulté

@@ -1,7 +1,7 @@
 // Voix d'intro de début de partie. Séquence : voix de MON vilain → « Contre »
 // → voix du vilain ADVERSE. Chaque entrée a 4 variantes ; on en tire une au
 // hasard. Les fichiers vivent dans `assets/Voix Villainous/`.
-import { villainKeyOf, isCustomKey, customVillainOf, type VillainKey } from './store/gameStore'
+import { villainKeyOf, isCustomKey, customVillainOf, VILLAIN_REGISTRY, type VillainKey } from './store/gameStore'
 import { useSettingsStore } from './store/settingsStore'
 
 // Glob EAGER des voix en URL (fichiers .wav légers, simples références d'URL —
@@ -34,6 +34,7 @@ const VOICE_PREFIX: Record<VillainKey, string> = {
   facilier: 'Docteur Facilier',
   imposteur: "L'imposteur",
   bowser: 'Bowser', // pas (encore) de fichiers de voix → intro silencieuse
+  tabbou: 'Tabbou', // pas (encore) de fichiers de voix → intro silencieuse
   mechanteReine: 'La méchante Reine',
   scar: 'Scar',
   yzma: 'Yzma',
@@ -159,17 +160,26 @@ export function playVillainIntro(myVillainId: string, oppVillainId: string, onDo
 
 // --- Phrases de fermeture d'intro -------------------------------------------
 // Quand les portraits quittent l'écran (fin de l'intro), un vilain peut « lâcher »
-// une phrase. Fichiers .mp3 dans `assets/Voix Villainous/` (ex. « Scar phrase.mp3 »).
+// une phrase. Fichiers .mp3/.m4a dans `assets/Voix Villainous/` (ex. « Scar phrase.mp3 »).
 // On capte « phrase » ET « Phrase » (selon la casse du nom de fichier, ex. « Mère
 // Gothel Phrase.mp3 ») : le glob de Vite est sensible à la casse.
-const PHRASE_FILES = import.meta.glob(['/assets/Voix Villainous/*phrase*.mp3', '/assets/Voix Villainous/*Phrase*.mp3'], {
-  eager: true,
-  query: '?url',
-  import: 'default',
-}) as Record<string, string>
+const PHRASE_FILES = import.meta.glob(
+  [
+    '/assets/Voix Villainous/*phrase*.mp3',
+    '/assets/Voix Villainous/*Phrase*.mp3',
+    // Certaines phrases sont fournies en .m4a (AAC), lu nativement par le navigateur.
+    '/assets/Voix Villainous/*phrase*.m4a',
+    '/assets/Voix Villainous/*Phrase*.m4a',
+  ],
+  {
+    eager: true,
+    query: '?url',
+    import: 'default',
+  },
+) as Record<string, string>
 const PHRASE_BY_NAME: Record<string, string> = {}
 for (const [path, url] of Object.entries(PHRASE_FILES)) {
-  const file = path.slice(path.lastIndexOf('/') + 1).replace(/\.mp3$/i, '')
+  const file = path.slice(path.lastIndexOf('/') + 1).replace(/\.(mp3|m4a)$/i, '')
   PHRASE_BY_NAME[file.toLowerCase().normalize('NFC')] = url
 }
 // Nom de fichier (sans extension) par vilain + gain relatif optionnel (1 = plein
@@ -186,12 +196,28 @@ const PHRASE_FILE: Partial<Record<VillainKey, { file: string; gain?: number; fad
   madameTremaine: { file: 'Phrase madame de trémaine' },
   facilier: { file: 'Phrase Dr facilier' },
   syndrome: { file: 'Phrase syndrome' },
+  gaston: { file: 'gaston phrase' },
+  tabbou: { file: 'Tabbou phrase' },
+  bowser: { file: 'Bowser phrase' },
+  teamRocket: { file: 'Team Rocket phrase' },
+  laBonneFee: { file: 'marraine la bonne fée phrase' },
 }
 function phraseTrack(key: VillainKey): { url: string; gain: number; fadeEndS: number } | undefined {
   const entry = PHRASE_FILE[key]
   if (!entry) return undefined
   const url = PHRASE_BY_NAME[entry.file.toLowerCase().normalize('NFC')]
   return url ? { url, gain: entry.gain ?? 1, fadeEndS: entry.fadeEndS ?? 0.6 } : undefined
+}
+
+/** URL de la phrase d'un vilain NATIF si un fichier existe, sinon undefined. Sert à
+ *  décider d'afficher (ou non) un bouton « écouter la réplique » (fiche vilain). Les
+ *  vilains personnalisés/publiés n'ont pas de phrase → undefined. */
+export function villainPhraseUrl(villainId: string): string | undefined {
+  if (isCustomKey(villainId)) return undefined
+  // `villainId` peut être une VillainKey (fiche vilain) OU un def.id : on résout la clé
+  // sans passer par le fallback `princeJohn` de `villainKeyOf` quand c'est déjà une clé.
+  const key = (villainId in VILLAIN_REGISTRY ? (villainId as VillainKey) : villainKeyOf(villainId))
+  return phraseTrack(key)?.url
 }
 
 /** Joue la phrase d'un vilain (si elle existe), p. ex. à sa sélection dans l'écran

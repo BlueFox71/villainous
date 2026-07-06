@@ -589,6 +589,69 @@ body {
   78% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   100% { opacity: 0; transform: translate(-50%, -50%) scale(1.12); }
 }
+/* Tabbou (path `dash-right`) : l'image d'attaque apparaît en FONDU LUMINEUX (lueur noire), reste ~3 s,
+   puis FILE EN FLÈCHE à l'horizontale vers la droite (léger étirement), avec un tracé de vitesse bleu.
+   Deux bandes selon le camp : JOUEUR en bas (orientation de base) ; ADVERSAIRE en haut = L'INVERSE, via
+   `--fy: -1` (retournement vertical) porté par le SPAN → image + tracé retournés d'un seul coup. */
+.tabbou-dash {
+  position: absolute;
+  opacity: 0;
+  /* Lueur NOIRE (ombre portée sombre autour de l'image). */
+  filter: drop-shadow(0 0 1.6vh rgba(0, 0, 0, 0.9)) drop-shadow(0 0 4vh rgba(0, 0, 0, 0.65));
+  will-change: transform, opacity;
+  transform: scale(var(--fx, 1), 1) translateX(0);
+  animation-name: tabbouDash;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+.tabbou-dash-img {
+  display: block;
+  width: auto;
+  max-width: none;
+  position: relative;
+  z-index: 1; /* au-dessus du tracé de vitesse */
+}
+/* Tracé de vitesse BLEU derrière l'image (orientation de base : à GAUCHE de l'image, brillant côté image),
+   révélé en fondu au départ en flèche. Le retournement vertical de la bande haute est porté par le SPAN. */
+.tabbou-dash-trail {
+  position: absolute;
+  top: 35%;
+  left: 50%;
+  z-index: 0;
+  width: 55vw;
+  height: 4.5vh;
+  border-radius: 50%;
+  filter: blur(2px) drop-shadow(0 0 1.2vh rgba(98, 236, 234, 0.6));
+  mix-blend-mode: screen;
+  opacity: 0;
+  pointer-events: none;
+  will-change: opacity;
+  /* Décalé à droite de 3vw puis tiré vers la gauche (trace derrière l'image). Dégradé brillant à droite. */
+  transform: translateX(calc(3vw - 100%));
+  background: linear-gradient(to right, rgba(98, 236, 234, 0) 0%, rgba(98, 236, 234, 0.5) 65%, #62ecea 100%);
+  animation-name: tabbouDashTrail;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+@keyframes tabbouDashTrail {
+  0%, 81% { opacity: 0; }
+  88% { opacity: var(--trail-op, 0.4); } /* apparaît en fondu au départ en flèche */
+  100% { opacity: 0; }
+}
+/* Le SCALE (en tête → appliqué en DERNIER) porte le miroir horizontal (--fx) : le translateX est appliqué
+   AVANT, donc `--fx: -1` inverse le sens → l'adversaire file vers la GAUCHE (image + tracé miroités). */
+@keyframes tabbouDash {
+  0% { opacity: 0; transform: scale(calc(var(--fx, 1) * 0.9), 0.9) translateX(0); }
+  /* Fondu lumineux d'apparition (~0,4 s). */
+  10% { opacity: 1; transform: scale(var(--fx, 1), 1) translateX(0); animation-timing-function: ease-out; }
+  /* Reste posé ~3 s, puis amorce l'accélération de la flèche. */
+  82% { opacity: 1; transform: scale(var(--fx, 1), 1) translateX(0); animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.35); }
+  /* File en flèche (léger étirement horizontal) ; le sens dépend de --fx. */
+  100% { opacity: 1; transform: scale(calc(var(--fx, 1) * 1.18), 1) translateX(125vw); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tabbou-dash { animation: none; opacity: 0; }
+}
 /* Roses de la Reine de Cœur : chaque rose apparaît en fondu (échelonnée), reste
    blanche, puis un calque rouge (masqué à sa forme, en multiply pour garder le
    relief) s'allume ; toute la nuée disparaît ensuite via le fondu du calque.
@@ -7495,4 +7558,454 @@ body {
 }
 @media (prefers-reduced-motion: reduce) {
   .prop-drop { animation: none; }
+}
+
+/* -----------------------------------------------------------------------------
+   Décor permanent : Tabbou (kind `underwater`) — vue SOUS L'EAU vers la surface.
+   Fond NOIR ; la SURFACE miroitante en haut (caustiques bleutées qui ondulent),
+   des RAYONS de lumière descendants en éventail, des BULLES qui remontent.
+   Cf. components/VillainDecor.tsx.
+   ----------------------------------------------------------------------------- */
+.underwater-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #000;
+  /* Isole le décor : ses (re)peintures ne débordent pas sur le reste de l'interface. */
+  contain: layout paint style;
+}
+/* Surface miroitante sur TOUT le décor. On empile plusieurs calques (cf. VillainDecor.tsx), chacun
+   CLAIRSEMÉ : tous affichent le même dégradé et la turbulence caustique leur sert de MASQUE tuilé →
+   seul le motif des caustiques laisse voir le dégradé (la couleur vient du dégradé).
+   PERF : la dérive se fait en `transform: translate` (+ scale) — composité par le GPU, PAS de repaint
+   du masque à chaque frame (contrairement à `mask-position` qu'on animait avant, qui saccadait). */
+.underwater-surface {
+  position: absolute;
+  inset: -45%;
+  /* Dégradé « caché » (révélé par le masque de caustiques) — bleus/violets/cyan. */
+  background: #4896ef;
+  background: linear-gradient(
+    148deg,
+    rgba(72, 150, 239, 1) 0%,
+    rgba(95, 40, 118, 1) 23%,
+    rgba(75, 105, 144, 1) 41%,
+    rgba(5, 216, 250, 1) 62%,
+    rgba(10, 0, 130, 1) 78%,
+    rgba(10, 0, 130, 1) 92%
+  );
+  mix-blend-mode: screen;
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  will-change: transform, opacity;
+  animation-name: underwaterSurface;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes underwaterSurface {
+  0% { transform: translate3d(0, 0, 0) scale(var(--s0)); opacity: var(--o0); }
+  50% { transform: translate3d(calc(var(--sx) / 2), calc(var(--sy) / 2), 0) scale(var(--s1)); opacity: var(--o1); }
+  100% { transform: translate3d(var(--sx), var(--sy), 0) scale(var(--s2)); opacity: var(--o2); }
+}
+/* Nappe de brume bleue : gros disque flou bleu qui TRAVERSE l'écran (translateX de --x0 à --x1),
+   en montant/descendant un peu et en apparaissant/disparaissant en fondu. Posé en `screen` par-dessus
+   les caustiques. Position/taille/durée/déphasage posés en inline. */
+.underwater-mist {
+  position: absolute;
+  left: 50%;
+  /* Dégradé ellipse épousant la boîte (dimensions inégales) → nappe difforme après flou. */
+  background: radial-gradient(ellipse closest-side, rgba(70, 155, 245, 0.7) 0%, rgba(35, 95, 205, 0.3) 50%, rgba(20, 60, 160, 0) 78%);
+  filter: blur(34px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation-name: underwaterMist;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes underwaterMist {
+  0% { transform: translate(calc(-50% + var(--x0)), var(--y)); opacity: 0; }
+  12% { opacity: var(--op); }
+  88% { opacity: var(--op); }
+  100% { transform: translate(calc(-50% + var(--x1)), calc(var(--y) * -1)); opacity: 0; }
+}
+/* Orbe des mondes (Brawl) : boule lumineuse qui renferme une IMAGE de carte de monde, cerclée d'un
+   liseré #3883D8 et nimbée d'un halo blanc/bleu. Elle FLOTTE lentement autour de son point d'ancrage
+   (translate --dx/--dy) et PULSE en opacité, chacune à son rythme. */
+.underwater-orb {
+  position: absolute;
+  border-radius: 50%;
+  overflow: hidden; /* clippe l'image zoomée au cercle (l'ombre extérieure n'est pas rognée) */
+  transform: translate(-50%, -50%);
+  box-shadow:
+    0 0 14px 6px rgba(255, 255, 255, 0.95),
+    0 0 30px 14px rgba(255, 255, 255, 0.85),
+    0 0 54px 24px rgba(150, 195, 240, 0.65),
+    0 0 84px 36px rgba(56, 131, 216, 0.5);
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation-name: underwaterOrbFloat, underwaterOrbPulse;
+  animation-duration: var(--float-dur, 20s), var(--pulse-dur, 4s);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+  animation-delay: var(--delay, 0s);
+}
+/* La carte de monde, clippée en cercle + liseré bleu et reflet vitreux (par-dessus, via box-shadow inset). */
+.underwater-orb-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Zoom « petite planète » : gros plan sur le centre de la carte (clippé au cercle par l'orbe). */
+  transform: scale(var(--zoom, 1.8));
+  transform-origin: center;
+  /* Carte plus CLAIRE (lumineuse) et plus BLEUE (teinte froide poussée vers le bleu). */
+  filter: brightness(1.35) contrast(1.02) saturate(1.2) hue-rotate(-12deg);
+}
+/* Calque blanc qui recouvre l'image → carte éclaircie ; + VIGNETTE blanche sur les bords (léger au
+   centre, blanc soutenu sur le pourtour → l'image se fond dans le halo lumineux de l'orbe). */
+.underwater-orb-veil {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at center,
+    rgba(46, 128, 224, 0.5) 30%,
+    rgba(86, 160, 240, 0.72) 62%,
+    rgba(206, 230, 255, 0.95) 92%
+  );
+  /* Contour net dessiné PAR-DESSUS (le voile est l'élément le plus haut) : fin liseré blanc. */
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.98),
+    inset 0 0 4px 1px rgba(255, 255, 255, 0.6);
+  pointer-events: none;
+}
+@keyframes underwaterOrbFloat {
+  from { transform: translate(-50%, -50%); }
+  to { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))); }
+}
+@keyframes underwaterOrbPulse {
+  from { opacity: calc(var(--op) * 0.5); }
+  to { opacity: var(--op); }
+}
+
+/* Éclair bleu. Une fois par cycle, le tracé SE DESSINE du haut vers le bas (stroke-dashoffset 100→0,
+   longueur normalisée par `pathLength=100`), SCINTILLE, puis DISPARAÎT ; invisible le reste du cycle.
+   Chaque éclair = un HALO bleu sous un CŒUR fin quasi-blanc (même tracé → synchronisés). Traits fins
+   (angles moins aigus → jonctions nettes). Durée/décalage hérités via `--dur`/`--delay`. */
+.underwater-bolt {
+  position: absolute;
+  pointer-events: none;
+}
+.underwater-bolt-svg {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 0 6px rgba(90, 165, 255, 0.8));
+}
+.underwater-bolt-svg path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  opacity: 0;
+  will-change: stroke-dashoffset, opacity;
+  animation-name: underwaterBolt;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+  animation-duration: var(--dur, 10s);
+  animation-delay: var(--delay, 0s);
+}
+.underwater-bolt-glow {
+  stroke: rgba(90, 170, 255, 0.75);
+  stroke-width: 2.4;
+}
+.underwater-bolt-core {
+  stroke: #eaf6ff;
+  stroke-width: 0.8;
+}
+@keyframes underwaterBolt {
+  0% { stroke-dashoffset: 100; opacity: 0; }
+  1% { opacity: 1; } /* apparaît */
+  6% { stroke-dashoffset: 0; opacity: 1; } /* tracé terminé (haut → bas) */
+  7.5% { stroke-dashoffset: 0; opacity: 0.35; } /* scintillement */
+  9% { stroke-dashoffset: 0; opacity: 1; }
+  10.5% { stroke-dashoffset: 0; opacity: 0.5; }
+  12% { stroke-dashoffset: 0; opacity: 1; }
+  18% { stroke-dashoffset: 0; opacity: 0; } /* s'efface */
+  100% { stroke-dashoffset: 100; opacity: 0; } /* éteint, réinitialisé */
+}
+/* Surprise « Coup Fatal » de Tabbou (élimine tous les combattants) : une BOULE d'énergie apparaît en
+   HAUT AU CENTRE, se charge (se rétracte puis gonfle), puis EXPLOSE (flash) en émettant TROIS CERCLES
+   (onde de choc) #992C0A qui s'étendent en s'estompant. `.uw-smash` est un point d'ancrage (taille nulle)
+   autour duquel les éléments sont positionnés. Timeline calée sur UNDERWATER_SMASH_MS (VillainDecor.tsx). */
+.uw-smash {
+  position: absolute;
+  top: 6vh;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 2;
+  /* Décalage de l'EXPLOSION (boule + flash + anneaux) — ajuste pour la recentrer / la descendre. */
+  --smash-dx: 6.5vh;
+  --smash-dy: 5vh;
+}
+/* Phase 1 (0→3 s) : Tabbou AILÉ apparaît au centre en haut (fondu + léger zoom), se maintient, puis
+   s'efface pour laisser place à la boule. Centré sur l'ancre (translate), un peu abaissé (Y -30 %). */
+.uw-smash-wings {
+  position: absolute;
+  left: 0;
+  top: 0;
+  /* Décalage horizontal de l'image (et de son halo) — ajuste ici pour bouger Tabbou ailé. */
+  --wings-dx: 6vh;
+  width: 40vh;
+  height: auto;
+  /* L'ancre `.uw-smash` a width:0 → le `img { max-width: 100% }` de Tailwind ramènerait l'image à 0.
+     On lève ce plafond pour que `width: 40vh` s'applique réellement. */
+  max-width: none;
+  pointer-events: none;
+  opacity: 0;
+  /* Lueur claire + halo #62ECEA → l'image ressort même à travers l'UI translucide. */
+  filter: drop-shadow(0 0 1.4vh rgba(210, 255, 254, 0.75)) drop-shadow(0 0 4vh rgba(98, 236, 234, 0.7));
+  will-change: transform, opacity;
+  /* Reste visible toute la surprise (la boule se charge et explose DEVANT Tabbou), fondu final. */
+  animation: uwSmashWings 9.6s ease-in-out forwards;
+}
+/* Halo lumineux derrière les ailes : disque clair chaud en `screen` (comme la boule) qui pulse
+   doucement → il transperce les panneaux translucides et met l'image en valeur. */
+.uw-smash-wings-glow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  --wings-dx: 6vh; /* suit le décalage de l'image */
+  width: 52vh;
+  height: 34vh;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(205, 255, 254, 0.55) 0%, rgba(98, 236, 234, 0.4) 38%, rgba(98, 236, 234, 0) 72%);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: uwSmashWings 9.6s ease-in-out forwards;
+}
+@keyframes uwSmashWings {
+  0% { opacity: 0; transform: translate(calc(-50% + var(--wings-dx, 0vh)), -30%) scale(0.72); }
+  6% { opacity: 1; transform: translate(calc(-50% + var(--wings-dx, 0vh)), -30%) scale(1); } /* apparaît (~0,5 s) */
+  93% { opacity: 1; transform: translate(calc(-50% + var(--wings-dx, 0vh)), -30%) scale(1.02); } /* reste jusqu'à la fin */
+  100% { opacity: 0; transform: translate(calc(-50% + var(--wings-dx, 0vh)), -30%) scale(1.04); } /* fondu final */
+}
+/* La boule : cœur blanc-chaud cerné d'un halo #992C0A. Descend/apparaît, se charge, disparaît à l'explosion. */
+.uw-smash-ball {
+  position: absolute;
+  left: var(--smash-dx, 0vh);
+  top: var(--smash-dy, 0vh);
+  width: 5vh;
+  height: 5vh;
+  margin: -2.5vh 0 0 -2.5vh; /* centre sur l'ancre */
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 45%, #fff 0%, #cbfcfb 22%, #62ecea 55%, #1f9d9b 100%);
+  box-shadow: 0 0 2.6vh 0.6vh rgba(98, 236, 234, 0.85), 0 0 6vh 1.6vh rgba(98, 236, 234, 0.5);
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+  /* Retardée de 3 s (phase ailes). `both` → garde l'état initial (invisible) pendant l'attente. */
+  animation: uwSmashBall 4.15s ease-out 3s both;
+}
+/* CHARGE de ~4 s : la boule apparaît puis PULSE (contractions/dilatations de plus en plus fortes → montée
+   de tension), gonfle une dernière fois, puis EXPLOSE (~t=4 s) et disparaît d'un coup. */
+@keyframes uwSmashBall {
+  0% { transform: translateY(-4vh) scale(0.1); opacity: 0; }
+  7% { transform: translateY(0) scale(0.8); opacity: 1; } /* descend + apparaît */
+  16% { transform: scale(0.72); }
+  28% { transform: scale(1); }
+  40% { transform: scale(0.78); }
+  52% { transform: scale(1.06); }
+  64% { transform: scale(0.82); }
+  76% { transform: scale(1.14); }
+  86% { transform: scale(0.8); }
+  93% { transform: scale(1.8); opacity: 1; } /* gonfle une dernière fois */
+  97% { transform: scale(0.2); opacity: 0; } /* EXPLOSE : disparaît d'un coup */
+  100% { transform: scale(0.2); opacity: 0; }
+}
+/* Le flash d'explosion : disque #992C0A qui gonfle et s'estompe au moment où la boule éclate. */
+.uw-smash-burst {
+  position: absolute;
+  left: var(--smash-dx, 0vh);
+  top: var(--smash-dy, 0vh);
+  width: 11vh;
+  height: 11vh;
+  margin: -5.5vh 0 0 -5.5vh;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(232, 255, 255, 0.95) 0%, rgba(98, 236, 234, 0.85) 34%, rgba(98, 236, 234, 0.55) 60%, rgba(98, 236, 234, 0) 74%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  will-change: transform, opacity;
+  /* Retardé à la fin de la phase ailes (3 s) + charge (~4 s) : ne flashe qu'au moment de l'explosion. */
+  animation: uwSmashBurst 0.9s ease-out forwards;
+  animation-delay: 6.98s;
+}
+@keyframes uwSmashBurst {
+  0% { transform: scale(0.2); opacity: 0; }
+  15% { transform: scale(1); opacity: 1; } /* flash au moment de l'explosion */
+  100% { transform: scale(3.6); opacity: 0; }
+}
+/* Un cercle d'onde de choc #992C0A : anneau centré sur le point d'explosion qui s'ÉTEND (scale 0→1) en
+   s'estompant. Trois exemplaires DÉCALÉS (`--ring-delay`) → vagues successives. Leur anim démarre au
+   moment de l'explosion (`animation-delay`), d'où l'opacité 0 par défaut pendant l'attente. */
+.uw-smash-ring {
+  position: absolute;
+  left: var(--smash-dx, 0vh);
+  top: var(--smash-dy, 0vh);
+  /* Centré sur l'ancre par translate (recalculé selon la taille courante → reste centré en grandissant). */
+  width: 0;
+  height: 0;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  /* Épaisseur de trait FIXE (ne grossit pas avec l'anneau) → l'écart vide entre traits reste constant. */
+  border: 2.6vh solid #992c0a;
+  box-shadow: 0 0 1vh 0.15vh rgba(153, 44, 10, 0.6);
+  opacity: 0;
+  will-change: width, height, opacity;
+  /* `linear` + animation du DIAMÈTRE (pas du scale) = vitesse constante ET trait d'épaisseur fixe →
+     écart entre anneaux (décalés d'un temps fixe) constant sur toute la propagation. */
+  animation: uwSmashRing 2.2s linear forwards;
+  /* Démarre à l'explosion (3 s ailes + ~4 s charge), décalé par anneau. */
+  animation-delay: calc(6.98s + var(--ring-delay, 0s));
+}
+/* Diamètre final ≈ 220vh → l'anneau dépasse largement le bas de l'écran avant de disparaître ;
+   il reste visible (opacité > 0) pendant qu'il sort du cadre. box-sizing:border-box (Tailwind) →
+   `width` = diamètre extérieur. */
+@keyframes uwSmashRing {
+  0% { width: 0; height: 0; opacity: 0; }
+  12% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { width: 220vh; height: 220vh; opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .underwater-surface { animation: none; opacity: 0.5; }
+  .underwater-mist { animation: none; opacity: 0; }
+  .underwater-orb { animation: none; }
+  .underwater-bolt-svg path { animation: none; opacity: 0; }
+  .uw-smash { display: none; }
+}
+
+/* Tabbou — grille des Combattants en attente de choix « tuer une couleur » : le
+   cadre de la grille pulse (halo doré) pour signaler qu'on doit sélectionner une
+   couleur sur le quadrillage. N'anime QUE le box-shadow (les tuiles restent nettes). */
+@keyframes fighterKillPulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.5), 0 0 12px 3px rgba(251, 191, 36, 0.35); }
+  50% { box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.95), 0 0 22px 7px rgba(251, 191, 36, 0.7); }
+}
+.fighter-kill-pulse {
+  animation: fighterKillPulse 1.1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fighter-kill-pulse { animation: none; }
+}
+
+/* Tabbou — « coupure » jouée sur une tuile Combattant au moment où elle passe en
+   DORÉ (tuée) : un trait lumineux doré balaie la tuile en diagonale, avec un bref
+   éclat. Overlay clippé aux bords de la tuile. */
+.fighter-slash {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  overflow: hidden;
+  border-radius: 0.125rem;
+  pointer-events: none;
+}
+.fighter-slash::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    135deg,
+    transparent 44%,
+    rgba(255, 255, 255, 0.95) 48%,
+    rgba(251, 191, 36, 1) 50%,
+    rgba(255, 255, 255, 0.95) 52%,
+    transparent 56%
+  );
+  filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.9));
+  animation: fighterSlashSweep 0.5s ease-out forwards;
+}
+@keyframes fighterSlashSweep {
+  0% { transform: translate(-65%, -65%); opacity: 0; }
+  18% { opacity: 1; }
+  100% { transform: translate(65%, 65%); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fighter-slash::before { animation: none; }
+}
+
+/* Tabbou — « apparition » jouée sur une tuile Combattant au moment où elle est
+   DÉVOILÉE (pile → reserve) : un éclat radial suivi d'un anneau qui se dilate,
+   teinté de la couleur de la tuile (--fighter-hex). Overlay clippé aux bords. */
+.fighter-reveal {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  overflow: hidden;
+  border-radius: 0.125rem;
+  pointer-events: none;
+}
+/* Flash radial (blanc → couleur) qui remplit brièvement la tuile. */
+.fighter-reveal::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(255, 255, 255, 0.95) 0%,
+    var(--fighter-hex, #fff) 45%,
+    transparent 72%
+  );
+  animation: fighterRevealFlash 0.5s ease-out forwards;
+}
+/* Anneau lumineux qui jaillit du centre et se dilate au-delà des bords. */
+.fighter-reveal::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 60%;
+  height: 60%;
+  transform: translate(-50%, -50%) scale(0.2);
+  border-radius: 9999px;
+  border: 2px solid var(--fighter-hex, #fff);
+  box-shadow: 0 0 8px 2px var(--fighter-hex, #fff);
+  animation: fighterRevealRing 0.55s ease-out forwards;
+}
+@keyframes fighterRevealFlash {
+  0% { opacity: 0; }
+  22% { opacity: 0.9; }
+  100% { opacity: 0; }
+}
+@keyframes fighterRevealRing {
+  0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(2.1); opacity: 0; }
+}
+/* Petit « pop » d'échelle sur l'illustration qui vient d'apparaître. */
+.fighter-reveal-pop {
+  animation: fighterRevealPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes fighterRevealPop {
+  0% { transform: scale(0.55); opacity: 0.2; }
+  60% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Overlay masqué (sinon le flash radial resterait figé, opaque). Le « pop »
+     d'échelle est simplement neutralisé : l'illustration s'affiche normalement. */
+  .fighter-reveal { display: none; }
+  .fighter-reveal-pop { animation: none; }
 }

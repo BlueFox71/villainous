@@ -139,6 +139,29 @@ export function PlayerPanel({ player, accent, isActive, isWinner, showObjective 
           )
         })()}
 
+        {/* Tabbou — Combattants : tués (objectif) + dévoilés (en réserve). Seuil 20,
+            porté à 30 tant que Samus est présente. */}
+        {player.fighterTiles !== undefined && (() => {
+          const revealed = player.fighterTiles.filter((t) => t.state === 'reserve').length
+          const killed = player.fighterTiles.filter((t) => t.state === 'killed').length
+          const obj = player.objective
+          let threshold = obj.type === 'KILL_FIGHTERS' ? obj.threshold : 20
+          if (obj.type === 'KILL_FIGHTERS' && obj.raiseHeroCardId !== undefined && obj.raiseTo !== undefined) {
+            const samus = Object.values(player.board).flat().some((c) => c.type === 'hero' && c.cardId === obj.raiseHeroCardId)
+            if (samus) threshold = obj.raiseTo
+          }
+          return (
+            <div
+              className="flex flex-col items-center justify-center rounded-lg border border-indigo-400/30 bg-black/20 px-3 py-3"
+              title={`Combattants tués : ${killed}/${threshold} — dévoilés (réserve) : ${revealed}`}
+            >
+              <span className="-mt-1.5 text-[9px] uppercase tracking-wide text-indigo-300/70">Combattants</span>
+              <span className="text-2xl font-bold text-indigo-200">{killed}/{threshold}</span>
+              <span className="text-[10px] text-white/50">dévoilés {revealed}</span>
+            </div>
+          )
+        })()}
+
         {/* Gaston — objectif : RETIRER tous les Obstacles (0 sur 8). La jauge montre les
             8 jetons : ceux RETIRÉS (progression) en plein, ceux qui restent estompés. */}
         {player.obstacles !== undefined && (() => {

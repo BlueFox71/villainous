@@ -87,13 +87,11 @@ const UPCOMING_IMAGES: Record<string, string> = {
   Tamatoa: '/upcoming/tamatoa.png',
   'Sa Sucrerie': '/upcoming/sa-sucrerie.png',
   'Shere Khan': '/upcoming/shere-khan.png',
-  Tabbou: '/upcoming/tabbou.jpg',
   'Team Rocket': '/upcoming/team-rocket.png',
 }
 /** Vilains de COLLABORATION à venir (hors packs officiels, pas encore développés). */
 const UPCOMING_COLLAB: string[] = [
   'Grand Councilwoman',
-  'Tabbou',
   'Flagelleur Mental',
   'Malédiction des Madrigal',
   'Pyramid Head',
@@ -911,9 +909,24 @@ export function VillainList({ onBack }: Props) {
         </Scroller>
       </div>
 
-      {selected && (
-        <VillainDetailModal villain={selected} onClose={() => setSelected(null)} />
-      )}
+      {selected && (() => {
+        // Navigation précédent/suivant entre fiches : on parcourt les vilains RÉELS
+        // dans l'ordre d'affichage courant (filtres + tri). Aux extrémités, la flèche
+        // correspondante est absente (pas de bouclage).
+        const navKeys = villains
+          .filter((v): v is Extract<GridItem, { kind: 'villain' }> => v.kind === 'villain')
+          .map((v) => v.meta.key)
+        const idx = navKeys.indexOf(selected)
+        const goTo = (i: number) => { playHeroSelect(); setSelected(navKeys[i]) }
+        return (
+          <VillainDetailModal
+            villain={selected}
+            onClose={() => setSelected(null)}
+            onPrev={idx > 0 ? () => goTo(idx - 1) : undefined}
+            onNext={idx >= 0 && idx < navKeys.length - 1 ? () => goTo(idx + 1) : undefined}
+          />
+        )
+      })()}
 
       <OptionsButton />
     </div>

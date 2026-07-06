@@ -4,6 +4,7 @@ import { useCustomVillainStore } from '../store/customVillainStore'
 import { usePlayerStore } from '../store/playerStore'
 import { useIsDesktopApp } from '../store/settingsStore'
 import { villainPortrait, villainPresentation, PRESENTATION_TWEAK } from '../villainArt'
+import { villainGuideOf } from '../villainGuide'
 import { byRelease } from '../villainOrder'
 import { VILLAIN_COLOR, villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from '../villainColors'
 import { Scroller } from '../components/Scroller'
@@ -149,8 +150,8 @@ function SlotCard({
       onClick={(e) => { e.stopPropagation(); if (clickable) { playHeroSelect(); onActivate() } }}
       onMouseEnter={() => { if (clickable) playHover() }}
       className={`flex flex-1 items-center gap-3 rounded-xl border p-3 text-left transition ${
-        active ? `border-transparent bg-white/5 ring-2 ${style.ring}` : 'border-white/10 bg-black/40'
-      } ${clickable ? 'hover:bg-white/10' : 'cursor-default'}`}
+        active ? `border-transparent bg-[#181227] ring-2 ${style.ring}` : 'border-white/10 bg-[#0d0a17]'
+      } ${clickable ? 'hover:bg-[#1e1733]' : 'cursor-default'}`}
     >
       <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/15 bg-white/5">
         {isRandom ? (
@@ -241,16 +242,34 @@ function PresentationArt({ choice, side }: { choice: Choice | null; side: 'left'
   const transform = tweak
     ? `translate(${dx}%, ${tweak.dyPct ?? 0}%) scale(${tweak.scale ?? 1}) scaleX(${mirror})`
     : undefined
+  // Devise du vilain choisi (si renseignée) : posée en bas de l'illustration.
+  const devise = choice ? villainGuideOf(choice).devise : undefined
   return (
-    <img
-      src={src}
-      alt=""
-      aria-hidden
-      style={transform ? { transform, transformOrigin: 'bottom' } : undefined}
-      className={`villain-fade-bottom ${SIDE_ART_BASE} max-w-[40vw] object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)] ${
-        side === 'left' ? 'left-0 object-left' : tweak ? 'right-0 object-right' : 'right-0 object-right -scale-x-100'
-      }`}
-    />
+    <>
+      <img
+        src={src}
+        alt=""
+        aria-hidden
+        style={transform ? { transform, transformOrigin: 'bottom' } : undefined}
+        className={`villain-fade-bottom ${SIDE_ART_BASE} max-w-[40vw] object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)] ${
+          side === 'left' ? 'left-0 object-left' : tweak ? 'right-0 object-right' : 'right-0 object-right -scale-x-100'
+        }`}
+      />
+      {/* Devise AU PREMIER PLAN (z-20, au-dessus du scroller z-10) : en bas de
+          l'illustration, sur son bord. Élément frère de l'image (pas enfant du
+          conteneur z-0) pour ne pas être plafonnée par son contexte d'empilement. */}
+      {devise && (
+        <div
+          className={`pointer-events-none absolute bottom-10 z-20 hidden w-[40vw] justify-center px-6 lg:flex ${
+            side === 'left' ? 'left-0' : 'right-0'
+          }`}
+        >
+          <p className="max-w-[16rem] text-center text-lg font-semibold italic leading-snug text-amber-100 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
+            « {devise} »
+          </p>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -427,8 +446,9 @@ export function VillainSelect({ onStart, onBack }: Props) {
         <PresentationArt choice={opp} side="right" />
         <Scroller className="relative z-10 h-full">
           <div className="mx-auto flex max-w-4xl flex-col gap-5 px-6 pb-32 pt-6">
-            {/* Récap des deux camps : en solo, cliquer un slot le rend actif. */}
-            <div className="flex gap-3">
+            {/* Récap des deux camps : en solo, cliquer un slot le rend actif.
+                FIGÉ en haut (sticky) : reste visible pendant le défilement de la grille. */}
+            <div className="sticky top-0 z-30 flex gap-3 py-3">
               <SlotCard
                 side="mine"
                 value={mine}

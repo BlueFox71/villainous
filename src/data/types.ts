@@ -427,6 +427,15 @@ export interface CardDef {
   /** Potion (La Bonne Fée — Filtre d'amour / Heureux pour toujours) : cible de la
    *  « Réserve de potions » et des 2 potions requises par l'objectif. */
   isPotion?: boolean
+  /** Tabbou — Link : tant que ce Héros est dans le royaume, l'action « Dévoiler une
+   *  tuile Combattant » ne peut dévoiler que N tuiles au maximum par usage. */
+  fighterRevealCap?: number
+  /** Tabbou — Kirby : renchérit de N le coût (en Pouvoir) de l'action « Dévoiler une
+   *  tuile Combattant » tant que ce Héros est dans le royaume. Cumulatif. */
+  fighterRevealSurcharge?: number
+  /** Tabbou — Canon Obscur : les cartes Objets coûtent N de moins tant que le pion
+   *  se trouve sur le même lieu que cette carte (cumulatif). */
+  itemCostReductionHere?: number
 }
 
 /** Développe une liste de définitions en un paquet concret (un élément par
@@ -595,6 +604,9 @@ export function buildDeckInstances(
           blocksAllItemsHere: c.blocksAllItemsHere,
           protectsHostFromCardIds: c.protectsHostFromCardIds,
           isPotion: c.isPotion,
+          fighterRevealCap: c.fighterRevealCap,
+          fighterRevealSurcharge: c.fighterRevealSurcharge,
+          itemCostReductionHere: c.itemCostReductionHere,
         }),
       ),
     )

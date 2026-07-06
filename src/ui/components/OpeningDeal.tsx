@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { FlightRect } from './CardFlights'
 import { playDrawCard } from '../sfx'
 
@@ -43,7 +44,7 @@ type Phase = 'wait' | 'in' | 'hold' | 'out' | 'gone'
 
 /** Une carte distribuée : pioche → centre (retournement + agrandissement) → maintien
  *  → rangement dans l'éventail. Purement décoratif. */
-function DealtCard({ card, onLanded }: { card: DealCard; onLanded: (instanceId: string) => void }) {
+function DealtCard({ card, onLanded, z }: { card: DealCard; onLanded: (instanceId: string) => void; z: number }) {
   const [phase, setPhase] = useState<Phase>('wait')
   const { startDelay, holdMs } = card
   useEffect(() => {
@@ -99,7 +100,10 @@ function DealtCard({ card, onLanded }: { card: DealCard; onLanded: (instanceId: 
         width: `${rect.width}px`,
         height: `${rect.height}px`,
         perspective: '1200px',
-        zIndex: 79,
+        // z-index DÉCROISSANT selon l'ordre de distribution : la 1ʳᵉ carte sortie reste
+        // AU PREMIER PLAN, les suivantes passent derrière (elles forment la « pile » qui
+        // se range). Sans ça, l'ordre du DOM mettait les dernières cartes devant.
+        zIndex: z,
         transition: `left ${posMs}ms cubic-bezier(0.33,0,0.2,1), top ${posMs}ms cubic-bezier(0.33,0,0.2,1), width ${posMs}ms ease, height ${posMs}ms ease`,
       }}
     >
@@ -164,15 +168,20 @@ export function OpeningDeal({ cards, onLanded, onComplete }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  return (
-    // z-index EN LIGNE (pas seulement la classe Tailwind) : l'overlay est `fixed`, donc il
-    // crée son propre contexte d'empilement. Sans z-index effectif il resterait au niveau
-    // `auto`, SOUS la pioche (élément positionné en z-index:1) — la carte volante semblait
-    // alors « sortir de derrière » le paquet. On force l'overlay bien au-dessus du plateau.
+  // Rendu via PORTAIL sur <body> : l'overlay est sinon imbriqué dans le conteneur
+  // racine de l'app (`isolate` → contexte d'empilement) ET dans la colonne défilable
+  // (`Scroller`/OverlayScrollbars, qui crée aussi son contexte). Dans ces contextes,
+  // un z-index élevé ne suffisait pas : au DÉCOLLAGE, la carte « sortait de derrière »
+  // la pioche Vilain. En portant l'overlay sur <body>, son z-index est évalué à la
+  // RACINE → garanti au-dessus de la pioche (et de toute l'UI de jeu).
+  return createPortal(
     <div className="pointer-events-none fixed inset-0" style={{ zIndex: 78 }}>
-      {cards.map((c) => (
-        <DealtCard key={c.instanceId} card={c} onLanded={onLanded} />
+      {cards.map((c, i) => (
+        // 1ʳᵉ carte = z le plus élevé (premier plan) ; on décroît ensuite. Base 80
+        // (> l'overlay 78) pour rester au-dessus du reste en cas de repli.
+        <DealtCard key={c.instanceId} card={c} onLanded={onLanded} z={80 + (cards.length - i)} />
       ))}
-    </div>
+    </div>,
+    document.body,
   )
 }

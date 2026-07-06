@@ -145,6 +145,16 @@ describe('Hadès — déplacement des Titans', () => {
     expect(() => applyAction(next, { type: 'CHARIOT_MOVE', instanceId: 'ch', to: 'enfers' })).toThrow()
   })
 
+  it('le Char ne peut PAS se déplacer sur un lieu VERROUILLÉ', () => {
+    const char: CardInstance = { instanceId: 'ch', cardId: 'char', name: 'Char', type: 'item', ridesWithPawn: true }
+    const s0 = withBoard({ enfers: [char] }, 'enfers', 10)
+    const s: GameState = {
+      ...s0,
+      players: s0.players.map((p, i) => (i === 0 ? { ...p, lockedLocations: ['mont-olympe'] } : p)),
+    }
+    expect(() => applyAction(s, { type: 'CHARIOT_MOVE', instanceId: 'ch', to: 'mont-olympe' })).toThrow()
+  })
+
   it('après le Char, on ne peut faire qu’UNE action sur le nouveau lieu (pas la Fatalité)', () => {
     const char: CardInstance = { instanceId: 'ch', cardId: 'char', name: 'Char', type: 'item', ridesWithPawn: true }
     const s = withBoard({ enfers: [char] }, 'enfers', 10)

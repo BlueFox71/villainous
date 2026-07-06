@@ -240,6 +240,9 @@ export interface CustomVillain {
   id: string
   /** Nom affiché. */
   name: string
+  /** Devise / réplique emblématique du vilain (courte citation d'ambiance). Cosmétique,
+   *  affichée sur la fiche du vilain. Optionnelle. */
+  devise?: string
   /** Difficulté affichée (1–5 étoiles). Cosmétique. */
   stars: number
 

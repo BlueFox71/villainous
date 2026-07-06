@@ -8,6 +8,9 @@ import { isCustomKey, customVillainOf, type VillainKey } from './store/gameStore
 export interface VillainGuide {
   /** Difficulté de prise en main, sur 5 (note officielle du jeu). */
   difficulty: number
+  /** Devise / réplique emblématique du personnage (courte citation d'ambiance).
+   *  Optionnelle : renseignée vilain par vilain au fil de l'eau. */
+  devise?: string
   /** Petit récit / contexte du personnage. */
   story: string
   /** Conseils pour bien le jouer. */
@@ -19,6 +22,7 @@ export interface VillainGuide {
 export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   princeJohn: {
     difficulty: 2,
+    devise: "Je dérobe aux pauvres pour nourrir les riches !",
     story:
       "Frère cadet, lâche et cupide du roi Richard, Prince Jean usurpe le trône d'Angleterre pendant que son aîné guerroie en croisade. Ce lion pleurnichard suce son pouce en réclamant sa mère, tout en pressurant d'impôts les habitants de Nottingham avec l'aide du Shérif et de Triste Sire. (Disney, Robin des Bois, 1973.)",
     playTips: [
@@ -35,6 +39,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   maleficent: {
     difficulty: 1,
+    devise: "Sache que tu as eu tort de me défier, moi et toutes les forces de l'Enfer !",
     story:
       "« Maîtresse de tous les Maux », sombre fée de La Belle au bois dormant (1959). Vexée de ne pas être conviée au baptême d'Aurore, elle maudit l'enfant : avant le crépuscule de ses seize ans, la princesse se piquera le doigt sur le fuseau d'un rouet et en mourra. Capable de se muer en dragon, elle règne sur la Montagne Interdite avec son corbeau Diablo.",
     playTips: [
@@ -51,6 +56,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   slenderman: {
     difficulty: 1,
+    devise: "...",
     story:
       "Né des forums et des « creepypastas » d'Internet (2009), le Slender Man est une longue silhouette sans visage, en costume sombre, qui hante les forêts et traque les enfants. On le croise au détour d'arbres morts ; ceux qui collectent ses huit pages éparpillées sentent sa présence se rapprocher, inexorable, jusqu'à disparaître à leur tour.",
     playTips: [
@@ -67,6 +73,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   jafar: {
     difficulty: 4,
+    devise: "Nous sommes sous un ordre nouveau : mon ordre ! Je vais enfin vous voir à genoux devant moi !",
     story:
       "Grand vizir d'Agrabah et sorcier ambitieux d'Aladdin (1992), Jafar complote pour détrôner le Sultan. Avec son perroquet Iago et son sceptre serpent hypnotique, il convoite la Lampe Merveilleuse cachée dans la Caverne aux Merveilles pour asservir le Génie et ses trois vœux.",
     playTips: [
@@ -83,6 +90,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   reineCoeur: {
     difficulty: 3,
+    devise: "Si je perdais mon sang-froid, vous perdriez la tête !",
     story:
       "Tyran capricieux du Pays des Merveilles (Alice, 1951), la Reine de Cœur tranche les têtes au moindre caprice et joue au croquet avec ses cartes-soldats. Sous ses ordres, le Lapin Blanc, le Roi et les Gardes (Cœur, Pique, Trèfle, Carreau) s'activent pour préparer sa grande partie.",
     playTips: [
@@ -98,6 +106,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   crochet: {
     difficulty: 3,
+    devise: 'Doublez les charges et raccourcissez les amorces !',
     story:
       "Pirate rancunier du Pays Imaginaire (Peter Pan, 1953), le Capitaine Crochet n'a qu'une obsession : se venger de Peter Pan, qui a jeté sa main au crocodile Tic Tac. Depuis le Jolly Roger, avec Monsieur Mouche et son équipage, il traque l'enfant volant dans tout Neverland.",
     playTips: [
@@ -114,6 +123,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   ursula: {
     difficulty: 5,
+    devise: "Je suis la souveraine de tous les océans ! Les vagues obéissent à mes moindres désirs !",
     story:
       "Sorcière des mers de La Petite Sirène (1989), Ursula attire les âmes désespérées et leur fait signer des pactes qu'elle est sûre de gagner. Avec ses anguilles Flotsam et Jetsam, elle convoite le trident et la couronne du Roi Triton pour régner sur l'océan.",
     playTips: [
@@ -130,6 +140,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   hades: {
     difficulty: 3,
+    devise: "Tout le monde a une faiblesse.",
     story:
       "Seigneur des Enfers d'Hercule (1997), Hadès rêve de renverser Zeus et de régner sur l'Olympe. Avec ses sbires Peine et Panique, il libère les Titans emprisonnés et les lance à l'assaut du Mont Olympe — tout en s'agaçant que ce « machin », fils de Zeus, se dresse sur sa route.",
     playTips: [
@@ -146,6 +157,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   facilier: {
     difficulty: 2,
+    devise: "Mes amis viennent de l'au-delà.",
     story:
       "Bonimenteur du Vieux Carré de La Nouvelle-Orléans (La Princesse et la Grenouille, 2009), le Dr Facilier marchande avec ses « amis de l'au-delà ». Derrière son sourire et sa magie vaudou se cache une dette à payer : il rêve de régner sur la ville grâce au Talisman et à son Ombre maléfique.",
     playTips: [
@@ -162,6 +174,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   imposteur: {
     difficulty: 3,
+    devise: "Shhhhhh !",
     story:
       "Le saboteur masqué (Among Us, 2018). Sous sa combinaison de Coéquipier se cache un Imposteur : il sabote le vaisseau, élimine l'équipage un à un dans les couloirs d'Electrical, du Réacteur, d'Admin et de la Cafétaria, puis fait porter le chapeau aux innocents lors des réunions d'urgence.",
     playTips: [
@@ -178,6 +191,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   bowser: {
     difficulty: 3,
+    devise: "Depuis cette galaxie, je dirigerai un grand empire galactique avec Peach à mes côtés.",
     story:
       "Le Roi des Koopas (Super Mario Galaxy) a arraché l'Observatoire de la Comète à Harmonie et capturé la Princesse Peach au sommet de sa forteresse spatiale. En drainant les Étoiles qui alimentent le cosmos, il compte plonger la galaxie dans les ténèbres — pour peu que les frères Mario ne viennent pas tout gâcher.",
     playTips: [
@@ -192,8 +206,26 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       "Luigi défausse les Alliés d'un lieu et renvoie leurs Étoiles à l'Observatoire — idéal pour annuler un gros drainage.",
     ],
   },
+  tabbou: {
+    difficulty: 4,
+    devise: "...",
+    story:
+      "Souverain de l'Émissaire Subspatial (Super Smash Bros. Brawl), Tabbou aspire les combattants du monde entier pour les figer en trophées et engloutir la réalité dans le vide subspatial. Il lui faut annihiler assez de Combattants avant que les héros ne se libèrent et ne remontent jusqu'à lui.",
+    playTips: [
+      'Ton objectif : avoir TUÉ au moins 20 Combattants au début de ton tour (30 tant que Samus est présente).',
+      "Dévoile des tuiles Combattants dans la réserve — via l'Émissaire Subspatial (une fois débloqué), Destin, Primides ou Flèche — puis tue-les par couleur.",
+      'Tue une couleur entière d’un coup avec Collection ou Bowser (Allié), ou fais un carnage avec Coup Fatal (jusqu’à 10).',
+      "Débloque l'Émissaire Subspatial en posant 3 Orbes subspatiaux sur les trois autres lieux : tu gagnes alors une action « Dévoiler » réutilisable.",
+    ],
+    counterTips: [
+      "Samus rehausse l'objectif de 20 à 30 Combattants : un énorme coup de frein tant qu'elle reste.",
+      "Link empêche Tabbou de dévoiler la moindre tuile Combattant, et Kirby renchérit l'action de 1 Pouvoir.",
+      'Mario draine son Pouvoir selon le nombre de Héros présents ; multiplie les Héros pour l’assécher.',
+    ],
+  },
   mechanteReine: {
     difficulty: 3,
+    devise: "Je serai la plus belle de tout le royaume.",
     story:
       "Reine orgueilleuse et jalouse (Blanche-Neige et les Sept Nains, 1937), elle interroge sans cesse son Miroir magique. Quand celui-ci désigne Blanche-Neige comme « la plus belle », la Reine se métamorphose en vieille sorcière et concocte une pomme empoisonnée pour en finir avec sa rivale.",
     playTips: [
@@ -210,6 +242,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   scar: {
     difficulty: 4,
+    devise: "Longue vie au roi.",
     story:
       "Lion ambitieux et manipulateur (Le Roi Lion, 1994), Scar convoite le trône de son frère Mufasa. Allié aux hyènes du Cimetière d’éléphants, il complote pour éliminer le roi et son héritier Simba, et régner sur la Terre des Lions.",
     playTips: [
@@ -226,6 +259,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   yzma: {
     difficulty: 2,
+    devise: "L'heure de notre triomphe approche !",
     story:
       "Conseillère machiavélique de l’empereur Kuzco (Kuzco, l’empereur mégalo, 2000), Yzma veut s’emparer du trône. Avec l’aide (maladroite) de son homme de main Kronk, elle multiplie les potions et les pièges pour se débarrasser de l’empereur.",
     playTips: [
@@ -242,6 +276,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   sombra: {
     difficulty: 2,
+    devise: "Je vais découvrir qui dirige vraiment le monde.",
     story:
       "Pirate informatique surdouée du collectif Los Muertos puis agent fantôme (Overwatch, 2016), Sombra traque l’information et tire les ficelles dans l’ombre. Maîtresse du piratage et de la furtivité, elle infiltre les systèmes de LumériCo et Volskaya pour faire chanter les puissants — un coup d’avance, toujours.",
     playTips: [
@@ -258,6 +293,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   ratigan: {
     difficulty: 2,
+    devise: "Oh que c'est vilain. Délicieusement vilain !",
     story:
       "Génie criminel de Londres (Basil, détective privé, 1986), le Professeur Ratigan — un rat qui se rêve en gentilrat — kidnappe l’horloger Flaversham pour bâtir une Reine Robot et usurper la couronne. Élégant et théâtral, il bascule dans une rage bestiale dès qu’on le traite de « rat » — et son ennemi juré, le détective Basil, est sur sa piste.",
     playTips: [
@@ -274,6 +310,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   patHibulaire: {
     difficulty: 3,
+    devise: "Je vais t'expédier dans une autre galaxie !",
     story:
       "Brute massive et matamore, Pat Hibulaire (Pete) est le plus vieil ennemi de Mickey (depuis 1925). Bandit de grand chemin, contrebandier et gros bras, il écume Frontier Town, la station-service, l’aéroport et le ponton du Steamboat Willie. Cupide et combinard, il poursuit quatre coups fumants à la fois.",
     playTips: [
@@ -290,6 +327,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   gothel: {
     difficulty: 5,
+    devise: "Tu veux que je devienne méchante ? Parfait ! Désormais, je serai la méchante !",
     story:
       "Vaniteuse et manipulatrice, Mère Gothel (Disney, Raiponce, 2010) a séquestré la princesse Raiponce dans une tour isolée pour profiter du pouvoir rajeunissant de sa chevelure magique. Sous des airs de mère aimante, elle étouffe la jeune fille de fausse tendresse et de remarques humiliantes pour la garder sous son emprise.",
     playTips: [
@@ -305,6 +343,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   cruella: {
     difficulty: 4,
+    devise: "J'aurai ma revanche ! Croyez-moi, vous le regretterez !",
     story:
       "Héritière fortunée obsédée par la fourrure, Cruella d’Enfer (Disney, Les 101 Dalmatiens, 1961) rêve d’un manteau taillé dans la robe tachetée de chiots dalmatiens. Mondaine cruelle et impatiente, elle lance ses sbires Jasper et Horace à la capture des chiots, fonçant dans la nuit au volant de son bolide.",
     playTips: [
@@ -320,6 +359,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   gaston: {
     difficulty: 1,
+    devise: "La seule qui soit assez belle et qui a la chance d'être choisie par moi.",
     story:
       "Chasseur vaniteux et adulé de tout le village (Disney, La Belle et la Bête, 1991), Gaston n’a qu’une idée en tête : épouser Belle, « la plus belle, donc la seule digne de lui ». Éconduit, il retourne la foule contre la Bête et marche sur le château, prêt à tout pour obtenir ce qu’il convoite.",
     playTips: [
@@ -335,6 +375,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   seigneurCles: {
     difficulty: 2,
+    devise: "Ce n'est que le début de votre cauchemar !",
     story:
       "Le Seigneur des clés est le Gardien (« the Gatekeeper ») du jeu de société Atmosfear (à l’origine Nightmare, 1991) : un spectre encapuchonné aux yeux luminescents qui, depuis sa cassette vidéo, mène la partie et harcèle les joueurs. Comme dans Atmosfear, la victoire passe par la collecte d’une clé de chacune des six couleurs avant de regagner le centre du plateau — sous peine d’être englouti par les Ténèbres. Sa cour de damnés (Anne de Chantraine, Élisabeth Báthory, le Baron Samedi, Gévaudan…) veille à reprendre les clés à quiconque s’approche du but.",
     playTips: [
@@ -351,6 +392,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   madameTremaine: {
     difficulty: 4,
+    devise: "Une femme du monde garde son sang-froid.",
     story:
       "Belle-mère cruelle de Cendrillon (Disney, 1950), Madame de Trémaine n’a qu’une obsession : marier l’une de ses filles, Anastasia ou Drizella, au Prince — quitte à enfermer Cendrillon et à briser ses rêves. Avec son chat Lucifer et sa canne, elle manœuvre dans son manoir jusqu’à la Salle de Bal.",
     playTips: [
@@ -367,6 +409,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   oogieBoogie: {
     difficulty: 3,
+    devise: "À présent, c'est Oogie qui mène le boogie.",
     story:
       "Croquemitaine de Halloween Town (L’Étrange Noël de Monsieur Jack, 1993), Oogie Boogie est un sac de toile grouillant d’insectes, accro au jeu et aux dés pipés. Il enlève « Perce-Oreilles » (Sandy Claws) et veut convaincre Jack Skellington de lui laisser Noël… avant de le faire tomber dans son antre.",
     playTips: [
@@ -383,6 +426,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   seigneurTenebres: {
     difficulty: 4,
+    devise: "Levez-vous mes messagers de mort ! Notre heure est venue, cette fois !",
     story:
       "Le Seigneur des Ténèbres (Disney, Taram et le Chaudron magique, 1985) est un roi-liche décharné qui convoite le Chaudron Magique : une marmite maudite capable de relever une armée de Soldats Ressuscités immortels. Avec son sbire couard Crapaud, il pourchasse le petit valet de ferme Taram et la truie oraculaire Tirelire pour s’emparer du Chaudron et plonger le monde dans les ténèbres.",
     playTips: [
@@ -399,6 +443,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   madameMim: {
     difficulty: 1,
+    devise: "Vous voulez vous battre ? Vous voulez vous battre en duel de sorcellerie ?!",
     story:
       "Madame Mim (Disney, Merlin l’Enchanteur, 1963) est une sorcière mesquine et vaniteuse qui adore tricher. Lorsque Merlin la défie en duel de sorcellerie, les deux mages se transforment tour à tour en animaux de plus en plus redoutables. Mim ne supporte pas de perdre — et compte bien venir à bout de toutes les métamorphoses de ce vieux barbon.",
     playTips: [
@@ -414,6 +459,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   syndrome: {
     difficulty: 3,
+    devise: "On ne peut compter sur personne, en particulier les héros.",
     story:
       "Buddy Pine, alias Syndrome (Les Indestructibles, Pixar, 2004), est un génie de la technologie rejeté par son idole M. Indestructible. Devenu super-vilain sans super-pouvoirs, il met au point l’Omnidroïde, un robot tueur de Super qui apprend de chaque combat. Il compte bien prouver qu’avec assez de gadgets, n’importe qui peut être « super »… donc plus personne ne le sera.",
     playTips: [
@@ -429,6 +475,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   lotso: {
     difficulty: 4,
+    devise: "Tu n'es qu'un morceau de plastique, juste bon à jeter à la poubelle.",
     story:
       "Lots-o’-Huggin’ Bear (Toy Story 3, Pixar, 2010) est un ours en peluche à la fraise au sourire mielleux qui règne en tyran sur la garderie de Sunnyside. Abandonné jadis par sa petite fille, il a juré que plus aucun jouet ne compterait. Il « accueille » les nouveaux venus… avant de les briser, de les réduire au silence et de les enfermer.",
     playTips: [
@@ -444,6 +491,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   saSucrerie: {
     difficulty: 5,
+    devise: "Bienvenue au niveau maîtrise !",
     story:
       "King Candy (Les Mondes de Ralph, 2012) règne en tyran sur le jeu d'arcade Sugar Rush. C'est en réalité Turbo, un pilote jaloux qui a piraté le jeu et effacé les souvenirs de tous. Il s'acharne à empêcher Vanellope von Schweetz, une « Bug » au grand cœur, de prendre le départ — quitte à provoquer l'invasion des Cybugs.",
     playTips: [
@@ -460,6 +508,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   shereKhan: {
     difficulty: 1,
+    devise: "Alors, cher petit, je ferme les yeux, je compte jusqu'à dix. Cela rendra la chasse plus intéressante... pour moi.",
     story:
       "Shere Khan, le tigre du Bengale (Le Livre de la Jungle, 1967), règne par la terreur sur la jungle. Tous fuient à son approche. Il n'a qu'une obsession : retrouver et dévorer le « petit d'homme », Mowgli — mais il ne craint qu'une chose, le Feu Rouge des hommes.",
     playTips: [
@@ -476,6 +525,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   davyJones: {
     difficulty: 3,
+    devise: "C'est la vie qui est cruelle. Alors pourquoi l'au-delà devrait-il être différent ?",
     story:
       "Davy Jones, capitaine maudit du Hollandais Volant (Pirates des Caraïbes), commande l'océan et son Kraken. Il convoite les cinq Trésors légendaires — dont son propre Cœur, arraché et caché dans le Coffre du Maudit.",
     playTips: [
@@ -492,6 +542,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   tamatoa: {
     difficulty: 2,
+    devise: "Qu'est-ce que j'vois ? C'est brillant, étincelant... Une petite minute ! Berk, c'est un humain !",
     story:
       "Crabe géant et cleptomane de Lalotai (Vaiana, 2016), Tamatoa collectionne tout ce qui BRILLE sur sa carapace dorée. Il rêve de remettre la main sur l'hameçon magique de Maui — et sur le Cœur de Te Fiti — pour parader, plus beau et brillant que jamais.",
     playTips: [
@@ -508,6 +559,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   teamRocket: {
     difficulty: 3,
+    devise: "Nous sommes de retour, pour vous jouer un mauvais tour",
     story:
       "Jessie, James et leur Miaouss parlant : le trio de bras cassés de la Team Rocket, lancés à la poursuite des Pokémon de Sacha à bord de leur montgolfière. Maladroits mais increvables, ils multiplient pièges, déguisements et machines pour s'emparer des Pokémon les plus rares. (Pokémon, série animée.)",
     playTips: [
@@ -524,6 +576,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   laBonneFee: {
     difficulty: 2,
+    devise: "Aucun ogre ne vécut jamais heureux pour toujours",
     story:
       "La Marraine la bonne fée, marraine intrigante du royaume de Fort Fort Lointain. Sous ses airs charmants, elle manigance pour marier son fils, le Prince Charmant, à la princesse Fiona — quitte à transformer, ensorceler et faire disparaître quiconque se met en travers de son conte de fées. (Shrek 2.)",
     playTips: [
@@ -544,6 +597,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
 const CUSTOM_GUIDES: Record<string, VillainGuide> = {
   'custom-isabella': {
     difficulty: 4,
+    devise: "La résistance engendre la souffrance",
     story:
       "Isabella (The Promised Neverland) est la « Maman » de l'orphelinat de Grace Field. Douce, cultivée et adorée des enfants, elle cache un rôle glaçant : élever des petits heureux et brillants pour mieux les livrer, à l'heure dite, aux démons qui s'en nourrissent. Rien n'échappe à cette gardienne calculatrice — ni une évasion, ni un cœur qui se rebelle. Derrière son sourire maternel, elle règle chaque geste comme une horloge dont l'aiguille finit toujours par sonner la Moisson.",
     playTips: [
@@ -575,6 +629,7 @@ const CUSTOM_GUIDES: Record<string, VillainGuide> = {
   },
   'custom-pyramid-head': {
     difficulty: 3,
+    devise: "...",
     story:
       "Pyramid Head — le Bourreau — est l'incarnation monstrueuse de la culpabilité et du châtiment qui hante Silent Hill, la ville maudite noyée dans le brouillard. Traînant son immense Grande Lame, ce colosse sans visage à la tête de métal pyramidale n'existe que pour juger et punir. Manifestation du tourment de James Sunderland, venu chercher dans la ville sa femme défunte, il propage la souffrance d'un lieu à l'autre jusqu'à soumettre son monde entier au Jugement. (Silent Hill 2.)",
     playTips: [
@@ -590,6 +645,7 @@ const CUSTOM_GUIDES: Record<string, VillainGuide> = {
   },
   'custom-mr-monopoly': {
     difficulty: 3,
+    devise: "Allez en prison. Avancez tout droit en prison. Ne passez pas par la case Départ. Ne recevez pas 200 euros.",
     story:
       "Mr. Monopoly — l'Oncle Picsou au haut-de-forme du célèbre jeu de société — est le capitalisme fait moustache. Magnat impitoyable, il achète, construit et perçoit des loyers sans le moindre scrupule, couvrant le plateau de maisons et d'hôtels jusqu'à ruiner ses adversaires. Sa devise : tout a un prix, et tout finit par lui appartenir.",
     playTips: [
@@ -605,6 +661,7 @@ const CUSTOM_GUIDES: Record<string, VillainGuide> = {
   },
   'custom-gul-dan': {
     difficulty: 2,
+    devise: "Vous serez le fléau d'un millier de mondes.",
     story:
       "Gul'dan (Warcraft) est le premier sorcier des ténèbres de la Horde. Assoiffé de pouvoir, il trahit son peuple orc et se voue à la Légion ardente : il boit le sang de démon, corrompt les clans et ouvre la Porte des Ténèbres pour déverser l'invasion sur Azeroth. Manipulateur né, il ne recule devant aucun sacrifice — pas même le sien — pour arracher la puissance des Anciens Dieux et des Titans déchus.",
     playTips: [
@@ -631,9 +688,11 @@ export function villainGuideOf(key: string): VillainGuide {
     // La difficulté affichée suit TOUJOURS les étoiles choisies dans l'Atelier (on n'en
     // fige jamais une dans CUSTOM_GUIDES, qui ne fournit que l'histoire et les conseils).
     const written = CUSTOM_GUIDES[key]
-    if (written) return { ...written, difficulty: c?.stars ?? written.difficulty }
+    if (written)
+      return { ...written, difficulty: c?.stars ?? written.difficulty, devise: written.devise ?? c?.devise }
     return {
       difficulty: c?.stars ?? 3,
+      devise: c?.devise,
       story: c?.objectiveDescription || 'Vilain personnalisé créé dans l’Atelier des vilains.',
       playTips: [],
       counterTips: [],

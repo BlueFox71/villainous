@@ -37,6 +37,7 @@ import {
   locationOfCard,
   lotsoReducibleHeroes,
   maxBrewPoison,
+  maxRevealFighters,
   movableCards,
   placementLocations,
   requiresAllyTarget,
@@ -129,6 +130,42 @@ export function enumerateActions(state: GameState): GameAction[] {
       }
     }
     return out
+  }
+
+  // Tabbou — dévoilement : le bot retourne une tuile face cachée (au hasard), ou termine.
+  if (state.pendingFighterReveal) {
+    const p = state.players[state.pendingFighterReveal.playerIndex]
+    const hidden = (p.fighterTiles ?? []).filter((t) => t.state === 'pile')
+    // Une seule option de révélation suffit au bot (les dos sont équivalents) + arrêter.
+    const out: GameAction[] = []
+    if (hidden[0]) out.push({ type: 'RESOLVE_FIGHTER_REVEAL', tileId: hidden[0].id })
+    out.push({ type: 'DONE_FIGHTER_REVEAL' })
+    return out
+  }
+
+  // Tabbou — choix de la couleur de Combattants à tuer : une option par couleur en réserve.
+  if (state.pendingFighterKillColor) {
+    const p = state.players[state.pendingFighterKillColor.playerIndex]
+    const colors = [...new Set((p.fighterTiles ?? []).filter((t) => t.state === 'reserve').map((t) => t.color))]
+    return colors.map((color) => ({ type: 'RESOLVE_FIGHTER_KILL_COLOR', color }))
+  }
+
+  // Tabbou — Coup Fatal : tuer une tuile de la réserve (une option chacune), ou terminer.
+  if (state.pendingFighterKillFree) {
+    const p = state.players[state.pendingFighterKillFree.playerIndex]
+    const out: GameAction[] = (p.fighterTiles ?? [])
+      .filter((t) => t.state === 'reserve')
+      .map((t) => ({ type: 'RESOLVE_FIGHTER_KILL_FREE', tileId: t.id }))
+    out.push({ type: 'DONE_FIGHTER_KILL_FREE' })
+    return out
+  }
+
+  // Tabbou — Destin : dévoiler 3 Combattants OU gagner 4 Pouvoir.
+  if (state.pendingDestinChoice) {
+    return [
+      { type: 'RESOLVE_DESTIN_CHOICE', choice: 'reveal' },
+      { type: 'RESOLVE_DESTIN_CHOICE', choice: 'power' },
+    ]
   }
 
   // Oogie Boogie — action de royaume gratuite (Préparation de Noël ≥8) : on réutilise
@@ -1295,6 +1332,12 @@ export function enumerateActions(state: GameState): GameAction[] {
     } else if (action.type === 'OBTAIN_KEY') {
       // Le Seigneur des clés : ramasser une clé sur le lieu du pion (ouvre pendingKey).
       out.push({ type: 'OBTAIN_KEY', actionId: action.id })
+    } else if (action.type === 'REVEAL_FIGHTER') {
+      // Tabbou : dévoiler N tuiles Combattants (1 JT/tuile ; surcoût Kirby ; plafond Link).
+      // On propose « 1 » (prudent) et « max » (à fond) ; l'évaluation tranche.
+      const max = maxRevealFighters(state)
+      const counts = max > 1 ? [1, max] : max === 1 ? [1] : []
+      for (const count of counts) out.push({ type: 'EXECUTE_ACTION', actionId: action.id, count })
     } else if (action.type === 'BREW_POISON') {
       // Préparer du Poison convertit N Pouvoir en N Poison : on propose au bot
       // « 1 » (prudent) et « tout convertir » (max). L'évaluation tranche.
