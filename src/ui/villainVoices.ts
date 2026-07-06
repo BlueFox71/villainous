@@ -189,6 +189,7 @@ for (const [path, url] of Object.entries(PHRASE_FILES)) {
 // volume).
 const PHRASE_FILE: Partial<Record<VillainKey, { file: string; gain?: number; fadeEndS?: number }>> = {
   scar: { file: 'Scar phrase', fadeEndS: 0.3 },
+  hades: { file: 'hadès phrase' },
   maleficent: { file: 'Maléfique phrase', gain: 0.7 },
   sombra: { file: 'Sombra phrase', gain: 0.5 },
   ursula: { file: 'Ursula phrase', gain: 0.5 },

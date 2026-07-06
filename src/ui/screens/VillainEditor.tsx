@@ -25,6 +25,7 @@ import { Field, TextField, ColorField, ImageField, SelectField } from '../editor
 import { BoardTab } from '../editor/BoardTab'
 import { CardsTab } from '../editor/CardsTab'
 import { QuantityTab } from '../editor/QuantityTab'
+import { CommitPanel } from '../editor/CommitPanel'
 import { bakeVillain } from '../editor/bake'
 import { renderCardBack } from '../editor/cardRender'
 import { parseExcelVillains, type ExcelVillain } from '../editor/importExcel'
@@ -950,6 +951,12 @@ export function VillainEditor({ onBack, onPlay }: Props) {
           }}
         />
       )}
+
+      {/* DEV : panneau « prochain commit » (git status + inclusion par fichier), UNIQUEMENT
+          sur la liste de l'Atelier (pas dans l'éditeur d'un vilain : `!draft`). Il se remonte
+          en revenant à la liste → recoche tout, y compris le vilain qu'on vient d'enregistrer.
+          Absent en build (le serveur de dév n'existe pas → endpoints /__git-* indisponibles). */}
+      {import.meta.env.DEV && !draft && <CommitPanel />}
     </div>
   )
 }

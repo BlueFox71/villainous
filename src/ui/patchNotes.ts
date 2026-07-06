@@ -59,6 +59,7 @@ export const PATCH_NOTES: PatchNote[] = [
       "**Correctif** : plus de **blocage** quand **Flèche** réagit à une Fatalité ; **animation de pioche** corrigée.",
       "**Interface** : **journal** plus clair (**élimination** et **activation** en blocs à part, **montant de Pouvoir** affiché) ; un **message** apparaît quand un coup est refusé ; modales **Destin**, **Coup Fatal** et **choix de lieu** (Gaston) revues.",
       "**Gaston** : le troisième lieu s'appelle désormais **Forêt**.",
+      "**Hadès** a désormais sa **phrase d'entrée** (voix).",
     ],
   },
   {

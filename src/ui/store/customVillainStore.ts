@@ -197,7 +197,18 @@ export const useCustomVillainStore = create<CustomVillainStore>((set, get) => ({
     const next = { ...v, updatedAt: new Date().toISOString() }
     await idbPut(next)
     void backupToDisk(next) // filet de sécurité disque (best-effort, non bloquant)
-    if (next.published) registerPublishedVillain(next)
+    if (next.published) {
+      registerPublishedVillain(next)
+      // Réécrit le JSON EMBARQUÉ (src/data/published/<id>.json) à CHAQUE enregistrement d'un
+      // vilain publié — pas seulement via « Publier ». Ainsi tout changement (image en base64
+      // comprise, n'importe quel champ) est versionné et apparaît dans « prochain commit ».
+      // Best-effort : silencieux hors serveur de dév.
+      void fetch('/__publish-villain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: next.id, json: JSON.stringify(next) }),
+      }).catch(() => {})
+    }
     set((s) => {
       const others = s.villains.filter((x) => x.id !== next.id)
       return { villains: [next, ...others] }

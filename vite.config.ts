@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync, copyFileSync, rmSync } from 'node:fs'
 import { resolve, join, dirname } from 'node:path'
+import { execFileSync } from 'node:child_process'
 
 /**
  * Plugin DEV uniquement : endpoint POST `/__save-action-pos` qui réécrit le bloc
@@ -504,9 +505,113 @@ function saveVillainDifficultyPlugin(): Plugin {
   }
 }
 
+/**
+ * Plugin DEV uniquement : outil « prochain commit » de l'Atelier.
+ *  - GET  `/__git-changes` : liste les fichiers modifiés (`git status`) avec l'état
+ *    STAGÉ (inclus au prochain commit) ou non.
+ *  - POST `/__git-stage` (corps `{ file, staged }`) : bascule le staging d'un fichier
+ *    (`git add` / `git restore --staged`). Absent du build de production (`apply: 'serve'`).
+ */
+function gitStagingPlugin(): Plugin {
+  const ROOT = process.cwd()
+  const git = (args: string[]): string =>
+    execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+  // Périmètre : UNIQUEMENT les fichiers produits par l'Atelier / les vilains enregistrés
+  // (données + assets). Les autres changements du dépôt (code, tests…) sont ignorés ici.
+  const VILLAIN_PREFIXES = [
+    'src/data/published/',
+    'src/data/drafts/',
+    'assets/custom-exports/',
+    'assets/decks/',
+    'assets/portraits/',
+    'assets/pions/',
+    'assets/presentations/',
+    'assets/animations/',
+    'public/cards/',
+    'public/portraits-raw/',
+    'public/presentations/',
+    'public/animations/',
+  ]
+  const isVillainFile = (p: string): boolean => VILLAIN_PREFIXES.some((pre) => p.startsWith(pre))
+  /** Parse `git status --porcelain=v1` en { staged, path } (chemins non échappés),
+   *  restreint aux fichiers de vilains. */
+  const listChanges = (): Array<{ path: string; staged: boolean; status: string }> => {
+    const out = git(['-c', 'core.quotePath=false', 'status', '--porcelain=v1'])
+    const rows: Array<{ path: string; staged: boolean; status: string }> = []
+    for (const line of out.split('\n')) {
+      if (!line) continue
+      const x = line[0] // index (stagé) ; y = arbre de travail
+      const rest = line.slice(3)
+      // Renommage « old -> new » : on garde le chemin de destination.
+      const path = rest.includes(' -> ') ? rest.slice(rest.indexOf(' -> ') + 4) : rest
+      if (!isVillainFile(path)) continue // hors périmètre vilains
+      const staged = x !== ' ' && x !== '?'
+      rows.push({ path, staged, status: line.slice(0, 2) })
+    }
+    // Ordre stable : non stagés d'abord (à décider), puis stagés ; alpha au sein de chaque groupe.
+    return rows.sort((a, b) => Number(a.staged) - Number(b.staged) || a.path.localeCompare(b.path))
+  }
+  const readBody = (req: import('node:http').IncomingMessage): Promise<string> =>
+    new Promise((res) => {
+      let body = ''
+      req.on('data', (c) => { body += c })
+      req.on('end', () => res(body))
+    })
+  return {
+    name: 'git-staging',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__git-changes', (_req, res) => {
+        try {
+          const changes = listChanges()
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ changes }))
+        } catch (e) {
+          res.statusCode = 500
+          res.end(String((e as Error)?.message ?? e))
+        }
+      })
+      // Coche TOUT par défaut : stage l'ensemble des fichiers de vilains modifiés.
+      // Appelé une fois à l'ouverture du panneau (les décochages manuels ultérieurs
+      // ne repassent pas par ici → ils sont préservés jusqu'à la prochaine ouverture).
+      server.middlewares.use('/__git-stage-all', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return }
+        try {
+          const files = listChanges().map((c) => c.path)
+          if (files.length) git(['add', '-A', '--', ...files])
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ ok: true, staged: files.length }))
+        } catch (e) {
+          res.statusCode = 500
+          res.end(String((e as Error)?.message ?? e))
+        }
+      })
+      server.middlewares.use('/__git-stage', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return }
+        void readBody(req).then((body) => {
+          try {
+            const { file, staged } = JSON.parse(body) as { file: string; staged: boolean }
+            if (typeof file !== 'string' || !file || file.includes('\0')) throw new Error('fichier invalide')
+            if (staged) git(['add', '-A', '--', file])
+            else git(['restore', '--staged', '--', file])
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ ok: true }))
+          } catch (e) {
+            res.statusCode = 400
+            res.end(String((e as Error)?.message ?? e))
+          }
+        })
+      })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), saveActionPosPlugin(), saveBlockedOverlayPlugin(), savePawnSizePlugin(), savePortraitPlugin(), saveVillainColorPlugin(), saveVillainAssetsPlugin(), saveVillainJsonPlugin(), savePublishedVillainPlugin(), villainBackupPlugin(), saveVillainDifficultyPlugin()],
+  plugins: [react(), tailwindcss(), saveActionPosPlugin(), saveBlockedOverlayPlugin(), savePawnSizePlugin(), savePortraitPlugin(), saveVillainColorPlugin(), saveVillainAssetsPlugin(), saveVillainJsonPlugin(), savePublishedVillainPlugin(), villainBackupPlugin(), saveVillainDifficultyPlugin(), gitStagingPlugin()],
   server: {
     // Expose le serveur de dév sur le réseau local (0.0.0.0) pour que l'invité
     // puisse ouvrir l'app depuis l'IP de l'hôte (http://<ip-hôte>:5173) — requis
