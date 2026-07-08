@@ -6,7 +6,7 @@ import { useState } from 'react'
 import type { CustomVillain, CustomCard } from '../../data/customVillain'
 import { emptyCustomCard, FATE_CARD_COLOR } from '../../data/customVillain'
 import type { CardType, DeckKind } from '../../data/types'
-import { Field, TextField, NumberField, ImageField, SelectField, ColorField, inputClass } from './fields'
+import { Field, TextField, NumberField, ImageField, SelectField, ColorField, ResetButton, inputClass } from './fields'
 import { CardPreview } from './CardPreview'
 import { CardLayoutEditor } from './CardLayout'
 import { TYPE_LABEL, TYPE_COLOR } from './cardRender'
@@ -133,6 +133,11 @@ function CardForm({
 }) {
   const set = (p: Partial<CustomCard>) => onChange({ ...card, ...p })
 
+  // Cadrage de l'illustration : valeur courante (avec défauts) + maj partielle. Le
+  // défaut est scale 1 (100 %), décalages 0 — cible des boutons « réinitialiser ».
+  const at = card.artTransform ?? { scale: 1, offsetXPct: 0, offsetYPct: 0 }
+  const setArt = (p: Partial<typeof at>) => set({ artTransform: { ...at, ...p } })
+
   // Paquet : Vilain, Fatalité, ou un paquet personnalisé (clé « g:<nom> »). Un paquet
   // perso est hors-deck (group renseigné) ; son `deck` ne sert qu'au STYLE de la carte
   // (Méchant ou Fatalité), choisi librement carte par carte (cf. sélecteur ci-dessous).
@@ -157,7 +162,8 @@ function CardForm({
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_auto]">
       <div className="flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-3">
-          <TextField label="Nom" value={card.name} onChange={(name) => set({ name })} />
+          {/* Titre TOUJOURS en majuscules (cohérent avec le rendu de la carte). */}
+          <TextField label="Nom" value={card.name.toUpperCase()} onChange={(name) => set({ name: name.toUpperCase() })} />
           <SelectField label="Paquet" value={deckValue} options={deckOptions} onChange={onDeckChange} />
         </div>
         {/* Paquet PERSO : on choisit librement le STYLE de la carte (Méchant ou Fatalité)
@@ -315,7 +321,7 @@ function CardForm({
           placeholder="Décris l’effet de la carte ici. Le comportement sera codé au moment du test."
         />
 
-        <div className="flex items-end gap-4">
+        <div className="flex items-start gap-4">
           <ImageField
             label="Illustration"
             value={card.artImage}
@@ -323,57 +329,42 @@ function CardForm({
             aspect="card"
           />
           <div className="flex flex-1 flex-col gap-2">
-            <Field label={`Zoom illustration (${Math.round((card.artTransform?.scale ?? 1) * 100)} %)`}>
+            <Field
+              label={`Zoom illustration (${Math.round(at.scale * 100)} %)`}
+              action={<ResetButton show={at.scale !== 1} onReset={() => setArt({ scale: 1 })} />}
+            >
               <input
                 type="range"
                 min={50}
                 max={250}
-                value={(card.artTransform?.scale ?? 1) * 100}
-                onChange={(e) =>
-                  set({
-                    artTransform: {
-                      scale: Number(e.target.value) / 100,
-                      offsetXPct: card.artTransform?.offsetXPct ?? 0,
-                      offsetYPct: card.artTransform?.offsetYPct ?? 0,
-                    },
-                  })
-                }
+                value={at.scale * 100}
+                onChange={(e) => setArt({ scale: Number(e.target.value) / 100 })}
                 className="accent-amber-400"
               />
             </Field>
-            <Field label="Décalage vertical">
+            <Field
+              label="Décalage vertical"
+              action={<ResetButton show={at.offsetYPct !== 0} onReset={() => setArt({ offsetYPct: 0 })} />}
+            >
               <input
                 type="range"
                 min={-50}
                 max={50}
-                value={card.artTransform?.offsetYPct ?? 0}
-                onChange={(e) =>
-                  set({
-                    artTransform: {
-                      scale: card.artTransform?.scale ?? 1,
-                      offsetXPct: card.artTransform?.offsetXPct ?? 0,
-                      offsetYPct: Number(e.target.value),
-                    },
-                  })
-                }
+                value={at.offsetYPct}
+                onChange={(e) => setArt({ offsetYPct: Number(e.target.value) })}
                 className="accent-amber-400"
               />
             </Field>
-            <Field label="Décalage horizontal">
+            <Field
+              label="Décalage horizontal"
+              action={<ResetButton show={at.offsetXPct !== 0} onReset={() => setArt({ offsetXPct: 0 })} />}
+            >
               <input
                 type="range"
                 min={-50}
                 max={50}
-                value={card.artTransform?.offsetXPct ?? 0}
-                onChange={(e) =>
-                  set({
-                    artTransform: {
-                      scale: card.artTransform?.scale ?? 1,
-                      offsetXPct: Number(e.target.value),
-                      offsetYPct: card.artTransform?.offsetYPct ?? 0,
-                    },
-                  })
-                }
+                value={at.offsetXPct}
+                onChange={(e) => setArt({ offsetXPct: Number(e.target.value) })}
                 className="accent-amber-400"
               />
             </Field>

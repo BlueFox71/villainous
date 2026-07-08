@@ -345,6 +345,8 @@ export function VillainEditor({ onBack, onPlay }: Props) {
   const testWonIds = useTestWinStore((s) => s.wonIds)
   // Progression du « bake » (génération des images) pour la barre de chargement.
   const [bakeProgress, setBakeProgress] = useState<{ done: number; total: number } | null>(null)
+  // Retour visuel bref après « Copier les consignes » de développement.
+  const [promptCopied, setPromptCopied] = useState(false)
 
   useEffect(() => {
     if (!loaded) void load()
@@ -390,14 +392,11 @@ export function VillainEditor({ onBack, onPlay }: Props) {
     await bakeAndSave(draft)
   }
 
-  /** Exporte le vilain en cours en .json ALLÉGÉ (sans les images, lourdes en dataURL) :
-   *  uniquement les données de jeu (cartes, lieux, objectif…) — suffisant pour relire /
-   *  coder ses effets. Écrit dans le dépôt (`assets/custom-exports/`) si le serveur de
-   *  dév est là ; sinon, repli sur un téléchargement. */
-  const onExportJson = async () => {
-    if (!draft) return
+  /** Construit le JSON ALLÉGÉ (sans les images, lourdes en dataURL) du vilain : uniquement
+   *  les données de jeu (cartes, lieux, objectif…) — suffisant pour relire / coder ses effets. */
+  const buildLightJson = (v: CustomVillain): string => {
     // Clone puis retire toutes les images (dataURL) pour un fichier léger et lisible.
-    const light = JSON.parse(JSON.stringify(draft)) as Record<string, unknown>
+    const light = JSON.parse(JSON.stringify(v)) as Record<string, unknown>
     for (const k of ['portrait', 'presentation', 'portraitRaw', 'boardArt', 'boardImage', 'pawnImage', 'backVillainImage', 'backFateImage', 'backExtraImage']) {
       delete light[k]
     }
@@ -413,21 +412,35 @@ export function VillainEditor({ onBack, onPlay }: Props) {
     if (Array.isArray(light.cards)) {
       light.cards = (light.cards as Record<string, unknown>[]).map((c) => { delete c.image; delete c.artImage; return c })
     }
-    const json = JSON.stringify(light, null, 2)
-    // 1) Tente d'écrire dans le dépôt (serveur de dév).
+    return JSON.stringify(light, null, 2)
+  }
+
+  /** Écrit le JSON allégé dans le dépôt via le serveur de dév (`assets/custom-exports/<id>.json`).
+   *  Renvoie le chemin écrit, ou `null` si le serveur de dév est absent. */
+  const writeVillainJson = async (id: string, json: string): Promise<string | null> => {
     try {
       const res = await fetch('/__save-villain-json', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: draft.id, json }),
+        body: JSON.stringify({ id, json }),
       })
-      if (res.ok) {
-        const { path } = (await res.json()) as { path: string }
-        alert(`Vilain exporté (sans images) dans ${path}`)
-        return
-      }
+      if (res.ok) return ((await res.json()) as { path: string }).path
     } catch {
-      /* pas de serveur de dév → téléchargement */
+      /* pas de serveur de dév */
+    }
+    return null
+  }
+
+  /** Exporte le vilain en cours en .json ALLÉGÉ. Écrit dans le dépôt si le serveur de
+   *  dév est là ; sinon, repli sur un téléchargement. */
+  const onExportJson = async () => {
+    if (!draft) return
+    const json = buildLightJson(draft)
+    // 1) Tente d'écrire dans le dépôt (serveur de dév).
+    const path = await writeVillainJson(draft.id, json)
+    if (path) {
+      alert(`Vilain exporté (sans images) dans ${path}`)
+      return
     }
     // 2) Repli : téléchargement.
     const blob = new Blob([json], { type: 'application/json' })
@@ -437,6 +450,71 @@ export function VillainEditor({ onBack, onPlay }: Props) {
     a.download = `${draft.id}.json`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  /** Nom de dossier `assets/` d'un vilain (mêmes règles que `exportAssets.ts` :
+   *  on garde accents/espaces, on retire seulement les caractères interdits Windows). */
+  const assetFolder = (name: string): string =>
+    (name || 'vilain').replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim() || 'vilain'
+
+  /** Chemin du .json allégé dans le dépôt (mêmes règles de « slugification » que
+   *  l'endpoint DEV `/__save-villain-json`). */
+  const jsonPathOf = (id: string): string =>
+    `assets/custom-exports/${id.replace(/[^a-z0-9_-]+/gi, '-')}.json`
+
+  /** Construit le prompt de développement (consignes détaillées) à coller dans une
+   *  nouvelle session Claude Code pour coder ce vilain « en dur » (natif). */
+  const buildDevPrompt = (v: CustomVillain): string => {
+    const deck = assetFolder(v.name)
+    const jsonPath = jsonPathOf(v.id)
+    return `Développons un nouveau vilain : « ${v.name} ».
+
+📄 DONNÉES DE JEU
+Le fichier JSON (allégé, sans images) est dans \`${jsonPath}\`. C'est la source de vérité : il contient les cartes (nom, type, coût, force, texte, quantité), les lieux, l'objectif et les réglages du plateau. Lis-le d'abord entièrement.
+
+🖼️ IMAGES (générées par l'Atelier, rangées comme un vilain natif)
+- Faces des cartes + plateau + dos : dossier \`assets/decks/${deck}/\` (une image par carte nommée d'après la carte, plus \`Plateau\`, \`Card Back mechant\`, \`Card Back fata\`).
+- Pion : \`assets/pions/${deck}.png\`.
+- Présentation (corps entier) : \`assets/presentations/${deck}.png\`.
+- Portrait (carré) : \`assets/portraits/${deck}.png\`.
+Vérifie leur présence et remplace/complète celles qui manquent.
+
+🧩 INTÉGRATION (cf. CLAUDE.md, section « nouveau vilain »)
+1. Crée 2 fichiers \`src/data/villains/<slug>.ts\` (plateau = VillainDef, objectif) + \`<slug>.cards.ts\` (CardDef[]), à partir du JSON. Slug kebab-case ASCII, unique entre TOUS les vilains.
+2. Câble-le dans : \`data/registry.ts\` (allCards), \`ui/store/gameStore.ts\` (VILLAINS + VillainKey), \`ui/villainArt.ts\`, \`ui/villainColors.ts\`, \`ui/screens/VillainList.tsx\`.
+3. Ajoute un test d'intégrité du paquet (compte des cartes, répartition par type, slug ASCII/unicité, existence physique des images) — cf. \`data/__tests__/*.cards.test.ts\`.
+
+🎴 EFFETS DES CARTES (règle centrale)
+Ne code JAMAIS un comportement en dur par cardId dans le moteur. Traduis le texte FR de chaque carte en \`effects\` DONNÉES : réutilise un Effect existant, sinon crée un Effect PARAMÉTRABLE (1 variant dans engine/types.ts + 1 case dans engine/effects.ts). Pour la force passive, utilise les champs data (attachStrengthBonus, selfStrengthMods, strengthMod), pas le moteur.
+
+🖱️ INTERACTIVITÉ (non négociable)
+Toute carte impliquant un CHOIX du joueur (quel Héros/Allié/Objet, quel lieu, action facultative « vous pouvez… ») doit être interactive d'emblée : état \`pendingXXX\` + modale ou clic direct sur le plateau (réutilise les mécaniques existantes : pendingFateChoice, pendingHeroRelocate, pendingReveal…). Jamais d'auto-pick côté humain (réservé au bot). Une carte sans cible valide est injouable (grisée + garde-fou moteur). Couvre le flux interactif par des tests.
+
+⚔️ CLASSEMENT FATALITÉ (malus IA — OBLIGATOIRE)
+Propose-moi un tableau (carte Fatalité durable → effet résumé → catégorie) pour validation, catégories de poids croissant : RALENTIT (+/++/+++) < EMPÊCHE D'AVANCER < EMPÊCHE DE GAGNER ; NEUTRE = 0. Indique aussi une éventuelle règle d'évitement (ne pas fataliser si ça offre au joueur son Héros-clé absent) et de ciblage. Reporte dans la mémoire projet « villainous-fate-malus ».
+
+🎯 JAUGE D'OBJECTIF (IA — OBLIGATOIRE)
+Propose-moi en langage clair les paliers/poids (0→1) de \`objectiveScore\` (ai/heuristicBot.ts), reflétant la VRAIE proximité de victoire (pondérer les étapes finales, la force réunie pour vaincre un Héros-cible, un blocage plafonnant le score…), et demande confirmation.
+
+Avance par étapes : propose le plan, puis code. En cas de doute sur une règle exacte de Villainous, demande avant de coder.`
+  }
+
+  /** Écrit le JSON allégé (pour qu'il soit à jour) puis copie les consignes de
+   *  développement dans le presse-papier — à coller dans une nouvelle session. */
+  const onCopyDevPrompt = async () => {
+    if (!draft) return
+    // Réécrit le .json pour qu'il soit à jour et présent à l'emplacement cité.
+    await writeVillainJson(draft.id, buildLightJson(draft))
+    const prompt = buildDevPrompt(draft)
+    try {
+      await navigator.clipboard.writeText(prompt)
+      setPromptCopied(true)
+      setTimeout(() => setPromptCopied(false), 1500)
+    } catch {
+      // Presse-papier indisponible : repli sur un onglet texte à copier à la main.
+      const w = window.open('', '_blank')
+      if (w) w.document.write(`<pre>${prompt.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]!))}</pre>`)
+    }
   }
 
   const onPlayClick = async () => {
@@ -573,6 +651,7 @@ export function VillainEditor({ onBack, onPlay }: Props) {
         </div>
         {draft && (
           <div className="flex flex-wrap items-center justify-end gap-2">
+            {/* Indicateurs d'état (à gauche des groupes d'actions). */}
             {busy ? (
               <span className="text-xs text-amber-300/70">⏳ génération…</span>
             ) : (
@@ -588,6 +667,74 @@ export function VillainEditor({ onBack, onPlay }: Props) {
                 🏆 gagne un test pour terminer
               </span>
             )}
+
+            {/* Groupe 1 — ÉDITION : enregistrer le brouillon / l'exporter. */}
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={onSave}
+                disabled={busy}
+                title="Enregistrer le brouillon"
+                className="rounded-lg border border-amber-400/60 bg-amber-400/20 px-4 py-1.5 text-sm font-bold text-amber-100 transition hover:bg-amber-400/30 disabled:opacity-50"
+              >
+                Enregistrer
+              </button>
+              <button
+                type="button"
+                onClick={onExportJson}
+                disabled={busy}
+                title="Exporter ce vilain en fichier .json (sauvegarde / partage)"
+                className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200 disabled:opacity-50"
+              >
+                ⬇ .json
+              </button>
+              <button
+                type="button"
+                onClick={onCopyDevPrompt}
+                disabled={busy}
+                title="Écrire le .json à jour et copier les consignes de développement (à coller dans une nouvelle session Claude Code)"
+                className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200 disabled:opacity-50"
+              >
+                {promptCopied ? '✓ Copié' : '📋 Copier les consignes'}
+              </button>
+            </div>
+
+            <div className="h-6 w-px bg-white/15" aria-hidden />
+
+            {/* Groupe 2 — TEST : choisir l'adversaire puis lancer une partie de test. */}
+            <div className="flex items-center gap-1.5">
+              {/* Choix de l'ADVERSAIRE pour la partie de test (sinon aléatoire). */}
+              <label className="flex items-center gap-1 rounded-lg border border-emerald-400/60 bg-emerald-400/10 px-2 py-1.5 text-xs font-semibold text-emerald-100">
+                🆚
+                <select
+                  value={testOpponent}
+                  onChange={(ev) => setTestOpponent(ev.target.value as VillainKey | '')}
+                  title="Adversaire de la partie de test"
+                  className="max-w-[10rem] bg-transparent text-sm font-semibold text-emerald-100 outline-none [&>option]:bg-slate-900 [&>option]:text-white"
+                >
+                  <option value="">Adversaire : aléatoire</option>
+                  {(Object.keys(VILLAIN_REGISTRY) as VillainKey[])
+                    .map((k) => ({ k, name: VILLAIN_REGISTRY[k].def.name }))
+                    .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+                    .map(({ k, name }) => (
+                      <option key={k} value={k}>{name}</option>
+                    ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={onPlayClick}
+                disabled={busy || !complete}
+                title={complete ? 'Tester contre le bot' : 'Planche incomplète (onglet Quantité)'}
+                className="rounded-lg border border-emerald-400/60 bg-emerald-400/20 px-4 py-1.5 text-sm font-bold text-emerald-100 transition hover:bg-emerald-400/30 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                ▶ Tester
+              </button>
+            </div>
+
+            <div className="h-6 w-px bg-white/15" aria-hidden />
+
+            {/* Groupe 3 — PUBLIER : terminer / mettre à jour la version jouable. */}
             <button
               type="button"
               onClick={onFinishClick}
@@ -604,50 +751,6 @@ export function VillainEditor({ onBack, onPlay }: Props) {
               className="rounded-lg border border-amber-300/60 bg-amber-400/20 px-4 py-1.5 text-sm font-bold text-amber-100 transition hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {draft.published ? '✓ Terminé' : '✓ Terminer'}
-            </button>
-            <button
-              type="button"
-              onClick={onExportJson}
-              disabled={busy}
-              title="Exporter ce vilain en fichier .json (sauvegarde / partage)"
-              className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200 disabled:opacity-50"
-            >
-              ⬇ .json
-            </button>
-            {/* Choix de l'ADVERSAIRE pour la partie de test (sinon aléatoire). */}
-            <label className="flex items-center gap-1 rounded-lg border border-emerald-400/60 bg-emerald-400/10 px-2 py-1.5 text-xs font-semibold text-emerald-100">
-              🆚
-              <select
-                value={testOpponent}
-                onChange={(ev) => setTestOpponent(ev.target.value as VillainKey | '')}
-                title="Adversaire de la partie de test"
-                className="max-w-[10rem] bg-transparent text-sm font-semibold text-emerald-100 outline-none [&>option]:bg-slate-900 [&>option]:text-white"
-              >
-                <option value="">Adversaire : aléatoire</option>
-                {(Object.keys(VILLAIN_REGISTRY) as VillainKey[])
-                  .map((k) => ({ k, name: VILLAIN_REGISTRY[k].def.name }))
-                  .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
-                  .map(({ k, name }) => (
-                    <option key={k} value={k}>{name}</option>
-                  ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              onClick={onPlayClick}
-              disabled={busy || !complete}
-              title={complete ? 'Tester contre le bot' : 'Planche incomplète (onglet Quantité)'}
-              className="rounded-lg border border-emerald-400/60 bg-emerald-400/20 px-4 py-1.5 text-sm font-bold text-emerald-100 transition hover:bg-emerald-400/30 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              ▶ Tester
-            </button>
-            <button
-              type="button"
-              onClick={onSave}
-              disabled={busy}
-              className="rounded-lg border border-amber-400/60 bg-amber-400/20 px-4 py-1.5 text-sm font-bold text-amber-100 transition hover:bg-amber-400/30 disabled:opacity-50"
-            >
-              Enregistrer
             </button>
           </div>
         )}

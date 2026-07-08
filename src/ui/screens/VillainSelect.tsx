@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { VILLAIN_REGISTRY, villainEntry, isCustomKey, useGameStore, type VillainKey } from '../store/gameStore'
+import { VILLAIN_REGISTRY, villainEntry, isCustomKey, useGameStore, UNRELEASED_VILLAINS, type VillainKey } from '../store/gameStore'
 import { useCustomVillainStore } from '../store/customVillainStore'
 import { usePlayerStore } from '../store/playerStore'
 import { useIsDesktopApp } from '../store/settingsStore'
@@ -307,11 +307,16 @@ export function VillainSelect({ onStart, onBack }: Props) {
     () => customVillains.filter((v) => v.published).map((v) => v.id),
     [customVillains],
   )
+  // Vilains non encore publiés : sélectionnables en dév, masqués aux joueurs (exe /
+  // « mode application »), cf. UNRELEASED_VILLAINS.
+  const hideUnreleased = useIsDesktopApp()
   // Toutes les clés sélectionnables (natives + publiées en solo).
-  const allKeys = useMemo<string[]>(
-    () => (network ? [...BUILTIN_KEYS] : [...BUILTIN_KEYS, ...publishedKeys]),
-    [network, publishedKeys],
-  )
+  const allKeys = useMemo<string[]>(() => {
+    const builtin = hideUnreleased
+      ? BUILTIN_KEYS.filter((k) => !UNRELEASED_VILLAINS.includes(k))
+      : [...BUILTIN_KEYS]
+    return network ? builtin : [...builtin, ...publishedKeys]
+  }, [network, publishedKeys, hideUnreleased])
 
   // Libellé du camp « toi » : nom du joueur (profil), en solo comme en réseau.
   const playerName = usePlayerStore((s) => s.name)

@@ -31,7 +31,7 @@ const GEO = {
   nameBaseline: 1192,
   typeY: 2002,
   text: { x: 150, top: 1380, w: 1140, bottom: 1900, lineH: 64, size: 50 },
-  cost: { cx: 188, cy: 188, size: 130 },
+  cost: { cx: 188, cy: 188, size: 115 },
   strength: { cx: 139, cy: 1900, size: 120 },
 } as const
 
@@ -461,10 +461,13 @@ async function drawBoardNumber(
       const num = await asset(`power-${value}.png`)
       const h = size * 0.78
       const w = (num.width * h) / num.height
+      // Le glyphe « 1 » est optiquement décalé à droite : on le recentre un peu vers
+      // la gauche (les autres chiffres restent centrés).
+      const nudgeX = value === 1 ? h * 0.09 : 0
       ctx.save()
       ctx.shadowColor = 'rgba(0,0,0,0.5)'
       ctx.shadowBlur = 6
-      ctx.drawImage(num, cx - w / 2, cy - h / 2, w, h)
+      ctx.drawImage(num, cx - w / 2 - nudgeX, cy - h / 2, w, h)
       ctx.restore()
       return
     } catch {
@@ -556,14 +559,17 @@ export async function renderCardFace(
   ctx.fillStyle = isFate ? FATE_INK : POWER_GOLD
   ctx.textAlign = 'center'
   ctx.textBaseline = 'alphabetic'
+  // Titre TOUJOURS en majuscules (comme sur les cartes officielles), quelle que soit
+  // la casse saisie.
+  const displayName = card.name.toUpperCase()
   let nameSize = 90
   ctx.font = `${nameSize}px ${FONT}`
   const maxNameW = CARD_W - 320
-  while (ctx.measureText(card.name).width > maxNameW && nameSize > 46) {
+  while (ctx.measureText(displayName).width > maxNameW && nameSize > 46) {
     nameSize -= 2
     ctx.font = `${nameSize}px ${FONT}`
   }
-  ctx.fillText(card.name, CARD_W / 2, GEO.nameBaseline)
+  ctx.fillText(displayName, CARD_W / 2, GEO.nameBaseline)
 
   // 4) Type EN BAS, en Arial gras : libellé et couleur personnalisables (sinon
   //    valeurs par défaut du type mécanique).

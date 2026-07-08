@@ -329,6 +329,7 @@ function BoardPreview({
     c: previewV.color,
     n: previewV.name,
     o: previewV.boardObjective,
+    oy: previewV.objectiveTextOffsetY,
     art: previewV.boardArt?.slice(0, 48),
     pp: previewV.portraitPos,
     locs: previewV.locations.map((l) => ({
@@ -515,7 +516,12 @@ export function BoardTab({
 
   return (
     <div className="flex flex-col gap-6">
-      <BoardPreview v={draft} onChangeLocks={(boardLocks) => patch({ boardLocks })} />
+      {/* Aperçu du plateau FIGÉ en haut : reste visible pendant qu'on fait défiler les
+          lieux/objectif en dessous. Fond flou opaque pour ne pas laisser transparaître
+          le contenu qui défile derrière ; -mx-6 pour couvrir la gouttière du Scroller. */}
+      <div className="sticky top-0 z-20 -mx-6 px-6 py-3">
+        <BoardPreview v={draft} onChangeLocks={(boardLocks) => patch({ boardLocks })} />
+      </div>
 
       <div className="flex flex-wrap items-center gap-3">
         <button
@@ -537,13 +543,33 @@ export function BoardTab({
         vilain, illustrations de lieux et icônes d’action. Ajoute une image par lieu ci-dessous.
       </p>
 
-      <TextField
-        label="Objectif (texte du plateau)"
-        value={draft.boardObjective}
-        onChange={(boardObjective) => patch({ boardObjective })}
-        textarea
-        placeholder="Ex. : Atteignez 20 jetons Pouvoir au début de votre tour."
-      />
+      <div className="flex items-stretch gap-3">
+        <div className="min-w-0 flex-1">
+          <TextField
+            label="Objectif (texte du plateau)"
+            value={draft.boardObjective}
+            onChange={(boardObjective) => patch({ boardObjective })}
+            textarea
+            placeholder="Ex. : Atteignez 20 jetons Pouvoir au début de votre tour."
+          />
+        </div>
+        {/* Curseur VERTICAL : monte / descend le texte d'objectif sur le plateau.
+            Rotation à 90° (sens horaire) → le haut du curseur correspond au décalage
+            négatif (texte vers le haut). */}
+        <Field label="↕ Position">
+          <div className="flex h-full min-h-[6rem] w-8 items-center justify-center">
+            <input
+              type="range"
+              min={-150}
+              max={150}
+              value={draft.objectiveTextOffsetY ?? 0}
+              onChange={(e) => patch({ objectiveTextOffsetY: Number(e.target.value) })}
+              title="Monter / descendre le texte d’objectif"
+              className="w-24 rotate-90 accent-amber-400"
+            />
+          </div>
+        </Field>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="flex items-start gap-4">

@@ -57,6 +57,7 @@ const VOICE_PREFIX: Record<VillainKey, string> = {
   tamatoa: 'Tamatoa', // 4 variantes présentes
   teamRocket: 'La team rocket', // fichiers « La team rocket N.wav »
   laBonneFee: 'Marraine la bonne fée', // 4 variantes présentes
+  flagelleurMental: 'Flagelleur mental', // 4 variantes présentes
 }
 
 const CONTRE_PREFIX = 'Contre'
@@ -202,6 +203,7 @@ const PHRASE_FILE: Partial<Record<VillainKey, { file: string; gain?: number; fad
   bowser: { file: 'Bowser phrase' },
   teamRocket: { file: 'Team Rocket phrase' },
   laBonneFee: { file: 'marraine la bonne fée phrase' },
+  flagelleurMental: { file: 'le flagelleur mental phrase' },
 }
 function phraseTrack(key: VillainKey): { url: string; gain: number; fadeEndS: number } | undefined {
   const entry = PHRASE_FILE[key]

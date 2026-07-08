@@ -1,5 +1,5 @@
 // Champs de formulaire réutilisables par les onglets de l'éditeur de vilains.
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { readImageForStorage } from './imageUtils'
 import type { CropPos } from '../../data/customVillain'
 
@@ -8,12 +8,44 @@ const CENTER: CropPos = { x: 50, y: 50 }
 export const inputClass =
   'rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm text-white outline-none transition focus:border-amber-300/70'
 
-export function Field({ label, children }: { label: string; children: React.ReactNode }) {
+export function Field({
+  label,
+  action,
+  children,
+}: {
+  label: string
+  /** Élément optionnel affiché à DROITE du libellé (ex. bouton « Réinitialiser »). */
+  action?: React.ReactNode
+  children: React.ReactNode
+}) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-xs font-semibold uppercase tracking-wide text-white/50">{label}</span>
+      <span className="flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-white/50">
+        <span>{label}</span>
+        {action}
+      </span>
       {children}
     </label>
+  )
+}
+
+/** Petit bouton « réinitialiser » (↺) affiché à droite d'un libellé de Field. Ne
+ *  s'affiche que si la valeur diffère du défaut (`show`). */
+export function ResetButton({ show, onReset }: { show: boolean; onReset: () => void }) {
+  if (!show) return null
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onReset()
+      }}
+      title="Réinitialiser (valeur par défaut)"
+      className="rounded px-1 text-white/40 transition hover:text-amber-200"
+    >
+      ↺
+    </button>
   )
 }
 
@@ -176,6 +208,32 @@ export function ImageField({
 }) {
   const pos = crop?.pos ?? CENTER
   const inputRef = useRef<HTMLInputElement>(null)
+  const [dragOver, setDragOver] = useState(false)
+  // Détecte un fichier glissé N'IMPORTE OÙ sur la fenêtre pour mettre en évidence la
+  // zone de dépôt « de loin » (avant même de survoler la petite vignette). `dragover`
+  // se répète en continu pendant le drag : un timer court, ré-armé à chaque événement,
+  // se déclenche quand le drag cesse (plus d'événement) → fin de la mise en évidence.
+  const [fileNearby, setFileNearby] = useState(false)
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const onDragOver = (e: DragEvent) => {
+      if (!Array.from(e.dataTransfer?.types ?? []).includes('Files')) return
+      setFileNearby(true)
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => setFileNearby(false), 140)
+    }
+    const onDrop = () => {
+      if (timer) clearTimeout(timer)
+      setFileNearby(false)
+    }
+    window.addEventListener('dragover', onDragOver)
+    window.addEventListener('drop', onDrop)
+    return () => {
+      window.removeEventListener('dragover', onDragOver)
+      window.removeEventListener('drop', onDrop)
+      if (timer) clearTimeout(timer)
+    }
+  }, [])
   const ratio =
     aspect === 'square'
       ? 'aspect-square'
@@ -193,15 +251,40 @@ export function ImageField({
   }
   return (
     <Field label={label}>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col items-start gap-2">
+        {/* Aperçu = zone de dépôt (glisser-déposer d'image) ET raccourci de sélection. */}
         <div
-          className={`${ratio} w-24 shrink-0 overflow-hidden rounded-lg border border-white/15 bg-black/30`}
+          onClick={(e) => {
+            // Le champ est dans un <label> (cf. Field) qui contient l'<input file> :
+            // sans preventDefault, le label ouvrirait AUSSI le sélecteur → double ouverture.
+            e.preventDefault()
+            inputRef.current?.click()
+          }}
+          onDragOver={(e) => {
+            e.preventDefault()
+            if (!dragOver) setDragOver(true)
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault()
+            setDragOver(false)
+            const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith('image/'))
+            if (file) void onPick(file)
+          }}
+          title="Cliquer ou glisser-déposer une image"
+          className={`${ratio} relative w-36 shrink-0 cursor-pointer overflow-hidden rounded-lg border-2 bg-black/30 transition ${
+            dragOver
+              ? 'border-amber-300 ring-2 ring-amber-300/60'
+              : fileNearby
+                ? 'border-dashed border-amber-300/80 ring-2 ring-amber-300/30'
+                : 'border-solid border-white/15 hover:border-amber-300/50'
+          }`}
         >
           {value ? (
             <img
               src={value}
               alt=""
-              className={`h-full w-full ${fit === 'contain' ? 'object-contain' : 'object-cover'}`}
+              className={`pointer-events-none h-full w-full ${fit === 'contain' ? 'object-contain' : 'object-cover'}`}
               style={
                 crop
                   ? {
@@ -215,8 +298,18 @@ export function ImageField({
           ) : (
             <div className="flex h-full w-full items-center justify-center text-2xl text-white/20">🖼️</div>
           )}
+          {(dragOver || fileNearby) && (
+            <div
+              className={`pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 text-center font-semibold text-amber-100 transition ${
+                dragOver ? 'bg-amber-300/25' : 'bg-black/45'
+              }`}
+            >
+              <span className="text-2xl leading-none">⬇</span>
+              <span className="text-xs">Déposer ici</span>
+            </div>
+          )}
         </div>
-        <div className="flex flex-1 flex-col gap-2">
+        <div className="flex w-full flex-col gap-2">
           <input
             ref={inputRef}
             type="file"
@@ -226,7 +319,10 @@ export function ImageField({
           />
           <button
             type="button"
-            onClick={() => inputRef.current?.click()}
+            onClick={(e) => {
+              e.preventDefault()
+              inputRef.current?.click()
+            }}
             className="self-start rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200"
           >
             Choisir une image

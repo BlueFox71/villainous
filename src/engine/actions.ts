@@ -65,6 +65,9 @@ import {
   belleBlocksRemoval,
   activatableCards,
   kissAtBallConditionMet,
+  flayerGateConditionMet,
+  flayerTunnelDiscardableAllies,
+  flayerTunnelRequiredAllies,
   cauldronBornLocations,
   canCauldronExchange,
   darkPortalReady,
@@ -870,6 +873,28 @@ function applyPlayCard(
   // Team Rocket — Évolution : injouable s'il n'y a aucun Allié dans le royaume (rien à faire évoluer).
   if (card.requiresAllyInRealm && !Object.values(me.board).flat().some((c) => c.type === 'ally')) {
     throw new Error('Aucun Allié dans votre royaume : cette carte n’aurait aucun effet.')
+  }
+  // Le Flagelleur Mental — Tunnel de Hawkins : coût additionnel = défausser N Alliés du
+  // royaume (2, ou 3 si Onze présente). Injouable sans assez d'Alliés défaussables ; les
+  // Alliés à défausser sont fournis via `allyInstanceIds` (Billy exclu, cf. helpers).
+  {
+    const tunnelEff = (card.effects ?? []).find((e) => e.type === 'FLAYER_PLACE_TUNNEL')
+    if (tunnelEff && tunnelEff.type === 'FLAYER_PLACE_TUNNEL') {
+      const required = flayerTunnelRequiredAllies(me, tunnelEff)
+      const discardable = flayerTunnelDiscardableAllies(me)
+      if (discardable.length < required) {
+        throw new Error(`${card.name} : il faut ${required} Alliés à défausser dans votre royaume.`)
+      }
+      const chosen = allyInstanceIds ?? []
+      const chosenSet = new Set(chosen)
+      if (
+        chosen.length !== required ||
+        chosenSet.size !== required ||
+        !chosen.every((id) => discardable.some((a) => a.instanceId === id))
+      ) {
+        throw new Error(`${card.name} : sélectionnez ${required} Alliés défaussables distincts.`)
+      }
+    }
   }
   // Scar — Suivez-moi ! : injouable s'il n'y a aucune Hyène sur un AUTRE lieu que
   // celui du pion (aucune Hyène à « suivre »).
@@ -4334,6 +4359,11 @@ function applyMoveCard(
   if (card.cardId === 'kronk') {
     next = addKronkTokens(next, state.activePlayer, 1)
   }
+  // Le Flagelleur Mental — Démogorgon : +N Pouvoir à chaque déplacement (move-only).
+  if (card.powerOnMove) {
+    next = updateActivePlayer(next, (p) => ({ ...p, power: p.power + card.powerOnMove! }))
+    next = { ...next, log: [...next.log, `Le **${card.name}** se déplace : +${card.powerOnMove} Pouvoir.`] }
+  }
   // Mr. Monopoly — Officier de police : en arrivant sur un lieu avec un (des) Héros, il
   // l'(les) envoie à la Prison (sauf si le lieu d'arrivée EST la Prison).
   if (card.sendsHeroToPrisonOnMove && to !== card.sendsHeroToPrisonOnMove) {
@@ -4640,6 +4670,26 @@ function applyActivateCore(
       log: [
         ...next.log,
         `${me.villainName} active **Embrasse-la tout de suite !** : le Prince Charmant embrasse Fiona au bal — 🏆 Victoire !`,
+      ],
+    }
+  }
+
+  // Le Flagelleur Mental — Entrée du Monde à l'Envers : VICTOIRE (ONZE sur le lieu de
+  // l'Entrée + premiers lieux tunnelisés). Garde-fou via activatableCards.
+  if (card.cardId === 'entree-du-monde-a-l-envers') {
+    if (!flayerGateConditionMet(state, state.activePlayer)) {
+      throw new Error("« Entrée du Monde à l'Envers » : conditions de victoire non réunies.")
+    }
+    let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost! }))
+    next = consumePersifleur(next, action)
+    return {
+      ...next,
+      status: 'WON',
+      winner: state.activePlayer,
+      usedActionIds: [...next.usedActionIds, actionId],
+      log: [
+        ...next.log,
+        `${me.villainName} active **l'Entrée du Monde à l'Envers** : la brèche s'ouvre — 🏆 Victoire !`,
       ],
     }
   }
@@ -6260,8 +6310,9 @@ function resolveConditionEffect(
       ],
     }
   }
-  if (card.cardId === 'lachete' || card.cardId === 'renforts') {
-    // Lâcheté / Besoin de renfort : pose un Allié gratuitement chez le joueur.
+  if (card.cardId === 'lachete' || card.cardId === 'renforts' || card.cardId === 'intrus-dans-le-monde-a-l-envers') {
+    // Lâcheté / Besoin de renfort / Intrus : pose un Allié gratuitement chez le joueur.
+    // Intrus pioche EN PLUS une carte après la pose.
     const label = card.name
     if (!allyInstanceId) throw new Error(`${label} : précisez l'Allié à poser.`)
     if (!to) throw new Error(`${label} : précisez le lieu de pose.`)
@@ -6287,6 +6338,16 @@ function resolveConditionEffect(
         ...next.log,
         `${player.villainName} pose gratuitement **${ally.name}** sur **${to}**.`,
       ],
+    }
+    // Intrus dans le Monde à l'Envers : « puis piochez une carte ».
+    if (card.cardId === 'intrus-dans-le-monde-a-l-envers') {
+      const drawn = drawPlayerToLimitN(next.players[playerIndex], next.rngState, 1)
+      next = {
+        ...next,
+        rngState: drawn.rngState,
+        players: next.players.map((p, i) => (i === playerIndex ? drawn.player : p)),
+        log: [...next.log, `${player.villainName} pioche ${drawn.drawn} carte (Intrus).`],
+      }
     }
     // Une Malédiction Sommeil sans Rêves se défausse aussi quand un Allié arrive
     // via Lâcheté (cohérence avec la pose normale).

@@ -380,6 +380,19 @@ export type ObjectiveDef =
    *  présent dans le royaume, le seuil monte à `raiseTo` (30). Les Combattants sont
    *  dévoilés (pioche → réserve) puis tués par couleur via des cartes. */
   | { type: 'KILL_FIGHTERS'; threshold: number; raiseHeroCardId?: string; raiseTo?: number }
+  /** Le Flagelleur Mental (Stranger Things) : ouvrir le Monde à l'Envers. Victoire
+   *  ÉVÉNEMENTIELLE — déclenchée en ACTIVANT `gateCardId` (Entrée du Monde à l'Envers,
+   *  présente n'importe où dans le royaume) quand : (a) le Héros `heroCardId` (Onze) est
+   *  sur le MÊME lieu que l'Entrée ; (b) chacun des `tunnelLocationCount` premiers lieux
+   *  porte au moins un `tunnelCardId` (Tunnel de Hawkins). L'unique action ACTIVER du
+   *  plateau étant sur le dernier lieu, la figurine s'y trouve de fait au moment d'activer. */
+  | {
+      type: 'FLAYER_GATE'
+      gateCardId: string
+      heroCardId: string
+      tunnelCardId: string
+      tunnelLocationCount: number
+    }
 
 /** Pat Hibulaire — les 5 types de tuile Objectif (4 tirés par partie) :
  *  - `win-big`        : gagner ≥4 Pouvoir via UNE SEULE Petite Partie ? sur le lieu ;
@@ -1679,8 +1692,10 @@ export type Effect =
    *  cible (auto : un Objet non associé). */
   | { type: 'DISCARD_ONE_ITEM' }
   /** Team Rocket — Onix (Pokémon Fatalité, à la pose) : défausse un Allié OU un Objet
-   *  du royaume de la cible (auto : le plus « précieux » — force d'Allié ou coût d'Objet). */
-  | { type: 'DISCARD_ALLY_OR_ITEM' }
+   *  du royaume de la cible (auto : le plus « précieux » — force d'Allié ou coût d'Objet).
+   *  `onlyType` restreint aux Alliés OU aux Objets (Le Flagelleur Mental — CHALEUR :
+   *  Alliés seulement) ; `cardName` = libellé pour le journal/la modale (défaut « Onix »). */
+  | { type: 'DISCARD_ALLY_OR_ITEM'; onlyType?: 'ally' | 'item'; cardName?: string }
   /** Team Rocket — Évolution : fait évoluer un Allié du royaume (choix interactif via
    *  `pendingEvolveAlly`). L'Allié choisi est défaussé, son évolution cherchée et posée
    *  sur le même lieu. */
@@ -1860,6 +1875,40 @@ export type Effect =
    *  aucune des deux options n'est possible. L'effet ne réalise QUE la défausse (le
    *  supplément est prélevé au paiement du coût) ; no-op si l'option « payer » est choisie. */
   | { type: 'DISCARD_ALLY_AT_HOST_OR_PAY'; power: number }
+  /** Le Flagelleur Mental — Tunnel de Hawkins (à la pose) : coût additionnel = défausser
+   *  `baseAllies` Alliés du royaume (+1 si un Héros `surchargeHeroCardId` — Onze — est
+   *  présent), choisis via `ctx.allyInstanceIds` (Billy `cannotDiscardForTunnel` exclu).
+   *  Puis, si la pose porte le nombre de `tunnelCardId` du royaume à `rewardAtCount`,
+   *  gagne `rewardPower` Pouvoir (une fois, en atteignant le seuil). */
+  | {
+      type: 'FLAYER_PLACE_TUNNEL'
+      baseAllies: number
+      surchargeHeroCardId: string
+      tunnelCardId: string
+      rewardAtCount: number
+      rewardPower: number
+    }
+  /** Le Flagelleur Mental — THE FLAYED (à la pose, AVANT placement) : si le royaume
+   *  atteint `count` exemplaires de `flayedCardId` (celui-ci compris), pose le latch de
+   *  déblocage du lieu `locationId` (Monde à l'Envers) et le déverrouille — sauf si WILL
+   *  BYERS (`willCardId`) est présent (il le re-verrouille). */
+  | { type: 'FLAYER_FLAYED_UNLOCK'; flayedCardId: string; count: number; locationId: LocationId; willCardId: string }
+  /** Le Flagelleur Mental — WILL BYERS (onPlace) : re-verrouille `locationId` tant qu'il
+   *  est présent. */
+  | { type: 'FLAYER_GATE_LOCK'; locationId: LocationId }
+  /** Le Flagelleur Mental — WILL BYERS (onVanquish) : à son départ, redéverrouille
+   *  `locationId` si le latch de déblocage est posé et qu'aucun autre WILL BYERS
+   *  (`willCardId`) n'est présent. */
+  | { type: 'FLAYER_GATE_REFRESH'; locationId: LocationId; willCardId: string }
+  /** Le Flagelleur Mental — BILLY SOUS EMPRISE (capacité activée) : cherche le Héros
+   *  `heroCardId` (Onze) dans la pioche/défausse Fatalité et le pose dans le royaume, sur
+   *  le lieu de Billy (`ctx.hostLocationId`). Bloqué tant que `blockerHeroCardId` (Max) est
+   *  présent (double-garde ; l'activation est déjà exclue par activatableCards). */
+  | { type: 'FLAYER_FETCH_ONZE'; heroCardId: string; blockerHeroCardId: string }
+  /** Le Flagelleur Mental — WILL SOUS EMPRISE : regarde les `count` premières cartes de sa
+   *  pioche Méchant et les réordonne (réutilise pendingFateReorder deck:'villain', UI + auto
+   *  bot). NB : l'option « ou deck Fatalité (+1 Pouvoir) » reste à ajouter (couche de choix). */
+  | { type: 'FLAYER_WILL_SCRY'; count: number }
   /** Ratigan — Piège ingénieux : élimine TOUS les Héros du lieu `locationId` (sans
    *  Allié, comme un Vanquish gratuit) : restitue leur Pouvoir verrouillé, déclenche
    *  leurs effets « à la mort », et pose le drapeau de victoire si Basil est éliminé
@@ -2045,6 +2094,9 @@ export interface CardInstance {
    *  défaussé. */
   followsPawn?: boolean
   cannotBeDiscarded?: boolean
+  /** Le Flagelleur Mental — Billy sous emprise : ne peut PAS être défaussé pour payer le
+   *  coût en Alliés d'un Tunnel de Hawkins (mais reste défaussable autrement). */
+  cannotDiscardForTunnel?: boolean
   /** Dio — carte invocatrice : quand elle entre en jeu (Allié de Dio, ou Héros Joestar
    *  via la Fatalité), elle va chercher ce Stand dans `standPile` et se l'associe. */
   summonsStandCardId?: string
@@ -2314,6 +2366,9 @@ export interface CardInstance {
   /** Carte « jouée OU déplacée » : ses `effects` se redéclenchent au déplacement de
    *  l'Allié/Objet (en plus de la pose). Ex. Pilotes (Sa Sucrerie). Recopié de CardDef. */
   effectsAlsoOnMove?: boolean
+  /** Le Flagelleur Mental — Démogorgon : gagne N Pouvoir CHAQUE FOIS que cet Allié est
+   *  déplacé (uniquement au déplacement, pas à la pose). Recopié de CardDef. */
+  powerOnMove?: number
   /** Carte jouable SANS action « Jouer une carte » (paie son coût, ne consomme aucune
    *  action). Ex. Turbo-Statique (Sa Sucrerie). Recopié de CardDef. */
   playableWithoutAction?: boolean
@@ -2644,8 +2699,9 @@ export type ConditionTrigger =
    *  Ténèbres — Nous touchons du doigt la victoire). */
   | { type: 'opponent-played-item'; value: number }
   /** L'adversaire actif a joué au moins un Allié ce tour-ci (Davy Jones — Wyvern
-   *  s'exprime). */
-  | { type: 'opponent-played-ally' }
+   *  s'exprime). `requiresOwnAlly` : exige EN PLUS un Allié en main (Le Flagelleur Mental —
+   *  INTRUS pose un Allié gratuit : injouable sans Allié à poser). */
+  | { type: 'opponent-played-ally'; requiresOwnAlly?: boolean }
   /** L'adversaire actif a joué un ÉVÉNEMENT de coût ≥ `value` ce tour-ci (Le Piégeur —
    *  Fermeture de la trappe). */
   | { type: 'opponent-played-event-cost-ge'; value: number }
@@ -2967,6 +3023,10 @@ export interface PlayerState {
   /** Dio — posé quand les 14 actions hors-Fatalité ont été effectuées dans le tour : la
    *  vérification de victoire (combinée à Jotaro+Joseph retirés) se fait alors. */
   dioRealmSweepDone?: boolean
+  /** Le Flagelleur Mental — latch : le Monde à l'Envers a été DÉBLOQUÉ (3 THE FLAYED
+   *  réunis au moins une fois). Une fois posé, le déblocage est permanent — mais WILL
+   *  BYERS, tant qu'il est présent, re-verrouille tout de même le lieu. */
+  flayerGateUnlocked?: boolean
   /** Tamatoa — Étoile de mer Maui : au prochain tour, le déplacement de la figurine
    *  n'est pas obligatoire (le joueur peut rester sur place). */
   tamatoaSkipMoveNext?: boolean

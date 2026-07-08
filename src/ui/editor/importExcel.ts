@@ -14,6 +14,8 @@ import {
   slugify,
   CUSTOM_ID_PREFIX,
   CUSTOM_VILLAIN_FORMAT,
+  DEFAULT_TEXT_LAYOUT,
+  TEXT_SIZE_PRESETS,
   type CustomVillain,
   type CustomCard,
 } from '../../data/customVillain'
@@ -111,6 +113,9 @@ function parseCards(dataRows: unknown[][], villainSlug: string): CustomCard[] {
       text: buildText(row),
       image: '',
       artTransform: { scale: 1, offsetXPct: 0, offsetYPct: 0 },
+      // Import : le texte adopte d'emblée la taille « Standard » (disposition par
+      // défaut, bloc bas centré), plutôt que l'auto-ajustement.
+      textLayout: { ...DEFAULT_TEXT_LAYOUT, size: TEXT_SIZE_PRESETS.standard },
     }
     if (cost !== undefined) card.cost = cost
     if (strength !== undefined) card.strength = strength

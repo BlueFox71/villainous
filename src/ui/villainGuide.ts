@@ -590,6 +590,22 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       "Défausse ses potions et son Prince Charmant, ou bloque la Salle de Bal, pour casser sa combinaison de mariage.",
     ],
   },
+  flagelleurMental: {
+    difficulty: 4,
+    devise: "Ce n'était pas une bonne idée de me chercher, parce que maintenant je te vois.",
+    story:
+      "Le Flagelleur Mental (Mind Flayer) est l'entité tentaculaire du Monde à l'Envers qui menace Hawkins. Esprit-ruche capable d'asservir les esprits fragiles (Will, Billy…), il étend son emprise via ses tunnels souterrains et ses hordes de Démogorgons, cherchant à ouvrir une brèche définitive entre les deux mondes. (Stranger Things.)",
+    playTips: [
+      "Ton objectif : ouvrir le Monde à l'Envers. Pose 3 TUNNELS DE HAWKINS sur les 3 premiers lieux, amène ONZE sur le lieu de l'ENTRÉE DU MONDE À L'ENVERS, puis ACTIVE l'ENTRÉE pour gagner.",
+      "ONZE n'arrive pas toute seule : BILLY SOUS EMPRISE va la chercher dans la Fatalité (paie 3 Pouvoir). Protège Billy et sors-le avant de dépenser tes Tunnels.",
+      "Les Alliés (Démogorgon, The Flayed, Vignes) sont ton carburant : ils servent à défausser pour poser les Tunnels et à débloquer le Monde à l'Envers (3 THE FLAYED en jeu).",
+    ],
+    counterTips: [
+      "Joue MAX MAYFIELD : tant qu'elle est présente, Billy ne peut pas aller chercher ONZE — sa combinaison de victoire est gelée.",
+      "Ne lui offre pas ONZE : réfléchis à deux fois avant de la révéler par la Fatalité, c'est la pièce maîtresse de sa victoire.",
+      "Défausse ses Tunnels et son Entrée, ou occupe les lieux, pour l'empêcher de réunir les 3 Tunnels et d'activer la brèche.",
+    ],
+  },
 }
 
 /** Fiches RÉDIGÉES pour certains vilains publiés (collaborations fixes), indexées par

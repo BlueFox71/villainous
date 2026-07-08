@@ -42,6 +42,8 @@ import {
   placementLocations,
   requiresAllyTarget,
   transformableGuards,
+  flayerTunnelDiscardableAllies,
+  flayerTunnelRequiredAllies,
 } from '../engine/rules'
 
 /** cardId des cartes CRUCIALES pour l'objectif du joueur (à NE PAS défausser par le
@@ -70,6 +72,10 @@ export function objectiveCriticalCardIds(p: PlayerState): Set<string> {
       if (!p.peachCaptured && !peachInRealm) keep.add('bowser-jr')
       return keep
     }
+    case 'KILL_FIGHTERS':
+      // Tabbou : Halberd (action bonus, pièce maîtresse de tempo) et Destin (dévoiler 3
+      // OU +4 Pouvoir, jamais gaspillé) ne se jettent pas pour cycler la main.
+      return new Set(['halberd', 'destin'])
     default:
       return new Set<string>()
   }
@@ -150,12 +156,17 @@ export function enumerateActions(state: GameState): GameAction[] {
     return colors.map((color) => ({ type: 'RESOLVE_FIGHTER_KILL_COLOR', color }))
   }
 
-  // Tabbou — Coup Fatal : tuer une tuile de la réserve (une option chacune), ou terminer.
+  // Tabbou — Coup Fatal : tuer la tuile de la couleur la MOINS fournie (on garde les
+  // grosses couleurs pour Collection/Bowser, qui tuent toute une couleur d'un coup), ou
+  // terminer. Toutes les mises à mort valent 1 pour l'objectif → une seule option utile.
   if (state.pendingFighterKillFree) {
     const p = state.players[state.pendingFighterKillFree.playerIndex]
-    const out: GameAction[] = (p.fighterTiles ?? [])
-      .filter((t) => t.state === 'reserve')
-      .map((t) => ({ type: 'RESOLVE_FIGHTER_KILL_FREE', tileId: t.id }))
+    const reserve = (p.fighterTiles ?? []).filter((t) => t.state === 'reserve')
+    const counts = new Map<string, number>()
+    reserve.forEach((t) => counts.set(t.color, (counts.get(t.color) ?? 0) + 1))
+    const tile = [...reserve].sort((a, b) => (counts.get(a.color) ?? 0) - (counts.get(b.color) ?? 0))[0]
+    const out: GameAction[] = []
+    if (tile) out.push({ type: 'RESOLVE_FIGHTER_KILL_FREE', tileId: tile.id })
     out.push({ type: 'DONE_FIGHTER_KILL_FREE' })
     return out
   }
@@ -1411,6 +1422,26 @@ export function enumerateActions(state: GameState): GameAction[] {
           movableCards(state).length === 0 &&
           activatableCards(state).length === 0
         ) continue
+        // Tabbou — Coup Fatal (KILL_FIGHTERS_FREE, jusqu'à 10 tuiles) : ne pas gaspiller sa
+        // capacité. On ne le joue que si ≥10 tuiles sont en réserve, OU si tuer la réserve
+        // suffit à atteindre l'objectif (finisher, même avec < 10). Sinon on dévoile d'abord.
+        if ((card.effects ?? []).some((e) => e.type === 'KILL_FIGHTERS_FREE')) {
+          const tiles = me.fighterTiles ?? []
+          const killed = tiles.filter((t) => t.state === 'killed').length
+          const reserve = tiles.filter((t) => t.state === 'reserve').length
+          const obj = me.objective
+          let threshold = obj.type === 'KILL_FIGHTERS' ? obj.threshold : 20
+          if (obj.type === 'KILL_FIGHTERS' && obj.raiseHeroCardId !== undefined && obj.raiseTo !== undefined) {
+            const raiseHero = Object.values(me.board).flat().some((c) => c.type === 'hero' && c.cardId === obj.raiseHeroCardId)
+            if (raiseHero) threshold = obj.raiseTo
+          }
+          if (reserve < 10 && killed + reserve < threshold) continue
+        }
+        // Tabbou — Canon Obscur (−1 au coût des Objets sur son lieu) : n'a plus d'intérêt à
+        // être posé une fois l'Émissaire débloqué (les Orbes, gros achats d'Objets, sont posés).
+        // Restreint à Tabbou : seul lui a `emissaireLocationId`.
+        if (card.itemCostReductionHere !== undefined && me.emissaireLocationId !== undefined &&
+            !(me.lockedLocations ?? []).includes(me.emissaireLocationId)) continue
         const orPayEffect = (card.effects ?? []).find((x) => x.type === 'DISCARD_ALLY_AT_HOST_OR_PAY')
         if (card.type === 'ally' || card.type === 'item' || card.type === 'curse') {
           if (requiresAllyTarget(card)) {
@@ -1424,6 +1455,25 @@ export function enumerateActions(state: GameState): GameAction[] {
             for (const to of locs) {
               for (const h of (me.board[to] ?? []).filter((c) => c.type === 'hero' && !c.hypnotized)) {
                 out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, to, attachTo: h.instanceId })
+              }
+            }
+          } else if ((card.effects ?? []).some((e) => e.type === 'FLAYER_PLACE_TUNNEL')) {
+            // Le Flagelleur Mental — Tunnel de Hawkins : posé sur un lieu (jamais le Monde à
+            // l'Envers, cf. forbiddenLocations), en défaussant N Alliés (2, +1 si Onze). On
+            // émet UNE option par lieu autorisé : défausser les N Alliés les MOINS forts
+            // (choix canonique — évite l'explosion combinatoire des sous-ensembles).
+            const tEff = (card.effects ?? []).find((e) => e.type === 'FLAYER_PLACE_TUNNEL')!
+            if (tEff.type === 'FLAYER_PLACE_TUNNEL') {
+              const required = flayerTunnelRequiredAllies(me, tEff)
+              const discardable = [...flayerTunnelDiscardableAllies(me)].sort(
+                (a, b) => (a.strength ?? 0) - (b.strength ?? 0),
+              )
+              if (discardable.length >= required) {
+                const allyIds = discardable.slice(0, required).map((a) => a.instanceId)
+                for (const to of locs) {
+                  if ((card.forbiddenLocations ?? []).includes(to)) continue
+                  out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, to, allyInstanceIds: allyIds })
+                }
               }
             }
           } else if (orPayEffect && orPayEffect.type === 'DISCARD_ALLY_AT_HOST_OR_PAY') {

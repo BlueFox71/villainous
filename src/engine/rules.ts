@@ -496,6 +496,16 @@ export function activatableCards(state: GameState): CardInstance[] {
           .some((x) => x.type === 'hero' && x.cardId === 'peach')
         if (peachInPlay || me.peachCaptured) continue
       }
+      // Le Flagelleur Mental — Billy sous emprise : chercher ONZE n'est activable que si
+      // MAX est absente, qu'ONZE n'est pas déjà dans le royaume, et qu'elle est disponible
+      // dans la pioche/défausse Fatalité.
+      if (c.cardId === 'billy-sous-emprise') {
+        const inRealm = Object.values(me.board).flat()
+        const maxPresent = inRealm.some((x) => x.type === 'hero' && x.cardId === 'max-mayfield')
+        const onzeInRealm = inRealm.some((x) => x.type === 'hero' && x.cardId === 'onze')
+        const onzeAvailable = [...me.fateDeck, ...me.fateDiscard].some((x) => x.cardId === 'onze')
+        if (maxPresent || onzeInRealm || !onzeAvailable) continue
+      }
       // Ratigan — Cloche : cherche Félicia dans la pioche/défausse. Inutile (donc non
       // activable) si Félicia est déjà en main ou déjà posée sur un lieu.
       if (c.cardId === 'cloche') {
@@ -575,6 +585,14 @@ export function activatableCards(state: GameState): CardInstance[] {
       if (c.cardId === 'justice' && !me.discard.some((x) => x.type === 'ally')) continue
       // La Bonne Fée — Embrasse-la : activable seulement quand la victoire est réunie.
       if (c.cardId === 'embrasser' && !kissAtBallConditionMet(state, state.activePlayer)) continue
+      // Le Flagelleur Mental — Entrée du Monde à l'Envers : activable (= victoire) seulement
+      // quand ONZE partage son lieu et que les premiers lieux sont tunnelisés.
+      if (
+        c.cardId === 'entree-du-monde-a-l-envers' &&
+        !flayerGateConditionMet(state, state.activePlayer)
+      ) {
+        continue
+      }
       // La Bonne Fée — Nettoyage de fond : activable seulement s'il existe un Héros
       // transformé (Objet Meuble/Colombe associé) à défausser.
       if (c.cardId === 'rangement' && !Object.values(me.board).flat().some((x) => x.zeroesHostStrength && x.attachedTo)) continue
@@ -1295,7 +1313,10 @@ export function conditionIsTriggered(
     case 'opponent-played-item':
       return (state.activePlayedItemCount ?? 0) - (card.conditionBaseline?.playedItems ?? 0) >= card.trigger.value
     case 'opponent-played-ally':
-      return (state.activePlayedAllyCount ?? 0) - (card.conditionBaseline?.playedAllies ?? 0) >= 1
+      return (
+        (state.activePlayedAllyCount ?? 0) - (card.conditionBaseline?.playedAllies ?? 0) >= 1 &&
+        (!card.trigger.requiresOwnAlly || me.hand.some((c) => c.type === 'ally'))
+      )
     case 'opponent-played-event-cost-ge':
       // Le Piégeur — Fermeture de la trappe : l'adversaire a joué un Événement de coût ≥ N.
       return (state.activePlayedEventMaxCost ?? 0) >= card.trigger.value
@@ -1582,6 +1603,66 @@ export function kissAtBallConditionMet(
   return ballroom.some((c) => c.type === 'ally' && c.cardId === obj.allyCardId)
 }
 
+/** Le Flagelleur Mental — les conditions d'activation de l'ENTRÉE DU MONDE À L'ENVERS
+ *  (victoire) sont-elles réunies ? L'Entrée (`gateCardId`) est présente dans le royaume,
+ *  ONZE (`heroCardId`) partage son lieu, et chacun des `tunnelLocationCount` premiers
+ *  lieux porte au moins un TUNNEL (`tunnelCardId`). Sert au garde-fou d'activation ET à
+ *  la résolution de la victoire (applyActivateCore). */
+export function flayerGateConditionMet(
+  state: GameState,
+  playerIndex: number = state.activePlayer,
+): boolean {
+  const p = state.players[playerIndex]
+  if (p.objective.type !== 'FLAYER_GATE') return false
+  const obj = p.objective
+  // L'Entrée doit être posée quelque part dans le royaume (non associée).
+  let gateLoc: LocationId | undefined
+  for (const loc of p.locations) {
+    if ((p.board[loc.id] ?? []).some((c) => c.cardId === obj.gateCardId && !c.attachedTo)) {
+      gateLoc = loc.id
+      break
+    }
+  }
+  if (!gateLoc) return false
+  // ONZE (Héros) sur le lieu de l'Entrée.
+  if (!(p.board[gateLoc] ?? []).some((c) => c.type === 'hero' && c.cardId === obj.heroCardId)) {
+    return false
+  }
+  // Chacun des N premiers lieux porte au moins un Tunnel (non associé).
+  const firstLocs = p.locations.slice(0, obj.tunnelLocationCount)
+  if (firstLocs.length < obj.tunnelLocationCount) return false
+  return firstLocs.every((loc) =>
+    (p.board[loc.id] ?? []).some((c) => c.cardId === obj.tunnelCardId && !c.attachedTo),
+  )
+}
+
+/** Le Flagelleur Mental — Alliés du royaume DÉFAUSSABLES pour payer un Tunnel de Hawkins
+ *  (Alliés non associés, hors arceaux/indéfaussables, et hors Billy `cannotDiscardForTunnel`). */
+export function flayerTunnelDiscardableAllies(p: PlayerState): CardInstance[] {
+  return Object.values(p.board)
+    .flat()
+    .filter(
+      (c) =>
+        c.type === 'ally' &&
+        !c.attachedTo &&
+        !c.isWicket &&
+        !c.cannotBeDiscarded &&
+        !c.cannotDiscardForTunnel,
+    )
+}
+
+/** Le Flagelleur Mental — nombre d'Alliés à défausser pour poser un Tunnel : la base de
+ *  l'effet, +1 par Héros `surchargeHeroCardId` (Onze) présent dans le royaume. */
+export function flayerTunnelRequiredAllies(
+  p: PlayerState,
+  effect: { baseAllies: number; surchargeHeroCardId: string },
+): number {
+  const onzePresent = Object.values(p.board)
+    .flat()
+    .some((c) => c.type === 'hero' && c.cardId === effect.surchargeHeroCardId)
+  return effect.baseAllies + (onzePresent ? 1 : 0)
+}
+
 /** Le joueur `playerIndex` (défaut : joueur actif) a-t-il atteint son objectif de
  *  victoire ? Dispatch sur le type d'objectif (POWER_THRESHOLD, CURSE_EACH_LOCATION,
  *  …). Les objectifs déclenchés « à l'instant » (Coup Royal, Vanquish, Divination)
@@ -1675,6 +1756,10 @@ export function hasReachedObjective(state: GameState, playerIndex: number = stat
     case 'KISS_AT_BALL':
       // La Bonne Fée — victoire ÉVÉNEMENTIELLE : déclenchée en activant « Embrasse-la
       // tout de suite ! » (phase moteur ultérieure), pas par un contrôle passif ici.
+      return false
+    case 'FLAYER_GATE':
+      // Le Flagelleur Mental — victoire ÉVÉNEMENTIELLE : déclenchée en activant l'ENTRÉE
+      // DU MONDE À L'ENVERS (applyActivateCore), pas par un contrôle passif ici.
       return false
     case 'DEFEAT_HERO_AT_LOCATION':
       // Victoire déclenchée à l'instant du Vanquish (performVanquish), pas ici.

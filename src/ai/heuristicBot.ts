@@ -55,6 +55,26 @@ export function pickRecoverCandidate(p: PlayerState, cands: CardInstance[]): Car
       if (c.cardId === 'puissance-stellaire') return starsLeft ? 110 : 20 // draine encore une Étoile
       if (c.type === 'ally') return 50 + (c.cost ?? 0)
     }
+    if (p.objective.type === 'KILL_FIGHTERS') {
+      // Tabbou (Bombe du vide) : Halberd d'abord (moteur de tempo irremplaçable). Ensuite,
+      // selon la phase : tant qu'on n'a pas assez dévoilé (tués + réserve < seuil), on
+      // récupère de quoi DÉVOILER (Primides, Flèche, Destin) ; sinon de quoi TUER
+      // (Collection, Bowser, Coup Fatal).
+      const tiles = p.fighterTiles ?? []
+      const killed = tiles.filter((t) => t.state === 'killed').length
+      const reserve = tiles.filter((t) => t.state === 'reserve').length
+      const samus = Object.values(p.board).flat().some((x) => x.type === 'hero' && x.cardId === 'samus')
+      const threshold = samus ? 30 : 20
+      const needReveal = killed + reserve < threshold
+      if (c.cardId === 'halberd') return 130
+      const revealCards = new Set(['primides', 'fleche-tabbou', 'destin'])
+      const killCards = new Set(['collection', 'canon-obscure', 'coup-fatal'])
+      if (needReveal && revealCards.has(c.cardId)) return 100 + (c.cost ?? 0)
+      if (!needReveal && killCards.has(c.cardId)) return 100 + (c.cost ?? 0)
+      // Cartes de l'autre phase : utiles mais moins prioritaires que celles de la phase courante.
+      if (revealCards.has(c.cardId) || killCards.has(c.cardId)) return 60 + (c.cost ?? 0)
+      return c.cost ?? 0
+    }
     // Générique : Magie noire privilégie le Miroir magique puis les Ingrédients ; sinon coût.
     return c.cardId === 'miroir-magique' ? 100 : c.type === 'ingredient' ? 50 + (c.cost ?? 0) : (c.cost ?? 0)
   }
@@ -294,6 +314,38 @@ export function objectiveScore(p: PlayerState): number {
       if (princeAtBall) s += 0.2
       if (shrekPresent) s = Math.min(s, 0.5)
       return Math.min(0.95, s)
+    }
+    case 'FLAYER_GATE': {
+      // Le Flagelleur Mental : poser un TUNNEL sur chacun des N premiers lieux, poser
+      // l'ENTRÉE, amener ONZE sur son lieu, puis activer. Jauge validée : .12/lieu
+      // tunnelisé (max .36) + .12 Entrée posée + .08 Billy en jeu (l'enabler du fetch)
+      // + .20 Onze dans le royaume + .24 Onze sur le lieu de l'Entrée ; =1 quand tout
+      // est prêt ; plafond .55 tant que MAX est présente ET Onze pas encore récupérée
+      // (la voie de victoire est gelée).
+      const obj = p.objective
+      const all = Object.values(p.board).flat()
+      let gateLoc: string | undefined
+      for (const loc of p.locations) {
+        if ((p.board[loc.id] ?? []).some((c) => c.cardId === obj.gateCardId && !c.attachedTo)) {
+          gateLoc = loc.id
+          break
+        }
+      }
+      const firstLocs = p.locations.slice(0, obj.tunnelLocationCount)
+      const tunneled = firstLocs.filter((loc) =>
+        (p.board[loc.id] ?? []).some((c) => c.cardId === obj.tunnelCardId && !c.attachedTo),
+      ).length
+      const onzeInRealm = all.some((c) => c.type === 'hero' && c.cardId === obj.heroCardId)
+      const onzeOnGate = !!gateLoc && (p.board[gateLoc] ?? []).some((c) => c.type === 'hero' && c.cardId === obj.heroCardId)
+      if (gateLoc && onzeOnGate && tunneled >= obj.tunnelLocationCount) return 1
+      let s = 0.12 * tunneled
+      if (gateLoc) s += 0.12
+      if (all.some((c) => c.cardId === 'billy-sous-emprise')) s += 0.08
+      if (onzeInRealm) s += 0.2
+      if (onzeOnGate) s += 0.24
+      const maxPresent = all.some((c) => c.type === 'hero' && c.cardId === 'max-mayfield')
+      if (maxPresent && !onzeInRealm) s = Math.min(s, 0.55)
+      return Math.min(0.97, s)
     }
     case 'REMOVE_ALL_OBSTACLES': {
       // Gaston : proportion d'Obstacles RETIRÉS (8 au départ). Si Belle est dans le
@@ -1326,8 +1378,8 @@ function buildConditionAction(
   card: PlayerState['hand'][number],
   rand: Rand,
 ): GameAction | null {
-  if (card.cardId === 'lachete' || card.cardId === 'ruse' || card.cardId === 'renforts') {
-    // Lâcheté / Ruse / Besoin de renfort : pose gratuitement l'Allié le plus fort.
+  if (card.cardId === 'lachete' || card.cardId === 'ruse' || card.cardId === 'renforts' || card.cardId === 'intrus-dans-le-monde-a-l-envers') {
+    // Lâcheté / Ruse / Renfort / Intrus : pose gratuitement l'Allié le plus fort.
     const me = state.players[playerIndex]
     const allies = me.hand.filter((c) => c.type === 'ally')
     if (allies.length === 0) return null

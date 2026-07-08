@@ -41,6 +41,8 @@ export const VILLAIN_COLOR: Record<string, string> = {
   teamRocket: '#9D2B3A',
   'la-bonne-fee': '#3F5A86',
   laBonneFee: '#3F5A86',
+  'flagelleur-mental': '#404991',
+  flagelleurMental: '#404991',
 }
 
 /** Teintes de repli (camp joueur / adversaire) quand la couleur d'un vilain est

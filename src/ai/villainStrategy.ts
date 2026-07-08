@@ -889,6 +889,17 @@ export const VILLAIN_STRATEGY: Record<string, VillainStrategy> = {
     },
   },
 
+  // --- Le Flagelleur Mental (objectif : activer l'Entrée avec Onze + 3 Tunnels) ----
+  // Inversion : ONZE est sa PIÈCE-CLÉ (Billy va la chercher pour l'amener sur l'Entrée).
+  // La lui donner par la Fatalité l'AIDE → le bot l'évite. WILL BYERS (re-verrouille le
+  // lieu 4 → activation impossible) et MAX (gèle le fetch d'Onze) sont ses pires gêneurs
+  // (cf. fateMalus).
+  'flagelleur-mental': {
+    fateTargeting: {
+      avoidPlayingHeroes: ['onze'],
+    },
+  },
+
   // --- Bowser (objectif : Observatoire à 0 Étoile + capturer Peach) — collab ------
   // Mécanique des Étoiles : drainer les 4 Étoiles de l'Observatoire vers ses Alliés
   // (épuisement d'énergie ; ou Kamella/Dino Piranha qui en prennent une À LA POSE sur
@@ -936,6 +947,47 @@ export const VILLAIN_STRATEGY: Record<string, VillainStrategy> = {
       // l'Observatoire → le bot le pose sur le lieu qui porte le plus d'Alliés porteurs
       // d'Étoile (revers maximal : Bowser doit re-drainer). Cf. placeHeroOnStarAllies.
       placeHeroOnStarAllies: ['luigi'],
+    },
+  },
+
+  // --- Tabbou (objectif : tuer ≥ 20 Combattants, 30 tant que Samus est là) — collab ---
+  // Boucle : DÉVOILER des tuiles Combattants (Émissaire, Destin, Primides, Flèche) vers
+  // la réserve, puis les TUER par couleur (Collection, Bowser, Coup Fatal). L'Émissaire
+  // Subspatial (4ᵉ lieu, moteur de dévoilement) se débloque en posant 3 Orbes. Le gradient
+  // de progression est porté par objectiveScore (KILL_FIGHTERS) ; ici on oriente le CHOIX
+  // des cartes/lieux à valeur d'objectif égale, et le volet « contre » (fatalisation).
+  tabbou: {
+    enginePieces: {
+      // Halberd : action bonus (déplace le pion + le Halberd, rejoue une action) → tempo
+      // clé pour enchaîner dévoiler/tuer. Carte à chercher et à NE JAMAIS défausser.
+      halberd: 4,
+      // Bowser (Allié) : Activer 1 → tue toute une couleur de la réserve = moteur de mise
+      // à mort réutilisable (contrairement à Collection, à usage unique).
+      'canon-obscure': 3,
+      // Canon Géant : Activer → fouille 4 cartes, en garde 1 (fait remonter halberd/orbes/
+      // cartes de dévoilement/mise à mort). Ministre antique : déplace un Héros (regroupe,
+      // libère une action recouverte) et, défaussé, prend la tuile R.O.B.
+      'canon-geant': 2,
+      ministre: 2,
+      // Canon Obscur (Objet) : −1 au coût des Objets sur son lieu → économise les JT le temps
+      // de poser les Orbes / Canon Géant / Halberd (moins décisif, d'où le poids faible).
+      'canon-obscure-2': 1,
+    },
+    priorityVanquish: {
+      // Samus : l'objectif passe de 20 à 30 tant qu'elle est présente → le pire
+      // ralentisseur, à dégager en priorité. Link : plafonne le dévoilement à 3/tour.
+      // Kirby : « Dévoiler » coûte 1 JT de plus. Pikachu : activer un Objet sur son
+      // lieu coûte +1 (renchérit Bowser / Canon Géant).
+      samus: 10,
+      link: 6,
+      kirby: 4,
+      'pikachu-tabbou': 3,
+    },
+    fateTargeting: {
+      // Volet « contre » (bot qui FATALISE Tabbou) : la Balle Smash (+2 Force) rend un
+      // Héros plus dur à vaincre → à poser sur le pire ralentisseur, Samus (objectif 30),
+      // puis Link, pour verrouiller la gêne le plus longtemps possible.
+      strengthenTargets: [{ itemCardId: 'balle-smash', preferHeroCardIds: ['samus', 'link'] }],
     },
   },
 }

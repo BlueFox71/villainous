@@ -47,6 +47,18 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.3.1',
+    date: '2026-07-08',
+    title: 'Atelier plus complet & IA de Tabbou affûtée',
+    tags: ['atelier', 'ia'],
+    changes: [
+      '**Atelier** : **cadrage des illustrations** (zoom & décalages) et bouton de **réinitialisation**.',
+      '**Atelier** : **alignement et taille du texte** des cartes, et **position réglable** du texte d’objectif du plateau.',
+      '**Atelier** : **glisser-déposer** d’une image depuis n’importe où dans la fenêtre, avec zone de dépôt mise en évidence.',
+      '**IA** : **Tabbou** joue plus juste — priorise le **Halberd**, puis récupère de quoi **dévoiler** ou **tuer** selon la phase.',
+    ],
+  },
+  {
     version: '1.3.0',
     date: '2026-07-07',
     title: 'Nouveau vilain : Tabbou (Super Smash Bros.)',

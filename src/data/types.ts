@@ -288,6 +288,9 @@ export interface CardDef {
    *  Objet est déplacé entre deux lieux (en plus de la pose). Ex. Pilotes (Sa Sucrerie) :
    *  GAIN_POWER 1 à la pose ET à chaque déplacement. */
   effectsAlsoOnMove?: boolean
+  /** Le Flagelleur Mental — Démogorgon : +N Pouvoir à chaque déplacement de cet Allié
+   *  (au déplacement seulement, pas à la pose). */
+  powerOnMove?: number
   /** Carte jouable SANS action « Jouer une carte » (en payant son coût) : elle peut être
    *  jouée à tout moment du tour et ne consomme aucune action de lieu. Ex. Turbo-Statique
    *  (Sa Sucrerie). */
@@ -402,6 +405,9 @@ export interface CardDef {
   followsPawn?: boolean
   /** Dio — The World : ne peut jamais être défaussé. */
   cannotBeDiscarded?: boolean
+  /** Le Flagelleur Mental — Billy sous emprise : ne peut PAS être défaussé pour payer
+   *  le coût en Alliés d'un Tunnel de Hawkins (défaussable autrement). */
+  cannotDiscardForTunnel?: boolean
   /** Dio — carte invocatrice : va chercher ce Stand dans `standPile` et se l'associe. */
   summonsStandCardId?: string
   /** Dio — Héros (Jotaro / Joseph) retiré du jeu quand il est vaincu (pas en défausse). */
@@ -555,6 +561,7 @@ export function buildDeckInstances(
           relocateToPawnOnVanquish: c.relocateToPawnOnVanquish,
           survivesVanquishGain: c.survivesVanquishGain,
           effectsAlsoOnMove: c.effectsAlsoOnMove,
+          powerOnMove: c.powerOnMove,
           playableWithoutAction: c.playableWithoutAction,
           playableOnlyBeforeActions: c.playableOnlyBeforeActions,
           shieldsOtherHeroesUntilTokens: c.shieldsOtherHeroesUntilTokens,
@@ -596,6 +603,7 @@ export function buildDeckInstances(
           isStand: c.isStand,
           followsPawn: c.followsPawn,
           cannotBeDiscarded: c.cannotBeDiscarded,
+          cannotDiscardForTunnel: c.cannotDiscardForTunnel,
           summonsStandCardId: c.summonsStandCardId,
           removedFromGameOnDefeat: c.removedFromGameOnDefeat,
           activatedEffects: c.activatedEffects,

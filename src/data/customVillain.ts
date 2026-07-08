@@ -107,6 +107,9 @@ export interface TextLayout {
 /** Disposition du texte par défaut (reprend l'ancienne boîte basse centrée). */
 export const DEFAULT_TEXT_LAYOUT: TextLayout = { x: 50, y: 80, w: 79, size: 50 }
 
+/** Tailles de texte proposées par les boutons de l'éditeur (Petit / Standard). */
+export const TEXT_SIZE_PRESETS = { small: 55, standard: 76 } as const
+
 /** Une zone de texte SUPPLÉMENTAIRE posée librement sur la carte (en plus du texte
  *  principal). Coordonnées en % (x/y = centre, w = largeur), `size` en px carte. */
 export interface TextBox {
@@ -293,6 +296,9 @@ export interface CustomVillain {
   // --- Objectif --------------------------------------------------------------
   /** Texte d'objectif tel qu'« imprimé » sur le plateau. */
   boardObjective: string
+  /** Décalage vertical du texte d'objectif sur le plateau, en px (espace plateau
+   *  1248 de haut) : négatif = vers le haut, positif = vers le bas. Défaut 0. */
+  objectiveTextOffsetY?: number
   /** Description longue / stratégique. */
   objectiveDescription: string
   /** Condition de victoire jouable (sous-ensemble réutilisable des ObjectiveDef). */

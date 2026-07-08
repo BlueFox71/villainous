@@ -97,10 +97,13 @@ export function CardBackLayout({
       setOverlay(d.id, { x: clamp(d.ox + dxPctW, 2, 98), y: clamp(d.oy + dyPctH, 2, 98) })
     } else {
       const delta = ((dxPctW + dyPctH) / 2) * 2
-      setOverlay(d.id, { size: clamp(d.osize + delta, 5, 100) })
+      setOverlay(d.id, { size: clamp(d.osize + delta, 5, 200) })
     }
   }
   const endDrag = () => { dragRef.current = null }
+
+  // Ornement sélectionné : cible du curseur de zoom (même plage que la poignée : 5–100).
+  const selOverlay = overlays.find((o) => o.id === sel)
 
   return (
     <div className="flex flex-col gap-3">
@@ -149,6 +152,22 @@ export function CardBackLayout({
       >
         🖼 Importer un ornement (dos)
       </button>
+
+      {/* Curseur de zoom de l'ornement SÉLECTIONNÉ (agrandir / rétrécir). */}
+      {selOverlay && (
+        <label className="flex items-center gap-3 text-xs text-white/50">
+          <span className="shrink-0 font-semibold uppercase tracking-wide">🔍 Zoom ornement</span>
+          <input
+            type="range"
+            min={5}
+            max={200}
+            value={selOverlay.size}
+            onChange={(e) => setOverlay(selOverlay.id, { size: Number(e.target.value) })}
+            className="flex-1 accent-amber-400"
+          />
+        </label>
+      )}
+
       <p className="text-[11px] text-white/40">
         Glisse l’ornement pour le placer, la poignée du coin pour le redimensionner, la croix pour le
         retirer. Les ornements s’appliquent aux dos Vilain <strong>et</strong> Fatalité.

@@ -321,7 +321,7 @@ export async function renderBoard(v: CustomVillain, opts: { skipLocks?: boolean 
       ctx.font = `${s}px ${UI_FONT}`
       lines = wrap(ctx, v.boardObjective.trim(), boxW)
     }
-    let y = 966
+    let y = 966 + (v.objectiveTextOffsetY ?? 0)
     for (const line of lines) {
       ctx.fillText(line, cx, y)
       y += s + 8
@@ -353,8 +353,10 @@ export async function renderBoard(v: CustomVillain, opts: { skipLocks?: boolean 
   const pos = customActionPositions(v.locations)
   const RX = 108
   const RY = 100
-  const ICON = 210 // taille de dessin de l'icône PNG (carrée), en px — calée sur le gabarit
-  const DISC = ICON * 0.97 // disque de fond, juste à l'intérieur de l'anneau doré
+  // Disque de fond « Fill #4 » : taille FIXE (indépendante de l'icône) — on ne le
+  // rétrécit pas quand on réduit l'icône d'action.
+  const DISC = 204
+  const ICON = 190 // taille de dessin de l'icône PNG (carrée), en px — rétrécie dans le disque
 
   // Disque sombre commun à tous les médaillons (gabarit « Fill #4 » teinté en
   // ardoise) : sans lui, l'arrière-plan transparaîtrait à travers l'anneau ajouré.

@@ -21,6 +21,8 @@ import {
   drainStarAllies,
   effectiveCost,
   effectiveStrength,
+  flayerTunnelDiscardableAllies,
+  flayerTunnelRequiredAllies,
   getAvailableActions,
   getLegalMoves,
   hasHeroInRealm,
@@ -275,6 +277,18 @@ type Mode =
     }
   /** Ratigan — Félicia : on attend le clic sur l'Allié de `to` à défausser. */
   | { kind: 'felicia-pick-ally'; actionId: string; instanceId: string; cardName: string; to: string; diablo?: boolean }
+  /** Le Flagelleur Mental — Tunnel de Hawkins : lieu `to` choisi, on coche `required`
+   *  Alliés du royaume à défausser (modal), puis on confirme la pose. */
+  | {
+      kind: 'tunnel-pick-allies'
+      actionId: string
+      instanceId: string
+      cardName: string
+      to: string
+      required: number
+      selected: string[]
+      diablo?: boolean
+    }
   | null
 
 /** Le Seigneur des clés — couleurs du dé (CSS). */
@@ -2898,8 +2912,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     const pfrv = state.pendingFighterReveal
     if (pfrv) {
       if (seats[pfrv.playerIndex] === 'bot') {
-        const hidden = (state.players[pfrv.playerIndex].fighterTiles ?? []).find((t) => t.state === 'pile')
-        const timer = setTimeout(() => (hidden ? resolveFighterReveal(hidden.id) : doneFighterReveal()), BOT_STEP_MS)
+        // Le bot flippe une tuile face cachée AU HASARD (les couleurs sont déjà mélangées ;
+        // choisir une position aléatoire évite le « quadrillage » toujours révélé du coin).
+        const hidden = (state.players[pfrv.playerIndex].fighterTiles ?? []).filter((t) => t.state === 'pile')
+        const pick = hidden.length ? hidden[Math.floor(Math.random() * hidden.length)] : undefined
+        const timer = setTimeout(() => (pick ? resolveFighterReveal(pick.id) : doneFighterReveal()), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
       return
@@ -2920,22 +2937,34 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       }
       return
     }
-    // Tabbou — Coup Fatal : bot tue une tuile réserve à la fois (max de tués) ; humain → clics + « Terminer ».
+    // Tabbou — Coup Fatal : bot tue une tuile à la fois, en commençant par la couleur
+    // la MOINS fournie (on réserve les grosses couleurs — gris — pour Collection/Bowser,
+    // qui tuent toute une couleur d'un coup) ; humain → clics + « Terminer ».
     const pfkf = state.pendingFighterKillFree
     if (pfkf) {
       if (seats[pfkf.playerIndex] === 'bot') {
-        const tile = (state.players[pfkf.playerIndex].fighterTiles ?? []).find((t) => t.state === 'reserve')
+        const reserve = (state.players[pfkf.playerIndex].fighterTiles ?? []).filter((t) => t.state === 'reserve')
+        const counts = new Map<string, number>()
+        reserve.forEach((t) => counts.set(t.color, (counts.get(t.color) ?? 0) + 1))
+        const tile = [...reserve].sort((a, b) => (counts.get(a.color) ?? 0) - (counts.get(b.color) ?? 0))[0]
         const timer = setTimeout(() => (tile ? resolveFighterKillFree(tile.id) : doneFighterKillFree()), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
       return
     }
-    // Tabbou — Destin : bot dévoile s'il reste des tuiles en pioche, sinon gagne 4 Pouvoir ; humain → modale.
+    // Tabbou — Destin : bot dévoile s'il a ENCORE BESOIN de tuiles (tués + réserve < seuil,
+    // 20/30 selon Samus) et qu'il en reste en pioche ; sinon il prend les 4 Pouvoir ; humain → modale.
     const pdch = state.pendingDestinChoice
     if (pdch) {
       if (seats[pdch.playerIndex] === 'bot') {
-        const hasPile = (state.players[pdch.playerIndex].fighterTiles ?? []).some((t) => t.state === 'pile')
-        const timer = setTimeout(() => resolveDestinChoice(hasPile ? 'reveal' : 'power'), BOT_STEP_MS)
+        const dp = state.players[pdch.playerIndex]
+        const tiles = dp.fighterTiles ?? []
+        const killed = tiles.filter((t) => t.state === 'killed').length
+        const reserve = tiles.filter((t) => t.state === 'reserve').length
+        const samus = Object.values(dp.board).flat().some((c) => c.type === 'hero' && c.cardId === 'samus')
+        const hasPile = tiles.some((t) => t.state === 'pile')
+        const needReveal = killed + reserve < (samus ? 30 : 20)
+        const timer = setTimeout(() => resolveDestinChoice(hasPile && needReveal ? 'reveal' : 'power'), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
       return
@@ -4769,7 +4798,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   // ---- D : Réactions humaines (Conditions) ----
   const handlePlayReaction = (card: CardInstance) => {
     // Conditions à ciblage interactif : on passe par un mode de sélection.
-    if (card.cardId === 'lachete' || card.cardId === 'ruse' || card.cardId === 'sans-pitie' || card.cardId === 'renforts') {
+    if (card.cardId === 'lachete' || card.cardId === 'ruse' || card.cardId === 'sans-pitie' || card.cardId === 'renforts' || card.cardId === 'intrus-dans-le-monde-a-l-envers') {
       setMode({ kind: 'condition-pick-ally', instanceId: card.instanceId })
       return
     }
@@ -5019,6 +5048,15 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       // Paiement obligatoire (aucun Allié à défausser sur ce lieu).
       return playFelicia(mode.diablo, mode.actionId, mode.instanceId, to)
     }
+    // Le Flagelleur Mental — Tunnel de Hawkins : lieu choisi (jamais le Monde à l'Envers),
+    // puis on coche les N Alliés à défausser (2, +1 si Onze) via un modal.
+    const tunnelEff = placing && (placing.effects ?? []).find((e) => e.type === 'FLAYER_PLACE_TUNNEL')
+    if (placing && tunnelEff && tunnelEff.type === 'FLAYER_PLACE_TUNNEL') {
+      if ((placing.forbiddenLocations ?? []).includes(to)) return
+      const required = flayerTunnelRequiredAllies(user, tunnelEff)
+      if (flayerTunnelDiscardableAllies(user).length < required) return
+      return setMode({ kind: 'tunnel-pick-allies', actionId: mode.actionId, instanceId: mode.instanceId, cardName: mode.cardName, to, required, selected: [], diablo: mode.diablo })
+    }
     if (mode.isAttach) {
       const allies = (user.board[to] ?? []).filter(
         (c) => c.type === 'ally' || (c.type === 'hero' && (c.hypnotized || c.loved)),
@@ -5083,6 +5121,16 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       // Félicia (défausser un Allié OU payer) : flux complet via le mode 'place'.
       if ((card.effects ?? []).some((e) => e.type === 'DISCARD_ALLY_AT_HOST_OR_PAY')) {
         return setMode({ kind: 'place', actionId, instanceId, cardName: card.name, isAttach: false })
+      }
+      // Le Flagelleur Mental — Tunnel de Hawkins : lieu choisi par le dépôt, puis modal
+      // de sélection des N Alliés à défausser (2, +1 si Onze).
+      {
+        const tEff = (card.effects ?? []).find((e) => e.type === 'FLAYER_PLACE_TUNNEL')
+        if (tEff && tEff.type === 'FLAYER_PLACE_TUNNEL') {
+          const required = flayerTunnelRequiredAllies(user, tEff)
+          if (flayerTunnelDiscardableAllies(user).length < required) return
+          return setMode({ kind: 'tunnel-pick-allies', actionId, instanceId, cardName: card.name, to: dropLocationId, required, selected: [] })
+        }
       }
       if (card.type === 'item' && card.attach === 'ally') {
         const allies = (user.board[dropLocationId] ?? []).filter((c) => c.type === 'ally' || (c.type === 'hero' && (c.hypnotized || c.loved)))
@@ -5544,6 +5592,23 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     activate(mode.actionId, mode.cardInstanceId, mode.to, undefined, mode.selected)
     setMode(null)
   }
+  /** Tunnel de Hawkins : bascule un Allié à défausser (borné à `required`). */
+  const toggleTunnelAlly = (instanceId: string) => {
+    if (mode?.kind !== 'tunnel-pick-allies') return
+    const selected = mode.selected.includes(instanceId)
+      ? mode.selected.filter((id) => id !== instanceId)
+      : mode.selected.length < mode.required
+        ? [...mode.selected, instanceId]
+        : mode.selected
+    setMode({ ...mode, selected })
+  }
+  /** Tunnel de Hawkins : valide (exactement `required` Alliés) → pose le Tunnel. */
+  const confirmTunnel = () => {
+    if (mode?.kind !== 'tunnel-pick-allies' || mode.selected.length !== mode.required) return
+    flyHandToBoard(mode.instanceId, mode.to)
+    doPlayCard(mode.diablo, mode.actionId, mode.instanceId, mode.to, undefined, undefined, mode.selected)
+    setMode(null)
+  }
   // Cruella — Finissez le travail ! : tant que l'activation gratuite est disponible
   // (drapeau freeActivate), les cartes à capacité activable du royaume deviennent
   // cliquables (clic direct → activation gratuite). Voir selectableCards / handleCardPick.
@@ -5756,6 +5821,18 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             if (cardInPlay?.playOnlyAt && id !== cardInPlay.playOnlyAt) return false
             // Anastasie/Javotte : pas dans la Salle de Bal (lieux interdits par carte).
             if ((cardInPlay?.forbiddenLocations ?? []).includes(id)) return false
+            // Le Flagelleur Mental — Tunnel de Hawkins : injouable sans assez d'Alliés
+            // défaussables (2, +1 si Onze) → aucun lieu proposé.
+            if (cardInPlay) {
+              const tEff = (cardInPlay.effects ?? []).find((e) => e.type === 'FLAYER_PLACE_TUNNEL')
+              if (
+                tEff &&
+                tEff.type === 'FLAYER_PLACE_TUNNEL' &&
+                flayerTunnelDiscardableAllies(user).length < flayerTunnelRequiredAllies(user, tEff)
+              ) {
+                return false
+              }
+            }
             // Cendrillon en robe de bal : aucun Allié sur la Salle de Bal.
             if (cardInPlay?.type === 'ally' && allyBlockedAt(state, HUMAN, id)) return false
             // Le Seigneur des Ténèbres — Mort-vivant du Chaudron : Chaudron actif + lieu
@@ -9758,6 +9835,58 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               >
                 Déplacer la Baignoire ({mode.selected.length} Allié{mode.selected.length > 1 ? 's' : ''})
               </button>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Le Flagelleur Mental — Tunnel de Hawkins : choisir les Alliés à défausser. */}
+      {mode?.kind === 'tunnel-pick-allies' && (() => {
+        const allies = flayerTunnelDiscardableAllies(user)
+        const destName = user.locations.find((l) => l.id === mode.to)?.name ?? mode.to
+        const locOf = (id: string) => user.locations.find((l) => (user.board[l.id] ?? []).some((c) => c.instanceId === id))?.name ?? ''
+        const complete = mode.selected.length === mode.required
+        return (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-4">
+            <div className="flex w-full max-w-lg flex-col items-center gap-4 rounded-2xl border border-white/15 bg-[#0e1330] p-6 text-white">
+              <h2 className="text-xl font-black text-indigo-200">Tunnel de Hawkins</h2>
+              <p className="text-center text-sm text-white/70">
+                Défaussez <b>{mode.required}</b> Alliés pour creuser le Tunnel vers <b>{destName}</b> ({mode.selected.length}/{mode.required}).
+              </p>
+              <div className="flex flex-wrap justify-center gap-3">
+                {allies.map((a) => {
+                  const def = getCardDef(a.cardId)
+                  const on = mode.selected.includes(a.instanceId)
+                  return (
+                    <button
+                      key={a.instanceId}
+                      type="button"
+                      onClick={() => toggleTunnelAlly(a.instanceId)}
+                      className={`rounded-lg border-2 p-1 transition ${on ? 'border-indigo-300 ring-2 ring-indigo-300' : 'border-white/15 opacity-60 hover:opacity-100'}`}
+                    >
+                      <img src={def?.image} alt={a.name} className="h-36 w-auto rounded" />
+                      <div className="mt-1 text-center text-[11px] text-white/80">{on ? '✓ Défausser' : locOf(a.instanceId)}</div>
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setMode(null)}
+                  className="rounded-lg border border-white/20 px-4 py-2 text-sm font-bold text-white/70 hover:bg-white/10"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmTunnel}
+                  disabled={!complete}
+                  className={`rounded-lg border px-4 py-2 text-sm font-bold transition ${complete ? 'border-indigo-400/60 bg-indigo-500/20 text-indigo-100 hover:bg-indigo-500/30' : 'border-white/10 text-white/30'}`}
+                >
+                  Creuser le Tunnel
+                </button>
+              </div>
             </div>
           </div>
         )

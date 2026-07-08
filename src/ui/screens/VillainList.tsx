@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { VILLAIN_REGISTRY, COLLAB_VILLAINS, type VillainKey } from '../store/gameStore'
+import { VILLAIN_REGISTRY, COLLAB_VILLAINS, UNRELEASED_VILLAINS, type VillainKey } from '../store/gameStore'
 import { useCustomVillainStore } from '../store/customVillainStore'
 import { villainPortrait } from '../villainArt'
 import { playHeroHover, playHover, playHeroSelect } from '../sfx'
@@ -270,6 +270,8 @@ export function VillainList({ onBack }: Props) {
     }
     const real: GridItem[] = [...ALL_VILLAINS, ...publishedMetas].filter(
       (v) =>
+        // Vilains non encore publiés : masqués aux joueurs (mais visibles en dév).
+        !(isDesktopApp && (UNRELEASED_VILLAINS as string[]).includes(v.key)) &&
         (q === '' || v.name.toLowerCase().includes(q)) &&
         (difficulties.size === 0 || difficulties.has(v.difficulty)) &&
         (origins.size === 0 || origins.has(v.origin)) &&
@@ -294,7 +296,7 @@ export function VillainList({ onBack }: Props) {
       // puis ordre de sortie pour les vilains non encore placés (et les « à venir »).
       return rank(keyOf(a)) - rank(keyOf(b)) || a.release - b.release
     })
-  }, [query, difficulties, origins, sort, onlyFavorites, playedFilter, favSet, stats, decorFilter, animFilter, surpriseFilter, showUpcoming, publishedMetas, customOrder])
+  }, [query, difficulties, origins, sort, onlyFavorites, playedFilter, favSet, stats, decorFilter, animFilter, surpriseFilter, showUpcoming, publishedMetas, customOrder, isDesktopApp])
 
   const hasFilters =
     query.trim() !== '' ||

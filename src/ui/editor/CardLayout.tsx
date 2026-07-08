@@ -3,8 +3,8 @@
 // poignée. L'aperçu de fond est le rendu RÉEL de la carte (WYSIWYG) ; les zones
 // déplaçables sont des « hotspots » transparents superposés.
 import { useEffect, useRef, useState } from 'react'
-import type { CustomCard, CardSticker, TextBox } from '../../data/customVillain'
-import { CARD_W, CARD_H, DEFAULT_TEXT_LAYOUT, DEFAULT_STICKER_SIZE } from '../../data/customVillain'
+import type { CustomCard, CardSticker, TextBox, TextLayout } from '../../data/customVillain'
+import { CARD_W, CARD_H, DEFAULT_TEXT_LAYOUT, DEFAULT_STICKER_SIZE, TEXT_SIZE_PRESETS } from '../../data/customVillain'
 import type { LocationActionType } from '../../engine/types'
 import { renderCardFace, ruleTextBlockHeight } from './cardRender'
 import { ACTION_TOKEN_LIST, ACTION_ICON_FILE, BOARD_ICON_DIR } from './actionIcons'
@@ -116,6 +116,15 @@ export function CardLayoutEditor({
   const boxHpct = (b: TextBox) =>
     b.text.trim() ? (ruleTextBlockHeight(b.text.trim(), (b.w / 100) * CARD_W, b.size) / CARD_H) * 100 : (b.size / CARD_H) * 100
 
+  // Cible de la barre d'alignement/taille : la zone de texte sélectionnée, sinon le
+  // texte principal. Centrer H/V = ramener le CENTRE du bloc à mi-carte (x/y = 50).
+  const activeBox = sel?.kind === 'box' ? card.textBoxes?.find((b) => b.id === sel.id) : undefined
+  const activeText: TextLayout = activeBox
+    ? { x: activeBox.x, y: activeBox.y, w: activeBox.w, size: activeBox.size }
+    : tl
+  const setActiveText = (p: Partial<TextLayout>) =>
+    activeBox ? setBox(activeBox.id, p) : setTextLayout(p)
+
   const addSticker = (type: LocationActionType) => {
     const taken = new Set((card.stickers ?? []).map((s) => s.id))
     let n = 1
@@ -182,6 +191,48 @@ export function CardLayoutEditor({
     dragRef.current = null
   }
 
+  // Déplacement au CLAVIER de l'élément sélectionné (flèches ; Maj = pas plus grand).
+  // On ignore les flèches quand le focus est dans un champ de saisie (textarea/input).
+  useEffect(() => {
+    if (!sel) return
+    const onKey = (e: KeyboardEvent) => {
+      const dir: Record<string, [number, number]> = {
+        ArrowLeft: [-1, 0],
+        ArrowRight: [1, 0],
+        ArrowUp: [0, -1],
+        ArrowDown: [0, 1],
+      }
+      const d = dir[e.key]
+      if (!d) return
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      e.preventDefault()
+      const step = e.shiftKey ? 2 : 0.5
+      const dx = d[0] * step
+      const dy = d[1] * step
+      if (sel.kind === 'text') {
+        const cur = card.textLayout ?? DEFAULT_TEXT_LAYOUT
+        onChange({ ...card, textLayout: { ...cur, x: clamp(cur.x + dx, 4, 96), y: clamp(cur.y + dy, 4, 96) } })
+      } else if (sel.kind === 'box') {
+        onChange({
+          ...card,
+          textBoxes: (card.textBoxes ?? []).map((b) =>
+            b.id === sel.id ? { ...b, x: clamp(b.x + dx, 4, 96), y: clamp(b.y + dy, 4, 96) } : b,
+          ),
+        })
+      } else {
+        onChange({
+          ...card,
+          stickers: (card.stickers ?? []).map((s) =>
+            s.id === sel.id ? { ...s, x: clamp(s.x + dx, 2, 98), y: clamp(s.y + dy, 2, 98) } : s,
+          ),
+        })
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [sel, card, onChange])
+
   // % largeur → % hauteur (un carré en espace carte est plus « haut » en %).
   const sideH = (sizePctW: number) => sizePctW * ASPECT
 
@@ -244,6 +295,53 @@ export function CardLayoutEditor({
           />
         ))}
       </div>
+
+      {/* Barre d'alignement + tailles : agit sur la zone sélectionnée, sinon le texte principal. */}
+      {(card.text.trim() || activeBox) && (
+        <div className="flex flex-col gap-1.5 rounded-lg border border-white/10 bg-black/20 p-2">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-white/50">
+            {activeBox ? 'Zone de texte sélectionnée' : 'Texte principal'}
+          </span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setActiveText({ x: 50 })}
+              title="Centrer horizontalement (bloc au milieu de la carte)"
+              className="rounded-lg border border-white/20 bg-white/5 px-2 py-1 text-xs font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200"
+            >
+              ⇔ Centrer H
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveText({ y: 75 })}
+              title="Centrer verticalement dans le panneau de texte (bas de la carte)"
+              className="rounded-lg border border-white/20 bg-white/5 px-2 py-1 text-xs font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200"
+            >
+              ⇕ Centrer V
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] text-white/40">Taille :</span>
+            {([
+              { label: 'Petit', size: TEXT_SIZE_PRESETS.small },
+              { label: 'Standard', size: TEXT_SIZE_PRESETS.standard },
+            ] as const).map((s) => (
+              <button
+                key={s.label}
+                type="button"
+                onClick={() => setActiveText({ size: s.size })}
+                className={`rounded-lg border px-2 py-1 text-xs font-semibold transition ${
+                  activeText.size === s.size
+                    ? 'border-amber-400 bg-amber-400/20 text-amber-100'
+                    : 'border-white/20 bg-white/5 text-white/80 hover:border-amber-300/70 hover:text-amber-200'
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Zones de texte : ajouter + éditer le contenu de la zone sélectionnée */}
       <div className="flex flex-col gap-1">

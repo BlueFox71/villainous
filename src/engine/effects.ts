@@ -6223,6 +6223,51 @@ export function resolveEffect(
       )
       return triggerHeroArrival(next, idx, placeLoc)
     }
+    case 'FLAYER_FETCH_ONZE': {
+      // BILLY SOUS EMPRISE : cherche Onze dans la Fatalité et la pose sur le lieu de Billy.
+      const actor = state.players[idx]
+      if (Object.values(actor.board).flat().some((c) => c.type === 'hero' && c.cardId === effect.blockerHeroCardId)) {
+        return { ...state, log: [...state.log, `${actor.villainName} : MAX empêche Billy d'aller chercher ONZE.`] }
+      }
+      const inDeck = actor.fateDeck.find((c) => c.cardId === effect.heroCardId)
+      const inDiscard = inDeck ? undefined : actor.fateDiscard.find((c) => c.cardId === effect.heroCardId)
+      const found = inDeck ?? inDiscard
+      if (!found) {
+        return { ...state, log: [...state.log, `${actor.villainName} : ONZE est introuvable dans la Fatalité.`] }
+      }
+      const validLocs = heroPlacementLocations(state, found, idx)
+      const host = ctx?.hostLocationId
+      const placeLoc = host && validLocs.includes(host) ? host : validLocs[0]
+      if (placeLoc === undefined) {
+        return { ...state, log: [...state.log, `**${found.name}** ne peut être posée (aucun lieu valide).`] }
+      }
+      let next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        fateDeck: inDeck ? p.fateDeck.filter((c) => c.instanceId !== found.instanceId) : p.fateDeck,
+        fateDiscard: inDiscard ? p.fateDiscard.filter((c) => c.instanceId !== found.instanceId) : p.fateDiscard,
+        board: { ...p.board, [placeLoc]: [...(p.board[placeLoc] ?? []), found] },
+      }))
+      const placeName = findLocation(actor, placeLoc)?.name ?? placeLoc
+      next = { ...next, log: [...next.log, `Billy ramène **${found.name}** sur **${placeName}** !`] }
+      next = pushShowcase(next, found.cardId, `${found.name} est amenée sur ${placeName} !`, idx, { playerIndex: idx, locationId: placeLoc }, found.instanceId)
+      return triggerHeroArrival(next, idx, placeLoc)
+    }
+    case 'FLAYER_WILL_SCRY': {
+      // WILL SOUS EMPRISE : regarde + réordonne le dessus de la pioche Méchant (interactif,
+      // via pendingFateReorder deck:'villain'). (Option « deck Fatalité +1 » à venir.)
+      const actor = state.players[idx]
+      if (actor.deck.length < 2) {
+        return { ...state, log: [...state.log, `${actor.villainName} : pas assez de cartes à réorganiser.`] }
+      }
+      const top = actor.deck.slice(0, effect.count)
+      const rest = actor.deck.slice(top.length)
+      const next = updatePlayer(state, idx, (p) => ({ ...p, deck: rest }))
+      return {
+        ...next,
+        pendingFateReorder: { playerIndex: idx, cards: top, deck: 'villain' },
+        log: [...next.log, `${actor.villainName} regarde les ${top.length} premières cartes de sa pioche Méchant.`],
+      }
+    }
     case 'MOVE_ALLY_TO_HOST': {
       // Pataud (onPlace) : attire l'Allié `cardId` (Lucifer) sur le lieu hôte du Héros.
       const dest = ctx?.hostLocationId
@@ -8335,16 +8380,18 @@ export function resolveEffect(
       // auto ; aucun → no-op. Les Objets associés partent avec leur hôte.
       const actor = state.players[idx]
       const chooser = ctx?.playedBy ?? state.activePlayer
+      const label = effect.cardName ?? 'Onix'
+      const kindText = effect.onlyType === 'ally' ? 'Allié' : effect.onlyType === 'item' ? 'Objet' : 'Allié ou un Objet'
       type Cand = { c: CardInstance; loc: LocationId }
       const cands: Cand[] = []
       for (const l of actor.locations) {
         for (const c of actor.board[l.id] ?? []) {
           if (c.attachedTo || c.immuneToAllyItemEffects) continue
-          if (c.type === 'ally' || c.type === 'item') cands.push({ c, loc: l.id })
+          if (effect.onlyType ? c.type === effect.onlyType : c.type === 'ally' || c.type === 'item') cands.push({ c, loc: l.id })
         }
       }
       if (cands.length === 0) {
-        return { ...state, log: [...state.log, `${actor.villainName} : aucun Allié ni Objet à défausser (Onix).`] }
+        return { ...state, log: [...state.log, `${actor.villainName} : aucun ${kindText} à défausser (${label}).`] }
       }
       if (cands.length >= 2) {
         return {
@@ -8353,9 +8400,9 @@ export function resolveEffect(
             chooserIndex: chooser,
             targetIndex: idx,
             candidateIds: cands.map((x) => x.c.instanceId),
-            cardName: 'Onix',
+            cardName: label,
           },
-          log: [...state.log, `Onix : choisissez un Allié ou un Objet à défausser du royaume de ${actor.villainName}.`],
+          log: [...state.log, `${label} : choisissez un ${kindText} à défausser du royaume de ${actor.villainName}.`],
         }
       }
       // Candidat unique : défausse directe (avec ses Objets associés).
@@ -8372,7 +8419,7 @@ export function resolveEffect(
           ...(actor.board[loc] ?? []).filter((c) => attachedIds.has(c.instanceId)).map((c) => ({ ...c, attachedTo: undefined })),
         ],
       }))
-      return { ...next, log: [...next.log, `Onix : **${target.c.name}** est défaussé du royaume de ${actor.villainName}.`] }
+      return { ...next, log: [...next.log, `${label} : **${target.c.name}** est défaussé du royaume de ${actor.villainName}.`] }
     }
     case 'EVOLVE_ALLY': {
       // Évolution : ouvre le choix de l'Allié à faire évoluer. Candidats = Alliés évolutifs
@@ -9558,6 +9605,105 @@ export function resolveEffect(
         discard: [...p.discard, ally, ...attached],
       }))
       return { ...next, log: [...next.log, `Félicia défausse **${ally.name}**.`] }
+    }
+    case 'FLAYER_PLACE_TUNNEL': {
+      // Le Flagelleur Mental — Tunnel de Hawkins (résolu AVANT la pose de l'Objet) :
+      // défausse les Alliés choisis (ctx.allyInstanceIds, + leurs Objets associés) où qu'ils
+      // soient, puis — si cette pose porte le nombre de Tunnels à `rewardAtCount` — gagne
+      // `rewardPower` Pouvoir. La sélection est validée en amont (applyPlayCard).
+      const actor = state.players[idx]
+      const chosen = new Set(ctx?.allyInstanceIds ?? [])
+      const board: Record<string, CardInstance[]> = { ...actor.board }
+      const discarded: CardInstance[] = []
+      for (const loc of actor.locations) {
+        const cell = board[loc.id] ?? []
+        const allies = cell.filter((c) => chosen.has(c.instanceId))
+        if (allies.length === 0) continue
+        const removeIds = new Set<string>(allies.map((c) => c.instanceId))
+        for (const a of allies) for (const c of cell) if (c.attachedTo === a.instanceId) removeIds.add(c.instanceId)
+        discarded.push(...cell.filter((c) => removeIds.has(c.instanceId)))
+        board[loc.id] = cell.filter((c) => !removeIds.has(c.instanceId))
+      }
+      // Tunnels DÉJÀ posés (celui-ci ne l'est pas encore) : sa pose imminente les portera à
+      // `existing + 1` → récompense en atteignant le seuil.
+      const existing = actor.locations.reduce(
+        (n, loc) => n + (actor.board[loc.id] ?? []).filter((c) => c.cardId === effect.tunnelCardId && !c.attachedTo).length,
+        0,
+      )
+      const reward = existing + 1 === effect.rewardAtCount
+      let next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        board,
+        discard: [...p.discard, ...discarded],
+        power: p.power + (reward ? effect.rewardPower : 0),
+      }))
+      if (discarded.length > 0) {
+        next = { ...next, log: [...next.log, `${actor.villainName} défausse ${discarded.length} Allié(s) pour creuser un Tunnel de Hawkins.`] }
+      }
+      if (reward) {
+        next = { ...next, log: [...next.log, `🕳️ ${effect.rewardAtCount} Tunnels de Hawkins réunis : **+${effect.rewardPower} Pouvoir** !`] }
+      }
+      return next
+    }
+    case 'FLAYER_FLAYED_UNLOCK': {
+      // THE FLAYED (résolu AVANT la pose) : cette pose porte le nombre de FLAYED à
+      // `existing + 1`. À `count`, on pose le latch et — sauf si WILL BYERS est présent —
+      // on déverrouille le Monde à l'Envers (déblocage PERMANENT via le latch).
+      const actor = state.players[idx]
+      const existing = actor.locations.reduce(
+        (n, loc) => n + (actor.board[loc.id] ?? []).filter((c) => c.cardId === effect.flayedCardId && !c.attachedTo).length,
+        0,
+      )
+      if (existing + 1 < effect.count) return state
+      const willPresent = Object.values(actor.board).flat().some((c) => c.type === 'hero' && c.cardId === effect.willCardId)
+      const already = !!actor.flayerGateUnlocked
+      let next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        flayerGateUnlocked: true,
+        lockedLocations: willPresent
+          ? p.lockedLocations
+          : (p.lockedLocations ?? []).filter((l) => l !== effect.locationId),
+      }))
+      if (!already) {
+        const name = findLocation(actor, effect.locationId)?.name ?? effect.locationId
+        next = {
+          ...next,
+          log: [
+            ...next.log,
+            willPresent
+              ? `${actor.villainName} réunit 3 THE FLAYED, mais WILL BYERS maintient **${name}** verrouillé.`
+              : `🔓 3 THE FLAYED réunis : **${name}** est déverrouillé !`,
+          ],
+        }
+      }
+      return next
+    }
+    case 'FLAYER_GATE_LOCK': {
+      // WILL BYERS (onPlace) : tant qu'il est présent, le Monde à l'Envers est verrouillé.
+      const actor = state.players[idx]
+      if ((actor.lockedLocations ?? []).includes(effect.locationId)) return state
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        lockedLocations: [...(p.lockedLocations ?? []), effect.locationId],
+      }))
+      const name = findLocation(actor, effect.locationId)?.name ?? effect.locationId
+      return { ...next, log: [...next.log, `WILL BYERS verrouille **${name}**.`] }
+    }
+    case 'FLAYER_GATE_REFRESH': {
+      // WILL BYERS (onVanquish) : à son départ, redéverrouille le lieu si le latch est
+      // posé et qu'aucun AUTRE Will n'est présent (hostInstanceId = le Will qui part).
+      const actor = state.players[idx]
+      if (!actor.flayerGateUnlocked) return state
+      const otherWill = Object.values(actor.board)
+        .flat()
+        .some((c) => c.type === 'hero' && c.cardId === effect.willCardId && c.instanceId !== ctx?.hostInstanceId)
+      if (otherWill || !(actor.lockedLocations ?? []).includes(effect.locationId)) return state
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        lockedLocations: (p.lockedLocations ?? []).filter((l) => l !== effect.locationId),
+      }))
+      const name = findLocation(actor, effect.locationId)?.name ?? effect.locationId
+      return { ...next, log: [...next.log, `🔓 WILL BYERS vaincu : **${name}** est de nouveau accessible.`] }
     }
     case 'ELIMINATE_ALL_HEROES_AT': {
       // Ratigan — Piège ingénieux : élimine tous les Héros du lieu (Vanquish gratuit),
