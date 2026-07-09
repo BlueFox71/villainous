@@ -24,7 +24,7 @@ import type { LobbySeat } from '../../net/messages'
 import { isTauri, ensureRelay, lanAddresses } from '../../net/desktop'
 import { buildDeckInstances } from '../../data/types'
 import { getCardDef, registerCustomCardDefs } from '../../data/registry'
-import { toVillainDef, toCardDefs, CUSTOM_ID_PREFIX, type CustomVillain } from '../../data/customVillain'
+import { toVillainDef, toCardDefs, toDeckCardDefs, CUSTOM_ID_PREFIX, type CustomVillain } from '../../data/customVillain'
 import { CUSTOM_DIO_ID, patchCustomDio } from '../../data/villains/customDio'
 import { CUSTOM_PYRAMID_HEAD_ID, patchCustomPyramidHead } from '../../data/villains/customPyramidHead'
 import { CUSTOM_MONOPOLY_ID, patchCustomMonopoly } from '../../data/villains/customMonopoly'
@@ -429,7 +429,9 @@ function setupForKey(key: string, deckPrefix: string, fatePrefix: string): Playe
   if (isCustomKey(key)) {
     const custom = customVillainOf(key)
     if (custom) {
-      const mainCards = custom.cards.filter((c) => !c.group)
+      // CardDef propres (paquets perso exclus + champs éditeur retirés) : buildDeckInstances
+      // recopiant désormais TOUS les champs de jeu génériquement, l'entrée doit être nettoyée.
+      const mainCards = toDeckCardDefs(custom)
       return {
         villain: { ...toVillainDef(custom), name: custom.name },
         deckCards: buildDeckInstances(mainCards, 'villain', deckPrefix),

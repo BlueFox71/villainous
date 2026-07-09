@@ -301,6 +301,7 @@ export function VillainSelect({ onStart, onBack }: Props) {
   // (Exclus en réseau : l'autre joueur ne possède pas ces vilains chez lui.)
   const customLoaded = useCustomVillainStore((s) => s.loaded)
   const loadCustom = useCustomVillainStore((s) => s.load)
+  const hydrateCustom = useCustomVillainStore((s) => s.hydrate)
   const customVillains = useCustomVillainStore((s) => s.villains)
   useEffect(() => { if (!customLoaded) void loadCustom() }, [customLoaded, loadCustom])
   const publishedKeys = useMemo(
@@ -406,10 +407,14 @@ export function VillainSelect({ onStart, onBack }: Props) {
   // Tuiles de la grille : « Aléatoire » d'abord, puis tous les vilains (natifs + publiés en solo).
   const tiles: Choice[] = ['random', ...allKeys]
 
-  const launchSolo = () => {
+  const launchSolo = async () => {
     if (!mineSolo || !oppSolo) return
     const playerKey = mineSolo === 'random' ? randomKey(takenBy(oppSolo) ?? undefined) : mineSolo
     const botKey = oppSolo === 'random' ? randomKey(playerKey) : oppSolo
+    // Les vilains CUSTOM sont listés en version ALLÉGÉE (sans images de cartes/plateau) : on
+    // HYDRATE ceux choisis (charge leur JSON complet + ré-enregistre au runtime) AVANT de bâtir
+    // la partie, sinon le plateau/les cartes s'afficheraient sans images.
+    await Promise.all([playerKey, botKey].filter(isCustomKey).map((k) => hydrateCustom(k)))
     // DEV : ORDI vs ORDI → les deux sièges sont des bots (partie auto-jouée à observer).
     if (devBuild && aiVsAi) startBotMatch([playerKey, botKey])
     else reset([playerKey, botKey])
@@ -528,7 +533,7 @@ export function VillainSelect({ onStart, onBack }: Props) {
             <div className="w-72">
               {/* Variante « vert » quand le mode ORDI vs ORDI (dev) est actif — le libellé reste « Lancer la partie ». */}
               {(() => { const v = devBuild && aiVsAi ? 'vert' : 'classique'; return (
-              <button type="button" disabled={!mineSolo || !oppSolo} onClick={(e) => { e.stopPropagation(); playHeroSelect(); launchSolo() }} onMouseEnter={playPlayButtonHover} className={`hs-wrapper ${v}`}>
+              <button type="button" disabled={!mineSolo || !oppSolo} onClick={(e) => { e.stopPropagation(); playHeroSelect(); void launchSolo() }} onMouseEnter={playPlayButtonHover} className={`hs-wrapper ${v}`}>
                 <span className={`hs-button ${v}`}>
                   <span className={`hs-border ${v}`}>
                     <span className={`hs-text ${v}`}>Lancer la partie</span>

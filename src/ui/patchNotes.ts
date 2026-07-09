@@ -47,6 +47,16 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.4.1',
+    date: '2026-07-10',
+    title: 'Chargement allégé & indicateurs',
+    tags: ['interface', 'atelier', 'correctif'],
+    changes: [
+      "**Démarrage bien plus rapide** : les vilains publiés ne sont plus chargés en entier au lancement — seul le **nécessaire** l’est, leurs images arrivant **à l’ouverture** du vilain.",
+      "**Indicateurs de chargement** partout : la liste de l’**Atelier** et les **images** de la fiche d’un vilain (portrait, cartes, plateau) affichent un **loader** au lieu d’un vide.",
+    ],
+  },
+  {
     version: '1.4.0',
     date: '2026-07-08',
     title: 'Le Flagelleur Mental débarque',

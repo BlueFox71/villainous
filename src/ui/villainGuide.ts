@@ -703,9 +703,11 @@ export function villainGuideOf(key: string): VillainGuide {
     const c = customVillainOf(key)
     // La difficulté affichée suit TOUJOURS les étoiles choisies dans l'Atelier (on n'en
     // fige jamais une dans CUSTOM_GUIDES, qui ne fournit que l'histoire et les conseils).
+    // La DEVISE suit de même l'Atelier (source unique) : celle éditée prime dès qu'elle
+    // est renseignée ; CUSTOM_GUIDES ne sert que de repli quand aucune n'a été saisie.
     const written = CUSTOM_GUIDES[key]
     if (written)
-      return { ...written, difficulty: c?.stars ?? written.difficulty, devise: written.devise ?? c?.devise }
+      return { ...written, difficulty: c?.stars ?? written.difficulty, devise: c?.devise?.trim() || written.devise }
     return {
       difficulty: c?.stars ?? 3,
       devise: c?.devise,
