@@ -47,6 +47,17 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.4.0',
+    date: '2026-07-08',
+    title: 'Le Flagelleur Mental débarque',
+    tags: ['villain', 'atelier'],
+    changes: [
+      "Nouveau vilain jouable : **Le Flagelleur Mental** (Mind Flayer, *Stranger Things*) — ouvre le **Monde à l’Envers** en posant 3 **Tunnels** et en activant l’**Entrée** avec **Onze**.",
+      "**Atelier** : un vilain repris en développement reste **lié à son original** (fini le doublon), et l’éditeur récupère toujours sa **version la plus récente**.",
+      "**Atelier** : nouvel onglet **Stratégie** (codage des cartes & jeu du **bot adverse**) pour vérifier et documenter chaque vilain développé.",
+    ],
+  },
+  {
     version: '1.3.1',
     date: '2026-07-08',
     title: 'Atelier plus complet & IA de Tabbou affûtée',

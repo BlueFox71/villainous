@@ -1,6 +1,6 @@
 // Champs de formulaire réutilisables par les onglets de l'éditeur de vilains.
 import { useEffect, useRef, useState } from 'react'
-import { readImageForStorage } from './imageUtils'
+import { readImageForStorage, fileToDataUrl } from './imageUtils'
 import type { CropPos } from '../../data/customVillain'
 
 const CENTER: CropPos = { x: 50, y: 50 }
@@ -338,6 +338,88 @@ export function ImageField({
           )}
           {crop && value && <CropSliders pos={pos} onChange={crop.onChange} />}
         </div>
+      </div>
+    </Field>
+  )
+}
+
+/** Champ audio : bouton « Choisir » + lecteur (écouter / pause) + « Retirer ».
+ *  Stocke le fichier en dataURL (comme les images). */
+export function AudioField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string | undefined
+  onChange: (v: string | undefined) => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const audioRef = useRef<HTMLAudioElement>(null)
+  const [playing, setPlaying] = useState(false)
+
+  const onPick = async (file: File | undefined) => {
+    if (!file) return
+    onChange(await fileToDataUrl(file))
+  }
+
+  const toggle = () => {
+    const el = audioRef.current
+    if (!el) return
+    if (el.paused) void el.play()
+    else el.pause()
+  }
+
+  return (
+    <Field label={label}>
+      <div className="flex flex-col items-start gap-2">
+        <input
+          ref={inputRef}
+          type="file"
+          accept="audio/*"
+          className="hidden"
+          onChange={(e) => void onPick(e.target.files?.[0])}
+        />
+        <div className="flex items-center gap-2">
+          {value && (
+            <button
+              type="button"
+              onClick={toggle}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-300/50 text-amber-200 transition hover:bg-amber-400/10"
+              title={playing ? 'Pause' : 'Écouter'}
+            >
+              {playing ? '⏸' : '▶'}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200"
+          >
+            {value ? 'Remplacer le fichier' : 'Choisir un fichier audio'}
+          </button>
+        </div>
+        {value ? (
+          <audio
+            ref={audioRef}
+            src={value}
+            onPlay={() => setPlaying(true)}
+            onPause={() => setPlaying(false)}
+            onEnded={() => setPlaying(false)}
+            className="hidden"
+          />
+        ) : (
+          <span className="text-xs text-white/40">Aucun fichier audio.</span>
+        )}
+        {value && (
+          <button
+            type="button"
+            onClick={() => onChange(undefined)}
+            className="text-left text-xs text-white/40 transition hover:text-red-300"
+          >
+            Retirer
+          </button>
+        )}
       </div>
     </Field>
   )

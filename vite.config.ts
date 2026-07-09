@@ -311,6 +311,38 @@ function saveVillainJsonPlugin(): Plugin {
 }
 
 /**
+ * Plugin DEV uniquement : endpoint GET `/__read-villain-json?id=<id>` qui relit le JSON
+ * allégé (`assets/custom-exports/<id>.json`) écrit par `/__save-villain-json`. Sert à
+ * RÉIMPORTER dans l'Atelier les données de jeu développées par Claude Code sur ce fichier.
+ * Renvoie `{ json }` (chaîne) ou 404. Absent du build de production (`apply: 'serve'`).
+ */
+function readVillainJsonPlugin(): Plugin {
+  const ASSETS = resolve(process.cwd(), 'assets')
+  return {
+    name: 'read-villain-json',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__read-villain-json', (req, res) => {
+        try {
+          const url = new URL(req.url ?? '', 'http://localhost')
+          const id = url.searchParams.get('id') ?? ''
+          const safe = id.replace(/[^a-z0-9_-]+/gi, '-')
+          const src = resolve(ASSETS, `custom-exports/${safe}.json`)
+          if (!src.startsWith(ASSETS)) throw new Error('chemin hors assets/')
+          if (!existsSync(src)) { res.statusCode = 404; res.end('introuvable'); return }
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ json: readFileSync(src, 'utf8') }))
+        } catch (e) {
+          res.statusCode = 400
+          res.end(String((e as Error)?.message ?? e))
+        }
+      })
+    },
+  }
+}
+
+/**
  * Plugin DEV uniquement : endpoint POST `/__publish-villain` qui écrit le JSON COMPLET
  * (AVEC images en dataURL) d'un vilain personnalisé dans `src/data/published/<id>.json`.
  * Ces fichiers sont chargés au démarrage de l'app (cf. `src/data/published/load.ts`) → le
@@ -611,7 +643,7 @@ function gitStagingPlugin(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), saveActionPosPlugin(), saveBlockedOverlayPlugin(), savePawnSizePlugin(), savePortraitPlugin(), saveVillainColorPlugin(), saveVillainAssetsPlugin(), saveVillainJsonPlugin(), savePublishedVillainPlugin(), villainBackupPlugin(), saveVillainDifficultyPlugin(), gitStagingPlugin()],
+  plugins: [react(), tailwindcss(), saveActionPosPlugin(), saveBlockedOverlayPlugin(), savePawnSizePlugin(), savePortraitPlugin(), saveVillainColorPlugin(), saveVillainAssetsPlugin(), saveVillainJsonPlugin(), readVillainJsonPlugin(), savePublishedVillainPlugin(), villainBackupPlugin(), saveVillainDifficultyPlugin(), gitStagingPlugin()],
   server: {
     // Expose le serveur de dév sur le réseau local (0.0.0.0) pour que l'invité
     // puisse ouvrir l'app depuis l'IP de l'hôte (http://<ip-hôte>:5173) — requis

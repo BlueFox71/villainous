@@ -1,0 +1,735 @@
+{
+  "formatVersion": 1,
+  "id": "custom-flagelleur-mental",
+  "name": "Le Flagelleur Mental",
+  "devise": "Ce n'était pas une bonne idée de me chercher, parce que maintenant je te vois.",
+  "stars": 3,
+  "color": "#404991",
+  "portrait": "/flagelleur-mental.png",
+  "presentation": "/presentations/flagelleur-mental.png",
+  "boardImage": "/cards/flagelleur-mental/board.png",
+  "pawnImage": "/pion_flagelleur-mental.png",
+  "pawnHeightPx": 94,
+  "backVillainImage": "/cards/flagelleur-mental/back-villain.png",
+  "backFateImage": "/cards/flagelleur-mental/back-fate.png",
+  "boardObjective": "Ouvrez le Monde à l'Envers.",
+  "objectiveDescription": "Posez 3 TUNNELS DE HAWKINS sur les 3 premiers lieux, amenez ONZE (récupérée dans la Fatalité par BILLY SOUS EMPRISE) sur le lieu de l'ENTRÉE DU MONDE À L'ENVERS, puis ACTIVEZ l'ENTRÉE pour gagner. Tant que MAX MAYFIELD est présente, BILLY ne peut pas aller chercher ONZE.",
+  "objective": {
+    "type": "FLAYER_GATE",
+    "gateCardId": "entree-du-monde-a-l-envers",
+    "heroCardId": "onze",
+    "tunnelCardId": "tunnel-de-hawkins",
+    "tunnelLocationCount": 3
+  },
+  "locations": [
+    {
+      "id": "centre-ville",
+      "name": "Centre-ville de Hawkins",
+      "actions": [
+        {
+          "id": "fate",
+          "type": "FATE",
+          "label": "Fatalité",
+          "row": "top",
+          "amount": 1
+        },
+        {
+          "id": "gain-power",
+          "type": "GAIN_POWER",
+          "label": "Gagner 2 pouvoir",
+          "row": "top",
+          "amount": 2
+        },
+        {
+          "id": "play-card",
+          "type": "PLAY_CARD",
+          "label": "Jouer une carte",
+          "row": "bottom"
+        },
+        {
+          "id": "vanquish",
+          "type": "VANQUISH",
+          "label": "Éliminer un héros",
+          "row": "bottom"
+        },
+        {
+          "id": "move-hero",
+          "type": "MOVE_HERO",
+          "label": "Déplacer un héros",
+          "row": "bottom",
+          "amount": 1
+        }
+      ]
+    },
+    {
+      "id": "starcourt",
+      "name": "Starcourt",
+      "actions": [
+        {
+          "id": "play-card",
+          "type": "PLAY_CARD",
+          "label": "Jouer une carte",
+          "row": "top"
+        },
+        {
+          "id": "move-item-ally",
+          "type": "MOVE_ITEM_ALLY",
+          "label": "Déplacer un objet ou un allié",
+          "row": "top"
+        },
+        {
+          "id": "discard",
+          "type": "DISCARD_CARDS",
+          "label": "Défausser des cartes",
+          "row": "bottom"
+        },
+        {
+          "id": "fate",
+          "type": "FATE",
+          "label": "Fatalité",
+          "row": "bottom"
+        }
+      ]
+    },
+    {
+      "id": "laboratoire",
+      "name": "Laboratoire National",
+      "actions": [
+        {
+          "id": "discard",
+          "type": "DISCARD_CARDS",
+          "label": "Défausser des cartes",
+          "row": "top"
+        },
+        {
+          "id": "play-card",
+          "type": "PLAY_CARD",
+          "label": "Jouer une carte",
+          "row": "top"
+        },
+        {
+          "id": "play-card2",
+          "type": "PLAY_CARD",
+          "label": "Jouer une carte",
+          "row": "bottom"
+        },
+        {
+          "id": "gain-power",
+          "type": "GAIN_POWER",
+          "label": "Gagner 3 pouvoir",
+          "row": "bottom",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": "monde-envers",
+      "name": "Le Monde à l'Envers",
+      "actions": [
+        {
+          "id": "play-card",
+          "type": "PLAY_CARD",
+          "label": "Jouer une carte",
+          "row": "bottom"
+        },
+        {
+          "id": "activate",
+          "type": "ACTIVATE",
+          "label": "Activer une capacité",
+          "row": "bottom"
+        },
+        {
+          "id": "gain-power",
+          "type": "GAIN_POWER",
+          "label": "Gagner 1 pouvoir",
+          "row": "bottom",
+          "amount": 1
+        }
+      ],
+      "lockedAtStart": true
+    }
+  ],
+  "cards": [
+    {
+      "id": "a-travers-les-yeux-de-will",
+      "name": "À TRAVERS LES YEUX DE WILL",
+      "englishName": "Through Will's Eyes",
+      "deck": "villain",
+      "type": "condition",
+      "cost": 0,
+      "copies": 2,
+      "text": "Cette carte est jouable pendant le tour d'un adversaire s'il possède au moins 4 Jetons Pouvoir. Gagnez 2 Jetons Pouvoir.",
+      "image": "/cards/flagelleur-mental/travers_les_yeux.png",
+      "trigger": {
+        "type": "opponent-power-ge",
+        "value": 4
+      },
+      "effects": [
+        {
+          "type": "GAIN_POWER",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": "intrus-dans-le-monde-a-l-envers",
+      "name": "INTRUS DANS LE MONDE À L'ENVERS",
+      "englishName": "Intruder in the Upside Down",
+      "deck": "villain",
+      "type": "condition",
+      "cost": 0,
+      "copies": 2,
+      "text": "Cette carte est jouable pendant le tour d'un adversaire s'il joue un Allié. Jouez un Allié gratuitement puis piochez une carte.",
+      "image": "/cards/flagelleur-mental/intrus.png",
+      "trigger": {
+        "type": "opponent-played-ally",
+        "requiresOwnAlly": true
+      }
+    },
+    {
+      "id": "passage-secret-entre-deux-mondes",
+      "name": "PASSAGE SECRÈTE ENTRE DEUX MONDES",
+      "englishName": "Secret Passage Between Worlds",
+      "deck": "villain",
+      "type": "effect",
+      "cost": 1,
+      "copies": 3,
+      "text": "Récupérez une carte dans votre défausse et ajoutez-la à votre main.",
+      "image": "/cards/flagelleur-mental/passage.png",
+      "effects": [
+        {
+          "type": "RECOVER_ANY_FROM_DISCARD",
+          "label": "Passage secrète"
+        }
+      ]
+    },
+    {
+      "id": "will-sous-emprise",
+      "name": "WILL SOUS EMPRISE",
+      "englishName": "Will Possessed",
+      "deck": "villain",
+      "type": "effect",
+      "cost": 1,
+      "copies": 2,
+      "text": "Regardez les 4 premières cartes dans votre deck Méchant ou votre deck Fatalités (coûte 1 Jeton Pouvoir supplémentaire) et changez l'ordre si vous souhaitez. Puis remettre sur le dessus de votre deck.",
+      "image": "/cards/flagelleur-mental/sous_emprise.png",
+      "effects": [
+        {
+          "type": "FLAYER_WILL_SCRY",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "id": "une-nouvelle-personne-sous-emprise",
+      "name": "ÉVITE DE BOUGER",
+      "englishName": "A New Person Possessed",
+      "deck": "villain",
+      "type": "item",
+      "cost": 2,
+      "copies": 2,
+      "attach": "hero",
+      "zeroesHostStrength": true,
+      "text": "Associez cette carte à un Héros, sa force est à 0.",
+      "image": "/cards/flagelleur-mental/nouvelle_personne.png"
+    },
+    {
+      "id": "froid",
+      "name": "FROID",
+      "englishName": "Cold",
+      "deck": "villain",
+      "type": "item",
+      "cost": 1,
+      "copies": 2,
+      "text": "Les Alliés qui se trouvent sur le même lieu que cet Objet ont une force augmentée de 1.",
+      "image": "/cards/flagelleur-mental/froid.png",
+      "strengthMod": {
+        "target": "allies-here",
+        "delta": 1
+      }
+    },
+    {
+      "id": "tunnel-de-hawkins",
+      "name": "TUNNEL DE HAWKINS",
+      "englishName": "Hawkins Tunnel",
+      "deck": "villain",
+      "type": "item",
+      "cost": 2,
+      "copies": 5,
+      "text": "Défaussez 2 Alliés pour placer cet Objet dans le Royaume (à part du MONDE À L'ENVERS). Gagnez 3 Jetons Pouvoir s'il y a 3 TUNNELS dans votre Royaume.",
+      "image": "/cards/flagelleur-mental/tunnel.png",
+      "forbiddenLocations": [
+        "monde-envers"
+      ],
+      "effects": [
+        {
+          "type": "FLAYER_PLACE_TUNNEL",
+          "baseAllies": 2,
+          "surchargeHeroCardId": "onze",
+          "tunnelCardId": "tunnel-de-hawkins",
+          "rewardAtCount": 3,
+          "rewardPower": 3
+        }
+      ]
+    },
+    {
+      "id": "entree-du-monde-a-l-envers",
+      "name": "ENTRÉE DU MONDE À L'ENVERS",
+      "englishName": "Gate to the Upside Down",
+      "deck": "villain",
+      "type": "item",
+      "cost": 2,
+      "copies": 1,
+      "text": "Cette carte peut être activée si ONZE est sur le même lieu que l'ENTRÉE DU MONDE À L'ENVERS et que 3 TUNNELS DE HAWKINS sont placés sur les 3 premiers lieux.",
+      "image": "/cards/flagelleur-mental/entree.png",
+      "activatedCost": 0
+    },
+    {
+      "id": "demogorgon",
+      "name": "DÉMOGORGON",
+      "englishName": "Demogorgon",
+      "deck": "villain",
+      "type": "ally",
+      "cost": 3,
+      "strength": 4,
+      "copies": 3,
+      "text": "Gagnez 1 jeton Pouvoir à chaque fois que le DÉMOGORGON soit déplacé.",
+      "image": "/cards/flagelleur-mental/demogorgon.png",
+      "powerOnMove": 1
+    },
+    {
+      "id": "billy-sous-emprise",
+      "name": "BILLY SOUS EMPRISE",
+      "englishName": "Billy Possessed",
+      "deck": "villain",
+      "type": "ally",
+      "cost": 2,
+      "strength": 3,
+      "copies": 1,
+      "text": "Vous pouvez déplacer un Allié. Ne peut pas être défaussé pour utiliser le TUNNEL DE HAWKINS. Payez 3 jetons Pouvoir : Trouvez ONZE et jouez-la.",
+      "image": "/cards/flagelleur-mental/billy.png",
+      "cannotDiscardForTunnel": true,
+      "effects": [
+        {
+          "type": "MOVE_OWN_ALLY_ADJACENT"
+        }
+      ],
+      "activatedCost": 3,
+      "activatedEffects": [
+        {
+          "type": "FLAYER_FETCH_ONZE",
+          "heroCardId": "onze",
+          "blockerHeroCardId": "max-mayfield"
+        }
+      ]
+    },
+    {
+      "id": "vignes",
+      "name": "VIGNES",
+      "englishName": "Vines",
+      "deck": "villain",
+      "type": "ally",
+      "cost": 1,
+      "strength": 1,
+      "copies": 3,
+      "text": "Vous pouvez déplacer un Allié sur un lieu voisin.",
+      "image": "/cards/flagelleur-mental/vignes.png",
+      "effects": [
+        {
+          "type": "MOVE_OWN_ALLY_ADJACENT"
+        }
+      ]
+    },
+    {
+      "id": "the-flayed",
+      "name": "THE FLAYED",
+      "englishName": "The Flayed",
+      "deck": "villain",
+      "type": "ally",
+      "cost": 2,
+      "strength": 3,
+      "copies": 4,
+      "text": "Si 3 cartes The FLAYED sont posées dans votre royaume, débloquez le lieu MONDE À L'ENVERS.",
+      "image": "/cards/flagelleur-mental/flayed.png",
+      "effects": [
+        {
+          "type": "FLAYER_FLAYED_UNLOCK",
+          "flayedCardId": "the-flayed",
+          "count": 3,
+          "locationId": "monde-envers",
+          "willCardId": "will-byers"
+        }
+      ]
+    },
+    {
+      "id": "mike-wheeler",
+      "name": "MIKE WHEELER",
+      "englishName": "Mike Wheeler",
+      "deck": "fate",
+      "type": "hero",
+      "strength": 3,
+      "copies": 1,
+      "text": "La force de tous les autres Héros augmente de 1.",
+      "image": "/cards/flagelleur-mental/mike.png",
+      "strengthMod": {
+        "target": "heroes-realm",
+        "delta": 1
+      },
+      "fateMalus": "slow2"
+    },
+    {
+      "id": "will-byers",
+      "name": "WILL BYERS",
+      "englishName": "Will Byers",
+      "deck": "fate",
+      "type": "hero",
+      "strength": 2,
+      "copies": 1,
+      "text": "Tant que WILL BYERS est présent, le lieu MONDE À L'ENVERS est bloqué.",
+      "image": "/cards/flagelleur-mental/will.png",
+      "onPlace": [
+        {
+          "type": "FLAYER_GATE_LOCK",
+          "locationId": "monde-envers"
+        }
+      ],
+      "onVanquish": [
+        {
+          "type": "FLAYER_GATE_REFRESH",
+          "locationId": "monde-envers",
+          "willCardId": "will-byers"
+        }
+      ],
+      "fateMalus": "block-win"
+    },
+    {
+      "id": "lucas-sinclair",
+      "name": "LUCAS SINCLAIR",
+      "englishName": "Lucas Sinclair",
+      "deck": "fate",
+      "type": "hero",
+      "strength": 3,
+      "copies": 1,
+      "text": "Activer la capacité des Objets sur le lieu où se trouve LUCAS coûte 1 jeton Pouvoir de plus.",
+      "image": "/cards/flagelleur-mental/lucas.png",
+      "activateCostSurchargeHere": 1,
+      "fateMalus": "slow"
+    },
+    {
+      "id": "dustin-henderson",
+      "name": "DUSTIN HENDERSON",
+      "englishName": "Dustin Henderson",
+      "deck": "fate",
+      "type": "hero",
+      "strength": 3,
+      "copies": 1,
+      "text": "Si DUSTIN HENDERSON fait partie des deux cartes dévoilées lors d'une action Fatalité, vous pouvez les jouer tous les deux.",
+      "image": "/cards/flagelleur-mental/dustin.png",
+      "fatePlayBoth": true,
+      "fateMalus": "slow"
+    },
+    {
+      "id": "onze",
+      "name": "ONZE",
+      "englishName": "Eleven",
+      "deck": "fate",
+      "type": "hero",
+      "strength": 5,
+      "copies": 1,
+      "text": "Il faut désormais défausser 3 Alliés pour placer un TUNNEL DE HAWKINS.",
+      "image": "/cards/flagelleur-mental/onze.png"
+    },
+    {
+      "id": "max-mayfield",
+      "name": "MAX MAYFIELD",
+      "englishName": "Max Mayfield",
+      "deck": "fate",
+      "type": "hero",
+      "strength": 3,
+      "copies": 1,
+      "text": "Tant que MAX est présente, BILLY ne peut pas aller chercher ONZE.",
+      "image": "/cards/flagelleur-mental/max.png",
+      "fateMalus": "block-advance"
+    },
+    {
+      "id": "frissons",
+      "name": "FRISSONS",
+      "englishName": "Chills",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 2,
+      "text": "Déplacez un Héros sur le lieu voisin.",
+      "image": "/cards/flagelleur-mental/frisson.png",
+      "effects": [
+        {
+          "type": "RELOCATE_HERO_ADJACENT"
+        }
+      ]
+    },
+    {
+      "id": "nancy-armee",
+      "name": "NANCY ARMÉE",
+      "englishName": "Nancy Armed",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 1,
+      "text": "Déplacez un Objet sur le lieu voisin.",
+      "image": "/cards/flagelleur-mental/guirlandes.png",
+      "effects": [
+        {
+          "type": "MOVE_HERO_OR_ITEM_ADJACENT"
+        }
+      ]
+    },
+    {
+      "id": "chaleur",
+      "name": "CHALEUR",
+      "englishName": "Heat",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 2,
+      "text": "Défaussez un Allié.",
+      "image": "/cards/flagelleur-mental/chaleur.png",
+      "effects": [
+        {
+          "type": "DISCARD_ALLY_OR_ITEM",
+          "onlyType": "ally",
+          "cardName": "Chaleur"
+        }
+      ]
+    },
+    {
+      "id": "telekinesie",
+      "name": "TÉLÉKINÉSIE",
+      "englishName": "Telekinesis",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 2,
+      "text": "Perdez 2 jetons Pouvoir.",
+      "image": "/cards/flagelleur-mental/telekinesie.png",
+      "effects": [
+        {
+          "type": "LOSE_POWER",
+          "amount": 2
+        }
+      ]
+    },
+    {
+      "id": "batte-de-baseball",
+      "name": "BATTE DE BASEBALL",
+      "englishName": "Baseball Bat",
+      "deck": "fate",
+      "type": "item",
+      "copies": 2,
+      "attach": "hero",
+      "attachStrengthBonus": 1,
+      "text": "Associez cet Objet à un Héros. Sa force augmente de 1.",
+      "image": "/cards/flagelleur-mental/batte.png",
+      "fateMalus": "slow"
+    }
+  ],
+  "published": true,
+  "creator": "Jules",
+  "origin": "Collaborations",
+  "createdAt": "2026-07-07T16:52:04.701Z",
+  "updatedAt": "2026-07-11T00:00:00.000Z",
+  "botStrategy": {
+    "howToWin": "Objectif FLAYER_GATE : pose 3 TUNNELS DE HAWKINS sur les 3 premiers lieux, fais venir ONZE (récupérée dans la Fatalité par la capacité activée de BILLY SOUS EMPRISE) sur le lieu de l’ENTRÉE DU MONDE À L’ENVERS, puis ACTIVE l’ENTRÉE pour gagner. Leviers : accumule des Alliés bon marché (Vignes, The Flayed, Billy) pour payer les Tunnels (2 Alliés chacun, 3 une fois ONZE en jeu), réunis 3 THE FLAYED pour débloquer le MONDE À L’ENVERS, et neutralise MAX MAYFIELD qui empêche Billy d’aller chercher ONZE.",
+    "villainNotes": {
+      "a-travers-les-yeux-de-will": "Condition : jouable pendant le tour d’un adversaire s’il possède au moins 4 Jetons Pouvoir. Gagne 2 Pouvoir. Gardée en réaction ; grisée hors tour adverse ou si l’adversaire a moins de 4 Pouvoir.",
+      "intrus-dans-le-monde-a-l-envers": "Condition : jouable pendant le tour d’un adversaire s’il joue un Allié. Joue un Allié gratuitement puis pioche 1 carte — sert à sortir un Allié sans payer (carburant à Tunnels).",
+      "passage-secret-entre-deux-mondes": "Coût 1. Récupère n’importe quelle carte de la défausse et l’ajoute en main (choix interactif). Utile pour reprendre un Tunnel, Billy ou une pièce clé défaussée.",
+      "will-sous-emprise": "Coût 1. Regarde les 4 premières cartes du deck Méchant OU du deck Fatalité (Fatalité = +1 Pouvoir de coût) et réordonne — prépare les pioches et les révélations Fatalité.",
+      "une-nouvelle-personne-sous-emprise": "Objet (coût 2) associé à un Héros : réduit sa force à 0. Sert à neutraliser un gros Héros (Onze, Mike) pour le vaincre ou l’ignorer.",
+      "froid": "Objet (coût 1) posé sur un lieu : +1 Force à tous les Alliés du même lieu. À poser là où le bot masse ses Alliés (Vaincre / défense).",
+      "tunnel-de-hawkins": "Objet clé (coût 2) : défausse 2 Alliés (3 une fois ONZE en jeu) pour le poser dans le Royaume, hors MONDE À L’ENVERS. +3 Pouvoir dès qu’il y a 3 Tunnels. Poser les 3 sur les 3 premiers lieux = étape majeure de l’objectif.",
+      "entree-du-monde-a-l-envers": "Objet clé (coût 2). S’ACTIVE (gratuit) uniquement si ONZE est sur son lieu ET que 3 TUNNELS sont posés sur les 3 premiers lieux → déclenche la victoire. Le bot l’active dès que les conditions sont réunies.",
+      "demogorgon": "Allié (coût 3, force 4). +1 Pouvoir à chaque déplacement (pas à la pose). Grosse force pour Vaincre les Héros ; le bot le déplace pour grappiller du Pouvoir.",
+      "billy-sous-emprise": "Allié (coût 2, force 3). Peut déplacer un Allié. Capacité ACTIVÉE (3 Pouvoir) : va chercher ONZE dans la Fatalité — IMPOSSIBLE tant que MAX MAYFIELD est présente. Ne peut pas être défaussé pour payer un Tunnel. Pièce maîtresse de l’objectif.",
+      "vignes": "Allié (coût 1, force 1). Peut déplacer un Allié sur un lieu voisin. Bon marché : carburant idéal pour défausser aux Tunnels et repositionner les Alliés.",
+      "the-flayed": "Allié (coût 2, force 3). Quand 3 THE FLAYED sont posés dans le Royaume, débloque le lieu MONDE À L’ENVERS. Le bot vise à en réunir 3."
+    },
+    "fateNotes": {
+      "mike-wheeler": {
+        "description": "Héros (force 3). +1 Force à tous les AUTRES Héros tant qu’il est présent (rend le royaume plus dur à nettoyer).",
+        "asReceiver": "Le vaincre tôt ou réduire sa force : il gonfle tous les autres Héros. Malus RALENTIT (++).",
+        "asAttacker": "À poser chez l’adversaire avec d’autres Héros pour verrouiller sa zone."
+      },
+      "will-byers": {
+        "description": "Héros (force 2). Tant qu’il est présent, le lieu MONDE À L’ENVERS est bloqué (verrou refait s’il est vaincu).",
+        "asReceiver": "Bloc dur : EMPÊCHE DE GAGNER côté Flagelleur. Le vaincre est prioritaire pour rouvrir le MONDE À L’ENVERS.",
+        "asAttacker": "Excellent verrou à poser chez un adversaire dont l’objectif dépend d’un lieu."
+      },
+      "lucas-sinclair": {
+        "description": "Héros (force 3). Activer un Objet sur SON lieu coûte +1 Pouvoir.",
+        "asReceiver": "Gêne l’activation de l’ENTRÉE et des capacités : le déplacer ou le vaincre s’il squatte un lieu clé. RALENTIT.",
+        "asAttacker": "À poser sur le lieu où l’adversaire active ses capacités."
+      },
+      "dustin-henderson": {
+        "description": "Héros (force 3). S’il fait partie des 2 cartes révélées en Fatalité, on peut jouer les DEUX.",
+        "asReceiver": "Double Fatalité subie : anticiper un tour Fatalité chargé. RALENTIT.",
+        "asAttacker": "Tempo Fatalité : permet d’enchaîner deux Héros/effets d’un coup."
+      },
+      "onze": {
+        "description": "Héros-CIBLE de l’objectif (force 5). Une fois en jeu, poser un TUNNEL coûte désormais 3 Alliés au lieu de 2.",
+        "asReceiver": "NEUTRE : c’est le Héros que le bot doit amener à l’ENTRÉE. Ne pas chercher à s’en débarrasser — au contraire l’escorter.",
+        "asAttacker": "Chez l’adversaire, c’est un Héros force 5 difficile à vaincre."
+      },
+      "max-mayfield": {
+        "description": "Héros (force 3). Tant qu’elle est présente, BILLY ne peut pas aller chercher ONZE.",
+        "asReceiver": "EMPÊCHE D’AVANCER : la vaincre en priorité pour débloquer la récupération d’ONZE par Billy.",
+        "asAttacker": "Verrou de tempo à poser chez un adversaire pour bloquer une action clé."
+      },
+      "frissons": {
+        "description": "Fatalité (effet) : déplace un Héros sur le lieu voisin.",
+        "asReceiver": "Peut déranger le placement d’un Héros déjà bien rangé : recadrer si besoin.",
+        "asAttacker": "Repositionne un Héros adverse (le rapprocher d’une menace, l’éloigner d’un objectif)."
+      },
+      "nancy-armee": {
+        "description": "Fatalité (effet) : déplace un Objet sur le lieu voisin.",
+        "asReceiver": "Peut déplacer un TUNNEL ou l’ENTRÉE : vérifier que les 3 Tunnels restent sur les 3 premiers lieux.",
+        "asAttacker": "Déranger un Objet clé de l’adversaire (déplacer une pièce d’objectif)."
+      },
+      "chaleur": {
+        "description": "Fatalité (effet) : défausse un Allié.",
+        "asReceiver": "Perte d’un Allié (carburant à Tunnels / force) : garder de la réserve, protéger Billy.",
+        "asAttacker": "Retirer un Allié clé à l’adversaire (bloqueur, gros combattant)."
+      },
+      "telekinesie": {
+        "description": "Fatalité (effet) : fait perdre 2 Jetons Pouvoir.",
+        "asReceiver": "Coup d’économie : jouer autour d’une réserve de Pouvoir un peu supérieure.",
+        "asAttacker": "Assécher le Pouvoir de l’adversaire au mauvais moment (avant une grosse action)."
+      },
+      "batte-de-baseball": {
+        "description": "Objet Fatalité associé à un Héros : +1 Force.",
+        "asReceiver": "Rend un Héros plus dur à vaincre : le retirer ou prévoir plus de force. RALENTIT.",
+        "asAttacker": "Renforce un Héros posé chez l’adversaire pour tenir un lieu."
+      }
+    },
+    "botPlay": {
+      "general": "Le bot joue la course à l’objectif : il empile des Alliés bon marché (Vignes, The Flayed, Billy) comme carburant, pose les 3 TUNNELS DE HAWKINS sur les 3 premiers lieux au plus tôt, garde BILLY précieusement pour récupérer ONZE (dès que MAX MAYFIELD n’est plus là), amène ONZE sur l’ENTRÉE puis l’active. Il temporise avec ses cartes Condition (gratuites au tour adverse) et n’oublie jamais d’activer l’ENTRÉE quand les 3 Tunnels + ONZE sont réunis.",
+      "villainNotes": {
+        "a-travers-les-yeux-de-will": "Gardée en main, jouée en réaction au tour de l’adversaire dès qu’il a ≥ 4 Pouvoir : +2 Pouvoir gratuits (pur tempo). Le bot ne la « gaspille » pas à son propre tour.",
+        "intrus-dans-le-monde-a-l-envers": "Jouée en réaction quand l’adversaire pose un Allié : sort un Allié gratuit (carburant à Tunnels) + pioche. Priorité quand la main manque d’Alliés.",
+        "passage-secret-entre-deux-mondes": "Jouée pour reprendre une pièce clé défaussée (Tunnel, Billy, Entrée, gros Allié). Sinon le bot garde son Pouvoir pour un Tunnel.",
+        "will-sous-emprise": "Utilisée pour sécuriser une pioche décisive (Tunnel/Billy) ou fixer les 2 cartes révélées en Fatalité (poser un Héros gênant chez l’adversaire). Scry Fatalité seulement si le +1 Pouvoir en vaut la peine.",
+        "une-nouvelle-personne-sous-emprise": "Associée à un gros Héros gênant pour annuler sa force (MAX pour débloquer Billy, ou un gros Héros posé chez l’adversaire). Le bot vise la cible qui le bloque le plus.",
+        "froid": "Posée sur le lieu où le bot regroupe ses Alliés (préparer un Vanquish ou défendre une pièce d’objectif). Basse priorité tant que l’objectif avance.",
+        "tunnel-de-hawkins": "PRIORITÉ HAUTE. Le bot le pose sur un des 3 premiers lieux dès qu’il a 2 Alliés « jetables » (3 après l’arrivée d’ONZE), en évitant de sacrifier Billy. Vise les 3 Tunnels (→ +3 Pouvoir et étape d’objectif).",
+        "entree-du-monde-a-l-envers": "Posée tôt sur le lieu de fin. Le bot l’ACTIVE immédiatement dès qu’ONZE y est ET que 3 Tunnels sont posés → victoire. Ne jamais retarder l’activation.",
+        "demogorgon": "Joué comme gros combattant (force 4) pour Vaincre les Héros bloquants ; le bot le déplace quand c’est utile pour grappiller +1 Pouvoir. Rarement sacrifié à un Tunnel (trop cher).",
+        "billy-sous-emprise": "PIÈCE MAÎTRESSE. Le bot le protège, accumule 3 Pouvoir, puis ACTIVE « chercher ONZE » — mais seulement quand MAX MAYFIELD est absente. Ne le défausse jamais pour payer un Tunnel.",
+        "vignes": "Petit Allié (1 Pouvoir) joué en nombre : carburant idéal à défausser aux Tunnels et pour repositionner d’autres Alliés. Le bot en pose volontiers plusieurs.",
+        "the-flayed": "Le bot en aligne 3 pour débloquer le lieu MONDE À L’ENVERS. Tant qu’il n’en a pas 3, il évite de les sacrifier aux Tunnels."
+      },
+      "fateNotes": {
+        "mike-wheeler": {
+          "description": "Le bot le pose chez l’adversaire pour renforcer ses autres Héros (zone plus dure).",
+          "asReceiver": "Subi, le bot le Vainc tôt : il gonfle tous ses autres Héros.",
+          "asAttacker": "À poser quand l’adversaire a déjà plusieurs Héros en jeu, pour maximiser le +1."
+        },
+        "will-byers": {
+          "description": "Verrou de lieu : bloque le lieu-clé de l’objectif adverse tant qu’il est présent.",
+          "asReceiver": "Subi côté Flagelleur, le bot le Vainc en priorité pour rouvrir le MONDE À L’ENVERS.",
+          "asAttacker": "À poser contre un adversaire dont l’objectif dépend d’un lieu précis."
+        },
+        "lucas-sinclair": {
+          "description": "Renchérit l’activation des Objets de son lieu (+1 Pouvoir).",
+          "asReceiver": "Le bot le déplace ou le Vainc s’il squatte le lieu de l’ENTRÉE (activation plus chère).",
+          "asAttacker": "À poser sur le lieu où l’adversaire active ses capacités."
+        },
+        "dustin-henderson": {
+          "description": "Permet de jouer les 2 cartes révélées s’il en fait partie (tempo Fatalité).",
+          "asReceiver": "Le bot anticipe un tour Fatalité doublé quand il le voit venir.",
+          "asAttacker": "À utiliser pour enchaîner deux Héros/effets Fatalité d’un coup."
+        },
+        "onze": {
+          "description": "Héros-CIBLE de l’objectif : le bot cherche à l’AMENER sur l’ENTRÉE, pas à s’en débarrasser.",
+          "asReceiver": "Récupérée via Billy, le bot l’escorte vers l’ENTRÉE et la protège (ne l’expose pas au combat).",
+          "asAttacker": "Chez l’adversaire, c’est un gros Héros (force 5) difficile à déloger."
+        },
+        "max-mayfield": {
+          "description": "Tant qu’elle est là, BILLY ne peut pas chercher ONZE (blocage d’objectif).",
+          "asReceiver": "PRIORITÉ : le bot la Vainc (ou annule sa force) au plus vite pour débloquer Billy → ONZE.",
+          "asAttacker": "Verrou de tempo à poser chez un adversaire pour bloquer une action clé."
+        },
+        "frissons": {
+          "description": "Déplace un Héros sur un lieu voisin.",
+          "asReceiver": "Le bot recadre le placement d’un Héros déplacé si ça gêne son plan.",
+          "asAttacker": "Le bot repositionne un Héros adverse (le rapprocher d’une menace, l’éloigner d’un objectif)."
+        },
+        "nancy-armee": {
+          "description": "Déplace un Objet sur un lieu voisin.",
+          "asReceiver": "Le bot vérifie que ses 3 Tunnels / l’ENTRÉE restent bien placés après coup.",
+          "asAttacker": "Le bot dérange un Objet-clé de l’adversaire (déplace une pièce d’objectif)."
+        },
+        "chaleur": {
+          "description": "Défausse un Allié.",
+          "asReceiver": "Le bot garde une réserve d’Alliés et protège Billy pour amortir la perte.",
+          "asAttacker": "Le bot retire un Allié clé de l’adversaire (bloqueur, gros combattant)."
+        },
+        "telekinesie": {
+          "description": "Fait perdre 2 Jetons Pouvoir.",
+          "asReceiver": "Le bot conserve une petite marge de Pouvoir pour ne pas être bloqué.",
+          "asAttacker": "Le bot assèche le Pouvoir adverse juste avant une grosse action de sa part."
+        },
+        "batte-de-baseball": {
+          "description": "Objet associé à un Héros : +1 Force.",
+          "asReceiver": "Le bot prévoit plus de force (ou retire l’Objet) pour vaincre un Héros renforcé.",
+          "asAttacker": "Le bot renforce un Héros posé chez l’adversaire pour l’aider à tenir un lieu."
+        }
+      }
+    },
+    "journal": {
+      "villainNotes": {
+        "a-travers-les-yeux-de-will": "À travers les yeux de Will : le Flagelleur gagne 2 Pouvoir.",
+        "intrus-dans-le-monde-a-l-envers": "Intrus dans le Monde à l’Envers : le Flagelleur joue un Allié gratuitement et pioche une carte.",
+        "passage-secret-entre-deux-mondes": "Passage secrète entre deux mondes : le Flagelleur récupère une carte de sa défausse.",
+        "will-sous-emprise": "Will sous emprise : le Flagelleur consulte les 4 premières cartes d’un deck et les réordonne.",
+        "une-nouvelle-personne-sous-emprise": "Évite de bouger : la force du Héros ciblé tombe à 0.",
+        "froid": "Froid : les Alliés présents sur ce lieu gagnent +1 Force.",
+        "tunnel-de-hawkins": "Le Flagelleur défausse des Alliés et place un Tunnel de Hawkins.",
+        "entree-du-monde-a-l-envers": "Le Flagelleur active l’Entrée du Monde à l’Envers.",
+        "demogorgon": "Le Démogorgon (Force 4) rejoint le royaume.",
+        "billy-sous-emprise": "Billy sous emprise rejoint le royaume.",
+        "vignes": "Des Vignes rejoignent le royaume.",
+        "the-flayed": "Un Flayed rejoint le royaume."
+      },
+      "fateNotes": {
+        "mike-wheeler": {
+          "description": "Mike Wheeler apparaît : les autres Héros gagnent +1 Force."
+        },
+        "will-byers": {
+          "description": "Will Byers apparaît : le Monde à l’Envers est bloqué."
+        },
+        "lucas-sinclair": {
+          "description": "Lucas Sinclair apparaît : activer un Objet sur son lieu coûte +1 Pouvoir."
+        },
+        "dustin-henderson": {
+          "description": "Dustin Henderson apparaît dans le royaume."
+        },
+        "onze": {
+          "description": "Onze apparaît : placer un Tunnel de Hawkins coûte désormais 3 Alliés."
+        },
+        "max-mayfield": {
+          "description": "Max Mayfield apparaît : Billy ne peut plus aller chercher Onze."
+        },
+        "frissons": {
+          "description": "Frissons : un Héros est déplacé sur un lieu voisin."
+        },
+        "nancy-armee": {
+          "description": "Nancy armée : un Objet est déplacé sur un lieu voisin."
+        },
+        "chaleur": {
+          "description": "Chaleur : un Allié est défaussé."
+        },
+        "telekinesie": {
+          "description": "Télékinésie : le Flagelleur perd 2 Pouvoir."
+        },
+        "batte-de-baseball": {
+          "description": "Batte de baseball associée à un Héros : +1 Force."
+        }
+      }
+    }
+  }
+}

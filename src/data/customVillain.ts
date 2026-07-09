@@ -236,6 +236,49 @@ export interface BoardLock {
 /** Taille par défaut d'un cadenas posé (en % de la largeur du plateau). */
 export const DEFAULT_BOARD_LOCK_SIZE = 6
 
+/** Notes stratégiques sur une carte Fatalité (du point de vue du bot). Toutes
+ *  optionnelles : champs libres saisis dans l'onglet « Stratégie BOT » de l'Atelier.
+ *  Purement documentaire pour l'instant (affichage + copie) ; à terme, source de
+ *  consignes pour l'IA. */
+export interface FateStrategyNote {
+  /** Description générale de la carte / de son usage. */
+  description?: string
+  /** Conseil « En tant que joueur qui reçoit cette carte » (subir la Fatalité). */
+  asReceiver?: string
+  /** Conseil « En tant qu'adverse qui attaque » (infliger la Fatalité). */
+  asAttacker?: string
+}
+
+/** Une SECTION de consignes (même structure pour les deux onglets stratégie) :
+ *  un texte général + des notes par carte Vilain / Fatalité (indexées par `id`). */
+export interface StrategySection {
+  /** Texte général de la section (objectif / ligne de conduite du bot…). */
+  general?: string
+  /** Note par carte Vilain (clé = id de carte). */
+  villainNotes?: Record<string, string>
+  /** Note par carte Fatalité (clé = id de carte). */
+  fateNotes?: Record<string, FateStrategyNote>
+}
+
+/** Consignes de STRATÉGIE pour le bot, saisies dans l'Atelier. Documentaire pour
+ *  l'instant (on gère l'affichage + la copie) ; vouées à nourrir l'IA plus tard.
+ *  Deux volets, un par onglet :
+ *   - CODAGE CARTES (champs à plat, historiques) : comment chaque carte est codée ;
+ *   - BOT ADVERSE (`botPlay`) : comment le bot adverse joue chaque carte. */
+export interface BotStrategy {
+  /** [Codage Cartes] Comment le bot atteint son objectif (texte libre). */
+  howToWin?: string
+  /** [Codage Cartes] Description par carte Vilain (clé = id de carte). */
+  villainNotes?: Record<string, string>
+  /** [Codage Cartes] Notes par carte Fatalité (clé = id de carte). */
+  fateNotes?: Record<string, FateStrategyNote>
+  /** [Bot adverse] Comment le bot adverse joue (texte général + notes par carte). */
+  botPlay?: StrategySection
+  /** [Journal] Message écrit dans le Journal de partie quand chaque carte est jouée
+   *  (un seul texte par carte : la note Fatalité n'utilise que `description`). */
+  journal?: StrategySection
+}
+
 /** Un vilain personnalisé complet. */
 export interface CustomVillain {
   formatVersion: number
@@ -280,6 +323,9 @@ export interface CustomVillain {
   /** Pion. */
   pawnImage?: string
   pawnHeightPx: number
+  /** Fichier audio du vilain (dataURL) — p. ex. thème musical / réplique. Écoutable
+   *  depuis l'Atelier (onglet Identité). Optionnel. */
+  audio?: string
   /** Dos de carte Vilain (bakée). */
   backVillainImage?: string
   /** Dos de carte Fatalité (bakée). */
@@ -326,6 +372,8 @@ export interface CustomVillain {
   /** Paquets PERSONNALISÉS hors Vilain/Fatalité (ex. « Transformation », « Stands »,
    *  « Maui »). Pools « hors-deck » : non mélangés au jeu, mécaniques codées à la main. */
   extraDecks?: string[]
+  /** Consignes de stratégie pour le bot (onglet « Stratégie BOT »). Documentaire. */
+  botStrategy?: BotStrategy
 
   // --- Publication (« Terminer ») --------------------------------------------
   /** Vrai une fois le vilain « Terminé » : il rejoint alors la liste/le choix des
@@ -367,6 +415,24 @@ export function deckCounts(v: CustomVillain): { villain: number; fate: number } 
 export function isDeckComplete(v: CustomVillain): boolean {
   const c = deckCounts(v)
   return c.villain === VILLAIN_DECK_SIZE && c.fate === FATE_DECK_SIZE
+}
+
+/** Le vilain a-t-il été DÉVELOPPÉ ? Sert à débloquer les onglets stratégie (préremplis
+ *  depuis `botStrategy`). Vrai si :
+ *   - il est PUBLIÉ (un vilain publié est forcément complet et jouable) ; OU
+ *   - au moins une carte porte un comportement encodé en donnée (`effects` / `onPlace` /
+ *     `onVanquish` / `activatedEffects`).
+ *  Certains vilains ont leur logique branchée dans le moteur par `cardId` (pas de champ
+ *  sur les cartes) : le critère « publié » les couvre. */
+export function isVillainDeveloped(v: CustomVillain): boolean {
+  if (v.published) return true
+  return v.cards.some(
+    (c) =>
+      (c.effects?.length ?? 0) > 0 ||
+      (c.onPlace?.length ?? 0) > 0 ||
+      (c.onVanquish?.length ?? 0) > 0 ||
+      (c.activatedEffects?.length ?? 0) > 0,
+  )
 }
 
 /** Slugifie un nom en identifiant kebab-case ASCII (sans le préfixe custom-). */
@@ -480,6 +546,103 @@ export function toVillainDef(v: CustomVillain): VillainDef {
       return base
     }),
   }
+}
+
+/** Fusionne les 3 origines possibles d'un vilain custom — IndexedDB (éditions locales de
+ *  ce navigateur), brouillon disque (`src/data/drafts`, filet de sécurité) et embarqué
+ *  (`src/data/published`, committé) — par id, en gardant la version la PLUS RÉCENTE
+ *  (`updatedAt`). Cela fait reprendre une édition faite HORS navigateur (p. ex. Claude Code
+ *  qui écrit le brouillon disque ou le JSON publié en bumpant `updatedAt`), sans laquelle
+ *  l'IndexedDB masquerait toute modification de fichier. Règles :
+ *   - à `updatedAt` égal, l'existant est conservé (priorité IndexedDB > disque > embarqué) ;
+ *   - un id présent UNIQUEMENT dans l'embarqué est adopté mais NON persisté (runtime seul,
+ *     comme avant — il se recharge du bundle et suit les mises à jour de l'app) ;
+ *   - un brouillon disque d'un id absent de l'IndexedDB, ou une version disque/embarquée
+ *     STRICTEMENT plus récente, est adopté ET marqué à (re)persister en IndexedDB pour
+ *     redevenir éditable sur cette origine.
+ *  Renvoie la liste fusionnée (triée du plus récent au plus ancien) + les vilains à persister. */
+export function pickFreshestVillains(
+  local: CustomVillain[],
+  restored: CustomVillain[],
+  bundled: CustomVillain[],
+): { villains: CustomVillain[]; toPersist: CustomVillain[] } {
+  const localById = new Map(local.map((v) => [v.id, v]))
+  const newer = (a: CustomVillain, b: CustomVillain): boolean =>
+    (a.updatedAt ?? '').localeCompare(b.updatedAt ?? '') > 0
+  const chosen = new Map<string, CustomVillain>(localById)
+  const persistIds = new Set<string>()
+  for (const v of restored) {
+    const cur = chosen.get(v.id)
+    if (!cur || newer(v, cur)) {
+      chosen.set(v.id, v)
+      persistIds.add(v.id)
+    }
+  }
+  for (const v of bundled) {
+    const cur = chosen.get(v.id)
+    if (!cur) {
+      chosen.set(v.id, v) // embarqué seul → runtime, non persisté
+      continue
+    }
+    if (newer(v, cur)) {
+      chosen.set(v.id, v)
+      persistIds.add(v.id)
+    }
+  }
+  const villains = [...chosen.values()].sort((a, b) =>
+    (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''),
+  )
+  // Ne persiste que ce qui n'est PAS déjà la copie IndexedDB de départ.
+  const toPersist = [...persistIds]
+    .filter((id) => chosen.get(id) !== localById.get(id))
+    .map((id) => chosen.get(id)!)
+  return { villains, toPersist }
+}
+
+/** Reimporte les DONNEES DE JEU d'un JSON allege (developpe hors app, p. ex. par Claude
+ *  Code sur assets/custom-exports/id.json) dans un vilain existant, en CONSERVANT ses
+ *  IMAGES et ses metadonnees (published / dev IA / dates). Fusionne l'objectif (+ textes),
+ *  les lieux (nom + actions, images gardees) et les cartes PAR ID (tous les champs de jeu,
+ *  images gardees). L'appelant bumpe updatedAt en sauvegardant. */
+export function mergeGameData(target: CustomVillain, light: Partial<CustomVillain>): CustomVillain {
+  const out: CustomVillain = structuredClone(target)
+  if (light.objective) out.objective = light.objective
+  if (typeof light.boardObjective === 'string') out.boardObjective = light.boardObjective
+  if (typeof light.objectiveDescription === 'string') out.objectiveDescription = light.objectiveDescription
+  if (light.altObjective && out.altObjective) {
+    if (light.altObjective.objective) out.altObjective.objective = light.altObjective.objective
+    if (typeof light.altObjective.boardObjective === 'string') out.altObjective.boardObjective = light.altObjective.boardObjective
+    if (typeof light.altObjective.objectiveDescription === 'string')
+      out.altObjective.objectiveDescription = light.altObjective.objectiveDescription
+  }
+  if (Array.isArray(light.locations)) {
+    const byId = new Map(out.locations.map((l) => [l.id, l]))
+    for (const ll of light.locations) {
+      const tl = byId.get(ll.id)
+      if (!tl) continue
+      if (typeof ll.name === 'string') tl.name = ll.name
+      if (Array.isArray(ll.actions)) tl.actions = ll.actions
+      tl.lockedAtStart = ll.lockedAtStart
+      if (ll.alt && tl.alt) {
+        if (typeof ll.alt.name === 'string') tl.alt.name = ll.alt.name
+        if (Array.isArray(ll.alt.actions)) tl.alt.actions = ll.alt.actions
+      }
+    }
+  }
+  if (Array.isArray(light.cards)) {
+    const byId = new Map(out.cards.map((c) => [c.id, c]))
+    for (const lc of light.cards) {
+      const tc = byId.get(lc.id)
+      if (!tc) continue
+      const copy = { ...lc } as Record<string, unknown>
+      delete copy.image
+      delete copy.artImage
+      Object.assign(tc, copy)
+    }
+  }
+  // Consignes de STRATÉGIE BOT rédigées par Claude Code (préremplissent l'onglet).
+  if (light.botStrategy) out.botStrategy = light.botStrategy
+  return out
 }
 
 /** Convertit les cartes d'un CustomVillain en CardDef[] (déjà compatibles : on en

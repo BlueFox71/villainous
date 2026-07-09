@@ -39,4 +39,6 @@ La version du fichier portable suit `package.json` (`"version"`). Pense à
 l'incrémenter avant un build de distribution.
 
 Autres commandes utiles : `npm run dev` (serveur de dév), `npm run test`,
-`npm run lint`, `npm run electron` (lance l'app Electron sur le build courant).
+`npm run lint`, `npm run electron` (lance l'app Electron sur le build courant),
+`npm run electron:dev` (dév à chaud **dans** la fenêtre Electron : démarre/réutilise
+Vite et ouvre la fenêtre native dessus, avec HMR + DevTools, sans build préalable).

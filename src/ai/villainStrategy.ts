@@ -894,7 +894,7 @@ export const VILLAIN_STRATEGY: Record<string, VillainStrategy> = {
   // La lui donner par la Fatalité l'AIDE → le bot l'évite. WILL BYERS (re-verrouille le
   // lieu 4 → activation impossible) et MAX (gèle le fetch d'Onze) sont ses pires gêneurs
   // (cf. fateMalus).
-  'flagelleur-mental': {
+  'custom-flagelleur-mental': {
     fateTargeting: {
       avoidPlayingHeroes: ['onze'],
     },

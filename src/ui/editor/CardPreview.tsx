@@ -46,7 +46,13 @@ export function CardPreview({
     kw: keywordColors,
   })
 
+  // Face PRÉ-RENDUE et EXTERNE (image = chemin/URL servie depuis public/, sans art
+  // éditable à recomposer) : c'est déjà la carte finie (vilains migrés, ex. Flagelleur).
+  // On l'affiche telle quelle — la recomposer via renderCardFace donnerait une carte vide.
+  const preRendered = !card.artImage && !!card.image && !card.image.startsWith('data:')
+
   useEffect(() => {
+    if (preRendered) return // rien à composer : on affiche card.image directement
     let alive = true
     const handle = setTimeout(() => {
       void renderCardFace(card, color, fateColor, {}, wordColors).then((url) => {
@@ -58,12 +64,14 @@ export function CardPreview({
       clearTimeout(handle)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key])
+  }, [key, preRendered])
+
+  const displaySrc = preRendered ? card.image : src
 
   return (
     <div className={`aspect-[1440/2044] overflow-hidden rounded-xl bg-black/40 ${className ?? ''}`}>
-      {src ? (
-        <img src={src} alt={card.name} className="h-full w-full object-contain" />
+      {displaySrc ? (
+        <img src={displaySrc} alt={card.name} className="h-full w-full object-contain" />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-white/30">…</div>
       )}

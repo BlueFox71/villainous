@@ -332,16 +332,12 @@ export const FATE_MALUS: Record<string, FateMalus> = {
   creatures: 'slow', // Créatures enchantées : −1 Pouvoir à l'arrivée + recouvre une action
   humain: 'slow', // Humainement beau : protège un Héros de « Meuble » (gêne mineure : Colombe reste)
 
-  // --- Le Flagelleur Mental (activer l'Entrée : Onze + 3 Tunnels). ONZE = pièce-CLÉ de
-  // SA victoire → NEUTRE (non listée) + ÉVITÉE (la lui donner l'aide, cf. villainStrategy).
-  // WILL BYERS re-verrouille le lieu 4 (activation impossible → bloc dur) ; MAX gèle le
-  // fetch d'Onze par Billy (recul de la voie de victoire). ---
-  'will-byers': 'block-win', // verrouille le Monde à l'Envers → l'Entrée ne peut plus être activée
-  'max-mayfield': 'block-advance', // tant qu'elle est là, Billy ne peut pas aller chercher Onze
-  'mike-wheeler': 'slow2', // +1 à TOUS les autres Héros (renforce les gêneurs)
-  'lucas-sinclair': 'slow', // activer un Objet sur son lieu coûte +1 (taxe l'Entrée/Billy)
-  'dustin-henderson': 'slow', // le fataliseur peut jouer les 2 cartes révélées (flood)
-  'batte-de-baseball': 'slow', // +1 Force à un Héros (Vanquish plus dur)
+  // NB : Le Flagelleur Mental (custom-flagelleur-mental) est un vilain de l'Atelier PUBLIÉ :
+  // ses cartes ne sont pas dans le registre statique (enregistrées dynamiquement) → il porte
+  // ses malus Fatalité PAR CARTE (champ `fateMalus` dans custom-flagelleur-mental.json),
+  // comme Dio. Rappel du classement : will-byers=block-win, max-mayfield=block-advance,
+  // mike-wheeler=slow2, lucas-sinclair/dustin-henderson/batte-de-baseball=slow. ONZE = NEUTRE
+  // (pièce-clé de SA victoire) + évitée (cf. villainStrategy).
 }
 
 /** cardId dont le « block-win » n'est valable que sous condition (gérée par l'IA). */

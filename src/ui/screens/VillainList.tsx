@@ -92,7 +92,6 @@ const UPCOMING_IMAGES: Record<string, string> = {
 /** Vilains de COLLABORATION à venir (hors packs officiels, pas encore développés). */
 const UPCOMING_COLLAB: string[] = [
   'Grand Councilwoman',
-  'Flagelleur Mental',
   'Malédiction des Madrigal',
   'Pyramid Head',
   'Les Hommes du Pilier',

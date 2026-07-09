@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { existsSync } from 'node:fs'
-import { flagelleurMentalCards } from '../villains/flagelleur-mental.cards'
+import { flagelleurMentalCards } from '../published/flagelleurMental'
 import { buildDeck } from '../types'
 
 describe('cartes du Flagelleur Mental — intégrité du paquet', () => {

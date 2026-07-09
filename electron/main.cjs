@@ -9,6 +9,11 @@ const fs = require('node:fs')
 // Dossier du build Vite (copié dans les ressources à l'empaquetage).
 const DIST = path.join(__dirname, '..', 'dist')
 
+// Mode dév à chaud (`npm run electron:dev`) : quand cette variable est définie, la
+// fenêtre charge le serveur Vite (HMR) au lieu du build figé `app://`. Absent en
+// packagé et en `npm run electron` classique → comportement autonome inchangé.
+const DEV_URL = process.env.ELECTRON_DEV_URL
+
 // --- Mode d'affichage persisté (fenêtré / plein écran) ---------------------
 // Le choix du joueur est stocké dans userData pour être lu DÈS le lancement (la
 // fenêtre native est créée ici, avant tout code du renderer). Premier lancement
@@ -101,9 +106,12 @@ protocol.registerSchemesAsPrivileged([
 
 function createWindow() {
   // Mode d'affichage choisi par le joueur, ou plein écran au tout premier
-  // lancement (qu'on persiste alors pour les suivants).
+  // lancement (qu'on persiste alors pour les suivants). En dév à chaud, on force
+  // le fenêtré (sans toucher au fichier persisté) : plus pratique pour coder.
   let mode = readDisplayMode()
-  if (mode == null) {
+  if (DEV_URL) {
+    mode = 'windowed'
+  } else if (mode == null) {
     mode = 'fullscreen'
     writeDisplayMode(mode)
   }
@@ -129,7 +137,13 @@ function createWindow() {
   })
   mainWindow = win
   win.setMenuBarVisibility(false)
-  win.loadURL('app://local/index.html')
+  if (DEV_URL) {
+    // Dév à chaud : on pointe sur le serveur Vite et on ouvre les DevTools.
+    win.loadURL(DEV_URL)
+    win.webContents.openDevTools({ mode: 'detach' })
+  } else {
+    win.loadURL('app://local/index.html')
+  }
 
   // Applique le zoom d'UI local (relu à chaque chargement → modifiable sans rebuild).
   win.webContents.on('did-finish-load', () => {

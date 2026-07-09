@@ -119,11 +119,19 @@ déplacement, y compris « n'importe quel lieu »), et *si* une action facultati
 
 **Une carte avec un comportement inédit** → suivre l'ordre de préférence ci-dessus.
 
-**Un nouveau vilain** → 2 fichiers `data/villains/<vilain>.ts` + `.cards.ts`, puis
-le câbler dans : `data/registry.ts` (`allCards`), `ui/store/gameStore.ts`
-(`VILLAINS`, `VillainKey`), `ui/villainArt.ts`, `ui/villainColors.ts`,
-`ui/screens/VillainList.tsx`. Ajouter un test d'intégrité du paquet (cf.
-`data/__tests__/*.cards.test.ts` : compte des cartes, champs requis, images).
+**Un nouveau vilain — TOUJOURS via l'Atelier (source unique).** Un vilain naît et vit
+dans l'**Atelier des vilains** (éditeur intégré) sous forme de `CustomVillain` (données +
+images, en IndexedDB / `src/data/drafts` / `src/data/published`). C'est la **source unique** :
+son plateau, ses cartes et ses effets sont des **données** que le moteur (déjà 100 %
+data-driven) interprète. Voir la check-list dédiée ci-dessous.
+
+**⚠️ Ne JAMAIS « porter » un vilain de l'Atelier en vilain natif.** Les fichiers
+`data/villains/<vilain>.ts` + `.cards.ts` et le câblage `data/registry.ts` / `gameStore`
+(`VILLAINS`, `VillainKey`, `UNRELEASED_VILLAINS`) / `villainArt` / `villainColors` /
+`VillainList` sont l'**ancien** modèle : ils créent une **copie divergente** (le vilain natif
+et le brouillon Atelier se désynchronisent) et rendent le vilain visible en dev alors qu'il
+n'est pas publié. Les vilains natifs **historiques** restent ainsi (ne pas les migrer sans
+demande), mais **aucun nouveau vilain** ne doit être natif.
 
 **Classement Fatalité (malus IA) — OBLIGATOIRE pour tout nouveau vilain.** Pour que
 le bot module son agressivité Fatalité, chaque vilain a une classification de ses
@@ -145,6 +153,41 @@ les malus. La jauge doit refléter la **vraie proximité de victoire**, pas un c
 brut (ex. pondérer les étapes finales, tenir compte de la force réunie pour vaincre un
 Héros-cible, d'un blocage qui plafonne le score…). Reporter le résultat dans la même
 mémoire projet « villainous-fate-malus ».
+
+## Développer un vilain de l'Atelier — check-list
+
+Quand on te demande de **développer les effets** d'un vilain conçu dans l'Atelier (souvent
+via le bouton « 📋 Copier les consignes » de l'éditeur), le vilain **reste un `CustomVillain`**.
+Tu enrichis le **moteur** de capacités **génériques** et tu les déclares en **donnée** sur le
+JSON du vilain. Tu ne crées **aucun** fichier natif ni câblage (cf. avertissement ci-dessus).
+
+- **Source de vérité = le JSON du vilain.** À lire d'abord : l'export allégé (sans images)
+  `assets/custom-exports/<id>.json`. À éditer pour poser les effets : le JSON complet —
+  brouillon `src/data/drafts/<id>.json` (non publié) ou embarqué `src/data/published/<id>.json`
+  (publié). Le chargement (`pickFreshestVillains`, `customVillainStore`) retient la version la
+  plus **récente par `updatedAt`** : quand tu édites un de ces fichiers, **bumpe `updatedAt`**
+  pour que l'Atelier reprenne tes changements (sinon l'IndexedDB local les masque). Ne touche
+  pas aux images (déjà bakées).
+- **Effets = données** (règle centrale inchangée). Réutilise un `Effect` existant ; sinon crée
+  un `Effect` **paramétrable générique** (`engine/types.ts` + `engine/effects.ts`), jamais
+  branché par id de vilain. Puis :
+  - effet **simple** (paramètres numériques, joueur/royaume) → ajoute-le au **catalogue de
+    l'éditeur** (`src/ui/editor/effectCatalog.ts`) pour qu'il soit assignable directement dans
+    l'Atelier (il persiste alors naturellement) ;
+  - effet **complexe** (cibles précises, cartes nommées, interactivité, états dédiés) → non
+    exposable dans l'éditeur : déclare-le en donnée dans `effects` sur les cartes du JSON.
+- **Objectif inédit** → variant de `ObjectiveDef` (`engine/types.ts`) + condition de victoire
+  (`engine/rules.ts`), branchés par **type** d'objectif ; renseigne `objective` dans le JSON.
+- **Fatalité (malus IA)** → pour un vilain custom, porte la valeur **par carte** (`fateMalus`
+  sur le `CardDef` du JSON), **pas** dans `data/fateMalus.ts` (réservé au registre statique
+  natif). Le tableau reste à faire valider (voir bloc OBLIGATOIRE ci-dessus).
+- **Jauge d'objectif** → dans `objectiveScore` (`ai/heuristicBot.ts`), branche par **type**
+  d'objectif ; ou par l'**id custom** (`custom-…`) si vraiment propre à ce vilain (cf.
+  `custom-mr-monopoly`, `custom-gul-dan`). `villainStrategy` accepte aussi les ids custom
+  (cf. `custom-dio`).
+- **Tester / publier** : on teste via « ▶ Tester » dans l'Atelier (un vilain non publié
+  n'apparaît **jamais** dans les galeries — c'est voulu) ; l'utilisateur publie via
+  « ✓ Terminer ».
 
 ## Tests
 

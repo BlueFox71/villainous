@@ -9,7 +9,7 @@
 
 import { create } from 'zustand'
 import type { CustomVillain } from '../../data/customVillain'
-import { CUSTOM_VILLAIN_FORMAT } from '../../data/customVillain'
+import { CUSTOM_VILLAIN_FORMAT, pickFreshestVillains } from '../../data/customVillain'
 import { loadBundledVillains } from '../../data/published/load'
 import { registerPublishedVillain, unregisterPublishedVillain } from './gameStore'
 
@@ -174,21 +174,19 @@ export const useCustomVillainStore = create<CustomVillainStore>((set, get) => ({
   loaded: false,
 
   load: async () => {
-    // Vilains LOCAUX (IndexedDB de ce navigateur) + brouillons RESTAURÉS du disque (filet
-    // de sécurité, cf. backupToDisk) + vilains EMBARQUÉS (committés dans l'app, dispo pour
-    // tous). Priorité : IndexedDB > brouillon disque > embarqué, par id. L'IndexedDB prime
-    // (les éditions en cours de ce navigateur), le disque ne comble que les ids absents
-    // (autre port/navigateur, ou base effacée), l'embarqué comble le reste.
+    // Vilains LOCAUX (IndexedDB de ce navigateur) + brouillons DISQUE (filet de sécurité,
+    // cf. backupToDisk) + vilains EMBARQUÉS (committés). `pickFreshestVillains` fusionne les
+    // trois par id en gardant la version la PLUS RÉCENTE (updatedAt) : ainsi une édition
+    // faite HORS navigateur (Claude Code écrivant le brouillon disque ou le JSON publié)
+    // est reprise, alors que l'IndexedDB la masquerait sinon. À updatedAt égal, l'IndexedDB
+    // (édition locale) l'emporte.
     const local = await idbGetAll()
-    const localIds = new Set(local.map((v) => v.id))
-    // Brouillons disque absents de l'IndexedDB → on les ré-injecte ET on les re-persiste en
-    // IndexedDB pour qu'ils soient de nouveau éditables sur cette origine.
-    const restored = (await listBackups()).filter((v) => !localIds.has(v.id))
-    for (const v of restored) { await idbPut(v); localIds.add(v.id) }
-    const known = new Set([...local, ...restored].map((v) => v.id))
-    const bundled = loadBundledVillains().filter((b) => !known.has(b.id))
-    const villains = [...local, ...restored, ...bundled]
-    villains.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))
+    const restored = await listBackups()
+    const bundled = loadBundledVillains()
+    const { villains, toPersist } = pickFreshestVillains(local, restored, bundled)
+    // (Re)persiste en IndexedDB les versions adoptées depuis le disque/embarqué (brouillon
+    // restauré, ou édition hors navigateur plus récente) pour qu'elles redeviennent éditables.
+    for (const v of toPersist) await idbPut(v)
     registerPublished(villains)
     set({ villains, loaded: true })
   },

@@ -590,7 +590,12 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       "Défausse ses potions et son Prince Charmant, ou bloque la Salle de Bal, pour casser sa combinaison de mariage.",
     ],
   },
-  flagelleurMental: {
+}
+
+/** Fiches RÉDIGÉES pour certains vilains publiés (collaborations fixes), indexées par
+ *  leur id custom. Priorité sur la synthèse automatique de `villainGuideOf`. */
+const CUSTOM_GUIDES: Record<string, VillainGuide> = {
+  'custom-flagelleur-mental': {
     difficulty: 4,
     devise: "Ce n'était pas une bonne idée de me chercher, parce que maintenant je te vois.",
     story:
@@ -606,11 +611,6 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       "Défausse ses Tunnels et son Entrée, ou occupe les lieux, pour l'empêcher de réunir les 3 Tunnels et d'activer la brèche.",
     ],
   },
-}
-
-/** Fiches RÉDIGÉES pour certains vilains publiés (collaborations fixes), indexées par
- *  leur id custom. Priorité sur la synthèse automatique de `villainGuideOf`. */
-const CUSTOM_GUIDES: Record<string, VillainGuide> = {
   'custom-isabella': {
     difficulty: 4,
     devise: "La résistance engendre la souffrance",

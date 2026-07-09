@@ -12,20 +12,24 @@ import {
   FATE_DECK_SIZE,
   deckCounts,
   isDeckComplete,
+  isVillainDeveloped,
   DEFAULT_EXTRA_BACK,
   extraBackColor,
   extraBackPaper,
+  mergeGameData,
   type CustomVillain,
   type VillainOrigin,
 } from '../../data/customVillain'
 import { villainsBackground } from '../villainColors'
 import { VILLAIN_REGISTRY, type VillainKey } from '../store/gameStore'
 import { Scroller } from '../components/Scroller'
-import { Field, TextField, ColorField, ImageField, SelectField } from '../editor/fields'
+import { Field, TextField, ColorField, ImageField, AudioField, SelectField } from '../editor/fields'
 import { BoardTab } from '../editor/BoardTab'
 import { CardsTab } from '../editor/CardsTab'
 import { QuantityTab } from '../editor/QuantityTab'
+import { StrategyTab } from '../editor/StrategyTab'
 import { CommitPanel } from '../editor/CommitPanel'
+import { useIsDesktopApp } from '../store/settingsStore'
 import { bakeVillain } from '../editor/bake'
 import { renderCardBack } from '../editor/cardRender'
 import { parseExcelVillains, type ExcelVillain } from '../editor/importExcel'
@@ -38,7 +42,27 @@ interface Props {
 }
 
 /** Onglets de l'éditeur. */
-type Tab = 'identity' | 'board' | 'cards' | 'quantity'
+type Tab = 'identity' | 'board' | 'cards' | 'quantity' | 'strategy' | 'botplay' | 'journal'
+
+/** Onglets « stratégie » verrouillés tant que le vilain n'est pas développé. */
+const STRATEGY_TABS: Tab[] = ['strategy', 'botplay', 'journal']
+
+/** Petit tooltip stylé au survol (bulle sombre sous l'élément), plus lisible que le
+ *  `title` natif. Enveloppe un déclencheur (bouton…) et s'affiche même s'il est
+ *  désactivé (le survol est capté par le conteneur, pas par le bouton). */
+function Tooltip({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <span className="group relative inline-flex">
+      {children}
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute left-1/2 top-full z-50 mt-2 w-max max-w-[16rem] -translate-x-1/2 whitespace-normal rounded-lg border border-white/15 bg-[#1a1620] px-3 py-2 text-center text-xs font-medium text-white/85 opacity-0 shadow-xl transition-opacity duration-150 group-hover:opacity-100"
+      >
+        {label}
+      </span>
+    </span>
+  )
+}
 
 // --- Onglet Identité ---------------------------------------------------------
 
@@ -60,6 +84,12 @@ function IdentityTab({
           label="Devise du vilain"
           value={draft.devise ?? ''}
           onChange={(devise) => patch({ devise })}
+          textarea
+        />
+        <AudioField
+          label="Devise en audio"
+          value={draft.audio}
+          onChange={(audio) => patch({ audio })}
         />
         <Field label={`Difficulté — ${draft.stars} ★`}>
           <input
@@ -257,7 +287,7 @@ function PublishModal({
       >
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold text-amber-200">
-            {draft.published ? 'Mettre à jour le vilain' : 'Terminer le vilain'}
+            {draft.published ? 'Mettre à jour le vilain' : 'Publier le vilain'}
           </h2>
           <button
             type="button"
@@ -347,6 +377,8 @@ export function VillainEditor({ onBack, onPlay }: Props) {
   const [bakeProgress, setBakeProgress] = useState<{ done: number; total: number } | null>(null)
   // Retour visuel bref après « Copier les consignes » de développement.
   const [promptCopied, setPromptCopied] = useState(false)
+  // Web uniquement (cf. dev-only-ui-gating) : boutons de développement via Claude Code.
+  const isDesktopApp = useIsDesktopApp()
 
   useEffect(() => {
     if (!loaded) void load()
@@ -397,7 +429,7 @@ export function VillainEditor({ onBack, onPlay }: Props) {
   const buildLightJson = (v: CustomVillain): string => {
     // Clone puis retire toutes les images (dataURL) pour un fichier léger et lisible.
     const light = JSON.parse(JSON.stringify(v)) as Record<string, unknown>
-    for (const k of ['portrait', 'presentation', 'portraitRaw', 'boardArt', 'boardImage', 'pawnImage', 'backVillainImage', 'backFateImage', 'backExtraImage']) {
+    for (const k of ['portrait', 'presentation', 'portraitRaw', 'boardArt', 'boardImage', 'pawnImage', 'backVillainImage', 'backFateImage', 'backExtraImage', 'audio']) {
       delete light[k]
     }
     if (Array.isArray(light.backOverlays)) {
@@ -452,51 +484,60 @@ export function VillainEditor({ onBack, onPlay }: Props) {
     URL.revokeObjectURL(url)
   }
 
-  /** Nom de dossier `assets/` d'un vilain (mêmes règles que `exportAssets.ts` :
-   *  on garde accents/espaces, on retire seulement les caractères interdits Windows). */
-  const assetFolder = (name: string): string =>
-    (name || 'vilain').replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim() || 'vilain'
-
   /** Chemin du .json allégé dans le dépôt (mêmes règles de « slugification » que
    *  l'endpoint DEV `/__save-villain-json`). */
   const jsonPathOf = (id: string): string =>
     `assets/custom-exports/${id.replace(/[^a-z0-9_-]+/gi, '-')}.json`
 
   /** Construit le prompt de développement (consignes détaillées) à coller dans une
-   *  nouvelle session Claude Code pour coder ce vilain « en dur » (natif). */
+   *  nouvelle session Claude Code pour coder les effets de ce vilain de l'Atelier.
+   *  RÈGLE CENTRALE : le vilain RESTE un CustomVillain (l'Atelier est la source
+   *  unique). On n'en fait JAMAIS un vilain natif — on n'ajoute au moteur que des
+   *  capacités GÉNÉRIQUES, déclarées ensuite en DONNÉE sur le JSON du vilain. */
   const buildDevPrompt = (v: CustomVillain): string => {
-    const deck = assetFolder(v.name)
     const jsonPath = jsonPathOf(v.id)
-    return `Développons un nouveau vilain : « ${v.name} ».
+    return `Développe ENTIÈREMENT le vilain de l'Atelier « ${v.name} » (id \`${v.id}\`). Fais-le MAINTENANT, carte par carte, de façon autonome et rigoureuse.
 
-📄 DONNÉES DE JEU
-Le fichier JSON (allégé, sans images) est dans \`${jsonPath}\`. C'est la source de vérité : il contient les cartes (nom, type, coût, force, texte, quantité), les lieux, l'objectif et les réglages du plateau. Lis-le d'abord entièrement.
+⚠️ CE VILAIN RESTE UN VILAIN DE L'ATELIER (custom, data-driven). L'Atelier est la SOURCE UNIQUE. Ne le porte JAMAIS en vilain natif : ne crée AUCUN fichier \`src/data/villains/*.ts\`, ne le câble PAS dans \`data/registry.ts\`, \`ui/store/gameStore.ts\` (VILLAINS / VillainKey / UNRELEASED_VILLAINS), \`ui/villainArt.ts\`, \`ui/villainColors.ts\`, \`ui/screens/VillainList.tsx\`.
 
-🖼️ IMAGES (générées par l'Atelier, rangées comme un vilain natif)
-- Faces des cartes + plateau + dos : dossier \`assets/decks/${deck}/\` (une image par carte nommée d'après la carte, plus \`Plateau\`, \`Card Back mechant\`, \`Card Back fata\`).
-- Pion : \`assets/pions/${deck}.png\`.
-- Présentation (corps entier) : \`assets/presentations/${deck}.png\`.
-- Portrait (carré) : \`assets/portraits/${deck}.png\`.
-Vérifie leur présence et remplace/complète celles qui manquent.
-
-🧩 INTÉGRATION (cf. CLAUDE.md, section « nouveau vilain »)
-1. Crée 2 fichiers \`src/data/villains/<slug>.ts\` (plateau = VillainDef, objectif) + \`<slug>.cards.ts\` (CardDef[]), à partir du JSON. Slug kebab-case ASCII, unique entre TOUS les vilains.
-2. Câble-le dans : \`data/registry.ts\` (allCards), \`ui/store/gameStore.ts\` (VILLAINS + VillainKey), \`ui/villainArt.ts\`, \`ui/villainColors.ts\`, \`ui/screens/VillainList.tsx\`.
-3. Ajoute un test d'intégrité du paquet (compte des cartes, répartition par type, slug ASCII/unicité, existence physique des images) — cf. \`data/__tests__/*.cards.test.ts\`.
+📄 FICHIER À ÉDITER (données de jeu, SANS images — petit et lisible)
+\`${jsonPath}\`
+C'est l'export allégé du vilain : cartes (id, nom, type, coût, force, texte, quantité, \`effects\`), lieux (actions), objectif. TU ÉDITES CE FICHIER : ajoute les \`effects\` sur chaque carte, renseigne l'\`objective\`, pose les \`fateMalus\`. NE modifie pas les images (elles ne sont pas ici, elles restent dans l'Atelier).
+➡️ IMPORTANT : l'app ne lit PAS ce fichier directement. Quand tu as fini, dis à l'utilisateur de cliquer « ⟳ Synchroniser » dans l'Atelier pour réinjecter tes données de jeu dans le brouillon (les images sont conservées).
 
 🎴 EFFETS DES CARTES (règle centrale)
-Ne code JAMAIS un comportement en dur par cardId dans le moteur. Traduis le texte FR de chaque carte en \`effects\` DONNÉES : réutilise un Effect existant, sinon crée un Effect PARAMÉTRABLE (1 variant dans engine/types.ts + 1 case dans engine/effects.ts). Pour la force passive, utilise les champs data (attachStrengthBonus, selfStrengthMods, strengthMod), pas le moteur.
+Traduis le texte FR de CHAQUE carte en \`effects\` DONNÉES — jamais de comportement branché par cardId/villainId dans le moteur.
+1. Réutilise un \`Effect\` existant (cf. \`engine/types.ts\` union Effect + \`engine/effects.ts\`).
+2. Sinon crée un \`Effect\` PARAMÉTRABLE GÉNÉRIQUE (1 variant dans \`engine/types.ts\` + 1 case dans \`engine/effects.ts\`), jamais spécifique à ce vilain. Si l'effet est SIMPLE (paramètres numériques) ajoute-le aussi au catalogue \`src/ui/editor/effectCatalog.ts\`.
+3. Pose l'effet en DONNÉE sur la carte (\`effects: [...]\`) dans le fichier ci-dessus.
+Force PASSIVE : champs data (attachStrengthBonus, selfStrengthMods, strengthMod), jamais un effect.
+
+🏁 OBJECTIF INÉDIT (si le texte l'exige)
+Ajoute un variant à \`ObjectiveDef\` (\`engine/types.ts\`) + sa condition de victoire (\`engine/rules.ts\`), branchés par TYPE d'objectif. Renseigne \`objective\` dans le JSON.
 
 🖱️ INTERACTIVITÉ (non négociable)
-Toute carte impliquant un CHOIX du joueur (quel Héros/Allié/Objet, quel lieu, action facultative « vous pouvez… ») doit être interactive d'emblée : état \`pendingXXX\` + modale ou clic direct sur le plateau (réutilise les mécaniques existantes : pendingFateChoice, pendingHeroRelocate, pendingReveal…). Jamais d'auto-pick côté humain (réservé au bot). Une carte sans cible valide est injouable (grisée + garde-fou moteur). Couvre le flux interactif par des tests.
+Toute carte impliquant un CHOIX du joueur (quel Héros/Allié/Objet, quel lieu, action « vous pouvez… ») doit être interactive : état \`pendingXXX\` + modale ou clic plateau (réutilise pendingFateChoice, pendingHeroRelocate, pendingReveal…). Jamais d'auto-pick humain. Une carte sans cible valide est injouable (grisée + garde-fou moteur). Couvre le flux interactif par des tests.
 
 ⚔️ CLASSEMENT FATALITÉ (malus IA — OBLIGATOIRE)
-Propose-moi un tableau (carte Fatalité durable → effet résumé → catégorie) pour validation, catégories de poids croissant : RALENTIT (+/++/+++) < EMPÊCHE D'AVANCER < EMPÊCHE DE GAGNER ; NEUTRE = 0. Indique aussi une éventuelle règle d'évitement (ne pas fataliser si ça offre au joueur son Héros-clé absent) et de ciblage. Reporte dans la mémoire projet « villainous-fate-malus ».
+Écris le \`fateMalus\` PAR CARTE (champ sur la carte du JSON — PAS dans \`data/fateMalus.ts\`) : 'slow'/'slow2'/'slow3' (RALENTIT) < 'block-advance'/'block-advance3' (EMPÊCHE D'AVANCER) < 'block-win' (EMPÊCHE DE GAGNER) ; NEUTRE = pas de \`fateMalus\` (typiquement le Héros-cible). PRÉSENTE le tableau récapitulatif (carte → effet → catégorie + règle d'évitement/ciblage) pour validation, et reporte dans la mémoire projet « villainous-fate-malus ».
 
 🎯 JAUGE D'OBJECTIF (IA — OBLIGATOIRE)
-Propose-moi en langage clair les paliers/poids (0→1) de \`objectiveScore\` (ai/heuristicBot.ts), reflétant la VRAIE proximité de victoire (pondérer les étapes finales, la force réunie pour vaincre un Héros-cible, un blocage plafonnant le score…), et demande confirmation.
+Implémente/branche \`objectiveScore\` (\`ai/heuristicBot.ts\`) par TYPE d'objectif (ou par id custom \`${v.id}\` si vraiment spécifique, cf. custom-mr-monopoly / custom-gul-dan), reflétant la VRAIE proximité de victoire. PRÉSENTE les paliers/poids (0→1) pour validation.
 
-Avance par étapes : propose le plan, puis code. En cas de doute sur une règle exacte de Villainous, demande avant de coder.`
+🧠 STRATÉGIE BOT (onglets « Codage Cartes » + « Bot adverse » de l'Atelier — OBLIGATOIRE)
+Renseigne l'objet \`botStrategy\` dans le JSON ci-dessus (préremplit les deux onglets, VERROUILLÉS tant que le vilain n'est pas développé). Décris ce que TU as compris, en langage joueur, pour que l'utilisateur corrige vite.
+Volet « Codage Cartes » (comment CHAQUE carte est codée) :
+- \`botStrategy.howToWin\` : le plan de jeu du bot pour remplir l'objectif.
+- \`botStrategy.villainNotes\` : dictionnaire { cardId → description } pour CHAQUE carte Vilain — ce que fait la carte ET ses conditions de jouabilité (quand/pourquoi elle est jouable ou grisée).
+- \`botStrategy.fateNotes\` : dictionnaire { cardId → { description, asReceiver, asAttacker } } pour CHAQUE carte Fatalité : \`description\` = effet + conditions ; \`asReceiver\` = conseil quand le bot SUBIT cette Fatalité ; \`asAttacker\` = quand/sur qui l'INFLIGER.
+Volet « Bot adverse » (comment le BOT joue) :
+- \`botStrategy.botPlay\` : objet { general, villainNotes { cardId → texte }, fateNotes { cardId → { description, asReceiver, asAttacker } } } décrivant le COMPORTEMENT du bot — priorités, cibles et timing pour chaque carte.
+Volet « Journal » (message écrit dans le Journal de partie) :
+- \`botStrategy.journal\` : objet { villainNotes { cardId → texte }, fateNotes { cardId → { description } } } — UN message par carte, tel qu'il apparaîtra dans le Journal quand la carte est jouée (pas de \`general\`, pas de \`asReceiver\`/\`asAttacker\`).
+Toute carte/champ que tu n'as pas développé : mets exactement \`"Non développé"\`.
+
+✅ FINI
+Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cliquer « ⟳ Synchroniser » dans l'Atelier, de tester via « ▶ Tester », et de publier via « ✓ Publier » quand c'est prêt. En cas de doute sur une règle Villainous, demande.`
   }
 
   /** Écrit le JSON allégé (pour qu'il soit à jour) puis copie les consignes de
@@ -514,6 +555,31 @@ Avance par étapes : propose le plan, puis code. En cas de doute sur une règle 
       // Presse-papier indisponible : repli sur un onglet texte à copier à la main.
       const w = window.open('', '_blank')
       if (w) w.document.write(`<pre>${prompt.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]!))}</pre>`)
+    }
+  }
+
+  /** Réimporte les données de jeu développées par Claude Code
+   *  (`assets/custom-exports/<id>.json`) dans le brouillon courant, images conservées,
+   *  puis re-bake (les textes de cartes ont pu changer) + sauve. */
+  const onReimport = async () => {
+    if (!draft || busy) return
+    try {
+      const res = await fetch(`/__read-villain-json?id=${encodeURIComponent(draft.id)}`)
+      if (!res.ok) {
+        alert(
+          res.status === 404
+            ? 'Rien à synchroniser. Clique d’abord « Développer (Claude Code) », développe le vilain dans une session Claude Code, puis synchronise.'
+            : `Synchronisation impossible (${res.status}). Serveur de dév requis.`,
+        )
+        return
+      }
+      const { json } = (await res.json()) as { json: string }
+      const light = JSON.parse(json) as Partial<CustomVillain>
+      const merged = mergeGameData(draft, light)
+      await bakeAndSave(merged)
+      alert('Données de jeu synchronisées depuis Claude Code (images conservées).')
+    } catch (e) {
+      alert(`Synchronisation impossible : ${(e as Error).message}`)
     }
   }
 
@@ -580,14 +646,14 @@ Avance par étapes : propose le plan, puis code. En cas de doute sur une règle 
     if (!isDeckComplete(draft)) {
       const c = deckCounts(draft)
       alert(
-        `La planche doit être pleine pour terminer : ${c.villain}/${VILLAIN_DECK_SIZE} cartes Vilain et ${c.fate}/${FATE_DECK_SIZE} Fatalité (onglet « Quantité »).`,
+        `La planche doit être pleine pour publier : ${c.villain}/${VILLAIN_DECK_SIZE} cartes Vilain et ${c.fate}/${FATE_DECK_SIZE} Fatalité (onglet « Quantité »).`,
       )
       setTab('quantity')
       return
     }
     // Première publication : exiger une victoire en partie de test (bouton « Tester »).
     if (!draft.published && !testWonIds.includes(draft.id)) {
-      alert('Pour terminer ce vilain, gagne d’abord une partie avec lui via le bouton « ▶ Tester ».')
+      alert('Pour publier ce vilain, gagne d’abord une partie avec lui via le bouton « ▶ Tester ».')
       return
     }
     setPublishOpen(true)
@@ -628,6 +694,9 @@ Avance par étapes : propose le plan, puis code. En cas de doute sur une règle 
 
   const bg = villainsBackground(draft?.color ?? '#3a2d6b', draft?.color ?? '#3a2d6b')
   const complete = draft ? isDeckComplete(draft) : false
+  // L'onglet « Stratégie BOT » n'est accessible qu'une fois le vilain développé
+  // (au moins une carte porte un comportement encodé — cf. isVillainDeveloped).
+  const developed = draft ? isVillainDeveloped(draft) : false
   // Test réussi (victoire) avec ce vilain ? Requis pour une PREMIÈRE publication
   // (les rééditions d'un vilain déjà publié n'y sont plus soumises).
   const testWon = !!draft && testWonIds.includes(draft.id)
@@ -662,41 +731,44 @@ Avance par étapes : propose le plan, puis code. En cas de doute sur une règle 
                 ⚠ planche incomplète
               </span>
             )}
-            {complete && !draft.published && !testWon && (
-              <span className="text-xs text-amber-300/70" title="Gagne une partie avec ce vilain via « ▶ Tester » pour pouvoir le terminer">
-                🏆 gagne un test pour terminer
-              </span>
-            )}
 
-            {/* Groupe 1 — ÉDITION : enregistrer le brouillon / l'exporter. */}
+            {/* Groupe 1 — ÉDITION : exporter / développer. */}
             <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={onSave}
-                disabled={busy}
-                title="Enregistrer le brouillon"
-                className="rounded-lg border border-amber-400/60 bg-amber-400/20 px-4 py-1.5 text-sm font-bold text-amber-100 transition hover:bg-amber-400/30 disabled:opacity-50"
-              >
-                Enregistrer
-              </button>
-              <button
-                type="button"
-                onClick={onExportJson}
-                disabled={busy}
-                title="Exporter ce vilain en fichier .json (sauvegarde / partage)"
-                className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200 disabled:opacity-50"
-              >
-                ⬇ .json
-              </button>
-              <button
-                type="button"
-                onClick={onCopyDevPrompt}
-                disabled={busy}
-                title="Écrire le .json à jour et copier les consignes de développement (à coller dans une nouvelle session Claude Code)"
-                className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200 disabled:opacity-50"
-              >
-                {promptCopied ? '✓ Copié' : '📋 Copier les consignes'}
-              </button>
+              <Tooltip label="Exporter ce vilain en fichier .json (sauvegarde / partage).">
+                <button
+                  type="button"
+                  onClick={onExportJson}
+                  disabled={busy}
+                  className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200 disabled:opacity-50"
+                >
+                  ⬇ .json
+                </button>
+              </Tooltip>
+              {/* Développement GRATUIT via Claude Code (abonnement) — web/dev uniquement. */}
+              {!isDesktopApp && (
+                <>
+                  <Tooltip label="Écrit le JSON de jeu à jour et copie les consignes à coller dans une session Claude Code.">
+                    <button
+                      type="button"
+                      onClick={onCopyDevPrompt}
+                      disabled={busy}
+                      className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200 disabled:opacity-50"
+                    >
+                      {promptCopied ? '✓ Consignes copiées' : '🧠 Développer (Claude Code)'}
+                    </button>
+                  </Tooltip>
+                  <Tooltip label="Cliquez ce bouton une fois que Claude Code a développé ce vilain.">
+                    <button
+                      type="button"
+                      onClick={onReimport}
+                      disabled={busy}
+                      className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200 disabled:opacity-50"
+                    >
+                      ⟳ Synchroniser
+                    </button>
+                  </Tooltip>
+                </>
+              )}
             </div>
 
             <div className="h-6 w-px bg-white/15" aria-hidden />
@@ -721,37 +793,51 @@ Avance par étapes : propose le plan, puis code. En cas de doute sur une règle 
                     ))}
                 </select>
               </label>
-              <button
-                type="button"
-                onClick={onPlayClick}
-                disabled={busy || !complete}
-                title={complete ? 'Tester contre le bot' : 'Planche incomplète (onglet Quantité)'}
-                className="rounded-lg border border-emerald-400/60 bg-emerald-400/20 px-4 py-1.5 text-sm font-bold text-emerald-100 transition hover:bg-emerald-400/30 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                ▶ Tester
-              </button>
+              <Tooltip label={complete ? 'Lancer une partie de test contre le bot.' : 'Planche incomplète : remplis-la dans l’onglet Quantité.'}>
+                <button
+                  type="button"
+                  onClick={onPlayClick}
+                  disabled={busy || !complete}
+                  className="rounded-lg border border-emerald-400/60 bg-emerald-400/20 px-4 py-1.5 text-sm font-bold text-emerald-100 transition hover:bg-emerald-400/30 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  ▶ Tester
+                </button>
+              </Tooltip>
             </div>
 
             <div className="h-6 w-px bg-white/15" aria-hidden />
 
-            {/* Groupe 3 — PUBLIER : terminer / mettre à jour la version jouable. */}
-            <button
-              type="button"
-              onClick={onFinishClick}
-              disabled={busy || !canPublish}
-              title={
+            {/* Groupe 3 — ENREGISTRER + PUBLIER : sauver le brouillon / la version jouable. */}
+            <Tooltip label={dirty ? 'Enregistrer le brouillon (sans le publier).' : 'Aucune modification à enregistrer.'}>
+              <button
+                type="button"
+                onClick={onSave}
+                disabled={busy || !dirty}
+                className="rounded-lg border border-amber-400/60 bg-amber-400/20 px-4 py-1.5 text-sm font-bold text-amber-100 transition hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Enregistrer
+              </button>
+            </Tooltip>
+            <Tooltip
+              label={
                 !complete
-                  ? 'Planche incomplète (onglet Quantité)'
+                  ? 'Planche incomplète : remplis-la dans l’onglet Quantité.'
                   : draft.published
-                    ? 'Appliquer les modifications à la version jouable'
+                    ? 'Appliquer les modifications à la version jouable.'
                     : testWon
-                      ? 'Terminer : rejoindre la liste et le choix des vilains'
-                      : 'Gagne d’abord une partie avec lui via « ▶ Tester »'
+                      ? 'Publier : rejoindre la liste et le choix des vilains.'
+                      : '🏆 Gagne d’abord un test avec ce vilain (via « ▶ Tester ») pour pouvoir le publier.'
               }
-              className="rounded-lg border border-amber-300/60 bg-amber-400/20 px-4 py-1.5 text-sm font-bold text-amber-100 transition hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {draft.published ? '✓ Terminé' : '✓ Terminer'}
-            </button>
+              <button
+                type="button"
+                onClick={onFinishClick}
+                disabled={busy || !canPublish}
+                className="rounded-lg border border-amber-300/60 bg-amber-400/20 px-4 py-1.5 text-sm font-bold text-amber-100 transition hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {draft.published ? '↻ Mettre à jour' : '✓ Publier'}
+              </button>
+            </Tooltip>
           </div>
         )}
       </header>
@@ -819,9 +905,13 @@ Avance par étapes : propose le plan, puis code. En cas de doute sur une règle 
                       <span className="text-xs text-white/40">
                         {'★'.repeat(v.stars)} · {v.cards.length} cartes · {v.locations.length} lieux
                       </span>
-                      {v.published && (
+                      {v.published ? (
                         <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300/80">
                           ✓ Publié
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-white/40">
+                          Non publié
                         </span>
                       )}
                       <div className="mt-2 flex gap-2">
@@ -871,24 +961,39 @@ Avance par étapes : propose le plan, puis code. En cas de doute sur une règle 
               ['board', 'Plateau'],
               ['cards', `Cartes (${draft.cards.length})`],
               ['quantity', complete ? 'Quantité ✓' : 'Quantité'],
-            ] as [Tab, string][]).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setTab(key)}
-                className={`-mb-px border-b-2 px-4 py-3 text-sm font-semibold transition ${
-                  tab === key
-                    ? 'border-amber-400 text-amber-200'
-                    : 'border-transparent text-white/50 hover:text-white/80'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+              ['strategy', 'Codage Cartes'],
+              ['botplay', 'Bot adverse'],
+              ['journal', 'Journal'],
+            ] as [Tab, string][]).map(([key, label]) => {
+              // Onglets stratégie verrouillés tant que le vilain n'est pas développé.
+              const locked = STRATEGY_TABS.includes(key) && !developed
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => !locked && setTab(key)}
+                  disabled={locked}
+                  title={
+                    locked
+                      ? 'Développe d’abord le vilain (bouton « Développer (Claude Code) ») pour renseigner sa stratégie.'
+                      : undefined
+                  }
+                  className={`-mb-px border-b-2 px-4 py-3 text-sm font-semibold transition ${
+                    locked
+                      ? 'cursor-not-allowed border-transparent text-white/25'
+                      : tab === key
+                        ? 'border-amber-400 text-amber-200'
+                        : 'border-transparent text-white/50 hover:text-white/80'
+                  }`}
+                >
+                  {locked ? `🔒 ${label}` : label}
+                </button>
+              )
+            })}
           </nav>
 
           <Scroller className="flex-1 p-6">
-            <div className="mx-auto max-w-5xl">
+            <div className={`mx-auto ${STRATEGY_TABS.includes(tab) ? 'max-w-[1800px]' : 'max-w-5xl'}`}>
               {tab === 'identity' && (
                 <div className="flex flex-col gap-8">
                   <IdentityTab draft={draft} patch={patch} onFramePortrait={() => setPortraitFrameOpen(true)} />
@@ -926,6 +1031,9 @@ Avance par étapes : propose le plan, puis code. En cas de doute sur une règle 
               {tab === 'board' && <BoardTab draft={draft} patch={patch} />}
               {tab === 'cards' && <CardsTab draft={draft} patch={patch} />}
               {tab === 'quantity' && <QuantityTab draft={draft} patch={patch} />}
+              {tab === 'strategy' && <StrategyTab draft={draft} patch={patch} variant="coding" />}
+              {tab === 'botplay' && <StrategyTab draft={draft} patch={patch} variant="botPlay" />}
+              {tab === 'journal' && <StrategyTab draft={draft} patch={patch} variant="journal" />}
             </div>
           </Scroller>
         </div>

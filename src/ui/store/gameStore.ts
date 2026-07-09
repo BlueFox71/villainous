@@ -105,11 +105,11 @@ import { teamRocket } from '../../data/villains/team-rocket'
 import { teamRocketCards } from '../../data/villains/team-rocket.cards'
 import { laBonneFee } from '../../data/villains/la-bonne-fee'
 import { laBonneFeeCards } from '../../data/villains/la-bonne-fee.cards'
-import { flagelleurMental } from '../../data/villains/flagelleur-mental'
-import { flagelleurMentalCards } from '../../data/villains/flagelleur-mental.cards'
+// Le Flagelleur Mental est un vilain de l'Atelier PUBLIÉ (custom-flagelleur-mental) —
+// pas de fichier natif : chargé au runtime via customVillainStore (cf. CLAUDE.md).
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'seigneurCles' | 'madameTremaine' | 'oogieBoogie' | 'seigneurTenebres' | 'madameMim' | 'syndrome' | 'lotso' | 'saSucrerie' | 'shereKhan' | 'davyJones' | 'tamatoa' | 'teamRocket' | 'laBonneFee' | 'tabbou' | 'flagelleurMental'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'seigneurCles' | 'madameTremaine' | 'oogieBoogie' | 'seigneurTenebres' | 'madameMim' | 'syndrome' | 'lotso' | 'saSucrerie' | 'shereKhan' | 'davyJones' | 'tamatoa' | 'teamRocket' | 'laBonneFee' | 'tabbou'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -146,7 +146,6 @@ export const VILLAIN_REGISTRY = {
   tamatoa: { def: tamatoa, cards: tamatoaCards, label: 'Tamatoa' },
   teamRocket: { def: teamRocket, cards: teamRocketCards, label: 'Team Rocket' },
   laBonneFee: { def: laBonneFee, cards: laBonneFeeCards, label: 'Marraine la Bonne Fée' },
-  flagelleurMental: { def: flagelleurMental, cards: flagelleurMentalCards, label: 'Le Flagelleur Mental' },
 } as const
 
 /** Vilains « collaboration » (hors univers Disney) — éditables/clonables dans l'Atelier. */
@@ -159,13 +158,12 @@ export const COLLAB_VILLAINS: VillainKey[] = [
   'seigneurCles',
   'laBonneFee',
   'tabbou',
-  'flagelleurMental',
 ]
 
 /** Vilains câblés mais NON encore publiés : masqués aux joueurs (galerie + choix de
  *  partie) tant qu'ils ne sont pas finis. Restent visibles en dév (patron `!isDesktopApp`,
  *  cf. dev-only-ui-gating) pour pouvoir continuer à les tester. Vider la liste = publier. */
-export const UNRELEASED_VILLAINS: VillainKey[] = ['flagelleurMental']
+export const UNRELEASED_VILLAINS: VillainKey[] = []
 
 /** Qui contrôle chaque siège. Concept d'UI : le moteur, lui, ne sait pas qui
  *  joue. 'local' = ce navigateur ; 'remote' = l'autre joueur (réseau, à venir) ;

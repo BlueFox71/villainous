@@ -38,9 +38,19 @@ export async function bakeVillain(
     .map((c) => ({ label: c.typeLabel!, color: c.typeColor! }))
   // Mots-clés colorés du vilain : mêmes canaux que les types (label → couleur).
   const wordColors = [...customTypes, ...(v.keywordColors ?? [])]
+  // Une image EXTERNE (chemin/URL servie depuis public/, pas une dataURL) n'est pas
+  // reproductible par le renderer : on la CONSERVE telle quelle au lieu de la re-baker
+  // (sinon on obtiendrait une carte/plateau vide). Cas des vilains migrés dont les
+  // visuels sont des PNG pré-rendus (ex. Flagelleur Mental).
+  const isExternal = (img?: string) => !!img && !img.startsWith('data:')
   // Séquentiel (et non Promise.all) pour une progression fluide de la barre.
   const cards: typeof v.cards = []
   for (const c of v.cards) {
+    if (isExternal(c.image)) {
+      cards.push(c) // image pré-rendue : gardée intacte
+      tick()
+      continue
+    }
     const face = await renderCardFace(c, v.color, FATE_CARD_COLOR, {}, wordColors)
     const image = await downscaleDataUrl(face, FACE_STORE_W)
     cards.push({ ...c, image })
@@ -48,15 +58,19 @@ export async function bakeVillain(
   }
   // Dos Vilain = couleur thématique ; dos Fatalité = blanc (parchemin d'origine).
   // Les ornements importés (backOverlays) sont superposés aux DEUX dos.
-  const backVillainImage = await downscaleDataUrl(
-    await renderCardBack(v.color, v.name, { overlays: v.backOverlays }),
-    BACK_STORE_W,
-  )
+  const backVillainImage = isExternal(v.backVillainImage)
+    ? v.backVillainImage!
+    : await downscaleDataUrl(
+        await renderCardBack(v.color, v.name, { overlays: v.backOverlays }),
+        BACK_STORE_W,
+      )
   tick()
-  const backFateImage = await downscaleDataUrl(
-    await renderCardBack(FATE_CARD_COLOR, v.name, { paper: true, overlays: v.backOverlays }),
-    BACK_STORE_W,
-  )
+  const backFateImage = isExternal(v.backFateImage)
+    ? v.backFateImage!
+    : await downscaleDataUrl(
+        await renderCardBack(FATE_CARD_COLOR, v.name, { paper: true, overlays: v.backOverlays }),
+        BACK_STORE_W,
+      )
   tick()
   // 3e dos (paquets personnalisés) : couleur au choix (Vilain / Fatalité / libre) +
   // ornements recolorés. Traitement parchemin si mode Fatalité ou couleur libre claire.
@@ -73,7 +87,9 @@ export async function bakeVillain(
     )
     tick()
   }
-  const boardImage = await downscaleDataUrl(await renderBoard(v), BOARD_STORE_W, 'image/jpeg', 0.9)
+  const boardImage = isExternal(v.boardImage)
+    ? v.boardImage!
+    : await downscaleDataUrl(await renderBoard(v), BOARD_STORE_W, 'image/jpeg', 0.9)
   tick()
   // Lieux TRANSFORMABLES : image de colonne bakée pour la face B (superposée en jeu).
   const locations: CustomVillain['locations'] = []
