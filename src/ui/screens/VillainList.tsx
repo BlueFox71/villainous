@@ -30,7 +30,7 @@ interface Props {
  * Une barre latérale gauche permet de filtrer (recherche par nom, difficulté,
  * origine Disney/Collaborations) et de trier (par sortie, difficulté ou nom).
  */
-type Origin = 'Disney' | 'Collaborations'
+type Origin = 'Disney' | 'Marvel' | 'Collaborations'
 
 /** Catégories de vilains, dans leur ordre de SORTIE (les collaborations en dernier).
  *  L'ordre vient de la source de vérité partagée `villainOrder.ts`. */
@@ -121,10 +121,11 @@ type GridItem =
   | { kind: 'upcoming'; name: string; origin: Origin; release: number; difficulty: number; image?: string }
 
 const DIFFICULTIES = [1, 2, 3, 4, 5]
-const ORIGINS: Origin[] = ['Disney', 'Collaborations']
+const ORIGINS: Origin[] = ['Disney', 'Marvel', 'Collaborations']
 /** Libellé affiché par origine (la clé `Origin` reste interne au filtre/données). */
 const ORIGIN_LABELS: Record<Origin, string> = {
   Disney: 'Disney / Pixar',
+  Marvel: 'Marvel',
   Collaborations: 'Collaborations',
 }
 /** Sous-sections de Collaborations par créateur, dans l'ordre d'affichage souhaité
@@ -423,7 +424,9 @@ export function VillainList({ onBack }: Props) {
         } ${
           v.origin === 'Collaborations'
             ? 'border-sky-300/25 bg-sky-400/10 hover:border-sky-300/60 hover:bg-sky-400/20'
-            : 'border-white/10 bg-white/5 hover:border-white/40 hover:bg-white/10'
+            : v.origin === 'Marvel'
+              ? 'border-red-400/25 bg-red-500/10 hover:border-red-400/60 hover:bg-red-500/20'
+              : 'border-white/10 bg-white/5 hover:border-white/40 hover:bg-white/10'
         } ${isDragging ? 'opacity-30' : ''}`}
       >
         {/* Barre d'insertion verte : indique où le vilain glissé va se poser (avant/après

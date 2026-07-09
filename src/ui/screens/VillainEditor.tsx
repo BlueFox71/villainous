@@ -277,6 +277,7 @@ function PublishModal({
   const [origin, setOrigin] = useState<VillainOrigin>(draft.origin ?? 'Collaborations')
   const ORIGINS: { value: VillainOrigin; label: string; hint: string }[] = [
     { value: 'Disney', label: 'Disney / Pixar', hint: 'Univers Disney' },
+    { value: 'Marvel', label: 'Marvel', hint: 'Univers Marvel' },
     { value: 'Collaborations', label: 'Collaboration', hint: 'Hors Disney (jeux, anime…)' },
   ]
   return (
@@ -316,7 +317,7 @@ function PublishModal({
 
         <div className="flex flex-col gap-1.5">
           <span className="text-sm text-white/80">Catégorie</span>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {ORIGINS.map((o) => {
               const active = origin === o.value
               return (

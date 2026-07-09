@@ -83,6 +83,20 @@ async function backupToDisk(v: CustomVillain): Promise<void> {
   } catch { /* pas de serveur de dév → on ignore */ }
 }
 
+/** GARDE-FOU anti-perte : archive sur disque (sous-dossier `_snapshots/`) la version d'un
+ *  vilain qui va être ÉCRASÉE en IndexedDB par l'adoption d'une version plus récente au
+ *  chargement. Une copie « précédente » par id, jamais restaurée automatiquement mais
+ *  récupérable à la main. Best-effort : silencieux hors serveur de dév. */
+async function snapshotBeforeOverwrite(v: CustomVillain): Promise<void> {
+  try {
+    await fetch('/__snapshot-villain', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: v.id, json: JSON.stringify(v) }),
+    })
+  } catch { /* pas de serveur de dév → on ignore */ }
+}
+
 /** Supprime la copie disque d'un vilain (best-effort). */
 async function deleteBackup(id: string): Promise<void> {
   try {
@@ -186,7 +200,13 @@ export const useCustomVillainStore = create<CustomVillainStore>((set, get) => ({
     const { villains, toPersist } = pickFreshestVillains(local, restored, bundled)
     // (Re)persiste en IndexedDB les versions adoptées depuis le disque/embarqué (brouillon
     // restauré, ou édition hors navigateur plus récente) pour qu'elles redeviennent éditables.
-    for (const v of toPersist) await idbPut(v)
+    const localById = new Map(local.map((l) => [l.id, l]))
+    for (const v of toPersist) {
+      // GARDE-FOU : si on ÉCRASE une version existante, on en archive d'abord une copie disque.
+      const replaced = localById.get(v.id)
+      if (replaced) void snapshotBeforeOverwrite(replaced)
+      await idbPut(v)
+    }
     registerPublished(villains)
     set({ villains, loaded: true })
   },

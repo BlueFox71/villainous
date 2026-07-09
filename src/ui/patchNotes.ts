@@ -47,6 +47,18 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.4.1',
+    date: '2026-07-09',
+    title: 'Fini les vilains persos qui perdent leurs images',
+    tags: ['correctif', 'atelier', 'liste-villains'],
+    changes: [
+      "**Atelier** : au chargement, une version **allégée** d’un vilain ne peut plus **écraser vos images** — l’art des cartes, du plateau et le portrait brut sont **préservés**.",
+      "**Atelier** : plus de cartes **vides** quand l’illustration source manque — l’image déjà rendue s’affiche.",
+      "**Atelier** : **copie de secours automatique** avant tout remplacement, pour ne **rien perdre**.",
+      "**Liste des vilains** : nouvelle catégorie **Marvel** (entre Disney / Pixar et Collaborations).",
+    ],
+  },
+  {
     version: '1.4.0',
     date: '2026-07-08',
     title: 'Le Flagelleur Mental débarque',

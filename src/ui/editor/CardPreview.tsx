@@ -46,10 +46,11 @@ export function CardPreview({
     kw: keywordColors,
   })
 
-  // Face PRÉ-RENDUE et EXTERNE (image = chemin/URL servie depuis public/, sans art
-  // éditable à recomposer) : c'est déjà la carte finie (vilains migrés, ex. Flagelleur).
-  // On l'affiche telle quelle — la recomposer via renderCardFace donnerait une carte vide.
-  const preRendered = !card.artImage && !!card.image && !card.image.startsWith('data:')
+  // Face DÉJÀ RENDUE, sans art SOURCE à recomposer : on affiche l'image bakée telle quelle
+  // (la recomposer via renderCardFace donnerait une carte VIDE). Couvre les vilains migrés
+  // (image = chemin/URL depuis public/) MAIS AUSSI le cas où l'art brut `artImage` a été
+  // perdu alors que l'image bakée (dataURL) subsiste — sinon la carte s'afficherait vide.
+  const preRendered = !card.artImage && !!card.image
 
   useEffect(() => {
     if (preRendered) return // rien à composer : on affiche card.image directement

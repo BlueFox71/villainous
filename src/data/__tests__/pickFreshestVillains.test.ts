@@ -66,4 +66,33 @@ describe('pickFreshestVillains — fusion IndexedDB / disque / embarqué', () =>
     const { villains } = pickFreshestVillains(local, [], [])
     expect(villains.map((x) => x.id)).toEqual(['new', 'old'])
   })
+
+  it('PROTECTION : un embarqué plus récent mais ALLÉGÉ ne détruit pas l’art local', () => {
+    // Cas Dio : IndexedDB riche (art brut + boardArt) ; bundle publié plus récent mais
+    // compressé (sans art brut). Le bundle est adopté (plus récent) MAIS ses images
+    // manquantes sont reprises du local → aucune perte.
+    const local = [{
+      id: 'custom-dio',
+      updatedAt: '2026-07-06T00:00:00Z',
+      boardArt: 'data:image/jpeg;base64,BOARD',
+      portraitRaw: 'data:image/png;base64,PORTRAIT',
+      cards: [{ id: 'c1', artImage: 'data:image/png;base64,ART1', image: 'data:image/png;base64,BAKED1' }],
+    }] as unknown as CustomVillain[]
+    const bundled = [{
+      id: 'custom-dio',
+      updatedAt: '2026-07-09T00:00:00Z', // plus récent
+      // pas de boardArt / portraitRaw ; carte sans artImage mais avec image bakée
+      cards: [{ id: 'c1', image: 'data:image/png;base64,BAKED1' }],
+    }] as unknown as CustomVillain[]
+    const { villains, toPersist } = pickFreshestVillains(local, [], bundled)
+    const dio = byId(villains, 'custom-dio') as unknown as {
+      boardArt?: string; portraitRaw?: string; updatedAt: string
+      cards: { id: string; artImage?: string }[]
+    }
+    expect(dio.updatedAt).toBe('2026-07-09T00:00:00Z') // on garde bien la version récente
+    expect(dio.boardArt).toBe('data:image/jpeg;base64,BOARD') // art préservé
+    expect(dio.portraitRaw).toBe('data:image/png;base64,PORTRAIT')
+    expect(dio.cards[0].artImage).toBe('data:image/png;base64,ART1')
+    expect(toPersist).toHaveLength(1) // la version fusionnée est (re)persistée
+  })
 })

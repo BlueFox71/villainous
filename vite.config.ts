@@ -492,6 +492,33 @@ function villainBackupPlugin(): Plugin {
           res.end(String((e as Error)?.message ?? e))
         }
       })
+      // GARDE-FOU ANTI-PERTE : avant que le chargement n'ÉCRASE une version existante en
+      // IndexedDB (adoption d'une version disque/embarquée plus récente), le client envoie
+      // ici la version REMPLACÉE. On l'archive dans un sous-dossier `_snapshots/` (une copie
+      // « précédente » par id, réécrite à chaque fois) — HORS de portée de `list-villain-backups`
+      // (qui ne lit que la racine), donc jamais restaurée automatiquement, mais récupérable à
+      // la main si la fusion perdait quelque chose. Corps : `{ id, json }`.
+      server.middlewares.use('/__snapshot-villain', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return }
+        void readBody(req).then((body) => {
+          try {
+            const { id, json } = JSON.parse(body) as { id: string; json: string }
+            if (typeof id !== 'string' || typeof json !== 'string') throw new Error('payload invalide')
+            const safe = id.replace(/[^a-z0-9_-]+/gi, '-')
+            const dir = resolve(DRAFTS, '_snapshots')
+            const dest = resolve(dir, `${safe}.json`)
+            if (!dest.startsWith(dir)) throw new Error('chemin hors _snapshots/')
+            mkdirSync(dir, { recursive: true })
+            writeFileSync(dest, json, 'utf8')
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ ok: true }))
+          } catch (e) {
+            res.statusCode = 400
+            res.end(String((e as Error)?.message ?? e))
+          }
+        })
+      })
     },
   }
 }

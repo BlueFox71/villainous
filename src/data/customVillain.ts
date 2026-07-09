@@ -390,7 +390,7 @@ export interface CustomVillain {
 }
 
 /** Catégorie d'origine d'un vilain publié (miroir des sections de la liste). */
-export type VillainOrigin = 'Disney' | 'Collaborations'
+export type VillainOrigin = 'Disney' | 'Marvel' | 'Collaborations'
 
 /** Tailles de deck imposées (comme les vilains officiels) : la planche doit être
  *  pleine pour pouvoir tester/exporter le vilain. */
@@ -548,6 +548,57 @@ export function toVillainDef(v: CustomVillain): VillainDef {
   }
 }
 
+/** Une valeur est-elle une image/audio embarquée (dataURL) non vide ? */
+function isDataUrl(v: unknown): v is string {
+  return typeof v === 'string' && v.startsWith('data:')
+}
+
+/** Champs IMAGE/AUDIO « lourds » d'un CustomVillain, potentiellement ABSENTS d'une copie
+ *  allégée (le JSON publié compressé retire notamment les sources brutes `boardArt`/
+ *  `portraitRaw`, et une compression peut alléger d'autres visuels). */
+const VILLAIN_MEDIA_KEYS: (keyof CustomVillain)[] = [
+  'portrait', 'portraitRaw', 'presentation', 'boardArt', 'boardImage', 'altBoardImage',
+  'pawnImage', 'audio', 'backVillainImage', 'backFateImage', 'backExtraImage',
+]
+/** Champs IMAGE d'une carte — dont l'illustration SOURCE brute `artImage` (retirée des
+ *  bundles publiés) et l'image bakée `image`. */
+const CARD_MEDIA_KEYS: (keyof CustomCard)[] = ['artImage', 'image']
+
+/** Reprend, dans une version ENTRANTE adoptée (plus récente), les images que la version
+ *  PRÉCÉDENTE possédait et que l'entrante n'a PAS (dataURL manquante/vide). Empêche qu'une
+ *  copie plus récente mais ALLÉGÉE (ex. JSON publié sans art brut) n'ÉCRASE et ne détruise
+ *  l'art éditable local. Ne clone (et ne modifie) que si au moins un champ est repris — sinon
+ *  renvoie l'objet entrant tel quel (préserve l'identité de référence, utile aux tests). */
+function preserveMedia(incoming: CustomVillain, prev: CustomVillain | undefined): CustomVillain {
+  if (!prev) return incoming
+  let out = incoming
+  const ensureClone = () => { if (out === incoming) out = structuredClone(incoming) }
+  for (const k of VILLAIN_MEDIA_KEYS) {
+    if (!isDataUrl(incoming[k]) && isDataUrl(prev[k])) {
+      ensureClone()
+      ;(out as unknown as Record<string, unknown>)[k] = prev[k]
+    }
+  }
+  if (Array.isArray(incoming.cards) && Array.isArray(prev.cards)) {
+    const prevById = new Map(prev.cards.map((c) => [c.id, c]))
+    for (let i = 0; i < incoming.cards.length; i++) {
+      const pc = prevById.get(incoming.cards[i].id)
+      if (!pc) continue
+      for (const k of CARD_MEDIA_KEYS) {
+        if (!isDataUrl(incoming.cards[i][k]) && isDataUrl(pc[k])) {
+          ensureClone()
+          ;(out.cards[i] as unknown as Record<string, unknown>)[k] = pc[k]
+          // L'art brut va de pair avec son cadrage : reprends aussi artTransform si absent.
+          if (k === 'artImage' && !out.cards[i].artTransform && pc.artTransform) {
+            out.cards[i].artTransform = pc.artTransform
+          }
+        }
+      }
+    }
+  }
+  return out
+}
+
 /** Fusionne les 3 origines possibles d'un vilain custom — IndexedDB (éditions locales de
  *  ce navigateur), brouillon disque (`src/data/drafts`, filet de sécurité) et embarqué
  *  (`src/data/published`, committé) — par id, en gardant la version la PLUS RÉCENTE
@@ -559,7 +610,11 @@ export function toVillainDef(v: CustomVillain): VillainDef {
  *     comme avant — il se recharge du bundle et suit les mises à jour de l'app) ;
  *   - un brouillon disque d'un id absent de l'IndexedDB, ou une version disque/embarquée
  *     STRICTEMENT plus récente, est adopté ET marqué à (re)persister en IndexedDB pour
- *     redevenir éditable sur cette origine.
+ *     redevenir éditable sur cette origine ;
+ *   - PROTECTION ANTI-PERTE : quand une version plus récente mais ALLÉGÉE remplace une plus
+ *     riche, ses images manquantes (art brut des cartes, `boardArt`, `portraitRaw`…) sont
+ *     REPRISES de la version remplacée (cf. `preserveMedia`) — un bundle compressé ne peut
+ *     donc plus détruire l'art éditable local.
  *  Renvoie la liste fusionnée (triée du plus récent au plus ancien) + les vilains à persister. */
 export function pickFreshestVillains(
   local: CustomVillain[],
@@ -574,7 +629,7 @@ export function pickFreshestVillains(
   for (const v of restored) {
     const cur = chosen.get(v.id)
     if (!cur || newer(v, cur)) {
-      chosen.set(v.id, v)
+      chosen.set(v.id, preserveMedia(v, cur))
       persistIds.add(v.id)
     }
   }
@@ -585,7 +640,7 @@ export function pickFreshestVillains(
       continue
     }
     if (newer(v, cur)) {
-      chosen.set(v.id, v)
+      chosen.set(v.id, preserveMedia(v, cur))
       persistIds.add(v.id)
     }
   }
