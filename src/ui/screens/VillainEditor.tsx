@@ -64,6 +64,51 @@ function Tooltip({ label, children }: { label: React.ReactNode; children: React.
   )
 }
 
+/** Progression de l'enregistrement : `{done, total}` d'images figées + `phase` (étape
+ *  courante : « Génération des cartes/dos/plateau », « Sauvegarde… », « ✓ Terminé »). */
+interface SaveProgress {
+  done: number
+  total: number
+  phase: string
+}
+
+/** Overlay affiché pendant « Enregistrer » / « Publier » : barre de progression à ÉTAPES
+ *  nommées (Génération → Sauvegarde → Terminé), puis fermeture automatique. */
+function SaveProgressOverlay({ done, total, phase }: SaveProgress) {
+  const isDone = phase.startsWith('✓')
+  const isSaving = phase.startsWith('Sauvegarde')
+  const pct = total > 0 ? Math.round((done / total) * 100) : isDone ? 100 : 0
+  const stepClass = (active: boolean, passed: boolean) =>
+    active ? 'font-semibold text-amber-200' : passed ? 'text-emerald-300/80' : 'text-white/35'
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4">
+      <div className="flex w-80 max-w-full flex-col gap-3 rounded-2xl border border-white/15 bg-[#1a1620] p-6 shadow-2xl">
+        <span className={`text-sm font-bold ${isDone ? 'text-emerald-300' : 'text-amber-200'}`}>
+          {isDone ? '✓ Enregistré' : '⏳ Enregistrement…'}
+        </span>
+        {!isDone && <span className="text-xs text-white/70">Étape : {phase}</span>}
+        <div className="h-3 w-full overflow-hidden rounded-full bg-white/10">
+          <div
+            className={`h-full rounded-full transition-[width] duration-200 ${isDone ? 'bg-emerald-400' : 'bg-amber-400'}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <span className="text-[11px] text-white/45">
+          {isDone ? 'Brouillon sauvegardé.' : isSaving ? 'Sauvegarde du brouillon…' : `${done} / ${total} images`}
+        </span>
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <span className={stepClass(!isDone && !isSaving, isSaving || isDone)}>Génération</span>
+          <span className="text-white/25">→</span>
+          <span className={stepClass(isSaving, isDone)}>Sauvegarde</span>
+          <span className="text-white/25">→</span>
+          <span className={stepClass(isDone, false)}>✓ Terminé</span>
+          <span className="ml-auto text-white/30">se ferme seule</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // --- Onglet Identité ---------------------------------------------------------
 
 function IdentityTab({
@@ -355,8 +400,10 @@ function PublishModal({
 // --- Écran principal ---------------------------------------------------------
 
 export function VillainEditor({ onBack, onPlay }: Props) {
-  const { villains, loaded, load, save, remove, unpublish } = useCustomVillainStore()
+  const { villains, loaded, load, save, remove, unpublish, hydrate } = useCustomVillainStore()
   const [draft, setDraft] = useState<CustomVillain | null>(null)
+  // Id du vilain en cours d'HYDRATATION (chargement de ses images complètes à l'ouverture).
+  const [opening, setOpening] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('identity')
   const [dirty, setDirty] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -375,7 +422,7 @@ export function VillainEditor({ onBack, onPlay }: Props) {
   // Vilains custom ayant déjà gagné une partie de test (condition de 1re publication).
   const testWonIds = useTestWinStore((s) => s.wonIds)
   // Progression du « bake » (génération des images) pour la barre de chargement.
-  const [bakeProgress, setBakeProgress] = useState<{ done: number; total: number } | null>(null)
+  const [bakeProgress, setBakeProgress] = useState<SaveProgress | null>(null)
   // Retour visuel bref après « Copier les consignes » de développement.
   const [promptCopied, setPromptCopied] = useState(false)
   // Web uniquement (cf. dev-only-ui-gating) : boutons de développement via Claude Code.
@@ -385,10 +432,20 @@ export function VillainEditor({ onBack, onPlay }: Props) {
     if (!loaded) void load()
   }, [loaded, load])
 
-  const startEdit = (v: CustomVillain) => {
-    setDraft(structuredClone(v))
-    setTab('identity')
-    setDirty(false)
+  const startEdit = async (v: CustomVillain) => {
+    if (opening) return
+    // Le vilain listé peut être la version ALLÉGÉE embarquée (sans images de cartes/plateau) :
+    // on l'HYDRATE (charge son JSON complet) avant d'ouvrir l'éditeur, sinon les images
+    // manqueraient. Sur un brouillon local déjà complet, `hydrate` renvoie l'existant aussitôt.
+    setOpening(v.id)
+    try {
+      const full = await hydrate(v.id)
+      setDraft(structuredClone(full ?? v))
+      setTab('identity')
+      setDirty(false)
+    } finally {
+      setOpening(null)
+    }
   }
 
   const startNew = () => {
@@ -407,12 +464,17 @@ export function VillainEditor({ onBack, onPlay }: Props) {
    *  Alimente la barre de chargement via `bakeProgress`. */
   const bakeAndSave = async (v: CustomVillain): Promise<CustomVillain> => {
     setBusy(true)
-    setBakeProgress({ done: 0, total: v.cards.length + 3 })
+    setBakeProgress({ done: 0, total: v.cards.length + 3, phase: 'Préparation…' })
     try {
-      const baked = await bakeVillain(v, (done, total) => setBakeProgress({ done, total }))
+      const baked = await bakeVillain(v, (done, total, phase) => setBakeProgress({ done, total, phase }))
+      // Étape « Sauvegarde » (barre pleine) pendant la persistance IndexedDB + disque.
+      setBakeProgress((p) => ({ done: p?.total ?? 1, total: p?.total ?? 1, phase: 'Sauvegarde…' }))
       await save(baked)
       setDraft(baked)
       setDirty(false)
+      // État final « ✓ Terminé » affiché brièvement, puis fermeture automatique.
+      setBakeProgress((p) => ({ done: p?.total ?? 1, total: p?.total ?? 1, phase: '✓ Terminé' }))
+      await new Promise((r) => setTimeout(r, 900))
       return baked
     } finally {
       setBusy(false)
@@ -876,7 +938,14 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
               </button>
             </div>
 
-            {villains.length === 0 ? (
+            {!loaded ? (
+              // Chargement des vilains embarqués (chunks lazy, cf. data/published/load.ts) :
+              // sans cet état, la liste vide affichait « Aucun vilain » pendant tout le chargement.
+              <div className="flex flex-col items-center gap-4 py-20 text-white/60">
+                <span className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-amber-300" />
+                <p>Chargement des vilains…</p>
+              </div>
+            ) : villains.length === 0 ? (
               <p className="text-white/50">
                 Aucun vilain personnalisé pour l’instant. Crée-en un avec « Nouveau vilain ».
               </p>
@@ -889,7 +958,8 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
                   >
                     <button
                       type="button"
-                      onClick={() => startEdit(v)}
+                      onClick={() => void startEdit(v)}
+                      disabled={!!opening}
                       className="relative aspect-square w-full overflow-hidden"
                       style={{ backgroundColor: v.color }}
                     >
@@ -918,10 +988,11 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
                       <div className="mt-2 flex gap-2">
                         <button
                           type="button"
-                          onClick={() => startEdit(v)}
-                          className="flex-1 rounded-lg border border-white/15 bg-white/5 py-1 text-xs font-semibold text-white/70 transition hover:text-amber-200"
+                          onClick={() => void startEdit(v)}
+                          disabled={!!opening}
+                          className="flex-1 rounded-lg border border-white/15 bg-white/5 py-1 text-xs font-semibold text-white/70 transition hover:text-amber-200 disabled:opacity-50"
                         >
-                          Éditer
+                          {opening === v.id ? 'Chargement…' : 'Éditer'}
                         </button>
                         {v.published ? (
                           // Vilain publié : bouton DÉPUBLIER (retire du jeu + de la liste).
@@ -1130,23 +1201,9 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
         </div>
       )}
 
-      {/* Barre de chargement pendant la génération des images (bake). */}
-      {bakeProgress && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4">
-          <div className="flex w-80 max-w-full flex-col gap-3 rounded-2xl border border-white/15 bg-[#1a1620] p-6 shadow-2xl">
-            <span className="text-sm font-bold text-amber-200">⏳ Génération du vilain…</span>
-            <div className="h-3 w-full overflow-hidden rounded-full bg-white/10">
-              <div
-                className="h-full rounded-full bg-amber-400 transition-[width] duration-150"
-                style={{ width: `${Math.round((bakeProgress.done / bakeProgress.total) * 100)}%` }}
-              />
-            </div>
-            <span className="text-xs text-white/50">
-              {bakeProgress.done} / {bakeProgress.total} images
-            </span>
-          </div>
-        </div>
-      )}
+      {/* Overlay de progression à étapes (Génération → Sauvegarde → ✓ Terminé) pendant
+          « Enregistrer »/« Publier » ; se ferme automatiquement à la fin. */}
+      {bakeProgress && <SaveProgressOverlay {...bakeProgress} />}
 
       {/* Éditeur de portrait (cadre doré + nom). On l'encadre TOUJOURS à partir du
           portrait BRUT (portraitRaw, sinon le portrait actuel) pour ne pas empiler les

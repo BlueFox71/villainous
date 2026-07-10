@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest'
-import { existsSync } from 'node:fs'
 import { flagelleurMentalCards } from '../published/flagelleurMental'
 import { buildDeck } from '../types'
 
@@ -76,7 +75,9 @@ describe('cartes du Flagelleur Mental — intégrité du paquet', () => {
       expect(c.englishName.length).toBeGreaterThan(0)
       expect(c.text.length).toBeGreaterThan(0)
       expect(c.copies).toBeGreaterThanOrEqual(1)
-      expect(c.image).toMatch(/^\/cards\/flagelleur-mental\/.+\.png$/)
+      // Images EMBARQUÉES (dataURL) : le vilain est auto-portant (plus de dépendance à
+      // un fichier public/ — cf. bake des images dans le JSON publié).
+      expect(c.image).toMatch(/^data:image\//)
       if (c.deck === 'villain') expect(typeof c.cost).toBe('number')
       else expect(c.cost).toBeUndefined()
       if (c.type === 'hero') expect(typeof c.strength).toBe('number')
@@ -84,9 +85,10 @@ describe('cartes du Flagelleur Mental — intégrité du paquet', () => {
     }
   })
 
-  it('chaque illustration référencée existe dans public/', () => {
+  it('chaque illustration est embarquée (dataURL non vide)', () => {
     for (const c of flagelleurMentalCards) {
-      expect(existsSync('public' + c.image), `image manquante : ${c.image}`).toBe(true)
+      expect(c.image.startsWith('data:image/'), `image non embarquée : ${c.id}`).toBe(true)
+      expect(c.image.length).toBeGreaterThan(100)
     }
   })
 })

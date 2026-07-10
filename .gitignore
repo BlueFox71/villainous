@@ -27,6 +27,8 @@ Villainous.lnk
 !.vscode/extensions.json
 .idea
 .DS_Store
+# Cache de miniatures Windows (jamais une source)
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj

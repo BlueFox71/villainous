@@ -110,7 +110,13 @@ déplacement, y compris « n'importe quel lieu »), et *si* une action facultati
 - Texte FR (`text`) = source de vérité « humaine ». Les `effects` en sont la
   traduction machine, ajoutée au fil de l'eau.
 - Si tu ajoutes un champ de jeu à `CardDef`, ajoute-le AUSSI à `CardInstance`
-  (`engine/types.ts`) ET à sa recopie dans `buildDeckInstances` (`data/types.ts`).
+  (`engine/types.ts`) — c'est tout. `buildDeckInstances` (`data/types.ts`) recopie
+  désormais **génériquement** tous les champs de jeu (tout sauf `NON_INSTANCE_CARD_FIELDS`
+  : présentation / deck-building / méta), avec un **garde-fou compile-time**
+  (`_GameFieldsOnInstance`) : si un champ de `CardDef` manque sur `CardInstance`, `tsc`
+  passe au rouge et nomme le champ. Un champ **purement présentation / éditeur** (non lu
+  par le moteur) va dans `NON_INSTANCE_CARD_FIELDS` ou dans la liste retirée par
+  `toCardDefs` — pas dans `CardInstance`.
 
 ## Ajouter du contenu — check-lists
 

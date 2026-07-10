@@ -15,11 +15,12 @@ const BOARD_STORE_W = 2000
 const COLUMN_STORE_W = 520
 
 /** Rend toutes les faces de cartes + les dos, et renvoie un CustomVillain prêt à jouer.
- *  `onProgress(done, total)` est appelé après chaque image figée (pour une barre de
- *  chargement). Total = nb de cartes + 3 (dos Vilain, dos Fatalité, plateau). */
+ *  `onProgress(done, total, phase)` est appelé après chaque image figée (pour une barre de
+ *  chargement à étapes nommées : « Génération des cartes / des dos / du plateau… »).
+ *  Total = nb de cartes + 3 (dos Vilain, dos Fatalité, plateau) + extras. */
 export async function bakeVillain(
   v: CustomVillain,
-  onProgress?: (done: number, total: number) => void,
+  onProgress?: (done: number, total: number, phase: string) => void,
 ): Promise<CustomVillain> {
   // 3e dos (paquets perso) : seulement si un dos est configuré ET qu'au moins un
   // paquet personnalisé existe.
@@ -30,7 +31,7 @@ export async function bakeVillain(
   const total =
     v.cards.length + 3 + altLocCount + (v.altObjective ? 1 : 0) + (hasExtraBack ? 1 : 0)
   let done = 0
-  const tick = () => onProgress?.(++done, total)
+  const tick = (phase: string) => onProgress?.(++done, total, phase)
   // Types personnalisés utilisés dans le deck (nom + couleur) → coloration de leurs
   // références dans le texte de règle, comme dans l'éditeur.
   const customTypes = v.cards
@@ -48,13 +49,13 @@ export async function bakeVillain(
   for (const c of v.cards) {
     if (isExternal(c.image)) {
       cards.push(c) // image pré-rendue : gardée intacte
-      tick()
+      tick('Génération des cartes')
       continue
     }
     const face = await renderCardFace(c, v.color, FATE_CARD_COLOR, {}, wordColors)
     const image = await downscaleDataUrl(face, FACE_STORE_W)
     cards.push({ ...c, image })
-    tick()
+    tick('Génération des cartes')
   }
   // Dos Vilain = couleur thématique ; dos Fatalité = blanc (parchemin d'origine).
   // Les ornements importés (backOverlays) sont superposés aux DEUX dos.
@@ -64,14 +65,14 @@ export async function bakeVillain(
         await renderCardBack(v.color, v.name, { overlays: v.backOverlays }),
         BACK_STORE_W,
       )
-  tick()
+  tick('Génération des dos')
   const backFateImage = isExternal(v.backFateImage)
     ? v.backFateImage!
     : await downscaleDataUrl(
         await renderCardBack(FATE_CARD_COLOR, v.name, { paper: true, overlays: v.backOverlays }),
         BACK_STORE_W,
       )
-  tick()
+  tick('Génération des dos')
   // 3e dos (paquets personnalisés) : couleur au choix (Vilain / Fatalité / libre) +
   // ornements recolorés. Traitement parchemin si mode Fatalité ou couleur libre claire.
   let backExtraImage: string | undefined
@@ -85,12 +86,12 @@ export async function bakeVillain(
       }),
       BACK_STORE_W,
     )
-    tick()
+    tick('Génération des dos')
   }
   const boardImage = isExternal(v.boardImage)
     ? v.boardImage!
     : await downscaleDataUrl(await renderBoard(v), BOARD_STORE_W, 'image/jpeg', 0.9)
-  tick()
+  tick('Génération du plateau')
   // Lieux TRANSFORMABLES : image de colonne bakée pour la face B (superposée en jeu).
   const locations: CustomVillain['locations'] = []
   for (let i = 0; i < v.locations.length; i++) {
@@ -101,12 +102,12 @@ export async function bakeVillain(
     }
     const columnImage = await downscaleDataUrl(await renderLocationColumnB(v, i), COLUMN_STORE_W)
     locations.push({ ...loc, alt: { ...loc.alt, columnImage } })
-    tick()
+    tick('Génération des lieux')
   }
   // Objectif ALTERNATIF : plateau de la face B (image vilain + texte alternatifs).
   const altBoardImage = v.altObjective
     ? await downscaleDataUrl(await renderAltObjectiveBoard(v), BOARD_STORE_W, 'image/jpeg', 0.9)
     : undefined
-  if (v.altObjective) tick()
+  if (v.altObjective) tick('Génération du plateau')
   return { ...v, cards, backVillainImage, backFateImage, backExtraImage, boardImage, locations, altBoardImage }
 }

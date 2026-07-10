@@ -9,8 +9,8 @@
 
 import { create } from 'zustand'
 import type { CustomVillain } from '../../data/customVillain'
-import { CUSTOM_VILLAIN_FORMAT, pickFreshestVillains } from '../../data/customVillain'
-import { loadBundledVillains } from '../../data/published/load'
+import { migrateCustomVillain, pickFreshestVillains } from '../../data/customVillain'
+import { loadBundledVillains, loadFullBundledVillain } from '../../data/published/load'
 import { registerPublishedVillain, unregisterPublishedVillain } from './gameStore'
 
 /** Enregistre au runtime tous les vilains PUBLIÉS d'une liste (cartes/couleur/
@@ -78,7 +78,7 @@ async function backupToDisk(v: CustomVillain): Promise<void> {
     await fetch('/__save-villain-backup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: v.id, json: JSON.stringify(v) }),
+      body: JSON.stringify({ id: v.id, json: JSON.stringify(v, null, 2) }),
     })
   } catch { /* pas de serveur de dév → on ignore */ }
 }
@@ -108,8 +108,9 @@ async function deleteBackup(id: string): Promise<void> {
   } catch { /* pas de serveur de dév → on ignore */ }
 }
 
-/** Supprime la copie EMBARQUÉE (`src/data/published/<id>.json`) d'un vilain publié
- *  (dépublication persistée « dans le code »). Best-effort : silencieux hors serveur de dév. */
+/** Dépublie la copie EMBARQUÉE (`src/data/published/<id>.json`) SANS la supprimer : le
+ *  serveur de dév y écrit `"published": false` (soft-delete réversible, cf. `/__unpublish-villain`).
+ *  Best-effort : silencieux hors serveur de dév. */
 async function deletePublished(id: string): Promise<void> {
   try {
     await fetch('/__unpublish-villain', {
@@ -168,6 +169,12 @@ interface CustomVillainStore {
   unpublish: (id: string) => Promise<void>
   /** Récupère un vilain par id (depuis la liste en mémoire). */
   get: (id: string) => CustomVillain | undefined
+  /** HYDRATE un vilain : si la copie en mémoire est la version ALLÉGÉE embarquée (`_light`),
+   *  charge sa version COMPLÈTE (toutes images), la met en mémoire et ré-enregistre ses cartes/
+   *  plateau au runtime, puis la renvoie. Sinon (déjà complète, ou brouillon local) renvoie la
+   *  copie existante. À appeler AVANT d'ouvrir un vilain dans l'Atelier ou de lancer une partie
+   *  avec lui. Idempotent. */
+  hydrate: (id: string) => Promise<CustomVillain | undefined>
   /** Exporte un vilain en chaîne JSON formatée. */
   exportJson: (id: string) => string | undefined
   /** Importe un vilain depuis du JSON ; renvoie l'id importé ou lève une erreur. */
@@ -194,14 +201,20 @@ export const useCustomVillainStore = create<CustomVillainStore>((set, get) => ({
     // faite HORS navigateur (Claude Code écrivant le brouillon disque ou le JSON publié)
     // est reprise, alors que l'IndexedDB la masquerait sinon. À updatedAt égal, l'IndexedDB
     // (édition locale) l'emporte.
-    const local = await idbGetAll()
-    const restored = await listBackups()
-    const bundled = loadBundledVillains()
+    // Chaque origine passe par migrateCustomVillain : un vilain ancien est normalisé au
+    // format courant (défauts des nouveaux champs…) AVANT la fusion par updatedAt.
+    const local = (await idbGetAll()).map(migrateCustomVillain)
+    const restored = (await listBackups()).map(migrateCustomVillain)
+    const bundled = (await loadBundledVillains()).map(migrateCustomVillain)
     const { villains, toPersist } = pickFreshestVillains(local, restored, bundled)
     // (Re)persiste en IndexedDB les versions adoptées depuis le disque/embarqué (brouillon
     // restauré, ou édition hors navigateur plus récente) pour qu'elles redeviennent éditables.
+    // On IGNORE les versions ALLÉGÉES embarquées (`_light`) : les persister priverait l'IndexedDB
+    // de leurs images. Elles seront HYDRATÉES puis persistées complètes au premier `save`
+    // (ouverture dans l'Atelier).
     const localById = new Map(local.map((l) => [l.id, l]))
     for (const v of toPersist) {
+      if (v._light) continue
       // GARDE-FOU : si on ÉCRASE une version existante, on en archive d'abord une copie disque.
       const replaced = localById.get(v.id)
       if (replaced) void snapshotBeforeOverwrite(replaced)
@@ -212,7 +225,19 @@ export const useCustomVillainStore = create<CustomVillainStore>((set, get) => ({
   },
 
   save: async (v) => {
-    const next = { ...v, updatedAt: new Date().toISOString() }
+    // `updatedAt` STRICTEMENT postérieur à la version actuellement chargée : garantit qu'une
+    // édition locale gagne toujours la fusion `pickFreshestVillains` au prochain chargement —
+    // même si la copie embarquée (`src/data/published/<id>.json`) portait une date
+    // accidentellement dans le FUTUR. C'est le garde-fou contre la « perte récurrente » d'une
+    // édition écrasée au rechargement par un JSON embarqué future-daté.
+    const prev = get().villains.find((x) => x.id === v.id)
+    const prevMs = prev ? Date.parse(prev.updatedAt) : NaN
+    const stampMs = Math.max(Date.now(), Number.isFinite(prevMs) ? prevMs + 1 : 0)
+    // On retire `_light` (marqueur runtime) : on ne persiste/publie JAMAIS une version allégée —
+    // un `save` part toujours d'un vilain COMPLET (l'ouverture dans l'Atelier l'a hydraté).
+    const clean = { ...v }
+    delete clean._light
+    const next = { ...clean, updatedAt: new Date(stampMs).toISOString() }
     await idbPut(next)
     void backupToDisk(next) // filet de sécurité disque (best-effort, non bloquant)
     if (next.published) {
@@ -224,7 +249,9 @@ export const useCustomVillainStore = create<CustomVillainStore>((set, get) => ({
       void fetch('/__publish-villain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: next.id, json: JSON.stringify(next) }),
+        // JSON INDENTÉ : les fichiers publiés sont committés → un save produit un diff
+        // minimal et lisible (le serveur ré-indente aussi par sécurité).
+        body: JSON.stringify({ id: next.id, json: JSON.stringify(next, null, 2) }),
       }).catch(() => {})
     }
     set((s) => {
@@ -245,12 +272,28 @@ export const useCustomVillainStore = create<CustomVillainStore>((set, get) => ({
     const next = { ...v, published: false, updatedAt: new Date().toISOString() }
     await idbPut(next) // persiste `published=false` (prime sur le JSON embarqué au chargement)
     void backupToDisk(next) // conserve le brouillon (filet de sécurité disque)
-    void deletePublished(id) // retire src/data/published/<id>.json — dépublication « dans le code »
+    void deletePublished(id) // soft-delete du JSON embarqué (published:false) — réversible, non destructif
     unregisterPublishedVillain(id) // retire du registre runtime → plus jouable/listé
     set((s) => ({ villains: [next, ...s.villains.filter((x) => x.id !== id)] }))
   },
 
   get: (id) => get().villains.find((v) => v.id === id),
+
+  hydrate: async (id) => {
+    const cur = get().villains.find((v) => v.id === id)
+    // Déjà complet (brouillon local, ou vilain déjà hydraté) : rien à faire.
+    if (cur && !cur._light) return cur
+    const full = await loadFullBundledVillain(id)
+    // Pas de version complète embarquée (id inconnu / vilain purement local) : on garde l'existant.
+    if (!full) return cur
+    const migrated = migrateCustomVillain(full)
+    // Ré-enregistre AVANT le `set` : ainsi le re-render déclenché par `set` lit déjà les cartes/
+    // plateau COMPLETS via `villainEntry` (registre runtime), sans une passe intermédiaire vide.
+    if (migrated.published) registerPublishedVillain(migrated)
+    // Remplace la version allégée par la complète en mémoire.
+    set((s) => ({ villains: s.villains.map((v) => (v.id === id ? migrated : v)) }))
+    return migrated
+  },
 
   exportJson: (id) => {
     const v = get().villains.find((x) => x.id === id)
@@ -263,10 +306,11 @@ export const useCustomVillainStore = create<CustomVillainStore>((set, get) => ({
     const taken = new Set(get().villains.map((v) => v.id))
     const id = freeId(parsed.id, taken)
     const now = new Date().toISOString()
+    // Migre le vilain importé (défauts des nouveaux champs si le .json est ancien) puis
+    // réattribue id/dates. migrateCustomVillain pose déjà `formatVersion` au format courant.
     const imported: CustomVillain = {
-      ...parsed,
+      ...migrateCustomVillain(parsed),
       id,
-      formatVersion: CUSTOM_VILLAIN_FORMAT,
       createdAt: parsed.createdAt ?? now,
       updatedAt: now,
     }

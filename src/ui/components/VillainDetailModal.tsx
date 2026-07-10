@@ -1,12 +1,14 @@
-import { useState, type MouseEvent } from 'react'
+import { useEffect, useState, type MouseEvent } from 'react'
 import type { CardDef } from '../../data/types'
 import { VILLAIN_REGISTRY, villainEntry, isCustomKey, customVillainOf, type VillainKey } from '../store/gameStore'
+import { useCustomVillainStore } from '../store/customVillainStore'
 import { villainPortrait, villainPresentation, PRESENTATION_TWEAK } from '../villainArt'
 import { villainGuideOf } from '../villainGuide'
 import { VILLAIN_COLOR } from '../villainColors'
 import { villainPack, villainCreator } from '../villainPacks'
 import { useIsDesktopApp } from '../store/settingsStore'
 import { Scroller } from './Scroller'
+import { LoadingImage } from './LoadingImage'
 import { VillainEditModal } from './VillainEditModal'
 import { playPageFlip, playCardHover, playTinyButtonPress } from '../sfx'
 import { playVillainPhrase, villainPhraseUrl } from '../villainVoices'
@@ -43,13 +45,15 @@ function CardThumb({ card }: { card: CardDef }) {
         onMouseEnter={() => { playCardHover(); setHover(true) }}
         onMouseLeave={() => setHover(false)}
       >
-        <img
+        <LoadingImage
           src={card.image}
           alt={card.name}
           title={`${card.name} — ${TYPE_LABEL[card.type] ?? card.type}`}
-          className="w-full rounded-lg border border-white/15"
+          wrapperClassName="aspect-[1440/2044] w-full rounded-lg border border-white/15"
+          className="h-full w-full object-cover"
+          spinnerSize="sm"
         />
-        <span className="absolute right-1 top-1 rounded-full border border-white/30 bg-black/80 px-1.5 text-[11px] font-bold text-white">
+        <span className="absolute right-1 top-1 z-20 rounded-full border border-white/30 bg-black/80 px-1.5 text-[11px] font-bold text-white">
           ×{card.copies}
         </span>
       </figure>
@@ -82,6 +86,17 @@ function DeckGallery({ title, cards, count }: { title: string; cards: CardDef[];
         ))}
       </div>
     </section>
+  )
+}
+
+/** Bloc de chargement d'une SECTION entière (cartes / plateau) : le temps que le vilain publié
+ *  soit hydraté (son JSON complet + ses images arrivent), on montre un spinner central. */
+function SectionLoader({ label }: { label: string }) {
+  return (
+    <div className="flex min-h-[240px] flex-col items-center justify-center gap-4 py-16 text-white/60">
+      <span className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-amber-300" />
+      <p className="text-sm">{label}</p>
+    </div>
   )
 }
 
@@ -130,6 +145,24 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
   const [editing, setEditing] = useState(false)
 
   const custom = isCustomKey(villain)
+  // Vilains PUBLIÉS : ils sont listés en version ALLÉGÉE (sans images de cartes/plateau). On les
+  // HYDRATE à l'ouverture de la fiche (charge leur JSON complet + ré-enregistre au runtime) pour
+  // que « Voir les cartes » / « Voir le plateau » aient leurs visuels. Le portrait et la
+  // présentation, eux, sont déjà dans la version légère (affichés d'emblée).
+  const hydrate = useCustomVillainStore((s) => s.hydrate)
+  // Abonnement réactif : re-render dès qu'un vilain est hydraté (son marqueur `_light` disparaît).
+  const customVillains = useCustomVillainStore((s) => s.villains)
+  useEffect(() => {
+    if (!custom) return
+    // Déclenche l'hydratation UNE fois si nécessaire (sans setState : l'état de chargement se
+    // dérive du marqueur `_light`, mis à jour par le store). `get()` évite de re-déclencher à
+    // chaque changement de la liste.
+    if (useCustomVillainStore.getState().get(villain)?._light) void hydrate(villain)
+  }, [villain, custom, hydrate])
+  // Les images LOURDES (cartes / plateau) sont-elles prêtes ? Pour un natif : toujours. Pour un
+  // publié : seulement une fois hydraté (le marqueur `_light` a disparu).
+  const imagesReady = !custom || !customVillains.find((x) => x.id === villain)?._light
+
   const v = villainEntry(villain)
   const guide = villainGuideOf(villain)
   const presentation = villainPresentation(villain)
@@ -243,10 +276,11 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
         <div className="flex flex-col gap-5">
           {/* En-tête : portrait + nom + difficulté */}
           <div className="flex items-start gap-4">
-            <img
+            <LoadingImage
               src={villainPortrait(villain)}
               alt={v.def.name}
-              className="h-32 w-32 shrink-0 rounded-lg border border-white/15 object-cover"
+              wrapperClassName="h-32 w-32 shrink-0 rounded-lg border border-white/15"
+              className="h-full w-full object-cover"
             />
             <div className="flex min-w-0 flex-1 flex-col">
               <div className="flex items-start justify-between gap-3">
@@ -337,10 +371,11 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
             <div className="pointer-events-none fixed inset-0 z-[60] flex items-center justify-end p-6 pr-[4vw]">
               <div className="flex max-w-xs flex-col gap-2 rounded-2xl border border-white/25 bg-[#1a1330] p-4 shadow-2xl">
                 {pack.image && (
-                  <img
+                  <LoadingImage
                     src={pack.image}
                     alt={pack.name}
-                    className="max-h-[55vh] w-auto max-w-full rounded-xl border border-white/20"
+                    wrapperClassName="max-h-[55vh] min-h-[180px] w-full rounded-xl border border-white/20"
+                    className="max-h-[55vh] w-auto max-w-full"
                   />
                 )}
                 <p className="text-base font-bold text-amber-200">{pack.name}</p>
@@ -360,14 +395,22 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
           {showBoard ? (
             /* Plateau du vilain (image), affiché en grand. */
             <div className="flex flex-col items-center gap-3">
-              <img
-                src={v.def.boardImage}
-                alt={`Plateau de ${v.def.name}`}
-                className="w-full rounded-lg border border-white/15 shadow-lg"
-              />
+              {imagesReady ? (
+                <LoadingImage
+                  src={v.def.boardImage}
+                  alt={`Plateau de ${v.def.name}`}
+                  wrapperClassName="min-h-[240px] w-full rounded-lg border border-white/15 shadow-lg"
+                  className="w-full"
+                />
+              ) : (
+                <SectionLoader label="Chargement du plateau…" />
+              )}
             </div>
           ) : showCards ? (
             /* Galerie des cartes (Vilain + Fatalité) avec nombre d'exemplaires. */
+            !imagesReady ? (
+              <SectionLoader label="Chargement des cartes…" />
+            ) : (
             <div className="flex flex-col gap-5">
               <DeckGallery title="Deck Vilain" cards={villainCards} count={sumCopies(villainCards)} />
               {merlinCards.length > 0 && (
@@ -381,6 +424,7 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
               )}
               <DeckGallery title="Deck Fatalité" cards={fateCards} count={sumCopies(fateCards)} />
             </div>
+            )
           ) : (
             <>
           {/* Histoire */}
@@ -409,10 +453,12 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
               onMouseLeave={() => setPackHover(false)}
             >
               {pack.image && (
-                <img
+                <LoadingImage
                   src={pack.image}
                   alt={pack.name}
-                  className="h-16 w-auto shrink-0 rounded border border-white/20 object-contain"
+                  wrapperClassName="h-16 w-16 shrink-0 rounded border border-white/20"
+                  className="h-full w-full object-contain"
+                  spinnerSize="sm"
                 />
               )}
               <span className="flex min-w-0 flex-col">

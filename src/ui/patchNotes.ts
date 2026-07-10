@@ -48,10 +48,12 @@ export interface PatchNote {
 export const PATCH_NOTES: PatchNote[] = [
   {
     version: '1.4.1',
-    date: '2026-07-09',
-    title: 'Fini les vilains persos qui perdent leurs images',
-    tags: ['correctif', 'atelier', 'liste-villains'],
+    date: '2026-07-10',
+    title: 'Chargement allégé, images préservées & catégorie Marvel',
+    tags: ['interface', 'atelier', 'correctif', 'liste-villains'],
     changes: [
+      "**Démarrage bien plus rapide** : les vilains publiés ne sont plus chargés en entier au lancement — seul le **nécessaire** l’est, leurs images arrivant **à l’ouverture** du vilain.",
+      "**Indicateurs de chargement** partout : la liste de l’**Atelier** et les **images** de la fiche d’un vilain (portrait, cartes, plateau) affichent un **loader** au lieu d’un vide.",
       "**Atelier** : au chargement, une version **allégée** d’un vilain ne peut plus **écraser vos images** — l’art des cartes, du plateau et le portrait brut sont **préservés**.",
       "**Atelier** : plus de cartes **vides** quand l’illustration source manque — l’image déjà rendue s’affiche.",
       "**Atelier** : **copie de secours automatique** avant tout remplacement, pour ne **rien perdre**.",

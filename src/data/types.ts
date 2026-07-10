@@ -452,9 +452,42 @@ export function buildDeck(cards: CardDef[], deck: DeckKind): CardDef[] {
     .flatMap((c) => Array.from({ length: c.copies }, () => c))
 }
 
+/** Champs de `CardDef` qui NE sont PAS des champs de jeu recopiés dans une
+ *  `CardInstance` : identité de deck-building, présentation, ou méta d'IA. `id` devient
+ *  `cardId`. TOUT LE RESTE est un champ de jeu, recopié tel quel par `buildDeckInstances`.
+ *  → Ajouter un champ de jeu = l'ajouter à `CardDef` ET `CardInstance`, rien d'autre ici.
+ *  (`as const satisfies (keyof CardDef)[]` : garde-fou contre une faute de frappe.) */
+const NON_INSTANCE_CARD_FIELDS = [
+  'id',
+  'englishName',
+  'deck',
+  'copies',
+  'text',
+  'image',
+  'costVariable', // purement visuel (pastille « ? ») — le vrai coût est calculé au jeu
+  'fateMalus', // indice IA lu via le registre (getCardDef), pas par le moteur
+] as const satisfies readonly (keyof CardDef)[]
+
+/** Champs de JEU d'une carte = `CardDef` privé des champs ci-dessus. */
+type GameCardFields = Omit<CardDef, (typeof NON_INSTANCE_CARD_FIELDS)[number]>
+
+// GARDE-FOU COMPILE-TIME : tout champ de jeu de `CardDef` doit exister sur `CardInstance`,
+// sinon `buildDeckInstances` le recopierait sans qu'il soit typé côté moteur. Si cette ligne
+// passe au ROUGE, ajoute le champ manquant à `CardInstance` (engine/types.ts) — le tuple
+// d'erreur nomme précisément le champ fautif.
+type _GameFieldsOnInstance = keyof GameCardFields extends keyof CardInstance
+  ? true
+  : ['champ de jeu absent de CardInstance :', Exclude<keyof GameCardFields, keyof CardInstance>]
+const _assertGameFieldsOnInstance: _GameFieldsOnInstance = true
+void _assertGameFieldsOnInstance
+
+/** Ensemble runtime des champs à exclure (dérivé de la même liste : source unique). */
+const NON_INSTANCE_CARD_FIELD_SET: ReadonlySet<string> = new Set(NON_INSTANCE_CARD_FIELDS)
+
 /** Développe un deck en exemplaires jouables (CardInstance) avec des id uniques.
- *  Recopie les champs de jeu pour que le moteur n'ait pas besoin de data/.
- *  `prefix` permet de garantir des instanceId uniques entre joueurs (ex. 'p0:'). */
+ *  Recopie GÉNÉRIQUEMENT tous les champs de jeu (tout sauf `NON_INSTANCE_CARD_FIELDS`) pour
+ *  que le moteur n'ait pas besoin de data/. `prefix` garantit des instanceId uniques entre
+ *  joueurs (ex. 'p0:'). */
 export function buildDeckInstances(
   cards: CardDef[],
   deck: DeckKind,
@@ -462,160 +495,18 @@ export function buildDeckInstances(
 ): CardInstance[] {
   return cards
     .filter((c) => c.deck === deck)
-    .flatMap((c) =>
-      Array.from(
+    .flatMap((c) => {
+      // Champs de jeu = toutes les entrées de la carte sauf celles exclues (présentation…).
+      const game = Object.fromEntries(
+        Object.entries(c).filter(([k]) => !NON_INSTANCE_CARD_FIELD_SET.has(k)),
+      ) as GameCardFields
+      return Array.from(
         { length: c.copies },
         (_, i): CardInstance => ({
+          ...game,
           instanceId: `${prefix}${c.id}#${i + 1}`,
           cardId: c.id,
-          name: c.name,
-          type: c.type,
-          cost: c.cost,
-          strength: c.strength,
-          attach: c.attach,
-          attachOnlyCardId: c.attachOnlyCardId,
-          attachStrengthBonus: c.attachStrengthBonus,
-          shieldAllyFromDiscard: c.shieldAllyFromDiscard,
-          fateRemovalPriority: c.fateRemovalPriority,
-          blocksJudgmentTile: c.blocksJudgmentTile,
-          immuneToCage: c.immuneToCage,
-          souffranceSurcharge: c.souffranceSurcharge,
-          disablesMetatron: c.disablesMetatron,
-          shieldsHostFromVanquish: c.shieldsHostFromVanquish,
-          shadowReducesHouseCost: c.shadowReducesHouseCost,
-          blocksRent: c.blocksRent,
-          blocksHousePlacement: c.blocksHousePlacement,
-          blocksHousesWhenPawnHere: c.blocksHousesWhenPawnHere,
-          reducesPowerGains: c.reducesPowerGains,
-          costEqualsTargetStrength: c.costEqualsTargetStrength,
-          movesTowardPawnEndOfTurn: c.movesTowardPawnEndOfTurn,
-          eventTargetSurcharge: c.eventTargetSurcharge,
-          sendsHeroToPrisonOnMove: c.sendsHeroToPrisonOnMove,
-          powerOnPawnCrossOrLand: c.powerOnPawnCrossOrLand,
-          effects: c.effects,
-          isArtifact: c.isArtifact,
-          staysOnLocationOnPlay: c.staysOnLocationOnPlay,
-          onPlace: c.onPlace,
-          onVanquish: c.onVanquish,
-          forbiddenLocations: c.forbiddenLocations,
-          placementRestriction: c.placementRestriction,
-          blocksAlliesAtLocation: c.blocksAlliesAtLocation,
-          blocksAllyMoves: c.blocksAllyMoves,
-          blocksAllyMovesHere: c.blocksAllyMovesHere,
-          protectedWithOtherHero: c.protectedWithOtherHero,
-          minAlliesToVanquish: c.minAlliesToVanquish,
-          strengthMod: c.strengthMod,
-          selfStrengthMods: c.selfStrengthMods,
-          discardWhen: c.discardWhen,
-          trigger: c.trigger,
-          maxAtLocation: c.maxAtLocation,
-          activatedCost: c.activatedCost,
-          playOnlyAt: c.playOnlyAt,
-          discardAtCrewmates: c.discardAtCrewmates,
-          isSabotage: c.isSabotage,
-          grantsAction: c.grantsAction,
-          contractLocationId: c.contractLocationId,
-          isTitan: c.isTitan,
-          isPokemon: c.isPokemon,
-          summonsPokemonCardIds: c.summonsPokemonCardIds,
-          reachesAdjacentVanquish: c.reachesAdjacentVanquish,
-          reachesAnyLocationVanquish: c.reachesAnyLocationVanquish,
-          ridesWithPawn: c.ridesWithPawn,
-          returnToHandOnVanquish: c.returnToHandOnVanquish,
-          auDela: c.auDela,
-          goesToAuDelaOnPlay: c.goesToAuDelaOnPlay,
-          alsoItem: c.alsoItem,
-          mustDefeatFirst: c.mustDefeatFirst,
-          increasesArtifactCost: c.increasesArtifactCost,
-          blocksCardIds: c.blocksCardIds,
-          nullifiesArtifacts: c.nullifiesArtifacts,
-          allowedHours: c.allowedHours,
-          eventCostSurcharge: c.eventCostSurcharge,
-          eventCostDiscountWhenLoved: c.eventCostDiscountWhenLoved,
-          activateSurcharge: c.activateSurcharge,
-          activiteCostDiscountWhenLoved: c.activiteCostDiscountWhenLoved,
-          drawToAtEndOfTurnWhenLoved: c.drawToAtEndOfTurnWhenLoved,
-          powerPerLovedAtTurnStartWhenLoved: c.powerPerLovedAtTurnStartWhenLoved,
-          unlocksCoveredActionsHere: c.unlocksCoveredActionsHere,
-          bornEnlarged: c.bornEnlarged,
-          immuneToIncendieWhenLoved: c.immuneToIncendieWhenLoved,
-          drawWhenFatedWhenLoved: c.drawWhenFatedWhenLoved,
-          powerPenaltyOnPawnArrive: c.powerPenaltyOnPawnArrive,
-          discardItemOnPawnArrive: c.discardItemOnPawnArrive,
-          fateAttachesToLocation: c.fateAttachesToLocation,
-          blocksCorruptionHere: c.blocksCorruptionHere,
-          drainsPowerAtTurnStart: c.drainsPowerAtTurnStart,
-          fateRemovalPowerCost: c.fateRemovalPowerCost,
-          discardWhenAllCorrupted: c.discardWhenAllCorrupted,
-          forcedFateLocation: c.forcedFateLocation,
-          fatePlayBoth: c.fatePlayBoth,
-          isHyena: c.isHyena,
-          requiresHyenaInRealm: c.requiresHyenaInRealm,
-          requiresAllyInRealm: c.requiresAllyInRealm,
-          evolvesToCardId: c.evolvesToCardId,
-          playWhenRevealed: c.playWhenRevealed,
-          requiresPoweredCauldron: c.requiresPoweredCauldron,
-          consumesItemCardId: c.consumesItemCardId,
-          blocksVillainEvents: c.blocksVillainEvents,
-          blocksItemPlacement: c.blocksItemPlacement,
-          relocateToPawnOnVanquish: c.relocateToPawnOnVanquish,
-          survivesVanquishGain: c.survivesVanquishGain,
-          effectsAlsoOnMove: c.effectsAlsoOnMove,
-          powerOnMove: c.powerOnMove,
-          playableWithoutAction: c.playableWithoutAction,
-          playableOnlyBeforeActions: c.playableOnlyBeforeActions,
-          shieldsOtherHeroesUntilTokens: c.shieldsOtherHeroesUntilTokens,
-          playCardCostSurcharge: c.playCardCostSurcharge,
-          powerLossOnPawnArrive: c.powerLossOnPawnArrive,
-          pacteTargetSurcharge: c.pacteTargetSurcharge,
-          moveActionSurcharge: c.moveActionSurcharge,
-          isPiratage: c.isPiratage,
-          hackDisablesAction: c.hackDisablesAction,
-          discardOnPlay: c.discardOnPlay,
-          followsHeroes: c.followsHeroes,
-          playMultiplePerAction: c.playMultiplePerAction,
-          keepAlliesOnVanquishHere: c.keepAlliesOnVanquishHere,
-          survivesVanquishInPlace: c.survivesVanquishInPlace,
-          drawCardOnFateTargeted: c.drawCardOnFateTargeted,
-          coversExtraAction: c.coversExtraAction,
-          replacesCardId: c.replacesCardId,
-          reactiveOnly: c.reactiveOnly,
-          transformationTarget: c.transformationTarget,
-          isMimTransformation: c.isMimTransformation,
-          isMerlinTransformation: c.isMerlinTransformation,
-          isMauiCard: c.isMauiCard,
-          joinsAlliesOnAllyPlay: c.joinsAlliesOnAllyPlay,
-          moveAnyCardOnVanquish: c.moveAnyCardOnVanquish,
-          gainPowerWhenFated: c.gainPowerWhenFated,
-          triggersMauiDeck: c.triggersMauiDeck,
-          shieldsHeroesAtLocation: c.shieldsHeroesAtLocation,
-          coversActionsLikeHero: c.coversActionsLikeHero,
-          selfDiscardOnPawnEndTurnHere: c.selfDiscardOnPawnEndTurnHere,
-          immobilizesHostHero: c.immobilizesHostHero,
-          shieldHeroFromVanquish: c.shieldHeroFromVanquish,
-          immuneToAllyItemEffects: c.immuneToAllyItemEffects,
-          blocksVanquishHere: c.blocksVanquishHere,
-          survivesVanquishByDiscardingAlly: c.survivesVanquishByDiscardingAlly,
-          survivesVanquishWithRevealedTreasure: c.survivesVanquishWithRevealedTreasure,
-          revealTreasureOnDiscard: c.revealTreasureOnDiscard,
-          reattachOnHostDefeat: c.reattachOnHostDefeat,
-          isSurvivor: c.isSurvivor,
-          isStand: c.isStand,
-          followsPawn: c.followsPawn,
-          cannotBeDiscarded: c.cannotBeDiscarded,
-          cannotDiscardForTunnel: c.cannotDiscardForTunnel,
-          summonsStandCardId: c.summonsStandCardId,
-          removedFromGameOnDefeat: c.removedFromGameOnDefeat,
-          activatedEffects: c.activatedEffects,
-          zeroesHostStrength: c.zeroesHostStrength,
-          activateCostSurchargeHere: c.activateCostSurchargeHere,
-          blocksAllItemsHere: c.blocksAllItemsHere,
-          protectsHostFromCardIds: c.protectsHostFromCardIds,
-          isPotion: c.isPotion,
-          fighterRevealCap: c.fighterRevealCap,
-          fighterRevealSurcharge: c.fighterRevealSurcharge,
-          itemCostReductionHere: c.itemCostReductionHere,
         }),
-      ),
-    )
+      )
+    })
 }

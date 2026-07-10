@@ -2,9 +2,23 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync, copyFileSync, rmSync } from 'node:fs'
+import { readFileSync, writeFileSync, renameSync, readdirSync, existsSync, mkdirSync, copyFileSync, rmSync } from 'node:fs'
 import { resolve, join, dirname } from 'node:path'
 import { execFileSync } from 'node:child_process'
+import { lightenVillain } from './src/data/published/lighten'
+
+/**
+ * Écriture ATOMIQUE : écrit dans un fichier temporaire voisin puis `rename` sur la
+ * destination (opération atomique au sein d'un même système de fichiers). Un lecteur (git,
+ * le watcher, une relecture) ne voit jamais un fichier à moitié écrit, et deux écritures
+ * concurrentes ne s'entrelacent pas dans le même fichier. Le `.tmp` est suffixé par le PID
+ * pour éviter toute collision entre écritures simultanées vers la même cible.
+ */
+function atomicWriteFileSync(dest: string, data: string | Buffer): void {
+  const tmp = `${dest}.${process.pid}.tmp`
+  writeFileSync(tmp, data)
+  renameSync(tmp, dest)
+}
 
 /**
  * Plugin DEV uniquement : endpoint POST `/__save-action-pos` qui réécrit le bloc
@@ -255,7 +269,7 @@ function saveVillainAssetsPlugin(): Plugin {
               const m = /^data:[^;]+;base64,(.+)$/s.exec(f.dataUrl)
               if (!m) continue
               mkdirSync(dirname(dest), { recursive: true })
-              writeFileSync(dest, Buffer.from(m[1], 'base64'))
+              atomicWriteFileSync(dest, Buffer.from(m[1], 'base64'))
               written++
             }
             res.statusCode = 200
@@ -296,7 +310,7 @@ function saveVillainJsonPlugin(): Plugin {
             const dest = resolve(ASSETS, rel)
             if (!dest.startsWith(ASSETS)) throw new Error('chemin hors assets/')
             mkdirSync(dirname(dest), { recursive: true })
-            writeFileSync(dest, json, 'utf8')
+            atomicWriteFileSync(dest, json)
             res.statusCode = 200
             res.setHeader('Content-Type', 'application/json')
             res.end(JSON.stringify({ path: `assets/${rel}` }))
@@ -351,10 +365,39 @@ function readVillainJsonPlugin(): Plugin {
  */
 function savePublishedVillainPlugin(): Plugin {
   const PUBLISHED = resolve(process.cwd(), 'src/data/published')
+  const LIGHT = resolve(PUBLISHED, 'light')
+
+  /** (Ré)écrit la version ALLÉGÉE `light/<id>.json` (sans images lourdes) depuis un objet
+   *  vilain complet. C'est cette version que la LISTE / les galeries chargent au démarrage. */
+  const writeLight = (full: Record<string, unknown>): void => {
+    if (!full || typeof full.id !== 'string' || !Array.isArray(full.cards)) return
+    const safe = (full.id as string).replace(/[^a-z0-9_-]+/gi, '-')
+    const dest = resolve(LIGHT, `${safe}.json`)
+    if (!dest.startsWith(LIGHT)) return // garde-fou : jamais écrire hors de light/
+    mkdirSync(LIGHT, { recursive: true })
+    atomicWriteFileSync(dest, JSON.stringify(lightenVillain(full), null, 2))
+  }
+
   return {
     name: 'publish-villain',
     apply: 'serve',
     configureServer(server) {
+      // Watcher DEV : quand un `src/data/published/<id>.json` COMPLET change (p. ex. Claude Code
+      // qui code des effets à la main), on régénère automatiquement sa version allégée pour
+      // qu'elles ne se désynchronisent jamais. On ignore le sous-dossier `light/` (évite toute
+      // boucle) et les fichiers non-vilain.
+      const isFullPublished = (file: string): boolean => {
+        const f = resolve(file)
+        return f.startsWith(PUBLISHED) && !f.startsWith(LIGHT) && f.endsWith('.json')
+      }
+      const regenLight = (file: string): void => {
+        try {
+          writeLight(JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>)
+        } catch { /* JSON illisible / à moitié écrit : on ignore */ }
+      }
+      server.watcher.on('change', (f) => { if (isFullPublished(f)) regenLight(f) })
+      server.watcher.on('add', (f) => { if (isFullPublished(f)) regenLight(f) })
+
       server.middlewares.use('/__publish-villain', (req, res) => {
         if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return }
         let body = ''
@@ -367,7 +410,15 @@ function savePublishedVillainPlugin(): Plugin {
             const dest = resolve(PUBLISHED, `${safe}.json`)
             if (!dest.startsWith(PUBLISHED)) throw new Error('chemin hors src/data/published/')
             mkdirSync(PUBLISHED, { recursive: true })
-            writeFileSync(dest, json, 'utf8')
+            // Toujours écrire du JSON INDENTÉ (2 espaces), quel que soit l'appelant : les
+            // fichiers publiés sont committés, donc un save = un diff minimal et lisible
+            // (sinon une modif d'un champ réécrit tout le fichier sur une ligne).
+            let out = json
+            let parsed: Record<string, unknown> | null = null
+            try { parsed = JSON.parse(json) as Record<string, unknown>; out = JSON.stringify(parsed, null, 2) } catch { /* non-JSON : on garde le brut */ }
+            atomicWriteFileSync(dest, out)
+            // Version ALLÉGÉE (chargée par la liste au démarrage) : régénérée à chaque save.
+            if (parsed) writeLight(parsed)
             res.statusCode = 200
             res.setHeader('Content-Type', 'application/json')
             res.end(JSON.stringify({ path: `src/data/published/${safe}.json` }))
@@ -377,8 +428,11 @@ function savePublishedVillainPlugin(): Plugin {
           }
         })
       })
-      // DÉPUBLICATION : supprime le JSON embarqué `src/data/published/<id>.json` (corps
-      // `{ id }`) → après commit + redéploiement, le vilain n'est plus proposé à personne.
+      // DÉPUBLICATION NON DESTRUCTIVE : au lieu de SUPPRIMER le JSON embarqué
+      // `src/data/published/<id>.json` (corps `{ id }`), on y écrit `"published": false`.
+      // Le fichier reste committé (diff d'une ligne, réversible en re-publiant) et le
+      // chargement l'ignore (cf. `loadBundledVillains`), donc le vilain n'est plus proposé.
+      // Évite les suppressions git surprises et ne casse aucun import dérivé du glob.
       server.middlewares.use('/__unpublish-villain', (req, res) => {
         if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return }
         let body = ''
@@ -390,11 +444,23 @@ function savePublishedVillainPlugin(): Plugin {
             const safe = id.replace(/[^a-z0-9_-]+/gi, '-')
             const dest = resolve(PUBLISHED, `${safe}.json`)
             if (!dest.startsWith(PUBLISHED)) throw new Error('chemin hors src/data/published/')
-            const removed = existsSync(dest)
-            if (removed) rmSync(dest)
+            const found = existsSync(dest)
+            if (found) {
+              const parsed = JSON.parse(readFileSync(dest, 'utf8')) as Record<string, unknown>
+              parsed.published = false
+              atomicWriteFileSync(dest, JSON.stringify(parsed, null, 2))
+              // Reflète la dépublication dans la version ALLÉGÉE (celle que lit la liste), sinon
+              // le vilain y resterait marqué publié et continuerait d'apparaître.
+              const lightDest = resolve(LIGHT, `${safe}.json`)
+              if (existsSync(lightDest)) {
+                const lp = JSON.parse(readFileSync(lightDest, 'utf8')) as Record<string, unknown>
+                lp.published = false
+                atomicWriteFileSync(lightDest, JSON.stringify(lp, null, 2))
+              }
+            }
             res.statusCode = 200
             res.setHeader('Content-Type', 'application/json')
-            res.end(JSON.stringify({ removed, path: `src/data/published/${safe}.json` }))
+            res.end(JSON.stringify({ unpublished: found, path: `src/data/published/${safe}.json` }))
           } catch (e) {
             res.statusCode = 400
             res.end(String((e as Error)?.message ?? e))
@@ -447,7 +513,7 @@ function villainBackupPlugin(): Plugin {
             if (typeof id !== 'string' || typeof json !== 'string') throw new Error('payload invalide')
             const dest = draftPath(id)
             mkdirSync(DRAFTS, { recursive: true })
-            writeFileSync(dest, json, 'utf8')
+            atomicWriteFileSync(dest, json)
             res.statusCode = 200
             res.setHeader('Content-Type', 'application/json')
             res.end(JSON.stringify({ ok: true }))

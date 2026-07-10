@@ -387,6 +387,12 @@ export interface CustomVillain {
   // --- Métadonnées -----------------------------------------------------------
   createdAt: string
   updatedAt: string
+
+  /** Marqueur RUNTIME (jamais persisté ni committé) : cette copie est la version ALLÉGÉE
+   *  embarquée (sans images lourdes), chargée pour la liste. Elle doit être HYDRATÉE
+   *  (`loadFullBundledVillain`) avant édition ou lancement de partie. Absent = version
+   *  complète (édition locale, brouillon disque, ou vilain déjà hydraté). */
+  _light?: boolean
 }
 
 /** Catégorie d'origine d'un vilain publié (miroir des sections de la liste). */
@@ -433,6 +439,29 @@ export function isVillainDeveloped(v: CustomVillain): boolean {
       (c.onVanquish?.length ?? 0) > 0 ||
       (c.activatedEffects?.length ?? 0) > 0,
   )
+}
+
+/** Applique les MIGRATIONS de schéma d'un CustomVillain brut (chargé depuis IndexedDB, le
+ *  disque de secours ou l'embarqué) jusqu'à `CUSTOM_VILLAIN_FORMAT`. C'est LE point unique
+ *  où un nouveau champ reçoit sa valeur par défaut sur les vilains anciens (« ajouter une
+ *  donnée à l'ensemble des vilains, dont ceux de l'Atelier »), ou un champ est renommé.
+ *
+ *  Chaque palier `N → N+1` est une étape isolée et idempotente. À ce jour : format 1, aucun
+ *  palier — seule la normalisation du `formatVersion` s'applique. Quand tu fais évoluer le
+ *  schéma : incrémente `CUSTOM_VILLAIN_FORMAT`, ajoute un bloc `if` ci-dessous, ex. :
+ *    if ((v.formatVersion ?? 0) < 2) {
+ *      v = { ...v, monNouveauChamp: v.monNouveauChamp ?? DEFAUT, formatVersion: 2 }
+ *    }
+ */
+export function migrateCustomVillain(raw: CustomVillain): CustomVillain {
+  let v = raw
+
+  // … futurs paliers de migration ici (du plus ancien au plus récent) …
+
+  // Normalisation finale : garantit un formatVersion à jour (les paliers l'ont déjà bumpé ;
+  // ce filet couvre un objet sans formatVersion ou déjà à jour sans copie inutile).
+  if (v.formatVersion !== CUSTOM_VILLAIN_FORMAT) v = { ...v, formatVersion: CUSTOM_VILLAIN_FORMAT }
+  return v
 }
 
 /** Slugifie un nom en identifiant kebab-case ASCII (sans le préfixe custom-). */
@@ -701,7 +730,8 @@ export function mergeGameData(target: CustomVillain, light: Partial<CustomVillai
 }
 
 /** Convertit les cartes d'un CustomVillain en CardDef[] (déjà compatibles : on en
- *  retire seulement les champs d'édition propres à l'éditeur). */
+ *  retire seulement les champs d'édition propres à l'éditeur). SEUL point de nettoyage
+ *  des champs éditeur : toute conversion vers le jeu passe par ici. */
 export function toCardDefs(v: CustomVillain): CardDef[] {
   return v.cards.map((c) => {
     const def: CustomCard = { ...c }
@@ -715,4 +745,11 @@ export function toCardDefs(v: CustomVillain): CardDef[] {
     delete def.stickers
     return def
   })
+}
+
+/** Cartes des paquets STANDARD (hors paquets personnalisés `group`) en CardDef[] propres
+ *  (champs éditeur retirés), prêtes pour `buildDeckInstances`. On filtre les paquets perso
+ *  AVANT le nettoyage (qui efface justement `group`). */
+export function toDeckCardDefs(v: CustomVillain): CardDef[] {
+  return toCardDefs({ ...v, cards: v.cards.filter((c) => !c.group) })
 }
