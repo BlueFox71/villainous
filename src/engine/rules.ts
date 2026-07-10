@@ -1679,6 +1679,68 @@ export function activitePlayableAtHour(player: PlayerState, card: CardInstance):
   return card.allowedHours.includes(player.clockHour ?? 0)
 }
 
+// --- Ultron (Marvel) — tuiles AMÉLIORATION ----------------------------------
+/** Nombre total de tuiles Amélioration (Transformation → Optimisation → Forme finale
+ *  → L'ère d'Ultron). Révéler la 4ᵉ = victoire. */
+export const ULTRON_UPGRADE_COUNT = 4
+/** cardId de base servant aux conditions des tuiles. */
+export const ULTRON_DRONE_COMBAT = 'ultron-drone-de-combat'
+export const ULTRON_ALLIAGE = 'ultron-alliage-impenetrable'
+
+/** Index de la PROCHAINE Amélioration à révéler (0..4 ; 4 = toutes révélées). */
+export function ultronNextUpgrade(p: PlayerState): number {
+  return p.ultronUpgrades ?? 0
+}
+
+/** Sentinelles (Drones) POSÉES dans le domaine (non associées), tous lieux confondus. */
+export function ultronSentriesInRealm(p: PlayerState): CardInstance[] {
+  return p.locations.flatMap((loc) => (p.board[loc.id] ?? []).filter((c) => c.isSentry && !c.attachedTo))
+}
+
+/** Ultron — OPTIMISATION disponible : la 2ᵉ Amélioration est révélée, le passif n'a pas encore
+ *  été employé ce tour, et il existe au moins un Allié/Objet/Malédiction DÉPLAÇABLE (non associé)
+ *  dans le domaine. Sert à l'UI pour proposer, au clic d'une action « Jouer une carte », de la
+ *  transformer en « Déplacer un Allié/Objet ». (Les règles fines de déplacement sont vérifiées
+ *  au moment du move.) */
+export function ultronOptimizeAvailable(state: GameState, playerIndex: number = state.activePlayer): boolean {
+  const p = state.players[playerIndex]
+  if (p.objective.type !== 'ULTRON_AGE_REVEALED') return false
+  if ((p.ultronUpgrades ?? 0) < 2) return false
+  if (p.ultronOptimUsedThisTurn) return false
+  return Object.values(p.board)
+    .flat()
+    .some((c) => (c.type === 'ally' || c.type === 'item' || c.type === 'curse') && !c.attachedTo)
+}
+
+/** La condition de la PROCHAINE Amélioration est-elle remplie (indépendamment du choix
+ *  précis des cartes à défausser) ? Sert au surlignage UI et à l'IA. Tient compte de la
+ *  limite « 1 Amélioration par tour ». */
+export function ultronUpgradeConditionMet(state: GameState, playerIndex: number = state.activePlayer): boolean {
+  const p = state.players[playerIndex]
+  if (p.objective.type !== 'ULTRON_AGE_REVEALED') return false
+  if (p.ultronUpgradeThisTurn) return false
+  switch (ultronNextUpgrade(p)) {
+    case 0: // Transformation : ≥ 2 Sentinelles dans le domaine.
+      return ultronSentriesInRealm(p).length >= 2
+    case 1: // Optimisation : un DRONE DE COMBAT portant ≥ 2 ALLIAGE IMPÉNÉTRABLE.
+      return p.locations.some((loc) => {
+        const cards = p.board[loc.id] ?? []
+        return cards.some(
+          (c) =>
+            c.cardId === ULTRON_DRONE_COMBAT &&
+            !c.attachedTo &&
+            cards.filter((a) => a.attachedTo === c.instanceId && a.cardId === ULTRON_ALLIAGE).length >= 2,
+        )
+      })
+    case 2: // Forme finale : ≥ 1 Sentinelle sur CHAQUE lieu du domaine.
+      return p.locations.every((loc) => (p.board[loc.id] ?? []).some((c) => c.isSentry && !c.attachedTo))
+    case 3: // L'ère d'Ultron : payer 12 Pouvoir.
+      return p.power >= 12
+    default:
+      return false // toutes révélées
+  }
+}
+
 export function hasReachedObjective(state: GameState, playerIndex: number = state.activePlayer): boolean {
   const p = state.players[playerIndex]
   switch (p.objective.type) {
@@ -1725,6 +1787,9 @@ export function hasReachedObjective(state: GameState, playerIndex: number = stat
     case 'JUDGMENT_TILES_ALL':
       // Pyramid Head : une tuile de Jugement sur CHAQUE lieu (toutes propagées).
       return (p.judgmentTiles ?? 0) >= p.locations.length
+    case 'ULTRON_AGE_REVEALED':
+      // Ultron : les 4 tuiles Amélioration révélées (la 4ᵉ = L'ère d'Ultron).
+      return (p.ultronUpgrades ?? 0) >= ULTRON_UPGRADE_COUNT
     case 'CURSE_EACH_LOCATION':
       return p.locations.every((loc) =>
         (p.board[loc.id] ?? []).some((c) => c.type === 'curse'),

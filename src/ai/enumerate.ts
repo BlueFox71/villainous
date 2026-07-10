@@ -44,6 +44,8 @@ import {
   transformableGuards,
   flayerTunnelDiscardableAllies,
   flayerTunnelRequiredAllies,
+  ultronUpgradeConditionMet,
+  ultronSentriesInRealm,
 } from '../engine/rules'
 
 /** cardId des cartes CRUCIALES pour l'objectif du joueur (à NE PAS défausser par le
@@ -1287,6 +1289,35 @@ export function enumerateActions(state: GameState): GameAction[] {
 
   // Phase d'action : END_TURN est toujours possible (garantit la terminaison).
   const out: GameAction[] = [{ type: 'END_TURN' }]
+
+  // Ultron — compléter la prochaine tuile AMÉLIORATION (action libre, 1/tour) dès que la
+  // condition est remplie. Le bot vise la victoire → toujours proposé (l'IA le valorise via
+  // objectiveScore). On renseigne les Sentinelles à défausser selon la tuile.
+  if (ultronUpgradeConditionMet(state, state.activePlayer)) {
+    const next = me.ultronUpgrades ?? 0
+    if (next === 0) {
+      const sentries = ultronSentriesInRealm(me).slice(0, 2).map((c) => c.instanceId)
+      if (sentries.length === 2) out.push({ type: 'ULTRON_COMPLETE_UPGRADE', discard: sentries })
+    } else if (next === 1) {
+      let droneId: string | undefined
+      for (const loc of me.locations) {
+        const cards = me.board[loc.id] ?? []
+        const drone = cards.find(
+          (c) =>
+            c.cardId === 'ultron-drone-de-combat' &&
+            !c.attachedTo &&
+            cards.filter((a) => a.attachedTo === c.instanceId && a.cardId === 'ultron-alliage-impenetrable').length >= 2,
+        )
+        if (drone) {
+          droneId = drone.instanceId
+          break
+        }
+      }
+      if (droneId) out.push({ type: 'ULTRON_COMPLETE_UPGRADE', discard: [droneId] })
+    } else {
+      out.push({ type: 'ULTRON_COMPLETE_UPGRADE' }) // Forme finale / L'ère d'Ultron
+    }
+  }
 
   // Ratigan — Brutes : fenêtre d'action distante FACULTATIVE → on peut y renoncer
   // (sans terminer le tour). Les actions du lieu distant sont énumérées normalement

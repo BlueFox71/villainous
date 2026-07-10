@@ -88,6 +88,18 @@ export function objectiveScore(p: PlayerState): number {
     case 'ISABELLA_CLOCK':
       // Isabella — proximité = heures validées / 6 (jauge simple ; tuning fin en Phase 2).
       return (p.validatedHours ?? []).length / 6
+    case 'ULTRON_AGE_REVEALED': {
+      // Ultron — proximité = tuiles Amélioration révélées / 4 (jauge de 1re passe ; tuning
+      // fin à l'étape IA). Petit crédit pour les Sentinelles en jeu (matière à compléter la
+      // prochaine tuile), plafonné pour ne jamais atteindre 1 avant la 4ᵉ révélation.
+      const done = p.ultronUpgrades ?? 0
+      if (done >= 4) return 1
+      const sentries = p.locations.reduce(
+        (n, loc) => n + (p.board[loc.id] ?? []).filter((c) => c.isSentry && !c.attachedTo).length,
+        0,
+      )
+      return done / 4 + (Math.min(sentries, 4) / 4) * 0.15
+    }
     case 'POWER_THRESHOLD': {
       const threshold = p.objective.threshold
       const base = Math.min(p.power, threshold) / threshold

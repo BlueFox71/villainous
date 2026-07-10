@@ -90,6 +90,12 @@ import {
   goalsBlockedByHero,
   hasHeroInRealm,
   hasReachedObjective,
+  ultronNextUpgrade,
+  ultronUpgradeConditionMet,
+  ultronSentriesInRealm,
+  ULTRON_UPGRADE_COUNT,
+  ULTRON_ALLIAGE,
+  ULTRON_DRONE_COMBAT,
   heroPlacementLocations,
   lotsoReducibleHeroes,
   lotsoToRoomCandidates,
@@ -1789,6 +1795,31 @@ function applyPlayCard(
         foudreInstanceId: card.instanceId,
         actionId,
       },
+    }
+  }
+  // Ultron — TRANSFORMATION (1ʳᵉ Amélioration révélée) : en jouant une Sentinelle, on PEUT
+  // reprendre 1 carte de sa défausse en main (1×/tour). Choix INTERACTIF (pendingRecover
+  // FACULTATIF, label « Transformation ») ; le bot reprend automatiquement la meilleure carte.
+  // On n'arme rien si un autre choix est déjà en attente (un futur effet de la Sentinelle prime).
+  if (card.type === 'ally' && card.isSentry && !next.pendingRecover && !next.pendingTrapVanquish) {
+    const ap = next.players[state.activePlayer]
+    if (
+      ap.objective.type === 'ULTRON_AGE_REVEALED' &&
+      (ap.ultronUpgrades ?? 0) >= 1 &&
+      !ap.ultronTransfoUsedThisTurn &&
+      ap.discard.length > 0
+    ) {
+      next = updatePlayer(next, state.activePlayer, (p) => ({ ...p, ultronTransfoUsedThisTurn: true }))
+      next = {
+        ...next,
+        pendingRecover: {
+          playerIndex: state.activePlayer,
+          candidateIds: ap.discard.map((c) => c.instanceId),
+          label: 'Transformation',
+          optional: true,
+        },
+        log: [...next.log, `⚙️ ${ap.villainName} (Transformation) : vous pouvez reprendre une carte de votre défausse.`],
+      }
     }
   }
   return consumePersifleur(next, action)
@@ -9744,9 +9775,18 @@ function applyUseNeverlandMap(
 }
 
 /** Opportunisme (Ursula) : reprend en main la carte choisie de la défausse Vilain. */
-function applyResolveRecover(state: GameState, instanceId: string): GameState {
+function applyResolveRecover(state: GameState, instanceId?: string): GameState {
   const pending = state.pendingRecover
   if (!pending) throw new Error('Aucune récupération en attente (Opportunisme).')
+  // Reprise FACULTATIVE (Ultron — Transformation) : ne rien reprendre ferme le pending.
+  if (instanceId === undefined) {
+    if (!pending.optional) throw new Error('Vous devez reprendre une carte de votre défausse.')
+    return {
+      ...state,
+      pendingRecover: null,
+      log: [...state.log, `${state.players[pending.playerIndex].villainName} ne reprend aucune carte (${pending.label ?? 'Opportunisme'}).`],
+    }
+  }
   if (!pending.candidateIds.includes(instanceId)) throw new Error('Carte choisie invalide.')
   const idx = pending.playerIndex
   const player = state.players[idx]
@@ -11367,6 +11407,12 @@ function applyEndTurn(state: GameState): GameState {
             vengeanceConfianceArmed: false,
             // Cruella — Finissez le travail ! : l'activation gratuite non utilisée expire.
             freeActivate: false,
+            // Ultron — la limite « 1 Amélioration par tour » se réarme au tour suivant.
+            ultronUpgradeThisTurn: false,
+            // Ultron — Transformation : le passif « reprendre une carte » se réarme (1/tour).
+            ultronTransfoUsedThisTurn: false,
+            // Ultron — Optimisation : le passif « Jouer → Déplacer » se réarme (1/tour).
+            ultronOptimUsedThisTurn: false,
             // Dio — ZA WARUDO! : l'arrêt du temps et le suivi des actions expirent en fin de tour.
             zaWarudoActive: false,
             zaWarudoActionsDone: 0,
@@ -11463,6 +11509,12 @@ function applyEndTurn(state: GameState): GameState {
         started = { ...started, log: [...started.log, `${started.players[nextIdx].villainName} perd ${applied} Pouvoir (Kil'jaeden).`] }
       }
     }
+  }
+  // Ultron — FORME FINALE (3ᵉ Amélioration révélée) : +1 Pouvoir au début de son tour.
+  // (À 4 tuiles la partie est déjà gagnée : la condition >= 3 vise donc Forme finale.)
+  if ((started.players[nextIdx].ultronUpgrades ?? 0) >= 3) {
+    started = updatePlayer(started, nextIdx, (p) => ({ ...p, power: p.power + 1 }))
+    started = { ...started, log: [...started.log, `${started.players[nextIdx].villainName} gagne 1 Pouvoir (Forme finale).`] }
   }
   // Sombra — Invisibilité : l'immunité à la Fatalité expire au début de son tour.
   if (started.players[nextIdx].noFate) {
@@ -11650,6 +11702,129 @@ function checkImmediateObstacleWin(state: GameState): GameState {
     winner: idx,
     log: [...state.log, `🏆 ${w.villainName} a fait disparaître tous les Obstacles et l'emporte !`],
   }
+}
+
+/** Défausse des cartes du plateau du joueur `idx` (avec leurs cartes associées). Pur. */
+function discardUltronBoardCards(state: GameState, idx: number, instanceIds: string[]): GameState {
+  const set = new Set(instanceIds)
+  return updatePlayer(state, idx, (p) => {
+    const removed: CardInstance[] = []
+    const board: Record<string, CardInstance[]> = {}
+    for (const [loc, cards] of Object.entries(p.board)) {
+      const keep: CardInstance[] = []
+      for (const c of cards) {
+        if (set.has(c.instanceId) || (c.attachedTo && set.has(c.attachedTo))) {
+          removed.push({ ...c, attachedTo: undefined })
+        } else keep.push(c)
+      }
+      board[loc] = keep
+    }
+    return { ...p, board, discard: [...p.discard, ...removed] }
+  })
+}
+
+/** Ultron — complète la PROCHAINE tuile AMÉLIORATION (action libre, 1/tour). Selon la
+ *  tuile : défausse 2 Sentinelles choisies (Transformation) ; défausse un Drone de combat
+ *  portant 2 Alliage impénétrable (Optimisation) ; vérifie ≥1 Sentinelle par lieu (Forme
+ *  finale) ; paie 12 Pouvoir (L'ère d'Ultron → victoire immédiate). Pur ; lève si invalide. */
+function applyUltronCompleteUpgrade(state: GameState, discardIds: string[]): GameState {
+  const idx = state.activePlayer
+  const p = state.players[idx]
+  if (p.objective.type !== 'ULTRON_AGE_REVEALED') throw new Error('Améliorations réservées à Ultron.')
+  if (p.ultronUpgradeThisTurn) throw new Error('Une seule Amélioration par tour.')
+  const next = ultronNextUpgrade(p)
+  if (next >= ULTRON_UPGRADE_COUNT) throw new Error('Toutes les Améliorations sont déjà révélées.')
+  if (!ultronUpgradeConditionMet(state, idx)) throw new Error("La condition de cette Amélioration n'est pas remplie.")
+
+  const names = ['Transformation', 'Optimisation', 'Forme finale', "L'ère d'Ultron"]
+  let s: GameState = state
+
+  if (next === 0) {
+    // Transformation : défausser 2 Sentinelles distinctes du domaine.
+    const inRealm = new Set(ultronSentriesInRealm(p).map((c) => c.instanceId))
+    const chosen = discardIds.filter((id) => inRealm.has(id))
+    if (chosen.length !== 2 || new Set(chosen).size !== 2) {
+      throw new Error('Choisissez 2 Sentinelles distinctes de votre domaine à défausser.')
+    }
+    s = discardUltronBoardCards(s, idx, chosen)
+  } else if (next === 1) {
+    // Optimisation : défausser un Drone de combat portant 2 Alliage impénétrable.
+    const droneId = discardIds[0]
+    const loc = droneId ? locationOfCard(p, droneId) : undefined
+    const drone = loc ? (p.board[loc] ?? []).find((c) => c.instanceId === droneId) : undefined
+    const alloys = loc
+      ? (p.board[loc] ?? []).filter((a) => a.attachedTo === droneId && a.cardId === ULTRON_ALLIAGE).length
+      : 0
+    if (!drone || drone.cardId !== ULTRON_DRONE_COMBAT || alloys < 2) {
+      throw new Error('Choisissez un Drone de combat portant 2 Alliage impénétrable.')
+    }
+    s = discardUltronBoardCards(s, idx, [droneId])
+  } else if (next === 3) {
+    // L'ère d'Ultron : payer 12 Pouvoir.
+    if (p.power < 12) throw new Error("Il faut 12 Pouvoir pour révéler L'ère d'Ultron.")
+    s = updatePlayer(s, idx, (pl) => ({ ...pl, power: pl.power - 12 }))
+  }
+  // next === 2 (Forme finale) : aucune défausse ni paiement (condition déjà vérifiée).
+
+  s = updatePlayer(s, idx, (pl) => ({
+    ...pl,
+    ultronUpgrades: (pl.ultronUpgrades ?? 0) + 1,
+    ultronUpgradeThisTurn: true,
+  }))
+  s = { ...s, log: [...s.log, `⚙️ ${p.villainName} révèle la Compétence **${names[next]}**.`] }
+
+  // Révélation de la 4ᵉ tuile (L'ère d'Ultron) → victoire IMMÉDIATE.
+  if ((s.players[idx].ultronUpgrades ?? 0) >= ULTRON_UPGRADE_COUNT) {
+    s = {
+      ...s,
+      status: 'WON',
+      winner: idx,
+      log: [...s.log, `🏆 ${p.villainName} déclenche L'ÈRE D'ULTRON et l'emporte !`],
+    }
+  }
+  return s
+}
+
+/** Ultron — OPTIMISATION (2ᵉ Amélioration révélée) : 1×/tour, une action « Jouer une carte »
+ *  du lieu du pion est employée comme une action « Déplacer un Allié/Objet ». On présente
+ *  temporairement l'action ciblée comme MOVE_ITEM_ALLY et on délègue à `applyMoveCard` (mêmes
+ *  règles de déplacement + consommation du slot), puis on restaure son type et on marque le
+ *  passif consommé. Pur ; lève si invalide. */
+function applyUltronOptimizeMove(state: GameState, actionId: string, instanceId: string, to: LocationId): GameState {
+  const idx = state.activePlayer
+  const p = state.players[idx]
+  if (p.objective.type !== 'ULTRON_AGE_REVEALED') throw new Error('Optimisation réservée à Ultron.')
+  if ((p.ultronUpgrades ?? 0) < 2) throw new Error("Optimisation n'est pas encore révélée.")
+  if (p.ultronOptimUsedThisTurn) throw new Error('Optimisation a déjà été employée ce tour.')
+  const pawn = p.pawnLocation
+  if (!pawn) throw new Error('Le pion doit être placé pour utiliser Optimisation.')
+  const loc = p.locations.find((l) => l.id === pawn)
+  const action = loc?.actions.find((a) => a.id === actionId)
+  if (!action || action.type !== 'PLAY_CARD') {
+    throw new Error('Optimisation remplace une action « Jouer une carte » du lieu du pion.')
+  }
+  // Présente l'action ciblée comme un déplacement, puis délègue à applyMoveCard.
+  const view = updatePlayer(state, idx, (pl) => ({
+    ...pl,
+    locations: pl.locations.map((l) =>
+      l.id === pawn
+        ? { ...l, actions: l.actions.map((a) => (a.id === actionId ? { ...a, type: 'MOVE_ITEM_ALLY' as const } : a)) }
+        : l,
+    ),
+  }))
+  let after = applyMoveCard(view, actionId, instanceId, to)
+  // Restaure le type d'origine de l'action (elle est désormais dans usedActionIds) et marque
+  // le passif consommé pour le tour.
+  after = updatePlayer(after, idx, (pl) => ({
+    ...pl,
+    ultronOptimUsedThisTurn: true,
+    locations: pl.locations.map((l) =>
+      l.id === pawn
+        ? { ...l, actions: l.actions.map((a) => (a.id === actionId ? { ...a, type: 'PLAY_CARD' as const } : a)) }
+        : l,
+    ),
+  }))
+  return { ...after, log: [...after.log, `⚙️ ${p.villainName} (Optimisation) : « ${action.label} » utilisée comme Déplacement.`] }
 }
 
 /** Applique une action de jeu et renvoie le nouvel état. Pur, déterministe. */
@@ -12669,6 +12844,10 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveDestinChoice(state, action.choice)
     case 'SKIP_FREE_ITEM_PLAY':
       return applySkipFreeItemPlay(state)
+    case 'ULTRON_COMPLETE_UPGRADE':
+      return applyUltronCompleteUpgrade(state, action.discard ?? [])
+    case 'ULTRON_OPTIMIZE_MOVE':
+      return clearGiant(state, applyUltronOptimizeMove(state, action.actionId, action.instanceId, action.to))
     case 'RESOLVE_FATE_REORDER':
       return applyResolveFateReorder(state, action.orderedIds)
     case 'RESOLVE_RAIPONCE_HOMEWARD':

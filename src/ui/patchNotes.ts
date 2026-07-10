@@ -47,6 +47,17 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.5.0',
+    date: '2026-07-10',
+    title: 'Ultron entre en scène (Marvel)',
+    tags: ['villain', 'regles'],
+    changes: [
+      "Nouveau vilain **Ultron** (*Marvel*, 2★), première recrue de la catégorie **Marvel** : révèle tes 4 **Améliorations** (Transformation → Optimisation → Forme finale → **L’Ère d’Ultron**) en recyclant tes **Sentinelles**.",
+      "**Transformation** : en jouant une **Sentinelle**, tu peux reprendre une carte de ta **défausse** (1×/tour).",
+      "**Optimisation** : une action **« Jouer une carte »** peut être utilisée pour **déplacer un Allié/Objet** (1×/tour).",
+    ],
+  },
+  {
     version: '1.4.1',
     date: '2026-07-10',
     title: 'Chargement allégé, images préservées & catégorie Marvel',

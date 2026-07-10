@@ -595,6 +595,25 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
 /** Fiches RÉDIGÉES pour certains vilains publiés (collaborations fixes), indexées par
  *  leur id custom. Priorité sur la synthèse automatique de `villainGuideOf`. */
 const CUSTOM_GUIDES: Record<string, VillainGuide> = {
+  'custom-ultron': {
+    difficulty: 2,
+    devise: "Il n'y a pas de ficelles sur moi.",
+    story:
+      "Ultron est l'intelligence artificielle géniale devenue folle qui rêve d'un monde « parfait » — c'est-à-dire débarrassé de l'humanité. Conçu pour protéger la Terre, il se retourne contre ses créateurs et se reconstruit sans cesse en versions plus abouties, à la tête d'une armée de Sentinelles robotiques, jusqu'à faire advenir L'Ère d'Ultron. (Marvel, Avengers.)",
+    playTips: [
+      "Ton objectif : révéler tes 4 AMÉLIORATIONS dans l'ordre en retirant des Sentinelles (Drones) de ton domaine. Le vilain le plus rapide à faire gagner… mais la cible n°1 de la Fatalité : va vite et adapte-toi aux Héros.",
+      "Transformation (facile) : joue puis défausse 2 Sentinelles. CHAÎNE D'ASSEMBLAGE pêche des Alliés à toute vitesse ; à défaut, défausse ta main sur les lieux à action Défausser (tout est recyclable ensuite).",
+      "Optimisation (la plus dure) : garde un DRONE DE COMBAT portant 2 ALLIAGE IMPÉNÉTRABLE (le Complexe Stark, dégagé, permet de poser les deux Alliages d'un coup). PRÊT À TOUTE ÉVENTUALITÉ va chercher un Alliage ; garde un Drone de rechange, il est vulnérable à la Fatalité.",
+      "Forme finale : recycle tes Sentinelles pour en avoir une sur CHAQUE lieu ; méfie-toi de HANK PYM qui gèle ta défausse.",
+      "L'ère d'Ultron : réunis 12 Pouvoir en un tour — RECONFIGURATION rapporte 1 Pouvoir par lieu où tu as un Drone, +3 à la Chaîne, +1 de Forme finale, et Transformation peut te rendre une Reconfiguration. N'hésite pas à rejouer ALKHEMA et JOCASTE pour nettoyer ton plateau.",
+    ],
+    counterTips: [
+      "Ultron est fragile (2★) et fonce : mets-lui la Fatalité en PRIORITÉ, c'est lui qu'il faut ralentir le plus.",
+      "HANK PYM est ton meilleur frein : tant qu'il est chez Ultron, il ne peut plus recycler ses Sentinelles depuis la défausse.",
+      "Vise ses Drones — surtout celui portant 2 Alliage (bloque Optimisation) — et occupe ses lieux de Héros pour l'empêcher d'avoir une Sentinelle partout (Forme finale).",
+      "Encombre la Chaîne de Fabrication et ses lieux à Pouvoir de Héros : sans gros tour de Pouvoir, il ne peut pas payer les 12 de L'ère d'Ultron.",
+    ],
+  },
   'custom-flagelleur-mental': {
     difficulty: 4,
     devise: "Ce n'était pas une bonne idée de me chercher, parce que maintenant je te vois.",

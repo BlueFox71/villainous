@@ -907,6 +907,13 @@ interface GameStore {
   resolvePokemonSummon: (cardId: string) => void
   /** Team Rocket — « Oui, la guerre ! » : couche le Pokémon choisi. */
   resolveKoPokemon: (instanceId: string) => void
+  /** Ultron — compléter la prochaine tuile Amélioration (action libre, 1/tour). `discard` =
+   *  Sentinelles à défausser selon la tuile (2 pour Transformation, 1 Drone de combat pour
+   *  Optimisation ; aucune pour Forme finale / L'ère d'Ultron). */
+  completeUltronUpgrade: (discard?: string[]) => void
+  /** Ultron — Optimisation : utilise l'action « Jouer une carte » `actionId` du lieu du pion
+   *  comme un « Déplacer un Allié/Objet » (déplace `instanceId` vers `to`). */
+  ultronOptimizeMove: (actionId: string, instanceId: string, to: string) => void
   /** Pat Hibulaire — « Planqués » : défausse l'Allié choisi. */
   resolveFateDiscardAlly: (instanceId: string) => void
   /** Syndrome — Identification, je vous prie : déplace l'Allié/Objet choisi vers le lieu (avec Héros) choisi. */
@@ -954,7 +961,7 @@ interface GameStore {
   /** Carte du Pays Imaginaire : défausse-la et joue gratuitement un Objet de la main. */
   useNeverlandMap: (itemInstanceId: string, to: string, attachTo?: string) => void
   /** Opportunisme : reprend en main la carte choisie de la défausse Vilain. */
-  resolveRecover: (instanceId: string) => void
+  resolveRecover: (instanceId?: string) => void
   /** Soyez prêtes ! (Scar) : reprend la carte choisie (null = terminer). */
   resolveBePrepared: (instanceId: string | null) => void
   /** Shenzi (Scar) : joue gratuitement la Hyène choisie (null = décliner). */
@@ -1571,6 +1578,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   skipAllyRelocate: () => get().submit({ type: 'SKIP_ALLY_RELOCATE' }),
   resolvePokemonSummon: (cardId) => get().submit({ type: 'RESOLVE_POKEMON_SUMMON', cardId }),
   resolveKoPokemon: (instanceId) => get().submit({ type: 'RESOLVE_KO_POKEMON', instanceId }),
+  completeUltronUpgrade: (discard) => get().submit({ type: 'ULTRON_COMPLETE_UPGRADE', discard }),
+  ultronOptimizeMove: (actionId, instanceId, to) =>
+    get().submit({ type: 'ULTRON_OPTIMIZE_MOVE', actionId, instanceId, to }),
   resolveFateDiscardAlly: (instanceId) => get().submit({ type: 'RESOLVE_FATE_DISCARD_ALLY', instanceId }),
   resolveIdentification: (cardInstanceId, to) =>
     get().submit({ type: 'RESOLVE_IDENTIFICATION', cardInstanceId, to }),

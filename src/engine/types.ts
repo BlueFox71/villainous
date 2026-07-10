@@ -218,6 +218,10 @@ export type ObjectiveDef =
    *  début de son tour (`judgmentTiles` = nombre de lieux tuilés, depuis Silent Hill
    *  à droite vers la gauche). */
   | { type: 'JUDGMENT_TILES_ALL' }
+  /** Ultron (Marvel) : révéler ses 4 tuiles AMÉLIORATION dans l'ordre (Transformation,
+   *  Optimisation, Forme finale, L'ère d'Ultron). Victoire IMMÉDIATE quand la 4ᵉ est
+   *  révélée (`ultronUpgrades` atteint 4). Une seule Amélioration par tour. */
+  | { type: 'ULTRON_AGE_REVEALED' }
   /** Avoir au moins `count` exemplaires d'une carte donnée (`cardId`) posés dans
    *  le royaume, tous lieux confondus (Slenderman : 8 Pages). */
   | { type: 'CARDS_IN_REALM'; cardId: string; count: number }
@@ -2381,6 +2385,9 @@ export interface CardInstance {
   /** Pyramid Head — Maria : tant qu'elle est sur un lieu, aucune TUILE DE JUGEMENT ne peut
    *  y être propagée. Recopié de CardDef. */
   blocksJudgmentTile?: boolean
+  /** Ultron (Marvel) — SENTINELLE (« Drone ») : classification d'Allié référencée par les
+   *  tuiles Amélioration et certaines cartes. Recopié de CardDef. */
+  isSentry?: boolean
   /** Pyramid Head — Eddie : ne peut pas être éliminé par la Cage de l'Expiation. */
   immuneToCage?: boolean
   /** Pyramid Head — Laura : tant qu'elle est en jeu, obtenir une piste de souffrance
@@ -2903,6 +2910,21 @@ export interface PlayerState {
    *  `judgmentTiles` lieux tuilés = les `judgmentTiles` derniers de `locations`. Une
    *  tuile recouvre les actions du HAUT de son lieu (comme un Héros). */
   judgmentTiles?: number
+  /** Ultron (Marvel) — nombre de tuiles AMÉLIORATION révélées (0→4), dans l'ordre
+   *  Transformation, Optimisation, Forme finale, L'ère d'Ultron. À 4, victoire
+   *  (objectif ULTRON_AGE_REVEALED). Défini uniquement pour Ultron. */
+  ultronUpgrades?: number
+  /** Ultron — une Amélioration a déjà été complétée CE tour (max 1/tour). Réinitialisé
+   *  en fin de tour. */
+  ultronUpgradeThisTurn?: boolean
+  /** Ultron — TRANSFORMATION (1ʳᵉ Amélioration révélée) : le passif « en jouant une
+   *  Sentinelle, reprendre 1 carte de la défausse » a déjà été déclenché CE tour (1/tour).
+   *  Réinitialisé en fin de tour. */
+  ultronTransfoUsedThisTurn?: boolean
+  /** Ultron — OPTIMISATION (2ᵉ Amélioration révélée) : le passif « une action Jouer une
+   *  carte utilisée comme Déplacer un Allié/Objet » a déjà été employé CE tour (1/tour).
+   *  Réinitialisé en fin de tour. */
+  ultronOptimUsedThisTurn?: boolean
   /** Isabella — HORLOGE : heure courante (index 0..5 = XII, II, IV, VI, VIII, X).
    *  Démarre à XII (0) et avance d'un cran au DÉBUT de chacun de ses tours (sauf le
    *  tout premier). Défini uniquement pour Isabella (objectif ISABELLA_CLOCK). */
@@ -3904,6 +3926,9 @@ export interface GameState {
     /** Nombre de cartes à récupérer (défaut 1). Davy Jones — Je considère cela comme un
      *  non : 2. Décrémenté à chaque reprise ; le pending se ferme à 0 ou si plus de candidat. */
     count?: number
+    /** Reprise FACULTATIVE : le joueur peut ne rien reprendre (RESOLVE_RECOVER sans
+     *  instanceId ferme le pending). Ultron — Transformation. */
+    optional?: boolean
   } | null
   /** Scar — Soyez prêtes ! : après avoir défaussé 3 cartes, `playerIndex` reprend en
    *  main soit 1 Événement, soit jusqu'à 2 Alliés de sa défausse (RESOLVE_BE_PREPARED ;
@@ -4695,7 +4720,7 @@ export type GameAction =
    *  (associé à `attachTo` si l'Objet s'associe). */
   | { type: 'USE_NEVERLAND_MAP'; itemInstanceId: string; to: LocationId; attachTo?: string }
   /** Opportunisme : reprend en main la carte `instanceId` de la défausse Vilain. */
-  | { type: 'RESOLVE_RECOVER'; instanceId: string }
+  | { type: 'RESOLVE_RECOVER'; instanceId?: string }
   | { type: 'RESOLVE_BE_PREPARED'; instanceId: string | null }
   | { type: 'RESOLVE_FREE_HYENA'; instanceId: string | null }
   | { type: 'RESOLVE_HAKUNA_MATATA'; mode: 'play' | 'move'; instanceId: string }
@@ -4834,4 +4859,13 @@ export type GameAction =
   | { type: 'RESOLVE_FREE_ITEM_PLAY'; instanceId: string; to: LocationId }
   /** Renonce au jeu gratuit d'un Objet (Nous touchons du doigt la victoire). */
   | { type: 'SKIP_FREE_ITEM_PLAY' }
+  /** Ultron (Marvel) — compléter la PROCHAINE tuile Amélioration (action libre, 1/tour).
+   *  `discard` = instanceId(s) des Sentinelles à défausser selon la tuile (Transformation :
+   *  2 Sentinelles ; Optimisation : 1 Drone de combat portant 2 Alliage impénétrable ;
+   *  Forme finale & L'ère d'Ultron : aucune défausse). */
+  | { type: 'ULTRON_COMPLETE_UPGRADE'; discard?: string[] }
+  /** Ultron (Marvel) — OPTIMISATION (2ᵉ Amélioration) : 1×/tour, utilise l'action « Jouer une
+   *  carte » `actionId` du lieu du pion comme un « Déplacer un Allié/Objet » (déplace `instanceId`
+   *  vers `to`). Consomme ce slot d'action. */
+  | { type: 'ULTRON_OPTIMIZE_MOVE'; actionId: string; instanceId: string; to: LocationId }
   | { type: 'END_TURN' }

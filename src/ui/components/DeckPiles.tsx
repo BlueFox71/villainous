@@ -998,3 +998,67 @@ export function MauiPiles({ player, uprightWidth = 'w-16' }: { player: PlayerSta
   )
 }
 
+/** Ultron (Marvel) — les 4 tuiles AMÉLIORATION dans l'ordre, images sous /cards/ultron/.
+ *  Face cachée = dos (condition d'accomplissement) ; révélée = Compétence. */
+const ULTRON_TILES = [
+  { name: 'Transformation', face: '/cards/ultron/tile-transformation.png', back: '/cards/ultron/tile-back-transformation.png' },
+  { name: 'Optimisation', face: '/cards/ultron/tile-optimisation.png', back: '/cards/ultron/tile-back-optimisation.png' },
+  { name: 'Forme finale', face: '/cards/ultron/tile-forme-finale.png', back: '/cards/ultron/tile-back-forme-finale.png' },
+  { name: "L'ère d'Ultron", face: '/cards/ultron/tile-ere-d-ultron.png', back: '/cards/ultron/tile-back-ere-d-ultron.png' },
+]
+
+/**
+ * Ultron — pile secondaire des 4 tuiles AMÉLIORATION (Transformation → Optimisation →
+ * Forme finale → L'ère d'Ultron). Les tuiles déjà révélées montrent leur Compétence ;
+ * les autres leur dos (condition). La PROCHAINE tuile complétable pulse, et un bouton
+ * « Compléter » apparaît quand `canComplete` (condition remplie, tour du joueur). Rendue
+ * uniquement pour Ultron (objectif ULTRON_AGE_REVEALED) — sinon `null`.
+ */
+export function AmeliorationTiles({
+  player,
+  canComplete = false,
+  onComplete,
+}: {
+  player: PlayerState
+  canComplete?: boolean
+  onComplete?: () => void
+}) {
+  if (player.objective.type !== 'ULTRON_AGE_REVEALED') return null
+  const revealed = player.ultronUpgrades ?? 0
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <span className="text-[8px] font-bold uppercase tracking-wide text-red-300/90">
+        Améliorations {revealed}/4
+      </span>
+      <div className="flex gap-0.5">
+        {ULTRON_TILES.map((t, i) => {
+          const isRevealed = i < revealed
+          const isNext = i === revealed
+          return (
+            <img
+              key={t.name}
+              src={isRevealed ? t.face : t.back}
+              alt={t.name}
+              title={t.name}
+              className={`w-8 rounded-sm border object-cover ${
+                isRevealed ? 'border-red-400/70' : 'border-white/15'
+              } ${isNext && canComplete ? 'ring-2 ring-amber-300 animate-pulse' : ''} ${
+                !isRevealed && !isNext ? 'opacity-60' : ''
+              }`}
+            />
+          )
+        })}
+      </div>
+      {canComplete && (
+        <button
+          type="button"
+          onClick={onComplete}
+          className="mt-0.5 rounded-md border border-amber-300/60 bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold text-amber-100 transition hover:bg-amber-400/30"
+        >
+          Compléter
+        </button>
+      )}
+    </div>
+  )
+}
+

@@ -39,6 +39,9 @@ import {
   sacrificeableCards,
   teleportTargets,
   transformableGuards,
+  ultronUpgradeConditionMet,
+  ultronSentriesInRealm,
+  ultronOptimizeAvailable,
 } from '../engine/rules'
 import { titanReachableDests } from '../engine/effects'
 import { rankedFireTargets } from '../engine/shereKhan'
@@ -57,7 +60,8 @@ import { BoardImage, LOCATIONS_LEFT, PAWN_FIRST_LEFT, PAWN_STEP, getBlockedOverl
 import { BoardActions, getVillainActionPos } from './components/BoardActions'
 import { SUGAR_RUSH_TRACK } from './components/sugarRushTrack'
 import { HeroRow } from './components/HeroRow'
-import { DeckPiles, AuDelaPile, IngredientsPile, ArtifactsPile, ClockPile, SuccessionPile, ImpostorPile, CapturedPuppiesPile, ClaimedTreasuresPile, CauldronTile, MerlinPiles, MauiPiles, OmnidroidPile, DiscardModal } from './components/DeckPiles'
+import { DeckPiles, AuDelaPile, IngredientsPile, ArtifactsPile, ClockPile, SuccessionPile, ImpostorPile, CapturedPuppiesPile, ClaimedTreasuresPile, CauldronTile, MerlinPiles, MauiPiles, OmnidroidPile, AmeliorationTiles, DiscardModal } from './components/DeckPiles'
+import { UltronUpgradeDiscardModal } from './components/UltronUpgradeDiscardModal'
 import { StacksCards } from './components/StacksCards'
 import { GoalTilesRow } from './components/GoalTilesRow'
 import { FateModal } from './components/FateModal'
@@ -155,10 +159,12 @@ type Mode =
    *  attend le clic sur le Héros cible (n'importe quel lieu du royaume). */
   | { kind: 'item-attach-hero'; actionId: string; instanceId: string; cardName: string; diablo?: boolean }
   /** « Déplacer un Allié/Objet » : on attend le clic sur la carte à déplacer.
-   *  `granted` (Gaston — Tous avec moi) : action gratuite armée → dispatch enveloppé. */
-  | { kind: 'move-pick'; actionId: string; granted?: boolean }
+   *  `granted` (Gaston — Tous avec moi) : action gratuite armée → dispatch enveloppé.
+   *  `optim` (Ultron — Optimisation) : l'action « Jouer » `actionId` est employée comme
+   *  Déplacement → dispatch ULTRON_OPTIMIZE_MOVE. */
+  | { kind: 'move-pick'; actionId: string; granted?: boolean; optim?: boolean }
   /** Carte à déplacer choisie ; on attend le clic sur un lieu voisin. */
-  | { kind: 'move-dest'; actionId: string; instanceId: string; from: string; cardName: string; granted?: boolean }
+  | { kind: 'move-dest'; actionId: string; instanceId: string; from: string; cardName: string; granted?: boolean; optim?: boolean }
   /** « Déplacer un Héros » : on attend le clic sur le Héros à déplacer. */
   | { kind: 'move-hero-pick'; actionId: string }
   /** Héros choisi ; on attend le clic sur un lieu voisin de sa position. */
@@ -1568,6 +1574,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const skipAllyRelocate = useGameStore((s) => s.skipAllyRelocate)
   const resolvePokemonSummon = useGameStore((s) => s.resolvePokemonSummon)
   const resolveKoPokemon = useGameStore((s) => s.resolveKoPokemon)
+  const completeUltronUpgrade = useGameStore((s) => s.completeUltronUpgrade)
+  const ultronOptimizeMove = useGameStore((s) => s.ultronOptimizeMove)
+  // Ultron — modale ouverte de sélection des Sentinelles à défausser (tuile 0/1).
+  const [ultronDiscard, setUltronDiscard] = useState<{ tile: number; required: number } | null>(null)
   const resolveFateDiscardAlly = useGameStore((s) => s.resolveFateDiscardAlly)
   const resolveIdentification = useGameStore((s) => s.resolveIdentification)
   const resolveLotsoTarget = useGameStore((s) => s.resolveLotsoTarget)
@@ -1865,6 +1875,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const humanVillainKeyRef = useRef<VillainKey | null>(null)
   // Choix de la carte à activer quand plusieurs sont activables (action « Activer »).
   const [activatePick, setActivatePick] = useState<{ actionId: string } | null>(null)
+  // Ultron — Optimisation : clic sur une action « Jouer une carte » → choix Jouer / Déplacer.
+  const [optimChoice, setOptimChoice] = useState<{ actionId: string } | null>(null)
   // Le Seigneur des clés — Sorcellerie : clé choisie (couleur) en attente du lieu où la reposer.
   const [stealKeyId, setStealKeyId] = useState<string | null>(null)
   // Le Seigneur des clés — Plaisir ou souffrance (reposer une clé) : clé choisie en
@@ -2431,6 +2443,34 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
 
   const user = state.players[HUMAN]
   const bot = state.players[BOT]
+
+  // --- Ultron — tuiles AMÉLIORATION (action libre 1/tour) ---------------------------
+  // La prochaine tuile est complétable si sa condition est remplie ; les tuiles à défausse
+  // (Transformation : 2 Sentinelles ; Optimisation : 1 Drone de combat + 2 Alliage) ouvrent
+  // la modale de sélection, les autres (Forme finale / L'ère d'Ultron) se complètent direct.
+  const ultronCanComplete =
+    isHumanTurn && user.objective.type === 'ULTRON_AGE_REVEALED' && ultronUpgradeConditionMet(state, HUMAN)
+  const handleUltronComplete = () => {
+    const next = user.ultronUpgrades ?? 0
+    if (next === 0) setUltronDiscard({ tile: 0, required: 2 })
+    else if (next === 1) setUltronDiscard({ tile: 1, required: 1 })
+    else completeUltronUpgrade()
+  }
+  const ultronCandidates: CardInstance[] =
+    ultronDiscard == null
+      ? []
+      : ultronDiscard.tile === 0
+        ? ultronSentriesInRealm(user)
+        : user.locations.flatMap((loc) =>
+            (user.board[loc.id] ?? []).filter(
+              (c) =>
+                c.cardId === 'ultron-drone-de-combat' &&
+                !c.attachedTo &&
+                (user.board[loc.id] ?? []).filter(
+                  (a) => a.attachedTo === c.instanceId && a.cardId === 'ultron-alliage-impenetrable',
+                ).length >= 2,
+            ),
+          )
 
   // --- MODE TEST : éditeur de positions des actions (n'importe quel vilain) ---------
   // Vilain dont on édite le plateau dans le modal (par défaut celui du joueur).
@@ -3400,6 +3440,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         const pick = pickRecoverCandidate(p, cands)
         if (pick) {
           const timer = setTimeout(() => resolveRecover(pick.instanceId), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+        // Reprise FACULTATIVE (Ultron — Transformation) sans candidat exploitable : on passe.
+        if (prec.optional) {
+          const timer = setTimeout(() => resolveRecover(undefined), BOT_STEP_MS)
           return () => clearTimeout(timer)
         }
       }
@@ -4991,7 +5036,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     // Rien ne se déplace DEPUIS un lieu verrouillé (Bowser : Observatoire à 0 Étoile).
     if ((user.lockedLocations ?? []).includes(from)) return
     const card = user.board[from].find((c) => c.instanceId === instanceId)
-    setMode({ kind: 'move-dest', actionId: mode.actionId, instanceId, from, cardName: card?.name ?? '', granted: mode.granted })
+    setMode({ kind: 'move-dest', actionId: mode.actionId, instanceId, from, cardName: card?.name ?? '', granted: mode.granted, optim: mode.optim })
   }
   const handlePlace = (to: string) => {
     // Tamatoa — Crustacé : un clic sur un lieu y joue l'Objet dévoilé.
@@ -5017,6 +5062,9 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       if (mode.granted) {
         // Gaston — Tous avec moi : déplacement gratuit (action synthétique côté moteur).
         performGrantedAction({ type: 'MOVE_CARD', actionId: 'granted-free-action', instanceId: mode.instanceId, to })
+      } else if (mode.optim) {
+        // Ultron — Optimisation : l'action « Jouer une carte » est employée comme Déplacement.
+        ultronOptimizeMove(mode.actionId, mode.instanceId, to)
       } else {
         moveCard(mode.actionId, mode.instanceId, to)
       }
@@ -5489,7 +5537,11 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       const surcharge = hasHeroInRealm(state, state.activePlayer, 'timide') ? 1 : 0
       if (max >= 1) setBrewPick({ actionId: a.id, max, surcharge, count: 1 })
     }
-    else if (a.type === 'PLAY_CARD') handleSelectPlay(a.id)
+    else if (a.type === 'PLAY_CARD') {
+      // Ultron — Optimisation : si dispo, proposer Jouer une carte OU Déplacer un Allié/Objet.
+      if (ultronOptimizeAvailable(state)) setOptimChoice({ actionId: a.id })
+      else handleSelectPlay(a.id)
+    }
     else if (a.type === 'DISCARD_CARDS') handleSelectDiscard(a.id)
     else if (a.type === 'FATE') handleFate(a.id)
     else if (a.type === 'MOVE_ITEM_ALLY')
@@ -6849,6 +6901,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 onCardDragCancel={cancelDrag}
                 draggingInstanceId={draggingCardId}
               />
+              <AmeliorationTiles player={user} canComplete={ultronCanComplete} onComplete={handleUltronComplete} />
             </div>
             <div className="flex-1">
               {/* Sa Sucrerie — circuit en huit : le déplacement se fait en GLISSANT le pion
@@ -7850,6 +7903,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               <ClaimedTreasuresPile player={bot} />
               <CauldronTile player={bot} />
               <OmnidroidPile player={bot} />
+              <AmeliorationTiles player={bot} />
             </div>
             <div className="flex-1">
               <Board
@@ -8830,6 +8884,35 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         />
       )}
 
+      {/* Ultron — Optimisation : clic sur une action « Jouer une carte » → Jouer ou Déplacer. */}
+      {optimChoice && (
+        <ChoiceModal
+          title="Optimisation"
+          prompt="Utiliser cette action « Jouer une carte » pour…"
+          options={[
+            {
+              key: 'optim-play',
+              label: '🎴 Jouer une carte',
+              onSelect: () => {
+                const id = optimChoice.actionId
+                setOptimChoice(null)
+                handleSelectPlay(id)
+              },
+            },
+            {
+              key: 'optim-move',
+              label: '↔️ Déplacer un Allié/Objet (Optimisation)',
+              onSelect: () => {
+                const id = optimChoice.actionId
+                setOptimChoice(null)
+                setMode({ kind: 'move-pick', actionId: id, optim: true })
+              },
+            },
+          ]}
+          onCancel={() => setOptimChoice(null)}
+        />
+      )}
+
       {/* Shere Khan — C'est à moi que vous le direz : retour facultatif d'une Fatalité. */}
       {state.pendingRecoverFate && state.pendingRecoverFate.playerIndex === HUMAN && (
         <ChoiceModal
@@ -9351,6 +9434,25 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         />
       )}
 
+      {/* Ultron — choix des Sentinelles à défausser pour compléter une tuile Amélioration. */}
+      {ultronDiscard && (
+        <UltronUpgradeDiscardModal
+          tileName={ultronDiscard.tile === 0 ? 'Transformation' : 'Optimisation'}
+          prompt={
+            ultronDiscard.tile === 0
+              ? 'Défaussez 2 Sentinelles de votre domaine pour révéler cette Amélioration.'
+              : 'Défaussez un Drone de combat portant 2 Alliage impénétrable.'
+          }
+          candidates={ultronCandidates}
+          required={ultronDiscard.required}
+          onConfirm={(ids) => {
+            completeUltronUpgrade(ids)
+            setUltronDiscard(null)
+          }}
+          onCancel={() => setUltronDiscard(null)}
+        />
+      )}
+
       {/* Team Rocket — un dresseur invoque un Pokémon : l'humain choisit lequel (Stari/Togepi…). */}
       {state.pendingPokemonSummon && state.pendingPokemonSummon.chooserIndex === HUMAN && (
         <PokemonSummonModal
@@ -9569,8 +9671,24 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         )
       })()}
 
+      {/* Ultron — Transformation : reprise FACULTATIVE d'une carte de la défausse. */}
+      {state.pendingRecover && state.pendingRecover.playerIndex === HUMAN && state.pendingRecover.label === 'Transformation' && (() => {
+        const ids = new Set(state.pendingRecover.candidateIds)
+        const cards = [...user.discard, ...user.deck].filter((c) => ids.has(c.instanceId))
+        return (
+          <CardChoiceModal
+            title="Transformation : reprends une carte de ta défausse (facultatif)"
+            cards={cards}
+            onPick={(card) => resolveRecover(card.instanceId)}
+            noneLabel="Ne rien reprendre"
+            onNone={() => resolveRecover(undefined)}
+            onClose={() => resolveRecover(undefined)}
+          />
+        )
+      })()}
+
       {/* Opportunisme / Tâche : Téléchargement : reprendre une carte de la défausse. */}
-      {state.pendingRecover && state.pendingRecover.playerIndex === HUMAN && state.pendingRecover.label !== 'Magie noire' && state.pendingRecover.label !== 'Te revoilà !' && (() => {
+      {state.pendingRecover && state.pendingRecover.playerIndex === HUMAN && state.pendingRecover.label !== 'Magie noire' && state.pendingRecover.label !== 'Te revoilà !' && state.pendingRecover.label !== 'Transformation' && (() => {
         const ids = new Set(state.pendingRecover.candidateIds)
         const cards = [...user.discard, ...user.deck].filter((c) => ids.has(c.instanceId))
         const title =

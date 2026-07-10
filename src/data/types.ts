@@ -442,6 +442,9 @@ export interface CardDef {
   /** Tabbou — Canon Obscur : les cartes Objets coûtent N de moins tant que le pion
    *  se trouve sur le même lieu que cette carte (cumulatif). */
   itemCostReductionHere?: number
+  /** Ultron (Marvel) — SENTINELLE (« Drone ») : classification d'Allié référencée par les
+   *  tuiles Amélioration et certaines cartes (« retirer/défausser un Drone »). */
+  isSentry?: boolean
 }
 
 /** Développe une liste de définitions en un paquet concret (un élément par
