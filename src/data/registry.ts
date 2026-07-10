@@ -45,6 +45,7 @@ import { tabbouCards } from './villains/tabbou.cards'
 import { tamatoaCards } from './villains/tamatoa.cards'
 import { teamRocketCards } from './villains/team-rocket.cards'
 import { laBonneFeeCards } from './villains/la-bonne-fee.cards'
+import { MARVEL_FATE_POOL } from './marvelFate'
 // NB : Le Flagelleur Mental est un vilain de l'Atelier PUBLIÉ — ses cartes sont
 // enregistrées dynamiquement (registerCustomCardDefs), pas dans allCards statique.
 
@@ -86,6 +87,8 @@ export const allCards: CardDef[] = [
   ...tabbouCards,
   ...teamRocketCards,
   ...laBonneFeeCards,
+  // Pool Fatalité MARVEL commun (partagé entre vilains d'origine Marvel).
+  ...MARVEL_FATE_POOL,
 ]
 
 // On attache le classement « malus Fatalité » (data IA) au CardDef, sans muter

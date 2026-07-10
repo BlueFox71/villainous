@@ -951,7 +951,9 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
               </p>
             ) : (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                {villains.map((v) => (
+                {/* Les vilains FOURNIS DIRECTEMENT (atelierHidden, ex. Ultron) se jouent comme
+                    des natifs mais ne sont pas éditables dans l'Atelier : on les masque ici. */}
+                {villains.filter((v) => !v.atelierHidden).map((v) => (
                   <div
                     key={v.id}
                     className="group flex flex-col overflow-hidden rounded-xl border border-white/15 bg-black/30"

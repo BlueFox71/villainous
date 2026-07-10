@@ -1,1 +1,358 @@
-{"formatVersion":1,"id":"custom-ultron","name":"Ultron","devise":"Il n'y a pas de ficelles sur moi.","stars":2,"color":"#9c1f2b","portrait":"/cards/ultron/portrait.png","presentation":"/cards/ultron/presentation.png","pawnHeightPx":92,"boardObjective":"Vous devez obtenir la Compétence L'ÈRE D'ULTRON.","objectiveDescription":"Révélez vos 4 Améliorations dans l'ordre (Transformation, Optimisation, Forme finale, L'ère d'Ultron) en retirant des Sentinelles de votre domaine ; révéler L'ère d'Ultron vous fait gagner. Une seule Amélioration par tour.","objective":{"type":"ULTRON_AGE_REVEALED"},"locations":[{"id":"loc-1","name":"Laboratoire de Recherche","actions":[{"id":"move","type":"MOVE_ITEM_ALLY","label":"Déplacer un Allié ou Objet","row":"top"},{"id":"gain","type":"GAIN_POWER","label":"Gagner 1 pouvoir","row":"top","amount":1},{"id":"fate","type":"FATE","label":"Fatalité","row":"bottom"},{"id":"play","type":"PLAY_CARD","label":"Jouer une carte","row":"bottom"}]},{"id":"loc-2","name":"Chaîne de Fabrication","actions":[{"id":"play","type":"PLAY_CARD","label":"Jouer une carte","row":"top"},{"id":"fate","type":"FATE","label":"Fatalité","row":"top"},{"id":"gain","type":"GAIN_POWER","label":"Gagner 3 pouvoir","row":"bottom","amount":3},{"id":"activate","type":"ACTIVATE","label":"Activer","row":"bottom"}]},{"id":"loc-3","name":"Base de Reconfiguration","actions":[{"id":"play","type":"PLAY_CARD","label":"Jouer une carte","row":"top"},{"id":"gain","type":"GAIN_POWER","label":"Gagner 2 pouvoir","row":"top","amount":2},{"id":"discard","type":"DISCARD_CARDS","label":"Défausser des cartes","row":"bottom"},{"id":"vanquish","type":"VANQUISH","label":"Vaincre un Héros","row":"bottom"}]},{"id":"loc-4","name":"Complexe Industriel de Stark Industries","actions":[{"id":"discard","type":"DISCARD_CARDS","label":"Défausser des cartes","row":"top"},{"id":"play","type":"PLAY_CARD","label":"Jouer une carte","row":"top"},{"id":"play2","type":"PLAY_CARD","label":"Jouer une carte","row":"bottom"},{"id":"gain","type":"GAIN_POWER","label":"Gagner 1 pouvoir","row":"bottom","amount":1}]}],"cards":[{"id":"ultron-drone-de-combat","name":"DRONE DE COMBAT","englishName":"Duplicate Sentry","deck":"villain","type":"ally","copies":4,"text":"Aucune capacité.","cost":1,"strength":2,"isSentry":true},{"id":"ultron-drone-aerien","name":"DRONE AÉRIEN","englishName":"Flying Sentry","deck":"villain","type":"ally","copies":3,"text":"Si cette carte est sur une Crise lors de sa résolution, vous pouvez la transférer sur n'importe quel lieu de votre domaine, au lieu de la défausser.","cost":2,"strength":3,"isSentry":true},{"id":"ultron-drone-d-assaut","name":"DRONE D’ASSAUT","englishName":"Heavy Attack Sentry","deck":"villain","type":"ally","copies":3,"text":"Ce lieu gagne une action Vaincre supplémentaire.","cost":2,"strength":3,"isSentry":true},{"id":"ultron-drone-geant","name":"DRONE GÉANT","englishName":"Giant Sentry","deck":"villain","type":"ally","copies":1,"text":"Vous pouvez défausser 2 Drones de votre main pour jouer le DRONE GÉANT au lieu de payer son coût.","cost":6,"strength":6,"isSentry":true},{"id":"ultron-alliage-impenetrable","name":"ALLIAGE IMPÉNÉTRABLE","englishName":"Impervious Alloy","deck":"villain","type":"item","copies":4,"text":"Associez cette carte à l'un de vos Alliés. Elle ne peut être retirée que si cet Allié est éliminé ou défaussé.","cost":2},{"id":"ultron-reconfiguration","name":"RECONFIGURATION","englishName":"Reconfigure","deck":"villain","type":"effect","copies":3,"text":"Gagnez 1 jeton Pouvoir pour chaque lieu de votre domaine où se trouve au moins un Drone.","cost":0},{"id":"ultron-chaine-d-assemblage","name":"CHAÎNE D’ASSEMBLAGE","englishName":"Assembly Line","deck":"villain","type":"item","copies":2,"text":"Dévoilez des cartes de votre pioche jusqu’à trouver un Allié. Ajoutez-le à votre main et gagnez 1 jeton Pouvoir.","cost":1},{"id":"ultron-assimilation-de-connaissances","name":"ASSIMILATION DE CONNAISSANCES","englishName":"Assimilate Knowledge","deck":"villain","type":"effect","copies":2,"text":"Regardez les 6 premières cartes de la pioche Fatalité, puis replacez-les dans l’ordre de votre choix.","cost":1},{"id":"ultron-encephalo-rayon","name":"ENCÉPHALO-RAYON","englishName":"Encephalo-Ray","deck":"villain","type":"effect","copies":2,"text":"Placez un jeton Force -1 sur chaque Héros de votre domaine.","cost":2},{"id":"ultron-pret-a-toute-eventualite","name":"PRÊT À TOUTE ÉVENTUALITÉ","englishName":"Every Contingency Covered","deck":"villain","type":"effect","copies":2,"text":"Choisissez Objet ou Événement. Dévoilez des cartes de votre pioche jusqu’à en trouver une de ce type. Ajoutez cette carte à votre main.","cost":1},{"id":"ultron-cybernetique","name":"CYBERNÉTIQUE","englishName":"Technoforming","deck":"villain","type":"effect","copies":2,"text":"Ajoutez 1 jeton Force +1 sur l’un de vos Alliés. Vous pouvez ensuite transférer cet Allié sur une Crise.","cost":1},{"id":"ultron-alkhema","name":"ALKHEMA","englishName":"Alkhema","deck":"villain","type":"ally","copies":1,"text":"Éliminez un personnage sur le lieu où vous jouez ALKHEMA.","cost":3,"strength":3},{"id":"ultron-jocaste","name":"JOCASTE","englishName":"Jocasta","deck":"villain","type":"ally","copies":1,"text":"Vous pouvez transférer n’importe quel Héros sur un lieu du domaine de votre choix.","cost":4,"strength":3},{"id":"ultron-rearrangeur-moleculaire","name":"RÉARRANGEUR MOLÉCULAIRE","englishName":"Molecular Rearranger","deck":"fate","type":"effect","copies":3,"text":"Choisissez une carte Allié ou Objet présente dans le domaine d’un adversaire. Il défausse tous les exemplaires de cette carte présents dans son domaine."},{"id":"ultron-arret-d-urgence","name":"ARRÊT D’URGENCE","englishName":"Deactivation Switch","deck":"fate","type":"item","copies":2,"text":"Associez cette carte à une Compétence. Celle-ci ne peut plus être utilisée, à moins que son propriétaire paye 2 jetons Pouvoir durant son tour pour défausser cette carte."},{"id":"ultron-hank-pym","name":"HANK PYM","englishName":"Hank Pym","deck":"fate","type":"hero","copies":1,"text":"Tant que HANK PYM est dans votre domaine, vous ne pouvez plus chercher ou jouer de cartes de votre défausse.","strength":2},{"id":"ultron-mockingbird","name":"MOCKINGBIRD","englishName":"Mockingbird","deck":"fate","type":"hero","copies":1,"text":"Le joueur chez qui vous jouez MOCKINGBIRD perd 2 jetons Pouvoir.","strength":2},{"id":"ultron-la-sorciere-rouge","name":"LA SORCIÈRE ROUGE","englishName":"Scarlet Witch","deck":"fate","type":"hero","copies":1,"text":"Choisissez un type de cartes. Le joueur chez qui vous jouez LA SORCIÈRE ROUGE doit dévoiler sa main et défausser toutes les cartes du type choisi.","strength":4},{"id":"ultron-la-guepe","name":"LA GUÊPE","englishName":"Wasp","deck":"fate","type":"hero","copies":1,"text":"Choisissez un Héros du domaine où vous jouez LA GUÊPE et transférez-le sur un lieu différent de n’importe quel domaine.","strength":3},{"id":"ultron-wonder-man","name":"WONDER MAN","englishName":"Wonder Man","deck":"fate","type":"hero","copies":1,"text":"Si WONDER MAN est éliminé, cherchez VISION dans les cartes Fatalité et jouez-le ou transférez-le sur le lieu où WONDER MAN se trouvait.","strength":4}],"published":true,"creator":"Marvel","origin":"Marvel","createdAt":"2026-07-10T12:00:00.000Z","updatedAt":"2026-07-10T12:00:00.000Z"}
+{
+  "formatVersion": 1,
+  "id": "custom-ultron",
+  "name": "Ultron",
+  "devise": "Il n'y a pas de ficelles sur moi.",
+  "stars": 2,
+  "color": "#9c1f2b",
+  "portrait": "/cards/ultron/portrait.png",
+  "presentation": "/cards/ultron/presentation.png",
+  "pawnHeightPx": 92,
+  "boardObjective": "Vous devez obtenir la Compétence L'ÈRE D'ULTRON.",
+  "objectiveDescription": "Révélez vos 4 Améliorations dans l'ordre (Transformation, Optimisation, Forme finale, L'ère d'Ultron) en retirant des Sentinelles de votre domaine ; révéler L'ère d'Ultron vous fait gagner. Une seule Amélioration par tour.",
+  "objective": {
+    "type": "ULTRON_AGE_REVEALED"
+  },
+  "locations": [
+    {
+      "id": "loc-1",
+      "name": "Laboratoire de Recherche",
+      "actions": [
+        {
+          "id": "move",
+          "type": "MOVE_ITEM_ALLY",
+          "label": "Déplacer un Allié ou Objet",
+          "row": "top"
+        },
+        {
+          "id": "gain",
+          "type": "GAIN_POWER",
+          "label": "Gagner 1 pouvoir",
+          "row": "top",
+          "amount": 1
+        },
+        {
+          "id": "fate",
+          "type": "FATE",
+          "label": "Fatalité",
+          "row": "bottom"
+        },
+        {
+          "id": "play",
+          "type": "PLAY_CARD",
+          "label": "Jouer une carte",
+          "row": "bottom"
+        }
+      ]
+    },
+    {
+      "id": "loc-2",
+      "name": "Chaîne de Fabrication",
+      "actions": [
+        {
+          "id": "play",
+          "type": "PLAY_CARD",
+          "label": "Jouer une carte",
+          "row": "top"
+        },
+        {
+          "id": "fate",
+          "type": "FATE",
+          "label": "Fatalité",
+          "row": "top"
+        },
+        {
+          "id": "gain",
+          "type": "GAIN_POWER",
+          "label": "Gagner 3 pouvoir",
+          "row": "bottom",
+          "amount": 3
+        },
+        {
+          "id": "activate",
+          "type": "ACTIVATE",
+          "label": "Activer",
+          "row": "bottom"
+        }
+      ]
+    },
+    {
+      "id": "loc-3",
+      "name": "Base de Reconfiguration",
+      "actions": [
+        {
+          "id": "play",
+          "type": "PLAY_CARD",
+          "label": "Jouer une carte",
+          "row": "top"
+        },
+        {
+          "id": "gain",
+          "type": "GAIN_POWER",
+          "label": "Gagner 2 pouvoir",
+          "row": "top",
+          "amount": 2
+        },
+        {
+          "id": "discard",
+          "type": "DISCARD_CARDS",
+          "label": "Défausser des cartes",
+          "row": "bottom"
+        },
+        {
+          "id": "vanquish",
+          "type": "VANQUISH",
+          "label": "Vaincre un Héros",
+          "row": "bottom"
+        }
+      ]
+    },
+    {
+      "id": "loc-4",
+      "name": "Complexe Industriel de Stark Industries",
+      "actions": [
+        {
+          "id": "discard",
+          "type": "DISCARD_CARDS",
+          "label": "Défausser des cartes",
+          "row": "top"
+        },
+        {
+          "id": "play",
+          "type": "PLAY_CARD",
+          "label": "Jouer une carte",
+          "row": "top"
+        },
+        {
+          "id": "play2",
+          "type": "PLAY_CARD",
+          "label": "Jouer une carte",
+          "row": "bottom"
+        },
+        {
+          "id": "gain",
+          "type": "GAIN_POWER",
+          "label": "Gagner 1 pouvoir",
+          "row": "bottom",
+          "amount": 1
+        }
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "id": "ultron-drone-de-combat",
+      "name": "DRONE DE COMBAT",
+      "englishName": "Duplicate Sentry",
+      "deck": "villain",
+      "type": "ally",
+      "copies": 4,
+      "text": "Aucune capacité.",
+      "cost": 1,
+      "strength": 2,
+      "isSentry": true
+    },
+    {
+      "id": "ultron-drone-aerien",
+      "name": "DRONE AÉRIEN",
+      "englishName": "Flying Sentry",
+      "deck": "villain",
+      "type": "ally",
+      "copies": 3,
+      "text": "Si cette carte est sur une Crise lors de sa résolution, vous pouvez la transférer sur n'importe quel lieu de votre domaine, au lieu de la défausser.",
+      "cost": 2,
+      "strength": 3,
+      "isSentry": true
+    },
+    {
+      "id": "ultron-drone-d-assaut",
+      "name": "DRONE D’ASSAUT",
+      "englishName": "Heavy Attack Sentry",
+      "deck": "villain",
+      "type": "ally",
+      "copies": 3,
+      "text": "Ce lieu gagne une action Vaincre supplémentaire.",
+      "cost": 2,
+      "strength": 3,
+      "isSentry": true
+    },
+    {
+      "id": "ultron-drone-geant",
+      "name": "DRONE GÉANT",
+      "englishName": "Giant Sentry",
+      "deck": "villain",
+      "type": "ally",
+      "copies": 1,
+      "text": "Vous pouvez défausser 2 Drones de votre main pour jouer le DRONE GÉANT au lieu de payer son coût.",
+      "cost": 6,
+      "strength": 6,
+      "isSentry": true
+    },
+    {
+      "id": "ultron-alliage-impenetrable",
+      "name": "ALLIAGE IMPÉNÉTRABLE",
+      "englishName": "Impervious Alloy",
+      "deck": "villain",
+      "type": "item",
+      "copies": 4,
+      "text": "Associez cette carte à l'un de vos Alliés. Elle ne peut être retirée que si cet Allié est éliminé ou défaussé.",
+      "cost": 2
+    },
+    {
+      "id": "ultron-reconfiguration",
+      "name": "RECONFIGURATION",
+      "englishName": "Reconfigure",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 3,
+      "text": "Gagnez 1 jeton Pouvoir pour chaque lieu de votre domaine où se trouve au moins un Drone.",
+      "cost": 0
+    },
+    {
+      "id": "ultron-chaine-d-assemblage",
+      "name": "CHAÎNE D’ASSEMBLAGE",
+      "englishName": "Assembly Line",
+      "deck": "villain",
+      "type": "item",
+      "copies": 2,
+      "text": "Dévoilez des cartes de votre pioche jusqu’à trouver un Allié. Ajoutez-le à votre main et gagnez 1 jeton Pouvoir.",
+      "cost": 1
+    },
+    {
+      "id": "ultron-assimilation-de-connaissances",
+      "name": "ASSIMILATION DE CONNAISSANCES",
+      "englishName": "Assimilate Knowledge",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 2,
+      "text": "Regardez les 6 premières cartes de la pioche Fatalité, puis replacez-les dans l’ordre de votre choix.",
+      "cost": 1
+    },
+    {
+      "id": "ultron-encephalo-rayon",
+      "name": "ENCÉPHALO-RAYON",
+      "englishName": "Encephalo-Ray",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 2,
+      "text": "Placez un jeton Force -1 sur chaque Héros de votre domaine.",
+      "cost": 2
+    },
+    {
+      "id": "ultron-pret-a-toute-eventualite",
+      "name": "PRÊT À TOUTE ÉVENTUALITÉ",
+      "englishName": "Every Contingency Covered",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 2,
+      "text": "Choisissez Objet ou Événement. Dévoilez des cartes de votre pioche jusqu’à en trouver une de ce type. Ajoutez cette carte à votre main.",
+      "cost": 1
+    },
+    {
+      "id": "ultron-cybernetique",
+      "name": "CYBERNÉTIQUE",
+      "englishName": "Technoforming",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 2,
+      "text": "Ajoutez 1 jeton Force +1 sur l’un de vos Alliés. Vous pouvez ensuite transférer cet Allié sur une Crise.",
+      "cost": 1
+    },
+    {
+      "id": "ultron-alkhema",
+      "name": "ALKHEMA",
+      "englishName": "Alkhema",
+      "deck": "villain",
+      "type": "ally",
+      "copies": 1,
+      "text": "Éliminez un personnage sur le lieu où vous jouez ALKHEMA.",
+      "cost": 3,
+      "strength": 3
+    },
+    {
+      "id": "ultron-jocaste",
+      "name": "JOCASTE",
+      "englishName": "Jocasta",
+      "deck": "villain",
+      "type": "ally",
+      "copies": 1,
+      "text": "Vous pouvez transférer n’importe quel Héros sur un lieu du domaine de votre choix.",
+      "cost": 4,
+      "strength": 3
+    },
+    {
+      "id": "ultron-rearrangeur-moleculaire",
+      "name": "RÉARRANGEUR MOLÉCULAIRE",
+      "englishName": "Molecular Rearranger",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 3,
+      "text": "Choisissez une carte Allié ou Objet présente dans le domaine d’un adversaire. Il défausse tous les exemplaires de cette carte présents dans son domaine."
+    },
+    {
+      "id": "ultron-arret-d-urgence",
+      "name": "ARRÊT D’URGENCE",
+      "englishName": "Deactivation Switch",
+      "deck": "fate",
+      "type": "item",
+      "copies": 2,
+      "text": "Associez cette carte à une Compétence. Celle-ci ne peut plus être utilisée, à moins que son propriétaire paye 2 jetons Pouvoir durant son tour pour défausser cette carte."
+    },
+    {
+      "id": "ultron-hank-pym",
+      "name": "HANK PYM",
+      "englishName": "Hank Pym",
+      "deck": "fate",
+      "type": "hero",
+      "copies": 1,
+      "text": "Tant que HANK PYM est dans votre domaine, vous ne pouvez plus chercher ou jouer de cartes de votre défausse.",
+      "strength": 2
+    },
+    {
+      "id": "ultron-mockingbird",
+      "name": "MOCKINGBIRD",
+      "englishName": "Mockingbird",
+      "deck": "fate",
+      "type": "hero",
+      "copies": 1,
+      "text": "Le joueur chez qui vous jouez MOCKINGBIRD perd 2 jetons Pouvoir.",
+      "strength": 2
+    },
+    {
+      "id": "ultron-la-sorciere-rouge",
+      "name": "LA SORCIÈRE ROUGE",
+      "englishName": "Scarlet Witch",
+      "deck": "fate",
+      "type": "hero",
+      "copies": 1,
+      "text": "Choisissez un type de cartes. Le joueur chez qui vous jouez LA SORCIÈRE ROUGE doit dévoiler sa main et défausser toutes les cartes du type choisi.",
+      "strength": 4
+    },
+    {
+      "id": "ultron-la-guepe",
+      "name": "LA GUÊPE",
+      "englishName": "Wasp",
+      "deck": "fate",
+      "type": "hero",
+      "copies": 1,
+      "text": "Choisissez un Héros du domaine où vous jouez LA GUÊPE et transférez-le sur un lieu différent de n’importe quel domaine.",
+      "strength": 3
+    },
+    {
+      "id": "ultron-wonder-man",
+      "name": "WONDER MAN",
+      "englishName": "Wonder Man",
+      "deck": "fate",
+      "type": "hero",
+      "copies": 1,
+      "text": "Si WONDER MAN est éliminé, cherchez VISION dans les cartes Fatalité et jouez-le ou transférez-le sur le lieu où WONDER MAN se trouvait.",
+      "strength": 4
+    }
+  ],
+  "published": true,
+  "creator": "Marvel",
+  "origin": "Marvel",
+  "createdAt": "2026-07-10T12:00:00.000Z",
+  "updatedAt": "2026-07-10T13:20:22.375Z",
+  "atelierHidden": true
+}

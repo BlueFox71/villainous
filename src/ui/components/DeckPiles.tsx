@@ -1023,6 +1023,9 @@ export function AmeliorationTiles({
   canComplete?: boolean
   onComplete?: () => void
 }) {
+  // Tuile survolée (+ position écran) → aperçu agrandi rendu en `fixed`. Déclaré AVANT tout
+  // retour anticipé (règles des Hooks).
+  const [hover, setHover] = useState<{ i: number; rect: DOMRect } | null>(null)
   if (player.objective.type !== 'ULTRON_AGE_REVEALED') return null
   const revealed = player.ultronUpgrades ?? 0
   return (
@@ -1040,7 +1043,9 @@ export function AmeliorationTiles({
               src={isRevealed ? t.face : t.back}
               alt={t.name}
               title={t.name}
-              className={`w-8 rounded-sm border object-cover ${
+              onMouseEnter={(e) => setHover({ i, rect: e.currentTarget.getBoundingClientRect() })}
+              onMouseLeave={() => setHover((h) => (h?.i === i ? null : h))}
+              className={`w-8 cursor-zoom-in rounded-sm border object-cover transition hover:brightness-110 ${
                 isRevealed ? 'border-red-400/70' : 'border-white/15'
               } ${isNext && canComplete ? 'ring-2 ring-amber-300 animate-pulse' : ''} ${
                 !isRevealed && !isNext ? 'opacity-60' : ''
@@ -1049,6 +1054,35 @@ export function AmeliorationTiles({
           )
         })}
       </div>
+      {/* Aperçu AGRANDI de la tuile survolée, en `fixed` via portail (hors du panneau
+          `overflow-hidden` du plateau, sinon l'agrandissement serait rogné). */}
+      {hover &&
+        createPortal(
+          (() => {
+            const t = ULTRON_TILES[hover.i]
+            const isRevealed = hover.i < revealed
+            const above = hover.rect.top > 340
+            return (
+              <div
+                className="pointer-events-none fixed z-[90]"
+                style={{
+                  // Ancré par son BORD GAUCHE sur la tuile (s'étend vers la DROITE), pour ne pas
+                  // être rogné par le bord gauche de l'écran.
+                  left: hover.rect.left,
+                  top: above ? hover.rect.top - 8 : hover.rect.bottom + 8,
+                  transform: above ? 'translate(0, -100%)' : 'translate(0, 0)',
+                }}
+              >
+                <img
+                  src={isRevealed ? t.face : t.back}
+                  alt={t.name}
+                  className="h-[26rem] w-auto max-w-none rounded-xl border-2 border-red-400/70 shadow-2xl"
+                />
+              </div>
+            )
+          })(),
+          document.body,
+        )}
       {canComplete && (
         <button
           type="button"

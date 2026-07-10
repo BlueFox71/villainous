@@ -383,6 +383,11 @@ export interface CustomVillain {
   creator?: string
   /** Catégorie d'origine choisie à la publication (sections Disney / Collaborations). */
   origin?: VillainOrigin
+  /** Vilain FOURNI DIRECTEMENT (données+images données à Claude Code, PAS construit dans
+   *  l'Atelier) : il se joue comme un vilain natif/Disney mais N'APPARAÎT PAS dans la liste
+   *  éditable de l'Atelier (non modifiable là-bas). Reste un CustomVillain data-driven.
+   *  Ex. Ultron. Dio/Gul'dan (créés dans l'Atelier) n'ont pas ce marqueur. */
+  atelierHidden?: boolean
 
   // --- Métadonnées -----------------------------------------------------------
   createdAt: string

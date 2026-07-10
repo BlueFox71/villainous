@@ -23,6 +23,7 @@ import { createClientSession, createHostSession, type ClientSession, type HostSe
 import type { LobbySeat } from '../../net/messages'
 import { isTauri, ensureRelay, lanAddresses } from '../../net/desktop'
 import { buildDeckInstances } from '../../data/types'
+import { drawMarvelFateAddon } from '../../data/marvelFate'
 import { getCardDef, registerCustomCardDefs } from '../../data/registry'
 import { toVillainDef, toCardDefs, toDeckCardDefs, CUSTOM_ID_PREFIX, type CustomVillain } from '../../data/customVillain'
 import { CUSTOM_DIO_ID, patchCustomDio } from '../../data/villains/customDio'
@@ -432,10 +433,15 @@ function setupForKey(key: string, deckPrefix: string, fatePrefix: string): Playe
       // CardDef propres (paquets perso exclus + champs éditeur retirés) : buildDeckInstances
       // recopiant désormais TOUS les champs de jeu génériquement, l'entrée doit être nettoyée.
       const mainCards = toDeckCardDefs(custom)
+      const fateCards = buildDeckInstances(mainCards, 'fate', fatePrefix)
+      // Vilain Marvel : on COMPLÈTE sa Fatalité avec 5 Héros tirés du pool commun.
+      const withMarvel = custom.origin === 'Marvel'
+        ? [...fateCards, ...drawMarvelFateAddon(fatePrefix)]
+        : fateCards
       return {
         villain: { ...toVillainDef(custom), name: custom.name },
         deckCards: buildDeckInstances(mainCards, 'villain', deckPrefix),
-        fateCards: buildDeckInstances(mainCards, 'fate', fatePrefix),
+        fateCards: withMarvel,
       }
     }
   }
