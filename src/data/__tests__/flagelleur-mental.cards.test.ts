@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest'
+import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { flagelleurMentalCards } from '../published/flagelleurMental'
 import { buildDeck } from '../types'
+
+const PUBLIC = resolve(__dirname, '../../../public')
 
 describe('cartes du Flagelleur Mental — intégrité du paquet', () => {
   it('le deck Méchant totalise 30 cartes', () => {
@@ -75,9 +79,10 @@ describe('cartes du Flagelleur Mental — intégrité du paquet', () => {
       expect(c.englishName.length).toBeGreaterThan(0)
       expect(c.text.length).toBeGreaterThan(0)
       expect(c.copies).toBeGreaterThanOrEqual(1)
-      // Images EMBARQUÉES (dataURL) : le vilain est auto-portant (plus de dépendance à
-      // un fichier public/ — cf. bake des images dans le JSON publié).
-      expect(c.image).toMatch(/^data:image\//)
+      // Images EXTERNALISÉES (chemin) depuis la migration `imageExternalize` : le JSON
+      // publié ne référence plus que `/cards/custom-flagelleur-mental/…` (cf. fichiers
+      // sous public/, écrits par `scripts/migrate-villain-images.mjs`).
+      expect(c.image).toMatch(/^\/cards\/custom-flagelleur-mental\//)
       if (c.deck === 'villain') expect(typeof c.cost).toBe('number')
       else expect(c.cost).toBeUndefined()
       if (c.type === 'hero') expect(typeof c.strength).toBe('number')
@@ -85,10 +90,11 @@ describe('cartes du Flagelleur Mental — intégrité du paquet', () => {
     }
   })
 
-  it('chaque illustration est embarquée (dataURL non vide)', () => {
+  it('chaque illustration référence un fichier existant sous public/', () => {
     for (const c of flagelleurMentalCards) {
-      expect(c.image.startsWith('data:image/'), `image non embarquée : ${c.id}`).toBe(true)
-      expect(c.image.length).toBeGreaterThan(100)
+      expect(c.image.startsWith('/cards/custom-flagelleur-mental/'), `image non externalisée : ${c.id}`).toBe(true)
+      const relPath = c.image.split('?')[0].replace(/^\//, '')
+      expect(existsSync(resolve(PUBLIC, relPath)), `fichier manquant : ${relPath}`).toBe(true)
     }
   })
 })
