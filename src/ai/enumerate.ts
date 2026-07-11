@@ -42,8 +42,8 @@ import {
   placementLocations,
   requiresAllyTarget,
   transformableGuards,
-  flayerTunnelDiscardableAllies,
-  flayerTunnelRequiredAllies,
+  flayerTunnelDiscardableAlliesAt,
+  flayerTunnelDiscardsNeededAt,
 } from '../engine/rules'
 
 /** cardId des cartes CRUCIALES pour l'objectif du joueur (à NE PAS défausser par le
@@ -697,6 +697,21 @@ export function enumerateActions(state: GameState): GameAction[] {
       { type: 'RESOLVE_ACTIVATE_OR_VANQUISH', choice: 'vanquish' },
       { type: 'RESOLVE_ACTIVATE_OR_VANQUISH', choice: 'activate' },
     ]
+  }
+
+  // Le Flagelleur Mental — Will sous emprise : choisir le deck à consulter. On n'émet que
+  // les options VALIDES (deck non vide ; Fatalité seulement si le +1 Pouvoir est finançable).
+  if (state.pendingScryDeckChoice) {
+    const p = state.players[state.pendingScryDeckChoice.playerIndex]
+    const out: GameAction[] = []
+    if (p.deck.length > 0) out.push({ type: 'RESOLVE_SCRY_DECK_CHOICE', deck: 'villain' })
+    if (p.fateDeck.length > 0 && p.power >= state.pendingScryDeckChoice.fateExtraCost) {
+      out.push({ type: 'RESOLVE_SCRY_DECK_CHOICE', deck: 'fate' })
+    }
+    // Filet de sécurité : si aucune option valide (ne devrait pas arriver, la jouabilité
+    // le garantit), consulter le Méchant (no-op géré par le moteur) pour ne pas bloquer.
+    if (out.length === 0) out.push({ type: 'RESOLVE_SCRY_DECK_CHOICE', deck: 'villain' })
+    return out
   }
 
   // Pyramid Head — Pacte de Sang : choisir une carte de la main (dont le type a un
@@ -1459,21 +1474,23 @@ export function enumerateActions(state: GameState): GameAction[] {
             }
           } else if ((card.effects ?? []).some((e) => e.type === 'FLAYER_PLACE_TUNNEL')) {
             // Le Flagelleur Mental — Tunnel de Hawkins : posé sur un lieu (jamais le Monde à
-            // l'Envers, cf. forbiddenLocations), en défaussant N Alliés (2, +1 si Onze). On
-            // émet UNE option par lieu autorisé : défausser les N Alliés les MOINS forts
-            // (choix canonique — évite l'explosion combinatoire des sous-ensembles).
+            // l'Envers, cf. forbiddenLocations), en défaussant N Alliés (2, +1 si Onze) qui
+            // doivent être présents SUR CE MÊME LIEU. On émet UNE option par lieu ayant assez
+            // d'Alliés défaussables sur place : défausser les N Alliés les MOINS forts (choix
+            // canonique — évite l'explosion combinatoire des sous-ensembles).
             const tEff = (card.effects ?? []).find((e) => e.type === 'FLAYER_PLACE_TUNNEL')!
             if (tEff.type === 'FLAYER_PLACE_TUNNEL') {
-              const required = flayerTunnelRequiredAllies(me, tEff)
-              const discardable = [...flayerTunnelDiscardableAllies(me)].sort(
-                (a, b) => (a.strength ?? 0) - (b.strength ?? 0),
-              )
-              if (discardable.length >= required) {
-                const allyIds = discardable.slice(0, required).map((a) => a.instanceId)
-                for (const to of locs) {
-                  if ((card.forbiddenLocations ?? []).includes(to)) continue
-                  out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, to, allyInstanceIds: allyIds })
-                }
+              for (const to of locs) {
+                if ((card.forbiddenLocations ?? []).includes(to)) continue
+                // Billy compte parmi les Alliés requis mais n'est jamais défaussé → on ne
+                // défausse que `needed` Alliés (les moins forts) parmi les défaussables.
+                const needed = flayerTunnelDiscardsNeededAt(me, to, tEff)
+                const here = [...flayerTunnelDiscardableAlliesAt(me, to)].sort(
+                  (a, b) => (a.strength ?? 0) - (b.strength ?? 0),
+                )
+                if (here.length < needed) continue
+                const allyIds = here.slice(0, needed).map((a) => a.instanceId)
+                out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, to, allyInstanceIds: allyIds })
               }
             }
           } else if (orPayEffect && orPayEffect.type === 'DISCARD_ALLY_AT_HOST_OR_PAY') {

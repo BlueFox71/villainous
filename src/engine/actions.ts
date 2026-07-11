@@ -66,8 +66,9 @@ import {
   activatableCards,
   kissAtBallConditionMet,
   flayerGateConditionMet,
-  flayerTunnelDiscardableAllies,
+  flayerTunnelDiscardableAlliesAt,
   flayerTunnelRequiredAllies,
+  flayerTunnelDiscardsNeededAt,
   cauldronBornLocations,
   canCauldronExchange,
   darkPortalReady,
@@ -874,25 +875,27 @@ function applyPlayCard(
   if (card.requiresAllyInRealm && !Object.values(me.board).flat().some((c) => c.type === 'ally')) {
     throw new Error('Aucun Allié dans votre royaume : cette carte n’aurait aucun effet.')
   }
-  // Le Flagelleur Mental — Tunnel de Hawkins : coût additionnel = défausser N Alliés du
-  // royaume (2, ou 3 si Onze présente). Injouable sans assez d'Alliés défaussables ; les
-  // Alliés à défausser sont fournis via `allyInstanceIds` (Billy exclu, cf. helpers).
+  // Le Flagelleur Mental — Tunnel de Hawkins : coût additionnel = défausser N Alliés (2, ou
+  // 3 si Onze présente) présents SUR UN MÊME LIEU, où le Tunnel est posé (`to`). Billy COMPTE
+  // parmi les Alliés requis mais n'est jamais défaussé : le nombre réellement à défausser est
+  // `flayerTunnelDiscardsNeededAt`. Injouable sans assez d'Alliés défaussables ; les Alliés à
+  // défausser sont fournis via `allyInstanceIds` (Billy exclu, cf. helpers).
   {
     const tunnelEff = (card.effects ?? []).find((e) => e.type === 'FLAYER_PLACE_TUNNEL')
     if (tunnelEff && tunnelEff.type === 'FLAYER_PLACE_TUNNEL') {
-      const required = flayerTunnelRequiredAllies(me, tunnelEff)
-      const discardable = flayerTunnelDiscardableAllies(me)
-      if (discardable.length < required) {
-        throw new Error(`${card.name} : il faut ${required} Alliés à défausser dans votre royaume.`)
+      const needed = to ? flayerTunnelDiscardsNeededAt(me, to, tunnelEff) : flayerTunnelRequiredAllies(me, tunnelEff)
+      const discardable = to ? flayerTunnelDiscardableAlliesAt(me, to) : []
+      if (discardable.length < needed) {
+        throw new Error(`${card.name} : il faut ${needed} Allié(s) à défausser sur le lieu où poser le Tunnel.`)
       }
       const chosen = allyInstanceIds ?? []
       const chosenSet = new Set(chosen)
       if (
-        chosen.length !== required ||
-        chosenSet.size !== required ||
+        chosen.length !== needed ||
+        chosenSet.size !== needed ||
         !chosen.every((id) => discardable.some((a) => a.instanceId === id))
       ) {
-        throw new Error(`${card.name} : sélectionnez ${required} Alliés défaussables distincts.`)
+        throw new Error(`${card.name} : sélectionnez ${needed} Allié(s) défaussable(s) distinct(s) sur ce lieu.`)
       }
     }
   }
@@ -6327,10 +6330,10 @@ function resolveConditionEffect(
     if (attachTo !== undefined) {
       throw new Error(`${ally.name} ne s'associe pas à un Allié.`)
     }
+    // Retire l'Allié de la main (il sera posé sur le lieu APRÈS résolution de ses effets).
     next = updatePlayer(next, playerIndex, (p) => ({
       ...p,
       hand: p.hand.filter((c) => c.instanceId !== allyInstanceId),
-      board: { ...p.board, [to]: [...(p.board[to] ?? []), ally] },
     }))
     next = {
       ...next,
@@ -6339,6 +6342,22 @@ function resolveConditionEffect(
         `${player.villainName} pose gratuitement **${ally.name}** sur **${to}**.`,
       ],
     }
+    // Effets « à la pose » de l'Allié, résolus AVANT le placement — comme une pose normale
+    // (cf. applyPlayCardCore : les effets sont résolus avant d'ajouter la carte au plateau).
+    // Ex. THE FLAYED → FLAYER_FLAYED_UNLOCK (déverrouille le Monde à l'Envers au 3ᵉ, en
+    // comptant les exemplaires déjà en jeu + celui-ci) : sans ça, poser The Flayed via une
+    // Condition ne débloquait jamais le lieu.
+    next = resolveEffects(next, ally.effects ?? [], {
+      actorIndex: playerIndex,
+      hostInstanceId: ally.instanceId,
+      hostLocationId: to,
+      playDestination: to,
+    })
+    // Pose l'Allié sur le lieu choisi.
+    next = updatePlayer(next, playerIndex, (p) => ({
+      ...p,
+      board: { ...p.board, [to]: [...(p.board[to] ?? []), ally] },
+    }))
     // Intrus dans le Monde à l'Envers : « puis piochez une carte ».
     if (card.cardId === 'intrus-dans-le-monde-a-l-envers') {
       const drawn = drawPlayerToLimitN(next.players[playerIndex], next.rngState, 1)
@@ -8192,6 +8211,41 @@ function applyResolveActivateOrVanquish(state: GameState, choice: 'activate' | '
   const effect: Effect =
     choice === 'vanquish' ? { type: 'GRANT_FREE_ACTION', actionType: 'VANQUISH' } : { type: 'GRANT_FREE_ACTIVATE' }
   return resolveEffectsLocal(cleared, [effect], { actorIndex: pending.playerIndex })
+}
+
+/** Le Flagelleur Mental — Will sous emprise : résout le choix du deck à consulter. Le deck
+ *  Fatalité coûte `fateExtraCost` Pouvoir en plus. On regarde jusqu'à `count` cartes (ou
+ *  moins si le deck est plus petit) puis on les réordonne (pendingFateReorder). */
+function applyResolveScryDeckChoice(state: GameState, deck: 'villain' | 'fate'): GameState {
+  const pending = state.pendingScryDeckChoice
+  if (!pending) throw new Error('Aucun choix de deck (Will sous emprise) en attente.')
+  const idx = pending.playerIndex
+  const cleared: GameState = { ...state, pendingScryDeckChoice: null }
+  const me = cleared.players[idx]
+  const source = deck === 'fate' ? me.fateDeck : me.deck
+  if (source.length === 0) {
+    return { ...cleared, log: [...cleared.log, `${me.villainName} : ce deck est vide, rien à réorganiser.`] }
+  }
+  if (deck === 'fate' && me.power < pending.fateExtraCost) {
+    throw new Error(`Consulter la Fatalité coûte ${pending.fateExtraCost} Pouvoir de plus.`)
+  }
+  const top = source.slice(0, pending.count)
+  const rest = source.slice(top.length)
+  const next = updatePlayer(cleared, idx, (p) => ({
+    ...p,
+    power: deck === 'fate' ? p.power - pending.fateExtraCost : p.power,
+    deck: deck === 'villain' ? rest : p.deck,
+    fateDeck: deck === 'fate' ? rest : p.fateDeck,
+  }))
+  const label = deck === 'fate' ? 'Fatalité' : 'Méchant'
+  return {
+    ...next,
+    pendingFateReorder: { playerIndex: idx, cards: top, deck },
+    log: [
+      ...next.log,
+      `${me.villainName} regarde les ${top.length} première(s) carte(s) de son deck ${label}${deck === 'fate' ? ` (−${pending.fateExtraCost} Pouvoir)` : ''}.`,
+    ],
+  }
 }
 
 /**
@@ -11919,6 +11973,14 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   ) {
     throw new Error('Un choix Activer/Vaincre est en attente (RESOLVE_ACTIVATE_OR_VANQUISH).')
   }
+  // Le Flagelleur Mental — Will sous emprise : choix du deck à consulter en attente.
+  if (
+    state.pendingScryDeckChoice &&
+    action.type !== 'RESOLVE_SCRY_DECK_CHOICE' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un choix de deck (Will sous emprise) est en attente (RESOLVE_SCRY_DECK_CHOICE).')
+  }
   // Shere Khan — C'est moi, Shere Khan : choix du jeton Feu à retirer en attente.
   if (
     state.pendingRemoveFire &&
@@ -12599,6 +12661,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveMedal(state, { heroInstanceId: action.heroInstanceId, locationId: action.locationId })
     case 'RESOLVE_ACTIVATE_OR_VANQUISH':
       return applyResolveActivateOrVanquish(state, action.choice)
+    case 'RESOLVE_SCRY_DECK_CHOICE':
+      return applyResolveScryDeckChoice(state, action.deck)
     case 'RESOLVE_REMOVE_FIRE':
       return applyResolveRemoveFire(state, action.locationId, action.actionId)
     case 'RESOLVE_PLACE_FIRE':

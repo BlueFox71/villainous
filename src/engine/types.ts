@@ -3382,6 +3382,10 @@ export interface GameState {
    *  « Activer une capacité » et une action « Éliminer un Héros » (RESOLVE_ACTIVATE_OR_VANQUISH).
    *  N'apparaît que si LES DEUX sont possibles. */
   pendingActivateOrVanquish?: { playerIndex: number } | null
+  /** Le Flagelleur Mental — Will sous emprise : `playerIndex` choisit quel deck consulter
+   *  (Méchant = gratuit, Fatalité = `fateExtraCost` Pouvoir en plus) avant de regarder ses
+   *  `count` premières cartes et de les réordonner (RESOLVE_SCRY_DECK_CHOICE → pendingFateReorder). */
+  pendingScryDeckChoice?: { playerIndex: number; count: number; fateExtraCost: number } | null
   /** Shere Khan — C'est moi, Shere Khan : `playerIndex` choisit quel jeton Feu retirer
    *  (lieu + action) quand il y en a plusieurs (RESOLVE_REMOVE_FIRE). */
   pendingRemoveFire?: { playerIndex: number } | null
@@ -4463,6 +4467,8 @@ export type GameAction =
   | { type: 'RESOLVE_MOVE_OR_ACTIVATE'; choice: 'move' | 'activate' }
   /** Shere Khan — Tout le monde fuit : choisir l'action gratuite (Activer / Vaincre). */
   | { type: 'RESOLVE_ACTIVATE_OR_VANQUISH'; choice: 'activate' | 'vanquish' }
+  /** Le Flagelleur Mental — Will sous emprise : choisir le deck à consulter (Méchant / Fatalité). */
+  | { type: 'RESOLVE_SCRY_DECK_CHOICE'; deck: 'villain' | 'fate' }
   /** Shere Khan — C'est moi, Shere Khan : retire le jeton Feu de (locationId, actionId). */
   | { type: 'RESOLVE_REMOVE_FIRE'; locationId: LocationId; actionId: string }
   /** Shere Khan — Feu Rouge des Hommes : pose le jeton Feu sur l'action choisie. */

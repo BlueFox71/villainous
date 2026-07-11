@@ -6431,7 +6431,7 @@ const TAMATOA_SURPRISE_EVERY_MS = 150000 // ~2 min 30 entre deux surprises
  *  SURPRISE (minutée + déclencheur de test) : les triangles s'éteignent, des POINTS BLEUS fixes (#0001FB)
  *  s'allument partout, la pluie se teinte en cyan (#64D9FE), la couleur du vilain vire au magenta
  *  (#FD27FC) ET celle de l'ADVERSAIRE au bleu (#0001FB) le temps de l'animation, puis tout revient. */
-function TamatoaDecor({ opponentVillain }: { opponentVillain?: VillainKey }) {
+function TamatoaDecor({ opponentVillain }: { opponentVillain?: VillainKey | string }) {
   const fireRef = useRef<() => void>(() => {})
   useSurpriseSub(fireRef)
   const [surpriseOn, setSurpriseOn] = useState(false)
@@ -6657,11 +6657,13 @@ export function VillainDecor({
   objectivePct,
   timerRunning,
 }: {
-  villain: VillainKey
+  /** Clé du vilain : `VillainKey` native OU id `custom-…` d'un vilain publié (les deux résolus par
+   *  `villainDecor`). */
+  villain: VillainKey | string
   side?: 'left' | 'right'
   /** Vilain ADVERSE (l'autre camp) — utilisé par le décor `tamatoa` : sa surprise teinte temporairement
    *  la couleur de l'adversaire en bleu. */
-  opponentVillain?: VillainKey
+  opponentVillain?: VillainKey | string
   /** Progression d'objectif (0→100) de CE camp — utilisée par le décor `atmosfear` (phase de lune). */
   objectivePct?: number
   /** La partie « tourne » (même condition que le `GameTimer`) — le décor `atmosfear` y synchronise
@@ -6979,12 +6981,553 @@ function UnderwaterDecor() {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Décor permanent : Le Flagelleur Mental — le MONDE À L'ENVERS (Stranger Things).
+// Ciel d'orage nocturne quasi-noir. Des NUAGES sombres et flous DÉRIVENT lentement en
+// travers de la colonne (profondeur : proches = gros/opaques/nets/rapides ; lointains =
+// petits/pâles/flous/lents), chacun traversant en fondu aux bords (comme la brume de Tabbou).
+// Des ÉCLAIRS ROUGES fractals (réutilisent `buildBolt`, comme les éclairs bleus de Tabbou)
+// claquent par intermittence, chacun sur son cycle décalé. Chaque frappe s'accompagne d'un
+// LARGE HALO ROUGE en `mix-blend-mode: screen`, posé AU-DESSUS des nuages → il les ILLUMINE
+// en rouge le temps du flash (au repos, les nuages restent sombres). 100 % CSS. La révélation
+// de l'éclair réutilise `underwaterBolt` (dashoffset/opacité, générique) ; le halo est synchro.
+// ---------------------------------------------------------------------------
+const UPSIDE_DOWN_CLOUDS = 15
+const UPSIDE_DOWN_BOLTS = 6
+const UPSIDE_DOWN_MOTES = 120
+// Surprise « Le Flagelleur Mental apparaît » : un gros tonnerre éclate et révèle la silhouette de la
+// créature, entourée d'une lueur blanc & rouge, visible ~3 s, puis elle se dissipe. Le calque est
+// (dé)monté le temps de l'animation (REVEAL_MS). ⚠️ REVEAL_MS doit rester en phase avec la durée des
+// keyframes `udFlayer*` (index.css, 5,2 s).
+const UPSIDE_DOWN_FLAYER_TEST = false // true → cadence accélérée (~8–12 s) pour régler
+const UD_FLAYER_REVEAL_MS = 5200
+const UD_FLAYER_GAP_MIN_MS = UPSIDE_DOWN_FLAYER_TEST ? 8000 : 120000 // 2 min
+const UD_FLAYER_GAP_MAX_MS = UPSIDE_DOWN_FLAYER_TEST ? 12000 : 240000 // 4 min
+
+function UpsideDownDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
+  // Nappes de nuages : la profondeur (0 lointain → 1 proche) corrèle taille/opacité/netteté/vitesse.
+  // Chacune TRAVERSE la colonne (translateX --x0 → --x1) en fondu aux bords. Figées au montage.
+  const [clouds] = useState(() =>
+    Array.from({ length: UPSIDE_DOWN_CLOUDS }, () => {
+      const depth = Math.random()
+      const dir = Math.random() < 0.5 ? 1 : -1
+      const w = 52 + depth * 92 // vh (nappe large)
+      return {
+        top: -8 + Math.random() * 108, // % (réparti sur toute la hauteur, un peu au-delà)
+        w, // vh
+        h: w * (0.46 + Math.random() * 0.4), // vh (nappe aplatie)
+        radius: randomBlobRadius(), // bords organiques
+        blur: 30 - depth * 16, // px (proches plus nets)
+        op: 0.26 + depth * 0.44, // opacité de pointe
+        dur: 74 - depth * 36 + Math.random() * 22, // s (proches plus rapides)
+        delay: -(Math.random() * 90), // s (déphasées)
+        x0: -95 * dir, // vw (départ hors champ)
+        x1: 95 * dir, // vw (arrivée hors champ)
+        y: (Math.random() - 0.5) * 9, // vh (léger dénivelé)
+      }
+    }),
+  )
+  // Spores en suspension : fines particules pâles FIGÉES au montage qui dérivent très lentement (boucle
+  // fermée → pas de « pop ») en balançant et scintillant. La profondeur (0 lointain → 1 proche) corrèle
+  // taille/opacité/netteté/vitesse. Rendues ENTRE les nuages et les éclairs → le halo rouge (screen) des
+  // frappes les baigne de rouge le temps du flash (tie-in avec l'effet-signature).
+  const [motes] = useState(() =>
+    Array.from({ length: UPSIDE_DOWN_MOTES }, () => {
+      const depth = Math.random()
+      const sgn = () => (Math.random() < 0.5 ? 1 : -1)
+      return {
+        left: Math.random() * 100, // %
+        top: -5 + Math.random() * 110, // %
+        size: 2.2 + depth * 6, // px (proches plus grosses)
+        blur: 0.6 + (1 - depth) * 1.6, // px (bord floconneux ; lointaines plus floues)
+        op: 0.45 + depth * 0.5, // opacité de pointe
+        driftDur: 18 + (1 - depth) * 24 + Math.random() * 9, // s (lointaines plus lentes)
+        driftDelay: -(Math.random() * 40), // s (déphasées)
+        dx: sgn() * (3 + Math.random() * 7), // vh (amplitude de dérive)
+        dy: sgn() * (2 + Math.random() * 6), // vh
+        dx2: sgn() * (2 + Math.random() * 6), // vh (2e point d'inflexion)
+        sway: 0.4 + Math.random() * 1.3, // vh (balancement latéral)
+        swayDur: 4 + Math.random() * 5, // s
+        swayDelay: -(Math.random() * 6), // s
+        twDur: 7 + Math.random() * 7, // s (respiration lente, pas un clignotement)
+        twDelay: -(Math.random() * 12), // s
+      }
+    }),
+  )
+  // Éclairs rouges : tracé fractal figé, chacun claque sur un cycle décalé (delay réparti par indice
+  // → ils ne flashent jamais ensemble), avec un halo dont le rayon `glow` illumine les nuages autour.
+  const [bolts] = useState(() =>
+    Array.from({ length: UPSIDE_DOWN_BOLTS }, (_, i) => {
+      const dur = 6.5 + Math.random() * 9 // s (cadence des frappes)
+      return {
+        d: buildBolt(),
+        left: 5 + Math.random() * 86, // %
+        top: -8 + Math.random() * 66, // % (n'importe où en haut de la colonne)
+        w: 6 + Math.random() * 7, // vw (éclair étroit)
+        h: 26 + Math.random() * 24, // vh
+        glow: 38 + Math.random() * 26, // vh (rayon du halo qui illumine les nuages)
+        dur,
+        delay: -(((i + Math.random() * 0.6) / UPSIDE_DOWN_BOLTS) * dur),
+      }
+    }),
+  )
+  // ARBRES de Hawkins (12 silhouettes de sapins `arbre-1..12.png`) : ligne d'arbres au bas de la colonne
+  // (backdrop de forêt), DERRIÈRE les poteaux. Profondeur (0 lointain → 1 proche) : proches plus grands,
+  // opaques, nets, base plus basse ; lointains plus petits, flous, estompés, base un peu plus haute
+  // (horizon). Image/miroir tirés au hasard, positions figées au montage. Triés far→near (overlap correct).
+  const [trees] = useState(() => {
+    const N = 12
+    return Array.from({ length: N }, () => {
+      const depth = Math.random()
+      return {
+        img: 1 + Math.floor(Math.random() * 12), // arbre-1..12
+        left: Math.random() * 104 - 2, // % (déborde un peu des bords)
+        h: 24 + depth * 30, // vh (proches plus grands)
+        bottom: (1 - depth) * 6, // vh (lointains un peu plus haut = horizon)
+        blur: (1 - depth) * 1.7, // px
+        op: 0.4 + depth * 0.5,
+        flip: Math.random() < 0.5,
+        // Tangage (effet vent) : bascule depuis la base. Amplitude un peu plus forte pour les proches.
+        sway: 0.25 + depth * 0.7, // deg (léger)
+        swayDur: 4 + Math.random() * 4, // s
+        swayDelay: -(Math.random() * 6), // s (désynchronise)
+        depth,
+      }
+    }).sort((a, b) => a.depth - b.depth) // lointains d'abord → les proches passent devant
+  })
+  // POTEAUX électriques de Hawkins (image `pylones.png`, silhouette recolorée en ardoise sombre pour
+  // rester lisible sur le ciel quasi-noir). Plein-hauteur, rootés au bas, avec PROFONDEUR (proches plus
+  // grands/nets/opaques). Figés au montage. On calcule aussi les ancres des traverses (haut/bas) pour
+  // y accrocher les FILS. Ratio image = 199/959.
+  const POLE_RATIO = 199 / 959
+  const [poles] = useState(() => {
+    // Profils curés (premier plan) : x (% centre), profondeur (0 lointain → 1 proche), miroir horizontal.
+    const defs = [
+      { left: 20, depth: 0.4, flip: false },
+      { left: 60, depth: 1.0, flip: true },
+      { left: 91, depth: 0.12, flip: false },
+    ]
+    return defs.map((d) => {
+      // Poteaux PLUS PETITS et PLUS BAS : rootés en bas, une hauteur réduite descend d'autant traverses
+      // et fils (les ancres `armY*` suivent). La profondeur joue sur taille/opacité/flou.
+      const h = 46 + d.depth * 16 // vh (46→62 ; proches un peu plus grands)
+      return {
+        left: d.left, // % (centre du fût)
+        h, // vh
+        w: h * POLE_RATIO, // vh
+        blur: (1 - d.depth) * 1.4, // px (lointains plus flous)
+        op: 0.52 + d.depth * 0.44,
+        flip: d.flip,
+        // Ancres des fils (en % de hauteur d'écran) : le poteau est rooté en bas (top = 100 - h vh ≈ %),
+        // traverses haute ~8,5 % et basse ~16 % depuis le sommet de l'image.
+        armYUpper: 100 - h + 0.085 * h,
+        armYLower: 100 - h + 0.16 * h,
+      }
+    })
+  })
+  // FILS électriques : chaînettes (courbes quadratiques qui s'affaissent) entre traverses de poteaux
+  // voisins (déjà triés par `left`). 3 câbles par travée (2 en haut, 1 en bas). Coordonnées en % (SVG
+  // viewBox 0..100, preserveAspectRatio none → épouse la colonne).
+  const wirePaths = (() => {
+    const out: string[] = []
+    // Câbles à 3 niveaux (2 haut + 1 bas) entre deux ancres, affaissés en chaînette.
+    const span3 = (ax: number, aUp: number, aLow: number, bx: number, bUp: number, bLow: number) => {
+      const sag = Math.abs(bx - ax) * 0.16 + 2.5 // % (croît avec la portée)
+      const levels: [number, number][] = [
+        [aUp, bUp],
+        [aUp + 1.5, bUp + 1.5],
+        [aLow, bLow],
+      ]
+      for (const [ya, yb] of levels) {
+        out.push(`M ${ax} ${ya} Q ${(ax + bx) / 2} ${Math.max(ya, yb) + sag} ${bx} ${yb}`)
+      }
+    }
+    // Travées entre poteaux voisins (déjà triés par `left`).
+    for (let i = 0; i < poles.length - 1; i++) {
+      const a = poles[i]
+      const b = poles[i + 1]
+      span3(a.left, a.armYUpper, a.armYLower, b.left, b.armYUpper, b.armYLower)
+    }
+    // Ligne qui PART VERS LA GAUCHE depuis le poteau le plus à gauche (elle continue hors champ vers un
+    // poteau invisible). Ancre de départ hors cadre (x < 0), un peu plus HAUTE (poteau lointain plus haut).
+    const first = poles.reduce((m, p) => (p.left < m.left ? p : m), poles[0])
+    span3(-14, first.armYUpper - 5, first.armYLower - 5, first.left, first.armYUpper, first.armYLower)
+    return out
+  })()
+  // Surprise : le Flagelleur Mental apparaît sous un gros tonnerre. On (dé)monte le calque `.ud-flayer`
+  // le temps de l'animation. Le grand éclair central est re-tiré à chaque frappe (variété).
+  const [reveal, setReveal] = useState<{ d: string } | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let clear: ReturnType<typeof setTimeout>
+    let next: ReturnType<typeof setTimeout>
+    const fire = () => {
+      setReveal({ d: buildBolt() })
+      clear = setTimeout(() => setReveal(null), UD_FLAYER_REVEAL_MS)
+    }
+    const schedule = (delay: number) => {
+      next = setTimeout(() => {
+        fire()
+        schedule(UD_FLAYER_GAP_MIN_MS + Math.random() * (UD_FLAYER_GAP_MAX_MS - UD_FLAYER_GAP_MIN_MS))
+      }, delay)
+    }
+    schedule(60000 + Math.random() * 40000) // première apparition entre 1 min et 1 min 40
+    // MODE TEST : déclenche l'apparition à la demande depuis le panneau Animation.
+    fireRef.current = fire
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
+  return (
+    <div className="ud-decor" aria-hidden>
+      {/* Nappes de nuages sombres qui dérivent. */}
+      {clouds.map((c, i) => (
+        <span
+          key={`cloud-${i}`}
+          className="ud-cloud"
+          style={
+            {
+              top: `${c.top}%`,
+              width: `${c.w}vh`,
+              height: `${c.h}vh`,
+              borderRadius: c.radius,
+              filter: `blur(${c.blur}px)`,
+              animationDuration: `${c.dur}s`,
+              animationDelay: `${c.delay}s`,
+              '--x0': `${c.x0}vw`,
+              '--x1': `${c.x1}vw`,
+              '--y': `${c.y}vh`,
+              '--op': c.op,
+            } as CSSProperties
+          }
+        />
+      ))}
+      {/* Spores en suspension (au-dessus des nuages, sous les éclairs → baignées de rouge à la frappe). */}
+      {motes.map((m, i) => (
+        <span
+          key={`mote-${i}`}
+          className="ud-mote"
+          style={
+            {
+              left: `${m.left}%`,
+              top: `${m.top}%`,
+              animationDuration: `${m.driftDur}s`,
+              animationDelay: `${m.driftDelay}s`,
+              '--dx': `${m.dx}vh`,
+              '--dy': `${m.dy}vh`,
+              '--dx2': `${m.dx2}vh`,
+            } as CSSProperties
+          }
+        >
+          <span
+            className="ud-mote-dot"
+            style={
+              {
+                width: `${m.size}px`,
+                height: `${m.size}px`,
+                filter: m.blur > 0.05 ? `blur(${m.blur}px)` : undefined,
+                '--op': m.op,
+                '--sway': `${m.sway}vh`,
+                animationDuration: `${m.swayDur}s, ${m.twDur}s`,
+                animationDelay: `${m.swayDelay}s, ${m.twDelay}s`,
+              } as CSSProperties
+            }
+          />
+        </span>
+      ))}
+      {/* Ligne d'ARBRES (sapins de Hawkins) au bas de la colonne, DERRIÈRE les poteaux. */}
+      {trees.map((t, i) => (
+        <img
+          key={`tree-${i}`}
+          className="ud-tree"
+          src={`/animations/arbre-${t.img}.png`}
+          alt=""
+          draggable={false}
+          style={{
+            left: `${t.left}%`,
+            height: `${t.h}vh`,
+            bottom: `${t.bottom}vh`,
+            opacity: t.op,
+            filter: `invert(1) brightness(0.2) blur(${t.blur}px)`,
+            animationDuration: `${t.swayDur}s`,
+            animationDelay: `${t.swayDelay}s`,
+            '--flip': t.flip ? -1 : 1,
+            '--sw': `${t.sway}deg`,
+          } as CSSProperties}
+        />
+      ))}
+      {/* Poteaux électriques de Hawkins (silhouettes ardoise) + leurs fils, au premier plan (sous les
+          éclairs → baignés de rouge à la frappe). */}
+      <svg className="ud-wires" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <g className="ud-wire-sway">
+          {wirePaths.map((d, i) => (
+            <path key={`wire-${i}`} d={d} />
+          ))}
+        </g>
+      </svg>
+      {poles.map((p, i) => (
+        <img
+          key={`pole-${i}`}
+          className="ud-pole"
+          src="/animations/pylones.png"
+          alt=""
+          draggable={false}
+          style={{
+            left: `${p.left}%`,
+            height: `${p.h}vh`,
+            width: `${p.w}vh`,
+            opacity: p.op,
+            filter: `invert(1) brightness(0.26) blur(${p.blur}px)`,
+            transform: `translateX(-50%)${p.flip ? ' scaleX(-1)' : ''}`,
+          }}
+        />
+      ))}
+      {/* Éclairs rouges + leur halo d'illumination (au-dessus des nuages). */}
+      {bolts.map((b, i) => (
+        <div
+          key={`bolt-${i}`}
+          className="ud-bolt"
+          style={
+            {
+              left: `${b.left}%`,
+              top: `${b.top}%`,
+              width: `${b.w}vw`,
+              height: `${b.h}vh`,
+              '--dur': `${b.dur}s`,
+              '--delay': `${b.delay}s`,
+            } as CSSProperties
+          }
+        >
+          {/* Halo rouge qui ILLUMINE les nuages (screen), synchronisé au flash de l'éclair. */}
+          <span className="ud-bolt-glow" style={{ '--glow': `${b.glow}vh` } as CSSProperties} />
+          {/* L'éclair : halo rouge épais sous un cœur clair rosé (même tracé → synchronisés). */}
+          <svg className="ud-bolt-svg" viewBox="0 0 100 200" preserveAspectRatio="none">
+            <path className="ud-bolt-halo" d={b.d} pathLength={100} />
+            <path className="ud-bolt-core" d={b.d} pathLength={100} />
+          </svg>
+        </div>
+      ))}
+      {/* SURPRISE : gros tonnerre + apparition du Flagelleur Mental (lueur blanc & rouge), ~3 s. */}
+      {reveal && (
+        <div className="ud-flayer">
+          {/* Flash du tonnerre : embrasement blanc → rouge plein cadre (screen), one-shot. */}
+          <span className="ud-flayer-flash" />
+          {/* Le grand éclair central qui révèle la créature (une seule frappe). */}
+          <svg className="ud-flayer-bolt" viewBox="0 0 100 200" preserveAspectRatio="none">
+            <path className="ud-flayer-bolt-halo" d={reveal.d} pathLength={100} />
+            <path className="ud-flayer-bolt-core" d={reveal.d} pathLength={100} />
+          </svg>
+          {/* Lueur blanc & rouge derrière la silhouette (pulse le temps de l'apparition). */}
+          <span className="ud-flayer-glow" />
+          {/* Jaillissement de flash BLANC vers le haut, synchronisé au moment où la créature apparaît. */}
+          <span className="ud-flayer-uprush" />
+          {/* La créature (silhouette rouge sur transparent), auréolée de blanc/rouge. */}
+          <img className="ud-flayer-img" src="/animations/flagelleur_mental.png" alt="" />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Décor `felGate` (Gul'dan) : marée de gangrené. 100 % CSS, aucun asset.
+const FEL_VAPOR = 26 // colonnes de gangrené qui montent
+const FEL_VAPOR_DUR = 12 // s (sert à étager les départs → colonnes continues)
+const FEL_ASHES = 34 // cendres de gangrené qui s'élèvent
+// Teintes de la vapeur (radial-gradient posé en inline) : le VERT FEL domine, quelques colonnes VIOLET
+// du Vide en accent (pour distinguer Gul'dan des autres décors verts).
+const FEL_VAPOR_GREEN =
+  'radial-gradient(circle, rgba(150, 255, 120, 0.52) 0%, rgba(70, 220, 60, 0.3) 45%, rgba(25, 120, 30, 0) 72%)'
+const FEL_VAPOR_VIOLET =
+  'radial-gradient(circle, rgba(205, 140, 255, 0.5) 0%, rgba(150, 70, 235, 0.3) 45%, rgba(80, 25, 130, 0) 72%)'
+// Couleurs des cendres montantes : vert fel (majorité) et violet du Vide (accent).
+const FEL_ASH_GREEN = ['#8dff6b', '#a6ff7c', '#6bff5a', '#c4ffb0', '#7cff8f']
+const FEL_ASH_VIOLET = ['#c98bff', '#b164ff', '#e0b0ff']
+
+function FelGateDecor() {
+  // Volutes de gangrené qui montent du sol (réutilise le keyframe `vaporRise`), étagées → colonnes
+  // continues. ~1/5 vire au violet (accent du Vide). Figées au montage.
+  const [vapor] = useState(() =>
+    Array.from({ length: FEL_VAPOR }, (_, i) => ({
+      left: Math.random() * 100, // %
+      size: 13 + Math.random() * 17, // vh
+      dur: FEL_VAPOR_DUR + Math.random() * 6, // s
+      delay: -((i / FEL_VAPOR) * FEL_VAPOR_DUR) - Math.random() * 2, // s (étagé → colonne dense)
+      sx: (Math.random() - 0.5) * 12, // vw (enroulement latéral)
+      op: 0.14 + Math.random() * 0.18,
+      violet: Math.random() < 0.22, // accent du Vide
+    })),
+  )
+  // Cendres de gangrené qui s'élèvent en ondulant et scintillant (réutilise les motes de Facilier :
+  // enveloppe = montée, milieu = ondulation, pastille = scintillement). Majorité verte, accent violet.
+  const [ashes] = useState(() =>
+    Array.from({ length: FEL_ASHES }, () => {
+      const violet = Math.random() < 0.25
+      const palette = violet ? FEL_ASH_VIOLET : FEL_ASH_GREEN
+      return {
+        left: Math.random() * 100, // %
+        size: 1.6 + Math.random() * 3, // px
+        dur: 9 + Math.random() * 9, // s (montée lente)
+        delay: -(Math.random() * 18), // s
+        sway: 2 + Math.random() * 5, // vw
+        swayDur: 3 + Math.random() * 3, // s
+        twkDur: 1.6 + Math.random() * 2, // s
+        twkDelay: -(Math.random() * 3), // s
+        op: 0.4 + Math.random() * 0.5,
+        color: palette[Math.floor(Math.random() * palette.length)],
+      }
+    }),
+  )
+  return (
+    <div className="fel-decor" aria-hidden>
+      {/* Lueur fel VERTE pulsante (au sol, les lieux corrompus). */}
+      <div className="fel-glow" />
+      {/* Lueur VIOLETTE du Vide, sur un autre battement (l'appel des Anciens Dieux). */}
+      <div className="fel-glow-void" />
+      {/* Cendres de gangrené qui montent (montée > ondulation > scintillement). */}
+      {ashes.map((m, i) => (
+        <span
+          key={`ash-${i}`}
+          className="voodoo-mote-rise"
+          style={{ left: `${m.left}%`, animationDuration: `${m.dur}s`, animationDelay: `${m.delay}s` }}
+        >
+          <span
+            className="voodoo-mote-sway"
+            style={{ animationDuration: `${m.swayDur}s`, animationDelay: `${m.delay}s`, '--sway': `${m.sway}vw` } as CSSProperties}
+          >
+            <span
+              className="voodoo-mote"
+              style={{
+                width: `${m.size}px`,
+                height: `${m.size}px`,
+                opacity: m.op,
+                background: m.color,
+                animationDuration: `${m.twkDur}s`,
+                animationDelay: `${m.twkDelay}s`,
+                '--mote-color': m.color,
+              } as CSSProperties}
+            />
+          </span>
+        </span>
+      ))}
+      {/* Volutes de gangrené (par-dessus les cendres). */}
+      {vapor.map((p, i) => (
+        <span
+          key={`fvap-${i}`}
+          className="fel-vapor"
+          style={{
+            left: `${p.left}%`,
+            width: `${p.size}vh`,
+            height: `${p.size}vh`,
+            background: p.violet ? FEL_VAPOR_VIOLET : FEL_VAPOR_GREEN,
+            animationDuration: `${p.dur}s`,
+            animationDelay: `${p.delay}s`,
+            '--sx': `${p.sx}vw`,
+            '--vop': p.op,
+          } as CSSProperties}
+        />
+      ))}
+    </div>
+  )
+}
+
+// Décor `theWorld` (Dio) : horloges & temps. 100 % CSS, aucun asset.
+const DIO_NUMERALS_FLOAT = 22 // chiffres romains flottants qui montent
+// Chiffres romains du cadran, en ordre horaire à partir du haut (XII).
+const DIO_CLOCK_NUMERALS = ['XII', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI']
+// Glyphes tirés pour les chiffres romains flottants.
+const DIO_NUMERAL_GLYPHS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII']
+// Couleurs : or (The World) en majorité, magenta (aura de Dio) en accent.
+const DIO_NUMERAL_GOLD = ['#ffe08a', '#ffd257', '#f5c542', '#ffeab0']
+const DIO_NUMERAL_MAGENTA = ['#e06bff', '#c94dff', '#ff7ad4']
+
+function TheWorldDecor() {
+  // Chiffres romains flottants : montent en ondulant (réutilise les motes de Facilier), l'enfant est un
+  // GLYPHE romain (au lieu d'une pastille) qui scintille. Majorité dorée, accent magenta. Figés au montage.
+  const [numerals] = useState(() =>
+    Array.from({ length: DIO_NUMERALS_FLOAT }, () => {
+      const magenta = Math.random() < 0.22
+      const palette = magenta ? DIO_NUMERAL_MAGENTA : DIO_NUMERAL_GOLD
+      return {
+        glyph: DIO_NUMERAL_GLYPHS[Math.floor(Math.random() * DIO_NUMERAL_GLYPHS.length)],
+        left: Math.random() * 100, // %
+        size: 1.4 + Math.random() * 2.6, // vh (hauteur de police)
+        dur: 13 + Math.random() * 12, // s (montée lente)
+        delay: -(Math.random() * 25), // s
+        sway: 2 + Math.random() * 5, // vw
+        swayDur: 4 + Math.random() * 4, // s
+        twkDur: 2.2 + Math.random() * 2.4, // s
+        twkDelay: -(Math.random() * 4), // s
+        op: 0.35 + Math.random() * 0.45,
+        color: palette[Math.floor(Math.random() * palette.length)],
+      }
+    }),
+  )
+  // Positions (en %) des chiffres romains autour du cadran de l'horloge nette (12 positions horaires).
+  const clockNums = DIO_CLOCK_NUMERALS.map((n, i) => {
+    const ang = (i * Math.PI) / 6 // 30° par cran
+    return { n, left: 50 + Math.sin(ang) * 40, top: 50 - Math.cos(ang) * 40 }
+  })
+  return (
+    <div className="dio-decor" aria-hidden>
+      {/* Aura dorée pulsante (le rayonnement de The World). */}
+      <div className="dio-aura" />
+      {/* Grand mandala d'horloge qui tourne lentement en arrière-plan (anneaux + graduations dorées).
+          Débordant largement → ses anneaux extérieurs restent visibles dans les marges. */}
+      <div className="dio-mandala" />
+      {/* Chiffres romains flottants (montée > ondulation > scintillement du glyphe). */}
+      {numerals.map((m, i) => (
+        <span
+          key={`dnum-${i}`}
+          className="voodoo-mote-rise"
+          style={{ left: `${m.left}%`, animationDuration: `${m.dur}s`, animationDelay: `${m.delay}s` }}
+        >
+          <span
+            className="voodoo-mote-sway"
+            style={{ animationDuration: `${m.swayDur}s`, animationDelay: `${m.delay}s`, '--sway': `${m.sway}vw` } as CSSProperties}
+          >
+            <span
+              className="dio-numeral"
+              style={{
+                fontSize: `${m.size}vh`,
+                color: m.color,
+                opacity: m.op,
+                animationDuration: `${m.twkDur}s`,
+                animationDelay: `${m.twkDelay}s`,
+                '--num-color': m.color,
+              } as CSSProperties}
+            >
+              {m.glyph}
+            </span>
+          </span>
+        </span>
+      ))}
+      {/* Horloge dorée nette dans la BANDE HAUTE (au-dessus du plateau, donc bien visible) : cadran,
+          chiffres romains posés par trigonométrie, et 3 aiguilles qui tournent. */}
+      <div className="dio-clock">
+        <span className="dio-clock-ring" />
+        {clockNums.map((c, i) => (
+          <span key={`cnum-${i}`} className="dio-clock-num" style={{ left: `${c.left}%`, top: `${c.top}%` }}>
+            {c.n}
+          </span>
+        ))}
+        <span className="dio-hand dio-hand--h" />
+        <span className="dio-hand dio-hand--m" />
+        <span className="dio-hand dio-hand--s" />
+        <span className="dio-clock-center" />
+      </div>
+    </div>
+  )
+}
+
 function renderDecorBody(
   decor: VillainDecorData,
   side?: 'left' | 'right',
   objectivePct?: number,
   timerRunning?: boolean,
-  opponentVillain?: VillainKey,
+  opponentVillain?: VillainKey | string,
 ) {
   switch (decor.kind) {
     case 'film':
@@ -7023,6 +7566,12 @@ function renderDecorBody(
       return <GalaxyDecor />
     case 'underwater':
       return <UnderwaterDecor />
+    case 'upsideDown':
+      return <UpsideDownDecor />
+    case 'felGate':
+      return <FelGateDecor />
+    case 'theWorld':
+      return <TheWorldDecor />
     case 'yzma':
       return <YzmaDecor />
     case 'laBonneFee':

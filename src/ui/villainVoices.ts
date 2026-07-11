@@ -210,11 +210,11 @@ function phraseTrack(key: VillainKey): { url: string; gain: number; fadeEndS: nu
   return url ? { url, gain: entry.gain ?? 1, fadeEndS: entry.fadeEndS ?? 0.6 } : undefined
 }
 
-/** URL de la phrase d'un vilain NATIF si un fichier existe, sinon undefined. Sert à
- *  décider d'afficher (ou non) un bouton « écouter la réplique » (fiche vilain). Les
- *  vilains personnalisés/publiés n'ont pas de phrase → undefined. */
+/** URL de la « réplique » d'un vilain si elle existe, sinon undefined. Sert à décider
+ *  d'afficher (ou non) un bouton « écouter la réplique » (fiche vilain). NATIF → fichier
+ *  de phrase ; PUBLIÉ (Atelier) → sa « Devise en audio » (`custom.audio`, dataURL). */
 export function villainPhraseUrl(villainId: string): string | undefined {
-  if (isCustomKey(villainId)) return undefined
+  if (isCustomKey(villainId)) return customVillainOf(villainId)?.audio
   // `villainId` peut être une VillainKey (fiche vilain) OU un def.id : on résout la clé
   // sans passer par le fallback `princeJohn` de `villainKeyOf` quand c'est déjà une clé.
   const key = (villainId in VILLAIN_REGISTRY ? (villainId as VillainKey) : villainKeyOf(villainId))
@@ -224,11 +224,17 @@ export function villainPhraseUrl(villainId: string): string | undefined {
 /** Joue la phrase d'un vilain (si elle existe), p. ex. à sa sélection dans l'écran
  *  de choix. No-op si aucun fichier de phrase, si le son est coupé, ou hors navigateur.
  *  Coupe une éventuelle phrase/voix en cours. */
-export function playVillainPhrase(key: VillainKey) {
+export function playVillainPhrase(villainId: string) {
   if (typeof Audio === 'undefined') return
   const { sfxVolume } = useSettingsStore.getState()
   if (sfxVolume <= 0) return
-  const track = phraseTrack(key)
+  // NATIF → fichier de phrase (`phraseTrack`) ; PUBLIÉ → sa « Devise en audio » (dataURL).
+  const track = isCustomKey(villainId)
+    ? (() => {
+        const url = customVillainOf(villainId)?.audio
+        return url ? { url, gain: 1, fadeEndS: 0.6 } : undefined
+      })()
+    : phraseTrack(villainId in VILLAIN_REGISTRY ? (villainId as VillainKey) : villainKeyOf(villainId))
   if (!track) return
   stopCurrent()
   const audio = new Audio()

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { CustomCard } from '../../data/customVillain'
-import { renderCardFace } from './cardRender'
+import { renderCardFace, isPreRenderedCard } from './cardRender'
 import { useCustomTypesStore } from '../store/customTypesStore'
 
 /** Aperçu d'une carte : rend la face en dataURL (asynchrone, débanché léger). */
@@ -46,10 +46,11 @@ export function CardPreview({
     kw: keywordColors,
   })
 
-  // Face PRÉ-RENDUE et EXTERNE (image = chemin/URL servie depuis public/, sans art
-  // éditable à recomposer) : c'est déjà la carte finie (vilains migrés, ex. Flagelleur).
-  // On l'affiche telle quelle — la recomposer via renderCardFace donnerait une carte vide.
-  const preRendered = !card.artImage && !!card.image && !card.image.startsWith('data:')
+  // Face PRÉ-RENDUE (sans art brut `artImage` à recomposer, mais `image` finie) : c'est déjà
+  // la carte terminée — chemin externe (vilains migrés) OU composite baké en dataURL (vilains
+  // « compressés » n'embarquant que le composite, ex. Dio). On l'affiche telle quelle : la
+  // recomposer via renderCardFace donnerait une carte SANS illustration (cf. isPreRenderedCard).
+  const preRendered = isPreRenderedCard(card)
 
   useEffect(() => {
     if (preRendered) return // rien à composer : on affiche card.image directement

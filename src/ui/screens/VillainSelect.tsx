@@ -362,8 +362,9 @@ export function VillainSelect({ onStart, onBack }: Props) {
   // Le vilain réservé par un camp (jamais « random ») : interdit à l'autre.
   const takenBy = (c: Choice | null): string | null => (c && c !== 'random' ? c : null)
 
-  // Joue la réplique d'un vilain choisi (uniquement les natifs : pas de voix custom).
-  const playPhrase = (key: string) => { if (!isCustomKey(key)) playVillainPhrase(key as VillainKey) }
+  // Joue la réplique d'un vilain choisi : natif → fichier de phrase ; publié → sa
+  // « Devise en audio ». `playVillainPhrase` résout lui-même le cas custom (no-op si aucune).
+  const playPhrase = (key: string) => playVillainPhrase(key)
 
   // Affecte un vilain à un camp (avec anti-miroir : on le retire à l'autre s'il l'avait).
   const assignSide = (c: Choice, side: Side) => {

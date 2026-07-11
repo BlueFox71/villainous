@@ -174,8 +174,8 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
   // Vilain inconnu (clé invalide) : rien à afficher.
   if (!v) return null
   const villainColor = VILLAIN_COLOR[v.def.id]
-  // Réplique audio du vilain (si un fichier de phrase existe) : bouton « écouter »
-  // à droite du nom. Vilains natifs uniquement (les publiés n'en ont pas).
+  // Réplique audio du vilain : bouton « écouter » à droite du nom. NATIF → fichier de
+  // phrase ; PUBLIÉ → sa « Devise en audio » (custom.audio). Absent si aucune des deux.
   const hasPhrase = !!villainPhraseUrl(villain)
   // Pack du vilain (boîte) : affiche, nom, date de sortie ; tooltip = liste des vilains du pack.
   // Les vilains PUBLIÉS n'ont pas de pack : on affichera plutôt leur créateur.
@@ -291,7 +291,7 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
                   {hasPhrase && (
                     <button
                       type="button"
-                      onClick={() => playVillainPhrase(villain as VillainKey)}
+                      onClick={() => playVillainPhrase(villain)}
                       title="Écouter sa réplique"
                       aria-label="Écouter sa réplique"
                       className="shrink-0 rounded-full border border-amber-400/50 px-2 py-1 text-base leading-none text-amber-200 hover:bg-amber-400/15"

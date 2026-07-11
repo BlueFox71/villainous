@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { VILLAIN_REGISTRY, type ShowcaseKind, type VillainKey } from '../store/gameStore'
+import { villainEntry, type ShowcaseKind } from '../store/gameStore'
 import { CardSelect } from './CardSelect'
 
 interface Props {
-  /** Vilain du joueur testé (pour lister ses Héros / Conditions). */
-  villain: VillainKey
+  /** Vilain du joueur testé (natif OU publié `custom-…`) — pour lister ses Héros / Conditions. */
+  villain: string
   /** Lieux du joueur (cibles de pose d'un Héros). */
   locations: { id: string; name: string }[]
   /** Alliés actuellement dans la main du joueur (pour choisir lors de Lâcheté). */
@@ -48,7 +48,7 @@ const SHOWCASE_KINDS: { kind: ShowcaseKind; label: string }[] = [
  * de cartes montrent l'image au survol.
  */
 export function TestFateBar({ villain, locations, handAllies, boardHeroes, onInflict, onPlayCondition, onPlayFateCard, onAddToHand, onAddToAuDela, onShowcase, error }: Props) {
-  const cards = VILLAIN_REGISTRY[villain].cards
+  const cards = villainEntry(villain)?.cards ?? []
   const heroes = cards.filter((c) => c.deck === 'fate' && c.type === 'hero').sort((a, b) => a.name.localeCompare(b.name))
   const conditions = cards.filter((c) => c.type === 'condition').sort((a, b) => a.name.localeCompare(b.name))
   // Événements ET Ingrédients (La Méchante Reine) : ajoutables à la main pour être

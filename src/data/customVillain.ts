@@ -688,6 +688,12 @@ export function toCardDefs(v: CustomVillain): CardDef[] {
     delete def.textLayout
     delete def.textBoxes
     delete def.stickers
+    // Les Conditions sont GRATUITES (coût 0). L'éditeur n'expose pas de champ coût pour
+    // elles et l'export omet parfois le `0` (sérialisé comme « vide ») : on le rétablit ici
+    // pour garder un coût numérique cohérent (cf. intégrité : toute carte Méchant a un coût).
+    if (def.deck === 'villain' && def.type === 'condition' && def.cost === undefined) {
+      def.cost = 0
+    }
     return def
   })
 }

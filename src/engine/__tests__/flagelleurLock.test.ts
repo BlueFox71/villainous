@@ -80,4 +80,42 @@ describe("Le Flagelleur Mental — verrou du Monde à l'Envers (THE FLAYED / WIL
     const next = resolveEffects(s, [{ type: 'FLAYER_GATE_REFRESH', locationId: 'monde-envers', willCardId: 'will-byers' }], { hostInstanceId: 'w1' })
     expect(locked(next)).toBe(true)
   })
+
+  it('poser le 3ᵉ THE FLAYED via la Condition « Intrus » déverrouille aussi', () => {
+    // Régression : jouer un Allié via une Condition (Intrus / Lâcheté…) résout désormais
+    // ses effets « à la pose ». Le 3ᵉ THE FLAYED posé gratuitement débloque le lieu.
+    const intrus = (id: string): CardInstance => ({
+      instanceId: id,
+      cardId: 'intrus-dans-le-monde-a-l-envers',
+      name: 'Intrus',
+      type: 'condition',
+      cost: 0,
+      trigger: { type: 'opponent-played-ally', requiresOwnAlly: true },
+    })
+    const base = game()
+    const withOpp = createInitialGame(
+      [
+        { villain: flagelleurMental, deckCards: buildDeckInstances(flagelleurMentalCards, 'villain', 'p0:'), fateCards: buildDeckInstances(flagelleurMentalCards, 'fate', 'p0f:') },
+        { villain: flagelleurMental, deckCards: buildDeckInstances(flagelleurMentalCards, 'villain', 'p1:'), fateCards: buildDeckInstances(flagelleurMentalCards, 'fate', 'p1f:') },
+      ],
+      7,
+    )
+    const hand0 = [intrus('c1'), flayedInHand('f3')]
+    const s: GameState = {
+      ...withOpp,
+      phase: 'ACTION',
+      activePlayer: 1,
+      activePlayedAllyCount: 1,
+      rngState: base.rngState,
+      players: withOpp.players.map((p, i) =>
+        i === 0
+          ? { ...p, hand: hand0, reactableConditionIds: hand0.map((c) => c.instanceId), board: { 'centre-ville': [flayedBoard('f1'), flayedBoard('f2')] } }
+          : p,
+      ),
+    }
+    const next = applyAction(s, { type: 'PLAY_CONDITION', playerIndex: 0, instanceId: 'c1', allyInstanceId: 'f3', to: 'centre-ville' })
+    expect((next.players[0].board['centre-ville'] ?? []).filter((c) => c.cardId === 'the-flayed')).toHaveLength(3)
+    expect(next.players[0].flayerGateUnlocked).toBe(true)
+    expect(locked(next)).toBe(false)
+  })
 })

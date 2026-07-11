@@ -47,6 +47,17 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.4.2',
+    date: '2026-07-11',
+    title: 'Nouveaux décors : Gul’dan & Dio',
+    tags: ['animation', 'correctif', 'atelier'],
+    changes: [
+      "**Gul’dan** a désormais son décor : la **marée de gangrené** — lueur **fel verte** et **violette** du Vide qui pulsent, volutes de gangrené qui montent et cendres scintillantes.",
+      "**Dio** a son décor du **temps** (*The World*) : nuit dorée/violette, **horloge à chiffres romains**, grand **mandala d’horloge** qui tourne et chiffres romains flottants.",
+      "**Correctif** : les **images des cartes de Dio** réapparaissent dans l’**Atelier** (cartes au composite déjà baké, sans art brut à recomposer).",
+    ],
+  },
+  {
     version: '1.4.1',
     date: '2026-07-10',
     title: 'Chargement allégé & indicateurs',

@@ -5307,16 +5307,19 @@ export function resolveEffect(
       }
     }
     case 'RELOCATE_HERO_ADJACENT': {
-      // Apparition : l'acteur déplacera un de ses Héros vers un lieu voisin.
+      // Apparition (action du vilain) : l'acteur déplace un de ses Héros vers un lieu
+      // voisin. Frissons (Fatalité) : le Héros à déplacer est chez la CIBLE (idx), mais
+      // le CHOIX revient au lanceur de la Fatalité (`ctx.playedBy`), pas à la cible.
       const actor = state.players[idx]
+      const chooser = ctx?.playedBy ?? idx
       const hasHero = Object.values(actor.board).some((cards) => cards.some((c) => c.type === 'hero'))
       if (!hasHero) {
-        return { ...state, log: [...state.log, `${actor.villainName} : aucun Héros à déplacer (Apparition).`] }
+        return { ...state, log: [...state.log, `${actor.villainName} : aucun Héros à déplacer.`] }
       }
       return {
         ...state,
-        pendingHeroRelocate: { chooserIndex: idx, targetIndex: idx },
-        log: [...state.log, `${actor.villainName} : déplacez un Héros vers un lieu voisin (Apparition).`],
+        pendingHeroRelocate: { chooserIndex: chooser, targetIndex: idx },
+        log: [...state.log, `${state.players[chooser].villainName} : déplacez un Héros vers un lieu voisin.`],
       }
     }
     // --- Le Piégeur (Dead by Daylight) ---------------------------------------
@@ -6253,19 +6256,18 @@ export function resolveEffect(
       return triggerHeroArrival(next, idx, placeLoc)
     }
     case 'FLAYER_WILL_SCRY': {
-      // WILL SOUS EMPRISE : regarde + réordonne le dessus de la pioche Méchant (interactif,
-      // via pendingFateReorder deck:'villain'). (Option « deck Fatalité +1 » à venir.)
+      // WILL SOUS EMPRISE : regarde + réordonne le dessus du deck Méchant OU Fatalité (ce
+      // dernier coûte +1 Pouvoir), jusqu'à `count` cartes (ou moins si le deck est plus
+      // petit). Ouvre le CHOIX du deck (pendingScryDeckChoice) ; la réorganisation suit
+      // via pendingFateReorder. No-op seulement si LES DEUX decks sont vides.
       const actor = state.players[idx]
-      if (actor.deck.length < 2) {
-        return { ...state, log: [...state.log, `${actor.villainName} : pas assez de cartes à réorganiser.`] }
+      if (actor.deck.length === 0 && actor.fateDeck.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : aucune carte à réorganiser (decks vides).`] }
       }
-      const top = actor.deck.slice(0, effect.count)
-      const rest = actor.deck.slice(top.length)
-      const next = updatePlayer(state, idx, (p) => ({ ...p, deck: rest }))
       return {
-        ...next,
-        pendingFateReorder: { playerIndex: idx, cards: top, deck: 'villain' },
-        log: [...next.log, `${actor.villainName} regarde les ${top.length} premières cartes de sa pioche Méchant.`],
+        ...state,
+        pendingScryDeckChoice: { playerIndex: idx, count: effect.count, fateExtraCost: 1 },
+        log: [...state.log, `${actor.villainName} (Will sous emprise) : choisissez le deck à consulter.`],
       }
     }
     case 'MOVE_ALLY_TO_HOST': {
@@ -9608,9 +9610,10 @@ export function resolveEffect(
     }
     case 'FLAYER_PLACE_TUNNEL': {
       // Le Flagelleur Mental — Tunnel de Hawkins (résolu AVANT la pose de l'Objet) :
-      // défausse les Alliés choisis (ctx.allyInstanceIds, + leurs Objets associés) où qu'ils
-      // soient, puis — si cette pose porte le nombre de Tunnels à `rewardAtCount` — gagne
-      // `rewardPower` Pouvoir. La sélection est validée en amont (applyPlayCard).
+      // défausse les Alliés choisis (ctx.allyInstanceIds, + leurs Objets associés) — tous
+      // présents sur le lieu de pose —, puis, si cette pose porte le nombre de Tunnels à
+      // `rewardAtCount`, gagne `rewardPower` Pouvoir. La sélection est validée en amont
+      // (applyPlayCard : mêmes Alliés, même lieu que `to`).
       const actor = state.players[idx]
       const chosen = new Set(ctx?.allyInstanceIds ?? [])
       const board: Record<string, CardInstance[]> = { ...actor.board }

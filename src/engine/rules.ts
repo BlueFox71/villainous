@@ -1636,23 +1636,25 @@ export function flayerGateConditionMet(
   )
 }
 
-/** Le Flagelleur Mental — Alliés du royaume DÉFAUSSABLES pour payer un Tunnel de Hawkins
- *  (Alliés non associés, hors arceaux/indéfaussables, et hors Billy `cannotDiscardForTunnel`). */
-export function flayerTunnelDiscardableAllies(p: PlayerState): CardInstance[] {
-  return Object.values(p.board)
-    .flat()
-    .filter(
-      (c) =>
-        c.type === 'ally' &&
-        !c.attachedTo &&
-        !c.isWicket &&
-        !c.cannotBeDiscarded &&
-        !c.cannotDiscardForTunnel,
-    )
+/** Le Flagelleur Mental — Alliés DÉFAUSSABLES pour payer un Tunnel de Hawkins, restreints à
+ *  UN lieu donné (Alliés non associés, hors arceaux/indéfaussables, et hors Billy
+ *  `cannotDiscardForTunnel`) : les Alliés sacrifiés viennent d'un même lieu, où le Tunnel
+ *  sera posé. */
+export function flayerTunnelDiscardableAlliesAt(p: PlayerState, locationId: string): CardInstance[] {
+  return (p.board[locationId] ?? []).filter(
+    (c) =>
+      c.type === 'ally' &&
+      !c.attachedTo &&
+      !c.isWicket &&
+      !c.cannotBeDiscarded &&
+      !c.cannotDiscardForTunnel,
+  )
 }
 
-/** Le Flagelleur Mental — nombre d'Alliés à défausser pour poser un Tunnel : la base de
- *  l'effet, +1 par Héros `surchargeHeroCardId` (Onze) présent dans le royaume. */
+/** Le Flagelleur Mental — nombre d'Alliés REQUIS sur le lieu pour poser un Tunnel : la base
+ *  de l'effet, +1 par Héros `surchargeHeroCardId` (Onze) présent dans le royaume. C'est le
+ *  nombre d'Alliés qui doivent être PRÉSENTS (Billy compris) ; le nombre réellement DÉFAUSSÉ
+ *  est donné par `flayerTunnelDiscardsNeededAt` (Billy compte mais n'est jamais défaussé). */
 export function flayerTunnelRequiredAllies(
   p: PlayerState,
   effect: { baseAllies: number; surchargeHeroCardId: string },
@@ -1661,6 +1663,22 @@ export function flayerTunnelRequiredAllies(
     .flat()
     .some((c) => c.type === 'hero' && c.cardId === effect.surchargeHeroCardId)
   return effect.baseAllies + (onzePresent ? 1 : 0)
+}
+
+/** Le Flagelleur Mental — nombre d'Alliés à DÉFAUSSER pour poser un Tunnel sur `locationId` :
+ *  le nombre requis (`flayerTunnelRequiredAllies`) diminué des Alliés PROTÉGÉS présents sur ce
+ *  lieu (Billy `cannotDiscardForTunnel`), qui COMPTENT parmi les Alliés requis mais ne sont
+ *  jamais défaussés. Jamais négatif. Ex. Billy + 1 Vignes (requis 2) → 1 seul à défausser. */
+export function flayerTunnelDiscardsNeededAt(
+  p: PlayerState,
+  locationId: string,
+  effect: { baseAllies: number; surchargeHeroCardId: string },
+): number {
+  const required = flayerTunnelRequiredAllies(p, effect)
+  const protectedPresent = (p.board[locationId] ?? []).filter(
+    (c) => c.type === 'ally' && !c.attachedTo && !c.isWicket && c.cannotDiscardForTunnel,
+  ).length
+  return Math.max(0, required - protectedPresent)
 }
 
 /** Le joueur `playerIndex` (défaut : joueur actif) a-t-il atteint son objectif de

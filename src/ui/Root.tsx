@@ -21,7 +21,9 @@ import { MenuMusicPlayer } from './components/MenuMusicPlayer'
 import { MenuBackground } from './components/MenuBackground'
 import { IntroCinematic } from './components/IntroCinematic'
 import { useSettingsStore, useIsDesktopApp } from './store/settingsStore'
-import { useGameStore, VILLAIN_REGISTRY, type VillainKey } from './store/gameStore'
+import { useGameStore, VILLAIN_REGISTRY, isCustomKey, type VillainKey } from './store/gameStore'
+import { useCustomVillainStore } from './store/customVillainStore'
+import { clearSavedGame } from './store/gamePersistence'
 import { playClick } from './sfx'
 
 /** Chemins des écrans (une route par page). */
@@ -97,7 +99,9 @@ function NetworkRoute() {
 
 function GameRoute() {
   const navigate = useNavigate()
-  return <App onExit={() => navigate(ROUTES.menu)} />
+  // Retour au menu = on abandonne la partie : on efface la sauvegarde de reprise
+  // (sessionStorage). Un rechargement sur le menu ne reprendra donc rien.
+  return <App onExit={() => { clearSavedGame(); navigate(ROUTES.menu) }} />
 }
 
 function VillainListRoute() {
@@ -181,6 +185,32 @@ export default function Root() {
   // Rejoue la cinématique d'intro à la demande (bouton du menu) : on remasque le
   // menu sous la vidéo ; `finishIntro` la refermera comme au lancement.
   const replayIntro = () => setIntroDone(false)
+
+  // Vilains PERSONNALISÉS : on les charge + enregistre au runtime dès le démarrage,
+  // quelle que soit la route affichée. Indispensable pour REPRENDRE une partie après
+  // rechargement directement sur /partie : sans ça, le registre runtime des customs
+  // resterait vide (load() n'était déclenché que par l'Atelier/les listes) et les
+  // plateaux/cartes/décors du vilain custom repris ne se résoudraient pas.
+  useEffect(() => {
+    // Une fois les customs enregistrés (version ALLÉGÉE, sans images de cartes/plateau), on
+    // HYDRATE ceux effectivement EN JEU dans une éventuelle partie REPRISE : sans cela, leurs
+    // CARTES et leur plateau s'afficheraient sans illustration (le registre léger n'a que les
+    // données de jeu). On ré-injecte ensuite les images de plateau retirées à la sauvegarde ;
+    // le re-render fait apparaître les images des cartes custom via le registre (désormais complet).
+    const done = async () => {
+      const { state, preTestState } = useGameStore.getState()
+      const inPlay = [state, preTestState]
+        .filter((s): s is NonNullable<typeof s> => !!s)
+        .flatMap((s) => s.players.map((p) => p.villain))
+      const customs = [...new Set(inPlay.filter(isCustomKey))]
+      const { hydrate } = useCustomVillainStore.getState()
+      await Promise.all(customs.map((id) => hydrate(id)))
+      useGameStore.getState().hydrateResumedImages()
+    }
+    const { loaded, load } = useCustomVillainStore.getState()
+    if (!loaded) void load().then(done)
+    else void done()
+  }, [])
 
   // App de bureau : aligne le mode d'affichage du store sur celui réellement
   // appliqué à la fenêtre native au lancement (source de vérité côté Electron),

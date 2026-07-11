@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { CustomCard, CardSticker, TextBox, TextLayout } from '../../data/customVillain'
 import { CARD_W, CARD_H, DEFAULT_TEXT_LAYOUT, DEFAULT_STICKER_SIZE, TEXT_SIZE_PRESETS } from '../../data/customVillain'
 import type { LocationActionType } from '../../engine/types'
-import { renderCardFace, ruleTextBlockHeight } from './cardRender'
+import { renderCardFace, ruleTextBlockHeight, isPreRenderedCard } from './cardRender'
 import { ACTION_TOKEN_LIST, ACTION_ICON_FILE, BOARD_ICON_DIR } from './actionIcons'
 import { inputClass } from './fields'
 import { useCustomTypesStore } from '../store/customTypesStore'
@@ -73,7 +73,11 @@ export function CardLayoutEditor({
     ct: customTypes,
     kw: keywordColors,
   })
+  // Carte PRÉ-RENDUE (sans art brut à recomposer, ex. Dio compressé) : on affiche le composite
+  // baké tel quel (dérivé, pas d'état) — le recomposer donnerait une carte sans illustration.
+  const preRendered = isPreRenderedCard(card)
   useEffect(() => {
+    if (preRendered) return // rien à recomposer : l'arrière-plan dérive de card.image
     let alive = true
     const h = setTimeout(() => {
       void renderCardFace(card, color, fateColor, {}, wordColors).then((url) => {
@@ -85,7 +89,8 @@ export function CardLayoutEditor({
       clearTimeout(h)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key])
+  }, [key, preRendered])
+  const displayBg = preRendered ? (card.image ?? null) : bg
 
   // Disposition de texte effective (défaut tant que l'utilisateur n'a rien déplacé).
   const tl = card.textLayout ?? DEFAULT_TEXT_LAYOUT
@@ -246,8 +251,8 @@ export function CardLayoutEditor({
         onPointerDown={() => setSel(null)}
         className="relative aspect-[1440/2044] w-full select-none overflow-hidden rounded-xl bg-black/40"
       >
-        {bg ? (
-          <img src={bg} alt={card.name} className="pointer-events-none absolute inset-0 h-full w-full object-contain" />
+        {displayBg ? (
+          <img src={displayBg} alt={card.name} className="pointer-events-none absolute inset-0 h-full w-full object-contain" />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-white/30">…</div>
         )}

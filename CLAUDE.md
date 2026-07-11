@@ -211,7 +211,8 @@ JSON du vilain. Tu ne crées **aucun** fichier natif ni câblage (cf. avertissem
 - En cas de doute sur une règle exacte de Villainous, **demande** avant de coder.
 - Reste cohérent avec le code alentour (densité de commentaires, nommage, idiomes
   — les unions discriminées avec commentaires explicatifs sont la norme).
-- Ne committe que sur demande. **On committe toujours directement sur `main`** :
+- Committer ne nécessite plus de demande explicite : commite librement une fois le
+  travail prêt (tests + lint verts). **On committe toujours directement sur `main`** :
   ne crée pas de branche, ne propose pas de PR.
 - **Avant chaque commit, ajoute une note de version** en tête de `PATCH_NOTES`
   (`src/ui/patchNotes.ts`) : nouvelle `version`, `date`, `title` court, des `tags`
@@ -247,3 +248,17 @@ JSON du vilain. Tu ne crées **aucun** fichier natif ni câblage (cf. avertissem
   (cf. `villainVoices.ts`, `SoundTest.tsx`) : `assets/Sounds/**`, les `.wav` et les
   `*phrase*.mp3`/`*Phrase*.mp3` de `assets/Voix Villainous/` doivent y rester (si tu
   les déplaces, mets à jour le glob en conséquence), sinon ça casse le build.
+
+## Plugin Superpowers
+
+Le plugin **Superpowers** est actif. **Ce `CLAUDE.md` reste la source de vérité** :
+en cas de contradiction, il prime toujours sur un skill.
+
+- **Utiliser** les skills *process* qui collent au projet : `brainstorming` (conception
+  de vilains / mécaniques inédites), `test-driven-development` (projet très test-driven),
+  `systematic-debugging` (bugs du moteur pur/déterministe), `writing-plans` /
+  `executing-plans` (intégration multi-étapes d'un vilain), `verification-before-completion`
+  / `code-review` (avant commit, en plus de `npm run test` + `npm run lint`).
+- **Ignorer** les skills git qui contredisent nos règles : `using-git-worktrees` et
+  `finishing-a-development-branch` (pas de branche, pas de PR, pas de worktree) —
+  **on committe toujours directement sur `main`** (cf. ci-dessus).

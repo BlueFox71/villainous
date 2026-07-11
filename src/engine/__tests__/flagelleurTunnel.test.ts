@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { applyAction } from '../actions'
-import { flayerTunnelDiscardableAllies, flayerTunnelRequiredAllies } from '../rules'
+import { flayerTunnelDiscardableAlliesAt, flayerTunnelRequiredAllies, flayerTunnelDiscardsNeededAt } from '../rules'
 import { enumerateActions } from '../../ai/enumerate'
 import { flagelleurMental, flagelleurMentalCards } from '../../data/published/flagelleurMental'
 import { buildDeckInstances } from '../../data/types'
@@ -59,9 +59,9 @@ function setup(opts: { hand?: CardInstance[]; board?: Record<string, CardInstanc
   }
 }
 
-describe('Le Flagelleur Mental — Tunnel de Hawkins (pose + coût en Alliés)', () => {
-  it('pose le Tunnel sur le lieu choisi en défaussant 2 Alliés (coût 2 Pouvoir)', () => {
-    const s = setup({ board: { 'centre-ville': [vignes('a1'), vignes('a2')] }, power: 5 })
+describe('Le Flagelleur Mental — Tunnel de Hawkins (pose + coût en Alliés, même lieu)', () => {
+  it('pose le Tunnel sur le lieu des 2 Alliés défaussés (coût 2 Pouvoir)', () => {
+    const s = setup({ board: { laboratoire: [vignes('a1'), vignes('a2')] }, power: 5 })
     const next = applyAction(s, {
       type: 'PLAY_CARD',
       actionId: 'play-card',
@@ -71,17 +71,26 @@ describe('Le Flagelleur Mental — Tunnel de Hawkins (pose + coût en Alliés)',
     })
     const lab = next.players[0].board['laboratoire'] ?? []
     expect(lab.some((c) => c.instanceId === 'tun1')).toBe(true)
-    // Les 2 Alliés sont partis en défausse ; il en reste 0 sur Centre-ville.
-    expect((next.players[0].board['centre-ville'] ?? []).filter((c) => c.type === 'ally')).toHaveLength(0)
+    // Les 2 Alliés du lieu sont partis en défausse.
+    expect(lab.filter((c) => c.type === 'ally')).toHaveLength(0)
     expect(next.players[0].discard.filter((c) => c.cardId === 'vignes')).toHaveLength(2)
     expect(next.players[0].power).toBe(3) // 5 − 2 (coût)
+  })
+
+  it('refuse la pose si les Alliés ne sont pas sur le lieu de pose', () => {
+    // Alliés sur Centre-ville, mais pose demandée sur Laboratoire (aucun Allié) → refus.
+    const s = setup({ board: { 'centre-ville': [vignes('a1'), vignes('a2')] }, power: 5 })
+    expect(() =>
+      applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: 'tun1', to: 'laboratoire', allyInstanceIds: ['a1', 'a2'] }),
+    ).toThrow()
   })
 
   it('+3 Pouvoir en atteignant 3 Tunnels dans le royaume', () => {
     const s = setup({
       board: {
-        'centre-ville': [tunnelOnBoard('t1'), vignes('a1'), vignes('a2')],
+        'centre-ville': [tunnelOnBoard('t1')],
         starcourt: [tunnelOnBoard('t2')],
+        laboratoire: [vignes('a1'), vignes('a2')],
       },
       power: 5,
     })
@@ -98,7 +107,10 @@ describe('Le Flagelleur Mental — Tunnel de Hawkins (pose + coût en Alliés)',
 
   it('pas de bonus en posant le 2ᵉ Tunnel (seuil non atteint)', () => {
     const s = setup({
-      board: { 'centre-ville': [tunnelOnBoard('t1'), vignes('a1'), vignes('a2')] },
+      board: {
+        'centre-ville': [tunnelOnBoard('t1')],
+        starcourt: [vignes('a1'), vignes('a2')],
+      },
       power: 5,
     })
     const next = applyAction(s, {
@@ -111,8 +123,8 @@ describe('Le Flagelleur Mental — Tunnel de Hawkins (pose + coût en Alliés)',
     expect(next.players[0].power).toBe(3) // 5 − 2, pas de +3
   })
 
-  it('avec ONZE présente, il faut défausser 3 Alliés (2 → refus)', () => {
-    const board = { 'centre-ville': [onze('o1'), vignes('a1'), vignes('a2'), vignes('a3')] }
+  it('avec ONZE présente, il faut défausser 3 Alliés du lieu (2 → refus)', () => {
+    const board = { laboratoire: [onze('o1'), vignes('a1'), vignes('a2'), vignes('a3')] }
     const s = setup({ board, power: 5 })
     expect(flayerTunnelRequiredAllies(s.players[0], TUNNEL_EFFECT)).toBe(3)
     expect(() =>
@@ -122,24 +134,51 @@ describe('Le Flagelleur Mental — Tunnel de Hawkins (pose + coût en Alliés)',
     expect((ok.players[0].board['laboratoire'] ?? []).some((c) => c.instanceId === 'tun1')).toBe(true)
   })
 
-  it('Billy ne peut pas être défaussé pour un Tunnel', () => {
+  it('Billy compte parmi les Alliés requis mais n’est jamais défaussé', () => {
     const s = setup({ board: { 'centre-ville': [billy('b1'), vignes('a1')] } })
-    expect(flayerTunnelDiscardableAllies(s.players[0]).some((c) => c.instanceId === 'b1')).toBe(false)
-    // Billy + 1 Vignes ne suffit pas (1 seul Allié défaussable) → injouable.
+    // Billy n'est pas défaussable ; mais il COMPTE → il ne reste qu'1 Allié à défausser.
+    expect(flayerTunnelDiscardableAlliesAt(s.players[0], 'centre-ville').some((c) => c.instanceId === 'b1')).toBe(false)
+    expect(flayerTunnelDiscardsNeededAt(s.players[0], 'centre-ville', TUNNEL_EFFECT)).toBe(1)
+    // Tenter de défausser Billy est refusé (sélection invalide).
     expect(() =>
-      applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: 'tun1', to: 'laboratoire', allyInstanceIds: ['b1', 'a1'] }),
+      applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: 'tun1', to: 'centre-ville', allyInstanceIds: ['b1'] }),
+    ).toThrow()
+    // Défausser la seule Vignes suffit (Billy comble l'autre place) : Tunnel posé, Billy reste.
+    const ok = applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: 'tun1', to: 'centre-ville', allyInstanceIds: ['a1'] })
+    const cell = ok.players[0].board['centre-ville'] ?? []
+    expect(cell.some((c) => c.instanceId === 'tun1')).toBe(true)
+    expect(cell.some((c) => c.instanceId === 'b1')).toBe(true) // Billy reste en jeu
+    expect(cell.some((c) => c.instanceId === 'a1')).toBe(false) // Vignes défaussée
+    expect(ok.players[0].discard.some((c) => c.instanceId === 'a1')).toBe(true)
+  })
+
+  it('Billy seul (sans autre Allié) ne suffit pas à poser un Tunnel', () => {
+    const s = setup({ board: { 'centre-ville': [billy('b1')] } })
+    // Requis 2, Billy comble 1 place mais il faut encore 1 Allié défaussable → aucun.
+    expect(flayerTunnelDiscardsNeededAt(s.players[0], 'centre-ville', TUNNEL_EFFECT)).toBe(1)
+    expect(() =>
+      applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: 'tun1', to: 'centre-ville', allyInstanceIds: [] }),
     ).toThrow()
   })
 
-  it('injouable sans assez d’Alliés défaussables', () => {
+  it('avec ONZE, Billy + 2 Vignes suffit (requis 3, Billy comble 1 → 2 à défausser)', () => {
+    const s = setup({ board: { laboratoire: [onze('o1'), billy('b1'), vignes('a1'), vignes('a2')] }, power: 5 })
+    expect(flayerTunnelDiscardsNeededAt(s.players[0], 'laboratoire', TUNNEL_EFFECT)).toBe(2)
+    const ok = applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: 'tun1', to: 'laboratoire', allyInstanceIds: ['a1', 'a2'] })
+    const cell = ok.players[0].board['laboratoire'] ?? []
+    expect(cell.some((c) => c.instanceId === 'tun1')).toBe(true)
+    expect(cell.some((c) => c.instanceId === 'b1')).toBe(true) // Billy reste
+  })
+
+  it('injouable sans assez d’Alliés défaussables sur le lieu', () => {
     const s = setup({ board: { 'centre-ville': [vignes('a1')] } })
     expect(() =>
-      applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: 'tun1', to: 'laboratoire', allyInstanceIds: ['a1'] }),
+      applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: 'tun1', to: 'centre-ville', allyInstanceIds: ['a1'] }),
     ).toThrow()
   })
 
   it('ne peut pas être posé sur le Monde à l’Envers', () => {
-    const s0 = setup({ board: { 'centre-ville': [vignes('a1'), vignes('a2')] } })
+    const s0 = setup({ board: { 'monde-envers': [vignes('a1'), vignes('a2')] } })
     // Déverrouille le Monde à l'Envers pour isoler l'interdiction de pose (forbiddenLocations).
     const s: GameState = {
       ...s0,
@@ -150,13 +189,15 @@ describe('Le Flagelleur Mental — Tunnel de Hawkins (pose + coût en Alliés)',
     ).toThrow()
   })
 
-  it('le bot énumère la pose du Tunnel (avec Alliés à défausser, hors Monde à l’Envers)', () => {
+  it('le bot énumère la pose du Tunnel sur le lieu des Alliés (hors Monde à l’Envers)', () => {
     const s = setup({ board: { 'centre-ville': [vignes('a1'), vignes('a2')] } })
     const plays = enumerateActions(s).filter(
       (a) => a.type === 'PLAY_CARD' && a.instanceId === 'tun1',
     )
     expect(plays.length).toBeGreaterThan(0)
     expect(plays.every((a) => a.type === 'PLAY_CARD' && (a.allyInstanceIds?.length ?? 0) === 2)).toBe(true)
+    // Seul le lieu portant les 2 Alliés (Centre-ville) est proposé.
+    expect(plays.every((a) => a.type === 'PLAY_CARD' && a.to === 'centre-ville')).toBe(true)
     expect(plays.some((a) => a.type === 'PLAY_CARD' && a.to === 'monde-envers')).toBe(false)
   })
 })

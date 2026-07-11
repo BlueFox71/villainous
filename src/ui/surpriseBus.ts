@@ -15,11 +15,12 @@ const SURPRISE_KINDS = new Set<VillainDecor['kind']>([
   'underworld', 'goldenHair', 'forest', 'grotto', 'voodoo', 'galaxy', 'scar', 'yzma',
   'clockwork', 'cruella', 'tremaine', 'syndrome', 'cyber', 'castleAssault', 'mim',
   'cauldron', 'sunnyside', 'oogie', 'jungle', 'teamRocket', 'flyingDutchman', 'tamatoa',
-  'underwater',
+  'underwater', 'upsideDown',
 ])
 
-/** Vrai si le vilain a une surprise de décor déclenchable (mode test). */
-export function villainHasSurprise(villain: VillainKey): boolean {
+/** Vrai si le vilain a une surprise de décor déclenchable (mode test). Accepte une clé NATIVE
+ *  (`VillainKey`) OU un id de vilain PUBLIÉ (`custom-…`) — `villainDecor` résout les deux. */
+export function villainHasSurprise(villain: VillainKey | string): boolean {
   const decor = villainDecor(villain)
   return !!decor && SURPRISE_KINDS.has(decor.kind)
 }

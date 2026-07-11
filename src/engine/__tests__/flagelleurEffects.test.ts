@@ -54,13 +54,50 @@ describe('Le Flagelleur Mental — effets 2e (Démogorgon / Chaleur / Will sous 
     expect(pend?.candidateIds.sort()).toEqual(['a1', 'a2'])
   })
 
-  it('WILL SOUS EMPRISE : ouvre la réorganisation interactive du deck Méchant (4 cartes)', () => {
+  it('WILL SOUS EMPRISE : ouvre le CHOIX du deck (Méchant / Fatalité)', () => {
+    const s = setup({})
+    const next = resolveEffects(s, [{ type: 'FLAYER_WILL_SCRY', count: 4 }])
+    expect(next.pendingScryDeckChoice?.playerIndex).toBe(0)
+    expect(next.pendingScryDeckChoice?.count).toBe(4)
+    expect(next.pendingScryDeckChoice?.fateExtraCost).toBe(1)
+  })
+
+  it('WILL SOUS EMPRISE : choisir « Méchant » consulte jusqu’à 4 cartes du deck Méchant (gratuit)', () => {
     const s = setup({})
     const before = s.players[0].deck.length
-    const next = resolveEffects(s, [{ type: 'FLAYER_WILL_SCRY', count: 4 }])
+    const power = s.players[0].power
+    const opened = resolveEffects(s, [{ type: 'FLAYER_WILL_SCRY', count: 4 }])
+    const next = applyAction(opened, { type: 'RESOLVE_SCRY_DECK_CHOICE', deck: 'villain' })
+    expect(next.pendingScryDeckChoice).toBeFalsy()
     expect(next.pendingFateReorder?.deck).toBe('villain')
     expect(next.pendingFateReorder?.cards).toHaveLength(4)
     expect(next.players[0].deck.length).toBe(before - 4)
+    expect(next.players[0].power).toBe(power) // gratuit
+  })
+
+  it('WILL SOUS EMPRISE : choisir « Fatalité » coûte +1 Pouvoir et consulte le deck Fatalité', () => {
+    const s = setup({})
+    const beforeFate = s.players[0].fateDeck.length
+    const power = s.players[0].power
+    const opened = resolveEffects(s, [{ type: 'FLAYER_WILL_SCRY', count: 4 }])
+    const next = applyAction(opened, { type: 'RESOLVE_SCRY_DECK_CHOICE', deck: 'fate' })
+    expect(next.pendingFateReorder?.deck).toBe('fate')
+    expect(next.pendingFateReorder?.cards.length).toBe(Math.min(4, beforeFate))
+    expect(next.players[0].fateDeck.length).toBe(beforeFate - Math.min(4, beforeFate))
+    expect(next.players[0].power).toBe(power - 1)
+  })
+
+  it('WILL SOUS EMPRISE : deck de moins de 4 cartes → on regarde ce qui est disponible', () => {
+    const base = game()
+    const s: GameState = {
+      ...base,
+      phase: 'ACTION',
+      players: base.players.map((p) => ({ ...p, power: 3, deck: p.deck.slice(0, 2) })),
+    }
+    const opened = resolveEffects(s, [{ type: 'FLAYER_WILL_SCRY', count: 4 }])
+    const next = applyAction(opened, { type: 'RESOLVE_SCRY_DECK_CHOICE', deck: 'villain' })
+    expect(next.pendingFateReorder?.cards).toHaveLength(2)
+    expect(next.players[0].deck.length).toBe(0)
   })
 })
 

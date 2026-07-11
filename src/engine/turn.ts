@@ -69,6 +69,7 @@ export function pendingOwner(state: GameState): number | null {
   if (state.pendingFreeItemPlay) return state.pendingFreeItemPlay.playerIndex
   if (state.pendingMaximus) return state.pendingMaximus.chooserIndex
   if (state.pendingFateReorder) return state.pendingFateReorder.playerIndex
+  if (state.pendingScryDeckChoice) return state.pendingScryDeckChoice.playerIndex
   if (state.pendingTeleport) return state.pendingTeleport.playerIndex
   if (state.pendingManipulation) return state.pendingManipulation.playerIndex
   if (state.pendingRoyalCroquet) return state.pendingRoyalCroquet.playerIndex

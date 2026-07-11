@@ -560,13 +560,14 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
 
 /** Liste des animations de décor d'un vilain (vide si aucune). Normalise l'entrée (une seule
  *  animation → tableau d'un élément). */
-export function villainAnimationList(key: VillainKey): VillainAnimation[] {
-  const v = VILLAIN_ANIMATION[key]
+export function villainAnimationList(key: VillainKey | string): VillainAnimation[] {
+  const v = VILLAIN_ANIMATION[key as VillainKey]
   return v ? (Array.isArray(v) ? v : [v]) : []
 }
 
 /** Première animation de décor d'un vilain (undefined si aucune). Pour les usages qui n'ont
- *  besoin que de savoir s'il en existe une / d'un aperçu (debug). */
-export function villainAnimation(key: VillainKey): VillainAnimation | undefined {
+ *  besoin que de savoir s'il en existe une / d'un aperçu (debug). Accepte une clé NATIVE ou un id
+ *  PUBLIÉ `custom-…` (les vilains publiés n'ont pas d'animation de passage → undefined). */
+export function villainAnimation(key: VillainKey | string): VillainAnimation | undefined {
   return villainAnimationList(key)[0]
 }

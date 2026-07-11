@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import type { VillainKey } from './gameStore'
 import { VILLAIN_COLOR } from '../villainColors'
 
 const LS_KEY = 'villainous:player'
@@ -37,8 +36,9 @@ export const AVATAR_COLORS: string[] = [...GENERIC_AVATAR_COLORS, ...VILLAIN_AVA
 export interface PlayerProfile {
   /** Nom affiché du joueur (vide = non renseigné). */
   name: string
-  /** Vilain utilisé comme avatar (illustration de présentation), ou null. */
-  avatarVillain: VillainKey | null
+  /** Vilain utilisé comme avatar (illustration de présentation), ou null. Clé native
+   *  (VillainKey) OU id d'un vilain publié de l'Atelier (`custom-…`). */
+  avatarVillain: string | null
   /** Couleur de fond derrière le vilain dans l'avatar (hex). */
   avatarColor: string
 }
@@ -58,7 +58,7 @@ function read(): PlayerProfile {
     const v = JSON.parse(raw) as Partial<PlayerProfile>
     return {
       name: typeof v.name === 'string' ? v.name : DEFAULT.name,
-      avatarVillain: typeof v.avatarVillain === 'string' ? (v.avatarVillain as VillainKey) : null,
+      avatarVillain: typeof v.avatarVillain === 'string' ? v.avatarVillain : null,
       avatarColor: typeof v.avatarColor === 'string' ? v.avatarColor : DEFAULT.avatarColor,
     }
   } catch {
@@ -79,7 +79,7 @@ interface PlayerStore extends PlayerProfile {
   /** Définit le nom du joueur. */
   setName: (name: string) => void
   /** Choisit le vilain servant d'avatar. */
-  setAvatarVillain: (key: VillainKey) => void
+  setAvatarVillain: (key: string) => void
   /** Choisit la couleur de fond de l'avatar. */
   setAvatarColor: (color: string) => void
 }
