@@ -50,9 +50,10 @@ export const PATCH_NOTES: PatchNote[] = [
     version: '1.4.3',
     date: '2026-07-11',
     title: 'Vilains custom plus légers',
-    tags: ['atelier', 'interface'],
+    tags: ['atelier', 'interface', 'correctif'],
     changes: [
       "Les **images des vilains** sont désormais des **fichiers** (plus de gros JSON) : l'**Atelier s'ouvre instantanément** et les images se chargent à la volée.",
+      "**Correctif** : les **illustrations des cartes de Dio** sont restaurées (elles avaient été remplacées par des versions sans dessin).",
     ],
   },
   {
