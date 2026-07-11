@@ -399,10 +399,8 @@ function PublishModal({
 // --- Écran principal ---------------------------------------------------------
 
 export function VillainEditor({ onBack, onPlay }: Props) {
-  const { villains, loaded, load, save, remove, unpublish, hydrate } = useCustomVillainStore()
+  const { villains, loaded, load, save, remove, unpublish } = useCustomVillainStore()
   const [draft, setDraft] = useState<CustomVillain | null>(null)
-  // Id du vilain en cours d'HYDRATATION (chargement de ses images complètes à l'ouverture).
-  const [opening, setOpening] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>('identity')
   const [dirty, setDirty] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -431,20 +429,11 @@ export function VillainEditor({ onBack, onPlay }: Props) {
     if (!loaded) void load()
   }, [loaded, load])
 
-  const startEdit = async (v: CustomVillain) => {
-    if (opening) return
-    // Le vilain listé peut être la version ALLÉGÉE embarquée (sans images de cartes/plateau) :
-    // on l'HYDRATE (charge son JSON complet) avant d'ouvrir l'éditeur, sinon les images
-    // manqueraient. Sur un brouillon local déjà complet, `hydrate` renvoie l'existant aussitôt.
-    setOpening(v.id)
-    try {
-      const full = await hydrate(v.id)
-      setDraft(structuredClone(full ?? v))
-      setTab('identity')
-      setDirty(false)
-    } finally {
-      setOpening(null)
-    }
+  const startEdit = (v: CustomVillain) => {
+    // Plus d'hydratation : le vilain listé est déjà complet (JSON « chemins »).
+    setDraft(structuredClone(v))
+    setTab('identity')
+    setDirty(false)
   }
 
   const startNew = () => {
@@ -733,9 +722,10 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
     // pions) comme un vilain natif. Best-effort : sans serveur de dév, on n'affiche rien.
     const exp = await exportVillainAssets(baked)
     const filesMsg = exp.ok ? `\n\n${exp.written} fichier(s) rangés dans assets/.` : ''
-    // EMBARQUE le vilain (JSON complet avec images) dans `src/data/published/` : chargé au
-    // démarrage, il devient disponible pour TOUS les joueurs (après commit + redéploiement).
-    // Best-effort : ne marche qu'avec le serveur de dév (apply: 'serve').
+    // EMBARQUE le vilain (JSON « chemins », images en fichiers sous public/cards/) dans
+    // `src/data/published/` : chargé au démarrage, il devient disponible pour TOUS les
+    // joueurs (après commit + redéploiement). Best-effort : ne marche qu'avec le serveur
+    // de dév (apply: 'serve').
     let sharedMsg = ''
     try {
       const res = await fetch('/__publish-villain', {
@@ -957,8 +947,7 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
                   >
                     <button
                       type="button"
-                      onClick={() => void startEdit(v)}
-                      disabled={!!opening}
+                      onClick={() => startEdit(v)}
                       className="relative aspect-square w-full overflow-hidden"
                       style={{ backgroundColor: v.color }}
                     >
@@ -987,11 +976,10 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
                       <div className="mt-2 flex gap-2">
                         <button
                           type="button"
-                          onClick={() => void startEdit(v)}
-                          disabled={!!opening}
-                          className="flex-1 rounded-lg border border-white/15 bg-white/5 py-1 text-xs font-semibold text-white/70 transition hover:text-amber-200 disabled:opacity-50"
+                          onClick={() => startEdit(v)}
+                          className="flex-1 rounded-lg border border-white/15 bg-white/5 py-1 text-xs font-semibold text-white/70 transition hover:text-amber-200"
                         >
-                          {opening === v.id ? 'Chargement…' : 'Éditer'}
+                          Éditer
                         </button>
                         {v.published ? (
                           // Vilain publié : bouton DÉPUBLIER (retire du jeu + de la liste).

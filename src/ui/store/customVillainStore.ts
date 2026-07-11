@@ -10,7 +10,7 @@
 import { create } from 'zustand'
 import type { CustomVillain } from '../../data/customVillain'
 import { migrateCustomVillain, pickFreshestVillains } from '../../data/customVillain'
-import { loadBundledVillains, loadFullBundledVillain } from '../../data/published/load'
+import { loadBundledVillains } from '../../data/published/load'
 import { registerPublishedVillain, unregisterPublishedVillain } from './gameStore'
 
 /** Enregistre au runtime tous les vilains PUBLIÉS d'une liste (cartes/couleur/
@@ -155,12 +155,6 @@ interface CustomVillainStore {
   unpublish: (id: string) => Promise<void>
   /** Récupère un vilain par id (depuis la liste en mémoire). */
   get: (id: string) => CustomVillain | undefined
-  /** HYDRATE un vilain : si la copie en mémoire est la version ALLÉGÉE embarquée (`_light`),
-   *  charge sa version COMPLÈTE (toutes images), la met en mémoire et ré-enregistre ses cartes/
-   *  plateau au runtime, puis la renvoie. Sinon (déjà complète, ou brouillon local) renvoie la
-   *  copie existante. À appeler AVANT d'ouvrir un vilain dans l'Atelier ou de lancer une partie
-   *  avec lui. Idempotent. */
-  hydrate: (id: string) => Promise<CustomVillain | undefined>
   /** Exporte un vilain en chaîne JSON formatée. */
   exportJson: (id: string) => string | undefined
   /** Importe un vilain depuis du JSON ; renvoie l'id importé ou lève une erreur. */
@@ -194,10 +188,8 @@ export const useCustomVillainStore = create<CustomVillainStore>((set, get) => ({
     const bundled = (await loadBundledVillains()).map(migrateCustomVillain)
     const { villains, toPersist } = pickFreshestVillains(local, restored, bundled)
     // (Re)persiste en IndexedDB les versions adoptées depuis le disque (brouillon restauré, ou
-    // édition disque plus récente) pour qu'elles redeviennent éditables. On IGNORE les versions
-    // ALLÉGÉES embarquées (`_light`) : les persister priverait l'IndexedDB de leurs images. Elles
-    // seront HYDRATÉES puis persistées complètes au premier `save` (ouverture dans l'Atelier).
-    for (const v of toPersist) if (!v._light) await idbPut(v)
+    // édition disque plus récente) pour qu'elles redeviennent éditables.
+    for (const v of toPersist) await idbPut(v)
     registerPublished(villains)
     set({ villains, loaded: true })
   },
@@ -211,11 +203,7 @@ export const useCustomVillainStore = create<CustomVillainStore>((set, get) => ({
     const prev = get().villains.find((x) => x.id === v.id)
     const prevMs = prev ? Date.parse(prev.updatedAt) : NaN
     const stampMs = Math.max(Date.now(), Number.isFinite(prevMs) ? prevMs + 1 : 0)
-    // On retire `_light` (marqueur runtime) : on ne persiste/publie JAMAIS une version allégée —
-    // un `save` part toujours d'un vilain COMPLET (l'ouverture dans l'Atelier l'a hydraté).
-    const clean = { ...v }
-    delete clean._light
-    const next = { ...clean, updatedAt: new Date(stampMs).toISOString() }
+    const next = { ...v, updatedAt: new Date(stampMs).toISOString() }
     await idbPut(next)
     void backupToDisk(next) // filet de sécurité disque (best-effort, non bloquant)
     if (next.published) {
@@ -256,22 +244,6 @@ export const useCustomVillainStore = create<CustomVillainStore>((set, get) => ({
   },
 
   get: (id) => get().villains.find((v) => v.id === id),
-
-  hydrate: async (id) => {
-    const cur = get().villains.find((v) => v.id === id)
-    // Déjà complet (brouillon local, ou vilain déjà hydraté) : rien à faire.
-    if (cur && !cur._light) return cur
-    const full = await loadFullBundledVillain(id)
-    // Pas de version complète embarquée (id inconnu / vilain purement local) : on garde l'existant.
-    if (!full) return cur
-    const migrated = migrateCustomVillain(full)
-    // Ré-enregistre AVANT le `set` : ainsi le re-render déclenché par `set` lit déjà les cartes/
-    // plateau COMPLETS via `villainEntry` (registre runtime), sans une passe intermédiaire vide.
-    if (migrated.published) registerPublishedVillain(migrated)
-    // Remplace la version allégée par la complète en mémoire.
-    set((s) => ({ villains: s.villains.map((v) => (v.id === id ? migrated : v)) }))
-    return migrated
-  },
 
   exportJson: (id) => {
     const v = get().villains.find((x) => x.id === id)

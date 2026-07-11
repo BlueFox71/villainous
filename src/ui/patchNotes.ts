@@ -47,6 +47,15 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.4.3',
+    date: '2026-07-11',
+    title: 'Vilains custom plus légers',
+    tags: ['atelier', 'interface'],
+    changes: [
+      "Les **images des vilains** sont désormais des **fichiers** (plus de gros JSON) : l'**Atelier s'ouvre instantanément** et les images se chargent à la volée.",
+    ],
+  },
+  {
     version: '1.4.2',
     date: '2026-07-11',
     title: 'Nouveaux décors : Gul’dan & Dio',

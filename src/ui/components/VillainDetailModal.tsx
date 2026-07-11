@@ -1,7 +1,6 @@
-import { useEffect, useState, type MouseEvent } from 'react'
+import { useState, type MouseEvent } from 'react'
 import type { CardDef } from '../../data/types'
 import { VILLAIN_REGISTRY, villainEntry, isCustomKey, customVillainOf, type VillainKey } from '../store/gameStore'
-import { useCustomVillainStore } from '../store/customVillainStore'
 import { villainPortrait, villainPresentation, PRESENTATION_TWEAK } from '../villainArt'
 import { villainGuideOf } from '../villainGuide'
 import { VILLAIN_COLOR } from '../villainColors'
@@ -89,17 +88,6 @@ function DeckGallery({ title, cards, count }: { title: string; cards: CardDef[];
   )
 }
 
-/** Bloc de chargement d'une SECTION entière (cartes / plateau) : le temps que le vilain publié
- *  soit hydraté (son JSON complet + ses images arrivent), on montre un spinner central. */
-function SectionLoader({ label }: { label: string }) {
-  return (
-    <div className="flex min-h-[240px] flex-col items-center justify-center gap-4 py-16 text-white/60">
-      <span className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-amber-300" />
-      <p className="text-sm">{label}</p>
-    </div>
-  )
-}
-
 /** Note de difficulté en étoiles (pleines / vides) sur `max`. */
 export function Stars({ value, max = 5 }: { value: number; max?: number }) {
   return (
@@ -145,23 +133,6 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
   const [editing, setEditing] = useState(false)
 
   const custom = isCustomKey(villain)
-  // Vilains PUBLIÉS : ils sont listés en version ALLÉGÉE (sans images de cartes/plateau). On les
-  // HYDRATE à l'ouverture de la fiche (charge leur JSON complet + ré-enregistre au runtime) pour
-  // que « Voir les cartes » / « Voir le plateau » aient leurs visuels. Le portrait et la
-  // présentation, eux, sont déjà dans la version légère (affichés d'emblée).
-  const hydrate = useCustomVillainStore((s) => s.hydrate)
-  // Abonnement réactif : re-render dès qu'un vilain est hydraté (son marqueur `_light` disparaît).
-  const customVillains = useCustomVillainStore((s) => s.villains)
-  useEffect(() => {
-    if (!custom) return
-    // Déclenche l'hydratation UNE fois si nécessaire (sans setState : l'état de chargement se
-    // dérive du marqueur `_light`, mis à jour par le store). `get()` évite de re-déclencher à
-    // chaque changement de la liste.
-    if (useCustomVillainStore.getState().get(villain)?._light) void hydrate(villain)
-  }, [villain, custom, hydrate])
-  // Les images LOURDES (cartes / plateau) sont-elles prêtes ? Pour un natif : toujours. Pour un
-  // publié : seulement une fois hydraté (le marqueur `_light` a disparu).
-  const imagesReady = !custom || !customVillains.find((x) => x.id === villain)?._light
 
   const v = villainEntry(villain)
   const guide = villainGuideOf(villain)
@@ -395,22 +366,15 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
           {showBoard ? (
             /* Plateau du vilain (image), affiché en grand. */
             <div className="flex flex-col items-center gap-3">
-              {imagesReady ? (
-                <LoadingImage
-                  src={v.def.boardImage}
-                  alt={`Plateau de ${v.def.name}`}
-                  wrapperClassName="min-h-[240px] w-full rounded-lg border border-white/15 shadow-lg"
-                  className="w-full"
-                />
-              ) : (
-                <SectionLoader label="Chargement du plateau…" />
-              )}
+              <LoadingImage
+                src={v.def.boardImage}
+                alt={`Plateau de ${v.def.name}`}
+                wrapperClassName="min-h-[240px] w-full rounded-lg border border-white/15 shadow-lg"
+                className="w-full"
+              />
             </div>
           ) : showCards ? (
             /* Galerie des cartes (Vilain + Fatalité) avec nombre d'exemplaires. */
-            !imagesReady ? (
-              <SectionLoader label="Chargement des cartes…" />
-            ) : (
             <div className="flex flex-col gap-5">
               <DeckGallery title="Deck Vilain" cards={villainCards} count={sumCopies(villainCards)} />
               {merlinCards.length > 0 && (
@@ -424,7 +388,6 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
               )}
               <DeckGallery title="Deck Fatalité" cards={fateCards} count={sumCopies(fateCards)} />
             </div>
-            )
           ) : (
             <>
           {/* Histoire */}

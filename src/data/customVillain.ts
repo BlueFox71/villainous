@@ -387,12 +387,6 @@ export interface CustomVillain {
   // --- Métadonnées -----------------------------------------------------------
   createdAt: string
   updatedAt: string
-
-  /** Marqueur RUNTIME (jamais persisté ni committé) : cette copie est la version ALLÉGÉE
-   *  embarquée (sans images lourdes), chargée pour la liste. Elle doit être HYDRATÉE
-   *  (`loadFullBundledVillain`) avant édition ou lancement de partie. Absent = version
-   *  complète (édition locale, brouillon disque, ou vilain déjà hydraté). */
-  _light?: boolean
 }
 
 /** Catégorie d'origine d'un vilain publié (miroir des sections de la liste). */
