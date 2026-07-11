@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { CustomCard } from '../../data/customVillain'
-import { renderCardFace, isPreRenderedCard } from './cardRender'
+import { renderCardFace } from './cardRender'
 import { useCustomTypesStore } from '../store/customTypesStore'
 
 /** Aperçu d'une carte : rend la face en dataURL (asynchrone, débanché léger). */
@@ -46,11 +46,12 @@ export function CardPreview({
     kw: keywordColors,
   })
 
-  // Face PRÉ-RENDUE (sans art brut `artImage` à recomposer, mais `image` finie) : c'est déjà
-  // la carte terminée — chemin externe (vilains migrés) OU composite baké en dataURL (vilains
-  // « compressés » n'embarquant que le composite, ex. Dio). On l'affiche telle quelle : la
-  // recomposer via renderCardFace donnerait une carte SANS illustration (cf. isPreRenderedCard).
-  const preRendered = isPreRenderedCard(card)
+  // Mini-vignette de grille : on affiche le composite déjà baké `image` DÈS qu'il existe
+  // (chemin OU data-URL), SANS recomposer — l'ouverture reste instantanée même si chaque
+  // carte a un `artImage`. On ne recompose (renderCardFace) que si aucune `image` bakée
+  // n'est disponible (carte en cours de création). La recomposition live reste réservée au
+  // grand aperçu (CardLayout).
+  const preRendered = !!card.image
 
   useEffect(() => {
     if (preRendered) return // rien à composer : on affiche card.image directement
