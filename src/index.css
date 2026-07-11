@@ -516,6 +516,70 @@ body {
   .tamatoa-disco-layer { animation: none !important; }
   .tamatoa-disco-wash { animation: none !important; opacity: 0.3; background-color: var(--c2); }
 }
+/* ============================================================================
+   PASSAGE « portal-cracks » (Le Flagelleur Mental) : transition plein écran inspirée des portails.
+   Sur un voile sombre : 1) fissures NOIRES qui se tracent depuis le centre, 2) traits ROUGES lumineux
+   qui SURGISSENT le long des mêmes tracés (retardés), 3) halo rouge central qui enfle. La couche fait un
+   fondu global (opacité) calé sur --dur (= durationSec).
+   ============================================================================ */
+.ud-passage-layer {
+  opacity: 0;
+  animation: udPassageLayer var(--dur, 4.5s) ease-out forwards;
+}
+@keyframes udPassageLayer {
+  0% { opacity: 0; }
+  7% { opacity: 1; }
+  82% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.ud-passage-svg { overflow: visible; }
+.ud-passage-svg path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* 1) Fissures noires : le tracé se DESSINE (dashoffset 320→0). Le dash n'est QUE sur les fissures noires
+   (pas sur `.ud-passage-svg path` — sa spécificité masquerait aussi les traits rouges). Sans filtre. */
+.ud-passage-crack {
+  stroke: #050508;
+  stroke-dasharray: 320;
+  stroke-dashoffset: 320;
+  animation: udPassageCrack 1.1s ease-out forwards;
+}
+@keyframes udPassageCrack {
+  to { stroke-dashoffset: 0; }
+}
+/* 2) Traits rouges : le GROUPE apparaît GLOBALEMENT en fondu (opacité 0→1), une fois les fissures noires
+   tracées, avec un FLASH DE LUMIÈRE — un pic de luminosité (`brightness`) au moment de l'apparition qui
+   fait « bloomer » les traits et leur lueur, puis retombe. */
+.ud-passage-red {
+  opacity: 0;
+  will-change: opacity, filter;
+  animation: udPassageRed 2.2s ease-out 1.1s forwards;
+}
+@keyframes udPassageRed {
+  0% { opacity: 0; filter: brightness(2.6); }
+  24% { opacity: 1; filter: brightness(2.6); } /* flash lumineux à l'apparition */
+  55% { filter: brightness(1); } /* la lumière retombe */
+  100% { opacity: 1; filter: brightness(1); }
+}
+/* Les lignes émettent un halo rouge (double lueur) → le flash de luminosité les fait rayonner. */
+.ud-passage-red-line {
+  fill: none;
+  stroke: #ff3322;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: none;
+  filter: drop-shadow(0 0 2px rgba(255, 70, 48, 0.95)) drop-shadow(0 0 6px rgba(255, 40, 24, 0.7));
+}
+@media (prefers-reduced-motion: reduce) {
+  .ud-passage-layer,
+  .ud-passage-crack,
+  .ud-passage-red { animation: none !important; }
+  .ud-passage-crack { stroke-dashoffset: 0; }
+  .ud-passage-red { opacity: 1; }
+  .ud-passage-layer { opacity: 1; }
+}
 /* Pages de Slenderman : apparition/disparition en fondu (3 s), ancrées par leur
    centre à une position aléatoire. Le décalage temporel est posé par span. */
 .page-note {
@@ -2246,6 +2310,175 @@ body {
   opacity: 0.7;
 }
 
+
+/* ----- Décor permanent : le PLATEAU de Monopoly (Mr Monopoly) -----
+   L'image du plateau en grand CARRÉ centré sur la colonne, posée sur un fond de table vert
+   feutré (vignette). Par-dessus, dans le repère du carré (donc calé sur le plateau) : les PIONS
+   qui font le tour (keyframe `monopolyRide` : parcours carré en left/top ; --a/--b = insets) et
+   les CHANTIERS de maisons/hôtels (SVG qui « poussent » avec `monopolyPop`).
+   Cf. MonopolyDecor dans components/VillainDecor.tsx. */
+.monopoly-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: radial-gradient(120% 90% at 50% 45%, #2f5c46 0%, #1c3a2c 60%, #132a20 100%);
+}
+/* Fond de table : champ d'éléments Monopoly (emoji) qui montent en dérivant et tournoyant, derrière le
+   plateau. Chaque item démarre sous le bas de l'écran et traverse vers le haut. Cf. MonopolyBackdrop. */
+.monopoly-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.monopoly-bg-item {
+  position: absolute;
+  bottom: -8vh;
+  line-height: 1;
+  opacity: 0;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+  animation-name: monopolyFloat;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+@keyframes monopolyFloat {
+  0% { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
+  12% { opacity: 0.5; }
+  85% { opacity: 0.5; }
+  100% { transform: translateY(-118vh) translateX(var(--sway)) rotate(var(--rot)); opacity: 0; }
+}
+.monopoly-board {
+  position: absolute;
+  left: 50%;
+  top: 35%;
+  width: min(58%, 60vh);
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, -50%);
+}
+.monopoly-board-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 2%;
+  box-shadow: 0 1.2vh 3vh rgba(0, 0, 0, 0.55);
+  opacity: 0.92;
+}
+.monopoly-overlay {
+  position: absolute;
+  inset: 0;
+}
+/* Un pion : posé au point courant du parcours (translate pour le centrer). Il avance de CASE EN CASE →
+   saut sec d'une case à l'autre, jamais de glissé.
+   ⚠️ `animation-timing-function` s'applique ENTRE CHAQUE PAIRE DE KEYFRAMES. Comme `monopolyRide` a
+   4 intervalles (un par bord : 0→25→50→75→100 %), il faut `steps(10)` PAR BORD → 10 × 4 = 40 cases.
+   (Mettre `steps(40)` découperait chaque bord en 40 = 160 micro-pas → ça glisserait.) */
+.monopoly-token {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  animation-name: monopolyRide;
+  animation-timing-function: steps(10, jump-end);
+  animation-iteration-count: infinite;
+  will-change: left, top;
+}
+/* Le BOND du pion : au moment où la case change (apex à 0 %/100 %), le glyphe est en l'air, puis il
+   retombe sur la nouvelle case et s'y repose avant de resauter. Durée = 1 case (réglée en inline =
+   durée du tour / 40), même délai que le parcours → le sommet du saut coïncide avec le saut de case. */
+.monopoly-token-glyph {
+  display: block;
+  height: 2.6vh;
+  width: auto;
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.55));
+  animation-name: monopolyHop;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+/* Un chantier : rangée (haut/bas) ou colonne (gauche/droite) de bâtiments, posé sur la bande. */
+.monopoly-site {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0;
+}
+.monopoly-site--v {
+  flex-direction: column;
+}
+.monopoly-house,
+.monopoly-hotel {
+  display: block;
+  width: auto;
+  transform-origin: 50% 100%;
+  animation: monopolyPop 320ms ease-out both;
+}
+.monopoly-house {
+  height: 0.95vh;
+  fill: #38a63f;
+  stroke: #1f6b26;
+  stroke-width: 0.6;
+}
+.monopoly-hotel {
+  height: 1.6vh;
+  fill: #d83a2c;
+  stroke: #8f2117;
+  stroke-width: 0.6;
+}
+@keyframes monopolyRide {
+  0% { left: var(--a); top: var(--a); }
+  25% { left: var(--b); top: var(--a); }
+  50% { left: var(--b); top: var(--b); }
+  75% { left: var(--a); top: var(--b); }
+  100% { left: var(--a); top: var(--a); }
+}
+@keyframes monopolyHop {
+  0% { transform: translateY(0); } /* POSÉ sur la pastille */
+  72% { transform: translateY(0); } /* reste posé sur la case l'essentiel du temps */
+  100% { transform: translateY(-1.1vh); } /* bref bond → apex au changement de case (téléport sur la pastille suivante) */
+}
+@keyframes monopolyPop {
+  0% { opacity: 0; transform: scale(0.2) translateY(0.5vh); }
+  60% { opacity: 1; transform: scale(1.12); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Les DEUX dés SE BALADENT sur toute la colonne du joueur (repère plein cadre `.monopoly-decor`). Le
+   CONTENEUR vagabonde lentement d'un point à l'autre (monopolyDiceWander, en % de la colonne) ; CHAQUE
+   dé, lui, tourne en continu (monopolyDiceTumble). Cf. les <img.monopoly-die> dans MonopolyDecor. */
+.monopoly-dice {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  gap: 0.6vh;
+  animation: monopolyDiceWander 34s ease-in-out infinite;
+}
+@keyframes monopolyDiceWander {
+  0% { left: 25%; top: 12%; }
+  18% { left: 70%; top: 26%; }
+  36% { left: 32%; top: 45%; }
+  54% { left: 72%; top: 62%; }
+  72% { left: 28%; top: 78%; }
+  88% { left: 66%; top: 90%; }
+  100% { left: 25%; top: 12%; }
+}
+.monopoly-die {
+  display: block;
+  height: 2.4vh;
+  width: auto;
+  transform-origin: 50% 55%;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+  animation: monopolyDiceTumble 2.4s linear infinite;
+}
+.monopoly-die--b {
+  animation-duration: 2.9s; /* vitesse différente… */
+  animation-direction: reverse; /* …et sens inverse → les deux dés ne tournent pas à l'identique */
+}
+/* Tournoiement CONTINU du dé : un tour complet (360°) en boucle, avec un léger balancement vertical. */
+@keyframes monopolyDiceTumble {
+  0% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-0.5vh) rotate(180deg); }
+  100% { transform: translateY(0) rotate(360deg); }
+}
 
 /* ----- Décor permanent : geysers de vapeur verte (Scar) -----
    Posés par-dessus l'image de fond (`.image-decor` réutilisé). Quelques évents au sol crachent des
@@ -7787,6 +8020,22 @@ body {
   88% { opacity: var(--op); }
   100% { transform: translate(calc(-50% + var(--x1)), calc(var(--y) * -1)); opacity: 0; }
 }
+/* Plafond de nuages amassés en haut du div (la source de l'orage) : nappe SOMBRE, DENSE et TEXTURÉE
+   — plusieurs lobes radiaux superposés (grumeaux) au lieu d'un dégradé lisse, pour un couvert net et
+   massif sous le bord haut. */
+.ud-cloud-top {
+  background:
+    radial-gradient(ellipse 42% 52% at 26% 38%, rgba(58, 64, 86, 0.98) 0%, rgba(58, 64, 86, 0) 70%),
+    radial-gradient(ellipse 38% 46% at 62% 32%, rgba(44, 49, 68, 0.98) 0%, rgba(44, 49, 68, 0) 68%),
+    radial-gradient(ellipse 34% 48% at 82% 52%, rgba(52, 58, 80, 0.95) 0%, rgba(52, 58, 80, 0) 70%),
+    radial-gradient(ellipse 40% 44% at 46% 62%, rgba(38, 43, 60, 0.95) 0%, rgba(38, 43, 60, 0) 72%),
+    radial-gradient(
+      ellipse closest-side,
+      rgba(50, 56, 76, 0.96) 0%,
+      rgba(36, 40, 56, 0.72) 54%,
+      rgba(22, 24, 35, 0) 82%
+    );
+}
 /* Spores en suspension : schéma nesté (comme la poussière d'or). L'enveloppe `.ud-mote` fait une DÉRIVE
    très lente en boucle fermée (revient au point de départ → pas de « pop ») ; l'enfant `.ud-mote-dot`
    (le point lumineux pâle) BALANCE latéralement + SCINTILLE en opacité. Taille/flou/opacité posés en
@@ -7968,10 +8217,11 @@ body {
   inset: 0;
   background: radial-gradient(
     circle at 50% 44%,
-    rgba(255, 255, 255, 0.95) 0%,
-    rgba(255, 96, 74, 0.62) 30%,
-    rgba(205, 22, 16, 0.18) 56%,
-    rgba(120, 10, 8, 0) 76%
+    rgba(255, 255, 255, 0.6) 0%,
+    rgba(240, 244, 255, 0.42) 26%,
+    rgba(220, 228, 245, 0.24) 55%,
+    rgba(200, 210, 235, 0.1) 78%,
+    rgba(200, 210, 235, 0) 100%
   );
   mix-blend-mode: screen;
   opacity: 0;
@@ -7986,17 +8236,17 @@ body {
   55% { opacity: 0; }
   100% { opacity: 0; }
 }
-/* Grand éclair central qui révèle la créature (une seule frappe au tout début). */
+/* 2-3 ÉNORMES éclairs qui ouvrent l'entrée de la créature (étagés via --delay, une frappe chacun). */
 .ud-flayer-bolt {
   position: absolute;
   left: 50%;
-  top: -6%;
-  width: min(46vw, 60vh);
-  height: 66vh;
+  top: -20%;
+  width: min(74vw, 100vh);
+  height: 134vh;
   transform: translateX(-50%);
   overflow: visible;
   mix-blend-mode: screen;
-  filter: drop-shadow(0 0 8px rgba(255, 70, 55, 0.9));
+  filter: drop-shadow(0 0 18px rgba(255, 70, 55, 0.95));
 }
 .ud-flayer-bolt path {
   fill: none;
@@ -8007,10 +8257,10 @@ body {
   stroke-dashoffset: 100;
   opacity: 0;
   will-change: stroke-dashoffset, opacity;
-  animation: udFlayerBolt 1.6s ease-out forwards;
+  animation: udFlayerBolt 1.6s ease-out var(--delay, 0s) forwards;
 }
-.ud-flayer-bolt-halo { stroke: rgba(255, 66, 52, 0.85); stroke-width: 3.4; }
-.ud-flayer-bolt-core { stroke: #fff; stroke-width: 1.1; }
+.ud-flayer-bolt-halo { stroke: rgba(255, 66, 52, 0.9); stroke-width: 11; }
+.ud-flayer-bolt-core { stroke: #fff; stroke-width: 4.2; }
 @keyframes udFlayerBolt {
   0% { stroke-dashoffset: 100; opacity: 0; }
   4% { opacity: 1; }
@@ -8023,7 +8273,7 @@ body {
 /* Lueur blanc & rouge derrière la silhouette (ellipse, screen), pulse le temps de l'apparition. */
 .ud-flayer-glow {
   position: absolute;
-  left: 55%;
+  left: 44%;
   top: 22%;
   width: min(170vh, 210%);
   height: min(108vh, 150%);
@@ -8039,69 +8289,34 @@ body {
   mix-blend-mode: screen;
   opacity: 0;
   will-change: opacity, transform;
-  animation: udFlayerGlow 5.2s ease-in-out forwards;
+  animation: udFlayerGlow 7s ease-in-out forwards;
 }
 @keyframes udFlayerGlow {
-  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
-  16% { opacity: 0.92; transform: translate(-50%, -50%) scale(1); }
-  40% { opacity: 0.55; }
-  60% { opacity: 0.92; }
-  78% { opacity: 0.7; }
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.78); }
+  34% { opacity: 0.92; transform: translate(-50%, -50%) scale(1); } /* monte avec l'émergence */
+  50% { opacity: 0.6; }
+  66% { opacity: 0.92; }
+  82% { opacity: 0.7; }
   100% { opacity: 0; transform: translate(-50%, -50%) scale(1.12); }
-}
-/* Jaillissement de flash BLANC vers le haut : colonne blanche verticale (dégradé bas→haut) qui
-   JAILLIT depuis la créature au moment exact où elle apparaît (~16 % de la révélation), puis s'éteint
-   vite. `transform-origin: bottom` → elle pousse vers le haut. Screen (additif) → n'assombrit rien. */
-.ud-flayer-uprush {
-  position: absolute;
-  left: 55%;
-  top: -42%;
-  width: min(44vh, 60%);
-  height: 64%;
-  transform: translateX(-50%) scaleY(0.15);
-  transform-origin: bottom center;
-  background: linear-gradient(
-    to top,
-    rgba(255, 255, 255, 0.98) 0%,
-    rgba(255, 236, 231, 0.6) 32%,
-    rgba(255, 128, 108, 0.16) 62%,
-    rgba(255, 90, 70, 0) 86%
-  );
-  filter: blur(9px);
-  mix-blend-mode: screen;
-  opacity: 0;
-  will-change: opacity, transform;
-  animation: udFlayerUprush 5.2s ease-out forwards;
-}
-@keyframes udFlayerUprush {
-  0%, 11% { opacity: 0; transform: translateX(-50%) scaleY(0.15); }
-  16% { opacity: 1; transform: translateX(-50%) scaleY(1); } /* jaillit avec l'apparition */
-  26% { opacity: 0.45; transform: translateX(-50%) scaleY(1.06); }
-  42% { opacity: 0; transform: translateX(-50%) scaleY(1.12); } /* s'éteint */
-  100% { opacity: 0; }
 }
 /* La créature : silhouette rouge sur transparent, auréolée de blanc puis de rouge (drop-shadow),
    fond en fondu + léger zoom, tient ~3 s, puis se dissipe. */
 .ud-flayer-img {
   position: absolute;
-  left: 55%;
-  top: 22%;
-  width: min(128vh, 180%);
+  left: 44%;
+  top: 16%;
+  width: min(98vh, 140%);
   height: auto;
   transform: translate(-50%, -50%) scale(0.86);
   opacity: 0;
-  filter:
-    drop-shadow(0 0 12px rgba(255, 255, 255, 0.9))
-    drop-shadow(0 0 26px rgba(255, 62, 48, 0.85))
-    drop-shadow(0 0 52px rgba(255, 40, 30, 0.6));
   will-change: opacity, transform;
-  animation: udFlayerReveal 5.2s ease-out forwards;
+  animation: udFlayerReveal 7s ease-out forwards;
 }
 @keyframes udFlayerReveal {
-  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.86); }
-  8% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); } /* attend le flash */
-  16% { opacity: 1; transform: translate(-50%, -50%) scale(1); }  /* apparaît */
-  78% { opacity: 1; transform: translate(-50%, -50%) scale(1.03); } /* maintien ~3 s */
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.84); }
+  6% { opacity: 0; transform: translate(-50%, -50%) scale(0.88); } /* attend le flash */
+  34% { opacity: 1; transform: translate(-50%, -50%) scale(1); }  /* émerge LENTEMENT (~2 s) */
+  80% { opacity: 1; transform: translate(-50%, -50%) scale(1.03); } /* maintien */
   100% { opacity: 0; transform: translate(-50%, -50%) scale(1.06); } /* se dissipe */
 }
 /* Surprise « Coup Fatal » de Tabbou (élimine tous les combattants) : une BOULE d'énergie apparaît en

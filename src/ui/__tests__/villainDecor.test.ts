@@ -13,6 +13,7 @@ describe('villainDecor', () => {
     expect(villainDecor('custom-flagelleur-mental')).toEqual({ kind: 'upsideDown' })
     expect(villainDecor('custom-gul-dan')).toEqual({ kind: 'felGate' })
     expect(villainDecor('custom-dio')).toEqual({ kind: 'theWorld' })
+    expect(villainDecor('custom-mr-monopoly')).toEqual({ kind: 'monopoly', src: '/animations/monopoly.png' })
   })
 
   it('renvoie undefined pour une clé inconnue (pas de repli silencieux)', () => {

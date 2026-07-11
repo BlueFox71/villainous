@@ -6993,14 +6993,15 @@ function UnderwaterDecor() {
 // de l'éclair réutilise `underwaterBolt` (dashoffset/opacité, générique) ; le halo est synchro.
 // ---------------------------------------------------------------------------
 const UPSIDE_DOWN_CLOUDS = 15
+const UPSIDE_DOWN_TOP_CLOUDS = 7 // plafond de nuages amassés en haut de la colonne (la source de l'orage)
 const UPSIDE_DOWN_BOLTS = 6
 const UPSIDE_DOWN_MOTES = 120
 // Surprise « Le Flagelleur Mental apparaît » : un gros tonnerre éclate et révèle la silhouette de la
 // créature, entourée d'une lueur blanc & rouge, visible ~3 s, puis elle se dissipe. Le calque est
 // (dé)monté le temps de l'animation (REVEAL_MS). ⚠️ REVEAL_MS doit rester en phase avec la durée des
-// keyframes `udFlayer*` (index.css, 5,2 s).
+// keyframes `udFlayer*` (index.css, 7 s).
 const UPSIDE_DOWN_FLAYER_TEST = false // true → cadence accélérée (~8–12 s) pour régler
-const UD_FLAYER_REVEAL_MS = 5200
+const UD_FLAYER_REVEAL_MS = 7000
 const UD_FLAYER_GAP_MIN_MS = UPSIDE_DOWN_FLAYER_TEST ? 8000 : 120000 // 2 min
 const UD_FLAYER_GAP_MAX_MS = UPSIDE_DOWN_FLAYER_TEST ? 12000 : 240000 // 4 min
 
@@ -7026,6 +7027,28 @@ function UpsideDownDecor() {
         x0: -95 * dir, // vw (départ hors champ)
         x1: 95 * dir, // vw (arrivée hors champ)
         y: (Math.random() - 0.5) * 9, // vh (léger dénivelé)
+      }
+    }),
+  )
+  // PLAFOND de nuages amassés en HAUT du div (la source de l'orage) : nappes larges et basses,
+  // agglutinées près du bord haut, qui dérivent LENTEMENT (débordent largement des bords → couvre
+  // continu, jamais de trou). Plus opaques/nettes que les nuages de fond. Figées au montage.
+  const [topClouds] = useState(() =>
+    Array.from({ length: UPSIDE_DOWN_TOP_CLOUDS }, (_, i) => {
+      const dir = i % 2 === 0 ? 1 : -1
+      const w = 78 + Math.random() * 70 // vh (nappe très large)
+      return {
+        top: -14 + Math.random() * 16, // % (amassées tout en haut)
+        w, // vh
+        h: w * (0.34 + Math.random() * 0.24), // vh (nappe aplatie, basse)
+        radius: randomBlobRadius(),
+        blur: 6 + Math.random() * 7, // px (plafond NET)
+        op: 0.62 + Math.random() * 0.3, // opacité de pointe (plafond dense)
+        dur: 120 + Math.random() * 60, // s (dérive lente)
+        delay: -(Math.random() * 160), // s (déphasées → couvert dès le montage)
+        x0: -70 * dir, // vw
+        x1: 70 * dir, // vw
+        y: (Math.random() - 0.5) * 5, // vh (peu de dénivelé)
       }
     }),
   )
@@ -7154,17 +7177,28 @@ function UpsideDownDecor() {
     // poteau invisible). Ancre de départ hors cadre (x < 0), un peu plus HAUTE (poteau lointain plus haut).
     const first = poles.reduce((m, p) => (p.left < m.left ? p : m), poles[0])
     span3(-14, first.armYUpper - 5, first.armYLower - 5, first.left, first.armYUpper, first.armYLower)
+    // Ligne qui PART VERS LA DROITE depuis le 3ᵉ poteau (le plus à droite), en miroir : elle file hors
+    // champ (x > 100) vers un poteau invisible, avec une ancre d'arrivée un peu plus HAUTE (poteau lointain).
+    const last = poles.reduce((m, p) => (p.left > m.left ? p : m), poles[0])
+    span3(last.left, last.armYUpper, last.armYLower, 114, last.armYUpper - 5, last.armYLower - 5)
     return out
   })()
   // Surprise : le Flagelleur Mental apparaît sous un gros tonnerre. On (dé)monte le calque `.ud-flayer`
-  // le temps de l'animation. Le grand éclair central est re-tiré à chaque frappe (variété).
-  const [reveal, setReveal] = useState<{ d: string } | null>(null)
+  // le temps de l'animation. 2-3 ÉNORMES éclairs, re-tirés à chaque frappe (variété) et étagés en delay
+  // → ils claquent coup sur coup et « ouvrent la porte » à l'entrée de la créature.
+  const [reveal, setReveal] = useState<{ bolts: { d: string; left: number; delay: number }[] } | null>(null)
   useEffect(() => {
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
     let clear: ReturnType<typeof setTimeout>
     let next: ReturnType<typeof setTimeout>
     const fire = () => {
-      setReveal({ d: buildBolt() })
+      const n = 2 + Math.floor(Math.random() * 2) // 2 ou 3
+      const bolts = Array.from({ length: n }, (_, i) => ({
+        d: buildBolt(),
+        left: 30 + (i + 0.5) * (40 / n) + (Math.random() - 0.5) * 10, // répartis sur la largeur centrale
+        delay: i * 0.14 + Math.random() * 0.05, // s (coup sur coup)
+      }))
+      setReveal({ bolts })
       clear = setTimeout(() => setReveal(null), UD_FLAYER_REVEAL_MS)
     }
     const schedule = (delay: number) => {
@@ -7188,6 +7222,28 @@ function UpsideDownDecor() {
         <span
           key={`cloud-${i}`}
           className="ud-cloud"
+          style={
+            {
+              top: `${c.top}%`,
+              width: `${c.w}vh`,
+              height: `${c.h}vh`,
+              borderRadius: c.radius,
+              filter: `blur(${c.blur}px)`,
+              animationDuration: `${c.dur}s`,
+              animationDelay: `${c.delay}s`,
+              '--x0': `${c.x0}vw`,
+              '--x1': `${c.x1}vw`,
+              '--y': `${c.y}vh`,
+              '--op': c.op,
+            } as CSSProperties
+          }
+        />
+      ))}
+      {/* PLAFOND de nuages amassés en haut du div (la source de l'orage). */}
+      {topClouds.map((c, i) => (
+        <span
+          key={`topcloud-${i}`}
+          className="ud-cloud ud-cloud-top"
           style={
             {
               top: `${c.top}%`,
@@ -7315,15 +7371,21 @@ function UpsideDownDecor() {
         <div className="ud-flayer">
           {/* Flash du tonnerre : embrasement blanc → rouge plein cadre (screen), one-shot. */}
           <span className="ud-flayer-flash" />
-          {/* Le grand éclair central qui révèle la créature (une seule frappe). */}
-          <svg className="ud-flayer-bolt" viewBox="0 0 100 200" preserveAspectRatio="none">
-            <path className="ud-flayer-bolt-halo" d={reveal.d} pathLength={100} />
-            <path className="ud-flayer-bolt-core" d={reveal.d} pathLength={100} />
-          </svg>
+          {/* 2-3 énormes éclairs, étagés (delay), qui ouvrent l'entrée de la créature. */}
+          {reveal.bolts.map((b, i) => (
+            <svg
+              key={`fbolt-${i}`}
+              className="ud-flayer-bolt"
+              viewBox="0 0 100 200"
+              preserveAspectRatio="none"
+              style={{ left: `${b.left}%`, '--delay': `${b.delay}s` } as CSSProperties}
+            >
+              <path className="ud-flayer-bolt-halo" d={b.d} pathLength={100} />
+              <path className="ud-flayer-bolt-core" d={b.d} pathLength={100} />
+            </svg>
+          ))}
           {/* Lueur blanc & rouge derrière la silhouette (pulse le temps de l'apparition). */}
           <span className="ud-flayer-glow" />
-          {/* Jaillissement de flash BLANC vers le haut, synchronisé au moment où la créature apparaît. */}
-          <span className="ud-flayer-uprush" />
           {/* La créature (silhouette rouge sur transparent), auréolée de blanc/rouge. */}
           <img className="ud-flayer-img" src="/animations/flagelleur_mental.png" alt="" />
         </div>
@@ -7522,6 +7584,254 @@ function TheWorldDecor() {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Décor permanent : Mr Monopoly — le PLATEAU de Monopoly.
+// L'image du plateau (vue de dessus) en grand CARRÉ centré sur la colonne, sur un fond
+// de table vert feutré, surmontée de deux couches d'ambiance EN BOUCLE :
+//  • des PIONS 2D (chapeau, voiture, chien, chat, botte, bateau) qui font le TOUR du
+//    plateau (keyframe `monopolyRide` : un carré parcouru en left/top, sens variable) ;
+//  • des CHANTIERS où poussent des MAISONS vertes (1→4) qui se muent en HÔTEL rouge,
+//    tiennent un instant, puis se rasent et repartent (machine à états JS par chantier).
+// Positions figées en % du carré (donc calées sur le plateau) ; tailles en vh.
+// ---------------------------------------------------------------------------
+
+// Le pion marche au MILIEU de la bande de cases (inset depuis le bord) ; les maisons se
+// posent un peu plus vers l'intérieur, sur la bande de couleur des propriétés.
+const MONOPOLY_TOKEN_INSET = 7 // % depuis le bord (couloir des pions)
+const MONOPOLY_HOUSE_INSET = 11.5 // % depuis le bord (bande de couleur des propriétés)
+const MONOPOLY_HOTEL_STEP = 5 // 5ᵉ palier = HÔTEL (après 4 maisons), comme au vrai jeu
+const MONOPOLY_STEPS = 40 // cases du plateau : le pion avance case par case (À GARDER = `steps(40)` du CSS)
+
+// Point du parcours des pions pour une progression `t` ∈ [0,1) — MÊME géométrie que le keyframe
+// `monopolyRide` : un carré (a..b) parcouru dans le sens horaire (haut → droite → bas → gauche).
+// Sert à placer les chantiers sur les cases échantillonnées par `steps(40)`.
+function monopolyRidePoint(t: number): { left: number; top: number } {
+  const a = MONOPOLY_TOKEN_INSET
+  const b = 100 - MONOPOLY_TOKEN_INSET
+  const seg = (((t % 1) + 1) % 1) * 4 // 0..4 : quart de parcours (0 = haut, 1 = droite, 2 = bas, 3 = gauche)
+  if (seg < 1) return { left: a + (b - a) * seg, top: a } // bord HAUT (gauche → droite)
+  if (seg < 2) return { left: b, top: a + (b - a) * (seg - 1) } // bord DROIT (haut → bas)
+  if (seg < 3) return { left: b - (b - a) * (seg - 2), top: b } // bord BAS (droite → gauche)
+  return { left: a, top: b - (b - a) * (seg - 3) } // bord GAUCHE (bas → haut)
+}
+
+// Ancre d'un CHANTIER alignée sur la CASE `k` (0→39) : même position tangentielle que la pastille
+// rouge de la case (donc « sous » le pion), mais poussée vers l'intérieur jusqu'à la BANDE des maisons
+// (anneau jaune). L'axe suit le bord (h en haut/bas, v à gauche/droite).
+function monopolyCaseSite(k: number): { left: number; top: number; axis: 'h' | 'v' } {
+  const H = MONOPOLY_HOUSE_INSET
+  const p = monopolyRidePoint(k / MONOPOLY_STEPS)
+  const seg = (((k / MONOPOLY_STEPS) % 1) + 1) % 1 * 4
+  if (seg < 1) return { left: p.left, top: H, axis: 'h' } // bord HAUT
+  if (seg < 2) return { left: 100 - H, top: p.top, axis: 'v' } // bord DROIT
+  if (seg < 3) return { left: p.left, top: 100 - H, axis: 'h' } // bord BAS
+  return { left: H, top: p.top, axis: 'v' } // bord GAUCHE
+}
+
+interface MonopolyToken { src: string; dur: number; delay: number }
+interface MonopolySite { left: number; top: number; axis: 'h' | 'v'; caseId: number }
+// Un événement du script : à l'instant `t` (secondes depuis le début de la partie), le chantier de
+// cette case doit afficher `count` bâtiments (0 = vide, 1..4 = maisons, 5 = hôtel).
+interface MonopolyEvent { t: number; count: number }
+
+// Les cases (0→39) sur lesquelles se construisent les chantiers. SOURCE UNIQUE : ancres du décor +
+// carrés verts du debug. Réglable en changeant simplement les n° de cases.
+// Le dé (image détourée) — affiché en DEUX exemplaires qui SE BALADENT sur toute la colonne du joueur
+// (en repère plein cadre, pas sur le plateau) tout en roulant en continu.
+const MONOPOLY_DIE_IMAGE = '/animations/monopoly-de.png'
+// Les 4 jetons Monopoly (images détourées) qui font le tour du plateau.
+const MONOPOLY_TOKEN_IMAGES = [
+  '/animations/monopoly-pion-chapeau.png',
+  '/animations/monopoly-pion-voiture.png',
+  '/animations/monopoly-pion-chien.png',
+  '/animations/monopoly-pion-bateau.png',
+]
+
+const MONOPOLY_SITE_CASES = [29, 28, 26, 19, 6, 7, 9, 1, 3, 4]
+const MONOPOLY_SITES: MonopolySite[] = MONOPOLY_SITE_CASES.map((c) => ({ ...monopolyCaseSite(c), caseId: c }))
+
+// Durée du SCÉNARIO (comme une partie de Monopoly qui se développe) : 20 min. Après quoi l'état final
+// (le plateau construit) reste affiché — pas de remise à zéro qui ferait tout disparaître d'un coup.
+const MONOPOLY_SCRIPT_DURATION = 20 * 60 // s
+
+// PRNG déterministe (mulberry32) : le script est le MÊME à chaque partie (graine fixe), mais varié
+// d'une case à l'autre. (UI seulement — pas de contrainte de déterminisme du moteur ici.)
+function monopolyRng(seed: number): () => number {
+  let s = seed >>> 0
+  return () => {
+    s = (s + 0x6d2b79f5) >>> 0
+    let t = Math.imul(s ^ (s >>> 15), 1 | s)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+// Génère le SCÉNARIO : pour chaque case, une suite d'événements (achat → montée des maisons → parfois
+// une revente → … → cible finale, certaines en hôtel). Les cases démarrent à des moments différents et
+// montent à leur rythme → un plateau qui se développe progressivement sur 20 min, comme une partie.
+function buildMonopolyScript(cases: number[], duration: number): Record<number, MonopolyEvent[]> {
+  const rng = monopolyRng(0x9e3779b9) // graine fixe
+  const script: Record<number, MonopolyEvent[]> = {}
+  cases.forEach((c) => {
+    const events: MonopolyEvent[] = []
+    // Cible finale : ~30 % hôtel (5), ~45 % 3-4 maisons, ~25 % 1-2 maisons.
+    const r = rng()
+    const target = r < 0.3 ? 5 : r < 0.75 ? 3 + Math.floor(rng() * 2) : 1 + Math.floor(rng() * 2)
+    let t = duration * (0.03 + rng() * 0.5) // premier achat, étalé sur la 1re moitié
+    let count = 0
+    while (count < target && t < duration * 0.96) {
+      count++
+      events.push({ t, count })
+      // Parfois, une REVENTE (on rase 1-2 maisons) avant de reconstruire — le va-et-vient d'une partie.
+      if (count >= 2 && count < target && rng() < 0.16) {
+        t += duration * (0.015 + rng() * 0.035)
+        count -= Math.min(count - 1, 1 + Math.floor(rng() * 2))
+        events.push({ t, count })
+      }
+      t += duration * (0.025 + rng() * 0.075) // délai avant la maison suivante
+    }
+    script[c] = events
+  })
+  return script
+}
+
+const MONOPOLY_SCRIPT = buildMonopolyScript(MONOPOLY_SITE_CASES, MONOPOLY_SCRIPT_DURATION)
+
+// Petite MAISON / HÔTEL 2D (toit + corps) en SVG inline. Vert = maison, rouge = hôtel.
+function MonopolyBuilding({ hotel }: { hotel?: boolean }) {
+  return (
+    <svg className={hotel ? 'monopoly-hotel' : 'monopoly-house'} viewBox="0 0 20 18" aria-hidden>
+      <polygon points="10,1 19,8 1,8" />
+      <rect x="3" y="8" width="14" height="9" rx="0.5" />
+    </svg>
+  )
+}
+
+// Un CHANTIER : suit le SCÉNARIO de sa case. Il programme un timeout par événement ; à chaque
+// échéance, `count` prend la valeur voulue (les maisons apparaissent une à une, parfois se rasent…).
+// `count` 0 = vide, 1..4 = maisons, 5 = hôtel. Après le dernier événement, l'état reste (pas de boucle).
+function MonopolyBuildSite({ site, events }: { site: MonopolySite; events: MonopolyEvent[] }) {
+  const [count, setCount] = useState(0)
+  useEffect(() => {
+    const timers = events.map((e) => setTimeout(() => setCount(e.count), e.t * 1000))
+    return () => timers.forEach(clearTimeout)
+  }, [events])
+
+  if (count === 0) return null
+  const hotel = count >= MONOPOLY_HOTEL_STEP
+  return (
+    <div
+      className={`monopoly-site monopoly-site--${site.axis}`}
+      style={{ left: `${site.left}%`, top: `${site.top}%` }}
+    >
+      {hotel
+        ? <MonopolyBuilding hotel />
+        : Array.from({ length: count }, (_, i) => <MonopolyBuilding key={i} />)}
+    </div>
+  )
+}
+
+// Fond de table : un CHAMP d'éléments Monopoly (emoji) qui montent en dérivant et tournoyant, en
+// semi-transparence, DERRIÈRE le plateau → remplit le vert autour du plateau. Positions/durées figées
+// une fois au montage ; l'animation est en CSS (`monopolyFloat`).
+function MonopolyBackdrop() {
+  const [items] = useState(() => {
+    const glyphs = ['💵', '💰', '🪙', '🎩', '❓', '🚂', '💎', '🏠']
+    return Array.from({ length: 24 }, (_, i) => ({
+      glyph: glyphs[i % glyphs.length],
+      left: Math.random() * 100, // %
+      size: 2 + Math.random() * 2.6, // vh
+      dur: 16 + Math.random() * 16, // s (montée)
+      delay: -Math.random() * 32, // s (étalés → flux continu, aucun « pop » au montage)
+      sway: (Math.random() < 0.5 ? -1 : 1) * (2 + Math.random() * 5), // vw (dérive latérale)
+      rot: (Math.random() < 0.5 ? -1 : 1) * (20 + Math.random() * 70), // deg (tournoiement)
+    }))
+  })
+  return (
+    <div className="monopoly-bg" aria-hidden>
+      {items.map((it, i) => (
+        <span
+          key={i}
+          className="monopoly-bg-item"
+          style={{
+            left: `${it.left}%`,
+            fontSize: `${it.size}vh`,
+            animationDuration: `${it.dur}s`,
+            animationDelay: `${it.delay}s`,
+            '--sway': `${it.sway}vw`,
+            '--rot': `${it.rot}deg`,
+          } as CSSProperties}
+        >
+          {it.glyph}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function MonopolyDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'monopoly' }> }) {
+  // Pions iconiques : les 4 jetons Monopoly (images) qui SAUTILLENT case par case autour du plateau,
+  // répartis autour de l'anneau (delay négatif = décalage sur le parcours), à vitesses variées. TOUS
+  // dans le sens HORAIRE (le sens « normal » de `monopolyRide`) pour respecter le sens de jeu.
+  const [tokens] = useState<MonopolyToken[]>(() => {
+    const srcs = MONOPOLY_TOKEN_IMAGES
+    return srcs.map((src, i) => {
+      const dur = 30 + Math.random() * 14 // s (balade lente)
+      return {
+        src,
+        dur,
+        delay: -(i / srcs.length) * dur - Math.random() * 2, // réparti autour du parcours
+      }
+    })
+  })
+  const overlayVars = {
+    '--a': `${MONOPOLY_TOKEN_INSET}%`,
+    '--b': `${100 - MONOPOLY_TOKEN_INSET}%`,
+  } as CSSProperties
+
+  return (
+    <div className="monopoly-decor" aria-hidden>
+      <MonopolyBackdrop />
+      <div className="monopoly-board">
+        <img src={decor.src} alt="" className="monopoly-board-img" />
+        <div className="monopoly-overlay" style={overlayVars}>
+          {tokens.map((t, i) => (
+            <span
+              key={i}
+              className="monopoly-token"
+              style={{
+                animationDuration: `${t.dur}s`,
+                animationDelay: `${t.delay}s`,
+              }}
+            >
+              <img
+                src={t.src}
+                alt=""
+                className="monopoly-token-glyph"
+                style={{
+                  // Un bond par case : durée = durée du tour / nb de cases ; même délai que le
+                  // parcours → l'apex du saut tombe pile au changement de case.
+                  animationDuration: `${t.dur / MONOPOLY_STEPS}s`,
+                  animationDelay: `${t.delay}s`,
+                }}
+              />
+            </span>
+          ))}
+          {MONOPOLY_SITES.map((s, i) => (
+            <MonopolyBuildSite key={i} site={s} events={MONOPOLY_SCRIPT[s.caseId]} />
+          ))}
+        </div>
+      </div>
+      {/* Les DEUX dés SE BALADENT sur toute la colonne du joueur (hors du plateau, en repère plein
+          cadre) et roulent en continu. */}
+      <div className="monopoly-dice">
+        <img src={MONOPOLY_DIE_IMAGE} alt="" className="monopoly-die monopoly-die--a" />
+        <img src={MONOPOLY_DIE_IMAGE} alt="" className="monopoly-die monopoly-die--b" />
+      </div>
+    </div>
+  )
+}
+
 function renderDecorBody(
   decor: VillainDecorData,
   side?: 'left' | 'right',
@@ -7610,6 +7920,8 @@ function renderDecorBody(
       return <ScarDecor decor={decor} />
     case 'image':
       return <ImageDecor decor={decor} />
+    case 'monopoly':
+      return <MonopolyDecor decor={decor} />
     default:
       return null
   }

@@ -47,6 +47,15 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.4.4',
+    date: '2026-07-12',
+    title: 'Nouveau décor : Mr Monopoly',
+    tags: ['animation'],
+    changes: [
+      "**Mr Monopoly** a désormais son décor : le **plateau de Monopoly** en grand, avec des **pions** qui font le tour et des **maisons** qui poussent puis se muent en **hôtels**.",
+    ],
+  },
+  {
     version: '1.4.3',
     date: '2026-07-11',
     title: 'Vilains custom plus légers',

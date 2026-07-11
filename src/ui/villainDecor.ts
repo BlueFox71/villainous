@@ -203,6 +203,12 @@ export type VillainDecor =
   // ROMAINS qui flottent en montant et scintillent (or + accents magenta). 100 % CSS. (L'arrêt du temps
   // « ZA WARUDO! » viendra en surprise plus tard.) (Dio — vilain custom publié.)
   | { kind: 'theWorld' }
+  // `monopoly` : le PLATEAU de Monopoly (Mr Monopoly). L'image `src` du plateau vu de dessus, affichée
+  // en grand CARRÉ centré sur la colonne (sur un fond de table vert feutré + vignette), SURMONTÉE de
+  // deux couches d'ambiance en boucle : des PIONS 2D (chapeau, voiture, chien, dé à coudre, brouette,
+  // bateau) qui font le tour du plateau, et des chantiers où poussent des MAISONS vertes (1→4) qui se
+  // muent en HÔTEL rouge puis se réinitialisent (Mr Monopoly — vilain custom publié).
+  | { kind: 'monopoly'; src: string }
 
 export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   patHibulaire: { kind: 'film' },
@@ -308,6 +314,9 @@ export const CUSTOM_VILLAIN_DECOR: Record<string, VillainDecor> = {
   // Dio (JoJo's Bizarre Adventure) : le pouvoir du temps de The World — nuit dorée/violette, mandala
   // d'horloge tournant, horloge à chiffres romains et chiffres romains flottants (or + magenta).
   'custom-dio': { kind: 'theWorld' },
+  // Mr Monopoly : le plateau de Monopoly (image `monopoly.png`) en grand carré centré, sur un fond de
+  // table vert feutré, surmonté des pions qui font le tour et des maisons/hôtels qui poussent en boucle.
+  'custom-mr-monopoly': { kind: 'monopoly', src: '/animations/monopoly.png' },
 }
 
 /** Décor permanent d'un vilain (natif OU publié) ; undefined si non défini. Un vilain publié a un id
@@ -341,6 +350,19 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
     case 'scar':
     case 'castleAssault':
       return { images: [decor.src], videos: [] }
+    case 'monopoly':
+      // Le plateau + les 4 jetons (pions) qui font le tour + le dé (deux dés au centre).
+      return {
+        images: [
+          decor.src,
+          '/animations/monopoly-pion-chapeau.png',
+          '/animations/monopoly-pion-voiture.png',
+          '/animations/monopoly-pion-chien.png',
+          '/animations/monopoly-pion-bateau.png',
+          '/animations/monopoly-de.png',
+        ],
+        videos: [],
+      }
     case 'tremaine':
       return {
         images: [decor.src, '/animations/background_tremaine_sale.png', '/animations/lucifer.png'],
