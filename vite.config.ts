@@ -6,6 +6,7 @@ import { readFileSync, writeFileSync, renameSync, readdirSync, existsSync, mkdir
 import { resolve, join, dirname } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { lightenVillain } from './src/data/published/lighten'
+import { externalizeVillainImages } from './src/data/published/imageExternalize.mjs'
 
 /**
  * Écriture ATOMIQUE : écrit dans un fichier temporaire voisin puis `rename` sur la
@@ -366,6 +367,7 @@ function readVillainJsonPlugin(): Plugin {
 function savePublishedVillainPlugin(): Plugin {
   const PUBLISHED = resolve(process.cwd(), 'src/data/published')
   const LIGHT = resolve(PUBLISHED, 'light')
+  const PUBLIC = resolve(process.cwd(), 'public')
 
   /** (Ré)écrit la version ALLÉGÉE `light/<id>.json` (sans images lourdes) depuis un objet
    *  vilain complet. C'est cette version que la LISTE / les galeries chargent au démarrage. */
@@ -410,15 +412,21 @@ function savePublishedVillainPlugin(): Plugin {
             const dest = resolve(PUBLISHED, `${safe}.json`)
             if (!dest.startsWith(PUBLISHED)) throw new Error('chemin hors src/data/published/')
             mkdirSync(PUBLISHED, { recursive: true })
-            // Toujours écrire du JSON INDENTÉ (2 espaces), quel que soit l'appelant : les
-            // fichiers publiés sont committés, donc un save = un diff minimal et lisible
-            // (sinon une modif d'un champ réécrit tout le fichier sur une ligne).
-            let out = json
-            let parsed: Record<string, unknown> | null = null
-            try { parsed = JSON.parse(json) as Record<string, unknown>; out = JSON.stringify(parsed, null, 2) } catch { /* non-JSON : on garde le brut */ }
-            atomicWriteFileSync(dest, out)
+            // Le vilain reçu contient ses images en data-URL : on les écrit en fichiers sous
+            // public/cards/<id>/ (externalisation idempotente) et on ne persiste dans le JSON
+            // committé que des chemins — les fichiers publiés restent légers et lisibles en diff.
+            let parsed: Record<string, unknown>
+            try { parsed = JSON.parse(json) as Record<string, unknown> } catch { throw new Error('JSON invalide') }
+            const { villain: pathsVillain, files } = externalizeVillainImages(parsed)
+            for (const f of files) {
+              const fileDest = resolve(PUBLIC, f.path)
+              if (!fileDest.startsWith(PUBLIC)) throw new Error('chemin image hors public/')
+              mkdirSync(dirname(fileDest), { recursive: true })
+              atomicWriteFileSync(fileDest, Buffer.from(f.base64, 'base64'))
+            }
+            atomicWriteFileSync(dest, JSON.stringify(pathsVillain, null, 2))
             // Version ALLÉGÉE (chargée par la liste au démarrage) : régénérée à chaque save.
-            if (parsed) writeLight(parsed)
+            writeLight(pathsVillain as Record<string, unknown>)
             res.statusCode = 200
             res.setHeader('Content-Type', 'application/json')
             res.end(JSON.stringify({ path: `src/data/published/${safe}.json` }))
