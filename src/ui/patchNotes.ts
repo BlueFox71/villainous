@@ -47,6 +47,15 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.4.5',
+    date: '2026-07-12',
+    title: 'La devise de Prince Jean',
+    tags: ['son'],
+    changes: [
+      "**Prince Jean** lâche désormais sa **réplique** à la fin de l'intro (et sur sa fiche vilain).",
+    ],
+  },
+  {
     version: '1.4.4',
     date: '2026-07-12',
     title: 'Nouveau décor : Mr Monopoly',

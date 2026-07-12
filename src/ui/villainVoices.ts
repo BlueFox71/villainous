@@ -188,6 +188,7 @@ for (const [path, url] of Object.entries(PHRASE_FILES)) {
 // fondu démarre plus près de la fin (Scar : fondu court, presque toute la phrase à plein
 // volume).
 const PHRASE_FILE: Partial<Record<VillainKey, { file: string; gain?: number; fadeEndS?: number }>> = {
+  princeJohn: { file: 'prince jean phrase' },
   scar: { file: 'Scar phrase', fadeEndS: 0.3 },
   hades: { file: 'hadès phrase' },
   maleficent: { file: 'Maléfique phrase', gain: 0.7 },
