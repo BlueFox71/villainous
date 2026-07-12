@@ -78,7 +78,7 @@
             "label": "Déplacer un objet ou un allié"
           }
         ],
-        "columnImage": "/cards/custom-gul-dan/loc-loc-1.alt-col.png?v=1783792105901"
+        "columnImage": "/cards/custom-gul-dan/loc-loc-1.alt-col.png?v=1783792123704"
       },
       "image": "/cards/custom-gul-dan/loc-loc-1.png?v=1783792105901"
     },
@@ -153,7 +153,7 @@
             "label": "Défausser des cartes"
           }
         ],
-        "columnImage": "/cards/custom-gul-dan/loc-loc-2.alt-col.png?v=1783792105901"
+        "columnImage": "/cards/custom-gul-dan/loc-loc-2.alt-col.png?v=1783792123704"
       }
     },
     {
@@ -217,7 +217,7 @@
             "label": "Jouer une carte"
           }
         ],
-        "columnImage": "/cards/custom-gul-dan/loc-loc-3.alt-col.png?v=1783792105901"
+        "columnImage": "/cards/custom-gul-dan/loc-loc-3.alt-col.png?v=1783792123704"
       }
     },
     {
@@ -296,7 +296,7 @@
             "label": "Gagner 1 pouvoir"
           }
         ],
-        "columnImage": "/cards/custom-gul-dan/loc-loc-4.alt-col.png?v=1783792105901"
+        "columnImage": "/cards/custom-gul-dan/loc-loc-4.alt-col.png?v=1783792123704"
       }
     }
   ],
@@ -1167,5 +1167,7 @@
         }
       }
     }
-  }
+  },
+  "coverColor": "#193f11",
+  "objectiveTextOffsetY": 42
 }

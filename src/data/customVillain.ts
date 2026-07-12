@@ -129,10 +129,16 @@ export interface CardSticker {
   x: number
   y: number
   size: number
+  /** Symbole « Gagner du pouvoir » (GAIN_POWER) : chiffre affiché sur le symbole
+   *  (1, 2, 3…). Absent = aucun chiffre. Purement visuel (le montant de jeu de
+   *  l'action est réglé à part dans l'onglet Plateau). */
+  amount?: number
 }
 
 /** Taille par défaut d'un symbole posé (en % de la largeur de carte). */
-export const DEFAULT_STICKER_SIZE = 14
+export const DEFAULT_STICKER_SIZE = 20
+/** Tailles proposées pour un symbole d'action posé (« Petit » / « Normal »). */
+export const STICKER_SIZE_PRESETS = { small: 16, normal: DEFAULT_STICKER_SIZE } as const
 
 /** Image d'ornement importée, superposée au DOS des cartes (Vilain ET Fatalité),
  *  déplaçable et redimensionnable. `x`/`y` = centre en % du dos ; `size` = largeur en
@@ -295,6 +301,10 @@ export interface CustomVillain {
   // --- Couleurs --------------------------------------------------------------
   /** Couleur thématique : cases du méchant, panneau + dos des cartes Vilain. */
   color: string
+  /** Couleur du RECOUVREMENT des actions par un Héros (le voile posé sur la rangée du
+   *  haut d'un lieu occupé). Absente = on retombe sur `color` (couleur du méchant).
+   *  Éditée dans l'onglet Plateau (« Mode recouvrement »). Présentation pure. */
+  coverColor?: string
   /** Mots-clés colorés du vilain : chaque mot du TEXTE des cartes correspondant à un
    *  `label` (insensible à la casse/aux accents, singulier/pluriel) est coloré à sa
    *  `color`, comme le sont les noms de type. S'applique à TOUTES les cartes du vilain. */

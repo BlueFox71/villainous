@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import type { PlayerState } from '../../engine/types'
 import type { Accent } from '../accents'
 import { useAnimatedNumber } from '../hooks/useAnimatedNumber'
 import { objectiveScore } from '../../ai/heuristicBot'
 import { villainColor } from '../villainColorState'
+import { isCustomKey, villainKeyOf, villainEntry } from '../store/gameStore'
+import { VillainDetailModal } from './VillainDetailModal'
 
 interface Props {
   player: PlayerState
@@ -261,20 +264,48 @@ export function ObjectiveBox({
 }) {
   // Progression globale (0..1) → %, même jauge que celle qui guide le bot.
   const pct = Math.round(Math.max(0, Math.min(1, objectiveScore(player))) * 100)
+  // Fiche du vilain (modale « guide ») : clé du modal = id custom publié tel quel,
+  // sinon clé UI native. Absente pour un custom NON publié (test Atelier) → pas de bouton.
+  const guideKey = isCustomKey(player.villain) ? player.villain : villainKeyOf(player.villain)
+  const hasGuide = !!villainEntry(guideKey)
+  const [guideOpen, setGuideOpen] = useState(false)
   return (
-    <div className="flex flex-1 flex-col justify-center rounded-lg border border-white/15 bg-black/20 px-3 py-2">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[9px] uppercase tracking-wide text-white/40">Progression</span>
-        <span className={`font-mono text-xs font-bold ${isWinner ? 'text-amber-200' : 'text-white/90'}`}>{pct}%</span>
+    <>
+      {/* Case objectif : barre de progression (même jauge que celle du bot). */}
+      <div className="flex flex-1 flex-col justify-center rounded-lg border border-white/15 bg-black/20 px-3 py-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[9px] uppercase tracking-wide text-white/40">Progression</span>
+          <span className={`font-mono text-xs font-bold ${isWinner ? 'text-amber-200' : 'text-white/90'}`}>{pct}%</span>
+        </div>
+        <div className="mt-1 h-2.5 w-full overflow-hidden rounded-full bg-white/15">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${isWinner ? 'bg-amber-400' : accent.gauge}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        {/* Pat Hibulaire — les 4 tuiles Objectif sont désormais rendues au-dessus des
+            cases Héros (cf. `GoalTilesRow`), plus dans ce panneau. */}
       </div>
-      <div className="mt-1 h-2.5 w-full overflow-hidden rounded-full bg-white/15">
-        <div
-          className={`h-full rounded-full transition-all duration-500 ${isWinner ? 'bg-amber-400' : accent.gauge}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      {/* Pat Hibulaire — les 4 tuiles Objectif sont désormais rendues au-dessus des
-          cases Héros (cf. `GoalTilesRow`), plus dans ce panneau. */}
-    </div>
+      {/* Bouton « Guide » (fiche du vilain) — tuile SŒUR, pleine hauteur, à côté. */}
+      {hasGuide && (
+        <button
+          type="button"
+          onClick={() => setGuideOpen(true)}
+          title="Guide du vilain"
+          aria-label="Guide du vilain"
+          className="flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg border border-white/15 bg-black/20 px-3 text-white/70 transition hover:border-amber-300/70 hover:text-amber-200"
+        >
+          <span className="text-xl leading-none">📖</span>
+          <span className="text-[9px] font-semibold uppercase tracking-wide">Guide</span>
+        </button>
+      )}
+      {/* Portal vers <body> : sans ça, le modal `position: fixed` se cale sur la
+          barre du bas (qui a `backdrop-blur` → bloc conteneur), donc décalé. */}
+      {guideOpen &&
+        createPortal(
+          <VillainDetailModal villain={guideKey} inGame onClose={() => setGuideOpen(false)} />,
+          document.body,
+        )}
+    </>
   )
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { CardInstance, PlayerState } from '../../engine/types'
 import { getCardDef } from '../../data/registry'
 import { Scroller } from './Scroller'
@@ -16,6 +16,12 @@ interface Props {
    *  bouton « Passer » (appelle `onPass`). */
   optional?: boolean
   onPass?: () => void
+  /** « Voir le plateau » : quand `hidden` est vrai, la modale s'efface (le
+   *  composant reste monté → la sélection en cours est préservée). Le retour se
+   *  fait via le bouton « Reprendre la Fatalité » du bandeau (piloté par le parent).
+   *  `onPeek` bascule dans cet état masqué. */
+  hidden?: boolean
+  onPeek?: () => void
 }
 
 /** Cartes Fatalité non-héros qui ciblent un Héros adverse : Voler aux Riches,
@@ -36,26 +42,13 @@ function needsTargetHero(card: CardInstance): boolean {
  *  2b. Voler aux Riches / Déguisement → choisir un Héros adverse à cibler. Si la
  *      cible n'a aucun Héros, on résout direct (la carte est défaussée sans effet).
  */
-export function FateModal({ revealed, target, onResolve, optional = false, onPass }: Props) {
+export function FateModal({ revealed, target, onResolve, optional = false, onPass, hidden = false, onPeek }: Props) {
   const [selected, setSelected] = useState<string | null>(null)
   const selectedCard = revealed.find((c) => c.instanceId === selected)
   // Agrandir : Héros choisi en attente du SENS du pivot (gauche/droite).
   const [enlargeHero, setEnlargeHero] = useState<CardInstance | null>(null)
   // Voir la défausse Fatalité de la cible (modale superposée, lecture seule).
   const [showDiscard, setShowDiscard] = useState(false)
-  // « Voir le plateau » : tant que le bouton est MAINTENU enfoncé, on masque la
-  // modale pour laisser voir le plateau en entier ; au relâchement, elle revient.
-  const [peeking, setPeeking] = useState(false)
-  useEffect(() => {
-    if (!peeking) return
-    const stop = () => setPeeking(false)
-    window.addEventListener('pointerup', stop)
-    window.addEventListener('pointercancel', stop)
-    return () => {
-      window.removeEventListener('pointerup', stop)
-      window.removeEventListener('pointercancel', stop)
-    }
-  }, [peeking])
 
   const heroLocationId = (h: CardInstance): string | undefined =>
     target.locations.find((l) => (target.board[l.id] ?? []).some((c) => c.instanceId === h.instanceId))?.id
@@ -159,9 +152,10 @@ export function FateModal({ revealed, target, onResolve, optional = false, onPas
     onResolve(c.instanceId)
   }
 
-  // « Voir le plateau » maintenu : on masque temporairement la modale (mais le
-  // composant reste monté → la sélection en cours est préservée).
-  if (peeking) return null
+  // « Voir le plateau » : le parent a masqué la modale (le composant reste monté
+  // → la sélection en cours est préservée). Le retour passe par le bouton
+  // « Reprendre la Fatalité » du bandeau.
+  if (hidden) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
@@ -179,11 +173,11 @@ export function FateModal({ revealed, target, onResolve, optional = false, onPas
             </button>
             <button
               type="button"
-              onPointerDown={() => setPeeking(true)}
+              onClick={() => onPeek?.()}
               className="select-none rounded-lg border border-white/25 px-2.5 py-1 text-xs text-white/80 hover:bg-white/10"
-              title="Maintiens le bouton pour voir le plateau ; relâche pour revenir"
+              title="Masque la fatalité pour voir le plateau ; le bouton « Reprendre la Fatalité » la rouvre"
             >
-              👁 Voir le plateau (maintenir)
+              👁 Voir le plateau
             </button>
           </div>
         </div>

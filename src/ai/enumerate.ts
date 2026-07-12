@@ -516,7 +516,7 @@ export function enumerateActions(state: GameState): GameAction[] {
     const locked = new Set(tgt.lockedLocations ?? [])
     const out: GameAction[] = []
     for (const loc of tgt.locations) {
-      for (const h of (tgt.board[loc.id] ?? []).filter((c) => c.type === 'hero')) {
+      for (const h of (tgt.board[loc.id] ?? []).filter((c) => c.type === 'hero' && !c.cannotBeMoved)) {
         if (phr.candidateIds && !phr.candidateIds.includes(h.instanceId)) continue
         const i = ids.indexOf(loc.id)
         let dests = phr.forcedLocationId !== undefined
@@ -841,6 +841,36 @@ export function enumerateActions(state: GameState): GameAction[] {
     return me.locations
       .filter((l) => !locked.has(l.id))
       .map((l) => ({ type: 'RESOLVE_FREE_PLAY_ALLY', locationId: l.id }))
+  }
+
+  // Grand Councilwoman — RAPPORT / CAPITAINE GANTU : jouer gratuitement la carte en attente.
+  if (state.pendingFreePlayCard) {
+    const card = state.pendingFreePlayCard.card
+    const locked = new Set(me.lockedLocations ?? [])
+    if (card.type === 'effect' || card.type === 'condition') return [{ type: 'RESOLVE_FREE_PLAY_CARD' }]
+    if (card.type === 'item' && card.attach === 'hero') {
+      return Object.values(me.board).flat()
+        .filter((c) => c.type === 'hero' && !c.attachedTo)
+        .map((c) => ({ type: 'RESOLVE_FREE_PLAY_CARD', targetId: c.instanceId }))
+    }
+    if (card.type === 'item' && card.attach === 'ally') {
+      return Object.values(me.board).flat()
+        .filter((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket)
+        .map((c) => ({ type: 'RESOLVE_FREE_PLAY_CARD', targetId: c.instanceId }))
+    }
+    let locs = me.locations.filter((l) => !locked.has(l.id))
+    if (card.playOnlyAt) locs = locs.filter((l) => l.id === card.playOnlyAt)
+    if (card.forbiddenLocations) locs = locs.filter((l) => !card.forbiddenLocations!.includes(l.id))
+    return locs.map((l) => ({ type: 'RESOLVE_FREE_PLAY_CARD', targetId: l.id }))
+  }
+
+  // Grand Councilwoman — CAPITAINE GANTU : choisir une carte de la défausse à jouer (ou passer).
+  if (state.pendingPickDiscardToPlay) {
+    const out: GameAction[] = [{ type: 'RESOLVE_PICK_DISCARD_TO_PLAY' }]
+    for (const id of state.pendingPickDiscardToPlay.candidateIds) {
+      out.push({ type: 'RESOLVE_PICK_DISCARD_TO_PLAY', instanceId: id })
+    }
+    return out
   }
 
   // Shere Khan — C'est à moi que vous le direz : remettre (ou non) une Fatalité de la défausse.
@@ -1586,7 +1616,8 @@ export function enumerateActions(state: GameState): GameAction[] {
             if (shrinks && h.heroSize === 'shrunk') continue
             if (hacks && h.abilityHacked) continue
             if (onlyCardIds && !onlyCardIds.includes(h.cardId)) continue
-            if ((h.strength ?? 0) > maxStrength) continue
+            // Force EFFECTIVE (Boule de Feu +2, auras…) : un Héros boosté au-delà du seuil est exclu.
+            if ((effectiveStrength(state, state.activePlayer, h.instanceId) ?? h.strength ?? 0) > maxStrength) continue
             const hForce = effectiveStrength(state, state.activePlayer, h.instanceId) ?? 0
             if (isHypnose && hForce > me.power) continue
             // Banqueroute : coût = Force du Héros → seules les cibles abordables.
@@ -1870,7 +1901,7 @@ export function enumerateActions(state: GameState): GameAction[] {
       // lookahead. Utile surtout pour DÉCOUVRIR une action recouverte (le
       // lookahead voit alors l'action redevenue jouable).
       for (const loc of me.locations) {
-        const heroes = (me.board[loc.id] ?? []).filter((c) => c.type === 'hero')
+        const heroes = (me.board[loc.id] ?? []).filter((c) => c.type === 'hero' && !c.cannotBeMoved)
         for (const h of heroes) {
           for (const to of adjacentLocationIds(state, loc.id)) {
             out.push({ type: 'MOVE_HERO', actionId: action.id, heroInstanceId: h.instanceId, to })

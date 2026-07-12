@@ -1,16 +1,20 @@
-// Onglets stratégie de l'Atelier — DEUX variants, même affichage (cartes + inputs) :
+// Onglets stratégie de l'Atelier — TROIS variants :
 //   - « coding »   → onglet « Codage Cartes » : comment CHAQUE carte est codée (ce que
-//     Claude Code a compris au développement) — pour vérifier / corriger le codage.
+//     Claude Code a compris au développement) — pour vérifier / demander des corrections.
 //   - « botPlay »  → onglet « Bot adverse »   : comment le BOT adverse joue chaque carte
-//     (priorités, cibles, timing) — pour comprendre / corriger son comportement.
+//     (priorités, cibles, timing) — pour comprendre / demander des corrections.
+//   - « journal »  → onglet « Journal »       : message écrit quand la carte est jouée.
 //
-// Purement DOCUMENTAIRE pour l'instant (affichage + copie ; l'IA ne les consomme pas
-// encore). Persisté dans `draft.botStrategy` : le volet « coding » utilise les champs à
-// plat (howToWin/villainNotes/fateNotes), le volet « botPlay » son sous-objet dédié.
+// « coding » + « botPlay » sont en LECTURE SEULE (le codage vient de Claude Code) : chaque
+// champ affiche l'« ancien input » (non éditable) et, en dessous, un champ « À modifier »
+// (titre rouge, ÉPHÉMÈRE — non persisté) pour noter la correction souhaitée. Le bouton
+// « Copier » exporte ces demandes (nom de carte + codage actuel + modif) à recoller dans
+// une session Claude Code. « journal » reste ÉDITABLE et persisté dans `draft.botStrategy`.
 //
 // Les onglets ne sont accessibles QUE lorsque le vilain est développé (cf.
 // `isVillainDeveloped` + gating dans VillainEditor). Les champs sont PRÉREMPLIS ; ceux
 // non rédigés affichent « Non développé ».
+import { useState } from 'react'
 import type {
   CustomVillain,
   CustomCard,
@@ -105,6 +109,12 @@ export function StrategyTab({
   const villain = draft.cards.filter((c) => c.deck === 'villain' && !c.group)
   const fate = draft.cards.filter((c) => c.deck === 'fate' && !c.group)
 
+  // « journal » reste éditable ; « coding »/« botPlay » sont en lecture seule + champs
+  // « À modifier » ÉPHÉMÈRES (état local, perdus au changement d'onglet / rechargement).
+  const editable = variant === 'journal'
+  const [mods, setMods] = useState<Record<string, string>>({})
+  const setMod = (key: string, v: string) => setMods((m) => ({ ...m, [key]: v }))
+
   // Vue unifiée de la section active (le volet « coding » vit à plat ; « botPlay » et
   // « journal » dans leur sous-objet) + écriture au bon endroit.
   const section: StrategySection =
@@ -129,7 +139,6 @@ export function StrategyTab({
     patch({ botStrategy: patched })
   }
 
-  const setGeneral = (general: string) => setSection({ ...section, general })
   const setVillainNote = (id: string, value: string) =>
     setSection({ ...section, villainNotes: { ...(section.villainNotes ?? {}), [id]: value } })
   const setFateNote = (id: string, p: Partial<FateStrategyNote>) =>
@@ -145,9 +154,18 @@ export function StrategyTab({
     <div className="flex flex-col gap-8">
       <div className="flex items-start justify-between gap-4">
         <p className="max-w-3xl text-sm text-white/55">
-          {L.intro} Documentaire pour l’instant — tu peux <strong>copier</strong> le tout.
+          {L.intro}{' '}
+          {editable ? (
+            <>Documentaire pour l’instant — tu peux <strong>copier</strong> le tout.</>
+          ) : (
+            <>
+              Les champs sont en <strong>lecture seule</strong> : note tes corrections dans{' '}
+              <strong className="text-red-400">« À modifier »</strong> puis <strong>copie-les</strong>{' '}
+              pour les recoller à Claude Code.
+            </>
+          )}
         </p>
-        <CopyButton draft={draft} variant={variant} />
+        <CopyButton draft={draft} variant={variant} mods={mods} />
       </div>
 
       {/* --- Texte général (variants avec objectif / ligne de conduite) ------- */}
@@ -156,12 +174,10 @@ export function StrategyTab({
           <h3 className="text-sm font-semibold uppercase tracking-wide text-white/70">
             {L.generalTitle}
           </h3>
-          <textarea
+          <ReviewField
             value={section.general ?? UNDEVELOPED}
-            onChange={(e) => setGeneral(e.target.value)}
-            rows={4}
-            placeholder={L.generalPlaceholder}
-            className="w-full resize-y rounded-xl border border-white/10 bg-black/25 p-3 text-sm text-white/90 outline-none transition focus:border-amber-300/60"
+            modifyValue={mods['general'] ?? ''}
+            onModifyChange={(v) => setMod('general', v)}
           />
         </section>
       )}
@@ -175,12 +191,21 @@ export function StrategyTab({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {villain.map((c, i) => (
               <CardRow key={c.id} card={c} color={draft.color} keywordColors={draft.keywordColors} tooltipBelow={i < 4}>
-                <Field
-                  label={L.villainLabel}
-                  value={section.villainNotes?.[c.id] ?? UNDEVELOPED}
-                  onChange={(v) => setVillainNote(c.id, v)}
-                  placeholder={L.villainPlaceholder}
-                />
+                {editable ? (
+                  <Field
+                    label={L.villainLabel}
+                    value={section.villainNotes?.[c.id] ?? UNDEVELOPED}
+                    onChange={(v) => setVillainNote(c.id, v)}
+                    placeholder={L.villainPlaceholder}
+                  />
+                ) : (
+                  <ReviewField
+                    label={L.villainLabel}
+                    value={section.villainNotes?.[c.id] ?? UNDEVELOPED}
+                    modifyValue={mods[`v:${c.id}`] ?? ''}
+                    onModifyChange={(v) => setMod(`v:${c.id}`, v)}
+                  />
+                )}
               </CardRow>
             ))}
           </div>
@@ -198,26 +223,38 @@ export function StrategyTab({
               const note = section.fateNotes?.[c.id] ?? {}
               return (
                 <CardRow key={c.id} card={c} color={draft.color} fate keywordColors={draft.keywordColors}>
-                  <Field
-                    label={L.fateSingle ? L.villainLabel : 'Description'}
-                    value={note.description ?? UNDEVELOPED}
-                    onChange={(v) => setFateNote(c.id, { description: v })}
-                    placeholder={L.fateSingle ? L.villainPlaceholder : 'Ce que fait la carte…'}
-                  />
-                  {!L.fateSingle && (
+                  {editable ? (
+                    // « journal » : un seul champ éditable (message de journal).
+                    <Field
+                      label={L.villainLabel}
+                      value={note.description ?? UNDEVELOPED}
+                      onChange={(v) => setFateNote(c.id, { description: v })}
+                      placeholder={L.villainPlaceholder}
+                    />
+                  ) : (
                     <>
-                      <Field
+                      <ReviewField
+                        label="Description"
+                        value={note.description ?? UNDEVELOPED}
+                        modifyValue={mods[`f:${c.id}:description`] ?? ''}
+                        onModifyChange={(v) => setMod(`f:${c.id}:description`, v)}
+                      />
+                      <ReviewField
                         label="En tant que joueur qui reçoit cette carte"
                         value={note.asReceiver ?? UNDEVELOPED}
-                        onChange={(v) => setFateNote(c.id, { asReceiver: v })}
-                        placeholder="Comment réagir quand on subit cette Fatalité…"
+                        modifyValue={mods[`f:${c.id}:asReceiver`] ?? ''}
+                        onModifyChange={(v) => setMod(`f:${c.id}:asReceiver`, v)}
                       />
-                      <Field
-                        label="En tant qu’adverse qui attaque"
-                        value={note.asAttacker ?? UNDEVELOPED}
-                        onChange={(v) => setFateNote(c.id, { asAttacker: v })}
-                        placeholder="Quand / sur qui infliger cette Fatalité…"
-                      />
+                      {/* « En tant qu'adverse qui attaque » : conservé UNIQUEMENT sur
+                          « Bot adverse » (retiré de « Codage Cartes » — sans intérêt). */}
+                      {variant === 'botPlay' && (
+                        <ReviewField
+                          label="En tant qu’adverse qui attaque"
+                          value={note.asAttacker ?? UNDEVELOPED}
+                          modifyValue={mods[`f:${c.id}:asAttacker`] ?? ''}
+                          onModifyChange={(v) => setMod(`f:${c.id}:asAttacker`, v)}
+                        />
+                      )}
                     </>
                   )}
                 </CardRow>
@@ -308,11 +345,55 @@ function Field({
   )
 }
 
-/** Bouton « Copier » : assemble un texte lisible de la section active et le met dans
- *  le presse-papiers. */
-function CopyButton({ draft, variant }: { draft: CustomVillain; variant: StrategyVariant }) {
+/** Champ en LECTURE SEULE (« ancien input » = codage actuel, non éditable) suivi d'un
+ *  champ « À modifier » (titre rouge) où saisir la correction souhaitée. Le contenu
+ *  « À modifier » est ÉPHÉMÈRE (état local du parent). */
+function ReviewField({
+  label,
+  value,
+  modifyValue,
+  onModifyChange,
+}: {
+  /** Libellé sémantique du champ (Description, etc.). Absent = titre porté par la section. */
+  label?: string
+  value: string
+  modifyValue: string
+  onModifyChange: (v: string) => void
+}) {
+  return (
+    <div className="flex flex-1 flex-col gap-1">
+      {label && <span className="text-[11px] font-semibold uppercase tracking-wide text-white/60">{label}</span>}
+      {/* Ancien input : codage actuel, non éditable. */}
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-white/35">Ancien input</span>
+      <div className="min-h-[2.25rem] whitespace-pre-wrap rounded-lg border border-white/10 bg-black/15 p-2 text-sm text-white/70">
+        {value.trim() ? value : UNDEVELOPED}
+      </div>
+      {/* À modifier : titre rouge + saisie libre (éphémère, alimente le bouton Copier). */}
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-red-400">À modifier</span>
+      <textarea
+        value={modifyValue}
+        onChange={(e) => onModifyChange(e.target.value)}
+        placeholder="Décris la correction à apporter…"
+        className="min-h-0 w-full resize-y rounded-lg border border-red-500/30 bg-black/25 p-2 text-sm text-white/90 outline-none transition focus:border-red-400/70"
+      />
+    </div>
+  )
+}
+
+/** Bouton « Copier » : « journal » copie toute la section ; « coding »/« botPlay »
+ *  copient les DEMANDES de modification (« À modifier » + contexte). */
+function CopyButton({
+  draft,
+  variant,
+  mods,
+}: {
+  draft: CustomVillain
+  variant: StrategyVariant
+  mods: Record<string, string>
+}) {
   const copy = () => {
-    void navigator.clipboard.writeText(buildStrategyText(draft, variant))
+    const text = variant === 'journal' ? buildStrategyText(draft, variant) : buildModifyText(draft, variant, mods)
+    void navigator.clipboard.writeText(text)
   }
   return (
     <button
@@ -320,7 +401,7 @@ function CopyButton({ draft, variant }: { draft: CustomVillain; variant: Strateg
       onClick={copy}
       className="shrink-0 rounded-lg border border-amber-300/40 bg-amber-400/10 px-3 py-2 text-sm font-semibold text-amber-100 transition hover:border-amber-300/70 hover:bg-amber-400/20"
     >
-      📋 Copier
+      {variant === 'journal' ? '📋 Copier' : '📋 Copier les modifs'}
     </button>
   )
 }
@@ -366,5 +447,76 @@ function buildStrategyText(draft: CustomVillain, variant: StrategyVariant): stri
     lines.push('')
   }
 
+  return lines.join('\n')
+}
+
+/** Sérialise les DEMANDES de modification (« coding »/« botPlay ») : pour chaque champ
+ *  ayant un « À modifier » non vide, exporte le nom de carte + le codage actuel (ancien)
+ *  + la modif demandée. Prêt à recoller dans une session Claude Code. */
+function buildModifyText(draft: CustomVillain, variant: StrategyVariant, mods: Record<string, string>): string {
+  const strategy = draft.botStrategy ?? {}
+  const L = VARIANTS[variant]
+  const section: StrategySection =
+    variant === 'coding'
+      ? { general: strategy.howToWin, villainNotes: strategy.villainNotes, fateNotes: strategy.fateNotes }
+      : (strategy.botPlay ?? {})
+
+  const lines: string[] = [`# À modifier — ${L.title} — ${draft.name}`, '']
+  let any = false
+
+  // Texte général.
+  const gMod = mods['general']?.trim()
+  if (L.hasGeneral && gMod) {
+    any = true
+    lines.push(`## ${L.generalTitle}`)
+    lines.push(`- Actuel : ${section.general?.trim() || UNDEVELOPED}`)
+    lines.push(`- À modifier : ${gMod}`, '')
+  }
+
+  // Deck Vilain (une note par carte).
+  const villain = draft.cards.filter((c) => c.deck === 'villain' && !c.group)
+  const vLines: string[] = []
+  for (const c of villain) {
+    const m = mods[`v:${c.id}`]?.trim()
+    if (!m) continue
+    any = true
+    vLines.push(`### ${c.name}`)
+    vLines.push(`- Codage actuel : ${section.villainNotes?.[c.id]?.trim() || UNDEVELOPED}`)
+    vLines.push(`- À modifier : ${m}`)
+  }
+  if (vLines.length > 0) lines.push('## Deck Vilain', ...vLines, '')
+
+  // Deck Fatalité (plusieurs sous-champs ; « adverse qui attaque » seulement en botPlay).
+  const fateFields: { key: keyof FateStrategyNote; label: string }[] =
+    variant === 'botPlay'
+      ? [
+          { key: 'description', label: 'Description' },
+          { key: 'asReceiver', label: 'En tant que joueur qui reçoit' },
+          { key: 'asAttacker', label: "En tant qu'adverse qui attaque" },
+        ]
+      : [
+          { key: 'description', label: 'Description' },
+          { key: 'asReceiver', label: 'En tant que joueur qui reçoit' },
+        ]
+  const fate = draft.cards.filter((c) => c.deck === 'fate' && !c.group)
+  const fLines: string[] = []
+  for (const c of fate) {
+    const note = section.fateNotes?.[c.id] ?? {}
+    const parts: string[] = []
+    for (const f of fateFields) {
+      const m = mods[`f:${c.id}:${f.key}`]?.trim()
+      if (!m) continue
+      parts.push(`- ${f.label}`)
+      parts.push(`  · actuel : ${note[f.key]?.trim() || UNDEVELOPED}`)
+      parts.push(`  · à modifier : ${m}`)
+    }
+    if (parts.length > 0) {
+      any = true
+      fLines.push(`### ${c.name}`, ...parts)
+    }
+  }
+  if (fLines.length > 0) lines.push('## Deck Fatalité', ...fLines, '')
+
+  if (!any) lines.push('_Aucune modification demandée._')
   return lines.join('\n')
 }

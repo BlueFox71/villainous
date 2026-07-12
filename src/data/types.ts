@@ -134,6 +134,10 @@ export interface CardDef {
   /** Pour un Héros : lieux où il ne peut être ni posé ni déplacé (Dame Gertrude
    *  ne peut pas aller sur la Prison). */
   forbiddenLocations?: LocationId[]
+  /** Héros qui ne peut JAMAIS être déplacé en tant que Héros (Grand Councilwoman —
+   *  STITCH). Exclu de toutes les relocalisations de Héros. Exception : une fois enfermé
+   *  (associé à la CAGE via `attachedTo`), il est transporté quand la CAGE est déplacée. */
+  cannotBeMoved?: boolean
   /** Pour une Malédiction : restriction imposée à son lieu. */
   placementRestriction?: PlacementRestriction
   /** Héros qui, tant qu'il est en jeu, interdit la pose/le déplacement d'un Allié

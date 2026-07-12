@@ -173,6 +173,7 @@ export function coveredTopActionIdsAt(player: PlayerState, locationId: LocationI
       // Le Piégeur — un Survivant FACE CACHÉE (non révélé) ne recouvre rien ; une fois
       // révélé, il recouvre la rangée du haut comme un Héros classique.
       (c.type === 'hero' &&
+        !c.attachedTo && // Grand Councilwoman — STITCH enfermé (associé à la CAGE) ne recouvre plus rien.
         !c.hypnotized &&
         !c.loved &&
         !c.pokemonKO &&
@@ -1366,6 +1367,7 @@ export function realmRelocateCandidates(
     for (const c of player.board[loc.id] ?? []) {
       if (
         c.type === 'hero' &&
+        !c.cannotBeMoved &&
         (c.strength ?? 0) <= maxStrength &&
         (c.strength ?? 0) >= minStr &&
         !(c.forbiddenLocations ?? []).includes(destinationId)
@@ -1804,6 +1806,15 @@ export function hasReachedObjective(state: GameState, playerIndex: number = stat
       const obj = p.objective
       const cell = p.board[obj.locationId] ?? []
       return obj.itemCardIds.every((id) => cell.some((c) => c.cardId === id && !c.attachedTo))
+    }
+    case 'HERO_CAGED': {
+      // Grand Councilwoman : STITCH (heroCardId) associé à la CAGE (itemCardId), et la
+      // CAGE se trouve sur locationId (le Vaisseau de Gantu).
+      const obj = p.objective
+      const cell = p.board[obj.locationId] ?? []
+      const cage = cell.find((c) => c.type === 'item' && c.cardId === obj.itemCardId && !c.attachedTo)
+      if (!cage) return false
+      return cell.some((c) => c.type === 'hero' && c.cardId === obj.heroCardId && c.attachedTo === cage.instanceId)
     }
     case 'UNTRAPPED_TITANS_AT_LOCATION': {
       const obj = p.objective

@@ -39,6 +39,9 @@ interface Props {
   /** Lance une partie de test avec ce vilain (déjà figé/baké). `opponent` = clé du vilain
    *  adverse choisi (undefined = adversaire aléatoire). */
   onPlay: (custom: CustomVillain, opponent?: VillainKey) => void
+  /** Retour depuis une partie de TEST (« Retourner à l'atelier ») : id du vilain à rouvrir
+   *  directement en édition (une seule fois, au montage). */
+  openVillainId?: string
 }
 
 /** Onglets de l'éditeur. */
@@ -102,7 +105,6 @@ function SaveProgressOverlay({ done, total, phase }: SaveProgress) {
           <span className={stepClass(isSaving, isDone)}>Sauvegarde</span>
           <span className="text-white/25">→</span>
           <span className={stepClass(isDone, false)}>✓ Terminé</span>
-          <span className="ml-auto text-white/30">se ferme seule</span>
         </div>
       </div>
     </div>
@@ -318,12 +320,10 @@ function PublishModal({
   onCancel: () => void
   onConfirm: (creator: string, origin: VillainOrigin) => void
 }) {
+  // Le créateur est Jules ou Alexis ; la catégorie est toujours « Collaboration ».
+  const CREATORS = ['Jules', 'Alexis'] as const
   const [creator, setCreator] = useState(draft.creator ?? '')
-  const [origin, setOrigin] = useState<VillainOrigin>(draft.origin ?? 'Collaborations')
-  const ORIGINS: { value: VillainOrigin; label: string; hint: string }[] = [
-    { value: 'Disney', label: 'Disney / Pixar', hint: 'Univers Disney' },
-    { value: 'Collaborations', label: 'Collaboration', hint: 'Hors Disney (jeux, anime…)' },
-  ]
+  const origin: VillainOrigin = 'Collaborations'
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onCancel}>
       <div
@@ -348,35 +348,23 @@ function PublishModal({
             : '« ' + draft.name + ' » rejoindra la liste et le choix des vilains, jouable comme un vilain officiel.'}
         </p>
 
-        <label className="flex flex-col gap-1 text-sm text-white/80">
-          Nom du créateur
-          <input
-            type="text"
-            value={creator}
-            onChange={(e) => setCreator(e.target.value)}
-            placeholder="Ton pseudo…"
-            className="rounded-lg border border-white/15 bg-black/30 px-3 py-1.5 text-sm text-white placeholder:text-white/30 focus:border-amber-300/50 focus:outline-none"
-          />
-        </label>
-
         <div className="flex flex-col gap-1.5">
-          <span className="text-sm text-white/80">Catégorie</span>
+          <span className="text-sm text-white/80">Créateur</span>
           <div className="grid grid-cols-2 gap-2">
-            {ORIGINS.map((o) => {
-              const active = origin === o.value
+            {CREATORS.map((c) => {
+              const active = creator === c
               return (
                 <button
-                  key={o.value}
+                  key={c}
                   type="button"
-                  onClick={() => setOrigin(o.value)}
-                  className={`flex flex-col gap-0.5 rounded-lg border px-3 py-2 text-left text-sm transition ${
+                  onClick={() => setCreator(c)}
+                  className={`rounded-lg border px-3 py-2 text-sm font-semibold transition ${
                     active
                       ? 'border-amber-300/60 bg-amber-400/20 text-amber-200'
                       : 'border-white/15 text-white/70 hover:bg-white/10'
                   }`}
                 >
-                  <span className="font-semibold">{o.label}</span>
-                  <span className="text-[11px] text-white/45">{o.hint}</span>
+                  {c}
                 </button>
               )
             })}
@@ -385,7 +373,7 @@ function PublishModal({
 
         <button
           type="button"
-          disabled={busy}
+          disabled={busy || !creator}
           onClick={() => onConfirm(creator, origin)}
           className="mt-1 rounded-lg border border-emerald-400/60 bg-emerald-400/20 px-4 py-2 text-sm font-bold text-emerald-100 transition hover:bg-emerald-400/30 disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -398,7 +386,7 @@ function PublishModal({
 
 // --- Écran principal ---------------------------------------------------------
 
-export function VillainEditor({ onBack, onPlay }: Props) {
+export function VillainEditor({ onBack, onPlay, openVillainId }: Props) {
   const { villains, loaded, load, save, remove, unpublish } = useCustomVillainStore()
   const [draft, setDraft] = useState<CustomVillain | null>(null)
   const [tab, setTab] = useState<Tab>('identity')
@@ -435,6 +423,21 @@ export function VillainEditor({ onBack, onPlay }: Props) {
     setTab('identity')
     setDirty(false)
   }
+
+  // Retour depuis une partie de test : rouvrir directement le vilain testé, UNE SEULE fois
+  // (une fois les vilains chargés). Le ref évite une réouverture si la liste change ensuite.
+  const autoOpenedRef = useRef(false)
+  useEffect(() => {
+    if (autoOpenedRef.current || !loaded || !openVillainId) return
+    const v = villains.find((x) => x.id === openVillainId)
+    if (v) {
+      autoOpenedRef.current = true
+      // Ouverture ponctuelle au retour de test : le setState ici est intentionnel (pas une
+      // synchro en boucle — verrouillé par autoOpenedRef).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      startEdit(v)
+    }
+  }, [loaded, openVillainId, villains])
 
   const startNew = () => {
     const v = emptyCustomVillain(new Date().toISOString())
@@ -644,7 +647,9 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
       setTab('quantity')
       return
     }
-    const baked = await bakeAndSave(draft)
+    // Pas de modif depuis l'ouverture / dernière sauvegarde → le brouillon est déjà baké
+    // (images générées) : on lance directement, sans régénérer les images (coûteux).
+    const baked = dirty ? await bakeAndSave(draft) : draft
     onPlay(baked, testOpponent || undefined)
   }
 
@@ -799,14 +804,20 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
               {/* Développement GRATUIT via Claude Code (abonnement) — web/dev uniquement. */}
               {!isDesktopApp && (
                 <>
-                  <Tooltip label="Écrit le JSON de jeu à jour et copie les consignes à coller dans une session Claude Code.">
+                  <Tooltip
+                    label={
+                      developed
+                        ? 'Vilain déjà développé. Pour l’ajuster, utilise les onglets « Codage Cartes » / « Bot adverse » (champ « À modifier »).'
+                        : 'Écrit le JSON de jeu à jour et copie les consignes à coller dans une session Claude Code. ⚠ Ne PUBLIE pas le vilain avant de l’avoir développé.'
+                    }
+                  >
                     <button
                       type="button"
                       onClick={onCopyDevPrompt}
-                      disabled={busy}
-                      className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200 disabled:opacity-50"
+                      disabled={busy || developed}
+                      className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {promptCopied ? '✓ Consignes copiées' : '🧠 Développer (Claude Code)'}
+                      {developed ? '✓ Développé' : promptCopied ? '✓ Consignes copiées' : '🧠 Développer (Claude Code)'}
                     </button>
                   </Tooltip>
                   <Tooltip label="Cliquez ce bouton une fois que Claude Code a développé ce vilain.">
@@ -859,17 +870,21 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
 
             <div className="h-6 w-px bg-white/15" aria-hidden />
 
-            {/* Groupe 3 — ENREGISTRER + PUBLIER : sauver le brouillon / la version jouable. */}
-            <Tooltip label={dirty ? 'Enregistrer le brouillon (sans le publier).' : 'Aucune modification à enregistrer.'}>
-              <button
-                type="button"
-                onClick={onSave}
-                disabled={busy || !dirty}
-                className="rounded-lg border border-amber-400/60 bg-amber-400/20 px-4 py-1.5 text-sm font-bold text-amber-100 transition hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Enregistrer
-              </button>
-            </Tooltip>
+            {/* Groupe 3 — ENREGISTRER + PUBLIER : sauver le brouillon / la version jouable.
+                « Enregistrer » est masqué pour un vilain DÉJÀ publié : « ↻ Mettre à jour »
+                sauvegarde aussi le brouillon (bake + save + publication), donc redondant. */}
+            {!draft.published && (
+              <Tooltip label={dirty ? 'Enregistrer le brouillon (sans le publier).' : 'Aucune modification à enregistrer.'}>
+                <button
+                  type="button"
+                  onClick={onSave}
+                  disabled={busy || !dirty}
+                  className="rounded-lg border border-amber-400/60 bg-amber-400/20 px-4 py-1.5 text-sm font-bold text-amber-100 transition hover:bg-amber-400/30 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Enregistrer
+                </button>
+              </Tooltip>
+            )}
             <Tooltip
               label={
                 !complete

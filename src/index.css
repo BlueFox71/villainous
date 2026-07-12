@@ -4091,6 +4091,14 @@ body {
 .armed-blink-rose {
   animation: armedBlinkRose 0.8s ease-in-out infinite;
 }
+/* Bleu = « Reprendre la Fatalité » (bouton du bandeau pendant « Voir le plateau »). */
+@keyframes armedBlinkBleu {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(93, 180, 232, 0); }
+  50% { box-shadow: 0 0 16px 5px rgba(93, 180, 232, 0.9); }
+}
+.armed-blink-bleu {
+  animation: armedBlinkBleu 0.9s ease-in-out infinite;
+}
 
 /* Gain de pouvoir flottant (« +N 🪙 ») : pop puis montée + estompage. */
 @keyframes gainFloat {

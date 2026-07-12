@@ -191,6 +191,7 @@ const PHRASE_FILE: Partial<Record<VillainKey, { file: string; gain?: number; fad
   princeJohn: { file: 'prince jean phrase' },
   jafar: { file: 'jafar phrase' },
   reineCoeur: { file: 'reine de coeur phrase' },
+  mechanteReine: { file: 'méchante reine phrase' },
   scar: { file: 'Scar phrase', fadeEndS: 0.3 },
   hades: { file: 'hadès phrase' },
   maleficent: { file: 'Maléfique phrase', gain: 0.7 },

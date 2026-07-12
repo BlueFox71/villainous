@@ -99,9 +99,22 @@ function NetworkRoute() {
 
 function GameRoute() {
   const navigate = useNavigate()
+  const location = useLocation()
+  // Partie de TEST lancée depuis l'Atelier : l'id du vilain testé est passé via l'état
+  // de navigation. Permet d'offrir un retour direct à sa configuration.
+  const editorVillainId = (location.state as { editorVillainId?: string } | null)?.editorVillainId
   // Retour au menu = on abandonne la partie : on efface la sauvegarde de reprise
   // (sessionStorage). Un rechargement sur le menu ne reprendra donc rien.
-  return <App onExit={() => { clearSavedGame(); navigate(ROUTES.menu) }} />
+  return (
+    <App
+      onExit={() => { clearSavedGame(); navigate(ROUTES.menu) }}
+      onReturnToEditor={
+        editorVillainId
+          ? () => { clearSavedGame(); navigate(ROUTES.editor, { state: { openVillainId: editorVillainId } }) }
+          : undefined
+      }
+    />
+  )
 }
 
 function VillainListRoute() {
@@ -111,19 +124,25 @@ function VillainListRoute() {
 
 function EditorRoute() {
   const navigate = useNavigate()
+  const location = useLocation()
   // Atelier réservé au dév : inaccessible dans l'exe (et en simulation « .exe »),
   // même par navigation directe.
   const isDesktopApp = useIsDesktopApp()
   if (isDesktopApp) return <Navigate to={ROUTES.menu} replace />
+  // Retour depuis une partie de test (« Retourner à l'atelier ») : rouvrir directement
+  // le vilain qu'on testait, via l'état de navigation.
+  const openVillainId = (location.state as { openVillainId?: string } | null)?.openVillainId
   return (
     <VillainEditor
+      openVillainId={openVillainId}
       onBack={() => navigate(ROUTES.menu)}
       onPlay={(custom, chosen) => {
         // Adversaire : celui choisi dans l'éditeur, sinon un vilain natif au hasard.
         const keys = Object.keys(VILLAIN_REGISTRY) as VillainKey[]
         const opponent = chosen ?? keys[Math.floor(Math.random() * keys.length)]
         useGameStore.getState().startCustomGame(custom, opponent)
-        navigate(ROUTES.game)
+        // On mémorise le vilain testé pour proposer « Retourner à l'atelier » en jeu.
+        navigate(ROUTES.game, { state: { editorVillainId: custom.id } })
       }}
     />
   )

@@ -648,6 +648,10 @@ export async function renderCardFace(
       const img = imgs.get(st.type)
       if (img) ctx.drawImage(img, cx - side / 2, cy - side / 2, side, side)
       else drawActionIcon(ctx, st.type, cx, cy, side, gold)
+      // Symbole « Gagner du pouvoir » avec un chiffre : on l'appose au centre du symbole.
+      if (st.type === 'GAIN_POWER' && st.amount !== undefined) {
+        await drawBoardNumber(ctx, st.amount, cx, cy, side * 0.5)
+      }
     }
   }
 

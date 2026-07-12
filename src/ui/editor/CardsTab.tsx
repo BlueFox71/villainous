@@ -159,8 +159,7 @@ function CardForm({
   const curTypeColor = card.typeColor ?? TYPE_COLOR[card.type]
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_auto]">
-      <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-3">
           {/* Titre TOUJOURS en majuscules (cohérent avec le rendu de la carte). */}
           <TextField label="Nom" value={card.name.toUpperCase()} onChange={(name) => set({ name: name.toUpperCase() })} />
@@ -313,70 +312,66 @@ function CardForm({
           nouveau type se codent à la main au moment du test.
         </p>
 
-        <TextField
-          label="Texte de la carte"
-          value={card.text}
-          onChange={(text) => set({ text })}
-          textarea
-          placeholder="Décris l’effet de la carte ici. Le comportement sera codé au moment du test."
+        {/* Illustration → Texte → Symboles d'action : empilés dans la colonne de gauche
+            de l'éditeur de disposition ; l'aperçu interactif reste fixe à droite. */}
+        <CardLayoutEditor
+          card={card}
+          color={color}
+          fateColor={fateColor}
+          keywordColors={keywordColors}
+          onChange={onChange}
+          illustration={
+            <div className="flex items-start gap-4">
+              <ImageField
+                label="Illustration"
+                value={card.artImage}
+                onChange={(artImage) => set({ artImage })}
+                aspect="card"
+              />
+              <div className="flex flex-1 flex-col gap-2">
+                <Field
+                  label={`Zoom illustration (${Math.round(at.scale * 100)} %)`}
+                  action={<ResetButton show={at.scale !== 1} onReset={() => setArt({ scale: 1 })} />}
+                >
+                  <input
+                    type="range"
+                    min={50}
+                    max={250}
+                    value={at.scale * 100}
+                    onChange={(e) => setArt({ scale: Number(e.target.value) / 100 })}
+                    className="accent-amber-400"
+                  />
+                </Field>
+                <Field
+                  label="Décalage vertical"
+                  action={<ResetButton show={at.offsetYPct !== 0} onReset={() => setArt({ offsetYPct: 0 })} />}
+                >
+                  <input
+                    type="range"
+                    min={-50}
+                    max={50}
+                    value={at.offsetYPct}
+                    onChange={(e) => setArt({ offsetYPct: Number(e.target.value) })}
+                    className="accent-amber-400"
+                  />
+                </Field>
+                <Field
+                  label="Décalage horizontal"
+                  action={<ResetButton show={at.offsetXPct !== 0} onReset={() => setArt({ offsetXPct: 0 })} />}
+                >
+                  <input
+                    type="range"
+                    min={-50}
+                    max={50}
+                    value={at.offsetXPct}
+                    onChange={(e) => setArt({ offsetXPct: Number(e.target.value) })}
+                    className="accent-amber-400"
+                  />
+                </Field>
+              </div>
+            </div>
+          }
         />
-
-        <div className="flex items-start gap-4">
-          <ImageField
-            label="Illustration"
-            value={card.artImage}
-            onChange={(artImage) => set({ artImage })}
-            aspect="card"
-          />
-          <div className="flex flex-1 flex-col gap-2">
-            <Field
-              label={`Zoom illustration (${Math.round(at.scale * 100)} %)`}
-              action={<ResetButton show={at.scale !== 1} onReset={() => setArt({ scale: 1 })} />}
-            >
-              <input
-                type="range"
-                min={50}
-                max={250}
-                value={at.scale * 100}
-                onChange={(e) => setArt({ scale: Number(e.target.value) / 100 })}
-                className="accent-amber-400"
-              />
-            </Field>
-            <Field
-              label="Décalage vertical"
-              action={<ResetButton show={at.offsetYPct !== 0} onReset={() => setArt({ offsetYPct: 0 })} />}
-            >
-              <input
-                type="range"
-                min={-50}
-                max={50}
-                value={at.offsetYPct}
-                onChange={(e) => setArt({ offsetYPct: Number(e.target.value) })}
-                className="accent-amber-400"
-              />
-            </Field>
-            <Field
-              label="Décalage horizontal"
-              action={<ResetButton show={at.offsetXPct !== 0} onReset={() => setArt({ offsetXPct: 0 })} />}
-            >
-              <input
-                type="range"
-                min={-50}
-                max={50}
-                value={at.offsetXPct}
-                onChange={(e) => setArt({ offsetXPct: Number(e.target.value) })}
-                className="accent-amber-400"
-              />
-            </Field>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Aperçu interactif : glisser le texte et les symboles sur la carte */}
-      <div className="w-72 shrink-0">
-        <CardLayoutEditor card={card} color={color} fateColor={fateColor} keywordColors={keywordColors} onChange={onChange} />
-      </div>
     </div>
   )
 }
@@ -443,6 +438,19 @@ export function CardsTab({
 
   const villainCards = draft.cards.filter((c) => c.deck === 'villain' && !c.group)
   const fateCards = draft.cards.filter((c) => c.deck === 'fate' && !c.group)
+
+  // Ordre de navigation « Carte précédente / suivante » = ordre d'affichage des galeries
+  // (Vilain, puis Fatalité, puis chaque paquet perso).
+  const orderedCards = [
+    ...villainCards,
+    ...fateCards,
+    ...extraDecks.flatMap((name) => draft.cards.filter((c) => c.group === name)),
+  ]
+  const selIndex = orderedCards.findIndex((c) => c.id === selId)
+  const goToCard = (delta: -1 | 1) => {
+    const next = orderedCards[selIndex + delta]
+    if (next) setSelId(next.id)
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -533,6 +541,28 @@ export function CardsTab({
       {/* Formulaire de la carte sélectionnée */}
       {selected ? (
         <div className="rounded-xl border border-white/15 bg-black/25 p-4">
+          {/* Navigation entre cartes (ordre des galeries). */}
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => goToCard(-1)}
+              disabled={selIndex <= 0}
+              className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-white/80 transition enabled:hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              ◀ Carte précédente
+            </button>
+            <span className="text-xs text-white/40">
+              {selIndex + 1} / {orderedCards.length}
+            </span>
+            <button
+              type="button"
+              onClick={() => goToCard(1)}
+              disabled={selIndex < 0 || selIndex >= orderedCards.length - 1}
+              className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-white/80 transition enabled:hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Carte suivante ▶
+            </button>
+          </div>
           <CardForm
             card={selected}
             color={draft.color}

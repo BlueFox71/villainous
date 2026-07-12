@@ -47,12 +47,19 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '1.4.5',
+    version: '1.5.0',
     date: '2026-07-12',
-    title: 'Nouvelles devises audio',
-    tags: ['son'],
+    title: 'Grand Councilwoman & Atelier enrichi',
+    tags: ['villain', 'atelier', 'interface', 'son'],
     changes: [
-      "**Prince Jean**, **Jafar** et la **Reine de cœur** lâchent désormais leur **réplique** à la fin de l'intro (et sur leur fiche vilain).",
+      "Nouveau vilain (collaboration) — **Grand Councilwoman** (Lilo & Stitch) : capturez **Stitch** dans la **CAGE** puis amenez-la au **Vaisseau de Gantu** pour l'enfermer.",
+      "Atelier — en test, bouton **« 🛠️ Retourner à l'atelier »** pour revenir directement à la configuration du vilain ; **« ▶ Tester »** ne régénère plus les images si rien n'a changé.",
+      "Atelier — onglet **Plateau** : **Mode recouvrement** (aperçu + **couleur** du voile qui recouvre les actions, propre à chaque vilain custom).",
+      "Atelier — onglet **Cartes** : **navigation** carte précédente/suivante, tailles de symbole **Petit/Normal**, **chiffre** sur le symbole Pouvoir, et formulaire réorganisé (**Illustration / Texte / Symboles**).",
+      "Atelier — codage en **lecture seule** avec encart **« À modifier »** + **« Copier les modifs »** ; **« Développer »** bloqué une fois le vilain développé ; modal **Publier** simplifié.",
+      "Pendant une **Fatalité**, plus besoin de **maintenir** « Voir le plateau » : un clic masque la fatalité et le bouton de fin de tour devient **« Reprendre la Fatalité »**. Zoom des cartes et défausses consultables librement.",
+      "En partie, chaque **jauge d'objectif** porte un bouton **📖** ouvrant la **fiche du vilain**.",
+      "**Prince Jean**, **Jafar**, la **Reine de cœur**, la **Méchante Reine** et **Grand Councilwoman** lâchent désormais leur **réplique** (intro + fiche vilain).",
     ],
   },
   {

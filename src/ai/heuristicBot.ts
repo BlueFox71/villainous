@@ -860,6 +860,41 @@ export function objectiveScore(p: PlayerState): number {
       const score = s / TOTAL
       return eliminated >= TOTAL ? 1 : Math.min(0.99, score)
     }
+    case 'HERO_CAGED': {
+      // Grand Councilwoman : pipeline « faire venir STITCH → poser la CAGE → les réunir →
+      // ENFERMER STITCH → amener la CAGE (avec STITCH) au Vaisseau de Gantu ». Gradient
+      // continu récompensant chaque étape de la boucle (STITCH étant immobile, c'est la
+      // CAGE qui vient à lui puis le transporte).
+      const obj = p.objective
+      const locOf = (instanceId: string): string | undefined =>
+        p.locations.find((l) => (p.board[l.id] ?? []).some((c) => c.instanceId === instanceId))?.id
+      const all = Object.values(p.board).flat()
+      const stitch = all.find((c) => c.type === 'hero' && c.cardId === obj.heroCardId)
+      const cage = all.find((c) => c.type === 'item' && c.cardId === obj.itemCardId && !c.attachedTo)
+      const caged = !!stitch && !!cage && stitch.attachedTo === cage.instanceId
+      const cageLoc = cage ? locOf(cage.instanceId) : undefined
+      // Victoire = STITCH enfermé dans la CAGE, au Vaisseau de Gantu.
+      if (caged && cageLoc === obj.locationId) return 1
+      let s = 0
+      if (stitch) s += 0.2 // STITCH est en jeu (dévoilé)
+      if (cage) s += 0.2 // la CAGE est posée
+      if (caged) {
+        // STITCH enfermé : il ne reste qu'à convoyer la CAGE jusqu'au Vaisseau de Gantu.
+        s += 0.3
+        // Rapproche la jauge à mesure que la CAGE se rapproche du lieu d'objectif.
+        const ids = p.locations.map((l) => l.id)
+        const dist =
+          cageLoc && ids.includes(cageLoc)
+            ? Math.abs(ids.indexOf(cageLoc) - ids.indexOf(obj.locationId))
+            : ids.length
+        s += 0.25 * (1 - Math.min(1, dist / Math.max(1, ids.length - 1)))
+      } else if (stitch && cage) {
+        // Pas encore enfermé : bonus si la CAGE et STITCH sont co-localisés (ENFERMÉ prêt).
+        const sameLoc = locOf(stitch.instanceId) && locOf(stitch.instanceId) === cageLoc
+        if (sameLoc) s += 0.15
+      }
+      return Math.min(0.99, s)
+    }
   }
 }
 

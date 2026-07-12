@@ -35,7 +35,7 @@ import type { VillainDef } from '../../engine/types'
 import type { CardDef } from '../../data/types'
 import { customActionPositions } from '../editor/boardLayout'
 import { registerActionPos } from '../components/customActionPos'
-import { VILLAIN_COLOR } from '../villainColors'
+import { VILLAIN_COLOR, VILLAIN_COVER_COLOR } from '../villainColors'
 import { usePlayerStore } from './playerStore'
 import { loadSavedGame, saveGame, snapshotForSave, reinjectVillainImages } from './gamePersistence'
 import { princeJohn } from '../../data/villains/princeJohn'
@@ -311,6 +311,10 @@ export function registerPublishedVillain(custom: CustomVillain): void {
   const cards = toCardDefs(eff)
   registerCustomCardDefs(cards)
   VILLAIN_COLOR[eff.id] = eff.color
+  // Couleur de recouvrement dédiée (« Mode recouvrement » de l'Atelier) ; sinon on
+  // laisse le recouvrement retomber sur la couleur du méchant (coverColorOf).
+  if (eff.coverColor) VILLAIN_COVER_COLOR[eff.id] = eff.coverColor
+  else delete VILLAIN_COVER_COLOR[eff.id]
   registerActionPos(eff.id, customActionPositions(eff.locations))
   customRegistry[eff.id] = {
     entry: { def: toVillainDef(eff), cards, label: eff.name },
@@ -322,6 +326,7 @@ export function registerPublishedVillain(custom: CustomVillain): void {
  *  ne le résout plus, donc il n'est ni jouable ni proposé/listé. Idempotent. */
 export function unregisterPublishedVillain(id: string): void {
   delete customRegistry[id]
+  delete VILLAIN_COVER_COLOR[id]
 }
 
 /** Résout l'entrée d'un vilain par sa clé (natif ou publié). undefined si inconnu. */
@@ -847,6 +852,12 @@ interface GameStore {
   resolveRecoverFate: (instanceId?: string) => void
   /** Shere Khan — À toi de jouer, cousin : jouer l'Allié dévoilé sur le lieu choisi. */
   resolveFreePlayAlly: (locationId: string) => void
+  /** Grand Councilwoman — RAPPORT / CAPITAINE GANTU : jouer gratuitement la carte en attente
+   *  (`targetId` = lieu de pose ou instanceId de l'hôte ; absent pour un Événement).
+   *  `cancel` = renoncer (la carte part en défausse). */
+  resolveFreePlayCard: (targetId?: string, cancel?: boolean) => void
+  /** Grand Councilwoman — CAPITAINE GANTU : choisir la carte de la défausse à jouer (ou passer). */
+  resolvePickDiscardToPlay: (instanceId?: string) => void
   /** Shere Khan — Jeune et sans défense : choix (move/gain) puis Héros / Allié. */
   resolveYoung: (arg: { choice?: 'move' | 'gain'; heroInstanceId?: string; allyInstanceId?: string }) => void
   /** Shere Khan — Aie confiance : choisir une carte de la défausse à récupérer (ou terminer). */
@@ -1523,6 +1534,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_RECOVER_FATE', instanceId }),
   resolveFreePlayAlly: (locationId) =>
     get().submit({ type: 'RESOLVE_FREE_PLAY_ALLY', locationId }),
+  resolveFreePlayCard: (targetId, cancel) =>
+    get().submit({ type: 'RESOLVE_FREE_PLAY_CARD', targetId, cancel }),
+  resolvePickDiscardToPlay: (instanceId) =>
+    get().submit({ type: 'RESOLVE_PICK_DISCARD_TO_PLAY', instanceId }),
   resolveYoung: (arg) =>
     get().submit({ type: 'RESOLVE_YOUNG', ...arg }),
   resolveRecoverToDeck: (arg) =>

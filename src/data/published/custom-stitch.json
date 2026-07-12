@@ -1,0 +1,1370 @@
+{
+  "formatVersion": 1,
+  "id": "custom-stitch",
+  "name": "Grand Councilwoman",
+  "stars": 3,
+  "color": "#2c74af",
+  "pawnHeightPx": 96,
+  "boardObjective": "Au début de votre tour, STITCH est enfermé dans la CAGE au vaisseau de Gantu.",
+  "objectiveDescription": "Au début de votre tour, STITCH doit être ENFERMÉ dans la CAGE, et la CAGE au Vaisseau de Gantu.",
+  "objective": {
+    "type": "HERO_CAGED",
+    "heroCardId": "custom-stitch-stitch",
+    "itemCardId": "custom-stitch-cage",
+    "locationId": "loc-4"
+  },
+  "locations": [
+    {
+      "id": "loc-1",
+      "name": "MAISON DE LILO",
+      "actions": [
+        {
+          "id": "gain-power",
+          "type": "PLAY_CARD",
+          "row": "top",
+          "label": "Jouer une carte"
+        },
+        {
+          "id": "play-card",
+          "type": "GAIN_POWER",
+          "row": "top",
+          "label": "Gagner 1 pouvoir",
+          "amount": 1
+        },
+        {
+          "id": "fate",
+          "type": "FATE",
+          "row": "bottom",
+          "label": "Fatalité"
+        },
+        {
+          "id": "vanquish",
+          "type": "DISCARD_CARDS",
+          "row": "bottom",
+          "label": "Défausser des cartes"
+        }
+      ],
+      "image": "/cards/custom-stitch/loc-loc-1.jpg?v=1783888923505",
+      "imagePos": {
+        "x": 73,
+        "y": 11,
+        "zoom": 1.8
+      }
+    },
+    {
+      "id": "loc-2",
+      "name": "RESTAURANT",
+      "actions": [
+        {
+          "id": "gain-power",
+          "type": "PLAY_CARD",
+          "row": "top",
+          "label": "Jouer une carte"
+        },
+        {
+          "id": "play-card",
+          "type": "MOVE_ITEM_ALLY",
+          "row": "top",
+          "label": "Déplacer un objet ou un allié"
+        },
+        {
+          "id": "fate",
+          "type": "GAIN_POWER",
+          "row": "bottom",
+          "label": "Gagner 3 pouvoir",
+          "amount": 3
+        },
+        {
+          "id": "vanquish",
+          "type": "PLAY_CARD",
+          "row": "bottom",
+          "label": "Jouer une carte"
+        }
+      ],
+      "image": "/cards/custom-stitch/loc-loc-2.jpg?v=1783888923505",
+      "imagePos": {
+        "x": 91,
+        "y": 50
+      }
+    },
+    {
+      "id": "loc-3",
+      "name": "ÉCOLE DE DANSE",
+      "actions": [
+        {
+          "id": "gain-power",
+          "type": "FATE",
+          "row": "top",
+          "label": "Fatalité"
+        },
+        {
+          "id": "play-card",
+          "type": "DISCARD_CARDS",
+          "row": "top",
+          "label": "Défausser des cartes"
+        },
+        {
+          "id": "fate",
+          "type": "MOVE_ITEM_ALLY",
+          "row": "bottom",
+          "label": "Déplacer un objet ou un allié"
+        },
+        {
+          "id": "vanquish",
+          "type": "PLAY_CARD",
+          "row": "bottom",
+          "label": "Jouer une carte"
+        }
+      ],
+      "image": "/cards/custom-stitch/loc-loc-3.jpg?v=1783888923505",
+      "imagePos": {
+        "x": 39,
+        "y": 50,
+        "zoom": 1.2
+      }
+    },
+    {
+      "id": "loc-4",
+      "name": "VAISSEAU DE GANTU",
+      "actions": [
+        {
+          "id": "gain-power",
+          "type": "MOVE_HERO",
+          "row": "top",
+          "label": "Déplacer un héros"
+        },
+        {
+          "id": "play-card",
+          "type": "PLAY_CARD",
+          "row": "top",
+          "label": "Jouer une carte"
+        },
+        {
+          "id": "fate",
+          "type": "VANQUISH",
+          "row": "bottom",
+          "label": "Vaincre un héros"
+        },
+        {
+          "id": "vanquish",
+          "type": "GAIN_POWER",
+          "row": "bottom",
+          "label": "Gagner 1 pouvoir",
+          "amount": 1
+        }
+      ],
+      "image": "/cards/custom-stitch/loc-loc-4.png?v=1783888923505",
+      "imagePos": {
+        "x": 42,
+        "y": 81,
+        "zoom": 1.35
+      }
+    }
+  ],
+  "cards": [
+    {
+      "id": "custom-stitch-stitch",
+      "name": "STITCH",
+      "englishName": "Stitch",
+      "deck": "fate",
+      "type": "hero",
+      "copies": 1,
+      "text": "Vous devez immédiatement jouer STITCH sur la maison de Lilo dès qu'il est dévoilé.    Défaussez les autres cartes Fatalité qui ont été dévoilées.   Ne peut pas être déplacé.",
+      "image": "/cards/custom-stitch/custom-stitch-stitch.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 76,
+        "w": 79,
+        "size": 76
+      },
+      "strength": 5,
+      "artImage": "/cards/custom-stitch/custom-stitch-stitch.art.png?v=1783888923505",
+      "forcedFateLocation": "loc-1",
+      "cannotBeMoved": true,
+      "playWhenRevealed": true
+    },
+    {
+      "id": "custom-stitch-lilo",
+      "name": "LILO",
+      "englishName": "Lilo",
+      "deck": "fate",
+      "type": "hero",
+      "copies": 1,
+      "text": "Grand Councilwoman doit éliminer Lilo avant les autres Héros.",
+      "image": "/cards/custom-stitch/custom-stitch-lilo.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 75.5,
+        "w": 79,
+        "size": 76
+      },
+      "strength": 4,
+      "artImage": "/cards/custom-stitch/custom-stitch-lilo.art.png?v=1783888923505",
+      "mustDefeatFirst": true,
+      "fateMalus": "slow2"
+    },
+    {
+      "id": "custom-stitch-nani",
+      "name": "NANI",
+      "englishName": "Nani",
+      "deck": "fate",
+      "type": "hero",
+      "copies": 1,
+      "text": "Vous pouvez défausser un Allié qui se trouve sur le même lieu que NANI.",
+      "image": "/cards/custom-stitch/custom-stitch-nani.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 75.5,
+        "w": 79,
+        "size": 76
+      },
+      "strength": 3,
+      "artImage": "/cards/custom-stitch/custom-stitch-nani.art.png?v=1783888923505",
+      "onPlace": [
+        {
+          "type": "DISCARD_ALLY_AT_HOST"
+        }
+      ],
+      "fateMalus": "slow2"
+    },
+    {
+      "id": "custom-stitch-david",
+      "name": "DAVID",
+      "englishName": "David",
+      "deck": "fate",
+      "type": "hero",
+      "copies": 1,
+      "text": "Défaussez un Objet qui se trouve sur le même lieu que DAVID.",
+      "image": "/cards/custom-stitch/custom-stitch-david.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 75,
+        "w": 79,
+        "size": 76
+      },
+      "strength": 2,
+      "artImage": "/cards/custom-stitch/custom-stitch-david.art.png?v=1783888923505",
+      "onPlace": [
+        {
+          "type": "DISCARD_ITEM_AT_HOST"
+        }
+      ],
+      "fateMalus": "slow2"
+    },
+    {
+      "id": "custom-stitch-moses-puloki",
+      "name": "MOSES PULOKI",
+      "englishName": "moses",
+      "deck": "fate",
+      "type": "hero",
+      "copies": 1,
+      "text": "La force de tous les Héros augmente de 1.",
+      "image": "/cards/custom-stitch/custom-stitch-moses-puloki.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 75.5,
+        "w": 79,
+        "size": 76
+      },
+      "strength": 2,
+      "artImage": "/cards/custom-stitch/custom-stitch-moses-puloki.art.png?v=1783888923505",
+      "strengthMod": {
+        "target": "heroes-realm",
+        "delta": 1
+      },
+      "fateMalus": "slow2"
+    },
+    {
+      "id": "custom-stitch-cobra-bubbles",
+      "name": "COBRA BUBBLES",
+      "englishName": "CobraBubbles",
+      "deck": "fate",
+      "type": "hero",
+      "copies": 1,
+      "text": "Si Grand Concilwoman se déplace sur le lieu où se trouve COBRA BUBBLES, elle perd immmédiatement 2 jetons Pouvoir.",
+      "image": "/cards/custom-stitch/custom-stitch-cobra-bubbles.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 77.5,
+        "w": 80.87696355938957,
+        "size": 76
+      },
+      "strength": 3,
+      "artImage": "/cards/custom-stitch/custom-stitch-cobra-bubbles.art.png?v=1783888923505",
+      "powerLossOnPawnArrive": 2,
+      "fateMalus": "slow2"
+    },
+    {
+      "id": "custom-stitch-boule-de-feu",
+      "name": "BOULE DE FEU",
+      "englishName": "o_4",
+      "deck": "fate",
+      "type": "item",
+      "copies": 1,
+      "text": "Associez cette carte à un Héros, sa force augmente de 2.",
+      "image": "/cards/custom-stitch/custom-stitch-boule-de-feu.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 75.5,
+        "w": 79,
+        "size": 76
+      },
+      "strength": 2,
+      "artImage": "/cards/custom-stitch/custom-stitch-boule-de-feu.art.png?v=1783888923505",
+      "attach": "hero",
+      "attachStrengthBonus": 2,
+      "fateMalus": "slow"
+    },
+    {
+      "id": "custom-stitch-bolas-en-feu",
+      "name": "BOLAS EN FEU",
+      "englishName": "o_5",
+      "deck": "fate",
+      "type": "item",
+      "copies": 1,
+      "text": "Associez cette carte à un Allié, sa force diminue de 2.",
+      "image": "/cards/custom-stitch/custom-stitch-bolas-en-feu.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 75,
+        "w": 79,
+        "size": 76
+      },
+      "strength": -2,
+      "artImage": "/cards/custom-stitch/custom-stitch-bolas-en-feu.art.png?v=1783888923505",
+      "attach": "ally",
+      "attachStrengthBonus": -2,
+      "fateMalus": "slow"
+    },
+    {
+      "id": "custom-stitch-bouteille-mordue",
+      "name": "BOUTEILLE MORDUE",
+      "englishName": "e_2",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 2,
+      "text": "Défaussez ou déplacer un Objet de votre choix.",
+      "image": "/cards/custom-stitch/custom-stitch-bouteille-mordue.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 75,
+        "w": 79,
+        "size": 76
+      },
+      "artImage": "/cards/custom-stitch/custom-stitch-bouteille-mordue.art.png?v=1783888923505",
+      "effects": [
+        {
+          "type": "FATE_DISCARD_OR_MOVE_ITEM"
+        }
+      ]
+    },
+    {
+      "id": "custom-stitch-ca-pique",
+      "name": "ÇA PIQUE !",
+      "englishName": "e_6",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 1,
+      "text": "Défaussez un Allié de force 3 ou moins du royaume.",
+      "image": "/cards/custom-stitch/custom-stitch-ca-pique.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 77.5,
+        "w": 79,
+        "size": 76
+      },
+      "artImage": "/cards/custom-stitch/custom-stitch-ca-pique.art.png?v=1783888923505",
+      "effects": [
+        {
+          "type": "FATE_DISCARD_STRONGEST_ALLY_OR_ITEM",
+          "onlyType": "ally",
+          "maxStrength": 3
+        }
+      ]
+    },
+    {
+      "id": "custom-stitch-en-liberte",
+      "name": "EN LIBERTÉ",
+      "englishName": "e_7",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 2,
+      "text": "Placez STITCH en haut du lieu où il se trouve actuellement ou déplacez un Héros sur un lieu voisin.",
+      "image": "/cards/custom-stitch/custom-stitch-en-liberte.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 77,
+        "w": 79,
+        "size": 76
+      },
+      "artImage": "/cards/custom-stitch/custom-stitch-en-liberte.art.png?v=1783888923505",
+      "effects": [
+        {
+          "type": "FREE_HERO_OR_RELOCATE",
+          "heroCardId": "custom-stitch-stitch"
+        }
+      ]
+    },
+    {
+      "id": "custom-stitch-aloha",
+      "name": "ALOHA",
+      "englishName": "e_10",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 2,
+      "text": "Transformez Dr Jumba Jookiba ou Peakley en Héros ou déplacez un Héros sur un lieu voisin.",
+      "image": "/cards/custom-stitch/custom-stitch-aloha.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 77,
+        "w": 79,
+        "size": 76
+      },
+      "artImage": "/cards/custom-stitch/custom-stitch-aloha.art.png?v=1783888923505",
+      "effects": [
+        {
+          "type": "TRANSFORM_ALLY_OR_RELOCATE",
+          "allyCardIds": [
+            "custom-stitch-dr-jumba-jookiba",
+            "custom-stitch-peakley"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "custom-stitch-surveillance",
+      "name": "SURVEILLANCE",
+      "englishName": "c_1",
+      "deck": "villain",
+      "type": "condition",
+      "copies": 1,
+      "text": "Cette carte est jouable pendant le tour d'un adversaire s'il possède au moins 3 Alliés.   Ajoutez une carte de votre défausse à votre main.",
+      "image": "/cards/custom-stitch/custom-stitch-surveillance.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 78,
+        "w": 79,
+        "size": 76
+      },
+      "artImage": "/cards/custom-stitch/custom-stitch-surveillance.art.png?v=1783888923505",
+      "trigger": {
+        "type": "opponent-allies-in-realm-ge",
+        "value": 3
+      },
+      "effects": [
+        {
+          "type": "RECOVER_ANY_FROM_DISCARD",
+          "label": "Surveillance"
+        }
+      ]
+    },
+    {
+      "id": "custom-stitch-attrape",
+      "name": "ATTRAPÉ !",
+      "englishName": "c_3",
+      "deck": "villain",
+      "type": "condition",
+      "copies": 1,
+      "text": "Cette carte est jouable pendant le tour d'un adversaire s'il élimine un Héros de force 4 ou plus.   Dévoilez les cartes Fatalité de votre pioche jusqu'à trouver un Héros.   Jouez-le ou défaussez-le. Défaussez les autres cartes dévoilées.",
+      "image": "/cards/custom-stitch/custom-stitch-attrape.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 79,
+        "w": 83.379468607634,
+        "size": 65
+      },
+      "artImage": "/cards/custom-stitch/custom-stitch-attrape.art.png?v=1783888923505",
+      "trigger": {
+        "type": "opponent-vanquished-hero-strength-ge",
+        "value": 4
+      },
+      "effects": [
+        {
+          "type": "REVEAL_FATE_UNTIL_HERO_CHOICE"
+        }
+      ]
+    },
+    {
+      "id": "custom-stitch-ou-est-t-il",
+      "name": "OÙ-EST-T-IL?",
+      "englishName": "c_4",
+      "deck": "villain",
+      "type": "condition",
+      "copies": 2,
+      "text": "Cette carte est jouable pendant le tour d'un adversaire s'il possède au moins 2 Objets.   Gagnez 3 jetons Pouvoir.",
+      "image": "/cards/custom-stitch/custom-stitch-ou-est-t-il.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 77,
+        "w": 79,
+        "size": 76
+      },
+      "artImage": "/cards/custom-stitch/custom-stitch-ou-est-t-il.art.png?v=1783888923505",
+      "trigger": {
+        "type": "opponent-items-in-realm-ge",
+        "value": 2
+      },
+      "effects": [
+        {
+          "type": "GAIN_POWER",
+          "amount": 3
+        }
+      ]
+    },
+    {
+      "id": "custom-stitch-rapport",
+      "name": "RAPPORT !",
+      "englishName": "e_3",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 2,
+      "text": "Dévoilez les cartes de votre pioche jusqu'à ce que vous trouviez un Objet.   Jouez-le et défaussez les autres cartes dévoilées.",
+      "image": "/cards/custom-stitch/custom-stitch-rapport.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 78,
+        "w": 79,
+        "size": 76
+      },
+      "cost": 1,
+      "artImage": "/cards/custom-stitch/custom-stitch-rapport.art.png?v=1783888923505",
+      "effects": [
+        {
+          "type": "REVEAL_UNTIL_TYPE_PLAY_FREE",
+          "cardType": "item"
+        }
+      ]
+    },
+    {
+      "id": "custom-stitch-stitch-en-vue",
+      "name": "STITCH EN VUE",
+      "englishName": "e_4",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 3,
+      "text": "Dévoilez les cartes Fatalité jusqu'à ce que vous trouviez un Héros.   Jouez-le et défaussez les autres cartes dévoilées.",
+      "image": "/cards/custom-stitch/custom-stitch-stitch-en-vue.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 78.5,
+        "w": 79,
+        "size": 76
+      },
+      "cost": 2,
+      "artImage": "/cards/custom-stitch/custom-stitch-stitch-en-vue.art.png?v=1783888923505",
+      "effects": [
+        {
+          "type": "REVEAL_FATE_UNTIL_HERO_CHOICE",
+          "mustPlay": true
+        }
+      ]
+    },
+    {
+      "id": "custom-stitch-enferme",
+      "name": "ENFERMÉ",
+      "englishName": "e_5",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 2,
+      "text": "Cette carte prend l'effet si STITCH se trouve sur le même lieu que la CAGE.   Associez STITCH à la CAGE.",
+      "image": "/cards/custom-stitch/custom-stitch-enferme.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 77,
+        "w": 79,
+        "size": 76
+      },
+      "cost": 2,
+      "artImage": "/cards/custom-stitch/custom-stitch-enferme.art.png?v=1783888923505",
+      "effects": [
+        {
+          "type": "ATTACH_HERO_TO_ITEM",
+          "heroCardId": "custom-stitch-stitch",
+          "itemCardId": "custom-stitch-cage"
+        }
+      ]
+    },
+    {
+      "id": "custom-stitch-tuez-le",
+      "name": "TUEZ-LE",
+      "englishName": "e_8",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 2,
+      "text": "Éliminez un Héros de force 3 ou moins.",
+      "image": "/cards/custom-stitch/custom-stitch-tuez-le.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 76.5,
+        "w": 79,
+        "size": 76
+      },
+      "cost": 3,
+      "artImage": "/cards/custom-stitch/custom-stitch-tuez-le.art.png?v=1783888923505",
+      "effects": [
+        {
+          "type": "INSTANT_VANQUISH_HERO_LE",
+          "maxStrength": 3
+        }
+      ]
+    },
+    {
+      "id": "custom-stitch-reperage",
+      "name": "REPÉRAGE",
+      "englishName": "e_12",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 3,
+      "text": "Choisir une carte dans votre défausse et ajoutez-la à votre main.",
+      "image": "/cards/custom-stitch/custom-stitch-reperage.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 76,
+        "w": 79,
+        "size": 76
+      },
+      "cost": 1,
+      "artImage": "/cards/custom-stitch/custom-stitch-reperage.art.png?v=1783888923505",
+      "effects": [
+        {
+          "type": "RECOVER_ANY_FROM_DISCARD",
+          "label": "Repérage"
+        }
+      ]
+    },
+    {
+      "id": "custom-stitch-cage",
+      "name": "CAGE",
+      "englishName": "o_2",
+      "deck": "villain",
+      "type": "item",
+      "copies": 1,
+      "text": "Placez la CAGE sous le vaisseau de Gantu.   Ne peut pas être défaussé.",
+      "image": "/cards/custom-stitch/custom-stitch-cage.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 77.5,
+        "w": 79,
+        "size": 76
+      },
+      "cost": 4,
+      "artImage": "/cards/custom-stitch/custom-stitch-cage.art.png?v=1783888923505",
+      "attach": "location",
+      "playOnlyAt": "loc-4",
+      "cannotBeDiscarded": true
+    },
+    {
+      "id": "custom-stitch-carotte",
+      "name": "CAROTTE",
+      "englishName": "o_1",
+      "deck": "villain",
+      "type": "item",
+      "copies": 1,
+      "text": "Associez à un Héros, sa force diminue de 1.",
+      "image": "/cards/custom-stitch/custom-stitch-carotte.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 75,
+        "w": 79,
+        "size": 76
+      },
+      "cost": 1,
+      "strength": -1,
+      "artImage": "/cards/custom-stitch/custom-stitch-carotte.art.png?v=1783888923505",
+      "attach": "hero",
+      "attachStrengthBonus": -1
+    },
+    {
+      "id": "custom-stitch-deguisement",
+      "name": "DÉGUISEMENT",
+      "englishName": "o_3",
+      "deck": "villain",
+      "type": "item",
+      "copies": 2,
+      "text": "Associez à un Allié, sa force augmente de 2.",
+      "image": "/cards/custom-stitch/custom-stitch-deguisement.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 76,
+        "w": 79,
+        "size": 76
+      },
+      "cost": 2,
+      "strength": 2,
+      "artImage": "/cards/custom-stitch/custom-stitch-deguisement.art.png?v=1783888923505",
+      "attach": "ally",
+      "attachStrengthBonus": 2
+    },
+    {
+      "id": "custom-stitch-bras-robots",
+      "name": "BRAS ROBOTS",
+      "englishName": "o_9",
+      "deck": "villain",
+      "type": "item",
+      "copies": 1,
+      "text": "Ce lieu gagne l'action :",
+      "image": "/cards/custom-stitch/custom-stitch-bras-robots.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 70.5,
+        "w": 79,
+        "size": 76
+      },
+      "cost": 2,
+      "stickers": [
+        {
+          "id": "stk-1",
+          "type": "VANQUISH",
+          "x": 50.00004238660312,
+          "y": 83.1005573560994,
+          "size": 22.438871258020743
+        }
+      ],
+      "artImage": "/cards/custom-stitch/custom-stitch-bras-robots.art.png?v=1783888923505",
+      "attach": "location",
+      "grantsAction": {
+        "type": "VANQUISH",
+        "label": "Vaincre un héros"
+      }
+    },
+    {
+      "id": "custom-stitch-vaisseau-general",
+      "name": "VAISSEAU GÉNÉRAL",
+      "englishName": "o_8",
+      "deck": "villain",
+      "type": "item",
+      "copies": 1,
+      "text": "Ce lieu gagne l'action :",
+      "image": "/cards/custom-stitch/custom-stitch-vaisseau-general.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 70.5,
+        "w": 79,
+        "size": 76
+      },
+      "cost": 2,
+      "artImage": "/cards/custom-stitch/custom-stitch-vaisseau-general.art.png?v=1783888923505",
+      "stickers": [
+        {
+          "id": "stk-1",
+          "type": "MOVE_ITEM_ALLY",
+          "x": 49.56156060690834,
+          "y": 82.95592662859134,
+          "size": 20
+        }
+      ],
+      "attach": "location",
+      "grantsAction": {
+        "type": "MOVE_ITEM_ALLY",
+        "label": "Déplacer un objet ou un allié"
+      }
+    },
+    {
+      "id": "custom-stitch-piqure",
+      "name": "PIQURE",
+      "englishName": "o_6",
+      "deck": "villain",
+      "type": "item",
+      "copies": 1,
+      "text": "Ce lieu gagne l'action :",
+      "image": "/cards/custom-stitch/custom-stitch-piqure.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 70.5,
+        "w": 79,
+        "size": 76
+      },
+      "cost": 2,
+      "artImage": "/cards/custom-stitch/custom-stitch-piqure.art.png?v=1783888923505",
+      "stickers": [
+        {
+          "id": "stk-1",
+          "type": "GAIN_POWER",
+          "x": 50.24866270267154,
+          "y": 83.27825319053109,
+          "size": 22.694646481072002
+        }
+      ],
+      "textBoxes": [
+        {
+          "id": "txt-1",
+          "text": "1",
+          "x": 49.75655932683293,
+          "y": 83.7878725440419,
+          "w": 14.338455330454437,
+          "size": 163
+        }
+      ],
+      "attach": "location",
+      "grantsAction": {
+        "type": "GAIN_POWER",
+        "amount": 1,
+        "label": "Gagner 1 pouvoir"
+      }
+    },
+    {
+      "id": "custom-stitch-capitaine-gantu",
+      "name": "CAPITAINE GANTU",
+      "englishName": "gantu",
+      "deck": "villain",
+      "type": "ally",
+      "copies": 1,
+      "text": "Vous pouvez choisir une carte dans votre défausse et jouez-la gratuitement.",
+      "image": "/cards/custom-stitch/custom-stitch-capitaine-gantu.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 75,
+        "w": 79,
+        "size": 76
+      },
+      "cost": 4,
+      "strength": 4,
+      "artImage": "/cards/custom-stitch/custom-stitch-capitaine-gantu.art.png?v=1783888923505",
+      "effects": [
+        {
+          "type": "PLAY_FROM_DISCARD_FREE"
+        }
+      ]
+    },
+    {
+      "id": "custom-stitch-dr-jumba-jookiba",
+      "name": "DR JUMBA JOOKIBA",
+      "englishName": "drJumbaJookiba",
+      "deck": "villain",
+      "type": "ally",
+      "copies": 1,
+      "text": "Les Héros qui se trouvent sur le même lieu que DR JUMBA JOOKIBA ont une force diminuée de 1.",
+      "image": "/cards/custom-stitch/custom-stitch-dr-jumba-jookiba.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 77,
+        "w": 79,
+        "size": 76
+      },
+      "cost": 3,
+      "strength": 3,
+      "artImage": "/cards/custom-stitch/custom-stitch-dr-jumba-jookiba.art.png?v=1783888923505",
+      "strengthMod": {
+        "target": "heroes-here",
+        "delta": -1
+      }
+    },
+    {
+      "id": "custom-stitch-peakley",
+      "name": "PEAKLEY",
+      "englishName": "pleakley",
+      "deck": "villain",
+      "type": "ally",
+      "copies": 1,
+      "text": "Gagnez 1 jeton Pouvoir à chaque fois que Peakley est déplacé.",
+      "image": "/cards/custom-stitch/custom-stitch-peakley.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 75,
+        "w": 79,
+        "size": 76
+      },
+      "cost": 3,
+      "strength": 3,
+      "artImage": "/cards/custom-stitch/custom-stitch-peakley.art.png?v=1783888923505",
+      "powerOnMove": 1
+    },
+    {
+      "id": "custom-stitch-pilote",
+      "name": "PILOTE",
+      "englishName": "pilote",
+      "deck": "villain",
+      "type": "ally",
+      "copies": 1,
+      "text": "Vous pouvez déplacer un Allié sur un lieu voisin.",
+      "image": "/cards/custom-stitch/custom-stitch-pilote.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 75,
+        "w": 79,
+        "size": 76
+      },
+      "cost": 1,
+      "strength": 1,
+      "artImage": "/cards/custom-stitch/custom-stitch-pilote.art.png?v=1783888923505",
+      "effects": [
+        {
+          "type": "MOVE_OWN_ALLY_ADJACENT"
+        }
+      ]
+    },
+    {
+      "id": "custom-stitch-co-pilote",
+      "name": "CO-PILOTE",
+      "englishName": "coPilote",
+      "deck": "villain",
+      "type": "ally",
+      "copies": 1,
+      "text": "Vous pouvez déplacer un Héros sur un lieu voisin.",
+      "image": "/cards/custom-stitch/custom-stitch-co-pilote.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 75,
+        "w": 79,
+        "size": 76
+      },
+      "cost": 1,
+      "strength": 1,
+      "artImage": "/cards/custom-stitch/custom-stitch-co-pilote.art.png?v=1783888923505",
+      "effects": [
+        {
+          "type": "RELOCATE_HERO_ADJACENT",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "id": "custom-stitch-soldat",
+      "name": "SOLDAT",
+      "englishName": "soldatNoir",
+      "deck": "villain",
+      "type": "ally",
+      "copies": 2,
+      "text": "Lors d'une action Éliminer un Héros, le SOLDAT peut être utilisé pour éliminer un Héros sur leur lieu ou sur un lieu voisin.",
+      "image": "/cards/custom-stitch/custom-stitch-soldat.png?v=1783888923505",
+      "artTransform": {
+        "scale": 1,
+        "offsetXPct": 0,
+        "offsetYPct": 0
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 75,
+        "w": 79,
+        "size": 76
+      },
+      "cost": 2,
+      "strength": 3,
+      "artImage": "/cards/custom-stitch/custom-stitch-soldat.art.png?v=1783888923505",
+      "reachesAdjacentVanquish": true
+    }
+  ],
+  "createdAt": "2026-07-12T10:54:44.318Z",
+  "updatedAt": "2026-07-12T20:42:03.505Z",
+  "portrait": "/cards/custom-stitch/portrait.png?v=1783888923505",
+  "portraitRaw": "/cards/custom-stitch/portrait-raw.png?v=1783888923505",
+  "portraitCrop": {
+    "x": 50,
+    "y": 42,
+    "zoom": 1
+  },
+  "backOverlays": [
+    {
+      "id": "ovl-1",
+      "image": "/cards/custom-stitch/back-overlay-0.png?v=1783888923505",
+      "x": 50,
+      "y": 50,
+      "size": 103,
+      "aspect": 1.4085281980742779
+    }
+  ],
+  "presentation": "/cards/custom-stitch/presentation.png?v=1783888923505",
+  "devise": "Quant à cette abominable créature, le produit malsain d'un esprit dérangé, il n'a pas sa place parmi nous.",
+  "boardArt": "/cards/custom-stitch/board-art.png?v=1783888923505",
+  "backVillainImage": "/cards/custom-stitch/back-villain.png?v=1783888923505",
+  "backFateImage": "/cards/custom-stitch/back-fate.png?v=1783888923505",
+  "boardImage": "/cards/custom-stitch/board.jpg?v=1783888923505",
+  "botStrategy": {
+    "howToWin": "Faites venir STITCH (Stitch en vue / Attrapé) : il se pose à la Maison de Lilo et est immobile. Posez la CAGE au Vaisseau de Gantu (coût 4), puis DÉPLACEZ-la (action « Déplacer un objet ») jusqu'à STITCH. Jouez ENFERMÉ pour l'associer à la CAGE, puis convoyez la CAGE (avec STITCH dedans) jusqu'au Vaisseau de Gantu. Victoire au début de votre tour quand STITCH est enfermé dans la CAGE au Vaisseau de Gantu. Éliminez LILO avant les autres Héros.",
+    "villainNotes": {
+      "custom-stitch-surveillance": "Condition : jouable pendant le tour d'un adversaire s'il possède au moins 3 Alliés. Ajoute une carte de votre défausse à votre main (choix).",
+      "custom-stitch-attrape": "Condition : jouable si l'adversaire élimine un Héros de force 4 ou plus. Dévoile la pioche Fatalité jusqu'à un Héros ; vous le JOUEZ (choix du lieu) ou le DÉFAUSSEZ ; les autres dévoilées sont défaussées.",
+      "custom-stitch-ou-est-t-il": "Condition : jouable si l'adversaire possède au moins 2 Objets. Gagnez 3 jetons Pouvoir.",
+      "custom-stitch-rapport": "Coût 1. Dévoile votre pioche Méchant jusqu'à un OBJET, que vous jouez gratuitement (placement au choix). Les autres cartes dévoilées sont défaussées.",
+      "custom-stitch-stitch-en-vue": "Coût 2. Dévoile la pioche Fatalité jusqu'à un HÉROS et le joue (obligatoire). STITCH va d'office à la Maison de Lilo ; tout autre Héros se pose au lieu de votre choix. Principal moyen de faire venir STITCH.",
+      "custom-stitch-enferme": "Coût 2. Associe STITCH à la CAGE. GRISÉE tant que STITCH et la CAGE ne sont pas sur le même lieu. Une fois enfermé, STITCH est transporté par la CAGE.",
+      "custom-stitch-tuez-le": "Coût 3. Élimine un Héros de force 3 ou moins (choix). Grisée s'il n'existe aucun Héros de force ≤3.",
+      "custom-stitch-reperage": "Coût 1. Ajoute une carte de votre défausse à votre main (choix).",
+      "custom-stitch-cage": "Coût 4. Objet posé UNIQUEMENT au Vaisseau de Gantu. Ne peut jamais être défaussé. Se déplace (action « Déplacer un objet ») pour rejoindre STITCH, puis le transporte une fois enfermé.",
+      "custom-stitch-carotte": "Coût 1. Objet associé à un Héros : −1 à sa force.",
+      "custom-stitch-deguisement": "Coût 2. Objet associé à un Allié : +2 à sa force.",
+      "custom-stitch-bras-robots": "Coût 2. Objet posé sur un lieu : ce lieu gagne l'action « Vaincre un Héros ».",
+      "custom-stitch-vaisseau-general": "Coût 2. Objet posé sur un lieu : ce lieu gagne l'action « Déplacer un objet ou un allié » (utile pour convoyer la CAGE).",
+      "custom-stitch-piqure": "Coût 2. Objet posé sur un lieu : ce lieu gagne l'action « Gagner 1 Pouvoir ».",
+      "custom-stitch-capitaine-gantu": "Coût 4, force 4. Allié. À la pose, vous pouvez jouer GRATUITEMENT une carte de votre défausse (choix ; les Conditions sont exclues).",
+      "custom-stitch-dr-jumba-jookiba": "Coût 3, force 3. Allié. Les Héros présents sur son lieu ont leur force réduite de 1.",
+      "custom-stitch-peakley": "Coût 3, force 3. Allié. Gagnez 1 jeton Pouvoir chaque fois que Peakley est déplacé.",
+      "custom-stitch-pilote": "Coût 1, force 1. Allié. À la pose, vous pouvez déplacer un Allié vers un lieu voisin.",
+      "custom-stitch-co-pilote": "Coût 1, force 1. Allié. À la pose, vous pouvez déplacer un Héros vers un lieu voisin.",
+      "custom-stitch-soldat": "Coût 2, force 3. Allié. Lors d'une action « Éliminer un Héros », il peut viser un Héros sur son lieu OU sur un lieu voisin."
+    },
+    "fateNotes": {
+      "custom-stitch-stitch": {
+        "description": "Héros-cible (force 5). Dès qu'il est dévoilé, il est posé d'office à la Maison de Lilo et ne peut JAMAIS être déplacé en tant que Héros. C'est lui qu'il faut enfermer dans la CAGE.",
+        "asReceiver": "C'est votre objectif : vous VOULEZ STITCH en jeu. Amenez la CAGE jusqu'à lui, enfermez-le, puis convoyez la CAGE au Vaisseau de Gantu.",
+        "asAttacker": "Ne donnez JAMAIS STITCH à Grand Councilwoman : le dévoiler le pose à la Maison de Lilo et lui offre sa cible."
+      },
+      "custom-stitch-lilo": {
+        "description": "Héros (force 4). Grand Councilwoman doit l'éliminer AVANT les autres Héros.",
+        "asReceiver": "Éliminez Lilo en priorité pour pouvoir ensuite retirer les autres Héros.",
+        "asAttacker": "Bon Héros à poser : il verrouille l'ordre d'élimination du vilain."
+      },
+      "custom-stitch-nani": {
+        "description": "Héros (force 3). À la pose, défausse un Allié présent sur son lieu.",
+        "asReceiver": "Vous perdez un Allié : rejouez-en un (Repérage, Gantu).",
+        "asAttacker": "Posez Nani sur le lieu d'un bon Allié du vilain."
+      },
+      "custom-stitch-david": {
+        "description": "Héros (force 2). À la pose, défausse un Objet présent sur son lieu (jamais la CAGE, indéfaussable).",
+        "asReceiver": "Un Objet (hors CAGE) est perdu : rejouez-le si utile.",
+        "asAttacker": "Posez David là où le vilain a un Objet précieux ; la CAGE est protégée."
+      },
+      "custom-stitch-moses-puloki": {
+        "description": "Héros (force 2). Augmente de 1 la force de TOUS les Héros du royaume.",
+        "asReceiver": "Vos éliminations sont plus dures ; visez Moses pour lever le bonus.",
+        "asAttacker": "Excellent : rend tous les Héros (dont Lilo/Cobra) plus durs à vaincre."
+      },
+      "custom-stitch-cobra-bubbles": {
+        "description": "Héros (force 3). Quand la figurine du vilain arrive sur son lieu, elle perd 2 Pouvoir.",
+        "asReceiver": "Évitez de vous arrêter sur son lieu, ou éliminez-le.",
+        "asAttacker": "Posez Cobra sur un lieu de passage fréquent du vilain (drain de Pouvoir récurrent)."
+      },
+      "custom-stitch-boule-de-feu": {
+        "description": "Objet Fatalité associé à un Héros : +2 à sa force.",
+        "asReceiver": "Un Héros devient plus dur à vaincre.",
+        "asAttacker": "Associez-la au Héros que le vilain voudra éliminer (Lilo, Cobra)."
+      },
+      "custom-stitch-bolas-en-feu": {
+        "description": "Objet Fatalité associé à un Allié : −2 à sa force.",
+        "asReceiver": "Un de vos Alliés de combat est affaibli.",
+        "asAttacker": "Visez le meilleur Allié du vilain (Capitaine Gantu, Soldat)."
+      },
+      "custom-stitch-bouteille-mordue": {
+        "description": "Défausse OU déplace un Objet (non associé) du royaume. La CAGE étant indéfaussable, elle est alors DÉPLACÉE (perturbation).",
+        "asReceiver": "Un Objet est retiré ou la CAGE éloignée de STITCH : reconvoyez la CAGE.",
+        "asAttacker": "Éloignez la CAGE de STITCH pour retarder l'enfermement, sinon défaussez un Objet utile."
+      },
+      "custom-stitch-ca-pique": {
+        "description": "Défausse un Allié de force 3 ou moins du royaume.",
+        "asReceiver": "Perte d'un petit Allié : rejouez-en un.",
+        "asAttacker": "Retire un Allié faible (Pilote, Co-Pilote, Dr Jumba, Peakley)."
+      },
+      "custom-stitch-en-liberte": {
+        "description": "Au choix : LIBÈRE STITCH de la CAGE (le détache) OU déplace un Héros vers un lieu voisin.",
+        "asReceiver": "Si STITCH est enfermé, l'adversaire peut l'en sortir : ré-enfermez-le (Enfermé).",
+        "asAttacker": "Si STITCH est enfermé, libérez-le pour annuler la capture ; sinon déplacez un Héros."
+      },
+      "custom-stitch-aloha": {
+        "description": "Au choix : TRANSFORME Dr Jumba ou Peakley en Héros (il gêne alors le vilain) OU déplace un Héros voisin.",
+        "asReceiver": "Un de vos Alliés peut devenir un Héros ennemi : prévoyez de l'éliminer.",
+        "asAttacker": "Transformez le meilleur Allié disponible (Dr Jumba / Peakley) pour le retourner contre le vilain."
+      }
+    },
+    "botPlay": {
+      "general": "Le bot fait apparaître STITCH (Stitch en vue / Attrapé), pose la CAGE au Vaisseau de Gantu, la déplace vers STITCH (Maison de Lilo), joue ENFERMÉ, puis reconvoie la CAGE jusqu'au Vaisseau de Gantu pour gagner. Il élimine LILO en priorité, affaiblit les Héros (Dr Jumba, Carotte) et protège la CAGE (indéfaussable).",
+      "villainNotes": {
+        "custom-stitch-surveillance": "Joue Surveillance quand l'adversaire a ≥3 Alliés pour récupérer une carte-clé (Enfermé, Stitch en vue, Cage).",
+        "custom-stitch-attrape": "Déclenche quand l'adversaire vainc un Héros ≥4 ; joue le Héros révélé (surtout si c'est STITCH), sinon le défausse.",
+        "custom-stitch-ou-est-t-il": "Joue dès que l'adversaire a ≥2 Objets pour engranger 3 Pouvoir.",
+        "custom-stitch-rapport": "Utilise Rapport pour sortir vite un Objet-clé (la CAGE) et le poser gratuitement.",
+        "custom-stitch-stitch-en-vue": "Priorité haute : c'est le moyen d'amener STITCH à la Maison de Lilo. Joue-la tôt et souvent.",
+        "custom-stitch-enferme": "Joue Enfermé dès que la CAGE et STITCH partagent un lieu (grisée sinon).",
+        "custom-stitch-tuez-le": "Élimine en priorité LILO, puis les Héros gênants de force ≤3 (Cobra, Moses).",
+        "custom-stitch-reperage": "Récupère une carte-clé (Enfermé / Cage / Stitch en vue) manquante.",
+        "custom-stitch-cage": "Pose la CAGE au Vaisseau de Gantu dès qu'il a 4 Pouvoir, puis la déplace vers STITCH.",
+        "custom-stitch-carotte": "Associe la Carotte à un Héros gênant pour faciliter son élimination.",
+        "custom-stitch-deguisement": "Associe le Déguisement à un Allié de combat (Soldat) pour vaincre plus facilement.",
+        "custom-stitch-bras-robots": "Pose Bras Robots sur un lieu portant des Héros pour gagner une action Vaincre.",
+        "custom-stitch-vaisseau-general": "Pose Vaisseau Général pour multiplier les déplacements d'objet (convoyage de la CAGE).",
+        "custom-stitch-piqure": "Pose Piqûre pour ajouter une source de Pouvoir sur un lieu utile.",
+        "custom-stitch-capitaine-gantu": "Le joue pour rejouer gratuitement une carte-clé de sa défausse (Enfermé, Stitch en vue, Tuez-le).",
+        "custom-stitch-dr-jumba-jookiba": "Le pose sur un lieu chargé de Héros pour les affaiblir (−1).",
+        "custom-stitch-peakley": "L'utilise comme moteur de Pouvoir en le déplaçant (via Pilote / Vaisseau Général).",
+        "custom-stitch-pilote": "Le joue pour repositionner un Allié vers STITCH ou vers un Héros à vaincre.",
+        "custom-stitch-co-pilote": "Le joue pour repositionner un Héros (jamais STITCH, immobile).",
+        "custom-stitch-soldat": "Combat principal : l'utilise pour éliminer un Héros sur son lieu ou un lieu voisin."
+      },
+      "fateNotes": {
+        "custom-stitch-stitch": {
+          "description": "Héros-cible (force 5). Dès qu'il est dévoilé, il est posé d'office à la Maison de Lilo et ne peut JAMAIS être déplacé en tant que Héros. C'est lui qu'il faut enfermer dans la CAGE.",
+          "asReceiver": "C'est votre objectif : vous VOULEZ STITCH en jeu. Amenez la CAGE jusqu'à lui, enfermez-le, puis convoyez la CAGE au Vaisseau de Gantu.",
+          "asAttacker": "Ne donnez JAMAIS STITCH à Grand Councilwoman : le dévoiler le pose à la Maison de Lilo et lui offre sa cible."
+        },
+        "custom-stitch-lilo": {
+          "description": "Héros (force 4). Grand Councilwoman doit l'éliminer AVANT les autres Héros.",
+          "asReceiver": "Éliminez Lilo en priorité pour pouvoir ensuite retirer les autres Héros.",
+          "asAttacker": "Bon Héros à poser : il verrouille l'ordre d'élimination du vilain."
+        },
+        "custom-stitch-nani": {
+          "description": "Héros (force 3). À la pose, défausse un Allié présent sur son lieu.",
+          "asReceiver": "Vous perdez un Allié : rejouez-en un (Repérage, Gantu).",
+          "asAttacker": "Posez Nani sur le lieu d'un bon Allié du vilain."
+        },
+        "custom-stitch-david": {
+          "description": "Héros (force 2). À la pose, défausse un Objet présent sur son lieu (jamais la CAGE, indéfaussable).",
+          "asReceiver": "Un Objet (hors CAGE) est perdu : rejouez-le si utile.",
+          "asAttacker": "Posez David là où le vilain a un Objet précieux ; la CAGE est protégée."
+        },
+        "custom-stitch-moses-puloki": {
+          "description": "Héros (force 2). Augmente de 1 la force de TOUS les Héros du royaume.",
+          "asReceiver": "Vos éliminations sont plus dures ; visez Moses pour lever le bonus.",
+          "asAttacker": "Excellent : rend tous les Héros (dont Lilo/Cobra) plus durs à vaincre."
+        },
+        "custom-stitch-cobra-bubbles": {
+          "description": "Héros (force 3). Quand la figurine du vilain arrive sur son lieu, elle perd 2 Pouvoir.",
+          "asReceiver": "Évitez de vous arrêter sur son lieu, ou éliminez-le.",
+          "asAttacker": "Posez Cobra sur un lieu de passage fréquent du vilain (drain de Pouvoir récurrent)."
+        },
+        "custom-stitch-boule-de-feu": {
+          "description": "Objet Fatalité associé à un Héros : +2 à sa force.",
+          "asReceiver": "Un Héros devient plus dur à vaincre.",
+          "asAttacker": "Associez-la au Héros que le vilain voudra éliminer (Lilo, Cobra)."
+        },
+        "custom-stitch-bolas-en-feu": {
+          "description": "Objet Fatalité associé à un Allié : −2 à sa force.",
+          "asReceiver": "Un de vos Alliés de combat est affaibli.",
+          "asAttacker": "Visez le meilleur Allié du vilain (Capitaine Gantu, Soldat)."
+        },
+        "custom-stitch-bouteille-mordue": {
+          "description": "Défausse OU déplace un Objet (non associé) du royaume. La CAGE étant indéfaussable, elle est alors DÉPLACÉE (perturbation).",
+          "asReceiver": "Un Objet est retiré ou la CAGE éloignée de STITCH : reconvoyez la CAGE.",
+          "asAttacker": "Éloignez la CAGE de STITCH pour retarder l'enfermement, sinon défaussez un Objet utile."
+        },
+        "custom-stitch-ca-pique": {
+          "description": "Défausse un Allié de force 3 ou moins du royaume.",
+          "asReceiver": "Perte d'un petit Allié : rejouez-en un.",
+          "asAttacker": "Retire un Allié faible (Pilote, Co-Pilote, Dr Jumba, Peakley)."
+        },
+        "custom-stitch-en-liberte": {
+          "description": "Au choix : LIBÈRE STITCH de la CAGE (le détache) OU déplace un Héros vers un lieu voisin.",
+          "asReceiver": "Si STITCH est enfermé, l'adversaire peut l'en sortir : ré-enfermez-le (Enfermé).",
+          "asAttacker": "Si STITCH est enfermé, libérez-le pour annuler la capture ; sinon déplacez un Héros."
+        },
+        "custom-stitch-aloha": {
+          "description": "Au choix : TRANSFORME Dr Jumba ou Peakley en Héros (il gêne alors le vilain) OU déplace un Héros voisin.",
+          "asReceiver": "Un de vos Alliés peut devenir un Héros ennemi : prévoyez de l'éliminer.",
+          "asAttacker": "Transformez le meilleur Allié disponible (Dr Jumba / Peakley) pour le retourner contre le vilain."
+        }
+      }
+    },
+    "journal": {
+      "villainNotes": {
+        "custom-stitch-surveillance": "Surveillance : Grand Councilwoman récupère une carte de sa défausse.",
+        "custom-stitch-attrape": "Attrapé ! : Grand Councilwoman dévoile la Fatalité jusqu'à un Héros.",
+        "custom-stitch-ou-est-t-il": "Où est-t-il ? : Grand Councilwoman gagne 3 Pouvoir.",
+        "custom-stitch-rapport": "Rapport ! : Grand Councilwoman dévoile un Objet et le joue gratuitement.",
+        "custom-stitch-stitch-en-vue": "Stitch en vue : Grand Councilwoman dévoile la Fatalité jusqu'à un Héros et le joue.",
+        "custom-stitch-enferme": "Enfermé : STITCH est associé à la CAGE.",
+        "custom-stitch-tuez-le": "Tuez-le : Grand Councilwoman élimine un Héros de force 3 ou moins.",
+        "custom-stitch-reperage": "Repérage : Grand Councilwoman récupère une carte de sa défausse.",
+        "custom-stitch-cage": "La CAGE est posée au Vaisseau de Gantu.",
+        "custom-stitch-carotte": "La Carotte affaiblit un Héros (−1).",
+        "custom-stitch-deguisement": "Le Déguisement renforce un Allié (+2).",
+        "custom-stitch-bras-robots": "Bras Robots : ce lieu gagne l'action Vaincre un Héros.",
+        "custom-stitch-vaisseau-general": "Vaisseau Général : ce lieu gagne l'action Déplacer un objet ou un allié.",
+        "custom-stitch-piqure": "Piqûre : ce lieu gagne l'action Gagner 1 Pouvoir.",
+        "custom-stitch-capitaine-gantu": "Capitaine Gantu peut rejouer une carte de la défausse.",
+        "custom-stitch-dr-jumba-jookiba": "Dr Jumba Jookiba affaiblit les Héros de son lieu (−1).",
+        "custom-stitch-peakley": "Peakley : +1 Pouvoir à chaque déplacement.",
+        "custom-stitch-pilote": "Pilote peut déplacer un Allié voisin.",
+        "custom-stitch-co-pilote": "Co-Pilote peut déplacer un Héros voisin.",
+        "custom-stitch-soldat": "Le Soldat peut éliminer un Héros sur son lieu ou un lieu voisin."
+      },
+      "fateNotes": {
+        "custom-stitch-stitch": {
+          "description": "Héros-cible (force 5). Dès qu'il est dévoilé, il est posé d'office à la Maison de Lilo et ne peut JAMAIS être déplacé en tant que Héros. C'est lui qu'il faut enfermer dans la CAGE."
+        },
+        "custom-stitch-lilo": {
+          "description": "Héros (force 4). Grand Councilwoman doit l'éliminer AVANT les autres Héros."
+        },
+        "custom-stitch-nani": {
+          "description": "Héros (force 3). À la pose, défausse un Allié présent sur son lieu."
+        },
+        "custom-stitch-david": {
+          "description": "Héros (force 2). À la pose, défausse un Objet présent sur son lieu (jamais la CAGE, indéfaussable)."
+        },
+        "custom-stitch-moses-puloki": {
+          "description": "Héros (force 2). Augmente de 1 la force de TOUS les Héros du royaume."
+        },
+        "custom-stitch-cobra-bubbles": {
+          "description": "Héros (force 3). Quand la figurine du vilain arrive sur son lieu, elle perd 2 Pouvoir."
+        },
+        "custom-stitch-boule-de-feu": {
+          "description": "Objet Fatalité associé à un Héros : +2 à sa force."
+        },
+        "custom-stitch-bolas-en-feu": {
+          "description": "Objet Fatalité associé à un Allié : −2 à sa force."
+        },
+        "custom-stitch-bouteille-mordue": {
+          "description": "Défausse OU déplace un Objet (non associé) du royaume. La CAGE étant indéfaussable, elle est alors DÉPLACÉE (perturbation)."
+        },
+        "custom-stitch-ca-pique": {
+          "description": "Défausse un Allié de force 3 ou moins du royaume."
+        },
+        "custom-stitch-en-liberte": {
+          "description": "Au choix : LIBÈRE STITCH de la CAGE (le détache) OU déplace un Héros vers un lieu voisin."
+        },
+        "custom-stitch-aloha": {
+          "description": "Au choix : TRANSFORME Dr Jumba ou Peakley en Héros (il gêne alors le vilain) OU déplace un Héros voisin."
+        }
+      }
+    }
+  },
+  "pawnImage": "/cards/custom-stitch/pawn.png?v=1783888923505",
+  "coverColor": "#13334d",
+  "objectiveTextOffsetY": 1,
+  "audio": "/cards/custom-stitch/audio.mp3?v=1783888923505",
+  "published": true,
+  "creator": "Jules",
+  "origin": "Collaborations"
+}

@@ -9,7 +9,7 @@ import { renderBoard } from './boardRender'
 import { loadImage } from './imageUtils'
 import { BOARD_W, BOARD_H } from './boardLayout'
 import { Hotspot } from './CardLayout'
-import { PAWN_FIRST_LEFT, PAWN_TOP, LOCATIONS_LEFT, PAWN_STEP } from '../components/BoardImage'
+import { PAWN_FIRST_LEFT, PAWN_TOP, LOCATIONS_LEFT, PAWN_STEP, TOP_ACTIONS_HEIGHT } from '../components/BoardImage'
 
 const LOCK_SRC = '/cards/jafar/lock.png'
 const BOARD_ASPECT = BOARD_W / BOARD_H
@@ -68,8 +68,14 @@ function ActionEditor({
   onRemove: () => void
 }) {
   // Le libellé est dérivé automatiquement du type (et du montant pour GAIN_POWER).
-  const setType = (type: LocationActionType) =>
-    onChange({ ...action, type, label: defaultLabelFor(type, action.amount) })
+  // On (re)fixe `amount` en même temps que le type : 1 par défaut pour GAIN_POWER
+  // (sinon le moteur lit 0 malgré le libellé « Gagner 1 pouvoir »), et on RETIRE le
+  // montant parasite quand l'action n'est plus un gain de Pouvoir (évite un `amount`
+  // resté collé sur un MOVE_HERO / FATE après un changement de type).
+  const setType = (type: LocationActionType) => {
+    const amount = type === 'GAIN_POWER' ? action.amount ?? 1 : undefined
+    onChange({ ...action, type, amount, label: defaultLabelFor(type, amount) })
+  }
   return (
     <div className="flex items-end gap-2 rounded-lg border border-white/10 bg-black/20 p-2">
       <SelectField label="Action" value={action.type} options={ACTION_TYPES} onChange={setType} />
@@ -287,9 +293,13 @@ function LocationEditor({
 function BoardPreview({
   v,
   onChangeLocks,
+  coverMode = false,
 }: {
   v: CustomVillain
   onChangeLocks: (locks: BoardLock[]) => void
+  /** « Mode recouvrement » : affiche le voile de recouvrement des actions du haut sur
+   *  les 4 lieux, dans la couleur `v.coverColor` (ou `v.color` à défaut). */
+  coverMode?: boolean
 }) {
   const [src, setSrc] = useState<string | null>(null)
   const [lockAspect, setLockAspect] = useState(1) // hauteur/largeur du cadenas
@@ -436,6 +446,25 @@ function BoardPreview({
           style={{ left: `${PAWN_FIRST_LEFT}%`, top: `${PAWN_TOP}%`, height: `${pawnPct}%` }}
         />
       )}
+      {/* Mode recouvrement : voile sur la rangée du HAUT des 4 lieux (EXACTEMENT la
+          géométrie de BoardImage), dans la couleur de recouvrement choisie — pour la
+          régler visuellement. */}
+      {src &&
+        coverMode &&
+        v.locations.map((loc, i) => (
+          <div
+            key={`cover-${loc.id}`}
+            className="pointer-events-none absolute z-[6] overflow-hidden rounded-b"
+            style={{
+              left: `${LOCATIONS_LEFT + i * PAWN_STEP}%`,
+              top: '0%',
+              width: `${PAWN_STEP}%`,
+              height: `${TOP_ACTIONS_HEIGHT}%`,
+              backgroundColor: v.coverColor || v.color,
+            }}
+            title={`Recouvrement — ${loc.name}`}
+          />
+        ))}
       {/* Lieux VERROUILLÉS : voile + cadenas centré automatique, EXACTEMENT comme en
           jeu (cf. BoardImage), pour visualiser le placement pendant l'édition. */}
       {src &&
@@ -513,6 +542,10 @@ export function BoardTab({
     while (taken.has(`blk-${n}`)) n++
     patch({ boardLocks: [...locks, { id: `blk-${n}`, x: 50, y: 40, size: DEFAULT_BOARD_LOCK_SIZE }] })
   }
+  // « Mode recouvrement » : aperçu du voile de recouvrement des actions (4 lieux) + réglage
+  // de sa couleur. La couleur par défaut est celle du méchant (`draft.color`).
+  const [coverMode, setCoverMode] = useState(false)
+  const coverColor = draft.coverColor || draft.color
 
   return (
     <div className="flex flex-col gap-6">
@@ -520,7 +553,7 @@ export function BoardTab({
           lieux/objectif en dessous. Fond flou opaque pour ne pas laisser transparaître
           le contenu qui défile derrière ; -mx-6 pour couvrir la gouttière du Scroller. */}
       <div className="sticky top-0 z-20 -mx-6 px-6 py-3">
-        <BoardPreview v={draft} onChangeLocks={(boardLocks) => patch({ boardLocks })} />
+        <BoardPreview v={draft} onChangeLocks={(boardLocks) => patch({ boardLocks })} coverMode={coverMode} />
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -531,6 +564,35 @@ export function BoardTab({
         >
           🔒 Ajouter un cadenas
         </button>
+        {/* Mode recouvrement : bascule l'aperçu du voile + pastille de couleur modifiable. */}
+        <div
+          className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-semibold transition ${
+            coverMode
+              ? 'border-fuchsia-300/70 bg-fuchsia-500/20 text-fuchsia-100'
+              : 'border-white/25 bg-white/5 text-white/80 hover:bg-white/10'
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() => setCoverMode((m) => !m)}
+            title="Afficher/masquer le voile de recouvrement des actions du haut sur les 4 lieux"
+            className="flex items-center gap-1.5"
+          >
+            {coverMode ? '👁' : '🎭'} Mode recouvrement
+          </button>
+          <label
+            className="relative h-5 w-5 shrink-0 cursor-pointer overflow-hidden rounded-full border border-white/40"
+            title="Couleur du recouvrement (par défaut : couleur du méchant)"
+            style={{ backgroundColor: coverColor }}
+          >
+            <input
+              type="color"
+              value={coverColor}
+              onChange={(e) => patch({ coverColor: e.target.value })}
+              className="absolute inset-0 cursor-pointer opacity-0"
+            />
+          </label>
+        </div>
         <span className="text-xs text-white/45">
           Cadenas décoratif posé librement : glisse-le pour le placer, la poignée du coin pour le
           redimensionner, la croix pour le retirer. (Indépendant du cadenas automatique des lieux

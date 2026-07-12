@@ -9,6 +9,9 @@ interface Props {
   /** Autres cartes dévoilées, qui seront défaussées (montrées pour information). */
   discarded: CardInstance[]
   onResolve: (play: boolean, to?: string) => void
+  /** Le Héros DOIT être joué (STITCH EN VUE : « Jouez-le ») → pas d'option « Défausser ».
+   *  Sans ce flag (ATTRAPÉ : « Jouez-le ou défaussez-le »), un bouton « Défausser » s'affiche. */
+  mustPlay?: boolean
 }
 
 /**
@@ -16,7 +19,7 @@ interface Props {
  * royaume (choix du lieu ; Peter Pan → Arbre du Pendu d'office) ou le défausser.
  * Les autres cartes dévoilées (défaussées) sont affichées.
  */
-export function FetchedHeroModal({ player, hero, discarded, onResolve }: Props) {
+export function FetchedHeroModal({ player, hero, discarded, onResolve, mustPlay }: Props) {
   const def = getCardDef(hero.cardId)
   const isPeterPan = hero.cardId === 'peter-pan'
   const locked = new Set(player.lockedLocations ?? [])
@@ -67,6 +70,15 @@ export function FetchedHeroModal({ player, hero, discarded, onResolve }: Props) 
               </button>
             ))}
           </div>
+          {!mustPlay && (
+            <button
+              type="button"
+              onClick={() => onResolve(false)}
+              className="mt-1 rounded-lg border border-rose-300/60 px-4 py-2 text-sm font-bold text-rose-100 hover:bg-rose-400/20"
+            >
+              Défausser le Héros
+            </button>
+          )}
         </div>
       </div>
     </div>,

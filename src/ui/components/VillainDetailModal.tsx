@@ -20,6 +20,10 @@ interface Props {
   onPrev?: () => void
   /** Aller à la fiche du vilain suivant (absent = pas de suivant). */
   onNext?: () => void
+  /** Vue allégée « en partie » (ouverte depuis la jauge d'objectif) : on masque
+   *  histoire, présentation, devise, audio, pastille couleur, bouton Modifier,
+   *  bouton « Voir le plateau » et le pied (pack / créateur + pion). */
+  inGame?: boolean
 }
 
 /** Libellé court du type de carte (pour le survol). */
@@ -123,7 +127,7 @@ function TipList({ title, tips, color }: { title: string; tips: string[]; color:
  * Fiche détaillée d'un vilain : portrait, difficulté, objectif, histoire et
  * conseils pour le jouer / le contrer. Affichée en surimpression (modale).
  */
-export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) {
+export function VillainDetailModal({ villain, onClose, onPrev, onNext, inGame = false }: Props) {
   const [showCards, setShowCards] = useState(false)
   const [showBoard, setShowBoard] = useState(false)
   // Outil de dév (caché en exe / simulation .exe) : la couleur thématique du vilain.
@@ -192,7 +196,7 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
       className={`fixed inset-0 z-50 flex items-center bg-black/75 p-4 transition-all duration-300 ${
         // En vue « cartes », on pousse le modal vers la DROITE (avec une marge à
         // droite) pour dégager la place de l'illustration de présentation à gauche.
-        showCards ? 'justify-end lg:pr-[4vw]' : 'justify-center'
+        showCards && !inGame ? 'justify-end lg:pr-[4vw]' : 'justify-center'
       }`}
       onClick={onClose}
     >
@@ -231,7 +235,7 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
       >
         {/* Présentation « corps entier » du vilain : ancrée à gauche du modal,
             son bord droit glissé DERRIÈRE le panneau (masqué par son fond opaque). */}
-        {presentation && (
+        {presentation && !inGame && (
           <img
             src={presentation}
             alt=""
@@ -259,7 +263,7 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
                   <h2 className="text-2xl font-black text-amber-200">{v.def.name}</h2>
                   {/* Réplique audio : jouée au clic (icône haut-parleur). Affichée
                       seulement si le vilain a un fichier de phrase. */}
-                  {hasPhrase && (
+                  {hasPhrase && !inGame && (
                     <button
                       type="button"
                       onClick={() => playVillainPhrase(villain)}
@@ -273,7 +277,7 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   {/* Couleur du vilain (dév, masqué en exe / simulation .exe). */}
-                  {!isDesktopApp && villainColor && (
+                  {!isDesktopApp && villainColor && !inGame && (
                     <span
                       className="inline-block h-6 w-6 rounded border border-white/30"
                       style={{ backgroundColor: villainColor }}
@@ -284,7 +288,7 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
                       exe ET quand on simule le mode application (`!isDesktopApp`) — comme les
                       autres outils de dév. Vilains natifs uniquement (perso → Atelier).
                       Affiché seulement sur la FICHE (ni en vue cartes, ni en vue plateau). */}
-                  {!isDesktopApp && !custom && !showCards && !showBoard && (
+                  {!isDesktopApp && !custom && !showCards && !showBoard && !inGame && (
                     <button
                       type="button"
                       onClick={() => { playTinyButtonPress(); setEditing(true) }}
@@ -303,7 +307,7 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
                 </div>
               </div>
               {/* Devise / réplique emblématique du vilain, sous le nom. */}
-              {guide.devise && (
+              {guide.devise && !inGame && (
                 <p className="mt-1 text-sm italic leading-snug text-amber-100/70">« {guide.devise} »</p>
               )}
               <div className="mt-2 flex items-center gap-2">
@@ -326,13 +330,15 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
                 >
                   {showCards ? '← Retour à la fiche' : '🃏 Voir toutes les cartes'}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => { playPageFlip(); setShowCards(false); setShowBoard((s) => !s) }}
-                  className="rounded-lg border border-sky-400/50 px-3 py-1.5 text-sm font-semibold text-sky-200 hover:bg-sky-400/10"
-                >
-                  {showBoard ? '← Retour à la fiche' : '🗺️ Voir le plateau'}
-                </button>
+                {!inGame && (
+                  <button
+                    type="button"
+                    onClick={() => { playPageFlip(); setShowCards(false); setShowBoard((s) => !s) }}
+                    className="rounded-lg border border-sky-400/50 px-3 py-1.5 text-sm font-semibold text-sky-200 hover:bg-sky-400/10"
+                  >
+                    {showBoard ? '← Retour à la fiche' : '🗺️ Voir le plateau'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -390,11 +396,13 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
             </div>
           ) : (
             <>
-          {/* Histoire */}
-          <section>
-            <h3 className="text-sm font-bold uppercase tracking-wide text-purple-300">Histoire</h3>
-            <p className="mt-2 text-sm leading-relaxed text-white/80">{guide.story}</p>
-          </section>
+          {/* Histoire (masquée en partie). */}
+          {!inGame && (
+            <section>
+              <h3 className="text-sm font-bold uppercase tracking-wide text-purple-300">Histoire</h3>
+              <p className="mt-2 text-sm leading-relaxed text-white/80">{guide.story}</p>
+            </section>
+          )}
 
           {/* Conseils (masqués si aucun n'est rédigé — vilains publiés). */}
           {(guide.playTips.length > 0 || guide.counterTips.length > 0) && (
@@ -409,7 +417,7 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
           )}
 
           {/* Pack du vilain (bas du modal) : affiche + nom ; survol → tooltip à gauche. */}
-          {pack && (
+          {pack && !inGame && (
             <div
               className="flex cursor-help items-center gap-3 border-t border-white/10 pt-4"
               onMouseEnter={() => { playCardHover(); setPackHover(true) }}
@@ -444,7 +452,7 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
           )}
 
           {/* Vilain de collaboration (sans pack) : on affiche le créateur + son pion à droite. */}
-          {!pack && creator && (
+          {!pack && creator && !inGame && (
             <div className="flex items-center gap-3 border-t border-white/10 pt-4">
               <span className="flex min-w-0 flex-col">
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-white/40">

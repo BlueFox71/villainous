@@ -672,6 +672,23 @@ function applyPlayCard(
       if (n === 0) throw new Error('Aucune Page sur votre lieu : cette carte n’aurait aucun effet.')
     }
   }
+  // Grand Councilwoman — ENFERMÉ : injouable si le Héros (STITCH) et l'Objet (la CAGE)
+  // ne sont pas sur le même lieu (rien à associer → aucun effet).
+  {
+    const enferme = (card.effects ?? []).find((e) => e.type === 'ATTACH_HERO_TO_ITEM')
+    if (enferme && enferme.type === 'ATTACH_HERO_TO_ITEM') {
+      const coLocated = me.locations.some((l) => {
+        const cards = me.board[l.id] ?? []
+        return (
+          cards.some((c) => c.type === 'hero' && c.cardId === enferme.heroCardId && !c.attachedTo) &&
+          cards.some((c) => c.type === 'item' && c.cardId === enferme.itemCardId && !c.attachedTo)
+        )
+      })
+      if (!coLocated) {
+        throw new Error('Enfermé : STITCH et la CAGE ne sont pas sur le même lieu.')
+      }
+    }
+  }
   // Reine de Cœur — Par ordre de la Reine ! : injouable s'il n'y a aucune Carte Garde
   // transformable en arceau (aucune Carte Garde, ou toutes déjà arceaux / sur le Dodo).
   if (
@@ -4560,6 +4577,10 @@ function applyMoveHero(
   }
   const hero = me.board[from].find((c) => c.instanceId === heroInstanceId)!
   if (hero.type !== 'hero') throw new Error(`${hero.name} n'est pas un Héros.`)
+  // Grand Councilwoman — STITCH : Héros immobile (ne peut jamais être déplacé).
+  if (hero.cannotBeMoved) {
+    throw new Error(`${hero.name} ne peut pas être déplacé.`)
+  }
   // Syndrome — Énergie au Point Zéro : un Héros porteur d'un Objet `immobilizesHostHero`
   // ne peut plus être déplacé.
   if ((me.board[from] ?? []).some((c) => c.attachedTo === heroInstanceId && c.immobilizesHostHero)) {
@@ -6922,6 +6943,8 @@ function applyResolveHeroRelocate(state: GameState, heroInstanceId: string, to: 
   if (!from) throw new Error(`Héros « ${heroInstanceId} » introuvable.`)
   const hero = (target.board[from] ?? []).find((c) => c.instanceId === heroInstanceId)
   if (!hero || hero.type !== 'hero') throw new Error('Cible invalide (pas un Héros).')
+  // Grand Councilwoman — STITCH : Héros immobile (ne peut jamais être déplacé).
+  if (hero.cannotBeMoved) throw new Error(`${hero.name} ne peut pas être déplacé.`)
   // Ratigan — Capture : destination IMPOSÉE (le joueur n'a choisi que le Héros).
   if (pending.forcedLocationId !== undefined) {
     if (to !== pending.forcedLocationId) throw new Error(`Destination imposée : « ${pending.forcedLocationId} ».`)
@@ -8180,6 +8203,83 @@ function applyResolveFreePlayAlly(state: GameState, locationId: string): GameSta
   }))
   next = { ...next, log: [...next.log, `${me.villainName} joue **${pending.ally.name}** gratuitement sur **${findLocation(me, locationId)?.name ?? locationId}**.`] }
   return resolveEffects(next, pending.ally.effects ?? [], { actorIndex: idx, hostInstanceId: pending.ally.instanceId, hostLocationId: locationId })
+}
+
+/** Grand Councilwoman — RAPPORT / CAPITAINE GANTU : joue GRATUITEMENT la carte en attente
+ *  (pendingFreePlayCard). `targetId` = lieu de pose (Allié / Objet de lieu / Héros) OU
+ *  instanceId de l'hôte (Objet associé à un Héros/Allié). */
+function applyResolveFreePlayCard(state: GameState, targetId?: string, cancel?: boolean): GameState {
+  const pending = state.pendingFreePlayCard
+  if (!pending) throw new Error('Aucune carte à jouer gratuitement en attente.')
+  const idx = pending.playerIndex
+  const me = state.players[idx]
+  const card = pending.card
+  const label = pending.label
+  const cleared: GameState = { ...state, pendingFreePlayCard: null }
+  // Annulation : la carte n'est finalement pas jouée → elle rejoint la défausse Méchant.
+  if (cancel) {
+    const next = updatePlayer(cleared, idx, (p) => ({ ...p, discard: [...p.discard, card] }))
+    return { ...next, log: [...next.log, `${me.villainName} ne joue pas **${card.name}** (${label}).`] }
+  }
+  // Événement / Condition : aucun placement — on résout directement ses effets.
+  if (card.type === 'effect' || card.type === 'condition') {
+    const next = { ...cleared, log: [...cleared.log, `${me.villainName} joue **${card.name}** gratuitement (${label}).`] }
+    return resolveEffects(next, card.effects ?? [], { actorIndex: idx })
+  }
+  // Objet associé à un Héros / Allié : `targetId` = instanceId de l'hôte.
+  if (card.type === 'item' && (card.attach === 'hero' || card.attach === 'ally')) {
+    if (!targetId) throw new Error(`${card.name} doit être associé à ${card.attach === 'hero' ? 'un Héros' : 'un Allié'}.`)
+    const hostLoc = locationOfCard(me, targetId)
+    const host = hostLoc ? (me.board[hostLoc] ?? []).find((c) => c.instanceId === targetId) : undefined
+    const wantType = card.attach === 'hero' ? 'hero' : 'ally'
+    if (!host || !hostLoc || host.type !== wantType || host.attachedTo) {
+      throw new Error(`Cible invalide pour ${card.name}.`)
+    }
+    const placed = { ...card, attachedTo: targetId }
+    let next = updatePlayer(cleared, idx, (p) => ({ ...p, board: { ...p.board, [hostLoc]: [...(p.board[hostLoc] ?? []), placed] } }))
+    next = { ...next, log: [...next.log, `${me.villainName} joue **${card.name}** gratuitement sur **${host.name}** (${label}).`] }
+    return resolveEffects(next, card.effects ?? [], { actorIndex: idx, hostInstanceId: card.instanceId, hostLocationId: hostLoc })
+  }
+  // Allié / Objet de lieu / Héros : `targetId` = lieu de pose.
+  const to = targetId
+  const locked = new Set(me.lockedLocations ?? [])
+  if (!to || !me.locations.some((l) => l.id === to) || locked.has(to)) {
+    throw new Error(`Lieu de pose invalide pour ${card.name}.`)
+  }
+  if (card.playOnlyAt && to !== card.playOnlyAt) {
+    throw new Error(`${card.name} ne peut être posé que sur ${findLocation(me, card.playOnlyAt)?.name ?? card.playOnlyAt}.`)
+  }
+  if ((card.forbiddenLocations ?? []).includes(to)) {
+    throw new Error(`${card.name} ne peut pas être posé sur ce lieu.`)
+  }
+  if (card.type === 'ally' && allyBlockedAt(cleared, idx, to)) {
+    throw new Error('Aucun Allié ne peut être posé sur ce lieu.')
+  }
+  let next = updatePlayer(cleared, idx, (p) => ({ ...p, board: { ...p.board, [to]: [...(p.board[to] ?? []), card] } }))
+  next = { ...next, log: [...next.log, `${me.villainName} joue **${card.name}** gratuitement sur **${findLocation(me, to)?.name ?? to}** (${label}).`] }
+  if (card.type === 'hero') next = triggerHeroArrival(next, idx, to)
+  const eff = card.type === 'hero' ? card.onPlace ?? [] : card.effects ?? []
+  return resolveEffects(next, eff, { actorIndex: idx, hostInstanceId: card.instanceId, hostLocationId: to })
+}
+
+/** Grand Councilwoman — CAPITAINE GANTU : résout le choix de la carte de la défausse à
+ *  jouer gratuitement (→ pendingFreePlayCard). `instanceId` absent = ne rien jouer. */
+function applyResolvePickDiscardToPlay(state: GameState, instanceId?: string): GameState {
+  const pending = state.pendingPickDiscardToPlay
+  if (!pending) throw new Error('Aucun choix de carte à rejouer en attente.')
+  const idx = pending.playerIndex
+  const cleared: GameState = { ...state, pendingPickDiscardToPlay: null }
+  const me = cleared.players[idx]
+  if (!instanceId) {
+    return { ...cleared, log: [...cleared.log, `${me.villainName} ne rejoue aucune carte (Capitaine Gantu).`] }
+  }
+  if (!pending.candidateIds.includes(instanceId)) {
+    throw new Error('Cette carte ne peut pas être rejouée (Capitaine Gantu).')
+  }
+  const card = me.discard.find((c) => c.instanceId === instanceId)
+  if (!card) throw new Error('Carte introuvable dans la défausse (Capitaine Gantu).')
+  const next = updatePlayer(cleared, idx, (p) => ({ ...p, discard: p.discard.filter((c) => c.instanceId !== instanceId) }))
+  return { ...next, pendingFreePlayCard: { playerIndex: idx, card, label: 'Capitaine Gantu' } }
 }
 
 /** Shere Khan — C'est à moi que vous le direz : remet (facultatif) une carte de la défausse
@@ -9601,6 +9701,9 @@ function applyResolveFetchedHero(state: GameState, play: boolean, to?: LocationI
   const idx = pending.playerIndex
   const me = state.players[idx]
   // Les autres cartes dévoilées partent toujours en défausse Fatalité.
+  if (pending.mustPlay && !play) {
+    throw new Error(`${pending.hero.name} doit être joué (choisissez un lieu).`)
+  }
   let next = updatePlayer(state, idx, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, ...pending.discarded] }))
   next = { ...next, pendingFetchedHero: null }
   if (!play) {
@@ -12017,6 +12120,22 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   ) {
     throw new Error('Une pose d’Allié gratuite est en attente (RESOLVE_FREE_PLAY_ALLY).')
   }
+  // Grand Councilwoman — RAPPORT / CAPITAINE GANTU : pose gratuite d'une carte en attente.
+  if (
+    state.pendingFreePlayCard &&
+    action.type !== 'RESOLVE_FREE_PLAY_CARD' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Une pose gratuite de carte est en attente (RESOLVE_FREE_PLAY_CARD).')
+  }
+  // Grand Councilwoman — CAPITAINE GANTU : choix d'une carte de la défausse à jouer.
+  if (
+    state.pendingPickDiscardToPlay &&
+    action.type !== 'RESOLVE_PICK_DISCARD_TO_PLAY' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un choix de carte à rejouer est en attente (RESOLVE_PICK_DISCARD_TO_PLAY).')
+  }
   // Shere Khan — Jeune et sans défense : choix (déplacer Héros / gagner Pouvoir) en attente.
   if (
     state.pendingYoung &&
@@ -12673,6 +12792,10 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveRecoverFate(state, action.instanceId)
     case 'RESOLVE_FREE_PLAY_ALLY':
       return applyResolveFreePlayAlly(state, action.locationId)
+    case 'RESOLVE_FREE_PLAY_CARD':
+      return applyResolveFreePlayCard(state, action.targetId, action.cancel)
+    case 'RESOLVE_PICK_DISCARD_TO_PLAY':
+      return applyResolvePickDiscardToPlay(state, action.instanceId)
     case 'RESOLVE_YOUNG':
       return applyResolveYoung(state, { choice: action.choice, heroInstanceId: action.heroInstanceId, allyInstanceId: action.allyInstanceId })
     case 'RESOLVE_RECOVER_TO_DECK':

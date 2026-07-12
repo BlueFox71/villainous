@@ -4,14 +4,21 @@
 // déplaçables sont des « hotspots » transparents superposés.
 import { useEffect, useRef, useState } from 'react'
 import type { CustomCard, CardSticker, TextBox, TextLayout } from '../../data/customVillain'
-import { CARD_W, CARD_H, DEFAULT_TEXT_LAYOUT, DEFAULT_STICKER_SIZE, TEXT_SIZE_PRESETS } from '../../data/customVillain'
+import { CARD_W, CARD_H, DEFAULT_TEXT_LAYOUT, DEFAULT_STICKER_SIZE, STICKER_SIZE_PRESETS, TEXT_SIZE_PRESETS } from '../../data/customVillain'
 import type { LocationActionType } from '../../engine/types'
 import { renderCardFace, ruleTextBlockHeight, isPreRenderedCard } from './cardRender'
 import { ACTION_TOKEN_LIST, ACTION_ICON_FILE, BOARD_ICON_DIR } from './actionIcons'
-import { inputClass } from './fields'
+import { inputClass, TextField } from './fields'
 import { useCustomTypesStore } from '../store/customTypesStore'
 
 const ASPECT = CARD_W / CARD_H
+
+/** Petit titre de section du formulaire de carte (Illustration / Texte / Symboles). */
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="text-[11px] font-semibold uppercase tracking-wide text-amber-200/70">{children}</span>
+  )
+}
 
 type Selection = { kind: 'text' } | { kind: 'box'; id: string } | { kind: 'sticker'; id: string } | null
 type DragMode = 'move' | 'resize'
@@ -37,6 +44,7 @@ export function CardLayoutEditor({
   fateColor,
   keywordColors = [],
   onChange,
+  illustration,
 }: {
   card: CustomCard
   color: string
@@ -44,6 +52,9 @@ export function CardLayoutEditor({
   /** Mots-clés colorés du vilain (label → couleur), colorés comme les types. */
   keywordColors?: { label: string; color: string }[]
   onChange: (c: CustomCard) => void
+  /** Section « Illustration » (image + cadrage), rendue en tête de la colonne de
+   *  contrôles — l'aperçu interactif reste fixe à côté. */
+  illustration?: React.ReactNode
 }) {
   const [bg, setBg] = useState<string | null>(null)
   const [sel, setSel] = useState<Selection>(null)
@@ -242,7 +253,9 @@ export function CardLayoutEditor({
   const sideH = (sizePctW: number) => sizePctW * ASPECT
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_18rem]">
+      {/* APERÇU interactif — colonne de droite, reste visible (sticky) pendant l'édition. */}
+      <div className="self-start lg:order-2 lg:sticky lg:top-2">
       <div
         ref={containerRef}
         onPointerMove={onMove}
@@ -300,6 +313,26 @@ export function CardLayoutEditor({
           />
         ))}
       </div>
+      </div>
+
+      {/* CONTRÔLES — colonne de gauche : Illustration → Texte → Symboles d'action. */}
+      <div className="flex min-w-0 flex-col gap-5 lg:order-1">
+        {illustration && (
+          <section className="flex flex-col gap-2">
+            <SectionTitle>Illustration</SectionTitle>
+            {illustration}
+          </section>
+        )}
+
+        <section className="flex flex-col gap-2">
+          <SectionTitle>Texte</SectionTitle>
+          <TextField
+            label="Texte de la carte"
+            value={card.text}
+            onChange={(text) => onChange({ ...card, text })}
+            textarea
+            placeholder="Décris l’effet de la carte ici. Le comportement sera codé au moment du test."
+          />
 
       {/* Barre d'alignement + tailles : agit sur la zone sélectionnée, sinon le texte principal. */}
       {(card.text.trim() || activeBox) && (
@@ -372,9 +405,13 @@ export function CardLayoutEditor({
           })()}
       </div>
 
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <SectionTitle>Symboles d’action</SectionTitle>
       {/* Barre : poser un symbole d'action */}
       <div className="flex flex-col gap-1">
-        <span className="text-[11px] text-white/40">Poser un symbole d’action (déplaçable / redimensionnable) :</span>
+        <span className="text-[11px] text-white/40">Poser un symbole d’action :</span>
         <div className="flex flex-wrap gap-1.5">
           {ACTION_TOKEN_LIST.map((a) => (
             <button
@@ -391,27 +428,83 @@ export function CardLayoutEditor({
             </button>
           ))}
         </div>
-        {card.textLayout && (
-          <button
-            type="button"
-            onClick={() => onChange({ ...card, textLayout: undefined })}
-            className="mt-1 self-start text-[11px] text-white/40 underline transition hover:text-amber-200"
-          >
-            Réinitialiser la position du texte (auto)
-          </button>
-        )}
-        {sel?.kind === 'sticker' && (
-          <div className="mt-1 flex items-center justify-between gap-2 rounded-lg border border-rose-400/20 bg-rose-400/5 px-2 py-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-rose-200/70">Symbole sélectionné</span>
-            <button
-              type="button"
-              onClick={() => removeSticker(sel.id)}
-              className="rounded border border-rose-400/40 bg-rose-400/10 px-2 py-1 text-xs font-semibold text-rose-100 transition hover:bg-rose-400/20"
-            >
-              Supprimer le symbole
-            </button>
-          </div>
-        )}
+        {sel?.kind === 'sticker' &&
+          (() => {
+            const stk = card.stickers?.find((s) => s.id === sel.id)
+            if (!stk) return null
+            const sizeBtn = (label: string, size: number) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => setSticker(stk.id, { size })}
+                className={`rounded-lg border px-2 py-1 text-xs font-semibold transition ${
+                  stk.size === size
+                    ? 'border-amber-400 bg-amber-400/20 text-amber-100'
+                    : 'border-white/20 bg-white/5 text-white/80 hover:border-amber-300/70 hover:text-amber-200'
+                }`}
+              >
+                {label}
+              </button>
+            )
+            return (
+              <div className="mt-1 flex flex-col gap-1.5 rounded-lg border border-rose-400/20 bg-rose-400/5 px-2 py-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-rose-200/70">Symbole sélectionné</span>
+                  <button
+                    type="button"
+                    onClick={() => removeSticker(sel.id)}
+                    className="rounded border border-rose-400/40 bg-rose-400/10 px-2 py-1 text-xs font-semibold text-rose-100 transition hover:bg-rose-400/20"
+                  >
+                    Supprimer le symbole
+                  </button>
+                </div>
+                {/* Centrer horizontalement le symbole (x = 50 %). */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setSticker(stk.id, { x: 50 })}
+                    title="Centrer le symbole horizontalement au milieu de la carte"
+                    className="rounded-lg border border-white/20 bg-white/5 px-2 py-1 text-xs font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200"
+                  >
+                    ⇔ Centrer H
+                  </button>
+                </div>
+                {/* Taille du symbole : Petit / Normal (déplaçable/redimensionnable au drag aussi). */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] text-white/40">Taille :</span>
+                  {sizeBtn('Petit', STICKER_SIZE_PRESETS.small)}
+                  {sizeBtn('Normal', STICKER_SIZE_PRESETS.normal)}
+                </div>
+                {/* Symbole « Gagner du pouvoir » : chiffre affiché dessus (aucun / 1 / 2 / 3). */}
+                {stk.type === 'GAIN_POWER' && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] text-white/40">Chiffre :</span>
+                    {([
+                      { label: 'Aucun', value: undefined },
+                      { label: '1', value: 1 },
+                      { label: '2', value: 2 },
+                      { label: '3', value: 3 },
+                    ] as const).map((o) => (
+                      <button
+                        key={o.label}
+                        type="button"
+                        onClick={() => setSticker(stk.id, { amount: o.value })}
+                        className={`rounded-lg border px-2 py-1 text-xs font-semibold transition ${
+                          stk.amount === o.value
+                            ? 'border-amber-400 bg-amber-400/20 text-amber-100'
+                            : 'border-white/20 bg-white/5 text-white/80 hover:border-amber-300/70 hover:text-amber-200'
+                        }`}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+      </div>
+        </section>
       </div>
     </div>
   )

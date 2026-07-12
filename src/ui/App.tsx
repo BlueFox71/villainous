@@ -1453,7 +1453,7 @@ const BOT_STEP_BASE_MS = 700
 // adverse lire les cartes dévoilées (modale affichée des deux côtés).
 const CASTLE_THEFT_READ_MS = 2400
 
-export default function App({ onExit }: { onExit?: () => void } = {}) {
+export default function App({ onExit, onReturnToEditor }: { onExit?: () => void; onReturnToEditor?: () => void } = {}) {
   // S'abonne aux overrides temporaires de couleur de vilain (ex. surprise Tamatoa) : tout le sous-arbre
   // se redessine quand un override est posé/retiré, et les lectures `villainColor()` reflètent la couleur.
   useVillainColorVersion()
@@ -1519,6 +1519,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const resolveShereKhanDefeat = useGameStore((s) => s.resolveShereKhanDefeat)
   const resolveRecoverFate = useGameStore((s) => s.resolveRecoverFate)
   const resolveFreePlayAlly = useGameStore((s) => s.resolveFreePlayAlly)
+  const resolveFreePlayCard = useGameStore((s) => s.resolveFreePlayCard)
+  const resolvePickDiscardToPlay = useGameStore((s) => s.resolvePickDiscardToPlay)
   const resolveYoung = useGameStore((s) => s.resolveYoung)
   const resolveRecoverToDeck = useGameStore((s) => s.resolveRecoverToDeck)
   const resolveInteressant = useGameStore((s) => s.resolveInteressant)
@@ -3980,7 +3982,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
         const locked = new Set(tgt.lockedLocations ?? [])
         for (const loc of tgt.locations) {
           const hero = (tgt.board[loc.id] ?? []).find(
-            (c) => c.type === 'hero' && (!phr.candidateIds || phr.candidateIds.includes(c.instanceId)),
+            (c) => c.type === 'hero' && !c.cannotBeMoved && (!phr.candidateIds || phr.candidateIds.includes(c.instanceId)),
           )
           if (hero) {
             const i = ids.indexOf(loc.id)
@@ -4499,7 +4501,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           if (locked.has(l.id)) return []
           if (adjacentLocationIds(state, l.id).every((d) => locked.has(d))) return []
           return (user.board[l.id] ?? [])
-            .filter((c) => c.type === 'hero' && !c.hypnotized && !c.loved)
+            .filter((c) => c.type === 'hero' && !c.hypnotized && !c.loved && !c.cannotBeMoved)
             .map((c) => c.instanceId)
         })
       })()
@@ -4564,9 +4566,28 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     prevCanEndRef.current = canEnd
   }, [canEnd, testMode])
 
+  // « Voir le plateau » pendant une Fatalité : on masque la modale sans la
+  // démonter (sélection préservée) et le bouton « Fin de tour » se change en
+  // « Reprendre la Fatalité ». On remet le peek à zéro dès que la Fatalité
+  // disparaît — ajustement d'état pendant le rendu (pattern React officiel :
+  // comparaison avec la valeur du rendu précédent), pour ne pas laisser un
+  // `fateHidden` obsolète masquer la Fatalité suivante.
+  const [fateHidden, setFateHidden] = useState(false)
+  const hasFate = !!state.pendingFate
+  const [prevHasFate, setPrevHasFate] = useState(hasFate)
+  if (hasFate !== prevHasFate) {
+    setPrevHasFate(hasFate)
+    if (!hasFate && fateHidden) setFateHidden(false)
+  }
+  const fatePeekActive = hasFate && isHumanTurn && fateHidden
+
   const clearThen =
     <A extends unknown[]>(fn: (...args: A) => void) =>
     (...args: A) => {
+      // En « voir le plateau » (Fatalité masquée), aucune action de jeu n'est
+      // permise : on ne bloque plus par un overlay (sinon le survol/zoom et les
+      // défausses seraient inaccessibles), mais au dispatch. Consultation OK.
+      if (fatePeekActive) return
       setMode(null)
       fn(...args)
     }
@@ -4724,6 +4745,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
       m?.kind === 'discard' && m.actionId === actionId ? null : { kind: 'discard', actionId, selected: [] },
     )
   const handlePlayCard = (instanceId: string) => {
+    if (fatePeekActive) return // « voir le plateau » : consultation seule
     if (mode?.kind === 'condition-pick-ally') {
       return handleConditionPickAlly(instanceId)
     }
@@ -6007,7 +6029,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
             const limit = card?.effects?.find((e) => e.type === 'INSTANT_VANQUISH_HERO_LE')
             if (limit && limit.type === 'INSTANT_VANQUISH_HERO_LE') {
               return allHeroes
-                .filter((h) => (h.strength ?? 0) <= limit.maxStrength)
+                // Force EFFECTIVE (Boule de Feu +2, auras…) : un Héros base 3 boosté à 5 est exclu.
+                .filter((h) => (effectiveStrength(state, HUMAN, h.instanceId) ?? h.strength ?? 0) <= limit.maxStrength)
                 // Sale voleuse ! : cible restreinte (Cendrillon / robe de bal).
                 .filter((h) => !limit.onlyCardIds || limit.onlyCardIds.includes(h.cardId))
                 // Banqueroute : coût = Force du Héros → seuls les Héros abordables.
@@ -6063,6 +6086,10 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           if (mode?.kind === 'vanquish-pick-hero') {
             return allHeroes.filter((h) => !h.pokemonKO).map((c) => c.instanceId)
           }
+          // Déplacer un Héros (clic) : STITCH (cannotBeMoved) n'est jamais déplaçable.
+          if (mode?.kind === 'move-hero-pick') {
+            return allHeroes.filter((h) => !h.cannotBeMoved).map((c) => c.instanceId)
+          }
           return allHeroes.map((c) => c.instanceId)
         })()
       : []
@@ -6075,7 +6102,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
     if (!phr || phr.chooserIndex !== HUMAN || phr.forcedLocationId === undefined) return []
     const heroes = Object.values(user.board)
       .flat()
-      .filter((c) => c.type === 'hero')
+      .filter((c) => c.type === 'hero' && !c.cannotBeMoved)
       .map((c) => c.instanceId)
     return phr.candidateIds ? heroes.filter((id) => phr.candidateIds!.includes(id)) : heroes
   })()
@@ -6595,6 +6622,18 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"
             >
               {gameMode !== 'solo' ? '⏻ Quitter' : '☰ Menu'}
+            </button>
+          )}
+          {/* Partie de TEST lancée depuis l'Atelier : revenir à la configuration du vilain
+              (abandonne la partie de test). */}
+          {onReturnToEditor && (
+            <button
+              onClick={onReturnToEditor}
+              onMouseEnter={playHover}
+              title="Revenir à l'Atelier pour modifier ce vilain (abandonne la partie de test)"
+              className="rounded-lg border border-amber-400/40 bg-amber-500/15 px-3 py-1.5 text-sm font-semibold text-amber-100 hover:bg-amber-500/25"
+            >
+              🛠️ Retourner à l'atelier
             </button>
           )}
           {/* Sortir du mode test (restaure la partie d'avant) — à droite du Menu. */}
@@ -7663,7 +7702,27 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
                 ⏱ <GameTimer running={state.status === 'PLAYING' && startRollDone && openingDealDone} />
               </div>
             </div>
-            {handMode === 'discard' ? (
+            {fatePeekActive ? (
+              // « Voir le plateau » actif pendant une Fatalité : le bouton « Fin de
+              // tour » devient « Reprendre la Fatalité » (bleu + halo scintillant).
+              // Le libellé est long → il PEUT passer à la ligne (pas de nowrap).
+              <button
+                type="button"
+                onClick={() => setFateHidden(false)}
+                className="hs-wrapper bleu armed-blink-bleu"
+              >
+                <span className="hs-button bleu">
+                  <span className="hs-border bleu">
+                    <span
+                      className="hs-text bleu"
+                      style={{ fontSize: '0.95rem', letterSpacing: '0.3px', lineHeight: 1.15, padding: '0.45rem 0.4rem' }}
+                    >
+                      ⚡ Reprendre la Fatalité
+                    </span>
+                  </span>
+                </span>
+              </button>
+            ) : handMode === 'discard' ? (
               // Pendant la défausse, le bouton « Fin de tour » est remplacé par un
               // bouton « Défausser » identique mais BLEU (confirme la défausse). En
               // défausse normale, « Annuler » est placé JUSTE EN DESSOUS (au lieu de la
@@ -8159,6 +8218,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           onResolve={resolveFate}
           optional={state.pendingFate.optional}
           onPass={passFate}
+          hidden={fateHidden}
+          onPeek={() => setFateHidden(true)}
         />
       )}
 
@@ -8892,6 +8953,91 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           options={user.locations
             .filter((l) => !(user.lockedLocations ?? []).includes(l.id))
             .map((l) => ({ key: `fpa-${l.id}`, label: l.name, onSelect: () => resolveFreePlayAlly(l.id) }))}
+        />
+      )}
+
+      {/* Grand Councilwoman — RAPPORT / CAPITAINE GANTU : jouer gratuitement la carte en attente.
+          Annulable (la carte part en défausse) pour ne jamais rester bloqué. */}
+      {state.pendingFreePlayCard && state.pendingFreePlayCard.playerIndex === HUMAN && (() => {
+        const card = state.pendingFreePlayCard.card
+        const label = state.pendingFreePlayCard.label
+        const cardImg = getCardDef(card.cardId)?.image
+        const cancel = () => resolveFreePlayCard(undefined, true)
+        // Objet associé à un Héros / Allié → on choisit l'hôte ; sinon on choisit un lieu.
+        if (card.type === 'item' && (card.attach === 'hero' || card.attach === 'ally')) {
+          const wantType = card.attach === 'hero' ? 'hero' : 'ally'
+          const hosts = user.locations.flatMap((l) =>
+            (user.board[l.id] ?? [])
+              .filter((c) => c.type === wantType && !c.attachedTo && !c.isWicket)
+              .map((c) => ({
+                key: `fpc-${c.instanceId}`,
+                label: `${c.name} (${l.name})`,
+                imageSrc: getCardDef(c.cardId)?.image,
+                onSelect: () => resolveFreePlayCard(c.instanceId),
+              })),
+          )
+          return (
+            <ChoiceModal
+              title={label}
+              prompt={`Associer ${card.name} à quel ${card.attach === 'hero' ? 'Héros' : 'Allié'} ?`}
+              header={cardImg && <img src={cardImg} alt={card.name} className="h-32 w-auto rounded" />}
+              layout="row"
+              options={hosts}
+              onCancel={cancel}
+              cancelLabel="Ne pas jouer"
+            />
+          )
+        }
+        // Événement / Condition → aucun placement (résolution directe).
+        if (card.type === 'effect' || card.type === 'condition') {
+          return (
+            <ChoiceModal
+              title={label}
+              prompt={`Jouer ${card.name} gratuitement ?`}
+              header={cardImg && <img src={cardImg} alt={card.name} className="h-32 w-auto rounded" />}
+              options={[{ key: 'fpc-play', label: `Jouer ${card.name}`, onSelect: () => resolveFreePlayCard(undefined) }]}
+              onCancel={cancel}
+              cancelLabel="Ne pas jouer"
+            />
+          )
+        }
+        // Allié / Objet de lieu / Héros → choix du lieu de pose.
+        const locked = new Set(user.lockedLocations ?? [])
+        const locs = user.locations.filter(
+          (l) =>
+            !locked.has(l.id) &&
+            (!card.playOnlyAt || l.id === card.playOnlyAt) &&
+            !(card.forbiddenLocations ?? []).includes(l.id),
+        )
+        return (
+          <ChoiceModal
+            title={label}
+            prompt={`Où jouer ${card.name} (gratuitement) ?`}
+            header={cardImg && <img src={cardImg} alt={card.name} className="h-32 w-auto rounded" />}
+            options={locs.map((l) => ({ key: `fpc-${l.id}`, label: l.name, onSelect: () => resolveFreePlayCard(l.id) }))}
+            onCancel={cancel}
+            cancelLabel="Ne pas jouer"
+          />
+        )
+      })()}
+
+      {/* Grand Councilwoman — CAPITAINE GANTU : choisir une carte de la défausse à jouer. */}
+      {state.pendingPickDiscardToPlay && state.pendingPickDiscardToPlay.playerIndex === HUMAN && (
+        <ChoiceModal
+          title="Capitaine Gantu"
+          prompt="Jouer gratuitement une carte de votre défausse ?"
+          layout="row"
+          options={state.pendingPickDiscardToPlay.candidateIds
+            .map((id) => user.discard.find((c) => c.instanceId === id))
+            .filter((c): c is NonNullable<typeof c> => !!c)
+            .map((c) => ({
+              key: `pdp-${c.instanceId}`,
+              label: `${c.name}${c.cost !== undefined ? ` (coût ${c.cost})` : ''}`,
+              imageSrc: getCardDef(c.cardId)?.image,
+              onSelect: () => resolvePickDiscardToPlay(c.instanceId),
+            }))}
+          onCancel={() => resolvePickDiscardToPlay(undefined)}
+          cancelLabel="Ne rien jouer"
         />
       )}
 
@@ -10236,6 +10382,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
           player={user}
           hero={state.pendingFetchedHero.hero}
           discarded={state.pendingFetchedHero.discarded}
+          mustPlay={state.pendingFetchedHero.mustPlay}
           onResolve={(play, to) => resolveFetchedHero(play, to)}
         />
       )}
