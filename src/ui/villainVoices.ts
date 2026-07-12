@@ -190,6 +190,7 @@ for (const [path, url] of Object.entries(PHRASE_FILES)) {
 const PHRASE_FILE: Partial<Record<VillainKey, { file: string; gain?: number; fadeEndS?: number }>> = {
   princeJohn: { file: 'prince jean phrase' },
   jafar: { file: 'jafar phrase' },
+  reineCoeur: { file: 'reine de coeur phrase' },
   scar: { file: 'Scar phrase', fadeEndS: 0.3 },
   hades: { file: 'hadès phrase' },
   maleficent: { file: 'Maléfique phrase', gain: 0.7 },

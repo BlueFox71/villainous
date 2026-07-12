@@ -52,7 +52,7 @@ export const PATCH_NOTES: PatchNote[] = [
     title: 'Nouvelles devises audio',
     tags: ['son'],
     changes: [
-      "**Prince Jean** et **Jafar** lâchent désormais leur **réplique** à la fin de l'intro (et sur leur fiche vilain).",
+      "**Prince Jean**, **Jafar** et la **Reine de cœur** lâchent désormais leur **réplique** à la fin de l'intro (et sur leur fiche vilain).",
     ],
   },
   {
