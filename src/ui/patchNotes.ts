@@ -49,10 +49,10 @@ export const PATCH_NOTES: PatchNote[] = [
   {
     version: '1.4.5',
     date: '2026-07-12',
-    title: 'La devise de Prince Jean',
+    title: 'Nouvelles devises audio',
     tags: ['son'],
     changes: [
-      "**Prince Jean** lâche désormais sa **réplique** à la fin de l'intro (et sur sa fiche vilain).",
+      "**Prince Jean** et **Jafar** lâchent désormais leur **réplique** à la fin de l'intro (et sur leur fiche vilain).",
     ],
   },
   {
