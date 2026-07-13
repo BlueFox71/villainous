@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import type { PlayerState } from '../../engine/types'
 import { getCardDef } from '../../data/registry'
 import { enlargeCoveredAction } from '../../engine/rules'
-import { villainColor } from '../villainColorState'
+import { coverColorOf } from '../villainColorState'
 import { SUGAR_RUSH_TRACK } from './sugarRushTrack'
 import { COL_RECTS, BOARD_W } from '../editor/boardLayout'
 
@@ -208,7 +208,8 @@ export function BoardImage({
   // déclencher, capture du pointeur, clic droit = annulation).
   const pawnDragRef = useRef<{ startX: number; startY: number; dragging: boolean } | null>(null)
   const pawnIndex = player.locations.findIndex((l) => l.id === player.pawnLocation)
-  const coverColor = villainColor(player.villain) ?? '#000000'
+  // Recouvrement : couleur DÉDIÉE du vilain custom si définie, sinon sa couleur thématique.
+  const coverColor = coverColorOf(player.villain) ?? '#000000'
   const cover = HERO_COVER[player.villain] ?? { top: 0, height: TOP_ACTIONS_HEIGHT }
 
   // Sa Sucrerie — CIRCUIT EN HUIT : le pion ne change pas de lieu mais avance sur la
@@ -578,6 +579,7 @@ export function BoardImage({
         const heroes = (player.board[loc.id] ?? []).filter(
           (c) =>
             c.type === 'hero' &&
+            !c.attachedTo && // Grand Councilwoman — STITCH enfermé (associé à la CAGE) ne recouvre plus rien.
             !c.hypnotized &&
             !c.loved &&
             !c.pokemonKO &&

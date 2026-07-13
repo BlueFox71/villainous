@@ -22,6 +22,8 @@ import { MenuBackground } from './components/MenuBackground'
 import { IntroCinematic } from './components/IntroCinematic'
 import { useSettingsStore, useIsDesktopApp } from './store/settingsStore'
 import { useGameStore, VILLAIN_REGISTRY, type VillainKey } from './store/gameStore'
+import { useCustomVillainStore } from './store/customVillainStore'
+import { clearSavedGame } from './store/gamePersistence'
 import { playClick } from './sfx'
 
 /** Chemins des écrans (une route par page). */
@@ -97,7 +99,22 @@ function NetworkRoute() {
 
 function GameRoute() {
   const navigate = useNavigate()
-  return <App onExit={() => navigate(ROUTES.menu)} />
+  const location = useLocation()
+  // Partie de TEST lancée depuis l'Atelier : l'id du vilain testé est passé via l'état
+  // de navigation. Permet d'offrir un retour direct à sa configuration.
+  const editorVillainId = (location.state as { editorVillainId?: string } | null)?.editorVillainId
+  // Retour au menu = on abandonne la partie : on efface la sauvegarde de reprise
+  // (sessionStorage). Un rechargement sur le menu ne reprendra donc rien.
+  return (
+    <App
+      onExit={() => { clearSavedGame(); navigate(ROUTES.menu) }}
+      onReturnToEditor={
+        editorVillainId
+          ? () => { clearSavedGame(); navigate(ROUTES.editor, { state: { openVillainId: editorVillainId } }) }
+          : undefined
+      }
+    />
+  )
 }
 
 function VillainListRoute() {
@@ -107,19 +124,25 @@ function VillainListRoute() {
 
 function EditorRoute() {
   const navigate = useNavigate()
+  const location = useLocation()
   // Atelier réservé au dév : inaccessible dans l'exe (et en simulation « .exe »),
   // même par navigation directe.
   const isDesktopApp = useIsDesktopApp()
   if (isDesktopApp) return <Navigate to={ROUTES.menu} replace />
+  // Retour depuis une partie de test (« Retourner à l'atelier ») : rouvrir directement
+  // le vilain qu'on testait, via l'état de navigation.
+  const openVillainId = (location.state as { openVillainId?: string } | null)?.openVillainId
   return (
     <VillainEditor
+      openVillainId={openVillainId}
       onBack={() => navigate(ROUTES.menu)}
       onPlay={(custom, chosen) => {
         // Adversaire : celui choisi dans l'éditeur, sinon un vilain natif au hasard.
         const keys = Object.keys(VILLAIN_REGISTRY) as VillainKey[]
         const opponent = chosen ?? keys[Math.floor(Math.random() * keys.length)]
         useGameStore.getState().startCustomGame(custom, opponent)
-        navigate(ROUTES.game)
+        // On mémorise le vilain testé pour proposer « Retourner à l'atelier » en jeu.
+        navigate(ROUTES.game, { state: { editorVillainId: custom.id } })
       }}
     />
   )
@@ -181,6 +204,22 @@ export default function Root() {
   // Rejoue la cinématique d'intro à la demande (bouton du menu) : on remasque le
   // menu sous la vidéo ; `finishIntro` la refermera comme au lancement.
   const replayIntro = () => setIntroDone(false)
+
+  // Vilains PERSONNALISÉS : on les charge + enregistre au runtime dès le démarrage,
+  // quelle que soit la route affichée. Indispensable pour REPRENDRE une partie après
+  // rechargement directement sur /partie : sans ça, le registre runtime des customs
+  // resterait vide (load() n'était déclenché que par l'Atelier/les listes) et les
+  // plateaux/cartes/décors du vilain custom repris ne se résoudraient pas.
+  useEffect(() => {
+    // Une fois les customs enregistrés au runtime (JSON « chemins », déjà complets), on
+    // ré-injecte les images de plateau/pion/dos retirées à la sauvegarde d'une éventuelle
+    // partie REPRISE ; le re-render fait apparaître les images des cartes custom via le
+    // registre (déjà complet dès `load()`).
+    const done = () => useGameStore.getState().hydrateResumedImages()
+    const { loaded, load } = useCustomVillainStore.getState()
+    if (!loaded) void load().then(done)
+    else done()
+  }, [])
 
   // App de bureau : aligne le mode d'affichage du store sur celui réellement
   // appliqué à la fenêtre native au lancement (source de vérité côté Electron),

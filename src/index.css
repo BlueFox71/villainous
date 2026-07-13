@@ -516,6 +516,70 @@ body {
   .tamatoa-disco-layer { animation: none !important; }
   .tamatoa-disco-wash { animation: none !important; opacity: 0.3; background-color: var(--c2); }
 }
+/* ============================================================================
+   PASSAGE « portal-cracks » (Le Flagelleur Mental) : transition plein écran inspirée des portails.
+   Sur un voile sombre : 1) fissures NOIRES qui se tracent depuis le centre, 2) traits ROUGES lumineux
+   qui SURGISSENT le long des mêmes tracés (retardés), 3) halo rouge central qui enfle. La couche fait un
+   fondu global (opacité) calé sur --dur (= durationSec).
+   ============================================================================ */
+.ud-passage-layer {
+  opacity: 0;
+  animation: udPassageLayer var(--dur, 4.5s) ease-out forwards;
+}
+@keyframes udPassageLayer {
+  0% { opacity: 0; }
+  7% { opacity: 1; }
+  82% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.ud-passage-svg { overflow: visible; }
+.ud-passage-svg path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* 1) Fissures noires : le tracé se DESSINE (dashoffset 320→0). Le dash n'est QUE sur les fissures noires
+   (pas sur `.ud-passage-svg path` — sa spécificité masquerait aussi les traits rouges). Sans filtre. */
+.ud-passage-crack {
+  stroke: #050508;
+  stroke-dasharray: 320;
+  stroke-dashoffset: 320;
+  animation: udPassageCrack 1.1s ease-out forwards;
+}
+@keyframes udPassageCrack {
+  to { stroke-dashoffset: 0; }
+}
+/* 2) Traits rouges : le GROUPE apparaît GLOBALEMENT en fondu (opacité 0→1), une fois les fissures noires
+   tracées, avec un FLASH DE LUMIÈRE — un pic de luminosité (`brightness`) au moment de l'apparition qui
+   fait « bloomer » les traits et leur lueur, puis retombe. */
+.ud-passage-red {
+  opacity: 0;
+  will-change: opacity, filter;
+  animation: udPassageRed 2.2s ease-out 1.1s forwards;
+}
+@keyframes udPassageRed {
+  0% { opacity: 0; filter: brightness(2.6); }
+  24% { opacity: 1; filter: brightness(2.6); } /* flash lumineux à l'apparition */
+  55% { filter: brightness(1); } /* la lumière retombe */
+  100% { opacity: 1; filter: brightness(1); }
+}
+/* Les lignes émettent un halo rouge (double lueur) → le flash de luminosité les fait rayonner. */
+.ud-passage-red-line {
+  fill: none;
+  stroke: #ff3322;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: none;
+  filter: drop-shadow(0 0 2px rgba(255, 70, 48, 0.95)) drop-shadow(0 0 6px rgba(255, 40, 24, 0.7));
+}
+@media (prefers-reduced-motion: reduce) {
+  .ud-passage-layer,
+  .ud-passage-crack,
+  .ud-passage-red { animation: none !important; }
+  .ud-passage-crack { stroke-dashoffset: 0; }
+  .ud-passage-red { opacity: 1; }
+  .ud-passage-layer { opacity: 1; }
+}
 /* Pages de Slenderman : apparition/disparition en fondu (3 s), ancrées par leur
    centre à une position aléatoire. Le décalage temporel est posé par span. */
 .page-note {
@@ -2247,6 +2311,175 @@ body {
 }
 
 
+/* ----- Décor permanent : le PLATEAU de Monopoly (Mr Monopoly) -----
+   L'image du plateau en grand CARRÉ centré sur la colonne, posée sur un fond de table vert
+   feutré (vignette). Par-dessus, dans le repère du carré (donc calé sur le plateau) : les PIONS
+   qui font le tour (keyframe `monopolyRide` : parcours carré en left/top ; --a/--b = insets) et
+   les CHANTIERS de maisons/hôtels (SVG qui « poussent » avec `monopolyPop`).
+   Cf. MonopolyDecor dans components/VillainDecor.tsx. */
+.monopoly-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: radial-gradient(120% 90% at 50% 45%, #2f5c46 0%, #1c3a2c 60%, #132a20 100%);
+}
+/* Fond de table : champ d'éléments Monopoly (emoji) qui montent en dérivant et tournoyant, derrière le
+   plateau. Chaque item démarre sous le bas de l'écran et traverse vers le haut. Cf. MonopolyBackdrop. */
+.monopoly-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.monopoly-bg-item {
+  position: absolute;
+  bottom: -8vh;
+  line-height: 1;
+  opacity: 0;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+  animation-name: monopolyFloat;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+@keyframes monopolyFloat {
+  0% { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0; }
+  12% { opacity: 0.5; }
+  85% { opacity: 0.5; }
+  100% { transform: translateY(-118vh) translateX(var(--sway)) rotate(var(--rot)); opacity: 0; }
+}
+.monopoly-board {
+  position: absolute;
+  left: 50%;
+  top: 35%;
+  width: min(58%, 60vh);
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, -50%);
+}
+.monopoly-board-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 2%;
+  box-shadow: 0 1.2vh 3vh rgba(0, 0, 0, 0.55);
+  opacity: 0.92;
+}
+.monopoly-overlay {
+  position: absolute;
+  inset: 0;
+}
+/* Un pion : posé au point courant du parcours (translate pour le centrer). Il avance de CASE EN CASE →
+   saut sec d'une case à l'autre, jamais de glissé.
+   ⚠️ `animation-timing-function` s'applique ENTRE CHAQUE PAIRE DE KEYFRAMES. Comme `monopolyRide` a
+   4 intervalles (un par bord : 0→25→50→75→100 %), il faut `steps(10)` PAR BORD → 10 × 4 = 40 cases.
+   (Mettre `steps(40)` découperait chaque bord en 40 = 160 micro-pas → ça glisserait.) */
+.monopoly-token {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  animation-name: monopolyRide;
+  animation-timing-function: steps(10, jump-end);
+  animation-iteration-count: infinite;
+  will-change: left, top;
+}
+/* Le BOND du pion : au moment où la case change (apex à 0 %/100 %), le glyphe est en l'air, puis il
+   retombe sur la nouvelle case et s'y repose avant de resauter. Durée = 1 case (réglée en inline =
+   durée du tour / 40), même délai que le parcours → le sommet du saut coïncide avec le saut de case. */
+.monopoly-token-glyph {
+  display: block;
+  height: 2.6vh;
+  width: auto;
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.55));
+  animation-name: monopolyHop;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+/* Un chantier : rangée (haut/bas) ou colonne (gauche/droite) de bâtiments, posé sur la bande. */
+.monopoly-site {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0;
+}
+.monopoly-site--v {
+  flex-direction: column;
+}
+.monopoly-house,
+.monopoly-hotel {
+  display: block;
+  width: auto;
+  transform-origin: 50% 100%;
+  animation: monopolyPop 320ms ease-out both;
+}
+.monopoly-house {
+  height: 0.95vh;
+  fill: #38a63f;
+  stroke: #1f6b26;
+  stroke-width: 0.6;
+}
+.monopoly-hotel {
+  height: 1.6vh;
+  fill: #d83a2c;
+  stroke: #8f2117;
+  stroke-width: 0.6;
+}
+@keyframes monopolyRide {
+  0% { left: var(--a); top: var(--a); }
+  25% { left: var(--b); top: var(--a); }
+  50% { left: var(--b); top: var(--b); }
+  75% { left: var(--a); top: var(--b); }
+  100% { left: var(--a); top: var(--a); }
+}
+@keyframes monopolyHop {
+  0% { transform: translateY(0); } /* POSÉ sur la pastille */
+  72% { transform: translateY(0); } /* reste posé sur la case l'essentiel du temps */
+  100% { transform: translateY(-1.1vh); } /* bref bond → apex au changement de case (téléport sur la pastille suivante) */
+}
+@keyframes monopolyPop {
+  0% { opacity: 0; transform: scale(0.2) translateY(0.5vh); }
+  60% { opacity: 1; transform: scale(1.12); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Les DEUX dés SE BALADENT sur toute la colonne du joueur (repère plein cadre `.monopoly-decor`). Le
+   CONTENEUR vagabonde lentement d'un point à l'autre (monopolyDiceWander, en % de la colonne) ; CHAQUE
+   dé, lui, tourne en continu (monopolyDiceTumble). Cf. les <img.monopoly-die> dans MonopolyDecor. */
+.monopoly-dice {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  gap: 0.6vh;
+  animation: monopolyDiceWander 34s ease-in-out infinite;
+}
+@keyframes monopolyDiceWander {
+  0% { left: 25%; top: 12%; }
+  18% { left: 70%; top: 26%; }
+  36% { left: 32%; top: 45%; }
+  54% { left: 72%; top: 62%; }
+  72% { left: 28%; top: 78%; }
+  88% { left: 66%; top: 90%; }
+  100% { left: 25%; top: 12%; }
+}
+.monopoly-die {
+  display: block;
+  height: 2.4vh;
+  width: auto;
+  transform-origin: 50% 55%;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.55));
+  animation: monopolyDiceTumble 2.4s linear infinite;
+}
+.monopoly-die--b {
+  animation-duration: 2.9s; /* vitesse différente… */
+  animation-direction: reverse; /* …et sens inverse → les deux dés ne tournent pas à l'identique */
+}
+/* Tournoiement CONTINU du dé : un tour complet (360°) en boucle, avec un léger balancement vertical. */
+@keyframes monopolyDiceTumble {
+  0% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-0.5vh) rotate(180deg); }
+  100% { transform: translateY(0) rotate(360deg); }
+}
+
 /* ----- Décor permanent : geysers de vapeur verte (Scar) -----
    Posés par-dessus l'image de fond (`.image-decor` réutilisé). Quelques évents au sol crachent des
    bouffées étagées qui montent en s'enroulant (--sx) et en grossissant (réutilise `vaporRise`).
@@ -3857,6 +4090,14 @@ body {
 }
 .armed-blink-rose {
   animation: armedBlinkRose 0.8s ease-in-out infinite;
+}
+/* Bleu = « Reprendre la Fatalité » (bouton du bandeau pendant « Voir le plateau »). */
+@keyframes armedBlinkBleu {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(93, 180, 232, 0); }
+  50% { box-shadow: 0 0 16px 5px rgba(93, 180, 232, 0.9); }
+}
+.armed-blink-bleu {
+  animation: armedBlinkBleu 0.9s ease-in-out infinite;
 }
 
 /* Gain de pouvoir flottant (« +N 🪙 ») : pop puis montée + estompage. */
@@ -7739,6 +7980,353 @@ body {
   18% { stroke-dashoffset: 0; opacity: 0; } /* s'efface */
   100% { stroke-dashoffset: 100; opacity: 0; } /* éteint, réinitialisé */
 }
+
+/* ============================================================================
+   Décor permanent : Le Flagelleur Mental — le MONDE À L'ENVERS (Stranger Things).
+   Fond d'orage nocturne quasi-noir ; des NUAGES sombres et flous DÉRIVENT en travers
+   de la colonne ; des ÉCLAIRS ROUGES claquent par intermittence et un HALO rouge (screen)
+   posé AU-DESSUS des nuages les ILLUMINE en rouge le temps du flash.
+   ============================================================================ */
+.ud-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* Ciel d'orage nocturne : bleu-gris très sombre, un peu plus clair en haut (la source de l'orage). */
+  background:
+    radial-gradient(120% 80% at 50% -10%, #1a1c26 0%, #101119 40%, #08090e 100%);
+  pointer-events: none;
+}
+/* Vignette froide (coins sombres) + léger voile → les nuages se fondent dans la nuit. */
+.ud-decor::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 100% at 50% 40%, rgba(0, 0, 0, 0) 52%, rgba(0, 0, 0, 0.62) 100%);
+  pointer-events: none;
+}
+/* Nappe de nuage : gros disque flou gris-bleu SOMBRE (radial épousant la boîte) qui TRAVERSE la colonne
+   (translateX --x0 → --x1) en montant/descendant un peu et en fondu aux bords. Taille/flou/opacité/
+   durée/déphasage posés en inline (profondeur). */
+.ud-cloud {
+  position: absolute;
+  left: 50%;
+  background: radial-gradient(
+    ellipse closest-side,
+    rgba(58, 62, 78, 0.9) 0%,
+    rgba(38, 41, 55, 0.6) 46%,
+    rgba(20, 22, 32, 0) 76%
+  );
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation-name: udCloudDrift;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes udCloudDrift {
+  0% { transform: translate(calc(-50% + var(--x0)), var(--y)); opacity: 0; }
+  12% { opacity: var(--op); }
+  88% { opacity: var(--op); }
+  100% { transform: translate(calc(-50% + var(--x1)), calc(var(--y) * -1)); opacity: 0; }
+}
+/* Plafond de nuages amassés en haut du div (la source de l'orage) : nappe SOMBRE, DENSE et TEXTURÉE
+   — plusieurs lobes radiaux superposés (grumeaux) au lieu d'un dégradé lisse, pour un couvert net et
+   massif sous le bord haut. */
+.ud-cloud-top {
+  background:
+    radial-gradient(ellipse 42% 52% at 26% 38%, rgba(58, 64, 86, 0.98) 0%, rgba(58, 64, 86, 0) 70%),
+    radial-gradient(ellipse 38% 46% at 62% 32%, rgba(44, 49, 68, 0.98) 0%, rgba(44, 49, 68, 0) 68%),
+    radial-gradient(ellipse 34% 48% at 82% 52%, rgba(52, 58, 80, 0.95) 0%, rgba(52, 58, 80, 0) 70%),
+    radial-gradient(ellipse 40% 44% at 46% 62%, rgba(38, 43, 60, 0.95) 0%, rgba(38, 43, 60, 0) 72%),
+    radial-gradient(
+      ellipse closest-side,
+      rgba(50, 56, 76, 0.96) 0%,
+      rgba(36, 40, 56, 0.72) 54%,
+      rgba(22, 24, 35, 0) 82%
+    );
+}
+/* Spores en suspension : schéma nesté (comme la poussière d'or). L'enveloppe `.ud-mote` fait une DÉRIVE
+   très lente en boucle fermée (revient au point de départ → pas de « pop ») ; l'enfant `.ud-mote-dot`
+   (le point lumineux pâle) BALANCE latéralement + SCINTILLE en opacité. Taille/flou/opacité posés en
+   inline (profondeur). Placées au-dessus des nuages, sous les éclairs → le halo rouge (screen) les
+   baigne de rouge le temps d'une frappe. */
+.ud-mote {
+  position: absolute;
+  pointer-events: none;
+  will-change: transform;
+  animation-name: udMoteDrift;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+.ud-mote-dot {
+  display: block;
+  border-radius: 50%;
+  /* Spore : petite touffe de poussière MATE gris-pâle, sans halo lumineux, à bord DIFFUS (dégradé doux
+     jusqu'à transparent) → floconneuse plutôt que « point brillant » (évite l'effet luciole). */
+  background: radial-gradient(circle, rgba(206, 214, 230, 0.82) 0%, rgba(176, 186, 208, 0.42) 42%, rgba(150, 162, 190, 0) 78%);
+  opacity: var(--op, 0.5);
+  will-change: transform, opacity;
+  animation-name: udMoteSway, udMoteTwinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+/* Dérive suspendue : 3 points d'inflexion puis retour à l'origine (boucle fermée). */
+@keyframes udMoteDrift {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(var(--dx), calc(var(--dy) * -1)); }
+  50% { transform: translate(calc(var(--dx) * -0.6), var(--dy)); }
+  75% { transform: translate(var(--dx2), calc(var(--dy) * 0.4)); }
+  100% { transform: translate(0, 0); }
+}
+@keyframes udMoteSway {
+  0%, 100% { transform: translateX(calc(var(--sway) * -1)); }
+  50% { transform: translateX(var(--sway)); }
+}
+/* « Respiration » d'opacité TRÈS lente et subtile (pas un clignotement) : la spore reste visible en
+   permanence, elle ne fait que fondre légèrement (poussière qui passe dans/hors d'un rai de lumière). */
+@keyframes udMoteTwinkle {
+  0%, 100% { opacity: calc(var(--op) * 0.82); }
+  50% { opacity: var(--op); }
+}
+/* Poteaux électriques de Hawkins : silhouettes (image `pylones.png`) rootées au BAS, montant sur toute
+   la hauteur. Recolorées en ardoise sombre via `invert(1) brightness(...)` (INLINE, avec le flou de
+   profondeur) : un pur-noir serait invisible sur le ciel quasi-noir. */
+.ud-pole {
+  position: absolute;
+  bottom: 0;
+  transform-origin: bottom center;
+  pointer-events: none;
+  will-change: auto;
+}
+/* Arbres (sapins de Hawkins) : silhouettes rootées au bas (largeur auto → ratio préservé par image),
+   recolorées en ardoise TRÈS sombre INLINE (comme les poteaux). Ligne de forêt en fond. Elles TANGUENT
+   (effet vent) en basculant depuis leur base. Le transform de base (centrage + miroir `--flip`) est en CSS
+   → il sert de repli en reduced-motion (animation coupée) sans perdre le centrage. */
+.ud-tree {
+  position: absolute;
+  width: auto;
+  transform-origin: bottom center;
+  transform: translateX(-50%) scaleX(var(--flip, 1));
+  pointer-events: none;
+  will-change: transform;
+  animation-name: udTreeSway;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes udTreeSway {
+  0%, 100% { transform: translateX(-50%) scaleX(var(--flip, 1)) rotate(calc(var(--sw, 1deg) * -1)); }
+  50% { transform: translateX(-50%) scaleX(var(--flip, 1)) rotate(var(--sw, 1deg)); }
+}
+/* Fils électriques : SVG épousant la colonne (preserveAspectRatio none). Câbles ardoise fins qui
+   pendent en chaînette entre les traverses ; ils se BALANCENT doucement (vent). */
+.ud-wires {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.ud-wires path {
+  fill: none;
+  stroke: #474d5e;
+  stroke-width: 1.4px;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke; /* trait d'épaisseur constante malgré l'étirement du viewBox */
+}
+.ud-wire-sway {
+  transform-box: fill-box;
+  transform-origin: center;
+  will-change: transform;
+  animation: udWireSway 7s ease-in-out infinite;
+}
+@keyframes udWireSway {
+  0%, 100% { transform: translateY(0) skewX(0deg); }
+  50% { transform: translateY(0.5%) skewX(0.4deg); }
+}
+/* L'éclair (ancre positionnée par left/top/width/height). */
+.ud-bolt {
+  position: absolute;
+  pointer-events: none;
+}
+/* Halo ROUGE qui illumine les nuages : disque radial en `screen`, centré près du haut de l'éclair
+   (l'origine de la frappe). Invisible au repos, il FLASHE en synchro avec le tracé (même --dur/--delay). */
+.ud-bolt-glow {
+  position: absolute;
+  left: 50%;
+  top: 18%;
+  width: var(--glow, 40vh);
+  height: var(--glow, 40vh);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 60, 46, 0.85) 0%, rgba(210, 30, 24, 0.42) 34%, rgba(150, 16, 12, 0) 70%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  will-change: opacity, transform;
+  animation-name: udBoltGlow;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+  animation-duration: var(--dur, 10s);
+  animation-delay: var(--delay, 0s);
+}
+/* Fenêtre lumineuse du halo calée sur la vie de l'éclair (cf. `underwaterBolt` : ~1→18 %). */
+@keyframes udBoltGlow {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+  2% { opacity: 1; transform: translate(-50%, -50%) scale(1); } /* embrasement */
+  7.5% { opacity: 0.5; }
+  9% { opacity: 0.95; } /* re-flash (scintillement) */
+  14% { opacity: 0.7; }
+  18% { opacity: 0; transform: translate(-50%, -50%) scale(1.12); } /* s'éteint */
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+}
+/* Le tracé de l'éclair : réutilise la révélation générique `underwaterBolt` (dashoffset/opacité). */
+.ud-bolt-svg {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 0 6px rgba(255, 70, 55, 0.85));
+}
+.ud-bolt-svg path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  opacity: 0;
+  will-change: stroke-dashoffset, opacity;
+  animation-name: underwaterBolt;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+  animation-duration: var(--dur, 10s);
+  animation-delay: var(--delay, 0s);
+}
+.ud-bolt-halo {
+  stroke: rgba(255, 66, 52, 0.8);
+  stroke-width: 2.6;
+}
+.ud-bolt-core {
+  stroke: #ffe0dc;
+  stroke-width: 0.8;
+}
+/* ------- SURPRISE « Le Flagelleur Mental apparaît » (gros tonnerre + révélation, ~3 s) -------
+   Calque (dé)monté par timer (cf. UD_FLAYER_REVEAL_MS). Toutes les animations sont ONE-SHOT
+   (`forwards`) et calées sur une durée totale de 5,2 s. */
+.ud-flayer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3; /* au-dessus des nuages/spores/éclairs permanents */
+}
+/* Flash du tonnerre : embrasement radial BLANC (cœur) → ROUGE (bords) en `screen`, one-shot rapide. */
+.ud-flayer-flash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 50% 44%,
+    rgba(255, 255, 255, 0.6) 0%,
+    rgba(240, 244, 255, 0.42) 26%,
+    rgba(220, 228, 245, 0.24) 55%,
+    rgba(200, 210, 235, 0.1) 78%,
+    rgba(200, 210, 235, 0) 100%
+  );
+  mix-blend-mode: screen;
+  opacity: 0;
+  will-change: opacity;
+  animation: udFlayerFlash 1.4s ease-out forwards;
+}
+@keyframes udFlayerFlash {
+  0% { opacity: 0; }
+  6% { opacity: 1; }   /* éclat */
+  18% { opacity: 0.45; }
+  26% { opacity: 0.85; } /* re-flash (le grondement) */
+  55% { opacity: 0; }
+  100% { opacity: 0; }
+}
+/* 2-3 ÉNORMES éclairs qui ouvrent l'entrée de la créature (étagés via --delay, une frappe chacun). */
+.ud-flayer-bolt {
+  position: absolute;
+  left: 50%;
+  top: -20%;
+  width: min(74vw, 100vh);
+  height: 134vh;
+  transform: translateX(-50%);
+  overflow: visible;
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 0 18px rgba(255, 70, 55, 0.95));
+}
+.ud-flayer-bolt path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  opacity: 0;
+  will-change: stroke-dashoffset, opacity;
+  animation: udFlayerBolt 1.6s ease-out var(--delay, 0s) forwards;
+}
+.ud-flayer-bolt-halo { stroke: rgba(255, 66, 52, 0.9); stroke-width: 11; }
+.ud-flayer-bolt-core { stroke: #fff; stroke-width: 4.2; }
+@keyframes udFlayerBolt {
+  0% { stroke-dashoffset: 100; opacity: 0; }
+  4% { opacity: 1; }
+  10% { stroke-dashoffset: 0; opacity: 1; } /* tracé complet */
+  16% { opacity: 0.4; }
+  22% { opacity: 1; }                        /* re-flash */
+  40% { stroke-dashoffset: 0; opacity: 0; }  /* s'éteint */
+  100% { opacity: 0; }
+}
+/* Lueur blanc & rouge derrière la silhouette (ellipse, screen), pulse le temps de l'apparition. */
+.ud-flayer-glow {
+  position: absolute;
+  left: 44%;
+  top: 22%;
+  width: min(170vh, 210%);
+  height: min(108vh, 150%);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse closest-side,
+    rgba(255, 255, 255, 0.85) 0%,
+    rgba(255, 78, 62, 0.7) 32%,
+    rgba(190, 24, 18, 0.32) 58%,
+    rgba(120, 12, 10, 0) 80%
+  );
+  mix-blend-mode: screen;
+  opacity: 0;
+  will-change: opacity, transform;
+  animation: udFlayerGlow 7s ease-in-out forwards;
+}
+@keyframes udFlayerGlow {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.78); }
+  34% { opacity: 0.92; transform: translate(-50%, -50%) scale(1); } /* monte avec l'émergence */
+  50% { opacity: 0.6; }
+  66% { opacity: 0.92; }
+  82% { opacity: 0.7; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.12); }
+}
+/* La créature : silhouette rouge sur transparent, auréolée de blanc puis de rouge (drop-shadow),
+   fond en fondu + léger zoom, tient ~3 s, puis se dissipe. */
+.ud-flayer-img {
+  position: absolute;
+  left: 44%;
+  top: 16%;
+  width: min(98vh, 140%);
+  height: auto;
+  transform: translate(-50%, -50%) scale(0.86);
+  opacity: 0;
+  will-change: opacity, transform;
+  animation: udFlayerReveal 7s ease-out forwards;
+}
+@keyframes udFlayerReveal {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.84); }
+  6% { opacity: 0; transform: translate(-50%, -50%) scale(0.88); } /* attend le flash */
+  34% { opacity: 1; transform: translate(-50%, -50%) scale(1); }  /* émerge LENTEMENT (~2 s) */
+  80% { opacity: 1; transform: translate(-50%, -50%) scale(1.03); } /* maintien */
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.06); } /* se dissipe */
+}
 /* Surprise « Coup Fatal » de Tabbou (élimine tous les combattants) : une BOULE d'énergie apparaît en
    HAUT AU CENTRE, se charge (se rétracte puis gonfle), puis EXPLOSE (flash) en émettant TROIS CERCLES
    (onde de choc) #992C0A qui s'étendent en s'estompant. `.uw-smash` est un point d'ancrage (taille nulle)
@@ -7892,6 +8480,263 @@ body {
   .underwater-orb { animation: none; }
   .underwater-bolt-svg path { animation: none; opacity: 0; }
   .uw-smash { display: none; }
+  /* Monde à l'Envers : nuages figés (visibles), éclairs et halos rouges coupés. */
+  .ud-cloud { animation: none; opacity: var(--op); transform: translate(-50%, var(--y)); }
+  .ud-mote { animation: none; }
+  .ud-mote-dot { animation: none; opacity: var(--op); transform: none; }
+  .ud-wire-sway { animation: none; }
+  .ud-tree { animation: none; }
+  .ud-bolt-glow { animation: none; opacity: 0; }
+  .ud-bolt-svg path { animation: none; opacity: 0; }
+}
+
+/* ============================================================================
+   Décor permanent : Gul'dan (Warcraft) — la marée de GANGRENÉ (kind `felGate`).
+   Draenor mort baigné de magie fel : fond gris-vert sombre, lueur fel VERTE + VIOLETTE
+   (le Vide) pulsantes au sol, VOLUTES de gangrené qui montent (réutilise `vaporRise`) et
+   CENDRES qui s'élèvent (réutilise `.voodoo-mote-*`). 100 % CSS.
+   ============================================================================ */
+.fel-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* Draenor mort : pénombre gris-vert, plus claire (corruption fel) vers le bas. */
+  background:
+    radial-gradient(120% 80% at 50% 112%, rgba(80, 220, 90, 0.24) 0%, rgba(120, 55, 190, 0.14) 40%, rgba(8, 14, 12, 0) 72%),
+    linear-gradient(to top, #0c130e 0%, #0a0e0c 54%, #07080a 100%);
+  pointer-events: none;
+}
+/* Vignette (coins assombris). */
+.fel-decor::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 95% at 50% 44%, transparent 52%, rgba(0, 0, 0, 0.82) 100%);
+}
+/* Lueur fel VERTE pulsante (au sol, les lieux corrompus). */
+.fel-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(72% 54% at 50% 90%, rgba(90, 250, 105, 0.34) 0%, rgba(45, 190, 70, 0) 60%);
+  will-change: opacity;
+  animation: felGlowPulse 4.4s ease-in-out infinite alternate;
+}
+@keyframes felGlowPulse {
+  from { opacity: 0.58; }
+  to { opacity: 1; }
+}
+/* Lueur VIOLETTE du Vide, sur un autre battement (l'appel des Anciens Dieux). */
+.fel-glow-void {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(60% 46% at 50% 96%, rgba(170, 90, 255, 0.28) 0%, rgba(120, 45, 210, 0) 60%);
+  will-change: opacity;
+  animation: felVoidPulse 6.8s ease-in-out infinite alternate;
+}
+@keyframes felVoidPulse {
+  from { opacity: 0.25; }
+  to { opacity: 0.7; }
+}
+/* Volutes de gangrené qui montent du sol (réutilise le keyframe `vaporRise`). Teinte posée en inline
+   (verte ou, pour quelques colonnes, violette). */
+.fel-vapor {
+  position: absolute;
+  bottom: -10vh; /* part du bas de l'écran (le sol corrompu) */
+  border-radius: 50%;
+  filter: blur(10px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation-name: vaporRise;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* On fige la vapeur, les lueurs et les cendres (elles restent visibles). */
+  .fel-vapor,
+  .fel-glow,
+  .fel-glow-void,
+  .fel-decor .voodoo-mote-rise,
+  .fel-decor .voodoo-mote-sway,
+  .fel-decor .voodoo-mote {
+    animation: none !important;
+  }
+}
+
+/* ============================================================================
+   Décor permanent : Dio (JoJo's Bizarre Adventure) — HORLOGES & TEMPS (kind `theWorld`).
+   Le pouvoir de son Stand « The World » : nuit du Caire violet/doré, aura dorée pulsante,
+   un grand MANDALA d'horloge qui tourne en fond, une HORLOGE dorée nette dans la bande haute
+   (chiffres ROMAINS + aiguilles) et des CHIFFRES ROMAINS qui flottent en montant. 100 % CSS.
+   (L'arrêt du temps « ZA WARUDO! » = surprise à venir.)
+   ============================================================================ */
+.dio-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* Nuit du Caire : indigo/violet profond, réchauffé d'or vers le centre. */
+  background:
+    radial-gradient(120% 90% at 50% 42%, rgba(120, 80, 20, 0.24) 0%, rgba(70, 30, 90, 0.16) 46%, rgba(10, 8, 18, 0) 74%),
+    linear-gradient(to top, #0c0814 0%, #0a0812 52%, #100a1c 100%);
+  pointer-events: none;
+}
+/* Vignette (coins assombris). */
+.dio-decor::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 95% at 50% 44%, transparent 50%, rgba(0, 0, 0, 0.84) 100%);
+}
+/* Aura dorée pulsante (le rayonnement de The World). */
+.dio-aura {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(70% 60% at 50% 40%, rgba(255, 205, 90, 0.22) 0%, rgba(220, 160, 40, 0) 62%);
+  will-change: opacity;
+  animation: dioAuraPulse 5s ease-in-out infinite alternate;
+}
+@keyframes dioAuraPulse {
+  from { opacity: 0.5; }
+  to { opacity: 0.95; }
+}
+/* Grand MANDALA d'horloge : un disque doré très large (déborde → visible dans les marges) fait de
+   graduations en `conic-gradient` (un trait tous les 6° + traits plus marqués tous les 30°), masqué en
+   anneau, qui tourne lentement. Un 2ᵉ anneau (::before) tourne en SENS INVERSE (profondeur). */
+.dio-mandala {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 150vh;
+  height: 150vh;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0.16;
+  mix-blend-mode: screen;
+  /* Graduations fines (6°) + repères horaires (30°). */
+  background:
+    repeating-conic-gradient(from 0deg, rgba(255, 210, 120, 0.5) 0deg 0.5deg, transparent 0.5deg 6deg),
+    repeating-conic-gradient(from 0deg, rgba(255, 225, 150, 0.8) 0deg 1.1deg, transparent 1.1deg 30deg);
+  -webkit-mask: radial-gradient(circle, transparent 0 60%, #000 60% 74%, transparent 76%);
+  mask: radial-gradient(circle, transparent 0 60%, #000 60% 74%, transparent 76%);
+  will-change: transform;
+  animation: dioMandalaSpin 240s linear infinite;
+}
+.dio-mandala::before {
+  content: '';
+  position: absolute;
+  inset: 18%;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(230, 180, 255, 0.6) 0deg 0.8deg, transparent 0.8deg 15deg);
+  -webkit-mask: radial-gradient(circle, transparent 0 78%, #000 78% 90%, transparent 92%);
+  mask: radial-gradient(circle, transparent 0 78%, #000 78% 90%, transparent 92%);
+  will-change: transform;
+  animation: dioMandalaSpin 160s linear infinite reverse;
+}
+@keyframes dioMandalaSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+/* Chiffre romain flottant (l'enfant du schéma `.voodoo-mote-*`) : glyphe doré/magenta lumineux qui
+   scintille (opacité + échelle). Couleur posée en inline via `--num-color`. */
+.dio-numeral {
+  display: block;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 6px var(--num-color), 0 0 12px var(--num-color);
+  will-change: opacity, transform;
+  animation-name: dioNumeralTwinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes dioNumeralTwinkle {
+  from { opacity: 0.25; transform: scale(0.82); }
+  to { opacity: 1; transform: scale(1.08); }
+}
+/* Horloge nette dans la BANDE HAUTE (au-dessus du plateau opaque → toujours visible). */
+.dio-clock {
+  position: absolute;
+  left: 50%;
+  top: 9vh;
+  width: 16vh;
+  height: 16vh;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+/* Cadran (disque doré translucide cerclé). */
+.dio-clock-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(60, 40, 16, 0.5) 0%, rgba(40, 24, 40, 0.34) 64%, rgba(24, 14, 28, 0.15) 100%);
+  border: 0.5vh solid rgba(255, 210, 120, 0.55);
+  box-shadow: inset 0 0 3vh rgba(255, 205, 120, 0.28), 0 0 4vh rgba(255, 190, 95, 0.28);
+}
+/* Chiffres romains du cadran (positionnés en % par trigonométrie côté JS). */
+.dio-clock-num {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-family: 'Times New Roman', Georgia, serif;
+  font-weight: 700;
+  font-size: 2vh;
+  color: rgba(255, 224, 150, 0.92);
+  text-shadow: 0 0 4px rgba(255, 200, 100, 0.7);
+}
+/* Aiguilles (pivot au centre du cadran) qui tournent. */
+.dio-hand {
+  position: absolute;
+  left: 50%;
+  bottom: 50%;
+  transform-origin: 50% 100%;
+  border-radius: 2px;
+  background: rgba(255, 220, 140, 0.9);
+  will-change: transform;
+  animation-name: dioHandSpin;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.dio-hand--h { width: 0.8vh; height: 24%; animation-duration: 600s; }
+.dio-hand--m { width: 0.5vh; height: 34%; animation-duration: 90s; }
+/* Trotteuse fine, plus claire, rapide (temps stylisé — un tour toutes les ~10 s). */
+.dio-hand--s { width: 0.3vh; height: 40%; background: rgba(255, 245, 210, 0.95); animation-duration: 10s; }
+@keyframes dioHandSpin {
+  from { transform: translateX(-50%) rotate(0deg); }
+  to { transform: translateX(-50%) rotate(360deg); }
+}
+/* Moyeu central. */
+.dio-clock-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1.4vh;
+  height: 1.4vh;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(255, 220, 140, 0.95);
+  box-shadow: 0 0 1.4vh rgba(255, 200, 100, 0.7);
+}
+@media (prefers-reduced-motion: reduce) {
+  /* On fige l'aura, le mandala, les aiguilles et les chiffres flottants (tout reste visible). */
+  .dio-aura,
+  .dio-mandala,
+  .dio-mandala::before,
+  .dio-hand,
+  .dio-decor .voodoo-mote-rise,
+  .dio-decor .voodoo-mote-sway,
+  .dio-numeral {
+    animation: none !important;
+  }
 }
 
 /* Tabbou — grille des Combattants en attente de choix « tuer une couleur » : le

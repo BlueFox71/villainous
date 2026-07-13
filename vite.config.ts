@@ -5,7 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { readFileSync, writeFileSync, renameSync, readdirSync, existsSync, mkdirSync, copyFileSync, rmSync } from 'node:fs'
 import { resolve, join, dirname } from 'node:path'
 import { execFileSync } from 'node:child_process'
-import { lightenVillain } from './src/data/published/lighten'
+import { externalizeVillainImages } from './src/data/published/imageExternalize.mjs'
 
 /**
  * Écriture ATOMIQUE : écrit dans un fichier temporaire voisin puis `rename` sur la
@@ -357,47 +357,21 @@ function readVillainJsonPlugin(): Plugin {
 }
 
 /**
- * Plugin DEV uniquement : endpoint POST `/__publish-villain` qui écrit le JSON COMPLET
- * (AVEC images en dataURL) d'un vilain personnalisé dans `src/data/published/<id>.json`.
- * Ces fichiers sont chargés au démarrage de l'app (cf. `src/data/published/load.ts`) → le
- * vilain publié devient disponible pour TOUS les joueurs (après commit + redéploiement).
- * Corps : `{ id, json }`. Absent du build de production (`apply: 'serve'`).
+ * Plugin DEV uniquement : endpoint POST `/__publish-villain` qui écrit le JSON « chemins »
+ * (images externalisées en fichiers sous `public/cards/custom-<id>/`) d'un vilain personnalisé
+ * dans `src/data/published/<id>.json`. Ces fichiers sont chargés au démarrage de l'app (cf.
+ * `src/data/published/load.ts`) → le vilain publié devient disponible pour TOUS les joueurs
+ * (après commit + redéploiement). Corps : `{ id, json }`. Absent du build de production
+ * (`apply: 'serve'`).
  */
 function savePublishedVillainPlugin(): Plugin {
   const PUBLISHED = resolve(process.cwd(), 'src/data/published')
-  const LIGHT = resolve(PUBLISHED, 'light')
-
-  /** (Ré)écrit la version ALLÉGÉE `light/<id>.json` (sans images lourdes) depuis un objet
-   *  vilain complet. C'est cette version que la LISTE / les galeries chargent au démarrage. */
-  const writeLight = (full: Record<string, unknown>): void => {
-    if (!full || typeof full.id !== 'string' || !Array.isArray(full.cards)) return
-    const safe = (full.id as string).replace(/[^a-z0-9_-]+/gi, '-')
-    const dest = resolve(LIGHT, `${safe}.json`)
-    if (!dest.startsWith(LIGHT)) return // garde-fou : jamais écrire hors de light/
-    mkdirSync(LIGHT, { recursive: true })
-    atomicWriteFileSync(dest, JSON.stringify(lightenVillain(full), null, 2))
-  }
+  const PUBLIC = resolve(process.cwd(), 'public')
 
   return {
     name: 'publish-villain',
     apply: 'serve',
     configureServer(server) {
-      // Watcher DEV : quand un `src/data/published/<id>.json` COMPLET change (p. ex. Claude Code
-      // qui code des effets à la main), on régénère automatiquement sa version allégée pour
-      // qu'elles ne se désynchronisent jamais. On ignore le sous-dossier `light/` (évite toute
-      // boucle) et les fichiers non-vilain.
-      const isFullPublished = (file: string): boolean => {
-        const f = resolve(file)
-        return f.startsWith(PUBLISHED) && !f.startsWith(LIGHT) && f.endsWith('.json')
-      }
-      const regenLight = (file: string): void => {
-        try {
-          writeLight(JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>)
-        } catch { /* JSON illisible / à moitié écrit : on ignore */ }
-      }
-      server.watcher.on('change', (f) => { if (isFullPublished(f)) regenLight(f) })
-      server.watcher.on('add', (f) => { if (isFullPublished(f)) regenLight(f) })
-
       server.middlewares.use('/__publish-villain', (req, res) => {
         if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return }
         let body = ''
@@ -410,15 +384,19 @@ function savePublishedVillainPlugin(): Plugin {
             const dest = resolve(PUBLISHED, `${safe}.json`)
             if (!dest.startsWith(PUBLISHED)) throw new Error('chemin hors src/data/published/')
             mkdirSync(PUBLISHED, { recursive: true })
-            // Toujours écrire du JSON INDENTÉ (2 espaces), quel que soit l'appelant : les
-            // fichiers publiés sont committés, donc un save = un diff minimal et lisible
-            // (sinon une modif d'un champ réécrit tout le fichier sur une ligne).
-            let out = json
-            let parsed: Record<string, unknown> | null = null
-            try { parsed = JSON.parse(json) as Record<string, unknown>; out = JSON.stringify(parsed, null, 2) } catch { /* non-JSON : on garde le brut */ }
-            atomicWriteFileSync(dest, out)
-            // Version ALLÉGÉE (chargée par la liste au démarrage) : régénérée à chaque save.
-            if (parsed) writeLight(parsed)
+            // Le vilain reçu contient ses images en data-URL : on les écrit en fichiers sous
+            // public/cards/<id>/ (externalisation idempotente) et on ne persiste dans le JSON
+            // committé que des chemins — les fichiers publiés restent légers et lisibles en diff.
+            let parsed: Record<string, unknown>
+            try { parsed = JSON.parse(json) as Record<string, unknown> } catch { throw new Error('JSON invalide') }
+            const { villain: pathsVillain, files } = externalizeVillainImages(parsed)
+            for (const f of files) {
+              const fileDest = resolve(PUBLIC, f.path)
+              if (!fileDest.startsWith(PUBLIC)) throw new Error('chemin image hors public/')
+              mkdirSync(dirname(fileDest), { recursive: true })
+              atomicWriteFileSync(fileDest, Buffer.from(f.base64, 'base64'))
+            }
+            atomicWriteFileSync(dest, JSON.stringify(pathsVillain, null, 2))
             res.statusCode = 200
             res.setHeader('Content-Type', 'application/json')
             res.end(JSON.stringify({ path: `src/data/published/${safe}.json` }))
@@ -449,14 +427,6 @@ function savePublishedVillainPlugin(): Plugin {
               const parsed = JSON.parse(readFileSync(dest, 'utf8')) as Record<string, unknown>
               parsed.published = false
               atomicWriteFileSync(dest, JSON.stringify(parsed, null, 2))
-              // Reflète la dépublication dans la version ALLÉGÉE (celle que lit la liste), sinon
-              // le vilain y resterait marqué publié et continuerait d'apparaître.
-              const lightDest = resolve(LIGHT, `${safe}.json`)
-              if (existsSync(lightDest)) {
-                const lp = JSON.parse(readFileSync(lightDest, 'utf8')) as Record<string, unknown>
-                lp.published = false
-                atomicWriteFileSync(lightDest, JSON.stringify(lp, null, 2))
-              }
             }
             res.statusCode = 200
             res.setHeader('Content-Type', 'application/json')

@@ -30,13 +30,15 @@ export function Avatar({
   size,
   className,
 }: {
-  villain: VillainKey | null
+  /** Clé native (VillainKey) OU id d'un vilain publié (`custom-…`) — `villainPresentation`
+   *  résout les deux ; les réglages `AVATAR_TWEAK` ne concernent que les natifs. */
+  villain: string | null
   color: string
   size: number
   className?: string
 }) {
   const src = villain ? villainPresentation(villain) : undefined
-  const t = { ...AVATAR_BASE, ...(villain ? AVATAR_TWEAK[villain] : undefined) }
+  const t = { ...AVATAR_BASE, ...(villain ? AVATAR_TWEAK[villain as VillainKey] : undefined) }
   return (
     <div
       className={`relative shrink-0 overflow-hidden rounded-full border-2 border-white/25 shadow-lg ${className ?? ''}`}

@@ -434,6 +434,59 @@ function heroPresent(p: PlayerState, locationId: string, cardId: string): boolea
 
 const locName = (p: PlayerState, id: string) => p.locations.find((l) => l.id === id)?.name ?? id
 
+/** Grand Councilwoman (EN LIBERTÉ / ALOHA — option « déplacez un Héros sur un lieu
+ *  voisin ») : déplace automatiquement le Héros MOBILE le plus fort du royaume de `idx`
+ *  vers un lieu voisin (emmène ses Objets associés). No-op s'il n'y a aucun Héros
+ *  déplaçable ou aucun lieu voisin. */
+function autoRelocateHeroAdjacent(state: GameState, idx: number, sourceLabel: string): GameState {
+  const actor = state.players[idx]
+  let best: CardInstance | undefined
+  let bestLoc: LocationId | undefined
+  for (const l of actor.locations) {
+    for (const c of actor.board[l.id] ?? []) {
+      if (c.type === 'hero' && !c.attachedTo && !c.cannotBeMoved) {
+        if (!best || (c.strength ?? 0) > (best.strength ?? 0)) { best = c; bestLoc = l.id }
+      }
+    }
+  }
+  if (!best || !bestLoc) return { ...state, log: [...state.log, `${sourceLabel} : aucun Héros à déplacer.`] }
+  // Adjacence calculée dans les lieux DE LA CIBLE (idx) — pas via adjacentLocationIds, qui
+  // raisonne sur le joueur ACTIF (le lanceur de la Fatalité, dont les lieux diffèrent).
+  const locIds = actor.locations.map((l) => l.id)
+  const lockedLocs = new Set(actor.lockedLocations ?? [])
+  const bi = locIds.indexOf(bestLoc)
+  const adj = [locIds[bi - 1], locIds[bi + 1]].filter((id): id is LocationId => !!id && !lockedLocs.has(id))
+  if (adj.length === 0) return { ...state, log: [...state.log, `${sourceLabel} : aucun lieu voisin où déplacer un Héros.`] }
+  const to = adj[0]
+  const from = bestLoc
+  const hero = best
+  const moving = (actor.board[from] ?? []).filter((c) => c.instanceId === hero.instanceId || c.attachedTo === hero.instanceId)
+  const ids = new Set(moving.map((c) => c.instanceId))
+  const next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    board: {
+      ...p.board,
+      [from]: (p.board[from] ?? []).filter((c) => !ids.has(c.instanceId)),
+      [to]: [...(p.board[to] ?? []), ...moving],
+    },
+  }))
+  return triggerHeroArrival(
+    { ...next, log: [...next.log, `${sourceLabel} : **${hero.name}** est déplacé vers **${locName(next.players[idx], to)}**.`] },
+    idx,
+    to,
+  )
+}
+
+/** Grand Councilwoman — une carte « jouée gratuitement » (RAPPORT / CAPITAINE GANTU)
+ *  peut-elle être posée ? Un Objet associé à un Héros / Allié exige un hôte disponible ;
+ *  les autres types se posent toujours (sur un lieu ou sans placement). */
+function freeCardPlaceable(p: PlayerState, card: CardInstance): boolean {
+  if (card.type !== 'item') return true
+  if (card.attach === 'hero') return Object.values(p.board).flat().some((c) => c.type === 'hero' && !c.attachedTo)
+  if (card.attach === 'ally') return Object.values(p.board).flat().some((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket)
+  return true
+}
+
 /** Disperse `cards` (Alliés ou Héros du royaume `idx`) à travers `destLocs` en
  *  round-robin, chaque carte emmenant ses Objets associés. Une carte déjà sur sa
  *  destination ne bouge pas. Utilisé par les Fatalités de Gaston (la Bête, Mrs Samovar). */
@@ -5494,16 +5547,19 @@ export function resolveEffect(
       }
     }
     case 'RELOCATE_HERO_ADJACENT': {
-      // Apparition : l'acteur déplacera un de ses Héros vers un lieu voisin.
+      // Apparition (action du vilain) : l'acteur déplace un de ses Héros vers un lieu
+      // voisin. Frissons (Fatalité) : le Héros à déplacer est chez la CIBLE (idx), mais
+      // le CHOIX revient au lanceur de la Fatalité (`ctx.playedBy`), pas à la cible.
       const actor = state.players[idx]
-      const hasHero = Object.values(actor.board).some((cards) => cards.some((c) => c.type === 'hero'))
+      const chooser = ctx?.playedBy ?? idx
+      const hasHero = Object.values(actor.board).some((cards) => cards.some((c) => c.type === 'hero' && !c.cannotBeMoved))
       if (!hasHero) {
-        return { ...state, log: [...state.log, `${actor.villainName} : aucun Héros à déplacer (Apparition).`] }
+        return { ...state, log: [...state.log, `${actor.villainName} : aucun Héros à déplacer.`] }
       }
       return {
         ...state,
-        pendingHeroRelocate: { chooserIndex: idx, targetIndex: idx },
-        log: [...state.log, `${actor.villainName} : déplacez un Héros vers un lieu voisin (Apparition).`],
+        pendingHeroRelocate: { chooserIndex: chooser, targetIndex: idx, optional: effect.optional },
+        log: [...state.log, `${state.players[chooser].villainName} : ${effect.optional ? 'vous pouvez déplacer' : 'déplacez'} un Héros vers un lieu voisin.`],
       }
     }
     // --- Le Piégeur (Dead by Daylight) ---------------------------------------
@@ -5913,8 +5969,11 @@ export function resolveEffect(
       }
       if (!hero || !heroLoc) throw new Error(`Héros « ${target} » introuvable.`)
       if (hero.type !== 'hero') throw new Error(`${hero.name} n'est pas un Héros.`)
-      if ((hero.strength ?? 0) > effect.maxStrength) {
-        throw new Error(`${hero.name} (force ${hero.strength}) > ${effect.maxStrength} : non vaincu.`)
+      // Force EFFECTIVE (base + Objets associés type Boule de Feu +2, auras, jetons…) :
+      // un Héros de base 3 boosté à 5 n'est PAS « de force 3 ou moins ».
+      const effStr = effectiveStrength(state, idx, target) ?? hero.strength ?? 0
+      if (effStr > effect.maxStrength) {
+        throw new Error(`${hero.name} (force ${effStr}) > ${effect.maxStrength} : non vaincu.`)
       }
       // Pyramid Head — Protection de l'âme : Héros inéliminable tant que l'Objet lui est associé.
       if ((actor.board[heroLoc] ?? []).some((c) => c.attachedTo === hero!.instanceId && c.shieldsHostFromVanquish)) {
@@ -6440,19 +6499,18 @@ export function resolveEffect(
       return triggerHeroArrival(next, idx, placeLoc)
     }
     case 'FLAYER_WILL_SCRY': {
-      // WILL SOUS EMPRISE : regarde + réordonne le dessus de la pioche Méchant (interactif,
-      // via pendingFateReorder deck:'villain'). (Option « deck Fatalité +1 » à venir.)
+      // WILL SOUS EMPRISE : regarde + réordonne le dessus du deck Méchant OU Fatalité (ce
+      // dernier coûte +1 Pouvoir), jusqu'à `count` cartes (ou moins si le deck est plus
+      // petit). Ouvre le CHOIX du deck (pendingScryDeckChoice) ; la réorganisation suit
+      // via pendingFateReorder. No-op seulement si LES DEUX decks sont vides.
       const actor = state.players[idx]
-      if (actor.deck.length < 2) {
-        return { ...state, log: [...state.log, `${actor.villainName} : pas assez de cartes à réorganiser.`] }
+      if (actor.deck.length === 0 && actor.fateDeck.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : aucune carte à réorganiser (decks vides).`] }
       }
-      const top = actor.deck.slice(0, effect.count)
-      const rest = actor.deck.slice(top.length)
-      const next = updatePlayer(state, idx, (p) => ({ ...p, deck: rest }))
       return {
-        ...next,
-        pendingFateReorder: { playerIndex: idx, cards: top, deck: 'villain' },
-        log: [...next.log, `${actor.villainName} regarde les ${top.length} premières cartes de sa pioche Méchant.`],
+        ...state,
+        pendingScryDeckChoice: { playerIndex: idx, count: effect.count, fateExtraCost: 1 },
+        log: [...state.log, `${actor.villainName} (Will sous emprise) : choisissez le deck à consulter.`],
       }
     }
     case 'MOVE_ALLY_TO_HOST': {
@@ -9757,7 +9815,7 @@ export function resolveEffect(
       const loc = ctx.hostLocationId
       const actor = state.players[idx]
       const items = (actor.board[loc] ?? []).filter(
-        (c) => c.type === 'item' && !c.attachedTo && !(effect.excludePiratage && c.isPiratage),
+        (c) => c.type === 'item' && !c.attachedTo && !c.cannotBeDiscarded && !(effect.excludePiratage && c.isPiratage),
       )
       if (items.length === 0) {
         return { ...state, log: [...state.log, `${actor.villainName} : aucun Objet à défausser sur ce lieu.`] }
@@ -9795,9 +9853,10 @@ export function resolveEffect(
     }
     case 'FLAYER_PLACE_TUNNEL': {
       // Le Flagelleur Mental — Tunnel de Hawkins (résolu AVANT la pose de l'Objet) :
-      // défausse les Alliés choisis (ctx.allyInstanceIds, + leurs Objets associés) où qu'ils
-      // soient, puis — si cette pose porte le nombre de Tunnels à `rewardAtCount` — gagne
-      // `rewardPower` Pouvoir. La sélection est validée en amont (applyPlayCard).
+      // défausse les Alliés choisis (ctx.allyInstanceIds, + leurs Objets associés) — tous
+      // présents sur le lieu de pose —, puis, si cette pose porte le nombre de Tunnels à
+      // `rewardAtCount`, gagne `rewardPower` Pouvoir. La sélection est validée en amont
+      // (applyPlayCard : mêmes Alliés, même lieu que `to`).
       const actor = state.players[idx]
       const chosen = new Set(ctx?.allyInstanceIds ?? [])
       const board: Record<string, CardInstance[]> = { ...actor.board }
@@ -10153,13 +10212,16 @@ export function resolveEffect(
       const actor = state.players[idx]
       const onlyType = effect.onlyType
       const prefer = effect.preferCardIds ?? []
+      // ÇA PIQUE : ne vise qu'un Allié de FORCE (effective) ≤ maxStrength.
+      const maxStr = effect.maxStrength
       let pickLoc: LocationId | undefined
       let pick: CardInstance | undefined
       let bestScore = -1
       for (const l of actor.locations) {
         for (const c of actor.board[l.id] ?? []) {
-          if (c.attachedTo) continue
+          if (c.attachedTo || c.cannotBeDiscarded) continue
           if (onlyType ? c.type !== onlyType : c.type !== 'ally' && c.type !== 'item') continue
+          if (maxStr !== undefined && c.type === 'ally' && (effectiveStrength(state, idx, c.instanceId) ?? c.strength ?? 0) > maxStr) continue
           let s = c.type === 'ally' ? 1000 + (c.strength ?? 0) : (c.cost ?? 0)
           if (prefer.includes(c.cardId)) s += 100000
           if (s > bestScore) { bestScore = s; pick = c; pickLoc = l.id }
@@ -10181,6 +10243,203 @@ export function resolveEffect(
         discard: [...p.discard, ...removed],
       }))
       return { ...next, log: [...next.log, `Minnie : ${actor.villainName} défausse **${target.name}**.`] }
+    }
+    // ── Grand Councilwoman (capture de STITCH) ───────────────────────────────
+    case 'ATTACH_HERO_TO_ITEM': {
+      // ENFERMÉ : associe le Héros (STITCH) à l'Objet (la CAGE) s'ils sont co-localisés.
+      const actor = state.players[idx]
+      let heroLoc: LocationId | undefined
+      let hero: CardInstance | undefined
+      let cage: CardInstance | undefined
+      for (const l of actor.locations) {
+        const cards = actor.board[l.id] ?? []
+        const h = cards.find((c) => c.type === 'hero' && c.cardId === effect.heroCardId && !c.attachedTo)
+        const it = cards.find((c) => c.type === 'item' && c.cardId === effect.itemCardId && !c.attachedTo)
+        if (h && it) { heroLoc = l.id; hero = h; cage = it; break }
+      }
+      if (!hero || !cage || !heroLoc) {
+        return { ...state, log: [...state.log, `${actor.villainName} (Enfermé) : la CAGE et STITCH ne sont pas sur le même lieu.`] }
+      }
+      const cageId = cage.instanceId
+      const next = patchCard(state, idx, hero.instanceId, (c) => ({ ...c, attachedTo: cageId }))
+      return { ...next, log: [...next.log, `${actor.villainName} enferme **${hero.name}** dans la CAGE !`] }
+    }
+    case 'FREE_HERO_OR_RELOCATE': {
+      // EN LIBERTÉ (Fatalité) : libère STITCH de la CAGE s'il est enfermé, sinon déplace
+      // un Héros vers un lieu voisin. Auto-résolu par le lanceur.
+      const actor = state.players[idx]
+      let caged: CardInstance | undefined
+      for (const l of actor.locations) {
+        const h = (actor.board[l.id] ?? []).find((c) => c.type === 'hero' && c.cardId === effect.heroCardId && c.attachedTo)
+        if (h) { caged = h; break }
+      }
+      if (caged) {
+        const next = patchCard(state, idx, caged.instanceId, (c) => ({ ...c, attachedTo: undefined }))
+        return { ...next, log: [...next.log, `En liberté : **${caged.name}** s'échappe de la CAGE !`] }
+      }
+      return autoRelocateHeroAdjacent(state, idx, 'En liberté')
+    }
+    case 'TRANSFORM_ALLY_OR_RELOCATE': {
+      // ALOHA (Fatalité) : transforme Dr Jumba / Peakley en Héros, sinon déplace un Héros
+      // voisin. Auto-résolu par le lanceur : transforme l'Allié le plus fort disponible.
+      const actor = state.players[idx]
+      let ally: CardInstance | undefined
+      for (const l of actor.locations) {
+        for (const c of actor.board[l.id] ?? []) {
+          if (c.type === 'ally' && !c.attachedTo && effect.allyCardIds.includes(c.cardId)) {
+            if (!ally || (c.strength ?? 0) > (ally.strength ?? 0)) ally = c
+          }
+        }
+      }
+      if (ally) {
+        const transformed = ally
+        const next = patchCard(state, idx, transformed.instanceId, (c) => ({ ...c, type: 'hero' as const }))
+        return { ...next, log: [...next.log, `Aloha : **${transformed.name}** est transformé en Héros !`] }
+      }
+      return autoRelocateHeroAdjacent(state, idx, 'Aloha')
+    }
+    case 'REVEAL_UNTIL_TYPE_PLAY_FREE': {
+      // RAPPORT : dévoile la pioche Méchant jusqu'à une carte du type voulu (un Objet),
+      // la joue GRATUITEMENT (placement interactif via pendingFreePlayCard), défausse le reste.
+      const actor = state.players[idx]
+      let deck = actor.deck
+      let disc = actor.discard
+      let s = state.rngState
+      const total = deck.length + disc.length
+      const revealed: CardInstance[] = []
+      let found: CardInstance | undefined
+      while (revealed.length < total) {
+        if (deck.length === 0) {
+          if (disc.length === 0) break
+          const r = shuffle(disc, s)
+          deck = r.result
+          s = r.state
+          disc = []
+        }
+        const [top, ...rest] = deck
+        deck = rest
+        revealed.push(top)
+        if (top.type === effect.cardType) { found = top; break }
+      }
+      if (revealed.length === 0) return { ...state, log: [...state.log, `${actor.villainName} : pioche et défausse vides (Rapport !).`] }
+      const others = found ? revealed.filter((c) => c.instanceId !== found!.instanceId) : revealed
+      let next2 = updatePlayer({ ...state, rngState: s }, idx, (p) => ({ ...p, deck, discard: [...disc, ...others] }))
+      if (!found) return { ...next2, log: [...next2.log, `${actor.villainName} : aucun Objet trouvé, cartes dévoilées défaussées (Rapport !).`] }
+      // Objet non posable (ex. Déguisement sans Allié) : il part en défausse.
+      if (!freeCardPlaceable(next2.players[idx], found)) {
+        const wasted = found
+        next2 = updatePlayer(next2, idx, (p) => ({ ...p, discard: [...p.discard, wasted] }))
+        return { ...next2, log: [...next2.log, `${actor.villainName} dévoile **${wasted.name}** mais ne peut pas le poser : défaussé (Rapport !).`] }
+      }
+      return {
+        ...next2,
+        pendingFreePlayCard: { playerIndex: idx, card: found, label: 'Rapport !' },
+        log: [...next2.log, `${actor.villainName} dévoile **${found.name}** : à jouer gratuitement.`],
+      }
+    }
+    case 'PLAY_FROM_DISCARD_FREE': {
+      // CAPITAINE GANTU : (facultatif) choisir une carte de la défausse Méchant et la jouer
+      // gratuitement. On exclut les Conditions (injouables pendant son propre tour).
+      const actor = state.players[idx]
+      const candidates = actor.discard.filter((c) => c.type !== 'condition' && freeCardPlaceable(actor, c))
+      if (candidates.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} (Capitaine Gantu) : aucune carte jouable dans la défausse.`] }
+      }
+      return {
+        ...state,
+        pendingPickDiscardToPlay: { playerIndex: idx, candidateIds: candidates.map((c) => c.instanceId) },
+        log: [...state.log, `${actor.villainName} (Capitaine Gantu) : jouez gratuitement une carte de votre défausse.`],
+      }
+    }
+    case 'FATE_DISCARD_OR_MOVE_ITEM': {
+      // BOUTEILLE MORDUE (Fatalité) : défausse OU déplace un Objet (non associé) du royaume
+      // de la cible. Auto (lanceur) : défausse l'Objet le plus gênant ; si le seul Objet est
+      // indéfaussable (la CAGE), on le déplace vers un lieu voisin (perturbation).
+      const actor = state.players[idx]
+      const items: { c: CardInstance; loc: LocationId }[] = []
+      for (const l of actor.locations) {
+        for (const c of actor.board[l.id] ?? []) {
+          if (c.type === 'item' && !c.attachedTo) items.push({ c, loc: l.id })
+        }
+      }
+      if (items.length === 0) return { ...state, log: [...state.log, `Bouteille mordue : aucun Objet à défausser ou déplacer.`] }
+      const discardable = items.filter(({ c }) => !c.cannotBeDiscarded)
+      if (discardable.length > 0) {
+        const pick = [...discardable].sort(
+          (a, b) => (b.c.fateRemovalPriority ?? b.c.cost ?? 0) - (a.c.fateRemovalPriority ?? a.c.cost ?? 0),
+        )[0]
+        const ids = new Set([
+          pick.c.instanceId,
+          ...(actor.board[pick.loc] ?? []).filter((c) => c.attachedTo === pick.c.instanceId).map((c) => c.instanceId),
+        ])
+        const removed = (actor.board[pick.loc] ?? []).filter((c) => ids.has(c.instanceId))
+        const next = updatePlayer(state, idx, (p) => ({
+          ...p,
+          board: { ...p.board, [pick.loc]: (p.board[pick.loc] ?? []).filter((c) => !ids.has(c.instanceId)) },
+          discard: [...p.discard, ...removed.map((c) => ({ ...c, attachedTo: undefined }))],
+        }))
+        return { ...next, log: [...next.log, `Bouteille mordue : ${actor.villainName} défausse **${pick.c.name}**.`] }
+      }
+      // Uniquement des Objets indéfaussables (la CAGE) → on en déplace un vers un voisin.
+      const pick = items[0]
+      const adj = adjacentLocationIds(state, pick.loc)
+      if (adj.length === 0) return { ...state, log: [...state.log, `Bouteille mordue : aucun lieu voisin où déplacer un Objet.`] }
+      const to = adj[0]
+      const moving = (actor.board[pick.loc] ?? []).filter((c) => c.instanceId === pick.c.instanceId || c.attachedTo === pick.c.instanceId)
+      const mIds = new Set(moving.map((c) => c.instanceId))
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        board: {
+          ...p.board,
+          [pick.loc]: (p.board[pick.loc] ?? []).filter((c) => !mIds.has(c.instanceId)),
+          [to]: [...(p.board[to] ?? []), ...moving],
+        },
+      }))
+      return { ...next, log: [...next.log, `Bouteille mordue : ${actor.villainName} déplace **${pick.c.name}** vers **${locName(next.players[idx], to)}**.`] }
+    }
+    case 'REVEAL_FATE_UNTIL_HERO_CHOICE': {
+      // STITCH EN VUE (`mustPlay`) / ATTRAPÉ : dévoile la pioche Fatalité jusqu'au 1er Héros,
+      // défausse les autres cartes dévoilées, puis pose le Héros. Héros à `forcedFateLocation`
+      // (STITCH → Maison de Lilo) : posé d'office. Sinon : choix du lieu (pendingFetchedHero).
+      const actor = state.players[idx]
+      let deck = actor.fateDeck
+      let disc = actor.fateDiscard
+      let s = state.rngState
+      const total = deck.length + disc.length
+      const revealed: CardInstance[] = []
+      let hero: CardInstance | undefined
+      while (revealed.length < total) {
+        if (deck.length === 0) {
+          if (disc.length === 0) break
+          const r = shuffle(disc, s)
+          deck = r.result
+          s = r.state
+          disc = []
+        }
+        const [top, ...rest] = deck
+        deck = rest
+        revealed.push(top)
+        if (top.type === 'hero') { hero = top; break }
+      }
+      if (revealed.length === 0) return { ...state, log: [...state.log, `${actor.villainName} : pioche et défausse Fatalité vides.`] }
+      const others = hero ? revealed.filter((c) => c.instanceId !== hero!.instanceId) : revealed
+      let next = updatePlayer({ ...state, rngState: s }, idx, (p) => ({ ...p, fateDeck: deck, fateDiscard: [...disc, ...others] }))
+      if (!hero) return { ...next, log: [...next.log, `${actor.villainName} : aucun Héros trouvé, cartes dévoilées défaussées.`] }
+      // Héros à lieu imposé (STITCH → Maison de Lilo) : posé d'office.
+      if (hero.forcedFateLocation) {
+        const loc = hero.forcedFateLocation
+        const placed = hero
+        next = updatePlayer(next, idx, (p) => ({ ...p, board: { ...p.board, [loc]: [...(p.board[loc] ?? []), placed] } }))
+        next = triggerHeroArrival(next, idx, loc)
+        next = { ...next, log: [...next.log, `${actor.villainName} pose **${placed.name}** sur **${locName(next.players[idx], loc)}**.`] }
+        return resolveEffects(next, placed.onPlace ?? [], { actorIndex: idx, hostInstanceId: placed.instanceId, hostLocationId: loc })
+      }
+      // Sinon : choix interactif du lieu (jouer) — ou défausser si non `mustPlay` (ATTRAPÉ).
+      return {
+        ...next,
+        pendingFetchedHero: { playerIndex: idx, hero, discarded: [], mustPlay: effect.mustPlay },
+        log: [...next.log, `${actor.villainName} dévoile **${hero.name}**.`],
+      }
     }
     case 'UNTRAP_HERO': {
       // Madame de Trémaine — Bibbidi-Bobbidi-Boo : retire le jeton « piégé » d'un Héros

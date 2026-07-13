@@ -121,7 +121,9 @@ export function HeroRow({
         const heroes = cellCards.filter(
           (c) =>
             // Lotso — Buzz l'Éclair en mode GARDIEN siège dans la zone du haut (côté Héros).
-            ((c.type === 'hero' && !c.hypnotized && !c.loved) || c.fromFate || (c.isBuzz && c.buzzMode === 'guardian')) &&
+            // Grand Councilwoman — STITCH enfermé (attaché à la CAGE) est affiché associé à
+            // l'Objet dans la zone Méchant, pas en Héros libre au-dessus : on l'exclut ici.
+            ((c.type === 'hero' && !c.hypnotized && !c.loved && !c.attachedTo) || c.fromFate || (c.isBuzz && c.buzzMode === 'guardian')) &&
             !hiddenInstanceIds.includes(c.instanceId),
         )
         const previewPos =

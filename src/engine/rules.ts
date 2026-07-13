@@ -173,6 +173,7 @@ export function coveredTopActionIdsAt(player: PlayerState, locationId: LocationI
       // Le Piégeur — un Survivant FACE CACHÉE (non révélé) ne recouvre rien ; une fois
       // révélé, il recouvre la rangée du haut comme un Héros classique.
       (c.type === 'hero' &&
+        !c.attachedTo && // Grand Councilwoman — STITCH enfermé (associé à la CAGE) ne recouvre plus rien.
         !c.hypnotized &&
         !c.loved &&
         !c.pokemonKO &&
@@ -1378,6 +1379,7 @@ export function realmRelocateCandidates(
     for (const c of player.board[loc.id] ?? []) {
       if (
         c.type === 'hero' &&
+        !c.cannotBeMoved &&
         (c.strength ?? 0) <= maxStrength &&
         (c.strength ?? 0) >= minStr &&
         !(c.forbiddenLocations ?? []).includes(destinationId)
@@ -1648,23 +1650,25 @@ export function flayerGateConditionMet(
   )
 }
 
-/** Le Flagelleur Mental — Alliés du royaume DÉFAUSSABLES pour payer un Tunnel de Hawkins
- *  (Alliés non associés, hors arceaux/indéfaussables, et hors Billy `cannotDiscardForTunnel`). */
-export function flayerTunnelDiscardableAllies(p: PlayerState): CardInstance[] {
-  return Object.values(p.board)
-    .flat()
-    .filter(
-      (c) =>
-        c.type === 'ally' &&
-        !c.attachedTo &&
-        !c.isWicket &&
-        !c.cannotBeDiscarded &&
-        !c.cannotDiscardForTunnel,
-    )
+/** Le Flagelleur Mental — Alliés DÉFAUSSABLES pour payer un Tunnel de Hawkins, restreints à
+ *  UN lieu donné (Alliés non associés, hors arceaux/indéfaussables, et hors Billy
+ *  `cannotDiscardForTunnel`) : les Alliés sacrifiés viennent d'un même lieu, où le Tunnel
+ *  sera posé. */
+export function flayerTunnelDiscardableAlliesAt(p: PlayerState, locationId: string): CardInstance[] {
+  return (p.board[locationId] ?? []).filter(
+    (c) =>
+      c.type === 'ally' &&
+      !c.attachedTo &&
+      !c.isWicket &&
+      !c.cannotBeDiscarded &&
+      !c.cannotDiscardForTunnel,
+  )
 }
 
-/** Le Flagelleur Mental — nombre d'Alliés à défausser pour poser un Tunnel : la base de
- *  l'effet, +1 par Héros `surchargeHeroCardId` (Onze) présent dans le royaume. */
+/** Le Flagelleur Mental — nombre d'Alliés REQUIS sur le lieu pour poser un Tunnel : la base
+ *  de l'effet, +1 par Héros `surchargeHeroCardId` (Onze) présent dans le royaume. C'est le
+ *  nombre d'Alliés qui doivent être PRÉSENTS (Billy compris) ; le nombre réellement DÉFAUSSÉ
+ *  est donné par `flayerTunnelDiscardsNeededAt` (Billy compte mais n'est jamais défaussé). */
 export function flayerTunnelRequiredAllies(
   p: PlayerState,
   effect: { baseAllies: number; surchargeHeroCardId: string },
@@ -1673,6 +1677,22 @@ export function flayerTunnelRequiredAllies(
     .flat()
     .some((c) => c.type === 'hero' && c.cardId === effect.surchargeHeroCardId)
   return effect.baseAllies + (onzePresent ? 1 : 0)
+}
+
+/** Le Flagelleur Mental — nombre d'Alliés à DÉFAUSSER pour poser un Tunnel sur `locationId` :
+ *  le nombre requis (`flayerTunnelRequiredAllies`) diminué des Alliés PROTÉGÉS présents sur ce
+ *  lieu (Billy `cannotDiscardForTunnel`), qui COMPTENT parmi les Alliés requis mais ne sont
+ *  jamais défaussés. Jamais négatif. Ex. Billy + 1 Vignes (requis 2) → 1 seul à défausser. */
+export function flayerTunnelDiscardsNeededAt(
+  p: PlayerState,
+  locationId: string,
+  effect: { baseAllies: number; surchargeHeroCardId: string },
+): number {
+  const required = flayerTunnelRequiredAllies(p, effect)
+  const protectedPresent = (p.board[locationId] ?? []).filter(
+    (c) => c.type === 'ally' && !c.attachedTo && !c.isWicket && c.cannotDiscardForTunnel,
+  ).length
+  return Math.max(0, required - protectedPresent)
 }
 
 /** Le joueur `playerIndex` (défaut : joueur actif) a-t-il atteint son objectif de
@@ -1875,6 +1895,15 @@ export function hasReachedObjective(state: GameState, playerIndex: number = stat
       const obj = p.objective
       const cell = p.board[obj.locationId] ?? []
       return obj.itemCardIds.every((id) => cell.some((c) => c.cardId === id && !c.attachedTo))
+    }
+    case 'HERO_CAGED': {
+      // Grand Councilwoman : STITCH (heroCardId) associé à la CAGE (itemCardId), et la
+      // CAGE se trouve sur locationId (le Vaisseau de Gantu).
+      const obj = p.objective
+      const cell = p.board[obj.locationId] ?? []
+      const cage = cell.find((c) => c.type === 'item' && c.cardId === obj.itemCardId && !c.attachedTo)
+      if (!cage) return false
+      return cell.some((c) => c.type === 'hero' && c.cardId === obj.heroCardId && c.attachedTo === cage.instanceId)
     }
     case 'UNTRAPPED_TITANS_AT_LOCATION': {
       const obj = p.objective

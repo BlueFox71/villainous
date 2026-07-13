@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { VILLAIN_REGISTRY, type VillainKey } from '../store/gameStore'
+import { VILLAIN_REGISTRY, villainEntry, type VillainKey } from '../store/gameStore'
+import { useCustomVillainStore } from '../store/customVillainStore'
 import { useStatsStore, type VillainStats } from '../store/statsStore'
-import { usePlayerStore, GENERIC_AVATAR_COLORS, VILLAIN_AVATAR_COLORS } from '../store/playerStore'
+import { usePlayerStore, GENERIC_AVATAR_COLORS } from '../store/playerStore'
 import { villainPortrait } from '../villainArt'
 import { VILLAIN_COLOR } from '../villainColors'
 import { byRelease } from '../villainOrder'
@@ -34,9 +35,9 @@ function winRate(s: VillainStats): number {
   return games === 0 ? 0 : Math.round((s.wins / games) * 100)
 }
 
-/** Nom affichable d'un vilain depuis sa clé (repli sur la clé brute). */
+/** Nom affichable d'un vilain depuis sa clé (natif OU publié `custom-…`), repli sur la clé. */
 function villainName(key: string): string {
-  return (VILLAIN_REGISTRY as Record<string, { def: { name: string } }>)[key]?.def.name ?? key
+  return villainEntry(key)?.def.name ?? key
 }
 
 /** Descripteur d'un camp dans l'historique : libellé + avatar (vilain + couleur). */
@@ -135,7 +136,7 @@ export function Profile({ onBack }: Props) {
   // Bascule entre l'affichage visuel du profil et son édition (avatar + nom).
   const [editing, setEditing] = useState(false)
   // Vilain survolé dans la grille de choix d'avatar (pour afficher sa couleur en bordure).
-  const [hoveredVillain, setHoveredVillain] = useState<VillainKey | null>(null)
+  const [hoveredVillain, setHoveredVillain] = useState<string | null>(null)
   // Pastille de couleur survolée (pour illuminer le(s) vilain(s) associé(s)).
   const [hoveredSwatch, setHoveredSwatch] = useState<string | null>(null)
 
@@ -147,17 +148,37 @@ export function Profile({ onBack }: Props) {
   const setAvatarVillain = usePlayerStore((s) => s.setAvatarVillain)
   const setAvatarColor = usePlayerStore((s) => s.setAvatarColor)
 
-  // Vilains dans l'ordre de SORTIE (comme la galerie), pour l'avatar et les stats.
-  const villains = (Object.entries(VILLAIN_REGISTRY) as [
-    VillainKey,
-    (typeof VILLAIN_REGISTRY)[VillainKey],
-  ][]).sort(([a], [b]) => byRelease(a, b))
+  // Vilains publiés de l'Atelier (réactif : réenregistrés → couleur/portrait/présentation
+  // dispo). Ils rejoignent les natifs partout où on choisit/affiche un vilain (avatar, stats).
+  const publishedCustoms = useCustomVillainStore((s) => s.villains).filter((v) => v.published)
+
+  // Vilains (natifs triés par sortie, puis publiés) pour l'avatar et les stats. Forme
+  // commune `[clé, { def:{ id, name } }]` : `id` sert à retrouver couleur/portrait.
+  type VEntry = [string, { def: { id: string; name: string } }]
+  const villains: VEntry[] = [
+    ...(Object.entries(VILLAIN_REGISTRY) as [VillainKey, (typeof VILLAIN_REGISTRY)[VillainKey]][])
+      .sort(([a], [b]) => byRelease(a, b))
+      .map(([k, v]): VEntry => [k, { def: { id: v.def.id, name: v.def.name } }]),
+    ...publishedCustoms.map((v): VEntry => [v.id, { def: { id: v.id, name: v.name } }]),
+  ]
+
+  // Palette des couleurs thématiques (DYNAMIQUE : inclut les customs publiés, dont la
+  // couleur n'est ajoutée à VILLAIN_COLOR qu'au runtime — la constante statique de
+  // playerStore les manquait). Dédoublonnée, minuscule, triée.
+  const villainColors: string[] = [
+    ...new Set(
+      villains
+        .map(([, v]) => VILLAIN_COLOR[v.def.id]?.toLowerCase())
+        .filter((c): c is string => !!c),
+    ),
+  ].sort()
+
+  // id de def d'un vilain par sa clé (natif : via le registre ; publié : la clé EST l'id).
+  const defIdOf = (key: string): string => villains.find(([k]) => k === key)?.[1].def.id ?? key
 
   // Couleur thématique du vilain survolé (minuscule, pour matcher les pastilles
   // de la palette qui sont normalisées en minuscules).
-  const hoveredColor = hoveredVillain
-    ? VILLAIN_COLOR[VILLAIN_REGISTRY[hoveredVillain].def.id]?.toLowerCase()
-    : undefined
+  const hoveredColor = hoveredVillain ? VILLAIN_COLOR[defIdOf(hoveredVillain)]?.toLowerCase() : undefined
 
   // Une pastille de couleur de fond : sélectionnée (anneau blanc), associée au vilain
   // survolé (doré, en miroir), sinon doré au survol direct.
@@ -341,7 +362,7 @@ export function Profile({ onBack }: Props) {
                         Couleur de fond — méchants
                       </span>
                       <div className="flex flex-wrap gap-2">
-                        {VILLAIN_AVATAR_COLORS.map(renderSwatch)}
+                        {villainColors.map(renderSwatch)}
                       </div>
                     </div>
                   </div>

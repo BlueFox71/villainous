@@ -405,6 +405,12 @@ export type ObjectiveDef =
    *  `blockerHeroCardId` (Adam Warlock) est présent dans le royaume, la victoire est
    *  impossible. */
   | { type: 'THANOS_STONES'; blockerHeroCardId?: string }
+  /** Grand Councilwoman : au début de son tour, le Héros `heroCardId` (STITCH) est
+   *  ENFERMÉ — associé (attachedTo) à l'Objet `itemCardId` (la CAGE) — ET la CAGE se
+   *  trouve sur `locationId` (le Vaisseau de Gantu). STITCH est immobile en tant que
+   *  Héros ; une fois enfermé, il est transporté par la CAGE (on déplace la CAGE, avec
+   *  STITCH dedans, jusqu'au Vaisseau de Gantu). */
+  | { type: 'HERO_CAGED'; heroCardId: string; itemCardId: string; locationId: LocationId }
 
 /** Pat Hibulaire — les 5 types de tuile Objectif (4 tirés par partie) :
  *  - `win-big`        : gagner ≥4 Pouvoir via UNE SEULE Petite Partie ? sur le lieu ;
@@ -1350,8 +1356,9 @@ export type Effect =
   /** Au prochain tour, le déplacement n'est pas obligatoire. Disparition. */
   | { type: 'GRANT_SKIP_NEXT_MOVE' }
   /** Met en attente un déplacement de Héros vers un lieu voisin : l'acteur choisit
-   *  un de SES Héros et un lieu adjacent (Apparition). */
-  | { type: 'RELOCATE_HERO_ADJACENT' }
+   *  un de SES Héros et un lieu adjacent (Apparition). `optional` (Co‑Pilote — « Vous
+   *  pouvez déplacer un Héros ») : le déplacement peut être décliné (skip). */
+  | { type: 'RELOCATE_HERO_ADJACENT'; optional?: boolean }
   /** Met en attente une téléportation : l'acteur déplace son pion vers un lieu qui
    *  porte un Héros (sans Lampe de poche), puis y joue normalement. Slenderman :
    *  Téléportation. */
@@ -1980,7 +1987,7 @@ export type Effect =
   /** Défausse l'Allié le plus fort, à défaut l'Objet le plus cher (Minnie). `onlyType`
    *  restreint la cible (Sweet Nightingale → 'ally' ; Jaq → 'item') ; `preferCardIds`
    *  privilégie certaines cibles (Jaq → Cloches/Canne). */
-  | { type: 'FATE_DISCARD_STRONGEST_ALLY_OR_ITEM'; onlyType?: 'ally' | 'item'; preferCardIds?: string[] }
+  | { type: 'FATE_DISCARD_STRONGEST_ALLY_OR_ITEM'; onlyType?: 'ally' | 'item'; preferCardIds?: string[]; maxStrength?: number }
   /** Madame de Trémaine — Bibbidi-Bobbidi-Boo : retire le jeton « piégé » d'un Héros
    *  du royaume de la cible (il redevient actif). Sans Héros piégé, aucun effet. */
   | { type: 'UNTRAP_HERO' }
@@ -2003,6 +2010,37 @@ export type Effect =
    *  la cible — déplace une tuile non remplie vers un lieu voisin libre, ou l'échange
    *  avec une tuile voisine (auto). */
   | { type: 'FATE_DISTURB_GOAL' }
+  // ── Grand Councilwoman (capture de STITCH) ───────────────────────────────
+  /** ENFERMÉ : associe le Héros `heroCardId` (STITCH) à l'Objet `itemCardId` (la CAGE)
+   *  s'ils se trouvent sur le même lieu (attachedTo = la CAGE). Le Héros devient alors
+   *  « transporté » par la CAGE (il la suit quand elle est déplacée). Sans effet /
+   *  injouable s'ils ne sont pas co-localisés (garde-fou moteur). */
+  | { type: 'ATTACH_HERO_TO_ITEM'; heroCardId: string; itemCardId: string }
+  /** EN LIBERTÉ (Fatalité) : au choix — LIBÈRE le Héros `heroCardId` (STITCH) de l'Objet
+   *  auquel il est associé (le détache de la CAGE) OU déplace un Héros vers un lieu voisin.
+   *  Auto-résolu par le lanceur : libère STITCH s'il est enfermé, sinon relocalise un Héros. */
+  | { type: 'FREE_HERO_OR_RELOCATE'; heroCardId: string }
+  /** ALOHA (Fatalité) : au choix — TRANSFORME un Allié de `allyCardIds` (Dr Jumba / Peakley)
+   *  présent dans le royaume de la cible en Héros Fatalité (garde sa force, recouvre les
+   *  actions, contrôlé par l'adversaire) OU déplace un Héros vers un lieu voisin. Auto
+   *  (lanceur) : transforme l'Allié le plus fort disponible, sinon relocalise un Héros. */
+  | { type: 'TRANSFORM_ALLY_OR_RELOCATE'; allyCardIds: string[] }
+  /** RAPPORT : dévoile la pioche Méchant JUSQU'À une carte de type `cardType`, la JOUE
+   *  gratuitement (placement interactif), défausse les autres cartes dévoilées.
+   *  Généralise REVEAL_UNTIL_ALLY_PLAY_FREE à un type de carte quelconque. */
+  | { type: 'REVEAL_UNTIL_TYPE_PLAY_FREE'; cardType: CardType }
+  /** CAPITAINE GANTU : (facultatif) choisir une carte de sa défausse Méchant et la JOUER
+   *  gratuitement (placement interactif). Sans effet si la défausse est vide. */
+  | { type: 'PLAY_FROM_DISCARD_FREE' }
+  /** BOUTEILLE MORDUE (Fatalité) : défausse OU déplace un Objet (non associé) du royaume
+   *  de la cible. Auto (lanceur) : défausse l'Objet le plus gênant, à défaut le déplace. */
+  | { type: 'FATE_DISCARD_OR_MOVE_ITEM' }
+  /** STITCH EN VUE / ATTRAPÉ : dévoile la pioche Fatalité JUSQU'AU 1er Héros, DÉFAUSSE les
+   *  autres cartes dévoilées, puis pose le Héros. S'il porte `forcedFateLocation` (STITCH →
+   *  Maison de Lilo), il y est posé d'office ; sinon le joueur choisit le lieu (pendingFetchedHero).
+   *  `mustPlay` (STITCH EN VUE : « Jouez-le ») force la pose ; sans lui (ATTRAPÉ : « Jouez-le
+   *  ou défaussez-le ») le joueur peut défausser le Héros. */
+  | { type: 'REVEAL_FATE_UNTIL_HERO_CHOICE'; mustPlay?: boolean }
 
 /**
  * Un exemplaire physique d'une carte en jeu. Comme une même carte existe en
@@ -2204,6 +2242,10 @@ export interface CardInstance {
   /** Lieux où ce Héros ne peut être ni posé ni déplacé (ex. Dame Gertrude →
    *  jamais sur la Prison). Vide / absent = aucune restriction. */
   forbiddenLocations?: LocationId[]
+  /** Héros qui ne peut JAMAIS être déplacé en tant que Héros (Grand Councilwoman —
+   *  STITCH). Exclu de toutes les relocalisations de Héros. Une fois enfermé (associé
+   *  à la CAGE via `attachedTo`), il est transporté quand la CAGE est déplacée. */
+  cannotBeMoved?: boolean
   /** Jetons de pouvoir verrouillés sur cette carte (Petit Jean +4 prélevés au
    *  PJ, Voler aux Riches ≤4 prélevés sur un Héros). Restitués au joueur quand
    *  la carte est défaussée/vaincue (mécanique combat — bloc B). */
@@ -3464,6 +3506,10 @@ export interface GameState {
    *  « Activer une capacité » et une action « Éliminer un Héros » (RESOLVE_ACTIVATE_OR_VANQUISH).
    *  N'apparaît que si LES DEUX sont possibles. */
   pendingActivateOrVanquish?: { playerIndex: number } | null
+  /** Le Flagelleur Mental — Will sous emprise : `playerIndex` choisit quel deck consulter
+   *  (Méchant = gratuit, Fatalité = `fateExtraCost` Pouvoir en plus) avant de regarder ses
+   *  `count` premières cartes et de les réordonner (RESOLVE_SCRY_DECK_CHOICE → pendingFateReorder). */
+  pendingScryDeckChoice?: { playerIndex: number; count: number; fateExtraCost: number } | null
   /** Shere Khan — C'est moi, Shere Khan : `playerIndex` choisit quel jeton Feu retirer
    *  (lieu + action) quand il y en a plusieurs (RESOLVE_REMOVE_FIRE). */
   pendingRemoveFire?: { playerIndex: number } | null
@@ -3482,6 +3528,15 @@ export interface GameState {
   /** Shere Khan — À toi de jouer, cousin : `playerIndex` joue gratuitement l'Allié `ally`
    *  (dévoilé) sur le lieu de son choix (RESOLVE_FREE_PLAY_ALLY). */
   pendingFreePlayAlly?: { playerIndex: number; ally: CardInstance } | null
+  /** Grand Councilwoman — RAPPORT (Objet dévoilé) / CAPITAINE GANTU (carte de la défausse) :
+   *  `playerIndex` joue GRATUITEMENT la carte `card` avec placement interactif
+   *  (RESOLVE_FREE_PLAY_CARD ; `targetId` = lieu de pose, ou instanceId de l'hôte pour un
+   *  Objet associé à un Héros/Allié). `label` = source (journal). */
+  pendingFreePlayCard?: { playerIndex: number; card: CardInstance; label: string } | null
+  /** Grand Councilwoman — CAPITAINE GANTU : `playerIndex` choisit (facultatif) une carte de
+   *  sa défausse Méchant (`candidateIds`) à jouer gratuitement (→ pendingFreePlayCard).
+   *  RESOLVE_PICK_DISCARD_TO_PLAY (`instanceId` absent = ne rien jouer). */
+  pendingPickDiscardToPlay?: { playerIndex: number; candidateIds: string[] } | null
   /** Shere Khan — Jeune et sans défense : `playerIndex` choisit (kind 'choose') de déplacer
    *  un Héros sur le lieu d'un Allié (kind 'pick-hero' → 'pick-ally') ou de gagner 1 Pouvoir
    *  par Allié. `heroInstanceId` = Héros retenu pour le déplacement. RESOLVE_YOUNG. */
@@ -3963,7 +4018,7 @@ export interface GameState {
    *  deck Fatalité jusqu'à `hero` ; il choisit de le JOUER (et où) ou de le DÉFAUSSER
    *  (RESOLVE_FETCHED_HERO). `discarded` = autres cartes dévoilées (à défausser),
    *  montrées pour information. */
-  pendingFetchedHero?: { playerIndex: number; hero: CardInstance; discarded: CardInstance[]; placeTreasureAfter?: boolean } | null
+  pendingFetchedHero?: { playerIndex: number; hero: CardInstance; discarded: CardInstance[]; placeTreasureAfter?: boolean; mustPlay?: boolean } | null
   /** Tamatoa — Crustacé doté du pouvoir de création : Objets dévoilés (Cœur de Te Fiti /
    *  Quelque chose qui brille) à JOUER un par un sur le lieu du choix de `playerIndex`
    *  (RESOLVE_CRUSTACEAN_PLACE). `items[0]` = l'Objet en cours de placement. */
@@ -4554,6 +4609,8 @@ export type GameAction =
   | { type: 'RESOLVE_MOVE_OR_ACTIVATE'; choice: 'move' | 'activate' }
   /** Shere Khan — Tout le monde fuit : choisir l'action gratuite (Activer / Vaincre). */
   | { type: 'RESOLVE_ACTIVATE_OR_VANQUISH'; choice: 'activate' | 'vanquish' }
+  /** Le Flagelleur Mental — Will sous emprise : choisir le deck à consulter (Méchant / Fatalité). */
+  | { type: 'RESOLVE_SCRY_DECK_CHOICE'; deck: 'villain' | 'fate' }
   /** Shere Khan — C'est moi, Shere Khan : retire le jeton Feu de (locationId, actionId). */
   | { type: 'RESOLVE_REMOVE_FIRE'; locationId: LocationId; actionId: string }
   /** Shere Khan — Feu Rouge des Hommes : pose le jeton Feu sur l'action choisie. */
@@ -4565,6 +4622,14 @@ export type GameAction =
   | { type: 'RESOLVE_RECOVER_FATE'; instanceId?: string }
   /** Shere Khan — À toi de jouer, cousin : jouer l'Allié dévoilé sur `locationId`. */
   | { type: 'RESOLVE_FREE_PLAY_ALLY'; locationId: LocationId }
+  /** Grand Councilwoman — RAPPORT / CAPITAINE GANTU : jouer gratuitement la carte en
+   *  attente. `targetId` = lieu de pose (Allié / Objet de lieu / Héros) OU instanceId de
+   *  l'hôte (Objet associé à un Héros/Allié). Absent pour une carte Événement.
+   *  `cancel` : renoncer à jouer la carte (elle part en défausse) — évite tout blocage. */
+  | { type: 'RESOLVE_FREE_PLAY_CARD'; targetId?: string; cancel?: boolean }
+  /** Grand Councilwoman — CAPITAINE GANTU : `instanceId` de la carte de la défausse à
+   *  jouer gratuitement (absent = ne rien jouer). */
+  | { type: 'RESOLVE_PICK_DISCARD_TO_PLAY'; instanceId?: string }
   /** Shere Khan — Jeune et sans défense : `choice` (move/gain) puis `heroInstanceId` /
    *  `allyInstanceId` (le Héros est déplacé sur le lieu de cet Allié). */
   | { type: 'RESOLVE_YOUNG'; choice?: 'move' | 'gain'; heroInstanceId?: string; allyInstanceId?: string }

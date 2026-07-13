@@ -101,11 +101,15 @@ export interface VillainAnimation {
    *    « Shiny », la grotte aux trésors sous lumière noire). Teintes via `colors`, durée via `durationSec`.
    *  - `dash-right` : `image` apparaît en FONDU LUMINEUX en haut à GAUCHE (côté joueur ; haut à DROITE,
    *    miroité, côté adversaire), reste ~3 s, puis FILE EN FLÈCHE à l'horizontale (avec léger étirement)
-   *    jusqu'à sortir par le bord opposé (Tabbou). Durée totale via `durationSec`. */
+   *    jusqu'à sortir par le bord opposé (Tabbou). Durée totale via `durationSec`.
+   *  - `portal-cracks` : TRANSITION plein écran inspirée des portails — d'abord des FISSURES NOIRES se
+   *    propagent depuis un centre à travers tout l'écran (la réalité se craquelle), puis des TRAITS
+   *    ROUGES lumineux SURGISSENT le long des mêmes fissures (l'énergie du Monde à l'Envers), le tout
+   *    sur un voile sombre, avant de se dissiper (Le Flagelleur Mental). Durée via `durationSec`. */
   path?:
     | 'cross' | 'sky-arc' | 'drift-spin' | 'pages' | 'roses' | 'coins' | 'water-cross'
     | 'rise' | 'voodoo' | 'fire-bottom' | 'fade' | 'paws' | 'petals' | 'jet-cross' | 'smoke-field'
-    | 'overgrowth' | 'eject-arc' | 'stardust' | 'drop' | 'disco' | 'dash-right'
+    | 'overgrowth' | 'eject-arc' | 'stardust' | 'drop' | 'disco' | 'dash-right' | 'portal-cracks'
   /** Tire quelques coups de canon (lueur + fumée à la bouche du canon avant)
    *  pendant le vol. Réservé aux trajectoires `sky-arc`. */
   cannons?: boolean
@@ -558,15 +562,39 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
   },
 }
 
+// Animations de passage des vilains de l'ATELIER PUBLIÉ (indexées par id `custom-…`, hors de l'union
+// native `VillainKey`). Même contenu qu'une entrée `VILLAIN_ANIMATION`.
+export const CUSTOM_VILLAIN_ANIMATION: Record<string, VillainAnimation | VillainAnimation[]> = {
+  // Le Flagelleur Mental (Stranger Things) : le PASSAGE vers le Monde à l'Envers — l'écran se craquelle
+  // en fissures noires, puis des traits rouges surgissent le long des fissures (path `portal-cracks`).
+  'custom-flagelleur-mental': {
+    durationSec: 6.5,
+    path: 'portal-cracks',
+  },
+  // Mr Monopoly : la LOCOMOTIVE (jeton « chemin de fer », silhouette noire) traverse le HAUT de l'écran
+  // en dérivant — même trajectoire qu'Yzma/le dirigeable de Ratigan (`water-cross`). Elle regarde à
+  // gauche au naturel (cheminée à l'avant) → `facesLeft`, orientée dans son sens de marche selon le camp.
+  'custom-mr-monopoly': {
+    image: '/animations/monopoly-train.png',
+    heightPct: 12, // taille de la locomotive (image 276×251)
+    topPct: 3, // hauteur de la traversée (bande haute)
+    durationSec: 15, // dérive tranquille sur les rails
+    facesLeft: true,
+    path: 'water-cross',
+  },
+}
+
 /** Liste des animations de décor d'un vilain (vide si aucune). Normalise l'entrée (une seule
- *  animation → tableau d'un élément). */
-export function villainAnimationList(key: VillainKey): VillainAnimation[] {
-  const v = VILLAIN_ANIMATION[key]
+ *  animation → tableau d'un élément). Résout une clé NATIVE (`VILLAIN_ANIMATION`) OU un id de vilain
+ *  PUBLIÉ `custom-…` (`CUSTOM_VILLAIN_ANIMATION`). */
+export function villainAnimationList(key: VillainKey | string): VillainAnimation[] {
+  const v = VILLAIN_ANIMATION[key as VillainKey] ?? CUSTOM_VILLAIN_ANIMATION[key]
   return v ? (Array.isArray(v) ? v : [v]) : []
 }
 
 /** Première animation de décor d'un vilain (undefined si aucune). Pour les usages qui n'ont
- *  besoin que de savoir s'il en existe une / d'un aperçu (debug). */
-export function villainAnimation(key: VillainKey): VillainAnimation | undefined {
+ *  besoin que de savoir s'il en existe une / d'un aperçu (debug). Accepte une clé NATIVE ou un id
+ *  PUBLIÉ `custom-…` (les vilains publiés n'ont pas d'animation de passage → undefined). */
+export function villainAnimation(key: VillainKey | string): VillainAnimation | undefined {
   return villainAnimationList(key)[0]
 }

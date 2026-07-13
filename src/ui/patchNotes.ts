@@ -47,8 +47,8 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '1.6.0',
-    date: '2026-07-12',
+    version: '1.7.0',
+    date: '2026-07-13',
     title: 'Thanos et les Pierres d’Infinité (Marvel)',
     tags: ['villain', 'regles', 'ia'],
     changes: [
@@ -59,7 +59,7 @@ export const PATCH_NOTES: PatchNote[] = [
     ],
   },
   {
-    version: '1.5.0',
+    version: '1.6.0',
     date: '2026-07-10',
     title: 'Ultron entre en scène (Marvel)',
     tags: ['villain', 'regles', 'ia'],
@@ -69,6 +69,52 @@ export const PATCH_NOTES: PatchNote[] = [
       "**Optimisation** : une action **« Jouer une carte »** peut être utilisée pour **déplacer un Allié/Objet** (1×/tour).",
       "**Fatalité Marvel** : la pioche Fatalité d’Ultron se complète à chaque partie de **5 Héros Marvel tirés au hasard** (Hulk, Vision, Thor, Iron Man, Captain America/Marvel…), pour des menaces variées.",
       "**Améliorations** : survole une tuile pour en voir un **aperçu agrandi**.",
+    ],
+  },
+  {
+    version: '1.5.0',
+    date: '2026-07-12',
+    title: 'Grand Councilwoman & Atelier enrichi',
+    tags: ['villain', 'atelier', 'interface', 'son'],
+    changes: [
+      "Nouveau vilain (collaboration) — **Grand Councilwoman** (Lilo & Stitch) : capturez **Stitch** dans la **CAGE** puis amenez-la au **Vaisseau de Gantu** pour l'enfermer.",
+      "Atelier — en test, bouton **« 🛠️ Retourner à l'atelier »** pour revenir directement à la configuration du vilain ; **« ▶ Tester »** ne régénère plus les images si rien n'a changé.",
+      "Atelier — onglet **Plateau** : **Mode recouvrement** (aperçu + **couleur** du voile qui recouvre les actions, propre à chaque vilain custom).",
+      "Atelier — onglet **Cartes** : **navigation** carte précédente/suivante, tailles de symbole **Petit/Normal**, **chiffre** sur le symbole Pouvoir, et formulaire réorganisé (**Illustration / Texte / Symboles**).",
+      "Atelier — codage en **lecture seule** avec encart **« À modifier »** + **« Copier les modifs »** ; **« Développer »** bloqué une fois le vilain développé ; modal **Publier** simplifié.",
+      "Pendant une **Fatalité**, plus besoin de **maintenir** « Voir le plateau » : un clic masque la fatalité et le bouton de fin de tour devient **« Reprendre la Fatalité »**. Zoom des cartes et défausses consultables librement.",
+      "En partie, chaque **jauge d'objectif** porte un bouton **📖** ouvrant la **fiche du vilain**.",
+      "**Prince Jean**, **Jafar**, la **Reine de cœur**, la **Méchante Reine** et **Grand Councilwoman** lâchent désormais leur **réplique** (intro + fiche vilain).",
+    ],
+  },
+  {
+    version: '1.4.4',
+    date: '2026-07-12',
+    title: 'Nouveau décor : Mr Monopoly',
+    tags: ['animation'],
+    changes: [
+      "**Mr Monopoly** a désormais son décor : le **plateau de Monopoly** en grand, avec des **pions** qui font le tour et des **maisons** qui poussent puis se muent en **hôtels**.",
+    ],
+  },
+  {
+    version: '1.4.3',
+    date: '2026-07-11',
+    title: 'Vilains custom plus légers',
+    tags: ['atelier', 'interface', 'correctif'],
+    changes: [
+      "Les **images des vilains** sont désormais des **fichiers** (plus de gros JSON) : l'**Atelier s'ouvre instantanément** et les images se chargent à la volée.",
+      "**Correctif** : les **illustrations des cartes de Dio** sont restaurées (elles avaient été remplacées par des versions sans dessin).",
+    ],
+  },
+  {
+    version: '1.4.2',
+    date: '2026-07-11',
+    title: 'Nouveaux décors : Gul’dan & Dio',
+    tags: ['animation', 'correctif', 'atelier'],
+    changes: [
+      "**Gul’dan** a désormais son décor : la **marée de gangrené** — lueur **fel verte** et **violette** du Vide qui pulsent, volutes de gangrené qui montent et cendres scintillantes.",
+      "**Dio** a son décor du **temps** (*The World*) : nuit dorée/violette, **horloge à chiffres romains**, grand **mandala d’horloge** qui tourne et chiffres romains flottants.",
+      "**Correctif** : les **images des cartes de Dio** réapparaissent dans l’**Atelier** (cartes au composite déjà baké, sans art brut à recomposer).",
     ],
   },
   {

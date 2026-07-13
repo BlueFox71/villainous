@@ -46,11 +46,12 @@ export function CardPreview({
     kw: keywordColors,
   })
 
-  // Face DÉJÀ RENDUE, sans art SOURCE à recomposer : on affiche l'image bakée telle quelle
-  // (la recomposer via renderCardFace donnerait une carte VIDE). Couvre les vilains migrés
-  // (image = chemin/URL depuis public/) MAIS AUSSI le cas où l'art brut `artImage` a été
-  // perdu alors que l'image bakée (dataURL) subsiste — sinon la carte s'afficherait vide.
-  const preRendered = !card.artImage && !!card.image
+  // Mini-vignette de grille : on affiche le composite déjà baké `image` DÈS qu'il existe
+  // (chemin OU data-URL), SANS recomposer — l'ouverture reste instantanée même si chaque
+  // carte a un `artImage`. On ne recompose (renderCardFace) que si aucune `image` bakée
+  // n'est disponible (carte en cours de création). La recomposition live reste réservée au
+  // grand aperçu (CardLayout).
+  const preRendered = !!card.image
 
   useEffect(() => {
     if (preRendered) return // rien à composer : on affiche card.image directement

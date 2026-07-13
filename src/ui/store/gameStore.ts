@@ -36,8 +36,9 @@ import type { VillainDef } from '../../engine/types'
 import type { CardDef } from '../../data/types'
 import { customActionPositions } from '../editor/boardLayout'
 import { registerActionPos } from '../components/customActionPos'
-import { VILLAIN_COLOR } from '../villainColors'
+import { VILLAIN_COLOR, VILLAIN_COVER_COLOR } from '../villainColors'
 import { usePlayerStore } from './playerStore'
+import { loadSavedGame, saveGame, snapshotForSave, reinjectVillainImages } from './gamePersistence'
 import { princeJohn } from '../../data/villains/princeJohn'
 import { princeJohnCards } from '../../data/villains/princeJohn.cards'
 import { maleficent } from '../../data/villains/maleficent'
@@ -317,6 +318,10 @@ export function registerPublishedVillain(custom: CustomVillain): void {
   const cards = toCardDefs(eff)
   registerCustomCardDefs(cards)
   VILLAIN_COLOR[eff.id] = eff.color
+  // Couleur de recouvrement dédiée (« Mode recouvrement » de l'Atelier) ; sinon on
+  // laisse le recouvrement retomber sur la couleur du méchant (coverColorOf).
+  if (eff.coverColor) VILLAIN_COVER_COLOR[eff.id] = eff.coverColor
+  else delete VILLAIN_COVER_COLOR[eff.id]
   registerActionPos(eff.id, customActionPositions(eff.locations))
   customRegistry[eff.id] = {
     entry: { def: toVillainDef(eff), cards, label: eff.name },
@@ -328,6 +333,7 @@ export function registerPublishedVillain(custom: CustomVillain): void {
  *  ne le résout plus, donc il n'est ni jouable ni proposé/listé. Idempotent. */
 export function unregisterPublishedVillain(id: string): void {
   delete customRegistry[id]
+  delete VILLAIN_COVER_COLOR[id]
 }
 
 /** Résout l'entrée d'un vilain par sa clé (natif ou publié). undefined si inconnu. */
@@ -682,6 +688,11 @@ interface GameStore {
   enterTestMode: () => void
   /** Sort du mode test : restaure la partie d'avant (instantané) telle quelle. */
   exitTestMode: () => void
+  /** REPRISE : ré-injecte les images (plateau/pion/dos) dans l'état repris depuis le
+   *  registre runtime — à rappeler une fois les vilains CUSTOM chargés (customVillainStore.load()),
+   *  leurs images n'étant pas résolubles à l'init synchrone. Le `set` re-rend aussi les cartes
+   *  custom (dont l'image se résout alors via le registre). Idempotent, sans effet hors reprise. */
+  hydrateResumedImages: () => void
   /** MODE TEST : insère une carte (par cardId) sur un lieu d'un joueur donné. */
   testInsertCard: (playerIndex: number, locationId: string, cardId: string) => void
   /** MODE TEST : t'inflige un Héros Fatalité (par cardId) sur un lieu donné. */
@@ -864,6 +875,8 @@ interface GameStore {
   resolveMedal: (arg: { heroInstanceId?: string; locationId?: string }) => void
   /** Shere Khan — Tout le monde fuit : choisir l'action gratuite (Activer / Vaincre). */
   resolveActivateOrVanquish: (choice: 'activate' | 'vanquish') => void
+  /** Le Flagelleur Mental — Will sous emprise : choisir le deck à consulter (Méchant / Fatalité). */
+  resolveScryDeckChoice: (deck: 'villain' | 'fate') => void
   /** Shere Khan — C'est moi, Shere Khan : retirer le jeton Feu choisi (lieu + action). */
   resolveRemoveFire: (locationId: string, actionId: string) => void
   /** Shere Khan — Feu Rouge des Hommes : poser le jeton Feu sur l'action choisie. */
@@ -874,6 +887,12 @@ interface GameStore {
   resolveRecoverFate: (instanceId?: string) => void
   /** Shere Khan — À toi de jouer, cousin : jouer l'Allié dévoilé sur le lieu choisi. */
   resolveFreePlayAlly: (locationId: string) => void
+  /** Grand Councilwoman — RAPPORT / CAPITAINE GANTU : jouer gratuitement la carte en attente
+   *  (`targetId` = lieu de pose ou instanceId de l'hôte ; absent pour un Événement).
+   *  `cancel` = renoncer (la carte part en défausse). */
+  resolveFreePlayCard: (targetId?: string, cancel?: boolean) => void
+  /** Grand Councilwoman — CAPITAINE GANTU : choisir la carte de la défausse à jouer (ou passer). */
+  resolvePickDiscardToPlay: (instanceId?: string) => void
   /** Shere Khan — Jeune et sans défense : choix (move/gain) puis Héros / Allié. */
   resolveYoung: (arg: { choice?: 'move' | 'gain'; heroInstanceId?: string; allyInstanceId?: string }) => void
   /** Shere Khan — Aie confiance : choisir une carte de la défausse à récupérer (ou terminer). */
@@ -1099,11 +1118,26 @@ interface GameStore {
   botReact: () => boolean
 }
 
+// Reprise éventuelle d'une partie SOLO sauvegardée (sessionStorage) : survit au
+// rechargement de la page, se vide à la fermeture de l'onglet. Absente / d'une version
+// obsolète / corrompue → partie neuve (loadSavedGame renvoie undefined). Les vilains
+// custom référencés par l'état repris sont ré-enregistrés au runtime au démarrage
+// (customVillainStore.load() déclenché dans Root) pour retrouver leurs cartes/images.
+const restoredGame = loadSavedGame()
+// Ré-injecte les images retirées à la sauvegarde depuis le registre runtime. Au démarrage,
+// seuls les vilains NATIFS sont résolubles (VILLAIN_REGISTRY statique) ; les CUSTOM le
+// seront après customVillainStore.load() → `hydrateResumedImages`, appelé par Root.
+const resumeDefOf = (id: string) => villainEntry(id)?.def
+const restoredState = restoredGame ? reinjectVillainImages(restoredGame.state, resumeDefOf) : undefined
+const restoredPreTest = restoredGame?.preTestState
+  ? reinjectVillainImages(restoredGame.preTestState, resumeDefOf)
+  : null
+
 export const useGameStore = create<GameStore>((set, get) => ({
-  state: newGame(),
-  seats: SOLO_SEATS,
-  localPlayerIndex: 0,
-  mode: 'solo',
+  state: restoredState ?? newGame(),
+  seats: restoredGame?.seats ?? SOLO_SEATS,
+  localPlayerIndex: restoredGame?.localPlayerIndex ?? 0,
+  mode: 'solo', // on ne reprend que le solo (snapshotForSave ne persiste que le solo)
   netStatus: 'idle',
   hostRoom: null,
   hostAddrs: null,
@@ -1114,8 +1148,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   peerReacting: null,
   peerHover: null,
   lobby: null,
-  testMode: false,
-  preTestState: null,
+  testMode: restoredGame?.testMode ?? false,
+  preTestState: restoredPreTest,
   submit: (action) => {
     if (get().mode === 'solo') {
       // Un coup refusé (moteur qui `throw`) ne modifie pas l'état (applyAction est pur) :
@@ -1534,6 +1568,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_MEDAL', ...arg }),
   resolveActivateOrVanquish: (choice) =>
     get().submit({ type: 'RESOLVE_ACTIVATE_OR_VANQUISH', choice }),
+  resolveScryDeckChoice: (deck) =>
+    get().submit({ type: 'RESOLVE_SCRY_DECK_CHOICE', deck }),
   resolveRemoveFire: (locationId, actionId) =>
     get().submit({ type: 'RESOLVE_REMOVE_FIRE', locationId, actionId }),
   resolvePlaceFire: (locationId, actionId) =>
@@ -1544,6 +1580,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_RECOVER_FATE', instanceId }),
   resolveFreePlayAlly: (locationId) =>
     get().submit({ type: 'RESOLVE_FREE_PLAY_ALLY', locationId }),
+  resolveFreePlayCard: (targetId, cancel) =>
+    get().submit({ type: 'RESOLVE_FREE_PLAY_CARD', targetId, cancel }),
+  resolvePickDiscardToPlay: (instanceId) =>
+    get().submit({ type: 'RESOLVE_PICK_DISCARD_TO_PLAY', instanceId }),
   resolveYoung: (arg) =>
     get().submit({ type: 'RESOLVE_YOUNG', ...arg }),
   resolveRecoverToDeck: (arg) =>
@@ -1747,6 +1787,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'ZA_WARUDO_RELOCATE', to }),
   endTurn: () =>
     get().submit({ type: 'END_TURN' }),
+  hydrateResumedImages: () =>
+    set((s) => ({
+      state: reinjectVillainImages(s.state, resumeDefOf),
+      preTestState: s.preTestState ? reinjectVillainImages(s.preTestState, resumeDefOf) : null,
+    })),
   reset: (villains) => {
     teardownNet()
     set({
@@ -1795,3 +1840,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     return played
   },
 }))
+
+// PERSISTANCE : à chaque changement du store, on écrit l'instantané sérialisable de la
+// partie (UNIQUEMENT en solo, cf. snapshotForSave). Le GameState n'embarque aucune image
+// → écriture sessionStorage légère. Ainsi un rechargement reprend la partie à l'identique ;
+// la fermeture de l'onglet la vide (sessionStorage), et le retour au menu l'efface
+// explicitement (clearSavedGame dans Root).
+useGameStore.subscribe((s) => {
+  const snap = snapshotForSave(s)
+  if (snap) saveGame(snap)
+})

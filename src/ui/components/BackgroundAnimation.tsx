@@ -21,6 +21,59 @@ function spinClockwise(src: string): boolean {
   return m ? CW_COLORS.has(m[1]) : false
 }
 
+// Passage `portal-cracks` (Le Flagelleur Mental) : réseau de fissures qui rayonnent d'un centre vers
+// les bords, chacune une polyligne JAGGÉE (gigue perpendiculaire), avec quelques ramifications. Le tracé
+// vise AU-DELÀ des bords (r > 100) → les fissures atteignent les bords de l'écran (clippées par l'SVG).
+// Coordonnées en % (viewBox 0..100, preserveAspectRatio none). `delay` étale la propagation.
+function jaggedLine(x0: number, y0: number, x1: number, y1: number, segs: number, jit: number): string {
+  const dx = x1 - x0
+  const dy = y1 - y0
+  const len = Math.hypot(dx, dy) || 1
+  const px = -dy / len
+  const py = dx / len
+  const pts: [number, number][] = [[x0, y0]]
+  for (let i = 1; i < segs; i++) {
+    const t = i / segs
+    const j = (Math.random() - 0.5) * 2 * jit
+    pts.push([x0 + dx * t + px * j, y0 + dy * t + py * j])
+  }
+  pts.push([x1, y1])
+  return 'M ' + pts.map((p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' L ')
+}
+// Fissures façon « plateau brisé » (même technique que MirrorShatter) : des RAYONS jaggés partent d'un
+// point d'impact vers les BORDS de l'écran, avec quelques RAMIFICATIONS. `delay` étale la propagation ;
+// `w` (épaisseur, dans l'espace du viewBox 0..100) est plus fine sur les ramifications.
+function buildPortalCracks(): { d: string; delay: number; w: number }[] {
+  const ix = 40 + Math.random() * 20 // point d'impact (proche du centre)
+  const iy = 38 + Math.random() * 20
+  // Point où le rayon d'angle `ang` rencontre le bord de l'écran (viewBox 0..100).
+  const rayEdge = (ang: number): [number, number] => {
+    const dx = Math.cos(ang)
+    const dy = Math.sin(ang)
+    const tX = dx === 0 ? Infinity : (dx > 0 ? 100 - ix : ix) / Math.abs(dx)
+    const tY = dy === 0 ? Infinity : (dy > 0 ? 100 - iy : iy) / Math.abs(dy)
+    const t = Math.min(tX, tY)
+    return [ix + dx * t, iy + dy * t]
+  }
+  const out: { d: string; delay: number; w: number }[] = []
+  const RAYS = 11
+  for (let i = 0; i < RAYS; i++) {
+    const ang = (i / RAYS) * Math.PI * 2 + (Math.random() - 0.5) * 0.44
+    const [ex, ey] = rayEdge(ang)
+    const delay = i * 0.08 + Math.random() * 0.06
+    out.push({ d: jaggedLine(ix, iy, ex, ey, 6, 7), delay, w: 0.5 }) // fissure principale (fine)
+    if (Math.random() < 0.55) {
+      // Ramification depuis un point médian, vers un autre bord.
+      const f = 0.4 + Math.random() * 0.35
+      const bx = ix + (ex - ix) * f
+      const by = iy + (ey - iy) * f
+      const [gx, gy] = rayEdge(ang + (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.6))
+      out.push({ d: jaggedLine(bx, by, (bx + gx) / 2, (by + gy) / 2, 4, 6), delay: delay + 0.26, w: 0.32 })
+    }
+  }
+  return out
+}
+
 // Réglages de l'envol `sky-arc` (vol « habité » plutôt que glissé tout droit).
 const ROT_AMP_DEG = 3 // amplitude du tangage (rotation ± degrés)
 const ROT_CYCLES = 2.5 // nombre d'oscillations sur toute la montée
@@ -268,6 +321,9 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
   // Transition DISCO (Tamatoa, path `disco`) : un voile néon plein écran qui transitionne en douceur
   // entre les teintes (`colors`). Plus de faisceaux.
   const discoColors = anim?.colors?.length ? anim.colors : ['#0001FB', '#FD27FC', '#64D9FE']
+
+  // Passage `portal-cracks` (Flagelleur Mental) : réseau de fissures figé au montage.
+  const [portalCracks] = useState(() => (path === 'portal-cracks' ? buildPortalCracks() : []))
 
   // Montée (Ursula : bulles ; Hadès : âmes) : 18 à 30 éléments par défaut (ou `count`),
   // taille/colonne/vitesse/ondulation au hasard, figés au montage. `sides` les concentre
@@ -882,6 +938,35 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     )
   }
 
+  if (path === 'portal-cracks') {
+    // PASSAGE (Flagelleur Mental), rendu DANS LE PLAN DE FOND (z -1, comme `disco`) → DERRIÈRE les
+    // plateaux/cartes. PROPRE : pas de voile ni de mix-blend (qui assombrissaient/faisaient clignoter les
+    // panneaux translucides), juste les fissures. 1) les FISSURES NOIRES se tracent depuis le centre
+    // (staggerées via `delay`) ; 2) les TRAITS ROUGES surgissent le long des mêmes tracés (retardés). La
+    // couche fait un fondu global calé sur `durationSec` (`--dur`).
+    return (
+      <div
+        className="ud-passage-layer pointer-events-none absolute inset-0 overflow-hidden"
+        style={{ '--dur': `${durationSec}s` } as CSSProperties}
+        aria-hidden
+      >
+        <svg className="ud-passage-svg absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+          {/* 1) Fissures noires (rayons + ramifications, épaisseur en unités viewBox). */}
+          {portalCracks.map((c, i) => (
+            <path key={`k-${i}`} className="ud-passage-crack" d={c.d} style={{ animationDelay: `${c.delay}s`, strokeWidth: c.w }} />
+          ))}
+          {/* 2) Traits rouges : mêmes tracés, déjà entiers, qui apparaissent GLOBALEMENT en fondu
+              (l'opacité du groupe monte d'un coup), une fois les fissures noires tracées. */}
+          <g className="ud-passage-red">
+            {portalCracks.map((c, i) => (
+              <path key={`r-${i}`} className="ud-passage-red-line" d={c.d} style={{ strokeWidth: c.w * 0.6 }} />
+            ))}
+          </g>
+        </svg>
+      </div>
+    )
+  }
+
   if (path === 'overgrowth') {
     // Invasion de jungle plein écran (comme smoke-field : portail fixe au-dessus de la scène). Les lianes
     // poussent depuis le haut (scaleY 0→1, pivot en haut), les feuilles éclosent partout (scale 0→1), puis
@@ -1303,7 +1388,7 @@ export function BackgroundAnimation({
   // (chaque animation d'un vilain a sa propre file d'images).
   const imageQueues = useRef<Record<string, string[]>>({})
   const pickImage = (villain: VillainKey, animIdx: number, a: VillainAnimation): string => {
-    if (a.path === 'pages' || a.path === 'coins' || a.path === 'rise' || a.path === 'water-cross' || a.path === 'voodoo' || a.path === 'fire-bottom' || a.path === 'paws' || a.path === 'petals' || a.path === 'smoke-field' || a.path === 'overgrowth' || a.path === 'stardust' || a.path === 'disco') return '' // pas d'image unique ici
+    if (a.path === 'pages' || a.path === 'coins' || a.path === 'rise' || a.path === 'water-cross' || a.path === 'voodoo' || a.path === 'fire-bottom' || a.path === 'paws' || a.path === 'petals' || a.path === 'smoke-field' || a.path === 'overgrowth' || a.path === 'stardust' || a.path === 'disco' || a.path === 'portal-cracks') return '' // pas d'image unique ici
     if (!a.images || a.images.length === 0) return a.image ?? ''
     const key = `${villain}#${animIdx}`
     const q = imageQueues.current

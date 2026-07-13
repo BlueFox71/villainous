@@ -7,7 +7,7 @@
 // Clé = la même que `VILLAIN_COLOR` (la `VillainKey`). Hors moteur, aucune logique de jeu.
 
 import { useSyncExternalStore } from 'react'
-import { VILLAIN_COLOR } from './villainColors'
+import { VILLAIN_COLOR, VILLAIN_COVER_COLOR } from './villainColors'
 
 const overrides: Record<string, string> = {}
 const subscribers = new Set<() => void>()
@@ -29,6 +29,13 @@ export function setVillainColorOverride(villain: string, color: string | null): 
 /** Couleur effective d'un vilain : l'override en cours s'il existe, sinon la couleur de base. */
 export function villainColor(villain: string): string {
   return overrides[villain] ?? VILLAIN_COLOR[villain]
+}
+
+/** Couleur du RECOUVREMENT des actions pour un vilain : couleur de recouvrement DÉDIÉE
+ *  (vilain custom l'ayant choisie), sinon la couleur thématique du vilain (natifs +
+ *  customs sans couleur de recouvrement propre). */
+export function coverColorOf(villain: string): string | undefined {
+  return VILLAIN_COVER_COLOR[villain] ?? villainColor(villain)
 }
 
 /** Abonnement bas niveau (pour `useSyncExternalStore`). */

@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { VILLAIN_REGISTRY, type VillainKey } from '../store/gameStore'
+import { villainEntry } from '../store/gameStore'
 import type { CardDef } from '../../data/types'
 import { Scroller } from './Scroller'
 
 interface Props {
-  /** Vilain dont on propose les cartes (Vilain + Fatalité). */
-  villain: VillainKey
+  /** Vilain dont on propose les cartes (Vilain + Fatalité) — natif OU publié `custom-…`. */
+  villain: string
   /** Position d'ancrage (coin du clic, en pixels écran). */
   x: number
   y: number
@@ -36,7 +36,7 @@ const PREVIEW_W = 230
  */
 export function CardPicker({ villain, x, y, locationName, onPick, onClose }: Props) {
   const [preview, setPreview] = useState<CardDef | null>(null)
-  const cards = VILLAIN_REGISTRY[villain].cards
+  const cards = villainEntry(villain)?.cards ?? []
   const villainCards = cards.filter((c) => c.deck === 'villain').sort((a, b) => a.name.localeCompare(b.name))
   const fateCards = cards.filter((c) => c.deck === 'fate').sort((a, b) => a.name.localeCompare(b.name))
 

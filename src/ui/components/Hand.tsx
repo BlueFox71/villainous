@@ -83,6 +83,12 @@ interface Props {
   /** Hadès — Préparez-vous au combat ! : vrai s'il existe un Titan non entravé déplaçable
    *  (destination atteignable) ET assez de Pouvoir (≥2). Injouable sinon. */
   titanMovePlayable?: boolean
+  /** Le Flagelleur Mental — Tunnel de Hawkins : vrai s'il existe un lieu (autorisé) portant
+   *  assez d'Alliés défaussables pour poser un Tunnel. Injouable sinon (rien à sacrifier). */
+  tunnelPlayable?: boolean
+  /** Le Flagelleur Mental — Will sous emprise : vrai si un deck est consultable (Méchant
+   *  non vide, ou Fatalité non vide et +1 Pouvoir finançable). Injouable sinon (aucun deck). */
+  willScryPlayable?: boolean
   /** Reine de Cœur — Par ordre de la Reine ! : vrai s'il existe au moins une Carte Garde
    *  transformable en arceau. Injouable sinon. */
   canTransformGuards?: boolean
@@ -267,6 +273,8 @@ export function Hand({
   realmHasFacedownTreasure = false,
   pigKeeperPlayable = true,
   titanMovePlayable = true,
+  tunnelPlayable = true,
+  willScryPlayable = true,
   canTransformGuards = true,
   hasHackInPlay,
   hasIngredients,
@@ -634,6 +642,12 @@ export function Hand({
           const needsVaudou = cardFx.some((e) => e.type === 'DIVINATION')
           // Hadès — Préparez-vous au combat ! : injouable sans Titan déplaçable (+ Pouvoir).
           const needsTitanMove = cardFx.some((e) => e.type === 'MOVE_TITAN_INTERACTIVE')
+          // Le Flagelleur Mental — Tunnel de Hawkins : injouable si aucun lieu (autorisé) ne
+          // porte assez d'Alliés défaussables pour le poser (calcul App → `tunnelPlayable`).
+          const needsTunnel = cardFx.some((e) => e.type === 'FLAYER_PLACE_TUNNEL')
+          // Le Flagelleur Mental — Will sous emprise : injouable si aucun deck n'est
+          // consultable (calcul App → `willScryPlayable`).
+          const needsScry = cardFx.some((e) => e.type === 'FLAYER_WILL_SCRY')
           // Lotso — Le Bibliothécaire (coût variable) : injouable sans jeton Pouvoir à
           // dépenser OU sans Héros au royaume (rien à réduire).
           const needsBookworm = cardFx.some((e) => e.type === 'LOTSO_BOOKWORM')
@@ -708,6 +722,8 @@ export function Hand({
             (!needsIdentification || (realmHasHeroes && realmHasMovableCard)) &&
             (!needsVaudou || pawnLocationId === 'royaume-vaudou') &&
             (!needsTitanMove || titanMovePlayable) &&
+            (!needsTunnel || tunnelPlayable) &&
+            (!needsScry || willScryPlayable) &&
             (!needsBookworm || (realmHasHeroes && power >= 1)) &&
             (!needsToRoomCandidate || lotsoToRoomAvailable) &&
             (!needsHeroOutsideRoom || lotsoHeroOutsideRoom) &&
@@ -826,6 +842,10 @@ export function Hand({
                                                                                   ? 'Jouable uniquement au Royaume du vaudou.'
                                                                                 : needsTitanMove && !titanMovePlayable
                                                                                   ? 'Aucun Titan déplaçable (Titan non entravé + Pouvoir requis).'
+                                                                                : needsTunnel && !tunnelPlayable
+                                                                                  ? 'Pas assez d’Alliés à défausser sur un même lieu pour poser un Tunnel.'
+                                                                                : needsScry && !willScryPlayable
+                                                                                  ? 'Aucun deck à consulter (deck Méchant vide, et Fatalité vide ou +1 Pouvoir non finançable).'
                                                                                 : needsBookworm && !(realmHasHeroes && power >= 1)
                                                                                   ? 'Il faut un Héros dans votre royaume et au moins 1 Pouvoir.'
                                                                                   : needsToRoomCandidate && !lotsoToRoomAvailable

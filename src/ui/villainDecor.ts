@@ -184,6 +184,31 @@ export type VillainDecor =
   // (Prince Jean, 90 %) et de diamants blancs (10 %) qui tombent en tournoyant (`coinFall` en boucle),
   // plus un gros hameçon de Maui & Te Fiti ; et quelques BULLES qui montent par-dessus le tout.
   | { kind: 'tamatoa' }
+  // `upsideDown` : le Monde à l'Envers du Flagelleur Mental (Stranger Things). Ciel d'orage nocturne
+  // quasi-noir ; des NUAGES sombres et flous DÉRIVENT lentement (profondeur), de fines SPORES pâles
+  // flottent EN SUSPENSION (dérive très lente + balancement + scintillement, la signature du Monde à
+  // l'Envers), et des ÉCLAIRS ROUGES fractals claquent par intermittence en ILLUMINANT nuages et spores
+  // en rouge le temps du flash — tout est sombre au repos, ne rougeoie qu'à la frappe (Le Flagelleur Mental).
+  | { kind: 'upsideDown' }
+  // `felGate` : la marée de GANGRENÉ de Gul'dan (Warcraft) — un Draenor mort baigné de magie fel. Fond
+  // gris-vert sombre, lueur fel VERT NÉON pulsante au sol (les lieux corrompus) battue par une lueur
+  // VIOLETTE du Vide, des VOLUTES de gangrené vertes (et quelques violettes) qui montent en s'enroulant,
+  // et de fines CENDRES de gangrené vertes/violettes qui s'élèvent en scintillant. 100 % CSS
+  // (Gul'dan — vilain custom publié).
+  | { kind: 'felGate' }
+  // `theWorld` : le pouvoir du TEMPS de Dio (JoJo's Bizarre Adventure — son Stand « The World »). Fond
+  // nuit du Caire violet/indigo → doré, aura dorée pulsante, un grand MANDALA d'horloge (anneaux +
+  // graduations dorées) qui tourne lentement en arrière-plan (visible dans les marges), une HORLOGE
+  // dorée nette dans la bande haute (cadran, chiffres ROMAINS, 3 aiguilles qui tournent) et des CHIFFRES
+  // ROMAINS qui flottent en montant et scintillent (or + accents magenta). 100 % CSS. (L'arrêt du temps
+  // « ZA WARUDO! » viendra en surprise plus tard.) (Dio — vilain custom publié.)
+  | { kind: 'theWorld' }
+  // `monopoly` : le PLATEAU de Monopoly (Mr Monopoly). L'image `src` du plateau vu de dessus, affichée
+  // en grand CARRÉ centré sur la colonne (sur un fond de table vert feutré + vignette), SURMONTÉE de
+  // deux couches d'ambiance en boucle : des PIONS 2D (chapeau, voiture, chien, dé à coudre, brouette,
+  // bateau) qui font le tour du plateau, et des chantiers où poussent des MAISONS vertes (1→4) qui se
+  // muent en HÔTEL rouge puis se réinitialisent (Mr Monopoly — vilain custom publié).
+  | { kind: 'monopoly'; src: string }
 
 export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   patHibulaire: { kind: 'film' },
@@ -275,9 +300,29 @@ export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   tamatoa: { kind: 'tamatoa' },
 }
 
-/** Décor permanent d'un vilain (undefined si non défini). */
-export function villainDecor(key: VillainKey): VillainDecor | undefined {
-  return VILLAIN_DECOR[key]
+// Décors des vilains PUBLIÉS (Atelier), indexés par leur id runtime `custom-…`. Le registre natif
+// `VILLAIN_DECOR` est indexé par `VillainKey` (union figée à la compilation) et ne peut donc pas
+// porter un id custom ; on tient à part la table des vilains custom. C'est aussi le point d'entrée
+// pour donner un décor à N'IMPORTE QUEL vilain publié, sans toucher aux natifs.
+export const CUSTOM_VILLAIN_DECOR: Record<string, VillainDecor> = {
+  // Le Flagelleur Mental (Stranger Things) : le Monde à l'Envers — orage nocturne, nuages sombres qui
+  // dérivent et éclairs ROUGES qui illuminent les nuages en rouge à chaque frappe.
+  'custom-flagelleur-mental': { kind: 'upsideDown' },
+  // Gul'dan (Warcraft) : la marée de gangrené — Draenor mort, lueur fel verte + violette pulsante,
+  // volutes de gangrené qui montent, cendres scintillantes et éclairs de gangrené (halo violet).
+  'custom-gul-dan': { kind: 'felGate' },
+  // Dio (JoJo's Bizarre Adventure) : le pouvoir du temps de The World — nuit dorée/violette, mandala
+  // d'horloge tournant, horloge à chiffres romains et chiffres romains flottants (or + magenta).
+  'custom-dio': { kind: 'theWorld' },
+  // Mr Monopoly : le plateau de Monopoly (image `monopoly.png`) en grand carré centré, sur un fond de
+  // table vert feutré, surmonté des pions qui font le tour et des maisons/hôtels qui poussent en boucle.
+  'custom-mr-monopoly': { kind: 'monopoly', src: '/animations/monopoly.png' },
+}
+
+/** Décor permanent d'un vilain (natif OU publié) ; undefined si non défini. Un vilain publié a un id
+ *  `custom-…` (résolu ici) ; un natif a sa `VillainKey`. */
+export function villainDecor(key: string): VillainDecor | undefined {
+  return CUSTOM_VILLAIN_DECOR[key] ?? VILLAIN_DECOR[key as VillainKey]
 }
 
 /** Images « carte de monde » (Brawl) affichées à l'intérieur des orbes du décor `underwater`. */
@@ -305,6 +350,19 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
     case 'scar':
     case 'castleAssault':
       return { images: [decor.src], videos: [] }
+    case 'monopoly':
+      // Le plateau + les 4 jetons (pions) qui font le tour + le dé (deux dés au centre).
+      return {
+        images: [
+          decor.src,
+          '/animations/monopoly-pion-chapeau.png',
+          '/animations/monopoly-pion-voiture.png',
+          '/animations/monopoly-pion-chien.png',
+          '/animations/monopoly-pion-bateau.png',
+          '/animations/monopoly-de.png',
+        ],
+        videos: [],
+      }
     case 'tremaine':
       return {
         images: [decor.src, '/animations/background_tremaine_sale.png', '/animations/lucifer.png'],
@@ -440,6 +498,16 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
     case 'atmosfear':
       // La rangée de petites flammes réutilise le sprite de feu ; les bougies sont un gif.
       return { images: ['/animations/fire_sprite.png', '/animations/candles.gif'], videos: [] }
+    case 'upsideDown':
+      // Les arbres (sapins) + poteaux électriques de Hawkins (décor) + la silhouette du Flagelleur (surprise).
+      return {
+        images: [
+          ...Array.from({ length: 12 }, (_, i) => `/animations/arbre-${i + 1}.png`),
+          '/animations/pylones.png',
+          '/animations/flagelleur_mental.png',
+        ],
+        videos: [],
+      }
     case 'water':
       return { images: ['/animations/neverland.png'], videos: [] }
     case 'flyingDutchman':
@@ -470,7 +538,7 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
         videos: [],
       }
     // Décors 100 % CSS (aucun fichier à précharger) : film, sand, space, petals,
-    // clockwork, cyber, cauldron, sunnyside.
+    // clockwork, cyber, cauldron, sunnyside, upsideDown, felGate, theWorld.
     default:
       return none
   }

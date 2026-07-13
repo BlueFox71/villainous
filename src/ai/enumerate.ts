@@ -43,8 +43,8 @@ import {
   placementLocations,
   requiresAllyTarget,
   transformableGuards,
-  flayerTunnelDiscardableAllies,
-  flayerTunnelRequiredAllies,
+  flayerTunnelDiscardableAlliesAt,
+  flayerTunnelDiscardsNeededAt,
   ultronUpgradeConditionMet,
   ultronSentriesInRealm,
 } from '../engine/rules'
@@ -519,7 +519,7 @@ export function enumerateActions(state: GameState): GameAction[] {
     const locked = new Set(tgt.lockedLocations ?? [])
     const out: GameAction[] = []
     for (const loc of tgt.locations) {
-      for (const h of (tgt.board[loc.id] ?? []).filter((c) => c.type === 'hero')) {
+      for (const h of (tgt.board[loc.id] ?? []).filter((c) => c.type === 'hero' && !c.cannotBeMoved)) {
         if (phr.candidateIds && !phr.candidateIds.includes(h.instanceId)) continue
         const i = ids.indexOf(loc.id)
         let dests = phr.forcedLocationId !== undefined
@@ -702,6 +702,21 @@ export function enumerateActions(state: GameState): GameAction[] {
     ]
   }
 
+  // Le Flagelleur Mental — Will sous emprise : choisir le deck à consulter. On n'émet que
+  // les options VALIDES (deck non vide ; Fatalité seulement si le +1 Pouvoir est finançable).
+  if (state.pendingScryDeckChoice) {
+    const p = state.players[state.pendingScryDeckChoice.playerIndex]
+    const out: GameAction[] = []
+    if (p.deck.length > 0) out.push({ type: 'RESOLVE_SCRY_DECK_CHOICE', deck: 'villain' })
+    if (p.fateDeck.length > 0 && p.power >= state.pendingScryDeckChoice.fateExtraCost) {
+      out.push({ type: 'RESOLVE_SCRY_DECK_CHOICE', deck: 'fate' })
+    }
+    // Filet de sécurité : si aucune option valide (ne devrait pas arriver, la jouabilité
+    // le garantit), consulter le Méchant (no-op géré par le moteur) pour ne pas bloquer.
+    if (out.length === 0) out.push({ type: 'RESOLVE_SCRY_DECK_CHOICE', deck: 'villain' })
+    return out
+  }
+
   // Pyramid Head — Pacte de Sang : choisir une carte de la main (dont le type a un
   // équivalent en défausse) à défausser.
   if (state.pendingPacteSang) {
@@ -829,6 +844,36 @@ export function enumerateActions(state: GameState): GameAction[] {
     return me.locations
       .filter((l) => !locked.has(l.id))
       .map((l) => ({ type: 'RESOLVE_FREE_PLAY_ALLY', locationId: l.id }))
+  }
+
+  // Grand Councilwoman — RAPPORT / CAPITAINE GANTU : jouer gratuitement la carte en attente.
+  if (state.pendingFreePlayCard) {
+    const card = state.pendingFreePlayCard.card
+    const locked = new Set(me.lockedLocations ?? [])
+    if (card.type === 'effect' || card.type === 'condition') return [{ type: 'RESOLVE_FREE_PLAY_CARD' }]
+    if (card.type === 'item' && card.attach === 'hero') {
+      return Object.values(me.board).flat()
+        .filter((c) => c.type === 'hero' && !c.attachedTo)
+        .map((c) => ({ type: 'RESOLVE_FREE_PLAY_CARD', targetId: c.instanceId }))
+    }
+    if (card.type === 'item' && card.attach === 'ally') {
+      return Object.values(me.board).flat()
+        .filter((c) => c.type === 'ally' && !c.attachedTo && !c.isWicket)
+        .map((c) => ({ type: 'RESOLVE_FREE_PLAY_CARD', targetId: c.instanceId }))
+    }
+    let locs = me.locations.filter((l) => !locked.has(l.id))
+    if (card.playOnlyAt) locs = locs.filter((l) => l.id === card.playOnlyAt)
+    if (card.forbiddenLocations) locs = locs.filter((l) => !card.forbiddenLocations!.includes(l.id))
+    return locs.map((l) => ({ type: 'RESOLVE_FREE_PLAY_CARD', targetId: l.id }))
+  }
+
+  // Grand Councilwoman — CAPITAINE GANTU : choisir une carte de la défausse à jouer (ou passer).
+  if (state.pendingPickDiscardToPlay) {
+    const out: GameAction[] = [{ type: 'RESOLVE_PICK_DISCARD_TO_PLAY' }]
+    for (const id of state.pendingPickDiscardToPlay.candidateIds) {
+      out.push({ type: 'RESOLVE_PICK_DISCARD_TO_PLAY', instanceId: id })
+    }
+    return out
   }
 
   // Shere Khan — C'est à moi que vous le direz : remettre (ou non) une Fatalité de la défausse.
@@ -1491,21 +1536,23 @@ export function enumerateActions(state: GameState): GameAction[] {
             }
           } else if ((card.effects ?? []).some((e) => e.type === 'FLAYER_PLACE_TUNNEL')) {
             // Le Flagelleur Mental — Tunnel de Hawkins : posé sur un lieu (jamais le Monde à
-            // l'Envers, cf. forbiddenLocations), en défaussant N Alliés (2, +1 si Onze). On
-            // émet UNE option par lieu autorisé : défausser les N Alliés les MOINS forts
-            // (choix canonique — évite l'explosion combinatoire des sous-ensembles).
+            // l'Envers, cf. forbiddenLocations), en défaussant N Alliés (2, +1 si Onze) qui
+            // doivent être présents SUR CE MÊME LIEU. On émet UNE option par lieu ayant assez
+            // d'Alliés défaussables sur place : défausser les N Alliés les MOINS forts (choix
+            // canonique — évite l'explosion combinatoire des sous-ensembles).
             const tEff = (card.effects ?? []).find((e) => e.type === 'FLAYER_PLACE_TUNNEL')!
             if (tEff.type === 'FLAYER_PLACE_TUNNEL') {
-              const required = flayerTunnelRequiredAllies(me, tEff)
-              const discardable = [...flayerTunnelDiscardableAllies(me)].sort(
-                (a, b) => (a.strength ?? 0) - (b.strength ?? 0),
-              )
-              if (discardable.length >= required) {
-                const allyIds = discardable.slice(0, required).map((a) => a.instanceId)
-                for (const to of locs) {
-                  if ((card.forbiddenLocations ?? []).includes(to)) continue
-                  out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, to, allyInstanceIds: allyIds })
-                }
+              for (const to of locs) {
+                if ((card.forbiddenLocations ?? []).includes(to)) continue
+                // Billy compte parmi les Alliés requis mais n'est jamais défaussé → on ne
+                // défausse que `needed` Alliés (les moins forts) parmi les défaussables.
+                const needed = flayerTunnelDiscardsNeededAt(me, to, tEff)
+                const here = [...flayerTunnelDiscardableAlliesAt(me, to)].sort(
+                  (a, b) => (a.strength ?? 0) - (b.strength ?? 0),
+                )
+                if (here.length < needed) continue
+                const allyIds = here.slice(0, needed).map((a) => a.instanceId)
+                out.push({ type: 'PLAY_CARD', actionId: action.id, instanceId: card.instanceId, to, allyInstanceIds: allyIds })
               }
             }
           } else if (orPayEffect && orPayEffect.type === 'DISCARD_ALLY_AT_HOST_OR_PAY') {
@@ -1601,7 +1648,8 @@ export function enumerateActions(state: GameState): GameAction[] {
             if (shrinks && h.heroSize === 'shrunk') continue
             if (hacks && h.abilityHacked) continue
             if (onlyCardIds && !onlyCardIds.includes(h.cardId)) continue
-            if ((h.strength ?? 0) > maxStrength) continue
+            // Force EFFECTIVE (Boule de Feu +2, auras…) : un Héros boosté au-delà du seuil est exclu.
+            if ((effectiveStrength(state, state.activePlayer, h.instanceId) ?? h.strength ?? 0) > maxStrength) continue
             const hForce = effectiveStrength(state, state.activePlayer, h.instanceId) ?? 0
             if (isHypnose && hForce > me.power) continue
             // Banqueroute : coût = Force du Héros → seules les cibles abordables.
@@ -1904,7 +1952,7 @@ export function enumerateActions(state: GameState): GameAction[] {
       // lookahead. Utile surtout pour DÉCOUVRIR une action recouverte (le
       // lookahead voit alors l'action redevenue jouable).
       for (const loc of me.locations) {
-        const heroes = (me.board[loc.id] ?? []).filter((c) => c.type === 'hero')
+        const heroes = (me.board[loc.id] ?? []).filter((c) => c.type === 'hero' && !c.cannotBeMoved)
         for (const h of heroes) {
           for (const to of adjacentLocationIds(state, loc.id)) {
             out.push({ type: 'MOVE_HERO', actionId: action.id, heroInstanceId: h.instanceId, to })

@@ -129,10 +129,16 @@ export interface CardSticker {
   x: number
   y: number
   size: number
+  /** Symbole « Gagner du pouvoir » (GAIN_POWER) : chiffre affiché sur le symbole
+   *  (1, 2, 3…). Absent = aucun chiffre. Purement visuel (le montant de jeu de
+   *  l'action est réglé à part dans l'onglet Plateau). */
+  amount?: number
 }
 
 /** Taille par défaut d'un symbole posé (en % de la largeur de carte). */
-export const DEFAULT_STICKER_SIZE = 14
+export const DEFAULT_STICKER_SIZE = 20
+/** Tailles proposées pour un symbole d'action posé (« Petit » / « Normal »). */
+export const STICKER_SIZE_PRESETS = { small: 16, normal: DEFAULT_STICKER_SIZE } as const
 
 /** Image d'ornement importée, superposée au DOS des cartes (Vilain ET Fatalité),
  *  déplaçable et redimensionnable. `x`/`y` = centre en % du dos ; `size` = largeur en
@@ -295,6 +301,10 @@ export interface CustomVillain {
   // --- Couleurs --------------------------------------------------------------
   /** Couleur thématique : cases du méchant, panneau + dos des cartes Vilain. */
   color: string
+  /** Couleur du RECOUVREMENT des actions par un Héros (le voile posé sur la rangée du
+   *  haut d'un lieu occupé). Absente = on retombe sur `color` (couleur du méchant).
+   *  Éditée dans l'onglet Plateau (« Mode recouvrement »). Présentation pure. */
+  coverColor?: string
   /** Mots-clés colorés du vilain : chaque mot du TEXTE des cartes correspondant à un
    *  `label` (insensible à la casse/aux accents, singulier/pluriel) est coloré à sa
    *  `color`, comme le sont les noms de type. S'applique à TOUTES les cartes du vilain. */
@@ -392,12 +402,6 @@ export interface CustomVillain {
   // --- Métadonnées -----------------------------------------------------------
   createdAt: string
   updatedAt: string
-
-  /** Marqueur RUNTIME (jamais persisté ni committé) : cette copie est la version ALLÉGÉE
-   *  embarquée (sans images lourdes), chargée pour la liste. Elle doit être HYDRATÉE
-   *  (`loadFullBundledVillain`) avant édition ou lancement de partie. Absent = version
-   *  complète (édition locale, brouillon disque, ou vilain déjà hydraté). */
-  _light?: boolean
 }
 
 /** Catégorie d'origine d'un vilain publié (miroir des sections de la liste). */
@@ -748,6 +752,12 @@ export function toCardDefs(v: CustomVillain): CardDef[] {
     delete def.textLayout
     delete def.textBoxes
     delete def.stickers
+    // Les Conditions sont GRATUITES (coût 0). L'éditeur n'expose pas de champ coût pour
+    // elles et l'export omet parfois le `0` (sérialisé comme « vide ») : on le rétablit ici
+    // pour garder un coût numérique cohérent (cf. intégrité : toute carte Méchant a un coût).
+    if (def.deck === 'villain' && def.type === 'condition' && def.cost === undefined) {
+      def.cost = 0
+    }
     return def
   })
 }

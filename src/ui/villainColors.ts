@@ -46,6 +46,13 @@ export const VILLAIN_COLOR: Record<string, string> = {
   // par registerPublishedVillain (vilain de l'Atelier publié).
 }
 
+/** Couleur du RECOUVREMENT des actions (voile posé sur la rangée du haut d'un lieu
+ *  occupé par un Héros), par id de vilain. Renseignée uniquement pour les vilains
+ *  CUSTOM qui ont choisi une couleur de recouvrement dédiée (« Mode recouvrement » de
+ *  l'Atelier), enregistrée au runtime par `registerPublishedVillain`. Les vilains
+ *  natifs n'y figurent pas → le recouvrement retombe sur leur couleur thématique. */
+export const VILLAIN_COVER_COLOR: Record<string, string> = {}
+
 /** Teintes de repli (camp joueur / adversaire) quand la couleur d'un vilain est
  *  inconnue ou pas encore choisie. */
 export const DEFAULT_TINT_A = '#3a2d6b'

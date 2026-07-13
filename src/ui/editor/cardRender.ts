@@ -24,6 +24,16 @@ import { ACTION_TOKENS, ACTION_ICON_FILE, BOARD_ICON_DIR, drawActionIcon } from 
 
 const LAYOUT_DIR = '/editor/layout'
 
+/** Une carte est « pré-rendue » quand elle n'a PAS d'illustration brute (`artImage`) à
+ *  recomposer mais porte déjà une `image` finie. `renderCardFace` ne dessine l'illustration
+ *  QUE depuis `artImage` : la recomposer sans art donnerait une carte SANS illustration.
+ *  Dans ce cas on affiche donc `image` telle quelle (composite déjà baké). Peu importe que
+ *  ce soit une dataURL (vilain « compressé » n'embarquant que le composite, ex. Dio) ou un
+ *  chemin servi depuis public/ (vilain migré) : sans `artImage`, il n'y a rien à recomposer. */
+export function isPreRenderedCard(card: Pick<CustomCard, 'artImage' | 'image'>): boolean {
+  return !card.artImage && !!card.image
+}
+
 /** Géométrie (en pixels image 1440×2044), relevée sur les gabarits. */
 const GEO = {
   panelTop: 980,
@@ -638,6 +648,10 @@ export async function renderCardFace(
       const img = imgs.get(st.type)
       if (img) ctx.drawImage(img, cx - side / 2, cy - side / 2, side, side)
       else drawActionIcon(ctx, st.type, cx, cy, side, gold)
+      // Symbole « Gagner du pouvoir » avec un chiffre : on l'appose au centre du symbole.
+      if (st.type === 'GAIN_POWER' && st.amount !== undefined) {
+        await drawBoardNumber(ctx, st.amount, cx, cy, side * 0.5)
+      }
     }
   }
 
