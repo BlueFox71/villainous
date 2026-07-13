@@ -605,6 +605,18 @@ export function activatableCards(state: GameState): CardInstance[] {
       out.push(c)
     }
   }
+  // Thanos — Pierres CAPTURÉES (Compétences, hors board) : activables (coût 0). On saute
+  // la Pierre de la Réalité (Vaincre) s'il n'y a aucun Héros à éliminer.
+  for (const stone of me.stoneSkills ?? []) {
+    if ((stone.activatedCost ?? 0) > me.power) continue
+    if (
+      (stone.activatedEffects ?? []).some((e) => e.type === 'OPTIONAL_FREE_VANQUISH') &&
+      !Object.values(me.board).flat().some((x) => x.type === 'hero')
+    ) {
+      continue
+    }
+    out.push(stone)
+  }
   return out
 }
 
@@ -1770,6 +1782,18 @@ export function hasReachedObjective(state: GameState, playerIndex: number = stat
       const obj = p.objective
       const pile = p.capturedPokemon ?? []
       return pile.length >= obj.count && pile.some((c) => c.cardId === obj.requiredCardId)
+    }
+    case 'THANOS_STONES': {
+      // Thanos : posséder les 6 Pierres d'Infinité en Compétences. Bloqué tant qu'Adam
+      // Warlock (blockerHeroCardId) est présent dans le royaume.
+      const obj = p.objective
+      if (obj.blockerHeroCardId !== undefined) {
+        const blocked = Object.values(p.board).some((cards) =>
+          cards.some((c) => c.type === 'hero' && c.cardId === obj.blockerHeroCardId),
+        )
+        if (blocked) return false
+      }
+      return (p.stoneSkills ?? []).length >= 6
     }
     case 'REMOVE_ALL_OBSTACLES':
       return totalObstacles(p) === 0

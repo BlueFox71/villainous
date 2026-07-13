@@ -1,6 +1,7 @@
 import { useEffect, useState, type MouseEvent } from 'react'
 import type { CardDef } from '../../data/types'
-import { VILLAIN_REGISTRY, villainEntry, isCustomKey, customVillainOf, type VillainKey } from '../store/gameStore'
+import { MARVEL_FATE_POOL } from '../../data/marvelFate'
+import { VILLAIN_REGISTRY, villainEntry, isCustomKey, customVillainOf, MARVEL_VILLAINS, type VillainKey } from '../store/gameStore'
 import { useCustomVillainStore } from '../store/customVillainStore'
 import { villainPortrait, villainPresentation, PRESENTATION_TWEAK } from '../villainArt'
 import { villainGuideOf } from '../villainGuide'
@@ -138,6 +139,9 @@ function TipList({ title, tips, color }: { title: string; tips: string[]; color:
 export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) {
   const [showCards, setShowCards] = useState(false)
   const [showBoard, setShowBoard] = useState(false)
+  // Vue « Fatalité Marvel commune » : le pool de 11 Héros partagé entre tous les vilains Marvel
+  // (5 tirés au hasard rejoignent la Fatalité à chaque partie). Réservé aux vilains d'origine Marvel.
+  const [showMarvel, setShowMarvel] = useState(false)
   // Outil de dév (caché en exe / simulation .exe) : la couleur thématique du vilain.
   const isDesktopApp = useIsDesktopApp()
   const [packHover, setPackHover] = useState(false)
@@ -145,6 +149,12 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
   const [editing, setEditing] = useState(false)
 
   const custom = isCustomKey(villain)
+  // Vilain d'origine Marvel : sa Fatalité est COMPLÉTÉE par 5 Héros tirés du pool commun
+  // (cf. gameStore `setupForKey`) — publiés (via `origin`) ET natifs (listés dans MARVEL_VILLAINS,
+  // ex. Thanos).
+  const isMarvel = custom
+    ? customVillainOf(villain)?.origin === 'Marvel'
+    : MARVEL_VILLAINS.includes(villain as VillainKey)
   // Vilains PUBLIÉS : ils sont listés en version ALLÉGÉE (sans images de cartes/plateau). On les
   // HYDRATE à l'ouverture de la fiche (charge leur JSON complet + ré-enregistre au runtime) pour
   // que « Voir les cartes » / « Voir le plateau » aient leurs visuels. Le portrait et la
@@ -196,7 +206,10 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
   // Dio — cartes du paquet « Stand » (hors deck) : les Stands invoqués (`isStand`) ET The
   // World, qui en fait partie même s'il entre en jeu d'emblée (il n'est pas `isStand`).
   const isStandPile = (c: CardDef) => c.isStand || c.id === 'the-world'
-  const villainCards = v.cards.filter((c) => c.deck === 'villain' && !isStandPile(c)).sort(byCopies)
+  // Thanos — les PIERRES D'INFINITÉ sont une réserve À PART (hors deck Méchant), bien
+  // qu'elles portent `deck: 'villain'`.
+  const villainCards = v.cards.filter((c) => c.deck === 'villain' && !isStandPile(c) && !c.isInfinityStone).sort(byCopies)
+  const stoneCards = v.cards.filter((c) => c.isInfinityStone).sort(byCopies)
   // Madame Mim — les Métamorphoses de Merlin sont une pioche À PART (entre le deck
   // Vilain et la Fatalité traditionnelle), bien qu'elles portent `deck: 'fate'`.
   const merlinCards = v.cards.filter((c) => c.isMerlinTransformation).sort(byCopies)
@@ -254,7 +267,7 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
       )}
       <div
         className={`relative flex max-h-full w-full items-center transition-[max-width] duration-300 ${
-          showCards ? 'max-w-6xl' : showBoard ? 'max-w-5xl' : 'max-w-2xl'
+          showCards || showMarvel ? 'max-w-6xl' : showBoard ? 'max-w-5xl' : 'max-w-2xl'
         }`}
         onClick={(e: MouseEvent) => e.stopPropagation()}
       >
@@ -313,7 +326,7 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
                       exe ET quand on simule le mode application (`!isDesktopApp`) — comme les
                       autres outils de dév. Vilains natifs uniquement (perso → Atelier).
                       Affiché seulement sur la FICHE (ni en vue cartes, ni en vue plateau). */}
-                  {!isDesktopApp && !custom && !showCards && !showBoard && (
+                  {!isDesktopApp && !custom && !showCards && !showBoard && !showMarvel && (
                     <button
                       type="button"
                       onClick={() => { playTinyButtonPress(); setEditing(true) }}
@@ -350,18 +363,28 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => { playPageFlip(); setShowBoard(false); setShowCards((s) => !s) }}
+                  onClick={() => { playPageFlip(); setShowBoard(false); setShowMarvel(false); setShowCards((s) => !s) }}
                   className="rounded-lg border border-amber-400/50 px-3 py-1.5 text-sm font-semibold text-amber-200 hover:bg-amber-400/10"
                 >
                   {showCards ? '← Retour à la fiche' : '🃏 Voir toutes les cartes'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => { playPageFlip(); setShowCards(false); setShowBoard((s) => !s) }}
+                  onClick={() => { playPageFlip(); setShowCards(false); setShowMarvel(false); setShowBoard((s) => !s) }}
                   className="rounded-lg border border-sky-400/50 px-3 py-1.5 text-sm font-semibold text-sky-200 hover:bg-sky-400/10"
                 >
                   {showBoard ? '← Retour à la fiche' : '🗺️ Voir le plateau'}
                 </button>
+                {/* Fatalité Marvel commune : uniquement pour les vilains d'origine Marvel. */}
+                {isMarvel && (
+                  <button
+                    type="button"
+                    onClick={() => { playPageFlip(); setShowCards(false); setShowBoard(false); setShowMarvel((s) => !s) }}
+                    className="rounded-lg border border-red-400/50 px-3 py-1.5 text-sm font-semibold text-red-200 hover:bg-red-400/10"
+                  >
+                    {showMarvel ? '← Retour à la fiche' : '☄️ Fatalité Marvel'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -392,7 +415,20 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
             </div>
           )}
 
-          {showBoard ? (
+          {showMarvel ? (
+            /* Pool FATALITÉ MARVEL commun : les 11 Héros partagés entre tous les vilains Marvel
+               (5 tirés au hasard rejoignent la Fatalité à chaque partie). Images statiques : pas
+               d'hydratation nécessaire. */
+            <div className="flex flex-col gap-4">
+              <p className="rounded-lg border border-red-400/25 bg-red-500/10 p-3 text-sm leading-snug text-white/80">
+                Ces <span className="font-semibold text-red-200">11 Héros</span> forment un pool
+                partagé par tous les vilains Marvel. À chaque partie,{' '}
+                <span className="font-semibold text-red-200">5 sont tirés au hasard</span> et ajoutés
+                à la Fatalité du vilain.
+              </p>
+              <DeckGallery title="Fatalité Marvel commune" cards={MARVEL_FATE_POOL} count={MARVEL_FATE_POOL.length} />
+            </div>
+          ) : showBoard ? (
             /* Plateau du vilain (image), affiché en grand. */
             <div className="flex flex-col items-center gap-3">
               {imagesReady ? (
@@ -413,6 +449,9 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext }: Props) 
             ) : (
             <div className="flex flex-col gap-5">
               <DeckGallery title="Deck Vilain" cards={villainCards} count={sumCopies(villainCards)} />
+              {stoneCards.length > 0 && (
+                <DeckGallery title="Pierres d’Infinité (réserve)" cards={stoneCards} count={sumCopies(stoneCards)} />
+              )}
               {merlinCards.length > 0 && (
                 <DeckGallery title="Métamorphoses de Merlin" cards={merlinCards} count={sumCopies(merlinCards)} />
               )}

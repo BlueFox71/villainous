@@ -704,6 +704,14 @@ export function createInitialGame(setups: PlayerSetup[], seed: number): GameStat
       }
       player = { ...player, deck, fateDeck, standPile: stands, board, removedFromGame: [] }
     }
+    // Thanos — sépare les 6 PIERRES D'INFINITÉ (isInfinityStone) du deck vers `stoneSupply`
+    // (réserve hors deck) ; le deck retombe ainsi à 30. Les Pierres n'entrent en jeu que
+    // via les cartes « récupère une Pierre libre » (dans le domaine d'un adversaire).
+    if (villain.objective.type === 'THANOS_STONES') {
+      const stones = player.deck.filter((c) => c.isInfinityStone)
+      const deck = player.deck.filter((c) => !c.isInfinityStone)
+      player = { ...player, deck, stoneSupply: stones, stoneSkills: [] }
+    }
     // Le Piégeur (Dead by Daylight) — sépare les 4 SURVIVANTS (isSurvivor) du paquet
     // Fatalité et les pose FACE CACHÉE, un par lieu (assignation aléatoire : survivants
     // mélangés → posés dans l'ordre des lieux). Chaque survivant démarre en pleine santé,

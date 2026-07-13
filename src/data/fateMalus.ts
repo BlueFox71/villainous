@@ -332,6 +332,12 @@ export const FATE_MALUS: Record<string, FateMalus> = {
   creatures: 'slow', // Créatures enchantées : −1 Pouvoir à l'arrivée + recouvre une action
   humain: 'slow', // Humainement beau : protège un Héros de « Meuble » (gêne mineure : Colombe reste)
 
+  // --- Thanos (capturer les 6 Pierres) — pas de Héros-cible (l'objectif ne vise aucun Héros) ---
+  'adam-warlock': 'block-win', // Thanos ne peut pas gagner tant qu'il est dans le royaume
+  'drax-le-destructeur': 'slow2', // exige 2 Alliés pour être vaincu : immobilise la force de capture
+  gamora: 'slow2', // à la pose, élimine un Allié de Thanos (perte d'une pièce de capture) puis grossit
+  nebula: 'slow', // draine le Pouvoir de Thanos et grossit selon ses Pierres capturées
+
   // NB : Le Flagelleur Mental (custom-flagelleur-mental) est un vilain de l'Atelier PUBLIÉ :
   // ses cartes ne sont pas dans le registre statique (enregistrées dynamiquement) → il porte
   // ses malus Fatalité PAR CARTE (champ `fateMalus` dans custom-flagelleur-mental.json),

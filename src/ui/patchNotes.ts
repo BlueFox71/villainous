@@ -47,6 +47,18 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.6.0',
+    date: '2026-07-12',
+    title: 'Thanos et les Pierres d’Infinité (Marvel)',
+    tags: ['villain', 'regles', 'ia'],
+    changes: [
+      "Nouveau vilain **Thanos** (*Marvel*, 5★) : capture les **6 Pierres d’Infinité** dans ta zone **Compétences** pour gagner — mais **impossible tant qu’Adam Warlock** est dans ton royaume.",
+      "Les Pierres se jouent **chez l’adversaire** (via **Consultation du Puits**), qui peut d’abord s’en servir ; **transfère un Allié** sur la Pierre puis **rapatrie-le** pour en faire une **Compétence**.",
+      "Une fois capturée, chaque Pierre s’**active** (Pouvoir, Temps, Espace, Esprit, Âme, Réalité). **Corvus Glaive** amène une **Légion**, **Sentence** transfère 2 Alliés d’un coup.",
+      "Fatalité dédiée (**Adam Warlock, Drax, Gamora, Nebula**) + pool **Marvel** commun ; le **bot** sait capturer les Pierres et vise Adam Warlock en priorité.",
+    ],
+  },
+  {
     version: '1.5.0',
     date: '2026-07-10',
     title: 'Ultron entre en scène (Marvel)',

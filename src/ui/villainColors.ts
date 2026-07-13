@@ -41,6 +41,7 @@ export const VILLAIN_COLOR: Record<string, string> = {
   teamRocket: '#9D2B3A',
   'la-bonne-fee': '#3F5A86',
   laBonneFee: '#3F5A86',
+  thanos: '#4A2A6A',
   // Le Flagelleur Mental (custom-flagelleur-mental) : couleur enregistrée au runtime
   // par registerPublishedVillain (vilain de l'Atelier publié).
 }

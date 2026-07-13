@@ -109,6 +109,12 @@ export interface CardDef {
   sendsHeroToPrisonOnMove?: string
   /** Mr. Monopoly — Case Départ : +N Pouvoir quand le pion se rend sur ce lieu ou le dépasse. */
   powerOnPawnCrossOrLand?: number
+  /** Thanos — carte PIERRE D'INFINITÉ : « hors deck » (séparée dans `stoneSupply` au
+   *  setup). N'entre pas dans le paquet de 30. Cf. CardInstance.isInfinityStone. */
+  isInfinityStone?: boolean
+  /** Thanos — Mâchoire d'Ébène : non défaussé s'il élimine chez un adversaire détenant
+   *  une Pierre d'Infinité. Cf. CardInstance. */
+  survivesVanquishVsStoneHolder?: boolean
   /** Nombre d'exemplaires dans le paquet. */
   copies: number
   /** Texte de règle français, recopié de la carte. Source de vérité. */

@@ -47,6 +47,7 @@ import {
   TREASURE_NAMES,
 } from './davyJones'
 import { shuffle, nextRandom, rollD6 } from './rng'
+import { thanosOpponents, seedStoneIntoOpponent, opponentsControllingStone, stonesInOpponentRealms, deployThanosAlly } from './thanos'
 import { KEY_COLORS, type KeyColor } from './types'
 import {
   activatableCards,
@@ -2808,6 +2809,192 @@ export function resolveEffect(
       return next
     }
     // --- Mr. Monopoly : Maisons / Loyer ------------------------------------
+    case 'THANOS_SEED_STONE': {
+      // Met en jeu une Pierre libre dans le domaine d'un adversaire de Thanos. On repère
+      // Thanos par son objectif (l'effet peut être joué par Thanos — Consultation du Puits —
+      // OU par l'adversaire — Fatalité « Découverte d'une Pierre »). Sans Pierre libre → rien.
+      const thanosIdx = state.players.findIndex((p) => p.objective.type === 'THANOS_STONES')
+      if (thanosIdx < 0) return state
+      const opps = thanosOpponents(state, thanosIdx)
+      if (opps.length === 0) return state
+      const oppIndex = opps[0]
+      const res = seedStoneIntoOpponent(state, thanosIdx, oppIndex)
+      if (!res.seeded) {
+        return { ...state, log: [...state.log, `${state.players[thanosIdx].villainName} : plus aucune Pierre d'Infinité libre.`] }
+      }
+      const opp = state.players[oppIndex]
+      const locName = opp.locations.find((l) => l.id === res.locationId)?.name ?? res.locationId
+      return {
+        ...res.state,
+        log: [...res.state.log, `Une **${res.seeded.name}** apparaît dans le domaine de ${opp.villainName} (${locName}).`],
+      }
+    }
+    case 'THANOS_MODEST_PRICE': {
+      // Gagne 1 Pouvoir + 1 par adversaire contrôlant ≥1 Pierre d'Infinité.
+      const bonus = opponentsControllingStone(state, idx)
+      const gain = 1 + bonus
+      const next = updatePlayer(state, idx, (p) => ({ ...p, power: p.power + gain }))
+      return {
+        ...next,
+        log: [
+          ...next.log,
+          `${state.players[idx].villainName} gagne ${gain} Pouvoir (Un Modeste Prix à Payer${bonus > 0 ? `, +${bonus} pour l'adversaire détenant une Pierre` : ''}).`,
+        ],
+      }
+    }
+    case 'THANOS_NEBULA_DRAIN': {
+      // Nebula (Fatalité) posée sur Thanos : il défausse 1 Pouvoir par Pierre-Compétence,
+      // Nebula (hôte) gagne autant de jetons Force +1.
+      const p = state.players[idx]
+      const count = (p.stoneSkills ?? []).length
+      const drained = Math.min(count, p.power)
+      const hostId = ctx?.hostInstanceId
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        power: Math.max(0, pl.power - count),
+        board: hostId
+          ? Object.fromEntries(
+              Object.entries(pl.board).map(([loc, cards]) => [
+                loc,
+                cards.map((c) => (c.instanceId === hostId ? { ...c, forceTokens: (c.forceTokens ?? 0) + count } : c)),
+              ]),
+            )
+          : pl.board,
+      }))
+      return {
+        ...next,
+        log: [
+          ...next.log,
+          `Nebula : ${p.villainName} défausse ${drained} Pouvoir et Nebula gagne +${count} Force (${count} Pierre${count > 1 ? 's' : ''}).`,
+        ],
+      }
+    }
+    case 'THANOS_WHATEVER_IT_TAKES': {
+      // Thanos défausse 1 carte de sa main par Pierre-Compétence qu'il détient (auto : les
+      // moins chères). Joué en Fatalité par l'adversaire → on repère Thanos par son objectif.
+      const thanosIdx = state.players.findIndex((p) => p.objective.type === 'THANOS_STONES')
+      if (thanosIdx < 0) return state
+      const t = state.players[thanosIdx]
+      const count = Math.min((t.stoneSkills ?? []).length, t.hand.length)
+      if (count === 0) {
+        return { ...state, log: [...state.log, `Quel qu'en Soit le Prix : ${t.villainName} n'a aucune Pierre (ou main vide) — aucun effet.`] }
+      }
+      const toDiscard = new Set(
+        [...t.hand].sort((a, b) => (a.cost ?? 0) - (b.cost ?? 0)).slice(0, count).map((c) => c.instanceId),
+      )
+      const discarded = t.hand.filter((c) => toDiscard.has(c.instanceId))
+      const next = updatePlayer(state, thanosIdx, (p) => ({
+        ...p,
+        hand: p.hand.filter((c) => !toDiscard.has(c.instanceId)),
+        discard: [...p.discard, ...discarded],
+      }))
+      return { ...next, log: [...next.log, `Quel qu'en Soit le Prix : ${t.villainName} défausse ${count} carte${count > 1 ? 's' : ''} (1 par Pierre).`] }
+    }
+    case 'THANOS_STONE_ADD_FORCE': {
+      // Pierre du Pouvoir : +amount jetons Force sur l'Allié le plus fort du contrôleur.
+      const p = state.players[idx]
+      let bestLoc: string | undefined
+      let best: CardInstance | undefined
+      for (const [loc, cards] of Object.entries(p.board)) {
+        for (const c of cards) {
+          if (c.type !== 'ally' || c.attachedTo) continue
+          if (!best || (effectiveStrength(state, idx, c.instanceId) ?? 0) > (effectiveStrength(state, idx, best.instanceId) ?? 0)) {
+            best = c
+            bestLoc = loc
+          }
+        }
+      }
+      if (!best || !bestLoc) {
+        return { ...state, log: [...state.log, `Pierre du Pouvoir : aucun Allié à renforcer.`] }
+      }
+      const bestId = best.instanceId
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        board: {
+          ...pl.board,
+          [bestLoc!]: (pl.board[bestLoc!] ?? []).map((c) => (c.instanceId === bestId ? { ...c, forceTokens: (c.forceTokens ?? 0) + effect.amount } : c)),
+        },
+      }))
+      return { ...next, log: [...next.log, `Pierre du Pouvoir : +${effect.amount} Force sur **${best.name}**.`] }
+    }
+    case 'THANOS_TRANSFER_TO_STONE': {
+      // Sentence : transfère jusqu'à `count` Alliés de Thanos sur un lieu adverse à Pierre,
+      // puis +1 jeton Force sur chacun d'eux.
+      const stoneLocs = stonesInOpponentRealms(state, idx)
+      if (stoneLocs.length === 0) {
+        return { ...state, log: [...state.log, `${state.players[idx].villainName} : aucune Pierre en jeu où transférer.`] }
+      }
+      const dest = stoneLocs[0]
+      const p = state.players[idx]
+      const allies = p.locations
+        .flatMap((l) => (p.board[l.id] ?? []).filter((c) => c.type === 'ally' && !c.attachedTo))
+        .sort((a, b) => (effectiveStrength(state, idx, b.instanceId) ?? 0) - (effectiveStrength(state, idx, a.instanceId) ?? 0))
+        .slice(0, effect.count)
+      if (allies.length === 0) {
+        return { ...state, log: [...state.log, `${p.villainName} : aucun Allié à transférer (Sentence).`] }
+      }
+      let next = state
+      const ids = new Set<string>()
+      for (const a of allies) {
+        next = deployThanosAlly(next, idx, a.instanceId, dest.oppIndex, dest.locationId)
+        ids.add(a.instanceId)
+      }
+      // +1 jeton Force sur chaque Allié déployé par cette Sentence.
+      next = updatePlayer(next, idx, (pl) => ({
+        ...pl,
+        deployedAllies: (pl.deployedAllies ?? []).map((d) =>
+          ids.has(d.ally.instanceId) ? { ...d, ally: { ...d.ally, forceTokens: (d.ally.forceTokens ?? 0) + 1 } } : d,
+        ),
+      }))
+      const opp = state.players[dest.oppIndex]
+      const locName = opp.locations.find((l) => l.id === dest.locationId)?.name ?? dest.locationId
+      return {
+        ...next,
+        log: [...next.log, `Sentence : ${allies.length} Allié(s) transféré(s) chez ${opp.villainName} (${locName}), +1 Force chacun.`],
+      }
+    }
+    case 'THANOS_PROXIMA_ELIMINATE': {
+      // Proxima Minuit (Allié, à la pose) : élimine un Héros de force effective ≤ 3 sur son
+      // lieu. À la pose d'un Allié, le lieu vient de `playDestination`.
+      const loc = ctx?.hostLocationId ?? ctx?.playDestination
+      if (!loc) return state
+      const p = state.players[idx]
+      const eligible = (p.board[loc] ?? [])
+        .filter((c) => c.type === 'hero' && (effectiveStrength(state, idx, c.instanceId) ?? 0) <= 3)
+        .sort((a, b) => (effectiveStrength(state, idx, a.instanceId) ?? 0) - (effectiveStrength(state, idx, b.instanceId) ?? 0))
+      if (eligible.length === 0) {
+        return { ...state, log: [...state.log, `Proxima Minuit : aucun personnage de force ≤ 3 à éliminer.`] }
+      }
+      return freeEliminateHero(state, idx, eligible[0].instanceId)
+    }
+    case 'THANOS_GAMORA_ELIMINATE': {
+      // Gamora (Fatalité, onPlace SUR Thanos) : élimine un Allié de Thanos sur son lieu
+      // (le plus fort) ; Gamora gagne alors 2 jetons Force +1.
+      const loc = ctx?.hostLocationId
+      const gamoraId = ctx?.hostInstanceId
+      if (!loc) return state
+      const p = state.players[idx]
+      const allies = (p.board[loc] ?? [])
+        .filter((c) => c.type === 'ally' && !c.attachedTo)
+        .sort((a, b) => (effectiveStrength(state, idx, b.instanceId) ?? 0) - (effectiveStrength(state, idx, a.instanceId) ?? 0))
+      if (allies.length === 0) {
+        return { ...state, log: [...state.log, `Gamora : aucun Allié de Thanos à éliminer sur ce lieu.`] }
+      }
+      const target = allies[0]
+      const removeIds = new Set([target.instanceId, ...(p.board[loc] ?? []).filter((c) => c.attachedTo === target.instanceId).map((c) => c.instanceId)])
+      const discarded = (p.board[loc] ?? []).filter((c) => removeIds.has(c.instanceId))
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        board: {
+          ...pl.board,
+          [loc]: (pl.board[loc] ?? [])
+            .filter((c) => !removeIds.has(c.instanceId))
+            .map((c) => (c.instanceId === gamoraId ? { ...c, forceTokens: (c.forceTokens ?? 0) + 2 } : c)),
+        },
+        discard: [...pl.discard, ...discarded],
+      }))
+      return { ...next, log: [...next.log, `Gamora élimine **${target.name}** et gagne +2 Force.`] }
+    }
     case 'MONOPOLY_BUY_HOUSES': {
       // Affaire : pose des maisons sur le lieu où se trouve l'adversaire (choix de la
       // quantité, paie le coût de chacune). Sans cible posable / sans Pouvoir → aucun effet.

@@ -1028,6 +1028,33 @@ ACTION_POS['princeJohn'] = {
   },
 }
 
+ACTION_POS['sombra'] = {
+  castillo: {
+    'play-card-top': { x: 22.4, y: 19.1 },
+    'gain-power': { x: 30.4, y: 19.4 },
+    discard: { x: 22.6, y: 66.8 },
+    activate: { x: 30.4, y: 67.1 },
+  },
+  'los-muertos': {
+    'gain-power': { x: 43.4, y: 19.5 },
+    'move-item-ally': { x: 51.2, y: 19.5 },
+    'play-card': { x: 43.4, y: 67.7 },
+    fate: { x: 51.2, y: 67.3 },
+  },
+  dorado: {
+    discard: { x: 64.3, y: 19.2 },
+    'play-card-top': { x: 72.2, y: 19.6 },
+    'gain-power': { x: 64.3, y: 67.8 },
+    'play-card-bottom': { x: 72.1, y: 67.8 },
+  },
+  lumerico: {
+    fate: { x: 85, y: 19.2 },
+    activate: { x: 92.9, y: 19.2 },
+    'move-hero': { x: 85, y: 67.1 },
+    'gain-power': { x: 92.9, y: 67 },
+  },
+}
+
 interface Props {
   player: PlayerState
   /** Mr. Monopoly — MAISONS posées par l'adversaire sur les lieux de CE plateau (clé =

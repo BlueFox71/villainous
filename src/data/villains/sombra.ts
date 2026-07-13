@@ -33,7 +33,7 @@ export const sombra: VillainDef = {
     'action du lieu tant qu’elle y reste.',
   boardImage: `${img}/board.png`,
   pawnImage: '/pion_sombra.png',
-  pawnHeightPx: 80,
+  pawnHeightPx: 98,
   backVillainImage: `${img}/back-villain.png`,
   backFateImage: `${img}/back-fate.png`,
   // Lumérico est inaccessible tant que FAILLE n'a pas été jouée.

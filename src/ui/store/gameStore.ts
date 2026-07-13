@@ -23,7 +23,7 @@ import { createClientSession, createHostSession, type ClientSession, type HostSe
 import type { LobbySeat } from '../../net/messages'
 import { isTauri, ensureRelay, lanAddresses } from '../../net/desktop'
 import { buildDeckInstances } from '../../data/types'
-import { drawMarvelFateAddon } from '../../data/marvelFate'
+import { drawSharedMarvelFateAddons } from '../../data/marvelFate'
 import { getCardDef, registerCustomCardDefs } from '../../data/registry'
 import { toVillainDef, toCardDefs, toDeckCardDefs, CUSTOM_ID_PREFIX, type CustomVillain } from '../../data/customVillain'
 import { CUSTOM_DIO_ID, patchCustomDio } from '../../data/villains/customDio'
@@ -106,11 +106,13 @@ import { teamRocket } from '../../data/villains/team-rocket'
 import { teamRocketCards } from '../../data/villains/team-rocket.cards'
 import { laBonneFee } from '../../data/villains/la-bonne-fee'
 import { laBonneFeeCards } from '../../data/villains/la-bonne-fee.cards'
+import { thanos } from '../../data/villains/thanos'
+import { thanosCards } from '../../data/villains/thanos.cards'
 // Le Flagelleur Mental est un vilain de l'Atelier PUBLIÉ (custom-flagelleur-mental) —
 // pas de fichier natif : chargé au runtime via customVillainStore (cf. CLAUDE.md).
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'seigneurCles' | 'madameTremaine' | 'oogieBoogie' | 'seigneurTenebres' | 'madameMim' | 'syndrome' | 'lotso' | 'saSucrerie' | 'shereKhan' | 'davyJones' | 'tamatoa' | 'teamRocket' | 'laBonneFee' | 'tabbou'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'seigneurCles' | 'madameTremaine' | 'oogieBoogie' | 'seigneurTenebres' | 'madameMim' | 'syndrome' | 'lotso' | 'saSucrerie' | 'shereKhan' | 'davyJones' | 'tamatoa' | 'teamRocket' | 'laBonneFee' | 'tabbou' | 'thanos'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -147,6 +149,7 @@ export const VILLAIN_REGISTRY = {
   tamatoa: { def: tamatoa, cards: tamatoaCards, label: 'Tamatoa' },
   teamRocket: { def: teamRocket, cards: teamRocketCards, label: 'Team Rocket' },
   laBonneFee: { def: laBonneFee, cards: laBonneFeeCards, label: 'Marraine la Bonne Fée' },
+  thanos: { def: thanos, cards: thanosCards, label: 'Thanos' },
 } as const
 
 /** Vilains « collaboration » (hors univers Disney) — éditables/clonables dans l'Atelier. */
@@ -161,10 +164,13 @@ export const COLLAB_VILLAINS: VillainKey[] = [
   'tabbou',
 ]
 
+/** Vilains natifs d'origine MARVEL (catégorie dédiée dans la galerie). */
+export const MARVEL_VILLAINS: VillainKey[] = ['thanos']
+
 /** Vilains câblés mais NON encore publiés : masqués aux joueurs (galerie + choix de
  *  partie) tant qu'ils ne sont pas finis. Restent visibles en dév (patron `!isDesktopApp`,
  *  cf. dev-only-ui-gating) pour pouvoir continuer à les tester. Vider la liste = publier. */
-export const UNRELEASED_VILLAINS: VillainKey[] = []
+export const UNRELEASED_VILLAINS: VillainKey[] = ['thanos']
 
 /** Qui contrôle chaque siège. Concept d'UI : le moteur, lui, ne sait pas qui
  *  joue. 'local' = ce navigateur ; 'remote' = l'autre joueur (réseau, à venir) ;
@@ -426,7 +432,21 @@ function saveVillains(villains: [string, string]) {
  *  `deckPrefix`/`fatePrefix` préfixent les instanceId pour distinguer les joueurs.
  *  Les cartes des paquets PERSONNALISÉS (`group`) restent hors-deck (codées à la
  *  main). Repli sur Prince Jean si la clé est inconnue (custom non chargé). */
-function setupForKey(key: string, deckPrefix: string, fatePrefix: string): PlayerSetup {
+/** Un vilain est-il d'origine MARVEL (publié via `origin`, ou natif listé dans MARVEL_VILLAINS) ? */
+function isMarvelKey(key: string): boolean {
+  if (isCustomKey(key)) return customVillainOf(key)?.origin === 'Marvel'
+  return (MARVEL_VILLAINS as string[]).includes(key)
+}
+
+/** `marvelAddon` : les 5 Héros Marvel (déjà tirés du pool PARTAGÉ, cf. buildGameFromKeys) à
+ *  ajouter à la Fatalité si ce vilain est Marvel. Injecté pour garantir l'ABSENCE DE DOUBLON
+ *  entre deux vilains Marvel qui s'affrontent. */
+function setupForKey(
+  key: string,
+  deckPrefix: string,
+  fatePrefix: string,
+  marvelAddon: CardInstance[] = [],
+): PlayerSetup {
   if (isCustomKey(key)) {
     const custom = customVillainOf(key)
     if (custom) {
@@ -434,32 +454,37 @@ function setupForKey(key: string, deckPrefix: string, fatePrefix: string): Playe
       // recopiant désormais TOUS les champs de jeu génériquement, l'entrée doit être nettoyée.
       const mainCards = toDeckCardDefs(custom)
       const fateCards = buildDeckInstances(mainCards, 'fate', fatePrefix)
-      // Vilain Marvel : on COMPLÈTE sa Fatalité avec 5 Héros tirés du pool commun.
-      const withMarvel = custom.origin === 'Marvel'
-        ? [...fateCards, ...drawMarvelFateAddon(fatePrefix)]
-        : fateCards
       return {
         villain: { ...toVillainDef(custom), name: custom.name },
         deckCards: buildDeckInstances(mainCards, 'villain', deckPrefix),
-        fateCards: withMarvel,
+        fateCards: [...fateCards, ...marvelAddon],
       }
     }
   }
   const k = (key in VILLAIN_REGISTRY ? key : 'princeJohn') as VillainKey
   const e = VILLAIN_REGISTRY[k]
+  const fateCards = buildDeckInstances(e.cards, 'fate', fatePrefix)
   return {
     villain: { ...e.def, name: e.label },
     deckCards: buildDeckInstances(e.cards, 'villain', deckPrefix),
-    fateCards: buildDeckInstances(e.cards, 'fate', fatePrefix),
+    fateCards: [...fateCards, ...marvelAddon],
   }
 }
 
-/** État initial d'une partie pour deux clés (natives ou publiées). */
+/** État initial d'une partie pour deux clés (natives ou publiées). Le pool Fatalité MARVEL
+ *  est PARTAGÉ : si les deux vilains sont Marvel, leurs 5+5 Héros sont tirés du même pool sans
+ *  doublon (un Héros donné ne va qu'à l'un des deux). */
 function buildGameFromKeys(keys: [string, string]): GameState {
   const seed = (Math.random() * 0xffffffff) >>> 0
+  const fatePrefixes: [string, string] = ['p0f:', 'p1f:']
+  // Un addon Marvel PARTAGÉ (sans doublon) par joueur Marvel, dans l'ordre des joueurs.
+  const marvelIdx = keys.map((k, i) => (isMarvelKey(k) ? i : -1)).filter((i) => i >= 0)
+  const shared = drawSharedMarvelFateAddons(marvelIdx.map((i) => fatePrefixes[i]))
+  const addonFor: [CardInstance[], CardInstance[]] = [[], []]
+  marvelIdx.forEach((playerIndex, k) => { addonFor[playerIndex] = shared[k] })
   const setups: PlayerSetup[] = [
-    setupForKey(keys[0], 'p0:', 'p0f:'),
-    setupForKey(keys[1], 'p1:', 'p1f:'),
+    setupForKey(keys[0], 'p0:', fatePrefixes[0], addonFor[0]),
+    setupForKey(keys[1], 'p1:', fatePrefixes[1], addonFor[1]),
   ]
   return createInitialGame(setups, seed)
 }
@@ -703,6 +728,10 @@ interface GameStore {
   ) => void
   discardCards: (actionId: string, instanceIds: string[]) => void
   moveCard: (actionId: string, instanceId: string, to: string) => void
+  /** Thanos — DÉPLOIE un Allié chez un adversaire (capture d'une Pierre) via l'action Déplacer. */
+  thanosDeploy: (actionId: string, allyInstanceId: string, oppIndex: number, oppLocationId: string) => void
+  /** Thanos — RAPATRIE un Allié déployé vers `to` (capture la Pierre de son lieu). */
+  thanosRetrieve: (actionId: string, allyInstanceId: string, to: string) => void
   /** Action « Déplacer un Héros » : déplace un Héros vers un lieu voisin. */
   moveHero: (actionId: string, heroInstanceId: string, to: string) => void
   /** Action « Activer » (Jafar) : déclenche la capacité activée d'une carte. */
@@ -1387,6 +1416,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'DISCARD_CARDS', actionId, instanceIds }),
   moveCard: (actionId, instanceId, to) =>
     get().submit({ type: 'MOVE_CARD', actionId, instanceId, to }),
+  thanosDeploy: (actionId, allyInstanceId, oppIndex, oppLocationId) =>
+    get().submit({ type: 'THANOS_DEPLOY_ALLY', actionId, allyInstanceId, oppIndex, oppLocationId }),
+  thanosRetrieve: (actionId, allyInstanceId, to) =>
+    get().submit({ type: 'THANOS_RETRIEVE_ALLY', actionId, allyInstanceId, to }),
   moveHero: (actionId, heroInstanceId, to) =>
     get().submit({ type: 'MOVE_HERO', actionId, heroInstanceId, to }),
   activate: (actionId, cardInstanceId, to, itemInstanceId, allyInstanceIds) =>

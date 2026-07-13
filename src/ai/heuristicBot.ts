@@ -100,6 +100,26 @@ export function objectiveScore(p: PlayerState): number {
       )
       return done / 4 + (Math.min(sentries, 4) / 4) * 0.15
     }
+    case 'THANOS_STONES': {
+      // Thanos — proximité = Pierres CAPTURÉES en Compétences / 6 (poids 0,9). Petit crédit
+      // pour les Alliés disponibles dans le royaume (matière à capturer les Pierres
+      // restantes). Bloqué tant qu'Adam Warlock est présent : plafond à 0,9 (et 0,85 même
+      // avec les 6 Pierres tant qu'il n'est pas vaincu). Jamais 1 avant la victoire réelle.
+      const obj = p.objective
+      const captured = (p.stoneSkills ?? []).length
+      const adamPresent =
+        obj.blockerHeroCardId !== undefined &&
+        Object.values(p.board).some((cards) =>
+          cards.some((c) => c.type === 'hero' && c.cardId === obj.blockerHeroCardId),
+        )
+      if (captured >= 6) return adamPresent ? 0.85 : 1
+      const allies = Object.values(p.board)
+        .flat()
+        .filter((c) => c.type === 'ally' && !c.attachedTo && !c.thanosAlly).length
+      let s = 0.9 * (captured / 6) + (Math.min(allies, 4) / 4) * 0.05
+      if (adamPresent) s = Math.min(s, 0.9)
+      return Math.min(0.95, s)
+    }
     case 'POWER_THRESHOLD': {
       const threshold = p.objective.threshold
       const base = Math.min(p.power, threshold) / threshold

@@ -10,6 +10,7 @@
 import type { CardInstance, GameAction, GameState, PlayerState } from '../engine/types'
 import { KEY_COLORS } from '../engine/types'
 import { canEnterAuDela, raiponceLocation, titanReachableDests } from '../engine/effects'
+import { stonesInOpponentRealms } from '../engine/thanos'
 import { fateCardPlayable, FREE_PLAY_NO_ACTION_ID } from '../engine/actions'
 import { VILLAIN_STRATEGY } from './villainStrategy'
 import {
@@ -1876,6 +1877,25 @@ export function enumerateActions(state: GameState): GameAction[] {
           // Cendrillon en robe de bal : un Allié ne peut pas rejoindre la Salle de Bal.
           if (moving?.type === 'ally' && allyBlockedAt(state, state.activePlayer, to)) continue
           out.push({ type: 'MOVE_CARD', actionId: action.id, instanceId, to })
+        }
+      }
+      // Thanos — transferts de capture via l'action « Déplacer un objet/allié ».
+      if (me.objective.type === 'THANOS_STONES') {
+        // Rapatrier un Allié déployé (capture la Pierre de son lieu) vers un lieu de Thanos.
+        for (const dep of me.deployedAllies ?? []) {
+          for (const l of me.locations) {
+            out.push({ type: 'THANOS_RETRIEVE_ALLY', actionId: action.id, allyInstanceId: dep.ally.instanceId, to: l.id })
+          }
+        }
+        // Déployer un Allié du plateau sur un lieu adverse portant une Pierre.
+        const stoneLocs = stonesInOpponentRealms(state, state.activePlayer)
+        for (const loc of me.locations) {
+          for (const c of me.board[loc.id] ?? []) {
+            if (c.type !== 'ally' || c.attachedTo) continue
+            for (const s of stoneLocs) {
+              out.push({ type: 'THANOS_DEPLOY_ALLY', actionId: action.id, allyInstanceId: c.instanceId, oppIndex: s.oppIndex, oppLocationId: s.locationId })
+            }
+          }
         }
       }
     } else if (action.type === 'MOVE_HERO') {

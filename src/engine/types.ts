@@ -397,6 +397,14 @@ export type ObjectiveDef =
       tunnelCardId: string
       tunnelLocationCount: number
     }
+  /** Thanos (Marvel) : CAPTURER les 6 PIERRES D'INFINITÉ dans sa zone Compétences
+   *  (`stoneSkills`). Les Pierres (hors deck) sont d'abord jouées comme Objets dans le
+   *  domaine d'un adversaire (qui peut les activer) ; Thanos les capture en transférant
+   *  un Allié porteur dans son domaine — la Pierre devient alors une Compétence. Victoire
+   *  vérifiée au début de son tour quand `stoneSkills.length === 6`. Tant qu'un Héros de
+   *  `blockerHeroCardId` (Adam Warlock) est présent dans le royaume, la victoire est
+   *  impossible. */
+  | { type: 'THANOS_STONES'; blockerHeroCardId?: string }
 
 /** Pat Hibulaire — les 5 types de tuile Objectif (4 tirés par partie) :
  *  - `win-big`        : gagner ≥4 Pouvoir via UNE SEULE Petite Partie ? sur le lieu ;
@@ -1867,6 +1875,34 @@ export type Effect =
   /** Ratigan — Cloche : cherche la carte `cardId` (Félicia) dans la pioche ou la
    *  défausse de l'acteur, l'ajoute à sa main, puis remélange sa pioche. */
   | { type: 'TUTOR_CARD_TO_HAND'; cardId: string }
+  /** Thanos — met en jeu une PIERRE D'INFINITÉ « libre » (depuis stoneSupply) dans le
+   *  domaine d'un adversaire : posée sur son lieu (celui de son pion), associée à un Allié
+   *  adverse présent s'il y en a un (sinon au lieu). La Pierre ne peut plus être défaussée
+   *  par l'adversaire (`cannotBeDiscarded`). Aucun effet s'il n'y a plus de Pierre libre.
+   *  (Consultation du Puits, Fatalité « Découverte d'une Pierre ».) */
+  | { type: 'THANOS_SEED_STONE' }
+  /** Thanos — Un Modeste Prix à Payer : gagne 1 Pouvoir + 1 par adversaire contrôlant au
+   *  moins une Pierre d'Infinité. */
+  | { type: 'THANOS_MODEST_PRICE' }
+  /** Thanos — Nebula (Fatalité, onPlace, résolu SUR Thanos) : Thanos défausse 1 Pouvoir par
+   *  Pierre qu'il détient (Compétences) ; Nebula (hôte) gagne autant de jetons Force +1. */
+  | { type: 'THANOS_NEBULA_DRAIN' }
+  /** Thanos — Quel qu'en Soit le Prix (Fatalité) : Thanos défausse de sa main 1 carte par
+   *  Pierre d'Infinité qu'il contrôle (Compétences). Auto : les moins chères d'abord. */
+  | { type: 'THANOS_WHATEVER_IT_TAKES' }
+  /** Thanos — Proxima Minuit (Allié, onPlace) : élimine un Héros de force EFFECTIVE ≤ 3 sur
+   *  son lieu (auto : le plus faible éligible). Aucun Héros éligible → aucun effet. */
+  | { type: 'THANOS_PROXIMA_ELIMINATE' }
+  /** Thanos — Gamora (Fatalité, onPlace SUR Thanos) : élimine un Allié de Thanos sur le lieu
+   *  de Gamora (auto : le plus fort) ; Gamora gagne alors 2 jetons Force +1. Sans Allié, rien. */
+  | { type: 'THANOS_GAMORA_ELIMINATE' }
+  /** Thanos — Pierre du Pouvoir (activation) : pose `amount` jetons Force +1 sur l'Allié le
+   *  plus fort du contrôleur (auto). Sans Allié, aucun effet. */
+  | { type: 'THANOS_STONE_ADD_FORCE'; amount: number }
+  /** Thanos — Sentence : transfère jusqu'à `count` Alliés de Thanos sur un lieu adverse
+   *  portant une Pierre (auto : le 1er lieu à Pierre, les Alliés les plus forts), puis pose
+   *  1 jeton Force +1 sur chacun. Sans Pierre en jeu ni Allié, aucun effet. */
+  | { type: 'THANOS_TRANSFER_TO_STONE'; count: number }
   /** Ratigan — Basil (Fatalité, à la pose) : défausse un Objet non associé du lieu
    *  hôte (auto : `preferCardId` — la Reine Robot — en priorité, sinon le plus cher).
    *  Défausser la Reine Robot bascule l'objectif de Ratigan côté « Le Rat ».
@@ -2089,6 +2125,18 @@ export interface CardInstance {
   /** Survivant — immobilisé par un PIÈGE À OURS : saute la fuite tant que > 0
    *  (décrémenté en fin de tour du Piégeur). */
   trapImmobilizedTurns?: number
+  // --- Thanos (Pierres d'Infinité) -----------------------------------------
+  /** Carte PIERRE D'INFINITÉ (hors deck) : séparée dans `stoneSupply` au setup. Entre
+   *  en jeu comme Objet dans le domaine d'un adversaire (association à un Allié adverse ou
+   *  au lieu), activable par qui la contrôle ; capturée → devient une Compétence de Thanos. */
+  isInfinityStone?: boolean
+  /** Allié de THANOS déployé dans le domaine d'un ADVERSAIRE (rangée du haut). Vit sur le
+   *  board de l'adversaire mais appartient à Thanos ; sert à capturer une Pierre puis à la
+   *  rapatrier (Transférer). Ignoré par les prédicats « Allié adverse » de l'adversaire. */
+  thanosAlly?: boolean
+  /** Allié (Mâchoire d'Ébène) : non défaussé lorsqu'il élimine chez un adversaire détenant
+   *  une Pierre d'Infinité. */
+  survivesVanquishVsStoneHolder?: boolean
   // --- Dio Brando (Stands + The World) -------------------------------------
   /** Dio — carte « Stand » : HORS deck (sauf The World). Séparée dans `standPile` au
    *  setup ; n'entre en jeu que par fetch (`FETCH_STAND_ATTACH`) quand sa carte
@@ -3094,6 +3142,18 @@ export interface PlayerState {
    *  Les PIÈGES À OURS ne sont pas comptés ici : ils sont détectés par la présence de la
    *  carte-objet (cardId `custom-le-piegeur-piege-a-ours`) sur le lieu. */
   hooks?: Record<LocationId, { present: boolean; disabledTurns: number }>
+  // --- Thanos (Pierres d'Infinité) -----------------------------------------
+  /** RÉSERVE hors-deck des Pierres d'Infinité pas encore en jeu (6 au départ). Une Pierre
+   *  en sort quand un adversaire la « récupère » (jouée comme Objet dans SON domaine).
+   *  `undefined` pour les autres vilains. */
+  stoneSupply?: CardInstance[]
+  /** Zone COMPÉTENCES de Thanos : les Pierres CAPTURÉES (rapatriées dans son domaine).
+   *  Objectif THANOS_STONES = en avoir 6. `undefined` pour les autres vilains. */
+  stoneSkills?: CardInstance[]
+  /** Alliés de Thanos DÉPLOYÉS dans le domaine d'un adversaire (en attente de rapatriement
+   *  pour capturer une Pierre). `oppIndex` = l'adversaire concerné, `oppLocationId` = son lieu.
+   *  Rapatrier l'Allié capture la Pierre présente sur ce lieu. `undefined` ailleurs. */
+  deployedAllies?: { ally: CardInstance; oppIndex: number; oppLocationId: LocationId }[]
 }
 
 /**
@@ -4364,6 +4424,12 @@ export type GameAction =
   | { type: 'DISCARD_CARDS'; actionId: string; instanceIds: string[] }
   /** Déplacer un Allié/Objet (et ses Objets associés) vers un lieu voisin. */
   | { type: 'MOVE_CARD'; actionId: string; instanceId: string; to: LocationId }
+  /** Thanos — DÉPLOIE un de ses Alliés dans le domaine d'un adversaire (via l'action
+   *  « Déplacer un objet/allié »), sur `oppLocationId`, pour aller capturer une Pierre. */
+  | { type: 'THANOS_DEPLOY_ALLY'; actionId: string; allyInstanceId: string; oppIndex: number; oppLocationId: LocationId }
+  /** Thanos — RAPATRIE un Allié déployé vers `to` (son royaume) ; capture la Pierre présente
+   *  sur le lieu adverse où il était déployé (→ Compétence). */
+  | { type: 'THANOS_RETRIEVE_ALLY'; actionId: string; allyInstanceId: string; to: LocationId }
   /** Action de lieu « Déplacer un Héros » : déplace un Héros du royaume du joueur
    *  actif vers un lieu VOISIN de celui où il se trouve (Slenderman, Maison Perdue). */
   | { type: 'MOVE_HERO'; actionId: string; heroInstanceId: string; to: LocationId }

@@ -590,6 +590,22 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       "Défausse ses potions et son Prince Charmant, ou bloque la Salle de Bal, pour casser sa combinaison de mariage.",
     ],
   },
+  thanos: {
+    difficulty: 5,
+    devise: "Je suis… inévitable.",
+    story:
+      "Le Titan Fou, seigneur de guerre obsédé par l'équilibre de l'univers. Depuis son trône, Thanos convoite les six PIERRES D'INFINITÉ, dispersées à travers le cosmos. Une fois toutes réunies dans son Gantelet, un simple claquement de doigts suffirait à réécrire la réalité. (Marvel.)",
+    playTips: [
+      "Ton objectif : CAPTURER les 6 Pierres d'Infinité en Compétences. Les Pierres se jouent dans le domaine d'un adversaire (via « Consultation du Puits »), qui peut d'abord s'en servir.",
+      "Transfère tes Alliés chez l'adversaire (action Déplacer, Sentence, Trône Spatial…) sur le lieu d'une Pierre, puis rapatrie-les : la Pierre devient une Compétence.",
+      "Mâchoire d'Ébène, Corvus Glaive et le Nain Noir sont tes gros bras de capture ; Black Swan se renforce près d'une Pierre.",
+    ],
+    counterTips: [
+      "ADAM WARLOCK est ton verrou : tant qu'il est dans le royaume de Thanos, il ne peut pas gagner, même avec 6 Pierres.",
+      "Drax exige 2 Alliés pour être vaincu, Nebula grossit avec les Pierres de Thanos : encombre son royaume pour freiner ses transferts.",
+      "Chaque Pierre que tu laisses filer le rapproche de la victoire : reprends-lui l'initiative avant qu'il ne rapatrie ses Alliés.",
+    ],
+  },
 }
 
 /** Fiches RÉDIGÉES pour certains vilains publiés (collaborations fixes), indexées par

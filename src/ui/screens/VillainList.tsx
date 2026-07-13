@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { VILLAIN_REGISTRY, COLLAB_VILLAINS, UNRELEASED_VILLAINS, type VillainKey } from '../store/gameStore'
+import { VILLAIN_REGISTRY, COLLAB_VILLAINS, MARVEL_VILLAINS, UNRELEASED_VILLAINS, type VillainKey } from '../store/gameStore'
 import { useCustomVillainStore } from '../store/customVillainStore'
 import { villainPortrait } from '../villainArt'
 import { playHeroHover, playHover, playHeroSelect } from '../sfx'
@@ -36,6 +36,7 @@ type Origin = 'Disney' | 'Marvel' | 'Collaborations'
  *  L'ordre vient de la source de vérité partagée `villainOrder.ts`. */
 const CATEGORIES: { title: Origin; villains: VillainKey[] }[] = [
   { title: 'Disney', villains: DISNEY_RELEASE_ORDER },
+  { title: 'Marvel', villains: MARVEL_VILLAINS },
   { title: 'Collaborations', villains: COLLAB_VILLAINS },
 ]
 

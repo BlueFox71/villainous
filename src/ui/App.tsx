@@ -83,6 +83,8 @@ import { AllyRelocateModal } from './components/AllyRelocateModal'
 import { PokemonSummonModal } from './components/PokemonSummonModal'
 import { FateDiscardAllyModal } from './components/FateDiscardAllyModal'
 import { CapturePile } from './components/CapturePile'
+import { StoneSkillsPile } from './components/StoneSkillsPile'
+import { ThanosCapturePanel } from './components/ThanosCapturePanel'
 import { IdentificationModal } from './components/IdentificationModal'
 import { EtoileDuSoirModal } from './components/EtoileDuSoirModal'
 import { SetThingsRightModal } from './components/SetThingsRightModal'
@@ -1471,6 +1473,8 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
   const playCard = useGameStore((s) => s.playCard)
   const discardCards = useGameStore((s) => s.discardCards)
   const moveCard = useGameStore((s) => s.moveCard)
+  const thanosDeploy = useGameStore((s) => s.thanosDeploy)
+  const thanosRetrieve = useGameStore((s) => s.thanosRetrieve)
   const moveHero = useGameStore((s) => s.moveHero)
   const setStartingPlayer = useGameStore((s) => s.setStartingPlayer)
   const activate = useGameStore((s) => s.activate)
@@ -6876,6 +6880,16 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               <ArtifactsPile player={user} uprightWidth="w-14" />
               <ClockPile player={user} />
               <CapturePile player={user} uprightWidth="w-9" />
+              <StoneSkillsPile player={user} uprightWidth="w-9" />
+              {isHumanTurn && state.phase === 'ACTION' && (
+                <ThanosCapturePanel
+                  state={state}
+                  humanIndex={HUMAN}
+                  moveActionId={availableActions.find((a) => a.type === 'MOVE_ITEM_ALLY')?.id}
+                  onDeploy={thanosDeploy}
+                  onRetrieve={thanosRetrieve}
+                />
+              )}
               <SuccessionPile player={user} uprightWidth="w-14" />
               <ImpostorPile player={user} uprightWidth="w-14" />
               <CapturedPuppiesPile
@@ -7897,6 +7911,7 @@ export default function App({ onExit }: { onExit?: () => void } = {}) {
               <ArtifactsPile player={bot} uprightWidth="w-14" />
               <ClockPile player={bot} />
               <CapturePile player={bot} uprightWidth="w-9" />
+              <StoneSkillsPile player={bot} uprightWidth="w-9" />
               <SuccessionPile player={bot} uprightWidth="w-14" />
               <ImpostorPile player={bot} uprightWidth="w-14" />
               <CapturedPuppiesPile player={bot} uprightWidth="w-9" />

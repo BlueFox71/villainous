@@ -195,6 +195,26 @@ export const VILLAIN_STRATEGY: Record<string, VillainStrategy> = {
     },
   },
 
+  // --- Thanos (objectif : capturer les 6 Pierres d'Infinité) -----------------
+  // Adam Warlock verrouille la victoire → à éliminer en priorité absolue. Les gros
+  // Alliés servent de force de capture (transfert chez l'adversaire puis rapatriement).
+  thanos: {
+    priorityVanquish: {
+      'adam-warlock': 10, // verrou de victoire : impossible de gagner tant qu'il est là
+      'drax-le-destructeur': 4,
+      gamora: 4,
+      nebula: 3,
+    },
+    enginePieces: {
+      'machoire-d-ebene': 5, // vainqueur réutilisable chez un détenteur de Pierre
+      'corvus-glaive': 5, // transféré, amène une Légion (double la présence de capture)
+      'nain-noir': 4, // force 6 : capture assurée
+      'proxima-minuit': 3,
+      'black-swan': 2,
+      'trone-spatial': 3, // action « Déplacer » supplémentaire = plus de transferts
+    },
+  },
+
   // --- Maléfique (objectif : une Malédiction sur chacun des 4 lieux) ----------
   // Cf. guide officiel : trouver/garder Diablo (action bonus, contourne le Feu
   // Infernal) et le Bâton Magique (réduit le coût des cartes sur la Forêt) ;

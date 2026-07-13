@@ -184,3 +184,24 @@ export function drawMarvelFateAddon(fatePrefix: string, count = 5): CardInstance
   }
   return all.slice(0, count)
 }
+
+/** Tire des addons Fatalité Marvel PARTAGÉS pour plusieurs joueurs Marvel : le pool des 11
+ *  Héros est mélangé UNE seule fois puis distribué SANS DOUBLON — chaque joueur reçoit `count`
+ *  Héros DISTINCTS des autres. Ainsi, quand deux vilains Marvel s'affrontent, un même Héros
+ *  (ex. Thor) ne peut apparaître que dans UNE des deux Fatalités. Retourne un tableau
+ *  d'instances par préfixe (dans l'ordre reçu). Tirage de SETUP (`Math.random`). */
+export function drawSharedMarvelFateAddons(fatePrefixes: string[], count = 5): CardInstance[][] {
+  const pool = [...MARVEL_FATE_POOL]
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[pool[i], pool[j]] = [pool[j], pool[i]]
+  }
+  const out: CardInstance[][] = []
+  let offset = 0
+  for (const prefix of fatePrefixes) {
+    const slice = pool.slice(offset, offset + count)
+    offset += count
+    out.push(slice.flatMap((c) => buildDeckInstances([c], 'fate', prefix)))
+  }
+  return out
+}

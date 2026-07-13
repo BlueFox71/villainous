@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { existsSync } from 'node:fs'
-import { MARVEL_FATE_POOL, MARVEL_FATE_BY_ID, drawMarvelFateAddon } from '../marvelFate'
+import { MARVEL_FATE_POOL, MARVEL_FATE_BY_ID, drawMarvelFateAddon, drawSharedMarvelFateAddons } from '../marvelFate'
 import { getCardDef } from '../registry'
 import { buildDeckInstances } from '../types'
 import { ultronCards } from '../published/ultron'
@@ -48,6 +48,29 @@ describe('Pool Fatalité Marvel', () => {
       expect(c.instanceId.startsWith('p0f:')).toBe(true)
       expect(c.type).toBe('hero')
     }
+  })
+
+  it('pool PARTAGÉ entre 2 vilains Marvel : 5+5 Héros SANS doublon', () => {
+    // Répété : quel que soit le mélange, aucun Héros n'est donné aux deux joueurs.
+    for (let n = 0; n < 30; n++) {
+      const [a, b] = drawSharedMarvelFateAddons(['p0f:', 'p1f:'])
+      expect(a.length).toBe(5)
+      expect(b.length).toBe(5)
+      const aIds = new Set(a.map((c) => c.cardId))
+      const bIds = new Set(b.map((c) => c.cardId))
+      expect(aIds.size).toBe(5)
+      expect(bIds.size).toBe(5)
+      // Intersection vide : un Héros (ex. Thor) ne peut aller qu'à UN seul.
+      for (const id of aIds) expect(bIds.has(id)).toBe(false)
+      expect(a.every((c) => c.instanceId.startsWith('p0f:'))).toBe(true)
+      expect(b.every((c) => c.instanceId.startsWith('p1f:'))).toBe(true)
+    }
+  })
+
+  it('pool partagé pour 1 seul vilain Marvel : 5 Héros', () => {
+    const [only] = drawSharedMarvelFateAddons(['p1f:'])
+    expect(only.length).toBe(5)
+    expect(only.every((c) => c.instanceId.startsWith('p1f:'))).toBe(true)
   })
 
   it('complète la Fatalité d’Ultron de 10 à 15', () => {

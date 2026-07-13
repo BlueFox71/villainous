@@ -20,6 +20,7 @@ import type {
   PlayerState,
 } from './types'
 import { shuffle, rollD6 } from './rng'
+import { deployThanosAlly, retrieveThanosAlly } from './thanos'
 import {
   activePlayer,
   annotateShowcaseGain,
@@ -4556,6 +4557,79 @@ function applyMoveCard(
   return next
 }
 
+/** Préambule commun aux transferts Thanos : valide qu'une action « Déplacer un objet/allié »
+ *  est bien disponible et renvoie l'action + le joueur actif. */
+function thanosMoveActionOrThrow(state: GameState, actionId: string): LocationAction {
+  if (state.phase !== 'ACTION') throw new Error(`Impossible de transférer en phase ${state.phase}.`)
+  if (!isActionAvailable(state, actionId)) throw new Error(`Action indisponible : « ${actionId} ».`)
+  const loc = currentLocation(state)!
+  const action = locationActions(state, loc.id).find((a) => a.id === actionId)
+  if (!action || action.type !== 'MOVE_ITEM_ALLY') {
+    throw new Error(`« ${actionId} » n'est pas une action « Déplacer un objet/allié ».`)
+  }
+  return action
+}
+
+/** Thanos — DÉPLOIE un de ses Alliés dans le domaine d'un adversaire (rangée du haut) via
+ *  l'action « Déplacer un objet/allié », pour aller capturer une Pierre d'Infinité. */
+function applyThanosDeploy(
+  state: GameState,
+  actionId: string,
+  allyInstanceId: string,
+  oppIndex: number,
+  oppLocationId: LocationId,
+): GameState {
+  const action = thanosMoveActionOrThrow(state, actionId)
+  const me = activePlayer(state)
+  const from = locationOfCard(me, allyInstanceId)
+  if (!from) throw new Error(`Allié « ${allyInstanceId} » absent du royaume.`)
+  const card = me.board[from].find((c) => c.instanceId === allyInstanceId)
+  if (!card || card.type !== 'ally') throw new Error(`Seul un Allié peut être transféré.`)
+  if (oppIndex === state.activePlayer) throw new Error(`Un Allié se transfère chez un ADVERSAIRE.`)
+  const opp = state.players[oppIndex]
+  if (!opp || !opp.locations.some((l) => l.id === oppLocationId)) {
+    throw new Error(`Lieu adverse « ${oppLocationId} » invalide.`)
+  }
+  let next = deployThanosAlly(state, state.activePlayer, allyInstanceId, oppIndex, oppLocationId)
+  next = consumePersifleur(next, action)
+  const locName = opp.locations.find((l) => l.id === oppLocationId)?.name ?? oppLocationId
+  return {
+    ...next,
+    usedActionIds: [...next.usedActionIds, actionId],
+    activeMovedCard: true,
+    log: [...next.log, `${me.villainName} transfère **${card.name}** dans le domaine de ${opp.villainName} (${locName}).`],
+  }
+}
+
+/** Thanos — RAPATRIE un Allié déployé vers `to` (son royaume) ; capture la Pierre présente
+ *  sur le lieu adverse où il était déployé (→ Compétence). */
+function applyThanosRetrieve(
+  state: GameState,
+  actionId: string,
+  allyInstanceId: string,
+  to: LocationId,
+): GameState {
+  const action = thanosMoveActionOrThrow(state, actionId)
+  const me = activePlayer(state)
+  const dep = (me.deployedAllies ?? []).find((d) => d.ally.instanceId === allyInstanceId)
+  if (!dep) throw new Error(`Aucun Allié déployé « ${allyInstanceId} » à rapatrier.`)
+  if (!me.locations.some((l) => l.id === to)) throw new Error(`Lieu « ${to} » invalide.`)
+  const { state: s2, captured } = retrieveThanosAlly(state, state.activePlayer, allyInstanceId, to)
+  const next = consumePersifleur(s2, action)
+  const destName = me.locations.find((l) => l.id === to)?.name ?? to
+  return {
+    ...next,
+    usedActionIds: [...next.usedActionIds, actionId],
+    activeMovedCard: true,
+    log: [
+      ...next.log,
+      captured
+        ? `${me.villainName} rapatrie **${dep.ally.name}** vers **${destName}** et capture la **${captured.name}** (Compétence !).`
+        : `${me.villainName} rapatrie **${dep.ally.name}** vers **${destName}**.`,
+    ],
+  }
+}
+
 /**
  * Action de lieu « Déplacer un Héros » : déplace un Héros du royaume du joueur
  * actif vers un lieu VOISIN de celui où il se trouve. Réutilise l'effet
@@ -4663,6 +4737,21 @@ function applyActivateCore(
     ? { id: 'free-activate', type: 'ACTIVATE', label: 'Activer (gratuit)', row: 'top' }
     : locationActions(state, currentLocation(state)!.id).find((x) => x.id === actionId)!
   const me = activePlayer(state)
+  // Thanos — Pierre CAPTURÉE (Compétence, hors board) : activation gratuite, résout ses
+  // `activatedEffects` (les mêmes que côté adversaire). La Pierre reste en Compétence.
+  const skillStone = (me.stoneSkills ?? []).find((c) => c.instanceId === cardInstanceId)
+  if (skillStone) {
+    let next = resolveEffects(state, skillStone.activatedEffects ?? [], {
+      actorIndex: state.activePlayer,
+      hostInstanceId: cardInstanceId,
+    })
+    next = consumePersifleur(next, action)
+    return {
+      ...next,
+      usedActionIds: [...next.usedActionIds, actionId],
+      log: [...next.log, `${me.villainName} active la **${skillStone.name}** (Compétence).`],
+    }
+  }
   const cardLoc = locationOfCard(me, cardInstanceId)
   if (!cardLoc) throw new Error(`Carte « ${cardInstanceId} » absente du royaume.`)
   const card = me.board[cardLoc].find((c) => c.instanceId === cardInstanceId)!
@@ -12717,6 +12806,10 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return clearGiant(state, applyDiscardCards(state, action.actionId, action.instanceIds))
     case 'MOVE_CARD':
       return clearGiant(state, applyMoveCard(state, action.actionId, action.instanceId, action.to))
+    case 'THANOS_DEPLOY_ALLY':
+      return clearGiant(state, applyThanosDeploy(state, action.actionId, action.allyInstanceId, action.oppIndex, action.oppLocationId))
+    case 'THANOS_RETRIEVE_ALLY':
+      return clearGiant(state, applyThanosRetrieve(state, action.actionId, action.allyInstanceId, action.to))
     case 'MOVE_HERO':
       return clearGiant(state, applyMoveHero(state, action.actionId, action.heroInstanceId, action.to))
     case 'ACTIVATE':
