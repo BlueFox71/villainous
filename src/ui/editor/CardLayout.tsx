@@ -8,7 +8,7 @@ import { CARD_W, CARD_H, DEFAULT_TEXT_LAYOUT, DEFAULT_STICKER_SIZE, STICKER_SIZE
 import type { LocationActionType } from '../../engine/types'
 import { renderCardFace, ruleTextBlockHeight, isPreRenderedCard } from './cardRender'
 import { ACTION_TOKEN_LIST, ACTION_ICON_FILE, BOARD_ICON_DIR } from './actionIcons'
-import { inputClass, TextField } from './fields'
+import { inputClass, Field } from './fields'
 import { useCustomTypesStore } from '../store/customTypesStore'
 
 const ASPECT = CARD_W / CARD_H
@@ -17,6 +17,39 @@ const ASPECT = CARD_W / CARD_H
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <span className="text-[11px] font-semibold uppercase tracking-wide text-amber-200/70">{children}</span>
+  )
+}
+
+/** Texte type d'une carte sans effet, en italique (`_…_`). */
+const NO_ABILITY_TEXT = '_Aucune capacité._'
+
+/** Insère `NO_ABILITY_TEXT` (en italique) à la position du curseur d'un textarea,
+ *  en remplaçant la sélection éventuelle, puis replace le curseur juste après. */
+function insertNoAbility(ta: HTMLTextAreaElement | null, value: string, onChange: (v: string) => void) {
+  if (!ta) return
+  const start = ta.selectionStart ?? value.length
+  const end = ta.selectionEnd ?? value.length
+  const next = value.slice(0, start) + NO_ABILITY_TEXT + value.slice(end)
+  onChange(next)
+  requestAnimationFrame(() => {
+    ta.focus()
+    const p = start + NO_ABILITY_TEXT.length
+    ta.setSelectionRange(p, p)
+  })
+}
+
+/** Bouton « Aucune capacité » d'une barre d'outils de texte : insère la mention
+ *  `_Aucune capacité._` (en italique) au curseur. */
+function NoAbilityButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Insérer « Aucune capacité. » en italique"
+      className="rounded-lg border border-white/20 bg-white/5 px-2 py-1 text-xs font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200"
+    >
+      <em>I</em> Aucune capacité
+    </button>
   )
 }
 
@@ -60,6 +93,7 @@ export function CardLayoutEditor({
   const [sel, setSel] = useState<Selection>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<DragState | null>(null)
+  const mainTextRef = useRef<HTMLTextAreaElement>(null)
   const customTypes = useCustomTypesStore((s) => s.types)
   const wordColors = [...customTypes, ...keywordColors]
 
@@ -326,13 +360,18 @@ export function CardLayoutEditor({
 
         <section className="flex flex-col gap-2">
           <SectionTitle>Texte</SectionTitle>
-          <TextField
+          <Field
             label="Texte de la carte"
-            value={card.text}
-            onChange={(text) => onChange({ ...card, text })}
-            textarea
-            placeholder="Décris l’effet de la carte ici. Le comportement sera codé au moment du test."
-          />
+            action={<NoAbilityButton onClick={() => insertNoAbility(mainTextRef.current, card.text, (text) => onChange({ ...card, text }))} />}
+          >
+            <textarea
+              ref={mainTextRef}
+              className={`${inputClass} min-h-[5rem] resize-y`}
+              value={card.text}
+              placeholder="Décris l’effet de la carte ici. Le comportement sera codé au moment du test."
+              onChange={(e) => onChange({ ...card, text: e.target.value })}
+            />
+          </Field>
 
       {/* Barre d'alignement + tailles : agit sur la zone sélectionnée, sinon le texte principal. */}
       {(card.text.trim() || activeBox) && (
@@ -555,7 +594,8 @@ function BoxTextEditor({
         value={draft}
         onChange={(e) => update(e.target.value)}
       />
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-wrap items-center gap-1">
+        <NoAbilityButton onClick={() => insertNoAbility(ref.current, draft, update)} />
         {ACTION_TOKEN_LIST.map((a) => (
           <button
             key={a.token}

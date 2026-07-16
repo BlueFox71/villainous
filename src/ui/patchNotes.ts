@@ -47,6 +47,22 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.7.1',
+    date: '2026-07-15',
+    title: 'Atelier : variantes liées (skins) + duplication de carte',
+    tags: ['atelier', 'cartes', 'correctif'],
+    changes: [
+      "Nouveau : **variantes liées** (« skins »). Depuis un vilain, bouton **🎭 Variante** : crée une 2ᵉ version qui garde les **mêmes règles** et ne diffère que par la **présentation** — couleur, nom, devise, portrait, présentation, audio, pion, art de plateau, **dos des cartes (ornements)**, **noms + images des lieux**, et une **sélection de cartes** re-illustrées/re-textées.",
+      "La variante **reste liée** à sa base : un bouton **↻ Resynchroniser** (mis en avant quand la base a changé) recompose la variante et régénère ses images — **tu ne ré-saisis jamais les règles**.",
+      "Dans une variante, coche **« Cette carte diffère de la base »** pour lui donner une illustration / un texte propres ; les autres cartes suivent la base (re-teintées à ta couleur).",
+      "Nouveau bouton **⧉ Dupliquer** (barre de navigation d’une carte) : crée une **copie complète** (effets, cadrage, illustration) juste à côté de l’originale, éditable en direct.",
+      "Bouton **Aucune capacité** dans l’éditeur de texte : insère la mention *Aucune capacité.* en **italique** ; le texte des cartes gère désormais l’italique via `_…_`.",
+      "Une **nouvelle carte** a par défaut son texte **centré** (H et V) et en taille **Standard**.",
+      "Nouveau panneau **Toutes les cartes** à droite de l’onglet Cartes : parcours les cartes de **tous les vilains** (sections repliables, ordre de sortie) ; clique pour agrandir.",
+      "**Correctif** : modifier une carte **déjà générée** (sans illustration importée) met enfin l’**aperçu à jour** en direct — l’image figée bloquait le rafraîchissement.",
+    ],
+  },
+  {
     version: '1.7.0',
     date: '2026-07-13',
     title: 'Thanos et les Pierres d’Infinité (Marvel)',

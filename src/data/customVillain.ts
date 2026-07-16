@@ -110,6 +110,16 @@ export const DEFAULT_TEXT_LAYOUT: TextLayout = { x: 50, y: 80, w: 79, size: 50 }
 /** Tailles de texte proposées par les boutons de l'éditeur (Petit / Standard). */
 export const TEXT_SIZE_PRESETS = { small: 55, standard: 76 } as const
 
+/** Disposition du texte d'une carte NEUVE : centré H (x=50), centré V (y=75, comme
+ *  le bouton « Centrer V ») et taille Standard. (Le défaut historique bas/petit ne
+ *  sert plus que de repli pour les cartes qui n'ont jamais reçu de disposition.) */
+export const NEW_CARD_TEXT_LAYOUT: TextLayout = {
+  x: 50,
+  y: 75,
+  w: DEFAULT_TEXT_LAYOUT.w,
+  size: TEXT_SIZE_PRESETS.standard,
+}
+
 /** Une zone de texte SUPPLÉMENTAIRE posée librement sur la carte (en plus du texte
  *  principal). Coordonnées en % (x/y = centre, w = largeur), `size` en px carte. */
 export interface TextBox {
@@ -226,6 +236,14 @@ export interface CustomCard extends CardDef {
   textBoxes?: TextBox[]
   /** Symboles d'action posés librement sur la carte. */
   stickers?: CardSticker[]
+  /** VARIANTE LIÉE (skin) : id de la carte de la BASE dont celle-ci est la copie. Sert à
+   *  resynchroniser (retrouver la carte source) et à propager ses mécaniques. Absent = carte
+   *  d'un vilain normal (non-variante). */
+  baseCardId?: string
+  /** VARIANTE LIÉE : true = cette carte DIFFÈRE de la base sur sa présentation (nom / texte /
+   *  illustration…), donc la resynchro CONSERVE ces champs. Absent/false = carte « liée » qui
+   *  suit intégralement la présentation de la base (seule la couleur de la variante la re-teinte). */
+  variantOverride?: boolean
 }
 
 /** Un cadenas DÉCORATIF posé librement sur le plateau (en plus du cadenas centré
@@ -399,6 +417,17 @@ export interface CustomVillain {
    *  Ex. Ultron. Dio/Gul'dan (créés dans l'Atelier) n'ont pas ce marqueur. */
   atelierHidden?: boolean
 
+  // --- Variante liée (skin) --------------------------------------------------
+  /** VARIANTE LIÉE : id du vilain de BASE dont ce vilain est une variante « skin ». La base
+   *  reste la SOURCE UNIQUE des mécaniques/structure ; cette variante n'en diffère que par la
+   *  PRÉSENTATION (couleur, nom, devise, portrait, présentation, art de plateau, pion, audio,
+   *  noms+images des lieux, et une sélection de cartes re-illustrées/re-textées). Absent = vilain
+   *  autonome. `syncVariantFromBase` recompose cette variante depuis sa base. */
+  variantOf?: string
+  /** VARIANTE LIÉE : `updatedAt` de la base au moment de la dernière resynchro. Sert à détecter
+   *  qu'une base a évolué depuis (→ proposer / déclencher une resynchro). */
+  variantBaseStamp?: string
+
   // --- Métadonnées -----------------------------------------------------------
   createdAt: string
   updatedAt: string
@@ -537,6 +566,7 @@ export function emptyCustomCard(id: string, deck: DeckKind, type: CardType): Cus
     text: '',
     image: '',
     artTransform: { ...DEFAULT_ART_TRANSFORM },
+    textLayout: { ...NEW_CARD_TEXT_LAYOUT },
   }
 }
 
@@ -738,6 +768,152 @@ export function mergeGameData(target: CustomVillain, light: Partial<CustomVillai
   return out
 }
 
+// --- Variantes liées (« skins ») --------------------------------------------
+//
+// Une VARIANTE est un CustomVillain complet (matérialisé/baké → se branche tel quel sur tout
+// le pipeline : registre, sélection, partie) qui reste LIÉ à une base : `syncVariantFromBase`
+// recopie de la base toutes les MÉCANIQUES / la STRUCTURE et ne préserve que la PRÉSENTATION
+// propre à la variante. Sens de sécurité : le DÉFAUT est « hériter de la base » (partagé) ;
+// on énumère seulement ce que la variante possède EN PROPRE — ainsi un futur champ de RÈGLE
+// se propage automatiquement (oublier de le partager serait une divergence silencieuse).
+
+/** Champs de PRÉSENTATION d'un vilain que la variante possède en propre (le reste — objectif,
+ *  actions, decks… — est hérité de la base). Inclut les DOS de cartes (ornements + images bakées) :
+ *  la variante a sa propre couleur, donc ses propres dos et ses propres ornements. */
+const VARIANT_OWN_VILLAIN_FIELDS = [
+  'name', 'devise', 'color', 'coverColor', 'keywordColors',
+  'portrait', 'portraitRaw', 'portraitCrop', 'presentation',
+  'boardArt', 'portraitPos', 'boardImage', 'altBoardImage',
+  'pawnImage', 'pawnHeightPx', 'audio',
+  // Dos de cartes : ornements importés + images bakées (re-générées à la couleur de la variante).
+  'backOverlays', 'backVillainImage', 'backFateImage', 'backExtra', 'backExtraImage',
+] as const satisfies readonly (keyof CustomVillain)[]
+
+/** Champs de PRÉSENTATION d'une carte que la variante conserve quand la carte est « override »
+ *  (le reste — type, coût, force, effets… — vient toujours de la base). */
+const VARIANT_OWN_CARD_FIELDS = [
+  'name', 'text', 'image', 'artImage', 'artTransform',
+  'typeLabel', 'typeColor', 'textLayout', 'textBoxes', 'stickers',
+] as const satisfies readonly (keyof CustomCard)[]
+
+/** Id de carte d'une variante : dérivé de l'id de base + l'id de la variante (kebab-case ASCII,
+ *  unique entre base et variante — le registre indexe par cardId). */
+export function variantCardId(variantId: string, baseCardId: string): string {
+  return `${baseCardId}--${variantId}`
+}
+
+/** Recompose une VARIANTE depuis sa BASE : part de la base (toutes ses mécaniques/structure)
+ *  puis réapplique la présentation PROPRE à la variante (cosmétiques vilain, noms+images des
+ *  lieux, présentation des cartes « override »). Idempotent. Renvoie un nouveau CustomVillain.
+ *
+ *  - Cartes : une par carte de BASE (source de vérité du CONTENU du deck). Chaque carte reçoit
+ *    un id de variante (`variantCardId`) + `baseCardId`. Une carte « liée » (non-override) suit
+ *    intégralement la présentation de la base ; une carte « override » conserve la sienne.
+ *  - Lieux : structure (actions/verrou/face B) de la base ; nom + image repris de la variante
+ *    s'ils y sont définis, sinon hérités.
+ *  - Les IMAGES bakées (cartes re-teintées à la couleur de la variante, portrait…) sont produites
+ *    à part par l'étape de « bake » côté UI : cette fonction ne fait que la fusion des DONNÉES. */
+export function syncVariantFromBase(base: CustomVillain, variant: CustomVillain): CustomVillain {
+  const out: CustomVillain = structuredClone(base)
+
+  // Méta : identité / publication / dates restent celles de la variante.
+  out.id = variant.id
+  out.formatVersion = variant.formatVersion ?? base.formatVersion
+  out.createdAt = variant.createdAt
+  out.updatedAt = variant.updatedAt
+  out.published = variant.published
+  out.creator = variant.creator
+  out.origin = variant.origin
+  out.atelierHidden = variant.atelierHidden
+  out.variantOf = base.id
+  out.variantBaseStamp = base.updatedAt
+
+  // Présentation vilain : la variante gagne quand le champ est défini chez elle.
+  for (const k of VARIANT_OWN_VILLAIN_FIELDS) {
+    const val = (variant as unknown as Record<string, unknown>)[k]
+    if (val !== undefined) (out as unknown as Record<string, unknown>)[k] = structuredClone(val)
+  }
+
+  // Lieux : structure de la base, nom + image de la variante s'ils sont définis.
+  const varLocById = new Map((variant.locations ?? []).map((l) => [l.id, l]))
+  out.locations = base.locations.map((bl) => {
+    const vl = varLocById.get(bl.id)
+    const loc = structuredClone(bl)
+    if (vl?.name !== undefined) loc.name = vl.name
+    if (vl?.image !== undefined) loc.image = vl.image
+    if (vl?.imagePos !== undefined) loc.imagePos = structuredClone(vl.imagePos)
+    return loc
+  })
+
+  // Cartes : une par carte de base ; présentation conservée pour les cartes « override ».
+  const varByBaseId = new Map((variant.cards ?? []).map((c) => [c.baseCardId ?? c.id, c]))
+  out.cards = base.cards.map((bc) => {
+    const vc = varByBaseId.get(bc.id)
+    const card = structuredClone(bc) as CustomCard
+    card.id = vc?.id ?? variantCardId(variant.id, bc.id)
+    card.baseCardId = bc.id
+    card.variantOverride = vc?.variantOverride || undefined
+    if (vc?.variantOverride) {
+      for (const k of VARIANT_OWN_CARD_FIELDS) {
+        const val = (vc as unknown as Record<string, unknown>)[k]
+        if (val !== undefined) (card as unknown as Record<string, unknown>)[k] = structuredClone(val)
+      }
+    }
+    return card
+  })
+
+  return out
+}
+
+/** Crée une VARIANTE liée VIERGE à partir d'une base : toutes les cartes « liées » (aucune
+ *  override), cosmétiques initialement identiques à la base (à personnaliser ensuite dans
+ *  l'Atelier). `id` doit être libre (préfixe custom-). */
+export function createVariant(base: CustomVillain, id: string, name: string, now: string): CustomVillain {
+  const seed: CustomVillain = {
+    ...structuredClone(base),
+    id,
+    name,
+    // Cartes vidées : la sync les régénère à partir de la base avec des ids de VARIANTE
+    // (sinon le seed porterait les ids de base). Cosmétiques/lieux hérités via le clone.
+    cards: [],
+    variantOf: base.id,
+    published: false,
+    atelierHidden: false,
+    creator: undefined,
+    createdAt: now,
+    updatedAt: now,
+  }
+  return syncVariantFromBase(base, seed)
+}
+
+/** État de synchronisation d'un vilain vis-à-vis d'une éventuelle base :
+ *  - `independent` : ce n'est pas une variante (aucun `variantOf`) ;
+ *  - `orphan` : c'est une variante mais sa base est introuvable (elle reste jouable telle
+ *    quelle, mais ne peut plus être resynchronisée) ;
+ *  - `stale` : la base a été modifiée depuis la dernière resynchro (`base.updatedAt` postérieur
+ *    à `variantBaseStamp`) → une resynchro (données + rebake) est à proposer ;
+ *  - `synced` : la variante est à jour avec sa base. */
+export type VariantSyncState = 'independent' | 'orphan' | 'stale' | 'synced'
+
+/** Calcule l'état de synchronisation d'un vilain donné, sa base étant fournie (ou non). */
+export function variantSyncState(v: CustomVillain, base: CustomVillain | undefined): VariantSyncState {
+  if (!v.variantOf) return 'independent'
+  if (!base) return 'orphan'
+  const stamp = v.variantBaseStamp ?? ''
+  return (base.updatedAt ?? '').localeCompare(stamp) > 0 ? 'stale' : 'synced'
+}
+
+/** Retrouve la BASE d'une variante dans une liste de vilains (undefined si pas une variante,
+ *  ou base absente). */
+export function findVariantBase(v: CustomVillain, all: CustomVillain[]): CustomVillain | undefined {
+  return v.variantOf ? all.find((x) => x.id === v.variantOf) : undefined
+}
+
+/** Toutes les variantes LIÉES à une base donnée (par `variantOf`). */
+export function variantsOf(baseId: string, all: CustomVillain[]): CustomVillain[] {
+  return all.filter((x) => x.variantOf === baseId)
+}
+
 /** Convertit les cartes d'un CustomVillain en CardDef[] (déjà compatibles : on en
  *  retire seulement les champs d'édition propres à l'éditeur). SEUL point de nettoyage
  *  des champs éditeur : toute conversion vers le jeu passe par ici. */
@@ -752,6 +928,8 @@ export function toCardDefs(v: CustomVillain): CardDef[] {
     delete def.textLayout
     delete def.textBoxes
     delete def.stickers
+    delete def.baseCardId
+    delete def.variantOverride
     // Les Conditions sont GRATUITES (coût 0). L'éditeur n'expose pas de champ coût pour
     // elles et l'export omet parfois le `0` (sérialisé comme « vide ») : on le rétablit ici
     // pour garder un coût numérique cohérent (cf. intégrité : toute carte Méchant a un coût).

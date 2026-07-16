@@ -24,14 +24,22 @@ import { ACTION_TOKENS, ACTION_ICON_FILE, BOARD_ICON_DIR, drawActionIcon } from 
 
 const LAYOUT_DIR = '/editor/layout'
 
-/** Une carte est « pré-rendue » quand elle n'a PAS d'illustration brute (`artImage`) à
- *  recomposer mais porte déjà une `image` finie. `renderCardFace` ne dessine l'illustration
- *  QUE depuis `artImage` : la recomposer sans art donnerait une carte SANS illustration.
- *  Dans ce cas on affiche donc `image` telle quelle (composite déjà baké). Peu importe que
- *  ce soit une dataURL (vilain « compressé » n'embarquant que le composite, ex. Dio) ou un
- *  chemin servi depuis public/ (vilain migré) : sans `artImage`, il n'y a rien à recomposer. */
+/** Une image « externe » : chemin/URL servie depuis public/ (fichier pré-généré), par
+ *  opposition à une dataURL produite en direct par le renderer. */
+export function isExternalImage(img?: string): boolean {
+  return !!img && !img.startsWith('data:')
+}
+
+/** Une carte est « pré-rendue » (composite NON reproductible) quand son `image` est un
+ *  FICHIER externe pré-généré ET qu'elle n'a pas d'art brut (`artImage`) : cas des vilains
+ *  importés/migrés (Dio, Ultron…) dont l'illustration est fusionnée dans l'image finie —
+ *  `renderCardFace` ne dessinant l'illustration que depuis `artImage`, la recomposer sans art
+ *  donnerait une carte SANS illustration. On affiche alors `image` telle quelle.
+ *  À l'inverse, une `image` en dataURL SANS `artImage` a été rendue par l'éditeur à partir des
+ *  seules données (carte sans illustration) : elle est parfaitement recomposable → PAS
+ *  pré-rendue, pour que toute édition rafraîchisse l'aperçu. */
 export function isPreRenderedCard(card: Pick<CustomCard, 'artImage' | 'image'>): boolean {
-  return !card.artImage && !!card.image
+  return !card.artImage && isExternalImage(card.image)
 }
 
 /** Géométrie (en pixels image 1440×2044), relevée sur les gabarits. */
@@ -225,26 +233,36 @@ async function tintedBadge(file: string, color: string): Promise<HTMLCanvasEleme
 // (séparés par des espaces) ; chaque mot est une suite de SEGMENTS texte/icône, et
 // reste insécable au retour à la ligne.
 
-/** Un segment d'un mot : portion de texte, ou icône d'action. */
-type Seg = { text: string } | { icon: LocationActionType }
+/** Un segment d'un mot : portion de texte (éventuellement en italique), ou icône. */
+type Seg = { text: string; italic?: boolean } | { icon: LocationActionType }
 /** Un mot mesuré : ses segments + sa largeur totale (px). */
 type Word = { segs: Seg[]; w: number }
 
-/** Découpe un mot (sans espace) en segments texte/icône selon les jetons connus. */
-function parseSegments(word: string): Seg[] {
+/** Découpe un mot (sans espace) en segments texte/icône selon les jetons connus, en
+ *  gérant le marqueur d'ITALIQUE `_` (à la Markdown) : chaque `_` bascule l'italique,
+ *  état qui peut s'étendre sur plusieurs mots (on le reçoit / renvoie). */
+export function parseSegments(word: string, italic = false): { segs: Seg[]; italic: boolean } {
   const segs: Seg[] = []
+  // Ajoute une portion de texte en découpant sur `_` (chaque `_` bascule l'italique).
+  const pushText = (str: string) => {
+    const parts = str.split('_')
+    parts.forEach((p, i) => {
+      if (i > 0) italic = !italic
+      if (p) segs.push({ text: p, italic })
+    })
+  }
   const re = /\[([a-z-]+)\]/gi
   let last = 0
   let m: RegExpExecArray | null
   while ((m = re.exec(word))) {
     const type = ACTION_TOKENS[m[1].toLowerCase()]
     if (!type) continue // jeton inconnu : laissé en texte brut
-    if (m.index > last) segs.push({ text: word.slice(last, m.index) })
+    if (m.index > last) pushText(word.slice(last, m.index))
     segs.push({ icon: type })
     last = re.lastIndex
   }
-  if (last < word.length) segs.push({ text: word.slice(last) })
-  return segs.length ? segs : [{ text: word }]
+  if (last < word.length) pushText(word.slice(last))
+  return { segs, italic }
 }
 
 /** Mesure puis répartit `text` en lignes tenant dans `maxW`. Les icônes occupent
@@ -256,27 +274,39 @@ function layoutText(
   iconW: number,
   spaceW: number,
 ): Word[][] {
+  // Mesure sensible à l'italique : on bascule la police avant chaque segment.
+  const baseFont = ctx.font
+  const italicFont = `italic ${baseFont}`
   const measure = (segs: Seg[]) =>
-    segs.reduce((sum, s) => sum + ('icon' in s ? iconW : ctx.measureText(s.text).width), 0)
+    segs.reduce((sum, s) => {
+      if ('icon' in s) return sum + iconW
+      ctx.font = s.italic ? italicFont : baseFont
+      return sum + ctx.measureText(s.text).width
+    }, 0)
   const lines: Word[][] = []
   for (const para of text.split('\n')) {
+    // L'italique ne franchit pas un saut de ligne (réinitialisé à chaque paragraphe).
+    let italic = false
     const words = para.split(/\s+/).filter(Boolean)
     let cur: Word[] = []
     let curW = 0
     for (const raw of words) {
-      const segs = parseSegments(raw)
-      const w = measure(segs)
+      const parsed = parseSegments(raw, italic)
+      italic = parsed.italic
+      if (!parsed.segs.length) continue // mot fait uniquement de marqueurs `_`
+      const w = measure(parsed.segs)
       const projected = curW + (cur.length ? spaceW : 0) + w
       if (cur.length && projected > maxW) {
         lines.push(cur)
         cur = []
         curW = 0
       }
-      cur.push({ segs, w })
+      cur.push({ segs: parsed.segs, w })
       curW += (cur.length > 1 ? spaceW : 0) + w
     }
     lines.push(cur) // garde les paragraphes vides comme ligne vierge
   }
+  ctx.font = baseFont
   return lines
 }
 
@@ -349,6 +379,8 @@ function drawRuleLines(
   ctx.fillStyle = gold
   ctx.textAlign = 'left'
   ctx.textBaseline = 'middle'
+  const baseFont = ctx.font
+  const italicFont = `italic ${baseFont}`
   let y = startY
   for (const line of lines) {
     let x = centerX - lineWidth(line, spaceW) / 2
@@ -362,7 +394,8 @@ function drawRuleLines(
           x += iconW
         } else {
           // Mots de type (Allié, Objet, Héros… ET types personnalisés) colorés à la couleur
-          // de leur type ; le reste reste doré.
+          // de leur type ; le reste reste doré. Italique quand le segment est marqué.
+          ctx.font = seg.italic ? italicFont : baseFont
           ctx.fillStyle = typeWordColor(seg.text, typeColors) ?? gold
           ctx.fillText(seg.text, x, cy)
           x += ctx.measureText(seg.text).width
@@ -372,6 +405,7 @@ function drawRuleLines(
     }
     y += lineH
   }
+  ctx.font = baseFont
   ctx.textAlign = 'center'
   ctx.textBaseline = 'alphabetic'
 }

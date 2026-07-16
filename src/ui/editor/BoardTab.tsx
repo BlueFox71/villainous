@@ -149,12 +149,16 @@ function LocationEditor({
   loc,
   index,
   total,
+  variant = false,
   onChange,
   onMove,
 }: {
   loc: CustomLocation
   index: number
   total: number
+  /** Mode VARIANTE : seuls nom + image du lieu sont éditables (actions/verrou/face B/ordre
+   *  viennent de la base). */
+  variant?: boolean
   onChange: (l: CustomLocation) => void
   onMove: (dir: -1 | 1) => void
 }) {
@@ -190,6 +194,7 @@ function LocationEditor({
             onChange={(e) => onChange({ ...loc, name: e.target.value.toUpperCase() })}
           />
         </label>
+        {!variant && (
         <button
           type="button"
           onClick={toggleAlt}
@@ -207,6 +212,8 @@ function LocationEditor({
         >
           {loc.alt ? '⇄ B' : '+ B'}
         </button>
+        )}
+        {!variant && (
         <button
           type="button"
           onClick={() => onChange({ ...loc, lockedAtStart: !loc.lockedAtStart })}
@@ -224,6 +231,8 @@ function LocationEditor({
         >
           {loc.lockedAtStart ? '🔒' : '🔓'}
         </button>
+        )}
+        {!variant && (
         <button
           type="button"
           onClick={() => onMove(-1)}
@@ -233,6 +242,8 @@ function LocationEditor({
         >
           ↑
         </button>
+        )}
+        {!variant && (
         <button
           type="button"
           onClick={() => onMove(1)}
@@ -242,6 +253,7 @@ function LocationEditor({
         >
           ↓
         </button>
+        )}
       </div>
 
       {/* Face A (par défaut). */}
@@ -255,10 +267,12 @@ function LocationEditor({
           onChange: (imagePos) => onChange({ ...loc, imagePos }),
         }}
       />
-      <ActionsEditor actions={loc.actions} onChange={(actions) => onChange({ ...loc, actions })} />
+      {!variant && (
+        <ActionsEditor actions={loc.actions} onChange={(actions) => onChange({ ...loc, actions })} />
+      )}
 
-      {/* Face B (lieu transformable) : nom / image / actions alternatifs. */}
-      {loc.alt && (
+      {/* Face B (lieu transformable) : nom / image / actions alternatifs. Non éditable en variante. */}
+      {!variant && loc.alt && (
         <div className="flex flex-col gap-3 rounded-lg border border-sky-400/30 bg-sky-400/5 p-3">
           <span className="text-xs font-semibold uppercase tracking-wide text-sky-200/80">
             Face B (transformation)
@@ -522,9 +536,14 @@ function BoardPreview({
 export function BoardTab({
   draft,
   patch,
+  variant = false,
 }: {
   draft: CustomVillain
   patch: (p: Partial<CustomVillain>) => void
+  /** Mode VARIANTE liée : la STRUCTURE (actions, objectif, verrous, face B, objectif
+   *  alternatif) vient de la base et n'est pas éditable ici ; seuls nom + image des lieux,
+   *  l'art du vilain et le pion sont surchargeables. */
+  variant?: boolean
 }) {
   const setLoc = (i: number, l: CustomLocation) =>
     patch({ locations: draft.locations.map((x, j) => (j === i ? l : x)) })
@@ -556,6 +575,7 @@ export function BoardTab({
         <BoardPreview v={draft} onChangeLocks={(boardLocks) => patch({ boardLocks })} coverMode={coverMode} />
       </div>
 
+      {!variant && (
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
@@ -599,12 +619,20 @@ export function BoardTab({
           verrouillés.)
         </span>
       </div>
+      )}
 
       <p className="text-xs text-white/45">
-        Le plateau est <strong>généré</strong> à partir du gabarit neutre « Realm » : couleur du
-        vilain, illustrations de lieux et icônes d’action. Ajoute une image par lieu ci-dessous.
+        {variant ? (
+          <>Variante liée : seuls le <strong>nom</strong> et l’<strong>image</strong> des lieux (plus
+          l’art du vilain et le pion) sont modifiables. Les actions, l’objectif et les verrous
+          viennent de la base.</>
+        ) : (
+          <>Le plateau est <strong>généré</strong> à partir du gabarit neutre « Realm » : couleur du
+          vilain, illustrations de lieux et icônes d’action. Ajoute une image par lieu ci-dessous.</>
+        )}
       </p>
 
+      {!variant && (
       <div className="flex items-stretch gap-3">
         <div className="min-w-0 flex-1">
           <TextField
@@ -632,6 +660,7 @@ export function BoardTab({
           </div>
         </Field>
       </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="flex items-start gap-4">
@@ -676,13 +705,14 @@ export function BoardTab({
             loc={loc}
             index={i}
             total={draft.locations.length}
+            variant={variant}
             onChange={(l) => setLoc(i, l)}
             onMove={(dir) => moveLoc(i, dir)}
           />
         ))}
       </div>
 
-      <AltObjectiveEditor draft={draft} patch={patch} />
+      {!variant && <AltObjectiveEditor draft={draft} patch={patch} />}
     </div>
   )
 }

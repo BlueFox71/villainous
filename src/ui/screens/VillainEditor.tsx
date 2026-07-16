@@ -17,6 +17,8 @@ import {
   extraBackColor,
   extraBackPaper,
   mergeGameData,
+  syncVariantFromBase,
+  variantSyncState,
   type CustomVillain,
   type VillainOrigin,
 } from '../../data/customVillain'
@@ -26,6 +28,7 @@ import { Scroller } from '../components/Scroller'
 import { Field, TextField, ColorField, ImageField, AudioField, SelectField } from '../editor/fields'
 import { BoardTab } from '../editor/BoardTab'
 import { CardsTab } from '../editor/CardsTab'
+import { AllCardsPanel } from '../editor/AllCardsPanel'
 import { QuantityTab } from '../editor/QuantityTab'
 import { StrategyTab } from '../editor/StrategyTab'
 import { CommitPanel } from '../editor/CommitPanel'
@@ -116,10 +119,14 @@ function SaveProgressOverlay({ done, total, phase }: SaveProgress) {
 function IdentityTab({
   draft,
   patch,
+  variant = false,
   onFramePortrait,
 }: {
   draft: CustomVillain
   patch: (p: Partial<CustomVillain>) => void
+  /** Mode VARIANTE liée : la difficulté (partagée avec la base) est masquée ; seuls les
+   *  champs de présentation surchargeables restent éditables. */
+  variant?: boolean
   /** Ouvre l'Éditeur de portrait (cadre doré + nom) pour le portrait carré. */
   onFramePortrait: () => void
 }) {
@@ -138,20 +145,23 @@ function IdentityTab({
           value={draft.audio}
           onChange={(audio) => patch({ audio })}
         />
-        <Field label={`Difficulté — ${draft.stars} ★`}>
-          <input
-            type="range"
-            min={1}
-            max={5}
-            value={draft.stars}
-            onChange={(e) => patch({ stars: Number(e.target.value) })}
-            className="accent-amber-400"
-          />
-        </Field>
+        {!variant && (
+          <Field label={`Difficulté — ${draft.stars} ★`}>
+            <input
+              type="range"
+              min={1}
+              max={5}
+              value={draft.stars}
+              onChange={(e) => patch({ stars: Number(e.target.value) })}
+              className="accent-amber-400"
+            />
+          </Field>
+        )}
         <ColorField label="Couleur thématique" value={draft.color} onChange={(color) => patch({ color })} />
         <p className="text-xs text-white/45">
-          Le dos des cartes Vilain reprend la <strong>couleur thématique</strong> ; le dos des
-          cartes Fatalité reste blanc (parchemin d’origine).
+          {variant
+            ? 'Variante liée : couleur, nom, devise, portrait, présentation, audio, dos (ornements), plateau (lieux) et une sélection de cartes lui sont propres. Le reste (règles, deck) vient de la base.'
+            : 'Le dos des cartes Vilain reprend la couleur thématique ; le dos des cartes Fatalité reste blanc (parchemin d’origine).'}
         </p>
       </div>
       <div className="flex flex-col gap-4">
@@ -416,7 +426,7 @@ function PublishModal({
 // --- Écran principal ---------------------------------------------------------
 
 export function VillainEditor({ onBack, onPlay, openVillainId }: Props) {
-  const { villains, loaded, load, save, remove, unpublish } = useCustomVillainStore()
+  const { villains, loaded, load, save, remove, unpublish, createLinkedVariant } = useCustomVillainStore()
   const [draft, setDraft] = useState<CustomVillain | null>(null)
   const [tab, setTab] = useState<Tab>('identity')
   const [dirty, setDirty] = useState(false)
@@ -505,6 +515,31 @@ export function VillainEditor({ onBack, onPlay, openVillainId }: Props) {
   const onSave = async () => {
     if (!draft || busy) return
     await bakeAndSave(draft)
+  }
+
+  // --- Variantes liées (« skins ») -------------------------------------------
+  // Base d'une variante en cours d'édition (dans la liste chargée) + état de synchro.
+  const variantBase = draft?.variantOf ? villains.find((x) => x.id === draft.variantOf) : undefined
+  const isVariant = !!draft?.variantOf
+  const syncState = draft ? variantSyncState(draft, variantBase) : 'independent'
+
+  /** Crée une variante liée d'un vilain (skin) : demande un nom, la crée/persiste puis
+   *  l'ouvre directement en édition. */
+  const onCreateVariant = async (base: CustomVillain) => {
+    if (busy) return
+    const name = prompt(`Nom de la variante liée de « ${base.name} » :`, `${base.name} (variante)`)?.trim()
+    if (!name) return
+    const id = await createLinkedVariant(base.id, name)
+    const created = useCustomVillainStore.getState().villains.find((x) => x.id === id)
+    if (created) startEdit(created)
+  }
+
+  /** Resynchronise la variante en cours depuis sa base : recompose les données (mécaniques
+   *  + présentation des cartes liées) puis re-bake les images à la couleur de la variante. */
+  const onResync = async () => {
+    if (!draft || !variantBase || busy) return
+    const synced = syncVariantFromBase(variantBase, draft)
+    await bakeAndSave(synced)
   }
 
   /** Construit le JSON ALLÉGÉ (sans les images, lourdes en dataURL) du vilain : uniquement
@@ -812,13 +847,53 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
             ) : (
               dirty && <span className="text-xs text-amber-300/70">● non enregistré</span>
             )}
-            {!complete && (
+            {!complete && !isVariant && (
               <span className="text-xs text-amber-300/70" title="Remplis la planche dans l’onglet Quantité">
                 ⚠ planche incomplète
               </span>
             )}
 
-            {/* Groupe 1 — ÉDITION : exporter / développer. */}
+            {/* VARIANTE LIÉE : rappel de la base + resynchronisation (recompose depuis la base
+                + re-bake à la couleur de la variante). Mis en avant quand la base a évolué. */}
+            {isVariant && (
+              <div className="flex items-center gap-1.5 rounded-lg border border-sky-400/50 bg-sky-400/10 px-2 py-1">
+                <span
+                  className="text-xs font-semibold text-sky-200"
+                  title={
+                    variantBase
+                      ? `Variante liée de « ${variantBase.name} » — les mécaniques et la structure viennent de la base.`
+                      : 'Variante liée : base introuvable (elle reste éditable/jouable, mais non resynchronisable).'
+                  }
+                >
+                  🎭 {variantBase ? `Variante de ${variantBase.name}` : 'Variante (base absente)'}
+                </span>
+                <Tooltip
+                  label={
+                    !variantBase
+                      ? 'Base introuvable : resynchronisation impossible.'
+                      : syncState === 'stale'
+                        ? 'La base a évolué : recompose les données depuis la base et re-génère les images à la couleur de la variante.'
+                        : 'Recompose la variante depuis sa base (données + images).'
+                  }
+                >
+                  <button
+                    type="button"
+                    onClick={() => void onResync()}
+                    disabled={busy || !variantBase}
+                    className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                      syncState === 'stale'
+                        ? 'border-amber-300/70 bg-amber-400/20 text-amber-100 hover:bg-amber-400/30'
+                        : 'border-white/20 bg-white/5 text-white/80 hover:border-sky-300/70 hover:text-sky-200'
+                    }`}
+                  >
+                    {syncState === 'stale' ? '⟳ Resynchroniser (base modifiée)' : '↻ Resynchroniser'}
+                  </button>
+                </Tooltip>
+              </div>
+            )}
+
+            {/* Groupe 1 — ÉDITION : exporter / développer. (Développement/Synchro masqués pour
+                une variante : ses mécaniques viennent de la base.) */}
             <div className="flex items-center gap-1.5">
               <Tooltip label="Exporter ce vilain en fichier .json (sauvegarde / partage).">
                 <button
@@ -830,8 +905,9 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
                   ⬇ .json
                 </button>
               </Tooltip>
-              {/* Développement GRATUIT via Claude Code (abonnement) — web/dev uniquement. */}
-              {!isDesktopApp && (
+              {/* Développement GRATUIT via Claude Code (abonnement) — web/dev uniquement.
+                  Masqué pour une variante (ses mécaniques sont héritées de la base). */}
+              {!isDesktopApp && !isVariant && (
                 <>
                   <Tooltip
                     label={
@@ -1010,6 +1086,20 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
                       <span className="text-xs text-white/40">
                         {'★'.repeat(v.stars)} · {v.cards.length} cartes · {v.locations.length} lieux
                       </span>
+                      {v.variantOf && (() => {
+                        const base = villains.find((x) => x.id === v.variantOf)
+                        const state = variantSyncState(v, base)
+                        return (
+                          <span
+                            className="truncate text-[10px] font-semibold text-sky-300/80"
+                            title={base ? `Variante liée de « ${base.name} »` : 'Variante liée (base introuvable)'}
+                          >
+                            🎭 Variante{base ? ` de ${base.name}` : ''}
+                            {state === 'stale' && <span className="text-amber-300"> · ⟳ à resynchroniser</span>}
+                            {state === 'orphan' && <span className="text-rose-300"> · base absente</span>}
+                          </span>
+                        )
+                      })()}
                       {v.published ? (
                         <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300/80">
                           ✓ Publié
@@ -1027,6 +1117,19 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
                         >
                           Éditer
                         </button>
+                        {/* Créer une VARIANTE liée (skin) — seulement depuis une base (pas une
+                            variante, pour éviter les chaînes variante-de-variante). */}
+                        {!v.variantOf && (
+                          <button
+                            type="button"
+                            onClick={() => void onCreateVariant(v)}
+                            disabled={busy}
+                            title="Créer une variante liée (skin) : même mécaniques, présentation différente (couleur, nom, portrait, lieux, cartes re-illustrées)"
+                            className="rounded-lg border border-sky-400/40 bg-sky-400/10 px-2 py-1 text-xs font-semibold text-sky-200 transition hover:bg-sky-400/20 disabled:opacity-40"
+                          >
+                            🎭 Variante
+                          </button>
+                        )}
                         {v.published ? (
                           // Vilain publié : bouton DÉPUBLIER (retire du jeu + de la liste).
                           <button
@@ -1061,15 +1164,21 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Onglets */}
           <nav className="flex gap-1 border-b border-white/10 bg-black/20 px-6">
-            {([
+            {(([
               ['identity', 'Identité'],
               ['board', 'Plateau'],
               ['cards', `Cartes (${draft.cards.length})`],
-              ['quantity', complete ? 'Quantité ✓' : 'Quantité'],
-              ['strategy', 'Codage Cartes'],
-              ['botplay', 'Bot adverse'],
-              ['journal', 'Journal'],
-            ] as [Tab, string][]).map(([key, label]) => {
+              // Onglets NON pertinents pour une variante (quantité + stratégie = déck/mécaniques,
+              // hérités de la base) : masqués en mode variante.
+              ...(isVariant
+                ? []
+                : ([
+                    ['quantity', complete ? 'Quantité ✓' : 'Quantité'],
+                    ['strategy', 'Codage Cartes'],
+                    ['botplay', 'Bot adverse'],
+                    ['journal', 'Journal'],
+                  ] as [Tab, string][])),
+            ] as [Tab, string][])).map(([key, label]) => {
               // Onglets stratégie verrouillés tant que le vilain n'est pas développé.
               const locked = STRATEGY_TABS.includes(key) && !developed
               return (
@@ -1098,13 +1207,14 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
           </nav>
 
           <Scroller className="flex-1 p-6">
-            <div className={`mx-auto ${STRATEGY_TABS.includes(tab) ? 'max-w-[1800px]' : 'max-w-5xl'}`}>
+            <div className={`mx-auto ${STRATEGY_TABS.includes(tab) || tab === 'cards' ? 'max-w-[1800px]' : 'max-w-5xl'}`}>
               {tab === 'identity' && (
                 <div className="flex flex-col gap-8">
-                  <IdentityTab draft={draft} patch={patch} onFramePortrait={() => setPortraitFrameOpen(true)} />
+                  <IdentityTab draft={draft} patch={patch} variant={isVariant} onFramePortrait={() => setPortraitFrameOpen(true)} />
+                  {/* Dos des cartes : propres à la variante (couleur + ornements surchargés). */}
                   <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-black/20 p-4">
                     <span className="text-xs font-semibold uppercase tracking-wide text-white/50">
-                      Dos des cartes — ornements
+                      Dos des cartes — ornements{isVariant && ' (propres à la variante)'}
                     </span>
                     <div className="flex flex-wrap items-start gap-6">
                       {/* Dos Vilain : éditeur interactif (importer / déplacer / redimensionner). */}
@@ -1127,14 +1237,24 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
                       />
                     </div>
                   </div>
-                  {/* 3e dos : uniquement si le vilain a au moins un paquet perso. */}
+                  {/* 3e dos : uniquement si le vilain a au moins un paquet perso (hérité de la base
+                      pour une variante ; sa config de dos reste néanmoins propre à la variante). */}
                   {(draft.extraDecks?.length ?? 0) > 0 && (
                     <ExtraBackSection draft={draft} patch={patch} />
                   )}
                 </div>
               )}
-              {tab === 'board' && <BoardTab draft={draft} patch={patch} />}
-              {tab === 'cards' && <CardsTab draft={draft} patch={patch} />}
+              {tab === 'board' && <BoardTab draft={draft} patch={patch} variant={isVariant} />}
+              {tab === 'cards' && (
+                <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_23rem]">
+                  <div className="min-w-0">
+                    <CardsTab draft={draft} patch={patch} variant={isVariant} />
+                  </div>
+                  <div className="xl:sticky xl:top-0 xl:max-h-[calc(100vh-9rem)] xl:overflow-y-auto">
+                    <AllCardsPanel excludeId={draft.id} />
+                  </div>
+                </div>
+              )}
               {tab === 'quantity' && <QuantityTab draft={draft} patch={patch} />}
               {tab === 'strategy' && <StrategyTab draft={draft} patch={patch} variant="coding" />}
               {tab === 'botplay' && <StrategyTab draft={draft} patch={patch} variant="botPlay" />}

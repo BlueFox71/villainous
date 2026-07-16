@@ -8,8 +8,16 @@
 // =============================================================================
 
 import { create } from 'zustand'
-import type { CustomVillain } from '../../data/customVillain'
-import { migrateCustomVillain, pickFreshestVillains } from '../../data/customVillain'
+import type { CustomVillain, VariantSyncState } from '../../data/customVillain'
+import {
+  migrateCustomVillain,
+  pickFreshestVillains,
+  createVariant,
+  variantSyncState,
+  findVariantBase,
+  slugify,
+  CUSTOM_ID_PREFIX,
+} from '../../data/customVillain'
 import { loadBundledVillains } from '../../data/published/load'
 import { registerPublishedVillain, unregisterPublishedVillain } from './gameStore'
 
@@ -159,6 +167,13 @@ interface CustomVillainStore {
   exportJson: (id: string) => string | undefined
   /** Importe un vilain depuis du JSON ; renvoie l'id importé ou lève une erreur. */
   importJson: (text: string) => Promise<string>
+  /** VARIANTE LIÉE : base d'une variante (undefined si pas une variante / base absente). */
+  baseOf: (id: string) => CustomVillain | undefined
+  /** VARIANTE LIÉE : état de synchronisation d'un vilain vis-à-vis de sa base. */
+  syncStateOf: (id: string) => VariantSyncState
+  /** VARIANTE LIÉE : crée une variante « skin » liée à une base (cartes toutes liées,
+   *  cosmétiques initialement identiques), la persiste et renvoie son id. */
+  createLinkedVariant: (baseId: string, name: string) => Promise<string>
 }
 
 /** Donne un id libre si `id` est déjà pris (suffixe -2, -3…). */
@@ -267,6 +282,30 @@ export const useCustomVillainStore = create<CustomVillainStore>((set, get) => ({
     await idbPut(imported)
     void backupToDisk(imported) // filet de sécurité disque (best-effort)
     set((s) => ({ villains: [imported, ...s.villains.filter((x) => x.id !== id)] }))
+    return id
+  },
+
+  baseOf: (id) => {
+    const v = get().villains.find((x) => x.id === id)
+    return v ? findVariantBase(v, get().villains) : undefined
+  },
+
+  syncStateOf: (id) => {
+    const v = get().villains.find((x) => x.id === id)
+    if (!v) return 'independent'
+    return variantSyncState(v, findVariantBase(v, get().villains))
+  },
+
+  createLinkedVariant: async (baseId, name) => {
+    const base = get().villains.find((x) => x.id === baseId)
+    if (!base) throw new Error('Base introuvable pour créer une variante liée.')
+    const taken = new Set(get().villains.map((v) => v.id))
+    const id = freeId(`${CUSTOM_ID_PREFIX}${slugify(name)}`, taken)
+    const now = new Date().toISOString()
+    const variant = createVariant(base, id, name, now)
+    await idbPut(variant)
+    void backupToDisk(variant) // filet de sécurité disque (best-effort)
+    set((s) => ({ villains: [variant, ...s.villains] }))
     return id
   },
 }))

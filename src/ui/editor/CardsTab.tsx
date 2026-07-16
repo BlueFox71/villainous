@@ -9,7 +9,7 @@ import type { CardType, DeckKind } from '../../data/types'
 import { Field, TextField, NumberField, ImageField, SelectField, ColorField, ResetButton, inputClass } from './fields'
 import { CardPreview } from './CardPreview'
 import { CardLayoutEditor } from './CardLayout'
-import { TYPE_LABEL, TYPE_COLOR } from './cardRender'
+import { TYPE_LABEL, TYPE_COLOR, isPreRenderedCard } from './cardRender'
 import { useCustomTypesStore } from '../store/customTypesStore'
 
 /** Toutes les catégories MÉCANIQUES connues du moteur (libellés FR de référence). */
@@ -122,6 +122,7 @@ function CardForm({
   fateColor,
   keywordColors = [],
   extraDecks,
+  variant = false,
   onChange,
 }: {
   card: CustomCard
@@ -129,9 +130,15 @@ function CardForm({
   fateColor: string
   keywordColors?: { label: string; color: string }[]
   extraDecks: string[]
+  /** Mode VARIANTE : seule la présentation est éditable, et seulement si la carte est marquée
+   *  « diffère de la base » (variantOverride). Les champs mécaniques (paquet, catégorie, coût,
+   *  force) sont masqués (hérités de la base). */
+  variant?: boolean
   onChange: (c: CustomCard) => void
 }) {
   const set = (p: Partial<CustomCard>) => onChange({ ...card, ...p })
+  // En mode variante, la présentation n'est éditable que si la carte « diffère de la base ».
+  const overriding = card.variantOverride ?? false
 
   // Cadrage de l'illustration : valeur courante (avec défauts) + maj partielle. Le
   // défaut est scale 1 (100 %), décalages 0 — cible des boutons « réinitialiser ».
@@ -160,14 +167,61 @@ function CardForm({
 
   return (
     <div className="flex flex-col gap-4">
+        {/* VARIANTE : bascule « cette carte diffère de la base ». Décochée → la carte suit la
+            base (seule la couleur de la variante la re-teinte) et n'est pas éditable ici. */}
+        {variant && (
+          <label className="flex items-center gap-2 rounded-lg border border-sky-400/40 bg-sky-400/10 px-3 py-2 text-sm font-semibold text-sky-100">
+            <input
+              type="checkbox"
+              className="accent-sky-400"
+              checked={overriding}
+              // À l'activation : on invalide le composite (image:'') pour re-baker avec l'art
+              // propre à la variante. À la désactivation : on efface la présentation propre
+              // (nom/texte/art) pour que la resynchro la reprenne de la base.
+              onChange={(e) =>
+                e.target.checked
+                  ? onChange({ ...card, variantOverride: true, image: '' })
+                  : onChange({
+                      ...card,
+                      variantOverride: undefined,
+                      artImage: undefined,
+                      artTransform: undefined,
+                      typeLabel: undefined,
+                      typeColor: undefined,
+                      textLayout: undefined,
+                      textBoxes: undefined,
+                      stickers: undefined,
+                      image: '',
+                    })
+              }
+            />
+            Cette carte diffère de la base (illustration / texte propres)
+          </label>
+        )}
+
+        {variant && !overriding && (
+          <div className="flex items-start gap-4 rounded-lg border border-white/10 bg-black/20 p-3">
+            <div className="w-28 shrink-0">
+              <CardPreview card={card} color={color} fateColor={fateColor} keywordColors={keywordColors} />
+            </div>
+            <p className="text-xs text-white/50">
+              Carte <strong>liée</strong> à la base : elle en suit le nom, le texte et l’illustration
+              (re-teintés à la couleur de la variante). Coche la case ci-dessus pour lui donner une
+              présentation propre.
+            </p>
+          </div>
+        )}
+
+        {(!variant || overriding) && (
+        <>
         <div className="grid grid-cols-2 gap-3">
           {/* Titre TOUJOURS en majuscules (cohérent avec le rendu de la carte). */}
           <TextField label="Nom" value={card.name.toUpperCase()} onChange={(name) => set({ name: name.toUpperCase() })} />
-          <SelectField label="Paquet" value={deckValue} options={deckOptions} onChange={onDeckChange} />
+          {!variant && <SelectField label="Paquet" value={deckValue} options={deckOptions} onChange={onDeckChange} />}
         </div>
         {/* Paquet PERSO : on choisit librement le STYLE de la carte (Méchant ou Fatalité)
             — ex. le deck « Stand » contient des cartes des deux styles. */}
-        {card.group && (
+        {!variant && card.group && (
           <SelectField
             label="Style de carte"
             value={card.deck}
@@ -239,7 +293,9 @@ function CardForm({
         </div>
 
         {/* CATÉGORIE MOTEUR : indépendante du libellé. Sert au moteur (coût/force,
-            ciblage Fatalité) et de base au comportement codé à la main. */}
+            ciblage Fatalité) et de base au comportement codé à la main. Masquée en variante
+            (mécaniques héritées de la base). */}
+        {!variant && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <SelectField
             label="Catégorie (moteur)"
@@ -305,12 +361,15 @@ function CardForm({
             />
           )}
         </div>
+        )}
+        {!variant && (
         <p className="text-[11px] text-white/40">
           Le <strong>Type affiché</strong> est libre (ex. « Piratage ») et purement visuel. La{' '}
           <strong>Catégorie (moteur)</strong> détermine le comportement de base (coût, force,
           ciblage Fatalité) — choisis celle qui s’en rapproche le plus ; les effets propres au
           nouveau type se codent à la main au moment du test.
         </p>
+        )}
 
         {/* Illustration → Texte → Symboles d'action : empilés dans la colonne de gauche
             de l'éditeur de disposition ; l'aperçu interactif reste fixe à droite. */}
@@ -372,6 +431,8 @@ function CardForm({
             </div>
           }
         />
+        </>
+        )}
     </div>
   )
 }
@@ -381,9 +442,14 @@ function CardForm({
 export function CardsTab({
   draft,
   patch,
+  variant = false,
 }: {
   draft: CustomVillain
   patch: (p: Partial<CustomVillain>) => void
+  /** Mode VARIANTE liée : la COMPOSITION du deck (ajout/retrait/paquets/quantités) vient de la
+   *  base et n'est pas éditable ; chaque carte peut être marquée « diffère de la base » pour
+   *  re-illustrer / re-texter (présentation seulement). */
+  variant?: boolean
 }) {
   const [selId, setSelId] = useState<string | null>(draft.cards[0]?.id ?? null)
   const selected = draft.cards.find((c) => c.id === selId) ?? null
@@ -404,12 +470,40 @@ export function CardsTab({
     setSelId(card.id)
   }
 
+  // Éditer une carte INVALIDE son composite baké (`image`) : les aperçus (galerie +
+  // grand aperçu) et le prochain bake se recomposent alors depuis les données éditées.
+  // Sinon une carte déjà bakée (image figée, conservée telle quelle) ignorerait toute
+  // modification. Exception : carte PRÉ-RENDUE non reproductible (fichier externe sans
+  // art brut, ex. import compressé Dio) → rien à recomposer, on garde le composite figé.
   const updateCard = (c: CustomCard) =>
-    patch({ cards: draft.cards.map((x) => (x.id === c.id ? c : x)) })
+    patch({
+      cards: draft.cards.map((x) =>
+        x.id === c.id ? (isPreRenderedCard(c) ? c : { ...c, image: '' }) : x,
+      ),
+    })
 
   const removeCard = (id: string) => {
     patch({ cards: draft.cards.filter((c) => c.id !== id) })
     if (selId === id) setSelId(null)
+  }
+
+  // Duplique une carte : copie profonde (effets/cadrage/illustration inclus), nouvel id,
+  // nom suffixé « (COPIE) », insérée juste après l'originale (adjacente en galerie).
+  const duplicateCard = (id: string) => {
+    const src = draft.cards.find((c) => c.id === id)
+    if (!src) return
+    const copy: CustomCard = { ...structuredClone(src), id: freeCardId() }
+    copy.name = `${src.name} (COPIE)`.toUpperCase()
+    // IMPORTANT : on repart d'une carte « à composer ». On EFFACE le composite baké
+    // (`image`) hérité de l'original — sinon la copie afficherait l'image figée de
+    // l'original (aperçu galerie = `card.image` tel quel) et ignorerait toute édition.
+    // L'`artImage`/cadrage sont conservés ; le composite est régénéré au bake/publish.
+    copy.image = ''
+    const i = draft.cards.findIndex((c) => c.id === id)
+    const next = [...draft.cards]
+    next.splice(i + 1, 0, copy)
+    patch({ cards: next })
+    setSelId(copy.id)
   }
 
   // --- Paquets personnalisés (hors Vilain/Fatalité) --------------------------
@@ -462,8 +556,17 @@ export function CardsTab({
         />
       </div>
 
+      {variant && (
+        <p className="rounded-xl border border-sky-400/30 bg-sky-400/5 p-3 text-xs text-sky-100/80">
+          Variante liée : la composition du deck vient de la base. Sélectionne une carte puis coche
+          <strong> « Cette carte diffère de la base » </strong> pour lui donner une illustration /
+          un texte propres. Les cartes non modifiées suivent la base (re-teintées à ta couleur).
+        </p>
+      )}
+
       {/* Galerie */}
       <div className="flex flex-col gap-4">
+        {!variant && (
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -491,9 +594,10 @@ export function CardsTab({
             Deck Vilain : {villainCards.length} modèle(s) · Fatalité : {fateCards.length} — quantités dans l’onglet « Quantité »
           </span>
         </div>
+        )}
 
-        <CardRow title="Deck Vilain" cards={villainCards} selId={selId} onSelect={setSelId} onRemove={removeCard} color={draft.color} fateColor={FATE_CARD_COLOR} keywordColors={draft.keywordColors} />
-        <CardRow title="Deck Fatalité" cards={fateCards} selId={selId} onSelect={setSelId} onRemove={removeCard} color={draft.color} fateColor={FATE_CARD_COLOR} keywordColors={draft.keywordColors} />
+        <CardRow title="Deck Vilain" cards={villainCards} selId={selId} onSelect={setSelId} onRemove={removeCard} color={draft.color} fateColor={FATE_CARD_COLOR} keywordColors={draft.keywordColors} readOnly={variant} />
+        <CardRow title="Deck Fatalité" cards={fateCards} selId={selId} onSelect={setSelId} onRemove={removeCard} color={draft.color} fateColor={FATE_CARD_COLOR} keywordColors={draft.keywordColors} readOnly={variant} />
 
         {/* Paquets personnalisés (hors-deck) */}
         {extraDecks.map((name) => (
@@ -502,27 +606,31 @@ export function CardsTab({
               <span className="text-xs font-semibold uppercase tracking-wide text-sky-200/80">
                 Paquet perso — {name}
               </span>
-              <button
-                type="button"
-                onClick={() => addCard('villain', name)}
-                className="rounded-lg border border-sky-400/40 bg-sky-400/10 px-2 py-1 text-xs font-semibold text-sky-100 transition hover:bg-sky-400/20"
-              >
-                + Méchant
-              </button>
-              <button
-                type="button"
-                onClick={() => addCard('fate', name)}
-                className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-xs font-semibold text-amber-100 transition hover:bg-amber-400/20"
-              >
-                + Fatalité
-              </button>
-              <button
-                type="button"
-                onClick={() => removeExtraDeck(name)}
-                className="rounded-lg border border-white/15 px-2 py-1 text-xs text-white/50 transition hover:border-rose-400/60 hover:text-rose-300"
-              >
-                Supprimer le paquet
-              </button>
+              {!variant && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => addCard('villain', name)}
+                    className="rounded-lg border border-sky-400/40 bg-sky-400/10 px-2 py-1 text-xs font-semibold text-sky-100 transition hover:bg-sky-400/20"
+                  >
+                    + Méchant
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addCard('fate', name)}
+                    className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-xs font-semibold text-amber-100 transition hover:bg-amber-400/20"
+                  >
+                    + Fatalité
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeExtraDeck(name)}
+                    className="rounded-lg border border-white/15 px-2 py-1 text-xs text-white/50 transition hover:border-rose-400/60 hover:text-rose-300"
+                  >
+                    Supprimer le paquet
+                  </button>
+                </>
+              )}
             </div>
             <CardRow
               cards={draft.cards.filter((c) => c.group === name)}
@@ -532,6 +640,7 @@ export function CardsTab({
               color={draft.color}
               fateColor={FATE_CARD_COLOR}
               keywordColors={draft.keywordColors}
+              readOnly={variant}
               emptyHint="Aucune carte : « + Carte » pour en ajouter."
             />
           </div>
@@ -554,14 +663,26 @@ export function CardsTab({
             <span className="text-xs text-white/40">
               {selIndex + 1} / {orderedCards.length}
             </span>
-            <button
-              type="button"
-              onClick={() => goToCard(1)}
-              disabled={selIndex < 0 || selIndex >= orderedCards.length - 1}
-              className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-white/80 transition enabled:hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Carte suivante ▶
-            </button>
+            <div className="flex items-center gap-2">
+              {!variant && (
+                <button
+                  type="button"
+                  onClick={() => duplicateCard(selected.id)}
+                  className="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-1.5 text-sm font-semibold text-amber-100 transition hover:bg-amber-400/20"
+                  title="Dupliquer cette carte"
+                >
+                  ⧉ Dupliquer
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => goToCard(1)}
+                disabled={selIndex < 0 || selIndex >= orderedCards.length - 1}
+                className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-white/80 transition enabled:hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Carte suivante ▶
+              </button>
+            </div>
           </div>
           <CardForm
             card={selected}
@@ -569,6 +690,7 @@ export function CardsTab({
             fateColor={FATE_CARD_COLOR}
             keywordColors={draft.keywordColors}
             extraDecks={extraDecks}
+            variant={variant}
             onChange={updateCard}
           />
         </div>
@@ -589,6 +711,7 @@ function CardRow({
   fateColor,
   keywordColors = [],
   emptyHint,
+  readOnly = false,
 }: {
   title?: string
   cards: CustomCard[]
@@ -599,6 +722,8 @@ function CardRow({
   fateColor: string
   keywordColors?: { label: string; color: string }[]
   emptyHint?: string
+  /** Mode VARIANTE : pas de suppression de carte (deck partagé avec la base). */
+  readOnly?: boolean
 }) {
   if (cards.length === 0) {
     if (emptyHint) return <p className="text-[11px] text-white/40">{emptyHint}</p>
@@ -621,15 +746,26 @@ function CardRow({
               <span className="block truncate px-1 py-0.5 text-center text-[11px] text-white/70">
                 {c.name}
               </span>
+              {/* Pastille « diffère » sur les cartes de variante re-illustrées/re-textées. */}
+              {c.variantOverride && (
+                <span
+                  className="absolute left-1 top-1 rounded bg-sky-500/80 px-1 text-[9px] font-bold text-white"
+                  title="Cette carte diffère de la base"
+                >
+                  ✎
+                </span>
+              )}
             </button>
-            <button
-              type="button"
-              onClick={() => onRemove(c.id)}
-              className="absolute right-1 top-1 rounded bg-black/60 px-1.5 text-xs text-white/70 transition hover:text-red-300"
-              title="Supprimer"
-            >
-              ✕
-            </button>
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={() => onRemove(c.id)}
+                className="absolute right-1 top-1 rounded bg-black/60 px-1.5 text-xs text-white/70 transition hover:text-red-300"
+                title="Supprimer"
+              >
+                ✕
+              </button>
+            )}
           </div>
         ))}
       </div>
