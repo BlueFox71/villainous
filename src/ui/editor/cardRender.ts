@@ -396,9 +396,26 @@ function drawRuleLines(
           // Mots de type (Allié, Objet, Héros… ET types personnalisés) colorés à la couleur
           // de leur type ; le reste reste doré. Italique quand le segment est marqué.
           ctx.font = seg.italic ? italicFont : baseFont
-          ctx.fillStyle = typeWordColor(seg.text, typeColors) ?? gold
-          ctx.fillText(seg.text, x, cy)
-          x += ctx.measureText(seg.text).width
+          const typeColor = typeWordColor(seg.text, typeColors)
+          if (typeColor) {
+            // Seul le MOT est coloré ; la ponctuation qui le borde (« Héros. »,
+            // « (Objet) ») reste dorée, comme le reste du texte.
+            const [, pre, core, post] = seg.text.match(/^(\P{L}*)(.*?)(\P{L}*)$/u)!
+            for (const [str, col] of [
+              [pre, gold],
+              [core, typeColor],
+              [post, gold],
+            ] as const) {
+              if (!str) continue
+              ctx.fillStyle = col
+              ctx.fillText(str, x, cy)
+              x += ctx.measureText(str).width
+            }
+          } else {
+            ctx.fillStyle = gold
+            ctx.fillText(seg.text, x, cy)
+            x += ctx.measureText(seg.text).width
+          }
         }
       }
       x += spaceW

@@ -47,6 +47,15 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.7.2',
+    date: '2026-07-16',
+    title: 'Atelier : ponctuation non colorée après un mot-clé',
+    tags: ['atelier', 'correctif'],
+    changes: [
+      "Dans l’aperçu des cartes, la **ponctuation** qui borde un mot-clé coloré (ex. le point de « éliminer un **Héros**. ») reste désormais **dorée** — seul le mot est coloré.",
+    ],
+  },
+  {
     version: '1.7.1',
     date: '2026-07-15',
     title: 'Atelier : variantes liées (skins) + duplication de carte',
