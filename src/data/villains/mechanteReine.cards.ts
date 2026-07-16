@@ -46,6 +46,7 @@ export const mechanteReineCards: CardDef[] = [
     deck: 'villain',
     type: 'effect',
     cost: 0,
+    costVariable: true, // coût = coût de l'Ingrédient dupliqué → pastille « ? »
     copies: 2,
     text: "Dupliquez la capacité d'un Ingrédient déjà joué. Le coût de cette carte est égal au coût de l'Ingrédient dupliqué.",
     image: img('foudre.png'),

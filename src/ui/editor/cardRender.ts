@@ -49,8 +49,8 @@ const GEO = {
   nameBaseline: 1192,
   typeY: 2002,
   text: { x: 150, top: 1380, w: 1140, bottom: 1900, lineH: 64, size: 50 },
-  cost: { cx: 188, cy: 197, size: 115 },
-  strength: { cx: 139, cy: 1900, size: 108 },
+  cost: { cx: 188, cy: 194, size: 115 },
+  strength: { cx: 132, cy: 1900, size: 108 },
 } as const
 
 /** Libellé FR du type de carte (affiché sur la carte). */

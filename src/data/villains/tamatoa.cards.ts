@@ -168,6 +168,7 @@ export const tamatoaCards: CardDef[] = [
     deck: 'villain',
     type: 'effect',
     cost: 0,
+    costVariable: true, // paiement variable (= force du Héros) → pastille « ? »
     copies: 2,
     text: 'Payez un nombre de jetons Pouvoir égal à la force d’un Héros, puis éliminez ce Héros.',
     image: img('tu-ressembles-fruits-de-mer.png'),

@@ -153,6 +153,7 @@ export const jafarCards: CardDef[] = [
     deck: 'villain',
     type: 'effect',
     cost: 0, // coût dynamique = force du Héros cible (géré au moteur, à venir)
+    costVariable: true, // pastille « ? »
     copies: 2,
     text: 'Le coût de cette carte est égal à la force du Héros cible. Placez ce Héros dans la rangée du bas de son lieu. Tant qu’il est sous votre contrôle, il devient un Allié de même force ; sa capacité est ignorée.',
     image: img('hypnose.png'),

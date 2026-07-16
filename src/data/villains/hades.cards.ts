@@ -228,6 +228,7 @@ export const hadesCards: CardDef[] = [
     deck: 'villain',
     type: 'effect',
     cost: 0,
+    costVariable: true, // coût = nombre de Titans désentravés → pastille « ? »
     copies: 3,
     text: 'Désentravez 1 ou plusieurs Titans. Le coût de cette carte est égal au nombre de Titans que vous désentravez.',
     image: img('alignement-planetes.png'),

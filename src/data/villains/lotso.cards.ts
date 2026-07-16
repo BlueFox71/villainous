@@ -129,7 +129,9 @@ export const lotsoCards: CardDef[] = [
     type: 'effect',
     // Coût VARIABLE : on ne paie rien à la pose ; chaque −1 de force coûte 1 jeton Pouvoir,
     // dépensé pendant la répartition interactive (LOTSO_BOOKWORM / pendingLotsoBookworm).
+    // `costVariable` → pastille « ? » (le coût de pose reste 0).
     cost: 0,
+    costVariable: true,
     copies: 3,
     text:
       'Dépensez autant de jetons Pouvoir que vous voulez. Pour chaque jeton dépensé, ajoutez un jeton ' +

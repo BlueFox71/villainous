@@ -48,12 +48,15 @@ export interface PatchNote {
 export const PATCH_NOTES: PatchNote[] = [
   {
     version: '1.7.2',
-    date: '2026-07-16',
-    title: 'Atelier : mise en page des cartes affinée',
-    tags: ['atelier', 'correctif'],
+    date: '2026-07-17',
+    title: 'Atelier : courbe de coût + mise en page des cartes',
+    tags: ['atelier', 'cartes', 'correctif'],
     changes: [
+      "Nouveau : dans l’onglet **Quantité**, une **courbe de coût** (nombre de cartes par coût, colonnes 0→5+ et **« ? »** pour les coûts variables) — teintée à la couleur du vilain.",
+      "Un **deuxième graphe de comparaison** : choisis un vilain (natif ou publié) via un menu et les **flèches ‹ ›** pour comparer sa courbe à la tienne.",
       "Dans l’aperçu des cartes, la **ponctuation** qui borde un mot-clé coloré (ex. le point de « éliminer un **Héros**. ») reste désormais **dorée** — seul le mot est coloré.",
       "Le chiffre du **coût** descend légèrement et le chiffre de la **force** est un peu plus petit, pour mieux se caler dans leur pastille.",
+      "Plusieurs cartes à **coût variable** affichent désormais « ? » sur leur pastille : **Hypnose** (Jafar), **Alignement des planètes** (Hadès), **Foudre** (Méchante Reine), **Le Bibliothécaire** (Lotso), **Tu ressembles à des fruits de mer** (Tamatoa).",
     ],
   },
   {

@@ -2,13 +2,19 @@
 // chaque carte jusqu'à remplir 30 cartes Vilain + 15 cartes Fatalité (comme les
 // vilains officiels). Tant que la planche n'est pas pleine, on ne peut ni tester ni
 // exporter le vilain (cf. VillainEditor).
+import { useEffect, useMemo, useState } from 'react'
 import type { CustomVillain, CustomCard } from '../../data/customVillain'
+import type { CardDef } from '../../data/types'
 import {
   FATE_CARD_COLOR,
   VILLAIN_DECK_SIZE,
   FATE_DECK_SIZE,
   deckCounts,
+  toCardDefs,
 } from '../../data/customVillain'
+import { VILLAIN_REGISTRY, UNRELEASED_VILLAINS } from '../store/gameStore'
+import { useCustomVillainStore } from '../store/customVillainStore'
+import { villainColor } from '../villainColorState'
 import { CardPreview } from './CardPreview'
 
 export function QuantityTab({
@@ -29,7 +35,8 @@ export function QuantityTab({
     draft.cards.filter((c) => c.group === name).reduce((n, c) => n + (c.copies ?? 0), 0)
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+      <div className="flex min-w-0 flex-1 flex-col gap-8">
       <p className="text-sm text-white/55">
         Compose ta planche en fixant le nombre d’exemplaires de chaque carte. Le deck doit contenir
         exactement <strong>{VILLAIN_DECK_SIZE} cartes Vilain</strong> et{' '}
@@ -74,7 +81,198 @@ export function QuantityTab({
           emptyHint="Aucune carte : ajoute-en dans l’onglet « Cartes »."
         />
       ))}
+      </div>
+
+      <CostSidebar villainCards={villain} draftId={draft.id} color={draft.color} />
     </div>
+  )
+}
+
+// Colonnes de l'histogramme : coûts 0 → 5 (la dernière agrège 5 et plus), puis une
+// colonne « ? » pour les cartes à coût VARIABLE.
+const MAX_BUCKET = 5
+const VAR_INDEX = MAX_BUCKET + 1 // index de la colonne « ? »
+const BAR_LABELS = ['0', '1', '2', '3', '4', '5+', '?']
+
+/** Colonne d'une carte : « ? » (coût variable) ou son coût plafonné à 5+. */
+function costBucket(c: { cost?: number; costVariable?: boolean }): number {
+  if (c.costVariable) return VAR_INDEX
+  return Math.min(c.cost ?? 0, MAX_BUCKET)
+}
+
+/** Histogramme des EXEMPLAIRES (copies) par colonne, sur les cartes du deck Vilain
+ *  uniquement (la Fatalité n'a pas de coût). */
+function villainCostHistogram(cards: CardDef[]): number[] {
+  const h = BAR_LABELS.map(() => 0)
+  for (const c of cards) {
+    if (c.deck !== 'villain') continue
+    h[costBucket(c)] += c.copies ?? 0
+  }
+  return h
+}
+
+/** Un vilain de référence, sélectionnable pour comparer sa courbe de coût. */
+interface RefVillain {
+  id: string
+  name: string
+  color: string
+  cards: CardDef[]
+}
+
+/** Liste des vilains comparables : natifs (hors non sortis) + publiés, triés par nom.
+ *  Exclut le vilain en cours d'édition. */
+function useVillainList(excludeId: string): RefVillain[] {
+  const loaded = useCustomVillainStore((s) => s.loaded)
+  const load = useCustomVillainStore((s) => s.load)
+  const customVillains = useCustomVillainStore((s) => s.villains)
+  useEffect(() => {
+    if (!loaded) void load()
+  }, [loaded, load])
+
+  return useMemo(() => {
+    const reg = VILLAIN_REGISTRY as Record<
+      string,
+      { def: { id: string; name: string }; cards: CardDef[]; label?: string }
+    >
+    const natives: RefVillain[] = Object.keys(reg)
+      .filter((k) => !(UNRELEASED_VILLAINS as string[]).includes(k))
+      .map((k) => ({
+        id: reg[k].def.id,
+        name: reg[k].label ?? reg[k].def.name,
+        color: villainColor(reg[k].def.id) ?? '#8b93a7',
+        cards: reg[k].cards,
+      }))
+    const publisheds: RefVillain[] = customVillains
+      .filter((v) => v.id !== excludeId && v.published !== false)
+      .map((v) => ({ id: v.id, name: v.name, color: v.color, cards: toCardDefs(v) }))
+    return [...natives, ...publisheds].sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+  }, [customVillains, excludeId])
+}
+
+/** Barres verticales « cartes par coût », façon courbe de mana. Chaque colonne
+ *  montre sa valeur (`format`) ; l'échelle est propre au graphe (max = plus haute
+ *  colonne) pour bien lire la forme. */
+function CostBars({
+  counts,
+  color,
+  format,
+}: {
+  counts: number[]
+  color: string
+  format: (n: number) => string
+}) {
+  const max = Math.max(1, ...counts)
+  const BAR_AREA = 130 // hauteur (px) de la zone de barres
+
+  return (
+    <div className="flex items-end gap-1.5" style={{ height: BAR_AREA + 24 }}>
+      {counts.map((n, i) => {
+        const h = (n / max) * BAR_AREA
+        return (
+          <div key={i} className="flex flex-1 flex-col items-center">
+            <div className="relative w-full" style={{ height: BAR_AREA }}>
+              <div className="absolute inset-0 rounded-md border border-white/10 bg-black/40" />
+              <div
+                className="absolute inset-x-0 bottom-0 rounded-md"
+                style={{ height: h, background: `linear-gradient(180deg, ${color}, ${color}cc)` }}
+              />
+              <span
+                className="absolute inset-x-0 text-center text-[11px] font-bold text-white drop-shadow"
+                style={{ bottom: h + 3 }}
+              >
+                {format(n)}
+              </span>
+            </div>
+            <span className="mt-1.5 text-xs font-bold text-white/60">{BAR_LABELS[i]}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Colonne latérale de l'onglet Quantité : la courbe de coût du vilain en cours, et
+ *  en dessous celle d'un vilain de comparaison AU CHOIX (natif ou publié). */
+function CostSidebar({
+  villainCards,
+  draftId,
+  color,
+}: {
+  villainCards: CustomCard[]
+  draftId: string
+  color: string
+}) {
+  const mine = villainCostHistogram(villainCards as CardDef[])
+  const total = mine.reduce((a, b) => a + b, 0)
+
+  const villains = useVillainList(draftId)
+  const [selId, setSelId] = useState('ursula') // Ursula par défaut (courbe de coût de référence).
+  const selIndex = Math.max(0, villains.findIndex((v) => v.id === selId))
+  const selected = villains[selIndex]
+  // Passe au vilain précédent / suivant (avec bouclage sur la liste).
+  const step = (delta: number) => {
+    if (!villains.length) return
+    const next = (selIndex + delta + villains.length) % villains.length
+    setSelId(villains[next].id)
+  }
+  const otherHist = selected
+    ? villainCostHistogram(selected.cards)
+    : BAR_LABELS.map(() => 0)
+  const otherTotal = otherHist.reduce((a, b) => a + b, 0)
+
+  return (
+    <aside className="flex w-full shrink-0 flex-col gap-5 self-start rounded-2xl border border-white/10 bg-black/25 p-4 lg:sticky lg:top-4 lg:w-56">
+      <div>
+        <div className="mb-3 flex items-baseline justify-between">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-white/70">
+            Cartes / coût
+          </h3>
+          <span className="text-[11px] text-white/40">{total} cartes</span>
+        </div>
+        <CostBars counts={mine} color={color} format={(n) => String(n)} />
+      </div>
+
+      <div className="border-t border-white/10 pt-4">
+        <div className="mb-3 flex items-baseline justify-between">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-white/70">Comparer</h3>
+          <span className="text-[11px] text-white/40">{otherTotal} cartes</span>
+        </div>
+        <CostBars
+          counts={otherHist}
+          color={selected?.color ?? '#8b93a7'}
+          format={(n) => String(n)}
+        />
+        <div className="mt-3 flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => step(-1)}
+            aria-label="Vilain précédent"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-white/5 text-sm font-bold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200"
+          >
+            ‹
+          </button>
+          <select
+            value={selected?.id ?? ''}
+            onChange={(e) => setSelId(e.target.value)}
+            className="min-w-0 flex-1 rounded-lg border border-white/15 bg-black/40 px-2.5 py-1.5 text-xs text-white outline-none transition focus:border-amber-300/70"
+          >
+            {villains.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => step(1)}
+            aria-label="Vilain suivant"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-white/5 text-sm font-bold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200"
+          >
+            ›
+          </button>
+        </div>
+      </div>
+    </aside>
   )
 }
 
