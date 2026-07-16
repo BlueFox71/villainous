@@ -47,6 +47,17 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.7.3',
+    date: '2026-07-17',
+    title: 'Multijoueur en ligne (par code de salon)',
+    tags: ['reseau', 'interface'],
+    changes: [
+      "Nouveau : **jouez à deux en ligne**, plus seulement sur le même réseau. L’hôte partage un **code à 4 lettres**, l’autre le saisit — la connexion est **directe entre vos deux appareils** (l’hôte fait office de serveur).",
+      "Depuis « Nouvelle partie » → **Héberger** / **Rejoindre** : plus besoin d’**adresse IP** ni de lancer un serveur à part, le **code suffit** (LAN comme Internet).",
+      "Sur un réseau très **restrictif** (certains pare-feux d’entreprise), la mise en relation peut échouer — un message le signale.",
+    ],
+  },
+  {
     version: '1.7.2',
     date: '2026-07-17',
     title: 'Atelier : courbe de coût + mise en page des cartes',

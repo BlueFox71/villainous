@@ -18,7 +18,8 @@ import {
 } from '../../engine/state'
 import { applyAction } from '../../engine/actions'
 import { chooseAction, chooseReaction } from '../../ai/heuristicBot'
-import { connect, type Connection } from '../../net/connection'
+import { connect, type Connection, type ConnectionHandlers } from '../../net/connection'
+import { connectPeer, createPeerFactory } from '../../net/peerConnection'
 import { createClientSession, createHostSession, type ClientSession, type HostSession, type Session } from '../../net/session'
 import type { LobbySeat } from '../../net/messages'
 import { isTauri, ensureRelay, lanAddresses } from '../../net/desktop'
@@ -1177,22 +1178,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
         { seat: 1, villainKey: null, connected: false },
       ],
     })
-    // App .exe : on démarre le relais embarqué et on s'y connecte en local
-    // (127.0.0.1) — `location.hostname` vaut `tauri.localhost`, inutilisable. On
-    // récupère aussi l'IP LAN à montrer à l'invité. En web, rien de tout ça :
-    // l'hôte tourne déjà `npm run relay` et `relayUrl()` déduit l'adresse.
-    let host: string | undefined
-    if (isTauri()) {
-      try {
-        await ensureRelay()
-        host = '127.0.0.1'
-        lanAddresses().then((addrs) => set({ hostAddrs: addrs })).catch(() => {})
-      } catch {
-        set({ netStatus: 'error', netError: 'Impossible de démarrer le serveur de liaison.' })
-        return
-      }
-    }
-    const conn = connect(relayUrl(host), room, {
+    // Handlers de la connexion hôte (identiques quel que soit le transport) :
+    // phase lobby (présence/vilain/survol/départ de l'invité), puis tout passe par
+    // la session une fois la partie lancée.
+    const handlers: ConnectionHandlers = {
       onMessage: (msg) => {
         // Partie lancée : tout passe par la session de jeu.
         if (activeSession) { (activeSession as HostSession).receive(msg); return }
@@ -1223,22 +1212,54 @@ export const useGameStore = create<GameStore>((set, get) => ({
       },
       onOpen: () => set({ netStatus: 'waiting' }),
       onClose: () => handlePeerGone(set, get, 'La connexion avec l’autre joueur a été perdue.'),
-      onError: () => set({ netStatus: 'error', netError: 'Erreur réseau (relais injoignable ?).' }),
-    })
-    activeConnection = conn
+      onError: () => set({ netStatus: 'error', netError: 'Erreur réseau (mise en relation impossible).' }),
+    }
+    // .exe Tauri : relais LAN embarqué (jeu sur le même réseau, hors-ligne) —
+    // `location.hostname` vaut `tauri.localhost`, d'où 127.0.0.1 + IP LAN affichée.
+    // Ailleurs (web/Electron) : canal P2P WebRTC via broker public → fonctionne en
+    // LAN **et** sur Internet, l'invité n'a besoin que du code court.
+    if (isTauri()) {
+      try {
+        await ensureRelay()
+        lanAddresses().then((addrs) => set({ hostAddrs: addrs })).catch(() => {})
+      } catch {
+        set({ netStatus: 'error', netError: 'Impossible de démarrer le serveur de liaison.' })
+        return
+      }
+      activeConnection = connect(relayUrl('127.0.0.1'), room, handlers)
+    } else {
+      try {
+        const peerFactory = await createPeerFactory()
+        activeConnection = connectPeer('host', { code: room, peerFactory, handlers })
+      } catch {
+        set({ netStatus: 'error', netError: 'Impossible d’initialiser la connexion en ligne.' })
+        return
+      }
+    }
   },
-  joinHost: (code, host) => {
+  joinHost: async (code, host) => {
     teardownNet()
     let session: ClientSession | null = null
-    const conn = connect(relayUrl(host), code.toUpperCase(), {
+    const handlers: ConnectionHandlers = {
       onMessage: (msg) => session?.receive(msg),
       onOpen: () => set({ netStatus: 'waiting' }),
       onClose: () => handlePeerGone(set, get, 'La connexion avec l’hôte a été perdue.'),
       onError: () => set({ netStatus: 'error', netError: 'Erreur réseau (hôte injoignable ?).' }),
-    })
-    activeConnection = conn
+    }
+    // Même dualité que startHost : relais LAN en .exe Tauri, sinon canal P2P (code).
+    if (isTauri()) {
+      activeConnection = connect(relayUrl(host), code.toUpperCase(), handlers)
+    } else {
+      try {
+        const peerFactory = await createPeerFactory()
+        activeConnection = connectPeer('guest', { code, peerFactory, handlers })
+      } catch {
+        set({ netStatus: 'error', netError: 'Impossible d’initialiser la connexion en ligne.' })
+        return
+      }
+    }
     session = createClientSession({
-      transport: { send: conn.send },
+      transport: { send: activeConnection.send },
       ...myProfile(),
       callbacks: {
         onLobby: (m) => set({ lobby: m.seats, netStatus: 'lobby' }),
