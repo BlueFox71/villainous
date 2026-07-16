@@ -49,10 +49,11 @@ export const PATCH_NOTES: PatchNote[] = [
   {
     version: '1.7.2',
     date: '2026-07-16',
-    title: 'Atelier : ponctuation non colorée après un mot-clé',
+    title: 'Atelier : mise en page des cartes affinée',
     tags: ['atelier', 'correctif'],
     changes: [
       "Dans l’aperçu des cartes, la **ponctuation** qui borde un mot-clé coloré (ex. le point de « éliminer un **Héros**. ») reste désormais **dorée** — seul le mot est coloré.",
+      "Le chiffre du **coût** descend légèrement et le chiffre de la **force** est un peu plus petit, pour mieux se caler dans leur pastille.",
     ],
   },
   {
