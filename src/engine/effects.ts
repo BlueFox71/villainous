@@ -11053,14 +11053,17 @@ export function resolveEffect(
         return { ...next, log: [...next.log, `${actor.villainName} (Jouez avec la nourriture) : aucun Héros dans la pioche Fatalité.`] }
       }
       const others = revealed.filter((c) => c.instanceId !== hero!.instanceId)
+      // Un Héros à lieu imposé (LAURIE → Demeure des Strode) est posé sur SON lieu (même
+      // verrouillé), pas sur le lieu du pion.
+      const dest = hero.forcedFateLocation ?? loc
       let next = updatePlayer({ ...state, rngState: s }, idx, (p) => ({
         ...p,
         fateDeck: deck,
         fateDiscard: [...disc, ...others],
-        board: { ...p.board, [loc]: [...(p.board[loc] ?? []), hero!] },
+        board: { ...p.board, [dest]: [...(p.board[dest] ?? []), hero!] },
       }))
-      next = triggerHeroArrival(next, idx, loc)
-      return { ...next, log: [...next.log, `${actor.villainName} (Jouez avec la nourriture) amène **${hero.name}** sur **${locName(next.players[idx], loc)}**.`] }
+      next = triggerHeroArrival(next, idx, dest)
+      return { ...next, log: [...next.log, `${actor.villainName} (Jouez avec la nourriture) amène **${hero.name}** sur **${locName(next.players[idx], dest)}**.`] }
     }
     case 'LOOK_BOTTOM_DRAW': {
       // Lumière mourrante : révèle les `count` DERNIÈRES cartes de la pioche, garde 1 en main

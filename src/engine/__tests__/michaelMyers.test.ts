@@ -51,7 +51,7 @@ const villainCards: CardInstance[] = [
 
 // Cartes Fatalité
 const fateCards: CardInstance[] = [
-  { instanceId: 'laurie#1', cardId: LAURIE, name: 'Laurie Strode', type: 'hero', strength: 4, startsInReserve: true, assassinateSurchargePerOtherHero: 2 },
+  { instanceId: 'laurie#1', cardId: LAURIE, name: 'Laurie Strode', type: 'hero', strength: 4, forcedFateLocation: 'demeure' as LocationId, assassinateSurchargePerOtherHero: 2 },
   { instanceId: 'victim#1', cardId: 'victim', name: 'Victime', type: 'hero', strength: 2 },
   { instanceId: 'victim#2', cardId: 'victim', name: 'Victime', type: 'hero', strength: 2 },
   { instanceId: 'jaime#1', cardId: 'jaime', name: 'Jaime', type: 'hero', strength: 1, disablesEquippedWeapon: true },
@@ -76,14 +76,38 @@ function setup(pawn: string, patch: Partial<GameState['players'][number]> = {}):
 // --- Tests ------------------------------------------------------------------
 
 describe('Michael Myers — mise en place', () => {
-  it('démarre en Mal Intérieur 1, sans Arme, avec LAURIE en réserve (hors pioche Fatalité)', () => {
+  it('démarre en Mal Intérieur 1, sans Arme ; LAURIE est dans la pioche Fatalité', () => {
     const s = game()
     const p = s.players[0]
     expect(p.malInterieur).toBe(1)
     expect(p.equippedWeapon).toBeNull()
-    expect((p.reserveHeroes ?? []).some((c) => c.cardId === LAURIE)).toBe(true)
-    expect(p.fateDeck.some((c) => c.cardId === LAURIE)).toBe(false)
+    expect(p.fateDeck.some((c) => c.cardId === LAURIE)).toBe(true)
+    expect((p.reserveHeroes ?? []).some((c) => c.cardId === LAURIE)).toBe(false)
     expect((p.lockedLocations ?? []).includes('demeure')).toBe(true)
+  })
+
+  it('LAURIE jouée par Fatalité est posée d’office sur la Demeure (même verrouillée)', () => {
+    // Jouez avec la nourriture révèle la pioche Fatalité jusqu’à un Héros ; si c’est LAURIE,
+    // elle va sur la Demeure (forcedFateLocation), pas sur le lieu du pion.
+    const base = game()
+    const s: GameState = {
+      ...base,
+      phase: 'ACTION',
+      players: base.players.map((p, i) =>
+        i === 0
+          ? {
+              ...p,
+              pawnLocation: 'psy',
+              // pioche Fatalité = seulement LAURIE (le 1er Héros révélé sera elle).
+              fateDeck: [{ ...fateCards[0] }],
+              fateDiscard: [],
+            }
+          : p,
+      ),
+    }
+    const next = resolveEffect(s, { type: 'REVEAL_FATE_UNTIL_HERO_AT_PAWN' }, { actorIndex: 0 })
+    expect((next.players[0].board.demeure ?? []).some((c) => c.cardId === LAURIE)).toBe(true)
+    expect((next.players[0].board.psy ?? []).some((c) => c.cardId === LAURIE)).toBe(false)
   })
 })
 
@@ -182,7 +206,7 @@ describe('Michael Myers — Gardons le meilleur pour la fin', () => {
     expect(() => applyAction(s, { type: 'PLAY_CARD', actionId: 'play', instanceId: 'gardons#1' })).toThrow()
   })
 
-  it('au niveau 3 : déverrouille la Demeure, y pose LAURIE, ouvre l’équipement d’Arme', () => {
+  it('au niveau 3 : déverrouille la Demeure et ouvre l’équipement d’une Arme gratuite', () => {
     const s = setup('psy', {
       hand: [{ ...villainCards[3] }],
       power: 5,
@@ -192,8 +216,6 @@ describe('Michael Myers — Gardons le meilleur pour la fin', () => {
     const next = applyAction(s, { type: 'PLAY_CARD', actionId: 'play', instanceId: 'gardons#1' })
     const p = next.players[0]
     expect((p.lockedLocations ?? []).includes('demeure')).toBe(false)
-    expect((p.board.demeure ?? []).some((c) => c.cardId === LAURIE)).toBe(true)
-    expect((p.reserveHeroes ?? []).length).toBe(0)
     expect(next.pendingRecover?.equipWeapon).toBe(true)
   })
 })

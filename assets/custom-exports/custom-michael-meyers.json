@@ -621,8 +621,8 @@
       },
       "strength": 4,
       "group": null,
-      "startsInReserve": true,
-      "assassinateSurchargePerOtherHero": 2
+      "assassinateSurchargePerOtherHero": 2,
+      "forcedFateLocation": "loc-4"
     },
     {
       "id": "custom-michael-meyers-desarmement",
@@ -879,7 +879,7 @@
   "botStrategy": {
     "howToWin": "Michael monte en MAL INTÉRIEUR en assassinant des Héros (niveau 1→2→3). Plan : faire venir des Héros (Jouez avec la nourriture, Fatalités subies), s'équiper d'une Arme (Arme du crime), ASSASSINER pour monter au niveau 3 (niveau 2 = +1 carte/tour ; niveau 3 = toutes les cartes −1 coût). Puis jouer GARDONS LE MEILLEUR POUR LA FIN : la Demeure des Strode s'ouvre, LAURIE apparaît, et il l'ASSASSINE pour gagner. Chaque Arme donne un bonus au kill (rejouer, action gratuite, +Pouvoir, piocher, activer).",
     "villainNotes": {
-      "custom-michael-meyers-gardons-le-meilleur-pour-la-fin": "Coup final. NÉCESSITE Mal Intérieur niveau 3 (sinon grisée). Déverrouille la DEMEURE DES STRODE, y fait apparaître LAURIE (Héros hors-deck, en réserve depuis le début), puis va chercher une Arme dans la pioche/défausse et l'équipe GRATUITEMENT. Ensuite : ASSASSINER Laurie = victoire.",
+      "custom-michael-meyers-gardons-le-meilleur-pour-la-fin": "Coup final. NÉCESSITE Mal Intérieur niveau 3 (sinon grisée). Déverrouille la DEMEURE DES STRODE (pour y amener le pion) et va chercher une Arme dans la pioche/défausse pour l'équiper GRATUITEMENT. LAURIE, elle, arrive par la pioche Fatalité (posée d'office sur la Demeure).",
       "custom-michael-meyers-couteau-de-cuisine": "Arme (coût 3, équipée sur Meyers, une seule à la fois). Quand vous éliminez un Héros avec : action « Jouer une carte » GRATUITE (rejouer). La plus chère → sert de base au coût d'ASSASSINER (3).",
       "custom-michael-meyers-hache-de-bucheron": "Arme (coût 2). Quand vous éliminez un Héros : une action de royaume GRATUITE au choix.",
       "custom-michael-meyers-tuyau-arrache": "Arme (coût 2). Quand vous éliminez un Héros : gagnez 2 jetons Pouvoir.",
@@ -912,8 +912,8 @@
         "asAttacker": "Contre Michael : perturbe sa pioche + recouvre une action (RALENTIT)."
       },
       "custom-michael-meyers-laurie-strode": {
-        "description": "HÉROS-CIBLE (force 4). Hors-deck : n'apparaît QUE via « Gardons le meilleur pour la fin », sur la Demeure des Strode. L'ASSASSINER = VICTOIRE. Son coût d'assassinat augmente de 2 par AUTRE Héros du royaume.",
-        "asReceiver": "L'objectif. Dégagez les autres Héros du royaume avant de la frapper (chacun la rend +2 plus chère).",
+        "description": "HÉROS-CIBLE (force 4). Dans la pioche Fatalité : quand elle est jouée (par un adversaire, ou révélée par Jouez avec la nourriture), elle est posée D'OFFICE sur la DEMEURE DES STRODE, verrouillée ou non. L'ASSASSINER = VICTOIRE. Son coût d'assassinat augmente de 2 par AUTRE Héros du royaume.",
+        "asReceiver": "L'objectif. Déverrouille la Demeure (Gardons le meilleur) pour y amener ton pion, dégage les autres Héros (chacun la rend +2 plus chère), puis assassine-la.",
         "asAttacker": "NE PAS fataliser : c'est le Héros-cible de Michael (NEUTRE)."
       },
       "custom-michael-meyers-desarmement": {
@@ -950,7 +950,7 @@
     "botPlay": {
       "general": "Le bot cherche à ATTEINDRE le Mal Intérieur 3 : il s'équipe d'une Arme (préférant garder une Arme adaptée), fait venir des Héros (Jouez avec la nourriture) et les assassine dès qu'une Arme est prête et qu'un Héros est sur son lieu. Il joue GARDONS LE MEILLEUR dès le niveau 3 pour invoquer LAURIE, dégage si possible les autres Héros de son royaume (chacun rend Laurie +2 plus chère), puis l'assassine. Il réagit avec OBSESSION quand un adversaire élimine un Héros, et avec AURA EFFRAYANTE quand un adversaire n'a encore rien joué.",
       "villainNotes": {
-        "custom-michael-meyers-gardons-le-meilleur-pour-la-fin": "Jouée dès Mal Intérieur 3 : invoque Laurie et équipe une Arme gratuite. Grisée avant le niveau 3.",
+        "custom-michael-meyers-gardons-le-meilleur-pour-la-fin": "Jouée dès Mal Intérieur 3 : déverrouille la Demeure et équipe une Arme gratuite (Laurie vient par la Fatalité).",
         "custom-michael-meyers-couteau-de-cuisine": "Arme haut de gamme : équipée si disponible ; le bonus « rejouer » enchaîne un 2e coup.",
         "custom-michael-meyers-hache-de-bucheron": "Arme : équipée pour l'action gratuite au kill.",
         "custom-michael-meyers-tuyau-arrache": "Arme : équipée pour le gain de Pouvoir au kill (finance les coups suivants).",
@@ -983,8 +983,8 @@
           "asAttacker": "Posé contre Michael pour casser ses mises en place."
         },
         "custom-michael-meyers-laurie-strode": {
-          "description": "Héros-cible.",
-          "asReceiver": "Assassinée = victoire ; royaume dégagé d'abord.",
+          "description": "Héros-cible, posée d'office sur la Demeure.",
+          "asReceiver": "Déverrouiller la Demeure, dégager le royaume, puis assassiner Laurie = victoire.",
           "asAttacker": "Jamais fatalisée (NEUTRE)."
         },
         "custom-michael-meyers-desarmement": {
@@ -1021,7 +1021,7 @@
     },
     "journal": {
       "villainNotes": {
-        "custom-michael-meyers-gardons-le-meilleur-pour-la-fin": "Michael ouvre la Demeure des Strode et traque enfin Laurie…",
+        "custom-michael-meyers-gardons-le-meilleur-pour-la-fin": "Michael ouvre la Demeure des Strode et prépare le coup final…",
         "custom-michael-meyers-couteau-de-cuisine": "Michael empoigne le Couteau de cuisine.",
         "custom-michael-meyers-hache-de-bucheron": "Michael empoigne la Hache de bûcheron.",
         "custom-michael-meyers-tuyau-arrache": "Michael arrache un tuyau et s'en arme.",
@@ -1048,7 +1048,7 @@
           "description": "Le Dr Loomis brouille les plans de Michael."
         },
         "custom-michael-meyers-laurie-strode": {
-          "description": "Laurie Strode apparaît à la Demeure des Strode."
+          "description": "Laurie Strode surgit à la Demeure des Strode."
         },
         "custom-michael-meyers-desarmement": {
           "description": "Michael est désarmé."

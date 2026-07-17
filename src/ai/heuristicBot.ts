@@ -936,11 +936,19 @@ export function objectiveScore(p: PlayerState): number {
       const lvl = p.malInterieur ?? 1
       const hasWeapon = !!p.equippedWeapon
       if (laurie) {
-        // LAURIE est en jeu : proximité haute. Prête à mourir si une Arme est équipée et
-        // que le royaume est dégagé (chaque AUTRE Héros renchérit le coût de +2).
+        // LAURIE est en jeu (posée d'office sur la Demeure des Strode). Si son lieu est encore
+        // VERROUILLÉ, Michael ne peut pas l'y rejoindre → il doit d'abord jouer « Gardons le
+        // meilleur » (Mal Intérieur 3) : progression « préparation » plafonnée.
+        const laurieLoc = p.locations.find((l) => (p.board[l.id] ?? []).some((c) => c.instanceId === laurie.instanceId))?.id
+        const reachable = !laurieLoc || !(p.lockedLocations ?? []).includes(laurieLoc)
+        if (!reachable) {
+          const s = 0.5 + (lvl >= 3 ? 0.1 : ((lvl - 1) / 2) * 0.15) + (hasWeapon ? 0.05 : 0)
+          return Math.min(0.65, s)
+        }
+        // Prête à mourir si une Arme est équipée et le royaume dégagé (chaque AUTRE Héros +2).
         const others = realmHeroes.filter((c) => c.cardId !== obj.heroCardId).length
         let s = 0.78 + (hasWeapon ? 0.15 : 0)
-        s -= Math.min(0.1, others * 0.03) // royaume encombré = LAURIE plus chère à assassiner
+        s -= Math.min(0.1, others * 0.03)
         return Math.min(0.96, Math.max(0.7, s))
       }
       // LAURIE pas encore invoquée : progression = Mal Intérieur vers 3 (prérequis).
