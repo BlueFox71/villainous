@@ -973,6 +973,44 @@ export function freeEliminateHero(state: GameState, idx: number, heroInstanceId:
   return next
 }
 
+/**
+ * Michael Myers — crochets « à l'élimination d'un Héros » (le Héros est DÉJÀ retiré du
+ * plateau) : monte le MAL INTÉRIEUR (plafond 3), déclenche l'effet de l'Arme équipée
+ * (sauf si un Héros `disablesEquippedWeapon` — Jaime Strode — est présent), et déclenche
+ * la victoire ÉVÉNEMENTIELLE si le Héros éliminé est LAURIE (objectif DEFEAT_NAMED_HERO).
+ * No-op pour les autres vilains (garde-fou `malInterieur !== undefined`). Partagé par
+ * performVanquish et INSTANT_VANQUISH_HERO_AT_PAWN (ASSASSINER).
+ */
+function applyMichaelKill(state: GameState, idx: number, heroCard: CardInstance): GameState {
+  const me0 = state.players[idx]
+  if (me0.malInterieur === undefined) return state
+  const before = me0.malInterieur
+  const lvl = Math.min(3, before + 1)
+  let next = updatePlayer(state, idx, (p) => ({ ...p, malInterieur: lvl }))
+  if (lvl !== before) {
+    next = { ...next, log: [...next.log, `🩸 **${me0.villainName}** passe en Mal Intérieur niveau ${lvl}.`] }
+  }
+  // Effet de l'Arme équipée (« quand vous éliminez un Héros »), sauf si désactivé (Jaime Strode).
+  const ap = next.players[idx]
+  const weapon = ap.equippedWeapon
+  const disabled = Object.values(ap.board).flat().some((c) => c.type === 'hero' && c.disablesEquippedWeapon)
+  if (weapon && (weapon.weaponOnKill?.length ?? 0) > 0 && !disabled) {
+    next = { ...next, log: [...next.log, `🔪 **${weapon.name}** : effet d'élimination.`] }
+    next = resolveEffects(next, weapon.weaponOnKill!, { actorIndex: idx })
+  }
+  // Victoire : éliminer LAURIE STRODE.
+  const obj = next.players[idx].objective
+  if (obj.type === 'DEFEAT_NAMED_HERO' && heroCard.cardId === obj.heroCardId) {
+    return {
+      ...next,
+      status: 'WON',
+      winner: idx,
+      log: [...next.log, `🏆 ${me0.villainName} élimine ${heroCard.name} — victoire !`],
+    }
+  }
+  return next
+}
+
 export function performVanquish(
   state: GameState,
   heroInstanceId: string,
@@ -1683,6 +1721,12 @@ export function performVanquish(
       winner: state.activePlayer,
       log: [...next.log, `🏆 ${me.villainName} élimine ${heroCard.name} sans aucun jeton Feu — victoire !`],
     }
+  }
+  // Michael Myers : Mal Intérieur + effet d'Arme + victoire (élimination de LAURIE). Ne
+  // s'applique qu'à un vrai vanquish (pas Raiponce qui revient, Pokémon K.O., Merlin…).
+  if (me.malInterieur !== undefined && !raiponceReturns && !tiltPokemon && !merlinDefeated) {
+    next = applyMichaelKill(next, state.activePlayer, heroCard)
+    if (next.status === 'WON') return next
   }
   // Yzma : victoire ÉVÉNEMENTIELLE — Kronk élimine Kuzco.
   if (kronkAteKuzco) {
@@ -6156,11 +6200,13 @@ export function resolveEffect(
             : []),
         ],
       }
-      return resolveEffects(next, hero.onVanquish ?? [], {
+      next = resolveEffects(next, hero.onVanquish ?? [], {
         actorIndex: idx,
         hostInstanceId: hero.instanceId,
         hostLocationId: heroLoc,
       })
+      // Michael Myers — ASSASSINER : Mal Intérieur + effet d'Arme + victoire (LAURIE).
+      return applyMichaelKill(next, idx, hero)
     }
     case 'VANQUISH_HERO': {
       if (!ctx?.targetHeroId) {
@@ -8544,7 +8590,13 @@ export function resolveEffect(
       }
       return {
         ...state,
-        pendingRecover: { playerIndex: idx, candidateIds: actor.discard.map((c) => c.instanceId), label },
+        pendingRecover: {
+          playerIndex: idx,
+          candidateIds: actor.discard.map((c) => c.instanceId),
+          label,
+          count: effect.count,
+          optional: effect.optional,
+        },
         log: [...state.log, `${actor.villainName} récupère une carte de sa défausse (${label}).`],
       }
     }
@@ -10816,15 +10868,23 @@ export function resolveEffect(
     }
     case 'DISCARD_TOP_DECK': {
       let next = state
+      const protect = new Set(effect.protectCardIds ?? [])
       const dump = (deckKey: 'deck' | 'fateDeck', discKey: 'discard' | 'fateDiscard') => {
         const cur = next.players[idx]
-        const removed = (cur[deckKey] as CardInstance[]).slice(0, effect.count)
-        if (removed.length === 0) return
-        next = updatePlayer(next, idx, (pl) => ({ ...pl, [deckKey]: (pl[deckKey] as CardInstance[]).slice(effect.count), [discKey]: [...(pl[discKey] as CardInstance[]), ...removed] }))
+        const taken = (cur[deckKey] as CardInstance[]).slice(0, effect.count)
+        if (taken.length === 0) return
+        // Cartes protégées (Blessure — Gardons le meilleur) : remises sur le dessus, non défaussées.
+        const kept = taken.filter((c) => protect.has(c.cardId))
+        const removed = taken.filter((c) => !protect.has(c.cardId))
+        next = updatePlayer(next, idx, (pl) => ({
+          ...pl,
+          [deckKey]: [...kept, ...(pl[deckKey] as CardInstance[]).slice(effect.count)],
+          [discKey]: [...(pl[discKey] as CardInstance[]), ...removed],
+        }))
       }
       if (effect.whichDeck === 'fate' || effect.whichDeck === 'both') dump('fateDeck', 'fateDiscard')
       if (effect.whichDeck === 'villain' || effect.whichDeck === 'both') dump('deck', 'discard')
-      return { ...next, log: [...next.log, `Maui : défausse le dessus de pioche.`] }
+      return { ...next, log: [...next.log, `${next.players[idx].villainName} : défausse le dessus de sa pioche.`] }
     }
     case 'PLAY_TOP_FATE_ON_SELF': {
       // Requin Maui : joue la 1ʳᵉ carte Fatalité sur Tamatoa lui-même (la pose si Héros/Objet,
@@ -10904,6 +10964,177 @@ export function resolveEffect(
     case 'OPTIONAL_SKIP_MOVE_NEXT': {
       const next = updatePlayer(state, idx, (pl) => ({ ...pl, tamatoaSkipMoveNext: true }))
       return { ...next, log: [...next.log, `Étoile de mer Maui : au prochain tour, le déplacement sera facultatif.`] }
+    }
+    // --- Michael Myers (Halloween) -------------------------------------------
+    case 'MICHAEL_KEEP_BEST': {
+      // Gardons le meilleur pour la fin : déverrouille la Demeure, y pose LAURIE (réserve),
+      // puis va chercher une Arme (pioche/défausse) à équiper gratuitement.
+      const actor = state.players[idx]
+      const loc = effect.locationId
+      let next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        lockedLocations: (p.lockedLocations ?? []).filter((l) => l !== loc),
+      }))
+      const laurie = (actor.reserveHeroes ?? [])[0]
+      if (laurie) {
+        next = updatePlayer(next, idx, (p) => ({
+          ...p,
+          reserveHeroes: (p.reserveHeroes ?? []).filter((c) => c.instanceId !== laurie.instanceId),
+          board: { ...p.board, [loc]: [...(p.board[loc] ?? []), laurie] },
+        }))
+        next = triggerHeroArrival(next, idx, loc)
+        next = { ...next, log: [...next.log, `🔪 ${actor.villainName} déverrouille **${locName(next.players[idx], loc)}** et y traque **${laurie.name}** !`] }
+        next = pushShowcase(
+          next,
+          laurie.cardId,
+          `${laurie.name} apparaît sur ${locName(next.players[idx], loc)} !`,
+          idx,
+          { playerIndex: idx, locationId: loc },
+          laurie.instanceId,
+        )
+      } else {
+        next = { ...next, log: [...next.log, `${actor.villainName} déverrouille **${locName(next.players[idx], loc)}**.`] }
+      }
+      const weapons = [...next.players[idx].discard, ...next.players[idx].deck].filter((c) => c.isWeapon)
+      if (weapons.length === 0) return next
+      return {
+        ...next,
+        pendingRecover: {
+          playerIndex: idx,
+          candidateIds: weapons.map((c) => c.instanceId),
+          label: 'Gardons le meilleur : équipez une Arme gratuitement',
+          equipWeapon: true,
+          optional: true,
+        },
+        log: [...next.log, `${actor.villainName} : choisissez une Arme à équiper gratuitement.`],
+      }
+    }
+    case 'MICHAEL_FETCH_WEAPON': {
+      // Arme du crime : va chercher une ARME dans la pioche/défausse → choix, ajoutée à la main.
+      const actor = state.players[idx]
+      const weapons = [...actor.discard, ...actor.deck].filter((c) => c.isWeapon)
+      if (weapons.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : aucune Arme dans la pioche ou la défausse.`] }
+      }
+      return {
+        ...state,
+        pendingRecover: {
+          playerIndex: idx,
+          candidateIds: weapons.map((c) => c.instanceId),
+          label: 'Arme du crime : prenez une Arme en main',
+          thenShuffle: true,
+        },
+        log: [...state.log, `${actor.villainName} cherche une Arme (Arme du crime).`],
+      }
+    }
+    case 'REVEAL_FATE_UNTIL_HERO_AT_PAWN': {
+      // Jouez avec la nourriture : dévoile la pioche Fatalité jusqu'au 1er Héros, le pose sur
+      // le lieu du pion, DÉFAUSSE les autres cartes dévoilées.
+      const actor = state.players[idx]
+      const loc = actor.pawnLocation
+      if (!loc) return { ...state, log: [...state.log, `${actor.villainName} : pion non placé.`] }
+      let deck = actor.fateDeck
+      let disc = actor.fateDiscard
+      let s = state.rngState
+      const total = deck.length + disc.length
+      const revealed: CardInstance[] = []
+      let hero: CardInstance | undefined
+      while (revealed.length < total) {
+        if (deck.length === 0) {
+          if (disc.length === 0) break
+          const r = shuffle(disc, s); deck = r.result; s = r.state; disc = []
+        }
+        const [top, ...rest] = deck; deck = rest; revealed.push(top)
+        if (top.type === 'hero') { hero = top; break }
+      }
+      if (!hero) {
+        const back = shuffle([...revealed, ...disc], s)
+        const next = updatePlayer({ ...state, rngState: back.state }, idx, (p) => ({ ...p, fateDeck: back.result, fateDiscard: [] }))
+        return { ...next, log: [...next.log, `${actor.villainName} (Jouez avec la nourriture) : aucun Héros dans la pioche Fatalité.`] }
+      }
+      const others = revealed.filter((c) => c.instanceId !== hero!.instanceId)
+      let next = updatePlayer({ ...state, rngState: s }, idx, (p) => ({
+        ...p,
+        fateDeck: deck,
+        fateDiscard: [...disc, ...others],
+        board: { ...p.board, [loc]: [...(p.board[loc] ?? []), hero!] },
+      }))
+      next = triggerHeroArrival(next, idx, loc)
+      return { ...next, log: [...next.log, `${actor.villainName} (Jouez avec la nourriture) amène **${hero.name}** sur **${locName(next.players[idx], loc)}**.`] }
+    }
+    case 'LOOK_BOTTOM_DRAW': {
+      // Lumière mourrante : révèle les `count` DERNIÈRES cartes de la pioche, garde 1 en main
+      // (pendingLookTop), défausse les autres.
+      const actor = state.players[idx]
+      if (actor.deck.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : pioche vide (Lumière mourrante).`] }
+      }
+      const n = Math.min(effect.count, actor.deck.length)
+      const bottom = actor.deck.slice(actor.deck.length - n)
+      const rest = actor.deck.slice(0, actor.deck.length - n)
+      const next = updatePlayer(state, idx, (p) => ({ ...p, deck: rest }))
+      return {
+        ...next,
+        pendingLookTop: { playerIndex: idx, cards: bottom, take: 1, title: 'Lumière mourrante' },
+        log: [...next.log, `${actor.villainName} regarde les ${n} dernières cartes de sa pioche (Lumière mourrante).`],
+      }
+    }
+    case 'GAIN_POWER_PER_MAL_INTERIEUR': {
+      const actor = state.players[idx]
+      const lvl = actor.malInterieur ?? 0
+      const gain = effect.base + lvl
+      const next = updatePlayer(state, idx, (p) => ({ ...p, power: p.power + gain }))
+      return { ...next, log: [...next.log, `${actor.villainName} gagne ${gain} Pouvoir (Trophée de chasse — Mal Intérieur ${lvl}).`] }
+    }
+    case 'LOSE_POWER_PER_MAL_INTERIEUR': {
+      const actor = state.players[idx]
+      const lvl = actor.malInterieur ?? 0
+      const loss = effect.base + lvl
+      const next = updatePlayer(state, idx, (p) => ({ ...p, power: Math.max(0, p.power - loss) }))
+      return { ...next, log: [...next.log, `${actor.villainName} perd ${loss} Pouvoir (Souvenir de Judith).`] }
+    }
+    case 'BLOOD_TRACE': {
+      // Trace de sang (Objet activé) : gagner `power` Pouvoir OU déplacer un Héros voisin.
+      const actor = state.players[idx]
+      const heroes = Object.values(actor.board).flat().filter((c) => c.type === 'hero' && !c.cannotBeMoved)
+      if (heroes.length === 0) {
+        const next = updatePlayer(state, idx, (p) => ({ ...p, power: p.power + effect.power }))
+        return { ...next, log: [...next.log, `${actor.villainName} gagne ${effect.power} Pouvoir (Trace de sang).`] }
+      }
+      return {
+        ...state,
+        pendingBloodTrace: { playerIndex: idx, power: effect.power },
+        log: [...state.log, `${actor.villainName} — Trace de sang : gagnez ${effect.power} Pouvoir ou déplacez un Héros.`],
+      }
+    }
+    case 'DISCARD_EQUIPPED_WEAPON': {
+      // Désarmement (Fatalité) : défausse l'Arme équipée du vilain.
+      const actor = state.players[idx]
+      const w = actor.equippedWeapon
+      if (!w) return { ...state, log: [...state.log, `Désarmement : ${actor.villainName} n'a aucune Arme équipée.`] }
+      const next = updatePlayer(state, idx, (p) => ({ ...p, equippedWeapon: null, discard: [...p.discard, w] }))
+      return { ...next, log: [...next.log, `Désarmement : **${w.name}** de ${actor.villainName} est défaussée.`] }
+    }
+    case 'GRANT_FREE_ANY_ACTION': {
+      // Hache de bûcheron (on-kill) : une action de royaume gratuite au choix.
+      const actor = state.players[idx]
+      return {
+        ...state,
+        pendingFreeRealmAction: { playerIndex: idx },
+        log: [...state.log, `${actor.villainName} : effectuez une action de royaume gratuite (Hache de bûcheron).`],
+      }
+    }
+    case 'OBSESSION_BLOCK_FATE': {
+      // Obsession : l'adversaire ne pourra pas fataliser le vilain à son prochain tour.
+      const actor = state.players[idx]
+      const next = updatePlayer(state, idx, (p) => ({ ...p, noFate: true, noFateSkipReset: true }))
+      return { ...next, log: [...next.log, `Obsession : l'adversaire ne pourra pas utiliser la Fatalité contre ${actor.villainName} à son prochain tour.`] }
+    }
+    case 'GRANT_FREE_PLAY_NEXT_TURN': {
+      // Aura effrayante : action « Jouer une carte » gratuite au début du prochain tour.
+      const actor = state.players[idx]
+      const next = updatePlayer(state, idx, (p) => ({ ...p, freePlayCardNextTurn: true }))
+      return { ...next, log: [...next.log, `Aura effrayante : ${actor.villainName} jouera une carte gratuitement à son prochain tour.`] }
     }
   }
 }

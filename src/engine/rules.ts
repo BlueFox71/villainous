@@ -1317,6 +1317,10 @@ export function conditionIsTriggered(
       return (state.activeGainedPower ?? 0) - (card.conditionBaseline?.gainedPower ?? 0) >= card.trigger.value
     case 'opponent-played-cards-ge':
       return (state.activePlayedCount ?? 0) - (card.conditionBaseline?.playedCards ?? 0) >= card.trigger.value
+    case 'opponent-played-cards-le':
+      // Michael Myers — Aura effrayante : jouable tant que l'adversaire actif n'a joué
+      // qu'AU PLUS `value` cartes ce tour (value 0 = aucune carte jouée jusqu'ici).
+      return (state.activePlayedCount ?? 0) <= card.trigger.value
     case 'opponent-actions-ge':
       // « réalise au moins N actions » : on compte les actions de lieu effectuées
       // ce tour par l'adversaire actif (ids non scopés, hors marqueurs internes).
@@ -1452,6 +1456,8 @@ export function effectiveCost(
   let discount = 0
   let surcharge = 0
   const me = activePlayer(state)
+  // Michael Myers — MAL INTÉRIEUR niveau 3 : toutes ses cartes coûtent 1 Pouvoir de moins.
+  if ((me.malInterieur ?? 0) >= 3) discount += 1
   const loc = me.pawnLocation
   if (loc) {
     const cell = me.board[loc] ?? []
@@ -1875,6 +1881,9 @@ export function hasReachedObjective(state: GameState, playerIndex: number = stat
       return false
     case 'DEFEAT_HERO_NO_FIRE':
       // Shere Khan — victoire ÉVÉNEMENTIELLE : vaincre Mowgli sans jeton Feu (performVanquish).
+      return false
+    case 'DEFEAT_NAMED_HERO':
+      // Michael Myers — victoire ÉVÉNEMENTIELLE : éliminer LAURIE (performVanquish).
       return false
     case 'CLAIM_ALL_TREASURES':
       // Davy Jones — victoire ÉVÉNEMENTIELLE : récupérer le 5ᵉ Trésor au Vanquish (performVanquish).

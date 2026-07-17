@@ -927,6 +927,29 @@ export function objectiveScore(p: PlayerState): number {
       }
       return Math.min(0.99, s)
     }
+    case 'DEFEAT_NAMED_HERO': {
+      // Michael Myers : pipeline « monter en MAL INTÉRIEUR (via les kills) jusqu'au niveau 3
+      // → jouer GARDONS LE MEILLEUR (invoque LAURIE à la Demeure) → l'ASSASSINER ».
+      const obj = p.objective
+      const realmHeroes = Object.values(p.board).flat().filter((c) => c.type === 'hero')
+      const laurie = realmHeroes.find((c) => c.cardId === obj.heroCardId)
+      const lvl = p.malInterieur ?? 1
+      const hasWeapon = !!p.equippedWeapon
+      if (laurie) {
+        // LAURIE est en jeu : proximité haute. Prête à mourir si une Arme est équipée et
+        // que le royaume est dégagé (chaque AUTRE Héros renchérit le coût de +2).
+        const others = realmHeroes.filter((c) => c.cardId !== obj.heroCardId).length
+        let s = 0.78 + (hasWeapon ? 0.15 : 0)
+        s -= Math.min(0.1, others * 0.03) // royaume encombré = LAURIE plus chère à assassiner
+        return Math.min(0.96, Math.max(0.7, s))
+      }
+      // LAURIE pas encore invoquée : progression = Mal Intérieur vers 3 (prérequis).
+      let s = [0, 0.12, 0.34, 0.58][Math.min(3, lvl)] ?? 0.12
+      if (hasWeapon) s += 0.06
+      // Au niveau 3 avec « Gardons le meilleur pour la fin » en main (prêt à invoquer LAURIE).
+      if (lvl >= 3 && p.hand.some((c) => c.requiresMalInterieur !== undefined)) s += 0.08
+      return Math.min(0.72, s)
+    }
   }
 }
 

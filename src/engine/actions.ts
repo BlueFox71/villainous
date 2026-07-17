@@ -1204,6 +1204,11 @@ function applyPlayCard(
       throw new Error(`${card.name} doit être posé sur ${findLocation(me, card.omnidroidForceLocation)?.name ?? card.omnidroidForceLocation}.`)
     }
   }
+  // Michael Myers — Gardons le meilleur pour la fin : injouable tant que le Mal Intérieur
+  // n'a pas atteint le palier requis.
+  if (card.requiresMalInterieur !== undefined && (me.malInterieur ?? 0) < card.requiresMalInterieur) {
+    throw new Error(`${card.name} nécessite le Mal Intérieur niveau ${card.requiresMalInterieur}.`)
+  }
   // Coût effectif (Couronne −1, Bâton Magique −1, Épée de Vérité +2 sur curse,
   // Razoul −1 sur Allié). Hypnose : coût = force (effective) du Héros ciblé.
   let cost = effectiveCost(state, card, to)
@@ -1215,6 +1220,22 @@ function applyPlayCard(
   if (card.costEqualsTargetStrength) {
     if (!targetHeroId) throw new Error('Banqueroute nécessite un Héros cible.')
     cost = effectiveStrength(state, state.activePlayer, targetHeroId) ?? 0
+  }
+  // Michael Myers — ASSASSINER : coût = coût de l'Arme équipée (variable), −1 au Mal
+  // Intérieur niveau 3. +N par AUTRE Héros du royaume si la cible le stipule (LAURIE).
+  if (card.costEqualsWeaponCost) {
+    const w = me.equippedWeapon
+    if (!w) throw new Error('Assassiner nécessite une Arme équipée.')
+    if (!targetHeroId) throw new Error('Assassiner nécessite un Héros cible.')
+    let base = Math.max(0, w.cost ?? 0)
+    if ((me.malInterieur ?? 0) >= 3) base = Math.max(0, base - 1)
+    cost = base
+    const targetHero = Object.values(me.board).flat().find((c) => c.instanceId === targetHeroId)
+    const perOther = targetHero?.assassinateSurchargePerOtherHero ?? 0
+    if (perOther > 0) {
+      const others = Object.values(me.board).flat().filter((c) => c.type === 'hero' && c.instanceId !== targetHeroId).length
+      cost += perOther * others
+    }
   }
   // Mr. Monopoly — Règles inventées : jouer une carte ciblant ce Héros coûte +N.
   if (targetHeroId) {
@@ -1279,8 +1300,9 @@ function applyPlayCard(
   }
 
   // Alliés/Objets/Malédictions vont sur le plateau ; Événements (et Conditions
-  // côté action) résolvent puis sont défaussés.
-  const goesToBoard = card.type === 'ally' || card.type === 'item' || card.type === 'curse'
+  // côté action) résolvent puis sont défaussés. Michael Myers — une ARME (`isWeapon`)
+  // ne va JAMAIS sur le plateau : elle est ÉQUIPÉE (zone `equippedWeapon`), cf. plus bas.
+  const goesToBoard = (card.type === 'ally' || card.type === 'item' || card.type === 'curse') && !card.isWeapon
   let dest: Location | undefined
   let host: CardInstance | undefined
 
@@ -1803,6 +1825,16 @@ function applyPlayCard(
     } else {
       next = updateActivePlayer(next, (p) => ({ ...p, discard: [...p.discard, card] }))
     }
+  } else if (card.isWeapon) {
+    // Michael Myers — ARME (« associée à Meyers ») : entre dans la zone Arme équipée
+    // (remplace l'Arme précédente, défaussée), au lieu d'aller en défausse.
+    const prev = me.equippedWeapon
+    next = updateActivePlayer(next, (p) => ({
+      ...p,
+      equippedWeapon: card,
+      discard: prev ? [...p.discard, prev] : p.discard,
+    }))
+    next = { ...next, log: [...next.log, `${me.villainName} équipe **${card.name}**${prev ? ` (${prev.name} défaussée)` : ''}.`] }
   } else {
     next = updateActivePlayer(next, (p) => ({ ...p, discard: [...p.discard, card] }))
   }
@@ -7988,6 +8020,39 @@ function applyResolveDrawOrGainPower(state: GameState, choice: 'draw' | 'power')
 }
 
 /**
+ * Michael Myers — Trace de sang : résout le choix entre gagner du Pouvoir (`power`)
+ * et déplacer un Héros vers un lieu VOISIN (`move` → pendingHeroRelocate facultatif).
+ */
+function applyResolveBloodTrace(state: GameState, choice: 'power' | 'move'): GameState {
+  const pending = state.pendingBloodTrace
+  if (!pending) throw new Error('Aucun choix Trace de sang en attente.')
+  const { playerIndex, power } = pending
+  const cleared = { ...state, pendingBloodTrace: null }
+  if (choice === 'power') {
+    return resolveEffect(cleared, { type: 'GAIN_POWER', amount: power }, { actorIndex: playerIndex })
+  }
+  // Déplacement d'un Héros vers un lieu voisin (choix interactif du Héros et du lieu).
+  const player = cleared.players[playerIndex]
+  const heroIds = Object.values(player.board)
+    .flat()
+    .filter((c) => c.type === 'hero' && !c.cannotBeMoved)
+    .map((c) => c.instanceId)
+  if (heroIds.length === 0) {
+    return resolveEffect(cleared, { type: 'GAIN_POWER', amount: power }, { actorIndex: playerIndex })
+  }
+  return {
+    ...cleared,
+    pendingHeroRelocate: {
+      chooserIndex: playerIndex,
+      targetIndex: playerIndex,
+      candidateIds: heroIds,
+      optional: true,
+    },
+    log: [...cleared.log, `${player.villainName} — Trace de sang : déplacez un Héros vers un lieu voisin.`],
+  }
+}
+
+/**
  * C'est votre dernière chance : résout le choix entre une action gratuite
  * « Déplacer un Objet ou un Allié » (`move`) et « Activer » (`activate`). Arme le
  * drapeau correspondant (grantedAction / freeActivate) puis efface le choix.
@@ -10041,6 +10106,22 @@ function applyResolveRecover(state: GameState, instanceId?: string): GameState {
   const card = player.discard.find((c) => c.instanceId === instanceId)
     ?? player.deck.find((c) => c.instanceId === instanceId)
   if (!card) throw new Error('Carte introuvable (récupération).')
+  // Michael Myers — Gardons le meilleur : la carte reprise (une Arme) est ÉQUIPÉE
+  // gratuitement (l'Arme précédente est défaussée), au lieu d'aller en main.
+  if (pending.equipWeapon) {
+    const prev = player.equippedWeapon
+    const next = updatePlayer(state, idx, (p) => ({
+      ...p,
+      discard: [...p.discard.filter((c) => c.instanceId !== instanceId), ...(prev ? [prev] : [])],
+      deck: p.deck.filter((c) => c.instanceId !== instanceId),
+      equippedWeapon: card,
+    }))
+    return {
+      ...next,
+      pendingRecover: null,
+      log: [...next.log, `${player.villainName} équipe **${card.name}**${prev ? ` (${prev.name} défaussée)` : ''} — ${pending.label ?? 'Arme'}.`],
+    }
+  }
   let next = updatePlayer(state, idx, (p) => ({
     ...p,
     discard: p.discard.filter((c) => c.instanceId !== instanceId),
@@ -11762,9 +11843,22 @@ function applyEndTurn(state: GameState): GameState {
     started = updatePlayer(started, nextIdx, (p) => ({ ...p, power: p.power + 1 }))
     started = { ...started, log: [...started.log, `${started.players[nextIdx].villainName} gagne 1 Pouvoir (Forme finale).`] }
   }
-  // Sombra — Invisibilité : l'immunité à la Fatalité expire au début de son tour.
+  // Sombra — Invisibilité / Michael Myers — Obsession : l'immunité à la Fatalité expire au
+  // début de son tour. Obsession pose `noFateSkipReset` pour que le blocage SURVIVE au tour
+  // intermédiaire du vilain et frappe le PROCHAIN tour adverse : on saute alors une fois la RàZ.
   if (started.players[nextIdx].noFate) {
-    started = updatePlayer(started, nextIdx, (p) => ({ ...p, noFate: false }))
+    started = updatePlayer(started, nextIdx, (p) =>
+      p.noFateSkipReset ? { ...p, noFateSkipReset: false } : { ...p, noFate: false },
+    )
+  }
+  // Michael Myers — Aura effrayante : action « Jouer une carte » gratuite en début de tour.
+  if (started.players[nextIdx].freePlayCardNextTurn) {
+    started = updatePlayer(started, nextIdx, (p) => ({ ...p, freePlayCardNextTurn: false }))
+    started = {
+      ...started,
+      grantedAction: { playerIndex: nextIdx, actionType: 'PLAY_CARD', label: 'Jouer une carte' },
+      log: [...started.log, `Aura effrayante : ${started.players[nextIdx].villainName} peut jouer une carte gratuitement.`],
+    }
   }
   // Yzma — Beauté endormie : au début de son tour, AVANT le déplacement, ouvre un
   // choix interactif (gagner 2 JT / piocher 2 / déplacer un Héros voisin), chaque
@@ -13018,6 +13112,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveTypeChoice(state, action.cardType)
     case 'RESOLVE_DRAW_OR_GAIN_POWER':
       return applyResolveDrawOrGainPower(state, action.choice)
+    case 'RESOLVE_BLOOD_TRACE':
+      return applyResolveBloodTrace(state, action.choice)
     case 'RESOLVE_INFILTRATION':
       return applyResolveInfiltration(state, action)
     case 'RESOLVE_POWER_OR_RACER_BACK':

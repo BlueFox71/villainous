@@ -270,7 +270,9 @@ export function handLimitFor(player: PlayerState): number {
   const lovedDrawTo = cards
     .filter((c) => c.type === 'hero' && c.loved)
     .reduce((m, c) => Math.max(m, c.drawToAtEndOfTurnWhenLoved ?? 0), 0)
-  return Math.max(1, lovedDrawTo, HAND_LIMIT + scarab - jasmine - magicianRed)
+  // Michael Myers — MAL INTÉRIEUR niveau 2+ : pioche 1 carte de plus en fin de tour.
+  const malDraw = (player.malInterieur ?? 0) >= 2 ? 1 : 0
+  return Math.max(1, lovedDrawTo, HAND_LIMIT + scarab - jasmine - magicianRed + malDraw)
 }
 
 /**
@@ -795,6 +797,20 @@ export function createInitialGame(setups: PlayerSetup[], seed: number): GameStat
     // Départ/Arrivée (index 0), pas de course en cours.
     if (villain.id === 'sa-sucrerie') {
       player = { ...player, trackPos: 0, racerPos: null, raceActive: false }
+    }
+    // Michael Myers (Halloween) — MAL INTÉRIEUR niveau 1 au départ, aucune Arme équipée,
+    // et séparation des Héros hors-deck (LAURIE, `startsInReserve`) du paquet Fatalité :
+    // ils n'entrent en jeu que via « Gardons le meilleur pour la fin ».
+    if (villain.objective.type === 'DEFEAT_NAMED_HERO') {
+      const reserve = player.fateDeck.filter((c) => c.startsInReserve)
+      const fateDeck = player.fateDeck.filter((c) => !c.startsInReserve)
+      player = {
+        ...player,
+        fateDeck,
+        reserveHeroes: reserve,
+        malInterieur: 1,
+        equippedWeapon: null,
+      }
     }
     const drawn = drawPlayerToLimit(player, rngState)
     rngState = drawn.rngState

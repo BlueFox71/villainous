@@ -851,6 +851,7 @@ interface GameStore {
   resolveTypeChoice: (cardType: import('../../engine/types').CardType) => void
   /** Le Grand Génie du Mal : choisit de piocher (`'draw'`) ou gagner du Pouvoir (`'power'`). */
   resolveDrawOrGainPower: (choice: 'draw' | 'power') => void
+  resolveBloodTrace: (choice: 'power' | 'move') => void
   /** Infiltration : la cible perd du Pouvoir (`'lose'`) ou défausse la carte `instanceId`. */
   resolveInfiltration: (payload: { choice: 'lose' } | { choice: 'discard'; instanceId: string }) => void
   resolvePowerOrRacerBack: (choice: 'power' | 'racer') => void
@@ -1563,6 +1564,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_TYPE_CHOICE', cardType }),
   resolveDrawOrGainPower: (choice) =>
     get().submit({ type: 'RESOLVE_DRAW_OR_GAIN_POWER', choice }),
+  resolveBloodTrace: (choice) => get().submit({ type: 'RESOLVE_BLOOD_TRACE', choice }),
   resolveInfiltration: (payload) =>
     get().submit({ type: 'RESOLVE_INFILTRATION', ...payload }),
   resolvePowerOrRacerBack: (choice) =>

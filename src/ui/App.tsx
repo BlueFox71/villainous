@@ -1504,6 +1504,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
   const resolveDeckPeek = useGameStore((s) => s.resolveDeckPeek)
   const resolveTypeChoice = useGameStore((s) => s.resolveTypeChoice)
   const resolveDrawOrGainPower = useGameStore((s) => s.resolveDrawOrGainPower)
+  const resolveBloodTrace = useGameStore((s) => s.resolveBloodTrace)
   const resolveFighterReveal = useGameStore((s) => s.resolveFighterReveal)
   const doneFighterReveal = useGameStore((s) => s.doneFighterReveal)
   const resolveFighterKillColor = useGameStore((s) => s.resolveFighterKillColor)
@@ -2957,6 +2958,16 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
       if (seats[pdgp.playerIndex] === 'bot') {
         const choice = state.players[pdgp.playerIndex].hand.length >= 3 ? 'power' : 'draw'
         const timer = setTimeout(() => resolveDrawOrGainPower(choice), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Michael Myers — Trace de sang : gagner du Pouvoir OU déplacer un Héros voisin. Bot →
+    // gagne le Pouvoir (il veut garder les Héros près de lui pour les assassiner) ; humain → modale.
+    const pbt = state.pendingBloodTrace
+    if (pbt) {
+      if (seats[pbt.playerIndex] === 'bot') {
+        const timer = setTimeout(() => resolveBloodTrace('power'), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
       return
@@ -4474,7 +4485,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [paused, seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveFighterReveal, doneFighterReveal, resolveFighterKillColor, resolveFighterKillFree, doneFighterKillFree, resolveDestinChoice, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolvePacteSang, resolveSacrifice, resolveCageMove, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveScryDeckChoice, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveFateDiscardType, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveGrantLove, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire, resolvePiegeurTarget, resolvePiegeurDest])
+  }, [paused, seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveBloodTrace, resolveFighterReveal, doneFighterReveal, resolveFighterKillColor, resolveFighterKillFree, doneFighterKillFree, resolveDestinChoice, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolvePacteSang, resolveSacrifice, resolveCageMove, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveScryDeckChoice, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveFateDiscardType, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveGrantLove, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire, resolvePiegeurTarget, resolvePiegeurDest])
 
   // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
   // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
@@ -8161,6 +8172,8 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
             hasHackInPlay={Object.values(user.board).flat().some((c) => c.isPiratage || (c.type === 'hero' && c.abilityHacked))}
             hasIngredients={(user.ingredients ?? []).some((c) => (c.cost ?? 0) <= user.power) || (user.artifacts ?? []).length > 0}
             heroAtPawn={!!user.pawnLocation && (user.board[user.pawnLocation] ?? []).some((c) => c.type === 'hero')}
+            equippedWeaponPresent={!!user.equippedWeapon}
+            malInterieurLevel={user.malInterieur ?? 0}
             coveredAtPawn={
               !!user.pawnLocation &&
               ((user.board[user.pawnLocation] ?? []).some((c) => c.type === 'hero') ||
@@ -8468,6 +8481,26 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
           power={state.pendingDrawOrGainPower.power}
           cardId={state.pendingDrawOrGainPower.cardId}
           onChoose={resolveDrawOrGainPower}
+        />
+      )}
+
+      {/* Michael Myers — Trace de sang : gagner du Pouvoir OU déplacer un Héros voisin. */}
+      {state.pendingBloodTrace && state.pendingBloodTrace.playerIndex === HUMAN && (
+        <ChoiceModal
+          title="Trace de sang"
+          prompt="Choisissez un effet."
+          options={[
+            {
+              key: 'bt-power',
+              label: `Gagner ${state.pendingBloodTrace.power} Pouvoir`,
+              onSelect: () => resolveBloodTrace('power'),
+            },
+            {
+              key: 'bt-move',
+              label: 'Déplacer un Héros vers un lieu voisin',
+              onSelect: () => resolveBloodTrace('move'),
+            },
+          ]}
         />
       )}
 

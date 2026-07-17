@@ -124,6 +124,31 @@ export function PlayerPanel({ player, accent, isActive, isWinner, showObjective 
           </div>
         )}
 
+        {/* Michael Myers — MAL INTÉRIEUR (1→3) + ARME équipée (« pile » au-dessus du plateau). */}
+        {player.malInterieur !== undefined && (() => {
+          const lvl = player.malInterieur ?? 1
+          const weapon = player.equippedWeapon
+          const perk = lvl >= 3 ? '+1 pioche/tour · cartes −1 coût' : lvl >= 2 ? '+1 pioche/tour' : ''
+          return (
+            <div
+              className="flex flex-col items-center justify-center rounded-lg border border-rose-500/40 bg-black/30 px-3 py-3"
+              title={`Mal Intérieur niveau ${lvl}/3${perk ? ` · ${perk}` : ''}${weapon ? ` · Arme équipée : ${weapon.name}` : ' · aucune arme équipée'}`}
+            >
+              <span className="-mt-1.5 text-[9px] uppercase tracking-wide text-rose-300/70">Mal Intérieur</span>
+              <div className="my-0.5 flex gap-1">
+                {[1, 2, 3].map((n) => (
+                  <span key={n} className={n <= lvl ? 'text-lg opacity-100' : 'text-lg opacity-25'}>
+                    🔪
+                  </span>
+                ))}
+              </div>
+              <span className="max-w-[9rem] truncate text-[10px] text-white/60">
+                {weapon ? `⚔️ ${weapon.name}` : 'Aucune arme'}
+              </span>
+            </div>
+          )
+        })()}
+
         {/* Cruella d'Enfer — réserve de Tuiles Chiots restante (les Chiots CAPTURÉS sont
             affichés dans la pile dédiée, à côté de la pile Succession/Au-delà). */}
         {player.puppyTiles !== undefined && (() => {

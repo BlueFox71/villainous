@@ -47,6 +47,19 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.8.0',
+    date: '2026-07-17',
+    title: 'Nouveau vilain : Michael Myers',
+    tags: ['villain', 'regles', 'ia'],
+    changes: [
+      "Nouveau vilain (Atelier) : **Michael Myers** (Halloween). Objectif : **éliminer Laurie Strode**.",
+      "Mécanique **Mal Intérieur** (niveaux **1 → 3**) : monte à chaque Héros assassiné. Niveau 2 = **+1 carte** en fin de tour, niveau 3 = **toutes ses cartes coûtent 1 de moins**.",
+      "**Armes** équipées (une seule à la fois) : **Assassiner** en a besoin (son coût = celui de l'Arme) et chaque Arme donne un **bonus à l'élimination** (rejouer, action gratuite, Pouvoir, pioche…).",
+      "**Gardons le meilleur pour la fin** (niveau 3 requis) : ouvre la **Demeure des Strode**, y fait apparaître **Laurie** et équipe une Arme gratuite — prêt pour le coup final.",
+      "Nouvelle **jauge** dans le panneau joueur : niveau de Mal Intérieur et **Arme équipée**.",
+    ],
+  },
+  {
     version: '1.7.3',
     date: '2026-07-17',
     title: 'Multijoueur en ligne (par code de salon)',

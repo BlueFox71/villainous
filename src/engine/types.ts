@@ -411,6 +411,9 @@ export type ObjectiveDef =
    *  Héros ; une fois enfermé, il est transporté par la CAGE (on déplace la CAGE, avec
    *  STITCH dedans, jusqu'au Vaisseau de Gantu). */
   | { type: 'HERO_CAGED'; heroCardId: string; itemCardId: string; locationId: LocationId }
+  /** Michael Myers : ÉLIMINER le Héros `heroCardId` (LAURIE STRODE), où qu'il soit dans le
+   *  royaume. Victoire ÉVÉNEMENTIELLE — déclenchée à l'instant du Vanquish (performVanquish). */
+  | { type: 'DEFEAT_NAMED_HERO'; heroCardId: string }
 
 /** Pat Hibulaire — les 5 types de tuile Objectif (4 tirés par partie) :
  *  - `win-big`        : gagner ≥4 Pouvoir via UNE SEULE Petite Partie ? sur le lieu ;
@@ -555,8 +558,10 @@ export type Effect =
   | { type: 'MOANA_STEAL_HEART' }
   /** Carte Maui — jetons Force +1 : `allies` à tous les Alliés, `heroes` à tous les Héros. */
   | { type: 'MAUI_FORCE_TOKENS'; allies: number; heroes: number }
-  /** Carte Maui — défausse les `count` premières cartes d'une (ou des) pioche(s). */
-  | { type: 'DISCARD_TOP_DECK'; whichDeck: 'fate' | 'villain' | 'both'; count: number }
+  /** Carte Maui — défausse les `count` premières cartes d'une (ou des) pioche(s).
+   *  `protectCardIds` (Michael — Blessure) : ces cartes ne peuvent pas être défaussées
+   *  (remises sur le dessus de la pioche). */
+  | { type: 'DISCARD_TOP_DECK'; whichDeck: 'fate' | 'villain' | 'both'; count: number; protectCardIds?: string[] }
   /** Carte Maui (Requin) — joue la 1ʳᵉ carte Fatalité sur Tamatoa lui-même. */
   | { type: 'PLAY_TOP_FATE_ON_SELF' }
   /** Carte Maui (Coléoptère) — mélange tous les Alliés et les répartit équitablement. */
@@ -1702,7 +1707,7 @@ export type Effect =
   /** Bowser — Te revoilà ! / Mère Gothel — Ce qu'il m'a pris : ouvre le choix
    *  (pendingRecover) d'une carte QUELCONQUE de la défausse à reprendre en main.
    *  `label` : titre affiché (log/showcase) ; défaut « Te revoilà ! ». */
-  | { type: 'RECOVER_ANY_FROM_DISCARD'; label?: string }
+  | { type: 'RECOVER_ANY_FROM_DISCARD'; label?: string; count?: number; optional?: boolean }
   /** Bowser — Vol du château : dévoile la pioche jusqu'à un Allié ou un Objet, le
    *  joue gratuitement sur le lieu du pion, et remet les autres cartes dévoilées
    *  sur le dessus de la pioche (ordre conservé). */
@@ -2041,6 +2046,39 @@ export type Effect =
    *  `mustPlay` (STITCH EN VUE : « Jouez-le ») force la pose ; sans lui (ATTRAPÉ : « Jouez-le
    *  ou défaussez-le ») le joueur peut défausser le Héros. */
   | { type: 'REVEAL_FATE_UNTIL_HERO_CHOICE'; mustPlay?: boolean }
+  // ── Michael Myers (Halloween) ─────────────────────────────────────────────
+  /** Gardons le meilleur pour la fin : déverrouille `locationId` (Demeure des Strode), y
+   *  pose LAURIE (Héros hors-deck de `reserveHeroes`), puis va chercher une Arme dans la
+   *  pioche/défausse et la joue GRATUITEMENT (pendingRecover free-play). Requiert Mal
+   *  Intérieur niveau 3 (garde-fou de jouabilité). */
+  | { type: 'MICHAEL_KEEP_BEST'; locationId: LocationId }
+  /** Arme du crime : va chercher une ARME dans la pioche (et défausse) → choix, ajoutée à
+   *  la main (pendingRecover). */
+  | { type: 'MICHAEL_FETCH_WEAPON' }
+  /** Jouez avec la nourriture : dévoile la pioche Fatalité jusqu'au 1er Héros, le pose sur le
+   *  LIEU DU PION, défausse les autres cartes dévoilées. */
+  | { type: 'REVEAL_FATE_UNTIL_HERO_AT_PAWN' }
+  /** Lumière mourrante : révèle les `count` DERNIÈRES cartes de la pioche Méchant, en garde 1
+   *  en main (pendingLookTop), défausse les autres. */
+  | { type: 'LOOK_BOTTOM_DRAW'; count: number }
+  /** Trophée de chasse : gagne `base` Pouvoir + 1 par palier de Mal Intérieur (1..3). */
+  | { type: 'GAIN_POWER_PER_MAL_INTERIEUR'; base: number }
+  /** Souvenir de Judith (Fatalité) : perd `base` Pouvoir + 1 par palier de Mal Intérieur. */
+  | { type: 'LOSE_POWER_PER_MAL_INTERIEUR'; base: number }
+  /** Trace de sang (Objet activé) : CHOIX — gagner `power` Pouvoir OU déplacer un Héros vers
+   *  un lieu voisin (pendingBloodTrace). */
+  | { type: 'BLOOD_TRACE'; power: number }
+  /** Désarmement (Fatalité) : défausse l'Arme équipée du vilain. */
+  | { type: 'DISCARD_EQUIPPED_WEAPON' }
+  /** Hache de bûcheron (on-kill) : ouvre une action de royaume GRATUITE au choix
+   *  (pendingFreeRealmAction). */
+  | { type: 'GRANT_FREE_ANY_ACTION' }
+  /** Obsession : l'adversaire ne peut pas utiliser l'action Fatalité contre le vilain à son
+   *  prochain tour (pose `noFate` + `noFateSkipReset` pour survivre au tour intermédiaire). */
+  | { type: 'OBSESSION_BLOCK_FATE' }
+  /** Aura effrayante (Condition jouée en réaction) : au DÉBUT du prochain tour du vilain, une
+   *  action « Jouer une carte » GRATUITE est accordée (pose `freePlayCardNextTurn`). */
+  | { type: 'GRANT_FREE_PLAY_NEXT_TURN' }
 
 /**
  * Un exemplaire physique d'une carte en jeu. Comme une même carte existe en
@@ -2223,6 +2261,22 @@ export interface CardInstance {
   /** Ursula — Ariel : Objet « gelé ». Ursula ne peut plus le déplacer tant que le
    *  Héros d'instanceId `frozenBy` (Ariel) est présent dans son royaume. */
   frozenBy?: string
+  // --- Michael Myers (Halloween) -------------------------------------------
+  /** ARME équipée (« associée à Meyers ») : vit dans `PlayerState.equippedWeapon`. */
+  isWeapon?: boolean
+  /** ARME : effets « quand vous éliminez un Héros » (désactivés si un Héros
+   *  `disablesEquippedWeapon` est présent). */
+  weaponOnKill?: Effect[]
+  /** ASSASSINER : coût = coût de l'Arme équipée (variable). */
+  costEqualsWeaponCost?: boolean
+  /** Héros hors-deck (LAURIE) : séparé dans `reserveHeroes` au setup. */
+  startsInReserve?: boolean
+  /** Injouable tant que le Mal Intérieur n'atteint pas ce palier (Gardons le meilleur : 3). */
+  requiresMalInterieur?: number
+  /** Héros (LAURIE) : coût d'ASSASSINER +N par AUTRE Héros du royaume. */
+  assassinateSurchargePerOtherHero?: number
+  /** Héros (JAIME STRODE) : désactive l'effet on-kill de l'Arme équipée tant qu'il est là. */
+  disablesEquippedWeapon?: boolean
   /** Si cet exemplaire est associé à une autre carte, `instanceId` de la carte
    *  porteuse (un Allié). Fixé à la pose ; absent pour les Alliés et les Objets
    *  posés directement sur le lieu. La carte porteuse vit sur le même lieu. */
@@ -2786,6 +2840,9 @@ export type ConditionTrigger =
   | { type: 'opponent-gained-power-ge'; value: number }
   /** L'adversaire actif a joué au moins `value` cartes ce tour-ci (Insidieux). */
   | { type: 'opponent-played-cards-ge'; value: number }
+  /** L'adversaire actif a joué AU PLUS `value` cartes jusqu'ici ce tour-ci (Michael Myers —
+   *  Aura effrayante : jouable en réaction tant qu'il n'a joué aucune carte, value 0). */
+  | { type: 'opponent-played-cards-le'; value: number }
   /** L'adversaire actif a réalisé au moins `value` actions de lieu ce tour-ci
    *  (Gaston — Aussi belle que moi : ≥ 4 actions). */
   | { type: 'opponent-actions-ge'; value: number }
@@ -3196,6 +3253,24 @@ export interface PlayerState {
    *  pour capturer une Pierre). `oppIndex` = l'adversaire concerné, `oppLocationId` = son lieu.
    *  Rapatrier l'Allié capture la Pierre présente sur ce lieu. `undefined` ailleurs. */
   deployedAllies?: { ally: CardInstance; oppIndex: number; oppLocationId: LocationId }[]
+  // --- Michael Myers (Halloween) -------------------------------------------
+  /** Palier de MAL INTÉRIEUR (1→3). Monte de 1 (plafond 3) à chaque Héros éliminé par le
+   *  vilain. Niveau 2 : +1 carte piochée en fin de tour. Niveau 3 : toutes ses cartes
+   *  coûtent 1 Pouvoir de moins. `undefined` pour les autres vilains. */
+  malInterieur?: number
+  /** ARME équipée (une seule à la fois) : Objet « associé à Meyers », hors board.
+   *  `null` = aucune arme. `undefined` pour les autres vilains. */
+  equippedWeapon?: CardInstance | null
+  /** Héros hors-deck en réserve (LAURIE) : entrent en jeu via « Gardons le meilleur pour
+   *  la fin ». Séparés du paquet Fatalité au setup. `undefined` pour les autres vilains. */
+  reserveHeroes?: CardInstance[]
+  /** Obsession : quand `true`, la remise à zéro de `noFate` est sautée une fois (pour que le
+   *  blocage Fatalité survive au tour intermédiaire du vilain et frappe le PROCHAIN tour
+   *  adverse). Consommé au début du tour du vilain. */
+  noFateSkipReset?: boolean
+  /** Aura effrayante : une action « Jouer une carte » gratuite est accordée au DÉBUT du
+   *  prochain tour du vilain (converti en `grantedAction` puis consommé). */
+  freePlayCardNextTurn?: boolean
 }
 
 /**
@@ -3430,6 +3505,10 @@ export interface GameState {
    * Mal. Absent / `null` hors de ce choix.
    */
   pendingDrawOrGainPower?: { playerIndex: number; draw: number; power: number; cardId?: string } | null
+  /** Michael Myers — Trace de sang (Objet activé) : `playerIndex` choisit entre gagner
+   *  `power` Pouvoir (RESOLVE_BLOOD_TRACE 'power') et déplacer un Héros vers un lieu voisin
+   *  (RESOLVE_BLOOD_TRACE 'move' → pendingHeroRelocate). Absent / `null` sinon. */
+  pendingBloodTrace?: { playerIndex: number; power: number } | null
   /** La Bonne Fée — Infiltration (Fatalité) : `playerIndex` (la CIBLE) choisit de
    *  défausser une carte de sa main OU de perdre `lose` Pouvoir (RESOLVE_INFILTRATION).
    *  Ouvert uniquement quand la main n'est pas vide (sinon perte de Pouvoir auto). */
@@ -4044,6 +4123,9 @@ export interface GameState {
     /** Reprise FACULTATIVE : le joueur peut ne rien reprendre (RESOLVE_RECOVER sans
      *  instanceId ferme le pending). Ultron — Transformation. */
     optional?: boolean
+    /** Michael Myers — Gardons le meilleur pour la fin : la carte reprise (une Arme) est
+     *  ÉQUIPÉE gratuitement (→ `equippedWeapon`) au lieu d'aller en main. */
+    equipWeapon?: boolean
   } | null
   /** Scar — Soyez prêtes ! : après avoir défaussé 3 cartes, `playerIndex` reprend en
    *  main soit 1 Événement, soit jusqu'à 2 Alliés de sa défausse (RESOLVE_BE_PREPARED ;
@@ -4600,6 +4682,8 @@ export type GameAction =
   /** Ratigan — Le Grand Génie du Mal : `choice` = piocher (`'draw'`) OU gagner du
    *  Pouvoir (`'power'`). */
   | { type: 'RESOLVE_DRAW_OR_GAIN_POWER'; choice: 'draw' | 'power' }
+  /** Michael Myers — Trace de sang : 'power' (gagne le Pouvoir) ou 'move' (déplacer un Héros). */
+  | { type: 'RESOLVE_BLOOD_TRACE'; choice: 'power' | 'move' }
   /** La Bonne Fée — Infiltration : la cible défausse la carte `instanceId` (`'discard'`)
    *  OU perd le Pouvoir (`'lose'`). */
   | { type: 'RESOLVE_INFILTRATION'; choice: 'lose' } | { type: 'RESOLVE_INFILTRATION'; choice: 'discard'; instanceId: string }
