@@ -39,7 +39,7 @@ import { customActionPositions } from '../editor/boardLayout'
 import { registerActionPos } from '../components/customActionPos'
 import { VILLAIN_COLOR, VILLAIN_COVER_COLOR } from '../villainColors'
 import { usePlayerStore } from './playerStore'
-import { loadSavedGame, saveGame, snapshotForSave, reinjectVillainImages } from './gamePersistence'
+import { loadSavedGame, saveGame, snapshotForSave, reinjectVillainImages, clearSavedGame } from './gamePersistence'
 import { princeJohn } from '../../data/villains/princeJohn'
 import { princeJohnCards } from '../../data/villains/princeJohn.cards'
 import { maleficent } from '../../data/villains/maleficent'
@@ -1130,10 +1130,21 @@ const restoredGame = loadSavedGame()
 // seuls les vilains NATIFS sont résolubles (VILLAIN_REGISTRY statique) ; les CUSTOM le
 // seront après customVillainStore.load() → `hydrateResumedImages`, appelé par Root.
 const resumeDefOf = (id: string) => villainEntry(id)?.def
-const restoredState = restoredGame ? reinjectVillainImages(restoredGame.state, resumeDefOf) : undefined
-const restoredPreTest = restoredGame?.preTestState
-  ? reinjectVillainImages(restoredGame.preTestState, resumeDefOf)
-  : null
+// Garde-fou : une sauvegarde corrompue ou non ré-injectable ne doit jamais faire échouer
+// l'import du store (écran blanc). En cas d'échec, on repart d'une partie neuve et on
+// efface la sauvegarde fautive.
+let restoredState: GameState | undefined
+let restoredPreTest: GameState | null = null
+try {
+  restoredState = restoredGame ? reinjectVillainImages(restoredGame.state, resumeDefOf) : undefined
+  restoredPreTest = restoredGame?.preTestState
+    ? reinjectVillainImages(restoredGame.preTestState, resumeDefOf)
+    : null
+} catch {
+  restoredState = undefined
+  restoredPreTest = null
+  clearSavedGame()
+}
 
 export const useGameStore = create<GameStore>((set, get) => ({
   state: restoredState ?? newGame(),
