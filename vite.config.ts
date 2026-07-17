@@ -718,7 +718,15 @@ export default defineConfig({
       // verrouillées et faisaient planter le watcher (EBUSY). On l'ignore.
       // Idem pour le générateur de cartes (outil hors-app) dont les exports PNG
       // sont parfois verrouillés par un autre programme.
-      ignored: ['**/assets/**', '**/Villainous Card Generator*/**'],
+      // `release/` (empaquetage electron-builder) et `dist/` (build web) : fichiers
+      // temporaires verrouillés pendant un build de l'exe → EBUSY qui faisait planter
+      // le serveur de dév lancé en parallèle. On les ignore aussi.
+      ignored: [
+        '**/assets/**',
+        '**/Villainous Card Generator*/**',
+        '**/release/**',
+        '**/dist/**',
+      ],
     },
   },
   test: {
