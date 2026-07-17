@@ -117,6 +117,7 @@ import { BeautySleepModal } from './components/BeautySleepModal'
 import { TitanMoveModal } from './components/TitanMoveModal'
 import { DivinationModal } from './components/DivinationModal'
 import { LookTopModal } from './components/LookTopModal'
+import { TutorialOverlay } from './components/TutorialOverlay'
 import { RevealModal } from './components/RevealModal'
 import { InformationModal } from './components/InformationModal'
 import { TakeABiteModal } from './components/TakeABiteModal'
@@ -11359,6 +11360,9 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
           </button>
         </div>
       )}
+
+      {/* Tutoriel interactif : bandeau de consignes (le verrouillage des actions vit dans le store). */}
+      <TutorialOverlay onFinish={() => onExit?.()} />
     </div>
   )
 }

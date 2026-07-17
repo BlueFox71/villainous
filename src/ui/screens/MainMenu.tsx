@@ -10,6 +10,8 @@ import { playHover, playProfileHover } from '../sfx'
 interface Props {
   /** Aller au choix du mode de partie (solo / réseau). */
   onNewGame: () => void
+  /** Lancer le tutoriel interactif (apprendre à jouer). */
+  onTutorial: () => void
   /** Ouvrir la liste des vilains. */
   onVillainList: () => void
   /** Ouvrir l'atelier de création de vilains (éditeur). */
@@ -160,7 +162,7 @@ function CreditsModal({ onClose }: { onClose: () => void }) {
  * Menu principal : logo, entrées (Nouvelle partie, Liste des villains, Options),
  * et un panneau de notes de version listant les changements récents.
  */
-export function MainMenu({ onNewGame, onVillainList, onEditor, onProfile, onReplayIntro }: Props) {
+export function MainMenu({ onNewGame, onTutorial, onVillainList, onEditor, onProfile, onReplayIntro }: Props) {
   const playerName = usePlayerStore((s) => s.name)
   // L'Atelier des vilains est un outil de création réservé au dév : masqué dans
   // l'exe (et en simulation « .exe »), comme le Mode test et la Banque de sons.
@@ -224,6 +226,7 @@ export function MainMenu({ onNewGame, onVillainList, onEditor, onProfile, onRepl
       <nav className="relative z-10 flex w-[32rem] max-w-[90vw] flex-col gap-5">
         <MenuButton label="Nouvelle partie" onClick={onNewGame} />
         <MenuButton label="Liste des villains" onClick={onVillainList} />
+        <MenuButton label="🎓 Tutoriel" onClick={onTutorial} />
         {!isDesktopApp && <MenuButton label="Atelier des vilains" onClick={onEditor} />}
         <MenuButton label="Quitter" onClick={() => setConfirmQuit(true)} />
       </nav>

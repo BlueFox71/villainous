@@ -40,6 +40,7 @@ import { registerActionPos } from '../components/customActionPos'
 import { VILLAIN_COLOR, VILLAIN_COVER_COLOR } from '../villainColors'
 import { usePlayerStore } from './playerStore'
 import { loadSavedGame, saveGame, snapshotForSave, reinjectVillainImages, clearSavedGame } from './gamePersistence'
+import { TUTORIAL_STEPS } from '../tutorial/steps'
 import { princeJohn } from '../../data/villains/princeJohn'
 import { princeJohnCards } from '../../data/villains/princeJohn.cards'
 import { maleficent } from '../../data/villains/maleficent'
@@ -1109,6 +1110,15 @@ interface GameStore {
   endTurn: () => void
   /** (Re)démarre une partie solo avec deux clés de vilains (natifs et/ou publiés). */
   reset: (villains?: [string, string]) => void
+  /** Tutoriel interactif : étape courante (`null` = pas en tutoriel). Le verrouillage des
+   *  actions et l'overlay lisent cet état. */
+  tutorial: { stepIndex: number } | null
+  /** Démarre le tutoriel guidé (partie solo Prince Jean vs Maléfique, étape 0). */
+  startTutorial: () => void
+  /** Avance d'une étape de tutoriel (bouton « Suivant » des étapes informatives). */
+  tutorialNext: () => void
+  /** Quitte le tutoriel (garde la partie en cours, sans plus de verrouillage). */
+  endTutorial: () => void
   /** DEV UNIQUEMENT : démarre une partie ORDI vs ORDI (les DEUX sièges en IA) pour
    *  observation/analyse. Non exposé dans le build/exe (garde `import.meta.env.DEV`). */
   startBotMatch: (villains: [string, string]) => void
@@ -1164,8 +1174,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
   lobby: null,
   testMode: restoredGame?.testMode ?? false,
   preTestState: restoredPreTest,
+  tutorial: null,
   submit: (action) => {
     if (get().mode === 'solo') {
+      // Tutoriel : on VERROUILLE le jeu sur l'action attendue par l'étape courante. Une
+      // étape informative (ou une action non autorisée) refuse le coup avec un message doux.
+      const tut = get().tutorial
+      if (tut) {
+        const step = TUTORIAL_STEPS[tut.stepIndex]
+        const blocked = step && (step.info || (step.gate ? !step.gate(action, get().state) : true))
+        if (blocked) {
+          set({ actionNotice: step?.blockHint ?? 'Suis le tutoriel 🙂' })
+          return
+        }
+      }
       // Un coup refusé (moteur qui `throw`) ne modifie pas l'état (applyAction est pur) :
       // au lieu de laisser l'erreur remonter (crash), on affiche son message en toast
       // (ex. « Dévoilez des Combattants ou terminez… » quand on clique ailleurs).
@@ -1173,6 +1195,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set((s) => ({ state: applyAction(stampElapsed(s.state), action), actionNotice: null }))
       } catch (e) {
         set({ actionNotice: (e as Error)?.message ?? 'Coup impossible.' })
+        return
+      }
+      // Tutoriel : avance à l'étape suivante si l'action attendue a été appliquée.
+      const tut2 = get().tutorial
+      if (tut2) {
+        const step = TUTORIAL_STEPS[tut2.stepIndex]
+        if (step?.advanceOn?.(action)) {
+          set({ tutorial: { stepIndex: Math.min(TUTORIAL_STEPS.length - 1, tut2.stepIndex + 1) } })
+        }
       }
       return
     }
@@ -1834,8 +1865,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       state: newGame(villains), testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0,
       mode: 'solo', netStatus: 'idle', hostRoom: null, hostAddrs: null, netError: null, netLeftNotice: null, peerReacting: null, lobby: null,
+      tutorial: null,
     })
   },
+  startTutorial: () => {
+    teardownNet()
+    set({
+      state: newGame(['princeJohn', 'maleficent']),
+      tutorial: { stepIndex: 0 },
+      testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0,
+      mode: 'solo', netStatus: 'idle', hostRoom: null, hostAddrs: null, netError: null, netLeftNotice: null, peerReacting: null, lobby: null,
+    })
+  },
+  tutorialNext: () =>
+    set((s) => (s.tutorial ? { tutorial: { stepIndex: Math.min(TUTORIAL_STEPS.length - 1, s.tutorial.stepIndex + 1) } } : {})),
+  endTutorial: () => set({ tutorial: null }),
   startCustomGame: (custom, opponent) => {
     teardownNet()
     set({
