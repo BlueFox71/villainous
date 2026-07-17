@@ -208,7 +208,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   tabbou: {
     difficulty: 4,
-    devise: "...",
+    devise: "Un seul de mes Rayons du Chaos, et vous ne serez plus que des trophées.",
     story:
       "Souverain de l'Émissaire Subspatial (Super Smash Bros. Brawl), Tabbou aspire les combattants du monde entier pour les figer en trophées et engloutir la réalité dans le vide subspatial. Il lui faut annihiler assez de Combattants avant que les héros ne se libèrent et ne remontent jusqu'à lui.",
     playTips: [
