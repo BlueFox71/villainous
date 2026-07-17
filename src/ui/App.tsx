@@ -60,7 +60,7 @@ import { BoardImage, LOCATIONS_LEFT, PAWN_FIRST_LEFT, PAWN_STEP, getBlockedOverl
 import { BoardActions, getVillainActionPos } from './components/BoardActions'
 import { SUGAR_RUSH_TRACK } from './components/sugarRushTrack'
 import { HeroRow } from './components/HeroRow'
-import { DeckPiles, AuDelaPile, IngredientsPile, ArtifactsPile, ClockPile, SuccessionPile, ImpostorPile, CapturedPuppiesPile, ClaimedTreasuresPile, CauldronTile, MerlinPiles, MauiPiles, OmnidroidPile, AmeliorationTiles, DiscardModal } from './components/DeckPiles'
+import { DeckPiles, AuDelaPile, IngredientsPile, ArtifactsPile, ClockPile, SuccessionPile, ImpostorPile, CapturedPuppiesPile, ClaimedTreasuresPile, CauldronTile, MalInterieurPile, MerlinPiles, MauiPiles, OmnidroidPile, AmeliorationTiles, DiscardModal } from './components/DeckPiles'
 import { UltronUpgradeDiscardModal } from './components/UltronUpgradeDiscardModal'
 import { StacksCards } from './components/StacksCards'
 import { GoalTilesRow } from './components/GoalTilesRow'
@@ -6999,6 +6999,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
               />
               <ClaimedTreasuresPile player={user} />
               <CauldronTile player={user} />
+              <MalInterieurPile player={user} />
               <OmnidroidPile
                 player={user}
                 canPlay={!!dragPlayActionId || mode?.kind === 'play'}
@@ -8031,6 +8032,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
               <CapturedPuppiesPile player={bot} uprightWidth="w-9" />
               <ClaimedTreasuresPile player={bot} />
               <CauldronTile player={bot} />
+              <MalInterieurPile player={bot} />
               <OmnidroidPile player={bot} />
               <AmeliorationTiles player={bot} />
             </div>

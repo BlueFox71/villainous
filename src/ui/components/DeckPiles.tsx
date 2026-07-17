@@ -288,6 +288,66 @@ export function IngredientsPile({
 }
 
 /**
+ * Michael Myers — MAL INTÉRIEUR (image du palier courant 1→3) + ARME équipée, à la même
+ * place que les piles secondaires (Au-delà, Ingrédients…). Rendue uniquement pour Michael
+ * (champ `malInterieur` défini).
+ */
+export function MalInterieurPile({
+  player,
+  uprightWidth = 'w-16',
+}: {
+  player: PlayerState
+  uprightWidth?: string
+}) {
+  const [openW, setOpenW] = useState(false)
+  if (player.malInterieur === undefined) return null
+  const lvl = Math.min(3, Math.max(1, player.malInterieur))
+  const weapon = player.equippedWeapon
+  const perk = lvl >= 3 ? '+1 carte/tour · cartes −1 coût' : lvl >= 2 ? '+1 carte/tour' : 'niveau de départ'
+  return (
+    <>
+      <div className="flex flex-col items-center gap-0.5">
+        <span className="text-[8px] font-bold uppercase tracking-wide text-rose-300/90">
+          Mal Intérieur {lvl}/3
+        </span>
+        <img
+          src={`/cards/michael-meyers/mal-interieur-${lvl}.png`}
+          alt={`Mal Intérieur niveau ${lvl}`}
+          title={`Mal Intérieur niveau ${lvl} — ${perk}`}
+          className={`${uprightWidth} rounded border-2 border-rose-500/70 shadow-[0_0_8px_rgba(244,63,94,0.5)]`}
+        />
+      </div>
+      <div className="flex flex-col items-center gap-0.5">
+        <span className="text-[8px] font-bold uppercase tracking-wide text-red-300/90">Arme</span>
+        {weapon ? (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); playHistoryEvent(); setOpenW(true) }}
+            className="cursor-pointer"
+            title={`Arme équipée : ${weapon.name}`}
+          >
+            <img
+              src={imgOf(weapon)}
+              alt={weapon.name}
+              className={`${uprightWidth} rounded border-2 border-red-500/70 shadow-[0_0_6px_rgba(239,68,68,0.5)] transition hover:brightness-110`}
+            />
+          </button>
+        ) : (
+          <div
+            className={`aspect-[5/7] ${uprightWidth} flex items-center justify-center rounded border border-dashed border-red-400/40 bg-white/5 text-center text-[8px] text-white/40`}
+          >
+            Aucune arme
+          </div>
+        )}
+      </div>
+      {openW && weapon && (
+        <DiscardModal cards={[weapon]} label={`Arme équipée — ${player.villainName}`} onClose={() => setOpenW(false)} />
+      )}
+    </>
+  )
+}
+
+/**
  * Gul'dan — zone ARTÉFACTS, au même emplacement et sur le même modèle que la pile
  * Ingrédients de la Méchante Reine. Affiche les Artéfacts déjà joués (face up) + le
  * compteur n/4. Rendue uniquement pour Gul'dan (champ `artifacts` défini).
