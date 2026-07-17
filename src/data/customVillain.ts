@@ -354,6 +354,9 @@ export interface CustomVillain {
   /** Fichier audio du vilain (dataURL) — p. ex. thème musical / réplique. Écoutable
    *  depuis l'Atelier (onglet Identité). Optionnel. */
   audio?: string
+  /** Gain (volume relatif) appliqué à la réplique `audio` à la lecture (1 = plein volume,
+   *  <1 pour atténuer une devise trop forte). Défaut 1. */
+  audioGain?: number
   /** Dos de carte Vilain (bakée). */
   backVillainImage?: string
   /** Dos de carte Fatalité (bakée). */

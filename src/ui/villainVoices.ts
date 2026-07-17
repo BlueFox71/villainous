@@ -236,8 +236,9 @@ export function playVillainPhrase(villainId: string) {
   // NATIF → fichier de phrase (`phraseTrack`) ; PUBLIÉ → sa « Devise en audio » (dataURL).
   const track = isCustomKey(villainId)
     ? (() => {
-        const url = customVillainOf(villainId)?.audio
-        return url ? { url, gain: 1, fadeEndS: 0.6 } : undefined
+        const custom = customVillainOf(villainId)
+        const url = custom?.audio
+        return url ? { url, gain: custom?.audioGain ?? 1, fadeEndS: 0.6 } : undefined
       })()
     : phraseTrack(villainId in VILLAIN_REGISTRY ? (villainId as VillainKey) : villainKeyOf(villainId))
   if (!track) return
