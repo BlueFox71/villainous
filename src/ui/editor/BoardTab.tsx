@@ -271,8 +271,10 @@ function LocationEditor({
         <ActionsEditor actions={loc.actions} onChange={(actions) => onChange({ ...loc, actions })} />
       )}
 
-      {/* Face B (lieu transformable) : nom / image / actions alternatifs. Non éditable en variante. */}
-      {!variant && loc.alt && (
+      {/* Face B (lieu transformable) : nom / image / actions alternatifs. En VARIANTE, la face B
+          est héritée de la base (présente dès que `loc.alt` existe) et seule sa PRÉSENTATION
+          (nom + image + cadrage) est éditable — les actions viennent de la base. */}
+      {loc.alt && (
         <div className="flex flex-col gap-3 rounded-lg border border-sky-400/30 bg-sky-400/5 p-3">
           <span className="text-xs font-semibold uppercase tracking-wide text-sky-200/80">
             Face B (transformation)
@@ -295,7 +297,9 @@ function LocationEditor({
               onChange: (imagePos) => setAlt({ imagePos }),
             }}
           />
-          <ActionsEditor actions={loc.alt.actions ?? []} onChange={(actions) => setAlt({ actions })} />
+          {!variant && (
+            <ActionsEditor actions={loc.alt.actions ?? []} onChange={(actions) => setAlt({ actions })} />
+          )}
         </div>
       )}
     </div>

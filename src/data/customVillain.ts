@@ -809,8 +809,9 @@ export function variantCardId(variantId: string, baseCardId: string): string {
  *  - Cartes : une par carte de BASE (source de vérité du CONTENU du deck). Chaque carte reçoit
  *    un id de variante (`variantCardId`) + `baseCardId`. Une carte « liée » (non-override) suit
  *    intégralement la présentation de la base ; une carte « override » conserve la sienne.
- *  - Lieux : structure (actions/verrou/face B) de la base ; nom + image repris de la variante
- *    s'ils y sont définis, sinon hérités.
+ *  - Lieux : structure (actions/verrou/existence de la face B) de la base ; nom + image repris de
+ *    la variante s'ils y sont définis, sinon hérités — y compris pour la FACE B (nom/image/cadrage
+ *    propres à la variante ; ses actions restent celles de la base).
  *  - Les IMAGES bakées (cartes re-teintées à la couleur de la variante, portrait…) sont produites
  *    à part par l'étape de « bake » côté UI : cette fonction ne fait que la fusion des DONNÉES. */
 export function syncVariantFromBase(base: CustomVillain, variant: CustomVillain): CustomVillain {
@@ -842,6 +843,13 @@ export function syncVariantFromBase(base: CustomVillain, variant: CustomVillain)
     if (vl?.name !== undefined) loc.name = vl.name
     if (vl?.image !== undefined) loc.image = vl.image
     if (vl?.imagePos !== undefined) loc.imagePos = structuredClone(vl.imagePos)
+    // Face B : la STRUCTURE (existence + actions) vient de la base ; la variante n'en possède que
+    // la PRÉSENTATION (nom + image + cadrage), réappliquée ici comme pour la face A.
+    if (loc.alt) {
+      if (vl?.alt?.name !== undefined) loc.alt.name = vl.alt.name
+      if (vl?.alt?.image !== undefined) loc.alt.image = vl.alt.image
+      if (vl?.alt?.imagePos !== undefined) loc.alt.imagePos = structuredClone(vl.alt.imagePos)
+    }
     return loc
   })
 

@@ -218,6 +218,51 @@ describe('syncVariantFromBase — propagation depuis la base', () => {
     expect(synced.locations[0].actions).toHaveLength(2) // structure propagée depuis la base
     expect(synced.locations[1].name).toBe('LIEU B') // lieu non surchargé → base
   })
+
+  it('FACE B : conserve nom/image propres à la variante, hérite des actions de la base', () => {
+    const base = baseVillain()
+    // La base rend le lieu 1 transformable (face B avec sa propre action).
+    base.locations[0].alt = {
+      name: 'LIEU A (RÉVÉLÉ)',
+      image: 'data:base-loc1-b',
+      actions: [{ id: 'gb', type: 'GAIN_POWER', amount: 2, row: 'top', label: 'Gagner 2' }],
+    }
+    const v = createVariant(base, 'custom-sombra', 'Sombra', '2026-07-15T12:00:00Z')
+
+    // La variante skinne la face B (nom + image), sans toucher aux actions.
+    v.locations[0].alt = {
+      ...v.locations[0].alt,
+      name: 'OMBRE (RÉVÉLÉE)',
+      image: 'data:variant-loc1-b',
+      imagePos: { x: 25, y: 75, zoom: 1.2 },
+    }
+
+    // La base modifie l'action de la face B (structure).
+    const base2 = structuredClone(base)
+    base2.locations[0].alt!.actions!.push({ id: 'vb', type: 'VANQUISH', row: 'bottom', label: 'Éliminer' })
+
+    const synced = syncVariantFromBase(base2, v)
+    const alt = synced.locations[0].alt!
+    expect(alt.name).toBe('OMBRE (RÉVÉLÉE)') // nom face B de la variante
+    expect(alt.image).toBe('data:variant-loc1-b') // image face B de la variante
+    expect(alt.imagePos).toEqual({ x: 25, y: 75, zoom: 1.2 }) // cadrage de la variante
+    expect(alt.actions).toHaveLength(2) // actions face B propagées depuis la base
+  })
+
+  it('FACE B : une variante qui ne skinne pas la face B hérite de celle de la base', () => {
+    const base = baseVillain()
+    base.locations[0].alt = {
+      name: 'LIEU A (RÉVÉLÉ)',
+      image: 'data:base-loc1-b',
+      actions: [{ id: 'gb', type: 'GAIN_POWER', amount: 2, row: 'top', label: 'Gagner 2' }],
+    }
+    const v = createVariant(base, 'custom-sombra', 'Sombra', '2026-07-15T12:00:00Z')
+
+    const synced = syncVariantFromBase(base, v)
+    const alt = synced.locations[0].alt!
+    expect(alt.name).toBe('LIEU A (RÉVÉLÉ)') // hérité de la base
+    expect(alt.image).toBe('data:base-loc1-b') // hérité de la base
+  })
 })
 
 describe('variantSyncState — détection d’état au chargement', () => {
