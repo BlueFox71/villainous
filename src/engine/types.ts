@@ -2079,6 +2079,15 @@ export type Effect =
   /** Aura effrayante (Condition jouée en réaction) : au DÉBUT du prochain tour du vilain, une
    *  action « Jouer une carte » GRATUITE est accordée (pose `freePlayCardNextTurn`). */
   | { type: 'GRANT_FREE_PLAY_NEXT_TURN' }
+  /** Couteau de cuisine (on-kill) : le vilain REJOUE un tour (pose `extraTurn` ; en fin de
+   *  tour il rejoue au lieu de passer la main). */
+  | { type: 'GRANT_EXTRA_TURN' }
+  /** Arme du crime : va chercher une ARME dans la PIOCHE (choix) → l'ajoute à la main OU
+   *  paie son coût et l'équipe (pendingWeaponFetch). */
+  | { type: 'MICHAEL_FETCH_WEAPON_FROM_DECK' }
+  /** Incarnation du mal : mélange la défausse, en révèle les `count` premières cartes, puis
+   *  le joueur en garde en main (pendingLookTop) — les autres retournent en défausse. */
+  | { type: 'SHUFFLE_DISCARD_REVEAL'; count: number }
 
 /**
  * Un exemplaire physique d'une carte en jeu. Comme une même carte existe en
@@ -3271,6 +3280,9 @@ export interface PlayerState {
   /** Aura effrayante : une action « Jouer une carte » gratuite est accordée au DÉBUT du
    *  prochain tour du vilain (converti en `grantedAction` puis consommé). */
   freePlayCardNextTurn?: boolean
+  /** Couteau de cuisine : le vilain REJOUE un tour. À la fin de son tour, il rejoue (même
+   *  joueur) au lieu de passer la main ; consommé à ce moment. */
+  extraTurn?: boolean
 }
 
 /**
@@ -3509,6 +3521,10 @@ export interface GameState {
    *  `power` Pouvoir (RESOLVE_BLOOD_TRACE 'power') et déplacer un Héros vers un lieu voisin
    *  (RESOLVE_BLOOD_TRACE 'move' → pendingHeroRelocate). Absent / `null` sinon. */
   pendingBloodTrace?: { playerIndex: number; power: number } | null
+  /** Michael Myers — Arme du crime : `playerIndex` choisit une ARME parmi `candidateIds`
+   *  (cartes de sa PIOCHE), puis l'ajoute à sa main OU paie son coût et l'équipe
+   *  (RESOLVE_WEAPON_FETCH `equip`). Facultatif (peut ne rien prendre). Absent / `null` sinon. */
+  pendingWeaponFetch?: { playerIndex: number; candidateIds: string[] } | null
   /** La Bonne Fée — Infiltration (Fatalité) : `playerIndex` (la CIBLE) choisit de
    *  défausser une carte de sa main OU de perdre `lose` Pouvoir (RESOLVE_INFILTRATION).
    *  Ouvert uniquement quand la main n'est pas vide (sinon perte de Pouvoir auto). */
@@ -4285,6 +4301,10 @@ export interface GameState {
     /** Isabella — Cloche : les cartes NON gardées sont remises dans le deck (puis mélangé)
      *  au lieu d'être défaussées. */
     returnToDeck?: boolean
+    /** Michael — Lumière mourrante : le joueur CHOISIT, à la résolution, de défausser les
+     *  cartes non gardées OU de les remettre sur le DESSUS de la pioche (RESOLVE_LOOK_TOP
+     *  `toTop`). Les cartes non gardées viennent du BAS de la pioche (déjà retirées). */
+    offerTopOrDiscard?: boolean
   } | null
   /** Ratigan — Liste de Fidget : cartes dévoilées de la pioche montrées au joueur
    *  (purement informatif). La carte gardée (`keptInstanceId`) est DÉJÀ dans la main
@@ -4684,6 +4704,9 @@ export type GameAction =
   | { type: 'RESOLVE_DRAW_OR_GAIN_POWER'; choice: 'draw' | 'power' }
   /** Michael Myers — Trace de sang : 'power' (gagne le Pouvoir) ou 'move' (déplacer un Héros). */
   | { type: 'RESOLVE_BLOOD_TRACE'; choice: 'power' | 'move' }
+  /** Michael Myers — Arme du crime : `instanceId` = Arme choisie (absent = ne rien prendre) ;
+   *  `equip` = payer son coût et l'équiper (sinon ajout à la main). */
+  | { type: 'RESOLVE_WEAPON_FETCH'; instanceId?: string; equip?: boolean }
   /** La Bonne Fée — Infiltration : la cible défausse la carte `instanceId` (`'discard'`)
    *  OU perd le Pouvoir (`'lose'`). */
   | { type: 'RESOLVE_INFILTRATION'; choice: 'lose' } | { type: 'RESOLVE_INFILTRATION'; choice: 'discard'; instanceId: string }
@@ -4963,7 +4986,7 @@ export type GameAction =
   | { type: 'RESOLVE_DIVERSION_DISCARD'; cardInstanceId: string }
   /** Dr Facilier — Tour de passe-passe : garde `keepInstanceIds` (parmi les cartes
    *  révélées de pendingLookTop) en main ; les autres sont défaussées. */
-  | { type: 'RESOLVE_LOOK_TOP'; keepInstanceIds: string[] }
+  | { type: 'RESOLVE_LOOK_TOP'; keepInstanceIds: string[]; toTop?: boolean }
   /** Ratigan — Liste de Fidget : acquitte l'affichage des cartes dévoilées
    *  (pendingReveal) ; aucune décision, ferme simplement le modal d'info. */
   | { type: 'ACKNOWLEDGE_REVEAL' }

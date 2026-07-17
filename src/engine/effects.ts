@@ -11078,7 +11078,7 @@ export function resolveEffect(
       const next = updatePlayer(state, idx, (p) => ({ ...p, deck: rest }))
       return {
         ...next,
-        pendingLookTop: { playerIndex: idx, cards: bottom, take: 1, title: 'Lumière mourrante' },
+        pendingLookTop: { playerIndex: idx, cards: bottom, take: 1, title: 'Lumière mourrante', offerTopOrDiscard: true },
         log: [...next.log, `${actor.villainName} regarde les ${n} dernières cartes de sa pioche (Lumière mourrante).`],
       }
     }
@@ -11138,6 +11138,42 @@ export function resolveEffect(
       const actor = state.players[idx]
       const next = updatePlayer(state, idx, (p) => ({ ...p, freePlayCardNextTurn: true }))
       return { ...next, log: [...next.log, `Aura effrayante : ${actor.villainName} jouera une carte gratuitement à son prochain tour.`] }
+    }
+    case 'GRANT_EXTRA_TURN': {
+      // Couteau de cuisine (on-kill) : le vilain REJOUE un tour.
+      const actor = state.players[idx]
+      const next = updatePlayer(state, idx, (p) => ({ ...p, extraTurn: true }))
+      return { ...next, log: [...next.log, `🔪 ${actor.villainName} rejoue un tour (Couteau de cuisine) !`] }
+    }
+    case 'MICHAEL_FETCH_WEAPON_FROM_DECK': {
+      // Arme du crime : va chercher une ARME dans la PIOCHE (choix) → main ou équiper.
+      const actor = state.players[idx]
+      const weapons = actor.deck.filter((c) => c.isWeapon)
+      if (weapons.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : aucune Arme dans la pioche (Arme du crime).`] }
+      }
+      return {
+        ...state,
+        pendingWeaponFetch: { playerIndex: idx, candidateIds: weapons.map((c) => c.instanceId) },
+        log: [...state.log, `${actor.villainName} cherche une Arme dans sa pioche (Arme du crime).`],
+      }
+    }
+    case 'SHUFFLE_DISCARD_REVEAL': {
+      // Incarnation du mal : mélange la défausse, en révèle les `count` premières, garde en main.
+      const actor = state.players[idx]
+      if (actor.discard.length === 0) {
+        return { ...state, log: [...state.log, `${actor.villainName} : défausse vide (Incarnation du mal).`] }
+      }
+      const r = shuffle(actor.discard, state.rngState)
+      const n = Math.min(effect.count, r.result.length)
+      const revealed = r.result.slice(0, n)
+      const rest = r.result.slice(n)
+      const next = updatePlayer({ ...state, rngState: r.state }, idx, (p) => ({ ...p, discard: rest }))
+      return {
+        ...next,
+        pendingLookTop: { playerIndex: idx, cards: revealed, take: n, title: 'Incarnation du mal' },
+        log: [...next.log, `${actor.villainName} mélange sa défausse et en révèle ${n} carte${n > 1 ? 's' : ''} (Incarnation du mal).`],
+      }
     }
   }
 }

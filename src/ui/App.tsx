@@ -1505,6 +1505,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
   const resolveTypeChoice = useGameStore((s) => s.resolveTypeChoice)
   const resolveDrawOrGainPower = useGameStore((s) => s.resolveDrawOrGainPower)
   const resolveBloodTrace = useGameStore((s) => s.resolveBloodTrace)
+  const resolveWeaponFetch = useGameStore((s) => s.resolveWeaponFetch)
   const resolveFighterReveal = useGameStore((s) => s.resolveFighterReveal)
   const doneFighterReveal = useGameStore((s) => s.doneFighterReveal)
   const resolveFighterKillColor = useGameStore((s) => s.resolveFighterKillColor)
@@ -2968,6 +2969,25 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     if (pbt) {
       if (seats[pbt.playerIndex] === 'bot') {
         const timer = setTimeout(() => resolveBloodTrace('power'), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Michael Myers — Arme du crime : bot choisit une Arme de sa pioche. Il ÉQUIPE la plus
+    // chère qu'il peut payer (meilleur effet d'élimination) ; sinon prend la moins chère en main.
+    const pwf = state.pendingWeaponFetch
+    if (pwf) {
+      if (seats[pwf.playerIndex] === 'bot') {
+        const p = state.players[pwf.playerIndex]
+        const mal3 = (p.malInterieur ?? 0) >= 3
+        const weapons = p.deck.filter((c) => pwf.candidateIds.includes(c.instanceId))
+        const costOf = (w: (typeof weapons)[number]) => Math.max(0, (w.cost ?? 0) - (mal3 ? 1 : 0))
+        const affordable = weapons.filter((w) => costOf(w) <= p.power)
+        let choice: (typeof weapons)[number] | undefined
+        let equip = false
+        if (affordable.length > 0) { choice = [...affordable].sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0))[0]; equip = true }
+        else choice = [...weapons].sort((a, b) => (a.cost ?? 0) - (b.cost ?? 0))[0]
+        const timer = setTimeout(() => resolveWeaponFetch(choice?.instanceId, equip), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
       return
@@ -4485,7 +4505,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [paused, seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveBloodTrace, resolveFighterReveal, doneFighterReveal, resolveFighterKillColor, resolveFighterKillFree, doneFighterKillFree, resolveDestinChoice, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolvePacteSang, resolveSacrifice, resolveCageMove, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveScryDeckChoice, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveFateDiscardType, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveGrantLove, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire, resolvePiegeurTarget, resolvePiegeurDest])
+  }, [paused, seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveBloodTrace, resolveWeaponFetch, resolveFighterReveal, doneFighterReveal, resolveFighterKillColor, resolveFighterKillFree, doneFighterKillFree, resolveDestinChoice, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolvePacteSang, resolveSacrifice, resolveCageMove, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveScryDeckChoice, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveFateDiscardType, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveGrantLove, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire, resolvePiegeurTarget, resolvePiegeurDest])
 
   // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
   // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
@@ -8506,6 +8526,27 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
         />
       )}
 
+      {/* Michael Myers — Arme du crime : choisir une Arme de sa pioche → main ou équiper. */}
+      {state.pendingWeaponFetch && state.pendingWeaponFetch.playerIndex === HUMAN && (() => {
+        const ids = new Set(state.pendingWeaponFetch.candidateIds)
+        const weapons = user.deck.filter((c) => ids.has(c.instanceId))
+        const mal3 = (user.malInterieur ?? 0) >= 3
+        const opts: { key: string; label: string; description?: string; disabled?: boolean; onSelect: () => void }[] = []
+        for (const w of weapons) {
+          const cost = Math.max(0, (w.cost ?? 0) - (mal3 ? 1 : 0))
+          opts.push({ key: `${w.instanceId}-hand`, label: `${w.name} → en main`, onSelect: () => resolveWeaponFetch(w.instanceId, false) })
+          opts.push({
+            key: `${w.instanceId}-equip`,
+            label: `${w.name} → équiper (${cost} JT)`,
+            description: user.power < cost ? 'Pas assez de Pouvoir' : undefined,
+            disabled: user.power < cost,
+            onSelect: () => resolveWeaponFetch(w.instanceId, true),
+          })
+        }
+        opts.push({ key: 'none', label: 'Ne rien prendre', onSelect: () => resolveWeaponFetch(undefined, false) })
+        return <ChoiceModal title="Arme du crime" prompt="Prenez une Arme de votre pioche." options={opts} />
+      })()}
+
       {/* Tabbou — modale « Destin » (dévoiler 3 / gagner 4). Tuer une couleur (Collection)
           et Coup Fatal se font en direct sur la grille des Combattants. */}
       <TabbouModals state={state} human={HUMAN} onDestin={resolveDestinChoice} />
@@ -10353,6 +10394,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
           cards={state.pendingLookTop.cards}
           take={state.pendingLookTop.take}
           title={state.pendingLookTop.title}
+          offerTopOrDiscard={state.pendingLookTop.offerTopOrDiscard}
           onResolve={resolveLookTop}
         />
       )}

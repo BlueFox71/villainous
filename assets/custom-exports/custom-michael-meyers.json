@@ -206,8 +206,7 @@
       "isWeapon": true,
       "weaponOnKill": [
         {
-          "type": "GRANT_FREE_ACTION",
-          "actionType": "PLAY_CARD"
+          "type": "GRANT_EXTRA_TURN"
         }
       ]
     },
@@ -292,7 +291,8 @@
       "cost": 2,
       "effects": [
         {
-          "type": "REVEAL_FATE_UNTIL_HERO_AT_PAWN"
+          "type": "REVEAL_FATE_UNTIL_HERO_CHOICE",
+          "mustPlay": true
         }
       ]
     },
@@ -403,7 +403,7 @@
       "cost": 1,
       "effects": [
         {
-          "type": "MICHAEL_FETCH_WEAPON"
+          "type": "MICHAEL_FETCH_WEAPON_FROM_DECK"
         }
       ]
     },
@@ -494,10 +494,8 @@
       "cost": 2,
       "effects": [
         {
-          "type": "RECOVER_ANY_FROM_DISCARD",
-          "label": "Incarnation du mal",
-          "count": 3,
-          "optional": true
+          "type": "SHUFFLE_DISCARD_REVEAL",
+          "count": 3
         }
       ]
     },
@@ -880,19 +878,19 @@
     "howToWin": "Michael monte en MAL INTÉRIEUR en assassinant des Héros (niveau 1→2→3). Plan : faire venir des Héros (Jouez avec la nourriture, Fatalités subies), s'équiper d'une Arme (Arme du crime), ASSASSINER pour monter au niveau 3 (niveau 2 = +1 carte/tour ; niveau 3 = toutes les cartes −1 coût). Puis jouer GARDONS LE MEILLEUR POUR LA FIN : la Demeure des Strode s'ouvre, LAURIE apparaît, et il l'ASSASSINE pour gagner. Chaque Arme donne un bonus au kill (rejouer, action gratuite, +Pouvoir, piocher, activer).",
     "villainNotes": {
       "custom-michael-meyers-gardons-le-meilleur-pour-la-fin": "Coup final. NÉCESSITE Mal Intérieur niveau 3 (sinon grisée). Déverrouille la DEMEURE DES STRODE (pour y amener le pion) et va chercher une Arme dans la pioche/défausse pour l'équiper GRATUITEMENT. LAURIE, elle, arrive par la pioche Fatalité (posée d'office sur la Demeure).",
-      "custom-michael-meyers-couteau-de-cuisine": "Arme (coût 3, équipée sur Meyers, une seule à la fois). Quand vous éliminez un Héros avec : action « Jouer une carte » GRATUITE (rejouer). La plus chère → sert de base au coût d'ASSASSINER (3).",
+      "custom-michael-meyers-couteau-de-cuisine": "Arme (coût 3). Quand vous éliminez un Héros avec : vous REJOUEZ un tour entier. C'est aussi l'Arme la plus chère (base du coût d'ASSASSINER).",
       "custom-michael-meyers-hache-de-bucheron": "Arme (coût 2). Quand vous éliminez un Héros : une action de royaume GRATUITE au choix.",
       "custom-michael-meyers-tuyau-arrache": "Arme (coût 2). Quand vous éliminez un Héros : gagnez 2 jetons Pouvoir.",
       "custom-michael-meyers-c1": "BATTE DE BASEBALL — Arme (coût 1). Quand vous éliminez un Héros : piochez 2 cartes.",
       "custom-michael-meyers-c2": "DÉBRIS DE VERRE — Arme (coût 1). Quand vous éliminez un Héros : action « Activer une capacité » gratuite.",
-      "custom-michael-meyers-jouez-avec-la-nourriture": "Dévoile votre pioche Fatalité jusqu'au 1er Héros et l'amène sur le LIEU DU PION (une victime à portée) ; défausse les autres cartes dévoilées. Sert à alimenter les kills (Mal Intérieur).",
+      "custom-michael-meyers-jouez-avec-la-nourriture": "Dévoile votre pioche Fatalité jusqu'au 1er Héros et le joue sur le LIEU DE VOTRE CHOIX ; défausse les autres cartes dévoilées. (LAURIE, elle, va d'office sur la Demeure.)",
       "custom-michael-meyers-aura-effrayante": "Condition (réaction). Jouable pendant le tour d'un adversaire TANT QU'IL N'A JOUÉ AUCUNE carte. Effet : au début de VOTRE prochain tour, une action « Jouer une carte » gratuite.",
       "custom-michael-meyers-invincible": "OBSESSION — Condition (réaction). Jouable pendant le tour d'un adversaire s'il ÉLIMINE un Héros. Effet : cet adversaire ne peut pas utiliser la Fatalité contre vous à son prochain tour.",
-      "custom-michael-meyers-lumiere-mourrante": "Regarde les 4 DERNIÈRES cartes de votre pioche Méchant, en garde 1 en main, défausse les autres. (Simplification : l'option « remettre sur le dessus » n'est pas implémentée — À VALIDER.)",
-      "custom-michael-meyers-arme-du-crime": "Va chercher une Arme dans votre pioche/défausse et l'ajoute à votre main (choix). (Simplification : l'option « payer et jouer directement » n'est pas implémentée — À VALIDER.) Grisée s'il n'y a aucune Arme disponible.",
+      "custom-michael-meyers-lumiere-mourrante": "Regarde les 4 DERNIÈRES cartes de votre pioche, en garde 1 en main, puis CHOISIT de défausser les autres OU de les remettre sur le dessus de la pioche.",
+      "custom-michael-meyers-arme-du-crime": "Va chercher une Arme dans votre PIOCHE (uniquement), puis choisit de l'ajouter à la main OU de payer son coût et l'équiper directement. Grisée s'il n'y a aucune Arme dans la pioche.",
       "custom-michael-meyers-assassiner": "Élimine un Héros SUR LE LIEU DU PION. NÉCESSITE une Arme équipée (grisée sinon). Coût variable = coût de l'Arme équipée (−1 au Mal Intérieur 3), +1 par ARMEMENT sur la cible, +2 par autre Héros du royaume si la cible est LAURIE. Chaque kill fait monter le Mal Intérieur (plafond 3) et déclenche l'effet de l'Arme.",
       "custom-michael-meyers-trace-de-sang": "Objet (coût 0), posé sur un lieu, avec capacité ACTIVER : gagnez 2 Pouvoir OU déplacez un Héros vers un lieu voisin (choix).",
-      "custom-michael-meyers-incarnation-du-mal": "Récupère jusqu'à 3 cartes de votre défausse dans votre main (choix, facultatif). (Le remélange préalable est cosmétique.)",
+      "custom-michael-meyers-incarnation-du-mal": "Mélange votre défausse puis en révèle les 3 premières cartes : gardez-en en main, les autres retournent en défausse.",
       "custom-michael-meyers-trophee-de-chasse": "Gagnez 1 Pouvoir + 1 par palier de Mal Intérieur (niveau 1 → 2 JT, niveau 3 → 4 JT)."
     },
     "fateNotes": {

@@ -8053,6 +8053,51 @@ function applyResolveBloodTrace(state: GameState, choice: 'power' | 'move'): Gam
 }
 
 /**
+ * Michael Myers — Arme du crime : le joueur a choisi une Arme de sa PIOCHE (`instanceId`,
+ * absent = ne rien prendre). `equip` = paie son coût et l'équipe (remplace l'Arme
+ * précédente, défaussée) ; sinon l'ajoute à la main. Le deck est remélangé ensuite.
+ */
+function applyResolveWeaponFetch(state: GameState, instanceId?: string, equip?: boolean): GameState {
+  const pending = state.pendingWeaponFetch
+  if (!pending) throw new Error('Aucune recherche d’Arme en attente (Arme du crime).')
+  const idx = pending.playerIndex
+  const cleared = { ...state, pendingWeaponFetch: null }
+  if (!instanceId) {
+    return { ...cleared, log: [...cleared.log, `${state.players[idx].villainName} ne prend aucune Arme (Arme du crime).`] }
+  }
+  if (!pending.candidateIds.includes(instanceId)) throw new Error('Arme choisie invalide.')
+  const player = state.players[idx]
+  const card = player.deck.find((c) => c.instanceId === instanceId)
+  if (!card) throw new Error('Arme introuvable dans la pioche.')
+  const reshuffle = (s: GameState): GameState => {
+    const sh = shuffle(s.players[idx].deck, s.rngState)
+    return { ...s, rngState: sh.state, players: s.players.map((p, i) => (i === idx ? { ...p, deck: sh.result } : p)) }
+  }
+  if (equip) {
+    // Coût = coût de l'Arme (−1 au Mal Intérieur 3).
+    const cost = Math.max(0, (card.cost ?? 0) - ((player.malInterieur ?? 0) >= 3 ? 1 : 0))
+    if (player.power < cost) throw new Error(`Pas assez de pouvoir pour équiper ${card.name} (coût ${cost}).`)
+    const prev = player.equippedWeapon
+    let next = updatePlayer(cleared, idx, (p) => ({
+      ...p,
+      power: p.power - cost,
+      deck: p.deck.filter((c) => c.instanceId !== instanceId),
+      equippedWeapon: card,
+      discard: prev ? [...p.discard, prev] : p.discard,
+    }))
+    next = reshuffle(next)
+    return { ...next, log: [...next.log, `${player.villainName} équipe **${card.name}** (−${cost} JT)${prev ? ` (${prev.name} défaussée)` : ''} — Arme du crime.`] }
+  }
+  let next = updatePlayer(cleared, idx, (p) => ({
+    ...p,
+    deck: p.deck.filter((c) => c.instanceId !== instanceId),
+    hand: [...p.hand, card],
+  }))
+  next = reshuffle(next)
+  return { ...next, log: [...next.log, `${player.villainName} prend **${card.name}** en main (Arme du crime).`] }
+}
+
+/**
  * C'est votre dernière chance : résout le choix entre une action gratuite
  * « Déplacer un Objet ou un Allié » (`move`) et « Activer » (`activate`). Arme le
  * drapeau correspondant (grantedAction / freeActivate) puis efface le choix.
@@ -10883,7 +10928,7 @@ function applyResolveDivination(state: GameState, topInstanceIds: string[]): Gam
 
 /** Dr Facilier — Tour de passe-passe : garde les cartes choisies (`keepInstanceIds`,
  *  bornées à `take`) en main, défausse les autres cartes révélées (pendingLookTop). */
-function applyResolveLookTop(state: GameState, keepInstanceIds: string[]): GameState {
+function applyResolveLookTop(state: GameState, keepInstanceIds: string[], toTop?: boolean): GameState {
   const pending = state.pendingLookTop
   if (!pending) throw new Error('Aucun Tour de passe-passe en attente.')
   const idx = pending.playerIndex
@@ -10891,11 +10936,14 @@ function applyResolveLookTop(state: GameState, keepInstanceIds: string[]): GameS
   const keepSet = new Set(valid.slice(0, pending.take))
   const kept = pending.cards.filter((c) => keepSet.has(c.instanceId))
   const dumped = pending.cards.filter((c) => !keepSet.has(c.instanceId))
-  // Isabella — Cloche : les cartes NON gardées retournent dans le deck (puis mélange) au lieu
-  // d'être défaussées.
   let rng = state.rngState
   let next: GameState
-  if (pending.returnToDeck) {
+  if (pending.offerTopOrDiscard && toTop) {
+    // Michael — Lumière mourrante : le joueur choisit de REMETTRE les cartes non gardées sur
+    // le DESSUS de la pioche (ordre conservé).
+    next = updatePlayer(state, idx, (p) => ({ ...p, hand: [...p.hand, ...kept], deck: [...dumped, ...p.deck] }))
+  } else if (pending.returnToDeck) {
+    // Isabella — Cloche : les cartes NON gardées retournent dans le deck (puis mélange).
     const r = shuffle([...state.players[idx].deck, ...dumped], rng)
     rng = r.state
     next = updatePlayer(state, idx, (p) => ({ ...p, hand: [...p.hand, ...kept], deck: r.result }))
@@ -10909,9 +10957,11 @@ function applyResolveLookTop(state: GameState, keepInstanceIds: string[]): GameS
     activeDrewCard: kept.length > 0 ? true : state.activeDrewCard,
     log: [
       ...next.log,
-      pending.returnToDeck
-        ? `${next.players[idx].villainName} garde **${kept.map((c) => c.name).join(', ') || '—'}** et remélange ${dumped.length} carte${dumped.length > 1 ? 's' : ''} dans son deck (${pending.title ?? 'Cloche'}).`
-        : `${next.players[idx].villainName} garde **${kept.map((c) => c.name).join(', ') || '—'}** et défausse ${dumped.length} carte${dumped.length > 1 ? 's' : ''} (${pending.title ?? 'Tour de passe-passe'}).`,
+      pending.offerTopOrDiscard && toTop
+        ? `${next.players[idx].villainName} garde **${kept.map((c) => c.name).join(', ') || '—'}** et remet ${dumped.length} carte${dumped.length > 1 ? 's' : ''} sur le dessus de sa pioche (${pending.title ?? 'Lumière mourrante'}).`
+        : pending.returnToDeck
+          ? `${next.players[idx].villainName} garde **${kept.map((c) => c.name).join(', ') || '—'}** et remélange ${dumped.length} carte${dumped.length > 1 ? 's' : ''} dans son deck (${pending.title ?? 'Cloche'}).`
+          : `${next.players[idx].villainName} garde **${kept.map((c) => c.name).join(', ') || '—'}** et défausse ${dumped.length} carte${dumped.length > 1 ? 's' : ''} (${pending.title ?? 'Tour de passe-passe'}).`,
     ],
   }
   // Tour de passe-passe révélé en Divination : reprendre la Divination avec les
@@ -11667,7 +11717,13 @@ function applyEndTurn(state: GameState): GameState {
   // Mère Gothel — fin de son tour : Raiponce glisse d'un lieu vers la droite.
   drawn = moveRaiponceEndOfTurn(drawn, drawn.activePlayer)
   const endedName = drawn.players[drawn.activePlayer].villainName
-  const nextIdx = (drawn.activePlayer + 1) % drawn.players.length
+  // Michael Myers — Couteau de cuisine : le joueur REJOUE un tour (même joueur) au lieu de
+  // passer la main. Le drapeau est consommé ici (un seul tour supplémentaire à la fois).
+  const replays = !!drawn.players[drawn.activePlayer].extraTurn
+  if (replays) {
+    drawn = updatePlayer(drawn, drawn.activePlayer, (p) => ({ ...p, extraTurn: false }))
+  }
+  const nextIdx = replays ? drawn.activePlayer : (drawn.activePlayer + 1) % drawn.players.length
 
   // Le tour du joueur suivant commence. Si la récompense Apparence de Dragon
   // de ce joueur n'a pas été déclenchée, elle expire à présent.
@@ -13114,6 +13170,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveDrawOrGainPower(state, action.choice)
     case 'RESOLVE_BLOOD_TRACE':
       return applyResolveBloodTrace(state, action.choice)
+    case 'RESOLVE_WEAPON_FETCH':
+      return applyResolveWeaponFetch(state, action.instanceId, action.equip)
     case 'RESOLVE_INFILTRATION':
       return applyResolveInfiltration(state, action)
     case 'RESOLVE_POWER_OR_RACER_BACK':
@@ -13359,7 +13417,7 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
     case 'RESOLVE_DIVERSION_DISCARD':
       return applyResolveDiversionDiscard(state, action.cardInstanceId)
     case 'RESOLVE_LOOK_TOP':
-      return applyResolveLookTop(state, action.keepInstanceIds)
+      return applyResolveLookTop(state, action.keepInstanceIds, action.toTop)
     case 'ACKNOWLEDGE_REVEAL':
       return { ...state, pendingReveal: null }
     case 'RESOLVE_HACK':

@@ -1078,7 +1078,8 @@ interface GameStore {
    *  l'ordre `topInstanceIds`. */
   resolveDivination: (topInstanceIds: string[]) => void
   /** Tour de passe-passe (Dr Facilier) : garde `keepInstanceIds` en main. */
-  resolveLookTop: (keepInstanceIds: string[]) => void
+  resolveLookTop: (keepInstanceIds: string[], toTop?: boolean) => void
+  resolveWeaponFetch: (instanceId?: string, equip?: boolean) => void
   /** Liste de Fidget (Ratigan) : acquitte l'affichage des cartes dévoilées. */
   acknowledgeReveal: () => void
   /** Sombra — Piratage : désactive l'action choisie du lieu piraté. */
@@ -1793,8 +1794,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_TITAN_SELECT', titanInstanceId }),
   resolveDivination: (topInstanceIds) =>
     get().submit({ type: 'RESOLVE_DIVINATION', topInstanceIds }),
-  resolveLookTop: (keepInstanceIds) =>
-    get().submit({ type: 'RESOLVE_LOOK_TOP', keepInstanceIds }),
+  resolveLookTop: (keepInstanceIds, toTop) =>
+    get().submit({ type: 'RESOLVE_LOOK_TOP', keepInstanceIds, toTop }),
+  resolveWeaponFetch: (instanceId, equip) =>
+    get().submit({ type: 'RESOLVE_WEAPON_FETCH', instanceId, equip }),
   acknowledgeReveal: () => get().submit({ type: 'ACKNOWLEDGE_REVEAL' }),
   resolveHack: (actionId) => get().submit({ type: 'RESOLVE_HACK', actionId }),
   resolveInformation: (discardDrawn) => get().submit({ type: 'RESOLVE_INFORMATION', discardDrawn }),

@@ -10,15 +10,18 @@ interface Props {
   take: number
   /** Titre affiché (défaut : « Tour de passe-passe »). */
   title?: string
-  /** Renvoie les instanceIds gardés (les autres sont défaussés). */
-  onResolve: (keepInstanceIds: string[]) => void
+  /** Michael — Lumière mourrante : proposer, pour les cartes NON gardées, de les défausser
+   *  OU de les remettre sur le dessus de la pioche (deux boutons). */
+  offerTopOrDiscard?: boolean
+  /** Renvoie les instanceIds gardés (`toTop` = remettre le reste sur le dessus). */
+  onResolve: (keepInstanceIds: string[], toTop?: boolean) => void
 }
 
 /**
  * Tour de passe-passe (Dr Facilier) — regarde les premières cartes de la pioche,
  * en garde `take` (cliquez pour sélectionner) ; les autres sont défaussées.
  */
-export function LookTopModal({ cards, take, title = 'Tour de passe-passe', onResolve }: Props) {
+export function LookTopModal({ cards, take, title = 'Tour de passe-passe', offerTopOrDiscard, onResolve }: Props) {
   const [picked, setPicked] = useState<string[]>([])
 
   const toggle = (id: string) =>
@@ -31,9 +34,11 @@ export function LookTopModal({ cards, take, title = 'Tour de passe-passe', onRes
       <div className="flex w-full max-w-2xl flex-col items-center gap-4 rounded-2xl border border-fuchsia-400/30 bg-[#160a18] p-6 text-white">
         <h2 className="text-xl font-black text-fuchsia-200">{title}</h2>
         <p className="text-center text-sm text-white/70">
-          {take === 1
-            ? 'Choisissez la carte à ajouter à votre main ; les autres sont défaussées.'
-            : `Choisissez jusqu’à ${take} cartes à ajouter à votre main ; les autres sont défaussées.`}
+          {offerTopOrDiscard
+            ? `Choisissez ${take === 1 ? 'la carte' : `jusqu’à ${take} cartes`} à ajouter à votre main, puis choisissez le sort du reste.`
+            : take === 1
+              ? 'Choisissez la carte à ajouter à votre main ; les autres sont défaussées.'
+              : `Choisissez jusqu’à ${take} cartes à ajouter à votre main ; les autres sont défaussées.`}
         </p>
 
         <div className="flex flex-wrap items-start justify-center gap-4">
@@ -61,16 +66,37 @@ export function LookTopModal({ cards, take, title = 'Tour de passe-passe', onRes
           })}
         </div>
 
-        <button
-          type="button"
-          // take === 1 : on garde obligatoirement 1 carte. take > 1 (« jusqu'à N ») :
-          // on peut en garder 0 à N (valider même sans sélection = tout défausser).
-          disabled={take === 1 && picked.length === 0}
-          onClick={() => onResolve(picked)}
-          className="rounded-xl bg-fuchsia-600 px-4 py-2 text-sm font-bold text-white hover:bg-fuchsia-500 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Valider
-        </button>
+        {offerTopOrDiscard ? (
+          <div className="flex gap-3">
+            <button
+              type="button"
+              disabled={take === 1 && picked.length === 0}
+              onClick={() => onResolve(picked, false)}
+              className="rounded-xl bg-fuchsia-600 px-4 py-2 text-sm font-bold text-white hover:bg-fuchsia-500 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Défausser le reste
+            </button>
+            <button
+              type="button"
+              disabled={take === 1 && picked.length === 0}
+              onClick={() => onResolve(picked, true)}
+              className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Remettre le reste sur le dessus
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            // take === 1 : on garde obligatoirement 1 carte. take > 1 (« jusqu'à N ») :
+            // on peut en garder 0 à N (valider même sans sélection = tout défausser).
+            disabled={take === 1 && picked.length === 0}
+            onClick={() => onResolve(picked)}
+            className="rounded-xl bg-fuchsia-600 px-4 py-2 text-sm font-bold text-white hover:bg-fuchsia-500 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Valider
+          </button>
+        )}
       </div>
     </div>,
     document.body,

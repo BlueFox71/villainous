@@ -43,11 +43,12 @@ function weapon(cardId: string, cost: number, onKill: CardInstance['weaponOnKill
 }
 const villainCards: CardInstance[] = [
   weapon('tuyau', 2, [{ type: 'GAIN_POWER', amount: 2 }]),
-  weapon('couteau', 3, [{ type: 'GRANT_FREE_ACTION', actionType: 'PLAY_CARD' }]),
+  weapon('couteau', 3, [{ type: 'GRANT_EXTRA_TURN' }]),
   { instanceId: 'assassiner#1', cardId: 'assassiner', name: 'Assassiner', type: 'effect', cost: 2, costEqualsWeaponCost: true, costVariable: true, effects: [{ type: 'INSTANT_VANQUISH_HERO_AT_PAWN' }] },
   { instanceId: 'gardons#1', cardId: 'gardons', name: 'Gardons le meilleur', type: 'effect', cost: 3, requiresMalInterieur: 3, effects: [{ type: 'MICHAEL_KEEP_BEST', locationId: 'demeure' as LocationId }] },
   { instanceId: 'trophee#1', cardId: 'trophee', name: 'Trophée', type: 'effect', cost: 0, effects: [{ type: 'GAIN_POWER_PER_MAL_INTERIEUR', base: 1 }] },
   { instanceId: 'trace#1', cardId: 'trace', name: 'Trace de sang', type: 'item', cost: 0, activatedCost: 0, activatedEffects: [{ type: 'BLOOD_TRACE', power: 2 }] },
+  { instanceId: 'armecrime#1', cardId: 'armecrime', name: 'Arme du crime', type: 'effect', cost: 1, effects: [{ type: 'MICHAEL_FETCH_WEAPON_FROM_DECK' }] },
 ]
 
 // Cartes Fatalité
@@ -87,28 +88,22 @@ describe('Michael Myers — mise en place', () => {
     expect((p.lockedLocations ?? []).includes('demeure')).toBe(true)
   })
 
-  it('LAURIE jouée par Fatalité est posée d’office sur la Demeure (même verrouillée)', () => {
-    // Jouez avec la nourriture révèle la pioche Fatalité jusqu’à un Héros ; si c’est LAURIE,
-    // elle va sur la Demeure (forcedFateLocation), pas sur le lieu du pion.
+  it('LAURIE révélée par Jouez avec la nourriture est posée d’office sur la Demeure', () => {
+    // Jouez avec la nourriture (REVEAL_FATE_UNTIL_HERO_CHOICE) : si le Héros révélé est LAURIE,
+    // elle va d’office sur la Demeure (forcedFateLocation), sans choix de lieu.
     const base = game()
     const s: GameState = {
       ...base,
       phase: 'ACTION',
       players: base.players.map((p, i) =>
         i === 0
-          ? {
-              ...p,
-              pawnLocation: 'psy',
-              // pioche Fatalité = seulement LAURIE (le 1er Héros révélé sera elle).
-              fateDeck: [{ ...fateCards[0] }],
-              fateDiscard: [],
-            }
+          ? { ...p, pawnLocation: 'psy', fateDeck: [{ ...fateCards[0] }], fateDiscard: [] }
           : p,
       ),
     }
-    const next = resolveEffect(s, { type: 'REVEAL_FATE_UNTIL_HERO_AT_PAWN' }, { actorIndex: 0 })
+    const next = resolveEffect(s, { type: 'REVEAL_FATE_UNTIL_HERO_CHOICE', mustPlay: true }, { actorIndex: 0 })
     expect((next.players[0].board.demeure ?? []).some((c) => c.cardId === LAURIE)).toBe(true)
-    expect((next.players[0].board.psy ?? []).some((c) => c.cardId === LAURIE)).toBe(false)
+    expect(next.pendingFetchedHero ?? null).toBeNull()
   })
 })
 
@@ -250,6 +245,67 @@ describe('Michael Myers — Trace de sang (choix interactif)', () => {
     const next = resolveEffect(s, { type: 'BLOOD_TRACE', power: 2 }, { actorIndex: 0 })
     expect(next.players[0].power).toBe(2)
     expect(next.pendingBloodTrace ?? null).toBeNull()
+  })
+})
+
+describe('Michael Myers — corrections de cartes', () => {
+  it('Couteau de cuisine : éliminer un Héros fait REJOUER un tour', () => {
+    const s = setup('psy', {
+      equippedWeapon: { ...villainCards[1] }, // couteau → GRANT_EXTRA_TURN
+      power: 0,
+      board: { psy: [{ ...fateCards[1] }], haddonfield: [], maison: [], demeure: [] },
+    })
+    const killed = resolveEffect(s, { type: 'INSTANT_VANQUISH_HERO_AT_PAWN' }, { targetHeroId: 'victim#1' })
+    expect(killed.players[0].extraTurn).toBe(true)
+    const after = applyAction(killed, { type: 'END_TURN' })
+    expect(after.activePlayer).toBe(0) // même joueur rejoue
+    expect(after.players[0].extraTurn).toBeFalsy()
+  })
+
+  it('Arme du crime : cherche une Arme dans la PIOCHE et permet de l’équiper', () => {
+    const s = setup('psy', {
+      hand: [{ ...villainCards[6] }], // arme du crime
+      power: 5,
+      deck: [{ ...villainCards[0] }], // tuyau (coût 2) dans la pioche
+      equippedWeapon: null,
+    })
+    const s1 = applyAction(s, { type: 'PLAY_CARD', actionId: 'play', instanceId: 'armecrime#1' })
+    expect(s1.pendingWeaponFetch?.playerIndex).toBe(0)
+    const s2 = applyAction(s1, { type: 'RESOLVE_WEAPON_FETCH', instanceId: 'tuyau#1', equip: true })
+    expect(s2.players[0].equippedWeapon?.cardId).toBe('tuyau')
+    // 5 − 1 (coût Arme du crime) − 2 (coût du tuyau équipé) = 2.
+    expect(s2.players[0].power).toBe(2)
+    expect(s2.pendingWeaponFetch ?? null).toBeNull()
+  })
+
+  it('Incarnation du mal : mélange la défausse et en révèle 3 (garde en main)', () => {
+    const s = setup('psy', {
+      discard: [{ ...villainCards[0] }, { ...villainCards[4] }, { ...villainCards[5] }],
+    })
+    const next = resolveEffect(s, { type: 'SHUFFLE_DISCARD_REVEAL', count: 3 }, { actorIndex: 0 })
+    expect(next.pendingLookTop?.cards.length).toBe(3)
+    const kept = next.pendingLookTop!.cards[0].instanceId
+    const done = applyAction(next, { type: 'RESOLVE_LOOK_TOP', keepInstanceIds: [kept] })
+    expect(done.players[0].hand.some((c) => c.instanceId === kept)).toBe(true)
+  })
+
+  it('Lumière mourrante : option « remettre le reste sur le dessus » de la pioche', () => {
+    const s = setup('psy', {
+      deck: [
+        { ...villainCards[2] }, // assassiner (dessus)
+        { ...villainCards[3] }, // gardons
+        { ...villainCards[4] }, // trophee
+        { ...villainCards[5] }, // trace
+        { ...villainCards[0] }, // tuyau (bas)
+      ],
+    })
+    const revealed = resolveEffect(s, { type: 'LOOK_BOTTOM_DRAW', count: 4 }, { actorIndex: 0 })
+    expect(revealed.pendingLookTop?.offerTopOrDiscard).toBe(true)
+    const keep = revealed.pendingLookTop!.cards[0].instanceId
+    const done = applyAction(revealed, { type: 'RESOLVE_LOOK_TOP', keepInstanceIds: [keep], toTop: true })
+    // La carte gardée est en main ; les autres sont remises sur le dessus (pas en défausse).
+    expect(done.players[0].hand.some((c) => c.instanceId === keep)).toBe(true)
+    expect(done.players[0].discard.length).toBe(0)
   })
 })
 

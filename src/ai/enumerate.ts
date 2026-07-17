@@ -1459,6 +1459,8 @@ export function enumerateActions(state: GameState): GameAction[] {
         if (card.requiresMalInterieur !== undefined && (me.malInterieur ?? 0) < card.requiresMalInterieur) continue
         // Michael Myers — ASSASSINER : injouable sans Arme équipée (son coût vient de l'Arme).
         if (card.costEqualsWeaponCost && !me.equippedWeapon) continue
+        // Michael Myers — Arme du crime : inutile s'il n'y a aucune Arme dans la pioche.
+        if ((card.effects ?? []).some((e) => e.type === 'MICHAEL_FETCH_WEAPON_FROM_DECK') && !me.deck.some((c) => c.isWeapon)) continue
         // Syndrome — Identification, je vous prie : inutile sans lieu portant un Héros ou
         // sans Allié/Objet (non associé) à déplacer.
         if (
