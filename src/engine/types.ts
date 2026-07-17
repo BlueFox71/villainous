@@ -2346,6 +2346,9 @@ export interface CardInstance {
   discardWhen?: CurseDiscardTrigger
   /** Pour une Condition : descripteur du trigger côté adversaire. */
   trigger?: ConditionTrigger
+  /** Condition jouable UNIQUEMENT dans la fenêtre de réaction de FIN DE TOUR adverse
+   *  (Michael — Aura effrayante). */
+  reactAtEndOfTurn?: boolean
   /** Nombre maximum d'exemplaires de CETTE carte (même cardId) posés librement
    *  sur un même lieu. La Page : 2 (« un lieu qui a moins de 2 pages »). */
   maxAtLocation?: number
@@ -3352,6 +3355,12 @@ export interface GameState {
   phase: TurnPhase
   /** Ids des actions déjà exécutées ce tour-ci par le joueur actif. */
   usedActionIds: string[]
+  /** Michael Myers — Aura effrayante : fenêtre de réaction de FIN DE TOUR. Quand le joueur
+   *  actif (`endingPlayer`) termine son tour SANS avoir joué de carte, le tour est mis en
+   *  PAUSE ici (avant de passer la main) pour laisser les non-actifs jouer une Condition
+   *  `reactAtEndOfTurn` (Aura). Un nouvel END_TURN referme la fenêtre et passe la main.
+   *  `null`/absent hors de cette fenêtre. */
+  endTurnReaction?: { endingPlayer: number } | null
   /** Pat Hibulaire — Bandit : après avoir joué un Bandit, `playerIndex` peut en
    *  enchaîner d'AUTRES sur le même lieu (`locationId`) dans la même action « Jouer
    *  une carte » (chacun paie son coût) — RESOLVE_BANDIT_CHAIN. `null`/absent sinon. */

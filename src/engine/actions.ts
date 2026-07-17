@@ -6401,6 +6401,16 @@ function applyPlayCondition(
   const card = player.hand.find((c) => c.instanceId === instanceId)
   if (!card) throw new Error(`Carte « ${instanceId} » absente de la main.`)
   if (card.type !== 'condition') throw new Error(`${card.name} n'est pas une Condition.`)
+  // Michael — Aura effrayante : une Condition `reactAtEndOfTurn` ne se joue QUE dans la
+  // fenêtre de fin de tour (endTurnReaction ouverte) ; les autres, seulement hors de cette
+  // fenêtre (en cours de tour adverse).
+  if (!!card.reactAtEndOfTurn !== !!state.endTurnReaction) {
+    throw new Error(
+      card.reactAtEndOfTurn
+        ? `${card.name} ne se joue qu'à la fin du tour adverse.`
+        : `${card.name} ne se joue pas pendant la fenêtre de fin de tour.`,
+    )
+  }
   // Seules les Conditions présentes en main au DÉBUT du tour sont réactables — SAUF une
   // Condition à trigger cumulatif piochée en cours de tour (ex. « 15 ans plus tard » via
   // « Je travaille en solo ») : elle réagit à ce qui survient APRÈS sa pioche (instantané).
@@ -11658,6 +11668,25 @@ function piegeurEndOfTurn(state: GameState): GameState {
 function applyEndTurn(state: GameState): GameState {
   if (!canEndTurn(state)) {
     throw new Error(`Impossible de terminer le tour en phase ${state.phase}.`)
+  }
+  // Michael Myers — Aura effrayante : fenêtre de réaction de FIN DE TOUR. Si un non-actif a
+  // une Condition `reactAtEndOfTurn` déclenchée (l'actif termine sans avoir joué de carte),
+  // on met le tour en PAUSE (avant tout nettoyage/avance) pour la laisser réagir. Un nouvel
+  // END_TURN (une fois qu'il a réagi ou passé) referme la fenêtre et passe réellement la main.
+  if (state.endTurnReaction) {
+    state = { ...state, endTurnReaction: null }
+  } else {
+    const reactorExists = state.players.some((p, i) => {
+      if (i === state.activePlayer) return false
+      if (Object.values(p.board).flat().some((c) => c.type === 'hero' && c.cardId === 'elisabeth-bathory')) return false
+      const eligible = p.reactableConditionIds
+      return p.hand.some(
+        (c) => c.type === 'condition' && c.reactAtEndOfTurn && conditionIsReactable(eligible, c) && conditionIsTriggered(state, c, i),
+      )
+    })
+    if (reactorExists) {
+      return { ...state, endTurnReaction: { endingPlayer: state.activePlayer } }
+    }
   }
   // Isabella — HORLOGE : l'aiguille avance d'un cran (XII→II→IV→VI→VIII→X→XII) à la FIN de
   // chacun de ses tours. Ainsi son PREMIER tour est toujours à XII, qu'elle joue en 1er ou

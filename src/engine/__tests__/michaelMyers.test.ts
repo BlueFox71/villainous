@@ -339,6 +339,63 @@ describe('Michael Myers — le bot ne propose jamais de coup refusé (anti-bloca
   })
 })
 
+describe('Michael Myers — Aura effrayante (réaction de fin de tour)', () => {
+  const aura = (id: string): CardInstance => ({
+    instanceId: id,
+    cardId: 'aura',
+    name: 'Aura effrayante',
+    type: 'condition',
+    trigger: { type: 'opponent-played-cards-le', value: 0 },
+    reactAtEndOfTurn: true,
+    effects: [{ type: 'GRANT_FREE_PLAY_NEXT_TURN' }],
+  })
+
+  function twoPlayer(): GameState {
+    const base = createInitialGame(
+      [
+        { villain: michael, deckCards: villainCards.map((c) => ({ ...c, instanceId: 'a-' + c.instanceId })), fateCards: fateCards.map((c) => ({ ...c, instanceId: 'af-' + c.instanceId })) },
+        { villain: michael, deckCards: villainCards.map((c) => ({ ...c, instanceId: 'b-' + c.instanceId })), fateCards: fateCards.map((c) => ({ ...c, instanceId: 'bf-' + c.instanceId })) },
+      ],
+      7,
+    )
+    return {
+      ...base,
+      phase: 'ACTION',
+      activePlayer: 0,
+      activePlayedCount: 0,
+      players: base.players.map((p, i) => ({ ...p, pawnLocation: 'psy', reactableConditionIds: undefined, hand: i === 1 ? [aura('aura#1')] : [] })),
+    }
+  }
+
+  it('met le tour en pause à la fin du tour adverse (0 carte jouée), puis avance après réaction', () => {
+    const s = twoPlayer()
+    // Le joueur 0 termine sans avoir joué de carte → fenêtre de réaction ouverte.
+    const paused = applyAction(s, { type: 'END_TURN' })
+    expect(paused.endTurnReaction?.endingPlayer).toBe(0)
+    expect(paused.activePlayer).toBe(0) // pas encore avancé
+    // Le joueur 1 (Michael) réagit avec Aura.
+    const reacted = applyAction(paused, { type: 'PLAY_CONDITION', playerIndex: 1, instanceId: 'aura#1' })
+    expect(reacted.players[1].freePlayCardNextTurn).toBe(true)
+    // Nouvel END_TURN → la main passe au joueur 1, qui reçoit son action gratuite au tour suivant.
+    const advanced = applyAction(reacted, { type: 'END_TURN' })
+    expect(advanced.activePlayer).toBe(1)
+    expect(advanced.endTurnReaction ?? null).toBeNull()
+    expect(advanced.grantedAction?.actionType).toBe('PLAY_CARD')
+  })
+
+  it('n’ouvre PAS la fenêtre si l’adversaire a joué une carte', () => {
+    const s = { ...twoPlayer(), activePlayedCount: 1 }
+    const next = applyAction(s, { type: 'END_TURN' })
+    expect(next.endTurnReaction ?? null).toBeNull()
+    expect(next.activePlayer).toBe(1) // avance directement
+  })
+
+  it('Aura n’est PAS jouable en cours de tour (hors fenêtre de fin de tour)', () => {
+    const s = twoPlayer()
+    expect(() => applyAction(s, { type: 'PLAY_CONDITION', playerIndex: 1, instanceId: 'aura#1' })).toThrow()
+  })
+})
+
 describe('Michael Myers — Obsession', () => {
   it('bloque la Fatalité adverse (noFate) et survit au tour intermédiaire', () => {
     const s = setup('psy')

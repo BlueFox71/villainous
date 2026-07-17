@@ -323,7 +323,8 @@
         {
           "type": "GRANT_FREE_PLAY_NEXT_TURN"
         }
-      ]
+      ],
+      "reactAtEndOfTurn": true
     },
     {
       "id": "custom-michael-meyers-invincible",
@@ -884,7 +885,7 @@
       "custom-michael-meyers-c1": "BATTE DE BASEBALL — Arme (coût 1). Quand vous éliminez un Héros : piochez 2 cartes.",
       "custom-michael-meyers-c2": "DÉBRIS DE VERRE — Arme (coût 1). Quand vous éliminez un Héros : action « Activer une capacité » gratuite.",
       "custom-michael-meyers-jouez-avec-la-nourriture": "Dévoile votre pioche Fatalité jusqu'au 1er Héros et le joue sur le LIEU DE VOTRE CHOIX ; défausse les autres cartes dévoilées. (LAURIE, elle, va d'office sur la Demeure.)",
-      "custom-michael-meyers-aura-effrayante": "Condition (réaction). Jouable pendant le tour d'un adversaire TANT QU'IL N'A JOUÉ AUCUNE carte. Effet : au début de VOTRE prochain tour, une action « Jouer une carte » gratuite.",
+      "custom-michael-meyers-aura-effrayante": "Condition (réaction de FIN DE TOUR). Jouable à la fin du tour d'un adversaire UNIQUEMENT S'IL N'A JOUÉ AUCUNE carte durant son tour. Effet : au début de VOTRE prochain tour, une action « Jouer une carte » gratuite.",
       "custom-michael-meyers-invincible": "OBSESSION — Condition (réaction). Jouable pendant le tour d'un adversaire s'il ÉLIMINE un Héros. Effet : cet adversaire ne peut pas utiliser la Fatalité contre vous à son prochain tour.",
       "custom-michael-meyers-lumiere-mourrante": "Regarde les 4 DERNIÈRES cartes de votre pioche, en garde 1 en main, puis CHOISIT de défausser les autres OU de les remettre sur le dessus de la pioche.",
       "custom-michael-meyers-arme-du-crime": "Va chercher une Arme dans votre PIOCHE (uniquement), puis choisit de l'ajouter à la main OU de payer son coût et l'équiper directement. Grisée s'il n'y a aucune Arme dans la pioche.",
@@ -955,7 +956,7 @@
         "custom-michael-meyers-c1": "BATTE : arme bon marché, piochée au kill (accélère le deck).",
         "custom-michael-meyers-c2": "DÉBRIS DE VERRE : arme bon marché, activation gratuite au kill (ex. Trace de sang).",
         "custom-michael-meyers-jouez-avec-la-nourriture": "Joué pour amener une victime sur le lieu du pion et alimenter le Mal Intérieur.",
-        "custom-michael-meyers-aura-effrayante": "Réaction : jouée tôt dans le tour d'un adversaire passif (0 carte jouée) pour une carte gratuite au tour suivant.",
+        "custom-michael-meyers-aura-effrayante": "Le bot la joue en réaction à la fin du tour d'un adversaire resté passif (0 carte jouée), pour une carte gratuite au tour suivant.",
         "custom-michael-meyers-invincible": "OBSESSION : réaction jouée quand un adversaire élimine un Héros, pour se protéger de sa Fatalité.",
         "custom-michael-meyers-lumiere-mourrante": "Fouille le bas de pioche pour trouver une Arme / Assassiner / Gardons.",
         "custom-michael-meyers-arme-du-crime": "Joué tôt pour garantir une Arme en main.",

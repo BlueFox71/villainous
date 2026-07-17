@@ -166,6 +166,9 @@ export interface CardDef {
   discardWhen?: CurseDiscardTrigger
   /** Pour une Condition : descripteur du trigger côté adversaire. */
   trigger?: ConditionTrigger
+  /** Condition jouable UNIQUEMENT dans la fenêtre de réaction de FIN DE TOUR adverse
+   *  (Michael — Aura effrayante). Les autres Conditions se jouent en cours de tour. */
+  reactAtEndOfTurn?: boolean
   /** Nombre maximum d'exemplaires de cette carte posés sur un même lieu (Page : 2). */
   maxAtLocation?: number
   /** Jafar : coût (en Pouvoir) de la capacité activée (action « Activer »). La
