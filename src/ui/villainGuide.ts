@@ -56,7 +56,7 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
   },
   slenderman: {
     difficulty: 1,
-    devise: "...",
+    devise: "Toujours il observe. Il n'a pas d'yeux.",
     story:
       "Né des forums et des « creepypastas » d'Internet (2009), le Slender Man est une longue silhouette sans visage, en costume sombre, qui hante les forêts et traque les enfants. On le croise au détour d'arbres morts ; ceux qui collectent ses huit pages éparpillées sentent sa présence se rapprocher, inexorable, jusqu'à disparaître à leur tour.",
     playTips: [
@@ -682,6 +682,7 @@ const CUSTOM_GUIDES: Record<string, VillainGuide> = {
   },
   'custom-dio': {
     difficulty: 3,
+    devise: "ZA WARUDO ! Le temps… est arrêté ! MUDA MUDA MUDA !",
     story:
       "Dio Brando (JoJo's Bizarre Adventure) est l'ambition faite homme. Recueilli enfant par le riche George Joestar, il trahit sa famille adoptive et coiffe le Masque de Pierre pour devenir un vampire immortel. Un siècle plus tard, ressuscité et doté du Stand « The World », capable d'ARRÊTER LE TEMPS d'un cri — « ZA WARUDO ! » —, il affronte Jotaro Kujo et les Joestar lancés à sa poursuite (Stardust Crusaders). « Inutile, inutile, inutile… MUDA MUDA MUDA ! »",
     playTips: [
@@ -697,7 +698,7 @@ const CUSTOM_GUIDES: Record<string, VillainGuide> = {
   },
   'custom-pyramid-head': {
     difficulty: 3,
-    devise: "...",
+    devise: "Nul n'échappe au Jugement.",
     story:
       "Pyramid Head — le Bourreau — est l'incarnation monstrueuse de la culpabilité et du châtiment qui hante Silent Hill, la ville maudite noyée dans le brouillard. Traînant son immense Grande Lame, ce colosse sans visage à la tête de métal pyramidale n'existe que pour juger et punir. Manifestation du tourment de James Sunderland, venu chercher dans la ville sa femme défunte, il propage la souffrance d'un lieu à l'autre jusqu'à soumettre son monde entier au Jugement. (Silent Hill 2.)",
     playTips: [
