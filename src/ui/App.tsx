@@ -125,7 +125,7 @@ import { FateScryModal } from './components/FateScryModal'
 import { TitanSelectModal } from './components/TitanSelectModal'
 import { StartRollModal } from './components/StartRollModal'
 import { MusicPlayer } from './components/MusicPlayer'
-import { playKillSound, playTaskComplete, playDeadBody, playEmergencyMeeting, playYourTurn, playEndTurnFlip, playEndTurnEnable, playHover, startVictoryBuildup, startDefeatBuildup, stopVictoryBuildup, playLieuPirate, playNoCanDo, playManaAdd, startCardDragLoop, stopCardDragLoop } from './sfx'
+import { playKillSound, playTaskComplete, playDeadBody, playEmergencyMeeting, playYourTurn, playEndTurnFlip, playEndTurnEnable, playHover, startVictoryBuildup, startDefeatBuildup, stopVictoryBuildup, playLieuPirate, playNoCanDo, playManaAdd, playMalInterieur2, startCardDragLoop, stopCardDragLoop } from './sfx'
 import { playVillainIntro } from './villainVoices'
 import { Showcase } from './components/Showcase'
 import { TestFateBar } from './components/TestFateBar'
@@ -1903,6 +1903,8 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
   const unplayableTimer = useRef<number | null>(null)
   // Son « cristal » quand le Pouvoir du joueur humain AUGMENTE (gain ≥1 jeton).
   const prevHumanPowerRef = useRef<number | null>(null)
+  // Michael Myers — suivi du Mal Intérieur par joueur (pour jouer un son au passage au niveau 2).
+  const prevMalRef = useRef<number[]>([])
   const showUnplayable = (reason: string) => {
     setUnplayableMsg(reason)
     playNoCanDo()
@@ -2375,6 +2377,19 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     prevHumanPowerRef.current = cur
     if (prev !== null && cur > prev) playManaAdd()
   }, [state.players, HUMAN])
+
+  // Michael Myers — au passage au MAL INTÉRIEUR 2 (d'un niveau < 2 vers 2), joue le
+  // bruitage dédié. On ne joue jamais au montage/à la reprise (prev inconnu = pas de son).
+  useEffect(() => {
+    const prev = prevMalRef.current
+    state.players.forEach((p, i) => {
+      const cur = p.malInterieur
+      if (cur !== undefined && cur >= 2 && prev[i] !== undefined && prev[i] < 2) {
+        playMalInterieur2()
+      }
+    })
+    prevMalRef.current = state.players.map((p) => p.malInterieur ?? 0)
+  }, [state.players])
 
   // Boucle sonore tant qu'une carte de la MAIN est tenue au curseur (drag 'play').
   // S'arrête dès le lâcher/annulation (draggingCardId repasse à null) ou pour un glissé
