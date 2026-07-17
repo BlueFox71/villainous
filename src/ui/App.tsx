@@ -125,7 +125,7 @@ import { FateScryModal } from './components/FateScryModal'
 import { TitanSelectModal } from './components/TitanSelectModal'
 import { StartRollModal } from './components/StartRollModal'
 import { MusicPlayer } from './components/MusicPlayer'
-import { playKillSound, playTaskComplete, playDeadBody, playEmergencyMeeting, playYourTurn, playEndTurnFlip, playEndTurnEnable, playHover, startVictoryBuildup, startDefeatBuildup, stopVictoryBuildup, playLieuPirate, playNoCanDo, playManaAdd, playMalInterieur2, playMalInterieur3, startCardDragLoop, stopCardDragLoop } from './sfx'
+import { playKillSound, playTaskComplete, playDeadBody, playEmergencyMeeting, playYourTurn, playEndTurnFlip, playEndTurnEnable, playHover, startVictoryBuildup, startDefeatBuildup, stopVictoryBuildup, playLieuPirate, playNoCanDo, playManaAdd, playMalInterieur2, playMalInterieur3, playGardons, startCardDragLoop, stopCardDragLoop } from './sfx'
 import { playVillainIntro } from './villainVoices'
 import { Showcase } from './components/Showcase'
 import { TestFateBar } from './components/TestFateBar'
@@ -1905,6 +1905,9 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
   const prevHumanPowerRef = useRef<number | null>(null)
   // Michael Myers — suivi du Mal Intérieur par joueur (pour jouer un son au passage au niveau 2).
   const prevMalRef = useRef<number[]>([])
+  // Michael Myers — suivi du nb de lieux verrouillés par joueur (pour le son de « Gardons le
+  // meilleur pour la fin », seul effet qui déverrouille la Demeure).
+  const prevLockedRef = useRef<number[]>([])
   const showUnplayable = (reason: string) => {
     setUnplayableMsg(reason)
     playNoCanDo()
@@ -2389,6 +2392,18 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
       else if (cur >= 2 && prev[i] < 2) playMalInterieur2()
     })
     prevMalRef.current = state.players.map((p) => p.malInterieur ?? 0)
+  }, [state.players])
+
+  // Michael Myers — son de « Gardons le meilleur pour la fin » : détecté quand un joueur
+  // Michael DÉVERROUILLE un lieu (la Demeure des Strode) — seul effet qui le fait.
+  useEffect(() => {
+    const prev = prevLockedRef.current
+    state.players.forEach((p, i) => {
+      if (p.malInterieur === undefined) return // Michael uniquement
+      const cur = (p.lockedLocations ?? []).length
+      if (prev[i] !== undefined && cur < prev[i]) playGardons()
+    })
+    prevLockedRef.current = state.players.map((p) => (p.lockedLocations ?? []).length)
   }, [state.players])
 
   // Boucle sonore tant qu'une carte de la MAIN est tenue au curseur (drag 'play').
