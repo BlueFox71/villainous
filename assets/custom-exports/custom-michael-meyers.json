@@ -606,7 +606,7 @@
       "deck": "fate",
       "type": "hero",
       "copies": 1,
-      "text": "Le coût pour assassiner LAURIE augmente de 2 pour chaque autres héros dans le royaume.",
+      "text": "Vous devez jouer cette carte sur la demeure des strode ( bloqué ou non) Le coût pour assassiner LAURIE augmente de 2 pour chaque autres héros dans le royaume.",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -735,7 +735,7 @@
       "englishName": "Armement",
       "deck": "fate",
       "type": "item",
-      "copies": 3,
+      "copies": 2,
       "text": "Associez cet carte à un Héros. Utilisez la carte ASSASSINER coûte 1 jeton pouvoir supplémentaire contre ce Héros.",
       "artTransform": {
         "scale": 1,
