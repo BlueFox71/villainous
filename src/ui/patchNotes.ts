@@ -50,11 +50,12 @@ export const PATCH_NOTES: PatchNote[] = [
     version: '1.7.3',
     date: '2026-07-17',
     title: 'Multijoueur en ligne (par code de salon)',
-    tags: ['reseau', 'interface'],
+    tags: ['reseau', 'atelier', 'interface'],
     changes: [
       "Nouveau : **jouez à deux en ligne**, plus seulement sur le même réseau. L’hôte partage un **code à 4 lettres**, l’autre le saisit — la connexion est **directe entre vos deux appareils** (l’hôte fait office de serveur).",
       "Depuis « Nouvelle partie » → **Héberger** / **Rejoindre** : plus besoin d’**adresse IP** ni de lancer un serveur à part, le **code suffit** (LAN comme Internet).",
       "Sur un réseau très **restrictif** (certains pare-feux d’entreprise), la mise en relation peut échouer — un message le signale.",
+      "Atelier · onglet **Quantité** : la courbe de coût indique désormais le **coût moyen en jetons Pouvoir** du deck — et de celui que tu compares.",
     ],
   },
   {
