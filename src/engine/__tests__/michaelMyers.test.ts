@@ -3,6 +3,7 @@ import { resolveEffect } from '../effects'
 import { applyAction } from '../actions'
 import { createInitialGame, handLimitFor } from '../state'
 import { effectiveCost } from '../rules'
+import { enumerateActions } from '../../ai/enumerate'
 import type { CardInstance, GameState, VillainDef, LocationId } from '../types'
 
 // --- Fixtures ---------------------------------------------------------------
@@ -249,6 +250,36 @@ describe('Michael Myers — Trace de sang (choix interactif)', () => {
     const next = resolveEffect(s, { type: 'BLOOD_TRACE', power: 2 }, { actorIndex: 0 })
     expect(next.players[0].power).toBe(2)
     expect(next.pendingBloodTrace ?? null).toBeNull()
+  })
+})
+
+describe('Michael Myers — le bot ne propose jamais de coup refusé (anti-blocage)', () => {
+  it('n’énumère pas ASSASSINER sans Arme équipée', () => {
+    const s = setup('psy', {
+      hand: [{ ...villainCards[2] }], // assassiner
+      power: 9,
+      equippedWeapon: null,
+      board: { psy: [{ ...fateCards[1] }], haddonfield: [], maison: [], demeure: [] },
+    })
+    const acts = enumerateActions(s)
+    expect(acts.some((a) => a.type === 'PLAY_CARD' && a.instanceId === 'assassiner#1')).toBe(false)
+  })
+
+  it('n’énumère pas ASSASSINER si le coût dépasse le Pouvoir', () => {
+    const s = setup('demeure', {
+      hand: [{ ...villainCards[2] }],
+      power: 1, // arme coût 2 → inabordable
+      equippedWeapon: { ...villainCards[0] },
+      board: { psy: [], haddonfield: [], maison: [], demeure: [{ ...fateCards[0] }] },
+    })
+    const acts = enumerateActions(s)
+    expect(acts.some((a) => a.type === 'PLAY_CARD' && a.instanceId === 'assassiner#1')).toBe(false)
+  })
+
+  it('n’énumère pas Gardons le meilleur avant Mal Intérieur 3', () => {
+    const s = setup('psy', { hand: [{ ...villainCards[3] }], power: 9, malInterieur: 2 })
+    const acts = enumerateActions(s)
+    expect(acts.some((a) => a.type === 'PLAY_CARD' && a.instanceId === 'gardons#1')).toBe(false)
   })
 })
 
