@@ -736,7 +736,7 @@
       "deck": "fate",
       "type": "item",
       "copies": 2,
-      "text": "Associez cet carte à un Héros. Utilisez la carte ASSASSINER coûte 1 jeton pouvoir supplémentaire contre ce Héros.",
+      "text": "Associez cette carte à un Héros. Utilisez la carte ASSASSINER coûte 2 jetons pouvoir supplémentaire contre ce Héros.",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -751,7 +751,7 @@
       "typeLabel": "Objet",
       "typeColor": "#3aa0e0",
       "attach": "hero",
-      "eventTargetSurcharge": 1,
+      "eventTargetSurcharge": 2,
       "fateMalus": "slow"
     },
     {
@@ -876,7 +876,7 @@
     "Laurie"
   ],
   "botStrategy": {
-    "howToWin": "Michael monte en MAL INTÉRIEUR en assassinant des Héros (niveau 1→2→3). Plan : faire venir des Héros (Jouez avec la nourriture, Fatalités subies), s'équiper d'une Arme (Arme du crime), ASSASSINER pour monter au niveau 3 (niveau 2 = +1 carte/tour ; niveau 3 = toutes les cartes −1 coût). Puis jouer GARDONS LE MEILLEUR POUR LA FIN : la Demeure des Strode s'ouvre, LAURIE apparaît, et il l'ASSASSINE pour gagner. Chaque Arme donne un bonus au kill (rejouer, action gratuite, +Pouvoir, piocher, activer).",
+    "howToWin": "Michael monte en MAL INTÉRIEUR en assassinant des Héros (niveau 1→2→3). Au niveau 3, il pioche 1 carte supplémentaire en fin de tour. Plan : faire venir des Héros (Jouez avec la nourriture, Fatalités subies), s'équiper d'une Arme (Arme du crime), ASSASSINER pour monter au niveau 3, puis jouer GARDONS LE MEILLEUR POUR LA FIN pour déverrouiller la Demeure des Strode et aller y assassiner LAURIE. Chaque Arme donne un bonus au kill (rejouer un tour, action gratuite, +Pouvoir, piocher, activer).",
     "villainNotes": {
       "custom-michael-meyers-gardons-le-meilleur-pour-la-fin": "Coup final. NÉCESSITE Mal Intérieur niveau 3 (sinon grisée). Déverrouille la DEMEURE DES STRODE (pour y amener le pion) et va chercher une Arme dans la pioche/défausse pour l'équiper GRATUITEMENT. LAURIE, elle, arrive par la pioche Fatalité (posée d'office sur la Demeure).",
       "custom-michael-meyers-couteau-de-cuisine": "Arme (coût 3). Quand vous éliminez un Héros avec : vous REJOUEZ un tour entier. C'est aussi l'Arme la plus chère (base du coût d'ASSASSINER).",
@@ -936,7 +936,7 @@
         "asAttacker": "Contre Michael : anecdotique (il a peu d'Objets)."
       },
       "custom-michael-meyers-armement": {
-        "description": "Objet Fatalité associé à un Héros. ASSASSINER ce Héros coûte 1 Pouvoir de plus (par Armement).",
+        "description": "Objet Fatalité associé à un Héros. ASSASSINER ce Héros coûte 2 Pouvoir de plus (par Armement).",
         "asReceiver": "Renchérit un kill ; le Mal Intérieur 3 (−1) compense en partie.",
         "asAttacker": "Contre Michael : à poser sur LAURIE ou un Héros clé pour renchérir ses assassinats (RALENTIT)."
       },

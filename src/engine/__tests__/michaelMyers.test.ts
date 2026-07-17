@@ -120,14 +120,15 @@ describe('Michael Myers — Mal Intérieur (paliers)', () => {
     expect(s.players[0].malInterieur).toBe(3)
   })
 
-  it('niveau 2 → +1 carte en fin de tour ; niveau 3 → cartes −1 coût', () => {
+  it('niveau 3 → +1 carte en fin de tour ; le coût des cartes N’EST PAS réduit', () => {
     const s = game()
     const p = s.players[0]
     expect(handLimitFor({ ...p, malInterieur: 1 })).toBe(4)
-    expect(handLimitFor({ ...p, malInterieur: 2 })).toBe(5)
-    const s3 = setup('psy', { malInterieur: 3 })
+    expect(handLimitFor({ ...p, malInterieur: 2 })).toBe(4) // niveau 2 = aucun bonus
+    expect(handLimitFor({ ...p, malInterieur: 3 })).toBe(5)
+    // Le coût reste inchangé quel que soit le niveau.
     const card = { instanceId: 'x', cardId: 'x', name: 'x', type: 'effect' as const, cost: 2 }
-    expect(effectiveCost(s3, card)).toBe(1)
+    expect(effectiveCost(setup('psy', { malInterieur: 3 }), card)).toBe(2)
   })
 })
 
@@ -155,6 +156,23 @@ describe('Michael Myers — Armes', () => {
     expect(next.players[0].power).toBe(5)
     expect((next.players[0].board.psy ?? []).some((c) => c.instanceId === 'victim#1')).toBe(false)
     expect(next.players[0].malInterieur).toBe(2)
+  })
+
+  it('ARMEMENT : ASSASSINER coûte 2 Pouvoir de plus contre le Héros équipé', () => {
+    const armement: CardInstance = {
+      instanceId: 'armement#1', cardId: 'armement', name: 'Armement', type: 'item', attach: 'hero',
+      eventTargetSurcharge: 2, attachedTo: 'victim#1',
+    }
+    const s = setup('psy', {
+      hand: [{ ...villainCards[2] }], // assassiner
+      power: 10,
+      equippedWeapon: { ...villainCards[0] }, // tuyau (coût 2, on-kill +2)
+      board: { psy: [{ ...fateCards[1] }, armement], haddonfield: [], maison: [], demeure: [] },
+    })
+    const next = applyAction(s, { type: 'PLAY_CARD', actionId: 'play', instanceId: 'assassiner#1', targetHeroId: 'victim#1' })
+    // 10 − 2 (arme) − 2 (Armement) + 2 (Tuyau on-kill) = 8.
+    expect(next.players[0].power).toBe(8)
+    expect((next.players[0].board.psy ?? []).some((c) => c.instanceId === 'victim#1')).toBe(false)
   })
 
   it('ASSASSINER est injouable sans Arme équipée', () => {

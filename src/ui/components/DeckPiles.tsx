@@ -303,7 +303,7 @@ export function MalInterieurPile({
   if (player.malInterieur === undefined) return null
   const lvl = Math.min(3, Math.max(1, player.malInterieur))
   const weapon = player.equippedWeapon
-  const perk = lvl >= 3 ? '+1 carte/tour · cartes −1 coût' : lvl >= 2 ? '+1 carte/tour' : 'niveau de départ'
+  const perk = lvl >= 3 ? '+1 carte piochée en fin de tour' : 'aucun bonus (montez au niveau 3)'
   return (
     <>
       <div className="flex flex-col items-center gap-0.5">

@@ -1667,7 +1667,7 @@ export function enumerateActions(state: GameState): GameAction[] {
             if (card.costEqualsWeaponCost) {
               const w = me.equippedWeapon
               if (!w) continue
-              let aCost = Math.max(0, (w.cost ?? 0) - ((me.malInterieur ?? 0) >= 3 ? 1 : 0))
+              let aCost = Math.max(0, w.cost ?? 0)
               aCost += Object.values(me.board)
                 .flat()
                 .filter((c) => c.attachedTo === h.instanceId)

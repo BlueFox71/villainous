@@ -2979,9 +2979,8 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     if (pwf) {
       if (seats[pwf.playerIndex] === 'bot') {
         const p = state.players[pwf.playerIndex]
-        const mal3 = (p.malInterieur ?? 0) >= 3
         const weapons = p.deck.filter((c) => pwf.candidateIds.includes(c.instanceId))
-        const costOf = (w: (typeof weapons)[number]) => Math.max(0, (w.cost ?? 0) - (mal3 ? 1 : 0))
+        const costOf = (w: (typeof weapons)[number]) => Math.max(0, w.cost ?? 0)
         const affordable = weapons.filter((w) => costOf(w) <= p.power)
         let choice: (typeof weapons)[number] | undefined
         let equip = false
@@ -8541,10 +8540,9 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
       {state.pendingWeaponFetch && state.pendingWeaponFetch.playerIndex === HUMAN && (() => {
         const ids = new Set(state.pendingWeaponFetch.candidateIds)
         const weapons = user.deck.filter((c) => ids.has(c.instanceId))
-        const mal3 = (user.malInterieur ?? 0) >= 3
         const opts: { key: string; label: string; description?: string; disabled?: boolean; onSelect: () => void }[] = []
         for (const w of weapons) {
-          const cost = Math.max(0, (w.cost ?? 0) - (mal3 ? 1 : 0))
+          const cost = Math.max(0, w.cost ?? 0)
           opts.push({ key: `${w.instanceId}-hand`, label: `${w.name} → en main`, onSelect: () => resolveWeaponFetch(w.instanceId, false) })
           opts.push({
             key: `${w.instanceId}-equip`,

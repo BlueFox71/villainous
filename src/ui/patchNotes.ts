@@ -53,7 +53,7 @@ export const PATCH_NOTES: PatchNote[] = [
     tags: ['villain', 'regles', 'ia'],
     changes: [
       "Nouveau vilain (Atelier) : **Michael Myers** (Halloween). Objectif : **éliminer Laurie Strode**.",
-      "Mécanique **Mal Intérieur** (niveaux **1 → 3**) : monte à chaque Héros assassiné. Niveau 2 = **+1 carte** en fin de tour, niveau 3 = **toutes ses cartes coûtent 1 de moins**.",
+      "Mécanique **Mal Intérieur** (niveaux **1 → 3**) : monte à chaque Héros assassiné. Au niveau **3**, il **pioche 1 carte de plus** en fin de tour.",
       "**Armes** équipées (une seule à la fois) : **Assassiner** en a besoin (son coût = celui de l'Arme) et chaque Arme donne un **bonus à l'élimination** (rejouer, action gratuite, Pouvoir, pioche…).",
       "**Gardons le meilleur pour la fin** (niveau 3 requis) : ouvre la **Demeure des Strode**, y fait apparaître **Laurie** et équipe une Arme gratuite — prêt pour le coup final.",
       "Nouvel affichage à côté du plateau (comme la Pile de l'Au-delà) : l'**image du Mal Intérieur** (niveau 1→3) et l'**Arme équipée**.",

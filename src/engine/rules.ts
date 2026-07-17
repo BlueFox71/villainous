@@ -1460,8 +1460,6 @@ export function effectiveCost(
   let discount = 0
   let surcharge = 0
   const me = activePlayer(state)
-  // Michael Myers — MAL INTÉRIEUR niveau 3 : toutes ses cartes coûtent 1 Pouvoir de moins.
-  if ((me.malInterieur ?? 0) >= 3) discount += 1
   const loc = me.pawnLocation
   if (loc) {
     const cell = me.board[loc] ?? []

@@ -1227,9 +1227,7 @@ function applyPlayCard(
     const w = me.equippedWeapon
     if (!w) throw new Error('Assassiner nécessite une Arme équipée.')
     if (!targetHeroId) throw new Error('Assassiner nécessite un Héros cible.')
-    let base = Math.max(0, w.cost ?? 0)
-    if ((me.malInterieur ?? 0) >= 3) base = Math.max(0, base - 1)
-    cost = base
+    cost = Math.max(0, w.cost ?? 0)
     const targetHero = Object.values(me.board).flat().find((c) => c.instanceId === targetHeroId)
     const perOther = targetHero?.assassinateSurchargePerOtherHero ?? 0
     if (perOther > 0) {
@@ -8084,8 +8082,8 @@ function applyResolveWeaponFetch(state: GameState, instanceId?: string, equip?: 
     return { ...s, rngState: sh.state, players: s.players.map((p, i) => (i === idx ? { ...p, deck: sh.result } : p)) }
   }
   if (equip) {
-    // Coût = coût de l'Arme (−1 au Mal Intérieur 3).
-    const cost = Math.max(0, (card.cost ?? 0) - ((player.malInterieur ?? 0) >= 3 ? 1 : 0))
+    // Coût = coût de l'Arme.
+    const cost = Math.max(0, card.cost ?? 0)
     if (player.power < cost) throw new Error(`Pas assez de pouvoir pour équiper ${card.name} (coût ${cost}).`)
     const prev = player.equippedWeapon
     let next = updatePlayer(cleared, idx, (p) => ({

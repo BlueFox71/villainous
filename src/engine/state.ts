@@ -270,8 +270,8 @@ export function handLimitFor(player: PlayerState): number {
   const lovedDrawTo = cards
     .filter((c) => c.type === 'hero' && c.loved)
     .reduce((m, c) => Math.max(m, c.drawToAtEndOfTurnWhenLoved ?? 0), 0)
-  // Michael Myers — MAL INTÉRIEUR niveau 2+ : pioche 1 carte de plus en fin de tour.
-  const malDraw = (player.malInterieur ?? 0) >= 2 ? 1 : 0
+  // Michael Myers — MAL INTÉRIEUR niveau 3 : pioche 1 carte de plus en fin de tour.
+  const malDraw = (player.malInterieur ?? 0) >= 3 ? 1 : 0
   return Math.max(1, lovedDrawTo, HAND_LIMIT + scarab - jasmine - magicianRed + malDraw)
 }
 
