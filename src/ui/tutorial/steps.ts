@@ -39,40 +39,73 @@ const isResolution = (t: string) =>
   t.startsWith('CANCEL')
 
 export const TUTORIAL_STEPS: TutorialStep[] = [
+  // --- Concepts généraux de Villainous (le Prince Jean n'est que le support) ---
   {
     id: 'intro',
     info: true,
+    text: "Bienvenue dans **Villainous** ! Ici, tu incarnes un **méchant** et tu affrontes un adversaire. Chaque méchant a **son propre objectif** à atteindre pour gagner. Apprenons les règles ensemble sur un premier tour.",
+  },
+  {
+    id: 'objective',
+    info: true,
     target: 'objective',
-    text: "Bienvenue ! Tu incarnes le **Prince Jean**. Ton objectif : posséder **20 jetons Pouvoir** au début d'un de tes tours. Suivons ensemble ton premier tour.",
+    text: "Ton méchant est le **Prince Jean**. Son objectif : posséder **20 jetons Pouvoir** au début d'un de tes tours. Chaque méchant gagne différemment — ici, il faut donc **accumuler du Pouvoir**.",
+  },
+  {
+    id: 'power',
+    info: true,
+    text: "Les **jetons Pouvoir** sont la **monnaie** du jeu : ils servent à **jouer tes cartes** (chaque carte a un coût) et, pour le Prince Jean, ils **sont** la condition de victoire. Tu en as 5 pour commencer.",
+  },
+  {
+    id: 'turn',
+    info: true,
+    text: "Un tour se déroule en deux temps : d'abord tu **déplaces ton pion** sur un **autre lieu** (obligatoire), puis tu utilises les **actions** de ce lieu. Commençons.",
   },
   {
     id: 'move',
     target: 'locations',
-    text: "Chaque tour commence par un **déplacement obligatoire** vers un autre lieu. Déplace ton pion sur **Nottingham**.",
+    text: "Chaque lieu offre des actions différentes (les symboles en haut/bas). Déplace ton pion sur **Nottingham** : il propose à la fois « Gagner du Pouvoir » et « Jouer une carte ».",
     gate: (a) => a.type === 'MOVE' && a.to === 'nottingham',
     advanceOn: (a) => a.type === 'MOVE' && a.to === 'nottingham',
     blockHint: 'Déplace ton pion sur Nottingham pour continuer.',
   },
   {
+    id: 'actions',
+    info: true,
+    target: 'actions',
+    text: "Un lieu affiche plusieurs **types d'actions** : **Gagner du Pouvoir**, **Jouer une carte**, **Fatalité** (gêner l'adversaire), **Éliminer un Héros**, **Déplacer**… Tu peux utiliser **chaque action une fois** ce tour-ci, dans l'ordre que tu veux.",
+  },
+  {
     id: 'gain',
     target: 'actions',
-    text: "Te voilà sur ton lieu. Utilise l'action **« Gagner 1 Pouvoir »** : c'est ainsi que tu progresses vers les 20.",
+    text: "Commence par l'action **« Gagner 1 Pouvoir »** de Nottingham : clique dessus. C'est la façon la plus simple de progresser vers tes 20.",
     gate: (a) => a.type === 'EXECUTE_ACTION' || isResolution(a.type),
     advanceOn: (a) => a.type === 'EXECUTE_ACTION',
-    blockHint: 'Utilise une action « Gagner du Pouvoir » de ton lieu.',
+    blockHint: 'Utilise l\'action « Gagner 1 Pouvoir » de Nottingham.',
+  },
+  {
+    id: 'cards',
+    info: true,
+    target: 'hand',
+    text: "Ta **main** contient 4 types de cartes : **Alliés** (se posent sur un lieu, ils ont une Force pour combattre), **Objets** (bonus, souvent attachés à un Allié), **Effets** (action ponctuelle puis défaussés) et **Conditions** (se déclenchent en réaction au tour adverse).",
   },
   {
     id: 'play',
     target: 'hand',
-    text: "Joue maintenant une **carte de ta main** via une action **« Jouer une carte »** (un Allié se pose sur un lieu et t'aidera à éliminer les Héros).",
+    text: "Utilise l'action **« Jouer une carte »** de Nottingham et joue un **Allié** : il se pose sur un lieu et te servira plus tard à **éliminer les Héros**. (Jouer une carte coûte son prix en Pouvoir.)",
     gate: (a) => a.type === 'PLAY_CARD' || isResolution(a.type),
     advanceOn: (a) => a.type === 'PLAY_CARD',
-    blockHint: 'Joue une carte de ta main (action « Jouer une carte »).',
+    blockHint: 'Joue une carte de ta main via l\'action « Jouer une carte ».',
+  },
+  {
+    id: 'fate',
+    info: true,
+    text: "À son tour, l'adversaire peut utiliser une action **Fatalité** pour t'envoyer des **Héros** dans ton domaine : ils **recouvrent tes actions** et te ralentissent. Tu t'en débarrasses avec l'action **« Éliminer un Héros »**, si tes Alliés présents ont assez de **Force**.",
   },
   {
     id: 'end',
     target: 'end-turn',
-    text: "Quand tu as fini tes actions, **termine ton tour** : clique « Terminer le tour ».",
+    text: "Quand tu as fini, **termine ton tour** : clique « Terminer le tour ». Tu repioches jusqu'à 4 cartes, puis l'adversaire joue.",
     gate: (a) => a.type === 'END_TURN' || isResolution(a.type),
     advanceOn: (a) => a.type === 'END_TURN',
     blockHint: 'Termine ton tour pour continuer.',
@@ -80,6 +113,6 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'outro',
     info: true,
-    text: "🎉 Bravo ! Tu as joué ton premier tour : **déplacement → action de lieu → carte → fin de tour**, c'est la boucle de base. Continue à jouer pour atteindre 20 Pouvoir — et attends-toi à voir des **Héros** (Fatalité) débarquer pour te gêner : tu les élimineras avec tes Alliés.",
+    text: "🎉 Voilà la **boucle de base** : **se déplacer → utiliser les actions du lieu → terminer**. Répète-la en gérant tes Pouvoir, tes cartes et les Héros adverses jusqu'à atteindre ton objectif. À toi de jouer !",
   },
 ]

@@ -511,6 +511,32 @@ function newGame(
 }
 
 /**
+ * Partie du TUTORIEL — Prince Jean (joueur) vs Maléfique (bot), avec une mise en
+ * place CONTRÔLÉE (non aléatoire) : le tutoriel guide un vrai premier tour, il faut
+ * donc que la main de départ soit prévisible pour que chaque étape fonctionne
+ * toujours. On force une main pédagogique couvrant les 4 types de cartes Vilain
+ * (Allié / Objet / Effet / Condition) et un pouvoir de départ confortable pour que
+ * l'étape « jouer une carte » réussisse quel qu'ait été le tirage.
+ */
+function tutorialGame(): GameState {
+  const base = buildGameFromKeys(['princeJohn', 'maleficent'])
+  // Un exemplaire de chaque type de carte du Prince Jean, dans l'ordre.
+  const WANT = ['gardes-rhinoceros', 'mandat-arret', 'magnifiques-taxes', 'avarice']
+  const p0 = base.players[0]
+  const pool = [...p0.hand, ...p0.deck] // toutes les instances Vilain disponibles
+  const chosen: CardInstance[] = []
+  for (const id of WANT) {
+    const c = pool.find((x) => x.cardId === id && !chosen.includes(x))
+    if (c) chosen.push(c)
+  }
+  const rest = pool.filter((c) => !chosen.includes(c))
+  const players = base.players.map((p, i) =>
+    i === 0 ? { ...p, power: 5, hand: chosen, deck: rest } : p,
+  )
+  return { ...base, players }
+}
+
+/**
  * Démarre une partie solo avec un vilain PERSONNALISÉ (joueur 0) contre un vilain
  * natif (bot, joueur 1). Sert l'option « Tester » de l'Atelier : le brouillon
  * fourni n'est pas forcément publié, on l'enregistre donc au runtime avant de jouer.
@@ -1871,7 +1897,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   startTutorial: () => {
     teardownNet()
     set({
-      state: newGame(['princeJohn', 'maleficent']),
+      state: tutorialGame(),
       tutorial: { stepIndex: 0 },
       testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0,
       mode: 'solo', netStatus: 'idle', hostRoom: null, hostAddrs: null, netError: null, netLeftNotice: null, peerReacting: null, lobby: null,
