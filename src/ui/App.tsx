@@ -125,7 +125,7 @@ import { FateScryModal } from './components/FateScryModal'
 import { TitanSelectModal } from './components/TitanSelectModal'
 import { StartRollModal } from './components/StartRollModal'
 import { MusicPlayer } from './components/MusicPlayer'
-import { playKillSound, playTaskComplete, playDeadBody, playEmergencyMeeting, playYourTurn, playEndTurnFlip, playEndTurnEnable, playHover, startVictoryBuildup, startDefeatBuildup, stopVictoryBuildup, playLieuPirate, playNoCanDo, playManaAdd, playMalInterieur2, playMalInterieur3, playGardons, startCardDragLoop, stopCardDragLoop } from './sfx'
+import { playKillSound, playTaskComplete, playDeadBody, playEmergencyMeeting, playYourTurn, playEndTurnFlip, playEndTurnEnable, playHover, startVictoryBuildup, startDefeatBuildup, stopVictoryBuildup, playLieuPirate, playNoCanDo, playManaAdd, playMalInterieur2, playMalInterieur3, playGardons, playMichaelTurn, startCardDragLoop, stopCardDragLoop } from './sfx'
 import { playVillainIntro } from './villainVoices'
 import { Showcase } from './components/Showcase'
 import { TestFateBar } from './components/TestFateBar'
@@ -2445,15 +2445,17 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     if (lastHumanTurnRef.current === state.turn) return
     lastHumanTurnRef.current = state.turn
     setShowTurnSplash(true)
-    // Alerte sonore « À vous de jouer » — sauf si on incarne L'Imposteur (qui a
-    // sa propre ambiance Among Us).
-    if (humanVillainKeyRef.current !== 'imposteur') playYourTurn()
+    // Alerte sonore « À vous de jouer ». Michael Myers a sa propre annonce, selon son palier
+    // de Mal Intérieur ; L'Imposteur a son ambiance Among Us (pas de son générique).
+    const meTurn = state.players[HUMAN]
+    if (meTurn.malInterieur !== undefined) playMichaelTurn(meTurn.malInterieur)
+    else if (humanVillainKeyRef.current !== 'imposteur') playYourTurn()
     // Minuteur conservé dans une ref : il n'est PAS annulé par les re-rendus suivants
     // (sinon, à la fin d'un tour rapide, le splash ne se masquerait jamais et resterait
     // affiché pendant le tour adverse). Il n'est ré-armé qu'au prochain tour du joueur.
     if (splashTimerRef.current) window.clearTimeout(splashTimerRef.current)
     splashTimerRef.current = window.setTimeout(() => setShowTurnSplash(false), 4000)
-  }, [state.activePlayer, state.turn, state.status, startRollDone, openingDealDone, dealOverlay, testMode, HUMAN, seats])
+  }, [state.activePlayer, state.turn, state.status, state.players, startRollDone, openingDealDone, dealOverlay, testMode, HUMAN, seats])
 
   // Réseau : prévient l'adversaire quand je prépare une Condition (sélection d'une
   // cible) pour qu'il patiente, et le libère quand je la joue ou l'annule.

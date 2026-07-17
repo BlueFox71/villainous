@@ -62,6 +62,14 @@ const MAL_INTERIEUR_3_SRC = '/audio/mal-interieur-3.mp3' // Michael : passage au
 const MAL_INTERIEUR_3_GAIN = 0.6
 const GARDONS_SRC = '/audio/gardons-le-meilleur.mp3' // Michael : « Gardons le meilleur pour la fin »
 const GARDONS_GAIN = 0.6
+// Michael : annonce de tour propre au vilain (comme l'ambiance de L'Imposteur), une variante
+// par palier de Mal Intérieur (index 0 = niveau 1). Même gain que ses autres sons (0.6).
+const MICHAEL_TURN_SRCS = [
+  '/audio/a-vous-de-jouer-1-myers.mp3',
+  '/audio/a-vous-de-jouer-2-myers.mp3',
+  '/audio/a-vous-de-jouer-3-myers.mp3',
+]
+const MICHAEL_TURN_GAIN = 0.6
 const NO_CAN_DO_SRC = '/audio/no-can-do.ogg' // tentative de jouer une carte injouable
 const NO_CAN_DO_GAIN = 0.5
 const MANA_ADD_SRC = '/audio/mana-crystal-add.ogg' // le joueur gagne ≥1 jeton Pouvoir
@@ -103,6 +111,7 @@ let lieuPirateBase: HTMLAudioElement | null = null
 let malInterieur2Base: HTMLAudioElement | null = null
 let malInterieur3Base: HTMLAudioElement | null = null
 let gardonsBase: HTMLAudioElement | null = null
+let michaelTurnBases: HTMLAudioElement[] = []
 let noCanDoBase: HTMLAudioElement | null = null
 let manaAddBase: HTMLAudioElement | null = null
 let drawCardBases: HTMLAudioElement[] = []
@@ -163,6 +172,11 @@ if (typeof Audio !== 'undefined') {
   malInterieur3Base.preload = 'auto'
   gardonsBase = new Audio(GARDONS_SRC)
   gardonsBase.preload = 'auto'
+  michaelTurnBases = MICHAEL_TURN_SRCS.map((s) => {
+    const a = new Audio(s)
+    a.preload = 'auto'
+    return a
+  })
   noCanDoBase = new Audio(NO_CAN_DO_SRC)
   noCanDoBase.preload = 'auto'
   manaAddBase = new Audio(MANA_ADD_SRC)
@@ -201,6 +215,19 @@ export function playMalInterieur3() {
   if (sfxVolume <= 0) return
   const a = malInterieur3Base.cloneNode() as HTMLAudioElement
   a.volume = Math.min(1, sfxVolume) * MAL_INTERIEUR_3_GAIN
+  void a.play().catch(() => {})
+}
+
+/** Michael Myers — annonce de tour propre au vilain, selon son palier de Mal Intérieur
+ *  (1, 2 ou 3). Remplace le « À vous de jouer » générique quand on incarne Michael. */
+export function playMichaelTurn(level: number) {
+  const idx = Math.min(3, Math.max(1, level)) - 1
+  const src = michaelTurnBases[idx]
+  if (!src) return
+  const { sfxVolume } = useSettingsStore.getState()
+  if (sfxVolume <= 0) return
+  const a = src.cloneNode() as HTMLAudioElement
+  a.volume = Math.min(1, sfxVolume) * MICHAEL_TURN_GAIN
   void a.play().catch(() => {})
 }
 
