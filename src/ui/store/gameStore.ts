@@ -520,8 +520,9 @@ function newGame(
  */
 function tutorialGame(): GameState {
   const base = buildGameFromKeys(['princeJohn', 'maleficent'])
-  // Un exemplaire de chaque type de carte du Prince Jean, dans l'ordre.
-  const WANT = ['gardes-rhinoceros', 'mandat-arret', 'magnifiques-taxes', 'avarice']
+  // Un exemplaire de chaque type de carte du Prince Jean, en tête un Allié BON MARCHÉ
+  // (Archers Loups, coût 2, sans restriction de pose) pour que « jouer une carte » passe.
+  const WANT = ['archers-loups', 'mandat-arret', 'magnifiques-taxes', 'avarice']
   const p0 = base.players[0]
   const pool = [...p0.hand, ...p0.deck] // toutes les instances Vilain disponibles
   const chosen: CardInstance[] = []
@@ -530,8 +531,9 @@ function tutorialGame(): GameState {
     if (c) chosen.push(c)
   }
   const rest = pool.filter((c) => !chosen.includes(c))
+  // 8 Pouvoir de départ : large marge pour jouer un Allié même sans avoir gagné de Pouvoir.
   const players = base.players.map((p, i) =>
-    i === 0 ? { ...p, power: 5, hand: chosen, deck: rest } : p,
+    i === 0 ? { ...p, power: 8, hand: chosen, deck: rest } : p,
   )
   return { ...base, players }
 }

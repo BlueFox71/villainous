@@ -54,7 +54,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'power',
     info: true,
-    text: "Les **jetons Pouvoir** sont la **monnaie** du jeu : ils servent à **jouer tes cartes** (chaque carte a un coût) et, pour le Prince Jean, ils **sont** la condition de victoire. Tu en as 5 pour commencer.",
+    text: "Les **jetons Pouvoir** sont la **monnaie** du jeu : ils servent à **jouer tes cartes** (chaque carte a un coût) et, pour le Prince Jean, ils **sont** la condition de victoire. Tu en as 8 pour commencer.",
   },
   {
     id: 'turn',
