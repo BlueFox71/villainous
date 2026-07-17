@@ -160,6 +160,9 @@ export interface BackOverlay {
   y: number
   size: number
   aspect: number
+  /** Recoloration de CET ornement importé (teinte façon multiply, relief conservé). Absent =
+   *  couleurs d'origine de l'image. */
+  tint?: string
 }
 
 /** Source de la couleur de fond du 3e dos (paquets personnalisés) : reprendre la

@@ -168,6 +168,29 @@ export function CardBackLayout({
         </label>
       )}
 
+      {/* Recoloration de l'ornement SÉLECTIONNÉ (teinte l'image importée). */}
+      {selOverlay && (
+        <div className="flex flex-col gap-1 text-xs text-white/50">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={selOverlay.tint !== undefined}
+              onChange={(e) => setOverlay(selOverlay.id, { tint: e.target.checked ? '#c9a14e' : undefined })}
+              className="accent-amber-400"
+            />
+            🎨 Recolorer cet ornement
+          </label>
+          {selOverlay.tint !== undefined && (
+            <input
+              type="color"
+              value={selOverlay.tint}
+              onChange={(e) => setOverlay(selOverlay.id, { tint: e.target.value })}
+              className="h-7 w-16 cursor-pointer rounded border border-white/20 bg-transparent"
+            />
+          )}
+        </div>
+      )}
+
       <p className="text-[11px] text-white/40">
         Glisse l’ornement pour le placer, la poignée du coin pour le redimensionner, la croix pour le
         retirer. Les ornements s’appliquent aux dos Vilain <strong>et</strong> Fatalité.

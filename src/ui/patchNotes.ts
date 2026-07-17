@@ -47,6 +47,18 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.8.1',
+    date: '2026-07-17',
+    title: 'Ambiance Michael + Atelier : ornements recolorables',
+    tags: ['atelier', 'son', 'interface', 'correctif'],
+    changes: [
+      "Atelier · dos de carte : on peut désormais **recolorer chaque ornement importé** (pas seulement le cadre) — sur les dos Vilain, Fatalité et des paquets personnalisés.",
+      "Michael Myers : **sons** au passage en **Mal Intérieur 2 et 3** et sur **Gardons le meilleur pour la fin** ; le volume de sa réplique est ajustable et abaissé.",
+      "Nouvelles **devises** : Slenderman, Pyramid Head, Dio, Tabbou (et correction des placeholders « … »).",
+      "Réglage du volume des **répliques** (Sombra plus discrète, Syndrome un peu plus forte).",
+    ],
+  },
+  {
     version: '1.8.0',
     date: '2026-07-17',
     title: 'Nouveau vilain : Michael Myers',
