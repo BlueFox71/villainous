@@ -682,7 +682,7 @@ const CUSTOM_GUIDES: Record<string, VillainGuide> = {
   },
   'custom-dio': {
     difficulty: 3,
-    devise: "ZA WARUDO ! Le temps… est arrêté ! MUDA MUDA MUDA !",
+    devise: "MUDA ! MUDA ! MUDA ! MUDA !",
     story:
       "Dio Brando (JoJo's Bizarre Adventure) est l'ambition faite homme. Recueilli enfant par le riche George Joestar, il trahit sa famille adoptive et coiffe le Masque de Pierre pour devenir un vampire immortel. Un siècle plus tard, ressuscité et doté du Stand « The World », capable d'ARRÊTER LE TEMPS d'un cri — « ZA WARUDO ! » —, il affronte Jotaro Kujo et les Joestar lancés à sa poursuite (Stardust Crusaders). « Inutile, inutile, inutile… MUDA MUDA MUDA ! »",
     playTips: [
