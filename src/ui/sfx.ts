@@ -58,6 +58,8 @@ const LIEU_PIRATE_GAIN = 0.75
 const MAL_INTERIEUR_2_SRC = '/audio/mal-interieur-2.mp3' // Michael : passage au Mal Intérieur 2
 // Calé sur la « phrase » de Michael (audioGain 0.3 → volume sfxVolume×2×0.3 = sfxVolume×0.6).
 const MAL_INTERIEUR_2_GAIN = 0.6
+const MAL_INTERIEUR_3_SRC = '/audio/mal-interieur-3.mp3' // Michael : passage au Mal Intérieur 3
+const MAL_INTERIEUR_3_GAIN = 0.6
 const NO_CAN_DO_SRC = '/audio/no-can-do.ogg' // tentative de jouer une carte injouable
 const NO_CAN_DO_GAIN = 0.5
 const MANA_ADD_SRC = '/audio/mana-crystal-add.ogg' // le joueur gagne ≥1 jeton Pouvoir
@@ -97,6 +99,7 @@ let shatterBase: HTMLAudioElement | null = null
 let crackBase: HTMLAudioElement | null = null
 let lieuPirateBase: HTMLAudioElement | null = null
 let malInterieur2Base: HTMLAudioElement | null = null
+let malInterieur3Base: HTMLAudioElement | null = null
 let noCanDoBase: HTMLAudioElement | null = null
 let manaAddBase: HTMLAudioElement | null = null
 let drawCardBases: HTMLAudioElement[] = []
@@ -153,6 +156,8 @@ if (typeof Audio !== 'undefined') {
   lieuPirateBase.preload = 'auto'
   malInterieur2Base = new Audio(MAL_INTERIEUR_2_SRC)
   malInterieur2Base.preload = 'auto'
+  malInterieur3Base = new Audio(MAL_INTERIEUR_3_SRC)
+  malInterieur3Base.preload = 'auto'
   noCanDoBase = new Audio(NO_CAN_DO_SRC)
   noCanDoBase.preload = 'auto'
   manaAddBase = new Audio(MANA_ADD_SRC)
@@ -181,6 +186,16 @@ export function playMalInterieur2() {
   if (sfxVolume <= 0) return
   const a = malInterieur2Base.cloneNode() as HTMLAudioElement
   a.volume = Math.min(1, sfxVolume) * MAL_INTERIEUR_2_GAIN
+  void a.play().catch(() => {})
+}
+
+/** Michael Myers — joue le bruitage quand il passe au MAL INTÉRIEUR 3. */
+export function playMalInterieur3() {
+  if (!malInterieur3Base) return
+  const { sfxVolume } = useSettingsStore.getState()
+  if (sfxVolume <= 0) return
+  const a = malInterieur3Base.cloneNode() as HTMLAudioElement
+  a.volume = Math.min(1, sfxVolume) * MAL_INTERIEUR_3_GAIN
   void a.play().catch(() => {})
 }
 

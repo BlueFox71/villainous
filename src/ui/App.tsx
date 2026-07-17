@@ -125,7 +125,7 @@ import { FateScryModal } from './components/FateScryModal'
 import { TitanSelectModal } from './components/TitanSelectModal'
 import { StartRollModal } from './components/StartRollModal'
 import { MusicPlayer } from './components/MusicPlayer'
-import { playKillSound, playTaskComplete, playDeadBody, playEmergencyMeeting, playYourTurn, playEndTurnFlip, playEndTurnEnable, playHover, startVictoryBuildup, startDefeatBuildup, stopVictoryBuildup, playLieuPirate, playNoCanDo, playManaAdd, playMalInterieur2, startCardDragLoop, stopCardDragLoop } from './sfx'
+import { playKillSound, playTaskComplete, playDeadBody, playEmergencyMeeting, playYourTurn, playEndTurnFlip, playEndTurnEnable, playHover, startVictoryBuildup, startDefeatBuildup, stopVictoryBuildup, playLieuPirate, playNoCanDo, playManaAdd, playMalInterieur2, playMalInterieur3, startCardDragLoop, stopCardDragLoop } from './sfx'
 import { playVillainIntro } from './villainVoices'
 import { Showcase } from './components/Showcase'
 import { TestFateBar } from './components/TestFateBar'
@@ -2378,15 +2378,15 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     if (prev !== null && cur > prev) playManaAdd()
   }, [state.players, HUMAN])
 
-  // Michael Myers — au passage au MAL INTÉRIEUR 2 (d'un niveau < 2 vers 2), joue le
+  // Michael Myers — au passage au MAL INTÉRIEUR 2 ou 3 (depuis un niveau inférieur), joue le
   // bruitage dédié. On ne joue jamais au montage/à la reprise (prev inconnu = pas de son).
   useEffect(() => {
     const prev = prevMalRef.current
     state.players.forEach((p, i) => {
       const cur = p.malInterieur
-      if (cur !== undefined && cur >= 2 && prev[i] !== undefined && prev[i] < 2) {
-        playMalInterieur2()
-      }
+      if (cur === undefined || prev[i] === undefined) return
+      if (cur >= 3 && prev[i] < 3) playMalInterieur3()
+      else if (cur >= 2 && prev[i] < 2) playMalInterieur2()
     })
     prevMalRef.current = state.players.map((p) => p.malInterieur ?? 0)
   }, [state.players])
