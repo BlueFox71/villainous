@@ -611,6 +611,23 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
 /** Fiches RÉDIGÉES pour certains vilains publiés (collaborations fixes), indexées par
  *  leur id custom. Priorité sur la synthèse automatique de `villainGuideOf`. */
 const CUSTOM_GUIDES: Record<string, VillainGuide> = {
+  'custom-michael-meyers': {
+    difficulty: 3,
+    devise: "Ce qui vit derrière ces yeux est purement et simplement… le Mal.",
+    story:
+      "Le soir d'Halloween 1963, à Haddonfield, un enfant de six ans, Michael Myers, poignarde sa grande sœur sans un mot. Interné quinze ans à l'asile de Smith's Grove, il s'en évade et revient dans sa ville natale, dissimulé derrière un masque blafard, pour reprendre sa nuit du meurtre — obsédé par une adolescente, Laurie Strode. Le « Shape » ne court jamais, ne parle jamais, ne ressent rien : c'est le Mal incarné qui grandit à chaque victime, tandis que le Dr Loomis tente désespérément de l'arrêter. (Halloween, 1978.)",
+    playTips: [
+      "Ton objectif : ÉLIMINER LAURIE STRODE. Mais avant, deviens un vrai boucher : chaque Héros que tu assassines fait monter ton MAL INTÉRIEUR (niveau 1 → 3). Au niveau 3, tu piochent 1 carte de plus en fin de tour.",
+      "Tu ne peux tuer qu'avec une ARME équipée (une seule à la fois). ARME DU CRIME va en chercher une dans ta pioche ; ASSASSINER coûte alors le prix de l'arme. Chaque arme a un bonus au kill : le COUTEAU te fait REJOUER un tour entier, la HACHE offre une action gratuite, le TUYAU/la BATTE donnent Pouvoir/cartes.",
+      "Manque de victimes ? JOUEZ AVEC LA NOURRITURE fait sortir un Héros de ta Fatalité et le pose où tu veux — de la chair fraîche pour ton Mal Intérieur.",
+      "Le coup final : une fois au MAL INTÉRIEUR 3, joue GARDONS LE MEILLEUR POUR LA FIN pour déverrouiller la DEMEURE DES STRODE, puis va y assassiner LAURIE. Attention : chaque AUTRE Héros présent dans ton royaume rend son assassinat 2 Pouvoir plus cher — fais le ménage avant.",
+    ],
+    counterTips: [
+      "JAIME STRODE désactive l'effet de son arme, DÉSARMEMENT la lui arrache : sans arme, il ne peut plus assassiner. Prive-le de son outil au moment clé.",
+      "ARMEMENT posé sur Laurie (ou un Héros) renchérit son assassinat de 2 Pouvoir. Et garde le royaume de Michael ENCOMBRÉ de Héros : chaque Héros en plus rend Laurie encore plus chère à tuer.",
+      "BLESSURE mine sa pioche (sans jamais lui retirer son coup final) et SOUVENIR DE JUDITH le vide de son Pouvoir, d'autant plus qu'il est avancé. Ne lui offre pas de victimes faciles : chaque kill le rapproche du Mal Intérieur 3.",
+    ],
+  },
   'custom-ultron': {
     difficulty: 2,
     devise: "Il n'y a pas de ficelles sur moi.",
