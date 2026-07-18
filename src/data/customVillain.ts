@@ -97,11 +97,17 @@ const DEFAULT_ART_TRANSFORM: ArtTransform = { scale: 1, offsetXPct: 0, offsetYPc
 /** Disposition LIBRE du texte de règle sur la carte. Coordonnées en % du gabarit
  *  (x/y = centre du bloc, w = largeur du bloc), `size` en px (espace carte
  *  1440×2044). Absent = disposition par défaut (bloc bas centré, taille auto-ajustée). */
+/** Alignement horizontal des lignes DANS le bloc de texte. Absent = `center`
+ *  (comportement historique). */
+export type TextAlign = 'left' | 'center' | 'right'
+
 export interface TextLayout {
   x: number
   y: number
   w: number
   size: number
+  /** Alignement des lignes dans le bloc (défaut : centré). */
+  align?: TextAlign
 }
 
 /** Disposition du texte par défaut (reprend l'ancienne boîte basse centrée). */
@@ -129,6 +135,8 @@ export interface TextBox {
   y: number
   w: number
   size: number
+  /** Alignement des lignes dans le bloc (défaut : centré). */
+  align?: TextAlign
 }
 
 /** Un symbole d'action posé LIBREMENT sur la carte (élément indépendant des jetons

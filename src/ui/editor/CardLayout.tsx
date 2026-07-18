@@ -193,7 +193,7 @@ export function CardLayoutEditor({
   // texte principal. Centrer H/V = ramener le CENTRE du bloc à mi-carte (x/y = 50).
   const activeBox = sel?.kind === 'box' ? card.textBoxes?.find((b) => b.id === sel.id) : undefined
   const activeText: TextLayout = activeBox
-    ? { x: activeBox.x, y: activeBox.y, w: activeBox.w, size: activeBox.size }
+    ? { x: activeBox.x, y: activeBox.y, w: activeBox.w, size: activeBox.size, align: activeBox.align }
     : tl
   const setActiveText = (p: Partial<TextLayout>) =>
     activeBox ? setBox(activeBox.id, p) : setTextLayout(p)
@@ -482,6 +482,26 @@ export function CardLayoutEditor({
             >
               ⇕ Centrer V
             </button>
+          </div>
+          {/* Alignement des lignes DANS le bloc (gauche / centre / droite). */}
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-[11px] text-white/40">Alignement :</span>
+            {([
+              { label: 'Gauche', value: 'left' },
+              { label: 'Centre', value: 'center' },
+              { label: 'Droite', value: 'right' },
+            ] as const).map((a) => (
+              <label key={a.value} className="flex cursor-pointer items-center gap-1 text-xs text-white/80">
+                <input
+                  type="radio"
+                  name="text-align"
+                  checked={(activeText.align ?? 'center') === a.value}
+                  onChange={() => setActiveText({ align: a.value })}
+                  className="accent-amber-400"
+                />
+                {a.label}
+              </label>
+            ))}
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-[11px] text-white/40">Taille :</span>

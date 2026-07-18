@@ -362,8 +362,9 @@ async function preloadIcons(types: LocationActionType[]): Promise<Map<LocationAc
   return map
 }
 
-/** Dessine des lignes mises en page (texte + icônes), chaque ligne centrée
- *  horizontalement sur `centerX`, empilées à partir de `startY`. */
+/** Dessine des lignes mises en page (texte + icônes), alignées horizontalement dans
+ *  le bloc [centerX ± blockW/2] selon `align` (gauche/centre/droite), empilées à
+ *  partir de `startY`. */
 function drawRuleLines(
   ctx: CanvasRenderingContext2D,
   lines: Word[][],
@@ -375,6 +376,8 @@ function drawRuleLines(
   gold: string,
   iconImgs: Map<LocationActionType, HTMLImageElement>,
   typeColors: Record<string, string> = TYPE_WORD_COLOR,
+  align: 'left' | 'center' | 'right' = 'center',
+  blockW = 0,
 ) {
   ctx.fillStyle = gold
   ctx.textAlign = 'left'
@@ -383,7 +386,14 @@ function drawRuleLines(
   const italicFont = `italic ${baseFont}`
   let y = startY
   for (const line of lines) {
-    let x = centerX - lineWidth(line, spaceW) / 2
+    const lw = lineWidth(line, spaceW)
+    // Départ de la ligne selon l'alignement, dans le bloc centré sur `centerX`.
+    let x =
+      align === 'left'
+        ? centerX - blockW / 2
+        : align === 'right'
+          ? centerX + blockW / 2 - lw
+          : centerX - lw / 2
     const cy = y + lineH / 2
     for (const word of line) {
       for (const seg of word.segs) {
@@ -433,7 +443,7 @@ function drawRuleLines(
 function renderTextBlock(
   ctx: CanvasRenderingContext2D,
   text: string,
-  L: { x: number; y: number; w: number; size: number },
+  L: { x: number; y: number; w: number; size: number; align?: 'left' | 'center' | 'right' },
   gold: string,
   iconImgs: Map<LocationActionType, HTMLImageElement>,
   typeColors: Record<string, string> = TYPE_WORD_COLOR,
@@ -449,7 +459,7 @@ function renderTextBlock(
   const lineH = L.size * TEXT_LINE_FACTOR
   const lines = layoutText(ctx, t, w, iconW, spaceW)
   const startY = centerY - (lines.length * lineH) / 2
-  drawRuleLines(ctx, lines, startY, centerX, lineH, spaceW, iconW, gold, iconImgs, typeColors)
+  drawRuleLines(ctx, lines, startY, centerX, lineH, spaceW, iconW, gold, iconImgs, typeColors, L.align ?? 'center', w)
 }
 
 /** Hauteur (px, espace carte) du bloc de texte de règle pour une largeur et une
