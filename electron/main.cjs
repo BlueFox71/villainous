@@ -93,6 +93,9 @@ const MIME = {
   '.mp3': 'audio/mpeg',
   '.wav': 'audio/wav',
   '.ogg': 'audio/ogg',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.m4v': 'video/mp4',
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
   '.ttf': 'font/ttf',
@@ -179,6 +182,8 @@ function createLauncher() {
       contextIsolation: true,
       nodeIntegration: false,
       preload: path.join(__dirname, 'preload.cjs'),
+      // Lecture auto de la vidéo de fond (muette) sans geste utilisateur.
+      autoplayPolicy: 'no-user-gesture-required',
     },
   })
   launcherWindow = win
@@ -237,6 +242,16 @@ app.whenReady().then(() => {
   })
   // « Redémarrer et installer » : applique la MAJ téléchargée.
   ipcMain.handle('launcher:install', () => updater.quitAndInstall())
+  // Actualités EN LIGNE (news.json du dépôt) : permet de publier une actu sans
+  // republier l'exe. Renvoie null (offline / indisponible) → le launcher retombe
+  // sur les notes de version embarquées.
+  ipcMain.handle('launcher:news', async () => {
+    try {
+      return await require('./news.cjs').fetchNews()
+    } catch {
+      return null
+    }
+  })
   // Boutons de la barre de titre sans cadre.
   ipcMain.handle('launcher:close', () => app.quit())
   ipcMain.handle('launcher:minimize', (e) => {

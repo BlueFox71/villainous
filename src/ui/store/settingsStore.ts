@@ -19,6 +19,17 @@ export type UpdateEvent =
   | { type: 'error'; payload?: { message?: string } }
   | { type: 'unsupported' }
 
+/** Une actualité affichée par le launcher (en ligne ou repli embarqué). Même forme
+ *  que les notes de version, mais `version` et `tags` sont facultatifs (une actu en
+ *  ligne peut être un simple message). */
+export interface NewsItem {
+  version?: string
+  date: string
+  title: string
+  tags?: string[]
+  changes: string[]
+}
+
 /** Pont exposé par le preload Electron (absent en navigateur de dev). */
 declare global {
   interface Window {
@@ -33,6 +44,8 @@ declare global {
       launcherPlay?: () => Promise<void>
       /** Redémarre l'app pour installer la MAJ téléchargée. */
       launcherInstall?: () => Promise<void>
+      /** Récupère les actualités en ligne (news.json) ; null si indisponible. */
+      launcherNews?: () => Promise<NewsItem[] | null>
       /** Quitte l'application depuis le launcher. */
       launcherClose?: () => Promise<void>
       /** Réduit la fenêtre du launcher. */

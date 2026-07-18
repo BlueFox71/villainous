@@ -1,0 +1,11 @@
+[
+  {
+    "date": "2026-07-18",
+    "title": "Actualités en ligne activées",
+    "tags": ["interface"],
+    "changes": [
+      "Le **launcher** affiche désormais des **actualités en ligne** : ce message peut être modifié **sans republier le jeu**.",
+      "Pour publier une actu : éditez **news.json** à la racine du dépôt puis faites **git push** — tous les launchers la verront au prochain lancement."
+    ]
+  }
+]

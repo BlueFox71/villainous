@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
-import { PATCH_NOTES, PATCH_TAG_META, type PatchNote } from '../ui/patchNotes'
-import type { UpdateEvent } from '../ui/store/settingsStore'
+import { useEffect, useRef, useState } from 'react'
+import { PATCH_NOTES, PATCH_TAG_META } from '../ui/patchNotes'
+import type { NewsItem, UpdateEvent } from '../ui/store/settingsStore'
 
 /**
  * LAUNCHER de l'application de bureau (fenêtre d'accueil, façon Marvel Rivals).
- * Affiché AVANT le jeu par Electron (cf. electron/main.cjs) : il montre les
- * actualités (= notes de version embarquées, `PATCH_NOTES`), l'état de la mise à
- * jour automatique (barre de progression), puis laisse « Jouer ».
+ * Affiché AVANT le jeu par Electron (cf. electron/main.cjs) : fond = vidéo d'intro
+ * (muette, assombrie), actualités (EN LIGNE via news.json, repli sur les notes de
+ * version embarquées), mise à jour automatique OBLIGATOIRE (barre de progression),
+ * puis « Jouer ».
  *
  * Fenêtre SANS CADRE : la barre du haut est une zone de déplacement (`app-region:
  * drag`) et porte ses propres boutons Réduire / Fermer.
@@ -34,28 +35,33 @@ function renderRich(text: string) {
   )
 }
 
-/** Une carte « actualité » = une note de version. */
-function NewsCard({ note }: { note: PatchNote }) {
+/** Une carte « actualité ». Tolérante : `version`/`tags` facultatifs, tags inconnus
+ *  (actus en ligne libres) rendus en pastille neutre. */
+function NewsCard({ note }: { note: NewsItem }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4 shadow-lg shadow-black/30">
       <div className="mb-1.5 flex items-baseline gap-2">
-        <span className="rounded-md border border-purple-300/30 bg-purple-500/20 px-1.5 py-0.5 text-xs font-semibold text-purple-100">
-          v{note.version}
-        </span>
+        {note.version && (
+          <span className="rounded-md border border-purple-300/30 bg-purple-500/20 px-1.5 py-0.5 text-xs font-semibold text-purple-100">
+            v{note.version}
+          </span>
+        )}
         <span className="text-xs text-white/45">{note.date}</span>
       </div>
       <h3 className="text-[15px] font-semibold text-white">{note.title}</h3>
       {note.tags && note.tags.length > 0 && (
         <div className="mt-1.5 flex flex-wrap gap-1">
           {note.tags.map((t) => {
-            const meta = PATCH_TAG_META[t]
+            const meta = PATCH_TAG_META[t as keyof typeof PATCH_TAG_META]
             return (
               <span
                 key={t}
-                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${meta.className}`}
+                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${
+                  meta ? meta.className : 'border-white/20 bg-white/10 text-white/70'
+                }`}
               >
-                <span>{meta.emoji}</span>
-                {meta.label}
+                {meta && <span>{meta.emoji}</span>}
+                {meta ? meta.label : t}
               </span>
             )
           })}
@@ -83,9 +89,18 @@ export function Launcher() {
   const [percent, setPercent] = useState(0)
   const [version, setVersion] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
+  // Actualités : repli embarqué (notes de version) tant que l'en-ligne n'a pas répondu.
+  const [news, setNews] = useState<NewsItem[]>(() => PATCH_NOTES.slice(0, 8))
+  const videoRef = useRef<HTMLVideoElement>(null)
 
-  const notes = useMemo(() => PATCH_NOTES.slice(0, 8), [])
+  // Coupe le son de la vidéo de fond de façon FIABLE : l'attribut `muted` de React
+  // n'est pas toujours appliqué au DOM, et la fenêtre autorise l'autoplay sonore →
+  // on force `muted` (l'intro sert de décor, sans musique).
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.muted = true
+  }, [])
 
+  // --- Vérification de la mise à jour (Electron) -----------------------------
   useEffect(() => {
     // Hors Electron (aperçu navigateur) : rien à mettre à jour (statut initial
     // déjà 'unsupported'), on peut jouer directement.
@@ -128,8 +143,9 @@ export function Launcher() {
       if (!info.supported) setStatus('unsupported')
     })
 
-    // Filet de sécurité : si la vérification traîne (réseau lent), on débloque
-    // « Jouer » au bout de 12 s (la MAJ, si elle arrive, s'appliquera plus tard).
+    // Filet de sécurité : si la recherche traîne (réseau lent) SANS qu'aucune MAJ
+    // n'ait été détectée, on débloque « Jouer » au bout de 12 s. Une MAJ réelle
+    // fait quitter 'checking' bien avant → elle reste donc obligatoire.
     const safety = setTimeout(() => {
       setStatus((s) => (s === 'checking' ? 'uptodate' : s))
     }, 12000)
@@ -137,6 +153,18 @@ export function Launcher() {
     return () => {
       unsub()
       clearTimeout(safety)
+    }
+  }, [bridge])
+
+  // --- Actualités en ligne (news.json) ---------------------------------------
+  useEffect(() => {
+    if (!bridge?.launcherNews) return
+    let alive = true
+    void bridge.launcherNews().then((online) => {
+      if (alive && online && online.length) setNews(online.slice(0, 12))
+    })
+    return () => {
+      alive = false
     }
   }, [bridge])
 
@@ -148,7 +176,7 @@ export function Launcher() {
       case 'checking':
         return 'Recherche de mise à jour…'
       case 'downloading':
-        return `Téléchargement de la mise à jour… ${percent}%`
+        return `Mise à jour obligatoire — téléchargement… ${percent}%`
       case 'ready':
         return 'Mise à jour prête — redémarrage requis'
       case 'uptodate':
@@ -169,18 +197,25 @@ export function Launcher() {
   }
 
   return (
-    <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[#0b0a12] text-white">
-      {/* Fond partagé avec le menu du jeu. */}
-      <div
-        className="pointer-events-none absolute inset-0 bg-cover bg-center"
-        style={{ backgroundImage: 'url(/menu_bg_disney.jpg)' }}
+    <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[#07060c] text-white">
+      {/* Fond : vidéo d'intro, MUETTE et en boucle. */}
+      <video
+        ref={videoRef}
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+        src="/intro.mp4"
+        autoPlay
+        muted
+        loop
+        playsInline
         aria-hidden
       />
+      {/* Assombrissement : voile noir + dégradé (pour lire le premier plan). */}
+      <div className="pointer-events-none absolute inset-0 bg-black/60" aria-hidden />
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(120% 90% at 50% 0%, rgba(37,20,71,0.55) 0%, rgba(19,12,36,0.72) 45%, rgba(11,10,18,0.9) 100%)',
+            'radial-gradient(120% 90% at 50% 0%, rgba(20,10,40,0.5) 0%, rgba(11,8,22,0.78) 45%, rgba(5,4,10,0.94) 100%)',
         }}
         aria-hidden
       />
@@ -233,15 +268,15 @@ export function Launcher() {
             <span>📰</span> Actualités
           </div>
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-2">
-            {notes.map((n) => (
-              <NewsCard key={n.version} note={n} />
+            {news.map((n, i) => (
+              <NewsCard key={n.version ?? `${n.date}-${i}`} note={n} />
             ))}
           </div>
         </div>
       </div>
 
       {/* Barre du bas : état de la MAJ + bouton Jouer. */}
-      <div className="relative z-10 flex shrink-0 items-center gap-6 border-t border-white/10 bg-black/40 px-8 py-4 backdrop-blur">
+      <div className="relative z-10 flex shrink-0 items-center gap-6 border-t border-white/10 bg-black/50 px-8 py-4 backdrop-blur">
         <div className="min-w-0 flex-1">
           <div className="mb-1.5 flex items-center gap-2 text-sm text-white/75">
             {busy && (

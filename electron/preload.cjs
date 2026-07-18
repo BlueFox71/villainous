@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld('villainous', {
   launcherPlay: () => ipcRenderer.invoke('launcher:play'),
   /** Redémarre l'app pour installer la MAJ téléchargée. */
   launcherInstall: () => ipcRenderer.invoke('launcher:install'),
+  /** Récupère les actualités en ligne (news.json) ; null si indisponible. */
+  launcherNews: () => ipcRenderer.invoke('launcher:news'),
   /** Quitte l'application depuis le launcher. */
   launcherClose: () => ipcRenderer.invoke('launcher:close'),
   /** Réduit la fenêtre du launcher. */
