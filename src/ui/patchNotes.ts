@@ -48,12 +48,13 @@ export interface PatchNote {
 export const PATCH_NOTES: PatchNote[] = [
   {
     version: '1.7.3',
-    date: '2026-07-17',
-    title: 'Atelier : image de face B propre à une variante',
+    date: '2026-07-18',
+    title: 'Atelier : variantes — face B de lieu + carte d’origine en aperçu',
     tags: ['atelier', 'correctif'],
     changes: [
       "Dans une **variante (skin)**, quand un lieu de la base est **transformable** (face B), tu peux désormais lui donner sa **propre image et son propre nom de face B** — comme pour la face A. Les **actions** de la face B restent celles de la base.",
       "La **resynchronisation** conserve ces images de face B propres à la variante au lieu de reprendre celles de la base.",
+      "Quand une carte de variante **diffère de la base**, la **carte d’origine** s’affiche en aperçu **sous** l’aperçu en cours d’édition, pour comparer ta version re-illustrée à l’originale.",
     ],
   },
   {

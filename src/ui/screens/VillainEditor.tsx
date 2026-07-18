@@ -1248,7 +1248,7 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
               {tab === 'cards' && (
                 <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_23rem]">
                   <div className="min-w-0">
-                    <CardsTab draft={draft} patch={patch} variant={isVariant} />
+                    <CardsTab draft={draft} patch={patch} variant={isVariant} base={variantBase} />
                   </div>
                   <div className="xl:sticky xl:top-0 xl:max-h-[calc(100vh-9rem)] xl:overflow-y-auto">
                     <AllCardsPanel excludeId={draft.id} />
