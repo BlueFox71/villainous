@@ -54,6 +54,7 @@ export const PATCH_NOTES: PatchNote[] = [
     changes: [
       "Onglet **Cartes**, sous « Symboles d'action », une section **Layouts** permet de poser un **rond plein** sur l'aperçu.",
       "On choisit sa **couleur** à la **pipette**, puis on le **déplace** et le **redimensionne** directement sur la carte.",
+      "Une **forme** ou une **zone de texte** sélectionnée peut désormais être **dupliquée** en un clic.",
     ],
   },
   {

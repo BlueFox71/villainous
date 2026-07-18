@@ -173,6 +173,17 @@ export function CardLayoutEditor({
     onChange({ ...card, textBoxes: (card.textBoxes ?? []).filter((b) => b.id !== id) })
     setSel(null)
   }
+  // Duplique la zone de texte : copie identique décalée de quelques %, sélectionnée.
+  const dupBox = (id: string) => {
+    const src = card.textBoxes?.find((b) => b.id === id)
+    if (!src) return
+    const taken = new Set((card.textBoxes ?? []).map((b) => b.id))
+    let n = 1
+    while (taken.has(`txt-${n}`)) n++
+    const copy: TextBox = { ...src, id: `txt-${n}`, x: clamp(src.x + 4, 4, 96), y: clamp(src.y + 4, 4, 96) }
+    onChange({ ...card, textBoxes: [...(card.textBoxes ?? []), copy] })
+    setSel({ kind: 'box', id: copy.id })
+  }
   const boxHpct = (b: TextBox) =>
     b.text.trim() ? (ruleTextBlockHeight(b.text.trim(), (b.w / 100) * CARD_W, b.size) / CARD_H) * 100 : (b.size / CARD_H) * 100
 
@@ -216,6 +227,17 @@ export function CardLayoutEditor({
   const removeShape = (id: string) => {
     onChange({ ...card, shapes: (card.shapes ?? []).filter((s) => s.id !== id) })
     setSel(null)
+  }
+  // Duplique la forme : copie identique (couleur/taille/kind) décalée de quelques %, sélectionnée.
+  const dupShape = (id: string) => {
+    const src = card.shapes?.find((s) => s.id === id)
+    if (!src) return
+    const taken = new Set((card.shapes ?? []).map((s) => s.id))
+    let n = 1
+    while (taken.has(`shp-${n}`)) n++
+    const copy: CardShape = { ...src, id: `shp-${n}`, x: clamp(src.x + 4, 2, 98), y: clamp(src.y + 4, 2, 98) }
+    onChange({ ...card, shapes: [...(card.shapes ?? []), copy] })
+    setSel({ kind: 'shape', id: copy.id })
   }
 
   // --- Drag ------------------------------------------------------------------
@@ -495,6 +517,7 @@ export function CardLayoutEditor({
                 key={box.id}
                 value={box.text}
                 onChange={(text) => setBox(box.id, { text })}
+                onDuplicate={() => dupBox(box.id)}
                 onDelete={() => removeBox(box.id)}
               />
             )
@@ -648,13 +671,22 @@ export function CardLayoutEditor({
               <div className="mt-1 flex flex-col gap-1.5 rounded-lg border border-emerald-400/20 bg-emerald-400/5 px-2 py-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-200/70">Forme sélectionnée</span>
-                  <button
-                    type="button"
-                    onClick={() => removeShape(sel.id)}
-                    className="rounded border border-rose-400/40 bg-rose-400/10 px-2 py-1 text-xs font-semibold text-rose-100 transition hover:bg-rose-400/20"
-                  >
-                    Supprimer la forme
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => dupShape(sel.id)}
+                      className="rounded border border-emerald-400/40 bg-emerald-400/10 px-2 py-1 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-400/20"
+                    >
+                      Dupliquer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeShape(sel.id)}
+                      className="rounded border border-rose-400/40 bg-rose-400/10 px-2 py-1 text-xs font-semibold text-rose-100 transition hover:bg-rose-400/20"
+                    >
+                      Supprimer la forme
+                    </button>
+                  </div>
                 </div>
                 {/* Couleur de la forme sélectionnée (pipette). */}
                 <div className="flex flex-wrap items-center gap-1.5">
@@ -698,10 +730,12 @@ export function CardLayoutEditor({
 function BoxTextEditor({
   value,
   onChange,
+  onDuplicate,
   onDelete,
 }: {
   value: string
   onChange: (v: string) => void
+  onDuplicate: () => void
   onDelete: () => void
 }) {
   const ref = useRef<HTMLTextAreaElement>(null)
@@ -755,13 +789,22 @@ function BoxTextEditor({
           </button>
         ))}
       </div>
-      <button
-        type="button"
-        onClick={onDelete}
-        className="self-start text-[11px] text-rose-300/80 underline transition hover:text-rose-200"
-      >
-        Supprimer cette zone de texte
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={onDuplicate}
+          className="text-[11px] text-sky-200/80 underline transition hover:text-sky-100"
+        >
+          Dupliquer cette zone de texte
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="text-[11px] text-rose-300/80 underline transition hover:text-rose-200"
+        >
+          Supprimer cette zone de texte
+        </button>
+      </div>
     </div>
   )
 }
