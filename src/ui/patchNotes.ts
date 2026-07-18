@@ -53,7 +53,8 @@ export const PATCH_NOTES: PatchNote[] = [
     tags: ['interface', 'reseau', 'correctif'],
     changes: [
       "Nouveau **Tutoriel** au menu : un premier tour **guidé pas à pas** qui apprend les **règles de base** (à quoi sert le **Pouvoir**, comment en gagner, les **types d'actions** et les **types de cartes**).",
-      "Multijoueur en ligne : le bouton **Lancer la partie** ne reste plus **sans effet** en silence — toute erreur de connexion est désormais **affichée**, et la liaison hôte↔invité est **plus fiable**.",
+      "Multijoueur en ligne : les **vilains personnalisés publiés** sont désormais **jouables en réseau** (les deux joueurs les ont dans la même version).",
+      "Multijoueur : connexion **plus fiable à distance** (serveurs **TURN** ajoutés) et **messages d'erreur clairs** en cas de souci — fini le bouton **Lancer** sans effet.",
     ],
   },
   {

@@ -243,6 +243,34 @@ function teardownNet() {
   activeSession = null
 }
 
+/** Traduit une erreur PeerJS (broker de mise en relation / canal WebRTC) en message
+ *  clair pour le joueur, en incluant le TYPE technique (utile pour diagnostiquer). */
+function describePeerError(err: unknown, role: 'host' | 'guest'): string {
+  const type = (err as { type?: string })?.type ?? ''
+  switch (type) {
+    case 'unavailable-id':
+      return 'Ce code de salon est déjà pris. Reviens au menu et rouvre un salon (nouveau code).'
+    case 'peer-unavailable':
+      return 'Hôte introuvable : vérifie le code, et que l’hôte attend bien dans son salon.'
+    case 'network':
+    case 'server-error':
+    case 'socket-error':
+    case 'socket-closed':
+    case 'disconnected':
+      return `Serveur de mise en relation injoignable (${type}). Vérifie ta connexion Internet et réessaie dans un instant.`
+    case 'ssl-unavailable':
+      return 'Connexion sécurisée impossible vers le serveur de mise en relation.'
+    case 'browser-incompatible':
+      return 'WebRTC non supporté par cette version de l’application.'
+    case 'webrtc':
+      return 'Connexion directe impossible (pare-feu ou réseau trop restrictif).'
+    default:
+      return role === 'host'
+        ? `Impossible d’ouvrir le salon${type ? ` (${type})` : ''}. Réessaie dans un instant.`
+        : `Connexion à l’hôte impossible${type ? ` (${type})` : ''}. Réessaie dans un instant.`
+  }
+}
+
 /** L'autre joueur est parti (LEAVE reçu) ou la connexion est tombée : on coupe et
  *  on renseigne l'avis (l'UI l'affichera puis renverra à l'accueil). Si la
  *  connexion a déjà été fermée de NOTRE côté (activeConnection null), on ignore
@@ -1284,7 +1312,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       },
       onOpen: () => set({ netStatus: 'waiting' }),
       onClose: () => handlePeerGone(set, get, 'La connexion avec l’autre joueur a été perdue.'),
-      onError: () => set({ netStatus: 'error', netError: 'Erreur réseau (mise en relation impossible).' }),
+      onError: (err) => set({ netStatus: 'error', netError: describePeerError(err, 'host') }),
     }
     // .exe Tauri : relais LAN embarqué (jeu sur le même réseau, hors-ligne) —
     // `location.hostname` vaut `tauri.localhost`, d'où 127.0.0.1 + IP LAN affichée.
@@ -1316,7 +1344,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       onMessage: (msg) => session?.receive(msg),
       onOpen: () => set({ netStatus: 'waiting' }),
       onClose: () => handlePeerGone(set, get, 'La connexion avec l’hôte a été perdue.'),
-      onError: () => set({ netStatus: 'error', netError: 'Erreur réseau (hôte injoignable ?).' }),
+      onError: (err) => set({ netStatus: 'error', netError: describePeerError(err, 'guest') }),
     }
     // Même dualité que startHost : relais LAN en .exe Tauri, sinon canal P2P (code).
     if (isTauri()) {

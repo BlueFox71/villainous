@@ -184,7 +184,20 @@ export function connectPeer(role: 'host' | 'guest', opts: PeerConnectOpts): Conn
  * Charge PeerJS dynamiquement et renvoie une `PeerFactory` prête à l'emploi.
  * Séparé de connectPeer() pour rester injectable/testable sans réseau.
  */
+/** Serveurs ICE : STUN (découverte d'IP publique) + TURN public gratuit (relais quand
+ *  la connexion directe échoue — fréquent en « à distance » derrière des NAT symétriques,
+ *  ex. 4G/certaines box). Sans TURN, deux joueurs sur des réseaux restrictifs ne peuvent
+ *  jamais s'atteindre même si la mise en relation (broker) réussit. */
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+]
+
 export async function createPeerFactory(): Promise<PeerFactory> {
   const { Peer } = await import('peerjs')
-  return (id?: string) => new Peer(id as string) as unknown as PeerLike
+  const options = { config: { iceServers: ICE_SERVERS } }
+  return (id?: string) => new Peer(id as string, options) as unknown as PeerLike
 }

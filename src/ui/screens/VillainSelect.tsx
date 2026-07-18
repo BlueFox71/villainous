@@ -298,8 +298,10 @@ export function VillainSelect({ onStart, onBack }: Props) {
   const netLeftNotice = useGameStore((s) => s.netLeftNotice)
   const network = mode !== 'solo'
 
-  // Vilains PUBLIÉS (« Terminés » dans l'Atelier) : ils rejoignent la grille en SOLO.
-  // (Exclus en réseau : l'autre joueur ne possède pas ces vilains chez lui.)
+  // Vilains PUBLIÉS (« Terminés » dans l'Atelier) : ils rejoignent la grille en SOLO
+  // ET en RÉSEAU. Ils sont EMBARQUÉS dans le build (src/data/published + images sous
+  // public/cards/) et chargés au démarrage chez tout le monde : à version d'exe identique,
+  // les deux joueurs les possèdent, donc ils sont sélectionnables en 1v1 en ligne.
   const customLoaded = useCustomVillainStore((s) => s.loaded)
   const loadCustom = useCustomVillainStore((s) => s.load)
   const customVillains = useCustomVillainStore((s) => s.villains)
