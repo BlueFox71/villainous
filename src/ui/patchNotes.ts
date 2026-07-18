@@ -48,16 +48,15 @@ export interface PatchNote {
 export const PATCH_NOTES: PatchNote[] = [
   {
     version: '1.8.5',
-    date: '2026-07-18',
-    title: 'Atelier : images libres sur les cartes',
+    date: '2026-07-19',
+    title: 'Atelier : images libres + texte enrichi',
     tags: ['atelier'],
     changes: [
-      "Onglet **Cartes**, nouvelle section **Images** : on **importe une image** et on la **pose librement** sur la carte.",
-      "Elle se **déplace** et se **redimensionne** directement sur l'aperçu, comme les symboles.",
-      "Une **image** ou une **zone de texte** sélectionnée peut être **dupliquée** en un clic.",
+      "Onglet **Cartes**, nouvelle section **Images** : on **importe une image** et on la **pose librement** (déplacer, redimensionner au curseur ou par presets).",
+      "Le texte s'affiche désormais **déjà coloré** dans le champ — **aucune balise** visible : on sélectionne une partie (ou tout) et la **pipette** la colore aussitôt, **« Couleur par défaut »** l'enlève.",
       "Le texte peut être **aligné** (gauche/centre/droite) et sa **taille** choisie précisément (menu déroulant).",
-      "Nouvelle **couleur de texte** : colore une **partie** sélectionnée ou **tout** le texte.",
-      "L'image sélectionnée se **redimensionne** aussi au **curseur** (réglage fin).",
+      "Les **zones de texte** sont regroupées en **liste** (Zone 1, 2, …), chacune **duplicable**.",
+      "**Symboles d'action** et **Images** sont affichés **côte à côte**.",
     ],
   },
   {

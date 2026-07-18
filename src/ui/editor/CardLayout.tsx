@@ -9,7 +9,8 @@ import type { LocationActionType } from '../../engine/types'
 import { renderCardFace, ruleTextBlockHeight, isPreRenderedCard } from './cardRender'
 import { ACTION_TOKEN_LIST, ACTION_ICON_FILE, BOARD_ICON_DIR } from './actionIcons'
 import { readImageForStorage, loadImage } from './imageUtils'
-import { inputClass, Field } from './fields'
+import { RichTextInput, type RichTextApi } from './RichTextInput'
+import { inputClass } from './fields'
 import { useCustomTypesStore } from '../store/customTypesStore'
 
 const ASPECT = CARD_W / CARD_H
@@ -24,103 +25,20 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 /** Texte type d'une carte sans effet, en italique (`_…_`). */
 const NO_ABILITY_TEXT = '_Aucune capacité._'
 
-/** Insère `NO_ABILITY_TEXT` (en italique) à la position du curseur d'un textarea,
- *  en remplaçant la sélection éventuelle, puis replace le curseur juste après. */
-function insertNoAbility(ta: HTMLTextAreaElement | null, value: string, onChange: (v: string) => void) {
-  if (!ta) return
-  const start = ta.selectionStart ?? value.length
-  const end = ta.selectionEnd ?? value.length
-  const next = value.slice(0, start) + NO_ABILITY_TEXT + value.slice(end)
-  onChange(next)
-  requestAnimationFrame(() => {
-    ta.focus()
-    const p = start + NO_ABILITY_TEXT.length
-    ta.setSelectionRange(p, p)
-  })
-}
-
 /** Bouton « Aucune capacité » d'une barre d'outils de texte : insère la mention
- *  `_Aucune capacité._` (en italique) au curseur. */
+ *  `_Aucune capacité._` (en italique) au curseur du texte actif. `onMouseDown`
+ *  preventDefault : le champ enrichi garde le focus (la sélection reste valide). */
 function NoAbilityButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
+      onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
       title="Insérer « Aucune capacité. » en italique"
       className="rounded-lg border border-white/20 bg-white/5 px-2 py-1 text-xs font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200"
     >
       <em>I</em> Aucune capacité
     </button>
-  )
-}
-
-/** Retire tous les marqueurs de couleur `{c:#…}` / `{/c}` d'une chaîne. */
-const stripColorMarks = (s: string) => s.replace(/\{c:#[0-9a-fA-F]{3,8}\}|\{\/c\}/g, '')
-
-/** Applique une couleur au texte SÉLECTIONNÉ d'un textarea (ou à TOUT le texte si rien
- *  n'est sélectionné). Retire d'abord les marqueurs existants dans la cible pour éviter
- *  les imbrications (recoloration propre). */
-function colorizeSelection(ta: HTMLTextAreaElement | null, value: string, onChange: (v: string) => void, hex: string) {
-  const start = ta?.selectionStart ?? 0
-  const end = ta?.selectionEnd ?? 0
-  if (!ta || start === end) {
-    onChange(`{c:${hex}}${stripColorMarks(value)}{/c}`) // aucune sélection → couleur TOTALE
-    return
-  }
-  const inner = stripColorMarks(value.slice(start, end))
-  onChange(value.slice(0, start) + `{c:${hex}}` + inner + `{/c}` + value.slice(end))
-}
-
-/** Retire la couleur du texte sélectionné (ou de tout le texte si rien n'est sélectionné). */
-function decolorizeSelection(ta: HTMLTextAreaElement | null, value: string, onChange: (v: string) => void) {
-  const start = ta?.selectionStart ?? 0
-  const end = ta?.selectionEnd ?? 0
-  if (!ta || start === end) {
-    onChange(stripColorMarks(value))
-    return
-  }
-  onChange(value.slice(0, start) + stripColorMarks(value.slice(start, end)) + value.slice(end))
-}
-
-/** Barre de couleur de texte : pipette + « Colorer » (sélection, ou tout le texte si rien
- *  n'est sélectionné) + « Enlever ». Opère sur la sélection courante du textarea référencé. */
-function TextColorBar({
-  taRef,
-  value,
-  onChange,
-}: {
-  taRef: React.RefObject<HTMLTextAreaElement | null>
-  value: string
-  onChange: (v: string) => void
-}) {
-  const [hex, setHex] = useState('#c0392b')
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span className="text-[11px] text-white/40">Couleur :</span>
-      <input
-        type="color"
-        value={hex}
-        onChange={(e) => setHex(e.target.value)}
-        title="Couleur à appliquer"
-        className="h-7 w-9 cursor-pointer rounded border border-white/15 bg-transparent"
-      />
-      <button
-        type="button"
-        onClick={() => colorizeSelection(taRef.current, value, onChange, hex)}
-        title="Colorer la sélection (ou tout le texte si rien n'est sélectionné)"
-        className="rounded border border-amber-400/30 bg-amber-400/10 px-2 py-1 text-[11px] font-semibold text-amber-100 transition hover:bg-amber-400/20"
-      >
-        Colorer
-      </button>
-      <button
-        type="button"
-        onClick={() => decolorizeSelection(taRef.current, value, onChange)}
-        title="Retirer la couleur (sélection, ou tout le texte si rien n'est sélectionné)"
-        className="rounded border border-white/20 bg-white/5 px-2 py-1 text-[11px] font-semibold text-white/70 transition hover:border-amber-300/70 hover:text-amber-200"
-      >
-        Enlever
-      </button>
-    </div>
   )
 }
 
@@ -173,8 +91,12 @@ export function CardLayoutEditor({
   const [sel, setSel] = useState<Selection>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<DragState | null>(null)
-  const mainTextRef = useRef<HTMLTextAreaElement>(null)
   const imgFileRef = useRef<HTMLInputElement>(null)
+  // Éditeur de texte enrichi ACTIF (texte principal ou zone) : cible de la barre
+  // d'outils partagée (jetons, couleur). Mis à jour au focus de chaque champ.
+  const activeRich = useRef<RichTextApi | null>(null)
+  // Dernière couleur choisie à la pipette (partagée par tous les textes).
+  const [textColor, setTextColor] = useState('#c0392b')
   const customTypes = useCustomTypesStore((s) => s.types)
   const wordColors = [...customTypes, ...keywordColors]
 
@@ -516,110 +438,148 @@ export function CardLayoutEditor({
 
         <section className="flex flex-col gap-2">
           <SectionTitle>Texte</SectionTitle>
-          <Field
-            label="Texte de la carte"
-            action={<NoAbilityButton onClick={() => insertNoAbility(mainTextRef.current, card.text, (text) => onChange({ ...card, text }))} />}
-          >
-            <textarea
-              ref={mainTextRef}
-              className={`${inputClass} min-h-[5rem] resize-y`}
+          {/* Texte principal : champ ENRICHI (texte déjà coloré, aucune balise visible). */}
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-semibold uppercase tracking-wide text-white/50">Texte de la carte</span>
+            <RichTextInput
               value={card.text}
+              onChange={(text) => onChange({ ...card, text })}
+              onActivate={(api) => (activeRich.current = api)}
+              onFocus={() => setSel({ kind: 'text' })}
               placeholder="Décris l’effet de la carte ici. Le comportement sera codé au moment du test."
-              onChange={(e) => onChange({ ...card, text: e.target.value })}
             />
-          </Field>
+          </div>
 
-      {/* Barre d'alignement + tailles : agit sur la zone sélectionnée, sinon le texte principal. */}
-      {(card.text.trim() || activeBox) && (
-        <div className="flex flex-col gap-1.5 rounded-lg border border-white/10 bg-black/20 p-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-white/50">
-            {activeBox ? 'Zone de texte sélectionnée' : 'Texte principal'}
-          </span>
-          <div className="flex flex-wrap items-center gap-1.5">
+      {/* Barre d'outils du texte ACTIF (principal ou zone focalisée) : jetons + couleur,
+          puis alignement / centrage / taille. */}
+      <div className="flex flex-col gap-1.5 rounded-lg border border-white/10 bg-black/20 p-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-white/50">
+          {activeBox ? 'Zone de texte sélectionnée' : 'Texte principal'}
+        </span>
+
+        {/* Jetons d'action + « Aucune capacité » — insérés au curseur du texte actif. */}
+        <div className="flex flex-wrap items-center gap-1">
+          <NoAbilityButton onClick={() => activeRich.current?.insertText(NO_ABILITY_TEXT)} />
+          {ACTION_TOKEN_LIST.map((a) => (
             <button
+              key={a.token}
               type="button"
-              onClick={() => setActiveText({ x: 50 })}
-              title="Centrer horizontalement (bloc au milieu de la carte)"
-              className="rounded-lg border border-white/20 bg-white/5 px-2 py-1 text-xs font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => activeRich.current?.insertText(`[${a.token}]`)}
+              title={`Insérer [${a.token}]`}
+              className="flex items-center gap-1 rounded border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[11px] text-amber-100 transition hover:bg-amber-400/20"
             >
-              ⇔ Centrer H
+              {ACTION_ICON_FILE[a.type] && (
+                <img src={`${BOARD_ICON_DIR}/${ACTION_ICON_FILE[a.type]}`} alt="" className="h-4 w-4 shrink-0 object-contain" />
+              )}
+              {a.label}
             </button>
-            <button
-              type="button"
-              onClick={() => setActiveText({ y: 75 })}
-              title="Centrer verticalement dans le panneau de texte (bas de la carte)"
-              className="rounded-lg border border-white/20 bg-white/5 px-2 py-1 text-xs font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200"
-            >
-              ⇕ Centrer V
-            </button>
-          </div>
-          {/* Alignement des lignes DANS le bloc (gauche / centre / droite). */}
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-[11px] text-white/40">Alignement :</span>
-            {([
-              { label: 'Gauche', value: 'left' },
-              { label: 'Centre', value: 'center' },
-              { label: 'Droite', value: 'right' },
-            ] as const).map((a) => (
-              <label key={a.value} className="flex cursor-pointer items-center gap-1 text-xs text-white/80">
-                <input
-                  type="radio"
-                  name="text-align"
-                  checked={(activeText.align ?? 'center') === a.value}
-                  onChange={() => setActiveText({ align: a.value })}
-                  className="accent-amber-400"
-                />
-                {a.label}
-              </label>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] text-white/40">Taille :</span>
-            {([
-              { label: 'Petit', size: TEXT_SIZE_PRESETS.small },
-              { label: 'Standard', size: TEXT_SIZE_PRESETS.standard },
-            ] as const).map((s) => (
-              <button
-                key={s.label}
-                type="button"
-                onClick={() => setActiveText({ size: s.size })}
-                className={`rounded-lg border px-2 py-1 text-xs font-semibold transition ${
-                  activeText.size === s.size
-                    ? 'border-amber-400 bg-amber-400/20 text-amber-100'
-                    : 'border-white/20 bg-white/5 text-white/80 hover:border-amber-300/70 hover:text-amber-200'
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
-            {/* Select de la taille exacte (contient la valeur courante). */}
-            <select
-              value={Math.round(activeText.size)}
-              onChange={(e) => setActiveText({ size: Number(e.target.value) })}
-              title="Taille exacte du texte"
-              className={`${inputClass} px-2 py-1 text-xs`}
-            >
-              {Array.from(
-                new Set([...Array.from({ length: 21 }, (_, i) => 20 + i * 5), Math.round(activeText.size)]),
-              )
-                .sort((a, b) => a - b)
-                .map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-            </select>
-          </div>
+          ))}
         </div>
-      )}
 
-      {/* Couleur du texte principal (sélection partielle ou tout le texte). */}
-      {card.text.trim() && (
-        <TextColorBar taRef={mainTextRef} value={card.text} onChange={(text) => onChange({ ...card, text })} />
-      )}
+        {/* Couleur du texte : la pipette colore AUSSITÔT la sélection (ou tout le texte). */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] text-white/40">Couleur :</span>
+          <input
+            type="color"
+            value={textColor}
+            onChange={(e) => {
+              setTextColor(e.target.value)
+              activeRich.current?.applyColor(e.target.value)
+            }}
+            title="Colorer la sélection (ou tout le texte si rien n'est sélectionné)"
+            className="h-7 w-9 cursor-pointer rounded border border-white/15 bg-transparent"
+          />
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => activeRich.current?.resetColor()}
+            className="rounded border border-white/20 bg-white/5 px-2 py-1 text-[11px] font-semibold text-white/70 transition hover:border-amber-300/70 hover:text-amber-200"
+          >
+            Couleur par défaut
+          </button>
+        </div>
 
-      {/* Zones de texte : ajouter + éditer le contenu de la zone sélectionnée */}
-      <div className="flex flex-col gap-1">
+        {/* Centrage du bloc sur la carte. */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setActiveText({ x: 50 })}
+            title="Centrer horizontalement (bloc au milieu de la carte)"
+            className="rounded-lg border border-white/20 bg-white/5 px-2 py-1 text-xs font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200"
+          >
+            ⇔ Centrer H
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveText({ y: 75 })}
+            title="Centrer verticalement dans le panneau de texte (bas de la carte)"
+            className="rounded-lg border border-white/20 bg-white/5 px-2 py-1 text-xs font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200"
+          >
+            ⇕ Centrer V
+          </button>
+        </div>
+        {/* Alignement des lignes DANS le bloc (gauche / centre / droite). */}
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-[11px] text-white/40">Alignement :</span>
+          {([
+            { label: 'Gauche', value: 'left' },
+            { label: 'Centre', value: 'center' },
+            { label: 'Droite', value: 'right' },
+          ] as const).map((a) => (
+            <label key={a.value} className="flex cursor-pointer items-center gap-1 text-xs text-white/80">
+              <input
+                type="radio"
+                name="text-align"
+                checked={(activeText.align ?? 'center') === a.value}
+                onChange={() => setActiveText({ align: a.value })}
+                className="accent-amber-400"
+              />
+              {a.label}
+            </label>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] text-white/40">Taille :</span>
+          {([
+            { label: 'Petit', size: TEXT_SIZE_PRESETS.small },
+            { label: 'Standard', size: TEXT_SIZE_PRESETS.standard },
+          ] as const).map((s) => (
+            <button
+              key={s.label}
+              type="button"
+              onClick={() => setActiveText({ size: s.size })}
+              className={`rounded-lg border px-2 py-1 text-xs font-semibold transition ${
+                activeText.size === s.size
+                  ? 'border-amber-400 bg-amber-400/20 text-amber-100'
+                  : 'border-white/20 bg-white/5 text-white/80 hover:border-amber-300/70 hover:text-amber-200'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+          {/* Select de la taille exacte (contient la valeur courante). */}
+          <select
+            value={Math.round(activeText.size)}
+            onChange={(e) => setActiveText({ size: Number(e.target.value) })}
+            title="Taille exacte du texte"
+            className={`${inputClass} px-2 py-1 text-xs`}
+          >
+            {Array.from(
+              new Set([...Array.from({ length: 21 }, (_, i) => 20 + i * 5), Math.round(activeText.size)]),
+            )
+              .sort((a, b) => a - b)
+              .map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Zones de texte SUPPLÉMENTAIRES : liste — chaque ligne = « Zone N » + son champ. */}
+      <div className="flex flex-col gap-1.5">
         <button
           type="button"
           onClick={addBox}
@@ -627,24 +587,47 @@ export function CardLayoutEditor({
         >
           + Ajouter une zone de texte
         </button>
-        {sel?.kind === 'box' &&
-          (() => {
-            const box = card.textBoxes?.find((b) => b.id === sel.id)
-            if (!box) return null
-            return (
-              <BoxTextEditor
-                key={box.id}
-                value={box.text}
-                onChange={(text) => setBox(box.id, { text })}
-                onDuplicate={() => dupBox(box.id)}
-                onDelete={() => removeBox(box.id)}
-              />
-            )
-          })()}
+        {(card.textBoxes ?? []).map((box, i) => (
+          <div
+            key={box.id}
+            className={`flex flex-col gap-1 rounded-lg border bg-sky-400/5 p-2 ${
+              sel?.kind === 'box' && sel.id === box.id ? 'border-sky-300/60' : 'border-sky-400/20'
+            }`}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-sky-200/70">Zone {i + 1}</span>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => dupBox(box.id)}
+                  className="text-[11px] text-sky-200/80 underline transition hover:text-sky-100"
+                >
+                  Dupliquer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeBox(box.id)}
+                  className="text-[11px] text-rose-300/80 underline transition hover:text-rose-200"
+                >
+                  Supprimer
+                </button>
+              </div>
+            </div>
+            <RichTextInput
+              value={box.text}
+              onChange={(text) => setBox(box.id, { text })}
+              onActivate={(api) => (activeRich.current = api)}
+              onFocus={() => setSel({ kind: 'box', id: box.id })}
+              minHeightClass="min-h-[3.5rem]"
+            />
+          </div>
+        ))}
       </div>
 
         </section>
 
+        {/* Symboles d'action + Images : côte à côte (2 colonnes) sur écran large. */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <section className="flex flex-col gap-2">
           <SectionTitle>Symboles d’action</SectionTitle>
       {/* Barre : poser un symbole d'action */}
@@ -840,92 +823,7 @@ export function CardLayoutEditor({
           })()}
       </div>
         </section>
-      </div>
-    </div>
-  )
-}
-
-/** Édition du contenu d'une zone de texte sélectionnée : textarea + insertion de
- *  jetons d'action au curseur + suppression. */
-function BoxTextEditor({
-  value,
-  onChange,
-  onDuplicate,
-  onDelete,
-}: {
-  value: string
-  onChange: (v: string) => void
-  onDuplicate: () => void
-  onDelete: () => void
-}) {
-  const ref = useRef<HTMLTextAreaElement>(null)
-  // État LOCAL : la frappe reste instantanée même si le rendu de la carte (coûteux)
-  // se met à jour avec un léger retard. Le composant est remonté (via `key`) quand on
-  // change de zone, ce qui réinitialise `draft` à la bonne valeur.
-  const [draft, setDraft] = useState(value)
-  const update = (v: string) => {
-    setDraft(v)
-    onChange(v)
-  }
-  const insert = (token: string) => {
-    const ins = `[${token}]`
-    const ta = ref.current
-    if (!ta) {
-      update(draft + ins)
-      return
-    }
-    const start = ta.selectionStart ?? draft.length
-    const end = ta.selectionEnd ?? draft.length
-    update(draft.slice(0, start) + ins + draft.slice(end))
-    requestAnimationFrame(() => {
-      ta.focus()
-      const p = start + ins.length
-      ta.setSelectionRange(p, p)
-    })
-  }
-  return (
-    <div className="mt-1 flex flex-col gap-1 rounded-lg border border-sky-400/20 bg-sky-400/5 p-2">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-sky-200/70">Zone de texte sélectionnée</span>
-      <textarea
-        ref={ref}
-        className={`${inputClass} min-h-[3.5rem] resize-y`}
-        value={draft}
-        onChange={(e) => update(e.target.value)}
-      />
-      <div className="flex flex-wrap items-center gap-1">
-        <NoAbilityButton onClick={() => insertNoAbility(ref.current, draft, update)} />
-        {ACTION_TOKEN_LIST.map((a) => (
-          <button
-            key={a.token}
-            type="button"
-            onClick={() => insert(a.token)}
-            title={`Insérer [${a.token}]`}
-            className="flex items-center gap-1 rounded border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[11px] text-amber-100 transition hover:bg-amber-400/20"
-          >
-            {ACTION_ICON_FILE[a.type] && (
-              <img src={`${BOARD_ICON_DIR}/${ACTION_ICON_FILE[a.type]}`} alt="" className="h-4 w-4 shrink-0 object-contain" />
-            )}
-            {a.label}
-          </button>
-        ))}
-      </div>
-      {/* Couleur du texte de la zone (sélection partielle ou tout). */}
-      <TextColorBar taRef={ref} value={draft} onChange={update} />
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={onDuplicate}
-          className="text-[11px] text-sky-200/80 underline transition hover:text-sky-100"
-        >
-          Dupliquer cette zone de texte
-        </button>
-        <button
-          type="button"
-          onClick={onDelete}
-          className="text-[11px] text-rose-300/80 underline transition hover:text-rose-200"
-        >
-          Supprimer cette zone de texte
-        </button>
+        </div>
       </div>
     </div>
   )
