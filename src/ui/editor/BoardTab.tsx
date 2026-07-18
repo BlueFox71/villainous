@@ -271,8 +271,10 @@ function LocationEditor({
         <ActionsEditor actions={loc.actions} onChange={(actions) => onChange({ ...loc, actions })} />
       )}
 
-      {/* Face B (lieu transformable) : nom / image / actions alternatifs. Non éditable en variante. */}
-      {!variant && loc.alt && (
+      {/* Face B (lieu transformable) : nom / image / actions alternatifs. En VARIANTE, la face B
+          est héritée de la base (présente dès que `loc.alt` existe) et seule sa PRÉSENTATION
+          (nom + image + cadrage) est éditable — les actions viennent de la base. */}
+      {loc.alt && (
         <div className="flex flex-col gap-3 rounded-lg border border-sky-400/30 bg-sky-400/5 p-3">
           <span className="text-xs font-semibold uppercase tracking-wide text-sky-200/80">
             Face B (transformation)
@@ -295,7 +297,9 @@ function LocationEditor({
               onChange: (imagePos) => setAlt({ imagePos }),
             }}
           />
-          <ActionsEditor actions={loc.alt.actions ?? []} onChange={(actions) => setAlt({ actions })} />
+          {!variant && (
+            <ActionsEditor actions={loc.alt.actions ?? []} onChange={(actions) => setAlt({ actions })} />
+          )}
         </div>
       )}
     </div>
@@ -456,8 +460,15 @@ function BoardPreview({
           src={v.pawnImage}
           alt="Pion"
           title="Pion (aperçu de placement)"
-          className="pointer-events-none absolute w-auto -translate-x-1/2 -translate-y-1/2 drop-shadow-[0_2px_3px_rgba(0,0,0,0.6)]"
-          style={{ left: `${PAWN_FIRST_LEFT}%`, top: `${PAWN_TOP}%`, height: `${pawnPct}%` }}
+          className="pointer-events-none absolute w-auto -translate-x-1/2 -translate-y-1/2"
+          // Halo lumineux doux (contour blanc flou), comme le pion en jeu (cf. BoardImage) :
+          // on voit ainsi la « lumière » derrière le pion, pas seulement une ombre sombre.
+          style={{
+            left: `${PAWN_FIRST_LEFT}%`,
+            top: `${PAWN_TOP}%`,
+            height: `${pawnPct}%`,
+            filter: 'drop-shadow(0 0 1px #ffffff) drop-shadow(0 0 2.5px #ffffff)',
+          }}
         />
       )}
       {/* Mode recouvrement : voile sur la rangée du HAUT des 4 lieux (EXACTEMENT la

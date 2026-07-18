@@ -315,6 +315,57 @@ function ExtraBackSection({
   )
 }
 
+// --- Portrait combiné base + variante (liste) -------------------------------
+
+/** Portrait « partagé » d'une base et de sa variante liée, coupé en diagonale
+ *  (base en haut-gauche, variante en bas-droite) avec un fin trait séparateur.
+ *  Utilisé dans la liste de l'Atelier pour représenter le couple en une seule carte. */
+function SplitPortrait({ base, variant }: { base: CustomVillain; variant: CustomVillain }) {
+  // Moitié survolée : au survol, on affiche l'image COMPLÈTE de ce côté (le triangle
+  // survolé s'étend à tout le carré) ; sinon les deux moitiés diagonales cohabitent.
+  const [hover, setHover] = useState<null | 'base' | 'variant'>(null)
+  // Côté visé d'après la position de la souris, de part et d'autre de la diagonale « / »
+  // (coin haut-droit ↔ coin bas-gauche = ligne x + y = 1). base = triangle haut-gauche.
+  const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    const x = (e.clientX - r.left) / r.width
+    const y = (e.clientY - r.top) / r.height
+    setHover(x + y < 1 ? 'base' : 'variant')
+  }
+  // Découpe de chaque moitié : triangle par défaut, carré plein pour la moitié survolée
+  // (l'autre est réduite à néant pour laisser voir l'image complète).
+  const EMPTY = 'polygon(0 0, 0 0, 0 0)'
+  const FULL = 'polygon(0 0, 100% 0, 100% 100%, 0 100%)'
+  const baseClip = hover === 'base' ? FULL : hover === 'variant' ? EMPTY : 'polygon(0 0, 100% 0, 0 100%)'
+  const variantClip = hover === 'variant' ? FULL : hover === 'base' ? EMPTY : 'polygon(100% 0, 100% 100%, 0 100%)'
+  const half = (v: CustomVillain, clip: string) =>
+    v.portrait ? (
+      <img src={v.portrait} alt={v.name} className="absolute inset-0 h-full w-full object-cover" style={{ clipPath: clip }} />
+    ) : (
+      <div
+        className="absolute inset-0 flex items-center justify-center text-4xl text-white/30"
+        style={{ clipPath: clip, backgroundColor: v.color }}
+      >
+        🎭
+      </div>
+    )
+  return (
+    <div
+      className="relative aspect-square w-full overflow-hidden"
+      style={{ backgroundColor: base.color }}
+      onMouseMove={onMove}
+      onMouseLeave={() => setHover(null)}
+    >
+      {half(base, baseClip)}
+      {half(variant, variantClip)}
+      {/* Trait séparateur diagonal (coin haut-droit ↔ coin bas-gauche), masqué au survol. */}
+      {hover === null && (
+        <div className="pointer-events-none absolute left-1/2 top-1/2 h-px w-[142%] -translate-x-1/2 -translate-y-1/2 -rotate-45 bg-white/40" />
+      )}
+    </div>
+  )
+}
+
 // --- Modale de publication (« Terminer ») -----------------------------------
 
 /** Demande le nom du créateur et l'origine (Disney / Collaboration) avant de
@@ -438,6 +489,9 @@ export function VillainEditor({ onBack, onPlay, openVillainId }: Props) {
   // Modale de DÉPUBLICATION : vilain visé (null = fermée) + indicateur d'opération en cours.
   const [unpublishTarget, setUnpublishTarget] = useState<CustomVillain | null>(null)
   const [unpublishBusy, setUnpublishBusy] = useState(false)
+  // Modale de SUPPRESSION DE VARIANTE (depuis l'onglet Identité) : variante visée + busy.
+  const [deleteVariantTarget, setDeleteVariantTarget] = useState<CustomVillain | null>(null)
+  const [deleteVariantBusy, setDeleteVariantBusy] = useState(false)
   // Éditeur de portrait (cadre doré + nom) pour le portrait carré du vilain perso.
   const [portraitFrameOpen, setPortraitFrameOpen] = useState(false)
   const excelRef = useRef<HTMLInputElement>(null)
@@ -522,6 +576,40 @@ export function VillainEditor({ onBack, onPlay, openVillainId }: Props) {
   const variantBase = draft?.variantOf ? villains.find((x) => x.id === draft.variantOf) : undefined
   const isVariant = !!draft?.variantOf
   const syncState = draft ? variantSyncState(draft, variantBase) : 'independent'
+  // Variante liée d'un vilain de BASE en cours d'édition (une base = au plus une variante).
+  const linkedVariant = draft && !draft.variantOf ? villains.find((x) => x.variantOf === draft.id) : undefined
+
+  /** Bascule l'édition vers un autre vilain (base ↔ variante). Prévient la perte de
+   *  modifications non enregistrées. */
+  const trySwitchTo = (v: CustomVillain) => {
+    if (busy) return
+    if (dirty && !confirm('Des modifications ne sont pas enregistrées. Changer de vilain les abandonnera. Continuer ?')) return
+    startEdit(v)
+  }
+
+  /** Supprime une variante liée (dépublie d'abord si besoin) puis ferme la modale. */
+  const doDeleteVariant = async (v: CustomVillain) => {
+    if (deleteVariantBusy) return
+    setDeleteVariantBusy(true)
+    try {
+      if (v.published) await unpublish(v.id)
+      await remove(v.id)
+      setDeleteVariantTarget(null)
+    } finally {
+      setDeleteVariantBusy(false)
+    }
+  }
+
+  /** Supprime un vilain de BASE et, le cas échéant, sa variante liée (en cascade), pour
+   *  ne pas laisser une variante orpheline. Dépublie ce qui est publié avant de retirer. */
+  const removeWithVariant = async (base: CustomVillain) => {
+    const variant = villains.find((x) => x.variantOf === base.id)
+    if (variant) {
+      if (variant.published) await unpublish(variant.id)
+      await remove(variant.id)
+    }
+    await remove(base.id)
+  }
 
   /** Crée une variante liée d'un vilain (skin) : demande un nom, la crée/persiste puis
    *  l'ouvre directement en édition. */
@@ -853,6 +941,19 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
               </span>
             )}
 
+            {/* Base ayant une variante liée : basculer vers la variante (skin). */}
+            {!isVariant && linkedVariant && (
+              <button
+                type="button"
+                onClick={() => trySwitchTo(linkedVariant)}
+                disabled={busy}
+                title={`Basculer vers la variante « ${linkedVariant.name} » (même règles, présentation différente).`}
+                className="rounded-lg border border-sky-400/50 bg-sky-400/10 px-3 py-1.5 text-sm font-semibold text-sky-200 transition hover:bg-sky-400/20 disabled:opacity-40"
+              >
+                🎭 Voir {linkedVariant.name} (variante)
+              </button>
+            )}
+
             {/* VARIANTE LIÉE : rappel de la base + resynchronisation (recompose depuis la base
                 + re-bake à la couleur de la variante). Mis en avant quand la base a évolué. */}
             {isVariant && (
@@ -867,6 +968,17 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
                 >
                   🎭 {variantBase ? `Variante de ${variantBase.name}` : 'Variante (base absente)'}
                 </span>
+                {/* Basculer vers la BASE (édition du vilain d'origine). */}
+                {variantBase && (
+                  <button
+                    type="button"
+                    onClick={() => trySwitchTo(variantBase)}
+                    disabled={busy}
+                    className="rounded-lg border border-white/20 bg-white/5 px-2.5 py-1 text-xs font-semibold text-white/80 transition hover:border-sky-300/70 hover:text-sky-200 disabled:opacity-40"
+                  >
+                    Voir {variantBase.name}
+                  </button>
+                )}
                 <Tooltip
                   label={
                     !variantBase
@@ -1061,100 +1173,115 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
             ) : (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                 {/* Les vilains FOURNIS DIRECTEMENT (atelierHidden, ex. Ultron) se jouent comme
-                    des natifs mais ne sont pas éditables dans l'Atelier : on les masque ici. */}
-                {villains.filter((v) => !v.atelierHidden).map((v) => (
-                  <div
-                    key={v.id}
-                    className="group flex flex-col overflow-hidden rounded-xl border border-white/15 bg-black/30"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => startEdit(v)}
-                      className="relative aspect-square w-full overflow-hidden"
-                      style={{ backgroundColor: v.color }}
-                    >
-                      {v.portrait ? (
-                        <img src={v.portrait} alt={v.name} className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-4xl text-white/30">
-                          🎭
-                        </div>
-                      )}
-                    </button>
-                    <div className="flex flex-1 flex-col gap-1 p-3">
-                      <span className="truncate font-semibold">{v.name}</span>
-                      <span className="text-xs text-white/40">
-                        {'★'.repeat(v.stars)} · {v.cards.length} cartes · {v.locations.length} lieux
-                      </span>
-                      {v.variantOf && (() => {
-                        const base = villains.find((x) => x.id === v.variantOf)
-                        const state = variantSyncState(v, base)
-                        return (
-                          <span
-                            className="truncate text-[10px] font-semibold text-sky-300/80"
-                            title={base ? `Variante liée de « ${base.name} »` : 'Variante liée (base introuvable)'}
-                          >
-                            🎭 Variante{base ? ` de ${base.name}` : ''}
-                            {state === 'stale' && <span className="text-amber-300"> · ⟳ à resynchroniser</span>}
-                            {state === 'orphan' && <span className="text-rose-300"> · base absente</span>}
-                          </span>
-                        )
-                      })()}
-                      {v.published ? (
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300/80">
-                          ✓ Publié
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-white/40">
-                          Non publié
-                        </span>
-                      )}
-                      <div className="mt-2 flex gap-2">
+                    des natifs mais ne sont pas éditables dans l'Atelier : on les masque ici.
+                    Une BASE et sa VARIANTE liée sont fusionnées en une seule carte (portrait
+                    partagé en diagonale) ; on n'itère donc que sur les « bases » (+ variantes
+                    orphelines dont la base a disparu). */}
+                {(() => {
+                  const shown = villains.filter((v) => !v.atelierHidden)
+                  const ids = new Set(shown.map((v) => v.id))
+                  const primaries = shown.filter((v) => !v.variantOf || !ids.has(v.variantOf))
+                  return primaries.map((base) => {
+                    // Variante liée greffée sur la carte de sa base (au plus une par base).
+                    const variant = base.variantOf ? undefined : shown.find((x) => x.variantOf === base.id)
+                    const state = variant ? variantSyncState(variant, base) : 'independent'
+                    return (
+                      <div
+                        key={base.id}
+                        className="group flex flex-col overflow-hidden rounded-xl border border-white/15 bg-black/30"
+                      >
                         <button
                           type="button"
-                          onClick={() => startEdit(v)}
-                          className="flex-1 rounded-lg border border-white/15 bg-white/5 py-1 text-xs font-semibold text-white/70 transition hover:text-amber-200"
+                          onClick={() => startEdit(base)}
+                          className="relative aspect-square w-full overflow-hidden"
+                          style={{ backgroundColor: base.color }}
                         >
-                          Éditer
+                          {variant ? (
+                            <SplitPortrait base={base} variant={variant} />
+                          ) : base.portrait ? (
+                            <img src={base.portrait} alt={base.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-4xl text-white/30">
+                              🎭
+                            </div>
+                          )}
                         </button>
-                        {/* Créer une VARIANTE liée (skin) — seulement depuis une base (pas une
-                            variante, pour éviter les chaînes variante-de-variante). */}
-                        {!v.variantOf && (
-                          <button
-                            type="button"
-                            onClick={() => void onCreateVariant(v)}
-                            disabled={busy}
-                            title="Créer une variante liée (skin) : même mécaniques, présentation différente (couleur, nom, portrait, lieux, cartes re-illustrées)"
-                            className="rounded-lg border border-sky-400/40 bg-sky-400/10 px-2 py-1 text-xs font-semibold text-sky-200 transition hover:bg-sky-400/20 disabled:opacity-40"
-                          >
-                            🎭 Variante
-                          </button>
-                        )}
-                        {v.published ? (
-                          // Vilain publié : bouton DÉPUBLIER (retire du jeu + de la liste).
-                          <button
-                            type="button"
-                            onClick={() => setUnpublishTarget(v)}
-                            title="Dépublier ce vilain (le retirer du jeu et de la liste des vilains)"
-                            className="rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-xs text-white/50 transition hover:border-red-400/60 hover:text-red-300"
-                          >
-                            ✕
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (confirm(`Supprimer « ${v.name} » ?`)) void remove(v.id)
-                            }}
-                            className="rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-xs text-white/50 transition hover:border-red-400/60 hover:text-red-300"
-                          >
-                            🗑
-                          </button>
-                        )}
+                        <div className="flex flex-1 flex-col gap-1 p-3">
+                          <span className="truncate font-semibold">
+                            {variant ? `${base.name} / ${variant.name}` : base.name}
+                          </span>
+                          <span className="text-xs text-white/40">
+                            {'★'.repeat(base.stars)} · {base.cards.length} cartes · {base.locations.length} lieux
+                          </span>
+                          {/* Variante ORPHELINE (base disparue) : signalée sur sa propre carte. */}
+                          {base.variantOf && (
+                            <span
+                              className="truncate text-[10px] font-semibold text-sky-300/80"
+                              title="Variante liée (base introuvable)"
+                            >
+                              🎭 Variante · <span className="text-rose-300">base absente</span>
+                            </span>
+                          )}
+                          {/* Statut de publication : base + variante (le cas échéant). */}
+                          {variant ? (
+                            <span className="flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                              <span className={base.published ? 'text-emerald-300/80' : 'text-white/40'}>
+                                {base.name} : {base.published ? 'publié' : 'non publié'}
+                              </span>
+                              <span className={variant.published ? 'text-emerald-300/80' : 'text-white/40'}>
+                                {variant.name} : {variant.published ? 'publié' : 'non publié'}
+                              </span>
+                              {state === 'stale' && (
+                                <span className="text-amber-300 normal-case">⟳ variante à resynchroniser</span>
+                              )}
+                            </span>
+                          ) : base.published ? (
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300/80">
+                              ✓ Publié
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-white/40">
+                              Non publié
+                            </span>
+                          )}
+                          <div className="mt-2 flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startEdit(base)}
+                              className="flex-1 rounded-lg border border-white/15 bg-white/5 py-1 text-xs font-semibold text-white/70 transition hover:text-amber-200"
+                            >
+                              Éditer
+                            </button>
+                            {base.published ? (
+                              // Vilain publié : bouton DÉPUBLIER (retire du jeu + de la liste).
+                              <button
+                                type="button"
+                                onClick={() => setUnpublishTarget(base)}
+                                title="Dépublier ce vilain (le retirer du jeu et de la liste des vilains)"
+                                className="rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-xs text-white/50 transition hover:border-red-400/60 hover:text-red-300"
+                              >
+                                ✕
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const msg = variant
+                                    ? `Supprimer « ${base.name} » et sa variante « ${variant.name} » ?`
+                                    : `Supprimer « ${base.name} » ?`
+                                  if (confirm(msg)) void (variant ? removeWithVariant(base) : remove(base.id))
+                                }}
+                                className="rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-xs text-white/50 transition hover:border-red-400/60 hover:text-red-300"
+                              >
+                                🗑
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    )
+                  })
+                })()}
               </div>
             )}
           </div>
@@ -1211,6 +1338,53 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
               {tab === 'identity' && (
                 <div className="flex flex-col gap-8">
                   <IdentityTab draft={draft} patch={patch} variant={isVariant} onFramePortrait={() => setPortraitFrameOpen(true)} />
+                  {/* Section VARIANTE : sur une base → créer / voir + supprimer sa variante liée ;
+                      sur une variante → rappel de la base d'origine. */}
+                  {isVariant ? (
+                    <div className="flex flex-col gap-1 rounded-xl border border-sky-400/30 bg-sky-400/5 p-4">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-sky-200/70">Variante liée</span>
+                      <span className="text-sm text-white/80">
+                        Variante de{' '}
+                        {variantBase ? (
+                          <strong className="text-sky-200">{variantBase.name}</strong>
+                        ) : (
+                          <em className="text-rose-300/80">base introuvable</em>
+                        )}
+                        {' '}— les règles et le deck viennent de la base.
+                      </span>
+                    </div>
+                  ) : linkedVariant ? (
+                    <div className="flex flex-col items-start gap-1 rounded-xl border border-sky-400/30 bg-sky-400/5 p-4">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-sky-200/70">Variante</span>
+                      <span className="text-sm text-white/80">
+                        Variant : <strong className="text-sky-200">{linkedVariant.name}</strong>
+                      </span>
+                      {/* Bouton discret de suppression, juste sous le texte (pop-up de confirmation). */}
+                      <button
+                        type="button"
+                        onClick={() => setDeleteVariantTarget(linkedVariant)}
+                        className="text-[11px] text-white/35 underline-offset-2 transition hover:text-red-300 hover:underline"
+                      >
+                        Supprimer le variant
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-start gap-2 rounded-xl border border-white/10 bg-black/20 p-4">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-white/50">Variante</span>
+                      <p className="max-w-lg text-xs text-white/45">
+                        Crée une 2ᵉ version de ce vilain (un « skin ») : mêmes règles et deck, mais
+                        présentation propre (couleur, nom, portrait, lieux et cartes re-illustrées).
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => void onCreateVariant(draft)}
+                        disabled={busy}
+                        className="rounded-lg border border-sky-400/40 bg-sky-400/10 px-3 py-1.5 text-sm font-semibold text-sky-200 transition hover:bg-sky-400/20 disabled:opacity-40"
+                      >
+                        🎭 Créer un variant
+                      </button>
+                    </div>
+                  )}
                   {/* Dos des cartes : propres à la variante (couleur + ornements surchargés). */}
                   <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-black/20 p-4">
                     <span className="text-xs font-semibold uppercase tracking-wide text-white/50">
@@ -1248,7 +1422,7 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
               {tab === 'cards' && (
                 <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_23rem]">
                   <div className="min-w-0">
-                    <CardsTab draft={draft} patch={patch} variant={isVariant} />
+                    <CardsTab draft={draft} patch={patch} variant={isVariant} base={variantBase} />
                   </div>
                   <div className="xl:sticky xl:top-0 xl:max-h-[calc(100vh-9rem)] xl:overflow-y-auto">
                     <AllCardsPanel excludeId={draft.id} />
@@ -1348,6 +1522,44 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
                 className="rounded-lg border border-red-400/60 bg-red-500/20 px-4 py-1.5 text-sm font-bold text-red-100 transition hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {unpublishBusy ? '⏳…' : 'Oui, dépublier'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modale : suppression d'une VARIANTE liée (depuis l'onglet Identité de sa base). */}
+      {deleteVariantTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => !deleteVariantBusy && setDeleteVariantTarget(null)}
+        >
+          <div
+            className="flex w-full max-w-sm flex-col gap-4 rounded-2xl border border-white/15 bg-[#1a1620] p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-bold text-amber-200">Supprimer le variant</h2>
+            <p className="text-sm text-white/70">
+              Souhaitez-vous supprimer la variante « <strong>{deleteVariantTarget.name}</strong> » ?
+              {deleteVariantTarget.published && ' Elle sera d’abord dépubliée (retirée du jeu).'} Cette
+              action est définitive ; le vilain de base n’est pas affecté.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={deleteVariantBusy}
+                onClick={() => setDeleteVariantTarget(null)}
+                className="rounded-lg border border-white/20 bg-white/5 px-4 py-1.5 text-sm font-semibold text-white/80 transition hover:bg-white/10 disabled:opacity-50"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                disabled={deleteVariantBusy}
+                onClick={() => void doDeleteVariant(deleteVariantTarget)}
+                className="rounded-lg border border-red-400/60 bg-red-500/20 px-4 py-1.5 text-sm font-bold text-red-100 transition hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {deleteVariantBusy ? '⏳…' : 'Oui, supprimer'}
               </button>
             </div>
           </div>

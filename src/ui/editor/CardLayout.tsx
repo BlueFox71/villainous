@@ -78,6 +78,7 @@ export function CardLayoutEditor({
   keywordColors = [],
   onChange,
   illustration,
+  belowPreview,
 }: {
   card: CustomCard
   color: string
@@ -88,6 +89,9 @@ export function CardLayoutEditor({
   /** Section « Illustration » (image + cadrage), rendue en tête de la colonne de
    *  contrôles — l'aperçu interactif reste fixe à côté. */
   illustration?: React.ReactNode
+  /** Contenu optionnel affiché SOUS l'aperçu interactif (dans la colonne sticky) —
+   *  ex. l'aperçu de la carte de base pour une carte de variante « qui diffère ». */
+  belowPreview?: React.ReactNode
 }) {
   const [bg, setBg] = useState<string | null>(null)
   const [sel, setSel] = useState<Selection>(null)
@@ -347,6 +351,7 @@ export function CardLayoutEditor({
           />
         ))}
       </div>
+      {belowPreview}
       </div>
 
       {/* CONTRÔLES — colonne de gauche : Illustration → Texte → Symboles d'action. */}

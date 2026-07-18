@@ -39,6 +39,7 @@ function CardForm({
   keywordColors = [],
   extraDecks,
   variant = false,
+  base,
   onChange,
 }: {
   card: CustomCard
@@ -50,11 +51,17 @@ function CardForm({
    *  « diffère de la base » (variantOverride). Les champs mécaniques (paquet, catégorie, coût,
    *  force) sont masqués (hérités de la base). */
   variant?: boolean
+  /** Vilain de BASE (pour afficher la carte ORIGINALE en référence sous l'aperçu). */
+  base?: CustomVillain
   onChange: (c: CustomCard) => void
 }) {
   const set = (p: Partial<CustomCard>) => onChange({ ...card, ...p })
   // En mode variante, la présentation n'est éditable que si la carte « diffère de la base ».
   const overriding = card.variantOverride ?? false
+
+  // Carte ORIGINALE de la base (référence) : affichée sous l'aperçu quand la carte de variante
+  // « diffère de la base », pour comparer la version re-illustrée à l'originale.
+  const baseCard = variant && overriding ? base?.cards.find((c) => c.id === card.baseCardId) : undefined
 
   // Cadrage de l'illustration : valeur courante (avec défauts) + maj partielle. Le
   // défaut est scale 1 (100 %), décalages 0 — cible des boutons « réinitialiser ».
@@ -295,6 +302,21 @@ function CardForm({
           fateColor={fateColor}
           keywordColors={keywordColors}
           onChange={onChange}
+          belowPreview={
+            baseCard && (
+              <div className="mt-3 flex flex-col gap-1.5 rounded-lg border border-white/10 bg-black/20 p-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-white/45">
+                  Carte d’origine (base)
+                </span>
+                <CardPreview
+                  card={baseCard}
+                  color={base?.color ?? color}
+                  fateColor={fateColor}
+                  keywordColors={base?.keywordColors}
+                />
+              </div>
+            )
+          }
           illustration={
             <div className="flex items-start gap-4">
               <ImageField
@@ -359,6 +381,7 @@ export function CardsTab({
   draft,
   patch,
   variant = false,
+  base,
 }: {
   draft: CustomVillain
   patch: (p: Partial<CustomVillain>) => void
@@ -366,6 +389,9 @@ export function CardsTab({
    *  base et n'est pas éditable ; chaque carte peut être marquée « diffère de la base » pour
    *  re-illustrer / re-texter (présentation seulement). */
   variant?: boolean
+  /** Vilain de BASE d'une variante (si connu) : sert à afficher l'aperçu de la carte
+   *  ORIGINALE sous l'aperçu quand la carte « diffère de la base ». */
+  base?: CustomVillain
 }) {
   const [selId, setSelId] = useState<string | null>(draft.cards[0]?.id ?? null)
   const selected = draft.cards.find((c) => c.id === selId) ?? null
@@ -602,6 +628,7 @@ export function CardsTab({
             keywordColors={draft.keywordColors}
             extraDecks={extraDecks}
             variant={variant}
+            base={base}
             onChange={updateCard}
           />
         </div>

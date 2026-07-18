@@ -264,6 +264,39 @@ JSON du vilain. Tu ne crées **aucun** fichier natif ni câblage (cf. avertissem
   `*phrase*.mp3`/`*Phrase*.mp3` de `assets/Voix Villainous/` doivent y rester (si tu
   les déplaces, mets à jour le glob en conséquence), sinon ça casse le build.
 
+## Publication (release Electron + auto-update)
+
+L'app se distribue en **exe Windows** (electron-builder) via les **GitHub Releases privées**
+du dépôt ; les installations existantes se mettent à jour toutes seules (electron-updater).
+
+**Commande de publication** (à lancer par l'utilisateur, dans son terminal — le jeton n'est
+jamais dans le chat ni committé) :
+
+```powershell
+$env:GH_TOKEN = "<PAT_ECRITURE>"; npm run electron:publish
+```
+
+- `npm run electron:publish` = `npm run build && electron-builder --publish always` : compile
+  (tsc + vite), package **NSIS** (installeur) + **portable**, crée la release `v<version>` et
+  **uploade** les exes + `.blockmap`.
+- **`GH_TOKEN`** (variable d'env) = jeton **écriture** pour *publier* (PAT classic scope `repo`,
+  ou fine-grained **Contents: Read and write** sur `villainous`). Guillemets **obligatoires**
+  autour de la valeur en PowerShell, sinon elle est prise pour une commande.
+
+**Avant de publier :**
+1. **Bumper `version` dans `package.json`** pour qu'elle colle à la dernière entrée `PATCH_NOTES`
+   (même numéro) — c'est ce numéro qui devient le tag `v<version>` et ce que l'auto-update compare.
+2. `npm install` si le `package.json` a changé (deps non installées → le build casse, cf. `peerjs`).
+3. `npm run test` + `npm run lint` verts.
+
+**Auto-update côté client** (`electron/updater.cjs`) : actif seulement si l'exe embarque un jeton
+**lecture seule** dans `electron/update-config.cjs` (fichier **gitignoré**, jamais committé, mais
+**embarqué à l'empaquetage**). Format : `module.exports = { token: 'github_pat_lecture_seule' }`
+(fine-grained **Contents: Read-only**). Absent au build → auto-update désactivé (sans planter),
+et comme le dépôt est **privé**, l'app ne peut alors même pas télécharger les releases. Activer
+l'auto-update sur un poste passe **forcément** par une **installation manuelle une fois** ; ensuite
+la chaîne s'auto-entretient.
+
 ## Plugin Superpowers
 
 Le plugin **Superpowers** est actif. **Ce `CLAUDE.md` reste la source de vérité** :

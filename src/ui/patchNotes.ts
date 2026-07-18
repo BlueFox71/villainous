@@ -47,7 +47,7 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '1.8.3',
+    version: '1.8.5',
     date: '2026-07-18',
     title: 'Launcher de démarrage',
     tags: ['interface', 'reseau'],
@@ -55,6 +55,30 @@ export const PATCH_NOTES: PatchNote[] = [
       "Nouveau **launcher** au lancement de l'application : une fenêtre d'accueil avec la **cinématique d'intro en fond**, les **actualités** et l'**avancement de la mise à jour**, puis un bouton **Jouer**.",
       "**Actualités en ligne** : les nouvelles affichées peuvent être mises à jour **sans réinstaller le jeu**.",
       "La **mise à jour** est désormais **obligatoire et visible** : barre de progression, puis bouton **Redémarrer et installer** (impossible de jouer avec une version périmée).",
+    ],
+  },
+  {
+    version: '1.8.4',
+    date: '2026-07-18',
+    title: 'Atelier : un vilain et son variant réunis',
+    tags: ['atelier', 'interface'],
+    changes: [
+      "Dans la liste de l'Atelier, un vilain et son **variant** n'occupent plus qu'**une seule vignette** (ex. **Sumbra / Killaire**), avec les **deux portraits partagés en diagonale**.",
+      "Depuis l'éditeur, un bouton **« Voir … (variante) »** permet de **basculer** entre le vilain et son variant.",
+      "Onglet **Identité** : bouton **« Créer un variant »** s'il n'y en a pas, sinon le **nom du variant** et un petit lien discret pour le **supprimer** (avec confirmation).",
+      "Sur la vignette fusionnée, **survoler** un côté affiche l'**image complète** de ce vilain (ex. Sumbra à gauche, Killaire à droite).",
+      "Atelier · aperçu du plateau : le **pion** a désormais le même **halo lumineux** qu'en partie (au lieu d'une simple ombre).",
+    ],
+  },
+  {
+    version: '1.8.3',
+    date: '2026-07-18',
+    title: 'Atelier : variantes — face B de lieu + carte d’origine en aperçu',
+    tags: ['atelier', 'correctif'],
+    changes: [
+      "Dans une **variante (skin)**, quand un lieu de la base est **transformable** (face B), tu peux désormais lui donner sa **propre image et son propre nom de face B** — comme pour la face A. Les **actions** de la face B restent celles de la base.",
+      "La **resynchronisation** conserve ces images de face B propres à la variante au lieu de reprendre celles de la base.",
+      "Quand une carte de variante **diffère de la base**, la **carte d’origine** s’affiche en aperçu **sous** l’aperçu en cours d’édition, pour comparer ta version re-illustrée à l’originale.",
     ],
   },
   {
