@@ -55,6 +55,7 @@ export const PATCH_NOTES: PatchNote[] = [
       "Dans la liste de l'Atelier, un vilain et son **variant** n'occupent plus qu'**une seule vignette** (ex. **Sumbra / Killaire**), avec les **deux portraits partagés en diagonale**.",
       "Depuis l'éditeur, un bouton **« Voir … (variante) »** permet de **basculer** entre le vilain et son variant.",
       "Onglet **Identité** : bouton **« Créer un variant »** s'il n'y en a pas, sinon le **nom du variant** et un petit lien discret pour le **supprimer** (avec confirmation).",
+      "Sur la vignette fusionnée, **survoler** un côté affiche l'**image complète** de ce vilain (ex. Sumbra à gauche, Killaire à droite).",
     ],
   },
   {

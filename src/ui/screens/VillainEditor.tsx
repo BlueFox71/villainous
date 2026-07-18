@@ -321,7 +321,23 @@ function ExtraBackSection({
  *  (base en haut-gauche, variante en bas-droite) avec un fin trait séparateur.
  *  Utilisé dans la liste de l'Atelier pour représenter le couple en une seule carte. */
 function SplitPortrait({ base, variant }: { base: CustomVillain; variant: CustomVillain }) {
-  // Une moitié triangulaire (découpée via `clipPath`) : portrait s'il existe, sinon aplat de couleur.
+  // Moitié survolée : au survol, on affiche l'image COMPLÈTE de ce côté (le triangle
+  // survolé s'étend à tout le carré) ; sinon les deux moitiés diagonales cohabitent.
+  const [hover, setHover] = useState<null | 'base' | 'variant'>(null)
+  // Côté visé d'après la position de la souris, de part et d'autre de la diagonale « / »
+  // (coin haut-droit ↔ coin bas-gauche = ligne x + y = 1). base = triangle haut-gauche.
+  const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect()
+    const x = (e.clientX - r.left) / r.width
+    const y = (e.clientY - r.top) / r.height
+    setHover(x + y < 1 ? 'base' : 'variant')
+  }
+  // Découpe de chaque moitié : triangle par défaut, carré plein pour la moitié survolée
+  // (l'autre est réduite à néant pour laisser voir l'image complète).
+  const EMPTY = 'polygon(0 0, 0 0, 0 0)'
+  const FULL = 'polygon(0 0, 100% 0, 100% 100%, 0 100%)'
+  const baseClip = hover === 'base' ? FULL : hover === 'variant' ? EMPTY : 'polygon(0 0, 100% 0, 0 100%)'
+  const variantClip = hover === 'variant' ? FULL : hover === 'base' ? EMPTY : 'polygon(100% 0, 100% 100%, 0 100%)'
   const half = (v: CustomVillain, clip: string) =>
     v.portrait ? (
       <img src={v.portrait} alt={v.name} className="absolute inset-0 h-full w-full object-cover" style={{ clipPath: clip }} />
@@ -334,11 +350,18 @@ function SplitPortrait({ base, variant }: { base: CustomVillain; variant: Custom
       </div>
     )
   return (
-    <div className="relative aspect-square w-full overflow-hidden" style={{ backgroundColor: base.color }}>
-      {half(base, 'polygon(0 0, 100% 0, 0 100%)')}
-      {half(variant, 'polygon(100% 0, 100% 100%, 0 100%)')}
-      {/* Trait séparateur diagonal (coin haut-droit ↔ coin bas-gauche). */}
-      <div className="pointer-events-none absolute left-1/2 top-1/2 h-px w-[142%] -translate-x-1/2 -translate-y-1/2 -rotate-45 bg-white/40" />
+    <div
+      className="relative aspect-square w-full overflow-hidden"
+      style={{ backgroundColor: base.color }}
+      onMouseMove={onMove}
+      onMouseLeave={() => setHover(null)}
+    >
+      {half(base, baseClip)}
+      {half(variant, variantClip)}
+      {/* Trait séparateur diagonal (coin haut-droit ↔ coin bas-gauche), masqué au survol. */}
+      {hover === null && (
+        <div className="pointer-events-none absolute left-1/2 top-1/2 h-px w-[142%] -translate-x-1/2 -translate-y-1/2 -rotate-45 bg-white/40" />
+      )}
     </div>
   )
 }
