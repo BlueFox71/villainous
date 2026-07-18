@@ -1330,8 +1330,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
         return
       }
     }
+    const conn = activeConnection
     session = createClientSession({
-      transport: { send: activeConnection.send },
+      transport: { send: (m) => conn.send(m) },
       ...myProfile(),
       callbacks: {
         onLobby: (m) => set({ lobby: m.seats, netStatus: 'lobby' }),
@@ -1367,24 +1368,40 @@ export const useGameStore = create<GameStore>((set, get) => ({
   launchGame: () => {
     const { mode, lobby } = get()
     if (mode !== 'host' || !lobby) return
-    const hostV = lobby[0].villainKey as VillainKey | null
-    const clientV = lobby[1].villainKey as VillainKey | null
+    // On lit les vilains PAR SIÈGE (comme l'UI), pas par index de tableau : robuste
+    // même si l'ordre du lobby diffère.
+    const hostV = (lobby.find((s) => s.seat === 0)?.villainKey ?? null) as VillainKey | null
+    const clientV = (lobby.find((s) => s.seat === 1)?.villainKey ?? null) as VillainKey | null
     if (!hostV || !clientV) return
-    const initial = newGame([hostV, clientV])
-    const session = createHostSession({
-      transport: { send: activeConnection!.send },
-      initialState: initial,
-      seats: ['human', 'human'],
-      hostSeat: 0,
-      callbacks: {
-        onState: (state) => set({ state }),
-        onLeave: () => handlePeerGone(set, get, 'L’autre joueur a quitté la partie.'),
-        onReacting: (m) => set({ peerReacting: m.reacting ? (m.villainName ?? '') : null }),
-      },
-    })
-    activeSession = session
-    set({ state: initial, netStatus: 'playing' })
-    session.start() // diffuse ASSIGN + STATE à l'invité
+    // Garde-fou : sans connexion active, on ne peut pas lancer. On le SIGNALE (bandeau
+    // rouge) au lieu de planter en silence (le clic « Lancer » semblait sans effet).
+    const conn = activeConnection
+    if (!conn) {
+      set({ netStatus: 'error', netError: 'Connexion perdue avec l’autre joueur. Reviens au menu et relance le salon.' })
+      return
+    }
+    try {
+      const initial = newGame([hostV, clientV])
+      const session = createHostSession({
+        // `send` enveloppé (et non détaché) : préserve le `this` du transport relais et
+        // reste défini même si la connexion tombe entre-temps.
+        transport: { send: (m) => conn.send(m) },
+        initialState: initial,
+        seats: ['human', 'human'],
+        hostSeat: 0,
+        callbacks: {
+          onState: (state) => set({ state }),
+          onLeave: () => handlePeerGone(set, get, 'L’autre joueur a quitté la partie.'),
+          onReacting: (m) => set({ peerReacting: m.reacting ? (m.villainName ?? '') : null }),
+        },
+      })
+      activeSession = session
+      set({ state: initial, netStatus: 'playing' })
+      session.start() // diffuse ASSIGN + STATE à l'invité
+    } catch (e) {
+      // Toute erreur inattendue devient visible au lieu de « rien ne se passe ».
+      set({ netStatus: 'error', netError: `Impossible de lancer la partie : ${(e as Error)?.message ?? 'erreur inconnue'}` })
+    }
   },
   quitNet: () => {
     activeConnection?.send({ type: 'LEAVE' }) // prévient l'autre joueur…

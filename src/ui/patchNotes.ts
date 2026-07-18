@@ -47,6 +47,16 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.8.2',
+    date: '2026-07-18',
+    title: 'Tutoriel interactif + correctif multijoueur',
+    tags: ['interface', 'reseau', 'correctif'],
+    changes: [
+      "Nouveau **Tutoriel** au menu : un premier tour **guidé pas à pas** qui apprend les **règles de base** (à quoi sert le **Pouvoir**, comment en gagner, les **types d'actions** et les **types de cartes**).",
+      "Multijoueur en ligne : le bouton **Lancer la partie** ne reste plus **sans effet** en silence — toute erreur de connexion est désormais **affichée**, et la liaison hôte↔invité est **plus fiable**.",
+    ],
+  },
+  {
     version: '1.8.1',
     date: '2026-07-17',
     title: 'Ambiance Michael + Atelier : ornements recolorables',

@@ -36,6 +36,9 @@ export interface DataConnLike {
   send: (data: unknown) => void
   close: () => void
   on: (event: string, cb: (arg?: unknown) => void) => void
+  /** État PeerJS du canal : `true` dès qu'il est ouvert. Sert à rattraper un
+   *  événement `'open'` déjà émis avant qu'on s'y abonne (canal entrant côté hôte). */
+  readonly open?: boolean
 }
 
 /** Options d'ouverture d'un canal (sous-ensemble de peerjs). */
@@ -103,11 +106,17 @@ export function connectPeer(role: 'host' | 'guest', opts: PeerConnectOpts): Conn
   /** Branche les événements d'un canal de données (commun hôte/invité). */
   const bindConn = (c: DataConnLike, fireOpen: boolean) => {
     conn = c
-    c.on('open', () => {
+    const markOpen = () => {
+      if (opened) return
       opened = true
       flush()
       if (fireOpen) handlers.onOpen?.()
-    })
+    }
+    c.on('open', markOpen)
+    // Canal ENTRANT (côté hôte) : PeerJS peut l'avoir déjà ouvert au moment où l'on
+    // s'abonne → l'événement 'open' serait manqué et la file d'envoi ne se viderait
+    // JAMAIS (l'invité ne recevrait ni lobby ni état). On rattrape via l'état courant.
+    if (c.open) markOpen()
     c.on('data', (d) => {
       const msg = asNetMessage(d)
       if (msg) handlers.onMessage?.(msg)

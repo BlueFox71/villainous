@@ -294,6 +294,7 @@ export function VillainSelect({ onStart, onBack }: Props) {
   const leaveNet = useGameStore((s) => s.leaveNet)
   const quitNet = useGameStore((s) => s.quitNet)
   const netStatus = useGameStore((s) => s.netStatus)
+  const netError = useGameStore((s) => s.netError)
   const netLeftNotice = useGameStore((s) => s.netLeftNotice)
   const network = mode !== 'solo'
 
@@ -504,6 +505,13 @@ export function VillainSelect({ onStart, onBack }: Props) {
       </main>
 
       <footer className="relative z-0 -mt-28 flex flex-col items-center gap-2 border-t border-white/10 bg-black/30 px-4 pb-8 pt-28 shadow-[0_-6px_20px_rgba(0,0,0,0.35)] backdrop-blur-md">
+        {/* RÉSEAU : toute erreur (dont un échec de lancement) est affichée ici — sans ça,
+            un clic « Lancer » qui échoue donnait l'impression que « rien ne se passe ». */}
+        {network && netError && (
+          <p className="mb-1 max-w-md rounded-lg border border-red-400/40 bg-red-500/15 px-4 py-2 text-center text-sm text-red-100">
+            {netError}
+          </p>
+        )}
         {/* SOLO : 1er clic = ton vilain, 2e clic = le bot, puis « Lancer la partie ». */}
         {!network && (
           <>
