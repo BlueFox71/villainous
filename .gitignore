@@ -19,6 +19,9 @@ Villainous.lnk
 # Jeton GitHub lecture seule pour l'auto-update (embarqué dans l'exe, JAMAIS committé)
 electron/update-config.cjs
 
+# Instructions de publication (peut contenir un token en clair, JAMAIS committé)
+electron/README.txt
+
 # Fichiers sources GIMP (trop lourds ; on versionne les .png/.jpg exportés)
 *.xcf
 
