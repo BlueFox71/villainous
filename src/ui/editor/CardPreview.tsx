@@ -40,7 +40,7 @@ export function CardPreview({
     tl: card.textLayout,
     tb: card.textBoxes,
     st: card.stickers,
-    sh: card.shapes,
+    im: (card.images ?? []).map((i) => ({ id: i.id, x: i.x, y: i.y, s: i.size, a: i.aspect, k: i.image.slice(0, 32) })),
     col: color,
     fcol: fateColor,
     ct: customTypes,

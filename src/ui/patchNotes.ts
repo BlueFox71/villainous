@@ -49,12 +49,12 @@ export const PATCH_NOTES: PatchNote[] = [
   {
     version: '1.8.5',
     date: '2026-07-18',
-    title: 'Atelier : formes décoratives sur les cartes',
+    title: 'Atelier : images libres sur les cartes',
     tags: ['atelier'],
     changes: [
-      "Onglet **Cartes**, sous « Symboles d'action », une section **Layouts** permet de poser un **rond plein** sur l'aperçu.",
-      "On choisit sa **couleur** à la **pipette**, puis on le **déplace** et le **redimensionne** directement sur la carte.",
-      "Une **forme** ou une **zone de texte** sélectionnée peut désormais être **dupliquée** en un clic.",
+      "Onglet **Cartes**, nouvelle section **Images** : on **importe une image** et on la **pose librement** sur la carte.",
+      "Elle se **déplace** et se **redimensionne** directement sur l'aperçu, comme les symboles.",
+      "Une **image** ou une **zone de texte** sélectionnée peut être **dupliquée** en un clic.",
     ],
   },
   {
