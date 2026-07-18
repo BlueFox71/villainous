@@ -707,6 +707,17 @@ function gitStagingPlugin(): Plugin {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss(), saveActionPosPlugin(), saveBlockedOverlayPlugin(), savePawnSizePlugin(), savePortraitPlugin(), saveVillainColorPlugin(), saveVillainAssetsPlugin(), saveVillainJsonPlugin(), readVillainJsonPlugin(), savePublishedVillainPlugin(), villainBackupPlugin(), saveVillainDifficultyPlugin(), gitStagingPlugin()],
+  build: {
+    // Multi-pages : le JEU (`index.html`) ET le LAUNCHER (`launcher.html`, petite
+    // fenêtre d'accueil de l'app de bureau). Deux bundles distincts → le launcher
+    // s'affiche vite sans charger tout le jeu (cf. electron/main.cjs).
+    rollupOptions: {
+      input: {
+        main: resolve(process.cwd(), 'index.html'),
+        launcher: resolve(process.cwd(), 'launcher.html'),
+      },
+    },
+  },
   server: {
     // Expose le serveur de dév sur le réseau local (0.0.0.0) pour que l'invité
     // puisse ouvrir l'app depuis l'IP de l'hôte (http://<ip-hôte>:5173) — requis

@@ -8,6 +8,17 @@ const LS_KEY = 'villainous:settings'
  *  native et persiste le choix côté process principal (cf. electron/main.cjs). */
 export type DisplayMode = 'windowed' | 'fullscreen' | 'borderless'
 
+/** Événement de mise à jour (electron-updater) relayé par le process principal
+ *  au launcher — cf. electron/updater.cjs et src/launcher/Launcher.tsx. */
+export type UpdateEvent =
+  | { type: 'checking' }
+  | { type: 'available'; payload?: { version?: string } }
+  | { type: 'not-available' }
+  | { type: 'progress'; payload?: { percent?: number } }
+  | { type: 'downloaded'; payload?: { version?: string } }
+  | { type: 'error'; payload?: { message?: string } }
+  | { type: 'unsupported' }
+
 /** Pont exposé par le preload Electron (absent en navigateur de dev). */
 declare global {
   interface Window {
@@ -15,6 +26,19 @@ declare global {
       getDisplayMode: () => Promise<DisplayMode>
       setDisplayMode: (mode: DisplayMode) => Promise<void>
       setFullscreen: (on: boolean) => Promise<void>
+      // --- Launcher (fenêtre d'accueil de l'app de bureau) ---
+      /** Démarre la vérification de MAJ ; renvoie le support et la version courante. */
+      launcherStart?: () => Promise<{ supported: boolean; version: string }>
+      /** Ferme le launcher et ouvre la fenêtre de jeu. */
+      launcherPlay?: () => Promise<void>
+      /** Redémarre l'app pour installer la MAJ téléchargée. */
+      launcherInstall?: () => Promise<void>
+      /** Quitte l'application depuis le launcher. */
+      launcherClose?: () => Promise<void>
+      /** Réduit la fenêtre du launcher. */
+      launcherMinimize?: () => Promise<void>
+      /** Abonne un callback aux événements de MAJ ; renvoie la fonction de désabonnement. */
+      onUpdateEvent?: (cb: (e: UpdateEvent) => void) => () => void
     }
   }
 }

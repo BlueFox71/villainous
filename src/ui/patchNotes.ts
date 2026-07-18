@@ -47,6 +47,16 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.8.3',
+    date: '2026-07-18',
+    title: 'Launcher de démarrage',
+    tags: ['interface'],
+    changes: [
+      "Nouveau **launcher** au lancement de l'application : une fenêtre d'accueil qui affiche les **actualités** (notes de version) et l'**avancement de la mise à jour**, avec un bouton **Jouer**.",
+      "La **mise à jour automatique** est désormais **visible** : barre de progression du téléchargement, puis bouton **Redémarrer et installer**.",
+    ],
+  },
+  {
     version: '1.8.2',
     date: '2026-07-18',
     title: 'Tutoriel interactif + correctif multijoueur',

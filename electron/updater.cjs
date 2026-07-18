@@ -1,12 +1,14 @@
 // Mise à jour automatique (electron-updater) depuis les GitHub Releases PRIVÉES du
-// dépôt. Au lancement, l'app compare sa version (package.json) à la dernière release
+// dépôt. Au lancement, le LAUNCHER (cf. electron/main.cjs + src/launcher/) déclenche
+// la vérification : l'app compare sa version (package.json) à la dernière release
 // publiée ; si une plus récente existe, elle télécharge UNIQUEMENT les blocs modifiés
-// (différentiel via le .blockmap) puis propose de redémarrer.
+// (différentiel via le .blockmap). La progression et l'état sont relayés au launcher
+// (barre de progression + bouton « Redémarrer et installer »).
 //
 // Le jeton GitHub LECTURE SEULE vit dans electron/update-config.cjs — un fichier
 // GITIGNORÉ (jamais committé) mais EMBARQUÉ dans l'exe à l'empaquetage. S'il est absent
 // (build sans jeton), l'auto-update est simplement désactivé : aucun plantage.
-const { app, dialog } = require('electron')
+const { app } = require('electron')
 
 /** Lit le jeton lecture seule embarqué (null si le fichier n'existe pas). */
 function loadToken() {
@@ -18,18 +20,36 @@ function loadToken() {
   }
 }
 
-/** Initialise la vérification de mise à jour. À appeler après app.whenReady(). */
-function initAutoUpdate() {
-  if (!app.isPackaged) return // jamais en dev (npm run electron / electron:dev)
-  const token = loadToken()
-  if (!token) return // pas de jeton embarqué → rien à faire
+let autoUpdaterRef = null
 
-  let autoUpdater
+/** Charge (une fois) le module electron-updater ; null s'il est absent. */
+function getAutoUpdater() {
+  if (autoUpdaterRef) return autoUpdaterRef
   try {
-    ;({ autoUpdater } = require('electron-updater'))
+    ;({ autoUpdater: autoUpdaterRef } = require('electron-updater'))
   } catch {
-    return // module absent (ne devrait pas arriver en packagé)
+    autoUpdaterRef = null // module absent (ne devrait pas arriver en packagé)
   }
+  return autoUpdaterRef
+}
+
+/** Vrai si l'auto-update peut fonctionner (packagé + jeton + module présent). */
+function isUpdateSupported() {
+  if (!app.isPackaged) return false // jamais en dev
+  if (!loadToken()) return false // pas de jeton embarqué
+  return !!getAutoUpdater()
+}
+
+/**
+ * Lance la vérification de MAJ et relaie chaque étape via `send(type, payload)` :
+ *  'checking' | 'available' {version} | 'not-available' | 'progress' {percent} |
+ *  'downloaded' {version} | 'error' {message}.
+ * Renvoie false (sans rien faire) si l'update n'est pas supporté (dev / pas de jeton).
+ */
+function startUpdateCheck(send) {
+  if (!isUpdateSupported()) return false
+  const token = loadToken()
+  const autoUpdater = getAutoUpdater()
 
   autoUpdater.autoDownload = true
   autoUpdater.autoInstallOnAppQuit = true
@@ -44,33 +64,42 @@ function initAutoUpdate() {
       token,
     })
   } catch {
-    return
+    return false
   }
 
-  // Une MAJ est prête : on propose de redémarrer tout de suite (sinon elle s'appliquera
-  // à la prochaine fermeture, cf. autoInstallOnAppQuit).
-  autoUpdater.on('update-downloaded', async (info) => {
-    const version = info && info.version ? ` (v${info.version})` : ''
-    try {
-      const { response } = await dialog.showMessageBox({
-        type: 'info',
-        buttons: ['Redémarrer maintenant', 'Plus tard'],
-        defaultId: 0,
-        cancelId: 1,
-        title: 'Mise à jour disponible',
-        message: `Une nouvelle version${version} a été téléchargée.`,
-        detail: 'Elle sera installée au redémarrage de l’application.',
-      })
-      if (response === 0) autoUpdater.quitAndInstall()
-    } catch {
-      /* dialogue impossible : la MAJ s'installera à la fermeture */
-    }
-  })
+  // Réabonnement propre (le launcher peut recharger la page en dév à chaud).
+  for (const ev of [
+    'checking-for-update',
+    'update-available',
+    'update-not-available',
+    'download-progress',
+    'update-downloaded',
+    'error',
+  ]) {
+    autoUpdater.removeAllListeners(ev)
+  }
 
-  // On n'interrompt JAMAIS le jeu si la vérification échoue (réseau, quota, etc.).
-  autoUpdater.on('error', () => {})
+  autoUpdater.on('checking-for-update', () => send('checking'))
+  autoUpdater.on('update-available', (info) => send('available', { version: info?.version }))
+  autoUpdater.on('update-not-available', () => send('not-available'))
+  autoUpdater.on('download-progress', (p) => send('progress', { percent: Math.round(p?.percent ?? 0) }))
+  autoUpdater.on('update-downloaded', (info) => send('downloaded', { version: info?.version }))
+  // On n'interrompt JAMAIS le lancement si la vérification échoue (réseau, quota…).
+  autoUpdater.on('error', (e) => send('error', { message: String(e?.message ?? e) }))
 
-  autoUpdater.checkForUpdates().catch(() => {})
+  autoUpdater.checkForUpdates().catch((e) => send('error', { message: String(e?.message ?? e) }))
+  return true
 }
 
-module.exports = { initAutoUpdate }
+/** Redémarre l'app pour installer la MAJ téléchargée (déclenché par le launcher). */
+function quitAndInstall() {
+  const autoUpdater = getAutoUpdater()
+  if (!autoUpdater) return
+  try {
+    autoUpdater.quitAndInstall()
+  } catch {
+    /* la MAJ s'installera de toute façon à la fermeture (autoInstallOnAppQuit) */
+  }
+}
+
+module.exports = { isUpdateSupported, startUpdateCheck, quitAndInstall }

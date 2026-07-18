@@ -12,4 +12,22 @@ contextBridge.exposeInMainWorld('villainous', {
   setDisplayMode: (mode) => ipcRenderer.invoke('display:set', mode),
   /** Plein écran transitoire (NON persisté) — utilisé pour la cinématique d'intro. */
   setFullscreen: (on) => ipcRenderer.invoke('display:fullscreen', on),
+
+  // --- Launcher (fenêtre d'accueil de l'app de bureau, cf. src/launcher/) ---
+  /** Démarre la vérification de MAJ ; renvoie { supported, version }. */
+  launcherStart: () => ipcRenderer.invoke('launcher:start'),
+  /** Ferme le launcher et ouvre la fenêtre de jeu. */
+  launcherPlay: () => ipcRenderer.invoke('launcher:play'),
+  /** Redémarre l'app pour installer la MAJ téléchargée. */
+  launcherInstall: () => ipcRenderer.invoke('launcher:install'),
+  /** Quitte l'application depuis le launcher. */
+  launcherClose: () => ipcRenderer.invoke('launcher:close'),
+  /** Réduit la fenêtre du launcher. */
+  launcherMinimize: () => ipcRenderer.invoke('launcher:minimize'),
+  /** Abonne un callback aux événements de MAJ ; renvoie la fonction de désabonnement. */
+  onUpdateEvent: (cb) => {
+    const handler = (_e, data) => cb(data)
+    ipcRenderer.on('update:event', handler)
+    return () => ipcRenderer.removeListener('update:event', handler)
+  },
 })
