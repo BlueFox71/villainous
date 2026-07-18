@@ -47,6 +47,16 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.8.5',
+    date: '2026-07-18',
+    title: 'Atelier : formes décoratives sur les cartes',
+    tags: ['atelier'],
+    changes: [
+      "Onglet **Cartes**, sous « Symboles d'action », une section **Layouts** permet de poser un **rond plein** sur l'aperçu.",
+      "On choisit sa **couleur** à la **pipette**, puis on le **déplace** et le **redimensionne** directement sur la carte.",
+    ],
+  },
+  {
     version: '1.8.4',
     date: '2026-07-18',
     title: 'Atelier : un vilain et son variant réunis',

@@ -79,12 +79,13 @@ describe('buildDeckInstances — recopie générique des champs de jeu', () => {
         typeColor: '#fff',
         textLayout: { x: 50, y: 80, w: 79, size: 50 },
         stickers: [{ id: 's1', type: 'GAIN_POWER', x: 10, y: 10, size: 14 }],
+        shapes: [{ id: 'sh1', kind: 'circle', color: '#fff', x: 20, y: 20, size: 12 }],
       },
     ]
     const [inst] = buildDeckInstances(toDeckCardDefs(v), 'villain')
     const rec = inst as unknown as Record<string, unknown>
     expect(inst.strength).toBe(4) // le champ de jeu passe
-    for (const k of ['artImage', 'artTransform', 'typeLabel', 'typeColor', 'textLayout', 'stickers', 'group']) {
+    for (const k of ['artImage', 'artTransform', 'typeLabel', 'typeColor', 'textLayout', 'stickers', 'shapes', 'group']) {
       expect(rec[k], `le champ éditeur « ${k} » ne doit pas fuiter`).toBeUndefined()
     }
   })

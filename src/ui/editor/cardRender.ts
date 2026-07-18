@@ -689,6 +689,22 @@ export async function renderCardFace(
     }
   }
 
+  // 5a-bis) Formes décoratives (« layouts ») posées librement — dessinées SOUS les
+  //    symboles d'action pour qu'un symbole doré puisse se poser dessus (ex. pastille colorée).
+  if (card.shapes?.length) {
+    for (const sh of card.shapes) {
+      const cx = (sh.x / 100) * CARD_W
+      const cy = (sh.y / 100) * CARD_H
+      if (sh.kind === 'circle') {
+        const r = ((sh.size / 100) * CARD_W) / 2
+        ctx.beginPath()
+        ctx.arc(cx, cy, r, 0, Math.PI * 2)
+        ctx.fillStyle = sh.color
+        ctx.fill()
+      }
+    }
+  }
+
   // 5b) Symboles d'action POSÉS librement (éléments indépendants).
   if (!opts.skipStickers && card.stickers?.length) {
     const imgs = await preloadIcons([...new Set(card.stickers.map((s) => s.type))])

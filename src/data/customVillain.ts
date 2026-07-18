@@ -150,6 +150,24 @@ export const DEFAULT_STICKER_SIZE = 20
 /** Tailles proposées pour un symbole d'action posé (« Petit » / « Normal »). */
 export const STICKER_SIZE_PRESETS = { small: 16, normal: DEFAULT_STICKER_SIZE } as const
 
+/** Une FORME décorative (« layout ») posée LIBREMENT sur la carte — élément purement
+ *  cosmétique, indépendant du texte et des symboles. `x`/`y` = centre en % de la carte ;
+ *  `size` = diamètre/côté en % de la largeur ; `color` = couleur de remplissage. Pour
+ *  l'instant un seul `kind` : `circle` (rond plein) — l'union est prête à en accueillir d'autres. */
+export interface CardShape {
+  id: string
+  kind: 'circle'
+  color: string
+  x: number
+  y: number
+  size: number
+}
+
+/** Diamètre par défaut d'une forme posée (en % de la largeur de carte). */
+export const DEFAULT_SHAPE_SIZE = 14
+/** Tailles proposées pour une forme posée (« Petit » / « Normal »). */
+export const SHAPE_SIZE_PRESETS = { small: 10, normal: DEFAULT_SHAPE_SIZE } as const
+
 /** Image d'ornement importée, superposée au DOS des cartes (Vilain ET Fatalité),
  *  déplaçable et redimensionnable. `x`/`y` = centre en % du dos ; `size` = largeur en
  *  % de la largeur du dos ; `aspect` = hauteur/largeur de l'image (pour le ratio). */
@@ -239,6 +257,8 @@ export interface CustomCard extends CardDef {
   textBoxes?: TextBox[]
   /** Symboles d'action posés librement sur la carte. */
   stickers?: CardSticker[]
+  /** Formes décoratives (« layouts », ex. rond plein) posées librement sur la carte. */
+  shapes?: CardShape[]
   /** VARIANTE LIÉE (skin) : id de la carte de la BASE dont celle-ci est la copie. Sert à
    *  resynchroniser (retrouver la carte source) et à propager ses mécaniques. Absent = carte
    *  d'un vilain normal (non-variante). */
@@ -799,7 +819,7 @@ const VARIANT_OWN_VILLAIN_FIELDS = [
  *  (le reste — type, coût, force, effets… — vient toujours de la base). */
 const VARIANT_OWN_CARD_FIELDS = [
   'name', 'text', 'image', 'artImage', 'artTransform',
-  'typeLabel', 'typeColor', 'textLayout', 'textBoxes', 'stickers',
+  'typeLabel', 'typeColor', 'textLayout', 'textBoxes', 'stickers', 'shapes',
 ] as const satisfies readonly (keyof CustomCard)[]
 
 /** Id de carte d'une variante : dérivé de l'id de base + l'id de la variante (kebab-case ASCII,
@@ -942,6 +962,7 @@ export function toCardDefs(v: CustomVillain): CardDef[] {
     delete def.textLayout
     delete def.textBoxes
     delete def.stickers
+    delete def.shapes
     delete def.baseCardId
     delete def.variantOverride
     // Les Conditions sont GRATUITES (coût 0). L'éditeur n'expose pas de champ coût pour

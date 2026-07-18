@@ -3,8 +3,8 @@
 // poignée. L'aperçu de fond est le rendu RÉEL de la carte (WYSIWYG) ; les zones
 // déplaçables sont des « hotspots » transparents superposés.
 import { useEffect, useRef, useState } from 'react'
-import type { CustomCard, CardSticker, TextBox, TextLayout } from '../../data/customVillain'
-import { CARD_W, CARD_H, DEFAULT_TEXT_LAYOUT, DEFAULT_STICKER_SIZE, STICKER_SIZE_PRESETS, TEXT_SIZE_PRESETS } from '../../data/customVillain'
+import type { CustomCard, CardSticker, CardShape, TextBox, TextLayout } from '../../data/customVillain'
+import { CARD_W, CARD_H, DEFAULT_TEXT_LAYOUT, DEFAULT_STICKER_SIZE, STICKER_SIZE_PRESETS, DEFAULT_SHAPE_SIZE, SHAPE_SIZE_PRESETS, TEXT_SIZE_PRESETS } from '../../data/customVillain'
 import type { LocationActionType } from '../../engine/types'
 import { renderCardFace, ruleTextBlockHeight, isPreRenderedCard } from './cardRender'
 import { ACTION_TOKEN_LIST, ACTION_ICON_FILE, BOARD_ICON_DIR } from './actionIcons'
@@ -53,7 +53,12 @@ function NoAbilityButton({ onClick }: { onClick: () => void }) {
   )
 }
 
-type Selection = { kind: 'text' } | { kind: 'box'; id: string } | { kind: 'sticker'; id: string } | null
+type Selection =
+  | { kind: 'text' }
+  | { kind: 'box'; id: string }
+  | { kind: 'sticker'; id: string }
+  | { kind: 'shape'; id: string }
+  | null
 type DragMode = 'move' | 'resize'
 interface DragState {
   sel: Exclude<Selection, null>
@@ -117,6 +122,7 @@ export function CardLayoutEditor({
     tl: card.textLayout,
     tb: card.textBoxes,
     st: card.stickers,
+    sh: card.shapes,
     col: color,
     fcol: fateColor,
     ct: customTypes,
@@ -193,6 +199,25 @@ export function CardLayoutEditor({
     setSel(null)
   }
 
+  const setShape = (id: string, p: Partial<CardShape>) =>
+    onChange({ ...card, shapes: (card.shapes ?? []).map((s) => (s.id === id ? { ...s, ...p } : s)) })
+
+  // Couleur de la PROCHAINE forme posée (pipette) — par défaut celle du vilain.
+  const [shapeColor, setShapeColor] = useState(color)
+  const addShape = () => {
+    const taken = new Set((card.shapes ?? []).map((s) => s.id))
+    let n = 1
+    while (taken.has(`shp-${n}`)) n++
+    const id = `shp-${n}`
+    const shp: CardShape = { id, kind: 'circle', color: shapeColor, x: 50, y: 50, size: DEFAULT_SHAPE_SIZE }
+    onChange({ ...card, shapes: [...(card.shapes ?? []), shp] })
+    setSel({ kind: 'shape', id })
+  }
+  const removeShape = (id: string) => {
+    onChange({ ...card, shapes: (card.shapes ?? []).filter((s) => s.id !== id) })
+    setSel(null)
+  }
+
   // --- Drag ------------------------------------------------------------------
   const startDrag = (e: React.PointerEvent, s: Exclude<Selection, null>, mode: DragMode) => {
     e.preventDefault()
@@ -209,8 +234,10 @@ export function CardLayoutEditor({
               return { ox: b?.x ?? 50, oy: b?.y ?? 50, ow: b?.w ?? 50, osize: b?.size ?? 44 }
             })()
           : (() => {
-              const st = card.stickers?.find((x) => x.id === s.id)
-              return { ox: st?.x ?? 50, oy: st?.y ?? 50, ow: 0, osize: st?.size ?? DEFAULT_STICKER_SIZE }
+              // symbole OU forme : même modèle géométrique (centre x/y + taille carrée).
+              const el = s.kind === 'sticker' ? card.stickers?.find((x) => x.id === s.id) : card.shapes?.find((x) => x.id === s.id)
+              const def = s.kind === 'sticker' ? DEFAULT_STICKER_SIZE : DEFAULT_SHAPE_SIZE
+              return { ox: el?.x ?? 50, oy: el?.y ?? 50, ow: 0, osize: el?.size ?? def }
             })()
     dragRef.current = { sel: s, mode, startX: e.clientX, startY: e.clientY, rectW: rect.width, rectH: rect.height, ...o }
     ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
@@ -232,11 +259,14 @@ export function CardLayoutEditor({
         apply({ w, size: Math.round(size) })
       }
     } else {
+      // symbole OU forme : même géométrie ; on route vers le bon setter.
+      const applyEl = (p: Partial<CardSticker & CardShape>) =>
+        d.sel.kind === 'sticker' ? setSticker((d.sel as { id: string }).id, p) : setShape((d.sel as { id: string }).id, p)
       if (d.mode === 'move') {
-        setSticker(d.sel.id, { x: clamp(d.ox + dxPctW, 2, 98), y: clamp(d.oy + dyPctH, 2, 98) })
+        applyEl({ x: clamp(d.ox + dxPctW, 2, 98), y: clamp(d.oy + dyPctH, 2, 98) })
       } else {
         const delta = ((dxPctW + dyPctH) / 2) * 2
-        setSticker(d.sel.id, { size: clamp(d.osize + delta, 4, 60) })
+        applyEl({ size: clamp(d.osize + delta, 4, 60) })
       }
     }
   }
@@ -274,10 +304,17 @@ export function CardLayoutEditor({
             b.id === sel.id ? { ...b, x: clamp(b.x + dx, 4, 96), y: clamp(b.y + dy, 4, 96) } : b,
           ),
         })
-      } else {
+      } else if (sel.kind === 'sticker') {
         onChange({
           ...card,
           stickers: (card.stickers ?? []).map((s) =>
+            s.id === sel.id ? { ...s, x: clamp(s.x + dx, 2, 98), y: clamp(s.y + dy, 2, 98) } : s,
+          ),
+        })
+      } else {
+        onChange({
+          ...card,
+          shapes: (card.shapes ?? []).map((s) =>
             s.id === sel.id ? { ...s, x: clamp(s.x + dx, 2, 98), y: clamp(s.y + dy, 2, 98) } : s,
           ),
         })
@@ -348,6 +385,21 @@ export function CardLayoutEditor({
             onDown={(e) => startDrag(e, { kind: 'sticker', id: s.id }, 'move')}
             onResize={(e) => startDrag(e, { kind: 'sticker', id: s.id }, 'resize')}
             onDelete={() => removeSticker(s.id)}
+          />
+        ))}
+
+        {/* Hotspots des FORMES posées (layouts) */}
+        {(card.shapes ?? []).map((s) => (
+          <Hotspot
+            key={s.id}
+            left={s.x - s.size / 2}
+            top={s.y - sideH(s.size) / 2}
+            width={s.size}
+            height={sideH(s.size)}
+            selected={sel?.kind === 'shape' && sel.id === s.id}
+            onDown={(e) => startDrag(e, { kind: 'shape', id: s.id }, 'move')}
+            onResize={(e) => startDrag(e, { kind: 'shape', id: s.id }, 'resize')}
+            onDelete={() => removeShape(s.id)}
           />
         ))}
       </div>
@@ -544,6 +596,93 @@ export function CardLayoutEditor({
                     ))}
                   </div>
                 )}
+              </div>
+            )
+          })()}
+      </div>
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <SectionTitle>Layouts</SectionTitle>
+      {/* Barre : poser une forme décorative + pipette de couleur de la prochaine forme. */}
+      <div className="flex flex-col gap-1">
+        <span className="text-[11px] text-white/40">Poser une forme :</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={addShape}
+            title="Poser : rond plein"
+            className="flex items-center gap-1.5 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 text-xs text-emerald-100 transition hover:bg-emerald-400/20"
+          >
+            <span className="inline-block h-4 w-4 rounded-full" style={{ backgroundColor: shapeColor }} />
+            Rond plein
+          </button>
+          {/* Pipette : couleur de la prochaine forme posée. */}
+          <input
+            type="color"
+            value={shapeColor}
+            onChange={(e) => setShapeColor(e.target.value)}
+            title="Couleur de la forme"
+            className="h-7 w-9 cursor-pointer rounded border border-white/15 bg-transparent"
+          />
+        </div>
+        {sel?.kind === 'shape' &&
+          (() => {
+            const shp = card.shapes?.find((s) => s.id === sel.id)
+            if (!shp) return null
+            const sizeBtn = (label: string, size: number) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => setShape(shp.id, { size })}
+                className={`rounded-lg border px-2 py-1 text-xs font-semibold transition ${
+                  shp.size === size
+                    ? 'border-amber-400 bg-amber-400/20 text-amber-100'
+                    : 'border-white/20 bg-white/5 text-white/80 hover:border-amber-300/70 hover:text-amber-200'
+                }`}
+              >
+                {label}
+              </button>
+            )
+            return (
+              <div className="mt-1 flex flex-col gap-1.5 rounded-lg border border-emerald-400/20 bg-emerald-400/5 px-2 py-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-emerald-200/70">Forme sélectionnée</span>
+                  <button
+                    type="button"
+                    onClick={() => removeShape(sel.id)}
+                    className="rounded border border-rose-400/40 bg-rose-400/10 px-2 py-1 text-xs font-semibold text-rose-100 transition hover:bg-rose-400/20"
+                  >
+                    Supprimer la forme
+                  </button>
+                </div>
+                {/* Couleur de la forme sélectionnée (pipette). */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] text-white/40">Couleur :</span>
+                  <input
+                    type="color"
+                    value={shp.color}
+                    onChange={(e) => setShape(shp.id, { color: e.target.value })}
+                    className="h-7 w-9 cursor-pointer rounded border border-white/15 bg-transparent"
+                  />
+                </div>
+                {/* Centrer horizontalement la forme (x = 50 %). */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setShape(shp.id, { x: 50 })}
+                    title="Centrer la forme horizontalement au milieu de la carte"
+                    className="rounded-lg border border-white/20 bg-white/5 px-2 py-1 text-xs font-semibold text-white/80 transition hover:border-amber-300/70 hover:text-amber-200"
+                  >
+                    ⇔ Centrer H
+                  </button>
+                </div>
+                {/* Taille de la forme : Petit / Normal (déplaçable/redimensionnable au drag aussi). */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] text-white/40">Taille :</span>
+                  {sizeBtn('Petit', SHAPE_SIZE_PRESETS.small)}
+                  {sizeBtn('Normal', SHAPE_SIZE_PRESETS.normal)}
+                </div>
               </div>
             )
           })()}

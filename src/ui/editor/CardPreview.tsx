@@ -40,6 +40,7 @@ export function CardPreview({
     tl: card.textLayout,
     tb: card.textBoxes,
     st: card.stickers,
+    sh: card.shapes,
     col: color,
     fcol: fateColor,
     ct: customTypes,
