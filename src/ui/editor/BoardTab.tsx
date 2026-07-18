@@ -460,8 +460,15 @@ function BoardPreview({
           src={v.pawnImage}
           alt="Pion"
           title="Pion (aperçu de placement)"
-          className="pointer-events-none absolute w-auto -translate-x-1/2 -translate-y-1/2 drop-shadow-[0_2px_3px_rgba(0,0,0,0.6)]"
-          style={{ left: `${PAWN_FIRST_LEFT}%`, top: `${PAWN_TOP}%`, height: `${pawnPct}%` }}
+          className="pointer-events-none absolute w-auto -translate-x-1/2 -translate-y-1/2"
+          // Halo lumineux doux (contour blanc flou), comme le pion en jeu (cf. BoardImage) :
+          // on voit ainsi la « lumière » derrière le pion, pas seulement une ombre sombre.
+          style={{
+            left: `${PAWN_FIRST_LEFT}%`,
+            top: `${PAWN_TOP}%`,
+            height: `${pawnPct}%`,
+            filter: 'drop-shadow(0 0 1px #ffffff) drop-shadow(0 0 2.5px #ffffff)',
+          }}
         />
       )}
       {/* Mode recouvrement : voile sur la rangée du HAUT des 4 lieux (EXACTEMENT la
