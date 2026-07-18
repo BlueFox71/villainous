@@ -54,6 +54,76 @@ function NoAbilityButton({ onClick }: { onClick: () => void }) {
   )
 }
 
+/** Retire tous les marqueurs de couleur `{c:#…}` / `{/c}` d'une chaîne. */
+const stripColorMarks = (s: string) => s.replace(/\{c:#[0-9a-fA-F]{3,8}\}|\{\/c\}/g, '')
+
+/** Applique une couleur au texte SÉLECTIONNÉ d'un textarea (ou à TOUT le texte si rien
+ *  n'est sélectionné). Retire d'abord les marqueurs existants dans la cible pour éviter
+ *  les imbrications (recoloration propre). */
+function colorizeSelection(ta: HTMLTextAreaElement | null, value: string, onChange: (v: string) => void, hex: string) {
+  const start = ta?.selectionStart ?? 0
+  const end = ta?.selectionEnd ?? 0
+  if (!ta || start === end) {
+    onChange(`{c:${hex}}${stripColorMarks(value)}{/c}`) // aucune sélection → couleur TOTALE
+    return
+  }
+  const inner = stripColorMarks(value.slice(start, end))
+  onChange(value.slice(0, start) + `{c:${hex}}` + inner + `{/c}` + value.slice(end))
+}
+
+/** Retire la couleur du texte sélectionné (ou de tout le texte si rien n'est sélectionné). */
+function decolorizeSelection(ta: HTMLTextAreaElement | null, value: string, onChange: (v: string) => void) {
+  const start = ta?.selectionStart ?? 0
+  const end = ta?.selectionEnd ?? 0
+  if (!ta || start === end) {
+    onChange(stripColorMarks(value))
+    return
+  }
+  onChange(value.slice(0, start) + stripColorMarks(value.slice(start, end)) + value.slice(end))
+}
+
+/** Barre de couleur de texte : pipette + « Colorer » (sélection, ou tout le texte si rien
+ *  n'est sélectionné) + « Enlever ». Opère sur la sélection courante du textarea référencé. */
+function TextColorBar({
+  taRef,
+  value,
+  onChange,
+}: {
+  taRef: React.RefObject<HTMLTextAreaElement | null>
+  value: string
+  onChange: (v: string) => void
+}) {
+  const [hex, setHex] = useState('#c0392b')
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-[11px] text-white/40">Couleur :</span>
+      <input
+        type="color"
+        value={hex}
+        onChange={(e) => setHex(e.target.value)}
+        title="Couleur à appliquer"
+        className="h-7 w-9 cursor-pointer rounded border border-white/15 bg-transparent"
+      />
+      <button
+        type="button"
+        onClick={() => colorizeSelection(taRef.current, value, onChange, hex)}
+        title="Colorer la sélection (ou tout le texte si rien n'est sélectionné)"
+        className="rounded border border-amber-400/30 bg-amber-400/10 px-2 py-1 text-[11px] font-semibold text-amber-100 transition hover:bg-amber-400/20"
+      >
+        Colorer
+      </button>
+      <button
+        type="button"
+        onClick={() => decolorizeSelection(taRef.current, value, onChange)}
+        title="Retirer la couleur (sélection, ou tout le texte si rien n'est sélectionné)"
+        className="rounded border border-white/20 bg-white/5 px-2 py-1 text-[11px] font-semibold text-white/70 transition hover:border-amber-300/70 hover:text-amber-200"
+      >
+        Enlever
+      </button>
+    </div>
+  )
+}
+
 type Selection =
   | { kind: 'text' }
   | { kind: 'box'; id: string }
@@ -522,8 +592,30 @@ export function CardLayoutEditor({
                 {s.label}
               </button>
             ))}
+            {/* Select de la taille exacte (contient la valeur courante). */}
+            <select
+              value={Math.round(activeText.size)}
+              onChange={(e) => setActiveText({ size: Number(e.target.value) })}
+              title="Taille exacte du texte"
+              className={`${inputClass} px-2 py-1 text-xs`}
+            >
+              {Array.from(
+                new Set([...Array.from({ length: 21 }, (_, i) => 20 + i * 5), Math.round(activeText.size)]),
+              )
+                .sort((a, b) => a - b)
+                .map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+            </select>
           </div>
         </div>
+      )}
+
+      {/* Couleur du texte principal (sélection partielle ou tout le texte). */}
+      {card.text.trim() && (
+        <TextColorBar taRef={mainTextRef} value={card.text} onChange={(text) => onChange({ ...card, text })} />
       )}
 
       {/* Zones de texte : ajouter + éditer le contenu de la zone sélectionnée */}
@@ -730,6 +822,19 @@ export function CardLayoutEditor({
                   {sizeBtn('Moyenne', 30)}
                   {sizeBtn('Grande', 45)}
                 </div>
+                {/* Ajustement fin de la taille de l'image (largeur en % de la carte). */}
+                <label className="flex items-center gap-2 text-[11px] text-white/40">
+                  <span className="shrink-0">Ajuster :</span>
+                  <input
+                    type="range"
+                    min={5}
+                    max={120}
+                    value={Math.round(im.size)}
+                    onChange={(e) => setImage(im.id, { size: Number(e.target.value) })}
+                    className="flex-1 accent-amber-400"
+                  />
+                  <span className="w-8 shrink-0 text-right tabular-nums text-white/60">{Math.round(im.size)}</span>
+                </label>
               </div>
             )
           })()}
@@ -804,6 +909,8 @@ function BoxTextEditor({
           </button>
         ))}
       </div>
+      {/* Couleur du texte de la zone (sélection partielle ou tout). */}
+      <TextColorBar taRef={ref} value={draft} onChange={update} />
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"

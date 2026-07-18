@@ -47,3 +47,35 @@ describe('parseSegments — marqueur d’italique `_`', () => {
     expect(italic).toBe(true)
   })
 })
+
+describe('parseSegments — marqueur de couleur `{c:#…}` … `{/c}`', () => {
+  it('colore un mot enrobé de marqueurs', () => {
+    const { segs, color } = parseSegments('{c:#ff0000}rouge{/c}')
+    expect(segs).toEqual([{ text: 'rouge', italic: false, color: '#ff0000' }])
+    expect(color).toBeUndefined() // couleur refermée
+  })
+
+  it('la couleur s’étend sur plusieurs mots via l’état renvoyé', () => {
+    const first = parseSegments('{c:#00ff00}deux')
+    expect(first.segs).toEqual([{ text: 'deux', italic: false, color: '#00ff00' }])
+    expect(first.color).toBe('#00ff00')
+
+    const second = parseSegments('mots{/c}', first.italic, first.color)
+    expect(second.segs).toEqual([{ text: 'mots', italic: false, color: '#00ff00' }])
+    expect(second.color).toBeUndefined()
+  })
+
+  it('couleur partielle à l’intérieur d’un mot', () => {
+    const { segs } = parseSegments('pré{c:#123456}fixe{/c}suite')
+    expect(segs).toEqual([
+      { text: 'pré', italic: false },
+      { text: 'fixe', italic: false, color: '#123456' },
+      { text: 'suite', italic: false },
+    ])
+  })
+
+  it('couleur et italique se combinent', () => {
+    const { segs } = parseSegments('{c:#abcdef}_mot_{/c}')
+    expect(segs).toEqual([{ text: 'mot', italic: true, color: '#abcdef' }])
+  })
+})

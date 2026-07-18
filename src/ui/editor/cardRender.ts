@@ -233,36 +233,52 @@ async function tintedBadge(file: string, color: string): Promise<HTMLCanvasEleme
 // (séparés par des espaces) ; chaque mot est une suite de SEGMENTS texte/icône, et
 // reste insécable au retour à la ligne.
 
-/** Un segment d'un mot : portion de texte (éventuellement en italique), ou icône. */
-type Seg = { text: string; italic?: boolean } | { icon: LocationActionType }
+/** Un segment d'un mot : portion de texte (éventuellement en italique et/ou colorée),
+ *  ou icône. `color` (absente = doré/encre par défaut) recolore ce segment. */
+type Seg = { text: string; italic?: boolean; color?: string } | { icon: LocationActionType }
 /** Un mot mesuré : ses segments + sa largeur totale (px). */
 type Word = { segs: Seg[]; w: number }
 
 /** Découpe un mot (sans espace) en segments texte/icône selon les jetons connus, en
- *  gérant le marqueur d'ITALIQUE `_` (à la Markdown) : chaque `_` bascule l'italique,
- *  état qui peut s'étendre sur plusieurs mots (on le reçoit / renvoie). */
-export function parseSegments(word: string, italic = false): { segs: Seg[]; italic: boolean } {
+ *  gérant deux marqueurs à la Markdown, chacun d'état pouvant s'étendre sur plusieurs
+ *  mots (on le reçoit / renvoie) :
+ *  - ITALIQUE `_` : chaque `_` bascule l'italique.
+ *  - COULEUR `{c:#rrggbb}` … `{/c}` : ouvre/ferme une couleur de texte. */
+export function parseSegments(
+  word: string,
+  italic = false,
+  color?: string,
+): { segs: Seg[]; italic: boolean; color?: string } {
   const segs: Seg[] = []
   // Ajoute une portion de texte en découpant sur `_` (chaque `_` bascule l'italique).
   const pushText = (str: string) => {
     const parts = str.split('_')
     parts.forEach((p, i) => {
       if (i > 0) italic = !italic
-      if (p) segs.push({ text: p, italic })
+      if (p) segs.push(color ? { text: p, italic, color } : { text: p, italic })
     })
   }
-  const re = /\[([a-z-]+)\]/gi
+  // Jetons d'action `[xxx]`, ouverture de couleur `{c:#hex}`, fermeture `{/c}`.
+  const re = /\[([a-z-]+)\]|\{c:(#[0-9a-fA-F]{3,8})\}|\{\/c\}/gi
   let last = 0
   let m: RegExpExecArray | null
   while ((m = re.exec(word))) {
-    const type = ACTION_TOKENS[m[1].toLowerCase()]
-    if (!type) continue // jeton inconnu : laissé en texte brut
-    if (m.index > last) pushText(word.slice(last, m.index))
-    segs.push({ icon: type })
+    if (m[1] !== undefined) {
+      // Jeton d'action : ignoré (laissé en texte brut) s'il est inconnu.
+      const type = ACTION_TOKENS[m[1].toLowerCase()]
+      if (!type) continue
+      if (m.index > last) pushText(word.slice(last, m.index))
+      segs.push({ icon: type })
+    } else {
+      // Marqueur de couleur (ouverture m[2] = hex, ou fermeture {/c}) : ne produit
+      // aucun segment mais met à jour l'état de couleur courant.
+      if (m.index > last) pushText(word.slice(last, m.index))
+      color = m[2] // undefined pour {/c}
+    }
     last = re.lastIndex
   }
   if (last < word.length) pushText(word.slice(last))
-  return { segs, italic }
+  return { segs, italic, color }
 }
 
 /** Mesure puis répartit `text` en lignes tenant dans `maxW`. Les icônes occupent
@@ -285,14 +301,16 @@ function layoutText(
     }, 0)
   const lines: Word[][] = []
   for (const para of text.split('\n')) {
-    // L'italique ne franchit pas un saut de ligne (réinitialisé à chaque paragraphe).
+    // Italique ET couleur ne franchissent pas un saut de ligne (réinitialisés par paragraphe).
     let italic = false
+    let color: string | undefined
     const words = para.split(/\s+/).filter(Boolean)
     let cur: Word[] = []
     let curW = 0
     for (const raw of words) {
-      const parsed = parseSegments(raw, italic)
+      const parsed = parseSegments(raw, italic, color)
       italic = parsed.italic
+      color = parsed.color
       if (!parsed.segs.length) continue // mot fait uniquement de marqueurs `_`
       const w = measure(parsed.segs)
       const projected = curW + (cur.length ? spaceW : 0) + w
@@ -406,6 +424,13 @@ function drawRuleLines(
           // Mots de type (Allié, Objet, Héros… ET types personnalisés) colorés à la couleur
           // de leur type ; le reste reste doré. Italique quand le segment est marqué.
           ctx.font = seg.italic ? italicFont : baseFont
+          // Couleur EXPLICITE (marqueur `{c:#…}`) : prioritaire, recolore tout le segment.
+          if (seg.color) {
+            ctx.fillStyle = seg.color
+            ctx.fillText(seg.text, x, cy)
+            x += ctx.measureText(seg.text).width
+            continue
+          }
           const typeColor = typeWordColor(seg.text, typeColors)
           if (typeColor) {
             // Seul le MOT est coloré ; la ponctuation qui le borde (« Héros. »,
