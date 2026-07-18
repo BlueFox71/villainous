@@ -196,12 +196,12 @@ const PHRASE_FILE: Partial<Record<VillainKey, { file: string; gain?: number; fad
   scar: { file: 'Scar phrase', fadeEndS: 0.3 },
   hades: { file: 'hadès phrase' },
   maleficent: { file: 'Maléfique phrase', gain: 0.7 },
-  sombra: { file: 'Sombra phrase', gain: 0.5 },
+  sombra: { file: 'Sombra phrase', gain: 0.4 },
   ursula: { file: 'Ursula phrase', gain: 0.5 },
   gothel: { file: 'Mère Gothel Phrase' },
   madameTremaine: { file: 'Phrase madame de trémaine' },
   facilier: { file: 'Phrase Dr facilier' },
-  syndrome: { file: 'Phrase syndrome' },
+  syndrome: { file: 'Phrase syndrome', gain: 1.3 },
   gaston: { file: 'gaston phrase' },
   tabbou: { file: 'Tabbou phrase' },
   bowser: { file: 'Bowser phrase' },
@@ -236,8 +236,9 @@ export function playVillainPhrase(villainId: string) {
   // NATIF → fichier de phrase (`phraseTrack`) ; PUBLIÉ → sa « Devise en audio » (dataURL).
   const track = isCustomKey(villainId)
     ? (() => {
-        const url = customVillainOf(villainId)?.audio
-        return url ? { url, gain: 1, fadeEndS: 0.6 } : undefined
+        const custom = customVillainOf(villainId)
+        const url = custom?.audio
+        return url ? { url, gain: custom?.audioGain ?? 1, fadeEndS: 0.6 } : undefined
       })()
     : phraseTrack(villainId in VILLAIN_REGISTRY ? (villainId as VillainKey) : villainKeyOf(villainId))
   if (!track) return

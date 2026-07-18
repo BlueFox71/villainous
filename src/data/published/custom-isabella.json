@@ -153,7 +153,7 @@
       "type": "ally",
       "copies": 1,
       "text": "Les Héros sur le lieu de SŒUR KRONE ne peuvent pas être déplacés par les cartes Fatalités. \nSi ISABELLA est sur le même lieu que SŒUR KRONE, elle peut effectuer une action recouverte par un Héros sur ce lieu.",
-      "image": "/cards/custom-isabella/custom-isabella-s-ur-krone.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-s-ur-krone.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -161,7 +161,7 @@
       },
       "cost": 2,
       "strength": 4,
-      "artImage": "/cards/custom-isabella/custom-isabella-s-ur-krone.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-s-ur-krone.art.png?v=1783792123704",
       "textLayout": {
         "x": 50.34722222222222,
         "y": 75.8414554905783,
@@ -177,7 +177,7 @@
       "type": "ally",
       "copies": 1,
       "text": " Éliminer un Héros qui vous aime ou qui se trouve à la porte.",
-      "image": "/cards/custom-isabella/custom-isabella-grand-mere-sarah.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-grand-mere-sarah.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -210,7 +210,7 @@
           "size": 64
         }
       ],
-      "artImage": "/cards/custom-isabella/custom-isabella-grand-mere-sarah.art.png?v=1783792105901"
+      "artImage": "/cards/custom-isabella/custom-isabella-grand-mere-sarah.art.png?v=1783792123704"
     },
     {
       "id": "custom-isabella-cloche",
@@ -220,7 +220,7 @@
       "type": "item",
       "copies": 1,
       "text": "Regardez les quatre premières cartes de votre pioche. Ajoutez en une à votre main et mélangez les autres avec votre deck.",
-      "image": "/cards/custom-isabella/custom-isabella-cloche.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-cloche.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -242,7 +242,7 @@
           "size": 20
         }
       ],
-      "artImage": "/cards/custom-isabella/custom-isabella-cloche.art.png?v=1783792105901"
+      "artImage": "/cards/custom-isabella/custom-isabella-cloche.art.png?v=1783792123704"
     },
     {
       "id": "custom-isabella-la-vida",
@@ -252,14 +252,14 @@
       "type": "item",
       "copies": 1,
       "text": " Allez chercher la carte MOISSON et ajoutez là à votre main.",
-      "image": "/cards/custom-isabella/custom-isabella-la-vida.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-la-vida.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "cost": 2,
-      "artImage": "/cards/custom-isabella/custom-isabella-la-vida.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-la-vida.art.png?v=1783792123704",
       "textLayout": {
         "x": 49.30555555555556,
         "y": 86.8493674272828,
@@ -294,14 +294,14 @@
       "type": "item",
       "copies": 1,
       "text": "Jouez une Activité quel que soit l'heure. En contrepartie, piochez dans votre deck Fatalité jusqu’à ce que vous trouvez un Héros. Jouez-le et défaussez les autres cartes.",
-      "image": "/cards/custom-isabella/custom-isabella-radar-de-poche.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-radar-de-poche.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "cost": 1,
-      "artImage": "/cards/custom-isabella/custom-isabella-radar-de-poche.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-radar-de-poche.art.png?v=1783792123704",
       "stickers": [
         {
           "id": "stk-1",
@@ -326,14 +326,14 @@
       "type": "effect",
       "copies": 2,
       "text": "Éliminer un Héros.",
-      "image": "/cards/custom-isabella/custom-isabella-supprimes-de-l-equation.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-supprimes-de-l-equation.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "cost": 1,
-      "artImage": "/cards/custom-isabella/custom-isabella-supprimes-de-l-equation.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-supprimes-de-l-equation.art.png?v=1783792123704",
       "textLayout": {
         "x": 50,
         "y": 77.7984176126591,
@@ -349,14 +349,14 @@
       "type": "effect",
       "copies": 2,
       "text": "Gagnez 1 Jeton Pouvoir par Héros dans votre défausse ou sur votre Royaume ( jusqu’à 6).",
-      "image": "/cards/custom-isabella/custom-isabella-mes-cheries.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-mes-cheries.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "cost": 0,
-      "artImage": "/cards/custom-isabella/custom-isabella-mes-cheries.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-mes-cheries.art.png?v=1783792123704",
       "textLayout": {
         "x": 49.30555555555556,
         "y": 77.553797347399,
@@ -372,14 +372,14 @@
       "type": "effect",
       "copies": 2,
       "text": "Choisissez jusqu'à quatre cartes dans votre défausse. Vous pouvez mettre un Événement dans votre main. Mélangez les autres dans votre deck.",
-      "image": "/cards/custom-isabella/custom-isabella-rapport-journalier.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-rapport-journalier.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "cost": 1,
-      "artImage": "/cards/custom-isabella/custom-isabella-rapport-journalier.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-rapport-journalier.art.png?v=1783792123704",
       "textLayout": {
         "x": 50.34722222222222,
         "y": 77.7984176126591,
@@ -395,14 +395,14 @@
       "type": "effect",
       "copies": 2,
       "text": "Effectuer une action \"Activer une capacité\" \nou \ndéplacer deux Alliés .",
-      "image": "/cards/custom-isabella/custom-isabella-c-est-le-moment-de-partir.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-c-est-le-moment-de-partir.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "cost": 1,
-      "artImage": "/cards/custom-isabella/custom-isabella-c-est-le-moment-de-partir.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-c-est-le-moment-de-partir.art.png?v=1783792123704",
       "textLayout": {
         "x": 51.041666666666664,
         "y": 77.3091770821389,
@@ -418,14 +418,14 @@
       "type": "effect",
       "copies": 2,
       "text": "Cherchez un Objet ou une Activité dans votre deck ou défausse et ajoutez le à votre main.   Mélangez votre deck.",
-      "image": "/cards/custom-isabella/custom-isabella-ils-savent.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-ils-savent.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "cost": 2,
-      "artImage": "/cards/custom-isabella/custom-isabella-ils-savent.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-ils-savent.art.png?v=1783792123704",
       "textLayout": {
         "x": 50.69444444444444,
         "y": 76.33069602109849,
@@ -443,14 +443,14 @@
       "type": "effect",
       "copies": 1,
       "text": "Choisissez un Héros dans votre Royaume, ignorez ces capacités jusqu’à la fin de votre tour. Si vous êtes victime d'un fatalité jusqu’à votre prochain tour, un Héros de votre choix vous aime.",
-      "image": "/cards/custom-isabella/custom-isabella-tu-as-l-air-un-peu-pale.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-tu-as-l-air-un-peu-pale.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "cost": 1,
-      "artImage": "/cards/custom-isabella/custom-isabella-tu-as-l-air-un-peu-pale.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-tu-as-l-air-un-peu-pale.art.png?v=1783792123704",
       "textLayout": {
         "x": 49.65277777777778,
         "y": 77.553797347399,
@@ -466,13 +466,13 @@
       "type": "condition",
       "copies": 2,
       "text": "Cette carte est jouable pendant le tour d'un adversaire si la somme des Objets et Alliés dans son royaume est au moins de 4. Un Héros de votre choix vous aime.",
-      "image": "/cards/custom-isabella/custom-isabella-bienveillance.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-bienveillance.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
-      "artImage": "/cards/custom-isabella/custom-isabella-bienveillance.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-bienveillance.art.png?v=1783792123704",
       "textLayout": {
         "x": 49.65277777777778,
         "y": 77.3091770821389,
@@ -488,13 +488,13 @@
       "type": "condition",
       "copies": 2,
       "text": "Cette carte est jouable pendant le tour d'un adversaire s'il se déplace vers un lieu où se trouve un Héros. Choisissez une carte de votre défausse et ajoutez-la à votre deck.",
-      "image": "/cards/custom-isabella/custom-isabella-vigilante.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-vigilante.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
-      "artImage": "/cards/custom-isabella/custom-isabella-vigilante.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-vigilante.art.png?v=1783792123704",
       "textLayout": {
         "x": 50,
         "y": 76.5753162863586,
@@ -510,7 +510,7 @@
       "type": "effect",
       "copies": 1,
       "text": "Peut être joué seulement à II ou VIII. Validez l'heure qui correspond à l'heure où la carte a été jouée. De plus, gagnez 1 Jeton Pouvoir plus 1 pour chaque Héros qui vous aime.",
-      "image": "/cards/custom-isabella/custom-isabella-test-de-repetition.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-test-de-repetition.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -519,7 +519,7 @@
       "cost": 2,
       "typeLabel": "Activité",
       "typeColor": "#cf9ddd",
-      "artImage": "/cards/custom-isabella/custom-isabella-test-de-repetition.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-test-de-repetition.art.png?v=1783792123704",
       "textLayout": {
         "x": 50.34722222222222,
         "y": 76.5753162863586,
@@ -535,7 +535,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Peut être joué seulement à XII, IV ou VIII. Validez l'heure qui correspond à l'heure où la carte a été jouée. De plus, si un Héros se trouve sur le lieu d'ISABELLA, celui-ci vous aime.",
-      "image": "/cards/custom-isabella/custom-isabella-temps-libre.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-temps-libre.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -544,7 +544,7 @@
       "cost": 0,
       "typeLabel": "Activité",
       "typeColor": "#cf9ddd",
-      "artImage": "/cards/custom-isabella/custom-isabella-temps-libre.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-temps-libre.art.png?v=1783792123704",
       "textLayout": {
         "x": 50.34722222222222,
         "y": 78.0430378779192,
@@ -560,7 +560,7 @@
       "type": "effect",
       "copies": 1,
       "text": "Peut être joué seulement à XII ou VI. Validez l'heure qui correspond à l'heure où la carte a été jouée. De plus, choisissez un Héros dans votre royaume. Celui-ci vous aime et piochez une carte et gagnez un Jeton pouvoir.",
-      "image": "/cards/custom-isabella/custom-isabella-diner-en-famille.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-diner-en-famille.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -569,7 +569,7 @@
       "cost": 2,
       "typeLabel": "Activité",
       "typeColor": "#cf9ddd",
-      "artImage": "/cards/custom-isabella/custom-isabella-diner-en-famille.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-diner-en-famille.art.png?v=1783792123704",
       "textLayout": {
         "x": 50,
         "y": 77.3091770821389,
@@ -585,7 +585,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Peut être joué seulement à XII, IV ou VIII. Validez l'heure qui correspond à l'heure où la carte a été jouée. De plus, éliminez un Héros qui vous aime ou qui se trouve à la porte.",
-      "image": "/cards/custom-isabella/custom-isabella-moisson.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-moisson.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -594,7 +594,7 @@
       "cost": 1,
       "typeLabel": "Activité",
       "typeColor": "#cf9ddd",
-      "artImage": "/cards/custom-isabella/custom-isabella-moisson.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-moisson.art.png?v=1783792123704",
       "textLayout": {
         "x": 50,
         "y": 76.3306960210985,
@@ -610,7 +610,7 @@
       "type": "effect",
       "copies": 1,
       "text": "Peut être joué seulement à IV ou X. Validez l'heure qui correspond à l'heure où la carte a été jouée. De plus, défaussez les cartes de votre choix et piochez les cartes de votre deck afin d'avoir une main de 4 cartes.",
-      "image": "/cards/custom-isabella/custom-isabella-laverie.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-laverie.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -619,7 +619,7 @@
       "cost": 2,
       "typeLabel": "Activité",
       "typeColor": "#cf9ddd",
-      "artImage": "/cards/custom-isabella/custom-isabella-laverie.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-laverie.art.png?v=1783792123704",
       "textLayout": {
         "x": 49.30555555555556,
         "y": 77.3091770821389,
@@ -635,7 +635,7 @@
       "type": "effect",
       "copies": 3,
       "text": "Peut être joué seulement à II, VI, VIII ou X. Validez l'heure qui correspond à l'heure où la carte a été jouée. De plus, déplacez tous les Héros sur votre royaume vers un lieu voisin.",
-      "image": "/cards/custom-isabella/custom-isabella-jouer-a-chat.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-jouer-a-chat.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -644,7 +644,7 @@
       "cost": 1,
       "typeLabel": "Activité",
       "typeColor": "#cf9ddd",
-      "artImage": "/cards/custom-isabella/custom-isabella-jouer-a-chat.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-jouer-a-chat.art.png?v=1783792123704",
       "textLayout": {
         "x": 50,
         "y": 77.0645568168788,
@@ -660,13 +660,13 @@
       "type": "effect",
       "copies": 3,
       "text": "Choisissez un Héros qui aime ISABELLA, celui-ci redevient un Héros.",
-      "image": "/cards/custom-isabella/custom-isabella-maman-est-un-ennemi.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-maman-est-un-ennemi.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
-      "artImage": "/cards/custom-isabella/custom-isabella-maman-est-un-ennemi.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-maman-est-un-ennemi.art.png?v=1783792123704",
       "textLayout": {
         "x": 49.30555555555556,
         "y": 76.8199365516187,
@@ -682,13 +682,13 @@
       "type": "effect",
       "copies": 2,
       "text": "À la prochaine Heure, aucune Activité pourra être faite.",
-      "image": "/cards/custom-isabella/custom-isabella-incendie.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-incendie.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
-      "artImage": "/cards/custom-isabella/custom-isabella-incendie.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-incendie.art.png?v=1783792123704",
       "textLayout": {
         "x": 50,
         "y": 77.553797347399,
@@ -704,7 +704,7 @@
       "type": "effect",
       "copies": 1,
       "text": "Éliminez un Héros qui vous aime.",
-      "image": "/cards/custom-isabella/custom-isabella-evasion.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-evasion.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -716,7 +716,7 @@
         "w": 71.36111111111111,
         "size": 70
       },
-      "artImage": "/cards/custom-isabella/custom-isabella-evasion.art.png?v=1783792105901"
+      "artImage": "/cards/custom-isabella/custom-isabella-evasion.art.png?v=1783792123704"
     },
     {
       "id": "custom-isabella-telephone-a-ficelle",
@@ -726,13 +726,13 @@
       "type": "item",
       "copies": 1,
       "text": "Associez cette carte à un Héros, Si ISABELLA se déplace sur le lieu où il se trouve, elle perd 2 jetons Pouvoir.",
-      "image": "/cards/custom-isabella/custom-isabella-telephone-a-ficelle.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-telephone-a-ficelle.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
-      "artImage": "/cards/custom-isabella/custom-isabella-telephone-a-ficelle.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-telephone-a-ficelle.art.png?v=1783792123704",
       "textLayout": {
         "x": 49.65277777777778,
         "y": 77.553797347399,
@@ -748,13 +748,13 @@
       "type": "item",
       "copies": 1,
       "text": "Associez cette carte à un Héros. Si ISABELLA se déplace sur ce lieu. Défaussez un Objet.",
-      "image": "/cards/custom-isabella/custom-isabella-paralysie-des-emetteurs.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-paralysie-des-emetteurs.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
-      "artImage": "/cards/custom-isabella/custom-isabella-paralysie-des-emetteurs.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-paralysie-des-emetteurs.art.png?v=1783792123704",
       "textLayout": {
         "x": 50.69444444444444,
         "y": 77.06455681687879,
@@ -770,7 +770,7 @@
       "type": "hero",
       "copies": 1,
       "text": "Vos Événements coûtent 1 Jeton pouvoir supplémentaire. \nAmour : à la fin de chaque tour, piochez une carte supplémentaire afin d'avoir 5 cartes dans votre main.",
-      "image": "/cards/custom-isabella/custom-isabella-gilda.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-gilda.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -783,7 +783,7 @@
         "w": 79,
         "size": 65
       },
-      "artImage": "/cards/custom-isabella/custom-isabella-gilda.art.png?v=1783792105901"
+      "artImage": "/cards/custom-isabella/custom-isabella-gilda.art.png?v=1783792123704"
     },
     {
       "id": "custom-isabella-norman",
@@ -793,14 +793,14 @@
       "type": "hero",
       "copies": 1,
       "text": "Si Isabella se trouve sur le lieu où se trouve NORMAN, elle ne peut pas jouer d'Événements. \nAmour : jouer une carte Événement sur le lieu où se trouve NORMAN coûte 1 Jeton pouvoir en moins.",
-      "image": "/cards/custom-isabella/custom-isabella-norman.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-norman.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "strength": 5,
-      "artImage": "/cards/custom-isabella/custom-isabella-norman.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-norman.art.png?v=1783792123704",
       "textLayout": {
         "x": 49.65277777777778,
         "y": 75.8414554905783,
@@ -816,14 +816,14 @@
       "type": "hero",
       "copies": 1,
       "text": "Lorsque RAY est joué, Allez chercher la Paralysie des émetteurs et associez-le à Ray. \nAmour : Lorsque vous effectuez l'action \"Défausser une carte\", vous pouvez défausser dans votre deck.",
-      "image": "/cards/custom-isabella/custom-isabella-ray.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-ray.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "strength": 5,
-      "artImage": "/cards/custom-isabella/custom-isabella-ray.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-ray.art.png?v=1783792123704",
       "textLayout": {
         "x": 50,
         "y": 76.5753162863586,
@@ -839,14 +839,14 @@
       "type": "hero",
       "copies": 1,
       "text": "ISABELLA doit dépenser 2 Jetons Pouvoir pour effectuer l'action \"Activer une capacité\".\n Amour : Lorsque que vous effectuez l'action \"Défausser une carte\" vous piochez toute de suite.",
-      "image": "/cards/custom-isabella/custom-isabella-emma.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-emma.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "strength": 5,
-      "artImage": "/cards/custom-isabella/custom-isabella-emma.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-emma.art.png?v=1783792123704",
       "textLayout": {
         "x": 50,
         "y": 78.0430378779192,
@@ -862,14 +862,14 @@
       "type": "hero",
       "copies": 1,
       "text": "Lorsque PHIL est joué, ISABELLA  perd 1 Jeton Pouvoir par Héros qu'il l'aime. \nAmour : Les Activités coûtent 1 Jeton pouvoir en moins. De plus, vous êtes immunisé à la carte Incendie.",
-      "image": "/cards/custom-isabella/custom-isabella-phil.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-phil.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "strength": 3,
-      "artImage": "/cards/custom-isabella/custom-isabella-phil.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-phil.art.png?v=1783792123704",
       "textLayout": {
         "x": 49.65277777777778,
         "y": 77.30917708213889,
@@ -885,14 +885,14 @@
       "type": "hero",
       "copies": 1,
       "text": "Lorsque CONNY est jouée, vous pouvez déplacer un Héros vers un lieu voisin. \nAmour : Lorsque vous êtes victime d'une action Fatalité piochez une carte.",
-      "image": "/cards/custom-isabella/custom-isabella-conny.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-conny.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "strength": 2,
-      "artImage": "/cards/custom-isabella/custom-isabella-conny.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-conny.art.png?v=1783792123704",
       "textLayout": {
         "x": 50.34722222222222,
         "y": 76.8199365516187,
@@ -908,14 +908,14 @@
       "type": "hero",
       "copies": 1,
       "text": "Ce Héros recouvre 3 actions. Amour : Au début de chaque tour, gagnez 1 jeton pouvoir par Héros qui vous aime.",
-      "image": "/cards/custom-isabella/custom-isabella-don.png?v=1783792105901",
+      "image": "/cards/custom-isabella/custom-isabella-don.png?v=1783792123704",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "strength": 4,
-      "artImage": "/cards/custom-isabella/custom-isabella-don.art.png?v=1783792105901",
+      "artImage": "/cards/custom-isabella/custom-isabella-don.art.png?v=1783792123704",
       "textLayout": {
         "x": 50,
         "y": 77.7984176126591,
@@ -926,9 +926,9 @@
   ],
   "createdAt": "2026-07-01T16:18:33.285Z",
   "updatedAt": "2026-07-11T17:48:43.704Z",
-  "backVillainImage": "/cards/custom-isabella/back-villain.png?v=1783792105901",
-  "backFateImage": "/cards/custom-isabella/back-fate.png?v=1783792105901",
-  "boardImage": "/cards/custom-isabella/board.jpg?v=1783792105901",
+  "backVillainImage": "/cards/custom-isabella/back-villain.png?v=1783792123704",
+  "backFateImage": "/cards/custom-isabella/back-fate.png?v=1783792123704",
+  "boardImage": "/cards/custom-isabella/board.jpg?v=1783792123704",
   "backOverlays": [
     {
       "id": "ovl-1",
@@ -939,10 +939,10 @@
       "aspect": 1.4104683195592287
     }
   ],
-  "portrait": "/cards/custom-isabella/portrait.png?v=1783792105901",
-  "portraitRaw": "/cards/custom-isabella/portrait-raw.png?v=1783792105901",
-  "presentation": "/cards/custom-isabella/presentation.png?v=1783792105901",
-  "boardArt": "/cards/custom-isabella/board-art.png?v=1783792105901",
+  "portrait": "/cards/custom-isabella/portrait.png?v=1783792123704",
+  "portraitRaw": "/cards/custom-isabella/portrait-raw.png?v=1783792123704",
+  "presentation": "/cards/custom-isabella/presentation.png?v=1783792123704",
+  "boardArt": "/cards/custom-isabella/board-art.png?v=1783792123704",
   "portraitCrop": {
     "x": 50,
     "y": 0,
@@ -958,7 +958,7 @@
       "color": "#f782e2"
     }
   ],
-  "pawnImage": "/cards/custom-isabella/pawn.png?v=1783792105901",
+  "pawnImage": "/cards/custom-isabella/pawn.png?v=1783792123704",
   "published": true,
   "creator": "Alexis",
   "origin": "Collaborations",

@@ -232,6 +232,21 @@ JSON du vilain. Tu ne crées **aucun** fichier natif ni câblage (cf. avertissem
     (ex. `1.4.7` + nouveau vilain → `1.5.0`).
   - **PATCH** : **+1 pour toute autre modification** (sans nouveau vilain)
     (ex. `1.5.0` → `1.5.1`).
+  - ⚠️ **Garde `package.json` `"version"` SYNCHRO** avec le numéro en tête de
+    `PATCH_NOTES` : l'auto-update (`electron-updater`) compare **ce** champ. Un même
+    commit qui bumpe la note de version doit bumper `package.json` à la même valeur.
+- **Mise à jour automatique de l'exe (auto-update) — qui fait quoi.** L'app installée
+  (Electron/NSIS) se met à jour au lancement depuis les **GitHub Releases privées**
+  (`electron/updater.cjs`). Rôles :
+  - **Claude** prépare tout (code + bump `package.json` **et** `PATCH_NOTES`) et
+    **commite** ; il ne **publie JAMAIS** lui-même (la publication exige le jeton
+    d'écriture GitHub de l'utilisateur). Quand une livraison est prête, **dis à
+    l'utilisateur qu'il peut publier**.
+  - **L'utilisateur** publie quand il veut **diffuser** (pas à chaque commit) via
+    `! $env:GH_TOKEN="<jeton écriture>"; npm run electron:publish` (build + upload
+    Releases). `commit/push` ≠ `publish` : pousser le code ne met rien à jour côté apps.
+  - **Jamais** committer `electron/update-config.cjs` (jeton **lecture** embarqué,
+    gitignoré). Ne jamais manipuler ni réclamer le jeton d'écriture.
 - **Tant que les commits ne sont pas poussés** (`git log origin/main..main`), ne
   laisse pas s'accumuler une note de version par commit : **fusionne-les en une
   seule entrée** en tête de `PATCH_NOTES` (changes et tags regroupés, doublons

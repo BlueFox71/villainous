@@ -44,9 +44,11 @@ const ROUTES = {
 
 function MenuRoute({ onReplayIntro }: { onReplayIntro: () => void }) {
   const navigate = useNavigate()
+  const startTutorial = useGameStore((s) => s.startTutorial)
   return (
     <MainMenu
       onNewGame={() => navigate(ROUTES.modeSelect)}
+      onTutorial={() => { startTutorial(); navigate(ROUTES.game, { replace: true }) }}
       onVillainList={() => navigate(ROUTES.villains)}
       onEditor={() => navigate(ROUTES.editor)}
       onProfile={() => navigate(ROUTES.profile)}

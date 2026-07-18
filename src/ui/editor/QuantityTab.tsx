@@ -111,6 +111,38 @@ function villainCostHistogram(cards: CardDef[]): number[] {
   return h
 }
 
+/** Coût moyen (en jetons Pouvoir) des cartes du deck Vilain, pondéré par le nombre
+ *  d'exemplaires. Les cartes à coût VARIABLE (« ? ») sont exclues (coût inconnu),
+ *  ainsi que la Fatalité (sans coût). null si aucune carte à coût fixe. */
+function averageVillainCost(cards: CardDef[]): number | null {
+  let sum = 0
+  let n = 0
+  for (const c of cards) {
+    if (c.deck !== 'villain' || c.costVariable) continue
+    const copies = c.copies ?? 0
+    sum += (c.cost ?? 0) * copies
+    n += copies
+  }
+  return n === 0 ? null : sum / n
+}
+
+/** Ligne « coût moyen » : libellé + valeur (1 décimale, virgule FR) suivie du
+ *  médaillon Pouvoir (l'unité). « — » si aucune carte à coût fixe. */
+function AvgCostLine({ avg }: { avg: number | null }) {
+  return (
+    <div
+      className="mt-2 flex items-center justify-center gap-1.5 text-xs text-white/70"
+      title="Coût moyen en jetons Pouvoir (cartes du deck Vilain à coût fixe ; les coûts « ? » sont exclus)"
+    >
+      <span>Coût moyen</span>
+      <span className="font-bold text-white">
+        {avg === null ? '—' : avg.toFixed(1).replace('.', ',')}
+      </span>
+      <img src="/editor/board/action-gain-power.png" alt="Pouvoir" className="h-4 w-4" />
+    </div>
+  )
+}
+
 /** Un vilain de référence, sélectionnable pour comparer sa courbe de coût. */
 interface RefVillain {
   id: string
@@ -204,6 +236,7 @@ function CostSidebar({
 }) {
   const mine = villainCostHistogram(villainCards as CardDef[])
   const total = mine.reduce((a, b) => a + b, 0)
+  const myAvg = averageVillainCost(villainCards as CardDef[])
 
   const villains = useVillainList(draftId)
   const [selId, setSelId] = useState('ursula') // Ursula par défaut (courbe de coût de référence).
@@ -219,6 +252,7 @@ function CostSidebar({
     ? villainCostHistogram(selected.cards)
     : BAR_LABELS.map(() => 0)
   const otherTotal = otherHist.reduce((a, b) => a + b, 0)
+  const otherAvg = selected ? averageVillainCost(selected.cards) : null
 
   return (
     <aside className="flex w-full shrink-0 flex-col gap-5 self-start rounded-2xl border border-white/10 bg-black/25 p-4 lg:sticky lg:top-4 lg:w-56">
@@ -230,6 +264,7 @@ function CostSidebar({
           <span className="text-[11px] text-white/40">{total} cartes</span>
         </div>
         <CostBars counts={mine} color={color} format={(n) => String(n)} />
+        <AvgCostLine avg={myAvg} />
       </div>
 
       <div className="border-t border-white/10 pt-4">
@@ -242,6 +277,7 @@ function CostSidebar({
           color={selected?.color ?? '#8b93a7'}
           format={(n) => String(n)}
         />
+        <AvgCostLine avg={otherAvg} />
         <div className="mt-3 flex items-center gap-1.5">
           <button
             type="button"

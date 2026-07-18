@@ -166,6 +166,9 @@ export interface CardDef {
   discardWhen?: CurseDiscardTrigger
   /** Pour une Condition : descripteur du trigger côté adversaire. */
   trigger?: ConditionTrigger
+  /** Condition jouable UNIQUEMENT dans la fenêtre de réaction de FIN DE TOUR adverse
+   *  (Michael — Aura effrayante). Les autres Conditions se jouent en cours de tour. */
+  reactAtEndOfTurn?: boolean
   /** Nombre maximum d'exemplaires de cette carte posés sur un même lieu (Page : 2). */
   maxAtLocation?: number
   /** Jafar : coût (en Pouvoir) de la capacité activée (action « Activer »). La
@@ -455,6 +458,26 @@ export interface CardDef {
   /** Ultron (Marvel) — SENTINELLE (« Drone ») : classification d'Allié référencée par les
    *  tuiles Amélioration et certaines cartes (« retirer/défausser un Drone »). */
   isSentry?: boolean
+  // --- Michael Myers (Halloween) -------------------------------------------
+  /** ARME (« associée à Meyers ») : entre dans la zone Arme équipée (une seule à la fois).
+   *  Le coût de la carte (`cost`) sert de base variable à ASSASSINER. */
+  isWeapon?: boolean
+  /** ARME : effets « quand vous éliminez un Héros » avec cette arme équipée (désactivés
+   *  tant qu'un Héros `disablesEquippedWeapon` — Jaime Strode — est présent). */
+  weaponOnKill?: Effect[]
+  /** ASSASSINER : le coût de la carte = le coût de l'Arme équipée (variable). */
+  costEqualsWeaponCost?: boolean
+  /** Héros hors-deck (LAURIE) : séparé du paquet Fatalité au setup dans `reserveHeroes`
+   *  (n'entre en jeu que via « Gardons le meilleur pour la fin »). */
+  startsInReserve?: boolean
+  /** Injouable tant que le Mal Intérieur du vilain n'atteint pas ce palier (Gardons le
+   *  meilleur pour la fin : 3). */
+  requiresMalInterieur?: number
+  /** Héros (LAURIE) : le coût pour l'ASSASSINER augmente de N par AUTRE Héros du royaume. */
+  assassinateSurchargePerOtherHero?: number
+  /** Héros (JAIME STRODE) : tant qu'il est présent, l'effet « quand vous éliminez » de
+   *  l'Arme équipée est désactivé. */
+  disablesEquippedWeapon?: boolean
 }
 
 /** Développe une liste de définitions en un paquet concret (un élément par

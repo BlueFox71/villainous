@@ -30,90 +30,6 @@ const hasStrength = (c: CustomCard) => c.type === 'ally' || c.type === 'hero'
  *  visuel (ex. « +2 Force au Héros porteur »). 0 / vide = pas d'étoile sur la carte. */
 const isItem = (c: CustomCard) => c.type === 'item'
 
-// --- Mots-clés colorés (niveau vilain) ---------------------------------------
-
-/** Éditeur de MOTS-CLÉS colorés du vilain : chaque mot listé est coloré (à sa couleur)
- *  partout où il apparaît dans le texte des cartes, comme un nom de type. */
-function KeywordColorsField({
-  value,
-  onChange,
-}: {
-  value: { label: string; color: string }[]
-  onChange: (v: { label: string; color: string }[]) => void
-}) {
-  const [word, setWord] = useState('')
-  const [col, setCol] = useState('#e0a53a')
-  const list = value ?? []
-  const add = () => {
-    const w = word.trim()
-    if (!w) return
-    // Remplace une entrée existante du même mot (insensible à la casse).
-    const rest = list.filter((k) => k.label.toLowerCase() !== w.toLowerCase())
-    onChange([...rest, { label: w, color: col }])
-    setWord('')
-  }
-  const remove = (label: string) => onChange(list.filter((k) => k.label !== label))
-  return (
-    <Field label="Mots-clés colorés (toutes les cartes)">
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <input
-            value={word}
-            onChange={(e) => setWord(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                add()
-              }
-            }}
-            placeholder="Mot (ex. Corruption)"
-            className={`${inputClass} min-w-0 flex-1`}
-          />
-          <input
-            type="color"
-            value={col}
-            onChange={(e) => setCol(e.target.value)}
-            className="h-8 w-10 shrink-0 cursor-pointer rounded border border-white/20 bg-transparent"
-          />
-          <button
-            type="button"
-            onClick={add}
-            disabled={!word.trim()}
-            className="shrink-0 rounded-lg border border-amber-300/50 px-3 py-1.5 text-sm font-semibold text-amber-200 transition hover:bg-amber-400/10 disabled:opacity-40"
-          >
-            + Ajouter
-          </button>
-        </div>
-        {list.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {list.map((k) => (
-              <span
-                key={k.label}
-                className="flex items-center gap-1.5 rounded-full border border-white/15 bg-black/30 px-2 py-0.5 text-xs"
-              >
-                <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: k.color }} />
-                <span style={{ color: k.color }}>{k.label}</span>
-                <button
-                  type="button"
-                  onClick={() => remove(k.label)}
-                  className="text-white/40 transition hover:text-rose-300"
-                  title="Retirer"
-                >
-                  ✕
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-        <p className="text-[11px] text-white/40">
-          Un mot par entrée. Toutes ses occurrences (singulier/pluriel, quelle que soit la casse) seront
-          colorées dans le texte de <strong>toutes</strong> les cartes du vilain, comme un type.
-        </p>
-      </div>
-    </Field>
-  )
-}
-
 // --- Formulaire d'une carte --------------------------------------------------
 
 function CardForm({
@@ -574,14 +490,9 @@ export function CardsTab({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Mots-clés colorés — réglage du vilain, appliqué au texte de toutes ses cartes. */}
-      <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-        <KeywordColorsField
-          value={draft.keywordColors ?? []}
-          onChange={(keywordColors) => patch({ keywordColors })}
-        />
-      </div>
-
+      {/* « Mots-clés colorés » retiré de l'éditeur : la coloration des mots passe désormais
+          par les TYPES mémorisés (« Mémoriser ce type »), qui colorent déjà leur libellé
+          dans le texte. Le rendu d'anciens `keywordColors` reste supporté (compatibilité). */}
       {variant && (
         <p className="rounded-xl border border-sky-400/30 bg-sky-400/5 p-3 text-xs text-sky-100/80">
           Variante liée : la composition du deck vient de la base. Sélectionne une carte puis coche

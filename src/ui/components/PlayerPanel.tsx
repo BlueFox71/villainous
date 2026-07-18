@@ -124,6 +124,9 @@ export function PlayerPanel({ player, accent, isActive, isWinner, showObjective 
           </div>
         )}
 
+        {/* Michael Myers — le Mal Intérieur + l'Arme équipée sont affichés en PILES à côté du
+            plateau (cf. MalInterieurPile dans DeckPiles), comme la Pile de l'Au-delà. */}
+
         {/* Cruella d'Enfer — réserve de Tuiles Chiots restante (les Chiots CAPTURÉS sont
             affichés dans la pile dédiée, à côté de la pile Succession/Au-delà). */}
         {player.puppyTiles !== undefined && (() => {

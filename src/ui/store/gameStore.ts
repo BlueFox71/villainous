@@ -18,7 +18,8 @@ import {
 } from '../../engine/state'
 import { applyAction } from '../../engine/actions'
 import { chooseAction, chooseReaction } from '../../ai/heuristicBot'
-import { connect, type Connection } from '../../net/connection'
+import { connect, type Connection, type ConnectionHandlers } from '../../net/connection'
+import { connectPeer, createPeerFactory } from '../../net/peerConnection'
 import { createClientSession, createHostSession, type ClientSession, type HostSession, type Session } from '../../net/session'
 import type { LobbySeat } from '../../net/messages'
 import { isTauri, ensureRelay, lanAddresses } from '../../net/desktop'
@@ -38,7 +39,8 @@ import { customActionPositions } from '../editor/boardLayout'
 import { registerActionPos } from '../components/customActionPos'
 import { VILLAIN_COLOR, VILLAIN_COVER_COLOR } from '../villainColors'
 import { usePlayerStore } from './playerStore'
-import { loadSavedGame, saveGame, snapshotForSave, reinjectVillainImages } from './gamePersistence'
+import { loadSavedGame, saveGame, snapshotForSave, reinjectVillainImages, clearSavedGame } from './gamePersistence'
+import { TUTORIAL_STEPS } from '../tutorial/steps'
 import { princeJohn } from '../../data/villains/princeJohn'
 import { princeJohnCards } from '../../data/villains/princeJohn.cards'
 import { maleficent } from '../../data/villains/maleficent'
@@ -239,6 +241,34 @@ function teardownNet() {
   activeConnection?.close()
   activeConnection = null
   activeSession = null
+}
+
+/** Traduit une erreur PeerJS (broker de mise en relation / canal WebRTC) en message
+ *  clair pour le joueur, en incluant le TYPE technique (utile pour diagnostiquer). */
+function describePeerError(err: unknown, role: 'host' | 'guest'): string {
+  const type = (err as { type?: string })?.type ?? ''
+  switch (type) {
+    case 'unavailable-id':
+      return 'Ce code de salon est déjà pris. Reviens au menu et rouvre un salon (nouveau code).'
+    case 'peer-unavailable':
+      return 'Hôte introuvable : vérifie le code, et que l’hôte attend bien dans son salon.'
+    case 'network':
+    case 'server-error':
+    case 'socket-error':
+    case 'socket-closed':
+    case 'disconnected':
+      return `Serveur de mise en relation injoignable (${type}). Vérifie ta connexion Internet et réessaie dans un instant.`
+    case 'ssl-unavailable':
+      return 'Connexion sécurisée impossible vers le serveur de mise en relation.'
+    case 'browser-incompatible':
+      return 'WebRTC non supporté par cette version de l’application.'
+    case 'webrtc':
+      return 'Connexion directe impossible (pare-feu ou réseau trop restrictif).'
+    default:
+      return role === 'host'
+        ? `Impossible d’ouvrir le salon${type ? ` (${type})` : ''}. Réessaie dans un instant.`
+        : `Connexion à l’hôte impossible${type ? ` (${type})` : ''}. Réessaie dans un instant.`
+  }
 }
 
 /** L'autre joueur est parti (LEAVE reçu) ou la connexion est tombée : on coupe et
@@ -506,6 +536,34 @@ function newGame(
   saveVillains(villains)
   const base = buildGameFromKeys(villains)
   return DEV_TEST_HAND ? withDevTestHand(base) : base
+}
+
+/**
+ * Partie du TUTORIEL — Prince Jean (joueur) vs Maléfique (bot), avec une mise en
+ * place CONTRÔLÉE (non aléatoire) : le tutoriel guide un vrai premier tour, il faut
+ * donc que la main de départ soit prévisible pour que chaque étape fonctionne
+ * toujours. On force une main pédagogique couvrant les 4 types de cartes Vilain
+ * (Allié / Objet / Effet / Condition) et un pouvoir de départ confortable pour que
+ * l'étape « jouer une carte » réussisse quel qu'ait été le tirage.
+ */
+function tutorialGame(): GameState {
+  const base = buildGameFromKeys(['princeJohn', 'maleficent'])
+  // Un exemplaire de chaque type de carte du Prince Jean, en tête un Allié BON MARCHÉ
+  // (Archers Loups, coût 2, sans restriction de pose) pour que « jouer une carte » passe.
+  const WANT = ['archers-loups', 'mandat-arret', 'magnifiques-taxes', 'avarice']
+  const p0 = base.players[0]
+  const pool = [...p0.hand, ...p0.deck] // toutes les instances Vilain disponibles
+  const chosen: CardInstance[] = []
+  for (const id of WANT) {
+    const c = pool.find((x) => x.cardId === id && !chosen.includes(x))
+    if (c) chosen.push(c)
+  }
+  const rest = pool.filter((c) => !chosen.includes(c))
+  // 8 Pouvoir de départ : large marge pour jouer un Allié même sans avoir gagné de Pouvoir.
+  const players = base.players.map((p, i) =>
+    i === 0 ? { ...p, power: 8, hand: chosen, deck: rest } : p,
+  )
+  return { ...base, players }
 }
 
 /**
@@ -850,6 +908,7 @@ interface GameStore {
   resolveTypeChoice: (cardType: import('../../engine/types').CardType) => void
   /** Le Grand Génie du Mal : choisit de piocher (`'draw'`) ou gagner du Pouvoir (`'power'`). */
   resolveDrawOrGainPower: (choice: 'draw' | 'power') => void
+  resolveBloodTrace: (choice: 'power' | 'move') => void
   /** Infiltration : la cible perd du Pouvoir (`'lose'`) ou défausse la carte `instanceId`. */
   resolveInfiltration: (payload: { choice: 'lose' } | { choice: 'discard'; instanceId: string }) => void
   resolvePowerOrRacerBack: (choice: 'power' | 'racer') => void
@@ -1076,7 +1135,8 @@ interface GameStore {
    *  l'ordre `topInstanceIds`. */
   resolveDivination: (topInstanceIds: string[]) => void
   /** Tour de passe-passe (Dr Facilier) : garde `keepInstanceIds` en main. */
-  resolveLookTop: (keepInstanceIds: string[]) => void
+  resolveLookTop: (keepInstanceIds: string[], toTop?: boolean) => void
+  resolveWeaponFetch: (instanceId?: string, equip?: boolean) => void
   /** Liste de Fidget (Ratigan) : acquitte l'affichage des cartes dévoilées. */
   acknowledgeReveal: () => void
   /** Sombra — Piratage : désactive l'action choisie du lieu piraté. */
@@ -1106,6 +1166,15 @@ interface GameStore {
   endTurn: () => void
   /** (Re)démarre une partie solo avec deux clés de vilains (natifs et/ou publiés). */
   reset: (villains?: [string, string]) => void
+  /** Tutoriel interactif : étape courante (`null` = pas en tutoriel). Le verrouillage des
+   *  actions et l'overlay lisent cet état. */
+  tutorial: { stepIndex: number } | null
+  /** Démarre le tutoriel guidé (partie solo Prince Jean vs Maléfique, étape 0). */
+  startTutorial: () => void
+  /** Avance d'une étape de tutoriel (bouton « Suivant » des étapes informatives). */
+  tutorialNext: () => void
+  /** Quitte le tutoriel (garde la partie en cours, sans plus de verrouillage). */
+  endTutorial: () => void
   /** DEV UNIQUEMENT : démarre une partie ORDI vs ORDI (les DEUX sièges en IA) pour
    *  observation/analyse. Non exposé dans le build/exe (garde `import.meta.env.DEV`). */
   startBotMatch: (villains: [string, string]) => void
@@ -1128,10 +1197,21 @@ const restoredGame = loadSavedGame()
 // seuls les vilains NATIFS sont résolubles (VILLAIN_REGISTRY statique) ; les CUSTOM le
 // seront après customVillainStore.load() → `hydrateResumedImages`, appelé par Root.
 const resumeDefOf = (id: string) => villainEntry(id)?.def
-const restoredState = restoredGame ? reinjectVillainImages(restoredGame.state, resumeDefOf) : undefined
-const restoredPreTest = restoredGame?.preTestState
-  ? reinjectVillainImages(restoredGame.preTestState, resumeDefOf)
-  : null
+// Garde-fou : une sauvegarde corrompue ou non ré-injectable ne doit jamais faire échouer
+// l'import du store (écran blanc). En cas d'échec, on repart d'une partie neuve et on
+// efface la sauvegarde fautive.
+let restoredState: GameState | undefined
+let restoredPreTest: GameState | null = null
+try {
+  restoredState = restoredGame ? reinjectVillainImages(restoredGame.state, resumeDefOf) : undefined
+  restoredPreTest = restoredGame?.preTestState
+    ? reinjectVillainImages(restoredGame.preTestState, resumeDefOf)
+    : null
+} catch {
+  restoredState = undefined
+  restoredPreTest = null
+  clearSavedGame()
+}
 
 export const useGameStore = create<GameStore>((set, get) => ({
   state: restoredState ?? newGame(),
@@ -1150,8 +1230,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
   lobby: null,
   testMode: restoredGame?.testMode ?? false,
   preTestState: restoredPreTest,
+  tutorial: null,
   submit: (action) => {
     if (get().mode === 'solo') {
+      // Tutoriel : on VERROUILLE le jeu sur l'action attendue par l'étape courante. Une
+      // étape informative (ou une action non autorisée) refuse le coup avec un message doux.
+      const tut = get().tutorial
+      if (tut) {
+        const step = TUTORIAL_STEPS[tut.stepIndex]
+        const blocked = step && (step.info || (step.gate ? !step.gate(action, get().state) : true))
+        if (blocked) {
+          set({ actionNotice: step?.blockHint ?? 'Suis le tutoriel 🙂' })
+          return
+        }
+      }
       // Un coup refusé (moteur qui `throw`) ne modifie pas l'état (applyAction est pur) :
       // au lieu de laisser l'erreur remonter (crash), on affiche son message en toast
       // (ex. « Dévoilez des Combattants ou terminez… » quand on clique ailleurs).
@@ -1159,6 +1251,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
         set((s) => ({ state: applyAction(stampElapsed(s.state), action), actionNotice: null }))
       } catch (e) {
         set({ actionNotice: (e as Error)?.message ?? 'Coup impossible.' })
+        return
+      }
+      // Tutoriel : avance à l'étape suivante si l'action attendue a été appliquée.
+      const tut2 = get().tutorial
+      if (tut2) {
+        const step = TUTORIAL_STEPS[tut2.stepIndex]
+        if (step?.advanceOn?.(action)) {
+          set({ tutorial: { stepIndex: Math.min(TUTORIAL_STEPS.length - 1, tut2.stepIndex + 1) } })
+        }
       }
       return
     }
@@ -1177,22 +1278,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
         { seat: 1, villainKey: null, connected: false },
       ],
     })
-    // App .exe : on démarre le relais embarqué et on s'y connecte en local
-    // (127.0.0.1) — `location.hostname` vaut `tauri.localhost`, inutilisable. On
-    // récupère aussi l'IP LAN à montrer à l'invité. En web, rien de tout ça :
-    // l'hôte tourne déjà `npm run relay` et `relayUrl()` déduit l'adresse.
-    let host: string | undefined
-    if (isTauri()) {
-      try {
-        await ensureRelay()
-        host = '127.0.0.1'
-        lanAddresses().then((addrs) => set({ hostAddrs: addrs })).catch(() => {})
-      } catch {
-        set({ netStatus: 'error', netError: 'Impossible de démarrer le serveur de liaison.' })
-        return
-      }
-    }
-    const conn = connect(relayUrl(host), room, {
+    // Handlers de la connexion hôte (identiques quel que soit le transport) :
+    // phase lobby (présence/vilain/survol/départ de l'invité), puis tout passe par
+    // la session une fois la partie lancée.
+    const handlers: ConnectionHandlers = {
       onMessage: (msg) => {
         // Partie lancée : tout passe par la session de jeu.
         if (activeSession) { (activeSession as HostSession).receive(msg); return }
@@ -1223,22 +1312,55 @@ export const useGameStore = create<GameStore>((set, get) => ({
       },
       onOpen: () => set({ netStatus: 'waiting' }),
       onClose: () => handlePeerGone(set, get, 'La connexion avec l’autre joueur a été perdue.'),
-      onError: () => set({ netStatus: 'error', netError: 'Erreur réseau (relais injoignable ?).' }),
-    })
-    activeConnection = conn
+      onError: (err) => set({ netStatus: 'error', netError: describePeerError(err, 'host') }),
+    }
+    // .exe Tauri : relais LAN embarqué (jeu sur le même réseau, hors-ligne) —
+    // `location.hostname` vaut `tauri.localhost`, d'où 127.0.0.1 + IP LAN affichée.
+    // Ailleurs (web/Electron) : canal P2P WebRTC via broker public → fonctionne en
+    // LAN **et** sur Internet, l'invité n'a besoin que du code court.
+    if (isTauri()) {
+      try {
+        await ensureRelay()
+        lanAddresses().then((addrs) => set({ hostAddrs: addrs })).catch(() => {})
+      } catch {
+        set({ netStatus: 'error', netError: 'Impossible de démarrer le serveur de liaison.' })
+        return
+      }
+      activeConnection = connect(relayUrl('127.0.0.1'), room, handlers)
+    } else {
+      try {
+        const peerFactory = await createPeerFactory()
+        activeConnection = connectPeer('host', { code: room, peerFactory, handlers })
+      } catch {
+        set({ netStatus: 'error', netError: 'Impossible d’initialiser la connexion en ligne.' })
+        return
+      }
+    }
   },
-  joinHost: (code, host) => {
+  joinHost: async (code, host) => {
     teardownNet()
     let session: ClientSession | null = null
-    const conn = connect(relayUrl(host), code.toUpperCase(), {
+    const handlers: ConnectionHandlers = {
       onMessage: (msg) => session?.receive(msg),
       onOpen: () => set({ netStatus: 'waiting' }),
       onClose: () => handlePeerGone(set, get, 'La connexion avec l’hôte a été perdue.'),
-      onError: () => set({ netStatus: 'error', netError: 'Erreur réseau (hôte injoignable ?).' }),
-    })
-    activeConnection = conn
+      onError: (err) => set({ netStatus: 'error', netError: describePeerError(err, 'guest') }),
+    }
+    // Même dualité que startHost : relais LAN en .exe Tauri, sinon canal P2P (code).
+    if (isTauri()) {
+      activeConnection = connect(relayUrl(host), code.toUpperCase(), handlers)
+    } else {
+      try {
+        const peerFactory = await createPeerFactory()
+        activeConnection = connectPeer('guest', { code, peerFactory, handlers })
+      } catch {
+        set({ netStatus: 'error', netError: 'Impossible d’initialiser la connexion en ligne.' })
+        return
+      }
+    }
+    const conn = activeConnection
     session = createClientSession({
-      transport: { send: conn.send },
+      transport: { send: (m) => conn.send(m) },
       ...myProfile(),
       callbacks: {
         onLobby: (m) => set({ lobby: m.seats, netStatus: 'lobby' }),
@@ -1274,24 +1396,40 @@ export const useGameStore = create<GameStore>((set, get) => ({
   launchGame: () => {
     const { mode, lobby } = get()
     if (mode !== 'host' || !lobby) return
-    const hostV = lobby[0].villainKey as VillainKey | null
-    const clientV = lobby[1].villainKey as VillainKey | null
+    // On lit les vilains PAR SIÈGE (comme l'UI), pas par index de tableau : robuste
+    // même si l'ordre du lobby diffère.
+    const hostV = (lobby.find((s) => s.seat === 0)?.villainKey ?? null) as VillainKey | null
+    const clientV = (lobby.find((s) => s.seat === 1)?.villainKey ?? null) as VillainKey | null
     if (!hostV || !clientV) return
-    const initial = newGame([hostV, clientV])
-    const session = createHostSession({
-      transport: { send: activeConnection!.send },
-      initialState: initial,
-      seats: ['human', 'human'],
-      hostSeat: 0,
-      callbacks: {
-        onState: (state) => set({ state }),
-        onLeave: () => handlePeerGone(set, get, 'L’autre joueur a quitté la partie.'),
-        onReacting: (m) => set({ peerReacting: m.reacting ? (m.villainName ?? '') : null }),
-      },
-    })
-    activeSession = session
-    set({ state: initial, netStatus: 'playing' })
-    session.start() // diffuse ASSIGN + STATE à l'invité
+    // Garde-fou : sans connexion active, on ne peut pas lancer. On le SIGNALE (bandeau
+    // rouge) au lieu de planter en silence (le clic « Lancer » semblait sans effet).
+    const conn = activeConnection
+    if (!conn) {
+      set({ netStatus: 'error', netError: 'Connexion perdue avec l’autre joueur. Reviens au menu et relance le salon.' })
+      return
+    }
+    try {
+      const initial = newGame([hostV, clientV])
+      const session = createHostSession({
+        // `send` enveloppé (et non détaché) : préserve le `this` du transport relais et
+        // reste défini même si la connexion tombe entre-temps.
+        transport: { send: (m) => conn.send(m) },
+        initialState: initial,
+        seats: ['human', 'human'],
+        hostSeat: 0,
+        callbacks: {
+          onState: (state) => set({ state }),
+          onLeave: () => handlePeerGone(set, get, 'L’autre joueur a quitté la partie.'),
+          onReacting: (m) => set({ peerReacting: m.reacting ? (m.villainName ?? '') : null }),
+        },
+      })
+      activeSession = session
+      set({ state: initial, netStatus: 'playing' })
+      session.start() // diffuse ASSIGN + STATE à l'invité
+    } catch (e) {
+      // Toute erreur inattendue devient visible au lieu de « rien ne se passe ».
+      set({ netStatus: 'error', netError: `Impossible de lancer la partie : ${(e as Error)?.message ?? 'erreur inconnue'}` })
+    }
   },
   quitNet: () => {
     activeConnection?.send({ type: 'LEAVE' }) // prévient l'autre joueur…
@@ -1542,6 +1680,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_TYPE_CHOICE', cardType }),
   resolveDrawOrGainPower: (choice) =>
     get().submit({ type: 'RESOLVE_DRAW_OR_GAIN_POWER', choice }),
+  resolveBloodTrace: (choice) => get().submit({ type: 'RESOLVE_BLOOD_TRACE', choice }),
   resolveInfiltration: (payload) =>
     get().submit({ type: 'RESOLVE_INFILTRATION', ...payload }),
   resolvePowerOrRacerBack: (choice) =>
@@ -1759,8 +1898,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_TITAN_SELECT', titanInstanceId }),
   resolveDivination: (topInstanceIds) =>
     get().submit({ type: 'RESOLVE_DIVINATION', topInstanceIds }),
-  resolveLookTop: (keepInstanceIds) =>
-    get().submit({ type: 'RESOLVE_LOOK_TOP', keepInstanceIds }),
+  resolveLookTop: (keepInstanceIds, toTop) =>
+    get().submit({ type: 'RESOLVE_LOOK_TOP', keepInstanceIds, toTop }),
+  resolveWeaponFetch: (instanceId, equip) =>
+    get().submit({ type: 'RESOLVE_WEAPON_FETCH', instanceId, equip }),
   acknowledgeReveal: () => get().submit({ type: 'ACKNOWLEDGE_REVEAL' }),
   resolveHack: (actionId) => get().submit({ type: 'RESOLVE_HACK', actionId }),
   resolveInformation: (discardDrawn) => get().submit({ type: 'RESOLVE_INFORMATION', discardDrawn }),
@@ -1797,8 +1938,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({
       state: newGame(villains), testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0,
       mode: 'solo', netStatus: 'idle', hostRoom: null, hostAddrs: null, netError: null, netLeftNotice: null, peerReacting: null, lobby: null,
+      tutorial: null,
     })
   },
+  startTutorial: () => {
+    teardownNet()
+    set({
+      state: tutorialGame(),
+      tutorial: { stepIndex: 0 },
+      testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0,
+      mode: 'solo', netStatus: 'idle', hostRoom: null, hostAddrs: null, netError: null, netLeftNotice: null, peerReacting: null, lobby: null,
+    })
+  },
+  tutorialNext: () =>
+    set((s) => (s.tutorial ? { tutorial: { stepIndex: Math.min(TUTORIAL_STEPS.length - 1, s.tutorial.stepIndex + 1) } } : {})),
+  endTutorial: () => set({ tutorial: null }),
   startCustomGame: (custom, opponent) => {
     teardownNet()
     set({

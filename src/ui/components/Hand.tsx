@@ -102,6 +102,10 @@ interface Props {
   /** Vrai s'il y a au moins un Héros sur le lieu du pion — « Je vais vous broyer
    *  les os ! » est injouable sinon. */
   heroAtPawn: boolean
+  /** Michael Myers — vrai si une Arme est équipée (ASSASSINER injouable sinon). */
+  equippedWeaponPresent?: boolean
+  /** Michael Myers — palier de Mal Intérieur courant (grise « Gardons le meilleur »). */
+  malInterieurLevel?: number
   /** Shere Khan — Bravo ! Bravo ! : vrai si au moins une action est recouverte (Héros ou
    *  jeton Feu) sur le lieu du pion. */
   coveredAtPawn?: boolean
@@ -276,6 +280,8 @@ export function Hand({
   tunnelPlayable = true,
   willScryPlayable = true,
   canTransformGuards = true,
+  equippedWeaponPresent = false,
+  malInterieurLevel = 0,
   hasHackInPlay,
   hasIngredients,
   heroAtPawn,
@@ -559,6 +565,10 @@ export function Hand({
           // Tamatoa — Piégé (`exceptFate`) : « n'importe quel Héros » → injouable sans Héros
           // dans le ROYAUME (pas forcément sur le lieu du pion).
           const needsHeroInRealmCovered = (card.effects ?? []).some((e) => e.type === 'USE_COVERED_ACTIONS_THIS_TURN' && e.exceptFate)
+          // Michael Myers — ASSASSINER : nécessite une Arme équipée ET un Héros sur le lieu du pion.
+          const needsWeaponAndHeroHere = !!card.costEqualsWeaponCost
+          // Michael Myers — « Gardons le meilleur pour la fin » : palier de Mal Intérieur requis.
+          const needsMalInterieur = card.requiresMalInterieur
           const needsHeroHere = (card.effects ?? []).some((e) => e.type === 'USE_COVERED_ACTIONS_THIS_TURN' && !e.includeFire && !e.exceptFate)
           const needsCoveredAtPawn = (card.effects ?? []).some((e) => e.type === 'USE_COVERED_ACTIONS_THIS_TURN' && e.includeFire)
           // « Croque ! » : injouable sans Héros éliminable sur le lieu du pion.
@@ -692,6 +702,8 @@ export function Hand({
             (!needsBeforeActions || !realActionUsed) &&
             (!needsRaceBan || raceBanPlayable) &&
             (!needsHeroHere || heroAtPawn) &&
+            (!needsWeaponAndHeroHere || (equippedWeaponPresent && heroAtPawn)) &&
+            (needsMalInterieur === undefined || malInterieurLevel >= needsMalInterieur) &&
             (!needsHeroInRealmCovered || realmHasHeroes) &&
             (!needsCoveredAtPawn || coveredAtPawn) &&
             (!needsBite || canBite) &&

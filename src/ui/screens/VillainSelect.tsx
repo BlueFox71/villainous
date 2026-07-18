@@ -294,11 +294,14 @@ export function VillainSelect({ onStart, onBack }: Props) {
   const leaveNet = useGameStore((s) => s.leaveNet)
   const quitNet = useGameStore((s) => s.quitNet)
   const netStatus = useGameStore((s) => s.netStatus)
+  const netError = useGameStore((s) => s.netError)
   const netLeftNotice = useGameStore((s) => s.netLeftNotice)
   const network = mode !== 'solo'
 
-  // Vilains PUBLIÉS (« Terminés » dans l'Atelier) : ils rejoignent la grille en SOLO.
-  // (Exclus en réseau : l'autre joueur ne possède pas ces vilains chez lui.)
+  // Vilains PUBLIÉS (« Terminés » dans l'Atelier) : ils rejoignent la grille en SOLO
+  // ET en RÉSEAU. Ils sont EMBARQUÉS dans le build (src/data/published + images sous
+  // public/cards/) et chargés au démarrage chez tout le monde : à version d'exe identique,
+  // les deux joueurs les possèdent, donc ils sont sélectionnables en 1v1 en ligne.
   const customLoaded = useCustomVillainStore((s) => s.loaded)
   const loadCustom = useCustomVillainStore((s) => s.load)
   const customVillains = useCustomVillainStore((s) => s.villains)
@@ -310,13 +313,14 @@ export function VillainSelect({ onStart, onBack }: Props) {
   // Vilains non encore publiés : sélectionnables en dév, masqués aux joueurs (exe /
   // « mode application »), cf. UNRELEASED_VILLAINS.
   const hideUnreleased = useIsDesktopApp()
-  // Toutes les clés sélectionnables (natives + publiées en solo).
+  // Toutes les clés sélectionnables (natives + publiées), en SOLO comme en RÉSEAU :
+  // les publiés sont embarqués dans le build, donc présents chez les deux joueurs.
   const allKeys = useMemo<string[]>(() => {
     const builtin = hideUnreleased
       ? BUILTIN_KEYS.filter((k) => !UNRELEASED_VILLAINS.includes(k))
       : [...BUILTIN_KEYS]
-    return network ? builtin : [...builtin, ...publishedKeys]
-  }, [network, publishedKeys, hideUnreleased])
+    return [...builtin, ...publishedKeys]
+  }, [publishedKeys, hideUnreleased])
 
   // Libellé du camp « toi » : nom du joueur (profil), en solo comme en réseau.
   const playerName = usePlayerStore((s) => s.name)
@@ -504,6 +508,13 @@ export function VillainSelect({ onStart, onBack }: Props) {
       </main>
 
       <footer className="relative z-0 -mt-28 flex flex-col items-center gap-2 border-t border-white/10 bg-black/30 px-4 pb-8 pt-28 shadow-[0_-6px_20px_rgba(0,0,0,0.35)] backdrop-blur-md">
+        {/* RÉSEAU : toute erreur (dont un échec de lancement) est affichée ici — sans ça,
+            un clic « Lancer » qui échoue donnait l'impression que « rien ne se passe ». */}
+        {network && netError && (
+          <p className="mb-1 max-w-md rounded-lg border border-red-400/40 bg-red-500/15 px-4 py-2 text-center text-sm text-red-100">
+            {netError}
+          </p>
+        )}
         {/* SOLO : 1er clic = ton vilain, 2e clic = le bot, puis « Lancer la partie ». */}
         {!network && (
           <>

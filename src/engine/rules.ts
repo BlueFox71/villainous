@@ -1317,6 +1317,10 @@ export function conditionIsTriggered(
       return (state.activeGainedPower ?? 0) - (card.conditionBaseline?.gainedPower ?? 0) >= card.trigger.value
     case 'opponent-played-cards-ge':
       return (state.activePlayedCount ?? 0) - (card.conditionBaseline?.playedCards ?? 0) >= card.trigger.value
+    case 'opponent-played-cards-le':
+      // Michael Myers — Aura effrayante : jouable tant que l'adversaire actif n'a joué
+      // qu'AU PLUS `value` cartes ce tour (value 0 = aucune carte jouée jusqu'ici).
+      return (state.activePlayedCount ?? 0) <= card.trigger.value
     case 'opponent-actions-ge':
       // « réalise au moins N actions » : on compte les actions de lieu effectuées
       // ce tour par l'adversaire actif (ids non scopés, hors marqueurs internes).
@@ -1427,9 +1431,13 @@ export function playableConditions(state: GameState, playerIndex: number): CardI
   // Condition piochée en cours de tour n'était pas là quand le déclencheur a été
   // satisfait). `reactableConditionIds` absent (1ᵉʳ tour / état de test) = pas de filtre.
   const eligible = state.players[playerIndex].reactableConditionIds
+  // Fenêtre de FIN DE TOUR (Aura effrayante) : hors de cette fenêtre, seules les Conditions
+  // « en cours de tour » réagissent ; DANS la fenêtre, seules les `reactAtEndOfTurn`.
+  const inEndTurnWindow = !!state.endTurnReaction
   return state.players[playerIndex].hand.filter(
     (c) =>
       c.type === 'condition' &&
+      !!c.reactAtEndOfTurn === inEndTurnWindow &&
       conditionIsReactable(eligible, c) &&
       conditionIsTriggered(state, c, playerIndex),
   )
@@ -1875,6 +1883,9 @@ export function hasReachedObjective(state: GameState, playerIndex: number = stat
       return false
     case 'DEFEAT_HERO_NO_FIRE':
       // Shere Khan — victoire ÉVÉNEMENTIELLE : vaincre Mowgli sans jeton Feu (performVanquish).
+      return false
+    case 'DEFEAT_NAMED_HERO':
+      // Michael Myers — victoire ÉVÉNEMENTIELLE : éliminer LAURIE (performVanquish).
       return false
     case 'CLAIM_ALL_TREASURES':
       // Davy Jones — victoire ÉVÉNEMENTIELLE : récupérer le 5ᵉ Trésor au Vanquish (performVanquish).

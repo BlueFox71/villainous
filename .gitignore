@@ -16,6 +16,9 @@ dist-ssr
 release
 Villainous.lnk
 
+# Jeton GitHub lecture seule pour l'auto-update (embarqué dans l'exe, JAMAIS committé)
+electron/update-config.cjs
+
 # Fichiers sources GIMP (trop lourds ; on versionne les .png/.jpg exportés)
 *.xcf
 

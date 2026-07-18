@@ -1454,6 +1454,13 @@ export function enumerateActions(state: GameState): GameAction[] {
         ) continue
         // J'ai dit « Si » : injouable si la défausse de Méchant est vide.
         if ((card.effects ?? []).some((e) => e.type === 'RESHUFFLE_DISCARD_AND_DRAW') && me.discard.length === 0) continue
+        // Michael Myers — Gardons le meilleur pour la fin : injouable tant que le Mal Intérieur
+        // requis n'est pas atteint (sinon le coup serait refusé → bot bloqué).
+        if (card.requiresMalInterieur !== undefined && (me.malInterieur ?? 0) < card.requiresMalInterieur) continue
+        // Michael Myers — ASSASSINER : injouable sans Arme équipée (son coût vient de l'Arme).
+        if (card.costEqualsWeaponCost && !me.equippedWeapon) continue
+        // Michael Myers — Arme du crime : inutile s'il n'y a aucune Arme dans la pioche.
+        if ((card.effects ?? []).some((e) => e.type === 'MICHAEL_FETCH_WEAPON_FROM_DECK') && !me.deck.some((c) => c.isWeapon)) continue
         // Syndrome — Identification, je vous prie : inutile sans lieu portant un Héros ou
         // sans Allié/Objet (non associé) à déplacer.
         if (
@@ -1654,6 +1661,26 @@ export function enumerateActions(state: GameState): GameAction[] {
             if (isHypnose && hForce > me.power) continue
             // Banqueroute : coût = Force du Héros → seules les cibles abordables.
             if (card.costEqualsTargetStrength && hForce > me.power) continue
+            // Michael — ASSASSINER : nécessite une Arme équipée et un coût finançable
+            // (coût de l'Arme −1 au Mal Intérieur 3, +1 par Armement sur la cible, +2 par
+            // AUTRE Héros si la cible le stipule — LAURIE). Sinon le coup serait refusé.
+            if (card.costEqualsWeaponCost) {
+              const w = me.equippedWeapon
+              if (!w) continue
+              let aCost = Math.max(0, w.cost ?? 0)
+              aCost += Object.values(me.board)
+                .flat()
+                .filter((c) => c.attachedTo === h.instanceId)
+                .reduce((n, c) => n + (c.eventTargetSurcharge ?? 0), 0)
+              const perOther = h.assassinateSurchargePerOtherHero ?? 0
+              if (perOther > 0) {
+                const others = Object.values(me.board)
+                  .flat()
+                  .filter((c) => c.type === 'hero' && c.instanceId !== h.instanceId).length
+                aCost += perOther * others
+              }
+              if (aCost > me.power) continue
+            }
             // Rapetisser sur un Héros NORMAL : une option par action du haut à
             // laisser libre (l'autre est recouverte). Sur un Héros agrandi, Rapetisser
             // le ramène à la normale → pas de choix.

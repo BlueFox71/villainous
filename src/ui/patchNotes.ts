@@ -47,7 +47,7 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '1.7.3',
+    version: '1.8.3',
     date: '2026-07-18',
     title: 'Atelier : variantes — face B de lieu + carte d’origine en aperçu',
     tags: ['atelier', 'correctif'],
@@ -55,6 +55,55 @@ export const PATCH_NOTES: PatchNote[] = [
       "Dans une **variante (skin)**, quand un lieu de la base est **transformable** (face B), tu peux désormais lui donner sa **propre image et son propre nom de face B** — comme pour la face A. Les **actions** de la face B restent celles de la base.",
       "La **resynchronisation** conserve ces images de face B propres à la variante au lieu de reprendre celles de la base.",
       "Quand une carte de variante **diffère de la base**, la **carte d’origine** s’affiche en aperçu **sous** l’aperçu en cours d’édition, pour comparer ta version re-illustrée à l’originale.",
+    ],
+  },
+  {
+    version: '1.8.2',
+    date: '2026-07-18',
+    title: 'Tutoriel interactif + correctif multijoueur',
+    tags: ['interface', 'reseau', 'correctif'],
+    changes: [
+      "Nouveau **Tutoriel** au menu : un premier tour **guidé pas à pas** qui apprend les **règles de base** (à quoi sert le **Pouvoir**, comment en gagner, les **types d'actions** et les **types de cartes**).",
+      "Multijoueur en ligne : les **vilains personnalisés publiés** sont désormais **jouables en réseau** (les deux joueurs les ont dans la même version).",
+      "Multijoueur : connexion **plus fiable à distance** (serveurs **TURN** ajoutés) et **messages d'erreur clairs** en cas de souci — fini le bouton **Lancer** sans effet.",
+      "**Mise à jour automatique** : l'application se met désormais à jour toute seule au lancement (elle ne télécharge que ce qui a changé).",
+    ],
+  },
+  {
+    version: '1.8.1',
+    date: '2026-07-17',
+    title: 'Ambiance Michael + Atelier : ornements recolorables',
+    tags: ['atelier', 'son', 'interface', 'correctif'],
+    changes: [
+      "Atelier · dos de carte : on peut désormais **recolorer chaque ornement importé** (pas seulement le cadre) — sur les dos Vilain, Fatalité et des paquets personnalisés.",
+      "Michael Myers : **sons** au passage en **Mal Intérieur 2 et 3** et sur **Gardons le meilleur pour la fin** ; le volume de sa réplique est ajustable et abaissé.",
+      "Nouvelles **devises** : Slenderman, Pyramid Head, Dio, Tabbou (et correction des placeholders « … »).",
+      "Réglage du volume des **répliques** (Sombra plus discrète, Syndrome un peu plus forte).",
+    ],
+  },
+  {
+    version: '1.8.0',
+    date: '2026-07-17',
+    title: 'Nouveau vilain : Michael Myers',
+    tags: ['villain', 'regles', 'ia'],
+    changes: [
+      "Nouveau vilain (Atelier) : **Michael Myers** (Halloween). Objectif : **éliminer Laurie Strode**.",
+      "Mécanique **Mal Intérieur** (niveaux **1 → 3**) : monte à chaque Héros assassiné. Au niveau **3**, il **pioche 1 carte de plus** en fin de tour.",
+      "**Armes** équipées (une seule à la fois) : **Assassiner** en a besoin (son coût = celui de l'Arme) et chaque Arme donne un **bonus à l'élimination** (rejouer, action gratuite, Pouvoir, pioche…).",
+      "**Gardons le meilleur pour la fin** (niveau 3 requis) : ouvre la **Demeure des Strode**, y fait apparaître **Laurie** et équipe une Arme gratuite — prêt pour le coup final.",
+      "Nouvel affichage à côté du plateau (comme la Pile de l'Au-delà) : l'**image du Mal Intérieur** (niveau 1→3) et l'**Arme équipée**.",
+    ],
+  },
+  {
+    version: '1.7.3',
+    date: '2026-07-17',
+    title: 'Multijoueur en ligne (par code de salon)',
+    tags: ['reseau', 'atelier', 'interface'],
+    changes: [
+      "Nouveau : **jouez à deux en ligne**, plus seulement sur le même réseau. L’hôte partage un **code à 4 lettres**, l’autre le saisit — la connexion est **directe entre vos deux appareils** (l’hôte fait office de serveur).",
+      "Depuis « Nouvelle partie » → **Héberger** / **Rejoindre** : plus besoin d’**adresse IP** ni de lancer un serveur à part, le **code suffit** (LAN comme Internet).",
+      "Sur un réseau très **restrictif** (certains pare-feux d’entreprise), la mise en relation peut échouer — un message le signale.",
+      "Atelier · onglet **Quantité** : la courbe de coût indique désormais le **coût moyen en jetons Pouvoir** du deck — et de celui que tu compares.",
     ],
   },
   {

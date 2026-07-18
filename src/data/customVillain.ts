@@ -160,6 +160,9 @@ export interface BackOverlay {
   y: number
   size: number
   aspect: number
+  /** Recoloration de CET ornement importé (teinte façon multiply, relief conservé). Absent =
+   *  couleurs d'origine de l'image. */
+  tint?: string
 }
 
 /** Source de la couleur de fond du 3e dos (paquets personnalisés) : reprendre la
@@ -354,6 +357,9 @@ export interface CustomVillain {
   /** Fichier audio du vilain (dataURL) — p. ex. thème musical / réplique. Écoutable
    *  depuis l'Atelier (onglet Identité). Optionnel. */
   audio?: string
+  /** Gain (volume relatif) appliqué à la réplique `audio` à la lecture (1 = plein volume,
+   *  <1 pour atténuer une devise trop forte). Défaut 1. */
+  audioGain?: number
   /** Dos de carte Vilain (bakée). */
   backVillainImage?: string
   /** Dos de carte Fatalité (bakée). */

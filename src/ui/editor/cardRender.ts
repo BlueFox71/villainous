@@ -824,13 +824,15 @@ export async function renderCardBack(
     ctx.fillText(text, CARD_W / 2, CARD_H - 70)
   }
 
-  // 5) Ornements IMPORTÉS (images superposées, déplaçables/redimensionnables).
+  // 5) Ornements IMPORTÉS (images superposées, déplaçables/redimensionnables), chacun
+  //    éventuellement RECOLORÉ (teinte multiply, relief conservé).
   for (const ov of opts.overlays ?? []) {
     try {
       const img = await loadImage(ov.image)
+      const src = ov.tint ? tintOrnaments(img, ov.tint) : img
       const w = (ov.size / 100) * CARD_W
       const h = w * (ov.aspect || img.height / img.width)
-      ctx.drawImage(img, (ov.x / 100) * CARD_W - w / 2, (ov.y / 100) * CARD_H - h / 2, w, h)
+      ctx.drawImage(src, (ov.x / 100) * CARD_W - w / 2, (ov.y / 100) * CARD_H - h / 2, w, h)
     } catch {
       /* image illisible : on l'ignore */
     }

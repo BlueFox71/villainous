@@ -31,8 +31,8 @@ function ModeButton({ label, onClick }: { label: string; onClick: () => void }) 
 
 /**
  * Choix du mode de partie : en haut une partie SOLO (contre le bot) ; en bas,
- * deux options RÉSEAU (héberger / rejoindre) pour jouer à deux sur le même
- * réseau local.
+ * deux options RÉSEAU (héberger / rejoindre) pour jouer à deux en ligne (même
+ * réseau ou Internet), via un simple code de salon.
  */
 export function GameModeSelect({ onChooseVillains, onNetwork, onBack }: Props) {
   const startHost = useGameStore((s) => s.startHost)
@@ -68,7 +68,7 @@ export function GameModeSelect({ onChooseVillains, onNetwork, onBack }: Props) {
 
         {/* Bloc RÉSEAU */}
         <section className="flex w-[28rem] max-w-[90vw] flex-col gap-3">
-          <h2 className="text-center text-xs uppercase tracking-[0.3em] text-white/40">À deux, sur le même réseau</h2>
+          <h2 className="text-center text-xs uppercase tracking-[0.3em] text-white/40">À deux, en ligne (code de salon)</h2>
           <ModeButton label="Héberger une partie" onClick={host} />
           <ModeButton label="Rejoindre une partie" onClick={join} />
         </section>

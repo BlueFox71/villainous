@@ -60,7 +60,7 @@ import { BoardImage, LOCATIONS_LEFT, PAWN_FIRST_LEFT, PAWN_STEP, getBlockedOverl
 import { BoardActions, getVillainActionPos } from './components/BoardActions'
 import { SUGAR_RUSH_TRACK } from './components/sugarRushTrack'
 import { HeroRow } from './components/HeroRow'
-import { DeckPiles, AuDelaPile, IngredientsPile, ArtifactsPile, ClockPile, SuccessionPile, ImpostorPile, CapturedPuppiesPile, ClaimedTreasuresPile, CauldronTile, MerlinPiles, MauiPiles, OmnidroidPile, AmeliorationTiles, DiscardModal } from './components/DeckPiles'
+import { DeckPiles, AuDelaPile, IngredientsPile, ArtifactsPile, ClockPile, SuccessionPile, ImpostorPile, CapturedPuppiesPile, ClaimedTreasuresPile, CauldronTile, MalInterieurPile, MerlinPiles, MauiPiles, OmnidroidPile, AmeliorationTiles, DiscardModal } from './components/DeckPiles'
 import { UltronUpgradeDiscardModal } from './components/UltronUpgradeDiscardModal'
 import { StacksCards } from './components/StacksCards'
 import { GoalTilesRow } from './components/GoalTilesRow'
@@ -117,6 +117,7 @@ import { BeautySleepModal } from './components/BeautySleepModal'
 import { TitanMoveModal } from './components/TitanMoveModal'
 import { DivinationModal } from './components/DivinationModal'
 import { LookTopModal } from './components/LookTopModal'
+import { TutorialOverlay } from './components/TutorialOverlay'
 import { RevealModal } from './components/RevealModal'
 import { InformationModal } from './components/InformationModal'
 import { TakeABiteModal } from './components/TakeABiteModal'
@@ -125,7 +126,7 @@ import { FateScryModal } from './components/FateScryModal'
 import { TitanSelectModal } from './components/TitanSelectModal'
 import { StartRollModal } from './components/StartRollModal'
 import { MusicPlayer } from './components/MusicPlayer'
-import { playKillSound, playTaskComplete, playDeadBody, playEmergencyMeeting, playYourTurn, playEndTurnFlip, playEndTurnEnable, playHover, startVictoryBuildup, startDefeatBuildup, stopVictoryBuildup, playLieuPirate, playNoCanDo, playManaAdd, startCardDragLoop, stopCardDragLoop } from './sfx'
+import { playKillSound, playTaskComplete, playDeadBody, playEmergencyMeeting, playYourTurn, playEndTurnFlip, playEndTurnEnable, playHover, startVictoryBuildup, startDefeatBuildup, stopVictoryBuildup, playLieuPirate, playNoCanDo, playManaAdd, playMalInterieur2, playMalInterieur3, playGardons, playMichaelTurn, startCardDragLoop, stopCardDragLoop } from './sfx'
 import { playVillainIntro } from './villainVoices'
 import { Showcase } from './components/Showcase'
 import { TestFateBar } from './components/TestFateBar'
@@ -1504,6 +1505,8 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
   const resolveDeckPeek = useGameStore((s) => s.resolveDeckPeek)
   const resolveTypeChoice = useGameStore((s) => s.resolveTypeChoice)
   const resolveDrawOrGainPower = useGameStore((s) => s.resolveDrawOrGainPower)
+  const resolveBloodTrace = useGameStore((s) => s.resolveBloodTrace)
+  const resolveWeaponFetch = useGameStore((s) => s.resolveWeaponFetch)
   const resolveFighterReveal = useGameStore((s) => s.resolveFighterReveal)
   const doneFighterReveal = useGameStore((s) => s.doneFighterReveal)
   const resolveFighterKillColor = useGameStore((s) => s.resolveFighterKillColor)
@@ -1901,6 +1904,11 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
   const unplayableTimer = useRef<number | null>(null)
   // Son « cristal » quand le Pouvoir du joueur humain AUGMENTE (gain ≥1 jeton).
   const prevHumanPowerRef = useRef<number | null>(null)
+  // Michael Myers — suivi du Mal Intérieur par joueur (pour jouer un son au passage au niveau 2).
+  const prevMalRef = useRef<number[]>([])
+  // Michael Myers — suivi du nb de lieux verrouillés par joueur (pour le son de « Gardons le
+  // meilleur pour la fin », seul effet qui déverrouille la Demeure).
+  const prevLockedRef = useRef<number[]>([])
   const showUnplayable = (reason: string) => {
     setUnplayableMsg(reason)
     playNoCanDo()
@@ -2374,6 +2382,31 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     if (prev !== null && cur > prev) playManaAdd()
   }, [state.players, HUMAN])
 
+  // Michael Myers — au passage au MAL INTÉRIEUR 2 ou 3 (depuis un niveau inférieur), joue le
+  // bruitage dédié. On ne joue jamais au montage/à la reprise (prev inconnu = pas de son).
+  useEffect(() => {
+    const prev = prevMalRef.current
+    state.players.forEach((p, i) => {
+      const cur = p.malInterieur
+      if (cur === undefined || prev[i] === undefined) return
+      if (cur >= 3 && prev[i] < 3) playMalInterieur3()
+      else if (cur >= 2 && prev[i] < 2) playMalInterieur2()
+    })
+    prevMalRef.current = state.players.map((p) => p.malInterieur ?? 0)
+  }, [state.players])
+
+  // Michael Myers — son de « Gardons le meilleur pour la fin » : détecté quand un joueur
+  // Michael DÉVERROUILLE un lieu (la Demeure des Strode) — seul effet qui le fait.
+  useEffect(() => {
+    const prev = prevLockedRef.current
+    state.players.forEach((p, i) => {
+      if (p.malInterieur === undefined) return // Michael uniquement
+      const cur = (p.lockedLocations ?? []).length
+      if (prev[i] !== undefined && cur < prev[i]) playGardons()
+    })
+    prevLockedRef.current = state.players.map((p) => (p.lockedLocations ?? []).length)
+  }, [state.players])
+
   // Boucle sonore tant qu'une carte de la MAIN est tenue au curseur (drag 'play').
   // S'arrête dès le lâcher/annulation (draggingCardId repasse à null) ou pour un glissé
   // de plateau (Héros/Allié/Objet, dragKindRef ≠ 'play').
@@ -2413,15 +2446,17 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     if (lastHumanTurnRef.current === state.turn) return
     lastHumanTurnRef.current = state.turn
     setShowTurnSplash(true)
-    // Alerte sonore « À vous de jouer » — sauf si on incarne L'Imposteur (qui a
-    // sa propre ambiance Among Us).
-    if (humanVillainKeyRef.current !== 'imposteur') playYourTurn()
+    // Alerte sonore « À vous de jouer ». Michael Myers a sa propre annonce, selon son palier
+    // de Mal Intérieur ; L'Imposteur a son ambiance Among Us (pas de son générique).
+    const meTurn = state.players[HUMAN]
+    if (meTurn.malInterieur !== undefined) playMichaelTurn(meTurn.malInterieur)
+    else if (humanVillainKeyRef.current !== 'imposteur') playYourTurn()
     // Minuteur conservé dans une ref : il n'est PAS annulé par les re-rendus suivants
     // (sinon, à la fin d'un tour rapide, le splash ne se masquerait jamais et resterait
     // affiché pendant le tour adverse). Il n'est ré-armé qu'au prochain tour du joueur.
     if (splashTimerRef.current) window.clearTimeout(splashTimerRef.current)
     splashTimerRef.current = window.setTimeout(() => setShowTurnSplash(false), 4000)
-  }, [state.activePlayer, state.turn, state.status, startRollDone, openingDealDone, dealOverlay, testMode, HUMAN, seats])
+  }, [state.activePlayer, state.turn, state.status, state.players, startRollDone, openingDealDone, dealOverlay, testMode, HUMAN, seats])
 
   // Réseau : prévient l'adversaire quand je prépare une Condition (sélection d'une
   // cible) pour qu'il patiente, et le libère quand je la joue ou l'annule.
@@ -2957,6 +2992,34 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
       if (seats[pdgp.playerIndex] === 'bot') {
         const choice = state.players[pdgp.playerIndex].hand.length >= 3 ? 'power' : 'draw'
         const timer = setTimeout(() => resolveDrawOrGainPower(choice), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Michael Myers — Trace de sang : gagner du Pouvoir OU déplacer un Héros voisin. Bot →
+    // gagne le Pouvoir (il veut garder les Héros près de lui pour les assassiner) ; humain → modale.
+    const pbt = state.pendingBloodTrace
+    if (pbt) {
+      if (seats[pbt.playerIndex] === 'bot') {
+        const timer = setTimeout(() => resolveBloodTrace('power'), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+    // Michael Myers — Arme du crime : bot choisit une Arme de sa pioche. Il ÉQUIPE la plus
+    // chère qu'il peut payer (meilleur effet d'élimination) ; sinon prend la moins chère en main.
+    const pwf = state.pendingWeaponFetch
+    if (pwf) {
+      if (seats[pwf.playerIndex] === 'bot') {
+        const p = state.players[pwf.playerIndex]
+        const weapons = p.deck.filter((c) => pwf.candidateIds.includes(c.instanceId))
+        const costOf = (w: (typeof weapons)[number]) => Math.max(0, w.cost ?? 0)
+        const affordable = weapons.filter((w) => costOf(w) <= p.power)
+        let choice: (typeof weapons)[number] | undefined
+        let equip = false
+        if (affordable.length > 0) { choice = [...affordable].sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0))[0]; equip = true }
+        else choice = [...weapons].sort((a, b) => (a.cost ?? 0) - (b.cost ?? 0))[0]
+        const timer = setTimeout(() => resolveWeaponFetch(choice?.instanceId, equip), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
       return
@@ -4452,6 +4515,17 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     // l'humain pendant le tour du bot : on met aussi en pause le temps de son choix.
     // (Le bot, lui, résout son propre pendingRemoveFire via sa recherche de tour.)
     if (state.pendingRemoveFire && seats[state.pendingRemoveFire.playerIndex] !== 'bot') return
+    // Michael — Aura effrayante : fenêtre de réaction de FIN DE TOUR (le tour est en pause
+    // avant de passer la main). On attend la réaction d'un non-actif, puis on relance END_TURN
+    // pour avancer. Placé AVANT le garde `testMode` pour que l'avance se fasse même en test.
+    if (state.endTurnReaction) {
+      if (showcaseBusy) return
+      const humanCanReactEnd =
+        seats[HUMAN] !== 'bot' && playableConditions(state, HUMAN).length > 0 && !reactionPassed
+      if (humanCanReactEnd) return // on attend que l'humain joue Aura ou passe
+      const timer = setTimeout(() => { if (!botReact()) endTurn() }, BOT_STEP_MS)
+      return () => clearTimeout(timer)
+    }
     // Mode test : l'adversaire est masqué, on ne le fait pas réagir/jouer.
     if (testMode) return
     if (isBotTurn) {
@@ -4474,7 +4548,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [paused, seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveFighterReveal, doneFighterReveal, resolveFighterKillColor, resolveFighterKillFree, doneFighterKillFree, resolveDestinChoice, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolvePacteSang, resolveSacrifice, resolveCageMove, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveScryDeckChoice, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveFateDiscardType, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveGrantLove, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire, resolvePiegeurTarget, resolvePiegeurDest])
+  }, [paused, seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveBloodTrace, resolveWeaponFetch, endTurn, resolveFighterReveal, doneFighterReveal, resolveFighterKillColor, resolveFighterKillFree, doneFighterKillFree, resolveDestinChoice, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolvePacteSang, resolveSacrifice, resolveCageMove, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveScryDeckChoice, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveFateDiscardType, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveGrantLove, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire, resolvePiegeurTarget, resolvePiegeurDest])
 
   // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
   // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
@@ -6988,6 +7062,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
               />
               <ClaimedTreasuresPile player={user} />
               <CauldronTile player={user} />
+              <MalInterieurPile player={user} />
               <OmnidroidPile
                 player={user}
                 canPlay={!!dragPlayActionId || mode?.kind === 'play'}
@@ -8020,6 +8095,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
               <CapturedPuppiesPile player={bot} uprightWidth="w-9" />
               <ClaimedTreasuresPile player={bot} />
               <CauldronTile player={bot} />
+              <MalInterieurPile player={bot} />
               <OmnidroidPile player={bot} />
               <AmeliorationTiles player={bot} />
             </div>
@@ -8161,6 +8237,8 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
             hasHackInPlay={Object.values(user.board).flat().some((c) => c.isPiratage || (c.type === 'hero' && c.abilityHacked))}
             hasIngredients={(user.ingredients ?? []).some((c) => (c.cost ?? 0) <= user.power) || (user.artifacts ?? []).length > 0}
             heroAtPawn={!!user.pawnLocation && (user.board[user.pawnLocation] ?? []).some((c) => c.type === 'hero')}
+            equippedWeaponPresent={!!user.equippedWeapon}
+            malInterieurLevel={user.malInterieur ?? 0}
             coveredAtPawn={
               !!user.pawnLocation &&
               ((user.board[user.pawnLocation] ?? []).some((c) => c.type === 'hero') ||
@@ -8470,6 +8548,46 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
           onChoose={resolveDrawOrGainPower}
         />
       )}
+
+      {/* Michael Myers — Trace de sang : gagner du Pouvoir OU déplacer un Héros voisin. */}
+      {state.pendingBloodTrace && state.pendingBloodTrace.playerIndex === HUMAN && (
+        <ChoiceModal
+          title="Trace de sang"
+          prompt="Choisissez un effet."
+          options={[
+            {
+              key: 'bt-power',
+              label: `Gagner ${state.pendingBloodTrace.power} Pouvoir`,
+              onSelect: () => resolveBloodTrace('power'),
+            },
+            {
+              key: 'bt-move',
+              label: 'Déplacer un Héros vers un lieu voisin',
+              onSelect: () => resolveBloodTrace('move'),
+            },
+          ]}
+        />
+      )}
+
+      {/* Michael Myers — Arme du crime : choisir une Arme de sa pioche → main ou équiper. */}
+      {state.pendingWeaponFetch && state.pendingWeaponFetch.playerIndex === HUMAN && (() => {
+        const ids = new Set(state.pendingWeaponFetch.candidateIds)
+        const weapons = user.deck.filter((c) => ids.has(c.instanceId))
+        const opts: { key: string; label: string; description?: string; disabled?: boolean; onSelect: () => void }[] = []
+        for (const w of weapons) {
+          const cost = Math.max(0, w.cost ?? 0)
+          opts.push({ key: `${w.instanceId}-hand`, label: `${w.name} → en main`, onSelect: () => resolveWeaponFetch(w.instanceId, false) })
+          opts.push({
+            key: `${w.instanceId}-equip`,
+            label: `${w.name} → équiper (${cost} JT)`,
+            description: user.power < cost ? 'Pas assez de Pouvoir' : undefined,
+            disabled: user.power < cost,
+            onSelect: () => resolveWeaponFetch(w.instanceId, true),
+          })
+        }
+        opts.push({ key: 'none', label: 'Ne rien prendre', onSelect: () => resolveWeaponFetch(undefined, false) })
+        return <ChoiceModal title="Arme du crime" prompt="Prenez une Arme de votre pioche." options={opts} />
+      })()}
 
       {/* Tabbou — modale « Destin » (dévoiler 3 / gagner 4). Tuer une couleur (Collection)
           et Coup Fatal se font en direct sur la grille des Combattants. */}
@@ -10318,6 +10436,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
           cards={state.pendingLookTop.cards}
           take={state.pendingLookTop.take}
           title={state.pendingLookTop.title}
+          offerTopOrDiscard={state.pendingLookTop.offerTopOrDiscard}
           onResolve={resolveLookTop}
         />
       )}
@@ -11241,6 +11360,9 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
           </button>
         </div>
       )}
+
+      {/* Tutoriel interactif : bandeau de consignes (le verrouillage des actions vit dans le store). */}
+      <TutorialOverlay onFinish={() => onExit?.()} />
     </div>
   )
 }

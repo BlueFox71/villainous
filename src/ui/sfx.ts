@@ -55,6 +55,21 @@ const CRACK_SRC = '/audio/craquement.mp3' // pendant que les fissures se propage
 const CRACK_GAIN = 0.8
 const LIEU_PIRATE_SRC = '/audio/lieu-pirate.mp3' // Sombra : un lieu est piraté (action désactivée)
 const LIEU_PIRATE_GAIN = 0.75
+const MAL_INTERIEUR_2_SRC = '/audio/mal-interieur-2.mp3' // Michael : passage au Mal Intérieur 2
+// Calé sur la « phrase » de Michael (audioGain 0.3 → volume sfxVolume×2×0.3 = sfxVolume×0.6).
+const MAL_INTERIEUR_2_GAIN = 0.6
+const MAL_INTERIEUR_3_SRC = '/audio/mal-interieur-3.mp3' // Michael : passage au Mal Intérieur 3
+const MAL_INTERIEUR_3_GAIN = 0.6
+const GARDONS_SRC = '/audio/gardons-le-meilleur.mp3' // Michael : « Gardons le meilleur pour la fin »
+const GARDONS_GAIN = 0.6
+// Michael : annonce de tour propre au vilain (comme l'ambiance de L'Imposteur), une variante
+// par palier de Mal Intérieur (index 0 = niveau 1). Même gain que ses autres sons (0.6).
+const MICHAEL_TURN_SRCS = [
+  '/audio/a-vous-de-jouer-1-myers.mp3',
+  '/audio/a-vous-de-jouer-2-myers.mp3',
+  '/audio/a-vous-de-jouer-3-myers.mp3',
+]
+const MICHAEL_TURN_GAIN = 0.6
 const NO_CAN_DO_SRC = '/audio/no-can-do.ogg' // tentative de jouer une carte injouable
 const NO_CAN_DO_GAIN = 0.5
 const MANA_ADD_SRC = '/audio/mana-crystal-add.ogg' // le joueur gagne ≥1 jeton Pouvoir
@@ -93,6 +108,10 @@ let defeatBuildupBase: HTMLAudioElement | null = null
 let shatterBase: HTMLAudioElement | null = null
 let crackBase: HTMLAudioElement | null = null
 let lieuPirateBase: HTMLAudioElement | null = null
+let malInterieur2Base: HTMLAudioElement | null = null
+let malInterieur3Base: HTMLAudioElement | null = null
+let gardonsBase: HTMLAudioElement | null = null
+let michaelTurnBases: HTMLAudioElement[] = []
 let noCanDoBase: HTMLAudioElement | null = null
 let manaAddBase: HTMLAudioElement | null = null
 let drawCardBases: HTMLAudioElement[] = []
@@ -147,6 +166,17 @@ if (typeof Audio !== 'undefined') {
   crackBase.preload = 'auto'
   lieuPirateBase = new Audio(LIEU_PIRATE_SRC)
   lieuPirateBase.preload = 'auto'
+  malInterieur2Base = new Audio(MAL_INTERIEUR_2_SRC)
+  malInterieur2Base.preload = 'auto'
+  malInterieur3Base = new Audio(MAL_INTERIEUR_3_SRC)
+  malInterieur3Base.preload = 'auto'
+  gardonsBase = new Audio(GARDONS_SRC)
+  gardonsBase.preload = 'auto'
+  michaelTurnBases = MICHAEL_TURN_SRCS.map((s) => {
+    const a = new Audio(s)
+    a.preload = 'auto'
+    return a
+  })
   noCanDoBase = new Audio(NO_CAN_DO_SRC)
   noCanDoBase.preload = 'auto'
   manaAddBase = new Audio(MANA_ADD_SRC)
@@ -165,6 +195,49 @@ export function playNoCanDo() {
   if (sfxVolume <= 0) return
   const a = noCanDoBase.cloneNode() as HTMLAudioElement
   a.volume = Math.min(1, sfxVolume) * NO_CAN_DO_GAIN
+  void a.play().catch(() => {})
+}
+
+/** Michael Myers — joue le bruitage quand il passe au MAL INTÉRIEUR 2. */
+export function playMalInterieur2() {
+  if (!malInterieur2Base) return
+  const { sfxVolume } = useSettingsStore.getState()
+  if (sfxVolume <= 0) return
+  const a = malInterieur2Base.cloneNode() as HTMLAudioElement
+  a.volume = Math.min(1, sfxVolume) * MAL_INTERIEUR_2_GAIN
+  void a.play().catch(() => {})
+}
+
+/** Michael Myers — joue le bruitage quand il passe au MAL INTÉRIEUR 3. */
+export function playMalInterieur3() {
+  if (!malInterieur3Base) return
+  const { sfxVolume } = useSettingsStore.getState()
+  if (sfxVolume <= 0) return
+  const a = malInterieur3Base.cloneNode() as HTMLAudioElement
+  a.volume = Math.min(1, sfxVolume) * MAL_INTERIEUR_3_GAIN
+  void a.play().catch(() => {})
+}
+
+/** Michael Myers — annonce de tour propre au vilain, selon son palier de Mal Intérieur
+ *  (1, 2 ou 3). Remplace le « À vous de jouer » générique quand on incarne Michael. */
+export function playMichaelTurn(level: number) {
+  const idx = Math.min(3, Math.max(1, level)) - 1
+  const src = michaelTurnBases[idx]
+  if (!src) return
+  const { sfxVolume } = useSettingsStore.getState()
+  if (sfxVolume <= 0) return
+  const a = src.cloneNode() as HTMLAudioElement
+  a.volume = Math.min(1, sfxVolume) * MICHAEL_TURN_GAIN
+  void a.play().catch(() => {})
+}
+
+/** Michael Myers — joue le son quand « Gardons le meilleur pour la fin » est utilisé. */
+export function playGardons() {
+  if (!gardonsBase) return
+  const { sfxVolume } = useSettingsStore.getState()
+  if (sfxVolume <= 0) return
+  const a = gardonsBase.cloneNode() as HTMLAudioElement
+  a.volume = Math.min(1, sfxVolume) * GARDONS_GAIN
   void a.play().catch(() => {})
 }
 

@@ -24,10 +24,13 @@ function BigButton({ label, disabled, onClick }: { label: string; disabled?: boo
 }
 
 /**
- * Étape de connexion du mode réseau (réseau local). L'HÔTE a déjà ouvert un salon
- * (code à 4 lettres) et attend ; l'INVITÉ saisit le code. Dès que les deux sont
- * connectés, on enchaîne sur le choix des vilains (en direct). Le serveur de
- * liaison (« npm run relay ») tourne sur la machine de l'hôte.
+ * Étape de connexion du mode réseau. L'HÔTE a déjà ouvert un salon (code à
+ * 4 lettres) et attend ; l'INVITÉ saisit le code. Dès que les deux sont connectés,
+ * on enchaîne sur le choix des vilains (en direct).
+ *
+ * Deux transports selon la plateforme (cf. gameStore startHost/joinHost) :
+ * - Web/Electron : canal P2P WebRTC (broker public) → LAN **et** Internet, code seul.
+ * - .exe Tauri : relais LAN embarqué → l'invité saisit aussi l'IP de l'hôte.
  */
 export function NetworkLobby({ onEnterVillainSelect, onBack }: Props) {
   const mode = useGameStore((s) => s.mode)
@@ -101,14 +104,15 @@ export function NetworkLobby({ onEnterVillainSelect, onBack }: Props) {
                 </>
               ) : (
                 <p className="text-center text-sm text-white/70">
-                  L’autre joueur ouvre <span className="text-amber-200">cette même page depuis ton adresse réseau</span>,
-                  choisit « Rejoindre une partie » et saisit ce code.
+                  Communique ce code à l’autre joueur : il choisit « Rejoindre une partie » et le saisit.
+                  La connexion est <span className="text-amber-200">directe entre vos deux appareils</span> —
+                  même réseau ou Internet, sans rien à installer.
                 </p>
               )}
               <span className="text-sm text-white/50">
                 {netStatus === 'connecting' && 'Ouverture du salon…'}
                 {netStatus === 'waiting' && '⏳ En attente de l’autre joueur…'}
-                {netStatus === 'error' && (desktop ? 'Le pare-feu bloque-t-il l’app ? (autorise les réseaux privés)' : 'Le serveur de liaison est-il lancé ? (npm run relay)')}
+                {netStatus === 'error' && (desktop ? 'Le pare-feu bloque-t-il l’app ? (autorise les réseaux privés)' : 'Connexion impossible (mise en relation injoignable, ou réseau trop restrictif).')}
               </span>
             </div>
           ) : (
@@ -145,7 +149,9 @@ export function NetworkLobby({ onEnterVillainSelect, onBack }: Props) {
               {joining && (
                 <div className="flex flex-col items-center gap-2">
                   <span className="text-center text-sm text-white/50">
-                    {netStatus === 'error' ? 'Hôte injoignable. Vérifie le code et l’adresse.' : '⏳ Connexion à l’hôte…'}
+                    {netStatus === 'error'
+                      ? (desktop ? 'Hôte injoignable. Vérifie le code et l’adresse.' : 'Hôte injoignable. Vérifie le code (l’hôte doit attendre dans le salon).')
+                      : '⏳ Connexion à l’hôte…'}
                   </span>
                   {/* Annule la tentative (coupe la connexion) et réactive le formulaire,
                       sans quitter l'écran : on peut corriger le code et réessayer. */}

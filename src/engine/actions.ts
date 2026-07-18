@@ -1204,6 +1204,11 @@ function applyPlayCard(
       throw new Error(`${card.name} doit être posé sur ${findLocation(me, card.omnidroidForceLocation)?.name ?? card.omnidroidForceLocation}.`)
     }
   }
+  // Michael Myers — Gardons le meilleur pour la fin : injouable tant que le Mal Intérieur
+  // n'a pas atteint le palier requis.
+  if (card.requiresMalInterieur !== undefined && (me.malInterieur ?? 0) < card.requiresMalInterieur) {
+    throw new Error(`${card.name} nécessite le Mal Intérieur niveau ${card.requiresMalInterieur}.`)
+  }
   // Coût effectif (Couronne −1, Bâton Magique −1, Épée de Vérité +2 sur curse,
   // Razoul −1 sur Allié). Hypnose : coût = force (effective) du Héros ciblé.
   let cost = effectiveCost(state, card, to)
@@ -1215,6 +1220,20 @@ function applyPlayCard(
   if (card.costEqualsTargetStrength) {
     if (!targetHeroId) throw new Error('Banqueroute nécessite un Héros cible.')
     cost = effectiveStrength(state, state.activePlayer, targetHeroId) ?? 0
+  }
+  // Michael Myers — ASSASSINER : coût = coût de l'Arme équipée (variable), −1 au Mal
+  // Intérieur niveau 3. +N par AUTRE Héros du royaume si la cible le stipule (LAURIE).
+  if (card.costEqualsWeaponCost) {
+    const w = me.equippedWeapon
+    if (!w) throw new Error('Assassiner nécessite une Arme équipée.')
+    if (!targetHeroId) throw new Error('Assassiner nécessite un Héros cible.')
+    cost = Math.max(0, w.cost ?? 0)
+    const targetHero = Object.values(me.board).flat().find((c) => c.instanceId === targetHeroId)
+    const perOther = targetHero?.assassinateSurchargePerOtherHero ?? 0
+    if (perOther > 0) {
+      const others = Object.values(me.board).flat().filter((c) => c.type === 'hero' && c.instanceId !== targetHeroId).length
+      cost += perOther * others
+    }
   }
   // Mr. Monopoly — Règles inventées : jouer une carte ciblant ce Héros coûte +N.
   if (targetHeroId) {
@@ -1279,8 +1298,9 @@ function applyPlayCard(
   }
 
   // Alliés/Objets/Malédictions vont sur le plateau ; Événements (et Conditions
-  // côté action) résolvent puis sont défaussés.
-  const goesToBoard = card.type === 'ally' || card.type === 'item' || card.type === 'curse'
+  // côté action) résolvent puis sont défaussés. Michael Myers — une ARME (`isWeapon`)
+  // ne va JAMAIS sur le plateau : elle est ÉQUIPÉE (zone `equippedWeapon`), cf. plus bas.
+  const goesToBoard = (card.type === 'ally' || card.type === 'item' || card.type === 'curse') && !card.isWeapon
   let dest: Location | undefined
   let host: CardInstance | undefined
 
@@ -1803,6 +1823,16 @@ function applyPlayCard(
     } else {
       next = updateActivePlayer(next, (p) => ({ ...p, discard: [...p.discard, card] }))
     }
+  } else if (card.isWeapon) {
+    // Michael Myers — ARME (« associée à Meyers ») : entre dans la zone Arme équipée
+    // (remplace l'Arme précédente, défaussée), au lieu d'aller en défausse.
+    const prev = me.equippedWeapon
+    next = updateActivePlayer(next, (p) => ({
+      ...p,
+      equippedWeapon: card,
+      discard: prev ? [...p.discard, prev] : p.discard,
+    }))
+    next = { ...next, log: [...next.log, `${me.villainName} équipe **${card.name}**${prev ? ` (${prev.name} défaussée)` : ''}.`] }
   } else {
     next = updateActivePlayer(next, (p) => ({ ...p, discard: [...p.discard, card] }))
   }
@@ -6369,6 +6399,16 @@ function applyPlayCondition(
   const card = player.hand.find((c) => c.instanceId === instanceId)
   if (!card) throw new Error(`Carte « ${instanceId} » absente de la main.`)
   if (card.type !== 'condition') throw new Error(`${card.name} n'est pas une Condition.`)
+  // Michael — Aura effrayante : une Condition `reactAtEndOfTurn` ne se joue QUE dans la
+  // fenêtre de fin de tour (endTurnReaction ouverte) ; les autres, seulement hors de cette
+  // fenêtre (en cours de tour adverse).
+  if (!!card.reactAtEndOfTurn !== !!state.endTurnReaction) {
+    throw new Error(
+      card.reactAtEndOfTurn
+        ? `${card.name} ne se joue qu'à la fin du tour adverse.`
+        : `${card.name} ne se joue pas pendant la fenêtre de fin de tour.`,
+    )
+  }
   // Seules les Conditions présentes en main au DÉBUT du tour sont réactables — SAUF une
   // Condition à trigger cumulatif piochée en cours de tour (ex. « 15 ans plus tard » via
   // « Je travaille en solo ») : elle réagit à ce qui survient APRÈS sa pioche (instantané).
@@ -7985,6 +8025,84 @@ function applyResolveDrawOrGainPower(state: GameState, choice: 'draw' | 'power')
     activeDrewCard: drawn.length > 0 ? true : next.activeDrewCard,
     log: [...next.log, `${player.villainName} pioche ${drawn.length} carte${drawn.length > 1 ? 's' : ''} (Le Grand Génie du Mal).`],
   }
+}
+
+/**
+ * Michael Myers — Trace de sang : résout le choix entre gagner du Pouvoir (`power`)
+ * et déplacer un Héros vers un lieu VOISIN (`move` → pendingHeroRelocate facultatif).
+ */
+function applyResolveBloodTrace(state: GameState, choice: 'power' | 'move'): GameState {
+  const pending = state.pendingBloodTrace
+  if (!pending) throw new Error('Aucun choix Trace de sang en attente.')
+  const { playerIndex, power } = pending
+  const cleared = { ...state, pendingBloodTrace: null }
+  if (choice === 'power') {
+    return resolveEffect(cleared, { type: 'GAIN_POWER', amount: power }, { actorIndex: playerIndex })
+  }
+  // Déplacement d'un Héros vers un lieu voisin (choix interactif du Héros et du lieu).
+  const player = cleared.players[playerIndex]
+  const heroIds = Object.values(player.board)
+    .flat()
+    .filter((c) => c.type === 'hero' && !c.cannotBeMoved)
+    .map((c) => c.instanceId)
+  if (heroIds.length === 0) {
+    return resolveEffect(cleared, { type: 'GAIN_POWER', amount: power }, { actorIndex: playerIndex })
+  }
+  return {
+    ...cleared,
+    pendingHeroRelocate: {
+      chooserIndex: playerIndex,
+      targetIndex: playerIndex,
+      candidateIds: heroIds,
+      optional: true,
+    },
+    log: [...cleared.log, `${player.villainName} — Trace de sang : déplacez un Héros vers un lieu voisin.`],
+  }
+}
+
+/**
+ * Michael Myers — Arme du crime : le joueur a choisi une Arme de sa PIOCHE (`instanceId`,
+ * absent = ne rien prendre). `equip` = paie son coût et l'équipe (remplace l'Arme
+ * précédente, défaussée) ; sinon l'ajoute à la main. Le deck est remélangé ensuite.
+ */
+function applyResolveWeaponFetch(state: GameState, instanceId?: string, equip?: boolean): GameState {
+  const pending = state.pendingWeaponFetch
+  if (!pending) throw new Error('Aucune recherche d’Arme en attente (Arme du crime).')
+  const idx = pending.playerIndex
+  const cleared = { ...state, pendingWeaponFetch: null }
+  if (!instanceId) {
+    return { ...cleared, log: [...cleared.log, `${state.players[idx].villainName} ne prend aucune Arme (Arme du crime).`] }
+  }
+  if (!pending.candidateIds.includes(instanceId)) throw new Error('Arme choisie invalide.')
+  const player = state.players[idx]
+  const card = player.deck.find((c) => c.instanceId === instanceId)
+  if (!card) throw new Error('Arme introuvable dans la pioche.')
+  const reshuffle = (s: GameState): GameState => {
+    const sh = shuffle(s.players[idx].deck, s.rngState)
+    return { ...s, rngState: sh.state, players: s.players.map((p, i) => (i === idx ? { ...p, deck: sh.result } : p)) }
+  }
+  if (equip) {
+    // Coût = coût de l'Arme.
+    const cost = Math.max(0, card.cost ?? 0)
+    if (player.power < cost) throw new Error(`Pas assez de pouvoir pour équiper ${card.name} (coût ${cost}).`)
+    const prev = player.equippedWeapon
+    let next = updatePlayer(cleared, idx, (p) => ({
+      ...p,
+      power: p.power - cost,
+      deck: p.deck.filter((c) => c.instanceId !== instanceId),
+      equippedWeapon: card,
+      discard: prev ? [...p.discard, prev] : p.discard,
+    }))
+    next = reshuffle(next)
+    return { ...next, log: [...next.log, `${player.villainName} équipe **${card.name}** (−${cost} JT)${prev ? ` (${prev.name} défaussée)` : ''} — Arme du crime.`] }
+  }
+  let next = updatePlayer(cleared, idx, (p) => ({
+    ...p,
+    deck: p.deck.filter((c) => c.instanceId !== instanceId),
+    hand: [...p.hand, card],
+  }))
+  next = reshuffle(next)
+  return { ...next, log: [...next.log, `${player.villainName} prend **${card.name}** en main (Arme du crime).`] }
 }
 
 /**
@@ -10041,6 +10159,22 @@ function applyResolveRecover(state: GameState, instanceId?: string): GameState {
   const card = player.discard.find((c) => c.instanceId === instanceId)
     ?? player.deck.find((c) => c.instanceId === instanceId)
   if (!card) throw new Error('Carte introuvable (récupération).')
+  // Michael Myers — Gardons le meilleur : la carte reprise (une Arme) est ÉQUIPÉE
+  // gratuitement (l'Arme précédente est défaussée), au lieu d'aller en main.
+  if (pending.equipWeapon) {
+    const prev = player.equippedWeapon
+    const next = updatePlayer(state, idx, (p) => ({
+      ...p,
+      discard: [...p.discard.filter((c) => c.instanceId !== instanceId), ...(prev ? [prev] : [])],
+      deck: p.deck.filter((c) => c.instanceId !== instanceId),
+      equippedWeapon: card,
+    }))
+    return {
+      ...next,
+      pendingRecover: null,
+      log: [...next.log, `${player.villainName} équipe **${card.name}**${prev ? ` (${prev.name} défaussée)` : ''} — ${pending.label ?? 'Arme'}.`],
+    }
+  }
   let next = updatePlayer(state, idx, (p) => ({
     ...p,
     discard: p.discard.filter((c) => c.instanceId !== instanceId),
@@ -10802,7 +10936,7 @@ function applyResolveDivination(state: GameState, topInstanceIds: string[]): Gam
 
 /** Dr Facilier — Tour de passe-passe : garde les cartes choisies (`keepInstanceIds`,
  *  bornées à `take`) en main, défausse les autres cartes révélées (pendingLookTop). */
-function applyResolveLookTop(state: GameState, keepInstanceIds: string[]): GameState {
+function applyResolveLookTop(state: GameState, keepInstanceIds: string[], toTop?: boolean): GameState {
   const pending = state.pendingLookTop
   if (!pending) throw new Error('Aucun Tour de passe-passe en attente.')
   const idx = pending.playerIndex
@@ -10810,11 +10944,14 @@ function applyResolveLookTop(state: GameState, keepInstanceIds: string[]): GameS
   const keepSet = new Set(valid.slice(0, pending.take))
   const kept = pending.cards.filter((c) => keepSet.has(c.instanceId))
   const dumped = pending.cards.filter((c) => !keepSet.has(c.instanceId))
-  // Isabella — Cloche : les cartes NON gardées retournent dans le deck (puis mélange) au lieu
-  // d'être défaussées.
   let rng = state.rngState
   let next: GameState
-  if (pending.returnToDeck) {
+  if (pending.offerTopOrDiscard && toTop) {
+    // Michael — Lumière mourrante : le joueur choisit de REMETTRE les cartes non gardées sur
+    // le DESSUS de la pioche (ordre conservé).
+    next = updatePlayer(state, idx, (p) => ({ ...p, hand: [...p.hand, ...kept], deck: [...dumped, ...p.deck] }))
+  } else if (pending.returnToDeck) {
+    // Isabella — Cloche : les cartes NON gardées retournent dans le deck (puis mélange).
     const r = shuffle([...state.players[idx].deck, ...dumped], rng)
     rng = r.state
     next = updatePlayer(state, idx, (p) => ({ ...p, hand: [...p.hand, ...kept], deck: r.result }))
@@ -10828,9 +10965,11 @@ function applyResolveLookTop(state: GameState, keepInstanceIds: string[]): GameS
     activeDrewCard: kept.length > 0 ? true : state.activeDrewCard,
     log: [
       ...next.log,
-      pending.returnToDeck
-        ? `${next.players[idx].villainName} garde **${kept.map((c) => c.name).join(', ') || '—'}** et remélange ${dumped.length} carte${dumped.length > 1 ? 's' : ''} dans son deck (${pending.title ?? 'Cloche'}).`
-        : `${next.players[idx].villainName} garde **${kept.map((c) => c.name).join(', ') || '—'}** et défausse ${dumped.length} carte${dumped.length > 1 ? 's' : ''} (${pending.title ?? 'Tour de passe-passe'}).`,
+      pending.offerTopOrDiscard && toTop
+        ? `${next.players[idx].villainName} garde **${kept.map((c) => c.name).join(', ') || '—'}** et remet ${dumped.length} carte${dumped.length > 1 ? 's' : ''} sur le dessus de sa pioche (${pending.title ?? 'Lumière mourrante'}).`
+        : pending.returnToDeck
+          ? `${next.players[idx].villainName} garde **${kept.map((c) => c.name).join(', ') || '—'}** et remélange ${dumped.length} carte${dumped.length > 1 ? 's' : ''} dans son deck (${pending.title ?? 'Cloche'}).`
+          : `${next.players[idx].villainName} garde **${kept.map((c) => c.name).join(', ') || '—'}** et défausse ${dumped.length} carte${dumped.length > 1 ? 's' : ''} (${pending.title ?? 'Tour de passe-passe'}).`,
     ],
   }
   // Tour de passe-passe révélé en Divination : reprendre la Divination avec les
@@ -11528,6 +11667,25 @@ function applyEndTurn(state: GameState): GameState {
   if (!canEndTurn(state)) {
     throw new Error(`Impossible de terminer le tour en phase ${state.phase}.`)
   }
+  // Michael Myers — Aura effrayante : fenêtre de réaction de FIN DE TOUR. Si un non-actif a
+  // une Condition `reactAtEndOfTurn` déclenchée (l'actif termine sans avoir joué de carte),
+  // on met le tour en PAUSE (avant tout nettoyage/avance) pour la laisser réagir. Un nouvel
+  // END_TURN (une fois qu'il a réagi ou passé) referme la fenêtre et passe réellement la main.
+  if (state.endTurnReaction) {
+    state = { ...state, endTurnReaction: null }
+  } else {
+    const reactorExists = state.players.some((p, i) => {
+      if (i === state.activePlayer) return false
+      if (Object.values(p.board).flat().some((c) => c.type === 'hero' && c.cardId === 'elisabeth-bathory')) return false
+      const eligible = p.reactableConditionIds
+      return p.hand.some(
+        (c) => c.type === 'condition' && c.reactAtEndOfTurn && conditionIsReactable(eligible, c) && conditionIsTriggered(state, c, i),
+      )
+    })
+    if (reactorExists) {
+      return { ...state, endTurnReaction: { endingPlayer: state.activePlayer } }
+    }
+  }
   // Isabella — HORLOGE : l'aiguille avance d'un cran (XII→II→IV→VI→VIII→X→XII) à la FIN de
   // chacun de ses tours. Ainsi son PREMIER tour est toujours à XII, qu'elle joue en 1er ou
   // en 2e (indépendant de l'ordre/de l'index).
@@ -11586,7 +11744,13 @@ function applyEndTurn(state: GameState): GameState {
   // Mère Gothel — fin de son tour : Raiponce glisse d'un lieu vers la droite.
   drawn = moveRaiponceEndOfTurn(drawn, drawn.activePlayer)
   const endedName = drawn.players[drawn.activePlayer].villainName
-  const nextIdx = (drawn.activePlayer + 1) % drawn.players.length
+  // Michael Myers — Couteau de cuisine : le joueur REJOUE un tour (même joueur) au lieu de
+  // passer la main. Le drapeau est consommé ici (un seul tour supplémentaire à la fois).
+  const replays = !!drawn.players[drawn.activePlayer].extraTurn
+  if (replays) {
+    drawn = updatePlayer(drawn, drawn.activePlayer, (p) => ({ ...p, extraTurn: false }))
+  }
+  const nextIdx = replays ? drawn.activePlayer : (drawn.activePlayer + 1) % drawn.players.length
 
   // Le tour du joueur suivant commence. Si la récompense Apparence de Dragon
   // de ce joueur n'a pas été déclenchée, elle expire à présent.
@@ -11762,9 +11926,22 @@ function applyEndTurn(state: GameState): GameState {
     started = updatePlayer(started, nextIdx, (p) => ({ ...p, power: p.power + 1 }))
     started = { ...started, log: [...started.log, `${started.players[nextIdx].villainName} gagne 1 Pouvoir (Forme finale).`] }
   }
-  // Sombra — Invisibilité : l'immunité à la Fatalité expire au début de son tour.
+  // Sombra — Invisibilité / Michael Myers — Obsession : l'immunité à la Fatalité expire au
+  // début de son tour. Obsession pose `noFateSkipReset` pour que le blocage SURVIVE au tour
+  // intermédiaire du vilain et frappe le PROCHAIN tour adverse : on saute alors une fois la RàZ.
   if (started.players[nextIdx].noFate) {
-    started = updatePlayer(started, nextIdx, (p) => ({ ...p, noFate: false }))
+    started = updatePlayer(started, nextIdx, (p) =>
+      p.noFateSkipReset ? { ...p, noFateSkipReset: false } : { ...p, noFate: false },
+    )
+  }
+  // Michael Myers — Aura effrayante : action « Jouer une carte » gratuite en début de tour.
+  if (started.players[nextIdx].freePlayCardNextTurn) {
+    started = updatePlayer(started, nextIdx, (p) => ({ ...p, freePlayCardNextTurn: false }))
+    started = {
+      ...started,
+      grantedAction: { playerIndex: nextIdx, actionType: 'PLAY_CARD', label: 'Jouer une carte' },
+      log: [...started.log, `Aura effrayante : ${started.players[nextIdx].villainName} peut jouer une carte gratuitement.`],
+    }
   }
   // Yzma — Beauté endormie : au début de son tour, AVANT le déplacement, ouvre un
   // choix interactif (gagner 2 JT / piocher 2 / déplacer un Héros voisin), chaque
@@ -13018,6 +13195,10 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveTypeChoice(state, action.cardType)
     case 'RESOLVE_DRAW_OR_GAIN_POWER':
       return applyResolveDrawOrGainPower(state, action.choice)
+    case 'RESOLVE_BLOOD_TRACE':
+      return applyResolveBloodTrace(state, action.choice)
+    case 'RESOLVE_WEAPON_FETCH':
+      return applyResolveWeaponFetch(state, action.instanceId, action.equip)
     case 'RESOLVE_INFILTRATION':
       return applyResolveInfiltration(state, action)
     case 'RESOLVE_POWER_OR_RACER_BACK':
@@ -13263,7 +13444,7 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
     case 'RESOLVE_DIVERSION_DISCARD':
       return applyResolveDiversionDiscard(state, action.cardInstanceId)
     case 'RESOLVE_LOOK_TOP':
-      return applyResolveLookTop(state, action.keepInstanceIds)
+      return applyResolveLookTop(state, action.keepInstanceIds, action.toTop)
     case 'ACKNOWLEDGE_REVEAL':
       return { ...state, pendingReveal: null }
     case 'RESOLVE_HACK':
