@@ -141,6 +141,13 @@ export function CardLayoutEditor({
   }, [key, preRendered])
   const displayBg = preRendered ? (card.image ?? null) : bg
 
+  // Fond des champs de texte enrichi : on mime le panneau de la carte — couleur du
+  // vilain pour une carte Méchant, blanc pour une carte Fatalité. Le texte non coloré
+  // reprend le défaut de la carte (doré Méchant / encre Fatalité), pour rester lisible.
+  const isFateCard = card.deck === 'fate'
+  const richBg = isFateCard ? '#ffffff' : color
+  const richDefaultColor = isFateCard ? '#1a1a1a' : '#ae8955'
+
   // Disposition de texte effective (défaut tant que l'utilisateur n'a rien déplacé).
   const tl = card.textLayout ?? DEFAULT_TEXT_LAYOUT
   // Hauteur du bloc de texte (en % de la hauteur de carte) pour dessiner le hotspot.
@@ -446,6 +453,8 @@ export function CardLayoutEditor({
               onChange={(text) => onChange({ ...card, text })}
               onActivate={(api) => (activeRich.current = api)}
               onFocus={() => setSel({ kind: 'text' })}
+              bg={richBg}
+              defaultColor={richDefaultColor}
               placeholder="Décris l’effet de la carte ici. Le comportement sera codé au moment du test."
             />
           </div>
@@ -618,6 +627,8 @@ export function CardLayoutEditor({
               onChange={(text) => setBox(box.id, { text })}
               onActivate={(api) => (activeRich.current = api)}
               onFocus={() => setSel({ kind: 'box', id: box.id })}
+              bg={richBg}
+              defaultColor={richDefaultColor}
               minHeightClass="min-h-[3.5rem]"
             />
           </div>

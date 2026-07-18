@@ -4,7 +4,6 @@
 // (les sauts de ligne sont de simples `\n`). Voir `richText.ts` pour les conversions pures.
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { markupToHtml, domToMarkup } from './richText'
-import { inputClass } from './fields'
 
 /** API impérative exposée au parent (barre de couleur / boutons de jetons partagés). */
 export interface RichTextApi {
@@ -37,6 +36,8 @@ export function RichTextInput({
   placeholder,
   className = '',
   minHeightClass = 'min-h-[5rem]',
+  bg = '#ffffff',
+  defaultColor = '#1a1a1a',
 }: {
   value: string
   onChange: (markup: string) => void
@@ -46,6 +47,10 @@ export function RichTextInput({
   placeholder?: string
   className?: string
   minHeightClass?: string
+  /** Fond du champ (mime le panneau de la carte : couleur du vilain / blanc pour la Fatalité). */
+  bg?: string
+  /** Couleur du texte NON coloré (défaut de la carte : doré Méchant / encre Fatalité). */
+  defaultColor?: string
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const savedRange = useRef<Range | null>(null)
@@ -172,10 +177,16 @@ export function RichTextInput({
           onActivate?.(api)
           onFocus?.()
         }}
-        className={`${inputClass} ${minHeightClass} whitespace-pre-wrap break-words ${className}`}
+        style={{ backgroundColor: bg, color: defaultColor }}
+        className={`rounded-lg border border-black/15 px-3 py-2 text-sm outline-none transition focus:border-amber-400 ${minHeightClass} whitespace-pre-wrap break-words ${className}`}
       />
       {!value && placeholder && (
-        <div className="pointer-events-none absolute left-3 top-2 text-sm text-white/30">{placeholder}</div>
+        <div
+          style={{ color: defaultColor }}
+          className="pointer-events-none absolute left-3 top-2 text-sm opacity-50"
+        >
+          {placeholder}
+        </div>
       )}
     </div>
   )

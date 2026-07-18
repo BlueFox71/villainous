@@ -54,6 +54,7 @@ export const PATCH_NOTES: PatchNote[] = [
     changes: [
       "Onglet **Cartes**, nouvelle section **Images** : on **importe une image** et on la **pose librement** (déplacer, redimensionner au curseur ou par presets).",
       "Le texte s'affiche désormais **déjà coloré** dans le champ — **aucune balise** visible : on sélectionne une partie (ou tout) et la **pipette** la colore aussitôt, **« Couleur par défaut »** l'enlève.",
+      "Le champ de texte **mime la carte** : fond **couleur du vilain** (Méchant) ou **blanc** (Fatalité), texte **doré**/**encre** par défaut.",
       "Le texte peut être **aligné** (gauche/centre/droite) et sa **taille** choisie précisément (menu déroulant).",
       "Les **zones de texte** sont regroupées en **liste** (Zone 1, 2, …), chacune **duplicable**.",
       "**Symboles d'action** et **Images** sont affichés **côte à côte**.",
