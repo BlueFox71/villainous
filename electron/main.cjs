@@ -200,6 +200,14 @@ app.whenReady().then(() => {
 
   createWindow()
 
+  // Mise à jour automatique (GitHub Releases privées) — sans effet en dev ou si aucun
+  // jeton n'est embarqué (cf. electron/updater.cjs). N'interrompt jamais le lancement.
+  try {
+    require('./updater.cjs').initAutoUpdate()
+  } catch {
+    /* ignore : l'auto-update ne doit jamais empêcher le jeu de démarrer */
+  }
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })

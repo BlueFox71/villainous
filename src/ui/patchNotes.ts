@@ -55,6 +55,7 @@ export const PATCH_NOTES: PatchNote[] = [
       "Nouveau **Tutoriel** au menu : un premier tour **guidé pas à pas** qui apprend les **règles de base** (à quoi sert le **Pouvoir**, comment en gagner, les **types d'actions** et les **types de cartes**).",
       "Multijoueur en ligne : les **vilains personnalisés publiés** sont désormais **jouables en réseau** (les deux joueurs les ont dans la même version).",
       "Multijoueur : connexion **plus fiable à distance** (serveurs **TURN** ajoutés) et **messages d'erreur clairs** en cas de souci — fini le bouton **Lancer** sans effet.",
+      "**Mise à jour automatique** : l'application se met désormais à jour toute seule au lancement (elle ne télécharge que ce qui a changé).",
     ],
   },
   {

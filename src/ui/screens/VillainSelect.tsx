@@ -313,13 +313,14 @@ export function VillainSelect({ onStart, onBack }: Props) {
   // Vilains non encore publiés : sélectionnables en dév, masqués aux joueurs (exe /
   // « mode application »), cf. UNRELEASED_VILLAINS.
   const hideUnreleased = useIsDesktopApp()
-  // Toutes les clés sélectionnables (natives + publiées en solo).
+  // Toutes les clés sélectionnables (natives + publiées), en SOLO comme en RÉSEAU :
+  // les publiés sont embarqués dans le build, donc présents chez les deux joueurs.
   const allKeys = useMemo<string[]>(() => {
     const builtin = hideUnreleased
       ? BUILTIN_KEYS.filter((k) => !UNRELEASED_VILLAINS.includes(k))
       : [...BUILTIN_KEYS]
-    return network ? builtin : [...builtin, ...publishedKeys]
-  }, [network, publishedKeys, hideUnreleased])
+    return [...builtin, ...publishedKeys]
+  }, [publishedKeys, hideUnreleased])
 
   // Libellé du camp « toi » : nom du joueur (profil), en solo comme en réseau.
   const playerName = usePlayerStore((s) => s.name)

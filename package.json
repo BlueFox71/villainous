@@ -1,7 +1,7 @@
 {
   "name": "villainous",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.8.2",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -17,10 +17,12 @@
     "tauri:build": "tauri build",
     "electron": "electron .",
     "electron:dev": "node scripts/electron-dev.cjs",
-    "electron:build": "npm run build && electron-builder"
+    "electron:build": "npm run build && electron-builder",
+    "electron:publish": "npm run build && electron-builder --publish always"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.0",
+    "electron-updater": "^6.8.9",
     "overlayscrollbars": "^2.16.0",
     "overlayscrollbars-react": "^0.5.6",
     "peerjs": "^1.5.5",
@@ -64,6 +66,15 @@
       "electron/**/*",
       "dist/**/*",
       "package.json"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "BlueFox71",
+        "repo": "villainous",
+        "private": true,
+        "releaseType": "release"
+      }
     ],
     "extraResources": [
       {
