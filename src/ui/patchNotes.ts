@@ -47,6 +47,17 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.8.4',
+    date: '2026-07-18',
+    title: 'Atelier : un vilain et son variant réunis',
+    tags: ['atelier', 'interface'],
+    changes: [
+      "Dans la liste de l'Atelier, un vilain et son **variant** n'occupent plus qu'**une seule vignette** (ex. **Sumbra / Killaire**), avec les **deux portraits partagés en diagonale**.",
+      "Depuis l'éditeur, un bouton **« Voir … (variante) »** permet de **basculer** entre le vilain et son variant.",
+      "Onglet **Identité** : bouton **« Créer un variant »** s'il n'y en a pas, sinon le **nom du variant** et un petit lien discret pour le **supprimer** (avec confirmation).",
+    ],
+  },
+  {
     version: '1.8.3',
     date: '2026-07-18',
     title: 'Atelier : variantes — face B de lieu + carte d’origine en aperçu',
