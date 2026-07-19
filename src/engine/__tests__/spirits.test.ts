@@ -251,14 +251,54 @@ describe('Sumbra/Kilaire — effets de cartes', () => {
     expect(g.players[0].combattantDiscard?.length).toBe(1)
   })
 
-  it('CHOC_DES_TITANS capture la somme des deux camps et paie 2 pour le Bonus', () => {
+  it('CHOC_DES_TITANS capture la somme puis OUVRE le choix payer/subir (interactif)', () => {
     const deck = [combattant('c1', 1, 4, 'ferveur', 2)]
     let g = game(deck)
     g = { ...g, players: g.players.map((p, i) => (i === 0 ? { ...p, power: 5 } : p)) }
-    g = resolveEffect(g, { type: 'CHOC_DES_TITANS' }, { actorIndex: 0 })
-    // Capture somme (1+4=5) + Bonus Ferveur (+2) car ≥2 Pouvoir ; paie 2 Pouvoir.
+    g = resolveEffect(g, { type: 'CHOC_DES_TITANS', payForBonus: true }, { actorIndex: 0 })
+    // La SOMME (1+4=5) est capturée tout de suite ; le verbe attend le choix du joueur.
+    expect(g.players[0].spirits).toBe(5)
+    expect(g.players[0].power).toBe(5)
+    expect(g.pendingChocTitans?.playerIndex).toBe(0)
+    expect(g.players[0].combattantDiscard?.length ?? 0).toBe(0)
+  })
+
+  it('RESOLVE_CHOC_TITANS pay:true → paie 2 Pouvoir et applique le Bonus', () => {
+    const deck = [combattant('c1', 1, 4, 'ferveur', 2)]
+    let g = game(deck)
+    g = { ...g, players: g.players.map((p, i) => (i === 0 ? { ...p, power: 5 } : p)) }
+    g = resolveEffect(g, { type: 'CHOC_DES_TITANS', payForBonus: true }, { actorIndex: 0 })
+    g = applyAction(g, { type: 'RESOLVE_CHOC_TITANS', pay: true })
+    // Somme 5 + Bonus Ferveur (+2) = 7 esprits ; 5 − 2 Pouvoir = 3 ; Combattant en défausse.
     expect(g.players[0].spirits).toBe(5 + 2)
     expect(g.players[0].power).toBe(3)
+    expect(g.pendingChocTitans).toBeFalsy()
+    expect(g.players[0].combattantDiscard?.length).toBe(1)
+  })
+
+  it('RESOLVE_CHOC_TITANS pay:false → aucun Pouvoir dépensé, Malus appliqué', () => {
+    const deck = [combattant('c1', 1, 4, 'ferveur', 2)]
+    let g = game(deck)
+    g = { ...g, players: g.players.map((p, i) => (i === 0 ? { ...p, power: 5 } : p)) }
+    g = resolveEffect(g, { type: 'CHOC_DES_TITANS', payForBonus: true }, { actorIndex: 0 })
+    g = applyAction(g, { type: 'RESOLVE_CHOC_TITANS', pay: false })
+    // Somme 5 − Malus Ferveur (−2) = 3 esprits ; Pouvoir intact (5).
+    expect(g.players[0].spirits).toBe(5 - 2)
+    expect(g.players[0].power).toBe(5)
+    expect(g.pendingChocTitans).toBeFalsy()
+    expect(g.players[0].combattantDiscard?.length).toBe(1)
+  })
+
+  it('CHOC_DES_TITANS sans les 2 Pouvoir → pas de choix, Malus direct', () => {
+    const deck = [combattant('c1', 1, 4, 'ferveur', 2)]
+    let g = game(deck)
+    g = { ...g, players: g.players.map((p, i) => (i === 0 ? { ...p, power: 1 } : p)) }
+    g = resolveEffect(g, { type: 'CHOC_DES_TITANS', payForBonus: true }, { actorIndex: 0 })
+    // 1 Pouvoir < 2 → aucun choix : capture 5 puis Malus Ferveur (−2) = 3.
+    expect(g.pendingChocTitans).toBeFalsy()
+    expect(g.players[0].spirits).toBe(5 - 2)
+    expect(g.players[0].power).toBe(1)
+    expect(g.players[0].combattantDiscard?.length).toBe(1)
   })
 
   it('FATE_DRAW_COMBATTANT (COMBATTANT) : pose un Héros + retire les esprits adverses', () => {

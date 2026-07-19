@@ -1518,6 +1518,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
   const resolveTaffytaChoice = useGameStore((s) => s.resolveTaffytaChoice)
   const resolveAigreBill = useGameStore((s) => s.resolveAigreBill)
   const resolvePayRace = useGameStore((s) => s.resolvePayRace)
+  const resolveChocTitans = useGameStore((s) => s.resolveChocTitans)
   const resolveBuyHouses = useGameStore((s) => s.resolveBuyHouses)
   const resolveMoveHouses = useGameStore((s) => s.resolveMoveHouses)
   const resolveFreeFromJail = useGameStore((s) => s.resolveFreeFromJail)
@@ -8771,6 +8772,26 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
             label: `Dépenser ${n} (avancer de ${n})`,
             onSelect: () => resolvePayRace(n),
           }))}
+        />
+      )}
+
+      {/* Sumbra / Kilaire — Choc des Titans : payer 2 Pouvoir pour le Bonus, ou subir le Malus. */}
+      {state.pendingChocTitans && state.pendingChocTitans.playerIndex === HUMAN && (
+        <ChoiceModal
+          title="Choc des Titans"
+          prompt={`${state.pendingChocTitans.card.name} : dépenser 2 jetons Pouvoir pour appliquer son Bonus, ou subir son Malus ?`}
+          options={[
+            {
+              key: 'choc-bonus',
+              label: 'Payer 2 Pouvoir → Bonus',
+              onSelect: () => resolveChocTitans(true),
+            },
+            {
+              key: 'choc-malus',
+              label: 'Ne pas payer → Malus',
+              onSelect: () => resolveChocTitans(false),
+            },
+          ]}
         />
       )}
 

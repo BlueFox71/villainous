@@ -38,7 +38,7 @@ import {
   updateActivePlayer,
   updatePlayer,
 } from './state'
-import { syncLocationControlAll, resolveCombattantRevenue, isLocationControlled } from './spirits'
+import { syncLocationControlAll, resolveCombattantRevenue, isLocationControlled, applyCombattantVerb } from './spirits'
 import { addKronkTokens, addPuppyFromReserve, bargainReshuffle, bargainSword, canEnterAuDela, capturePuppiesAt, dioDiscardHero, discardAllOfTypeInRealm, doCapturePuppies, doQuelsMove, doQuelsTutor, enterQuelsMove, enterQuelsTutor, holdsTalisman, lotsoMoveToRoom, lotsoReduceHero, mauiHeroInRealm, moveTitanTo, performVanquish, freeEliminateHero, placeAllyInAuDela, playChosenFateFromDiscard, playTopMauiCard, processCurseDiscards, raiponceLocation, reformYzmaDecks, relocateCard, relocateRaiponce, reshuffleYzmaIfKuzcoDiscarded, resolveEffect, resolveEffects, rollColorDie, smartMoveAllyOrItem, titanReachableDests, triggerHeroArrival } from './effects'
 import { crewmateEndOfTurn, freeCellAt, placeCrewmateAt } from './crewmates'
 import { pendingOwner } from './turn'
@@ -7743,6 +7743,29 @@ function applyResolvePayRace(state: GameState, amount: number): GameState {
   }
 }
 
+/** Sumbra / Kilaire — Choc des Titans : résout le choix « payer 2 Pouvoir pour le Bonus ».
+ *  `pay` vrai (et ≥2 Pouvoir) → dépense 2, applique le Bonus ; sinon → Malus. Le Combattant
+ *  part ensuite en défausse Combattant. */
+function applyResolveChocTitans(state: GameState, pay: boolean): GameState {
+  const pending = state.pendingChocTitans
+  if (!pending) throw new Error('Aucun choix Choc des Titans en attente (RESOLVE_CHOC_TITANS).')
+  const { playerIndex, card } = pending
+  let s: GameState = { ...state, pendingChocTitans: null }
+  const villainName = s.players[playerIndex].villainName
+  const doPay = pay && (s.players[playerIndex].power ?? 0) >= 2
+  if (doPay) {
+    s = updatePlayer(s, playerIndex, (p) => ({ ...p, power: p.power - 2 }))
+    s = applyCombattantVerb(s, playerIndex, card, 1)
+  } else {
+    s = applyCombattantVerb(s, playerIndex, card, -1)
+  }
+  s = updatePlayer(s, playerIndex, (p) => ({ ...p, combattantDiscard: [...(p.combattantDiscard ?? []), card] }))
+  return {
+    ...s,
+    log: [...s.log, `${villainName} — Choc des Titans : **${card.name}** (${doPay ? 'Bonus payé' : 'Malus'}).`],
+  }
+}
+
 /** Mr. Monopoly — Affaire : pose `amount` maisons (borné [1,max]) sur le lieu adverse
  *  en attente, paie `unitCost` chacune. */
 function applyResolveBuyHouses(state: GameState, amount: number): GameState {
@@ -12468,6 +12491,14 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   ) {
     throw new Error('Un choix « L’important, c’est de payer » est en attente (RESOLVE_PAY_RACE).')
   }
+  // Sumbra / Kilaire — Choc des Titans : choix payer/subir en attente.
+  if (
+    state.pendingChocTitans &&
+    action.type !== 'RESOLVE_CHOC_TITANS' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un choix Choc des Titans est en attente (RESOLVE_CHOC_TITANS).')
+  }
   // Mr. Monopoly — Affaire : choix du nombre de maisons en attente.
   if (
     state.pendingBuyHouses &&
@@ -13232,6 +13263,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveAigreBill(state, action.dig)
     case 'RESOLVE_PAY_RACE':
       return applyResolvePayRace(state, action.amount)
+    case 'RESOLVE_CHOC_TITANS':
+      return applyResolveChocTitans(state, action.pay)
     case 'RESOLVE_BUY_HOUSES':
       return applyResolveBuyHouses(state, action.amount)
     case 'RESOLVE_MOVE_HOUSES':

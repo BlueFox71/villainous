@@ -921,6 +921,8 @@ interface GameStore {
   resolveAigreBill: (dig: boolean) => void
   /** Sa Sucrerie — L'important, c'est de payer : dépenser `amount` Pouvoir → avancer d'autant. */
   resolvePayRace: (amount: number) => void
+  /** Sumbra / Kilaire — Choc des Titans : payer 2 Pouvoir pour le Bonus (`true`) ou subir le Malus. */
+  resolveChocTitans: (pay: boolean) => void
   /** Mr. Monopoly — Affaire : poser `amount` maisons sur le lieu adverse en attente. */
   resolveBuyHouses: (amount: number) => void
   /** Mr. Monopoly — Carte bancaire / destruction : choisir un lieu (source ou destination). */
@@ -1694,6 +1696,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_AIGRE_BILL', dig }),
   resolvePayRace: (amount) =>
     get().submit({ type: 'RESOLVE_PAY_RACE', amount }),
+  resolveChocTitans: (pay) =>
+    get().submit({ type: 'RESOLVE_CHOC_TITANS', pay }),
   resolveBuyHouses: (amount) =>
     get().submit({ type: 'RESOLVE_BUY_HOUSES', amount }),
   resolveMoveHouses: (locationId) =>

@@ -637,6 +637,14 @@ export function enumerateActions(state: GameState): GameAction[] {
     return out
   }
 
+  // Choc des Titans : payer 2 Pouvoir pour le Bonus, ou subir le Malus (le lookahead tranche).
+  if (state.pendingChocTitans) {
+    return [
+      { type: 'RESOLVE_CHOC_TITANS', pay: true },
+      { type: 'RESOLVE_CHOC_TITANS', pay: false },
+    ]
+  }
+
   // Mr. Monopoly — Affaire : choisir combien de maisons poser (1..max).
   if (state.pendingBuyHouses) {
     const out: GameAction[] = []

@@ -3877,6 +3877,11 @@ export interface GameState {
    *  la réserve (RESOLVE_FIGHTER_KILL_FREE une tuile, DONE_FIGHTER_KILL_FREE arrête).
    *  `null` sinon. */
   pendingFighterKillFree?: { playerIndex: number; remaining: number } | null
+  /** Sumbra / Kilaire — Choc des Titans : le Combattant `card` a déjà été pioché et sa
+   *  SOMME d'esprits capturée ; `playerIndex` choisit de dépenser 2 Pouvoir pour appliquer
+   *  son BONUS, ou de subir son MALUS (RESOLVE_CHOC_TITANS `pay`). Ouvert seulement si le
+   *  joueur a ≥2 Pouvoir. `null` sinon. */
+  pendingChocTitans?: { playerIndex: number; card: CardInstance } | null
   /** Tabbou — Destin : `playerIndex` choisit « Dévoiler 3 Combattants » OU « Gagner 4
    *  Pouvoir » (RESOLVE_DESTIN_CHOICE). `null` sinon. */
   pendingDestinChoice?: { playerIndex: number } | null
@@ -4919,6 +4924,9 @@ export type GameAction =
   /** Sa Sucrerie — L'important, c'est de payer : dépenser `amount` jetons Pouvoir (1..max)
    *  pour avancer le pion d'autant de cases. */
   | { type: 'RESOLVE_PAY_RACE'; amount: number }
+  /** Sumbra / Kilaire — Choc des Titans : `pay` vrai = dépenser 2 Pouvoir pour le Bonus du
+   *  Combattant pioché ; faux = subir son Malus. */
+  | { type: 'RESOLVE_CHOC_TITANS'; pay: boolean }
   /** Mr. Monopoly — Affaire : poser `amount` maisons (1..max) sur le lieu adverse en attente. */
   | { type: 'RESOLVE_BUY_HOUSES'; amount: number }
   /** Mr. Monopoly — Carte bancaire / destruction : choisir un lieu (`locationId`). En phase

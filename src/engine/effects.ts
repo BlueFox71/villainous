@@ -6447,28 +6447,34 @@ export function resolveEffect(
       return { ...s, log: [...s.log, `${p0.villainName} — Combattant volé : **${res.card.name}** (Bonus forcé).`] }
     }
     case 'CHOC_DES_TITANS': {
-      // Pioche 1 Combattant, capture la SOMME des deux camps, applique le Malus ; si le
-      // joueur a ≥2 Pouvoir, il paie 2 pour appliquer le Bonus à la place (auto-optimisé).
+      // Pioche 1 Combattant, capture la SOMME des deux camps, puis applique son Malus —
+      // SAUF si le joueur choisit de dépenser 2 Pouvoir pour le Bonus (« vous pouvez… »).
+      // Ce choix est INTERACTIF : si le flag `payForBonus` est posé et que le joueur a ≥2
+      // Pouvoir, on ouvre `pendingChocTitans` (résolu par RESOLVE_CHOC_TITANS ; le bot
+      // auto-résout). Sinon (pas les 2 Pouvoir, ou pas d'option de paiement) → Malus direct.
       const p0 = state.players[idx]
       const res = drawCombattant(state, idx)
       if (!res.card) return { ...state, log: [...state.log, `${p0.villainName} : aucun Combattant à piocher.`] }
-      let s = captureSpirits(res.state, idx, bothCampsValue(res.card))
+      const s = captureSpirits(res.state, idx, bothCampsValue(res.card))
       const canBonus = (s.players[idx].power ?? 0) >= 2
-      if (canBonus) {
-        s = { ...s, players: s.players.map((pl, i) => (i === idx ? { ...pl, power: pl.power - 2 } : pl)) }
-        s = applyCombattantVerb(s, idx, res.card, 1)
-      } else {
-        s = applyCombattantVerb(s, idx, res.card, -1)
+      if (effect.payForBonus && canBonus) {
+        return {
+          ...s,
+          pendingChocTitans: { playerIndex: idx, card: res.card },
+          log: [...s.log, `${p0.villainName} — Choc des Titans : **${res.card.name}** pioché (payer 2 Pouvoir pour le Bonus ?).`],
+        }
       }
-      s = {
-        ...s,
-        players: s.players.map((pl, i) =>
+      // Pas de choix possible : le Combattant applique son Malus et part en défausse.
+      let out = applyCombattantVerb(s, idx, res.card, -1)
+      out = {
+        ...out,
+        players: out.players.map((pl, i) =>
           i === idx ? { ...pl, combattantDiscard: [...(pl.combattantDiscard ?? []), res.card!] } : pl,
         ),
       }
       return {
-        ...s,
-        log: [...s.log, `${p0.villainName} — Choc des Titans : **${res.card.name}** (${canBonus ? 'Bonus payé' : 'Malus'}).`],
+        ...out,
+        log: [...out.log, `${p0.villainName} — Choc des Titans : **${res.card.name}** (Malus).`],
       }
     }
     case 'FATE_DRAW_COMBATTANT': {

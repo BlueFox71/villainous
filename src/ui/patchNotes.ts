@@ -56,6 +56,7 @@ export const PATCH_NOTES: PatchNote[] = [
       "**Conquête** : massez des Alliés sur un lieu rival jusqu'à sa **Défense** pour le contrôler ; **verrouillez-le** (Base / Forteresse de Lave / Tour du Monde) pour un revenu **définitif**.",
       "Chaque **Combattant** capture des esprits puis déclenche un **Bonus** s'il penche vers votre camp, un **Malus passager** sinon (6 verbes : Décharge, Ferveur, Renfort, Rempart, Surtension, Aubaine).",
       "**Fatalité** dédiée : des Combattants entrent en **Héros** et rognent votre jauge, **Formation** freine vos captures, **KILAIRE** (Force 5) verrouille un lieu.",
+      "**Choc des Titans** : vous **choisissez** désormais de dépenser **2 Pouvoir** pour le **Bonus** du Combattant, ou de subir son **Malus** (plus d'automatisme).",
       "Onglet **Cartes**, nouvelle section **Images** : on **importe une image** et on la **pose librement** (déplacer, redimensionner au curseur ou par presets).",
       "Le texte s'affiche désormais **déjà coloré** dans le champ — **aucune balise** visible : on sélectionne une partie (ou tout) et la **pipette** la colore aussitôt, **« Couleur par défaut »** l'enlève.",
       "Le champ de texte **mime la carte** : fond **couleur du vilain** (Méchant) ou **blanc** (Fatalité), texte **doré**/**encre** par défaut.",
