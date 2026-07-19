@@ -63,6 +63,7 @@ export const PATCH_NOTES: PatchNote[] = [
       "Les **zones de texte** sont regroupées en **liste** (Zone 1, 2, …), chacune **duplicable**.",
       "**Symboles d'action** et **Images** sont affichés **côte à côte**.",
       "**Synchroniser** affiche « **Synchronisation…** » et se termine **sans pop-up** de confirmation.",
+      "**Correctif** : la synchro **ne réécrit plus le texte** des cartes édité dans l'Atelier (elle n'importe que les **effets**).",
     ],
   },
   {

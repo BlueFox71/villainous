@@ -761,8 +761,9 @@ export function pickFreshestVillains(
 /** Reimporte les DONNEES DE JEU d'un JSON allege (developpe hors app, p. ex. par Claude
  *  Code sur assets/custom-exports/id.json) dans un vilain existant, en CONSERVANT ses
  *  IMAGES et ses metadonnees (published / dev IA / dates). Fusionne l'objectif (+ textes),
- *  les lieux (nom + actions, images gardees) et les cartes PAR ID (tous les champs de jeu,
- *  images gardees). L'appelant bumpe updatedAt en sauvegardant. */
+ *  les lieux (nom + actions, images gardees) et les cartes PAR ID (champs de jeu, images ET
+ *  texte gardes : le `text` est la source de verite humaine, jamais ecrasee par la synchro).
+ *  L'appelant bumpe updatedAt en sauvegardant. */
 export function mergeGameData(target: CustomVillain, light: Partial<CustomVillain>): CustomVillain {
   const out: CustomVillain = structuredClone(target)
   if (light.objective) out.objective = light.objective
@@ -796,6 +797,12 @@ export function mergeGameData(target: CustomVillain, light: Partial<CustomVillai
       const copy = { ...lc } as Record<string, unknown>
       delete copy.image
       delete copy.artImage
+      // `text` = source de verite HUMAINE, editee dans l'Atelier (les `effects` en sont la
+      // traduction machine developpee par Claude Code). L'export lu ici est un INSTANTANE pris
+      // au moment du « Developper » : il peut etre plus ancien que le texte edite depuis dans
+      // le brouillon. On importe donc les effets / champs de jeu SANS jamais reecrire le texte
+      // du joueur (sinon une synchro annule ses reformulations).
+      delete copy.text
       Object.assign(tc, copy)
     }
   }
