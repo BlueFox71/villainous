@@ -15,6 +15,30 @@ export interface RichTextApi {
   insertText: (text: string) => void
 }
 
+/** Normalise une couleur CSS (`rgb(...)` ou `#rrggbb`) en hex `#rrggbb`, ou null. */
+function toHex(c: string | undefined | null): string | null {
+  if (!c) return null
+  if (/^#[0-9a-f]{6}$/i.test(c)) return c.toLowerCase()
+  const m = c.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i)
+  if (!m) return null
+  const h = (n: string) => Number(n).toString(16).padStart(2, '0')
+  return `#${h(m[1])}${h(m[2])}${h(m[3])}`
+}
+
+/** Couleur explicite du texte à la position `node` (remonte jusqu'à `el`), ou null
+ *  si aucun ancêtre coloré (⇒ couleur par défaut de la carte). */
+function colorAt(node: Node | null, el: HTMLElement): string | null {
+  let n: Node | null = node
+  while (n && n !== el) {
+    if (n.nodeType === 1) {
+      const hex = toHex((n as HTMLElement).style?.color)
+      if (hex) return hex
+    }
+    n = n.parentNode
+  }
+  return null
+}
+
 /** Déballe les <span>/<font> colorés d'un fragment (remplace par leurs enfants). */
 function unwrapColorSpans(frag: DocumentFragment) {
   frag.querySelectorAll('span, font').forEach((el) => {
@@ -33,6 +57,7 @@ export function RichTextInput({
   onChange,
   onActivate,
   onFocus,
+  onSelectionColor,
   placeholder,
   className = '',
   minHeightClass = 'min-h-[5rem]',
@@ -44,6 +69,9 @@ export function RichTextInput({
   /** Appelé au focus : enregistre cet éditeur comme éditeur ACTIF (cible de la barre couleur). */
   onActivate?: (api: RichTextApi) => void
   onFocus?: () => void
+  /** Appelé quand la sélection change DANS cet éditeur : couleur du texte à la
+   *  sélection (hex), ou null si couleur par défaut. Sert à refléter la pastille. */
+  onSelectionColor?: (hex: string | null) => void
   placeholder?: string
   className?: string
   minHeightClass?: string
@@ -58,6 +86,10 @@ export function RichTextInput({
   useEffect(() => {
     onChangeRef.current = onChange
   }, [onChange])
+  const onSelColorRef = useRef(onSelectionColor)
+  useEffect(() => {
+    onSelColorRef.current = onSelectionColor
+  }, [onSelectionColor])
 
   // Synchronise l'innerHTML avec `value` UNIQUEMENT si le DOM en diffère réellement
   // (sinon on réécrirait le contenu à chaque frappe et on perdrait le curseur).
@@ -75,7 +107,10 @@ export function RichTextInput({
     const onSel = () => {
       const sel = window.getSelection()
       if (sel && sel.rangeCount && el.contains(sel.getRangeAt(0).commonAncestorContainer)) {
-        savedRange.current = sel.getRangeAt(0).cloneRange()
+        const range = sel.getRangeAt(0)
+        savedRange.current = range.cloneRange()
+        // Reflète la couleur du texte à la sélection sur la pastille du parent.
+        onSelColorRef.current?.(colorAt(range.startContainer, el))
       }
     }
     document.addEventListener('selectionchange', onSel)

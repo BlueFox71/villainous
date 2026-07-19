@@ -47,6 +47,15 @@ import {
   TREASURE_NAMES,
 } from './davyJones'
 import { shuffle, nextRandom, rollD6 } from './rng'
+import {
+  addSpirits,
+  applyCombattantVerb,
+  bothCampsValue,
+  captureCombattant,
+  captureSpirits,
+  drawCombattant,
+  otherCampValue,
+} from './spirits'
 import { thanosOpponents, seedStoneIntoOpponent, opponentsControllingStone, stonesInOpponentRealms, deployThanosAlly } from './thanos'
 import { KEY_COLORS, type KeyColor } from './types'
 import {
@@ -6415,6 +6424,93 @@ export function resolveEffect(
       }))
       const newName = findLocation(next.players[idx], targetLocId)?.name ?? targetLocId
       return { ...next, log: [...next.log, `${actor.villainName} transforme un lieu en **${newName}**.`] }
+    }
+    // --- Sumbra / Kilaire (« La Lueur du Monde ») ---------------------------
+    case 'CAPTURE_SPIRITS': {
+      const p = state.players[idx]
+      const next = captureSpirits(state, idx, effect.amount)
+      return { ...next, log: [...next.log, `${p.villainName} capture ${effect.amount} esprit(s).`] }
+    }
+    case 'DRAW_COMBATTANT_BONUS': {
+      // « Combattant volé » : pioche 1 Combattant, capture + Bonus FORCÉ (aligné).
+      const p0 = state.players[idx]
+      const res = drawCombattant(state, idx)
+      if (!res.card) return { ...state, log: [...state.log, `${p0.villainName} : aucun Combattant à piocher.`] }
+      let s = captureCombattant(res.state, idx, res.card)
+      s = applyCombattantVerb(s, idx, res.card, 1) // Bonus forcé
+      s = {
+        ...s,
+        players: s.players.map((pl, i) =>
+          i === idx ? { ...pl, combattantDiscard: [...(pl.combattantDiscard ?? []), res.card!] } : pl,
+        ),
+      }
+      return { ...s, log: [...s.log, `${p0.villainName} — Combattant volé : **${res.card.name}** (Bonus forcé).`] }
+    }
+    case 'CHOC_DES_TITANS': {
+      // Pioche 1 Combattant, capture la SOMME des deux camps, applique le Malus ; si le
+      // joueur a ≥2 Pouvoir, il paie 2 pour appliquer le Bonus à la place (auto-optimisé).
+      const p0 = state.players[idx]
+      const res = drawCombattant(state, idx)
+      if (!res.card) return { ...state, log: [...state.log, `${p0.villainName} : aucun Combattant à piocher.`] }
+      let s = captureSpirits(res.state, idx, bothCampsValue(res.card))
+      const canBonus = (s.players[idx].power ?? 0) >= 2
+      if (canBonus) {
+        s = { ...s, players: s.players.map((pl, i) => (i === idx ? { ...pl, power: pl.power - 2 } : pl)) }
+        s = applyCombattantVerb(s, idx, res.card, 1)
+      } else {
+        s = applyCombattantVerb(s, idx, res.card, -1)
+      }
+      s = {
+        ...s,
+        players: s.players.map((pl, i) =>
+          i === idx ? { ...pl, combattantDiscard: [...(pl.combattantDiscard ?? []), res.card!] } : pl,
+        ),
+      }
+      return {
+        ...s,
+        log: [...s.log, `${p0.villainName} — Choc des Titans : **${res.card.name}** (${canBonus ? 'Bonus payé' : 'Malus'}).`],
+      }
+    }
+    case 'FATE_DRAW_COMBATTANT': {
+      // Fatalité (COMBATTANT / Une lueur d'espoir) : le joueur CIBLÉ (idx) pioche dans SON
+      // paquet Combattant. Si `asHero`, le Combattant est posé en Héros sur son lieu de pion.
+      // Puis retire de sa jauge les esprits de son camp ADVERSE.
+      const target = state.players[idx]
+      const res = drawCombattant(state, idx)
+      if (!res.card) return { ...state, log: [...state.log, `${target.villainName} : aucun Combattant dans le paquet.`] }
+      let s = res.state
+      const card = res.card
+      if (effect.asHero) {
+        const loc = target.pawnLocation ?? target.locations[0]?.id
+        if (loc) {
+          const hero: CardInstance = { ...card, coversActionsLikeHero: true }
+          s = {
+            ...s,
+            players: s.players.map((pl, i) =>
+              i === idx ? { ...pl, board: { ...pl.board, [loc]: [...(pl.board[loc] ?? []), hero] } } : pl,
+            ),
+          }
+        }
+      }
+      const loss = otherCampValue(target, card)
+      s = addSpirits(s, idx, -loss)
+      return {
+        ...s,
+        log: [
+          ...s.log,
+          `Fatalité — **${card.name}** ${effect.asHero ? 'entre en Héros' : 'apparaît'} contre ${target.villainName} (−${loss} esprit(s)).`,
+        ],
+      }
+    }
+    case 'LOSE_SPIRITS_LAST_COMBATTANT': {
+      const target = state.players[idx]
+      const last = state.lastCombattantDrawn
+      if (!last) return { ...state, log: [...state.log, `Fatalité : aucun Combattant récemment pioché.`] }
+      const camp = target.objective.type === 'SPIRIT_THRESHOLD' ? target.objective.camp : 'moon'
+      const adverse = camp === 'sun' ? last.moon : last.sun
+      const loss = effect.scope === 'both' ? last.sun + last.moon : adverse
+      const s = addSpirits(state, idx, -loss)
+      return { ...s, log: [...s.log, `Fatalité : ${target.villainName} perd ${loss} esprit(s) (dernier Combattant).`] }
     }
     case 'SWITCH_OBJECTIVE': {
       // Atelier — objectif transformable : échange l'objectif actif (condition +

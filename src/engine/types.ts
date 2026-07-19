@@ -82,7 +82,34 @@ export interface Location {
   altActions?: LocationAction[]
   version?: 'a' | 'b'
   bColumnImage?: string
+  /** Sumbra / Kilaire — lieu CONQUÉRABLE : seuil de garnison (Force totale des
+   *  Alliés présents) requis pour le CONTRÔLER. Le lieu est contrôlé tant que la
+   *  garnison ≥ `defense` (ou qu'un Objet `locksLocationControl` y est posé) ;
+   *  sinon il repasse rival. Absent = lieu-home, contrôlé en permanence. Le
+   *  contrôle pilote le revenu de Combattants et la bascule visuelle de face
+   *  (`version`). */
+  defense?: number
 }
+
+/** Sumbra / Kilaire — les 6 VERBES d'effet d'un Combattant. Le signe (Bonus si le
+ *  Combattant est aligné sur mon camp, Malus sinon) est décidé À LA PIOCHE ; la
+ *  magnitude est portée par `combattantMagnitude`. Générique : un même verbe sert
+ *  les 86 Combattants, jamais branché par cardId.
+ *   - `decharge`   : ⚡ ±N Pouvoir.
+ *   - `ferveur`    : 🌟 ±N esprits (direct sur la jauge).
+ *   - `renfort`    : 🃏 Bonus = pioche N cartes Vilain OU récupère 1 en défausse ;
+ *                    Malus = défausse N cartes.
+ *   - `rempart`    : 🛡️ ±N Force d'un de vos lieux (garnison) ce tour.
+ *   - `surtension` : 🔁 Bonus = pioche +1 Combattant ce tour ; Malus = le prochain
+ *                    Combattant ne capture aucun esprit (magnitude fixe +1).
+ *   - `aubaine`    : 💠 Bonus = vos cartes coûtent N de moins ce tour ; Malus = N de plus. */
+export type CombattantVerb =
+  | 'decharge'
+  | 'ferveur'
+  | 'renfort'
+  | 'rempart'
+  | 'surtension'
+  | 'aubaine'
 
 /**
  * Définition statique d'un vilain (données, voir data/villains/). Sert à
@@ -207,6 +234,13 @@ export interface KeyToken {
 export type ObjectiveDef =
   /** Atteindre un seuil de pouvoir au début de son tour (Prince Jean = 20). */
   | { type: 'POWER_THRESHOLD'; threshold: number }
+  /** Sumbra / Kilaire (Atelier — « Lueur du Monde ») : avoir CAPTURÉ au moins
+   *  `threshold` esprits (jauge `PlayerState.spirits`) au début de son tour.
+   *  `camp` désigne le camp du vilain courant parmi les deux valeurs d'esprit
+   *  portées par chaque Combattant : `'moon'` = 🌑 Sumbra (`spiritMoon`),
+   *  `'sun'` = ☀️ Kilaire (`spiritSun`). Sert à la capture (valeur de MON camp)
+   *  et à l'alignement (mon camp vs camp adverse). */
+  | { type: 'SPIRIT_THRESHOLD'; threshold: number; camp: 'sun' | 'moon' }
   /** Isabella — HORLOGE : valider les 6 heures (XII, II, IV, VI, VIII, X) en jouant au
    *  moins une Activité à chacune (cumulatif). Victoire au début de son tour quand
    *  `validatedHours` contient les 6 indices. */
@@ -1431,6 +1465,23 @@ export type Effect =
    *  carte « jouée sur un lieu pour le transformer » (ex. Gul'dan — Corruption). Dans ce
    *  cas `locationId` est ignoré/optionnel. */
   | { type: 'SWITCH_LOCATION_VERSION'; locationId?: LocationId; to: 'a' | 'b' | 'toggle'; atPlayedLocation?: boolean }
+  // --- Sumbra / Kilaire (« La Lueur du Monde ») ----------------------------
+  /** CAPTURE `amount` esprits (Marionnette Aguerrie/d'Élite ; Condition « Forcer à prendre
+   *  le contrôle »). Passe par la fuite éventuelle (Objet Fatalité « Formation »). */
+  | { type: 'CAPTURE_SPIRITS'; amount: number }
+  /** « Combattant volé » : pioche 1 Combattant supplémentaire et le résout en forçant son
+   *  effet BONUS (capture de MON camp + Bonus du verbe), quel que soit son alignement. */
+  | { type: 'DRAW_COMBATTANT_BONUS' }
+  /** « Choc des Titans » : pioche 1 Combattant, capture la SOMME des deux camps (☀️+🌑) et
+   *  applique son MALUS ; si `payForBonus` et ≥2 Pouvoir, paie 2 pour appliquer le BONUS. */
+  | { type: 'CHOC_DES_TITANS'; payForBonus?: boolean }
+  /** Fatalité « COMBATTANT » / « Une lueur d'espoir » : le joueur ciblé (Sumbra) pioche 1
+   *  Combattant de SON paquet ; si `asHero`, il est posé en Héros sur son lieu de pion ;
+   *  puis retire de sa jauge les esprits du camp ADVERSE de ce Combattant. */
+  | { type: 'FATE_DRAW_COMBATTANT'; asHero?: boolean }
+  /** Fatalité « Libération » / KILAIRE : le joueur ciblé perd des esprits égaux au DERNIER
+   *  Combattant pioché — `scope: 'both'` = somme des deux camps, `'adverse'` = camp adverse. */
+  | { type: 'LOSE_SPIRITS_LAST_COMBATTANT'; scope: 'both' | 'adverse' }
   /** Gul'dan — Ouverture de la Porte des Ténèbres : victoire immédiate. Ne réussit (et
    *  la carte n'est jouable) que si les 3 conditions sont réunies : pion sur la Porte
    *  des Ténèbres (dernier lieu), les 4 lieux corrompus (face B), et les 4 Artéfacts
@@ -2342,6 +2393,29 @@ export interface CardInstance {
   /** Modificateurs conditionnels de SA PROPRE force (Créature Rieuse, Génie,
    *  Rajah, Adam de la Halle…). Sommés par effectiveStrength. */
   selfStrengthMods?: SelfStrengthMod[]
+  // --- Sumbra / Kilaire (Combattants + contrôle de lieu) -------------------
+  /** Combattant — valeur d'esprit ☀️ (camp Kilaire). Capture = cette valeur quand on
+   *  joue Kilaire ; sinon c'est la valeur du camp ADVERSE. */
+  spiritSun?: number
+  /** Combattant — valeur d'esprit 🌑 (camp Sumbra). */
+  spiritMoon?: number
+  /** Combattant — verbe de son effet Bonus/Malus (signe décidé à l'alignement). */
+  combattantVerb?: CombattantVerb
+  /** Combattant — magnitude N de son verbe. */
+  combattantMagnitude?: number
+  /** Objet « verrou de lieu » (Base / Forteresse de Lave / Tour du Monde) : posé sur
+   *  un lieu, il le rend contrôlé DÉFINITIVEMENT (même sans Allié, jamais repris) et
+   *  ne peut être ni défaussé ni déplacé. */
+  locksLocationControl?: boolean
+  /** Carte jouable UNIQUEMENT sur un lieu déjà CONTRÔLÉ (verrous Sumbra : « un lieu que
+   *  vous contrôlez ») — empêche de prendre le contrôle instantanément via le verrou. */
+  playOnlyOnControlledLocation?: boolean
+  /** Objet « Emplacement d'un Combattant » : +N Combattant pioché par tour (revenu
+   *  permanent) tant qu'il est en jeu. */
+  combattantRevenueBonus?: number
+  /** Objet Fatalité « Formation » (associé à un Héros) : chaque CAPTURE d'esprits du
+   *  vilain rapporte 1 de moins (cumulatif par exemplaire en jeu). */
+  reducesSpiritCapture?: boolean
   /** Déclencheur de défausse automatique de cette carte. */
   discardWhen?: CurseDiscardTrigger
   /** Pour une Condition : descripteur du trigger côté adversaire. */
@@ -3049,6 +3123,28 @@ export interface PlayerState {
   /** Tabbou — id du lieu Émissaire Subspatial (recopié de fighterSetup), pour savoir
    *  quel lieu déverrouiller quand 3 Orbes subspatiaux sont posés. */
   emissaireLocationId?: LocationId
+  // --- Sumbra / Kilaire (Atelier — « Lueur du Monde ») ----------------------
+  /** Jauge d'ESPRITS capturés (objectif SPIRIT_THRESHOLD). 0 au départ. `undefined`
+   *  pour les autres vilains. Plancher 0 (jamais négatif). */
+  spirits?: number
+  /** Paquet COMBATTANT (deck perso, hors Vilain/Fatalité) : les 86 Combattants
+   *  mélangés. Piochés comme REVENU au début du tour (défaussés ensuite) et par la
+   *  carte Fatalité « COMBATTANT » (jouée en Héros). */
+  combattantDeck?: CardInstance[]
+  /** Défausse du paquet Combattant (remélangée dans le deck quand il est vide). */
+  combattantDiscard?: CardInstance[]
+  /** Nombre de Combattants tirés en PLUS ce tour (verbe 🔁 Surtension Bonus).
+   *  Relit à chaque tour de boucle du revenu ; consommé/effacé en fin de tour. */
+  extraCombattantDrawsThisTurn?: number
+  /** 🔁 Surtension Malus : le PROCHAIN Combattant tiré ne capture aucun esprit de
+   *  camp (sa valeur automatique est annulée ; son Bonus/Malus s'applique quand même). */
+  combattantZeroCaptureNext?: boolean
+  /** 💠 Aubaine : modificateur SIGNÉ du coût des cartes ce tour (positif = coûtent
+   *  MOINS, négatif = coûtent PLUS). Remis à 0 en fin de tour. */
+  spiritCostMod?: number
+  /** 🛡️ Rempart : bonus TEMPORAIRE de Force par lieu (garnison) ce tour, pour tenir
+   *  le contrôle contre la reprise. Effacé en fin de tour. Indexé par LocationId. */
+  locationTempForce?: Record<LocationId, number>
   /** Cruella d'Enfer — Finissez le travail ! : une action « Activer » gratuite est
    *  disponible ce tour sur le lieu courant (consommée à l'usage). */
   freeActivate?: boolean
@@ -3370,6 +3466,10 @@ export interface GameState {
   winner: number | null
   /** État du PRNG déterministe, partagé (voir engine/rng.ts). */
   rngState: number
+  /** Sumbra / Kilaire — valeurs d'esprit (☀️/🌑) du DERNIER Combattant pioché (revenu
+   *  ou carte Fatalité), pour les cartes qui s'y réfèrent (« Libération », KILAIRE).
+   *  `undefined` tant qu'aucun Combattant n'a été pioché. */
+  lastCombattantDrawn?: { sun: number; moon: number }
   /** File append-only d'événements à afficher en grand par l'UI (Événement
    *  joué, Condition jouée, effet déclenché remarquable). Le moteur n'efface
    *  jamais ; l'UI suit un curseur local pour savoir ce qu'elle a déjà montré. */

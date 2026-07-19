@@ -479,7 +479,13 @@ function villainBackupPlugin(): Plugin {
         if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return }
         void readBody(req).then((body) => {
           try {
-            const { id, json } = JSON.parse(body) as { id: string; json: string }
+            // Deux protocoles :
+            //  - LÉGER (courant) : id en query, corps = JSON BRUT du vilain. Le client évite ainsi
+            //    un 2e JSON.stringify qui ré-échapperait tout le JSON (~85 Mo sur les gros decks,
+            //    ex. Combattants) → pic mémoire qui faisait planter l'onglet (OOM).
+            //  - COMPAT : corps = { id, json }.
+            const qid = new URL(req.url ?? '', 'http://localhost').searchParams.get('id')
+            const { id, json } = qid ? { id: qid, json: body } : (JSON.parse(body) as { id: string; json: string })
             if (typeof id !== 'string' || typeof json !== 'string') throw new Error('payload invalide')
             const dest = draftPath(id)
             mkdirSync(DRAFTS, { recursive: true })

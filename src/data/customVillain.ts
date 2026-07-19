@@ -10,8 +10,9 @@
 // `toCardDefs`, consommés côté UI / store au lancement d'une partie.
 // =============================================================================
 
-import type { ObjectiveDef, VillainDef, ActionRow, LocationActionType } from '../engine/types'
+import type { ObjectiveDef, VillainDef, ActionRow, LocationActionType, CardInstance } from '../engine/types'
 import type { CardDef, CardType, DeckKind } from './types'
+import { buildDeckInstances } from './types'
 
 /** Version du format de sérialisation (incrémentée si le schéma évolue → migrations). */
 export const CUSTOM_VILLAIN_FORMAT = 1
@@ -80,6 +81,9 @@ export interface CustomLocation {
    *  VillainDef ; un effet `UNLOCK_LOCATION` (porté par une carte) peut le rouvrir.
    *  Absent/false = lieu ouvert. */
   lockedAtStart?: boolean
+  /** Sumbra / Kilaire — lieu CONQUÉRABLE : seuil de garnison (Force totale des Alliés)
+   *  requis pour le contrôler. Absent = lieu-home (contrôlé en permanence). */
+  defense?: number
 }
 
 /** Cadrage d'une illustration dans sa zone (recadrage « cover » ajustable). */
@@ -631,7 +635,7 @@ export function toVillainDef(v: CustomVillain): VillainDef {
     locations: v.locations.map((l) => {
       const mapActions = (as: CustomAction[]) =>
         as.map((a) => ({ id: a.id, type: a.type, label: a.label, row: a.row, amount: a.amount }))
-      const base = { id: l.id, name: l.name, actions: mapActions(l.actions) }
+      const base = { id: l.id, name: l.name, actions: mapActions(l.actions), defense: l.defense }
       // Lieu TRANSFORMABLE : on embarque la face B (name/actions de remplacement) ;
       // la face A reste active au départ (version 'a').
       if (l.alt) {
@@ -979,6 +983,18 @@ export function toCardDefs(v: CustomVillain): CardDef[] {
     }
     return def
   })
+}
+
+/** Sumbra / Kilaire — instancie le paquet COMBATTANT (cartes `group === 'Combattant'`)
+ *  en CardInstance[], quel que soit leur `deck` (elles portent `deck:'fate'` pour le style
+ *  visuel). Ce paquet est hors-deck (non mélangé aux 30/15) : il est chargé dans
+ *  `PlayerState.combattantDeck` par createInitialGame. `prefix` garantit des instanceId
+ *  uniques entre joueurs. */
+export function toCombattantInstances(v: CustomVillain, prefix = ''): CardInstance[] {
+  const combattants = v.cards.filter((c) => c.group === 'Combattant')
+  if (combattants.length === 0) return []
+  const defs = toCardDefs({ ...v, cards: combattants }).map((d) => ({ ...d, deck: 'fate' as const }))
+  return buildDeckInstances(defs, 'fate', prefix)
 }
 
 /** Cartes des paquets STANDARD (hors paquets personnalisés `group`) en CardDef[] propres

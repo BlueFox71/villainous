@@ -35,6 +35,7 @@ const isItem = (c: CustomCard) => c.type === 'item'
 function CardForm({
   card,
   color,
+  coverColor,
   fateColor,
   keywordColors = [],
   extraDecks,
@@ -44,6 +45,8 @@ function CardForm({
 }: {
   card: CustomCard
   color: string
+  /** Couleur de recouvrement du vilain (fond des champs de texte Méchant) ; à défaut, `color`. */
+  coverColor?: string
   fateColor: string
   keywordColors?: { label: string; color: string }[]
   extraDecks: string[]
@@ -299,6 +302,7 @@ function CardForm({
         <CardLayoutEditor
           card={card}
           color={color}
+          coverColor={coverColor}
           fateColor={fateColor}
           keywordColors={keywordColors}
           onChange={onChange}
@@ -624,6 +628,7 @@ export function CardsTab({
           <CardForm
             card={selected}
             color={draft.color}
+            coverColor={draft.coverColor}
             fateColor={FATE_CARD_COLOR}
             keywordColors={draft.keywordColors}
             extraDecks={extraDecks}

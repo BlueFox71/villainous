@@ -26,7 +26,7 @@ import { isTauri, ensureRelay, lanAddresses } from '../../net/desktop'
 import { buildDeckInstances } from '../../data/types'
 import { drawSharedMarvelFateAddons } from '../../data/marvelFate'
 import { getCardDef, registerCustomCardDefs } from '../../data/registry'
-import { toVillainDef, toCardDefs, toDeckCardDefs, CUSTOM_ID_PREFIX, type CustomVillain } from '../../data/customVillain'
+import { toVillainDef, toCardDefs, toDeckCardDefs, toCombattantInstances, CUSTOM_ID_PREFIX, type CustomVillain } from '../../data/customVillain'
 import { CUSTOM_DIO_ID, patchCustomDio } from '../../data/villains/customDio'
 import { CUSTOM_PYRAMID_HEAD_ID, patchCustomPyramidHead } from '../../data/villains/customPyramidHead'
 import { CUSTOM_MONOPOLY_ID, patchCustomMonopoly } from '../../data/villains/customMonopoly'
@@ -490,10 +490,13 @@ function setupForKey(
       // recopiant désormais TOUS les champs de jeu génériquement, l'entrée doit être nettoyée.
       const mainCards = toDeckCardDefs(custom)
       const fateCards = buildDeckInstances(mainCards, 'fate', fatePrefix)
+      // Sumbra / Kilaire — paquet COMBATTANT (hors-deck), préfixe dédié pour l'unicité.
+      const combattantCards = toCombattantInstances(custom, `${deckPrefix}comb:`)
       return {
         villain: { ...toVillainDef(custom), name: custom.name },
         deckCards: buildDeckInstances(mainCards, 'villain', deckPrefix),
         fateCards: [...fateCards, ...marvelAddon],
+        combattantCards: combattantCards.length > 0 ? combattantCards : undefined,
       }
     }
   }

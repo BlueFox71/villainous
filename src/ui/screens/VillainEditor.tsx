@@ -76,11 +76,13 @@ interface SaveProgress {
   done: number
   total: number
   phase: string
+  /** Titre de l'overlay pendant l'opération (défaut « ⏳ Enregistrement… »). */
+  title?: string
 }
 
 /** Overlay affiché pendant « Enregistrer » / « Publier » : barre de progression à ÉTAPES
  *  nommées (Génération → Sauvegarde → Terminé), puis fermeture automatique. */
-function SaveProgressOverlay({ done, total, phase }: SaveProgress) {
+function SaveProgressOverlay({ done, total, phase, title }: SaveProgress) {
   const isDone = phase.startsWith('✓')
   const isSaving = phase.startsWith('Sauvegarde')
   const pct = total > 0 ? Math.round((done / total) * 100) : isDone ? 100 : 0
@@ -90,7 +92,7 @@ function SaveProgressOverlay({ done, total, phase }: SaveProgress) {
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4">
       <div className="flex w-80 max-w-full flex-col gap-3 rounded-2xl border border-white/15 bg-[#1a1620] p-6 shadow-2xl">
         <span className={`text-sm font-bold ${isDone ? 'text-emerald-300' : 'text-amber-200'}`}>
-          {isDone ? '✓ Enregistré' : '⏳ Enregistrement…'}
+          {isDone ? '✓ Enregistré' : (title ?? '⏳ Enregistrement…')}
         </span>
         {!isDone && <span className="text-xs text-white/70">Étape : {phase}</span>}
         <div className="h-3 w-full overflow-hidden rounded-full bg-white/10">
@@ -546,18 +548,19 @@ export function VillainEditor({ onBack, onPlay, openVillainId }: Props) {
 
   /** Fige toutes les images (faces + dos) puis persiste. Renvoie le vilain baké.
    *  Alimente la barre de chargement via `bakeProgress`. */
-  const bakeAndSave = async (v: CustomVillain): Promise<CustomVillain> => {
+  const bakeAndSave = async (v: CustomVillain, opts?: { title?: string }): Promise<CustomVillain> => {
+    const title = opts?.title
     setBusy(true)
-    setBakeProgress({ done: 0, total: v.cards.length + 3, phase: 'Préparation…' })
+    setBakeProgress({ done: 0, total: v.cards.length + 3, phase: 'Préparation…', title })
     try {
-      const baked = await bakeVillain(v, (done, total, phase) => setBakeProgress({ done, total, phase }))
+      const baked = await bakeVillain(v, (done, total, phase) => setBakeProgress({ done, total, phase, title }))
       // Étape « Sauvegarde » (barre pleine) pendant la persistance IndexedDB + disque.
-      setBakeProgress((p) => ({ done: p?.total ?? 1, total: p?.total ?? 1, phase: 'Sauvegarde…' }))
+      setBakeProgress((p) => ({ done: p?.total ?? 1, total: p?.total ?? 1, phase: 'Sauvegarde…', title }))
       await save(baked)
       setDraft(baked)
       setDirty(false)
       // État final « ✓ Terminé » affiché brièvement, puis fermeture automatique.
-      setBakeProgress((p) => ({ done: p?.total ?? 1, total: p?.total ?? 1, phase: '✓ Terminé' }))
+      setBakeProgress((p) => ({ done: p?.total ?? 1, total: p?.total ?? 1, phase: '✓ Terminé', title }))
       await new Promise((r) => setTimeout(r, 900))
       return baked
     } finally {
@@ -782,8 +785,7 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
       const { json } = (await res.json()) as { json: string }
       const light = JSON.parse(json) as Partial<CustomVillain>
       const merged = mergeGameData(draft, light)
-      await bakeAndSave(merged)
-      alert('Données de jeu synchronisées depuis Claude Code (images conservées).')
+      await bakeAndSave(merged, { title: '⏳ Synchronisation…' })
     } catch (e) {
       alert(`Synchronisation impossible : ${(e as Error).message}`)
     }

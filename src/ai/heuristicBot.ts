@@ -25,6 +25,7 @@ import { enumerateActions, objectiveCriticalCardIds } from './enumerate'
 import { playerMalus } from './fateMalus'
 import { villainStrategyBonus, villainFateTargetingBonus, isCaptureTargetHero, VILLAIN_STRATEGY } from './villainStrategy'
 import { fireCount } from '../engine/shereKhan'
+import { conqueredCountFromPlayer } from '../engine/spirits'
 
 type Rand = () => number
 
@@ -119,6 +120,24 @@ export function objectiveScore(p: PlayerState): number {
       let s = 0.9 * (captured / 6) + (Math.min(allies, 4) / 4) * 0.05
       if (adamPresent) s = Math.min(s, 0.9)
       return Math.min(0.95, s)
+    }
+    case 'SPIRIT_THRESHOLD': {
+      // Sumbra / Kilaire — vraie proximité = esprits/N, MAIS le débit dépend de
+      // l'expansion (revenu 0/1/2 selon les lieux conquis). Jauge non linéaire :
+      //  • base = esprits/N (poids fort) ;
+      //  • anticipation = crédit sur les lieux CONQUIS (le bot investit dans l'expansion
+      //    AVANT que la jauge monte, sinon il stagnerait à 2 lieux, revenu nul) ;
+      //  • poids croissant sur la fin (les derniers esprits pèsent plus → il sprinte) ;
+      //  • plafond si coincé à 0 lieu conquis (revenu nul → il ne se croit pas proche).
+      const N = p.objective.threshold
+      const spirits = Math.min(p.spirits ?? 0, N)
+      if (spirits >= N) return 1
+      const frac = spirits / N
+      const conquered = conqueredCountFromPlayer(p) // 0..2
+      const endBonus = frac > 0.55 ? (frac - 0.55) * 0.25 : 0
+      let s = 0.74 * frac + 0.2 * (conquered / 2) + endBonus
+      if (conquered === 0) s = Math.min(s, 0.6) // bloqué au campement → doit percer
+      return Math.min(0.97, s)
     }
     case 'POWER_THRESHOLD': {
       const threshold = p.objective.threshold

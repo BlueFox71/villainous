@@ -1786,6 +1786,9 @@ export function hasReachedObjective(state: GameState, playerIndex: number = stat
   switch (p.objective.type) {
     case 'POWER_THRESHOLD':
       return p.power >= p.objective.threshold
+    case 'SPIRIT_THRESHOLD':
+      // Sumbra / Kilaire — avoir capturé ≥ threshold esprits au début de son tour.
+      return (p.spirits ?? 0) >= p.objective.threshold
     case 'ISABELLA_CLOCK':
       // Isabella — les 6 heures (XII, II, IV, VI, VIII, X) ont chacune reçu une Activité.
       return (p.validatedHours ?? []).length >= 6

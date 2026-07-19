@@ -13,6 +13,7 @@ import type {
   AuDelaEffect,
   CardInstance,
   CardType,
+  CombattantVerb,
   ConditionTrigger,
   CurseDiscardTrigger,
   Effect,
@@ -478,6 +479,24 @@ export interface CardDef {
   /** Héros (JAIME STRODE) : tant qu'il est présent, l'effet « quand vous éliminez » de
    *  l'Arme équipée est désactivé. */
   disablesEquippedWeapon?: boolean
+  // --- Sumbra / Kilaire (Atelier — « Lueur du Monde ») ---------------------
+  /** Combattant — valeur d'esprit ☀️ (camp Kilaire). */
+  spiritSun?: number
+  /** Combattant — valeur d'esprit 🌑 (camp Sumbra). */
+  spiritMoon?: number
+  /** Combattant — verbe de son effet Bonus/Malus (signe décidé à l'alignement). */
+  combattantVerb?: CombattantVerb
+  /** Combattant — magnitude N de son verbe. */
+  combattantMagnitude?: number
+  /** Objet « verrou de lieu » (Base / Forteresse de Lave / Tour du Monde) : contrôle
+   *  définitif du lieu où il est posé, indéplaçable et indéfaussable. */
+  locksLocationControl?: boolean
+  /** Objet « Emplacement d'un Combattant » : +N Combattant pioché par tour (permanent). */
+  combattantRevenueBonus?: number
+  /** Objet Fatalité « Formation » : chaque capture d'esprits rapporte 1 de moins. */
+  reducesSpiritCapture?: boolean
+  /** Verrou Sumbra : jouable uniquement sur un lieu déjà contrôlé. */
+  playOnlyOnControlledLocation?: boolean
 }
 
 /** Développe une liste de définitions en un paquet concret (un élément par

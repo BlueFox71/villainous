@@ -83,10 +83,14 @@ async function idbGetAll(): Promise<CustomVillain[]> {
 /** Écrit une copie disque complète du vilain (best-effort). */
 async function backupToDisk(v: CustomVillain): Promise<void> {
   try {
-    await fetch('/__save-villain-backup', {
+    // Corps = JSON du vilain en UN SEUL stringify ; l'id passe en query. On évite ainsi le
+    // 2e JSON.stringify (qui ré-échapperait tout le JSON, ~85 Mo sur les gros decks comme les
+    // Combattants) : ce pic mémoire synchrone sur le thread principal faisait planter l'onglet
+    // (OOM « Aw Snap »). cf. handler /__save-villain-backup (protocole léger).
+    await fetch(`/__save-villain-backup?id=${encodeURIComponent(v.id)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: v.id, json: JSON.stringify(v, null, 2) }),
+      body: JSON.stringify(v, null, 2),
     })
   } catch { /* pas de serveur de dév → on ignore */ }
 }

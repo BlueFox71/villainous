@@ -2,7 +2,7 @@
 // les symboles d'action directement sur l'aperçu, et on les redimensionne par une
 // poignée. L'aperçu de fond est le rendu RÉEL de la carte (WYSIWYG) ; les zones
 // déplaçables sont des « hotspots » transparents superposés.
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CustomCard, CardSticker, CardImage, TextBox, TextLayout } from '../../data/customVillain'
 import { CARD_W, CARD_H, DEFAULT_TEXT_LAYOUT, DEFAULT_STICKER_SIZE, STICKER_SIZE_PRESETS, DEFAULT_CARD_IMAGE_SIZE, TEXT_SIZE_PRESETS } from '../../data/customVillain'
 import type { LocationActionType } from '../../engine/types'
@@ -10,6 +10,7 @@ import { renderCardFace, ruleTextBlockHeight, isPreRenderedCard } from './cardRe
 import { ACTION_TOKEN_LIST, ACTION_ICON_FILE, BOARD_ICON_DIR } from './actionIcons'
 import { readImageForStorage, loadImage } from './imageUtils'
 import { RichTextInput, type RichTextApi } from './RichTextInput'
+import { cssColorToHex } from './richText'
 import { inputClass } from './fields'
 import { useCustomTypesStore } from '../store/customTypesStore'
 
@@ -68,6 +69,7 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 export function CardLayoutEditor({
   card,
   color,
+  coverColor,
   fateColor,
   keywordColors = [],
   onChange,
@@ -76,6 +78,8 @@ export function CardLayoutEditor({
 }: {
   card: CustomCard
   color: string
+  /** Couleur de recouvrement du vilain (fond des champs de texte Méchant) ; à défaut, `color`. */
+  coverColor?: string
   fateColor: string
   /** Mots-clés colorés du vilain (label → couleur), colorés comme les types. */
   keywordColors?: { label: string; color: string }[]
@@ -97,6 +101,36 @@ export function CardLayoutEditor({
   const activeRich = useRef<RichTextApi | null>(null)
   // Dernière couleur choisie à la pipette (partagée par tous les textes).
   const [textColor, setTextColor] = useState('#c0392b')
+  // Couleurs récemment appliquées (mémoire temporaire, réutilisables en un clic).
+  const [recentColors, setRecentColors] = useState<string[]>([])
+  // Champ hexadécimal éditable, reflété sur la pastille (et l'inverse). On resynchronise
+  // le champ pendant le rendu quand `textColor` change (pattern React, pas d'effet).
+  const [hexInput, setHexInput] = useState('#c0392b')
+  const [hexSync, setHexSync] = useState(textColor)
+  if (textColor !== hexSync) {
+    setHexSync(textColor)
+    setHexInput(textColor)
+  }
+  // Applique une couleur au texte actif et la mémorise en tête des récentes.
+  const applyTextColor = (c: string) => {
+    setTextColor(c)
+    activeRich.current?.applyColor(c)
+    setRecentColors((prev) => [c, ...prev.filter((x) => x !== c)].slice(0, 8))
+  }
+  // Couleurs DÉJÀ présentes dans CETTE carte (texte principal + zones), pour réemploi.
+  const usedColors = useMemo(() => {
+    const texts = [card.text, ...(card.textBoxes ?? []).map((b) => b.text)]
+    const re = /\{c:(#[0-9a-fA-F]{3,8})\}/g
+    const found: string[] = []
+    for (const t of texts) {
+      let m: RegExpExecArray | null
+      while ((m = re.exec(t ?? ''))) {
+        const hex = cssColorToHex(m[1]) ?? m[1].toLowerCase()
+        if (!found.includes(hex)) found.push(hex)
+      }
+    }
+    return found
+  }, [card.text, card.textBoxes])
   const customTypes = useCustomTypesStore((s) => s.types)
   const wordColors = [...customTypes, ...keywordColors]
 
@@ -141,11 +175,12 @@ export function CardLayoutEditor({
   }, [key, preRendered])
   const displayBg = preRendered ? (card.image ?? null) : bg
 
-  // Fond des champs de texte enrichi : on mime le panneau de la carte — couleur du
-  // vilain pour une carte Méchant, blanc pour une carte Fatalité. Le texte non coloré
-  // reprend le défaut de la carte (doré Méchant / encre Fatalité), pour rester lisible.
+  // Fond des champs de texte enrichi : on mime le panneau de la carte — couleur de
+  // recouvrement du vilain (à défaut sa couleur thématique) pour une carte Méchant,
+  // blanc pour une carte Fatalité. Le texte non coloré reprend le défaut de la carte
+  // (doré Méchant / encre Fatalité), pour rester lisible.
   const isFateCard = card.deck === 'fate'
-  const richBg = isFateCard ? '#ffffff' : color
+  const richBg = isFateCard ? '#ffffff' : (coverColor ?? color)
   const richDefaultColor = isFateCard ? '#1a1a1a' : '#ae8955'
 
   // Disposition de texte effective (défaut tant que l'utilisateur n'a rien déplacé).
@@ -444,7 +479,7 @@ export function CardLayoutEditor({
         )}
 
         <section className="flex flex-col gap-2">
-          <SectionTitle>Texte</SectionTitle>
+          <SectionTitle>Textes</SectionTitle>
           {/* Texte principal : champ ENRICHI (texte déjà coloré, aucune balise visible). */}
           <div className="flex flex-col gap-1">
             <span className="text-xs font-semibold uppercase tracking-wide text-white/50">Texte de la carte</span>
@@ -453,6 +488,7 @@ export function CardLayoutEditor({
               onChange={(text) => onChange({ ...card, text })}
               onActivate={(api) => (activeRich.current = api)}
               onFocus={() => setSel({ kind: 'text' })}
+              onSelectionColor={(hex) => setTextColor(hex ?? richDefaultColor)}
               bg={richBg}
               defaultColor={richDefaultColor}
               placeholder="Décris l’effet de la carte ici. Le comportement sera codé au moment du test."
@@ -462,53 +498,100 @@ export function CardLayoutEditor({
       {/* Barre d'outils du texte ACTIF (principal ou zone focalisée) : jetons + couleur,
           puis alignement / centrage / taille. */}
       <div className="flex flex-col gap-1.5 rounded-lg border border-white/10 bg-black/20 p-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-white/50">
-          {activeBox ? 'Zone de texte sélectionnée' : 'Texte principal'}
-        </span>
-
-        {/* Jetons d'action + « Aucune capacité » — insérés au curseur du texte actif. */}
-        <div className="flex flex-wrap items-center gap-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-white/50">
+            {activeBox ? 'Zone de texte sélectionnée' : 'Éditeur de texte'}
+          </span>
+          {/* « Aucune capacité » — inséré au curseur ; les symboles d'action ont leur section dédiée. */}
           <NoAbilityButton onClick={() => activeRich.current?.insertText(NO_ABILITY_TEXT)} />
-          {ACTION_TOKEN_LIST.map((a) => (
-            <button
-              key={a.token}
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => activeRich.current?.insertText(`[${a.token}]`)}
-              title={`Insérer [${a.token}]`}
-              className="flex items-center gap-1 rounded border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[11px] text-amber-100 transition hover:bg-amber-400/20"
-            >
-              {ACTION_ICON_FILE[a.type] && (
-                <img src={`${BOARD_ICON_DIR}/${ACTION_ICON_FILE[a.type]}`} alt="" className="h-4 w-4 shrink-0 object-contain" />
-              )}
-              {a.label}
-            </button>
-          ))}
         </div>
 
+        {/* Réglages en 3 colonnes : Couleur · Alignement · Taille. */}
+        <div className="grid grid-cols-3 gap-3">
+
+        {/* ── Colonne 1 : Couleur ── */}
+        <div className="flex min-w-0 flex-col gap-1.5">
         {/* Couleur du texte : la pipette colore AUSSITÔT la sélection (ou tout le texte). */}
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-[11px] text-white/40">Couleur :</span>
           <input
             type="color"
             value={textColor}
-            onChange={(e) => {
-              setTextColor(e.target.value)
-              activeRich.current?.applyColor(e.target.value)
-            }}
+            onChange={(e) => applyTextColor(e.target.value)}
             title="Colorer la sélection (ou tout le texte si rien n'est sélectionné)"
             className="h-7 w-9 cursor-pointer rounded border border-white/15 bg-transparent"
+          />
+          <input
+            type="text"
+            value={hexInput}
+            spellCheck={false}
+            onChange={(e) => {
+              const v = e.target.value
+              setHexInput(v)
+              if (/^#[0-9a-fA-F]{6}$/.test(v)) applyTextColor(v.toLowerCase())
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur()
+            }}
+            onBlur={() => {
+              const hex = cssColorToHex(hexInput)
+              if (hex) applyTextColor(hex)
+              else setHexInput(textColor) // saisie invalide : on rétablit
+            }}
+            title="Code hexadécimal de la couleur (ex. #c0392b)"
+            className="w-[5.5rem] rounded border border-white/15 bg-black/20 px-1.5 py-1 font-mono text-[11px] uppercase text-white/80 outline-none transition focus:border-amber-400"
           />
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => activeRich.current?.resetColor()}
+            title="Rétablir la couleur par défaut de la carte"
             className="rounded border border-white/20 bg-white/5 px-2 py-1 text-[11px] font-semibold text-white/70 transition hover:border-amber-300/70 hover:text-amber-200"
           >
-            Couleur par défaut
+            Défaut
           </button>
         </div>
 
+        {/* Couleurs DÉJÀ utilisées sur cette carte : réappliquées en un clic. */}
+        {usedColors.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] text-white/40">Sur la carte :</span>
+            {usedColors.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => applyTextColor(c)}
+                title={`Réappliquer ${c}`}
+                style={{ backgroundColor: c }}
+                className="h-6 w-6 rounded border border-white/20 transition hover:scale-110 hover:border-amber-300/70"
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Couleurs récemment utilisées : réappliquées en un clic sur le texte actif. */}
+        {recentColors.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] text-white/40">Récentes :</span>
+            {recentColors.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => applyTextColor(c)}
+                title={`Réappliquer ${c}`}
+                style={{ backgroundColor: c }}
+                className="h-6 w-6 rounded border border-white/20 transition hover:scale-110 hover:border-amber-300/70"
+              />
+            ))}
+          </div>
+        )}
+
+        </div>{/* ── fin colonne 1 ── */}
+
+        {/* ── Colonne 2 : Alignement / centrage ── */}
+        <div className="flex min-w-0 flex-col gap-1.5">
         {/* Centrage du bloc sur la carte. */}
         <div className="flex flex-wrap items-center gap-1.5">
           <button
@@ -548,6 +631,10 @@ export function CardLayoutEditor({
             </label>
           ))}
         </div>
+        </div>{/* ── fin colonne 2 ── */}
+
+        {/* ── Colonne 3 : Taille ── */}
+        <div className="flex min-w-0 flex-col gap-1.5">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-[11px] text-white/40">Taille :</span>
           {([
@@ -585,6 +672,8 @@ export function CardLayoutEditor({
               ))}
           </select>
         </div>
+        </div>{/* ── fin colonne 3 ── */}
+        </div>{/* ── fin grille 3 colonnes ── */}
       </div>
 
       {/* Zones de texte SUPPLÉMENTAIRES : liste — chaque ligne = « Zone N » + son champ. */}
@@ -627,6 +716,7 @@ export function CardLayoutEditor({
               onChange={(text) => setBox(box.id, { text })}
               onActivate={(api) => (activeRich.current = api)}
               onFocus={() => setSel({ kind: 'box', id: box.id })}
+              onSelectionColor={(hex) => setTextColor(hex ?? richDefaultColor)}
               bg={richBg}
               defaultColor={richDefaultColor}
               minHeightClass="min-h-[3.5rem]"

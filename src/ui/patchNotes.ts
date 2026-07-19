@@ -47,17 +47,22 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '1.8.5',
+    version: '1.9.0',
     date: '2026-07-19',
-    title: 'Atelier : images libres + texte enrichi',
-    tags: ['atelier'],
+    title: 'Nouveau vilain : Sumbra — La Lueur du Monde',
+    tags: ['villain', 'regles', 'ia', 'atelier'],
     changes: [
+      "Nouveau vilain **Sumbra** (Ténèbres) : **capturez 30 esprits** pour l'emporter. Le **revenu** vient des **Combattants** piochés au début du tour, selon les **lieux contrôlés** (2 lieux → 0, 3 → 1, 4 → 2).",
+      "**Conquête** : massez des Alliés sur un lieu rival jusqu'à sa **Défense** pour le contrôler ; **verrouillez-le** (Base / Forteresse de Lave / Tour du Monde) pour un revenu **définitif**.",
+      "Chaque **Combattant** capture des esprits puis déclenche un **Bonus** s'il penche vers votre camp, un **Malus passager** sinon (6 verbes : Décharge, Ferveur, Renfort, Rempart, Surtension, Aubaine).",
+      "**Fatalité** dédiée : des Combattants entrent en **Héros** et rognent votre jauge, **Formation** freine vos captures, **KILAIRE** (Force 5) verrouille un lieu.",
       "Onglet **Cartes**, nouvelle section **Images** : on **importe une image** et on la **pose librement** (déplacer, redimensionner au curseur ou par presets).",
       "Le texte s'affiche désormais **déjà coloré** dans le champ — **aucune balise** visible : on sélectionne une partie (ou tout) et la **pipette** la colore aussitôt, **« Couleur par défaut »** l'enlève.",
       "Le champ de texte **mime la carte** : fond **couleur du vilain** (Méchant) ou **blanc** (Fatalité), texte **doré**/**encre** par défaut.",
       "Le texte peut être **aligné** (gauche/centre/droite) et sa **taille** choisie précisément (menu déroulant).",
       "Les **zones de texte** sont regroupées en **liste** (Zone 1, 2, …), chacune **duplicable**.",
       "**Symboles d'action** et **Images** sont affichés **côte à côte**.",
+      "**Synchroniser** affiche « **Synchronisation…** » et se termine **sans pop-up** de confirmation.",
     ],
   },
   {

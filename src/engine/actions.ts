@@ -38,6 +38,7 @@ import {
   updateActivePlayer,
   updatePlayer,
 } from './state'
+import { syncLocationControlAll, resolveCombattantRevenue, isLocationControlled } from './spirits'
 import { addKronkTokens, addPuppyFromReserve, bargainReshuffle, bargainSword, canEnterAuDela, capturePuppiesAt, dioDiscardHero, discardAllOfTypeInRealm, doCapturePuppies, doQuelsMove, doQuelsTutor, enterQuelsMove, enterQuelsTutor, holdsTalisman, lotsoMoveToRoom, lotsoReduceHero, mauiHeroInRealm, moveTitanTo, performVanquish, freeEliminateHero, placeAllyInAuDela, playChosenFateFromDiscard, playTopMauiCard, processCurseDiscards, raiponceLocation, reformYzmaDecks, relocateCard, relocateRaiponce, reshuffleYzmaIfKuzcoDiscarded, resolveEffect, resolveEffects, rollColorDie, smartMoveAllyOrItem, titanReachableDests, triggerHeroArrival } from './effects'
 import { crewmateEndOfTurn, freeCellAt, placeCrewmateAt } from './crewmates'
 import { pendingOwner } from './turn'
@@ -1313,6 +1314,11 @@ function applyPlayCard(
     }
     if (card.playOnlyAt && to !== card.playOnlyAt) {
       throw new Error(`${card.name} ne peut être posé(e) que sur un lieu précis.`)
+    }
+    // Verrou Sumbra (Base / Forteresse / Tour du Monde) : uniquement sur un lieu CONTRÔLÉ
+    // (empêche de prendre le contrôle instantanément en posant le verrou sur un lieu rival).
+    if (card.playOnlyOnControlledLocation && !isLocationControlled(state, state.activePlayer, to)) {
+      throw new Error(`${card.name} ne peut être posé(e) que sur un lieu que vous contrôlez.`)
     }
     // Lieux interdits propres à la carte (Anastasie/Javotte → pas dans la Salle de Bal :
     // seule leur version « en robe de bal » y entre).
@@ -11823,6 +11829,12 @@ function applyEndTurn(state: GameState): GameState {
             ultronTransfoUsedThisTurn: false,
             // Ultron — Optimisation : le passif « Jouer → Déplacer » se réarme (1/tour).
             ultronOptimUsedThisTurn: false,
+            // Sumbra / Kilaire — effets de Combattants « ce tour » : coûts (Aubaine), pioche
+            // bonus (Surtension), annulation de capture, Force temporaire de lieu (Rempart).
+            spiritCostMod: undefined,
+            extraCombattantDrawsThisTurn: undefined,
+            combattantZeroCaptureNext: undefined,
+            locationTempForce: undefined,
             // Dio — ZA WARUDO! : l'arrêt du temps et le suivi des actions expirent en fin de tour.
             zaWarudoActive: false,
             zaWarudoActionsDone: 0,
@@ -12019,6 +12031,13 @@ function applyEndTurn(state: GameState): GameState {
     }
   }
 
+  // Sumbra / Kilaire — REVENU de début de tour : pioche et résout les Combattants selon
+  // le nombre de lieux contrôlés (0/1/2), AVANT la vérification de victoire (la capture
+  // peut faire franchir le seuil d'esprits ce tour-ci).
+  if (started.players[nextIdx].objective.type === 'SPIRIT_THRESHOLD') {
+    started = resolveCombattantRevenue(started, nextIdx)
+  }
+
   // La victoire se vérifie « au début du tour » du nouveau joueur actif.
   if (hasReachedObjective(started)) {
     const w = started.players[nextIdx]
@@ -12027,7 +12046,9 @@ function applyEndTurn(state: GameState): GameState {
         ? `${w.confiance ?? 0} Confiance`
         : w.objective.type === 'PUPPY_THRESHOLD'
           ? `${capturedPuppies(w)} Chiots`
-          : `${w.power} JT`
+          : w.objective.type === 'SPIRIT_THRESHOLD'
+            ? `${w.spirits ?? 0} esprits`
+            : `${w.power} JT`
     return {
       ...started,
       status: 'WON',
@@ -12255,7 +12276,9 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   // Après chaque action : (1) bascule éventuelle de l'objectif double de Ratigan
   // (Reine Robot défaussée → « Le Rat ») ; (2) Pat Hibulaire — complétion de la
   // tuile Power Play si ≥6 Pouvoir dépensés ce tour sur le bon lieu.
-  const after = syncLuciferTrap(syncRoseChain(syncPetePowerPlay(syncRatiganObjectiveAll(applyActionCore(state, action)))))
+  // (3) Sumbra / Kilaire — synchronise la face/contrôle des lieux conquérables selon la
+  // garnison (une pose/perte d'Allié peut faire basculer un lieu rival ↔ contrôlé).
+  const after = syncLocationControlAll(syncLuciferTrap(syncRoseChain(syncPetePowerPlay(syncRatiganObjectiveAll(applyActionCore(state, action))))))
   // Dio — ZA WARUDO! : coût croissant par action + suivi des 14 actions du royaume.
   // Puis Gaston : victoire immédiate si le dernier Obstacle vient d'être retiré.
   return checkImmediateObstacleWin(applyDioZaWarudo(action, after))

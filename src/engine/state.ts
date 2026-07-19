@@ -25,6 +25,9 @@ export interface PlayerSetup {
   deckCards: CardInstance[]
   /** Exemplaires du deck Fatalité (joué par les adversaires contre ce joueur). */
   fateCards: CardInstance[]
+  /** Sumbra / Kilaire — exemplaires du paquet COMBATTANT (hors-deck) : chargés dans
+   *  `PlayerState.combattantDeck` (mélangés). Absent pour les autres vilains. */
+  combattantCards?: CardInstance[]
 }
 
 /** Copie défensive du plateau pour ne pas partager de référence mutable. */
@@ -559,7 +562,7 @@ export function createInitialGame(setups: PlayerSetup[], seed: number): GameStat
   const setupLog: string[] = []
 
   for (let i = 0; i < setups.length; i++) {
-    const { villain, deckCards, fateCards } = setups[i]
+    const { villain, deckCards, fateCards, combattantCards } = setups[i]
     const shuffled = shuffle(deckCards, rngState)
     rngState = shuffled.state
     // Le deck Fatalité est aussi mélangé (après le deck Vilain, pour ne pas
@@ -713,6 +716,14 @@ export function createInitialGame(setups: PlayerSetup[], seed: number): GameStat
       const stones = player.deck.filter((c) => c.isInfinityStone)
       const deck = player.deck.filter((c) => !c.isInfinityStone)
       player = { ...player, deck, stoneSupply: stones, stoneSkills: [] }
+    }
+    // Sumbra / Kilaire (« La Lueur du Monde ») — jauge d'ESPRITS à 0 + paquet COMBATTANT
+    // (hors-deck) mélangé. Les 2 lieux conquérables démarrent rivaux (version 'a', aucune
+    // garnison) → aucun besoin de bascule initiale.
+    if (villain.objective.type === 'SPIRIT_THRESHOLD') {
+      const sh = shuffle(combattantCards ?? [], rngState)
+      rngState = sh.state
+      player = { ...player, spirits: 0, combattantDeck: sh.result, combattantDiscard: [] }
     }
     // Le Piégeur (Dead by Daylight) — sépare les 4 SURVIVANTS (isSurvivor) du paquet
     // Fatalité et les pose FACE CACHÉE, un par lieu (assignation aléatoire : survivants

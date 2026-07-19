@@ -48,6 +48,14 @@ export const EFFECT_CATALOG: EffectCatalogEntry[] = [
     summary: (v) => `Gagnez ${v.amount} pouvoir.`,
   },
   {
+    key: 'CAPTURE_SPIRITS',
+    label: 'Capturer des esprits',
+    description: "Sumbra / Kilaire : le vilain capture un nombre fixe d'esprits (jauge d'objectif).",
+    params: [p('amount', 'Esprits capturés', 2)],
+    build: (v) => ({ type: 'CAPTURE_SPIRITS', amount: v.amount }),
+    summary: (v) => `Capturez ${v.amount} esprit${v.amount > 1 ? 's' : ''}.`,
+  },
+  {
     key: 'DRAW_CARDS',
     label: 'Piocher des cartes',
     description: 'Le vilain pioche un nombre de cartes.',
