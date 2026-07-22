@@ -46,7 +46,7 @@ describe('cartes de Lotso — intégrité du paquet', () => {
       expect(c.name.length).toBeGreaterThan(0)
       expect(c.englishName!.length).toBeGreaterThan(0)
       expect(c.text.length).toBeGreaterThan(0)
-      expect(c.image).toMatch(/^\/cards\/lotso\/.+\.png$/)
+      expect(c.image).toMatch(/^\/cards\/lotso\/.+\.(png|webp)$/)
       if (c.deck === 'villain' && c.type !== 'condition' && c.copies > 0) expect(typeof c.cost).toBe('number')
       if (c.type === 'hero') expect(typeof c.strength).toBe('number')
     }

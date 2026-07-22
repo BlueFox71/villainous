@@ -40,11 +40,11 @@ export const oogieBoogie: VillainDef = {
     "Perce-Oreilles » (lancez les dés : 7+ = succès, posé près de Sandy Claws). À 4 " +
     "imposteurs réussis, Jack revient (Héros force 8) à l'Antre d'Oogie Boogie : " +
     "éliminez-le avec vos Alliés.",
-  boardImage: img('board.png'),
+  boardImage: img('board.webp'),
   pawnImage: '/pion_oogie-boogie.png',
   pawnHeightPx: 88,
-  backVillainImage: img('back-villain.png'),
-  backFateImage: img('back-fate.png'),
+  backVillainImage: img('back-villain.webp'),
+  backFateImage: img('back-fate.webp'),
   // Sandy Claws (Perce-Oreilles) est posé à l'Antre dès la mise en place : il ancre
   // la pile d'Imposteurs et fait revenir Jack à 4 imposteurs réussis.
   prisonerSetup: { cardId: 'perce-oreilles', locationId: 'antre' },

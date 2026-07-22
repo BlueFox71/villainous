@@ -498,7 +498,7 @@ export type CardType = 'ally' | 'item' | 'effect' | 'condition' | 'hero' | 'curs
  */
 export interface Crewmate {
   /** Identité stable et couleur (ex. 'blanc', 'bleu', 'noir'…). Sert aussi de clé
-   *  de rendu (jeton public/cards/imposteur/crew-<color>.png). */
+   *  de rendu (jeton public/cards/imposteur/crew-<color>.webp). */
   color: string
   /** Lieu où se trouve le Coéquipier. */
   locationId: LocationId

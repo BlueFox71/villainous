@@ -38,7 +38,7 @@ const mim = (
   transformationTarget: target,
   grantsAction: { type: 'VANQUISH', label: 'Éliminer un Héros (Métamorphose)' },
   text: `Ce lieu gagne l'action « Éliminer un Héros ». Lors d'une action Éliminer un Héros, ${name} ne peut éliminer que sa Métamorphose de Merlin correspondante.`,
-  image: img(id + '.png'),
+  image: img(id + '.webp'),
 })
 
 /** Métamorphose de Merlin : « Héros » posé au Lieu du Duel, vaincable seulement par
@@ -53,7 +53,7 @@ const merlin = (id: string, name: string, englishName: string, strength: number,
   copies: 1,
   isMerlinTransformation: true,
   text: `${name} ne peut être éliminé que par ${byMim}, lors d'une action Éliminer un Héros.`,
-  image: img(id + '.png'),
+  image: img(id + '.webp'),
 })
 
 export const madameMimCards: CardDef[] = [
@@ -77,7 +77,7 @@ export const madameMimCards: CardDef[] = [
     cost: 1,
     copies: 4,
     text: 'Regardez secrètement les 2 premières cartes de votre pioche de Métamorphoses de Merlin, puis replacez-les dans l’ordre de votre choix sur le dessus.',
-    image: img('pas-de-tricherie.png'),
+    image: img('pas-de-tricherie.webp'),
     effects: [{ type: 'REORDER_MERLIN_DECK_TOP2' }],
   },
   {
@@ -89,7 +89,7 @@ export const madameMimCards: CardDef[] = [
     cost: 4,
     copies: 3,
     text: 'Éliminez une carte Métamorphose de Merlin de votre royaume.',
-    image: img('j-etablis-les-regles.png'),
+    image: img('j-etablis-les-regles.webp'),
     effects: [{ type: 'DEFEAT_MERLIN_IN_REALM' }],
   },
   {
@@ -101,7 +101,7 @@ export const madameMimCards: CardDef[] = [
     cost: 1,
     copies: 3,
     text: 'Mélangez votre défausse dans votre pioche.',
-    image: img('magnifique-merveilleuse-ma.png'),
+    image: img('magnifique-merveilleuse-ma.webp'),
     effects: [{ type: 'RESHUFFLE_DISCARD_AND_DRAW', count: 0 }],
   },
   {
@@ -113,7 +113,7 @@ export const madameMimCards: CardDef[] = [
     cost: 1,
     copies: 3,
     text: 'Placez une carte Métamorphose de Merlin et jouez-la sur le Lieu du Duel.',
-    image: img('duel-de-sorcellerie.png'),
+    image: img('duel-de-sorcellerie.webp'),
     effects: [{ type: 'PLACE_MERLIN_AT_DUEL' }],
   },
   {
@@ -125,7 +125,7 @@ export const madameMimCards: CardDef[] = [
     cost: 2,
     copies: 3,
     text: 'Piochez 4 cartes Méchant, puis défaussez 4 cartes de votre main.',
-    image: img('bataille-d-esprit.png'),
+    image: img('bataille-d-esprit.webp'),
     effects: [{ type: 'DRAW_THEN_DISCARD', draw: 4, discard: 4 }],
   },
   {
@@ -136,7 +136,7 @@ export const madameMimCards: CardDef[] = [
     type: 'condition',
     copies: 3,
     text: 'Cette carte est jouable durant le tour d’un adversaire s’il gagne 2 jetons Pouvoir ou plus. Gagnez 2 jetons Pouvoir.',
-    image: img('enorme-a-l-infini.png'),
+    image: img('enorme-a-l-infini.webp'),
     trigger: { type: 'opponent-gained-power-ge', value: 2 },
     effects: [{ type: 'GAIN_POWER', amount: 2 }],
   },
@@ -148,7 +148,7 @@ export const madameMimCards: CardDef[] = [
     type: 'condition',
     copies: 3,
     text: 'Cette carte est jouable durant le tour d’un adversaire s’il effectue une action Éliminer un Héros. Choisissez une carte dans votre défausse et ajoutez-la à votre main.',
-    image: img('j-aime-le-sport.png'),
+    image: img('j-aime-le-sport.webp'),
     trigger: { type: 'opponent-vanquished-hero-strength-ge', value: 0 },
     effects: [{ type: 'RECOVER_FROM_DISCARD_CHOICE', types: ['ally', 'effect', 'condition'], label: 'J’aime le sport' }],
   },
@@ -162,7 +162,7 @@ export const madameMimCards: CardDef[] = [
     type: 'effect',
     copies: 4,
     text: 'Déplacez une carte Métamorphose de Merlin vers n’importe quel lieu.',
-    image: img('le-savoir-conduit-puissance.png'),
+    image: img('le-savoir-conduit-puissance.webp'),
     effects: [{ type: 'MOVE_MERLIN_ANYWHERE' }],
   },
   {
@@ -173,7 +173,7 @@ export const madameMimCards: CardDef[] = [
     type: 'effect',
     copies: 1,
     text: 'Prenez une carte Métamorphose de Merlin éliminée au hasard dans la défausse et remélangez-la dans la pioche de Métamorphose de Merlin.',
-    image: img('merlin.png'),
+    image: img('merlin.webp'),
     effects: [{ type: 'RECYCLE_DEFEATED_MERLIN' }],
   },
   {
@@ -184,7 +184,7 @@ export const madameMimCards: CardDef[] = [
     type: 'effect',
     copies: 1,
     text: 'Piochez la première carte Métamorphose de Merlin de la pioche. Choisissez n’importe quelle Métamorphose de Merlin du royaume et remplacez-la par cette carte. Puis mélangez la carte remplacée dans la pioche.',
-    image: img('archimede.png'),
+    image: img('archimede.webp'),
     effects: [{ type: 'SWAP_DUEL_MERLIN' }],
   },
   {
@@ -195,7 +195,7 @@ export const madameMimCards: CardDef[] = [
     type: 'effect',
     copies: 1,
     text: 'Madame Mim défausse toutes les cartes de sa main puis pioche 2 cartes.',
-    image: img('arthur-oiseau.png'),
+    image: img('arthur-oiseau.webp'),
     effects: [{ type: 'DISCARD_HAND_DRAW', draw: 2 }],
   },
   {
@@ -206,7 +206,7 @@ export const madameMimCards: CardDef[] = [
     type: 'effect',
     copies: 1,
     text: 'Défaussez une carte Métamorphose de Madame Mim.',
-    image: img('merlin-microbe.png'),
+    image: img('merlin-microbe.webp'),
     effects: [{ type: 'DISCARD_MIM_TRANSFORMATION' }],
   },
 

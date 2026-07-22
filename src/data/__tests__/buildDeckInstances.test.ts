@@ -19,7 +19,7 @@ function allyDef(over: Partial<CardDef> = {}): CardDef {
     strength: 3,
     copies: 1,
     text: 'Texte de règle.',
-    image: '/cards/test/ally.png',
+    image: '/cards/test/ally.webp',
     isHyena: true, // champ de jeu booléen
     powerOnMove: 2, // champ de jeu numérique
     ...over,

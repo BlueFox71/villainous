@@ -32,11 +32,11 @@ export const seigneurTenebres: VillainDef = {
     '(Montre-moi le Chaudron Magique, Nous avons conclu un marché, ou en vainquant Tirelire) ; ' +
     'RÉVEILLEZ-le (Notre heure est venue !) ; puis jouez des Soldats Ressuscités sur vos lieux — ' +
     'jusqu’à en avoir un partout. Les Squelettes de Soldats donnent à leur lieu l’action « Activer une capacité » (pour réveiller le Chaudron).',
-  boardImage: img('board.png'),
+  boardImage: img('board.webp'),
   pawnImage: '/pion_seigneur-tenebres.png',
   pawnHeightPx: 96,
-  backVillainImage: img('back-villain.png'),
-  backFateImage: img('back-fate.png'),
+  backVillainImage: img('back-villain.webp'),
+  backFateImage: img('back-fate.webp'),
   locations: [
     {
       id: 'morva',

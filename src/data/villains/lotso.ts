@@ -35,11 +35,11 @@ export const lotso: VillainDef = {
     'Faites venir les 4 Héros (Hamm, Jessie, Rex, Woody), réduisez leur force à 0 (en les éliminant — ' +
     'ils restent alors sur place à 0 — ou avec des jetons Force −1) et réunissez-les TOUS sur la Salle ' +
     'des Chenilles, où doit aussi se trouver Buzz l’Éclair (Gardien ou Mode Démo).',
-  boardImage: img('board.png'),
+  boardImage: img('board.webp'),
   pawnImage: '/pion_lotso.png',
   pawnHeightPx: 96,
-  backVillainImage: img('back-villain.png'),
-  backFateImage: img('back-fate.png'),
+  backVillainImage: img('back-villain.webp'),
+  backFateImage: img('back-fate.webp'),
   // Buzz l'Éclair (tuile Gardien à deux faces) débute sur la Salle des Chenilles.
   guardianSetup: { cardId: 'buzz-l-eclair', name: 'Buzz l’Éclair', locationId: 'salle-des-chenilles', strength: 4 },
   locations: [

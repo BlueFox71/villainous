@@ -36,11 +36,11 @@ export const madameTremaine: VillainDef = {
     'amenez-y une fille EN ROBE DE BAL (qui remplace sa version ordinaire déjà en jeu) AVEC le Prince, ' +
     'puis jouez les Cloches de Mariage alors qu’AUCUNE Pantoufle de Verre n’est dans votre royaume. ' +
     'Les Pantoufles ne se retirent qu’avec la Canne ; Piégez ou vainquez les Héros gênants (Petite voleuse !, Minuit).',
-  boardImage: img('board.png'),
+  boardImage: img('board.webp'),
   pawnImage: '/pion_madame-tremaine.png',
   pawnHeightPx: 92,
-  backVillainImage: img('back-villain.png'),
-  backFateImage: img('back-fate.png'),
+  backVillainImage: img('back-villain.webp'),
+  backFateImage: img('back-fate.webp'),
   // La Salle de Bal démarre VERROUILLÉE (Invitation du Roi la déverrouille).
   lockedLocationsAtStart: ['salle-de-bal'],
   locations: [

@@ -152,7 +152,7 @@
           "label": "Activer une capacité"
         }
       ],
-      "image": "/cards/custom-dio/loc-loc-4.png?v=1783797292726",
+      "image": "/cards/custom-dio/loc-loc-4.webp?v=1783797292726",
       "imagePos": {
         "x": 50,
         "y": 50,
@@ -169,7 +169,7 @@
       "type": "effect",
       "copies": 5,
       "text": "ZA WARUDO ! est jouable sans actions jouer une carte et doit être jouer juste après avoir déplacé son pion. Pendant ce tour vous pouvez faire les actions de n'importe quel lieux (hors action fatalité) mais faire une action coûte 1 jeton pouvoir plus 1 par actions supplémentaire (jusqu'à 10). Cette carte Nécessite d'avoir votre Stand dans votre Royaume.",
-      "image": "/cards/custom-dio/custom-dio-za-warudo.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-za-warudo.webp?v=1783797292726",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
@@ -193,7 +193,7 @@
       "type": "condition",
       "copies": 2,
       "text": "Cette carte est jouable pendant le tour d'un adversaire si celui-ci vous cible avec une action fatalité. \n\nVous pouvez éliminer un Héros sur le lieu ou vous vous trouver et gagner 5 jeton pouvoir.",
-      "image": "/cards/custom-dio/custom-dio-muda-muda-muda.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-muda-muda-muda.webp?v=1783797292726",
       "artTransform": {
         "scale": 0.75,
         "offsetXPct": 0,
@@ -214,7 +214,7 @@
       "type": "item",
       "copies": 1,
       "text": "Défaussez votre main pour gagner 1 jeton pouvoir par carte défaussé.",
-      "image": "/cards/custom-dio/custom-dio-masque-de-pierre.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-masque-de-pierre.webp?v=1783797292726",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
@@ -245,7 +245,7 @@
       "type": "effect",
       "copies": 4,
       "text": "Dévoilez les quatre premières carte fatalité. Jouez les héros sur \"LE MANOIR\". \n\nDéfaussez les autres cartes dévoilés",
-      "image": "/cards/custom-dio/custom-dio-tu-oses-t-approcher-de-moi.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-tu-oses-t-approcher-de-moi.webp?v=1783797292726",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
@@ -267,7 +267,7 @@
       "type": "ally",
       "copies": 1,
       "text": "Cette carte suit toujours votre pion et ne peut être défaussé.\n\n Lorsque JOTARO est JOSEPH ont été retiré du jeu. Toute les cartes et actions qui rapporte des jeton pouvoir vous procure le double.",
-      "image": "/cards/custom-dio/custom-dio-the-world.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-the-world.webp?v=1783797292726",
       "artTransform": {
         "scale": 0.63,
         "offsetXPct": 0,
@@ -292,7 +292,7 @@
       "type": "ally",
       "copies": 1,
       "text": "Lorsque VANILLA ICE est joué aller chercher CREAM et associez lui cette carte.",
-      "image": "/cards/custom-dio/custom-dio-vanille-ice.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-vanille-ice.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -315,7 +315,7 @@
       "type": "ally",
       "copies": 1,
       "text": "Lorsque GEIL est joué aller chercher JUSTICE et associez lui cette carte. Aller chercher la carte LA FLECHE et ajoutez là à votre main.",
-      "image": "/cards/custom-dio/custom-dio-enya-geil.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-enya-geil.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -338,7 +338,7 @@
       "type": "effect",
       "copies": 3,
       "text": "Pendant votre tour effectuez les actions recouverte par les Héros.",
-      "image": "/cards/custom-dio/custom-dio-jotaro.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-jotaro.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -360,7 +360,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Défausser un allié pour piocher 4 cartes.",
-      "image": "/cards/custom-dio/custom-dio-vampirisme.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-vampirisme.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -382,7 +382,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Gagnez un jeton pouvoir par Héros dans votre royaume",
-      "image": "/cards/custom-dio/custom-dio-soif-de-sang.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-soif-de-sang.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -404,7 +404,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Gagnez un jeton pouvoir par héros dans la défausse fatalité.",
-      "image": "/cards/custom-dio/custom-dio-indigne-de-moi.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-indigne-de-moi.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -426,7 +426,7 @@
       "type": "item",
       "copies": 2,
       "text": " Piochez 4 cartes.",
-      "image": "/cards/custom-dio/custom-dio-la-fleche.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-la-fleche.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -457,7 +457,7 @@
       "type": "effect",
       "copies": 3,
       "text": "Aller chercher une carte de type Objet dans votre pioche ou défausse et ajoutez là à votre main.",
-      "image": "/cards/custom-dio/custom-dio-quete-vers-le-paradis.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-quete-vers-le-paradis.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -479,7 +479,7 @@
       "type": "hero",
       "copies": 1,
       "text": "Vous devez  immédiatement jouer JOTARO Lorsqu'il est dévoilé.\nLorsque JOTARO est joué aller chercher STAR PLATINUM et associez lui cette carte. \nSi JOTARO est éliminé, celui-ci est retiré de la partie.",
-      "image": "/cards/custom-dio/custom-dio-jotaro-kujo.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-jotaro-kujo.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -501,7 +501,7 @@
       "type": "hero",
       "copies": 1,
       "text": "Vous devez immédiatement jouer JOSEPH Lorsqu'il est dévoilé.\nTant que JOSEPH est présent, la main de DIO est révélé. \nSi JOSEPH est éliminé, celui-ci est retiré de la partie.",
-      "image": "/cards/custom-dio/custom-dio-joseph-joestar.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-joseph-joestar.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -523,7 +523,7 @@
       "type": "hero",
       "copies": 1,
       "text": "Lorsque JEAN-PIERRE POLNAREFF est joué, aller chercher SILVER CHARIOT et associez lui cette carte.",
-      "image": "/cards/custom-dio/custom-dio-jean-pierre-polnareff.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-jean-pierre-polnareff.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -545,7 +545,7 @@
       "type": "hero",
       "copies": 1,
       "text": "Lorsque KAKYOIN est joué, aller chercher HIEROPHANT GREEN et associez lui cette carte.",
-      "image": "/cards/custom-dio/custom-dio-noriaki-kakyoin.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-noriaki-kakyoin.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -567,7 +567,7 @@
       "type": "hero",
       "copies": 1,
       "text": "Lorsque MOHAMMED ABDUL est joué, aller chercher MAGICIAN RED et associez lui cette carte.",
-      "image": "/cards/custom-dio/custom-dio-mohammed-abdul.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-mohammed-abdul.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -589,7 +589,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Dio révèle sa main et défausse 3 cartes.",
-      "image": "/cards/custom-dio/custom-dio-hermit-purple.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-hermit-purple.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -610,7 +610,7 @@
       "type": "hero",
       "copies": 1,
       "text": "Lorsque IGGY est joué aller chercher THE FOOL associez lui cette carte.",
-      "image": "/cards/custom-dio/custom-dio-iggy.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-iggy.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -632,7 +632,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Réduit la force d'un Allié de 2.",
-      "image": "/cards/custom-dio/custom-dio-cartomancie.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-cartomancie.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -653,7 +653,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Défausser un objet.",
-      "image": "/cards/custom-dio/custom-dio-fondation-speedwagon.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-fondation-speedwagon.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -674,7 +674,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Perdez 4 jeton pouvoir.",
-      "image": "/cards/custom-dio/custom-dio-ora-ora-ora.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-ora-ora-ora.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -695,7 +695,7 @@
       "type": "effect",
       "copies": 1,
       "text": "DIO doit choisir entre : défausser sa main ou perdre 10 jeton pouvoir.",
-      "image": "/cards/custom-dio/custom-dio-lumiere-du-soleil.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-lumiere-du-soleil.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -716,7 +716,7 @@
       "type": "item",
       "copies": 1,
       "text": "Défausser un Héros de force inférieur à VANILLA ICE sur son lieu.",
-      "image": "/cards/custom-dio/custom-dio-cream.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-cream.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -741,7 +741,7 @@
       "type": "item",
       "copies": 1,
       "text": "Aller chercher un allié depuis votre défausse et ajoutez le à votre main.",
-      "image": "/cards/custom-dio/custom-dio-justice.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-justice.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -775,7 +775,7 @@
       "type": "item",
       "copies": 1,
       "text": "Vous devez éliminer POLNAREFF avant les autres Héros.",
-      "image": "/cards/custom-dio/custom-dio-silver-chariot.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-silver-chariot.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -800,7 +800,7 @@
       "type": "item",
       "copies": 1,
       "text": "Tant que HIEROPHANT GREEN est présent , vos cartes coûtent 1 jeton pouvoir supplémentaire.",
-      "image": "/cards/custom-dio/custom-dio-hierophant-green.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-hierophant-green.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -825,7 +825,7 @@
       "type": "item",
       "copies": 1,
       "text": "Tant que MAGICIAN RED est présent, DIO pioche une carte de moins en fin de tour ou via les Évènement .",
-      "image": "/cards/custom-dio/custom-dio-magician-red.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-magician-red.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -850,7 +850,7 @@
       "type": "item",
       "copies": 1,
       "text": "Réduit la force des alliés sur ce lieu de 1.",
-      "image": "/cards/custom-dio/custom-dio-the-fool.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-the-fool.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -875,7 +875,7 @@
       "type": "ally",
       "copies": 2,
       "text": "Aucune capacité.",
-      "image": "/cards/custom-dio/custom-dio-legion-de-vampire.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-legion-de-vampire.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -900,7 +900,7 @@
       "type": "item",
       "copies": 1,
       "text": "Tant que STAR PLATINUM est présent , ZA WARUDO ! Ne peut pas être utilisé.",
-      "image": "/cards/custom-dio/custom-dio-c1.png?v=1783797292726",
+      "image": "/cards/custom-dio/custom-dio-c1.webp?v=1783797292726",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -920,12 +920,12 @@
   ],
   "createdAt": "2026-06-28T18:38:37.209Z",
   "updatedAt": "2026-07-22T20:00:00.000Z",
-  "portrait": "/cards/custom-dio/portrait.png?v=1783797292726",
-  "presentation": "/cards/custom-dio/presentation.png?v=1783797292726",
-  "backVillainImage": "/cards/custom-dio/back-villain.png?v=1783797292726",
-  "backFateImage": "/cards/custom-dio/back-fate.png?v=1783797292726",
+  "portrait": "/cards/custom-dio/portrait.webp?v=1783797292726",
+  "presentation": "/cards/custom-dio/presentation.webp?v=1783797292726",
+  "backVillainImage": "/cards/custom-dio/back-villain.webp?v=1783797292726",
+  "backFateImage": "/cards/custom-dio/back-fate.webp?v=1783797292726",
   "boardImage": "/cards/custom-dio/board.jpg?v=1783797292726",
-  "pawnImage": "/cards/custom-dio/pawn.png?v=1783905012086",
+  "pawnImage": "/cards/custom-dio/pawn.webp?v=1783905012086",
   "extraDecks": [
     "Stand"
   ],

@@ -34,7 +34,7 @@ export const madameTremaineCards: CardDef[] = [
     // ordinaire ne peut y être ni jouée ni déplacée.
     forbiddenLocations: ['salle-de-bal'],
     text: 'Une des belles-filles de Madame de Trémaine. Peut être remplacée par Anastasie en robe de bal.',
-    image: img('anastasia.png'),
+    image: img('anastasia.webp'),
   },
   {
     id: 'drizella',
@@ -49,7 +49,7 @@ export const madameTremaineCards: CardDef[] = [
     // ordinaire ne peut y être ni jouée ni déplacée.
     forbiddenLocations: ['salle-de-bal'],
     text: 'Une des belles-filles de Madame de Trémaine. Peut être remplacée par Javotte en robe de bal.',
-    image: img('drizella.png'),
+    image: img('drizella.webp'),
   },
   {
     id: 'ball-gown-anastasia',
@@ -62,7 +62,7 @@ export const madameTremaineCards: CardDef[] = [
     copies: 1,
     replacesCardId: 'anastasia',
     text: 'Défaussez Anastasie pour jouer Anastasie en robe de bal. Prête pour le bal.',
-    image: img('ball-gown-anastasia.png'),
+    image: img('ball-gown-anastasia.webp'),
   },
   {
     id: 'ball-gown-drizella',
@@ -75,7 +75,7 @@ export const madameTremaineCards: CardDef[] = [
     copies: 1,
     replacesCardId: 'drizella',
     text: 'Défaussez Javotte pour jouer Javotte en robe de bal. Prête pour le bal.',
-    image: img('ball-gown-drizella.png'),
+    image: img('ball-gown-drizella.webp'),
   },
   {
     id: 'lucifer',
@@ -87,7 +87,7 @@ export const madameTremaineCards: CardDef[] = [
     strength: 3,
     copies: 1,
     text: 'Si un Héros se retrouve sur le même lieu que Lucifer, placez un jeton Enfermé sur ce Héros (il est piégé).',
-    image: img('lucifer.png'),
+    image: img('lucifer.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -107,7 +107,7 @@ export const madameTremaineCards: CardDef[] = [
       { type: 'SUMMON_FATE_HERO_TO_OWN_REALM', heroCardId: 'the-prince', locationId: 'salle-de-bal' },
     ],
     activatedCost: 0,
-    image: img('invitation-du-roi.png'),
+    image: img('invitation-du-roi.webp'),
   },
   {
     id: 'canne-tremaine',
@@ -119,7 +119,7 @@ export const madameTremaineCards: CardDef[] = [
     copies: 1,
     text: 'Activer : retirez une Pantoufle de Verre de votre royaume (le seul moyen de les retirer).',
     activatedCost: 0,
-    image: img('canne-tremaine.png'),
+    image: img('canne-tremaine.webp'),
   },
   {
     id: 'la-cle',
@@ -132,7 +132,7 @@ export const madameTremaineCards: CardDef[] = [
     text: 'À la pose : déplacez Cendrillon (si elle est en jeu) sur la Chambre de Cendrillon et placez un jeton Enfermé sur elle. Activer : déplacez un Héros sur la Chambre de Cendrillon et placez un jeton Enfermé sur lui.',
     effects: [{ type: 'MOVE_NAMED_HERO_TO_AND_TRAP', heroCardId: 'cendrillon', locationId: 'chambre-cendrillon' }],
     activatedCost: 0,
-    image: img('la-cle.png'),
+    image: img('la-cle.webp'),
   },
   {
     id: 'cloches-mariage',
@@ -143,7 +143,7 @@ export const madameTremaineCards: CardDef[] = [
     cost: 3,
     copies: 1,
     text: 'Au début de votre tour : si une de vos filles EN ROBE DE BAL et le Prince sont dans la Salle de Bal et qu’aucune Pantoufle de Verre n’est dans votre royaume, vous gagnez la partie.',
-    image: img('cloches-mariage.png'),
+    image: img('cloches-mariage.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -160,7 +160,7 @@ export const madameTremaineCards: CardDef[] = [
     text: 'Jouable pendant le tour d’un adversaire qui effectue une action Défausser. Vous pouvez défausser n’importe quel nombre de cartes de votre choix, puis piochez pour compléter votre main à quatre cartes.',
     trigger: { type: 'opponent-discarded-ge', value: 1 },
     effects: [{ type: 'DISCARD_ANY_THEN_REFILL', handLimit: 4, label: 'J’allais oublier un détail' }],
-    image: img('et-une-chose-encore.png'),
+    image: img('et-une-chose-encore.webp'),
   },
   {
     id: 'enfermes',
@@ -172,7 +172,7 @@ export const madameTremaineCards: CardDef[] = [
     copies: 2,
     text: 'Jouable pendant le tour d’un adversaire qui effectue une action Éliminer un Héros. Placez un jeton Enfermé sur un Héros de votre royaume (il est piégé).',
     trigger: { type: 'opponent-vanquished-hero-strength-ge', value: 0 },
-    image: img('enfermes.png'),
+    image: img('enfermes.webp'),
   },
   {
     id: 'vilaines-farces',
@@ -184,7 +184,7 @@ export const madameTremaineCards: CardDef[] = [
     copies: 2,
     text: 'Jouable pendant le tour d’un adversaire qui vous cible avec une action Fatalité. Choisissez à sa place laquelle des cartes dévoilées est jouée (et, si c’est un Héros, sur quel lieu).',
     trigger: { type: 'opponent-fate-targeted-me' },
-    image: img('vilaines-farces.png'),
+    image: img('vilaines-farces.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -200,7 +200,7 @@ export const madameTremaineCards: CardDef[] = [
     copies: 4,
     text: 'Effectuez une action « Déplacer un Objet ou un Allié » OU une action « Activer » (au choix si les deux sont possibles).',
     effects: [{ type: 'GRANT_FREE_MOVE_OR_ACTIVATE' }],
-    image: img('il-y-a-encore-une-chance.png'),
+    image: img('il-y-a-encore-une-chance.webp'),
   },
   {
     id: 'je-disais-si',
@@ -212,7 +212,7 @@ export const madameTremaineCards: CardDef[] = [
     copies: 3,
     text: 'Mélangez votre défausse de Méchant avec votre pioche, puis piochez 2 cartes.',
     effects: [{ type: 'RESHUFFLE_DISCARD_AND_DRAW', count: 2 }],
-    image: img('je-disais-si.png'),
+    image: img('je-disais-si.webp'),
   },
   {
     id: 'piege',
@@ -224,7 +224,7 @@ export const madameTremaineCards: CardDef[] = [
     copies: 3,
     text: 'Placez un jeton Capturé sur un Héros de votre royaume : sa capacité est ignorée et il ne recouvre plus d’action.',
     effects: [{ type: 'TRAP_HERO' }],
-    image: img('piege.png'),
+    image: img('piege.webp'),
   },
   {
     id: 'je-ne-reviens-jamais',
@@ -236,7 +236,7 @@ export const madameTremaineCards: CardDef[] = [
     copies: 2,
     text: 'Mélangez votre défausse Fatalité dans votre pioche Fatalité, puis regardez les 4 premières cartes et replacez-les dans l’ordre de votre choix sur le dessus.',
     effects: [{ type: 'RESHUFFLE_FATE_THEN_REORDER', count: 4 }],
-    image: img('je-ne-reviens-jamais.png'),
+    image: img('je-ne-reviens-jamais.webp'),
   },
   {
     id: 'petite-voleuse',
@@ -254,7 +254,7 @@ export const madameTremaineCards: CardDef[] = [
         onlyCardIds: ['cendrillon', 'ball-gown-cinderella'],
       },
     ],
-    image: img('petite-voleuse.png'),
+    image: img('petite-voleuse.webp'),
   },
   {
     id: 'minuit-tremaine',
@@ -269,7 +269,7 @@ export const madameTremaineCards: CardDef[] = [
       { type: 'INSTANT_VANQUISH_ALL_HEROES' },
       { type: 'FETCH_FATE_ITEMS_TO_REALM', cardIds: ['pantoufle-chambre', 'pantoufle-chateau'] },
     ],
-    image: img('minuit-tremaine.png'),
+    image: img('minuit-tremaine.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -284,7 +284,7 @@ export const madameTremaineCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'Les Événements coûtent 2 jetons Pouvoir de plus. Recouvre la rangée du haut de son lieu.',
-    image: img('cendrillon.png'),
+    image: img('cendrillon.webp'),
   },
   {
     id: 'ball-gown-cinderella',
@@ -296,7 +296,7 @@ export const madameTremaineCards: CardDef[] = [
     copies: 1,
     text: 'Aucun Allié ne peut entrer dans la Salle de Bal tant qu’elle est en jeu. Recouvre la rangée du haut de son lieu.',
     blocksAlliesAtLocation: 'salle-de-bal',
-    image: img('ball-gown-cinderella.png'),
+    image: img('ball-gown-cinderella.webp'),
   },
   {
     id: 'fairy-godmother',
@@ -309,7 +309,7 @@ export const madameTremaineCards: CardDef[] = [
     text: 'Tant qu’elle est en jeu, aucun Allié ne peut être déplacé. Quand elle est jouée, cherchez et jouez Cendrillon en robe de bal. Recouvre la rangée du haut de son lieu.',
     blocksAllyMoves: true,
     onPlace: [{ type: 'SUMMON_FATE_HERO_TO_OWN_REALM', heroCardId: 'ball-gown-cinderella', locationId: 'salle-de-bal' }],
-    image: img('fairy-godmother.png'),
+    image: img('fairy-godmother.webp'),
   },
   {
     id: 'jaq',
@@ -321,7 +321,7 @@ export const madameTremaineCards: CardDef[] = [
     copies: 1,
     text: 'À son arrivée, défaussez un Objet du royaume de Madame de Trémaine (de préférence les Cloches de Mariage ou la Canne).',
     onPlace: [{ type: 'FATE_DISCARD_STRONGEST_ALLY_OR_ITEM', onlyType: 'item', preferCardIds: ['cloches-mariage', 'canne-tremaine'] }],
-    image: img('jaq.png'),
+    image: img('jaq.webp'),
   },
   {
     id: 'gus',
@@ -332,7 +332,7 @@ export const madameTremaineCards: CardDef[] = [
     strength: 1,
     copies: 1,
     text: 'Une des souris amies de Cendrillon.',
-    image: img('gus.png'),
+    image: img('gus.webp'),
   },
   {
     id: 'bruno',
@@ -344,7 +344,7 @@ export const madameTremaineCards: CardDef[] = [
     copies: 1,
     text: 'Quand Pataud est joué ou déplacé, déplacez Lucifer vers son lieu. Ennemi juré de Lucifer.',
     onPlace: [{ type: 'MOVE_ALLY_TO_HOST', cardId: 'lucifer' }],
-    image: img('bruno.png'),
+    image: img('bruno.webp'),
   },
   {
     id: 'the-prince',
@@ -356,7 +356,7 @@ export const madameTremaineCards: CardDef[] = [
     copies: 1,
     text: 'Quand il est dévoilé, il est obligatoire de le jouer (l’autre carte est défaussée) ; il ne peut être joué que sur la Salle de Bal (verrouillée ou non). Ne recouvre aucune action et peut être déplacé par Madame de Trémaine.',
     forcedFateLocation: 'salle-de-bal',
-    image: img('the-prince.png'),
+    image: img('the-prince.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -371,7 +371,7 @@ export const madameTremaineCards: CardDef[] = [
     copies: 1,
     forcedFateLocation: 'chambre-cendrillon',
     text: 'Jouée sur la Chambre de Cendrillon (non associée à un Héros). Tant qu’une Pantoufle de Verre est dans le royaume de Madame de Trémaine, le mariage est impossible. Seule la Canne peut la retirer.',
-    image: img('pantoufle-chambre.png'),
+    image: img('pantoufle-chambre.webp'),
   },
   {
     id: 'pantoufle-chateau',
@@ -382,7 +382,7 @@ export const madameTremaineCards: CardDef[] = [
     copies: 1,
     forcedFateLocation: 'chateau',
     text: 'Jouée sur le Château (non associée à un Héros). Tant qu’une Pantoufle de Verre est dans le royaume de Madame de Trémaine, le mariage est impossible. Seule la Canne peut la retirer.',
-    image: img('pantoufle-chateau.png'),
+    image: img('pantoufle-chateau.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -397,7 +397,7 @@ export const madameTremaineCards: CardDef[] = [
     copies: 3,
     text: 'La magie de la Bonne Fée : retirez le jeton « piégé » d’un Héros du royaume de Madame de Trémaine (il redevient actif).',
     effects: [{ type: 'UNTRAP_HERO' }],
-    image: img('bibbidi-bobbidi-boo.png'),
+    image: img('bibbidi-bobbidi-boo.webp'),
   },
   {
     id: 'sweet-nightingale',
@@ -411,6 +411,6 @@ export const madameTremaineCards: CardDef[] = [
     // un branchement cardId dans resolveFate (pendingAllyRelocate, comme Flèche de Mome
     // Raths) → pas d'`effects` ici.
     text: 'Déplacez un Allié du royaume de Madame de Trémaine vers n’importe quel lieu.',
-    image: img('sweet-nightingale.png'),
+    image: img('sweet-nightingale.webp'),
   },
 ]

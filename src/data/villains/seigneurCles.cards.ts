@@ -24,7 +24,7 @@ export const seigneurClesCards: CardDef[] = [
     copies: 1,
     drawCardOnFateTargeted: true,
     text: 'Piochez une carte Méchant si vous êtes la cible d’une action Fatalité.',
-    image: img('appel.png'),
+    image: img('appel.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -41,7 +41,7 @@ export const seigneurClesCards: CardDef[] = [
     text: 'Cette carte est jouable pendant le tour d’un adversaire lorsqu’il défausse au moins 2 cartes. Piochez autant de cartes Méchant que de cartes défaussées par l’adversaire.',
     trigger: { type: 'opponent-discarded-ge', value: 2 },
     effects: [{ type: 'DRAW_PER_OPPONENT_DISCARD' }],
-    image: img('miserable-cloporte.png'),
+    image: img('miserable-cloporte.webp'),
   },
   {
     id: 'peste',
@@ -54,7 +54,7 @@ export const seigneurClesCards: CardDef[] = [
     text: 'Cette carte est jouable pendant le tour d’un adversaire s’il réalise au moins 3 actions. À son prochain tour, il ne pourra réaliser qu’une seule action.',
     trigger: { type: 'opponent-actions-ge', value: 3 },
     effects: [{ type: 'CAP_OPPONENT_NEXT_TURN', actions: 1 }],
-    image: img('peste.png'),
+    image: img('peste.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -70,7 +70,7 @@ export const seigneurClesCards: CardDef[] = [
     copies: 2,
     text: 'Envoyez un Héros dans la Fosse commune.',
     effects: [{ type: 'MOVE_HERO_TO_LOCATION', locationId: 'fosse-commune' }],
-    image: img('banni.png'),
+    image: img('banni.webp'),
   },
   {
     id: 'souffre-douleur',
@@ -82,7 +82,7 @@ export const seigneurClesCards: CardDef[] = [
     copies: 2,
     text: 'Associez cette carte à un Héros, sa force est réduite à 0 (jusqu’à la fin du tour).',
     effects: [{ type: 'REDUCE_HERO_STRENGTH_TEMP', amount: 99 }],
-    image: img('souffre-douleur.png'),
+    image: img('souffre-douleur.webp'),
   },
   {
     id: 'pierre-tombale',
@@ -94,7 +94,7 @@ export const seigneurClesCards: CardDef[] = [
     copies: 3,
     text: 'Jetez le dé de couleur. Si une clé de cette couleur se trouve sur le lieu où vous êtes, prenez-la.',
     effects: [{ type: 'ROLL_DIE_TAKE_KEY_AT_PAWN' }],
-    image: img('pierre-tombale.png'),
+    image: img('pierre-tombale.webp'),
   },
   {
     id: 'carte-temps',
@@ -106,7 +106,7 @@ export const seigneurClesCards: CardDef[] = [
     copies: 2,
     text: 'Au prochain tour, effectuez une action 2 fois.',
     effects: [{ type: 'GRANT_REPEAT_ACTION_NEXT_TURN' }],
-    image: img('carte-temps.png'),
+    image: img('carte-temps.webp'),
   },
   {
     id: 'carte-destin',
@@ -118,7 +118,7 @@ export const seigneurClesCards: CardDef[] = [
     copies: 2,
     text: 'Piochez 3 cartes et défaussez une carte de votre main.',
     effects: [{ type: 'DRAW_THEN_DISCARD', draw: 3, discard: 1 }],
-    image: img('carte-destin.png'),
+    image: img('carte-destin.webp'),
   },
   {
     id: 'toute-puissance',
@@ -130,7 +130,7 @@ export const seigneurClesCards: CardDef[] = [
     copies: 3,
     text: 'Gagnez une clé de votre choix sur le lieu où vous êtes.',
     effects: [{ type: 'TAKE_KEY_AT_PAWN' }],
-    image: img('toute-puissance.png'),
+    image: img('toute-puissance.webp'),
   },
   {
     id: 'manque-de-temps',
@@ -142,7 +142,7 @@ export const seigneurClesCards: CardDef[] = [
     copies: 2,
     text: 'Défaussez toute votre main et piochez 4 cartes Méchant.',
     effects: [{ type: 'DISCARD_HAND_DRAW', draw: 4 }],
-    image: img('manque-de-temps.png'),
+    image: img('manque-de-temps.webp'),
   },
   {
     id: 'cest-moi-qui-decide',
@@ -154,7 +154,7 @@ export const seigneurClesCards: CardDef[] = [
     copies: 3,
     text: 'Effectuez une action « Obtenir une clé » (lancez le dé de couleur).',
     effects: [{ type: 'ROLL_DIE_TAKE_KEY_FROM_BOARD' }],
-    image: img('cest-moi-qui-decide.png'),
+    image: img('cest-moi-qui-decide.webp'),
   },
   {
     id: 'repondez',
@@ -166,7 +166,7 @@ export const seigneurClesCards: CardDef[] = [
     copies: 2,
     text: 'Gagnez 1 jeton Pouvoir par couleur de clé différente en votre possession.',
     effects: [{ type: 'GAIN_POWER_PER_KEY_COLOR' }],
-    image: img('repondez.png'),
+    image: img('repondez.webp'),
   },
   {
     id: 'trop-facile',
@@ -178,7 +178,7 @@ export const seigneurClesCards: CardDef[] = [
     copies: 2,
     text: 'Perdez une clé de votre choix et gagnez 3 jetons Pouvoir.',
     effects: [{ type: 'LOSE_KEY_GAIN_POWER', power: 3 }],
-    image: img('trop-facile.png'),
+    image: img('trop-facile.webp'),
   },
   {
     id: 'plus-quune-minute',
@@ -190,7 +190,7 @@ export const seigneurClesCards: CardDef[] = [
     copies: 2,
     text: 'Perdez une clé de votre choix et piochez 3 cartes.',
     effects: [{ type: 'LOSE_KEY_DRAW', draw: 3 }],
-    image: img('plus-quune-minute.png'),
+    image: img('plus-quune-minute.webp'),
   },
   {
     id: 'minuit',
@@ -202,7 +202,7 @@ export const seigneurClesCards: CardDef[] = [
     copies: 1,
     text: 'Choisissez une couleur puis lancez le dé de couleur. Si la couleur obtenue est la même, prenez une clé de cette couleur.',
     effects: [{ type: 'CHOOSE_COLOR_ROLL_TAKE_KEY' }],
-    image: img('minuit.png'),
+    image: img('minuit.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -218,7 +218,7 @@ export const seigneurClesCards: CardDef[] = [
     copies: 1,
     text: 'Lorsqu’ANNE est jouée, le Seigneur des clés doit défausser toutes les cartes Événement de sa main.',
     onPlace: [{ type: 'TARGET_DISCARD_ALL_OF_TYPE', cardType: 'effect' }],
-    image: img('anne-de-chantraine.png'),
+    image: img('anne-de-chantraine.webp'),
   },
   {
     id: 'elisabeth-bathory',
@@ -229,7 +229,7 @@ export const seigneurClesCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'Tant qu’ÉLISABETH BATHORY est présente, les cartes « Condition » sont inutilisables.',
-    image: img('elisabeth-bathory.png'),
+    image: img('elisabeth-bathory.webp'),
   },
   {
     id: 'baron-samedi',
@@ -241,7 +241,7 @@ export const seigneurClesCards: CardDef[] = [
     copies: 1,
     text: 'Lorsque BARON SAMEDI est joué, jetez le dé de couleur. Tant qu’il est présent, le Seigneur ne peut pas gagner de clé de cette couleur à l’aide du dé.',
     onPlace: [{ type: 'ROLL_DIE_BLOCK_KEY_COLOR' }],
-    image: img('baron-samedi.png'),
+    image: img('baron-samedi.webp'),
   },
   {
     id: 'hellin',
@@ -253,7 +253,7 @@ export const seigneurClesCards: CardDef[] = [
     copies: 1,
     coversExtraAction: true,
     text: 'HELLIN bloque 3 actions au lieu de 2.',
-    image: img('hellin.png'),
+    image: img('hellin.webp'),
   },
   {
     id: 'khufu',
@@ -265,7 +265,7 @@ export const seigneurClesCards: CardDef[] = [
     copies: 1,
     text: 'Défaussez la carte Appel sur le lieu où est joué KHUFU.',
     onPlace: [{ type: 'DISCARD_CARDS_AT_HOST', cardId: 'appel' }],
-    image: img('khufu.png'),
+    image: img('khufu.webp'),
   },
   {
     id: 'gevaudan',
@@ -278,7 +278,7 @@ export const seigneurClesCards: CardDef[] = [
     text: 'Lorsque GÉVAUDAN est joué, il vole 2 clés au Seigneur des clés. S’il est éliminé, le Seigneur récupère ses clés.',
     onPlace: [{ type: 'STEAL_KEY_TO_HERO' }],
     onVanquish: [{ type: 'RETURN_STOLEN_KEYS' }],
-    image: img('gevaudan.png'),
+    image: img('gevaudan.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -292,7 +292,7 @@ export const seigneurClesCards: CardDef[] = [
     type: 'item',
     copies: 1,
     text: 'Associez cette Clé Noire à un lieu. Si le Seigneur s’y rend, il la récupère. Tant qu’il la possède, il ne peut pas remporter la partie.',
-    image: img('cle-noire.png'),
+    image: img('cle-noire.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -307,7 +307,7 @@ export const seigneurClesCards: CardDef[] = [
     copies: 1,
     text: 'Lancez le dé de couleur. Le Seigneur des clés perd toutes les clés de la couleur obtenue.',
     effects: [{ type: 'ROLL_DIE_LOSE_KEYS_COLOR' }],
-    image: img('jai-affronte-mon-cauchemar.png'),
+    image: img('jai-affronte-mon-cauchemar.webp'),
   },
   {
     id: 'sorcellerie',
@@ -318,7 +318,7 @@ export const seigneurClesCards: CardDef[] = [
     copies: 2,
     text: 'Choisissez une clé du Seigneur des clés et remettez-la sur un lieu de votre choix.',
     effects: [{ type: 'RETURN_OWNED_KEY_TO_BOARD' }],
-    image: img('sorcellerie.png'),
+    image: img('sorcellerie.webp'),
   },
   {
     id: 'duel',
@@ -329,7 +329,7 @@ export const seigneurClesCards: CardDef[] = [
     copies: 3,
     text: 'Prenez toutes les clés du plateau et replacez-les aléatoirement, équilibrées sur chaque lieu.',
     effects: [{ type: 'REDISTRIBUTE_BOARD_KEYS' }],
-    image: img('duel.png'),
+    image: img('duel.webp'),
   },
   {
     id: 'plaisir-ou-souffrance',
@@ -340,6 +340,6 @@ export const seigneurClesCards: CardDef[] = [
     copies: 2,
     text: 'Le Seigneur des clés choisit : perdre 3 jetons Pouvoir OU reposer une clé de son choix.',
     effects: [{ type: 'PLAISIR_OU_SOUFFRANCE', power: 3 }],
-    image: img('plaisir-ou-souffrance.png'),
+    image: img('plaisir-ou-souffrance.webp'),
   },
 ]

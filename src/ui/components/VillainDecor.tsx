@@ -5477,7 +5477,7 @@ function TeamRocketDecor() {
 // Dé UNIQUE qui bascule sur une nouvelle face toutes les 10 s. Faces RÉELLES du jeu
 // (mêmes images que le lancer de dés : le dé en os rouge d'Oogie Boogie).
 const OOGIE_DIE_SWAP_MS = 10000
-const oogieDieSrc = (face: number) => `/cards/oogie-boogie/die-${face}.png`
+const oogieDieSrc = (face: number) => `/cards/oogie-boogie/die-${face}.webp`
 // Teintes des feux follets sous la lumière noire (vert dominant + quelques violets).
 const OOGIE_MOTE_COLORS = ['#8aff9a', '#b6ff7a', '#7cff9f', '#c69cff', '#a878ff']
 // SURPRISE « les insectes se déversent » : par moments, une nuée d'insectes grouille depuis le bas et

@@ -5,13 +5,13 @@
   "devise": "Ce n'est pas une bonne idée de me chercher, parce que maintenant je te vois.",
   "stars": 4,
   "color": "#404991",
-  "portrait": "/cards/custom-flagelleur-mental/portrait.png?v=1784073600012",
-  "presentation": "/cards/custom-flagelleur-mental/presentation.png?v=1784073600012",
+  "portrait": "/cards/custom-flagelleur-mental/portrait.webp?v=1784073600012",
+  "presentation": "/cards/custom-flagelleur-mental/presentation.webp?v=1784073600012",
   "boardImage": "/cards/custom-flagelleur-mental/board.jpg?v=1784073600012",
-  "pawnImage": "/cards/custom-flagelleur-mental/pawn.png?v=1784073600012",
+  "pawnImage": "/cards/custom-flagelleur-mental/pawn.webp?v=1784073600012",
   "pawnHeightPx": 94,
-  "backVillainImage": "/cards/custom-flagelleur-mental/back-villain.png?v=1784073600012",
-  "backFateImage": "/cards/custom-flagelleur-mental/back-fate.png?v=1784073600012",
+  "backVillainImage": "/cards/custom-flagelleur-mental/back-villain.webp?v=1784073600012",
+  "backFateImage": "/cards/custom-flagelleur-mental/back-fate.webp?v=1784073600012",
   "boardObjective": "Chaque lieu (à part le MONDE À L'ENVERS) doit posséder un TUNNEL DE HAWKINS, faites venir ONZE sur l'ENTRÉE DU MONDE À L'ENVERS, puis ACTIVEZ l'ENTRÉE pour gagner.",
   "objectiveDescription": "Posez 3 TUNNELS DE HAWKINS sur les 3 premiers lieux, amenez ONZE (récupérée dans la Fatalité par BILLY SOUS EMPRISE) sur le lieu de l'ENTRÉE DU MONDE À L'ENVERS, puis ACTIVEZ l'ENTRÉE pour gagner. Tant que MAX MAYFIELD est présente, BILLY ne peut pas aller chercher ONZE.",
   "objective": {
@@ -60,7 +60,7 @@
           "amount": 1
         }
       ],
-      "image": "/cards/custom-flagelleur-mental/loc-centre-ville.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/loc-centre-ville.webp?v=1784073600012",
       "imagePos": {
         "x": 98,
         "y": 50
@@ -127,7 +127,7 @@
           "amount": 3
         }
       ],
-      "image": "/cards/custom-flagelleur-mental/loc-laboratoire.png?v=1784073600012"
+      "image": "/cards/custom-flagelleur-mental/loc-laboratoire.webp?v=1784073600012"
     },
     {
       "id": "monde-envers",
@@ -154,7 +154,7 @@
         }
       ],
       "lockedAtStart": true,
-      "image": "/cards/custom-flagelleur-mental/loc-monde-envers.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/loc-monde-envers.webp?v=1784073600012",
       "imagePos": {
         "x": 81,
         "y": 50
@@ -170,7 +170,7 @@
       "type": "condition",
       "copies": 2,
       "text": "Cette carte est jouable pendant le tour d'un adversaire s'il possède au moins 4 Jetons Pouvoir. Gagnez 2 Jetons Pouvoir.",
-      "image": "/cards/custom-flagelleur-mental/a-travers-les-yeux-de-will.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/a-travers-les-yeux-de-will.webp?v=1784073600012",
       "trigger": {
         "type": "opponent-power-ge",
         "value": 4
@@ -181,7 +181,7 @@
           "amount": 2
         }
       ],
-      "artImage": "/cards/custom-flagelleur-mental/a-travers-les-yeux-de-will.art.png?v=1784073600012",
+      "artImage": "/cards/custom-flagelleur-mental/a-travers-les-yeux-de-will.art.webp?v=1784073600012",
       "textLayout": {
         "x": 50,
         "y": 78.5,
@@ -197,12 +197,12 @@
       "type": "condition",
       "copies": 2,
       "text": "Cette carte est jouable pendant le tour d'un adversaire s'il joue un Allié. Jouez un Allié gratuitement puis piochez une carte.",
-      "image": "/cards/custom-flagelleur-mental/intrus-dans-le-monde-a-l-envers.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/intrus-dans-le-monde-a-l-envers.webp?v=1784073600012",
       "trigger": {
         "type": "opponent-played-ally",
         "requiresOwnAlly": true
       },
-      "artImage": "/cards/custom-flagelleur-mental/intrus-dans-le-monde-a-l-envers.art.png?v=1784073600012",
+      "artImage": "/cards/custom-flagelleur-mental/intrus-dans-le-monde-a-l-envers.art.webp?v=1784073600012",
       "textLayout": {
         "x": 50,
         "y": 78.5,
@@ -219,14 +219,14 @@
       "cost": 1,
       "copies": 3,
       "text": "Récupérez une carte dans votre défausse et ajoutez-la à votre main.",
-      "image": "/cards/custom-flagelleur-mental/passage-secret-entre-deux-mondes.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/passage-secret-entre-deux-mondes.webp?v=1784073600012",
       "effects": [
         {
           "type": "RECOVER_ANY_FROM_DISCARD",
           "label": "Passage secrète"
         }
       ],
-      "artImage": "/cards/custom-flagelleur-mental/passage-secret-entre-deux-mondes.art.png?v=1784073600012",
+      "artImage": "/cards/custom-flagelleur-mental/passage-secret-entre-deux-mondes.art.webp?v=1784073600012",
       "textLayout": {
         "x": 50,
         "y": 75,
@@ -243,14 +243,14 @@
       "cost": 1,
       "copies": 2,
       "text": "Regardez les 4 premières cartes dans votre deck Méchant ou votre deck Fatalités (coûte 1 Jeton Pouvoir supplémentaire) et changez l'ordre si vous souhaitez. Puis remettre sur le dessus de votre deck.",
-      "image": "/cards/custom-flagelleur-mental/will-sous-emprise.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/will-sous-emprise.webp?v=1784073600012",
       "effects": [
         {
           "type": "FLAYER_WILL_SCRY",
           "count": 4
         }
       ],
-      "artImage": "/cards/custom-flagelleur-mental/will-sous-emprise.art.png?v=1784073600012",
+      "artImage": "/cards/custom-flagelleur-mental/will-sous-emprise.art.webp?v=1784073600012",
       "textLayout": {
         "x": 50,
         "y": 78,
@@ -269,14 +269,14 @@
       "attach": "hero",
       "zeroesHostStrength": true,
       "text": "Associez cette carte à un Héros, sa force est à 0.",
-      "image": "/cards/custom-flagelleur-mental/une-nouvelle-personne-sous-emprise.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/une-nouvelle-personne-sous-emprise.webp?v=1784073600012",
       "textLayout": {
         "x": 50,
         "y": 75,
         "w": 79,
         "size": 76
       },
-      "artImage": "/cards/custom-flagelleur-mental/une-nouvelle-personne-sous-emprise.art.png?v=1784073600012"
+      "artImage": "/cards/custom-flagelleur-mental/une-nouvelle-personne-sous-emprise.art.webp?v=1784073600012"
     },
     {
       "id": "froid",
@@ -287,12 +287,12 @@
       "cost": 1,
       "copies": 2,
       "text": "Les Alliés qui se trouvent sur le même lieu que cet Objet ont une force augmentée de 1.",
-      "image": "/cards/custom-flagelleur-mental/froid.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/froid.webp?v=1784073600012",
       "strengthMod": {
         "target": "allies-here",
         "delta": 1
       },
-      "artImage": "/cards/custom-flagelleur-mental/froid.art.png?v=1784073600012",
+      "artImage": "/cards/custom-flagelleur-mental/froid.art.webp?v=1784073600012",
       "textLayout": {
         "x": 50,
         "y": 75,
@@ -309,7 +309,7 @@
       "cost": 2,
       "copies": 5,
       "text": "Défaussez 2 Alliés présents sur un même lieu, puis placez cet Objet sur ce lieu (à part le MONDE À L'ENVERS). \nGagnez 3 Jetons Pouvoir s'il y a 3 TUNNELS dans votre Royaume.",
-      "image": "/cards/custom-flagelleur-mental/tunnel-de-hawkins.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/tunnel-de-hawkins.webp?v=1784073600012",
       "forbiddenLocations": [
         "monde-envers"
       ],
@@ -329,7 +329,7 @@
         "w": 82.75384234557289,
         "size": 67
       },
-      "artImage": "/cards/custom-flagelleur-mental/tunnel-de-hawkins.art.png?v=1784073600012"
+      "artImage": "/cards/custom-flagelleur-mental/tunnel-de-hawkins.art.webp?v=1784073600012"
     },
     {
       "id": "entree-du-monde-a-l-envers",
@@ -340,9 +340,9 @@
       "cost": 2,
       "copies": 1,
       "text": "Cette carte peut être activée si ONZE est sur le même lieu que l'ENTRÉE DU MONDE À L'ENVERS et que 3 TUNNELS DE HAWKINS sont placés sur les 3 premiers lieux.",
-      "image": "/cards/custom-flagelleur-mental/entree-du-monde-a-l-envers.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/entree-du-monde-a-l-envers.webp?v=1784073600012",
       "activatedCost": 0,
-      "artImage": "/cards/custom-flagelleur-mental/entree-du-monde-a-l-envers.art.png?v=1784073600012",
+      "artImage": "/cards/custom-flagelleur-mental/entree-du-monde-a-l-envers.art.webp?v=1784073600012",
       "textLayout": {
         "x": 50,
         "y": 71,
@@ -369,9 +369,9 @@
       "strength": 4,
       "copies": 3,
       "text": "Gagnez 1 jeton Pouvoir à chaque fois que le DÉMOGORGON soit déplacé.",
-      "image": "/cards/custom-flagelleur-mental/demogorgon.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/demogorgon.webp?v=1784073600012",
       "powerOnMove": 1,
-      "artImage": "/cards/custom-flagelleur-mental/demogorgon.art.png?v=1784073600012",
+      "artImage": "/cards/custom-flagelleur-mental/demogorgon.art.webp?v=1784073600012",
       "textLayout": {
         "x": 50,
         "y": 75,
@@ -389,7 +389,7 @@
       "strength": 3,
       "copies": 1,
       "text": "Vous pouvez déplacer un Allié. Ne peut pas être défaussé pour utiliser le TUNNEL DE HAWKINS.",
-      "image": "/cards/custom-flagelleur-mental/billy-sous-emprise.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/billy-sous-emprise.webp?v=1784073600012",
       "cannotDiscardForTunnel": true,
       "effects": [
         {
@@ -429,7 +429,7 @@
           "size": 20
         }
       ],
-      "artImage": "/cards/custom-flagelleur-mental/billy-sous-emprise.art.png?v=1784073600012"
+      "artImage": "/cards/custom-flagelleur-mental/billy-sous-emprise.art.webp?v=1784073600012"
     },
     {
       "id": "vignes",
@@ -441,13 +441,13 @@
       "strength": 1,
       "copies": 3,
       "text": "Vous pouvez déplacer un Allié sur un lieu voisin.",
-      "image": "/cards/custom-flagelleur-mental/vignes.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/vignes.webp?v=1784073600012",
       "effects": [
         {
           "type": "MOVE_OWN_ALLY_ADJACENT"
         }
       ],
-      "artImage": "/cards/custom-flagelleur-mental/vignes.art.png?v=1784073600012",
+      "artImage": "/cards/custom-flagelleur-mental/vignes.art.webp?v=1784073600012",
       "textLayout": {
         "x": 50,
         "y": 75,
@@ -465,7 +465,7 @@
       "strength": 3,
       "copies": 4,
       "text": "Si 3 cartes The FLAYED sont posées dans votre royaume, débloquez le lieu MONDE À L'ENVERS.",
-      "image": "/cards/custom-flagelleur-mental/the-flayed.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/the-flayed.webp?v=1784073600012",
       "effects": [
         {
           "type": "FLAYER_FLAYED_UNLOCK",
@@ -475,7 +475,7 @@
           "willCardId": "will-byers"
         }
       ],
-      "artImage": "/cards/custom-flagelleur-mental/the-flayed.art.png?v=1784073600012",
+      "artImage": "/cards/custom-flagelleur-mental/the-flayed.art.webp?v=1784073600012",
       "textLayout": {
         "x": 50,
         "y": 75,
@@ -492,7 +492,7 @@
       "strength": 3,
       "copies": 1,
       "text": "La force de tous les autres Héros augmente de 1.",
-      "image": "/cards/custom-flagelleur-mental/mike-wheeler.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/mike-wheeler.webp?v=1784073600012",
       "strengthMod": {
         "target": "heroes-realm",
         "delta": 1
@@ -520,7 +520,7 @@
       "strength": 2,
       "copies": 1,
       "text": "Tant que WILL BYERS est présent, le lieu MONDE À L'ENVERS est bloqué.",
-      "image": "/cards/custom-flagelleur-mental/will-byers.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/will-byers.webp?v=1784073600012",
       "onPlace": [
         {
           "type": "FLAYER_GATE_LOCK",
@@ -557,10 +557,10 @@
       "strength": 3,
       "copies": 1,
       "text": "Activer la capacité des Objets sur le lieu où se trouve LUCAS coûte 1 jeton Pouvoir de plus.",
-      "image": "/cards/custom-flagelleur-mental/lucas-sinclair.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/lucas-sinclair.webp?v=1784073600012",
       "activateCostSurchargeHere": 1,
       "fateMalus": "slow",
-      "artImage": "/cards/custom-flagelleur-mental/lucas-sinclair.art.png?v=1784073600012",
+      "artImage": "/cards/custom-flagelleur-mental/lucas-sinclair.art.webp?v=1784073600012",
       "textLayout": {
         "x": 50,
         "y": 75,
@@ -582,10 +582,10 @@
       "strength": 3,
       "copies": 1,
       "text": "Si DUSTIN HENDERSON fait partie des deux cartes dévoilées lors d'une action Fatalité, vous pouvez les jouer tous les deux.",
-      "image": "/cards/custom-flagelleur-mental/dustin-henderson.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/dustin-henderson.webp?v=1784073600012",
       "fatePlayBoth": true,
       "fateMalus": "slow",
-      "artImage": "/cards/custom-flagelleur-mental/dustin-henderson.art.png?v=1784073600012",
+      "artImage": "/cards/custom-flagelleur-mental/dustin-henderson.art.webp?v=1784073600012",
       "artTransform": {
         "scale": 0.7,
         "offsetXPct": 0,
@@ -607,14 +607,14 @@
       "strength": 5,
       "copies": 1,
       "text": "Il faut désormais défausser 3 Alliés d'un même lieu pour placer un TUNNEL DE HAWKINS.",
-      "image": "/cards/custom-flagelleur-mental/onze.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/onze.webp?v=1784073600012",
       "textLayout": {
         "x": 50,
         "y": 75,
         "w": 79,
         "size": 76
       },
-      "artImage": "/cards/custom-flagelleur-mental/onze.art.png?v=1784073600012"
+      "artImage": "/cards/custom-flagelleur-mental/onze.art.webp?v=1784073600012"
     },
     {
       "id": "max-mayfield",
@@ -625,9 +625,9 @@
       "strength": 3,
       "copies": 1,
       "text": "Tant que MAX est présente, BILLY ne peut pas aller chercher ONZE.",
-      "image": "/cards/custom-flagelleur-mental/max-mayfield.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/max-mayfield.webp?v=1784073600012",
       "fateMalus": "block-advance",
-      "artImage": "/cards/custom-flagelleur-mental/max-mayfield.art.png?v=1784073600012",
+      "artImage": "/cards/custom-flagelleur-mental/max-mayfield.art.webp?v=1784073600012",
       "textLayout": {
         "x": 50,
         "y": 75,
@@ -643,13 +643,13 @@
       "type": "effect",
       "copies": 2,
       "text": "Déplacez un Héros sur le lieu voisin.",
-      "image": "/cards/custom-flagelleur-mental/frissons.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/frissons.webp?v=1784073600012",
       "effects": [
         {
           "type": "RELOCATE_HERO_ADJACENT"
         }
       ],
-      "artImage": "/cards/custom-flagelleur-mental/frissons.art.png?v=1784073600012",
+      "artImage": "/cards/custom-flagelleur-mental/frissons.art.webp?v=1784073600012",
       "textLayout": {
         "x": 50,
         "y": 75,
@@ -665,13 +665,13 @@
       "type": "effect",
       "copies": 1,
       "text": "Déplacez un Objet sur le lieu voisin.",
-      "image": "/cards/custom-flagelleur-mental/nancy-armee.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/nancy-armee.webp?v=1784073600012",
       "effects": [
         {
           "type": "MOVE_HERO_OR_ITEM_ADJACENT"
         }
       ],
-      "artImage": "/cards/custom-flagelleur-mental/nancy-armee.art.png?v=1784073600012",
+      "artImage": "/cards/custom-flagelleur-mental/nancy-armee.art.webp?v=1784073600012",
       "textLayout": {
         "x": 50,
         "y": 75,
@@ -692,7 +692,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Défaussez un Allié.",
-      "image": "/cards/custom-flagelleur-mental/chaleur.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/chaleur.webp?v=1784073600012",
       "effects": [
         {
           "type": "DISCARD_ALLY_OR_ITEM",
@@ -700,7 +700,7 @@
           "cardName": "Chaleur"
         }
       ],
-      "artImage": "/cards/custom-flagelleur-mental/chaleur.art.png?v=1784073600012",
+      "artImage": "/cards/custom-flagelleur-mental/chaleur.art.webp?v=1784073600012",
       "textLayout": {
         "x": 50,
         "y": 75,
@@ -716,14 +716,14 @@
       "type": "effect",
       "copies": 2,
       "text": "Perdez 2 jetons Pouvoir.",
-      "image": "/cards/custom-flagelleur-mental/telekinesie.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/telekinesie.webp?v=1784073600012",
       "effects": [
         {
           "type": "LOSE_POWER",
           "amount": 2
         }
       ],
-      "artImage": "/cards/custom-flagelleur-mental/telekinesie.art.png?v=1784073600012",
+      "artImage": "/cards/custom-flagelleur-mental/telekinesie.art.webp?v=1784073600012",
       "textLayout": {
         "x": 50,
         "y": 75,
@@ -741,9 +741,9 @@
       "attach": "hero",
       "attachStrengthBonus": 1,
       "text": "Associez cet Objet à un Héros. Sa force augmente de 1.",
-      "image": "/cards/custom-flagelleur-mental/batte-de-baseball.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/batte-de-baseball.webp?v=1784073600012",
       "fateMalus": "slow",
-      "artImage": "/cards/custom-flagelleur-mental/batte-de-baseball.art.png?v=1784073600012",
+      "artImage": "/cards/custom-flagelleur-mental/batte-de-baseball.art.webp?v=1784073600012",
       "textLayout": {
         "x": 50,
         "y": 75,
@@ -956,7 +956,7 @@
       }
     }
   },
-  "portraitRaw": "/cards/custom-flagelleur-mental/portrait-raw.png?v=1784073600012",
+  "portraitRaw": "/cards/custom-flagelleur-mental/portrait-raw.webp?v=1784073600012",
   "portraitCrop": {
     "x": 50,
     "y": 14,
@@ -965,14 +965,14 @@
   "backOverlays": [
     {
       "id": "ovl-1",
-      "image": "/cards/custom-flagelleur-mental/back-overlay-0.png?v=1784073600012",
+      "image": "/cards/custom-flagelleur-mental/back-overlay-0.webp?v=1784073600012",
       "x": 50,
       "y": 50,
       "size": 103,
       "aspect": 1.4085281980742779
     }
   ],
-  "boardArt": "/cards/custom-flagelleur-mental/board-art.png?v=1784073600012",
+  "boardArt": "/cards/custom-flagelleur-mental/board-art.webp?v=1784073600012",
   "portraitPos": {
     "x": 50,
     "y": 33,

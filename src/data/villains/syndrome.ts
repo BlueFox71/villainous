@@ -32,11 +32,11 @@ export const syndrome: VillainDef = {
     'en défaussant des Modifications Majeures, jusqu’à le poser sur Métroville. Récupérez la ' +
     'Télécommande de Syndrome, posez-la sur Métroville, puis activez-la (votre pion ET l’Omnidroïde ' +
     'v.10 sur place) pour le détruire.',
-  boardImage: img('board.png'),
+  boardImage: img('board.webp'),
   pawnImage: '/pion_syndrome.png',
   pawnHeightPx: 104,
-  backVillainImage: img('back-villain.png'),
-  backFateImage: img('back-fate.png'),
+  backVillainImage: img('back-villain.webp'),
+  backFateImage: img('back-fate.webp'),
   // L'Omnidroïde v.X8 débute sur l'Île de Nomanisan (le repaire). v.X9 puis v.10
   // forment la pile (jouées en défaussant des Modifications Majeures).
   omnidroidSetup: {

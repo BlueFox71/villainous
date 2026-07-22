@@ -33,11 +33,11 @@ export const scar: VillainDef = {
     'Trouvez et éliminez Mufasa, qui rejoint la pile Succession, puis éliminez ' +
     'd’autres Héros pour atteindre une Force combinée d’au moins 15 dans cette pile. ' +
     'Vous ne pouvez gagner qu’au début de votre tour.',
-  boardImage: '/cards/scar/board.png',
+  boardImage: '/cards/scar/board.webp',
   pawnImage: '/pion_scar.png',
   pawnHeightPx: 100,
-  backVillainImage: '/cards/scar/back-villain.png',
-  backFateImage: '/cards/scar/back-fate.png',
+  backVillainImage: '/cards/scar/back-villain.webp',
+  backFateImage: '/cards/scar/back-fate.webp',
   locations: [
     {
       id: 'rocher-lions',

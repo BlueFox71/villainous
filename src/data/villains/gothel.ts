@@ -36,11 +36,11 @@ export const gothel: VillainDef = {
     'qu’au début de votre tour. Raiponce commence sur la Tour et se déplace d’un ' +
     'lieu vers la droite à la fin de chacun de vos tours ; éliminée, elle revient ' +
     'sur la Tour au lieu d’être défaussée.',
-  boardImage: img('board.png'),
+  boardImage: img('board.webp'),
   pawnImage: '/pion_gothel.png',
   pawnHeightPx: 100,
-  backVillainImage: img('back-fate.png'),
-  backFateImage: img('back-villain.png'),
+  backVillainImage: img('back-fate.webp'),
+  backFateImage: img('back-villain.webp'),
   locations: [
     {
       id: 'tour',

@@ -149,7 +149,7 @@
           "label": "Gagner 3 pouvoir"
         }
       ],
-      "image": "/cards/custom-mr-monopoly/loc-loc-4.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/loc-loc-4.webp?v=1783792105901",
       "imagePos": {
         "x": 50,
         "y": 50,
@@ -166,13 +166,13 @@
       "type": "effect",
       "copies": 5,
       "text": "Choisissez un adversaire. Payez et ajoutez des maison sur le lieu où il se trouve. acheter une maison coûte 1 jeton pouvoir sauf sur le repaire du vilain qui en coûte 2. lorsque que l'adversaire se déplace sur ce lieu, Mr. Monopoly gagne les jetons pouvoir équivalent au coût des maisons.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-affaire.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-affaire.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-affaire.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-affaire.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50,
         "y": 79.0215189389596,
@@ -188,14 +188,14 @@
       "type": "effect",
       "copies": 1,
       "text": "Avant de déplacer votre pion, allez chercher une carte Affaire de votre défausse, payez son coût et jouez-la.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-chapeau-haut-de-forme.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-chapeau-haut-de-forme.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "cost": 1,
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-chapeau-haut-de-forme.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-chapeau-haut-de-forme.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.30555555555556,
         "y": 78.2876581431793,
@@ -211,13 +211,13 @@
       "type": "item",
       "copies": 1,
       "text": " Déplacez deux maisons de n'importe quel lieu vers n'importe quel lieu du même royaume.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-carte-bancaire.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-carte-bancaire.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-carte-bancaire.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-carte-bancaire.art.webp?v=1783792105901",
       "textLayout": {
         "x": 48.611111111111114,
         "y": 86.6047471620227,
@@ -243,14 +243,14 @@
       "type": "effect",
       "copies": 3,
       "text": "Gagnez 1 Jeton pouvoir par maison chez les autres joueurs (jusqu'à 5).",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-erreur-de-la-banque-en-votre-faveur.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-erreur-de-la-banque-en-votre-faveur.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "cost": 0,
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-erreur-de-la-banque-en-votre-faveur.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-erreur-de-la-banque-en-votre-faveur.art.webp?v=1783792105901",
       "textLayout": {
         "x": 51.388888888888886,
         "y": 78.7768986736995,
@@ -266,14 +266,14 @@
       "type": "effect",
       "copies": 2,
       "text": "Choisissez une carte de votre défausse et ajoutez-la à votre main.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-deuxieme-prix-de-beaute.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-deuxieme-prix-de-beaute.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "cost": 1,
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-deuxieme-prix-de-beaute.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-deuxieme-prix-de-beaute.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.65277777777778,
         "y": 76.0860757558384,
@@ -289,14 +289,14 @@
       "type": "effect",
       "copies": 2,
       "text": "Déplacez un Héros jusqu'à la prison.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-allez-en-prison.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-allez-en-prison.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "cost": 2,
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-allez-en-prison.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-allez-en-prison.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.65277777777778,
         "y": 76.0860757558384,
@@ -312,14 +312,14 @@
       "type": "effect",
       "copies": 3,
       "text": "Déplacez votre pion vers n'importe quel lieu et effectuez une action de ce lieu en dehors d'une action fatalité. Puis terminez votre tour.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-reculez-de-trois-cases.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-reculez-de-trois-cases.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "cost": 1,
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-reculez-de-trois-cases.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-reculez-de-trois-cases.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50,
         "y": 77.553797347399,
@@ -335,13 +335,13 @@
       "type": "effect",
       "copies": 5,
       "text": "Éliminez un Héros. Le coût de la carte est égal à la force du Héros choisi.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-banqueroute.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-banqueroute.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-banqueroute.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-banqueroute.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.65277777777778,
         "y": 75.35221496005809,
@@ -357,13 +357,13 @@
       "type": "condition",
       "copies": 2,
       "text": "Cette carte est jouable pendant le tour d'un adversaire si celui-ci se déplace, ajoutez une maison à ce lieu. Payez son coût.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-monopoly.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-monopoly.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-monopoly.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-monopoly.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50,
         "y": 76.8199365516187,
@@ -379,13 +379,13 @@
       "type": "condition",
       "copies": 2,
       "text": "Cette carte est jouable pendant le tour d'un adversaire si la partie dure 10 minutes ou plus. Allez chercher n'importe quelle carte dans votre défausse (hors Condition) et jouez-la gratuitement.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-monotonie.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-monotonie.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-monotonie.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-monotonie.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50,
         "y": 78.5322784084394,
@@ -401,7 +401,7 @@
       "type": "ally",
       "copies": 1,
       "text": "Lorsque l'Officier de Police se déplace et se trouve sur un lieu avec un Héros, celui-ci est déplacé à la Prison.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-officier-de-police.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-officier-de-police.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -409,7 +409,7 @@
       },
       "cost": 3,
       "strength": 4,
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-officier-de-police.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-officier-de-police.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50.34722222222222,
         "y": 77.7984176126591,
@@ -425,14 +425,14 @@
       "type": "item",
       "copies": 1,
       "text": "Lorsque votre pion se trouve sur le même lieu que la CANNE, effectuez une action d'un lieu où se trouve une maison ou hôtel chez un adversaire en dehors d'une action Fatalité et gagnez 1 Jeton pouvoir.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-canne.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-canne.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "cost": 2,
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-canne.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-canne.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50.34722222222222,
         "y": 79.0215189389596,
@@ -448,14 +448,14 @@
       "type": "item",
       "copies": 1,
       "text": "Si MR. MONOPOLY et son OMBRE se trouvent sur le même lieu, le coût pour ajouter une maison est réduit de 1.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-l-ombre-de-monopoly.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-l-ombre-de-monopoly.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "cost": 2,
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-l-ombre-de-monopoly.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-l-ombre-de-monopoly.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50.34722222222222,
         "y": 76.8199365516187,
@@ -471,13 +471,13 @@
       "type": "effect",
       "copies": 2,
       "text": "Monsieur Monopoly perd la moitiée de ses Jetons Pouvoir arrondie aux supérieurs (jusqu'à 10).",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-renovation.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-renovation.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-renovation.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-renovation.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50,
         "y": 75.35221496005809,
@@ -493,13 +493,13 @@
       "type": "effect",
       "copies": 2,
       "text": "Associez cette carte à un Héros. Jouer une carte Événement qui cible ce Héros coûte 2 Jetons Pouvoir supplémentaires.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-regles-inventees.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-regles-inventees.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-regles-inventees.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-regles-inventees.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.65277777777778,
         "y": 76.5753162863586,
@@ -515,13 +515,13 @@
       "type": "effect",
       "copies": 2,
       "text": "Déplacez un Héros vers n'importe quel lieu ou déplacez Monsieur Monopoly vers la prison. Ignorez la case départ.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-libere-de-prison.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-libere-de-prison.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-libere-de-prison.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-libere-de-prison.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.65277777777778,
         "y": 77.553797347399,
@@ -537,13 +537,13 @@
       "type": "effect",
       "copies": 1,
       "text": "Détruisez une maison de n'importe quel joueur.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-beaucoup-trop-de-jeux.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-beaucoup-trop-de-jeux.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-beaucoup-trop-de-jeux.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-beaucoup-trop-de-jeux.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.30555555555556,
         "y": 76.5753162863586,
@@ -559,14 +559,14 @@
       "type": "hero",
       "copies": 1,
       "text": "Tous les autres Héros dans le royaume ont une force augmentée de 2.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-de-a-coudre.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-de-a-coudre.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "strength": 1,
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-de-a-coudre.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-de-a-coudre.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50.69444444444444,
         "y": 76.8199365516187,
@@ -582,14 +582,14 @@
       "type": "hero",
       "copies": 1,
       "text": "MR. MONOPOLY ne peut pas gagner de Jeton pouvoir venant des Loyers.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-fer-a-repasser.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-fer-a-repasser.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "strength": 4,
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-fer-a-repasser.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-fer-a-repasser.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.30555555555556,
         "y": 74.1291136337576,
@@ -605,14 +605,14 @@
       "type": "hero",
       "copies": 1,
       "text": "Lorsque VOITURE est jouée, vous pouvez déplacer un Héros vers n'importe quel lieu.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-voiture.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-voiture.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "strength": 3,
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-voiture.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-voiture.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.65277777777778,
         "y": 74.1291136337576,
@@ -628,14 +628,14 @@
       "type": "hero",
       "copies": 1,
       "text": "À la fin de chaque tour, déplacez CHIEN d'un lieu vers le pion de MR. MONOPOLY.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-chien.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-chien.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "strength": 2,
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-chien.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-chien.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.30555555555556,
         "y": 75.107594694798,
@@ -651,14 +651,14 @@
       "type": "hero",
       "copies": 1,
       "text": "Les cartes, actions et loyers rapportent 1 Jeton Pouvoir de moins.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-brouette.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-brouette.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "strength": 3,
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-brouette.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-brouette.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50.34722222222222,
         "y": 74.3737338990177,
@@ -674,14 +674,14 @@
       "type": "hero",
       "copies": 1,
       "text": "Lorsque CHAUSSURE est joué, choisissez un lieu de n'importe quel joueur. Tant que CHAUSSURE est présent, Monsieur Monopoly ne peut pas ajouter de maison à ce lieu.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-chaussure.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-chaussure.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "strength": 2,
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-chaussure.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-chaussure.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50,
         "y": 75.5968352253182,
@@ -697,14 +697,14 @@
       "type": "hero",
       "copies": 1,
       "text": "MR. MONOPOLY ne peut pas ajouter de nouvelle maison.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-haut-de-forme.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-haut-de-forme.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "strength": 4,
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-haut-de-forme.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-haut-de-forme.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50,
         "y": 72.90601230745709,
@@ -720,14 +720,14 @@
       "type": "hero",
       "copies": 1,
       "text": "Lorsque BATEAU est joué, défaussez une maison de n'importe quel joueur.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-bateau.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-bateau.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "strength": 4,
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-bateau.art.png?v=1783792105901",
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-bateau.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.65277777777778,
         "y": 71.19367045063639,
@@ -743,7 +743,7 @@
       "type": "item",
       "copies": 1,
       "text": "A chaque fois que votre pion dépasse ou se rend sur ce lieu.\nGagnez 1 jeton pouvoir.",
-      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-c1.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/custom-mr-monopoly-c1.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -758,18 +758,18 @@
         "w": 83.86111111111111,
         "size": 63
       },
-      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-c1.art.png?v=1783792105901"
+      "artImage": "/cards/custom-mr-monopoly/custom-mr-monopoly-c1.art.webp?v=1783792105901"
     }
   ],
   "createdAt": "2026-06-29T20:25:10.949Z",
   "updatedAt": "2026-07-22T20:00:00.000Z",
-  "presentation": "/cards/custom-mr-monopoly/presentation.png?v=1783792105901",
-  "portrait": "/cards/custom-mr-monopoly/portrait.png?v=1783792105901",
+  "presentation": "/cards/custom-mr-monopoly/presentation.webp?v=1783792105901",
+  "portrait": "/cards/custom-mr-monopoly/portrait.webp?v=1783792105901",
   "portraitRaw": "/cards/custom-mr-monopoly/portrait-raw.jpg?v=1783792105901",
   "backOverlays": [
     {
       "id": "ovl-1",
-      "image": "/cards/custom-mr-monopoly/back-overlay-0.png?v=1783792105901",
+      "image": "/cards/custom-mr-monopoly/back-overlay-0.webp?v=1783792105901",
       "x": 50,
       "y": 50,
       "size": 100,
@@ -781,9 +781,9 @@
     "x": 34,
     "y": 0
   },
-  "pawnImage": "/cards/custom-mr-monopoly/pawn.png?v=1783792105901",
-  "backVillainImage": "/cards/custom-mr-monopoly/back-villain.png?v=1783792105901",
-  "backFateImage": "/cards/custom-mr-monopoly/back-fate.png?v=1783792105901",
+  "pawnImage": "/cards/custom-mr-monopoly/pawn.webp?v=1783792105901",
+  "backVillainImage": "/cards/custom-mr-monopoly/back-villain.webp?v=1783792105901",
+  "backFateImage": "/cards/custom-mr-monopoly/back-fate.webp?v=1783792105901",
   "boardImage": "/cards/custom-mr-monopoly/board.jpg?v=1783792105901",
   "published": true,
   "creator": "Alexis",

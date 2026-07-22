@@ -36,11 +36,11 @@ export const mechanteReine: VillainDef = {
     'Jouez les 4 Ingrédients pour déverrouiller la Maison des Nains, préparez du ' +
     'Poison, faites venir Blanche-Neige (Miroir magique), puis éliminez-la avec ' +
     '« Croque ! ».',
-  boardImage: '/cards/mechante-reine/board.png',
+  boardImage: '/cards/mechante-reine/board.webp',
   pawnImage: '/pion_mechante_reine.png',
   pawnHeightPx: 96,
-  backVillainImage: '/cards/mechante-reine/back-villain.png',
-  backFateImage: '/cards/mechante-reine/back-fate.png',
+  backVillainImage: '/cards/mechante-reine/back-villain.webp',
+  backFateImage: '/cards/mechante-reine/back-fate.webp',
   lockedLocationsAtStart: ['maison-des-nains'],
   locations: [
     {

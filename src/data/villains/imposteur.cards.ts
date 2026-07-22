@@ -30,7 +30,7 @@ export const imposteurCards: CardDef[] = [
     copies: 5,
     text: "Défaussez un Coéquipier sur votre lieu ou le lieu d'un Allié. Les autres Coéquipiers sur ce lieu vous suspectent.",
     effects: [{ type: 'KILL_CREWMATE' }],
-    image: img('tuer.png'),
+    image: img('tuer.webp'),
   },
   {
     id: 'fausse-accusation',
@@ -42,7 +42,7 @@ export const imposteurCards: CardDef[] = [
     copies: 1,
     text: 'Défaussez un Coéquipier. Les autres Coéquipiers redeviennent normaux.',
     effects: [{ type: 'FALSE_ACCUSATION' }],
-    image: img('fausse-accusation.png'),
+    image: img('fausse-accusation.webp'),
   },
   {
     id: 'coequipier-imposteur',
@@ -55,7 +55,7 @@ export const imposteurCards: CardDef[] = [
     copies: 1,
     text: "Les tâches sur le lieu avec le Coéquipier IMPOSTEUR nécessitent 1 Coéquipier supplémentaire pour être défaussées.\n\nCe lieu gagne l'action : Jouer une carte.",
     grantsAction: { type: 'PLAY_CARD', label: 'Jouer une carte' },
-    image: img('coequipier-imposteur.png'),
+    image: img('coequipier-imposteur.webp'),
   },
   {
     id: 'porte-desactivee',
@@ -67,7 +67,7 @@ export const imposteurCards: CardDef[] = [
     copies: 2,
     text: 'Les Coéquipiers ne se déplacent pas à la fin de votre tour.',
     effects: [{ type: 'SKIP_CREWMATE_MOVE' }],
-    image: img('porte-desactivee.png'),
+    image: img('porte-desactivee.webp'),
   },
   {
     id: 'lumiere-desactivee',
@@ -79,7 +79,7 @@ export const imposteurCards: CardDef[] = [
     copies: 2,
     text: "Choisissez 2 Coéquipiers qui ne sont pas sur un sabotage. Déplacez-les vers un lieu voisin.",
     effects: [{ type: 'MOVE_CREWMATES_NEIGHBOR', count: 2 }],
-    image: img('lumiere-desactivee.png'),
+    image: img('lumiere-desactivee.webp'),
   },
   {
     id: 'communication-desactivee',
@@ -91,7 +91,7 @@ export const imposteurCards: CardDef[] = [
     copies: 3,
     text: "Défaussez un Objet qui provient d'une fatalité.",
     effects: [{ type: 'DISCARD_FATE_ITEM' }],
-    image: img('communication-desactivee.png'),
+    image: img('communication-desactivee.webp'),
   },
   {
     id: 'assurance',
@@ -103,7 +103,7 @@ export const imposteurCards: CardDef[] = [
     copies: 2,
     text: "Choisissez un Coéquipier sur votre lieu ou celui d'un Allié. Il redevient normal. Vous pouvez également le déplacer vers 2 lieux voisins.",
     effects: [{ type: 'REASSURE_CREWMATE' }],
-    image: img('assurance.png'),
+    image: img('assurance.webp'),
   },
   {
     id: 'trahison-imposteur',
@@ -115,7 +115,7 @@ export const imposteurCards: CardDef[] = [
     trigger: { type: 'opponent-vanquished-hero-strength-ge', value: 3 },
     effects: [{ type: 'KILL_NORMAL_CREWMATE' }],
     text: "Cette carte est utilisable pendant le tour d'un adversaire si celui-ci élimine un Héros de force 3 ou plus. Éliminez un Coéquipier qui ne vous suspecte pas.",
-    image: img('trahison.png'),
+    image: img('trahison.webp'),
   },
   {
     id: 'insidieux',
@@ -127,7 +127,7 @@ export const imposteurCards: CardDef[] = [
     trigger: { type: 'opponent-played-cards-ge', value: 2 },
     effects: [{ type: 'REASSURE_ANY' }],
     text: "Cette carte est utilisable pendant le tour d'un adversaire si celui-ci joue 2 cartes. Un Coéquipier suspect redevient normal.",
-    image: img('insidieux.png'),
+    image: img('insidieux.webp'),
   },
   {
     id: 'conduit',
@@ -138,7 +138,7 @@ export const imposteurCards: CardDef[] = [
     cost: 2,
     copies: 1,
     text: "Après que les Coéquipiers se déplacent à la fin de votre tour, tous les Coéquipiers à votre emplacement vous suspectent, puis déplacez-vous vers le lieu où se trouve l'Objet CONDUIT.",
-    image: img('conduit.png'),
+    image: img('conduit.webp'),
   },
   {
     id: 'tache-telechargement',
@@ -151,7 +151,7 @@ export const imposteurCards: CardDef[] = [
     discardAtCrewmates: 2,
     text: "Avant que les Coéquipiers se déplacent, s'il y a au moins 2 Coéquipiers sur ce lieu, défaussez cette carte.\n\nActiver : Choisissez une carte de votre défausse et ajoutez-la à votre main. Mélangez votre deck.",
     activatedCost: 0,
-    image: img('tache-telechargement.png'),
+    image: img('tache-telechargement.webp'),
   },
   {
     id: 'tache-station-essence',
@@ -164,7 +164,7 @@ export const imposteurCards: CardDef[] = [
     discardAtCrewmates: 4,
     text: "Avant que les Coéquipiers se déplacent, s'il y a au moins 4 Coéquipiers sur ce lieu, défaussez cette carte.\n\nActiver : Défaussez une carte de votre main. Piochez une carte.",
     activatedCost: 0,
-    image: img('tache-station-essence.png'),
+    image: img('tache-station-essence.webp'),
   },
   {
     id: 'tache-course',
@@ -177,7 +177,7 @@ export const imposteurCards: CardDef[] = [
     discardAtCrewmates: 3,
     text: "Avant que les Coéquipiers se déplacent, s'il y a au moins 3 Coéquipiers sur ce lieu, défaussez cette carte.\n\nActiver : Déplacez un Coéquipier vers un lieu voisin.",
     activatedCost: 0,
-    image: img('tache-course.png'),
+    image: img('tache-course.webp'),
   },
   {
     id: 'tache-electricite',
@@ -190,7 +190,7 @@ export const imposteurCards: CardDef[] = [
     discardAtCrewmates: 2,
     text: "Avant que les Coéquipiers se déplacent, s'il y a au moins 2 Coéquipiers sur ce lieu, défaussez cette carte.\n\nActiver : Gagnez 1 jeton Pouvoir par carte TÂCHE : ÉLECTRICITÉ dans votre royaume.",
     activatedCost: 0,
-    image: img('tache-electricite.png'),
+    image: img('tache-electricite.webp'),
   },
   {
     id: 'sabotage-o2',
@@ -204,7 +204,7 @@ export const imposteurCards: CardDef[] = [
     discardAtCrewmates: 2,
     isSabotage: true,
     text: "Cette carte peut être jouée uniquement à Admin, s'il n'y a pas d'autre sabotage dans le royaume. Avant que les Coéquipiers se déplacent, s'il y a au moins 2 Coéquipiers sur ce lieu, défaussez cette carte.\n\nSi cette carte reste pendant 3 tours, vous gagnez la partie.",
-    image: img('sabotage-o2.png'),
+    image: img('sabotage-o2.webp'),
   },
   {
     id: 'sabotage-reacteur',
@@ -218,7 +218,7 @@ export const imposteurCards: CardDef[] = [
     discardAtCrewmates: 2,
     isSabotage: true,
     text: "Cette carte peut être jouée uniquement au Réacteur, s'il n'y a pas d'autre sabotage dans le royaume. Avant que les Coéquipiers se déplacent, s'il y a au moins 2 Coéquipiers sur ce lieu, défaussez cette carte.\n\nSi cette carte reste pendant 3 tours, vous gagnez la partie.",
-    image: img('sabotage-reacteur.png'),
+    image: img('sabotage-reacteur.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -233,7 +233,7 @@ export const imposteurCards: CardDef[] = [
     type: 'effect',
     copies: 2,
     text: "Tous les Coéquipiers qui ne sont pas sur le lieu de l'Imposteur ou de son Allié le suspectent. Augmentez de 1 le compte à rebours d'un Sabotage s'il est présent.",
-    image: img('corps-decouvert.png'),
+    image: img('corps-decouvert.webp'),
   },
   {
     id: 'video-surveillance',
@@ -243,7 +243,7 @@ export const imposteurCards: CardDef[] = [
     type: 'item',
     copies: 2,
     text: 'Associez cette carte à un lieu. Lorsqu’un Coéquipier se déplace sur ce lieu, il vous suspecte.',
-    image: img('video-surveillance.png'),
+    image: img('video-surveillance.webp'),
   },
   {
     id: 'majorite',
@@ -253,7 +253,7 @@ export const imposteurCards: CardDef[] = [
     type: 'effect',
     copies: 2,
     text: 'Défaussez un Objet ou un Allié. Les sabotages ne peuvent pas être défaussés.',
-    image: img('majorite.png'),
+    image: img('majorite.webp'),
   },
   {
     id: 'carte',
@@ -263,7 +263,7 @@ export const imposteurCards: CardDef[] = [
     type: 'item',
     copies: 2,
     text: "Associez cette carte à un lieu. Lorsque l'Imposteur ou son Allié se trouve sur ce lieu, un Coéquipier le suspecte.",
-    image: img('carte.png'),
+    image: img('carte.webp'),
   },
   {
     id: 'reparation-rapide',
@@ -273,7 +273,7 @@ export const imposteurCards: CardDef[] = [
     type: 'effect',
     copies: 2,
     text: 'Déplacez un Coéquipier vers un lieu voisin (en ignorant les rangées).',
-    image: img('reparation-rapide.png'),
+    image: img('reparation-rapide.webp'),
   },
   {
     id: 'tache-visuelle',
@@ -283,7 +283,7 @@ export const imposteurCards: CardDef[] = [
     type: 'effect',
     copies: 2,
     text: 'Choisissez jusqu’à 3 Coéquipiers. Ils vous suspectent désormais.',
-    image: img('tache-visuelle.png'),
+    image: img('tache-visuelle.webp'),
   },
   {
     id: 'arrivee-tardive',
@@ -293,7 +293,7 @@ export const imposteurCards: CardDef[] = [
     type: 'effect',
     copies: 2,
     text: 'Placez un Coéquipier défaussé sur la rangée la plus à gauche ou la plus à droite du royaume.',
-    image: img('arrivee-tardive.png'),
+    image: img('arrivee-tardive.webp'),
   },
   {
     id: 'reunion-d-urgence',
@@ -303,6 +303,6 @@ export const imposteurCards: CardDef[] = [
     type: 'effect',
     copies: 1,
     text: 'Choisissez un Coéquipier. Tous les autres Coéquipiers se rendent sur ce lieu. Répartissez-les équitablement sur chaque rangée.',
-    image: img('reunion-d-urgence.png'),
+    image: img('reunion-d-urgence.webp'),
   },
 ]

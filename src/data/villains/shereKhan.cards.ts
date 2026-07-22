@@ -31,7 +31,7 @@ export const shereKhanCards: CardDef[] = [
       "La force de KAA augmente de 2 pour chaque Objet qui lui est associé. Si KAA doit être " +
       "défaussé, vous pouvez défausser un Objet qui lui est associé à la place.\n\n" +
       "Activer : choisissez un Objet dans votre défausse et jouez-le en payant son coût.",
-    image: img('kaa.png'),
+    image: img('kaa.webp'),
     activatedCost: 0,
   },
   {
@@ -44,7 +44,7 @@ export const shereKhanCards: CardDef[] = [
     strength: 5,
     copies: 1,
     text: 'Activer : déplacez une carte MACAQUES sur n\'importe quel lieu.',
-    image: img('le-roi-singe.png'),
+    image: img('le-roi-singe.webp'),
     activatedCost: 0,
   },
   {
@@ -59,7 +59,7 @@ export const shereKhanCards: CardDef[] = [
     text:
       "Activer : payez 1 jeton Pouvoir pour chaque jeton Feu sur ce lieu, puis retirez tous " +
       "les jetons Feu de ce lieu. Défaussez cette carte.",
-    image: img('macaques.png'),
+    image: img('macaques.webp'),
     activatedCost: 0,
   },
 
@@ -79,7 +79,7 @@ export const shereKhanCards: CardDef[] = [
     text:
       "Associez cette carte à KAA. Lorsque KAA est déplacé, vous pouvez déplacer un Héros du " +
       "lieu de départ de KAA vers son lieu d'arrivée.",
-    image: img('anneaux-de-kaa.png'),
+    image: img('anneaux-de-kaa.webp'),
   },
   {
     id: 'yeux-de-kaa',
@@ -96,7 +96,7 @@ export const shereKhanCards: CardDef[] = [
     text:
       "Associez cette carte à KAA. Lorsque votre figurine se trouve sur ce lieu, vous pouvez " +
       "effectuer une action recouverte par un Héros, mais pas par un jeton Feu.",
-    image: img('yeux-de-kaa.png'),
+    image: img('yeux-de-kaa.webp'),
   },
 
   // --- Événements -----------------------------------------------------------
@@ -109,7 +109,7 @@ export const shereKhanCards: CardDef[] = [
     cost: 1,
     copies: 3,
     text: 'Vous pouvez effectuer une action Activer une capacité OU une action Éliminer un Héros.',
-    image: img('tout-le-monde-fuit.png'),
+    image: img('tout-le-monde-fuit.webp'),
     effects: [{ type: 'GRANT_FREE_ACTIVATE_OR_VANQUISH' }],
   },
   {
@@ -123,7 +123,7 @@ export const shereKhanCards: CardDef[] = [
     text:
       "Déplacez un Héros sur le même lieu qu'un Allié OU Gagnez 1 jeton Pouvoir pour chaque " +
       "Allié dans votre royaume.",
-    image: img('jeune-et-sans-defense.png'),
+    image: img('jeune-et-sans-defense.webp'),
     effects: [{ type: 'MOVE_HERO_TO_ALLY_OR_POWER_PER_ALLY' }],
   },
   {
@@ -137,7 +137,7 @@ export const shereKhanCards: CardDef[] = [
     text:
       "Dévoilez les cartes de votre pioche jusqu'à ce que vous trouviez un Allié, jouez-le " +
       "gratuitement et défaussez les autres cartes dévoilées.",
-    image: img('a-toi-de-jouer-cousin.png'),
+    image: img('a-toi-de-jouer-cousin.webp'),
     effects: [{ type: 'REVEAL_UNTIL_ALLY_PLAY_FREE' }],
   },
   {
@@ -152,7 +152,7 @@ export const shereKhanCards: CardDef[] = [
       "Cette carte est jouable sans effectuer d'action Jouer une carte. Vous pouvez effectuer " +
       "n'importe quelle action recouverte par un Héros ou un jeton Feu sur le lieu où se trouve " +
       "votre figurine.",
-    image: img('bravo-bravo.png'),
+    image: img('bravo-bravo.webp'),
     effects: [{ type: 'USE_COVERED_ACTIONS_THIS_TURN', includeFire: true }],
     playableWithoutAction: true,
   },
@@ -167,7 +167,7 @@ export const shereKhanCards: CardDef[] = [
     text:
       "Défaussez les 3 premières cartes de votre pioche Fatalité. Vous pouvez choisir une carte " +
       "Fatalité dans la défausse et la mélanger dans la pioche.",
-    image: img('cest-a-moi-que-vous-le-direz.png'),
+    image: img('cest-a-moi-que-vous-le-direz.webp'),
     effects: [{ type: 'DISCARD_FATE_THEN_RECOVER', count: 3 }],
   },
   {
@@ -179,7 +179,7 @@ export const shereKhanCards: CardDef[] = [
     cost: 2,
     copies: 2,
     text: 'Retirez un jeton Feu sur le lieu où se trouve votre figurine.',
-    image: img('cest-moi-shere-khan.png'),
+    image: img('cest-moi-shere-khan.webp'),
     effects: [{ type: 'REMOVE_FIRE_AT_PAWN' }],
   },
   {
@@ -191,7 +191,7 @@ export const shereKhanCards: CardDef[] = [
     cost: 5,
     copies: 2,
     text: "Si MOWGLI est dans votre royaume, éliminez un Héros. Sinon, cherchez MOWGLI et jouez-le.",
-    image: img('lance-sur-ses-traces.png'),
+    image: img('lance-sur-ses-traces.webp'),
     effects: [{ type: 'DEFEAT_OR_FETCH_HERO', heroCardId: 'mowgli' }],
   },
 
@@ -207,7 +207,7 @@ export const shereKhanCards: CardDef[] = [
     text:
       "Cette carte est jouable pendant le tour d'un adversaire s'il effectue au moins 3 actions " +
       "durant ce tour. Cherchez 3 cartes dans votre défausse puis remélangez-les dans votre pioche.",
-    image: img('aie-confiance.png'),
+    image: img('aie-confiance.webp'),
     trigger: { type: 'opponent-actions-ge', value: 3 },
     effects: [{ type: 'RECOVER_CARDS_TO_DECK', count: 3 }],
   },
@@ -223,7 +223,7 @@ export const shereKhanCards: CardDef[] = [
       "Cette carte est jouable pendant le tour d'un adversaire s'il effectue une action Jouer une " +
       "carte. Vous pouvez effectuer une ou plusieurs actions parmi les suivantes : gagner 1 jeton " +
       "Pouvoir, piocher 1 carte, déplacer 1 jeton Feu sur une autre action.",
-    image: img('cest-tres-interessant.png'),
+    image: img('cest-tres-interessant.webp'),
     trigger: { type: 'opponent-played-cards-ge', value: 1 },
     effects: [{ type: 'INTERESSANT_CHOICE' }],
   },
@@ -238,7 +238,7 @@ export const shereKhanCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'Placez un jeton Feu sur le lieu où MOWGLI est joué ou déplacé.',
-    image: img('mowgli.png'),
+    image: img('mowgli.webp'),
     onPlace: [{ type: 'PLACE_FIRE_AT_HOST' }],
   },
   {
@@ -252,7 +252,7 @@ export const shereKhanCards: CardDef[] = [
     text:
       "Dévoilez la première carte Fatalité de la pioche. S'il s'agit d'un Événement, jouez-la. " +
       "Sinon, replacez-la sur la pioche.",
-    image: img('la-patrouille-de-la-jungle.png'),
+    image: img('la-patrouille-de-la-jungle.webp'),
     onPlace: [{ type: 'REVEAL_FATE_PLAY_IF_EVENT' }],
   },
   {
@@ -268,7 +268,7 @@ export const shereKhanCards: CardDef[] = [
     text:
       "Lorsqu'un autre Héros doit être éliminé, placez un jeton Pouvoir sur BALOO à la place. " +
       "Lorsque BALOO a 3 jetons Pouvoir sur lui, défaussez-le ainsi que ses jetons Pouvoir.",
-    image: img('baloo.png'),
+    image: img('baloo.webp'),
     shieldsOtherHeroesUntilTokens: 3,
   },
   {
@@ -282,7 +282,7 @@ export const shereKhanCards: CardDef[] = [
     text:
       "Vous pouvez choisir un Héros sur le lieu où vous jouez les VAUTOURS. Déplacez ce Héros et " +
       "les VAUTOURS vers un autre lieu.",
-    image: img('vautours.png'),
+    image: img('vautours.webp'),
     onPlace: [{ type: 'VULTURES_MOVE' }],
   },
   {
@@ -296,7 +296,7 @@ export const shereKhanCards: CardDef[] = [
     text:
       "Vous pouvez déplacer chaque Héros et Allié du lieu où vous jouez BAGHEERA vers n'importe " +
       "quel(s) autre(s) lieu(x).",
-    image: img('bagheera.png'),
+    image: img('bagheera.webp'),
     onPlace: [{ type: 'BAGHEERA_SCATTER' }],
   },
   {
@@ -309,7 +309,7 @@ export const shereKhanCards: CardDef[] = [
     copies: 2,
     text:
       "Défaussez un Objet ou une carte MACAQUES sur le lieu où vous jouez la MEUTE DE LOUPS.",
-    image: img('meute-de-loups.png'),
+    image: img('meute-de-loups.webp'),
     onPlace: [{ type: 'WOLF_PACK_DISCARD' }],
   },
 
@@ -324,7 +324,7 @@ export const shereKhanCards: CardDef[] = [
     text:
       "Vous pouvez déplacer un Héros vers le lieu de votre choix. Vous pouvez déplacer la figurine " +
       "de Shere Khan vers un lieu où se trouve un Héros.",
-    image: img('prendre-le-tigre-par-la-queue.png'),
+    image: img('prendre-le-tigre-par-la-queue.webp'),
     effects: [{ type: 'TIGER_BY_THE_TAIL' }],
   },
   {
@@ -335,7 +335,7 @@ export const shereKhanCards: CardDef[] = [
     type: 'effect',
     copies: 2,
     text: 'Choisissez un lieu et ajoutez un jeton Force +1 à tous les Héros présents sur ce lieu.',
-    image: img('cest-mon-ami.png'),
+    image: img('cest-mon-ami.webp'),
     effects: [{ type: 'BUFF_HEROES_AT_LOCATION', amount: 1 }],
   },
   {
@@ -346,7 +346,7 @@ export const shereKhanCards: CardDef[] = [
     type: 'effect',
     copies: 5,
     text: "Placez un jeton Feu sur une action au choix OU déplacez un jeton Feu sur une autre action.",
-    image: img('feu-rouge-des-hommes.png'),
+    image: img('feu-rouge-des-hommes.webp'),
     effects: [{ type: 'PLACE_OR_MOVE_FIRE' }],
   },
 ]

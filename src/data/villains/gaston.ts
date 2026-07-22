@@ -34,11 +34,11 @@ export const gaston: VillainDef = {
     'du Château de la Bête) ou Maurice (ceux de la Maison de Belle). Tant que Belle est dans ' +
     'votre royaume, AUCUN Obstacle ne peut être retiré : il faut d’abord la vaincre. Vous ne ' +
     'pouvez l’emporter qu’au début de votre tour.',
-  boardImage: img('board.png'),
+  boardImage: img('board.webp'),
   pawnImage: '/pion_gaston.png',
   pawnHeightPx: 104,
-  backVillainImage: img('back-villain.png'),
-  backFateImage: img('back-fate.png'),
+  backVillainImage: img('back-villain.webp'),
+  backFateImage: img('back-fate.webp'),
   locations: [
     {
       id: 'maison-belle',

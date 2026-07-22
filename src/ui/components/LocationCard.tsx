@@ -507,7 +507,7 @@ export function LocationCard({
                         title={`${c.stars} Étoile${(c.stars ?? 0) > 1 ? 's' : ''}`}
                       >
                         <img
-                          src="/cards/bowser/etoile.png"
+                          src="/cards/bowser/etoile.webp"
                           alt="Étoile"
                           className="h-6 w-auto"
                           // Halo doux doré (mêmes drop-shadows flous que le pion).

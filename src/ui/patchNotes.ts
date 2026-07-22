@@ -56,6 +56,7 @@ export const PATCH_NOTES: PatchNote[] = [
       "Message adapté **au camp** (☀️/🌑) et au **skin** : Kilaire affiche ses propres esprits et couleurs.",
       "Les cartes à **choix** (ex. **Choc des Titans**) et les effets **interactifs** (récupérer, déplacer, défausser…) écrivent leur message **une fois le choix résolu**, avec la bonne cible.",
       "**Atelier › Journal** : aperçu du **bloc tel qu'il apparaît en partie** (couleur de recouvrement, icône) ; bouton **« Copier les modifs »** ; onglet Journal aussi accessible sur les **variantes** (skins).",
+      "Application **nettement plus légère** : toutes les illustrations passent en **WebP** (~1,7 Go → ~190 Mo) — **installeur et mises à jour bien plus rapides**.",
     ],
   },
   {

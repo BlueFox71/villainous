@@ -206,7 +206,7 @@ export function PlayerPanel({ player, accent, isActive, isWinner, showObjective 
                 {Array.from({ length: start }, (_, i) => (
                   <img
                     key={i}
-                    src="/cards/gaston/obstacle.png"
+                    src="/cards/gaston/obstacle.webp"
                     alt="Obstacle"
                     className={`h-4 w-4 object-contain ${i < removed ? 'drop-shadow' : 'opacity-20 grayscale'}`}
                   />

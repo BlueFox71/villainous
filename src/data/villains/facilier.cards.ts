@@ -66,7 +66,7 @@ export const facilierCards: CardDef[] = [
     effects: [{ type: 'GAIN_POWER', amount: 2 }],
     goesToAuDelaOnPlay: true,
     auDela: { kind: 'gain-power-discard', amount: 2 },
-    image: img('amis-au-dela.png'),
+    image: img('amis-au-dela.webp'),
   },
   {
     id: 'divination-facilier',
@@ -78,7 +78,7 @@ export const facilierCards: CardDef[] = [
     copies: 3,
     text: "Si vous êtes au Royaume du vaudou : mélangez la Pile de l'Au-delà, désignez un adversaire qui en dévoile trois cartes, puis résolvez leurs effets Au-delà dans l'ordre de votre choix.\n\nNe peut pas être placée dans la Pile de l'Au-delà.",
     effects: [{ type: 'DIVINATION', count: 3 }],
-    image: img('divination.png'),
+    image: img('divination.webp'),
   },
   {
     id: 'regner-nouvelle-orleans',
@@ -91,7 +91,7 @@ export const facilierCards: CardDef[] = [
     text: "Placez cette carte dans la Pile de l'Au-delà.\n\nAu-delà : Si vous détenez le Talisman, vous gagnez la partie. Sinon, remettez cette carte dans la Pile de l'Au-delà.",
     goesToAuDelaOnPlay: true,
     auDela: { kind: 'win-if-talisman' },
-    image: img('regner-nouvelle-orleans.png'),
+    image: img('regner-nouvelle-orleans.webp'),
   },
   {
     id: 'tour-passe-passe',
@@ -104,7 +104,7 @@ export const facilierCards: CardDef[] = [
     text: "Regardez les trois premières cartes de votre pioche. Ajoutez-en une à votre main et défaussez les autres.\n\nAu-delà : Même effet, puis défaussez cette carte.",
     effects: [{ type: 'LOOK_TOP_DRAW_DISCARD', look: 3, take: 1 }],
     auDela: { kind: 'scry-draw-discard', look: 3, take: 1 },
-    image: img('tour-passe-passe.png'),
+    image: img('tour-passe-passe.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -124,7 +124,7 @@ export const facilierCards: CardDef[] = [
     copies: 3,
     text: "Aucune capacité.\n\nAu-delà : Défaussez toutes les cartes Esprits des masques dévoilées et remettez les éventuelles autres cartes dans la Pile de l'Au-delà, sans leur appliquer leur effet.",
     auDela: { kind: 'masks-abort' },
-    image: img('esprits-masques.png'),
+    image: img('esprits-masques.webp'),
   },
   {
     id: 'esprits-ombres',
@@ -137,7 +137,7 @@ export const facilierCards: CardDef[] = [
     copies: 3,
     text: 'Aucune capacité.\n\nAu-delà : Défaussez cette carte ainsi que 2 jetons Pouvoir.',
     auDela: { kind: 'lose-power-discard', amount: 2 },
-    image: img('esprits-ombres.png'),
+    image: img('esprits-ombres.webp'),
   },
   {
     id: 'poupees-vaudou',
@@ -149,7 +149,7 @@ export const facilierCards: CardDef[] = [
     strength: 2,
     copies: 3,
     text: 'Lorsque les Poupées vaudou sont déplacées, vous pouvez déplacer un Héros du même nombre de lieux et dans la même direction.',
-    image: img('poupees-vaudou.png'),
+    image: img('poupees-vaudou.webp'),
   },
   {
     id: 'lawrence',
@@ -161,7 +161,7 @@ export const facilierCards: CardDef[] = [
     strength: 3,
     copies: 1,
     text: "À chaque fois qu'un Héros est joué, vous pouvez déplacer Lawrence sur le même lieu.",
-    image: img('lawrence.png'),
+    image: img('lawrence.webp'),
   },
   {
     id: 'ombre-facilier',
@@ -174,7 +174,7 @@ export const facilierCards: CardDef[] = [
     copies: 1,
     text: "Si vous vous trouvez sur le même lieu que votre Ombre avant de vous déplacer, vous pouvez la déplacer en même temps que vous.\n\nAu-delà : Placez l'Ombre du Dr Facilier sur le Royaume du vaudou.",
     auDela: { kind: 'place-on-location', locationId: 'royaume-vaudou' },
-    image: img('ombre-facilier.png'),
+    image: img('ombre-facilier.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -189,7 +189,7 @@ export const facilierCards: CardDef[] = [
     cost: 3,
     copies: 1,
     text: "À chaque fois qu'un Héros de force 3 ou moins est joué, associez-lui cette carte. S'il est éliminé, récupérez le Talisman dans la partie inférieure du plateau, sur ce lieu.\n\nNe peut pas être mis dans la Pile de l'Au-delà.",
-    image: img('talisman.png'),
+    image: img('talisman.webp'),
   },
   {
     id: 'canne',
@@ -200,7 +200,7 @@ export const facilierCards: CardDef[] = [
     cost: 3,
     copies: 1,
     text: "Lorsque vous vous trouvez sur le même lieu que votre Canne, vous pouvez effectuer une action disponible sur un lieu voisin, en dehors d'une action Fatalité.",
-    image: img('canne.png'),
+    image: img('canne.webp'),
   },
   {
     id: 'forme-grenouille',
@@ -214,7 +214,7 @@ export const facilierCards: CardDef[] = [
     attachStrengthBonus: -2,
     copies: 2,
     text: 'Associez cette carte à un Héros. Sa force est réduite de 2.',
-    image: img('forme-grenouille.png'),
+    image: img('forme-grenouille.webp'),
   },
   {
     id: 'poudre-illusion',
@@ -225,7 +225,7 @@ export const facilierCards: CardDef[] = [
     cost: 2,
     copies: 1,
     text: "À chaque fois que vous éliminez un Héros sur ce lieu, vous pouvez choisir une ou deux cartes de votre Pile de l'Au-delà et les défausser.",
-    image: img('poudre-illusion.png'),
+    image: img('poudre-illusion.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -241,7 +241,7 @@ export const facilierCards: CardDef[] = [
     text: "Cette carte est jouable pendant le tour d'un adversaire s'il défausse au moins deux cartes. Choisissez une carte dans la Pile de l'Au-delà et ajoutez-la à votre main.",
     trigger: { type: 'opponent-discarded-ge', value: 2 },
     effects: [{ type: 'TAKE_FROM_AUDELA_TO_HAND' }],
-    image: img('desespoir.png'),
+    image: img('desespoir.webp'),
   },
   {
     id: 'terreur',
@@ -253,7 +253,7 @@ export const facilierCards: CardDef[] = [
     text: "Cette carte est jouable pendant le tour d'un adversaire s'il gagne au moins 3 jetons Pouvoir. Choisissez un Allié ou un Événement sur votre défausse et ajoutez-le à votre main.",
     trigger: { type: 'opponent-gained-power-ge', value: 3 },
     effects: [{ type: 'RECOVER_TYPE_FROM_DISCARD', types: ['ally', 'effect'], label: 'Terreur' }],
-    image: img('terreur.png'),
+    image: img('terreur.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -268,7 +268,7 @@ export const facilierCards: CardDef[] = [
     copies: 3,
     text: "Choisissez un Allié dans le royaume et placez-le dans la Pile de l'Au-delà.",
     effects: [{ type: 'FATE_ALLY_TO_AUDELA' }],
-    image: img('etoile-du-soir.png'),
+    image: img('etoile-du-soir.webp'),
   },
   {
     id: 'si-pres-du-but',
@@ -279,7 +279,7 @@ export const facilierCards: CardDef[] = [
     copies: 3,
     text: "Regardez secrètement les trois premières cartes Méchant de la pioche. Placez-en autant que vous voulez dans la Pile de l'Au-delà et replacez les autres sur la pioche dans l'ordre de votre choix.",
     effects: [{ type: 'FATE_TOP_DECK_TO_AUDELA', count: 3 }],
-    image: img('si-pres-du-but.png'),
+    image: img('si-pres-du-but.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -295,7 +295,7 @@ export const facilierCards: CardDef[] = [
     copies: 1,
     text: "Vous pouvez choisir une carte de la Pile de l'Au-delà et la placer sur le dessus de la pioche de cartes Méchant du Dr Facilier.",
     onPlace: [{ type: 'FATE_AUDELA_TO_DECK_TOP' }],
-    image: img('big-daddy.png'),
+    image: img('big-daddy.webp'),
   },
   {
     id: 'charlotte',
@@ -307,7 +307,7 @@ export const facilierCards: CardDef[] = [
     copies: 1,
     text: "Regardez secrètement les deux premières cartes Méchant de la pioche. Placez-en autant que vous voulez dans la Pile de l'Au-delà et replacez les autres sur la pioche dans l'ordre de votre choix.",
     onPlace: [{ type: 'FATE_TOP_DECK_TO_AUDELA', count: 2 }],
-    image: img('charlotte.png'),
+    image: img('charlotte.webp'),
   },
   {
     id: 'eudora',
@@ -319,7 +319,7 @@ export const facilierCards: CardDef[] = [
     copies: 1,
     text: 'Si Eudora est éliminée, un adversaire, au choix, dévoile et joue la première carte Fatalité de la pioche du Dr Facilier.',
     onVanquish: [{ type: 'REVEAL_FATE_TOP_PLAY_IF_HERO' }],
-    image: img('eudora.png'),
+    image: img('eudora.webp'),
   },
   {
     id: 'joujou',
@@ -331,7 +331,7 @@ export const facilierCards: CardDef[] = [
     copies: 1,
     text: "Vous pouvez choisir un Objet sur le lieu où se trouve Joujou et le placer dans la Pile de l'Au-delà.",
     onPlace: [{ type: 'FATE_ITEM_AT_HOST_TO_AUDELA' }],
-    image: img('joujou.png'),
+    image: img('joujou.webp'),
   },
   {
     id: 'louis',
@@ -342,7 +342,7 @@ export const facilierCards: CardDef[] = [
     strength: 5,
     copies: 1,
     text: "Si le Dr Facilier se déplace sur le lieu où se trouve Louis, il doit dévoiler sa main à un adversaire. Celui-ci y choisit une carte et la place dans la Pile de l'Au-delà.",
-    image: img('louis.png'),
+    image: img('louis.webp'),
   },
   {
     id: 'mama-odie',
@@ -353,7 +353,7 @@ export const facilierCards: CardDef[] = [
     strength: 3,
     copies: 1,
     text: 'Le Dr Facilier ne dévoile plus que 2 cartes lors d\'une Divination.',
-    image: img('mama-odie.png'),
+    image: img('mama-odie.webp'),
   },
   {
     id: 'naveen',
@@ -365,7 +365,7 @@ export const facilierCards: CardDef[] = [
     copies: 1,
     text: 'Vous pouvez déplacer tous les Héros du royaume sur un lieu voisin.',
     onPlace: [{ type: 'FATE_MOVE_ALL_HEROES_ADJACENT' }],
-    image: img('naveen.png'),
+    image: img('naveen.webp'),
   },
   {
     id: 'ray',
@@ -376,7 +376,7 @@ export const facilierCards: CardDef[] = [
     strength: 1,
     copies: 1,
     text: "Si Ray fait partie des deux cartes dévoilées lors d'une action Fatalité, vous pouvez les jouer toutes les deux.",
-    image: img('ray.png'),
+    image: img('ray.webp'),
     fatePlayBoth: true,
   },
   {
@@ -388,6 +388,6 @@ export const facilierCards: CardDef[] = [
     strength: 4,
     copies: 1,
     text: 'Toutes les cartes du Dr Facilier lui coûtent 1 jeton Pouvoir de plus.',
-    image: img('tiana.png'),
+    image: img('tiana.webp'),
   },
 ]

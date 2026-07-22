@@ -31,11 +31,11 @@ export const sombra: VillainDef = {
     '(Lumérico compris, débloqué par Faille) puis jouez Protocole Sombra pour ' +
     'l’emporter. Une carte de Piratage ne peut pas être déplacée et désactive une ' +
     'action du lieu tant qu’elle y reste.',
-  boardImage: `${img}/board.png`,
+  boardImage: `${img}/board.webp`,
   pawnImage: '/pion_sombra.png',
   pawnHeightPx: 98,
-  backVillainImage: `${img}/back-villain.png`,
-  backFateImage: `${img}/back-fate.png`,
+  backVillainImage: `${img}/back-villain.webp`,
+  backFateImage: `${img}/back-fate.webp`,
   // Lumérico est inaccessible tant que FAILLE n'a pas été jouée.
   lockedLocationsAtStart: ['lumerico'],
   locations: [

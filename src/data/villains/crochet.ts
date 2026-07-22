@@ -28,11 +28,11 @@ export const crochet: VillainDef = {
   },
   boardObjective: 'Vous devez éliminer Peter Pan sur le Jolly Roger.',
   objectiveDescription: 'Éliminez Peter Pan sur le Jolly Roger (l’éliminer ailleurs ne compte pas).',
-  boardImage: '/cards/crochet/board.png',
+  boardImage: '/cards/crochet/board.webp',
   pawnImage: '/pion_crochet.png',
   pawnHeightPx: 80,
-  backVillainImage: '/cards/crochet/back_villain.png',
-  backFateImage: '/cards/crochet/back_fate.png',
+  backVillainImage: '/cards/crochet/back_villain.webp',
+  backFateImage: '/cards/crochet/back_fate.webp',
   // L'Arbre du Pendu démarre verrouillé (Cadenas) ; la Carte du Pays Imaginaire
   // le déverrouille (UNLOCK_LOCATION).
   lockedLocationsAtStart: ['arbre-pendu'],

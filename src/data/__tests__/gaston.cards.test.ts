@@ -40,7 +40,7 @@ describe('cartes de Gaston — intégrité du paquet', () => {
       expect(c.englishName.length).toBeGreaterThan(0)
       expect(c.text.length).toBeGreaterThan(0)
       expect(c.copies).toBeGreaterThanOrEqual(1)
-      expect(c.image).toMatch(/^\/cards\/gaston\/.+\.png$/)
+      expect(c.image).toMatch(/^\/cards\/gaston\/.+\.(png|webp)$/)
       if (c.deck === 'villain') expect(typeof c.cost).toBe('number')
       else expect(c.cost).toBeUndefined()
       if (c.type === 'hero') expect(typeof c.strength).toBe('number')
@@ -58,7 +58,7 @@ describe('cartes de Gaston — intégrité du paquet', () => {
     for (const path of [gaston.boardImage, gaston.pawnImage, gaston.backVillainImage, gaston.backFateImage]) {
       expect(existsSync('public' + path), `asset manquant : ${path}`).toBe(true)
     }
-    expect(existsSync('public/cards/gaston/obstacle.png')).toBe(true)
+    expect(existsSync('public/cards/gaston/obstacle.webp')).toBe(true)
   })
 
   it('mise en place : 2 Obstacles par lieu (8 au total)', () => {

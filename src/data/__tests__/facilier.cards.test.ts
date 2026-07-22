@@ -53,7 +53,7 @@ describe('cartes du Dr Facilier — intégrité du paquet', () => {
       expect(c.name.length).toBeGreaterThan(0)
       expect(c.text.length).toBeGreaterThan(0)
       expect(c.copies).toBeGreaterThanOrEqual(1)
-      expect(c.image).toMatch(/^\/cards\/facilier\/.+\.png$/)
+      expect(c.image).toMatch(/^\/cards\/facilier\/.+\.(png|webp)$/)
       // Les cartes Vilain ont un coût (sauf les Conditions, qui n'en ont pas).
       if (c.deck === 'villain' && c.type !== 'condition') expect(typeof c.cost).toBe('number')
       else if (c.deck === 'fate') expect(c.cost).toBeUndefined()

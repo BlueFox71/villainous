@@ -347,7 +347,7 @@ function D6({ value, rolling, dim }: { value: number; rolling?: boolean; dim?: b
   const v = Math.min(6, Math.max(1, value))
   return (
     <img
-      src={`/cards/oogie-boogie/die-${v}.png`}
+      src={`/cards/oogie-boogie/die-${v}.webp`}
       alt={`Dé : ${v}`}
       draggable={false}
       className={`h-20 w-20 rounded-2xl border-2 border-black/40 object-cover shadow-lg ${rolling ? 'animate-pulse' : ''}`}
@@ -871,7 +871,7 @@ function FighterGrid({
   }
   if (tiles.length === 0) return null
   const revealing = revealRemaining > 0
-  const BACK = '/cards/tabbou/back_fighter.png'
+  const BACK = '/cards/tabbou/back_fighter.webp'
   // Nombre de tuiles réserve de la couleur survolée (affiché dans le badge).
   const killCount = hover ? tiles.filter((t) => t.state === 'reserve' && t.color === hover.color).length : 0
   return (
@@ -1171,7 +1171,7 @@ function CauldronChoiceModal({
       <div className="flex w-[26rem] max-w-[92vw] flex-col gap-4 rounded-2xl border border-white/15 bg-[#15101f] p-6 shadow-2xl">
         <h2 className="text-center text-lg font-bold text-lime-200">Le Chaudron Magique</h2>
         <img
-          src="/cards/seigneur-tenebres/cauldron.png"
+          src="/cards/seigneur-tenebres/cauldron.webp"
           alt="Chaudron Magique"
           className="mx-auto h-24 w-auto object-contain drop-shadow"
         />
@@ -1228,7 +1228,7 @@ function CauldronExchangeModal({
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
       <div className="flex w-[30rem] max-w-[94vw] flex-col gap-4 rounded-2xl border border-white/15 bg-[#15101f] p-6 shadow-2xl">
         <h2 className="text-center text-lg font-bold text-lime-200">Chaudron Magique — Échange</h2>
-        <img src="/cards/seigneur-tenebres/cauldron.png" alt="Chaudron Magique" className="mx-auto h-20 w-auto object-contain drop-shadow" />
+        <img src="/cards/seigneur-tenebres/cauldron.webp" alt="Chaudron Magique" className="mx-auto h-20 w-auto object-contain drop-shadow" />
         <p className="text-center text-sm text-white/80">
           Payez <b>2 Pouvoir</b> : un <b>Squelettes de Soldats</b> devient un <b>Soldat Ressuscité</b> (posé sur son lieu).
         </p>
@@ -1289,7 +1289,7 @@ function MauiChoiceModal({
         <h2 className="text-center text-lg font-bold text-amber-200">Pas exactement l’heure de Maui</h2>
         {card && (
           <img
-            src={`/cards/tamatoa/${card.cardId}.png`}
+            src={`/cards/tamatoa/${card.cardId}.webp`}
             alt={card.name}
             className="mx-auto h-48 w-auto rounded-lg object-contain shadow-lg"
           />
@@ -9090,7 +9090,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
                     className="transition hover:scale-110 hover:brightness-110"
                   >
                     <img
-                      src="/cards/davy-jones/treasure-back.png"
+                      src="/cards/davy-jones/treasure-back.webp"
                       alt={`Jeton Trésor ${i + 1}`}
                       className="h-16 w-16 object-contain drop-shadow-[0_0_4px_rgba(251,191,36,0.5)]"
                     />
@@ -9838,7 +9838,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
               return {
                 key: t.id,
                 label: `${t.value} chiots`,
-                imageSrc: `/cards/cruella/tuile-${short}-${t.value}.png`,
+                imageSrc: `/cards/cruella/tuile-${short}-${t.value}.webp`,
                 onSelect: () => resolvePuppyCapture(t.id),
               }
             })}
@@ -11024,7 +11024,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
                 <span className="flex items-center gap-1 text-sky-200">
                   {/* Logo Smash en blanc (brightness(0) invert(1) → blanc pur). */}
                   <img
-                    src="/cards/tabbou/smash.png"
+                    src="/cards/tabbou/smash.webp"
                     alt=""
                     className="h-6 w-6"
                     style={{ filter: 'brightness(0) invert(1)' }}
@@ -11353,7 +11353,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
                       style={{ left: `${g.x}%`, top: `${g.y}%`, width: `${g.width}%`, height: `${g.height}%`, zIndex: sel ? 30 : 20 }}
                     >
                       <div className="pointer-events-none flex h-full w-full items-center justify-center rounded-lg bg-black/55 backdrop-grayscale">
-                        <img src="/cards/jafar/lock.png" alt="" className="w-1/5 opacity-95 drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]" />
+                        <img src="/cards/jafar/lock.webp" alt="" className="w-1/5 opacity-95 drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]" />
                       </div>
                       <div
                         onPointerDown={(e) => {

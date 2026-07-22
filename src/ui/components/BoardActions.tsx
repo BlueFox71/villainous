@@ -1267,9 +1267,9 @@ export function BoardActions({
                 className="hack-glitch pointer-events-none absolute -translate-x-1/2 -translate-y-1/2"
                 style={{ left: `${pos.x}%`, top: `${pos.y}%`, width: `${BUTTON_SIZE * 1.7}%` }}
               >
-                <img src="/cards/sombra/hack.png" alt="Piraté" className="hg-base" />
-                <img src="/cards/sombra/hack.png" alt="" aria-hidden="true" className="hg-layer hg-a" />
-                <img src="/cards/sombra/hack.png" alt="" aria-hidden="true" className="hg-layer hg-b" />
+                <img src="/cards/sombra/hack.webp" alt="Piraté" className="hg-base" />
+                <img src="/cards/sombra/hack.webp" alt="" aria-hidden="true" className="hg-layer hg-a" />
+                <img src="/cards/sombra/hack.webp" alt="" aria-hidden="true" className="hg-layer hg-b" />
               </div>
             )
           }

@@ -28,7 +28,7 @@ describe('cartes de Slenderman — intégrité du paquet', () => {
       expect(c.name.length).toBeGreaterThan(0)
       expect(c.text.length).toBeGreaterThan(0)
       expect(c.copies).toBeGreaterThanOrEqual(1)
-      expect(c.image).toMatch(/^\/cards\/slenderman\/.+\.png$/)
+      expect(c.image).toMatch(/^\/cards\/slenderman\/.+\.(png|webp)$/)
       if (c.deck === 'villain') expect(typeof c.cost).toBe('number')
       else expect(c.cost).toBeUndefined()
       if (c.type === 'hero') expect(typeof c.strength).toBe('number')

@@ -15,7 +15,7 @@ const card = (p: Partial<CustomCard>): CustomCard =>
 describe('isPreRenderedCard', () => {
   it('carte avec art brut (artImage) → recomposable, PAS pré-rendue', () => {
     expect(isPreRenderedCard(card({ artImage: 'data:image/png;base64,AAA', image: 'data:image/png;base64,BBB' }))).toBe(false)
-    expect(isPreRenderedCard(card({ artImage: '/cards/x/a.art.png', image: '/cards/x/a.png' }))).toBe(false)
+    expect(isPreRenderedCard(card({ artImage: '/cards/x/a.art.webp', image: '/cards/x/a.webp' }))).toBe(false)
   })
 
   it('image en dataURL sans art brut → recomposable (rendue par l’éditeur, sans illustration)', () => {
@@ -24,7 +24,7 @@ describe('isPreRenderedCard', () => {
   })
 
   it('image = fichier externe sans art brut → pré-rendue (import compressé/migré, ex. Dio)', () => {
-    expect(isPreRenderedCard(card({ image: '/cards/custom-dio/za-warudo.png?v=1' }))).toBe(true)
+    expect(isPreRenderedCard(card({ image: '/cards/custom-dio/za-warudo.webp?v=1' }))).toBe(true)
   })
 
   it('carte vierge (ni art brut ni image) → PAS pré-rendue (on compose la face)', () => {
@@ -35,7 +35,7 @@ describe('isPreRenderedCard', () => {
 
 describe('isExternalImage', () => {
   it('distingue fichier/URL (externe) et dataURL (rendue en direct)', () => {
-    expect(isExternalImage('/cards/x/a.png')).toBe(true)
+    expect(isExternalImage('/cards/x/a.webp')).toBe(true)
     expect(isExternalImage('https://ex/a.png')).toBe(true)
     expect(isExternalImage('data:image/png;base64,AAAA')).toBe(false)
     expect(isExternalImage('')).toBe(false)

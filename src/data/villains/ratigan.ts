@@ -39,11 +39,11 @@ export const ratigan: VillainDef = {
     'avec elle sur ce lieu. Si la Reine Robot est défaussée (par Basil), vous devenez ' +
     '« Le Rat » : vous devez alors éliminer Basil. La Reine Moustoria à Buckingham ' +
     'Palace empêche la victoire. Vous ne pouvez gagner qu’au début de votre tour.',
-  boardImage: '/cards/ratigan/board.png',
+  boardImage: '/cards/ratigan/board.webp',
   pawnImage: '/pion_ratigan.png',
   pawnHeightPx: 110,
-  backVillainImage: '/cards/ratigan/back-villain.png',
-  backFateImage: '/cards/ratigan/back-fate.png',
+  backVillainImage: '/cards/ratigan/back-villain.webp',
+  backFateImage: '/cards/ratigan/back-fate.webp',
   locations: [
     {
       id: 'repaire-secret',

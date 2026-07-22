@@ -48,7 +48,7 @@ describe('cartes de Syndrome — intégrité du paquet', () => {
       expect(c.englishName!.length).toBeGreaterThan(0)
       expect(c.text.length).toBeGreaterThan(0)
       expect(c.copies).toBeGreaterThanOrEqual(0)
-      expect(c.image).toMatch(/^\/cards\/syndrome\/.+\.png$/)
+      expect(c.image).toMatch(/^\/cards\/syndrome\/.+\.(png|webp)$/)
       // Coût requis pour les cartes Méchant jouables (hors Conditions et tuiles hors deck).
       if (c.deck === 'villain' && c.type !== 'condition' && c.copies > 0) expect(typeof c.cost).toBe('number')
       if (c.type === 'hero') expect(typeof c.strength).toBe('number')

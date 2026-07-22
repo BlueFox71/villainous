@@ -11,7 +11,7 @@
 import type { CardInstance, GameState, PlayerState } from './types'
 import { updatePlayer } from './state'
 
-/** Les 5 jetons Trésor (id stable = id d'image public/cards/davy-jones/treasure-<id>.png). */
+/** Les 5 jetons Trésor (id stable = id d'image public/cards/davy-jones/treasure-<id>.webp). */
 export const TREASURE_IDS = [
   'compas-de-jack',
   'boite-a-musique',

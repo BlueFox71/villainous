@@ -5,13 +5,13 @@
   "devise": "Il n'y a pas de ficelles sur moi.",
   "stars": 2,
   "color": "#9c1f2b",
-  "portrait": "/cards/ultron/portrait.png",
-  "presentation": "/cards/ultron/presentation.png",
-  "boardImage": "/cards/ultron/board.png",
-  "pawnImage": "/cards/ultron/pawn.png",
+  "portrait": "/cards/ultron/portrait.webp",
+  "presentation": "/cards/ultron/presentation.webp",
+  "boardImage": "/cards/ultron/board.webp",
+  "pawnImage": "/cards/ultron/pawn.webp",
   "pawnHeightPx": 92,
-  "backVillainImage": "/cards/ultron/back-villain.png",
-  "backFateImage": "/cards/ultron/back-fate.png",
+  "backVillainImage": "/cards/ultron/back-villain.webp",
+  "backFateImage": "/cards/ultron/back-fate.webp",
   "boardObjective": "Vous devez obtenir la Compétence L'ÈRE D'ULTRON.",
   "objectiveDescription": "Révélez vos 4 Améliorations dans l'ordre (Transformation, Optimisation, Forme finale, L'ère d'Ultron) en retirant des Sentinelles de votre domaine ; révéler L'ère d'Ultron vous fait gagner. Une seule Amélioration par tour.",
   "objective": {
@@ -152,7 +152,7 @@
       "type": "ally",
       "copies": 4,
       "text": "Aucune capacité.",
-      "image": "/cards/ultron/drone-de-combat.png",
+      "image": "/cards/ultron/drone-de-combat.webp",
       "cost": 1,
       "strength": 2,
       "isSentry": true
@@ -165,7 +165,7 @@
       "type": "ally",
       "copies": 3,
       "text": "Si cette carte est sur une Crise lors de sa résolution, vous pouvez la transférer sur n'importe quel lieu de votre domaine, au lieu de la défausser.",
-      "image": "/cards/ultron/drone-aerien.png",
+      "image": "/cards/ultron/drone-aerien.webp",
       "cost": 2,
       "strength": 3,
       "isSentry": true
@@ -178,7 +178,7 @@
       "type": "ally",
       "copies": 3,
       "text": "Ce lieu gagne une action Vaincre supplémentaire.",
-      "image": "/cards/ultron/drone-d-assaut.png",
+      "image": "/cards/ultron/drone-d-assaut.webp",
       "cost": 2,
       "strength": 3,
       "isSentry": true
@@ -191,7 +191,7 @@
       "type": "ally",
       "copies": 1,
       "text": "Vous pouvez défausser 2 Drones de votre main pour jouer le DRONE GÉANT au lieu de payer son coût.",
-      "image": "/cards/ultron/drone-geant.png",
+      "image": "/cards/ultron/drone-geant.webp",
       "cost": 6,
       "strength": 6,
       "isSentry": true
@@ -204,7 +204,7 @@
       "type": "item",
       "copies": 4,
       "text": "Associez cette carte à l'un de vos Alliés. Elle ne peut être retirée que si cet Allié est éliminé ou défaussé.",
-      "image": "/cards/ultron/alliage-impenetrable.png",
+      "image": "/cards/ultron/alliage-impenetrable.webp",
       "cost": 2
     },
     {
@@ -215,7 +215,7 @@
       "type": "effect",
       "copies": 3,
       "text": "Gagnez 1 jeton Pouvoir pour chaque lieu de votre domaine où se trouve au moins un Drone.",
-      "image": "/cards/ultron/reconfiguration.png",
+      "image": "/cards/ultron/reconfiguration.webp",
       "cost": 0
     },
     {
@@ -226,7 +226,7 @@
       "type": "item",
       "copies": 2,
       "text": "Dévoilez des cartes de votre pioche jusqu’à trouver un Allié. Ajoutez-le à votre main et gagnez 1 jeton Pouvoir.",
-      "image": "/cards/ultron/chaine-d-assemblage.png",
+      "image": "/cards/ultron/chaine-d-assemblage.webp",
       "cost": 1
     },
     {
@@ -237,7 +237,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Regardez les 6 premières cartes de la pioche Fatalité, puis replacez-les dans l’ordre de votre choix.",
-      "image": "/cards/ultron/assimilation-de-connaissances.png",
+      "image": "/cards/ultron/assimilation-de-connaissances.webp",
       "cost": 1
     },
     {
@@ -248,7 +248,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Placez un jeton Force -1 sur chaque Héros de votre domaine.",
-      "image": "/cards/ultron/encephalo-rayon.png",
+      "image": "/cards/ultron/encephalo-rayon.webp",
       "cost": 2
     },
     {
@@ -259,7 +259,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Choisissez Objet ou Événement. Dévoilez des cartes de votre pioche jusqu’à en trouver une de ce type. Ajoutez cette carte à votre main.",
-      "image": "/cards/ultron/pret-a-toute-eventualite.png",
+      "image": "/cards/ultron/pret-a-toute-eventualite.webp",
       "cost": 1
     },
     {
@@ -270,7 +270,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Ajoutez 1 jeton Force +1 sur l’un de vos Alliés. Vous pouvez ensuite transférer cet Allié sur une Crise.",
-      "image": "/cards/ultron/cybernetique.png",
+      "image": "/cards/ultron/cybernetique.webp",
       "cost": 1
     },
     {
@@ -281,7 +281,7 @@
       "type": "ally",
       "copies": 1,
       "text": "Éliminez un personnage sur le lieu où vous jouez ALKHEMA.",
-      "image": "/cards/ultron/alkhema.png",
+      "image": "/cards/ultron/alkhema.webp",
       "cost": 3,
       "strength": 3
     },
@@ -293,7 +293,7 @@
       "type": "ally",
       "copies": 1,
       "text": "Vous pouvez transférer n’importe quel Héros sur un lieu du domaine de votre choix.",
-      "image": "/cards/ultron/jocaste.png",
+      "image": "/cards/ultron/jocaste.webp",
       "cost": 4,
       "strength": 3
     },
@@ -305,7 +305,7 @@
       "type": "effect",
       "copies": 3,
       "text": "Choisissez une carte Allié ou Objet présente dans le domaine d’un adversaire. Il défausse tous les exemplaires de cette carte présents dans son domaine.",
-      "image": "/cards/ultron/rearrangeur-moleculaire.png"
+      "image": "/cards/ultron/rearrangeur-moleculaire.webp"
     },
     {
       "id": "ultron-arret-d-urgence",
@@ -315,7 +315,7 @@
       "type": "item",
       "copies": 2,
       "text": "Associez cette carte à une Compétence. Celle-ci ne peut plus être utilisée, à moins que son propriétaire paye 2 jetons Pouvoir durant son tour pour défausser cette carte.",
-      "image": "/cards/ultron/arret-d-urgence.png"
+      "image": "/cards/ultron/arret-d-urgence.webp"
     },
     {
       "id": "ultron-hank-pym",
@@ -325,7 +325,7 @@
       "type": "hero",
       "copies": 1,
       "text": "Tant que HANK PYM est dans votre domaine, vous ne pouvez plus chercher ou jouer de cartes de votre défausse.",
-      "image": "/cards/ultron/hank-pym.png",
+      "image": "/cards/ultron/hank-pym.webp",
       "strength": 2
     },
     {
@@ -336,7 +336,7 @@
       "type": "hero",
       "copies": 1,
       "text": "Le joueur chez qui vous jouez MOCKINGBIRD perd 2 jetons Pouvoir.",
-      "image": "/cards/ultron/mockingbird.png",
+      "image": "/cards/ultron/mockingbird.webp",
       "strength": 2
     },
     {
@@ -347,7 +347,7 @@
       "type": "hero",
       "copies": 1,
       "text": "Choisissez un type de cartes. Le joueur chez qui vous jouez LA SORCIÈRE ROUGE doit dévoiler sa main et défausser toutes les cartes du type choisi.",
-      "image": "/cards/ultron/la-sorciere-rouge.png",
+      "image": "/cards/ultron/la-sorciere-rouge.webp",
       "strength": 4
     },
     {
@@ -358,7 +358,7 @@
       "type": "hero",
       "copies": 1,
       "text": "Choisissez un Héros du domaine où vous jouez LA GUÊPE et transférez-le sur un lieu différent de n’importe quel domaine.",
-      "image": "/cards/ultron/la-guepe.png",
+      "image": "/cards/ultron/la-guepe.webp",
       "strength": 3
     },
     {
@@ -369,7 +369,7 @@
       "type": "hero",
       "copies": 1,
       "text": "Si WONDER MAN est éliminé, cherchez VISION dans les cartes Fatalité et jouez-le ou transférez-le sur le lieu où WONDER MAN se trouvait.",
-      "image": "/cards/ultron/wonder-man.png",
+      "image": "/cards/ultron/wonder-man.webp",
       "strength": 4
     }
   ],

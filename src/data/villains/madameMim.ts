@@ -25,11 +25,11 @@ export const madameMim: VillainDef = {
     'Vainquez les 7 Métamorphoses de Merlin. Une Métamorphose de Merlin trône au Lieu du Duel ; ' +
     'vainquez-la avec la Métamorphose Mim correspondante (chaque Mim ne vainc qu’un Merlin précis), ' +
     'ou jouez « J’établis les règles ». À chaque Merlin vaincu, un autre apparaît — jusqu’à les avoir tous vaincus.',
-  boardImage: img('board.png'),
+  boardImage: img('board.webp'),
   pawnImage: '/pion_madame-mim.png',
   pawnHeightPx: 96,
-  backVillainImage: img('back-villain.png'),
-  backFateImage: img('back-fate.png'),
+  backVillainImage: img('back-villain.webp'),
+  backFateImage: img('back-fate.webp'),
   locations: [
     {
       id: 'the-woods',

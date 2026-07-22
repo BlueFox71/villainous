@@ -30,7 +30,7 @@ export const gothelCards: CardDef[] = [
     strength: 2,
     copies: 5,
     text: 'Allié. Quand il est déplacé, vous pouvez déplacer un Héros de son lieu de départ vers son lieu d’arrivée.',
-    image: img('garde-royal.png'),
+    image: img('garde-royal.webp'),
   },
   {
     id: 'cavaliers-du-roi',
@@ -43,7 +43,7 @@ export const gothelCards: CardDef[] = [
     copies: 2,
     reachesAdjacentVanquish: true,
     text: 'Allié. Lors d’une action Éliminer un Héros, ils peuvent frapper un Héros de leur lieu ou d’un lieu voisin.',
-    image: img('cavaliers-du-roi.png'),
+    image: img('cavaliers-du-roi.webp'),
   },
   {
     id: 'patchy-stabbington',
@@ -56,7 +56,7 @@ export const gothelCards: CardDef[] = [
     copies: 1,
     text: 'Allié. S’il est joué sur le lieu de Raiponce, vous pouvez la déplacer sur la Tour.',
     effects: [{ type: 'OFFER_RAIPONCE_TO_TOWER' }],
-    image: img('patchy-stabbington.png'),
+    image: img('patchy-stabbington.webp'),
   },
   {
     id: 'sideburns-stabbington',
@@ -69,7 +69,7 @@ export const gothelCards: CardDef[] = [
     copies: 1,
     text: 'Allié. S’il est joué sur le lieu de Raiponce, vous pouvez la déplacer sur la Tour.',
     effects: [{ type: 'OFFER_RAIPONCE_TO_TOWER' }],
-    image: img('sideburns-stabbington.png'),
+    image: img('sideburns-stabbington.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -85,7 +85,7 @@ export const gothelCards: CardDef[] = [
     copies: 2,
     text: 'Jouable au tour d’un adversaire qui élimine un Héros de force 3 ou plus : éliminez alors un Héros de force 3 ou moins de votre royaume.',
     trigger: { type: 'opponent-vanquished-hero-strength-ge', value: 3 },
-    image: img('double-jeu.png'),
+    image: img('double-jeu.webp'),
   },
   {
     id: 'egocentrisme',
@@ -98,7 +98,7 @@ export const gothelCards: CardDef[] = [
     text: 'Jouable au tour d’un adversaire qui déplace un Héros ou un Objet : déplacez alors Raiponce sur la Tour.',
     trigger: { type: 'opponent-moved-card' },
     effects: [{ type: 'MOVE_RAIPONCE', to: 'tour' }],
-    image: img('egocentrisme.png'),
+    image: img('egocentrisme.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -114,7 +114,7 @@ export const gothelCards: CardDef[] = [
     copies: 2,
     text: 'Récupérez une carte de votre défausse et ajoutez-la à votre main.',
     effects: [{ type: 'RECOVER_ANY_FROM_DISCARD', label: 'Ce qu’il m’a pris' }],
-    image: img('ce-quil-ma-pris.png'),
+    image: img('ce-quil-ma-pris.webp'),
   },
   {
     id: 'je-serai-la-mechante',
@@ -126,7 +126,7 @@ export const gothelCards: CardDef[] = [
     copies: 2,
     text: 'Déplacez Raiponce sur la Tour, puis perdez 1 jeton Confiance.',
     effects: [{ type: 'MOVE_RAIPONCE', to: 'tour' }, { type: 'LOSE_CONFIANCE', amount: 1 }],
-    image: img('je-serai-la-mechante.png'),
+    image: img('je-serai-la-mechante.webp'),
   },
   {
     id: 'je-taime-bien-plus',
@@ -138,7 +138,7 @@ export const gothelCards: CardDef[] = [
     copies: 2,
     text: 'Si votre pion est sur le lieu de Raiponce, gagnez 1 jeton Confiance (et 1 de plus si c’est la Tour).',
     effects: [{ type: 'GAIN_CONFIANCE_WITH_RAIPONCE', amount: 1, bonusAtTour: 1 }],
-    image: img('je-taime-bien-plus.png'),
+    image: img('je-taime-bien-plus.webp'),
   },
   {
     id: 'lance-moi-ta-chevelure',
@@ -150,7 +150,7 @@ export const gothelCards: CardDef[] = [
     copies: 2,
     text: 'Si Raiponce est sur la Tour, gagnez 1 jeton Confiance ; sinon déplacez-la de 1 ou 2 lieux vers la Tour.',
     effects: [{ type: 'RAIPONCE_HOMEWARD', confianceIfAtTower: 1, maxSteps: 2 }],
-    image: img('lance-moi-ta-chevelure.png'),
+    image: img('lance-moi-ta-chevelure.webp'),
   },
   {
     id: 'necoute-que-moi',
@@ -162,7 +162,7 @@ export const gothelCards: CardDef[] = [
     copies: 2,
     text: 'Raiponce ne se déplace pas à la fin de ce tour.',
     effects: [{ type: 'SKIP_RAIPONCE_MOVE' }],
-    image: img('necoute-que-moi.png'),
+    image: img('necoute-que-moi.webp'),
   },
   {
     id: 'tromperie-gothel',
@@ -174,7 +174,7 @@ export const gothelCards: CardDef[] = [
     copies: 2,
     text: 'Déplacez Raiponce d’un lieu vers Corona, puis gagnez 1 jeton Confiance.',
     effects: [{ type: 'MOVE_RAIPONCE', to: 'right', steps: 1 }, { type: 'GAIN_CONFIANCE', amount: 1 }],
-    image: img('tromperie-gothel.png'),
+    image: img('tromperie-gothel.webp'),
   },
   {
     id: 'vengeance',
@@ -186,7 +186,7 @@ export const gothelCards: CardDef[] = [
     copies: 2,
     text: 'Effectuez une action Éliminer un Héros ; si un Héros autre que Raiponce est éliminé, gagnez 1 jeton Confiance.',
     effects: [{ type: 'VENGEANCE' }],
-    image: img('vengeance.png'),
+    image: img('vengeance.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -202,7 +202,7 @@ export const gothelCards: CardDef[] = [
     copies: 1,
     text: 'Si elle est jouée ou déplacée sur le lieu de Raiponce, gagnez 1 jeton Confiance.',
     effects: [{ type: 'GAIN_CONFIANCE_WITH_RAIPONCE', amount: 1, bonusAtTour: 0 }],
-    image: img('brosse-a-cheveux.png'),
+    image: img('brosse-a-cheveux.webp'),
   },
   {
     id: 'couronne-gothel',
@@ -213,7 +213,7 @@ export const gothelCards: CardDef[] = [
     cost: 1,
     copies: 1,
     text: 'Si un Héros est éliminé sur le lieu de la Couronne, gagnez 2 jetons Confiance. À tout moment de votre tour, vous pouvez la défausser pour gagner 1 jeton Confiance.',
-    image: img('couronne-gothel.png'),
+    image: img('couronne-gothel.webp'),
   },
   {
     id: 'poignard',
@@ -226,7 +226,7 @@ export const gothelCards: CardDef[] = [
     attachStrengthBonus: 2,
     copies: 1,
     text: 'Associez-le à un Allié : +2 de force. Si cet Allié élimine Raiponce, gagnez 1 jeton Confiance.',
-    image: img('poignard.png'),
+    image: img('poignard.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -241,7 +241,7 @@ export const gothelCards: CardDef[] = [
     copies: 3,
     text: 'Mère Gothel perd 1 jeton Confiance.',
     effects: [{ type: 'LOSE_CONFIANCE', amount: 1 }],
-    image: img('moi-jai-un-reve.png'),
+    image: img('moi-jai-un-reve.webp'),
   },
   {
     id: 'lanternes',
@@ -252,7 +252,7 @@ export const gothelCards: CardDef[] = [
     copies: 2,
     text: 'Déplacez Raiponce sur Corona.',
     effects: [{ type: 'MOVE_RAIPONCE', to: 'corona' }],
-    image: img('lanternes.png'),
+    image: img('lanternes.webp'),
   },
   {
     id: 'vieillissement',
@@ -262,7 +262,7 @@ export const gothelCards: CardDef[] = [
     type: 'effect',
     copies: 2,
     text: 'Défaussez un Allié ou un Objet de coût 2 ou moins du royaume de Mère Gothel.',
-    image: img('vieillissement.png'),
+    image: img('vieillissement.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -277,7 +277,7 @@ export const gothelCards: CardDef[] = [
     strength: 4,
     copies: 1,
     text: 'À son arrivée, Mère Gothel perd jusqu’à 2 jetons Confiance ; s’il est éliminé, elle en regagne 2.',
-    image: img('flynn-rider.png'),
+    image: img('flynn-rider.webp'),
     onPlace: [{ type: 'FLYNN_TAKE_CONFIANCE', amount: 2 }],
   },
   {
@@ -289,7 +289,7 @@ export const gothelCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'À son arrivée, Mère Gothel défausse une carte au hasard de sa main.',
-    image: img('la-main-froide.png'),
+    image: img('la-main-froide.webp'),
     onPlace: [{ type: 'FATE_DISCARD_RANDOM_HAND', amount: 1 }],
   },
   {
@@ -301,7 +301,7 @@ export const gothelCards: CardDef[] = [
     strength: 4,
     copies: 1,
     text: 'À leur arrivée sur le lieu de Raiponce, Mère Gothel perd 1 jeton Confiance.',
-    image: img('la-reine-et-le-roi.png'),
+    image: img('la-reine-et-le-roi.webp'),
     onPlace: [{ type: 'LOSE_CONFIANCE_AT_RAIPONCE', amount: 1 }],
   },
   {
@@ -313,7 +313,7 @@ export const gothelCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'Si vous jouez Le Satyre sur le lieu où se trouve Mère Gothel, vous pouvez la déplacer sur n’importe quel lieu.',
-    image: img('le-satyre.png'),
+    image: img('le-satyre.webp'),
     onPlace: [{ type: 'MOVE_OWNER_PAWN_IF_AT_PAWN', label: 'Le Satyre' }],
   },
   {
@@ -326,7 +326,7 @@ export const gothelCards: CardDef[] = [
     copies: 1,
     text: 'À son arrivée, vous pouvez déplacer une carte Cavaliers du roi vers un lieu voisin, puis déplacer Maximus vers un lieu voisin.',
     onPlace: [{ type: 'MAXIMUS_RELOCATE' }],
-    image: img('maximus.png'),
+    image: img('maximus.webp'),
   },
   {
     id: 'pascal',
@@ -337,7 +337,7 @@ export const gothelCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'Si Raiponce est déplacée sur le lieu de Pascal, déplacez-la aussitôt d’un lieu vers Corona.',
-    image: img('pascal.png'),
+    image: img('pascal.webp'),
   },
   {
     id: 'ulf',
@@ -349,7 +349,7 @@ export const gothelCards: CardDef[] = [
     copies: 1,
     text: 'Tant qu’il est présent, aucun Allié ne peut quitter son lieu.',
     blocksAllyMoves: true,
-    image: img('ulf.png'),
+    image: img('ulf.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -365,7 +365,7 @@ export const gothelCards: CardDef[] = [
     attachStrengthBonus: 1,
     copies: 1,
     text: 'Objet Fatalité associé à un Héros : +1 de force.',
-    image: img('poele-a-frire.png'),
+    image: img('poele-a-frire.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -380,6 +380,6 @@ export const gothelCards: CardDef[] = [
     strength: 4,
     copies: 0,
     text: 'Héros imprimé sur une tuile. Commence sur la Tour, se déplace d’un lieu vers Corona à la fin du tour de Mère Gothel, et revient sur la Tour si elle est éliminée (jamais défaussée).',
-    image: img('raiponce.png'),
+    image: img('raiponce.webp'),
   },
 ]

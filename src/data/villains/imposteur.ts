@@ -30,11 +30,11 @@ export const imposteur: VillainDef = {
   objectiveDescription:
     'Jouez un Sabotage (O2 à Admin, Réacteur au Réacteur) et conservez-le posé ' +
     'dans votre royaume pendant 3 tours sans qu’il soit défaussé.',
-  boardImage: '/cards/imposteur/board.png',
+  boardImage: '/cards/imposteur/board.webp',
   pawnImage: '/pion_imposteur.png',
   pawnHeightPx: 96,
-  backVillainImage: '/cards/imposteur/back-villain.png',
-  backFateImage: '/cards/imposteur/back-fate.png',
+  backVillainImage: '/cards/imposteur/back-villain.webp',
+  backFateImage: '/cards/imposteur/back-fate.webp',
   locations: [
     {
       id: 'electrical',

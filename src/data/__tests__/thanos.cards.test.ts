@@ -60,7 +60,7 @@ describe('cartes de Thanos — intégrité du paquet', () => {
       expect(c.englishName.length).toBeGreaterThan(0)
       expect(c.text.length).toBeGreaterThan(0)
       expect(c.copies).toBeGreaterThanOrEqual(1)
-      expect(c.image).toMatch(/^\/cards\/thanos\/.+\.png$/)
+      expect(c.image).toMatch(/^\/cards\/thanos\/.+\.(png|webp)$/)
       if (c.deck === 'villain') expect(typeof c.cost).toBe('number')
       else expect(c.cost).toBeUndefined()
       if (c.type === 'hero') expect(typeof c.strength).toBe('number')

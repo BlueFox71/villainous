@@ -33,7 +33,7 @@ export const MARVEL_FATE_POOL: CardDef[] = [
     copies: 1,
     strength: 4,
     text: 'Tant que VISION est dans votre domaine, à chaque fois que vous devez gagner des jetons Pouvoir, recevez-en 1 de moins.',
-    image: '/cards/marvel-fate/vision.png',
+    image: '/cards/marvel-fate/vision.webp',
     // Passif : gains de Pouvoir réduits de 1 tant qu'il est dans le royaume.
     reducesPowerGains: true,
     fateMalus: 'slow2',
@@ -47,7 +47,7 @@ export const MARVEL_FATE_POOL: CardDef[] = [
     copies: 1,
     strength: 2,
     text: 'Éliminez un Allié sur le lieu où vous jouez BLACK WIDOW.',
-    image: '/cards/marvel-fate/black-widow.png',
+    image: '/cards/marvel-fate/black-widow.webp',
     fateMalus: 'slow',
   },
   {
@@ -59,7 +59,7 @@ export const MARVEL_FATE_POOL: CardDef[] = [
     copies: 1,
     strength: 3,
     text: 'Placez un jeton Force +1 sur CAPTAIN AMERICA ainsi que sur tous les autres Héros présents dans le domaine où il est joué.',
-    image: '/cards/marvel-fate/captain-america.png',
+    image: '/cards/marvel-fate/captain-america.webp',
     fateMalus: 'slow2',
   },
   {
@@ -71,7 +71,7 @@ export const MARVEL_FATE_POOL: CardDef[] = [
     copies: 1,
     strength: 6,
     text: 'Transférez tous les Alliés du domaine sur le lieu où vous jouez CAPTAIN MARVEL.',
-    image: '/cards/marvel-fate/captain-marvel.png',
+    image: '/cards/marvel-fate/captain-marvel.webp',
     fateMalus: 'slow2',
   },
   {
@@ -83,7 +83,7 @@ export const MARVEL_FATE_POOL: CardDef[] = [
     copies: 1,
     strength: 2,
     text: 'Transférez un Héros de force 3 ou moins de n’importe quel domaine sur le lieu où vous jouez LE FAUCON.',
-    image: '/cards/marvel-fate/le-faucon.png',
+    image: '/cards/marvel-fate/le-faucon.webp',
     fateMalus: 'slow',
   },
   {
@@ -96,7 +96,7 @@ export const MARVEL_FATE_POOL: CardDef[] = [
     strength: 2,
     // Adaptation (sans « Crise ») : cible un Allié sur le lieu où il est joué.
     text: 'Éliminez un Allié sur le lieu où vous jouez HAWKEYE.',
-    image: '/cards/marvel-fate/hawkeye.png',
+    image: '/cards/marvel-fate/hawkeye.webp',
     fateMalus: 'slow',
   },
   {
@@ -108,7 +108,7 @@ export const MARVEL_FATE_POOL: CardDef[] = [
     copies: 1,
     strength: 5,
     text: 'Rien ne peut être associé à HULK. Si vous éliminez HULK, placez un jeton Force +1 sur lui et transférez-le immédiatement vers le domaine d’un adversaire. Cet effet ne s’applique pas si Hulk est défaussé.',
-    image: '/cards/marvel-fate/hulk.png',
+    image: '/cards/marvel-fate/hulk.webp',
     fateMalus: 'slow3',
   },
   {
@@ -120,7 +120,7 @@ export const MARVEL_FATE_POOL: CardDef[] = [
     copies: 1,
     strength: 3,
     text: 'Tant qu’IRON MAN est dans votre domaine, les actions Activer vous coûtent 1 jeton Pouvoir de plus.',
-    image: '/cards/marvel-fate/iron-man.png',
+    image: '/cards/marvel-fate/iron-man.webp',
     // Passif : surcoût de 1 Pouvoir sur les actions Activer tant qu'il est là.
     activateSurcharge: 1,
     fateMalus: 'slow',
@@ -134,7 +134,7 @@ export const MARVEL_FATE_POOL: CardDef[] = [
     copies: 1,
     strength: 5,
     text: 'Vous devez éliminer THOR avant les autres Héros de votre domaine.',
-    image: '/cards/marvel-fate/thor.png',
+    image: '/cards/marvel-fate/thor.webp',
     // Héros prioritaire : bloque l'élimination des autres Héros tant qu'il est là.
     mustDefeatFirst: true,
     fateMalus: 'slow2',
@@ -149,7 +149,7 @@ export const MARVEL_FATE_POOL: CardDef[] = [
     strength: 4,
     // Adaptation (sans « Crise ») : verrouille le LIEU où elle est jouée.
     text: 'Tant que MISS HULK est dans votre domaine, vous ne pouvez plus déplacer d’Allié/Objet ni jouer de carte sur son lieu.',
-    image: '/cards/marvel-fate/miss-hulk.png',
+    image: '/cards/marvel-fate/miss-hulk.webp',
     fateMalus: 'block-advance',
   },
   {
@@ -161,7 +161,7 @@ export const MARVEL_FATE_POOL: CardDef[] = [
     copies: 1,
     strength: 2,
     text: 'L’adversaire chez qui vous jouez NICK FURY perd la moitié de ses jetons Pouvoir, arrondie au supérieur.',
-    image: '/cards/marvel-fate/nick-fury.png',
+    image: '/cards/marvel-fate/nick-fury.webp',
     fateMalus: 'slow2',
   },
 ]

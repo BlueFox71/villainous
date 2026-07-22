@@ -120,7 +120,7 @@ function renderRich(text: string) {
     <Fragment key={i}>
       {renderBold(p)}
       {i < parts.length - 1 && (
-        <img src="/cards/bowser/etoile.png" alt="Étoile" className="inline-block h-3.5 w-3.5 align-text-bottom" />
+        <img src="/cards/bowser/etoile.webp" alt="Étoile" className="inline-block h-3.5 w-3.5 align-text-bottom" />
       )}
     </Fragment>
   ))

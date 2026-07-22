@@ -203,12 +203,12 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
   // sur toute la largeur — comme la pluie de pièces de Prince Jean (path `coins`).
   seigneurCles: {
     images: [
-      '/cards/seigneur-cles/cle-bleu.png',
-      '/cards/seigneur-cles/cle-jaune.png',
-      '/cards/seigneur-cles/cle-orange.png',
-      '/cards/seigneur-cles/cle-rouge.png',
-      '/cards/seigneur-cles/cle-vert.png',
-      '/cards/seigneur-cles/cle-violet.png',
+      '/cards/seigneur-cles/cle-bleu.webp',
+      '/cards/seigneur-cles/cle-jaune.webp',
+      '/cards/seigneur-cles/cle-orange.webp',
+      '/cards/seigneur-cles/cle-rouge.webp',
+      '/cards/seigneur-cles/cle-vert.webp',
+      '/cards/seigneur-cles/cle-violet.webp',
     ],
     heightPct: 7, // taille de base d'une clé (variée par clé dans le composant)
     durationSec: 9, // couvre l'étalement des chutes (délais + durée de chute)

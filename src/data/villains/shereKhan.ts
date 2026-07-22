@@ -37,11 +37,11 @@ export const shereKhan: VillainDef = {
     "Faites venir Mowgli (Fatalité, tromperie, ou « Lancé sur ses traces ») — il pose un " +
     "jeton Feu en arrivant. Retirez tous les jetons Feu (C'est moi Shere Khan, Macaques) " +
     "AVANT de l'éliminer.",
-  boardImage: img('board.png'),
+  boardImage: img('board.webp'),
   pawnImage: '/pion_shere-khan.png',
   pawnHeightPx: 92,
-  backVillainImage: img('back-villain.png'),
-  backFateImage: img('back-fate.png'),
+  backVillainImage: img('back-villain.webp'),
+  backFateImage: img('back-fate.webp'),
   locations: [
     {
       id: 'riviere',

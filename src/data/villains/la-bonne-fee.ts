@@ -45,11 +45,11 @@ export const laBonneFee: VillainDef = {
     "tout de suite ! » pour gagner. Tant que SHREK est présent dans votre royaume, " +
     "la victoire est impossible : transformez-le (Héros en Meuble / en Colombe → " +
     "force 0) puis défaussez-le (« Nettoyage de fond »).",
-  boardImage: img('board.png'),
+  boardImage: img('board.webp'),
   pawnImage: '/pion_la-bonne-fee.png',
   pawnHeightPx: 94,
-  backVillainImage: img('back-villain.png'),
-  backFateImage: img('back-fate.png'),
+  backVillainImage: img('back-villain.webp'),
+  backFateImage: img('back-fate.webp'),
   locations: [
     {
       id: 'marais',

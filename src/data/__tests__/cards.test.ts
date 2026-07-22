@@ -50,7 +50,7 @@ describe('cartes du Prince Jean — intégrité du paquet', () => {
       expect(c.name.length).toBeGreaterThan(0)
       expect(c.text.length).toBeGreaterThan(0)
       expect(c.copies).toBeGreaterThanOrEqual(1)
-      expect(c.image).toMatch(/^\/cards\/prince-jean\/.+\.png$/)
+      expect(c.image).toMatch(/^\/cards\/prince-jean\/.+\.(png|webp)$/)
       // Cartes Vilain : coût défini ; cartes Fatalité : pas de coût.
       if (c.deck === 'villain') expect(typeof c.cost).toBe('number')
       else expect(c.cost).toBeUndefined()

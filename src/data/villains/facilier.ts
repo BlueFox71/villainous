@@ -32,11 +32,11 @@ export const facilier: VillainDef = {
     'Jouez le Talisman et « Régner sur la Nouvelle-Orléans », détenez le Talisman, ' +
     'puis jouez Divination au Royaume du vaudou pour révéler « Régner sur la ' +
     'Nouvelle-Orléans » depuis la Pile de l’Au-delà.',
-  boardImage: '/cards/facilier/board.png',
+  boardImage: '/cards/facilier/board.webp',
   pawnImage: '/pion_facilier.png',
   pawnHeightPx: 104,
-  backVillainImage: '/cards/facilier/back-villain.png',
-  backFateImage: '/cards/facilier/back-fate.png',
+  backVillainImage: '/cards/facilier/back-villain.webp',
+  backFateImage: '/cards/facilier/back-fate.webp',
   locations: [
     {
       id: 'royaume-vaudou',

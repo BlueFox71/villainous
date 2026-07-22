@@ -23,11 +23,11 @@ export const reineCoeur: VillainDef = {
   objective: { type: 'ROYAL_CROQUET' },
   boardObjective: 'Placez un arceau dans chaque lieu et réussissez un COUP ROYAL.',
   objectiveDescription: 'Placez un arceau dans chaque lieu et réussissez un Coup Royal.',
-  boardImage: '/cards/reine-coeur/board.png',
+  boardImage: '/cards/reine-coeur/board.webp',
   pawnImage: '/pion_reine_coeur.png',
   pawnHeightPx: 76,
-  backVillainImage: '/cards/reine-coeur/back_villain.png',
-  backFateImage: '/cards/reine-coeur/back_fate.png',
+  backVillainImage: '/cards/reine-coeur/back_villain.webp',
+  backFateImage: '/cards/reine-coeur/back_fate.webp',
   locations: [
     {
       id: 'cour-palais',

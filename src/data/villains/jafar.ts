@@ -30,11 +30,11 @@ export const jafar: VillainDef = {
   boardObjective: 'Au début de votre tour, la LAMPE MERVEILLEUSE doit se trouver au Palais du Sultan et le GÉNIE doit être sous HYPNOSE.',
   objectiveDescription:
     'Au début de votre tour, contrôler le Génie (hypnotisé) et avoir la Lampe Merveilleuse au Palais du Sultan.',
-  boardImage: '/cards/jafar/board.png',
+  boardImage: '/cards/jafar/board.webp',
   pawnImage: '/pion_jafar.png',
   pawnHeightPx: 76,
-  backVillainImage: '/cards/jafar/back_villain.png',
-  backFateImage: '/cards/jafar/back_fate.png',
+  backVillainImage: '/cards/jafar/back_villain.webp',
+  backFateImage: '/cards/jafar/back_fate.webp',
   // La Caverne aux Merveilles démarre verrouillée (Cadenas) ; le Scarabée d'Or
   // la déverrouille (UNLOCK_LOCATION).
   lockedLocationsAtStart: ['caverne'],

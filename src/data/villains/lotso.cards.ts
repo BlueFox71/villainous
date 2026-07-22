@@ -24,7 +24,7 @@ export const lotsoCards: CardDef[] = [
     text:
       'Capacité activée : dévoilez les cartes de votre pioche Fatalité jusqu’à ce que vous trouviez un Héros, ' +
       'puis jouez-le sur n’importe quel lieu en dehors de la Salle des Chenilles. Défaussez les autres cartes dévoilées.',
-    image: img('big-baby.png'),
+    image: img('big-baby.webp'),
     // Capacité ACTIVÉE (symbole Activer) : déclenchée par l'action « Activer une capacité »
     // (Bibliothèque), pas à la pose. Dispatchée par cardId dans applyActivateCore.
     activatedCost: 0,
@@ -39,7 +39,7 @@ export const lotsoCards: CardDef[] = [
     strength: 1,
     copies: 1,
     text: 'Si VULCAIN se trouve dans le royaume, la force de TCHAC augmente de 1.',
-    image: img('tchac.png'),
+    image: img('tchac.webp'),
     selfStrengthMods: [{ kind: 'if-card', cardId: 'vulcain', scope: 'realm', delta: 1 }],
   },
   {
@@ -52,7 +52,7 @@ export const lotsoCards: CardDef[] = [
     strength: 1,
     copies: 1,
     text: 'Si TWITCH se trouve dans le royaume, la force de VULCAIN augmente de 1.',
-    image: img('vulcain.png'),
+    image: img('vulcain.webp'),
     selfStrengthMods: [{ kind: 'if-card', cardId: 'twitch', scope: 'realm', delta: 1 }],
   },
   {
@@ -65,7 +65,7 @@ export const lotsoCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'Si TCHAC se trouve dans le royaume, la force de TWITCH augmente de 1.',
-    image: img('twitch.png'),
+    image: img('twitch.webp'),
     selfStrengthMods: [{ kind: 'if-card', cardId: 'tchac', scope: 'realm', delta: 1 }],
   },
   {
@@ -78,7 +78,7 @@ export const lotsoCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'Capacité activée : déplacez un Héros ou un Gardien du lieu où se trouve Flex vers n’importe quel autre lieu.',
-    image: img('flex.png'),
+    image: img('flex.webp'),
     // Capacité ACTIVÉE (action « Activer une capacité », Bibliothèque) : dispatchée par cardId
     // 'flex' dans applyActivateCore → pendingLotsoFlex (choix carte puis lieu).
     activatedCost: 0,
@@ -93,7 +93,7 @@ export const lotsoCards: CardDef[] = [
     cost: 2,
     copies: 1,
     text: 'La force de tous les Héros, à l’exception de WOODY, est réduite de 1.',
-    image: img('chapeau-de-woody.png'),
+    image: img('chapeau-de-woody.webp'),
     strengthMod: { target: 'heroes-realm', delta: -1, exceptCardId: 'woody' },
   },
   // ------------------------------------------------------------- Événements ---
@@ -106,7 +106,7 @@ export const lotsoCards: CardDef[] = [
     cost: 3,
     copies: 3,
     text: 'Ajoutez un jeton Force −1 sur tous les Héros présents sur la Salle des Chenilles.',
-    image: img('enfermes.png'),
+    image: img('enfermes.webp'),
     effects: [{ type: 'LOTSO_REDUCE', scope: 'room', target: 'all', amount: 1 }],
   },
   {
@@ -118,7 +118,7 @@ export const lotsoCards: CardDef[] = [
     cost: 2,
     copies: 3,
     text: 'Déplacez un Héros ou la tuile BUZZ L’ÉCLAIR sur la Salle des Chenilles.',
-    image: img('pas-l-age-minimum.png'),
+    image: img('pas-l-age-minimum.webp'),
     effects: [{ type: 'LOTSO_MOVE', scope: 'to-room', includeBuzz: true }],
   },
   {
@@ -136,7 +136,7 @@ export const lotsoCards: CardDef[] = [
     text:
       'Dépensez autant de jetons Pouvoir que vous voulez. Pour chaque jeton dépensé, ajoutez un jeton ' +
       'Force −1 à un Héros de votre choix (vous pouvez répartir ces jetons entre plusieurs Héros).',
-    image: img('le-bibliothecaire.png'),
+    image: img('le-bibliothecaire.webp'),
     effects: [{ type: 'LOTSO_BOOKWORM' }],
   },
   {
@@ -150,7 +150,7 @@ export const lotsoCards: CardDef[] = [
     text:
       'Dévoilez les cartes de votre pioche Fatalité jusqu’à trouver un Héros, puis jouez-le sur la Salle ' +
       'des Chenilles. Défaussez les autres cartes dévoilées.',
-    image: img('bienvenue-a-sunnyside.png'),
+    image: img('bienvenue-a-sunnyside.webp'),
     effects: [{ type: 'LOTSO_REVEAL_HERO', atRoom: true }],
   },
   {
@@ -162,7 +162,7 @@ export const lotsoCards: CardDef[] = [
     cost: 2,
     copies: 2,
     text: 'Choisissez un Héros se trouvant en dehors de la Salle des Chenilles, puis ajoutez-lui un jeton Force −1.',
-    image: img('patrouille-de-nuit.png'),
+    image: img('patrouille-de-nuit.webp'),
     effects: [{ type: 'LOTSO_REDUCE', scope: 'not-room', target: 'one', amount: 1 }],
   },
   {
@@ -176,7 +176,7 @@ export const lotsoCards: CardDef[] = [
     text:
       'Ajoutez un jeton Force −1 sur les Héros. Retournez la tuile BUZZ L’ÉCLAIR sur sa face MODE DÉMO et ' +
       'déplacez-le vers un lieu de la partie inférieure de votre royaume.',
-    image: img('reinitialisation.png'),
+    image: img('reinitialisation.webp'),
     effects: [
       { type: 'LOTSO_REDUCE', scope: 'all', target: 'all', amount: 1 },
       { type: 'LOTSO_FLIP_BUZZ', to: 'demo', moveTo: 'bottom' },
@@ -193,7 +193,7 @@ export const lotsoCards: CardDef[] = [
     text:
       'À l’aide de jetons Force, réduisez la force de tous les Héros présents sur la Salle des Chenilles du ' +
       'nombre de Héros qui s’y trouvent.',
-    image: img('nouveaux-jouets.png'),
+    image: img('nouveaux-jouets.webp'),
     effects: [{ type: 'LOTSO_REDUCE', scope: 'room', target: 'all', byRoomCount: true }],
   },
   // -------------------------------------------------------------- Conditions ---
@@ -208,7 +208,7 @@ export const lotsoCards: CardDef[] = [
     text:
       'Jouable pendant le tour d’un adversaire s’il défausse au moins une carte. Déplacez tous les Héros sur ' +
       'la Salle des Chenilles.',
-    image: img('quelque-chose-se-brisa.png'),
+    image: img('quelque-chose-se-brisa.webp'),
     trigger: { type: 'opponent-discarded-ge', value: 1 },
     effects: [{ type: 'LOTSO_MOVE', scope: 'all-to-room' }],
   },
@@ -223,7 +223,7 @@ export const lotsoCards: CardDef[] = [
     text:
       'Jouable pendant le tour d’un adversaire s’il gagne des jetons Pouvoir. Mélangez votre défausse et ' +
       'votre pioche.',
-    image: img('parfume-a-la-fraise.png'),
+    image: img('parfume-a-la-fraise.webp'),
     trigger: { type: 'opponent-gained-power-ge', value: 1 },
     effects: [{ type: 'RESHUFFLE_DISCARD_AND_DRAW', count: 0 }],
   },
@@ -238,7 +238,7 @@ export const lotsoCards: CardDef[] = [
     text:
       'Jouable pendant le tour d’un adversaire s’il élimine un Héros de force 2 ou plus. Ajoutez des jetons ' +
       'Force −1 à un Héros présent sur le lieu de votre figurine, jusqu’à réduire sa force à 0.',
-    image: img('bien-le-bonjour.png'),
+    image: img('bien-le-bonjour.webp'),
     trigger: { type: 'opponent-vanquished-hero-strength-ge', value: 2 },
     effects: [{ type: 'LOTSO_REDUCE', scope: 'at-pawn', target: 'one', toZero: true }],
   },
@@ -256,7 +256,7 @@ export const lotsoCards: CardDef[] = [
     text:
       'BUZZ L’ÉCLAIR et les Héros qui se trouvent sur ce lieu ne peuvent pas être la cible d’une action ' +
       'Éliminer un Héros.',
-    image: img('buzz-l-eclair.png'),
+    image: img('buzz-l-eclair.webp'),
   },
   {
     id: 'buzz-mode-demo',
@@ -270,7 +270,7 @@ export const lotsoCards: CardDef[] = [
       'Ne peut participer à une action Éliminer un Héros que si un autre Allié y participe aussi. Le Héros ' +
       'ainsi éliminé voit sa force réduite à 0 et est placé sur la Salle des Chenilles. N’est pas défaussé ' +
       'lorsqu’il est utilisé pour éliminer un Héros.',
-    image: img('buzz-mode-demo.png'),
+    image: img('buzz-mode-demo.webp'),
   },
 
   // ============================================================ Fatalité (15) =
@@ -285,7 +285,7 @@ export const lotsoCards: CardDef[] = [
     text:
       'Tant qu’il se trouve sur le même lieu qu’un autre Héros, REX ne peut pas être la cible d’une action ' +
       'Éliminer un Héros et sa force ne peut pas être réduite par des jetons Force −1.',
-    image: img('rex.png'),
+    image: img('rex.webp'),
     protectedWithOtherHero: true,
   },
   {
@@ -299,7 +299,7 @@ export const lotsoCards: CardDef[] = [
     text:
       'Si le CHAPEAU DE WOODY se trouve dans le royaume, défaussez-le. Puis vous pouvez déplacer les Héros ' +
       'présents sur la Salle des Chenilles vers n’importe quels lieux.',
-    image: img('woody.png'),
+    image: img('woody.webp'),
     onPlace: [{ type: 'WOODY_RELEASE' }],
   },
   {
@@ -311,7 +311,7 @@ export const lotsoCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'Lotso doit utiliser au moins 2 Alliés pour éliminer BAYONNE.',
-    image: img('bayonne.png'),
+    image: img('bayonne.webp'),
     minAlliesToVanquish: 2,
   },
   {
@@ -323,7 +323,7 @@ export const lotsoCards: CardDef[] = [
     strength: 3,
     copies: 1,
     text: 'Vous pouvez défausser un Allié.',
-    image: img('jessie.png'),
+    image: img('jessie.webp'),
     onPlace: [{ type: 'LOTSO_FATE_DISCARD_ALLY' }],
   },
   {
@@ -334,7 +334,7 @@ export const lotsoCards: CardDef[] = [
     type: 'effect',
     copies: 1,
     text: 'Si BIG BABY est dans le royaume, défaussez-le. Puis mélangez la défausse et la pioche de cartes Fatalité.',
-    image: img('medaillon-de-daisy.png'),
+    image: img('medaillon-de-daisy.webp'),
     effects: [{ type: 'DAISY_LOCKET' }],
   },
   {
@@ -345,7 +345,7 @@ export const lotsoCards: CardDef[] = [
     type: 'effect',
     copies: 1,
     text: 'Ajoutez deux jetons Force +1 à tous les Héros dont la force n’a pas été réduite à 0.',
-    image: img('andy-nous-cherche.png'),
+    image: img('andy-nous-cherche.webp'),
     effects: [{ type: 'LOTSO_BOOST_NONZERO', amount: 2 }],
   },
   {
@@ -356,7 +356,7 @@ export const lotsoCards: CardDef[] = [
     type: 'effect',
     copies: 1,
     text: 'Défaussez un Allié.',
-    image: img('lotso-etait-son-prefere.png'),
+    image: img('lotso-etait-son-prefere.webp'),
     effects: [{ type: 'LOTSO_FATE_DISCARD_ALLY' }],
   },
   {
@@ -367,7 +367,7 @@ export const lotsoCards: CardDef[] = [
     type: 'effect',
     copies: 2,
     text: 'Retirez tous les jetons Force de valeur négative d’un Héros.',
-    image: img('jouets-de-bonnie.png'),
+    image: img('jouets-de-bonnie.webp'),
     effects: [{ type: 'LOTSO_RESTORE_HERO' }],
   },
   {
@@ -378,7 +378,7 @@ export const lotsoCards: CardDef[] = [
     type: 'effect',
     copies: 2,
     text: 'Déplacez un Héros de la Salle des Chenilles vers n’importe quel lieu.',
-    image: img('un-seul-moyen-de-sortir.png'),
+    image: img('un-seul-moyen-de-sortir.webp'),
     effects: [{ type: 'LOTSO_MOVE', scope: 'from-room' }],
   },
   {
@@ -389,7 +389,7 @@ export const lotsoCards: CardDef[] = [
     type: 'effect',
     copies: 2,
     text: 'Défaussez un Héros de force 0, puis mélangez la défausse et la pioche de cartes Fatalité.',
-    image: img('le-grappin.png'),
+    image: img('le-grappin.webp'),
     effects: [{ type: 'LOTSO_DISCARD_ZERO_HERO' }],
   },
   {
@@ -402,7 +402,7 @@ export const lotsoCards: CardDef[] = [
     text:
       'Retournez BUZZ L’ÉCLAIR sur sa face Gardien et déplacez-le dans la partie supérieure de la Cour de ' +
       'Récréation. Si JESSIE est dans le royaume, ajoutez un jeton Force +1 à cette dernière.',
-    image: img('mode-espagnol.png'),
+    image: img('mode-espagnol.webp'),
     effects: [{ type: 'LOTSO_FLIP_BUZZ', to: 'guardian', moveTo: 'cour-top' }],
   },
 ]

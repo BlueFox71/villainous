@@ -31,11 +31,11 @@ export const princeJohn: VillainDef = {
   objective: { type: 'POWER_THRESHOLD', threshold: 20 },
   boardObjective: 'Au début de votre tour, vous devez posséder au moins 20 jetons Pouvoir.',
   objectiveDescription: 'Avoir 20 points de pouvoir au début de son tour.',
-  boardImage: '/cards/prince-jean/board.png',
+  boardImage: '/cards/prince-jean/board.webp',
   pawnImage: '/pion_prince_jean.png',
   pawnHeightPx: 72,
-  backVillainImage: '/cards/prince-jean/back_villain.png',
-  backFateImage: '/cards/prince-jean/back_fatality.png',
+  backVillainImage: '/cards/prince-jean/back_villain.webp',
+  backFateImage: '/cards/prince-jean/back_fatality.webp',
   locations: [
     {
       id: 'sherwood',

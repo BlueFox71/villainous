@@ -41,7 +41,7 @@
           "label": "Défausser des cartes"
         }
       ],
-      "image": "/cards/custom-michael-meyers/loc-loc-1.png?v=1784296782144"
+      "image": "/cards/custom-michael-meyers/loc-loc-1.webp?v=1784296782144"
     },
     {
       "id": "loc-3",
@@ -79,7 +79,7 @@
           "label": "Gagner 3 pouvoir"
         }
       ],
-      "image": "/cards/custom-michael-meyers/loc-loc-3.png?v=1784296782144"
+      "image": "/cards/custom-michael-meyers/loc-loc-3.webp?v=1784296782144"
     },
     {
       "id": "loc-2",
@@ -111,7 +111,7 @@
           "label": "Jouer une carte"
         }
       ],
-      "image": "/cards/custom-michael-meyers/loc-loc-2.png?v=1784296782144"
+      "image": "/cards/custom-michael-meyers/loc-loc-2.webp?v=1784296782144"
     },
     {
       "id": "loc-4",
@@ -161,7 +161,7 @@
       "type": "effect",
       "copies": 1,
       "text": "Débloquez la Demeure des STRODE. Nécessite Mal Intérieur niveau 3. Vous pouvez aller prendre une arme dans votre pioche ou défausse et la jouer gratuitement.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-gardons-le-meilleur-pour-la-fin.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-gardons-le-meilleur-pour-la-fin.webp?v=1784296782144",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -174,7 +174,7 @@
         "size": 76
       },
       "cost": 3,
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-gardons-le-meilleur-pour-la-fin.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-gardons-le-meilleur-pour-la-fin.art.webp?v=1784296782144",
       "effects": [
         {
           "type": "MICHAEL_KEEP_BEST",
@@ -191,7 +191,7 @@
       "type": "effect",
       "copies": 1,
       "text": "Associez cette carte à Meyers. Lorsque vous éliminez un Héros avec cette Arme en votre possession, vous pouvez rejouer.   Vous ne pouvez avoir qu'une Arme équipée à la fois.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-couteau-de-cuisine.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-couteau-de-cuisine.webp?v=1784296782144",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -206,7 +206,7 @@
       "cost": 3,
       "typeLabel": "Arme",
       "typeColor": "#ca1212",
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-couteau-de-cuisine.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-couteau-de-cuisine.art.webp?v=1784296782144",
       "isWeapon": true,
       "weaponOnKill": [
         {
@@ -222,7 +222,7 @@
       "type": "effect",
       "copies": 1,
       "text": "Associez cette carte à Meyers. Lorsque vous éliminez un Héros, vous pouvez effectuer une action bonus de votre choix.   Vous ne pouvez avoir qu'une Arme équipée à la fois.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-hache-de-bucheron.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-hache-de-bucheron.webp?v=1784296782144",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -237,7 +237,7 @@
       "cost": 2,
       "typeLabel": "Arme",
       "typeColor": "#ca1212",
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-hache-de-bucheron.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-hache-de-bucheron.art.webp?v=1784296782144",
       "isWeapon": true,
       "weaponOnKill": [
         {
@@ -253,7 +253,7 @@
       "type": "effect",
       "copies": 1,
       "text": "Associez cette carte à Meyers. Lorsque vous éliminez un Héros, gagnez 2 jetons Pouvoir.   Vous ne pouvez avoir qu'une Arme équipée à la fois.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-tuyau-arrache.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-tuyau-arrache.webp?v=1784296782144",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -268,7 +268,7 @@
       "cost": 2,
       "typeLabel": "Arme",
       "typeColor": "#ca1212",
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-tuyau-arrache.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-tuyau-arrache.art.webp?v=1784296782144",
       "isWeapon": true,
       "weaponOnKill": [
         {
@@ -285,7 +285,7 @@
       "type": "effect",
       "copies": 3,
       "text": "Piochez dans la pioche Fatalité jusqu’à ce que vous trouvez un Héros et jouez le. Défaussez les autres cartes.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-jouez-avec-la-nourriture.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-jouez-avec-la-nourriture.webp?v=1784296782144",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -298,7 +298,7 @@
         "size": 76
       },
       "cost": 2,
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-jouez-avec-la-nourriture.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-jouez-avec-la-nourriture.art.webp?v=1784296782144",
       "effects": [
         {
           "type": "REVEAL_FATE_UNTIL_HERO_CHOICE",
@@ -314,7 +314,7 @@
       "type": "condition",
       "copies": 2,
       "text": "Cette carte est jouable pendant le tour d'un adversaire s'il ne joue aucune carte.   Jouez une carte gratuitement.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-aura-effrayante.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-aura-effrayante.webp?v=1784296782144",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -326,7 +326,7 @@
         "w": 79,
         "size": 76
       },
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-aura-effrayante.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-aura-effrayante.art.webp?v=1784296782144",
       "trigger": {
         "type": "opponent-played-cards-le",
         "value": 0
@@ -346,7 +346,7 @@
       "type": "condition",
       "copies": 2,
       "text": "Cette carte est jouable pendant le tour d'un adversaire si celui-ci élimine un Héros. Votre adversaire ne peut pas utiliser l'action Fatalité contre vous à son prochain tour.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-invincible.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-invincible.webp?v=1784296782144",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -358,7 +358,7 @@
         "w": 79,
         "size": 76
       },
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-invincible.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-invincible.art.webp?v=1784296782144",
       "trigger": {
         "type": "opponent-vanquished-hero-strength-ge",
         "value": 0
@@ -377,7 +377,7 @@
       "type": "effect",
       "copies": 3,
       "text": "Piochez les 4 dernières cartes de votre pioche Méchant, ajoutez-en-une à votre main puis défaussez les autres ou remettez-les sur le dessus de votre pioche.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-lumiere-mourrante.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-lumiere-mourrante.webp?v=1784296782144",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -390,7 +390,7 @@
         "size": 76
       },
       "cost": 2,
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-lumiere-mourrante.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-lumiere-mourrante.art.webp?v=1784296782144",
       "effects": [
         {
           "type": "LOOK_BOTTOM_DRAW",
@@ -406,7 +406,7 @@
       "type": "effect",
       "copies": 3,
       "text": "Allez chercher une Arme dans votre pioche et ajouter la à votre main ou payez son coût et jouez la.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-arme-du-crime.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-arme-du-crime.webp?v=1784296782144",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -419,7 +419,7 @@
         "size": 76
       },
       "cost": 1,
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-arme-du-crime.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-arme-du-crime.art.webp?v=1784296782144",
       "effects": [
         {
           "type": "MICHAEL_FETCH_WEAPON_FROM_DECK"
@@ -434,7 +434,7 @@
       "type": "effect",
       "copies": 4,
       "text": "Éliminez un Héros sur le lieu où vous êtes, nécessite une Arme en votre possession. Le coût de la carte dépend du coût en jetons pouvoir de l'arme utilisé. ",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-assassiner.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-assassiner.webp?v=1784296782144",
       "artTransform": {
         "scale": 1.01,
         "offsetXPct": 0,
@@ -448,7 +448,7 @@
       },
       "cost": 2,
       "costVariable": true,
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-assassiner.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-assassiner.art.webp?v=1784296782144",
       "effects": [
         {
           "type": "INSTANT_VANQUISH_HERO_AT_PAWN"
@@ -464,7 +464,7 @@
       "type": "item",
       "copies": 2,
       "text": "Gagnez 2 jetons Pouvoir   \nOU  \n déplacez un Héros vers un lieu voisin.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-trace-de-sang.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-trace-de-sang.webp?v=1784296782144",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -486,7 +486,7 @@
           "size": 20
         }
       ],
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-trace-de-sang.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-trace-de-sang.art.webp?v=1784296782144",
       "activatedCost": 0,
       "activatedEffects": [
         {
@@ -503,7 +503,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Mélangez votre défausse puis piochez 3 cartes de la défausse. Défaussez-les ou ajoutez-les à votre main.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-incarnation-du-mal.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-incarnation-du-mal.webp?v=1784296782144",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -516,7 +516,7 @@
         "size": 76
       },
       "cost": 2,
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-incarnation-du-mal.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-incarnation-du-mal.art.webp?v=1784296782144",
       "effects": [
         {
           "type": "SHUFFLE_DISCARD_REVEAL",
@@ -532,7 +532,7 @@
       "type": "effect",
       "copies": 3,
       "text": "Gagnez 1 jeton Pouvoir plus un pour chaque pallier de Mal Intérieur.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-trophee-de-chasse.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-trophee-de-chasse.webp?v=1784296782144",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -545,7 +545,7 @@
         "size": 76
       },
       "cost": 0,
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-trophee-de-chasse.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-trophee-de-chasse.art.webp?v=1784296782144",
       "effects": [
         {
           "type": "GAIN_POWER_PER_MAL_INTERIEUR",
@@ -561,7 +561,7 @@
       "type": "hero",
       "copies": 1,
       "text": "Vous devez éliminer LEIGH BRACKETT avant les autres Héros.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-leigh-brackett.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-leigh-brackett.webp?v=1784296782144",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -574,7 +574,7 @@
         "size": 76
       },
       "strength": 2,
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-leigh-brackett.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-leigh-brackett.art.webp?v=1784296782144",
       "fateMalus": "slow"
     },
     {
@@ -585,7 +585,7 @@
       "type": "hero",
       "copies": 1,
       "text": "Tant que JAIME STRODE est présente, l'effet de votre Arme est désactivé.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-jaime-strode.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-jaime-strode.webp?v=1784296782144",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -598,7 +598,7 @@
         "size": 76
       },
       "strength": 1,
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-jaime-strode.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-jaime-strode.art.webp?v=1784296782144",
       "disablesEquippedWeapon": true,
       "fateMalus": "slow2"
     },
@@ -610,7 +610,7 @@
       "type": "hero",
       "copies": 1,
       "text": "Mélangez la défausse et la pioche de MICHAEL MYERS.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-samuel-loomis.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-samuel-loomis.webp?v=1784296782144",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -623,7 +623,7 @@
         "size": 76
       },
       "strength": 3,
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-samuel-loomis.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-samuel-loomis.art.webp?v=1784296782144",
       "onPlace": [
         {
           "type": "SHUFFLE_VILLAIN_DISCARD"
@@ -639,7 +639,7 @@
       "type": "hero",
       "copies": 1,
       "text": "Vous devez jouer cette carte sur la demeure des strode ( bloqué ou non) Le coût pour assassiner LAURIE augmente de 2 pour chaque autres héros dans le royaume.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-laurie-strode.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-laurie-strode.webp?v=1784296782144",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -653,7 +653,7 @@
       },
       "strength": 4,
       "group": null,
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-laurie-strode.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-laurie-strode.art.webp?v=1784296782144",
       "assassinateSurchargePerOtherHero": 2,
       "forcedFateLocation": "loc-4"
     },
@@ -665,7 +665,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Défausse une arme équipé.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-desarmement.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-desarmement.webp?v=1784296782144",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -677,7 +677,7 @@
         "w": 79,
         "size": 76
       },
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-desarmement.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-desarmement.art.webp?v=1784296782144",
       "effects": [
         {
           "type": "DISCARD_EQUIPPED_WEAPON"
@@ -692,7 +692,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Piochez les 4 premières cartes de la pioche de MYERS et défaussez les. GARDONS LE MEILLEUR POUR LA FIN ne peut pas être défaussé.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-blessure.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-blessure.webp?v=1784296782144",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -704,7 +704,7 @@
         "w": 79,
         "size": 76
       },
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-blessure.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-blessure.art.webp?v=1784296782144",
       "effects": [
         {
           "type": "DISCARD_TOP_DECK",
@@ -724,7 +724,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Perdez 1 jeton Pouvoir plus 1 par pallier de Mal Intérieur.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-souvenir-de-judith.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-souvenir-de-judith.webp?v=1784296782144",
       "artTransform": {
         "scale": 0.85,
         "offsetXPct": 0,
@@ -736,7 +736,7 @@
         "w": 79,
         "size": 76
       },
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-souvenir-de-judith.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-souvenir-de-judith.art.webp?v=1784296782144",
       "effects": [
         {
           "type": "LOSE_POWER_PER_MAL_INTERIEUR",
@@ -752,7 +752,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Défaussez un Objet.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-auto-defense.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-auto-defense.webp?v=1784296782144",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -764,7 +764,7 @@
         "w": 79,
         "size": 76
       },
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-auto-defense.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-auto-defense.art.webp?v=1784296782144",
       "effects": [
         {
           "type": "DISCARD_ONE_ITEM"
@@ -779,7 +779,7 @@
       "type": "item",
       "copies": 2,
       "text": "Associez cette carte à un Héros. Utilisez la carte ASSASSINER coûte 2 jetons pouvoir supplémentaire contre ce Héros.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-armement.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-armement.webp?v=1784296782144",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -791,7 +791,7 @@
         "w": 79,
         "size": 76
       },
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-armement.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-armement.art.webp?v=1784296782144",
       "typeLabel": "Objet",
       "typeColor": "#3aa0e0",
       "attach": "hero",
@@ -806,7 +806,7 @@
       "type": "hero",
       "copies": 1,
       "text": "Lorsque Tommy est éliminé, Allez chercher un héros dans la défausse jouez le sur le lieu de votre choix.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-coup-decisif.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-coup-decisif.webp?v=1784296782144",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
@@ -820,7 +820,7 @@
       },
       "typeLabel": "Héros",
       "typeColor": "#e8a93a",
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-coup-decisif.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-coup-decisif.art.webp?v=1784296782144",
       "strength": 3,
       "onVanquish": [
         {
@@ -837,7 +837,7 @@
       "type": "effect",
       "copies": 1,
       "text": "Associez cette carte à Meyers. Lorsque vous éliminez un Héros, piocher 2 cartes. Vous ne pouvez avoir qu'une Arme équipée à la fois.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-c1.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-c1.webp?v=1784296782144",
       "artTransform": {
         "scale": 0.94,
         "offsetXPct": 0,
@@ -852,7 +852,7 @@
       "cost": 1,
       "typeLabel": "Arme",
       "typeColor": "#ca1212",
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-c1.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-c1.art.webp?v=1784296782144",
       "isWeapon": true,
       "weaponOnKill": [
         {
@@ -869,7 +869,7 @@
       "type": "effect",
       "copies": 1,
       "text": "Associez cette carte à Meyers. Lorsque vous éliminez un Héros, vous pouvez effectuer l'action \"Activer une capacité\". Vous ne pouvez avoir qu'une Arme équipée à la fois.",
-      "image": "/cards/custom-michael-meyers/custom-michael-meyers-c2.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/custom-michael-meyers-c2.webp?v=1784296782144",
       "artTransform": {
         "scale": 0.61,
         "offsetXPct": 0,
@@ -884,7 +884,7 @@
       "cost": 1,
       "typeLabel": "Arme",
       "typeColor": "#ca1212",
-      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-c2.art.png?v=1784296782144",
+      "artImage": "/cards/custom-michael-meyers/custom-michael-meyers-c2.art.webp?v=1784296782144",
       "isWeapon": true,
       "weaponOnKill": [
         {
@@ -895,26 +895,26 @@
   ],
   "createdAt": "2026-07-17T00:05:05.656Z",
   "updatedAt": "2026-07-22T20:00:00.000Z",
-  "boardArt": "/cards/custom-michael-meyers/board-art.png?v=1784296782144",
+  "boardArt": "/cards/custom-michael-meyers/board-art.webp?v=1784296782144",
   "portraitPos": {
     "x": 87,
     "y": 24
   },
-  "portrait": "/cards/custom-michael-meyers/portrait.png?v=1784296782144",
-  "portraitRaw": "/cards/custom-michael-meyers/portrait-raw.png?v=1784296782144",
+  "portrait": "/cards/custom-michael-meyers/portrait.webp?v=1784296782144",
+  "portraitRaw": "/cards/custom-michael-meyers/portrait-raw.webp?v=1784296782144",
   "portraitCrop": {
     "x": 50,
     "y": 3,
     "zoom": 1
   },
-  "backVillainImage": "/cards/custom-michael-meyers/back-villain.png?v=1784296782144",
-  "backFateImage": "/cards/custom-michael-meyers/back-fate.png?v=1784296782144",
+  "backVillainImage": "/cards/custom-michael-meyers/back-villain.webp?v=1784296782144",
+  "backFateImage": "/cards/custom-michael-meyers/back-fate.webp?v=1784296782144",
   "boardImage": "/cards/custom-michael-meyers/board.jpg?v=1784296782144",
-  "presentation": "/cards/custom-michael-meyers/presentation.png?v=1784296782144",
+  "presentation": "/cards/custom-michael-meyers/presentation.webp?v=1784296782144",
   "backOverlays": [
     {
       "id": "ovl-1",
-      "image": "/cards/custom-michael-meyers/back-overlay-0.png?v=1784296782144",
+      "image": "/cards/custom-michael-meyers/back-overlay-0.webp?v=1784296782144",
       "x": 50,
       "y": 48.16534801054925,
       "size": 94.6838091961931,
@@ -931,7 +931,7 @@
     }
   ],
   "extraDecks": [],
-  "pawnImage": "/cards/custom-michael-meyers/pawn.png?v=1784296782144",
+  "pawnImage": "/cards/custom-michael-meyers/pawn.webp?v=1784296782144",
   "botStrategy": {
     "howToWin": "Michael monte en MAL INTÉRIEUR en assassinant des Héros (niveau 1→2→3). Au niveau 3, il pioche 1 carte supplémentaire en fin de tour. Plan : faire venir des Héros (Jouez avec la nourriture, Fatalités subies), s'équiper d'une Arme (Arme du crime), ASSASSINER pour monter au niveau 3, puis jouer GARDONS LE MEILLEUR POUR LA FIN pour déverrouiller la Demeure des Strode et aller y assassiner LAURIE. Chaque Arme donne un bonus au kill (rejouer un tour, action gratuite, +Pouvoir, piocher, activer).",
     "villainNotes": {

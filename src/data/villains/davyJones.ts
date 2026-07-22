@@ -35,11 +35,11 @@ export const davyJones: VillainDef = {
     "la mort ?, Ils sont là), RÉVÉLEZ-les (Bill le Bottier, Hadras, La Marque Noire), " +
     "puis ÉLIMINEZ le Héros qui porte un trésor RÉVÉLÉ pour vous en emparer. Un Héros ne " +
     "porte qu'un trésor à la fois.",
-  boardImage: img('board.png'),
+  boardImage: img('board.webp'),
   pawnImage: '/pion_davy-jones.png',
   pawnHeightPx: 96,
-  backVillainImage: img('back-villain.png'),
-  backFateImage: img('back-fate.png'),
+  backVillainImage: img('back-villain.webp'),
+  backFateImage: img('back-fate.webp'),
   locations: [
     {
       id: 'hollandais-volant',

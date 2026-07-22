@@ -28,7 +28,7 @@ function withTiles(s: GameState, tiles: FighterTile[]): GameState {
 const tile = (id: string, color: FighterColor, state: FighterTile['state']): FighterTile => ({
   id,
   color,
-  art: `/cards/tabbou/tuiles/${id}.png`,
+  art: `/cards/tabbou/tuiles/${id}.webp`,
   state,
 })
 
@@ -41,7 +41,7 @@ describe('Tabbou — mise en place des tuiles Combattants', () => {
     // Chaque tuile porte un nom de combattant (Meta Knight, Kirby…). Les tuiles sont
     // mélangées au départ, donc on vérifie la correspondance NOM ↔ ART (pas la position).
     expect((p.fighterTiles ?? []).every((t) => !!t.name && t.name.length > 0)).toBe(true)
-    const byArt = (n: number) => (p.fighterTiles ?? []).find((t) => t.art.endsWith(`combattant-${n}.png`))
+    const byArt = (n: number) => (p.fighterTiles ?? []).find((t) => t.art.endsWith(`combattant-${n}.webp`))
     expect(byArt(1)?.name).toBe('Meta Knight')
     expect(byArt(35)?.name).toBe('Samus')
     expect(byArt(7)?.name).toBe('Mario')

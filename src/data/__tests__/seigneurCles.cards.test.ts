@@ -39,7 +39,7 @@ describe('cartes du Seigneur des clés — intégrité du paquet', () => {
       expect(c.englishName.length).toBeGreaterThan(0)
       expect(c.text.length).toBeGreaterThan(0)
       expect(c.copies).toBeGreaterThanOrEqual(1)
-      expect(c.image).toMatch(/^\/cards\/seigneur-cles\/.+\.png$/)
+      expect(c.image).toMatch(/^\/cards\/seigneur-cles\/.+\.(png|webp)$/)
       if (c.deck === 'villain') expect(typeof c.cost).toBe('number')
       else expect(c.cost).toBeUndefined()
       if (c.type === 'hero') expect(typeof c.strength).toBe('number')
@@ -75,7 +75,7 @@ describe('cartes du Seigneur des clés — intégrité du paquet', () => {
 
   it('les 6 images de clé (détourées) existent dans public/', () => {
     for (const color of ['bleu', 'rouge', 'vert', 'jaune', 'violet', 'orange']) {
-      expect(existsSync(`public/cards/seigneur-cles/cle-${color}.png`), `clé manquante : ${color}`).toBe(true)
+      expect(existsSync(`public/cards/seigneur-cles/cle-${color}.webp`), `clé manquante : ${color}`).toBe(true)
     }
   })
 

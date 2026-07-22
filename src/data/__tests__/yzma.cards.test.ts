@@ -49,7 +49,7 @@ describe('Yzma — intégrité du paquet', () => {
 
   it('chaque illustration référencée existe (cartes + plateau + dos + pion)', () => {
     for (const c of yzmaCards) {
-      expect(c.image).toMatch(/^\/cards\/yzma\/.+\.png$/)
+      expect(c.image).toMatch(/^\/cards\/yzma\/.+\.(png|webp)$/)
       expect(existsSync('public' + c.image), `image manquante : ${c.image}`).toBe(true)
     }
     for (const p of [yzma.boardImage, yzma.backVillainImage, yzma.backFateImage, yzma.pawnImage]) {

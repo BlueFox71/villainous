@@ -30,11 +30,11 @@ export const seigneurCles: VillainDef = {
     'jaune, violet, orange). 12 clés sont réparties sur vos 4 lieux ; ramassez-les avec ' +
     'l’action « Obtenir une clé » (Crypte), Toute Puissance, Pierre Tombale, 00:00… Certaines ' +
     'cartes lancent un dé de couleur. Tant que vous détenez la Clé Noire, vous ne pouvez pas gagner.',
-  boardImage: img('board.png'),
+  boardImage: img('board.webp'),
   pawnImage: '/pion_seigneur-cles.png',
   pawnHeightPx: 80,
-  backVillainImage: img('back-villain.png'),
-  backFateImage: img('back-fate.png'),
+  backVillainImage: img('back-villain.webp'),
+  backFateImage: img('back-fate.webp'),
   locations: [
     {
       id: 'crypte',

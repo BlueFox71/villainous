@@ -49,7 +49,7 @@ describe('cartes de Madame Mim — intégrité du paquet', () => {
       expect(c.englishName!.length).toBeGreaterThan(0)
       expect(c.text.length).toBeGreaterThan(0)
       expect(c.copies).toBeGreaterThanOrEqual(1)
-      expect(c.image).toMatch(/^\/cards\/madame-mim\/.+\.png$/)
+      expect(c.image).toMatch(/^\/cards\/madame-mim\/.+\.(png|webp)$/)
       if (c.deck === 'villain' && c.type !== 'condition') expect(typeof c.cost).toBe('number')
       if (c.type === 'hero') expect(typeof c.strength).toBe('number')
     }

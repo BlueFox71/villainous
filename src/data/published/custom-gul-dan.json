@@ -46,7 +46,7 @@
       "lockedAtStart": false,
       "alt": {
         "name": "VALLÉE D'OMBRELUNE",
-        "image": "/cards/custom-gul-dan/loc-loc-1.alt.png?v=1783792105901",
+        "image": "/cards/custom-gul-dan/loc-loc-1.alt.webp?v=1783792105901",
         "imagePos": {
           "x": 100,
           "y": 50
@@ -78,9 +78,9 @@
             "label": "Déplacer un objet ou un allié"
           }
         ],
-        "columnImage": "/cards/custom-gul-dan/loc-loc-1.alt-col.png?v=1783792123704"
+        "columnImage": "/cards/custom-gul-dan/loc-loc-1.alt-col.webp?v=1783792123704"
       },
-      "image": "/cards/custom-gul-dan/loc-loc-1.png?v=1783792105901"
+      "image": "/cards/custom-gul-dan/loc-loc-1.webp?v=1783792105901"
     },
     {
       "id": "loc-2",
@@ -113,14 +113,14 @@
           "label": "Défausser des cartes"
         }
       ],
-      "image": "/cards/custom-gul-dan/loc-loc-2.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/loc-loc-2.webp?v=1783792105901",
       "imagePos": {
         "x": 50,
         "y": 0
       },
       "alt": {
         "name": "AUCHINDOUN",
-        "image": "/cards/custom-gul-dan/loc-loc-2.alt.png?v=1783792105901",
+        "image": "/cards/custom-gul-dan/loc-loc-2.alt.webp?v=1783792105901",
         "imagePos": {
           "x": 50,
           "y": 0
@@ -153,7 +153,7 @@
             "label": "Défausser des cartes"
           }
         ],
-        "columnImage": "/cards/custom-gul-dan/loc-loc-2.alt-col.png?v=1783792123704"
+        "columnImage": "/cards/custom-gul-dan/loc-loc-2.alt-col.webp?v=1783792123704"
       }
     },
     {
@@ -186,10 +186,10 @@
           "label": "Jouer une carte"
         }
       ],
-      "image": "/cards/custom-gul-dan/loc-loc-3.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/loc-loc-3.webp?v=1783792105901",
       "alt": {
         "name": "PÉNINSULE DES FLAMMES INFERNALES",
-        "image": "/cards/custom-gul-dan/loc-loc-3.alt.png?v=1783792105901",
+        "image": "/cards/custom-gul-dan/loc-loc-3.alt.webp?v=1783792105901",
         "actions": [
           {
             "id": "gain-power",
@@ -217,7 +217,7 @@
             "label": "Jouer une carte"
           }
         ],
-        "columnImage": "/cards/custom-gul-dan/loc-loc-3.alt-col.png?v=1783792123704"
+        "columnImage": "/cards/custom-gul-dan/loc-loc-3.alt-col.webp?v=1783792123704"
       }
     },
     {
@@ -261,7 +261,7 @@
       "image": "/cards/custom-gul-dan/loc-loc-4.jpg?v=1783792105901",
       "alt": {
         "name": "PORTE DES TÉNEBRES",
-        "image": "/cards/custom-gul-dan/loc-loc-4.alt.png?v=1783792105901",
+        "image": "/cards/custom-gul-dan/loc-loc-4.alt.webp?v=1783792105901",
         "actions": [
           {
             "id": "gain-power",
@@ -296,7 +296,7 @@
             "label": "Gagner 1 pouvoir"
           }
         ],
-        "columnImage": "/cards/custom-gul-dan/loc-loc-4.alt-col.png?v=1783792123704"
+        "columnImage": "/cards/custom-gul-dan/loc-loc-4.alt-col.webp?v=1783792123704"
       }
     }
   ],
@@ -309,7 +309,7 @@
       "type": "effect",
       "copies": 1,
       "text": "Piochez jusqu’à ce que vous trouvez un Événement, Objet ou Artéfact , ajoutez-le à votre main et remettez les autres cartes sur le dessus du paquet.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-livre-de-medivh.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-livre-de-medivh.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -317,7 +317,7 @@
       },
       "cost": 2,
       "typeLabel": "Artéfact",
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-livre-de-medivh.art.png?v=1783792105901",
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-livre-de-medivh.art.webp?v=1783792105901",
       "typeColor": "#76528e",
       "textLayout": {
         "x": 49.65277777777778,
@@ -334,7 +334,7 @@
       "type": "effect",
       "copies": 1,
       "text": "Gagnez 1 jeton pouvoir par Événement ou Objet dans la défausse (maximum 6).",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-l-il-de-dalaran.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-l-il-de-dalaran.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -343,7 +343,7 @@
       "cost": 1,
       "typeLabel": "Artéfact",
       "typeColor": "#76528e",
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-l-il-de-dalaran.art.png?v=1783792105901",
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-l-il-de-dalaran.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50,
         "y": 75.35221496005809,
@@ -359,7 +359,7 @@
       "type": "effect",
       "copies": 1,
       "text": "Gagnez 1 jeton pouvoir par Héros sur votre lieu.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-sceptre-de-sargeras.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-sceptre-de-sargeras.webp?v=1783792105901",
       "artTransform": {
         "scale": 1.82,
         "offsetXPct": 50,
@@ -367,7 +367,7 @@
       },
       "cost": 0,
       "typeLabel": "Artéfact",
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-sceptre-de-sargeras.art.png?v=1783792105901",
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-sceptre-de-sargeras.art.webp?v=1783792105901",
       "typeColor": "#76528e",
       "textLayout": {
         "x": 50.34722222222222,
@@ -384,14 +384,14 @@
       "type": "effect",
       "copies": 4,
       "text": "Associez cette carte à un lieu pour le corrompre. Si 3 lieux sont corrompus : vous pouvez accédez à la porte des ténèbres.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-corruption.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-corruption.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "cost": 3,
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-corruption.art.png?v=1783792105901",
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-corruption.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50,
         "y": 76.0860757558384,
@@ -407,7 +407,7 @@
       "type": "effect",
       "copies": 1,
       "text": "Allez cherchez un Objet ou un Événement dans la défausse et ajoutez le à votre main.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-crane-de-gul-dan.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-crane-de-gul-dan.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -422,7 +422,7 @@
         "w": 76.91666666666667,
         "size": 68
       },
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-crane-de-gul-dan.art.png?v=1783792105901"
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-crane-de-gul-dan.art.webp?v=1783792105901"
     },
     {
       "id": "custom-gul-dan-ouverture-de-la-porte-des-tenebres",
@@ -432,14 +432,14 @@
       "type": "effect",
       "copies": 1,
       "text": "Nécessite d'avoir en votre possession les 4 Artefacts et d'avoir corrompus les 4 lieux . Pour jouer cette carte et remporter la partie vous devez être sur la porte des ténèbres.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-ouverture-de-la-porte-des-tenebres.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-ouverture-de-la-porte-des-tenebres.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "cost": 4,
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-ouverture-de-la-porte-des-tenebres.art.png?v=1783792105901",
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-ouverture-de-la-porte-des-tenebres.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50.69444444444444,
         "y": 75.8414554905783,
@@ -455,7 +455,7 @@
       "type": "ally",
       "copies": 2,
       "text": "Allez chercher un TRAIT DU CHAOS dans votre défausse ou pioche et ajoutez le à votre main.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-membres-du-conseil-des-ombres.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-membres-du-conseil-des-ombres.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -488,7 +488,7 @@
           "size": 67
         }
       ],
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-membres-du-conseil-des-ombres.art.png?v=1783792105901"
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-membres-du-conseil-des-ombres.art.webp?v=1783792105901"
     },
     {
       "id": "custom-gul-dan-trait-du-chaos",
@@ -498,7 +498,7 @@
       "type": "effect",
       "copies": 1,
       "text": "Éliminez un Héros.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-trait-du-chaos.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-trait-du-chaos.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -511,7 +511,7 @@
         "w": 81.08333333333333,
         "size": 78
       },
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-trait-du-chaos.art.png?v=1783792105901"
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-trait-du-chaos.art.webp?v=1783792105901"
     },
     {
       "id": "custom-gul-dan-membres-de-la-horde",
@@ -521,7 +521,7 @@
       "type": "ally",
       "copies": 2,
       "text": "Aucune capacité.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-membres-de-la-horde.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-membres-de-la-horde.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -529,7 +529,7 @@
       },
       "cost": 2,
       "strength": 3,
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-membres-de-la-horde.art.png?v=1783792105901",
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-membres-de-la-horde.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.30555555555556,
         "y": 75.107594694798,
@@ -545,13 +545,13 @@
       "type": "condition",
       "copies": 2,
       "text": "Cette carte est jouable pendant le tour d'un adversaire, Si l'adversaire défausse au moins 2 cartes : \npiochez 2 cartes ou Gagnez 2 jetons pouvoir .",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-jeu-d-esprit.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-jeu-d-esprit.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
         "offsetYPct": -26
       },
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-jeu-d-esprit.art.png?v=1783792105901",
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-jeu-d-esprit.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.65277777777778,
         "y": 77.30917708213889,
@@ -567,14 +567,14 @@
       "type": "item",
       "copies": 2,
       "text": "Piochez 2 cartes, puis ajoutez celle de votre choix à votre main et défausser les autres.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-magie-gangrene.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-magie-gangrene.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "cost": 2,
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-magie-gangrene.art.png?v=1783792105901",
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-magie-gangrene.art.webp?v=1783792105901",
       "stickers": [
         {
           "id": "stk-1",
@@ -600,13 +600,13 @@
       "type": "condition",
       "copies": 2,
       "text": "Cette carte est jouable pendant le tour d'un adversaire s'il possède au moin 2 Objets , Gagnez 3 jetons pouvoir.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-soif-de-pouvoir.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-soif-de-pouvoir.webp?v=1783792105901",
       "artTransform": {
         "scale": 1.02,
         "offsetXPct": 0,
         "offsetYPct": -25
       },
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-soif-de-pouvoir.art.png?v=1783792105901",
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-soif-de-pouvoir.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.65277777777778,
         "y": 77.553797347399,
@@ -622,14 +622,14 @@
       "type": "effect",
       "copies": 2,
       "text": "Défaussez un allié pour piocher 2 cartes. Si un ESCLAVE est défaussé par DRAIN D'ÂME : vous gagnez 2 jetons pouvoir.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-drain-d-ame.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-drain-d-ame.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": -24
       },
       "cost": 1,
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-drain-d-ame.art.png?v=1783792105901",
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-drain-d-ame.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.99999999999999,
         "y": 78.7768986736995,
@@ -645,7 +645,7 @@
       "type": "ally",
       "copies": 2,
       "text": "Aucune capacité.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-esclave-draenei.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-esclave-draenei.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 3,
@@ -669,14 +669,14 @@
       "type": "effect",
       "copies": 3,
       "text": "Dupliquez la capacité d'un Artéfact déjà joué.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-manipulation.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-manipulation.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.58,
         "offsetXPct": 0,
         "offsetYPct": -27
       },
       "cost": 1,
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-manipulation.art.png?v=1783792105901",
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-manipulation.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.65277777777778,
         "y": 75.5968352253182,
@@ -692,14 +692,14 @@
       "type": "effect",
       "copies": 3,
       "text": "Défaussez autant de cartes que vous le souhaitez, pour chaque carte défaussé : gagnez 1 jeton pouvoir.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-connexion.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-connexion.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": -4
       },
       "cost": 0,
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-connexion.art.png?v=1783792105901",
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-connexion.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50.34722222222222,
         "y": 78.0430378779192,
@@ -715,14 +715,14 @@
       "type": "hero",
       "copies": 1,
       "text": "Jouez un Artéfact coûte 2 jetons pouvoir supplémentaire.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-medivh.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-medivh.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "strength": 4,
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-medivh.art.png?v=1783792105901",
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-medivh.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.30555555555556,
         "y": 76.33069602109849,
@@ -738,14 +738,14 @@
       "type": "hero",
       "copies": 1,
       "text": "Gul'dan doit éliminer ANDUIN LOTHAR avant les autres Héros.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-anduin-lothar.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-anduin-lothar.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "strength": 3,
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-anduin-lothar.art.png?v=1783792105901",
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-anduin-lothar.art.webp?v=1783792105901",
       "textLayout": {
         "x": 51.38888888888889,
         "y": 77.30917708213889,
@@ -761,14 +761,14 @@
       "type": "hero",
       "copies": 1,
       "text": "La force de tous les autres héros augmente de 1.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-liam-wrynn.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-liam-wrynn.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": -9
       },
       "strength": 3,
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-liam-wrynn.art.png?v=1783792105901",
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-liam-wrynn.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50.69444444444444,
         "y": 76.0860757558384,
@@ -784,14 +784,14 @@
       "type": "hero",
       "copies": 1,
       "text": "Tant que Khadgar est présent les artéfact n'on aucun effet.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-khadgar.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-khadgar.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "strength": 3,
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-khadgar.art.png?v=1783792105901",
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-khadgar.art.webp?v=1783792105901",
       "textLayout": {
         "x": 51.041666666666664,
         "y": 76.0860757558384,
@@ -807,14 +807,14 @@
       "type": "hero",
       "copies": 1,
       "text": "Tant que ILLIDAN est présent : le CRÂNE DE GUL'DAN ne peut pas êtes joué.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-illidan-hurlorage.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-illidan-hurlorage.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "strength": 4,
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-illidan-hurlorage.art.png?v=1783792105901",
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-illidan-hurlorage.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50,
         "y": 75.107594694798,
@@ -830,7 +830,7 @@
       "type": "effect",
       "copies": 1,
       "text": "Associez cette carte à un lieu mais elle ne recouvre aucune action. Tant que Kil'jaeden est présent Gul'dan perd 1 jeton pouvoir à chaque début de tour. Gul'dan doit avoir corrompu les 4 lieux pour défausser Kil'jaeden.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-kil-jaeden.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-kil-jaeden.webp?v=1783792105901",
       "artTransform": {
         "scale": 2.5,
         "offsetXPct": -44,
@@ -839,7 +839,7 @@
       "strength": 10,
       "typeLabel": "Événement",
       "typeColor": "#6ec05a",
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-kil-jaeden.art.png?v=1783792105901",
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-kil-jaeden.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50.69444444444444,
         "y": 77.06455681687879,
@@ -855,13 +855,13 @@
       "type": "effect",
       "copies": 2,
       "text": "Défaussez  tous ces Objets ou alliés.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-defaite.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-defaite.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-defaite.art.png?v=1783792105901",
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-defaite.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.30555555555556,
         "y": 75.35221496005809,
@@ -877,7 +877,7 @@
       "type": "effect",
       "copies": 3,
       "text": "Associez cette carte à un lieu , Gul'dan ne peux pas corrompre ce lieu tant que cette carte est présente. A tout moment Gul'dan peut dépenser 3 jetons pouvoir pour la défausser.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-lumiere-des-naaru.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-lumiere-des-naaru.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
@@ -891,7 +891,7 @@
         "w": 78.30555555555556,
         "size": 60
       },
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-lumiere-des-naaru.art.png?v=1783792105901"
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-lumiere-des-naaru.art.webp?v=1783792105901"
     },
     {
       "id": "custom-gul-dan-mot-de-pouvoir-robustesse",
@@ -901,7 +901,7 @@
       "type": "effect",
       "copies": 3,
       "text": "Associez cette carte à un Héros, sa force augmente de 2.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-mot-de-pouvoir-robustesse.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-mot-de-pouvoir-robustesse.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.54,
         "offsetXPct": 0,
@@ -923,14 +923,14 @@
       "type": "hero",
       "copies": 1,
       "text": "Lorsque VELEN est joué, aller chercher une carte ARMÉE DE LA LUMIERE dans la défausse et Jouez là.",
-      "image": "/cards/custom-gul-dan/custom-gul-dan-prophete-velen.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/custom-gul-dan-prophete-velen.webp?v=1783792105901",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
         "offsetYPct": 0
       },
       "strength": 2,
-      "artImage": "/cards/custom-gul-dan/custom-gul-dan-prophete-velen.art.png?v=1783792105901",
+      "artImage": "/cards/custom-gul-dan/custom-gul-dan-prophete-velen.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50,
         "y": 77.06455681687879,
@@ -941,12 +941,12 @@
   ],
   "createdAt": "2026-06-30T13:12:58.879Z",
   "updatedAt": "2026-07-22T19:30:00.000Z",
-  "portrait": "/cards/custom-gul-dan/portrait.png?v=1783792105901",
-  "portraitRaw": "/cards/custom-gul-dan/portrait-raw.png?v=1783792105901",
-  "boardArt": "/cards/custom-gul-dan/board-art.png?v=1783792105901",
-  "presentation": "/cards/custom-gul-dan/presentation.png?v=1783792105901",
-  "backVillainImage": "/cards/custom-gul-dan/back-villain.png?v=1783792105901",
-  "backFateImage": "/cards/custom-gul-dan/back-fate.png?v=1783792105901",
+  "portrait": "/cards/custom-gul-dan/portrait.webp?v=1783792105901",
+  "portraitRaw": "/cards/custom-gul-dan/portrait-raw.webp?v=1783792105901",
+  "boardArt": "/cards/custom-gul-dan/board-art.webp?v=1783792105901",
+  "presentation": "/cards/custom-gul-dan/presentation.webp?v=1783792105901",
+  "backVillainImage": "/cards/custom-gul-dan/back-villain.webp?v=1783792105901",
+  "backFateImage": "/cards/custom-gul-dan/back-fate.webp?v=1783792105901",
   "boardImage": "/cards/custom-gul-dan/board.jpg?v=1783792105901",
   "boardLocks": [
     {
@@ -959,14 +959,14 @@
   "backOverlays": [
     {
       "id": "ovl-1",
-      "image": "/cards/custom-gul-dan/back-overlay-0.png?v=1783792105901",
+      "image": "/cards/custom-gul-dan/back-overlay-0.webp?v=1783792105901",
       "x": 50,
       "y": 50,
       "size": 100,
       "aspect": 1.4085281980742779
     }
   ],
-  "pawnImage": "/cards/custom-gul-dan/pawn.png?v=1783905012086",
+  "pawnImage": "/cards/custom-gul-dan/pawn.webp?v=1783905012086",
   "published": true,
   "creator": "Alexis",
   "origin": "Collaborations",

@@ -37,7 +37,7 @@ export const teamRocketCards: CardDef[] = [
     strengthMod: { target: 'heroes-here', delta: -1 },
     evolvesToCardId: 'arbok',
     text: "Les Héros qui se trouvent sur le même lieu qu'Abo ont une force diminuée de 1. (peut s'évoluer en Arbok)",
-    image: img('abo.png'),
+    image: img('abo.webp'),
   },
   {
     id: 'arbok',
@@ -50,7 +50,7 @@ export const teamRocketCards: CardDef[] = [
     copies: 1,
     strengthMod: { target: 'heroes-here', delta: -2 },
     text: "Les Héros qui se trouvent sur le même lieu qu'Arbok ont une force diminuée de 2.",
-    image: img('arbok.png'),
+    image: img('arbok.webp'),
   },
   {
     id: 'smogo',
@@ -65,7 +65,7 @@ export const teamRocketCards: CardDef[] = [
     // Réutilise la fenêtre d'action distante de « Brutes » (Ratigan).
     effects: [{ type: 'ALLY_REMOTE_ACTION' }],
     text: "Si vous jouez Smogo sur un lieu où vous ne vous trouvez pas, vous pouvez effectuer une action disponible de ce lieu, en dehors d'une action Fatalité. (peut s'évoluer en Smogogo)",
-    image: img('smogo.png'),
+    image: img('smogo.webp'),
   },
   {
     id: 'smogogo',
@@ -79,7 +79,7 @@ export const teamRocketCards: CardDef[] = [
     // Comme Smogo, mais « recouverte ou non » → includeCovered (ignore la couverture).
     effects: [{ type: 'ALLY_REMOTE_ACTION', includeCovered: true }],
     text: "Si vous jouez Smogogo sur un lieu où vous ne vous trouvez pas, vous pouvez effectuer 1 action, recouverte ou non, de ce lieu, en dehors d'une action Fatalité.",
-    image: img('smogogo.png'),
+    image: img('smogogo.webp'),
   },
   {
     id: 'miaouss',
@@ -93,7 +93,7 @@ export const teamRocketCards: CardDef[] = [
     reachesAdjacentVanquish: true,
     evolvesToCardId: 'persian',
     text: "Lors d'une action Éliminer un Héros, Miaouss peut être utilisé pour éliminer un Héros sur son lieu ou sur un lieu voisin. (peut s'évoluer en Persian)",
-    image: img('miaouss.png'),
+    image: img('miaouss.webp'),
   },
   {
     id: 'persian',
@@ -106,7 +106,7 @@ export const teamRocketCards: CardDef[] = [
     copies: 1,
     reachesAnyLocationVanquish: true,
     text: "Lors d'une action Éliminer un Héros, Persian peut être utilisé pour éliminer un Héros sur n'importe quel lieu.",
-    image: img('persian.png'),
+    image: img('persian.webp'),
   },
 
   // --- Objets ----------------------------------------------------------------
@@ -124,7 +124,7 @@ export const teamRocketCards: CardDef[] = [
     fateRemovalPriority: 3,
     copies: 2,
     text: "Associez cette carte à un Allié, sa force augmente de 1. Si cet Allié doit être défaussé, défaussez cet Objet à la place.",
-    image: img('pokeball.png'),
+    image: img('pokeball.webp'),
   },
   {
     id: 'griffure',
@@ -137,7 +137,7 @@ export const teamRocketCards: CardDef[] = [
     attachStrengthBonus: -1,
     copies: 2,
     text: "Associez à un Héros, sa force diminue de 1.",
-    image: img('griffure.png'),
+    image: img('griffure.webp'),
   },
   {
     id: 'rose-de-james',
@@ -153,7 +153,7 @@ export const teamRocketCards: CardDef[] = [
     // Déclenche l'action Attraper si l'Allié hôte a éliminé un Héros (géré dans applyVanquish) ;
     // la rose est défaussée avec l'Allié dépensé.
     text: "Associez cet Objet à un Allié. Si cet Allié a été utilisé pour éliminer un Héros, vous pouvez effectuer l'action « Attraper un Pokémon ». Défaussez cette carte ensuite.",
-    image: img('rose-de-james.png'),
+    image: img('rose-de-james.webp'),
   },
   {
     id: 'pokedex-vole',
@@ -168,7 +168,7 @@ export const teamRocketCards: CardDef[] = [
     // Sursis : tant que le Pokédex est dans le royaume, un Pokémon couché survit UN tour de
     // plus avant d'aller en défausse Fatalité (seuil d'expiration 3 au lieu de 2 ; cf. sweepKoPokemon).
     text: "Allonge d'un tour votre délai pour attraper un Pokémon couché (avant qu'il ne file).",
-    image: img('pokedex-vole.png'),
+    image: img('pokedex-vole.webp'),
   },
   {
     id: 'mongolfiere',
@@ -183,7 +183,7 @@ export const teamRocketCards: CardDef[] = [
     fateRemovalPriority: 10,
     copies: 1,
     text: "Lorsque vous êtes sur le même lieu que la Mongolfière, vous pouvez, une fois par tour, déplacer votre figurine et la Mongolfière vers n'importe quel lieu et y effectuer une action disponible, en dehors d'une action Fatalité.",
-    image: img('mongolfiere.png'),
+    image: img('mongolfiere.webp'),
   },
 
   // --- Événements ------------------------------------------------------------
@@ -197,7 +197,7 @@ export const teamRocketCards: CardDef[] = [
     copies: 2,
     effects: [{ type: 'RECOVER_FROM_DISCARD_CHOICE', types: ['ally', 'effect'], label: 'Récupérer un Allié ou un Événement' }],
     text: "Cherchez un Allié ou un Événement dans votre défausse et ajoutez-le à votre main.",
-    image: img('jessie.png'),
+    image: img('jessie.webp'),
   },
   {
     id: 'james',
@@ -209,7 +209,7 @@ export const teamRocketCards: CardDef[] = [
     copies: 2,
     effects: [{ type: 'REVEAL_VILLAIN_UNTIL_TYPE', cardType: 'item', keepOthersOnTop: true }],
     text: "Dévoilez les cartes de votre pioche jusqu'à ce que vous trouviez un Objet. Jouez-le et remettez les autres cartes sur le dessus de votre pioche.",
-    image: img('james.png'),
+    image: img('james.webp'),
   },
   {
     id: 'reperage',
@@ -221,7 +221,7 @@ export const teamRocketCards: CardDef[] = [
     copies: 3,
     effects: [{ type: 'REVEAL_OWN_FATE_PLAY_HERO' }],
     text: "Dévoilez les cartes Fatalité jusqu'à ce que vous trouviez un Héros. Jouez-le et défaussez les autres cartes dévoilées.",
-    image: img('reperage.png'),
+    image: img('reperage.webp'),
   },
   {
     id: 'evolution',
@@ -236,7 +236,7 @@ export const teamRocketCards: CardDef[] = [
     // Fait évoluer un Allié (Abo→Arbok, Smogo→Smogogo, Miaouss→Persian) : choix interactif.
     effects: [{ type: 'EVOLVE_ALLY' }],
     text: "Choisissez un Allié dans votre royaume. S'il peut s'évoluer et que son évolution n'est pas déjà dans votre royaume, défaussez-le, cherchez l'Allié indiqué et jouez-le sur le même lieu.",
-    image: img('evolution.png'),
+    image: img('evolution.webp'),
   },
   {
     id: 'toilettage',
@@ -248,7 +248,7 @@ export const teamRocketCards: CardDef[] = [
     copies: 2,
     effects: [{ type: 'SCRY_OWN_FATE_TOP2' }],
     text: "Regardez secrètement les deux premières cartes Fatalité de votre pioche. Défaussez-les ou remettez-les sur le dessus de la pioche dans n'importe quel ordre.",
-    image: img('toilettage.png'),
+    image: img('toilettage.webp'),
   },
 
   // --- Conditions (jouables pendant le tour d'un adversaire) -----------------
@@ -264,7 +264,7 @@ export const teamRocketCards: CardDef[] = [
     // « Éliminer un Héros ≥3 » = chez Team Rocket, COUCHER un Pokémon ≥3 (gratuit) → attrapable.
     effects: [{ type: 'KO_POKEMON_GE', minStrength: 3 }],
     text: "Cette carte est jouable pendant le tour d'un adversaire s'il élimine un Héros de force 3 ou plus. Éliminez un Héros de force 3 ou plus.",
-    image: img('oui-la-guerre.png'),
+    image: img('oui-la-guerre.webp'),
   },
   {
     id: 'mauvais-tour',
@@ -277,7 +277,7 @@ export const teamRocketCards: CardDef[] = [
     trigger: { type: 'opponent-played-fate-hero-le', value: 3 },
     // Effet géré par cardId dans resolveConditionEffect (réutilise la logique Tromperie/Illusion).
     text: "Cette carte est jouable pendant le tour d'un adversaire s'il vous joue un Héros de force 3 ou moins. Dévoilez la première carte Fatalité de sa pioche et jouez-la immédiatement.",
-    image: img('mauvais-tour.png'),
+    image: img('mauvais-tour.webp'),
   },
   {
     id: 'oh-des-pokemons',
@@ -290,7 +290,7 @@ export const teamRocketCards: CardDef[] = [
     trigger: { type: 'opponent-allies-in-realm-ge', value: 2 },
     effects: [{ type: 'GAIN_POWER', amount: 3 }],
     text: "Cette carte est jouable pendant le tour d'un adversaire s'il possède au moins 2 Alliés. Gagnez 3 jetons Pouvoir.",
-    image: img('oh-des-pokemons.png'),
+    image: img('oh-des-pokemons.webp'),
   },
 
   // ==========================================================================
@@ -308,7 +308,7 @@ export const teamRocketCards: CardDef[] = [
     copies: 1,
     summonsPokemonCardIds: ['pikachu', 'dracaufeu'],
     text: "Cherchez Pikachu ou Dracaufeu et jouez-le immédiatement avec Sacha sur le même lieu. Si ce Pokémon choisi est défaussé, défaussez Sacha.",
-    image: img('sacha.png'),
+    image: img('sacha.webp'),
   },
   {
     id: 'ondine',
@@ -320,7 +320,7 @@ export const teamRocketCards: CardDef[] = [
     copies: 1,
     summonsPokemonCardIds: ['stari', 'togepi'],
     text: "Cherchez Stari ou Togepi et jouez-le immédiatement avec Ondine sur le même lieu. Si ce Pokémon choisi est défaussé, défaussez Ondine.",
-    image: img('ondine.png'),
+    image: img('ondine.webp'),
   },
   {
     id: 'pierre',
@@ -332,7 +332,7 @@ export const teamRocketCards: CardDef[] = [
     copies: 1,
     summonsPokemonCardIds: ['goupix', 'onix'],
     text: "Cherchez Goupix ou Onix et jouez-le immédiatement avec Pierre sur le même lieu. Si ce Pokémon choisi est défaussé, défaussez Pierre.",
-    image: img('pierre.png'),
+    image: img('pierre.webp'),
   },
 
   // --- Pokémon (Héros `isPokemon`, capturés via Attraper) -------------------
@@ -347,7 +347,7 @@ export const teamRocketCards: CardDef[] = [
     copies: 1,
     playWhenRevealed: true,
     text: "Vous devez immédiatement jouer Pikachu dès qu'il est dévoilé. Défaussez les autres cartes Fatalité qui ont été dévoilées.",
-    image: img('pikachu.png'),
+    image: img('pikachu.webp'),
   },
   {
     id: 'dracaufeu',
@@ -360,7 +360,7 @@ export const teamRocketCards: CardDef[] = [
     copies: 1,
     strengthMod: { target: 'heroes-realm', delta: 1, excludeSelf: true, onlyPokemon: true },
     text: "La force de tous les autres Pokémon augmente de 1.",
-    image: img('dracaufeu.png'),
+    image: img('dracaufeu.webp'),
   },
   {
     id: 'stari',
@@ -373,7 +373,7 @@ export const teamRocketCards: CardDef[] = [
     copies: 1,
     onPlace: [{ type: 'MOVE_OWN_ALLY_ADJACENT' }],
     text: "Vous pouvez déplacer un Allié sur un lieu voisin.",
-    image: img('stari.png'),
+    image: img('stari.webp'),
   },
   {
     id: 'togepi',
@@ -386,7 +386,7 @@ export const teamRocketCards: CardDef[] = [
     copies: 1,
     onPlace: [{ type: 'LOSE_POWER_PER_HERO_IN_REALM', amount: 1 }],
     text: "Retirez 1 Jeton Pouvoir par Héros présent dans votre royaume.",
-    image: img('togepi.png'),
+    image: img('togepi.webp'),
   },
   {
     id: 'goupix',
@@ -399,7 +399,7 @@ export const teamRocketCards: CardDef[] = [
     copies: 1,
     strengthMod: { target: 'heroes-here', delta: 1 },
     text: "La force de tous les Héros de ce lieu augmente de 1.",
-    image: img('goupix.png'),
+    image: img('goupix.webp'),
   },
   {
     id: 'onix',
@@ -412,7 +412,7 @@ export const teamRocketCards: CardDef[] = [
     copies: 1,
     onPlace: [{ type: 'DISCARD_ALLY_OR_ITEM' }],
     text: "Défaussez un Allié ou un Objet de votre choix.",
-    image: img('onix.png'),
+    image: img('onix.webp'),
   },
 
   // --- Objets / Événements Fatalité -----------------------------------------
@@ -426,7 +426,7 @@ export const teamRocketCards: CardDef[] = [
     attachStrengthBonus: 2,
     copies: 2,
     text: "Associez cet Objet à un Héros ou un Pokémon, sa force augmente de 2.",
-    image: img('badge.png'),
+    image: img('badge.webp'),
   },
   {
     id: 'on-abandonne-pas',
@@ -437,7 +437,7 @@ export const teamRocketCards: CardDef[] = [
     copies: 2,
     effects: [{ type: 'UNCAPTURE_POKEMON_LE', maxStrength: 3 }],
     text: "Choisissez un Pokémon de force 3 ou moins dans la pile de Captures et remettez-le sur le dessus de la pioche (ne fonctionne qu'une seule fois sur un Pokémon).",
-    image: img('on-abandonne-pas.png'),
+    image: img('on-abandonne-pas.webp'),
   },
   {
     id: 'degonflage',
@@ -448,6 +448,6 @@ export const teamRocketCards: CardDef[] = [
     copies: 2,
     effects: [{ type: 'DISCARD_ONE_ITEM' }],
     text: "Défaussez un Objet de votre choix.",
-    image: img('degonflage.png'),
+    image: img('degonflage.webp'),
   },
 ]

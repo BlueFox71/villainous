@@ -51,7 +51,7 @@ describe('cartes de Maléfique — intégrité du paquet', () => {
       expect(c.name.length).toBeGreaterThan(0)
       expect(c.text.length).toBeGreaterThan(0)
       expect(c.copies).toBeGreaterThanOrEqual(1)
-      expect(c.image).toMatch(/^\/cards\/maleficent\/.+\.png$/)
+      expect(c.image).toMatch(/^\/cards\/maleficent\/.+\.(png|webp)$/)
       if (c.deck === 'villain' && c.type !== 'condition') {
         expect(typeof c.cost).toBe('number')
       } else if (c.deck === 'fate') {

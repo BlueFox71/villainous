@@ -29,7 +29,7 @@ export const patHibulaireCards: CardDef[] = [
     strength: 3,
     copies: 7,
     text: 'Vous pouvez jouer plusieurs BANDIT lors d’une même action Jouer une carte.',
-    image: img('bandit.png'),
+    image: img('bandit.webp'),
     playMultiplePerAction: true,
   },
   {
@@ -42,7 +42,7 @@ export const patHibulaireCards: CardDef[] = [
     strength: 2,
     copies: 3,
     text: 'Vous pouvez déplacer un Allié ou un Objet de votre royaume sur n’importe quel lieu.',
-    image: img('cheval.png'),
+    image: img('cheval.webp'),
     effects: [{ type: 'MOVE_ALLY_OR_ITEM_SMART', beneficial: true }],
   },
   {
@@ -55,7 +55,7 @@ export const patHibulaireCards: CardDef[] = [
     strength: 1,
     copies: 3,
     text: 'Choisissez une carte de votre défausse et ajoutez-la à votre main.',
-    image: img('perroquet.png'),
+    image: img('perroquet.webp'),
     effects: [{ type: 'RECOVER_ANY_FROM_DISCARD' }],
   },
   {
@@ -68,7 +68,7 @@ export const patHibulaireCards: CardDef[] = [
     strength: 1,
     copies: 1,
     text: 'À chaque fois qu’un Héros est joué dans votre royaume, vous pouvez déplacer GRILLON sur le même lieu.',
-    image: img('grillon.png'),
+    image: img('grillon.webp'),
     followsHeroes: true,
   },
 
@@ -84,7 +84,7 @@ export const patHibulaireCards: CardDef[] = [
     cost: 2,
     copies: 4,
     text: 'Révélez les 2 premières cartes Méchant de votre pioche. Gagnez autant de jetons Pouvoir que la somme de leur coût, puis défaussez-les.',
-    image: img('une-petite-partie.png'),
+    image: img('une-petite-partie.webp'),
     effects: [{ type: 'PLAY_A_GAME', reveal: 2, reducerHeroCardId: 'oswald' }],
   },
   {
@@ -96,7 +96,7 @@ export const patHibulaireCards: CardDef[] = [
     cost: 0,
     copies: 3,
     text: 'Piochez 2 cartes Méchant, puis placez 1 carte de votre main sur le dessus ou le dessous de votre pioche.',
-    image: img('sournois.png'),
+    image: img('sournois.webp'),
     effects: [{ type: 'DRAW_THEN_BOTTOM', draw: 2 }],
   },
   {
@@ -108,7 +108,7 @@ export const patHibulaireCards: CardDef[] = [
     cost: 3,
     copies: 1,
     text: 'Déplacez Pat Hibulaire sur n’importe quel lieu où se trouve un Héros et éliminez-le. Puis votre tour est terminé.',
-    image: img('attaque-aerienne.png'),
+    image: img('attaque-aerienne.webp'),
     effects: [{ type: 'AIR_STRIKE' }],
   },
 
@@ -124,7 +124,7 @@ export const patHibulaireCards: CardDef[] = [
     cost: 0,
     copies: 2,
     text: 'Cette carte est jouable pendant le tour d’un adversaire s’il gagne 3 jetons Pouvoir ou plus. Prenez 2 cartes Méchant du dessous de votre pioche, puis placez 1 carte de votre main sur le dessus ou le dessous de votre pioche.',
-    image: img('mauvais-coup.png'),
+    image: img('mauvais-coup.webp'),
     trigger: { type: 'opponent-gained-power-ge', value: 3 },
   },
   {
@@ -136,7 +136,7 @@ export const patHibulaireCards: CardDef[] = [
     cost: 0,
     copies: 2,
     text: 'Cette carte est jouable pendant le tour d’un adversaire s’il déplace un Allié ou un Objet. Éliminez un Héros de force 3 ou moins.',
-    image: img('affront.png'),
+    image: img('affront.webp'),
     trigger: { type: 'opponent-moved-card', requiresOwnHeroMaxStrength: 3 },
   },
 
@@ -152,7 +152,7 @@ export const patHibulaireCards: CardDef[] = [
     cost: 3,
     copies: 1,
     text: 'Cette carte peut uniquement être jouée sur Frontier Town. Ce lieu gagne l’action : Gagner 1 jeton Pouvoir.',
-    image: img('magot.png'),
+    image: img('magot.webp'),
     playOnlyAt: 'frontier-town',
     grantsAction: { type: 'GAIN_POWER', amount: 1, label: 'Gagner 1 pouvoir' },
   },
@@ -165,7 +165,7 @@ export const patHibulaireCards: CardDef[] = [
     cost: 3,
     copies: 1,
     text: 'Cette carte peut uniquement être jouée sur la Station Service. Ce lieu gagne l’action : Jouer une carte.',
-    image: img('vieux-tacot.png'),
+    image: img('vieux-tacot.webp'),
     playOnlyAt: 'station-service',
     grantsAction: { type: 'PLAY_CARD', label: 'Jouer une carte' },
   },
@@ -178,7 +178,7 @@ export const patHibulaireCards: CardDef[] = [
     cost: 3,
     copies: 1,
     text: 'Cette carte peut uniquement être jouée sur l’Aéroport. Ce lieu gagne l’action : Gagner 1 jeton Pouvoir.',
-    image: img('cargaison-volee.png'),
+    image: img('cargaison-volee.webp'),
     playOnlyAt: 'aeroport',
     grantsAction: { type: 'GAIN_POWER', amount: 1, label: 'Gagner 1 pouvoir' },
   },
@@ -191,7 +191,7 @@ export const patHibulaireCards: CardDef[] = [
     cost: 3,
     copies: 1,
     text: 'Cette carte peut uniquement être jouée sur le Ponton. Ce lieu gagne l’action : Déplacer un Objet ou un Allié.',
-    image: img('steamboat-willie.png'),
+    image: img('steamboat-willie.webp'),
     playOnlyAt: 'ponton',
     grantsAction: { type: 'MOVE_ITEM_ALLY', label: 'Déplacer un objet ou un allié' },
   },
@@ -208,7 +208,7 @@ export const patHibulaireCards: CardDef[] = [
     strength: 5,
     copies: 1,
     text: 'Pat Hibulaire ne peut pas remplir d’objectif tant que MICKEY est présent dans le royaume.',
-    image: img('mickey.png'),
+    image: img('mickey.webp'),
   },
   {
     id: 'minnie',
@@ -219,7 +219,7 @@ export const patHibulaireCards: CardDef[] = [
     strength: 4,
     copies: 1,
     text: 'Vous pouvez défausser un Allié ou un Objet.',
-    image: img('minnie.png'),
+    image: img('minnie.webp'),
     onPlace: [{ type: 'FATE_DISCARD_STRONGEST_ALLY_OR_ITEM' }],
   },
   {
@@ -231,7 +231,7 @@ export const patHibulaireCards: CardDef[] = [
     strength: 3,
     copies: 1,
     text: 'Pat Hibulaire doit éliminer DONALD avant les autres Héros.',
-    image: img('donald.png'),
+    image: img('donald.webp'),
     mustDefeatFirst: true,
   },
   {
@@ -243,7 +243,7 @@ export const patHibulaireCards: CardDef[] = [
     strength: 3,
     copies: 1,
     text: 'Vous pouvez intervertir 2 tuiles Objectif voisines OU déplacer 1 tuile Objectif sur un lieu voisin qui n’en contient pas.',
-    image: img('dingo.png'),
+    image: img('dingo.webp'),
     onPlace: [{ type: 'FATE_DISTURB_GOAL' }],
   },
   {
@@ -255,7 +255,7 @@ export const patHibulaireCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'Vous pouvez déplacer un Allié ou un Objet sur n’importe quel lieu.',
-    image: img('horace.png'),
+    image: img('horace.webp'),
     onPlace: [{ type: 'MOVE_ALLY_OR_ITEM_SMART', beneficial: false }],
   },
   {
@@ -267,7 +267,7 @@ export const patHibulaireCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'Vous pouvez dévoiler une des tuiles Objectif de Pat Hibulaire.',
-    image: img('clarabelle.png'),
+    image: img('clarabelle.webp'),
     onPlace: [{ type: 'REVEAL_PETE_GOAL' }],
   },
   {
@@ -279,7 +279,7 @@ export const patHibulaireCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'Vous pouvez déplacer un Objet sur le lieu où vous jouez PLUTO.',
-    image: img('pluto.png'),
+    image: img('pluto.webp'),
     onPlace: [{ type: 'FATE_MOVE_ITEM_TO_HOST' }],
   },
   {
@@ -291,7 +291,7 @@ export const patHibulaireCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'Pat Hibulaire gagne 1 jeton Pouvoir de moins quand il joue UNE PETITE PARTIE ?.',
-    image: img('oswald.png'),
+    image: img('oswald.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -305,7 +305,7 @@ export const patHibulaireCards: CardDef[] = [
     type: 'effect',
     copies: 2,
     text: 'Pat Hibulaire perd jusqu’à 2 jetons Pouvoir. Vous pouvez dévoiler une de ses tuiles Objectif.',
-    image: img('hors-la-loi.png'),
+    image: img('hors-la-loi.webp'),
     effects: [{ type: 'LOSE_POWER', amount: 2 }, { type: 'REVEAL_PETE_GOAL' }],
   },
   {
@@ -316,7 +316,7 @@ export const patHibulaireCards: CardDef[] = [
     type: 'effect',
     copies: 2,
     text: 'Défaussez un BANDIT.',
-    image: img('planques.png'),
+    image: img('planques.webp'),
     effects: [{ type: 'DISCARD_ALLY_BY_CARDID', cardId: 'bandit' }],
   },
   {
@@ -327,7 +327,7 @@ export const patHibulaireCards: CardDef[] = [
     type: 'effect',
     copies: 2,
     text: 'Dévoilez les 5 premières cartes Méchant de la pioche de Pat Hibulaire. Défaussez les cartes d’un coût supérieur ou égal à 2, mélangez les autres et replacez-les sur le dessus de la pioche.',
-    image: img('assomme-betement.png'),
+    image: img('assomme-betement.webp'),
     effects: [{ type: 'FATE_SCRY_DISCARD_BY_COST', count: 5, minCost: 2 }],
   },
   {
@@ -338,7 +338,7 @@ export const patHibulaireCards: CardDef[] = [
     type: 'effect',
     copies: 1,
     text: 'Pat Hibulaire perd la moitié de ses jetons Pouvoir, arrondie à l’inférieur.',
-    image: img('epuise.png'),
+    image: img('epuise.webp'),
     effects: [{ type: 'LOSE_HALF_POWER', roundUp: false }],
   },
 ]

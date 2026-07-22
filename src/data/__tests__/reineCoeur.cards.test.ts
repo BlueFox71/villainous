@@ -28,7 +28,7 @@ describe('cartes de la Reine de Cœur — intégrité du paquet', () => {
       expect(c.name.length).toBeGreaterThan(0)
       expect(c.text.length).toBeGreaterThan(0)
       expect(c.copies).toBeGreaterThanOrEqual(1)
-      expect(c.image).toMatch(/^\/cards\/reine-coeur\/.+\.png$/)
+      expect(c.image).toMatch(/^\/cards\/reine-coeur\/.+\.(png|webp)$/)
       if (c.deck === 'villain') expect(typeof c.cost).toBe('number')
       else expect(c.cost).toBeUndefined()
       if (c.type === 'hero') expect(typeof c.strength).toBe('number')

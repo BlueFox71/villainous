@@ -311,7 +311,7 @@ export function MalInterieurPile({
           Mal Intérieur {lvl}/3
         </span>
         <img
-          src={`/cards/michael-meyers/mal-interieur-${lvl}.png`}
+          src={`/cards/michael-meyers/mal-interieur-${lvl}.webp`}
           alt={`Mal Intérieur niveau ${lvl}`}
           title={`Mal Intérieur niveau ${lvl} — ${perk}`}
           className={`${uprightWidth} rounded border-2 border-rose-500/70 shadow-[0_0_8px_rgba(244,63,94,0.5)]`}
@@ -487,7 +487,7 @@ export function ClaimedTreasuresPile({
           return id ? (
             <img
               key={id}
-              src={`/cards/davy-jones/treasure-${id}.png`}
+              src={`/cards/davy-jones/treasure-${id}.webp`}
               alt={id}
               title={id}
               className={`${uprightWidth} aspect-square object-contain drop-shadow-[0_0_5px_rgba(251,191,36,0.7)]`}
@@ -525,8 +525,8 @@ export function CauldronTile({
   const tone = st === 'powered' ? 'text-lime-300' : st === 'claimed' ? 'text-amber-200' : 'text-white/40'
   const tile =
     st === 'powered'
-      ? '/cards/seigneur-tenebres/cauldron-powered.png'
-      : '/cards/seigneur-tenebres/cauldron.png'
+      ? '/cards/seigneur-tenebres/cauldron-powered.webp'
+      : '/cards/seigneur-tenebres/cauldron.webp'
   return (
     <div
       className="relative flex flex-col items-center gap-0.5"
@@ -703,7 +703,7 @@ export function CapturedPuppiesPile({
   const total = captured.reduce((n, t) => n + t.value, 0)
   const shortLoc = (home: string) => (home === 'maison-radcliff' ? 'maison' : home)
   const tileSrc = (t: { homeLocation: string; value: number; revealed: boolean }) =>
-    t.revealed ? `/cards/cruella/tuile-${shortLoc(t.homeLocation)}-${t.value}.png` : '/cards/cruella/tuile-dos.png'
+    t.revealed ? `/cards/cruella/tuile-${shortLoc(t.homeLocation)}-${t.value}.webp` : '/cards/cruella/tuile-dos.webp'
   return (
     <div className="flex w-full flex-col items-center gap-1">
       <div className="flex w-full flex-col items-center gap-0.5">
@@ -998,7 +998,7 @@ export function MerlinPiles({ player, uprightWidth = 'w-16' }: { player: PlayerS
   const deck = player.merlinDeck
   const discard = player.merlinDiscard ?? []
   const last = discard[discard.length - 1]
-  const back = '/cards/madame-mim/back-merlin.png'
+  const back = '/cards/madame-mim/back-merlin.webp'
   return (
     <div className="flex shrink-0 gap-3" title="Métamorphoses de Merlin (pioche & vaincues)">
       <Pile src={back} count={deck.length} fate upright uprightWidth={uprightWidth} />
@@ -1033,7 +1033,7 @@ export function MauiPiles({ player, uprightWidth = 'w-16' }: { player: PlayerSta
   const deck = player.mauiDeck
   const discard = player.mauiDiscard ?? []
   const last = discard[discard.length - 1]
-  const back = '/cards/tamatoa/back-maui.png'
+  const back = '/cards/tamatoa/back-maui.webp'
   return (
     <div className="flex shrink-0 gap-3" title="Cartes Maui (pioche & défausse)">
       <Pile src={back} count={deck.length} fate upright uprightWidth={uprightWidth} />
@@ -1144,10 +1144,10 @@ export function CombattantReveals({ player }: { player: PlayerState }) {
 /** Ultron (Marvel) — les 4 tuiles AMÉLIORATION dans l'ordre, images sous /cards/ultron/.
  *  Face cachée = dos (condition d'accomplissement) ; révélée = Compétence. */
 const ULTRON_TILES = [
-  { name: 'Transformation', face: '/cards/ultron/tile-transformation.png', back: '/cards/ultron/tile-back-transformation.png' },
-  { name: 'Optimisation', face: '/cards/ultron/tile-optimisation.png', back: '/cards/ultron/tile-back-optimisation.png' },
-  { name: 'Forme finale', face: '/cards/ultron/tile-forme-finale.png', back: '/cards/ultron/tile-back-forme-finale.png' },
-  { name: "L'ère d'Ultron", face: '/cards/ultron/tile-ere-d-ultron.png', back: '/cards/ultron/tile-back-ere-d-ultron.png' },
+  { name: 'Transformation', face: '/cards/ultron/tile-transformation.webp', back: '/cards/ultron/tile-back-transformation.webp' },
+  { name: 'Optimisation', face: '/cards/ultron/tile-optimisation.webp', back: '/cards/ultron/tile-back-optimisation.webp' },
+  { name: 'Forme finale', face: '/cards/ultron/tile-forme-finale.webp', back: '/cards/ultron/tile-back-forme-finale.webp' },
+  { name: "L'ère d'Ultron", face: '/cards/ultron/tile-ere-d-ultron.webp', back: '/cards/ultron/tile-back-ere-d-ultron.webp' },
 ]
 
 /**

@@ -34,11 +34,11 @@ export const yzma: VillainDef = {
   objectiveDescription:
     'Trouvez Kuzco dans l’une de vos quatre pioches Fatalité et jouez-le. Jouez Kronk, ' +
     'gardez-le de votre côté, et utilisez-le pour éliminer Kuzco.',
-  boardImage: '/cards/yzma/board.png',
+  boardImage: '/cards/yzma/board.webp',
   pawnImage: '/pion_yzma.png',
   pawnHeightPx: 100,
-  backVillainImage: '/cards/yzma/back-villain.png',
-  backFateImage: '/cards/yzma/back-fate.png',
+  backVillainImage: '/cards/yzma/back-villain.webp',
+  backFateImage: '/cards/yzma/back-fate.webp',
   locations: [
     {
       id: 'palais',

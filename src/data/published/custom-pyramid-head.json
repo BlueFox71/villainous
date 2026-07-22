@@ -44,7 +44,7 @@
           "label": "Activer une capacité"
         }
       ],
-      "image": "/cards/custom-pyramid-head/loc-loc-4.png?v=1783792105901"
+      "image": "/cards/custom-pyramid-head/loc-loc-4.webp?v=1783792105901"
     },
     {
       "id": "loc-2",
@@ -147,7 +147,7 @@
           "label": "Gagner 3 pouvoir"
         }
       ],
-      "image": "/cards/custom-pyramid-head/loc-loc-1.png?v=1783792105901"
+      "image": "/cards/custom-pyramid-head/loc-loc-1.webp?v=1783792105901"
     }
   ],
   "cards": [
@@ -159,7 +159,7 @@
       "type": "item",
       "copies": 1,
       "text": "Posez cette carte à SILENT HILL ainsi qu'une tuile de jugement sur la partie haute du lieu. NE PEUT PAS ÊTRE DEFAUSSÉ.",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-rites-de-jugement.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-rites-de-jugement.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.75,
         "offsetXPct": 0,
@@ -167,7 +167,7 @@
       },
       "cost": 3,
       "typeLabel": "Rite",
-      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-rites-de-jugement.art.png?v=1783792105901",
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-rites-de-jugement.art.webp?v=1783792105901",
       "typeColor": "#9b4b4b",
       "textLayout": {
         "x": 50,
@@ -184,14 +184,14 @@
       "type": "effect",
       "copies": 4,
       "text": "Contre 1 piste de souffrance, posez une tuile de jugement sur un lieu adjacent ou ce trouve déjà une tuile du jugement.",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-propager-la-souffrance.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-propager-la-souffrance.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.74,
         "offsetXPct": 0,
         "offsetYPct": -13
       },
       "cost": 0,
-      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-propager-la-souffrance.art.png?v=1783792105901",
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-propager-la-souffrance.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50,
         "y": 77.06455681687879,
@@ -207,14 +207,14 @@
       "type": "item",
       "copies": 1,
       "text": "\n: Payez 3 jeton pouvoir ",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-metatron.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-metatron.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.67,
         "offsetXPct": 0,
         "offsetYPct": -19
       },
       "cost": 3,
-      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-metatron.art.png?v=1783792105901",
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-metatron.art.webp?v=1783792105901",
       "stickers": [
         {
           "id": "stk-1",
@@ -249,14 +249,14 @@
       "type": "item",
       "copies": 2,
       "text": "Associez cet Objet à un Héros situé sur un RITE DE JUGEMENT et déplacez le sur un autre lieu.\n",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-cage-de-l-expiation.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-cage-de-l-expiation.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.86,
         "offsetXPct": 0,
         "offsetYPct": -16
       },
       "cost": 1,
-      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-cage-de-l-expiation.art.png?v=1783792105901",
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-cage-de-l-expiation.art.webp?v=1783792105901",
       "textLayout": {
         "x": 48.958333333333336,
         "y": 69.9705691243359,
@@ -291,14 +291,14 @@
       "type": "effect",
       "copies": 2,
       "text": "Éliminez un Héros de force 3 ou moins.",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-chatiment-des-damnes.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-chatiment-des-damnes.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
         "offsetYPct": -28
       },
       "cost": 2,
-      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-chatiment-des-damnes.art.png?v=1783792105901",
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-chatiment-des-damnes.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.30555555555556,
         "y": 76.0860757558384,
@@ -314,14 +314,14 @@
       "type": "effect",
       "copies": 2,
       "text": "Éliminez un Héros qui se trouve sur un RITE DE JUGEMENT.",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-jugement-final.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-jugement-final.webp?v=1783792105901",
       "artTransform": {
         "scale": 1.05,
         "offsetXPct": 0,
         "offsetYPct": -28
       },
       "cost": 3,
-      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-jugement-final.art.png?v=1783792105901",
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-jugement-final.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.65277777777778,
         "y": 76.5753162863586,
@@ -337,7 +337,7 @@
       "type": "ally",
       "copies": 2,
       "text": "Ce lieu gagne l'action :",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-mannequin.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-mannequin.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.94,
         "offsetXPct": 0,
@@ -345,7 +345,7 @@
       },
       "cost": 2,
       "strength": 2,
-      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-mannequin.art.png?v=1783792105901",
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-mannequin.art.webp?v=1783792105901",
       "textLayout": {
         "x": 47.916666666666664,
         "y": 67.2797462064748,
@@ -370,7 +370,7 @@
       "type": "ally",
       "copies": 3,
       "text": "La force de l'INFIRMIÈRE augmente de 1 pour chaque autre INFIRMIÈRE sur le même lieu.",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-infirmiere.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-infirmiere.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.68,
         "offsetXPct": -14,
@@ -378,7 +378,7 @@
       },
       "cost": 1,
       "strength": 1,
-      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-infirmiere.art.png?v=1783792105901",
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-infirmiere.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50,
         "y": 77.3091770821389,
@@ -394,14 +394,14 @@
       "type": "effect",
       "copies": 2,
       "text": "Déplacez tous vos Alliés d'un même lieu vers un autre lieu.",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-lien-mortel.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-lien-mortel.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
         "offsetYPct": -25
       },
       "cost": 2,
-      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-lien-mortel.art.png?v=1783792105901",
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-lien-mortel.art.webp?v=1783792105901",
       "textLayout": {
         "x": 48.61111111111111,
         "y": 77.553797347399,
@@ -417,7 +417,7 @@
       "type": "condition",
       "copies": 2,
       "text": "Cette carte est jouable durant le tour d'un adversaire si celui vous cible avec une action Fatalité.   \nDévoilez sa première carte Fatalité et jouez là.",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-penitence-forcee.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-penitence-forcee.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.53,
         "offsetXPct": 0,
@@ -439,13 +439,13 @@
       "type": "condition",
       "copies": 2,
       "text": "Cette carte est jouable pendant le tour d'un adversaire s'il a éliminé un Héros. \nÉliminez un Héros de force équivalente ou moins.",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-alliance-inhibee.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-alliance-inhibee.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
         "offsetYPct": -25
       },
-      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-alliance-inhibee.art.png?v=1783792105901",
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-alliance-inhibee.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.65277777777778,
         "y": 77.3091770821389,
@@ -461,7 +461,7 @@
       "type": "effect",
       "copies": 3,
       "text": "Défausser une carte de votre main pour récupérer une carte du même type dans votre défausse et l'ajouter à votre main.",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-pacte-de-sang.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-pacte-de-sang.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
@@ -486,14 +486,14 @@
       "type": "item",
       "copies": 1,
       "text": " Regardez les 3 premières cartes de votre deck.   Ajoutez en une à votre main et défaussez les autres.\nou\nGagnez 2 jetons pouvoir.",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-sacrifice-humain.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-sacrifice-humain.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.62,
         "offsetXPct": 8,
         "offsetYPct": -25
       },
       "cost": 1,
-      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-sacrifice-humain.art.png?v=1783792105901",
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-sacrifice-humain.art.webp?v=1783792105901",
       "stickers": [
         {
           "id": "stk-1",
@@ -518,14 +518,14 @@
       "type": "effect",
       "copies": 3,
       "text": "Défaussez un Allié pour piocher 3 cartes.",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-fanatisme.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-fanatisme.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
         "offsetYPct": -28
       },
       "cost": 1,
-      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-fanatisme.art.png?v=1783792105901",
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-fanatisme.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50.69444444444444,
         "y": 77.3091770821389,
@@ -541,14 +541,14 @@
       "type": "hero",
       "copies": 1,
       "text": "Défaussez le MÉTATRON.\nTant que JAMES est présent, le MÉTATRON n'a aucun effet.",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-cheryl-mason.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-cheryl-mason.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
         "offsetYPct": -27
       },
       "strength": 4,
-      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-cheryl-mason.art.png?v=1783792105901",
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-cheryl-mason.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50.34722222222222,
         "y": 74.37373389901771,
@@ -564,7 +564,7 @@
       "type": "hero",
       "copies": 1,
       "text": "RITE DE JUGEMENT ne peuvent pas être propagés sur le lieu où se trouve MARIA.",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-harry-mason.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-harry-mason.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
@@ -587,13 +587,13 @@
       "type": "effect",
       "copies": 2,
       "text": "Retirez une tuile du jugement.",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-dissipation.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-dissipation.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
         "offsetYPct": -27
       },
-      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-dissipation.art.png?v=1783792105901",
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-dissipation.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.30555555555556,
         "y": 73.63987310323739,
@@ -609,13 +609,13 @@
       "type": "item",
       "copies": 2,
       "text": "Associez cet Objet à un Héros . Il ne peut plus être éliminé. À tout moment, PYRAMID HEAD peut payer 3 jetons Pouvoir pour défausser cette carte.",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-protection-de-l-ame.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-protection-de-l-ame.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
         "offsetYPct": -25
       },
-      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-protection-de-l-ame.art.png?v=1783792105901",
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-protection-de-l-ame.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50,
         "y": 76.5753162863586,
@@ -631,14 +631,14 @@
       "type": "hero",
       "copies": 1,
       "text": "Obtenir une piste de souffrance coûte 1 jeton pouvoir supplémentaire.",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-lisa-garland.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-lisa-garland.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
         "offsetYPct": -25
       },
       "strength": 4,
-      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-lisa-garland.art.png?v=1783792105901",
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-lisa-garland.art.webp?v=1783792105901",
       "textLayout": {
         "x": 50,
         "y": 76.3306960210985,
@@ -654,14 +654,14 @@
       "type": "hero",
       "copies": 1,
       "text": "EDDIE ne peut pas être éliminée à l'aide de la cage de l'expiation.",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-cybil-bennett.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-cybil-bennett.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.57,
         "offsetXPct": 0,
         "offsetYPct": -27
       },
       "strength": 3,
-      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-cybil-bennett.art.png?v=1783792105901",
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-cybil-bennett.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.65277777777778,
         "y": 75.5968352253182,
@@ -677,14 +677,14 @@
       "type": "hero",
       "copies": 1,
       "text": "Lorsque ANGELA est jouée, vous perdez 1 piste de souffrance.",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-dahlia-gillespie.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-dahlia-gillespie.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
         "offsetYPct": -27
       },
       "strength": 3,
-      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-dahlia-gillespie.art.png?v=1783792105901",
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-dahlia-gillespie.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.65277777777778,
         "y": 77.3091770821389,
@@ -700,7 +700,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Perdez 2 jetons Pouvoir.",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-robbie-le-lapin.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-robbie-le-lapin.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.65,
         "offsetXPct": 0,
@@ -722,13 +722,13 @@
       "type": "effect",
       "copies": 2,
       "text": "Pyramid Head défausse 2 cartes de sa main.",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-redemption.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-redemption.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
         "offsetYPct": -26
       },
-      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-redemption.art.png?v=1783792105901",
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-redemption.art.webp?v=1783792105901",
       "textLayout": {
         "x": 49.65277777777778,
         "y": 77.3091770821389,
@@ -744,7 +744,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Déplacez un Héros vers n'importe quel lieu.",
-      "image": "/cards/custom-pyramid-head/custom-pyramid-head-c1.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-c1.webp?v=1783792105901",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
@@ -764,18 +764,18 @@
   ],
   "createdAt": "2026-06-29T14:16:44.643Z",
   "updatedAt": "2026-07-22T19:00:00.000Z",
-  "pawnImage": "/cards/custom-pyramid-head/pawn.png?v=1783792105901",
-  "backVillainImage": "/cards/custom-pyramid-head/back-villain.png?v=1783792105901",
-  "backFateImage": "/cards/custom-pyramid-head/back-fate.png?v=1783792105901",
+  "pawnImage": "/cards/custom-pyramid-head/pawn.webp?v=1783792105901",
+  "backVillainImage": "/cards/custom-pyramid-head/back-villain.webp?v=1783792105901",
+  "backFateImage": "/cards/custom-pyramid-head/back-fate.webp?v=1783792105901",
   "boardImage": "/cards/custom-pyramid-head/board.jpg?v=1783792105901",
-  "portrait": "/cards/custom-pyramid-head/portrait.png?v=1783792105901",
-  "portraitRaw": "/cards/custom-pyramid-head/portrait-raw.png?v=1783792105901",
-  "presentation": "/cards/custom-pyramid-head/presentation.png?v=1783792105901",
-  "boardArt": "/cards/custom-pyramid-head/board-art.png?v=1783792105901",
+  "portrait": "/cards/custom-pyramid-head/portrait.webp?v=1783792105901",
+  "portraitRaw": "/cards/custom-pyramid-head/portrait-raw.webp?v=1783792105901",
+  "presentation": "/cards/custom-pyramid-head/presentation.webp?v=1783792105901",
+  "boardArt": "/cards/custom-pyramid-head/board-art.webp?v=1783792105901",
   "backOverlays": [
     {
       "id": "ovl-1",
-      "image": "/cards/custom-pyramid-head/back-overlay-0.png?v=1783792105901",
+      "image": "/cards/custom-pyramid-head/back-overlay-0.webp?v=1783792105901",
       "x": 50,
       "y": 50,
       "size": 100,

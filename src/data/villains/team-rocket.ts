@@ -36,11 +36,11 @@ export const teamRocket: VillainDef = {
     "votre pile de Captures. Les Pokémon arrivent par la Fatalité (chaque dresseur " +
     "invoque le sien) ; capturez-les avec l'action « Attraper un Pokémon » (réunissez " +
     "assez de Force d'Alliés pour vaincre le Pokémon : il rejoint vos Captures).",
-  boardImage: img('board.png'),
+  boardImage: img('board.webp'),
   pawnImage: '/pion_team-rocket.png',
   pawnHeightPx: 120,
-  backVillainImage: img('back-villain.png'),
-  backFateImage: img('back-fate.png'),
+  backVillainImage: img('back-villain.webp'),
+  backFateImage: img('back-fate.webp'),
   locations: [
     {
       id: 'labo',

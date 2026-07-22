@@ -31,11 +31,11 @@ export const patHibulaire: VillainDef = {
     'À la mise en place, 4 de vos 5 tuiles Objectif sont posées face cachée, une ' +
     'sur chaque lieu. Remplissez vos 4 tuiles pour gagner. Tant que Mickey est ' +
     'présent dans votre royaume, vous ne pouvez remplir aucune tuile Objectif.',
-  boardImage: img('board.png'),
+  boardImage: img('board.webp'),
   pawnImage: '/pion_pat-hibulaire.png',
   pawnHeightPx: 116,
-  backVillainImage: img('back-villain.png'),
-  backFateImage: img('back-fate.png'),
+  backVillainImage: img('back-villain.webp'),
+  backFateImage: img('back-fate.webp'),
   goalKinds: ['win-big', 'power-play', 'strike-it-rich', 'round-up', 'rule-the-realm'],
   locations: [
     {
@@ -83,7 +83,7 @@ export const patHibulaire: VillainDef = {
 
 /** Dos de tuile Objectif (face cachée) — affiché tant qu'une tuile n'est ni
  *  révélée ni remplie (côté adversaire, ou tuiles encore secrètes du joueur). */
-export const PAT_GOAL_BACK = img('goal-back.png')
+export const PAT_GOAL_BACK = img('goal-back.webp')
 
 /** Présentation des 5 tuiles Objectif (nom FR, texte recopié, image). Le MOTEUR
  *  ne s'en sert pas (il raisonne sur `PeteGoalKind`) ; l'UI l'utilise pour rendre
@@ -96,30 +96,30 @@ export const PAT_GOAL_INFO: Record<
     name: 'Jackpot',
     englishName: 'Win Big',
     text: 'Gagner au moins 4 jetons Pouvoir en jouant UNE PETITE PARTIE ? sur ce lieu.',
-    image: img('goal-jackpot.png'),
+    image: img('goal-jackpot.webp'),
   },
   'power-play': {
     name: 'Soif de Pouvoir',
     englishName: 'Power Play',
     text: 'Dépenser au moins 6 jetons Pouvoir en un seul tour quand Pat Hibulaire se trouve sur ce lieu.',
-    image: img('goal-soif-pouvoir.png'),
+    image: img('goal-soif-pouvoir.webp'),
   },
   'strike-it-rich': {
     name: 'Signe de Richesse',
     englishName: 'Strike It Rich',
     text: 'Posséder au moins 3 Objets sur ce lieu au début de votre tour.',
-    image: img('goal-signe-richesse.png'),
+    image: img('goal-signe-richesse.webp'),
   },
   'round-up': {
     name: 'Bande Puissante',
     englishName: 'Round Up',
     text: "Posséder des Alliés d'une force totale de 10 ou plus sur ce lieu au début de votre tour.",
-    image: img('goal-bande-puissante.png'),
+    image: img('goal-bande-puissante.webp'),
   },
   'rule-the-realm': {
     name: 'Main Basse sur la Ville',
     englishName: 'Rule the Realm',
     text: 'Posséder plus d’Alliés que de Héros sur chaque lieu de votre royaume au début de votre tour.',
-    image: img('goal-main-basse.png'),
+    image: img('goal-main-basse.webp'),
   },
 }

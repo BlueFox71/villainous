@@ -32,11 +32,11 @@ export const hades: VillainDef = {
   boardObjective: 'Au début de votre tour, il doit y avoir au moins trois Titans sur le Mont Olympe.',
   objectiveDescription:
     'Ayez au moins 3 Titans non entravés sur le Mont Olympe au début de votre tour.',
-  boardImage: '/cards/hades/board.png',
+  boardImage: '/cards/hades/board.webp',
   pawnImage: '/pion_hades.png',
   pawnHeightPx: 92,
-  backVillainImage: '/cards/hades/back_villain.png',
-  backFateImage: '/cards/hades/back_fate.png',
+  backVillainImage: '/cards/hades/back_villain.webp',
+  backFateImage: '/cards/hades/back_fate.webp',
   locations: [
     {
       id: 'enfers',

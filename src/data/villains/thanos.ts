@@ -30,11 +30,11 @@ export const thanos: VillainDef = {
     'Transférez un de vos Alliés sur la Pierre puis rapatriez-le dans votre domaine : ' +
     'la Pierre devient une Compétence. Vous ne pouvez pas gagner tant qu’Adam Warlock est ' +
     'présent dans votre royaume.',
-  boardImage: `${img}/board.png`,
+  boardImage: `${img}/board.webp`,
   pawnImage: '/pion_thanos.png',
   pawnHeightPx: 112,
-  backVillainImage: `${img}/back-villain.png`,
-  backFateImage: `${img}/back-fate.png`,
+  backVillainImage: `${img}/back-villain.webp`,
+  backFateImage: `${img}/back-fate.webp`,
   locations: [
     {
       id: 'sanctuaire-ii',

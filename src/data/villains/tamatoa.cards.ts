@@ -19,7 +19,7 @@ const maui = (id: string, name: string, englishName: string, text: string, effec
   copies: 1,
   isMauiCard: true,
   text,
-  image: img(id + '.png'),
+  image: img(id + '.webp'),
   effects,
 })
 
@@ -37,7 +37,7 @@ export const tamatoaCards: CardDef[] = [
     copies: 4,
     text:
       'Chaque fois qu’un Allié est joué, vous pouvez déplacer les CHAUVES-SOURIS À HUIT YEUX sur ce lieu.',
-    image: img('chauves-souris-8-yeux.png'),
+    image: img('chauves-souris-8-yeux.webp'),
     joinsAlliesOnAllyPlay: true,
   },
   {
@@ -50,7 +50,7 @@ export const tamatoaCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'Le MONSTRE POISSON peut être utilisé pour éliminer les Héros des lieux voisins.',
-    image: img('monstre-poisson.png'),
+    image: img('monstre-poisson.webp'),
     reachesAdjacentVanquish: true,
   },
   {
@@ -63,7 +63,7 @@ export const tamatoaCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'La force des Héros présents sur le lieu du MONSTRE PARESSEUX est réduite de 1.',
-    image: img('monstre-paresseux.png'),
+    image: img('monstre-paresseux.webp'),
     strengthMod: { target: 'heroes-here', delta: -1 },
   },
   {
@@ -78,7 +78,7 @@ export const tamatoaCards: CardDef[] = [
     text:
       'Lorsque le MONSTRE ARBORICOLE est utilisé pour éliminer un Héros, vous pouvez déplacer ' +
       'n’importe quelle carte de votre royaume vers n’importe quel lieu après cette action.',
-    image: img('monstre-arboricole.png'),
+    image: img('monstre-arboricole.webp'),
     moveAnyCardOnVanquish: true,
   },
   // --- Objet (objectif) -----------------------------------------------------
@@ -94,7 +94,7 @@ export const tamatoaCards: CardDef[] = [
       'Tant que vous possédez l’HAMEÇON DE MAUI, gagnez 2 jetons Pouvoir chaque fois qu’une action ' +
       'Fatalité cible Tamatoa. Lorsque Maui (porteur de l’Hameçon) est éliminé, l’HAMEÇON revient à ' +
       'Tamatoa au lieu d’être défaussé.',
-    image: img('hamecon-de-maui.png'),
+    image: img('hamecon-de-maui.webp'),
     gainPowerWhenFated: 2,
   },
   // --- Événements -----------------------------------------------------------
@@ -107,7 +107,7 @@ export const tamatoaCards: CardDef[] = [
     cost: 1,
     copies: 4,
     text: 'Dévoilez la première carte de votre pioche MAUI. Vous pouvez la jouer ou la défausser.',
-    image: img('pas-exactement-heure-maui.png'),
+    image: img('pas-exactement-heure-maui.webp'),
     effects: [{ type: 'REVEAL_TOP_MAUI_CHOICE' }],
   },
   {
@@ -121,7 +121,7 @@ export const tamatoaCards: CardDef[] = [
     text:
       'Vous pouvez mélanger votre défausse Fatalité dans votre pioche. Dévoilez les 4 premières cartes ' +
       'de votre pioche Fatalité. Jouez chaque Objet dévoilé sur le lieu de votre choix. Défaussez les autres.',
-    image: img('crustace-pouvoir-creation.png'),
+    image: img('crustace-pouvoir-creation.webp'),
     effects: [{ type: 'CRUSTACEAN_REVEAL', reveal: 4 }],
   },
   {
@@ -133,7 +133,7 @@ export const tamatoaCards: CardDef[] = [
     cost: 0,
     copies: 2,
     text: 'Piochez une carte pour chaque Héros présent dans votre royaume.',
-    image: img('appat.png'),
+    image: img('appat.webp'),
     effects: [{ type: 'DRAW_PER_HERO_IN_REALM' }],
   },
   {
@@ -145,7 +145,7 @@ export const tamatoaCards: CardDef[] = [
     cost: 0,
     copies: 2,
     text: 'Gagnez 2 jetons Pouvoir. Mélangez la défausse de la pioche MAUI dans cette pioche.',
-    image: img('beau-et-brillant.png'),
+    image: img('beau-et-brillant.webp'),
     effects: [{ type: 'GAIN_POWER', amount: 2 }, { type: 'RESHUFFLE_MAUI_DISCARD' }],
   },
   {
@@ -158,7 +158,7 @@ export const tamatoaCards: CardDef[] = [
     copies: 2,
     text:
       'Vous pouvez effectuer une action recouverte (en dehors d’une action Fatalité) par n’importe quel Héros.',
-    image: img('piege-tamatoa.png'),
+    image: img('piege-tamatoa.webp'),
     effects: [{ type: 'USE_COVERED_ACTIONS_THIS_TURN', exceptFate: true }],
   },
   {
@@ -171,7 +171,7 @@ export const tamatoaCards: CardDef[] = [
     costVariable: true, // paiement variable (= force du Héros) → pastille « ? »
     copies: 2,
     text: 'Payez un nombre de jetons Pouvoir égal à la force d’un Héros, puis éliminez ce Héros.',
-    image: img('tu-ressembles-fruits-de-mer.png'),
+    image: img('tu-ressembles-fruits-de-mer.webp'),
     effects: [{ type: 'DEFEAT_HERO_PAY_STRENGTH' }],
   },
   {
@@ -183,7 +183,7 @@ export const tamatoaCards: CardDef[] = [
     cost: 3,
     copies: 1,
     text: 'Ajoutez jusqu’à 3 jetons Force −1 à un Héros.',
-    image: img('sans-pouvoir.png'),
+    image: img('sans-pouvoir.webp'),
     effects: [{ type: 'ADD_MINUS_FORCE_TOKENS', max: 3 }],
   },
   {
@@ -195,7 +195,7 @@ export const tamatoaCards: CardDef[] = [
     cost: 2,
     copies: 2,
     text: 'Mélangez jusqu’à 3 cartes de votre défausse Méchant dans votre pioche, puis piochez 2 cartes.',
-    image: img('je-te-le-dirai-en-chantant.png'),
+    image: img('je-te-le-dirai-en-chantant.webp'),
     effects: [{ type: 'RECOVER_CARDS_TO_DECK', count: 3 }, { type: 'DRAW_CARDS', count: 2 }],
   },
   // --- Conditions -----------------------------------------------------------
@@ -209,7 +209,7 @@ export const tamatoaCards: CardDef[] = [
     copies: 2,
     text:
       'Jouable pendant le tour d’un adversaire s’il gagne des jetons Pouvoir. Gagnez 3 jetons Pouvoir.',
-    image: img('les-poissons-sont-stupides.png'),
+    image: img('les-poissons-sont-stupides.webp'),
     trigger: { type: 'opponent-gained-power-ge', value: 1 },
     effects: [{ type: 'GAIN_POWER', amount: 3 }],
   },
@@ -223,7 +223,7 @@ export const tamatoaCards: CardDef[] = [
     copies: 2,
     text:
       'Jouable pendant le tour d’un adversaire s’il effectue une action Éliminer un Héros. Ajoutez 2 jetons Force −1 à un Héros.',
-    image: img('pas-si-difficile.png'),
+    image: img('pas-si-difficile.webp'),
     trigger: { type: 'opponent-vanquished-hero-strength-ge', value: 0 },
     effects: [{ type: 'ADD_MINUS_FORCE_TOKENS', max: 2 }],
   },
@@ -238,7 +238,7 @@ export const tamatoaCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'Aucune capacité. (Le coq le plus bête de l’océan.)',
-    image: img('heihei.png'),
+    image: img('heihei.webp'),
   },
   {
     id: 'maui',
@@ -250,7 +250,7 @@ export const tamatoaCards: CardDef[] = [
     copies: 1,
     text:
       'Avant que Tamatoa se déplace, il doit dévoiler et jouer la première carte de sa pioche MAUI.',
-    image: img('maui.png'),
+    image: img('maui.webp'),
     triggersMauiDeck: true,
   },
   {
@@ -262,7 +262,7 @@ export const tamatoaCards: CardDef[] = [
     strength: 4,
     copies: 1,
     text: 'Si le CŒUR DE TE FITI est dans le royaume, associez-le à MOANA.',
-    image: img('moana.png'),
+    image: img('moana.webp'),
     onPlace: [{ type: 'MOANA_STEAL_HEART' }],
   },
   {
@@ -275,7 +275,7 @@ export const tamatoaCards: CardDef[] = [
     text:
       'QUELQUE CHOSE QUI BRILLE recouvre les actions comme un Héros (non associé). Les Héros présents ' +
       'sur ce lieu ne peuvent pas être éliminés. Lorsque Tamatoa termine son tour sur ce lieu, défaussez cet Objet.',
-    image: img('quelque-chose-brillant.png'),
+    image: img('quelque-chose-brillant.webp'),
     shieldsHeroesAtLocation: true,
     coversActionsLikeHero: true,
     selfDiscardOnPawnEndTurnHere: true,
@@ -290,7 +290,7 @@ export const tamatoaCards: CardDef[] = [
     text:
       'Jouez le CŒUR DE TE FITI sur n’importe quel lieu, puis cherchez MOANA et associez-lui le CŒUR. ' +
       'Lorsque MOANA est éliminée, le CŒUR DE TE FITI est libéré sur ce lieu.',
-    image: img('coeur-de-te-fiti.png'),
+    image: img('coeur-de-te-fiti.webp'),
     onPlace: [{ type: 'HEART_FETCH_MOANA' }],
   },
   {
@@ -303,7 +303,7 @@ export const tamatoaCards: CardDef[] = [
     text:
       'Cherchez MAUI et jouez-le. Cherchez l’HAMEÇON DE MAUI et associez-le à MAUI. Si MAUI est déjà ' +
       'en jeu, déplacez-le n’importe où et retirez ses jetons Force.',
-    image: img('heure-de-maui.png'),
+    image: img('heure-de-maui.webp'),
     effects: [{ type: 'FETCH_MAUI_ATTACH_HOOK' }],
   },
   {
@@ -314,7 +314,7 @@ export const tamatoaCards: CardDef[] = [
     type: 'effect',
     copies: 2,
     text: 'Déplacez un Héros ou un Objet non associé vers un lieu voisin.',
-    image: img('fuite.png'),
+    image: img('fuite.webp'),
     effects: [{ type: 'MOVE_HERO_OR_ITEM_ADJACENT' }],
   },
   {
@@ -325,7 +325,7 @@ export const tamatoaCards: CardDef[] = [
     type: 'effect',
     copies: 2,
     text: 'Tamatoa perd la moitié de ses jetons Pouvoir (arrondi au supérieur).',
-    image: img('toujours-a-l-envers.png'),
+    image: img('toujours-a-l-envers.webp'),
     effects: [{ type: 'LOSE_HALF_POWER' }],
   },
   {
@@ -336,7 +336,7 @@ export const tamatoaCards: CardDef[] = [
     type: 'effect',
     copies: 1,
     text: 'Regardez les 3 premières cartes de la pioche MAUI et remettez-les dans l’ordre de votre choix.',
-    image: img('mini-maui.png'),
+    image: img('mini-maui.webp'),
     effects: [{ type: 'REORDER_MAUI_TOP', count: 3 }],
   },
 

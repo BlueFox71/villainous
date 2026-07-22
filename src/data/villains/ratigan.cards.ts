@@ -26,7 +26,7 @@ export const ratiganCards: CardDef[] = [
     strength: 2,
     copies: 3,
     text: 'Si vous jouez les Brutes sur un lieu où vous ne vous trouvez pas, vous pouvez effectuer 1 action disponible de ce lieu, en dehors d’une action Fatalité.',
-    image: img('brutes.png'),
+    image: img('brutes.webp'),
     effects: [{ type: 'ALLY_REMOTE_ACTION' }],
   },
   {
@@ -39,7 +39,7 @@ export const ratiganCards: CardDef[] = [
     strength: 1,
     copies: 1,
     text: 'Aucune capacité.',
-    image: img('bartholomee.png'),
+    image: img('bartholomee.webp'),
   },
   {
     id: 'felicia',
@@ -51,7 +51,7 @@ export const ratiganCards: CardDef[] = [
     strength: 6,
     copies: 1,
     text: 'Lorsque vous jouez Félicia, défaussez un Allié de son lieu ou payez 2 jetons Pouvoir supplémentaires.',
-    image: img('felicia.png'),
+    image: img('felicia.webp'),
     effects: [{ type: 'DISCARD_ALLY_AT_HOST_OR_PAY', power: 2 }],
   },
   {
@@ -64,7 +64,7 @@ export const ratiganCards: CardDef[] = [
     strength: 3,
     copies: 1,
     text: 'Trouvez Flaversham et jouez-le sur le Magasin de jouets de Flaversham.',
-    image: img('fidget.png'),
+    image: img('fidget.webp'),
     effects: [{ type: 'SUMMON_FATE_HERO_TO_OWN_REALM', heroCardId: 'flaversham', locationId: 'magasin-flaversham' }],
   },
 
@@ -80,7 +80,7 @@ export const ratiganCards: CardDef[] = [
     cost: 1,
     copies: 3,
     text: 'Déplacez un Héros de force 3 ou moins sur le Repaire secret.',
-    image: img('capture.png'),
+    image: img('capture.webp'),
     effects: [{ type: 'MOVE_REALM_HERO_TO', maxStrength: 3, locationId: 'repaire-secret' }],
   },
   {
@@ -92,7 +92,7 @@ export const ratiganCards: CardDef[] = [
     cost: 0,
     copies: 2,
     text: 'Piochez 2 cartes ou gagnez 2 jetons Pouvoir.',
-    image: img('grand-genie-du-mal.png'),
+    image: img('grand-genie-du-mal.webp'),
     effects: [{ type: 'DRAW_OR_GAIN_POWER', draw: 2, power: 2 }],
   },
 
@@ -108,7 +108,7 @@ export const ratiganCards: CardDef[] = [
     cost: 0,
     copies: 2,
     text: 'Cette carte est jouable pendant le tour d’un adversaire s’il gagne au moins 3 jetons Pouvoir. Ajoutez un Objet de votre défausse à votre main.',
-    image: img('extravagance.png'),
+    image: img('extravagance.webp'),
     trigger: { type: 'opponent-gained-power-ge', value: 3 },
     effects: [{ type: 'RECOVER_FROM_DISCARD_CHOICE', types: ['item'], label: 'Extravagance' }],
   },
@@ -121,7 +121,7 @@ export const ratiganCards: CardDef[] = [
     cost: 0,
     copies: 2,
     text: 'Cette carte est jouable pendant le tour d’un adversaire s’il cible avec une action Fatalité. Il ne dévoile qu’une carte Fatalité au lieu de deux.',
-    image: img('sournois.png'),
+    image: img('sournois.webp'),
     trigger: { type: 'opponent-fate-targeted-me' },
   },
 
@@ -137,7 +137,7 @@ export const ratiganCards: CardDef[] = [
     cost: 1,
     copies: 5,
     text: 'Vous pouvez défausser Engrenages pour réduire le coût d’un Objet de 3.',
-    image: img('engrenages.png'),
+    image: img('engrenages.webp'),
   },
   {
     id: 'piege-ingenieux',
@@ -148,7 +148,7 @@ export const ratiganCards: CardDef[] = [
     cost: 3,
     copies: 2,
     text: 'Activer : payez 1 jeton Pouvoir. Au prochain tour, avant de déplacer votre figurine, éliminez tous les Héros sur ce lieu, puis défaussez cette carte.',
-    image: img('piege-ingenieux.png'),
+    image: img('piege-ingenieux.webp'),
     activatedCost: 1,
   },
   {
@@ -162,7 +162,7 @@ export const ratiganCards: CardDef[] = [
     attach: 'ally',
     attachStrengthBonus: 2,
     text: 'Associez cette carte à un Allié, sa force augmente de 2. Puis vous pouvez effectuer une action Éliminer un Héros ; cet Allié doit y participer.',
-    image: img('uniforme.png'),
+    image: img('uniforme.webp'),
   },
   {
     id: 'cloche',
@@ -173,7 +173,7 @@ export const ratiganCards: CardDef[] = [
     cost: 1,
     copies: 1,
     text: 'Activer : cherchez Félicia dans votre pioche ou votre défausse et ajoutez-la à votre main. Puis remélangez votre pioche.',
-    image: img('cloche.png'),
+    image: img('cloche.webp'),
     activatedCost: 0,
   },
   {
@@ -185,7 +185,7 @@ export const ratiganCards: CardDef[] = [
     cost: 1,
     copies: 1,
     text: 'Activer : payez 1 jeton Pouvoir. Déplacez le Dirigeable et 1 Objet ou 1 Allié non associé qui se trouve sur le même lieu vers n’importe quel lieu.',
-    image: img('dirigeable.png'),
+    image: img('dirigeable.webp'),
     activatedCost: 1,
   },
   {
@@ -197,7 +197,7 @@ export const ratiganCards: CardDef[] = [
     cost: 2,
     copies: 1,
     text: 'Activer : gagnez 2 jetons Pouvoir.',
-    image: img('habits-royaux.png'),
+    image: img('habits-royaux.webp'),
     activatedCost: 0,
   },
   {
@@ -209,7 +209,7 @@ export const ratiganCards: CardDef[] = [
     cost: 1,
     copies: 1,
     text: 'Dévoilez les cartes de votre pioche jusqu’à ce que vous trouviez un Objet. Ajoutez-le à votre main et défaussez les autres cartes dévoilées.',
-    image: img('liste-de-fidget.png'),
+    image: img('liste-de-fidget.webp'),
     effects: [{ type: 'REVEAL_DECK_UNTIL_TYPE', cardType: 'item', title: 'Liste de Fidget' }],
   },
   {
@@ -221,7 +221,7 @@ export const ratiganCards: CardDef[] = [
     cost: 2,
     copies: 1,
     text: 'Jouer un Objet coûte 1 jeton Pouvoir de moins.',
-    image: img('outils.png'),
+    image: img('outils.webp'),
   },
   {
     id: 'reine-robot',
@@ -233,7 +233,7 @@ export const ratiganCards: CardDef[] = [
     copies: 1,
     playOnlyAt: 'repaire-secret',
     text: 'Jouez la Reine Robot sur le Repaire secret. Si cette carte est défaussée, retournez votre tuile Objectif sur la face Le Rat.',
-    image: img('reine-robot.png'),
+    image: img('reine-robot.webp'),
   },
 
   // ======================================================================
@@ -249,7 +249,7 @@ export const ratiganCards: CardDef[] = [
     copies: 3,
     forcedFateLocation: 'buckingham-palace',
     text: 'Les Gardes de la Reine ne peuvent être joués que sur Buckingham Palace.',
-    image: img('gardes-de-la-reine.png'),
+    image: img('gardes-de-la-reine.webp'),
   },
   {
     id: 'basil',
@@ -260,7 +260,7 @@ export const ratiganCards: CardDef[] = [
     strength: 4,
     copies: 1,
     text: 'Vous pouvez défausser un Objet qui se trouve sur le lieu où Basil est joué ou déplacé.',
-    image: img('basil.png'),
+    image: img('basil.webp'),
     onPlace: [{ type: 'DISCARD_ITEM_AT_HOST', preferCardId: 'reine-robot' }],
   },
   {
@@ -272,7 +272,7 @@ export const ratiganCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'Si Basil se trouve dans le royaume, la force de Dr. Dawson augmente de 2.',
-    image: img('dr-dawson.png'),
+    image: img('dr-dawson.webp'),
     selfStrengthMods: [{ kind: 'if-card', cardId: 'basil', scope: 'realm', delta: 2 }],
   },
   {
@@ -284,7 +284,7 @@ export const ratiganCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'Si Flaversham se trouve sur le Repaire secret, jouer la Reine Robot coûte 3 jetons Pouvoir de moins.',
-    image: img('flaversham.png'),
+    image: img('flaversham.webp'),
   },
   {
     id: 'mrs-judson',
@@ -295,7 +295,7 @@ export const ratiganCards: CardDef[] = [
     strength: 1,
     copies: 1,
     text: 'Ratigan perd jusqu’à 2 jetons Pouvoir.',
-    image: img('mrs-judson.png'),
+    image: img('mrs-judson.webp'),
     onPlace: [{ type: 'LOSE_POWER', amount: 2 }],
   },
   {
@@ -307,7 +307,7 @@ export const ratiganCards: CardDef[] = [
     strength: 1,
     copies: 1,
     text: 'Si Olivia est éliminée, un adversaire, au choix, dévoile et joue la première carte Fatalité de la pioche de Ratigan.',
-    image: img('olivia.png'),
+    image: img('olivia.webp'),
     onVanquish: [{ type: 'REVEAL_FATE_TOP_PLAY_IF_HERO' }],
   },
   {
@@ -319,7 +319,7 @@ export const ratiganCards: CardDef[] = [
     strength: 5,
     copies: 1,
     text: 'Ratigan ne peut pas gagner si la Reine Moustoria est à Buckingham Palace, même si son objectif est d’éliminer Basil.',
-    image: img('reine-moustoria.png'),
+    image: img('reine-moustoria.webp'),
   },
   {
     id: 'toby-ratigan',
@@ -330,7 +330,7 @@ export const ratiganCards: CardDef[] = [
     strength: 6,
     copies: 1,
     text: 'Vous pouvez déplacer un Héros vers le lieu de votre choix.',
-    image: img('toby.png'),
+    image: img('toby.webp'),
     onPlace: [{ type: 'RELOCATE_REALM_HERO_ANYWHERE' }],
   },
 
@@ -345,7 +345,7 @@ export const ratiganCards: CardDef[] = [
     type: 'effect',
     copies: 2,
     text: 'Cherchez Basil et jouez-le sur le lieu de votre choix. Si Basil est déjà dans le royaume, déplacez-le vers n’importe quel lieu.',
-    image: img('appel-a-l-aide.png'),
+    image: img('appel-a-l-aide.webp'),
   },
   {
     id: 'sabotage',
@@ -355,7 +355,7 @@ export const ratiganCards: CardDef[] = [
     type: 'effect',
     copies: 2,
     text: 'Choisissez un lieu où se trouve au moins un Héros et défaussez-y un Objet coûtant 3 ou moins.',
-    image: img('sabotage.png'),
+    image: img('sabotage.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -371,6 +371,6 @@ export const ratiganCards: CardDef[] = [
     attach: 'hero',
     attachStrengthBonus: 2,
     text: 'Associez cette carte à un Héros, sa force augmente de 2 et vous pouvez immédiatement le déplacer vers un lieu de votre choix.',
-    image: img('ballon-de-fortune.png'),
+    image: img('ballon-de-fortune.webp'),
   },
 ]

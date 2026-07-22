@@ -38,7 +38,7 @@ export const crochetCards: CardDef[] = [
     strength: 2,
     copies: 3,
     text: 'Aucune capacité.',
-    image: img('boucanier.png'),
+    image: img('boucanier.webp'),
   },
   {
     id: 'flibustiers',
@@ -50,7 +50,7 @@ export const crochetCards: CardDef[] = [
     strength: 2,
     copies: 3,
     text: 'Les Flibustiers peuvent éliminer un Héros sur leur lieu ou sur un lieu voisin non bloqué.',
-    image: img('flibustiers.png'),
+    image: img('flibustiers.webp'),
   },
   {
     id: 'brute',
@@ -62,7 +62,7 @@ export const crochetCards: CardDef[] = [
     strength: 4,
     copies: 2,
     text: 'Aucune capacité.',
-    image: img('brute.png'),
+    image: img('brute.webp'),
   },
   {
     id: 'monsieur-mouche',
@@ -74,7 +74,7 @@ export const crochetCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'La force de Monsieur Mouche augmente de 2 quand il se trouve sur le Jolly Roger.',
-    image: img('monsieur-mouche.png'),
+    image: img('monsieur-mouche.webp'),
   },
   {
     id: 'monsieur-starkey',
@@ -86,7 +86,7 @@ export const crochetCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'Vous pouvez déplacer un Héros du lieu où vous jouez Monsieur Starkey vers un lieu voisin non bloqué.',
-    image: img('monsieur-starkey.png'),
+    image: img('monsieur-starkey.webp'),
     effects: [{ type: 'RELOCATE_OWN_HERO' }],
   },
 
@@ -103,7 +103,7 @@ export const crochetCards: CardDef[] = [
     attach: 'location',
     copies: 2,
     text: 'Ce lieu gagne l’action : Éliminer un héros.',
-    image: img('canon.png'),
+    image: img('canon.webp'),
     grantsAction: { type: 'VANQUISH', label: 'Éliminer un héros (Canon)' },
   },
   {
@@ -116,7 +116,7 @@ export const crochetCards: CardDef[] = [
     attach: 'ally',
     copies: 2,
     text: 'Associez cette carte à un Allié, sa force augmente de 2.',
-    image: img('sabre-abordage.png'),
+    image: img('sabre-abordage.webp'),
   },
   {
     id: 'boite-crochets',
@@ -128,7 +128,7 @@ export const crochetCards: CardDef[] = [
     attach: 'location',
     copies: 2,
     text: 'Ce lieu gagne l’action : Gagner 1 pouvoir.',
-    image: img('boite-crochets.png'),
+    image: img('boite-crochets.webp'),
     grantsAction: { type: 'GAIN_POWER', amount: 1, label: 'Gagner 1 pouvoir (Boîte à Crochets)' },
   },
   {
@@ -141,7 +141,7 @@ export const crochetCards: CardDef[] = [
     attach: 'location',
     copies: 1,
     text: 'Ce lieu gagne l’action : Déplacer un héros.',
-    image: img('ingenieux-mecanisme.png'),
+    image: img('ingenieux-mecanisme.webp'),
     grantsAction: { type: 'MOVE_HERO', label: 'Déplacer un héros (Ingénieux Mécanisme)' },
   },
   {
@@ -154,7 +154,7 @@ export const crochetCards: CardDef[] = [
     attach: 'location',
     copies: 1,
     text: "Retirez la tuile Cadenas de l'Arbre du Pendu. Retirez cette carte de votre royaume pour jouer un Objet de votre main gratuitement.",
-    image: img('carte-pays-imaginaire.png'),
+    image: img('carte-pays-imaginaire.webp'),
     effects: [{ type: 'UNLOCK_LOCATION', locationId: 'arbre-pendu' }],
   },
 
@@ -170,7 +170,7 @@ export const crochetCards: CardDef[] = [
     cost: 1,
     copies: 3,
     text: 'Regardez secrètement les 2 premières cartes Fatalité de votre pioche. Défaussez-les ou remettez-les sur le dessus dans l’ordre de votre choix.',
-    image: img('faites-leur-peur.png'),
+    image: img('faites-leur-peur.webp'),
     effects: [{ type: 'SCRY_OWN_FATE_TOP2' }],
   },
   {
@@ -182,7 +182,7 @@ export const crochetCards: CardDef[] = [
     cost: 0,
     copies: 3,
     text: 'Gagnez 2 jetons Pouvoir. Puis dévoilez des cartes Fatalité de votre deck jusqu’à trouver un Héros. Jouez-le et défaussez les autres cartes dévoilées.',
-    image: img('digne-adversaire.png'),
+    image: img('digne-adversaire.webp'),
     effects: [{ type: 'GAIN_POWER', amount: 2 }, { type: 'REVEAL_OWN_FATE_PLAY_HERO' }],
   },
   {
@@ -194,7 +194,7 @@ export const crochetCards: CardDef[] = [
     cost: 1,
     copies: 2,
     text: 'Déplacez un Allié vers un lieu voisin non bloqué. La force de cet Allié augmente de 2 jusqu’à la fin de votre tour.',
-    image: img('pas-de-quartier.png'),
+    image: img('pas-de-quartier.webp'),
     effects: [{ type: 'MOVE_ALLY_BUFF', amount: 2 }],
   },
 
@@ -209,7 +209,7 @@ export const crochetCards: CardDef[] = [
     type: 'condition',
     copies: 2,
     text: 'Jouable pendant le tour d’un adversaire s’il joue un Allié de force 4 ou plus. Jouez gratuitement un Allié de votre main.',
-    image: img('ruse.png'),
+    image: img('ruse.webp'),
     // Déclencheur approché (pas encore de « l'adversaire a joué un Allié ≥4 »).
     trigger: { type: 'opponent-allies-in-realm-ge', value: 4 },
   },
@@ -221,7 +221,7 @@ export const crochetCards: CardDef[] = [
     type: 'condition',
     copies: 2,
     text: 'Jouable pendant le tour d’un adversaire s’il élimine un Héros de force 4 ou plus. Dévoilez des cartes Fatalité de votre deck jusqu’à trouver un Héros, jouez-le et défaussez les autres.',
-    image: img('obsession.png'),
+    image: img('obsession.webp'),
     trigger: { type: 'opponent-vanquished-hero-strength-ge', value: 4 },
   },
 
@@ -237,7 +237,7 @@ export const crochetCards: CardDef[] = [
     strength: 8,
     copies: 1,
     text: "Dès qu'il est dévoilé, jouez immédiatement Peter Pan sur l'Arbre du Pendu (débloqué ou non). Défaussez les autres cartes Fatalité dévoilées.",
-    image: img('peter-pan.png'),
+    image: img('peter-pan.webp'),
     forcedFateLocation: 'arbre-pendu',
   },
   {
@@ -249,7 +249,7 @@ export const crochetCards: CardDef[] = [
     strength: 3,
     copies: 1,
     text: 'La force de tous les autres Héros augmente de 1.',
-    image: img('wendy.png'),
+    image: img('wendy.webp'),
     strengthMod: { target: 'heroes-realm', delta: 1, excludeSelf: true },
   },
   {
@@ -261,7 +261,7 @@ export const crochetCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'Si au moins un Objet est associé à Jean, sa force augmente de 1.',
-    image: img('jean.png'),
+    image: img('jean.webp'),
     selfStrengthMods: [{ kind: 'if-attached-item', delta: 1 }],
   },
   {
@@ -273,7 +273,7 @@ export const crochetCards: CardDef[] = [
     strength: 1,
     copies: 1,
     text: 'La force de Michel augmente de 1 par lieu occupé par au moins un Héros (le sien compris).',
-    image: img('michel.png'),
+    image: img('michel.webp'),
     selfStrengthMods: [{ kind: 'per-location-with-hero', delta: 1 }],
   },
   {
@@ -285,7 +285,7 @@ export const crochetCards: CardDef[] = [
     strength: 5,
     copies: 1,
     text: 'Si le Capitaine Crochet se déplace sur le lieu de Tic Tac, il défausse immédiatement toute sa main.',
-    image: img('tic-tac.png'),
+    image: img('tic-tac.webp'),
   },
   {
     id: 'clochette',
@@ -296,7 +296,7 @@ export const crochetCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'Défaussez un Allié sur le lieu où vous jouez Clochette.',
-    image: img('clochette.png'),
+    image: img('clochette.webp'),
     onPlace: [{ type: 'DISCARD_ALLY_AT_HOST' }],
   },
   {
@@ -308,7 +308,7 @@ export const crochetCards: CardDef[] = [
     strength: 4,
     copies: 2,
     text: 'Le Capitaine Crochet doit utiliser au moins 2 Alliés pour éliminer les Enfants Perdus.',
-    image: img('enfants-perdus.png'),
+    image: img('enfants-perdus.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -323,7 +323,7 @@ export const crochetCards: CardDef[] = [
     attach: 'hero',
     copies: 3,
     text: 'Associez cette carte à un Héros, sa force augmente de 2.',
-    image: img('poussiere-fee.png'),
+    image: img('poussiere-fee.webp'),
   },
   {
     id: 'provocation',
@@ -334,7 +334,7 @@ export const crochetCards: CardDef[] = [
     attach: 'hero',
     copies: 2,
     text: 'Associez cette carte à un Héros. Le Capitaine Crochet doit éliminer les Héros provocateurs avant les autres Héros.',
-    image: img('provocation.png'),
+    image: img('provocation.webp'),
   },
 
   // ----------------------------------------------------------------------
@@ -348,6 +348,6 @@ export const crochetCards: CardDef[] = [
     type: 'effect',
     copies: 2,
     text: 'Défaussez un Objet de votre choix du royaume de la cible.',
-    image: img('migraine-atroce.png'),
+    image: img('migraine-atroce.webp'),
   },
 ]

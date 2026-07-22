@@ -42,7 +42,7 @@ export const laBonneFeeCards: CardDef[] = [
     activatedCost: 0,
     activatedEffects: [{ type: 'GAIN_POWER', amount: 2 }],
     text: 'Activer : Gagnez 2 Jetons Pouvoir.',
-    image: img('prince.png'),
+    image: img('prince.webp'),
   },
 
   // --- Objets : transformations (force de l'hôte → 0) -----------------------
@@ -57,7 +57,7 @@ export const laBonneFeeCards: CardDef[] = [
     attach: 'hero',
     zeroesHostStrength: true,
     text: 'Associez cette carte à un Héros, sa force est à 0.',
-    image: img('meuble.png'),
+    image: img('meuble.webp'),
   },
   {
     id: 'colombe',
@@ -70,7 +70,7 @@ export const laBonneFeeCards: CardDef[] = [
     attach: 'hero',
     zeroesHostStrength: true,
     text: 'Associez cette carte à un Héros, sa force est à 0.',
-    image: img('colombe.png'),
+    image: img('colombe.webp'),
   },
 
   // --- Objets : potions -----------------------------------------------------
@@ -85,7 +85,7 @@ export const laBonneFeeCards: CardDef[] = [
     attach: 'hero',
     isPotion: true,
     text: 'Associez cet Objet à un Héros.',
-    image: img('filtre.png'),
+    image: img('filtre.webp'),
   },
   {
     id: 'heureux',
@@ -98,7 +98,7 @@ export const laBonneFeeCards: CardDef[] = [
     attach: 'hero',
     isPotion: true,
     text: 'Associez cet Objet à un Héros.',
-    image: img('heureux.png'),
+    image: img('heureux.webp'),
   },
 
   // --- Objets : divers -------------------------------------------------------
@@ -111,7 +111,7 @@ export const laBonneFeeCards: CardDef[] = [
     cost: 1,
     copies: 1,
     text: 'Les cartes Objets coûtent 1 jeton Pouvoir de moins lorsque vous vous trouvez sur le même lieu que la BAGUETTE MAGIQUE.',
-    image: img('baguette.png'),
+    image: img('baguette.webp'),
   },
   {
     id: 'reserve',
@@ -124,7 +124,7 @@ export const laBonneFeeCards: CardDef[] = [
     activatedCost: 2,
     activatedEffects: [{ type: 'FETCH_POTION' }],
     text: 'Activer (payez 2 Jetons Pouvoir) : cherchez une Potion dans la pioche ou dans la défausse et ajoutez-la à votre main.',
-    image: img('reserve.png'),
+    image: img('reserve.webp'),
   },
   {
     id: 'embrasser',
@@ -136,7 +136,7 @@ export const laBonneFeeCards: CardDef[] = [
     copies: 1,
     activatedCost: 0,
     text: 'Cette carte peut être activée uniquement si le PRINCE CHARMANT et FIONA (avec ses 2 potions) sont présents dans la Salle de Bal. Activez cette carte pour gagner la partie !',
-    image: img('embrasser.png'),
+    image: img('embrasser.webp'),
   },
   {
     id: 'rangement',
@@ -149,7 +149,7 @@ export const laBonneFeeCards: CardDef[] = [
     activatedCost: 1,
     activatedEffects: [{ type: 'DISCARD_TRANSFORMED_HEROES' }],
     text: 'Activer (payez 1 Jeton Pouvoir) : défaussez les Héros transformés en meuble ou en colombe.',
-    image: img('rangement.png'),
+    image: img('rangement.webp'),
   },
   {
     id: 'contes',
@@ -164,7 +164,7 @@ export const laBonneFeeCards: CardDef[] = [
       { type: 'RECOVER_FROM_DISCARD_CHOICE', types: ['item', 'effect'], label: 'Les contes de fée' },
     ],
     text: 'Activer (payez 1 Jeton Pouvoir) : cherchez un Objet ou un Événement dans votre défausse et ajoutez-le à votre main.',
-    image: img('contes.png'),
+    image: img('contes.webp'),
   },
 
   // --- Événements -----------------------------------------------------------
@@ -178,7 +178,7 @@ export const laBonneFeeCards: CardDef[] = [
     copies: 4,
     effects: [{ type: 'REVEAL_OWN_FATE_PLAY_HERO' }],
     text: 'Dévoilez les cartes Fatalité jusqu\'à ce que vous trouviez un Héros. Jouez-le et défaussez les autres cartes dévoilées.',
-    image: img('chanson.png'),
+    image: img('chanson.webp'),
   },
   {
     id: 'as',
@@ -190,7 +190,7 @@ export const laBonneFeeCards: CardDef[] = [
     copies: 2,
     effects: [{ type: 'GAIN_POWER', amount: 3 }],
     text: 'Gagnez 3 Jetons Pouvoir.',
-    image: img('as.png'),
+    image: img('as.webp'),
   },
   {
     id: 'eliminer',
@@ -202,7 +202,7 @@ export const laBonneFeeCards: CardDef[] = [
     copies: 2,
     effects: [{ type: 'INSTANT_VANQUISH_HERO_LE', maxStrength: 3 }],
     text: 'Éliminez un Héros de force 3 ou moins.',
-    image: img('eliminer.png'),
+    image: img('eliminer.webp'),
   },
   {
     id: 'blocage',
@@ -214,7 +214,7 @@ export const laBonneFeeCards: CardDef[] = [
     copies: 2,
     effects: [{ type: 'RELOCATE_OWN_HERO' }],
     text: 'Déplacez un Héros d\'un lieu.',
-    image: img('blocage.png'),
+    image: img('blocage.webp'),
   },
 
   // --- Conditions (jouables pendant le tour d'un adversaire) -----------------
@@ -229,7 +229,7 @@ export const laBonneFeeCards: CardDef[] = [
     trigger: { type: 'opponent-items-in-realm-ge', value: 2 },
     effects: [{ type: 'GAIN_POWER', amount: 3 }],
     text: 'Cette carte est jouable pendant le tour d\'un adversaire s\'il possède au moins 2 Objets. Gagnez 3 jetons Pouvoir.',
-    image: img('fastfood.png'),
+    image: img('fastfood.webp'),
   },
   {
     id: 'ocre',
@@ -242,7 +242,7 @@ export const laBonneFeeCards: CardDef[] = [
     trigger: { type: 'opponent-vanquished-hero-strength-le', value: 3 },
     effects: [{ type: 'INSTANT_VANQUISH_HERO_LE', maxStrength: 3 }],
     text: 'Cette carte est jouable pendant le tour d\'un adversaire s\'il élimine un Héros de force 3 ou moins. Éliminez un Héros de force 3 ou moins.',
-    image: img('ocre.png'),
+    image: img('ocre.webp'),
   },
   {
     id: 'observation-fee',
@@ -255,7 +255,7 @@ export const laBonneFeeCards: CardDef[] = [
     trigger: { type: 'opponent-discarded-ge', value: 3 },
     effects: [{ type: 'REVEAL_OWN_FATE_PLAY_HERO' }],
     text: 'Cette carte est jouable pendant le tour d\'un adversaire s\'il défausse au moins 3 cartes. Dévoilez votre première carte Fatalité et jouez-la.',
-    image: img('observation-fee.png'),
+    image: img('observation-fee.webp'),
   },
 
   // ==========================================================================
@@ -272,7 +272,7 @@ export const laBonneFeeCards: CardDef[] = [
     strength: 5,
     copies: 1,
     text: 'Tant que SHREK est présent dans le royaume, vous ne pouvez pas atteindre votre Objectif.',
-    image: img('shrek.png'),
+    image: img('shrek.webp'),
   },
   {
     id: 'fiona',
@@ -284,7 +284,7 @@ export const laBonneFeeCards: CardDef[] = [
     copies: 1,
     playWhenRevealed: true,
     text: 'Vous devez immédiatement jouer FIONA dès qu\'elle est dévoilée. Défaussez les autres cartes Fatalité qui ont été dévoilées.',
-    image: img('fiona.png'),
+    image: img('fiona.webp'),
   },
   {
     id: 'ane',
@@ -296,7 +296,7 @@ export const laBonneFeeCards: CardDef[] = [
     copies: 1,
     activateCostSurchargeHere: 1,
     text: 'Activer la capacité des Objets ou des Alliés sur le lieu où se trouve l\'ÂNE coûte 1 jeton Pouvoir de plus.',
-    image: img('ane.png'),
+    image: img('ane.webp'),
   },
   {
     id: 'chat',
@@ -308,7 +308,7 @@ export const laBonneFeeCards: CardDef[] = [
     copies: 1,
     onPlace: [{ type: 'LOSE_POWER', amount: 2 }],
     text: 'Perdez 2 jetons Pouvoir.',
-    image: img('chat.png'),
+    image: img('chat.webp'),
   },
   {
     id: 'parents',
@@ -320,7 +320,7 @@ export const laBonneFeeCards: CardDef[] = [
     copies: 1,
     blocksAllItemsHere: true,
     text: 'Les Objets ne peuvent pas être joués ou déplacés sur le lieu où se trouvent HAROLD et LILLIAN.',
-    image: img('parents.png'),
+    image: img('parents.webp'),
   },
   {
     id: 'creatures',
@@ -332,7 +332,7 @@ export const laBonneFeeCards: CardDef[] = [
     copies: 1,
     onPlace: [{ type: 'LOSE_POWER', amount: 1 }],
     text: 'Perdez 1 Jeton Pouvoir.',
-    image: img('creatures.png'),
+    image: img('creatures.webp'),
   },
 
   // --- Objet (Fatalité) -----------------------------------------------------
@@ -346,7 +346,7 @@ export const laBonneFeeCards: CardDef[] = [
     attach: 'hero',
     protectsHostFromCardIds: ['meuble'],
     text: 'Associez cette carte à un Héros, la Bonne Fée ne peut plus lui associer la carte « Héros en Meuble ! ».',
-    image: img('humain.png'),
+    image: img('humain.webp'),
   },
 
   // --- Événements (Fatalité) ------------------------------------------------
@@ -359,7 +359,7 @@ export const laBonneFeeCards: CardDef[] = [
     copies: 1,
     effects: [{ type: 'FATE_PLAY_HERO_FROM_DISCARD' }],
     text: 'Choisissez un Héros dans la défausse de cartes Fatalité et jouez-le.',
-    image: img('beaute.png'),
+    image: img('beaute.webp'),
   },
   {
     id: 'doris',
@@ -370,7 +370,7 @@ export const laBonneFeeCards: CardDef[] = [
     copies: 1,
     effects: [{ type: 'LOSE_POWER', amount: 2 }],
     text: 'Perdez 2 jetons Pouvoir.',
-    image: img('doris.png'),
+    image: img('doris.webp'),
   },
   {
     id: 'infiltration',
@@ -381,7 +381,7 @@ export const laBonneFeeCards: CardDef[] = [
     copies: 2,
     effects: [{ type: 'DISCARD_ONE_OR_LOSE', lose: 3 }],
     text: 'La Bonne Fée doit choisir de défausser une de ses cartes OU de perdre 3 jetons.',
-    image: img('infiltration.png'),
+    image: img('infiltration.webp'),
   },
   {
     id: 'tasses',
@@ -392,7 +392,7 @@ export const laBonneFeeCards: CardDef[] = [
     copies: 1,
     effects: [{ type: 'RELOCATE_OWN_HERO' }],
     text: 'Déplacez un Héros d\'un lieu.',
-    image: img('tasses.png'),
+    image: img('tasses.webp'),
   },
   {
     id: 'arrive',
@@ -403,6 +403,6 @@ export const laBonneFeeCards: CardDef[] = [
     copies: 2,
     effects: [{ type: 'CAP_SELF_NEXT_TURN', actions: 2 }],
     text: 'La Bonne Fée ne pourra jouer que 2 actions à son prochain tour.',
-    image: img('arrive.png'),
+    image: img('arrive.webp'),
   },
 ]

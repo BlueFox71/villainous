@@ -49,7 +49,7 @@ const FIGHTER_NAMES: string[] = [
 
 const fighterTiles = FIGHTER_COLORS.map((color, i) => ({
   color,
-  art: `/cards/tabbou/tuiles/combattant-${i + 1}.png`,
+  art: `/cards/tabbou/tuiles/combattant-${i + 1}.webp`,
   name: FIGHTER_NAMES[i],
 }))
 
@@ -63,11 +63,11 @@ export const tabbou: VillainDef = {
     "présente). Dévoilez des tuiles Combattants (Émissaire Subspatial, Destin, Primides…) " +
     "vers la réserve, puis tuez-les par couleur (Collection, Coup Fatal, Bowser). Débloquez " +
     "l'Émissaire en posant 3 Orbes subspatiaux sur les 3 autres lieux.",
-  boardImage: '/cards/tabbou/board.png',
+  boardImage: '/cards/tabbou/board.webp',
   pawnImage: '/pion_tabbou.png',
   pawnHeightPx: 96,
-  backVillainImage: '/cards/tabbou/back_villain.png',
-  backFateImage: '/cards/tabbou/back_fatality.png',
+  backVillainImage: '/cards/tabbou/back_villain.webp',
+  backFateImage: '/cards/tabbou/back_fatality.webp',
   lockedLocationsAtStart: ['emissaire'],
   fighterSetup: {
     tiles: fighterTiles,

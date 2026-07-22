@@ -39,7 +39,7 @@ describe('cartes de Cruella d’Enfer — intégrité du paquet', () => {
       expect(c.englishName.length).toBeGreaterThan(0)
       expect(c.text.length).toBeGreaterThan(0)
       expect(c.copies).toBeGreaterThanOrEqual(1)
-      expect(c.image).toMatch(/^\/cards\/cruella\/.+\.png$/)
+      expect(c.image).toMatch(/^\/cards\/cruella\/.+\.(png|webp)$/)
       if (c.deck === 'villain') expect(typeof c.cost).toBe('number')
       else expect(c.cost).toBeUndefined()
       if (c.type === 'hero') expect(typeof c.strength).toBe('number')
@@ -59,10 +59,10 @@ describe('cartes de Cruella d’Enfer — intégrité du paquet', () => {
     }
     for (const loc of ['maison', 'campagne', 'laiterie', 'castel']) {
       for (const v of [11, 22]) {
-        expect(existsSync(`public/cards/cruella/tuile-${loc}-${v}.png`), `tuile manquante : ${loc}-${v}`).toBe(true)
+        expect(existsSync(`public/cards/cruella/tuile-${loc}-${v}.webp`), `tuile manquante : ${loc}-${v}`).toBe(true)
       }
     }
-    expect(existsSync('public/cards/cruella/tuile-dos.png')).toBe(true)
+    expect(existsSync('public/cards/cruella/tuile-dos.webp')).toBe(true)
   })
 
   it('12 Tuiles Chiots en réserve (2×11 + 1×22 par lieu)', () => {

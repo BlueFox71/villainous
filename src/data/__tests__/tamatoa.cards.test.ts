@@ -47,7 +47,7 @@ describe('cartes de Tamatoa — intégrité du paquet', () => {
       expect(c.name.length).toBeGreaterThan(0)
       expect(c.text.length).toBeGreaterThan(0)
       expect(c.copies).toBeGreaterThanOrEqual(1)
-      expect(c.image).toMatch(/^\/cards\/tamatoa\/.+\.png$/)
+      expect(c.image).toMatch(/^\/cards\/tamatoa\/.+\.(png|webp)$/)
       if (c.type === 'hero') expect(typeof c.strength).toBe('number')
     }
   })

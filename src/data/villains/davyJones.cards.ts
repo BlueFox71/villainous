@@ -27,7 +27,7 @@ export const davyJonesCards: CardDef[] = [
     text:
       "La force de L’ÉQUIPAGE DU HOLLANDAIS VOLANT augmente de 1 pour chaque autre lieu " +
       "où se trouve un Allié.",
-    image: img('equipage-hollandais.png'),
+    image: img('equipage-hollandais.webp'),
   },
   {
     id: 'bill-le-bottier',
@@ -44,7 +44,7 @@ export const davyJonesCards: CardDef[] = [
     text:
       "Lorsque BILL LE BOTTIER est joué ou déplacé vers un nouveau lieu, vous pouvez révéler " +
       "un jeton Trésor sur un Héros de ce nouveau lieu.",
-    image: img('bill-le-bottier.png'),
+    image: img('bill-le-bottier.webp'),
   },
   {
     id: 'clanker',
@@ -58,7 +58,7 @@ export const davyJonesCards: CardDef[] = [
     // Accorde une action « Éliminer un Héros » à son lieu (rangée bas, jamais recouverte).
     grantsAction: { type: 'VANQUISH', label: 'Éliminer un Héros' },
     text: 'Ce lieu gagne l’action : Éliminer un Héros.',
-    image: img('clanker.png'),
+    image: img('clanker.webp'),
   },
   {
     id: 'le-second-maccus',
@@ -74,7 +74,7 @@ export const davyJonesCards: CardDef[] = [
     text:
       "Lorsque LE SECOND MACCUS est utilisé pour éliminer un Héros, vous pouvez défausser un " +
       "autre Allié de votre royaume à sa place.",
-    image: img('le-second-maccus.png'),
+    image: img('le-second-maccus.webp'),
   },
   {
     id: 'hadras',
@@ -89,7 +89,7 @@ export const davyJonesCards: CardDef[] = [
     revealTreasureOnDiscard: true,
     text:
       "Lorsque HADRAS est défaussé, révélez un jeton Trésor face cachée sur un Héros.",
-    image: img('hadras.png'),
+    image: img('hadras.webp'),
   },
   {
     id: 'le-kraken',
@@ -104,7 +104,7 @@ export const davyJonesCards: CardDef[] = [
     survivesVanquishWithRevealedTreasure: true,
     text:
       "LE KRAKEN n’est pas défaussé lorsqu’il élimine un Héros avec un jeton Trésor révélé.",
-    image: img('le-kraken.png'),
+    image: img('le-kraken.webp'),
   },
 
   // --- Objet ----------------------------------------------------------------
@@ -120,7 +120,7 @@ export const davyJonesCards: CardDef[] = [
     text:
       "Si votre figurine se trouve sur ce lieu, vous pouvez effectuer 1 action disponible d’un " +
       "autre lieu où se trouve L’ÉQUIPAGE DU HOLLANDAIS VOLANT, en dehors d’une action Fatalité.",
-    image: img('hollandais-volant-objet.png'),
+    image: img('hollandais-volant-objet.webp'),
   },
 
   // --- Événements -----------------------------------------------------------
@@ -138,7 +138,7 @@ export const davyJonesCards: CardDef[] = [
       "Dévoilez des cartes de la pioche Fatalité jusqu’à ce que vous trouviez un Héros, puis " +
       "défaussez les autres. Jouez-le sur n’importe quel lieu et ajoutez un jeton Trésor face " +
       "cachée sur ce Héros.",
-    image: img('as-tu-peur-mort.png'),
+    image: img('as-tu-peur-mort.webp'),
   },
   {
     id: 'la-poursuite',
@@ -150,7 +150,7 @@ export const davyJonesCards: CardDef[] = [
     copies: 3,
     effects: [{ type: 'MOVE_ANY_HERO_TO_ALLY' }],
     text: 'Déplacez n’importe quel Héros vers un lieu où se trouve un Allié.',
-    image: img('la-poursuite.png'),
+    image: img('la-poursuite.webp'),
   },
   {
     id: 'amis-ennemis',
@@ -163,7 +163,7 @@ export const davyJonesCards: CardDef[] = [
     effects: [{ type: 'MOVE_SWAP_TREASURE' }],
     text:
       "Échangez des jetons Trésor entre 2 Héros ou déplacez un jeton Trésor d’un Héros à un autre.",
-    image: img('amis-ennemis.png'),
+    image: img('amis-ennemis.webp'),
   },
   {
     id: 'la-marque-noire',
@@ -175,7 +175,7 @@ export const davyJonesCards: CardDef[] = [
     copies: 2,
     effects: [{ type: 'REVEAL_TREASURE' }],
     text: 'Révélez un jeton Trésor face cachée sur un Héros.',
-    image: img('la-marque-noire.png'),
+    image: img('la-marque-noire.webp'),
   },
   {
     id: 'reveillez-kraken',
@@ -189,7 +189,7 @@ export const davyJonesCards: CardDef[] = [
     text:
       "Défaussez un Allié, puis cherchez LE KRAKEN et jouez-le gratuitement sur le lieu où se " +
       "trouve votre figurine.",
-    image: img('reveillez-kraken.png'),
+    image: img('reveillez-kraken.webp'),
   },
 
   // --- Conditions -----------------------------------------------------------
@@ -205,7 +205,7 @@ export const davyJonesCards: CardDef[] = [
     text:
       "Cette carte est jouable pendant le tour d’un adversaire s’il élimine un Héros de force 3 " +
       "ou plus. Choisissez 2 cartes dans votre défausse et ajoutez-les à votre main.",
-    image: img('je-considere-non.png'),
+    image: img('je-considere-non.webp'),
   },
   {
     id: 'ils-sont-la',
@@ -219,7 +219,7 @@ export const davyJonesCards: CardDef[] = [
     text:
       "Cette carte est jouable pendant le tour d’un adversaire s’il se défausse de 2 cartes ou " +
       "plus. Ajoutez un jeton Trésor face cachée sur un Héros qui n’en a pas.",
-    image: img('ils-sont-la.png'),
+    image: img('ils-sont-la.webp'),
   },
   {
     id: 'wyvern-sexprime',
@@ -233,7 +233,7 @@ export const davyJonesCards: CardDef[] = [
     text:
       "Cette carte est jouable pendant le tour d’un adversaire s’il joue un Allié. Piochez 3 " +
       "cartes, puis défaussez 2 cartes de votre main.",
-    image: img('wyvern-sexprime.png'),
+    image: img('wyvern-sexprime.webp'),
   },
 
   // ===========================================================================
@@ -252,7 +252,7 @@ export const davyJonesCards: CardDef[] = [
     text:
       "Si Davy Jones se trouve sur le même lieu que JACK SPARROW, Davy Jones ne peut pas " +
       "effectuer d’action Éliminer un Héros.",
-    image: img('jack-sparrow.png'),
+    image: img('jack-sparrow.webp'),
   },
   {
     id: 'james-norrington',
@@ -268,7 +268,7 @@ export const davyJonesCards: CardDef[] = [
     text:
       "Lorsque Davy Jones récupère un jeton Trésor, la force de JAMES NORRINGTON augmente de 1. " +
       "Lorsque JAMES NORRINGTON est éliminé, Davy Jones gagne 2 jetons Pouvoir.",
-    image: img('james-norrington.png'),
+    image: img('james-norrington.webp'),
   },
   {
     id: 'equipage-black-pearl',
@@ -280,7 +280,7 @@ export const davyJonesCards: CardDef[] = [
     copies: 1,
     selfStrengthMods: [{ kind: 'per-other-hero-realm', delta: 1 }],
     text: 'Sa force augmente de 1 pour chaque autre Héros en jeu.',
-    image: img('equipage-black-pearl.png'),
+    image: img('equipage-black-pearl.webp'),
   },
   {
     id: 'will-turner',
@@ -295,7 +295,7 @@ export const davyJonesCards: CardDef[] = [
     text:
       "Lorsque Will est joué ou déplacé, défaussez un Allié dont la force est inférieure ou " +
       "égale à 2 depuis son nouveau lieu.",
-    image: img('will-turner.png'),
+    image: img('will-turner.webp'),
   },
   {
     id: 'elizabeth-swann',
@@ -308,7 +308,7 @@ export const davyJonesCards: CardDef[] = [
     // +1 Force quand un autre Héros est joué (approx. : +1 par autre Héros en jeu).
     selfStrengthMods: [{ kind: 'per-other-hero-realm', delta: 1 }],
     text: 'Ajoutez-lui un jeton Force +1 lorsqu’un autre Héros est joué.',
-    image: img('elizabeth-swann.png'),
+    image: img('elizabeth-swann.webp'),
   },
   {
     id: 'black-pearl-objet',
@@ -324,7 +324,7 @@ export const davyJonesCards: CardDef[] = [
     text:
       "Associez cette carte à un Héros. Lorsque ce Héros est éliminé, s’il y a un autre Héros " +
       "sur ce lieu, associez cette carte à ce nouveau Héros.",
-    image: img('black-pearl-objet.png'),
+    image: img('black-pearl-objet.webp'),
   },
   {
     id: 'ou-pointe',
@@ -337,7 +337,7 @@ export const davyJonesCards: CardDef[] = [
     text:
       "Vous pouvez déplacer un Héros avec un jeton Trésor vers n’importe quel lieu. Vous pouvez " +
       "déplacer un Héros sans jeton Trésor vers n’importe quel lieu.",
-    image: img('ou-pointe.png'),
+    image: img('ou-pointe.webp'),
   },
   {
     id: 'amour-calypso',
@@ -348,7 +348,7 @@ export const davyJonesCards: CardDef[] = [
     copies: 3,
     effects: [{ type: 'CAP_POWER', max: 2 }],
     text: 'Réduisez les jetons Pouvoir de Davy Jones à 2.',
-    image: img('amour-calypso.png'),
+    image: img('amour-calypso.webp'),
   },
   {
     id: 'maudit-jack',
@@ -361,6 +361,6 @@ export const davyJonesCards: CardDef[] = [
     text:
       "Retirez un jeton Trésor d’un Héros. Mélangez-le dans la réserve. Ajoutez un jeton Trésor " +
       "face cachée sur un Héros.",
-    image: img('maudit-jack.png'),
+    image: img('maudit-jack.webp'),
   },
 ]

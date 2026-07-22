@@ -368,7 +368,7 @@ export function HeroRow({
                         ignorée (comme un Héros piraté par Boop). Overlay « Capturé ». */}
                     {c.trapped && (
                       <img
-                        src="/cards/madame-tremaine/capture.png"
+                        src="/cards/madame-tremaine/capture.webp"
                         alt=""
                         aria-hidden="true"
                         title="Héros capturé — capacité annulée"
@@ -381,9 +381,9 @@ export function HeroRow({
                         className="hack-glitch pointer-events-none absolute left-1/2 top-1/2 w-14 -translate-x-1/2 -translate-y-1/2"
                         title="Héros piraté (Boop !) — capacité annulée"
                       >
-                        <img src="/cards/sombra/hack.png" alt="" aria-hidden="true" className="hg-base" />
-                        <img src="/cards/sombra/hack.png" alt="" aria-hidden="true" className="hg-layer hg-a" />
-                        <img src="/cards/sombra/hack.png" alt="" aria-hidden="true" className="hg-layer hg-b" />
+                        <img src="/cards/sombra/hack.webp" alt="" aria-hidden="true" className="hg-base" />
+                        <img src="/cards/sombra/hack.webp" alt="" aria-hidden="true" className="hg-layer hg-a" />
+                        <img src="/cards/sombra/hack.webp" alt="" aria-hidden="true" className="hg-layer hg-b" />
                       </div>
                     )}
                     {/* Le Seigneur des clés — clés VOLÉES par ce Héros (Gévaudan) :
@@ -399,7 +399,7 @@ export function HeroRow({
                           {stolen.map((k) => (
                             <img
                               key={k.id}
-                              src={`/cards/seigneur-cles/cle-${k.color}.png`}
+                              src={`/cards/seigneur-cles/cle-${k.color}.webp`}
                               alt={`Clé ${k.color} volée`}
                               className="h-9 w-auto drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)]"
                             />
@@ -467,7 +467,7 @@ export function HeroRow({
                         illustration du trésor si révélé. Posé en haut à gauche. */}
                     {c.treasure && (
                       <img
-                        src={c.treasure.faceUp ? `/cards/davy-jones/treasure-${c.treasure.id}.png` : '/cards/davy-jones/treasure-back.png'}
+                        src={c.treasure.faceUp ? `/cards/davy-jones/treasure-${c.treasure.id}.webp` : '/cards/davy-jones/treasure-back.webp'}
                         alt={c.treasure.faceUp ? c.treasure.id : 'Trésor (face cachée)'}
                         title={c.treasure.faceUp ? `Trésor révélé : ${c.treasure.id}` : 'Jeton Trésor (face cachée)'}
                         className={`pointer-events-none absolute left-0 top-0 h-[30px] w-[30px] object-contain ${
@@ -500,7 +500,7 @@ export function HeroRow({
                     const treasureImg = c.treasure ? (
                       <img
                         key="treasure-preview"
-                        src={c.treasure.faceUp ? `/cards/davy-jones/treasure-${c.treasure.id}.png` : '/cards/davy-jones/treasure-back.png'}
+                        src={c.treasure.faceUp ? `/cards/davy-jones/treasure-${c.treasure.id}.webp` : '/cards/davy-jones/treasure-back.webp'}
                         alt={c.treasure.faceUp ? c.treasure.id : 'Trésor (face cachée)'}
                         className="mt-1 h-40 w-40 shrink-0 object-contain drop-shadow-[0_0_6px_rgba(251,191,36,0.7)]"
                       />

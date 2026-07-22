@@ -11,7 +11,7 @@ function transformableVillain() {
     alt: {
       name: 'FACE B',
       actions: [{ id: 'fate', type: 'FATE', row: 'top', label: 'Fatalité' }],
-      columnImage: 'colB.png',
+      columnImage: 'colB.webp',
     },
   }
   // Objectif alternatif.
@@ -20,7 +20,7 @@ function transformableVillain() {
     objectiveDescription: 'Desc B',
     objective: { type: 'POWER_THRESHOLD', threshold: 30 },
   }
-  v.altBoardImage = 'boardB.png'
+  v.altBoardImage = 'boardB.webp'
   return v
 }
 
@@ -32,7 +32,7 @@ describe('toVillainDef — lieux/objectif transformables', () => {
     expect(loc0.version).toBe('a')
     expect(loc0.altName).toBe('FACE B')
     expect(loc0.altActions).toEqual([{ id: 'fate', type: 'FATE', row: 'top', label: 'Fatalité', amount: undefined }])
-    expect(loc0.bColumnImage).toBe('colB.png')
+    expect(loc0.bColumnImage).toBe('colB.webp')
   })
 
   it('un lieu SANS face B n’a pas de champs alt', () => {
@@ -48,7 +48,7 @@ describe('toVillainDef — lieux/objectif transformables', () => {
     expect(def.altObjective).toEqual({
       objective: { type: 'POWER_THRESHOLD', threshold: 30 },
       objectiveDescription: 'Desc B',
-      boardImage: 'boardB.png',
+      boardImage: 'boardB.webp',
     })
   })
 

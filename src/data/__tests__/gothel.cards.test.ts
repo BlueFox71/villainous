@@ -48,7 +48,7 @@ describe('cartes de Mère Gothel — intégrité du paquet', () => {
       // Raiponce (tuile) est le seul cas à 0 exemplaire.
       if (c.id === 'raiponce') expect(c.copies).toBe(0)
       else expect(c.copies).toBeGreaterThanOrEqual(1)
-      expect(c.image).toMatch(/^\/cards\/gothel\/.+\.png$/)
+      expect(c.image).toMatch(/^\/cards\/gothel\/.+\.(png|webp)$/)
       if (c.deck === 'villain') expect(typeof c.cost).toBe('number')
       else expect(c.cost).toBeUndefined()
       if (c.type === 'hero') expect(typeof c.strength).toBe('number')

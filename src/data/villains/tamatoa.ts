@@ -38,13 +38,13 @@ export const tamatoa: VillainDef = {
     "vient de votre pioche Méchant ; le Cœur de Te Fiti se trouve dans votre pioche Fatalité " +
     "(cherchez-le avec « Crustacé doté du pouvoir de création »). Moana et Maui s'associent " +
     "ces Objets : vainquez-les pour les libérer.",
-  boardImage: img('board.png'),
+  boardImage: img('board.webp'),
   pawnImage: '/pion_tamatoa.png',
   pawnHeightPx: 92,
-  backVillainImage: img('back-villain.png'),
-  backFateImage: img('back-fate.png'),
+  backVillainImage: img('back-villain.webp'),
+  backFateImage: img('back-fate.webp'),
   // Pioche MAUI : séparée au setup (cf. createInitialGame), affichée à part.
-  mauiDeckBackImage: img('back-maui.png'),
+  mauiDeckBackImage: img('back-maui.webp'),
   locations: [
     {
       id: 'falaises-impossibles',

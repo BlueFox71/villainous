@@ -28,11 +28,11 @@ export const bowser: VillainDef = {
   boardObjective: 'Au début de votre tour, vous devez épuiser l’Observatoire de la Comète et capturer Peach.',
   objectiveDescription:
     "Au début de votre tour, épuiser l'Observatoire de la Comète (0 Étoile) et avoir capturé Peach. Impossible tant que Mario est présent.",
-  boardImage: '/cards/bowser/board.png',
+  boardImage: '/cards/bowser/board.webp',
   pawnImage: '/pion_bowser.png',
   pawnHeightPx: 84,
-  backVillainImage: '/cards/bowser/back_villain.png',
-  backFateImage: '/cards/bowser/back_fatality.png',
+  backVillainImage: '/cards/bowser/back_villain.webp',
+  backFateImage: '/cards/bowser/back_fatality.webp',
   starSetup: { locationId: 'observatoire', count: 4 },
   locations: [
     {

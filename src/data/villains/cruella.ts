@@ -37,11 +37,11 @@ export const cruella: VillainDef = {
     'électrique et Horace, ou en jouant Sans cœur et Ici, mes petits ! ; capturez-les en ' +
     'activant Horace et Jasper, et en jouant J’ai payé pour ça. Vous ne pouvez l’emporter ' +
     'qu’au début de votre tour.',
-  boardImage: img('board.png'),
+  boardImage: img('board.webp'),
   pawnImage: '/pion_cruella.png',
   pawnHeightPx: 104,
-  backVillainImage: img('back-fate.png'),
-  backFateImage: img('back-villain.png'),
+  backVillainImage: img('back-fate.webp'),
+  backFateImage: img('back-villain.webp'),
   locations: [
     {
       id: 'maison-radcliff',

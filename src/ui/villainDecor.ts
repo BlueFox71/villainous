@@ -446,7 +446,7 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
       // Les 6 faces réelles du dé en os rouge + la déco Halloween (guirlande, citrouille, perce-oreille).
       return {
         images: [
-          ...Array.from({ length: 6 }, (_, i) => `/cards/oogie-boogie/die-${i + 1}.png`),
+          ...Array.from({ length: 6 }, (_, i) => `/cards/oogie-boogie/die-${i + 1}.webp`),
           '/animations/guirlande_halloween.png', '/animations/citrouille.png', '/animations/perce_oreille.png',
         ],
         videos: [],

@@ -158,7 +158,7 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 }
 
 /** Fichier du cadenas (partagé avec l'overlay « lieu verrouillé » en jeu). */
-const LOCK_SRC = '/cards/jafar/lock.png'
+const LOCK_SRC = '/cards/jafar/lock.webp'
 
 /** Rend le plateau complet d'un vilain personnalisé en dataURL PNG.
  *  `skipLocks` : ne bake PAS les cadenas décoratifs (l'éditeur les affiche en

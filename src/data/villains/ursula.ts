@@ -27,11 +27,11 @@ export const ursula: VillainDef = {
   },
   boardObjective: 'Au début de votre tour, le TRIDENT et la COURONNE doivent se trouver au repaire d’Ursula.',
   objectiveDescription: 'Au début de votre tour, avoir le Trident et la Couronne au Repaire d’Ursula.',
-  boardImage: '/cards/ursula/board.png',
+  boardImage: '/cards/ursula/board.webp',
   pawnImage: '/pion_ursula.png',
   pawnHeightPx: 80,
-  backVillainImage: '/cards/ursula/back_villain.png',
-  backFateImage: '/cards/ursula/back_fate.png',
+  backVillainImage: '/cards/ursula/back_villain.webp',
+  backFateImage: '/cards/ursula/back_fate.webp',
   // Le Palais démarre bloqué ; le Cadenas se déplace ensuite entre Palais et
   // Repaire (Métamorphose, Grimsby).
   lockedLocationsAtStart: ['palais'],

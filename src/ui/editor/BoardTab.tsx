@@ -11,7 +11,7 @@ import { BOARD_W, BOARD_H } from './boardLayout'
 import { Hotspot } from './CardLayout'
 import { PAWN_FIRST_LEFT, PAWN_TOP, LOCATIONS_LEFT, PAWN_STEP, TOP_ACTIONS_HEIGHT } from '../components/BoardImage'
 
-const LOCK_SRC = '/cards/jafar/lock.png'
+const LOCK_SRC = '/cards/jafar/lock.webp'
 const BOARD_ASPECT = BOARD_W / BOARD_H
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n))
 

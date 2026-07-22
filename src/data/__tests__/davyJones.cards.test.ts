@@ -58,7 +58,7 @@ describe('cartes de Davy Jones — intégrité du paquet', () => {
       expect(c.englishName.length).toBeGreaterThan(0)
       expect(c.text.length).toBeGreaterThan(0)
       expect(c.copies).toBeGreaterThanOrEqual(1)
-      expect(c.image).toMatch(/^\/cards\/davy-jones\/.+\.png$/)
+      expect(c.image).toMatch(/^\/cards\/davy-jones\/.+\.(png|webp)$/)
       // Cartes Méchant : coût numérique SAUF les Conditions (jouées gratuitement en réaction).
       if (c.deck === 'villain' && c.type !== 'condition') expect(typeof c.cost).toBe('number')
       else if (c.deck === 'fate') expect(c.cost).toBeUndefined()

@@ -256,7 +256,7 @@ export function BoardImage({
           Robot a été défaussée (drapeau becameTheRat). */}
       {player.villain === 'ratigan' && (
         <img
-          src={player.becameTheRat ? '/cards/ratigan/objectif-rat.png' : '/cards/ratigan/objectif-souris.png'}
+          src={player.becameTheRat ? '/cards/ratigan/objectif-rat.webp' : '/cards/ratigan/objectif-souris.webp'}
           alt={player.becameTheRat ? 'Objectif : Le Rat' : 'Objectif : L’Esprit Supérieur'}
           title={player.objectiveDescription}
           className="pointer-events-none absolute z-[5] rounded-l-lg"
@@ -385,7 +385,7 @@ export function BoardImage({
         return Array.from({ length: Math.min(stars, locSlots.length) }, (_, k) => (
           <img
             key={`star-${k}`}
-            src="/cards/bowser/etoile.png"
+            src="/cards/bowser/etoile.webp"
             alt="Étoile"
             title={`Étoile ${k + 1}/${stars} sur l'Observatoire`}
             className="pointer-events-none absolute z-[15] w-auto -translate-x-1/2 -translate-y-1/2"
@@ -421,7 +421,7 @@ export function BoardImage({
             return (
               <img
                 key={`puppy-${t.id}`}
-                src={`/cards/cruella/tuile-${shortLoc(t.homeLocation)}-${t.value}.png`}
+                src={`/cards/cruella/tuile-${shortLoc(t.homeLocation)}-${t.value}.webp`}
                 alt={`Tuile Chiots ${t.value}`}
                 title={`Tuile Chiots — ${t.value} chiots`}
                 className="pointer-events-none absolute z-[14] w-auto -translate-x-1/2 -translate-y-1/2 rounded-sm border border-black/40 shadow"
@@ -450,7 +450,7 @@ export function BoardImage({
           return Array.from({ length: Math.min(n, locSlots.length) }, (_, k) => (
             <img
               key={`obstacle-${l.id}-${k}`}
-              src="/cards/gaston/obstacle.png"
+              src="/cards/gaston/obstacle.webp"
               alt="Obstacle"
               title={clickable ? `Cliquez pour retirer un Obstacle de ${l.name}` : `Obstacle — ${n} sur ${l.name}`}
               onClick={clickable ? () => onObstacleClick?.(l.id) : undefined}
@@ -496,7 +496,7 @@ export function BoardImage({
             return (
               <img
                 key={`key-${k.id}`}
-                src={`/cards/seigneur-cles/cle-${k.color}.png`}
+                src={`/cards/seigneur-cles/cle-${k.color}.webp`}
                 alt={`Clé ${k.color}`}
                 onClick={clickable ? () => onKeyClick?.(k.id) : undefined}
                 title={clickable ? `Cliquez pour ramasser la clé ${k.color}` : `Clé ${k.color}`}
@@ -548,7 +548,7 @@ export function BoardImage({
           return (
             <img
               key={`crew-${crew.color}`}
-              src={`/cards/imposteur/crew-${crew.color}.png`}
+              src={`/cards/imposteur/crew-${crew.color}.webp`}
               alt={`Coéquipier ${crew.color}`}
               title={
                 selectable
@@ -719,7 +719,7 @@ export function BoardImage({
           >
             <div className="flex h-full w-full items-center justify-center rounded-lg bg-black/55 backdrop-grayscale">
               <img
-                src="/cards/jafar/lock.png"
+                src="/cards/jafar/lock.webp"
                 alt="Lieu verrouillé"
                 className="w-1/5 opacity-95 drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]"
               />
