@@ -61,8 +61,11 @@ function readZoomFactor() {
   }
 }
 
-// Référence à la fenêtre principale (pilotée par les messages IPC du renderer).
+// Références aux fenêtres (pilotées par les messages IPC du renderer).
 let mainWindow = null
+let launcherWindow = null
+
+const updater = require('./updater.cjs')
 
 // Icône de la fenêtre : en dev on lit la source, en packagé la copie placée dans
 // les ressources (cf. extraResources de electron-builder).
@@ -90,6 +93,9 @@ const MIME = {
   '.mp3': 'audio/mpeg',
   '.wav': 'audio/wav',
   '.ogg': 'audio/ogg',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.m4v': 'video/mp4',
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
   '.ttf': 'font/ttf',
@@ -158,6 +164,45 @@ function createWindow() {
   })
 }
 
+// --- LAUNCHER (fenêtre d'accueil affichée AVANT le jeu) ---------------------
+// Petite fenêtre sans cadre (façon launcher de jeu) : actualités (notes de
+// version), état de la mise à jour automatique, puis bouton « Jouer » qui ouvre
+// la fenêtre de jeu. La vérification de MAJ est déclenchée par le launcher lui-même
+// (IPC 'launcher:start') pour qu'aucun événement ne soit émis avant qu'il n'écoute.
+function createLauncher() {
+  const win = new BrowserWindow({
+    width: 940,
+    height: 580,
+    resizable: false,
+    frame: false,
+    center: true,
+    backgroundColor: '#0b0a12',
+    icon: ICON,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: path.join(__dirname, 'preload.cjs'),
+      // Lecture auto de la vidéo de fond (muette) sans geste utilisateur.
+      autoplayPolicy: 'no-user-gesture-required',
+    },
+  })
+  launcherWindow = win
+  win.setMenuBarVisibility(false)
+  if (DEV_URL) {
+    win.loadURL(`${DEV_URL}/launcher.html`)
+  } else {
+    win.loadURL('app://local/launcher.html')
+  }
+  // Liens externes → navigateur système.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  win.on('closed', () => {
+    if (launcherWindow === win) launcherWindow = null
+  })
+}
+
 app.whenReady().then(() => {
   // Pas de barre de menu (jeu plein écran fenêtré).
   Menu.setApplicationMenu(null)
@@ -174,6 +219,44 @@ app.whenReady().then(() => {
   // Plein écran transitoire (cinématique d'intro) : on N'écrit PAS le fichier.
   ipcMain.handle('display:fullscreen', (_e, on) => {
     if (mainWindow) mainWindow.setFullScreen(!!on)
+  })
+
+  // --- IPC du LAUNCHER (cf. preload.cjs + src/launcher/) ---
+  // Le launcher, une fois monté, déclenche la vérification de MAJ. On relaie les
+  // événements vers SA webContents (aucun perdu : il s'est abonné avant d'appeler).
+  ipcMain.handle('launcher:start', (e) => {
+    const wc = e.sender
+    const send = (type, payload) => {
+      if (wc && !wc.isDestroyed()) wc.send('update:event', { type, payload })
+    }
+    const supported = updater.startUpdateCheck(send)
+    return { supported, version: app.getVersion() }
+  })
+  // « Jouer » : ouvre la fenêtre de jeu PUIS ferme le launcher (dans cet ordre pour
+  // ne pas déclencher 'window-all-closed' → quit entre les deux).
+  ipcMain.handle('launcher:play', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) createWindow()
+    const l = launcherWindow
+    launcherWindow = null
+    if (l && !l.isDestroyed()) l.close()
+  })
+  // « Redémarrer et installer » : applique la MAJ téléchargée.
+  ipcMain.handle('launcher:install', () => updater.quitAndInstall())
+  // Actualités EN LIGNE (news.json du dépôt) : permet de publier une actu sans
+  // republier l'exe. Renvoie null (offline / indisponible) → le launcher retombe
+  // sur les notes de version embarquées.
+  ipcMain.handle('launcher:news', async () => {
+    try {
+      return await require('./news.cjs').fetchNews()
+    } catch {
+      return null
+    }
+  })
+  // Boutons de la barre de titre sans cadre.
+  ipcMain.handle('launcher:close', () => app.quit())
+  ipcMain.handle('launcher:minimize', (e) => {
+    const w = BrowserWindow.fromWebContents(e.sender)
+    if (w) w.minimize()
   })
 
   protocol.handle('app', async (request) => {
@@ -198,18 +281,15 @@ app.whenReady().then(() => {
     return new Response(data, { headers: { 'content-type': mime } })
   })
 
-  createWindow()
-
-  // Mise à jour automatique (GitHub Releases privées) — sans effet en dev ou si aucun
-  // jeton n'est embarqué (cf. electron/updater.cjs). N'interrompt jamais le lancement.
-  try {
-    require('./updater.cjs').initAutoUpdate()
-  } catch {
-    /* ignore : l'auto-update ne doit jamais empêcher le jeu de démarrer */
-  }
+  // On ouvre d'abord le LAUNCHER (accueil + actus + mise à jour), qui ouvrira la
+  // fenêtre de jeu quand le joueur clique « Jouer ». La vérification de MAJ (GitHub
+  // Releases privées) est déclenchée par le launcher (IPC 'launcher:start') ; sans
+  // effet en dev ou sans jeton embarqué (cf. electron/updater.cjs).
+  createLauncher()
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    // Rien d'ouvert (macOS) → on repart du launcher.
+    if (BrowserWindow.getAllWindows().length === 0) createLauncher()
   })
 })
 

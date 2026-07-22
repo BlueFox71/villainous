@@ -91,6 +91,17 @@ export const PATCH_NOTES: PatchNote[] = [
     ],
   },
   {
+    version: '1.8.5',
+    date: '2026-07-18',
+    title: 'Launcher de démarrage',
+    tags: ['interface', 'reseau'],
+    changes: [
+      "Nouveau **launcher** au lancement de l'application : une fenêtre d'accueil avec la **cinématique d'intro en fond**, les **actualités** et l'**avancement de la mise à jour**, puis un bouton **Jouer**.",
+      "**Actualités en ligne** : les nouvelles affichées peuvent être mises à jour **sans réinstaller le jeu**.",
+      "La **mise à jour** est désormais **obligatoire et visible** : barre de progression, puis bouton **Redémarrer et installer** (impossible de jouer avec une version périmée).",
+    ],
+  },
+  {
     version: '1.8.4',
     date: '2026-07-18',
     title: 'Atelier : un vilain et son variant réunis',
