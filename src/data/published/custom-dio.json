@@ -919,7 +919,7 @@
     }
   ],
   "createdAt": "2026-06-28T18:38:37.209Z",
-  "updatedAt": "2026-07-13T01:10:12.085Z",
+  "updatedAt": "2026-07-22T20:00:00.000Z",
   "portrait": "/cards/custom-dio/portrait.png?v=1783797292726",
   "presentation": "/cards/custom-dio/presentation.png?v=1783797292726",
   "backVillainImage": "/cards/custom-dio/back-villain.png?v=1783797292726",
@@ -1084,18 +1084,18 @@
     },
     "journal": {
       "villainNotes": {
-        "custom-dio-za-warudo": "ZA WARUDO ! Le temps s’arrête : Dio enchaîne les actions du royaume.",
-        "custom-dio-muda-muda-muda": "MUDA ! MUDA ! MUDA ! Dio élimine un Héros et gagne 5 Pouvoir.",
-        "custom-dio-masque-de-pierre": "Masque de pierre : Dio défausse sa main pour gagner du Pouvoir.",
-        "custom-dio-tu-oses-t-approcher-de-moi": "Tu oses t’approcher de moi ? Dio attire les Héros sur Le Manoir.",
+        "custom-dio-za-warudo": "ZA WARUDO ! Le temps s’arrête : enchaîne les actions du royaume.",
+        "custom-dio-muda-muda-muda": "MUDA ! MUDA ! MUDA ! élimine un Héros et gagne 5 Pouvoir.",
+        "custom-dio-masque-de-pierre": "Masque de pierre : défausse sa main pour gagner du Pouvoir.",
+        "custom-dio-tu-oses-t-approcher-de-moi": "Tu oses t’approcher de moi ? attire les Héros sur Le Manoir.",
         "custom-dio-vanille-ice": "Vanilla Ice rejoint le royaume et invoque Cream.",
         "custom-dio-enya-geil": "Enya Geil rejoint le royaume, invoque Justice et récupère La Flèche.",
-        "custom-dio-jotaro": "JOTARO ! Dio effectue les actions recouvertes par les Héros.",
-        "custom-dio-vampirisme": "Vampirisme : Dio défausse un Allié et pioche 4 cartes.",
-        "custom-dio-soif-de-sang": "Soif de sang : Dio gagne du Pouvoir par Héros de son royaume.",
-        "custom-dio-indigne-de-moi": "Indigne de moi : Dio gagne du Pouvoir par Héros dans la défausse Fatalité.",
-        "custom-dio-la-fleche": "La Flèche : Dio pioche 4 cartes.",
-        "custom-dio-quete-vers-le-paradis": "Quête vers le paradis : Dio récupère un Objet.",
+        "custom-dio-jotaro": "JOTARO ! effectue les actions recouvertes par les Héros.",
+        "custom-dio-vampirisme": "Vampirisme : défausse un Allié et pioche 4 cartes.",
+        "custom-dio-soif-de-sang": "Soif de sang : gagne du Pouvoir par Héros de son royaume.",
+        "custom-dio-indigne-de-moi": "Indigne de moi : gagne du Pouvoir par Héros dans la défausse Fatalité.",
+        "custom-dio-la-fleche": "La Flèche : pioche 4 cartes.",
+        "custom-dio-quete-vers-le-paradis": "Quête vers le paradis : récupère un Objet.",
         "custom-dio-legion-de-vampire": "Une Légion de vampires rejoint le royaume."
       },
       "fateNotes": {
@@ -1115,7 +1115,7 @@
           "description": "Mohammed Abdul surgit et invoque Magician Red."
         },
         "custom-dio-hermit-purple": {
-          "description": "Hermit Purple : Dio révèle sa main et défausse 3 cartes."
+          "description": "Hermit Purple : révèle sa main et défausse 3 cartes."
         },
         "custom-dio-iggy": {
           "description": "Iggy surgit et invoque The Fool."
@@ -1127,10 +1127,10 @@
           "description": "Fondation Speedwagon : un Objet est défaussé."
         },
         "custom-dio-ora-ora-ora": {
-          "description": "ORA ! ORA ! ORA ! Dio perd 4 Pouvoir."
+          "description": "ORA ! ORA ! ORA ! perd 4 Pouvoir."
         },
         "custom-dio-lumiere-du-soleil": {
-          "description": "Lumière du soleil : Dio défausse sa main ou perd 10 Pouvoir."
+          "description": "Lumière du soleil : défausse sa main ou perd 10 Pouvoir."
         }
       }
     }

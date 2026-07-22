@@ -31,10 +31,11 @@ export function villainColor(villain: string): string {
   return overrides[villain] ?? VILLAIN_COLOR[villain]
 }
 
-/** Couleur du RECOUVREMENT des actions pour un vilain : couleur de recouvrement DÉDIÉE
- *  (vilain custom l'ayant choisie), sinon la couleur thématique du vilain (natifs +
- *  customs sans couleur de recouvrement propre). */
-export function coverColorOf(villain: string): string | undefined {
+/** Couleur d'affichage d'un vilain (source UNIQUE, réutilisable partout où l'on « pioche la
+ *  couleur du méchant ») : sa couleur de RECOUVREMENT dédiée si elle existe (vilain custom
+ *  l'ayant choisie), sinon sa couleur thématique (vilains natifs + customs sans couleur de
+ *  recouvrement propre). Renvoie toujours un `string` : inutile d'ajouter un repli à l'appel. */
+export function coverColorOf(villain: string): string {
   return VILLAIN_COVER_COLOR[villain] ?? villainColor(villain)
 }
 

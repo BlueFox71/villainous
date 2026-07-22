@@ -18,8 +18,9 @@ interface Props {
   /** Joue la Condition (cardId). Pour Lâcheté : Allié + lieu choisis. */
   onPlayCondition: (cardId: string, opts?: { allyInstanceId?: string; to?: string }) => void
   /** Joue une carte Fatalité non-Héros (Voler aux Riches / Déguisement / Agrandir)
-   *  sur un Héros du plateau. `enlargeToward` = sens du pivot pour Agrandir. */
-  onPlayFateCard: (cardId: string, targetHeroId: string, enlargeToward?: string) => void
+   *  sur un Héros du plateau. `enlargeToward` = sens du pivot pour Agrandir.
+   *  `combattantMode` (Sumbra) = jouer un Combattant Fatalité en Héros ou en Combattant. */
+  onPlayFateCard: (cardId: string, targetHeroId: string, enlargeToward?: string, combattantMode?: 'hero' | 'combattant') => void
   /** Ajoute une carte (cardId) à la main du joueur (pour tester un Événement). */
   onAddToHand: (cardId: string) => void
   /** Dr Facilier : ajoute une carte (cardId) à la Pile de l'Au-delà du joueur. */
@@ -69,10 +70,16 @@ export function TestFateBar({ villain, locations, handAllies, boardHeroes, onInf
   const auDelaCards = cards
     .filter((c) => c.deck === 'villain' && c.id !== 'talisman' && c.id !== 'divination-facilier')
     .sort((a, b) => a.name.localeCompare(b.name))
+  // Sumbra / Kilaire — Fatalités qui PIOCHENT un Combattant (COMBATTANT, Une lueur d'espoir) :
+  // jouées à part (choix Héros / Combattant, sans cible Héros requise).
+  const combattantFate = cards
+    .filter((c) => c.deck === 'fate' && (c.effects ?? []).some((e) => e.type === 'FATE_DRAW_COMBATTANT'))
+    .sort((a, b) => a.name.localeCompare(b.name))
+  const combattantFateIds = new Set(combattantFate.map((c) => c.id))
   // Cartes Fatalité non-Héros (Voler aux Riches = effet, Déguisement = objet) :
   // elles ciblent un Héros déjà présent sur ton plateau.
   const fateCards = cards
-    .filter((c) => c.deck === 'fate' && c.type !== 'hero' && c.type !== 'condition')
+    .filter((c) => c.deck === 'fate' && c.type !== 'hero' && c.type !== 'condition' && !combattantFateIds.has(c.id))
     .sort((a, b) => a.name.localeCompare(b.name))
 
   // Cartes ajoutables à la MAIN, TOUS TYPES confondus (Événements + Alliés + Objets) :
@@ -87,6 +94,9 @@ export function TestFateBar({ villain, locations, handAllies, boardHeroes, onInf
   const [handCardId, setHandCardId] = useState(handCards[0]?.id ?? '')
   const [auDelaCardId, setAuDelaCardId] = useState(auDelaCards[0]?.id ?? '')
   const [fateCardId, setFateCardId] = useState(fateCards[0]?.id ?? '')
+  // Sumbra — Combattant Fatalité : carte choisie + mode (Héros / Combattant).
+  const [combFateId, setCombFateId] = useState(combattantFate[0]?.id ?? '')
+  const [combMode, setCombMode] = useState<'hero' | 'combattant'>('hero')
   const [fateHeroId, setFateHeroId] = useState('')
   // Agrandir : sens du pivot (lieu voisin recouvert). '' = auto.
   const [fateEnlargeToward, setFateEnlargeToward] = useState('')
@@ -250,6 +260,36 @@ export function TestFateBar({ villain, locations, handAllies, boardHeroes, onInf
             Ajouter à l'Au-delà
           </button>
           <span className="text-[10px] text-emerald-200/70">puis joue Divination au Royaume du vaudou</span>
+        </div>
+      )}
+
+      {/* Sumbra / Kilaire — Fatalité « COMBATTANT » : pioche un Combattant et le joue
+          soit EN HÉROS (sur le plateau + retire les esprits adverses), soit EN COMBATTANT
+          (révélé dans l'emplacement : capture + Bonus/Malus), au choix. */}
+      {combattantFate.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          <CardSelect cards={combattantFate} value={combFateId} onChange={setCombFateId} placeholder="Combattant Fatalité…" />
+          <div className="flex overflow-hidden rounded border border-white/20 text-[10px]">
+            <button
+              onClick={() => setCombMode('hero')}
+              className={`px-2 py-0.5 ${combMode === 'hero' ? 'bg-amber-500/40 text-white' : 'text-white/60 hover:bg-white/10'}`}
+            >
+              en Héros
+            </button>
+            <button
+              onClick={() => setCombMode('combattant')}
+              className={`px-2 py-0.5 ${combMode === 'combattant' ? 'bg-fuchsia-500/40 text-white' : 'text-white/60 hover:bg-white/10'}`}
+            >
+              en Combattant
+            </button>
+          </div>
+          <button
+            onClick={() => combFateId && onPlayFateCard(combFateId, '', undefined, combMode)}
+            disabled={!combFateId}
+            className="rounded bg-fuchsia-500 px-3 py-0.5 font-medium text-fuchsia-950 hover:bg-fuchsia-400 disabled:opacity-40"
+          >
+            Piocher un Combattant
+          </button>
         </div>
       )}
 

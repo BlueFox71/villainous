@@ -1100,7 +1100,7 @@
     }
   ],
   "createdAt": "2026-07-12T10:54:44.318Z",
-  "updatedAt": "2026-07-12T20:42:03.505Z",
+  "updatedAt": "2026-07-22T21:00:00.000Z",
   "portrait": "/cards/custom-stitch/portrait.png?v=1783888923505",
   "portraitRaw": "/cards/custom-stitch/portrait-raw.png?v=1783888923505",
   "portraitCrop": {
@@ -1299,63 +1299,63 @@
     },
     "journal": {
       "villainNotes": {
-        "custom-stitch-surveillance": "Surveillance : Grand Councilwoman récupère une carte de sa défausse.",
-        "custom-stitch-attrape": "Attrapé ! : Grand Councilwoman dévoile la Fatalité jusqu'à un Héros.",
-        "custom-stitch-ou-est-t-il": "Où est-t-il ? : Grand Councilwoman gagne 3 Pouvoir.",
-        "custom-stitch-rapport": "Rapport ! : Grand Councilwoman dévoile un Objet et le joue gratuitement.",
-        "custom-stitch-stitch-en-vue": "Stitch en vue : Grand Councilwoman dévoile la Fatalité jusqu'à un Héros et le joue.",
-        "custom-stitch-enferme": "Enfermé : STITCH est associé à la CAGE.",
-        "custom-stitch-tuez-le": "Tuez-le : Grand Councilwoman élimine un Héros de force 3 ou moins.",
-        "custom-stitch-reperage": "Repérage : Grand Councilwoman récupère une carte de sa défausse.",
-        "custom-stitch-cage": "La CAGE est posée au Vaisseau de Gantu.",
-        "custom-stitch-carotte": "La Carotte affaiblit un Héros (−1).",
-        "custom-stitch-deguisement": "Le Déguisement renforce un Allié (+2).",
-        "custom-stitch-bras-robots": "Bras Robots : ce lieu gagne l'action Vaincre un Héros.",
-        "custom-stitch-vaisseau-general": "Vaisseau Général : ce lieu gagne l'action Déplacer un objet ou un allié.",
-        "custom-stitch-piqure": "Piqûre : ce lieu gagne l'action Gagner 1 Pouvoir.",
-        "custom-stitch-capitaine-gantu": "Capitaine Gantu peut rejouer une carte de la défausse.",
+        "custom-stitch-surveillance": "Surveillance : récupère {nomCarte} de sa défausse.",
+        "custom-stitch-attrape": "Attrapé ! : dévoile la Fatalité jusqu’à un Héros.",
+        "custom-stitch-ou-est-t-il": "Où est-il ? : gagne 3 Pouvoir.",
+        "custom-stitch-rapport": "Rapport ! : dévoile et joue {nomObjet} gratuitement.",
+        "custom-stitch-stitch-en-vue": "Stitch en vue : dévoile la Fatalité jusqu’à un Héros et le joue.",
+        "custom-stitch-enferme": "Enfermé : STITCH est enfermé dans la CAGE.",
+        "custom-stitch-tuez-le": "Tuez-le : élimine {nomHéros}.",
+        "custom-stitch-reperage": "Repérage : récupère {nomCarte} de sa défausse.",
+        "custom-stitch-cage": "CAGE : posée à {nomLieu}.",
+        "custom-stitch-carotte": "Carotte : −1 Force à {nomHéros}.",
+        "custom-stitch-deguisement": "Déguisement : +2 Force à {nomAllié}.",
+        "custom-stitch-bras-robots": "Bras Robots : {nomLieu} gagne l’action « Vaincre un Héros ».",
+        "custom-stitch-vaisseau-general": "Vaisseau Général : {nomLieu} gagne « Déplacer un objet ou un allié ».",
+        "custom-stitch-piqure": "Piqûre : {nomLieu} gagne « Gagner 1 Pouvoir ».",
+        "custom-stitch-capitaine-gantu": "Capitaine Gantu rejoue une carte de la défausse.",
         "custom-stitch-dr-jumba-jookiba": "Dr Jumba Jookiba affaiblit les Héros de son lieu (−1).",
         "custom-stitch-peakley": "Peakley : +1 Pouvoir à chaque déplacement.",
-        "custom-stitch-pilote": "Pilote peut déplacer un Allié voisin.",
-        "custom-stitch-co-pilote": "Co-Pilote peut déplacer un Héros voisin.",
-        "custom-stitch-soldat": "Le Soldat peut éliminer un Héros sur son lieu ou un lieu voisin."
+        "custom-stitch-pilote": "Pilote déplace un Allié voisin.",
+        "custom-stitch-co-pilote": "Co-Pilote déplace {nomHéros} vers un lieu voisin.",
+        "custom-stitch-soldat": "Soldat élimine un Héros sur son lieu ou un lieu voisin."
       },
       "fateNotes": {
         "custom-stitch-stitch": {
-          "description": "Héros-cible (force 5). Dès qu'il est dévoilé, il est posé d'office à la Maison de Lilo et ne peut JAMAIS être déplacé en tant que Héros. C'est lui qu'il faut enfermer dans la CAGE."
+          "description": "Stitch apparaît à la Maison de Lilo — le Héros à enfermer."
         },
         "custom-stitch-lilo": {
-          "description": "Héros (force 4). Grand Councilwoman doit l'éliminer AVANT les autres Héros."
+          "description": "Lilo apparaît."
         },
         "custom-stitch-nani": {
-          "description": "Héros (force 3). À la pose, défausse un Allié présent sur son lieu."
+          "description": "Nani apparaît : {nomAllié} est défaussé."
         },
         "custom-stitch-david": {
-          "description": "Héros (force 2). À la pose, défausse un Objet présent sur son lieu (jamais la CAGE, indéfaussable)."
+          "description": "David apparaît : {nomObjet} est défaussé."
         },
         "custom-stitch-moses-puloki": {
-          "description": "Héros (force 2). Augmente de 1 la force de TOUS les Héros du royaume."
+          "description": "Moses Puloki apparaît : +1 Force à tous les Héros."
         },
         "custom-stitch-cobra-bubbles": {
-          "description": "Héros (force 3). Quand la figurine du vilain arrive sur son lieu, elle perd 2 Pouvoir."
+          "description": "Cobra Bubbles apparaît : arriver sur son lieu coûte 2 Pouvoir."
         },
         "custom-stitch-boule-de-feu": {
-          "description": "Objet Fatalité associé à un Héros : +2 à sa force."
+          "description": "Boule de feu : +2 Force à {nomHéros}."
         },
         "custom-stitch-bolas-en-feu": {
-          "description": "Objet Fatalité associé à un Allié : −2 à sa force."
+          "description": "Bolas en feu : −2 Force à un Allié."
         },
         "custom-stitch-bouteille-mordue": {
-          "description": "Défausse OU déplace un Objet (non associé) du royaume. La CAGE étant indéfaussable, elle est alors DÉPLACÉE (perturbation)."
+          "description": "Bouteille mordue : un Objet est défaussé ou déplacé."
         },
         "custom-stitch-ca-pique": {
-          "description": "Défausse un Allié de force 3 ou moins du royaume."
+          "description": "Ça pique ! : {nomAllié} est défaussé."
         },
         "custom-stitch-en-liberte": {
-          "description": "Au choix : LIBÈRE STITCH de la CAGE (le détache) OU déplace un Héros vers un lieu voisin."
+          "description": "En liberté : Stitch est libéré de la CAGE, ou un Héros est déplacé."
         },
         "custom-stitch-aloha": {
-          "description": "Au choix : TRANSFORME Dr Jumba ou Peakley en Héros (il gêne alors le vilain) OU déplace un Héros voisin."
+          "description": "Aloha : Dr Jumba ou Peakley devient un Héros, ou un Héros est déplacé."
         }
       }
     }

@@ -209,7 +209,7 @@ export function BoardImage({
   const pawnDragRef = useRef<{ startX: number; startY: number; dragging: boolean } | null>(null)
   const pawnIndex = player.locations.findIndex((l) => l.id === player.pawnLocation)
   // Recouvrement : couleur DÉDIÉE du vilain custom si définie, sinon sa couleur thématique.
-  const coverColor = coverColorOf(player.villain) ?? '#000000'
+  const coverColor = coverColorOf(player.villain)
   const cover = HERO_COVER[player.villain] ?? { top: 0, height: TOP_ACTIONS_HEIGHT }
 
   // Sa Sucrerie — CIRCUIT EN HUIT : le pion ne change pas de lieu mais avance sur la

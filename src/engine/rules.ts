@@ -1564,6 +1564,9 @@ export function effectiveCost(
   // que le joueur défausse un Allié de son lieu ou paie le supplément.
   // Sombra — Faille : le prochain Piratage est gratuit.
   if (card.isPiratage && me.freePiratage) return 0
+  // Sumbra / Kilaire — 💠 Aubaine : modificateur signé du coût ce tour (positif = moins cher).
+  // Les CONDITIONS ne sont PAS concernées (leur coût n'est pas modifié par Aubaine).
+  if (me.spiritCostMod && card.type !== 'condition') discount += me.spiritCostMod
   return Math.max(0, base - discount + surcharge)
 }
 

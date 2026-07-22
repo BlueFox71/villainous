@@ -35,6 +35,14 @@ export interface VillainAnimation {
   /** L'image regarde-t-elle vers la GAUCHE au naturel ? Sert à orienter le
    *  vaisseau dans son sens de déplacement (défaut : regarde à droite). */
   facesLeft?: boolean
+  /** Trajectoire `cross` : FORCE le sens de traversée quel que soit le camp (au lieu du défaut
+   *  « joueur → droite, adversaire → gauche »). `'ltr'` = toujours de gauche à droite, `'rtl'` =
+   *  toujours de droite à gauche. Utile pour un prop dont le sens fait partie de la mise en scène
+   *  (ex. Kirby qui S'ÉCHAPPE vers la droite sur son étoile). */
+  fixedDir?: 'ltr' | 'rtl'
+  /** Trajectoire `cross` : laisse une TRAÎNÉE d'étoiles scintillantes DERRIÈRE le prop (côté
+   *  opposé au déplacement), dégradées en taille/opacité — le sillage de l'étoile volante de Kirby. */
+  starTrail?: boolean
   /** Trajectoire :
    *  - `cross` (défaut) : traversée linéaire (sens selon camp), bande haute par défaut ; `topPct`
  *    permet de descendre la traversée (ex. Davy Jones : le Kraken traverse au milieu de l'écran).
@@ -105,11 +113,16 @@ export interface VillainAnimation {
    *  - `portal-cracks` : TRANSITION plein écran inspirée des portails — d'abord des FISSURES NOIRES se
    *    propagent depuis un centre à travers tout l'écran (la réalité se craquelle), puis des TRAITS
    *    ROUGES lumineux SURGISSENT le long des mêmes fissures (l'énergie du Monde à l'Envers), le tout
-   *    sur un voile sombre, avant de se dissiper (Le Flagelleur Mental). Durée via `durationSec`. */
+   *    sur un voile sombre, avant de se dissiper (Le Flagelleur Mental). Durée via `durationSec`.
+   *  - `dark-embers` : TRANSITION d'ambiance plein écran — tout l'arrière-plan S'ASSOMBRIT (un voile
+   *    sombre teinté violet monte puis redescend) tandis que des ÉTINCELLES / braises ROUGE & VIOLET
+   *    montent en scintillant un peu partout, puis tout revient à la normale (les Ténèbres de Sumbra
+   *    qui effleurent le monde). 100 % CSS. Densité via `count`, durée via `durationSec`. */
   path?:
     | 'cross' | 'sky-arc' | 'drift-spin' | 'pages' | 'roses' | 'coins' | 'water-cross'
     | 'rise' | 'voodoo' | 'fire-bottom' | 'fade' | 'paws' | 'petals' | 'jet-cross' | 'smoke-field'
     | 'overgrowth' | 'eject-arc' | 'stardust' | 'drop' | 'disco' | 'dash-right' | 'portal-cracks'
+    | 'dark-embers'
   /** Tire quelques coups de canon (lueur + fumée à la bouche du canon avant)
    *  pendant le vol. Réservé aux trajectoires `sky-arc`. */
   cannons?: boolean
@@ -565,6 +578,14 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
 // Animations de passage des vilains de l'ATELIER PUBLIÉ (indexées par id `custom-…`, hors de l'union
 // native `VillainKey`). Même contenu qu'une entrée `VILLAIN_ANIMATION`.
 export const CUSTOM_VILLAIN_ANIMATION: Record<string, VillainAnimation | VillainAnimation[]> = {
+  // Sumbra (Dharkon 🌑) : les TÉNÈBRES effleurent le monde — tout l'arrière-plan s'assombrit (voile
+  // sombre violacé) pendant que des étincelles/braises ROUGE & VIOLET montent en scintillant, puis tout
+  // revient à la normale (path `dark-embers`, 100 % CSS). Propre à Sumbra (Kilaire a Kirby, ci-dessous).
+  'custom-mrl4fb45': {
+    durationSec: 12, // transition longue et pesante
+    count: 60,
+    path: 'dark-embers',
+  },
   // Le Flagelleur Mental (Stranger Things) : le PASSAGE vers le Monde à l'Envers — l'écran se craquelle
   // en fissures noires, puis des traits rouges surgissent le long des fissures (path `portal-cracks`).
   'custom-flagelleur-mental': {
@@ -581,6 +602,19 @@ export const CUSTOM_VILLAIN_ANIMATION: Record<string, VillainAnimation | Villain
     durationSec: 15, // dérive tranquille sur les rails
     facesLeft: true,
     path: 'water-cross',
+  },
+  // Kilaire (Galeem ☀️) UNIQUEMENT : KIRBY s'échappe sur son ÉTOILE VOLANTE (Warp Star) — l'unique
+  // rescapé de la lumière de Galeem dans « La Lueur du Monde ». Traversée `cross` SELON LE CAMP :
+  // côté JOUEUR de gauche→droite, côté ADVERSAIRE de droite→gauche (image miroitée + sillage du bon
+  // côté automatiquement). Image transparente, Kirby orienté à droite au naturel (pas de `facesLeft`).
+  // Absent de Sumbra (entrée propre à `custom-killaire`).
+  'custom-killaire': {
+    image: '/animations/kirby_fly.png',
+    heightPct: 8, // petit prop (Kirby + étoile)
+    topPct: 6, // un peu sous le bord haut pour rester bien visible
+    durationSec: 3, // fuite TRÈS rapide (il détale sur son étoile)
+    starTrail: true, // sillage d'étoiles derrière lui (côté opposé au déplacement)
+    path: 'cross',
   },
 }
 

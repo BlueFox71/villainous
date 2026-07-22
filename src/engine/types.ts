@@ -1435,7 +1435,7 @@ export type Effect =
    *  `onlyCardIds` : restreint les cibles à ces `cardId` précis (Madame de Trémaine —
    *  Sale voleuse ! ne vise que Cendrillon / Cendrillon en robe de bal). La carte est
    *  alors injouable si aucun de ces Héros n'est dans le royaume. */
-  | { type: 'INSTANT_VANQUISH_HERO_LE'; maxStrength: number; atPawn?: boolean; onlyCardIds?: string[] }
+  | { type: 'INSTANT_VANQUISH_HERO_LE'; maxStrength: number; minStrength?: number; atPawn?: boolean; onlyCardIds?: string[] }
   /** Élimine instantanément TOUS les Héros du royaume de l'acteur, sans exception ni
    *  choix (sans alliés). Madame de Trémaine — Douze coups de minuit. Injouable si le
    *  royaume ne contient aucun Héros. */
@@ -2157,6 +2157,10 @@ export interface CardInstance {
   /** Nom (pour le journal). */
   name: string
   type: CardType
+  /** Template de message de journal (data-driven, recopié de CardDef). Voir
+   *  `engine/journalTemplate.ts` : logué (placeholders remplis) à la place de la ligne codée
+   *  en dur quand la carte est jouée. Absent = logging par défaut. */
+  journal?: string
   /** Coût en pouvoir (cartes Vilain). */
   cost?: number
   /** Force (Alliés & Héros). */
@@ -3145,6 +3149,9 @@ export interface PlayerState {
   /** 🛡️ Rempart : bonus TEMPORAIRE de Force par lieu (garnison) ce tour, pour tenir
    *  le contrôle contre la reprise. Effacé en fin de tour. Indexé par LocationId. */
   locationTempForce?: Record<LocationId, number>
+  /** Combattants RÉVÉLÉS ce tour (revenu + cartes) : affichés CÔTE À CÔTE par l'UI (jusqu'à
+   *  5 emplacements), chacun avec son delta d'esprits. Vidé au début de chaque tour du joueur. */
+  revealedCombattants?: { cardId: string; instanceId: string; message: string }[]
   /** Cruella d'Enfer — Finissez le travail ! : une action « Activer » gratuite est
    *  disponible ce tour sur le lieu courant (consommée à l'usage). */
   freeActivate?: boolean
@@ -3439,6 +3446,17 @@ export interface PendingDice {
 export interface GameState {
   /** Joueurs de la partie (chacun un vilain distinct). */
   players: PlayerState[]
+  /** Journal data-driven (cf. `engine/journalTemplate.ts`) : valeurs nommées transitoires
+   *  qu'un effet expose pour remplir les placeholders du template de la carte en cours (ex.
+   *  `{ nomHéros: 'Peter Pan' }`). Peuplé pendant la résolution, LU puis VIDÉ par `applyAction`
+   *  au moment d'émettre la ligne de journal. Jamais persistant d'une action à l'autre. */
+  journalVars?: Record<string, string | number>
+  /** Journal data-driven — ÉMISSION DIFFÉRÉE : quand une carte à template ouvre un choix
+   *  INTERACTIF (pending), la valeur d'un placeholder n'est connue qu'à la résolution du
+   *  choix. On stashe ici le template (+ perspective + icône) et on masque les lignes ; le
+   *  message final est émis à la résolution (placeholders remplis), puis ce champ est vidé.
+   *  `steps` = garde-fou anti-attente infinie. `null`/absent hors de cette fenêtre. */
+  pendingJournal?: { playerIndex: number; template: string; icon: string; steps: number } | null
   /** Index du joueur dont c'est le tour. */
   activePlayer: number
   /** Numéro de tour global (incrémenté à chaque passage de joueur), à partir de 1. */
@@ -3881,7 +3899,34 @@ export interface GameState {
    *  SOMME d'esprits capturée ; `playerIndex` choisit de dépenser 2 Pouvoir pour appliquer
    *  son BONUS, ou de subir son MALUS (RESOLVE_CHOC_TITANS `pay`). Ouvert seulement si le
    *  joueur a ≥2 Pouvoir. `null` sinon. */
-  pendingChocTitans?: { playerIndex: number; card: CardInstance } | null
+  pendingChocTitans?: {
+    playerIndex: number
+    card: CardInstance
+    /** Esprits/Pouvoir du joueur AVANT le Choc (capture comprise dans `spiritsBefore` = avant
+     *  capture) : sert à calculer le delta NET (capture + verbe) affiché sur le showcase révélé
+     *  APRÈS le choix. */
+    spiritsBefore: number
+    powerBefore: number
+    /** Somme d'esprits déjà capturée à la pioche (affichée dans la modale de choix). */
+    capturedSum: number
+    /** Journal data-driven : template de la carte (2 issues Malus/Bonus), stashé au moment
+     *  du choix car la carte part en défausse. Émis rempli à la résolution. */
+    journal?: string
+  } | null
+  /** Sumbra / Kilaire — 🃏 Renfort : file des choix INTERACTIFS à résoudre (empilés pendant le
+   *  revenu, résolus au début du tour du joueur avant toute autre action). La TÊTE est le choix
+   *  courant. `kind` :
+   *   - `discard` (Malus) : défausser `count` carte(s) de la main CHOISIE(s) (RESOLVE_COMBATTANT_DISCARD).
+   *   - `draw-or-recover` (Bonus) : piocher `count` carte(s) Méchant OU récupérer une carte de la
+   *     défausse au choix (RESOLVE_COMBATTANT_DRAW_OR_RECOVER).
+   *  Absent/vide = aucun choix en attente. */
+  pendingCombattantChoices?: {
+    kind: 'discard' | 'draw-or-recover'
+    playerIndex: number
+    count: number
+    /** Nom du Combattant à l'origine du choix (pour le titre de la modale). */
+    combattantName?: string
+  }[]
   /** Tabbou — Destin : `playerIndex` choisit « Dévoiler 3 Combattants » OU « Gagner 4
    *  Pouvoir » (RESOLVE_DESTIN_CHOICE). `null` sinon. */
   pendingDestinChoice?: { playerIndex: number } | null
@@ -4638,6 +4683,25 @@ export interface ShowcaseEvent {
      *  est défaussée (coût ≥ seuil), faux si elle est conservée et remise sur le dessus. */
     discarded?: boolean[]
   }
+  /** Force l'affichage du showcase MÊME pour une carte du joueur humain (normalement
+   *  sautée car « il sait ce qu'il joue »). Utilisé pour les révélations ALÉATOIRES que le
+   *  joueur veut voir : Combattants piochés (Sumbra / Kilaire). */
+  forceShow?: boolean
+  /** Sumbra / Kilaire — camp du joueur qui révèle (🌑 moon = Sumbra, ☀️ sun = Kilaire) : donne
+   *  la couleur + l'emoji des pastilles d'esprits du showcase Combattant. */
+  combattantCamp?: 'sun' | 'moon'
+  /** Sumbra / Kilaire — variation SIGNÉE d'ESPRITS du Combattant PRINCIPAL révélé (capture + verbe
+   *  Ferveur) : positif = gagnés, négatif = perdus. Animé en pastille « +N / −N {camp} » sur sa carte. */
+  combattantSpiritDelta?: number
+  /** Sumbra / Kilaire — variation SIGNÉE de Pouvoir du Combattant PRINCIPAL révélé (⚡ Décharge) :
+   *  positif = gagné, négatif = perdu. Animé en pastille « +N 🪙 » (or) ou « −N 🪙 » (rouge) sur
+   *  sa carte. Absent/0 = pas de variation. */
+  combattantPowerDelta?: number
+  /** Sumbra / Kilaire — Combattants SUPPLÉMENTAIRES enchaînés par un Bonus 🔁 Surtension :
+   *  ils s'affichent DANS le même showcase, glissant à DROITE de la carte principale, un à un
+   *  après un délai. `powerDelta`/`spiritDelta` = variations SIGNÉES (Pouvoir ⚡ / esprits) de CE
+   *  Combattant, animées en pastilles sur sa carte. Vide/absent = aucun extra. */
+  combattantExtras?: { cardId: string; message: string; powerDelta?: number; spiritDelta?: number }[]
 }
 
 /** Fatalité révélée en attente de résolution par le joueur actif. */
@@ -4927,6 +4991,12 @@ export type GameAction =
   /** Sumbra / Kilaire — Choc des Titans : `pay` vrai = dépenser 2 Pouvoir pour le Bonus du
    *  Combattant pioché ; faux = subir son Malus. */
   | { type: 'RESOLVE_CHOC_TITANS'; pay: boolean }
+  /** Sumbra / Kilaire — 🃏 Renfort Malus : défausse les cartes CHOISIES (`instanceIds`) de la
+   *  main pour résoudre la tête de `pendingCombattantChoices`. */
+  | { type: 'RESOLVE_COMBATTANT_DISCARD'; instanceIds: string[] }
+  /** Sumbra / Kilaire — 🃏 Renfort Bonus : `choice` 'draw' = piocher des cartes Méchant ;
+   *  'recover' = récupérer `recoverInstanceId` de la défausse. Résout la tête de la file. */
+  | { type: 'RESOLVE_COMBATTANT_DRAW_OR_RECOVER'; choice: 'draw' | 'recover'; recoverInstanceId?: string }
   /** Mr. Monopoly — Affaire : poser `amount` maisons (1..max) sur le lieu adverse en attente. */
   | { type: 'RESOLVE_BUY_HOUSES'; amount: number }
   /** Mr. Monopoly — Carte bancaire / destruction : choisir un lieu (`locationId`). En phase
@@ -5176,7 +5246,7 @@ export type GameAction =
   /** MODE TEST uniquement : joue une carte Fatalité non-Héros (Voler aux Riches,
    *  Déguisement) CONTRE le joueur actif, ciblant l'un de ses Héros via
    *  `targetHeroId` — comme si un adversaire l'avait jouée. */
-  | { type: 'TEST_PLAY_FATE_CARD'; card: CardInstance; targetHeroId?: string; enlargeToward?: LocationId }
+  | { type: 'TEST_PLAY_FATE_CARD'; card: CardInstance; targetHeroId?: string; enlargeToward?: LocationId; combattantMode?: 'hero' | 'combattant' }
   /** Le Seigneur des Ténèbres — ACTIVE le Chaudron Noir réclamé (le retourne sur sa
    *  face Pouvoir : `blackCauldron` 'claimed' → 'powered'). Permet ensuite de jouer
    *  les Morts-vivants du Chaudron. Action gratuite (ne consomme pas d'action de lieu). */

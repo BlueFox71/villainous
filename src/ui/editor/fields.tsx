@@ -366,7 +366,7 @@ export function AudioField({
   const toggle = () => {
     const el = audioRef.current
     if (!el) return
-    if (el.paused) void el.play()
+    if (el.paused) void el.play().catch(() => {}) // best-effort (lecture possiblement bloquée)
     else el.pause()
   }
 

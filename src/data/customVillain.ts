@@ -413,6 +413,13 @@ export interface CustomVillain {
   objectiveDescription: string
   /** Condition de victoire jouable (sous-ensemble réutilisable des ObjectiveDef). */
   objective: ObjectiveDef
+  /** Camp d'esprit du vilain (duo World of Light : ☀️ Kilaire = `'sun'`, 🌑 Sumbra = `'moon'`) — pilote
+   *  la CAPTURE (valeur d'esprit prise) et l'affichage. C'est la SEULE asymétrie de règle entre les deux
+   *  skins : contrairement au reste des règles (héritées de la base), ce champ est PROPRE AU SKIN
+   *  (`VARIANT_OWN_VILLAIN_FIELDS`) → chaque variante garde le sien. Quand il est défini et que
+   *  l'objectif est `SPIRIT_THRESHOLD`, `toVillainDef` force `objective.camp` avec. Absent = camp de
+   *  l'objectif tel quel. */
+  spiritCamp?: 'sun' | 'moon'
 
   // --- Contenu ---------------------------------------------------------------
   locations: CustomLocation[]
@@ -612,11 +619,17 @@ export function emptyCustomCard(id: string, deck: DeckKind, type: CardType): Cus
  *  manquantes retombent sur un placeholder neutre pour ne jamais casser le rendu. */
 export function toVillainDef(v: CustomVillain): VillainDef {
   const lockedAtStart = v.locations.filter((l) => l.lockedAtStart).map((l) => l.id)
+  // Camp d'esprit PROPRE AU SKIN : s'il est défini, il force le `camp` de l'objectif `SPIRIT_THRESHOLD`
+  // (la variante hérite l'objectif de la base — donc son camp — mais garde son propre `spiritCamp`).
+  const objective =
+    v.spiritCamp && v.objective.type === 'SPIRIT_THRESHOLD'
+      ? { ...v.objective, camp: v.spiritCamp }
+      : v.objective
   return {
     id: v.id,
     name: v.name,
     lockedLocationsAtStart: lockedAtStart.length > 0 ? lockedAtStart : undefined,
-    objective: v.objective,
+    objective,
     objectiveDescription: v.objectiveDescription,
     boardObjective: v.boardObjective || undefined,
     boardImage: v.boardImage ?? '',
@@ -761,12 +774,13 @@ export function pickFreshestVillains(
 /** Reimporte les DONNEES DE JEU d'un JSON allege (developpe hors app, p. ex. par Claude
  *  Code sur assets/custom-exports/id.json) dans un vilain existant, en CONSERVANT ses
  *  IMAGES et ses metadonnees (published / dev IA / dates). Fusionne l'objectif (+ textes),
- *  les lieux (nom + actions, images gardees) et les cartes PAR ID (champs de jeu, images ET
- *  texte gardes : le `text` est la source de verite humaine, jamais ecrasee par la synchro).
+ *  les lieux (nom + actions, images gardees) et les cartes PAR ID (champs de jeu ET `text` :
+ *  la synchro reecrit le texte des cartes depuis l'export ; seules les IMAGES sont gardees).
  *  L'appelant bumpe updatedAt en sauvegardant. */
 export function mergeGameData(target: CustomVillain, light: Partial<CustomVillain>): CustomVillain {
   const out: CustomVillain = structuredClone(target)
   if (light.objective) out.objective = light.objective
+  if (light.spiritCamp) out.spiritCamp = light.spiritCamp
   if (typeof light.boardObjective === 'string') out.boardObjective = light.boardObjective
   if (typeof light.objectiveDescription === 'string') out.objectiveDescription = light.objectiveDescription
   if (light.altObjective && out.altObjective) {
@@ -783,6 +797,8 @@ export function mergeGameData(target: CustomVillain, light: Partial<CustomVillai
       if (typeof ll.name === 'string') tl.name = ll.name
       if (Array.isArray(ll.actions)) tl.actions = ll.actions
       tl.lockedAtStart = ll.lockedAtStart
+      // Sumbra / Kilaire — Défense (seuil de conquête) : donnée de JEU, à réinjecter.
+      tl.defense = ll.defense
       if (ll.alt && tl.alt) {
         if (typeof ll.alt.name === 'string') tl.alt.name = ll.alt.name
         if (Array.isArray(ll.alt.actions)) tl.alt.actions = ll.alt.actions
@@ -797,13 +813,12 @@ export function mergeGameData(target: CustomVillain, light: Partial<CustomVillai
       const copy = { ...lc } as Record<string, unknown>
       delete copy.image
       delete copy.artImage
-      // `text` = source de verite HUMAINE, editee dans l'Atelier (les `effects` en sont la
-      // traduction machine developpee par Claude Code). L'export lu ici est un INSTANTANE pris
-      // au moment du « Developper » : il peut etre plus ancien que le texte edite depuis dans
-      // le brouillon. On importe donc les effets / champs de jeu SANS jamais reecrire le texte
-      // du joueur (sinon une synchro annule ses reformulations).
+      // IMAGES gardees (bakees dans le brouillon). Le `text` EST importe depuis l'export :
+      // la synchro reecrit donc le texte de la carte (choix explicite — permet de reformuler
+      // les cartes hors app). N'assigne le texte QUE s'il est fourni (sinon ne l'efface pas).
       delete copy.text
       Object.assign(tc, copy)
+      if (typeof lc.text === 'string') tc.text = lc.text
     }
   }
   // Consignes de STRATÉGIE BOT rédigées par Claude Code (préremplissent l'onglet).
@@ -830,6 +845,9 @@ const VARIANT_OWN_VILLAIN_FIELDS = [
   'pawnImage', 'pawnHeightPx', 'audio',
   // Dos de cartes : ornements importés + images bakées (re-générées à la couleur de la variante).
   'backOverlays', 'backVillainImage', 'backFateImage', 'backExtra', 'backExtraImage',
+  // EXCEPTION de règle : le camp d'esprit est la seule asymétrie voulue entre skins (☀️ Kilaire /
+  // 🌑 Sumbra) → propre au skin (sinon la variante hériterait le camp de la base = même que Sumbra).
+  'spiritCamp',
 ] as const satisfies readonly (keyof CustomVillain)[]
 
 /** Champs de PRÉSENTATION d'une carte que la variante conserve quand la carte est « override »
@@ -969,8 +987,14 @@ export function variantsOf(baseId: string, all: CustomVillain[]): CustomVillain[
  *  retire seulement les champs d'édition propres à l'éditeur). SEUL point de nettoyage
  *  des champs éditeur : toute conversion vers le jeu passe par ici. */
 export function toCardDefs(v: CustomVillain): CardDef[] {
+  // Message de journal authoré (data-driven) : injecté sur la carte pour que le moteur le
+  // logue en partie (placeholders remplis). Deck Vilain → `villainNotes`, Fatalité →
+  // `fateNotes[...].description` (cf. `botStrategy.journal`, source unique côté Atelier).
+  const journal = v.botStrategy?.journal
   return v.cards.map((c) => {
     const def: CustomCard = { ...c }
+    const msg = c.deck === 'fate' ? journal?.fateNotes?.[c.id]?.description : journal?.villainNotes?.[c.id]
+    if (msg && msg.trim()) def.journal = msg.trim()
     delete def.artImage
     delete def.artTransform
     delete def.group

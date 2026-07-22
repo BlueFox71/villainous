@@ -257,6 +257,41 @@ body {
     transform: translateX(100vw);
   }
 }
+/* Sillage d'étoiles (trajectoire `cross`, donnée `starTrail`) : une comète de petites étoiles
+   DERRIÈRE le prop (Kirby sur son étoile volante). Enfants du conteneur `.villain-prop` → ils
+   dérivent avec lui. Ancrés sur le bord ARRIÈRE, alignés verticalement au centre. */
+.kirby-trail {
+  position: absolute;
+  /* L'étoile part du BAS de l'image (pas du centre) : on aligne le sillage sur ce niveau. */
+  top: 70%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.6vh;
+  pointer-events: none;
+}
+/* Traînée à GAUCHE (le prop file vers la DROITE) : ancrée au bord gauche, la + grosse étoile près du prop. */
+.kirby-trail--left {
+  right: 100%;
+  flex-direction: row-reverse;
+}
+/* Traînée à DROITE (le prop file vers la GAUCHE). */
+.kirby-trail--right {
+  left: 100%;
+  flex-direction: row;
+}
+.kirby-star {
+  flex: none;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffffff 0%, #fff1a8 40%, #ffcc33 72%, rgba(255, 204, 51, 0) 100%);
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  filter: drop-shadow(0 0 3px rgba(255, 224, 130, 0.9));
+  animation: kirbyStarTwinkle 0.7s ease-in-out infinite alternate;
+}
+@keyframes kirbyStarTwinkle {
+  from { opacity: var(--o, 0.8); transform: scale(0.7) rotate(-10deg); }
+  to { opacity: calc(var(--o, 0.8) * 0.35); transform: scale(1) rotate(10deg); }
+}
 /* Coups de canon du décor (bouche du canon avant). Lueur brève + bouffée de fumée
    qui dérive vers le haut-droite (sens de tir), en quelques salves espacées pendant
    le vol. Enfants du vaisseau : héritent de sa translation/rotation/échelle. */
@@ -470,6 +505,86 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .stardust-fall,
   .stardust { animation: none !important; }
+}
+/* ----- Sumbra « Ténèbres » : transition dark-embers (path `dark-embers`) -----
+   Plein écran (portail au-dessus de la scène). Un VOILE sombre violacé s'assombrit puis s'éclaircit
+   (fondu d'entrée → maintien → sortie → tout revient à la normale), pendant que des ÉTINCELLES rouge/
+   violet MONTENT (`.dark-ember-rise`) en SCINTILLANT (`.dark-ember`). Calé sur `durationSec`. */
+.dark-embers-veil {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 100% at 50% 55%, rgba(14, 3, 22, 0.97) 0%, rgba(2, 0, 5, 1) 100%);
+  opacity: 0;
+  will-change: opacity;
+  animation-name: darkEmbersVeil;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: 1;
+  animation-fill-mode: both;
+}
+@keyframes darkEmbersVeil {
+  0% { opacity: 0; }
+  32% { opacity: 1; } /* l'obscurité s'installe LENTEMENT (dread rampant) puis reste totalement noire */
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+/* PRÉSENCE rouge-violet tapie dans le noir : un halo qui GONFLE et RESPIRE (un regard qui s'ouvre),
+   n'apparaît qu'une fois l'obscurité installée puis s'éteint avant qu'elle ne se lève. Sur le voile
+   (plan de fond, derrière plateau/cartes). */
+.dark-embers-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(42% 38% at 50% 47%, rgba(255, 36, 72, 0.6) 0%, rgba(150, 40, 255, 0.32) 34%, rgba(80, 15, 130, 0) 66%);
+  opacity: 0;
+  will-change: opacity, transform;
+  animation-name: darkEmbersGlow;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: 1;
+  animation-fill-mode: both;
+}
+@keyframes darkEmbersGlow {
+  0%, 24% { opacity: 0; transform: scale(0.62); }
+  38% { opacity: 0.5; transform: scale(0.95); } /* le regard s'ouvre */
+  50% { opacity: 0.9; transform: scale(1.08); } /* inspire */
+  60% { opacity: 0.45; transform: scale(0.9); } /* expire */
+  70% { opacity: 0.85; transform: scale(1.1); } /* re-inspire, plus fort */
+  80% { opacity: 0; transform: scale(0.8); } /* se referme avant que le noir se lève */
+  100% { opacity: 0; }
+}
+.dark-ember-rise {
+  position: absolute;
+  will-change: transform, opacity;
+  animation-name: darkEmberRise;
+  animation-timing-function: ease-out;
+  animation-iteration-count: 1;
+  animation-fill-mode: both;
+}
+@keyframes darkEmberRise {
+  0% { transform: translate(0, 0); opacity: 0; }
+  15% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translate(var(--dx, 0), calc(var(--rise, 25vh) * -1)); opacity: 0; }
+}
+.dark-ember {
+  display: block;
+  border-radius: 50%;
+  mix-blend-mode: screen;
+  opacity: 0.3;
+  will-change: opacity;
+  animation-name: darkEmberTwinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes darkEmberTwinkle {
+  0%, 42%, 100% { opacity: calc(var(--eop, 0.8) * 0.4); }
+  50% { opacity: var(--eop, 0.8); } /* éclat vif et bref */
+}
+@media (prefers-reduced-motion: reduce) {
+  .dark-embers-veil,
+  .dark-embers-glow,
+  .dark-ember-rise,
+  .dark-ember { animation: none !important; }
+  .dark-embers-veil,
+  .dark-embers-glow { opacity: 0; }
 }
 /* ----- Tamatoa « Shiny » : transition disco (path `disco`) -----
    Transition plein écran : la grotte aux trésors baigne dans une LUMIÈRE NOIRE — un voile néon recolore
@@ -8565,6 +8680,385 @@ body {
   .fel-decor .voodoo-mote-sway,
   .fel-decor .voodoo-mote {
     animation: none !important;
+  }
+}
+
+/* ============================================================================
+   Décor permanent : SUMBRA (Dharkon — SSBU « La Lueur du Monde »), kind `rift`.
+   LES TÉNÈBRES BRISENT LE MONDE : abîme noir-violet + vignette lourde, LUEUR centrale
+   rouge-violet qui pulse (l'œil de Dharkon), et des FISSURES DENSES qui apparaissent en
+   continu (se tracent via stroke-dashoffset, luisent puis s'effacent et renaissent, dans
+   toutes les directions). Du VIDE suinte du bas (réutilise `vaporRise`) et une poussière
+   d'esprits dérive (réutilise `.voodoo-mote-*`). 100 % CSS.
+   ============================================================================ */
+.rift-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* Abîme des Ténèbres : noir profond réchauffé d'un rouge-violet au centre (l'œil de Dharkon). */
+  background:
+    radial-gradient(120% 90% at 50% 46%, rgba(150, 30, 90, 0.22) 0%, rgba(90, 25, 160, 0.16) 44%, rgba(6, 4, 12, 0) 72%),
+    linear-gradient(to top, #0a0410 0%, #08040e 52%, #0c0616 100%);
+  pointer-events: none;
+}
+/* Vignette (coins très assombris). */
+.rift-decor::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 95% at 50% 46%, transparent 46%, rgba(0, 0, 0, 0.88) 100%);
+}
+/* Œil de Dharkon : lueur centrale rouge-violet qui pulse (respiration lente). */
+.rift-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(46% 40% at 50% 46%, rgba(255, 45, 95, 0.3) 0%, rgba(160, 50, 255, 0.2) 42%, rgba(120, 40, 210, 0) 66%);
+  will-change: opacity, transform;
+  animation: riftGlowPulse 5.6s ease-in-out infinite alternate;
+}
+@keyframes riftGlowPulse {
+  from { opacity: 0.5; transform: scale(0.96); }
+  to { opacity: 0.95; transform: scale(1.05); }
+}
+/* Volutes de Vide qui montent du bas (réutilise le keyframe `vaporRise`). Teinte posée en inline. */
+.rift-vapor {
+  position: absolute;
+  bottom: -8vh; /* part du bas de l'écran (le Vide qui monte) */
+  border-radius: 50%;
+  filter: blur(11px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation-name: vaporRise;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+/* Une fissure : boîte positionnée (centrée sur left/top) et PIVOTÉE d'un angle aléatoire (toutes
+   directions). Le SVG intérieur trace l'éclair figé, veines violettes lumineuses à cœur clair rosé. */
+.rift-crack {
+  position: absolute;
+  pointer-events: none;
+}
+.rift-crack-svg {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  /* Pas de mix-blend screen : on veut un cœur NOIR VISIBLE (le screen effacerait le noir). Le halo
+     violet + éclat rouge autour (l'énergie de Dharkon qui perce par la brèche) reste lumineux. */
+  filter: drop-shadow(0 0 4px rgba(180, 60, 255, 0.8)) drop-shadow(0 0 9px rgba(255, 40, 90, 0.35));
+}
+.rift-crack-svg path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  opacity: 0;
+  will-change: stroke-dashoffset, opacity;
+  animation-name: riftCrack;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+  animation-duration: var(--dur, 10s);
+  animation-delay: var(--delay, 0s);
+}
+/* Liseré lumineux violet, un peu PLUS LARGE que le cœur → il dépasse en bord = rim qui glow. */
+.rift-crack-halo {
+  stroke: rgba(190, 95, 255, 0.85);
+  stroke-width: 2.8;
+}
+/* La fissure elle-même : trait NOIR (la déchirure du Vide), posé PAR-DESSUS le liseré. */
+.rift-crack-core {
+  stroke: #030108;
+  stroke-width: 1.5;
+}
+/* Cycle d'une fissure : elle se TRACE (0→12 %), LUIT en battant un peu (12→70 %), puis SE REFERME
+   (fondu 70→86 %) et reste éteinte le reste du cycle → apparitions/disparitions continues et étagées. */
+@keyframes riftCrack {
+  0% { stroke-dashoffset: 100; opacity: 0; }
+  2% { opacity: 1; } /* la brèche s'ouvre */
+  12% { stroke-dashoffset: 0; opacity: 1; } /* fissure tracée */
+  40% { stroke-dashoffset: 0; opacity: 0.82; }
+  55% { stroke-dashoffset: 0; opacity: 1; } /* léger battement */
+  70% { stroke-dashoffset: 0; opacity: 0.88; }
+  86% { stroke-dashoffset: 0; opacity: 0; } /* se referme */
+  100% { stroke-dashoffset: 100; opacity: 0; } /* éteinte, réinitialisée */
+}
+/* TIR de Vide horizontal qui FILE de GAUCHE À DROITE (les faisceaux de Dharkon). Trait VIOLET (tête
+   brillante à DROITE = sens du tir, traîne estompée à gauche) qui traverse vite puis reste parqué hors
+   champ à droite (dart bref + pause). Couleur OPAQUE (pas de screen). */
+.rift-shot {
+  position: absolute;
+  left: 0;
+  border-radius: 999px;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    to right,
+    rgba(150, 60, 230, 0) 0%,
+    rgba(170, 80, 255, 0.45) 55%,
+    rgba(216, 160, 255, 0.95) 90%,
+    #f0d8ff 100%
+  );
+  box-shadow: 0 0 8px 1px rgba(160, 70, 255, 0.85), 0 0 16px 2px rgba(120, 40, 210, 0.5);
+  will-change: left, opacity;
+  animation-name: riftShotFire;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-duration: var(--dur, 4s);
+  animation-delay: var(--delay, 0s);
+}
+/* Le tir FILE de GAUCHE À DROITE (left de −60 %, hors champ à gauche, → 110 %, hors champ à droite) sur
+   0→22 % du cycle, puis reste parqué hors champ à droite le reste (pause). Parqué aux deux bouts → pas
+   de saut à la boucle ; le déphasage (--delay) étale les tirs. */
+@keyframes riftShotFire {
+  0% { left: -60%; opacity: 0; }
+  4% { opacity: var(--beam-op, 0.9); }
+  22% { left: 110%; opacity: var(--beam-op, 0.9); }
+  26% { left: 110%; opacity: 0; }
+  100% { left: 110%; opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* On fige la lueur, la vapeur, la poussière et le tracé des fissures (elles restent visibles) ; les
+     tirs (mouvement rapide) sont coupés et cachés. */
+  .rift-glow,
+  .rift-vapor,
+  .rift-decor .voodoo-mote-rise,
+  .rift-decor .voodoo-mote-sway,
+  .rift-decor .voodoo-mote {
+    animation: none !important;
+  }
+  .rift-crack-svg path {
+    animation: none !important;
+    stroke-dashoffset: 0;
+    opacity: 0.6;
+  }
+  .rift-shot {
+    animation: none !important;
+    opacity: 0;
+  }
+}
+
+/* SURPRISE partagée Sumbra/Killaire : les ESPRITS LIBÉRÉS qui FLOTTENT et s'ÉLÈVENT depuis le haut de
+   la colonne. Chaque esprit (image tête + aura) MONTE (`--rise`) en berçant latéralement (`--sway`) et
+   en s'inclinant un peu (`--r0`/`--r1`), fondu à l'entrée et à la sortie. Une seule itération. */
+.spirits-swarm {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.spirit-float {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation-name: spiritRise;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: 1;
+  animation-fill-mode: both;
+}
+/* La tête-esprit elle-même (image), au-dessus de sa traînée. */
+.spirit-img {
+  display: block;
+  width: auto;
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 0 7px rgba(255, 255, 255, 0.45));
+}
+/* Traînée ARC-EN-CIEL laissée en montant : un fuseau flou sous l'esprit (bright près de la tête →
+   transparent vers le bas), derrière l'image. Suit l'esprit puisqu'il est dans le même mover animé. */
+.spirit-trail {
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  transform: translateX(-50%);
+  width: calc(var(--sz, 6vh) * 0.6);
+  height: calc(var(--sz, 6vh) * 5);
+  z-index: 0;
+  border-radius: 50%;
+  filter: blur(7px);
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 90, 120, 0.7) 0%,
+    rgba(255, 180, 60, 0.55) 20%,
+    rgba(120, 230, 110, 0.42) 42%,
+    rgba(70, 170, 255, 0.3) 64%,
+    rgba(170, 90, 255, 0.16) 84%,
+    rgba(170, 90, 255, 0) 100%
+  );
+}
+@keyframes spiritRise {
+  0% { transform: translate(0, 0) rotate(var(--r0, 0deg)); opacity: 0; }
+  12% { opacity: var(--sop, 0.9); }
+  50% { transform: translate(var(--sway, 0), calc(var(--rise, 100vh) * -0.5)) rotate(var(--r1, 0deg)); }
+  /* Restent VISIBLES quasiment jusqu'en haut (ils sortent de l'écran), puis s'effacent sur les derniers
+     % → GARANTIT qu'aucun ne reste figé visible (fill-mode `both` fige la dernière image = opacité 0). */
+  88% { opacity: var(--sop, 0.9); }
+  100% { transform: translate(0, calc(var(--rise, 100vh) * -1)) rotate(var(--r0, 0deg)); opacity: 0; }
+}
+
+/* ============================================================================
+   Décor permanent : Killaire (Galeem — SSBU) — LA LUMIÈRE SUBMERGE LE MONDE (kind `radiance`).
+   Le MIROIR LUMINEUX du `rift` de Sumbra : fond blanc-doré éblouissant, cœur de Galeem qui pulse,
+   et rayons denses (cœur blanc + liseré doré) qui jaillissent/s'estompent en continu, toutes
+   directions. Lumière dorée qui monte + poussière d'esprits or/blanc/bleu. 100 % CSS.
+   ============================================================================ */
+.radiance-decor {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* Marée de Lumière : blanc-doré chaud réchauffé d'un cœur or au centre (le cœur de Galeem). */
+  background:
+    radial-gradient(120% 90% at 50% 46%, rgba(255, 244, 200, 0.5) 0%, rgba(255, 214, 120, 0.34) 44%, rgba(255, 190, 90, 0) 72%),
+    linear-gradient(to top, #6d5a2a 0%, #8a7333 52%, #a98d3f 100%);
+  pointer-events: none;
+}
+/* Vignette CLAIRE : au lieu d'assombrir les coins (rift), on les baigne d'une lueur dorée
+   (l'éblouissement déborde) — négatif de la vignette noire de Sumbra. */
+.radiance-decor::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(120% 95% at 50% 46%, transparent 46%, rgba(255, 224, 150, 0.6) 100%);
+}
+/* Cœur de Galeem : lueur centrale blanc-or qui pulse (respiration lente). */
+.radiance-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  background: radial-gradient(46% 40% at 50% 46%, rgba(255, 250, 230, 0.55) 0%, rgba(255, 220, 130, 0.32) 42%, rgba(255, 200, 90, 0) 66%);
+  will-change: opacity, transform;
+  animation: radianceGlowPulse 5.6s ease-in-out infinite alternate;
+}
+@keyframes radianceGlowPulse {
+  from { opacity: 0.5; transform: scale(0.96); }
+  to { opacity: 0.95; transform: scale(1.05); }
+}
+/* Volutes de lumière qui montent du bas (réutilise le keyframe `vaporRise`). Teinte posée en inline. */
+.radiance-vapor {
+  position: absolute;
+  bottom: -8vh; /* part du bas de l'écran (la lumière qui monte) */
+  border-radius: 50%;
+  filter: blur(11px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation-name: vaporRise;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+/* Un rayon : boîte positionnée (centrée sur left/top) et PIVOTÉE d'un angle aléatoire (toutes
+   directions). Le SVG intérieur trace le rayon figé, cœur blanc lumineux à liseré doré. */
+.radiance-ray {
+  position: absolute;
+  pointer-events: none;
+}
+.radiance-ray-svg {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  /* mix-blend screen : la lumière s'ajoute au fond (négatif du rift, qui gardait un cœur noir). Halo
+     doré rayonnant autour du trait. */
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 0 5px rgba(255, 224, 130, 0.9)) drop-shadow(0 0 11px rgba(255, 245, 210, 0.5));
+}
+.radiance-ray-svg path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  opacity: 0;
+  will-change: stroke-dashoffset, opacity;
+  animation-name: radianceRay;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+  animation-duration: var(--dur, 10s);
+  animation-delay: var(--delay, 0s);
+}
+/* Liseré doré, un peu PLUS LARGE que le cœur → il dépasse en bord = rim doré qui rayonne. */
+.radiance-ray-halo {
+  stroke: rgba(255, 214, 110, 0.9);
+  stroke-width: 3;
+}
+/* Le rayon lui-même : trait BLANC lumineux (la Lumière qui perce), posé PAR-DESSUS le liseré. */
+.radiance-ray-core {
+  stroke: #fffdf4;
+  stroke-width: 1.5;
+}
+/* Cycle d'un rayon : il se TRACE (0→12 %), ÉCLATE en battant un peu (12→70 %), puis S'ESTOMPE
+   (fondu 70→86 %) et reste éteint le reste du cycle → jaillissements/estompages continus et étagés. */
+@keyframes radianceRay {
+  0% { stroke-dashoffset: 100; opacity: 0; }
+  2% { opacity: 1; } /* le rayon jaillit */
+  12% { stroke-dashoffset: 0; opacity: 1; } /* rayon tracé */
+  40% { stroke-dashoffset: 0; opacity: 0.82; }
+  55% { stroke-dashoffset: 0; opacity: 1; } /* léger battement */
+  70% { stroke-dashoffset: 0; opacity: 0.88; }
+  86% { stroke-dashoffset: 0; opacity: 0; } /* s'estompe */
+  100% { stroke-dashoffset: 100; opacity: 0; } /* éteint, réinitialisé */
+}
+/* TIR de lumière horizontal qui FILE de GAUCHE À DROITE (les faisceaux de Galeem — World of Light).
+   Trait lumineux (tête brillante à DROITE = sens du tir, traîne estompée à gauche) qui traverse vite
+   puis reste parqué hors champ à droite (dart bref + pause). Couleur OPAQUE (pas de screen : sinon
+   invisible sur le fond doré). L'animation de `left` porte le déplacement (relatif à la colonne). */
+.radiance-shot {
+  position: absolute;
+  left: 0;
+  border-radius: 999px;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    to left,
+    rgba(255, 220, 120, 0) 0%,
+    rgba(255, 224, 130, 0.45) 55%,
+    rgba(255, 246, 200, 0.95) 90%,
+    #fffdf4 100%
+  );
+  box-shadow: 0 0 8px 1px rgba(255, 190, 60, 0.85), 0 0 16px 2px rgba(255, 160, 30, 0.5);
+  will-change: left, opacity;
+  animation-name: radianceShotFire;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-duration: var(--dur, 4s);
+  animation-delay: var(--delay, 0s);
+}
+/* Le tir FILE de DROITE À GAUCHE (left de 110 %, hors champ à droite, → `--from`, hors champ à gauche)
+   sur 0→22 % du cycle, puis reste parqué hors champ à gauche le reste (pause). Parqué hors champ aux
+   deux bouts → pas de saut à la boucle ; le déphasage (--delay) étale les tirs. */
+@keyframes radianceShotFire {
+  0% { left: 110%; opacity: 0; }
+  4% { opacity: var(--beam-op, 0.9); }
+  22% { left: var(--from, -40%); opacity: var(--beam-op, 0.9); }
+  26% { left: var(--from, -40%); opacity: 0; }
+  100% { left: var(--from, -40%); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* On fige la lueur, la vapeur, la poussière et le tracé des rayons (ils restent visibles) ; les tirs
+     (mouvement rapide) sont coupés et cachés. */
+  .radiance-glow,
+  .radiance-vapor,
+  .radiance-decor .voodoo-mote-rise,
+  .radiance-decor .voodoo-mote-sway,
+  .radiance-decor .voodoo-mote {
+    animation: none !important;
+  }
+  .radiance-ray-svg path {
+    animation: none !important;
+    stroke-dashoffset: 0;
+    opacity: 0.85;
+  }
+  .radiance-shot {
+    animation: none !important;
+    opacity: 0;
   }
 }
 

@@ -69,6 +69,13 @@ export function externalizeVillainImages(villain, opts = {}) {
     for (const c of out.cards) {
       processField(c, 'image', `${c.id}`, ctx)
       processField(c, 'artImage', `${c.id}.art`, ctx)
+      // Images LIBRES posées sur la carte (éditeur « images sur la carte ») : chacune a son
+      // propre champ `image` (data-URL) → externalisée comme les autres.
+      if (Array.isArray(c.images)) {
+        c.images.forEach((im, i) => {
+          if (im && typeof im === 'object') processField(im, 'image', `${c.id}.img-${i}`, ctx)
+        })
+      }
     }
   }
   return { villain: out, files: ctx.files }

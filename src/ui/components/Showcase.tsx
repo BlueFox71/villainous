@@ -37,6 +37,10 @@ interface Props {
    *  est terminé (false). Sert à attendre la fin des showcases adverses avant de
    *  basculer au tour du joueur (le pilote du bot se met en pause). */
   onBusyChange?: (busy: boolean) => void
+  /** Si vrai, on RETIENT le démarrage d'un nouveau showcase (rien de nouveau n'apparaît).
+   *  Sert à attendre la fin du splash « À vous de jouer » avant de dérouler les révélations
+   *  Combattant en début de tour. `busy` reste vrai tant qu'il reste des événements en file. */
+  hold?: boolean
 }
 
 /**
@@ -45,7 +49,7 @@ interface Props {
  * (Héros posé via Fatalité), le showcase « vole » vers le lieu cible pendant
  * la phase de fermeture.
  */
-export function Showcase({ events, humanIndex, players, onHiddenIdsChange, onCardLanded, onBusyChange }: Props) {
+export function Showcase({ events, humanIndex, players, onHiddenIdsChange, onCardLanded, onBusyChange, hold = false }: Props) {
   const [cursor, setCursor] = useState(events.length)
   const [current, setCurrent] = useState<ShowcaseEvent | null>(null)
   const [closing, setClosing] = useState(false)
@@ -70,6 +74,7 @@ export function Showcase({ events, humanIndex, players, onHiddenIdsChange, onCar
   // ne flashe pas une frame avant d'être caché.
   useLayoutEffect(() => {
     if (current) return
+    if (hold) return // splash « À vous de jouer » en cours : on retient les révélations
     let next = cursor
     while (next < events.length) {
       const ev = events[next]
@@ -78,7 +83,7 @@ export function Showcase({ events, humanIndex, players, onHiddenIdsChange, onCar
       // Exceptions toujours montrées : les « défausses » (dont le Vanquish) et les
       // Héros qui « volent » vers un lieu (destination).
       const isHumanOwnCard =
-        !ev.discard && !ev.destination && !ev.reveal && ev.playerIndex === humanIndex
+        !ev.discard && !ev.destination && !ev.reveal && !ev.forceShow && ev.playerIndex === humanIndex
       if (isHumanOwnCard) {
         next++
         continue
@@ -90,7 +95,7 @@ export function Showcase({ events, humanIndex, players, onHiddenIdsChange, onCar
       return
     }
     if (next !== cursor) setCursor(next)
-  }, [events, cursor, current, humanIndex])
+  }, [events, cursor, current, humanIndex, hold])
 
   // 2) Programmer la fermeture quand un événement est affiché.
   // useLayoutEffect pour la NOTIFICATION (cacher la carte avant la peinture),
@@ -304,9 +309,8 @@ export function Showcase({ events, humanIndex, players, onHiddenIdsChange, onCar
   const isHuman = current.playerIndex === humanIndex
   const playerVillain = players[current.playerIndex]?.villain
   const villainColor = (playerVillain && VILLAIN_COLOR[playerVillain]) ?? '#ffffff'
-  const gradient = isHuman
-    ? `linear-gradient(90deg, #38bdf8, #818cf8, ${villainColor}, #38bdf8)`
-    : `linear-gradient(90deg, #f87171, #fb923c, ${villainColor}, #f87171)`
+  // Bordure animée : couleur du vilain ↔ noir (même dégradé pour les deux camps).
+  const gradient = `linear-gradient(90deg, ${villainColor}, #000000, ${villainColor}, #000000)`
 
   // ---- Variante « révélation à suspense » : Une Petite Partie ? — les cartes se
   // dévoilent une à une, le coût total s'incrémente puis scintille, enfin le badge.
@@ -365,6 +369,9 @@ export function Showcase({ events, humanIndex, players, onHiddenIdsChange, onCar
   const dx = flying ? flyDelta!.dx : 0
   const dy = flying ? flyDelta!.dy : 0
   const opacity = closing && !flying ? 0 : flying ? 0.1 : 1
+  // Révélation de Combattant (Sumbra / Kilaire) : `combattantExtras` est TOUJOURS défini pour
+  // ces showcases (liste vide s'il n'y a pas d'extra) → sert à distinguer d'une carte normale.
+  const isCombattant = current.combattantExtras !== undefined
 
   return (
     <div key="showcase-card" className="pointer-events-none fixed inset-0 z-[60]">
@@ -397,16 +404,52 @@ export function Showcase({ events, humanIndex, players, onHiddenIdsChange, onCar
               ✕
             </button>
           )}
-          {/* aspect-ratio fixe : la largeur est connue AVANT le chargement de
-              l'image → plus de décalage du showcase quand l'image se charge. */}
-          <img
-            src={def.image}
-            alt={def.name}
-            className="h-[28rem] w-auto rounded-lg object-contain"
-            style={{ aspectRatio: '63 / 88' }}
-          />
-          {/* Animation « +N JT » quand la carte fait gagner du pouvoir. */}
-          {current.gainedPower ? (
+          {/* Combattants (Sumbra / Kilaire) : révélation GROUPÉE en GRILLE (3 par ligne), tous
+              affichés d'un coup — le revenu de début de tour ne défile plus un par un. Chaque
+              carte porte ses pastilles (esprits / Pouvoir). Les cartes NON-Combattant gardent
+              l'image unique en grand. */}
+          {isCombattant ? (() => {
+            // Liste unifiée : principale (pastilles portées par le showcase) + extras.
+            const cards = [
+              { cardId: current.cardId, spiritDelta: current.combattantSpiritDelta, powerDelta: current.combattantPowerDelta },
+              ...(current.combattantExtras ?? []).map((ex) => ({ cardId: ex.cardId, spiritDelta: ex.spiritDelta, powerDelta: ex.powerDelta })),
+            ]
+            // Taille adaptée au nombre : 1 → très grande ; 2 → grande ; ≥3 → grille 3 par ligne.
+            const n = cards.length
+            const imgH = n === 1 ? 'h-[26rem]' : n === 2 ? 'h-80' : 'h-52'
+            return (
+              <div className="flex flex-wrap items-center justify-center gap-3" style={{ maxWidth: n >= 3 ? '34rem' : undefined }}>
+                {cards.map((c, i) => {
+                  const cd = getCardDef(c.cardId)
+                  if (!cd?.image) return null
+                  const sun = cd.spiritSun ?? 0
+                  const moon = cd.spiritMoon ?? 0
+                  const border = sun > moon ? '#3014ff' : moon > sun ? '#7a002f' : '#9ca3af'
+                  return (
+                    <div key={`${c.cardId}-${i}`} className="relative" style={{ animation: 'combattantAppear 300ms ease-out both' }}>
+                      <img
+                        src={cd.image}
+                        alt={cd.name}
+                        className={`${imgH} w-auto rounded-lg border-4 object-contain`}
+                        style={{ aspectRatio: '63 / 88', borderColor: border }}
+                      />
+                      {c.spiritDelta !== undefined ? <SpiritBadge n={c.spiritDelta} camp={current.combattantCamp} /> : null}
+                      {c.powerDelta ? <PowerBadge n={c.powerDelta} /> : null}
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })() : (
+            <img
+              src={def.image}
+              alt={def.name}
+              className="h-[28rem] w-auto rounded-lg object-contain"
+              style={{ aspectRatio: '63 / 88' }}
+            />
+          )}
+          {/* Cartes NON-Combattant (Événement/Condition) : pastille « +N JT » au coin de la boîte. */}
+          {!isCombattant && current.gainedPower ? (
             <div
               className="pointer-events-none absolute -top-5 right-1 z-20"
               style={{ animation: 'powerPop 700ms cubic-bezier(0.34,1.56,0.64,1) both, powerFloat 1.8s ease-in-out 700ms infinite' }}
@@ -422,7 +465,53 @@ export function Showcase({ events, humanIndex, players, onHiddenIdsChange, onCar
       <style>{`
         @keyframes showcaseIn { from { transform: translate(-50%, -50%) scale(0.85); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
         @keyframes showcaseBorder { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+        @keyframes combattantAppear { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
       `}</style>
+    </div>
+  )
+}
+
+/** Pastille animée de variation de Pouvoir posée au coin supérieur droit de la carte parente
+ *  (le parent doit être `relative`). `n` SIGNÉ : gain → « +N 🪙 » (or), perte → « −N 🪙 » (rouge).
+ *  Utilisée sur chaque Combattant révélé dont le Pouvoir varie (⚡ Décharge). */
+function PowerBadge({ n }: { n: number }) {
+  const gain = n > 0
+  return (
+    <div
+      className="pointer-events-none absolute -right-2 -top-3 z-20"
+      style={{ animation: 'powerPop 700ms cubic-bezier(0.34,1.56,0.64,1) both, powerFloat 1.8s ease-in-out 700ms infinite' }}
+    >
+      <span
+        className={`flex items-center gap-1 rounded-full px-3 py-1 text-2xl font-black shadow-lg ring-2 ${
+          gain ? 'bg-amber-400 text-amber-950 ring-amber-200' : 'bg-rose-500 text-rose-50 ring-rose-300'
+        }`}
+      >
+        {gain ? `+${n}` : `−${Math.abs(n)}`}
+        <img src="/jeton_pouvoir.png" alt="pouvoir" className="h-6 w-6 object-contain drop-shadow" />
+      </span>
+    </div>
+  )
+}
+
+/** Pastille animée d'ESPRITS posée au coin supérieur GAUCHE de la carte parente (`relative`).
+ *  `n` SIGNÉ : gain → « +N », perte → « −N », suivi de l'emoji du camp du joueur (🌑 Sumbra /
+ *  ☀️ Kilaire), sur fond teinté camp (bordeaux moon / bleu sun). */
+function SpiritBadge({ n, camp }: { n: number; camp?: 'sun' | 'moon' }) {
+  const isSun = camp === 'sun'
+  const bg = isSun ? '#3014ff' : '#7a002f'
+  const emoji = isSun ? '☀️' : '🌑'
+  return (
+    <div
+      className="pointer-events-none absolute -left-2 -top-3 z-20"
+      style={{ animation: 'powerPop 700ms cubic-bezier(0.34,1.56,0.64,1) both, powerFloat 1.8s ease-in-out 700ms infinite' }}
+    >
+      <span
+        className="flex items-center gap-1 rounded-full px-3 py-1 text-2xl font-black text-white shadow-lg ring-2 ring-white/40"
+        style={{ backgroundColor: bg }}
+      >
+        {n >= 0 ? `+${n}` : `−${Math.abs(n)}`}
+        <span className="text-xl leading-none drop-shadow">{emoji}</span>
+      </span>
     </div>
   )
 }

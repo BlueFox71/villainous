@@ -110,6 +110,12 @@ export function registerCustomCardDefs(defs: CardDef[]): void {
   for (const d of defs) customById[d.id] = d
 }
 
+/** Toutes les CardDef de vilains PERSONNALISÉS actuellement enregistrées (surcouche runtime).
+ *  Utile pour indexer par NOM des cartes absentes de `allCards` (ex. Combattants custom). */
+export function customCardDefs(): CardDef[] {
+  return Object.values(customById)
+}
+
 /** Résout une CardDef depuis son cardId (toutes vilains confondus, persos inclus).
  *  Renvoie undefined si la carte est inconnue (typiquement une carte « truquée »
  *  dans les tests qui n'a pas de fiche). */

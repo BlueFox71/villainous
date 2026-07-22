@@ -378,7 +378,13 @@ function savePublishedVillainPlugin(): Plugin {
         req.on('data', (c) => { body += c })
         req.on('end', () => {
           try {
-            const { id, json } = JSON.parse(body) as { id: string; json: string }
+            // Deux protocoles (comme /__save-villain-backup) :
+            //  - LÉGER (courant) : id en query, corps = JSON BRUT du vilain. Le client évite ainsi
+            //    un 2e JSON.stringify (~des dizaines de Mo de base64 sur les gros decks) → pic
+            //    mémoire qui faisait planter l'onglet à la publication (OOM).
+            //  - COMPAT : corps = { id, json }.
+            const qid = new URL(req.url ?? '', 'http://localhost').searchParams.get('id')
+            const { id, json } = qid ? { id: qid, json: body } : (JSON.parse(body) as { id: string; json: string })
             if (typeof id !== 'string' || typeof json !== 'string') throw new Error('payload invalide')
             const safe = id.replace(/[^a-z0-9_-]+/gi, '-')
             const dest = resolve(PUBLISHED, `${safe}.json`)

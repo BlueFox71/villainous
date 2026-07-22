@@ -586,15 +586,19 @@ export function BoardTab({
         <BoardPreview v={draft} onChangeLocks={(boardLocks) => patch({ boardLocks })} coverMode={coverMode} />
       </div>
 
-      {!variant && (
+      {/* Cadenas décoratifs = STRUCTURE (base uniquement). Le « Mode recouvrement » est en
+          revanche de la PRÉSENTATION : une variante a sa propre couleur, donc son propre
+          recouvrement → toujours éditable, y compris en variante. */}
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={addBoardLock}
-          className="rounded-lg border border-amber-300/50 bg-amber-400/10 px-3 py-1.5 text-sm font-semibold text-amber-200 transition hover:bg-amber-400/20"
-        >
-          🔒 Ajouter un cadenas
-        </button>
+        {!variant && (
+          <button
+            type="button"
+            onClick={addBoardLock}
+            className="rounded-lg border border-amber-300/50 bg-amber-400/10 px-3 py-1.5 text-sm font-semibold text-amber-200 transition hover:bg-amber-400/20"
+          >
+            🔒 Ajouter un cadenas
+          </button>
+        )}
         {/* Mode recouvrement : bascule l'aperçu du voile + pastille de couleur modifiable. */}
         <div
           className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-semibold transition ${
@@ -624,19 +628,20 @@ export function BoardTab({
             />
           </label>
         </div>
-        <span className="text-xs text-white/45">
-          Cadenas décoratif posé librement : glisse-le pour le placer, la poignée du coin pour le
-          redimensionner, la croix pour le retirer. (Indépendant du cadenas automatique des lieux
-          verrouillés.)
-        </span>
+        {!variant && (
+          <span className="text-xs text-white/45">
+            Cadenas décoratif posé librement : glisse-le pour le placer, la poignée du coin pour le
+            redimensionner, la croix pour le retirer. (Indépendant du cadenas automatique des lieux
+            verrouillés.)
+          </span>
+        )}
       </div>
-      )}
 
       <p className="text-xs text-white/45">
         {variant ? (
           <>Variante liée : seuls le <strong>nom</strong> et l’<strong>image</strong> des lieux (plus
-          l’art du vilain et le pion) sont modifiables. Les actions, l’objectif et les verrous
-          viennent de la base.</>
+          l’art du vilain, le pion et la <strong>couleur de recouvrement</strong>) sont modifiables.
+          Les actions, l’objectif et les verrous viennent de la base.</>
         ) : (
           <>Le plateau est <strong>généré</strong> à partir du gabarit neutre « Realm » : couleur du
           vilain, illustrations de lieux et icônes d’action. Ajoute une image par lieu ci-dessous.</>

@@ -25,6 +25,7 @@ import {
 import { villainsBackground } from '../villainColors'
 import { VILLAIN_REGISTRY, type VillainKey } from '../store/gameStore'
 import { Scroller } from '../components/Scroller'
+import { SplitPortrait } from '../components/SplitPortrait'
 import { Field, TextField, ColorField, ImageField, AudioField, SelectField } from '../editor/fields'
 import { BoardTab } from '../editor/BoardTab'
 import { CardsTab } from '../editor/CardsTab'
@@ -313,57 +314,6 @@ function ExtraBackSection({
         Ce dos s’applique aux cartes de tes paquets personnalisés (hors decks Vilain et
         Fatalité).
       </p>
-    </div>
-  )
-}
-
-// --- Portrait combiné base + variante (liste) -------------------------------
-
-/** Portrait « partagé » d'une base et de sa variante liée, coupé en diagonale
- *  (base en haut-gauche, variante en bas-droite) avec un fin trait séparateur.
- *  Utilisé dans la liste de l'Atelier pour représenter le couple en une seule carte. */
-function SplitPortrait({ base, variant }: { base: CustomVillain; variant: CustomVillain }) {
-  // Moitié survolée : au survol, on affiche l'image COMPLÈTE de ce côté (le triangle
-  // survolé s'étend à tout le carré) ; sinon les deux moitiés diagonales cohabitent.
-  const [hover, setHover] = useState<null | 'base' | 'variant'>(null)
-  // Côté visé d'après la position de la souris, de part et d'autre de la diagonale « / »
-  // (coin haut-droit ↔ coin bas-gauche = ligne x + y = 1). base = triangle haut-gauche.
-  const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const r = e.currentTarget.getBoundingClientRect()
-    const x = (e.clientX - r.left) / r.width
-    const y = (e.clientY - r.top) / r.height
-    setHover(x + y < 1 ? 'base' : 'variant')
-  }
-  // Découpe de chaque moitié : triangle par défaut, carré plein pour la moitié survolée
-  // (l'autre est réduite à néant pour laisser voir l'image complète).
-  const EMPTY = 'polygon(0 0, 0 0, 0 0)'
-  const FULL = 'polygon(0 0, 100% 0, 100% 100%, 0 100%)'
-  const baseClip = hover === 'base' ? FULL : hover === 'variant' ? EMPTY : 'polygon(0 0, 100% 0, 0 100%)'
-  const variantClip = hover === 'variant' ? FULL : hover === 'base' ? EMPTY : 'polygon(100% 0, 100% 100%, 0 100%)'
-  const half = (v: CustomVillain, clip: string) =>
-    v.portrait ? (
-      <img src={v.portrait} alt={v.name} className="absolute inset-0 h-full w-full object-cover" style={{ clipPath: clip }} />
-    ) : (
-      <div
-        className="absolute inset-0 flex items-center justify-center text-4xl text-white/30"
-        style={{ clipPath: clip, backgroundColor: v.color }}
-      >
-        🎭
-      </div>
-    )
-  return (
-    <div
-      className="relative aspect-square w-full overflow-hidden"
-      style={{ backgroundColor: base.color }}
-      onMouseMove={onMove}
-      onMouseLeave={() => setHover(null)}
-    >
-      {half(base, baseClip)}
-      {half(variant, variantClip)}
-      {/* Trait séparateur diagonal (coin haut-droit ↔ coin bas-gauche), masqué au survol. */}
-      {hover === null && (
-        <div className="pointer-events-none absolute left-1/2 top-1/2 h-px w-[142%] -translate-x-1/2 -translate-y-1/2 -rotate-45 bg-white/40" />
-      )}
     </div>
   )
 }
@@ -887,10 +837,13 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
     // de dév (apply: 'serve').
     let sharedMsg = ''
     try {
-      const res = await fetch('/__publish-villain', {
+      // Protocole LÉGER : id en query, corps = JSON BRUT du vilain (UN SEUL stringify). Le 2e
+      // JSON.stringify (qui ré-échapperait ~des dizaines de Mo de base64 sur les gros decks)
+      // faisait planter l'onglet (OOM) à la publication. cf. handler /__publish-villain.
+      const res = await fetch(`/__publish-villain?id=${encodeURIComponent(baked.id)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: baked.id, json: JSON.stringify(baked) }),
+        body: JSON.stringify(baked),
       })
       if (res.ok) sharedMsg = '\n\nEmbarqué dans l’app (src/data/published/) — committe + redéploie pour le rendre disponible à tous.'
     } catch {
@@ -1199,7 +1152,10 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
                           style={{ backgroundColor: base.color }}
                         >
                           {variant ? (
-                            <SplitPortrait base={base} variant={variant} />
+                            <SplitPortrait
+                              a={{ image: base.portrait, name: base.name, color: base.color }}
+                              b={{ image: variant.portrait, name: variant.name, color: variant.color }}
+                            />
                           ) : base.portrait ? (
                             <img src={base.portrait} alt={base.name} className="h-full w-full object-cover" />
                           ) : (
@@ -1297,10 +1253,11 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
               ['identity', 'Identité'],
               ['board', 'Plateau'],
               ['cards', `Cartes (${draft.cards.length})`],
-              // Onglets NON pertinents pour une variante (quantité + stratégie = déck/mécaniques,
-              // hérités de la base) : masqués en mode variante.
+              // Onglets NON pertinents pour une variante (quantité + Codage + Bot adverse =
+              // déck/mécaniques, hérités de la base) : masqués en mode variante. Le JOURNAL,
+              // lui, reste utile (aperçu avec le nom/couleur de la variante) → toujours visible.
               ...(isVariant
-                ? []
+                ? ([['journal', 'Journal']] as [Tab, string][])
                 : ([
                     ['quantity', complete ? 'Quantité ✓' : 'Quantité'],
                     ['strategy', 'Codage Cartes'],
@@ -1432,9 +1389,9 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
                 </div>
               )}
               {tab === 'quantity' && <QuantityTab draft={draft} patch={patch} />}
-              {tab === 'strategy' && <StrategyTab draft={draft} patch={patch} variant="coding" />}
-              {tab === 'botplay' && <StrategyTab draft={draft} patch={patch} variant="botPlay" />}
-              {tab === 'journal' && <StrategyTab draft={draft} patch={patch} variant="journal" />}
+              {tab === 'strategy' && <StrategyTab draft={draft} variant="coding" />}
+              {tab === 'botplay' && <StrategyTab draft={draft} variant="botPlay" />}
+              {tab === 'journal' && <StrategyTab draft={draft} variant="journal" />}
             </div>
           </Scroller>
         </div>

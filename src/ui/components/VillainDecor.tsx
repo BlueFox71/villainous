@@ -558,7 +558,7 @@ function VideoDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'video
     }
     const onEnded = () => {
       v.currentTime = 0
-      void v.play()
+      void v.play().catch(() => {}) // best-effort (autoplay possiblement bloqué)
       fadingOut = false
       f.style.transitionDuration = `${FADE_IN}s`
       f.style.opacity = '0' // refondu depuis le noir
@@ -7495,6 +7495,477 @@ function FelGateDecor() {
   )
 }
 
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// SURPRISE PARTAGÉE Sumbra/Killaire : les ESPRITS LIBÉRÉS qui FLOTTENT et s'élèvent depuis le BAS de
+// la colonne (World of Light : Galeem/Dharkon vaincu relâche les combattants capturés en esprits). Les
+// têtes-esprits (images `spirit-1..17.png`, aura arc-en-ciel) montent en fondu et bercent puis se
+// dissipent. Apparaissent EN BAS (visible ; le plateau opaque masque le centre). Surprise
+// minutée + déclenchable en test (fireRef). Utilisée par RiftDecor (Sumbra) ET RadianceDecor (Killaire).
+// ---------------------------------------------------------------------------
+const SPIRIT_IMAGES = Array.from({ length: 17 }, (_, i) => `/animations/spirit-${i + 1}.png`)
+const SPIRITS_TEST = false // true → cadence accélérée (~8–12 s) pour régler
+const SPIRITS_COUNT = 14 // nb d'esprits relâchés par envol
+const SPIRITS_DURATION_MS = 12500 // durée d'un envol (≥ delay max + dur max des keyframes)
+const SPIRITS_GAP_MIN_MS = SPIRITS_TEST ? 8000 : 90000 // 1 min 30
+const SPIRITS_GAP_MAX_MS = SPIRITS_TEST ? 12000 : 200000 // ~3 min 20
+
+type SpiritItem = {
+  img: string; left: number; size: number; top: number; rise: number
+  sway: number; r0: number; r1: number; dur: number; delay: number; op: number
+}
+
+function SpiritsSurprise({ fireRef }: { fireRef: React.MutableRefObject<() => void> }) {
+  const [swarm, setSwarm] = useState<SpiritItem[] | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let clear: ReturnType<typeof setTimeout>
+    let next: ReturnType<typeof setTimeout>
+    const fire = () => {
+      // Images tirées SANS REMISE (mélange puis on prend SPIRITS_COUNT des 17) → aucun doublon d'image
+      // dans un même envol.
+      const pool = [...SPIRIT_IMAGES]
+      for (let k = pool.length - 1; k > 0; k--) {
+        const j = Math.floor(Math.random() * (k + 1))
+        ;[pool[k], pool[j]] = [pool[j], pool[k]]
+      }
+      const items: SpiritItem[] = Array.from({ length: SPIRITS_COUNT }, (_, i) => {
+        const size = 4.5 + Math.random() * 4.5 // vh (hauteur de l'esprit)
+        const top = 78 + Math.random() * 16 // % (apparaît EN BAS de la colonne ; ≈ top vh, colonne pleine hauteur)
+        return {
+          img: pool[i],
+          left: 3 + Math.random() * 88, // % (réparti sur la largeur)
+          size,
+          top,
+          // Montée = distance du bas (top vh) + sa propre taille + marge → chaque esprit SORT complètement
+          // par le haut (sinon fill-mode `both` le figerait encore à l'écran = « bloqué »).
+          rise: top + size + 14 + Math.random() * 10, // vh
+          sway: (Math.random() - 0.5) * 8, // vw (balancement latéral au milieu de la montée)
+          r0: (Math.random() - 0.5) * 16, // deg (inclinaison de départ/arrivée)
+          r1: (Math.random() - 0.5) * 20, // deg (inclinaison au milieu)
+          dur: 5 + Math.random() * 4, // s (montée lente et flottante)
+          delay: Math.random() * 2.5, // s (entrée étagée → ils montent en désordre)
+          op: 0.75 + Math.random() * 0.25,
+        }
+      })
+      setSwarm(items)
+      clear = setTimeout(() => setSwarm(null), SPIRITS_DURATION_MS)
+    }
+    const schedule = (delay: number) => {
+      next = setTimeout(() => {
+        fire()
+        schedule(SPIRITS_GAP_MIN_MS + Math.random() * (SPIRITS_GAP_MAX_MS - SPIRITS_GAP_MIN_MS))
+      }, delay)
+    }
+    schedule(45000 + Math.random() * 40000) // 1re apparition entre 45 s et ~1 min 25
+    fireRef.current = fire // MODE TEST : relâche les esprits à la demande.
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [fireRef])
+  if (!swarm) return null
+  return (
+    <div className="spirits-swarm" aria-hidden>
+      {swarm.map((s, i) => (
+        <span
+          key={`spirit-${i}`}
+          className="spirit-float"
+          style={
+            {
+              left: `${s.left}%`,
+              top: `${s.top}%`,
+              '--sz': `${s.size}vh`,
+              '--rise': `${s.rise}vh`,
+              '--sway': `${s.sway}vw`,
+              '--r0': `${s.r0}deg`,
+              '--r1': `${s.r1}deg`,
+              '--sop': s.op,
+              animationDuration: `${s.dur}s`,
+              animationDelay: `${s.delay}s`,
+            } as CSSProperties
+          }
+        >
+          {/* Traînée arc-en-ciel laissée en montant (s'estompe vers le bas, derrière l'esprit). */}
+          <span className="spirit-trail" />
+          <img className="spirit-img" src={s.img} alt="" style={{ height: `${s.size}vh` }} />
+        </span>
+      ))}
+    </div>
+  )
+}
+
+// Décor permanent : SUMBRA (Dharkon — SSBU « La Lueur du Monde »), kind `rift`.
+// LES TÉNÈBRES BRISENT LE MONDE. Fond d'abîme noir-violet + vignette lourde, une LUEUR
+// centrale rouge-violet qui pulse (l'œil de Dharkon), et surtout des FISSURES DENSES qui
+// apparaissent EN CONTINU : chacune se TRACE (stroke-dashoffset), luit un moment puis s'efface
+// et renaît, réparties dans TOUTES LES DIRECTIONS (SVG pivoté d'un angle aléatoire). Le tracé
+// fractal réutilise `buildBolt` (comme les éclairs de Tabbou/Flagelleur) — une fissure = un
+// éclair figé, trait NOIR (la déchirure du Vide) cerné d'un liseré violet lumineux. Du VIDE suinte du bas (volutes
+// violettes, réutilise `vaporRise`) et une POUSSIÈRE d'esprits violette/rouge dérive (réutilise
+// `.voodoo-mote-*`). 100 % CSS.
+// ---------------------------------------------------------------------------
+const RIFT_CRACKS = 26 // fissures qui apparaissent/disparaissent en continu (dense)
+const RIFT_VAPOR = 16 // volutes de Vide qui suintent du bas
+const RIFT_VAPOR_DUR = 12 // s (sert à étager les départs → colonnes continues)
+const RIFT_MOTES = 42 // poussière d'esprits qui dérive
+// Teinte de la vapeur du Vide (radial posé en inline) : violet sombre.
+const RIFT_VAPOR_VIOLET =
+  'radial-gradient(circle, rgba(180, 90, 255, 0.42) 0%, rgba(120, 40, 210, 0.24) 45%, rgba(60, 15, 110, 0) 72%)'
+// Couleurs de la poussière d'esprits : violet du Vide (majorité) + éclats rouges de Dharkon (accent).
+const RIFT_MOTE_VIOLET = ['#c98bff', '#b164ff', '#e0b0ff', '#a24dff']
+const RIFT_MOTE_RED = ['#ff5a7a', '#ff2b4a', '#ff8098']
+const RIFT_SHOTS = 5 // TIRS de Vide horizontaux qui filent de gauche à droite (violets — les faisceaux de Dharkon)
+
+function RiftDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
+  // Fissures : tracé fractal figé + rotation aléatoire (toutes directions), chacune sur son cycle
+  // (durée/délai variés → elles apparaissent et disparaissent en continu, jamais toutes ensemble).
+  // Figées au montage.
+  const [cracks] = useState(() =>
+    Array.from({ length: RIFT_CRACKS }, () => {
+      const dur = 7 + Math.random() * 8 // s
+      return {
+        d: buildBolt(),
+        left: Math.random() * 100, // % (centre de la boîte)
+        top: -6 + Math.random() * 112, // %
+        w: 12 + Math.random() * 20, // vh (boîte de la fissure)
+        h: 20 + Math.random() * 32, // vh
+        rot: Math.random() * 360, // deg (toutes directions)
+        dur,
+        delay: -(Math.random() * dur), // s (déphasées → dense dès le montage)
+      }
+    }),
+  )
+  // Volutes de Vide qui montent du bas (réutilise `vaporRise`), étagées → colonnes continues. Figées.
+  const [vapor] = useState(() =>
+    Array.from({ length: RIFT_VAPOR }, (_, i) => ({
+      left: Math.random() * 100, // %
+      size: 13 + Math.random() * 16, // vh
+      dur: RIFT_VAPOR_DUR + Math.random() * 6, // s
+      delay: -((i / RIFT_VAPOR) * RIFT_VAPOR_DUR) - Math.random() * 2, // s (étagé → colonne dense)
+      sx: (Math.random() - 0.5) * 12, // vw (enroulement latéral)
+      op: 0.12 + Math.random() * 0.16,
+    })),
+  )
+  // Poussière d'esprits qui s'élève en ondulant et scintillant (réutilise les motes de Facilier :
+  // enveloppe = montée, milieu = ondulation, pastille = scintillement). Majorité violette, accent rouge.
+  const [motes] = useState(() =>
+    Array.from({ length: RIFT_MOTES }, () => {
+      const red = Math.random() < 0.22
+      const palette = red ? RIFT_MOTE_RED : RIFT_MOTE_VIOLET
+      return {
+        left: Math.random() * 100, // %
+        size: 1.6 + Math.random() * 3, // px
+        dur: 9 + Math.random() * 9, // s (montée lente)
+        delay: -(Math.random() * 18), // s
+        sway: 2 + Math.random() * 5, // vw
+        swayDur: 3 + Math.random() * 3, // s
+        twkDur: 1.6 + Math.random() * 2, // s
+        twkDelay: -(Math.random() * 3), // s
+        op: 0.4 + Math.random() * 0.5,
+        color: palette[Math.floor(Math.random() * palette.length)],
+      }
+    }),
+  )
+  // TIRS de Vide horizontaux qui filent de GAUCHE À DROITE (les faisceaux de Dharkon). Trait violet
+  // (tête à droite, traîne à gauche) qui FILE vite en travers puis reste parqué hors champ (dart bref +
+  // pause → tirs répétés, déphasés). Hauteur ALÉATOIRE (ceux à mi-hauteur passent derrière le plateau).
+  const [shots] = useState(() =>
+    Array.from({ length: RIFT_SHOTS }, () => {
+      const dur = 2.6 + Math.random() * 2.6 // s (cycle : le tir lui-même est bref → rapide + pause)
+      const len = 22 + Math.random() * 20 // % de la largeur de colonne (longueur du trait)
+      return {
+        top: 3 + Math.random() * 92, // % (hauteur aléatoire sur toute la colonne)
+        len,
+        thick: 0.18 + Math.random() * 0.42, // vh (trait très fin, façon laser)
+        dur,
+        delay: -(Math.random() * dur), // s (déphasé → tirs étalés dès le montage)
+        op: 0.75 + Math.random() * 0.25,
+      }
+    }),
+  )
+  return (
+    <div className="rift-decor" aria-hidden>
+      {/* Œil de Dharkon : lueur centrale rouge-violet qui pulse. */}
+      <div className="rift-glow" />
+      {/* Poussière d'esprits qui monte (montée > ondulation > scintillement). */}
+      {motes.map((m, i) => (
+        <span
+          key={`rmote-${i}`}
+          className="voodoo-mote-rise"
+          style={{ left: `${m.left}%`, animationDuration: `${m.dur}s`, animationDelay: `${m.delay}s` }}
+        >
+          <span
+            className="voodoo-mote-sway"
+            style={{ animationDuration: `${m.swayDur}s`, animationDelay: `${m.delay}s`, '--sway': `${m.sway}vw` } as CSSProperties}
+          >
+            <span
+              className="voodoo-mote"
+              style={{
+                width: `${m.size}px`,
+                height: `${m.size}px`,
+                opacity: m.op,
+                background: m.color,
+                animationDuration: `${m.twkDur}s`,
+                animationDelay: `${m.twkDelay}s`,
+                '--mote-color': m.color,
+              } as CSSProperties}
+            />
+          </span>
+        </span>
+      ))}
+      {/* Volutes de Vide qui suintent du bas. */}
+      {vapor.map((p, i) => (
+        <span
+          key={`rvap-${i}`}
+          className="rift-vapor"
+          style={{
+            left: `${p.left}%`,
+            width: `${p.size}vh`,
+            height: `${p.size}vh`,
+            background: RIFT_VAPOR_VIOLET,
+            animationDuration: `${p.dur}s`,
+            animationDelay: `${p.delay}s`,
+            '--sx': `${p.sx}vw`,
+            '--vop': p.op,
+          } as CSSProperties}
+        />
+      ))}
+      {/* Fissures denses qui apparaissent/disparaissent en continu (dans toutes les directions). */}
+      {cracks.map((c, i) => (
+        <div
+          key={`crack-${i}`}
+          className="rift-crack"
+          style={
+            {
+              left: `${c.left}%`,
+              top: `${c.top}%`,
+              width: `${c.w}vh`,
+              height: `${c.h}vh`,
+              transform: `translate(-50%, -50%) rotate(${c.rot}deg)`,
+              '--dur': `${c.dur}s`,
+              '--delay': `${c.delay}s`,
+            } as CSSProperties
+          }
+        >
+          <svg className="rift-crack-svg" viewBox="0 0 100 200" preserveAspectRatio="none">
+            <path className="rift-crack-halo" d={c.d} pathLength={100} />
+            <path className="rift-crack-core" d={c.d} pathLength={100} />
+          </svg>
+        </div>
+      ))}
+      {/* Tirs de Vide violets qui filent de gauche à droite (les faisceaux de Dharkon). */}
+      {shots.map((s, i) => (
+        <span
+          key={`rshot-${i}`}
+          className="rift-shot"
+          style={
+            {
+              top: `${s.top}%`,
+              width: `${s.len}%`,
+              height: `${s.thick}vh`,
+              '--beam-op': s.op,
+              animationDuration: `${s.dur}s`,
+              animationDelay: `${s.delay}s`,
+            } as CSSProperties
+          }
+        />
+      ))}
+      {/* SURPRISE : les esprits libérés qui s'élèvent depuis le bas. */}
+      <SpiritsSurprise fireRef={fireRef} />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Décor permanent : KILLAIRE (Galeem — SSBU « La Lueur du Monde »), kind `radiance`.
+// LE MIROIR LUMINEUX du `rift` de Sumbra. LA LUMIÈRE SUBMERGE LE MONDE. Fond blanc-doré
+// éblouissant + vignette CLAIRE, une LUEUR centrale blanc-or qui pulse (le cœur de Galeem), et
+// surtout des RAYONS DENSES qui jaillissent EN CONTINU : chacun se TRACE (stroke-dashoffset), éclate
+// un moment puis s'estompe et renaît, répartis dans TOUTES LES DIRECTIONS (SVG pivoté d'un angle
+// aléatoire). Le tracé réutilise `buildBolt` (comme les fissures de Sumbra), mais cœur BLANC lumineux
+// cerné d'un liseré doré (exact négatif de la fissure noire à liseré violet). De la LUMIÈRE dorée
+// monte du bas (volutes, réutilise `vaporRise`) et une POUSSIÈRE d'esprits or/blanc/bleu dérive
+// (réutilise `.voodoo-mote-*` ; accents BLEUS = la couleur de Killaire). 100 % CSS.
+// ---------------------------------------------------------------------------
+const RADIANCE_RAYS = 26 // rayons de lumière qui jaillissent/s'estompent en continu (dense)
+const RADIANCE_VAPOR = 16 // volutes de lumière qui montent du bas
+const RADIANCE_VAPOR_DUR = 12 // s (sert à étager les départs → colonnes continues)
+const RADIANCE_MOTES = 42 // poussière d'esprits qui dérive
+const RADIANCE_SHOTS = 5 // TIRS de lumière horizontaux qui filent de droite à gauche (faisceaux de Galeem)
+// Teinte de la vapeur de lumière (radial posé en inline) : blanc-doré chaud.
+const RADIANCE_VAPOR_GOLD =
+  'radial-gradient(circle, rgba(255, 240, 190, 0.5) 0%, rgba(255, 210, 110, 0.26) 45%, rgba(255, 180, 60, 0) 72%)'
+// Couleurs de la poussière d'esprits : or/blanc de la Lumière (majorité) + éclats bleus de Killaire (accent).
+const RADIANCE_MOTE_GOLD = ['#fff3c0', '#ffe08a', '#ffd257', '#fffbe6']
+const RADIANCE_MOTE_BLUE = ['#8ea6ff', '#5d74ff', '#b6c6ff']
+
+function RadianceDecor() {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
+  // Rayons : tracé fractal figé + rotation aléatoire (toutes directions), chacun sur son cycle
+  // (durée/délai variés → ils jaillissent et s'estompent en continu, jamais tous ensemble). Figés au montage.
+  const [rays] = useState(() =>
+    Array.from({ length: RADIANCE_RAYS }, () => {
+      const dur = 7 + Math.random() * 8 // s
+      return {
+        d: buildBolt(),
+        left: Math.random() * 100, // % (centre de la boîte)
+        top: -6 + Math.random() * 112, // %
+        w: 12 + Math.random() * 20, // vh (boîte du rayon)
+        h: 20 + Math.random() * 32, // vh
+        rot: Math.random() * 360, // deg (toutes directions)
+        dur,
+        delay: -(Math.random() * dur), // s (déphasés → dense dès le montage)
+      }
+    }),
+  )
+  // Volutes de lumière qui montent du bas (réutilise `vaporRise`), étagées → colonnes continues. Figées.
+  const [vapor] = useState(() =>
+    Array.from({ length: RADIANCE_VAPOR }, (_, i) => ({
+      left: Math.random() * 100, // %
+      size: 13 + Math.random() * 16, // vh
+      dur: RADIANCE_VAPOR_DUR + Math.random() * 6, // s
+      delay: -((i / RADIANCE_VAPOR) * RADIANCE_VAPOR_DUR) - Math.random() * 2, // s (étagé → colonne dense)
+      sx: (Math.random() - 0.5) * 12, // vw (enroulement latéral)
+      op: 0.12 + Math.random() * 0.16,
+    })),
+  )
+  // Poussière d'esprits qui s'élève en ondulant et scintillant (réutilise les motes de Facilier).
+  // Majorité or/blanc, accent bleu (la couleur de Killaire).
+  const [motes] = useState(() =>
+    Array.from({ length: RADIANCE_MOTES }, () => {
+      const blue = Math.random() < 0.22
+      const palette = blue ? RADIANCE_MOTE_BLUE : RADIANCE_MOTE_GOLD
+      return {
+        left: Math.random() * 100, // %
+        size: 1.6 + Math.random() * 3, // px
+        dur: 9 + Math.random() * 9, // s (montée lente)
+        delay: -(Math.random() * 18), // s
+        sway: 2 + Math.random() * 5, // vw
+        swayDur: 3 + Math.random() * 3, // s
+        twkDur: 1.6 + Math.random() * 2, // s
+        twkDelay: -(Math.random() * 3), // s
+        op: 0.4 + Math.random() * 0.5,
+        color: palette[Math.floor(Math.random() * palette.length)],
+      }
+    }),
+  )
+  // TIRS de lumière horizontaux qui filent de DROITE À GAUCHE (les faisceaux de Galeem). Chacun est un
+  // trait lumineux (tête à droite, traîne à gauche) qui FILE vite en travers puis reste parqué hors champ
+  // (dart bref + pause → tirs répétés, déphasés). Hauteur ALÉATOIRE sur toute la colonne (ceux à
+  // mi-hauteur passent derrière le plateau opaque). Figés au montage.
+  const [shots] = useState(() =>
+    Array.from({ length: RADIANCE_SHOTS }, () => {
+      const dur = 2.6 + Math.random() * 2.6 // s (cycle : le tir lui-même est bref → rapide + pause)
+      const len = 22 + Math.random() * 20 // % de la largeur de colonne (longueur du trait)
+      return {
+        top: 3 + Math.random() * 92, // % (hauteur aléatoire sur toute la colonne)
+        len,
+        thick: 0.18 + Math.random() * 0.42, // vh (trait TRÈS fin, façon laser)
+        dur,
+        delay: -(Math.random() * dur), // s (déphasé → tirs étalés dès le montage)
+        op: 0.75 + Math.random() * 0.25,
+        from: -(len + 6), // % (départ entièrement hors champ à gauche)
+      }
+    }),
+  )
+  return (
+    <div className="radiance-decor" aria-hidden>
+      {/* Cœur de Galeem : lueur centrale blanc-or qui pulse. */}
+      <div className="radiance-glow" />
+      {/* Poussière d'esprits qui monte (montée > ondulation > scintillement). */}
+      {motes.map((m, i) => (
+        <span
+          key={`amote-${i}`}
+          className="voodoo-mote-rise"
+          style={{ left: `${m.left}%`, animationDuration: `${m.dur}s`, animationDelay: `${m.delay}s` }}
+        >
+          <span
+            className="voodoo-mote-sway"
+            style={{ animationDuration: `${m.swayDur}s`, animationDelay: `${m.delay}s`, '--sway': `${m.sway}vw` } as CSSProperties}
+          >
+            <span
+              className="voodoo-mote"
+              style={{
+                width: `${m.size}px`,
+                height: `${m.size}px`,
+                opacity: m.op,
+                background: m.color,
+                animationDuration: `${m.twkDur}s`,
+                animationDelay: `${m.twkDelay}s`,
+                '--mote-color': m.color,
+              } as CSSProperties}
+            />
+          </span>
+        </span>
+      ))}
+      {/* Volutes de lumière qui montent du bas. */}
+      {vapor.map((p, i) => (
+        <span
+          key={`avap-${i}`}
+          className="radiance-vapor"
+          style={{
+            left: `${p.left}%`,
+            width: `${p.size}vh`,
+            height: `${p.size}vh`,
+            background: RADIANCE_VAPOR_GOLD,
+            animationDuration: `${p.dur}s`,
+            animationDelay: `${p.delay}s`,
+            '--sx': `${p.sx}vw`,
+            '--vop': p.op,
+          } as CSSProperties}
+        />
+      ))}
+      {/* Rayons denses qui jaillissent/s'estompent en continu (dans toutes les directions). */}
+      {rays.map((r, i) => (
+        <div
+          key={`ray-${i}`}
+          className="radiance-ray"
+          style={
+            {
+              left: `${r.left}%`,
+              top: `${r.top}%`,
+              width: `${r.w}vh`,
+              height: `${r.h}vh`,
+              transform: `translate(-50%, -50%) rotate(${r.rot}deg)`,
+              '--dur': `${r.dur}s`,
+              '--delay': `${r.delay}s`,
+            } as CSSProperties
+          }
+        >
+          <svg className="radiance-ray-svg" viewBox="0 0 100 200" preserveAspectRatio="none">
+            <path className="radiance-ray-halo" d={r.d} pathLength={100} />
+            <path className="radiance-ray-core" d={r.d} pathLength={100} />
+          </svg>
+        </div>
+      ))}
+      {/* Tirs de lumière qui filent de droite à gauche (les faisceaux de Galeem). */}
+      {shots.map((s, i) => (
+        <span
+          key={`shot-${i}`}
+          className="radiance-shot"
+          style={
+            {
+              top: `${s.top}%`,
+              width: `${s.len}%`,
+              height: `${s.thick}vh`,
+              '--from': `${s.from}%`,
+              '--beam-op': s.op,
+              animationDuration: `${s.dur}s`,
+              animationDelay: `${s.delay}s`,
+            } as CSSProperties
+          }
+        />
+      ))}
+      {/* SURPRISE : les esprits libérés qui s'élèvent depuis le bas. */}
+      <SpiritsSurprise fireRef={fireRef} />
+    </div>
+  )
+}
+
 // Décor `theWorld` (Dio) : horloges & temps. 100 % CSS, aucun asset.
 const DIO_NUMERALS_FLOAT = 22 // chiffres romains flottants qui montent
 // Chiffres romains du cadran, en ordre horaire à partir du haut (XII).
@@ -7880,6 +8351,10 @@ function renderDecorBody(
       return <UpsideDownDecor />
     case 'felGate':
       return <FelGateDecor />
+    case 'rift':
+      return <RiftDecor />
+    case 'radiance':
+      return <RadianceDecor />
     case 'theWorld':
       return <TheWorldDecor />
     case 'yzma':

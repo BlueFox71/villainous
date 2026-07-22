@@ -102,6 +102,12 @@ déplacement, y compris « n'importe quel lieu »), et *si* une action facultati
   si elle n'aurait **aucun effet** (aucune cible valide) — cf. `activatableCards`,
   la jouabilité dans `playCard`, et `Hand`/`FateModal`.
 - Couvre par des tests le flux interactif (ouverture du pending → résolution).
+- **Avant de créer un composant (surtout une MODALE), vérifie s'il en existe déjà un
+  réutilisable et recycle-le** — pour éviter les doublons de composants. Ex. : choix
+  générique → `ChoiceModal` ; choisir une carte dans une pile/défausse → réutilise le
+  sélecteur de cartes existant (`DiscardModal`/`CardSelect`/le picker d'un `pendingRecover`…)
+  plutôt qu'un nouveau. N'ajoute un composant que si aucun existant ne convient (quitte à
+  généraliser légèrement l'existant).
 
 ### Anatomie d'une CardDef (`data/types.ts`)
 - `id` : slug **kebab-case ASCII**, **unique entre TOUS les vilains** (le registre
@@ -117,6 +123,52 @@ déplacement, y compris « n'importe quel lieu »), et *si* une action facultati
   passe au rouge et nomme le champ. Un champ **purement présentation / éditeur** (non lu
   par le moteur) va dans `NON_INSTANCE_CARD_FIELDS` ou dans la liste retirée par
   `toCardDefs` — pas dans `CardInstance`.
+
+## Journal de partie (messages data-driven) — RÈGLES
+
+Le **message de Journal** joué en partie pour une carte est **une donnée** (générique, réutilisable
+par tous les vilains), pas du code par `cardId`. Système : `engine/journalTemplate.ts` +
+`applyJournalTemplate`/`buildJournalCtx` (`engine/actions.ts`) + rendu `GameLog`.
+
+- **Source = `botStrategy.journal`** (`villainNotes[cardId]` / `fateNotes[cardId].description`),
+  éditée dans l'onglet **Journal** de l'Atelier. `toCardDefs` l'injecte sur `CardDef.journal`
+  (→ `CardInstance.journal`, champ de jeu recopié génériquement). **Opt-in strict** : sans
+  `journal`, la carte garde son log codé en dur (zéro régression).
+- **Émission** (remplace les lignes codées en dur par le message rempli) : `PLAY_CARD`,
+  `PLAY_CONDITION`, `RESOLVE_FATE` (POV = la CIBLE de la Fatalité), Choc des Titans (multi-issues,
+  via son pending) et **émission différée** (`pendingJournal`) pour les effets **interactifs**.
+- **Rendu** : `journalLogLine` balise `<Vilain> ⟦ji:icône⟧<texte>` → `GameLog` en fait un bloc
+  (teinte = **couleur de recouvrement** `coverColorOf`, jamais la couleur brute du méchant ;
+  icône = inférence par mots-clés, sinon repli selon le type). `fillJournal` remplace `{clé}` par
+  la valeur ; **clé inconnue laissée `{clé}`** (repérage).
+
+**Conventions d'écriture des messages :**
+- **Forme prédicat** : pas de sujet vilain redondant (le bloc coloré l'identifie) — « pose une
+  Marionnette… », pas « Sumbra pose… ». Exception assumée : voix narrative (Michael Myers).
+- **Jamais « (Force x) » sur un Héros.**
+- Emoji d'esprit : écrire **🌑** dans le template ; le moteur l'adapte au **camp** du joueur
+  (`campEmoji` → ☀️ pour un skin Lumière). Ne pas coder ☀️/🌑 par vilain.
+- **Multi-lignes = plusieurs issues** d'un choix (une ligne par issue ; l'issue jouée est choisie
+  par index — cf. Choc des Titans). Dans l'aperçu Atelier, chaque ligne = un bloc.
+
+**Placeholders (clés du contexte) et comment les câbler :**
+- **Génériques (aucun câblage)** : `{NbEspritMoi}` `{NbEspritAdv}` (Δ esprits), `{NbJT}` (Δ Pouvoir),
+  `{nomVilain}` `{nomAdv}`.
+- **Via l'action** : `{nomLieu}` (`action.to`), `{nomHéros}` (`action.targetHeroId`) — déjà branchés.
+- **Via l'hôte** (Objet associé posé) : `{nomHéros}`/`{nomAllié}` selon le type de l'hôte.
+- **Via `journalVars`** (une valeur produite par un effet) : dans le handler, renvoyer
+  `journalVars: { ...state.journalVars, ['clé']: valeur }` (inoffensif hors template : vidé par
+  `applyAction`). Déjà exposés : `{nomHéros}`, `{nomObjet}`, `{nomAllié}`, `{nomCombattant}`,
+  `{nomCible}`, `{nbAlliés}`.
+- **Différés (effet INTERACTIF qui ouvre un pending)** : exposer la valeur dans le **handler de
+  RÉSOLUTION** du pending — l'émission différée s'en charge. Déjà branchés : `{nomCarte}`
+  (`RECOVER_ANY_FROM_DISCARD`), `{nomHéros}`+`{nomLieu}` (`RELOCATE_HERO_ADJACENT`),
+  `{nomAllié}`/`{nomObjet}` (`DISCARD_ALLY_OR_ITEM`).
+- **Vilain 100 % codé en dur** (effets `[]`) : câblage **par carte** seulement si la valeur est
+  connue à l'émission ; sinon laisser le message **statique**.
+
+Reste TOUJOURS **générique** : un placeholder câblé sur un `Effect` partagé profite à tout vilain
+qui le réutilise. Ne code jamais un message par `cardId` dans le moteur.
 
 ## Ajouter du contenu — check-lists
 

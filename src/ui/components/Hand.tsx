@@ -228,6 +228,8 @@ interface Props {
   /** Coût effectif d'une carte (Couronne −1, Bâton Magique −1 sur Événement/
    *  Malédiction, Épée de Vérité +2…). Absent → coût de base. */
   costFor?: (card: CardInstance) => number
+  /** Couleur (hex) du vilain du joueur : teinte la pastille de coût modifié. */
+  villainColor?: string
   selectedToDiscard: string[]
   /** Si défini (Tyrannie) : la défausse est OBLIGATOIRE et doit porter EXACTEMENT
    *  ce nombre de cartes — le bouton se débloque alors seulement à ce compte, et
@@ -326,6 +328,7 @@ export function Hand({
   onCardDragCancel,
   draggingInstanceId = null,
   costFor,
+  villainColor,
   armedConditionIds = [],
   forcedHoverId = null,
   selectedCardId = null,
@@ -527,7 +530,10 @@ export function Hand({
               // (éliminer un Héros) / Sans pouvoir (jetons Force −1) : sans Héros, aucun effet.
               e.type === 'DRAW_PER_HERO_IN_REALM' ||
               e.type === 'DEFEAT_HERO_PAY_STRENGTH' ||
-              e.type === 'ADD_MINUS_FORCE_TOKENS',
+              e.type === 'ADD_MINUS_FORCE_TOKENS' ||
+              // Sumbra / Kilaire — Absorption (élimine un Héros ≥ N n'importe où) : injouable
+              // sans Héros au royaume. `minStrength` défini ⇒ variante « Force N ou plus ».
+              (e.type === 'INSTANT_VANQUISH_HERO_LE' && e.minStrength !== undefined),
           )
           // Madame de Trémaine — Allié « en robe de bal » : injouable si sa version
           // ordinaire (`replacesCardId`) n'est pas en jeu.
@@ -1054,10 +1060,9 @@ export function Hand({
               />
               {cost !== baseCost && (
                 <span
-                  title="Coût modifié (Couronne / Bâton Magique / Épée de Vérité)"
-                  className={`absolute left-1 top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full border border-white/40 px-1 text-[10px] font-bold text-white ${
-                    cost < baseCost ? 'bg-emerald-600' : 'bg-orange-700'
-                  }`}
+                  title={`Coût modifié : ${cost} (base ${baseCost})`}
+                  className="absolute left-2 top-2 flex h-7 min-w-[28px] items-center justify-center rounded-full border border-white/40 px-1.5 text-sm font-bold text-white"
+                  style={{ backgroundColor: villainColor ?? '#334155' }}
                 >
                   {cost}
                 </span>

@@ -26,6 +26,8 @@ interface Props {
  *  L'objectif lui-même est rendu par `ObjectiveBox`, réutilisable hors panneau. */
 export function PlayerPanel({ player, accent, isActive, isWinner, showObjective = true, subLabel, avatar }: Props) {
   const displayedPower = useAnimatedNumber(player.power)
+  // Sumbra / Kilaire — compteur d'esprits animé (comme les JT).
+  const displayedSpirits = useAnimatedNumber(player.spirits ?? 0)
   // Brillance de la case Jetons quand le Pouvoir AUGMENTE (gain reçu).
   const [powerGlow, setPowerGlow] = useState(false)
   const prevPowerRef = useRef<number | null>(null)
@@ -164,6 +166,26 @@ export function PlayerPanel({ player, accent, isActive, isWinner, showObjective 
               <span className="-mt-1.5 text-[9px] uppercase tracking-wide text-indigo-300/70">Combattants</span>
               <span className="text-2xl font-bold text-indigo-200">{killed}/{threshold}</span>
               <span className="text-[10px] text-white/50">dévoilés {revealed}</span>
+            </div>
+          )
+        })()}
+
+        {/* Sumbra / Kilaire — Esprits CAPTURÉS (objectif : atteindre le seuil, ex. 30). */}
+        {player.objective.type === 'SPIRIT_THRESHOLD' && (() => {
+          const spirits = player.spirits ?? 0
+          const threshold = player.objective.threshold
+          // Icône du camp : ☀️ Kilaire / 🌑 Sumbra. La source de vérité est `objective.camp` (désormais
+          // forcé par `spiritCamp` propre au skin via `toVillainDef`). Le test par id reste un filet pour
+          // un Killaire pas encore re-synchronisé (dont la donnée porterait encore l'ancien camp).
+          const emoji = player.villain === 'custom-killaire' || player.objective.camp === 'sun' ? '☀️' : '🌑'
+          return (
+            <div
+              className="flex flex-col items-center justify-center rounded-lg border border-fuchsia-400/30 bg-black/20 px-3 py-3"
+              title={`Esprits capturés : ${spirits}/${threshold}`}
+            >
+              <span className="-mt-1.5 text-[9px] uppercase tracking-wide text-fuchsia-300/70">Esprits</span>
+              <span className="text-2xl font-bold text-fuchsia-200">{emoji} {displayedSpirits}</span>
+              <span className="text-[10px] text-white/50">{spirits}/{threshold}</span>
             </div>
           )
         })()}

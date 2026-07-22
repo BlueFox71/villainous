@@ -645,6 +645,26 @@ export function enumerateActions(state: GameState): GameAction[] {
     ]
   }
 
+  // Renfort (début de tour) : résoudre la TÊTE de la file de choix.
+  if (state.pendingCombattantChoices && state.pendingCombattantChoices.length > 0) {
+    const head = state.pendingCombattantChoices[0]
+    const p = state.players[head.playerIndex]
+    if (head.kind === 'discard') {
+      // Défausse : sacrifie les cartes les MOINS chères (income passif).
+      const need = Math.min(head.count, p.hand.length)
+      const cheapest = [...p.hand]
+        .sort((a, b) => (a.cost ?? 0) - (b.cost ?? 0))
+        .slice(0, need)
+        .map((c) => c.instanceId)
+      return [{ type: 'RESOLVE_COMBATTANT_DISCARD', instanceIds: cheapest }]
+    }
+    // Pioche, OU récupère la meilleure carte de la défausse (coût le plus élevé) — le lookahead tranche.
+    const out: GameAction[] = [{ type: 'RESOLVE_COMBATTANT_DRAW_OR_RECOVER', choice: 'draw' }]
+    const best = [...p.discard].sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0))[0]
+    if (best) out.push({ type: 'RESOLVE_COMBATTANT_DRAW_OR_RECOVER', choice: 'recover', recoverInstanceId: best.instanceId })
+    return out
+  }
+
   // Mr. Monopoly — Affaire : choisir combien de maisons poser (1..max).
   if (state.pendingBuyHouses) {
     const out: GameAction[] = []
@@ -1638,6 +1658,9 @@ export function enumerateActions(state: GameState): GameAction[] {
             maxStrengthEffect && maxStrengthEffect.type === 'INSTANT_VANQUISH_HERO_LE'
               ? maxStrengthEffect.maxStrength
               : Infinity
+          // Absorption : borne INFÉRIEURE de Force (« Force N ou plus »).
+          const minStrength =
+            maxStrengthEffect?.type === 'INSTANT_VANQUISH_HERO_LE' ? maxStrengthEffect.minStrength ?? 0 : 0
           // Disparition / Ah, je suis un serpent ? : Héros du lieu du pion uniquement.
           const atPawn =
             (card.effects ?? []).some((e) => e.type === 'INSTANT_VANQUISH_HERO_AT_PAWN') ||
@@ -1665,6 +1688,8 @@ export function enumerateActions(state: GameState): GameAction[] {
             if (onlyCardIds && !onlyCardIds.includes(h.cardId)) continue
             // Force EFFECTIVE (Boule de Feu +2, auras…) : un Héros boosté au-delà du seuil est exclu.
             if ((effectiveStrength(state, state.activePlayer, h.instanceId) ?? h.strength ?? 0) > maxStrength) continue
+            // Borne inférieure (Absorption « Force N ou plus »).
+            if ((effectiveStrength(state, state.activePlayer, h.instanceId) ?? h.strength ?? 0) < minStrength) continue
             const hForce = effectiveStrength(state, state.activePlayer, h.instanceId) ?? 0
             if (isHypnose && hForce > me.power) continue
             // Banqueroute : coût = Force du Héros → seules les cibles abordables.

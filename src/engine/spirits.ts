@@ -103,6 +103,106 @@ export function captureSpirits(state: GameState, playerIndex: number, amount: nu
   return addSpirits(state, playerIndex, net)
 }
 
+/** Révèle un Combattant pioché : (1) SHOWCASE cinématique (grande carte au centre) ET
+ *  (2) l'ajoute à la rangée d'affichage du joueur (cartes côte à côte, jusqu'à 5).
+ *  `message` = delta d'esprits + alignement. `opts.spiritDelta`/`opts.powerDelta` posent les
+ *  pastilles « +N / −N » d'esprits / de Pouvoir (comme au revenu). `combattantExtras: []` marque
+ *  ce showcase comme une révélation Combattant (l'UI affiche alors les pastilles). Pur. */
+export function pushCombattantShowcase(
+  state: GameState,
+  playerIndex: number,
+  card: CardInstance,
+  message: string,
+  opts?: { spiritDelta?: number; powerDelta?: number },
+): GameState {
+  return {
+    ...state,
+    showcaseEvents: [
+      ...state.showcaseEvents,
+      {
+        cardId: card.cardId,
+        message,
+        playerIndex,
+        forceShow: true,
+        combattantCamp: spiritCamp(state.players[playerIndex]),
+        combattantSpiritDelta: opts?.spiritDelta,
+        combattantPowerDelta: opts?.powerDelta || undefined,
+        combattantExtras: [],
+      },
+    ],
+    players: state.players.map((pl, i) =>
+      i === playerIndex
+        ? {
+            ...pl,
+            revealedCombattants: [
+              ...(pl.revealedCombattants ?? []),
+              { cardId: card.cardId, instanceId: card.instanceId, message },
+            ],
+          }
+        : pl,
+    ),
+  }
+}
+
+/** Comme `pushCombattantShowcase`, mais pour un GROUPE de Combattants révélés ENSEMBLE (revenu
+ *  de début de tour, ou principal + extras 🔁 Surtension) : (1) UN SEUL showcase — l'UI affiche
+ *  tous les Combattants d'un coup en GRILLE (3 par ligne), pendant `durationMs` ; (2) TOUS les
+ *  Combattants alimentent la rangée d'affichage. `chain[0]` = principal (porte les pastilles du
+ *  showcase), les suivants → `combattantExtras`. Pur. */
+export function pushCombattantChainShowcase(
+  state: GameState,
+  playerIndex: number,
+  chain: { card: CardInstance; message: string; powerDelta?: number; spiritDelta?: number }[],
+): GameState {
+  if (chain.length === 0) return state
+  const [main, ...extras] = chain
+  // Affichage GROUPÉ (grille, tout d'un coup) : durée adaptée au nombre de Combattants —
+  // 1-2 cartes → 2 s (lecture rapide), puis +1 s par carte au-delà, plafonné à 5 s.
+  const durationMs = Math.min(5000, 2000 + Math.max(0, chain.length - 2) * 1000)
+  const camp = spiritCamp(state.players[playerIndex])
+  return {
+    ...state,
+    showcaseEvents: [
+      ...state.showcaseEvents,
+      {
+        cardId: main.card.cardId,
+        message: main.message,
+        playerIndex,
+        forceShow: true,
+        durationMs,
+        // Camp du joueur → couleur + emoji des pastilles d'esprits (🌑 Sumbra / ☀️ Kilaire).
+        combattantCamp: camp,
+        // Pastille d'esprits « +N / −N » sur la carte principale (capture + verbe Ferveur).
+        combattantSpiritDelta: main.spiritDelta ?? 0,
+        // Pastille « +N / −N 🪙 » sur la carte principale si son Pouvoir a varié (Décharge).
+        combattantPowerDelta: main.powerDelta || undefined,
+        combattantExtras: extras.map((e) => ({
+          cardId: e.card.cardId,
+          message: e.message,
+          powerDelta: e.powerDelta || undefined,
+          spiritDelta: e.spiritDelta ?? 0,
+        })),
+      },
+    ],
+    players: state.players.map((pl, i) =>
+      i === playerIndex
+        ? {
+            ...pl,
+            revealedCombattants: [
+              ...(pl.revealedCombattants ?? []),
+              ...chain.map((c) => ({ cardId: c.card.cardId, instanceId: c.card.instanceId, message: c.message })),
+            ],
+          }
+        : pl,
+    ),
+  }
+}
+
+/** Emoji du camp d'un joueur (☀️ Kilaire / 🌑 Sumbra). */
+export function campEmoji(p: PlayerState): string {
+  return spiritCamp(p) === 'sun' ? '☀️' : '🌑'
+}
+
 /** Ajoute (ou retire, N < 0) des esprits à la jauge d'un joueur, plancher 0. Pur. */
 export function addSpirits(state: GameState, playerIndex: number, n: number): GameState {
   if (n === 0) return state
@@ -171,56 +271,97 @@ function drawVillainCards(state: GameState, idx: number, n: number): GameState {
   return s
 }
 
-/** 🃏 Renfort Bonus (auto) : récupère la meilleure carte de la défausse (coût ≥ 3) si
- *  elle existe, sinon pioche N cartes Vilain. Pur. */
-function renfortBonus(state: GameState, idx: number, n: number): GameState {
+/** Pioche `n` cartes Méchant + JOURNALISE (le tirage brut `drawVillainCards` est muet — sans
+ *  quoi l'effet Renfort semble « ne rien faire »). Pur. */
+export function renfortDraw(state: GameState, idx: number, n: number): GameState {
   const p = state.players[idx]
-  const best = [...p.discard].sort((a, b) => (b.cost ?? 0) - (a.cost ?? 0))[0]
-  if (best && (best.cost ?? 0) >= 3) {
-    return {
-      ...state,
-      players: state.players.map((pl, i) =>
-        i === idx
-          ? { ...pl, discard: pl.discard.filter((c) => c.instanceId !== best.instanceId), hand: [...pl.hand, best] }
-          : pl,
-      ),
-      log: [...state.log, `${p.villainName} récupère **${best.name}** de sa défausse (Renfort).`],
-    }
-  }
-  return drawVillainCards(state, idx, n)
+  const before = p.hand.length
+  const s = drawVillainCards(state, idx, n)
+  const drawn = s.players[idx].hand.length - before
+  const msg = drawn > 0
+    ? `${p.villainName} pioche ${drawn} carte(s) Méchant (Renfort).`
+    : `${p.villainName} : aucune carte Méchant à piocher (Renfort).`
+  return { ...s, log: [...s.log, msg] }
 }
 
-/** 🛡️ Rempart : applique un bonus/malus temporaire de Force à un lieu (ce tour). Auto-cible :
- *  Bonus → le lieu conquérable le plus proche de sa Défense (pour percer/tenir) ; Malus →
- *  un lieu-home (perte de Force sans conséquence, car home toujours contrôlé). Pur. */
-function applyRempart(state: GameState, idx: number, delta: number): GameState {
+/** Récupère la carte `instanceId` de la défausse Méchant vers la main (Renfort Bonus). Pur.
+ *  No-op si la carte n'est plus dans la défausse. */
+export function renfortRecover(state: GameState, idx: number, instanceId: string): GameState {
   const p = state.players[idx]
-  let target: LocationId | undefined
-  if (delta >= 0) {
-    // Lieu conquérable non contrôlé, garnison la plus proche de la Défense.
-    let bestGap = Infinity
-    for (const l of p.locations) {
-      if (l.defense === undefined) continue
-      const g = garrisonForce(state, idx, l.id)
-      if (g >= l.defense) continue
-      const gap = l.defense - g
-      if (gap < bestGap) { bestGap = gap; target = l.id }
-    }
-    // Sinon un lieu conquérable déjà tenu (protéger contre la reprise).
-    if (!target) target = p.locations.find((l) => l.defense !== undefined)?.id
-  } else {
-    target = p.locations.find((l) => l.defense === undefined)?.id
-  }
-  if (!target) target = p.pawnLocation ?? p.locations[0]?.id
-  if (!target) return state
-  const cur = p.locationTempForce ?? {}
+  const card = p.discard.find((c) => c.instanceId === instanceId)
+  if (!card) return state
   return {
     ...state,
     players: state.players.map((pl, i) =>
       i === idx
-        ? { ...pl, locationTempForce: { ...cur, [target!]: (cur[target!] ?? 0) + delta } }
+        ? { ...pl, discard: pl.discard.filter((c) => c.instanceId !== instanceId), hand: [...pl.hand, card] }
         : pl,
     ),
+    log: [...state.log, `${p.villainName} récupère **${card.name}** de sa défausse (Renfort).`],
+  }
+}
+
+/** Défausse les cartes CHOISIES (`instanceIds`) de la main (Renfort Malus). Pur. */
+export function renfortDiscardChosen(state: GameState, idx: number, instanceIds: string[]): GameState {
+  const p = state.players[idx]
+  const set = new Set(instanceIds)
+  const removed = p.hand.filter((c) => set.has(c.instanceId))
+  if (removed.length === 0) return state
+  return {
+    ...state,
+    players: state.players.map((pl, i) =>
+      i === idx
+        ? { ...pl, hand: pl.hand.filter((c) => !set.has(c.instanceId)), discard: [...pl.discard, ...removed] }
+        : pl,
+    ),
+    log: [...state.log, `${p.villainName} défausse ${removed.length} carte(s) (Renfort).`],
+  }
+}
+
+/** Empile un choix Renfort INTERACTIF dans la file `pendingCombattantChoices`. Pur. */
+function pushCombattantChoice(
+  state: GameState,
+  choice: { kind: 'discard' | 'draw-or-recover'; playerIndex: number; count: number; combattantName?: string },
+): GameState {
+  return { ...state, pendingCombattantChoices: [...(state.pendingCombattantChoices ?? []), choice] }
+}
+
+/** 🃏 Renfort : ouvre un choix INTERACTIF (empilé) OU force l'issue quand il n'y a pas de vrai
+ *  choix (« forcer ce qui est possible »). Pur.
+ *  - Bonus : piocher `n` cartes Méchant OU récupérer 1 carte de la défausse. Défausse vide →
+ *    pioche forcée ; pioche + défausse vides → rien.
+ *  - Malus : défausser `n` carte(s) CHOISIE(s). Main ≤ n → tout défaussé (pas de choix) ;
+ *    main vide → rien. */
+function applyRenfort(state: GameState, idx: number, bonus: boolean, n: number, combattantName?: string): GameState {
+  const p = state.players[idx]
+  if (bonus) {
+    const canRecover = p.discard.length > 0
+    const canDraw = p.deck.length > 0 || p.discard.length > 0
+    if (!canRecover && !canDraw) {
+      return { ...state, log: [...state.log, `${p.villainName} — Renfort : rien à piocher ni récupérer.`] }
+    }
+    if (!canRecover) return renfortDraw(state, idx, n) // défausse vide → pioche forcée
+    return pushCombattantChoice(state, { kind: 'draw-or-recover', playerIndex: idx, count: n, combattantName })
+  }
+  // Malus : défausser n carte(s).
+  if (p.hand.length === 0) {
+    return { ...state, log: [...state.log, `${p.villainName} — Renfort : main vide, rien à défausser.`] }
+  }
+  if (p.hand.length <= n) return discardCheapestN(state, idx, n) // ≤ n → tout défaussé (pas de choix)
+  return pushCombattantChoice(state, { kind: 'discard', playerIndex: idx, count: n, combattantName })
+}
+
+/** 🛡️ Rempart : applique un bonus/malus TEMPORAIRE de Force (ce tour) à TOUS les lieux du
+ *  joueur (garnison), conformément au texte « ±N Force à tous vos lieux ce tour ». Effacé en
+ *  fin de tour. Pur. */
+function applyRempart(state: GameState, idx: number, delta: number): GameState {
+  if (delta === 0) return state
+  const p = state.players[idx]
+  const next: Record<LocationId, number> = { ...(p.locationTempForce ?? {}) }
+  for (const l of p.locations) next[l.id] = (next[l.id] ?? 0) + delta
+  return {
+    ...state,
+    players: state.players.map((pl, i) => (i === idx ? { ...pl, locationTempForce: next } : pl)),
   }
 }
 
@@ -290,50 +431,118 @@ export function applyCombattantVerb(
     case 'rempart':
       return applyRempart(state, idx, bonus ? N : -N)
     case 'renfort':
-      return bonus ? renfortBonus(state, idx, N) : discardCheapestN(state, idx, N)
+      return applyRenfort(state, idx, bonus, N, card.name)
   }
   void p
   return state
 }
 
-/** Résout UN Combattant pioché comme REVENU (capture + effet de verbe aligné/désaligné),
- *  puis le met en défausse Combattant. Journalise l'alignement. Pur. */
-export function resolveRevenueCombattant(
+/** Résout UN Combattant (capture + verbe aligné/désaligné + défausse), SANS showcase ni
+ *  ajout à la rangée d'affichage. Renvoie l'état et le message d'affichage (delta + tag).
+ *  Journalise la révélation. Pur. Utilisé par `resolveRevenueCombattant` pour composer la
+ *  chaîne principale + extras (🔁 Surtension) dans un seul showcase. */
+function resolveCombattantCore(
   state: GameState,
   idx: number,
   card: CardInstance,
-): GameState {
+): { state: GameState; message: string; powerDelta: number; spiritDelta: number } {
   const p0 = state.players[idx]
   const sign = alignment(p0, card)
+  const before = p0.spirits ?? 0
+  const powerBefore = p0.power ?? 0
   let s = captureCombattant(state, idx, card)
   s = applyCombattantVerb(s, idx, card, sign)
+  const delta = (s.players[idx].spirits ?? 0) - before
+  // Variation SIGNÉE de Pouvoir de ce Combattant (⚡ Décharge Bonus = +, Malus = −) : sert à la
+  // pastille « +N / −N 🪙 » du showcase (delta réel, borné par le plancher 0 du Pouvoir).
+  const powerDelta = (s.players[idx].power ?? 0) - powerBefore
+  const camp = campEmoji(p0)
+  const tag = sign > 0 ? 'aligné ✓ Bonus' : sign < 0 ? 'désaligné ✗ Malus' : 'égalité'
+  const deltaStr = delta >= 0 ? `+${delta}` : `${delta}`
+  const message = `${camp} ${deltaStr} esprit(s) · ${tag}`
   // Le Combattant pioché part en défausse Combattant (défaussé « en fin de tour »).
   s = {
     ...s,
     players: s.players.map((pl, i) =>
       i === idx ? { ...pl, combattantDiscard: [...(pl.combattantDiscard ?? []), card] } : pl,
     ),
+    log: [...s.log, `${p0.villainName} révèle **${card.name}** : ${message}.`],
   }
-  const tag = sign > 0 ? 'aligné ✓ Bonus' : sign < 0 ? 'désaligné ✗ Malus' : 'égalité'
-  return { ...s, log: [...s.log, `${p0.villainName} révèle **${card.name}** (${tag}).`] }
+  return { state: s, message, powerDelta, spiritDelta: delta }
 }
 
-/** REVENU de début de tour : pioche et résout `combattantRevenue` Combattants (la boucle
- *  relit le total à chaque tour de boucle → 🔁 Surtension Bonus ajoute une pioche). Borné à
- *  20 pioches par sécurité. Pur. No-op si le revenu est 0 (2 lieux → il faut s'étendre). */
+/** Résout UN Combattant pioché comme REVENU (capture + verbe), EN ENCHAÎNANT immédiatement
+ *  les Combattants supplémentaires réclamés par un Bonus 🔁 Surtension (piochés/résolus sur
+ *  place, jusqu'à 20 par sécurité). Toute la chaîne (principal + extras) partage UN SEUL
+ *  showcase — les extras glissent à droite — et alimente la rangée d'affichage. Le compteur
+ *  `extraCombattantDrawsThisTurn` est consommé ici (remis à 0) pour que la boucle de revenu
+ *  ne re-pioche pas ces extras. Pur. */
+/** Une entrée de la chaîne de Combattants révélés ensemble (dans UN showcase). */
+type CombattantChainEntry = { card: CardInstance; message: string; powerDelta: number; spiritDelta: number }
+
+/** Résout un Combattant + sa chaîne 🔁 Surtension (extras piochés/résolus sur place), SANS
+ *  pousser de showcase. Renvoie l'état et la liste des Combattants résolus (principal + extras).
+ *  Le compteur `extraCombattantDrawsThisTurn` est consommé (remis à 0). Pur. */
+function resolveCombattantChain(
+  state: GameState,
+  idx: number,
+  card: CardInstance,
+): { state: GameState; chain: CombattantChainEntry[] } {
+  const chain: CombattantChainEntry[] = []
+  let r = resolveCombattantCore(state, idx, card)
+  let s = r.state
+  chain.push({ card, message: r.message, powerDelta: r.powerDelta, spiritDelta: r.spiritDelta })
+  let guard = 0
+  while ((s.players[idx].extraCombattantDrawsThisTurn ?? 0) > 0 && guard < 20) {
+    guard++
+    s = {
+      ...s,
+      players: s.players.map((pl, i) =>
+        i === idx ? { ...pl, extraCombattantDrawsThisTurn: (pl.extraCombattantDrawsThisTurn ?? 0) - 1 } : pl,
+      ),
+    }
+    const drawn = drawCombattant(s, idx)
+    if (!drawn.card) break
+    r = resolveCombattantCore(drawn.state, idx, drawn.card)
+    s = r.state
+    chain.push({ card: drawn.card, message: r.message, powerDelta: r.powerDelta, spiritDelta: r.spiritDelta })
+  }
+  s = {
+    ...s,
+    players: s.players.map((pl, i) => (i === idx ? { ...pl, extraCombattantDrawsThisTurn: 0 } : pl)),
+  }
+  return { state: s, chain }
+}
+
+/** Résout UN Combattant (+ sa chaîne Surtension) et pousse SON showcase. Utilisé pour les
+ *  révélations UNITAIRES (mode test « en Combattant »). Pur. */
+export function resolveRevenueCombattant(state: GameState, idx: number, card: CardInstance): GameState {
+  const { state: s, chain } = resolveCombattantChain(state, idx, card)
+  return pushCombattantChainShowcase(s, idx, chain)
+}
+
+/** REVENU de début de tour : pioche et résout `combattantRevenue` Combattants (la boucle relit
+ *  le total → 🔁 Surtension Bonus ajoute une pioche). Borné à 20 pioches. TOUS les Combattants
+ *  révélés ce tour partagent UN SEUL showcase (grille affichée d'un coup, pas un par un). Pur.
+ *  No-op si le revenu est 0 (2 lieux → il faut s'étendre). */
 export function resolveCombattantRevenue(state: GameState, idx: number): GameState {
   if (!usesSpirits(state.players[idx])) return state
   let s = state
   let drawn = 0
   const MAX = 20
+  const allChain: CombattantChainEntry[] = []
   while (drawn < combattantRevenue(s, idx) && drawn < MAX) {
     const res = drawCombattant(s, idx)
     if (!res.card) break
-    s = resolveRevenueCombattant(res.state, idx, res.card)
+    const r = resolveCombattantChain(res.state, idx, res.card)
+    s = r.state
+    allChain.push(...r.chain)
     drawn++
   }
-  if (drawn > 0) {
-    s = { ...s, log: [...s.log, `${state.players[idx].villainName} a pioché ${drawn} Combattant(s) (revenu).`] }
+  if (allChain.length > 0) {
+    // UN seul showcase pour tout le revenu (grille) + rangée d'affichage.
+    s = pushCombattantChainShowcase(s, idx, allChain)
+    s = { ...s, log: [...s.log, `${state.players[idx].villainName} a pioché ${allChain.length} Combattant(s) (revenu).`] }
   }
   return s
 }
@@ -435,9 +644,10 @@ export function conqueredCountFromPlayer(p: PlayerState): number {
 }
 
 /** Synchronise la FACE visuelle (`version`) des lieux conquérables avec l'état de
- *  contrôle et journalise conquêtes / pertes. Face A (main) = non contrôlé (rival),
- *  face B (alt) = contrôlé. Idempotent. Pur. No-op hors Sumbra/Kilaire. À appeler après
- *  toute action modifiant la garnison. */
+ *  contrôle et journalise conquêtes / pertes. Convention (choix utilisateur) : NON contrôlé
+ *  (rival) = **face B** (`version 'b'`, la face `alt` de l'éditeur) ; CONTRÔLÉ = **face A**
+ *  (`version 'a'`, la face principale). Idempotent. Pur. No-op hors Sumbra/Kilaire. À appeler
+ *  après toute action modifiant la garnison. */
 export function syncLocationControl(state: GameState, playerIndex: number): GameState {
   const p = state.players[playerIndex]
   if (!usesSpirits(p)) return state
@@ -447,7 +657,8 @@ export function syncLocationControl(state: GameState, playerIndex: number): Game
     // Seuls les lieux conquérables ET transformables basculent visuellement.
     if (loc.defense === undefined || loc.altName === undefined) return loc
     const controlled = isLocationControlled(state, playerIndex, loc.id)
-    const target: 'a' | 'b' = controlled ? 'b' : 'a'
+    // Contrôlé → face A (main) ; rival → face B (alt).
+    const target: 'a' | 'b' = controlled ? 'a' : 'b'
     if ((loc.version ?? 'a') === target) return loc
     changed = true
     logs.push(

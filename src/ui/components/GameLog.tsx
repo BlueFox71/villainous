@@ -1,8 +1,9 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { OverlayScrollbarsComponent, type OverlayScrollbarsComponentRef } from 'overlayscrollbars-react'
 import { COL_RECTS, LOC_IMG, BOARD_W, BOARD_H } from '../editor/boardLayout'
-import { allCards } from '../../data/registry'
+import { allCards, customCardDefs } from '../../data/registry'
 import { consolidateFighterDetails, isFighterOutcomeLine, isFighterPromptLine } from './gameLogFighters'
+import { JOURNAL_TAG_RE } from '../../engine/journalTemplate'
 
 /** Index nom de carte → image (1ʳᵉ occurrence) : pour afficher les vignettes des
  *  cartes défaussées, dont le journal ne porte que les noms. */
@@ -27,6 +28,20 @@ function cardImageForName(name: string, villainKey?: string): string | undefined
     if (scoped) return scoped
   }
   return list[0]
+}
+
+/** Comme `cardImageForName`, mais consulte AUSSI les vilains personnalisés (Combattants custom
+ *  absents d'`allCards`). Recalculé à la volée : la surcouche custom est peuplée au lancement. */
+function anyCardImageForName(name: string, villainKey?: string): string | undefined {
+  const staticImg = cardImageForName(name, villainKey)
+  if (staticImg) return staticImg
+  const custom = customCardDefs().filter((d) => d.name === name && d.image)
+  if (custom.length === 0) return undefined
+  if (custom.length > 1 && villainKey) {
+    const scoped = custom.find((d) => d.image.includes(`/cards/${villainKey}/`))
+    if (scoped) return scoped.image
+  }
+  return custom[0].image
 }
 
 interface PlayerBoard {
@@ -175,9 +190,12 @@ function isTopLevelAction(body: string): boolean {
 
 /** Bloc du journal : soit une bannière neutre isolée, soit une action (tête +
  *  lignes d'effet rattachées). */
-type LogBlock =
+export type LogBlock =
   | { type: 'neutral'; lines: string[] }
   | { type: 'draw'; playerIndex: number; text: string }
+  // Sumbra / Kilaire — un Combattant révélé (revenu / carte) : bloc à part, illustration
+  // encadrée par l'anneau décagonal + le message d'esprits/alignement.
+  | { type: 'combattant'; playerIndex: number; cardName: string; message: string }
   | {
       type: 'action'
       playerIndex: number
@@ -186,6 +204,9 @@ type LogBlock =
       details: string[]
       bonus?: boolean
       effect?: 'Allié' | 'Objet'
+      /** Icône imposée (journal data-driven, `⟦ji:…⟧`) : repli si l'inférence par mots-clés
+       *  ne trouve rien sur le texte freeform du template. */
+      forcedIcon?: string
     }
 
 /** Échappe une chaîne pour l'insérer littéralement dans une RegExp. */
@@ -220,6 +241,27 @@ function groupLog(log: string[], playerNames: string[]): LogBlock[] {
     // Tabbou — prompts UI de Combattants (dévoilez… / choisissez une couleur… / Coup Fatal) :
     // bruit, masqués (le résumé est porté par les lignes de résultat qui suivent).
     if (idx >= 0 && isFighterPromptLine(body)) continue
+    // Journal data-driven (`⟦ji:<icon>⟧<texte>`) : message authoré d'une carte. TOUJOURS un
+    // bloc top-level à part (le texte freeform ne matche pas le regroupement par mots-clés) ;
+    // on retire le marqueur et on retient l'icône imposée.
+    if (idx >= 0) {
+      const jm = JOURNAL_TAG_RE.exec(body)
+      if (jm) {
+        const jhead = jm[2]
+        current = {
+          type: 'action',
+          playerIndex: idx,
+          head: jhead,
+          card: jhead.match(/\*\*(.+?)\*\*/)?.[1],
+          details: [],
+          forcedIcon: jm[1] || undefined,
+        }
+        blocks.push(current)
+        absorbNext = false
+        nextEffect = null
+        continue
+      }
+    }
     // Tabbou — dévoilement/mise à mort d'un Combattant : rattaché en détail à la carte
     // jouée en cours (Primides/Collection/Flèche/Coup Fatal → tête « joue … »), sinon
     // (action « Dévoiler » de l'Émissaire) → bloc dédié à part.
@@ -241,6 +283,19 @@ function groupLog(log: string[], playerNames: string[]): LogBlock[] {
       absorbNext = false
       nextEffect = null
       continue
+    }
+    // Sumbra / Kilaire — révélation d'un Combattant (« révèle **X** : 🌑/☀️ ±N esprit(s) · … »).
+    // Chaque Combattant = un bloc À PART (illustration encadrée par l'anneau décagonal), jamais
+    // rattaché à l'action en cours. Le « … esprit(s) … » lève l'ambiguïté avec les autres « révèle ».
+    if (idx >= 0) {
+      const rev = body.match(/^révèle \*\*(.+?)\*\* : (.*esprit\(s\).*?)\.?$/)
+      if (rev) {
+        blocks.push({ type: 'combattant', playerIndex: idx, cardName: rev[1], message: rev[2] })
+        current = null
+        absorbNext = false
+        nextEffect = null
+        continue
+      }
     }
     // Déplacement d'un Héros (« **X** est déplacé(e) sur **Y** », non préfixé par le
     // vilain) → bloc À PART, avec l'icône move-hero (cf. actionIconFor).
@@ -340,6 +395,247 @@ function simplifyDetails(input: string[]): string[] {
   return out
 }
 
+/** Rend UN bloc de journal (bannière neutre, pioche, Combattant, ou action) exactement
+ *  comme dans le Journal de partie. Extrait de `GameLog` pour être réutilisable (aperçu
+ *  « final » dans l'Atelier). `onPreview` remonte l'image survolée pour l'agrandir. */
+export function LogBlockView({
+  block,
+  playerNames,
+  playerColors,
+  playerAvatars,
+  playerBoards,
+  playerGenders,
+  playerArticles,
+  playerVillains,
+  fallbackIcon,
+  onPreview,
+}: {
+  block: LogBlock
+  playerNames: string[]
+  playerColors?: string[]
+  playerAvatars?: string[]
+  playerBoards?: PlayerBoard[]
+  playerGenders?: ('m' | 'f')[]
+  playerArticles?: string[]
+  playerVillains?: string[]
+  /** Icône (nom de fichier `public/actions/`) à afficher si l'inférence par mots-clés ne
+   *  déduit rien (aperçu Atelier : la prose custom ne matche pas toujours). Optionnel. */
+  fallbackIcon?: string
+  onPreview: (src: string | null) => void
+}) {
+  if (block.type === 'neutral') {
+    return (
+      <div className="flex flex-col gap-0.5 px-2 py-1">
+        {block.lines.map((l, j) => (
+          <p key={j} className="self-center text-center text-[10px] italic text-white/45">
+            {renderRich(l)}
+          </p>
+        ))}
+      </div>
+    )
+  }
+  // Pioche → case à part, sans image (juste le texte, teinté par le vilain).
+  if (block.type === 'draw') {
+    const drawColor = playerColors?.[block.playerIndex]
+    return (
+      <div
+        className="border-b border-l-4 border-b-white/10 px-2.5 py-2 text-[11px] leading-snug text-white/90"
+        style={drawColor ? { borderLeftColor: drawColor, backgroundColor: `${drawColor}1f` } : undefined}
+      >
+        {renderRich(block.text)}
+      </div>
+    )
+  }
+  // Combattant révélé → bloc dédié : illustration encadrée par l'anneau décagonal
+  // (Power.png) + message d'esprits/alignement. Teinté par la couleur du vilain.
+  if (block.type === 'combattant') {
+    const combColor = playerColors?.[block.playerIndex]
+    const combImg = anyCardImageForName(block.cardName, playerVillains?.[block.playerIndex])
+    return (
+      <div
+        className="flex items-center gap-2.5 border-b border-l-4 border-b-white/10 px-2.5 py-2 text-[11px] leading-snug text-white/90"
+        style={combColor ? { borderLeftColor: combColor, backgroundColor: `${combColor}1f` } : undefined}
+      >
+        {/* Vignette : illustration du Combattant (rognée en rond) « primée » par l'anneau. */}
+        <div className="relative h-11 w-11 shrink-0">
+          {combImg ? (
+            <img
+              src={combImg}
+              alt={block.cardName}
+              title={block.cardName}
+              onMouseEnter={() => onPreview(combImg)}
+              onMouseLeave={() => onPreview(null)}
+              className="absolute left-1/2 top-1/2 h-[74%] w-[74%] -translate-x-1/2 -translate-y-1/2 cursor-zoom-in rounded-full object-cover"
+              style={{ objectPosition: 'center 22%' }}
+              draggable={false}
+            />
+          ) : (
+            <div className="absolute left-1/2 top-1/2 h-[74%] w-[74%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/10" />
+          )}
+          <img
+            src="/actions/combattant-ring.png"
+            alt=""
+            className="absolute inset-0 h-full w-full object-contain"
+            draggable={false}
+          />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col justify-center">
+          <div className="font-semibold">{renderRich(`**${block.cardName}**`)}</div>
+          <div className="mt-0.5 text-[10px] text-white/70">{renderRich(block.message)}</div>
+        </div>
+      </div>
+    )
+  }
+  const { playerIndex: idx, details } = block
+  let head = block.head
+  let blockDetails = details
+  let tag = false
+  const color = playerColors?.[idx]
+  // Fatalité → tête simplifiée « contre <Cible>. » (en tag, bold+italique) et
+  // pronom (Il/Elle) à la place du nom dans les détails. Deux formulations du
+  // moteur : « … contre <Cible> … » et « … d'office … chez <Cible>. ».
+  let fateTarget: string | null = null
+  const mContre = head.match(/^lance la fatalité contre (.+)$/i)
+  const mChez = head.match(/^lance la fatalité .*\bchez (.+?)\s*\.?\s*$/i)
+  if (mContre) {
+    const rest = mContre[1]
+    const cut = rest.search(/\s+\(| :/)
+    fateTarget = (cut >= 0 ? rest.slice(0, cut) : rest).replace(/\.\s*$/, '').trim()
+  } else if (mChez) {
+    fateTarget = mChez[1].trim()
+  }
+  if (fateTarget) {
+    const tIdx = playerNames.indexOf(fateTarget)
+    head = `contre ${playerArticles?.[tIdx] ?? ''}${fateTarget}.`
+    tag = true
+    const pronoun = playerGenders?.[tIdx] === 'f' ? 'Elle' : 'Il'
+    const re = new RegExp(`^${escapeRegExp(fateTarget)}\\b`)
+    blockDetails = details.map((d) => d.replace(re, pronoun))
+  }
+  // Pastilles (couleur du méchant) : flottantes en haut à droite (coût, action
+  // bonus) + une centrée verticalement (bonus de départ / total Pouvoir).
+  const floatPills: string[] = []
+  let centerPill: string | null = null
+  // Entrée en jeu (setup) → avatar du vilain + pastille « +N JT » de départ.
+  const enterGame = /^entre en jeu/i.test(head)
+  const avatar = enterGame ? playerAvatars?.[idx] : undefined
+  if (enterGame) {
+    const b = head.match(/\((\d+)\s*JT de départ\)/i)?.[1]
+    head = 'entre en jeu'
+    if (b) centerPill = `+${b} JT`
+  }
+  // « déplace sa figurine et le <Carte> vers … » (ex. Bateau) → glyphe = haut de
+  // la carte associée, et tête reformulée en simple « se déplace vers <Lieu> ».
+  const boatName = block.head.match(/déplace sa figurine et le (.+?) vers /)?.[1]
+  const cardCircle = boatName ? CARD_IMAGE_BY_NAME.get(boatName) : undefined
+  if (boatName) head = head.replace(/^déplace sa figurine et le .+? vers (\*\*.+?\*\*).*$/, 'se déplace vers $1')
+  // Déplacement du pion → vignette du lieu de destination (au lieu de move-hero).
+  const moveDest = !enterGame ? head.match(/^se déplace vers \*\*(.+?)\*\*/)?.[1] : undefined
+  const board = playerBoards?.[idx]
+  const moveCol = moveDest && board ? board.locations.indexOf(moveDest) : -1
+  const locCrop = moveCol >= 0 && board ? locationCropStyle(board.image, moveCol, board.locations.length) : null
+  // Icône déduite de la tête D'ORIGINE (la tête Fatalité simplifiée ne
+  // contient plus « Fatalité »).
+  const icon =
+    enterGame || locCrop || cardCircle
+      ? null
+      : (actionIconFor(block.head) ??
+        (block.forcedIcon ? { icon: block.forcedIcon } : fallbackIcon ? { icon: fallbackIcon } : null))
+  // Action « Défausser » : « ×N » + vignettes des cartes (noms → images).
+  const discardMatch = icon?.icon === 'discard' ? head.match(/^défausse (\d+) cartes?(?: \((.+)\))?\.?$/i) : null
+  const discardCards = discardMatch?.[2]
+    ? discardMatch[2].split(', ').map((nm) => ({ name: nm, image: cardImageForName(nm, playerVillains?.[idx]) }))
+    : null
+  // Gain de Pouvoir : on isole « (total : N) » → pastille centrée.
+  const totalMatch = head.match(/^(.*?)\s*\(total\s*:\s*(\d+)\)\s*\.?$/)
+  if (totalMatch) {
+    head = totalMatch[1].replace(/\s*\.\s*$/, '')
+    centerPill = `total ${totalMatch[2]}`
+  }
+  // Jouer une carte : « (coût N) » → pastille « coût N JT » flottante.
+  const costMatch = head.match(/\(coût (\d+)\)/)
+  if (costMatch) {
+    head = head.replace(/\s*\(coût \d+\)/, '')
+    floatPills.push(`coût ${costMatch[1]} JT`)
+  }
+  // Action de lieu accordée par un Objet (ex. Réacteur galactique) : marqueur
+  // « (action bonus) » posé par le moteur → pastille « Action bonus ».
+  const grantedBonus = /\(action bonus\)/.test(head)
+  if (grantedBonus) head = head.replace(/\s*\(action bonus\)/, '')
+  // Action bonus (accordée par une carte / un déplacement, ou action de lieu accordée).
+  if (block.bonus || grantedBonus) floatPills.push('Action bonus')
+  // Effet sur un Allié/Objet (déclenché par une carte) → pastille « effet Allié/Objet ».
+  if (block.effect) floatPills.push(`effet ${block.effect}`)
+  const pillStyle: CSSProperties | undefined = color
+    ? { backgroundColor: `${color}40`, borderColor: `color-mix(in srgb, ${color}, white 40%)` }
+    : undefined
+  blockDetails = consolidateFighterDetails(simplifyDetails(blockDetails))
+  return (
+    <div
+      className="flex items-center gap-2.5 border-b border-l-4 border-b-white/10 px-2.5 py-2 text-[11px] leading-snug text-white/90"
+      style={color ? { borderLeftColor: color, backgroundColor: `${color}1f` } : undefined}
+    >
+      <ActionGlyph icon={icon} avatar={avatar} locCrop={locCrop} cardCircle={cardCircle} color={color} />
+      <div className={`min-w-0 flex-1 ${floatPills.length ? '' : 'flex flex-col justify-center'}`}>
+        {/* Pastilles flottantes en haut à droite (coût, action bonus) → le texte s'enroule dessous. */}
+        {floatPills.map((p, j) => (
+          <span
+            key={j}
+            className="float-right ml-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-semibold text-white/90"
+            style={pillStyle}
+          >
+            {p}
+          </span>
+        ))}
+        {/* Pour la défausse, on n'affiche pas de texte de tête (juste les vignettes). */}
+        {!discardCards && <div className={tag ? 'font-bold italic' : undefined}>{renderRich(head)}</div>}
+        {discardCards && (
+          <div className="flex gap-1">
+            {discardCards.map((c, j) =>
+              c.image ? (
+                <img
+                  key={j}
+                  src={c.image}
+                  alt={c.name}
+                  title={c.name}
+                  onMouseEnter={() => onPreview(c.image!)}
+                  onMouseLeave={() => onPreview(null)}
+                  className="h-auto w-[calc((100%-0.75rem)/4)] shrink-0 cursor-zoom-in rounded ring-1 ring-white/20 grayscale-[0.45] brightness-95"
+                  draggable={false}
+                />
+              ) : (
+                <span
+                  key={j}
+                  className="w-[calc((100%-0.75rem)/4)] shrink-0 truncate rounded bg-white/10 px-1.5 py-0.5 text-[10px]"
+                  title={c.name}
+                >
+                  {c.name}
+                </span>
+              ),
+            )}
+          </div>
+        )}
+        {blockDetails.length > 0 && (
+          <div className="mt-1 flex flex-col gap-0.5 text-[10px] text-white/65">
+            {blockDetails.map((d, j) => (
+              <div key={j}>{renderRich(d)}</div>
+            ))}
+          </div>
+        )}
+      </div>
+      {/* Pastille centrée à droite (teinte du méchant) : bonus de départ ou total Pouvoir. */}
+      {centerPill && (
+        <span
+          className="ml-2 shrink-0 self-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-semibold text-white/90"
+          style={pillStyle}
+        >
+          {centerPill}
+        </span>
+      )}
+    </div>
+  )
+}
+
 export function GameLog({
   log,
   playerNames,
@@ -372,177 +668,20 @@ export function GameLog({
         options={{ scrollbars: { theme: 'os-theme-villain', autoHide: 'leave', autoHideDelay: 300 } }}
       >
         <div className="flex flex-col">
-          {blocks.map((block, i) => {
-            if (block.type === 'neutral') {
-              return (
-                <div key={i} className="flex flex-col gap-0.5 px-2 py-1">
-                  {block.lines.map((l, j) => (
-                    <p key={j} className="self-center text-center text-[10px] italic text-white/45">
-                      {renderRich(l)}
-                    </p>
-                  ))}
-                </div>
-              )
-            }
-            // Pioche → case à part, sans image (juste le texte, teinté par le vilain).
-            if (block.type === 'draw') {
-              const drawColor = playerColors?.[block.playerIndex]
-              return (
-                <div
-                  key={i}
-                  className="border-b border-l-4 border-b-white/10 px-2.5 py-2 text-[11px] leading-snug text-white/90"
-                  style={drawColor ? { borderLeftColor: drawColor, backgroundColor: `${drawColor}1f` } : undefined}
-                >
-                  {renderRich(block.text)}
-                </div>
-              )
-            }
-            const { playerIndex: idx, details } = block
-            let head = block.head
-            let blockDetails = details
-            let tag = false
-            const color = playerColors?.[idx]
-            // Fatalité → tête simplifiée « contre <Cible>. » (en tag, bold+italique) et
-            // pronom (Il/Elle) à la place du nom dans les détails. Deux formulations du
-            // moteur : « … contre <Cible> … » et « … d'office … chez <Cible>. ».
-            let fateTarget: string | null = null
-            const mContre = head.match(/^lance la fatalité contre (.+)$/i)
-            const mChez = head.match(/^lance la fatalité .*\bchez (.+?)\s*\.?\s*$/i)
-            if (mContre) {
-              const rest = mContre[1]
-              const cut = rest.search(/\s+\(| :/)
-              fateTarget = (cut >= 0 ? rest.slice(0, cut) : rest).replace(/\.\s*$/, '').trim()
-            } else if (mChez) {
-              fateTarget = mChez[1].trim()
-            }
-            if (fateTarget) {
-              const tIdx = playerNames.indexOf(fateTarget)
-              head = `contre ${playerArticles?.[tIdx] ?? ''}${fateTarget}.`
-              tag = true
-              const pronoun = playerGenders?.[tIdx] === 'f' ? 'Elle' : 'Il'
-              const re = new RegExp(`^${escapeRegExp(fateTarget)}\\b`)
-              blockDetails = details.map((d) => d.replace(re, pronoun))
-            }
-            // Pastilles (couleur du méchant) : flottantes en haut à droite (coût, action
-            // bonus) + une centrée verticalement (bonus de départ / total Pouvoir).
-            const floatPills: string[] = []
-            let centerPill: string | null = null
-            // Entrée en jeu (setup) → avatar du vilain + pastille « +N JT » de départ.
-            const enterGame = /^entre en jeu/i.test(head)
-            const avatar = enterGame ? playerAvatars?.[idx] : undefined
-            if (enterGame) {
-              const b = head.match(/\((\d+)\s*JT de départ\)/i)?.[1]
-              head = 'entre en jeu'
-              if (b) centerPill = `+${b} JT`
-            }
-            // « déplace sa figurine et le <Carte> vers … » (ex. Bateau) → glyphe = haut de
-            // la carte associée, et tête reformulée en simple « se déplace vers <Lieu> ».
-            const boatName = block.head.match(/déplace sa figurine et le (.+?) vers /)?.[1]
-            const cardCircle = boatName ? CARD_IMAGE_BY_NAME.get(boatName) : undefined
-            if (boatName) head = head.replace(/^déplace sa figurine et le .+? vers (\*\*.+?\*\*).*$/, 'se déplace vers $1')
-            // Déplacement du pion → vignette du lieu de destination (au lieu de move-hero).
-            const moveDest = !enterGame ? head.match(/^se déplace vers \*\*(.+?)\*\*/)?.[1] : undefined
-            const board = playerBoards?.[idx]
-            const moveCol = moveDest && board ? board.locations.indexOf(moveDest) : -1
-            const locCrop = moveCol >= 0 && board ? locationCropStyle(board.image, moveCol, board.locations.length) : null
-            // Icône déduite de la tête D'ORIGINE (la tête Fatalité simplifiée ne
-            // contient plus « Fatalité »).
-            const icon = enterGame || locCrop || cardCircle ? null : actionIconFor(block.head)
-            // Action « Défausser » : « ×N » + vignettes des cartes (noms → images).
-            const discardMatch = icon?.icon === 'discard' ? head.match(/^défausse (\d+) cartes?(?: \((.+)\))?\.?$/i) : null
-            const discardCards = discardMatch?.[2]
-              ? discardMatch[2].split(', ').map((nm) => ({ name: nm, image: cardImageForName(nm, playerVillains?.[idx]) }))
-              : null
-            // Gain de Pouvoir : on isole « (total : N) » → pastille centrée.
-            const totalMatch = head.match(/^(.*?)\s*\(total\s*:\s*(\d+)\)\s*\.?$/)
-            if (totalMatch) {
-              head = totalMatch[1].replace(/\s*\.\s*$/, '')
-              centerPill = `total ${totalMatch[2]}`
-            }
-            // Jouer une carte : « (coût N) » → pastille « coût N JT » flottante.
-            const costMatch = head.match(/\(coût (\d+)\)/)
-            if (costMatch) {
-              head = head.replace(/\s*\(coût \d+\)/, '')
-              floatPills.push(`coût ${costMatch[1]} JT`)
-            }
-            // Action de lieu accordée par un Objet (ex. Réacteur galactique) : marqueur
-            // « (action bonus) » posé par le moteur → pastille « Action bonus ».
-            const grantedBonus = /\(action bonus\)/.test(head)
-            if (grantedBonus) head = head.replace(/\s*\(action bonus\)/, '')
-            // Action bonus (accordée par une carte / un déplacement, ou action de lieu accordée).
-            if (block.bonus || grantedBonus) floatPills.push('Action bonus')
-            // Effet sur un Allié/Objet (déclenché par une carte) → pastille « effet Allié/Objet ».
-            if (block.effect) floatPills.push(`effet ${block.effect}`)
-            const pillStyle: CSSProperties | undefined = color
-              ? { backgroundColor: `${color}40`, borderColor: `color-mix(in srgb, ${color}, white 40%)` }
-              : undefined
-            blockDetails = consolidateFighterDetails(simplifyDetails(blockDetails))
-            return (
-              <div
-                key={i}
-                className="flex items-center gap-2.5 border-b border-l-4 border-b-white/10 px-2.5 py-2 text-[11px] leading-snug text-white/90"
-                style={color ? { borderLeftColor: color, backgroundColor: `${color}1f` } : undefined}
-              >
-                <ActionGlyph icon={icon} avatar={avatar} locCrop={locCrop} cardCircle={cardCircle} color={color} />
-                <div className={`min-w-0 flex-1 ${floatPills.length ? '' : 'flex flex-col justify-center'}`}>
-                  {/* Pastilles flottantes en haut à droite (coût, action bonus) → le texte s'enroule dessous. */}
-                  {floatPills.map((p, j) => (
-                    <span
-                      key={j}
-                      className="float-right ml-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-semibold text-white/90"
-                      style={pillStyle}
-                    >
-                      {p}
-                    </span>
-                  ))}
-                  {/* Pour la défausse, on n'affiche pas de texte de tête (juste les vignettes). */}
-                  {!discardCards && <div className={tag ? 'font-bold italic' : undefined}>{renderRich(head)}</div>}
-                  {discardCards && (
-                    <div className="flex gap-1">
-                      {discardCards.map((c, j) =>
-                        c.image ? (
-                          <img
-                            key={j}
-                            src={c.image}
-                            alt={c.name}
-                            title={c.name}
-                            onMouseEnter={() => setPreview(c.image!)}
-                            onMouseLeave={() => setPreview(null)}
-                            className="h-auto w-[calc((100%-0.75rem)/4)] shrink-0 cursor-zoom-in rounded ring-1 ring-white/20 grayscale-[0.45] brightness-95"
-                            draggable={false}
-                          />
-                        ) : (
-                          <span
-                            key={j}
-                            className="w-[calc((100%-0.75rem)/4)] shrink-0 truncate rounded bg-white/10 px-1.5 py-0.5 text-[10px]"
-                            title={c.name}
-                          >
-                            {c.name}
-                          </span>
-                        ),
-                      )}
-                    </div>
-                  )}
-                  {blockDetails.length > 0 && (
-                    <div className="mt-1 flex flex-col gap-0.5 text-[10px] text-white/65">
-                      {blockDetails.map((d, j) => (
-                        <div key={j}>{renderRich(d)}</div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {/* Pastille centrée à droite (teinte du méchant) : bonus de départ ou total Pouvoir. */}
-                {centerPill && (
-                  <span
-                    className="ml-2 shrink-0 self-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-semibold text-white/90"
-                    style={pillStyle}
-                  >
-                    {centerPill}
-                  </span>
-                )}
-              </div>
-            )
-          })}
+          {blocks.map((block, i) => (
+            <LogBlockView
+              key={i}
+              block={block}
+              playerNames={playerNames}
+              playerColors={playerColors}
+              playerAvatars={playerAvatars}
+              playerBoards={playerBoards}
+              playerGenders={playerGenders}
+              playerArticles={playerArticles}
+              playerVillains={playerVillains}
+              onPreview={setPreview}
+            />
+          ))}
         </div>
       </OverlayScrollbarsComponent>
       {/* Aperçu agrandi de la carte survolée (centré, au-dessus de tout). */}

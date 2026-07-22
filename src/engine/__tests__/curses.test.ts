@@ -246,6 +246,24 @@ describe('E.6 — Cartes spéciales Maléfique', () => {
       }),
     ).toThrow(/force|maxStrength|3/)
   })
+
+  it('Absorption (INSTANT_VANQUISH_HERO_LE minStrength 2) : refuse Force 1, élimine Force ≥2 n\'importe où', () => {
+    const play = (heroForce: number, heroLoc: string) => {
+      let s = applyAction(singleGame(7), { type: 'MOVE', to: 'nottingham' })
+      const abs: CardInstance = {
+        instanceId: 'a1', cardId: 'absorption-lumiere', name: 'Absorption', type: 'effect', cost: 0,
+        effects: [{ type: 'INSTANT_VANQUISH_HERO_LE', maxStrength: 99, minStrength: 2 }],
+      }
+      s = withActive(s, { power: 3, hand: [abs], board: { ...me(s).board, [heroLoc]: [hero('h', 'robin-des-bois', heroForce)] } })
+      return applyAction(s, { type: 'PLAY_CARD', actionId: 'play-card', instanceId: 'a1', targetHeroId: 'h' })
+    }
+    // Force 1 → refusé.
+    expect(() => play(1, 'church')).toThrow(/force|minStrength|2/)
+    // Force 3 sur un lieu ≠ pion (church, pion à nottingham) → éliminé quand même (n'importe où).
+    const s = play(3, 'church')
+    expect(me(s).board['church'].find((c) => c.instanceId === 'h')).toBeUndefined()
+    expect(me(s).fateDiscard.find((c) => c.instanceId === 'h')).toBeDefined()
+  })
 })
 
 describe('E.5 — Héros Maléfique (onPlace)', () => {

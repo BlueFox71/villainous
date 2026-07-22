@@ -940,7 +940,7 @@
     }
   ],
   "createdAt": "2026-06-30T13:12:58.879Z",
-  "updatedAt": "2026-07-13T01:10:12.085Z",
+  "updatedAt": "2026-07-22T19:30:00.000Z",
   "portrait": "/cards/custom-gul-dan/portrait.png?v=1783792105901",
   "portraitRaw": "/cards/custom-gul-dan/portrait-raw.png?v=1783792105901",
   "boardArt": "/cards/custom-gul-dan/board-art.png?v=1783792105901",
@@ -1117,22 +1117,22 @@
     },
     "journal": {
       "villainNotes": {
-        "custom-gul-dan-livre-de-medivh": "Livre de Medivh : Gul'dan pioche jusqu’à trouver une pièce clé.",
-        "custom-gul-dan-l-il-de-dalaran": "L’Œil de Dalaran : Gul'dan gagne du Pouvoir par carte de sa défausse.",
-        "custom-gul-dan-sceptre-de-sargeras": "Sceptre de Sargeras : Gul'dan gagne du Pouvoir par Héros sur son lieu.",
-        "custom-gul-dan-corruption": "Corruption : Gul'dan corrompt un lieu.",
-        "custom-gul-dan-crane-de-gul-dan": "Crâne de Gul'dan : Gul'dan récupère un Objet ou un Événement.",
-        "custom-gul-dan-ouverture-de-la-porte-des-tenebres": "Gul'dan ouvre la Porte des Ténèbres !",
+        "custom-gul-dan-livre-de-medivh": "Livre de Medivh : pioche jusqu’à trouver une pièce clé.",
+        "custom-gul-dan-l-il-de-dalaran": "L’Œil de Dalaran : gagne du Pouvoir par carte de sa défausse.",
+        "custom-gul-dan-sceptre-de-sargeras": "Sceptre de Sargeras : gagne du Pouvoir par Héros sur son lieu.",
+        "custom-gul-dan-corruption": "Corruption : corrompt un lieu.",
+        "custom-gul-dan-crane-de-gul-dan": "Crâne de Gul’dan : récupère un Objet ou un Événement.",
+        "custom-gul-dan-ouverture-de-la-porte-des-tenebres": "Ouvre la Porte des Ténèbres !",
         "custom-gul-dan-membres-du-conseil-des-ombres": "Les Membres du Conseil des Ombres rejoignent le royaume et cherchent un Trait du Chaos.",
         "custom-gul-dan-trait-du-chaos": "Trait du Chaos : un Héros est éliminé.",
         "custom-gul-dan-membres-de-la-horde": "Les Membres de la Horde rejoignent le royaume.",
-        "custom-gul-dan-jeu-d-esprit": "Jeu d’esprit : Gul'dan pioche ou gagne du Pouvoir.",
-        "custom-gul-dan-magie-gangrene": "Magie gangrénée : Gul'dan filtre sa pioche.",
-        "custom-gul-dan-soif-de-pouvoir": "Soif de pouvoir : Gul'dan gagne 3 Pouvoir.",
-        "custom-gul-dan-drain-d-ame": "Drain d’âme : Gul'dan défausse un Allié et pioche 2 cartes.",
+        "custom-gul-dan-jeu-d-esprit": "Jeu d’esprit : pioche ou gagne du Pouvoir.",
+        "custom-gul-dan-magie-gangrene": "Magie gangrénée : filtre sa pioche.",
+        "custom-gul-dan-soif-de-pouvoir": "Soif de pouvoir : gagne 3 JT.",
+        "custom-gul-dan-drain-d-ame": "Drain d’âme : défausse un Allié et pioche 2 cartes.",
         "custom-gul-dan-esclave-draenei": "Un Esclave draenei rejoint le royaume.",
-        "custom-gul-dan-manipulation": "Manipulation : Gul'dan duplique la capacité d’un Artéfact.",
-        "custom-gul-dan-connexion": "Connexion : Gul'dan défausse des cartes pour gagner du Pouvoir."
+        "custom-gul-dan-manipulation": "Manipulation : duplique la capacité d’un Artéfact.",
+        "custom-gul-dan-connexion": "Connexion : défausse des cartes pour gagner du Pouvoir."
       },
       "fateNotes": {
         "custom-gul-dan-medivh": {

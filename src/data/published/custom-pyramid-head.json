@@ -1,1 +1,981 @@
-{"formatVersion":1,"id":"custom-pyramid-head","name":"Pyramid Head","devise":"Nul n'échappe au Jugement.","stars":2,"color":"#8e6b72","pawnHeightPx":80,"boardObjective":"Au début de votre tour, RITE DE JUGEMENT doit être propagé dans tout votre royaume. ","objectiveDescription":"","objective":{"type":"POWER_THRESHOLD","threshold":20},"locations":[{"id":"loc-4","name":"RÉSIDENCE WOOD SIDE","actions":[{"id":"gain-power","type":"FATE","amount":1,"row":"top","label":"Fatalité"},{"id":"fate","type":"PLAY_CARD","row":"bottom","label":"Jouer une carte"},{"id":"vanquish","type":"DISCARD_CARDS","row":"bottom","label":"Défausser des cartes"},{"id":"act1","type":"ACTIVATE","amount":1,"row":"bottom","label":"Activer une capacité"}],"image":"/cards/custom-pyramid-head/loc-loc-4.png?v=1783792105901"},{"id":"loc-2","name":"HÔTEL LAKEVIEW","actions":[{"id":"gain-power","type":"GAIN_POWER","amount":1,"row":"top","label":"Gagner 1 pouvoir"},{"id":"fate","type":"FATE","row":"bottom","label":"Fatalité"},{"id":"vanquish","type":"MOVE_ITEM_ALLY","row":"bottom","label":"Déplacer un objet ou un allié"},{"id":"act1","type":"MOVE_HERO","amount":1,"row":"bottom","label":"Déplacer un héros"}],"image":"/cards/custom-pyramid-head/loc-loc-2.jpg?v=1783792105901"},{"id":"loc-3","name":"HÔPITAL BROOKHAVEN","actions":[{"id":"gain-power","type":"MOVE_ITEM_ALLY","amount":1,"row":"top","label":"Déplacer un objet ou un allié"},{"id":"fate","type":"DISCARD_CARDS","row":"bottom","label":"Défausser des cartes"},{"id":"vanquish","type":"PLAY_CARD","row":"bottom","label":"Jouer une carte"},{"id":"act1","type":"GAIN_POWER","amount":2,"row":"bottom","label":"Gagner 2 pouvoir"}],"image":"/cards/custom-pyramid-head/loc-loc-3.jpg?v=1783792105901","imagePos":{"x":77,"y":50}},{"id":"loc-1","name":"SILENT HILL","actions":[{"id":"gain-power","type":"PLAY_CARD","amount":1,"row":"top","label":"Jouer une carte"},{"id":"fate","type":"VANQUISH","row":"bottom","label":"Vaincre un héros"},{"id":"vanquish","type":"PLAY_CARD","row":"bottom","label":"Jouer une carte"},{"id":"act1","type":"GAIN_POWER","amount":3,"row":"bottom","label":"Gagner 3 pouvoir"}],"image":"/cards/custom-pyramid-head/loc-loc-1.png?v=1783792105901"}],"cards":[{"id":"custom-pyramid-head-rites-de-jugement","name":"RITE DE JUGEMENT","englishName":"RITES DE JUGEMENT","deck":"villain","type":"item","copies":1,"text":"Posez cette carte à SILENT HILL ainsi qu'une tuile de jugement sur la partie haute du lieu. NE PEUT PAS ÊTRE DEFAUSSÉ.","image":"/cards/custom-pyramid-head/custom-pyramid-head-rites-de-jugement.png?v=1783792105901","artTransform":{"scale":0.75,"offsetXPct":0,"offsetYPct":-15},"cost":3,"typeLabel":"Rite","artImage":"/cards/custom-pyramid-head/custom-pyramid-head-rites-de-jugement.art.png?v=1783792105901","typeColor":"#9b4b4b","textLayout":{"x":50,"y":77.553797347399,"w":67.19444444444444,"size":65}},{"id":"custom-pyramid-head-propager-la-souffrance","name":"PROPAGER LA SOUFFRANCE","englishName":"PROPAGER LA SOUFFRANCE","deck":"villain","type":"effect","copies":4,"text":"Contre 1 piste de souffrance, posez une tuile de jugement sur un lieu adjacent ou ce trouve déjà une tuile du jugement.","image":"/cards/custom-pyramid-head/custom-pyramid-head-propager-la-souffrance.png?v=1783792105901","artTransform":{"scale":0.74,"offsetXPct":0,"offsetYPct":-13},"cost":0,"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-propager-la-souffrance.art.png?v=1783792105901","textLayout":{"x":50,"y":77.06455681687879,"w":79.69444444444444,"size":70}},{"id":"custom-pyramid-head-metatron","name":"MÉTATRON","englishName":"MÉTATRON","deck":"villain","type":"item","copies":1,"text":"\n: Payez 3 jeton pouvoir ","image":"/cards/custom-pyramid-head/custom-pyramid-head-metatron.png?v=1783792105901","artTransform":{"scale":0.67,"offsetXPct":0,"offsetYPct":-19},"cost":3,"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-metatron.art.png?v=1783792105901","stickers":[{"id":"stk-1","type":"ACTIVATE","x":32.986111111111114,"y":70.54810228184841,"size":20}],"textLayout":{"x":62.5,"y":70.7044299201162,"w":38.02777777777778,"size":68},"textBoxes":[{"id":"txt-1","text":"Obtenez une piste de souffrance.","x":51.041666666666664,"y":86.83006535947712,"w":66.66666666666666,"size":69}]},{"id":"custom-pyramid-head-cage-de-l-expiation","name":"CAGE DE L'EXPIATION","englishName":"CAGE DE L'EXPIATION","deck":"villain","type":"item","copies":2,"text":"Associez cet Objet à un Héros situé sur un RITE DE JUGEMENT et déplacez le sur un autre lieu.\n","image":"/cards/custom-pyramid-head/custom-pyramid-head-cage-de-l-expiation.png?v=1783792105901","artTransform":{"scale":0.86,"offsetXPct":0,"offsetYPct":-16},"cost":1,"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-cage-de-l-expiation.art.png?v=1783792105901","textLayout":{"x":48.958333333333336,"y":69.9705691243359,"w":81.08333333333334,"size":55},"stickers":[{"id":"stk-1","type":"ACTIVATE","x":20.833333333333332,"y":85.71455872797462,"size":20}],"textBoxes":[{"id":"txt-1","text":": Au début de votre prochain tour, le Héros est éliminé.","x":61.458333333333336,"y":85.85158429843672,"w":53.47222222222222,"size":67}]},{"id":"custom-pyramid-head-chatiment-des-damnes","name":"CHÂTIMENT DES DAMNÉS","englishName":"CHÂTIMENT DES DAMNÉS","deck":"villain","type":"effect","copies":2,"text":"Éliminez un Héros de force 3 ou moins.","image":"/cards/custom-pyramid-head/custom-pyramid-head-chatiment-des-damnes.png?v=1783792105901","artTransform":{"scale":0.5,"offsetXPct":0,"offsetYPct":-28},"cost":2,"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-chatiment-des-damnes.art.png?v=1783792105901","textLayout":{"x":49.30555555555556,"y":76.0860757558384,"w":79.69444444444444,"size":70}},{"id":"custom-pyramid-head-jugement-final","name":"JUGEMENT FINAL","englishName":"JUGEMENT FINAL","deck":"villain","type":"effect","copies":2,"text":"Éliminez un Héros qui se trouve sur un RITE DE JUGEMENT.","image":"/cards/custom-pyramid-head/custom-pyramid-head-jugement-final.png?v=1783792105901","artTransform":{"scale":1.05,"offsetXPct":0,"offsetYPct":-28},"cost":3,"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-jugement-final.art.png?v=1783792105901","textLayout":{"x":49.65277777777778,"y":76.5753162863586,"w":76.91666666666667,"size":68}},{"id":"custom-pyramid-head-mannequin","name":"MANNEQUIN","englishName":"MANNEQUIN","deck":"villain","type":"ally","copies":2,"text":"Ce lieu gagne l'action :","image":"/cards/custom-pyramid-head/custom-pyramid-head-mannequin.png?v=1783792105901","artTransform":{"scale":0.94,"offsetXPct":0,"offsetYPct":-21},"cost":2,"strength":2,"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-mannequin.art.png?v=1783792105901","textLayout":{"x":47.916666666666664,"y":67.2797462064748,"w":67.88888888888889,"size":73},"stickers":[{"id":"stk-1","type":"ACTIVATE","x":49.65277777777777,"y":81.80063448381301,"size":20}]},{"id":"custom-pyramid-head-infirmiere","name":"INFIRMIÈRE","englishName":"INFIRMIÈRE","deck":"villain","type":"ally","copies":3,"text":"La force de l'INFIRMIÈRE augmente de 1 pour chaque autre INFIRMIÈRE sur le même lieu.","image":"/cards/custom-pyramid-head/custom-pyramid-head-infirmiere.png?v=1783792105901","artTransform":{"scale":0.68,"offsetXPct":-14,"offsetYPct":-16},"cost":1,"strength":1,"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-infirmiere.art.png?v=1783792105901","textLayout":{"x":50,"y":77.3091770821389,"w":80.38888888888889,"size":65}},{"id":"custom-pyramid-head-lien-mortel","name":"LIEN MORTEL","englishName":"LIEN MORTEL","deck":"villain","type":"effect","copies":2,"text":"Déplacez tous vos Alliés d'un même lieu vers un autre lieu.","image":"/cards/custom-pyramid-head/custom-pyramid-head-lien-mortel.png?v=1783792105901","artTransform":{"scale":0.5,"offsetXPct":0,"offsetYPct":-25},"cost":2,"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-lien-mortel.art.png?v=1783792105901","textLayout":{"x":48.61111111111111,"y":77.553797347399,"w":77.61111111111111,"size":65}},{"id":"custom-pyramid-head-penitence-forcee","name":"PÉNITENCE FORCÉE","englishName":"PÉNITENCE FORCÉE","deck":"villain","type":"condition","copies":2,"text":"Cette carte est jouable durant le tour d'un adversaire si celui vous cible avec une action Fatalité.   \nDévoilez sa première carte Fatalité et jouez là.","image":"/cards/custom-pyramid-head/custom-pyramid-head-penitence-forcee.png?v=1783792105901","artTransform":{"scale":0.53,"offsetXPct":0,"offsetYPct":-26},"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-penitence-forcee.art.jpg?v=1783792105901","textLayout":{"x":50.34722222222222,"y":77.553797347399,"w":82.47222222222221,"size":65}},{"id":"custom-pyramid-head-alliance-inhibee","name":"ALLIANCE INHIBÉE","englishName":"ALLIANCE INHIBÉE","deck":"villain","type":"condition","copies":2,"text":"Cette carte est jouable pendant le tour d'un adversaire s'il a éliminé un Héros. \nÉliminez un Héros de force équivalente ou moins.","image":"/cards/custom-pyramid-head/custom-pyramid-head-alliance-inhibee.png?v=1783792105901","artTransform":{"scale":0.5,"offsetXPct":0,"offsetYPct":-25},"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-alliance-inhibee.art.png?v=1783792105901","textLayout":{"x":49.65277777777778,"y":77.3091770821389,"w":83.86111111111111,"size":65}},{"id":"custom-pyramid-head-pacte-de-sang","name":"PACTE DE SANG","englishName":"PACTE DE SANG","deck":"villain","type":"effect","copies":3,"text":"Défausser une carte de votre main pour récupérer une carte du même type dans votre défausse et l'ajouter à votre main.","image":"/cards/custom-pyramid-head/custom-pyramid-head-pacte-de-sang.png?v=1783792105901","artTransform":{"scale":0.5,"offsetXPct":0,"offsetYPct":-26},"cost":1,"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-pacte-de-sang.art.jpg?v=1783792105901","textLayout":{"x":50,"y":77.3091770821389,"w":83.16666666666667,"size":70},"typeColor":"#6ec05a","typeLabel":"Événement"},{"id":"custom-pyramid-head-sacrifice-humain","name":"SACRIFICE HUMAIN","englishName":"SACRIFICE HUMAIN","deck":"villain","type":"item","copies":1,"text":" Regardez les 3 premières cartes de votre deck.   Ajoutez en une à votre main et défaussez les autres.\nou\nGagnez 2 jetons pouvoir.","image":"/cards/custom-pyramid-head/custom-pyramid-head-sacrifice-humain.png?v=1783792105901","artTransform":{"scale":0.62,"offsetXPct":8,"offsetYPct":-25},"cost":1,"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-sacrifice-humain.art.png?v=1783792105901","stickers":[{"id":"stk-1","type":"ACTIVATE","x":49.65277777777778,"y":69.56962122080802,"size":20}],"textLayout":{"x":49.30555555555556,"y":85.3816458357222,"w":81.77777777777777,"size":53}},{"id":"custom-pyramid-head-fanatisme","name":"FANATISME","englishName":"FANATISME","deck":"villain","type":"effect","copies":3,"text":"Défaussez un Allié pour piocher 3 cartes.","image":"/cards/custom-pyramid-head/custom-pyramid-head-fanatisme.png?v=1783792105901","artTransform":{"scale":0.5,"offsetXPct":0,"offsetYPct":-28},"cost":1,"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-fanatisme.art.png?v=1783792105901","textLayout":{"x":50.69444444444444,"y":77.3091770821389,"w":78.30555555555556,"size":60}},{"id":"custom-pyramid-head-cheryl-mason","name":"JAMES SUNDERLAND","englishName":"CHERYL MASON","deck":"fate","type":"hero","copies":1,"text":"Défaussez le MÉTATRON.\nTant que JAMES est présent, le MÉTATRON n'a aucun effet.","image":"/cards/custom-pyramid-head/custom-pyramid-head-cheryl-mason.png?v=1783792105901","artTransform":{"scale":0.5,"offsetXPct":0,"offsetYPct":-27},"strength":4,"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-cheryl-mason.art.png?v=1783792105901","textLayout":{"x":50.34722222222222,"y":74.37373389901771,"w":79,"size":67}},{"id":"custom-pyramid-head-harry-mason","name":"MARIA","englishName":"HARRY MASON","deck":"fate","type":"hero","copies":1,"text":"RITE DE JUGEMENT ne peuvent pas être propagés sur le lieu où se trouve MARIA.","image":"/cards/custom-pyramid-head/custom-pyramid-head-harry-mason.png?v=1783792105901","artTransform":{"scale":0.5,"offsetXPct":0,"offsetYPct":-25},"strength":4,"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-harry-mason.art.jpg?v=1783792105901","textLayout":{"x":49.65277777777778,"y":74.37373389901771,"w":74.13888888888889,"size":66}},{"id":"custom-pyramid-head-dissipation","name":"DISSIPATION","englishName":"DISSIPATION","deck":"fate","type":"effect","copies":2,"text":"Retirez une tuile du jugement.","image":"/cards/custom-pyramid-head/custom-pyramid-head-dissipation.png?v=1783792105901","artTransform":{"scale":0.5,"offsetXPct":0,"offsetYPct":-27},"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-dissipation.art.png?v=1783792105901","textLayout":{"x":49.30555555555556,"y":73.63987310323739,"w":83.16666666666667,"size":60}},{"id":"custom-pyramid-head-protection-de-l-ame","name":"PROTECTION DE L'ÂME","englishName":"PROTECTION DE L'ÂME","deck":"fate","type":"item","copies":2,"text":"Associez cet Objet à un Héros . Il ne peut plus être éliminé. À tout moment, PYRAMID HEAD peut payer 3 jetons Pouvoir pour défausser cette carte.","image":"/cards/custom-pyramid-head/custom-pyramid-head-protection-de-l-ame.png?v=1783792105901","artTransform":{"scale":0.5,"offsetXPct":0,"offsetYPct":-25},"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-protection-de-l-ame.art.png?v=1783792105901","textLayout":{"x":50,"y":76.5753162863586,"w":79,"size":58}},{"id":"custom-pyramid-head-lisa-garland","name":"LAURA","englishName":"LISA GARLAND","deck":"fate","type":"hero","copies":1,"text":"Obtenir une piste de souffrance coûte 1 jeton pouvoir supplémentaire.","image":"/cards/custom-pyramid-head/custom-pyramid-head-lisa-garland.png?v=1783792105901","artTransform":{"scale":0.5,"offsetXPct":0,"offsetYPct":-25},"strength":4,"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-lisa-garland.art.png?v=1783792105901","textLayout":{"x":50,"y":76.3306960210985,"w":83.86111111111111,"size":68}},{"id":"custom-pyramid-head-cybil-bennett","name":"EDDIE","englishName":"CYBIL BENNETT","deck":"fate","type":"hero","copies":1,"text":"EDDIE ne peut pas être éliminée à l'aide de la cage de l'expiation.","image":"/cards/custom-pyramid-head/custom-pyramid-head-cybil-bennett.png?v=1783792105901","artTransform":{"scale":0.57,"offsetXPct":0,"offsetYPct":-27},"strength":3,"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-cybil-bennett.art.png?v=1783792105901","textLayout":{"x":49.65277777777778,"y":75.5968352253182,"w":81.77777777777777,"size":66}},{"id":"custom-pyramid-head-dahlia-gillespie","name":"ANGELA","englishName":"DAHLIA GILLESPIE","deck":"fate","type":"hero","copies":1,"text":"Lorsque ANGELA est jouée, vous perdez 1 piste de souffrance.","image":"/cards/custom-pyramid-head/custom-pyramid-head-dahlia-gillespie.png?v=1783792105901","artTransform":{"scale":0.5,"offsetXPct":0,"offsetYPct":-27},"strength":3,"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-dahlia-gillespie.art.png?v=1783792105901","textLayout":{"x":49.65277777777778,"y":77.3091770821389,"w":79,"size":68}},{"id":"custom-pyramid-head-robbie-le-lapin","name":"FARCE DE LAURA","englishName":"ROBBIE LE LAPIN","deck":"fate","type":"effect","copies":2,"text":"Perdez 2 jetons Pouvoir.","image":"/cards/custom-pyramid-head/custom-pyramid-head-robbie-le-lapin.png?v=1783792105901","artTransform":{"scale":0.65,"offsetXPct":0,"offsetYPct":-22},"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-robbie-le-lapin.art.jpg?v=1783792105901","textLayout":{"x":50,"y":75.107594694798,"w":77.61111111111111,"size":65}},{"id":"custom-pyramid-head-redemption","name":"REDEMPTION","englishName":"REDEMPTION","deck":"fate","type":"effect","copies":2,"text":"Pyramid Head défausse 2 cartes de sa main.","image":"/cards/custom-pyramid-head/custom-pyramid-head-redemption.png?v=1783792105901","artTransform":{"scale":0.5,"offsetXPct":0,"offsetYPct":-26},"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-redemption.art.png?v=1783792105901","textLayout":{"x":49.65277777777778,"y":77.3091770821389,"w":77.61111111111111,"size":60}},{"id":"custom-pyramid-head-c1","name":"RADIO","englishName":"","deck":"fate","type":"effect","copies":2,"text":"Déplacez un Héros vers n'importe quel lieu.","image":"/cards/custom-pyramid-head/custom-pyramid-head-c1.png?v=1783792105901","artTransform":{"scale":0.5,"offsetXPct":0,"offsetYPct":-25},"strength":1,"typeLabel":"Événement","typeColor":"#6ec05a","textLayout":{"x":50,"y":76.8199365516187,"w":79,"size":73},"artImage":"/cards/custom-pyramid-head/custom-pyramid-head-c1.art.jpg?v=1783792105901"}],"createdAt":"2026-06-29T14:16:44.643Z","updatedAt":"2026-07-11T17:48:43.704Z","pawnImage":"/cards/custom-pyramid-head/pawn.png?v=1783792105901","backVillainImage":"/cards/custom-pyramid-head/back-villain.png?v=1783792105901","backFateImage":"/cards/custom-pyramid-head/back-fate.png?v=1783792105901","boardImage":"/cards/custom-pyramid-head/board.jpg?v=1783792105901","portrait":"/cards/custom-pyramid-head/portrait.png?v=1783792105901","portraitRaw":"/cards/custom-pyramid-head/portrait-raw.png?v=1783792105901","presentation":"/cards/custom-pyramid-head/presentation.png?v=1783792105901","boardArt":"/cards/custom-pyramid-head/board-art.png?v=1783792105901","backOverlays":[{"id":"ovl-1","image":"/cards/custom-pyramid-head/back-overlay-0.png?v=1783792105901","x":50,"y":50,"size":100,"aspect":1.4085281980742779}],"published":true,"creator":"Alexis","origin":"Collaborations","botStrategy":{"howToWin":"Objectif : au début de son tour, avoir propagé une tuile RITE DE JUGEMENT dans TOUT le royaume. Pyramid Head pose d’abord RITE DE JUGEMENT à Silent Hill, accumule de la souffrance, puis propage les tuiles de proche en proche (PROPAGER LA SOUFFRANCE) jusqu’à couvrir tous les lieux — tout en éliminant les Héros qui gênent la propagation.","villainNotes":{"custom-pyramid-head-rites-de-jugement":"Objet (coût 3) posé à SILENT HILL avec une tuile de jugement. NE PEUT PAS être défaussé. Point de départ de la propagation.","custom-pyramid-head-propager-la-souffrance":"Effet gratuit : dépense 1 piste de souffrance pour poser une tuile de jugement sur un lieu adjacent à un lieu déjà tuilé. Cœur de l’objectif — injouable sans souffrance ni tuile voisine.","custom-pyramid-head-metatron":"Objet (coût 3) à capacité activée (payer 3 Pouvoir). Neutralisé tant que JAMES SUNDERLAND est en jeu.","custom-pyramid-head-cage-de-l-expiation":"Objet (coût 1) associé à un Héros situé sur un RITE DE JUGEMENT, puis le déplace sur un autre lieu. Injouable si aucun Héros sur un Rite (EDDIE y est immunisé).","custom-pyramid-head-chatiment-des-damnes":"Effet (coût 2) : élimine un Héros de force 3 ou moins. Injouable si aucun Héros ≤ 3 en jeu.","custom-pyramid-head-jugement-final":"Effet (coût 3) : élimine un Héros situé sur un RITE DE JUGEMENT (quelle que soit sa force). Injouable si aucun Héros sur un Rite.","custom-pyramid-head-mannequin":"Allié (coût 2, force 2) qui donne une action à son lieu.","custom-pyramid-head-infirmiere":"Allié (coût 1, force 1). +1 Force par autre INFIRMIÈRE sur le même lieu (elles se renforcent en groupe).","custom-pyramid-head-lien-mortel":"Effet (coût 2) : déplace TOUS les Alliés d’un même lieu vers un autre lieu. Injouable sans Allié à déplacer.","custom-pyramid-head-penitence-forcee":"Condition : jouable pendant le tour d’un adversaire s’il te cible d’une action Fatalité. Dévoile sa 1re carte Fatalité et joue-la.","custom-pyramid-head-alliance-inhibee":"Condition : jouable pendant le tour d’un adversaire s’il a éliminé un Héros. Élimine un Héros de force équivalente ou moindre.","custom-pyramid-head-pacte-de-sang":"Effet (coût 1) : défausse une carte de la main pour récupérer une carte du MÊME type dans la défausse. Injouable si rien à récupérer.","custom-pyramid-head-sacrifice-humain":"Objet (coût 1) : regarde les 3 premières cartes du deck (en garde 1, défausse 2) OU gagne 2 Pouvoir.","custom-pyramid-head-fanatisme":"Effet (coût 1) : défausse un Allié pour piocher 3 cartes. Injouable sans Allié à défausser."},"fateNotes":{"custom-pyramid-head-cheryl-mason":{"description":"JAMES SUNDERLAND (Héros, force 4) : sa pose défausse le MÉTATRON ; tant qu’il est là, le MÉTATRON n’a aucun effet.","asReceiver":"Le bot le vainc s’il veut réutiliser le MÉTATRON.","asAttacker":"À poser contre un vilain qui dépend d’un Objet activé."},"custom-pyramid-head-harry-mason":{"description":"MARIA (Héros, force 4) : les RITE DE JUGEMENT ne peuvent pas être propagés sur son lieu.","asReceiver":"Blocage direct de l’objectif : le bot la vainc ou la déplace pour libérer le lieu.","asAttacker":"Verrou puissant contre un objectif de zone."},"custom-pyramid-head-dissipation":{"description":"Effet Fatalité : retire une tuile de jugement.","asReceiver":"Recul d’objectif : le bot re-propage la tuile perdue.","asAttacker":"Fait reculer un vilain qui pose des marqueurs/tuiles."},"custom-pyramid-head-protection-de-l-ame":{"description":"Objet Fatalité associé à un Héros : le rend inéliminable. Pyramid Head peut payer 3 Pouvoir pour le défausser.","asReceiver":"Le bot paie 3 Pouvoir pour retirer la protection s’il doit vaincre ce Héros.","asAttacker":"Protège un Héros clé de l’adversaire."},"custom-pyramid-head-lisa-garland":{"description":"LAURA (Héros, force 4) : obtenir une piste de souffrance coûte 1 Pouvoir de plus.","asReceiver":"Ralentit la souffrance (donc la propagation) : le bot la vainc en priorité.","asAttacker":"Taxe l’économie d’un vilain à ressource."},"custom-pyramid-head-cybil-bennett":{"description":"EDDIE (Héros, force 3) : ne peut pas être éliminé via la CAGE DE L’EXPIATION.","asReceiver":"Le bot l’élimine autrement (CHÂTIMENT / JUGEMENT FINAL).","asAttacker":"Héros robuste face aux effets de déplacement/cage."},"custom-pyramid-head-dahlia-gillespie":{"description":"ANGELA (Héros, force 3) : à sa pose, Pyramid Head perd 1 piste de souffrance.","asReceiver":"Perte de ressource : le bot recompose sa souffrance avant de propager.","asAttacker":"Ampute la ressource d’un vilain dès l’arrivée."},"custom-pyramid-head-robbie-le-lapin":{"description":"FARCE DE LAURA (effet Fatalité) : fait perdre 2 Jetons Pouvoir.","asReceiver":"Le bot garde une marge de Pouvoir.","asAttacker":"Assèche le Pouvoir adverse avant une grosse action."},"custom-pyramid-head-redemption":{"description":"Effet Fatalité : Pyramid Head défausse 2 cartes de sa main.","asReceiver":"Perte de cartes : le bot évite de trop garder en main quand la Fatalité menace.","asAttacker":"Vide la main de l’adversaire."},"custom-pyramid-head-c1":{"description":"RADIO (effet Fatalité, force 1) : déplace un Héros vers n’importe quel lieu.","asReceiver":"Peut casser un placement : le bot recadre.","asAttacker":"Repositionne un Héros adverse là où il gêne le plus."}},"botPlay":{"general":"Le bot pose vite RITE DE JUGEMENT à Silent Hill, monte sa souffrance (SACRIFICE HUMAIN, actions de lieu) et propage les tuiles de proche en proche à chaque tour. Il dégage les Héros bloquants — surtout MARIA (bloque la propagation sur son lieu) et LAURA (taxe la souffrance) — via CHÂTIMENT / JUGEMENT FINAL / CAGE, et se sert de PÉNITENCE / ALLIANCE en réaction au tour adverse.","villainNotes":{"custom-pyramid-head-rites-de-jugement":"Joué en tout premier (base de la propagation). Le bot ne le sacrifie jamais (non défaussable de toute façon).","custom-pyramid-head-propager-la-souffrance":"Joué à chaque fois qu’il a de la souffrance et un lieu voisin libre : c’est son action d’objectif prioritaire.","custom-pyramid-head-metatron":"Joué pour sa capacité si le Pouvoir le permet ; le bot évite de le poser tant que JAMES est en jeu.","custom-pyramid-head-cage-de-l-expiation":"Utilisée pour déloger un Héros bloquant posé sur un Rite (le sortir du lieu à couvrir).","custom-pyramid-head-chatiment-des-damnes":"Priorité sur les petits Héros gênants (force ≤ 3) : MARIA n’y est pas éligible mais LAURA/EDDIE/ANGELA oui selon la force.","custom-pyramid-head-jugement-final":"Réservé aux Héros posés sur un Rite, y compris les gros : c’est le finisher anti-blocage.","custom-pyramid-head-mannequin":"Posé pour ajouter une action utile à un lieu clé (souvent là où le bot veut propager).","custom-pyramid-head-infirmiere":"Jouée en groupe sur un même lieu pour cumuler la force (défense / Vanquish).","custom-pyramid-head-lien-mortel":"Regroupe les Alliés là où il en a besoin (concentration de force).","custom-pyramid-head-penitence-forcee":"Gardée en réaction : déclenchée quand l’adversaire l’attaque par Fatalité pour retourner sa propre Fatalité contre lui.","custom-pyramid-head-alliance-inhibee":"Gardée en réaction : punit une élimination adverse en éliminant un Héros à son tour.","custom-pyramid-head-pacte-de-sang":"Utilisé pour récupérer une pièce clé défaussée (Rite, effet d’élimination).","custom-pyramid-head-sacrifice-humain":"Filtrage de pioche ou +2 Pouvoir selon le besoin ; souvent le +2 pour financer la souffrance.","custom-pyramid-head-fanatisme":"Joué quand la main est faible et qu’un Allié est sacrifiable : gros refill (pioche 3)."},"fateNotes":{"custom-pyramid-head-cheryl-mason":{"description":"JAMES : le bot le vainc s’il veut relancer le MÉTATRON.","asReceiver":"Ne pose pas le MÉTATRON tant que JAMES est là.","asAttacker":"À poser contre un vilain dépendant d’un Objet activé."},"custom-pyramid-head-harry-mason":{"description":"MARIA : le bot la traite en priorité absolue (bloque la propagation).","asReceiver":"La déplace (CAGE) ou l’élimine pour libérer son lieu.","asAttacker":"Verrou de zone contre un adversaire."},"custom-pyramid-head-dissipation":{"description":"Retire une tuile : le bot recompte les lieux à recouvrir.","asReceiver":"Re-propage dès que possible la tuile perdue.","asAttacker":"Fait reculer un objectif de marqueurs adverse."},"custom-pyramid-head-protection-de-l-ame":{"description":"Le bot paie 3 Pouvoir pour la retirer quand il doit vaincre le Héros protégé.","asReceiver":"Budgétise 3 Pouvoir pour la lever.","asAttacker":"Protège un Héros clé."},"custom-pyramid-head-lisa-garland":{"description":"LAURA : le bot la vainc vite (taxe la souffrance = ralentit tout).","asReceiver":"Anticipe une souffrance plus chère tant qu’elle est là.","asAttacker":"Taxe une économie de ressource adverse."},"custom-pyramid-head-cybil-bennett":{"description":"EDDIE : le bot l’élimine hors CAGE (CHÂTIMENT/JUGEMENT).","asReceiver":"Ne compte pas sur la CAGE pour lui.","asAttacker":"Héros robuste aux déplacements."},"custom-pyramid-head-dahlia-gillespie":{"description":"ANGELA : le bot reconstitue la souffrance perdue à sa pose.","asReceiver":"Garde une réserve de souffrance d’avance.","asAttacker":"Ampute une ressource adverse à l’arrivée."},"custom-pyramid-head-robbie-le-lapin":{"description":"FARCE DE LAURA : perte de 2 Pouvoir, gérée par une marge.","asReceiver":"Garde un peu de Pouvoir d’avance.","asAttacker":"Assèche le Pouvoir adverse au bon moment."},"custom-pyramid-head-redemption":{"description":"Le bot évite de surcharger sa main quand cette Fatalité menace.","asReceiver":"Joue ses cartes plutôt que de les thésauriser.","asAttacker":"Vide la main adverse."},"custom-pyramid-head-c1":{"description":"RADIO : repositionnement de Héros.","asReceiver":"Recadre un Héros déplacé.","asAttacker":"Déplace un Héros adverse là où il gêne."}}},"journal":{"villainNotes":{"custom-pyramid-head-rites-de-jugement":"Pyramid Head pose un Rite de Jugement à Silent Hill.","custom-pyramid-head-propager-la-souffrance":"Pyramid Head propage la souffrance : une tuile de jugement s’étend sur un lieu voisin.","custom-pyramid-head-metatron":"Pyramid Head invoque le Métatron.","custom-pyramid-head-cage-de-l-expiation":"Pyramid Head enferme un Héros dans la Cage de l’Expiation et le déplace.","custom-pyramid-head-chatiment-des-damnes":"Châtiment des damnés : un Héros de force 3 ou moins est éliminé.","custom-pyramid-head-jugement-final":"Jugement final : un Héros sur un Rite de Jugement est éliminé.","custom-pyramid-head-mannequin":"Un Mannequin rejoint le royaume.","custom-pyramid-head-infirmiere":"Une Infirmière rejoint le royaume.","custom-pyramid-head-lien-mortel":"Lien mortel : Pyramid Head déplace tous ses Alliés d’un lieu.","custom-pyramid-head-penitence-forcee":"Pénitence forcée : Pyramid Head retourne la Fatalité de l’adversaire.","custom-pyramid-head-alliance-inhibee":"Alliance inhibée : Pyramid Head élimine un Héros en représailles.","custom-pyramid-head-pacte-de-sang":"Pacte de sang : Pyramid Head récupère une carte de sa défausse.","custom-pyramid-head-sacrifice-humain":"Sacrifice humain : Pyramid Head filtre son deck ou gagne 2 Pouvoir.","custom-pyramid-head-fanatisme":"Fanatisme : Pyramid Head défausse un Allié et pioche 3 cartes."},"fateNotes":{"custom-pyramid-head-cheryl-mason":{"description":"James Sunderland apparaît : le Métatron est défaussé et neutralisé."},"custom-pyramid-head-harry-mason":{"description":"Maria apparaît : les Rites ne peuvent plus être propagés sur son lieu."},"custom-pyramid-head-dissipation":{"description":"Dissipation : une tuile de jugement est retirée."},"custom-pyramid-head-protection-de-l-ame":{"description":"Protection de l’âme : un Héros devient inéliminable."},"custom-pyramid-head-lisa-garland":{"description":"Laura apparaît : la souffrance coûte 1 Pouvoir de plus."},"custom-pyramid-head-cybil-bennett":{"description":"Eddie apparaît : il ne peut pas être éliminé par la Cage."},"custom-pyramid-head-dahlia-gillespie":{"description":"Angela apparaît : Pyramid Head perd 1 piste de souffrance."},"custom-pyramid-head-robbie-le-lapin":{"description":"Farce de Laura : Pyramid Head perd 2 Pouvoir."},"custom-pyramid-head-redemption":{"description":"Rédemption : Pyramid Head défausse 2 cartes."},"custom-pyramid-head-c1":{"description":"La Radio grésille : un Héros est déplacé n’importe où."}}}},"coverColor":"#463538"}
+{
+  "formatVersion": 1,
+  "id": "custom-pyramid-head",
+  "name": "Pyramid Head",
+  "devise": "Nul n'échappe au Jugement.",
+  "stars": 2,
+  "color": "#8e6b72",
+  "pawnHeightPx": 80,
+  "boardObjective": "Au début de votre tour, RITE DE JUGEMENT doit être propagé dans tout votre royaume. ",
+  "objectiveDescription": "",
+  "objective": {
+    "type": "POWER_THRESHOLD",
+    "threshold": 20
+  },
+  "locations": [
+    {
+      "id": "loc-4",
+      "name": "RÉSIDENCE WOOD SIDE",
+      "actions": [
+        {
+          "id": "gain-power",
+          "type": "FATE",
+          "amount": 1,
+          "row": "top",
+          "label": "Fatalité"
+        },
+        {
+          "id": "fate",
+          "type": "PLAY_CARD",
+          "row": "bottom",
+          "label": "Jouer une carte"
+        },
+        {
+          "id": "vanquish",
+          "type": "DISCARD_CARDS",
+          "row": "bottom",
+          "label": "Défausser des cartes"
+        },
+        {
+          "id": "act1",
+          "type": "ACTIVATE",
+          "amount": 1,
+          "row": "bottom",
+          "label": "Activer une capacité"
+        }
+      ],
+      "image": "/cards/custom-pyramid-head/loc-loc-4.png?v=1783792105901"
+    },
+    {
+      "id": "loc-2",
+      "name": "HÔTEL LAKEVIEW",
+      "actions": [
+        {
+          "id": "gain-power",
+          "type": "GAIN_POWER",
+          "amount": 1,
+          "row": "top",
+          "label": "Gagner 1 pouvoir"
+        },
+        {
+          "id": "fate",
+          "type": "FATE",
+          "row": "bottom",
+          "label": "Fatalité"
+        },
+        {
+          "id": "vanquish",
+          "type": "MOVE_ITEM_ALLY",
+          "row": "bottom",
+          "label": "Déplacer un objet ou un allié"
+        },
+        {
+          "id": "act1",
+          "type": "MOVE_HERO",
+          "amount": 1,
+          "row": "bottom",
+          "label": "Déplacer un héros"
+        }
+      ],
+      "image": "/cards/custom-pyramid-head/loc-loc-2.jpg?v=1783792105901"
+    },
+    {
+      "id": "loc-3",
+      "name": "HÔPITAL BROOKHAVEN",
+      "actions": [
+        {
+          "id": "gain-power",
+          "type": "MOVE_ITEM_ALLY",
+          "amount": 1,
+          "row": "top",
+          "label": "Déplacer un objet ou un allié"
+        },
+        {
+          "id": "fate",
+          "type": "DISCARD_CARDS",
+          "row": "bottom",
+          "label": "Défausser des cartes"
+        },
+        {
+          "id": "vanquish",
+          "type": "PLAY_CARD",
+          "row": "bottom",
+          "label": "Jouer une carte"
+        },
+        {
+          "id": "act1",
+          "type": "GAIN_POWER",
+          "amount": 2,
+          "row": "bottom",
+          "label": "Gagner 2 pouvoir"
+        }
+      ],
+      "image": "/cards/custom-pyramid-head/loc-loc-3.jpg?v=1783792105901",
+      "imagePos": {
+        "x": 77,
+        "y": 50
+      }
+    },
+    {
+      "id": "loc-1",
+      "name": "SILENT HILL",
+      "actions": [
+        {
+          "id": "gain-power",
+          "type": "PLAY_CARD",
+          "amount": 1,
+          "row": "top",
+          "label": "Jouer une carte"
+        },
+        {
+          "id": "fate",
+          "type": "VANQUISH",
+          "row": "bottom",
+          "label": "Vaincre un héros"
+        },
+        {
+          "id": "vanquish",
+          "type": "PLAY_CARD",
+          "row": "bottom",
+          "label": "Jouer une carte"
+        },
+        {
+          "id": "act1",
+          "type": "GAIN_POWER",
+          "amount": 3,
+          "row": "bottom",
+          "label": "Gagner 3 pouvoir"
+        }
+      ],
+      "image": "/cards/custom-pyramid-head/loc-loc-1.png?v=1783792105901"
+    }
+  ],
+  "cards": [
+    {
+      "id": "custom-pyramid-head-rites-de-jugement",
+      "name": "RITE DE JUGEMENT",
+      "englishName": "RITES DE JUGEMENT",
+      "deck": "villain",
+      "type": "item",
+      "copies": 1,
+      "text": "Posez cette carte à SILENT HILL ainsi qu'une tuile de jugement sur la partie haute du lieu. NE PEUT PAS ÊTRE DEFAUSSÉ.",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-rites-de-jugement.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.75,
+        "offsetXPct": 0,
+        "offsetYPct": -15
+      },
+      "cost": 3,
+      "typeLabel": "Rite",
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-rites-de-jugement.art.png?v=1783792105901",
+      "typeColor": "#9b4b4b",
+      "textLayout": {
+        "x": 50,
+        "y": 77.553797347399,
+        "w": 67.19444444444444,
+        "size": 65
+      }
+    },
+    {
+      "id": "custom-pyramid-head-propager-la-souffrance",
+      "name": "PROPAGER LA SOUFFRANCE",
+      "englishName": "PROPAGER LA SOUFFRANCE",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 4,
+      "text": "Contre 1 piste de souffrance, posez une tuile de jugement sur un lieu adjacent ou ce trouve déjà une tuile du jugement.",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-propager-la-souffrance.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.74,
+        "offsetXPct": 0,
+        "offsetYPct": -13
+      },
+      "cost": 0,
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-propager-la-souffrance.art.png?v=1783792105901",
+      "textLayout": {
+        "x": 50,
+        "y": 77.06455681687879,
+        "w": 79.69444444444444,
+        "size": 70
+      }
+    },
+    {
+      "id": "custom-pyramid-head-metatron",
+      "name": "MÉTATRON",
+      "englishName": "MÉTATRON",
+      "deck": "villain",
+      "type": "item",
+      "copies": 1,
+      "text": "\n: Payez 3 jeton pouvoir ",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-metatron.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.67,
+        "offsetXPct": 0,
+        "offsetYPct": -19
+      },
+      "cost": 3,
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-metatron.art.png?v=1783792105901",
+      "stickers": [
+        {
+          "id": "stk-1",
+          "type": "ACTIVATE",
+          "x": 32.986111111111114,
+          "y": 70.54810228184841,
+          "size": 20
+        }
+      ],
+      "textLayout": {
+        "x": 62.5,
+        "y": 70.7044299201162,
+        "w": 38.02777777777778,
+        "size": 68
+      },
+      "textBoxes": [
+        {
+          "id": "txt-1",
+          "text": "Obtenez une piste de souffrance.",
+          "x": 51.041666666666664,
+          "y": 86.83006535947712,
+          "w": 66.66666666666666,
+          "size": 69
+        }
+      ]
+    },
+    {
+      "id": "custom-pyramid-head-cage-de-l-expiation",
+      "name": "CAGE DE L'EXPIATION",
+      "englishName": "CAGE DE L'EXPIATION",
+      "deck": "villain",
+      "type": "item",
+      "copies": 2,
+      "text": "Associez cet Objet à un Héros situé sur un RITE DE JUGEMENT et déplacez le sur un autre lieu.\n",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-cage-de-l-expiation.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.86,
+        "offsetXPct": 0,
+        "offsetYPct": -16
+      },
+      "cost": 1,
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-cage-de-l-expiation.art.png?v=1783792105901",
+      "textLayout": {
+        "x": 48.958333333333336,
+        "y": 69.9705691243359,
+        "w": 81.08333333333334,
+        "size": 55
+      },
+      "stickers": [
+        {
+          "id": "stk-1",
+          "type": "ACTIVATE",
+          "x": 20.833333333333332,
+          "y": 85.71455872797462,
+          "size": 20
+        }
+      ],
+      "textBoxes": [
+        {
+          "id": "txt-1",
+          "text": ": Au début de votre prochain tour, le Héros est éliminé.",
+          "x": 61.458333333333336,
+          "y": 85.85158429843672,
+          "w": 53.47222222222222,
+          "size": 67
+        }
+      ]
+    },
+    {
+      "id": "custom-pyramid-head-chatiment-des-damnes",
+      "name": "CHÂTIMENT DES DAMNÉS",
+      "englishName": "CHÂTIMENT DES DAMNÉS",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 2,
+      "text": "Éliminez un Héros de force 3 ou moins.",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-chatiment-des-damnes.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -28
+      },
+      "cost": 2,
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-chatiment-des-damnes.art.png?v=1783792105901",
+      "textLayout": {
+        "x": 49.30555555555556,
+        "y": 76.0860757558384,
+        "w": 79.69444444444444,
+        "size": 70
+      }
+    },
+    {
+      "id": "custom-pyramid-head-jugement-final",
+      "name": "JUGEMENT FINAL",
+      "englishName": "JUGEMENT FINAL",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 2,
+      "text": "Éliminez un Héros qui se trouve sur un RITE DE JUGEMENT.",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-jugement-final.png?v=1783792105901",
+      "artTransform": {
+        "scale": 1.05,
+        "offsetXPct": 0,
+        "offsetYPct": -28
+      },
+      "cost": 3,
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-jugement-final.art.png?v=1783792105901",
+      "textLayout": {
+        "x": 49.65277777777778,
+        "y": 76.5753162863586,
+        "w": 76.91666666666667,
+        "size": 68
+      }
+    },
+    {
+      "id": "custom-pyramid-head-mannequin",
+      "name": "MANNEQUIN",
+      "englishName": "MANNEQUIN",
+      "deck": "villain",
+      "type": "ally",
+      "copies": 2,
+      "text": "Ce lieu gagne l'action :",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-mannequin.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.94,
+        "offsetXPct": 0,
+        "offsetYPct": -21
+      },
+      "cost": 2,
+      "strength": 2,
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-mannequin.art.png?v=1783792105901",
+      "textLayout": {
+        "x": 47.916666666666664,
+        "y": 67.2797462064748,
+        "w": 67.88888888888889,
+        "size": 73
+      },
+      "stickers": [
+        {
+          "id": "stk-1",
+          "type": "ACTIVATE",
+          "x": 49.65277777777777,
+          "y": 81.80063448381301,
+          "size": 20
+        }
+      ]
+    },
+    {
+      "id": "custom-pyramid-head-infirmiere",
+      "name": "INFIRMIÈRE",
+      "englishName": "INFIRMIÈRE",
+      "deck": "villain",
+      "type": "ally",
+      "copies": 3,
+      "text": "La force de l'INFIRMIÈRE augmente de 1 pour chaque autre INFIRMIÈRE sur le même lieu.",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-infirmiere.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.68,
+        "offsetXPct": -14,
+        "offsetYPct": -16
+      },
+      "cost": 1,
+      "strength": 1,
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-infirmiere.art.png?v=1783792105901",
+      "textLayout": {
+        "x": 50,
+        "y": 77.3091770821389,
+        "w": 80.38888888888889,
+        "size": 65
+      }
+    },
+    {
+      "id": "custom-pyramid-head-lien-mortel",
+      "name": "LIEN MORTEL",
+      "englishName": "LIEN MORTEL",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 2,
+      "text": "Déplacez tous vos Alliés d'un même lieu vers un autre lieu.",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-lien-mortel.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -25
+      },
+      "cost": 2,
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-lien-mortel.art.png?v=1783792105901",
+      "textLayout": {
+        "x": 48.61111111111111,
+        "y": 77.553797347399,
+        "w": 77.61111111111111,
+        "size": 65
+      }
+    },
+    {
+      "id": "custom-pyramid-head-penitence-forcee",
+      "name": "PÉNITENCE FORCÉE",
+      "englishName": "PÉNITENCE FORCÉE",
+      "deck": "villain",
+      "type": "condition",
+      "copies": 2,
+      "text": "Cette carte est jouable durant le tour d'un adversaire si celui vous cible avec une action Fatalité.   \nDévoilez sa première carte Fatalité et jouez là.",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-penitence-forcee.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.53,
+        "offsetXPct": 0,
+        "offsetYPct": -26
+      },
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-penitence-forcee.art.jpg?v=1783792105901",
+      "textLayout": {
+        "x": 50.34722222222222,
+        "y": 77.553797347399,
+        "w": 82.47222222222221,
+        "size": 65
+      }
+    },
+    {
+      "id": "custom-pyramid-head-alliance-inhibee",
+      "name": "ALLIANCE INHIBÉE",
+      "englishName": "ALLIANCE INHIBÉE",
+      "deck": "villain",
+      "type": "condition",
+      "copies": 2,
+      "text": "Cette carte est jouable pendant le tour d'un adversaire s'il a éliminé un Héros. \nÉliminez un Héros de force équivalente ou moins.",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-alliance-inhibee.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -25
+      },
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-alliance-inhibee.art.png?v=1783792105901",
+      "textLayout": {
+        "x": 49.65277777777778,
+        "y": 77.3091770821389,
+        "w": 83.86111111111111,
+        "size": 65
+      }
+    },
+    {
+      "id": "custom-pyramid-head-pacte-de-sang",
+      "name": "PACTE DE SANG",
+      "englishName": "PACTE DE SANG",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 3,
+      "text": "Défausser une carte de votre main pour récupérer une carte du même type dans votre défausse et l'ajouter à votre main.",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-pacte-de-sang.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -26
+      },
+      "cost": 1,
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-pacte-de-sang.art.jpg?v=1783792105901",
+      "textLayout": {
+        "x": 50,
+        "y": 77.3091770821389,
+        "w": 83.16666666666667,
+        "size": 70
+      },
+      "typeColor": "#6ec05a",
+      "typeLabel": "Événement"
+    },
+    {
+      "id": "custom-pyramid-head-sacrifice-humain",
+      "name": "SACRIFICE HUMAIN",
+      "englishName": "SACRIFICE HUMAIN",
+      "deck": "villain",
+      "type": "item",
+      "copies": 1,
+      "text": " Regardez les 3 premières cartes de votre deck.   Ajoutez en une à votre main et défaussez les autres.\nou\nGagnez 2 jetons pouvoir.",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-sacrifice-humain.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.62,
+        "offsetXPct": 8,
+        "offsetYPct": -25
+      },
+      "cost": 1,
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-sacrifice-humain.art.png?v=1783792105901",
+      "stickers": [
+        {
+          "id": "stk-1",
+          "type": "ACTIVATE",
+          "x": 49.65277777777778,
+          "y": 69.56962122080802,
+          "size": 20
+        }
+      ],
+      "textLayout": {
+        "x": 49.30555555555556,
+        "y": 85.3816458357222,
+        "w": 81.77777777777777,
+        "size": 53
+      }
+    },
+    {
+      "id": "custom-pyramid-head-fanatisme",
+      "name": "FANATISME",
+      "englishName": "FANATISME",
+      "deck": "villain",
+      "type": "effect",
+      "copies": 3,
+      "text": "Défaussez un Allié pour piocher 3 cartes.",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-fanatisme.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -28
+      },
+      "cost": 1,
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-fanatisme.art.png?v=1783792105901",
+      "textLayout": {
+        "x": 50.69444444444444,
+        "y": 77.3091770821389,
+        "w": 78.30555555555556,
+        "size": 60
+      }
+    },
+    {
+      "id": "custom-pyramid-head-cheryl-mason",
+      "name": "JAMES SUNDERLAND",
+      "englishName": "CHERYL MASON",
+      "deck": "fate",
+      "type": "hero",
+      "copies": 1,
+      "text": "Défaussez le MÉTATRON.\nTant que JAMES est présent, le MÉTATRON n'a aucun effet.",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-cheryl-mason.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -27
+      },
+      "strength": 4,
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-cheryl-mason.art.png?v=1783792105901",
+      "textLayout": {
+        "x": 50.34722222222222,
+        "y": 74.37373389901771,
+        "w": 79,
+        "size": 67
+      }
+    },
+    {
+      "id": "custom-pyramid-head-harry-mason",
+      "name": "MARIA",
+      "englishName": "HARRY MASON",
+      "deck": "fate",
+      "type": "hero",
+      "copies": 1,
+      "text": "RITE DE JUGEMENT ne peuvent pas être propagés sur le lieu où se trouve MARIA.",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-harry-mason.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -25
+      },
+      "strength": 4,
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-harry-mason.art.jpg?v=1783792105901",
+      "textLayout": {
+        "x": 49.65277777777778,
+        "y": 74.37373389901771,
+        "w": 74.13888888888889,
+        "size": 66
+      }
+    },
+    {
+      "id": "custom-pyramid-head-dissipation",
+      "name": "DISSIPATION",
+      "englishName": "DISSIPATION",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 2,
+      "text": "Retirez une tuile du jugement.",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-dissipation.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -27
+      },
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-dissipation.art.png?v=1783792105901",
+      "textLayout": {
+        "x": 49.30555555555556,
+        "y": 73.63987310323739,
+        "w": 83.16666666666667,
+        "size": 60
+      }
+    },
+    {
+      "id": "custom-pyramid-head-protection-de-l-ame",
+      "name": "PROTECTION DE L'ÂME",
+      "englishName": "PROTECTION DE L'ÂME",
+      "deck": "fate",
+      "type": "item",
+      "copies": 2,
+      "text": "Associez cet Objet à un Héros . Il ne peut plus être éliminé. À tout moment, PYRAMID HEAD peut payer 3 jetons Pouvoir pour défausser cette carte.",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-protection-de-l-ame.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -25
+      },
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-protection-de-l-ame.art.png?v=1783792105901",
+      "textLayout": {
+        "x": 50,
+        "y": 76.5753162863586,
+        "w": 79,
+        "size": 58
+      }
+    },
+    {
+      "id": "custom-pyramid-head-lisa-garland",
+      "name": "LAURA",
+      "englishName": "LISA GARLAND",
+      "deck": "fate",
+      "type": "hero",
+      "copies": 1,
+      "text": "Obtenir une piste de souffrance coûte 1 jeton pouvoir supplémentaire.",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-lisa-garland.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -25
+      },
+      "strength": 4,
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-lisa-garland.art.png?v=1783792105901",
+      "textLayout": {
+        "x": 50,
+        "y": 76.3306960210985,
+        "w": 83.86111111111111,
+        "size": 68
+      }
+    },
+    {
+      "id": "custom-pyramid-head-cybil-bennett",
+      "name": "EDDIE",
+      "englishName": "CYBIL BENNETT",
+      "deck": "fate",
+      "type": "hero",
+      "copies": 1,
+      "text": "EDDIE ne peut pas être éliminée à l'aide de la cage de l'expiation.",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-cybil-bennett.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.57,
+        "offsetXPct": 0,
+        "offsetYPct": -27
+      },
+      "strength": 3,
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-cybil-bennett.art.png?v=1783792105901",
+      "textLayout": {
+        "x": 49.65277777777778,
+        "y": 75.5968352253182,
+        "w": 81.77777777777777,
+        "size": 66
+      }
+    },
+    {
+      "id": "custom-pyramid-head-dahlia-gillespie",
+      "name": "ANGELA",
+      "englishName": "DAHLIA GILLESPIE",
+      "deck": "fate",
+      "type": "hero",
+      "copies": 1,
+      "text": "Lorsque ANGELA est jouée, vous perdez 1 piste de souffrance.",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-dahlia-gillespie.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -27
+      },
+      "strength": 3,
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-dahlia-gillespie.art.png?v=1783792105901",
+      "textLayout": {
+        "x": 49.65277777777778,
+        "y": 77.3091770821389,
+        "w": 79,
+        "size": 68
+      }
+    },
+    {
+      "id": "custom-pyramid-head-robbie-le-lapin",
+      "name": "FARCE DE LAURA",
+      "englishName": "ROBBIE LE LAPIN",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 2,
+      "text": "Perdez 2 jetons Pouvoir.",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-robbie-le-lapin.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.65,
+        "offsetXPct": 0,
+        "offsetYPct": -22
+      },
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-robbie-le-lapin.art.jpg?v=1783792105901",
+      "textLayout": {
+        "x": 50,
+        "y": 75.107594694798,
+        "w": 77.61111111111111,
+        "size": 65
+      }
+    },
+    {
+      "id": "custom-pyramid-head-redemption",
+      "name": "REDEMPTION",
+      "englishName": "REDEMPTION",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 2,
+      "text": "Pyramid Head défausse 2 cartes de sa main.",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-redemption.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -26
+      },
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-redemption.art.png?v=1783792105901",
+      "textLayout": {
+        "x": 49.65277777777778,
+        "y": 77.3091770821389,
+        "w": 77.61111111111111,
+        "size": 60
+      }
+    },
+    {
+      "id": "custom-pyramid-head-c1",
+      "name": "RADIO",
+      "englishName": "",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 2,
+      "text": "Déplacez un Héros vers n'importe quel lieu.",
+      "image": "/cards/custom-pyramid-head/custom-pyramid-head-c1.png?v=1783792105901",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -25
+      },
+      "strength": 1,
+      "typeLabel": "Événement",
+      "typeColor": "#6ec05a",
+      "textLayout": {
+        "x": 50,
+        "y": 76.8199365516187,
+        "w": 79,
+        "size": 73
+      },
+      "artImage": "/cards/custom-pyramid-head/custom-pyramid-head-c1.art.jpg?v=1783792105901"
+    }
+  ],
+  "createdAt": "2026-06-29T14:16:44.643Z",
+  "updatedAt": "2026-07-22T19:00:00.000Z",
+  "pawnImage": "/cards/custom-pyramid-head/pawn.png?v=1783792105901",
+  "backVillainImage": "/cards/custom-pyramid-head/back-villain.png?v=1783792105901",
+  "backFateImage": "/cards/custom-pyramid-head/back-fate.png?v=1783792105901",
+  "boardImage": "/cards/custom-pyramid-head/board.jpg?v=1783792105901",
+  "portrait": "/cards/custom-pyramid-head/portrait.png?v=1783792105901",
+  "portraitRaw": "/cards/custom-pyramid-head/portrait-raw.png?v=1783792105901",
+  "presentation": "/cards/custom-pyramid-head/presentation.png?v=1783792105901",
+  "boardArt": "/cards/custom-pyramid-head/board-art.png?v=1783792105901",
+  "backOverlays": [
+    {
+      "id": "ovl-1",
+      "image": "/cards/custom-pyramid-head/back-overlay-0.png?v=1783792105901",
+      "x": 50,
+      "y": 50,
+      "size": 100,
+      "aspect": 1.4085281980742779
+    }
+  ],
+  "published": true,
+  "creator": "Alexis",
+  "origin": "Collaborations",
+  "botStrategy": {
+    "howToWin": "Objectif : au début de son tour, avoir propagé une tuile RITE DE JUGEMENT dans TOUT le royaume. Pyramid Head pose d’abord RITE DE JUGEMENT à Silent Hill, accumule de la souffrance, puis propage les tuiles de proche en proche (PROPAGER LA SOUFFRANCE) jusqu’à couvrir tous les lieux — tout en éliminant les Héros qui gênent la propagation.",
+    "villainNotes": {
+      "custom-pyramid-head-rites-de-jugement": "Objet (coût 3) posé à SILENT HILL avec une tuile de jugement. NE PEUT PAS être défaussé. Point de départ de la propagation.",
+      "custom-pyramid-head-propager-la-souffrance": "Effet gratuit : dépense 1 piste de souffrance pour poser une tuile de jugement sur un lieu adjacent à un lieu déjà tuilé. Cœur de l’objectif — injouable sans souffrance ni tuile voisine.",
+      "custom-pyramid-head-metatron": "Objet (coût 3) à capacité activée (payer 3 Pouvoir). Neutralisé tant que JAMES SUNDERLAND est en jeu.",
+      "custom-pyramid-head-cage-de-l-expiation": "Objet (coût 1) associé à un Héros situé sur un RITE DE JUGEMENT, puis le déplace sur un autre lieu. Injouable si aucun Héros sur un Rite (EDDIE y est immunisé).",
+      "custom-pyramid-head-chatiment-des-damnes": "Effet (coût 2) : élimine un Héros de force 3 ou moins. Injouable si aucun Héros ≤ 3 en jeu.",
+      "custom-pyramid-head-jugement-final": "Effet (coût 3) : élimine un Héros situé sur un RITE DE JUGEMENT (quelle que soit sa force). Injouable si aucun Héros sur un Rite.",
+      "custom-pyramid-head-mannequin": "Allié (coût 2, force 2) qui donne une action à son lieu.",
+      "custom-pyramid-head-infirmiere": "Allié (coût 1, force 1). +1 Force par autre INFIRMIÈRE sur le même lieu (elles se renforcent en groupe).",
+      "custom-pyramid-head-lien-mortel": "Effet (coût 2) : déplace TOUS les Alliés d’un même lieu vers un autre lieu. Injouable sans Allié à déplacer.",
+      "custom-pyramid-head-penitence-forcee": "Condition : jouable pendant le tour d’un adversaire s’il te cible d’une action Fatalité. Dévoile sa 1re carte Fatalité et joue-la.",
+      "custom-pyramid-head-alliance-inhibee": "Condition : jouable pendant le tour d’un adversaire s’il a éliminé un Héros. Élimine un Héros de force équivalente ou moindre.",
+      "custom-pyramid-head-pacte-de-sang": "Effet (coût 1) : défausse une carte de la main pour récupérer une carte du MÊME type dans la défausse. Injouable si rien à récupérer.",
+      "custom-pyramid-head-sacrifice-humain": "Objet (coût 1) : regarde les 3 premières cartes du deck (en garde 1, défausse 2) OU gagne 2 Pouvoir.",
+      "custom-pyramid-head-fanatisme": "Effet (coût 1) : défausse un Allié pour piocher 3 cartes. Injouable sans Allié à défausser."
+    },
+    "fateNotes": {
+      "custom-pyramid-head-cheryl-mason": {
+        "description": "JAMES SUNDERLAND (Héros, force 4) : sa pose défausse le MÉTATRON ; tant qu’il est là, le MÉTATRON n’a aucun effet.",
+        "asReceiver": "Le bot le vainc s’il veut réutiliser le MÉTATRON.",
+        "asAttacker": "À poser contre un vilain qui dépend d’un Objet activé."
+      },
+      "custom-pyramid-head-harry-mason": {
+        "description": "MARIA (Héros, force 4) : les RITE DE JUGEMENT ne peuvent pas être propagés sur son lieu.",
+        "asReceiver": "Blocage direct de l’objectif : le bot la vainc ou la déplace pour libérer le lieu.",
+        "asAttacker": "Verrou puissant contre un objectif de zone."
+      },
+      "custom-pyramid-head-dissipation": {
+        "description": "Effet Fatalité : retire une tuile de jugement.",
+        "asReceiver": "Recul d’objectif : le bot re-propage la tuile perdue.",
+        "asAttacker": "Fait reculer un vilain qui pose des marqueurs/tuiles."
+      },
+      "custom-pyramid-head-protection-de-l-ame": {
+        "description": "Objet Fatalité associé à un Héros : le rend inéliminable. Pyramid Head peut payer 3 Pouvoir pour le défausser.",
+        "asReceiver": "Le bot paie 3 Pouvoir pour retirer la protection s’il doit vaincre ce Héros.",
+        "asAttacker": "Protège un Héros clé de l’adversaire."
+      },
+      "custom-pyramid-head-lisa-garland": {
+        "description": "LAURA (Héros, force 4) : obtenir une piste de souffrance coûte 1 Pouvoir de plus.",
+        "asReceiver": "Ralentit la souffrance (donc la propagation) : le bot la vainc en priorité.",
+        "asAttacker": "Taxe l’économie d’un vilain à ressource."
+      },
+      "custom-pyramid-head-cybil-bennett": {
+        "description": "EDDIE (Héros, force 3) : ne peut pas être éliminé via la CAGE DE L’EXPIATION.",
+        "asReceiver": "Le bot l’élimine autrement (CHÂTIMENT / JUGEMENT FINAL).",
+        "asAttacker": "Héros robuste face aux effets de déplacement/cage."
+      },
+      "custom-pyramid-head-dahlia-gillespie": {
+        "description": "ANGELA (Héros, force 3) : à sa pose, Pyramid Head perd 1 piste de souffrance.",
+        "asReceiver": "Perte de ressource : le bot recompose sa souffrance avant de propager.",
+        "asAttacker": "Ampute la ressource d’un vilain dès l’arrivée."
+      },
+      "custom-pyramid-head-robbie-le-lapin": {
+        "description": "FARCE DE LAURA (effet Fatalité) : fait perdre 2 Jetons Pouvoir.",
+        "asReceiver": "Le bot garde une marge de Pouvoir.",
+        "asAttacker": "Assèche le Pouvoir adverse avant une grosse action."
+      },
+      "custom-pyramid-head-redemption": {
+        "description": "Effet Fatalité : Pyramid Head défausse 2 cartes de sa main.",
+        "asReceiver": "Perte de cartes : le bot évite de trop garder en main quand la Fatalité menace.",
+        "asAttacker": "Vide la main de l’adversaire."
+      },
+      "custom-pyramid-head-c1": {
+        "description": "RADIO (effet Fatalité, force 1) : déplace un Héros vers n’importe quel lieu.",
+        "asReceiver": "Peut casser un placement : le bot recadre.",
+        "asAttacker": "Repositionne un Héros adverse là où il gêne le plus."
+      }
+    },
+    "botPlay": {
+      "general": "Le bot pose vite RITE DE JUGEMENT à Silent Hill, monte sa souffrance (SACRIFICE HUMAIN, actions de lieu) et propage les tuiles de proche en proche à chaque tour. Il dégage les Héros bloquants — surtout MARIA (bloque la propagation sur son lieu) et LAURA (taxe la souffrance) — via CHÂTIMENT / JUGEMENT FINAL / CAGE, et se sert de PÉNITENCE / ALLIANCE en réaction au tour adverse.",
+      "villainNotes": {
+        "custom-pyramid-head-rites-de-jugement": "Joué en tout premier (base de la propagation). Le bot ne le sacrifie jamais (non défaussable de toute façon).",
+        "custom-pyramid-head-propager-la-souffrance": "Joué à chaque fois qu’il a de la souffrance et un lieu voisin libre : c’est son action d’objectif prioritaire.",
+        "custom-pyramid-head-metatron": "Joué pour sa capacité si le Pouvoir le permet ; le bot évite de le poser tant que JAMES est en jeu.",
+        "custom-pyramid-head-cage-de-l-expiation": "Utilisée pour déloger un Héros bloquant posé sur un Rite (le sortir du lieu à couvrir).",
+        "custom-pyramid-head-chatiment-des-damnes": "Priorité sur les petits Héros gênants (force ≤ 3) : MARIA n’y est pas éligible mais LAURA/EDDIE/ANGELA oui selon la force.",
+        "custom-pyramid-head-jugement-final": "Réservé aux Héros posés sur un Rite, y compris les gros : c’est le finisher anti-blocage.",
+        "custom-pyramid-head-mannequin": "Posé pour ajouter une action utile à un lieu clé (souvent là où le bot veut propager).",
+        "custom-pyramid-head-infirmiere": "Jouée en groupe sur un même lieu pour cumuler la force (défense / Vanquish).",
+        "custom-pyramid-head-lien-mortel": "Regroupe les Alliés là où il en a besoin (concentration de force).",
+        "custom-pyramid-head-penitence-forcee": "Gardée en réaction : déclenchée quand l’adversaire l’attaque par Fatalité pour retourner sa propre Fatalité contre lui.",
+        "custom-pyramid-head-alliance-inhibee": "Gardée en réaction : punit une élimination adverse en éliminant un Héros à son tour.",
+        "custom-pyramid-head-pacte-de-sang": "Utilisé pour récupérer une pièce clé défaussée (Rite, effet d’élimination).",
+        "custom-pyramid-head-sacrifice-humain": "Filtrage de pioche ou +2 Pouvoir selon le besoin ; souvent le +2 pour financer la souffrance.",
+        "custom-pyramid-head-fanatisme": "Joué quand la main est faible et qu’un Allié est sacrifiable : gros refill (pioche 3)."
+      },
+      "fateNotes": {
+        "custom-pyramid-head-cheryl-mason": {
+          "description": "JAMES : le bot le vainc s’il veut relancer le MÉTATRON.",
+          "asReceiver": "Ne pose pas le MÉTATRON tant que JAMES est là.",
+          "asAttacker": "À poser contre un vilain dépendant d’un Objet activé."
+        },
+        "custom-pyramid-head-harry-mason": {
+          "description": "MARIA : le bot la traite en priorité absolue (bloque la propagation).",
+          "asReceiver": "La déplace (CAGE) ou l’élimine pour libérer son lieu.",
+          "asAttacker": "Verrou de zone contre un adversaire."
+        },
+        "custom-pyramid-head-dissipation": {
+          "description": "Retire une tuile : le bot recompte les lieux à recouvrir.",
+          "asReceiver": "Re-propage dès que possible la tuile perdue.",
+          "asAttacker": "Fait reculer un objectif de marqueurs adverse."
+        },
+        "custom-pyramid-head-protection-de-l-ame": {
+          "description": "Le bot paie 3 Pouvoir pour la retirer quand il doit vaincre le Héros protégé.",
+          "asReceiver": "Budgétise 3 Pouvoir pour la lever.",
+          "asAttacker": "Protège un Héros clé."
+        },
+        "custom-pyramid-head-lisa-garland": {
+          "description": "LAURA : le bot la vainc vite (taxe la souffrance = ralentit tout).",
+          "asReceiver": "Anticipe une souffrance plus chère tant qu’elle est là.",
+          "asAttacker": "Taxe une économie de ressource adverse."
+        },
+        "custom-pyramid-head-cybil-bennett": {
+          "description": "EDDIE : le bot l’élimine hors CAGE (CHÂTIMENT/JUGEMENT).",
+          "asReceiver": "Ne compte pas sur la CAGE pour lui.",
+          "asAttacker": "Héros robuste aux déplacements."
+        },
+        "custom-pyramid-head-dahlia-gillespie": {
+          "description": "ANGELA : le bot reconstitue la souffrance perdue à sa pose.",
+          "asReceiver": "Garde une réserve de souffrance d’avance.",
+          "asAttacker": "Ampute une ressource adverse à l’arrivée."
+        },
+        "custom-pyramid-head-robbie-le-lapin": {
+          "description": "FARCE DE LAURA : perte de 2 Pouvoir, gérée par une marge.",
+          "asReceiver": "Garde un peu de Pouvoir d’avance.",
+          "asAttacker": "Assèche le Pouvoir adverse au bon moment."
+        },
+        "custom-pyramid-head-redemption": {
+          "description": "Le bot évite de surcharger sa main quand cette Fatalité menace.",
+          "asReceiver": "Joue ses cartes plutôt que de les thésauriser.",
+          "asAttacker": "Vide la main adverse."
+        },
+        "custom-pyramid-head-c1": {
+          "description": "RADIO : repositionnement de Héros.",
+          "asReceiver": "Recadre un Héros déplacé.",
+          "asAttacker": "Déplace un Héros adverse là où il gêne."
+        }
+      }
+    },
+    "journal": {
+      "villainNotes": {
+        "custom-pyramid-head-rites-de-jugement": "Rite de Jugement : posé à Silent Hill.",
+        "custom-pyramid-head-propager-la-souffrance": "Propager la souffrance : une tuile de jugement s’étend sur un lieu voisin.",
+        "custom-pyramid-head-metatron": "Invoque le Métatron.",
+        "custom-pyramid-head-cage-de-l-expiation": "Cage de l’Expiation : enferme un Héros et le déplace.",
+        "custom-pyramid-head-chatiment-des-damnes": "Châtiment des damnés : un Héros de force 3 ou moins est éliminé.",
+        "custom-pyramid-head-jugement-final": "Jugement final : un Héros sur un Rite de Jugement est éliminé.",
+        "custom-pyramid-head-mannequin": "Un Mannequin rejoint le royaume.",
+        "custom-pyramid-head-infirmiere": "Une Infirmière rejoint le royaume.",
+        "custom-pyramid-head-lien-mortel": "Lien mortel : déplace tous ses Alliés d’un lieu.",
+        "custom-pyramid-head-penitence-forcee": "Pénitence forcée : retourne la Fatalité de l’adversaire.",
+        "custom-pyramid-head-alliance-inhibee": "Alliance inhibée : élimine un Héros en représailles.",
+        "custom-pyramid-head-pacte-de-sang": "Pacte de sang : récupère une carte de sa défausse.",
+        "custom-pyramid-head-sacrifice-humain": "Sacrifice humain : filtre son deck ou gagne 2 Pouvoir.",
+        "custom-pyramid-head-fanatisme": "Fanatisme : défausse un Allié et pioche 3 cartes."
+      },
+      "fateNotes": {
+        "custom-pyramid-head-cheryl-mason": {
+          "description": "James Sunderland apparaît : le Métatron est défaussé et neutralisé."
+        },
+        "custom-pyramid-head-harry-mason": {
+          "description": "Maria apparaît : les Rites ne peuvent plus être propagés sur son lieu."
+        },
+        "custom-pyramid-head-dissipation": {
+          "description": "Dissipation : une tuile de jugement est retirée."
+        },
+        "custom-pyramid-head-protection-de-l-ame": {
+          "description": "Protection de l’âme : un Héros devient inéliminable."
+        },
+        "custom-pyramid-head-lisa-garland": {
+          "description": "Laura apparaît : la souffrance coûte 1 Pouvoir de plus."
+        },
+        "custom-pyramid-head-cybil-bennett": {
+          "description": "Eddie apparaît : il ne peut pas être éliminé par la Cage."
+        },
+        "custom-pyramid-head-dahlia-gillespie": {
+          "description": "Angela apparaît : Pyramid Head perd 1 piste de souffrance."
+        },
+        "custom-pyramid-head-robbie-le-lapin": {
+          "description": "Farce de Laura : Pyramid Head perd 2 Pouvoir."
+        },
+        "custom-pyramid-head-redemption": {
+          "description": "Rédemption : Pyramid Head défausse 2 cartes."
+        },
+        "custom-pyramid-head-c1": {
+          "description": "La Radio grésille : un Héros est déplacé n’importe où."
+        }
+      }
+    }
+  },
+  "coverColor": "#463538"
+}

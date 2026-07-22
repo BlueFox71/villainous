@@ -179,6 +179,7 @@ export function Board({
             isMovable={legalMoves.includes(loc.id)}
             placedCards={player.board[loc.id] ?? []}
             strengths={strengths}
+            tempForce={player.locationTempForce?.[loc.id] ?? 0}
             attackTotal={attackTotalAt(index)}
             blinkPersifleur={loc.id === highlightPersifleurAt}
             locationKey={`${player.villain}:${loc.id}`}

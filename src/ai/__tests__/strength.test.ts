@@ -75,5 +75,7 @@ describe('heuristicBot — force', () => {
       if (s.status === 'WON') finished++
     }
     expect(finished).toBe(N)
-  }, 20000) // 10 parties complètes : test d'intégration, marge de temps généreuse.
+  }, 40000) // 10 parties complètes : test d'intégration lourd, marge de temps généreuse
+  // (déterministe sur le nombre de pas ; timeout élargi pour ne pas flaker sous la
+  // contention CPU de la suite entière).
 })

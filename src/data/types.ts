@@ -59,6 +59,13 @@ export interface CardDef {
   englishName: string
   deck: DeckKind
   type: CardType
+  /** Template de MESSAGE DE JOURNAL (data-driven, générique) : quand la carte est jouée, le
+   *  moteur logue ce texte à la place de sa ligne codée en dur, en remplaçant les
+   *  `{placeholder}` (ex. `{NbEspritMoi}`, `{nomHéros}`) par les vraies valeurs calculées à
+   *  la résolution (cf. `engine/journalTemplate.ts`). Plusieurs lignes = plusieurs issues
+   *  (carte à choix). Renseigné pour les vilains custom via `botStrategy.journal` (injecté
+   *  par `toCardDefs`). Champ de JEU (lu par le moteur) → présent aussi sur `CardInstance`. */
+  journal?: string
   /** Coût en pouvoir pour jouer la carte. Cartes Vilain uniquement
    *  (les cartes Fatalité n'ont pas de coût). */
   cost?: number

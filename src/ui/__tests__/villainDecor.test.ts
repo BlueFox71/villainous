@@ -14,6 +14,9 @@ describe('villainDecor', () => {
     expect(villainDecor('custom-gul-dan')).toEqual({ kind: 'felGate' })
     expect(villainDecor('custom-dio')).toEqual({ kind: 'theWorld' })
     expect(villainDecor('custom-mr-monopoly')).toEqual({ kind: 'monopoly', src: '/animations/monopoly.png' })
+    expect(villainDecor('custom-mrl4fb45')).toEqual({ kind: 'rift' })
+    // Killaire (skin de Sumbra) : le décor lumineux `radiance`, distinct du `rift` de Sumbra.
+    expect(villainDecor('custom-killaire')).toEqual({ kind: 'radiance' })
   })
 
   it('renvoie undefined pour une clé inconnue (pas de repli silencieux)', () => {

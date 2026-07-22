@@ -925,7 +925,7 @@
     }
   ],
   "createdAt": "2026-07-01T16:18:33.285Z",
-  "updatedAt": "2026-07-11T17:48:43.704Z",
+  "updatedAt": "2026-07-22T20:00:00.000Z",
   "backVillainImage": "/cards/custom-isabella/back-villain.png?v=1783792123704",
   "backFateImage": "/cards/custom-isabella/back-fate.png?v=1783792123704",
   "boardImage": "/cards/custom-isabella/board.jpg?v=1783792123704",
@@ -1137,23 +1137,23 @@
       "villainNotes": {
         "custom-isabella-s-ur-krone": "Sœur Krone rejoint le royaume.",
         "custom-isabella-grand-mere-sarah": "Grand-mère Sarah élimine un Héros aimé ou à la porte.",
-        "custom-isabella-cloche": "Cloche : Isabella fouille le dessus de son deck.",
-        "custom-isabella-la-vida": "La Vida : Isabella récupère la Moisson.",
-        "custom-isabella-radar-de-poche": "Radar de poche : Isabella joue une Activité hors de son heure (un Héros Fatalité surgit).",
+        "custom-isabella-cloche": "Cloche : fouille le dessus de son deck.",
+        "custom-isabella-la-vida": "La Vida : récupère la Moisson.",
+        "custom-isabella-radar-de-poche": "Radar de poche : joue une Activité hors de son heure (un Héros Fatalité surgit).",
         "custom-isabella-supprimes-de-l-equation": "Supprimés de l’équation : un Héros est éliminé.",
-        "custom-isabella-mes-cheries": "Mes chéries : Isabella gagne du Pouvoir par Héros.",
-        "custom-isabella-rapport-journalier": "Rapport journalier : Isabella recycle sa défausse.",
-        "custom-isabella-c-est-le-moment-de-partir": "C’est le moment de partir : Isabella active une capacité ou déplace deux Alliés.",
-        "custom-isabella-ils-savent": "Ils savent : Isabella cherche un Objet ou une Activité.",
+        "custom-isabella-mes-cheries": "Mes chéries : gagne du Pouvoir par Héros.",
+        "custom-isabella-rapport-journalier": "Rapport journalier : recycle sa défausse.",
+        "custom-isabella-c-est-le-moment-de-partir": "C’est le moment de partir : active une capacité ou déplace deux Alliés.",
+        "custom-isabella-ils-savent": "Ils savent : cherche un Objet ou une Activité.",
         "custom-isabella-tu-as-l-air-un-peu-pale": "Tu as l’air un peu pâle : les capacités d’un Héros sont neutralisées ce tour.",
         "custom-isabella-bienveillance": "Bienveillance : un Héros se met à aimer Isabella.",
-        "custom-isabella-vigilante": "Vigilante : Isabella recycle une carte dans son deck.",
-        "custom-isabella-test-de-repetition": "Test de répétition : Isabella valide l’heure et gagne du Pouvoir.",
-        "custom-isabella-temps-libre": "Temps libre : Isabella valide l’heure ; un Héros présent l’aime.",
-        "custom-isabella-diner-en-famille": "Dîner en famille : Isabella valide l’heure, charme un Héros, pioche et gagne 1 Pouvoir.",
-        "custom-isabella-moisson": "Moisson : Isabella valide l’heure et élimine un Héros aimé ou à la porte.",
-        "custom-isabella-laverie": "Laverie : Isabella valide l’heure et refait sa main.",
-        "custom-isabella-jouer-a-chat": "Jouer à chat : Isabella valide l’heure et déplace tous les Héros."
+        "custom-isabella-vigilante": "Vigilante : recycle une carte dans son deck.",
+        "custom-isabella-test-de-repetition": "Test de répétition : valide l’heure et gagne du Pouvoir.",
+        "custom-isabella-temps-libre": "Temps libre : valide l’heure ; un Héros présent l’aime.",
+        "custom-isabella-diner-en-famille": "Dîner en famille : valide l’heure, charme un Héros, pioche et gagne 1 Pouvoir.",
+        "custom-isabella-moisson": "Moisson : valide l’heure et élimine un Héros aimé ou à la porte.",
+        "custom-isabella-laverie": "Laverie : valide l’heure et refait sa main.",
+        "custom-isabella-jouer-a-chat": "Jouer à chat : valide l’heure et déplace tous les Héros."
       },
       "fateNotes": {
         "custom-isabella-maman-est-un-ennemi": {
@@ -1184,7 +1184,7 @@
           "description": "Emma apparaît : activer une capacité coûte 2 Pouvoir."
         },
         "custom-isabella-phil": {
-          "description": "Phil apparaît : Isabella perd du Pouvoir par Héros qui l’aime."
+          "description": "Phil apparaît : perd du Pouvoir par Héros qui l’aime."
         },
         "custom-isabella-conny": {
           "description": "Conny apparaît : un Héros est déplacé sur un lieu voisin."

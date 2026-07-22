@@ -231,12 +231,15 @@ export const useCustomVillainStore = create<CustomVillainStore>((set, get) => ({
       // vilain publié — pas seulement via « Publier ». Ainsi tout changement (image en base64
       // comprise, n'importe quel champ) est versionné et apparaît dans « prochain commit ».
       // Best-effort : silencieux hors serveur de dév.
-      void fetch('/__publish-villain', {
+      // Protocole LÉGER : id en query, corps = JSON BRUT du vilain (UN SEUL stringify). On évite
+      // le 2e JSON.stringify (qui ré-échapperait tout le JSON, ~des dizaines de Mo de base64 sur les
+      // gros decks comme les Combattants de Sumbra/Kilaire, ~115 cartes) : ce pic mémoire synchrone
+      // sur le thread principal faisait planter l'onglet (OOM « Aw Snap ») à la publication. Le
+      // serveur ré-indente lui-même le fichier committé. cf. handler /__publish-villain.
+      void fetch(`/__publish-villain?id=${encodeURIComponent(next.id)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // JSON INDENTÉ : les fichiers publiés sont committés → un save produit un diff
-        // minimal et lisible (le serveur ré-indente aussi par sécurité).
-        body: JSON.stringify({ id: next.id, json: JSON.stringify(next, null, 2) }),
+        body: JSON.stringify(next),
       }).catch(() => {})
     }
     set((s) => {

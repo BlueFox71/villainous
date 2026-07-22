@@ -21,6 +21,9 @@ interface Props {
   placedCards: CardInstance[]
   /** Forces effectives (modificateurs passifs inclus), par instanceId. */
   strengths: Record<string, number>
+  /** Sumbra / Kilaire — 🛡️ Rempart : bonus/malus TEMPORAIRE de Force de garnison ce tour sur ce
+   *  lieu (signé). Ajouté à la garnison et affiché en pastille « 🛡 ±N ». 0 = rien. */
+  tempForce?: number
   /** Ce lieu est une destination de pose valide (mode « poser ») → cliquable. */
   isPlaceTarget: boolean
   /** Force d'attaque disponible sur ce lieu : Alliés présents + Archers Loups
@@ -101,6 +104,7 @@ export function LocationCard({
   isMovable,
   placedCards,
   strengths,
+  tempForce = 0,
   isPlaceTarget,
   attackTotal = 0,
   blinkPersifleur = false,
@@ -162,6 +166,16 @@ export function LocationCard({
   const clickable = isPlaceTarget || isMovable
   // Lieu sous Malédiction → contour électrifié.
   const hasCurse = placedCards.some((c) => c.type === 'curse')
+  // Sumbra / Kilaire — lieu CONQUÉRABLE (`defense`) : garnison actuelle (Force des Alliés
+  // présents non associés) vs Défense. La pastille n'apparaît que tant qu'il n'est PAS
+  // contrôlé (face B = version ≠ 'a').
+  const conquerable = location.defense !== undefined
+  const controlled = conquerable && (location.version ?? 'a') === 'a'
+  const garrison = conquerable
+    ? placedCards
+        .filter((c) => c.type === 'ally' && !c.attachedTo)
+        .reduce((n, c) => n + (strengths[c.instanceId] ?? c.strength ?? 0), 0) + tempForce // 🛡 Rempart inclus
+    : 0
   const handleClick = () => {
     if (isPlaceTarget) onPlace()
     else if (isMovable) onMove()
@@ -206,6 +220,35 @@ export function LocationCard({
           className="pointer-events-none absolute -left-2 -top-2 z-30 flex items-center gap-0.5 rounded-full border border-white/40 bg-red-700 px-1.5 py-0.5 text-[10px] font-bold text-white shadow"
         >
           ⚔{attackTotal}
+        </span>
+      )}
+      {/* Sumbra / Kilaire — 🛡️ Rempart : bonus/malus TEMPORAIRE de Force ce tour (à droite). */}
+      {tempForce !== 0 && (
+        <span
+          title={`🛡 Rempart : ${tempForce > 0 ? '+' : '−'}${Math.abs(tempForce)} Force de garnison ce tour sur ce lieu.`}
+          className={`pointer-events-none absolute -right-2 -top-2 z-30 flex items-center gap-0.5 rounded-full border border-white/40 px-1.5 py-0.5 text-[10px] font-bold text-white shadow ${
+            tempForce > 0 ? 'bg-emerald-600' : 'bg-rose-700'
+          }`}
+        >
+          🛡 {tempForce > 0 ? '+' : '−'}{Math.abs(tempForce)}
+        </span>
+      )}
+      {/* Sumbra / Kilaire — bandeau de CONTRÔLE : nombre d'Alliés à réunir pour
+          conquérir le lieu, affiché JUSTE AU-DESSUS de la case. Passe au vert une
+          fois la garnison suffisante. Masqué une fois le lieu contrôlé. */}
+      {conquerable && !controlled && (
+        <span
+          title={`Contrôle : réunissez ${location.defense} de Force en Alliés sur ce lieu pour le conquérir (actuellement ${garrison}/${location.defense}).`}
+          className={`pointer-events-none absolute -top-9 left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded border border-white/40 px-1.5 py-0.5 text-[10px] font-bold text-white shadow ${
+            garrison >= (location.defense ?? 0) ? 'bg-emerald-600' : ''
+          }`}
+          style={
+            garrison >= (location.defense ?? 0) || !cellColor
+              ? undefined
+              : { backgroundColor: cellColor }
+          }
+        >
+          🛡 {location.defense} alliés pour contrôler ce lieu
         </span>
       )}
       {/* MODE TEST : bouton d'insertion de cartes sur ce lieu. */}

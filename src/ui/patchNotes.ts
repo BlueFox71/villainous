@@ -47,6 +47,18 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.9.1',
+    date: '2026-07-22',
+    title: 'Journal de partie enrichi (tous les vilains custom)',
+    tags: ['interface', 'atelier'],
+    changes: [
+      "**Journal de partie** : les cartes des vilains custom affichent désormais un **message dédié** avec les **vraies valeurs** (nom du **Héros/Allié/Objet** ciblé, **esprits** gagnés/perdus, **lieu**…), au lieu du texte générique.",
+      "Message adapté **au camp** (☀️/🌑) et au **skin** : Kilaire affiche ses propres esprits et couleurs.",
+      "Les cartes à **choix** (ex. **Choc des Titans**) et les effets **interactifs** (récupérer, déplacer, défausser…) écrivent leur message **une fois le choix résolu**, avec la bonne cible.",
+      "**Atelier › Journal** : aperçu du **bloc tel qu'il apparaît en partie** (couleur de recouvrement, icône) ; bouton **« Copier les modifs »** ; onglet Journal aussi accessible sur les **variantes** (skins).",
+    ],
+  },
+  {
     version: '1.9.0',
     date: '2026-07-19',
     title: 'Nouveau vilain : Sumbra — La Lueur du Monde',
@@ -56,7 +68,18 @@ export const PATCH_NOTES: PatchNote[] = [
       "**Conquête** : massez des Alliés sur un lieu rival jusqu'à sa **Défense** pour le contrôler ; **verrouillez-le** (Base / Forteresse de Lave / Tour du Monde) pour un revenu **définitif**.",
       "Chaque **Combattant** capture des esprits puis déclenche un **Bonus** s'il penche vers votre camp, un **Malus passager** sinon (6 verbes : Décharge, Ferveur, Renfort, Rempart, Surtension, Aubaine).",
       "**Fatalité** dédiée : des Combattants entrent en **Héros** et rognent votre jauge, **Formation** freine vos captures, **KILAIRE** (Force 5) verrouille un lieu.",
-      "**Choc des Titans** : vous **choisissez** désormais de dépenser **2 Pouvoir** pour le **Bonus** du Combattant, ou de subir son **Malus** (plus d'automatisme).",
+      "**Choc des Titans** : vous **choisissez** désormais de dépenser **2 Pouvoir** pour le **Bonus** du Combattant, ou de subir son **Malus** (plus d'automatisme). Le Combattant reste **caché** pendant le choix (suspense).",
+      "**À toi de jouer, cousin** : l'Allié dévoilé se pose désormais par **clic direct sur le lieu** (les lieux s'allument), au lieu d'une fenêtre.",
+      "**Correctif Victoire** : franchir les **30 esprits** grâce au **revenu** de début de tour ne gagne plus sur-le-champ — il faut détenir le seuil **au début du tour** (confirmé au tour suivant).",
+      "**Correctif** : le Combattant pioché par **Une lueur d'espoir** part bien dans la **défausse Combattant** (visible et recyclé).",
+      "L'apparition des **Combattants** au revenu est plus **rapide** (durée adaptée au nombre de cartes révélées).",
+      "**Journal** : chaque **Combattant révélé** a désormais son **propre bloc** — illustration encadrée par l'**anneau décagonal** doré + gain d'esprits et alignement.",
+      "**Correctif** : **publier** un gros vilain (Sumbra/Kilaire, ~115 cartes) ne fait **plus planter** l'onglet (pic mémoire supprimé à l'enregistrement).",
+      "En cas d'erreur (rendu **ou** sauvegarde/publication), une **page d'erreur** affiche désormais le **message** au lieu d'un écran figé.",
+      "**Liste des vilains** : les **variantes liées** (skins d'un même vilain, ex. **Sumbra / Kilaire**) sont **réunies en une carte** — portrait **coupé en diagonale** (comme dans l'Atelier) ; un clic demande **quelle version** voir/jouer.",
+      "**Fiches Sumbra & Kilaire** : conseils **« Bien le jouer »** et **« Le contrer »** désormais rédigés (esprits, revenu de Combattants, conquête, Fatalité).",
+      "**Choix des vilains** : deux **skins liés** (Sumbra ⟷ Kilaire) = le **même vilain** → choisir l'un **grise** l'autre (un seul par partie, y compris au tirage aléatoire).",
+      "**Kilaire** : nouvelle **animation de passage** — **Kirby** s'échappe sur son **étoile volante**, de gauche à droite (uniquement Kilaire).",
       "Onglet **Cartes**, nouvelle section **Images** : on **importe une image** et on la **pose librement** (déplacer, redimensionner au curseur ou par presets).",
       "Le texte s'affiche désormais **déjà coloré** dans le champ — **aucune balise** visible : on sélectionne une partie (ou tout) et la **pipette** la colore aussitôt, **« Couleur par défaut »** l'enlève.",
       "Le champ de texte **mime la carte** : fond **couleur du vilain** (Méchant) ou **blanc** (Fatalité), texte **doré**/**encre** par défaut.",

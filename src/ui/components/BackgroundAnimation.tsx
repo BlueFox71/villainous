@@ -373,6 +373,34 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     }))
   })
 
+  // Étincelles / braises ROUGE & VIOLET (Sumbra, path `dark-embers`) : petites lucioles qui MONTENT en
+  // scintillant un peu partout pendant que l'écran s'assombrit, départs échelonnés sur la durée du passage.
+  // Décidées une fois au montage (= un passage). Teintes rouges + violettes (Dharkon).
+  const [darkEmbers] = useState<
+    { left: number; top: number; size: number; dur: number; delay: number; rise: number; dx: number; twDur: number; twDelay: number; color: string; op: number }[]
+  >(() => {
+    if (path !== 'dark-embers') return []
+    const n = anim?.count ?? 44
+    const total = anim?.durationSec ?? 6.5
+    const colors = ['#ff3b5c', '#ff5a4a', '#ff2b6a', '#b164ff', '#c98bff', '#8a3bff'] // rouges + violets
+    return Array.from({ length: n }, () => {
+      const dur = 2.2 + Math.random() * 2.4 // s (montée d'une braise)
+      return {
+        left: Math.random() * 100, // %
+        top: 42 + Math.random() * 58, // % (partent plutôt du bas → elles montent)
+        size: 0.4 + Math.random() * 0.9, // vh (petite luciole)
+        dur,
+        delay: Math.random() * Math.max(0, total - dur), // échelonné → toutes finissent avant le démontage
+        rise: 16 + Math.random() * 34, // vh (hauteur de montée)
+        dx: (Math.random() - 0.5) * 10, // vw (dérive latérale)
+        twDur: 0.5 + Math.random() * 0.9, // s (scintillement)
+        twDelay: -(Math.random() * 1.5), // s (déphasage)
+        color: colors[Math.floor(Math.random() * colors.length)],
+        op: 0.6 + Math.random() * 0.4,
+      }
+    })
+  })
+
   // Invasion de JUNGLE (Shere Khan, path `overgrowth`) : des LIANES poussent depuis le haut (réparties sur
   // toute la largeur, elles s'allongent vers le bas) et des FEUILLES éclosent un peu partout sur l'écran,
   // départs échelonnés, puis tout se dissipe. Tirées une fois au montage.
@@ -921,6 +949,46 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     )
   }
 
+  if (path === 'dark-embers') {
+    // Ambiance « Ténèbres » de Sumbra. Le VOILE sombre violacé (fondu d'entrée → maintien → sortie) est
+    // rendu DANS LE PLAN DE FOND (z -1, comme `disco`) → DERRIÈRE le plateau/les cartes : seul l'ARRIÈRE-PLAN
+    // s'assombrit. Les ÉTINCELLES rouge/violet, elles, montent en scintillant DEVANT la scène (portail fixe
+    // au-dessus, comme smoke-field). pointer-events: none.
+    return (
+      <>
+        {/* Voile qui assombrit l'arrière-plan (derrière plateau/cartes). Calé sur la durée du passage. */}
+        <div className="dark-embers-veil" style={{ animationDuration: `${durationSec}s` }} />
+        {/* PRÉSENCE rouge-violet qui RESPIRE dans le noir (un regard qui gonfle) — plan de fond, sur le voile. */}
+        <div className="dark-embers-glow" style={{ animationDuration: `${durationSec}s` }} />
+        {createPortal(
+          <div className="dark-embers-layer pointer-events-none fixed inset-0 overflow-hidden" style={{ zIndex: 40 }} aria-hidden>
+            {darkEmbers.map((e, i) => (
+              <span
+                key={i}
+                className="dark-ember-rise"
+                style={{ left: `${e.left}%`, top: `${e.top}%`, animationDuration: `${e.dur}s`, animationDelay: `${e.delay}s`, '--rise': `${e.rise}vh`, '--dx': `${e.dx}vw` } as CSSProperties}
+              >
+                <span
+                  className="dark-ember"
+                  style={{
+                    width: `${e.size}vh`,
+                    height: `${e.size}vh`,
+                    background: `radial-gradient(circle, #fff 0%, ${e.color} 55%, ${e.color} 100%)`,
+                    boxShadow: `0 0 ${e.size * 1.5}vh ${e.color}, 0 0 ${e.size * 0.6}vh #fff`,
+                    animationDuration: `${e.twDur}s`,
+                    animationDelay: `${e.twDelay}s`,
+                    '--eop': e.op,
+                  } as CSSProperties}
+                />
+              </span>
+            ))}
+          </div>,
+          document.body,
+        )}
+      </>
+    )
+  }
+
   if (path === 'disco') {
     // Transition « Shiny » de Tamatoa, plein écran. Un VOILE recolore la scène en TRANSITIONNANT en douceur
     // entre les teintes néon. Le calque entre/sort en fondu. Rendu DANS LE PLAN DE FOND (z -1, comme les
@@ -1289,8 +1357,9 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
     )
   }
 
-  // Trajectoire `cross` : joueur de gauche à droite (LTR) ; adversaire l'inverse.
-  const movingLeft = !isPlayer
+  // Trajectoire `cross` : joueur de gauche à droite (LTR) ; adversaire l'inverse. Un `fixedDir`
+  // de donnée force le sens quel que soit le camp (ex. Kirby s'échappe toujours vers la droite).
+  const movingLeft = anim.fixedDir ? anim.fixedDir === 'rtl' : !isPlayer
   const flip = movingLeft ? !anim.facesLeft : !!anim.facesLeft
   // Retournements : scaleX combine le sens de marche (`flip`) et le retournement horizontal de donnée
   // (`flipHorizontal`) ; scaleY = retournement vertical de donnée (`flipVertical`, haut/bas).
@@ -1306,6 +1375,31 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
       draggable={false}
     />
   )
+  // Sillage d'étoiles (`starTrail`) : traînée scintillante DERRIÈRE le prop — donc du côté OPPOSÉ
+  // au déplacement (à gauche s'il file à droite, à droite s'il file à gauche). Enfants du conteneur
+  // → ils dérivent AVEC le prop, formant une comète qui le suit. Taille/opacité dégradées.
+  const starTrail = anim.starTrail ? (
+    <div className={`kirby-trail kirby-trail--${movingLeft ? 'right' : 'left'}`} aria-hidden>
+      {Array.from({ length: 8 }, (_, i) => {
+        const size = 1.8 - i * 0.18 // vh
+        return (
+          <span
+            key={i}
+            className="kirby-star"
+            style={{
+              width: `${size}vh`,
+              height: `${size}vh`,
+              marginTop: `${(i % 2 ? -1 : 1) * (0.3 + i * 0.22)}vh`,
+              animationDelay: `${i * 0.08}s`,
+              // Opacité de base dégradée (var lue par le keyframe de scintillement).
+              ['--o' as string]: `${Math.max(0.12, 0.9 - i * 0.1)}`,
+            } as React.CSSProperties}
+          />
+        )
+      })}
+    </div>
+  ) : null
+
   return (
     <div
       className="villain-prop"
@@ -1316,6 +1410,8 @@ function VillainProp({ villain, isPlayer, src, animIdx }: PropAnimProps) {
         animationDuration: `${durationSec}s`,
       }}
     >
+      {/* Sillage d'abord (derrière), puis l'image par-dessus. */}
+      {starTrail}
       {/* Vibration légère (`vibrate`) ou NAGE (`swim` : ondulation + roulis) : un wrapper anime l'image
           pendant que le conteneur dérive horizontalement. */}
       {anim.vibrate ? (

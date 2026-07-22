@@ -356,9 +356,26 @@ export function VillainSelect({ onStart, onBack }: Props) {
     if (network && netLeftNotice) { leaveNet(); onBack() }
   }, [network, netLeftNotice, leaveNet, onBack])
 
-  /** Tire un vilain au hasard, en excluant éventuellement une clé. */
+  // Racine du GROUPE de variantes liées (skins) d'un vilain custom : `variantOf` (la base)
+  // ou l'id lui-même. `null` pour un vilain natif (jamais lié). Deux clés de MÊME racine sont
+  // deux skins du MÊME vilain (ex. Sumbra ⟷ Kilaire) : la partie ne peut en contenir qu'un.
+  const rootOf = (key: string): string | null => {
+    const cv = customVillains.find((v) => v.id === key)
+    return cv ? (cv.variantOf ?? cv.id) : null
+  }
+  /** `c` et `other` sont-ils deux skins DIFFÉRENTS du même vilain (même groupe lié) ? */
+  const linkedButDifferent = (c: Choice, other: Choice | null): boolean => {
+    if (c === 'random' || !other || other === 'random' || c === other) return false
+    const rc = rootOf(c)
+    return rc !== null && rc === rootOf(other)
+  }
+
+  /** Tire un vilain au hasard, en excluant une clé ET ses skins liés (pas de doublon de vilain). */
   const randomKey = (exclude?: string): string => {
-    const pool = allKeys.filter((k) => k !== exclude)
+    const excludeRoot = exclude ? rootOf(exclude) : null
+    const pool = allKeys.filter(
+      (k) => k !== exclude && !(excludeRoot !== null && rootOf(k) === excludeRoot),
+    )
     return pool[Math.floor(Math.random() * pool.length)] ?? allKeys[0]
   }
 
@@ -407,6 +424,19 @@ export function VillainSelect({ onStart, onBack }: Props) {
     selectVillain(key as VillainKey)
   }
   const pickTile = network ? pickMineNet : pickSolo
+
+  // Une tuile est-elle NON sélectionnable ? Deux causes :
+  //  - RÉSEAU : le vilain (ou son skin lié) est déjà pris par l'adversaire (pas de miroir).
+  //  - SKINS LIÉS (solo & réseau) : un vilain et son skin lié (Sumbra ⟷ Kilaire) ne peuvent pas
+  //    coexister dans une partie. En solo, on grise le skin lié pris par le camp qu'on N'édite PAS
+  //    (choisir le skin sur le camp actif reste possible — il remplace son jumeau).
+  const disabledFor = (c: Choice): boolean => {
+    if (network) return (c !== mine && c === opp) || linkedButDifferent(c, opp)
+    if (activeSide === 'mine') return linkedButDifferent(c, opp)
+    if (activeSide === 'opp') return linkedButDifferent(c, mine)
+    // Aucun camp actif (clic sans effet) : on grise quand même le skin lié d'un vilain choisi.
+    return linkedButDifferent(c, mine) || linkedButDifferent(c, opp)
+  }
 
   // Tuiles de la grille : « Aléatoire » d'abord, puis tous les vilains (natifs + publiés en solo).
   const tiles: Choice[] = ['random', ...allKeys]
@@ -496,8 +526,9 @@ export function VillainSelect({ onStart, onBack }: Props) {
                   mineLabel={mineLabel}
                   oppLabel={oppLabel}
                   oppHovering={network && peerHover === c}
-                  // Réseau : le vilain pris par l'adversaire est verrouillé (pas de miroir).
-                  disabled={network ? c !== mine && c === opp : false}
+                  // Verrouillé si pris par l'adversaire, ou si c'est le skin lié d'un vilain déjà
+                  // choisi (Sumbra ⟷ Kilaire = même vilain, un seul par partie).
+                  disabled={disabledFor(c)}
                   onPick={() => pickTile(c)}
                   onHoverEnter={network ? () => setHoverVillain(c === 'random' ? null : (c as VillainKey)) : undefined}
                 />

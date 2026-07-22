@@ -15,6 +15,8 @@ import {
   combattantRevenue,
   isLocationControlled,
 } from '../spirits'
+import { effectiveCost } from '../rules'
+import { applyAction } from '../actions'
 
 // Charge l'export réel de Sumbra (données de jeu ; les images sont ignorées ici pour la
 // vitesse). Valide que la donnée produite par l'Atelier alimente correctement le moteur.
@@ -90,5 +92,45 @@ describe('Sumbra — intégration depuis l’export réel', () => {
     expect(combattantRevenue(g, 0)).toBeGreaterThanOrEqual(1)
     const rev = resolveCombattantRevenue(g, 0)
     expect(rev.players[0].spirits ?? 0).toBeGreaterThanOrEqual(1)
+    // Chaque Combattant révélé alimente la rangée d'affichage (cartes côte à côte).
+    expect((rev.players[0].revealedCombattants ?? []).length).toBeGreaterThan(0)
+  })
+
+  it('Aubaine (spiritCostMod) réduit/augmente le coût effectif des cartes ce tour', () => {
+    const g = buildSumbraGame()
+    // Une carte Vilain à coût 2 (Marionnette Aguerrie / Tentacules…) depuis la pioche.
+    const card = { instanceId: 'x', cardId: 'y', name: 'z', type: 'ally' as const, strength: 2, cost: 2 }
+    expect(effectiveCost(g, card)).toBe(2)
+    const cheaper = { ...g, players: g.players.map((p, i) => (i === 0 ? { ...p, spiritCostMod: 1 } : p)) }
+    expect(effectiveCost(cheaper, card)).toBe(1) // Aubaine Bonus : −1
+    const costlier = { ...g, players: g.players.map((p, i) => (i === 0 ? { ...p, spiritCostMod: -1 } : p)) }
+    expect(effectiveCost(costlier, card)).toBe(3) // Aubaine Malus : +1
+    // Les CONDITIONS ne sont PAS concernées par Aubaine (coût inchangé).
+    const cond = { instanceId: 'c', cardId: 'k', name: 'Condition', type: 'condition' as const, cost: 2 }
+    const cheaperC = { ...g, players: g.players.map((p, i) => (i === 0 ? { ...p, spiritCostMod: 1 } : p)) }
+    expect(effectiveCost(cheaperC, cond)).toBe(2) // Bonus ignoré sur une Condition
+    const costlierC = { ...g, players: g.players.map((p, i) => (i === 0 ? { ...p, spiritCostMod: -1 } : p)) }
+    expect(effectiveCost(costlierC, cond)).toBe(2) // Malus ignoré sur une Condition
+  })
+
+  it('mode test — Fatalité COMBATTANT jouable « en Combattant » (révélé) ou « en Héros »', () => {
+    const g0 = buildSumbraGame()
+    const card = {
+      instanceId: 't:combattant',
+      cardId: 'custom-mrl4fb45-c9',
+      name: 'COMBATTANT',
+      type: 'effect' as const,
+      deck: 'fate' as const,
+      effects: [{ type: 'FATE_DRAW_COMBATTANT' as const, asHero: true }],
+    }
+    // « En Combattant » : révélation normale (capture), AUCUN Héros posé sur le plateau.
+    const asComb = applyAction(g0, { type: 'TEST_PLAY_FATE_CARD', card, combattantMode: 'combattant' })
+    const heroesC = Object.values(asComb.players[0].board).flat().filter((c) => c.type === 'hero')
+    expect(heroesC.length).toBe(0)
+    expect((asComb.players[0].revealedCombattants ?? []).length).toBe(1)
+    // « En Héros » : un Combattant entre en Héros sur le plateau.
+    const asHero = applyAction(g0, { type: 'TEST_PLAY_FATE_CARD', card, combattantMode: 'hero' })
+    const heroesH = Object.values(asHero.players[0].board).flat().filter((c) => c.type === 'hero')
+    expect(heroesH.length).toBeGreaterThan(0)
   })
 })

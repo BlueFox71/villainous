@@ -33,6 +33,14 @@ interface Props {
   /** Disposition : 'list' (boutons empilés, défaut) ou 'row' (côte à côte, pour
    *  des options avec image). */
   layout?: 'list' | 'row'
+  /** Classe CSS des images d'option (défaut `mb-1 h-28 w-auto rounded`). Permet d'agrandir les
+   *  cartes (ex. sélecteur de défausse) ; un `hover:scale-*` est ajouté automatiquement. */
+  imageClassName?: string
+  /** Contenu optionnel ancré en HAUT À DROITE de la modale (ex. bouton « voir la défausse »). */
+  topRight?: React.ReactNode
+  /** Largeur max (classe Tailwind) du panneau — défaut `max-w-md`. Élargir pour une rangée de
+   *  grandes cartes (ex. `max-w-3xl`). */
+  maxWidthClass?: string
   /** Bouton d'annulation/fermeture (optionnel). */
   onCancel?: () => void
   cancelLabel?: string
@@ -41,7 +49,7 @@ interface Props {
   peekable?: boolean
 }
 
-export function ChoiceModal({ title, prompt, header, options, layout = 'list', onCancel, cancelLabel = 'Annuler', peekable = false }: Props) {
+export function ChoiceModal({ title, prompt, header, options, layout = 'list', imageClassName, topRight, maxWidthClass = 'max-w-md', onCancel, cancelLabel = 'Annuler', peekable = false }: Props) {
   const [peek, setPeek] = useState(false)
   // Mode « voir le plateau » : on n'affiche qu'un bouton flottant pour revenir au choix,
   // le reste de l'écran (plateau) est visible et inerte.
@@ -60,8 +68,11 @@ export function ChoiceModal({ title, prompt, header, options, layout = 'list', o
   }
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/20 bg-[#0b0a12] p-4 shadow-2xl">
-        <h2 className="text-base font-bold text-white">{title}</h2>
+      <div className={`w-full ${maxWidthClass} rounded-2xl border border-white/20 bg-[#0b0a12] p-4 shadow-2xl`}>
+        <div className="flex items-start justify-between gap-2">
+          <h2 className="text-base font-bold text-white">{title}</h2>
+          {topRight && <div className="shrink-0">{topRight}</div>}
+        </div>
         {prompt && <p className="mt-1 text-xs text-white/60">{prompt}</p>}
         {header && <div className="mt-3 flex justify-center">{header}</div>}
         <div className={`mt-3 ${layout === 'row' ? 'flex flex-wrap justify-center gap-2' : 'flex flex-col gap-2'}`}>
@@ -77,8 +88,14 @@ export function ChoiceModal({ title, prompt, header, options, layout = 'list', o
                   : 'border-white/30 bg-white/5 text-white hover:border-white/60 hover:bg-white/10'
               }`}
             >
-              {o.imageSrc && <img src={o.imageSrc} alt={o.label} className="mb-1 h-28 w-auto rounded" />}
-              <span className="font-medium">{o.label}</span>
+              {o.imageSrc && (
+                <img
+                  src={o.imageSrc}
+                  alt={o.label}
+                  className={`${imageClassName ?? 'mb-1 h-28 w-auto rounded'} transition-transform duration-150 hover:scale-110`}
+                />
+              )}
+              {o.label && <span className="font-medium">{o.label}</span>}
               {o.description && <span className="mt-0.5 text-xs text-white/50">{o.description}</span>}
             </button>
           ))}

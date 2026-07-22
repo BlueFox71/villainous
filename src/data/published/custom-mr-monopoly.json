@@ -762,7 +762,7 @@
     }
   ],
   "createdAt": "2026-06-29T20:25:10.949Z",
-  "updatedAt": "2026-07-11T17:48:43.704Z",
+  "updatedAt": "2026-07-22T20:00:00.000Z",
   "presentation": "/cards/custom-mr-monopoly/presentation.png?v=1783792105901",
   "portrait": "/cards/custom-mr-monopoly/portrait.png?v=1783792105901",
   "portraitRaw": "/cards/custom-mr-monopoly/portrait-raw.jpg?v=1783792105901",
@@ -951,24 +951,24 @@
     },
     "journal": {
       "villainNotes": {
-        "custom-mr-monopoly-affaire": "Affaire : Mr. Monopoly bâtit des maisons sur le lieu d’un adversaire.",
-        "custom-mr-monopoly-chapeau-haut-de-forme": "Chapeau haut de forme : Mr. Monopoly rejoue une Affaire de sa défausse.",
-        "custom-mr-monopoly-carte-bancaire": "Carte bancaire : Mr. Monopoly déplace deux maisons.",
-        "custom-mr-monopoly-erreur-de-la-banque-en-votre-faveur": "Erreur de la banque : Mr. Monopoly gagne du Pouvoir par maison adverse.",
-        "custom-mr-monopoly-deuxieme-prix-de-beaute": "Deuxième prix de beauté : Mr. Monopoly récupère une carte de sa défausse.",
+        "custom-mr-monopoly-affaire": "Affaire : bâtit des maisons sur le lieu d’un adversaire.",
+        "custom-mr-monopoly-chapeau-haut-de-forme": "Chapeau haut de forme : rejoue une Affaire de sa défausse.",
+        "custom-mr-monopoly-carte-bancaire": "Carte bancaire : déplace deux maisons.",
+        "custom-mr-monopoly-erreur-de-la-banque-en-votre-faveur": "Erreur de la banque : gagne du Pouvoir par maison adverse.",
+        "custom-mr-monopoly-deuxieme-prix-de-beaute": "Deuxième prix de beauté : récupère une carte de sa défausse.",
         "custom-mr-monopoly-allez-en-prison": "Allez en prison : un Héros est envoyé à la Prison.",
-        "custom-mr-monopoly-reculez-de-trois-cases": "Reculez de trois cases : Mr. Monopoly se déplace, agit, et termine son tour.",
+        "custom-mr-monopoly-reculez-de-trois-cases": "Reculez de trois cases : se déplace, agit, et termine son tour.",
         "custom-mr-monopoly-banqueroute": "Banqueroute : un Héros est éliminé.",
         "custom-mr-monopoly-monopoly": "Monopoly : une maison est ajoutée sur le lieu de l’adversaire qui se déplace.",
-        "custom-mr-monopoly-monotonie": "Monotonie : Mr. Monopoly rejoue gratuitement une carte de sa défausse.",
+        "custom-mr-monopoly-monotonie": "Monotonie : rejoue gratuitement une carte de sa défausse.",
         "custom-mr-monopoly-officier-de-police": "L’Officier de Police rejoint le royaume.",
-        "custom-mr-monopoly-canne": "Canne : Mr. Monopoly pille une action adverse et gagne 1 Pouvoir.",
+        "custom-mr-monopoly-canne": "Canne : pille une action adverse et gagne 1 Pouvoir.",
         "custom-mr-monopoly-l-ombre-de-monopoly": "L’Ombre de Monopoly rejoint le royaume.",
-        "custom-mr-monopoly-c1": "Case Départ : Mr. Monopoly gagne 1 Pouvoir en passant."
+        "custom-mr-monopoly-c1": "Case Départ : gagne 1 Pouvoir en passant."
       },
       "fateNotes": {
         "custom-mr-monopoly-renovation": {
-          "description": "Rénovation : Mr. Monopoly perd la moitié de son Pouvoir."
+          "description": "Rénovation : perd la moitié de son Pouvoir."
         },
         "custom-mr-monopoly-regles-inventees": {
           "description": "Règles inventées : cibler ce Héros par Événement coûte +2 Pouvoir."

@@ -20,6 +20,7 @@ import type {
   PlayerState,
 } from './types'
 import { shuffle, rollD6 } from './rng'
+import { journalLine, journalLogLine, type JournalCtx } from './journalTemplate'
 import { deployThanosAlly, retrieveThanosAlly } from './thanos'
 import {
   activePlayer,
@@ -38,7 +39,7 @@ import {
   updateActivePlayer,
   updatePlayer,
 } from './state'
-import { syncLocationControlAll, resolveCombattantRevenue, isLocationControlled, applyCombattantVerb } from './spirits'
+import { syncLocationControlAll, resolveCombattantRevenue, resolveRevenueCombattant, drawCombattant, isLocationControlled, applyCombattantVerb, renfortDraw, renfortRecover, renfortDiscardChosen, pushCombattantShowcase, campEmoji } from './spirits'
 import { addKronkTokens, addPuppyFromReserve, bargainReshuffle, bargainSword, canEnterAuDela, capturePuppiesAt, dioDiscardHero, discardAllOfTypeInRealm, doCapturePuppies, doQuelsMove, doQuelsTutor, enterQuelsMove, enterQuelsTutor, holdsTalisman, lotsoMoveToRoom, lotsoReduceHero, mauiHeroInRealm, moveTitanTo, performVanquish, freeEliminateHero, placeAllyInAuDela, playChosenFateFromDiscard, playTopMauiCard, processCurseDiscards, raiponceLocation, reformYzmaDecks, relocateCard, relocateRaiponce, reshuffleYzmaIfKuzcoDiscarded, resolveEffect, resolveEffects, rollColorDie, smartMoveAllyOrItem, titanReachableDests, triggerHeroArrival } from './effects'
 import { crewmateEndOfTurn, freeCellAt, placeCrewmateAt } from './crewmates'
 import { pendingOwner } from './turn'
@@ -1439,6 +1440,10 @@ function applyPlayCard(
     ...next,
     // Turbo-Statique (freePlay) : ne consomme aucune action de lieu.
     usedActionIds: freePlay ? next.usedActionIds : [...next.usedActionIds, actionId],
+    // Journal data-driven : Objet associé → expose l'hôte ({nomHéros} si Héros, sinon {nomAllié}).
+    journalVars: host
+      ? { ...next.journalVars, [host.type === 'hero' ? 'nomHéros' : 'nomAllié']: host.name }
+      : next.journalVars,
     log: [...next.log, `${me.villainName} joue **${card.name}** (coût ${cost})${where}${assoc}.`],
   }
 
@@ -6524,6 +6529,8 @@ function resolveConditionEffect(
     }))
     next = {
       ...next,
+      // Journal data-driven : expose l'Allié posé ({nomAllié}, ex. Intrus).
+      journalVars: { ...next.journalVars, ['nomAllié']: ally.name },
       log: [
         ...next.log,
         `${player.villainName} pose gratuitement **${ally.name}** sur **${to}**.`,
@@ -7176,7 +7183,13 @@ function applyResolveHeroRelocate(state: GameState, heroInstanceId: string, to: 
       return { ...next, pendingHeroRelocate: { ...pending, candidateIds: remaining } }
     }
   }
-  return { ...next, pendingHeroRelocate: null }
+  // Journal data-driven (émission différée) : expose le Héros déplacé et sa destination.
+  const destName = findLocation(next.players[targetIndex], to)?.name
+  return {
+    ...next,
+    pendingHeroRelocate: null,
+    journalVars: { ...next.journalVars, ['nomHéros']: hero.name, ...(destName ? { ['nomLieu']: destName } : {}) },
+  }
 }
 
 /** Oogie Boogie — Diversion (2ᵉ temps) : défausse l'Allié/Objet choisi du lieu d'arrivée
@@ -7749,7 +7762,7 @@ function applyResolvePayRace(state: GameState, amount: number): GameState {
 function applyResolveChocTitans(state: GameState, pay: boolean): GameState {
   const pending = state.pendingChocTitans
   if (!pending) throw new Error('Aucun choix Choc des Titans en attente (RESOLVE_CHOC_TITANS).')
-  const { playerIndex, card } = pending
+  const { playerIndex, card, spiritsBefore, powerBefore } = pending
   let s: GameState = { ...state, pendingChocTitans: null }
   const villainName = s.players[playerIndex].villainName
   const doPay = pay && (s.players[playerIndex].power ?? 0) >= 2
@@ -7759,11 +7772,77 @@ function applyResolveChocTitans(state: GameState, pay: boolean): GameState {
   } else {
     s = applyCombattantVerb(s, playerIndex, card, -1)
   }
+  // Le showcase du Combattant n'est révélé qu'ICI (après le choix), avec le delta NET : esprits
+  // (capture + verbe) et Pouvoir (verbe − 2 si payé), calculés sur les baselines d'avant le Choc.
+  const spiritDelta = (s.players[playerIndex].spirits ?? 0) - spiritsBefore
+  const powerDelta = (s.players[playerIndex].power ?? 0) - powerBefore
+  s = pushCombattantShowcase(
+    s,
+    playerIndex,
+    card,
+    `${campEmoji(s.players[playerIndex])} ${spiritDelta >= 0 ? '+' : ''}${spiritDelta} esprit(s) · Choc des Titans (${doPay ? 'Bonus' : 'Malus'})`,
+    { spiritDelta, powerDelta },
+  )
   s = updatePlayer(s, playerIndex, (p) => ({ ...p, combattantDiscard: [...(p.combattantDiscard ?? []), card] }))
+  // Journal data-driven : si la carte a un template, on émet l'issue choisie (ligne 0 = Malus,
+  // ligne 1 = Bonus), avec {NbEspritMoi} = somme captée. Sinon, ligne codée en dur.
+  if (pending.journal) {
+    const line = journalCampEmoji(
+      journalLine(
+        pending.journal,
+        { NbEspritMoi: pending.capturedSum, nomVilain: villainName, nomCombattant: card.name },
+        doPay ? 1 : 0,
+      ),
+      s.players[playerIndex],
+    )
+    if (line) return { ...s, log: [...s.log, journalLogLine(villainName, line, 'activate')] }
+  }
   return {
     ...s,
     log: [...s.log, `${villainName} — Choc des Titans : **${card.name}** (${doPay ? 'Bonus payé' : 'Malus'}).`],
   }
+}
+
+/** Sumbra / Kilaire — 🃏 Renfort Malus : résout la TÊTE de `pendingCombattantChoices` (kind
+ *  `discard`) en défaussant les cartes CHOISIES de la main. Exige exactement `count` cartes
+ *  (borné par la taille de la main), toutes présentes en main. Dépile ensuite le choix. */
+function applyResolveCombattantDiscard(state: GameState, instanceIds: string[]): GameState {
+  const queue = state.pendingCombattantChoices ?? []
+  const head = queue[0]
+  if (!head || head.kind !== 'discard') {
+    throw new Error('Aucune défausse Renfort en attente (RESOLVE_COMBATTANT_DISCARD).')
+  }
+  const hand = state.players[head.playerIndex].hand
+  const valid = instanceIds.filter((id) => hand.some((c) => c.instanceId === id))
+  const need = Math.min(head.count, hand.length)
+  if (valid.length !== need) {
+    throw new Error(`Renfort : ${need} carte(s) à défausser (reçu ${valid.length}).`)
+  }
+  const s = renfortDiscardChosen(state, head.playerIndex, valid)
+  return { ...s, pendingCombattantChoices: queue.slice(1) }
+}
+
+/** Sumbra / Kilaire — 🃏 Renfort Bonus : résout la TÊTE de `pendingCombattantChoices` (kind
+ *  `draw-or-recover`). `recover` → récupère `recoverInstanceId` de la défausse ; `draw` → pioche
+ *  `count` cartes Méchant. Dépile ensuite le choix. */
+function applyResolveCombattantDrawOrRecover(
+  state: GameState,
+  choice: 'draw' | 'recover',
+  recoverInstanceId?: string,
+): GameState {
+  const queue = state.pendingCombattantChoices ?? []
+  const head = queue[0]
+  if (!head || head.kind !== 'draw-or-recover') {
+    throw new Error('Aucun choix Renfort (pioche/récupération) en attente (RESOLVE_COMBATTANT_DRAW_OR_RECOVER).')
+  }
+  let s: GameState
+  if (choice === 'recover') {
+    if (!recoverInstanceId) throw new Error('Renfort : carte à récupérer non précisée.')
+    s = renfortRecover(state, head.playerIndex, recoverInstanceId)
+  } else {
+    s = renfortDraw(state, head.playerIndex, head.count)
+  }
+  return { ...s, pendingCombattantChoices: queue.slice(1) }
 }
 
 /** Mr. Monopoly — Affaire : pose `amount` maisons (borné [1,max]) sur le lieu adverse
@@ -9211,11 +9290,21 @@ function applyTestPlayFateCard(
   card: CardInstance,
   targetHeroId?: string,
   enlargeToward?: string,
+  combattantMode?: 'hero' | 'combattant',
 ): GameState {
   const idx = state.activePlayer
   let next = pushShowcase(state, card.cardId, `Test : ${state.players[idx].villainName}`, idx)
   // Une Fatalité infligée déclenche la récompense Apparence de Dragon si armée.
   next = consumeDragonFormReward(next, idx)
+  // Sumbra / Kilaire (mode test) — Fatalité qui pioche un Combattant (COMBATTANT / Une lueur
+  // d'espoir) : en mode « combattant », on RÉVÈLE le Combattant normalement (capture + Bonus/
+  // Malus, comme un revenu) au lieu de le poser en Héros. En mode « héros » (défaut), on garde
+  // le comportement Fatalité (résolution des effets de la carte).
+  if (combattantMode === 'combattant' && (card.effects ?? []).some((e) => e.type === 'FATE_DRAW_COMBATTANT')) {
+    const drawn = drawCombattant(next, idx)
+    if (!drawn.card) return { ...next, log: [...next.log, `${next.players[idx].villainName} : aucun Combattant dans le paquet.`] }
+    return resolveRevenueCombattant(drawn.state, idx, drawn.card)
+  }
   if (card.cardId === 'il-etait-un-reve') {
     return discardCurseFromHeroLocation(next, idx)
   }
@@ -9228,6 +9317,12 @@ function applyTestPlayFateCard(
     card.cardId === 'epee-verite'
   ) {
     return resolveFateCardOnHero(next, idx, idx, card, targetHeroId)
+  }
+  // Générique : toute Fatalité-Événement dotée d'effets (Sumbra : COMBATTANT, Une lueur
+  // d'espoir, Libération, Raccourci…) est résolue directement CONTRE le joueur actif.
+  if ((card.effects ?? []).length > 0) {
+    next = updatePlayer(next, idx, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, card] }))
+    return resolveEffectsLocal(next, card.effects ?? [], { actorIndex: idx, targetHeroId })
   }
   throw new Error(`Le mode test ne sait pas jouer ${card.name}.`)
 }
@@ -10060,7 +10155,12 @@ function applyResolveFateDiscardAlly(state: GameState, instanceId: string): Game
     board: { ...p.board, [loc]: (p.board[loc] ?? []).filter((c) => !ids.has(c.instanceId)) },
     discard: [...p.discard, ...removed.map((c) => ({ ...c, attachedTo: undefined }))],
   }))
-  return { ...next, log: [...next.log, `${target.villainName} défausse **${card.name}** (${pending.cardName}).`] }
+  return {
+    ...next,
+    // Journal data-driven (émission différée) : expose la carte défaussée ({nomAllié}/{nomObjet}).
+    journalVars: { ...next.journalVars, [card.type === 'item' ? 'nomObjet' : 'nomAllié']: card.name },
+    log: [...next.log, `${target.villainName} défausse **${card.name}** (${pending.cardName}).`],
+  }
 }
 
 /** Vol du château : pose l'Allié/Objet dévoilé (`found`) sur le lieu `to` choisi
@@ -10232,6 +10332,8 @@ function applyResolveRecover(state: GameState, instanceId?: string): GameState {
   return {
     ...next,
     pendingRecover: null,
+    // Journal data-driven (émission différée) : expose la carte reprise ({nomCarte}).
+    journalVars: { ...next.journalVars, ['nomCarte']: card.name },
     log: [...next.log, `${player.villainName} reprend **${card.name}**${pending.thenShuffle ? ' et mélange son deck' : ''} (${pending.label ?? 'Opportunisme'}).`],
   }
 }
@@ -12054,14 +12156,10 @@ function applyEndTurn(state: GameState): GameState {
     }
   }
 
-  // Sumbra / Kilaire — REVENU de début de tour : pioche et résout les Combattants selon
-  // le nombre de lieux contrôlés (0/1/2), AVANT la vérification de victoire (la capture
-  // peut faire franchir le seuil d'esprits ce tour-ci).
-  if (started.players[nextIdx].objective.type === 'SPIRIT_THRESHOLD') {
-    started = resolveCombattantRevenue(started, nextIdx)
-  }
-
-  // La victoire se vérifie « au début du tour » du nouveau joueur actif.
+  // La victoire se vérifie « au début du tour » du nouveau joueur actif — AVANT le revenu de
+  // Combattants (Sumbra / Kilaire). Franchir le seuil d'esprits GRÂCE au revenu de ce tour ne
+  // gagne donc PAS immédiatement : il faut détenir le seuil au DÉBUT du tour (donc les esprits
+  // gagnés au revenu ne comptent qu'au tour suivant, à confirmer).
   if (hasReachedObjective(started)) {
     const w = started.players[nextIdx]
     const howMuch =
@@ -12076,9 +12174,22 @@ function applyEndTurn(state: GameState): GameState {
       ...started,
       status: 'WON',
       winner: nextIdx,
+      // Partie terminée : on ferme les choix INTERACTIFS en attente (Renfort / Choc des Titans).
+      pendingCombattantChoices: [],
+      pendingChocTitans: null,
       log: [...started.log, `🏆 ${w.villainName} l'emporte avec ${howMuch} !`],
     }
   }
+
+  // Sumbra / Kilaire — REVENU de début de tour : pioche et résout les Combattants selon le
+  // nombre de lieux contrôlés (0/1/2). APRÈS la vérification de victoire : les esprits capturés
+  // ici ne déclenchent la victoire qu'au tour suivant (au prochain contrôle de seuil).
+  if (started.players[nextIdx].objective.type === 'SPIRIT_THRESHOLD') {
+    // Nouvelle rangée de révélations pour ce tour (les cartes du tour précédent s'effacent).
+    started = updatePlayer(started, nextIdx, (p) => ({ ...p, revealedCombattants: undefined }))
+    started = resolveCombattantRevenue(started, nextIdx)
+  }
+
   return started
 }
 
@@ -12296,15 +12407,152 @@ function applyUltronOptimizeMove(state: GameState, actionId: string, instanceId:
 
 /** Applique une action de jeu et renvoie le nouvel état. Pur, déterministe. */
 export function applyAction(state: GameState, action: GameAction): GameState {
+  const core = applyActionCore(state, action)
+  // Journal data-driven : si la carte jouée déclare un template, on remplace ses lignes de
+  // log codées en dur par le message authoré (placeholders remplis). AVANT les syncs, pour
+  // ne pas avaler les lignes qu'elles ajoutent (ex. bascule de contrôle de lieu Sumbra).
+  const journaled = applyJournalTemplate(state, action, core)
   // Après chaque action : (1) bascule éventuelle de l'objectif double de Ratigan
   // (Reine Robot défaussée → « Le Rat ») ; (2) Pat Hibulaire — complétion de la
   // tuile Power Play si ≥6 Pouvoir dépensés ce tour sur le bon lieu.
   // (3) Sumbra / Kilaire — synchronise la face/contrôle des lieux conquérables selon la
   // garnison (une pose/perte d'Allié peut faire basculer un lieu rival ↔ contrôlé).
-  const after = syncLocationControlAll(syncLuciferTrap(syncRoseChain(syncPetePowerPlay(syncRatiganObjectiveAll(applyActionCore(state, action))))))
+  const after = syncLocationControlAll(syncLuciferTrap(syncRoseChain(syncPetePowerPlay(syncRatiganObjectiveAll(journaled)))))
   // Dio — ZA WARUDO! : coût croissant par action + suivi des 14 actions du royaume.
   // Puis Gaston : victoire immédiate si le dernier Obstacle vient d'être retiré.
   return checkImmediateObstacleWin(applyDioZaWarudo(action, after))
+}
+
+/**
+ * Journal data-driven (générique, cf. `engine/journalTemplate.ts`). Quand l'action est une
+ * pose de carte Vilain (`PLAY_CARD`) dont la carte porte un `journal`, on REMPLACE les lignes
+ * de log produites par la résolution (`core.log` au-delà de `state.log`) par UNE ligne balisée
+ * portant le message authoré, placeholders remplis avec les vraies valeurs (variation
+ * d'esprits, noms de cibles exposés via `journalVars`). Les autres cartes/actions gardent leur
+ * logging par défaut (opt-in strict → aucune régression sur les vilains existants).
+ *
+ * Cartes INTERACTIVES (elles suspendent sur un `pending`) : on ne réécrit pas ici — le message
+ * est émis à la résolution du choix (le template peut alors avoir plusieurs issues).
+ */
+function applyJournalTemplate(before: GameState, action: GameAction, core: GameState): GameState {
+  // `journalVars` est transitoire : on le vide systématiquement en sortie.
+  const cleared = core.journalVars ? { ...core, journalVars: undefined } : core
+
+  // (A) ÉMISSION DIFFÉRÉE : une carte à template attend la résolution de son choix interactif.
+  // On tente de remplir avec les `journalVars` produits par CETTE action ; on émet dès que
+  // tous les placeholders sont résolus, ou qu'aucun choix ne reste ouvert, ou après 2 étapes
+  // (garde-fou). Sinon on masque les lignes de l'action et on continue d'attendre.
+  if (before.pendingJournal) {
+    const pj = before.pendingJournal
+    const player = before.players[pj.playerIndex]
+    const ctx = buildJournalCtx(before, core, pj.playerIndex)
+    const filled = journalCampEmoji(journalLine(pj.template, ctx, 0), player)
+    const done = !hasUnresolvedPlaceholder(filled) || !hasOpenChoice(core) || pj.steps >= 2
+    const kept = core.log.slice(0, before.log.length)
+    if (done) {
+      const line = journalLogLine(player.villainName, filled, pj.icon)
+      return { ...cleared, pendingJournal: null, log: [...kept, line] }
+    }
+    return { ...cleared, pendingJournal: { ...pj, steps: pj.steps + 1 }, log: kept }
+  }
+
+  // Détermine l'acteur/propriétaire, le template et l'icône selon l'action.
+  let playerIndex: number
+  let template: string
+  let icon: string
+  const extraCtx: JournalCtx = {}
+  if (action.type === 'RESOLVE_FATE') {
+    // Fatalité : la carte vient des cartes révélées du deck de la CIBLE. Message du POINT DE
+    // VUE de la cible (le vilain fatalisé) : `{NbEspritMoi}`/`{nomVilain}` = la cible.
+    const pend = before.pendingFate
+    const chosen = pend?.revealed.find((c) => c.instanceId === action.instanceId)
+    if (!pend || !chosen?.journal) return cleared
+    playerIndex = pend.target
+    template = chosen.journal
+    icon = 'fate'
+    if (action.targetHeroId) {
+      const hero = Object.values(before.players[playerIndex].board).flat().find((c) => c.instanceId === action.targetHeroId)
+      if (hero) extraCtx['nomHéros'] = hero.name
+    }
+  } else if (action.type === 'PLAY_CARD' || action.type === 'PLAY_CONDITION') {
+    // Pose d'une carte Vilain (joueur actif) ou d'une Condition (pendant le tour adverse).
+    playerIndex = action.type === 'PLAY_CARD' ? before.activePlayer : action.playerIndex
+    const played = before.players[playerIndex]?.hand.find((c) => c.instanceId === action.instanceId)
+    if (!played?.journal) return cleared
+    // Choc des Titans (multi-issues) : stashé dans son pending, émis à `applyResolveChocTitans`.
+    if (core.pendingChocTitans) {
+      return { ...cleared, pendingChocTitans: { ...core.pendingChocTitans, journal: played.journal } }
+    }
+    template = played.journal
+    icon = played.type === 'effect' || played.type === 'condition' ? 'activate' : 'play-card'
+    // Cibles portées par l'action (génériques) : lieu de pose et Héros ciblé.
+    if ('to' in action && action.to) {
+      const loc = before.players[playerIndex].locations.find((l) => l.id === action.to)
+      if (loc) extraCtx['nomLieu'] = loc.name
+    }
+    if ('targetHeroId' in action && action.targetHeroId) {
+      const h = Object.values(before.players[playerIndex].board).flat().find((c) => c.instanceId === action.targetHeroId)
+      if (h) extraCtx['nomHéros'] = h.name
+    }
+  } else {
+    return cleared
+  }
+
+  // Contexte : `journalVars` (exposés par les effets) l'emportent ; `extraCtx` comble les trous.
+  const ctx = buildJournalCtx(before, core, playerIndex)
+  for (const k of Object.keys(extraCtx)) if (ctx[k] === undefined) ctx[k] = extraCtx[k]
+  const filled = journalCampEmoji(journalLine(template, ctx, 0), before.players[playerIndex])
+  if (!filled) return cleared
+  const kept = core.log.slice(0, before.log.length)
+
+  // DIFFÈRE si un placeholder reste non résolu ET qu'un choix interactif est ouvert : on masque
+  // les lignes de cette action et on émettra à la résolution (cf. bloc A).
+  if (hasUnresolvedPlaceholder(filled) && hasOpenChoice(core)) {
+    return { ...cleared, pendingJournal: { playerIndex, template, icon, steps: 0 }, log: kept }
+  }
+  const line = journalLogLine(before.players[playerIndex].villainName, filled, icon)
+  return { ...cleared, log: [...kept, line] }
+}
+
+/** Un placeholder `{clé}` non substitué subsiste-t-il dans la ligne remplie ? (sert à décider
+ *  d'attendre une résolution interactive avant d'émettre — cf. émission différée). */
+function hasUnresolvedPlaceholder(text: string): boolean {
+  return /\{[^{}]+\}/.test(text)
+}
+
+/** Un choix INTERACTIF est-il en attente ? Générique : vrai si un champ `pendingXxx` (hors
+ *  `pendingJournal`) est renseigné (objet non-null, ou tableau non vide). Sert de garde-fou à
+ *  l'émission différée : tant qu'un choix reste ouvert, on attend le message final. */
+function hasOpenChoice(s: GameState): boolean {
+  for (const k of Object.keys(s)) {
+    if (!k.startsWith('pending') || k === 'pendingJournal') continue
+    const v = (s as unknown as Record<string, unknown>)[k]
+    if (Array.isArray(v) ? v.length > 0 : v != null && v !== false) return true
+  }
+  return false
+}
+
+/** Adapte l'emoji d'esprit du message au CAMP du joueur : le template est authoré avec 🌑
+ *  (base) ; un skin de camp Lumière (Killaire) affiche ☀️. `campEmoji` renvoie 🌑 pour moon
+ *  (no-op) et ☀️ pour sun. Générique (aucun id en dur). */
+function journalCampEmoji(text: string, player: PlayerState): string {
+  return text.replace(/🌑/g, campEmoji(player))
+}
+
+/** Contexte générique de substitution : variations d'esprits/Pouvoir (valeur absolue) +
+ *  noms des méchants + toute variable nommée exposée par un effet (`journalVars`, ex. cibles).
+ *  Réutilisable tel quel par tout vilain (l'auteur choisit les placeholders utilisés). */
+function buildJournalCtx(before: GameState, after: GameState, actor: number): JournalCtx {
+  const opp = before.players.findIndex((_, i) => i !== actor)
+  const spiritsAbs = (i: number) => Math.abs((after.players[i]?.spirits ?? 0) - (before.players[i]?.spirits ?? 0))
+  const ctx: JournalCtx = {
+    NbEspritMoi: spiritsAbs(actor),
+    NbEspritAdv: opp >= 0 ? spiritsAbs(opp) : 0,
+    NbJT: Math.abs((after.players[actor]?.power ?? 0) - (before.players[actor]?.power ?? 0)),
+    nomVilain: before.players[actor].villainName,
+    nomAdv: opp >= 0 ? before.players[opp].villainName : '',
+  }
+  return { ...ctx, ...(after.journalVars ?? {}) }
 }
 
 /** Types de GameAction qui correspondent à « faire une action de lieu » (hors Fatalité,
@@ -12498,6 +12746,15 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
     action.type !== 'PLAY_CONDITION'
   ) {
     throw new Error('Un choix Choc des Titans est en attente (RESOLVE_CHOC_TITANS).')
+  }
+  // Sumbra / Kilaire — Renfort : choix (défausse / pioche-ou-récup) en attente (début de tour).
+  if (
+    state.pendingCombattantChoices && state.pendingCombattantChoices.length > 0 &&
+    action.type !== 'RESOLVE_COMBATTANT_DISCARD' &&
+    action.type !== 'RESOLVE_COMBATTANT_DRAW_OR_RECOVER' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Un choix Renfort est en attente (RESOLVE_COMBATTANT_DISCARD / DRAW_OR_RECOVER).')
   }
   // Mr. Monopoly — Affaire : choix du nombre de maisons en attente.
   if (
@@ -13265,6 +13522,10 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolvePayRace(state, action.amount)
     case 'RESOLVE_CHOC_TITANS':
       return applyResolveChocTitans(state, action.pay)
+    case 'RESOLVE_COMBATTANT_DISCARD':
+      return applyResolveCombattantDiscard(state, action.instanceIds)
+    case 'RESOLVE_COMBATTANT_DRAW_OR_RECOVER':
+      return applyResolveCombattantDrawOrRecover(state, action.choice, action.recoverInstanceId)
     case 'RESOLVE_BUY_HOUSES':
       return applyResolveBuyHouses(state, action.amount)
     case 'RESOLVE_MOVE_HOUSES':
@@ -13557,7 +13818,7 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
     case 'TEST_PLAY_CONDITION':
       return applyTestPlayCondition(state, action.card, action.allyInstanceId, action.to)
     case 'TEST_PLAY_FATE_CARD':
-      return applyTestPlayFateCard(state, action.card, action.targetHeroId, action.enlargeToward)
+      return applyTestPlayFateCard(state, action.card, action.targetHeroId, action.enlargeToward, action.combattantMode)
     case 'VANQUISH':
       return clearGiant(state, applyVanquish(state, action.actionId, action.heroInstanceId, action.allyInstanceIds))
     case 'CATCH_POKEMON':

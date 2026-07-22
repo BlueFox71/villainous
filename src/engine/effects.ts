@@ -51,10 +51,13 @@ import {
   addSpirits,
   applyCombattantVerb,
   bothCampsValue,
+  campEmoji,
   captureCombattant,
   captureSpirits,
   drawCombattant,
   otherCampValue,
+  pushCombattantShowcase,
+  spiritCamp,
 } from './spirits'
 import { thanosOpponents, seedStoneIntoOpponent, opponentsControllingStone, stonesInOpponentRealms, deployThanosAlly } from './thanos'
 import { KEY_COLORS, type KeyColor } from './types'
@@ -3328,6 +3331,8 @@ export function resolveEffect(
       return {
         ...next,
         pendingFreePlayAlly: { playerIndex: idx, ally },
+        // Journal data-driven : expose le nom de l'Allié dévoilé ({nomAllié}).
+        journalVars: { ...next.journalVars, ['nomAllié']: ally.name },
         log: [...next.log, `${actor.villainName} dévoile **${ally.name}** : à jouer gratuitement sur le lieu de votre choix.`],
       }
     }
@@ -6028,6 +6033,10 @@ export function resolveEffect(
       if (effStr > effect.maxStrength) {
         throw new Error(`${hero.name} (force ${effStr}) > ${effect.maxStrength} : non vaincu.`)
       }
+      // Borne INFÉRIEURE optionnelle (« Force N ou plus », ex. Absorption de la lumière).
+      if (effect.minStrength !== undefined && effStr < effect.minStrength) {
+        throw new Error(`${hero.name} (force ${effStr}) < ${effect.minStrength} : non vaincu.`)
+      }
       // Pyramid Head — Protection de l'âme : Héros inéliminable tant que l'Objet lui est associé.
       if ((actor.board[heroLoc] ?? []).some((c) => c.attachedTo === hero!.instanceId && c.shieldsHostFromVanquish)) {
         throw new Error(`${hero.name} est protégé (Protection de l'âme) et ne peut pas être éliminé.`)
@@ -6201,6 +6210,9 @@ export function resolveEffect(
       next = {
         ...next,
         lastVanquishedHeroStrength: hero.strength ?? 0,
+        // Journal data-driven : expose le nom du Héros éliminé pour le placeholder {nomHéros}
+        // (inoffensif pour les cartes sans template : `journalVars` est vidé par applyAction).
+        journalVars: { ...next.journalVars, ['nomHéros']: hero.name },
         log: [
           ...next.log,
           `${actor.villainName} fait disparaître **${hero.name}** (Disparition).`,
@@ -6434,17 +6446,27 @@ export function resolveEffect(
     case 'DRAW_COMBATTANT_BONUS': {
       // « Combattant volé » : pioche 1 Combattant, capture + Bonus FORCÉ (aligné).
       const p0 = state.players[idx]
+      const before = p0.spirits ?? 0
+      const powerBefore = p0.power ?? 0
       const res = drawCombattant(state, idx)
       if (!res.card) return { ...state, log: [...state.log, `${p0.villainName} : aucun Combattant à piocher.`] }
       let s = captureCombattant(res.state, idx, res.card)
       s = applyCombattantVerb(s, idx, res.card, 1) // Bonus forcé
+      const d = (s.players[idx].spirits ?? 0) - before
+      const powerD = (s.players[idx].power ?? 0) - powerBefore
+      s = pushCombattantShowcase(s, idx, res.card, `${campEmoji(p0)} ${d >= 0 ? '+' : ''}${d} esprit(s) · Bonus (Combattant volé)`, { spiritDelta: d, powerDelta: powerD })
       s = {
         ...s,
         players: s.players.map((pl, i) =>
           i === idx ? { ...pl, combattantDiscard: [...(pl.combattantDiscard ?? []), res.card!] } : pl,
         ),
       }
-      return { ...s, log: [...s.log, `${p0.villainName} — Combattant volé : **${res.card.name}** (Bonus forcé).`] }
+      // Journal data-driven : expose le nom du Combattant pioché ({nomCombattant}).
+      return {
+        ...s,
+        journalVars: { ...s.journalVars, ['nomCombattant']: res.card.name },
+        log: [...s.log, `${p0.villainName} — Combattant volé : **${res.card.name}** (Bonus forcé).`],
+      }
     }
     case 'CHOC_DES_TITANS': {
       // Pioche 1 Combattant, capture la SOMME des deux camps, puis applique son Malus —
@@ -6453,19 +6475,28 @@ export function resolveEffect(
       // Pouvoir, on ouvre `pendingChocTitans` (résolu par RESOLVE_CHOC_TITANS ; le bot
       // auto-résout). Sinon (pas les 2 Pouvoir, ou pas d'option de paiement) → Malus direct.
       const p0 = state.players[idx]
+      const spiritsBefore = p0.spirits ?? 0
+      const powerBefore = p0.power ?? 0
       const res = drawCombattant(state, idx)
       if (!res.card) return { ...state, log: [...state.log, `${p0.villainName} : aucun Combattant à piocher.`] }
-      const s = captureSpirits(res.state, idx, bothCampsValue(res.card))
+      const capturedSum = bothCampsValue(res.card)
+      const s = captureSpirits(res.state, idx, capturedSum)
       const canBonus = (s.players[idx].power ?? 0) >= 2
       if (effect.payForBonus && canBonus) {
+        // CHOIX interactif : on N' affiche PAS encore le showcase. Le Combattant est montré DANS
+        // la modale de choix ; le showcase (avec le résultat NET) est révélé APRÈS le choix
+        // (cf. applyResolveChocTitans). On mémorise les baselines pour calculer ce net.
         return {
           ...s,
-          pendingChocTitans: { playerIndex: idx, card: res.card },
+          pendingChocTitans: { playerIndex: idx, card: res.card, spiritsBefore, powerBefore, capturedSum },
           log: [...s.log, `${p0.villainName} — Choc des Titans : **${res.card.name}** pioché (payer 2 Pouvoir pour le Bonus ?).`],
         }
       }
-      // Pas de choix possible : le Combattant applique son Malus et part en défausse.
+      // Pas de choix possible : Malus direct, puis showcase avec le delta NET (capture + Malus).
       let out = applyCombattantVerb(s, idx, res.card, -1)
+      const spiritDelta = (out.players[idx].spirits ?? 0) - spiritsBefore
+      const powerDelta = (out.players[idx].power ?? 0) - powerBefore
+      out = pushCombattantShowcase(out, idx, res.card, `${campEmoji(p0)} ${spiritDelta >= 0 ? '+' : ''}${spiritDelta} esprit(s) · Choc des Titans (Malus)`, { spiritDelta, powerDelta })
       out = {
         ...out,
         players: out.players.map((pl, i) =>
@@ -6486,10 +6517,14 @@ export function resolveEffect(
       if (!res.card) return { ...state, log: [...state.log, `${target.villainName} : aucun Combattant dans le paquet.`] }
       let s = res.state
       const card = res.card
+      let placedLoc: string | undefined
+      let heroInstanceId: string | undefined
       if (effect.asHero) {
         const loc = target.pawnLocation ?? target.locations[0]?.id
         if (loc) {
           const hero: CardInstance = { ...card, coversActionsLikeHero: true }
+          placedLoc = loc
+          heroInstanceId = hero.instanceId
           s = {
             ...s,
             players: s.players.map((pl, i) =>
@@ -6498,8 +6533,27 @@ export function resolveEffect(
           }
         }
       }
+      const spiritsBefore = target.spirits ?? 0
       const loss = otherCampValue(target, card)
       s = addSpirits(s, idx, -loss)
+      const spiritDelta = (s.players[idx].spirits ?? 0) - spiritsBefore // ≤ 0 (perte, bornée par le plancher)
+      // SHOWCASE cinématique du Combattant révélé (grande carte au centre) ; s'il entre en
+      // Héros, il « vole » vers son lieu (destination + instanceId). Pastille d'esprits « −N ».
+      const msg = `${campEmoji(target)} −${loss} esprit(s) · Fatalité${effect.asHero ? ' (Héros)' : ''}`
+      const badge = { forceShow: true, combattantCamp: spiritCamp(target), combattantSpiritDelta: spiritDelta, combattantExtras: [] }
+      s = effect.asHero && placedLoc
+        ? pushShowcase(s, card.cardId, msg, idx, { playerIndex: idx, locationId: placedLoc }, heroInstanceId, badge)
+        : pushShowcase(s, card.cardId, msg, idx, undefined, undefined, badge)
+      // Sans pose en Héros, le Combattant pioché part dans la défausse Combattant (comme toute
+      // révélation de Combattant) — sinon il disparaîtrait du paquet sans y revenir.
+      if (!effect.asHero) {
+        s = {
+          ...s,
+          players: s.players.map((pl, i) =>
+            i === idx ? { ...pl, combattantDiscard: [...(pl.combattantDiscard ?? []), card] } : pl,
+          ),
+        }
+      }
       return {
         ...s,
         log: [
@@ -6904,7 +6958,12 @@ export function resolveEffect(
         board: { ...pp.board, [loc]: (pp.board[loc] ?? []).filter((c) => !removed.has(c.instanceId)) },
         discard: [...pp.discard, ally, ...attached],
       }))
-      return { ...next, log: [...next.log, `Clochette défausse **${ally.name}**.`] }
+      // Journal data-driven : expose l'Allié défaussé ({nomAllié}, ex. Nani).
+      return {
+        ...next,
+        journalVars: { ...next.journalVars, ['nomAllié']: ally.name },
+        log: [...next.log, `Clochette défausse **${ally.name}**.`],
+      }
     }
     case 'STEAL_ITEM_TO_HERO': {
       // Abu / Aladdin (Fatalité) : l'adversaire (chooser) choisit un Objet du lieu
@@ -8770,7 +8829,12 @@ export function resolveEffect(
         board: { ...p.board, [ploc]: (p.board[ploc] ?? []).filter((c) => c.instanceId !== pick!.instanceId) },
         discard: [...p.discard, pick!],
       }))
-      return { ...next, log: [...next.log, `Comète farceuse : **${pick.name}** est défaussé du royaume de ${actor.villainName}.`] }
+      // Journal data-driven : expose le nom de l'Objet défaussé ({nomObjet}).
+      return {
+        ...next,
+        journalVars: { ...next.journalVars, ['nomObjet']: pick.name },
+        log: [...next.log, `Comète farceuse : **${pick.name}** est défaussé du royaume de ${actor.villainName}.`],
+      }
     }
     case 'DISCARD_ALLY_OR_ITEM': {
       // Onix (Pokémon Fatalité) : le LANCEUR de la Fatalité défausse un Allié OU un Objet
@@ -8818,7 +8882,12 @@ export function resolveEffect(
           ...(actor.board[loc] ?? []).filter((c) => attachedIds.has(c.instanceId)).map((c) => ({ ...c, attachedTo: undefined })),
         ],
       }))
-      return { ...next, log: [...next.log, `${label} : **${target.c.name}** est défaussé du royaume de ${actor.villainName}.`] }
+      // Journal data-driven : candidat unique → expose la carte défaussée ({nomAllié}/{nomObjet}).
+      return {
+        ...next,
+        journalVars: { ...next.journalVars, [target.c.type === 'item' ? 'nomObjet' : 'nomAllié']: target.c.name },
+        log: [...next.log, `${label} : **${target.c.name}** est défaussé du royaume de ${actor.villainName}.`],
+      }
     }
     case 'EVOLVE_ALLY': {
       // Évolution : ouvre le choix de l'Allié à faire évoluer. Candidats = Alliés évolutifs
@@ -9984,7 +10053,12 @@ export function resolveEffect(
         board: { ...p.board, [loc]: (p.board[loc] ?? []).filter((c) => !removeIds.has(c.instanceId)) },
         discard: [...p.discard, pick, ...attached],
       }))
-      return { ...next, log: [...next.log, `**${pick.name}** est défaussé(e) du royaume de ${actor.villainName}.`] }
+      // Journal data-driven : expose l'Objet défaussé ({nomObjet}, ex. David).
+      return {
+        ...next,
+        journalVars: { ...next.journalVars, ['nomObjet']: pick.name },
+        log: [...next.log, `**${pick.name}** est défaussé(e) du royaume de ${actor.villainName}.`],
+      }
     }
     case 'DISCARD_ALLY_AT_HOST_OR_PAY': {
       // Ratigan — Félicia (à la pose) : si un Allié a été choisi (ctx.allyInstanceIds),
@@ -10043,7 +10117,8 @@ export function resolveEffect(
       if (reward) {
         next = { ...next, log: [...next.log, `🕳️ ${effect.rewardAtCount} Tunnels de Hawkins réunis : **+${effect.rewardPower} Pouvoir** !`] }
       }
-      return next
+      // Journal data-driven : expose le nombre d'Alliés défaussés ({nbAlliés}).
+      return { ...next, journalVars: { ...next.journalVars, ['nbAlliés']: chosen.size } }
     }
     case 'FLAYER_FLAYED_UNLOCK': {
       // THE FLAYED (résolu AVANT la pose) : cette pose porte le nombre de FLAYED à
@@ -10396,7 +10471,12 @@ export function resolveEffect(
         board: { ...p.board, [ll]: (p.board[ll] ?? []).filter((c) => !ids.has(c.instanceId)) },
         discard: [...p.discard, ...removed],
       }))
-      return { ...next, log: [...next.log, `Minnie : ${actor.villainName} défausse **${target.name}**.`] }
+      // Journal data-driven : expose la cible défaussée ({nomAllié}/{nomObjet}, ex. Ça pique).
+      return {
+        ...next,
+        journalVars: { ...next.journalVars, [target.type === 'ally' ? 'nomAllié' : 'nomObjet']: target.name },
+        log: [...next.log, `Minnie : ${actor.villainName} défausse **${target.name}**.`],
+      }
     }
     // ── Grand Councilwoman (capture de STITCH) ───────────────────────────────
     case 'ATTACH_HERO_TO_ITEM': {
@@ -10485,9 +10565,11 @@ export function resolveEffect(
         next2 = updatePlayer(next2, idx, (p) => ({ ...p, discard: [...p.discard, wasted] }))
         return { ...next2, log: [...next2.log, `${actor.villainName} dévoile **${wasted.name}** mais ne peut pas le poser : défaussé (Rapport !).`] }
       }
+      // Journal data-driven : expose la carte dévoilée ({nomObjet} si Objet, sinon {nomAllié}).
       return {
         ...next2,
         pendingFreePlayCard: { playerIndex: idx, card: found, label: 'Rapport !' },
+        journalVars: { ...next2.journalVars, [found.type === 'item' ? 'nomObjet' : 'nomAllié']: found.name },
         log: [...next2.log, `${actor.villainName} dévoile **${found.name}** : à jouer gratuitement.`],
       }
     }
@@ -10880,8 +10962,14 @@ export function resolveEffect(
       if (!mv) return state
       const dest = adjacentLocationIds(state, mv.loc)[0]
       if (!dest) return state
+      const movedName = (p.board[mv.loc] ?? []).find((c) => c.instanceId === mv!.id)?.name
       const next = relocateCard(state, idx, mv.id, mv.loc, dest)
-      return { ...next, log: [...next.log, `Fuite : une carte est déplacée vers ${findLocation(next.players[idx], dest)?.name}.`] }
+      // Journal data-driven : expose le nom de la carte déplacée ({nomCible}).
+      return {
+        ...next,
+        journalVars: movedName ? { ...next.journalVars, ['nomCible']: movedName } : next.journalVars,
+        log: [...next.log, `Fuite : une carte est déplacée vers ${findLocation(next.players[idx], dest)?.name}.`],
+      }
     }
     case 'REORDER_MAUI_TOP': {
       // Mini Maui (Fatalité) : regarde les `count` premières cartes Maui et les réordonne.

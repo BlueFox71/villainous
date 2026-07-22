@@ -1058,6 +1058,89 @@ export function MauiPiles({ player, uprightWidth = 'w-16' }: { player: PlayerSta
   )
 }
 
+/**
+ * Sumbra / Kilaire — pile + défausse du paquet COMBATTANT (3ᵉ pioche perso). Affichée comme
+ * la pile Maui. Rendue uniquement pour un vilain qui a un paquet Combattant (`combattantDeck`
+ * défini). Le dos = le 3ᵉ dos personnalisé (`backExtraImage`), repli sur le dos Fatalité.
+ */
+export function CombattantPiles({ player, uprightWidth = 'w-16' }: { player: PlayerState; uprightWidth?: string }) {
+  const [showDiscard, setShowDiscard] = useState(false)
+  if (player.combattantDeck === undefined) return null
+  const deck = player.combattantDeck
+  // La DÉFAUSSE n'affiche QUE les Combattants des tours PRÉCÉDENTS : on exclut ceux
+  // encore dans la rangée de révélation de CE tour (sinon doublon révélation ↔ défausse).
+  const revealIds = new Set((player.revealedCombattants ?? []).map((r) => r.instanceId))
+  const discard = (player.combattantDiscard ?? []).filter((c) => !revealIds.has(c.instanceId))
+  const last = discard[discard.length - 1]
+  const back = player.backExtraImage || player.backFateImage || player.backVillainImage
+  return (
+    <div className="flex shrink-0 flex-col items-center gap-0.5" title="Combattants — esprits capturés (pioche & défausse)">
+      <span className="text-[8px] font-bold uppercase tracking-wide text-fuchsia-300/90">
+        Combattants
+      </span>
+      <div className="flex gap-3">
+        <Pile src={back} count={deck.length} fate upright uprightWidth={uprightWidth} />
+        <Pile
+          src={imgOf(last)}
+          count={discard.length}
+          fate
+          zoom
+          upright
+          uprightWidth={uprightWidth}
+          zoomClass="left-0 top-full mt-1"
+          onClick={discard.length > 0 ? () => { playHistoryEvent(); setShowDiscard(true) } : undefined}
+        />
+      </div>
+      {showDiscard && (
+        <DiscardModal
+          cards={discard}
+          label={`Combattants — ${player.villainName}`}
+          onClose={() => setShowDiscard(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
+ * Sumbra / Kilaire — RANGÉE des Combattants révélés ce tour (revenu + cartes), affichés
+ * CÔTE À CÔTE (jusqu'à 5 emplacements), chacun avec son delta d'esprits. Vidée au début de
+ * chaque tour du joueur. Rendue uniquement s'il y a au moins une révélation.
+ */
+export function CombattantReveals({ player }: { player: PlayerState }) {
+  const reveals = player.revealedCombattants ?? []
+  if (reveals.length === 0) return null
+  const shown = reveals.slice(-5) // jusqu'à 5 emplacements (les plus récents)
+  return (
+    <div className="flex items-end gap-1" title="Combattants révélés ce tour">
+      {shown.map((r) => {
+        const def = getCardDef(r.cardId)
+        const img = def?.image
+        // Bordure = couleur du camp DOMINANT du Combattant révélé (le plus d'esprits) :
+        // ☀️ Kilaire (#3014ff) si spiritSun > spiritMoon, 🌑 Sumbra (#7a002f) sinon ; gris à égalité.
+        const sun = def?.spiritSun ?? 0
+        const moon = def?.spiritMoon ?? 0
+        const border = sun > moon ? '#3014ff' : moon > sun ? '#7a002f' : '#9ca3af'
+        return (
+          <div key={r.instanceId} className="group relative" title={r.message}>
+            {img ? (
+              <img src={img} alt="" className="w-16 shrink-0 rounded border-2 shadow-lg" style={{ borderColor: border }} />
+            ) : (
+              <div className="aspect-[1440/2044] w-16 shrink-0 rounded border-2 bg-black/40" style={{ borderColor: border }} />
+            )}
+            {/* Zoom au survol : la carte révélée en grand (sous la rangée). */}
+            {img && (
+              <div className="pointer-events-none absolute left-1/2 top-full z-50 mt-1 hidden -translate-x-1/2 rounded-lg border border-white/20 bg-[#0b0a12] p-1 shadow-2xl group-hover:block">
+                <img src={img} alt="" className="h-72 w-auto max-w-none rounded" />
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 /** Ultron (Marvel) — les 4 tuiles AMÉLIORATION dans l'ordre, images sous /cards/ultron/.
  *  Face cachée = dos (condition d'accomplissement) ; révélée = Compétence. */
 const ULTRON_TILES = [

@@ -745,6 +745,40 @@ const CUSTOM_GUIDES: Record<string, VillainGuide> = {
       "Ralentis ses Artéfacts : MEDIVH les renchérit de 2, ILLIDAN interdit le Crâne de Gul'dan, ANDUIN LOTHAR doit être vaincu avant les autres Héros. Attention : PROPHÈTE VELEN redéploie une Armée de la Lumière depuis la défausse.",
     ],
   },
+  // Sumbra (Dharkon, 🌑 Ténèbres) et Kilaire (Galeem, ☀️ Lumière) — « La Lueur du Monde »
+  // (Super Smash Bros. Ultimate) : MÊMES règles, camp d'esprit opposé (skins liés).
+  'custom-mrl4fb45': {
+    difficulty: 4,
+    story:
+      "Sumbra est l'incarnation des Ténèbres — Dharkon — dans « La Lueur du Monde » de Super Smash Bros. Ultimate. Face à la clarté aveuglante de Kilaire, cette masse d'obscurité aux mille yeux dresse une armée de Combattants asservis pour engloutir le monde et régner sans partage sur les esprits déchus.",
+    playTips: [
+      "Objectif : CAPTURER 30 esprits 🌑. La victoire se vérifie au DÉBUT de ton tour : franchir 30 grâce au revenu de ce tour te fait gagner au tour SUIVANT (garde ton avance).",
+      "Ton revenu vient des COMBATTANTS piochés en début de tour, selon tes lieux CONTRÔLÉS (2 lieux → 0, 3 → 1, 4 → 2). Priorité absolue : t'ÉTENDRE. Masse des Alliés (Force ≥ Défense) sur les lieux rivaux, ou VERROUILLE-les (Base, Forteresse de Lave, Tour du Monde) pour un revenu DÉFINITIF.",
+      "Chaque Combattant capture sa valeur 🌑 puis, s'il penche vers ton camp, déclenche un BONUS (sinon un Malus passager) — 6 verbes : Décharge (Pouvoir), Ferveur (esprits), Renfort (cartes), Rempart (Force), Surtension (Combattant en plus), Aubaine (coût).",
+      "Cartes-clés : Création Marionnette (joue un Allié gratuitement), Combattant volé (un Combattant de plus, Bonus forcé), Emplacement (+1 Combattant par tour), Choc des Titans (capture la SOMME des deux camps, paie 2 Pouvoir pour son Bonus).",
+    ],
+    counterTips: [
+      "Coupe son revenu : conteste ou OCCUPE ses lieux conquérables pour le maintenir à ses 2 lieux d'origine (revenu 0). Un Héros en garnison fait retomber sa Force sous la Défense → il perd le contrôle.",
+      "Fatalité dédiée : des Combattants entrent en HÉROS (COMBATTANT, Une lueur d'espoir) et lui retirent des esprits ; FORMATION rogne chacune de ses captures de 1.",
+      "Ne le laisse pas VERROUILLER un lieu (Base / Forteresse de Lave / Tour du Monde) : ce revenu-là est permanent et ne se reprend plus.",
+    ],
+  },
+  'custom-killaire': {
+    difficulty: 4,
+    story:
+      "Kilaire est l'incarnation de la Lumière — Galeem — dans « La Lueur du Monde » de Super Smash Bros. Ultimate. Être de pure clarté, il balaie le monde de ses rayons, vaporise les combattants et asservit leurs esprits pour recréer l'univers à son image — jusqu'à ce que les Ténèbres de Sumbra se dressent contre lui.",
+    playTips: [
+      "Objectif : CAPTURER 30 esprits ☀️. La victoire se vérifie au DÉBUT de ton tour : franchir 30 grâce au revenu de ce tour te fait gagner au tour SUIVANT (garde ton avance).",
+      "Ton revenu vient des COMBATTANTS piochés en début de tour, selon tes lieux CONTRÔLÉS (2 lieux → 0, 3 → 1, 4 → 2). Priorité absolue : t'ÉTENDRE. Masse des Alliés (Force ≥ Défense) sur les lieux rivaux, ou VERROUILLE-les (Base, Forteresse de Lave, Tour du Monde) pour un revenu DÉFINITIF.",
+      "Chaque Combattant capture sa valeur ☀️ puis, s'il penche vers ton camp, déclenche un BONUS (sinon un Malus passager) — 6 verbes : Décharge (Pouvoir), Ferveur (esprits), Renfort (cartes), Rempart (Force), Surtension (Combattant en plus), Aubaine (coût).",
+      "Cartes-clés : Création Marionnette (joue un Allié gratuitement), Combattant volé (un Combattant de plus, Bonus forcé), Emplacement (+1 Combattant par tour), Choc des Titans (capture la SOMME des deux camps, paie 2 Pouvoir pour son Bonus).",
+    ],
+    counterTips: [
+      "Coupe son revenu : conteste ou OCCUPE ses lieux conquérables pour le maintenir à ses 2 lieux d'origine (revenu 0). Un Héros en garnison fait retomber sa Force sous la Défense → il perd le contrôle.",
+      "Fatalité dédiée : des Combattants entrent en HÉROS (COMBATTANT, Une lueur d'espoir) et lui retirent des esprits ; FORMATION rogne chacune de ses captures de 1.",
+      "Ne le laisse pas VERROUILLER un lieu (Base / Forteresse de Lave / Tour du Monde) : ce revenu-là est permanent et ne se reprend plus.",
+    ],
+  },
 }
 
 /** Guide d'un vilain par sa clé (natif ou PUBLIÉ). Une fiche rédigée (native ou collab

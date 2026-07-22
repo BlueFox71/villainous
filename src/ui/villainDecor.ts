@@ -209,6 +209,22 @@ export type VillainDecor =
   // bateau) qui font le tour du plateau, et des chantiers où poussent des MAISONS vertes (1→4) qui se
   // muent en HÔTEL rouge puis se réinitialisent (Mr Monopoly — vilain custom publié).
   | { kind: 'monopoly'; src: string }
+  // `rift` : Sumbra (Dharkon — SSBU « La Lueur du Monde »). LES TÉNÈBRES BRISENT LE MONDE. Un abîme
+  // noir-violet + vignette lourde, une LUEUR centrale rouge-violet qui pulse (l'œil de Dharkon), et
+  // surtout des FISSURES DENSES qui apparaissent en continu : chacune se trace, luit puis s'efface et
+  // renaît, dans toutes les directions. Du VIDE suinte des brèches (volutes violettes) et une poussière
+  // d'esprits violette/rouge dérive. Des TIRS de Vide violets filent de gauche à droite. SURPRISE : les
+  // esprits libérés (images) s'élèvent depuis le bas. 100 % CSS (vilain custom).
+  | { kind: 'rift' }
+  // `radiance` : Killaire (Galeem — SSBU « La Lueur du Monde »). LE MIROIR LUMINEUX du `rift` : LA
+  // LUMIÈRE SUBMERGE LE MONDE. Fond blanc-doré éblouissant + vignette CLAIRE (coins dorés), une LUEUR
+  // centrale blanc-or qui pulse (le cœur de Galeem), et surtout des RAYONS DENSES qui jaillissent en
+  // continu : chacun se trace, éclate puis s'estompe et renaît, dans toutes les directions (cœur BLANC
+  // lumineux + liseré doré, exact négatif des fissures noires de Sumbra). De la lumière dorée monte du
+  // bas (volutes) et une poussière d'esprits or/blanc/bleu dérive (accents bleus = la couleur de
+  // Killaire). Des TIRS de lumière filent de droite à gauche. SURPRISE : les esprits libérés (images)
+  // s'élèvent depuis le bas. 100 % CSS (skin custom de Sumbra).
+  | { kind: 'radiance' }
 
 export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   patHibulaire: { kind: 'film' },
@@ -317,6 +333,12 @@ export const CUSTOM_VILLAIN_DECOR: Record<string, VillainDecor> = {
   // Mr Monopoly : le plateau de Monopoly (image `monopoly.png`) en grand carré centré, sur un fond de
   // table vert feutré, surmonté des pions qui font le tour et des maisons/hôtels qui poussent en boucle.
   'custom-mr-monopoly': { kind: 'monopoly', src: '/animations/monopoly.png' },
+  // Sumbra (Dharkon — SSBU) : les Ténèbres qui brisent le monde — abîme noir-violet, œil de Dharkon
+  // qui pulse et fissures denses qui apparaissent/disparaissent en continu, dans toutes les directions.
+  'custom-mrl4fb45': { kind: 'rift' },
+  // Killaire (Galeem — SSBU) : la Lumière qui submerge le monde — miroir lumineux du rift. Fond
+  // blanc-doré, cœur de Galeem qui pulse et rayons denses (blanc/or) qui jaillissent en continu.
+  'custom-killaire': { kind: 'radiance' },
 }
 
 /** Décor permanent d'un vilain (natif OU publié) ; undefined si non défini. Un vilain publié a un id
@@ -537,6 +559,10 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
         images: [...[1, 3, 4, 5].map((n) => `/animations/potion_fee${n}.png`), '/animations/baguette_magique.png'],
         videos: [],
       }
+    // Sumbra (`rift`) & Killaire (`radiance`) : la SURPRISE « esprits libérés » précharge les 17 têtes-esprits.
+    case 'rift':
+    case 'radiance':
+      return { images: Array.from({ length: 17 }, (_, i) => `/animations/spirit-${i + 1}.png`), videos: [] }
     // Décors 100 % CSS (aucun fichier à précharger) : film, sand, space, petals,
     // clockwork, cyber, cauldron, sunnyside, upsideDown, felGate, theWorld.
     default:

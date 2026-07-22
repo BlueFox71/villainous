@@ -16,6 +16,7 @@ import { useIsDesktopApp } from '../store/settingsStore'
 import { Scroller } from '../components/Scroller'
 import { Stars, VillainDetailModal } from '../components/VillainDetailModal'
 import { OptionsButton } from '../components/OptionsButton'
+import { SplitPortrait } from '../components/SplitPortrait'
 
 interface Props {
   /** Revenir au menu principal. */
@@ -56,6 +57,10 @@ interface VillainMeta {
   hasAnim: boolean
   /** A une surprise de décor déclenchable (dév). */
   hasSurprise: boolean
+  /** Variantes LIÉES (skins) publiées regroupées sous CETTE carte (représentant inclus, en
+   *  1ᵉʳ). Défini seulement quand le groupe compte ≥ 2 membres (ex. Sumbra / Kilaire) : un
+   *  clic ouvre alors un sélecteur « quelle version ? » avant la fiche. */
+  variantKeys?: string[]
 }
 
 /** Liste plate de tous les vilains avec leurs métadonnées (construite une fois). */
@@ -196,6 +201,9 @@ function persistColumns(n: number) {
 
 export function VillainList({ onBack }: Props) {
   const [selected, setSelected] = useState<string | null>(null)
+  // Sélecteur « quelle version ? » ouvert pour une carte fusionnée (variantes liées) : liste
+  // des clés du groupe ; choisir une version ouvre sa fiche (process normal).
+  const [variantChoice, setVariantChoice] = useState<string[] | null>(null)
   const [query, setQuery] = useState('')
   const [difficulties, setDifficulties] = useState<Set<number>>(new Set())
   const [origins, setOrigins] = useState<Set<Origin>>(new Set())
@@ -244,23 +252,40 @@ export function VillainList({ onBack }: Props) {
   const loadCustom = useCustomVillainStore((s) => s.load)
   const customVillains = useCustomVillainStore((s) => s.villains)
   useEffect(() => { if (!customLoaded) void loadCustom() }, [customLoaded, loadCustom])
-  const publishedMetas = useMemo<VillainMeta[]>(
-    () =>
-      customVillains
-        .filter((v) => v.published)
-        .map((v, i) => ({
-          key: v.id,
-          name: v.name,
-          difficulty: v.stars,
-          origin: v.origin ?? 'Collaborations',
-          creator: v.creator,
-          release: 10000 + i,
-          hasDecor: false,
-          hasAnim: false,
-          hasSurprise: false,
-        })),
-    [customVillains],
-  )
+  const publishedMetas = useMemo<VillainMeta[]>(() => {
+    const published = customVillains.filter((v) => v.published)
+    // Regroupe les variantes LIÉES (skins : même contenu, présentation différente — ex. Sumbra
+    // ⟷ Kilaire) sous UNE seule carte. La racine d'un groupe = `variantOf` (la base) ou l'id lui-même.
+    const groups = new Map<string, typeof published>()
+    for (const v of published) {
+      const root = v.variantOf ?? v.id
+      const arr = groups.get(root) ?? []
+      arr.push(v)
+      groups.set(root, arr)
+    }
+    const metas: VillainMeta[] = []
+    let i = 0
+    for (const [root, members] of groups) {
+      // Représentant = la BASE (id === racine) si elle est publiée, sinon le 1ᵉʳ membre publié.
+      const ordered = [...members].sort((a, b) => (a.id === root ? -1 : b.id === root ? 1 : 0))
+      const rep = ordered[0]
+      const merged = ordered.length > 1
+      metas.push({
+        key: rep.id,
+        // Carte fusionnée : nom combiné (« Sumbra / Kilaire ») ; sinon le nom seul.
+        name: merged ? ordered.map((m) => m.name).join(' / ') : rep.name,
+        difficulty: rep.stars,
+        origin: rep.origin ?? 'Collaborations',
+        creator: rep.creator,
+        release: 10000 + i++,
+        hasDecor: false,
+        hasAnim: false,
+        hasSurprise: false,
+        variantKeys: merged ? ordered.map((m) => m.id) : undefined,
+      })
+    }
+    return metas
+  }, [customVillains])
 
   // Liste filtrée puis triée selon les réglages de la barre latérale.
   const villains = useMemo<GridItem[]>(() => {
@@ -401,7 +426,9 @@ export function VillainList({ onBack }: Props) {
           e.stopPropagation()
           if (reorderMode) return
           playHeroSelect()
-          setSelected(v.key)
+          // Carte fusionnée (variantes liées) → on demande d'abord quelle version voir/jouer.
+          if (v.variantKeys && v.variantKeys.length > 1) setVariantChoice(v.variantKeys)
+          else setSelected(v.key)
         }}
         onMouseEnter={reorderMode ? undefined : playHeroHover}
         onDragStart={reorderMode ? () => setDragKey(v.key) : undefined}
@@ -454,12 +481,29 @@ export function VillainList({ onBack }: Props) {
           {favSet.has(v.key) ? '♥' : '♡'}
         </span>
         )}
-        <img
-          src={villainPortrait(v.key)}
-          alt={v.name}
-          className="aspect-square w-full rounded-lg border border-white/15 object-cover"
-        />
+        {/* Carte fusionnée (variantes liées) : portrait combiné coupé en DIAGONALE (comme dans
+            l'Atelier) — les 2 skins cohabitent, chaque moitié s'étend au survol de son côté. */}
+        {v.variantKeys && v.variantKeys.length > 1 ? (
+          <div className="overflow-hidden rounded-lg border border-white/15">
+            <SplitPortrait
+              a={{ image: villainPortrait(v.variantKeys[0]), name: v.name, color: customVillains.find((c) => c.id === v.variantKeys![0])?.color ?? '#000' }}
+              b={{ image: villainPortrait(v.variantKeys[1]), name: v.name, color: customVillains.find((c) => c.id === v.variantKeys![1])?.color ?? '#000' }}
+            />
+          </div>
+        ) : (
+          <img
+            src={villainPortrait(v.key)}
+            alt={v.name}
+            className="aspect-square w-full rounded-lg border border-white/15 object-cover"
+          />
+        )}
         <h3 className="text-base font-bold text-amber-200">{v.name}</h3>
+        {/* Carte fusionnée (variantes liées) : badge « N versions » (skins au choix). */}
+        {v.variantKeys && v.variantKeys.length > 1 && (
+          <span className="w-fit rounded-full border border-fuchsia-300/40 bg-fuchsia-500/15 px-2 py-0.5 text-[10px] font-semibold text-fuchsia-100">
+            🎭 {v.variantKeys.length} versions
+          </span>
+        )}
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-white/40">
             Difficulté
@@ -913,6 +957,54 @@ export function VillainList({ onBack }: Props) {
           </div>
         </Scroller>
       </div>
+
+      {/* Sélecteur « quelle version ? » : variantes liées d'une carte fusionnée. Choisir une
+          version ouvre sa fiche détaillée (puis « Jouer » → process normal). */}
+      {variantChoice && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setVariantChoice(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-white/15 bg-[#141020] p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="mb-1 text-center text-lg font-bold text-amber-200">Quelle version ?</h2>
+            <p className="mb-4 text-center text-xs text-white/60">
+              Ces vilains partagent les mêmes règles — seule la présentation change.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {variantChoice.map((k) => {
+                const cv = customVillains.find((x) => x.id === k)
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => { playHeroSelect(); setVariantChoice(null); setSelected(k) }}
+                    onMouseEnter={playHeroHover}
+                    className="flex flex-col items-center gap-2 rounded-xl border border-white/15 bg-white/5 p-3 transition hover:-translate-y-0.5 hover:border-amber-300/60 hover:bg-white/10"
+                  >
+                    <img
+                      src={villainPortrait(k)}
+                      alt={cv?.name ?? k}
+                      className="aspect-square w-full rounded-lg border border-white/15 object-cover"
+                    />
+                    <span className="text-sm font-bold text-amber-200">{cv?.name ?? k}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={() => setVariantChoice(null)}
+              onMouseEnter={playHover}
+              className="mt-4 w-full rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/70 hover:bg-white/10"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
 
       {selected && (() => {
         // Navigation précédent/suivant entre fiches : on parcourt les vilains RÉELS

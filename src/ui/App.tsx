@@ -49,7 +49,7 @@ import { FREE_PLAY_NO_ACTION_ID } from '../engine/actions'
 import type { CardInstance, CardType, FighterColor, GameState, KeyColor, LocationAction, PendingDice, PlayerState, ShowcaseEvent } from '../engine/types'
 import { BLUE, RED, accentVars } from './accents'
 import { villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from './villainColors'
-import { villainColor, useVillainColorVersion } from './villainColorState'
+import { villainColor, coverColorOf, useVillainColorVersion } from './villainColorState'
 import { PlayerPanel } from './components/PlayerPanel'
 import { Avatar, PlayerAvatar } from './components/PlayerAvatar'
 import { Board } from './components/Board'
@@ -60,7 +60,7 @@ import { BoardImage, LOCATIONS_LEFT, PAWN_FIRST_LEFT, PAWN_STEP, getBlockedOverl
 import { BoardActions, getVillainActionPos } from './components/BoardActions'
 import { SUGAR_RUSH_TRACK } from './components/sugarRushTrack'
 import { HeroRow } from './components/HeroRow'
-import { DeckPiles, AuDelaPile, IngredientsPile, ArtifactsPile, ClockPile, SuccessionPile, ImpostorPile, CapturedPuppiesPile, ClaimedTreasuresPile, CauldronTile, MalInterieurPile, MerlinPiles, MauiPiles, OmnidroidPile, AmeliorationTiles, DiscardModal } from './components/DeckPiles'
+import { DeckPiles, AuDelaPile, IngredientsPile, ArtifactsPile, ClockPile, SuccessionPile, ImpostorPile, CapturedPuppiesPile, ClaimedTreasuresPile, CauldronTile, MalInterieurPile, MerlinPiles, MauiPiles, CombattantPiles, CombattantReveals, OmnidroidPile, AmeliorationTiles, DiscardModal } from './components/DeckPiles'
 import { UltronUpgradeDiscardModal } from './components/UltronUpgradeDiscardModal'
 import { StacksCards } from './components/StacksCards'
 import { GoalTilesRow } from './components/GoalTilesRow'
@@ -1519,6 +1519,8 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
   const resolveAigreBill = useGameStore((s) => s.resolveAigreBill)
   const resolvePayRace = useGameStore((s) => s.resolvePayRace)
   const resolveChocTitans = useGameStore((s) => s.resolveChocTitans)
+  const resolveCombattantDiscard = useGameStore((s) => s.resolveCombattantDiscard)
+  const resolveCombattantDrawOrRecover = useGameStore((s) => s.resolveCombattantDrawOrRecover)
   const resolveBuyHouses = useGameStore((s) => s.resolveBuyHouses)
   const resolveMoveHouses = useGameStore((s) => s.resolveMoveHouses)
   const resolveFreeFromJail = useGameStore((s) => s.resolveFreeFromJail)
@@ -2038,9 +2040,9 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     }
   }
   // Joue une carte Fatalité non-Héros (Voler aux Riches / Déguisement) en mode test.
-  const handleTestFateCard = (cardId: string, targetHeroId: string, enlargeToward?: string) => {
+  const handleTestFateCard = (cardId: string, targetHeroId: string, enlargeToward?: string, combattantMode?: 'hero' | 'combattant') => {
     try {
-      testPlayFateCard(cardId, targetHeroId, enlargeToward)
+      testPlayFateCard(cardId, targetHeroId, enlargeToward, combattantMode)
       setTestFateError(null)
     } catch (e) {
       setTestFateError(e instanceof Error ? e.message : String(e))
@@ -2067,6 +2069,10 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
   }
   // Carte de la main survolée depuis l'extérieur (boutons « Jouer Avarice »…).
   const [hoveredReactionId, setHoveredReactionId] = useState<string | null>(null)
+  // Renfort Bonus (Sumbra/Kilaire) — étape du choix « Piocher / Récupérer » : `pick` = on choisit
+  // une carte de la défausse (2ᵉ modale) ; `peek` = aperçu read-only de la défausse.
+  const [renfortRecoverPicking, setRenfortRecoverPicking] = useState(false)
+  const [renfortPeekDiscard, setRenfortPeekDiscard] = useState(false)
   // instanceId actuellement « en showcase » (à masquer du plateau le temps du vol).
   const [showcaseHiddenIds, setShowcaseHiddenIds] = useState<string[]>([])
   // Vrai tant qu'un showcase est affiché / en attente. Sert à mettre le pilote du
@@ -5169,6 +5175,10 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     if (state.pendingCrustaceanPlace?.playerIndex === HUMAN) {
       return resolveCrustaceanPlace(to)
     }
+    // Sumbra / Kilaire (À toi de jouer, cousin) : un clic sur un lieu y joue l'Allié dévoilé.
+    if (state.pendingFreePlayAlly?.playerIndex === HUMAN) {
+      return resolveFreePlayAlly(to)
+    }
     if (mode?.kind === 'condition-pick-place') {
       return handleConditionPickPlace(to)
     }
@@ -5994,6 +6004,9 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     // Tamatoa — Crustacé : pose de l'Objet dévoilé par CLIC sur un lieu (pas de modale).
     state.pendingCrustaceanPlace?.playerIndex === HUMAN
       ? user.locations.map((l) => l.id).filter((id) => !(user.lockedLocations ?? []).includes(id))
+      : // Sumbra / Kilaire (À toi de jouer, cousin) : pose de l'Allié dévoilé par CLIC sur un lieu.
+      state.pendingFreePlayAlly?.playerIndex === HUMAN
+      ? user.locations.map((l) => l.id).filter((id) => !(user.lockedLocations ?? []).includes(id))
       : mode?.kind === 'place'
       ? user.locations
           .map((l) => l.id)
@@ -6162,6 +6175,8 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
               return allHeroes
                 // Force EFFECTIVE (Boule de Feu +2, auras…) : un Héros base 3 boosté à 5 est exclu.
                 .filter((h) => (effectiveStrength(state, HUMAN, h.instanceId) ?? h.strength ?? 0) <= limit.maxStrength)
+                // Borne inférieure optionnelle (« Force N ou plus », ex. Absorption de la lumière).
+                .filter((h) => limit.minStrength === undefined || (effectiveStrength(state, HUMAN, h.instanceId) ?? h.strength ?? 0) >= limit.minStrength)
                 // Sale voleuse ! : cible restreinte (Cendrillon / robe de bal).
                 .filter((h) => !limit.onlyCardIds || limit.onlyCardIds.includes(h.cardId))
                 // Banqueroute : coût = Force du Héros → seuls les Héros abordables.
@@ -6815,9 +6830,11 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
               {/* Madame Mim — pioche + défausse des Métamorphoses de Merlin, juste
                   au-dessus de la pioche/défausse Fatalité (même retrait gauche que
                   `fatality-cases` pour rester aligné). Rendu seulement pour Mim. */}
-              <div style={{ paddingLeft: '1%', marginBottom: '1%' }}>
+              <div className="flex items-end gap-3" style={{ paddingLeft: '1%', marginBottom: '1%' }}>
                 <MerlinPiles player={user} uprightWidth="w-16" />
                 <MauiPiles player={user} uprightWidth="w-16" />
+                <CombattantPiles player={user} uprightWidth="w-16" />
+                <CombattantReveals player={user} />
               </div>
               {/* Pat Hibulaire — tuiles Objectif, une au-dessus de chaque case Héros. */}
               <GoalTilesRow player={user} own />
@@ -7959,7 +7976,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
             <GameLog
               log={state.log}
               playerNames={state.players.map((p) => p.villainName)}
-              playerColors={state.players.map((p) => villainColor(p.villain))}
+              playerColors={state.players.map((p) => coverColorOf(p.villain))}
               playerAvatars={state.players.map((p) =>
                 villainPortrait(isCustomKey(p.villain) ? p.villain : villainKeyOf(p.villain)),
               )}
@@ -8018,9 +8035,11 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
             <div className="stacks-top flex h-24 w-full items-end justify-start gap-3">
               {/* Madame Mim — pioche + défausse des Métamorphoses de Merlin (adversaire),
                   alignées sur la pioche/défausse Fatalité (même retrait gauche). */}
-              <div style={{ paddingLeft: '1%', marginBottom: '1%' }}>
+              <div className="flex items-end gap-3" style={{ paddingLeft: '1%', marginBottom: '1%' }}>
                 <MerlinPiles player={bot} uprightWidth="w-16" />
                 <MauiPiles player={bot} uprightWidth="w-16" />
+                <CombattantPiles player={bot} uprightWidth="w-16" />
+                <CombattantReveals player={bot} />
               </div>
               {/* Pat Hibulaire — tuiles Objectif de l'adversaire (dos sauf révélées). */}
               <GoalTilesRow player={bot} />
@@ -8326,6 +8345,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
             fateDiscardNonEmpty={user.fateDiscard.length > 0}
             villainDiscardNonEmpty={user.discard.length > 0}
             costFor={(c) => effectiveCost(state, c)}
+            villainColor={coverColorOf(user.villain)}
             armedConditionIds={humanReactions.map((c) => c.instanceId)}
             forcedHoverId={hoveredReactionId}
             selectedCardId={selectedHandCardId}
@@ -8775,25 +8795,84 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
         />
       )}
 
-      {/* Sumbra / Kilaire — Choc des Titans : payer 2 Pouvoir pour le Bonus, ou subir le Malus. */}
+      {/* Sumbra / Kilaire — Choc des Titans : payer 2 Pouvoir pour le Bonus, ou subir le Malus.
+          Le Combattant est révélé DANS la modale (le showcase n'apparaît qu'après le choix). */}
       {state.pendingChocTitans && state.pendingChocTitans.playerIndex === HUMAN && (
+        // On NE révèle PAS le Combattant pioché : le joueur choisit à l'aveugle (le suspense
+        // fait partie de l'effet). Le showcase — avec le résultat NET — est montré APRÈS le choix.
         <ChoiceModal
           title="Choc des Titans"
-          prompt={`${state.pendingChocTitans.card.name} : dépenser 2 jetons Pouvoir pour appliquer son Bonus, ou subir son Malus ?`}
+          prompt="Dépenser 2 jetons Pouvoir pour appliquer le Bonus du Combattant, ou subir son Malus ?"
           options={[
-            {
-              key: 'choc-bonus',
-              label: 'Payer 2 Pouvoir → Bonus',
-              onSelect: () => resolveChocTitans(true),
-            },
-            {
-              key: 'choc-malus',
-              label: 'Ne pas payer → Malus',
-              onSelect: () => resolveChocTitans(false),
-            },
+            { key: 'choc-bonus', label: 'Payer 2 Pouvoir → Bonus', onSelect: () => resolveChocTitans(true) },
+            { key: 'choc-malus', label: 'Ne pas payer → Malus', onSelect: () => resolveChocTitans(false) },
           ]}
         />
       )}
+
+      {/* Sumbra / Kilaire — Renfort : choix interactif du joueur humain (tête de file).
+          Ordre de début de tour : splash « À vous de jouer » → showcases Combattant → CETTE
+          modale. On attend donc la fin du splash ET des showcases avant de l'afficher. */}
+      {(() => {
+        const head = state.pendingCombattantChoices?.[0]
+        if (!head || head.playerIndex !== HUMAN) return null
+        if (showTurnSplash || showcaseBusy) return null
+        const me = state.players[HUMAN]
+        const who = head.combattantName ?? 'Renfort'
+        if (head.kind === 'discard') {
+          // Défausser N carte(s) : cartes de la main en RANGÉE, grandes, sans nom, zoom au survol.
+          const need = Math.min(head.count, me.hand.length)
+          return (
+            <ChoiceModal
+              title={`${who} — Vous devez défausser ${need > 1 ? `${need} cartes` : '1 carte'}`}
+              layout="row"
+              maxWidthClass="max-w-3xl"
+              imageClassName="h-60 w-auto rounded-lg"
+              options={me.hand.map((c) => ({
+                key: c.instanceId,
+                label: '',
+                imageSrc: getCardDef(c.cardId)?.image,
+                onSelect: () => resolveCombattantDiscard([c.instanceId]),
+              }))}
+            />
+          )
+        }
+        // draw-or-recover — 2ᵉ étape : choisir la carte à récupérer (réutilise CardChoiceModal).
+        if (renfortRecoverPicking) {
+          return (
+            <CardChoiceModal
+              title={`${who} — Récupérer une carte`}
+              cards={me.discard}
+              onPick={(card) => { setRenfortRecoverPicking(false); resolveCombattantDrawOrRecover('recover', card.instanceId) }}
+              onClose={() => setRenfortRecoverPicking(false)} // ↩ revient au choix Piocher/Récupérer
+            />
+          )
+        }
+        // draw-or-recover — 1ʳᵉ étape : deux boutons + « voir la défausse » en haut à droite.
+        return (
+          <>
+            <ChoiceModal
+              title={`${who} — Piocher ou Récupérer une carte ?`}
+              topRight={me.discard.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setRenfortPeekDiscard(true)}
+                  className="rounded-lg border border-white/25 px-2 py-1 text-xs text-white/80 hover:bg-white/10"
+                >
+                  👁 voir la défausse
+                </button>
+              ) : undefined}
+              options={[
+                { key: 'renfort-draw', label: 'Piocher une carte', onSelect: () => resolveCombattantDrawOrRecover('draw') },
+                { key: 'renfort-recover', label: 'Récupérer une carte dans la défausse', onSelect: () => setRenfortRecoverPicking(true) },
+              ]}
+            />
+            {renfortPeekDiscard && (
+              <DiscardModal cards={me.discard} label={`Défausse — ${me.villainName}`} onClose={() => setRenfortPeekDiscard(false)} />
+            )}
+          </>
+        )
+      })()}
 
       {/* Mr. Monopoly — Affaire : combien de maisons poser (chacune coûte unitCost). */}
       {state.pendingBuyHouses && state.pendingBuyHouses.playerIndex === HUMAN && (() => {
@@ -9153,16 +9232,26 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
         )
       })()}
 
-      {/* Shere Khan — À toi de jouer, cousin : l'humain choisit où jouer l'Allié dévoilé. */}
-      {state.pendingFreePlayAlly && state.pendingFreePlayAlly.playerIndex === HUMAN && (
-        <ChoiceModal
-          title="À toi de jouer, cousin"
-          prompt={`Où jouer ${state.pendingFreePlayAlly.ally.name} (gratuitement) ?`}
-          options={user.locations
-            .filter((l) => !(user.lockedLocations ?? []).includes(l.id))
-            .map((l) => ({ key: `fpa-${l.id}`, label: l.name, onSelect: () => resolveFreePlayAlly(l.id) }))}
-        />
-      )}
+      {/* À toi de jouer, cousin : l'humain choisit où jouer l'Allié dévoilé par CLIC sur un lieu
+          (les lieux non verrouillés s'allument). Bannière non bloquante en haut, comme Crustacé. */}
+      {state.pendingFreePlayAlly && state.pendingFreePlayAlly.playerIndex === HUMAN && (() => {
+        const ally = state.pendingFreePlayAlly.ally
+        const img = getCardDef(ally.cardId)?.image
+        return (
+          <div className="pointer-events-none fixed left-1/2 top-3 z-[60] -translate-x-1/2 flex flex-col items-center gap-2 rounded-xl border border-amber-300/70 bg-[#1a1226]/95 px-4 py-3 text-center text-sm font-bold text-amber-100 shadow-2xl">
+            <span>
+              Jouez <span className="text-amber-300">{ally.name}</span> gratuitement — cliquez un lieu.
+            </span>
+            {img ? (
+              <img
+                src={img}
+                alt={ally.name}
+                className="h-28 w-auto rounded-md ring-2 ring-amber-300 shadow-[0_0_18px_rgba(251,191,36,0.6)]"
+              />
+            ) : null}
+          </div>
+        )
+      })()}
 
       {/* Ultron — Optimisation : clic sur une action « Jouer une carte » → Jouer ou Déplacer. */}
       {optimChoice && (
@@ -11116,6 +11205,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
         onHiddenIdsChange={setShowcaseHiddenIds}
         onCardLanded={handleCardLanded}
         onBusyChange={setShowcaseBusy}
+        hold={showTurnSplash}
       />
 
       {/* Fin de partie : écran Victoire/Défaite (après l'éclat du plateau perdant). */}

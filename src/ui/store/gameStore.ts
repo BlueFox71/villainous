@@ -17,6 +17,7 @@ import {
   type PlayerSetup,
 } from '../../engine/state'
 import { applyAction } from '../../engine/actions'
+import { resolveCombattantRevenue } from '../../engine/spirits'
 import { chooseAction, chooseReaction } from '../../ai/heuristicBot'
 import { connect, type Connection, type ConnectionHandlers } from '../../net/connection'
 import { connectPeer, createPeerFactory } from '../../net/peerConnection'
@@ -769,7 +770,7 @@ interface GameStore {
   testAddToAuDela: (cardId: string) => void
   /** MODE TEST : joue une carte Fatalité non-Héros (Voler aux Riches,
    *  Déguisement) CONTRE le joueur 0, sur l'un de ses Héros (`targetHeroId`). */
-  testPlayFateCard: (cardId: string, targetHeroId: string, enlargeToward?: string) => void
+  testPlayFateCard: (cardId: string, targetHeroId: string, enlargeToward?: string, combattantMode?: 'hero' | 'combattant') => void
   /** MODE TEST : déclenche un showcase d'aperçu (pour caler les positions).
    *  `opts` : durée en ms / mode « fixe », et `count` = nombre de cartes pour
    *  une défausse. */
@@ -923,6 +924,10 @@ interface GameStore {
   resolvePayRace: (amount: number) => void
   /** Sumbra / Kilaire — Choc des Titans : payer 2 Pouvoir pour le Bonus (`true`) ou subir le Malus. */
   resolveChocTitans: (pay: boolean) => void
+  /** Sumbra / Kilaire — Renfort Malus : défausser les cartes choisies (tête de file). */
+  resolveCombattantDiscard: (instanceIds: string[]) => void
+  /** Sumbra / Kilaire — Renfort Bonus : piocher, ou récupérer une carte de la défausse. */
+  resolveCombattantDrawOrRecover: (choice: 'draw' | 'recover', recoverInstanceId?: string) => void
   /** Mr. Monopoly — Affaire : poser `amount` maisons sur le lieu adverse en attente. */
   resolveBuyHouses: (amount: number) => void
   /** Mr. Monopoly — Carte bancaire / destruction : choisir un lieu (source ou destination). */
@@ -1496,11 +1501,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const players = s.state.players.map((p, i) => (i === 0 ? { ...p, auDela: [...p.auDela, card] } : p))
       return { state: { ...s.state, players } }
     }),
-  testPlayFateCard: (cardId, targetHeroId, enlargeToward) =>
+  testPlayFateCard: (cardId, targetHeroId, enlargeToward, combattantMode) =>
     set((s) => {
       const card = instanceOf(cardId, ++testFateCounter)
       if (!card) return s
-      return { state: applyAction(s.state, { type: 'TEST_PLAY_FATE_CARD', card, targetHeroId, enlargeToward }) }
+      return { state: applyAction(s.state, { type: 'TEST_PLAY_FATE_CARD', card, targetHeroId, enlargeToward, combattantMode }) }
     }),
   testShowcase: (kind, playerIndex, opts) =>
     set((s) => {
@@ -1535,21 +1540,31 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const players = s.state.players.map((p, i) =>
         i === 0 ? { ...drawn.player, pawnLocation: null, skipNextMove: false } : p,
       )
-      return {
-        state: {
-          ...s.state,
-          players,
-          rngState: drawn.rngState,
-          activePlayer: 0,
-          phase: 'MOVE',
-          usedActionIds: [],
-          persifleurAvailable: false,
-          pendingFate: null,
-          diabloFree: null,
-          lastVanquishedHeroStrength: undefined,
-          log: [...s.state.log, '[TEST] Nouveau tour — choisis le lieu de ton pion.'],
-        },
+      let next: GameState = {
+        ...s.state,
+        players,
+        rngState: drawn.rngState,
+        activePlayer: 0,
+        phase: 'MOVE',
+        usedActionIds: [],
+        persifleurAvailable: false,
+        pendingFate: null,
+        diabloFree: null,
+        lastVanquishedHeroStrength: undefined,
+        log: [...s.state.log, '[TEST] Nouveau tour — choisis le lieu de ton pion.'],
       }
+      // Sumbra / Kilaire : comme un vrai début de tour — la rangée des Combattants
+      // révélés au tour précédent s'efface (ils repartent alors dans la défausse
+      // Combattant, où ils étaient déjà rangés), puis le revenu de début de tour
+      // pioche et résout de nouveaux Combattants.
+      if (next.players[0].objective.type === 'SPIRIT_THRESHOLD') {
+        next = {
+          ...next,
+          players: next.players.map((p, i) => (i === 0 ? { ...p, revealedCombattants: undefined } : p)),
+        }
+        next = resolveCombattantRevenue(next, 0)
+      }
+      return { state: next }
     }),
   setStartingPlayer: (index, rolls) =>
     set((s) => {
@@ -1698,6 +1713,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_PAY_RACE', amount }),
   resolveChocTitans: (pay) =>
     get().submit({ type: 'RESOLVE_CHOC_TITANS', pay }),
+  resolveCombattantDiscard: (instanceIds) =>
+    get().submit({ type: 'RESOLVE_COMBATTANT_DISCARD', instanceIds }),
+  resolveCombattantDrawOrRecover: (choice, recoverInstanceId) =>
+    get().submit({ type: 'RESOLVE_COMBATTANT_DRAW_OR_RECOVER', choice, recoverInstanceId }),
   resolveBuyHouses: (amount) =>
     get().submit({ type: 'RESOLVE_BUY_HOUSES', amount }),
   resolveMoveHouses: (locationId) =>

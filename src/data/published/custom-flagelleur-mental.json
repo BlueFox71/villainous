@@ -756,7 +756,7 @@
   "creator": "Jules",
   "origin": "Collaborations",
   "createdAt": "2026-07-07T16:52:04.701Z",
-  "updatedAt": "2026-07-15T00:00:00.012Z",
+  "updatedAt": "2026-07-22T21:00:00.000Z",
   "botStrategy": {
     "howToWin": "Objectif FLAYER_GATE : pose 3 TUNNELS DE HAWKINS sur les 3 premiers lieux, fais venir ONZE (récupérée dans la Fatalité par la capacité activée de BILLY SOUS EMPRISE) sur le lieu de l’ENTRÉE DU MONDE À L’ENVERS, puis ACTIVE l’ENTRÉE pour gagner. Leviers : accumule des Alliés bon marché (Vignes, The Flayed, Billy) pour payer les Tunnels (2 Alliés chacun, 3 une fois ONZE en jeu), réunis 3 THE FLAYED pour débloquer le MONDE À L’ENVERS, et neutralise MAX MAYFIELD qui empêche Billy d’aller chercher ONZE.",
     "villainNotes": {
@@ -906,14 +906,14 @@
     },
     "journal": {
       "villainNotes": {
-        "a-travers-les-yeux-de-will": "À travers les yeux de Will : le Flagelleur gagne 2 Pouvoir.",
-        "intrus-dans-le-monde-a-l-envers": "Intrus dans le Monde à l’Envers : le Flagelleur joue un Allié gratuitement et pioche une carte.",
-        "passage-secret-entre-deux-mondes": "Passage secrète entre deux mondes : le Flagelleur récupère une carte de sa défausse.",
-        "will-sous-emprise": "Will sous emprise : le Flagelleur consulte les 4 premières cartes d’un deck et les réordonne.",
-        "une-nouvelle-personne-sous-emprise": "Évite de bouger : la force du Héros ciblé tombe à 0.",
-        "froid": "Froid : les Alliés présents sur ce lieu gagnent +1 Force.",
-        "tunnel-de-hawkins": "Le Flagelleur défausse des Alliés et place un Tunnel de Hawkins.",
-        "entree-du-monde-a-l-envers": "Le Flagelleur active l’Entrée du Monde à l’Envers.",
+        "a-travers-les-yeux-de-will": "À travers les yeux de Will : gagne 2 Pouvoir.",
+        "intrus-dans-le-monde-a-l-envers": "Intrus dans le Monde à l'Envers : joue {nomAllié} gratuitement et pioche une carte.",
+        "passage-secret-entre-deux-mondes": "Passage secret entre deux mondes : récupère {nomCarte} de sa défausse.",
+        "will-sous-emprise": "Will sous emprise : consulte et réordonne les 4 premières cartes d'un deck.",
+        "une-nouvelle-personne-sous-emprise": "Évite de bouger : la Force de {nomHéros} tombe à 0.",
+        "froid": "Froid : les Alliés de {nomLieu} gagnent +1 Force.",
+        "tunnel-de-hawkins": "Tunnel de Hawkins : défausse {nbAlliés} Alliés et place un Tunnel.",
+        "entree-du-monde-a-l-envers": "Entrée du Monde à l'Envers : activée.",
         "demogorgon": "Le Démogorgon (Force 4) rejoint le royaume.",
         "billy-sous-emprise": "Billy sous emprise rejoint le royaume.",
         "vignes": "Des Vignes rejoignent le royaume.",
@@ -924,7 +924,7 @@
           "description": "Mike Wheeler apparaît : les autres Héros gagnent +1 Force."
         },
         "will-byers": {
-          "description": "Will Byers apparaît : le Monde à l’Envers est bloqué."
+          "description": "Will Byers apparaît : le Monde à l'Envers est bloqué."
         },
         "lucas-sinclair": {
           "description": "Lucas Sinclair apparaît : activer un Objet sur son lieu coûte +1 Pouvoir."
@@ -939,19 +939,19 @@
           "description": "Max Mayfield apparaît : Billy ne peut plus aller chercher Onze."
         },
         "frissons": {
-          "description": "Frissons : un Héros est déplacé sur un lieu voisin."
+          "description": "Frissons : {nomHéros} est déplacé sur un lieu voisin."
         },
         "nancy-armee": {
-          "description": "Nancy armée : un Objet est déplacé sur un lieu voisin."
+          "description": "Nancy armée : {nomCible} est déplacé(e) sur un lieu voisin."
         },
         "chaleur": {
-          "description": "Chaleur : un Allié est défaussé."
+          "description": "Chaleur : {nomAllié} est défaussé."
         },
         "telekinesie": {
-          "description": "Télékinésie : le Flagelleur perd 2 Pouvoir."
+          "description": "Télékinésie : perd 2 Pouvoir."
         },
         "batte-de-baseball": {
-          "description": "Batte de baseball associée à un Héros : +1 Force."
+          "description": "Batte de baseball : +1 Force à {nomHéros}."
         }
       }
     }

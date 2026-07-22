@@ -77,7 +77,16 @@ export function pushShowcase(
   playerIndex: number = state.activePlayer,
   destination?: { playerIndex: number; locationId: string },
   cardInstanceId?: string,
-  opts?: { durationMs?: number; fixed?: boolean },
+  opts?: {
+    durationMs?: number
+    fixed?: boolean
+    forceShow?: boolean
+    // Sumbra / Kilaire — pastilles d'esprits sur un Combattant révélé par une Fatalité (COMBATTANT) :
+    // `combattantExtras: []` marque le showcase comme « Combattant » (l'UI affiche la pastille).
+    combattantCamp?: 'sun' | 'moon'
+    combattantSpiritDelta?: number
+    combattantExtras?: { cardId: string; message: string; powerDelta?: number; spiritDelta?: number }[]
+  },
 ): GameState {
   return {
     ...state,
@@ -723,7 +732,21 @@ export function createInitialGame(setups: PlayerSetup[], seed: number): GameStat
     if (villain.objective.type === 'SPIRIT_THRESHOLD') {
       const sh = shuffle(combattantCards ?? [], rngState)
       rngState = sh.state
-      player = { ...player, spirits: 0, combattantDeck: sh.result, combattantDiscard: [] }
+      // Les lieux CONQUÉRABLES (avec une `defense`) démarrent RIVAUX → on affiche leur
+      // face B (la face `alt`). Contrôlés plus tard, ils basculeront en face A (main).
+      const locations = player.locations.map((l) =>
+        l.defense !== undefined && l.altName !== undefined && (l.version ?? 'a') === 'a'
+          ? {
+              ...l,
+              name: l.altName,
+              actions: l.altActions ?? l.actions,
+              altName: l.name,
+              altActions: l.actions,
+              version: 'b' as const,
+            }
+          : l,
+      )
+      player = { ...player, spirits: 0, combattantDeck: sh.result, combattantDiscard: [], locations }
     }
     // Le Piégeur (Dead by Daylight) — sépare les 4 SURVIVANTS (isSurvivor) du paquet
     // Fatalité et les pose FACE CACHÉE, un par lieu (assignation aléatoire : survivants
