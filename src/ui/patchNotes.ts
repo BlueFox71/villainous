@@ -52,9 +52,9 @@ export const PATCH_NOTES: PatchNote[] = [
     title: 'Rapport des tests (outil de dév)',
     tags: ['interface'],
     changes: [
-      "Nouvelle page **Rapport des tests** (dév uniquement) : pour chaque vilain, une **appréciation** par testeur (**Jules** / **Alexis**) et par côté (**Joueur** / **Bot**).",
-      "Chaque note = **niveau coloré** (Non testé → À améliorer → Presque bien → Satisfaisant → Complet), **nombre de parties** testées et un **commentaire**.",
-      "Sauvegarde **automatique** dans un fichier **committé** (transmis à chaque commit).",
+      "Nouvelle page **Rapport des tests** (dév uniquement) : chaque ligne prend la **couleur du méchant**, avec une **appréciation** par testeur (**Jules** / **Alexis**) et par côté (**Joueur** / **Bot**).",
+      "Chaque note = **niveau coloré** (Non testé → À améliorer → Assez bien → Satisfaisant → Complet), **nombre de parties** testées et un **commentaire**.",
+      "Vilains listés dans l'**ordre de sortie** ; sauvegarde **automatique** dans un fichier **committé** (transmis à chaque commit).",
     ],
   },
   {
