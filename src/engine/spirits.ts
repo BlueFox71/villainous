@@ -21,6 +21,7 @@
 import type { CardInstance, GameState, LocationId, PlayerState } from './types'
 import { effectiveStrength } from './rules'
 import { shuffle } from './rng'
+import { plural } from './plural'
 
 /** Le vilain courant utilise-t-il le système d'esprits ? (objectif SPIRIT_THRESHOLD) */
 export function usesSpirits(p: PlayerState): boolean {
@@ -240,7 +241,7 @@ function discardCheapestN(state: GameState, idx: number, n: number): GameState {
         ? { ...pl, hand: pl.hand.filter((c) => !toDiscard.has(c.instanceId)), discard: [...pl.discard, ...removed] }
         : pl,
     ),
-    log: [...state.log, `${p.villainName} défausse ${removed.length} carte(s) (Renfort désaligné).`],
+    log: [...state.log, `${p.villainName} défausse ${removed.length} ${plural(removed.length, 'carte')} (Renfort désaligné).`],
   }
 }
 
@@ -279,7 +280,7 @@ export function renfortDraw(state: GameState, idx: number, n: number): GameState
   const s = drawVillainCards(state, idx, n)
   const drawn = s.players[idx].hand.length - before
   const msg = drawn > 0
-    ? `${p.villainName} pioche ${drawn} carte(s) Méchant (Renfort).`
+    ? `${p.villainName} pioche ${drawn} ${plural(drawn, 'carte')} Méchant (Renfort).`
     : `${p.villainName} : aucune carte Méchant à piocher (Renfort).`
   return { ...s, log: [...s.log, msg] }
 }
@@ -314,7 +315,7 @@ export function renfortDiscardChosen(state: GameState, idx: number, instanceIds:
         ? { ...pl, hand: pl.hand.filter((c) => !set.has(c.instanceId)), discard: [...pl.discard, ...removed] }
         : pl,
     ),
-    log: [...state.log, `${p.villainName} défausse ${removed.length} carte(s) (Renfort).`],
+    log: [...state.log, `${p.villainName} défausse ${removed.length} ${plural(removed.length, 'carte')} (Renfort).`],
   }
 }
 
@@ -459,7 +460,7 @@ function resolveCombattantCore(
   const camp = campEmoji(p0)
   const tag = sign > 0 ? 'aligné ✓ Bonus' : sign < 0 ? 'désaligné ✗ Malus' : 'égalité'
   const deltaStr = delta >= 0 ? `+${delta}` : `${delta}`
-  const message = `${camp} ${deltaStr} esprit(s) · ${tag}`
+  const message = `${camp} ${deltaStr} ${plural(delta, 'esprit')} · ${tag}`
   // Le Combattant pioché part en défausse Combattant (défaussé « en fin de tour »).
   s = {
     ...s,
@@ -542,7 +543,7 @@ export function resolveCombattantRevenue(state: GameState, idx: number): GameSta
   if (allChain.length > 0) {
     // UN seul showcase pour tout le revenu (grille) + rangée d'affichage.
     s = pushCombattantChainShowcase(s, idx, allChain)
-    s = { ...s, log: [...s.log, `${state.players[idx].villainName} a pioché ${allChain.length} Combattant(s) (revenu).`] }
+    s = { ...s, log: [...s.log, `${state.players[idx].villainName} a pioché ${allChain.length} ${plural(allChain.length, 'Combattant')} (revenu).`] }
   }
   return s
 }

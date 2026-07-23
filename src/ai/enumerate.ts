@@ -606,6 +606,14 @@ export function enumerateActions(state: GameState): GameAction[] {
     }))
   }
 
+  // Ursula — Cadenas (Métamorphose / Grimsby) : déplacer sur le lieu proposé, ou passer.
+  if (state.pendingUrsulaLock) {
+    return [
+      { type: 'RESOLVE_URSULA_LOCK' as const, move: true },
+      { type: 'RESOLVE_URSULA_LOCK' as const, move: false },
+    ]
+  }
+
   // Mémoire Verrouillée : choix Pouvoir OU reculer le jeton Pilote.
   if (state.pendingPowerOrRacerBack) {
     return [

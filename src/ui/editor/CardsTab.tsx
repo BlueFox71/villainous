@@ -4,6 +4,7 @@
 // à la main au moment du test (comme un vilain classique).
 import { useState } from 'react'
 import type { CustomVillain, CustomCard } from '../../data/customVillain'
+import { plural } from '../../engine/plural'
 import { emptyCustomCard, FATE_CARD_COLOR } from '../../data/customVillain'
 import type { CardType, DeckKind } from '../../data/types'
 import { Field, TextField, NumberField, ImageField, SelectField, ColorField, ResetButton, inputClass } from './fields'
@@ -467,7 +468,7 @@ export function CardsTab({
     const inDeck = draft.cards.filter((c) => c.group === name)
     if (
       inDeck.length > 0 &&
-      !confirm(`Supprimer le paquet « ${name} » ? Ses ${inDeck.length} carte(s) repasseront dans le deck Vilain.`)
+      !confirm(`Supprimer le paquet « ${name} » ? Ses ${inDeck.length} ${plural(inDeck.length, 'carte')} repasseront dans le deck Vilain.`)
     )
       return
     patch({
@@ -532,7 +533,7 @@ export function CardsTab({
             + Paquet perso
           </button>
           <span className="ml-2 text-xs text-white/40">
-            Deck Vilain : {villainCards.length} modèle(s) · Fatalité : {fateCards.length} — quantités dans l’onglet « Quantité »
+            Deck Vilain : {villainCards.length} {plural(villainCards.length, 'modèle')} · Fatalité : {fateCards.length} — quantités dans l’onglet « Quantité »
           </span>
         </div>
         )}

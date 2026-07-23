@@ -295,7 +295,7 @@ export const shereKhanCards: CardDef[] = [
     copies: 1,
     text:
       "Vous pouvez déplacer chaque Héros et Allié du lieu où vous jouez BAGHEERA vers n'importe " +
-      "quel(s) autre(s) lieu(x).",
+      "quel autre lieu.",
     image: img('bagheera.webp'),
     onPlace: [{ type: 'BAGHEERA_SCATTER' }],
   },

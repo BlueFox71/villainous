@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import type { PlayerState } from '../../engine/types'
 import { getCardDef } from '../../data/registry'
+import { plural } from '../../engine/plural'
 import { LOCATIONS_LEFT } from './BoardImage'
 import { GlowBorder } from './GlowBorder'
 
@@ -148,7 +149,7 @@ export function HeroRow({
               if (!hook?.present) return null
               return (
                 <span
-                  title={hook.disabledTurns > 0 ? `Crochet désactivé (${hook.disabledTurns} tour(s))` : 'Crochet'}
+                  title={hook.disabledTurns > 0 ? `Crochet désactivé (${hook.disabledTurns} ${plural(hook.disabledTurns, 'tour')})` : 'Crochet'}
                   className={`pointer-events-none absolute right-1 top-1 z-20 text-base ${hook.disabledTurns > 0 ? 'opacity-30 grayscale' : ''}`}
                 >
                   🪝
@@ -394,7 +395,7 @@ export function HeroRow({
                       return (
                         <div
                           className="pointer-events-none absolute inset-0 flex items-center justify-center gap-0.5"
-                          title={`Clé(s) volée(s) : ${stolen.map((k) => k.color).join(', ')}`}
+                          title={`${plural(stolen.length, 'Clé')} ${plural(stolen.length, 'volée')} : ${stolen.map((k) => k.color).join(', ')}`}
                         >
                           {stolen.map((k) => (
                             <img
@@ -484,7 +485,7 @@ export function HeroRow({
                       <span
                         title={`Survivant — ${
                           c.survivorState === 'critical' ? 'état critique (immobile)' : c.survivorState === 'injured' ? 'blessé' : 'pleine santé'
-                        }${c.onHook ? ', accroché' : ''} — ${c.survivorLives ?? 3} vie(s)`}
+                        }${c.onHook ? ', accroché' : ''} — ${c.survivorLives ?? 3} ${plural(c.survivorLives ?? 3, 'vie')}`}
                         className="pointer-events-none absolute -top-1 left-1/2 flex -translate-x-1/2 items-center gap-0.5 whitespace-nowrap rounded-full border border-white/40 bg-black/80 px-1 text-[9px] font-bold text-white"
                         style={{ zIndex: 31 }}
                       >

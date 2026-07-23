@@ -4,6 +4,7 @@ import { useCustomVillainStore } from '../store/customVillainStore'
 import { villainPortrait } from '../villainArt'
 import { VILLAIN_COLOR, DEFAULT_TINT_A } from '../villainColors'
 import { byRelease } from '../villainOrder'
+import { plural } from '../../engine/plural'
 import { Scroller } from '../components/Scroller'
 
 interface Props {
@@ -18,7 +19,7 @@ interface Props {
 const RATINGS = [
   { key: 'non-teste', label: 'Non testé', color: '#6b7280' },
   { key: 'a-ameliorer', label: 'À améliorer', color: '#ef4444' },
-  { key: 'presque-bien', label: 'Assez bien', color: '#f59e0b' },
+  { key: 'presque-bien', label: 'Suffisant', color: '#f59e0b' },
   { key: 'satisfaisant', label: 'Satisfaisant', color: '#84cc16' },
   { key: 'complet', label: 'Complet', color: '#22c55e' },
 ] as const
@@ -38,6 +39,8 @@ interface SideEntry {
   rating: RatingKey
   games: number
   comment: string
+  /** Le journal de partie de ce côté a été relu / vérifié. */
+  journalChecked: boolean
 }
 type TesterEntry = Record<Side, SideEntry>
 type VillainEntry = Record<Tester, TesterEntry>
@@ -46,7 +49,7 @@ interface Report {
   villains: Record<string, VillainEntry>
 }
 
-const emptySide = (): SideEntry => ({ rating: 'non-teste', games: 0, comment: '' })
+const emptySide = (): SideEntry => ({ rating: 'non-teste', games: 0, comment: '', journalChecked: false })
 
 /** Lit l'entrée d'un vilain, en la complétant avec les valeurs par défaut manquantes. */
 function entryOf(report: Report, id: string): VillainEntry {
@@ -81,13 +84,16 @@ function Stepper({ value, onChange }: { value: number; onChange: (n: number) => 
   )
 }
 
+/** Niveaux proposés pour un côté donné : le côté Joueur n'expose pas « À améliorer ». */
+const ratingsForSide = (side: Side) => (side === 'joueur' ? RATINGS.filter((r) => r.key !== 'a-ameliorer') : RATINGS)
+
 /** Un côté (Joueur ou Bot) : appréciation colorée + nombre de parties + commentaire. */
-function SidePanel({ title, entry, onPatch }: { title: string; entry: SideEntry; onPatch: (patch: Partial<SideEntry>) => void }) {
+function SidePanel({ side, entry, onPatch }: { side: Side; entry: SideEntry; onPatch: (patch: Partial<SideEntry>) => void }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-[11px] font-bold uppercase tracking-wide text-amber-200/80">{title}</span>
+      <span className="text-[11px] font-bold uppercase tracking-wide text-amber-200/80">{SIDE_LABEL[side]}</span>
       <div className="flex flex-wrap gap-1">
-        {RATINGS.map((r) => {
+        {ratingsForSide(side).map((r) => {
           const on = r.key === entry.rating
           return (
             <button
@@ -108,6 +114,15 @@ function SidePanel({ title, entry, onPatch }: { title: string; entry: SideEntry;
         Parties testées
         <Stepper value={entry.games} onChange={(games) => onPatch({ games })} />
       </span>
+      <label className="flex cursor-pointer items-center gap-2 text-[11px] text-white/60">
+        <input
+          type="checkbox"
+          checked={entry.journalChecked}
+          onChange={(e) => onPatch({ journalChecked: e.target.checked })}
+          className="h-3.5 w-3.5 accent-emerald-500"
+        />
+        Journal vérifié
+      </label>
       <input
         type="text"
         value={entry.comment}
@@ -119,14 +134,152 @@ function SidePanel({ title, entry, onPatch }: { title: string; entry: SideEntry;
   )
 }
 
-/** Le bloc d'un testeur : ses deux côtés (Joueur / Bot). */
-function TesterPanel({ tester, entry, onPatch }: { tester: Tester; entry: TesterEntry; onPatch: (side: Side, patch: Partial<SideEntry>) => void }) {
+/** Un côté (Joueur ou Bot) en LECTURE SEULE : seul le radio sélectionné est affiché ; les
+ *  champs (parties / commentaire) deviennent du texte, masqués s'ils ne sont pas remplis. */
+function ReadOnlySidePanel({ title, entry }: { title: string; entry: SideEntry }) {
+  const rating = RATINGS.find((r) => r.key === entry.rating) ?? RATINGS[0]
   return (
-    <div className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-xl bg-black/35 p-3">
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[11px] font-bold uppercase tracking-wide text-amber-200/80">{title}</span>
+      <div className="flex flex-wrap gap-1">
+        <span
+          className="rounded-full border px-2 py-0.5 text-[11px] font-semibold"
+          style={{ backgroundColor: rating.color, borderColor: rating.color, color: '#fff' }}
+        >
+          {rating.label}
+        </span>
+      </div>
+      {entry.games > 0 && (
+        <span className="text-[11px] text-white/60">
+          {entry.games} {plural(entry.games, 'partie')} {plural(entry.games, 'testée')}
+        </span>
+      )}
+      {entry.journalChecked && <span className="text-[11px] font-semibold text-emerald-300">✓ Journal vérifié</span>}
+      {entry.comment.trim() !== '' && (
+        <p className="whitespace-pre-wrap rounded border border-white/10 bg-black/20 px-2 py-1 text-xs text-white/80">
+          {entry.comment}
+        </p>
+      )}
+    </div>
+  )
+}
+
+/** Le bloc d'un testeur : ses deux côtés (Joueur / Bot). En lecture seule (`readOnly`),
+ *  seul le radio sélectionné et les champs remplis sont montrés (pas d'édition). */
+function TesterPanel({
+  tester,
+  entry,
+  onPatch,
+  readOnly,
+}: {
+  tester: Tester
+  entry: TesterEntry
+  onPatch: (side: Side, patch: Partial<SideEntry>) => void
+  readOnly?: boolean
+}) {
+  return (
+    <div className={`grid grid-cols-2 gap-x-3 gap-y-1 rounded-xl bg-black/35 p-3${readOnly ? ' h-full self-stretch' : ''}`}>
       <h3 className="col-span-2 text-center text-sm font-bold text-white">{TESTER_LABEL[tester]}</h3>
-      {SIDES.map((side) => (
-        <SidePanel key={side} title={SIDE_LABEL[side]} entry={entry[side]} onPatch={(patch) => onPatch(side, patch)} />
-      ))}
+      {SIDES.map((side) =>
+        readOnly ? (
+          <ReadOnlySidePanel key={side} title={SIDE_LABEL[side]} entry={entry[side]} />
+        ) : (
+          <SidePanel key={side} side={side} entry={entry[side]} onPatch={(patch) => onPatch(side, patch)} />
+        ),
+      )}
+    </div>
+  )
+}
+
+/** Rang d'un niveau (0 = pire … 4 = meilleur), d'après l'ordre de `RATINGS`. */
+const ratingRank = (key: RatingKey): number => RATINGS.findIndex((r) => r.key === key)
+
+/** Niveaux affichés dans les STATS d'un côté : le côté Joueur masque « Non testé » et « À améliorer ». */
+const statRatingsForSide = (side: Side) =>
+  side === 'joueur' ? RATINGS.filter((r) => r.key !== 'non-teste' && r.key !== 'a-ameliorer') : RATINGS
+
+/** Un graphe (barres horizontales) : répartition des niveaux pour une population de vilains. */
+function RatingBars({ counts, total, ratings }: { counts: Record<RatingKey, number>; total: number; ratings: readonly (typeof RATINGS)[number][] }) {
+  const max = Math.max(1, ...ratings.map((r) => counts[r.key]))
+  return (
+    <div className="flex flex-col gap-2">
+      {ratings.map((r) => {
+        const n = counts[r.key]
+        const pct = total === 0 ? 0 : Math.round((n / total) * 100)
+        return (
+          <div key={r.key} className="flex items-center gap-3">
+            <span className="w-24 shrink-0 text-right text-xs font-semibold" style={{ color: r.color }}>
+              {r.label}
+            </span>
+            <div className="relative h-5 flex-1 overflow-hidden rounded bg-white/5">
+              <div
+                className="h-full rounded transition-[width]"
+                style={{ width: `${(n / max) * 100}%`, backgroundColor: r.color }}
+              />
+            </div>
+            <span className="w-16 shrink-0 text-right text-xs tabular-nums text-white/80">
+              {n} · {pct}%
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/**
+ * Statistiques globales, SÉPARÉES par côté (Joueur / Bot). Pour chaque vilain, on retient
+ * la MEILLEURE appréciation entre les deux testeurs (ex. Non testé vs Assez bien → Assez bien),
+ * puis on compte cette valeur par niveau. Un graphe par côté.
+ */
+function GlobalStats({ report, villains }: { report: Report; villains: Row[] }) {
+  const perSide = useMemo(() => {
+    const testers = Object.keys(TESTER_LABEL) as Tester[]
+    const bySide = {} as Record<Side, { counts: Record<RatingKey, number>; journal: number }>
+    for (const s of SIDES) bySide[s] = { counts: Object.fromEntries(RATINGS.map((r) => [r.key, 0])) as Record<RatingKey, number>, journal: 0 }
+    for (const v of villains) {
+      const e = entryOf(report, v.id)
+      for (const s of SIDES) {
+        // Meilleure appréciation des deux testeurs pour ce côté.
+        const best = testers.reduce<RatingKey>(
+          (acc, t) => (ratingRank(e[t][s].rating) > ratingRank(acc) ? e[t][s].rating : acc),
+          'non-teste',
+        )
+        bySide[s].counts[best]++
+        // Journal considéré vérifié si AU MOINS un testeur l'a coché.
+        if (testers.some((t) => e[t][s].journalChecked)) bySide[s].journal++
+      }
+    }
+    return bySide
+  }, [report, villains])
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/40 p-4">
+      <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-amber-200">Statistiques globales</h2>
+      <p className="mb-4 text-xs text-white/40">
+        Meilleure appréciation entre les deux testeurs, pour chacun des {villains.length}{' '}
+        {plural(villains.length, 'vilain')}.
+      </p>
+      <div className="grid gap-6 sm:grid-cols-2">
+        {SIDES.map((s) => {
+          const journalPct = villains.length === 0 ? 0 : Math.round((perSide[s].journal / villains.length) * 100)
+          return (
+            <div key={s} className="flex h-full flex-col">
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-white/70">{SIDE_LABEL[s]}</h3>
+              <RatingBars counts={perSide[s].counts} total={villains.length} ratings={statRatingsForSide(s)} />
+              <div className="mt-auto flex items-center gap-3 pt-2">
+                <span className="w-24 shrink-0 text-right text-xs font-semibold text-emerald-300">Journal vérifié</span>
+                <div className="relative h-5 flex-1 overflow-hidden rounded bg-white/5">
+                  <div className="h-full rounded bg-emerald-500 transition-[width]" style={{ width: `${journalPct}%` }} />
+                </div>
+                <span className="w-16 shrink-0 text-right text-xs tabular-nums text-white/80">
+                  {perSide[s].journal} · {journalPct}%
+                </span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -205,6 +358,15 @@ export function TestReport({ onBack }: Props) {
     return [...native, ...custom].sort((a, b) => byRelease(a.id, b.id))
   }, [customVillains])
 
+  // Testeur sélectionné (persisté en localStorage) : affiché À GAUCHE et éditable ;
+  // l'autre testeur passe À DROITE en lecture seule.
+  const [selectedTester, setSelectedTester] = useState<Tester>(() => {
+    const saved = localStorage.getItem('test-report:tester')
+    return saved === 'jules' || saved === 'alexis' ? saved : 'jules'
+  })
+  useEffect(() => { localStorage.setItem('test-report:tester', selectedTester) }, [selectedTester])
+  const otherTester: Tester = selectedTester === 'jules' ? 'alexis' : 'jules'
+
   // Rapport chargé depuis le disque.
   const [report, setReport] = useState<Report | null>(null)
   const [query, setQuery] = useState('')
@@ -277,6 +439,17 @@ export function TestReport({ onBack }: Props) {
           ← Retour
         </button>
         <h1 className="text-lg font-bold uppercase tracking-wide text-amber-200">📋 Rapport des tests</h1>
+        <label className="flex items-center gap-2 text-sm text-white/70">
+          Testeur
+          <select
+            value={selectedTester}
+            onChange={(e) => setSelectedTester(e.target.value as Tester)}
+            className="rounded-lg border border-white/15 bg-[#0b0a12] px-3 py-2 text-sm font-semibold text-white/90"
+          >
+            <option value="jules">Jules</option>
+            <option value="alexis">Alexis</option>
+          </select>
+        </label>
         <input
           type="text"
           value={query}
@@ -284,7 +457,7 @@ export function TestReport({ onBack }: Props) {
           placeholder="Rechercher un vilain…"
           className="rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white/90 placeholder:text-white/30"
         />
-        <span className="text-sm text-white/50">{filtered.length} vilain(s)</span>
+        <span className="text-sm text-white/50">{filtered.length} {plural(filtered.length, 'vilain')}</span>
         <span
           className={`ml-auto text-sm ${saveState === 'error' ? 'text-red-300' : saveState === 'saved' ? 'text-emerald-300' : 'text-white/50'}`}
         >
@@ -296,24 +469,36 @@ export function TestReport({ onBack }: Props) {
         <div className="flex flex-1 items-center justify-center text-white/50">Chargement du rapport…</div>
       ) : (
         <Scroller className="flex-1">
+          <div className="px-4 pt-4">
+            <GlobalStats report={report} villains={villains} />
+          </div>
           <ul className="flex flex-col gap-3 px-4 py-4">
             {filtered.map((v) => {
               const e = entryOf(report, v.id)
               return (
                 <li
                   key={v.id}
-                  className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 rounded-2xl border p-3"
+                  className="grid grid-cols-[1.6fr_auto_1fr] items-center gap-4 rounded-2xl border p-3"
                   style={{
                     borderColor: `color-mix(in srgb, ${v.color}, white 22%)`,
                     background: `linear-gradient(135deg, ${v.color} 0%, color-mix(in srgb, ${v.color}, black 55%) 100%)`,
                   }}
                 >
-                  <TesterPanel tester="jules" entry={e.jules} onPatch={(side, p) => patch(v.id, 'jules', side, p)} />
-                  <div className="flex w-40 flex-col items-center gap-2">
+                  <TesterPanel
+                    tester={selectedTester}
+                    entry={e[selectedTester]}
+                    onPatch={(side, p) => patch(v.id, selectedTester, side, p)}
+                  />
+                  <div className="flex w-28 flex-col items-center gap-2">
                     <Portrait src={v.portrait} name={v.name} />
                     <span className="text-center text-sm font-bold text-white drop-shadow">{v.name}</span>
                   </div>
-                  <TesterPanel tester="alexis" entry={e.alexis} onPatch={(side, p) => patch(v.id, 'alexis', side, p)} />
+                  <TesterPanel
+                    tester={otherTester}
+                    entry={e[otherTester]}
+                    onPatch={(side, p) => patch(v.id, otherTester, side, p)}
+                    readOnly
+                  />
                 </li>
               )
             })}

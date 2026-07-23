@@ -44,6 +44,7 @@ import {
   ultronOptimizeAvailable,
 } from '../engine/rules'
 import { titanReachableDests } from '../engine/effects'
+import { plural } from '../engine/plural'
 import { rankedFireTargets } from '../engine/shereKhan'
 import { FREE_PLAY_NO_ACTION_ID } from '../engine/actions'
 import type { CardInstance, CardType, FighterColor, GameState, KeyColor, LocationAction, PendingDice, PlayerState, ShowcaseEvent } from '../engine/types'
@@ -936,7 +937,7 @@ function FighterGrid({
                 }
                 title={
                   killClickable
-                    ? `Tuer les ${killCount} Combattant(s) ${colorLabel}`
+                    ? `Tuer les ${killCount} ${plural(killCount, 'Combattant')} ${colorLabel}`
                     : killFreeClickable
                       ? `Tuer ce Combattant : ${tileLabel} (${colorLabel})`
                       : revealed
@@ -1592,6 +1593,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
   // Ultron — modale ouverte de sélection des Sentinelles à défausser (tuile 0/1).
   const [ultronDiscard, setUltronDiscard] = useState<{ tile: number; required: number } | null>(null)
   const resolveFateDiscardAlly = useGameStore((s) => s.resolveFateDiscardAlly)
+  const resolveUrsulaLock = useGameStore((s) => s.resolveUrsulaLock)
   const resolveIdentification = useGameStore((s) => s.resolveIdentification)
   const resolveLotsoTarget = useGameStore((s) => s.resolveLotsoTarget)
   const resolveEvolveAlly = useGameStore((s) => s.resolveEvolveAlly)
@@ -4229,6 +4231,19 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
       }
       return
     }
+    // Ursula — Cadenas (Métamorphose / Grimsby) : le bot décide de déplacer ou non.
+    // But : le Repaire (lieu-objectif d'Ursula) doit être libre pour elle, bloqué pour l'adversaire.
+    // `dest` = lieu NON bloqué où irait le Cadenas (le bloquant). Ursula (chooser = owner) déplace
+    // pour NE PAS bloquer le Repaire ; l'adversaire déplace pour bloquer le Repaire.
+    const pul = state.pendingUrsulaLock
+    if (pul) {
+      if (seats[pul.chooserIndex] === 'bot') {
+        const move = pul.chooserIndex === pul.playerIndex ? pul.dest !== 'repaire' : pul.dest === 'repaire'
+        const timer = setTimeout(() => resolveUrsulaLock(move), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
     // Syndrome — Identification, je vous prie : l'acteur déplace un de ses Allié/Objet vers
     // un lieu portant un Héros. Bot → 1ᵉʳ Allié/Objet + 1ᵉʳ lieu-Héros ; humain → modale.
     const pid = state.pendingIdentification
@@ -4555,7 +4570,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [paused, seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveBloodTrace, resolveWeaponFetch, endTurn, resolveFighterReveal, doneFighterReveal, resolveFighterKillColor, resolveFighterKillFree, doneFighterKillFree, resolveDestinChoice, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolvePacteSang, resolveSacrifice, resolveCageMove, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveScryDeckChoice, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveFateDiscardType, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveGrantLove, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire, resolvePiegeurTarget, resolvePiegeurDest])
+  }, [paused, seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveBloodTrace, resolveWeaponFetch, endTurn, resolveFighterReveal, doneFighterReveal, resolveFighterKillColor, resolveFighterKillFree, doneFighterKillFree, resolveDestinChoice, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolvePacteSang, resolveSacrifice, resolveCageMove, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveScryDeckChoice, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveFateDiscardType, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveGrantLove, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveUrsulaLock, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire, resolvePiegeurTarget, resolvePiegeurDest])
 
   // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
   // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
@@ -7742,6 +7757,8 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
                   <>🚔 <b>Duncan et Wynnchel</b> : tu peux effectuer une action Éliminer un Héros (facultatif).</>
                 ) : state.pendingTrapVanquish.source === 'race-ban' ? (
                   <>🏁 <b>Il lui est défendu de courir</b> : élimine un Héros (les Alliés utilisés ne sont pas défaussés).</>
+                ) : state.pendingTrapVanquish.source === 'vengeance' ? (
+                  <>🗡️ <b>Vengeance</b> : clique le Héros à éliminer à la Tour (facultatif) — +1 Confiance si ce n'est pas Raiponce.</>
                 ) : (
                   <>🪤 <b>Tendre un Piège</b> : tu peux éliminer un Héros (facultatif).</>
                 )}
@@ -9197,7 +9214,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
               prompt="Que choisissez-vous ?"
               options={[
                 { key: 'y-move', label: 'Déplacer un Héros sur le lieu d’un Allié', onSelect: () => resolveYoung({ choice: 'move' }) },
-                { key: 'y-gain', label: `Gagner ${allies} jeton(s) Pouvoir (1 par Allié)`, onSelect: () => resolveYoung({ choice: 'gain' }) },
+                { key: 'y-gain', label: `Gagner ${allies} ${plural(allies, 'jeton')} Pouvoir (1 par Allié)`, onSelect: () => resolveYoung({ choice: 'gain' }) },
               ]}
             />
           )
@@ -9568,7 +9585,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
           prompt="DIO doit faire un choix."
           options={[
             { key: 'sun-lose', label: `Perdre ${state.pendingDioSunlight.lose} jetons Pouvoir`, onSelect: () => resolveDioSunlight('lose') },
-            { key: 'sun-discard', label: `Défausser toute ma main (${user.hand.length} carte(s))`, onSelect: () => resolveDioSunlight('discard') },
+            { key: 'sun-discard', label: `Défausser toute ma main (${user.hand.length} ${plural(user.hand.length, 'carte')})`, onSelect: () => resolveDioSunlight('discard') },
           ]}
         />
       )}
@@ -9951,6 +9968,25 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
           candidateIds={state.pendingFateDiscardAlly.candidateIds}
           cardName={state.pendingFateDiscardAlly.cardName}
           onResolve={resolveFateDiscardAlly}
+        />
+      )}
+
+      {/* Ursula — Cadenas (Métamorphose / Grimsby) : l'humain qui résout choisit de déplacer le
+          Cadenas sur le lieu proposé (non bloqué) ou de passer (« vous pouvez »). */}
+      {state.pendingUrsulaLock && state.pendingUrsulaLock.chooserIndex === HUMAN && (
+        <ChoiceModal
+          title="Cadenas d'Ursula"
+          prompt={`Déplacer le Cadenas sur ${
+            state.pendingUrsulaLock.dest === 'palais' ? 'le Palais' : "le Repaire d'Ursula"
+          } ?`}
+          options={[
+            {
+              key: 'move',
+              label: `Déplacer sur ${state.pendingUrsulaLock.dest === 'palais' ? 'le Palais' : "le Repaire d'Ursula"}`,
+              onSelect: () => resolveUrsulaLock(true),
+            },
+            { key: 'skip', label: 'Passer', onSelect: () => resolveUrsulaLock(false) },
+          ]}
         />
       )}
 

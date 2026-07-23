@@ -53,8 +53,11 @@ export const PATCH_NOTES: PatchNote[] = [
     tags: ['interface'],
     changes: [
       "Nouvelle page **Rapport des tests** (dév uniquement) : chaque ligne prend la **couleur du méchant**, avec une **appréciation** par testeur (**Jules** / **Alexis**) et par côté (**Joueur** / **Bot**).",
-      "Chaque note = **niveau coloré** (Non testé → À améliorer → Assez bien → Satisfaisant → Complet), **nombre de parties** testées et un **commentaire**.",
+      "Chaque note = **niveau coloré** (Non testé → À améliorer → Suffisant → Satisfaisant → Complet), **nombre de parties** testées, une coche **Journal vérifié** et un **commentaire**.",
+      "**Sélecteur de testeur** (mémorisé) : le testeur choisi passe **à gauche** (éditable) et l'autre **à droite** en **lecture seule** (résumé).",
+      "**Statistiques globales** en tête, **séparées Joueur / Bot** : pour chaque vilain la **meilleure** appréciation des deux testeurs, plus le **taux de Journal vérifié**.",
       "Vilains listés dans l'**ordre de sortie** ; sauvegarde **automatique** dans un fichier **committé** (transmis à chaque commit).",
+      "**Textes affichés** : fini les « (s) » — les pluriels s'**accordent** selon le nombre (« 1 carte », « 3 cartes ») dans le **journal**, les **cartes** et l'**interface**.",
     ],
   },
   {

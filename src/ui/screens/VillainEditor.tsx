@@ -5,6 +5,7 @@ import { PortraitEditorModal } from '../components/PortraitEditorModal'
 import { CardBackLayout } from '../editor/CardBackLayout'
 import { exportVillainAssets } from '../editor/exportAssets'
 import type { BackOverlay, ExtraBack, ExtraBackColorMode } from '../../data/customVillain'
+import { plural } from '../../engine/plural'
 import {
   emptyCustomVillain,
   FATE_CARD_COLOR,
@@ -830,7 +831,7 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
     // Écrit aussi ses fichiers dans assets/ (decks/<Nom>/, portraits, presentations,
     // pions) comme un vilain natif. Best-effort : sans serveur de dév, on n'affiche rien.
     const exp = await exportVillainAssets(baked)
-    const filesMsg = exp.ok ? `\n\n${exp.written} fichier(s) rangés dans assets/.` : ''
+    const filesMsg = exp.ok ? `\n\n${exp.written} ${plural(exp.written, 'fichier')} ${plural(exp.written, 'rangé')} dans assets/.` : ''
     // EMBARQUE le vilain (JSON « chemins », images en fichiers sous public/cards/) dans
     // `src/data/published/` : chargé au démarrage, il devient disponible pour TOUS les
     // joueurs (après commit + redéploiement). Best-effort : ne marche qu'avec le serveur
@@ -1431,7 +1432,7 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
                   className="flex items-center justify-between gap-3 rounded-lg border border-white/15 bg-white/5 px-4 py-3 text-left transition hover:border-amber-300/70 hover:bg-amber-400/10"
                 >
                   <span className="font-semibold">{ev.name}</span>
-                  <span className="shrink-0 text-xs text-white/45">{ev.cardCount} carte(s)</span>
+                  <span className="shrink-0 text-xs text-white/45">{ev.cardCount} {plural(ev.cardCount, 'carte')}</span>
                 </button>
               ))}
             </div>

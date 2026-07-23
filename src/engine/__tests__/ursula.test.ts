@@ -278,11 +278,20 @@ describe('Ursula — Cadenas mobile (Métamorphose)', () => {
   it('le Palais démarre bloqué', () => {
     expect(game().players[0].lockedLocations).toContain('palais')
   })
-  it('TOGGLE_URSULA_LOCK déplace le Cadenas Palais → Repaire puis Repaire → Palais', () => {
+  it('TOGGLE_URSULA_LOCK ouvre un CHOIX ; RESOLVE_URSULA_LOCK déplace vers le lieu non bloqué', () => {
     let s = game()
+    // Ouvre le choix : le Palais est bloqué → destination proposée = Repaire (non bloqué).
     s = resolveEffect(s, { type: 'TOGGLE_URSULA_LOCK' }, { actorIndex: 0 })
+    expect(s.pendingUrsulaLock).toMatchObject({ playerIndex: 0, chooserIndex: 0, dest: 'repaire' })
+    expect(s.players[0].lockedLocations).toEqual(['palais']) // rien tant que non résolu
+    // On déplace → le Cadenas passe sur le Repaire.
+    s = applyAction(s, { type: 'RESOLVE_URSULA_LOCK', move: true })
+    expect(s.pendingUrsulaLock).toBeFalsy()
     expect(s.players[0].lockedLocations).toEqual(['repaire'])
+    // Nouveau choix (dest = Palais) puis « passer » → inchangé.
     s = resolveEffect(s, { type: 'TOGGLE_URSULA_LOCK' }, { actorIndex: 0 })
-    expect(s.players[0].lockedLocations).toEqual(['palais'])
+    expect(s.pendingUrsulaLock?.dest).toBe('palais')
+    s = applyAction(s, { type: 'RESOLVE_URSULA_LOCK', move: false })
+    expect(s.players[0].lockedLocations).toEqual(['repaire'])
   })
 })

@@ -263,7 +263,7 @@ export const seigneurTenebresCards: CardDef[] = [
     strength: 2,
     copies: 1,
     onPlace: [{ type: 'SCATTER_REALM_HEROES' }],
-    text: 'Quand Ronchon est joué, vous pouvez déplacer chaque Héros vers n’importe quel(s) lieu(x).',
+    text: 'Quand Ronchon est joué, vous pouvez déplacer chaque Héros vers n’importe quel lieu.',
     image: img('doli.webp'),
   },
   {

@@ -307,7 +307,7 @@ describe('Sumbra/Kilaire — revenu & victoire', () => {
     const out = resolveRevenueCombattant(g, 0, c)
     expect(out.players[0].hand.length).toBe(handBefore + 1) // pioche forcée : +1 en main
     expect(out.pendingCombattantChoices ?? []).toEqual([]) // pas de choix (défausse vide)
-    expect(out.log.some((l) => /pioche 1 carte\(s\) Méchant \(Renfort\)/.test(l))).toBe(true)
+    expect(out.log.some((l) => /pioche 1 carte Méchant \(Renfort\)/.test(l))).toBe(true)
   })
 
   it('Renfort Bonus : défausse non vide → CHOIX interactif (piocher / récupérer)', () => {

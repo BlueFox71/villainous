@@ -3531,10 +3531,12 @@ export interface GameState {
    *     `locationId` où le Héros vient d'être repoussé ;
    *   - `source: 'uniforme'` (Ratigan — Uniforme) : éliminer un Héros sur le
    *     `locationId` de l'Allié porteur, qui DOIT participer (`requiredAllyInstanceId`).
+   *   - `source: 'vengeance'` (Mère Gothel — Vengeance) : éliminer un Héros à la Tour
+   *     (`locationId: 'tour'`) par clic direct ; +1 Confiance si la cible n'est pas Raiponce.
    * Consommé par TRAP_VANQUISH / TRAP_SKIP_VANQUISH ou la fin de tour.
    */
   pendingTrapVanquish?: {
-    source: 'trap' | 'gnous' | 'uniforme' | 'duncan' | 'race-ban'
+    source: 'trap' | 'gnous' | 'uniforme' | 'duncan' | 'race-ban' | 'vengeance'
     locationId?: LocationId
     /** Uniforme : instanceId de l'Allié porteur, OBLIGATOIRE parmi les participants. */
     requiredAllyInstanceId?: string
@@ -3913,6 +3915,12 @@ export interface GameState {
      *  du choix car la carte part en défausse. Émis rempli à la résolution. */
     journal?: string
   } | null
+  /** Ursula — Métamorphose / Grimsby : choix INTERACTIF « vous pouvez déplacer le Cadenas sur
+   *  le Repaire ou le Palais ». `playerIndex` = propriétaire du Cadenas (Ursula) ; `chooserIndex`
+   *  = qui décide (Ursula pour Métamorphose ; celui qui pose la Fatalité pour Grimsby) ; `dest`
+   *  = le lieu NON bloqué (seule destination utile). Résolu par RESOLVE_URSULA_LOCK ; le bot
+   *  auto-résout. `null`/absent hors de cette fenêtre. */
+  pendingUrsulaLock?: { playerIndex: number; chooserIndex: number; dest: LocationId } | null
   /** Sumbra / Kilaire — 🃏 Renfort : file des choix INTERACTIFS à résoudre (empilés pendant le
    *  revenu, résolus au début du tour du joueur avant toute autre action). La TÊTE est le choix
    *  courant. `kind` :
@@ -4991,6 +4999,9 @@ export type GameAction =
   /** Sumbra / Kilaire — Choc des Titans : `pay` vrai = dépenser 2 Pouvoir pour le Bonus du
    *  Combattant pioché ; faux = subir son Malus. */
   | { type: 'RESOLVE_CHOC_TITANS'; pay: boolean }
+  /** Ursula — Métamorphose / Grimsby : `move` vrai = déplacer le Cadenas sur le lieu proposé
+   *  (`pendingUrsulaLock.dest`) ; faux = ne pas le déplacer (« vous pouvez »). */
+  | { type: 'RESOLVE_URSULA_LOCK'; move: boolean }
   /** Sumbra / Kilaire — 🃏 Renfort Malus : défausse les cartes CHOISIES (`instanceIds`) de la
    *  main pour résoudre la tête de `pendingCombattantChoices`. */
   | { type: 'RESOLVE_COMBATTANT_DISCARD'; instanceIds: string[] }

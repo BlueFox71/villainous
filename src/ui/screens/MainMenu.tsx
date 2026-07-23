@@ -24,13 +24,22 @@ interface Props {
   onReplayIntro: () => void
 }
 
-/** Un bouton de menu réutilisant le style « HearthStone » (cf. index.css). */
-function MenuButton({ label, onClick }: { label: string; onClick: () => void }) {
+/** Un bouton de menu réutilisant le style « HearthStone » (cf. index.css). La variante
+ *  (`classique` par défaut, `sombre` pour les outils de dév) choisit la teinte. */
+function MenuButton({
+  label,
+  onClick,
+  variant = 'classique',
+}: {
+  label: string
+  onClick: () => void
+  variant?: 'classique' | 'sombre'
+}) {
   return (
-    <button type="button" onClick={onClick} onMouseEnter={playHover} className="hs-wrapper classique">
-      <span className="hs-button classique">
-        <span className="hs-border classique">
-          <span className="hs-text classique">{label}</span>
+    <button type="button" onClick={onClick} onMouseEnter={playHover} className={`hs-wrapper ${variant}`}>
+      <span className={`hs-button ${variant}`}>
+        <span className={`hs-border ${variant}`}>
+          <span className={`hs-text ${variant}`}>{label}</span>
         </span>
       </span>
     </button>
@@ -229,8 +238,8 @@ export function MainMenu({ onNewGame, onTutorial, onVillainList, onEditor, onTes
         <MenuButton label="Nouvelle partie" onClick={onNewGame} />
         <MenuButton label="Liste des villains" onClick={onVillainList} />
         <MenuButton label="🎓 Tutoriel" onClick={onTutorial} />
-        {!isDesktopApp && <MenuButton label="Atelier des vilains" onClick={onEditor} />}
-        {!isDesktopApp && <MenuButton label="Rapport des tests" onClick={onTestReport} />}
+        {!isDesktopApp && <MenuButton label="Atelier des vilains" onClick={onEditor} variant="sombre" />}
+        {!isDesktopApp && <MenuButton label="Rapport des tests" onClick={onTestReport} variant="sombre" />}
         <MenuButton label="Quitter" onClick={() => setConfirmQuit(true)} />
       </nav>
 

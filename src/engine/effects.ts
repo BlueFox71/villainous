@@ -47,6 +47,7 @@ import {
   TREASURE_NAMES,
 } from './davyJones'
 import { shuffle, nextRandom, rollD6 } from './rng'
+import { plural } from './plural'
 import {
   addSpirits,
   applyCombattantVerb,
@@ -854,7 +855,7 @@ export function doCapturePuppies(state: GameState, idx: number, tileIds: string[
   const total = (next.players[idx].puppyTiles ?? []).filter((t) => t.state === 'captured').reduce((n, t) => n + t.value, 0)
   return {
     ...next,
-    log: [...next.log, `${p.villainName} capture ${ids.size} Tuile(s) Chiots (+${gained} Chiots, total ${total}).`],
+    log: [...next.log, `${p.villainName} capture ${ids.size} ${plural(ids.size, 'Tuile')} Chiots (+${gained} Chiots, total ${total}).`],
   }
 }
 
@@ -877,7 +878,7 @@ export function capturePuppiesAt(state: GameState, idx: number, locationId: stri
   return {
     ...state,
     pendingPuppyCapture: { playerIndex: idx, locationId, remaining: max },
-    log: [...state.log, `${p.villainName} : choisissez ${max} Tuile(s) Chiots à capturer sur **${locName(p, locationId)}**.`],
+    log: [...state.log, `${p.villainName} : choisissez ${max} ${plural(max, 'Tuile')} Chiots à capturer sur **${locName(p, locationId)}**.`],
   }
 }
 
@@ -2345,7 +2346,7 @@ export function resolveEffect(
       return {
         ...state,
         pendingFighterKillFree: { playerIndex: idx, remaining: Math.min(effect.max, reserve) },
-        log: [...state.log, `${p.villainName} (Coup Fatal) : tuez jusqu'à ${Math.min(effect.max, reserve)} Combattant(s).`],
+        log: [...state.log, `${p.villainName} (Coup Fatal) : tuez jusqu'à ${Math.min(effect.max, reserve)} ${plural(Math.min(effect.max, reserve), 'Combattant')}.`],
       }
     }
     case 'RETURN_KILLED_FIGHTERS': {
@@ -2566,14 +2567,14 @@ export function resolveEffect(
       }))
       return {
         ...next,
-        log: [...next.log, `${p.villainName} gagne ${effect.amount} piste(s) de souffrance${surcharge ? ` (−${surcharge} Pouvoir : Laura)` : ''}.`],
+        log: [...next.log, `${p.villainName} gagne ${effect.amount} ${plural(effect.amount, 'piste')} de souffrance${surcharge ? ` (−${surcharge} Pouvoir : Laura)` : ''}.`],
       }
     }
     case 'LOSE_SOUFFRANCE': {
       // Angela (à la pose) : Pyramid Head perd des pistes de souffrance.
       const p = state.players[idx]
       const next = updatePlayer(state, idx, (pl) => ({ ...pl, souffrance: Math.max(0, (pl.souffrance ?? 0) - effect.amount) }))
-      return { ...next, log: [...next.log, `${p.villainName} perd ${effect.amount} piste(s) de souffrance (Angela).`] }
+      return { ...next, log: [...next.log, `${p.villainName} perd ${effect.amount} ${plural(effect.amount, 'piste')} de souffrance (Angela).`] }
     }
     case 'DISCARD_REALM_CARD': {
       // James (à la pose) : défausse l'Objet `cardId` (Métatron) du royaume + ses associés.
@@ -2659,7 +2660,7 @@ export function resolveEffect(
         hand: pl.hand.filter((c) => !ids.has(c.instanceId)),
         discard: [...pl.discard, ...toDiscard],
       }))
-      return { ...next, log: [...next.log, `${p.villainName} défausse ${toDiscard.length} carte(s) (Redemption).`] }
+      return { ...next, log: [...next.log, `${p.villainName} défausse ${toDiscard.length} ${plural(toDiscard.length, 'carte')} (Redemption).`] }
     }
     case 'DIO_DISCARD_ALLY_GAIN': {
       // Défausser un Allié (The World épargné) pour gagner `amount` (×2 si The World au
@@ -2718,7 +2719,7 @@ export function resolveEffect(
         hand: [],
         power: pl.power + gain,
       }))
-      return { ...next, log: [...next.log, `Masque de pierre : ${p.villainName} défausse ${n} carte(s) et gagne ${gain} JT.`] }
+      return { ...next, log: [...next.log, `Masque de pierre : ${p.villainName} défausse ${n} ${plural(n, 'carte')} et gagne ${gain} JT.`] }
     }
     case 'DIO_DISCARD_ITEM_IN_REALM': {
       // Fondation Speedwagon (Fatalité) : défausse l'Objet non associé le plus précieux du
@@ -2849,7 +2850,7 @@ export function resolveEffect(
       const p = state.players[idx]
       if (p.hand.length === 0) {
         const next = drawNCards(state, idx, effect.draw)
-        return { ...next, log: [...next.log, `${p.villainName} (Père Noël) pioche ${effect.draw} carte(s).`] }
+        return { ...next, log: [...next.log, `${p.villainName} (Père Noël) pioche ${effect.draw} ${plural(effect.draw, 'carte')}.`] }
       }
       return {
         ...state,
@@ -3059,7 +3060,7 @@ export function resolveEffect(
       const locName = opp.locations.find((l) => l.id === dest.locationId)?.name ?? dest.locationId
       return {
         ...next,
-        log: [...next.log, `Sentence : ${allies.length} Allié(s) transféré(s) chez ${opp.villainName} (${locName}), +1 Force chacun.`],
+        log: [...next.log, `Sentence : ${allies.length} ${plural(allies.length, 'Allié')} ${plural(allies.length, 'transféré')} chez ${opp.villainName} (${locName}), +1 Force chacun.`],
       }
     }
     case 'THANOS_PROXIMA_ELIMINATE': {
@@ -3343,7 +3344,7 @@ export function resolveEffect(
       const n = Math.min(effect.count, p.fateDeck.length)
       const moved = p.fateDeck.slice(0, n)
       let next = updatePlayer(state, idx, (pl) => ({ ...pl, fateDeck: pl.fateDeck.slice(n), fateDiscard: [...pl.fateDiscard, ...moved] }))
-      next = { ...next, log: [...next.log, `${next.players[idx].villainName} défausse ${n} carte(s) Fatalité.`] }
+      next = { ...next, log: [...next.log, `${next.players[idx].villainName} défausse ${n} ${plural(n, 'carte')} Fatalité.`] }
       if (next.players[idx].fateDiscard.length === 0) return next
       return { ...next, pendingRecoverFate: { playerIndex: idx } }
     }
@@ -4384,7 +4385,7 @@ export function resolveEffect(
         return { ...next, log: [...next.log, `Retour à la vie de Gurki : aucune carte Fatalité à dévoiler.`] }
       }
       next = { ...next, pendingFate: { target: idx, revealed } }
-      return { ...next, log: [...next.log, `Retour à la vie de Gurki : ${revealed.length} carte(s) Fatalité dévoilée(s), à jouer sur ${p.villainName}.`] }
+      return { ...next, log: [...next.log, `Retour à la vie de Gurki : ${revealed.length} ${plural(revealed.length, 'carte')} Fatalité ${plural(revealed.length, 'dévoilée')}, à jouer sur ${p.villainName}.`] }
     }
     case 'GATHER_ALLIES_TO_HOST': {
       // Ritournel (Héros Fatalité) : rassemble tous les Alliés du joueur sur son lieu
@@ -4472,7 +4473,7 @@ export function resolveEffect(
       }))
       next = {
         ...next,
-        log: [...next.log, `${p.villainName} (Ce sont des vacances) défausse ${top.length} carte(s) Fatalité (${heroes} Héros).`],
+        log: [...next.log, `${p.villainName} (Ce sont des vacances) défausse ${top.length} ${plural(top.length, 'carte')} Fatalité (${heroes} Héros).`],
       }
       if (heroes > 0) next = drawNCards(next, idx, heroes)
       // Montre les cartes Fatalité dévoilées + le nombre de cartes piochées (les
@@ -4648,16 +4649,14 @@ export function resolveEffect(
       return { ...next, log: [...next.log, `${next.players[idx].villainName} : Raiponce ne se déplacera pas ce tour-ci.`] }
     }
     case 'VENGEANCE': {
-      // Arme le bonus de Confiance et OFFRE une action « Éliminer un Héros » à la Tour
-      // (seul lieu de Gothel avec un Vanquish). Fenêtre « agir à un lieu » facultative
-      // (si aucun Héros vincible, le joueur passe). +1 Confiance au Vanquish si la cible
-      // n'est pas Raiponce (cf. performVanquish).
+      // Arme le bonus de Confiance et ouvre un Vanquish FACULTATIF direct à la Tour : le joueur
+      // clique le Héros vincible à éliminer (Alliés présents auto-utilisés), sans passer par le
+      // lieu ni l'action. +1 Confiance si la cible n'est pas Raiponce (cf. performVanquish).
       const next = updatePlayer(state, idx, (p) => ({ ...p, vengeanceConfianceArmed: true }))
       return {
         ...next,
-        actAtLocation: 'tour',
-        actAtLocationSkippable: true,
-        log: [...next.log, `${next.players[idx].villainName} (Vengeance) : effectuez une action Éliminer un Héros à la Tour.`],
+        pendingTrapVanquish: { source: 'vengeance', locationId: 'tour' },
+        log: [...next.log, `${next.players[idx].villainName} (Vengeance) : éliminez un Héros à la Tour.`],
       }
     }
     case 'MOVE_RAIPONCE': {
@@ -4749,7 +4748,7 @@ export function resolveEffect(
       return {
         ...state,
         pendingPuppyReveal: { playerIndex: idx, remaining: Math.min(effect.count, hidden) },
-        log: [...state.log, `${p.villainName} (Repéré !) : révélez jusqu'à ${Math.min(effect.count, hidden)} Tuile(s) Chiots de la réserve.`],
+        log: [...state.log, `${p.villainName} (Repéré !) : révélez jusqu'à ${Math.min(effect.count, hidden)} ${plural(Math.min(effect.count, hidden), 'Tuile')} Chiots de la réserve.`],
       }
     }
     case 'GAIN_POWER_PER_PUPPY_LOCATION': {
@@ -4768,7 +4767,7 @@ export function resolveEffect(
           pick.has(t.id) ? { ...t, state: 'reserve' as const, revealed: true, location: t.homeLocation } : t,
         ),
       }))
-      return { ...next, log: [...next.log, `Évasion : ${pick.size} Tuile(s) Chiots capturée(s) repart(ent) dans la réserve.`] }
+      return { ...next, log: [...next.log, `Évasion : ${pick.size} ${plural(pick.size, 'Tuile')} Chiots ${plural(pick.size, 'capturée')} ${plural(pick.size, 'repart', 'repartent')} dans la réserve.`] }
     }
     case 'RETURN_BOARD_PUPPIES_TO_RESERVE': {
       const p = state.players[idx]
@@ -4792,7 +4791,7 @@ export function resolveEffect(
           pick.has(t.id) ? { ...t, state: 'reserve' as const, revealed: true, location: t.homeLocation } : t,
         ),
       }))
-      return { ...next, log: [...next.log, `Nous sommes des labradors : ${pick.size} Tuile(s) Chiots de **${locName(p, bestLoc)}** repart(ent) dans la réserve.`] }
+      return { ...next, log: [...next.log, `Nous sommes des labradors : ${pick.size} ${plural(pick.size, 'Tuile')} Chiots de **${locName(p, bestLoc)}** ${plural(pick.size, 'repart', 'repartent')} dans la réserve.`] }
     }
     case 'MOVE_BOARD_PUPPIES_TO_HERO': {
       if (!ctx?.hostLocationId) return state
@@ -4808,7 +4807,7 @@ export function resolveEffect(
         ...pl,
         puppyTiles: (pl.puppyTiles ?? []).map((t) => (pick.has(t.id) ? { ...t, location: dest } : t)),
       }))
-      return { ...next, log: [...next.log, `Sergent Tibs regroupe ${pick.size} Tuile(s) Chiots sur **${locName(p, dest)}**.`] }
+      return { ...next, log: [...next.log, `Sergent Tibs regroupe ${pick.size} ${plural(pick.size, 'Tuile')} Chiots sur **${locName(p, dest)}**.`] }
     }
     case 'PLACE_CAPTURED_PUPPY_AT_HERO': {
       if (!ctx?.hostLocationId) return state
@@ -5183,7 +5182,7 @@ export function resolveEffect(
       if (toDiscard.length === 0) return { ...state, log: [...state.log, `${p.villainName} : aucune carte ${effect.cardType} à défausser.`] }
       const ids = new Set(toDiscard.map((c) => c.instanceId))
       const next = updatePlayer(state, idx, (pl) => ({ ...pl, hand: pl.hand.filter((c) => !ids.has(c.instanceId)), discard: [...pl.discard, ...toDiscard] }))
-      return { ...next, log: [...next.log, `${p.villainName} défausse ${toDiscard.length} carte(s) Événement (Anne de Chantraine).`] }
+      return { ...next, log: [...next.log, `${p.villainName} défausse ${toDiscard.length} ${plural(toDiscard.length, 'carte')} Événement (Anne de Chantraine).`] }
     }
     case 'ROLL_DIE_BLOCK_KEY_COLOR': {
       const roll = rollColorDie(state.rngState)
@@ -5208,8 +5207,9 @@ export function resolveEffect(
       const host = ctx?.hostInstanceId
       const p = state.players[idx]
       if (!host || !(p.keys ?? []).some((k) => k.stolenBy === host)) return state
+      const returned = (p.keys ?? []).filter((k) => k.stolenBy === host).length
       const next = withKeys(state, idx, (p.keys ?? []).map((k) => (k.stolenBy === host ? { ...k, stolenBy: undefined, location: null } : k)))
-      return { ...next, log: [...next.log, `Gévaudan éliminé : ${p.villainName} récupère sa/ses clé(s).`] }
+      return { ...next, log: [...next.log, `Gévaudan éliminé : ${p.villainName} récupère ${returned > 1 ? 'ses clés' : 'sa clé'}.`] }
     }
     case 'ROLL_DIE_LOSE_KEYS_COLOR': {
       const roll = rollColorDie(state.rngState)
@@ -5229,7 +5229,7 @@ export function resolveEffect(
       const lostIds = new Set(lost.map((k) => k.id))
       let i = 0
       next = withKeys(next, idx, (p.keys ?? []).map((k) => (lostIds.has(k.id) ? { ...k, location: locs[i++ % locs.length] } : k)))
-      return { ...next, log: [...next.log, `J'ai affronté mon cauchemar (dé : **${roll.color}**) : ${p.villainName} perd ${lost.length} clé(s) ${KEY_LABEL[roll.color]}.`] }
+      return { ...next, log: [...next.log, `J'ai affronté mon cauchemar (dé : **${roll.color}**) : ${p.villainName} perd ${lost.length} ${plural(lost.length, 'clé')} ${KEY_LABEL[roll.color]}.`] }
     }
     case 'RETURN_OWNED_KEY_TO_BOARD': {
       const p = state.players[idx]
@@ -6441,7 +6441,7 @@ export function resolveEffect(
     case 'CAPTURE_SPIRITS': {
       const p = state.players[idx]
       const next = captureSpirits(state, idx, effect.amount)
-      return { ...next, log: [...next.log, `${p.villainName} capture ${effect.amount} esprit(s).`] }
+      return { ...next, log: [...next.log, `${p.villainName} capture ${effect.amount} ${plural(effect.amount, 'esprit')}.`] }
     }
     case 'DRAW_COMBATTANT_BONUS': {
       // « Combattant volé » : pioche 1 Combattant, capture + Bonus FORCÉ (aligné).
@@ -6454,7 +6454,7 @@ export function resolveEffect(
       s = applyCombattantVerb(s, idx, res.card, 1) // Bonus forcé
       const d = (s.players[idx].spirits ?? 0) - before
       const powerD = (s.players[idx].power ?? 0) - powerBefore
-      s = pushCombattantShowcase(s, idx, res.card, `${campEmoji(p0)} ${d >= 0 ? '+' : ''}${d} esprit(s) · Bonus (Combattant volé)`, { spiritDelta: d, powerDelta: powerD })
+      s = pushCombattantShowcase(s, idx, res.card, `${campEmoji(p0)} ${d >= 0 ? '+' : ''}${d} ${plural(d, 'esprit')} · Bonus (Combattant volé)`, { spiritDelta: d, powerDelta: powerD })
       s = {
         ...s,
         players: s.players.map((pl, i) =>
@@ -6496,7 +6496,7 @@ export function resolveEffect(
       let out = applyCombattantVerb(s, idx, res.card, -1)
       const spiritDelta = (out.players[idx].spirits ?? 0) - spiritsBefore
       const powerDelta = (out.players[idx].power ?? 0) - powerBefore
-      out = pushCombattantShowcase(out, idx, res.card, `${campEmoji(p0)} ${spiritDelta >= 0 ? '+' : ''}${spiritDelta} esprit(s) · Choc des Titans (Malus)`, { spiritDelta, powerDelta })
+      out = pushCombattantShowcase(out, idx, res.card, `${campEmoji(p0)} ${spiritDelta >= 0 ? '+' : ''}${spiritDelta} ${plural(spiritDelta, 'esprit')} · Choc des Titans (Malus)`, { spiritDelta, powerDelta })
       out = {
         ...out,
         players: out.players.map((pl, i) =>
@@ -6539,7 +6539,7 @@ export function resolveEffect(
       const spiritDelta = (s.players[idx].spirits ?? 0) - spiritsBefore // ≤ 0 (perte, bornée par le plancher)
       // SHOWCASE cinématique du Combattant révélé (grande carte au centre) ; s'il entre en
       // Héros, il « vole » vers son lieu (destination + instanceId). Pastille d'esprits « −N ».
-      const msg = `${campEmoji(target)} −${loss} esprit(s) · Fatalité${effect.asHero ? ' (Héros)' : ''}`
+      const msg = `${campEmoji(target)} −${loss} ${plural(loss, 'esprit')} · Fatalité${effect.asHero ? ' (Héros)' : ''}`
       const badge = { forceShow: true, combattantCamp: spiritCamp(target), combattantSpiritDelta: spiritDelta, combattantExtras: [] }
       s = effect.asHero && placedLoc
         ? pushShowcase(s, card.cardId, msg, idx, { playerIndex: idx, locationId: placedLoc }, heroInstanceId, badge)
@@ -6558,7 +6558,7 @@ export function resolveEffect(
         ...s,
         log: [
           ...s.log,
-          `Fatalité — **${card.name}** ${effect.asHero ? 'entre en Héros' : 'apparaît'} contre ${target.villainName} (−${loss} esprit(s)).`,
+          `Fatalité — **${card.name}** ${effect.asHero ? 'entre en Héros' : 'apparaît'} contre ${target.villainName} (−${loss} ${plural(loss, 'esprit')}).`,
         ],
       }
     }
@@ -6570,7 +6570,7 @@ export function resolveEffect(
       const adverse = camp === 'sun' ? last.moon : last.sun
       const loss = effect.scope === 'both' ? last.sun + last.moon : adverse
       const s = addSpirits(state, idx, -loss)
-      return { ...s, log: [...s.log, `Fatalité : ${target.villainName} perd ${loss} esprit(s) (dernier Combattant).`] }
+      return { ...s, log: [...s.log, `Fatalité : ${target.villainName} perd ${loss} ${plural(loss, 'esprit')} (dernier Combattant).`] }
     }
     case 'SWITCH_OBJECTIVE': {
       // Atelier — objectif transformable : échange l'objectif actif (condition +
@@ -7021,7 +7021,7 @@ export function resolveEffect(
         }
       }
       if (names.length === 0) return state
-      return { ...next, log: [...next.log, `${p0.villainName} fait le ménage : ${names.join(', ')} défaussé(s).`] }
+      return { ...next, log: [...next.log, `${p0.villainName} fait le ménage : ${names.join(', ')} ${plural(names.length, 'défaussé')}.`] }
     }
     case 'CAP_SELF_NEXT_TURN': {
       // La Bonne Fée — On est presque arrivé ? : plafonne le prochain tour de l'acteur.
@@ -7166,7 +7166,7 @@ export function resolveEffect(
         ...next,
         rngState: s,
         pendingScry: { playerIndex: idx, cards: top },
-        log: [...next.log, `${actor.villainName} regarde les ${top.length} première(s) carte(s) de sa pioche Fatalité.`],
+        log: [...next.log, `${actor.villainName} regarde les ${top.length} ${plural(top.length, 'première')} ${plural(top.length, 'carte')} de sa pioche Fatalité.`],
       }
     }
     case 'MOVE_ALLY_BUFF': {
@@ -7416,7 +7416,7 @@ export function resolveEffect(
       if (targets.length === 0) return logCrew(state, idx, 'aucun Coéquipier à rendre suspect')
       const set = new Set(targets.map((c) => c.color))
       const next = (p.crewmates ?? []).map((c) => (set.has(c.color) ? { ...c, suspect: true } : c))
-      return setCrew(state, idx, next, `${set.size} Coéquipier(s) deviennent suspects`)
+      return setCrew(state, idx, next, `${set.size} ${plural(set.size, 'Coéquipier')} ${plural(set.size, 'devient', 'deviennent')} ${plural(set.size, 'suspect')}`)
     }
     case 'CREWMATES_SUSPECT_CHOOSE': {
       // Tâche visuelle : l'adversaire (state.activePlayer) choisit jusqu'à `count`
@@ -7431,7 +7431,7 @@ export function resolveEffect(
           targetIndex: idx,
           remaining: Math.min(effect.count, eligible.length),
         },
-        log: [...state.log, `Tâche visuelle : choisissez jusqu'à ${effect.count} Coéquipier(s) à rendre suspects.`],
+        log: [...state.log, `Tâche visuelle : choisissez jusqu'à ${effect.count} ${plural(effect.count, 'Coéquipier')} à rendre ${plural(effect.count, 'suspect')}.`],
       }
     }
     case 'SABOTAGE_COUNTDOWN': {
@@ -7611,18 +7611,17 @@ export function resolveEffect(
       }
     }
     case 'TOGGLE_URSULA_LOCK': {
-      // Ursula : le Cadenas se déplace entre le Palais et le Repaire (un seul
-      // bloqué à la fois). On bascule vers l'AUTRE des deux.
+      // Ursula : « vous POUVEZ déplacer le Cadenas sur le Repaire OU le Palais » (un seul bloqué
+      // à la fois). CHOIX interactif : la seule destination utile est le lieu NON bloqué (mettre
+      // le Cadenas sur le lieu déjà bloqué ne changerait rien). On propose donc ce lieu, et le
+      // joueur qui résout (Ursula pour Métamorphose ; celui qui pose la Fatalité pour Grimsby)
+      // décide de déplacer ou non. Le bot auto-résout (cf. App.tsx).
       const p = state.players[idx]
       const locked = p.lockedLocations ?? []
-      const dest = locked.includes('palais') ? 'repaire' : 'palais'
-      const next = updatePlayer(state, idx, (pp) => ({ ...pp, lockedLocations: [dest] }))
+      const dest: LocationId = locked.includes('palais') ? 'repaire' : 'palais'
       return {
-        ...next,
-        log: [
-          ...next.log,
-          `${p.villainName} déplace le Cadenas sur ${dest === 'palais' ? 'le Palais' : "le Repaire d'Ursula"}.`,
-        ],
+        ...state,
+        pendingUrsulaLock: { playerIndex: idx, chooserIndex: ctx?.playedBy ?? idx, dest },
       }
     }
     case 'TRANSFORM_GUARDS': {
@@ -7770,7 +7769,7 @@ export function resolveEffect(
         ...next,
         // Placement interactif du Héros tiré, PUIS action gratuite (jouer une Activité sans dépenser d'action).
         pendingFateHeroPlace: { chooserIndex: idx, targetIndex: idx, heroCardId: hero.cardId, heroName: hero.name, mode: 'place', thenFreeRealmAction: true },
-        log: [...next.log, `Radar de poche : ${actor.villainName} joue **${hero.name}** — choisissez le lieu (${nonHeroes.length} carte(s) défaussée(s)).`],
+        log: [...next.log, `Radar de poche : ${actor.villainName} joue **${hero.name}** — choisissez le lieu (${nonHeroes.length} ${plural(nonHeroes.length, 'carte')} ${plural(nonHeroes.length, 'défaussée')}).`],
       }
     }
     case 'UNGRANT_LOVE': {
@@ -7838,7 +7837,7 @@ export function resolveEffect(
       const gross = n * effect.amount
       const gained = Math.max(0, gross - realmPowerPenalty(state, idx))
       let next = updatePlayer(state, idx, (p) => ({ ...p, power: p.power + gained }))
-      next = { ...next, log: [...next.log, `${next.players[idx].villainName} gagne ${gained} JT (${n} carte(s) en défausse).`] }
+      next = { ...next, log: [...next.log, `${next.players[idx].villainName} gagne ${gained} JT (${n} ${plural(n, 'carte')} en défausse).`] }
       return pushRobinSteal(next, idx, gross - gained)
     }
     case 'REDUCE_HERO_STRENGTH_TEMP': {
@@ -7878,7 +7877,7 @@ export function resolveEffect(
         for (const l of pl.locations) board[l.id] = (board[l.id] ?? []).filter((c) => !ids.has(c.instanceId))
         return { ...pl, board, fateDiscard: [...pl.fateDiscard, ...toRemove.map((x) => x.card)] }
       })
-      return { ...next, log: [...next.log, `${p.villainName} retire ${toRemove.length} Pantoufle(s) de Verre (Canne).`] }
+      return { ...next, log: [...next.log, `${p.villainName} retire ${toRemove.length} ${plural(toRemove.length, 'Pantoufle')} de Verre (Canne).`] }
     }
     case 'TARGET_DISCARD_RANDOM': {
       // Fatalité (Bibbidi-Bobbidi-Boo / Doux Rossignol) : la cible défausse `count`
@@ -7893,7 +7892,7 @@ export function resolveEffect(
         hand: pl.hand.filter((c) => keep.has(c.instanceId)),
         discard: [...pl.discard, ...discarded],
       }))
-      return { ...next, log: [...next.log, `${p.villainName} défausse ${discarded.length} carte(s) au hasard.`] }
+      return { ...next, log: [...next.log, `${p.villainName} défausse ${discarded.length} ${plural(discarded.length, 'carte')} au hasard.`] }
     }
     case 'RESHUFFLE_FATE_DISCARD': {
       // Je ne reviens jamais sur ma parole : mélange la défausse Fatalité avec la
@@ -7920,7 +7919,7 @@ export function resolveEffect(
         if (c.isTitan && !c.trapped) next = patchCard(next, idx, c.instanceId, (x) => ({ ...x, trapped: true }))
       }
       const name = findLocation(actor, bestLoc)?.name ?? bestLoc
-      return { ...next, log: [...next.log, `Éclairs : ${bestN} Titan(s) entravé(s) sur **${name}**.`] }
+      return { ...next, log: [...next.log, `Éclairs : ${bestN} ${plural(bestN, 'Titan')} ${plural(bestN, 'entravé')} sur **${name}**.`] }
     }
     case 'OPEN_TITAN_SELECT': {
       // Héra (entrave) / Pégase (repousse) : le joueur qui a posé la Fatalité
@@ -8383,7 +8382,7 @@ export function resolveEffect(
         ...next,
         log: [
           ...next.log,
-          `${actor.villainName} exécute le Protocole Sombra : ${nPir} Piratage(s) détruit(s).`,
+          `${actor.villainName} exécute le Protocole Sombra : ${nPir} ${plural(nPir, 'Piratage')} ${plural(nPir, 'détruit')}.`,
         ],
       }
       if (allHacked) {
@@ -8412,7 +8411,7 @@ export function resolveEffect(
         ...next,
         log: [
           ...next.log,
-          `${actor.villainName} gagne ${gained} JT (${hackedLocs} lieu(x) + ${hackedHeroes} Héros piraté(s)) (Skycode).`,
+          `${actor.villainName} gagne ${gained} JT (${hackedLocs} ${plural(hackedLocs, 'lieu', 'lieux')} + ${hackedHeroes} Héros ${plural(hackedHeroes, 'piraté')}) (Skycode).`,
         ],
       }
     }
@@ -8490,7 +8489,7 @@ export function resolveEffect(
           drawn.length > 0
             ? { playerIndex: idx, drawnIds: drawn.map((c) => c.instanceId), discardCount: effect.discard }
             : next.pendingInformation,
-        log: [...next.log, `${actor.villainName} pioche ${drawn.length} carte(s) (Information).`],
+        log: [...next.log, `${actor.villainName} pioche ${drawn.length} ${plural(drawn.length, 'carte')} (Information).`],
       }
       return next
     }
@@ -9825,7 +9824,7 @@ export function resolveEffect(
         const next0 = updatePlayer(state, idx, (pp) => ({ ...pp, fateDiscard: pp.fateDiscard.filter((c) => c.instanceId !== hero.instanceId) }))
         const targets = smallestYzmaDecks(next0.players[idx], effect.count)
         const next = reformYzmaDecks(next0, idx, targets, [hero])
-        return { ...next, log: [...next.log, `**${hero.name}** est mélangé dans ${targets.length} pioche(s) Fatalité.`] }
+        return { ...next, log: [...next.log, `**${hero.name}** est mélangé dans ${targets.length} ${plural(targets.length, 'pioche')} Fatalité.`] }
       }
       return {
         ...state,
@@ -10112,7 +10111,7 @@ export function resolveEffect(
         power: p.power + (reward ? effect.rewardPower : 0),
       }))
       if (discarded.length > 0) {
-        next = { ...next, log: [...next.log, `${actor.villainName} défausse ${discarded.length} Allié(s) pour creuser un Tunnel de Hawkins.`] }
+        next = { ...next, log: [...next.log, `${actor.villainName} défausse ${discarded.length} ${plural(discarded.length, 'Allié')} pour creuser un Tunnel de Hawkins.`] }
       }
       if (reward) {
         next = { ...next, log: [...next.log, `🕳️ ${effect.rewardAtCount} Tunnels de Hawkins réunis : **+${effect.rewardPower} Pouvoir** !`] }
@@ -10855,7 +10854,7 @@ export function resolveEffect(
       const items = revealed.filter((c) => c.type === 'item')
       const others = revealed.filter((c) => c.type !== 'item')
       s = updatePlayer(s, idx, (pl) => ({ ...pl, fateDeck: remaining, fateDiscard: [...pl.fateDiscard, ...others] }))
-      s = { ...s, log: [...s.log, `Crustacé : dévoile ${revealed.length} carte(s) Fatalité (${items.length} Objet(s)).`] }
+      s = { ...s, log: [...s.log, `Crustacé : dévoile ${revealed.length} ${plural(revealed.length, 'carte')} Fatalité (${items.length} ${plural(items.length, 'Objet')}).`] }
       // Chaque Objet dévoilé (Cœur de Te Fiti / Quelque chose qui brille) est JOUÉ sur le
       // lieu DU CHOIX du joueur : on ouvre un pending de pose, un Objet à la fois.
       if (items.length === 0) return s
@@ -10924,7 +10923,7 @@ export function resolveEffect(
         ...pl,
         board: Object.fromEntries(pl.locations.map((l) => [l.id, (pl.board[l.id] ?? []).map((c) => (c.instanceId === tid ? { ...c, permanentStrengthDelta: (c.permanentStrengthDelta ?? 0) - effect.max } : c))])),
       }))
-      return { ...next, log: [...next.log, `${p.villainName} ajoute ${effect.max} jeton(s) Force −1 à un Héros.`] }
+      return { ...next, log: [...next.log, `${p.villainName} ajoute ${effect.max} ${plural(effect.max, 'jeton')} Force −1 à un Héros.`] }
     }
     case 'FETCH_MAUI_ATTACH_HOOK': {
       const existing = tamatoaFindHero(state.players[idx], 'maui')

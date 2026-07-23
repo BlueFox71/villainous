@@ -362,7 +362,7 @@ export const cruellaCards: CardDef[] = [
     type: 'hero',
     strength: 3,
     copies: 1,
-    text: 'Vous pouvez déplacer jusqu’à 2 Tuiles Chiots non capturées de n’importe quel(s) lieu(x) vers celui où vous jouez SERGENT TIBS.',
+    text: 'Vous pouvez déplacer jusqu’à 2 Tuiles Chiots non capturées de n’importe quel lieu vers celui où vous jouez SERGENT TIBS.',
     onPlace: [{ type: 'MOVE_BOARD_PUPPIES_TO_HERO', max: 2 }],
     image: img('sergent-tibs.webp'),
   },

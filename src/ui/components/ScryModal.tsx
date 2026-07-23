@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { CardInstance } from '../../engine/types'
 import { getCardDef } from '../../data/registry'
+import { plural } from '../../engine/plural'
 
 interface Props {
   /** Les (jusqu'à 2) cartes Fatalité révélées, dans l'ordre actuel de la pioche
@@ -78,7 +79,7 @@ export function ScryModal({ cards, onResolve, title = 'Sondage de la pioche Fata
       <div className="flex w-full max-w-lg flex-col items-center gap-4 rounded-2xl border border-white/15 bg-[#0b1020] p-6 text-white">
         <h2 className="text-xl font-black text-sky-200">{title}</h2>
         <p className="text-center text-sm text-white/70">
-          Les {cards.length} première(s) carte(s) de votre pioche Fatalité. Défaussez-les, ou
+          Les {cards.length} {plural(cards.length, 'première')} {plural(cards.length, 'carte')} de votre pioche Fatalité. Défaussez-les, ou
           remettez-les sur le dessus dans l'ordre de votre choix (la 1ʳᵉ sera piochée en premier).
         </p>
 
