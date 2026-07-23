@@ -16,6 +16,8 @@ interface Props {
   onVillainList: () => void
   /** Ouvrir l'atelier de création de vilains (éditeur). */
   onEditor: () => void
+  /** Ouvrir le rapport des tests (outil de dév). */
+  onTestReport: () => void
   /** Ouvrir l'écran de profil (statistiques). */
   onProfile: () => void
   /** Rejouer la cinématique d'intro. */
@@ -162,7 +164,7 @@ function CreditsModal({ onClose }: { onClose: () => void }) {
  * Menu principal : logo, entrées (Nouvelle partie, Liste des villains, Options),
  * et un panneau de notes de version listant les changements récents.
  */
-export function MainMenu({ onNewGame, onTutorial, onVillainList, onEditor, onProfile, onReplayIntro }: Props) {
+export function MainMenu({ onNewGame, onTutorial, onVillainList, onEditor, onTestReport, onProfile, onReplayIntro }: Props) {
   const playerName = usePlayerStore((s) => s.name)
   // L'Atelier des vilains est un outil de création réservé au dév : masqué dans
   // l'exe (et en simulation « .exe »), comme le Mode test et la Banque de sons.
@@ -228,6 +230,7 @@ export function MainMenu({ onNewGame, onTutorial, onVillainList, onEditor, onPro
         <MenuButton label="Liste des villains" onClick={onVillainList} />
         <MenuButton label="🎓 Tutoriel" onClick={onTutorial} />
         {!isDesktopApp && <MenuButton label="Atelier des vilains" onClick={onEditor} />}
+        {!isDesktopApp && <MenuButton label="Rapport des tests" onClick={onTestReport} />}
         <MenuButton label="Quitter" onClick={() => setConfirmQuit(true)} />
       </nav>
 

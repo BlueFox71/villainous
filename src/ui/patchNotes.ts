@@ -47,6 +47,17 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.9.2',
+    date: '2026-07-23',
+    title: 'Rapport des tests (outil de dév)',
+    tags: ['interface'],
+    changes: [
+      "Nouvelle page **Rapport des tests** (dév uniquement) : pour chaque vilain, une **appréciation** par testeur (**Jules** / **Alexis**) et par côté (**Joueur** / **Bot**).",
+      "Chaque note = **niveau coloré** (Non testé → À améliorer → Presque bien → Satisfaisant → Complet), **nombre de parties** testées et un **commentaire**.",
+      "Sauvegarde **automatique** dans un fichier **committé** (transmis à chaque commit).",
+    ],
+  },
+  {
     version: '1.9.1',
     date: '2026-07-22',
     title: 'Journal de partie enrichi (tous les vilains custom)',

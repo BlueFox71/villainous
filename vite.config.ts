@@ -716,9 +716,61 @@ function gitStagingPlugin(): Plugin {
   }
 }
 
+/**
+ * Plugin DEV uniquement : « Rapport des tests ». Lit/écrit le fichier committé
+ * `assets/test-report.json` (notes de test par vilain / testeur / côté joueur|bot).
+ *  - GET  `/__test-report`      → renvoie le JSON courant (ou un rapport vide si absent).
+ *  - POST `/__save-test-report` → écrit le JSON (corps = rapport BRUT), écriture atomique.
+ * `assets/` est ignoré du watcher Vite (cf. `server.watch.ignored`) : sauvegarder à
+ * chaque frappe ne recharge donc PAS la page. Le fichier étant committé, le rapport est
+ * transmis automatiquement à chaque commit. Absent du build de production (`apply: 'serve'`).
+ */
+function testReportPlugin(): Plugin {
+  const FILE = resolve(process.cwd(), 'assets/test-report.json')
+  const EMPTY = JSON.stringify({ version: 1, villains: {} }, null, 2)
+  return {
+    name: 'test-report',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__test-report', (req, res) => {
+        if (req.method !== 'GET') { res.statusCode = 405; res.end('GET only'); return }
+        try {
+          const json = existsSync(FILE) ? readFileSync(FILE, 'utf8') : EMPTY
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(json)
+        } catch (e) {
+          res.statusCode = 500
+          res.end(String((e as Error)?.message ?? e))
+        }
+      })
+      server.middlewares.use('/__save-test-report', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return }
+        let body = ''
+        req.on('data', (c) => { body += c })
+        req.on('end', () => {
+          try {
+            // Valide que le corps est bien du JSON avant d'écrire (rejette une écriture corrompue).
+            const parsed = JSON.parse(body) as unknown
+            if (typeof parsed !== 'object' || parsed === null) throw new Error('rapport invalide')
+            mkdirSync(dirname(FILE), { recursive: true })
+            atomicWriteFileSync(FILE, JSON.stringify(parsed, null, 2))
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ ok: true }))
+          } catch (e) {
+            res.statusCode = 400
+            res.end(String((e as Error)?.message ?? e))
+          }
+        })
+      })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), saveActionPosPlugin(), saveBlockedOverlayPlugin(), savePawnSizePlugin(), savePortraitPlugin(), saveVillainColorPlugin(), saveVillainAssetsPlugin(), saveVillainJsonPlugin(), readVillainJsonPlugin(), savePublishedVillainPlugin(), villainBackupPlugin(), saveVillainDifficultyPlugin(), gitStagingPlugin()],
+  plugins: [react(), tailwindcss(), saveActionPosPlugin(), saveBlockedOverlayPlugin(), savePawnSizePlugin(), savePortraitPlugin(), saveVillainColorPlugin(), saveVillainAssetsPlugin(), saveVillainJsonPlugin(), readVillainJsonPlugin(), savePublishedVillainPlugin(), villainBackupPlugin(), saveVillainDifficultyPlugin(), gitStagingPlugin(), testReportPlugin()],
   build: {
     // Multi-pages : le JEU (`index.html`) ET le LAUNCHER (`launcher.html`, petite
     // fenêtre d'accueil de l'app de bureau). Deux bundles distincts → le launcher

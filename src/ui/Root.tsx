@@ -17,6 +17,7 @@ import { GameModeSelect } from './screens/GameModeSelect'
 import { NetworkLobby } from './screens/NetworkLobby'
 import { Profile } from './screens/Profile'
 import { SoundTest } from './screens/SoundTest'
+import { TestReport } from './screens/TestReport'
 import { MenuMusicPlayer } from './components/MenuMusicPlayer'
 import { MenuBackground } from './components/MenuBackground'
 import { IntroCinematic } from './components/IntroCinematic'
@@ -38,6 +39,7 @@ const ROUTES = {
   editor: '/editeur',
   profile: '/profil',
   sounds: '/sons',
+  testReport: '/rapport-tests',
 } as const
 
 // --- Écrans câblés à la navigation par URL ---------------------------------
@@ -51,6 +53,7 @@ function MenuRoute({ onReplayIntro }: { onReplayIntro: () => void }) {
       onTutorial={() => { startTutorial(); navigate(ROUTES.game, { replace: true }) }}
       onVillainList={() => navigate(ROUTES.villains)}
       onEditor={() => navigate(ROUTES.editor)}
+      onTestReport={() => navigate(ROUTES.testReport)}
       onProfile={() => navigate(ROUTES.profile)}
       onReplayIntro={onReplayIntro}
     />
@@ -163,6 +166,14 @@ function SoundTestRoute() {
   return <SoundTest onBack={() => navigate(ROUTES.menu)} />
 }
 
+function TestReportRoute() {
+  const navigate = useNavigate()
+  // Rapport des tests = outil de dév : inaccessible dans l'exe, même par URL directe.
+  const isDesktopApp = useIsDesktopApp()
+  if (isDesktopApp) return <Navigate to={ROUTES.menu} replace />
+  return <TestReport onBack={() => navigate(ROUTES.menu)} />
+}
+
 /** Musique de menu : jouée sur les écrans hors-jeu, sauf la banque de sons (qui
  *  doit rester silencieuse) et l'écran de jeu (qui a sa propre musique). La liste
  *  des vilains a sa propre piste. La `key` force le remontage au changement de
@@ -260,6 +271,7 @@ export default function Root() {
         <Route path={ROUTES.editor} element={<EditorRoute />} />
         <Route path={ROUTES.profile} element={<ProfileRoute />} />
         <Route path={ROUTES.sounds} element={<SoundTestRoute />} />
+        <Route path={ROUTES.testReport} element={<TestReportRoute />} />
         {/* Route inconnue → menu. */}
         <Route path="*" element={<Navigate to={ROUTES.menu} replace />} />
       </Routes>
