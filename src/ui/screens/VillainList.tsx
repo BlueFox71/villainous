@@ -7,7 +7,7 @@ import { VILLAIN_GUIDE } from '../villainGuide'
 import { villainDecor } from '../villainDecor'
 import { villainAnimationList } from '../villainAnimations'
 import { villainHasSurprise } from '../surpriseBus'
-import { VILLAIN_PACKS, villainCreator } from '../villainPacks'
+import { villainCreator } from '../villainPacks'
 import { useFavoritesStore } from '../store/favoritesStore'
 import { useVillainOrderStore, orderRank } from '../store/villainOrderStore'
 import { DISNEY_RELEASE_ORDER, CREATOR_ORDER } from '../villainOrder'
@@ -77,54 +77,8 @@ const ALL_VILLAINS: VillainMeta[] = CATEGORIES.flatMap((cat) =>
   })),
 ).map((v, i) => ({ ...v, release: i }))
 
-/** Vilain « à venir » : membre d'un pack non encore développé (nom seul). */
-interface UpcomingMeta {
-  name: string
-  origin: Origin
-  /** Rang de tri : placés APRÈS tous les vilains réels (par ordre de pack). */
-  release: number
-  /** Portrait éventuel (affiché en noir & blanc sur la carte « à venir »). */
-  image?: string
-}
-
-/** Portraits des vilains « à venir » qui en ont un (clé = nom exact). */
-const UPCOMING_IMAGES: Record<string, string> = {
-  'Davy Jones': '/upcoming/davy-jones.png',
-  Tamatoa: '/upcoming/tamatoa.png',
-  'Sa Sucrerie': '/upcoming/sa-sucrerie.png',
-  'Shere Khan': '/upcoming/shere-khan.png',
-  'Team Rocket': '/upcoming/team-rocket.png',
-}
-/** Vilains de COLLABORATION à venir (hors packs officiels, pas encore développés). */
-const UPCOMING_COLLAB: string[] = [
-  'Grand Councilwoman',
-  'Malédiction des Madrigal',
-  'Pyramid Head',
-  'Les Hommes du Pilier',
-]
-
-/** Vilains DISNEY à venir hors packs déjà listés. */
-const UPCOMING_DISNEY: string[] = [
-  'Les sœurs Sanderson',
-  'Prince Hans',
-  'Ernesto de la Cruz',
-]
-
-const UPCOMING: UpcomingMeta[] = [
-  // Membres de packs officiels non encore développés.
-  ...VILLAIN_PACKS.flatMap((pack, pi) =>
-    (pack.otherMembers ?? []).map((name) => ({ name, origin: 'Disney' as Origin, release: 1000 + pi, image: UPCOMING_IMAGES[name] })),
-  ),
-  // Autres vilains Disney à venir.
-  ...UPCOMING_DISNEY.map((name, i) => ({ name, origin: 'Disney' as Origin, release: 1500 + i, image: UPCOMING_IMAGES[name] })),
-  // Collaborations à venir.
-  ...UPCOMING_COLLAB.map((name, i) => ({ name, origin: 'Collaborations' as Origin, release: 2000 + i, image: UPCOMING_IMAGES[name] })),
-]
-
-/** Élément de grille : un vilain réel (cliquable) ou un placeholder « à venir ». */
-type GridItem =
-  | { kind: 'villain'; name: string; origin: Origin; release: number; difficulty: number; meta: VillainMeta }
-  | { kind: 'upcoming'; name: string; origin: Origin; release: number; difficulty: number; image?: string }
+/** Élément de grille : un vilain (cliquable). */
+type GridItem = { kind: 'villain'; name: string; origin: Origin; release: number; difficulty: number; meta: VillainMeta }
 
 const DIFFICULTIES = [1, 2, 3, 4, 5]
 const ORIGINS: Origin[] = ['Disney', 'Marvel', 'Collaborations']
@@ -219,8 +173,6 @@ export function VillainList({ onBack }: Props) {
   // Filtres « collection » (joueur) : favoris + statut déjà joué.
   const [onlyFavorites, setOnlyFavorites] = useState(false)
   const [playedFilter, setPlayedFilter] = useState<PlayedFilter>('all')
-  // « À venir » : afficher aussi les vilains de packs non encore développés (placeholders).
-  const [showUpcoming, setShowUpcoming] = useState(false)
   const favorites = useFavoritesStore((s) => s.favorites)
   const toggleFavorite = useFavoritesStore((s) => s.toggleFavorite)
   // Ordre personnalisé des vilains (persistant) + mode « Modifier l'ordre ».
@@ -307,22 +259,16 @@ export function VillainList({ onBack }: Props) {
         matchesDevFilter(animFilter, v.hasAnim) &&
         matchesDevFilter(surpriseFilter, v.hasSurprise),
     ).map((v) => ({ kind: 'villain', name: v.name, origin: v.origin, release: v.release, difficulty: v.difficulty, meta: v }))
-    // « À venir » : vilains de packs non développés (filtrés seulement par recherche + origine).
-    const upcoming: GridItem[] = showUpcoming
-      ? UPCOMING.filter(
-          (u) => (q === '' || u.name.toLowerCase().includes(q)) && (origins.size === 0 || origins.has(u.origin)),
-        ).map((u) => ({ kind: 'upcoming', name: u.name, origin: u.origin, release: u.release, difficulty: Infinity, image: u.image }))
-      : []
     const rank = orderRank(customOrder)
-    const keyOf = (it: GridItem) => (it.kind === 'villain' ? it.meta.key : '')
-    return [...real, ...upcoming].sort((a, b) => {
+    const keyOf = (it: GridItem) => it.meta.key
+    return [...real].sort((a, b) => {
       if (sort === 'name') return a.name.localeCompare(b.name, 'fr')
       if (sort === 'difficulty') return a.difficulty - b.difficulty || a.release - b.release
       // « Sortie » : ordre personnalisé d'abord (vilains réordonnés à la main),
-      // puis ordre de sortie pour les vilains non encore placés (et les « à venir »).
+      // puis ordre de sortie pour les vilains non encore placés.
       return rank(keyOf(a)) - rank(keyOf(b)) || a.release - b.release
     })
-  }, [query, difficulties, origins, sort, onlyFavorites, playedFilter, favSet, stats, decorFilter, animFilter, surpriseFilter, showUpcoming, publishedMetas, customOrder, isDesktopApp])
+  }, [query, difficulties, origins, sort, onlyFavorites, playedFilter, favSet, stats, decorFilter, animFilter, surpriseFilter, publishedMetas, customOrder, isDesktopApp])
 
   const hasFilters =
     query.trim() !== '' ||
@@ -330,7 +276,6 @@ export function VillainList({ onBack }: Props) {
     origins.size > 0 ||
     onlyFavorites ||
     playedFilter !== 'all' ||
-    showUpcoming ||
     decorFilter !== 'all' ||
     animFilter !== 'all' ||
     surpriseFilter !== 'all'
@@ -340,7 +285,6 @@ export function VillainList({ onBack }: Props) {
     setOrigins(new Set())
     setOnlyFavorites(false)
     setPlayedFilter('all')
-    setShowUpcoming(false)
     setDecorFilter('all')
     setAnimFilter('all')
     setSurpriseFilter('all')
@@ -385,32 +329,8 @@ export function VillainList({ onBack }: Props) {
     if (last) moveVillain(from, last.meta.key, 'after')
   }
 
-  // Carte d'un élément de grille : vilain réel (cliquable) ou placeholder « à venir »
-  // (icône chantier, sans difficulté ni favori, non cliquable → pas de modal).
+  // Carte d'un élément de grille : un vilain (cliquable → fiche détaillée).
   const renderCard = (item: GridItem) => {
-    if (item.kind === 'upcoming') {
-      return (
-        <div
-          key={`up:${item.name}`}
-          className="relative flex flex-col gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.03] p-3 opacity-75"
-        >
-          {item.image ? (
-            // Portrait en noir & blanc (le vilain n'est pas encore développé).
-            <img
-              src={item.image}
-              alt={item.name}
-              className="aspect-square w-full rounded-lg border border-white/10 object-cover grayscale"
-            />
-          ) : (
-            <div className="flex aspect-square w-full items-center justify-center rounded-lg border border-white/10 bg-black/30 text-5xl">
-              🚧
-            </div>
-          )}
-          <h3 className="text-base font-bold text-white/60">{item.name}</h3>
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-300/60">🚧 À venir</span>
-        </div>
-      )
-    }
     const v = item.meta
     // Mode réorganisation : la carte devient une poignée de glisser-déposer (pas de
     // clic vers la fiche, pas de favori). Retour visuel : carte saisie estompée, cible
@@ -596,9 +516,13 @@ export function VillainList({ onBack }: Props) {
               type="button"
               onClick={enterReorder}
               onMouseEnter={playHover}
-              className="rounded-lg border border-emerald-400/60 bg-emerald-500/20 px-3 py-1.5 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/30"
+              title="Modifier l'ordre des villains"
+              className="group flex items-center rounded-lg border border-emerald-400/60 bg-emerald-500/20 px-3 py-1.5 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/30"
             >
-              ↕ Modifier l'ordre des villains
+              <span className="text-base leading-none">↕</span>
+              <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-out group-hover:ml-2 group-hover:max-w-[16rem] group-hover:opacity-100">
+                Modifier l'ordre des villains
+              </span>
             </button>
           ))}
           <button
@@ -778,24 +702,6 @@ export function VillainList({ onBack }: Props) {
               })}
             </div>
           </div>
-
-          {/* À venir : afficher aussi les vilains de packs non encore développés (placeholders). */}
-          <button
-            type="button"
-            onClick={() => setShowUpcoming((v) => !v)}
-            onMouseEnter={playHover}
-            aria-pressed={showUpcoming}
-            className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-1.5 text-left text-sm transition ${
-              showUpcoming
-                ? 'border-amber-300/60 bg-amber-400/20 text-amber-200'
-                : 'border-white/15 text-white/70 hover:bg-white/10'
-            }`}
-          >
-            <span>🚧 Vilains à venir</span>
-            <span className={`text-xs ${showUpcoming ? 'text-amber-200/80' : 'text-white/40'}`}>
-              {showUpcoming ? 'affichés' : 'masqués'}
-            </span>
-          </button>
 
           {/* Section Développeur : suivi du contenu visuel, masquée dans l'exe (joueurs). */}
           {!isDesktopApp && (

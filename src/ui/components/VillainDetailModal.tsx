@@ -9,7 +9,7 @@ import { villainPack, villainCreator } from '../villainPacks'
 import { useIsDesktopApp } from '../store/settingsStore'
 import { Scroller } from './Scroller'
 import { LoadingImage } from './LoadingImage'
-import { VillainEditModal } from './VillainEditModal'
+import { DeckGallery } from './CardGallery'
 import { playPageFlip, playCardHover, playTinyButtonPress } from '../sfx'
 import { playVillainPhrase, villainPhraseUrl } from '../villainVoices'
 
@@ -22,75 +22,9 @@ interface Props {
   /** Aller à la fiche du vilain suivant (absent = pas de suivant). */
   onNext?: () => void
   /** Vue allégée « en partie » (ouverte depuis la jauge d'objectif) : on masque
-   *  histoire, présentation, devise, audio, pastille couleur, bouton Modifier,
-   *  bouton « Voir le plateau » et le pied (pack / créateur + pion). */
+   *  histoire, présentation, devise, audio, pastille couleur, bouton « Voir le
+   *  plateau » et le pied (pack / créateur + pion). */
   inGame?: boolean
-}
-
-/** Libellé court du type de carte (pour le survol). */
-const TYPE_LABEL: Record<string, string> = {
-  ally: 'Allié',
-  item: 'Objet',
-  effect: 'Événement',
-  condition: 'Condition',
-  hero: 'Héros',
-  curse: 'Malédiction',
-  ingredient: 'Ingrédient',
-}
-
-/** Une carte du paquet, avec une pastille « ×N exemplaires » et un aperçu agrandi
- *  au survol (grand visuel centré à l'écran, non rogné par le défilement). */
-function CardThumb({ card }: { card: CardDef }) {
-  const [hover, setHover] = useState(false)
-  return (
-    <div className="flex flex-col gap-1">
-      <figure
-        className="relative m-0 cursor-zoom-in transition-transform duration-150 ease-out hover:scale-[1.04]"
-        onMouseEnter={() => { playCardHover(); setHover(true) }}
-        onMouseLeave={() => setHover(false)}
-      >
-        <LoadingImage
-          src={card.image}
-          alt={card.name}
-          title={`${card.name} — ${TYPE_LABEL[card.type] ?? card.type}`}
-          wrapperClassName="aspect-[1440/2044] w-full rounded-lg border border-white/15"
-          className="h-full w-full object-cover"
-          spinnerSize="sm"
-        />
-        <span className="absolute right-1 top-1 z-20 rounded-full border border-white/30 bg-black/80 px-1.5 text-[11px] font-bold text-white">
-          ×{card.copies}
-        </span>
-      </figure>
-      {hover && (
-        <div className="pointer-events-none fixed inset-0 z-[60] flex items-center justify-start p-6 pl-[6vw]">
-          <div className="flex max-w-[60vw] flex-col items-start gap-2">
-            <img
-              src={card.image}
-              alt={card.name}
-              className="max-h-[40vh] w-auto max-w-full rounded-2xl border border-white/25 shadow-2xl"
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/** Grille d'un paquet (Vilain ou Fatalité) : une vignette par carte unique. */
-function DeckGallery({ title, cards, count }: { title: string; cards: CardDef[]; count: number }) {
-  if (cards.length === 0) return null
-  return (
-    <section>
-      <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-purple-300">
-        {title} <span className="font-normal text-white/40">({count} cartes)</span>
-      </h3>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
-        {cards.map((c) => (
-          <CardThumb key={c.id} card={c} />
-        ))}
-      </div>
-    </section>
-  )
 }
 
 /** Note de difficulté en étoiles (pleines / vides) sur `max`. */
@@ -138,7 +72,6 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext, inGame = 
   const isDesktopApp = useIsDesktopApp()
   const [packHover, setPackHover] = useState(false)
   // Édition du vilain (outil de dév, masqué en exe ; vilains natifs uniquement).
-  const [editing, setEditing] = useState(false)
 
   const custom = isCustomKey(villain)
   // Vilain d'origine Marvel : sa Fatalité est COMPLÉTÉE par 5 Héros tirés du pool commun
@@ -178,29 +111,38 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext, inGame = 
 
   // Cartes du vilain, séparées par paquet et triées par nombre d'exemplaires.
   const byCopies = (a: CardDef, b: CardDef) => b.copies - a.copies || a.name.localeCompare(b.name)
+  // Pour les vilains CUSTOM, on lit les cartes BRUTES (elles conservent `group`, retiré par
+  // `toCardDefs`) afin d'isoler les PAQUETS PERSONNALISÉS (ex. « Combattant » de Sumbra/
+  // Kilaire) — sinon leurs cartes (deck: 'fate') se mélangent au deck Fatalité. Natifs : v.cards.
+  const rawCards: (CardDef & { group?: string })[] = custom ? (customVillainOf(villain)?.cards ?? v.cards) : v.cards
   // Dio — cartes du paquet « Stand » (hors deck) : les Stands invoqués (`isStand`) ET The
   // World, qui en fait partie même s'il entre en jeu d'emblée (il n'est pas `isStand`).
   const isStandPile = (c: CardDef) => c.isStand || c.id === 'the-world'
   // Thanos — les PIERRES D'INFINITÉ sont une réserve À PART (hors deck Méchant), bien
   // qu'elles portent `deck: 'villain'`.
-  const villainCards = v.cards.filter((c) => c.deck === 'villain' && !isStandPile(c) && !c.isInfinityStone).sort(byCopies)
-  const stoneCards = v.cards.filter((c) => c.isInfinityStone).sort(byCopies)
+  const villainCards = rawCards.filter((c) => c.deck === 'villain' && !c.group && !isStandPile(c) && !c.isInfinityStone).sort(byCopies)
+  const stoneCards = rawCards.filter((c) => c.isInfinityStone).sort(byCopies)
   // Madame Mim — les Métamorphoses de Merlin sont une pioche À PART (entre le deck
   // Vilain et la Fatalité traditionnelle), bien qu'elles portent `deck: 'fate'`.
-  const merlinCards = v.cards.filter((c) => c.isMerlinTransformation).sort(byCopies)
+  const merlinCards = rawCards.filter((c) => c.isMerlinTransformation).sort(byCopies)
   // Tamatoa — la pioche MAUI est une pioche À PART (entre le deck Vilain et la Fatalité),
   // bien que ses cartes portent `deck: 'fate'`.
-  const mauiCards = v.cards.filter((c) => c.isMauiCard).sort(byCopies)
+  const mauiCards = rawCards.filter((c) => c.isMauiCard).sort(byCopies)
   // Dio — les Stands sont une « pioche » À PART (entre le deck Vilain et la Fatalité) :
   // hors deck, invoqués/associés en jeu. The World en fait partie (posé en jeu dès le
   // début). On affiche d'abord les Stands « côté Vilain » (The World, Cream, Justice…),
   // puis les Stands « côté Fatalité » (associés aux Héros Joestar).
-  const standCards = v.cards
+  const standCards = rawCards
     .filter(isStandPile)
     .sort((a, b) => (a.deck === 'villain' ? 0 : 1) - (b.deck === 'villain' ? 0 : 1) || byCopies(a, b))
-  const fateCards = v.cards
-    .filter((c) => c.deck === 'fate' && !c.isMerlinTransformation && !c.isMauiCard && !c.isStand)
+  const fateCards = rawCards
+    .filter((c) => c.deck === 'fate' && !c.group && !c.isMerlinTransformation && !c.isMauiCard && !c.isStand)
     .sort(byCopies)
+  // Paquets PERSONNALISÉS (custom) : une galerie par `group` (ex. « Combattant »).
+  const groupDecks = [...new Set(rawCards.map((c) => c.group).filter(Boolean) as string[])].map((name) => ({
+    name,
+    cards: rawCards.filter((c) => c.group === name).sort(byCopies),
+  }))
   const sumCopies = (cards: CardDef[]) => cards.reduce((n, c) => n + c.copies, 0)
 
   return (
@@ -296,19 +238,6 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext, inGame = 
                       style={{ backgroundColor: villainColor }}
                       title={`Couleur ${villainColor}`}
                     />
-                  )}
-                  {/* Modifier (outil de dév) : couleur / portrait / difficulté. Masqué en
-                      exe ET quand on simule le mode application (`!isDesktopApp`) — comme les
-                      autres outils de dév. Vilains natifs uniquement (perso → Atelier).
-                      Affiché seulement sur la FICHE (ni en vue cartes, ni en vue plateau). */}
-                  {!isDesktopApp && !custom && !showCards && !showBoard && !showMarvel && !inGame && (
-                    <button
-                      type="button"
-                      onClick={() => { playTinyButtonPress(); setEditing(true) }}
-                      className="rounded-lg border border-lime-400/60 px-3 py-1 text-sm font-semibold text-lime-200 hover:bg-lime-500/15"
-                    >
-                      ✏️ Modifier
-                    </button>
                   )}
                   <button
                     type="button"
@@ -432,6 +361,10 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext, inGame = 
                 <DeckGallery title="Stands" cards={standCards} count={sumCopies(standCards)} />
               )}
               <DeckGallery title="Deck Fatalité" cards={fateCards} count={sumCopies(fateCards)} />
+              {/* Paquets personnalisés (ex. « Combattant » de Sumbra/Kilaire) : une galerie dédiée. */}
+              {groupDecks.map((g) => (
+                <DeckGallery key={g.name} title={`Paquet « ${g.name} »`} cards={g.cards} count={sumCopies(g.cards)} />
+              ))}
             </div>
           ) : (
             <>
@@ -516,11 +449,6 @@ export function VillainDetailModal({ villain, onClose, onPrev, onNext, inGame = 
       </div>
     </div>
 
-      {/* Éditeur du vilain (couleur / portrait / difficulté) — outil de dév. Hors du
-          backdrop de la fiche pour qu'un clic sur son fond ne ferme pas aussi la fiche. */}
-      {editing && (
-        <VillainEditModal villain={villain as VillainKey} onClose={() => setEditing(false)} />
-      )}
     </>
   )
 }

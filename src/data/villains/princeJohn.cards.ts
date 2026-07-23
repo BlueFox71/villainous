@@ -29,6 +29,7 @@ export const princeJohnCards: CardDef[] = [
     copies: 1,
     text: "Vous pouvez déplacer le Shérif de Nottingham vers un autre lieu à chaque tour. Gagnez 1 Pouvoir si au moins un Héros s'y trouve.",
     image: img('sherif_nottingham.webp'),
+    journal: 'Le Shérif de Nottingham rejoint le royaume.',
   },
   {
     id: 'gardes-rhinoceros',
@@ -41,6 +42,7 @@ export const princeJohnCards: CardDef[] = [
     copies: 3,
     text: 'Aucune capacité.',
     image: img('gardes_rhinoceros.webp'),
+    journal: 'Les Gardes Rhinocéros rejoignent le royaume.',
   },
   {
     id: 'archers-loups',
@@ -53,6 +55,7 @@ export const princeJohnCards: CardDef[] = [
     copies: 3,
     text: 'Les Archers Loups peuvent éliminer un Héros sur leur lieu ou sur un lieu voisin.',
     image: img('archers_loups.webp'),
+    journal: 'Les Archers Loups rejoignent le royaume.',
   },
   {
     id: 'niquedouille',
@@ -66,6 +69,7 @@ export const princeJohnCards: CardDef[] = [
     text: 'La force des Alliés qui se trouvent sur le même lieu que Niquedouille est augmentée de 1.',
     image: img('niquedouille.webp'),
     strengthMod: { target: 'allies-here', delta: 1, excludeSelf: true },
+    journal: 'Niquedouille rejoint le royaume.',
   },
   {
     id: 'pendard',
@@ -79,6 +83,7 @@ export const princeJohnCards: CardDef[] = [
     text: 'La force des autres Alliés qui se trouvent sur le même lieu que Pendard est réduite de 1.',
     image: img('pendard.webp'),
     strengthMod: { target: 'allies-here', delta: -1, excludeSelf: true },
+    journal: 'Pendard rejoint le royaume.',
   },
   {
     id: 'persifleur',
@@ -91,6 +96,7 @@ export const princeJohnCards: CardDef[] = [
     copies: 1,
     text: 'Si vous déplacez votre figurine sur le lieu où se trouve Persifleur, vous pouvez effectuer une action recouverte par un Héros sur ce lieu.',
     image: img('persifleur.webp'),
+    journal: 'Persifleur rejoint le royaume.',
   },
 
   // ----------------------------------------------------------------------
@@ -106,6 +112,7 @@ export const princeJohnCards: CardDef[] = [
     copies: 3,
     text: "Gagnez 2 Pouvoir à chaque fois qu'un Héros est joué sur ce lieu.",
     image: img('mandat_arret.webp'),
+    journal: 'Mandat d’Arrêt : chaque Héros joué sur {nomLieu} rapporte 2 JT.',
   },
   {
     id: 'arc-fleches',
@@ -119,6 +126,7 @@ export const princeJohnCards: CardDef[] = [
     copies: 2,
     text: 'Associez cette carte à un Allié. Sa force augmente de 1. Si vous devez défausser cet Allié, défaussez cet Objet à la place.',
     image: img('arc_fleches.webp'),
+    journal: 'Arc et Flèches : {nomAllié} gagne +1 Force.',
   },
   {
     id: 'fleche-or',
@@ -131,6 +139,7 @@ export const princeJohnCards: CardDef[] = [
     copies: 1,
     text: 'Associez cette carte à un Allié. Si cet Allié élimine un Héros, gagnez 2 Pouvoir.',
     image: img('fleche_or.webp'),
+    journal: 'Flèche d’Or : {nomAllié} rapporte 2 JT s’il élimine un Héros.',
   },
   {
     id: 'couronne-roi-richard',
@@ -142,6 +151,7 @@ export const princeJohnCards: CardDef[] = [
     copies: 1,
     text: 'Les cartes vous coûtent 1 Pouvoir de moins quand vous vous trouvez sur ce lieu.',
     image: img('couronne_roi_richard.webp'),
+    journal: 'Couronne du Roi Richard : les cartes coûtent 1 JT de moins sur {nomLieu}.',
   },
 
   // ----------------------------------------------------------------------
@@ -158,6 +168,7 @@ export const princeJohnCards: CardDef[] = [
     text: 'Gagnez 1 Pouvoir par Héros dans votre royaume.',
     image: img('magnifiques_taxes.webp'),
     effects: [{ type: 'GAIN_POWER_PER_HERO_IN_REALM', amount: 1 }],
+    journal: 'Magnifiques Taxes : gagne {NbJT} JT.',
   },
   {
     id: 'emprisonnement',
@@ -170,6 +181,7 @@ export const princeJohnCards: CardDef[] = [
     text: 'Déplacez un Héros sur la Prison.',
     image: img('emprisonnement.webp'),
     effects: [{ type: 'MOVE_HERO_TO_LOCATION', locationId: 'jail' }],
+    journal: 'Emprisonnement : {nomHéros} est déplacé sur la Prison.',
   },
   {
     id: 'tendre-piege',
@@ -185,6 +197,9 @@ export const princeJohnCards: CardDef[] = [
       { type: 'MOVE_ALLY_FREELY' },
       { type: 'VANQUISH_HERO', keepAllies: false },
     ],
+    journal:
+      'Tendre un Piège : {nomAllié} se déplace, puis {nomHéros} est éliminé.\n' +
+      'Tendre un Piège : {nomAllié} se déplace et tend un piège.',
   },
   {
     id: 'intimidation',
@@ -197,6 +212,7 @@ export const princeJohnCards: CardDef[] = [
     text: 'Faites une action Éliminer un Héros. Les Alliés utilisés ne sont pas défaussés.',
     image: img('intimidation.webp'),
     effects: [{ type: 'VANQUISH_HERO', keepAllies: true }],
+    journal: 'Intimidation : {nomHéros} est éliminé sans épuiser les Alliés engagés.',
   },
 
   // ----------------------------------------------------------------------
@@ -213,6 +229,7 @@ export const princeJohnCards: CardDef[] = [
     text: "Cette carte est jouable pendant le tour d'un adversaire s'il possède au moins 6 Pouvoir. Gagnez 3 Pouvoir.",
     image: img('avarice.webp'),
     trigger: { type: 'opponent-power-ge', value: 6 },
+    journal: 'Avarice : profite de la richesse adverse et gagne 3 JT.',
   },
   {
     id: 'lachete',
@@ -225,6 +242,7 @@ export const princeJohnCards: CardDef[] = [
     text: "Cette carte est jouable pendant le tour d'un adversaire s'il possède au moins 3 Alliés dans son royaume. Jouez un Allié gratuitement.",
     image: img('lachete.webp'),
     trigger: { type: 'opponent-allies-in-realm-ge', value: 3, requiresOwnAlly: true },
+    journal: 'Lâcheté : joue {nomAllié} gratuitement.',
   },
 
   // ----------------------------------------------------------------------
@@ -240,6 +258,7 @@ export const princeJohnCards: CardDef[] = [
     copies: 1,
     text: 'Les cartes et les actions du royaume du Prince Jean lui rapportent 1 Pouvoir de moins.',
     image: img('robin_des_bois.webp'),
+    journal: 'Robin des Bois apparaît : les cartes et actions du royaume rapportent 1 JT de moins.',
   },
   {
     id: 'petit-jean',
@@ -253,6 +272,7 @@ export const princeJohnCards: CardDef[] = [
     image: img('petit_jean.webp'),
     // Bloc B (Vanquish) : à l'élimination, restituer lockedPower au PJ.
     onPlace: [{ type: 'LOSE_POWER_TO_HOST', amount: 4 }],
+    journal: 'Petit Jean apparaît : il emporte 4 JT tant qu’il n’est pas éliminé.',
   },
   {
     id: 'roi-richard',
@@ -265,6 +285,7 @@ export const princeJohnCards: CardDef[] = [
     blocksVillainEvents: true,
     text: 'Le Prince Jean ne peut plus jouer de cartes Événement.',
     image: img('roi_richard.webp'),
+    journal: 'Le Roi Richard apparaît : plus aucun Événement ne peut être joué.',
   },
   {
     id: 'dame-gertrude',
@@ -277,6 +298,7 @@ export const princeJohnCards: CardDef[] = [
     text: 'Dame Gertrude ne peut être ni jouée ni déplacée sur la Prison.',
     image: img('dame_gertrude.webp'),
     forbiddenLocations: ['jail'],
+    journal: 'Dame Gertrude apparaît : elle ne peut pas être menée en Prison.',
   },
   {
     id: 'belle-marianne',
@@ -289,6 +311,7 @@ export const princeJohnCards: CardDef[] = [
     text: 'Dès que Belle Marianne est éliminée, cherchez immédiatement Robin des Bois et placez-le sur le même lieu.',
     image: img('belle_marianne.webp'),
     onVanquish: [{ type: 'SEARCH_AND_PLACE_HERO', cardId: 'robin-des-bois' }],
+    journal: 'Belle Marianne apparaît : l’éliminer fait accourir Robin des Bois.',
   },
   {
     id: 'frere-tuck',
@@ -301,6 +324,7 @@ export const princeJohnCards: CardDef[] = [
     text: "Défaussez tous les Mandats d'Arrêt sur le lieu où vous jouez Frère Tuck. Ils ne rapportent plus aucun Pouvoir au Prince Jean.",
     image: img('frere_tuck.webp'),
     onPlace: [{ type: 'DISCARD_CARDS_AT_HOST', cardId: 'mandat-arret' }],
+    journal: 'Frère Tuck apparaît : les Mandats d’Arrêt de son lieu sont défaussés.',
   },
   {
     id: 'adam-halle',
@@ -313,6 +337,7 @@ export const princeJohnCards: CardDef[] = [
     text: 'La force de tous les autres Héros augmente de 1.',
     image: img('adam_halle.webp'),
     strengthMod: { target: 'heroes-realm', delta: 1, excludeSelf: true },
+    journal: 'Adam de la Halle apparaît : les autres Héros gagnent +1 Force.',
   },
   {
     id: 'bobby',
@@ -324,6 +349,7 @@ export const princeJohnCards: CardDef[] = [
     copies: 1,
     text: "Le Prince Jean ne peut pas utiliser d'Archers Loups pour éliminer Bobby.",
     image: img('bobby.webp'),
+    journal: 'Bobby apparaît : les Archers Loups ne peuvent pas l’éliminer.',
   },
   {
     id: 'toby',
@@ -336,6 +362,7 @@ export const princeJohnCards: CardDef[] = [
     text: 'Si Toby est éliminé, placez-le dans la pioche de cartes Fatalité et remélangez-la.',
     image: img('toby.webp'),
     onVanquish: [{ type: 'RESHUFFLE_HOST_INTO_FATE_DECK' }],
+    journal: 'Toby apparaît : éliminé, il retourne dans la pioche Fatalité.',
   },
 
   // ----------------------------------------------------------------------
@@ -350,6 +377,7 @@ export const princeJohnCards: CardDef[] = [
     copies: 3,
     text: 'Retirez jusqu’à 4 Pouvoir au Prince Jean et placez-les sur un Héros au choix. Si ce Héros est éliminé, le Prince Jean récupère ces Pouvoir.',
     image: img('voler_riches.webp'),
+    journal: 'Voler aux Riches : jusqu’à 4 JT du Prince Jean sont placés sur {nomHéros}.',
   },
 
   // ----------------------------------------------------------------------
@@ -365,6 +393,7 @@ export const princeJohnCards: CardDef[] = [
     copies: 3,
     text: 'Associez cette carte à un Héros. Ce Héros ne peut pas être éliminé. À tout moment, le Prince Jean peut payer 2 Pouvoir pour défausser cette carte.',
     image: img('deguisement.webp'),
+    journal: 'Déguisement : {nomHéros} devient inéliminable.',
   },
 ]
 

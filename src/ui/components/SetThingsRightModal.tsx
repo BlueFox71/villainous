@@ -21,15 +21,20 @@ export function SetThingsRightModal({ target, onResolve }: Props) {
         <p className="text-center text-sm text-white/70">
           Main de {target.villainName} — choisis une carte à défausser :
         </p>
-        <div className="flex flex-wrap justify-center gap-2">
+        <div className="flex flex-wrap justify-center gap-3 py-4">
           {hand.map((c) => (
             <button
               key={c.instanceId}
               type="button"
               onClick={() => onResolve(c.instanceId)}
-              className="flex flex-col items-center gap-1 rounded-lg border border-white/20 p-2 hover:border-amber-400 hover:bg-white/10"
+              title={c.name}
+              className="relative rounded-lg"
             >
-              <img src={getCardDef(c.cardId)?.image} alt={c.name} className="w-24 rounded" />
+              <img
+                src={getCardDef(c.cardId)?.image}
+                alt={c.name}
+                className="w-28 rounded-lg border border-white/20 transition-transform duration-150 ease-out hover:z-10 hover:scale-[1.6] hover:border-amber-400"
+              />
             </button>
           ))}
         </div>

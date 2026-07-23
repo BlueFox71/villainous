@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { CardInstance, Location, VillainDef } from '../types'
 import { createInitialGame, type PlayerSetup } from '../state'
-import { applyAction } from '../actions'
+import { applyAction, bestJournalLine } from '../actions'
 import { resolveEffect } from '../effects'
 import { fillJournal, journalLine, journalLogLine, JOURNAL_TAG_RE } from '../journalTemplate'
 
@@ -318,5 +318,64 @@ describe('journalTemplate — effets qui exposent des noms (journalVars)', () =>
     const withDeck = { ...g, players: g.players.map((p, i) => (i === 0 ? { ...p, deck: [ally], discard: [] } : p)) }
     const after = resolveEffect(withDeck, { type: 'REVEAL_UNTIL_ALLY_PLAY_FREE' }, { actorIndex: 0 })
     expect(after.journalVars?.['nomAllié']).toBe('Marie')
+  })
+
+  // --- Prince Jean : cibles interactives exposées sur des Effect PARTAGÉS -----
+  it('MOVE_HERO_TO_LOCATION expose {nomHéros} (Emprisonnement)', () => {
+    const g = gameWith({ instanceId: 'p0:d', cardId: 'd', name: 'd', type: 'ally', cost: 1 })
+    const hero: CardInstance = { instanceId: 'h1', cardId: 'h1', name: 'Robin des Bois', type: 'hero', strength: 3 }
+    const withHero = { ...g, players: g.players.map((p, i) => (i === 0 ? { ...p, board: { ...p.board, 'loc-1': [hero] } } : p)) }
+    const after = resolveEffect(withHero, { type: 'MOVE_HERO_TO_LOCATION', locationId: 'loc-2' }, { actorIndex: 0, targetHeroId: 'h1' })
+    expect(after.journalVars?.['nomHéros']).toBe('Robin des Bois')
+  })
+
+  it('VANQUISH_HERO expose {nomHéros} (Intimidation, Tendre un Piège)', () => {
+    const g = gameWith({ instanceId: 'p0:d', cardId: 'd', name: 'd', type: 'ally', cost: 1 })
+    const hero: CardInstance = { instanceId: 'h1', cardId: 'h1', name: 'Petit Jean', type: 'hero', strength: 1 }
+    const ally: CardInstance = { instanceId: 'a1', cardId: 'a1', name: 'Pendard', type: 'ally', strength: 3 }
+    const withBoard = { ...g, players: g.players.map((p, i) => (i === 0 ? { ...p, board: { ...p.board, 'loc-1': [hero, ally] } } : p)) }
+    const after = resolveEffect(withBoard, { type: 'VANQUISH_HERO', keepAllies: true }, { actorIndex: 0, targetHeroId: 'h1', allyInstanceIds: ['a1'] })
+    expect(after.journalVars?.['nomHéros']).toBe('Petit Jean')
+  })
+
+  it('MOVE_ALLY_FREELY expose {nomAllié} (Tendre un Piège)', () => {
+    const g = gameWith({ instanceId: 'p0:d', cardId: 'd', name: 'd', type: 'ally', cost: 1 })
+    const ally: CardInstance = { instanceId: 'a1', cardId: 'a1', name: 'Shérif de Nottingham', type: 'ally', strength: 3 }
+    const withBoard = { ...g, players: g.players.map((p, i) => (i === 0 ? { ...p, board: { ...p.board, 'loc-1': [ally] } } : p)) }
+    const after = resolveEffect(withBoard, { type: 'MOVE_ALLY_FREELY' }, { actorIndex: 0, allyMove: { instanceId: 'a1', to: 'loc-2' } })
+    expect(after.journalVars?.['nomAllié']).toBe('Shérif de Nottingham')
+  })
+
+  it('LOSE_POWER_TO_HOST expose {nomHéros} quand l’hôte est un Héros (Voler aux Riches)', () => {
+    const g = gameWith({ instanceId: 'p0:d', cardId: 'd', name: 'd', type: 'ally', cost: 1 })
+    const hero: CardInstance = { instanceId: 'h1', cardId: 'h1', name: 'Robin des Bois', type: 'hero', strength: 3 }
+    const withBoard = { ...g, players: g.players.map((p, i) => (i === 0 ? { ...p, power: 5, board: { ...p.board, 'loc-1': [hero] } } : p)) }
+    const after = resolveEffect(withBoard, { type: 'LOSE_POWER_TO_HOST', amount: 4 }, { actorIndex: 0, hostInstanceId: 'h1' })
+    expect(after.journalVars?.['nomHéros']).toBe('Robin des Bois')
+    expect(after.players[0].power).toBe(1)
+  })
+})
+
+// --- Repli multi-ligne (cible FACULTATIVE non résolue → ligne alternative) ---
+describe('journalTemplate — bestJournalLine (repli de ligne)', () => {
+  const player = gameWith({ instanceId: 'p0:d', cardId: 'd', name: 'd', type: 'ally', cost: 1 }).players[0]
+  const tpl =
+    'Tendre un Piège : {nomAllié} se déplace, puis {nomHéros} est éliminé.\n' +
+    'Tendre un Piège : {nomAllié} se déplace et tend un piège.'
+
+  it('ligne 0 si tous ses placeholders sont résolus', () => {
+    const out = bestJournalLine(tpl, { nomAllié: 'Pendard', nomHéros: 'Robin des Bois' }, player)
+    expect(out).toBe('Tendre un Piège : Pendard se déplace, puis Robin des Bois est éliminé.')
+  })
+
+  it('repli sur la ligne suivante entièrement remplie si la ligne 0 a un {clé} non résolu', () => {
+    // Élimination facultative NON effectuée : {nomHéros} manque → ligne de repli.
+    const out = bestJournalLine(tpl, { nomAllié: 'Pendard' }, player)
+    expect(out).toBe('Tendre un Piège : Pendard se déplace et tend un piège.')
+  })
+
+  it('dernier recours : ligne 0 littérale si aucune ligne ne se remplit', () => {
+    const out = bestJournalLine('élimine {nomHéros}.', {}, player)
+    expect(out).toBe('élimine {nomHéros}.')
   })
 })

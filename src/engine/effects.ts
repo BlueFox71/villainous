@@ -1915,7 +1915,10 @@ export function performVanquish(
   }
   // Yzma — Kuzco ne reste JAMAIS en défausse Fatalité : s'il vient d'y être
   // éliminé (sans Kronk), il est remélangé avec les 4 pioches, reformées également.
-  return reshuffleYzmaIfKuzcoDiscarded(next, state.activePlayer)
+  const done = reshuffleYzmaIfKuzcoDiscarded(next, state.activePlayer)
+  // Journal data-driven : expose le Héros vaincu ({nomHéros}, ex. Intimidation, Tendre un Piège).
+  // Point de sortie UNIQUE de toute élimination → profite à toute carte qui logue un Vanquish.
+  return { ...done, journalVars: { ...done.journalVars, ['nomHéros']: heroCard.name } }
 }
 
 /** Yzma — Kuzco ne peut JAMAIS rester dans la défausse Fatalité : s'il y atterrit
@@ -5426,8 +5429,14 @@ export function resolveEffect(
         lockedPower: (c.lockedPower ?? 0) + taken,
       }))
       const after = next.players[idx]
+      // Journal data-driven : si l'hôte est un Héros, expose son nom ({nomHéros}, ex. Voler aux Riches).
+      const hostCard = Object.values(after.board).flat().find((c) => c.instanceId === ctx.hostInstanceId)
       return {
         ...next,
+        journalVars:
+          hostCard?.type === 'hero'
+            ? { ...next.journalVars, ['nomHéros']: hostCard.name }
+            : next.journalVars,
         log: [
           ...next.log,
           `${after.villainName} perd ${taken} JT, transférés sur une carte (total : ${after.power}).`,
@@ -5558,6 +5567,8 @@ export function resolveEffect(
       }))
       next = {
         ...next,
+        // Journal data-driven : expose le Héros déplacé ({nomHéros}, ex. Emprisonnement).
+        journalVars: { ...next.journalVars, ['nomHéros']: hero.name },
         log: [...next.log, `**${hero.name}** est déplacé(e) sur **${dest}**.`],
       }
       // Davy Jones — Will Turner : « joué OU déplacé » → défausse un Allié de force ≤ 2 de
@@ -5598,6 +5609,8 @@ export function resolveEffect(
       }))
       return {
         ...next,
+        // Journal data-driven : expose l'Allié déplacé ({nomAllié}, ex. Tendre un Piège).
+        journalVars: { ...next.journalVars, ['nomAllié']: card.name },
         log: [
           ...next.log,
           `${me.villainName} déplace **${card.name}** vers **${destName}** (Tendre un Piège).`,

@@ -3456,7 +3456,16 @@ export interface GameState {
    *  choix. On stashe ici le template (+ perspective + icône) et on masque les lignes ; le
    *  message final est émis à la résolution (placeholders remplis), puis ce champ est vidé.
    *  `steps` = garde-fou anti-attente infinie. `null`/absent hors de cette fenêtre. */
-  pendingJournal?: { playerIndex: number; template: string; icon: string; steps: number } | null
+  pendingJournal?: {
+    playerIndex: number
+    template: string
+    icon: string
+    steps: number
+    /** Valeurs de placeholders DÉJÀ résolues aux étapes précédentes (ex. `{nomAllié}` résolu au
+     *  1ᵉʳ effet, avant que `{nomHéros}` ne le soit au 2ᵉ). Accumulées entre étapes pour qu'un
+     *  message multi-cibles interactif (Tendre un Piège) dispose de TOUTES ses valeurs à l'émission. */
+    vars?: Record<string, string | number>
+  } | null
   /** Index du joueur dont c'est le tour. */
   activePlayer: number
   /** Numéro de tour global (incrémenté à chaque passage de joueur), à partir de 1. */

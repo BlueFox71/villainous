@@ -23,16 +23,45 @@ interface Props {
  */
 export function LookTopModal({ cards, take, title = 'Tour de passe-passe', offerTopOrDiscard, onResolve }: Props) {
   const [picked, setPicked] = useState<string[]>([])
+  // « Voir le plateau » : escamote temporairement la modale (le composant reste monté →
+  // la sélection en cours est préservée) ; un bouton flottant permet d'y revenir.
+  const [peek, setPeek] = useState(false)
 
   const toggle = (id: string) =>
     setPicked((p) =>
       p.includes(id) ? p.filter((x) => x !== id) : p.length < take ? [...p, id] : take === 1 ? [id] : p,
     )
 
+  if (peek) {
+    return createPortal(
+      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[70] flex justify-center">
+        <button
+          type="button"
+          onClick={() => setPeek(false)}
+          className="pointer-events-auto rounded-full border border-white/30 bg-[#160a18]/95 px-4 py-2 text-sm font-semibold text-fuchsia-200 shadow-2xl hover:bg-[#160a18]"
+        >
+          ↩ Revenir au choix
+        </button>
+      </div>,
+      document.body,
+    )
+  }
+
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-4">
       <div className="flex w-full max-w-2xl flex-col items-center gap-4 rounded-2xl border border-fuchsia-400/30 bg-[#160a18] p-6 text-white">
-        <h2 className="text-xl font-black text-fuchsia-200">{title}</h2>
+        <div className="flex w-full items-center justify-between gap-2">
+          <span className="w-24" />
+          <h2 className="text-xl font-black text-fuchsia-200">{title}</h2>
+          <button
+            type="button"
+            onClick={() => setPeek(true)}
+            title="Escamote la modale pour consulter le plateau ; le bouton « Revenir au choix » la rouvre"
+            className="w-24 shrink-0 rounded-lg border border-white/25 px-2.5 py-1 text-xs text-white/80 hover:bg-white/10"
+          >
+            👁 Voir le plateau
+          </button>
+        </div>
         <p className="text-center text-sm text-white/70">
           {offerTopOrDiscard
             ? `Choisissez ${take === 1 ? 'la carte' : `jusqu’à ${take} cartes`} à ajouter à votre main, puis choisissez le sort du reste.`

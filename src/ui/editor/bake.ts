@@ -90,7 +90,7 @@ export async function bakeVillain(
   }
   const boardImage = isExternal(v.boardImage)
     ? v.boardImage!
-    : await downscaleDataUrl(await renderBoard(v), BOARD_STORE_W, 'image/jpeg', 0.9)
+    : await downscaleDataUrl(await renderBoard(v), BOARD_STORE_W, 'image/webp', 0.9)
   tick('Génération du plateau')
   // Lieux TRANSFORMABLES : image de colonne bakée pour la face B (superposée en jeu).
   const locations: CustomVillain['locations'] = []
@@ -106,7 +106,7 @@ export async function bakeVillain(
   }
   // Objectif ALTERNATIF : plateau de la face B (image vilain + texte alternatifs).
   const altBoardImage = v.altObjective
-    ? await downscaleDataUrl(await renderAltObjectiveBoard(v), BOARD_STORE_W, 'image/jpeg', 0.9)
+    ? await downscaleDataUrl(await renderAltObjectiveBoard(v), BOARD_STORE_W, 'image/webp', 0.9)
     : undefined
   if (v.altObjective) tick('Génération du plateau')
   return { ...v, cards, backVillainImage, backFateImage, backExtraImage, boardImage, locations, altBoardImage }

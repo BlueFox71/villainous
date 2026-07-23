@@ -127,6 +127,9 @@ export function FateModal({ revealed, target, onResolve, optional = false, onPas
         return cell.some((x) => x.type === 'hero') && cell.some((x) => x.type === 'curse')
       })
     }
+    // Oogie Boogie — Jack Skellington joué en Fatalité est un ÉVÉNEMENT (retire un
+    // Imposteur de la pile), pas un Héros à poser : toujours jouable, aucun lieu à choisir.
+    if (c.cardId === 'jack-skellington') return true
     if (c.type === 'hero') {
       const forbidden = new Set(c.forbiddenLocations ?? [])
       const locked = new Set(target.lockedLocations ?? [])
@@ -139,6 +142,8 @@ export function FateModal({ revealed, target, onResolve, optional = false, onPas
   const anyPlayable = revealed.some(playable)
 
   const choose = (c: CardInstance) => {
+    // Jack Skellington en Fatalité = Événement : on résout direct, sans proposer de lieu.
+    if (c.cardId === 'jack-skellington') return onResolve(c.instanceId)
     if (c.type === 'hero') return setSelected(c.instanceId)
     if (needsTargetHero(c)) {
       const eligible = eligibleHeroesFor(c)
@@ -216,9 +221,11 @@ export function FateModal({ revealed, target, onResolve, optional = false, onPas
                 <div className="mt-1 text-center text-[11px] text-white/70">
                   {disabled
                     ? 'Non jouable'
-                    : c.type === 'hero'
-                      ? `🦸 Héros (force ${c.strength ?? '?'})`
-                      : 'Carte Fatalité'}
+                    : c.cardId === 'jack-skellington'
+                      ? '🎃 Événement'
+                      : c.type === 'hero'
+                        ? `🦸 Héros (force ${c.strength ?? '?'})`
+                        : 'Carte Fatalité'}
                 </div>
               </button>
             )

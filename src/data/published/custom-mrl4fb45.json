@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "id": "custom-mrl4fb45",
   "name": "Sumbra",
-  "stars": 3,
+  "stars": 2,
   "color": "#ac0d4e",
   "pawnHeightPx": 96,
   "boardObjective": "Au début de votre tour, vous devez avoir capturé au moins 30 esprits.",
@@ -150,7 +150,7 @@
             "label": "Déplacer un objet ou un allié"
           }
         ],
-        "columnImage": "/cards/custom-mrl4fb45/loc-loc-3.alt-col.webp?v=1784666328227"
+        "columnImage": "/cards/custom-mrl4fb45/loc-loc-3.alt-col.webp?v=1784842383055"
       },
       "image": "/cards/custom-mrl4fb45/loc-loc-3.webp?v=1784666328227",
       "imagePos": {
@@ -190,7 +190,7 @@
           "label": "Vaincre un héros"
         }
       ],
-      "image": "/cards/custom-mrl4fb45/loc-loc-4.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/loc-loc-4.png?v=1784666328227",
       "imagePos": {
         "x": 2,
         "y": 31,
@@ -231,7 +231,7 @@
             "label": "Éliminer un héros"
           }
         ],
-        "columnImage": "/cards/custom-mrl4fb45/loc-loc-4.alt-col.webp?v=1784666328227"
+        "columnImage": "/cards/custom-mrl4fb45/loc-loc-4.alt-col.webp?v=1784842383055"
       },
       "defense": 6
     }
@@ -245,7 +245,7 @@
       "type": "ally",
       "copies": 3,
       "text": "_Aucune capacité._",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c1.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c1.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 8,
@@ -259,7 +259,7 @@
       },
       "cost": 1,
       "strength": 1,
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c1.art.webp?v=1784666328227"
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c1.art.png?v=1784842383055"
     },
     {
       "id": "custom-mrl4fb45-c2",
@@ -269,7 +269,7 @@
       "type": "ally",
       "copies": 3,
       "text": "Capturer 2 esprits.",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c2.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c2.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 1,
@@ -283,7 +283,7 @@
       },
       "cost": 2,
       "strength": 2,
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c2.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c2.art.png?v=1784842383055",
       "effects": [
         {
           "type": "CAPTURE_SPIRITS",
@@ -299,7 +299,7 @@
       "type": "ally",
       "copies": 2,
       "text": "Capturer 3 esprits.",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c3.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c3.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": -10,
@@ -313,7 +313,7 @@
       },
       "cost": 2,
       "strength": 3,
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c3.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c3.art.png?v=1784842383055",
       "effects": [
         {
           "type": "CAPTURE_SPIRITS",
@@ -329,7 +329,7 @@
       "type": "ally",
       "copies": 3,
       "text": "Lors d'une action Éliminer un Héros, les BOSS peuvent être utilisés pour éliminer un Héros sur leur lieu ou sur un lieu voisin.",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c7.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c7.webp?v=1784842383055",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -343,7 +343,7 @@
       },
       "cost": 3,
       "strength": 3,
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c7.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c7.art.png?v=1784842383055",
       "typeLabel": "Alliés",
       "reachesAdjacentVanquish": true
     },
@@ -355,7 +355,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Dévoilez les cartes de votre pioche jusqu'à ce que vous trouviez un Allié. \nJouez-le et remettez les autres cartes sur le dessus de votre pioche.",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c8.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c8.webp?v=1784842383055",
       "artTransform": {
         "scale": 1,
         "offsetXPct": 0,
@@ -371,7 +371,7 @@
       "strength": 1,
       "typeLabel": "Événement",
       "typeColor": "#6ec05a",
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c8.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c8.art.png?v=1784842383055",
       "effects": [
         {
           "type": "REVEAL_UNTIL_ALLY_PLAY_FREE"
@@ -386,7 +386,7 @@
       "type": "effect",
       "copies": 5,
       "text": "Piochez une carte Combattant et jouez-le en tant que Héros. Retirez le nombre d'esprits du camp adverse.",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c9.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c9.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
@@ -401,7 +401,7 @@
       "strength": 1,
       "typeLabel": "Événement",
       "typeColor": "#6ec05a",
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c9.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c9.art.png?v=1784842383055",
       "effects": [
         {
           "type": "FATE_DRAW_COMBATTANT",
@@ -418,7 +418,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Piochez un Combattant. Retirez seulement les esprits du camp adverse.",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c10.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c10.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.58,
         "offsetXPct": 0,
@@ -433,7 +433,7 @@
       "strength": 1,
       "typeLabel": "Événement",
       "typeColor": "#6ec05a",
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c10.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c10.art.png?v=1784842383055",
       "effects": [
         {
           "type": "FATE_DRAW_COMBATTANT",
@@ -449,7 +449,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Piochez une carte Combattant supplémentaire : elle applique son effet Bonus, en plus de la capture d'esprits.",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c5.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c5.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.86,
         "offsetXPct": -18,
@@ -463,7 +463,7 @@
       },
       "cost": 1,
       "strength": 1,
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c5.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c5.art.png?v=1784842383055",
       "typeLabel": "Événement",
       "typeColor": "#6ec05a",
       "effects": [
@@ -480,7 +480,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Perdez le total des esprits des deux camps de la dernière carte Combattant piochée.",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c6.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c6.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 2,
@@ -493,7 +493,7 @@
         "size": 76
       },
       "strength": 1,
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c6.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c6.art.png?v=1784842383055",
       "typeLabel": "Événement",
       "typeColor": "#6ec05a",
       "effects": [
@@ -511,7 +511,7 @@
       "type": "condition",
       "copies": 2,
       "text": "Cette carte est jouable pendant le tour d'un adversaire s'il gagne au moins 3 jetons Pouvoir.\nCapturez 2 esprits.",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c11.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c11.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.59,
         "offsetXPct": 0,
@@ -524,7 +524,7 @@
         "size": 76
       },
       "strength": 1,
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c11.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c11.art.png?v=1784842383055",
       "typeLabel": "Condition",
       "typeColor": "#d96fc0",
       "trigger": {
@@ -546,7 +546,7 @@
       "type": "item",
       "copies": 2,
       "text": "Associez cette carte à un Allié, sa Force augmente de 2.",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c12.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c12.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 2,
@@ -560,7 +560,7 @@
       },
       "cost": 2,
       "strength": 2,
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c12.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c12.art.png?v=1784842383055",
       "typeLabel": "Objet",
       "typeColor": "#3aa0e0",
       "attach": "ally",
@@ -574,7 +574,7 @@
       "type": "item",
       "copies": 2,
       "text": "À partir de votre prochain tour, piochez une carte Combattant supplémentaire.",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c13.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c13.webp?v=1784842383055",
       "artTransform": {
         "scale": 1.02,
         "offsetXPct": 1,
@@ -590,7 +590,7 @@
       "typeLabel": "Objet",
       "typeColor": "#3aa0e0",
       "costVariable": false,
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c13.art.jpg?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c13.art.jpg?v=1784842383055",
       "attach": "location",
       "combattantRevenueBonus": 1
     },
@@ -602,7 +602,7 @@
       "type": "item",
       "copies": 1,
       "text": "Posez-le sur un lieu que vous contrôlez. \n\nVous le contrôlez définitivement, même sans Allié. Il ne peut plus repasser rival.\nNe peut pas être défaussé.",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c19.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c19.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.55,
         "offsetXPct": 1,
@@ -618,7 +618,7 @@
       "stickers": [],
       "typeLabel": "Objet",
       "typeColor": "#3aa0e0",
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c19.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c19.art.webp?v=1784842383055",
       "attach": "location",
       "locksLocationControl": true,
       "cannotBeDiscarded": true,
@@ -632,7 +632,7 @@
       "type": "item",
       "copies": 1,
       "text": "Posez-le sur un lieu que vous contrôlez. \n\nVous le contrôlez définitivement, même sans Allié. Il ne peut plus repasser rival.\nNe peut pas être défaussé.",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c20.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c20.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.6,
         "offsetXPct": 0,
@@ -648,7 +648,7 @@
       "stickers": [],
       "typeLabel": "Objet",
       "typeColor": "#3aa0e0",
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c20.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c20.art.png?v=1784842383055",
       "attach": "location",
       "locksLocationControl": true,
       "cannotBeDiscarded": true,
@@ -662,7 +662,7 @@
       "type": "item",
       "copies": 1,
       "text": "Posez-le sur un lieu que vous contrôlez. \n\nVous le contrôlez définitivement, même sans Allié. Il ne peut plus repasser rival.\nNe peut pas être défaussé.",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c14.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c14.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": -1,
@@ -678,7 +678,7 @@
       "stickers": [],
       "typeLabel": "Objet",
       "typeColor": "#3aa0e0",
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c14.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c14.art.png?v=1784842383055",
       "attach": "location",
       "locksLocationControl": true,
       "cannotBeDiscarded": true,
@@ -692,7 +692,7 @@
       "type": "item",
       "copies": 2,
       "text": "Associez cet Objet à un Héros. \nChaque fois que vous capturez des esprits, perdez-en 1.",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c4.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c4.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.59,
         "offsetXPct": -1,
@@ -706,7 +706,7 @@
       },
       "typeLabel": "Objet",
       "typeColor": "#3aa0e0",
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c4.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c4.art.webp?v=1784842383055",
       "attach": "hero",
       "reducesSpiritCapture": true,
       "fateMalus": "slow2"
@@ -719,7 +719,7 @@
       "type": "condition",
       "copies": 2,
       "text": "Cette carte est jouable pendant le tour d'un adversaire s'il défausse au moins deux cartes. \nGagnez 3 jetons Pouvoir.",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c15.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c15.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
@@ -734,7 +734,7 @@
       "strength": 1,
       "typeLabel": "Condition",
       "typeColor": "#d96fc0",
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c15.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c15.art.png?v=1784842383055",
       "trigger": {
         "type": "opponent-discarded-ge",
         "value": 2
@@ -754,7 +754,7 @@
       "type": "item",
       "copies": 2,
       "text": "Associez cet Objet à un Héros. Sa force augmente de 2.\n",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c16.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c16.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": -2,
@@ -769,7 +769,7 @@
       "strength": 2,
       "typeLabel": "Objet",
       "typeColor": "#3aa0e0",
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c16.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c16.art.webp?v=1784842383055",
       "attach": "hero",
       "attachStrengthBonus": 2,
       "fateMalus": "slow"
@@ -782,7 +782,7 @@
       "type": "effect",
       "copies": 1,
       "text": "Défaussez un Objet. ",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c17.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c17.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.77,
         "offsetXPct": -48,
@@ -795,7 +795,7 @@
         "size": 76
       },
       "strength": 1,
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c17.art.jpg?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c17.art.jpg?v=1784842383055",
       "typeLabel": "Événement",
       "typeColor": "#6ec05a",
       "effects": [
@@ -812,7 +812,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Éliminez un Héros de Force 2 ou plus sur le lieu où vous vous trouvez.",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c18.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c18.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.73,
         "offsetXPct": 0,
@@ -826,7 +826,7 @@
       },
       "cost": 3,
       "strength": 1,
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c18.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c18.art.png?v=1784842383055",
       "typeLabel": "Événement",
       "typeColor": "#6ec05a",
       "effects": [
@@ -843,7 +843,7 @@
       "type": "effect",
       "copies": 2,
       "text": "Piochez un Combattant : il capture la somme des esprits des deux camps et applique son Malus. Vous pouvez dépenser 2 jetons Pouvoir supplémentaires pour appliquer son Bonus à la place.",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c21.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c21.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.59,
         "offsetXPct": 4,
@@ -857,7 +857,7 @@
       },
       "cost": 3,
       "strength": 1,
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c21.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c21.art.png?v=1784842383055",
       "typeLabel": "Événement",
       "typeColor": "#6ec05a",
       "effects": [
@@ -875,7 +875,7 @@
       "type": "hero",
       "copies": 1,
       "text": "Défaussez jusqu'à deux Alliés\nOU\nRetirez les esprits du camp de KILLAIRE de la dernière carte Combattant piochée.\n",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c22.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c22.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.58,
         "offsetXPct": 0,
@@ -888,7 +888,7 @@
         "size": 76
       },
       "strength": 5,
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c22.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c22.art.png?v=1784842383055",
       "onPlace": [
         {
           "type": "LOSE_SPIRITS_LAST_COMBATTANT",
@@ -905,7 +905,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Capturez 2 esprits supplémentaires.\n{/c}{c:#7a002f}Perdez 2 esprits.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c23.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c23.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.67,
         "offsetXPct": 10,
@@ -938,11 +938,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c23.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c23.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c23.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c23.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -950,7 +950,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c23.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c23.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -988,7 +988,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}+3 Force à tous vos lieux ce tour.\n{/c}{c:#7a002f}−3 Force à tous vos lieux ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c24.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c24.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": -7,
@@ -1021,11 +1021,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c24.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c24.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c24.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c24.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -1033,7 +1033,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c24.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c24.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -1071,7 +1071,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Capturez 2 esprits supplémentaires.\n{/c}{c:#7a002f}Perdez 2 esprits.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c25.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c25.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
@@ -1104,11 +1104,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c25.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c25.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c25.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c25.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -1116,7 +1116,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c25.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c25.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -1154,7 +1154,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Piochez 1 carte Méchant ou récupérez 1 carte de votre défausse.\n{/c}{c:#7a002f}Défaussez 1 carte.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c26.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c26.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -1187,11 +1187,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c26.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c26.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c26.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c26.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -1199,7 +1199,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c26.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c26.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -1237,7 +1237,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Capturez 2 esprits supplémentaires.\n{/c}{c:#3014ff}Perdez 2 esprits.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c27.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c27.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -1270,11 +1270,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c27.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c27.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c27.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c27.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -1282,7 +1282,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c27.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c27.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -1320,7 +1320,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Gagnez 3 jetons Pouvoir.\n{/c}{c:#3014ff}Perdez 3 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c28.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c28.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -1353,11 +1353,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c28.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c28.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c28.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c28.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -1365,7 +1365,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c28.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c28.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -1403,7 +1403,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Gagnez 3 jetons Pouvoir.\n{/c}{c:#7a002f}Perdez 3 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c29.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c29.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
@@ -1436,11 +1436,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c29.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c29.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c29.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c29.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -1448,7 +1448,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c29.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c29.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -1486,7 +1486,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Gagnez 3 jetons Pouvoir.\n{/c}{c:#7a002f}Perdez 3 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c30.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c30.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": -9,
@@ -1519,11 +1519,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c30.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c30.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c30.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c30.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -1531,7 +1531,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c30.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c30.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -1569,7 +1569,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Piochez 1 Combattant supplémentaire ce tour.\n{/c}{c:#7a002f}Prochain Combattant : 0 esprit de camp capturé.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c31.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c31.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.51,
         "offsetXPct": 10,
@@ -1602,11 +1602,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c31.art.jpg?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c31.art.jpg?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c31.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c31.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -1614,7 +1614,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c31.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c31.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -1652,7 +1652,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}+2 Force à tous vos lieux ce tour.\n{/c}{c:#7a002f}−2 Force à tous vos lieux ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c32.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c32.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -1685,11 +1685,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c32.art.jpg?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c32.art.jpg?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c32.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c32.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -1697,7 +1697,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c32.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c32.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -1735,7 +1735,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}+2 Force à tous vos lieux ce tour.\n{/c}{c:#7a002f}−2 Force à tous vos lieux ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c33.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c33.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.65,
         "offsetXPct": -5,
@@ -1768,11 +1768,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c33.art.bin?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c33.art.bin?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c33.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c33.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -1780,7 +1780,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c33.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c33.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -1818,7 +1818,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Piochez 1 Combattant supplémentaire ce tour.\n{/c}{c:#7a002f}Prochain Combattant : 0 esprit de camp capturé.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c34.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c34.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -1851,11 +1851,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c34.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c34.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c34.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c34.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -1863,7 +1863,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c34.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c34.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -1901,7 +1901,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Vos cartes coûtent -1 JT pendant ce tour.\n{/c}{c:#7a002f}Vos cartes coûtent +1 JT pendant ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c35.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c35.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -1934,11 +1934,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c35.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c35.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c35.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c35.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -1946,7 +1946,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c35.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c35.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -1984,7 +1984,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}+2 Force à tous vos lieux ce tour.\n{/c}{c:#7a002f}−2 Force à tous vos lieux ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c36.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c36.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -2017,11 +2017,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c36.art.jpg?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c36.art.jpg?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c36.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c36.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -2029,7 +2029,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c36.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c36.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -2067,7 +2067,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Gagnez 2 jetons Pouvoir.\n{/c}{c:#7a002f}Perdez 2 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c37.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c37.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -2100,11 +2100,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c37.art.jpg?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c37.art.jpg?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c37.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c37.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -2112,7 +2112,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c37.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c37.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -2150,7 +2150,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Piochez 1 Combattant supplémentaire ce tour.\n{/c}{c:#7a002f}Prochain Combattant : 0 esprit de camp capturé.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c38.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c38.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": -5,
@@ -2183,11 +2183,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c38.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c38.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c38.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c38.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -2195,7 +2195,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c38.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c38.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -2233,7 +2233,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Piochez 1 Combattant supplémentaire ce tour.\n{/c}{c:#7a002f}Prochain Combattant : 0 esprit de camp capturé.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c39.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c39.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.54,
         "offsetXPct": 10,
@@ -2266,11 +2266,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c39.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c39.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c39.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c39.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -2278,7 +2278,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c39.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c39.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -2316,7 +2316,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Gagnez 2 jetons Pouvoir.\n{/c}{c:#7a002f}Perdez 2 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c40.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c40.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -2349,11 +2349,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c40.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c40.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c40.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c40.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -2361,7 +2361,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c40.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c40.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -2399,7 +2399,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Gagnez 2 jetons Pouvoir.\n{/c}{c:#7a002f}Perdez 2 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c41.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c41.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -2432,11 +2432,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c41.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c41.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c41.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c41.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -2444,7 +2444,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c41.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c41.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -2482,7 +2482,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}+2 Force à tous vos lieux ce tour.\n{/c}{c:#7a002f}−2 Force à tous vos lieux ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c42.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c42.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": -4,
@@ -2515,11 +2515,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c42.art.jpg?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c42.art.jpg?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c42.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c42.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -2527,7 +2527,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c42.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c42.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -2565,7 +2565,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Piochez 1 carte Méchant ou récupérez 1 carte de votre défausse.\n{/c}{c:#7a002f}Défaussez 1 carte.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c43.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c43.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 1,
@@ -2598,11 +2598,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c43.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c43.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c43.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c43.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -2610,7 +2610,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c43.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c43.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -2648,7 +2648,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Piochez 1 Combattant supplémentaire ce tour.\n{/c}{c:#7a002f}Prochain Combattant : 0 esprit de camp capturé.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c44.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c44.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -2681,11 +2681,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c44.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c44.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c44.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c44.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -2693,7 +2693,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c44.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c44.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -2731,7 +2731,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Vos cartes coûtent -1 JT pendant ce tour.\n{/c}{c:#7a002f}Vos cartes coûtent +1 JT pendant ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c45.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c45.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -2764,11 +2764,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c45.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c45.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c45.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c45.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -2776,7 +2776,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c45.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c45.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -2814,7 +2814,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Piochez 1 carte Méchant ou récupérez 1 carte de votre défausse.\n{/c}{c:#7a002f}Défaussez 1 carte.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c46.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c46.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -2847,11 +2847,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c46.art.jpg?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c46.art.jpg?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c46.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c46.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -2859,7 +2859,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c46.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c46.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -2897,7 +2897,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Gagnez 2 jetons Pouvoir.\n{/c}{c:#7a002f}Perdez 2 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c47.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c47.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.56,
         "offsetXPct": 10,
@@ -2930,11 +2930,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c47.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c47.art.webp?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c47.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c47.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -2942,7 +2942,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c47.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c47.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -2980,7 +2980,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}+2 Force à tous vos lieux ce tour.\n{/c}{c:#7a002f}−2 Force à tous vos lieux ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c48.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c48.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -3013,11 +3013,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c48.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c48.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c48.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c48.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -3025,7 +3025,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c48.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c48.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -3063,7 +3063,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Gagnez 2 jetons Pouvoir.\n{/c}{c:#7a002f}Perdez 2 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c49.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c49.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.68,
         "offsetXPct": 10,
@@ -3096,11 +3096,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c49.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c49.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c49.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c49.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -3108,7 +3108,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c49.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c49.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -3146,7 +3146,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Piochez 1 Combattant supplémentaire ce tour.\n{/c}{c:#7a002f}Prochain Combattant : 0 esprit de camp capturé.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c50.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c50.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -3179,11 +3179,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c50.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c50.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c50.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c50.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -3191,7 +3191,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c50.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c50.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -3229,7 +3229,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Gagnez 2 jetons Pouvoir.\n{/c}{c:#7a002f}Perdez 2 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c51.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c51.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -3262,11 +3262,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c51.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c51.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c51.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c51.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -3274,7 +3274,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c51.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c51.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -3312,7 +3312,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Piochez 1 carte Méchant ou récupérez 1 carte de votre défausse.\n{/c}{c:#7a002f}Défaussez 1 carte.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c52.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c52.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": -4,
@@ -3345,11 +3345,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c52.art.jpg?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c52.art.jpg?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c52.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c52.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -3357,7 +3357,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c52.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c52.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -3395,7 +3395,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Vos cartes coûtent -1 JT pendant ce tour.\n{/c}{c:#7a002f}Vos cartes coûtent +1 JT pendant ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c53.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c53.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -3428,11 +3428,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c53.art.jpg?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c53.art.jpg?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c53.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c53.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -3440,7 +3440,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c53.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c53.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -3478,7 +3478,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Piochez 1 carte Méchant ou récupérez 1 carte de votre défausse.\n{/c}{c:#7a002f}Défaussez 1 carte.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c54.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c54.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.67,
         "offsetXPct": -5,
@@ -3511,11 +3511,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c54.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c54.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c54.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c54.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -3523,7 +3523,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c54.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c54.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -3561,7 +3561,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Piochez 1 carte Méchant ou récupérez 1 carte de votre défausse.\n{/c}{c:#7a002f}Défaussez 1 carte.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c55.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c55.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 4,
@@ -3594,11 +3594,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c55.art.jpg?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c55.art.jpg?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c55.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c55.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -3606,7 +3606,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c55.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c55.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -3644,7 +3644,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Gagnez 2 jetons Pouvoir.\n{/c}{c:#7a002f}Perdez 2 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c56.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c56.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.54,
         "offsetXPct": 10,
@@ -3677,11 +3677,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c56.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c56.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c56.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c56.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -3689,7 +3689,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c56.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c56.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -3727,7 +3727,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Vos cartes coûtent -1 JT pendant ce tour.\n{/c}{c:#7a002f}Vos cartes coûtent +1 JT pendant ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c57.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c57.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": -3,
@@ -3760,11 +3760,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c57.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c57.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c57.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c57.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -3772,7 +3772,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c57.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c57.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -3810,7 +3810,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Gagnez 2 jetons Pouvoir.\n{/c}{c:#7a002f}Perdez 2 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c58.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c58.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 8,
@@ -3843,11 +3843,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c58.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c58.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c58.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c58.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -3855,7 +3855,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c58.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c58.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -3893,7 +3893,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Gagnez 2 jetons Pouvoir.\n{/c}{c:#7a002f}Perdez 2 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c59.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c59.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 4,
@@ -3926,11 +3926,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c59.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c59.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c59.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c59.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -3938,7 +3938,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c59.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c59.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -3976,7 +3976,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}+2 Force à tous vos lieux ce tour.\n{/c}{c:#7a002f}−2 Force à tous vos lieux ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c60.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c60.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": -2,
@@ -4009,11 +4009,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c60.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c60.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c60.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c60.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -4021,7 +4021,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c60.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c60.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -4059,7 +4059,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Gagnez 1 jeton Pouvoir.\n{/c}{c:#7a002f}Perdez 1 jeton Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c61.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c61.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": -5,
@@ -4092,11 +4092,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c61.art.jpg?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c61.art.jpg?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c61.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c61.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -4104,7 +4104,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c61.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c61.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -4142,7 +4142,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Gagnez 1 jeton Pouvoir.\n{/c}{c:#7a002f}Perdez 1 jeton Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c62.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c62.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.55,
         "offsetXPct": 10,
@@ -4175,11 +4175,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c62.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c62.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c62.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c62.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -4187,7 +4187,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c62.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c62.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -4225,7 +4225,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Piochez 1 carte Méchant ou récupérez 1 carte de votre défausse.\n{/c}{c:#7a002f}Défaussez 1 carte.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c63.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c63.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.54,
         "offsetXPct": 10,
@@ -4258,11 +4258,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c63.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c63.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c63.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c63.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -4270,7 +4270,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c63.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c63.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -4308,7 +4308,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Vos cartes coûtent -1 JT pendant ce tour.\n{/c}{c:#7a002f}Vos cartes coûtent +1 JT pendant ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c64.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c64.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.52,
         "offsetXPct": 10,
@@ -4341,11 +4341,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c64.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c64.art.webp?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c64.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c64.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -4353,7 +4353,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c64.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c64.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -4391,7 +4391,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Piochez 1 carte Méchant ou récupérez 1 carte de votre défausse.\n{/c}{c:#7a002f}Défaussez 1 carte.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c65.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c65.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 4,
@@ -4424,11 +4424,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c65.art.jpg?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c65.art.jpg?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c65.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c65.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -4436,7 +4436,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c65.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c65.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -4474,7 +4474,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Vos cartes coûtent -1 JT pendant ce tour.\n{/c}{c:#7a002f}Vos cartes coûtent +1 JT pendant ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c66.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c66.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -4507,11 +4507,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c66.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c66.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c66.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c66.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -4519,7 +4519,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c66.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c66.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -4557,7 +4557,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}+1 Force à tous vos lieux ce tour.\n{/c}{c:#7a002f}−1 Force à tous vos lieux ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c67.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c67.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.67,
         "offsetXPct": 10,
@@ -4590,11 +4590,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c67.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c67.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c67.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c67.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -4602,7 +4602,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c67.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c67.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -4640,7 +4640,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Gagnez 1 jeton Pouvoir.\n{/c}{c:#7a002f}Perdez 1 jeton Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c68.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c68.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.55,
         "offsetXPct": 10,
@@ -4673,11 +4673,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c68.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c68.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c68.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c68.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -4685,7 +4685,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c68.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c68.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -4723,7 +4723,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#3014ff}Gagnez 1 jeton Pouvoir.\n{/c}{c:#7a002f}Perdez 1 jeton Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c69.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c69.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -4756,11 +4756,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c69.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c69.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c69.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c69.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -4768,7 +4768,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c69.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c69.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -4806,7 +4806,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Gagnez 3 jetons Pouvoir.\n{/c}{c:#3014ff}Perdez 3 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c70.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c70.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -4839,11 +4839,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c70.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c70.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c70.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c70.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -4851,7 +4851,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c70.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c70.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -4889,7 +4889,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}+3 Force à tous vos lieux ce tour.\n{/c}{c:#3014ff}−3 Force à tous vos lieux ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c71.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c71.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -4922,11 +4922,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c71.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c71.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c71.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c71.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -4934,7 +4934,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c71.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c71.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -4972,7 +4972,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Piochez 1 Combattant supplémentaire ce tour.\n{/c}{c:#3014ff}Prochain Combattant : 0 esprit de camp capturé.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c72.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c72.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -5005,11 +5005,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c72.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c72.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c72.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c72.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -5017,7 +5017,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c72.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c72.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -5055,7 +5055,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}+3 Force à tous vos lieux ce tour.\n{/c}{c:#3014ff}−3 Force à tous vos lieux ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c73.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c73.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -5088,11 +5088,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c73.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c73.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c73.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c73.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -5100,7 +5100,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c73.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c73.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -5138,7 +5138,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Piochez 1 Combattant supplémentaire ce tour.\n{/c}{c:#3014ff}Prochain Combattant : 0 esprit de camp capturé.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c74.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c74.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.51,
         "offsetXPct": 10,
@@ -5171,11 +5171,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c74.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c74.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c74.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c74.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -5183,7 +5183,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c74.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c74.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -5221,7 +5221,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Vos cartes coûtent -1 JT pendant ce tour.\n{/c}{c:#3014ff}Vos cartes coûtent +1 JT pendant ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c75.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c75.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": -1,
@@ -5254,11 +5254,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c75.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c75.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c75.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c75.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -5266,7 +5266,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c75.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c75.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -5304,7 +5304,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Piochez 1 Combattant supplémentaire ce tour.\n{/c}{c:#3014ff}Prochain Combattant : 0 esprit de camp capturé.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c76.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c76.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.67,
         "offsetXPct": -2,
@@ -5337,11 +5337,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c76.art.jpg?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c76.art.jpg?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c76.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c76.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -5349,7 +5349,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c76.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c76.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -5387,7 +5387,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}+2 Force à tous vos lieux ce tour.\n{/c}{c:#3014ff}−2 Force à tous vos lieux ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c77.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c77.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.51,
         "offsetXPct": 0,
@@ -5420,11 +5420,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c77.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c77.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c77.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c77.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -5432,7 +5432,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c77.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c77.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -5470,7 +5470,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Gagnez 2 jetons Pouvoir.\n{/c}{c:#3014ff}Perdez 2 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c78.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c78.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -5503,11 +5503,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c78.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c78.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c78.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c78.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -5515,7 +5515,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c78.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c78.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -5553,7 +5553,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Piochez 1 carte Méchant ou récupérez 1 carte de votre défausse.\n{/c}{c:#3014ff}Défaussez 1 carte.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c79.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c79.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -5586,11 +5586,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c79.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c79.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c79.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c79.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -5598,7 +5598,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c79.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c79.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -5636,7 +5636,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Gagnez 2 jetons Pouvoir.\n{/c}{c:#3014ff}Perdez 2 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c80.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c80.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 4,
@@ -5669,11 +5669,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c80.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c80.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c80.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c80.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -5681,7 +5681,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c80.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c80.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -5719,7 +5719,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Piochez 1 carte Méchant ou récupérez 1 carte de votre défausse.\n{/c}{c:#3014ff}Défaussez 1 carte.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c81.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c81.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.53,
         "offsetXPct": 6,
@@ -5752,11 +5752,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c81.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c81.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c81.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c81.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -5764,7 +5764,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c81.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c81.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -5802,7 +5802,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Piochez 1 Combattant supplémentaire ce tour.\n{/c}{c:#3014ff}Prochain Combattant : 0 esprit de camp capturé.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c82.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c82.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 2,
@@ -5835,11 +5835,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c82.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c82.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c82.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c82.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -5847,7 +5847,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c82.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c82.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -5885,7 +5885,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Gagnez 2 jetons Pouvoir.\n{/c}{c:#3014ff}Perdez 2 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c83.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c83.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.67,
         "offsetXPct": -3,
@@ -5918,11 +5918,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c83.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c83.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c83.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c83.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -5930,7 +5930,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c83.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c83.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -5968,7 +5968,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Piochez 1 carte Méchant ou récupérez 1 carte de votre défausse.\n{/c}{c:#3014ff}Défaussez 1 carte.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c84.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c84.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.51,
         "offsetXPct": 10,
@@ -6001,11 +6001,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c84.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c84.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c84.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c84.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -6013,7 +6013,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c84.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c84.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -6051,7 +6051,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}+2 Force à tous vos lieux ce tour.\n{/c}{c:#3014ff}−2 Force à tous vos lieux ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c85.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c85.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 11,
@@ -6084,11 +6084,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c85.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c85.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c85.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c85.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -6096,7 +6096,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c85.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c85.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -6134,7 +6134,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Piochez 1 carte Méchant ou récupérez 1 carte de votre défausse.\n{/c}{c:#3014ff}Défaussez 1 carte.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c86.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c86.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.52,
         "offsetXPct": 10,
@@ -6167,11 +6167,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c86.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c86.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c86.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c86.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -6179,7 +6179,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c86.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c86.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -6217,7 +6217,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Piochez 1 Combattant supplémentaire ce tour.\n{/c}{c:#3014ff}Prochain Combattant : 0 esprit de camp capturé.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c87.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c87.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.53,
         "offsetXPct": 10,
@@ -6250,11 +6250,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c87.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c87.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c87.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c87.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -6262,7 +6262,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c87.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c87.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -6300,7 +6300,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Gagnez 2 jetons Pouvoir.\n{/c}{c:#3014ff}Perdez 2 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c88.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c88.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.51,
         "offsetXPct": 10,
@@ -6333,11 +6333,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c88.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c88.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c88.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c88.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -6345,7 +6345,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c88.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c88.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -6383,7 +6383,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Gagnez 2 jetons Pouvoir.\n{/c}{c:#3014ff}Perdez 2 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c89.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c89.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -6416,11 +6416,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c89.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c89.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c89.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c89.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -6428,7 +6428,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c89.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c89.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -6466,7 +6466,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}+2 Force à tous vos lieux ce tour.\n{/c}{c:#3014ff}−2 Force à tous vos lieux ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c90.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c90.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -6499,11 +6499,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c90.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c90.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c90.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c90.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -6511,7 +6511,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c90.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c90.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -6549,7 +6549,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Gagnez 1 jeton Pouvoir.\n{/c}{c:#3014ff}Perdez 1 jeton Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c91.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c91.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -6582,11 +6582,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c91.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c91.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c91.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c91.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -6594,7 +6594,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c91.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c91.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -6632,7 +6632,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}+1 Force à tous vos lieux ce tour.\n{/c}{c:#3014ff}−1 Force à tous vos lieux ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c92.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c92.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 0,
@@ -6665,11 +6665,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c92.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c92.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c92.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c92.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -6677,7 +6677,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c92.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c92.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -6715,7 +6715,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Vos cartes coûtent -1 JT pendant ce tour.\n{/c}{c:#3014ff}Vos cartes coûtent +1 JT pendant ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c93.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c93.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -6748,11 +6748,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c93.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c93.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c93.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c93.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -6760,7 +6760,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c93.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c93.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -6798,7 +6798,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Piochez 1 carte Méchant ou récupérez 1 carte de votre défausse.\n{/c}{c:#3014ff}Défaussez 1 carte.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c94.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c94.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.54,
         "offsetXPct": 10,
@@ -6831,11 +6831,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c94.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c94.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c94.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c94.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -6843,7 +6843,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c94.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c94.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -6881,7 +6881,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Piochez 1 Combattant supplémentaire ce tour.\n{/c}{c:#3014ff}Prochain Combattant : 0 esprit de camp capturé.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c95.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c95.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.53,
         "offsetXPct": -2,
@@ -6914,11 +6914,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c95.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c95.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c95.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c95.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -6926,7 +6926,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c95.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c95.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -6964,7 +6964,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}+1 Force à tous vos lieux ce tour.\n{/c}{c:#3014ff}−1 Force à tous vos lieux ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c96.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c96.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -6997,11 +6997,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c96.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c96.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c96.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c96.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -7009,7 +7009,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c96.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c96.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -7047,7 +7047,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Capturez 2 esprits supplémentaires.\n{/c}{c:#3014ff}Perdez 2 esprits.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c97.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c97.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.51,
         "offsetXPct": 10,
@@ -7080,11 +7080,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c97.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c97.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c97.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c97.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -7092,7 +7092,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c97.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c97.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -7130,7 +7130,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Gagnez 3 jetons Pouvoir.\n{/c}{c:#3014ff}Perdez 3 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c98.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c98.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.54,
         "offsetXPct": 10,
@@ -7163,11 +7163,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c98.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c98.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c98.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c98.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -7175,7 +7175,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c98.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c98.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -7213,7 +7213,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Piochez 1 carte Méchant ou récupérez 1 carte de votre défausse.\n{/c}{c:#3014ff}Défaussez 1 carte.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c99.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c99.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.53,
         "offsetXPct": 10,
@@ -7246,11 +7246,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c99.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c99.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c99.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c99.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -7258,7 +7258,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c99.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c99.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -7296,7 +7296,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Vos cartes coûtent -1 JT pendant ce tour.\n{/c}{c:#3014ff}Vos cartes coûtent +1 JT pendant ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c100.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c100.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.56,
         "offsetXPct": -7,
@@ -7329,11 +7329,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c100.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c100.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c100.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c100.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -7341,7 +7341,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c100.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c100.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -7379,7 +7379,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Gagnez 2 jetons Pouvoir.\n{/c}{c:#3014ff}Perdez 2 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c101.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c101.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.51,
         "offsetXPct": 0,
@@ -7412,11 +7412,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c101.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c101.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c101.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c101.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -7424,7 +7424,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c101.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c101.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -7462,7 +7462,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Gagnez 2 jetons Pouvoir.\n{/c}{c:#3014ff}Perdez 2 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c102.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c102.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.54,
         "offsetXPct": -1,
@@ -7495,11 +7495,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c102.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c102.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c102.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c102.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -7507,7 +7507,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c102.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c102.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -7545,7 +7545,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}+2 Force à tous vos lieux ce tour.\n{/c}{c:#3014ff}−2 Force à tous vos lieux ce tour.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c103.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c103.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.53,
         "offsetXPct": 10,
@@ -7578,11 +7578,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c103.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c103.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c103.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c103.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -7590,7 +7590,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c103.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c103.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -7628,7 +7628,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Gagnez 2 jetons Pouvoir.\n{/c}{c:#3014ff}Perdez 2 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c104.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c104.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.51,
         "offsetXPct": 10,
@@ -7661,11 +7661,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c104.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c104.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c104.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c104.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -7673,7 +7673,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c104.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c104.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -7711,7 +7711,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Gagnez 2 jetons Pouvoir.\n{/c}{c:#3014ff}Perdez 2 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c105.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c105.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -7744,11 +7744,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c105.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c105.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c105.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c105.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -7756,7 +7756,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c105.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c105.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -7794,7 +7794,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Piochez 1 Combattant supplémentaire ce tour.\n{/c}{c:#3014ff}Prochain Combattant : 0 esprit de camp capturé.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c106.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c106.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -7827,11 +7827,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c106.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c106.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c106.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c106.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -7839,7 +7839,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c106.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c106.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -7877,7 +7877,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Piochez 1 carte Méchant ou récupérez 1 carte de votre défausse.\n{/c}{c:#3014ff}Défaussez 1 carte.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c107.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c107.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": 10,
@@ -7910,11 +7910,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c107.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c107.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c107.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c107.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -7922,7 +7922,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c107.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c107.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -7960,7 +7960,7 @@
       "type": "hero",
       "copies": 1,
       "text": "{c:#7a002f}Gagnez 2 jetons Pouvoir.\n{/c}{c:#3014ff}Perdez 2 jetons Pouvoir.{/c}",
-      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c108.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c108.webp?v=1784842383055",
       "artTransform": {
         "scale": 0.5,
         "offsetXPct": -3,
@@ -7993,11 +7993,11 @@
           "size": 14
         }
       ],
-      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c108.art.webp?v=1784666328227",
+      "artImage": "/cards/custom-mrl4fb45/custom-mrl4fb45-c108.art.png?v=1784842383055",
       "images": [
         {
           "id": "img-1",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c108.img-0.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c108.img-0.png?v=1784842383055",
           "x": 18.289674284386976,
           "y": 68.99587507363741,
           "size": 17.29843106863318,
@@ -8005,7 +8005,7 @@
         },
         {
           "id": "img-2",
-          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c108.img-1.webp?v=1784737800000",
+          "image": "/cards/custom-mrl4fb45/custom-mrl4fb45-c108.img-1.png?v=1784842383055",
           "x": 81.15117860188636,
           "y": 69.05511448390511,
           "size": 15.570998224082391,
@@ -8037,14 +8037,14 @@
     }
   ],
   "createdAt": "2026-07-14T20:45:55.589Z",
-  "updatedAt": "2026-07-22T16:30:00.000Z",
-  "backVillainImage": "/cards/custom-mrl4fb45/back-villain.webp?v=1784666328227",
-  "backFateImage": "/cards/custom-mrl4fb45/back-fate.webp?v=1784666328227",
-  "boardImage": "/cards/custom-mrl4fb45/board.jpg?v=1784666328227",
+  "updatedAt": "2026-07-23T21:33:03.055Z",
+  "backVillainImage": "/cards/custom-mrl4fb45/back-villain.webp?v=1784842383055",
+  "backFateImage": "/cards/custom-mrl4fb45/back-fate.webp?v=1784842383055",
+  "boardImage": "/cards/custom-mrl4fb45/board.webp?v=1784842383055",
   "keywordColors": [],
-  "presentation": "/cards/custom-mrl4fb45/presentation.webp?v=1784666328227",
-  "portrait": "/cards/custom-mrl4fb45/portrait.webp?v=1784666328227",
-  "portraitRaw": "/cards/custom-mrl4fb45/portrait-raw.jpg?v=1784666328227",
+  "presentation": "/cards/custom-mrl4fb45/presentation.webp?v=1784842383055",
+  "portrait": "/cards/custom-mrl4fb45/portrait.png?v=1784842383055",
+  "portraitRaw": "/cards/custom-mrl4fb45/portrait-raw.jpg?v=1784842383055",
   "portraitCrop": {
     "x": 50,
     "y": 50,
@@ -8052,17 +8052,17 @@
   },
   "coverColor": "#4e0623",
   "objectiveTextOffsetY": 15,
-  "boardArt": "/cards/custom-mrl4fb45/board-art.jpg?v=1784666328227",
+  "boardArt": "/cards/custom-mrl4fb45/board-art.jpg?v=1784842383055",
   "portraitPos": {
     "x": 51,
     "y": 63,
     "zoom": 1.2
   },
-  "pawnImage": "/cards/custom-mrl4fb45/pawn.webp?v=1784666328227",
+  "pawnImage": "/cards/custom-mrl4fb45/pawn.png?v=1784842383055",
   "extraDecks": [
     "Combattant"
   ],
-  "backExtraImage": "/cards/custom-mrl4fb45/back-extra.webp?v=1784666328227",
+  "backExtraImage": "/cards/custom-mrl4fb45/back-extra.webp?v=1784842383055",
   "botStrategy": {
     "howToWin": "Objectif : CAPTURER 30 esprits. Le revenu = Combattants piochés au début du tour, selon les lieux CONTRÔLÉS (2 lieux → 0, 3 → 1, 4 → 2). Il faut donc conquérir les 2 lieux de droite en y massant des Alliés jusqu'à leur Défense (4 puis 6), puis les VERROUILLER (Base/Forteresse/Tour du Monde) pour un revenu garanti. Chaque Combattant pioché capture la valeur 🌑 de Sumbra ; s'il penche Ténèbres (aligné) il déclenche un Bonus, s'il penche Lumière (désaligné) un Malus passager (effacé en fin de tour). On accélère avec Aguerrie/Élite (capture directe), Combattant volé et Choc des Titans (pioches en plus), et on protège ses lieux des Héros Fatalité avec BOSS et Absorption de la Lumière.",
     "villainNotes": {
@@ -8224,10 +8224,19 @@
     "overlays": [
       {
         "id": "ovl-1",
-        "image": "/cards/custom-mrl4fb45/back-extra-overlay-0.webp?v=1784666328227",
+        "image": "/cards/custom-mrl4fb45/back-extra-overlay-0.png?v=1784666328227",
         "x": 50,
         "y": 50,
         "size": 108,
+        "aspect": 1.4085281980742779,
+        "tint": "#4e0623"
+      },
+      {
+        "id": "ovl-2",
+        "image": "/cards/custom-mrl4fb45/back-extra-overlay-1.png?v=1784842383055",
+        "x": 50,
+        "y": 50,
+        "size": 104,
         "aspect": 1.4085281980742779,
         "tint": "#4e0623"
       }
@@ -8237,10 +8246,18 @@
   "backOverlays": [
     {
       "id": "ovl-1",
-      "image": "/cards/custom-mrl4fb45/back-overlay-0.webp?v=1784666328227",
+      "image": "/cards/custom-mrl4fb45/back-overlay-0.png?v=1784666328227",
       "x": 50,
       "y": 50,
       "size": 102,
+      "aspect": 1.4085281980742779
+    },
+    {
+      "id": "ovl-2",
+      "image": "/cards/custom-mrl4fb45/back-overlay-1.png?v=1784842383055",
+      "x": 50,
+      "y": 50,
+      "size": 103,
       "aspect": 1.4085281980742779
     }
   ],

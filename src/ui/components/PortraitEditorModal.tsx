@@ -165,7 +165,8 @@ export function PortraitEditorModal({ onClose, initialVillain, lockVillain, cust
     const canvas = canvasRef.current
     if (!canvas) return
     if (isCustom) {
-      custom!.onApply(canvas.toDataURL('image/png'), crop)
+      // Portrait de vilain custom : baké en WebP (léger, cohérent avec le reste du bake).
+      custom!.onApply(canvas.toDataURL('image/webp', 0.92), crop)
       onClose()
       return
     }

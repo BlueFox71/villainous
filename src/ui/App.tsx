@@ -147,6 +147,8 @@ import { villainAnimation } from './villainAnimations'
 import { fireSurprise, villainHasSurprise } from './surpriseBus'
 import { villainPresentation, villainPortrait } from './villainArt'
 import { villainGender, villainArticle } from './villainGender'
+import { GameTestReportModal, type GameVillain } from './components/GameTestReportModal'
+import { GameCardReviewModal } from './components/GameCardReviewModal'
 
 // `diablo: true` sur un mode interactif = l'action en cours est l'action gratuite
 // de Diablo (V2) : le dispatch final est encapsulé dans DIABLO_FREE_ACTION au lieu
@@ -1851,14 +1853,18 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
   // TOUJOURS en entrant dans une partie (y compris en mode test ou après un
   // rechargement). En réseau : présentation « versus » SANS jet de dé (v1 :
   // l'hôte commence — activePlayer 0).
-  const [startRollDone, setStartRollDone] = useState(false)
+  // Reprise d'une partie sauvegardée (rechargement) : on SAUTE l'ouverture (jet « Qui
+  // commence ? » + distribution), déjà jouée avant la sauvegarde — la partie reprend en
+  // plein tour, sans re-tirage ni reset du premier joueur. `resumed` n'est vrai qu'au
+  // 1ᵉʳ montage après un rechargement (cf. gameStore).
+  const [startRollDone, setStartRollDone] = useState(() => useGameStore.getState().resumed)
   // Distribution d'OUVERTURE : avant le tout premier tour, la main de départ est
   // piochée carte par carte (vol + retournement au centre + son), au lieu d'apparaître
   // d'un bloc. `openingDealDone` débloque le bot, le splash « À vous de jouer » et le
   // chrono une fois la distribution terminée. `dealOverlay` porte les données de
   // l'overlay (cartes + rectangles) ; `dealHiddenIds` masque dans l'éventail les cartes
   // encore en vol (révélées une à une à leur atterrissage).
-  const [openingDealDone, setOpeningDealDone] = useState(false)
+  const [openingDealDone, setOpeningDealDone] = useState(() => useGameStore.getState().resumed)
   // Le chrono de partie « tourne » : même condition que le `GameTimer`. Passé au décor du Seigneur
   // des clés pour que son minuteur démarre EXACTEMENT en même temps (chacun capture Date.now dans
   // son effet au même rendu où `running` passe à vrai).
@@ -1873,7 +1879,9 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     blocking: boolean
   } | null>(null)
   const [dealHiddenIds, setDealHiddenIds] = useState<string[]>([])
-  const openingStartedRef = useRef(false)
+  // Partie reprise → l'ouverture est déjà faite : on marque la distribution comme
+  // « déjà démarrée » pour que son effet n'essaie pas de la rejouer.
+  const openingStartedRef = useRef(useGameStore.getState().resumed)
   const dealKeyRef = useRef(0)
   // Affiche « À vous de jouer » (4 s) au début de chaque tour du joueur humain.
   const [showTurnSplash, setShowTurnSplash] = useState(false)
@@ -2495,6 +2503,17 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     (state.players[HUMAN].board[state.players[HUMAN].pawnLocation!] ?? []).some((c) => c.type === 'hero')
       ? state.players[HUMAN].pawnLocation
       : null
+
+  // « Je vais vous broyer les os ! » (La Méchante Reine) / Bravo ! Bravo ! (Shere Khan) /
+  // Piégé (Dio…) : quand les actions recouvertes par un Héros sont jouables ce tour-ci, on
+  // LÈVE aussi le recouvrement VISUEL du Héros sur le lieu du pion (jusqu'à la fin du tour).
+  // Exception « Piégé » (uncoverExceptFate) : la Fatalité reste recouverte → on garde le masque.
+  const uncoverHeroLoc =
+    isHumanTurn && state.uncoverCoveredActions && !state.uncoverExceptFate
+      ? state.players[HUMAN].pawnLocation ?? null
+      : null
+  // Lieu dont on démasque la rangée du haut (Persifleur en priorité, sinon « broyer les os »).
+  const unmaskHeroLoc = persifleurLoc ?? uncoverHeroLoc
 
   const user = state.players[HUMAN]
   const bot = state.players[BOT]
@@ -6377,6 +6396,10 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
   // `watchBoard` n'a de sens que si `won` ; il est remis à false au redémarrage
   // (replaySameVillains) — seul retour PLAYING en place.
   const [watchBoard, setWatchBoard] = useState(false)
+  // Fin de partie : ouverture de la modale « Rapport de tests » (outil de dév, haut-droite).
+  const [showEndReport, setShowEndReport] = useState(false)
+  // Fin de partie : ouverture du panneau « Rapport de tests — Cartes » (dév, haut-gauche).
+  const [showCardReview, setShowCardReview] = useState(false)
   // Avant l'écran de fin : le plateau du PERDANT se fissure et vole en éclats
   // (« miroir brisé »). `endShatterDone` passe à vrai quand l'animation est finie
   // → l'écran Victoire/Défaite s'affiche alors. Réinitialisé au redémarrage.
@@ -6701,9 +6724,12 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
                 setTestFateError(null)
               }}
               title="Mode test : vide les deux plateaux pour composer une situation"
-              className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"
+              className="group flex items-center rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"
             >
-              🧪 Mode test
+              <span className="text-base leading-none">🧪</span>
+              <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-out group-hover:ml-2 group-hover:max-w-[12rem] group-hover:opacity-100">
+                Mode test
+              </span>
             </button>
           )}
           {/* Copier le journal : dump brut de state.log (une action par ligne) dans le
@@ -6720,13 +6746,16 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
               }}
               onMouseEnter={playHover}
               title="Copier tout le journal dans le presse-papiers"
-              className={`rounded-lg border px-3 py-1.5 text-sm font-semibold ${
+              className={`group flex items-center rounded-lg border px-3 py-1.5 text-sm font-semibold ${
                 logCopied
                   ? 'border-emerald-300 bg-emerald-500 text-emerald-950 hover:bg-emerald-400'
                   : 'border-sky-500 bg-sky-600 text-white hover:bg-sky-500'
               }`}
             >
-              {logCopied ? '✓ Copié' : '📋 Copier le journal'}
+              <span className="text-base leading-none">{logCopied ? '✓' : '📋'}</span>
+              <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-out group-hover:ml-2 group-hover:max-w-[12rem] group-hover:opacity-100">
+                {logCopied ? 'Copié' : 'Copier le journal'}
+              </span>
             </button>
           )}
           {/* Pause : gèle l'auto-progression des bots. RÉSERVÉE au mode ORDI vs ORDI hors
@@ -6938,7 +6967,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
             // la mesure du rect par MirrorShatter reste correcte).
             style={userBoardDestroyed ? { visibility: 'hidden' } : undefined}
           >
-            <BoardImage player={user} showPawn pawnOutline={`color-mix(in srgb, ${villainColor(user.villain)}, white 45%)`} imgClassName="border border-[color:var(--pa-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} unmaskHeroLocationId={persifleurLoc} obstacleTargets={state.pendingObstacle && state.pendingObstacle.chooserIndex === HUMAN && state.pendingObstacle.kind === 'remove' ? user.locations.map((l) => l.id).filter((id) => (user.obstacles?.[id] ?? 0) > 0 && (!state.pendingObstacle!.sameLocation || !state.pendingObstacle!.lockedLocationId || state.pendingObstacle!.lockedLocationId === id)) : undefined} onObstacleClick={resolveObstacle} keyPick={state.pendingKey && state.pendingKey.playerIndex === HUMAN && state.pendingKey.kind === 'take' && !dieAnim ? { locationId: state.pendingKey.locationId, color: state.pendingKey.color } : undefined} onKeyClick={resolveKey} crewmateCandidates={state.pendingCrewmateKill?.playerIndex === HUMAN ? state.pendingCrewmateKill.candidateColors : undefined} onCrewmateClick={(color) => { if (state.pendingCrewmateKill?.mode === 'kill') playKillSound(); resolveCrewmateKill(color) }} crewmateSelectVerb={state.pendingCrewmateKill?.mode === 'reassure' ? 'Rassurer' : state.pendingCrewmateKill?.mode === 'kill-normal' ? 'Éliminer' : state.pendingCrewmateKill?.mode === 'move' ? 'Déplacer' : 'Défausser'} pawnDraggable={pawnDraggable} pawnDragging={draggingPawn} pawnHeightOverride={pawnEdit && pawnEdit.villain === villainKeyOf(user.villain) ? pawnEdit.size : undefined} onPawnDragStart={handlePawnDragStart} onPawnDragMove={handlePawnDragMove} onPawnDragDrop={handlePawnDragDrop} onPawnDragCancel={handlePawnDragCancel} />
+            <BoardImage player={user} showPawn pawnOutline={`color-mix(in srgb, ${villainColor(user.villain)}, white 45%)`} imgClassName="border border-[color:var(--pa-line-soft)]" hiddenHeroInstanceIds={showcaseHiddenIds} unmaskHeroLocationId={unmaskHeroLoc} obstacleTargets={state.pendingObstacle && state.pendingObstacle.chooserIndex === HUMAN && state.pendingObstacle.kind === 'remove' ? user.locations.map((l) => l.id).filter((id) => (user.obstacles?.[id] ?? 0) > 0 && (!state.pendingObstacle!.sameLocation || !state.pendingObstacle!.lockedLocationId || state.pendingObstacle!.lockedLocationId === id)) : undefined} onObstacleClick={resolveObstacle} keyPick={state.pendingKey && state.pendingKey.playerIndex === HUMAN && state.pendingKey.kind === 'take' && !dieAnim ? { locationId: state.pendingKey.locationId, color: state.pendingKey.color } : undefined} onKeyClick={resolveKey} crewmateCandidates={state.pendingCrewmateKill?.playerIndex === HUMAN ? state.pendingCrewmateKill.candidateColors : undefined} onCrewmateClick={(color) => { if (state.pendingCrewmateKill?.mode === 'kill') playKillSound(); resolveCrewmateKill(color) }} crewmateSelectVerb={state.pendingCrewmateKill?.mode === 'reassure' ? 'Rassurer' : state.pendingCrewmateKill?.mode === 'kill-normal' ? 'Éliminer' : state.pendingCrewmateKill?.mode === 'move' ? 'Déplacer' : 'Défausser'} pawnDraggable={pawnDraggable} pawnDragging={draggingPawn} pawnHeightOverride={pawnEdit && pawnEdit.villain === villainKeyOf(user.villain) ? pawnEdit.size : undefined} onPawnDragStart={handlePawnDragStart} onPawnDragMove={handlePawnDragMove} onPawnDragDrop={handlePawnDragDrop} onPawnDragCancel={handlePawnDragCancel} />
             <BoardActions
               player={user}
               housesHere={bot.houses}
@@ -10659,6 +10688,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
           <CardChoiceModal
             title={useArtifacts ? "Manipulation : choisis l'Artéfact à reproduire" : "Foudre : choisis l'Ingrédient à reproduire"}
             cards={cards}
+            imageOnly
             onClose={cancelDuplicateIngredient}
             onPick={(card) => resolveDuplicateIngredient(card.instanceId)}
           />
@@ -11255,6 +11285,76 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
           onHome={() => { stopVictoryBuildup(); onExit?.() }}
           canReplay={gameMode === 'solo'}
         />
+      )}
+
+      {/* Outil de dév (masqué en exe) : bouton « Rapport de tests — Cartes » en HAUT À
+          GAUCHE, présent DÈS LE DÉBUT de la partie ; ouvre le panneau de revue des cartes
+          (Méchant + Fatalité) des deux vilains, avec sélection (bordure verte).
+          Porté dans document.body : l'arbre du jeu vit dans un conteneur `isolate`
+          (contexte d'empilement) qui piégerait sinon bouton/modale sous les overlays
+          portés dans body. */}
+      {!isDesktopApp && createPortal(
+        <>
+          {/* Bouton-icône : n'affiche que 🃏 ; au survol, le libellé se déploie (transition). */}
+          <button
+            type="button"
+            onClick={() => setShowCardReview(true)}
+            title="Rapport de tests — Cartes"
+            className="group fixed left-4 top-4 z-[90] flex items-center rounded-lg border border-amber-300/60 bg-black/70 px-3 py-2 text-sm font-semibold text-amber-200 backdrop-blur-sm transition hover:border-amber-300 hover:bg-black/80"
+          >
+            <span className="text-base leading-none">🃏</span>
+            <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-out group-hover:ml-2 group-hover:max-w-[16rem] group-hover:opacity-100">
+              Rapport de tests — Cartes
+            </span>
+          </button>
+          {showCardReview && (
+            <GameCardReviewModal
+              villains={[
+                { key: presKey(state.players[HUMAN].villain), name: state.players[HUMAN].villainName },
+                { key: presKey(state.players[BOT].villain), name: state.players[BOT].villainName },
+              ]}
+              onClose={() => setShowCardReview(false)}
+            />
+          )}
+        </>,
+        document.body,
+      )}
+
+      {/* Partie finie — outil de dév (masqué en exe) : bouton « Rapport de tests » en haut à
+          droite ; ouvre une modale pour noter les DEUX vilains de la partie (celui du joueur
+          → côté Joueur, celui du bot → côté Bot). Sauvegarde auto (assets/test-report.json). */}
+      {won && !isDesktopApp && createPortal(
+        <>
+          <button
+            type="button"
+            onClick={() => setShowEndReport(true)}
+            className="fixed right-4 top-4 z-[90] rounded-lg border border-amber-300/60 bg-black/70 px-4 py-2 text-sm font-semibold text-amber-200 backdrop-blur-sm transition hover:border-amber-300 hover:bg-black/80"
+          >
+            📋 Rapport de tests
+          </button>
+          {showEndReport && (
+            <GameTestReportModal
+              villains={[
+                {
+                  key: presKey(state.players[HUMAN].villain),
+                  name: state.players[HUMAN].villainName,
+                  portrait: villainPortrait(presKey(state.players[HUMAN].villain)),
+                  color: coverColorOf(state.players[HUMAN].villain),
+                  side: 'joueur',
+                },
+                {
+                  key: presKey(state.players[BOT].villain),
+                  name: state.players[BOT].villainName,
+                  portrait: villainPortrait(presKey(state.players[BOT].villain)),
+                  color: coverColorOf(state.players[BOT].villain),
+                  side: 'bot',
+                },
+              ] satisfies GameVillain[]}
+              onClose={() => setShowEndReport(false)}
+            />
+          )}
+        </>,
+        document.body,
       )}
 
       {/* MODE TEST : cadre vert épais autour de l'écran (repère visuel « on est en

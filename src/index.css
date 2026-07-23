@@ -6344,6 +6344,28 @@ body {
   pointer-events: none;
   background: radial-gradient(120% 95% at 50% 44%, transparent 52%, rgba(0, 0, 0, 0.82) 100%);
 }
+/* Pleine lune : disque jaune en haut à droite, avec un halo diffus qui respire doucement. */
+.oogie-moon {
+  position: absolute;
+  top: 6%;
+  right: 7%;
+  width: 12vh;
+  height: 12vh;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    radial-gradient(circle at 38% 34%, #fff6c8 0%, #ffe873 34%, #f6cf46 66%, #e0b52f 100%);
+  box-shadow:
+    0 0 5vh 1.5vh rgba(255, 226, 110, 0.4),
+    0 0 12vh 4vh rgba(255, 214, 70, 0.22);
+  will-change: opacity, filter;
+  animation: oogieMoonGlow 6s ease-in-out infinite alternate;
+}
+@keyframes oogieMoonGlow {
+  from { filter: brightness(0.92); box-shadow: 0 0 4vh 1vh rgba(255, 226, 110, 0.32), 0 0 10vh 3vh rgba(255, 214, 70, 0.18); }
+  to { filter: brightness(1.06); box-shadow: 0 0 6vh 2vh rgba(255, 226, 110, 0.46), 0 0 14vh 5vh rgba(255, 214, 70, 0.26); }
+}
 /* Lueur de lumière noire (verte + violette) qui pulse. */
 .oogie-glow {
   position: absolute;
@@ -6472,6 +6494,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   /* On fige tout (le décor reste posé). */
   .oogie-glow,
+  .oogie-moon,
   .oogie-die-bob,
   .oogie-die-tumble,
   .oogie-garland,

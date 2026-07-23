@@ -682,6 +682,11 @@ function buildTestState(current?: GameState): GameState {
 
 interface GameStore {
   state: GameState
+  /** Vrai UNIQUEMENT quand le store a été initialisé depuis une partie SAUVEGARDÉE
+   *  (rechargement de page, sessionStorage) — pas pour une partie fraîche. Lu au montage
+   *  d'`App` pour SAUTER l'ouverture (jet « Qui commence ? » + distribution) et reprendre
+   *  la partie en plein tour. Remis à `false` par toute action de démarrage d'une partie neuve. */
+  resumed: boolean
   /** Contrôleur de chaque siège (voir {@link SeatController}). Détermine quels
    *  sièges l'autorité auto-joue (bot) vs attend (local/remote). */
   seats: [SeatController, SeatController]
@@ -1226,6 +1231,7 @@ try {
 
 export const useGameStore = create<GameStore>((set, get) => ({
   state: restoredState ?? newGame(),
+  resumed: !!restoredState,
   seats: restoredGame?.seats ?? SOLO_SEATS,
   localPlayerIndex: restoredGame?.localPlayerIndex ?? 0,
   mode: 'solo', // on ne reprend que le solo (snapshotForSave ne persiste que le solo)
@@ -1282,7 +1288,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     teardownNet()
     const room = makeRoomCode()
     set({
-      mode: 'host', localPlayerIndex: 0, seats: ['local', 'remote'],
+      mode: 'host', resumed: false, localPlayerIndex: 0, seats: ['local', 'remote'],
       hostRoom: room, hostAddrs: null, netStatus: 'connecting', netError: null,
       lobby: [
         { seat: 0, villainKey: null, ...myProfile(), connected: true },
@@ -1383,7 +1389,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       },
     })
     activeSession = session
-    set({ mode: 'client', localPlayerIndex: 1, seats: ['remote', 'local'], netStatus: 'connecting', netError: null, lobby: null })
+    set({ mode: 'client', resumed: false, localPlayerIndex: 1, seats: ['remote', 'local'], netStatus: 'connecting', netError: null, lobby: null })
   },
   setReacting: (on, villainName) => {
     activeConnection?.send({ type: 'REACTING', reacting: on, villainName })
@@ -1964,7 +1970,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   reset: (villains) => {
     teardownNet()
     set({
-      state: newGame(villains), testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0,
+      state: newGame(villains), resumed: false, testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0,
       mode: 'solo', netStatus: 'idle', hostRoom: null, hostAddrs: null, netError: null, netLeftNotice: null, peerReacting: null, lobby: null,
       tutorial: null,
     })
@@ -1973,6 +1979,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     teardownNet()
     set({
       state: tutorialGame(),
+      resumed: false,
       tutorial: { stepIndex: 0 },
       testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0,
       mode: 'solo', netStatus: 'idle', hostRoom: null, hostAddrs: null, netError: null, netLeftNotice: null, peerReacting: null, lobby: null,
@@ -1984,7 +1991,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   startCustomGame: (custom, opponent) => {
     teardownNet()
     set({
-      state: customGame(custom, opponent), testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0,
+      state: customGame(custom, opponent), resumed: false, testMode: false, seats: SOLO_SEATS, localPlayerIndex: 0,
       mode: 'solo', netStatus: 'idle', hostRoom: null, hostAddrs: null, netError: null, netLeftNotice: null, peerReacting: null, lobby: null,
     })
   },
@@ -1994,7 +2001,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   startBotMatch: (villains) => {
     teardownNet()
     set({
-      state: newGame(villains), testMode: false, seats: ['bot', 'bot'], localPlayerIndex: 0,
+      state: newGame(villains), resumed: false, testMode: false, seats: ['bot', 'bot'], localPlayerIndex: 0,
       mode: 'solo', netStatus: 'idle', hostRoom: null, hostAddrs: null, netError: null, netLeftNotice: null, peerReacting: null, lobby: null,
     })
   },

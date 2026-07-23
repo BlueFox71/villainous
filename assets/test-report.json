@@ -85,7 +85,11 @@
           "comment": "",
           "journalChecked": false
         }
-      }
+      },
+      "validatedCards": [
+        "sherif-nottingham",
+        "gardes-rhinoceros"
+      ]
     },
     "ursula": {
       "jules": {
@@ -152,26 +156,31 @@
         "joueur": {
           "rating": "presque-bien",
           "games": 1,
-          "comment": ""
+          "comment": "",
+          "journalChecked": false
         },
         "bot": {
-          "rating": "non-teste",
-          "games": 0,
-          "comment": ""
+          "rating": "a-ameliorer",
+          "games": 1,
+          "comment": "",
+          "journalChecked": false
         }
       },
       "alexis": {
         "joueur": {
           "rating": "non-teste",
           "games": 0,
-          "comment": ""
+          "comment": "",
+          "journalChecked": false
         },
         "bot": {
           "rating": "non-teste",
           "games": 0,
-          "comment": ""
+          "comment": "",
+          "journalChecked": false
         }
-      }
+      },
+      "validatedCards": []
     },
     "laBonneFee": {
       "jules": {
@@ -202,8 +211,8 @@
     "custom-mrl4fb45": {
       "jules": {
         "joueur": {
-          "rating": "presque-bien",
-          "games": 0,
+          "rating": "satisfaisant",
+          "games": 2,
           "comment": "",
           "journalChecked": true
         },
@@ -227,7 +236,111 @@
           "comment": "",
           "journalChecked": false
         }
-      }
+      },
+      "validatedCards": [
+        "custom-mrl4fb45-c1",
+        "custom-mrl4fb45-c2",
+        "custom-mrl4fb45-c3",
+        "custom-mrl4fb45-c7",
+        "custom-mrl4fb45-c8",
+        "custom-mrl4fb45-c5",
+        "custom-mrl4fb45-c11",
+        "custom-mrl4fb45-c12",
+        "custom-mrl4fb45-c21",
+        "custom-mrl4fb45-c18",
+        "custom-mrl4fb45-c15",
+        "custom-mrl4fb45-c20",
+        "custom-mrl4fb45-c14",
+        "custom-mrl4fb45-c19",
+        "custom-mrl4fb45-c13",
+        "custom-mrl4fb45-c23",
+        "custom-mrl4fb45-c24",
+        "custom-mrl4fb45-c31",
+        "custom-mrl4fb45-c32",
+        "custom-mrl4fb45-c25",
+        "custom-mrl4fb45-c33",
+        "custom-mrl4fb45-c34",
+        "custom-mrl4fb45-c26",
+        "custom-mrl4fb45-c27",
+        "custom-mrl4fb45-c28",
+        "custom-mrl4fb45-c29",
+        "custom-mrl4fb45-c30",
+        "custom-mrl4fb45-c38",
+        "custom-mrl4fb45-c37",
+        "custom-mrl4fb45-c36",
+        "custom-mrl4fb45-c35",
+        "custom-mrl4fb45-c46",
+        "custom-mrl4fb45-c45",
+        "custom-mrl4fb45-c44",
+        "custom-mrl4fb45-c43",
+        "custom-mrl4fb45-c42",
+        "custom-mrl4fb45-c41",
+        "custom-mrl4fb45-c40",
+        "custom-mrl4fb45-c39",
+        "custom-mrl4fb45-c47",
+        "custom-mrl4fb45-c48",
+        "custom-mrl4fb45-c49",
+        "custom-mrl4fb45-c50",
+        "custom-mrl4fb45-c51",
+        "custom-mrl4fb45-c53",
+        "custom-mrl4fb45-c54",
+        "custom-mrl4fb45-c52",
+        "custom-mrl4fb45-c62",
+        "custom-mrl4fb45-c61",
+        "custom-mrl4fb45-c60",
+        "custom-mrl4fb45-c59",
+        "custom-mrl4fb45-c58",
+        "custom-mrl4fb45-c57",
+        "custom-mrl4fb45-c56",
+        "custom-mrl4fb45-c55",
+        "custom-mrl4fb45-c63",
+        "custom-mrl4fb45-c64",
+        "custom-mrl4fb45-c65",
+        "custom-mrl4fb45-c66",
+        "custom-mrl4fb45-c67",
+        "custom-mrl4fb45-c68",
+        "custom-mrl4fb45-c69",
+        "custom-mrl4fb45-c70",
+        "custom-mrl4fb45-c78",
+        "custom-mrl4fb45-c77",
+        "custom-mrl4fb45-c76",
+        "custom-mrl4fb45-c75",
+        "custom-mrl4fb45-c74",
+        "custom-mrl4fb45-c73",
+        "custom-mrl4fb45-c72",
+        "custom-mrl4fb45-c71",
+        "custom-mrl4fb45-c79",
+        "custom-mrl4fb45-c80",
+        "custom-mrl4fb45-c81",
+        "custom-mrl4fb45-c82",
+        "custom-mrl4fb45-c83",
+        "custom-mrl4fb45-c84",
+        "custom-mrl4fb45-c85",
+        "custom-mrl4fb45-c86",
+        "custom-mrl4fb45-c94",
+        "custom-mrl4fb45-c93",
+        "custom-mrl4fb45-c92",
+        "custom-mrl4fb45-c91",
+        "custom-mrl4fb45-c90",
+        "custom-mrl4fb45-c89",
+        "custom-mrl4fb45-c88",
+        "custom-mrl4fb45-c87",
+        "custom-mrl4fb45-c95",
+        "custom-mrl4fb45-c103",
+        "custom-mrl4fb45-c104",
+        "custom-mrl4fb45-c105",
+        "custom-mrl4fb45-c106",
+        "custom-mrl4fb45-c107",
+        "custom-mrl4fb45-c108",
+        "custom-mrl4fb45-c100",
+        "custom-mrl4fb45-c99",
+        "custom-mrl4fb45-c98",
+        "custom-mrl4fb45-c97",
+        "custom-mrl4fb45-c101",
+        "custom-mrl4fb45-c102",
+        "custom-mrl4fb45-c9",
+        "custom-mrl4fb45-c10"
+      ]
     },
     "custom-killaire": {
       "jules": {
@@ -257,7 +370,112 @@
           "comment": "",
           "journalChecked": false
         }
-      }
+      },
+      "validatedCards": [
+        "custom-mrl4fb45-c1--custom-killaire",
+        "custom-mrl4fb45-c2--custom-killaire",
+        "custom-mrl4fb45-c3--custom-killaire",
+        "custom-mrl4fb45-c7--custom-killaire",
+        "custom-mrl4fb45-c8--custom-killaire",
+        "custom-mrl4fb45-c11--custom-killaire",
+        "custom-mrl4fb45-c12--custom-killaire",
+        "custom-mrl4fb45-c5--custom-killaire",
+        "custom-mrl4fb45-c21--custom-killaire",
+        "custom-mrl4fb45-c18--custom-killaire",
+        "custom-mrl4fb45-c15--custom-killaire",
+        "custom-mrl4fb45-c14--custom-killaire",
+        "custom-mrl4fb45-c20--custom-killaire",
+        "custom-mrl4fb45-c19--custom-killaire",
+        "custom-mrl4fb45-c13--custom-killaire",
+        "custom-mrl4fb45-c9--custom-killaire",
+        "custom-mrl4fb45-c10--custom-killaire",
+        "custom-mrl4fb45-c23--custom-killaire",
+        "custom-mrl4fb45-c24--custom-killaire",
+        "custom-mrl4fb45-c25--custom-killaire",
+        "custom-mrl4fb45-c27--custom-killaire",
+        "custom-mrl4fb45-c26--custom-killaire",
+        "custom-mrl4fb45-c28--custom-killaire",
+        "custom-mrl4fb45-c30--custom-killaire",
+        "custom-mrl4fb45-c29--custom-killaire",
+        "custom-mrl4fb45-c38--custom-killaire",
+        "custom-mrl4fb45-c37--custom-killaire",
+        "custom-mrl4fb45-c36--custom-killaire",
+        "custom-mrl4fb45-c35--custom-killaire",
+        "custom-mrl4fb45-c34--custom-killaire",
+        "custom-mrl4fb45-c33--custom-killaire",
+        "custom-mrl4fb45-c32--custom-killaire",
+        "custom-mrl4fb45-c31--custom-killaire",
+        "custom-mrl4fb45-c39--custom-killaire",
+        "custom-mrl4fb45-c40--custom-killaire",
+        "custom-mrl4fb45-c41--custom-killaire",
+        "custom-mrl4fb45-c42--custom-killaire",
+        "custom-mrl4fb45-c44--custom-killaire",
+        "custom-mrl4fb45-c45--custom-killaire",
+        "custom-mrl4fb45-c46--custom-killaire",
+        "custom-mrl4fb45-c43--custom-killaire",
+        "custom-mrl4fb45-c54--custom-killaire",
+        "custom-mrl4fb45-c53--custom-killaire",
+        "custom-mrl4fb45-c52--custom-killaire",
+        "custom-mrl4fb45-c51--custom-killaire",
+        "custom-mrl4fb45-c50--custom-killaire",
+        "custom-mrl4fb45-c49--custom-killaire",
+        "custom-mrl4fb45-c48--custom-killaire",
+        "custom-mrl4fb45-c47--custom-killaire",
+        "custom-mrl4fb45-c55--custom-killaire",
+        "custom-mrl4fb45-c56--custom-killaire",
+        "custom-mrl4fb45-c57--custom-killaire",
+        "custom-mrl4fb45-c58--custom-killaire",
+        "custom-mrl4fb45-c59--custom-killaire",
+        "custom-mrl4fb45-c60--custom-killaire",
+        "custom-mrl4fb45-c61--custom-killaire",
+        "custom-mrl4fb45-c62--custom-killaire",
+        "custom-mrl4fb45-c70--custom-killaire",
+        "custom-mrl4fb45-c69--custom-killaire",
+        "custom-mrl4fb45-c68--custom-killaire",
+        "custom-mrl4fb45-c67--custom-killaire",
+        "custom-mrl4fb45-c66--custom-killaire",
+        "custom-mrl4fb45-c65--custom-killaire",
+        "custom-mrl4fb45-c64--custom-killaire",
+        "custom-mrl4fb45-c63--custom-killaire",
+        "custom-mrl4fb45-c71--custom-killaire",
+        "custom-mrl4fb45-c72--custom-killaire",
+        "custom-mrl4fb45-c73--custom-killaire",
+        "custom-mrl4fb45-c74--custom-killaire",
+        "custom-mrl4fb45-c76--custom-killaire",
+        "custom-mrl4fb45-c75--custom-killaire",
+        "custom-mrl4fb45-c77--custom-killaire",
+        "custom-mrl4fb45-c78--custom-killaire",
+        "custom-mrl4fb45-c86--custom-killaire",
+        "custom-mrl4fb45-c94--custom-killaire",
+        "custom-mrl4fb45-c93--custom-killaire",
+        "custom-mrl4fb45-c92--custom-killaire",
+        "custom-mrl4fb45-c91--custom-killaire",
+        "custom-mrl4fb45-c90--custom-killaire",
+        "custom-mrl4fb45-c89--custom-killaire",
+        "custom-mrl4fb45-c88--custom-killaire",
+        "custom-mrl4fb45-c87--custom-killaire",
+        "custom-mrl4fb45-c79--custom-killaire",
+        "custom-mrl4fb45-c80--custom-killaire",
+        "custom-mrl4fb45-c81--custom-killaire",
+        "custom-mrl4fb45-c82--custom-killaire",
+        "custom-mrl4fb45-c83--custom-killaire",
+        "custom-mrl4fb45-c84--custom-killaire",
+        "custom-mrl4fb45-c85--custom-killaire",
+        "custom-mrl4fb45-c102--custom-killaire",
+        "custom-mrl4fb45-c101--custom-killaire",
+        "custom-mrl4fb45-c100--custom-killaire",
+        "custom-mrl4fb45-c99--custom-killaire",
+        "custom-mrl4fb45-c98--custom-killaire",
+        "custom-mrl4fb45-c97--custom-killaire",
+        "custom-mrl4fb45-c96--custom-killaire",
+        "custom-mrl4fb45-c95--custom-killaire",
+        "custom-mrl4fb45-c103--custom-killaire",
+        "custom-mrl4fb45-c104--custom-killaire",
+        "custom-mrl4fb45-c105--custom-killaire",
+        "custom-mrl4fb45-c106--custom-killaire",
+        "custom-mrl4fb45-c107--custom-killaire",
+        "custom-mrl4fb45-c108--custom-killaire"
+      ]
     },
     "custom-stitch": {
       "jules": {
@@ -388,11 +606,15 @@
           "journalChecked": false
         },
         "bot": {
-          "rating": "non-teste",
+          "rating": "a-ameliorer",
           "games": 0,
           "comment": "",
           "journalChecked": false
-        }
+        },
+        "validatedCards": [
+          "sinistre-creature",
+          "baton-magique"
+        ]
       },
       "alexis": {
         "joueur": {
@@ -406,7 +628,8 @@
           "games": 0,
           "comment": "",
           "journalChecked": false
-        }
+        },
+        "validatedCards": []
       }
     },
     "jafar": {
@@ -532,8 +755,8 @@
     "mechanteReine": {
       "jules": {
         "joueur": {
-          "rating": "non-teste",
-          "games": 0,
+          "rating": "presque-bien",
+          "games": 1,
           "comment": "",
           "journalChecked": false
         },
@@ -557,7 +780,16 @@
           "comment": "",
           "journalChecked": false
         }
-      }
+      },
+      "validatedCards": [
+        "joyeux",
+        "timide",
+        "blanche-neige",
+        "trone",
+        "grimoires-magiques",
+        "miroir-magique",
+        "croque"
+      ]
     },
     "scar": {
       "jules": {
@@ -1348,11 +1580,12 @@
           "journalChecked": false
         },
         "bot": {
-          "rating": "non-teste",
-          "games": 0,
+          "rating": "a-ameliorer",
+          "games": 1,
           "comment": "",
           "journalChecked": false
-        }
+        },
+        "validatedCards": []
       },
       "alexis": {
         "joueur": {
@@ -1366,7 +1599,8 @@
           "games": 0,
           "comment": "",
           "journalChecked": false
-        }
+        },
+        "validatedCards": []
       }
     }
   }

@@ -5577,6 +5577,8 @@ function OogieDecor() {
   }, [])
   return (
     <div className="oogie-decor" aria-hidden>
+      {/* Pleine lune (disque jaune halo) en haut à droite, derrière la guirlande. */}
+      <div className="oogie-moon" />
       {/* Lueur de lumière noire (verte + violette) qui pulse. */}
       <div className="oogie-glow" />
       {/* Guirlande Halloween (fanions + fantômes + citrouilles) suspendue en haut, qui se balance. */}

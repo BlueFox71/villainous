@@ -3097,6 +3097,8 @@ function resolveFateCardOnHero(
     }))
     return {
       ...next,
+      // Journal data-driven : expose le Héros équipé ({nomHéros}, ex. Déguisement).
+      journalVars: { ...next.journalVars, ['nomHéros']: hero.name },
       log: [...next.log, `${playedByName} associe **${chosen.name}** à **${hero.name}**.`],
     }
   }
@@ -12464,15 +12466,18 @@ function applyJournalTemplate(before: GameState, action: GameAction, core: GameS
   if (before.pendingJournal) {
     const pj = before.pendingJournal
     const player = before.players[pj.playerIndex]
-    const ctx = buildJournalCtx(before, core, pj.playerIndex)
+    // Les valeurs déjà résolues aux étapes précédentes (`pj.vars`) comblent les clés que CETTE
+    // action ne reproduit pas ; le contexte courant (dont `core.journalVars`) l'emporte.
+    const ctx = { ...(pj.vars ?? {}), ...buildJournalCtx(before, core, pj.playerIndex) }
     const filled = journalCampEmoji(journalLine(pj.template, ctx, 0), player)
     const done = !hasUnresolvedPlaceholder(filled) || !hasOpenChoice(core) || pj.steps >= 2
     const kept = core.log.slice(0, before.log.length)
     if (done) {
-      const line = journalLogLine(player.villainName, filled, pj.icon)
+      const line = journalLogLine(player.villainName, bestJournalLine(pj.template, ctx, player), pj.icon)
       return { ...cleared, pendingJournal: null, log: [...kept, line] }
     }
-    return { ...cleared, pendingJournal: { ...pj, steps: pj.steps + 1 }, log: kept }
+    const vars = { ...(pj.vars ?? {}), ...(core.journalVars ?? {}) }
+    return { ...cleared, pendingJournal: { ...pj, steps: pj.steps + 1, vars }, log: kept }
   }
 
   // Détermine l'acteur/propriétaire, le template et l'icône selon l'action.
@@ -12527,9 +12532,12 @@ function applyJournalTemplate(before: GameState, action: GameAction, core: GameS
   // DIFFÈRE si un placeholder reste non résolu ET qu'un choix interactif est ouvert : on masque
   // les lignes de cette action et on émettra à la résolution (cf. bloc A).
   if (hasUnresolvedPlaceholder(filled) && hasOpenChoice(core)) {
-    return { ...cleared, pendingJournal: { playerIndex, template, icon, steps: 0 }, log: kept }
+    // Mémorise les valeurs DÉJÀ résolues par cette action (ex. `{nomAllié}` d'un déplacement
+    // fait tout de suite) pour qu'elles survivent jusqu'à la résolution des choix restants.
+    const vars = { ...extraCtx, ...(core.journalVars ?? {}) }
+    return { ...cleared, pendingJournal: { playerIndex, template, icon, steps: 0, vars }, log: kept }
   }
-  const line = journalLogLine(before.players[playerIndex].villainName, filled, icon)
+  const line = journalLogLine(before.players[playerIndex].villainName, bestJournalLine(template, ctx, before.players[playerIndex]), icon)
   return { ...cleared, log: [...kept, line] }
 }
 
@@ -12537,6 +12545,23 @@ function applyJournalTemplate(before: GameState, action: GameAction, core: GameS
  *  d'attendre une résolution interactive avant d'émettre — cf. émission différée). */
 function hasUnresolvedPlaceholder(text: string): boolean {
   return /\{[^{}]+\}/.test(text)
+}
+
+/** Choisit la meilleure ligne d'un template à l'émission : la ligne 0 (forme complète) si tous
+ *  ses placeholders sont résolus, sinon la 1ʳᵉ ligne SUIVANTE qui se remplit entièrement (repli
+ *  générique). Sert aux cartes dont une cible est FACULTATIVE (ex. Tendre un Piège : l'Allié se
+ *  déplace toujours, mais l'élimination — donc `{nomHéros}` — peut ne pas avoir lieu) : la ligne
+ *  de repli, écrite sans le placeholder optionnel, évite d'afficher un `{clé}` littéral. Dernier
+ *  recours : la ligne 0 (placeholder laissé littéral, repérage à l'œil). */
+export function bestJournalLine(template: string, ctx: JournalCtx, player: PlayerState): string {
+  const first = journalCampEmoji(journalLine(template, ctx, 0), player)
+  if (!hasUnresolvedPlaceholder(first)) return first
+  const n = template.split('\n').map((l) => l.trim()).filter(Boolean).length
+  for (let i = 1; i < n; i++) {
+    const alt = journalCampEmoji(journalLine(template, ctx, i), player)
+    if (!hasUnresolvedPlaceholder(alt)) return alt
+  }
+  return first
 }
 
 /** Un choix INTERACTIF est-il en attente ? Générique : vrai si un champ `pendingXxx` (hors

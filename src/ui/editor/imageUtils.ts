@@ -21,18 +21,22 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
   })
 }
 
-/** Réencode une image en PNG/JPEG borné à `maxSize` px (côté le plus long), pour
- *  éviter de stocker des originaux de plusieurs Mo en dataURL. Conserve le ratio. */
+/** Réencode une image (WebP par défaut) bornée à `maxSize` px (côté le plus long), pour
+ *  éviter de stocker des originaux de plusieurs Mo en dataURL. Conserve le ratio.
+ *  Le bake de l'Atelier passe par ici → les cartes/dos/plateaux publiés sont en **WebP**
+ *  (léger, cohérent avec les fichiers convertis). */
 export async function downscaleDataUrl(
   src: string,
   maxSize = 1024,
-  mime: 'image/png' | 'image/jpeg' = 'image/png',
+  mime: 'image/png' | 'image/jpeg' | 'image/webp' = 'image/webp',
   quality = 0.92,
 ): Promise<string> {
   const img = await loadImage(src)
   const { width, height } = img
   const scale = Math.min(1, maxSize / Math.max(width, height))
-  if (scale >= 1 && src.length < 1_500_000) return src // déjà raisonnable
+  // Court-circuit SEULEMENT si la source est déjà petite ET déjà au format cible :
+  // sinon on ré-encode (ex. un rendu PNG intermédiaire doit devenir du WebP).
+  if (scale >= 1 && src.length < 1_500_000 && src.startsWith(`data:${mime}`)) return src
   const w = Math.round(width * scale)
   const h = Math.round(height * scale)
   const canvas = document.createElement('canvas')
