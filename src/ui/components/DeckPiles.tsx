@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { CardInstance, PlayerState } from '../../engine/types'
 import { getCardDef } from '../../data/registry'
+import { plural } from '../../engine/plural'
 import { playHistoryEvent } from '../sfx'
 
 const imgOf = (c?: CardInstance) => (c ? getCardDef(c.cardId)?.image : undefined)
@@ -712,7 +713,7 @@ export function CapturedPuppiesPile({
         </span>
         <div
           className="flex w-full flex-wrap justify-center gap-1"
-          title={`${captured.length} Tuile(s) Chiots capturée(s) — ${total} Chiots`}
+          title={`${captured.length} ${plural(captured.length, 'Tuile')} Chiots ${plural(captured.length, 'capturée')} — ${total} Chiots`}
         >
           {captured.length === 0 ? (
             <div className={`aspect-[5/7] ${uprightWidth} rounded border border-dashed border-rose-400/40 bg-white/5`} />
@@ -736,7 +737,7 @@ export function CapturedPuppiesPile({
         <span className="text-[8px] font-bold uppercase tracking-wide text-rose-300/50">
           {addMode ? 'Choisis une tuile à amener' : `Réserve ${reserve.length}`}
         </span>
-        <div className="flex w-full flex-wrap justify-center gap-0.5" title={`${reserve.length} Tuile(s) Chiots en réserve`}>
+        <div className="flex w-full flex-wrap justify-center gap-0.5" title={`${reserve.length} ${plural(reserve.length, 'Tuile')} Chiots en réserve`}>
           {reserve.map((t) => {
             // Repéré ! : une Tuile face cachée devient cliquable (révélation).
             // Ici mes petits ! / Lampe… : une Tuile candidate devient cliquable (amener).

@@ -117,7 +117,7 @@ export const saSucrerieCards: CardDef[] = [
     type: 'effect',
     cost: 1,
     copies: 3,
-    text: "Vous pouvez déplacer jusqu'à 2 Alliés vers n'importe quel(s) lieu(x).",
+    text: "Vous pouvez déplacer jusqu'à 2 Alliés vers n'importe quel lieu.",
     image: img('go.webp'),
     effects: [{ type: 'RELOCATE_ALLIES', count: 2, title: 'Go !' }],
   },

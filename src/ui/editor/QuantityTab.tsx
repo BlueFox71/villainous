@@ -4,6 +4,7 @@
 // exporter le vilain (cf. VillainEditor).
 import { useEffect, useMemo, useState } from 'react'
 import type { CustomVillain, CustomCard } from '../../data/customVillain'
+import { plural } from '../../engine/plural'
 import type { CardDef } from '../../data/types'
 import {
   FATE_CARD_COLOR,
@@ -348,7 +349,7 @@ function DeckSection({
       <div className="flex items-center gap-3">
         <span className="text-sm font-semibold uppercase tracking-wide text-white/70">{title}</span>
         <span className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${badge}`}>
-          {target === undefined ? `${total} carte(s)` : `${total} / ${target}`}
+          {target === undefined ? `${total} ${plural(total, 'carte')}` : `${total} / ${target}`}
           {target !== undefined && (full ? ' ✓' : over ? ' (trop)' : '')}
         </span>
       </div>

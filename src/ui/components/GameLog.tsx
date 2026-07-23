@@ -207,6 +207,9 @@ export type LogBlock =
       /** Icône imposée (journal data-driven, `⟦ji:…⟧`) : repli si l'inférence par mots-clés
        *  ne trouve rien sur le texte freeform du template. */
       forcedIcon?: string
+      /** Déplacement AUTONOME d'un Héros (« <Héros> se déplace vers <Lieu> », ex. Raiponce) :
+       *  nom du Héros → son illustration sert d'icône d'action (cf. `ActionGlyph`). */
+      heroMove?: string
     }
 
 /** Échappe une chaîne pour l'insérer littéralement dans une RegExp. */
@@ -288,7 +291,7 @@ function groupLog(log: string[], playerNames: string[]): LogBlock[] {
     // Chaque Combattant = un bloc À PART (illustration encadrée par l'anneau décagonal), jamais
     // rattaché à l'action en cours. Le « … esprit(s) … » lève l'ambiguïté avec les autres « révèle ».
     if (idx >= 0) {
-      const rev = body.match(/^révèle \*\*(.+?)\*\* : (.*esprit\(s\).*?)\.?$/)
+      const rev = body.match(/^révèle \*\*(.+?)\*\* : (.*esprits?.*?)\.?$/)
       if (rev) {
         blocks.push({ type: 'combattant', playerIndex: idx, cardName: rev[1], message: rev[2] })
         current = null
@@ -304,6 +307,18 @@ function groupLog(log: string[], playerNames: string[]): LogBlock[] {
       current = { type: 'action', playerIndex: pIdx, head: body, details: [] }
       blocks.push(current)
       absorbNext = false
+      continue
+    }
+    // Déplacement AUTONOME d'un Héros non préfixé par un vilain (« Raiponce se déplace vers
+    // **X** », « **Maximus** se déplace vers **X** ») → bloc À PART, l'illustration du Héros
+    // servant d'icône (résolue dans `LogBlockView`). Le sujet peut être en gras ou non.
+    const heroMove = idx < 0 ? /^\*{0,2}(.+?)\*{0,2} se déplace vers \*\*.+?\*\*/.exec(body) : null
+    if (heroMove) {
+      const pIdx: number = current?.playerIndex ?? 0
+      current = { type: 'action', playerIndex: pIdx, head: body, details: [], heroMove: heroMove[1].trim() }
+      blocks.push(current)
+      absorbNext = false
+      nextEffect = null
       continue
     }
     // Prompt « déplacez un Allié/Objet … » : masquée ; elle tague le PROCHAIN bloc
@@ -527,7 +542,9 @@ export function LogBlockView({
   // « déplace sa figurine et le <Carte> vers … » (ex. Bateau) → glyphe = haut de
   // la carte associée, et tête reformulée en simple « se déplace vers <Lieu> ».
   const boatName = block.head.match(/déplace sa figurine et le (.+?) vers /)?.[1]
-  const cardCircle = boatName ? CARD_IMAGE_BY_NAME.get(boatName) : undefined
+  // Déplacement autonome d'un Héros (ex. Raiponce) : son illustration sert d'icône.
+  const heroMoveImg = block.heroMove ? anyCardImageForName(block.heroMove, playerVillains?.[idx]) : undefined
+  const cardCircle = boatName ? CARD_IMAGE_BY_NAME.get(boatName) : heroMoveImg
   if (boatName) head = head.replace(/^déplace sa figurine et le .+? vers (\*\*.+?\*\*).*$/, 'se déplace vers $1')
   // Déplacement du pion → vignette du lieu de destination (au lieu de move-hero).
   const moveDest = !enterGame ? head.match(/^se déplace vers \*\*(.+?)\*\*/)?.[1] : undefined
@@ -575,7 +592,7 @@ export function LogBlockView({
       className="flex items-center gap-2.5 border-b border-l-4 border-b-white/10 px-2.5 py-2 text-[11px] leading-snug text-white/90"
       style={color ? { borderLeftColor: color, backgroundColor: `${color}1f` } : undefined}
     >
-      <ActionGlyph icon={icon} avatar={avatar} locCrop={locCrop} cardCircle={cardCircle} color={color} />
+      <ActionGlyph icon={icon} avatar={avatar} locCrop={locCrop} cardCircle={cardCircle} cardCircleZoom={block.heroMove ? '160%' : undefined} cardCirclePos={block.heroMove ? '62% top' : undefined} color={color} />
       <div className={`min-w-0 flex-1 ${floatPills.length ? '' : 'flex flex-col justify-center'}`}>
         {/* Pastilles flottantes en haut à droite (coût, action bonus) → le texte s'enroule dessous. */}
         {floatPills.map((p, j) => (
@@ -701,12 +718,19 @@ function ActionGlyph({
   avatar,
   locCrop,
   cardCircle,
+  cardCircleZoom,
+  cardCirclePos,
   color,
 }: {
   icon: ActionIcon | null
   avatar?: string
   locCrop: CSSProperties | null
   cardCircle?: string
+  /** Zoom du rognage rond (`background-size`) : défaut 140 % ; plus fort pour un Héros
+   *  (déplacement autonome) afin de cadrer davantage sur son illustration. */
+  cardCircleZoom?: string
+  /** Position du fond (`background-position`) : défaut `center top`. */
+  cardCirclePos?: string
   color?: string
 }) {
   if (cardCircle) {
@@ -714,7 +738,7 @@ function ActionGlyph({
     return (
       <div
         className="h-9 w-9 shrink-0 rounded-full ring-1 ring-white/20"
-        style={{ backgroundImage: `url(${cardCircle})`, backgroundPosition: 'center top', backgroundSize: '140%' }}
+        style={{ backgroundImage: `url(${cardCircle})`, backgroundPosition: cardCirclePos ?? 'center top', backgroundSize: cardCircleZoom ?? '140%' }}
       />
     )
   }

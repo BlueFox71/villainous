@@ -191,7 +191,7 @@ export const jafarCards: CardDef[] = [
     type: 'effect',
     cost: 2,
     copies: 2,
-    text: 'Déplacez un Héros et un Allié vers n’importe quel(s) lieu(x) non bloqué(s).',
+    text: 'Déplacez un Héros et un Allié vers n’importe quel lieu non bloqué.',
     image: img('pouvoir-sorcier.webp'),
   },
   {

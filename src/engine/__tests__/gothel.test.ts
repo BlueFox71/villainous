@@ -231,7 +231,7 @@ describe('Mère Gothel — mécanique Confiance & Raiponce', () => {
     let s = game()
     s = resolveEffects({ ...s, phase: 'ACTION' }, [{ type: 'VENGEANCE' }])
     expect(s.players[0].vengeanceConfianceArmed).toBe(true)
-    expect(s.actAtLocation).toBe('tour')
+    expect(s.pendingTrapVanquish).toMatchObject({ source: 'vengeance', locationId: 'tour' })
     // Élimine un Héros (≠ Raiponce) → +1 Confiance, drapeau consommé.
     const hero: CardInstance = { instanceId: 'h', cardId: 'flynn-rider', name: 'Flynn', type: 'hero', strength: 2 }
     const ally: CardInstance = { instanceId: 'a', cardId: 'garde-royal', name: 'Garde royal', type: 'ally', strength: 3 }

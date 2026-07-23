@@ -546,7 +546,13 @@ export function objectiveScore(p: PlayerState): number {
       // pour un progrès PARTIEL — il suffit de vaincre le gardien pour le libérer. (Sans
       // effet pour Ursula, dont le Trident/la Couronne ne sont jamais associés.)
       const attached = obj.itemCardIds.filter((id) => all.some((c) => c.cardId === id && c.attachedTo)).length
-      return (inRealm * 0.4 + atLoc * 0.6 + attached * 0.25) / obj.itemCardIds.length
+      const base = (inRealm * 0.4 + atLoc * 0.6 + attached * 0.25) / obj.itemCardIds.length
+      // Ursula : le lieu-objectif (Repaire) doit être ACCESSIBLE — un Objet ne peut pas y être
+      // posé tant que le Cadenas le verrouille, et la victoire exige les Objets DESSUS. Si le
+      // lieu cible est verrouillé, on rabote la progression : le bot est ainsi incité à le
+      // DÉBLOQUER (Métamorphose déplace le Cadenas sur le Palais) avant d'y amener ses Objets.
+      const targetLocked = (p.lockedLocations ?? []).includes(obj.locationId)
+      return targetLocked ? base * 0.6 : base
     }
     case 'UNTRAPPED_TITANS_AT_LOCATION': {
       // Hadès : récompense les Titans non entravés, davantage à mesure qu'ils se

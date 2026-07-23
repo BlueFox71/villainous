@@ -16,19 +16,30 @@ interface Props {
   onVillainList: () => void
   /** Ouvrir l'atelier de création de vilains (éditeur). */
   onEditor: () => void
+  /** Ouvrir le rapport des tests (outil de dév). */
+  onTestReport: () => void
   /** Ouvrir l'écran de profil (statistiques). */
   onProfile: () => void
   /** Rejouer la cinématique d'intro. */
   onReplayIntro: () => void
 }
 
-/** Un bouton de menu réutilisant le style « HearthStone » (cf. index.css). */
-function MenuButton({ label, onClick }: { label: string; onClick: () => void }) {
+/** Un bouton de menu réutilisant le style « HearthStone » (cf. index.css). La variante
+ *  (`classique` par défaut, `sombre` pour les outils de dév) choisit la teinte. */
+function MenuButton({
+  label,
+  onClick,
+  variant = 'classique',
+}: {
+  label: string
+  onClick: () => void
+  variant?: 'classique' | 'sombre'
+}) {
   return (
-    <button type="button" onClick={onClick} onMouseEnter={playHover} className="hs-wrapper classique">
-      <span className="hs-button classique">
-        <span className="hs-border classique">
-          <span className="hs-text classique">{label}</span>
+    <button type="button" onClick={onClick} onMouseEnter={playHover} className={`hs-wrapper ${variant}`}>
+      <span className={`hs-button ${variant}`}>
+        <span className={`hs-border ${variant}`}>
+          <span className={`hs-text ${variant}`}>{label}</span>
         </span>
       </span>
     </button>
@@ -162,7 +173,7 @@ function CreditsModal({ onClose }: { onClose: () => void }) {
  * Menu principal : logo, entrées (Nouvelle partie, Liste des villains, Options),
  * et un panneau de notes de version listant les changements récents.
  */
-export function MainMenu({ onNewGame, onTutorial, onVillainList, onEditor, onProfile, onReplayIntro }: Props) {
+export function MainMenu({ onNewGame, onTutorial, onVillainList, onEditor, onTestReport, onProfile, onReplayIntro }: Props) {
   const playerName = usePlayerStore((s) => s.name)
   // L'Atelier des vilains est un outil de création réservé au dév : masqué dans
   // l'exe (et en simulation « .exe »), comme le Mode test et la Banque de sons.
@@ -227,7 +238,8 @@ export function MainMenu({ onNewGame, onTutorial, onVillainList, onEditor, onPro
         <MenuButton label="Nouvelle partie" onClick={onNewGame} />
         <MenuButton label="Liste des villains" onClick={onVillainList} />
         <MenuButton label="🎓 Tutoriel" onClick={onTutorial} />
-        {!isDesktopApp && <MenuButton label="Atelier des vilains" onClick={onEditor} />}
+        {!isDesktopApp && <MenuButton label="Atelier des vilains" onClick={onEditor} variant="sombre" />}
+        {!isDesktopApp && <MenuButton label="Rapport des tests" onClick={onTestReport} variant="sombre" />}
         <MenuButton label="Quitter" onClick={() => setConfirmQuit(true)} />
       </nav>
 

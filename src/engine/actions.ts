@@ -20,6 +20,7 @@ import type {
   PlayerState,
 } from './types'
 import { shuffle, rollD6 } from './rng'
+import { plural } from './plural'
 import { journalLine, journalLogLine, type JournalCtx } from './journalTemplate'
 import { deployThanosAlly, retrieveThanosAlly } from './thanos'
 import {
@@ -425,7 +426,7 @@ function applyMoveTrack(state: GameState, steps: number): GameState {
   }
   const { min, max } = trackMoveRange(me)
   if (!Number.isInteger(steps) || steps < min || steps > max) {
-    throw new Error(`Déplacement de ${steps} case(s) invalide (autorisé : ${min}–${max}).`)
+    throw new Error(`Déplacement de ${steps} ${plural(steps, 'case')} invalide (autorisé : ${min}–${max}).`)
   }
   let next = moveKingCandyTrack(state, state.activePlayer, steps)
   if (next.status === 'WON') return next
@@ -912,7 +913,7 @@ function applyPlayCard(
       const needed = to ? flayerTunnelDiscardsNeededAt(me, to, tunnelEff) : flayerTunnelRequiredAllies(me, tunnelEff)
       const discardable = to ? flayerTunnelDiscardableAlliesAt(me, to) : []
       if (discardable.length < needed) {
-        throw new Error(`${card.name} : il faut ${needed} Allié(s) à défausser sur le lieu où poser le Tunnel.`)
+        throw new Error(`${card.name} : il faut ${needed} ${plural(needed, 'Allié')} à défausser sur le lieu où poser le Tunnel.`)
       }
       const chosen = allyInstanceIds ?? []
       const chosenSet = new Set(chosen)
@@ -921,7 +922,7 @@ function applyPlayCard(
         chosenSet.size !== needed ||
         !chosen.every((id) => discardable.some((a) => a.instanceId === id))
       ) {
-        throw new Error(`${card.name} : sélectionnez ${needed} Allié(s) défaussable(s) distinct(s) sur ce lieu.`)
+        throw new Error(`${card.name} : sélectionnez ${needed} ${plural(needed, 'Allié')} ${plural(needed, 'défaussable')} ${plural(needed, 'distinct')} sur ce lieu.`)
       }
     }
   }
@@ -1199,7 +1200,7 @@ function applyPlayCard(
       .filter((c) => c.cardId === 'modification-majeure' && c.type === 'item' && !c.attachedTo)
     if (mods.length < card.omnidroidUpgradeCost) {
       throw new Error(
-        `${card.name} : défaussez ${card.omnidroidUpgradeCost} Modification(s) Majeure(s) de votre royaume pour le jouer.`,
+        `${card.name} : défaussez ${card.omnidroidUpgradeCost} ${plural(card.omnidroidUpgradeCost, 'Modification')} ${plural(card.omnidroidUpgradeCost, 'Majeure')} de votre royaume pour le jouer.`,
       )
     }
     if (card.omnidroidForceLocation && to !== card.omnidroidForceLocation) {
@@ -1352,7 +1353,7 @@ function applyPlayCard(
         (c) => c.cardId === card.cardId && !c.attachedTo,
       ).length
       if (here >= card.maxAtLocation) {
-        throw new Error(`Ce lieu a déjà ${card.maxAtLocation} ${card.name}(s) : maximum atteint.`)
+        throw new Error(`Ce lieu a déjà ${card.maxAtLocation} ${plural(card.maxAtLocation, card.name)} : maximum atteint.`)
       }
     }
     dest = findLocation(me, to)!
@@ -1639,7 +1640,7 @@ function applyPlayCard(
       })
       next = {
         ...next,
-        log: [...next.log, `${me.villainName} défausse ${need} Modification(s) Majeure(s) : **${card.name}** est opérationnel.`],
+        log: [...next.log, `${me.villainName} défausse ${need} ${plural(need, 'Modification')} ${plural(need, 'Majeure')} : **${card.name}** est opérationnel.`],
       }
     }
     // Animation de pose (vol main → lieu). Les Malédictions ont déjà un showcase
@@ -2321,7 +2322,7 @@ function applyResolveYzmaHammer(state: GameState, instanceIds: string[]): GameSt
   const idx = pending.playerIndex
   const p = state.players[idx]
   const { locationId, cards, count } = pending.hammerPick
-  if (instanceIds.length !== count) throw new Error(`Marteau : choisissez exactement ${count} carte(s) à défausser.`)
+  if (instanceIds.length !== count) throw new Error(`Marteau : choisissez exactement ${count} ${plural(count, 'carte')} à défausser.`)
   for (const id of instanceIds) {
     if (!cards.some((c) => c.instanceId === id)) throw new Error('Marteau : carte choisie invalide.')
   }
@@ -2372,7 +2373,7 @@ function applyResolveYzmaManipulate(
     return { ...state, pendingYzmaManipulate: null, log: [...state.log, `${p.villainName} renonce à manipuler ses pioches Fatalité.`] }
   }
   if (locationIds.length < 1 || locationIds.length > pending.count) {
-    throw new Error(`Choisissez de 1 à ${pending.count} pioche(s) Fatalité.`)
+    throw new Error(`Choisissez de 1 à ${pending.count} ${plural(pending.count, 'pioche')} Fatalité.`)
   }
   const ids = p.locations.map((l) => l.id)
   for (const loc of locationIds) {
@@ -2392,7 +2393,7 @@ function applyResolveYzmaManipulate(
     return {
       ...next,
       pendingYzmaManipulate: null,
-      log: [...next.log, `**${hero.name}** est mélangé dans ${locationIds.length} pioche(s) Fatalité.`],
+      log: [...next.log, `**${hero.name}** est mélangé dans ${locationIds.length} ${plural(locationIds.length, 'pioche')} Fatalité.`],
     }
   }
   // reshuffle (Pacha) : mélange les pioches choisies, reformées également.
@@ -4612,7 +4613,7 @@ function applyMoveCard(
         ...p,
         puppyTiles: (p.puppyTiles ?? []).map((t) => (ids.has(t.id) ? { ...t, location: to } : t)),
       }))
-      next = { ...next, log: [...next.log, `Le Roadster emmène ${movable.length} Tuile(s) Chiots vers **${destName}**.`] }
+      next = { ...next, log: [...next.log, `Le Roadster emmène ${movable.length} ${plural(movable.length, 'Tuile')} Chiots vers **${destName}**.`] }
     }
   }
   return next
@@ -5576,7 +5577,7 @@ function applyActivateCore(
     // les Macaques. Inutilisable si aucun jeton Feu sur le lieu.
     const fires = me.fireTokens?.[cardLoc] ?? []
     if (fires.length === 0) throw new Error('Aucun jeton Feu à retirer sur ce lieu.')
-    if (me.power < fires.length) throw new Error(`Pouvoir insuffisant : ${fires.length} jeton(s) Feu à payer.`)
+    if (me.power < fires.length) throw new Error(`Pouvoir insuffisant : ${fires.length} ${plural(fires.length, 'jeton')} Feu à payer.`)
     let next = updateActivePlayer(state, (p) => ({
       ...p,
       power: p.power - fires.length,
@@ -5588,7 +5589,7 @@ function applyActivateCore(
     return {
       ...next,
       usedActionIds: [...next.usedActionIds, actionId],
-      log: [...next.log, `${me.villainName} active les **Macaques** : retire ${r.removed} jeton(s) Feu de **${findLocation(me, cardLoc)!.name}** (−${fires.length} JT), puis les défausse.`],
+      log: [...next.log, `${me.villainName} active les **Macaques** : retire ${r.removed} ${plural(r.removed, 'jeton')} Feu de **${findLocation(me, cardLoc)!.name}** (−${fires.length} JT), puis les défausse.`],
     }
   }
 
@@ -6964,7 +6965,7 @@ function applyResolveTyrannyDiscard(state: GameState, instanceIds: string[]): Ga
   if (!pending.optional) {
     const expected = Math.min(count, player.hand.length)
     if (instanceIds.length !== expected) {
-      throw new Error(`${label} : il faut défausser exactement ${expected} carte(s).`)
+      throw new Error(`${label} : il faut défausser exactement ${expected} ${plural(expected, 'carte')}.`)
     }
   }
   const idSet = new Set(instanceIds)
@@ -7397,7 +7398,7 @@ function applyResolveUntrapTitans(state: GameState, instanceIds: string[]): Game
   }))
   return {
     ...next,
-    log: [...next.log, `${me.villainName} désentrave ${chosen.length} Titan(s) (−${chosen.length} JT) : ${names.join(', ')}.`],
+    log: [...next.log, `${me.villainName} désentrave ${chosen.length} ${plural(chosen.length, 'Titan')} (−${chosen.length} JT) : ${names.join(', ')}.`],
   }
 }
 
@@ -7515,7 +7516,7 @@ function applyResolveLotsoBookworm(state: GameState, heroInstanceId: string | nu
   const me = state.players[idx]
   // Terminer (volontaire) — ou plus rien à dépenser/réduire.
   if (heroInstanceId === null) {
-    return { ...state, pendingLotsoBookworm: null, log: [...state.log, `${me.villainName} (Le Bibliothécaire) : ${pending.spent} jeton(s) Pouvoir dépensé(s).`] }
+    return { ...state, pendingLotsoBookworm: null, log: [...state.log, `${me.villainName} (Le Bibliothécaire) : ${pending.spent} ${plural(pending.spent, 'jeton')} Pouvoir ${plural(pending.spent, 'dépensé')}.`] }
   }
   if (me.power < 1) throw new Error('Plus de jeton Pouvoir à dépenser.')
   if (!lotsoReducibleHeroes(state, idx).includes(heroInstanceId)) throw new Error('Héros non réductible.')
@@ -7525,7 +7526,7 @@ function applyResolveLotsoBookworm(state: GameState, heroInstanceId: string | nu
   const spent = pending.spent + 1
   // Reste-t-il du Pouvoir ET une cible ? Sinon on clôt automatiquement.
   if (next.players[idx].power < 1 || lotsoReducibleHeroes(next, idx).length === 0) {
-    return { ...next, pendingLotsoBookworm: null, log: [...next.log, `${me.villainName} (Le Bibliothécaire) : ${spent} jeton(s) Pouvoir dépensé(s).`] }
+    return { ...next, pendingLotsoBookworm: null, log: [...next.log, `${me.villainName} (Le Bibliothécaire) : ${spent} ${plural(spent, 'jeton')} Pouvoir ${plural(spent, 'dépensé')}.`] }
   }
   return { ...next, pendingLotsoBookworm: { playerIndex: idx, spent } }
 }
@@ -7759,6 +7760,24 @@ function applyResolvePayRace(state: GameState, amount: number): GameState {
 /** Sumbra / Kilaire — Choc des Titans : résout le choix « payer 2 Pouvoir pour le Bonus ».
  *  `pay` vrai (et ≥2 Pouvoir) → dépense 2, applique le Bonus ; sinon → Malus. Le Combattant
  *  part ensuite en défausse Combattant. */
+/** Ursula — résout le choix « déplacer le Cadenas » (Métamorphose / Grimsby). `move` vrai →
+ *  le Cadenas va sur `dest` (le lieu proposé, non bloqué) ; faux → rien (« vous pouvez »). */
+function applyResolveUrsulaLock(state: GameState, move: boolean): GameState {
+  const pending = state.pendingUrsulaLock
+  if (!pending) throw new Error('Aucun déplacement de Cadenas en attente (RESOLVE_URSULA_LOCK).')
+  const { playerIndex, dest } = pending
+  const name = state.players[playerIndex].villainName
+  const cleared: GameState = { ...state, pendingUrsulaLock: null }
+  if (!move) {
+    return { ...cleared, log: [...cleared.log, `${name} laisse le Cadenas en place.`] }
+  }
+  const next = updatePlayer(cleared, playerIndex, (p) => ({ ...p, lockedLocations: [dest] }))
+  return {
+    ...next,
+    log: [...next.log, `${name} déplace le Cadenas sur ${dest === 'palais' ? 'le Palais' : "le Repaire d'Ursula"}.`],
+  }
+}
+
 function applyResolveChocTitans(state: GameState, pay: boolean): GameState {
   const pending = state.pendingChocTitans
   if (!pending) throw new Error('Aucun choix Choc des Titans en attente (RESOLVE_CHOC_TITANS).')
@@ -7780,7 +7799,7 @@ function applyResolveChocTitans(state: GameState, pay: boolean): GameState {
     s,
     playerIndex,
     card,
-    `${campEmoji(s.players[playerIndex])} ${spiritDelta >= 0 ? '+' : ''}${spiritDelta} esprit(s) · Choc des Titans (${doPay ? 'Bonus' : 'Malus'})`,
+    `${campEmoji(s.players[playerIndex])} ${spiritDelta >= 0 ? '+' : ''}${spiritDelta} ${plural(spiritDelta, 'esprit')} · Choc des Titans (${doPay ? 'Bonus' : 'Malus'})`,
     { spiritDelta, powerDelta },
   )
   s = updatePlayer(s, playerIndex, (p) => ({ ...p, combattantDiscard: [...(p.combattantDiscard ?? []), card] }))
@@ -7816,7 +7835,7 @@ function applyResolveCombattantDiscard(state: GameState, instanceIds: string[]):
   const valid = instanceIds.filter((id) => hand.some((c) => c.instanceId === id))
   const need = Math.min(head.count, hand.length)
   if (valid.length !== need) {
-    throw new Error(`Renfort : ${need} carte(s) à défausser (reçu ${valid.length}).`)
+    throw new Error(`Renfort : ${need} ${plural(need, 'carte')} à défausser (reçu ${valid.length}).`)
   }
   const s = renfortDiscardChosen(state, head.playerIndex, valid)
   return { ...s, pendingCombattantChoices: queue.slice(1) }
@@ -8476,7 +8495,7 @@ function applyResolveRecoverToDeck(state: GameState, arg: { instanceId?: string;
       deck: r.result,
       discard: p.discard.filter((c) => !chosenSet.has(c.instanceId)),
     }))
-    return { ...next, log: [...next.log, `${next.players[idx].villainName} remélange ${cards.length} carte(s) de sa défausse dans sa pioche (Aie confiance).`] }
+    return { ...next, log: [...next.log, `${next.players[idx].villainName} remélange ${cards.length} ${plural(cards.length, 'carte')} de sa défausse dans sa pioche (Aie confiance).`] }
   }
   if (arg.done || !arg.instanceId) return finalize(pending.chosen)
   if (pending.chosen.includes(arg.instanceId) || !me.discard.some((c) => c.instanceId === arg.instanceId)) {
@@ -8689,7 +8708,7 @@ function applyResolveScryDeckChoice(state: GameState, deck: 'villain' | 'fate'):
     pendingFateReorder: { playerIndex: idx, cards: top, deck },
     log: [
       ...next.log,
-      `${me.villainName} regarde les ${top.length} première(s) carte(s) de son deck ${label}${deck === 'fate' ? ` (−${pending.fateExtraCost} Pouvoir)` : ''}.`,
+      `${me.villainName} regarde les ${top.length} ${plural(top.length, 'première')} ${plural(top.length, 'carte')} de son deck ${label}${deck === 'fate' ? ` (−${pending.fateExtraCost} Pouvoir)` : ''}.`,
     ],
   }
 }
@@ -8811,7 +8830,7 @@ function applyResolveDioSunlight(state: GameState, choice: 'discard' | 'lose'): 
   }
   const n = me.hand.length
   const next = updatePlayer(cleared, idx, (pl) => ({ ...pl, discard: [...pl.discard, ...pl.hand], hand: [] }))
-  return { ...next, log: [...next.log, `Lumière du Soleil : ${me.villainName} défausse sa main (${n} carte(s)).`] }
+  return { ...next, log: [...next.log, `Lumière du Soleil : ${me.villainName} défausse sa main (${n} ${plural(n, 'carte')}).`] }
 }
 
 /** Pyramid Head — Pacte de Sang : défausse la carte choisie de la main, puis ouvre la
@@ -9581,7 +9600,7 @@ function applyResolveScry(state: GameState, topInstanceIds: string[]): GameState
       pendingFate: pf ? { ...pf, revealed: r.revealed } : { target: idx, revealed: r.revealed },
       log: [
         ...next.log,
-        `${player.villainName} garde ${kept.length} carte(s) sur le dessus, défausse ${discarded.length} ; l'adversaire re-révèle sa Fatalité (La vie n'est pas juste).`,
+        `${player.villainName} garde ${kept.length} ${plural(kept.length, 'carte')} sur le dessus, défausse ${discarded.length} ; l'adversaire re-révèle sa Fatalité (La vie n'est pas juste).`,
       ],
     }
   }
@@ -9599,7 +9618,7 @@ function applyResolveScry(state: GameState, topInstanceIds: string[]): GameState
       pendingFate: pf ? { ...pf, revealed: [played] } : { target: idx, revealed: [played] },
       log: [
         ...withDiscard.log,
-        `Pas si vite : ${player.villainName} choisit **${played.name}** ; ${others.length} carte(s) Fatalité défaussée(s).`,
+        `Pas si vite : ${player.villainName} choisit **${played.name}** ; ${others.length} ${plural(others.length, 'carte')} Fatalité ${plural(others.length, 'défaussée')}.`,
       ],
     }
   }
@@ -9614,7 +9633,7 @@ function applyResolveScry(state: GameState, topInstanceIds: string[]): GameState
     pendingScry: null,
     log: [
       ...next.log,
-      `${player.villainName} (sondage Fatalité) : ${kept.length} carte(s) sur le dessus, ${discarded.length} défaussée(s).`,
+      `${player.villainName} (sondage Fatalité) : ${kept.length} ${plural(kept.length, 'carte')} sur le dessus, ${discarded.length} ${plural(discarded.length, 'défaussée')}.`,
     ],
   }
 }
@@ -10660,7 +10679,7 @@ function applyResolveInformation(state: GameState, discardDrawn: boolean): GameS
     return {
       ...next,
       pendingInformation: null,
-      log: [...next.log, `${player.villainName} défausse les ${toDiscard.length} carte(s) piochée(s) (Information).`],
+      log: [...next.log, `${player.villainName} défausse les ${toDiscard.length} ${plural(toDiscard.length, 'carte')} ${plural(toDiscard.length, 'piochée')} (Information).`],
     }
   }
   const count = Math.min(pending.discardCount, state.players[idx].hand.length)
@@ -10668,7 +10687,7 @@ function applyResolveInformation(state: GameState, discardDrawn: boolean): GameS
     ...state,
     pendingInformation: null,
     pendingTyrannyDiscard: count > 0 ? { playerIndex: idx, count, label: 'Information' } : undefined,
-    log: [...state.log, `${state.players[idx].villainName} : défaussez ${count} carte(s) de votre main (Information).`],
+    log: [...state.log, `${state.players[idx].villainName} : défaussez ${count} ${plural(count, 'carte')} de votre main (Information).`],
   }
 }
 
@@ -10687,7 +10706,7 @@ function applyResolveDiscardThenDraw(state: GameState, instanceIds: string[]): G
     discard: [...p.discard, ...discarded],
   }))
   if (discarded.length > 0) {
-    next = { ...next, log: [...next.log, `${player.villainName} défausse ${discarded.length} carte(s).`] }
+    next = { ...next, log: [...next.log, `${player.villainName} défausse ${discarded.length} ${plural(discarded.length, 'carte')}.`] }
   }
   // Gul'dan — Connexion : Pouvoir gagné par carte défaussée (powerPerCard).
   if (pending.powerPerCard && discarded.length > 0) {
@@ -10921,7 +10940,7 @@ function applyResolveTitanMove(state: GameState, titanInstanceId: string, to: Lo
   let next = state
   if (cost > 0) {
     next = updatePlayer(next, idx, (pp) => ({ ...pp, power: pp.power - cost }))
-    next = { ...next, log: [...next.log, `${p.villainName} paie ${cost} JT pour déplacer un Titan de ${steps} lieu(x).`] }
+    next = { ...next, log: [...next.log, `${p.villainName} paie ${cost} JT pour déplacer un Titan de ${steps} ${plural(steps, 'lieu', 'lieux')}.`] }
   }
   next = moveTitanTo(next, idx, titanInstanceId, to, { fireTriggers: true })
   return { ...next, pendingTitanMove: null }
@@ -12747,6 +12766,10 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   ) {
     throw new Error('Un choix Choc des Titans est en attente (RESOLVE_CHOC_TITANS).')
   }
+  // Ursula — Cadenas (Métamorphose / Grimsby) : choix déplacer/passer en attente.
+  if (state.pendingUrsulaLock && action.type !== 'RESOLVE_URSULA_LOCK' && action.type !== 'PLAY_CONDITION') {
+    throw new Error('Un choix de Cadenas est en attente (RESOLVE_URSULA_LOCK).')
+  }
   // Sumbra / Kilaire — Renfort : choix (défausse / pioche-ou-récup) en attente (début de tour).
   if (
     state.pendingCombattantChoices && state.pendingCombattantChoices.length > 0 &&
@@ -13522,6 +13545,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolvePayRace(state, action.amount)
     case 'RESOLVE_CHOC_TITANS':
       return applyResolveChocTitans(state, action.pay)
+    case 'RESOLVE_URSULA_LOCK':
+      return applyResolveUrsulaLock(state, action.move)
     case 'RESOLVE_COMBATTANT_DISCARD':
       return applyResolveCombattantDiscard(state, action.instanceIds)
     case 'RESOLVE_COMBATTANT_DRAW_OR_RECOVER':

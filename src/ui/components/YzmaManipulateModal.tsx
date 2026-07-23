@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { PlayerState } from '../../engine/types'
 import { getCardDef } from '../../data/registry'
+import { plural } from '../../engine/plural'
 
 interface Props {
   /** Yzma (le contrôleur) : pour ses lieux, pioches et défausse Fatalité. */
@@ -39,8 +40,8 @@ export function YzmaManipulateModal({ player, mode, count, optional, heroIds, on
         </h2>
         <p className="text-center text-sm text-white/70">
           {mode === 'reshuffle'
-            ? `Choisissez jusqu'à ${count} pioche(s) à mélanger ensemble, puis reformées les plus égales possibles.`
-            : `Choisissez un Héros de la défausse Fatalité, puis ${count > 1 ? `1 à ${count}` : 'la'} pioche(s) où le mélanger.`}
+            ? `Choisissez jusqu'à ${count} ${plural(count, 'pioche')} à mélanger ensemble, puis reformées les plus égales possibles.`
+            : `Choisissez un Héros de la défausse Fatalité, puis ${count > 1 ? `1 à ${count}` : 'la'} ${plural(count, 'pioche')} où le mélanger.`}
         </p>
 
         {needHero && (

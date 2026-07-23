@@ -302,7 +302,7 @@ export const gastonCards: CardDef[] = [
     type: 'hero',
     strength: 1,
     copies: 1,
-    text: 'Quand cette carte est jouée, vous pouvez déplacer tous les Héros ou Objets vers n’importe quel(s) lieu(x).',
+    text: 'Quand cette carte est jouée, vous pouvez déplacer tous les Héros ou Objets vers n’importe quel lieu.',
     onPlace: [{ type: 'SCATTER_REALM_HEROES' }],
     image: img('mrs-samovar-et-zip.webp'),
   },

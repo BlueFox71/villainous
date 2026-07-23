@@ -10,6 +10,7 @@
 
 import type { CardInstance, GameState, PlayerState } from './types'
 import { updatePlayer } from './state'
+import { plural } from './plural'
 
 export const SUGAR_RUSH_LOC = 'sugar-rush'
 /** Les 4 zones de pose (sous le circuit) où vivent les Alliés/Objets/Héros. */
@@ -132,7 +133,7 @@ function checkRacerFinish(state: GameState, idx: number): GameState {
     ...next,
     log: [
       ...next.log,
-      `Le jeton Pilote franchit Départ/Arrivée le premier ! La course s'arrête, ${bugs.length} Bug(s) reviennent en main de ${p.villainName}.`,
+      `Le jeton Pilote franchit Départ/Arrivée le premier ! La course s'arrête, ${bugs.length} ${plural(bugs.length, 'Bug')} ${plural(bugs.length, 'revient', 'reviennent')} en main de ${p.villainName}.`,
     ],
   }
   return next
@@ -201,8 +202,8 @@ export function moveKingCandyTrack(state: GameState, idx: number, steps: number)
     log: [
       ...next.log,
       steps > 0
-        ? `${p.villainName} avance de ${steps} case(s) sur le circuit.`
-        : `${p.villainName} recule de ${-steps} case(s) sur le circuit.`,
+        ? `${p.villainName} avance de ${steps} ${plural(steps, 'case')} sur le circuit.`
+        : `${p.villainName} recule de ${-steps} ${plural(-steps, 'case')} sur le circuit.`,
     ],
   }
 }

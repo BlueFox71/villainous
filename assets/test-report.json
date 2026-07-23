@@ -1,0 +1,1373 @@
+{
+  "version": 1,
+  "villains": {
+    "bowser": {
+      "jules": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 1,
+          "comment": ""
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": ""
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": ""
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": ""
+        }
+      }
+    },
+    "hades": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "princeJohn": {
+      "jules": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "satisfaisant",
+          "games": 1,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "ursula": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "a-ameliorer",
+          "games": 1,
+          "comment": "en galère ",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "gothel": {
+      "jules": {
+        "joueur": {
+          "rating": "satisfaisant",
+          "games": 1,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "teamRocket": {
+      "jules": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 1,
+          "comment": ""
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": ""
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": ""
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": ""
+        }
+      }
+    },
+    "laBonneFee": {
+      "jules": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 1,
+          "comment": ""
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": ""
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": ""
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": ""
+        }
+      }
+    },
+    "custom-mrl4fb45": {
+      "jules": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": true
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": true
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "custom-killaire": {
+      "jules": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": true
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": true
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "custom-stitch": {
+      "jules": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "custom-flagelleur-mental": {
+      "jules": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "patHibulaire": {
+      "jules": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "tabbou": {
+      "jules": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "maleficent": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "jafar": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "reineCoeur": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "crochet": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "facilier": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "mechanteReine": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "scar": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "yzma": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "ratigan": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "cruella": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "gaston": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "madameTremaine": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "seigneurTenebres": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "madameMim": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "syndrome": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "lotso": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "saSucrerie": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "shereKhan": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "davyJones": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "tamatoa": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "slenderman": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "imposteur": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "sombra": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "seigneurCles": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "thanos": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "custom-dio": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "custom-isabella": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "custom-michael-meyers": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "custom-mr-monopoly": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "custom-gul-dan": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "custom-pyramid-head": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "custom-ultron": {
+      "jules": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    },
+    "oogieBoogie": {
+      "jules": {
+        "joueur": {
+          "rating": "presque-bien",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      },
+      "alexis": {
+        "joueur": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        },
+        "bot": {
+          "rating": "non-teste",
+          "games": 0,
+          "comment": "",
+          "journalChecked": false
+        }
+      }
+    }
+  }
+}

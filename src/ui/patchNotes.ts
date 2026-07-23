@@ -47,13 +47,27 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '1.9.2',
+    version: '1.9.3',
     date: '2026-07-23',
     title: 'Mises à jour silencieuses (vrai launcher)',
     tags: ['correctif', 'interface'],
     changes: [
       "La mise à jour s'**installe toute seule, sans réinstaller le jeu** : plus d'assistant d'installation qui s'ouvre, le launcher pose la MAJ **en place** puis **relance** l'app.",
       "Corrige le cas où le jeu **revenait à l'ancienne version** au redémarrage : la MAJ reste désormais **définitive**.",
+    ],
+  },
+  {
+    version: '1.9.2',
+    date: '2026-07-23',
+    title: 'Rapport des tests (outil de dév)',
+    tags: ['interface'],
+    changes: [
+      "Nouvelle page **Rapport des tests** (dév uniquement) : chaque ligne prend la **couleur du méchant**, avec une **appréciation** par testeur (**Jules** / **Alexis**) et par côté (**Joueur** / **Bot**).",
+      "Chaque note = **niveau coloré** (Non testé → À améliorer → Suffisant → Satisfaisant → Complet), **nombre de parties** testées, une coche **Journal vérifié** et un **commentaire**.",
+      "**Sélecteur de testeur** (mémorisé) : le testeur choisi passe **à gauche** (éditable) et l'autre **à droite** en **lecture seule** (résumé).",
+      "**Statistiques globales** en tête, **séparées Joueur / Bot** : pour chaque vilain la **meilleure** appréciation des deux testeurs, plus le **taux de Journal vérifié**.",
+      "Vilains listés dans l'**ordre de sortie** ; sauvegarde **automatique** dans un fichier **committé** (transmis à chaque commit).",
+      "**Textes affichés** : fini les « (s) » — les pluriels s'**accordent** selon le nombre (« 1 carte », « 3 cartes ») dans le **journal**, les **cartes** et l'**interface**.",
     ],
   },
   {

@@ -261,6 +261,16 @@ JSON du vilain. Tu ne crées **aucun** fichier natif ni câblage (cf. avertissem
 - Avance **par étapes** : propose le plan, code, lance les tests, montre ce qui
   marche, puis enchaîne. Ne code pas tout d'un bloc.
 - En cas de doute sur une règle exacte de Villainous, **demande** avant de coder.
+- **JAMAIS de « (s) » ni « (x) » pour le pluriel dans le texte AFFICHÉ** (UI, journal
+  de partie, texte de cartes, libellés, infobulles, messages…). On **accorde selon le
+  nombre** : singulier pour **0 et 1**, pluriel dès **2** (« 1 carte », « 3 cartes » ;
+  « 1 lieu », « 2 lieux »). Pour un cas piloté par un **compteur**, utilise le helper
+  `plural(n, singulier, plurielIrrégulier?)` (`src/engine/plural.ts`) :
+  `` `${n} ${plural(n, 'carte')}` ``. Pour un texte **sans compteur** (règle de carte),
+  choisis la forme grammaticalement correcte (souvent le **pluriel** quand plusieurs
+  cibles sont possibles). Seule exception tolérée : un **jeton INTERNE de journal jamais
+  affiché** (consommé/transformé avant le rendu, ex. le token Combattant « (s) »
+  consolidé par `consolidateFighterDetails`).
 - Reste cohérent avec le code alentour (densité de commentaires, nommage, idiomes
   — les unions discriminées avec commentaires explicatifs sont la norme).
 - Committer ne nécessite plus de demande explicite : commite librement une fois le
