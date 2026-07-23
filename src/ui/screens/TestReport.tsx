@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { VILLAIN_REGISTRY, type VillainKey } from '../store/gameStore'
 import { useCustomVillainStore } from '../store/customVillainStore'
 import { villainPortrait } from '../villainArt'
+import { byRelease } from '../villainOrder'
 import { Scroller } from '../components/Scroller'
 
 interface Props {
@@ -190,7 +191,8 @@ export function TestReport({ onBack }: Props) {
   const customVillains = useCustomVillainStore((s) => s.villains)
   useEffect(() => { if (!customLoaded) void loadCustom() }, [customLoaded, loadCustom])
 
-  // Liste plate { id, name, portrait } de TOUS les vilains (natifs + persos), triée par nom.
+  // Liste plate { id, name, portrait } de TOUS les vilains (natifs + persos), dans l'ORDRE
+  // DE SORTIE (comme la « Liste des villains ») : natifs par sortie, puis les customs.
   const villains = useMemo(() => {
     const nativeKeys = Object.keys(VILLAIN_REGISTRY) as VillainKey[]
     const native = nativeKeys.map((k) => ({
@@ -203,7 +205,7 @@ export function TestReport({ onBack }: Props) {
       name: v.name,
       portrait: villainPortrait(v.id),
     }))
-    return [...native, ...custom].sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+    return [...native, ...custom].sort((a, b) => byRelease(a.id, b.id))
   }, [customVillains])
 
   // Rapport chargé depuis le disque.
