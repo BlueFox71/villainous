@@ -47,6 +47,16 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.9.3',
+    date: '2026-07-23',
+    title: 'Portraits de vilains manquants (Dio, Isabella…)',
+    tags: ['correctif', 'atelier'],
+    changes: [
+      "Correction : certains vilains publiés (**Dio**, **Isabella**, **Gul'dan**, **Pyramid Head**) n'affichaient **pas leur portrait** dans le choix des vilains.",
+      "L'ancienne version locale gardait des images en **`.png`** disparues (passées en **WebP**) ; l'app reprend désormais la **bonne version** au chargement.",
+    ],
+  },
+  {
     version: '1.9.2',
     date: '2026-07-23',
     title: 'Rapport des tests (outil de dév)',
