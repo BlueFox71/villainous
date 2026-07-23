@@ -49,9 +49,10 @@ export const PATCH_NOTES: PatchNote[] = [
   {
     version: '1.9.3',
     date: '2026-07-23',
-    title: 'Portraits de vilains manquants (Dio, Isabella…)',
-    tags: ['correctif', 'atelier'],
+    title: 'Écran de chargement animé + portraits manquants',
+    tags: ['animation', 'interface', 'correctif', 'atelier'],
     changes: [
+      "Nouvel **écran de chargement** : des **pions de vilains** tirés au hasard **sautent** à l'écran l'un après l'autre pendant la préparation de la partie.",
       "Correction : certains vilains publiés (**Dio**, **Isabella**, **Gul'dan**, **Pyramid Head**) n'affichaient **pas leur portrait** dans le choix des vilains.",
       "L'ancienne version locale gardait des images en **`.png`** disparues (passées en **WebP**) ; l'app reprend désormais la **bonne version** au chargement.",
     ],
