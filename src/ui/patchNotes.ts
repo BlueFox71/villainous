@@ -47,6 +47,16 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.9.2',
+    date: '2026-07-23',
+    title: 'Mises à jour silencieuses (vrai launcher)',
+    tags: ['correctif', 'interface'],
+    changes: [
+      "La mise à jour s'**installe toute seule, sans réinstaller le jeu** : plus d'assistant d'installation qui s'ouvre, le launcher pose la MAJ **en place** puis **relance** l'app.",
+      "Corrige le cas où le jeu **revenait à l'ancienne version** au redémarrage : la MAJ reste désormais **définitive**.",
+    ],
+  },
+  {
     version: '1.9.1',
     date: '2026-07-22',
     title: 'Journal de partie enrichi (tous les vilains custom)',

@@ -91,12 +91,20 @@ function startUpdateCheck(send) {
   return true
 }
 
-/** Redémarre l'app pour installer la MAJ téléchargée (déclenché par le launcher). */
+/**
+ * Applique la MAJ téléchargée (déclenché par le launcher), façon LAUNCHER CLASSIQUE :
+ * installation SILENCIEUSE (aucun assistant visible) et RELANCE automatique de l'app.
+ *  - `isSilent = true` → l'installeur NSIS tourne en mode `/S` : il réutilise le dossier
+ *    d'installation déjà enregistré (registre `InstallLocation`) et écrase EN PLACE, sans
+ *    afficher la moindre fenêtre (ni page de choix de dossier). Fini le « ça réinstalle »
+ *    et le « ça revient à l'ancienne version » (nouvelle copie dans un autre dossier).
+ *  - `isForceRunAfter = true` → l'app redémarre toute seule une fois la MAJ posée.
+ */
 function quitAndInstall() {
   const autoUpdater = getAutoUpdater()
   if (!autoUpdater) return
   try {
-    autoUpdater.quitAndInstall()
+    autoUpdater.quitAndInstall(true, true)
   } catch {
     /* la MAJ s'installera de toute façon à la fermeture (autoInstallOnAppQuit) */
   }
