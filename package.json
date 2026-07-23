@@ -1,7 +1,7 @@
 {
   "name": "villainous",
   "private": true,
-  "version": "1.9.3",
+  "version": "1.9.4",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -93,7 +93,7 @@
       "artifactName": "Villainous Setup.exe",
       "oneClick": false,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
+      "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "shortcutName": "Villainous",
       "installerIcon": "electron/icon.ico",

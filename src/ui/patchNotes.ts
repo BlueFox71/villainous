@@ -47,14 +47,24 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '1.9.3',
-    date: '2026-07-23',
+    version: '1.9.4',
+    date: '2026-07-24',
     title: 'Écran de chargement animé + portraits manquants',
     tags: ['animation', 'interface', 'correctif', 'atelier'],
     changes: [
       "Nouveaux **chargements maison** : des **pions de vilains** tirés au hasard **sautent** à l'écran l'un après l'autre — sur l'écran de **préparation de partie** comme dans l'**Atelier** (chargement de la liste des vilains).",
       "Correction : certains vilains publiés (**Dio**, **Isabella**, **Gul'dan**, **Pyramid Head**) n'affichaient **pas leur portrait** dans le choix des vilains.",
       "L'ancienne version locale gardait des images en **`.png`** disparues (passées en **WebP**) ; l'app reprend désormais la **bonne version** au chargement.",
+    ],
+  },
+  {
+    version: '1.9.3',
+    date: '2026-07-23',
+    title: 'Mises à jour silencieuses (vrai launcher)',
+    tags: ['correctif', 'interface'],
+    changes: [
+      "La mise à jour s'**installe toute seule, sans réinstaller le jeu** : plus d'assistant d'installation qui s'ouvre, le launcher pose la MAJ **en place** puis **relance** l'app.",
+      "Corrige le cas où le jeu **revenait à l'ancienne version** au redémarrage : la MAJ reste désormais **définitive**.",
     ],
   },
   {
