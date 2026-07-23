@@ -26,6 +26,7 @@ import {
 import { villainsBackground } from '../villainColors'
 import { VILLAIN_REGISTRY, type VillainKey } from '../store/gameStore'
 import { Scroller } from '../components/Scroller'
+import { PawnLoader } from '../components/PawnLoader'
 import { SplitPortrait } from '../components/SplitPortrait'
 import { Field, TextField, ColorField, ImageField, AudioField, SelectField } from '../editor/fields'
 import { BoardTab } from '../editor/BoardTab'
@@ -1118,9 +1119,8 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
             {!loaded ? (
               // Chargement des vilains embarqués (chunks lazy, cf. data/published/load.ts) :
               // sans cet état, la liste vide affichait « Aucun vilain » pendant tout le chargement.
-              <div className="flex flex-col items-center gap-4 py-20 text-white/60">
-                <span className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-amber-300" />
-                <p>Chargement des vilains…</p>
+              <div className="flex justify-center py-16">
+                <PawnLoader size="md" label="Chargement des vilains…" />
               </div>
             ) : villains.length === 0 ? (
               <p className="text-white/50">

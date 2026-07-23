@@ -1,13 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-  useGameStore,
-  villainKeyOf,
-  villainEntry,
-  VILLAIN_REGISTRY,
-  type VillainKey,
-} from '../store/gameStore'
+import { useGameStore, villainKeyOf, villainEntry, type VillainKey } from '../store/gameStore'
 import { villainDecor, decorAssets } from '../villainDecor'
 import { VILLAIN_COLOR, DEFAULT_TINT_A, DEFAULT_TINT_B } from '../villainColors'
+import { PawnLoader } from '../components/PawnLoader'
 
 interface Props {
   /** Entrer dans la partie (le décor est préchargé). */
@@ -23,78 +18,6 @@ const MIN_MS = 3000
 const SAFETY_MS = 9000
 const PER_VIDEO_MS = 4500
 
-// Cadence du carrousel de pions : un pion « saute » dans l'écran, se pose, puis laisse
-// place à un autre. HOP_MS = durée de l'animation d'entrée ; SWAP_MS = intervalle entre
-// deux pions (> HOP_MS pour laisser le pion se poser une fraction de seconde avant de partir).
-const HOP_MS = 520
-const SWAP_MS = 720
-
-// Mélange (Fisher-Yates). Purement présentation → `Math.random` autorisé (hors moteur).
-function shuffled<T>(arr: readonly T[]): T[] {
-  const a = [...arr]
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[a[i], a[j]] = [a[j], a[i]]
-  }
-  return a
-}
-
-/**
- * Carrousel de pions du chargement : pioche des pions au hasard dans toute la galerie et
- * les fait « sauter » sur un piédestal lumineux l'un après l'autre. On parcourt un ordre
- * mélangé (aucune répétition immédiate) puis on re-mélange à chaque tour.
- */
-function PawnCarousel({ pool, tint }: { pool: string[]; tint: string }) {
-  // Ordre courant + position, tenus ensemble pour rester synchrones lors du re-mélange de fin de tour.
-  const [pos, setPos] = useState<{ order: string[]; idx: number }>(() => ({
-    order: shuffled(pool),
-    idx: 0,
-  }))
-  const [hopKey, setHopKey] = useState(0) // remonte l'<img> → rejoue l'animation d'entrée
-
-  useEffect(() => {
-    if (pool.length <= 1) return
-    const id = setInterval(() => {
-      setPos(({ order, idx }) => {
-        const next = idx + 1
-        if (next < order.length) return { order, idx: next }
-        // Fin de tour : on re-mélange, en évitant de reprendre le même pion qu'à l'instant.
-        const last = order[idx]
-        const reshuffled = shuffled(pool)
-        if (reshuffled[0] === last && reshuffled.length > 1) {
-          ;[reshuffled[0], reshuffled[1]] = [reshuffled[1], reshuffled[0]]
-        }
-        return { order: reshuffled, idx: 0 }
-      })
-      setHopKey((k) => k + 1)
-    }, SWAP_MS)
-    return () => clearInterval(id)
-  }, [pool])
-
-  const src = pos.order[pos.idx]
-
-  return (
-    <div className="relative flex h-44 w-44 items-end justify-center">
-      {/* Halo/piédestal lumineux au sol. */}
-      <div
-        className="absolute bottom-3 h-6 w-28 rounded-[50%] blur-md"
-        style={{ background: `radial-gradient(closest-side, ${tint}aa, transparent)` }}
-      />
-      <img
-        key={hopKey}
-        src={src}
-        alt=""
-        draggable={false}
-        className="relative h-40 w-40 object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.6)]"
-        style={{
-          animation: `pawnHop ${HOP_MS}ms cubic-bezier(0.34, 1.56, 0.64, 1) both`,
-          transformOrigin: 'bottom center',
-        }}
-      />
-    </div>
-  )
-}
-
 /**
  * Écran de chargement affiché DÈS la validation du choix des vilains, AVANT que le plateau
  * (et donc les décors animés) ne se montent. On y précharge les fichiers d'animation des décors
@@ -108,13 +31,11 @@ export function GameLoading({ onReady }: Props) {
   )
   const [progress, setProgress] = useState(0)
 
-  // Réservoir de pions du carrousel : toute la galerie native + les pions des 2 vilains en
-  // jeu (inclut les customs, absents du registre statique). Figé au montage, dédupliqué.
-  const [pawnPool] = useState<string[]>(() => {
-    const native = Object.values(VILLAIN_REGISTRY).map((e) => e.def.pawnImage)
-    const inPlay = keys.map((k) => villainEntry(k)?.def.pawnImage).filter((s): s is string => !!s)
-    return [...new Set([...native, ...inPlay].filter(Boolean))]
-  })
+  // Pions des 2 vilains en jeu (inclut les customs, absents du réservoir natif du PawnLoader)
+  // ajoutés au carrousel. Figé au montage.
+  const [inPlayPawns] = useState<string[]>(() =>
+    keys.map((k) => villainEntry(k)?.def.pawnImage).filter((s): s is string => !!s),
+  )
 
   // `onReady` capturé dans une ref : l'effet de préchargement ne tourne qu'une fois et ne doit pas
   // redémarrer si le parent recrée le callback.
@@ -201,16 +122,6 @@ export function GameLoading({ onReady }: Props) {
         backgroundImage: `radial-gradient(circle at 30% 40%, ${colorOf(keys[0])}cc, transparent 60%), radial-gradient(circle at 70% 60%, ${colorOf(keys[1]) ?? DEFAULT_TINT_B}cc, transparent 60%), linear-gradient(#0a0814, #0a0814)`,
       }}
     >
-      {/* Keyframes du « saut » de pion : arrive du haut, se pose avec un rebond, léger balancement. */}
-      <style>{`
-        @keyframes pawnHop {
-          0%   { opacity: 0; transform: translateY(-46px) scale(0.55) rotate(-14deg); }
-          55%  { opacity: 1; transform: translateY(6px)   scale(1.06) rotate(4deg); }
-          78%  { transform: translateY(-3px) scale(0.98) rotate(-2deg); }
-          100% { opacity: 1; transform: translateY(0)     scale(1)    rotate(0deg); }
-        }
-      `}</style>
-
       {/* Logo Villainous (identique à l'accueil). */}
       <img
         src="/titre_villainous.png"
@@ -220,7 +131,7 @@ export function GameLoading({ onReady }: Props) {
       />
 
       {/* Pions qui sautent en boucle pendant le préchargement. */}
-      <PawnCarousel pool={pawnPool} tint={colorOf(keys[0])} />
+      <PawnLoader size="lg" tint={colorOf(keys[0])} extraPawns={inPlayPawns} />
 
       <div className="flex w-72 flex-col items-center gap-3">
         <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-200/80">
