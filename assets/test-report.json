@@ -578,7 +578,7 @@
       "jules": {
         "joueur": {
           "rating": "presque-bien",
-          "games": 0,
+          "games": 1,
           "comment": "",
           "journalChecked": false
         },
@@ -1128,7 +1128,12 @@
           "comment": "",
           "journalChecked": false
         }
-      }
+      },
+      "validatedCards": [
+        "parfume-a-la-fraise",
+        "jouets-de-bonnie",
+        "bayonne"
+      ]
     },
     "saSucrerie": {
       "jules": {

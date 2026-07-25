@@ -209,7 +209,12 @@ describe('Lotso — Vanquish spécial & réductions', () => {
     } as GameState
     // Big Baby est bien activable (Héros présent dans la pioche).
     expect(activatableCards(s0).some((c) => c.cardId === 'big-baby')).toBe(true)
-    const s1 = applyAction(s0, { type: 'ACTIVATE', actionId: 'activate', cardInstanceId: bigBaby.instanceId })
+    const revealed = applyAction(s0, { type: 'ACTIVATE', actionId: 'activate', cardInstanceId: bigBaby.instanceId })
+    // Les cartes dévoilées sont d'abord MONTRÉES (modale d'info), Héros surligné, puis on
+    // acquitte avant de choisir le lieu.
+    expect(revealed.pendingReveal?.cards.map((c) => c.instanceId)).toEqual([filler.instanceId, hero.instanceId])
+    expect(revealed.pendingReveal?.heroInstanceIds).toEqual([hero.instanceId])
+    const s1 = applyAction(revealed, { type: 'ACKNOWLEDGE_REVEAL' })
     // Héros pas encore posé : choix du lieu ouvert (hors Salle des Chenilles) ; reste défaussé.
     expect(s1.pendingHeroPlacement?.hero.instanceId).toBe(hero.instanceId)
     expect(s1.players[0].fateDiscard.some((c) => c.instanceId === filler.instanceId)).toBe(true)
@@ -468,5 +473,49 @@ describe('Lotso — Vanquish spécial & réductions', () => {
     // Sans Buzz : non atteint.
     const s2 = { ...base, players: [{ ...base.players[0], board: { ...base.players[0].board, [ROOM]: heroes } }] } as GameState
     expect(hasReachedObjective(s2, 0)).toBe(false)
+  })
+})
+
+describe('Lotso — Bienvenue à Sunnyside : les cartes dévoilées sont MONTRÉES', () => {
+  // Le défilé de la pioche Fatalité (jusqu'au 1ᵉʳ Héros) était invisible : seule une ligne
+  // de journal en parlait. On réutilise la modale d'info existante (pendingReveal).
+  it('affiche les cartes dévoilées, Héros surligné, et le pose sur la Salle des Chenilles', () => {
+    const base = game()
+    const filler1 = card('un-seul-moyen-de-sortir', 'item')
+    const filler2 = card('un-seul-moyen-de-sortir', 'item')
+    const hero = card('rex', 'hero', { strength: 1 })
+    const s0 = {
+      ...base,
+      players: [{ ...base.players[0], fateDeck: [filler1, filler2, hero], fateDiscard: [] }],
+    } as GameState
+    const s = resolveEffects(s0, [{ type: 'LOTSO_REVEAL_HERO', atRoom: true }], {
+      actorIndex: 0,
+      sourceCardName: 'Bienvenue à Sunnyside',
+    })
+    // Modale d'info : les 3 cartes dans l'ORDRE de révélation, le Héros identifié.
+    expect(s.pendingReveal?.playerIndex).toBe(0)
+    expect(s.pendingReveal?.title).toBe('Bienvenue à Sunnyside')
+    expect(s.pendingReveal?.cards.map((c) => c.instanceId)).toEqual([
+      filler1.instanceId,
+      filler2.instanceId,
+      hero.instanceId,
+    ])
+    expect(s.pendingReveal?.heroInstanceIds).toEqual([hero.instanceId])
+    // Le Héros est bien posé sur la Salle des Chenilles, les autres défaussées.
+    expect((s.players[0].board[ROOM] ?? []).some((c) => c.instanceId === hero.instanceId)).toBe(true)
+    expect(s.players[0].fateDiscard.map((c) => c.instanceId)).toEqual([filler1.instanceId, filler2.instanceId])
+    // Acquitter referme la modale sans rien changer d'autre.
+    const after = applyAction(s, { type: 'ACKNOWLEDGE_REVEAL' })
+    expect(after.pendingReveal ?? null).toBeNull()
+    expect((after.players[0].board[ROOM] ?? []).some((c) => c.instanceId === hero.instanceId)).toBe(true)
+  })
+
+  it('aucun Héros dans la pioche : les cartes dévoilées sont montrées quand même', () => {
+    const base = game()
+    const filler = card('un-seul-moyen-de-sortir', 'item')
+    const s0 = { ...base, players: [{ ...base.players[0], fateDeck: [filler], fateDiscard: [] }] } as GameState
+    const s = resolveEffects(s0, [{ type: 'LOTSO_REVEAL_HERO', atRoom: true }], { actorIndex: 0 })
+    expect(s.pendingReveal?.cards.map((c) => c.instanceId)).toEqual([filler.instanceId])
+    expect(s.pendingReveal?.heroInstanceIds).toEqual([])
   })
 })

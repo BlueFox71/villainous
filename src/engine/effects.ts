@@ -4120,11 +4120,34 @@ export function resolveEffect(
       }
       const others = revealed.filter((c) => c !== hero)
       let next = updatePlayer({ ...state, rngState: s }, idx, (pl) => ({ ...pl, fateDeck: deck, fateDiscard: [...disc, ...others] }))
-      if (!hero) return { ...next, log: [...next.log, `${p0.villainName} : aucun Héros dans la pioche Fatalité.`] }
+      // Les cartes DÉVOILÉES sont montrées au joueur (pendingReveal + RevealModal, comme la
+      // Liste de Fidget) : sans ça, tout ce défilé de pioche Fatalité restait invisible.
+      const revealTitle = ctx?.sourceCardName ?? 'Cartes dévoilées'
+      const showRevealed = (st: GameState, subtitle: string): GameState =>
+        revealed.length === 0
+          ? st
+          : {
+              ...st,
+              pendingReveal: {
+                playerIndex: idx,
+                cards: revealed,
+                title: revealTitle,
+                subtitle,
+                heroInstanceIds: hero ? [hero.instanceId] : [],
+              },
+            }
+      if (!hero) {
+        next = showRevealed(next, 'Aucun Héros trouvé : toutes les cartes dévoilées sont défaussées.')
+        return { ...next, log: [...next.log, `${p0.villainName} : aucun Héros dans la pioche Fatalité.`] }
+      }
       // Bienvenue à Sunnyside : pose FORCÉE sur la Salle des Chenilles.
       if (effect.atRoom) {
         next = updatePlayer(next, idx, (pl) => ({ ...pl, board: { ...pl.board, [roomId]: [...(pl.board[roomId] ?? []), hero!] } }))
         next = triggerHeroArrival(next, idx, roomId)
+        next = showRevealed(
+          next,
+          `${hero.name} est joué sur ${locName(next.players[idx], roomId)} ; les autres cartes dévoilées sont défaussées.`,
+        )
         return { ...next, log: [...next.log, `${p0.villainName} joue **${hero.name}** sur **${locName(next.players[idx], roomId)}**.`] }
       }
       // Big Baby : le joueur CHOISIT le lieu (n'importe lequel SAUF la Salle des Chenilles).
@@ -4133,8 +4156,13 @@ export function resolveEffect(
       const validLocs = heroPlacementLocations(next, heroToPlace, idx)
       if (validLocs.length === 0) {
         next = updatePlayer(next, idx, (pl) => ({ ...pl, fateDiscard: [...pl.fateDiscard, hero!] }))
+        next = showRevealed(next, `Aucun lieu disponible pour ${hero.name} : tout est défaussé.`)
         return { ...next, log: [...next.log, `${p0.villainName} : aucun lieu disponible pour **${hero.name}**.`] }
       }
+      // Le pending d'AFFICHAGE est acquitté AVANT le choix du lieu (garde-fou
+      // ACKNOWLEDGE_REVEAL prioritaire, et le bot l'acquitte d'abord) : le joueur voit ce
+      // qui a défilé, puis place le Héros.
+      next = showRevealed(next, `${hero.name} est trouvé : choisis ensuite son lieu ; les autres cartes sont défaussées.`)
       return {
         ...next,
         pendingHeroPlacement: { chooserIndex: idx, targetIndex: idx, hero: heroToPlace },
