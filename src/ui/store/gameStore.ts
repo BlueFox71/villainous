@@ -1043,7 +1043,7 @@ interface GameStore {
    *  comme un « Déplacer un Allié/Objet » (déplace `instanceId` vers `to`). */
   ultronOptimizeMove: (actionId: string, instanceId: string, to: string) => void
   /** Pat Hibulaire — « Planqués » : défausse l'Allié choisi. */
-  resolveFateDiscardAlly: (instanceId: string) => void
+  resolveFateDiscardAlly: (instanceId: string | null) => void
   resolveUrsulaLock: (move: boolean) => void
   /** Syndrome — Identification, je vous prie : déplace l'Allié/Objet choisi vers le lieu (avec Héros) choisi. */
   resolveIdentification: (cardInstanceId: string, to: string) => void
@@ -1053,8 +1053,8 @@ interface GameStore {
   resolveEvolveAlly: (instanceId: string) => void
   /** Lotso — Réinitialisation : résout le choix du lieu où placer Buzz (mode Démo). */
   resolveLotsoBuzzMove: (to: string) => void
-  /** Lotso — Le Bibliothécaire : réduit le Héros choisi (−1) ou termine (null). */
-  resolveLotsoBookworm: (heroInstanceId: string | null) => void
+  /** Lotso — Le Bibliothécaire : ajoute `count` (défaut 1) jetons −1 au Héros choisi, ou termine (null). */
+  resolveLotsoBookworm: (heroInstanceId: string | null, count?: number) => void
   /** Lotso — Flex : choisit la carte à déplacer (cardInstanceId) puis le lieu (to). */
   resolveLotsoFlex: (arg: { cardInstanceId?: string; to?: string }) => void
   /** Téléportation : déplace le pion vers le lieu (portant un Héros) choisi. */
@@ -1843,7 +1843,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   resolveLotsoTarget: (instanceId) => get().submit({ type: 'RESOLVE_LOTSO_TARGET', instanceId }),
   resolveEvolveAlly: (instanceId) => get().submit({ type: 'RESOLVE_EVOLVE_ALLY', instanceId }),
   resolveLotsoBuzzMove: (to) => get().submit({ type: 'RESOLVE_LOTSO_BUZZ_MOVE', to }),
-  resolveLotsoBookworm: (heroInstanceId) => get().submit({ type: 'RESOLVE_LOTSO_BOOKWORM', heroInstanceId }),
+  resolveLotsoBookworm: (heroInstanceId, count) => get().submit({ type: 'RESOLVE_LOTSO_BOOKWORM', heroInstanceId, count }),
   resolveLotsoFlex: (arg) => get().submit({ type: 'RESOLVE_LOTSO_FLEX', ...arg }),
   resolveTeleport: (to) =>
     get().submit({ type: 'RESOLVE_TELEPORT', to }),

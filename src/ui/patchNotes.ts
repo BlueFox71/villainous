@@ -60,6 +60,8 @@ export const PATCH_NOTES: PatchNote[] = [
       "**Fatalité impossible à jouer** (deux **Agrandir** sans Héros en face…) : les cartes sont **grisées** et un bouton **Passer** apparaît ; le journal note qu'aucune Fatalité n'a été jouée.",
       "**Le Savoir conduit à la Puissance** : bouton **« Voir le plateau »** pour regarder où sont les Métamorphoses avant de choisir.",
       "**Bienvenue à Sunnyside** (et **Big Baby**) : les cartes **dévoilées** de la pioche Fatalité s'affichent enfin, le **Héros trouvé** mis en avant — le défilé se faisait en silence.",
+      "**Le Bibliothécaire** : tu choisis **combien** de jetons Pouvoir dépenser, avec des **− / +** par Héros et la force résultante affichée, puis tu valides. Chaque clic dépensait 1 jeton sans retour possible.",
+      "**Jessie** : « Vous **pouvez** défausser un Allié » est enfin facultatif — tu choisis **lequel**, ou **aucun**. Le jeu défaussait d'office ton Allié le plus fort, même quand c'est **toi** qui l'amenais avec Big Baby.",
       "**Bataille d'esprits** enchaîne **directement** sur la défausse (la fenêtre de choix, réservée à **Information** de Sombra, a disparu). Idem pour **Wyvern s'exprime** et **Carte Destin**.",
       "Les cartes à **choisir** (récupérer en défausse, fouiller sa pioche, **Pas de Tricherie**, **Hakuna Matata**…) s'affichent **en grand, côte à côte**, avec **zoom au survol** — au lieu d'une liste de vignettes illisibles.",
       "Correctif : **Surprise !** (et les Conditions du même genre) se déclenchaient sur la force **imprimée** du Héros éliminé. C'est désormais sa force **réelle** : **Samus** avec la **Balle Smash** vaut 5, plus 3.",

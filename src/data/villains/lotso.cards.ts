@@ -324,7 +324,9 @@ export const lotsoCards: CardDef[] = [
     copies: 1,
     text: 'Vous pouvez défausser un Allié.',
     image: img('jessie.webp'),
-    onPlace: [{ type: 'LOTSO_FATE_DISCARD_ALLY' }],
+    // « Vous POUVEZ » : la défausse est FACULTATIVE (et Lotso peut lui-même amener Jessie
+    // via Big Baby — il doit alors pouvoir refuser de sacrifier un de ses Alliés).
+    onPlace: [{ type: 'LOTSO_FATE_DISCARD_ALLY', optional: true }],
   },
   {
     id: 'medaillon-de-daisy',

@@ -519,3 +519,120 @@ describe('Lotso — Bienvenue à Sunnyside : les cartes dévoilées sont MONTRÉ
     expect(s.pendingReveal?.heroInstanceIds).toEqual([])
   })
 })
+
+describe('Lotso — Jessie : la défausse d’un Allié est un CHOIX (et facultative)', () => {
+  // « Vous pouvez défausser un Allié » : l'effet défaussait d'office l'Allié le plus fort.
+  // Or Lotso peut amener Jessie LUI-MÊME (Big Baby) — il doit pouvoir refuser, et choisir.
+  const twoAllies = () => {
+    const base = game()
+    const a1 = card('twitch', 'ally', { strength: 5 })
+    const a2 = card('tchac', 'ally', { strength: 2 })
+    return {
+      a1,
+      a2,
+      state: {
+        ...base,
+        activePlayer: 0,
+        players: [{ ...base.players[0], board: { ...base.players[0].board, 'decharge-municipale': [a1, a2] } }],
+      } as GameState,
+    }
+  }
+
+  it('ouvre le choix (rien n’est défaussé tant qu’on n’a pas tranché)', () => {
+    const { state, a1, a2 } = twoAllies()
+    const s = resolveEffects(state, [{ type: 'LOTSO_FATE_DISCARD_ALLY', optional: true }], { actorIndex: 0 })
+    expect(s.pendingFateDiscardAlly).toMatchObject({ chooserIndex: 0, targetIndex: 0, optional: true })
+    expect(s.pendingFateDiscardAlly?.candidateIds).toEqual([a1.instanceId, a2.instanceId])
+    expect(s.players[0].discard).toHaveLength(0)
+  })
+
+  it('on peut défausser le PLUS FAIBLE (l’auto-pick prenait le plus fort)', () => {
+    const { state, a1, a2 } = twoAllies()
+    let s = resolveEffects(state, [{ type: 'LOTSO_FATE_DISCARD_ALLY', optional: true }], { actorIndex: 0 })
+    s = applyAction(s, { type: 'RESOLVE_FATE_DISCARD_ALLY', instanceId: a2.instanceId })
+    expect(s.players[0].discard.some((c) => c.instanceId === a2.instanceId)).toBe(true)
+    expect(Object.values(s.players[0].board).flat().some((c) => c.instanceId === a1.instanceId)).toBe(true)
+  })
+
+  it('on peut DÉCLINER : aucun Allié défaussé', () => {
+    const { state } = twoAllies()
+    let s = resolveEffects(state, [{ type: 'LOTSO_FATE_DISCARD_ALLY', optional: true }], { actorIndex: 0 })
+    s = applyAction(s, { type: 'RESOLVE_FATE_DISCARD_ALLY', instanceId: null })
+    expect(s.pendingFateDiscardAlly ?? null).toBeNull()
+    expect(s.players[0].discard).toHaveLength(0)
+    expect(Object.values(s.players[0].board).filter((cs) => cs.some((c) => c.type === 'ally'))).not.toHaveLength(0)
+  })
+
+  it('« Lotso était son préféré » (sans « vous pouvez ») : décliner est REFUSÉ', () => {
+    const { state } = twoAllies()
+    const s = resolveEffects(state, [{ type: 'LOTSO_FATE_DISCARD_ALLY' }], { actorIndex: 0 })
+    expect(s.pendingFateDiscardAlly?.optional).toBeUndefined()
+    expect(() => applyAction(s, { type: 'RESOLVE_FATE_DISCARD_ALLY', instanceId: null })).toThrow(/devez défausser/)
+  })
+
+  it('la donnée de Jessie porte bien le drapeau facultatif', () => {
+    const jessie = buildDeckInstances(lotsoCards, 'fate', 'j:').find((c) => c.cardId === 'jessie')!
+    expect(jessie.onPlace?.[0]).toEqual({ type: 'LOTSO_FATE_DISCARD_ALLY', optional: true })
+  })
+})
+
+describe('Lotso — Le Bibliothécaire : la QUANTITÉ de jetons est choisie', () => {
+  const withHeroes = () => {
+    const base = game()
+    const h1 = card('jessie', 'hero', { strength: 3 })
+    const h2 = card('woody', 'hero', { strength: 4 })
+    return {
+      h1,
+      h2,
+      state: {
+        ...base,
+        activePlayer: 0,
+        players: [{
+          ...base.players[0],
+          power: 6,
+          board: { ...base.players[0].board, 'cour-de-recreation': [h1], 'decharge-municipale': [h2] },
+        }],
+      } as GameState,
+    }
+  }
+
+  it('`count` applique plusieurs jetons d’un coup et garde la répartition ouverte', () => {
+    const { state, h2 } = withHeroes()
+    let s = resolveEffects(state, [{ type: 'LOTSO_BOOKWORM' }], { actorIndex: 0 })
+    expect(s.pendingLotsoBookworm).toMatchObject({ playerIndex: 0, spent: 0 })
+    s = applyAction(s, { type: 'RESOLVE_LOTSO_BOOKWORM', heroInstanceId: h2.instanceId, count: 3 })
+    expect(effectiveStrength(s, 0, h2.instanceId)).toBe(1) // 4 − 3
+    expect(s.players[0].power).toBe(3) // 6 − 3
+    expect(s.pendingLotsoBookworm).toMatchObject({ spent: 3 })
+  })
+
+  it('répartition entre PLUSIEURS Héros, puis clôture', () => {
+    const { state, h1, h2 } = withHeroes()
+    let s = resolveEffects(state, [{ type: 'LOTSO_BOOKWORM' }], { actorIndex: 0 })
+    s = applyAction(s, { type: 'RESOLVE_LOTSO_BOOKWORM', heroInstanceId: h1.instanceId, count: 2 })
+    s = applyAction(s, { type: 'RESOLVE_LOTSO_BOOKWORM', heroInstanceId: h2.instanceId, count: 1 })
+    expect(effectiveStrength(s, 0, h1.instanceId)).toBe(1)
+    expect(effectiveStrength(s, 0, h2.instanceId)).toBe(3)
+    expect(s.players[0].power).toBe(3)
+    s = applyAction(s, { type: 'RESOLVE_LOTSO_BOOKWORM', heroInstanceId: null })
+    expect(s.pendingLotsoBookworm ?? null).toBeNull()
+  })
+
+  it('`count` est borné par le Pouvoir restant (pas de dette)', () => {
+    const { state, h2 } = withHeroes()
+    const poor = { ...state, players: [{ ...state.players[0], power: 2 }] } as GameState
+    let s = resolveEffects(poor, [{ type: 'LOTSO_BOOKWORM' }], { actorIndex: 0 })
+    s = applyAction(s, { type: 'RESOLVE_LOTSO_BOOKWORM', heroInstanceId: h2.instanceId, count: 5 })
+    expect(s.players[0].power).toBe(0)
+    expect(effectiveStrength(s, 0, h2.instanceId)).toBe(2) // 4 − 2 seulement
+    expect(s.pendingLotsoBookworm ?? null).toBeNull() // plus de Pouvoir → clos
+  })
+
+  it('sans `count`, on retombe sur 1 jeton (comportement du bot)', () => {
+    const { state, h2 } = withHeroes()
+    let s = resolveEffects(state, [{ type: 'LOTSO_BOOKWORM' }], { actorIndex: 0 })
+    s = applyAction(s, { type: 'RESOLVE_LOTSO_BOOKWORM', heroInstanceId: h2.instanceId })
+    expect(s.players[0].power).toBe(5)
+    expect(s.pendingLotsoBookworm).toMatchObject({ spent: 1 })
+  })
+})

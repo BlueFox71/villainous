@@ -611,7 +611,10 @@
         "destin",
         "fleche-tabbou",
         "primides",
-        "canon-obscure-2"
+        "canon-obscure-2",
+        "balle-smash",
+        "samus",
+        "explosion"
       ]
     },
     "maleficent": {
@@ -1132,7 +1135,15 @@
       "validatedCards": [
         "parfume-a-la-fraise",
         "jouets-de-bonnie",
-        "bayonne"
+        "bayonne",
+        "reglages-usine",
+        "pas-l-age-minimum",
+        "mode-espagnol",
+        "bienvenue-a-sunnyside",
+        "chapeau-de-woody",
+        "twitch",
+        "vulcain",
+        "tchac"
       ]
     },
     "saSucrerie": {

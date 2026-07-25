@@ -7571,7 +7571,11 @@ function applyResolveLotsoBuzzMove(state: GameState, to: LocationId): GameState 
 /** Lotso — Le Bibliothécaire : répartition interactive. `heroInstanceId` null = terminer ;
  *  sinon dépense 1 Pouvoir et ajoute un jeton −1 au Héros choisi, puis garde le choix
  *  ouvert tant qu'il reste du Pouvoir ET une cible réductible. */
-function applyResolveLotsoBookworm(state: GameState, heroInstanceId: string | null): GameState {
+function applyResolveLotsoBookworm(
+  state: GameState,
+  heroInstanceId: string | null,
+  count = 1,
+): GameState {
   const pending = state.pendingLotsoBookworm
   if (!pending) throw new Error('Aucune répartition Le Bibliothécaire en attente.')
   const idx = pending.playerIndex
@@ -7580,12 +7584,24 @@ function applyResolveLotsoBookworm(state: GameState, heroInstanceId: string | nu
   if (heroInstanceId === null) {
     return { ...state, pendingLotsoBookworm: null, log: [...state.log, `${me.villainName} (Le Bibliothécaire) : ${pending.spent} ${plural(pending.spent, 'jeton')} Pouvoir ${plural(pending.spent, 'dépensé')}.`] }
   }
-  if (me.power < 1) throw new Error('Plus de jeton Pouvoir à dépenser.')
-  if (!lotsoReducibleHeroes(state, idx).includes(heroInstanceId)) throw new Error('Héros non réductible.')
-  // −1 force (jeton) au Héros, −1 Pouvoir.
-  let next = lotsoReduceHero(state, idx, heroInstanceId, 1)
-  next = updatePlayer(next, idx, (p) => ({ ...p, power: p.power - 1 }))
-  const spent = pending.spent + 1
+  if (count < 1) throw new Error('Nombre de jetons invalide.')
+  // `count` jetons Force −1 d'un coup sur le même Héros (le joueur choisit la QUANTITÉ ;
+  // le bot en pose 1 à la fois). On s'arrête net si le Pouvoir ou la cible s'épuise.
+  let next = state
+  let spent = pending.spent
+  for (let i = 0; i < count; i++) {
+    if (next.players[idx].power < 1) {
+      if (i === 0) throw new Error('Plus de jeton Pouvoir à dépenser.')
+      break
+    }
+    if (!lotsoReducibleHeroes(next, idx).includes(heroInstanceId)) {
+      if (i === 0) throw new Error('Héros non réductible.')
+      break
+    }
+    next = lotsoReduceHero(next, idx, heroInstanceId, 1)
+    next = updatePlayer(next, idx, (p) => ({ ...p, power: p.power - 1 }))
+    spent++
+  }
   // Reste-t-il du Pouvoir ET une cible ? Sinon on clôt automatiquement.
   if (next.players[idx].power < 1 || lotsoReducibleHeroes(next, idx).length === 0) {
     return { ...next, pendingLotsoBookworm: null, log: [...next.log, `${me.villainName} (Le Bibliothécaire) : ${spent} ${plural(spent, 'jeton')} Pouvoir ${plural(spent, 'dépensé')}.`] }
@@ -10290,9 +10306,21 @@ function applyResolveKoPokemon(state: GameState, instanceId: string): GameState 
 
 /** Pat Hibulaire — « Planqués » : défausse l'Allié choisi (+ ses Objets associés) du
  *  royaume de la cible (cf. pendingFateDiscardAlly). */
-function applyResolveFateDiscardAlly(state: GameState, instanceId: string): GameState {
+function applyResolveFateDiscardAlly(state: GameState, instanceId: string | null): GameState {
   const pending = state.pendingFateDiscardAlly
   if (!pending) throw new Error('Aucun Allié à défausser en attente.')
+  // Décliner : réservé aux effets « Vous POUVEZ défausser » (Jessie).
+  if (instanceId === null) {
+    if (!pending.optional) throw new Error('Vous devez défausser un Allié.')
+    return {
+      ...state,
+      pendingFateDiscardAlly: null,
+      log: [
+        ...state.log,
+        `${state.players[pending.targetIndex].villainName} ne défausse aucun Allié (${pending.cardName}).`,
+      ],
+    }
+  }
   if (!pending.candidateIds.includes(instanceId)) {
     throw new Error('Cet Allié ne peut pas être défaussé par cet effet.')
   }
@@ -13877,7 +13905,7 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
     case 'RESOLVE_LOTSO_BUZZ_MOVE':
       return applyResolveLotsoBuzzMove(state, action.to)
     case 'RESOLVE_LOTSO_BOOKWORM':
-      return applyResolveLotsoBookworm(state, action.heroInstanceId)
+      return applyResolveLotsoBookworm(state, action.heroInstanceId, action.count)
     case 'RESOLVE_LOTSO_FLEX':
       return applyResolveLotsoFlex(state, action.cardInstanceId, action.to)
     case 'RESOLVE_MAXIMUS_CAVALIERS':

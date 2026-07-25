@@ -4341,14 +4341,34 @@ export function resolveEffect(
       return { ...next, log: [...next.log, `Le Grappin : **${target.c.name}** (force 0) est renvoyé dans la pioche Fatalité.`] }
     }
     case 'LOTSO_FATE_DISCARD_ALLY': {
-      // Jessie / Lotso était son préféré : défausse un Allié de Lotso (le plus fort ; Buzz épargné).
+      // Jessie (« Vous POUVEZ défausser un Allié » → `optional`) / Lotso était son préféré
+      // (« Défaussez un Allié » → obligatoire). QUEL Allié — et, pour Jessie, s'il faut le
+      // faire — est un CHOIX : on ouvre la sélection (pendingFateDiscardAlly, mutualisée
+      // avec « Planqués »). C'est celui qui JOUE la carte qui choisit : la Fatalité posée
+      // par l'adversaire → lui ; Jessie amenée par Big Baby → Lotso lui-même.
       const p7 = state.players[idx]
-      let best: { c: CardInstance; loc: LocationId } | undefined
-      for (const l of p7.locations) for (const c of p7.board[l.id] ?? []) if (c.type === 'ally' && !c.isBuzz && !c.attachedTo) { if (!best || (c.strength ?? 0) > (best.c.strength ?? 0)) best = { c, loc: l.id } }
-      if (!best) return state
-      const attachedIds = new Set((p7.board[best.loc] ?? []).filter((c) => c.attachedTo === best!.c.instanceId).map((c) => c.instanceId))
-      const next = updatePlayer(state, idx, (pl) => ({ ...pl, board: { ...pl.board, [best!.loc]: (pl.board[best!.loc] ?? []).filter((c) => c.instanceId !== best!.c.instanceId && !attachedIds.has(c.instanceId)) }, discard: [...pl.discard, { ...best!.c, attachedTo: undefined }] }))
-      return { ...next, log: [...next.log, `**${best.c.name}** (Allié de ${p7.villainName}) est défaussé.`] }
+      const candidateIds: string[] = []
+      for (const l of p7.locations) {
+        for (const c of p7.board[l.id] ?? []) {
+          if (c.type === 'ally' && !c.isBuzz && !c.attachedTo) candidateIds.push(c.instanceId)
+        }
+      }
+      if (candidateIds.length === 0) return state
+      // Libellé : le nom de la carte source — l'Événement joué (`sourceCardName`) ou, pour un
+      // `onPlace`, le Héros qui vient d'arriver (Jessie).
+      const hostName = ctx?.hostInstanceId
+        ? Object.values(p7.board).flat().find((c) => c.instanceId === ctx.hostInstanceId)?.name
+        : undefined
+      return {
+        ...state,
+        pendingFateDiscardAlly: {
+          chooserIndex: ctx?.playedBy ?? state.activePlayer,
+          targetIndex: idx,
+          candidateIds,
+          cardName: ctx?.sourceCardName ?? hostName ?? 'Allié défaussé',
+          optional: effect.optional,
+        },
+      }
     }
     case 'WOODY_RELEASE': {
       // Woody : si le Chapeau de Woody est en jeu, défaussez-le ; puis disperse les Héros

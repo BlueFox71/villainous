@@ -967,9 +967,11 @@ export type Effect =
   /** Le Grappin (Fatalité) : défausse un Héros de force 0 (auto), puis mélange la
    *  défausse Fatalité dans la pioche Fatalité. */
   | { type: 'LOTSO_DISCARD_ZERO_HERO' }
-  /** Jessie / Lotso était son préféré (Fatalité) : défausse un Allié de Lotso (auto : le
-   *  plus fort ; Buzz démo épargné). */
-  | { type: 'LOTSO_FATE_DISCARD_ALLY' }
+  /** Jessie / Lotso était son préféré (Fatalité) : défausse un Allié de Lotso (Buzz démo
+   *  épargné). QUEL Allié est un CHOIX de celui qui joue la carte (pendingFateDiscardAlly).
+   *  `optional` : « Vous POUVEZ défausser » (Jessie) → il peut aussi ne rien défausser ;
+   *  sans ce drapeau la défausse est obligatoire (Lotso était son préféré). */
+  | { type: 'LOTSO_FATE_DISCARD_ALLY'; optional?: boolean }
   /** Woody (Fatalité, à la pose) : si le Chapeau de Woody est en jeu, défaussez-le ; puis
    *  déplace les Héros de la Salle des Chenilles vers d'autres lieux (auto, dispersion). */
   | { type: 'WOODY_RELEASE' }
@@ -4204,6 +4206,9 @@ export interface GameState {
     targetIndex: number
     candidateIds: string[]
     cardName: string
+    /** « Vous POUVEZ défausser un Allié » (Jessie) : le choix peut être DÉCLINÉ
+     *  (RESOLVE_FATE_DISCARD_ALLY avec `instanceId: null`). */
+    optional?: boolean
   } | null
   /** Lotso — choix interactif d'une CIBLE (carte du royaume) : `kind` 'reduce' (réduire un
    *  Héros, de `amount` ou jusqu'à 0 si `toZero`) ou 'move-to-room' (déplacer un Héros ou
@@ -5141,8 +5146,9 @@ export type GameAction =
   | { type: 'RESOLVE_POKEMON_SUMMON'; cardId: string }
   /** Team Rocket — « Oui, la guerre ! » : couche le Pokémon choisi (cf. pendingKoPokemon). */
   | { type: 'RESOLVE_KO_POKEMON'; instanceId: string }
-  /** Pat Hibulaire — « Planqués » : défausse l'Allié choisi (cf. pendingFateDiscardAlly). */
-  | { type: 'RESOLVE_FATE_DISCARD_ALLY'; instanceId: string }
+  /** Pat Hibulaire — « Planqués » / Jessie : défausse l'Allié choisi (cf.
+   *  pendingFateDiscardAlly). `instanceId: null` = décliner (effet `optional` seulement). */
+  | { type: 'RESOLVE_FATE_DISCARD_ALLY'; instanceId: string | null }
   /** Syndrome — « Identification, je vous prie » : déplace l'Allié/Objet choisi vers le
    *  lieu (portant un Héros) choisi. */
   | { type: 'RESOLVE_IDENTIFICATION'; cardInstanceId: string; to: LocationId }
@@ -5153,9 +5159,9 @@ export type GameAction =
   | { type: 'RESOLVE_EVOLVE_ALLY'; instanceId: string }
   /** Lotso — résout `pendingLotsoBuzzMove` : déplace la tuile Buzz (mode Démo) vers le lieu choisi. */
   | { type: 'RESOLVE_LOTSO_BUZZ_MOVE'; to: LocationId }
-  /** Lotso — Le Bibliothécaire : applique une réduction de −1 (et −1 Pouvoir) au Héros
-   *  choisi, ou termine la répartition si `heroInstanceId` est null. */
-  | { type: 'RESOLVE_LOTSO_BOOKWORM'; heroInstanceId: string | null }
+  /** Lotso — Le Bibliothécaire : ajoute `count` (défaut 1) jetons Force −1 au Héros
+   *  désigné, en payant 1 Pouvoir chacun. `heroInstanceId: null` = terminer la répartition. */
+  | { type: 'RESOLVE_LOTSO_BOOKWORM'; heroInstanceId: string | null; count?: number }
   /** Lotso — Flex : phase « quelle carte » (`cardInstanceId`) puis phase « quel lieu »
    *  (`to`). Un seul champ est renseigné selon la phase en cours. */
   | { type: 'RESOLVE_LOTSO_FLEX'; cardInstanceId?: string; to?: LocationId }

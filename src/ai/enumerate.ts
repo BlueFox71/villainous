@@ -636,10 +636,13 @@ export function enumerateActions(state: GameState): GameAction[] {
 
   // Pat Hibulaire — « Planqués » : un choix par Allié (Bandit) défaussable.
   if (state.pendingFateDiscardAlly) {
-    return state.pendingFateDiscardAlly.candidateIds.map((instanceId) => ({
+    const out: GameAction[] = state.pendingFateDiscardAlly.candidateIds.map((instanceId) => ({
       type: 'RESOLVE_FATE_DISCARD_ALLY' as const,
       instanceId,
     }))
+    // « Vous POUVEZ défausser un Allié » (Jessie) : ne rien défausser est un coup légal.
+    if (state.pendingFateDiscardAlly.optional) out.push({ type: 'RESOLVE_FATE_DISCARD_ALLY', instanceId: null })
+    return out
   }
 
   // Ursula — Cadenas (Métamorphose / Grimsby) : déplacer sur le lieu proposé, ou passer.

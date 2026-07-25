@@ -4327,7 +4327,10 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
             (cards.find((c) => c.instanceId === b)?.strength ?? 0) -
             (cards.find((c) => c.instanceId === a)?.strength ?? 0),
         )[0]
-        const timer = setTimeout(() => resolveFateDiscardAlly(best), BOT_STEP_MS)
+        // Effet FACULTATIF visant son PROPRE royaume (Jessie amenée par son Big Baby) : le
+        // bot décline — se défausser un Allié ne lui apporte rien.
+        const selfHarm = pfda.optional && pfda.chooserIndex === pfda.targetIndex
+        const timer = setTimeout(() => resolveFateDiscardAlly(selfHarm ? null : best), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
       return
@@ -10127,13 +10130,17 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
         />
       )}
 
-      {/* Pat Hibulaire — « Planqués » : l'humain (s'il pose la Fatalité) choisit le Bandit à défausser. */}
+      {/* « Planqués » (Pat Hibulaire) / Jessie & « Lotso était son préféré » (Lotso) : celui
+          qui JOUE la carte choisit l'Allié à défausser — et peut décliner si l'effet est
+          facultatif (« Vous pouvez défausser un Allié »). */}
       {state.pendingFateDiscardAlly && state.pendingFateDiscardAlly.chooserIndex === HUMAN && (
         <FateDiscardAllyModal
           target={state.players[state.pendingFateDiscardAlly.targetIndex]}
           candidateIds={state.pendingFateDiscardAlly.candidateIds}
           cardName={state.pendingFateDiscardAlly.cardName}
+          optional={state.pendingFateDiscardAlly.optional}
           onResolve={resolveFateDiscardAlly}
+          onDecline={() => resolveFateDiscardAlly(null)}
         />
       )}
 
@@ -10245,7 +10252,12 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
               locationName: loc?.name ?? '',
             }
           })}
-          onReduce={resolveLotsoBookworm}
+          onConfirm={(counts) => {
+            // Une action par Héros (chacune applique `count` jetons d'un coup), puis on
+            // clôt : le joueur a composé toute sa répartition d'avance.
+            for (const { instanceId, count } of counts) resolveLotsoBookworm(instanceId, count)
+            resolveLotsoBookworm(null)
+          }}
           onDone={() => resolveLotsoBookworm(null)}
         />
       )}
