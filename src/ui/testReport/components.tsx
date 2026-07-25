@@ -6,7 +6,7 @@
 
 import { useState } from 'react'
 import { plural } from '../../engine/plural'
-import { RATINGS, ratingsForSide, SIDE_LABEL, type Side, type SideEntry } from './model'
+import { RATINGS, SIDE_LABEL, type Side, type SideEntry } from './model'
 
 /** Compteur « parties testées » : − valeur + (borné à 0). */
 export function Stepper({ value, onChange }: { value: number; onChange: (n: number) => void }) {
@@ -35,7 +35,7 @@ export function SidePanel({ side, entry, onPatch }: { side: Side; entry: SideEnt
     <div className="flex flex-col gap-1.5">
       <span className="text-[11px] font-bold uppercase tracking-wide text-amber-200/80">{SIDE_LABEL[side]}</span>
       <div className="flex flex-wrap gap-1">
-        {ratingsForSide(side).map((r) => {
+        {RATINGS.map((r) => {
           const on = r.key === entry.rating
           return (
             <button

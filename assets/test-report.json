@@ -614,7 +614,8 @@
         "canon-obscure-2",
         "balle-smash",
         "samus",
-        "explosion"
+        "explosion",
+        "rassemblement"
       ]
     },
     "maleficent": {
@@ -1106,9 +1107,9 @@
     "lotso": {
       "jules": {
         "joueur": {
-          "rating": "non-teste",
-          "games": 0,
-          "comment": "",
+          "rating": "presque-bien",
+          "games": 1,
+          "comment": "beaucoup de carte à valider",
           "journalChecked": false
         },
         "bot": {
@@ -1143,7 +1144,10 @@
         "chapeau-de-woody",
         "twitch",
         "vulcain",
-        "tchac"
+        "tchac",
+        "quelque-chose-se-brisa",
+        "flex",
+        "rex"
       ]
     },
     "saSucrerie": {

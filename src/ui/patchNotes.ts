@@ -66,6 +66,7 @@ export const PATCH_NOTES: PatchNote[] = [
       "Les cartes à **choisir** (récupérer en défausse, fouiller sa pioche, **Pas de Tricherie**, **Hakuna Matata**…) s'affichent **en grand, côte à côte**, avec **zoom au survol** — au lieu d'une liste de vignettes illisibles.",
       "Correctif : **Surprise !** (et les Conditions du même genre) se déclenchaient sur la force **imprimée** du Héros éliminé. C'est désormais sa force **réelle** : **Samus** avec la **Balle Smash** vaut 5, plus 3.",
       "Correctif : déplacer une carte **sur son lieu actuel** la **dupliquait**, et le nombre de copies **doublait** à chaque fois — **Le Roi Singe** (Shere Khan), **Roadster** (Cruella), **Finis le travail** (Yzma).",
+      "**Rapport des tests** (dév) : le niveau **À améliorer** revient côté **Joueur**, avec sa **barre** dans les statistiques.",
     ],
   },
   {

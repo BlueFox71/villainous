@@ -70,16 +70,12 @@ export function entryOf(report: Report, id: string): VillainEntry {
   return { jules: tester(v?.jules), alexis: tester(v?.alexis), validatedCards: v?.validatedCards ?? [] }
 }
 
-/** Niveaux proposés pour un côté donné : le côté Joueur n'expose pas « À améliorer ». */
-export const ratingsForSide = (side: Side) =>
-  side === 'joueur' ? RATINGS.filter((r) => r.key !== 'a-ameliorer') : RATINGS
-
 /** Rang d'un niveau (0 = pire … 4 = meilleur), d'après l'ordre de `RATINGS`. */
 export const ratingRank = (key: RatingKey): number => RATINGS.findIndex((r) => r.key === key)
 
-/** Niveaux affichés dans les STATS d'un côté : le côté Joueur masque « Non testé » et « À améliorer ». */
+/** Niveaux affichés dans les STATS d'un côté : le côté Joueur masque « Non testé ». */
 export const statRatingsForSide = (side: Side) =>
-  side === 'joueur' ? RATINGS.filter((r) => r.key !== 'non-teste' && r.key !== 'a-ameliorer') : RATINGS
+  side === 'joueur' ? RATINGS.filter((r) => r.key !== 'non-teste') : RATINGS
 
 /** Le testeur « autre » que celui donné. */
 export const otherTesterOf = (t: Tester): Tester => (t === 'jules' ? 'alexis' : 'jules')
