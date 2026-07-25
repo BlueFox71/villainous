@@ -66,10 +66,10 @@
           "journalChecked": false
         },
         "bot": {
-          "rating": "satisfaisant",
+          "rating": "presque-bien",
           "games": 1,
-          "comment": "",
-          "journalChecked": false
+          "comment": "vérifier niveau attaque fatalité",
+          "journalChecked": true
         }
       },
       "alexis": {
@@ -565,7 +565,10 @@
           "comment": "",
           "journalChecked": false
         }
-      }
+      },
+      "validatedCards": [
+        "cargaison-volee"
+      ]
     },
     "tabbou": {
       "jules": {
@@ -1004,9 +1007,9 @@
     "madameMim": {
       "jules": {
         "joueur": {
-          "rating": "non-teste",
+          "rating": "satisfaisant",
           "games": 0,
-          "comment": "",
+          "comment": "à vérifier niveau UI (modals)",
           "journalChecked": false
         },
         "bot": {
@@ -1029,7 +1032,26 @@
           "comment": "",
           "journalChecked": false
         }
-      }
+      },
+      "validatedCards": [
+        "mim-dragon",
+        "merlin-chevre",
+        "j-etablis-les-regles",
+        "mim-serpent",
+        "mim-rhinoceros",
+        "mim-tigre",
+        "mim-crocodile",
+        "mim-elephant",
+        "mim-renard",
+        "mim-poule",
+        "merlin-crabe",
+        "merlin-chenille",
+        "merlin-morse",
+        "merlin-souris",
+        "merlin-tortue",
+        "merlin-lapin",
+        "enorme-a-l-infini"
+      ]
     },
     "syndrome": {
       "jules": {

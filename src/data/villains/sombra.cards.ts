@@ -130,7 +130,10 @@ export const sombraCards: CardDef[] = [
     copies: 3,
     text: 'Piochez 3 cartes puis défaussez 2 cartes de votre choix, ou défaussez 3 cartes.',
     image: img('information.webp'),
-    effects: [{ type: 'DRAW_THEN_DISCARD', draw: 3, discard: 2 }],
+    // Seule carte de ce type à offrir l'ALTERNATIVE (main OU cartes piochées) → modale de
+    // choix. Les autres (Bataille d'esprits, Wyvern s'exprime, Carte Destin) enchaînent
+    // directement sur la défausse.
+    effects: [{ type: 'DRAW_THEN_DISCARD', draw: 3, discard: 2, orDiscardDrawn: true }],
   },
   {
     id: 'boop',

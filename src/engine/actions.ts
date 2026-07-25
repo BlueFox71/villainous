@@ -1529,7 +1529,7 @@ function applyPlayCard(
     // effet (il rejoint quand même la pile Artéfacts, plus bas, pour la victoire).
     next = { ...next, log: [...next.log, `**${card.name}** est posé mais son effet est ANNULÉ (Khadgar).`] }
   } else {
-    next = resolveEffects(next, card.effects ?? [], { targetHeroId, allyInstanceIds, allyMove, shrinkFreeActionId, playDestination: to })
+    next = resolveEffects(next, card.effects ?? [], { targetHeroId, allyInstanceIds, allyMove, shrinkFreeActionId, playDestination: to, sourceCardName: card.name })
   }
   // Une Petite Partie ? : le gain « +N JT » est porté par le showcase « révélation
   // à suspense » (cf. PLAY_A_GAME), pas par le showcase générique de la carte —

@@ -34,7 +34,7 @@ export function YzmaManipulateModal({ player, mode, count, optional, heroIds, on
   const canConfirm = locs.length >= 1 && locs.length <= count && (!needHero || hero !== null)
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 p-4">
-      <div className="flex w-full max-w-2xl flex-col items-center gap-4 rounded-2xl border border-white/15 bg-[#1a1226] p-6 text-white">
+      <div className="flex max-h-[94vh] w-full max-w-4xl flex-col items-center gap-4 overflow-y-auto rounded-2xl border border-white/15 bg-[#1a1226] p-6 text-white">
         <h2 className="text-xl font-black text-amber-200">
           {mode === 'reshuffle' ? 'Mélanger des pioches Fatalité' : 'Mélanger un Héros dans une pioche'}
         </h2>
@@ -57,12 +57,17 @@ export function YzmaManipulateModal({ player, mode, count, optional, heroIds, on
                     type="button"
                     onClick={() => setHero((h) => (h === c.instanceId ? null : c.instanceId))}
                     title={c.name}
-                    className={`flex flex-col items-center gap-1 rounded-lg border-2 p-1 transition ${
+                    className={`relative flex shrink-0 flex-col items-center gap-1 rounded-lg border-2 p-1 transition hover:z-10 ${
                       sel ? 'border-amber-300 ring-2 ring-amber-300' : 'border-white/20 hover:border-amber-300/60'
                     }`}
                   >
                     {def?.image ? (
-                      <img src={def.image} alt={c.name} className="h-36 w-auto rounded" />
+                      // Choix dans une PILE : carte lisible + agrandissement au survol.
+                      <img
+                        src={def.image}
+                        alt={c.name}
+                        className="h-56 w-auto rounded transition-transform duration-150 ease-out hover:scale-[1.3]"
+                      />
                     ) : (
                       <span className="px-2 py-6 text-sm">{c.name}</span>
                     )}

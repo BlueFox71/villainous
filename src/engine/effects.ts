@@ -74,6 +74,7 @@ import {
   effectiveStrength,
   goalsBlockedByHero,
   hasHeroInRealm,
+  hasReachedObjective,
   heroPlacementLocations,
   lotsoReducibleHeroes,
   locationOfCard,
@@ -656,16 +657,48 @@ function findMerlinInRealm(p: PlayerState, instanceId?: string): { loc: Location
   }
   return null
 }
-/** Pose la prochaine Métamorphose de Merlin (dessus de merlinDeck) au Lieu du Duel. */
-function placeNextMerlin(state: GameState, idx: number): GameState {
+/** Pose la prochaine Métamorphose de Merlin (dessus de merlinDeck) au Lieu du Duel, et
+ *  l'ANNONCE au showcase (l'arrivée du prochain adversaire du duel est un temps fort). */
+export function placeNextMerlin(state: GameState, idx: number): GameState {
   const p = state.players[idx]
   if ((p.merlinDeck?.length ?? 0) === 0) return state
   const loc = duelLocId(p)
-  return updatePlayer(state, idx, (pl) => {
-    const [m, ...rest] = pl.merlinDeck ?? []
-    return { ...pl, merlinDeck: rest, board: { ...pl.board, [loc]: [...(pl.board[loc] ?? []), m] } }
+  const [m] = p.merlinDeck ?? []
+  const next = updatePlayer(state, idx, (pl) => {
+    const [top, ...rest] = pl.merlinDeck ?? []
+    return { ...pl, merlinDeck: rest, board: { ...pl.board, [loc]: [...(pl.board[loc] ?? []), top] } }
   })
+  return pushShowcase(
+    next,
+    m.cardId,
+    `${m.name} entre dans le duel !`,
+    idx,
+    { playerIndex: idx, locationId: loc },
+    m.instanceId,
+  )
 }
+
+/**
+ * Madame Mim — victoire ÉVÉNEMENTIELLE : dès que la DERNIÈRE Métamorphose de Merlin est
+ * vaincue (pioche Merlin vide ET plus aucune en jeu), la partie est gagnée SUR LE CHAMP.
+ * Sans ce contrôle, la victoire n'était constatée qu'au début du tour suivant de Mim — il
+ * fallait donc subir tout le tour de l'adversaire. Branché par TYPE d'objectif.
+ */
+export function checkMerlinVictory(state: GameState, idx: number): GameState {
+  if (state.status !== 'PLAYING') return state
+  if (state.players[idx].objective.type !== 'DEFEAT_ALL_MERLIN') return state
+  if (!hasReachedObjective(state, idx)) return state
+  return {
+    ...state,
+    status: 'WON',
+    winner: idx,
+    log: [
+      ...state.log,
+      `🏆 ${state.players[idx].villainName} a vaincu toutes les Métamorphoses de Merlin — victoire !`,
+    ],
+  }
+}
+
 /** Vainc (par effet, pas par Vanquish) une Métamorphose de Merlin en jeu : elle va
  *  dans merlinDiscard et est remplacée au Lieu du Duel. */
 function defeatMerlinByEffect(state: GameState, idx: number, instanceId?: string): GameState {
@@ -677,9 +710,20 @@ function defeatMerlinByEffect(state: GameState, idx: number, instanceId?: string
     merlinDiscard: [...(pl.merlinDiscard ?? []), found.card],
   }))
   next = { ...next, log: [...next.log, `${state.players[idx].villainName} vainc **${found.card.name}** !`] }
+  // Showcase de l'élimination, comme pour un Vanquish : une victoire par EFFET (J'établis
+  // les règles) est un temps fort identique, elle doit s'afficher pareil.
+  next = pushDiscardShowcase(
+    next,
+    [found.card.cardId],
+    `${state.players[idx].villainName} élimine ${found.card.name}`,
+    idx,
+    'red',
+    'bottom',
+  )
   // On ne pioche une nouvelle Métamorphose de Merlin au Lieu du Duel QUE s'il n'en reste
   // plus aucune en jeu (sinon, on continue avec celles déjà présentes).
-  return findMerlinInRealm(next.players[idx]) ? next : placeNextMerlin(next, idx)
+  if (!findMerlinInRealm(next.players[idx])) next = placeNextMerlin(next, idx)
+  return checkMerlinVictory(next, idx)
 }
 
 // ── Nous avons conclu un marché ! (Le Seigneur des Ténèbres) ──────────────────
@@ -1804,20 +1848,23 @@ export function performVanquish(
   // on pose alors la prochaine Métamorphose de Merlin (dessus de la pioche) au Lieu du
   // Duel. Si la pioche est vide, plus rien n'arrive : l'objectif (7 vaincus) est atteint.
   const merlinStillInRealm = Object.values(next.players[state.activePlayer].board).flat().some((c) => c.isMerlinTransformation)
-  if (merlinDefeated && !merlinStillInRealm && (next.players[state.activePlayer].merlinDeck?.length ?? 0) > 0) {
-    const duel = next.players[state.activePlayer].locations[2]?.id ?? heroLoc
-    next = updatePlayer(next, state.activePlayer, (p) => {
-      const [nextMerlin, ...rest] = p.merlinDeck ?? []
-      return {
-        ...p,
-        merlinDeck: rest,
-        board: { ...p.board, [duel]: [...(p.board[duel] ?? []), nextMerlin] },
+  if (merlinDefeated && !merlinStillInRealm) {
+    const arriving = (next.players[state.activePlayer].merlinDeck ?? [])[0]
+    if (arriving) {
+      // `placeNextMerlin` pose la carte ET l'annonce au showcase (même traitement que la
+      // voie « par effet » : J'établis les règles).
+      next = placeNextMerlin(next, state.activePlayer)
+      next = {
+        ...next,
+        log: [...next.log, `Une nouvelle Métamorphose de Merlin (**${arriving.name}**) apparaît au Lieu du Duel.`],
       }
-    })
-    next = {
-      ...next,
-      log: [...next.log, `Une nouvelle Métamorphose de Merlin (**${next.players[state.activePlayer].board[duel]?.slice(-1)[0]?.name}**) apparaît au Lieu du Duel.`],
     }
+  }
+  // Victoire ÉVÉNEMENTIELLE de Madame Mim : la dernière Métamorphose de Merlin vient de
+  // tomber (pioche vide et royaume dégagé) → on ne fait pas attendre le tour suivant.
+  if (merlinDefeated) {
+    const won = checkMerlinVictory(next, state.activePlayer)
+    if (won.status === 'WON') return won
   }
   // Syndrome — transition de l'Omnidroïde quand il participe à ce Vanquish :
   //  • v.X8 : retiré du royaume + mélange défausse↦pioche ; v.X9 arrive en main.
@@ -8474,9 +8521,12 @@ export function resolveEffect(
       return { ...next, log: [...next.log, `${next.players[idx].villainName} : prochain Piratage gratuit (Faille).`] }
     }
     case 'DRAW_THEN_DISCARD': {
-      // Information : pioche `draw` cartes (remélange au besoin), puis ouvre un CHOIX
-      // (pendingInformation) : défausser `discard` cartes de la main OU défausser les
-      // cartes piochées.
+      // Pioche `draw` cartes (remélange au besoin), puis défausse `discard` cartes.
+      //  • `orDiscardDrawn` (Information de Sombra, seule carte à offrir l'alternative) :
+      //    ouvre un CHOIX (pendingInformation) main OU cartes piochées ;
+      //  • sinon (Bataille d'esprits, Wyvern s'exprime, Carte Destin) : on enchaîne
+      //    DIRECTEMENT sur la sélection des cartes de la main — pas de modale à cliquer
+      //    pour un choix qui n'existe pas.
       const actor = state.players[idx]
       let deck = actor.deck
       let disc = actor.discard
@@ -8495,16 +8545,26 @@ export function resolveEffect(
         drawn.push(top)
       }
       let next = updatePlayer(state, idx, (p) => ({ ...p, deck, discard: disc, hand: [...p.hand, ...drawn] }))
+      const label = ctx?.sourceCardName ?? 'Défausse'
       next = {
         ...next,
         rngState: s,
-        pendingInformation:
-          drawn.length > 0
-            ? { playerIndex: idx, drawnIds: drawn.map((c) => c.instanceId), discardCount: effect.discard }
-            : next.pendingInformation,
-        log: [...next.log, `${actor.villainName} pioche ${drawn.length} ${plural(drawn.length, 'carte')} (Information).`],
+        log: [...next.log, `${actor.villainName} pioche ${drawn.length} ${plural(drawn.length, 'carte')} (${label}).`],
       }
-      return next
+      if (drawn.length === 0) return next
+      if (effect.orDiscardDrawn) {
+        return {
+          ...next,
+          pendingInformation: { playerIndex: idx, drawnIds: drawn.map((c) => c.instanceId), discardCount: effect.discard },
+        }
+      }
+      const toDiscard = Math.min(effect.discard, next.players[idx].hand.length)
+      if (toDiscard === 0) return next
+      return {
+        ...next,
+        pendingTyrannyDiscard: { playerIndex: idx, count: toDiscard, label },
+        log: [...next.log, `${actor.villainName} : défaussez ${toDiscard} ${plural(toDiscard, 'carte')} de votre main (${label}).`],
+      }
     }
     case 'TAKE_FROM_AUDELA_TO_HAND': {
       // Désespoir : prend une carte de la Pile de l'Au-delà (carte clé en

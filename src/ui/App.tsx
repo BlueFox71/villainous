@@ -8640,20 +8640,33 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
       {state.pendingWeaponFetch && state.pendingWeaponFetch.playerIndex === HUMAN && (() => {
         const ids = new Set(state.pendingWeaponFetch.candidateIds)
         const weapons = user.deck.filter((c) => ids.has(c.instanceId))
-        const opts: { key: string; label: string; description?: string; disabled?: boolean; onSelect: () => void }[] = []
+        // Cartes montrées EN GRAND côte à côte (une tuile « en main », une « équiper » par
+        // Arme) : on choisit une Arme en la lisant, pas en lisant une liste de noms.
+        const opts: { key: string; label: string; description?: string; imageSrc?: string; disabled?: boolean; onSelect: () => void }[] = []
         for (const w of weapons) {
           const cost = Math.max(0, w.cost ?? 0)
-          opts.push({ key: `${w.instanceId}-hand`, label: `${w.name} → en main`, onSelect: () => resolveWeaponFetch(w.instanceId, false) })
+          const imageSrc = getCardDef(w.cardId)?.image
+          opts.push({ key: `${w.instanceId}-hand`, label: `${w.name} → en main`, imageSrc, onSelect: () => resolveWeaponFetch(w.instanceId, false) })
           opts.push({
             key: `${w.instanceId}-equip`,
             label: `${w.name} → équiper (${cost} JT)`,
             description: user.power < cost ? 'Pas assez de Pouvoir' : undefined,
+            imageSrc,
             disabled: user.power < cost,
             onSelect: () => resolveWeaponFetch(w.instanceId, true),
           })
         }
         opts.push({ key: 'none', label: 'Ne rien prendre', onSelect: () => resolveWeaponFetch(undefined, false) })
-        return <ChoiceModal title="Arme du crime" prompt="Prenez une Arme de votre pioche." options={opts} />
+        return (
+          <ChoiceModal
+            title="Arme du crime"
+            prompt="Prenez une Arme de votre pioche."
+            options={opts}
+            layout="row"
+            imageClassName="mb-1 h-56 w-auto rounded"
+            maxWidthClass="max-w-5xl"
+          />
+        )
       })()}
 
       {/* Tabbou — modale « Destin » (dévoiler 3 / gagner 4). Tuer une couleur (Collection)

@@ -48,12 +48,16 @@ export interface PatchNote {
 export const PATCH_NOTES: PatchNote[] = [
   {
     version: '1.9.5',
-    date: '2026-07-25',
-    title: 'Le bot Prince Jean joue enfin ses cartes',
-    tags: ['ia', 'correctif'],
+    date: '2026-07-26',
+    title: 'Bot Prince Jean, Madame Mim et cartes lisibles',
+    tags: ['ia', 'interface', 'correctif', 'regles'],
     changes: [
       "Le **bot Prince Jean** ne posait quasiment **aucune carte** : il **thésaurisait** son Pouvoir, défaussait sa main et laissait tous les Héros s'installer. Il **investit** désormais — **Mandat d'Arrêt**, **Shérif de Nottingham**, **Alliés** — et **élimine** ses pires gêneurs (**Robin des Bois**, **Roi Richard**) au lieu de les subir.",
       "Il **achète du muscle** seulement quand des Héros occupent son royaume, et **arrête de dépenser** dans la dernière ligne droite pour filer sur ses **20 Pouvoir**. Vaut pour **tout vilain** dont l'objectif est le Pouvoir.",
+      "**Madame Mim** : la victoire est **immédiate** dès la dernière **Métamorphose de Merlin** vaincue — plus besoin d'attendre la fin du tour adverse.",
+      "**Madame Mim** : la Métamorphose vaincue **par une carte** (J'établis les règles) s'affiche enfin comme les autres, et la **nouvelle arrivante** au Lieu du Duel est annoncée à l'écran.",
+      "**Bataille d'esprits** enchaîne **directement** sur la défausse (la fenêtre de choix, réservée à **Information** de Sombra, a disparu). Idem pour **Wyvern s'exprime** et **Carte Destin**.",
+      "Les cartes à **choisir** (récupérer en défausse, fouiller sa pioche, **Pas de Tricherie**, **Hakuna Matata**…) s'affichent désormais **en grand, côte à côte**, avec **zoom au survol** — au lieu d'une liste de vignettes illisibles.",
       "Correctif : déplacer une carte **sur son lieu actuel** la **dupliquait**, et le nombre de copies **doublait** à chaque fois — **Le Roi Singe** (Shere Khan), **Roadster** (Cruella), **Finis le travail** (Yzma).",
     ],
   },

@@ -1722,7 +1722,12 @@ export type Effect =
   | { type: 'HACK_HERO' }
   /** Sombra — Information : pioche `draw` cartes puis en défausse `discard` au choix
    *  (ouvre la sélection de défausse). */
-  | { type: 'DRAW_THEN_DISCARD'; draw: number; discard: number }
+  /** Pioche `draw` cartes puis défausse `discard` cartes de la main. `orDiscardDrawn` :
+   *  la carte laisse le CHOIX entre défausser depuis la main ou défausser les cartes
+   *  piochées (Information de Sombra) → ouvre `pendingInformation`. Sans ce drapeau (cas
+   *  général : Bataille d'esprits, Wyvern s'exprime, Carte Destin) on enchaîne DIRECTEMENT
+   *  sur la sélection des cartes à défausser, sans modale de choix inutile. */
+  | { type: 'DRAW_THEN_DISCARD'; draw: number; discard: number; orDiscardDrawn?: boolean }
   /** Sombra — Invisibilité : l'acteur est immunisé à la Fatalité jusqu'à son prochain
    *  tour (`noFate`). */
   | { type: 'FATE_IMMUNITY' }

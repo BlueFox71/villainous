@@ -208,6 +208,123 @@ describe('Madame Mim — Métamorphoses & objectif', () => {
   })
 })
 
+describe('Bataille d’esprits — pas de modale de choix avant de défausser', () => {
+  // La carte dit « Piochez 4 cartes, puis défaussez 4 cartes de votre main » : aucun choix
+  // n'est offert, on doit donc enchaîner DIRECTEMENT sur la sélection à défausser. Seule
+  // « Information » (Sombra) laisse l'alternative main / cartes piochées (orDiscardDrawn).
+  it('pioche 4 puis ouvre directement la défausse de 4 (aucun pendingInformation)', () => {
+    const base = game()
+    const hand0 = base.players[0].hand.length
+    const s = resolveEffects(
+      { ...base, activePlayer: 0 },
+      [{ type: 'DRAW_THEN_DISCARD', draw: 4, discard: 4 }],
+      { actorIndex: 0, sourceCardName: 'Bataille d’esprits' },
+    )
+    expect(s.pendingInformation ?? null).toBeNull()
+    expect(s.players[0].hand.length).toBe(hand0 + 4)
+    expect(s.pendingTyrannyDiscard?.count).toBe(4)
+    expect(s.pendingTyrannyDiscard?.label).toBe('Bataille d’esprits')
+  })
+
+  it('la carte du deck de Mim porte bien l’effet sans l’alternative', () => {
+    const eff = madameMimCards.find((c) => c.id === 'bataille-d-esprit')?.effects?.[0]
+    expect(eff).toMatchObject({ type: 'DRAW_THEN_DISCARD', draw: 4, discard: 4 })
+    expect((eff as { orDiscardDrawn?: boolean }).orDiscardDrawn).toBeUndefined()
+  })
+})
+
+describe('Madame Mim — victoire IMMÉDIATE à la dernière Métamorphose', () => {
+  // Avant : l'objectif n'était constaté qu'au début du tour suivant de Mim → il fallait
+  // subir tout le tour de l'adversaire avant que la victoire soit validée.
+  /** Mim avec 6 Merlin déjà vaincus, le 7ᵉ au Lieu du Duel avec sa Métamorphose tueuse. */
+  const lastMerlin = () => {
+    const merlin = card('merlin-souris', 'hero', { instanceId: 'ms', strength: 1, isMerlinTransformation: true })
+    const mim = card('mim-serpent', 'ally', {
+      instanceId: 'mse', strength: 1, isMimTransformation: true, transformationTarget: 'merlin-souris',
+      grantsAction: { type: 'VANQUISH', label: 'Éliminer (Mim)' },
+    })
+    const base = game()
+    const beaten = Array.from({ length: 6 }, (_, i) => card('merlin-b' + i, 'hero', { isMerlinTransformation: true }))
+    return {
+      state: {
+        ...base,
+        phase: 'ACTION' as const,
+        players: [{
+          ...base.players[0],
+          pawnLocation: 'lieu-duel',
+          merlinDeck: [], // pioche Merlin vide : c'est le DERNIER
+          merlinDiscard: beaten,
+          board: { ...base.players[0].board, 'lieu-duel': [merlin, mim] },
+        }],
+      } as GameState,
+    }
+  }
+
+  it('par VANQUISH : la partie est gagnée sur le champ', () => {
+    const { state } = lastMerlin()
+    const s = applyAction(state, { type: 'VANQUISH', actionId: 'granted:mse', heroInstanceId: 'ms', allyInstanceIds: ['mse'] })
+    expect(s.status).toBe('WON')
+    expect(s.winner).toBe(0)
+  })
+
+  it('par EFFET (J’établis les règles) : la partie est gagnée sur le champ', () => {
+    const { state } = lastMerlin()
+    const s = resolveEffects(state, [{ type: 'DEFEAT_MERLIN_IN_REALM' }], { actorIndex: 0 })
+    expect(s.status).toBe('WON')
+    expect(s.winner).toBe(0)
+  })
+
+  it('il en reste une en pioche → PAS de victoire (une nouvelle entre dans le duel)', () => {
+    const { state } = lastMerlin()
+    const next = card('merlin-lapin', 'hero', { instanceId: 'ml', isMerlinTransformation: true })
+    const s0 = { ...state, players: [{ ...state.players[0], merlinDeck: [next] }] } as GameState
+    const s = resolveEffects(s0, [{ type: 'DEFEAT_MERLIN_IN_REALM' }], { actorIndex: 0 })
+    expect(s.status).toBe('PLAYING')
+    expect((s.players[0].board['lieu-duel'] ?? []).some((c) => c.instanceId === 'ml')).toBe(true)
+  })
+})
+
+describe('Madame Mim — showcase du duel (éliminée + nouvelle arrivante)', () => {
+  const duelSetup = (merlinDeck: CardInstance[]) => {
+    const merlin = card('merlin-souris', 'hero', { instanceId: 'ms', strength: 1, isMerlinTransformation: true })
+    const mim = card('mim-serpent', 'ally', {
+      instanceId: 'mse', strength: 1, isMimTransformation: true, transformationTarget: 'merlin-souris',
+      grantsAction: { type: 'VANQUISH', label: 'Éliminer (Mim)' },
+    })
+    const base = game()
+    return {
+      state: {
+        ...base,
+        phase: 'ACTION' as const,
+        showcaseEvents: [],
+        players: [{
+          ...base.players[0],
+          pawnLocation: 'lieu-duel',
+          merlinDeck,
+          merlinDiscard: [],
+          board: { ...base.players[0].board, 'lieu-duel': [merlin, mim] },
+        }],
+      } as GameState,
+    }
+  }
+
+  it('élimination par EFFET : la Métamorphose vaincue est montrée (comme un Vanquish)', () => {
+    const { state } = duelSetup([])
+    const s = resolveEffects(state, [{ type: 'DEFEAT_MERLIN_IN_REALM' }], { actorIndex: 0 })
+    expect(s.showcaseEvents.some((e) => e.discard?.cardIds.includes('merlin-souris'))).toBe(true)
+  })
+
+  it('la NOUVELLE Métamorphose est annoncée au showcase (voie effet ET voie Vanquish)', () => {
+    const next = () => card('merlin-lapin', 'hero', { instanceId: 'ml', isMerlinTransformation: true })
+    const byEffect = resolveEffects(duelSetup([next()]).state, [{ type: 'DEFEAT_MERLIN_IN_REALM' }], { actorIndex: 0 })
+    expect(byEffect.showcaseEvents.some((e) => e.cardId === 'merlin-lapin' && !e.discard)).toBe(true)
+    const byVanquish = applyAction(duelSetup([next()]).state, {
+      type: 'VANQUISH', actionId: 'granted:mse', heroInstanceId: 'ms', allyInstanceIds: ['mse'],
+    })
+    expect(byVanquish.showcaseEvents.some((e) => e.cardId === 'merlin-lapin' && !e.discard)).toBe(true)
+  })
+})
+
 describe('Madame Mim — Le Savoir conduit à la Puissance (Fatalité) : interactif', () => {
   const emptyBoard = (s: GameState) => Object.fromEntries(s.players[0].locations.map((l) => [l.id, []])) as Record<string, CardInstance[]>
 

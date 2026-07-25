@@ -251,7 +251,9 @@ describe('Sombra — effets divers', () => {
   it('Information : pioche 3 puis ouvre le CHOIX (garder/défausser la pioche)', () => {
     const base = game()
     const hand0 = base.players[0].hand.length
-    const drawn = resolveEffect({ ...base, activePlayer: 0 }, { type: 'DRAW_THEN_DISCARD', draw: 3, discard: 2 }, { actorIndex: 0 })
+    // `orDiscardDrawn` : propre à Information (seule carte à offrir l'alternative). Sans lui,
+    // on enchaîne directement sur la défausse — cf. le test « Bataille d'esprits ».
+    const drawn = resolveEffect({ ...base, activePlayer: 0 }, { type: 'DRAW_THEN_DISCARD', draw: 3, discard: 2, orDiscardDrawn: true }, { actorIndex: 0 })
     expect(drawn.players[0].hand.length).toBe(hand0 + 3)
     expect(drawn.pendingInformation?.drawnIds.length).toBe(3)
     expect(drawn.pendingInformation?.discardCount).toBe(2)
