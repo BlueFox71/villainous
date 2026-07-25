@@ -47,6 +47,17 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.9.5',
+    date: '2026-07-25',
+    title: 'Le bot Prince Jean joue enfin ses cartes',
+    tags: ['ia', 'correctif'],
+    changes: [
+      "Le **bot Prince Jean** ne posait quasiment **aucune carte** : il **thésaurisait** son Pouvoir, défaussait sa main et laissait tous les Héros s'installer. Il **investit** désormais — **Mandat d'Arrêt**, **Shérif de Nottingham**, **Alliés** — et **élimine** ses pires gêneurs (**Robin des Bois**, **Roi Richard**) au lieu de les subir.",
+      "Il **achète du muscle** seulement quand des Héros occupent son royaume, et **arrête de dépenser** dans la dernière ligne droite pour filer sur ses **20 Pouvoir**. Vaut pour **tout vilain** dont l'objectif est le Pouvoir.",
+      "Correctif : déplacer une carte **sur son lieu actuel** la **dupliquait**, et le nombre de copies **doublait** à chaque fois — **Le Roi Singe** (Shere Khan), **Roadster** (Cruella), **Finis le travail** (Yzma).",
+    ],
+  },
+  {
     version: '1.9.4',
     date: '2026-07-24',
     title: 'Écran de chargement animé + portraits manquants',

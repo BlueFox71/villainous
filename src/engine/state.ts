@@ -8,6 +8,7 @@ import type {
   FloatingFx,
   GameState,
   Location,
+  LocationId,
   PlayerState,
   VillainDef,
 } from './types'
@@ -66,6 +67,32 @@ export function updatePlayer(
     ...state,
     players: state.players.map((p, i) => (i === index ? fn(p) : p)),
   }
+}
+
+/**
+ * Plateau où les cartes `moving` (extraites de `from`, `movingIds` = leurs instanceId)
+ * ont été déplacées vers `to`.
+ *
+ * ⚠️ Les deux clés sont écrites SÉQUENTIELLEMENT, et c'est essentiel : quand `to === from`
+ * (déplacement sur place, permis par les capacités « vers n'importe quel lieu » — Le Roi
+ * Singe, Roadster, Finis le travail…), un littéral
+ * `{ ...board, [from]: filtré, [to]: [...board[to], ...moving] }` réécrit la même clé avec
+ * le tableau d'ORIGINE : le retrait est annulé et les cartes sont DUPLIQUÉES — doublement
+ * à chaque activation (bug observé : 1024 Macaques sur le plateau de Shere Khan).
+ */
+export function boardWithMove(
+  board: Record<LocationId, CardInstance[]>,
+  from: LocationId,
+  to: LocationId,
+  moving: CardInstance[],
+  movingIds: Set<string>,
+): Record<LocationId, CardInstance[]> {
+  const next: Record<LocationId, CardInstance[]> = {
+    ...board,
+    [from]: (board[from] ?? []).filter((c) => !movingIds.has(c.instanceId)),
+  }
+  next[to] = [...(next[to] ?? []), ...moving]
+  return next
 }
 
 /** Pousse un événement showcase (UI cinématique). Pur. `opts` permet de régler

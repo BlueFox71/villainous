@@ -1014,6 +1014,54 @@ export type EvalWeights = {
   oppPawnDisrupt: number // perturbation : déplacer la figurine adverse loin de ses Alliés/Objets (× cartes, plafonné)
   fateThreatFloor: number // part MIN de la valeur des Héros chez l'adversaire quand il n'est PAS menaçant (1 = valeur fixe ; <1 = Fatalité escaladée selon la menace)
   myCoveredAction: number // pénalité par action de la rangée HAUTE recouverte par un Héros sur MON plateau (au-delà de la pénalité de force : incite à dégager les gêneurs)
+  // Économie « course au Pouvoir » (cf. PowerRaceEconomy). `null` = modèle désactivé
+  // (comportement V3 : les termes de plateau restent à l'échelle unité).
+  powerRace: PowerRaceEconomy | null
+}
+
+/**
+ * Économie d'évaluation pour un vilain dont le Pouvoir EST le compteur de victoire
+ * (Prince Jean, Gothel, Mr. Monopoly, customs par défaut).
+ *
+ * POURQUOI : pour un tel vilain, 1 JT vaut `objective / seuil + myPower` points
+ * (Prince Jean : 1000/20 + 6 = **56 pts/JT**), alors que tous les termes de plateau
+ * sont à l'échelle unité (Allié Force 4 = 8 pts, `enginePieces` = 3, action recouverte
+ * = 2). Conséquence : TOUTE carte payante est dominée (dépenser 1 JT = −56, aucun gain
+ * de plateau ne rembourse) → le bot thésaurisait sans jamais poser d'Allié ni de Mandat
+ * d'Arrêt, donc sans jamais éliminer, et les Héros s'accumulaient en le taxant.
+ *
+ * CORRECTIF : pour ce joueur, on exprime le plateau **en jetons Pouvoir** (chaque
+ * constante ci-dessous est un nombre de JT, multiplié par le taux de change réel), au
+ * lieu des termes unité `myAllyStr` / `myHeroVsPower` / `myHeroFlat`.
+ */
+export type PowerRaceEconomy = {
+  /** JT « récupérés » par JT investi dans un Allié/Objet POSÉ : le Pouvoir dépensé n'est pas
+   *  perdu, il est immobilisé dans un actif. < 1 (une dépense reste une petite perte sèche). */
+  assetKeep: number
+  /** Fraction de `assetKeep` encore créditée à mesure qu'on approche du seuil : l'investissement
+   *  vaut son prix tant qu'on est loin de la victoire, mais dans la dernière ligne droite seul
+   *  le liquide compte (→ le bot cesse d'acheter et dépense ses Alliés comme des munitions).
+   *  Le crédit est plein tant que `power ≤ seuil × (1 − fadeSpan)`, nul au seuil. */
+  fadeSpan: number
+  /** Plafond du Pouvoir investi crédité, en fraction du seuil (un plateau énorme ne doit pas
+   *  pouvoir simuler une progression). */
+  assetCapRatio: number
+  /** Prime par point de Force d'un Allié QUAND des Héros occupent le royaume : l'Allié est
+   *  alors une munition (il se convertit en élimination). */
+  allyForceWithHeroes: number
+  /** Idem royaume dégagé : quasi nul — sans Héros à déloger, la Force ne sert à rien, mieux
+   *  vaut garder ses JT (c'est le vrai jeu du Prince Jean). */
+  allyForceAlone: number
+  /** Gêne forfaitaire d'un Héros dans mon royaume, en JT. */
+  heroBase: number
+  /** Gêne additionnelle par point de Force (plus dur à déloger → il reste, donc gêne, plus longtemps). */
+  heroForce: number
+  /** Gêne par JT/tour d'action « Gagner N Pouvoir » recouverte par un Héros (revenu perdu). */
+  heroGainCover: number
+  /** Conversion en JT d'1 point de `villainStrategyBonus` (enginePieces / priorityVanquish) :
+   *  c'est le signal DÉCLARATIF « cette carte est un moteur / ce Héros est un désastre », qui doit
+   *  lui aussi être libellé en Pouvoir pour peser (Robin des Bois, Roi Richard, Mandat, Shérif). */
+  strategy: number
 }
 
 /** Baseline pour l'A/B : le comportement V3 d'avant tuning — pouvoir valorisé à
@@ -1038,6 +1086,7 @@ export const BASELINE_WEIGHTS: EvalWeights = {
   oppPawnDisrupt: 4,
   fateThreatFloor: 1, // baseline : valeur de Fatalité fixe (pas de modulation)
   myCoveredAction: 0, // baseline : on n'évaluait pas le recouvrement de ses propres actions
+  powerRace: null, // baseline : plateau à l'échelle unité (aucune carte payante n'était jouée)
 }
 
 /** Poids par défaut (tunés). Pouvoir conscient de l'objectif (Maléfique ne
@@ -1076,6 +1125,38 @@ export const DEFAULT_WEIGHTS: EvalWeights = {
   // bas : quand l'adversaire est déjà bien bloqué (menace ~0), le bot lâche presque
   // la Fatalité et se concentre sur son objectif (cf. mémoire « villainous-fate-malus »).
   fateThreatFloor: 0.25,
+  // Vilains-Pouvoir : plateau libellé en JT (cf. PowerRaceEconomy). Dosage « équilibré » —
+  // il achète du muscle quand des Héros occupent son royaume, thésaurise quand il est
+  // dégagé, et cesse d'investir dans la dernière ligne droite (il file gagner).
+  // `fadeSpan: 0.8` (crédit plein sous 20 % du seuil, puis décroissant) mesuré meilleur en
+  // self-play que 0.5 ou 1 : 84 victoires sur 96 parties (Maléfique + Crochet, 48 graines
+  // chacun) contre 75/96 sans le modèle et 81/96 avec un crédit qui tient plus longtemps.
+  powerRace: {
+    assetKeep: 0.9,
+    fadeSpan: 0.8,
+    assetCapRatio: 0.5,
+    allyForceWithHeroes: 0.12,
+    allyForceAlone: 0.02,
+    heroBase: 1.2,
+    heroForce: 0.08,
+    heroGainCover: 0.8,
+    strategy: 0.35,
+  },
+}
+
+/** Le joueur court-il une VRAIE course au Pouvoir (le Pouvoir EST son compteur de
+ *  victoire) ? Gul'dan a un seuil FACTICE (999) : sa victoire passe par la Porte des
+ *  Ténèbres, pas par le Pouvoir (cf. `objectiveScore`) → exclu. */
+function isPowerRace(p: PlayerState): boolean {
+  return p.objective.type === 'POWER_THRESHOLD' && p.villain !== 'custom-gul-dan'
+}
+
+/** Taux de change points ↔ Pouvoir pour un joueur en course au Pouvoir : ce que rapporte
+ *  1 JT de plus, terme objectif (`objective / seuil`) + terme pouvoir (`myPower`) compris.
+ *  C'est l'unité dans laquelle `PowerRaceEconomy` libelle le plateau. */
+function pointsPerPower(p: PlayerState, w: EvalWeights): number {
+  if (p.objective.type !== 'POWER_THRESHOLD') return 0
+  return w.objective / Math.max(1, p.objective.threshold) + w.myPower
 }
 
 /** Soutien de la figurine d'un joueur : nb d'Alliés/Objets « racine » sur le lieu
@@ -1130,17 +1211,50 @@ export function evaluate(state: GameState, idx: number, w: EvalWeights = DEFAULT
   // Gêne d'un Héros selon l'objectif du plateau où il se trouve (cf. EvalWeights).
   const myHeroPerStr = me.objective.type === 'POWER_THRESHOLD' ? w.myHeroVsPower : w.myHeroVsCurse
   const oppHeroPerStr = opp.objective.type === 'POWER_THRESHOLD' ? w.oppHeroVsPower : w.oppHeroVsCurse
+  // Économie « course au Pouvoir » : quand le Pouvoir EST le compteur de victoire, les termes
+  // de plateau doivent être libellés en JT, sinon aucune carte payante n'est jamais jouable
+  // (cf. PowerRaceEconomy). `pr` non nul ⇒ on remplace les termes unité par le modèle en JT.
+  const pr = w.powerRace && isPowerRace(me) ? w.powerRace : null
+  const prThreshold = me.objective.type === 'POWER_THRESHOLD' ? me.objective.threshold : 0
+  const perPower = pr ? pointsPerPower(me, w) : 0
+  // Le Pouvoir immobilisé dans un actif n'est pas perdu — mais ce crédit s'efface à mesure
+  // qu'on approche du seuil (dans la dernière ligne droite, seul le liquide fait gagner).
+  const assetFade = pr
+    ? Math.max(0, Math.min(1, (prThreshold - me.power) / Math.max(1, prThreshold * pr.fadeSpan)))
+    : 0
+  // Trois agrégats collectés en UN seul parcours (evaluate est dans la boucle chaude de la
+  // recherche) : la prime de Force des Alliés dépend de la présence de Héros, donc connue
+  // seulement en fin de parcours → elle est appliquée après la boucle.
+  let investedPower = 0 // JT immobilisés dans mes Alliés/Objets posés
+  let myAllyForce = 0
+  let heroesInMyRealm = false
   // Présence sur SON plateau : Alliés utiles, Héros (placés par l'adversaire) nuisibles.
   for (const cards of Object.values(me.board)) {
     for (const c of cards) {
-      if (c.type === 'ally') score += (c.strength ?? 0) * w.myAllyStr
+      if (c.type === 'ally') {
+        if (pr) {
+          investedPower += c.cost ?? 0
+          myAllyForce += c.strength ?? 0
+        } else score += (c.strength ?? 0) * w.myAllyStr
+      } else if (pr && c.type === 'item') investedPower += c.cost ?? 0
       // Un Héros-CIBLE de capture (Peach chez Bowser) présent dans mon royaume est un
       // ATOUT, pas une gêne → pas de pénalité (le gradient est porté par objectiveScore).
       // Idem pour un SURVIVANT du Piégeur : c'est une CIBLE à éliminer, pas une menace
       // (sa progression révélé/blessé/critique/accroché est portée par objectiveScore).
-      else if (c.type === 'hero' && !isCaptureTargetHero(me.villain, c.cardId) && !c.isSurvivor)
-        score -= (c.strength ?? 0) * myHeroPerStr + w.myHeroFlat
+      else if (c.type === 'hero' && !isCaptureTargetHero(me.villain, c.cardId) && !c.isSurvivor) {
+        heroesInMyRealm = true
+        score -= pr
+          ? (pr.heroBase + (c.strength ?? 0) * pr.heroForce) * perPower
+          : (c.strength ?? 0) * myHeroPerStr + w.myHeroFlat
+      }
     }
+  }
+  if (pr) {
+    // Un Allié n'est une munition que s'il y a des Héros à déloger : royaume dégagé, mieux
+    // vaut garder ses JT que d'acheter de la Force inutile (le vrai jeu du Prince Jean).
+    score += myAllyForce * (heroesInMyRealm ? pr.allyForceWithHeroes : pr.allyForceAlone) * perPower
+    // Crédit du Pouvoir investi, plafonné (un plateau énorme ne doit pas simuler un progrès).
+    score += Math.min(investedPower, prThreshold * pr.assetCapRatio) * pr.assetKeep * assetFade * perPower
   }
   // Actions de la rangée HAUTE recouvertes par des Héros sur MON plateau : chaque action
   // indisponible me freine (drainer une Étoile, Jouer, Gagner…). Au-delà de la pénalité de
@@ -1148,8 +1262,9 @@ export function evaluate(state: GameState, idx: number, w: EvalWeights = DEFAULT
   // motive pas assez le Vanquish (cf. Bowser qui hésitait à dégager Mario & co.).
   // Approximation LÉGÈRE de `coveredTopActionIdsAt` (pas le scan agrandissement/coéquipiers,
   // rares) : `evaluate` est dans la boucle chaude de la recherche → on reste en O(cartes).
-  if (w.myCoveredAction) {
+  if (w.myCoveredAction || pr) {
     let covered = 0
+    let coveredGain = 0 // JT/tour de « Gagner N » ainsi perdus (vilain-Pouvoir : revenu confisqué)
     for (const loc of me.locations) {
       const cards = me.board[loc.id]
       if (!cards || cards.length === 0) continue
@@ -1160,16 +1275,24 @@ export function evaluate(state: GameState, idx: number, w: EvalWeights = DEFAULT
           (c.coversActionsLikeHero && !c.attachedTo),
       )
       if (coveringHero) {
-        for (const a of loc.actions) if (a.row === 'top') covered++
+        for (const a of loc.actions) {
+          if (a.row !== 'top') continue
+          covered++
+          if (pr && a.type === 'GAIN_POWER') coveredGain += a.amount ?? 0
+        }
       }
     }
     score -= covered * w.myCoveredAction
+    if (pr) score -= coveredGain * pr.heroGainCover * perPower
   }
   // Lieux maudits (objectif Maléfique + tempo), comptés PAR LIEU (empiler n'aide pas).
   score += cursedLocationCount(me) * w.cursePerLocation
   // Couche « stratégie bot » : conseils de jeu propres au vilain (placements
   // préférés, Héros à vaincre en priorité, cartes-moteurs). Cf. villainStrategy.ts.
-  score += villainStrategyBonus(me)
+  // Pour un vilain-Pouvoir, ce signal DÉCLARATIF est converti en JT (`pr.strategy`) : sinon
+  // « Mandat d'Arrêt vaut 3 » ou « Robin des Bois vaut −10 » resterait invisible devant un
+  // taux de change de plusieurs dizaines de points par jeton.
+  score += villainStrategyBonus(me) * (pr ? pr.strategy * perPower : 1)
   // Le Piégeur — bonus POSITIONNEL : le pion sur un lieu portant un Survivant sur lequel il
   // peut agir (face cachée → révéler ; révélé → blesser ; critique + crochet actif →
   // accrocher) le rapproche d'une action d'attaque. Petit poids (le gradient d'élimination

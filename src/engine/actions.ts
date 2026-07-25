@@ -26,6 +26,7 @@ import { deployThanosAlly, retrieveThanosAlly } from './thanos'
 import {
   activePlayer,
   annotateShowcaseGain,
+  boardWithMove,
   currentLocation,
   dioPowerFactor,
   drawPlayerToLimit,
@@ -2637,14 +2638,9 @@ function applyResolveFinishJob(state: GameState, allyInstanceId?: string, to?: L
   const ally = moving.find((c) => c.instanceId === allyId)!
   const destName = findLocation(p, to)?.name ?? to
   let next: GameState = {
-    ...updatePlayer(state, idx, (pp) => ({
-      ...pp,
-      board: {
-        ...pp.board,
-        [from]: (pp.board[from] ?? []).filter((c) => !movingIds.has(c.instanceId)),
-        [to]: [...(pp.board[to] ?? []), ...moving],
-      },
-    })),
+    // « Finis le travail » vise tout lieu portant un Héros, y compris celui de l'Allié
+    // choisi → boardWithMove (sinon duplication de l'Allié et de ses Objets).
+    ...updatePlayer(state, idx, (pp) => ({ ...pp, board: boardWithMove(pp.board, from, to, moving, movingIds) })),
     pendingFinishJob: null,
     log: [...state.log, `Finis le travail : **${ally.name}** est déplacé vers **${destName}**.`],
   }
@@ -4420,14 +4416,11 @@ function applyMoveCard(
   const movingIds = new Set(moving.map((c) => c.instanceId))
   const destName = findLocation(me, to)!.name
 
+  // Le Roadster (« n'importe quel lieu ») peut viser son propre lieu → boardWithMove.
   let next = updateActivePlayer(state, (p) => ({
     ...p,
     power: p.power - moveSurcharge,
-    board: {
-      ...p.board,
-      [from]: p.board[from].filter((c) => !movingIds.has(c.instanceId)),
-      [to]: [...(p.board[to] ?? []), ...moving],
-    },
+    board: boardWithMove(p.board, from, to, moving, movingIds),
   }))
   next = consumePersifleur(next, action)
   next = {
@@ -8464,13 +8457,10 @@ function applyResolveMonkeyKing(state: GameState, arg: { macaqueInstanceId?: str
   const moving = (me.board[fromLoc] ?? []).filter((c) => c.instanceId === macaqueId || c.attachedTo === macaqueId)
   const movingIds = new Set(moving.map((c) => c.instanceId))
   const dest = arg.to
+  // « n'importe quel lieu » inclut le lieu de départ → boardWithMove (sinon duplication).
   const next = updatePlayer(state, idx, (p) => ({
     ...p,
-    board: {
-      ...p.board,
-      [fromLoc!]: (p.board[fromLoc!] ?? []).filter((c) => !movingIds.has(c.instanceId)),
-      [dest]: [...(p.board[dest] ?? []), ...moving],
-    },
+    board: boardWithMove(p.board, fromLoc!, dest, moving, movingIds),
   }))
   return {
     ...next,
