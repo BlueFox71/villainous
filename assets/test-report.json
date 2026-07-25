@@ -541,7 +541,7 @@
       "jules": {
         "joueur": {
           "rating": "presque-bien",
-          "games": 0,
+          "games": 1,
           "comment": "",
           "journalChecked": false
         },
@@ -567,7 +567,11 @@
         }
       },
       "validatedCards": [
-        "cargaison-volee"
+        "cargaison-volee",
+        "cheval",
+        "steamboat-willie",
+        "vieux-tacot",
+        "magot"
       ]
     },
     "tabbou": {
@@ -598,7 +602,17 @@
           "comment": "",
           "journalChecked": false
         }
-      }
+      },
+      "validatedCards": [
+        "boule-1",
+        "boule-2",
+        "boule-4",
+        "boule-3",
+        "destin",
+        "fleche-tabbou",
+        "primides",
+        "canon-obscure-2"
+      ]
     },
     "maleficent": {
       "jules": {
@@ -674,9 +688,9 @@
           "journalChecked": false
         },
         "bot": {
-          "rating": "non-teste",
-          "games": 0,
-          "comment": "",
+          "rating": "presque-bien",
+          "games": 1,
+          "comment": "a gagné une fois",
           "journalChecked": false
         }
       },
@@ -693,7 +707,8 @@
           "comment": "",
           "journalChecked": false
         }
-      }
+      },
+      "validatedCards": []
     },
     "crochet": {
       "jules": {
@@ -1050,7 +1065,9 @@
         "merlin-souris",
         "merlin-tortue",
         "merlin-lapin",
-        "enorme-a-l-infini"
+        "enorme-a-l-infini",
+        "pas-de-tricherie",
+        "le-savoir-conduit-puissance"
       ]
     },
     "syndrome": {

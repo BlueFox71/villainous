@@ -11,7 +11,7 @@ import type { CardInstance, GameAction, GameState, PlayerState } from '../engine
 import { KEY_COLORS } from '../engine/types'
 import { canEnterAuDela, raiponceLocation, titanReachableDests } from '../engine/effects'
 import { stonesInOpponentRealms } from '../engine/thanos'
-import { fateCardPlayable, FREE_PLAY_NO_ACTION_ID } from '../engine/actions'
+import { fateCardPlayable, noFateCardPlayable, FREE_PLAY_NO_ACTION_ID } from '../engine/actions'
 import { VILLAIN_STRATEGY } from './villainStrategy'
 import {
   adjacentLocationIds,
@@ -42,6 +42,7 @@ import {
   movableCards,
   placementLocations,
   requiresAllyTarget,
+  revertibleWickets,
   transformableGuards,
   flayerTunnelDiscardableAlliesAt,
   flayerTunnelDiscardsNeededAt,
@@ -367,11 +368,46 @@ export function enumerateActions(state: GameState): GameAction[] {
     return out
   }
 
-  // Par ordre de la Reine ! : transformer 1 ou 2 Cartes Gardes en arceaux.
-  // On énumère chaque Carte Garde seule, plus chaque paire (nombre borné : ≤4 Gardes).
+  // Bandit — enchaînement puis POSE. Le bot n'enchaîne pas (il joue ses Bandits un par un
+  // via ses actions) ; mais les deux pendings doivent être énumérables, sinon tout coup
+  // serait refusé par le garde-fou (blocage de la recherche).
+  if (state.pendingBanditChain) {
+    return [{ type: 'RESOLVE_BANDIT_CHAIN', instanceIds: [] }]
+  }
+  if (state.pendingBanditPlace) {
+    const pbp = state.pendingBanditPlace
+    const p = state.players[pbp.playerIndex]
+    const locked = new Set(p.lockedLocations ?? [])
+    return p.locations
+      .filter((l) => !locked.has(l.id) && !allyBlockedAt(state, pbp.playerIndex, l.id))
+      .map((l) => ({ type: 'RESOLVE_BANDIT_PLACE', to: l.id }) as GameAction)
+  }
+
+  // Attaque Aérienne : phase 1 = chaque lieu portant un Héros ; phase 2 = chaque Héros du
+  // lieu où le pion vient de fondre. La recherche tranche (elle voit le Vanquish qui suit).
+  if (state.pendingAirStrike) {
+    const pas = state.pendingAirStrike
+    const p = state.players[pas.playerIndex]
+    if (pas.phase === 'location') {
+      return p.locations
+        .filter((l) => (p.board[l.id] ?? []).some((c) => c.type === 'hero'))
+        .map((l) => ({ type: 'RESOLVE_AIR_STRIKE', to: l.id }) as GameAction)
+    }
+    return (p.board[pas.locationId ?? ''] ?? [])
+      .filter((c) => c.type === 'hero')
+      .map((c) => ({ type: 'RESOLVE_AIR_STRIKE', heroInstanceId: c.instanceId }) as GameAction)
+  }
+
+  // Par ordre de la Reine ! : transformer 1 ou 2 Cartes Gardes en arceaux — ou, dans le
+  // sens inverse (Le Chafouin à la pose), retransformer 1 ou 2 ARCEAUX en Cartes Gardes.
+  // On énumère chaque carte seule, plus chaque paire (nombre borné : ≤4 candidates).
   if (state.pendingTransformWickets) {
-    const guards = transformableGuards(state, state.pendingTransformWickets.playerIndex)
-    const max = state.pendingTransformWickets.max
+    const ptw = state.pendingTransformWickets
+    const guards =
+      ptw.direction === 'to-guard'
+        ? revertibleWickets(state, ptw.playerIndex)
+        : transformableGuards(state, ptw.playerIndex)
+    const max = ptw.max
     const out: GameAction[] = []
     for (let i = 0; i < guards.length; i++) {
       out.push({ type: 'RESOLVE_TRANSFORM_WICKETS', instanceIds: [guards[i].instanceId] })
@@ -1325,8 +1361,9 @@ export function enumerateActions(state: GameState): GameAction[] {
       out.push({ type: 'RESOLVE_FATE', instanceId: revealed[0].instanceId })
     }
     // Combo « jouer les deux » (Ray/Dormeur) : la 2ᵉ carte est FACULTATIVE → le bot
-    // peut aussi passer (PASS_FATE).
-    if (state.pendingFate.optional) out.push({ type: 'PASS_FATE' })
+    // peut aussi passer (PASS_FATE). De même quand AUCUNE carte révélée n'est jouable :
+    // passer est alors le coup propre (mêmes règles que pour l'humain).
+    if (state.pendingFate.optional || noFateCardPlayable(state)) out.push({ type: 'PASS_FATE' })
     return out
   }
 

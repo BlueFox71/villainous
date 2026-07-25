@@ -79,7 +79,9 @@ import {
   lotsoReducibleHeroes,
   locationOfCard,
   realmRelocateCandidates,
+  revertibleWickets,
   teleportTargets,
+  vanquishedStrengthOf,
   totalObstacles,
   transformableGuards,
 } from './rules'
@@ -1268,7 +1270,7 @@ export function performVanquish(
       }
       return { ...p, board, discard: [...p.discard, ...discardedCards] }
     })
-    next = { ...next, lastVanquishedHeroStrength: heroCard.strength ?? 0 }
+    next = { ...next, lastVanquishedHeroStrength: vanquishedStrengthOf(state, idx, heroCard) }
     next = pushDiscardShowcase(
       next,
       [heroCard.cardId, ...discardedCards.map((c) => c.cardId)],
@@ -1678,8 +1680,10 @@ export function performVanquish(
   if (removedFromGameNow) {
     next = { ...next, log: [...next.log, `**${heroCard.name}** est RETIRÉ DE LA PARTIE.`] }
   }
-  // Mémorise la force du héros pour le trigger Méchanceté (réinitialisé à chaque tour).
-  next = { ...next, lastVanquishedHeroStrength: heroCard.strength ?? 0 }
+  // Mémorise la force EFFECTIVE du Héros (Objets associés, auras, jetons) pour les triggers
+  // « a éliminé un Héros de force ≥/≤ N » (Méchanceté, Surprise !, Férocité, Enfermée).
+  // Mesurée sur `state`, AVANT le retrait de la carte du plateau.
+  next = { ...next, lastVanquishedHeroStrength: vanquishedStrengthOf(state, state.activePlayer, heroCard) }
   next = {
     ...next,
     log: [
@@ -2025,7 +2029,7 @@ function checkPacteDefeat(state: GameState, idx: number, heroId: string, loc: Lo
   }))
   next = {
     ...next,
-    lastVanquishedHeroStrength: Math.max(next.lastVanquishedHeroStrength ?? 0, hero.strength ?? 0),
+    lastVanquishedHeroStrength: Math.max(next.lastVanquishedHeroStrength ?? 0, vanquishedStrengthOf(state, idx, hero)),
     log: [
       ...next.log,
       `Pacte : **${hero.name}** est éliminé en arrivant sur **${loc}**${trident ? ' — le Trident est libéré !' : ''}.`,
@@ -6126,7 +6130,7 @@ export function resolveEffect(
       }))
       next = {
         ...next,
-        lastVanquishedHeroStrength: hero.strength ?? 0,
+        lastVanquishedHeroStrength: vanquishedStrengthOf(state, idx, hero),
         log: [
           ...next.log,
           `${actor.villainName} élimine instantanément **${hero.name}** (Apparence de Dragon).`,
@@ -6172,7 +6176,7 @@ export function resolveEffect(
           fateDiscard: [...p.fateDiscard, heroDiscarded],
           power: p.power + locked,
         }))
-        next = { ...next, lastVanquishedHeroStrength: hero.strength ?? 0 }
+        next = { ...next, lastVanquishedHeroStrength: vanquishedStrengthOf(state, idx, hero) }
         next = resolveEffects(next, hero.onVanquish ?? [], {
           actorIndex: idx,
           hostInstanceId: hero.instanceId,
@@ -6269,7 +6273,7 @@ export function resolveEffect(
       }))
       next = {
         ...next,
-        lastVanquishedHeroStrength: hero.strength ?? 0,
+        lastVanquishedHeroStrength: vanquishedStrengthOf(state, idx, hero),
         // Journal data-driven : expose le nom du Héros éliminé pour le placeholder {nomHéros}
         // (inoffensif pour les cartes sans template : `journalVars` est vidé par applyAction).
         journalVars: { ...next.journalVars, ['nomHéros']: hero.name },
@@ -7700,33 +7704,22 @@ export function resolveEffect(
       }
     }
     case 'REVERT_WICKETS': {
-      // Le Chafouin (Fatalité) : retransforme jusqu'à `max` arceaux de la cible (idx)
-      // en Cartes Gardes. Auto (choix du fataliseur) : un arceau par lieu, pour faire
-      // perdre le plus de cases d'objectif possible.
+      // Le Chafouin (Fatalité, à la pose) : retransforme jusqu'à `max` arceaux de la cible
+      // (idx) en Cartes Gardes. QUELS arceaux est un CHOIX du fataliseur → on ouvre la
+      // sélection interactive (le bot l'auto-résout, cf. enumerate/App).
       const p = state.players[idx]
-      let reverted = 0
-      const board = Object.fromEntries(
-        Object.entries(p.board).map(([locId, cards]) => {
-          if (reverted >= effect.max) return [locId, cards]
-          let done = false
-          const next = cards.map((c) => {
-            if (!done && c.isWicket && reverted < effect.max) {
-              done = true
-              reverted++
-              return { ...c, isWicket: false }
-            }
-            return c
-          })
-          return [locId, next]
-        }),
-      )
-      if (reverted === 0) {
+      const eligible = revertibleWickets(state, idx)
+      if (eligible.length === 0) {
         return { ...state, log: [...state.log, `Le Chafouin : ${p.villainName} n'a aucun arceau à retransformer.`] }
       }
-      const next = updatePlayer(state, idx, (pp) => ({ ...pp, board }))
       return {
-        ...next,
-        log: [...next.log, `Le Chafouin retransforme ${reverted} arceau${reverted > 1 ? 'x' : ''} de ${p.villainName} en Cartes Gardes.`],
+        ...state,
+        pendingTransformWickets: {
+          playerIndex: idx,
+          chooserIndex: ctx?.playedBy ?? state.activePlayer,
+          direction: 'to-guard',
+          max: Math.min(effect.max, eligible.length),
+        },
       }
     }
     case 'HYPNOTIZE_HERO': {
@@ -10803,29 +10796,15 @@ export function resolveEffect(
       }
     }
     case 'AIR_STRIKE': {
-      // Attaque Aérienne : déplace le pion sur le Héros le plus fort et l'élimine
-      // (sans Allié), puis plus aucune autre action ce tour-ci.
+      // Attaque Aérienne : « Déplacez Pat Hibulaire sur n'importe quel lieu où se trouve un
+      // Héros et éliminez-le. » DEUX choix (le lieu où fondre, puis le Héros) → interactif,
+      // jamais auto-résolu pour un humain (le bot les résout via enumerate/App).
       const actor = state.players[idx]
-      let bestLoc: LocationId | undefined
-      let bestHero: CardInstance | undefined
-      let best = -1
-      for (const l of actor.locations) {
-        for (const c of actor.board[l.id] ?? []) {
-          if (c.type === 'hero' && (c.strength ?? 0) > best) { best = c.strength ?? 0; bestHero = c; bestLoc = l.id }
-        }
-      }
-      if (!bestLoc || !bestHero) {
+      const locsWithHero = actor.locations.filter((l) => (actor.board[l.id] ?? []).some((c) => c.type === 'hero'))
+      if (locsWithHero.length === 0) {
         return { ...state, log: [...state.log, `${actor.villainName} : aucun Héros à éliminer (Attaque Aérienne).`] }
       }
-      const dest = bestLoc
-      let next = updatePlayer(state, idx, (p) => ({ ...p, pawnLocation: dest }))
-      next = {
-        ...next,
-        log: [...next.log, `${actor.villainName} fond sur ${findLocation(actor, dest)?.name ?? dest} (Attaque Aérienne).`],
-      }
-      next = resolveEffect(next, { type: 'INSTANT_VANQUISH_HERO_AT_PAWN' }, { actorIndex: idx, targetHeroId: bestHero.instanceId })
-      // « Puis votre tour est terminé » : plus aucune autre action ce tour-ci.
-      return updatePlayer(next, idx, (p) => ({ ...p, soleActionLock: true }))
+      return { ...state, pendingAirStrike: { playerIndex: idx, phase: 'location' } }
     }
     case 'MOVE_ALLY_OR_ITEM_SMART': {
       // Cheval (bénéfique) : déplacement CHOISI par le joueur → ouvre la fenêtre

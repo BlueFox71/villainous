@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { resolveEffect } from '../effects'
+import { applyAction } from '../actions'
 import { createInitialGame } from '../state'
 import { reineCoeur } from '../../data/villains/reineCoeur'
 import { reineCoeurCards } from '../../data/villains/reineCoeur.cards'
@@ -18,17 +19,32 @@ function reineWith(board: Record<string, CardInstance[]>): GameState {
 }
 
 describe('Le Chafouin — REVERT_WICKETS (retransforme des arceaux en Cartes Gardes)', () => {
-  it('retransforme jusqu’à 2 arceaux (un par lieu)', () => {
+  it('ouvre le CHOIX des arceaux (jamais auto) et retransforme ceux désignés', () => {
     const s = reineWith({ 'cour-palais': [wicket('w1')], labyrinthe: [wicket('w2')], 'foret-tulgey': [wicket('w3')] })
-    const after = resolveEffect(s, { type: 'REVERT_WICKETS', max: 2 }, { actorIndex: 0 })
-    const allCards = Object.values(after.players[0].board).flat()
-    const stillWickets = allCards.filter((c) => c.isWicket).length
-    expect(stillWickets).toBe(1) // 3 arceaux − 2 retransformés
+    const opened = resolveEffect(s, { type: 'REVERT_WICKETS', max: 2 }, { actorIndex: 0 })
+    // Interactif : c'est le FATALISEUR qui désigne les arceaux (ici, joueur unique = 0).
+    expect(opened.pendingTransformWickets).toMatchObject({ playerIndex: 0, direction: 'to-guard', max: 2 })
+    expect(Object.values(opened.players[0].board).flat().filter((c) => c.isWicket)).toHaveLength(3)
+    // Le choix porté sur w1 et w3 : ce sont ceux-là (et pas w2) qui redeviennent Gardes.
+    const after = applyAction(opened, { type: 'RESOLVE_TRANSFORM_WICKETS', instanceIds: ['w1', 'w3'] })
+    const byId = Object.fromEntries(Object.values(after.players[0].board).flat().map((c) => [c.instanceId, c]))
+    expect(byId['w1'].isWicket).toBeFalsy()
+    expect(byId['w3'].isWicket).toBeFalsy()
+    expect(byId['w2'].isWicket).toBe(true)
+    expect(after.pendingTransformWickets ?? null).toBeNull()
   })
 
-  it('no-op s’il n’y a aucun arceau', () => {
+  it('plafonne au `max` même si on en désigne davantage', () => {
+    const s = reineWith({ 'cour-palais': [wicket('w1')], labyrinthe: [wicket('w2')], 'foret-tulgey': [wicket('w3')] })
+    const opened = resolveEffect(s, { type: 'REVERT_WICKETS', max: 2 }, { actorIndex: 0 })
+    const after = applyAction(opened, { type: 'RESOLVE_TRANSFORM_WICKETS', instanceIds: ['w1', 'w2', 'w3'] })
+    expect(Object.values(after.players[0].board).flat().filter((c) => c.isWicket)).toHaveLength(1)
+  })
+
+  it('no-op s’il n’y a aucun arceau (aucun choix ouvert)', () => {
     const s = reineWith({ labyrinthe: [{ instanceId: 'g', cardId: 'gardes-coeur', name: 'G', type: 'ally', strength: 3 }] })
     const after = resolveEffect(s, { type: 'REVERT_WICKETS', max: 2 }, { actorIndex: 0 })
+    expect(after.pendingTransformWickets ?? null).toBeNull()
     expect(Object.values(after.players[0].board).flat().some((c) => c.isWicket)).toBe(false)
   })
 

@@ -118,8 +118,10 @@ import {
   movableCards,
   realmRelocateCandidates,
   requiresAllyTarget,
+  revertibleWickets,
   teleportTargets,
   transformableGuards,
+  vanquishedStrengthOf,
 } from './rules'
 
 /** Nombre de cartes Fatalité révélées par une action Fatalité. */
@@ -2740,7 +2742,11 @@ export function placeFateHeroWithEffects(
   if (playedBy !== targetIndex) {
     next = {
       ...next,
-      activeFateHeroesAgainst: [...(next.activeFateHeroesAgainst ?? []), { target: targetIndex, strength: hero.strength ?? 0 }],
+      // Force EFFECTIVE une fois posé (auras du royaume comprises : Adam de la Halle +1…).
+      activeFateHeroesAgainst: [
+        ...(next.activeFateHeroesAgainst ?? []),
+        { target: targetIndex, strength: vanquishedStrengthOf(next, targetIndex, hero) },
+      ],
     }
   }
   next = {
@@ -3139,24 +3145,69 @@ function discardCurseFromHeroLocation(state: GameState, targetIndex: number): Ga
 }
 
 /** Résout la Fatalité en attente : joue la carte choisie, défausse l'autre. */
-/** Une carte Fatalité révélée est-elle JOUABLE sur la cible (sinon elle serait
- *  juste défaussée) ? Sert au combo Ray : on ne rouvre la Fatalité pour la 2ᵉ
- *  carte que si elle peut réellement être jouée. */
+/**
+ * Une carte Fatalité révélée est-elle JOUABLE sur la cible (aurait-elle un effet) ?
+ *
+ * SOURCE UNIQUE de cette question : le combo Ray (ne rouvrir la Fatalité pour la 2ᵉ carte
+ * que si elle est jouable), l'énumération du bot, ET la modale de Fatalité (qui grise les
+ * cartes sans cible et propose « Passer » quand AUCUNE n'est jouable) s'appuient tous
+ * dessus. Auparavant la modale portait sa propre copie de ces règles, qui divergeait.
+ */
 export function fateCardPlayable(state: GameState, card: CardInstance, target: number): boolean {
+  const tgt = state.players[target]
+  const realm = Object.values(tgt.board).flat()
   if (card.type === 'hero') return heroPlacementLocations(state, card, target).length > 0
   if (
     card.cardId === 'voler-riches' ||
     card.cardId === 'agrandir' ||
     (card.type === 'item' && card.attach === 'hero')
   ) {
-    return Object.values(state.players[target].board)
-      .flat()
-      .some((c) => c.type === 'hero' && !c.hypnotized)
+    // L'Épée de Vérité exige un Héros SANS autre Objet associé.
+    if (card.cardId === 'epee-verite') {
+      return tgt.locations.some((l) => {
+        const cell = tgt.board[l.id] ?? []
+        return cell.some(
+          (h) => h.type === 'hero' && !h.hypnotized && !cell.some((x) => x.type === 'item' && x.attachedTo === h.instanceId),
+        )
+      })
+    }
+    return realm.some((c) => c.type === 'hero' && !c.hypnotized)
+  }
+  // Cartes qui ont besoin d'une carte précise dans la défausse Fatalité de la cible.
+  if (card.cardId === 'apparence-retrouvee')
+    return tgt.fateDiscard.some((x) => x.type === 'hero' && (x.strength ?? 0) <= 4)
+  if (card.cardId === 'en-retard')
+    return tgt.fateDiscard.some((x) => x.type === 'hero' && (x.strength ?? 0) <= 3)
+  if (card.cardId === 'gurgis-happy-day') return tgt.fateDiscard.length > 0
+  // Cartes qui ont besoin d'une carte précise DANS LE ROYAUME de la cible.
+  if (card.cardId === 'migraine-atroce') return realm.some((x) => x.type === 'item')
+  if (card.cardId === 'merlin-microbe') return realm.some((x) => x.isMimTransformation)
+  if (card.cardId === 'le-savoir-conduit-puissance') return realm.some((x) => x.isMerlinTransformation)
+  if (card.cardId === 'reinitialisation') return realm.some((x) => x.isPiratage)
+  if (card.cardId === 'ko') return realm.some((x) => x.type === 'ally' && !x.isWicket && (x.strength ?? 0) <= 3)
+  if (card.cardId === 'alors-ca-truc-de-dingue')
+    return realm.some(
+      (x) => (x.type === 'ally' || x.type === 'item') && !x.immuneToAllyItemEffects && x.cardId !== 'champ-de-force',
+    )
+  // Le Chafouin : sans arceau à retransformer, il n'a aucun effet à la pose — mais c'est
+  // un HÉROS, déjà traité plus haut (il reste posable), donc rien à vérifier ici.
+  // Sabotage : un Objet (≤3, non associé) sur un lieu portant un Héros.
+  if (card.cardId === 'sabotage') {
+    return tgt.locations.some((l) => {
+      const cell = tgt.board[l.id] ?? []
+      return cell.some((x) => x.type === 'hero') && cell.some((x) => x.type === 'item' && !x.attachedTo && (x.cost ?? 0) <= 3)
+    })
+  }
+  // Il était un Rêve : une Malédiction sur un lieu portant un Héros.
+  if (card.cardId === 'il-etait-un-reve') {
+    return tgt.locations.some((l) => {
+      const cell = tgt.board[l.id] ?? []
+      return cell.some((x) => x.type === 'hero') && cell.some((x) => x.type === 'curse')
+    })
   }
   // Premier baiser d'amour : sans effet si la cible n'a ni Poison ni Héros dans sa
   // défausse Fatalité.
   if (card.cardId === 'premier-baiser') {
-    const tgt = state.players[target]
     return (tgt.poison ?? 0) > 0 || tgt.fateDiscard.some((c) => c.type === 'hero')
   }
   // Sa Sucrerie — Enfin un vrai Kart ! : injouable hors course (aucun jeton Pilote sur le
@@ -3178,11 +3229,17 @@ export function fateCardPlayable(state: GameState, card: CardInstance, target: n
   // L'Imposteur — Majorité : sans effet si la cible n'a aucun Allié ni Objet (non associé,
   // hors Sabotage) à défausser.
   if (card.cardId === 'majorite') {
-    return Object.values(state.players[target].board)
-      .flat()
-      .some((c) => !c.attachedTo && (c.type === 'ally' || (c.type === 'item' && !c.isSabotage)))
+    return realm.some((c) => !c.attachedTo && (c.type === 'ally' || (c.type === 'item' && !c.isSabotage)))
   }
   return true
+}
+
+/** Aucune des cartes Fatalité révélées n'est jouable → le joueur ne peut que PASSER
+ *  (les cartes sont défaussées et le journal indique qu'aucune Fatalité n'a été jouée). */
+export function noFateCardPlayable(state: GameState): boolean {
+  const pending = state.pendingFate
+  if (!pending) return false
+  return !pending.revealed.some((c) => fateCardPlayable(state, c, pending.target))
 }
 
 /** Résout une Fatalité révélée. Wrapper du combo RAY (Dr Facilier) : si Ray fait
@@ -3346,7 +3403,11 @@ function applyResolveFate(
  *  pour une Fatalité marquée `optional`. */
 function applyPassFate(state: GameState): GameState {
   const pending = state.pendingFate
-  if (!pending || !pending.optional) {
+  // Deux cas légitimes de passe : la 2ᵉ carte d'un combo (Ray/Dormeur) est FACULTATIVE,
+  // ou AUCUNE des cartes révélées n'est jouable (rien à faire avec, cf. deux Agrandir
+  // face à un royaume sans Héros) — on ne force alors pas un clic sans effet.
+  const nonePlayable = noFateCardPlayable(state)
+  if (!pending || !(pending.optional || nonePlayable)) {
     throw new Error('Aucune carte Fatalité facultative à passer.')
   }
   const next = updatePlayer(state, pending.target, (p) => ({
@@ -3354,10 +3415,16 @@ function applyPassFate(state: GameState): GameState {
     fateDiscard: [...p.fateDiscard, ...pending.revealed],
   }))
   const names = pending.revealed.map((c) => `**${c.name}**`).join(', ')
+  const n = pending.revealed.length
   return {
     ...next,
     pendingFate: null,
-    log: [...next.log, `Carte Fatalité non jouée : ${names} défaussée.`],
+    log: [
+      ...next.log,
+      nonePlayable && !pending.optional
+        ? `${state.players[state.activePlayer].villainName} n'a pas pu jouer de Fatalité : ${names} ${plural(n, 'défaussée')}.`
+        : `Carte Fatalité non jouée : ${names} défaussée.`,
+    ],
   }
 }
 
@@ -9419,10 +9486,15 @@ function applyResolveTransformWickets(state: GameState, instanceIds: string[]): 
   const pending = state.pendingTransformWickets
   if (!pending) throw new Error('Aucune transformation de Cartes Gardes en attente.')
   const idx = pending.playerIndex
-  const eligible = new Set(transformableGuards(state, idx).map((c) => c.instanceId))
+  // Sens 'to-guard' (Le Chafouin à la pose) : on retransforme des ARCEAUX en Cartes
+  // Gardes ; sens par défaut : des Cartes Gardes en arceaux.
+  const toGuard = pending.direction === 'to-guard'
+  const eligible = new Set(
+    (toGuard ? revertibleWickets(state, idx) : transformableGuards(state, idx)).map((c) => c.instanceId),
+  )
   const chosen = instanceIds.filter((id) => eligible.has(id)).slice(0, pending.max)
   if (chosen.length === 0) {
-    throw new Error('Choisissez au moins 1 Carte Garde à transformer.')
+    throw new Error(toGuard ? 'Choisissez au moins 1 arceau à retransformer.' : 'Choisissez au moins 1 Carte Garde à transformer.')
   }
   const chosenSet = new Set(chosen)
   const player = state.players[idx]
@@ -9435,16 +9507,19 @@ function applyResolveTransformWickets(state: GameState, instanceIds: string[]): 
     board: Object.fromEntries(
       Object.entries(p.board).map(([loc, cards]) => [
         loc,
-        cards.map((c) => (chosenSet.has(c.instanceId) ? { ...c, isWicket: true } : c)),
+        cards.map((c) => (chosenSet.has(c.instanceId) ? { ...c, isWicket: !toGuard } : c)),
       ]),
     ),
   }))
+  const n = names.length
   return {
     ...next,
     pendingTransformWickets: null,
     log: [
       ...next.log,
-      `${player.villainName} transforme ${names.length === 1 ? '1 Carte Garde' : `${names.length} Cartes Gardes`} en arceau${names.length > 1 ? 'x' : ''} (${names.join(', ')}).`,
+      toGuard
+        ? `Le Chafouin retransforme ${n} ${plural(n, 'arceau', 'arceaux')} de ${player.villainName} en ${plural(n, 'Carte Garde', 'Cartes Gardes')} (${names.join(', ')}).`
+        : `${player.villainName} transforme ${n} ${plural(n, 'Carte Garde', 'Cartes Gardes')} en ${plural(n, 'arceau', 'arceaux')} (${names.join(', ')}).`,
     ],
   }
 }
@@ -9723,6 +9798,53 @@ function applyResolveAllyItemMove(
 }
 
 /**
+ * Pat Hibulaire — Attaque Aérienne. Phase 1 (`to`) : déplace le pion sur le lieu choisi
+ * (il doit porter un Héros) ; s'il n'y a qu'un Héros dessus, on enchaîne directement sur
+ * son élimination. Phase 2 (`heroInstanceId`) : élimine le Héros désigné, puis le tour est
+ * terminé (« Puis votre tour est terminé »).
+ */
+function applyResolveAirStrike(
+  state: GameState,
+  arg: { to?: LocationId; heroInstanceId?: string },
+): GameState {
+  const pending = state.pendingAirStrike
+  if (!pending) throw new Error('Aucune Attaque Aérienne en attente.')
+  const idx = pending.playerIndex
+  const me = state.players[idx]
+
+  // --- Phase 1 : le lieu où fondre ------------------------------------------
+  if (pending.phase === 'location') {
+    if (!arg.to) throw new Error('Attaque Aérienne : choisissez le lieu où fondre.')
+    const heroes = (me.board[arg.to] ?? []).filter((c) => c.type === 'hero')
+    if (heroes.length === 0) throw new Error('Attaque Aérienne : ce lieu ne porte aucun Héros.')
+    const dest = arg.to
+    let next = updatePlayer(state, idx, (p) => ({ ...p, pawnLocation: dest }))
+    next = {
+      ...next,
+      pendingAirStrike: { playerIndex: idx, phase: 'hero', locationId: dest },
+      log: [...next.log, `${me.villainName} fond sur **${findLocation(me, dest)?.name ?? dest}** (Attaque Aérienne).`],
+    }
+    // Un seul Héros sur place : aucun choix à faire, on élimine.
+    if (heroes.length === 1) return applyResolveAirStrike(next, { heroInstanceId: heroes[0].instanceId })
+    return next
+  }
+
+  // --- Phase 2 : le Héros à éliminer ----------------------------------------
+  if (!arg.heroInstanceId) throw new Error('Attaque Aérienne : choisissez le Héros à éliminer.')
+  const loc = pending.locationId
+  if (!loc || !(me.board[loc] ?? []).some((c) => c.type === 'hero' && c.instanceId === arg.heroInstanceId)) {
+    throw new Error('Attaque Aérienne : Héros invalide sur ce lieu.')
+  }
+  let next: GameState = { ...state, pendingAirStrike: null }
+  next = resolveEffects(next, [{ type: 'INSTANT_VANQUISH_HERO_AT_PAWN' }], {
+    actorIndex: idx,
+    targetHeroId: arg.heroInstanceId,
+  })
+  // « Puis votre tour est terminé » : plus aucune autre action ce tour-ci.
+  return updatePlayer(next, idx, (p) => ({ ...p, soleActionLock: true }))
+}
+
+/**
  * Bandit (Pat Hibulaire) : enchaîne d'autres Bandits (`instanceIds`) sur le lieu
  * du premier, dans la même action « Jouer une carte ». Chacun paie son coût. Un
  * tableau vide = ne pas en jouer d'autre.
@@ -9731,33 +9853,56 @@ function applyResolveBanditChain(state: GameState, instanceIds: string[]): GameS
   const pending = state.pendingBanditChain
   if (!pending) throw new Error('Aucun enchaînement Bandit en attente.')
   const idx = pending.playerIndex
-  const locId = pending.locationId
-  let next: GameState = { ...state, pendingBanditChain: null }
+  const cleared: GameState = { ...state, pendingBanditChain: null }
+  if (instanceIds.length === 0) return cleared
+  // Validation immédiate (carte en main, enchaînable), puis on passe la main au JOUEUR
+  // pour la POSE : il désigne le lieu de chaque Bandit (pendingBanditPlace).
+  const me = cleared.players[idx]
   for (const id of instanceIds) {
-    const me = next.players[idx]
     const card = me.hand.find((c) => c.instanceId === id)
     if (!card) throw new Error('Bandit introuvable en main.')
     if (!card.playMultiplePerAction) throw new Error(`${card.name} ne peut pas être enchaîné comme un Bandit.`)
-    const cost = effectiveCost(next, card, locId)
-    if (me.power < cost) throw new Error(`Pas assez de Pouvoir pour enchaîner **${card.name}** (coût ${cost}).`)
-    next = updatePlayer(next, idx, (p) => ({
-      ...p,
-      power: p.power - cost,
-      powerSpentThisTurn: p.powerSpentThisTurn !== undefined ? p.powerSpentThisTurn + cost : undefined,
-      hand: p.hand.filter((c) => c.instanceId !== id),
-      board: { ...p.board, [locId]: [...(p.board[locId] ?? []), card] },
-    }))
-    next = pushFloatingFx(next, { kind: 'play-card', playerIndex: idx, locationId: locId, cardId: card.cardId })
-    next = {
-      ...next,
-      log: [
-        ...next.log,
-        `${me.villainName} joue **${card.name}** (coût ${cost}) sur **${findLocation(me, locId)?.name ?? locId}** (Bandit).`,
-      ],
-    }
-    next = processCurseDiscards(next, idx, locId, 'ally-played-here')
   }
-  return next
+  return {
+    ...cleared,
+    pendingBanditPlace: { playerIndex: idx, remaining: [...instanceIds], defaultLocationId: pending.locationId },
+  }
+}
+
+/**
+ * Bandit (Pat Hibulaire) — pose le PROCHAIN Bandit enchaîné sur le lieu `to` désigné par le
+ * joueur, en payant son coût. Répété jusqu'à épuisement de `remaining`.
+ */
+function applyResolveBanditPlace(state: GameState, to: LocationId): GameState {
+  const pending = state.pendingBanditPlace
+  if (!pending) throw new Error('Aucune pose de Bandit en attente.')
+  const idx = pending.playerIndex
+  const [id, ...rest] = pending.remaining
+  const me = state.players[idx]
+  const card = me.hand.find((c) => c.instanceId === id)
+  if (!card) throw new Error('Bandit introuvable en main.')
+  if (!me.locations.some((l) => l.id === to)) throw new Error(`Lieu « ${to} » inconnu.`)
+  if ((me.lockedLocations ?? []).includes(to)) throw new Error('Ce lieu est verrouillé.')
+  if (allyBlockedAt(state, idx, to)) throw new Error('Aucun Allié ne peut être posé ici.')
+  const cost = effectiveCost(state, card, to)
+  if (me.power < cost) throw new Error(`Pas assez de Pouvoir pour enchaîner **${card.name}** (coût ${cost}).`)
+  let next = updatePlayer(state, idx, (p) => ({
+    ...p,
+    power: p.power - cost,
+    powerSpentThisTurn: p.powerSpentThisTurn !== undefined ? p.powerSpentThisTurn + cost : undefined,
+    hand: p.hand.filter((c) => c.instanceId !== id),
+    board: { ...p.board, [to]: [...(p.board[to] ?? []), card] },
+  }))
+  next = pushFloatingFx(next, { kind: 'play-card', playerIndex: idx, locationId: to, cardId: card.cardId })
+  next = {
+    ...next,
+    pendingBanditPlace: rest.length > 0 ? { ...pending, remaining: rest } : null,
+    log: [
+      ...next.log,
+      `${me.villainName} joue **${card.name}** (coût ${cost}) sur **${findLocation(me, to)?.name ?? to}** (Bandit).`,
+    ],
+  }
+  return processCurseDiscards(next, idx, to, 'ally-played-here')
 }
 
 /**
@@ -11149,7 +11294,8 @@ function applyResolveTakeABite(state: GameState, heroInstanceId: string): GameSt
   next = {
     ...next,
     pendingTakeABite: null,
-    lastVanquishedHeroStrength: hero.strength ?? 0,
+    // Force EFFECTIVE au moment de la croque (mesurée sur `state`, avant retrait).
+    lastVanquishedHeroStrength: vanquishedStrengthOf(state, idx, hero),
     log: [...next.log, `${actor.villainName} défausse ${cost} Poison et CROQUE **${hero.name}** sur ${heroLocName}.`],
   }
   next = pushDiscardShowcase(next, [hero.cardId], `${actor.villainName} croque ${hero.name}`, idx, 'red', 'bottom')
@@ -13172,6 +13318,14 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   ) {
     throw new Error('Replacez une carte de votre main (RESOLVE_SOURNOIS).')
   }
+  // Attaque Aérienne : le lieu où fondre puis le Héros à éliminer doivent être choisis.
+  if (
+    state.pendingAirStrike &&
+    action.type !== 'RESOLVE_AIR_STRIKE' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Attaque Aérienne : choisissez le lieu puis le Héros (RESOLVE_AIR_STRIKE).')
+  }
   // Cheval : le déplacement d'un Allié/Objet doit être résolu d'abord.
   if (
     state.pendingAllyItemMove &&
@@ -13187,6 +13341,14 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
     action.type !== 'PLAY_CONDITION'
   ) {
     throw new Error('Résolvez l’enchaînement des Bandits (RESOLVE_BANDIT_CHAIN).')
+  }
+  // Bandit : la POSE des Bandits enchaînés (un lieu par Bandit) doit être terminée.
+  if (
+    state.pendingBanditPlace &&
+    action.type !== 'RESOLVE_BANDIT_PLACE' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Posez les Bandits enchaînés (RESOLVE_BANDIT_PLACE).')
   }
   // Dingo : l'interversion/déplacement de tuile doit être résolu d'abord.
   if (state.pendingDingo && action.type !== 'RESOLVE_DINGO' && action.type !== 'PLAY_CONDITION') {
@@ -13734,6 +13896,10 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveSournois(state, action.instanceId, action.placement)
     case 'RESOLVE_ALLY_ITEM_MOVE':
       return applyResolveAllyItemMove(state, action.instanceId, action.to, action.auto ?? false)
+    case 'RESOLVE_AIR_STRIKE':
+      return applyResolveAirStrike(state, action)
+    case 'RESOLVE_BANDIT_PLACE':
+      return applyResolveBanditPlace(state, action.to)
     case 'RESOLVE_BANDIT_CHAIN':
       return applyResolveBanditChain(state, action.instanceIds)
     case 'RESOLVE_DINGO':

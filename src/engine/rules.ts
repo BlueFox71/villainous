@@ -372,6 +372,20 @@ export function transformableGuards(
   return out
 }
 
+/** Arceaux du joueur `playerIndex` (Cartes Gardes déjà transformées), candidats à une
+ *  RETRANSFORMATION en Cartes Gardes — Le Chafouin, à la pose. */
+export function revertibleWickets(
+  state: GameState,
+  playerIndex: number = state.activePlayer,
+): CardInstance[] {
+  const p = state.players[playerIndex]
+  const out: CardInstance[] = []
+  for (const loc of p.locations) {
+    for (const c of p.board[loc.id] ?? []) if (c.isWicket) out.push(c)
+  }
+  return out
+}
+
 /**
  * Lieux où le joueur actif peut POSER une carte (Allié/Objet). Règle officielle
  * « Play a Card » : n'importe lequel de ses lieux **non verrouillés** — pas
@@ -967,6 +981,23 @@ export function effectiveStrength(
   return card.strength
 }
 
+/**
+ * Force à retenir quand un Héros est ÉLIMINÉ, pour les Conditions « l'adversaire vient
+ * d'éliminer un Héros de force ≥/≤ N » (Surprise !, Férocité, Méchanceté, Enfermée).
+ *
+ * C'est la force EFFECTIVE au moment de l'élimination — Objets associés (Balle Smash +2),
+ * jetons, auras, réductions comprises : un Héros imprimé Force 3 boosté à 5 n'est PAS « de
+ * force 3 ou moins ». À appeler AVANT de retirer la carte du plateau (sinon repli sur la
+ * force imprimée, qui est le mieux qu'on puisse faire).
+ */
+export function vanquishedStrengthOf(
+  state: GameState,
+  playerIndex: number,
+  hero: CardInstance,
+): number {
+  return effectiveStrength(state, playerIndex, hero.instanceId) ?? hero.strength ?? 0
+}
+
 /** Lieux où un Héros peut être posé/déplacé chez le joueur `targetIndex` : tous
  *  ses lieux moins ceux interdits par la carte (Dame Gertrude → pas en Prison)
  *  et moins ceux interdits par une restriction présente au lieu (Feu Infernal
@@ -1303,9 +1334,15 @@ export function conditionIsTriggered(
       // royaume du joueur — l'effet (éliminer un Héros ≤ N) serait sans objet.
       const maxStr = card.trigger.requiresOwnHeroMaxStrength
       if (maxStr === undefined) return true
+      // Force EFFECTIVE : un Héros imprimé ≤ N mais boosté au-dessus n'est PAS éliminable
+      // par l'effet (qui teste lui aussi la force effective) → la Condition serait injouable.
       return Object.values(me.board)
         .flat()
-        .some((c) => c.type === 'hero' && (c.strength ?? 0) <= maxStr)
+        .some(
+          (c) =>
+            c.type === 'hero' &&
+            (effectiveStrength(state, playerIndex, c.instanceId) ?? c.strength ?? 0) <= maxStr,
+        )
     }
     case 'opponent-drew-card':
       return !!state.activeDrewCard

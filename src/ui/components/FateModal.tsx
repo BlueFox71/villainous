@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import type { CardInstance, PlayerState } from '../../engine/types'
+import type { CardInstance, GameState, PlayerState } from '../../engine/types'
+import { fateCardPlayable } from '../../engine/actions'
+import { plural } from '../../engine/plural'
 import { getCardDef } from '../../data/registry'
 import { Scroller } from './Scroller'
 import { DiscardModal } from './DeckPiles'
@@ -7,6 +9,10 @@ import { DiscardModal } from './DeckPiles'
 interface Props {
   /** Les 2 cartes Fatalité révélées (du deck de la cible). */
   revealed: CardInstance[]
+  /** État complet + index de la cible : la jouabilité d'une carte est calculée par le
+   *  MOTEUR (`fateCardPlayable`), source unique partagée avec le bot et `PASS_FATE`. */
+  state: GameState
+  targetIndex: number
   /** Joueur ciblé (pour le nom et la liste des lieux où poser un Héros). */
   target: PlayerState
   /** Résout : carte choisie + lieu de destination (Héros) ou héros cible
@@ -42,7 +48,7 @@ function needsTargetHero(card: CardInstance): boolean {
  *  2b. Voler aux Riches / Déguisement → choisir un Héros adverse à cibler. Si la
  *      cible n'a aucun Héros, on résout direct (la carte est défaussée sans effet).
  */
-export function FateModal({ revealed, target, onResolve, optional = false, onPass, hidden = false, onPeek }: Props) {
+export function FateModal({ revealed, state, targetIndex, target, onResolve, optional = false, onPass, hidden = false, onPeek }: Props) {
   const [selected, setSelected] = useState<string | null>(null)
   const selectedCard = revealed.find((c) => c.instanceId === selected)
   // Agrandir : Héros choisi en attente du SENS du pivot (gauche/droite).
@@ -79,67 +85,13 @@ export function FateModal({ revealed, target, onResolve, optional = false, onPas
       .map(({ h }) => h)
   }
 
-  // Une carte Fatalité est-elle jouable contre la cible (a-t-elle un effet
-   // possible) ? Sert à griser celles sans cible valide quand l'AUTRE est jouable.
-  const playable = (c: CardInstance): boolean => {
-    const realm = Object.values(target.board).flat()
-    // Apparence Retrouvée : il faut un Héros (force ≤4) dans la défausse Fatalité.
-    if (c.cardId === 'apparence-retrouvee')
-      return target.fateDiscard.some((x) => x.type === 'hero' && (x.strength ?? 0) <= 4)
-    // En retard ! (Reine de Cœur) : il faut un Héros (force ≤3) dans la défausse Fatalité.
-    if (c.cardId === 'en-retard')
-      return target.fateDiscard.some((x) => x.type === 'hero' && (x.strength ?? 0) <= 3)
-    // Retour à la vie de Gurki : injouable si la défausse Fatalité est vide (rien à
-    // remélanger dans la pioche).
-    if (c.cardId === 'gurgis-happy-day') return target.fateDiscard.length > 0
-    if (c.cardId === 'migraine-atroce') return realm.some((x) => x.type === 'item')
-    // Merlin Microbe (vs Madame Mim) : il faut une Métamorphose Mim en jeu à défausser.
-    if (c.cardId === 'merlin-microbe') return realm.some((x) => x.isMimTransformation)
-    // Le Savoir conduit à la Puissance : il faut une Métamorphose de Merlin à déplacer.
-    if (c.cardId === 'le-savoir-conduit-puissance') return realm.some((x) => x.isMerlinTransformation)
-    // Réinitialisation (Sombra) : il faut un Piratage à retirer.
-    if (c.cardId === 'reinitialisation') return realm.some((x) => x.isPiratage)
-    // Sabotage : il faut un Objet (≤3, non associé) sur un lieu portant un Héros.
-    if (c.cardId === 'sabotage') {
-      return target.locations.some((l) => {
-        const cell = target.board[l.id] ?? []
-        return cell.some((x) => x.type === 'hero') && cell.some((x) => x.type === 'item' && !x.attachedTo && (x.cost ?? 0) <= 3)
-      })
-    }
-    if (c.cardId === 'ko') return realm.some((x) => x.type === 'ally' && !x.isWicket && (x.strength ?? 0) <= 3)
-    // Alors ça, c'est un truc de dingue ! (Syndrome) : injouable si rien à défausser —
-    // les Omnidroïdes/Télécommande (immuneToAllyItemEffects) et le Champ de Force ne comptent pas.
-    if (c.cardId === 'alors-ca-truc-de-dingue')
-      return realm.some(
-        (x) => (x.type === 'ally' || x.type === 'item') && !x.immuneToAllyItemEffects && x.cardId !== 'champ-de-force',
-      )
-    // Majorité (L'Imposteur) : il faut un Allié OU un Objet (non associé, hors Sabotage) à défausser.
-    if (c.cardId === 'majorite')
-      return realm.some((x) => !x.attachedTo && (x.type === 'ally' || (x.type === 'item' && !x.isSabotage)))
-    // Premier baiser d'amour : sans effet si la cible n'a ni Poison ni Héros dans
-    // sa défausse Fatalité.
-    if (c.cardId === 'premier-baiser')
-      return (target.poison ?? 0) > 0 || target.fateDiscard.some((x) => x.type === 'hero')
-    // Il était un Rêve : il faut une Malédiction sur un lieu portant un Héros.
-    if (c.cardId === 'il-etait-un-reve') {
-      return target.locations.some((l) => {
-        const cell = target.board[l.id] ?? []
-        return cell.some((x) => x.type === 'hero') && cell.some((x) => x.type === 'curse')
-      })
-    }
-    // Oogie Boogie — Jack Skellington joué en Fatalité est un ÉVÉNEMENT (retire un
-    // Imposteur de la pile), pas un Héros à poser : toujours jouable, aucun lieu à choisir.
-    if (c.cardId === 'jack-skellington') return true
-    if (c.type === 'hero') {
-      const forbidden = new Set(c.forbiddenLocations ?? [])
-      const locked = new Set(target.lockedLocations ?? [])
-      return target.locations.some((l) => !forbidden.has(l.id) && !locked.has(l.id))
-    }
-    if (needsTargetHero(c)) return eligibleHeroesFor(c).length > 0
-    return true
-  }
-  // On ne grise que si une AUTRE carte est jouable (sinon il faut bien en jouer une).
+  // Jouabilité : SOURCE UNIQUE côté moteur (`fateCardPlayable`), pour que la modale, le
+  // bot et l'autorisation de PASS_FATE répondent exactement la même chose.
+  const playable = (c: CardInstance): boolean => fateCardPlayable(state, c, targetIndex)
   const anyPlayable = revealed.some(playable)
+  // Aucune jouable → on grise TOUT et on ne propose que « Passer » (le joueur n'a pas à
+  // cliquer une carte qui n'aurait aucun effet).
+  const nonePlayable = !anyPlayable
 
   const choose = (c: CardInstance) => {
     // Jack Skellington en Fatalité = Événement : on résout direct, sans proposer de lieu.
@@ -193,16 +145,20 @@ export function FateModal({ revealed, target, onResolve, optional = false, onPas
             ? selectedCard.type === 'hero'
               ? `Choisis le lieu où poser ${selectedCard.name}.`
               : `Choisis un Héros adverse à cibler avec ${selectedCard.name}.`
-            : optional
-              ? 'Tu peux jouer cette 2ᵉ carte (Dormeur/Ray) ou passer.'
-              : 'Choisis une carte à jouer — l’autre est défaussée.'}
+            : nonePlayable
+              ? `Vous ne pouvez jouer aucune de ces ${revealed.length} ${plural(revealed.length, 'Fatalité')}, cliquez « Passer ».`
+              : optional
+                ? 'Tu peux jouer cette 2ᵉ carte (Dormeur/Ray) ou passer.'
+                : 'Choisis une carte à jouer — l’autre est défaussée.'}
         </p>
 
         <div className="flex justify-center gap-3">
           {revealed.map((c) => {
             const def = getCardDef(c.cardId)
             const isSel = selected === c.instanceId
-            const disabled = anyPlayable && !playable(c)
+            // Grisée si elle n'a aucun effet — y compris quand AUCUNE des deux n'en a
+            // (auparavant on les laissait cliquables « puisqu'il faut bien en jouer une »).
+            const disabled = !playable(c)
             return (
               <button
                 key={c.instanceId}
@@ -314,14 +270,20 @@ export function FateModal({ revealed, target, onResolve, optional = false, onPas
           )
         })()}
 
-        {optional && onPass && (
-          <div className="flex justify-end">
+        {/* « Passer » : 2ᵉ carte facultative d'un combo, OU aucune carte jouable (le
+            bouton devient alors la SEULE issue et se met en avant). */}
+        {(optional || nonePlayable) && onPass && (
+          <div className={`flex ${nonePlayable ? 'justify-center' : 'justify-end'}`}>
             <button
               type="button"
               onClick={onPass}
-              className="rounded-lg border border-white/30 px-4 py-2 text-sm text-white/80 hover:bg-white/10"
+              className={
+                nonePlayable
+                  ? 'rounded-xl border border-amber-400/60 bg-amber-500/20 px-5 py-2.5 text-sm font-bold text-amber-100 hover:bg-amber-500/30'
+                  : 'rounded-lg border border-white/30 px-4 py-2 text-sm text-white/80 hover:bg-white/10'
+              }
             >
-              Passer (ne pas jouer)
+              {nonePlayable ? 'Passer' : 'Passer (ne pas jouer)'}
             </button>
           </div>
         )}

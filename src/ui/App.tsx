@@ -36,6 +36,7 @@ import {
   dingoSwapOptions,
   playableConditions,
   realmRelocateCandidates,
+  revertibleWickets,
   sacrificeableCards,
   teleportTargets,
   transformableGuards,
@@ -704,19 +705,46 @@ function MerlinMoveModal({
   onResolve: (merlinInstanceId: string, to: string) => void
 }) {
   const [picked, setPicked] = useState<string | null>(null)
+  // « Voir le plateau » : on escamote la modale (le composant reste monté, donc le choix en
+  // cours est préservé) pour aller regarder où sont les Métamorphoses Mim avant de décider.
+  const [peek, setPeek] = useState(false)
   const merlins = Object.entries(target.board).flatMap(([loc, cards]) =>
     cards.filter((c) => candidateIds.includes(c.instanceId)).map((c) => ({ c, loc })),
   )
   const fromLoc = merlins.find((m) => m.c.instanceId === picked)?.loc
+  if (peek) {
+    return createPortal(
+      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[120] flex justify-center">
+        <button
+          type="button"
+          onClick={() => setPeek(false)}
+          className="pointer-events-auto rounded-full border border-white/30 bg-[#120a1c]/95 px-4 py-2 text-sm font-semibold text-fuchsia-200 shadow-2xl hover:bg-[#120a1c]"
+        >
+          ↩ Revenir au choix
+        </button>
+      </div>,
+      document.body,
+    )
+  }
   return createPortal(
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[92vh] w-full max-w-2xl flex-col gap-3 overflow-auto rounded-2xl border border-white/15 bg-[#120a1c] p-5 text-white shadow-2xl">
-        <h2 className="text-center text-lg font-bold text-fuchsia-200">Le Savoir conduit à la Puissance</h2>
+      <div className="flex max-h-[92vh] w-full max-w-4xl flex-col gap-3 overflow-auto rounded-2xl border border-white/15 bg-[#120a1c] p-5 text-white shadow-2xl">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="flex-1 text-center text-lg font-bold text-fuchsia-200">Le Savoir conduit à la Puissance</h2>
+          <button
+            type="button"
+            onClick={() => setPeek(true)}
+            className="shrink-0 rounded-lg border border-white/25 px-2.5 py-1 text-xs text-white/80 hover:bg-white/10"
+            title="Masque la fenêtre pour voir le plateau ; « Revenir au choix » la rouvre"
+          >
+            👁 Voir le plateau
+          </button>
+        </div>
         <p className="text-center text-sm text-white/70">
           {picked ? 'Vers quel lieu déplacer cette Métamorphose de Merlin ?' : 'Choisis la Métamorphose de Merlin à déplacer.'}
         </p>
         {!picked ? (
-          <div className="flex flex-wrap justify-center gap-3">
+          <div className="flex flex-wrap items-start justify-center gap-3">
             {merlins.map(({ c, loc }) => {
               const def = getCardDef(c.cardId)
               return (
@@ -724,9 +752,13 @@ function MerlinMoveModal({
                   key={c.instanceId}
                   type="button"
                   onClick={() => setPicked(c.instanceId)}
-                  className="rounded-lg border-2 border-white/15 p-1 transition hover:border-fuchsia-300"
+                  className="relative shrink-0 rounded-lg border-2 border-white/15 p-1 transition hover:z-10 hover:border-fuchsia-300"
                 >
-                  <img src={def?.image} alt={c.name} className="h-40 w-auto rounded" />
+                  <img
+                    src={def?.image}
+                    alt={c.name}
+                    className="h-56 w-auto rounded transition-transform duration-150 ease-out hover:scale-[1.3]"
+                  />
                   <div className="mt-1 text-center text-[11px] text-white/70">{target.locations.find((l) => l.id === loc)?.name ?? loc}</div>
                 </button>
               )
@@ -1609,6 +1641,8 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
   const resolveAllyItemMove = useGameStore((s) => s.resolveAllyItemMove)
   const resolveAllyItemMoveAuto = useGameStore((s) => s.resolveAllyItemMoveAuto)
   const resolveBanditChain = useGameStore((s) => s.resolveBanditChain)
+  const resolveAirStrike = useGameStore((s) => s.resolveAirStrike)
+  const resolveBanditPlace = useGameStore((s) => s.resolveBanditPlace)
   const resolveDingo = useGameStore((s) => s.resolveDingo)
   const dismissRoyalCroquet = useGameStore((s) => s.dismissRoyalCroquet)
   const resolveTransformWickets = useGameStore((s) => s.resolveTransformWickets)
@@ -3474,6 +3508,16 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
       }
       return
     }
+    // Bandit : POSE des Bandits enchaînés. Bot → sur le lieu de l'action (règle
+    // officielle) ; humain → il clique le lieu de chacun sur le plateau.
+    const bandPlace = state.pendingBanditPlace
+    if (bandPlace) {
+      if (seats[bandPlace.playerIndex] === 'bot') {
+        const timer = setTimeout(() => resolveBanditPlace(bandPlace.defaultLocationId), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
     // Dingo : intervertir/déplacer une tuile Objectif de la cible. Bot (chooser) →
     // 1ᵉʳ coup disponible (perturbation) ; humain → modale.
     const pdg = state.pendingDingo
@@ -3488,21 +3532,59 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
       }
       return
     }
+    // Attaque Aérienne : le bot fond sur le Héros le plus FORT (comportement d'avant
+    // l'interactivité) ; l'humain clique le lieu puis le Héros sur le plateau.
+    const pas = state.pendingAirStrike
+    if (pas) {
+      if (seats[pas.playerIndex] === 'bot') {
+        const p = state.players[pas.playerIndex]
+        const strongestOf = (cards: CardInstance[]) =>
+          [...cards].filter((c) => c.type === 'hero').sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+        if (pas.phase === 'location') {
+          const best = p.locations
+            .map((l) => ({ id: l.id, hero: strongestOf(p.board[l.id] ?? []) }))
+            .filter((x) => x.hero)
+            .sort((a, b) => (b.hero!.strength ?? 0) - (a.hero!.strength ?? 0))[0]
+          if (best) {
+            const timer = setTimeout(() => resolveAirStrike({ to: best.id }), BOT_STEP_MS)
+            return () => clearTimeout(timer)
+          }
+        } else {
+          const hero = strongestOf(p.board[pas.locationId ?? ''] ?? [])
+          if (hero) {
+            const timer = setTimeout(() => resolveAirStrike({ heroInstanceId: hero.instanceId }), BOT_STEP_MS)
+            return () => clearTimeout(timer)
+          }
+        }
+      }
+      return
+    }
     // Par ordre de la Reine ! : transformer 1-2 Cartes Gardes en arceaux. Bot →
     // privilégie les Gardes sur un lieu SANS arceau (un arceau par lieu → Coup
     // Royal) ; humain → modale.
     const ptw = state.pendingTransformWickets
     if (ptw) {
-      if (seats[ptw.playerIndex] === 'bot') {
+      const chooser = ptw.chooserIndex ?? ptw.playerIndex
+      if (seats[chooser] === 'bot') {
         const p = state.players[ptw.playerIndex]
-        const guards = transformableGuards(state, ptw.playerIndex)
+        const toGuard = ptw.direction === 'to-guard'
+        const guards = toGuard ? revertibleWickets(state, ptw.playerIndex) : transformableGuards(state, ptw.playerIndex)
+        const locOf = (id: string) => p.locations.find((l) => (p.board[l.id] ?? []).some((c) => c.instanceId === id))
         const locHasWicket = (id: string) => {
-          const loc = p.locations.find((l) => (p.board[l.id] ?? []).some((c) => c.instanceId === id))
+          const loc = locOf(id)
           return loc ? (p.board[loc.id] ?? []).some((c) => c.isWicket) : false
         }
-        const sorted = [...guards].sort(
-          (a, b) => Number(locHasWicket(a.instanceId)) - Number(locHasWicket(b.instanceId)),
-        )
+        const sorted = toGuard
+          ? // Le Chafouin (le bot FATALISE) : retirer un arceau sur des lieux DIFFÉRENTS fait
+            // perdre le plus de cases d'objectif → privilégier les lieux à un seul arceau.
+            [...guards].sort((a, b) => {
+              const count = (id: string) => {
+                const loc = locOf(id)
+                return loc ? (p.board[loc.id] ?? []).filter((c) => c.isWicket).length : 0
+              }
+              return count(a.instanceId) - count(b.instanceId)
+            })
+          : [...guards].sort((a, b) => Number(locHasWicket(a.instanceId)) - Number(locHasWicket(b.instanceId)))
         const ids = sorted.slice(0, ptw.max).map((c) => c.instanceId)
         if (ids.length > 0) {
           const timer = setTimeout(() => resolveTransformWickets(ids), BOT_STEP_MS)
@@ -4589,7 +4671,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [paused, seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveBloodTrace, resolveWeaponFetch, endTurn, resolveFighterReveal, doneFighterReveal, resolveFighterKillColor, resolveFighterKillFree, doneFighterKillFree, resolveDestinChoice, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolvePacteSang, resolveSacrifice, resolveCageMove, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveScryDeckChoice, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveFateDiscardType, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveGrantLove, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveUrsulaLock, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire, resolvePiegeurTarget, resolvePiegeurDest])
+  }, [paused, seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveBloodTrace, resolveWeaponFetch, endTurn, resolveFighterReveal, doneFighterReveal, resolveFighterKillColor, resolveFighterKillFree, doneFighterKillFree, resolveDestinChoice, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolvePacteSang, resolveSacrifice, resolveCageMove, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveScryDeckChoice, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveFateDiscardType, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveGrantLove, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveUrsulaLock, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire, resolvePiegeurTarget, resolvePiegeurDest, resolveAirStrike, resolveBanditPlace])
 
   // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
   // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
@@ -5205,6 +5287,10 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     setMode({ kind: 'move-dest', actionId: mode.actionId, instanceId, from, cardName: card?.name ?? '', granted: mode.granted, optim: mode.optim })
   }
   const handlePlace = (to: string) => {
+    // Bandit (Pat Hibulaire) : un clic sur un lieu y pose le prochain Bandit enchaîné.
+    if (state.pendingBanditPlace?.playerIndex === HUMAN) {
+      return resolveBanditPlace(to)
+    }
     // Tamatoa — Crustacé : un clic sur un lieu y joue l'Objet dévoilé.
     if (state.pendingCrustaceanPlace?.playerIndex === HUMAN) {
       return resolveCrustaceanPlace(to)
@@ -6027,6 +6113,15 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
       ? discardSelected.length === discardRequired
       : discardSelected.length > 0
 
+  // Bandit — POSE : lieux cliquables pour le prochain Bandit enchaîné (le joueur répartit
+  // ses Bandits comme il veut ; cf. pendingBanditPlace).
+  const banditPlaceTargets: string[] =
+    state.pendingBanditPlace?.playerIndex === HUMAN
+      ? user.locations
+          .filter((l) => !(user.lockedLocations ?? []).includes(l.id) && !allyBlockedAt(state, HUMAN, l.id))
+          .map((l) => l.id)
+      : []
+
   // Lieux cliquables comme destination (mode « poser ») : pour un Objet à associer,
   // seuls les lieux portant un Allié ; sinon n'importe quel lieu du joueur.
   // Si le mode 'place' concerne une carte spécifique (Allié/Objet/Malédiction),
@@ -6035,7 +6130,10 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
   const cardInPlay =
     mode?.kind === 'place' ? user.hand.find((c) => c.instanceId === mode.instanceId) : undefined
   const placeTargets: string[] =
-    // Tamatoa — Crustacé : pose de l'Objet dévoilé par CLIC sur un lieu (pas de modale).
+    // Bandit : pose des Bandits enchaînés, un lieu par Bandit (clic direct sur le plateau).
+    banditPlaceTargets.length > 0
+      ? banditPlaceTargets
+      : // Tamatoa — Crustacé : pose de l'Objet dévoilé par CLIC sur un lieu (pas de modale).
     state.pendingCrustaceanPlace?.playerIndex === HUMAN
       ? user.locations.map((l) => l.id).filter((id) => !(user.lockedLocations ?? []).includes(id))
       : // Sumbra / Kilaire (À toi de jouer, cousin) : pose de l'Allié dévoilé par CLIC sur un lieu.
@@ -6286,6 +6384,19 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
       .map((c) => c.instanceId)
     return phr.candidateIds ? heroes.filter((id) => phr.candidateIds!.includes(id)) : heroes
   })()
+
+  // Attaque Aérienne (Pat Hibulaire) — clic DIRECT sur le plateau : phase 1, les lieux
+  // portant un Héros (le pion y fond) ; phase 2, les Héros de ce lieu (celui à éliminer).
+  const airStrike = state.pendingAirStrike
+  const airStrikeMine = airStrike?.playerIndex === HUMAN
+  const airStrikeLocTargets: string[] =
+    airStrikeMine && airStrike.phase === 'location'
+      ? user.locations.filter((l) => (user.board[l.id] ?? []).some((c) => c.type === 'hero')).map((l) => l.id)
+      : []
+  const airStrikeHeroTargets: string[] =
+    airStrikeMine && airStrike.phase === 'hero'
+      ? (user.board[airStrike.locationId ?? ''] ?? []).filter((c) => c.type === 'hero').map((c) => c.instanceId)
+      : []
 
   // Le Piégeur — Survivants cliquables (phase 'target') et lieux voisins cliquables (phase 'dest').
   const piegeurPending = state.pendingPiegeur
@@ -6897,8 +7008,12 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
                     else if (mode?.kind === 'item-attach-hero') handleItemAttachHero(id)
                     else handleVanquishPickHero(id, name)
                   }}
-                  relocateTargets={[...relocateHeroTargets, ...piegeurTargets]}
+                  relocateTargets={[...relocateHeroTargets, ...piegeurTargets, ...airStrikeHeroTargets]}
                   onRelocatePickHero={(id) => {
+                    if (airStrikeHeroTargets.includes(id)) {
+                      resolveAirStrike({ heroInstanceId: id })
+                      return
+                    }
                     if (piegeurTargets.includes(id)) {
                       resolvePiegeurTarget(id)
                       return
@@ -6912,9 +7027,16 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
                   onKoPickPokemon={resolveKoPokemon}
                   loveTargets={state.pendingGrantLove?.playerIndex === HUMAN ? state.pendingGrantLove.candidateIds : []}
                   onLovePickHero={resolveGrantLove}
-                  destTargets={piegeurDestTargets.length > 0 ? piegeurDestTargets : heroMoveDestTargets}
+                  destTargets={
+                    airStrikeLocTargets.length > 0
+                      ? airStrikeLocTargets
+                      : piegeurDestTargets.length > 0
+                        ? piegeurDestTargets
+                        : heroMoveDestTargets
+                  }
                   onDestPick={(loc) => {
-                    if (piegeurDestTargets.includes(loc)) resolvePiegeurDest(loc)
+                    if (airStrikeLocTargets.includes(loc)) resolveAirStrike({ to: loc })
+                    else if (piegeurDestTargets.includes(loc)) resolvePiegeurDest(loc)
                     else handlePlace(loc)
                   }}
                   gameTurn={state.turn}
@@ -8428,6 +8550,8 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
       {state.pendingFate && isHumanTurn && (
         <FateModal
           revealed={state.pendingFate.revealed}
+          state={state}
+          targetIndex={state.pendingFate.target}
           target={state.players[state.pendingFate.target]}
           onResolve={resolveFate}
           optional={state.pendingFate.optional}
@@ -10191,14 +10315,22 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
         />
       )}
 
-      {/* Par ordre de la Reine ! : transformer 1 ou 2 Cartes Gardes en arceaux. */}
-      {state.pendingTransformWickets && state.pendingTransformWickets.playerIndex === HUMAN && (
-        <TransformWicketsModal
-          guards={transformableGuards(state, HUMAN)}
-          max={state.pendingTransformWickets.max}
-          onConfirm={(ids) => resolveTransformWickets(ids)}
-        />
-      )}
+      {/* Par ordre de la Reine ! : transformer 1 ou 2 Cartes Gardes en arceaux — ou, dans
+          l'autre sens (Le Chafouin à la pose), retransformer 1 ou 2 arceaux de la Reine en
+          Cartes Gardes. Le CHOOSER peut être le fataliseur (donc pas le propriétaire). */}
+      {state.pendingTransformWickets &&
+        (state.pendingTransformWickets.chooserIndex ?? state.pendingTransformWickets.playerIndex) === HUMAN && (() => {
+          const ptw = state.pendingTransformWickets!
+          const toGuard = ptw.direction === 'to-guard'
+          return (
+            <TransformWicketsModal
+              guards={toGuard ? revertibleWickets(state, ptw.playerIndex) : transformableGuards(state, ptw.playerIndex)}
+              max={ptw.max}
+              direction={ptw.direction}
+              onConfirm={(ids) => resolveTransformWickets(ids)}
+            />
+          )
+        })()}
 
       {/* Faites-leur peur ! : trier les 2 premières cartes Fatalité. */}
       {state.pendingScry && state.pendingScry.playerIndex === HUMAN && (

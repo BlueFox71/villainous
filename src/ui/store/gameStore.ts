@@ -1070,6 +1070,10 @@ interface GameStore {
   resolveAllyItemMoveAuto: () => void
   /** Bandit : enchaîne les Bandits choisis (tableau vide = aucun de plus). */
   resolveBanditChain: (instanceIds: string[]) => void
+  /** Attaque Aérienne : phase 1 `to` (lieu où fondre), phase 2 `heroInstanceId`. */
+  resolveAirStrike: (arg: { to?: string; heroInstanceId?: string }) => void
+  /** Bandit : pose le prochain Bandit enchaîné sur le lieu `to`. */
+  resolveBanditPlace: (to: string) => void
   /** Dingo : intervertit les tuiles des lieux `from`/`to` (null/null = rien). */
   resolveDingo: (from: string | null, to: string | null) => void
   dismissRoyalCroquet: () => void
@@ -1855,6 +1859,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_ALLY_ITEM_MOVE', instanceId: null, to: null, auto: true }),
   resolveBanditChain: (instanceIds) =>
     get().submit({ type: 'RESOLVE_BANDIT_CHAIN', instanceIds }),
+  resolveAirStrike: (arg) =>
+    get().submit({ type: 'RESOLVE_AIR_STRIKE', ...arg }),
+  resolveBanditPlace: (to) =>
+    get().submit({ type: 'RESOLVE_BANDIT_PLACE', to }),
   resolveDingo: (from, to) =>
     get().submit({ type: 'RESOLVE_DINGO', from, to }),
   dismissRoyalCroquet: () =>

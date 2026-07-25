@@ -3493,6 +3493,21 @@ export interface GameState {
    *  enchaîner d'AUTRES sur le même lieu (`locationId`) dans la même action « Jouer
    *  une carte » (chacun paie son coût) — RESOLVE_BANDIT_CHAIN. `null`/absent sinon. */
   pendingBanditChain?: { playerIndex: number; locationId: LocationId } | null
+  /**
+   * Bandit (Pat Hibulaire) — POSE des Bandits enchaînés : après avoir choisi lesquels
+   * jouer, le joueur désigne LUI-MÊME le lieu de chacun (clic sur le plateau), un par un.
+   * `remaining` = Bandits (en main) encore à poser ; `defaultLocationId` = lieu de l'action
+   * (celui du 1ᵉʳ Bandit), utilisé par le bot.
+   *
+   * ⚠️ Écart ASSUMÉ à la règle officielle (validé par l'utilisateur) : la règle poserait
+   * tous les Bandits sur le lieu de l'action ; ici on peut les répartir — utile pour la
+   * tuile « Régner sur le royaume » (plus d'Alliés que de Héros sur CHAQUE lieu).
+   */
+  pendingBanditPlace?: {
+    playerIndex: number
+    remaining: string[]
+    defaultLocationId: LocationId
+  } | null
   status: GameStatus
   /** Index du joueur gagnant, ou null tant que la partie continue. */
   winner: number | null
@@ -4111,6 +4126,20 @@ export interface GameState {
    *    (après révélation Marque, blessure, ou Rayon), parmi `destLocs`.
    * `kind` = effet en cours. Absent / `null` hors de ce choix.
    */
+  /**
+   * Pat Hibulaire — Attaque Aérienne : « Déplacez Pat Hibulaire sur n'importe quel lieu où
+   * se trouve un Héros et éliminez-le. » Deux choix, donc deux phases interactives :
+   *  - `phase: 'location'` : cliquer le LIEU (parmi ceux portant un Héros) où fondre — le
+   *    pion y est déplacé ;
+   *  - `phase: 'hero'` : cliquer le HÉROS de ce lieu à éliminer (pré-résolu s'il n'y en a
+   *    qu'un). Puis le tour est terminé (`soleActionLock`).
+   */
+  pendingAirStrike?: {
+    playerIndex: number
+    phase: 'location' | 'hero'
+    /** Lieu choisi en phase 1 (= lieu du pion), renseigné en phase 'hero'. */
+    locationId?: LocationId
+  } | null
   pendingPiegeur?: {
     chooserIndex: number
     kind: 'reveal' | 'reveal-move' | 'injure' | 'hook' | 'finish' | 'move'
@@ -4236,7 +4265,22 @@ export interface GameState {
   /** Par ordre de la Reine ! (Reine de Cœur) : `playerIndex` doit choisir 1 ou 2
    *  Cartes Gardes à transformer en arceaux (RESOLVE_TRANSFORM_WICKETS). `max` = 2.
    *  Absent / `null` sinon. */
-  pendingTransformWickets?: { playerIndex: number; max: number } | null
+  /**
+   * Reine de Cœur — transformation d'arceaux, dans les DEUX sens :
+   *  - `direction: 'to-wicket'` (défaut, « Par ordre de la Reine ! » / Chafouin vaincu) :
+   *    la Reine choisit 1 ou 2 Cartes Gardes de son royaume à transformer en arceaux ;
+   *  - `direction: 'to-guard'` (Le Chafouin, à la pose) : c'est le FATALISEUR
+   *    (`chooserIndex`) qui choisit les arceaux de la Reine à retransformer en Cartes
+   *    Gardes — un choix, donc interactif, jamais auto-résolu pour un humain.
+   * `playerIndex` = joueur dont le royaume est touché ; `chooserIndex` = qui choisit
+   * (absent = `playerIndex`).
+   */
+  pendingTransformWickets?: {
+    playerIndex: number
+    max: number
+    chooserIndex?: number
+    direction?: 'to-wicket' | 'to-guard'
+  } | null
   /** Faites-leur peur ! (Capitaine Crochet) : `playerIndex` regarde les 2 cartes
    *  `cards` retirées du dessus de sa pioche Fatalité, puis les défausse ou les
    *  remet sur le dessus dans l'ordre de son choix (RESOLVE_SCRY).
@@ -5072,6 +5116,11 @@ export type GameAction =
   /** Bandit : enchaîne d'autres Bandits (`instanceIds`) sur le même lieu, dans la
    *  même action. Tableau vide = n'en jouer aucun de plus. */
   | { type: 'RESOLVE_BANDIT_CHAIN'; instanceIds: string[] }
+  /** Bandit — pose le prochain Bandit enchaîné sur le lieu `to` (choisi par le joueur). */
+  | { type: 'RESOLVE_BANDIT_PLACE'; to: LocationId }
+  /** Pat Hibulaire — Attaque Aérienne : phase 1 `to` (lieu où fondre), phase 2
+   *  `heroInstanceId` (Héros à éliminer sur ce lieu). */
+  | { type: 'RESOLVE_AIR_STRIKE'; to?: LocationId; heroInstanceId?: string }
   /** Dingo : intervertit les tuiles Objectif des lieux `from` et `to` (voisins).
    *  `from`/`to` null = ne rien faire (facultatif). */
   | { type: 'RESOLVE_DINGO'; from: LocationId | null; to: LocationId | null }

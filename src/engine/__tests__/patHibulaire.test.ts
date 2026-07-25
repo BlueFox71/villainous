@@ -316,6 +316,107 @@ describe('Pat Hibulaire — effets de cartes', () => {
   })
 })
 
+describe('Pat Hibulaire — Attaque Aérienne (interactive)', () => {
+  // « Déplacez Pat Hibulaire sur n'importe quel lieu où se trouve un Héros et éliminez-le. »
+  // DEUX choix : le lieu où fondre, puis le Héros. Ils ne doivent JAMAIS être auto-résolus
+  // (avant : le moteur fonçait tout seul sur le Héros le plus fort).
+  const withHeroes = () =>
+    withP0(game(), {
+      pawnLocation: 'frontier-town',
+      board: {
+        ...game().players[0].board,
+        'station-service': [hero('h1', 'mickey', 4)],
+        aeroport: [hero('h2', 'minnie', 2), hero('h3', 'donald', 3)],
+      },
+    })
+
+  it('ouvre le choix du LIEU (sans rien déplacer ni éliminer)', () => {
+    const s = resolveEffects(withHeroes(), [{ type: 'AIR_STRIKE' }], { actorIndex: 0 })
+    expect(s.pendingAirStrike).toMatchObject({ playerIndex: 0, phase: 'location' })
+    expect(s.players[0].pawnLocation).toBe('frontier-town') // pion pas encore déplacé
+    expect(Object.values(s.players[0].board).flat().filter((c) => c.type === 'hero')).toHaveLength(3)
+  })
+
+  it('lieu à UN Héros : le pion y va et le Héros est éliminé (le tour se termine)', () => {
+    let s = resolveEffects(withHeroes(), [{ type: 'AIR_STRIKE' }], { actorIndex: 0 })
+    s = applyAction(s, { type: 'RESOLVE_AIR_STRIKE', to: 'station-service' })
+    expect(s.players[0].pawnLocation).toBe('station-service')
+    expect(Object.values(s.players[0].board).flat().some((c) => c.instanceId === 'h1')).toBe(false)
+    expect(s.pendingAirStrike ?? null).toBeNull()
+    expect(s.players[0].soleActionLock).toBe(true)
+  })
+
+  it('lieu à DEUX Héros : on choisit lequel éliminer (l’autre reste)', () => {
+    let s = resolveEffects(withHeroes(), [{ type: 'AIR_STRIKE' }], { actorIndex: 0 })
+    s = applyAction(s, { type: 'RESOLVE_AIR_STRIKE', to: 'aeroport' })
+    expect(s.pendingAirStrike).toMatchObject({ phase: 'hero', locationId: 'aeroport' })
+    expect(s.players[0].pawnLocation).toBe('aeroport')
+    // Le joueur désigne le PLUS FAIBLE — ce que l'ancien auto-pick ne permettait pas.
+    s = applyAction(s, { type: 'RESOLVE_AIR_STRIKE', heroInstanceId: 'h2' })
+    const left = Object.values(s.players[0].board).flat().filter((c) => c.type === 'hero').map((c) => c.instanceId)
+    expect(left).toContain('h3')
+    expect(left).not.toContain('h2')
+  })
+
+  it('un lieu SANS Héros est refusé', () => {
+    const s = resolveEffects(withHeroes(), [{ type: 'AIR_STRIKE' }], { actorIndex: 0 })
+    expect(() => applyAction(s, { type: 'RESOLVE_AIR_STRIKE', to: 'ponton' })).toThrow(/aucun Héros/)
+  })
+
+  it('aucun Héros dans le royaume : aucun choix ouvert', () => {
+    const s = resolveEffects(game(), [{ type: 'AIR_STRIKE' }], { actorIndex: 0 })
+    expect(s.pendingAirStrike ?? null).toBeNull()
+  })
+})
+
+describe('Pat Hibulaire — Bandit : le joueur place lui-même les Bandits', () => {
+  // Écart ASSUMÉ à la règle officielle (validé) : les Bandits enchaînés peuvent être
+  // répartis sur des lieux DIFFÉRENTS, au lieu d'atterrir tous sur le lieu de l'action.
+  const chainState = () =>
+    withP0(game(), {
+      power: 10,
+      pawnLocation: 'frontier-town',
+      hand: [ally('b2', 3), ally('b3', 3)].map((c) => ({ ...c, cost: 2, playMultiplePerAction: true })),
+    })
+
+  it('valider la sélection n’immobilise plus les Bandits : elle ouvre la POSE', () => {
+    const s = applyAction(
+      { ...chainState(), pendingBanditChain: { playerIndex: 0, locationId: 'frontier-town' } },
+      { type: 'RESOLVE_BANDIT_CHAIN', instanceIds: ['b2', 'b3'] },
+    )
+    expect(s.pendingBanditChain ?? null).toBeNull()
+    expect(s.pendingBanditPlace).toMatchObject({ playerIndex: 0, remaining: ['b2', 'b3'], defaultLocationId: 'frontier-town' })
+    // Rien n'est encore posé ni payé.
+    expect(s.players[0].hand).toHaveLength(2)
+    expect(s.players[0].power).toBe(10)
+  })
+
+  it('chaque Bandit va sur le lieu CHOISI, en payant son coût', () => {
+    let s = applyAction(
+      { ...chainState(), pendingBanditChain: { playerIndex: 0, locationId: 'frontier-town' } },
+      { type: 'RESOLVE_BANDIT_CHAIN', instanceIds: ['b2', 'b3'] },
+    )
+    s = applyAction(s, { type: 'RESOLVE_BANDIT_PLACE', to: 'aeroport' })
+    expect((s.players[0].board['aeroport'] ?? []).some((c) => c.instanceId === 'b2')).toBe(true)
+    expect(s.players[0].power).toBe(8)
+    expect(s.pendingBanditPlace).toMatchObject({ remaining: ['b3'] })
+    s = applyAction(s, { type: 'RESOLVE_BANDIT_PLACE', to: 'ponton' })
+    expect((s.players[0].board['ponton'] ?? []).some((c) => c.instanceId === 'b3')).toBe(true)
+    expect(s.players[0].power).toBe(6)
+    expect(s.pendingBanditPlace ?? null).toBeNull()
+  })
+
+  it('« aucun de plus » ne pose rien du tout', () => {
+    const s = applyAction(
+      { ...chainState(), pendingBanditChain: { playerIndex: 0, locationId: 'frontier-town' } },
+      { type: 'RESOLVE_BANDIT_CHAIN', instanceIds: [] },
+    )
+    expect(s.pendingBanditChain ?? null).toBeNull()
+    expect(s.pendingBanditPlace ?? null).toBeNull()
+    expect(s.players[0].power).toBe(10)
+  })
+})
+
 describe('Pat Hibulaire — Dingo (échange de tuiles)', () => {
   it('intervertit deux tuiles voisines SANS les dévoiler', () => {
     const goals: GoalToken[] = [
