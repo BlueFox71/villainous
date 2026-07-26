@@ -20,10 +20,13 @@ export const seigneurClesCards: CardDef[] = [
     englishName: 'Appel',
     deck: 'villain',
     type: 'item',
-    cost: 2,
+    cost: 3,
     copies: 1,
-    drawCardOnFateTargeted: true,
-    text: 'Piochez une carte Méchant si vous êtes la cible d’une action Fatalité.',
+    attach: 'location',
+    // Déclencheur générique « un Héros est joué sur ce lieu » (cf. triggerHeroArrival) ;
+    // la récompense est un CHOIX, réutilise le pending Piocher/Gagner de Ratigan.
+    onHeroPlayedHere: [{ type: 'DRAW_OR_GAIN_POWER', draw: 1, power: 1 }],
+    text: 'Associez cette carte à un lieu. Si un Héros est joué sur ce lieu, gagnez 1 jeton Pouvoir ou piochez une carte Méchant.',
     image: img('appel.webp'),
   },
 

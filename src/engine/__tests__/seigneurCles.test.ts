@@ -318,6 +318,30 @@ describe('Le Seigneur des clés — Carte Temps (refaire une action)', () => {
   })
 })
 
+describe('Le Seigneur des clés — un choix de clé bloque les autres actions', () => {
+  it('tant que la clé n’est pas ramassée, aucune autre action du lieu n’est disponible', () => {
+    // Une clé de CHAQUE couleur sur le plateau : le jet de dé trouve forcément une cible.
+    const onBoard: KeyToken[] = KEY_COLORS.map((c, i) => ({ id: `k${i}`, color: c, location: 'crypte' }))
+    const s = setKeys(game(), onBoard)
+    const atCrypte: GameState = {
+      ...s,
+      phase: 'ACTION',
+      players: [{ ...s.players[0], pawnLocation: 'crypte' }],
+    }
+    // Avant : les actions de la Crypte sont disponibles.
+    expect(getAvailableActions(atCrypte).length).toBeGreaterThan(0)
+    // L'action « Obtenir une clé » ouvre le choix (jet de couleur) → tout est gelé.
+    const picking = applyAction(atCrypte, { type: 'OBTAIN_KEY', actionId: 'obtain-key' })
+    expect(picking.pendingKey?.kind).toBe('take')
+    expect(getAvailableActions(picking)).toEqual([])
+    // Une fois la clé prise, le tour reprend son cours.
+    const pick = (picking.players[0].keys ?? []).find((k) => k.color === picking.pendingKey!.color)!
+    const done = applyAction(picking, { type: 'RESOLVE_KEY', keyId: pick.id })
+    expect(done.pendingKey ?? null).toBeNull()
+    expect(getAvailableActions(done).length).toBeGreaterThan(0)
+  })
+})
+
 describe('Le Seigneur des clés — Hellin (bloque 3 actions au lieu de 2)', () => {
   it('recouvre la rangée du haut ET la 1ʳᵉ action du bas du Cachot', () => {
     let s = game()

@@ -214,6 +214,7 @@ export const mechanteReineCards: CardDef[] = [
     cost: 2,
     copies: 1,
     text: 'Piochez une carte chaque fois que vous êtes la cible d’une action Fatalité. Activer (payez 3 Pouvoir) : trouvez Blanche-Neige et jouez-la.',
+    drawCardOnFateTargeted: true,
     image: img('miroir-magique.webp'),
     activatedCost: 3,
   },

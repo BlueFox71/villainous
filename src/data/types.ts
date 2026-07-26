@@ -172,6 +172,10 @@ export interface CardDef {
   selfStrengthMods?: SelfStrengthMod[]
   /** Déclencheur de défausse automatique (typiquement les Malédictions). */
   discardWhen?: CurseDiscardTrigger
+  /** Carte associée à un LIEU : effets résolus chaque fois qu'un Héros est joué sur ce
+   *  lieu (Le Seigneur des clés — Appel : +1 Pouvoir OU piocher 1 carte Méchant).
+   *  Générique : `triggerHeroArrival` les résout pour toute carte du lieu qui en porte. */
+  onHeroPlayedHere?: Effect[]
   /** Pour une Condition : descripteur du trigger côté adversaire. */
   trigger?: ConditionTrigger
   /** Condition jouable UNIQUEMENT dans la fenêtre de réaction de FIN DE TOUR adverse

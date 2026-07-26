@@ -321,6 +321,7 @@ export const bowserCards: CardDef[] = [
     strength: 2,
     copies: 1,
     text: 'Piochez une carte à chaque fois que vous êtes la cible d\'une action Fatalité. Activer (payez 3 jetons Pouvoir) : trouvez PEACH et jouez-la.',
+    drawCardOnFateTargeted: true,
     image: img('bowser-jr.webp'),
     // Capacité activée (coût 3) dispatchée par cardId à l'étape C.
     activatedCost: 3,

@@ -2438,6 +2438,9 @@ export interface CardInstance {
   reducesSpiritCapture?: boolean
   /** Déclencheur de défausse automatique de cette carte. */
   discardWhen?: CurseDiscardTrigger
+  /** Carte associée à un LIEU : effets résolus chaque fois qu'un Héros est joué sur ce
+   *  lieu (Le Seigneur des clés — Appel). Cf. `triggerHeroArrival`. */
+  onHeroPlayedHere?: Effect[]
   /** Pour une Condition : descripteur du trigger côté adversaire. */
   trigger?: ConditionTrigger
   /** Condition jouable UNIQUEMENT dans la fenêtre de réaction de FIN DE TOUR adverse
@@ -4458,6 +4461,18 @@ export interface GameState {
      *  GRATUITE (pendingFreeRealmAction) pour jouer une Activité sans dépenser d'action. */
     thenFreeRealmAction?: boolean
   } | null
+  /** Ursula — Apparence Retrouvée (Fatalité) : le FATALISEUR (`chooserIndex`) choisit
+   *  QUEL Héros de la défausse Fatalité de `targetIndex` revient en jeu, et il est posé
+   *  sur `locationId` (imposé par la carte : le lieu de la figurine de la cible).
+   *  RESOLVE_FATE_HERO_PICK. */
+  pendingFateHeroPick?: {
+    chooserIndex: number
+    targetIndex: number
+    candidateIds: string[]
+    locationId: LocationId
+    /** Libellé de la carte source (titre de la modale, journal). */
+    label: string
+  } | null
   /** Colère Titanesque (Ursula) / Canne (Dr Facilier) : `playerIndex` doit choisir
    *  un lieu voisin sur lequel effectuer une action (RESOLVE_GIANT_LOCATION).
    *  `viaCanne` = ouverture par la Canne (action Fatalité du voisin exclue, usage
@@ -5247,6 +5262,9 @@ export type GameAction =
   | { type: 'RESOLVE_FATE_OBJECT_PLACE'; locationId: LocationId }
   /** Ratigan — Appel à l'aide : pose/déplace le Héros cherché sur le lieu choisi. */
   | { type: 'RESOLVE_FATE_HERO_PLACE'; locationId: LocationId }
+  /** Apparence Retrouvée : le fataliseur désigne le Héros de la défausse Fatalité
+   *  qui revient en jeu (pendingFateHeroPick). */
+  | { type: 'RESOLVE_FATE_HERO_PICK'; instanceId: string }
   /** Gul'dan — Défaite : le fataliseur choisit le type à défausser (Alliés OU Objets). */
   | { type: 'RESOLVE_FATE_DISCARD_TYPE'; cardType: CardType }
   /** Gul'dan — défausse une Fatalité posée sur un lieu (Armée de la Lumière : −3 Pouvoir ;

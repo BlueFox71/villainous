@@ -611,6 +611,15 @@ export function enumerateActions(state: GameState): GameAction[] {
     if (out.length > 0) return out
   }
 
+  // Apparence Retrouvée (Ursula) : le fataliseur choisit QUEL Héros de la défausse
+  // Fatalité revient en jeu (un coup par candidat ; l'éval tranche).
+  if (state.pendingFateHeroPick) {
+    return state.pendingFateHeroPick.candidateIds.map((instanceId) => ({
+      type: 'RESOLVE_FATE_HERO_PICK' as const,
+      instanceId,
+    }))
+  }
+
   // Le Piégeur — choix du Survivant (phase 'target') ou du lieu de destination (phase 'dest').
   if (state.pendingPiegeur) {
     const pp = state.pendingPiegeur

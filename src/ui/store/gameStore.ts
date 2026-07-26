@@ -1145,6 +1145,8 @@ interface GameStore {
   /** Vidéo de surveillance / Carte : associe l'Objet Fatalité au lieu `locationId`. */
   resolveFateObjectPlace: (locationId: string) => void
   resolveFateHeroPlace: (locationId: string) => void
+  /** Apparence Retrouvée : désigne le Héros de la défausse Fatalité qui revient en jeu. */
+  resolveFateHeroPick: (instanceId: string) => void
   resolveFateDiscardType: (cardType: import('../../engine/types').CardType) => void
   removeFateLocationCard: (instanceId: string) => void
   /** Colère Titanesque : choisit le lieu voisin où effectuer une action. */
@@ -1931,6 +1933,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'RESOLVE_FATE_OBJECT_PLACE', locationId }),
   resolveFateHeroPlace: (locationId) =>
     get().submit({ type: 'RESOLVE_FATE_HERO_PLACE', locationId }),
+  resolveFateHeroPick: (instanceId) =>
+    get().submit({ type: 'RESOLVE_FATE_HERO_PICK', instanceId }),
   resolveFateDiscardType: (cardType) =>
     get().submit({ type: 'RESOLVE_FATE_DISCARD_TYPE', cardType }),
   removeFateLocationCard: (instanceId) =>

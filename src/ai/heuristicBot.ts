@@ -564,14 +564,22 @@ export function objectiveScore(p: PlayerState): number {
       // Tamatoa : un Objet-objectif ASSOCIÉ (Hameçon/Cœur « volé » par Maui/Moana) compte
       // pour un progrès PARTIEL — il suffit de vaincre le gardien pour le libérer. (Sans
       // effet pour Ursula, dont le Trident/la Couronne ne sont jamais associés.)
+      // Objet-objectif ASSOCIÉ à son gardien (Ursula — le Trident arrive rivé aux mains du
+      // Roi Triton ; Tamatoa — Hameçon/Cœur volés) : progrès PARTIEL, franchement moins
+      // qu'un Objet LIBRE, pour que « éliminer le gardien » reste un grand pas en avant
+      // (le bot posait le Trident puis laissait Triton tranquille toute la partie).
       const attached = obj.itemCardIds.filter((id) => all.some((c) => c.cardId === id && c.attachedTo)).length
-      const base = (inRealm * 0.4 + atLoc * 0.6 + attached * 0.25) / obj.itemCardIds.length
-      // Ursula : le lieu-objectif (Repaire) doit être ACCESSIBLE — un Objet ne peut pas y être
-      // posé tant que le Cadenas le verrouille, et la victoire exige les Objets DESSUS. Si le
-      // lieu cible est verrouillé, on rabote la progression : le bot est ainsi incité à le
-      // DÉBLOQUER (Métamorphose déplace le Cadenas sur le Palais) avant d'y amener ses Objets.
-      const targetLocked = (p.lockedLocations ?? []).includes(obj.locationId)
-      return targetLocked ? base * 0.6 : base
+      const base = (inRealm * 0.4 + atLoc * 0.6 + attached * 0.15) / obj.itemCardIds.length
+      // Ursula : le lieu-objectif (Repaire) doit être ACCESSIBLE — aucun Objet ne peut y être
+      // posé tant que le Cadenas le verrouille, et la victoire exige les Objets DESSUS.
+      // L'ancienne pénalité (×0,6 sur la progression) ne créait AUCUN gradient tant qu'aucun
+      // Objet n'était posé (0,6 × 0 = 0) : le bot ne déverrouillait donc jamais, et restait
+      // à 0 toute la partie. On réserve une part FIXE de la jauge à « lieu cible accessible »,
+      // uniquement pour un vilain qui a effectivement un verrou en jeu.
+      const locked = p.lockedLocations ?? []
+      const targetLocked = locked.includes(obj.locationId)
+      if (locked.length === 0) return base // pas de mécanique de verrou (Tamatoa) : inchangé
+      return targetLocked ? base * 0.6 : Math.min(1, 0.15 + base * 0.85)
     }
     case 'UNTRAPPED_TITANS_AT_LOCATION': {
       // Hadès : 3 Titans non entravés sur le Mont Olympe. Un Titan ne se pose QUE sur Les

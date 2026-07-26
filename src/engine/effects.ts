@@ -322,6 +322,17 @@ export function triggerHeroArrival(
     // Robin des Bois : animation « −N 🪙 » du pouvoir chipé (−1 par Mandat).
     next = pushRobinSteal(next, playerIndex, mandates.length * penalty)
   }
+  // Cartes du lieu portant `onHeroPlayedHere` (donnée générique) : leurs effets se
+  // résolvent à chaque Héros joué ici. Le Seigneur des clés — Appel : +1 Pouvoir OU
+  // piocher 1 carte Méchant (choix du joueur).
+  for (const c of (next.players[playerIndex].board[locationId] ?? [])) {
+    if (!c.onHeroPlayedHere || c.onHeroPlayedHere.length === 0) continue
+    next = {
+      ...next,
+      log: [...next.log, `${owner.villainName} : **${c.name}** se déclenche (Héros joué sur ce lieu).`],
+    }
+    next = resolveEffects(next, c.onHeroPlayedHere, { actorIndex: playerIndex, hostLocationId: locationId })
+  }
   // Pat Hibulaire — Grillon : tout Allié « followsHeroes » du royaume suit le Héros
   // qui vient d'arriver (déplacé auto sur son lieu, avec ses Objets associés).
   next = moveFollowersToHero(next, playerIndex, locationId)

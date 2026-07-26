@@ -4,6 +4,7 @@ import { bowserCards } from '../../data/villains/bowser.cards'
 import { buildDeckInstances } from '../../data/types'
 import { createInitialGame } from '../state'
 import { applyAction } from '../actions'
+import { getCardDef } from '../../data/registry'
 import type { CardInstance, GameState } from '../types'
 
 function game2(): GameState {
@@ -70,7 +71,12 @@ describe('Bowser — Bowser Jr. (passif : pioche quand ciblé par la Fatalité)'
   it('la cible pioche 1 carte quand Bowser Jr. est dans son royaume', () => {
     const base = game2()
     const p1 = base.players[1]
-    const jr: CardInstance = { instanceId: 'jr1', cardId: 'bowser-jr', name: 'Bowser Jr.', type: 'ally', strength: 2 }
+    // Le passif « pioche quand ciblé » est une DONNÉE de la carte : on la tire du
+    // registre (cf. CLAUDE.md) pour rester synchrone avec le paquet réel.
+    const jr: CardInstance = {
+      instanceId: 'jr1', cardId: 'bowser-jr', name: 'Bowser Jr.', type: 'ally', strength: 2,
+      drawCardOnFateTargeted: getCardDef('bowser-jr')?.drawCardOnFateTargeted,
+    }
     const s: GameState = {
       ...base,
       activePlayer: 0,

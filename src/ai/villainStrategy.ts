@@ -355,6 +355,10 @@ export const VILLAIN_STRATEGY: Record<string, VillainStrategy> = {
       // Ariel : déplace un Objet hors du Repaire et GÈLE tout déplacement d'Objet tant
       // qu'elle est en jeu → priorité absolue (sa simple présence bloque l'objectif).
       ariel: 10,
+      // Le Roi Triton : il arrive AVEC le Trident rivé entre ses mains (carte Trident) —
+      // tant qu'il vit, l'Objet-objectif reste associé, donc inutilisable. L'éliminer
+      // (Pacte + Tourbillon / Âmes en Perdition, ou Flotsam + Jetsam) libère le Trident.
+      'roi-triton': 8,
       // Grimsby : déplace le Cadenas (peut verrouiller le Repaire au mauvais moment).
       grimsby: 4,
     },

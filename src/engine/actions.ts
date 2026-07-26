@@ -1988,15 +1988,10 @@ function consumeDragonFormReward(state: GameState, targetIndex: number): GameSta
 function drawOnFateTargeted(state: GameState, targetIndex: number): GameState {
   let next = state
   const tgt0 = next.players[targetIndex]
-  // Cartes SOURCES de la pioche (Bowser Jr., Miroir magique, ou tout Objet portant
-  // `drawCardOnFateTargeted` — Appel du Seigneur des clés). On garde leurs NOMS pour le
-  // Journal : sans eux, la ligne « pioche 1 carte » sortait de nulle part.
-  const sourceCards = Object.values(tgt0.board).flat().filter(
-    (c) =>
-      (c.type === 'ally' && c.cardId === 'bowser-jr') ||
-      (c.type === 'item' && c.cardId === 'miroir-magique' && !c.attachedTo) ||
-      (c.drawCardOnFateTargeted && !c.attachedTo),
-  )
+  // Cartes SOURCES de la pioche : toute carte du royaume portant `drawCardOnFateTargeted`
+  // (Bowser Jr., Miroir magique). On garde leurs NOMS pour le Journal : sans eux, la ligne
+  // « pioche 1 carte » sortait de nulle part.
+  const sourceCards = Object.values(tgt0.board).flat().filter((c) => c.drawCardOnFateTargeted && !c.attachedTo)
   const sources = sourceCards.length
   if (sources > 0) {
     const r = drawPlayerToLimitN(tgt0, next.rngState, sources)
@@ -4209,29 +4204,33 @@ function applyResolveFateInner(
     }
   }
 
-  // Ursula (Fatalité) — Apparence Retrouvée : récupère un Héros de force ≤4 dans la
-  // défausse Fatalité d'Ursula et le pose sur le lieu d'Ursula (le plus fort ≤4).
-  // Non sélectionnable sans Héros valide (cf. FateModal.playable / enumerate).
+  // Ursula (Fatalité) — Apparence Retrouvée : « Cherchez un Héros de force 4 ou moins
+  // dans la défausse Fatalité d'Ursula » → c'est le FATALISEUR qui CHOISIT lequel
+  // (pendingFateHeroPick ; le bot auto-résout). Le lieu, lui, est imposé par la carte
+  // (celui de la figurine d'Ursula). Non sélectionnable sans Héros valide (cf.
+  // FateModal.playable / enumerate).
   if (chosen.cardId === 'apparence-retrouvee') {
     const tgtP = state.players[pending.target]
     const heroes = tgtP.fateDiscard.filter((c) => c.type === 'hero' && (c.strength ?? 0) <= 4)
-    let next: GameState = {
-      ...updatePlayer(state, pending.target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, ...others] })),
+    const next: GameState = {
+      ...updatePlayer(state, pending.target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, chosen, ...others] })),
       pendingFate: null,
     }
     if (heroes.length === 0) {
-      next = updatePlayer(next, pending.target, (p) => ({ ...p, fateDiscard: [...p.fateDiscard, chosen] }))
       return { ...next, log: [...next.log, `Apparence Retrouvée : aucun Héros (force ≤4) dans la défausse Fatalité de ${tgt.villainName}.`] }
     }
-    const hero = [...heroes].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
-    // Retire le Héros récupéré de la défausse Fatalité ; la carte Apparence y va.
-    next = updatePlayer(next, pending.target, (p) => ({
-      ...p,
-      fateDiscard: [...p.fateDiscard.filter((c) => c.instanceId !== hero.instanceId), chosen],
-    }))
     const dest = tgtP.pawnLocation ?? tgtP.locations[0].id
-    const destName = findLocation(tgtP, dest)?.name ?? dest
-    return placeFateHeroWithEffects(next, pending.target, state.activePlayer, hero, dest, destName)
+    return {
+      ...next,
+      pendingFateHeroPick: {
+        chooserIndex: state.activePlayer,
+        targetIndex: pending.target,
+        candidateIds: heroes.map((c) => c.instanceId),
+        locationId: dest,
+        label: 'Apparence Retrouvée',
+      },
+      log: [...next.log, `Apparence Retrouvée : choisissez le Héros (force ≤4) qui revient dans le royaume de ${tgt.villainName}.`],
+    }
   }
 
   // En retard ! (Reine de Cœur, Fatalité) : rejoue un Héros de force ≤3 de la défausse
@@ -10831,6 +10830,24 @@ function applyRemoveFateLocationCard(state: GameState, instanceId: string): Game
   }
 }
 
+/** Apparence Retrouvée (Ursula) : le fataliseur a désigné le Héros qui revient de la
+ *  défausse Fatalité ; on le pose sur le lieu imposé par la carte. */
+function applyResolveFateHeroPick(state: GameState, instanceId: string): GameState {
+  const pending = state.pendingFateHeroPick
+  if (!pending) throw new Error('Aucun Héros Fatalité à choisir.')
+  if (!pending.candidateIds.includes(instanceId)) throw new Error('Ce Héros ne fait pas partie des choix.')
+  const tgt = state.players[pending.targetIndex]
+  const hero = tgt.fateDiscard.find((c) => c.instanceId === instanceId)
+  if (!hero) throw new Error('Héros introuvable dans la défausse Fatalité.')
+  const destName = findLocation(tgt, pending.locationId)?.name ?? pending.locationId
+  let next: GameState = { ...state, pendingFateHeroPick: null }
+  next = updatePlayer(next, pending.targetIndex, (p) => ({
+    ...p,
+    fateDiscard: p.fateDiscard.filter((c) => c.instanceId !== instanceId),
+  }))
+  return placeFateHeroWithEffects(next, pending.targetIndex, pending.chooserIndex, hero, pending.locationId, destName)
+}
+
 /** Ratigan — Appel à l'aide : pose le Héros cherché (Basil) sur le lieu choisi, ou
  *  l'y déplace s'il est déjà en jeu. Déclenche son onPlace dans les deux cas. */
 function applyResolveFateHeroPlace(state: GameState, locationId: LocationId): GameState {
@@ -14099,6 +14116,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveFateObjectPlace(state, action.locationId)
     case 'RESOLVE_FATE_HERO_PLACE':
       return applyResolveFateHeroPlace(state, action.locationId)
+    case 'RESOLVE_FATE_HERO_PICK':
+      return applyResolveFateHeroPick(state, action.instanceId)
     case 'RESOLVE_FATE_DISCARD_TYPE':
       return applyResolveFateDiscardType(state, action.cardType)
     case 'REMOVE_FATE_LOCATION_CARD':

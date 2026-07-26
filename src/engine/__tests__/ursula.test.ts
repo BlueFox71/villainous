@@ -191,9 +191,40 @@ describe('Ursula — Divination / Polochon / Opportunisme / Ariel', () => {
       pendingFate: { target: 0, revealed: [apparence, other] },
       players: base.players.map((p, i) => (i === 0 ? { ...p, pawnLocation: 'repaire', fateDiscard: [eric] } : p)),
     }
-    const after = applyAction(s, { type: 'RESOLVE_FATE', instanceId: apparence.instanceId })
+    // Le fataliseur CHOISIT le Héros qui revient (pendingFateHeroPick) ; le lieu est
+    // imposé par la carte (celui de la figurine d'Ursula).
+    const picking = applyAction(s, { type: 'RESOLVE_FATE', instanceId: apparence.instanceId })
+    expect(picking.pendingFateHeroPick).toMatchObject({
+      chooserIndex: 1,
+      targetIndex: 0,
+      candidateIds: ['eric'],
+      locationId: 'repaire',
+    })
+    const after = applyAction(picking, { type: 'RESOLVE_FATE_HERO_PICK', instanceId: 'eric' })
     expect((after.players[0].board.repaire ?? []).some((c) => c.instanceId === 'eric')).toBe(true)
     expect(after.players[0].fateDiscard.some((c) => c.instanceId === 'eric')).toBe(false)
+    expect(after.pendingFateHeroPick ?? null).toBeNull()
+  })
+
+  it('Apparence Retrouvée : le choix ne propose QUE les Héros de force ≤ 4', () => {
+    const base = game()
+    const apparence = base.players[0].fateDeck.find((c) => c.cardId === 'apparence-retrouvee')!
+    const other = base.players[0].fateDeck.find((c) => c.instanceId !== apparence.instanceId)!
+    const faible: CardInstance = { instanceId: 'f', cardId: 'eric', name: 'Eric', type: 'hero', strength: 3 }
+    const fort: CardInstance = { instanceId: 'g', cardId: 'eric', name: 'Colosse', type: 'hero', strength: 6 }
+    const objet: CardInstance = { instanceId: 'o', cardId: 'eric', name: 'Objet', type: 'item' }
+    const s: GameState = {
+      ...base,
+      activePlayer: 1,
+      pendingFate: { target: 0, revealed: [apparence, other] },
+      players: base.players.map((p, i) =>
+        i === 0 ? { ...p, pawnLocation: 'repaire', fateDiscard: [faible, fort, objet] } : p,
+      ),
+    }
+    const picking = applyAction(s, { type: 'RESOLVE_FATE', instanceId: apparence.instanceId })
+    expect(picking.pendingFateHeroPick?.candidateIds).toEqual(['f'])
+    // Un Héros hors périmètre est refusé par le moteur.
+    expect(() => applyAction(picking, { type: 'RESOLVE_FATE_HERO_PICK', instanceId: 'g' })).toThrow()
   })
   it('le bot ne propose pas Apparence Retrouvée si la défausse Fatalité est vide', () => {
     const base = game()

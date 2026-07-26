@@ -1679,6 +1679,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
   const doneCrewmateMove = useGameStore((s) => s.doneCrewmateMove)
   const resolveFateObjectPlace = useGameStore((s) => s.resolveFateObjectPlace)
   const resolveFateHeroPlace = useGameStore((s) => s.resolveFateHeroPlace)
+  const resolveFateHeroPick = useGameStore((s) => s.resolveFateHeroPick)
   const resolveFateDiscardType = useGameStore((s) => s.resolveFateDiscardType)
   const removeFateLocationCard = useGameStore((s) => s.removeFateLocationCard)
   const resolveGiantLocation = useGameStore((s) => s.resolveGiantLocation)
@@ -3956,6 +3957,23 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
       }
       return
     }
+    // Apparence Retrouvée (Ursula) : le bot fataliseur ramène le Héros le PLUS FORT
+    // éligible de la défausse Fatalité (l'humain, lui, choisit dans la modale).
+    const pfhk = state.pendingFateHeroPick
+    if (pfhk) {
+      if (seats[pfhk.chooserIndex] === 'bot') {
+        const tgt = state.players[pfhk.targetIndex]
+        const cands = pfhk.candidateIds
+          .map((id) => tgt.fateDiscard.find((c) => c.instanceId === id))
+          .filter((c): c is NonNullable<typeof c> => !!c)
+        const pick = [...cands].sort((a, b) => (b.strength ?? 0) - (a.strength ?? 0))[0]
+        if (pick) {
+          const timer = setTimeout(() => resolveFateHeroPick(pick.instanceId), BOT_STEP_MS)
+          return () => clearTimeout(timer)
+        }
+      }
+      return
+    }
     // Abu/Aladdin/K.O. : le bot (s'il a joué la Fatalité) choisit la cible — pour
     // K.O. l'Allié le plus fort éligible, sinon le 1ᵉʳ Objet.
     const pfc = state.pendingFateChoice
@@ -4695,7 +4713,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [paused, seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveBloodTrace, resolveWeaponFetch, endTurn, resolveFighterReveal, doneFighterReveal, resolveFighterKillColor, resolveFighterKillFree, doneFighterKillFree, resolveDestinChoice, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolvePacteSang, resolveSacrifice, resolveCageMove, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveScryDeckChoice, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveFateDiscardType, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveGrantLove, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveUrsulaLock, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire, resolvePiegeurTarget, resolvePiegeurDest, resolveAirStrike, resolveBanditPlace, resolveOptionalEffect])
+  }, [paused, seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveBloodTrace, resolveWeaponFetch, endTurn, resolveFighterReveal, doneFighterReveal, resolveFighterKillColor, resolveFighterKillFree, doneFighterKillFree, resolveDestinChoice, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolvePacteSang, resolveSacrifice, resolveCageMove, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveScryDeckChoice, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveFateHeroPick, resolveFateDiscardType, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveGrantLove, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveUrsulaLock, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire, resolvePiegeurTarget, resolvePiegeurDest, resolveAirStrike, resolveBanditPlace, resolveOptionalEffect])
 
   // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
   // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
@@ -8654,6 +8672,23 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
           onPlace={resolveFateHeroPlace}
         />
       )}
+
+      {/* Apparence Retrouvée (Ursula) : l'humain (qui a posé la Fatalité) choisit QUEL
+          Héros de la défausse Fatalité revient en jeu. Même sélecteur de cartes que les
+          autres choix « une carte d'une pile » (DiscardModal). */}
+      {state.pendingFateHeroPick && state.pendingFateHeroPick.chooserIndex === HUMAN && (() => {
+        const pick = state.pendingFateHeroPick
+        const tgt = state.players[pick.targetIndex]
+        const ids = new Set(pick.candidateIds)
+        const locName = tgt.locations.find((l) => l.id === pick.locationId)?.name ?? pick.locationId
+        return (
+          <DiscardModal
+            cards={tgt.fateDiscard.filter((c) => ids.has(c.instanceId))}
+            label={`${pick.label} — quel Héros revient sur ${locName} ?`}
+            onPick={(instanceId) => resolveFateHeroPick(instanceId)}
+          />
+        )
+      })()}
 
       {/* Défaite (Gul'dan) : l'humain (qui pose la Fatalité) choisit Alliés OU Objets. */}
       {state.pendingFateDiscardType && state.pendingFateDiscardType.chooserIndex === HUMAN && (() => {

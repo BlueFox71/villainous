@@ -275,6 +275,12 @@ export function getAvailableActions(state: GameState): LocationAction[] {
   if (state.status !== 'PLAYING' || state.phase !== 'ACTION') return []
   // Yzma — Beauté endormie : verrou « seule action » → plus aucune action ce tour.
   if (activePlayer(state).soleActionLock) return []
+  // Un choix de CLÉ en attente (Obtenir une clé, Pierre tombale, Toute Puissance…) doit
+  // être résolu avant toute autre action : sinon le joueur pouvait enchaîner et perdre la
+  // clé en route (un 2ᵉ jet écrasait le pending du 1ᵉʳ). Le pending d'un ADVERSAIRE
+  // (Fatalité) ne bloque pas le joueur actif.
+  const keyPending = state.pendingKey ?? state.pendingKeyColor
+  if (keyPending && keyPending.playerIndex === state.activePlayer) return []
   // Le Seigneur des clés — Peste : plafond d'actions ce tour. Au-delà, plus d'action
   // de lieu (on compte les actions de lieu jouées = ids non scopés).
   const cap = activePlayer(state).actionsCap
@@ -1158,6 +1164,9 @@ export function canPlaceCurseAt(
 export function canFate(state: GameState): boolean {
   // Yzma — Beauté endormie : verrou « seule action » → Fatalité indisponible.
   if (activePlayer(state).soleActionLock) return false
+  // Choix de clé en attente : à résoudre d'abord (cf. getAvailableActions).
+  const keyPending = state.pendingKey ?? state.pendingKeyColor
+  if (keyPending && keyPending.playerIndex === state.activePlayer) return false
   const t = state.players[fateTarget(state)]
   // Sombra — Invisibilité : la cible est immunisée à la Fatalité ce tour.
   if (t.noFate) return false
