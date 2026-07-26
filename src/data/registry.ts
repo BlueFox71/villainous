@@ -31,7 +31,6 @@ import { patHibulaireCards } from './villains/patHibulaire.cards'
 import { gothelCards } from './villains/gothel.cards'
 import { cruellaCards } from './villains/cruella.cards'
 import { gastonCards } from './villains/gaston.cards'
-import { seigneurClesCards } from './villains/seigneurCles.cards'
 import { madameTremaineCards } from './villains/madameTremaine.cards'
 import { oogieBoogieCards } from './villains/oogie-boogie.cards'
 import { seigneurTenebresCards } from './villains/seigneurTenebres.cards'
@@ -74,7 +73,6 @@ export const allCards: CardDef[] = [
   ...gothelCards,
   ...cruellaCards,
   ...gastonCards,
-  ...seigneurClesCards,
   ...madameTremaineCards,
   ...oogieBoogieCards,
   ...seigneurTenebresCards,

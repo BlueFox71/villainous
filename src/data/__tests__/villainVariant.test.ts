@@ -265,6 +265,53 @@ describe('syncVariantFromBase — propagation depuis la base', () => {
   })
 })
 
+describe('syncVariantFromBase — consignes / Journal re-clés', () => {
+  /** Base avec un Journal par carte + une variante qui a réécrit celui d'une carte re-baptisée. */
+  function withNotes() {
+    const base = baseVillain()
+    base.botStrategy = {
+      howToWin: 'Marque des esprits.',
+      journal: {
+        villainNotes: {
+          renfort: 'Renfort : {nomAllié} rejoint la lutte.',
+          decharge: 'Décharge : gagne {NbJT} Pouvoir.',
+        },
+      },
+    }
+    const variant = createVariant(base, 'custom-skin', 'Sumbra', '2026-07-16T10:00:00Z')
+    // La variante a re-baptisé « Renfort » → son message de Journal cite CE nom.
+    variant.botStrategy = {
+      journal: {
+        villainNotes: {
+          [variantCardId('custom-skin', 'renfort')]: 'Tentacule : {nomAllié} rejoint la lutte.',
+          // Note MORTE (clée sur l'id de base) : abandonnée au profit de la note re-clée.
+          renfort: 'ancienne note morte',
+        },
+      },
+    }
+    return { base, variant }
+  }
+
+  it('déplace les notes de la base sur les ids de cartes de la VARIANTE', () => {
+    const { base, variant } = withNotes()
+    const notes = syncVariantFromBase(base, variant).botStrategy?.journal?.villainNotes ?? {}
+    const ids = new Set(syncVariantFromBase(base, variant).cards.map((c) => c.id))
+    expect(Object.keys(notes).every((id) => ids.has(id))).toBe(true) // aucune note morte
+    expect(notes[variantCardId('custom-skin', 'decharge')]).toBe('Décharge : gagne {NbJT} Pouvoir.')
+  })
+
+  it('CONSERVE la note propre à la variante (nom de carte re-baptisée)', () => {
+    const { base, variant } = withNotes()
+    const notes = syncVariantFromBase(base, variant).botStrategy?.journal?.villainNotes ?? {}
+    expect(notes[variantCardId('custom-skin', 'renfort')]).toBe('Tentacule : {nomAllié} rejoint la lutte.')
+  })
+
+  it('hérite du texte général de la base', () => {
+    const { base, variant } = withNotes()
+    expect(syncVariantFromBase(base, variant).botStrategy?.howToWin).toBe('Marque des esprits.')
+  })
+})
+
 describe('variantSyncState — détection d’état au chargement', () => {
   it('un vilain sans variantOf est « independent »', () => {
     const base = baseVillain()

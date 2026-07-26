@@ -36,9 +36,9 @@
           "journalChecked": false
         },
         "bot": {
-          "rating": "non-teste",
-          "games": 0,
-          "comment": "",
+          "rating": "a-ameliorer",
+          "games": 1,
+          "comment": "pas assez rapide",
           "journalChecked": false
         }
       },
@@ -55,7 +55,10 @@
           "comment": "",
           "journalChecked": false
         }
-      }
+      },
+      "validatedCards": [
+        "pegase"
+      ]
     },
     "princeJohn": {
       "jules": {
@@ -101,7 +104,7 @@
         },
         "bot": {
           "rating": "a-ameliorer",
-          "games": 1,
+          "games": 2,
           "comment": "en galère ",
           "journalChecked": false
         }
@@ -119,7 +122,8 @@
           "comment": "",
           "journalChecked": false
         }
-      }
+      },
+      "validatedCards": []
     },
     "gothel": {
       "jules": {
@@ -1372,11 +1376,11 @@
         }
       }
     },
-    "seigneurCles": {
+    "custom-seigneur-cles": {
       "jules": {
         "joueur": {
-          "rating": "non-teste",
-          "games": 0,
+          "rating": "presque-bien",
+          "games": 2,
           "comment": "",
           "journalChecked": false
         },
@@ -1403,7 +1407,21 @@
       },
       "validatedCards": [
         "manque-de-temps",
-        "plaisir-ou-souffrance"
+        "plaisir-ou-souffrance",
+        "peste",
+        "carte-destin",
+        "pierre-tombale",
+        "cest-moi-qui-decide",
+        "plus-quune-minute",
+        "trop-facile",
+        "souffre-douleur",
+        "elisabeth-bathory",
+        "banni",
+        "hellin",
+        "anne-de-chantraine",
+        "gevaudan",
+        "sorcellerie",
+        "minuit"
       ]
     },
     "thanos": {

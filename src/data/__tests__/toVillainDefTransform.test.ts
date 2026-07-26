@@ -57,3 +57,16 @@ describe('toVillainDef — lieux/objectif transformables', () => {
     expect(toVillainDef(v).altObjective).toBeUndefined()
   })
 })
+
+describe('toVillainDef — clés de couleur à la mise en place', () => {
+  it('reporte startingKeysPerLocation (Le Seigneur des clés)', () => {
+    const v = { ...emptyCustomVillain('2026-01-01T00:00:00.000Z'), startingKeysPerLocation: 3 }
+    expect(toVillainDef(v).startingKeysPerLocation).toBe(3)
+  })
+
+  it('0 ou absent → champ absent (vilain sans clés)', () => {
+    const v = emptyCustomVillain('2026-01-01T00:00:00.000Z')
+    expect(toVillainDef(v).startingKeysPerLocation).toBeUndefined()
+    expect(toVillainDef({ ...v, startingKeysPerLocation: 0 }).startingKeysPerLocation).toBeUndefined()
+  })
+})

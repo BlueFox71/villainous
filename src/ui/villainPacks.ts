@@ -116,7 +116,8 @@ const VILLAIN_CREATOR: Partial<Record<VillainKey, string>> = {
   slenderman: 'Alexis',
   imposteur: 'Alexis',
   sombra: 'Alexis',
-  seigneurCles: 'Alexis',
+  // Le Seigneur des clés (Alexis) est un vilain de l'Atelier PUBLIÉ : son créateur vient
+  // de son JSON (`creator`), pas d'ici.
   bowser: 'Jules',
   tabbou: 'Jules',
   teamRocket: 'Jules',

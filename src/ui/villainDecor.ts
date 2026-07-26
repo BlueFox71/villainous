@@ -305,9 +305,6 @@ export const VILLAIN_DECOR: Partial<Record<VillainKey, VillainDecor>> = {
   // Team Rocket (Pokémon) : le ciel de jour — nuages qui dérivent, soleil, la mongolfière Miaouss qui
   // traverse ; surprise = « s'envole vers d'autres cieux ! » (le trio file vers le haut → éclat d'étoile).
   teamRocket: { kind: 'teamRocket' },
-  // Le Seigneur des clés (le Gardien d'Atmosfear) : sa cassette VHS — fond noir + chronomètre
-  // MM:SS en haut, centré (#3E4371, police EvanstonTavern). 100 % CSS.
-  seigneurCles: { kind: 'atmosfear' },
   // Davy Jones (Pirates des Caraïbes) : la mer démontée — ciel d'orage vert-sarcelle, houle agitée
   // en bas, tempête de pluie battante + éclairs verdâtres, et le Hollandais Volant qui tangue.
   davyJones: { kind: 'flyingDutchman', ship: '/animations/bateau_hollandais.png' },
@@ -339,6 +336,9 @@ export const CUSTOM_VILLAIN_DECOR: Record<string, VillainDecor> = {
   // Killaire (Galeem — SSBU) : la Lumière qui submerge le monde — miroir lumineux du rift. Fond
   // blanc-doré, cœur de Galeem qui pulse et rayons denses (blanc/or) qui jaillissent en continu.
   'custom-killaire': { kind: 'radiance' },
+  // Le Seigneur des clés (le Gardien d'Atmosfear) : sa cassette VHS — fond noir + chronomètre
+  // MM:SS en haut, centré (#3E4371, police EvanstonTavern). 100 % CSS.
+  'custom-seigneur-cles': { kind: 'atmosfear' },
 }
 
 /** Décor permanent d'un vilain (natif OU publié) ; undefined si non défini. Un vilain publié a un id

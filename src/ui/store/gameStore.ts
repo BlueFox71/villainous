@@ -84,8 +84,6 @@ import { cruella } from '../../data/villains/cruella'
 import { cruellaCards } from '../../data/villains/cruella.cards'
 import { gaston } from '../../data/villains/gaston'
 import { gastonCards } from '../../data/villains/gaston.cards'
-import { seigneurCles } from '../../data/villains/seigneurCles'
-import { seigneurClesCards } from '../../data/villains/seigneurCles.cards'
 import { madameTremaine } from '../../data/villains/madameTremaine'
 import { madameTremaineCards } from '../../data/villains/madameTremaine.cards'
 import { oogieBoogie } from '../../data/villains/oogie-boogie'
@@ -116,7 +114,7 @@ import { thanosCards } from '../../data/villains/thanos.cards'
 // pas de fichier natif : chargé au runtime via customVillainStore (cf. CLAUDE.md).
 
 /** Sélecteur de vilain (clé stable utilisée par l'UI). */
-export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'seigneurCles' | 'madameTremaine' | 'oogieBoogie' | 'seigneurTenebres' | 'madameMim' | 'syndrome' | 'lotso' | 'saSucrerie' | 'shereKhan' | 'davyJones' | 'tamatoa' | 'teamRocket' | 'laBonneFee' | 'tabbou' | 'thanos'
+export type VillainKey = 'princeJohn' | 'maleficent' | 'slenderman' | 'jafar' | 'reineCoeur' | 'crochet' | 'ursula' | 'hades' | 'facilier' | 'imposteur' | 'bowser' | 'mechanteReine' | 'scar' | 'yzma' | 'ratigan' | 'sombra' | 'patHibulaire' | 'gothel' | 'cruella' | 'gaston' | 'madameTremaine' | 'oogieBoogie' | 'seigneurTenebres' | 'madameMim' | 'syndrome' | 'lotso' | 'saSucrerie' | 'shereKhan' | 'davyJones' | 'tamatoa' | 'teamRocket' | 'laBonneFee' | 'tabbou' | 'thanos'
 
 export const VILLAIN_REGISTRY = {
   princeJohn: { def: princeJohn, cards: princeJohnCards, label: 'Prince Jean' },
@@ -140,7 +138,6 @@ export const VILLAIN_REGISTRY = {
   gothel: { def: gothel, cards: gothelCards, label: 'Mère Gothel' },
   cruella: { def: cruella, cards: cruellaCards, label: 'Cruella d’Enfer' },
   gaston: { def: gaston, cards: gastonCards, label: 'Gaston' },
-  seigneurCles: { def: seigneurCles, cards: seigneurClesCards, label: 'Le Seigneur des clés' },
   madameTremaine: { def: madameTremaine, cards: madameTremaineCards, label: 'Madame de Trémaine' },
   seigneurTenebres: { def: seigneurTenebres, cards: seigneurTenebresCards, label: 'Le Seigneur des Ténèbres' },
   madameMim: { def: madameMim, cards: madameMimCards, label: 'Madame Mim' },
@@ -163,7 +160,6 @@ export const COLLAB_VILLAINS: VillainKey[] = [
   'teamRocket',
   'bowser',
   'sombra',
-  'seigneurCles',
   'laBonneFee',
   'tabbou',
 ]

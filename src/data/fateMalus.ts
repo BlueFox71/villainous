@@ -237,17 +237,9 @@ export const FATE_MALUS: Record<string, FateMalus> = {
   'mrs-samovar-et-zip': 'slow',
   'invention-de-maurice': 'slow', // −1 à la force des Alliés du lieu (vanquish plus durs)
 
-  // --- Le Seigneur des clés (posséder 1 clé de chaque couleur) — pas de Héros-cible
-  // (NEUTRE) : l'objectif ne réclame aucun Héros précis. La Clé Noire bloque DUR la
-  // victoire ; Baron Samedi et Gévaudan retirent/bloquent une couleur tant qu'ils
-  // sont là ; les autres gênent la main / les actions / les réactions. ---
-  'cle-noire': 'block-win', // tant qu'elle est posée, le Seigneur ne peut pas gagner
-  'baron-samedi': 'block-advance', // bloque une couleur de clé au dé tant qu'il est là
-  gevaudan: 'block-advance', // vole une clé tant qu'il est en jeu (couleur en moins)
-  'anne-de-chantraine': 'slow', // défausse les Événements de sa main
-  'elisabeth-bathory': 'slow', // l'empêche de jouer ses Conditions en réaction
-  hellin: 'slow', // recouvre une action supplémentaire de son lieu
-  khufu: 'slow', // défausse l'Appel (perte de pioche défensive)
+  // NB : Le Seigneur des clés (custom-seigneur-cles) porte ses malus Fatalité PAR CARTE
+  // (champ `fateMalus` dans son JSON publié) depuis sa migration dans l'Atelier — ce
+  // registre statique ne couvre que les vilains NATIFS.
 
   // --- Madame de Trémaine (marier une fille au Prince) — la Pantoufle de Verre
   // bloque DUR le mariage tant qu'elle est là ; Cendrillon (ordinaire / en robe)

@@ -22,7 +22,7 @@ describe('GameLog — découpage en blocs', () => {
     expect(key.playerIndex).toBe(0)
     expect(key.head).toMatch(/^Dé : \*\*rouge\*\*/)
     expect(key.details).toEqual(['ramasse une clé rouge.'])
-    expect(key.keyImage).toBe('/cards/seigneur-cles/cle-rouge.webp')
+    expect(key.keyImage).toBe('/cards/custom-seigneur-cles/cle-rouge.webp')
   })
 
   it('une clé reposée (accord féminin) fait aussi son bloc', () => {
@@ -36,7 +36,7 @@ describe('GameLog — découpage en blocs', () => {
     expect(blocks).toHaveLength(2)
     const key = blocks[1]
     if (key.type !== 'action') throw new Error('bloc action attendu')
-    expect(key.keyImage).toBe('/cards/seigneur-cles/cle-bleu.webp')
+    expect(key.keyImage).toBe('/cards/custom-seigneur-cles/cle-bleu.webp')
   })
 
   it('un Héros déplacé (« rejoint ») garde son bloc à part', () => {

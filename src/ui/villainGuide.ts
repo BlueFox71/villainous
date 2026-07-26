@@ -373,23 +373,6 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
       'Le Bidule de malheur affaiblit ses Alliés ; Big Ben renforce tes Héros : rends ses éliminations (et donc l’accès à la Bête / Maurice) plus coûteuses.',
     ],
   },
-  seigneurCles: {
-    difficulty: 2,
-    devise: "Ce n'est que le début de votre cauchemar !",
-    story:
-      "Le Seigneur des clés est le Gardien (« the Gatekeeper ») du jeu de société Atmosfear (à l’origine Nightmare, 1991) : un spectre encapuchonné aux yeux luminescents qui, depuis sa cassette vidéo, mène la partie et harcèle les joueurs. Comme dans Atmosfear, la victoire passe par la collecte d’une clé de chacune des six couleurs avant de regagner le centre du plateau — sous peine d’être englouti par les Ténèbres. Sa cour de damnés (Anne de Chantraine, Élisabeth Báthory, le Baron Samedi, Gévaudan…) veille à reprendre les clés à quiconque s’approche du but.",
-    playTips: [
-      'Ton objectif : au début de ton tour, posséder au moins 1 clé de CHAQUE couleur (bleu, rouge, vert, jaune, violet, orange). 12 clés sont réparties sur tes 4 lieux.',
-      'Ramasse les clés avec l’action « Obtenir une clé » (Crypte), Toute Puissance, C’est moi qui décide, Pierre Tombale et 00:00. Déplace ton pion vers les lieux qui portent les couleurs qui te manquent.',
-      'Le dé de couleur est aléatoire : Pierre Tombale et J’ai affronté mon cauchemar dépendent du jet, mais 00:00 / Minuit te laissent CHOISIR la couleur visée — garde-les pour la dernière couleur manquante.',
-      'Garde un œil sur la Clé Noire : tant qu’elle est sur ton plateau, tu ne peux pas gagner, même avec les six couleurs.',
-    ],
-    counterTips: [
-      'La Fatalité lui reprend des clés : Sorcellerie repose une clé, Duel rebrasse celles du plateau, J’ai affronté mon cauchemar et Plaisir ou souffrance lui en coûtent. Vise la couleur dont il n’a qu’un exemplaire.',
-      'Gévaudan vole une clé tant qu’il vit ; Baron Samedi bloque une couleur au dé : combine-les pour l’asphyxier sur sa dernière couleur.',
-      'La Clé Noire (Objet Fatalité) lui interdit la victoire tant qu’elle reste posée : pose-la quand il approche des six couleurs.',
-    ],
-  },
   madameTremaine: {
     difficulty: 4,
     devise: "Une femme du monde garde son sang-froid.",
@@ -611,6 +594,23 @@ export const VILLAIN_GUIDE: Record<VillainKey, VillainGuide> = {
 /** Fiches RÉDIGÉES pour certains vilains publiés (collaborations fixes), indexées par
  *  leur id custom. Priorité sur la synthèse automatique de `villainGuideOf`. */
 const CUSTOM_GUIDES: Record<string, VillainGuide> = {
+  'custom-seigneur-cles': {
+    difficulty: 2,
+    devise: "Ce n'est que le début de votre cauchemar !",
+    story:
+      "Le Seigneur des clés est le Gardien (« the Gatekeeper ») du jeu de société Atmosfear (à l’origine Nightmare, 1991) : un spectre encapuchonné aux yeux luminescents qui, depuis sa cassette vidéo, mène la partie et harcèle les joueurs. Comme dans Atmosfear, la victoire passe par la collecte d’une clé de chacune des six couleurs avant de regagner le centre du plateau — sous peine d’être englouti par les Ténèbres. Sa cour de damnés (Anne de Chantraine, Élisabeth Báthory, le Baron Samedi, Gévaudan…) veille à reprendre les clés à quiconque s’approche du but.",
+    playTips: [
+      'Ton objectif : au début de ton tour, posséder au moins 1 clé de CHAQUE couleur (bleu, rouge, vert, jaune, violet, orange). 12 clés sont réparties sur tes 4 lieux.',
+      'Ramasse les clés avec l’action « Obtenir une clé » (Crypte), Toute Puissance, C’est moi qui décide, Pierre Tombale et 00:00. Déplace ton pion vers les lieux qui portent les couleurs qui te manquent.',
+      'Le dé de couleur est aléatoire : Pierre Tombale et J’ai affronté mon cauchemar dépendent du jet, mais 00:00 / Minuit te laissent CHOISIR la couleur visée — garde-les pour la dernière couleur manquante.',
+      'Garde un œil sur la Clé Noire : tant qu’elle est sur ton plateau, tu ne peux pas gagner, même avec les six couleurs.',
+    ],
+    counterTips: [
+      'La Fatalité lui reprend des clés : Sorcellerie repose une clé, Duel rebrasse celles du plateau, J’ai affronté mon cauchemar et Plaisir ou souffrance lui en coûtent. Vise la couleur dont il n’a qu’un exemplaire.',
+      'Gévaudan vole une clé tant qu’il vit ; Baron Samedi bloque une couleur au dé : combine-les pour l’asphyxier sur sa dernière couleur.',
+      'La Clé Noire (Objet Fatalité) lui interdit la victoire tant qu’elle reste posée : pose-la quand il approche des six couleurs.',
+    ],
+  },
   'custom-michael-meyers': {
     difficulty: 3,
     devise: "Ce qui vit derrière ces yeux est purement et simplement… le Mal.",

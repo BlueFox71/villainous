@@ -44,7 +44,6 @@ const VOICE_PREFIX: Record<VillainKey, string> = {
   gothel: 'La mère Gothel', // 1 seule variante présente (n°2) ; les 3 autres manquent encore
   cruella: "Cruella d'enfer", // 4 variantes présentes
   gaston: 'Gaston', // 4 variantes présentes
-  seigneurCles: 'Le Seigneur des clés', // 4 variantes présentes
   madameTremaine: 'Madame de trémaine', // 4 variantes présentes
   oogieBoogie: 'Oogie Boogie', // pas (encore) de fichiers de voix → intro silencieuse
   seigneurTenebres: 'Le Seigneur des Ténèbres', // 4 variantes présentes
@@ -64,7 +63,9 @@ const CONTRE_PREFIX = 'Contre'
 
 /** Préfixe de fichier de voix pour un vilain (par id porté par le PlayerState) :
  *  natif → table `VOICE_PREFIX` ; PERSONNALISÉ → le NOM du vilain (les fichiers
- *  « <Nom> 1.wav »… ajoutés à la main dans `Voix Villainous`). undefined si inconnu. */
+ *  « <Nom> 1.wav »… ajoutés à la main dans `Voix Villainous`). undefined si inconnu.
+ *  C'est ce repli par NOM qui conserve ses voix au Seigneur des clés (custom publié :
+ *  fichiers « Le seigneur des clés N.wav », retrouvés insensiblement à la casse). */
 function voicePrefixOf(villainId: string): string | undefined {
   if (isCustomKey(villainId)) return customVillainOf(villainId)?.name
   return VOICE_PREFIX[villainKeyOf(villainId)]

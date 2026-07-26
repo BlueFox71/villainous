@@ -6786,7 +6786,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
                         </button>
                         {/* Seigneur des clés : surcharge de la progression d'objectif (0→100) pour
                             tester la phase de lune du décor. Reset = revenir au % réel. */}
-                        {vk === 'seigneurCles' && (
+                        {vk === 'custom-seigneur-cles' && (
                           <span className="ml-1 flex items-center gap-1 text-xs text-white/70">
                             <span className="shrink-0">Obj.&nbsp;%</span>
                             <input

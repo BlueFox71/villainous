@@ -588,7 +588,7 @@ const ACTION_POS: Record<string, Record<string, Record<string, { x: number; y: n
   // colonnes ~22.7/30.5 · 43.5/51.4 · 64.3/72.1 · 85.1/92.9 %, rangées haut ~20 /
   // bas ~67.8. La Crypte porte 2 actions « Jouer » en haut et Gagner 3 · Obtenir une
   // clé en bas. MESURES À AFFINER via l'inspecteur.
-  'seigneur-cles': {
+  'custom-seigneur-cles': {
     crypte: {
       'play-card-top': { x: 23, y: 20 },
       'play-card-top2': { x: 31, y: 20.5 },

@@ -413,6 +413,10 @@ export interface CustomVillain {
   objectiveDescription: string
   /** Condition de victoire jouable (sous-ensemble réutilisable des ObjectiveDef). */
   objective: ObjectiveDef
+  /** Le Seigneur des clés — nombre de CLÉS DE COULEUR posées sur CHAQUE lieu à la mise en
+   *  place (3 par lieu = 12 clés, au moins 1 de chaque couleur garantie). Absent/0 = vilain
+   *  sans clés (cas général). Devient `startingKeysPerLocation` dans le VillainDef. */
+  startingKeysPerLocation?: number
   /** Camp d'esprit du vilain (duo World of Light : ☀️ Kilaire = `'sun'`, 🌑 Sumbra = `'moon'`) — pilote
    *  la CAPTURE (valeur d'esprit prise) et l'affichage. C'est la SEULE asymétrie de règle entre les deux
    *  skins : contrairement au reste des règles (héritées de la base), ce champ est PROPRE AU SKIN
@@ -632,6 +636,8 @@ export function toVillainDef(v: CustomVillain): VillainDef {
     objective,
     objectiveDescription: v.objectiveDescription,
     boardObjective: v.boardObjective || undefined,
+    // Clés de couleur à la mise en place (Le Seigneur des clés) : 0/absent = aucune clé.
+    startingKeysPerLocation: v.startingKeysPerLocation || undefined,
     boardImage: v.boardImage ?? '',
     pawnImage: v.pawnImage ?? '',
     pawnHeightPx: v.pawnHeightPx,
@@ -781,6 +787,7 @@ export function mergeGameData(target: CustomVillain, light: Partial<CustomVillai
   const out: CustomVillain = structuredClone(target)
   if (light.objective) out.objective = light.objective
   if (light.spiritCamp) out.spiritCamp = light.spiritCamp
+  if (typeof light.startingKeysPerLocation === 'number') out.startingKeysPerLocation = light.startingKeysPerLocation
   if (typeof light.boardObjective === 'string') out.boardObjective = light.boardObjective
   if (typeof light.objectiveDescription === 'string') out.objectiveDescription = light.objectiveDescription
   if (light.altObjective && out.altObjective) {
@@ -857,6 +864,44 @@ const VARIANT_OWN_CARD_FIELDS = [
   'typeLabel', 'typeColor', 'textLayout', 'textBoxes', 'stickers', 'images',
 ] as const satisfies readonly (keyof CustomCard)[]
 
+/** Re-clé les notes PAR CARTE d'une section de stratégie (Codage / Bot adverse / Journal) lors
+ *  d'une resynchro de variante : une note héritée de la BASE est déplacée sur l'id de carte de la
+ *  VARIANTE (`baseId → variantId`) — clée sur l'id de base, elle serait MORTE (le moteur lit les
+ *  notes par l'id de la carte jouée). Une note DÉJÀ écrite sur la variante l'emporte : elle cite
+ *  souvent le nom propre de sa carte re-baptisée (« Ailes de Lumière » vs « Tentacules épineuses »).
+ *  Les notes de la variante clées sur un id INEXISTANT chez elle sont abandonnées (nettoyage). */
+function rekeyVariantNotes<T>(
+  baseNotes: Record<string, T> | undefined,
+  variantNotes: Record<string, T> | undefined,
+  variantIdOf: Map<string, string>,
+): Record<string, T> | undefined {
+  if (!baseNotes && !variantNotes) return undefined
+  const out: Record<string, T> = {}
+  for (const [baseId, note] of Object.entries(baseNotes ?? {})) {
+    const id = variantIdOf.get(baseId)
+    if (id) out[id] = note
+  }
+  const ownIds = new Set(variantIdOf.values())
+  for (const [id, note] of Object.entries(variantNotes ?? {})) {
+    if (ownIds.has(id)) out[id] = note
+  }
+  return out
+}
+
+/** Re-clé une SECTION de consignes entière (texte général hérité de la base, notes re-clées). */
+function rekeyVariantSection(
+  baseSection: StrategySection | undefined,
+  variantSection: StrategySection | undefined,
+  variantIdOf: Map<string, string>,
+): StrategySection | undefined {
+  if (!baseSection && !variantSection) return undefined
+  return {
+    ...baseSection,
+    villainNotes: rekeyVariantNotes(baseSection?.villainNotes, variantSection?.villainNotes, variantIdOf),
+    fateNotes: rekeyVariantNotes(baseSection?.fateNotes, variantSection?.fateNotes, variantIdOf),
+  }
+}
+
 /** Id de carte d'une variante : dérivé de l'id de base + l'id de la variante (kebab-case ASCII,
  *  unique entre base et variante — le registre indexe par cardId). */
 export function variantCardId(variantId: string, baseCardId: string): string {
@@ -930,6 +975,24 @@ export function syncVariantFromBase(base: CustomVillain, variant: CustomVillain)
     }
     return card
   })
+
+  // Consignes de stratégie / Journal : héritées de la base (elles décrivent les mécaniques,
+  // partagées) mais leurs notes PAR CARTE sont re-clées sur les ids de cartes de la variante,
+  // en conservant celles qu'elle a déjà écrites (cf. rekeyVariantNotes).
+  if (base.botStrategy || variant.botStrategy) {
+    const variantIdOf = new Map(out.cards.map((c) => [c.baseCardId ?? c.id, c.id]))
+    out.botStrategy = {
+      ...base.botStrategy,
+      villainNotes: rekeyVariantNotes(
+        base.botStrategy?.villainNotes,
+        variant.botStrategy?.villainNotes,
+        variantIdOf,
+      ),
+      fateNotes: rekeyVariantNotes(base.botStrategy?.fateNotes, variant.botStrategy?.fateNotes, variantIdOf),
+      botPlay: rekeyVariantSection(base.botStrategy?.botPlay, variant.botStrategy?.botPlay, variantIdOf),
+      journal: rekeyVariantSection(base.botStrategy?.journal, variant.botStrategy?.journal, variantIdOf),
+    }
+  }
 
   return out
 }

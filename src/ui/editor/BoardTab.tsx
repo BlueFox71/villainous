@@ -678,6 +678,21 @@ export function BoardTab({
       </div>
       )}
 
+      {/* CLÉS DE COULEUR à la mise en place (Le Seigneur des clés) : N clés posées sur
+          CHAQUE lieu au début de la partie, avec au moins 1 de chaque couleur garantie.
+          0 = vilain sans clés (cas général), le champ reste alors sans effet. */}
+      {!variant && (
+        <NumberField
+          label="Clés de couleur par lieu (mise en place)"
+          value={draft.startingKeysPerLocation ?? 0}
+          onChange={(startingKeysPerLocation) =>
+            patch({ startingKeysPerLocation: startingKeysPerLocation || undefined })
+          }
+          min={0}
+          max={6}
+        />
+      )}
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="flex items-start gap-4">
           <ImageField

@@ -199,22 +199,6 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
     path: 'disco',
     colors: ['#0001FB', '#FD27FC', '#64D9FE'], // bleu / magenta / cyan (lumière noire de la grotte)
   },
-  // Le Seigneur des clés : une PLUIE DE CLÉS colorées (6 couleurs) tombe du ciel en tournoyant,
-  // sur toute la largeur — comme la pluie de pièces de Prince Jean (path `coins`).
-  seigneurCles: {
-    images: [
-      '/cards/seigneur-cles/cle-bleu.webp',
-      '/cards/seigneur-cles/cle-jaune.webp',
-      '/cards/seigneur-cles/cle-orange.webp',
-      '/cards/seigneur-cles/cle-rouge.webp',
-      '/cards/seigneur-cles/cle-vert.webp',
-      '/cards/seigneur-cles/cle-violet.webp',
-    ],
-    heightPct: 7, // taille de base d'une clé (variée par clé dans le composant)
-    durationSec: 9, // couvre l'étalement des chutes (délais + durée de chute)
-    count: 40,
-    path: 'coins',
-  },
   // Prince Jean (Robin des Bois) : une pluie de pièces d'or (11 angles découpés de
   // pieces.png) tombe du ciel jusqu'en bas, sur toute la largeur, chacune tournoyant.
   princeJohn: {
@@ -578,6 +562,22 @@ export const VILLAIN_ANIMATION: Partial<Record<VillainKey, VillainAnimation | Vi
 // Animations de passage des vilains de l'ATELIER PUBLIÉ (indexées par id `custom-…`, hors de l'union
 // native `VillainKey`). Même contenu qu'une entrée `VILLAIN_ANIMATION`.
 export const CUSTOM_VILLAIN_ANIMATION: Record<string, VillainAnimation | VillainAnimation[]> = {
+  // Le Seigneur des clés : une PLUIE DE CLÉS colorées (6 couleurs) tombe du ciel en tournoyant,
+  // sur toute la largeur — comme la pluie de pièces de Prince Jean (path `coins`).
+  'custom-seigneur-cles': {
+    images: [
+      '/cards/custom-seigneur-cles/cle-bleu.webp',
+      '/cards/custom-seigneur-cles/cle-jaune.webp',
+      '/cards/custom-seigneur-cles/cle-orange.webp',
+      '/cards/custom-seigneur-cles/cle-rouge.webp',
+      '/cards/custom-seigneur-cles/cle-vert.webp',
+      '/cards/custom-seigneur-cles/cle-violet.webp',
+    ],
+    heightPct: 7, // taille de base d'une clé (variée par clé dans le composant)
+    durationSec: 9, // couvre l'étalement des chutes (délais + durée de chute)
+    count: 40,
+    path: 'coins',
+  },
   // Sumbra (Dharkon 🌑) : les TÉNÈBRES effleurent le monde — tout l'arrière-plan s'assombrit (voile
   // sombre violacé) pendant que des étincelles/braises ROUGE & VIOLET montent en scintillant, puis tout
   // revient à la normale (path `dark-embers`, 100 % CSS). Propre à Sumbra (Kilaire a Kirby, ci-dessous).

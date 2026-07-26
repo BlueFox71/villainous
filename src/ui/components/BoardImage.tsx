@@ -276,7 +276,7 @@ export function BoardImage({
                 : 'Glissez le pion sur un lieu pour vous y déplacer'
               : isSugarRush
                 ? `Pion sur le circuit (case ${trackPos} / ${SUGAR_RUSH_TRACK.length})`
-                : player.villain === 'seigneur-cles'
+                : player.villain === 'custom-seigneur-cles'
                   ? 'Pion (survolez pour voir les clés en dessous)'
                   : 'Pion'
           }
@@ -289,7 +289,7 @@ export function BoardImage({
               ? 'pointer-events-none opacity-0'
               : canDragPawn
                 ? 'cursor-grab touch-none pointer-events-auto active:cursor-grabbing hover:scale-110'
-                : player.villain === 'seigneur-cles'
+                : player.villain === 'custom-seigneur-cles'
                   ? 'cursor-help hover:opacity-10 hover:duration-150'
                   : 'pointer-events-none'
           }`}
@@ -496,7 +496,7 @@ export function BoardImage({
             return (
               <img
                 key={`key-${k.id}`}
-                src={`/cards/seigneur-cles/cle-${k.color}.webp`}
+                src={`/cards/custom-seigneur-cles/cle-${k.color}.webp`}
                 alt={`Clé ${k.color}`}
                 onClick={clickable ? () => onKeyClick?.(k.id) : undefined}
                 title={clickable ? `Cliquez pour ramasser la clé ${k.color}` : `Clé ${k.color}`}

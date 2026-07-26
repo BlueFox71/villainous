@@ -400,7 +400,7 @@ export function HeroRow({
                           {stolen.map((k) => (
                             <img
                               key={k.id}
-                              src={`/cards/seigneur-cles/cle-${k.color}.webp`}
+                              src={`/cards/custom-seigneur-cles/cle-${k.color}.webp`}
                               alt={`Clé ${k.color} volée`}
                               className="h-9 w-auto drop-shadow-[0_1px_3px_rgba(0,0,0,0.95)]"
                             />

@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { existsSync } from 'node:fs'
-import { seigneurClesCards } from '../villains/seigneurCles.cards'
-import { seigneurCles } from '../villains/seigneurCles'
+import { seigneurCles, seigneurClesCards } from '../published/seigneurCles'
 import { buildDeck } from '../types'
 
 describe('cartes du Seigneur des clés — intégrité du paquet', () => {
@@ -39,7 +38,7 @@ describe('cartes du Seigneur des clés — intégrité du paquet', () => {
       expect(c.englishName.length).toBeGreaterThan(0)
       expect(c.text.length).toBeGreaterThan(0)
       expect(c.copies).toBeGreaterThanOrEqual(1)
-      expect(c.image).toMatch(/^\/cards\/seigneur-cles\/.+\.(png|webp)$/)
+      expect(c.image).toMatch(/^\/cards\/custom-seigneur-cles\/.+\.(png|webp)$/)
       if (c.deck === 'villain') expect(typeof c.cost).toBe('number')
       else expect(c.cost).toBeUndefined()
       if (c.type === 'hero') expect(typeof c.strength).toBe('number')
@@ -75,7 +74,7 @@ describe('cartes du Seigneur des clés — intégrité du paquet', () => {
 
   it('les 6 images de clé (détourées) existent dans public/', () => {
     for (const color of ['bleu', 'rouge', 'vert', 'jaune', 'violet', 'orange']) {
-      expect(existsSync(`public/cards/seigneur-cles/cle-${color}.webp`), `clé manquante : ${color}`).toBe(true)
+      expect(existsSync(`public/cards/custom-seigneur-cles/cle-${color}.webp`), `clé manquante : ${color}`).toBe(true)
     }
   })
 

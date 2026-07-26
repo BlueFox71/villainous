@@ -23,7 +23,6 @@ const PORTRAIT: Partial<Record<VillainKey, string>> = {
   gothel: '/gothel.png',
   cruella: '/cruella.png',
   gaston: '/gaston.png',
-  seigneurCles: '/seigneur-cles.png',
   madameTremaine: '/madame-tremaine.png',
   oogieBoogie: '/oogie-boogie.png',
   seigneurTenebres: '/seigneur-tenebres.png',
@@ -72,7 +71,6 @@ const PRESENTATION: Partial<Record<VillainKey, string>> = {
   gothel: '/presentations/gothel.png',
   cruella: '/presentations/cruella.png',
   gaston: '/presentations/gaston.png',
-  seigneurCles: '/presentations/seigneur-cles.png',
   madameTremaine: '/presentations/madame-tremaine.png',
   oogieBoogie: '/presentations/oogie-boogie.png',
   seigneurTenebres: '/presentations/seigneur-tenebres.png',
@@ -110,8 +108,8 @@ export const PRESENTATION_TWEAK: Record<
   // (choix ET versus) → on l'agrandit légèrement et on la descend (dyPct/versusDyPct
   // positifs = vers le bas).
   gothel: { scale: 1.05, dyPct: 10, versusDyPct: 8 },
-  // Le Seigneur des clés : on baisse légèrement sa position (sans le rétrécir).
-  seigneurCles: { dyPct: 6 },
+  // Le Seigneur des clés (custom) : on baisse légèrement sa position (sans le rétrécir).
+  'custom-seigneur-cles': { dyPct: 6 },
   // Maléfique : nouvelle illustration carrée (1000×1000) — on la remonte pour caler la
   // figure dans le cadre (négatif = vers le haut).
   maleficent: { dyPct: -6 },

@@ -67,7 +67,7 @@ function keyColorIn(text: string): string | null {
 
 /** Jeton de clé (détouré) servant d'illustration au bloc de journal. */
 function keyTokenImage(color: string): string {
-  return `/cards/seigneur-cles/cle-${color}.webp`
+  return `/cards/custom-seigneur-cles/cle-${color}.webp`
 }
 
 /** Échappe une chaîne pour l'insérer littéralement dans une RegExp. */

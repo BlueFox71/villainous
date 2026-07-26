@@ -1,19 +1,19 @@
 import { usePlayerStore } from '../store/playerStore'
 import { villainPresentation } from '../villainArt'
-import type { VillainKey } from '../store/gameStore'
 
 /** Cadrage par défaut de la présentation dans l'avatar : remontée (dyPct < 0 pour
  *  voir le buste) et léger zoom. `dxPct`/`dyPct` en % de la taille de l'avatar. */
 const AVATAR_BASE = { dxPct: 0, dyPct: -14, scale: 1.35 }
 
-/** Réglages EXCEPTIONNELS par vilain (fusionnés sur AVATAR_BASE). */
-const AVATAR_TWEAK: Partial<Record<VillainKey, Partial<typeof AVATAR_BASE>>> = {
+/** Réglages EXCEPTIONNELS par vilain (fusionnés sur AVATAR_BASE), indexés par la clé
+ *  native (`VillainKey`) OU l'id d'un vilain publié (`custom-…`). */
+const AVATAR_TWEAK: Record<string, Partial<typeof AVATAR_BASE>> = {
   bowser: { dyPct: 0 }, // déjà bien cadré « tête en haut »
   imposteur: { dyPct: 12, scale: 1 }, // plus petit et plus bas
   scar: { dxPct: -12 }, // décalé vers la gauche
   sombra: { dxPct: 44, dyPct: -70, scale: 3.7 }, // zoomé, décalé droite + haut
   gothel: { dyPct: 0 }, // décalé vers le bas
-  seigneurCles: { dyPct: 0 }, // décalé vers le bas
+  'custom-seigneur-cles': { dyPct: 0 }, // décalé vers le bas (custom publié)
   seigneurTenebres: { dyPct: 0 }, // décalé vers le bas
   teamRocket: { dyPct: 0, scale: 1.05 }, // décalé vers le bas + dézoomé
   shereKhan: { dxPct: 12 }, // décalé vers la droite
@@ -38,7 +38,7 @@ export function Avatar({
   className?: string
 }) {
   const src = villain ? villainPresentation(villain) : undefined
-  const t = { ...AVATAR_BASE, ...(villain ? AVATAR_TWEAK[villain as VillainKey] : undefined) }
+  const t = { ...AVATAR_BASE, ...(villain ? AVATAR_TWEAK[villain] : undefined) }
   return (
     <div
       className={`relative shrink-0 overflow-hidden rounded-full border-2 border-white/25 shadow-lg ${className ?? ''}`}

@@ -22,7 +22,6 @@ export const VILLAIN_COLOR: Record<string, string> = {
   gothel: '#564A3B',
   cruella: '#AA1D2E',
   gaston: '#7D3D00',
-  'seigneur-cles': '#303030',
   'madame-tremaine': '#48545F',
   'oogie-boogie': '#767E50',
   oogieBoogie: '#767E50',
@@ -42,8 +41,9 @@ export const VILLAIN_COLOR: Record<string, string> = {
   'la-bonne-fee': '#3F5A86',
   laBonneFee: '#3F5A86',
   thanos: '#4A2A6A',
-  // Le Flagelleur Mental (custom-flagelleur-mental) : couleur enregistrée au runtime
-  // par registerPublishedVillain (vilain de l'Atelier publié).
+  // Le Flagelleur Mental (custom-flagelleur-mental) et Le Seigneur des clés
+  // (custom-seigneur-cles) : couleur enregistrée au runtime par registerPublishedVillain
+  // (vilains de l'Atelier publiés).
 }
 
 /** Couleur du RECOUVREMENT des actions (voile posé sur la rangée du haut d'un lieu
