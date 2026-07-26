@@ -36,6 +36,7 @@ import {
   pushFloatingFx,
   pushRobinSteal,
   pushShowcase,
+  refillDeckIfEmpty,
   revealFate,
   syncRatiganObjectiveAll,
   updateActivePlayer,
@@ -5459,8 +5460,10 @@ function applyActivateCore(
   }
   if (card.cardId === 'grimoires-magiques') {
     // Grimoires magiques : regarde les 4 premières cartes de la pioche, en garde 1.
-    const top = me.deck.slice(0, 4)
-    let next = updateActivePlayer(state, (p) => ({ ...p, power: p.power - card.activatedCost!, deck: p.deck.slice(top.length) }))
+    // Pioche vide → reconstituée depuis la défausse (règle générale).
+    const refilled = refillDeckIfEmpty(state, state.activePlayer)
+    const top = refilled.players[state.activePlayer].deck.slice(0, 4)
+    let next = updateActivePlayer(refilled, (p) => ({ ...p, power: p.power - card.activatedCost!, deck: p.deck.slice(top.length) }))
     next = consumePersifleur(next, action)
     next = { ...next, usedActionIds: [...next.usedActionIds, actionId] }
     if (top.length === 0) {
@@ -6760,6 +6763,8 @@ function resolveConditionEffect(
     // Pat Hibulaire — Mauvais Coup : révèle les 2 dernières cartes de la pioche.
     // Le joueur en garde 1 en main, l'autre repart sur le dessus OU le dessous
     // (RESOLVE_MAUVAIS_COUP — modale pour l'humain, auto pour le bot). Net +1.
+    // Pioche vide → reconstituée depuis la défausse (règle générale).
+    next = refillDeckIfEmpty(next, playerIndex)
     const acting = next.players[playerIndex]
     const taken = acting.deck.slice(-2)
     if (taken.length === 0) {
@@ -12363,14 +12368,31 @@ function applyEndTurn(state: GameState): GameState {
   // gagnés au revenu ne comptent qu'au tour suivant, à confirmer).
   if (hasReachedObjective(started)) {
     const w = started.players[nextIdx]
-    const howMuch =
-      w.objective.type === 'CONFIANCE_THRESHOLD'
-        ? `${w.confiance ?? 0} Confiance`
-        : w.objective.type === 'PUPPY_THRESHOLD'
-          ? `${capturedPuppies(w)} Chiots`
-          : w.objective.type === 'SPIRIT_THRESHOLD'
-            ? `${w.spirits ?? 0} esprits`
-            : `${w.power} JT`
+    // Compteur de victoire, selon le TYPE d'objectif. Un objectif qui ne se compte pas
+    // (maudire ses lieux, réunir un bal…) n'affiche AUCUN compteur : afficher le Pouvoir
+    // par défaut était trompeur (« Slenderman l'emporte avec 12 JT » alors qu'il gagnait
+    // en réunissant ses 8 Pages).
+    const howMuch = ((): string | null => {
+      switch (w.objective.type) {
+        case 'POWER_THRESHOLD':
+          return `${w.power} JT`
+        case 'CONFIANCE_THRESHOLD':
+          return `${w.confiance ?? 0} Confiance`
+        case 'PUPPY_THRESHOLD':
+          return `${capturedPuppies(w)} Chiots`
+        case 'SPIRIT_THRESHOLD':
+          return `${w.spirits ?? 0} esprits`
+        case 'CARDS_IN_REALM': {
+          // Nom de la carte réunie (Page…), pris sur une des copies posées.
+          const cardId = w.objective.cardId
+          const posed = Object.values(w.board).flat().filter((c) => c.cardId === cardId)
+          const label = posed[0]?.name ?? cardId
+          return `${posed.length} ${plural(posed.length, label)}`
+        }
+        default:
+          return null
+      }
+    })()
     return {
       ...started,
       status: 'WON',
@@ -12378,7 +12400,7 @@ function applyEndTurn(state: GameState): GameState {
       // Partie terminée : on ferme les choix INTERACTIFS en attente (Renfort / Choc des Titans).
       pendingCombattantChoices: [],
       pendingChocTitans: null,
-      log: [...started.log, `🏆 ${w.villainName} l'emporte avec ${howMuch} !`],
+      log: [...started.log, howMuch ? `🏆 ${w.villainName} l'emporte avec ${howMuch} !` : `🏆 ${w.villainName} l'emporte !`],
     }
   }
 

@@ -8,7 +8,7 @@ import { laBonneFee } from '../../data/villains/la-bonne-fee'
 import { laBonneFeeCards } from '../../data/villains/la-bonne-fee.cards'
 import { princeJohn } from '../../data/villains/princeJohn'
 import { princeJohnCards } from '../../data/villains/princeJohn.cards'
-import { chooseAction } from '../../ai/heuristicBot'
+import { chooseAction, pickBestPendingAction } from '../../ai/heuristicBot'
 import type { CardInstance, GameState } from '../types'
 import { me, withActive } from './_helpers'
 
@@ -277,6 +277,28 @@ describe('La Bonne Fée — effets inédits divers', () => {
 })
 
 describe('La Bonne Fée — IA', () => {
+  it('déplacement de Héros : le bot envoie Fiona en Salle de Bal (aucune action recouverte)', () => {
+    let s = createInitialGame(
+      [
+        { villain: laBonneFee, deckCards: buildDeckInstances(laBonneFeeCards, 'villain', 'p0:'), fateCards: buildDeckInstances(laBonneFeeCards, 'fate', 'p0f:') },
+        { villain: { ...princeJohn, name: 'PJ' }, deckCards: buildDeckInstances(princeJohnCards, 'villain', 'p1:'), fateCards: buildDeckInstances(princeJohnCards, 'fate', 'p1f:') },
+      ],
+      7,
+    )
+    // Fiona à l'Usine de Potions : voisins = La Pomme Empoisonnée (2 actions en haut,
+    // recouvertes) et Salle de Bal (rangée du haut vide + lieu de l'objectif).
+    s = {
+      ...s,
+      players: [
+        { ...s.players[0], board: { ...s.players[0].board, 'usine-potions': [hero('f', 'fiona', 3)] } },
+        s.players[1],
+      ],
+      pendingHeroRelocate: { chooserIndex: 0, targetIndex: 0 } as never,
+    }
+    const best = pickBestPendingAction(s, 0)
+    expect(best).toMatchObject({ type: 'RESOLVE_HERO_RELOCATE', heroInstanceId: 'f', to: 'salle-de-bal' })
+  })
+
   it('le bot joue La Bonne Fée sans blocage ni exception sur plusieurs tours', () => {
     let s = createInitialGame(
       [

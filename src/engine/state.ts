@@ -13,6 +13,7 @@ import type {
   VillainDef,
 } from './types'
 import { shuffle, nextRandom } from './rng'
+import { plural } from './plural'
 import { KEY_COLORS, type KeyColor } from './types'
 import { TREASURE_IDS } from './davyJones'
 
@@ -359,6 +360,28 @@ export function drawPlayerToLimit(
   }
 
   return { player: { ...player, deck, hand, discard }, rngState: s, drawn }
+}
+
+/**
+ * Règle générale : une pioche Méchant VIDE se reconstitue en mélangeant la défausse
+ * dedans. La pioche de cartes le fait déjà au fil de l'eau (`drawPlayerToLimit`,
+ * `revealFate`…) ; ce helper sert aux effets qui LISENT la pioche sans piocher
+ * (dévoiler le dessus / le dessous, réorganiser…) et qui, sinon, ne feraient rien.
+ * Sans défausse à mélanger (ni pioche), l'état est renvoyé inchangé.
+ */
+export function refillDeckIfEmpty(state: GameState, playerIndex: number): GameState {
+  const p = state.players[playerIndex]
+  if (p.deck.length > 0 || p.discard.length === 0) return state
+  const r = shuffle(p.discard, state.rngState)
+  const next = updatePlayer(state, playerIndex, (pl) => ({ ...pl, deck: r.result, discard: [] }))
+  return {
+    ...next,
+    rngState: r.state,
+    log: [
+      ...next.log,
+      `${p.villainName} : pioche vide → sa défausse (${r.result.length} ${plural(r.result.length, 'carte')}) est mélangée pour former une nouvelle pioche.`,
+    ],
+  }
 }
 
 /** Complète la main du JOUEUR ACTIF jusqu'à sa limite (fin de tour). */

@@ -143,7 +143,7 @@ import { GameTimer } from './components/GameTimer'
 import { TurnSplash } from './components/TurnSplash'
 import { BackgroundAnimation } from './components/BackgroundAnimation'
 import { VillainDecor } from './components/VillainDecor'
-import { objectiveScore, pickRecoverCandidate } from '../ai/heuristicBot'
+import { objectiveScore, pickBestPendingAction, pickRecoverCandidate } from '../ai/heuristicBot'
 import { objectiveCriticalCardIds } from '../ai/enumerate'
 import { VILLAIN_STRATEGY } from '../ai/villainStrategy'
 import { villainAnimation } from './villainAnimations'
@@ -4221,30 +4221,17 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     const phr = state.pendingHeroRelocate
     if (phr) {
       if (seats[phr.chooserIndex] === 'bot') {
-        const tgt = state.players[phr.targetIndex]
-        const ids = tgt.locations.map((l) => l.id)
-        const locked = new Set(tgt.lockedLocations ?? [])
-        for (const loc of tgt.locations) {
-          const hero = (tgt.board[loc.id] ?? []).find(
-            (c) => c.type === 'hero' && !c.cannotBeMoved && (!phr.candidateIds || phr.candidateIds.includes(c.instanceId)),
-          )
-          if (hero) {
-            const i = ids.indexOf(loc.id)
-            const cands = phr.forcedLocationId !== undefined
-              ? [phr.forcedLocationId].filter((id): id is string => !!id && !locked.has(id))
-              : phr.forcedDirection !== undefined
-              ? [ids[i + phr.forcedDirection]].filter((id): id is string => !!id && !locked.has(id))
-              : phr.anyLocation
-                ? ids.filter((id) => id !== loc.id && !locked.has(id))
-                : [ids[i - 1], ids[i + 1]].filter((id): id is string => !!id && !locked.has(id))
-            const to = cands[0]
-            if (to) {
-              const timer = setTimeout(() => resolveHeroRelocate(hero.instanceId, to), BOT_STEP_MS)
-              return () => clearTimeout(timer)
-            }
-          }
+        // Le bot ÉVALUE les (Héros × destination) énumérés au lieu de prendre le premier
+        // venu (il poussait le Héros vers le voisin de GAUCHE, même quand le voisin de
+        // droite ne lui coûtait aucune action — Salle de Bal chez La Bonne Fée).
+        const best = pickBestPendingAction(state, phr.chooserIndex)
+        if (best?.type === 'RESOLVE_HERO_RELOCATE') {
+          const { heroInstanceId, to } = best
+          const timer = setTimeout(() => resolveHeroRelocate(heroInstanceId, to), BOT_STEP_MS)
+          return () => clearTimeout(timer)
         }
-        // Facultatif (Poupées vaudou) et aucun Héros déplaçable → décliner.
+        // Facultatif (Poupées vaudou) : décliner si c'est le meilleur coup — ou s'il n'y a
+        // aucun Héros déplaçable.
         if (phr.optional) {
           const timer = setTimeout(() => skipHeroRelocate(), BOT_STEP_MS)
           return () => clearTimeout(timer)

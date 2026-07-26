@@ -187,26 +187,31 @@
         "joueur": {
           "rating": "presque-bien",
           "games": 1,
-          "comment": ""
+          "comment": "",
+          "journalChecked": false
         },
         "bot": {
-          "rating": "non-teste",
-          "games": 0,
-          "comment": ""
+          "rating": "a-ameliorer",
+          "games": 1,
+          "comment": "pas assez agressif envers slenderman",
+          "journalChecked": false
         }
       },
       "alexis": {
         "joueur": {
           "rating": "non-teste",
           "games": 0,
-          "comment": ""
+          "comment": "",
+          "journalChecked": false
         },
         "bot": {
           "rating": "non-teste",
           "games": 0,
-          "comment": ""
+          "comment": "",
+          "journalChecked": false
         }
-      }
+      },
+      "validatedCards": []
     },
     "custom-mrl4fb45": {
       "jules": {
@@ -1273,8 +1278,8 @@
     "slenderman": {
       "jules": {
         "joueur": {
-          "rating": "non-teste",
-          "games": 0,
+          "rating": "presque-bien",
+          "games": 1,
           "comment": "",
           "journalChecked": false
         },
@@ -1301,7 +1306,10 @@
       },
       "validatedCards": [
         "dessin-inquietant",
-        "enfant-perdu"
+        "enfant-perdu",
+        "tombee-de-la-nuit",
+        "observation",
+        "page"
       ]
     },
     "imposteur": {

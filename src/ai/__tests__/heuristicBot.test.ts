@@ -64,17 +64,28 @@ describe('heuristicBot', () => {
   })
 
   it('la recherche de tour valorise Fatalité (place un Héros chez l’adversaire)', () => {
-    // Pion à Sherwood (Fatalité ET Gagner 1 pouvoir dispo), main vide. La
-    // recherche de tour résout le pendingFate et voit le Héros atterrir dans le
-    // royaume adverse (pénalisant pour lui) → préfère Fatalité au +1 pouvoir.
-    // Un greedy 1-ply ne le verrait pas (Fatalité ne change pas l'éval immédiate :
-    // elle ne fait que créer un pendingFate). C'est l'apport de la profondeur.
+    // Pion à Sherwood (Fatalité ET Gagner 1 pouvoir dispo), main vide. La recherche de
+    // tour résout le pendingFate et voit le Héros atterrir dans le royaume adverse
+    // (pénalisant pour lui) → la Fatalité est jouée DANS le tour. Un greedy 1-ply ne le
+    // verrait pas (Fatalité ne change pas l'éval immédiate : elle ne fait que créer un
+    // pendingFate). C'est l'apport de la profondeur.
+    // NB : les deux actions du lieu étant utilisables dans le même tour, l'ORDRE entre
+    // « Gagner 1 » et « Fatalité » est indifférent (mêmes positions finales, donc ex æquo
+    // tranché au hasard) — on vérifie donc que la Fatalité est jouée, pas qu'elle passe
+    // en premier.
     let s = { ...twoPlayerGame(3), phase: 'MOVE' as const }
     s = { ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, pawnLocation: 'nottingham' } : p)) }
     s = applyAction(s, { type: 'MOVE', to: 'sherwood' })
     s = { ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, hand: [] } : p)) }
-    const action = chooseAction(s, seededRand(1))
-    expect(action.type).toBe('FATE')
+    const rand = seededRand(1)
+    const played: string[] = []
+    for (let k = 0; k < 6 && s.status === 'PLAYING' && s.activePlayer === 0; k++) {
+      const a = chooseAction(s, rand)
+      played.push(a.type)
+      if (a.type === 'END_TURN') break
+      s = applyAction(s, a)
+    }
+    expect(played).toContain('FATE')
   })
 
   it('la partie heuristique vs heuristique converge vers une victoire', () => {

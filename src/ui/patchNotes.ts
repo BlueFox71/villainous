@@ -76,6 +76,11 @@ export const PATCH_NOTES: PatchNote[] = [
       "**Souffre douleur** (Le Seigneur des clés) : la force du Héros est réduite à 0 **définitivement**, et plus seulement jusqu'à la fin du tour. Le journal ne parle plus du **Talon d'Achille** d'Hadès.",
       "Correctif : sur le plateau du **Seigneur des clés**, **Déplacer un héros** passe dans la **rangée du bas** de la **Fosse commune** (avec Éliminer un héros et Gagner 1 Pouvoir), et les trois boutons sont enfin **posés sur les bonnes icônes**.",
       "**Hellin** bloque 3 actions au lieu de 2 : la **troisième** (première action du bas) est maintenant **marquée sur le plateau** — on ne devinait plus laquelle était perdue.",
+      "**Pioche vide** : la défausse est **mélangée** pour former une nouvelle pioche même quand une carte ne fait que **regarder** la pioche — **Retourne-toi**, **Lumière mourrante**, **Vanité**, **Grimoires magiques**, **Mauvais Coup** ne restaient plus sans effet.",
+      "**Bot** : quand il déplace un Héros, il **choisit vraiment** le lieu (il poussait toujours vers le voisin de gauche). La Bonne Fée envoie enfin Fiona en **Salle de Bal**, où aucun Héros ne bloque d'action.",
+      "**Bot** : il **attaque en Fatalité** quand ça compte. La valeur d'une Fatalité n'apparaît qu'à sa résolution (le Héros posé), et la recherche l'écartait avant d'y arriver — une Page volée à **Slenderman** ne pesait rien.",
+      "Journal : un Héros déplacé annonce le **nom du lieu** (« rejoint **La Pomme Empoisonnée** ») au lieu d'un identifiant technique.",
+      "Journal : la victoire annonce le **bon compteur** — Slenderman l'emporte avec ses **8 Pages**, plus « 12 JT ».",
     ],
   },
   {

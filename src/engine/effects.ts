@@ -12,7 +12,7 @@
 // =============================================================================
 
 import type { CardInstance, CardType, Crewmate, CurseDiscardTrigger, DiceOutcome, Effect, FighterColor, GameState, LocationId, PlayerState } from './types'
-import { activePlayer, dioPowerFactor, drawPlayerToLimit, findLocation, pushDiscardShowcase, pushFloatingFx, pushRevealShowcase, pushRobinSteal, pushScryDiscardShowcase, pushShowcase, revealFate, syncObservatoryLock, updateActivePlayer, updatePlayer } from './state'
+import { activePlayer, dioPowerFactor, drawPlayerToLimit, findLocation, refillDeckIfEmpty, pushDiscardShowcase, pushFloatingFx, pushRevealShowcase, pushRobinSteal, pushScryDiscardShowcase, pushShowcase, revealFate, syncObservatoryLock, updateActivePlayer, updatePlayer } from './state'
 import { neighborLocIds, placeCrewmateAt } from './crewmates'
 import { startRace, advanceRacer, advanceRacerByReveal, moveRacerBack, moveKingCandyTrack, vanellopeInstance, cardLocationIds } from './kingCandy'
 import { noFireInRealm as shereKhanNoFire, placeFire, removeFire, fireOnLocation, fireFreeActions, listFire } from './shereKhan'
@@ -5670,7 +5670,7 @@ export function resolveEffect(
         }
       }
       if (from === dest) {
-        return { ...state, log: [...state.log, `**${hero.name}** est déjà à ${dest}.`] }
+        return { ...state, log: [...state.log, `**${hero.name}** est déjà sur **${locName(actor, dest)}**.`] }
       }
       // Le Héros se déplace AVEC ses Objets associés (Pacte, Trident, Objets Fatalité).
       const carried = (actor.board[from] ?? []).filter((c) => c.attachedTo === target)
@@ -5685,9 +5685,10 @@ export function resolveEffect(
       }))
       next = {
         ...next,
-        // Journal data-driven : expose le Héros déplacé ({nomHéros}, ex. Emprisonnement).
-        journalVars: { ...next.journalVars, ['nomHéros']: hero.name },
-        log: [...next.log, `**${hero.name}** est déplacé(e) sur **${dest}**.`],
+        // Journal data-driven : expose le Héros déplacé ({nomHéros}, ex. Emprisonnement)
+        // et son lieu d'arrivée ({nomLieu}).
+        journalVars: { ...next.journalVars, ['nomHéros']: hero.name, ['nomLieu']: locName(next.players[idx], dest) },
+        log: [...next.log, `**${hero.name}** rejoint **${locName(next.players[idx], dest)}**.`],
       }
       // Davy Jones — Will Turner : « joué OU déplacé » → défausse un Allié de force ≤ 2 de
       // son NOUVEAU lieu (le cas « joué » est géré par onPlace).
@@ -5950,17 +5951,18 @@ export function resolveEffect(
     }
     case 'PEEK_BOTTOM_THEN_CHOOSE': {
       // Retourne-toi : révèle la dernière carte de la pioche de l'acteur et met
-      // l'état en attente d'un choix (RESOLVE_DECK_PEEK). Si la pioche est vide,
-      // rien à révéler → no-op.
-      const actor = state.players[idx]
+      // l'état en attente d'un choix (RESOLVE_DECK_PEEK). Pioche vide → on la
+      // reconstitue d'abord depuis la défausse (règle générale).
+      const refilled = refillDeckIfEmpty(state, idx)
+      const actor = refilled.players[idx]
       if (actor.deck.length === 0) {
-        return { ...state, log: [...state.log, `${actor.villainName} : pioche vide, rien à révéler (Retourne-toi).`] }
+        return { ...refilled, log: [...refilled.log, `${actor.villainName} : pioche vide, rien à révéler (Retourne-toi).`] }
       }
       const bottom = actor.deck[actor.deck.length - 1]
       return {
-        ...state,
+        ...refilled,
         pendingDeckPeek: { playerIndex: idx, card: bottom },
-        log: [...state.log, `${actor.villainName} regarde la dernière carte de sa pioche (Retourne-toi).`],
+        log: [...refilled.log, `${actor.villainName} regarde la dernière carte de sa pioche (Retourne-toi).`],
       }
     }
     case 'RESHUFFLE_DISCARD_AND_DRAW': {
@@ -9525,14 +9527,16 @@ export function resolveEffect(
       }
     }
     case 'SCRY_OWN_DECK': {
-      const actor = state.players[idx]
-      if (actor.deck.length < 2) return state
+      // Pioche vide → reconstituée depuis la défausse avant de réorganiser.
+      const refilled = refillDeckIfEmpty(state, idx)
+      const actor = refilled.players[idx]
+      if (actor.deck.length < 2) return refilled
       const top = actor.deck.slice(0, effect.count)
       const rest = actor.deck.slice(effect.count)
       const rank = (c: CardInstance) =>
         c.cardId === 'miroir-magique' ? 5 : c.type === 'ingredient' ? 4 : c.cardId === 'croque' ? 3 : c.type === 'item' ? 2 : 1
       const ordered = [...top].sort((a, b) => rank(b) - rank(a))
-      const next = updatePlayer(state, idx, (p) => ({ ...p, deck: [...ordered, ...rest] }))
+      const next = updatePlayer(refilled, idx, (p) => ({ ...p, deck: [...ordered, ...rest] }))
       return { ...next, log: [...next.log, `Vanité : ${actor.villainName} réorganise le dessus de sa pioche.`] }
     }
     case 'GRANT_REPEAT_ACTION': {
@@ -11393,15 +11397,16 @@ export function resolveEffect(
     }
     case 'LOOK_BOTTOM_DRAW': {
       // Lumière mourrante : révèle les `count` DERNIÈRES cartes de la pioche, garde 1 en main
-      // (pendingLookTop), défausse les autres.
-      const actor = state.players[idx]
+      // (pendingLookTop), défausse les autres. Pioche vide → reconstituée depuis la défausse.
+      const refilled = refillDeckIfEmpty(state, idx)
+      const actor = refilled.players[idx]
       if (actor.deck.length === 0) {
-        return { ...state, log: [...state.log, `${actor.villainName} : pioche vide (Lumière mourrante).`] }
+        return { ...refilled, log: [...refilled.log, `${actor.villainName} : pioche vide (Lumière mourrante).`] }
       }
       const n = Math.min(effect.count, actor.deck.length)
       const bottom = actor.deck.slice(actor.deck.length - n)
       const rest = actor.deck.slice(0, actor.deck.length - n)
-      const next = updatePlayer(state, idx, (p) => ({ ...p, deck: rest }))
+      const next = updatePlayer(refilled, idx, (p) => ({ ...p, deck: rest }))
       return {
         ...next,
         pendingLookTop: { playerIndex: idx, cards: bottom, take: 1, title: 'Lumière mourrante', offerTopOrDiscard: true },

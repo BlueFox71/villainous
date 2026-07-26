@@ -34,9 +34,19 @@ describe('Retourne-toi — PEEK_BOTTOM_THEN_CHOOSE / RESOLVE_DECK_PEEK', () => {
     expect(s.pendingDeckPeek).toBeNull()
   })
 
-  it('pioche vide : aucun choix en attente', () => {
-    const base = withActive(singleGame(), { deck: [], hand: [] })
+  it('pioche vide ET défausse vide : aucun choix en attente', () => {
+    const base = withActive(singleGame(), { deck: [], discard: [], hand: [] })
     const next = resolveEffect(base, { type: 'PEEK_BOTTOM_THEN_CHOOSE' })
     expect(next.pendingDeckPeek ?? null).toBeNull()
+  })
+
+  it('pioche vide : la défausse est mélangée pour former une nouvelle pioche', () => {
+    const base = withActive(singleGame(), { deck: [], discard: [card('A'), card('B')], hand: [] })
+    const next = resolveEffect(base, { type: 'PEEK_BOTTOM_THEN_CHOOSE' })
+    expect(me(next).discard).toHaveLength(0)
+    expect(me(next).deck).toHaveLength(2)
+    // La carte révélée est bien la dernière de la NOUVELLE pioche.
+    expect(next.pendingDeckPeek?.card.instanceId).toBe(me(next).deck[1].instanceId)
+    expect(next.log.some((l) => l.includes('pioche vide → sa défausse'))).toBe(true)
   })
 })

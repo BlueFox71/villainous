@@ -1439,6 +1439,39 @@ function turnEnded(state: GameState, idx: number): boolean {
 }
 
 /**
+ * Éval de PRÉ-TRI d'un état issu d'un coup. Un coup qui ne fait qu'OUVRIR un choix
+ * s'évalue à ZÉRO : la Fatalité dévoile 2 cartes, toute sa valeur n'apparaît qu'à la
+ * RÉSOLUTION (le Héros posé chez l'adversaire). Le beam (et le pré-tri du 1ᵉʳ coup)
+ * élaguaient donc systématiquement la Fatalité derrière n'importe quel coup à gain
+ * immédiat — le bot ne voyait jamais qu'une Fatalité peut coûter une Page à Slenderman
+ * (mesuré : Fatalité = 0 au pré-tri, +129 après résolution).
+ *
+ * On regarde donc UNE résolution plus loin quand l'état laisse un choix que CE joueur
+ * contrôle, et on retient la MEILLEURE (c'est lui qui choisira). Générique : ne dépend
+ * d'aucun vilain. Coût borné (≈ 2 à 10 `applyAction` par Fatalité candidate).
+ *
+ * Exporté pour les tests.
+ */
+export function lookaheadScore(next: GameState, idx: number, w: EvalWeights = DEFAULT_WEIGHTS, budget?: Budget): number {
+  // Seule la Fatalité est systématiquement en 2 temps (FATE → RESOLVE_FATE) et
+  // toujours résolue par le joueur qui l'a lancée.
+  if (!next.pendingFate || next.activePlayer !== idx) return evaluate(next, idx, w)
+  let best = -Infinity
+  for (const r of enumerateActions(next)) {
+    if (budget && budget.n <= 0) break
+    try {
+      const after = applyAction(next, r)
+      if (budget) budget.n--
+      const v = evaluate(after, idx, w)
+      if (v > best) best = v
+    } catch {
+      continue
+    }
+  }
+  return best === -Infinity ? evaluate(next, idx, w) : best
+}
+
+/**
  * Meilleure éval de fin de tour atteignable depuis `state` (c'est encore au bot
  * de jouer). Beam search borné par `budget`. Si le budget est épuisé, on retombe
  * sur l'éval statique de la position courante.
@@ -1455,7 +1488,7 @@ function bestTurnScore(state: GameState, idx: number, budget: Budget, w: EvalWei
       continue
     }
     budget.n--
-    scored.push({ next, imm: evaluate(next, idx, w) })
+    scored.push({ next, imm: lookaheadScore(next, idx, w, budget) })
   }
   if (scored.length === 0) return evaluate(state, idx, w)
   scored.sort((x, y) => y.imm - x.imm)
@@ -1574,7 +1607,9 @@ export function chooseAction(
     } catch {
       next = null
     }
-    scored.push({ action, next, imm: next ? evaluate(next, idx, w) : -Infinity })
+    // Pré-tri : même lookahead que le beam, sinon une Fatalité (valeur nulle avant
+    // résolution) resterait derrière tout coup à gain immédiat.
+    scored.push({ action, next, imm: next ? lookaheadScore(next, idx, w) : -Infinity })
   }
   scored.sort((x, y) => y.imm - x.imm)
 
@@ -1609,6 +1644,38 @@ export function chooseAction(
     if (trim) return trim
   }
   return chosen
+}
+
+/**
+ * Choix du bot pour un PENDING dont il est le chooseur : la meilleure des actions
+ * énumérées, évaluée **du point de vue de `chooserIndex`** (le pending peut appartenir
+ * à un bot NON actif — `chooseAction` évaluerait alors du mauvais côté).
+ *
+ * Sert aux auto-résolutions de l'UI (App.tsx) qui, sinon, prendraient le 1ᵉʳ choix venu :
+ * déplacer un Héros vers le lieu voisin où il gêne le moins (et, chez La Bonne Fée,
+ * rapproche Fiona de la Salle de Bal) plutôt que vers le voisin de gauche par défaut.
+ * Renvoie null si aucune action n'est applicable.
+ */
+export function pickBestPendingAction(
+  state: GameState,
+  chooserIndex: number,
+  w: EvalWeights = DEFAULT_WEIGHTS,
+): GameAction | null {
+  let best: GameAction | null = null
+  let bestScore = -Infinity
+  for (const action of enumerateActions(state)) {
+    let sc: number
+    try {
+      sc = evaluate(applyAction(state, action), chooserIndex, w)
+    } catch {
+      continue // coup refusé par le moteur : on l'ignore
+    }
+    if (sc > bestScore) {
+      bestScore = sc
+      best = action
+    }
+  }
+  return best
 }
 
 /** Coup de défausse de l'EXCÉDENT de main du bot (au-delà de sa limite), ou null si
