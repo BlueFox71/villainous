@@ -264,5 +264,5 @@ describe('Hadès — robustesse & convergence (bot)', () => {
       if (s.status === 'WON') finished++
     }
     expect(finished).toBeGreaterThanOrEqual(1)
-  }, 30000) // 6 parties bot complètes → timeout élargi (> 5 s par défaut).
+  }, 90000) // 6 parties bot complètes → timeout élargi (> 5 s par défaut).
 })

@@ -574,22 +574,36 @@ export function objectiveScore(p: PlayerState): number {
       return targetLocked ? base * 0.6 : base
     }
     case 'UNTRAPPED_TITANS_AT_LOCATION': {
-      // Hadès : récompense les Titans non entravés, davantage à mesure qu'ils se
-      // rapprochent du Mont Olympe (plein score sur le lieu cible). Guide le bot à
-      // jouer puis pousser ses Titans vers l'objectif.
+      // Hadès : 3 Titans non entravés sur le Mont Olympe. Un Titan ne se pose QUE sur Les
+      // Enfers (`playOnlyAt`), à l'autre bout du plateau, puis se pousse d'un lieu à la
+      // fois. L'ancienne jauge valait 0 pour un Titan aux Enfers : POSER un Titan ne
+      // rapportait donc rien (juste son coût), et le bot n'amorçait jamais sa mécanique.
+      // Jauge (par Titan, moyenne sur `count`) :
+      //   • en jeu et non entravé, où que ce soit : 0,3 (le prérequis est acquis)
+      //   • + jusqu'à 0,4 selon sa progression vers le lieu cible
+      //   • sur le lieu cible : 1
+      //   • entravé : 0,1 (il faut le désentraver — Pyros, Alignement des planètes)
+      // On ne retient que les `count` MEILLEURS Titans : sinon aligner ses 5 Titans loin
+      // du Mont Olympe afficherait une jauge quasi pleine (et le bot, se croyant au but,
+      // n'allait plus au bout — parties interminables en self-play).
       const obj = p.objective
       const order = p.locations.map((l) => l.id)
       const targetIdx = order.indexOf(obj.locationId)
-      let score = 0
+      const perTitan: number[] = []
       for (const l of p.locations) {
         const li = order.indexOf(l.id)
         for (const c of p.board[l.id] ?? []) {
-          if (!c.isTitan || c.trapped) continue
-          if (l.id === obj.locationId) score += 1
-          else score += 0.6 * (targetIdx > 0 ? Math.max(0, 1 - Math.abs(li - targetIdx) / targetIdx) : 0)
+          if (!c.isTitan) continue
+          if (c.trapped) perTitan.push(0.1)
+          else if (l.id === obj.locationId) perTitan.push(1)
+          else {
+            const closeness = targetIdx > 0 ? Math.max(0, 1 - Math.abs(li - targetIdx) / targetIdx) : 0
+            perTitan.push(0.3 + 0.4 * closeness)
+          }
         }
       }
-      return Math.min(1, score / obj.count)
+      const best = perTitan.sort((a, b) => b - a).slice(0, obj.count)
+      return Math.min(1, best.reduce((s, v) => s + v, 0) / obj.count)
     }
     case 'REIGN_NEW_ORLEANS': {
       // Dr Facilier : récompense la mise en place de la victoire — détenir le
@@ -1453,9 +1467,14 @@ function turnEnded(state: GameState, idx: number): boolean {
  * Exporté pour les tests.
  */
 export function lookaheadScore(next: GameState, idx: number, w: EvalWeights = DEFAULT_WEIGHTS, budget?: Budget): number {
-  // Seule la Fatalité est systématiquement en 2 temps (FATE → RESOLVE_FATE) et
-  // toujours résolue par le joueur qui l'a lancée.
-  if (!next.pendingFate || next.activePlayer !== idx) return evaluate(next, idx, w)
+  // Choix en 2 temps résolus par CE joueur (sinon c'est l'adversaire qui choisirait, et
+  // prendre le maximum serait faux) : la Fatalité (FATE → RESOLVE_FATE) et le
+  // désentravement de Titans (Alignement des planètes — Hadès n'y voyait aucun gain,
+  // il défaussait la carte).
+  const mine =
+    (!!next.pendingFate && next.activePlayer === idx) ||
+    next.pendingUntrapTitans?.playerIndex === idx
+  if (!mine) return evaluate(next, idx, w)
   let best = -Infinity
   for (const r of enumerateActions(next)) {
     if (budget && budget.n <= 0) break

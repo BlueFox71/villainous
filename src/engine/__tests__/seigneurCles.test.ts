@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { createInitialGame } from '../state'
 import { applyAction } from '../actions'
-import { hasReachedObjective, ownedKeyColors, holdsBlackKey, effectiveStrength, coveredTopActionIdsAt } from '../rules'
+import { hasReachedObjective, ownedKeyColors, holdsBlackKey, effectiveStrength, coveredTopActionIdsAt, getAvailableActions } from '../rules'
 import { resolveEffects } from '../effects'
 import { seigneurCles } from '../../data/villains/seigneurCles'
 import { seigneurClesCards } from '../../data/villains/seigneurCles.cards'
@@ -271,6 +271,50 @@ describe('Le Seigneur des clés — Souffre douleur (force réduite à 0)', () =
     expect(line).not.toContain('fin du tour')
     expect(line).not.toContain('Talon d’Achille')
     expect(line).not.toContain("Talon d'Achille")
+  })
+})
+
+describe('Le Seigneur des clés — Carte Temps (refaire une action)', () => {
+  /** Partie en phase ACTION, pion à la Crypte, l'action `used` déjà jouée ce tour. */
+  const atCrypte = (used: string, flags: Partial<GameState['players'][number]> = {}): GameState => {
+    const s = game()
+    return {
+      ...s,
+      phase: 'ACTION',
+      usedActionIds: [used],
+      players: [{ ...s.players[0], pawnLocation: 'crypte', ...flags }],
+    }
+  }
+
+  it('sans le drapeau, une action déjà jouée reste indisponible', () => {
+    const ids = getAvailableActions(atCrypte('obtain-key')).map((a) => a.id)
+    expect(ids).not.toContain('obtain-key')
+  })
+
+  it('Carte Temps rend « Obtenir une clé » de nouveau disponible', () => {
+    const ids = getAvailableActions(atCrypte('obtain-key', { repeatActionAvailable: true })).map((a) => a.id)
+    expect(ids).toContain('obtain-key')
+  })
+
+  it('Noir de nuit (exceptFate) ne rend PAS la Fatalité rejouable, mais bien les autres', () => {
+    const s = game()
+    const base: GameState = {
+      ...s,
+      phase: 'ACTION',
+      usedActionIds: ['fate', 'play-card'],
+      players: [{ ...s.players[0], pawnLocation: 'cimetiere', repeatActionAvailable: true, repeatActionNoFate: true }],
+    }
+    const ids = getAvailableActions(base).map((a) => a.id)
+    expect(ids).not.toContain('fate')
+    expect(ids).toContain('play-card')
+  })
+
+  it('le drapeau se consomme sur la SECONDE utilisation (une seule répétition)', () => {
+    let s = atCrypte('gain-power', { repeatActionAvailable: true, power: 0 })
+    s = applyAction(s, { type: 'EXECUTE_ACTION', actionId: 'gain-power' })
+    expect(s.players[0].repeatActionAvailable).toBe(false)
+    expect(getAvailableActions(s).map((a) => a.id)).not.toContain('gain-power')
+    expect(s.log.some((l) => /refait une action de son lieu/.test(l))).toBe(true)
   })
 })
 

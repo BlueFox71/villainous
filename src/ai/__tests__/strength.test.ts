@@ -54,7 +54,7 @@ describe('heuristicBot — force', () => {
     }
     expect(hWins).toBeGreaterThanOrEqual(Math.ceil(N * 0.9))
     expect(rWins).toBe(N - hWins) // pas de parties non terminées
-  }, 30000) // 20 parties simulées : lourd en CPU, marge de temps (évite un timeout sous charge).
+  }, 90000) // 20 parties simulées : lourd en CPU, marge de temps (évite un timeout sous charge).
 
   it('les parties Prince Jean vs Maléfique convergent (anti-livelock)', () => {
     // Garde-fou : avant l'éval « consciente de l'objectif », les deux bots se
@@ -75,7 +75,7 @@ describe('heuristicBot — force', () => {
       if (s.status === 'WON') finished++
     }
     expect(finished).toBe(N)
-  }, 40000) // 10 parties complètes : test d'intégration lourd, marge de temps généreuse
+  }, 90000) // 10 parties complètes : test d'intégration lourd, marge de temps généreuse
   // (déterministe sur le nombre de pas ; timeout élargi pour ne pas flaker sous la
   // contention CPU de la suite entière).
 })

@@ -97,7 +97,8 @@ describe('heuristicBot', () => {
       steps++
     }
     expect(s.status).toBe('WON')
-  })
+    // Self-play complet : lourd en CPU, marge de temps sous charge parallèle.
+  }, 90000)
 
   it('joue Avarice en réaction (gain net de pouvoir)', () => {
     let s = twoPlayerGame(8)

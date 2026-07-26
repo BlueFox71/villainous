@@ -23,7 +23,8 @@ import type {
 } from '../../data/customVillain'
 import { FATE_CARD_COLOR } from '../../data/customVillain'
 import { CardPreview } from './CardPreview'
-import { LogBlockView, type LogBlock } from '../components/GameLog'
+import { LogBlockView } from '../components/GameLog'
+import type { LogBlock } from '../components/gameLogBlocks'
 import { fillJournal, type JournalCtx } from '../../engine/journalTemplate'
 
 /** Texte affiché (et copié) quand une consigne n'a pas été rédigée. */

@@ -1268,8 +1268,9 @@ export type Effect =
   /** Manque de temps : défausse toute la main puis pioche `draw` cartes. */
   | { type: 'DISCARD_HAND_DRAW'; draw: number }
   /** Carte Temps : au PROCHAIN tour, une action pourra être effectuée 2 fois
-   *  (repeatActionNextTurn → repeatActionAvailable au début du tour). */
-  | { type: 'GRANT_REPEAT_ACTION_NEXT_TURN' }
+   *  (repeatActionNextTurn → repeatActionAvailable au début du tour). `exceptFate`
+   *  exclut l'action Fatalité (Carte Temps, elle, n'exclut RIEN). */
+  | { type: 'GRANT_REPEAT_ACTION_NEXT_TURN'; exceptFate?: boolean }
   /** Anne de Chantraine (à la pose) : la cible (le Seigneur) défausse toutes ses
    *  cartes en main du type `cardType`. */
   | { type: 'TARGET_DISCARD_ALL_OF_TYPE'; cardType: CardType }
@@ -1851,9 +1852,10 @@ export type Effect =
   /** La Méchante Reine — Vanité : réorganise les `count` premières cartes de sa
    *  pioche pour mettre la plus utile sur le dessus (auto). */
   | { type: 'SCRY_OWN_DECK'; count: number }
-  /** La Méchante Reine — Noir de nuit : autorise à refaire une action (hors
-   *  Fatalité) de son lieu ce tour-ci (drapeau repeatActionAvailable). */
-  | { type: 'GRANT_REPEAT_ACTION' }
+  /** La Méchante Reine — Noir de nuit : autorise à refaire une action de son lieu ce
+   *  tour-ci (drapeau repeatActionAvailable). `exceptFate` exclut l'action Fatalité
+   *  (le texte de Noir de nuit l'exclut ; Carte Temps, elle, n'exclut rien). */
+  | { type: 'GRANT_REPEAT_ACTION'; exceptFate?: boolean }
   /** Scar — Sarabi (Fatalité, à la pose) : défausse une Hyène sur le lieu de Sarabi
    *  (auto : la plus forte). */
   | { type: 'DISCARD_HYENA_AT_HOST' }
@@ -3263,6 +3265,10 @@ export interface PlayerState {
   /** Le Seigneur des clés — Carte Temps : au PROCHAIN tour, une action pourra être
    *  effectuée 2 fois (converti en repeatActionAvailable au début du tour). */
   repeatActionNextTurn?: boolean
+  /** Idem, mais l'action REJOUÉE ne peut pas être une Fatalité (Noir de nuit). */
+  repeatActionNoFate?: boolean
+  /** `repeatActionNoFate` à appliquer au début du prochain tour. */
+  repeatActionNextTurnNoFate?: boolean
   /** Le Seigneur des clés — Peste : plafond d'actions imposé au PROCHAIN tour de ce
    *  joueur (converti en `actionsCap` au début de son tour). */
   actionsCapNextTurn?: number

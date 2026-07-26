@@ -82,6 +82,10 @@ export const PATCH_NOTES: PatchNote[] = [
       "**Journal de partie** : les cartes de **Maléfique**, **Jafar**, **Ursula**, **Reine de Cœur** et **Capitaine Crochet** disent enfin ce qu'elles font, en nommant leur cible — « **Vœu** : +2 Force pour Aladdin », « **Pacte** : mener Ariel au Palais causera sa perte », « **Pas de Quartier !** : à l'abordage du Rocher du Crâne pour le Boucanier, +2 Force ».",
       "Journal : un Héros déplacé annonce le **nom du lieu** (« rejoint **La Pomme Empoisonnée** ») au lieu d'un identifiant technique.",
       "Journal : la victoire annonce le **bon compteur** — Slenderman l'emporte avec ses **8 Pages**, plus « 12 JT ».",
+      "**Carte Temps** permet de refaire **n'importe quelle** action du lieu — **Obtenir une clé**, Éliminer, Activer, Fatalité… Seule **Noir de nuit** exclut la Fatalité, comme son texte l'indique.",
+      "Journal : **« Obtenir une clé »** (et toute clé ramassée, reposée ou volée) forme son **propre bloc**, illustré par le **jeton de la clé** — c'était noyé dans le bloc précédent.",
+      "Journal : la pioche d'**Appel** (et de Bowser Jr., du Miroir magique) dit enfin **quelle carte** la déclenche, et s'affiche **après** l'annonce de la Fatalité.",
+      "**Bot Hadès** : il ne **défausse plus ses Titans** (ses cartes de victoire, en 1 seul exemplaire), pose enfin toute son écurie et **pousse ses Titans** vers le Mont Olympe. Il **désentrave** aussi ses Titans (Alignement des planètes) au lieu de jeter la carte.",
     ],
   },
   {

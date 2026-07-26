@@ -454,7 +454,6 @@ function applyExecuteAction(state: GameState, actionId: string, count?: number):
   }
   let next = resolveLocationAction(state, action, count)
   next = consumePersifleur(next, action)
-  next = consumeRepeatAction(next, actionId)
   return { ...next, usedActionIds: [...next.usedActionIds, actionId] }
 }
 
@@ -539,16 +538,23 @@ function applyResolveDestinChoice(state: GameState, choice: 'reveal' | 'power'):
     : resolveEffect(cleared, { type: 'GAIN_POWER', amount: 4 }, { actorIndex: idx })
 }
 
-/** La Méchante Reine — Noir de nuit : si l'action `actionId` est REJOUÉE (déjà dans
- *  usedActionIds) et que le drapeau « refaire une action » est armé, on le consomme.
- *  No-op pour tous les autres cas (drapeau jamais posé). */
-function consumeRepeatAction(state: GameState, actionId: string): GameState {
-  const me = activePlayer(state)
-  if (!me.repeatActionAvailable || !state.usedActionIds.includes(actionId)) return state
-  return {
-    ...updateActivePlayer(state, (p) => ({ ...p, repeatActionAvailable: false })),
-    log: [...state.log, `Noir de nuit : ${me.villainName} refait une action.`],
-  }
+/**
+ * Refaire une action (Noir de nuit, Carte Temps) — consommation GÉNÉRIQUE du drapeau.
+ * Si l'action porte un `actionId` DÉJÀ utilisé ce tour-ci et que le drapeau était armé
+ * avant, on le consomme (une seule répétition) et on le note au Journal. Vaut pour
+ * TOUTES les actions de lieu : l'ancienne liste blanche (Gagner / Jouer / Défausser /
+ * Poison) rendait « Obtenir une clé », « Éliminer », « Activer »… non rejouables.
+ */
+function consumeRepeatedAction(before: GameState, action: GameAction, core: GameState): GameState {
+  const aid = (action as { actionId?: string }).actionId
+  if (!aid) return core
+  const idx = before.activePlayer
+  const me = before.players[idx]
+  // ZA WARUDO! (Dio) a son propre suivi par lieu : `usedActionIds` n'y est pas le garde-fou.
+  if (!me?.repeatActionAvailable || me.zaWarudoActive) return core
+  if (!before.usedActionIds.includes(aid)) return core
+  const next = updatePlayer(core, idx, (p) => ({ ...p, repeatActionAvailable: false, repeatActionNoFate: false }))
+  return { ...next, log: [...next.log, `${me.villainName} refait une action de son lieu.`] }
 }
 
 /** Joue une carte de la main via une action « Jouer une carte » du lieu courant. */
@@ -1982,19 +1988,25 @@ function consumeDragonFormReward(state: GameState, targetIndex: number): GameSta
 function drawOnFateTargeted(state: GameState, targetIndex: number): GameState {
   let next = state
   const tgt0 = next.players[targetIndex]
-  const sources =
-    Object.values(tgt0.board).flat().filter((c) => c.type === 'ally' && c.cardId === 'bowser-jr').length +
-    Object.values(tgt0.board).flat().filter((c) => c.type === 'item' && c.cardId === 'miroir-magique' && !c.attachedTo).length +
-    // Le Seigneur des clés — Appel : pioche 1 carte par Appel posé (ciblé par une Fatalité).
-    Object.values(tgt0.board).flat().filter((c) => c.drawCardOnFateTargeted && !c.attachedTo).length
+  // Cartes SOURCES de la pioche (Bowser Jr., Miroir magique, ou tout Objet portant
+  // `drawCardOnFateTargeted` — Appel du Seigneur des clés). On garde leurs NOMS pour le
+  // Journal : sans eux, la ligne « pioche 1 carte » sortait de nulle part.
+  const sourceCards = Object.values(tgt0.board).flat().filter(
+    (c) =>
+      (c.type === 'ally' && c.cardId === 'bowser-jr') ||
+      (c.type === 'item' && c.cardId === 'miroir-magique' && !c.attachedTo) ||
+      (c.drawCardOnFateTargeted && !c.attachedTo),
+  )
+  const sources = sourceCards.length
   if (sources > 0) {
     const r = drawPlayerToLimitN(tgt0, next.rngState, sources)
     if (r.drawn > 0) {
       next = updatePlayer(next, targetIndex, () => r.player)
+      const why = [...new Set(sourceCards.map((c) => c.name))].join(', ')
       next = {
         ...next,
         rngState: r.rngState,
-        log: [...next.log, `${tgt0.villainName} pioche ${r.drawn} carte${r.drawn > 1 ? 's' : ''} (ciblé(e) par la Fatalité).`],
+        log: [...next.log, `${tgt0.villainName}, cible de la Fatalité, pioche ${r.drawn} ${plural(r.drawn, 'carte')} (**${why}**).`],
       }
     }
   }
@@ -2087,6 +2099,11 @@ function applyFate(state: GameState, actionId: string): GameState {
     let next = updatePlayer(state, target, () => ({ ...r.player, fateDiscard: [...r.player.fateDiscard, ...others] }))
     next = consumeDragonFormReward(next, target)
     next = consumePersifleur(next, action)
+    // Annonce d'abord, conséquences pour la cible ensuite (cf. plus bas).
+    next = {
+      ...next,
+      log: [...next.log, `${me.villainName} lance la Fatalité : **${ppAny.name}** est dévoilé et doit être joué d'office — choisissez son lieu chez ${tgt.villainName}.`],
+    }
     next = drawOnFateTargeted(next, target)
     return {
       ...next,
@@ -2095,7 +2112,6 @@ function applyFate(state: GameState, actionId: string): GameState {
       pendingFate: null,
       activeFateTargets: [...(next.activeFateTargets ?? []), target],
       pendingHeroPlacement: { chooserIndex: state.activePlayer, targetIndex: target, hero: ppAny },
-      log: [...next.log, `${me.villainName} lance la Fatalité : **${ppAny.name}** est dévoilé(e) et doit être joué(e) d'office — choisissez son lieu chez ${tgt.villainName}.`],
     }
   }
   let next = updatePlayer(state, target, () => r.player)
@@ -2103,6 +2119,16 @@ function applyFate(state: GameState, actionId: string): GameState {
   // Apparence de Dragon : si la cible avait armé sa récompense, +3 JT immédiats.
   next = consumeDragonFormReward(next, target)
   next = consumePersifleur(next, action)
+  // L'annonce de la Fatalité vient AVANT ses conséquences pour la cible (Bowser Jr.,
+  // Appel… : la pioche s'affichait au-dessus de « lance la Fatalité », comme surgie
+  // de nulle part).
+  next = {
+    ...next,
+    log: [
+      ...next.log,
+      `${me.villainName} lance la Fatalité contre ${tgt.villainName} (révèle ${r.revealed.length} ${plural(r.revealed.length, 'carte')}).`,
+    ],
+  }
   // Bowser Jr. : la cible pioche 1 carte par Bowser Jr. présent (peut remélanger
   // → on a déjà fixé rngState ci-dessus, le helper le fait évoluer).
   next = drawOnFateTargeted(next, target)
@@ -2111,10 +2137,6 @@ function applyFate(state: GameState, actionId: string): GameState {
     usedActionIds: [...next.usedActionIds, actionId],
     pendingFate: { target, revealed: r.revealed },
     activeFateTargets: [...(next.activeFateTargets ?? []), target],
-    log: [
-      ...next.log,
-      `${me.villainName} lance la Fatalité contre ${tgt.villainName} (révèle ${r.revealed.length} carte${r.revealed.length > 1 ? 's' : ''}).`,
-    ],
   }
 }
 
@@ -8327,6 +8349,8 @@ function applyResolveWeaponFetch(state: GameState, instanceId?: string, equip?: 
       discard: prev ? [...p.discard, prev] : p.discard,
     }))
     next = reshuffle(next)
+    // Journal data-driven (émission différée) : expose l'Arme choisie ({nomCarte}).
+    next = { ...next, journalVars: { ...next.journalVars, ['nomCarte']: card.name } }
     return { ...next, log: [...next.log, `${player.villainName} équipe **${card.name}** (−${cost} JT)${prev ? ` (${prev.name} défaussée)` : ''} — Arme du crime.`] }
   }
   let next = updatePlayer(cleared, idx, (p) => ({
@@ -8335,6 +8359,8 @@ function applyResolveWeaponFetch(state: GameState, instanceId?: string, equip?: 
     hand: [...p.hand, card],
   }))
   next = reshuffle(next)
+  // Journal data-driven (émission différée) : expose l'Arme choisie ({nomCarte}).
+  next = { ...next, journalVars: { ...next.journalVars, ['nomCarte']: card.name } }
   return { ...next, log: [...next.log, `${player.villainName} prend **${card.name}** en main (Arme du crime).`] }
 }
 
@@ -10297,7 +10323,12 @@ function applyResolveFetchedHero(state: GameState, play: boolean, to?: LocationI
   if (pending.placeTreasureAfter && next.status === 'PLAYING' && (next.players[idx].treasureReserve ?? []).length > 0) {
     next = { ...next, pendingPlaceTreasure: { playerIndex: idx, heroInstanceId: pending.hero.instanceId } }
   }
-  return next
+  // Journal data-driven (émission différée) : expose le Héros dévoilé et son lieu de pose
+  // (Digne Adversaire, Obsession, Jouez avec la nourriture…).
+  return {
+    ...next,
+    journalVars: { ...next.journalVars, ['nomHéros']: pending.hero.name, ['nomLieu']: destName },
+  }
 }
 
 /** Team Rocket — résout le choix du Pokémon invoqué par un dresseur (cf. pendingPokemonSummon) :
@@ -12165,8 +12196,9 @@ function applyEndTurn(state: GameState): GameState {
       i === drawn.activePlayer
         ? {
             ...p,
-            // Noir de nuit : la possibilité de refaire une action expire en fin de tour.
+            // Noir de nuit / Carte Temps : la possibilité de refaire une action expire.
             repeatActionAvailable: false,
+            repeatActionNoFate: false,
             // Isabella — Radar de poche : l'override d'heure des Activités expire en fin de tour.
             activiteAnyHourThisTurn: false,
             // Mère Gothel — Vengeance : le bonus de Confiance non consommé expire.
@@ -12333,7 +12365,9 @@ function applyEndTurn(state: GameState): GameState {
   started = updatePlayer(started, nextIdx, (p) => ({
     ...p,
     repeatActionAvailable: p.repeatActionNextTurn ? true : p.repeatActionAvailable,
+    repeatActionNoFate: p.repeatActionNextTurn ? !!p.repeatActionNextTurnNoFate : p.repeatActionNoFate,
     repeatActionNextTurn: false,
+    repeatActionNextTurnNoFate: false,
     actionsCap: p.actionsCapNextTurn,
     actionsCapNextTurn: undefined,
   }))
@@ -12673,7 +12707,7 @@ function applyUltronOptimizeMove(state: GameState, actionId: string, instanceId:
 
 /** Applique une action de jeu et renvoie le nouvel état. Pur, déterministe. */
 export function applyAction(state: GameState, action: GameAction): GameState {
-  const core = applyActionCore(state, action)
+  const core = consumeRepeatedAction(state, action, applyActionCore(state, action))
   // Journal data-driven : si la carte jouée déclare un template, on remplace ses lignes de
   // log codées en dur par le message authoré (placeholders remplis). AVANT les syncs, pour
   // ne pas avaler les lignes qu'elles ajoutent (ex. bascule de contrôle de lieu Sumbra).

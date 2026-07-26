@@ -281,10 +281,13 @@ export function getAvailableActions(state: GameState): LocationAction[] {
   if (cap !== undefined && state.usedActionIds.filter((id) => !id.includes(':')).length >= cap) return []
   const loc = currentLocation(state)
   if (!loc) return []
-  // La Méchante Reine — Noir de nuit : tant que le drapeau est armé, une action
-  // (hors Fatalité) déjà utilisée redevient disponible (réutilisation unique).
-  const REPEATABLE = new Set<string>(['GAIN_POWER', 'BREW_POISON', 'PLAY_CARD', 'DISCARD_CARDS'])
+  // Refaire une action (Noir de nuit, Carte Temps) : tant que le drapeau est armé, une
+  // action déjà utilisée redevient disponible (réutilisation unique). Le PÉRIMÈTRE est une
+  // donnée de la carte : Noir de nuit exclut la Fatalité (`repeatActionNoFate`), Carte
+  // Temps n'exclut rien — donc toute action du lieu, « Obtenir une clé » comprise.
   const canRepeat = !!activePlayer(state).repeatActionAvailable
+  const repeatNoFate = !!activePlayer(state).repeatActionNoFate
+  const isRepeatable = (a: LocationAction) => canRepeat && !(repeatNoFate && a.type === 'FATE')
   // Sa Sucrerie — seules les 3 actions accessibles depuis la position du pion (dessus
   // + devant + derrière) sont jouables ce tour.
   const kc = isKingCandy(activePlayer(state))
@@ -308,7 +311,7 @@ export function getAvailableActions(state: GameState): LocationAction[] {
       (za
         ? !zaDone.includes(`${loc.id}:${a.id}`)
         : !state.usedActionIds.includes(a.id) ||
-          (canRepeat && REPEATABLE.has(a.type)) ||
+          isRepeatable(a) ||
           // Cruella — Finissez le travail ! : une action Activer gratuite reste possible
           // même si l'action de lieu a déjà servi ce tour.
           (a.type === 'ACTIVATE' && !!activePlayer(state).freeActivate)) &&

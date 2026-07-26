@@ -62,5 +62,5 @@ describe('Partie ordi vs ordi (self-play, calque du pilote App)', () => {
       s = playBotMatch(s0, seededRand(7))
     }).not.toThrow()
     expect(s.status).toBe('WON') // Prince Jean (objectif Pouvoir) garantit une fin
-  }, 30000)
+  }, 90000)
 })

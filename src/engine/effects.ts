@@ -5294,8 +5294,13 @@ export function resolveEffect(
       return { ...next, log: [...next.log, `${p.villainName} défausse ${handCount} carte${handCount > 1 ? 's' : ''} et pioche ${effect.draw} (Manque de temps).`] }
     }
     case 'GRANT_REPEAT_ACTION_NEXT_TURN': {
-      const next = updatePlayer(state, idx, (pl) => ({ ...pl, repeatActionNextTurn: true }))
-      return { ...next, log: [...next.log, `${state.players[idx].villainName} : au prochain tour, une action pourra être effectuée 2 fois (Carte Temps).`] }
+      const next = updatePlayer(state, idx, (pl) => ({
+        ...pl,
+        repeatActionNextTurn: true,
+        repeatActionNextTurnNoFate: effect.exceptFate ? true : pl.repeatActionNextTurnNoFate,
+      }))
+      const scope = effect.exceptFate ? ' (hors Fatalité)' : ''
+      return { ...next, log: [...next.log, `${state.players[idx].villainName} : au prochain tour, une action de son lieu pourra être effectuée 2 fois${scope}.`] }
     }
     case 'TARGET_DISCARD_ALL_OF_TYPE': {
       const p = state.players[idx]
@@ -9545,10 +9550,15 @@ export function resolveEffect(
       return { ...next, log: [...next.log, `Vanité : ${actor.villainName} réorganise le dessus de sa pioche.`] }
     }
     case 'GRANT_REPEAT_ACTION': {
-      const next = updatePlayer(state, idx, (p) => ({ ...p, repeatActionAvailable: true }))
+      const next = updatePlayer(state, idx, (p) => ({
+        ...p,
+        repeatActionAvailable: true,
+        repeatActionNoFate: effect.exceptFate ? true : p.repeatActionNoFate,
+      }))
+      const scope = effect.exceptFate ? ' (hors Fatalité)' : ''
       return {
         ...next,
-        log: [...next.log, `Noir de nuit : ${next.players[idx].villainName} peut refaire une action de son lieu (hors Fatalité).`],
+        log: [...next.log, `${next.players[idx].villainName} peut refaire une action de son lieu${scope}.`],
       }
     }
     case 'DISCARD_HYENA_AT_HOST': {
@@ -11452,7 +11462,12 @@ export function resolveEffect(
       const w = actor.equippedWeapon
       if (!w) return { ...state, log: [...state.log, `Désarmement : ${actor.villainName} n'a aucune Arme équipée.`] }
       const next = updatePlayer(state, idx, (p) => ({ ...p, equippedWeapon: null, discard: [...p.discard, w] }))
-      return { ...next, log: [...next.log, `Désarmement : **${w.name}** de ${actor.villainName} est défaussée.`] }
+      return {
+        ...next,
+        // Journal data-driven : expose l'Arme défaussée ({nomObjet}).
+        journalVars: { ...next.journalVars, ['nomObjet']: w.name },
+        log: [...next.log, `Désarmement : **${w.name}** de ${actor.villainName} est défaussée.`],
+      }
     }
     case 'GRANT_FREE_ANY_ACTION': {
       // Hache de bûcheron (on-kill) : une action de royaume gratuite au choix.

@@ -102,7 +102,9 @@ export const mechanteReineCards: CardDef[] = [
     copies: 2,
     text: "Vous pouvez effectuer une seconde fois l'une des actions de votre lieu, en dehors d'une action Fatalité.",
     image: img('noir-de-nuit.webp'),
-    effects: [{ type: 'GRANT_REPEAT_ACTION' }],
+    // « en dehors d'une action Fatalité » : la Fatalité n'est pas rejouable ici
+    // (Carte Temps, elle, n'exclut aucune action).
+    effects: [{ type: 'GRANT_REPEAT_ACTION', exceptFate: true }],
   },
   {
     id: 'poussiere-momie',

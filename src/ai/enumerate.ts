@@ -76,6 +76,17 @@ export function objectiveCriticalCardIds(p: PlayerState): Set<string> {
       if (!p.peachCaptured && !peachInRealm) keep.add('bowser-jr')
       return keep
     }
+    case 'UNTRAPPED_TITANS_AT_LOCATION': {
+      // Hadès : les TITANS **sont** l'objectif (3 non entravés sur le Mont Olympe) et
+      // n'existent qu'en 1 exemplaire chacun — en jeter un pour cycler sa main, c'est
+      // se priver d'une victoire (le bot défaussait Argès au 1ᵉʳ tour). On les repère par
+      // la donnée `isTitan`, donc générique pour tout vilain à objectif du même type.
+      const titans = new Set<string>()
+      for (const c of [...p.hand, ...p.deck, ...p.discard, ...Object.values(p.board).flat()]) {
+        if (c.isTitan) titans.add(c.cardId)
+      }
+      return titans
+    }
     case 'KILL_FIGHTERS': {
       // Tabbou : Halberd (action bonus, pièce maîtresse de tempo) et Destin (dévoiler 3
       // OU +4 Pouvoir, jamais gaspillé) ne se jettent pas pour cycler la main.
