@@ -94,6 +94,40 @@ function CardForm({
 
   return (
     <div className="flex flex-col gap-4">
+        {/* Carte PRÉ-RENDUE (face finie importée, sans art brut ni zones de texte) : l'éditeur
+            ne peut pas la recomposer, donc l'aperçu reste FIGÉ et les éditions n'apparaissent
+            pas. On propose de la « rendre éditable » : on efface le composite figé pour que la
+            carte se recompose depuis ses DONNÉES (nom / type / texte / coût déjà présents) sur
+            le gabarit. L'illustration scannée (fusionnée dans la face) est perdue → à réajouter
+            via le champ « Illustration ». */}
+        {(!variant || overriding) && isPreRenderedCard(card) && (
+          <div className="flex flex-col gap-2 rounded-lg border border-amber-300/40 bg-amber-400/10 p-3">
+            <span className="text-xs font-semibold text-amber-100">
+              🖼️ Carte figée (image finie importée)
+            </span>
+            <p className="text-[11px] text-white/60">
+              Cette carte est une <strong>face déjà rendue</strong> : l’aperçu ne réagit pas aux
+              modifications. « Rendre éditable » la reconstruit depuis son <strong>texte</strong> et
+              son <strong>type</strong> (conservés) sur le gabarit — l’<strong>illustration</strong>{' '}
+              d’origine est perdue et sera à réimporter.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  confirm(
+                    'Rendre cette carte éditable ?\n\nL’image finie sera remplacée par une carte recomposée depuis ses données (texte/type conservés). L’illustration d’origine sera perdue — tu pourras en réimporter une.',
+                  )
+                )
+                  set({ image: '' })
+              }}
+              className="self-start rounded-lg border border-amber-300/60 bg-amber-400/20 px-3 py-1.5 text-sm font-semibold text-amber-100 transition hover:bg-amber-400/30"
+            >
+              ✏️ Rendre éditable
+            </button>
+          </div>
+        )}
+
         {/* VARIANTE : bascule « cette carte diffère de la base ». Décochée → la carte suit la
             base (seule la couleur de la variante la re-teinte) et n'est pas éditable ici. */}
         {variant && (

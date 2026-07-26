@@ -47,6 +47,17 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.9.6',
+    date: '2026-07-26',
+    title: 'Atelier : actions de plateau perso & cartes figées débloquées',
+    tags: ['atelier', 'correctif'],
+    changes: [
+      "**Actions de plateau personnalisées** : dans l'Atelier, ajoute une action **« Personnalisée »**, **importe ton icône** et **décris son effet** — posée sur la rangée de ton choix.",
+      "Les cartes **importées comme images finies** (scans, imports migrés) affichaient un aperçu **figé** : un bouton **« Rendre éditable »** les reconstruit depuis leur texte pour pouvoir les retravailler.",
+      "Les actions **spéciales** déjà posées sur un plateau (ex. **« Obtenir une clé »**) ne sont plus écrasées à l'édition.",
+    ],
+  },
+  {
     version: '1.9.5',
     date: '2026-07-26',
     title: 'Cartes remises d’aplomb, choix rendus au joueur, bots réveillés',

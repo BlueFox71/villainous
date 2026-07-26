@@ -12,12 +12,14 @@ describe('cartes du Seigneur des clés — intégrité du paquet', () => {
     expect(buildDeck(seigneurClesCards, 'fate')).toHaveLength(15)
   })
 
-  it('répartition Méchant : 1 Objet, 3 Conditions, 26 Événements', () => {
+  it('répartition Méchant : 3 Conditions, 27 Événements', () => {
+    // Depuis la migration du vilain dans l'Atelier (source unique = custom-seigneur-cles.json),
+    // le deck Méchant ne contient plus d'Objet : sa composition suit désormais le JSON publié.
     const v = seigneurClesCards.filter((c) => c.deck === 'villain')
     const count = (t: string) => v.filter((c) => c.type === t).reduce((n, c) => n + c.copies, 0)
-    expect(count('item')).toBe(1)
+    expect(count('item')).toBe(0)
     expect(count('condition')).toBe(3)
-    expect(count('effect')).toBe(26)
+    expect(count('effect')).toBe(27)
   })
 
   it('répartition Fatalité : 6 Héros, 1 Objet, 8 Événements', () => {

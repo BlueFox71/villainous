@@ -40,7 +40,37 @@ const ACTION_TYPES: { value: LocationActionType; label: string; defaultLabel: st
   { value: 'VANQUISH', label: 'Vaincre un héros', defaultLabel: 'Vaincre un héros' },
   { value: 'DISCARD_CARDS', label: 'Défausser', defaultLabel: 'Défausser des cartes' },
   { value: 'ACTIVATE', label: 'Activer une capacité', defaultLabel: 'Activer une capacité' },
+  // Action PERSONNALISÉE : aucune mécanique générique (effet « à coder au test »),
+  // icône importée + libellé libre décrivant l'effet.
+  { value: 'CUSTOM', label: 'Personnalisée (icône + effet décrit)', defaultLabel: 'Action personnalisée' },
 ]
+
+/** Libellés lisibles des types SPÉCIAUX (mécanique dédiée à un vilain) qui peuvent
+ *  déjà exister sur un plateau mais ne sont PAS proposés à la création dans l'éditeur.
+ *  On les affiche en clair pour ne pas les écraser silencieusement à l'édition. */
+const SPECIAL_TYPE_LABELS: Partial<Record<LocationActionType, string>> = {
+  BREW_POISON: 'Préparer du poison (spéciale)',
+  OBTAIN_KEY: 'Obtenir une clé (spéciale)',
+  CATCH_POKEMON: 'Attraper un Pokémon (spéciale)',
+  REVEAL_FIGHTER: 'Dévoiler un combattant (spéciale)',
+}
+
+/** Options du sélecteur de type pour UNE action : les types génériques + le type
+ *  courant s'il est SPÉCIAL (préservé, non clobberé) avec un libellé explicite. */
+export function typeOptionsFor(type: LocationActionType): { value: LocationActionType; label: string }[] {
+  const opts = ACTION_TYPES.map((t) => ({ value: t.value, label: t.label }))
+  if (!opts.some((o) => o.value === type)) {
+    opts.push({ value: type, label: SPECIAL_TYPE_LABELS[type] ?? `${type} (spéciale)` })
+  }
+  return opts
+}
+
+/** Une action porte-t-elle un LIBELLÉ libre éditable ? Vrai pour les actions
+ *  personnalisées et les actions spéciales (leur texte n'est pas dérivé d'un type
+ *  générique). Les types génériques gardent un libellé auto (dérivé du type). */
+export function hasFreeLabel(type: LocationActionType): boolean {
+  return type === 'CUSTOM' || !ACTION_TYPES.some((t) => t.value === type)
+}
 
 /** Libellé par défaut d'une action selon son type (et son montant). */
 function defaultLabelFor(type: LocationActionType, amount?: number): string {
@@ -74,28 +104,57 @@ function ActionEditor({
   // resté collé sur un MOVE_HERO / FATE après un changement de type).
   const setType = (type: LocationActionType) => {
     const amount = type === 'GAIN_POWER' ? action.amount ?? 1 : undefined
-    onChange({ ...action, type, amount, label: defaultLabelFor(type, amount) })
+    // On conserve un libellé libre déjà saisi quand la nouvelle action en accepte un
+    // (perso / spéciale) ; sinon on (re)dérive le libellé du type.
+    const label = hasFreeLabel(type) && hasFreeLabel(action.type) ? action.label : defaultLabelFor(type, amount)
+    onChange({ ...action, type, amount, label })
   }
+  const freeLabel = hasFreeLabel(action.type)
   return (
-    <div className="flex items-end gap-2 rounded-lg border border-white/10 bg-black/20 p-2">
-      <SelectField label="Action" value={action.type} options={ACTION_TYPES} onChange={setType} />
-      {action.type === 'GAIN_POWER' && (
-        <NumberField
-          label="Pouvoir"
-          value={action.amount ?? 1}
-          min={1}
-          max={3}
-          onChange={(amount) => onChange({ ...action, amount, label: defaultLabelFor('GAIN_POWER', amount) })}
-        />
+    <div className="flex flex-col gap-2 rounded-lg border border-white/10 bg-black/20 p-2">
+      <div className="flex items-end gap-2">
+        <SelectField label="Action" value={action.type} options={typeOptionsFor(action.type)} onChange={setType} />
+        {action.type === 'GAIN_POWER' && (
+          <NumberField
+            label="Pouvoir"
+            value={action.amount ?? 1}
+            min={1}
+            max={3}
+            onChange={(amount) => onChange({ ...action, amount, label: defaultLabelFor('GAIN_POWER', amount) })}
+          />
+        )}
+        <button
+          type="button"
+          onClick={onRemove}
+          className="rounded-lg border border-white/15 bg-white/5 px-2 py-2 text-xs text-white/50 transition hover:border-red-400/60 hover:text-red-300"
+          title="Supprimer cette action"
+        >
+          🗑
+        </button>
+      </div>
+      {/* Action PERSONNALISÉE / SPÉCIALE : libellé libre + icône importée. Le libellé
+          décrit l'effet (codé au test) ; l'icône remplace l'icône dorée par défaut. */}
+      {freeLabel && (
+        <div className="flex items-end gap-3 rounded-md border border-amber-300/20 bg-amber-400/5 p-2">
+          <div className="w-20 shrink-0">
+            <ImageField
+              label="Icône"
+              value={action.iconImage}
+              onChange={(iconImage) => onChange({ ...action, iconImage })}
+              aspect="square"
+              fit="contain"
+            />
+          </div>
+          <div className="flex-1">
+            <TextField
+              label="Libellé / effet (décrit)"
+              value={action.label}
+              onChange={(label) => onChange({ ...action, label })}
+              placeholder="Ex. : Obtenir une clé de la couleur du dé"
+            />
+          </div>
+        </div>
       )}
-      <button
-        type="button"
-        onClick={onRemove}
-        className="rounded-lg border border-white/15 bg-white/5 px-2 py-2 text-xs text-white/50 transition hover:border-red-400/60 hover:text-red-300"
-        title="Supprimer cette action"
-      >
-        🗑
-      </button>
     </div>
   )
 }
@@ -364,7 +423,7 @@ function BoardPreview({
       n: l.name,
       i: l.image?.slice(0, 48),
       ip: l.imagePos,
-      a: l.actions.map((x) => ({ t: x.type, r: x.row, m: x.amount })),
+      a: l.actions.map((x) => ({ t: x.type, r: x.row, m: x.amount, ic: x.iconImage?.slice(0, 32) })),
     })),
   })
   useEffect(() => {

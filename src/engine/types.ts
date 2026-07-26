@@ -45,6 +45,12 @@ export type LocationActionType =
    *  la pioche (face cachée) vers la réserve commune (face visible). Action custom
    *  imprimée sur l'Émissaire Subspatial ; aussi accordée par des cartes. */
   | 'REVEAL_FIGHTER'
+  /** Atelier : action PERSONNALISÉE d'un vilain custom (icône importée + libellé
+   *  libre décrivant l'effet). Le moteur ne lui donne AUCUN comportement générique :
+   *  c'est un emplacement « à coder au test » (comme le texte d'une carte). Ignorée
+   *  partout où les types sont branchés (clic no-op, non énumérée par le bot) tant
+   *  qu'un handler dédié n'est pas ajouté. */
+  | 'CUSTOM'
 
 /** Rangée d'une action sur le plateau. Les héros recouvrent la rangée du HAUT
  *  d'un lieu : la position est donc structurante pour la mécanique de Fatalité

@@ -368,8 +368,21 @@ export async function renderBoard(v: CustomVillain, opts: { skipLocks?: boolean 
       if (!p) continue
       const px = (p.x / 100) * BOARD_W
       const py = (p.y / 100) * BOARD_H
-      const file = ACTION_ICON_FILE[a.type]
       let drawn = false
+      // Icône IMPORTÉE (action perso ou surcharge visuelle d'un type) : disque teinté
+      // commun + image « contain » à la taille de l'icône, priorité sur l'icône du type.
+      if (a.iconImage) {
+        try {
+          const custom = await loadImage(a.iconImage)
+          if (disc) ctx.drawImage(disc, px - DISC / 2, py - DISC / 2, DISC, DISC)
+          const scale = Math.min(ICON / custom.width, ICON / custom.height)
+          const dw = custom.width * scale
+          const dh = custom.height * scale
+          ctx.drawImage(custom, px - dw / 2, py - dh / 2, dw, dh)
+          drawn = true
+        } catch { /* image illisible → icône du type */ }
+      }
+      const file = drawn ? undefined : ACTION_ICON_FILE[a.type]
       if (file) {
         try {
           const ring = await asset(file)

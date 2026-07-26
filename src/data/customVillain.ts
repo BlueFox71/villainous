@@ -38,6 +38,10 @@ export interface CustomAction {
   row: ActionRow
   /** Montant de pouvoir gagné (actions GAIN_POWER uniquement). */
   amount?: number
+  /** Icône IMPORTÉE (dataURL) remplaçant l'icône dorée par défaut du type sur le
+   *  plateau baké. Surtout utile pour une action `CUSTOM` (dont le type n'a pas
+   *  d'icône), mais surchargeable sur n'importe quelle action. Absent = icône du type. */
+  iconImage?: string
 }
 
 /** Position de cadrage d'une image « cover » dans sa zone (façon object-position) :
