@@ -26,6 +26,9 @@ export const mechanteReineCards: CardDef[] = [
     text: "Choisissez un Héros sur le lieu où vous vous trouvez. Défaussez autant de jetons Poison que sa force pour l'éliminer.",
     image: img('croque.webp'),
     effects: [{ type: 'TAKE_A_BITE' }],
+    journal:
+      'Croque ! : la pomme empoisonnée emporte {nomHéros} sur {nomLieu}.\n' +
+      'Croque ! : la pomme empoisonnée est tendue.',
   },
   {
     id: 'broyer-os',
@@ -38,6 +41,7 @@ export const mechanteReineCards: CardDef[] = [
     text: 'Durant ce tour, vous pouvez aussi effectuer les actions recouvertes par un Héros sur le lieu où vous vous trouvez.',
     image: img('broyer-os.webp'),
     effects: [{ type: 'USE_COVERED_ACTIONS_THIS_TURN' }],
+    journal: 'Je vais vous broyer les os ! : ce tour-ci, les actions recouvertes du lieu redeviennent utilisables.',
   },
   {
     id: 'foudre',
@@ -51,6 +55,7 @@ export const mechanteReineCards: CardDef[] = [
     text: "Dupliquez la capacité d'un Ingrédient déjà joué. Le coût de cette carte est égal au coût de l'Ingrédient dupliqué.",
     image: img('foudre.webp'),
     effects: [{ type: 'DUPLICATE_INGREDIENT' }],
+    journal: 'Foudre : la capacité d’un Ingrédient déjà joué est reproduite.',
   },
   {
     id: 'magie-noire',
@@ -63,6 +68,9 @@ export const mechanteReineCards: CardDef[] = [
     text: 'Choisissez une carte Objet ou Ingrédient de votre pioche ou de votre défausse et ajoutez-la à votre main. Puis mélangez votre pioche.',
     image: img('magie-noire.webp'),
     effects: [{ type: 'BLACK_MAGIC_TUTOR' }],
+    journal:
+      'Magie noire : retour en main de {nomCarte}.\n' +
+      'Magie noire : un Objet ou un Ingrédient revient en main.',
   },
 
   // ----------------------------------------------------------------------
@@ -79,6 +87,7 @@ export const mechanteReineCards: CardDef[] = [
     text: 'Gagnez 1 jeton Pouvoir par lieu où se trouve au moins un Héros.',
     image: img('caquet-megere.webp'),
     effects: [{ type: 'GAIN_POWER_PER_LOCATION_WITH_HERO', amount: 1 }],
+    journal: 'Caquet de vieille mégère : gagne {NbJT} JT.',
   },
   {
     id: 'hurlement-effroi',
@@ -91,6 +100,7 @@ export const mechanteReineCards: CardDef[] = [
     text: 'Choisissez un lieu non bloqué. Vous pouvez déplacer chaque Héros de force 3 ou moins de ce lieu vers un lieu voisin non bloqué.',
     image: img('hurlement-effroi.webp'),
     effects: [{ type: 'SCREAM_OF_FRIGHT' }],
+    journal: 'Hurlement d’effroi : les Héros de Force 3 ou moins d’un lieu sont chassés vers un voisin.',
   },
   {
     id: 'noir-de-nuit',
@@ -105,6 +115,7 @@ export const mechanteReineCards: CardDef[] = [
     // « en dehors d'une action Fatalité » : la Fatalité n'est pas rejouable ici
     // (Carte Temps, elle, n'exclut aucune action).
     effects: [{ type: 'GRANT_REPEAT_ACTION', exceptFate: true }],
+    journal: 'Noir de nuit : une action du lieu peut être rejouée, la Fatalité exceptée.',
   },
   {
     id: 'poussiere-momie',
@@ -117,6 +128,7 @@ export const mechanteReineCards: CardDef[] = [
     text: 'Jusqu’au début de votre prochain tour, chaque action Fatalité dont vous êtes la cible ajoute 1 jeton Pouvoir de la réserve à vos jetons Poison.',
     image: img('poussiere-momie.webp'),
     effects: [{ type: 'POISON_ON_FATE_TARGETED' }],
+    journal: 'Poussière de momie : chaque Fatalité subie d’ici le prochain tour rapporte 1 Poison.',
   },
 
   // ----------------------------------------------------------------------
@@ -134,6 +146,7 @@ export const mechanteReineCards: CardDef[] = [
     image: img('jalousie.webp'),
     trigger: { type: 'opponent-gained-power-ge', value: 3 },
     effects: [{ type: 'GAIN_POISON', amount: 1 }],
+    journal: 'Jalousie : la richesse adverse fait bouillir la Reine — +1 Poison.',
   },
   {
     id: 'vanite',
@@ -147,6 +160,7 @@ export const mechanteReineCards: CardDef[] = [
     image: img('vanite.webp'),
     trigger: { type: 'opponent-items-in-realm-ge', value: 2 },
     effects: [{ type: 'SCRY_OWN_DECK', count: 3 }],
+    journal: 'Vanité : les 3 premières cartes de la pioche sont triées.',
   },
 
   // ----------------------------------------------------------------------
@@ -164,6 +178,7 @@ export const mechanteReineCards: CardDef[] = [
     text: 'La force des Héros sur le lieu du Chasseur est réduite de 1. Vous pouvez déplacer le Chasseur vers un lieu non bloqué.',
     image: img('chasseur.webp'),
     strengthMod: { target: 'heroes-here', delta: -1 },
+    journal: 'Le Chasseur rejoint le royaume.',
   },
 
   // ----------------------------------------------------------------------
@@ -180,6 +195,7 @@ export const mechanteReineCards: CardDef[] = [
     text: 'Ajoutez 1 jeton Pouvoir de la réserve à vos jetons Poison.',
     image: img('trone.webp'),
     activatedCost: 0,
+    journal: 'Trône : dressé sur {nomLieu}, il distillera du Poison.',
   },
   {
     id: 'ecrin',
@@ -192,6 +208,7 @@ export const mechanteReineCards: CardDef[] = [
     text: 'Gagnez 1 jeton Pouvoir par Héros dans la défausse de cartes Fatalité (max. 3 jetons).',
     image: img('ecrin.webp'),
     activatedCost: 0,
+    journal: 'Écrin : posé sur {nomLieu}, il monnaiera les Héros de la défausse Fatalité.',
   },
   {
     id: 'grimoires-magiques',
@@ -204,6 +221,7 @@ export const mechanteReineCards: CardDef[] = [
     text: 'Regardez les 4 premières cartes de votre pioche. Ajoutez-en une à votre main et défaussez les autres.',
     image: img('grimoires-magiques.webp'),
     activatedCost: 0,
+    journal: 'Grimoires magiques : posés sur {nomLieu}, ils fouilleront la pioche.',
   },
   {
     id: 'miroir-magique',
@@ -217,6 +235,7 @@ export const mechanteReineCards: CardDef[] = [
     drawCardOnFateTargeted: true,
     image: img('miroir-magique.webp'),
     activatedCost: 3,
+    journal: 'Miroir magique : dressé sur {nomLieu} — chaque Fatalité subie fera piocher, et il peut appeler Blanche-Neige.',
   },
 
   // ----------------------------------------------------------------------
@@ -232,6 +251,9 @@ export const mechanteReineCards: CardDef[] = [
     text: 'La Méchante Reine révèle sa main : choisissez-y une carte et défaussez-la.',
     image: img('animaux-foret.webp'),
     effects: [{ type: 'DISCARD_FROM_TARGET_HAND' }],
+    journal:
+      'Animaux de la forêt : {nomCarte} est arrachée de la main.\n' +
+      'Animaux de la forêt : la main est fouillée, et une carte part en défausse.',
   },
   {
     id: 'premier-baiser',
@@ -243,6 +265,9 @@ export const mechanteReineCards: CardDef[] = [
     text: 'Défaussez 1 jeton Poison, puis choisissez un Héros dans la défausse et placez-le sur le dessus de la pioche de cartes Fatalité.',
     image: img('premier-baiser.webp'),
     effects: [{ type: 'LOVES_FIRST_KISS' }],
+    journal:
+      'Premier baiser d’amour : 1 Poison s’évapore, et {nomHéros} revient sur le dessus de la pioche Fatalité.\n' +
+      'Premier baiser d’amour : 1 Poison s’évapore.',
   },
 
   // ----------------------------------------------------------------------
@@ -259,6 +284,7 @@ export const mechanteReineCards: CardDef[] = [
     image: img('pioche.webp'),
     attach: 'hero',
     attachStrengthBonus: 2,
+    journal: 'Pioche : +2 Force pour {nomHéros}.',
   },
   {
     id: 'puits-souhaits',
@@ -270,6 +296,7 @@ export const mechanteReineCards: CardDef[] = [
     text: 'Associez le puits à un Héros. La Méchante Reine perd 1 jeton Poison chaque fois qu’elle se déplace sur le lieu où il se trouve.',
     image: img('puits-souhaits.webp'),
     attach: 'hero',
+    journal: 'Puits aux souhaits : arriver sur le lieu de {nomHéros} coûtera 1 Poison.',
   },
 
   // ----------------------------------------------------------------------
@@ -287,6 +314,7 @@ export const mechanteReineCards: CardDef[] = [
     image: img('blanche-neige.webp'),
     selfStrengthMods: [{ kind: 'per-other-hero-realm', delta: 1 }],
     forcedFateLocation: 'maison-des-nains',
+    journal: 'Blanche-Neige apparaît à la Maison des Nains : +1 Force par autre Héros du royaume.',
   },
   {
     id: 'atchoum',
@@ -299,6 +327,9 @@ export const mechanteReineCards: CardDef[] = [
     text: 'Vous pouvez défausser un Objet sur le lieu où vous jouez Atchoum.',
     image: img('atchoum.webp'),
     onPlace: [{ type: 'DISCARD_ITEM_AT_HOST', preferCardId: 'miroir-magique' }],
+    journal:
+      'Atchoum apparaît : le royaume perd {nomObjet}.\n' +
+      'Atchoum apparaît : aucun Objet à faire tomber sur son lieu.',
   },
   {
     id: 'dormeur',
@@ -311,6 +342,7 @@ export const mechanteReineCards: CardDef[] = [
     text: 'Si Dormeur fait partie des deux cartes dévoilées lors d’une action Fatalité, vous pouvez les jouer toutes les deux.',
     image: img('dormeur.webp'),
     fatePlayBoth: true,
+    journal: 'Dormeur apparaît : dévoilé avec une autre carte, les deux peuvent être jouées.',
   },
   {
     id: 'grincheux',
@@ -323,6 +355,7 @@ export const mechanteReineCards: CardDef[] = [
     text: 'La force de Grincheux augmente de 1 s’il n’y a aucun autre Héros sur le lieu où il se trouve.',
     image: img('grincheux.webp'),
     selfStrengthMods: [{ kind: 'if-alone-here', delta: 1 }],
+    journal: 'Grincheux apparaît : +1 Force tant qu’il reste seul sur son lieu.',
   },
   {
     id: 'joyeux',
@@ -335,6 +368,7 @@ export const mechanteReineCards: CardDef[] = [
     text: 'Défaussez autant de jetons Poison que de Héros présents dans le royaume.',
     image: img('joyeux.webp'),
     onPlace: [{ type: 'DISCARD_POISON_PER_HERO_IN_REALM' }],
+    journal: 'Joyeux apparaît : autant de Poison perdu que de Héros dans le royaume.',
   },
   {
     id: 'prof',
@@ -347,6 +381,7 @@ export const mechanteReineCards: CardDef[] = [
     text: 'La Méchante Reine doit éliminer Prof avant les autres Héros.',
     image: img('prof.webp'),
     mustDefeatFirst: true,
+    journal: 'Prof apparaît : il devra tomber avant les autres Héros.',
   },
   {
     id: 'simplet',
@@ -359,6 +394,7 @@ export const mechanteReineCards: CardDef[] = [
     text: 'La force de tous les autres Héros augmente de 1.',
     image: img('simplet.webp'),
     strengthMod: { target: 'heroes-realm', delta: 1, excludeSelf: true },
+    journal: 'Simplet apparaît : +1 Force pour les autres Héros.',
   },
   {
     id: 'timide',
@@ -370,6 +406,7 @@ export const mechanteReineCards: CardDef[] = [
     copies: 1,
     text: 'L’action « Préparer du Poison » coûte désormais 1 jeton Pouvoir.',
     image: img('timide.webp'),
+    journal: 'Timide apparaît : préparer du Poison coûte désormais 1 JT.',
   },
 ]
 

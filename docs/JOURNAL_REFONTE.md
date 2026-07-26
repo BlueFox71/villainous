@@ -273,7 +273,9 @@ Légende : ✅ refait · ⬜ à faire.
 | ursula | ✅ |
 | reine-coeur | ✅ |
 | crochet | ✅ |
-| bowser, cruella, davy-jones, facilier, gaston, gothel, hades, imposteur, la-bonne-fee, lotso, madame-mim, madame-tremaine, mechante-reine, oogie-boogie, pat-hibulaire, ratigan, sa-sucrerie, scar, seigneur-cles, seigneur-tenebres, shere-khan, slenderman, sombra, syndrome, tabbou, tamatoa, team-rocket, thanos, yzma | ⬜ |
+| mechante-reine, facilier, hades | ✅ (« Le Mal au Cœur ») |
+| scar, yzma, ratigan | ✅ (« Prêt à Tout ») |
+| bowser, cruella, davy-jones, gaston, gothel, imposteur, la-bonne-fee, lotso, madame-mim, madame-tremaine, oogie-boogie, pat-hibulaire, sa-sucrerie, seigneur-tenebres, shere-khan, slenderman, sombra, syndrome, tabbou, tamatoa, team-rocket, thanos | ⬜ |
 
 > Les vilains natifs restants n'ont **aucun** `journal` aujourd'hui : pour eux la
 > refonte part de zéro. Les customs ont d'anciennes notes générées, à **réécrire**

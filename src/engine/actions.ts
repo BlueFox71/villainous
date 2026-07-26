@@ -10120,6 +10120,8 @@ function applyResolveFateChoice(state: GameState, instanceId: string): GameState
     return {
       ...next,
       pendingFateChoice: null,
+      // Journal data-driven (émission différée) : expose la carte défaussée ({nomCarte}).
+      journalVars: { ...next.journalVars, ['nomCarte']: card.name },
       log: [...next.log, `Animaux de la forêt : **${card.name}** est défaussée de la main de ${tgt.villainName}.`],
     }
   }
@@ -10154,6 +10156,8 @@ function applyResolveFateChoice(state: GameState, instanceId: string): GameState
     return {
       ...next,
       pendingFateChoice: null,
+      // Journal data-driven (émission différée) : expose le Héros replacé ({nomHéros}).
+      journalVars: { ...next.journalVars, ['nomHéros']: hero.name },
       log: [...next.log, `Premier baiser d'amour : **${hero.name}** revient sur le dessus de la pioche Fatalité de ${tgt.villainName}.`],
     }
   }
@@ -11412,6 +11416,8 @@ function applyResolveTakeABite(state: GameState, heroInstanceId: string): GameSt
     pendingTakeABite: null,
     // Force EFFECTIVE au moment de la croque (mesurée sur `state`, avant retrait).
     lastVanquishedHeroStrength: vanquishedStrengthOf(state, idx, hero),
+    // Journal data-driven (émission différée) : expose le Héros croqué et son lieu.
+    journalVars: { ...next.journalVars, ['nomHéros']: hero.name, ['nomLieu']: heroLocName },
     log: [...next.log, `${actor.villainName} défausse ${cost} Poison et CROQUE **${hero.name}** sur ${heroLocName}.`],
   }
   next = pushDiscardShowcase(next, [hero.cardId], `${actor.villainName} croque ${hero.name}`, idx, 'red', 'bottom')

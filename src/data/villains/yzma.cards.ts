@@ -26,6 +26,7 @@ export const yzmaCards: CardDef[] = [
     copies: 3,
     text: 'Aucune capacité.',
     image: img('gardes-imperiaux.webp'),
+    journal: 'Les Gardes impériaux rejoignent le royaume.',
   },
   {
     id: 'kronk',
@@ -38,6 +39,7 @@ export const yzmaCards: CardDef[] = [
     copies: 1,
     text: "Kronk n'est pas défaussé lorsqu'il est utilisé pour éliminer un Héros. À chaque fois que Kronk est déplacé, placez 1 jeton Pouvoir de la réserve sur lui. Dès qu'il en a 3 ou plus, il passe au-dessus de votre plateau et devient un Héros.",
     image: img('kronk.webp'),
+    journal: 'Kronk rejoint le royaume : chaque déplacement le rapproche de sa rédemption.',
   },
 
   // ----------------------------------------------------------------------
@@ -55,6 +57,7 @@ export const yzmaCards: CardDef[] = [
     copies: 1,
     text: "Associez cette carte à un Allié, sa force augmente de 1. Lorsque cet Allié est défaussé, le Couteau retourne dans votre main.",
     image: img('couteau.webp'),
+    journal: 'Couteau : +1 Force pour {nomAllié}.',
   },
 
   // ----------------------------------------------------------------------
@@ -71,6 +74,7 @@ export const yzmaCards: CardDef[] = [
     text: "Choisissez l'une de vos pioches de cartes Fatalité et dévoilez-en toutes les cartes. Jouez tous les Héros dévoilés sur ce lieu, puis remélangez les autres cartes et replacez la pioche.",
     image: img('a-l-attaque.webp'),
     effects: [{ type: 'YZMA_OWN_DECK_ACTION', mode: 'attack' }],
+    journal: 'À l’attaque ! : une pioche Fatalité est vidée, et ses Héros débarquent sur le lieu.',
   },
   {
     id: 'indiscretion',
@@ -83,6 +87,7 @@ export const yzmaCards: CardDef[] = [
     text: "Choisissez l'une de vos pioches de cartes Fatalité et regardez-en toutes les cartes. Puis remélangez-les et replacez la pioche.",
     image: img('indiscretion.webp'),
     effects: [{ type: 'YZMA_OWN_DECK_ACTION', mode: 'snoop' }],
+    journal: 'Indiscrétion : une pioche Fatalité est passée en revue, puis remélangée.',
   },
   {
     id: 'marteau',
@@ -95,6 +100,7 @@ export const yzmaCards: CardDef[] = [
     text: "Choisissez l'une de vos pioches de cartes Fatalité. Dévoilez-en 2 cartes au hasard et défaussez-les.",
     image: img('marteau.webp'),
     effects: [{ type: 'YZMA_OWN_DECK_ACTION', mode: 'hammer' }],
+    journal: 'Je l’écraserai avec un marteau : deux cartes d’une pioche Fatalité partent en défausse.',
   },
   {
     id: 'beaute-endormie',
@@ -107,6 +113,7 @@ export const yzmaCards: CardDef[] = [
     text: "Cette carte n'est jouable que comme première et seule action de votre tour. Au prochain tour, avant de déplacer votre figurine, vous pouvez gagner 2 jetons Pouvoir, piocher 2 cartes et déplacer un Héros sur un lieu voisin.",
     image: img('beaute-endormie.webp'),
     effects: [{ type: 'BEAUTY_SLEEP' }],
+    journal: 'Beauté endormie : Yzma s’assoupit — le réveil rapportera 2 JT, 2 cartes et un Héros déplacé.',
   },
   {
     id: 'bras-droit',
@@ -119,6 +126,7 @@ export const yzmaCards: CardDef[] = [
     text: "Trouvez Kronk et ajoutez-le à votre main. S'il se trouve dans le royaume, défaussez tous les jetons Pouvoir posés sur lui et ajoutez à votre main tous les Objets qui lui sont associés.",
     image: img('bras-droit.webp'),
     effects: [{ type: 'FIND_KRONK' }],
+    journal: 'Bras droit : Kronk est rappelé en main.',
   },
   {
     id: 'fausses-funerailles',
@@ -131,6 +139,7 @@ export const yzmaCards: CardDef[] = [
     text: 'Gagnez 1 jeton Pouvoir par Héros dans la défausse de cartes Fatalité (max. 5 jetons).',
     image: img('fausses-funerailles.webp'),
     effects: [{ type: 'GAIN_POWER_PER_FATE_DISCARD_HERO', max: 5 }],
+    journal: 'Fausses funérailles : gagne {NbJT} JT.',
   },
   {
     id: 'finis-le-travail',
@@ -143,6 +152,9 @@ export const yzmaCards: CardDef[] = [
     text: "Déplacez un Allié vers n'importe quel lieu où se trouve au moins un Héros.",
     image: img('finis-le-travail.webp'),
     effects: [{ type: 'FINISH_THE_JOB' }],
+    journal:
+      'Finis le travail : {nomAllié} fonce vers {nomLieu}.\n' +
+      'Finis le travail : un Allié fonce sur un Héros.',
   },
   {
     id: 'ironie-du-sort',
@@ -155,6 +167,7 @@ export const yzmaCards: CardDef[] = [
     text: "Si vous vous trouvez sur le même lieu qu'au moins un Allié, choisissez un Événement de votre défausse, payez son coût et jouez-le.",
     image: img('ironie-du-sort.webp'),
     effects: [{ type: 'POETIC_JUSTICE' }],
+    journal: 'Ironie du sort : un Événement de la défausse est rejoué, coût payé.',
   },
   {
     id: 'chemin-qui-balance',
@@ -167,6 +180,7 @@ export const yzmaCards: CardDef[] = [
     text: 'Défaussez tous les jetons Pouvoir placés sur Kronk et gagnez-en autant.',
     image: img('chemin-qui-balance.webp'),
     effects: [{ type: 'KRONK_DISCARD_TOKENS' }],
+    journal: 'Le chemin qui balance : les jetons posés sur Kronk repassent dans la réserve d’Yzma.',
   },
 
   // ----------------------------------------------------------------------
@@ -183,6 +197,9 @@ export const yzmaCards: CardDef[] = [
     text: "Jouable pendant le tour d'un adversaire s'il élimine un Héros de force 3 ou moins. Éliminez un Héros de force 3 ou moins.",
     image: img('ferocite.webp'),
     trigger: { type: 'opponent-vanquished-hero-strength-le', value: 3 },
+    journal:
+      'Férocité : {nomHéros} est emporté en représailles.\n' +
+      'Férocité : aucun Héros à emporter.',
   },
   {
     id: 'superiorite',
@@ -195,6 +212,7 @@ export const yzmaCards: CardDef[] = [
     text: "Jouable pendant le tour d'un adversaire s'il vous cible avec une action Fatalité. Choisissez à sa place la pioche de cartes Fatalité avec laquelle il doit jouer.",
     image: img('superiorite.webp'),
     trigger: { type: 'opponent-fate-targeted-me' },
+    journal: 'Supériorité : c’est Yzma qui désigne la pioche Fatalité de l’adversaire.',
   },
 
   // ----------------------------------------------------------------------
@@ -210,6 +228,7 @@ export const yzmaCards: CardDef[] = [
     text: "Choisissez un Héros dans la défausse. Mélangez-le avec 1 ou 2 pioches de cartes Fatalité d'Yzma, puis reformez le même nombre de pioches les plus égales possibles.",
     image: img('attention-au-groove.webp'),
     effects: [{ type: 'YZMA_HERO_DISCARD_TO_DECKS', count: 2 }],
+    journal: 'Attention au groove ! : un Héros de la défausse est remélangé dans les pioches Fatalité.',
   },
   {
     id: 'chemin-de-la-droiture',
@@ -221,6 +240,7 @@ export const yzmaCards: CardDef[] = [
     text: 'Si Kuzco est dans le royaume, placez 2 jetons Pouvoir sur Kronk. Sinon, placez-en 1 seul.',
     image: img('chemin-de-la-droiture.webp'),
     effects: [{ type: 'KRONK_ADD_TOKENS_IF_KUZCO' }],
+    journal: 'Chemin de la droiture : des jetons Pouvoir s’accumulent sur Kronk.',
   },
   {
     id: 'mauvais-levier',
@@ -232,6 +252,7 @@ export const yzmaCards: CardDef[] = [
     text: "Si cette carte est dévoilée, jouez-la immédiatement. Yzma perd la moitié de ses jetons Pouvoir, arrondie au supérieur.",
     image: img('mauvais-levier.webp'),
     effects: [{ type: 'LOSE_HALF_POWER' }],
+    journal: 'Mauvais levier : la moitié des JT d’Yzma part en fumée.',
   },
   {
     id: 'en-fuite',
@@ -243,6 +264,7 @@ export const yzmaCards: CardDef[] = [
     text: "Choisissez un Héros du royaume. Mélangez-le avec toutes les pioches de cartes Fatalité d'Yzma, puis reformez quatre pioches les plus égales possibles.",
     image: img('en-fuite.webp'),
     effects: [{ type: 'YZMA_HERO_REALM_TO_DECKS' }],
+    journal: 'En fuite : un Héros du royaume est remélangé dans les quatre pioches Fatalité.',
   },
 
   // ----------------------------------------------------------------------
@@ -259,6 +281,7 @@ export const yzmaCards: CardDef[] = [
     text: "Vous pouvez choisir un Héros dans la défausse et le mélanger dans l'une des pioches de cartes Fatalité.",
     image: img('paysan.webp'),
     onPlace: [{ type: 'YZMA_HERO_DISCARD_TO_DECKS', count: 1, optional: true }],
+    journal: 'Le Paysan apparaît : un Héros de la défausse peut retourner dans une pioche Fatalité.',
   },
   {
     id: 'bucky',
@@ -270,6 +293,7 @@ export const yzmaCards: CardDef[] = [
     copies: 1,
     text: "Kronk ne peut pas être utilisé pour éliminer Bucky.",
     image: img('bucky.webp'),
+    journal: 'Bucky apparaît : Kronk ne peut pas l’éliminer.',
   },
   {
     id: 'chaca',
@@ -281,6 +305,7 @@ export const yzmaCards: CardDef[] = [
     copies: 1,
     text: "Tant que Tipo ou Chaca sont présents dans le royaume, Yzma ne peut pas éliminer d'autres Héros.",
     image: img('chaca.webp'),
+    journal: 'Chaca apparaît : tant qu’elle ou Tipo sont là, aucun autre Héros ne peut être éliminé.',
   },
   {
     id: 'chicha',
@@ -293,6 +318,7 @@ export const yzmaCards: CardDef[] = [
     text: 'Yzma perd jusqu’à 2 jetons Pouvoir si elle se déplace sur le lieu où se trouve Chicha.',
     image: img('chicha.webp'),
     powerLossOnPawnArrive: 2,
+    journal: 'Chicha apparaît : arriver sur son lieu coûte jusqu’à 2 JT.',
   },
   {
     id: 'kuzco',
@@ -304,6 +330,7 @@ export const yzmaCards: CardDef[] = [
     copies: 1,
     text: 'Si Kuzco est défaussé, mélangez-le avec toutes les pioches de cartes Fatalité, puis reformez 4 pioches les plus égales possibles.',
     image: img('kuzco.webp'),
+    journal: 'Kuzco apparaît : défaussé, il repartira dans les quatre pioches Fatalité.',
   },
   {
     id: 'pacha',
@@ -316,6 +343,7 @@ export const yzmaCards: CardDef[] = [
     text: 'Vous pouvez mélanger 2 pioches de cartes Fatalité ensemble, puis reformer 2 pioches les plus égales possibles.',
     image: img('pacha.webp'),
     onPlace: [{ type: 'YZMA_RESHUFFLE_DECKS', count: 2, optional: true }],
+    journal: 'Pacha apparaît : deux pioches Fatalité peuvent être mélangées ensemble.',
   },
   {
     id: 'tipo',
@@ -327,6 +355,7 @@ export const yzmaCards: CardDef[] = [
     copies: 1,
     text: "Tant que Tipo ou Chaca sont présents dans le royaume, Yzma ne peut pas éliminer d'autres Héros.",
     image: img('tipo.webp'),
+    journal: 'Tipo apparaît : tant que lui ou Chaca sont là, aucun autre Héros ne peut être éliminé.',
   },
 ]
 

@@ -31,6 +31,7 @@ export const scarCards: CardDef[] = [
     image: img('hyene-affamee.webp'),
     isHyena: true,
     selfStrengthMods: [{ kind: 'per-other-hyena-here', delta: 1 }],
+    journal: 'La Hyène affamée rejoint le royaume.',
   },
   {
     id: 'troupeau-gnous',
@@ -44,6 +45,9 @@ export const scarCards: CardDef[] = [
     text: 'S’il y a un Héros sur le lieu où vous jouez Troupeau de gnous, déplacez-le vers un lieu voisin. Puis vous pouvez effectuer une action Éliminer un Héros sur ce nouveau lieu.',
     image: img('troupeau-gnous.webp'),
     effects: [{ type: 'GNOUS_MOVE' }],
+    journal:
+      'Le Troupeau de gnous déferle et emporte {nomHéros} jusqu’à {nomLieu}.\n' +
+      'Le Troupeau de gnous rejoint le royaume.',
   },
   {
     id: 'banzai',
@@ -57,6 +61,7 @@ export const scarCards: CardDef[] = [
     text: 'Gagnez 1 jeton Pouvoir pour chaque autre Hyène défaussée depuis le lieu où se trouve Banzaï.',
     image: img('banzai.webp'),
     isHyena: true,
+    journal: 'Banzaï la hyène rejoint le royaume.',
   },
   {
     id: 'ed',
@@ -70,6 +75,7 @@ export const scarCards: CardDef[] = [
     text: 'Jouer des Hyènes sur le lieu où se trouve Ed coûte 1 jeton Pouvoir de moins.',
     image: img('ed.webp'),
     isHyena: true,
+    journal: 'Ed la hyène rejoint le royaume.',
   },
   {
     id: 'shenzi',
@@ -84,6 +90,9 @@ export const scarCards: CardDef[] = [
     image: img('shenzi.webp'),
     isHyena: true,
     effects: [{ type: 'PLAY_FREE_HYENA' }],
+    journal:
+      'Shenzi la hyène rejoint le royaume, et {nomAllié} suit gratuitement.\n' +
+      'Shenzi la hyène rejoint le royaume.',
   },
 
   // ----------------------------------------------------------------------
@@ -100,6 +109,9 @@ export const scarCards: CardDef[] = [
     text: 'Dévoilez les 4 premières cartes Fatalité de votre pioche. Vous pouvez jouer un Héros. Défaussez les autres cartes dévoilées.',
     image: img('longue-vie-roi.webp'),
     effects: [{ type: 'REVEAL_FATE_PLAY_HERO', count: 4 }],
+    journal:
+      'Longue vie au roi ! : les Fatalités sont dévoilées, et {nomHéros} entre en scène.\n' +
+      'Longue vie au roi ! : quatre cartes Fatalité sont dévoilées.',
   },
   {
     id: 'petit-secret',
@@ -112,6 +124,7 @@ export const scarCards: CardDef[] = [
     text: 'Choisissez une carte Fatalité dans la défausse et jouez-la.',
     image: img('petit-secret.webp'),
     effects: [{ type: 'PLAY_FATE_HERO_FROM_DISCARD' }],
+    journal: 'Petit secret : une carte Fatalité de la défausse est rejouée.',
   },
   {
     id: 'soyez-pretes',
@@ -124,6 +137,9 @@ export const scarCards: CardDef[] = [
     text: 'Défaussez les 3 premières cartes de votre pioche. Vous pouvez choisir 1 Événement ou jusqu’à 2 Alliés de votre défausse et les ajouter à votre main.',
     image: img('soyez-pretes.webp'),
     effects: [{ type: 'BE_PREPARED' }],
+    journal:
+      'Soyez prêtes ! : trois cartes partent en défausse, et {nomCarte} revient en main.\n' +
+      'Soyez prêtes ! : trois cartes partent en défausse, de quoi récupérer des renforts.',
   },
   {
     id: 'suivez-moi',
@@ -136,6 +152,7 @@ export const scarCards: CardDef[] = [
     text: 'Choisissez une Hyène qui ne se trouve pas sur votre lieu. Effectuez 1 action disponible de ce lieu, en dehors d’une action Fatalité.',
     image: img('suivez-moi.webp'),
     effects: [{ type: 'FOLLOW_ME' }],
+    journal: 'Suivez-moi ! : une Hyène éloignée prête son lieu, le temps d’une action.',
   },
   {
     id: 'festin',
@@ -149,6 +166,7 @@ export const scarCards: CardDef[] = [
     image: img('festin.webp'),
     requiresHyenaInRealm: true,
     effects: [{ type: 'GATHER_HYENAS' }],
+    journal: 'Festin : les Hyènes du royaume se rassemblent sur un même lieu.',
   },
 
   // ----------------------------------------------------------------------
@@ -166,6 +184,7 @@ export const scarCards: CardDef[] = [
     image: img('vie-pas-juste.webp'),
     trigger: { type: 'opponent-fate-targeted-me' },
     effects: [{ type: 'SCRY_OWN_FATE_TOP2' }],
+    journal: 'La vie n’est pas juste : les deux premières cartes Fatalité sont triées avant l’attaque.',
   },
   {
     id: 'orgueil',
@@ -179,6 +198,7 @@ export const scarCards: CardDef[] = [
     image: img('orgueil.webp'),
     trigger: { type: 'opponent-discarded-ge', value: 2 },
     effects: [{ type: 'GAIN_POWER', amount: 3 }],
+    journal: 'Orgueil : les défausses adverses rapportent 3 JT.',
   },
 
   // ----------------------------------------------------------------------
@@ -194,6 +214,7 @@ export const scarCards: CardDef[] = [
     text: 'Choisissez un Héros de force 3 ou moins dans la pile Succession et jouez-le, ou déplacez un Héros vers un lieu de votre choix.',
     image: img('hakuna-matata.webp'),
     effects: [{ type: 'HAKUNA_MATATA' }],
+    journal: 'Hakuna Matata : un Héros revient de la pile Succession, ou un Héros change de lieu.',
   },
 
   // ----------------------------------------------------------------------
@@ -210,6 +231,7 @@ export const scarCards: CardDef[] = [
     copies: 3,
     text: 'Associez cette carte à un Héros qui ne possède aucun Objet : sa force augmente de 3.',
     image: img('vision.webp'),
+    journal: 'Vision : +3 Force pour {nomHéros}.',
   },
   {
     id: 'baton-rafiki',
@@ -221,6 +243,7 @@ export const scarCards: CardDef[] = [
     copies: 1,
     text: 'Associez cette carte à un Héros. Si ce Héros doit être éliminé, défaussez cet Objet à la place.',
     image: img('baton-rafiki.webp'),
+    journal: 'Bâton de Rafiki : {nomHéros} encaissera la prochaine élimination à sa place.',
   },
 
   // ----------------------------------------------------------------------
@@ -236,6 +259,7 @@ export const scarCards: CardDef[] = [
     copies: 1,
     text: 'Lorsque Mufasa est éliminé, placez-le dans la pile Succession. Tant que Mufasa est dans la pile Succession, les Héros que vous éliminez y sont également placés.',
     image: img('mufasa.webp'),
+    journal: 'Mufasa apparaît : éliminé, il ouvre la pile Succession — les Héros vaincus y rejoindront.',
   },
   {
     id: 'nala',
@@ -248,6 +272,9 @@ export const scarCards: CardDef[] = [
     text: 'Vous pouvez déplacer un Héros vers n’importe quel lieu.',
     image: img('nala.webp'),
     onPlace: [{ type: 'FATE_MOVE_HERO_TO_SAFEST' }],
+    journal:
+      'Nala apparaît : elle met {nomHéros} à l’abri sur {nomLieu}.\n' +
+      'Nala apparaît.',
   },
   {
     id: 'rafiki',
@@ -260,6 +287,7 @@ export const scarCards: CardDef[] = [
     text: 'Scar doit éliminer Rafiki avant les autres Héros.',
     image: img('rafiki.webp'),
     mustDefeatFirst: true,
+    journal: 'Rafiki apparaît : il devra tomber avant les autres Héros.',
   },
   {
     id: 'sarabi',
@@ -272,6 +300,9 @@ export const scarCards: CardDef[] = [
     text: 'Vous pouvez défausser une Hyène sur le lieu où vous jouez Sarabi.',
     image: img('sarabi.webp'),
     onPlace: [{ type: 'DISCARD_HYENA_AT_HOST' }],
+    journal:
+      'Sarabi apparaît : elle chasse {nomAllié} du royaume.\n' +
+      'Sarabi apparaît : aucune Hyène à chasser sur son lieu.',
   },
   {
     id: 'pumbaa',
@@ -284,6 +315,7 @@ export const scarCards: CardDef[] = [
     text: 'Si Timon se trouve dans le royaume, la force de Pumbaa augmente de 2.',
     image: img('pumbaa.webp'),
     selfStrengthMods: [{ kind: 'if-card', cardId: 'timon', scope: 'realm', delta: 2 }],
+    journal: 'Pumbaa apparaît : +2 Force tant que Timon est dans le royaume.',
   },
   {
     id: 'timon',
@@ -296,6 +328,7 @@ export const scarCards: CardDef[] = [
     text: 'Si Pumbaa se trouve dans le royaume, la force de Timon augmente de 2.',
     image: img('timon.webp'),
     selfStrengthMods: [{ kind: 'if-card', cardId: 'pumbaa', scope: 'realm', delta: 2 }],
+    journal: 'Timon apparaît : +2 Force tant que Pumbaa est dans le royaume.',
   },
   {
     id: 'zazu',
@@ -307,6 +340,7 @@ export const scarCards: CardDef[] = [
     copies: 1,
     text: 'La force des autres Héros sur le lieu où se trouve Zazu est réduite de 2. Celle des Héros sur les autres lieux est augmentée de 1.',
     image: img('zazu.webp'),
+    journal: 'Zazu apparaît : −2 Force pour les Héros de son lieu, +1 pour les autres.',
   },
   {
     id: 'simba',
@@ -318,6 +352,7 @@ export const scarCards: CardDef[] = [
     copies: 1,
     text: 'La force des Hyènes ne peut pas dépasser 2.',
     image: img('simba.webp'),
+    journal: 'Simba apparaît : la Force des Hyènes plafonne à 2.',
   },
 ]
 

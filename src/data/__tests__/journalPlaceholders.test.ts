@@ -63,6 +63,12 @@ describe('Journal — placeholders des cartes natives', () => {
       '/cards/ursula/',
       '/cards/reine-coeur/',
       '/cards/crochet/',
+      '/cards/mechante-reine/',
+      '/cards/facilier/',
+      '/cards/hades/',
+      '/cards/scar/',
+      '/cards/yzma/',
+      '/cards/ratigan/',
     ]
     // Cartes dont l'effet n'est pas (encore) implémenté par le moteur : elles gardent
     // volontairement leur log par défaut plutôt que d'annoncer un effet qui n'a pas lieu.
