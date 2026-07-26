@@ -516,10 +516,11 @@ export function Hand({
               e.type === 'GAIN_POWER_PER_HERO_IN_REALM' ||
               e.type === 'RELOCATE_OWN_HERO' ||
               (e.type === 'GRANT_FREE_ACTION' && e.actionType === 'VANQUISH') ||
-              // Le Seigneur des clés — Banni ! (déplace un Héros) / Souffre-douleur
+              // Le Seigneur des clés — Banni ! (déplace un Héros) / Souffre douleur
               // (réduit la force d'un Héros) : sans Héros au royaume, aucun effet.
               e.type === 'MOVE_HERO_TO_LOCATION' ||
               e.type === 'REDUCE_HERO_STRENGTH_TEMP' ||
+              e.type === 'REDUCE_HERO_STRENGTH_PERM' ||
               // Sombra — Adios (déplace un Héros vers un lieu voisin) : sans Héros, aucun effet.
               e.type === 'RELOCATE_HERO_ADJACENT' ||
               // Madame de Trémaine — Piège : sans Héros à piéger, aucun effet.

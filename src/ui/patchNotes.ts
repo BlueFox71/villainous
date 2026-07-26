@@ -73,6 +73,8 @@ export const PATCH_NOTES: PatchNote[] = [
       "Correctif : **Surprise !** (et les Conditions du même genre) se déclenchaient sur la force **imprimée** du Héros éliminé. C'est désormais sa force **réelle** : **Samus** avec la **Balle Smash** vaut 5, plus 3.",
       "Correctif : déplacer une carte **sur son lieu actuel** la **dupliquait**, et le nombre de copies **doublait** à chaque fois — **Le Roi Singe** (Shere Khan), **Roadster** (Cruella), **Finis le travail** (Yzma).",
       "**Rapport des tests** (dév) : le niveau **À améliorer** revient côté **Joueur**, avec sa **barre** dans les statistiques.",
+      "**Souffre douleur** (Le Seigneur des clés) : la force du Héros est réduite à 0 **définitivement**, et plus seulement jusqu'à la fin du tour. Le journal ne parle plus du **Talon d'Achille** d'Hadès.",
+      "Correctif : sur le plateau du **Seigneur des clés**, **Déplacer un héros** passe dans la **rangée du bas** de la **Fosse commune** (avec Éliminer un héros et Gagner 1 Pouvoir).",
     ],
   },
   {

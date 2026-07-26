@@ -1178,6 +1178,7 @@ export function cardNeedsHeroTarget(card: CardInstance): boolean {
       e.type === 'HYPNOTIZE_HERO' ||
       e.type === 'SET_HERO_SIZE' ||
       e.type === 'REDUCE_HERO_STRENGTH_TEMP' ||
+      e.type === 'REDUCE_HERO_STRENGTH_PERM' ||
       e.type === 'HACK_HERO' ||
       e.type === 'TRAP_HERO',
   )

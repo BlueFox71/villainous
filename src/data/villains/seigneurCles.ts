@@ -71,7 +71,7 @@ export const seigneurCles: VillainDef = {
       name: 'Fosse commune',
       actions: [
         { id: 'fate', type: 'FATE', row: 'top', label: 'Fatalité' },
-        { id: 'move-hero', type: 'MOVE_HERO', row: 'top', label: 'Déplacer un héros' },
+        { id: 'move-hero', type: 'MOVE_HERO', row: 'bottom', label: 'Déplacer un héros' },
         { id: 'vanquish', type: 'VANQUISH', row: 'bottom', label: 'Éliminer un héros' },
         { id: 'gain-power', type: 'GAIN_POWER', amount: 1, row: 'bottom', label: 'Gagner 1 pouvoir' },
       ],

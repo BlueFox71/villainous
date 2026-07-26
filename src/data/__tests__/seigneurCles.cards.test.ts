@@ -83,4 +83,11 @@ describe('cartes du Seigneur des clés — intégrité du paquet', () => {
     const crypte = seigneurCles.locations.find((l) => l.id === 'crypte')
     expect(crypte?.actions.some((a) => a.type === 'OBTAIN_KEY')).toBe(true)
   })
+
+  it('Fosse commune : Fatalité en haut, les 3 autres actions en bas', () => {
+    const fosse = seigneurCles.locations.find((l) => l.id === 'fosse-commune')!
+    const row = (r: 'top' | 'bottom') => fosse.actions.filter((a) => a.row === r).map((a) => a.type)
+    expect(row('top')).toEqual(['FATE'])
+    expect(row('bottom')).toEqual(['MOVE_HERO', 'VANQUISH', 'GAIN_POWER'])
+  })
 })

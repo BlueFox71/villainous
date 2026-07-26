@@ -7970,7 +7970,25 @@ export function resolveEffect(
       const hero = (actor.board[loc] ?? []).find((c) => c.instanceId === target)
       if (!hero || hero.type !== 'hero') return state
       const next = patchCard(state, idx, target, (c) => ({ ...c, tempStrengthBonus: (c.tempStrengthBonus ?? 0) - effect.amount }))
-      return { ...next, log: [...next.log, `**${hero.name}** : force −${effect.amount} jusqu'à la fin du tour (Talon d'Achille).`] }
+      return { ...next, log: [...next.log, `**${hero.name}** : force −${effect.amount} jusqu'à la fin du tour.`] }
+    }
+    case 'REDUCE_HERO_STRENGTH_PERM': {
+      // Souffre douleur : −amount DÉFINITIVEMENT sur la force du Héros cible.
+      const target = ctx?.targetHeroId
+      if (!target) return state
+      const actor = state.players[idx]
+      const loc = locationOfCard(actor, target)
+      if (!loc) return state
+      const hero = (actor.board[loc] ?? []).find((c) => c.instanceId === target)
+      if (!hero || hero.type !== 'hero') return state
+      const next = patchCard(state, idx, target, (c) => ({ ...c, permanentStrengthDelta: (c.permanentStrengthDelta ?? 0) - effect.amount }))
+      // Réduction « à 0 » (amount énorme) vs simple malus chiffré : on formule le
+      // Journal d'après la force effective qui en résulte.
+      const after = effectiveStrength(next, idx, target) ?? 0
+      const msg = after === 0
+        ? `**${hero.name}** : force réduite à 0 définitivement.`
+        : `**${hero.name}** : force −${effect.amount} définitivement.`
+      return { ...next, log: [...next.log, msg] }
     }
     // --- Madame de Trémaine ---------------------------------------------------
     case 'TRAP_HERO': {

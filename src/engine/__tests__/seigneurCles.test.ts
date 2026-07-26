@@ -234,14 +234,43 @@ describe('Le Seigneur des clés — Plaisir ou souffrance', () => {
   })
 })
 
-describe('Le Seigneur des clés — Souffre-douleur (force réduite à 0)', () => {
+describe('Le Seigneur des clés — Souffre douleur (force réduite à 0)', () => {
   it('réduit la force effective d’un Héros à 0 (éliminable sans Allié)', () => {
     let s = game()
     const hero = { instanceId: 'h1', cardId: 'belle', type: 'hero', name: 'Héros', strength: 4, copies: 1 } as never
     s = { ...s, players: [{ ...s.players[0], board: { ...s.players[0].board, crypte: [hero] } }] }
     expect(effectiveStrength(s, 0, 'h1')).toBe(4)
-    s = resolveEffects(s, [{ type: 'REDUCE_HERO_STRENGTH_TEMP', amount: 99 }], { actorIndex: 0, targetHeroId: 'h1' })
+    s = resolveEffects(s, [{ type: 'REDUCE_HERO_STRENGTH_PERM', amount: 99 }], { actorIndex: 0, targetHeroId: 'h1' })
     expect(effectiveStrength(s, 0, 'h1')).toBe(0)
+  })
+
+  it('la réduction est DÉFINITIVE : elle survit à la fin du tour', () => {
+    let s = game2()
+    const hero = { instanceId: 'h1', cardId: 'belle', type: 'hero', name: 'Héros', strength: 4, copies: 1 } as never
+    s = {
+      ...s,
+      phase: 'ACTION',
+      players: [{ ...s.players[0], board: { ...s.players[0].board, crypte: [hero] } }, s.players[1]],
+    }
+    s = resolveEffects(s, [{ type: 'REDUCE_HERO_STRENGTH_PERM', amount: 99 }], { actorIndex: 0, targetHeroId: 'h1' })
+    expect(effectiveStrength(s, 0, 'h1')).toBe(0)
+    s = applyAction(s, { type: 'END_TURN' })
+    expect(effectiveStrength(s, 0, 'h1')).toBe(0)
+    // …et même un bonus de force ultérieur ne la relève pas (« réduite à 0 »).
+    s = { ...s, players: [{ ...s.players[0], board: { ...s.players[0].board, crypte: [{ ...s.players[0].board.crypte![0], forceTokens: 3 }] } }, s.players[1]] }
+    expect(effectiveStrength(s, 0, 'h1')).toBe(0)
+  })
+
+  it('le Journal annonce une réduction définitive (sans mention « fin du tour »)', () => {
+    let s = game()
+    const hero = { instanceId: 'h1', cardId: 'belle', type: 'hero', name: 'Gévaudan', strength: 4, copies: 1 } as never
+    s = { ...s, players: [{ ...s.players[0], board: { ...s.players[0].board, crypte: [hero] } }] }
+    s = resolveEffects(s, [{ type: 'REDUCE_HERO_STRENGTH_PERM', amount: 99 }], { actorIndex: 0, targetHeroId: 'h1' })
+    const line = s.log[s.log.length - 1]
+    expect(line).toContain('force réduite à 0 définitivement')
+    expect(line).not.toContain('fin du tour')
+    expect(line).not.toContain('Talon d’Achille')
+    expect(line).not.toContain("Talon d'Achille")
   })
 })
 

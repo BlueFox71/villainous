@@ -1635,6 +1635,10 @@ export type Effect =
   /** Hadès — Talon d'Achille : réduit de `amount` la force du Héros cible
    *  (ctx.targetHeroId) jusqu'à la fin du tour (via tempStrengthBonus négatif). */
   | { type: 'REDUCE_HERO_STRENGTH_TEMP'; amount: number }
+  /** Réduit DÉFINITIVEMENT de `amount` la force du Héros cible (ctx.targetHeroId),
+   *  via `permanentStrengthDelta`. Le Seigneur des clés — Souffre douleur : `amount`
+   *  très grand (99) = « sa force est réduite à 0 » quoi qu'il arrive ensuite. */
+  | { type: 'REDUCE_HERO_STRENGTH_PERM'; amount: number }
   /** Fatalité Hadès — Éclairs : entrave tous les Titans d'un lieu (auto : le lieu
    *  qui en porte le plus). Résolu sur le royaume de la cible (ctx.actorIndex). */
   | { type: 'TRAP_TITANS_AT_BEST_LOCATION' }

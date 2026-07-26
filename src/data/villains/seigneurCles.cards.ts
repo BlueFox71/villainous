@@ -74,14 +74,16 @@ export const seigneurClesCards: CardDef[] = [
   },
   {
     id: 'souffre-douleur',
-    name: 'Souffre-douleur',
-    englishName: 'Souffre-douleur',
+    name: 'Souffre douleur',
+    englishName: 'Souffre douleur',
     deck: 'villain',
     type: 'effect',
     cost: 2,
     copies: 2,
-    text: 'Associez cette carte à un Héros, sa force est réduite à 0 (jusqu’à la fin du tour).',
-    effects: [{ type: 'REDUCE_HERO_STRENGTH_TEMP', amount: 99 }],
+    text: 'Associez cette carte à un Héros, sa force est réduite à 0.',
+    // « Réduite à 0 » DÉFINITIVEMENT (la carte reste associée au Héros) : malus
+    // permanent énorme, que d'éventuels bonus ultérieurs ne compenseront pas.
+    effects: [{ type: 'REDUCE_HERO_STRENGTH_PERM', amount: 99 }],
     image: img('souffre-douleur.webp'),
   },
   {
