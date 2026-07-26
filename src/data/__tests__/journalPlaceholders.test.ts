@@ -69,10 +69,18 @@ describe('Journal — placeholders des cartes natives', () => {
       '/cards/scar/',
       '/cards/yzma/',
       '/cards/ratigan/',
+      '/cards/cruella/',
+      '/cards/gothel/',
+      '/cards/pat-hibulaire/',
+      '/cards/syndrome/',
+      '/cards/lotso/',
+      '/cards/sa-sucrerie/',
     ]
     // Cartes dont l'effet n'est pas (encore) implémenté par le moteur : elles gardent
     // volontairement leur log par défaut plutôt que d'annoncer un effet qui n'a pas lieu.
-    const EXEMPT = new Set(['pouvoir-sorcier', 'sauvetage', 'proces', 'crise-hysterie'])
+    // + `raiponce` : Héros-TUILE (copies 0), posée à la mise en place et jamais « jouée »
+    // depuis un deck — aucun message de Journal ne pourrait être émis pour elle.
+    const EXEMPT = new Set(['pouvoir-sorcier', 'sauvetage', 'proces', 'crise-hysterie', 'raiponce'])
     const missing = allCards
       .filter((c) => prefixes.some((p) => (c.image ?? '').startsWith(p)))
       .filter((c) => !c.journal && !EXEMPT.has(c.id))

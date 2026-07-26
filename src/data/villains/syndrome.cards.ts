@@ -26,6 +26,9 @@ export const syndromeCards: CardDef[] = [
       'puis jouez-le sur le même lieu que Mirage. Défaussez toutes les autres cartes dévoilées.',
     image: img('mirage.webp'),
     effects: [{ type: 'REVEAL_FATE_HERO_AT_PAWN' }],
+    journal:
+      'Mirage rejoint le royaume et attire {nomHéros} sur son lieu.\n' +
+      'Mirage rejoint le royaume.',
   },
   {
     id: 'securite',
@@ -38,6 +41,7 @@ export const syndromeCards: CardDef[] = [
     copies: 2,
     text: 'Aucune capacité.',
     image: img('securite.webp'),
+    journal: 'La Sécurité rejoint le royaume.',
   },
   {
     id: 'gardes',
@@ -51,6 +55,7 @@ export const syndromeCards: CardDef[] = [
     text: 'La force des cartes GARDES augmente de 1 pour chaque autre Allié sur le même lieu qu’elles.',
     image: img('gardes.webp'),
     selfStrengthMods: [{ kind: 'per-other-type-here', cardType: 'ally', delta: 1 }],
+    journal: 'Les Gardes rejoignent le royaume.',
   },
   {
     id: 'patrouille-en-velocipode',
@@ -66,6 +71,7 @@ export const syndromeCards: CardDef[] = [
       'éliminer un Héros sur son lieu ou un lieu voisin.',
     image: img('patrouille-en-velocipode.webp'),
     reachesAdjacentVanquish: true,
+    journal: 'La Patrouille en Vélocipode rejoint le royaume.',
   },
   // ----------------------------------------------------------------- Objets ---
   {
@@ -86,6 +92,7 @@ export const syndromeCards: CardDef[] = [
     // les Alliés/Objets (défausser/déplacer) — comme l'Omnidroïde.
     alsoItem: true,
     immuneToAllyItemEffects: true,
+    journal: 'Télécommande de Syndrome : posée sur {nomLieu}, elle mettra l’Omnidroïde v.10 hors service.',
   },
   {
     id: 'modification-majeure',
@@ -97,6 +104,7 @@ export const syndromeCards: CardDef[] = [
     copies: 4,
     text: 'Aucune capacité. (Défaussée pour faire évoluer l’Omnidroïde.)',
     image: img('modification-majeure.webp'),
+    journal: 'Modification Majeure : posée sur {nomLieu}, prête à faire évoluer l’Omnidroïde.',
   },
   {
     id: 'energie-au-point-zero',
@@ -111,6 +119,7 @@ export const syndromeCards: CardDef[] = [
     immobilizesHostHero: true,
     text: 'Associez cette carte à un Héros : sa force est réduite de 2 et il ne peut plus être déplacé.',
     image: img('energie-au-point-zero.webp'),
+    journal: 'Énergie au Point Zéro : −2 Force pour {nomHéros}, désormais immobilisé.',
   },
   // ------------------------------------------------------------- Événements ---
   {
@@ -124,6 +133,10 @@ export const syndromeCards: CardDef[] = [
     text: 'Déplacez un Allié ou un Objet sur n’importe quel lieu où se trouve au moins un Héros.',
     image: img('identification-je-vous-prie.webp'),
     effects: [{ type: 'MOVE_ALLY_OR_ITEM_TO_HERO_LOCATION' }],
+    journal:
+      'Identification, je vous prie : {nomAllié} rejoint {nomLieu}, là où sont les Héros.\n' +
+      'Identification, je vous prie : {nomObjet} rejoint {nomLieu}, là où sont les Héros.\n' +
+      'Identification, je vous prie : un renfort est envoyé là où sont les Héros.',
   },
   {
     id: 'unite-de-confinement',
@@ -136,6 +149,7 @@ export const syndromeCards: CardDef[] = [
     text: 'Réduisez la force d’un Héros à 0 à l’aide de jetons Force.',
     image: img('unite-de-confinement.webp'),
     effects: [{ type: 'REDUCE_HERO_FORCE_TO_ZERO' }],
+    journal: 'Unité de Confinement : la Force de {nomHéros} tombe à 0.',
   },
   // -------------------------------------------------------------- Conditions ---
   {
@@ -152,6 +166,7 @@ export const syndromeCards: CardDef[] = [
     image: img('qui-est-le-plus-super.webp'),
     trigger: { type: 'opponent-played-cards-ge', value: 1 },
     effects: [{ type: 'GAIN_POWER_EQUAL_LAST_PLAYED_COST' }],
+    journal: 'Qui est le plus super ? : la carte jouée en face rapporte {NbJT} JT.',
   },
   {
     id: 'sonde-bio',
@@ -167,6 +182,9 @@ export const syndromeCards: CardDef[] = [
     image: img('sonde-bio.webp'),
     trigger: { type: 'opponent-vanquished-hero-strength-ge', value: 0 },
     effects: [{ type: 'DEFEAT_REALM_HERO_AUTO', useLastVanquishStrength: true }],
+    journal:
+      'Sonde Bio : {nomHéros} est emporté dans la foulée.\n' +
+      'Sonde Bio : aucun Héros à emporter.',
   },
   {
     id: '15-ans-plus-tard',
@@ -183,6 +201,9 @@ export const syndromeCards: CardDef[] = [
     image: img('15-ans-plus-tard.webp'),
     trigger: { type: 'opponent-gained-power-ge', value: 1 },
     effects: [{ type: 'REVEAL_FATE_HERO_CHOOSE_LOC', weakenBy: 2 }],
+    journal:
+      '15 ans plus tard : {nomHéros} surgit sur {nomLieu}, affaibli de 2 Force.\n' +
+      '15 ans plus tard : la pioche Fatalité est dévoilée jusqu’à un Héros.',
   },
   {
     id: 'je-travaille-en-solo',
@@ -198,6 +219,7 @@ export const syndromeCards: CardDef[] = [
     image: img('je-travaille-en-solo.webp'),
     trigger: { type: 'opponent-discarded-ge', value: 1 },
     effects: [{ type: 'DRAW_PER_OPPONENT_DISCARD' }],
+    journal: 'Je travaille en solo : autant de cartes piochées que l’adversaire en a défaussées.',
   },
 
   // ====================================================== Tuiles Omnidroïde ===
@@ -214,6 +236,7 @@ export const syndromeCards: CardDef[] = [
       'Lorsqu’il participe à une action Éliminer un Héros, retirez l’OMNIDROÏDE v.X8 de votre ' +
       'royaume, puis mélangez votre défausse et votre pioche.',
     image: img('omnidroide-v-x8.webp'),
+    journal: 'L’Omnidroïde v.X8 entre en action.',
   },
   {
     id: 'omnidroide-v-x9',
@@ -228,6 +251,7 @@ export const syndromeCards: CardDef[] = [
       'sur n’importe quel lieu. Lorsqu’il participe à une action Éliminer un Héros, retirez-le, puis ' +
       'cherchez la TÉLÉCOMMANDE DE SYNDROME et ajoutez-la à votre main.',
     image: img('omnidroide-v-x9.webp'),
+    journal: 'L’Omnidroïde v.X9 entre en action.',
   },
   {
     id: 'omnidroide-v-x10',
@@ -241,6 +265,7 @@ export const syndromeCards: CardDef[] = [
       'Vous devez défausser 3 MODIFICATIONS MAJEURES pour jouer l’OMNIDROÏDE v.10 sur Métroville. ' +
       'Il n’est PAS défaussé lorsqu’il participe à une action Éliminer un Héros.',
     image: img('omnidroide-v-x10.webp'),
+    journal: 'L’Omnidroïde v.10 entre en action à Métroville.',
   },
   {
     // Face « dos » de l'Omnidroïde v.10 : reste sur Métroville après l'activation de la
@@ -255,6 +280,7 @@ export const syndromeCards: CardDef[] = [
       'L’OMNIDROÏDE v.10 est actuellement éliminé. Si aucun Héros ne se trouve dans votre royaume, ' +
       'vous gagnez la partie.',
     image: img('omnidroide-v-x10-detruit.webp'),
+    journal: 'L’Omnidroïde v.10 gît, détruit.',
   },
 
   // ============================================================ Fatalité (15) =
@@ -272,6 +298,7 @@ export const syndromeCards: CardDef[] = [
     image: img('m-indestructible.webp'),
     selfStrengthMods: [{ kind: 'per-other-hero-here', delta: 1 }],
     onPlace: [{ type: 'ATTACH_REMOTE_IF_IN_REALM' }],
+    journal: 'M. Indestructible apparaît : +1 Force par autre Héros de son lieu.',
   },
   {
     id: 'jack-jack',
@@ -286,6 +313,7 @@ export const syndromeCards: CardDef[] = [
       'celle du Héros le plus fort sur le même lieu.',
     image: img('jack-jack.webp'),
     selfStrengthMods: [{ kind: 'match-strongest-hero-here' }],
+    journal: 'Jack-Jack apparaît : sa Force égale celle du plus fort Héros de son lieu.',
   },
   {
     id: 'frozone',
@@ -301,6 +329,7 @@ export const syndromeCards: CardDef[] = [
     image: img('frozone.webp'),
     blocksAllyMovesHere: true,
     onPlace: [{ type: 'ATTACH_REMOTE_IF_IN_REALM' }],
+    journal: 'Frozone apparaît : plus aucun Allié ne peut quitter son lieu.',
   },
   {
     id: 'violette',
@@ -318,6 +347,7 @@ export const syndromeCards: CardDef[] = [
       { type: 'ATTACH_REMOTE_IF_IN_REALM' },
       { type: 'DISCARD_ALL_OF_CARDID_IN_REALM', cardId: 'energie-au-point-zero' },
     ],
+    journal: 'Violette apparaît : toutes les cartes Énergie au Point Zéro sont défaussées.',
   },
   {
     id: 'fleche',
@@ -332,6 +362,9 @@ export const syndromeCards: CardDef[] = [
       'déplacer un Héros sur le lieu où se trouve FLÈCHE.',
     image: img('fleche.webp'),
     onPlace: [{ type: 'ATTACH_REMOTE_IF_IN_REALM' }, { type: 'MOVE_HERO_TO_HOST' }],
+    journal:
+      'Flèche apparaît : elle attire {nomHéros} sur son lieu.\n' +
+      'Flèche apparaît.',
   },
   {
     id: 'elastigirl',
@@ -346,6 +379,9 @@ export const syndromeCards: CardDef[] = [
       'défausser un Allié sur le lieu où se trouve ELASTIGIRL.',
     image: img('elastigirl.webp'),
     onPlace: [{ type: 'ATTACH_REMOTE_IF_IN_REALM' }, { type: 'DISCARD_ONE_ALLY_AT_HOST' }],
+    journal:
+      'Elastigirl apparaît : elle chasse {nomAllié} du royaume.\n' +
+      'Elastigirl apparaît : aucun Allié à chasser sur son lieu.',
   },
   {
     id: 'champ-de-force',
@@ -358,6 +394,7 @@ export const syndromeCards: CardDef[] = [
     shieldHeroFromVanquish: true,
     text: 'Associez cette carte à un Héros. Si ce Héros doit être éliminé, défaussez cet Objet à la place.',
     image: img('champ-de-force.webp'),
+    journal: 'Champ de Force : {nomHéros} encaissera la prochaine élimination à sa place.',
   },
   {
     id: 'alors-ca-truc-de-dingue',
@@ -369,6 +406,7 @@ export const syndromeCards: CardDef[] = [
     text: 'Défaussez tous les Alliés et Objets, à l’exception du CHAMP DE FORCE.',
     image: img('alors-ca-truc-de-dingue.webp'),
     effects: [{ type: 'DISCARD_VILLAIN_BOARD_EXCEPT', exceptCardId: 'champ-de-force' }],
+    journal: 'Alors ça, c’est un truc de dingue ! : le royaume est balayé, le Champ de Force excepté.',
   },
   {
     id: 'travail-d-equipe',
@@ -384,6 +422,7 @@ export const syndromeCards: CardDef[] = [
     image: img('travail-d-equipe.webp'),
     fatePlayBoth: true,
     effects: [{ type: 'REORDER_FATE_TOP', count: 6 }],
+    journal: 'Travail d’équipe : l’autre Fatalité est jouée, et le dessus de la pioche est réordonné.',
   },
   {
     id: 'intrusion',
@@ -395,6 +434,7 @@ export const syndromeCards: CardDef[] = [
     text: 'Syndrome doit révéler sa main à tous les joueurs.',
     image: img('intrusion.webp'),
     effects: [{ type: 'REVEAL_HAND' }],
+    journal: 'Intrusion : la main de Syndrome est étalée au grand jour.',
   },
   {
     id: 'pas-de-capes',
@@ -408,6 +448,7 @@ export const syndromeCards: CardDef[] = [
       '(il perd son déplacement).',
     image: img('pas-de-capes.webp'),
     effects: [{ type: 'FORCE_SKIP_NEXT_MOVE' }],
+    journal: 'Pas de Capes ! : Syndrome restera sur place au prochain tour.',
   },
   {
     id: 'monologue',
@@ -419,5 +460,6 @@ export const syndromeCards: CardDef[] = [
     text: 'Syndrome défausse 3 cartes de sa main (au choix).',
     image: img('monologue.webp'),
     effects: [{ type: 'TARGET_DISCARD_CHOICE', count: 3 }],
+    journal: 'Monologue : trois cartes de la main partent en défausse.',
   },
 ]

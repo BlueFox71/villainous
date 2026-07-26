@@ -26,6 +26,7 @@ export const cruellaCards: CardDef[] = [
     activatedCost: 0,
     text: 'Capturez 1 Tuile Chiots sur le lieu où se trouve HORACE ou choisissez 1 Tuile Chiots de la réserve et ajoutez-la sur le lieu indiqué.',
     image: img('horace.webp'),
+    journal: 'Horace rejoint le royaume.',
   },
   {
     id: 'jasper',
@@ -39,6 +40,7 @@ export const cruellaCards: CardDef[] = [
     activatedCost: 1,
     text: 'Payez 1 jeton Pouvoir. Capturez jusqu’à 2 Tuiles Chiots sur le lieu où se trouve JASPER.',
     image: img('jasper.webp'),
+    journal: 'Jasper rejoint le royaume.',
   },
 
   // ----------------------------------------------------------------------
@@ -55,6 +57,7 @@ export const cruellaCards: CardDef[] = [
     activatedCost: 0,
     text: 'Choisissez une Tuile Chiots de la réserve et ajoutez-la sur le lieu indiqué.',
     image: img('lampe-electrique.webp'),
+    journal: 'Lampe électrique : posée sur {nomLieu}, elle fera sortir des Chiots de la réserve.',
   },
   {
     id: 'tisonnier',
@@ -69,6 +72,7 @@ export const cruellaCards: CardDef[] = [
     copies: 2,
     text: 'Associez cette carte à un Allié, sa force augmente de 1. Si cet Allié doit être défaussé, il ne l’est pas : défaussez le Tisonnier à la place.',
     image: img('tisonnier.webp'),
+    journal: 'Tisonnier : +1 Force pour {nomAllié}, qui encaissera la prochaine défausse à sa place.',
   },
   {
     id: 'roadster',
@@ -80,6 +84,7 @@ export const cruellaCards: CardDef[] = [
     copies: 1,
     text: 'Lorsque le ROADSTER est déplacé, il peut aller sur n’importe quel lieu. De plus, vous pouvez déplacer jusqu’à 2 Tuiles Chiots du lieu de départ du ROADSTER sur son lieu d’arrivée.',
     image: img('roadster.webp'),
+    journal: 'Roadster : garé sur {nomLieu}, il roulera n’importe où avec ses Tuiles Chiots.',
   },
   {
     id: 'telephone',
@@ -92,6 +97,7 @@ export const cruellaCards: CardDef[] = [
     activatedCost: 1,
     text: 'Payez 1 jeton Pouvoir. Cherchez un Allié dans votre défausse et jouez-le gratuitement sur n’importe quel lieu.',
     image: img('telephone.webp'),
+    journal: 'Téléphone : posé sur {nomLieu}, il rappellera un Allié de la défausse.',
   },
 
   // ----------------------------------------------------------------------
@@ -109,6 +115,9 @@ export const cruellaCards: CardDef[] = [
     trigger: { type: 'opponent-vanquished-hero-strength-ge', value: 3 },
     effects: [{ type: 'INSTANT_VANQUISH_HERO_LE', maxStrength: 3 }],
     image: img('diabolique.webp'),
+    journal:
+      'Diabolique : {nomHéros} est emporté en représailles.\n' +
+      'Diabolique : aucun Héros à emporter.',
   },
   {
     id: 'sans-coeur',
@@ -122,6 +131,7 @@ export const cruellaCards: CardDef[] = [
     trigger: { type: 'opponent-moved-card' },
     effects: [{ type: 'ADD_PUPPY_FROM_RESERVE', label: 'Sans cœur' }],
     image: img('sans-coeur.webp'),
+    journal: 'Sans cœur : un déplacement adverse fait sortir une Tuile Chiots de la réserve.',
   },
 
   // ----------------------------------------------------------------------
@@ -138,6 +148,7 @@ export const cruellaCards: CardDef[] = [
     text: 'Gagnez 1 jeton Pouvoir par lieu où se trouve au moins 1 Tuile Chiots.',
     effects: [{ type: 'GAIN_POWER_PER_PUPPY_LOCATION' }],
     image: img('jadore-les-belles-fourrures.webp'),
+    journal: 'J’adore les belles fourrures : gagne {NbJT} JT.',
   },
   {
     id: 'cruelle-diablesse',
@@ -150,6 +161,9 @@ export const cruellaCards: CardDef[] = [
     text: 'Déplacez un Héros sur n’importe quel lieu.',
     effects: [{ type: 'RELOCATE_OWN_HERO', anyLocation: true }],
     image: img('cruelle-diablesse.webp'),
+    journal:
+      'Cruelle diablesse : {nomHéros} est chassé jusqu’à {nomLieu}.\n' +
+      'Cruelle diablesse : aucun Héros à chasser.',
   },
   {
     id: 'faites-ce-quil-faut',
@@ -162,6 +176,7 @@ export const cruellaCards: CardDef[] = [
     text: 'Durant ce tour, vous pouvez effectuer 1 action recouverte par un Héros sur le lieu où vous vous trouvez.',
     effects: [{ type: 'USE_COVERED_ACTIONS_THIS_TURN' }],
     image: img('faites-ce-quil-faut.webp'),
+    journal: 'Faites ce qu’il faut ! : ce tour-ci, une action recouverte du lieu redevient utilisable.',
   },
   {
     id: 'finissez-le-travail',
@@ -174,6 +189,7 @@ export const cruellaCards: CardDef[] = [
     text: 'Effectuez une action Activer une capacité.',
     effects: [{ type: 'GRANT_FREE_ACTIVATE' }],
     image: img('finissez-le-travail.webp'),
+    journal: 'Finissez le travail ! : une capacité est activée gratuitement.',
   },
   {
     id: 'ici-mes-petits',
@@ -186,6 +202,7 @@ export const cruellaCards: CardDef[] = [
     text: 'Choisissez une Tuile Chiots de la réserve et placez-la sur le lieu indiqué.',
     effects: [{ type: 'ADD_PUPPY_FROM_RESERVE', label: 'Ici, mes petits !' }],
     image: img('ici-mes-petits.webp'),
+    journal: 'Ici, mes petits ! : une Tuile Chiots quitte la réserve pour le lieu indiqué.',
   },
   {
     id: 'le-diable-lemporte',
@@ -198,6 +215,9 @@ export const cruellaCards: CardDef[] = [
     text: 'Cherchez un Objet ou un Événement dans votre défausse et ajoutez-le à votre main.',
     effects: [{ type: 'RECOVER_FROM_DISCARD_CHOICE', types: ['item', 'effect'], label: 'Le diable l’emporte' }],
     image: img('le-diable-lemporte.webp'),
+    journal:
+      'Le diable l’emporte : retour en main de {nomCarte}.\n' +
+      'Le diable l’emporte : un Objet ou un Événement revient de la défausse en main.',
   },
   {
     id: 'quels-idiots',
@@ -210,6 +230,7 @@ export const cruellaCards: CardDef[] = [
     text: 'Déplacez un Allié sur le lieu où vous vous trouvez OU Cherchez un Allié dans votre pioche ou votre défausse et ajoutez-le à votre main, puis remélangez votre pioche.',
     effects: [{ type: 'QUELS_IDIOTS' }],
     image: img('quels-idiots.webp'),
+    journal: 'Quels idiots ! : un Allié rejoint le lieu du pion, ou un renfort revient en main.',
   },
   {
     id: 'repere',
@@ -222,6 +243,7 @@ export const cruellaCards: CardDef[] = [
     text: 'Révélez jusqu’à 2 Tuiles Chiots de la réserve.',
     effects: [{ type: 'REVEAL_PUPPY_RESERVE', count: 2 }],
     image: img('repere.webp'),
+    journal: 'Repéré ! : jusqu’à 2 Tuiles Chiots de la réserve sont retournées.',
   },
   {
     id: 'jai-paye-pour-ca',
@@ -234,6 +256,7 @@ export const cruellaCards: CardDef[] = [
     text: 'Capturez une Tuile Chiots sur le lieu où vous vous trouvez.',
     effects: [{ type: 'CAPTURE_PUPPY_AT_PAWN' }],
     image: img('jai-paye-pour-ca.webp'),
+    journal: 'J’ai payé pour ça : une Tuile Chiots du lieu est capturée.',
   },
 
   // ----------------------------------------------------------------------
@@ -248,6 +271,7 @@ export const cruellaCards: CardDef[] = [
     copies: 2,
     text: 'Choisissez un Héros dans la défausse de cartes Fatalité et jouez-le.',
     image: img('aboiement-du-soir.webp'),
+    journal: 'Aboiement du soir : un Héros de la défausse Fatalité revient en jeu.',
   },
   {
     id: 'conduite-a-risques',
@@ -258,6 +282,9 @@ export const cruellaCards: CardDef[] = [
     copies: 2,
     text: 'Défaussez un Objet.',
     image: img('conduite-a-risques.webp'),
+    journal:
+      'Conduite à risques : le royaume perd {nomObjet}.\n' +
+      'Conduite à risques : aucun Objet à emporter.',
   },
   {
     id: 'evasion',
@@ -269,6 +296,7 @@ export const cruellaCards: CardDef[] = [
     text: 'Choisissez une Tuile Chiots capturée et remettez-la face visible dans la réserve.',
     effects: [{ type: 'UNCAPTURE_PUPPY_TO_RESERVE', count: 1 }],
     image: img('evasion.webp'),
+    journal: 'Évasion : une Tuile Chiots capturée s’échappe et retourne dans la réserve.',
   },
   {
     id: 'nous-sommes-des-labradors',
@@ -280,6 +308,7 @@ export const cruellaCards: CardDef[] = [
     text: 'Remettez dans la réserve, face visible, jusqu’à 2 Tuiles Chiots non capturées d’un même lieu.',
     effects: [{ type: 'RETURN_BOARD_PUPPIES_TO_RESERVE', max: 2 }],
     image: img('nous-sommes-des-labradors.webp'),
+    journal: 'Nous sommes des labradors : jusqu’à 2 Tuiles Chiots d’un lieu regagnent la réserve.',
   },
 
   // ----------------------------------------------------------------------
@@ -295,6 +324,7 @@ export const cruellaCards: CardDef[] = [
     copies: 1,
     text: 'À chaque fois qu’une Tuile Chiots de la réserve doit être ajoutée sur le lieu où se trouve cette carte, remettez la Tuile Chiots dans la réserve, face visible, à la place.',
     image: img('anita-et-roger.webp'),
+    journal: 'Anita et Roger apparaissent : plus aucune Tuile Chiots ne peut être posée sur leur lieu.',
   },
   {
     id: 'capitaine',
@@ -307,6 +337,9 @@ export const cruellaCards: CardDef[] = [
     text: 'Vous pouvez déplacer un Allié du lieu où vous jouez CAPITAINE vers un lieu voisin.',
     image: img('capitaine.webp'),
     onPlace: [{ type: 'MOVE_ALLY_FROM_HOST_ADJACENT' }],
+    journal:
+      'Capitaine apparaît : il pousse {nomAllié} jusqu’à {nomLieu}.\n' +
+      'Capitaine apparaît.',
   },
   {
     id: 'colonel',
@@ -319,6 +352,9 @@ export const cruellaCards: CardDef[] = [
     text: 'Vous pouvez déplacer un Héros vers le lieu de votre choix.',
     image: img('colonel.webp'),
     onPlace: [{ type: 'RELOCATE_REALM_HERO_ANYWHERE' }],
+    journal:
+      'Colonel apparaît : il emmène {nomHéros} jusqu’à {nomLieu}.\n' +
+      'Colonel apparaît.',
   },
   {
     id: 'nanny',
@@ -330,6 +366,7 @@ export const cruellaCards: CardDef[] = [
     copies: 1,
     text: 'Activer la capacité des Alliés et Objets sur le lieu où se trouve NANNY coûte 1 jeton Pouvoir de plus.',
     image: img('nanny.webp'),
+    journal: 'Nanny apparaît : activer une capacité sur son lieu coûte 1 JT de plus.',
   },
   {
     id: 'perdita',
@@ -342,6 +379,7 @@ export const cruellaCards: CardDef[] = [
     text: 'Vous pouvez choisir une Tuile Chiots capturée et la placer sur le lieu où vous jouez PERDITA.',
     onPlace: [{ type: 'PLACE_CAPTURED_PUPPY_AT_HERO' }],
     image: img('perdita.webp'),
+    journal: 'Perdita apparaît : une Tuile Chiots capturée est libérée sur son lieu.',
   },
   {
     id: 'pongo',
@@ -353,6 +391,7 @@ export const cruellaCards: CardDef[] = [
     copies: 1,
     text: 'Aucune Tuile Chiots ne peut être capturée sur le lieu où se trouve PONGO.',
     image: img('pongo.webp'),
+    journal: 'Pongo apparaît : aucune Tuile Chiots ne peut être capturée sur son lieu.',
   },
   {
     id: 'sergent-tibs',
@@ -365,5 +404,6 @@ export const cruellaCards: CardDef[] = [
     text: 'Vous pouvez déplacer jusqu’à 2 Tuiles Chiots non capturées de n’importe quel lieu vers celui où vous jouez SERGENT TIBS.',
     onPlace: [{ type: 'MOVE_BOARD_PUPPIES_TO_HERO', max: 2 }],
     image: img('sergent-tibs.webp'),
+    journal: 'Sergent Tibs apparaît : jusqu’à 2 Tuiles Chiots non capturées le rejoignent.',
   },
 ]

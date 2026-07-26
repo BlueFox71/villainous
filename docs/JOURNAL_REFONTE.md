@@ -275,7 +275,9 @@ Légende : ✅ refait · ⬜ à faire.
 | crochet | ✅ |
 | mechante-reine, facilier, hades | ✅ (« Le Mal au Cœur ») |
 | scar, yzma, ratigan | ✅ (« Prêt à Tout ») |
-| bowser, cruella, davy-jones, gaston, gothel, imposteur, la-bonne-fee, lotso, madame-mim, madame-tremaine, oogie-boogie, pat-hibulaire, sa-sucrerie, seigneur-tenebres, shere-khan, slenderman, sombra, syndrome, tabbou, tamatoa, team-rocket, thanos | ⬜ |
+| cruella, gothel, pat-hibulaire | ✅ (« Sale Temps pour les Gentils ») |
+| syndrome, lotso, sa-sucrerie | ✅ (« Toujours Plus Vil ») |
+| bowser, davy-jones, gaston, imposteur, la-bonne-fee, madame-mim, madame-tremaine, oogie-boogie, seigneur-tenebres, shere-khan, slenderman, sombra, tabbou, tamatoa, team-rocket, thanos | ⬜ |
 
 > Les vilains natifs restants n'ont **aucun** `journal` aujourd'hui : pour eux la
 > refonte part de zéro. Les customs ont d'anciennes notes générées, à **réécrire**
