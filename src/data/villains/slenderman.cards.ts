@@ -36,6 +36,7 @@ export const slendermanCards: CardDef[] = [
     text: 'Associez cet Objet à un lieu qui a moins de 2 pages.',
     image: img('page.webp'),
     maxAtLocation: 2,
+    journal: 'Page : une page de plus est affichée sur {nomLieu}.',
   },
 
   // ----------------------------------------------------------------------
@@ -52,6 +53,7 @@ export const slendermanCards: CardDef[] = [
     text: 'Déplacez-vous sur le lieu où se trouve un Héros, et effectuez une des actions disponibles.',
     image: img('teleportation.webp'),
     effects: [{ type: 'TELEPORT_TO_HERO' }],
+    journal: 'Téléportation : Slenderman surgit auprès d’un Héros et agit sur place.',
   },
   {
     id: 'observation',
@@ -64,6 +66,7 @@ export const slendermanCards: CardDef[] = [
     text: "Slenderman n'est pas obligé de se déplacer au prochain tour.",
     image: img('observation.webp'),
     effects: [{ type: 'GRANT_SKIP_NEXT_MOVE' }],
+    journal: 'Observation : le prochain déplacement devient facultatif.',
   },
   {
     id: 'brouillage',
@@ -76,6 +79,7 @@ export const slendermanCards: CardDef[] = [
     text: 'Effectuez les actions recouvertes par un Héros.',
     image: img('brouillage.webp'),
     effects: [{ type: 'GRANT_USE_COVERED_ACTION' }],
+    journal: 'Brouillage : les actions recouvertes par un Héros redeviennent utilisables.',
   },
   {
     id: 'disparition',
@@ -88,6 +92,9 @@ export const slendermanCards: CardDef[] = [
     text: 'Éliminer un Héros sur le lieu où vous êtes.',
     image: img('disparition.webp'),
     effects: [{ type: 'INSTANT_VANQUISH_HERO_AT_PAWN' }],
+    journal:
+      'Disparition : {nomHéros} s’efface du lieu.\n' +
+      'Disparition : la brume ne prend personne.',
   },
   {
     id: 'dessin-inquietant',
@@ -100,6 +107,7 @@ export const slendermanCards: CardDef[] = [
     text: 'Gagnez 1 Jeton Pouvoir par page sur le lieu où vous êtes.',
     image: img('dessin_inquietant.webp'),
     effects: [{ type: 'GAIN_POWER_PER_CARD_AT_PAWN', cardId: 'page', amount: 1 }],
+    journal: 'Dessin inquiétant : gagne {NbJT} JT, une page à la fois.',
   },
   {
     id: 'apparition',
@@ -112,6 +120,9 @@ export const slendermanCards: CardDef[] = [
     text: 'Déplacez un Héros vers un lieu voisin.',
     image: img('apparition.webp'),
     effects: [{ type: 'RELOCATE_HERO_ADJACENT' }],
+    journal:
+      'Apparition : {nomHéros} recule vers {nomLieu}.\n' +
+      'Apparition : aucun Héros à faire reculer.',
   },
   {
     id: 'tombee-de-la-nuit',
@@ -124,6 +135,7 @@ export const slendermanCards: CardDef[] = [
     text: 'Choisissez entre Événement ou Objet. Dévoilez les 4 premières cartes de votre pioche et ajoutez celle de ce type à votre main et défaussez les autres.',
     image: img('tombee_de_la_nuit.webp'),
     effects: [{ type: 'CHOOSE_TYPE_REVEAL_DRAW', count: 4 }],
+    journal: 'Tombée de la nuit : quatre cartes sont dévoilées, une seule du type voulu est gardée.',
   },
   {
     id: 'retourne-toi',
@@ -136,6 +148,7 @@ export const slendermanCards: CardDef[] = [
     text: 'Regardez la dernière carte de votre pioche et ajoutez-la à votre main. Sinon mélangez votre deck et piochez la première carte de votre pioche.',
     image: img('retourne_toi.webp'),
     effects: [{ type: 'PEEK_BOTTOM_THEN_CHOOSE' }],
+    journal: 'Retourne-toi : le fond de la pioche est inspecté — carte gardée, ou deck remélangé.',
   },
   {
     id: 'perdu-dans-les-bois',
@@ -148,6 +161,7 @@ export const slendermanCards: CardDef[] = [
     text: "Mélangez votre défausse et votre pioche afin d'en former une nouvelle puis, piochez 2 cartes.",
     image: img('perdu_dans_les_bois.webp'),
     effects: [{ type: 'RESHUFFLE_DISCARD_AND_DRAW', count: 2 }],
+    journal: 'Perdu dans les bois : la défausse repart dans la pioche, et 2 cartes sont tirées.',
   },
 
   // ----------------------------------------------------------------------
@@ -164,6 +178,9 @@ export const slendermanCards: CardDef[] = [
     text: "Cette carte est jouable pendant le tour d'un adversaire s'il déplace un Allié ou un Objet. Éliminer un Héros.",
     image: img('sombres_desseins.webp'),
     trigger: { type: 'opponent-moved-card' },
+    journal:
+      'Sombres desseins : {nomHéros} est emporté en représailles.\n' +
+      'Sombres desseins : aucun Héros à emporter.',
   },
   {
     id: 'sans-visage',
@@ -176,6 +193,9 @@ export const slendermanCards: CardDef[] = [
     text: "Cette carte est jouable pendant le tour d'un adversaire s'il pioche au moins une carte avant la fin de son tour. Choisissez une carte de votre défausse et ajoutez-la à votre main.",
     image: img('sans_visage.webp'),
     trigger: { type: 'opponent-drew-card' },
+    journal:
+      'Sans visage : retour en main de {nomCarte}.\n' +
+      'Sans visage : une carte revient de la défausse en main.',
   },
 
   // ----------------------------------------------------------------------
@@ -190,6 +210,7 @@ export const slendermanCards: CardDef[] = [
     copies: 3,
     text: 'Votre réserve de Jetons Pouvoir passe à 2 si vous en avez plus.',
     image: img('mauvaise_creepypasta.webp'),
+    journal: 'Mauvaise creepypasta : la réserve de Slenderman retombe à 2 JT.',
   },
 
   // ----------------------------------------------------------------------
@@ -207,6 +228,7 @@ export const slendermanCards: CardDef[] = [
     image: img('enfant_perdu.webp'),
     onPlace: [{ type: 'CAPTURE_CARDS_AT_HOST', cardId: 'page', max: 1 }],
     onVanquish: [{ type: 'RELEASE_CAPTURED_TO_HAND', cardId: 'page' }],
+    journal: 'L’Enfant Perdu apparaît : il emporte une page de son lieu.',
   },
   {
     id: 'enqueteur',
@@ -220,6 +242,7 @@ export const slendermanCards: CardDef[] = [
     image: img('enqueteur.webp'),
     onPlace: [{ type: 'CAPTURE_CARDS_AT_HOST', cardId: 'page' }],
     onVanquish: [{ type: 'RELEASE_CAPTURED_TO_HAND', cardId: 'page' }],
+    journal: 'L’Enquêteur apparaît : il ramasse les pages de son lieu.',
   },
 
   // ----------------------------------------------------------------------
@@ -235,6 +258,7 @@ export const slendermanCards: CardDef[] = [
     copies: 3,
     text: 'Associez cette carte à un Héros, Slenderman ne peut plus se téléporter vers ce Héros.',
     image: img('lampe_de_poche.webp'),
+    journal: 'Lampe de poche : {nomHéros} est éclairé — plus de téléportation vers lui.',
   },
 
   // ----------------------------------------------------------------------
@@ -249,6 +273,7 @@ export const slendermanCards: CardDef[] = [
     copies: 3,
     text: "Slenderman ne pourra pas jouer de page au prochain tour sauf s'il joue la carte Tombée de la nuit immédiatement.",
     image: img('lever_du_jour.webp'),
+    journal: 'Lever du jour : aucune page ne pourra être posée au prochain tour.',
   },
   {
     id: 'vent-de-panique',
@@ -259,6 +284,9 @@ export const slendermanCards: CardDef[] = [
     copies: 3,
     text: 'Déplacez un Héros vers un lieu voisin.',
     image: img('vent_de_panique.webp'),
+    journal:
+      'Vent de panique : {nomHéros} recule vers {nomLieu}.\n' +
+      'Vent de panique : aucun Héros à faire reculer.',
   },
 ]
 

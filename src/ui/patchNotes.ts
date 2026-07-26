@@ -47,6 +47,18 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.9.6',
+    date: '2026-07-26',
+    title: 'Le Journal de partie raconte enfin ce que font les cartes',
+    tags: ['interface', 'cartes'],
+    changes: [
+      "**Tous les vilains** ont désormais un **Journal de partie écrit à la main** : chaque carte annonce son effet et **nomme sa cible**, au lieu d'un « joue **X** (coût 2) » sec — « **Croque !** : la pomme empoisonnée emporte Blanche-Neige à la Maison des Nains », « **Tunnel de Hawkins** : des Alliés sont sacrifiés, et un Tunnel s'ouvre sur le Laboratoire ».",
+      "Chaque vilain **parle son propre langage** : Poison, Pile de l'Au-delà, Titans entravés, Tuiles Chiots, jetons Confiance, Salle des Chenilles, marqueur Pilote, jetons Feu, lancers de dés, jetons Trésor, Étoiles, Pierres d'Infinité…",
+      "Les messages **s'accordent** enfin : plus de « Ariel est éliminé » ni de « Les Archers Loups gagne +1 Force ».",
+      "**Kilaire** n'affichait **aucun** message de Journal — ils étaient restés attachés aux cartes de Sumbra.",
+    ],
+  },
+  {
     version: '1.9.5',
     date: '2026-07-26',
     title: 'Cartes remises d’aplomb, choix rendus au joueur, bots réveillés',

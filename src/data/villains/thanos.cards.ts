@@ -26,6 +26,7 @@ export const thanosCards: CardDef[] = [
     copies: 5,
     text: 'Aucune capacité.',
     image: img('legions-de-thanos.webp'),
+    journal: 'Les Légions de Thanos rejoignent le domaine.',
   },
   {
     id: 'black-swan',
@@ -38,6 +39,7 @@ export const thanosCards: CardDef[] = [
     copies: 1,
     text: 'Lorsque Black Swan est sur le même lieu qu’une Pierre d’Infinité, ajoutez à sa force celle de l’Allié adverse le plus fort de ce lieu.',
     image: img('black-swan.webp'),
+    journal: 'Black Swan rejoint le domaine : auprès d’une Pierre d’Infinité, elle égale le plus fort des Alliés adverses.',
   },
   {
     id: 'proxima-minuit',
@@ -51,6 +53,9 @@ export const thanosCards: CardDef[] = [
     text: 'Éliminez un personnage de force 3 ou moins sur le lieu où vous jouez Proxima Minuit.',
     image: img('proxima-minuit.webp'),
     effects: [{ type: 'THANOS_PROXIMA_ELIMINATE' }],
+    journal:
+      'Proxima Minuit rejoint le domaine et abat {nomHéros}.\n' +
+      'Proxima Minuit rejoint le domaine.',
   },
   {
     id: 'corvus-glaive',
@@ -63,6 +68,7 @@ export const thanosCards: CardDef[] = [
     copies: 1,
     text: 'Si Corvus Glaive est transféré dans un domaine adverse, vous pouvez également transférer une carte Légions de Thanos sur le même lieu.',
     image: img('corvus-glaive.webp'),
+    journal: 'Corvus Glaive rejoint le domaine : transféré chez l’adversaire, il emmène une Légion.',
   },
   {
     id: 'machoire-d-ebene',
@@ -76,6 +82,7 @@ export const thanosCards: CardDef[] = [
     survivesVanquishVsStoneHolder: true,
     text: 'Mâchoire d’Ébène n’est pas défaussé lorsqu’il est utilisé pour une action Éliminer un personnage contre un adverse détenant une Pierre d’Infinité.',
     image: img('machoire-d-ebene.webp'),
+    journal: 'Mâchoire d’Ébène rejoint le domaine : face à un détenteur de Pierre, il ne tombe pas.',
   },
   {
     id: 'nain-noir',
@@ -88,6 +95,7 @@ export const thanosCards: CardDef[] = [
     copies: 1,
     text: 'Nain Noir ne peut être ni joué, ni transféré sur une Crise.',
     image: img('nain-noir.webp'),
+    journal: 'Nain Noir rejoint le domaine.',
   },
 
   // ----------------------------------------------------------------------
@@ -104,6 +112,7 @@ export const thanosCards: CardDef[] = [
     text: 'Choisissez un adversaire qui récupère aléatoirement une Pierre d’Infinité libre. Vous pouvez ensuite transférer un Allié sur le lieu où se trouve cette Pierre.',
     image: img('consultation-du-puits.webp'),
     effects: [{ type: 'THANOS_SEED_STONE' }],
+    journal: 'Consultation du Puits : une Pierre d’Infinité libre échoit à un adversaire — et un Allié part la surveiller.',
   },
   {
     id: 'gout-du-pouvoir-cosmique',
@@ -116,6 +125,7 @@ export const thanosCards: CardDef[] = [
     text: 'Ajoutez 1 jeton Force +1 sur l’un de vos Alliés. Vous pouvez l’utiliser immédiatement pour éliminer un personnage d’une force inférieure ou égale présent sur le même lieu. Votre Allié n’est pas défaussé lors de cette action.',
     image: img('gout-du-pouvoir-cosmique.webp'),
     effects: [{ type: 'THANOS_STONE_ADD_FORCE', amount: 1 }, { type: 'OPTIONAL_FREE_VANQUISH' }],
+    journal: 'Goût du Pouvoir Cosmique : +1 Force sur un Allié, prêt à frapper sans tomber.',
   },
   {
     id: 'un-modeste-prix-a-payer',
@@ -128,6 +138,7 @@ export const thanosCards: CardDef[] = [
     text: 'Gagnez 1 jeton Pouvoir et 1 supplémentaire par adversaire contrôlant au moins une Pierre d’Infinité.',
     image: img('un-modeste-prix-a-payer.webp'),
     effects: [{ type: 'THANOS_MODEST_PRICE' }],
+    journal: 'Un Modeste Prix à Payer : gagne {NbJT} JT.',
   },
   {
     id: 'sentence',
@@ -140,6 +151,7 @@ export const thanosCards: CardDef[] = [
     text: 'Transférez jusqu’à 2 de vos Alliés sur un lieu où se trouve une Pierre d’Infinité. Puis ajoutez un jeton Force +1 sur chacun de vos Alliés présents sur ce lieu.',
     image: img('sentence.webp'),
     effects: [{ type: 'THANOS_TRANSFER_TO_STONE', count: 2 }],
+    journal: 'Sentence : les Alliés convergent sur une Pierre d’Infinité, renforcés de 1 Force.',
   },
   {
     id: 'le-titan-fou',
@@ -153,6 +165,9 @@ export const thanosCards: CardDef[] = [
     copies: 2,
     text: 'Choisissez un personnage que vous ne contrôlez pas qui se trouve sur le même lieu que l’un de vos Alliés et éliminez-le. Le coût pour jouer Le Titan Fou est égal à la force du personnage éliminé.',
     image: img('le-titan-fou.webp'),
+    journal:
+      'Le Titan Fou : {nomHéros} est effacé, sa force payée en JT.\n' +
+      'Le Titan Fou : la sentence est prononcée.',
   },
   {
     id: 'distorsion-de-la-realite',
@@ -167,6 +182,9 @@ export const thanosCards: CardDef[] = [
     effects: [
       { type: 'RECOVER_FROM_DISCARD_CHOICE', types: ['effect'], label: 'Choisissez un Événement de votre défausse' },
     ],
+    journal:
+      'Distorsion de la Réalité : retour en main de {nomCarte}.\n' +
+      'Distorsion de la Réalité : un Événement revient de la défausse en main.',
   },
 
   // ----------------------------------------------------------------------
@@ -183,6 +201,7 @@ export const thanosCards: CardDef[] = [
     text: 'Une fois par tour, vous pouvez réaliser une action Activer une capacité OU Éliminer un personnage si vous vous trouvez sur ce lieu. Il ne peut y avoir qu’1 carte Faveur de la Mort sur un même lieu.',
     image: img('faveur-de-la-mort.webp'),
     maxAtLocation: 1,
+    journal: 'Faveur de la Mort : posée sur {nomLieu}, elle offre une action Activer ou Éliminer par tour.',
   },
   {
     id: 'trone-spatial',
@@ -195,6 +214,7 @@ export const thanosCards: CardDef[] = [
     grantsAction: { type: 'MOVE_ITEM_ALLY', label: 'Déplacer un objet ou un allié' },
     text: 'Ce lieu gagne l’action : Déplacer un objet ou un allié.',
     image: img('trone-spatial.webp'),
+    journal: 'Trône Spatial : {nomLieu} gagne l’action Déplacer un Objet ou un Allié.',
   },
 
   // ----------------------------------------------------------------------
@@ -214,6 +234,7 @@ export const thanosCards: CardDef[] = [
     activatedEffects: [{ type: 'THANOS_STONE_ADD_FORCE', amount: 2 }],
     text: 'Placez 2 jetons Force +1 sur l’un de vos Alliés.',
     image: img('pierre-du-pouvoir.webp'),
+    journal: 'Pierre du Pouvoir : sertie sur {nomLieu}, elle donnera +2 Force à un Allié.',
   },
   {
     id: 'pierre-du-temps',
@@ -228,6 +249,7 @@ export const thanosCards: CardDef[] = [
     activatedEffects: [{ type: 'DRAW_CARDS', count: 1 }, { type: 'GAIN_POWER', amount: 1 }],
     text: 'Piochez 1 carte Méchant et gagnez 1 jeton Pouvoir.',
     image: img('pierre-du-temps.webp'),
+    journal: 'Pierre du Temps : sertie sur {nomLieu}, elle donnera 1 carte et 1 JT.',
   },
   {
     id: 'pierre-de-l-espace',
@@ -242,6 +264,7 @@ export const thanosCards: CardDef[] = [
     activatedEffects: [{ type: 'GRANT_FREE_ACTION', actionType: 'MOVE_ITEM_ALLY' }],
     text: 'Chacun de vos Alliés peut bénéficier d’une action Transférer.',
     image: img('pierre-de-l-espace.webp'),
+    journal: 'Pierre de l’Espace : sertie sur {nomLieu}, elle offrira un Transfert à chaque Allié.',
   },
   {
     id: 'pierre-de-l-esprit',
@@ -256,6 +279,7 @@ export const thanosCards: CardDef[] = [
     activatedEffects: [{ type: 'LOOK_TOP_DRAW_DISCARD', look: 4, take: 1, title: 'Pierre de l’Esprit', returnToDeck: true }],
     text: 'Cherchez une carte au choix dans votre pioche et ajoutez-la à votre main.',
     image: img('pierre-de-l-esprit.webp'),
+    journal: 'Pierre de l’Esprit : sertie sur {nomLieu}, elle ira chercher n’importe quelle carte de la pioche.',
   },
   {
     id: 'pierre-de-l-ame',
@@ -270,6 +294,7 @@ export const thanosCards: CardDef[] = [
     activatedEffects: [{ type: 'RECOVER_FROM_DISCARD_CHOICE', types: ['ally'], label: 'Reprenez un Allié de votre défausse' }],
     text: 'Jouez gratuitement un Allié de votre défausse.',
     image: img('pierre-de-l-ame.webp'),
+    journal: 'Pierre de l’Âme : sertie sur {nomLieu}, elle relèvera un Allié de la défausse.',
   },
   {
     id: 'pierre-de-la-realite',
@@ -284,6 +309,7 @@ export const thanosCards: CardDef[] = [
     activatedEffects: [{ type: 'OPTIONAL_FREE_VANQUISH' }],
     text: 'Effectuez une action Éliminer un personnage. Vos Alliés ne sont pas défaussés lors de cette action.',
     image: img('pierre-de-la-realite.webp'),
+    journal: 'Pierre de la Réalité : sertie sur {nomLieu}, elle offrira une élimination sans perte.',
   },
 
   // ----------------------------------------------------------------------
@@ -299,6 +325,7 @@ export const thanosCards: CardDef[] = [
     copies: 1,
     text: 'Thanos ne peut pas gagner si Adam Warlock est présent dans son domaine.',
     image: img('adam-warlock.webp'),
+    journal: 'Adam Warlock apparaît : aucune victoire possible tant qu’il veille.',
   },
   {
     id: 'drax-le-destructeur',
@@ -311,6 +338,7 @@ export const thanosCards: CardDef[] = [
     minAlliesToVanquish: 2,
     text: 'Il faut utiliser au minimum 2 Alliés pour éliminer Drax le Destructeur.',
     image: img('drax-le-destructeur.webp'),
+    journal: 'Drax le Destructeur apparaît : il faudra au moins deux Alliés pour l’abattre.',
   },
   {
     id: 'gamora',
@@ -323,6 +351,7 @@ export const thanosCards: CardDef[] = [
     text: 'Éliminez un personnage sur le lieu où vous jouez Gamora. S’il s’agit d’un Allié de Thanos, ajoutez 2 jetons Force +1 sur Gamora.',
     image: img('gamora.webp'),
     onPlace: [{ type: 'THANOS_GAMORA_ELIMINATE' }],
+    journal: 'Gamora apparaît : elle abat un personnage de son lieu — et s’endurcit si c’est un Allié de Thanos.',
   },
   {
     id: 'nebula',
@@ -335,6 +364,7 @@ export const thanosCards: CardDef[] = [
     text: 'Défaussez 1 jeton Pouvoir par Pierre d’Infinité que contrôle l’adversaire chez qui vous jouez Nebula. Puis placez autant de jetons Force +1 sur Nebula.',
     image: img('nebula.webp'),
     onPlace: [{ type: 'THANOS_NEBULA_DRAIN' }],
+    journal: 'Nebula apparaît : autant de JT perdus que de Pierres tenues en face, et autant de Force pour elle.',
   },
 
   // ----------------------------------------------------------------------
@@ -350,6 +380,7 @@ export const thanosCards: CardDef[] = [
     text: 'Choisissez un joueur, autre que Thanos, il récupère une Pierre d’Infinité libre et peut l’activer immédiatement (sans avoir à utiliser d’action).',
     image: img('decouverte-d-une-pierre.webp'),
     effects: [{ type: 'THANOS_SEED_STONE' }],
+    journal: 'Découverte d’une Pierre : une Pierre d’Infinité libre échoit à un adversaire, activable aussitôt.',
   },
   {
     id: 'quel-qu-en-soit-le-prix',
@@ -361,5 +392,6 @@ export const thanosCards: CardDef[] = [
     text: 'L’adversaire de votre choix défausse une carte de sa main par Pierre d’Infinité qu’il contrôle.',
     image: img('quel-qu-en-soit-le-prix.webp'),
     effects: [{ type: 'THANOS_WHATEVER_IT_TAKES' }],
+    journal: 'Quel qu’en Soit le Prix : l’adversaire défausse une carte par Pierre d’Infinité qu’il tient.',
   },
 ]

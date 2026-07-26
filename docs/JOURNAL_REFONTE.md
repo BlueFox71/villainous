@@ -4,6 +4,10 @@
 et custom) dans un style homogène, data-driven, avec placeholders dynamiques quand
 c'est utile.
 
+> **État (2026-07-26) : campagne TERMINÉE côté natifs** — les 34 vilains natifs et 9 des
+> 11 vilains de l'Atelier ont leur Journal. Restent `custom-seigneur-cles` (fraîchement
+> migré vers l'Atelier) et les 2 vilains reportés faute d'effets implémentés (§8).
+
 Ce document est le mode d'emploi opérationnel. La **source de vérité des règles**
 reste `CLAUDE.md` (section « Journal de partie ») ; en cas de contradiction, `CLAUDE.md`
 prime. Ici on décrit concrètement *comment faire la refonte*, vilain par vilain.
@@ -264,7 +268,7 @@ Légende : ✅ refait · ⬜ à faire.
 > avant cette passe) et reprendre les **noms de cartes du skin** (Ailes de Lumière, Stage…).
 > Garde-fou : `data/__tests__/publishedJournal.test.ts` refuse une note orpheline.
 
-### Natif (35)
+### Natif (34) — TOUS FAITS
 | Vilain | État |
 |---|---|
 | prince-jean | ✅ |
@@ -279,7 +283,11 @@ Légende : ✅ refait · ⬜ à faire.
 | syndrome, lotso, sa-sucrerie | ✅ (« Toujours Plus Vil ») |
 | madame-mim, madame-tremaine, shere-khan | ✅ |
 | oogie-boogie, davy-jones, tamatoa | ✅ |
-| bowser, gaston, imposteur, la-bonne-fee, seigneur-tenebres, slenderman, sombra, tabbou, team-rocket, thanos | ⬜ |
+| bowser, gaston, imposteur, la-bonne-fee, slenderman | ✅ |
+| seigneur-tenebres, sombra, tabbou, team-rocket, thanos | ✅ |
+
+> **Tous les vilains natifs sont faits.** Ne reste que `custom-seigneur-cles` (migré de
+> natif vers l'Atelier le 2026-07-26) et les deux vilains **⏸ reportés** ci-dessous.
 
 > **Cartes générées par une fabrique** (Métamorphoses de Madame Mim, cartes MAUI de
 > Tamatoa) : le `journal` se pose **dans la fabrique** — soit interpolé depuis les

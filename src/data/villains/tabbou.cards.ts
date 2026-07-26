@@ -37,6 +37,7 @@ export const tabbouCards: CardDef[] = [
     effects: [{ type: 'REVEAL_FIGHTERS', count: 3 }],
     text: "Jouable pendant le tour d'un adversaire s'il effectue au moins 3 actions. Dévoilez jusqu'à 3 tuiles Combattants.",
     image: img('fleche.webp'),
+    journal: 'Flèche : jusqu’à 3 tuiles Combattants sont dévoilées.',
   },
   {
     id: 'surprise',
@@ -50,6 +51,9 @@ export const tabbouCards: CardDef[] = [
     effects: [{ type: 'INSTANT_VANQUISH_HERO_LE', maxStrength: 3 }],
     text: "Jouable pendant le tour d'un adversaire s'il élimine un Héros de force 3 ou moins. Éliminez un Héros de force 3 ou moins.",
     image: img('surprise.webp'),
+    journal:
+      'Surprise ! : {nomHéros} est emporté en représailles.\n' +
+      'Surprise ! : aucun Héros à emporter.',
   },
 
   // --- Orbes subspatiaux (débloquent l'Émissaire) ---------------------------
@@ -66,6 +70,7 @@ export const tabbouCards: CardDef[] = [
       effects: [{ type: 'SUBSPACE_ORB_PLACED' }],
       text: "Placez cet Objet sur un lieu. Si 3 ORBES SUBSPATIAUX sont posés sur les trois lieux non bloqués, débloquez le lieu « Émissaire Subspatial ».",
       image: img(`boule-${n}.webp`),
+      journal: 'Orbe subspatial : posé sur {nomLieu} — trois Orbes, et l’Émissaire Subspatial s’ouvrira.',
     }),
   ),
 
@@ -81,6 +86,7 @@ export const tabbouCards: CardDef[] = [
     effects: [{ type: 'DESTIN_CHOICE' }],
     text: 'Dévoilez 3 tuiles Combattants OU Gagnez 4 jetons Pouvoir.',
     image: img('destin.webp'),
+    journal: 'Destin : trois Combattants dévoilés, ou 4 JT encaissés.',
   },
   {
     id: 'coup-fatal',
@@ -93,6 +99,7 @@ export const tabbouCards: CardDef[] = [
     effects: [{ type: 'KILL_FIGHTERS_FREE', max: 10 }],
     text: "Tuez jusqu'à 10 Combattants.",
     image: img('coup-fatal.webp'),
+    journal: 'Coup Fatal : les Combattants tombent par dizaines.',
   },
   {
     id: 'collection',
@@ -105,6 +112,7 @@ export const tabbouCards: CardDef[] = [
     effects: [{ type: 'KILL_FIGHTERS_COLOR' }],
     text: "Tuez une ou plusieurs tuiles Combattants d'une même couleur depuis la réserve.",
     image: img('collection.webp'),
+    journal: 'Collection : une couleur entière de Combattants est balayée de la réserve.',
   },
   {
     id: 'constitution',
@@ -117,6 +125,7 @@ export const tabbouCards: CardDef[] = [
     effects: [{ type: 'REVEAL_DECK_UNTIL_TYPE', cardType: 'item' }],
     text: "Dévoilez les cartes de votre pioche jusqu'à ce que vous trouviez un Objet. Jouez-le et remettez les autres cartes sur le dessus de votre pioche.",
     image: img('constitution.webp'),
+    journal: 'Constitution des mondes : la pioche est dévoilée jusqu’à un Objet, aussitôt posé.',
   },
   {
     id: 'bombe',
@@ -129,6 +138,9 @@ export const tabbouCards: CardDef[] = [
     effects: [{ type: 'RECOVER_ANY_FROM_DISCARD' }],
     text: 'Récupérez une carte dans votre défausse et ajoutez-la à votre main.',
     image: img('bombe.webp'),
+    journal:
+      'Bombe du vide : retour en main de {nomCarte}.\n' +
+      'Bombe du vide : une carte revient de la défausse en main.',
   },
 
   // --- Objets divers ---------------------------------------------------------
@@ -144,6 +156,7 @@ export const tabbouCards: CardDef[] = [
     itemCostReductionHere: 1,
     text: 'Les cartes Objets coûtent 1 jeton Pouvoir de moins lorsque vous vous trouvez sur le même lieu que le CANON OBSCUR.',
     image: img('canon-obscure-2.webp'),
+    journal: 'Canon Obscur : posé sur {nomLieu}, il allège les Objets de 1 JT.',
   },
   {
     id: 'canon-geant',
@@ -157,6 +170,7 @@ export const tabbouCards: CardDef[] = [
     activatedCost: 0,
     text: 'Activer : regardez les 4 premières cartes de votre pioche. Ajoutez-en une à votre main et défaussez les autres.',
     image: img('canon-geant.webp'),
+    journal: 'Canon Géant : posé sur {nomLieu}, il fouillera la pioche.',
   },
   {
     id: 'halberd',
@@ -169,6 +183,7 @@ export const tabbouCards: CardDef[] = [
     ridesWithPawn: true,
     text: "Lorsque vous êtes sur le même lieu que le HALBERD, vous pouvez, une fois par tour, déplacer votre figurine et le HALBERD vers n'importe quel lieu et y effectuer une action disponible, en dehors d'une action Fatalité.",
     image: img('halberd.webp'),
+    journal: 'Halberd : amarré sur {nomLieu}, il emmènera la figurine n’importe où, une fois par tour.',
   },
 
   // --- Alliés ----------------------------------------------------------------
@@ -185,6 +200,7 @@ export const tabbouCards: CardDef[] = [
     activatedEffects: [{ type: 'KILL_FIGHTERS_COLOR' }],
     text: "Activer, payez 1 : Tuez une ou plusieurs tuiles Combattants d'une même couleur.",
     image: img('canon-obscure.webp'),
+    journal: 'Bowser rejoint le royaume : contre 1 JT, il balaiera une couleur de Combattants.',
   },
   {
     id: 'ministre',
@@ -197,6 +213,7 @@ export const tabbouCards: CardDef[] = [
     copies: 1,
     text: "Déplacez un Héros d'un lieu voisin sur le lieu où se trouve le MINISTRE ANTIQUE. Si cet Allié est défaussé, vous pouvez prendre la tuile R.O.B depuis la réserve.",
     image: img('ministre.webp'),
+    journal: 'Le Ministre antique rejoint le royaume : il attire un Héros voisin à lui.',
   },
   {
     id: 'boss',
@@ -210,6 +227,7 @@ export const tabbouCards: CardDef[] = [
     reachesAdjacentVanquish: true,
     text: "Lors d'une action Éliminer un Héros, les BOSS peuvent être utilisés pour éliminer un Héros sur leur lieu ou sur un lieu voisin.",
     image: img('boss.webp'),
+    journal: 'Les Boss rejoignent le royaume.',
   },
   {
     id: 'primides',
@@ -223,6 +241,7 @@ export const tabbouCards: CardDef[] = [
     effects: [{ type: 'REVEAL_FIGHTERS', count: 2 }],
     text: 'Dévoilez deux tuiles Combattants.',
     image: img('primides.webp'),
+    journal: 'Les Primides rejoignent le royaume : deux tuiles Combattants sont dévoilées.',
   },
 
   // ==========================================================================
@@ -241,6 +260,7 @@ export const tabbouCards: CardDef[] = [
     onPlace: [{ type: 'LOSE_POWER_PER_HERO_IN_REALM', amount: 1, max: 3 }],
     text: 'Défaussez autant de jetons Pouvoir que de Héros présents dans le royaume (3 maximum).',
     image: img('mario.webp'),
+    journal: 'Mario apparaît : autant de JT perdus que de Héros dans le royaume.',
   },
   {
     id: 'link',
@@ -253,6 +273,7 @@ export const tabbouCards: CardDef[] = [
     fighterRevealCap: 3,
     text: "Tant que LINK est présent dans votre royaume, TABBOU ne peut dévoiler que jusqu'à 3 tuiles Combattants à la fois.",
     image: img('link.webp'),
+    journal: 'Link apparaît : plus que 3 tuiles Combattants dévoilables à la fois.',
   },
   {
     id: 'pikachu-tabbou',
@@ -265,6 +286,7 @@ export const tabbouCards: CardDef[] = [
     activateCostSurchargeHere: 1,
     text: 'Activer la capacité des Objets sur le lieu où se trouve PIKACHU coûte 1 jeton Pouvoir de plus.',
     image: img('pikachu.webp'),
+    journal: 'Pikachu apparaît : activer un Objet sur son lieu coûte 1 JT de plus.',
   },
   {
     id: 'kirby',
@@ -277,6 +299,7 @@ export const tabbouCards: CardDef[] = [
     fighterRevealSurcharge: 1,
     text: "L'action « Dévoiler une tuile Combattant » coûte désormais 1 jeton Pouvoir.",
     image: img('kirby.webp'),
+    journal: 'Kirby apparaît : dévoiler une tuile Combattant coûte désormais 1 JT.',
   },
   {
     id: 'samus',
@@ -288,6 +311,7 @@ export const tabbouCards: CardDef[] = [
     copies: 1,
     text: 'Tant que Samus est présente, vous devez tuer 30 Combattants pour atteindre votre objectif.',
     image: img('samus.webp'),
+    journal: 'Samus apparaît : il faudra tuer 30 Combattants pour l’emporter.',
   },
   {
     id: 'meta-knight',
@@ -300,6 +324,7 @@ export const tabbouCards: CardDef[] = [
     selfStrengthMods: [{ kind: 'if-other-hero-here', delta: 1 }],
     text: "La force de META KNIGHT augmente de 1 s'il y a d'autres Héros sur le lieu où il se trouve.",
     image: img('meta.webp'),
+    journal: 'Meta Knight apparaît : +1 Force s’il n’est pas seul sur son lieu.',
   },
 
   // --- Événements / Objet Fatalité ------------------------------------------
@@ -313,6 +338,9 @@ export const tabbouCards: CardDef[] = [
     effects: [{ type: 'DISCARD_ALLY_OR_ITEM' }],
     text: 'Retirez un Objet ou un Allié de coût 2 ou moins.',
     image: img('destruction.webp'),
+    journal:
+      'Canon coupé : le royaume perd {nomAllié}.\n' +
+      'Canon coupé : le royaume perd {nomObjet}.',
   },
   {
     id: 'balle-smash',
@@ -325,6 +353,7 @@ export const tabbouCards: CardDef[] = [
     attachStrengthBonus: 2,
     text: 'Associez cet Objet à un Héros. Sa force augmente de 2.',
     image: img('balle-smash.webp'),
+    journal: 'Balle Smash : +2 Force pour {nomHéros}.',
   },
   {
     id: 'ressuscite',
@@ -336,6 +365,7 @@ export const tabbouCards: CardDef[] = [
     effects: [{ type: 'PLAY_FATE_HERO_FROM_DISCARD' }],
     text: 'Choisissez un Héros dans la défausse de cartes Fatalité et jouez-le.',
     image: img('ressuscite.webp'),
+    journal: 'Ressuscité : un Héros revient de la défausse Fatalité.',
   },
   {
     id: 'rassemblement',
@@ -347,6 +377,7 @@ export const tabbouCards: CardDef[] = [
     effects: [{ type: 'RETURN_KILLED_FIGHTERS', count: 3, sameColorIfPossible: true }],
     text: 'Retirez 3 tuiles Combattants tués (de la même couleur si possible) et placez-les dans la réserve.',
     image: img('rassemblement.webp'),
+    journal: 'Rassemblement : trois Combattants tués regagnent la réserve.',
   },
   {
     id: 'explosion',
@@ -358,6 +389,7 @@ export const tabbouCards: CardDef[] = [
     effects: [{ type: 'LOSE_POWER', amount: 3 }],
     text: "Vous pouvez défausser jusqu'à 3 jetons Pouvoir.",
     image: img('explosion.webp'),
+    journal: 'Explosion : jusqu’à 3 JT partent en fumée.',
   },
   {
     id: 'reveil',
@@ -369,5 +401,6 @@ export const tabbouCards: CardDef[] = [
     effects: [{ type: 'RETURN_KILLED_FIGHTERS', count: 2 }],
     text: 'Retirez 2 tuiles Combattants et placez-les dans la réserve.',
     image: img('reveil.webp'),
+    journal: 'Réveil : deux Combattants tués regagnent la réserve.',
   },
 ]

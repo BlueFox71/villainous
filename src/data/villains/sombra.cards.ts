@@ -29,6 +29,7 @@ export const sombraCards: CardDef[] = [
     hackDisablesAction: true,
     text: 'Piratez un lieu, ce qui désactive une case d’action de votre choix tant que le Piratage y reste.',
     image: img('piratage.webp'),
+    journal: 'Piratage : {nomLieu} est piraté — une case d’action est coupée.',
   },
   {
     id: 'iem',
@@ -41,6 +42,7 @@ export const sombraCards: CardDef[] = [
     isPiratage: true,
     text: 'Piratez un lieu de votre choix sans désactivation de cases.',
     image: img('iem.webp'),
+    journal: 'IEM : {nomLieu} est piraté, sans rien couper.',
   },
 
   // ----------------------------------------------------------------------
@@ -57,6 +59,7 @@ export const sombraCards: CardDef[] = [
     text: 'Activer : payez 1 jeton Pouvoir. Déplacez-vous sur le Transducteur et jouez les actions disponibles, en dehors des actions Fatalité.',
     image: img('transducteur.webp'),
     activatedCost: 1,
+    journal: 'Transducteur : posé sur {nomLieu}, il rappellera Sombra à lui.',
   },
   {
     id: 'faille',
@@ -73,6 +76,7 @@ export const sombraCards: CardDef[] = [
       { type: 'UNLOCK_LOCATION', locationId: 'lumerico' },
       { type: 'GRANT_FREE_PIRATAGE' },
     ],
+    journal: 'Faille : Lumérico s’ouvre, et un Piratage part gratuitement.',
   },
   {
     id: 'arme-uzi',
@@ -86,6 +90,7 @@ export const sombraCards: CardDef[] = [
     attachStrengthBonus: 2,
     text: 'Associez cette carte à un Allié, sa force augmente de 2. Puis vous pouvez effectuer une action Éliminer un Héros.',
     image: img('arme-uzi.webp'),
+    journal: 'Arme Uzi : +2 Force pour {nomAllié}, prêt à en finir tout de suite.',
   },
   {
     id: 'jeux-de-piste',
@@ -98,6 +103,7 @@ export const sombraCards: CardDef[] = [
     grantsAction: { type: 'GAIN_POWER', amount: 1, label: 'Gagner 1 pouvoir' },
     text: 'Ce lieu gagne l’action : Gagner 1 jeton Pouvoir.',
     image: img('jeux-de-piste.webp'),
+    journal: 'Jeux de piste : {nomLieu} gagne l’action Gagner 1 JT.',
   },
 
   // ----------------------------------------------------------------------
@@ -115,6 +121,7 @@ export const sombraCards: CardDef[] = [
     text: 'Activer : allez chercher Arme Uzi dans votre pioche ou votre défausse et ajoutez-la à votre main.',
     image: img('membres-los-muertos.webp'),
     activatedCost: 0,
+    journal: 'Les Membres de Los Muertos rejoignent le royaume : ils iront chercher l’Arme Uzi.',
   },
 
   // ----------------------------------------------------------------------
@@ -134,6 +141,7 @@ export const sombraCards: CardDef[] = [
     // choix. Les autres (Bataille d'esprits, Wyvern s'exprime, Carte Destin) enchaînent
     // directement sur la défausse.
     effects: [{ type: 'DRAW_THEN_DISCARD', draw: 3, discard: 2, orDiscardDrawn: true }],
+    journal: 'Information : 3 cartes piochées, 2 rendues — ou tout part en défausse.',
   },
   {
     id: 'boop',
@@ -146,6 +154,9 @@ export const sombraCards: CardDef[] = [
     text: 'Associez cette carte à un Héros, ce qui annule l’effet de la carte.',
     image: img('boop.webp'),
     effects: [{ type: 'HACK_HERO' }],
+    journal:
+      'Boop ! : {nomHéros} est piraté, sa capacité annulée.\n' +
+      'Boop ! : aucun Héros à pirater.',
   },
   {
     id: 'protocole-sombra',
@@ -158,6 +169,7 @@ export const sombraCards: CardDef[] = [
     text: 'Détruisez tous les Piratages et IEM de votre royaume ; si un Héros est piraté, il est aussi détruit. Si vous effectuez un Protocole Sombra alors que tous les lieux sont piratés, vous gagnez la partie.',
     image: img('protocole-sombra.webp'),
     effects: [{ type: 'SOMBRA_PROTOCOL' }],
+    journal: 'Protocole Sombra : tous les Piratages et IEM sautent — et les Héros piratés avec.',
   },
   {
     id: 'invisibilite',
@@ -170,6 +182,7 @@ export const sombraCards: CardDef[] = [
     text: 'Sombra ne peut pas subir de Fatalité pendant 1 tour.',
     image: img('invisibilite.webp'),
     effects: [{ type: 'FATE_IMMUNITY' }],
+    journal: 'Invisibilité : plus aucune Fatalité ne touchera Sombra pendant un tour.',
   },
   {
     id: 'glitch',
@@ -183,6 +196,7 @@ export const sombraCards: CardDef[] = [
     image: img('glitch.webp'),
     // Pour SA propre recherche, un Piratage/IEM ne compte pas comme « Objet ».
     effects: [{ type: 'REVEAL_UNTIL_TYPE', types: ['item', 'effect'], excludePiratage: true }],
+    journal: 'Glitch : la pioche est fouillée jusqu’à la carte voulue.',
   },
   {
     id: 'adios',
@@ -195,6 +209,9 @@ export const sombraCards: CardDef[] = [
     text: 'Déplacez un Héros vers un lieu voisin.',
     image: img('adios.webp'),
     effects: [{ type: 'RELOCATE_HERO_ADJACENT' }],
+    journal:
+      'Adios : {nomHéros} recule vers {nomLieu}.\n' +
+      'Adios : aucun Héros à repousser.',
   },
   {
     id: 'skycode',
@@ -207,6 +224,7 @@ export const sombraCards: CardDef[] = [
     text: 'Gagnez 1 jeton Pouvoir par lieu et par Héros piraté.',
     image: img('skycode.webp'),
     effects: [{ type: 'GAIN_POWER_PER_HACK' }],
+    journal: 'Skycode : gagne {NbJT} JT, un piratage à la fois.',
   },
 
   // ----------------------------------------------------------------------
@@ -224,6 +242,7 @@ export const sombraCards: CardDef[] = [
     image: img('un-coup-d-avance.webp'),
     trigger: { type: 'opponent-gained-power-ge', value: 3 },
     effects: [{ type: 'GAIN_POWER', amount: 3 }],
+    journal: 'Un coup d’avance : la richesse adverse rapporte 3 JT.',
   },
   {
     id: 'pas-si-vite',
@@ -236,6 +255,7 @@ export const sombraCards: CardDef[] = [
     text: 'Cette carte est jouable pendant le tour d’un adversaire s’il vous cible avec une action Fatalité. Choisissez la carte Fatalité à la place de l’autre joueur.',
     image: img('pas-si-vite.webp'),
     trigger: { type: 'opponent-fate-targeted-me' },
+    journal: 'Pas si vite : c’est Sombra qui choisit la Fatalité jouée contre elle.',
   },
 
   // ======================================================================
@@ -254,6 +274,7 @@ export const sombraCards: CardDef[] = [
     // À la pose : retire un Piratage/IEM de son lieu (priorité au Piratage). Le blocage
     // « pas de Piratage tant qu'il est là » est géré à la pose d'un Piratage (rules).
     onPlace: [{ type: 'DISCARD_ITEM_AT_HOST', preferCardId: 'piratage' }],
+    journal: 'L’Œil apparaît : le piratage de son lieu est levé, et rien ne s’y installera plus.',
   },
   {
     id: 'zarya',
@@ -267,6 +288,9 @@ export const sombraCards: CardDef[] = [
     image: img('zarya.webp'),
     // Un VRAI Objet seulement : les cartes de Piratage/IEM ne sont pas ciblables.
     onPlace: [{ type: 'DISCARD_ITEM_AT_HOST', excludePiratage: true }],
+    journal:
+      'Zarya apparaît : le royaume perd {nomObjet}.\n' +
+      'Zarya apparaît : aucun Objet à détruire sur son lieu.',
   },
   {
     id: 'katya-volskaya',
@@ -279,6 +303,7 @@ export const sombraCards: CardDef[] = [
     text: 'Katya ne peut pas être piratée. Si Katya est éliminée, allez chercher Zarya et jouez-la.',
     image: img('katya-volskaya.webp'),
     onVanquish: [{ type: 'SEARCH_AND_PLACE_HERO', cardId: 'zarya' }],
+    journal: 'Katya Volskaya apparaît : impossible à pirater — l’éliminer ferait accourir Zarya.',
   },
   {
     id: 'lynx-seventeen',
@@ -290,6 +315,7 @@ export const sombraCards: CardDef[] = [
     copies: 1,
     text: 'Vos Piratages et IEM coûtent 1 jeton Pouvoir supplémentaire.',
     image: img('lynx-seventeen.webp'),
+    journal: 'LYNX Seventeen apparaît : Piratages et IEM coûtent 1 JT de plus.',
   },
   {
     id: 'guillermo-portero',
@@ -302,6 +328,7 @@ export const sombraCards: CardDef[] = [
     text: 'Guillermo ne peut être joué que sur Lumérico (même si le lieu est bloqué). Tant que Guillermo est sur le lieu, Sombra ne peut pas pirater ce lieu.',
     image: img('guillermo-portero.webp'),
     forcedFateLocation: 'lumerico',
+    journal: 'Guillermo Portero apparaît à Lumérico : le lieu devient impiratable.',
   },
   {
     id: 'soldat-76',
@@ -314,6 +341,9 @@ export const sombraCards: CardDef[] = [
     text: 'Défaussez un Allié sur le lieu où Soldat 76 est joué.',
     image: img('soldat-76.webp'),
     onPlace: [{ type: 'DISCARD_ALLY_AT_HOST' }],
+    journal:
+      'Soldat 76 apparaît : le royaume perd {nomAllié}.\n' +
+      'Soldat 76 apparaît : aucun Allié à emporter.',
   },
 
   // ----------------------------------------------------------------------
@@ -328,6 +358,7 @@ export const sombraCards: CardDef[] = [
     copies: 2,
     text: 'Associez cette carte à un lieu : au prochain tour de Sombra, elle ne pourra pas pirater ce lieu (ni y poser d’IEM).',
     image: img('shutdown.webp'),
+    journal: 'Shutdown : {nomLieu} restera impiratable au prochain tour.',
   },
   {
     id: 'reinitialisation',
@@ -338,6 +369,7 @@ export const sombraCards: CardDef[] = [
     copies: 3,
     text: 'Retirez un Piratage sur le lieu choisi.',
     image: img('reinitialisation.webp'),
+    journal: 'Réinitialisation : un Piratage est levé.',
   },
   {
     id: 'vol-de-donnees',
@@ -349,6 +381,7 @@ export const sombraCards: CardDef[] = [
     text: 'Sombra perd 1 jeton Pouvoir par Piratage ou IEM présent dans son royaume.',
     image: img('vol-de-donnees.webp'),
     effects: [{ type: 'LOSE_POWER_PER_PIRATAGE' }],
+    journal: 'Vol de données : chaque Piratage coûte 1 JT à Sombra.',
   },
   {
     id: 'accule',
@@ -359,5 +392,8 @@ export const sombraCards: CardDef[] = [
     copies: 2,
     text: 'Sombra dévoile sa main : choisissez une carte et remettez-la sur le dessus de son deck Méchant.',
     image: img('accule.webp'),
+    journal:
+      'Acculé : {nomCarte} repart sur le dessus de la pioche.\n' +
+      'Acculé : la main est fouillée, et une carte repart sur la pioche.',
   },
 ]

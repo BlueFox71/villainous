@@ -57,6 +57,7 @@ export const bowserCards: CardDef[] = [
     // À la pose : remet 1 Étoile à l'Observatoire (le blocage « tant que Mario est
     // présent » est géré par l'objectif, cf. blockerHeroCardId).
     onPlace: [{ type: 'RETURN_STAR_TO_OBSERVATORY', amount: 1 }],
+    journal: 'Mario apparaît : une Étoile regagne l’Observatoire, et la victoire lui est interdite tant qu’il veille.',
   },
   {
     id: 'peach',
@@ -71,6 +72,7 @@ export const bowserCards: CardDef[] = [
     // Pose OBLIGATOIRE au Château de Peach : tous les autres lieux sont interdits
     // (data-driven via heroPlacementLocations ; pas de branchement par cardId).
     forbiddenLocations: ['chateau-bowser', 'galaxies', 'observatoire'],
+    journal: 'Peach apparaît à son Château.',
   },
   {
     id: 'luigi',
@@ -84,6 +86,7 @@ export const bowserCards: CardDef[] = [
     image: img('luigi.webp'),
     // À la pose : défausse les Alliés du lieu de Luigi et renvoie leurs Étoiles.
     onPlace: [{ type: 'DISCARD_ALLIES_AND_RETURN_STARS_AT_HOST' }],
+    journal: 'Luigi apparaît : les Alliés de son lieu sont balayés, et leurs Étoiles rendues à l’Observatoire.',
   },
   {
     id: 'harmonie',
@@ -95,6 +98,7 @@ export const bowserCards: CardDef[] = [
     copies: 1,
     text: "Tant qu'HARMONIE est présente, l'Observatoire de la Comète doit contenir au moins une Étoile (si ce lieu n'est pas bloqué).",
     image: img('harmonie.webp'),
+    journal: 'Harmonie apparaît : l’Observatoire gardera toujours au moins une Étoile.',
   },
   {
     id: 'luma',
@@ -108,6 +112,7 @@ export const bowserCards: CardDef[] = [
     image: img('luma.webp'),
     // Aura : +1 à TOUS les autres Héros du royaume (data-driven, déjà gérée).
     strengthMod: { target: 'heroes-realm', delta: 1, excludeSelf: true },
+    journal: 'Luma apparaît : +1 Force pour les autres Héros.',
   },
 
   // --- Fatalité (non-héros) ------------------------------------------------
@@ -121,6 +126,7 @@ export const bowserCards: CardDef[] = [
     text: "Si un Allié possède une Étoile, retirez-en une et remettez-la sur l'Observatoire de la Comète.",
     image: img('gain-grand-star.webp'),
     effects: [{ type: 'RETURN_STAR_TO_OBSERVATORY', amount: 1 }],
+    journal: 'Vous avez obtenu une grande étoile ! : une Étoile est reprise à un Allié.',
   },
   {
     id: 'comete',
@@ -132,6 +138,9 @@ export const bowserCards: CardDef[] = [
     text: 'Défaussez un Objet.',
     image: img('comete.webp'),
     effects: [{ type: 'DISCARD_ONE_ITEM' }],
+    journal:
+      'Comète farceuse : le royaume perd {nomObjet}.\n' +
+      'Comète farceuse : aucun Objet à emporter.',
   },
   {
     id: 'transformation',
@@ -145,6 +154,7 @@ export const bowserCards: CardDef[] = [
     // Objet Fatalité associé à un Héros : +1 à la force de l'hôte (déjà géré).
     attach: 'hero',
     attachStrengthBonus: 1,
+    journal: 'Transformation : +1 Force pour {nomHéros}.',
   },
   {
     id: 'anneau',
@@ -155,6 +165,7 @@ export const bowserCards: CardDef[] = [
     copies: 2,
     text: 'Déplacez Bowser sur le lieu de votre choix.',
     image: img('anneau.webp'),
+    journal: 'Anneau étoile : la figurine de Bowser est emportée ailleurs.',
   },
   {
     id: 'monnaie',
@@ -166,6 +177,7 @@ export const bowserCards: CardDef[] = [
     text: 'Perdez 2 jetons Pouvoir.',
     image: img('monnaie.webp'),
     effects: [{ type: 'LOSE_POWER', amount: 2 }],
+    journal: 'Goinfre : 2 JT s’envolent.',
   },
 
   // ==========================================================================
@@ -185,6 +197,7 @@ export const bowserCards: CardDef[] = [
     image: img('nuit.webp'),
     trigger: { type: 'opponent-power-ge', value: 6 },
     effects: [{ type: 'GAIN_POWER', amount: 3 }],
+    journal: 'Festival des éclats d’étoiles : la richesse adverse rapporte 3 JT.',
   },
   {
     id: 'renforts',
@@ -198,6 +211,9 @@ export const bowserCards: CardDef[] = [
     image: img('renforts.webp'),
     // requiresOwnAlly : injouable sans Allié en main (sinon l'effet serait nul).
     trigger: { type: 'opponent-allies-in-realm-ge', value: 3, requiresOwnAlly: true },
+    journal:
+      'Besoin de renfort : {nomAllié} entre gratuitement dans le royaume.\n' +
+      'Besoin de renfort : un renfort accourt.',
   },
 
   // --- Événements ----------------------------------------------------------
@@ -213,6 +229,7 @@ export const bowserCards: CardDef[] = [
     image: img('puissance-stellaire.webp'),
     // Draine 1 Étoile de l'Observatoire vers un Allié choisi (sur le lieu du pion).
     effects: [{ type: 'DRAIN_STAR_TO_ALLY' }],
+    journal: 'épuisement d’énergie : une Étoile quitte l’Observatoire pour un Allié.',
   },
   {
     id: 'impuissance',
@@ -226,6 +243,9 @@ export const bowserCards: CardDef[] = [
     image: img('impuissance.webp'),
     // Choix interactif à la pose (cf. UI / enumerate) : Vaincre un Héros ≤3 OU capturer Peach.
     effects: [{ type: 'IMPUISSANCE_RESOLVE', peachCardId: 'peach', maxStrength: 3 }],
+    journal:
+      'Impuissance : {nomHéros} est balayé.\n' +
+      'Impuissance : Peach est capturée.',
   },
   {
     id: 'rencontre',
@@ -238,6 +258,9 @@ export const bowserCards: CardDef[] = [
     text: 'Récupérez une carte dans votre défausse et ajoutez-la à votre main.',
     image: img('rencontre.webp'),
     effects: [{ type: 'RECOVER_ANY_FROM_DISCARD' }],
+    journal:
+      'Te revoilà ! : retour en main de {nomCarte}.\n' +
+      'Te revoilà ! : une carte revient de la défausse en main.',
   },
   {
     id: 'decoupage',
@@ -250,6 +273,7 @@ export const bowserCards: CardDef[] = [
     text: "Dévoilez les cartes de votre pioche jusqu'à ce que vous trouviez un Allié ou un Objet. Jouez-le et remettez les autres cartes sur le dessus de votre pioche.",
     image: img('decoupage.webp'),
     effects: [{ type: 'REVEAL_UNTIL_PLAY_ALLY_OR_ITEM' }],
+    journal: 'Vol du château : la pioche est dévoilée jusqu’à un Allié ou un Objet, aussitôt posé.',
   },
 
   // --- Objets --------------------------------------------------------------
@@ -266,6 +290,7 @@ export const bowserCards: CardDef[] = [
     attach: 'location',
     // Porte le symbole « Activer » (capacité dispatchée par cardId à l'étape C).
     activatedCost: 0,
+    journal: 'Galaxie hantée : posée sur {nomLieu}, elle fouillera la pioche.',
   },
   {
     id: 'boule-feu',
@@ -280,6 +305,7 @@ export const bowserCards: CardDef[] = [
     attach: 'location',
     // Objet qui DONNE une action à son lieu (mécanique « grantsAction », déjà gérée).
     grantsAction: { type: 'GAIN_POWER', amount: 1, label: 'Gagner 1 pouvoir' },
+    journal: 'Réacteur galactique : {nomLieu} gagne l’action Gagner 1 JT.',
   },
   {
     id: 'boule-verre',
@@ -293,6 +319,7 @@ export const bowserCards: CardDef[] = [
     image: img('boule-verre.webp'),
     attach: 'location',
     grantsAction: { type: 'MOVE_ITEM_ALLY', label: 'Déplacer un objet ou un allié' },
+    journal: 'Galaxie en verre : {nomLieu} gagne l’action Déplacer un Objet ou un Allié.',
   },
   {
     id: 'bateau',
@@ -308,6 +335,7 @@ export const bowserCards: CardDef[] = [
     // Véhicule : même mécanisme que le Char d'Hadès (déplacement figurine + Objet
     // + 1 action hors Fatalité, 1×/tour — applyChariotMove via CHARIOT_MOVE).
     ridesWithPawn: true,
+    journal: 'Bateau : amarré sur {nomLieu}, il emmènera la figurine n’importe où, une fois par tour.',
   },
 
   // --- Alliés --------------------------------------------------------------
@@ -325,6 +353,7 @@ export const bowserCards: CardDef[] = [
     image: img('bowser-jr.webp'),
     // Capacité activée (coût 3) dispatchée par cardId à l'étape C.
     activatedCost: 3,
+    journal: 'Bowser Jr. rejoint le royaume : chaque Fatalité subie fera piocher, et il peut aller chercher Peach.',
   },
   {
     id: 'dino-piranha',
@@ -339,6 +368,7 @@ export const bowserCards: CardDef[] = [
     image: img('dino-piranha.webp'),
     // À la pose : s'il arrive sur l'Observatoire, prend 1 Étoile (résolu post-placement).
     effects: [{ type: 'DRAIN_STAR_TO_SELF_IF_AT_OBSERVATORY' }],
+    journal: 'Dino Piranha rejoint le royaume : à l’Observatoire, il s’accapare une Étoile.',
   },
   {
     id: 'bouldergeist',
@@ -353,6 +383,7 @@ export const bowserCards: CardDef[] = [
     image: img('bouldergeist.webp'),
     // Portée de Vaincre étendue au lieu voisin (data-driven, déjà gérée).
     reachesAdjacentVanquish: true,
+    journal: 'Bouldergeist rejoint le royaume.',
   },
   {
     id: 'kamella',
@@ -366,6 +397,7 @@ export const bowserCards: CardDef[] = [
     text: "Si KAMELLA est jouée sur l'Observatoire de la Comète, vous pouvez retirer une Étoile et la placer sur KAMELLA.",
     image: img('kamella.webp'),
     effects: [{ type: 'DRAIN_STAR_TO_SELF_IF_AT_OBSERVATORY' }],
+    journal: 'Kamella rejoint le royaume : à l’Observatoire, elle s’accapare une Étoile.',
   },
   {
     id: 'roi-kaliente',
@@ -380,6 +412,7 @@ export const bowserCards: CardDef[] = [
     image: img('roi-kaliente.webp'),
     // Aura : -1 à la force des Héros du même lieu (data-driven, déjà gérée).
     strengthMod: { target: 'heroes-here', delta: -1 },
+    journal: 'Le Roi Kaliente rejoint le royaume.',
   },
   {
     id: 'grand-terrier',
@@ -395,5 +428,8 @@ export const bowserCards: CardDef[] = [
     // À la pose : déplacement FACULTATIF d'un Allié vers un lieu voisin (réutilise
     // MOVE_ALLY_BUFF avec +0 force ; `optional` autorise « Ne pas déplacer »).
     effects: [{ type: 'MOVE_ALLY_BUFF', amount: 0, label: 'Grand Terrier', optional: true }],
+    journal:
+      'Le Grand Terrier rejoint le royaume et pousse {nomAllié} jusqu’à {nomLieu}.\n' +
+      'Le Grand Terrier rejoint le royaume.',
   },
 ]

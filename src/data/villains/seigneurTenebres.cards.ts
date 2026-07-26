@@ -30,6 +30,7 @@ export const seigneurTenebresCards: CardDef[] = [
     grantsAction: { type: 'ACTIVATE', label: 'Activer une capacité (Squelettes de Soldats)' },
     text: 'Ce lieu gagne l’action « Activer une capacité » (sert à réveiller le Chaudron Magique en votre possession). Échangez-les contre des Soldats Ressuscités une fois le Chaudron réveillé.',
     image: img('ancient-soldiers.webp'),
+    journal: 'Squelettes de Soldats : posés sur {nomLieu}, ils attendent le réveil du Chaudron Magique.',
   },
 
   // ----------------------------------------------------------------------
@@ -52,6 +53,7 @@ export const seigneurTenebresCards: CardDef[] = [
     survivesVanquishInPlace: true,
     text: 'Vous ne pouvez jouer cette carte que si le Chaudron Magique est réveillé, en défaussant un Objet « Squelettes de Soldats » de son lieu. Les Soldats Ressuscités ne sont pas défaussés lorsqu’ils participent à une action Éliminer un Héros — ils restent en jeu, l’armée immortelle du Seigneur des Ténèbres.',
     image: img('cauldron-born.webp'),
+    journal: 'Les Soldats Ressuscités se lèvent : l’armée immortelle ne tombe plus au combat.',
   },
   {
     id: 'horned-king-henchmen',
@@ -64,6 +66,7 @@ export const seigneurTenebresCards: CardDef[] = [
     copies: 3,
     text: 'Gardes du Seigneur des Ténèbres.',
     image: img('horned-king-henchmen.webp'),
+    journal: 'Les Sbires du Seigneur des Ténèbres rejoignent le royaume.',
   },
   {
     id: 'gwythaints',
@@ -77,6 +80,7 @@ export const seigneurTenebresCards: CardDef[] = [
     reachesAdjacentVanquish: true,
     text: 'Lors d’une action Éliminer un Héros, Les Vouivres peuvent être utilisées pour éliminer un Héros sur leur lieu OU sur un lieu voisin.',
     image: img('gwythaints.webp'),
+    journal: 'Les Vouivres rejoignent le royaume.',
   },
   {
     id: 'creeper',
@@ -90,6 +94,7 @@ export const seigneurTenebresCards: CardDef[] = [
     relocateToPawnOnVanquish: true,
     text: 'Lorsque Crapaud participe à une action Éliminer un Héros, déplacez-le sur le lieu de votre figurine au lieu de le défausser.',
     image: img('creeper.webp'),
+    journal: 'Crapaud rejoint le royaume : au combat, il file vers la figurine au lieu de tomber.',
   },
   {
     id: 'guard-dog',
@@ -102,6 +107,7 @@ export const seigneurTenebresCards: CardDef[] = [
     copies: 1,
     text: 'Garde les Cachots du Seigneur des Ténèbres.',
     image: img('guard-dog.webp'),
+    journal: 'Le Chien de garde rejoint le royaume.',
   },
 
   // ----------------------------------------------------------------------
@@ -119,6 +125,7 @@ export const seigneurTenebresCards: CardDef[] = [
     trigger: { type: 'opponent-played-item', value: 1 },
     effects: [{ type: 'GRANT_FREE_ITEM_PLAY' }],
     image: img('only-moments-away-victory.webp'),
+    journal: 'Nous touchons du doigt la victoire : un Objet est posé gratuitement.',
   },
 
   // ----------------------------------------------------------------------
@@ -137,6 +144,7 @@ export const seigneurTenebresCards: CardDef[] = [
     text: 'Vous ne pouvez jouer cette carte que si vous possédez le Chaudron Magique. Réveillez-le (face Pouvoir) : vous pouvez désormais jouer des Soldats Ressuscités.',
     effects: [{ type: 'POWER_BLACK_CAULDRON' }],
     image: img('our-hour-has-arrived.webp'),
+    journal: 'Notre heure est venue ! : le Chaudron Magique s’éveille — les Soldats Ressuscités peuvent se lever.',
   },
   {
     id: 'show-me-black-cauldron',
@@ -149,6 +157,7 @@ export const seigneurTenebresCards: CardDef[] = [
     text: 'Emparez-vous du Chaudron Magique (placez la tuile à côté de votre portrait) OU gagnez 3 jetons Pouvoir.',
     effects: [{ type: 'CLAIM_CAULDRON_OR_POWER', power: 3 }],
     image: img('show-me-black-cauldron.webp'),
+    journal: 'Montre-moi le Chaudron Magique ! : le Chaudron est saisi, ou 3 JT encaissés.',
   },
   {
     id: 'we-have-made-bargain',
@@ -161,6 +170,7 @@ export const seigneurTenebresCards: CardDef[] = [
     text: 'Mélangez votre défausse et votre pioche OU payez 3 jetons Pouvoir supplémentaires pour défausser l’Épée Magique de votre royaume et vous emparer du Chaudron Magique.',
     effects: [{ type: 'BARGAIN_RESHUFFLE_OR_SWORD', power: 3 }],
     image: img('we-have-made-bargain.webp'),
+    journal: 'Nous avons conclu un marché ! : la pioche est reconstituée — ou l’Épée Magique brisée contre le Chaudron.',
   },
   {
     id: 'we-got-you-pig-keeper',
@@ -176,6 +186,9 @@ export const seigneurTenebresCards: CardDef[] = [
     // Héros de force 1 n'est dans le royaume.
     effects: [{ type: 'PIGKEEPER_RESOLVE', heroCardId: 'hen-wen', maxStrength: 1 }],
     image: img('we-got-you-pig-keeper.webp'),
+    journal:
+      'On te tient, valet de ferme ! : {nomHéros} est écrasé.\n' +
+      'On te tient, valet de ferme ! : Tirelire est débusquée.',
   },
   {
     id: 'visions',
@@ -190,6 +203,7 @@ export const seigneurTenebresCards: CardDef[] = [
     // grisage en main (Hand.tsx) et exclusion IA (enumerate.ts) gèrent déjà cet effet.
     effects: [{ type: 'GAIN_POWER_PER_HERO_IN_REALM', amount: 1 }],
     image: img('visions.webp'),
+    journal: 'Visions : gagne {NbJT} JT.',
   },
   {
     id: 'captured-hk',
@@ -202,6 +216,7 @@ export const seigneurTenebresCards: CardDef[] = [
     text: 'Piochez 3 cartes.',
     effects: [{ type: 'DRAW_CARDS', count: 3 }],
     image: img('captured-hk.webp'),
+    journal: 'Capturés : 3 cartes sont piochées.',
   },
 
   // ----------------------------------------------------------------------
@@ -218,6 +233,7 @@ export const seigneurTenebresCards: CardDef[] = [
     selfStrengthMods: [{ kind: 'per-other-hero-here', delta: 1 }],
     text: 'La force de Taram augmente de 1 pour chaque autre Héros présent sur son lieu.',
     image: img('taran.webp'),
+    journal: 'Taram apparaît : +1 Force par autre Héros de son lieu.',
   },
   {
     id: 'princess-eilonwy',
@@ -230,6 +246,7 @@ export const seigneurTenebresCards: CardDef[] = [
     strengthMod: { target: 'heroes-here', excludeSelf: true, delta: 1 },
     text: 'La force de tous les autres Héros présents sur ce lieu augmente de 1.',
     image: img('princess-eilonwy.webp'),
+    journal: 'La Princesse Éloïse apparaît : +1 Force pour les autres Héros de son lieu.',
   },
   {
     id: 'fflewddur-fflam',
@@ -242,6 +259,7 @@ export const seigneurTenebresCards: CardDef[] = [
     onPlace: [{ type: 'GATHER_ALLIES_TO_HOST' }],
     text: 'Quand Ritournel est joué, déplacez tous les Alliés vers son lieu.',
     image: img('fflewddur-fflam.webp'),
+    journal: 'Ritournel apparaît : tous les Alliés sont attirés sur son lieu.',
   },
   {
     id: 'witches-of-morva',
@@ -253,6 +271,7 @@ export const seigneurTenebresCards: CardDef[] = [
     copies: 1,
     text: 'Tant que Les Sorcières de Morva sont dans le royaume, le Seigneur des Ténèbres ne peut pas s’emparer du Chaudron Magique (elles le détiennent).',
     image: img('witches-of-morva.webp'),
+    journal: 'Les Sorcières de Morva apparaissent : elles gardent le Chaudron Magique hors de portée.',
   },
   {
     id: 'doli',
@@ -265,6 +284,7 @@ export const seigneurTenebresCards: CardDef[] = [
     onPlace: [{ type: 'SCATTER_REALM_HEROES' }],
     text: 'Quand Ronchon est joué, vous pouvez déplacer chaque Héros vers n’importe quel lieu.',
     image: img('doli.webp'),
+    journal: 'Ronchon apparaît : les Héros du royaume se dispersent.',
   },
   {
     id: 'fair-folk',
@@ -277,6 +297,7 @@ export const seigneurTenebresCards: CardDef[] = [
     blocksItemPlacement: 'ancient-soldiers',
     text: 'Les Squelettes de Soldats ne peuvent pas être joués sur le lieu où se trouvent les Elfes.',
     image: img('fair-folk.webp'),
+    journal: 'Les Elfes apparaissent : plus aucun Squelette de Soldats sur leur lieu.',
   },
   {
     id: 'gurgi',
@@ -289,6 +310,7 @@ export const seigneurTenebresCards: CardDef[] = [
     onVanquish: [{ type: 'RESHUFFLE_HOST_INTO_FATE_DECK' }],
     text: 'Quand Gurki est éliminé, il est remélangé dans la pioche Fatalité.',
     image: img('gurgi.webp'),
+    journal: 'Gurki apparaît : éliminé, il retourne dans la pioche Fatalité.',
   },
   {
     id: 'hen-wen',
@@ -303,6 +325,7 @@ export const seigneurTenebresCards: CardDef[] = [
     onVanquish: [{ type: 'CLAIM_BLACK_CAULDRON' }],
     text: 'La truie oraculaire. Tant qu’elle est en jeu, le Seigneur des Ténèbres ne peut plus jouer d’Événement. S’il la vainc, il s’empare du Chaudron Magique.',
     image: img('hen-wen.webp'),
+    journal: 'Tirelire apparaît : plus aucun Événement jouable — mais la vaincre livrerait le Chaudron.',
   },
 
   // ----------------------------------------------------------------------
@@ -319,6 +342,7 @@ export const seigneurTenebresCards: CardDef[] = [
     copies: 1,
     text: 'Associez l’Épée Magique à un Héros. Sa force augmente de 2.',
     image: img('dyrnwyn.webp'),
+    journal: 'L’Épée Magique : +2 Force pour {nomHéros}.',
   },
 
   // ----------------------------------------------------------------------
@@ -335,6 +359,7 @@ export const seigneurTenebresCards: CardDef[] = [
     text: 'Le Seigneur des Ténèbres défausse toutes les cartes de sa main puis pioche 3 cartes.',
     effects: [{ type: 'DISCARD_HAND_DRAW', draw: 3 }],
     image: img('i-believe-in-you.webp'),
+    journal: 'Moi j’ai confiance en toi : la main part en défausse, et 3 cartes la remplacent.',
   },
   {
     id: 'reunited',
@@ -346,6 +371,7 @@ export const seigneurTenebresCards: CardDef[] = [
     text: 'Choisissez un Héros dans la défausse de cartes Fatalité et jouez-le sur n’importe quel lieu.',
     effects: [{ type: 'FATE_PLAY_HERO_FROM_DISCARD' }],
     image: img('reunited.webp'),
+    journal: 'Retrouvailles : un Héros revient de la défausse Fatalité.',
   },
   {
     id: 'gurgis-happy-day',
@@ -357,6 +383,7 @@ export const seigneurTenebresCards: CardDef[] = [
     text: 'Mélangez la défausse et la pioche de cartes Fatalité, puis dévoilez 2 cartes Fatalité et jouez-les toutes les deux.',
     effects: [{ type: 'RESHUFFLE_FATE_REVEAL_PLAY_BOTH' }],
     image: img('gurgis-happy-day.webp'),
+    journal: 'Retour à la vie de Gurki : la pioche Fatalité est reconstituée, et deux cartes sont jouées.',
   },
   {
     id: 'gurgis-sacrifice',
@@ -368,5 +395,6 @@ export const seigneurTenebresCards: CardDef[] = [
     text: 'Si le Chaudron Magique est réveillé, Gurki se sacrifie pour le rendormir.',
     effects: [{ type: 'DORMANT_BLACK_CAULDRON' }],
     image: img('gurgis-sacrifice.webp'),
+    journal: 'Sacrifice de Gurki : le Chaudron Magique se rendort.',
   },
 ]

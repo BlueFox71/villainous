@@ -27,6 +27,7 @@ export const gastonCards: CardDef[] = [
     text: 'La force des Loups augmente de 1 pour chaque autre Loup présent dans le royaume.',
     selfStrengthMods: [{ kind: 'per-other-same-cardId-realm', delta: 1 }],
     image: img('loups.webp'),
+    journal: 'Les Loups rejoignent le royaume.',
   },
   {
     id: 'lefou',
@@ -40,6 +41,7 @@ export const gastonCards: CardDef[] = [
     keepAlliesOnVanquishHere: true,
     text: 'Quand vous effectuez une action Éliminer un Héros sur le lieu de Lefou, les Alliés utilisés ne sont pas défaussés et retournent dans votre main.',
     image: img('lefou.webp'),
+    journal: 'Lefou rejoint le royaume : sur son lieu, les Alliés engagés reviennent en main.',
   },
   {
     id: 'monsieur-darque',
@@ -53,6 +55,7 @@ export const gastonCards: CardDef[] = [
     activatedCost: 2,
     text: 'Payez 2 jetons Pouvoir. Retirez un Obstacle.',
     image: img('monsieur-darque.webp'),
+    journal: 'Monsieur D’Arque rejoint le royaume : contre 2 JT, il fera tomber un Obstacle.',
   },
   {
     id: 'foule-en-colere',
@@ -65,6 +68,7 @@ export const gastonCards: CardDef[] = [
     copies: 1,
     text: 'Aucune capacité.',
     image: img('foule-en-colere.webp'),
+    journal: 'La Foule en colère rejoint le royaume.',
   },
 
   // ----------------------------------------------------------------------
@@ -82,6 +86,7 @@ export const gastonCards: CardDef[] = [
     copies: 2,
     text: 'Associez cet Objet à un Allié. Sa force augmente de 2.',
     image: img('quatre-douzaines-oeufs.webp'),
+    journal: 'Quatre douzaines d’œufs : +2 Force pour {nomAllié}.',
   },
 
   // ----------------------------------------------------------------------
@@ -99,6 +104,7 @@ export const gastonCards: CardDef[] = [
     trigger: { type: 'opponent-actions-ge', value: 4 },
     effects: [{ type: 'REMOVE_OBSTACLE', max: 1 }],
     image: img('aussi-belle-que-moi.webp'),
+    journal: 'Digne de moi : l’agitation adverse fait tomber un Obstacle.',
   },
 
   // ----------------------------------------------------------------------
@@ -115,6 +121,7 @@ export const gastonCards: CardDef[] = [
     text: 'Retirez un Obstacle.',
     effects: [{ type: 'REMOVE_OBSTACLE', max: 1 }],
     image: img('tres-mauvais-caractere.webp'),
+    journal: 'Crise de colère : un Obstacle tombe.',
   },
   {
     id: 'laissez-moi-vous-regarder',
@@ -127,6 +134,7 @@ export const gastonCards: CardDef[] = [
     text: 'Retirez jusqu’à deux Obstacles depuis un même lieu.',
     effects: [{ type: 'REMOVE_OBSTACLE', max: 2, sameLocation: true }],
     image: img('laissez-moi-vous-regarder.webp'),
+    journal: 'Laissez-moi vous regarder : jusqu’à deux Obstacles tombent d’un même lieu.',
   },
   {
     id: 'sortez',
@@ -139,6 +147,7 @@ export const gastonCards: CardDef[] = [
     text: 'Retirez jusqu’à trois Obstacles.',
     effects: [{ type: 'REMOVE_OBSTACLE', max: 3 }],
     image: img('sortez.webp'),
+    journal: 'Sortez ! : jusqu’à trois Obstacles tombent.',
   },
   {
     id: 'instinct-de-chasseur',
@@ -151,6 +160,9 @@ export const gastonCards: CardDef[] = [
     text: 'Éliminez un Héros de force inférieure ou égale à 3.',
     effects: [{ type: 'INSTANT_VANQUISH_HERO_LE', maxStrength: 3 }],
     image: img('instinct-de-chasseur.webp'),
+    journal:
+      'Instinct de chasseur : {nomHéros} est abattu.\n' +
+      'Instinct de chasseur : le chasseur rentre bredouille.',
   },
   {
     id: 'belle-est-a-moi',
@@ -163,6 +175,7 @@ export const gastonCards: CardDef[] = [
     text: 'Effectuez une action Éliminer un Héros.',
     effects: [{ type: 'GRANT_FREE_ACTION', actionType: 'VANQUISH' }],
     image: img('belle-est-a-moi.webp'),
+    journal: 'Belle est à moi : une action Éliminer un Héros est offerte.',
   },
   {
     id: 'tous-avec-moi',
@@ -175,6 +188,7 @@ export const gastonCards: CardDef[] = [
     text: 'Effectuez une action Déplacer un Allié ou un Objet.',
     effects: [{ type: 'GRANT_FREE_ACTION', actionType: 'MOVE_ITEM_ALLY' }],
     image: img('tous-avec-moi.webp'),
+    journal: 'Tous avec moi ! : une action Déplacer un Objet ou un Allié est offerte.',
   },
   {
     id: 'intimidation-gaston',
@@ -187,6 +201,7 @@ export const gastonCards: CardDef[] = [
     text: 'Dévoilez les cartes de votre pioche de méchant une à une jusqu’au premier Allié révélé. Ajoutez cet Allié à votre main, puis défaussez les autres cartes ainsi révélées.',
     effects: [{ type: 'REVEAL_DECK_UNTIL_TYPE', cardType: 'ally', title: 'Intimidation' }],
     image: img('intimidation.webp'),
+    journal: 'Du plomb dans la tête : la pioche est dévoilée jusqu’à un Allié, gardé en main.',
   },
   {
     id: 'gardez-moi-en-otage',
@@ -199,6 +214,7 @@ export const gastonCards: CardDef[] = [
     text: 'Dévoilez les cartes de votre pioche Fatalité une à une jusqu’au premier Héros révélé. Jouez ce Héros sur le Château de la Bête. Retirez un Obstacle. Mélangez ensuite les autres cartes révélées avec la pioche.',
     effects: [{ type: 'REVEAL_FATE_UNTIL_HERO_PLAY', locationId: 'chateau-bete', removeObstacle: 1 }],
     image: img('gardez-moi-en-otage.webp'),
+    journal: 'Gardez-moi en otage : un Héros est amené au Château de la Bête, et un Obstacle tombe.',
   },
   {
     id: 'montre-moi-la-bete',
@@ -211,6 +227,7 @@ export const gastonCards: CardDef[] = [
     text: 'Si la Bête se trouve dans le royaume, retirez un Obstacle. Si Belle se trouve dans le royaume, remettez un Obstacle dans le royaume. À la place, s’ils se trouvent tous les deux dans le royaume, gagnez 2 jetons Pouvoir.',
     effects: [{ type: 'SHOW_ME_THE_BEAST' }],
     image: img('montre-moi-la-bete.webp'),
+    journal: 'Montre-moi la Bête ! : selon qui hante le royaume, un Obstacle tombe, revient, ou 2 JT sont encaissés.',
   },
   {
     id: 'sous-le-charme',
@@ -227,6 +244,7 @@ export const gastonCards: CardDef[] = [
       { type: 'REPLACE_OBSTACLE', count: 1, thenDrawOrGain: { draw: 3, power: 3, cardId: 'sous-le-charme' } },
     ],
     image: img('sous-le-charme.webp'),
+    journal: 'Quel beau garçon ! : un Obstacle est remis en place, contre 3 JT ou trois cartes.',
   },
 
   // ----------------------------------------------------------------------
@@ -242,6 +260,7 @@ export const gastonCards: CardDef[] = [
     copies: 1,
     text: 'Aucun Obstacle ne peut être retiré du royaume.',
     image: img('belle.webp'),
+    journal: 'Belle apparaît : plus aucun Obstacle ne peut être retiré.',
   },
   {
     id: 'big-ben',
@@ -254,6 +273,7 @@ export const gastonCards: CardDef[] = [
     text: 'La force de tous les autres Héros sur ce lieu augmente de 1.',
     strengthMod: { target: 'heroes-here', excludeSelf: true, delta: 1 },
     image: img('big-ben.webp'),
+    journal: 'Big Ben apparaît : +1 Force pour les autres Héros de son lieu.',
   },
   {
     id: 'la-bete',
@@ -267,6 +287,7 @@ export const gastonCards: CardDef[] = [
     onPlace: [{ type: 'MOVE_ALLIES_FROM_HOST_AWAY' }],
     onVanquish: [{ type: 'REMOVE_OBSTACLES_AT_LOCATION', locationId: 'chateau-bete' }],
     image: img('la-bete.webp'),
+    journal: 'La Bête apparaît : les Alliés de son lieu sont dispersés — l’éliminer libérera son Château.',
   },
   {
     id: 'lumiere',
@@ -279,6 +300,9 @@ export const gastonCards: CardDef[] = [
     text: 'Quand Lumière est joué, vous pouvez déplacer un Héros vers n’importe quel autre lieu.',
     onPlace: [{ type: 'RELOCATE_REALM_HERO_ANYWHERE' }],
     image: img('lumiere.webp'),
+    journal:
+      'Lumière apparaît : il emmène {nomHéros} jusqu’à {nomLieu}.\n' +
+      'Lumière apparaît.',
   },
   {
     id: 'maurice',
@@ -293,6 +317,7 @@ export const gastonCards: CardDef[] = [
     onVanquish: [{ type: 'REMOVE_OBSTACLES_AT_LOCATION', locationId: 'maison-belle' }],
     // Le texte mentionne « son Bidule de malheur » (= l'Objet invention-de-maurice).
     image: img('maurice.webp'),
+    journal: 'Maurice apparaît : son Bidule de malheur le rejoint — l’éliminer libérera la Maison de Belle.',
   },
   {
     id: 'mrs-samovar-et-zip',
@@ -305,6 +330,7 @@ export const gastonCards: CardDef[] = [
     text: 'Quand cette carte est jouée, vous pouvez déplacer tous les Héros ou Objets vers n’importe quel lieu.',
     onPlace: [{ type: 'SCATTER_REALM_HEROES' }],
     image: img('mrs-samovar-et-zip.webp'),
+    journal: 'Mrs Samovar et Zip apparaissent : les Héros du royaume se dispersent.',
   },
 
   // ----------------------------------------------------------------------
@@ -321,6 +347,7 @@ export const gastonCards: CardDef[] = [
     text: 'Associez cette carte à un Héros. La force des Alliés sur ce lieu est réduite de 1.',
     strengthMod: { target: 'allies-here', delta: -1 },
     image: img('invention-de-maurice.webp'),
+    journal: 'Bidule de malheur : −1 Force pour les Alliés du lieu de {nomHéros}.',
   },
 
   // ----------------------------------------------------------------------
@@ -336,6 +363,7 @@ export const gastonCards: CardDef[] = [
     text: 'Replacez jusqu’à un Obstacle sur chaque lieu.',
     effects: [{ type: 'REPLACE_OBSTACLE', count: 1, mode: 'each-location' }],
     image: img('cest-toi.webp'),
+    journal: 'Oui c’est toi ! : un Obstacle revient sur chaque lieu.',
   },
   {
     id: 'je-nai-jamais-vu-autant-de-livres',
@@ -347,6 +375,7 @@ export const gastonCards: CardDef[] = [
     text: 'Replacez un Obstacle dans le royaume.',
     effects: [{ type: 'REPLACE_OBSTACLE', count: 1 }],
     image: img('je-nai-jamais-vu-autant-de-livres.webp'),
+    journal: 'Je n’ai jamais vu autant de livres : un Obstacle revient dans le royaume.',
   },
   {
     id: 'me-masser-les-pieds',
@@ -358,6 +387,7 @@ export const gastonCards: CardDef[] = [
     text: 'Replacez deux Obstacles dans le royaume.',
     effects: [{ type: 'REPLACE_OBSTACLE', count: 2 }],
     image: img('me-masser-les-pieds.webp'),
+    journal: 'Me masser gentiment les pieds : deux Obstacles reviennent dans le royaume.',
   },
   {
     id: 'vous-mavez-sauve-la-vie',
@@ -369,6 +399,7 @@ export const gastonCards: CardDef[] = [
     text: 'Replacez tous les Obstacles d’un même lieu.',
     effects: [{ type: 'REPLACE_OBSTACLE', count: 2, mode: 'fill-location' }],
     image: img('vous-mavez-sauve-la-vie.webp'),
+    journal: 'C’est gentil de m’avoir sauvé la vie : un lieu retrouve tous ses Obstacles.',
   },
   {
     id: 'cest-la-fete',
@@ -380,6 +411,7 @@ export const gastonCards: CardDef[] = [
     text: 'Choisissez un Héros depuis la défausse des cartes Fatalité, puis jouez-le sur n’importe quel lieu.',
     effects: [{ type: 'FATE_PLAY_HERO_FROM_DISCARD' }],
     image: img('cest-la-fete.webp'),
+    journal: 'C’est la fête : un Héros revient de la défausse Fatalité.',
   },
   {
     id: 'miroir-magique-gaston',
@@ -390,6 +422,7 @@ export const gastonCards: CardDef[] = [
     copies: 1,
     text: 'Cherchez la Bête (pioche ou défausse Fatalité) et jouez-la sur le lieu de votre choix. Le Miroir magique retourne dans la pioche Fatalité, qui est ensuite mélangée.',
     image: img('miroir-magique.webp'),
+    journal: 'Miroir magique : la Bête est débusquée et jouée où bon lui semble.',
   },
   {
     id: 'la-rose',
@@ -400,5 +433,6 @@ export const gastonCards: CardDef[] = [
     copies: 1,
     text: 'Jouez l’autre carte Fatalité piochée. Défaussez la Rose puis piochez deux cartes Fatalité supplémentaires. Jouez l’une de ces cartes. Retirez un Obstacle.',
     image: img('la-rose.webp'),
+    journal: 'La Rose : l’autre Fatalité est jouée, deux cartes de plus sont tirées, et un Obstacle tombe.',
   },
 ]

@@ -81,6 +81,16 @@ describe('Journal — placeholders des cartes natives', () => {
       '/cards/oogie-boogie/',
       '/cards/davy-jones/',
       '/cards/tamatoa/',
+      '/cards/bowser/',
+      '/cards/gaston/',
+      '/cards/imposteur/',
+      '/cards/la-bonne-fee/',
+      '/cards/slenderman/',
+      '/cards/seigneur-tenebres/',
+      '/cards/sombra/',
+      '/cards/tabbou/',
+      '/cards/team-rocket/',
+      '/cards/thanos/',
     ]
     // Cartes dont l'effet n'est pas (encore) implémenté par le moteur : elles gardent
     // volontairement leur log par défaut plutôt que d'annoncer un effet qui n'a pas lieu.
