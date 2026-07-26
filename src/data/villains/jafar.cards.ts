@@ -33,6 +33,7 @@ export const jafarCards: CardDef[] = [
     copies: 3,
     text: 'Aucune capacité.',
     image: img('garde-palais.webp'),
+    journal: 'Le Garde du Palais rejoint le royaume.',
   },
   {
     id: 'gazeem',
@@ -45,6 +46,7 @@ export const jafarCards: CardDef[] = [
     copies: 1,
     text: 'Si Gazeem est retiré de votre royaume, cherchez un Objet de votre défausse et ajoutez-le à votre main.',
     image: img('gazeem.webp'),
+    journal: 'Gazeem rejoint le royaume.',
   },
   {
     id: 'iago',
@@ -58,6 +60,7 @@ export const jafarCards: CardDef[] = [
     text: 'Payez 1 jeton Pouvoir : déplacez Iago et un Objet non associé de son lieu vers un lieu voisin non verrouillé.',
     image: img('iago.webp'),
     activatedCost: 1,
+    journal: 'Iago rejoint le royaume.',
   },
   {
     id: 'razoul',
@@ -70,6 +73,7 @@ export const jafarCards: CardDef[] = [
     copies: 1,
     text: 'Jouer un Allié sur le lieu où se trouve Razoul coûte 1 jeton Pouvoir de moins.',
     image: img('razoul.webp'),
+    journal: 'Razoul rejoint le royaume.',
   },
 
   // ----------------------------------------------------------------------
@@ -87,6 +91,7 @@ export const jafarCards: CardDef[] = [
     copies: 3,
     text: 'Associez cette carte à un Allié, sa force augmente de 1.',
     image: img('cimeterre.webp'),
+    journal: 'Cimeterre : +1 Force pour {nomAllié}.',
   },
   {
     id: 'sceptre-serpent',
@@ -100,6 +105,7 @@ export const jafarCards: CardDef[] = [
     text: 'Payez 1 jeton Pouvoir : cherchez une carte Hypnose dans votre défausse et ajoutez-la à votre main.',
     image: img('sceptre-serpent.webp'),
     activatedCost: 1,
+    journal: 'Sceptre Serpent : dressé sur {nomLieu}, il peut rappeler une Hypnose de la défausse.',
   },
   {
     id: 'sablier-geant',
@@ -114,6 +120,7 @@ export const jafarCards: CardDef[] = [
     image: img('sablier-geant.webp'),
     activatedCost: 0,
     strengthMod: { target: 'heroes-here', delta: -2, onlyIfActivatedThisTurn: true },
+    journal: 'Sablier Géant : posé sur {nomLieu}, il pourra en affaiblir les Héros de 2 Force.',
   },
   {
     id: 'lampe-merveilleuse',
@@ -128,6 +135,7 @@ export const jafarCards: CardDef[] = [
     image: img('lampe-merveilleuse.webp'),
     playOnlyAt: 'caverne',
     effects: [{ type: 'SUMMON_FATE_HERO_TO_OWN_REALM', heroCardId: 'genie', locationId: 'caverne' }],
+    journal: 'Lampe Merveilleuse : le Génie est invoqué à la Caverne aux Merveilles.',
   },
   {
     id: 'scarabee-or',
@@ -141,6 +149,7 @@ export const jafarCards: CardDef[] = [
     text: 'Retirez la tuile Cadenas de la Caverne aux Merveilles. À la fin de votre tour, piochez une carte supplémentaire.',
     image: img('scarabee-or.webp'),
     effects: [{ type: 'UNLOCK_LOCATION', locationId: 'caverne' }],
+    journal: 'Scarabée d’Or : le Cadenas de la Caverne aux Merveilles tombe.',
   },
 
   // ----------------------------------------------------------------------
@@ -158,6 +167,7 @@ export const jafarCards: CardDef[] = [
     text: 'Le coût de cette carte est égal à la force du Héros cible. Placez ce Héros dans la rangée du bas de son lieu. Tant qu’il est sous votre contrôle, il devient un Allié de même force ; sa capacité est ignorée.',
     image: img('hypnose.webp'),
     effects: [{ type: 'HYPNOTIZE_HERO' }],
+    journal: 'Hypnose : {nomHéros} sous contrôle, désormais dans les rangs de Jafar.',
   },
   {
     id: 'prediction',
@@ -170,6 +180,7 @@ export const jafarCards: CardDef[] = [
     text: 'Choisissez Objet ou Allié. Révélez les cartes de votre pioche jusqu’à en trouver une de ce type ; ajoutez-la à votre main et défaussez les autres.',
     image: img('prediction.webp'),
     effects: [{ type: 'REVEAL_UNTIL_TYPE', types: ['item', 'ally'] }],
+    journal: 'Prédiction : la pioche est dévoilée jusqu’à trouver la carte voulue.',
   },
   {
     id: 'sacrifice-necessaire',
@@ -182,6 +193,9 @@ export const jafarCards: CardDef[] = [
     text: 'Défaussez un Allié ou un Objet de votre royaume pour gagner 3 jetons Pouvoir.',
     image: img('sacrifice-necessaire.webp'),
     effects: [{ type: 'DISCARD_OWN_FOR_POWER', amount: 3 }],
+    journal:
+      'Sacrifice Nécessaire : 3 JT contre {nomAllié}.\n' +
+      'Sacrifice Nécessaire : 3 JT contre {nomObjet}.',
   },
   {
     id: 'pouvoir-sorcier',
@@ -205,6 +219,7 @@ export const jafarCards: CardDef[] = [
     text: 'Éliminez un Héros de force 4 ou moins sur le lieu où vous vous trouvez.',
     image: img('ah-serpent.webp'),
     effects: [{ type: 'INSTANT_VANQUISH_HERO_LE', maxStrength: 4, atPawn: true }],
+    journal: 'Ah, je suis un serpent ? : le serpent engloutit {nomHéros} sur place.',
   },
 
   // ----------------------------------------------------------------------
@@ -221,6 +236,7 @@ export const jafarCards: CardDef[] = [
     text: 'Jouable pendant le tour d’un adversaire s’il possède au moins 2 Objets. Dévoilez la première carte Fatalité de la pioche et jouez-la immédiatement.',
     image: img('tromperie.webp'),
     trigger: { type: 'opponent-items-in-realm-ge', value: 2 },
+    journal: 'Tromperie : la première carte Fatalité de {nomAdv} lui est jouée aussitôt.',
   },
   {
     id: 'manipulation',
@@ -233,6 +249,9 @@ export const jafarCards: CardDef[] = [
     text: 'Jouable pendant le tour d’un adversaire s’il possède au moins 3 Alliés. Ajoutez une carte de votre défausse à votre main.',
     image: img('manipulation.webp'),
     trigger: { type: 'opponent-allies-in-realm-ge', value: 3 },
+    journal:
+      'Manipulation : retour en main de {nomCarte}.\n' +
+      'Manipulation : une carte revient de la défausse en main.',
   },
 
   // ----------------------------------------------------------------------
@@ -249,6 +268,9 @@ export const jafarCards: CardDef[] = [
     text: 'Prenez un Objet sur le lieu où vous jouez cette carte et associez-le à Abu. Jafar ne peut plus utiliser cet Objet.',
     image: img('abu.webp'),
     onPlace: [{ type: 'STEAL_ITEM_TO_HERO' }],
+    journal:
+      'Abu apparaît : il s’accapare {nomObjet}, désormais inutilisable.\n' +
+      'Abu apparaît : il s’accapare un Objet de son lieu.',
   },
   {
     id: 'aladdin',
@@ -261,6 +283,9 @@ export const jafarCards: CardDef[] = [
     text: 'Prenez un Objet de la main de Jafar ou sur le lieu où vous jouez cette carte et associez-le à Aladdin. Jafar ne peut plus utiliser cet Objet.',
     image: img('aladdin.webp'),
     onPlace: [{ type: 'STEAL_ITEM_TO_HERO', fromHand: true }],
+    journal:
+      'Aladdin apparaît : il s’accapare {nomObjet}, désormais inutilisable.\n' +
+      'Aladdin apparaît : il s’accapare un Objet de la main ou de son lieu.',
   },
   {
     id: 'genie',
@@ -273,6 +298,7 @@ export const jafarCards: CardDef[] = [
     text: 'Si le Génie se trouve sur le même lieu que la Lampe Merveilleuse, sa force augmente de 2.',
     image: img('genie.webp'),
     selfStrengthMods: [{ kind: 'if-card', cardId: 'lampe-merveilleuse', scope: 'location', delta: 2 }],
+    journal: 'Le Génie apparaît : +2 Force s’il veille auprès de la Lampe Merveilleuse.',
   },
   {
     id: 'jasmine',
@@ -284,6 +310,7 @@ export const jafarCards: CardDef[] = [
     copies: 1,
     text: 'Jafar pioche une carte de moins à la fin de chaque tour.',
     image: img('jasmine.webp'),
+    journal: 'Jasmine apparaît : une carte de moins est piochée à chaque fin de tour.',
   },
   {
     id: 'rajah',
@@ -296,6 +323,7 @@ export const jafarCards: CardDef[] = [
     text: 'Si la Princesse Jasmine se trouve dans le royaume, la force de Rajah augmente de 2.',
     image: img('rajah.webp'),
     selfStrengthMods: [{ kind: 'if-card', cardId: 'jasmine', scope: 'realm', delta: 2 }],
+    journal: 'Rajah apparaît : +2 Force tant que Jasmine est dans le royaume.',
   },
   {
     id: 'sultan',
@@ -307,6 +335,7 @@ export const jafarCards: CardDef[] = [
     copies: 1,
     text: 'Jafar ne peut pas utiliser de Garde du Palais pour éliminer le Sultan.',
     image: img('sultan.webp'),
+    journal: 'Le Sultan apparaît : les Gardes du Palais ne peuvent pas l’éliminer.',
   },
   {
     id: 'tapis-volant',
@@ -318,6 +347,7 @@ export const jafarCards: CardDef[] = [
     copies: 1,
     text: 'Jafar doit éliminer le Tapis Volant avant les autres Héros.',
     image: img('tapis-volant.webp'),
+    journal: 'Le Tapis Volant apparaît : il doit être éliminé avant les autres Héros.',
   },
 
   // ----------------------------------------------------------------------
@@ -334,6 +364,7 @@ export const jafarCards: CardDef[] = [
     copies: 3,
     text: 'Associez cette carte à un Héros, sa force augmente de 2.',
     image: img('voeu.webp'),
+    journal: 'Vœu : +2 Force pour {nomHéros}.',
   },
 
   // ----------------------------------------------------------------------
@@ -348,6 +379,9 @@ export const jafarCards: CardDef[] = [
     copies: 2,
     text: 'Retirez un Allié de force 3 ou moins du royaume.',
     image: img('ko.webp'),
+    journal:
+      'K.O. : {nomAllié} hors de combat.\n' +
+      'K.O. : aucun Allié de Force 3 ou moins à mettre hors de combat.',
   },
   {
     id: 'trahison',
@@ -358,6 +392,7 @@ export const jafarCards: CardDef[] = [
     copies: 1,
     text: 'Jafar perd immédiatement 2 jetons Pouvoir.',
     image: img('trahison.webp'),
+    journal: 'Trahison : 2 JT sont perdus.',
   },
   {
     id: 'sauvetage',

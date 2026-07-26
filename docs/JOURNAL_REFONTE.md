@@ -253,8 +253,39 @@ Légende : ✅ refait · ⬜ à faire.
 | Vilain | État |
 |---|---|
 | prince-jean | ✅ |
-| bowser, crochet, cruella, davy-jones, facilier, gaston, gothel, hades, imposteur, jafar, la-bonne-fee, lotso, madame-mim, madame-tremaine, maleficent, mechante-reine, oogie-boogie, pat-hibulaire, ratigan, reine-coeur, sa-sucrerie, scar, seigneur-cles, seigneur-tenebres, shere-khan, slenderman, sombra, syndrome, tabbou, tamatoa, team-rocket, thanos, ursula, yzma | ⬜ |
+| maleficent | ✅ |
+| jafar | ✅ |
+| ursula | ✅ |
+| reine-coeur | ✅ |
+| crochet | ✅ |
+| bowser, cruella, davy-jones, facilier, gaston, gothel, hades, imposteur, la-bonne-fee, lotso, madame-mim, madame-tremaine, mechante-reine, oogie-boogie, pat-hibulaire, ratigan, sa-sucrerie, scar, seigneur-cles, seigneur-tenebres, shere-khan, slenderman, sombra, syndrome, tabbou, tamatoa, team-rocket, thanos, yzma | ⬜ |
 
-> Les vilains natifs n'ont **aucun** `journal` aujourd'hui (sauf Prince Jean) : pour
-> eux la refonte part de zéro. Les customs ont d'anciennes notes générées, à
-> **réécrire** au nouveau style.
+> Les vilains natifs restants n'ont **aucun** `journal` aujourd'hui : pour eux la
+> refonte part de zéro. Les customs ont d'anciennes notes générées, à **réécrire**
+> au nouveau style.
+
+**Cartes volontairement SANS `journal`** : quand l'effet d'une carte n'est **pas
+implémenté** par le moteur, on ne lui écrit pas de message (il annoncerait un effet
+qui n'a pas lieu) — elle garde son log par défaut « joue **X** (coût N) ». Cas connus :
+`pouvoir-sorcier` et `sauvetage` (Jafar), `proces` et `crise-hysterie` (Reine de Cœur).
+Elles sont listées en exemption dans `data/__tests__/journalPlaceholders.test.ts` : à
+retirer de la liste le jour où l'effet est codé.
+
+## 9. Accord grammatical — un template ne sait pas accorder
+
+Un template est une **chaîne figée** : le nom injecté par `{nomHéros}` / `{nomAllié}` /
+`{nomObjet}` peut être **féminin** (Ariel, Alice, la Chenille) ou **pluriel** (Les Archers
+Loups, Les Flibustiers, Arc et Flèches). Donc **jamais** de participe passé ni de verbe
+conjugué accordé sur un placeholder :
+
+| ✗ à éviter | ✓ tournure neutre |
+|---|---|
+| `{nomHéros} est éliminé.` | `la fureur emporte {nomHéros}.` |
+| `{nomAllié} gagne +1 Force.` | `+1 Force pour {nomAllié}.` |
+| `{nomHéros} périra s’il est mené au Palais.` | `mener {nomHéros} au Palais causera sa perte.` |
+| `{nomObjet} est arraché du royaume.` | `le royaume perd {nomObjet}.` |
+
+Recettes : mettre le placeholder en **complément** (`emporte {nomHéros}`, `perd {nomObjet}`),
+utiliser un **groupe nominal** (`+2 Force pour {nomHéros}`, `retour en main de {nomCarte}`,
+`direction {nomLieu} pour {nomAllié}`) ou un **infinitif** (`mener {nomHéros}…`). Vaut aussi
+pour le **nombre** : cf. la règle « pas de (s) » de `CLAUDE.md`.

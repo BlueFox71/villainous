@@ -302,6 +302,61 @@ describe('journalTemplate — émission DIFFÉRÉE (choix interactif)', () => {
     expect(tagged).toBeTruthy()
     expect(tagged![2]).toBe('récupère Vieux Sort de sa défausse.')
   })
+
+  it('Pas de Quartier ! : émet {nomAllié} + {nomLieu} à la résolution du déplacement', () => {
+    const card: CardInstance = {
+      instanceId: 'p0:pdq',
+      cardId: 'pas-de-quartier',
+      name: 'Pas de Quartier !',
+      type: 'effect',
+      cost: 1,
+      journal:
+        'Pas de Quartier ! : à l’abordage de {nomLieu} pour {nomAllié}, +2 Force.\n' +
+        'Pas de Quartier ! : aucun Allié à envoyer à l’abordage.',
+      effects: [{ type: 'MOVE_ALLY_BUFF', amount: 2 }],
+    }
+    const ally: CardInstance = { instanceId: 'a1', cardId: 'a1', name: 'Boucanier', type: 'ally', strength: 2 }
+    const g0 = gameWith(card)
+    const g = { ...g0, players: g0.players.map((p, i) => (i === 0 ? { ...p, board: { ...p.board, 'loc-1': [ally] } } : p)) }
+    const afterPlay = applyAction(g, { type: 'PLAY_CARD', actionId: 'a-p', instanceId: 'p0:pdq' })
+    expect(afterPlay.pendingAllyMoveBuff).toBeTruthy()
+    expect(afterPlay.pendingJournal).toBeTruthy()
+    const after = applyAction(afterPlay, { type: 'RESOLVE_ALLY_MOVE_BUFF', instanceId: 'a1', to: 'loc-2' })
+    const tagged = JOURNAL_TAG_RE.exec(taggedBody(after.log))
+    expect(tagged).not.toBeNull()
+    expect(tagged![2]).toBe('Pas de Quartier ! : à l’abordage de Home B pour Boucanier, +2 Force.')
+  })
+
+  it('K.O. (Fatalité) : émet {nomAllié} à la résolution du choix de l’adversaire', () => {
+    const base = gameWith({ instanceId: 'p0:d', cardId: 'd', name: 'd', type: 'ally', cost: 1 })
+    const ally: CardInstance = { instanceId: 'a1', cardId: 'a1', name: 'Flibustiers', type: 'ally', strength: 2 }
+    const fateCard: CardInstance = {
+      instanceId: 'fate:ko',
+      cardId: 'ko',
+      name: 'K.O.',
+      type: 'effect',
+      journal:
+        'K.O. : {nomAllié} hors de combat.\n' +
+        'K.O. : aucun Allié de Force 3 ou moins à mettre hors de combat.',
+    }
+    const g = {
+      ...base,
+      activePlayer: 1,
+      players: base.players.map((p, i) => (i === 0 ? { ...p, board: { ...p.board, 'loc-1': [ally] } } : p)),
+      pendingFate: { target: 0, revealed: [fateCard] },
+    }
+    const afterFate = applyAction(g, { type: 'RESOLVE_FATE', instanceId: 'fate:ko' })
+    expect(afterFate.pendingFateChoice).toBeTruthy()
+    expect(afterFate.pendingJournal).toBeTruthy()
+    const after = applyAction(afterFate, { type: 'RESOLVE_FATE_CHOICE', instanceId: 'a1' })
+    const tagged = after.log
+      .map((l) => JOURNAL_TAG_RE.exec(l.slice(l.indexOf(' ') + 1)))
+      .find((m): m is RegExpExecArray => m !== null)
+    expect(tagged).toBeTruthy()
+    expect(tagged![1]).toBe('fate')
+    expect(tagged![2]).toBe('K.O. : Flibustiers hors de combat.')
+    expect(after.players[0].discard.some((c) => c.instanceId === 'a1')).toBe(true)
+  })
 })
 
 describe('journalTemplate — effets qui exposent des noms (journalVars)', () => {
@@ -344,6 +399,26 @@ describe('journalTemplate — effets qui exposent des noms (journalVars)', () =>
     const withBoard = { ...g, players: g.players.map((p, i) => (i === 0 ? { ...p, board: { ...p.board, 'loc-1': [ally] } } : p)) }
     const after = resolveEffect(withBoard, { type: 'MOVE_ALLY_FREELY' }, { actorIndex: 0, allyMove: { instanceId: 'a1', to: 'loc-2' } })
     expect(after.journalVars?.['nomAllié']).toBe('Shérif de Nottingham')
+  })
+
+  // --- Boîte de base (Maléfique / Jafar / Ursula / Reine de Cœur / Crochet) ----
+  it('INSTANT_VANQUISH_HERO_LE expose {nomHéros} (Méchanceté, Qu’on leur coupe la tête !)', () => {
+    const g = gameWith({ instanceId: 'p0:d', cardId: 'd', name: 'd', type: 'ally', cost: 1 })
+    const hero: CardInstance = { instanceId: 'h1', cardId: 'h1', name: 'Le Chafouin', type: 'hero', strength: 3 }
+    const withHero = { ...g, players: g.players.map((p, i) => (i === 0 ? { ...p, board: { ...p.board, 'loc-1': [hero] } } : p)) }
+    const after = resolveEffect(withHero, { type: 'INSTANT_VANQUISH_HERO_LE', maxStrength: 4 }, { actorIndex: 0, targetHeroId: 'h1' })
+    expect(after.journalVars?.['nomHéros']).toBe('Le Chafouin')
+  })
+
+  it('DISCARD_OWN_FOR_POWER expose {nomAllié}/{nomObjet} (Sacrifice Nécessaire)', () => {
+    const g = gameWith({ instanceId: 'p0:d', cardId: 'd', name: 'd', type: 'ally', cost: 1 })
+    const ally: CardInstance = { instanceId: 'a1', cardId: 'a1', name: 'Garde du Palais', type: 'ally', strength: 2 }
+    const item: CardInstance = { instanceId: 'i1', cardId: 'i1', name: 'Cimeterre', type: 'item' }
+    const withBoard = { ...g, players: g.players.map((p, i) => (i === 0 ? { ...p, board: { ...p.board, 'loc-1': [ally, item] } } : p)) }
+    const viaAlly = resolveEffect(withBoard, { type: 'DISCARD_OWN_FOR_POWER', amount: 3 }, { actorIndex: 0, allyInstanceIds: ['a1'] })
+    expect(viaAlly.journalVars?.['nomAllié']).toBe('Garde du Palais')
+    const viaItem = resolveEffect(withBoard, { type: 'DISCARD_OWN_FOR_POWER', amount: 3 }, { actorIndex: 0, allyInstanceIds: ['i1'] })
+    expect(viaItem.journalVars?.['nomObjet']).toBe('Cimeterre')
   })
 
   it('LOSE_POWER_TO_HOST expose {nomHéros} quand l’hôte est un Héros (Voler aux Riches)', () => {

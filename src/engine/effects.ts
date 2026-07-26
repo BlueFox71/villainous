@@ -6200,6 +6200,9 @@ export function resolveEffect(
       next = {
         ...next,
         lastVanquishedHeroStrength: vanquishedStrengthOf(state, idx, hero),
+        // Journal data-driven : expose le Héros éliminé ({nomHéros}) — utile quand la cible
+        // n'est PAS portée par l'action (ex. Méchanceté, jouée en Condition).
+        journalVars: { ...next.journalVars, ['nomHéros']: hero.name },
         log: [
           ...next.log,
           `${actor.villainName} élimine instantanément **${hero.name}** (Apparence de Dragon).`,
@@ -6931,6 +6934,8 @@ export function resolveEffect(
       }))
       next = {
         ...next,
+        // Journal data-driven : expose la carte sacrifiée ({nomAllié} ou {nomObjet}).
+        journalVars: { ...next.journalVars, [target.type === 'item' ? 'nomObjet' : 'nomAllié']: target.name },
         log: [
           ...next.log,
           `${actor.villainName} sacrifie **${target.name}** → +${gained} JT (Sacrifice Nécessaire).`,

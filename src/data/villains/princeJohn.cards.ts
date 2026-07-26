@@ -126,7 +126,7 @@ export const princeJohnCards: CardDef[] = [
     copies: 2,
     text: 'Associez cette carte à un Allié. Sa force augmente de 1. Si vous devez défausser cet Allié, défaussez cet Objet à la place.',
     image: img('arc_fleches.webp'),
-    journal: 'Arc et Flèches : {nomAllié} gagne +1 Force.',
+    journal: 'Arc et Flèches : +1 Force pour {nomAllié}.',
   },
   {
     id: 'fleche-or',
@@ -139,7 +139,7 @@ export const princeJohnCards: CardDef[] = [
     copies: 1,
     text: 'Associez cette carte à un Allié. Si cet Allié élimine un Héros, gagnez 2 Pouvoir.',
     image: img('fleche_or.webp'),
-    journal: 'Flèche d’Or : {nomAllié} rapporte 2 JT s’il élimine un Héros.',
+    journal: 'Flèche d’Or : 2 JT à chaque Héros éliminé par {nomAllié}.',
   },
   {
     id: 'couronne-roi-richard',
@@ -181,7 +181,7 @@ export const princeJohnCards: CardDef[] = [
     text: 'Déplacez un Héros sur la Prison.',
     image: img('emprisonnement.webp'),
     effects: [{ type: 'MOVE_HERO_TO_LOCATION', locationId: 'jail' }],
-    journal: 'Emprisonnement : {nomHéros} est déplacé sur la Prison.',
+    journal: 'Emprisonnement : {nomHéros} finit en Prison.',
   },
   {
     id: 'tendre-piege',
@@ -198,7 +198,7 @@ export const princeJohnCards: CardDef[] = [
       { type: 'VANQUISH_HERO', keepAllies: false },
     ],
     journal:
-      'Tendre un Piège : {nomAllié} se déplace, puis {nomHéros} est éliminé.\n' +
+      'Tendre un Piège : {nomAllié} se déplace, puis {nomHéros} tombe dans le piège.\n' +
       'Tendre un Piège : {nomAllié} se déplace et tend un piège.',
   },
   {
@@ -212,7 +212,7 @@ export const princeJohnCards: CardDef[] = [
     text: 'Faites une action Éliminer un Héros. Les Alliés utilisés ne sont pas défaussés.',
     image: img('intimidation.webp'),
     effects: [{ type: 'VANQUISH_HERO', keepAllies: true }],
-    journal: 'Intimidation : {nomHéros} est éliminé sans épuiser les Alliés engagés.',
+    journal: 'Intimidation : {nomHéros} cède sans épuiser les Alliés engagés.',
   },
 
   // ----------------------------------------------------------------------

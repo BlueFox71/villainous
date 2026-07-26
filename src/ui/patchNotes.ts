@@ -79,6 +79,7 @@ export const PATCH_NOTES: PatchNote[] = [
       "**Pioche vide** : la défausse est **mélangée** pour former une nouvelle pioche même quand une carte ne fait que **regarder** la pioche — **Retourne-toi**, **Lumière mourrante**, **Vanité**, **Grimoires magiques**, **Mauvais Coup** ne restaient plus sans effet.",
       "**Bot** : quand il déplace un Héros, il **choisit vraiment** le lieu (il poussait toujours vers le voisin de gauche). La Bonne Fée envoie enfin Fiona en **Salle de Bal**, où aucun Héros ne bloque d'action.",
       "**Bot** : il **attaque en Fatalité** quand ça compte. La valeur d'une Fatalité n'apparaît qu'à sa résolution (le Héros posé), et la recherche l'écartait avant d'y arriver — une Page volée à **Slenderman** ne pesait rien.",
+      "**Journal de partie** : les cartes de **Maléfique**, **Jafar**, **Ursula**, **Reine de Cœur** et **Capitaine Crochet** disent enfin ce qu'elles font, en nommant leur cible — « **Vœu** : +2 Force pour Aladdin », « **Pacte** : mener Ariel au Palais causera sa perte », « **Pas de Quartier !** : à l'abordage du Rocher du Crâne pour le Boucanier, +2 Force ».",
       "Journal : un Héros déplacé annonce le **nom du lieu** (« rejoint **La Pomme Empoisonnée** ») au lieu d'un identifiant technique.",
       "Journal : la victoire annonce le **bon compteur** — Slenderman l'emporte avec ses **8 Pages**, plus « 12 JT ».",
     ],

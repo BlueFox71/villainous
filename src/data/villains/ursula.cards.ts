@@ -37,6 +37,9 @@ export const ursulaCards: CardDef[] = [
     text: 'Déplacez un Héros du lieu où se trouve Flotsam vers un lieu voisin non bloqué.',
     image: img('flotsam.webp'),
     effects: [{ type: 'RELOCATE_OWN_HERO' }],
+    journal:
+      'Flotsam rejoint le royaume et repousse {nomHéros} vers {nomLieu}.\n' +
+      'Flotsam rejoint le royaume.',
   },
   {
     id: 'jetsam',
@@ -50,6 +53,9 @@ export const ursulaCards: CardDef[] = [
     text: 'Déplacez un Héros du lieu où se trouve Jetsam vers un lieu voisin non bloqué.',
     image: img('jetsam.webp'),
     effects: [{ type: 'RELOCATE_OWN_HERO' }],
+    journal:
+      'Jetsam rejoint le royaume et repousse {nomHéros} vers {nomLieu}.\n' +
+      'Jetsam rejoint le royaume.',
   },
 
   // ----------------------------------------------------------------------
@@ -67,6 +73,7 @@ export const ursulaCards: CardDef[] = [
     text: "Associez à un Héros qui n'est pas au Repaire d'Ursula. Ce Héros est éliminé s'il est déplacé sur le Repaire d'Ursula.",
     image: img('pacte-repaire.webp'),
     contractLocationId: 'repaire',
+    journal: 'Pacte : mener {nomHéros} au Repaire d’Ursula causera sa perte.',
   },
   {
     id: 'pacte-palais',
@@ -80,6 +87,7 @@ export const ursulaCards: CardDef[] = [
     text: "Associez à un Héros qui n'est pas au Palais. Ce Héros est éliminé s'il est déplacé sur le Palais.",
     image: img('pacte-palais.webp'),
     contractLocationId: 'palais',
+    journal: 'Pacte : mener {nomHéros} au Palais causera sa perte.',
   },
   {
     id: 'pacte-navire',
@@ -93,6 +101,7 @@ export const ursulaCards: CardDef[] = [
     text: "Associez à un Héros qui n'est pas sur le Navire du Prince Éric. Ce Héros est éliminé s'il y est déplacé.",
     image: img('pacte-navire.webp'),
     contractLocationId: 'navire',
+    journal: 'Pacte : mener {nomHéros} sur le Navire du Prince Éric causera sa perte.',
   },
   {
     id: 'pacte-rivage',
@@ -106,6 +115,7 @@ export const ursulaCards: CardDef[] = [
     text: "Associez à un Héros qui n'est pas sur le Rivage. Ce Héros est éliminé s'il est déplacé sur le Rivage.",
     image: img('pacte-rivage.webp'),
     contractLocationId: 'rivage',
+    journal: 'Pacte : mener {nomHéros} sur le Rivage causera sa perte.',
   },
   {
     id: 'chaudron',
@@ -119,6 +129,7 @@ export const ursulaCards: CardDef[] = [
     text: 'Gagnez 2 jetons Pouvoir par Pacte dans votre royaume.',
     image: img('chaudron.webp'),
     effects: [{ type: 'GAIN_POWER_PER_CONTRACT', amount: 2 }],
+    journal: 'Chaudron : chaque Pacte du royaume rapporte 2 JT.',
   },
   {
     id: 'couronne',
@@ -132,6 +143,7 @@ export const ursulaCards: CardDef[] = [
     text: 'Regardez les 2 premières cartes Fatalité de votre pioche. Défaussez-les ou remettez-les sur le dessus dans l’ordre de votre choix.',
     image: img('couronne.webp'),
     effects: [{ type: 'SCRY_OWN_FATE_TOP2' }],
+    journal: 'Couronne : les 2 premières cartes Fatalité sont examinées.',
   },
   {
     id: 'trident',
@@ -144,6 +156,7 @@ export const ursulaCards: CardDef[] = [
     copies: 1,
     text: 'Cherchez le Roi Triton, posez-le en zone haute et associez-lui le Trident. Si vous éliminez le Roi Triton, le Trident revient en zone basse de votre royaume, au même lieu.',
     image: img('trident.webp'),
+    journal: 'Trident : le Roi Triton est convoqué, le Trident rivé entre ses mains.',
   },
 
   // ----------------------------------------------------------------------
@@ -160,6 +173,7 @@ export const ursulaCards: CardDef[] = [
     text: "Déplacez la tuile Cadenas vers le Repaire d'Ursula ou vers le Palais.",
     image: img('metamorphose.webp'),
     effects: [{ type: 'TOGGLE_URSULA_LOCK' }],
+    journal: 'Métamorphose : le Cadenas glisse entre le Repaire et le Palais.',
   },
   {
     id: 'tourbillon',
@@ -172,6 +186,9 @@ export const ursulaCards: CardDef[] = [
     text: 'Déplacez un Héros vers n’importe quel lieu non bloqué.',
     image: img('tourbillon.webp'),
     effects: [{ type: 'RELOCATE_OWN_HERO', anyLocation: true }],
+    journal:
+      'Tourbillon : les eaux emportent {nomHéros} vers {nomLieu}.\n' +
+      'Tourbillon : les eaux tourbillonnent en vain.',
   },
   {
     id: 'divination',
@@ -184,6 +201,7 @@ export const ursulaCards: CardDef[] = [
     text: 'Dévoilez votre pioche jusqu’à trouver un Pacte. Ajoutez-le à votre main puis défaussez les autres cartes dévoilées.',
     image: img('divination.webp'),
     effects: [{ type: 'REVEAL_VILLAIN_UNTIL_CONTRACT' }],
+    journal: 'Divination : la pioche est dévoilée jusqu’à trouver un Pacte.',
   },
   {
     id: 'colere-titanesque',
@@ -196,6 +214,7 @@ export const ursulaCards: CardDef[] = [
     text: 'Effectuez une action disponible sur un lieu voisin (bloqué ou non) de celui où vous vous trouvez.',
     image: img('colere-titanesque.webp'),
     effects: [{ type: 'GIANT_ACTION' }],
+    journal: 'Colère Titanesque : une action d’un lieu voisin est effectuée.',
   },
   {
     id: 'opportunisme',
@@ -208,6 +227,9 @@ export const ursulaCards: CardDef[] = [
     text: 'Cherchez un Objet ou un Événement dans votre défausse et ajoutez-le à votre main.',
     image: img('opportunisme.webp'),
     effects: [{ type: 'RECOVER_ITEM_OR_EVENT' }],
+    journal:
+      'Opportunisme : retour en main de {nomCarte}.\n' +
+      'Opportunisme : une carte revient de la défausse en main.',
   },
   {
     id: 'ames-perdition',
@@ -223,6 +245,7 @@ export const ursulaCards: CardDef[] = [
     // Pacte voisin (déclenche les éliminations). Le repositionnement libre de
     // chaque Héros (au choix) reste à faire.
     effects: [{ type: 'AMES_EN_PERDITION' }],
+    journal: 'Âmes en Perdition : les Héros sous Pacte sont attirés vers leur perte.',
   },
 
   // ----------------------------------------------------------------------
@@ -238,6 +261,7 @@ export const ursulaCards: CardDef[] = [
     text: 'Jouable pendant le tour d’un adversaire s’il possède au moins 6 jetons Pouvoir. Dévoilez la 1ʳᵉ carte Fatalité de sa pioche et jouez-la immédiatement.',
     image: img('illusion.webp'),
     trigger: { type: 'opponent-power-ge', value: 6 },
+    journal: 'Illusion : la première carte Fatalité de {nomAdv} lui est jouée aussitôt.',
   },
   {
     id: 'arrogance',
@@ -249,6 +273,7 @@ export const ursulaCards: CardDef[] = [
     text: 'Jouable pendant le tour d’un adversaire s’il élimine un Héros de force 4 ou plus. Piochez 3 cartes Méchant puis défaussez-en 3.',
     image: img('arrogance.webp'),
     trigger: { type: 'opponent-vanquished-hero-strength-ge', value: 4 },
+    journal: 'Arrogance : pioche 3 cartes, puis en défausse 3.',
   },
 
   // ----------------------------------------------------------------------
@@ -265,6 +290,7 @@ export const ursulaCards: CardDef[] = [
     text: 'Les Pactes et Événements ciblant Le Roi Triton coûtent 1 jeton Pouvoir de plus.',
     image: img('roi-triton.webp'),
     pacteTargetSurcharge: 1,
+    journal: 'Le Roi Triton apparaît : les Pactes et Événements qui le visent coûtent 1 JT de plus.',
   },
   {
     id: 'prince-eric',
@@ -276,6 +302,7 @@ export const ursulaCards: CardDef[] = [
     copies: 1,
     text: 'Déplacez un Héros vers un lieu non bloqué de votre choix.',
     image: img('prince-eric.webp'),
+    journal: 'Le Prince Éric apparaît.',
   },
   {
     id: 'ariel',
@@ -288,6 +315,7 @@ export const ursulaCards: CardDef[] = [
     text: "Déplacez un Objet sur le lieu où vous jouez Ariel. Ursula ne peut plus déplacer cet Objet tant qu'Ariel n'a pas été éliminée.",
     image: img('ariel.webp'),
     onPlace: [{ type: 'ARIEL_FREEZE_ITEM' }],
+    journal: 'Ariel apparaît : un Objet de son lieu est gelé jusqu’à son élimination.',
   },
   {
     id: 'max',
@@ -300,6 +328,7 @@ export const ursulaCards: CardDef[] = [
     text: "Si vous jouez Max sur le lieu où se trouve Ursula, vous pouvez déplacer sa figurine vers n'importe quel lieu non bloqué.",
     image: img('max.webp'),
     onPlace: [{ type: 'MOVE_URSULA_PAWN' }],
+    journal: 'Max apparaît : sur le lieu d’Ursula, il en chasse la figurine.',
   },
   {
     id: 'sebastien',
@@ -312,6 +341,7 @@ export const ursulaCards: CardDef[] = [
     text: 'Prenez le Pacte d’un autre Héros et associez-le à Sébastien à la place.',
     image: img('sebastien.webp'),
     onPlace: [{ type: 'STEAL_CONTRACT_TO_HOST' }],
+    journal: 'Sébastien apparaît : il s’accapare le Pacte d’un autre Héros.',
   },
   {
     id: 'eureka',
@@ -324,6 +354,7 @@ export const ursulaCards: CardDef[] = [
     text: "Cherchez un Objet dans la défausse Fatalité d'Ursula, puis associez-le à Eurêka.",
     image: img('eureka.webp'),
     onPlace: [{ type: 'EUREKA_ATTACH_ITEM' }],
+    journal: 'Eurêka apparaît : un Objet de la défausse Fatalité lui est associé.',
   },
   {
     id: 'grimsby',
@@ -336,6 +367,7 @@ export const ursulaCards: CardDef[] = [
     text: "Vous pouvez déplacer la tuile Cadenas sur le Repaire d'Ursula ou sur le Palais.",
     image: img('grimsby.webp'),
     onPlace: [{ type: 'TOGGLE_URSULA_LOCK' }],
+    journal: 'Grimsby apparaît : le Cadenas peut glisser entre le Repaire et le Palais.',
   },
   {
     id: 'polochon',
@@ -349,6 +381,7 @@ export const ursulaCards: CardDef[] = [
     image: img('polochon.webp'),
     // À la pose : Ursula (le vilain ciblé) mélange sa défausse Vilain dans sa pioche.
     onPlace: [{ type: 'SHUFFLE_VILLAIN_DISCARD' }],
+    journal: 'Polochon apparaît : la défausse Méchant est remélangée dans la pioche.',
   },
 
   // ----------------------------------------------------------------------
@@ -364,6 +397,7 @@ export const ursulaCards: CardDef[] = [
     copies: 2,
     text: 'Associez à un Héros. Associer un Pacte à ce Héros coûte 3 jetons Pouvoir de plus.',
     image: img('bigette.webp'),
+    journal: 'Bigette Bulbeuse : associer un Pacte à {nomHéros} coûte 3 JT de plus.',
   },
   {
     id: 'zirgouflex',
@@ -376,6 +410,7 @@ export const ursulaCards: CardDef[] = [
     text: "Associez à un Héros. Quand Ursula se déplace sur le lieu de ce Héros, elle perd 1 jeton Pouvoir.",
     image: img('zirgouflex.webp'),
     powerLossOnPawnArrive: 1,
+    journal: 'Zirgouflex : arriver sur le lieu de {nomHéros} coûtera 1 JT.',
   },
 
   // ----------------------------------------------------------------------
@@ -390,5 +425,7 @@ export const ursulaCards: CardDef[] = [
     copies: 3,
     text: "Cherchez un Héros de force 4 ou moins dans la défausse Fatalité d'Ursula. Jouez-le immédiatement sur le lieu où se trouve Ursula.",
     image: img('apparence-retrouvee.webp'),
+    journal:
+      'Apparence Retrouvée : un Héros de Force 4 ou moins revient de la défausse Fatalité sur le lieu de la figurine.',
   },
 ]

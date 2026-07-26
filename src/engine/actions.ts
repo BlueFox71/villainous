@@ -6867,7 +6867,12 @@ function resolveConditionEffect(
       hand: p.hand.filter((c) => c.instanceId !== allyInstanceId),
       board: { ...p.board, [to]: [...(p.board[to] ?? []), a] },
     }))
-    next = { ...next, log: [...next.log, `${player.villainName} joue gratuitement **${a.name}** (Ruse).`] }
+    next = {
+      ...next,
+      // Journal data-driven : expose l'Allié posé gratuitement ({nomAllié}).
+      journalVars: { ...next.journalVars, ['nomAllié']: a.name },
+      log: [...next.log, `${player.villainName} joue gratuitement **${a.name}** (Ruse).`],
+    }
     return processCurseDiscards(next, playerIndex, to, 'ally-played-here')
   }
   if (card.cardId === 'arrogance') {
@@ -7342,6 +7347,8 @@ function applyResolveAllyRelocate(state: GameState, allyInstanceId: string, to: 
   next = {
     ...next,
     pendingAllyRelocate: keepOpen ? { ...pending, remaining: nextRemaining, onlyInstanceIds: nextOnly } : null,
+    // Journal data-driven (émission différée) : expose l'Allié déplacé et sa destination.
+    journalVars: { ...next.journalVars, ['nomAllié']: ally.name, ['nomLieu']: destName },
     log: [...next.log, `**${title}** : **${ally.name}** est déplacé(e) vers **${destName}**.`],
   }
   return keepOpen ? next : chainRaceBanVanquish(next, pending)
@@ -9513,6 +9520,8 @@ function applyResolveManipulation(state: GameState, instanceId: string): GameSta
   return {
     ...next,
     pendingManipulation: null,
+    // Journal data-driven (émission différée) : expose la carte reprise ({nomCarte}).
+    journalVars: { ...next.journalVars, ['nomCarte']: card.name },
     log: [...next.log, `${player.villainName} reprend **${card.name}** de sa défausse (Manipulation).`],
   }
 }
@@ -10020,6 +10029,8 @@ function applyResolveAllyMoveBuff(state: GameState, instanceId: string, to: Loca
   return {
     ...next,
     pendingAllyMoveBuff: null,
+    // Journal data-driven (émission différée) : expose l'Allié déplacé et sa destination.
+    journalVars: { ...next.journalVars, ['nomAllié']: ally.name, ['nomLieu']: toName },
     log: [...next.log, `${me.villainName} déplace **${ally.name}** vers **${toName}**${buff}.`],
   }
 }
@@ -10162,6 +10173,8 @@ function applyResolveFateChoice(state: GameState, instanceId: string): GameState
     return {
       ...next,
       pendingFateChoice: null,
+      // Journal data-driven (émission différée) : expose l'Allié retiré ({nomAllié}).
+      journalVars: { ...next.journalVars, ['nomAllié']: ally.name },
       log: [...next.log, `**K.O.** : **${ally.name}** est retiré du royaume de ${tgt.villainName}.`],
     }
   }
@@ -10182,6 +10195,8 @@ function applyResolveFateChoice(state: GameState, instanceId: string): GameState
     return {
       ...next,
       pendingFateChoice: null,
+      // Journal data-driven (émission différée) : expose la carte défaussée ({nomAllié}/{nomObjet}).
+      journalVars: { ...next.journalVars, [card.type === 'item' ? 'nomObjet' : 'nomAllié']: card.name },
       log: [...next.log, `${pending.via ?? 'Vieillissement'} : **${card.name}** est défaussé(e) du royaume de ${tgt.villainName}.`],
     }
   }
@@ -10199,6 +10214,8 @@ function applyResolveFateChoice(state: GameState, instanceId: string): GameState
     return {
       ...next,
       pendingFateChoice: null,
+      // Journal data-driven (émission différée) : expose l'Objet défaussé ({nomObjet}).
+      journalVars: { ...next.journalVars, ['nomObjet']: item.name },
       log: [...next.log, `**${item.name}** est défaussé du royaume de ${tgt.villainName}.`],
     }
   }
@@ -10227,6 +10244,8 @@ function applyResolveFateChoice(state: GameState, instanceId: string): GameState
   return {
     ...next,
     pendingFateChoice: null,
+    // Journal data-driven (émission différée) : expose l'Objet volé ({nomObjet}).
+    journalVars: { ...next.journalVars, ['nomObjet']: item.name },
     log: [...next.log, `**${item.name}** est volé à ${tgt.villainName} et associé au Héros (inutilisable).`],
   }
 }

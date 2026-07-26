@@ -34,6 +34,7 @@ export const maleficentCards: CardDef[] = [
     text: 'La Créature Rieuse gagne +1 Force pour chaque Héros présent sur son lieu.',
     image: img('creature_rieuse.webp'),
     selfStrengthMods: [{ kind: 'per-type-here', cardType: 'hero', delta: 1 }],
+    journal: 'La Créature Rieuse rejoint le royaume.',
   },
   {
     id: 'creature-sauvage',
@@ -46,6 +47,7 @@ export const maleficentCards: CardDef[] = [
     copies: 3,
     text: 'Aucune capacité.',
     image: img('creature_sauvage.webp'),
+    journal: 'La Créature Sauvage rejoint le royaume.',
   },
   {
     id: 'sinistre-creature',
@@ -59,6 +61,7 @@ export const maleficentCards: CardDef[] = [
     text: 'La Sinistre Créature gagne +1 Force si une Malédiction est présente sur son lieu.',
     image: img('sinistre_creature.webp'),
     selfStrengthMods: [{ kind: 'if-type-here', cardType: 'curse', delta: 1 }],
+    journal: 'La Sinistre Créature rejoint le royaume.',
   },
   {
     id: 'diablo',
@@ -71,6 +74,7 @@ export const maleficentCards: CardDef[] = [
     copies: 1,
     text: "Avant que Maléfique ne se déplace, vous pouvez déplacer Diablo sur n'importe quel lieu et effectuer une action disponible de ce lieu. Diablo ne peut pas faire d'action Fatalité.",
     image: img('diablo.webp'),
+    journal: 'Diablo rejoint le royaume.',
   },
 
   // ----------------------------------------------------------------------
@@ -88,6 +92,7 @@ export const maleficentCards: CardDef[] = [
     image: img('foret_ronces.webp'),
     placementRestriction: { type: 'min-hero-strength', value: 4 },
     discardWhen: { type: 'hero-played-here' },
+    journal: 'Forêt de Ronces : seuls les Héros de Force 4 ou plus peuvent être joués sur {nomLieu}.',
   },
   {
     id: 'feu-infernal',
@@ -101,6 +106,7 @@ export const maleficentCards: CardDef[] = [
     image: img('feu_infernal.webp'),
     placementRestriction: { type: 'no-heroes' },
     discardWhen: { type: 'pawn-moves-here' },
+    journal: 'Feu Infernal : aucun Héros ne peut plus être joué sur {nomLieu}.',
   },
   {
     id: 'sommeil-sans-reves',
@@ -116,6 +122,7 @@ export const maleficentCards: CardDef[] = [
     image: img('sommeil_sans_reves.webp'),
     strengthMod: { target: 'heroes-here', delta: -2 },
     discardWhen: { type: 'ally-played-here' },
+    journal: 'Sommeil sans Rêves : les Héros de {nomLieu} perdent 2 Force.',
   },
 
   // ----------------------------------------------------------------------
@@ -135,6 +142,8 @@ export const maleficentCards: CardDef[] = [
       { type: 'INSTANT_VANQUISH_HERO_LE', maxStrength: 3 },
       { type: 'ARM_DRAGON_FORM_REWARD' },
     ],
+    journal:
+      'Apparence de Dragon : les flammes réduisent {nomHéros} en cendres ; une Fatalité subie d’ici le prochain tour rapportera 3 JT.',
   },
   {
     id: 'disparition-maleficent',
@@ -147,6 +156,7 @@ export const maleficentCards: CardDef[] = [
     text: "Au début de votre prochain tour, Maléfique n'est pas obligée de se déplacer.",
     image: img('disparition.webp'),
     effects: [{ type: 'GRANT_SKIP_NEXT_MOVE' }],
+    journal: 'Disparition : le prochain déplacement devient facultatif.',
   },
 
   // ----------------------------------------------------------------------
@@ -162,6 +172,7 @@ export const maleficentCards: CardDef[] = [
     copies: 1,
     text: 'Si un Héros est vaincu sur ce lieu, gagnez un nombre de Pouvoir égal à la Force du Héros moins 1.',
     image: img('rouet.webp'),
+    journal: 'Rouet : un Héros vaincu sur {nomLieu} rapporte sa Force moins 1 en JT.',
   },
   {
     id: 'baton-magique',
@@ -173,6 +184,7 @@ export const maleficentCards: CardDef[] = [
     copies: 1,
     text: 'Si Maléfique est sur ce lieu, le coût pour jouer un Événement ou une Malédiction est réduit de 1 Pouvoir.',
     image: img('baton_magique.webp'),
+    journal: 'Bâton Magique : sur {nomLieu}, Événements et Malédictions coûtent 1 JT de moins.',
   },
 
   // ----------------------------------------------------------------------
@@ -189,6 +201,9 @@ export const maleficentCards: CardDef[] = [
     text: "Pendant le tour d'un adversaire, s'il vainc un Héros de Force 4 ou plus, vous pouvez jouer Méchanceté. Vainquez un Héros de Force 4 ou moins.",
     image: img('mechancete.webp'),
     trigger: { type: 'opponent-vanquished-hero-strength-ge', value: 4 },
+    journal:
+      'Méchanceté : la fureur emporte {nomHéros}.\n' +
+      'Méchanceté : la fureur ne trouve aucune cible.',
   },
   {
     id: 'tyrannie',
@@ -201,6 +216,7 @@ export const maleficentCards: CardDef[] = [
     text: "Pendant le tour d'un adversaire, s'il a 3 Alliés ou plus dans son royaume, vous pouvez jouer Tyrannie. Piochez 3 cartes, puis défaussez-en 3.",
     image: img('tyrannie.webp'),
     trigger: { type: 'opponent-allies-in-realm-ge', value: 3 },
+    journal: 'Tyrannie : pioche 3 cartes, puis en défausse 3.',
   },
 
   // ----------------------------------------------------------------------
@@ -216,6 +232,7 @@ export const maleficentCards: CardDef[] = [
     copies: 3,
     text: 'Pour vaincre les Gardes du Château, vous devez utiliser au moins deux Alliés.',
     image: img('gardes_chateau.webp'),
+    journal: 'Les Gardes du Château apparaissent : il faut au moins deux Alliés pour les vaincre.',
   },
   {
     id: 'aurore',
@@ -228,6 +245,7 @@ export const maleficentCards: CardDef[] = [
     text: "Quand Aurore est jouée, révélez la première carte de la pioche Fatalité de Maléfique. Si c'est un Héros, jouez-le. Sinon, remettez-la sur le dessus de la pioche.",
     image: img('aurore.webp'),
     onPlace: [{ type: 'REVEAL_FATE_TOP_PLAY_IF_HERO' }],
+    journal: 'Aurore apparaît : la carte Fatalité suivante est dévoilée, et jouée si c’est un Héros.',
   },
   {
     id: 'paquerette',
@@ -240,6 +258,7 @@ export const maleficentCards: CardDef[] = [
     text: 'Quand Pâquerette est jouée, vous pouvez défausser Sommeil sans Rêves sur son lieu.',
     image: img('paquerette.webp'),
     onPlace: [{ type: 'DISCARD_CARDS_AT_HOST', cardId: 'sommeil-sans-reves' }],
+    journal: 'Pâquerette apparaît : le Sommeil sans Rêves de son lieu est dissipé.',
   },
   {
     id: 'flora',
@@ -251,6 +270,7 @@ export const maleficentCards: CardDef[] = [
     copies: 1,
     text: 'Quand Flora est jouée, Maléfique doit révéler sa main. Tant que Flora est en jeu, Maléfique joue main révélée.',
     image: img('flora.webp'),
+    journal: 'Flora apparaît : la main est désormais jouée révélée.',
   },
   {
     id: 'roi-hubert',
@@ -263,6 +283,7 @@ export const maleficentCards: CardDef[] = [
     text: 'Quand le Roi Hubert est joué, vous pouvez déplacer un Allié de chaque lieu voisin vers son lieu.',
     image: img('roi_hubert.webp'),
     onPlace: [{ type: 'PULL_ALLY_FROM_EACH_ADJACENT' }],
+    journal: 'Le Roi Hubert apparaît : un Allié de chaque lieu voisin peut être attiré vers lui.',
   },
   {
     id: 'roi-stephane',
@@ -275,6 +296,7 @@ export const maleficentCards: CardDef[] = [
     text: "Quand le Roi Stéphane est joué, vous pouvez déplacer Maléfique sur n'importe quel lieu.",
     image: img('roi_stephane.webp'),
     onPlace: [{ type: 'MOVE_OWNER_PAWN_FORCED' }],
+    journal: 'Le Roi Stéphane apparaît : il chasse la figurine vers un autre lieu.',
   },
   {
     id: 'pimprenelle',
@@ -287,6 +309,7 @@ export const maleficentCards: CardDef[] = [
     text: 'Aucune Malédiction ne peut être jouée sur le lieu de Pimprenelle.',
     image: img('pimprenelle.webp'),
     placementRestriction: { type: 'no-curses' },
+    journal: 'Pimprenelle apparaît : aucune Malédiction ne peut être jouée sur son lieu.',
   },
   {
     id: 'prince-philippe',
@@ -299,6 +322,7 @@ export const maleficentCards: CardDef[] = [
     text: 'Quand le Prince Philippe est joué, vous pouvez défausser tous les Alliés de son lieu.',
     image: img('prince_philippe.webp'),
     onPlace: [{ type: 'DISCARD_ALLIES_AT_HOST' }],
+    journal: 'Le Prince Philippe apparaît : les Alliés de son lieu sont défaussés.',
   },
 
   // ----------------------------------------------------------------------
@@ -315,6 +339,8 @@ export const maleficentCards: CardDef[] = [
     copies: 3,
     text: "Quand l'Épée de Vérité est jouée, associez-la à un Héros qui n'a pas d'autre Objet associé. Ce Héros gagne +2 Force. Le coût pour jouer une Malédiction sur ce lieu est augmenté de 2 Pouvoirs.",
     image: img('epee_verite.webp'),
+    journal:
+      'Épée de Vérité : +2 Force pour {nomHéros}, et les Malédictions coûtent 2 JT de plus sur son lieu.',
   },
 
   // ----------------------------------------------------------------------
@@ -329,6 +355,7 @@ export const maleficentCards: CardDef[] = [
     copies: 2,
     text: "Défaussez une Malédiction d'un lieu du royaume de Maléfique qui contient un Héros.",
     image: img('il_etait_un_reve.webp'),
+    journal: 'Il était un Rêve : une Malédiction est dissipée sur un lieu occupé par un Héros.',
   },
 ]
 

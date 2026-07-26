@@ -32,6 +32,7 @@ export const reineCoeurCards: CardDef[] = [
     text: 'Activer : payez 1 jeton Pouvoir pour transformer cette carte en arceau, ou la retransformer en Gardes.',
     image: img('gardes-carreau.webp'),
     activatedCost: 1,
+    journal: 'Les Cartes Gardes Carreau rejoignent le royaume.',
   },
   {
     id: 'gardes-trefle',
@@ -45,6 +46,7 @@ export const reineCoeurCards: CardDef[] = [
     text: 'Activer : payez 1 jeton Pouvoir pour transformer cette carte en arceau, ou la retransformer en Gardes.',
     image: img('gardes-trefle.webp'),
     activatedCost: 1,
+    journal: 'Les Cartes Gardes Trèfle rejoignent le royaume.',
   },
   {
     id: 'gardes-coeur',
@@ -58,6 +60,7 @@ export const reineCoeurCards: CardDef[] = [
     text: 'Activer : payez 1 jeton Pouvoir pour transformer cette carte en arceau, ou la retransformer en Gardes.',
     image: img('gardes-coeur.webp'),
     activatedCost: 1,
+    journal: 'Les Cartes Gardes Cœur rejoignent le royaume.',
   },
   {
     id: 'gardes-pique',
@@ -71,6 +74,7 @@ export const reineCoeurCards: CardDef[] = [
     text: 'Activer : payez 1 jeton Pouvoir pour transformer cette carte en arceau, ou la retransformer en Gardes.',
     image: img('gardes-pique.webp'),
     activatedCost: 1,
+    journal: 'Les Cartes Gardes Pique rejoignent le royaume.',
   },
   {
     id: 'roi-coeur',
@@ -83,6 +87,7 @@ export const reineCoeurCards: CardDef[] = [
     copies: 1,
     text: 'Les Cartes Gardes vous coûtent 1 jeton Pouvoir de moins.',
     image: img('roi-coeur.webp'),
+    journal: 'Le Roi de Cœur rejoint le royaume.',
   },
   {
     id: 'tweedle',
@@ -95,6 +100,7 @@ export const reineCoeurCards: CardDef[] = [
     copies: 1,
     text: 'Tweedle Dee et Tweedle Dum ne sont pas défaussés quand vous les utilisez pour éliminer un Héros.',
     image: img('tweedle.webp'),
+    journal: 'Tweedle Dee et Tweedle Dum rejoignent le royaume.',
   },
 
   // ----------------------------------------------------------------------
@@ -112,6 +118,7 @@ export const reineCoeurCards: CardDef[] = [
     copies: 3,
     text: 'Associez cette carte à un Allié, sa force augmente de 1.',
     image: img('lance.webp'),
+    journal: 'Lance : +1 Force pour {nomAllié}.',
   },
   {
     id: 'montre-gousset',
@@ -127,6 +134,7 @@ export const reineCoeurCards: CardDef[] = [
     activatedCost: 0,
     text: 'Activer : gagnez 1 jeton Pouvoir par arceau dans votre royaume.',
     image: img('montre-gousset.webp'),
+    journal: 'Montre à gousset : posée sur {nomLieu}, elle rapportera 1 JT par arceau.',
   },
 
   // ----------------------------------------------------------------------
@@ -143,6 +151,7 @@ export const reineCoeurCards: CardDef[] = [
     text: 'Si un arceau se trouve sur chaque lieu, dévoilez les 5 premières cartes de votre pioche. Si la somme de leurs coûts est inférieure à la force totale des arceaux, vous gagnez. Sinon, défaussez 5 cartes.',
     image: img('coup-royal.webp'),
     effects: [{ type: 'ROYAL_CROQUET_ATTEMPT' }],
+    journal: 'Coup Royal : les 5 premières cartes affrontent la force des arceaux.',
   },
   {
     id: 'coupez-tete',
@@ -155,6 +164,7 @@ export const reineCoeurCards: CardDef[] = [
     text: 'Éliminez un Héros de force 4 ou moins.',
     image: img('coupez-tete.webp'),
     effects: [{ type: 'INSTANT_VANQUISH_HERO_LE', maxStrength: 4 }],
+    journal: 'Qu’on leur coupe la tête ! : la tête de {nomHéros} tombe.',
   },
   {
     id: 'par-ordre-reine',
@@ -167,6 +177,7 @@ export const reineCoeurCards: CardDef[] = [
     text: 'Transformez 1 ou 2 Cartes Gardes en arceaux.',
     image: img('par-ordre-reine.webp'),
     effects: [{ type: 'TRANSFORM_GUARDS', max: 2 }],
+    journal: 'Par ordre de la Reine ! : des Cartes Gardes se dressent en arceaux.',
   },
   {
     id: 'joyeux-non-anniversaire',
@@ -179,6 +190,7 @@ export const reineCoeurCards: CardDef[] = [
     text: 'Gagnez 1 jeton Pouvoir par Allié dans votre royaume.',
     image: img('joyeux-non-anniversaire.webp'),
     effects: [{ type: 'GAIN_POWER_PER_ALLY_IN_REALM', amount: 1 }],
+    journal: 'Joyeux non-anniversaire : gagne {NbJT} JT.',
   },
   {
     id: 'rapetisser',
@@ -191,6 +203,7 @@ export const reineCoeurCards: CardDef[] = [
     text: 'Rapetissez un Héros, ou rendez sa taille normale à un Héros agrandi.',
     image: img('rapetisser.webp'),
     effects: [{ type: 'SET_HERO_SIZE', size: 'shrunk' }],
+    journal: 'Rapetisser : {nomHéros} rétrécit à vue d’œil.',
   },
 
   // ----------------------------------------------------------------------
@@ -234,6 +247,7 @@ export const reineCoeurCards: CardDef[] = [
     copies: 1,
     text: 'La Reine de Cœur ne peut plus déplacer d’Objet ou d’Allié.',
     image: img('alice.webp'),
+    journal: 'Alice apparaît : plus aucun Allié ni Objet ne peut être déplacé.',
   },
   {
     id: 'chafouin',
@@ -247,6 +261,7 @@ export const reineCoeurCards: CardDef[] = [
     image: img('chafouin.webp'),
     onPlace: [{ type: 'REVERT_WICKETS', max: 2 }],
     onVanquish: [{ type: 'TRANSFORM_GUARDS', max: 2 }],
+    journal: 'Le Chafouin apparaît : des arceaux redeviennent des Cartes Gardes.',
   },
   {
     id: 'chapelier-fou',
@@ -259,6 +274,7 @@ export const reineCoeurCards: CardDef[] = [
     text: 'Si le Lièvre de Mars se trouve dans le royaume, la force du Chapelier Fou augmente de 2.',
     image: img('chapelier-fou.webp'),
     selfStrengthMods: [{ kind: 'if-card', cardId: 'lievre-mars', scope: 'realm', delta: 2 }],
+    journal: 'Le Chapelier Fou apparaît : +2 Force tant que le Lièvre de Mars est dans le royaume.',
   },
   {
     id: 'chenille',
@@ -271,6 +287,7 @@ export const reineCoeurCards: CardDef[] = [
     text: 'La force de tous les Alliés sur le lieu de la Chenille est réduite de 1.',
     image: img('chenille.webp'),
     strengthMod: { target: 'allies-here', delta: -1 },
+    journal: 'La Chenille apparaît : les Alliés de son lieu perdent 1 Force.',
   },
   {
     id: 'dodo',
@@ -282,6 +299,7 @@ export const reineCoeurCards: CardDef[] = [
     copies: 1,
     text: 'Les Cartes Gardes sur le lieu de Dodo ne peuvent plus être transformées en arceaux.',
     image: img('dodo.webp'),
+    journal: 'Dodo apparaît : les Cartes Gardes de son lieu ne peuvent plus devenir des arceaux.',
   },
   {
     id: 'lapin-blanc',
@@ -293,6 +311,7 @@ export const reineCoeurCards: CardDef[] = [
     copies: 1,
     text: 'Transformer des Cartes Gardes en arceaux coûte 1 jeton Pouvoir de plus.',
     image: img('lapin-blanc.webp'),
+    journal: 'Le Lapin Blanc apparaît : transformer des Cartes Gardes en arceaux coûte 1 JT de plus.',
   },
   {
     id: 'lievre-mars',
@@ -305,6 +324,7 @@ export const reineCoeurCards: CardDef[] = [
     text: 'Si le Chapelier Fou se trouve dans le royaume, la force du Lièvre de Mars augmente de 2.',
     image: img('lievre-mars.webp'),
     selfStrengthMods: [{ kind: 'if-card', cardId: 'chapelier-fou', scope: 'realm', delta: 2 }],
+    journal: 'Le Lièvre de Mars apparaît : +2 Force tant que le Chapelier Fou est dans le royaume.',
   },
   {
     id: 'loir',
@@ -316,6 +336,7 @@ export const reineCoeurCards: CardDef[] = [
     copies: 1,
     text: 'Le Loir ne peut pas rapetisser.',
     image: img('loir.webp'),
+    journal: 'Le Loir apparaît : il ne peut pas être rapetissé.',
   },
 
   // ----------------------------------------------------------------------
@@ -331,6 +352,7 @@ export const reineCoeurCards: CardDef[] = [
     text: 'Agrandissez un Héros, ou rendez sa taille normale à un Héros rapetissé.',
     image: img('agrandir.webp'),
     effects: [{ type: 'SET_HERO_SIZE', size: 'enlarged' }],
+    journal: 'Agrandir : {nomHéros} grandit et recouvre un lieu voisin.',
   },
   {
     id: 'fleche-mome-raths',
@@ -341,6 +363,9 @@ export const reineCoeurCards: CardDef[] = [
     copies: 2,
     text: 'Déplacez un Allié vers le lieu de votre choix.',
     image: img('fleche-mome-raths.webp'),
+    journal:
+      'Flèche de Mome Raths : direction {nomLieu} pour {nomAllié}.\n' +
+      'Flèche de Mome Raths : aucun Allié à déplacer.',
   },
   {
     id: 'en-retard',
@@ -351,6 +376,7 @@ export const reineCoeurCards: CardDef[] = [
     copies: 2,
     text: 'Cherchez un Héros de force 3 ou moins dans la défausse de cartes Fatalité et jouez-le immédiatement.',
     image: img('en-retard.webp'),
+    journal: 'En retard ! : un Héros de Force 3 ou moins revient de la défausse Fatalité.',
   },
   {
     id: 'chute-terrier',
@@ -361,5 +387,7 @@ export const reineCoeurCards: CardDef[] = [
     copies: 1,
     text: 'Cherchez Alice et jouez-la immédiatement. Si elle se trouve déjà dans le royaume, défaussez un Allié sur son lieu.',
     image: img('chute-terrier.webp'),
+    journal:
+      'Chute dans le terrier : Alice accourt — ou, si elle est déjà là, un Allié de son lieu est défaussé.',
   },
 ]
