@@ -756,7 +756,7 @@
   "creator": "Jules",
   "origin": "Collaborations",
   "createdAt": "2026-07-07T16:52:04.701Z",
-  "updatedAt": "2026-07-22T21:00:00.000Z",
+  "updatedAt": "2026-07-26T15:50:00.000Z",
   "botStrategy": {
     "howToWin": "Objectif FLAYER_GATE : pose 3 TUNNELS DE HAWKINS sur les 3 premiers lieux, fais venir ONZE (récupérée dans la Fatalité par la capacité activée de BILLY SOUS EMPRISE) sur le lieu de l’ENTRÉE DU MONDE À L’ENVERS, puis ACTIVE l’ENTRÉE pour gagner. Leviers : accumule des Alliés bon marché (Vignes, The Flayed, Billy) pour payer les Tunnels (2 Alliés chacun, 3 une fois ONZE en jeu), réunis 3 THE FLAYED pour débloquer le MONDE À L’ENVERS, et neutralise MAX MAYFIELD qui empêche Billy d’aller chercher ONZE.",
     "villainNotes": {
@@ -906,52 +906,52 @@
     },
     "journal": {
       "villainNotes": {
-        "a-travers-les-yeux-de-will": "À travers les yeux de Will : gagne 2 Pouvoir.",
-        "intrus-dans-le-monde-a-l-envers": "Intrus dans le Monde à l'Envers : joue {nomAllié} gratuitement et pioche une carte.",
-        "passage-secret-entre-deux-mondes": "Passage secret entre deux mondes : récupère {nomCarte} de sa défausse.",
-        "will-sous-emprise": "Will sous emprise : consulte et réordonne les 4 premières cartes d'un deck.",
+        "a-travers-les-yeux-de-will": "À travers les yeux de Will : la richesse adverse rapporte 2 JT.",
+        "intrus-dans-le-monde-a-l-envers": "Intrus dans le Monde à l’Envers : {nomAllié} entre gratuitement, et une carte est piochée.",
+        "passage-secret-entre-deux-mondes": "Passage secret entre deux mondes : retour en main de {nomCarte}.\nPassage secret entre deux mondes : une carte revient de la défausse en main.",
+        "will-sous-emprise": "Will sous emprise : les 4 premières cartes d’un deck sont lues et réordonnées.",
         "une-nouvelle-personne-sous-emprise": "Évite de bouger : la Force de {nomHéros} tombe à 0.",
-        "froid": "Froid : les Alliés de {nomLieu} gagnent +1 Force.",
-        "tunnel-de-hawkins": "Tunnel de Hawkins : défausse {nbAlliés} Alliés et place un Tunnel.",
-        "entree-du-monde-a-l-envers": "Entrée du Monde à l'Envers : activée.",
+        "froid": "Froid : +1 Force pour les Alliés de {nomLieu}.",
+        "tunnel-de-hawkins": "Tunnel de Hawkins : des Alliés sont sacrifiés, et un Tunnel s’ouvre sur {nomLieu}.",
+        "entree-du-monde-a-l-envers": "Entrée du Monde à l’Envers : posée sur {nomLieu}, prête à s’ouvrir quand Onze la rejoindra.",
         "demogorgon": "Le Démogorgon (Force 4) rejoint le royaume.",
-        "billy-sous-emprise": "Billy sous emprise rejoint le royaume.",
-        "vignes": "Des Vignes rejoignent le royaume.",
+        "billy-sous-emprise": "Billy sous emprise rejoint le royaume et déplace {nomAllié} vers {nomLieu}.\nBilly sous emprise rejoint le royaume.",
+        "vignes": "Des Vignes rejoignent le royaume et poussent {nomAllié} vers {nomLieu}.\nDes Vignes rejoignent le royaume.",
         "the-flayed": "Un Flayed rejoint le royaume."
       },
       "fateNotes": {
         "mike-wheeler": {
-          "description": "Mike Wheeler apparaît : les autres Héros gagnent +1 Force."
+          "description": "Mike Wheeler apparaît : +1 Force pour les autres Héros."
         },
         "will-byers": {
-          "description": "Will Byers apparaît : le Monde à l'Envers est bloqué."
+          "description": "Will Byers apparaît : le Monde à l’Envers reste bloqué."
         },
         "lucas-sinclair": {
-          "description": "Lucas Sinclair apparaît : activer un Objet sur son lieu coûte +1 Pouvoir."
+          "description": "Lucas Sinclair apparaît : activer un Objet sur son lieu coûte 1 JT de plus."
         },
         "dustin-henderson": {
-          "description": "Dustin Henderson apparaît dans le royaume."
+          "description": "Dustin Henderson apparaît : dévoilé avec une autre carte, les deux peuvent être jouées."
         },
         "onze": {
-          "description": "Onze apparaît : placer un Tunnel de Hawkins coûte désormais 3 Alliés."
+          "description": "Onze apparaît : percer un Tunnel de Hawkins réclame désormais 3 Alliés."
         },
         "max-mayfield": {
-          "description": "Max Mayfield apparaît : Billy ne peut plus aller chercher Onze."
+          "description": "Max Mayfield apparaît : tant qu’elle est là, Billy ne peut plus aller chercher Onze."
         },
         "frissons": {
-          "description": "Frissons : {nomHéros} est déplacé sur un lieu voisin."
+          "description": "Frissons : {nomHéros} recule vers {nomLieu}.\nFrissons : aucun Héros à faire reculer."
         },
         "nancy-armee": {
-          "description": "Nancy armée : {nomCible} est déplacé(e) sur un lieu voisin."
+          "description": "Nancy armée : elle repousse {nomCible} vers un lieu voisin.\nNancy armée : rien à repousser dans le royaume."
         },
         "chaleur": {
-          "description": "Chaleur : {nomAllié} est défaussé."
+          "description": "Chaleur : le royaume perd {nomAllié}.\nChaleur : aucun Allié à faire fondre."
         },
         "telekinesie": {
-          "description": "Télékinésie : perd 2 Pouvoir."
+          "description": "Télékinésie : 2 JT s’envolent."
         },
         "batte-de-baseball": {
-          "description": "Batte de baseball : +1 Force à {nomHéros}."
+          "description": "Batte de baseball : +1 Force pour {nomHéros}."
         }
       }
     }

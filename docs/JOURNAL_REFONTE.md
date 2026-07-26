@@ -62,6 +62,11 @@ génériquement).
    `updatedAt` via `pickFreshestVillains`, sinon l'IndexedDB local masque tes
    changements). Ne touche PAS aux images.
 
+   > En pratique : édite le **publié** (quelques Ko, chemins d'images) avec un
+   > `updatedAt` postérieur à celui du brouillon — inutile de rouvrir le brouillon
+   > disque, qui pèse des dizaines de Mo (images en base64). Préserve la **fin de
+   > ligne** du fichier (CRLF pour la plupart) pour garder un diff propre.
+
 ### 2b. Vilain NATIF — champ `journal:` sur chaque `CardDef`
 
 Il n'y a pas d'Atelier ni de `botStrategy.journal`. On pose le template
@@ -241,13 +246,23 @@ Légende : ✅ refait · ⬜ à faire.
 | gul-dan | ✅ |
 | isabella | ✅ |
 | pyramid-head | ✅ |
-| flagelleur-mental | ⬜ |
-| killaire | ⬜ |
-| michael-meyers | ⬜ (voix narrative — exception de forme) |
-| mr-monopoly | ⬜ |
-| mrl4fb45 (Kilaire/Sombra SSBU) | ⬜ |
-| stitch | ⬜ |
-| ultron | ⬜ (aucune note journal pour l'instant) |
+| flagelleur-mental | ✅ |
+| killaire | ✅ (skin : notes reclés sur les ids suffixés) |
+| michael-meyers | ✅ (voix narrative — exception de forme) |
+| mrl4fb45 (Sumbra) | ✅ |
+| stitch | ✅ |
+| mr-monopoly | ⏸ reporté — aucun effet de carte implémenté |
+| ultron | ⏸ reporté — Phase 1, aucun effet de carte implémenté |
+
+> **⏸ reporté** : Mr. Monopoly et Ultron n'ont **aucun `effects` sur leurs cartes** (seules
+> la mécanique Maisons/Loyer et les tuiles Amélioration existent côté moteur). Écrire leur
+> Journal maintenant annoncerait des effets qui n'ont pas lieu, et il faudrait tout reprendre
+> quand les effets arriveront. Les anciennes notes générées de Mr. Monopoly restent en place.
+
+> **Skin (variante liée)** : les cartes d'un skin portent l'id `<id base>--<id skin>`. Ses
+> notes de Journal doivent être **reclés** sur ces ids (sinon elles sont mortes, cf. Kilaire
+> avant cette passe) et reprendre les **noms de cartes du skin** (Ailes de Lumière, Stage…).
+> Garde-fou : `data/__tests__/publishedJournal.test.ts` refuse une note orpheline.
 
 ### Natif (35)
 | Vilain | État |

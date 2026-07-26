@@ -894,7 +894,7 @@
     }
   ],
   "createdAt": "2026-07-17T00:05:05.656Z",
-  "updatedAt": "2026-07-22T20:00:00.000Z",
+  "updatedAt": "2026-07-26T15:40:00.000Z",
   "boardArt": "/cards/custom-michael-meyers/board-art.webp?v=1784296782144",
   "portraitPos": {
     "x": 87,
@@ -1077,52 +1077,52 @@
     },
     "journal": {
       "villainNotes": {
-        "custom-michael-meyers-gardons-le-meilleur-pour-la-fin": "Michael ouvre la Demeure des Strode et prépare le coup final…",
-        "custom-michael-meyers-couteau-de-cuisine": "Michael empoigne le Couteau de cuisine.",
-        "custom-michael-meyers-hache-de-bucheron": "Michael empoigne la Hache de bûcheron.",
-        "custom-michael-meyers-tuyau-arrache": "Michael arrache un tuyau et s'en arme.",
-        "custom-michael-meyers-c1": "Michael empoigne une batte de baseball.",
-        "custom-michael-meyers-c2": "Michael ramasse un débris de verre coupant.",
-        "custom-michael-meyers-jouez-avec-la-nourriture": "Michael attire une victime à lui.",
-        "custom-michael-meyers-aura-effrayante": "Une aura effrayante paralyse l'adversaire.",
-        "custom-michael-meyers-invincible": "Obsession : Michael revient, impossible à arrêter.",
-        "custom-michael-meyers-lumiere-mourrante": "Michael fouille l'ombre à la recherche du bon outil.",
-        "custom-michael-meyers-arme-du-crime": "Michael cherche une arme du crime.",
-        "custom-michael-meyers-assassiner": "Michael assassine {nomHéros}.",
-        "custom-michael-meyers-trace-de-sang": "Une trace de sang guide Michael.",
-        "custom-michael-meyers-incarnation-du-mal": "L'incarnation du mal ressurgit de la défausse.",
-        "custom-michael-meyers-trophee-de-chasse": "Michael contemple ses trophées de chasse."
+        "custom-michael-meyers-gardons-le-meilleur-pour-la-fin": "Gardons le meilleur pour la fin : la Demeure des Strode s’ouvre, et {nomCarte} rejoint Michael.\nGardons le meilleur pour la fin : la Demeure des Strode s’ouvre.",
+        "custom-michael-meyers-couteau-de-cuisine": "Couteau de cuisine : Michael s’en équipe — un Héros éliminé, et il rejoue.",
+        "custom-michael-meyers-hache-de-bucheron": "Hache de bûcheron : Michael s’en équipe — un Héros éliminé, et une action gratuite au choix.",
+        "custom-michael-meyers-tuyau-arrache": "Tuyau arraché : Michael s’en arme — 2 JT à chaque Héros éliminé.",
+        "custom-michael-meyers-c1": "Batte de baseball : Michael s’en arme — 2 cartes piochées à chaque Héros éliminé.",
+        "custom-michael-meyers-c2": "Débris de verre : Michael s’en arme — une capacité activée à chaque Héros éliminé.",
+        "custom-michael-meyers-jouez-avec-la-nourriture": "Jouez avec la nourriture : Michael attire {nomHéros} jusqu’à {nomLieu}.\nJouez avec la nourriture : Michael attire une victime à lui.",
+        "custom-michael-meyers-aura-effrayante": "Aura effrayante : figé par la peur, l’adversaire laisse Michael jouer une carte gratuitement au prochain tour.",
+        "custom-michael-meyers-invincible": "Obsession : Michael revient — aucune Fatalité contre lui au prochain tour.",
+        "custom-michael-meyers-lumiere-mourrante": "Lumière mourrante : Michael fouille le fond de sa pioche et en garde une carte.",
+        "custom-michael-meyers-arme-du-crime": "Arme du crime : Michael déniche {nomCarte} au fond de sa pioche.\nArme du crime : Michael fouille sa pioche à la recherche d’une arme.",
+        "custom-michael-meyers-assassiner": "Assassiner : Michael frappe {nomHéros} sur place.",
+        "custom-michael-meyers-trace-de-sang": "Trace de sang : Michael laisse une piste sanglante sur {nomLieu}.",
+        "custom-michael-meyers-incarnation-du-mal": "Incarnation du mal : la défausse est mélangée, et Michael y repêche de quoi frapper.",
+        "custom-michael-meyers-trophee-de-chasse": "Trophée de chasse : Michael contemple ses prises et empoche {NbJT} JT."
       },
       "fateNotes": {
         "custom-michael-meyers-leigh-brackett": {
-          "description": "Le Shérif Leigh Brackett entre en scène."
+          "description": "Le shérif Leigh Brackett entre en scène : il devra tomber avant les autres Héros."
         },
         "custom-michael-meyers-jaime-strode": {
-          "description": "Jamie Strode surgit : les armes de Michael se taisent."
+          "description": "Jaime Strode surgit : tant qu’elle est là, l’arme de Michael ne sert plus à rien."
         },
         "custom-michael-meyers-samuel-loomis": {
-          "description": "Le Dr Loomis brouille les plans de Michael."
+          "description": "Le docteur Loomis surgit : la défausse de Michael repart dans sa pioche."
         },
         "custom-michael-meyers-laurie-strode": {
-          "description": "Laurie Strode surgit à la Demeure des Strode."
+          "description": "Laurie Strode surgit à la Demeure des Strode : l’assassiner coûte 2 JT de plus par autre Héros du royaume."
         },
         "custom-michael-meyers-desarmement": {
-          "description": "Michael est désarmé."
+          "description": "Désarmement : Michael perd {nomObjet}.\nDésarmement : Michael n’avait aucune arme à perdre."
         },
         "custom-michael-meyers-blessure": {
-          "description": "Blessé, Michael perd le fil (4 cartes défaussées)."
+          "description": "Blessure : Michael vacille, et le dessus de sa pioche part en défausse."
         },
         "custom-michael-meyers-souvenir-de-judith": {
-          "description": "Le souvenir de Judith hante Michael (perte de Pouvoir)."
+          "description": "Souvenir de Judith : le passé hante Michael — perte de {NbJT} JT."
         },
         "custom-michael-meyers-auto-defense": {
-          "description": "Une victime se défend et lui arrache {nomObjet}."
+          "description": "Auto-défense : une victime se rebelle, et le royaume perd {nomObjet}.\nAuto-défense : une victime se rebelle, sans rien arracher à Michael."
         },
         "custom-michael-meyers-armement": {
-          "description": "{nomHéros} s’arme : l’assassiner coûtera plus cher."
+          "description": "Armement : assassiner {nomHéros} coûtera 2 JT de plus."
         },
         "custom-michael-meyers-coup-decisif": {
-          "description": "Tommy Doyle porte un coup décisif."
+          "description": "Tommy Dole surgit : l’éliminer fera accourir un Héros de la défausse Fatalité."
         }
       }
     }

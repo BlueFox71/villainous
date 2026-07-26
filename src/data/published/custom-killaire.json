@@ -8152,7 +8152,7 @@
     }
   ],
   "createdAt": "2026-07-15T20:55:38.357Z",
-  "updatedAt": "2026-07-23T21:35:44.328Z",
+  "updatedAt": "2026-07-26T15:54:00.000Z",
   "backVillainImage": "/cards/custom-killaire/back-villain.webp?v=1784842544328",
   "backFateImage": "/cards/custom-killaire/back-fate.webp?v=1784842544328",
   "boardImage": "/cards/custom-killaire/board.webp?v=1784842544328",
@@ -8302,43 +8302,43 @@
     },
     "journal": {
       "villainNotes": {
-        "custom-mrl4fb45-c1": "pose une Marionnette Frêle.",
-        "custom-mrl4fb45-c2": "pose une Marionnette Aguerrie et capture 2🌑.",
-        "custom-mrl4fb45-c3": "pose une Marionnette d'Élite et capture 3🌑.",
-        "custom-mrl4fb45-c7": "pose un BOSS.",
-        "custom-mrl4fb45-c8": "révèle sa pioche et joue {nomAllié} gratuitement.",
-        "custom-mrl4fb45-c5": "pioche {nomCombattant} : gagne {NbEspritMoi}🌑 et applique le bonus.",
-        "custom-mrl4fb45-c11": "réagit à la montée en Pouvoir adverse et capture 2🌑.",
-        "custom-mrl4fb45-c12": "renforce un {nomAllié} de +2 Force.",
-        "custom-mrl4fb45-c13": "installe un Emplacement (+1 Combattant par tour).",
-        "custom-mrl4fb45-c19": "verrouille définitivement un lieu (Base).",
-        "custom-mrl4fb45-c20": "verrouille définitivement un lieu (Forteresse de Lave).",
-        "custom-mrl4fb45-c14": "verrouille définitivement un lieu (Tour du Monde).",
-        "custom-mrl4fb45-c15": "réagit aux défausses adverses et gagne 3 JT.",
-        "custom-mrl4fb45-c18": "absorbe la Lumière et élimine gratuitement {nomHéros}.",
-        "custom-mrl4fb45-c21": "déclenche le **Choc des Titans**. Capture au total {NbEspritMoi}🌑 et subit le **Malus**.\ndéclenche le **Choc des Titans**. Capture au total {NbEspritMoi}🌑, paie 2 JT et applique le **Bonus**."
+        "custom-mrl4fb45-c1--custom-killaire": "Le Pantin Frêle rejoint le royaume.",
+        "custom-mrl4fb45-c2--custom-killaire": "Le Pantin Aguerri rejoint le royaume et capture {NbEspritMoi}🌑.",
+        "custom-mrl4fb45-c3--custom-killaire": "Le Pantin d’Élite rejoint le royaume et capture {NbEspritMoi}🌑.",
+        "custom-mrl4fb45-c7--custom-killaire": "Le BOSS rejoint le royaume.",
+        "custom-mrl4fb45-c8--custom-killaire": "Création Pantin : la pioche est dévoilée, et {nomAllié} entre gratuitement.\nCréation Pantin : la pioche est dévoilée jusqu’à un Allié.",
+        "custom-mrl4fb45-c11--custom-killaire": "Forcer à prendre le contrôle : la montée en Pouvoir adverse rapporte {NbEspritMoi}🌑.",
+        "custom-mrl4fb45-c13--custom-killaire": "Emplacement d’un Combattant : {nomLieu} fournira un Combattant de plus à chaque tour.",
+        "custom-mrl4fb45-c15--custom-killaire": "Renfort : les défausses adverses rapportent 3 JT.",
+        "custom-mrl4fb45-c21--custom-killaire": "Choc des Titans : capture de {NbEspritMoi}🌑 au total, et le Malus s’applique.\nChoc des Titans : capture de {NbEspritMoi}🌑 au total, 2 JT payés, et le Bonus s’applique.",
+        "custom-mrl4fb45-c5--custom-killaire": "Désintégration : {nomCombattant} rejoint la lutte — capture de {NbEspritMoi}🌑 et Bonus appliqué.",
+        "custom-mrl4fb45-c12--custom-killaire": "Ailes de Lumière : +2 Force pour {nomAllié}.",
+        "custom-mrl4fb45-c19--custom-killaire": "Stage : {nomLieu} est acquis définitivement.",
+        "custom-mrl4fb45-c20--custom-killaire": "Centrale Électrique : {nomLieu} est acquis définitivement.",
+        "custom-mrl4fb45-c14--custom-killaire": "Temple de Lumière : {nomLieu} est acquis définitivement.",
+        "custom-mrl4fb45-c18--custom-killaire": "Absorption de l’Obscurité : l’Obscurité est aspirée, et {nomHéros} disparaît."
       },
       "fateNotes": {
-        "custom-mrl4fb45-c9": {
-          "description": "Un Combattant entre en Héros : {nomVilain} perd {NbEspritMoi}🌑."
+        "custom-mrl4fb45-c9--custom-killaire": {
+          "description": "Combattant : il entre en Héros — {nomVilain} perd {NbEspritMoi}🌑."
         },
-        "custom-mrl4fb45-c10": {
-          "description": "Une lueur d'espoir : {nomVilain} perd {NbEspritMoi}🌑."
+        "custom-mrl4fb45-c10--custom-killaire": {
+          "description": "Une lueur d’espoir : {nomVilain} perd {NbEspritMoi}🌑."
         },
-        "custom-mrl4fb45-c6": {
+        "custom-mrl4fb45-c6--custom-killaire": {
           "description": "Libération : {nomVilain} perd {NbEspritMoi}🌑."
         },
-        "custom-mrl4fb45-c4": {
-          "description": "Formation : chaque capture de {nomVilain} rapporte 1 de moins."
+        "custom-mrl4fb45-c4--custom-killaire": {
+          "description": "Formation : chaque capture d’esprits de {nomVilain} en rendra 1."
         },
-        "custom-mrl4fb45-c16": {
-          "description": "Smash Final : +2 Force à {nomHéros}."
+        "custom-mrl4fb45-c16--custom-killaire": {
+          "description": "Smash Final : +2 Force pour {nomHéros}."
         },
-        "custom-mrl4fb45-c17": {
-          "description": "Raccourci : {nomObjet} est défaussé."
+        "custom-mrl4fb45-c17--custom-killaire": {
+          "description": "Raccourci : le royaume perd {nomObjet}.\nRaccourci : aucun Objet à emporter."
         },
-        "custom-mrl4fb45-c22": {
-          "description": "KILAIRE entre en jeu : {nomVilain} perd {NbEspritMoi}🌑."
+        "custom-mrl4fb45-c22--custom-killaire": {
+          "description": "Sumbra apparaît : {nomVilain} perd {NbEspritMoi}🌑."
         }
       }
     }

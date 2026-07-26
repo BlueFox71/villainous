@@ -1100,7 +1100,7 @@
     }
   ],
   "createdAt": "2026-07-12T10:54:44.318Z",
-  "updatedAt": "2026-07-22T21:00:00.000Z",
+  "updatedAt": "2026-07-26T15:45:00.000Z",
   "portrait": "/cards/custom-stitch/portrait.png?v=1784754000000",
   "portraitRaw": "/cards/custom-stitch/portrait-raw.png?v=1784754000000",
   "portraitCrop": {
@@ -1307,63 +1307,63 @@
     },
     "journal": {
       "villainNotes": {
-        "custom-stitch-surveillance": "Surveillance : récupère {nomCarte} de sa défausse.",
-        "custom-stitch-attrape": "Attrapé ! : dévoile la Fatalité jusqu’à un Héros.",
-        "custom-stitch-ou-est-t-il": "Où est-il ? : gagne 3 Pouvoir.",
-        "custom-stitch-rapport": "Rapport ! : dévoile et joue {nomObjet} gratuitement.",
-        "custom-stitch-stitch-en-vue": "Stitch en vue : dévoile la Fatalité jusqu’à un Héros et le joue.",
-        "custom-stitch-enferme": "Enfermé : STITCH est enfermé dans la CAGE.",
-        "custom-stitch-tuez-le": "Tuez-le : élimine {nomHéros}.",
-        "custom-stitch-reperage": "Repérage : récupère {nomCarte} de sa défausse.",
-        "custom-stitch-cage": "CAGE : posée à {nomLieu}.",
-        "custom-stitch-carotte": "Carotte : −1 Force à {nomHéros}.",
-        "custom-stitch-deguisement": "Déguisement : +2 Force à {nomAllié}.",
-        "custom-stitch-bras-robots": "Bras Robots : {nomLieu} gagne l’action « Vaincre un Héros ».",
-        "custom-stitch-vaisseau-general": "Vaisseau Général : {nomLieu} gagne « Déplacer un objet ou un allié ».",
-        "custom-stitch-piqure": "Piqûre : {nomLieu} gagne « Gagner 1 Pouvoir ».",
-        "custom-stitch-capitaine-gantu": "Capitaine Gantu rejoue une carte de la défausse.",
-        "custom-stitch-dr-jumba-jookiba": "Dr Jumba Jookiba affaiblit les Héros de son lieu (−1).",
-        "custom-stitch-peakley": "Peakley : +1 Pouvoir à chaque déplacement.",
-        "custom-stitch-pilote": "Pilote déplace un Allié voisin.",
-        "custom-stitch-co-pilote": "Co-Pilote déplace {nomHéros} vers un lieu voisin.",
-        "custom-stitch-soldat": "Soldat élimine un Héros sur son lieu ou un lieu voisin."
+        "custom-stitch-surveillance": "Surveillance : retour en main de {nomCarte}.\nSurveillance : une carte revient de la défausse en main.",
+        "custom-stitch-attrape": "Attrapé ! : {nomHéros} surgit sur {nomLieu}.\nAttrapé ! : la pioche Fatalité est dévoilée jusqu’à un Héros.",
+        "custom-stitch-ou-est-t-il": "Où est-il ? : gagne 3 JT.",
+        "custom-stitch-rapport": "Rapport ! : la pioche livre {nomObjet}, en jeu gratuitement.\nRapport ! : la pioche est dévoilée jusqu’à un Objet, posé gratuitement.",
+        "custom-stitch-stitch-en-vue": "Stitch en vue : {nomHéros} surgit sur {nomLieu}.\nStitch en vue : la pioche Fatalité est dévoilée jusqu’à un Héros.",
+        "custom-stitch-enferme": "Enfermé : Stitch est bouclé dans la CAGE.",
+        "custom-stitch-tuez-le": "Tuez-le : les soldats abattent {nomHéros}.",
+        "custom-stitch-reperage": "Repérage : retour en main de {nomCarte}.\nRepérage : une carte revient de la défausse en main.",
+        "custom-stitch-cage": "CAGE : dressée sur {nomLieu}, et plus rien ne peut la défausser.",
+        "custom-stitch-carotte": "Carotte : −1 Force pour {nomHéros}.",
+        "custom-stitch-deguisement": "Déguisement : +2 Force pour {nomAllié}.",
+        "custom-stitch-bras-robots": "Bras Robots : {nomLieu} gagne l’action Vaincre un Héros.",
+        "custom-stitch-vaisseau-general": "Vaisseau Général : {nomLieu} gagne l’action Déplacer un Objet ou un Allié.",
+        "custom-stitch-piqure": "Piqûre : {nomLieu} gagne l’action Gagner 1 JT.",
+        "custom-stitch-capitaine-gantu": "Le Capitaine Gantu rejoint le royaume.",
+        "custom-stitch-dr-jumba-jookiba": "Le Dr Jumba Jookiba rejoint le royaume.",
+        "custom-stitch-peakley": "Peakley rejoint le royaume.",
+        "custom-stitch-pilote": "Le Pilote rejoint le royaume et emmène {nomAllié} vers {nomLieu}.\nLe Pilote rejoint le royaume.",
+        "custom-stitch-co-pilote": "Le Co-Pilote rejoint le royaume et pousse {nomHéros} vers {nomLieu}.\nLe Co-Pilote rejoint le royaume.",
+        "custom-stitch-soldat": "Le Soldat rejoint le royaume."
       },
       "fateNotes": {
         "custom-stitch-stitch": {
-          "description": "Stitch apparaît à la Maison de Lilo — le Héros à enfermer."
+          "description": "Stitch apparaît à la Maison de Lilo : c’est lui qu’il faudra enfermer dans la CAGE."
         },
         "custom-stitch-lilo": {
-          "description": "Lilo apparaît."
+          "description": "Lilo apparaît : elle devra tomber avant les autres Héros."
         },
         "custom-stitch-nani": {
-          "description": "Nani apparaît : {nomAllié} est défaussé."
+          "description": "Nani apparaît : elle chasse {nomAllié} du royaume.\nNani apparaît : aucun Allié à chasser sur son lieu."
         },
         "custom-stitch-david": {
-          "description": "David apparaît : {nomObjet} est défaussé."
+          "description": "David apparaît : le royaume perd {nomObjet}.\nDavid apparaît : aucun Objet à briser sur son lieu."
         },
         "custom-stitch-moses-puloki": {
-          "description": "Moses Puloki apparaît : +1 Force à tous les Héros."
+          "description": "Moses Puloki apparaît : +1 Force pour tous les Héros."
         },
         "custom-stitch-cobra-bubbles": {
-          "description": "Cobra Bubbles apparaît : arriver sur son lieu coûte 2 Pouvoir."
+          "description": "Cobra Bubbles apparaît : arriver sur son lieu coûte 2 JT."
         },
         "custom-stitch-boule-de-feu": {
-          "description": "Boule de feu : +2 Force à {nomHéros}."
+          "description": "Boule de feu : +2 Force pour {nomHéros}."
         },
         "custom-stitch-bolas-en-feu": {
-          "description": "Bolas en feu : −2 Force à un Allié."
+          "description": "Bolas en feu : −2 Force pour {nomAllié}."
         },
         "custom-stitch-bouteille-mordue": {
-          "description": "Bouteille mordue : un Objet est défaussé ou déplacé."
+          "description": "Bouteille mordue : un Objet du royaume est défaussé ou déplacé."
         },
         "custom-stitch-ca-pique": {
-          "description": "Ça pique ! : {nomAllié} est défaussé."
+          "description": "Ça pique ! : le royaume perd {nomAllié}.\nÇa pique ! : aucun Allié de Force 3 ou moins à mordre."
         },
         "custom-stitch-en-liberte": {
-          "description": "En liberté : Stitch est libéré de la CAGE, ou un Héros est déplacé."
+          "description": "En liberté : Stitch s’échappe de la CAGE, ou un Héros gagne un lieu voisin."
         },
         "custom-stitch-aloha": {
-          "description": "Aloha : Dr Jumba ou Peakley devient un Héros, ou un Héros est déplacé."
+          "description": "Aloha : le Dr Jumba Jookiba ou Peakley passe du côté des Héros, ou un Héros gagne un lieu voisin."
         }
       }
     }
