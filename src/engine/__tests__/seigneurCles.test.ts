@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { createInitialGame } from '../state'
 import { applyAction } from '../actions'
-import { hasReachedObjective, ownedKeyColors, holdsBlackKey, effectiveStrength } from '../rules'
+import { hasReachedObjective, ownedKeyColors, holdsBlackKey, effectiveStrength, coveredTopActionIdsAt } from '../rules'
 import { resolveEffects } from '../effects'
 import { seigneurCles } from '../../data/villains/seigneurCles'
 import { seigneurClesCards } from '../../data/villains/seigneurCles.cards'
@@ -271,6 +271,20 @@ describe('Le Seigneur des clés — Souffre douleur (force réduite à 0)', () =
     expect(line).not.toContain('fin du tour')
     expect(line).not.toContain('Talon d’Achille')
     expect(line).not.toContain("Talon d'Achille")
+  })
+})
+
+describe('Le Seigneur des clés — Hellin (bloque 3 actions au lieu de 2)', () => {
+  it('recouvre la rangée du haut ET la 1ʳᵉ action du bas du Cachot', () => {
+    let s = game()
+    const hellin = { instanceId: 'h1', cardId: 'hellin', type: 'hero', name: 'Hellin', strength: 2, copies: 1, coversExtraAction: true } as never
+    s = { ...s, players: [{ ...s.players[0], board: { ...s.players[0].board, cachot: [hellin] } }] }
+    const covered = coveredTopActionIdsAt(s.players[0], 'cachot')
+    expect([...covered].sort()).toEqual(['gain-power', 'play-card-bottom', 'play-card-top'])
+    // …et un Héros ordinaire ne recouvre que les 2 actions du haut.
+    const ordinaire = { ...(hellin as unknown as Record<string, unknown>), coversExtraAction: undefined } as never
+    s = { ...s, players: [{ ...s.players[0], board: { ...s.players[0].board, cachot: [ordinaire] } }] }
+    expect([...coveredTopActionIdsAt(s.players[0], 'cachot')].sort()).toEqual(['gain-power', 'play-card-top'])
   })
 })
 

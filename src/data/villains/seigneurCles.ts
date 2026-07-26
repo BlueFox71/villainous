@@ -8,10 +8,10 @@
 // DÉ DE COULEUR (6 faces = 6 couleurs) dont le résultat conditionne l'effet.
 //
 // Disposition (4 lieux, gauche → droite), 2 rangées (haut / bas) :
-//   Crypte         haut: Jouer · Jouer            bas: Gagner 3 · Obtenir une clé
-//   Cachot         haut: Jouer · Gagner 1         bas: Jouer · Défausser
-//   Cimetière      haut: Défausser · Gagner 1     bas: Jouer · Fatalité
-//   Fosse commune  haut: Fatalité · Déplacer Héros bas: Éliminer un Héros · Gagner 1
+//   Crypte         haut: Jouer · Jouer         bas: Gagner 3 · Obtenir une clé
+//   Cachot         haut: Jouer · Gagner 1      bas: Jouer · Défausser
+//   Cimetière      haut: Défausser · Gagner 1  bas: Jouer · Fatalité
+//   Fosse commune  haut: Fatalité              bas: Déplacer Héros · Éliminer un Héros · Gagner 1
 // =============================================================================
 
 import type { VillainDef } from '../../engine/types'

@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import type { LocationAction, PlayerState } from '../../engine/types'
-import { enlargeCoveredAction } from '../../engine/rules'
+import { coveredTopActionIdsAt, enlargeCoveredAction } from '../../engine/rules'
+import { coverColorOf } from '../villainColorState'
 import { SUGAR_RUSH_TRACK } from './sugarRushTrack'
 import { customActionPosFor } from './customActionPos'
 import { COL_RECTS, HERO_BAND, BOARD_W, BOARD_H } from '../editor/boardLayout'
@@ -606,11 +607,13 @@ const ACTION_POS: Record<string, Record<string, Record<string, { x: number; y: n
       'play-card': { x: 64.2, y: 67.5 },
       fate: { x: 72.1, y: 67.8 },
     },
+    // Fosse commune : 1 seule action en haut (Fatalité, centrée) et 3 en bas, dans
+    // l'ordre des icônes du plateau — Déplacer un Héros · Éliminer un Héros · Gagner 1.
     'fosse-commune': {
       fate: { x: 88.8, y: 20 },
-      'move-hero': { x: 95.2, y: 67 },
-      vanquish: { x: 82.6, y: 67.8 },
-      'gain-power': { x: 88.9, y: 67.5 },
+      'move-hero': { x: 82.6, y: 67.2 },
+      vanquish: { x: 89.1, y: 67.2 },
+      'gain-power': { x: 95.4, y: 67.2 },
     },
   },
   // Madame de Trémaine : gabarit standard (panneau objectif à gauche + 4 lieux),
@@ -1226,6 +1229,17 @@ export function BoardActions({
     ),
   )
 
+  // Actions du BAS recouvertes (Le Seigneur des clés — Hellin « bloque 3 actions au lieu
+  // de 2 ») : le masque de BoardImage ne couvre que la rangée du HAUT, donc rien ne montrait
+  // QUELLE action du bas était bloquée. On les repère depuis le moteur (règle unique) pour
+  // y poser un marqueur. Générique : profite à toute future carte qui recouvre en bas.
+  const coveredBottom = player.locations.flatMap((loc) => {
+    const ids = coveredTopActionIdsAt(player, loc.id)
+    return loc.actions
+      .filter((a) => a.row === 'bottom' && ids.has(a.id))
+      .map((a) => ({ loc, action: a }))
+  })
+
   return (
     <>
       {player.locations.flatMap((loc) =>
@@ -1351,6 +1365,36 @@ export function BoardActions({
             )
           }),
         )}
+      {/* Action du BAS recouverte par un Héros (Hellin) : pastille de la couleur de
+          recouvrement, marquée du jeton Fatalité — même code visuel que la bande du haut. */}
+      {coveredBottom.map(({ loc, action }) => {
+        const pos = layout[loc.id]?.[action.id]
+        if (!pos) return null
+        // Action redevenue jouable ce tour (Persifleur, « Je vais vous broyer les os ! »,
+        // Yeux de Kaa…) : pas de marqueur, le bouton doit rester lisible.
+        if (currentLoc === loc.id && availableActionIds.includes(action.id)) return null
+        const blockers = (player.board[loc.id] ?? [])
+          .filter((c) => c.coversExtraAction)
+          .map((c) => c.name)
+          .join(', ')
+        return (
+          <div
+            key={`covered-bottom:${loc.id}:${action.id}`}
+            title={`${action.label} — recouverte par ${blockers || 'un Héros'}`}
+            className="pointer-events-none absolute z-[12] flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white/60"
+            style={{
+              left: `${pos.x}%`,
+              top: `${pos.y}%`,
+              width: `${BUTTON_SIZE * 1.15}%`,
+              aspectRatio: '1',
+              backgroundColor: coverColorOf(player.villain),
+              transition: 'background-color var(--villain-color-fade, 0s) ease-out',
+            }}
+          >
+            <img src="/jeton_fatality.png" alt="Action recouverte" className="h-3/4 w-3/4" />
+          </div>
+        )
+      })}
       {/* Pyramid Head — TUILES DE JUGEMENT : un rectangle (largeur du lieu, hauteur de la
           bande Héros, coins arrondis) recouvrant la partie haute des lieux tuilés (les
           `judgmentTiles` lieux les plus à DROITE). */}
