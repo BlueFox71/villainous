@@ -75,6 +75,12 @@ describe('Journal — placeholders des cartes natives', () => {
       '/cards/syndrome/',
       '/cards/lotso/',
       '/cards/sa-sucrerie/',
+      '/cards/madame-mim/',
+      '/cards/madame-tremaine/',
+      '/cards/shere-khan/',
+      '/cards/oogie-boogie/',
+      '/cards/davy-jones/',
+      '/cards/tamatoa/',
     ]
     // Cartes dont l'effet n'est pas (encore) implémenté par le moteur : elles gardent
     // volontairement leur log par défaut plutôt que d'annoncer un effet qui n'a pas lieu.

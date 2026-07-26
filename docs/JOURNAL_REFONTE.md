@@ -277,7 +277,14 @@ Légende : ✅ refait · ⬜ à faire.
 | scar, yzma, ratigan | ✅ (« Prêt à Tout ») |
 | cruella, gothel, pat-hibulaire | ✅ (« Sale Temps pour les Gentils ») |
 | syndrome, lotso, sa-sucrerie | ✅ (« Toujours Plus Vil ») |
-| bowser, davy-jones, gaston, imposteur, la-bonne-fee, madame-mim, madame-tremaine, oogie-boogie, seigneur-tenebres, shere-khan, slenderman, sombra, tabbou, tamatoa, team-rocket, thanos | ⬜ |
+| madame-mim, madame-tremaine, shere-khan | ✅ |
+| oogie-boogie, davy-jones, tamatoa | ✅ |
+| bowser, gaston, imposteur, la-bonne-fee, seigneur-tenebres, slenderman, sombra, tabbou, team-rocket, thanos | ⬜ |
+
+> **Cartes générées par une fabrique** (Métamorphoses de Madame Mim, cartes MAUI de
+> Tamatoa) : le `journal` se pose **dans la fabrique** — soit interpolé depuis les
+> paramètres (`mim()`/`merlin()`), soit via une table `Record<cardId, message>` quand
+> chaque carte a son propre effet (`MAUI_JOURNAL`).
 
 > Les vilains natifs restants n'ont **aucun** `journal` aujourd'hui : pour eux la
 > refonte part de zéro. Les customs ont d'anciennes notes générées, à **réécrire**

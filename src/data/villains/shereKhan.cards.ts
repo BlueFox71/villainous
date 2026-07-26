@@ -33,6 +33,7 @@ export const shereKhanCards: CardDef[] = [
       "Activer : choisissez un Objet dans votre défausse et jouez-le en payant son coût.",
     image: img('kaa.webp'),
     activatedCost: 0,
+    journal: 'Kaa rejoint le royaume : chaque Objet associé le renforce de 2 Force.',
   },
   {
     id: 'le-roi-singe',
@@ -46,6 +47,7 @@ export const shereKhanCards: CardDef[] = [
     text: 'Activer : déplacez une carte MACAQUES sur n\'importe quel lieu.',
     image: img('le-roi-singe.webp'),
     activatedCost: 0,
+    journal: 'Le Roi Singe rejoint le royaume : il enverra les Macaques où il veut.',
   },
   {
     id: 'macaques',
@@ -61,6 +63,7 @@ export const shereKhanCards: CardDef[] = [
       "les jetons Feu de ce lieu. Défaussez cette carte.",
     image: img('macaques.webp'),
     activatedCost: 0,
+    journal: 'Les Macaques rejoignent le royaume : ils peuvent étouffer les jetons Feu de leur lieu.',
   },
 
   // --- Objets ---------------------------------------------------------------
@@ -80,6 +83,7 @@ export const shereKhanCards: CardDef[] = [
       "Associez cette carte à KAA. Lorsque KAA est déplacé, vous pouvez déplacer un Héros du " +
       "lieu de départ de KAA vers son lieu d'arrivée.",
     image: img('anneaux-de-kaa.webp'),
+    journal: 'Anneaux de Kaa : +2 Force pour Kaa, qui entraînera un Héros dans ses déplacements.',
   },
   {
     id: 'yeux-de-kaa',
@@ -97,6 +101,7 @@ export const shereKhanCards: CardDef[] = [
       "Associez cette carte à KAA. Lorsque votre figurine se trouve sur ce lieu, vous pouvez " +
       "effectuer une action recouverte par un Héros, mais pas par un jeton Feu.",
     image: img('yeux-de-kaa.webp'),
+    journal: 'Yeux de Kaa : +2 Force pour Kaa — sur son lieu, une action recouverte par un Héros redevient utilisable.',
   },
 
   // --- Événements -----------------------------------------------------------
@@ -111,6 +116,7 @@ export const shereKhanCards: CardDef[] = [
     text: 'Vous pouvez effectuer une action Activer une capacité OU une action Éliminer un Héros.',
     image: img('tout-le-monde-fuit.webp'),
     effects: [{ type: 'GRANT_FREE_ACTIVATE_OR_VANQUISH' }],
+    journal: 'Tout le monde fuit devant Shere Khan : une action Activer ou Éliminer un Héros est offerte.',
   },
   {
     id: 'jeune-et-sans-defense',
@@ -125,6 +131,7 @@ export const shereKhanCards: CardDef[] = [
       "Allié dans votre royaume.",
     image: img('jeune-et-sans-defense.webp'),
     effects: [{ type: 'MOVE_HERO_TO_ALLY_OR_POWER_PER_ALLY' }],
+    journal: 'Jeune et sans défense : un Héros est poussé vers un Allié, ou chaque Allié rapporte 1 JT.',
   },
   {
     id: 'a-toi-de-jouer-cousin',
@@ -139,6 +146,9 @@ export const shereKhanCards: CardDef[] = [
       "gratuitement et défaussez les autres cartes dévoilées.",
     image: img('a-toi-de-jouer-cousin.webp'),
     effects: [{ type: 'REVEAL_UNTIL_ALLY_PLAY_FREE' }],
+    journal:
+      'À toi de jouer, cousin : la pioche est dévoilée, et {nomAllié} entre gratuitement.\n' +
+      'À toi de jouer, cousin : la pioche est dévoilée jusqu’à un Allié.',
   },
   {
     id: 'bravo-bravo',
@@ -155,6 +165,7 @@ export const shereKhanCards: CardDef[] = [
     image: img('bravo-bravo.webp'),
     effects: [{ type: 'USE_COVERED_ACTIONS_THIS_TURN', includeFire: true }],
     playableWithoutAction: true,
+    journal: 'Bravo ! Bravo ! : ce tour-ci, les actions recouvertes du lieu — Héros ou jeton Feu — redeviennent utilisables.',
   },
   {
     id: 'cest-a-moi-que-vous-le-direz',
@@ -169,6 +180,7 @@ export const shereKhanCards: CardDef[] = [
       "Fatalité dans la défausse et la mélanger dans la pioche.",
     image: img('cest-a-moi-que-vous-le-direz.webp'),
     effects: [{ type: 'DISCARD_FATE_THEN_RECOVER', count: 3 }],
+    journal: 'C’est à moi que vous le direz : trois cartes Fatalité partent en défausse, et une carte y est repêchée.',
   },
   {
     id: 'cest-moi-shere-khan',
@@ -181,6 +193,7 @@ export const shereKhanCards: CardDef[] = [
     text: 'Retirez un jeton Feu sur le lieu où se trouve votre figurine.',
     image: img('cest-moi-shere-khan.webp'),
     effects: [{ type: 'REMOVE_FIRE_AT_PAWN' }],
+    journal: 'C’est moi, Shere Khan : un jeton Feu est étouffé sur le lieu du tigre.',
   },
   {
     id: 'lance-sur-ses-traces',
@@ -193,6 +206,9 @@ export const shereKhanCards: CardDef[] = [
     text: "Si MOWGLI est dans votre royaume, éliminez un Héros. Sinon, cherchez MOWGLI et jouez-le.",
     image: img('lance-sur-ses-traces.webp'),
     effects: [{ type: 'DEFEAT_OR_FETCH_HERO', heroCardId: 'mowgli' }],
+    journal:
+      'Lancé sur ses traces : {nomHéros} est traqué et abattu.\n' +
+      'Lancé sur ses traces : Mowgli est débusqué.',
   },
 
   // --- Conditions -----------------------------------------------------------
@@ -210,6 +226,7 @@ export const shereKhanCards: CardDef[] = [
     image: img('aie-confiance.webp'),
     trigger: { type: 'opponent-actions-ge', value: 3 },
     effects: [{ type: 'RECOVER_CARDS_TO_DECK', count: 3 }],
+    journal: 'Aie confiance : trois cartes de la défausse retournent dans la pioche.',
   },
   {
     id: 'cest-tres-interessant',
@@ -226,6 +243,7 @@ export const shereKhanCards: CardDef[] = [
     image: img('cest-tres-interessant.webp'),
     trigger: { type: 'opponent-played-cards-ge', value: 1 },
     effects: [{ type: 'INTERESSANT_CHOICE' }],
+    journal: 'C’est très intéressant… : un JT, une carte, ou un jeton Feu déplacé — au choix.',
   },
 
   // --- Fatalité : Héros -----------------------------------------------------
@@ -240,6 +258,7 @@ export const shereKhanCards: CardDef[] = [
     text: 'Placez un jeton Feu sur le lieu où MOWGLI est joué ou déplacé.',
     image: img('mowgli.webp'),
     onPlace: [{ type: 'PLACE_FIRE_AT_HOST' }],
+    journal: 'Mowgli apparaît : un jeton Feu s’allume sur son lieu.',
   },
   {
     id: 'la-patrouille-de-la-jungle',
@@ -254,6 +273,7 @@ export const shereKhanCards: CardDef[] = [
       "Sinon, replacez-la sur la pioche.",
     image: img('la-patrouille-de-la-jungle.webp'),
     onPlace: [{ type: 'REVEAL_FATE_PLAY_IF_EVENT' }],
+    journal: 'La Patrouille de la Jungle apparaît : la Fatalité suivante est dévoilée, et jouée si c’est un Événement.',
   },
   {
     id: 'baloo',
@@ -270,6 +290,7 @@ export const shereKhanCards: CardDef[] = [
       "Lorsque BALOO a 3 jetons Pouvoir sur lui, défaussez-le ainsi que ses jetons Pouvoir.",
     image: img('baloo.webp'),
     shieldsOtherHeroesUntilTokens: 3,
+    journal: 'Baloo apparaît : il encaisse les éliminations des autres Héros, jusqu’à trois.',
   },
   {
     id: 'vautours',
@@ -284,6 +305,7 @@ export const shereKhanCards: CardDef[] = [
       "les VAUTOURS vers un autre lieu.",
     image: img('vautours.webp'),
     onPlace: [{ type: 'VULTURES_MOVE' }],
+    journal: 'Les Vautours apparaissent : ils emportent un Héros de leur lieu avec eux.',
   },
   {
     id: 'bagheera',
@@ -298,6 +320,7 @@ export const shereKhanCards: CardDef[] = [
       "quel autre lieu.",
     image: img('bagheera.webp'),
     onPlace: [{ type: 'BAGHEERA_SCATTER' }],
+    journal: 'Bagheera apparaît : Héros et Alliés de son lieu sont dispersés.',
   },
   {
     id: 'meute-de-loups',
@@ -311,6 +334,7 @@ export const shereKhanCards: CardDef[] = [
       "Défaussez un Objet ou une carte MACAQUES sur le lieu où vous jouez la MEUTE DE LOUPS.",
     image: img('meute-de-loups.webp'),
     onPlace: [{ type: 'WOLF_PACK_DISCARD' }],
+    journal: 'La Meute de Loups apparaît : un Objet ou des Macaques de son lieu sont emportés.',
   },
 
   // --- Fatalité : Événements ------------------------------------------------
@@ -326,6 +350,7 @@ export const shereKhanCards: CardDef[] = [
       "de Shere Khan vers un lieu où se trouve un Héros.",
     image: img('prendre-le-tigre-par-la-queue.webp'),
     effects: [{ type: 'TIGER_BY_THE_TAIL' }],
+    journal: 'Prendre le tigre par la queue : un Héros change de lieu, et le tigre est attiré sur un Héros.',
   },
   {
     id: 'cest-mon-ami',
@@ -337,6 +362,7 @@ export const shereKhanCards: CardDef[] = [
     text: 'Choisissez un lieu et ajoutez un jeton Force +1 à tous les Héros présents sur ce lieu.',
     image: img('cest-mon-ami.webp'),
     effects: [{ type: 'BUFF_HEROES_AT_LOCATION', amount: 1 }],
+    journal: 'C’est mon ami : +1 Force pour tous les Héros d’un lieu.',
   },
   {
     id: 'feu-rouge-des-hommes',
@@ -348,5 +374,6 @@ export const shereKhanCards: CardDef[] = [
     text: "Placez un jeton Feu sur une action au choix OU déplacez un jeton Feu sur une autre action.",
     image: img('feu-rouge-des-hommes.webp'),
     effects: [{ type: 'PLACE_OR_MOVE_FIRE' }],
+    journal: 'Feu Rouge des Hommes : un jeton Feu est posé sur une action, ou déplacé sur une autre.',
   },
 ]

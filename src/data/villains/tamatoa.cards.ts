@@ -9,6 +9,20 @@ import type { CardDef } from '../types'
 
 const img = (f: string) => `/cards/tamatoa/${f}`
 
+/** Messages de Journal des cartes MAUI (une par carte, cf. docs/JOURNAL_REFONTE.md). */
+const MAUI_JOURNAL: Record<string, string> = {
+  'renne-maui': 'Renne Maui : le dessus des pioches Fatalité et Méchant part en défausse.',
+  'queue-de-requin-maui': 'Queue de requin Maui : +1 Force pour les Alliés, +2 pour les Héros.',
+  'requin-maui': 'Requin Maui : la Fatalité du dessus se retourne contre Tamatoa, et sa pioche s’effrite.',
+  'tete-de-requin-maui': 'Tête de requin Maui : +2 Force pour les Alliés, +1 pour les Héros.',
+  'coleoptere-maui': 'Coléoptère Maui : les Alliés du royaume sont éparpillés au hasard.',
+  'cochon-maui': 'Cochon Maui : 3 JT s’envolent, mais 4 cartes arrivent en main.',
+  'lezard-maui': 'Lézard Maui : un Allié est dévoré, et sa Force change de camp en JT.',
+  'heihei-maui': 'Heihei Maui : le coq s’écarte, et deux cartes Maui déferlent à sa place.',
+  'poisson-maui': 'Poisson Maui : la main est dévoilée, et chaque Condition part en défausse contre 1 JT.',
+  'etoile-de-mer-maui': 'Étoile de mer Maui : au prochain tour, rester sur place sera permis.',
+}
+
 /** Carte Maui : effet « chaos » dévoilé/joué tant que Maui est en jeu. */
 const maui = (id: string, name: string, englishName: string, text: string, effects: CardDef['effects']): CardDef => ({
   id,
@@ -21,6 +35,7 @@ const maui = (id: string, name: string, englishName: string, text: string, effec
   text,
   image: img(id + '.webp'),
   effects,
+  journal: MAUI_JOURNAL[id],
 })
 
 export const tamatoaCards: CardDef[] = [
@@ -39,6 +54,7 @@ export const tamatoaCards: CardDef[] = [
       'Chaque fois qu’un Allié est joué, vous pouvez déplacer les CHAUVES-SOURIS À HUIT YEUX sur ce lieu.',
     image: img('chauves-souris-8-yeux.webp'),
     joinsAlliesOnAllyPlay: true,
+    journal: 'Les Chauves-souris à huit yeux rejoignent le royaume.',
   },
   {
     id: 'monstre-poisson',
@@ -52,6 +68,7 @@ export const tamatoaCards: CardDef[] = [
     text: 'Le MONSTRE POISSON peut être utilisé pour éliminer les Héros des lieux voisins.',
     image: img('monstre-poisson.webp'),
     reachesAdjacentVanquish: true,
+    journal: 'Le Monstre Poisson rejoint le royaume.',
   },
   {
     id: 'monstre-paresseux',
@@ -65,6 +82,7 @@ export const tamatoaCards: CardDef[] = [
     text: 'La force des Héros présents sur le lieu du MONSTRE PARESSEUX est réduite de 1.',
     image: img('monstre-paresseux.webp'),
     strengthMod: { target: 'heroes-here', delta: -1 },
+    journal: 'Le Monstre Paresseux rejoint le royaume.',
   },
   {
     id: 'monstre-arboricole',
@@ -80,6 +98,7 @@ export const tamatoaCards: CardDef[] = [
       'n’importe quelle carte de votre royaume vers n’importe quel lieu après cette action.',
     image: img('monstre-arboricole.webp'),
     moveAnyCardOnVanquish: true,
+    journal: 'Le Monstre Arboricole rejoint le royaume.',
   },
   // --- Objet (objectif) -----------------------------------------------------
   {
@@ -96,6 +115,7 @@ export const tamatoaCards: CardDef[] = [
       'Tamatoa au lieu d’être défaussé.',
     image: img('hamecon-de-maui.webp'),
     gainPowerWhenFated: 2,
+    journal: 'Hameçon de Maui : accroché sur {nomLieu}, chaque Fatalité subie rapportera 2 JT.',
   },
   // --- Événements -----------------------------------------------------------
   {
@@ -109,6 +129,7 @@ export const tamatoaCards: CardDef[] = [
     text: 'Dévoilez la première carte de votre pioche MAUI. Vous pouvez la jouer ou la défausser.',
     image: img('pas-exactement-heure-maui.webp'),
     effects: [{ type: 'REVEAL_TOP_MAUI_CHOICE' }],
+    journal: 'Pas exactement l’heure de Maui : la première carte Maui est dévoilée — jouée, ou jetée.',
   },
   {
     id: 'crustace-pouvoir-creation',
@@ -123,6 +144,7 @@ export const tamatoaCards: CardDef[] = [
       'de votre pioche Fatalité. Jouez chaque Objet dévoilé sur le lieu de votre choix. Défaussez les autres.',
     image: img('crustace-pouvoir-creation.webp'),
     effects: [{ type: 'CRUSTACEAN_REVEAL', reveal: 4 }],
+    journal: 'Crustacé doté du pouvoir de création : quatre cartes Fatalité sont dévoilées, et chaque Objet trouvé est posé.',
   },
   {
     id: 'appat',
@@ -135,6 +157,7 @@ export const tamatoaCards: CardDef[] = [
     text: 'Piochez une carte pour chaque Héros présent dans votre royaume.',
     image: img('appat.webp'),
     effects: [{ type: 'DRAW_PER_HERO_IN_REALM' }],
+    journal: 'Appât : une carte piochée par Héros du royaume.',
   },
   {
     id: 'beau-et-brillant',
@@ -147,6 +170,7 @@ export const tamatoaCards: CardDef[] = [
     text: 'Gagnez 2 jetons Pouvoir. Mélangez la défausse de la pioche MAUI dans cette pioche.',
     image: img('beau-et-brillant.webp'),
     effects: [{ type: 'GAIN_POWER', amount: 2 }, { type: 'RESHUFFLE_MAUI_DISCARD' }],
+    journal: 'Beau et brillant : 2 JT encaissés, et la défausse Maui repart dans sa pioche.',
   },
   {
     id: 'piege-tamatoa',
@@ -160,6 +184,7 @@ export const tamatoaCards: CardDef[] = [
       'Vous pouvez effectuer une action recouverte (en dehors d’une action Fatalité) par n’importe quel Héros.',
     image: img('piege-tamatoa.webp'),
     effects: [{ type: 'USE_COVERED_ACTIONS_THIS_TURN', exceptFate: true }],
+    journal: 'Piégé : ce tour-ci, une action recouverte par un Héros redevient utilisable.',
   },
   {
     id: 'tu-ressembles-fruits-de-mer',
@@ -173,6 +198,9 @@ export const tamatoaCards: CardDef[] = [
     text: 'Payez un nombre de jetons Pouvoir égal à la force d’un Héros, puis éliminez ce Héros.',
     image: img('tu-ressembles-fruits-de-mer.webp'),
     effects: [{ type: 'DEFEAT_HERO_PAY_STRENGTH' }],
+    journal:
+      'Tu ressembles à des fruits de mer : {nomHéros} est englouti, sa Force payée en JT.\n' +
+      'Tu ressembles à des fruits de mer : le festin est annoncé.',
   },
   {
     id: 'sans-pouvoir',
@@ -185,6 +213,7 @@ export const tamatoaCards: CardDef[] = [
     text: 'Ajoutez jusqu’à 3 jetons Force −1 à un Héros.',
     image: img('sans-pouvoir.webp'),
     effects: [{ type: 'ADD_MINUS_FORCE_TOKENS', max: 3 }],
+    journal: 'Sans pouvoir : jusqu’à 3 Force retirées à un Héros.',
   },
   {
     id: 'je-te-le-dirai-en-chantant',
@@ -197,6 +226,7 @@ export const tamatoaCards: CardDef[] = [
     text: 'Mélangez jusqu’à 3 cartes de votre défausse Méchant dans votre pioche, puis piochez 2 cartes.',
     image: img('je-te-le-dirai-en-chantant.webp'),
     effects: [{ type: 'RECOVER_CARDS_TO_DECK', count: 3 }, { type: 'DRAW_CARDS', count: 2 }],
+    journal: 'Je te le dirai en chantant : trois cartes de la défausse repartent dans la pioche, et 2 cartes sont tirées.',
   },
   // --- Conditions -----------------------------------------------------------
   {
@@ -212,6 +242,7 @@ export const tamatoaCards: CardDef[] = [
     image: img('les-poissons-sont-stupides.webp'),
     trigger: { type: 'opponent-gained-power-ge', value: 1 },
     effects: [{ type: 'GAIN_POWER', amount: 3 }],
+    journal: 'Les poissons sont stupides : la montée en Pouvoir adverse rapporte 3 JT.',
   },
   {
     id: 'pas-si-difficile',
@@ -226,6 +257,7 @@ export const tamatoaCards: CardDef[] = [
     image: img('pas-si-difficile.webp'),
     trigger: { type: 'opponent-vanquished-hero-strength-ge', value: 0 },
     effects: [{ type: 'ADD_MINUS_FORCE_TOKENS', max: 2 }],
+    journal: 'Pas si difficile : 2 Force retirées à un Héros.',
   },
 
   // ============================ DECK FATALITÉ (15) ===========================
@@ -239,6 +271,7 @@ export const tamatoaCards: CardDef[] = [
     copies: 1,
     text: 'Aucune capacité. (Le coq le plus bête de l’océan.)',
     image: img('heihei.webp'),
+    journal: 'Heihei apparaît.',
   },
   {
     id: 'maui',
@@ -252,6 +285,7 @@ export const tamatoaCards: CardDef[] = [
       'Avant que Tamatoa se déplace, il doit dévoiler et jouer la première carte de sa pioche MAUI.',
     image: img('maui.webp'),
     triggersMauiDeck: true,
+    journal: 'Maui apparaît : chaque déplacement de Tamatoa réveillera la pioche Maui.',
   },
   {
     id: 'moana',
@@ -264,6 +298,7 @@ export const tamatoaCards: CardDef[] = [
     text: 'Si le CŒUR DE TE FITI est dans le royaume, associez-le à MOANA.',
     image: img('moana.webp'),
     onPlace: [{ type: 'MOANA_STEAL_HEART' }],
+    journal: 'Moana apparaît : elle reprend le Cœur de Te Fiti s’il traîne dans le royaume.',
   },
   {
     id: 'quelque-chose-brillant',
@@ -279,6 +314,7 @@ export const tamatoaCards: CardDef[] = [
     shieldsHeroesAtLocation: true,
     coversActionsLikeHero: true,
     selfDiscardOnPawnEndTurnHere: true,
+    journal: 'Quelque chose qui brille : posé sur {nomLieu}, il recouvre les actions et met ses Héros hors d’atteinte.',
   },
   {
     id: 'coeur-de-te-fiti',
@@ -292,6 +328,7 @@ export const tamatoaCards: CardDef[] = [
       'Lorsque MOANA est éliminée, le CŒUR DE TE FITI est libéré sur ce lieu.',
     image: img('coeur-de-te-fiti.webp'),
     onPlace: [{ type: 'HEART_FETCH_MOANA' }],
+    journal: 'Cœur de Te Fiti : posé sur {nomLieu}, il attire Moana à lui.',
   },
   {
     id: 'heure-de-maui',
@@ -305,6 +342,7 @@ export const tamatoaCards: CardDef[] = [
       'en jeu, déplacez-le n’importe où et retirez ses jetons Force.',
     image: img('heure-de-maui.webp'),
     effects: [{ type: 'FETCH_MAUI_ATTACH_HOOK' }],
+    journal: 'L’heure de Maui : Maui accourt, l’Hameçon au poing.',
   },
   {
     id: 'fuite',
@@ -316,6 +354,7 @@ export const tamatoaCards: CardDef[] = [
     text: 'Déplacez un Héros ou un Objet non associé vers un lieu voisin.',
     image: img('fuite.webp'),
     effects: [{ type: 'MOVE_HERO_OR_ITEM_ADJACENT' }],
+    journal: 'Fuite : un Héros ou un Objet gagne un lieu voisin.',
   },
   {
     id: 'toujours-a-l-envers',
@@ -327,6 +366,7 @@ export const tamatoaCards: CardDef[] = [
     text: 'Tamatoa perd la moitié de ses jetons Pouvoir (arrondi au supérieur).',
     image: img('toujours-a-l-envers.webp'),
     effects: [{ type: 'LOSE_HALF_POWER' }],
+    journal: 'Toujours à l’envers : la moitié des JT de Tamatoa s’envole.',
   },
   {
     id: 'mini-maui',
@@ -338,6 +378,7 @@ export const tamatoaCards: CardDef[] = [
     text: 'Regardez les 3 premières cartes de la pioche MAUI et remettez-les dans l’ordre de votre choix.',
     image: img('mini-maui.webp'),
     effects: [{ type: 'REORDER_MAUI_TOP', count: 3 }],
+    journal: 'Mini Maui : les 3 premières cartes Maui sont réordonnées.',
   },
 
   // ============================ PIOCHE MAUI (10) =============================

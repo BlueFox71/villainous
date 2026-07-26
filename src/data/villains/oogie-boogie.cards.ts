@@ -35,6 +35,7 @@ export const oogieBoogieCards: CardDef[] = [
     selfStrengthMods: [{ kind: 'per-other-in-set-realm', cardIds: ['am', 'stram', 'gram'], delta: 1 }],
     text: "La force de Gram augmente de 1 pour chaque autre membre du trio dans votre royaume (Am ou Stram). Ajoutez 1 au résultat de vos lancers de dés lorsque votre figurine se trouve sur ce lieu.",
     image: img('gram.webp'),
+    journal: 'Gram rejoint le royaume.',
   },
   {
     id: 'am',
@@ -48,6 +49,7 @@ export const oogieBoogieCards: CardDef[] = [
     selfStrengthMods: [{ kind: 'per-other-in-set-realm', cardIds: ['am', 'stram', 'gram'], delta: 1 }],
     text: "La force de Am augmente de 1 pour chaque autre membre du trio dans votre royaume (Stram ou Gram). Jouer des Alliés coûte 1 Jeton Pouvoir de moins.",
     image: img('am.webp'),
+    journal: 'Am rejoint le royaume.',
   },
   {
     id: 'stram',
@@ -61,6 +63,7 @@ export const oogieBoogieCards: CardDef[] = [
     selfStrengthMods: [{ kind: 'per-other-in-set-realm', cardIds: ['am', 'stram', 'gram'], delta: 1 }],
     text: "La force de Stram augmente de 1 pour chaque autre membre du trio dans votre royaume (Am ou Gram). Piochez 1 carte lorsque vous déplacez votre figurine sur ce lieu.",
     image: img('stram.webp'),
+    journal: 'Stram rejoint le royaume.',
   },
   {
     id: 'chauves-souris',
@@ -73,6 +76,7 @@ export const oogieBoogieCards: CardDef[] = [
     copies: 4,
     text: "Lorsque les Chauves-souris participent à une action Éliminer un Héros, défaussez-les puis choisissez un Allié dans votre défausse et ajoutez-le à votre main.",
     image: img('chauves-souris.webp'),
+    journal: 'Les Chauves-souris rejoignent le royaume.',
   },
   {
     id: 'araignees',
@@ -85,6 +89,7 @@ export const oogieBoogieCards: CardDef[] = [
     copies: 2,
     text: "Lorsque les Araignées participent à une action Éliminer un Héros, gagnez 1 jeton Pouvoir et piochez 1 carte.",
     image: img('araignees.webp'),
+    journal: 'Les Araignées rejoignent le royaume.',
   },
 
   // ----------------------------------------------------------------------
@@ -105,6 +110,7 @@ export const oogieBoogieCards: CardDef[] = [
     activatedCost: 0,
     text: "Ce lieu gagne l'action : Activer. Effectuez une action Activer une capacité pour déplacer la Baignoire vers un autre lieu, puis déplacez-y autant d'Alliés que vous le désirez.",
     image: img('baignoire.webp'),
+    journal: 'Baignoire : posée sur {nomLieu}, elle emmènera les Alliés d’un lieu à l’autre.',
   },
 
   // ----------------------------------------------------------------------
@@ -121,6 +127,7 @@ export const oogieBoogieCards: CardDef[] = [
     reactiveOnly: true,
     text: "Vous pouvez jouer cette carte immédiatement après avoir lancé les dés (sans utiliser une action Jouer une carte). Relancez 1 des dés, puis défaussez cette carte.",
     image: img('des-pipes.webp'),
+    journal: 'Dés pipés : un dé est relancé.',
   },
   {
     id: 'preparation-noel',
@@ -133,6 +140,7 @@ export const oogieBoogieCards: CardDef[] = [
     effects: [{ type: 'ROLL_MAKING_CHRISTMAS' }],
     text: "Lancez les dés. Si vous obtenez 7 ou moins, piochez 1 carte. Si vous obtenez 8 ou plus, effectuez n'importe quelle action disponible du royaume, en dehors d'une action Fatalité.",
     image: img('preparation-noel.webp'),
+    journal: 'Préparation de Noël : les dés roulent — une carte piochée, ou une action offerte.',
   },
   {
     id: 'mais-quelle-merveille',
@@ -145,6 +153,7 @@ export const oogieBoogieCards: CardDef[] = [
     effects: [{ type: 'ROLL_MERVEILLE' }],
     text: "Effectuez une action Éliminer un Héros, puis lancez les dés. Si vous obtenez 7 ou moins, ajoutez les Alliés utilisés à votre main. Si vous obtenez 8 ou plus, ils ne sont pas défaussés et restent sur le lieu où ils se trouvent.",
     image: img('mais-quelle-merveille.webp'),
+    journal: 'Mais quelle merveille ! : les dés décident du sort des Alliés engagés.',
   },
   {
     id: 'imposteur-perce-oreilles',
@@ -157,6 +166,7 @@ export const oogieBoogieCards: CardDef[] = [
     effects: [{ type: 'ROLL_IMPOSTOR' }],
     text: "Lorsque cette carte est jouée, lancez les dés. Si vous obtenez 6 ou moins, défaussez cette carte. Si vous obtenez 7 ou plus, placez-la à côté du Perce-Oreilles. Si Jack Skellington est présent dans le royaume, ajoutez-lui un jeton Force -1 à la place.",
     image: img('imposteur-perce-oreilles.webp'),
+    journal: 'Imposteur Perce-Oreilles : les dés tranchent — la ruse tient auprès du Perce-Oreilles, ou tombe à l’eau.',
   },
   {
     id: 'ce-sont-des-vacances',
@@ -169,6 +179,7 @@ export const oogieBoogieCards: CardDef[] = [
     effects: [{ type: 'DISCARD_TOP_FATE_DRAW_PER_HERO', count: 3 }],
     text: "Défaussez les 3 premières cartes Fatalité de votre pioche. Piochez une carte pour chaque Héros défaussé ainsi.",
     image: img('ce-sont-des-vacances.webp'),
+    journal: 'Ce sont des vacances : trois cartes Fatalité partent en défausse, et chaque Héros perdu fait piocher.',
   },
   {
     id: 'affaire-dans-le-sac',
@@ -181,6 +192,7 @@ export const oogieBoogieCards: CardDef[] = [
     effects: [{ type: 'REPLAY_EVENT_BAG' }],
     text: "Choisissez un Événement dans votre défausse et jouez-le gratuitement. S'il vous demande de lancer les dés, choisissez le résultat.",
     image: img('affaire-dans-le-sac.webp'),
+    journal: 'Cette fois l’affaire est dans le sac : un Événement de la défausse est rejoué gratuitement, dés truqués à volonté.',
   },
 
   // ----------------------------------------------------------------------
@@ -198,6 +210,7 @@ export const oogieBoogieCards: CardDef[] = [
     effects: [{ type: 'ROLL_TRICK_OR_TREAT' }],
     text: "Cette carte est jouable pendant le tour d'un adversaire s'il gagne des jetons Pouvoir. Lancez les dés. Si vous obtenez 8 ou plus, gagnez le même montant en jetons Pouvoir. Si vous obtenez 7 ou moins, volez 1 jeton Pouvoir à un adversaire.",
     image: img('joyeux-halloween.webp'),
+    journal: 'Joyeux Halloween ! : les dés roulent, et le Pouvoir change de mains.',
   },
   {
     id: 'pere-noel-apporte',
@@ -211,6 +224,7 @@ export const oogieBoogieCards: CardDef[] = [
     effects: [{ type: 'DISCARD_ANY_THEN_DRAW', draw: 2 }],
     text: "Cette carte est jouable pendant le tour d'un adversaire s'il utilise une action Jouer une carte. Défaussez autant de cartes que vous le désirez de votre main, puis piochez-en 2.",
     image: img('pere-noel-apporte.webp'),
+    journal: 'Qu’est-ce que le Père Noël t’a apporté ? : la main est vidée à volonté, puis 2 cartes sont tirées.',
   },
 
   // ----------------------------------------------------------------------
@@ -228,6 +242,7 @@ export const oogieBoogieCards: CardDef[] = [
     fateMalus: 'slow',
     text: 'La force de Jack Skellington augmente de 2.',
     image: img('zero.webp'),
+    journal: 'Zéro apparaît : +2 Force pour Jack Skellington.',
   },
   {
     id: 'docteur-finkelstein',
@@ -242,6 +257,7 @@ export const oogieBoogieCards: CardDef[] = [
     fateMalus: 'slow2',
     text: 'Si le Docteur Finkelstein est éliminé, placez-le sur le dessus de la pioche de cartes Fatalité puis remélangez-la.',
     image: img('docteur-finkelstein.webp'),
+    journal: 'Le Docteur Finkelstein apparaît : éliminé, il retourne dans la pioche Fatalité.',
   },
   {
     id: 'sally',
@@ -256,6 +272,7 @@ export const oogieBoogieCards: CardDef[] = [
     fateMalus: 'block-advance',
     text: "Déplacez Oogie Boogie sur le lieu où vous jouez Sally. Au début de chaque tour, Oogie Boogie ne peut se déplacer que sur un lieu voisin.",
     image: img('sally.webp'),
+    journal: 'Sally apparaît : Oogie est attiré sur son lieu, et ne pourra plus avancer que d’un lieu à la fois.',
   },
   {
     // Héros/Événement. Joué via la Fatalité, agit comme un Événement (défausse un
@@ -272,6 +289,7 @@ export const oogieBoogieCards: CardDef[] = [
     selfStrengthMods: [{ kind: 'if-card', cardId: 'zero', scope: 'realm', delta: 2 }],
     text: "Cette carte est un Événement qui permet de défausser un Imposteur Perce-Oreilles. Si cette carte est jouée via l'effet du Perce-Oreilles, elle devient un Héros sans aucune capacité.",
     image: img('jack-skellington.webp'),
+    journal: 'Jack Skellington apparaît : un Imposteur Perce-Oreilles est démasqué.',
   },
   {
     id: 'maire-halloween',
@@ -288,6 +306,7 @@ export const oogieBoogieCards: CardDef[] = [
     fateMalus: 'slow',
     text: "Si le Maire d'Halloween est éliminé, dévoilez des cartes Fatalité de votre pioche jusqu'à ce que vous trouviez un Héros, puis jouez-le sur un lieu de votre choix.",
     image: img('maire-halloween.webp'),
+    journal: 'Le Maire d’Halloween apparaît : l’éliminer fera surgir un autre Héros.',
   },
   {
     id: 'citoyens-halloween',
@@ -302,6 +321,7 @@ export const oogieBoogieCards: CardDef[] = [
     fateMalus: 'slow',
     text: "Oogie Boogie doit éliminer les Citoyens d'Halloween avant les autres Héros du même lieu.",
     image: img('citoyens-halloween.webp'),
+    journal: 'Les Citoyens d’Halloween apparaissent : ils tomberont avant les autres Héros de leur lieu.',
   },
 
   // ----------------------------------------------------------------------
@@ -316,6 +336,9 @@ export const oogieBoogieCards: CardDef[] = [
     copies: 1,
     text: 'Oogie Boogie révèle sa main. Choisissez-y une carte et défaussez-la.',
     image: img('mettons-fin-cauchemar.webp'),
+    journal:
+      'Mettons fin à ce cauchemar : {nomCarte} est arrachée de la main.\n' +
+      'Mettons fin à ce cauchemar : la main est fouillée, et une carte part en défausse.',
   },
   {
     id: 'diversion',
@@ -327,6 +350,7 @@ export const oogieBoogieCards: CardDef[] = [
     text: "Déplacez un Héros sur un lieu voisin, puis défaussez un Allié ou un Objet qui s'y trouve.",
     effects: [{ type: 'DIVERSION' }],
     image: img('diversion.webp'),
+    journal: 'Diversion : un Héros gagne un lieu voisin, et y fait tomber un Allié ou un Objet.',
   },
   {
     id: 'salut-oogie',
@@ -337,6 +361,7 @@ export const oogieBoogieCards: CardDef[] = [
     copies: 2,
     text: "Placez cette carte sous la figurine de Oogie Boogie. La prochaine fois qu'il lance les dés, Oogie Boogie doit retirer 2 au résultat, puis défausser cette carte.",
     image: img('salut-oogie.webp'),
+    journal: 'Salut, Oogie ! : le prochain lancer de dés perdra 2 points.',
   },
 
   // ----------------------------------------------------------------------
@@ -354,5 +379,6 @@ export const oogieBoogieCards: CardDef[] = [
     copies: 1,
     text: "S'il y a 4 cartes Imposteur Perce-Oreilles dans la pile à côté de cette carte, cherchez Jack Skellington et placez-le sur l'Antre d'Oogie Boogie. Puis retirez le Perce-Oreilles du jeu.",
     image: img('perce-oreilles.webp'),
+    journal: 'Le Perce-Oreilles est ligoté dans l’Antre : quatre Imposteurs, et Jack accourra.',
   },
 ]
