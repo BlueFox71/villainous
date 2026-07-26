@@ -144,6 +144,8 @@ import { TurnSplash } from './components/TurnSplash'
 import { BackgroundAnimation } from './components/BackgroundAnimation'
 import { VillainDecor } from './components/VillainDecor'
 import { objectiveScore, pickRecoverCandidate } from '../ai/heuristicBot'
+import { objectiveCriticalCardIds } from '../ai/enumerate'
+import { VILLAIN_STRATEGY } from '../ai/villainStrategy'
 import { villainAnimation } from './villainAnimations'
 import { fireSurprise, villainHasSurprise } from './surpriseBus'
 import { villainPresentation, villainPortrait } from './villainArt'
@@ -1628,6 +1630,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
   const [ultronDiscard, setUltronDiscard] = useState<{ tile: number; required: number } | null>(null)
   const resolveFateDiscardAlly = useGameStore((s) => s.resolveFateDiscardAlly)
   const resolveUrsulaLock = useGameStore((s) => s.resolveUrsulaLock)
+  const resolveOptionalEffect = useGameStore((s) => s.resolveOptionalEffect)
   const resolveIdentification = useGameStore((s) => s.resolveIdentification)
   const resolveLotsoTarget = useGameStore((s) => s.resolveLotsoTarget)
   const resolveEvolveAlly = useGameStore((s) => s.resolveEvolveAlly)
@@ -2795,6 +2798,15 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
   // Fatalité), la fenêtre de réaction revient au lieu de rester verrouillée.
   const reactionKey = `${turnKey}:${humanReactions.map((c) => c.instanceId).sort().join(',')}`
   const reactionPassed = passedTurnKey === reactionKey
+  // Le zoom « forcé » d'une carte de la main vient du survol d'un bouton « Jouer <Condition> ».
+  // Si ce bouton DISPARAÎT pendant le survol (Condition jouée, réaction passée, fin du tour
+  // adverse), son `onMouseLeave` ne se déclenche jamais et la carte restait zoomée
+  // indéfiniment. On DÉRIVE donc le zoom : il ne tient que tant que la Condition est encore
+  // proposée (plutôt que de s'appuyer sur le seul état de survol, qui peut rester bloqué).
+  const forcedHoverId =
+    hoveredReactionId && humanReactions.some((c) => c.instanceId === hoveredReactionId)
+      ? hoveredReactionId
+      : null
   // Shériffs encore mobiles ce tour (instanceId), pour afficher le bouton inline.
   const sheriffMovable: string[] = isHumanTurn && state.phase === 'ACTION'
     ? Object.values(user.board)
@@ -4054,15 +4066,25 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
       }
       return
     }
-    // Tour de passe-passe (Dr Facilier) : le bot garde la carte la plus utile.
+    // Fouille de pioche (Tour de passe-passe de Facilier, Canon Géant de Tabbou…) : le bot
+    // garde la carte la plus utile. Classement DÉCLARATIF, valable pour tout vilain :
+    // cartes critiques pour l'objectif (Orbes subspatiaux tant que l'Émissaire est verrouillé,
+    // Impuissance de Bowser…) d'abord, puis les cartes-MOTEURS de `villainStrategy`
+    // (enginePieces), enfin le coût. Avant, seules les cartes de Facilier étaient classées :
+    // Tabbou gardait n'importe quoi et ne débloquait jamais son Émissaire.
     const plt = state.pendingLookTop
     if (plt) {
       if (seats[plt.playerIndex] === 'bot') {
-        const rank = (cardId: string) =>
-          cardId === 'regner-nouvelle-orleans' ? 5 : cardId === 'talisman' ? 4
-          : cardId === 'divination-facilier' ? 3 : cardId === 'tour-passe-passe' ? 2 : cardId === 'canne' ? 1 : 0
+        const p = state.players[plt.playerIndex]
+        const critical = objectiveCriticalCardIds(p)
+        const engine = VILLAIN_STRATEGY[p.villain]?.enginePieces ?? {}
+        const facilier: Record<string, number> = {
+          'regner-nouvelle-orleans': 5, talisman: 4, 'divination-facilier': 3, 'tour-passe-passe': 2, canne: 1,
+        }
+        const rank = (c: CardInstance) =>
+          (critical.has(c.cardId) ? 100 : 0) + (engine[c.cardId] ?? 0) * 5 + (facilier[c.cardId] ?? 0) + (c.cost ?? 0) * 0.1
         // Garde jusqu'à `take` cartes les mieux classées (Quelques Dragées : 2).
-        const best = [...plt.cards].sort((a, b) => rank(b.cardId) - rank(a.cardId)).slice(0, plt.take)
+        const best = [...plt.cards].sort((a, b) => rank(b) - rank(a)).slice(0, plt.take)
         const timer = setTimeout(() => resolveLookTop(best.map((c) => c.instanceId)), BOT_STEP_MS)
         return () => clearTimeout(timer)
       }
@@ -4339,6 +4361,18 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     // But : le Repaire (lieu-objectif d'Ursula) doit être libre pour elle, bloqué pour l'adversaire.
     // `dest` = lieu NON bloqué où irait le Cadenas (le bloquant). Ursula (chooser = owner) déplace
     // pour NE PAS bloquer le Repaire ; l'adversaire déplace pour bloquer le Repaire.
+    // Effet FACULTATIF générique (« Vous pouvez… ») : le bot l'applique s'il vise l'ADVERSAIRE
+    // (c'est une gêne qu'il inflige) et le décline s'il retomberait sur son propre royaume
+    // (Woody amené par son propre Big Baby : disperser ses Héros ruinerait son objectif).
+    const poe = state.pendingOptionalEffect
+    if (poe) {
+      if (seats[poe.chooserIndex] === 'bot') {
+        const accept = poe.chooserIndex !== poe.actorIndex
+        const timer = setTimeout(() => resolveOptionalEffect(accept), BOT_STEP_MS)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
     const pul = state.pendingUrsulaLock
     if (pul) {
       if (seats[pul.chooserIndex] === 'bot') {
@@ -4674,7 +4708,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     // Tour humain : laisse le bot tenter une réaction (Avarice, Lâcheté).
     const timer = setTimeout(botReact, BOT_STEP_MS / 2)
     return () => clearTimeout(timer)
-  }, [paused, seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveBloodTrace, resolveWeaponFetch, endTurn, resolveFighterReveal, doneFighterReveal, resolveFighterKillColor, resolveFighterKillFree, doneFighterKillFree, resolveDestinChoice, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolvePacteSang, resolveSacrifice, resolveCageMove, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveScryDeckChoice, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveFateDiscardType, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveGrantLove, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveUrsulaLock, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire, resolvePiegeurTarget, resolvePiegeurDest, resolveAirStrike, resolveBanditPlace])
+  }, [paused, seats, HUMAN, isBotTurn, startRollDone, openingDealDone, dealOverlay, state, showcaseBusy, botAct, botReact, reactionPassed, testMode, resolveTyrannyDiscard, resolveHeroPlacement, resolvePawnMove, resolveHubertPull, resolveDeckPeek, resolveTypeChoice, resolveDrawOrGainPower, resolveBloodTrace, resolveWeaponFetch, endTurn, resolveFighterReveal, doneFighterReveal, resolveFighterKillColor, resolveFighterKillFree, doneFighterKillFree, resolveDestinChoice, resolveInfiltration, resolvePowerOrRacerBack, resolveMoveOrActivate, resolveCauldronChoice, resolveMauiChoice, resolveDioDiscardAlly, resolveDioCream, resolveDioMuda, resolveDioSunlight, resolvePacteSang, resolveSacrifice, resolveCageMove, resolveCrustaceanPlace, resolveFateAllyToAuDela, resolveFateDiscardHand, resolveDiversionDiscard, resolveUntrapTitans, resolveBargainChoice, resolveFreeItemPlay, skipFreeItemPlay, resolveFateReorder, resolveScryDeckChoice, resolveRaiponceHomeward, resolveRaiponceToTower, resolvePuppyAdd, resolvePuppyReveal, donePuppyReveal, resolveHoraceChoice, resolvePuppyCapture, resolveQuelsIdiots, resolveQuelsIdiotsPick, resolveHeroRelocate, resolveTeleport, resolveManipulation, resolveMauvaisCoup, resolveSournois, resolveAllyItemMove, resolveAllyItemMoveAuto, resolveBanditChain, resolveDingo, dismissRoyalCroquet, resolveTransformWickets, resolveScry, resolveAllyMoveBuff, resolveFateChoice, resolveFetchedHero, resolveCastleTheft, resolveRecover, resolveBePrepared, resolveFreeHyena, resolveHakunaMatata, resolveYzmaFateDeck, resolveYzmaFateCard, resolveYzmaOwnDeck, resolveYzmaHammer, resolveYzmaManipulate, resolveFinishJob, resolveReplayEvent, resolveCrewmateKill, resolveCrewmateSuspect, doneCrewmateSuspect, resolveCrewmateMove, doneCrewmateMove, resolveFateObjectPlace, resolveFateHeroPlace, resolveFateDiscardType, resolveDivination, resolveLookTop, acknowledgeReveal, resolveHack, resolveInformation, resolveTakeABite, resolveGrantLove, resolveDuplicateIngredient, cancelDuplicateIngredient, resolveScream, resolveFateScry, skipHeroRelocate, resolveAllyRelocate, resolvePokemonSummon, resolveKoPokemon, resolveFateDiscardAlly, resolveUrsulaLock, resolveIdentification, resolveLotsoTarget, resolveEvolveAlly, resolveLotsoBuzzMove, resolveLotsoBookworm, resolveLotsoFlex, resolveObstacle, doneObstacle, resolveKey, resolveKeyColor, resolvePlaisir, resolveStealKey, resolveInteressant, resolveRecoverToDeck, resolveDiscardThenDraw, resolveMerlinMove, resolvePlaceFire, resolvePiegeurTarget, resolvePiegeurDest, resolveAirStrike, resolveBanditPlace, resolveOptionalEffect])
 
   // Sombra — joue « Lieu piraté » dès qu'une nouvelle piraterie apparaît : action
   // désactivée par un Piratage (hackedActionId) OU Héros piraté par Boop (abilityHacked),
@@ -6388,6 +6422,18 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
     return phr.candidateIds ? heroes.filter((id) => phr.candidateIds!.includes(id)) : heroes
   })()
 
+  // Lotso — Flex : choix par CLIC DIRECT sur le plateau (plus de modale). Phase 1, les
+  // Héros/Gardien déplaçables du lieu de Flex ; phase 2, les lieux de destination.
+  const lotsoFlex = state.pendingLotsoFlex
+  const flexMine = lotsoFlex?.playerIndex === HUMAN
+  const flexCardTargets: string[] = flexMine && !lotsoFlex.cardInstanceId ? lotsoFlex.candidateIds : []
+  const flexDestTargets: string[] =
+    flexMine && lotsoFlex.cardInstanceId
+      ? user.locations
+          .map((l) => l.id)
+          .filter((id) => id !== lotsoFlex.fromLocationId && !(user.lockedLocations ?? []).includes(id))
+      : []
+
   // Attaque Aérienne (Pat Hibulaire) — clic DIRECT sur le plateau : phase 1, les lieux
   // portant un Héros (le pion y fond) ; phase 2, les Héros de ce lieu (celui à éliminer).
   const airStrike = state.pendingAirStrike
@@ -7011,8 +7057,12 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
                     else if (mode?.kind === 'item-attach-hero') handleItemAttachHero(id)
                     else handleVanquishPickHero(id, name)
                   }}
-                  relocateTargets={[...relocateHeroTargets, ...piegeurTargets, ...airStrikeHeroTargets]}
+                  relocateTargets={[...relocateHeroTargets, ...piegeurTargets, ...airStrikeHeroTargets, ...flexCardTargets]}
                   onRelocatePickHero={(id) => {
+                    if (flexCardTargets.includes(id)) {
+                      resolveLotsoFlex({ cardInstanceId: id })
+                      return
+                    }
                     if (airStrikeHeroTargets.includes(id)) {
                       resolveAirStrike({ heroInstanceId: id })
                       return
@@ -7033,12 +7083,15 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
                   destTargets={
                     airStrikeLocTargets.length > 0
                       ? airStrikeLocTargets
-                      : piegeurDestTargets.length > 0
-                        ? piegeurDestTargets
-                        : heroMoveDestTargets
+                      : flexDestTargets.length > 0
+                        ? flexDestTargets
+                        : piegeurDestTargets.length > 0
+                          ? piegeurDestTargets
+                          : heroMoveDestTargets
                   }
                   onDestPick={(loc) => {
                     if (airStrikeLocTargets.includes(loc)) resolveAirStrike({ to: loc })
+                    else if (flexDestTargets.includes(loc)) resolveLotsoFlex({ to: loc })
                     else if (piegeurDestTargets.includes(loc)) resolvePiegeurDest(loc)
                     else handlePlace(loc)
                   }}
@@ -8518,7 +8571,7 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
             costFor={(c) => effectiveCost(state, c)}
             villainColor={coverColorOf(user.villain)}
             armedConditionIds={humanReactions.map((c) => c.instanceId)}
-            forcedHoverId={hoveredReactionId}
+            forcedHoverId={forcedHoverId}
             selectedCardId={selectedHandCardId}
             selectedToDiscard={discardSelected}
             requiredDiscardCount={discardRequired}
@@ -10146,6 +10199,23 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
 
       {/* Ursula — Cadenas (Métamorphose / Grimsby) : l'humain qui résout choisit de déplacer le
           Cadenas sur le lieu proposé (non bloqué) ou de passer (« vous pouvez »). */}
+      {/* Effet FACULTATIF générique (« Vous pouvez… ») : Woody qui disperse ou non les Héros
+          de la Salle des Chenilles, etc. */}
+      {state.pendingOptionalEffect && state.pendingOptionalEffect.chooserIndex === HUMAN && (
+        <ChoiceModal
+          title={state.pendingOptionalEffect.title}
+          prompt={state.pendingOptionalEffect.prompt}
+          options={[
+            {
+              key: 'yes',
+              label: state.pendingOptionalEffect.acceptLabel ?? 'Oui',
+              onSelect: () => resolveOptionalEffect(true),
+            },
+            { key: 'no', label: 'Non, ne rien faire', onSelect: () => resolveOptionalEffect(false) },
+          ]}
+        />
+      )}
+
       {state.pendingUrsulaLock && state.pendingUrsulaLock.chooserIndex === HUMAN && (
         <ChoiceModal
           title="Cadenas d'Ursula"
@@ -10262,23 +10332,17 @@ export default function App({ onExit, onReturnToEditor }: { onExit?: () => void;
         />
       )}
 
-      {/* Lotso — Flex : phase 1 = choisir le Héros/Buzz à déplacer (LotsoTargetModal). */}
-      {state.pendingLotsoFlex && state.pendingLotsoFlex.playerIndex === HUMAN && !state.pendingLotsoFlex.cardInstanceId && (
-        <LotsoTargetModal
-          player={state.players[HUMAN]}
-          candidateIds={state.pendingLotsoFlex.candidateIds}
-          label="Flex : quel Héros / Gardien déplacer ?"
-          onResolve={(cardInstanceId) => resolveLotsoFlex({ cardInstanceId })}
-        />
-      )}
-      {/* Lotso — Flex : phase 2 = choisir le lieu de destination (≠ lieu de Flex). */}
-      {state.pendingLotsoFlex && state.pendingLotsoFlex.playerIndex === HUMAN && state.pendingLotsoFlex.cardInstanceId && (
-        <LotsoBuzzMoveModal
-          player={state.players[HUMAN]}
-          title="Flex : vers quel lieu ?"
-          excludeLocationId={state.pendingLotsoFlex.fromLocationId}
-          onResolve={(to) => resolveLotsoFlex({ to })}
-        />
+      {/* Lotso — Flex : plus de modale. Le joueur clique le Héros/Gardien sur le plateau
+          (flexCardTargets) puis le lieu de destination (flexDestTargets) — cf. le bandeau
+          d'instruction ci-dessous. */}
+      {flexMine && (
+        <div className="pointer-events-none fixed inset-x-0 top-4 z-[55] flex justify-center">
+          <span className="rounded-full border border-pink-300/50 bg-[#120c22]/95 px-4 py-2 text-sm font-semibold text-pink-100 shadow-2xl">
+            {lotsoFlex.cardInstanceId
+              ? 'Flex : clique le lieu de destination sur le plateau.'
+              : 'Flex : clique le Héros ou le Gardien à déplacer.'}
+          </span>
+        </div>
       )}
 
       {/* Maximus (Gothel) : l'humain (joueur qui fatalise) repositionne Cavaliers + Maximus. */}

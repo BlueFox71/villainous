@@ -978,6 +978,13 @@ export const VILLAIN_STRATEGY: Record<string, VillainStrategy> = {
   // des cartes/lieux à valeur d'objectif égale, et le volet « contre » (fatalisation).
   tabbou: {
     enginePieces: {
+      // Orbes subspatiaux : 3 posés (un par lieu hors Émissaire) DÉBLOQUENT l'Émissaire
+      // Subspatial, son moteur de dévoilement. Priorité n°1 tant qu'il est verrouillé — sans
+      // ce signal le bot les ignorait et ne débloquait jamais son 4ᵉ lieu.
+      'boule-1': 5,
+      'boule-2': 5,
+      'boule-3': 5,
+      'boule-4': 5,
       // Halberd : action bonus (déplace le pion + le Halberd, rejoue une action) → tempo
       // clé pour enchaîner dévoiler/tuer. Carte à chercher et à NE JAMAIS défausser.
       halberd: 4,

@@ -1045,6 +1045,8 @@ interface GameStore {
   /** Pat Hibulaire — « Planqués » : défausse l'Allié choisi. */
   resolveFateDiscardAlly: (instanceId: string | null) => void
   resolveUrsulaLock: (move: boolean) => void
+  /** Effet FACULTATIF (« Vous pouvez… ») : l'appliquer ou y renoncer. */
+  resolveOptionalEffect: (accept: boolean) => void
   /** Syndrome — Identification, je vous prie : déplace l'Allié/Objet choisi vers le lieu (avec Héros) choisi. */
   resolveIdentification: (cardInstanceId: string, to: string) => void
   /** Lotso — résout le choix de cible (réduire un Héros / déplacer vers la Salle des Chenilles). */
@@ -1838,6 +1840,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     get().submit({ type: 'ULTRON_OPTIMIZE_MOVE', actionId, instanceId, to }),
   resolveFateDiscardAlly: (instanceId) => get().submit({ type: 'RESOLVE_FATE_DISCARD_ALLY', instanceId }),
   resolveUrsulaLock: (move) => get().submit({ type: 'RESOLVE_URSULA_LOCK', move }),
+  resolveOptionalEffect: (accept) => get().submit({ type: 'RESOLVE_OPTIONAL_EFFECT', accept }),
   resolveIdentification: (cardInstanceId, to) =>
     get().submit({ type: 'RESOLVE_IDENTIFICATION', cardInstanceId, to }),
   resolveLotsoTarget: (instanceId) => get().submit({ type: 'RESOLVE_LOTSO_TARGET', instanceId }),

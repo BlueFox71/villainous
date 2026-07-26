@@ -4371,27 +4371,46 @@ export function resolveEffect(
       }
     }
     case 'WOODY_RELEASE': {
-      // Woody : si le Chapeau de Woody est en jeu, défaussez-le ; puis disperse les Héros
-      // de la Salle des Chenilles vers les autres lieux.
+      // Woody : « Si le CHAPEAU DE WOODY se trouve dans le royaume, défaussez-le. Puis vous
+      // POUVEZ déplacer les Héros présents sur la Salle des Chenilles. » La défausse du
+      // Chapeau est obligatoire ; la dispersion est FACULTATIVE → on la propose (oui/non)
+      // au lieu de l'appliquer d'office. Décisif quand c'est Lotso lui-même qui amène Woody
+      // (Big Baby) : disperser ses Héros ruinerait son objectif.
       const p8 = state.players[idx]
       const roomId = p8.objective.type === 'LOTSO_GATHER' ? p8.objective.roomId : p8.locations[0].id
       const otherLocs = p8.locations.map((l) => l.id).filter((id2) => id2 !== roomId)
-      let next = state
-      // Défausse le Chapeau de Woody (Objet) s'il est en jeu.
-      next = updatePlayer(next, idx, (pl) => {
+      // 2ᵉ temps (après acceptation) : la dispersion seule (round-robin).
+      if (effect.scatterOnly) {
+        const next = updatePlayer(state, idx, (pl) => {
+          const inRoom = (pl.board[roomId] ?? []).filter((c) => c.type === 'hero')
+          if (inRoom.length === 0 || otherLocs.length === 0) return pl
+          const board = { ...pl.board, [roomId]: (pl.board[roomId] ?? []).filter((c) => !(c.type === 'hero')) }
+          inRoom.forEach((h, k) => { const to = otherLocs[k % otherLocs.length]; board[to] = [...(board[to] ?? []), h] })
+          return { ...pl, board }
+        })
+        return { ...next, log: [...next.log, `**Woody** libère les Héros de la Salle des Chenilles.`] }
+      }
+      // 1ᵉʳ temps : défausse du Chapeau de Woody (Objet) s'il est en jeu.
+      let next = updatePlayer(state, idx, (pl) => {
         const hat = Object.values(pl.board).flat().find((c) => c.cardId === 'chapeau-de-woody')
         if (!hat) return pl
         return { ...pl, board: Object.fromEntries(pl.locations.map((l) => [l.id, (pl.board[l.id] ?? []).filter((c) => c.instanceId !== hat.instanceId)])), discard: [...pl.discard, hat] }
       })
-      // Disperse les Héros de la Salle vers les autres lieux (round-robin).
-      next = updatePlayer(next, idx, (pl) => {
-        const inRoom = (pl.board[roomId] ?? []).filter((c) => c.type === 'hero')
-        if (inRoom.length === 0 || otherLocs.length === 0) return pl
-        const board = { ...pl.board, [roomId]: (pl.board[roomId] ?? []).filter((c) => !(c.type === 'hero')) }
-        inRoom.forEach((h, k) => { const to = otherLocs[k % otherLocs.length]; board[to] = [...(board[to] ?? []), h] })
-        return { ...pl, board }
-      })
-      return { ...next, log: [...next.log, `**Woody** libère les Héros de la Salle des Chenilles.`] }
+      const heroesInRoom = (next.players[idx].board[roomId] ?? []).filter((c) => c.type === 'hero').length
+      if (heroesInRoom === 0 || otherLocs.length === 0) return next
+      const roomName = findLocation(next.players[idx], roomId)?.name ?? roomId
+      next = {
+        ...next,
+        pendingOptionalEffect: {
+          chooserIndex: ctx?.playedBy ?? state.activePlayer,
+          actorIndex: idx,
+          title: 'Woody',
+          prompt: `Déplacer les ${heroesInRoom} ${plural(heroesInRoom, 'Héros')} de ${roomName} vers les autres lieux ?`,
+          acceptLabel: 'Disperser les Héros',
+          effects: [{ type: 'WOODY_RELEASE', scatterOnly: true }],
+        },
+      }
+      return next
     }
     case 'DAISY_LOCKET': {
       // Médaillon de Daisy : si Big Baby en jeu, défaussez-le ; puis mélange défausse↦pioche Fatalité.

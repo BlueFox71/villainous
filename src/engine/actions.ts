@@ -105,7 +105,6 @@ import {
   heroPlacementLocations,
   lotsoReducibleHeroes,
   lotsoToRoomCandidates,
-  lotsoHasHeroInRoom,
   heroesOf,
   isActionAvailable,
   isActionCovered,
@@ -795,12 +794,14 @@ function applyPlayCard(
     throw new Error('Le Bibliothécaire : aucun jeton Pouvoir à dépenser ou aucun Héros réductible.')
   }
   // Lotso — Enfermés (−1 à tous les Héros de la Salle) & Les nouveaux jouets (−nb de Héros) :
-  // injouable si aucun Héros dans la Salle des Chenilles (Buzz ne compte pas — type 'ally').
+  // injouable si aucun Héros RÉDUCTIBLE dans la Salle des Chenilles. On teste bien la
+  // réductibilité (force effective > 0), pas la simple présence : une Salle pleine de Héros
+  // déjà à 0 ne laisse rien à réduire — la carte était jouable pour rien.
   if (
     (card.effects ?? []).some((e) => e.type === 'LOTSO_REDUCE' && e.scope === 'room' && e.target === 'all') &&
-    !lotsoHasHeroInRoom(state, state.activePlayer)
+    lotsoReducibleHeroes(state, state.activePlayer, 'room').length === 0
   ) {
-    throw new Error('Cette carte n’a aucun effet : aucun Héros dans la Salle des Chenilles.')
+    throw new Error('Cette carte n’a aucun effet : aucun Héros à réduire dans la Salle des Chenilles.')
   }
   // Lotso — Patrouille de nuit (réduit −1 un Héros HORS de la Salle des Chenilles) :
   // injouable s'il n'y a aucun Héros réductible hors de la Salle (aucun effet).
@@ -7571,6 +7572,21 @@ function applyResolveLotsoBuzzMove(state: GameState, to: LocationId): GameState 
 /** Lotso — Le Bibliothécaire : répartition interactive. `heroInstanceId` null = terminer ;
  *  sinon dépense 1 Pouvoir et ajoute un jeton −1 au Héros choisi, puis garde le choix
  *  ouvert tant qu'il reste du Pouvoir ET une cible réductible. */
+/**
+ * Effet FACULTATIF (« Vous pouvez… ») : résout `pending.effects` si le joueur accepte,
+ * sinon abandonne l'effet. Générique — toute carte peut s'appuyer dessus plutôt que
+ * d'appliquer d'office un effet que son texte présente comme optionnel.
+ */
+function applyResolveOptionalEffect(state: GameState, accept: boolean): GameState {
+  const pending = state.pendingOptionalEffect
+  if (!pending) throw new Error('Aucun effet facultatif en attente.')
+  const cleared: GameState = { ...state, pendingOptionalEffect: null }
+  if (!accept) {
+    return { ...cleared, log: [...cleared.log, `${pending.title} : effet facultatif non appliqué.`] }
+  }
+  return resolveEffects(cleared, pending.effects, { actorIndex: pending.actorIndex })
+}
+
 function applyResolveLotsoBookworm(
   state: GameState,
   heroInstanceId: string | null,
@@ -12467,6 +12483,30 @@ function checkImmediateObstacleWin(state: GameState): GameState {
   }
 }
 
+/**
+ * Objectifs à victoire ÉVÉNEMENTIELLE : dès que la condition est remplie, la partie est
+ * gagnée SUR LE CHAMP — sans attendre le contrôle de début de tour (qui, sinon, obligeait à
+ * subir tout le tour de l'adversaire). Contrôlé après CHAQUE action, quel que soit le chemin
+ * qui a rempli la condition (réduction, déplacement, bascule de Buzz, Vanquish…).
+ */
+const EVENT_WIN_OBJECTIVES: ReadonlySet<string> = new Set(['LOTSO_GATHER'])
+
+function checkEventDrivenWin(state: GameState): GameState {
+  if (state.status !== 'PLAYING') return state
+  for (let i = 0; i < state.players.length; i++) {
+    const p = state.players[i]
+    if (!EVENT_WIN_OBJECTIVES.has(p.objective.type)) continue
+    if (!hasReachedObjective(state, i)) continue
+    return {
+      ...state,
+      status: 'WON',
+      winner: i,
+      log: [...state.log, `🏆 ${p.villainName} a rempli son objectif et l'emporte !`],
+    }
+  }
+  return state
+}
+
 /** Défausse des cartes du plateau du joueur `idx` (avec leurs cartes associées). Pur. */
 function discardUltronBoardCards(state: GameState, idx: number, instanceIds: string[]): GameState {
   const set = new Set(instanceIds)
@@ -12605,7 +12645,7 @@ export function applyAction(state: GameState, action: GameAction): GameState {
   const after = syncLocationControlAll(syncLuciferTrap(syncRoseChain(syncPetePowerPlay(syncRatiganObjectiveAll(journaled)))))
   // Dio — ZA WARUDO! : coût croissant par action + suivi des 14 actions du royaume.
   // Puis Gaston : victoire immédiate si le dernier Obstacle vient d'être retiré.
-  return checkImmediateObstacleWin(applyDioZaWarudo(action, after))
+  return checkEventDrivenWin(checkImmediateObstacleWin(applyDioZaWarudo(action, after)))
 }
 
 /**
@@ -13346,6 +13386,14 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
   ) {
     throw new Error('Replacez une carte de votre main (RESOLVE_SOURNOIS).')
   }
+  // Effet facultatif (« Vous pouvez… ») : à accepter ou décliner avant tout autre coup.
+  if (
+    state.pendingOptionalEffect &&
+    action.type !== 'RESOLVE_OPTIONAL_EFFECT' &&
+    action.type !== 'PLAY_CONDITION'
+  ) {
+    throw new Error('Acceptez ou déclinez l’effet facultatif (RESOLVE_OPTIONAL_EFFECT).')
+  }
   // Attaque Aérienne : le lieu où fondre puis le Héros à éliminer doivent être choisis.
   if (
     state.pendingAirStrike &&
@@ -13904,6 +13952,8 @@ function applyActionCore(state: GameState, action: GameAction): GameState {
       return applyResolveEvolveAlly(state, action.instanceId)
     case 'RESOLVE_LOTSO_BUZZ_MOVE':
       return applyResolveLotsoBuzzMove(state, action.to)
+    case 'RESOLVE_OPTIONAL_EFFECT':
+      return applyResolveOptionalEffect(state, action.accept)
     case 'RESOLVE_LOTSO_BOOKWORM':
       return applyResolveLotsoBookworm(state, action.heroInstanceId, action.count)
     case 'RESOLVE_LOTSO_FLEX':

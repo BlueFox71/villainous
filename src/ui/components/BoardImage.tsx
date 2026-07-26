@@ -578,12 +578,17 @@ export function BoardImage({
         // PIÉGÉ (jeton Enfermé), lui, CONTINUE de recouvrir (seule sa capacité est désactivée).
         const heroes = (player.board[loc.id] ?? []).filter(
           (c) =>
-            c.type === 'hero' &&
-            !c.attachedTo && // Grand Councilwoman — STITCH enfermé (associé à la CAGE) ne recouvre plus rien.
-            !c.hypnotized &&
-            !c.loved &&
-            !c.pokemonKO &&
-            c.cardId !== 'the-prince' &&
+            ((c.type === 'hero' &&
+              !c.attachedTo && // Grand Councilwoman — STITCH enfermé (associé à la CAGE) ne recouvre plus rien.
+              !c.hypnotized &&
+              !c.loved &&
+              !c.pokemonKO &&
+              c.cardId !== 'the-prince' &&
+              (!c.isSurvivor || c.revealed)) ||
+              // Lotso — Buzz l'Éclair en mode GARDIEN recouvre la rangée du haut comme un
+              // Héros : sans lui, le moteur bloquait les actions sans que le plateau le montre.
+              (c.isBuzz && c.buzzMode === 'guardian') ||
+              (c.coversActionsLikeHero && !c.attachedTo)) &&
             !hiddenHeroInstanceIds.includes(c.instanceId),
         )
         if (heroes.length === 0) return []

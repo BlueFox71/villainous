@@ -636,3 +636,121 @@ describe('Lotso — Le Bibliothécaire : la QUANTITÉ de jetons est choisie', ()
     expect(s.pendingLotsoBookworm).toMatchObject({ spent: 1 })
   })
 })
+
+describe('Lotso — Réinitialisation réduit bien Woody', () => {
+  // Woody était à tort de Force 1 (la carte dit 5) : réduit de 1, il tombait à 0 et
+  // l'affichage annonçait « neutralisé » au lieu d'une réduction.
+  it('Woody est de force 5 dans la donnée', () => {
+    const woody = buildDeckInstances(lotsoCards, 'fate', 'w:').find((c) => c.cardId === 'woody')!
+    expect(woody.strength).toBe(5)
+  })
+
+  it('Réinitialisation (−1 à tous les Héros) fait passer Woody de 5 à 4', () => {
+    const base = game()
+    const woody = card('woody', 'hero', { strength: 5 })
+    const s0 = {
+      ...base,
+      players: [{ ...base.players[0], board: { ...base.players[0].board, bibliotheque: [woody] } }],
+    } as GameState
+    expect(effectiveStrength(s0, 0, woody.instanceId)).toBe(5)
+    const s = resolveEffects(s0, [{ type: 'LOTSO_REDUCE', scope: 'all', target: 'all', amount: 1 }], { actorIndex: 0 })
+    expect(effectiveStrength(s, 0, woody.instanceId)).toBe(4)
+  })
+})
+
+describe('Lotso — Woody : la dispersion des Héros est FACULTATIVE', () => {
+  // « Puis vous POUVEZ déplacer les Héros présents sur la Salle des Chenilles » : le jeu
+  // les dispersait d'office, y compris quand c'est Lotso qui amenait Woody (Big Baby) —
+  // ce qui ruinait son propre objectif.
+  const setup = () => {
+    const base = game()
+    const h1 = card('jessie', 'hero', { strength: 3 })
+    const h2 = card('rex', 'hero', { strength: 1 })
+    return {
+      h1,
+      h2,
+      state: {
+        ...base,
+        activePlayer: 0,
+        players: [{ ...base.players[0], board: { ...base.players[0].board, [ROOM]: [h1, h2] } }],
+      } as GameState,
+    }
+  }
+
+  it('ouvre un choix oui/non au lieu de disperser', () => {
+    const { state, h1 } = setup()
+    const s = resolveEffects(state, [{ type: 'WOODY_RELEASE' }], { actorIndex: 0 })
+    expect(s.pendingOptionalEffect).toMatchObject({ chooserIndex: 0, actorIndex: 0, title: 'Woody' })
+    // Rien n'a bougé : les Héros sont toujours dans la Salle.
+    expect((s.players[0].board[ROOM] ?? []).some((c) => c.instanceId === h1.instanceId)).toBe(true)
+  })
+
+  it('en refusant, les Héros RESTENT dans la Salle des Chenilles', () => {
+    const { state, h1, h2 } = setup()
+    let s = resolveEffects(state, [{ type: 'WOODY_RELEASE' }], { actorIndex: 0 })
+    s = applyAction(s, { type: 'RESOLVE_OPTIONAL_EFFECT', accept: false })
+    expect(s.pendingOptionalEffect ?? null).toBeNull()
+    const room = s.players[0].board[ROOM] ?? []
+    expect(room.some((c) => c.instanceId === h1.instanceId)).toBe(true)
+    expect(room.some((c) => c.instanceId === h2.instanceId)).toBe(true)
+  })
+
+  it('en acceptant, ils sont bien dispersés', () => {
+    const { state } = setup()
+    let s = resolveEffects(state, [{ type: 'WOODY_RELEASE' }], { actorIndex: 0 })
+    s = applyAction(s, { type: 'RESOLVE_OPTIONAL_EFFECT', accept: true })
+    expect((s.players[0].board[ROOM] ?? []).filter((c) => c.type === 'hero')).toHaveLength(0)
+  })
+})
+
+describe('Lotso — victoire IMMÉDIATE (4 Héros à 0 + Buzz dans la Salle)', () => {
+  it('la partie est gagnée sans attendre le tour suivant', () => {
+    const base = game()
+    const obj = base.players[0].objective
+    if (obj.type !== 'LOTSO_GATHER') throw new Error('objectif inattendu')
+    const buzz = (base.players[0].board[ROOM] ?? []).find((c) => c.isBuzz)!
+    // Les 4 Héros de l'objectif dans la Salle, à force 1 (donc pas encore gagné).
+    const heroes = obj.heroCardIds.map((id, i) => card(id, 'hero', { instanceId: `h${i}`, strength: 1 }))
+    const s0 = {
+      ...base,
+      activePlayer: 0,
+      phase: 'ACTION' as const,
+      players: [{ ...base.players[0], power: 9, board: { ...base.players[0].board, [ROOM]: [buzz, ...heroes] } }],
+    } as GameState
+    expect(hasReachedObjective(s0, 0)).toBe(false)
+    // Le Bibliothécaire les met tous à 0 → victoire constatée SUR LE CHAMP.
+    let s = resolveEffects(s0, [{ type: 'LOTSO_BOOKWORM' }], { actorIndex: 0 })
+    for (const h of heroes) {
+      if (s.status !== 'PLAYING') break
+      s = applyAction(s, { type: 'RESOLVE_LOTSO_BOOKWORM', heroInstanceId: h.instanceId, count: 1 })
+    }
+    expect(s.status).toBe('WON')
+    expect(s.winner).toBe(0)
+  })
+})
+
+describe('Lotso — « Les nouveaux jouets » injouable sans Héros à réduire', () => {
+  it('refusée quand tous les Héros de la Salle sont déjà à 0', () => {
+    const base = game()
+    const zero = card('jessie', 'hero', { strength: 0 })
+    const playLoc = base.players[0].locations.find((l) => l.actions.some((a) => a.type === 'PLAY_CARD'))!
+    const nouveaux = buildDeckInstances(lotsoCards, 'villain', 'n:').find((c) => c.cardId === 'nouveaux-jouets')!
+    const s0 = {
+      ...base,
+      activePlayer: 0,
+      phase: 'ACTION' as const,
+      usedActionIds: [],
+      players: [{
+        ...base.players[0],
+        power: 9,
+        pawnLocation: playLoc.id,
+        hand: [{ ...nouveaux, instanceId: 'nj' }],
+        board: { ...base.players[0].board, [ROOM]: [zero] },
+      }],
+    } as GameState
+    const action = playLoc.actions.find((a) => a.type === 'PLAY_CARD')!
+    expect(() =>
+      applyAction(s0, { type: 'PLAY_CARD', actionId: action.id, instanceId: 'nj', to: playLoc.id }),
+    ).toThrow(/aucun Héros à réduire/)
+  })
+})

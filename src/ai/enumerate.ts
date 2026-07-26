@@ -76,10 +76,17 @@ export function objectiveCriticalCardIds(p: PlayerState): Set<string> {
       if (!p.peachCaptured && !peachInRealm) keep.add('bowser-jr')
       return keep
     }
-    case 'KILL_FIGHTERS':
+    case 'KILL_FIGHTERS': {
       // Tabbou : Halberd (action bonus, pièce maîtresse de tempo) et Destin (dévoiler 3
       // OU +4 Pouvoir, jamais gaspillé) ne se jettent pas pour cycler la main.
-      return new Set(['halberd', 'destin'])
+      const keep = new Set(['halberd', 'destin'])
+      // Les ORBES SUBSPATIAUX débloquent l'Émissaire (son moteur de dévoilement) : tant que
+      // le lieu est verrouillé, ce sont les cartes les plus précieuses du deck.
+      if (p.emissaireLocationId !== undefined && (p.lockedLocations ?? []).includes(p.emissaireLocationId)) {
+        for (const id of ['boule-1', 'boule-2', 'boule-3', 'boule-4']) keep.add(id)
+      }
+      return keep
+    }
     default:
       return new Set<string>()
   }
@@ -366,6 +373,15 @@ export function enumerateActions(state: GameState): GameAction[] {
       }
     }
     return out
+  }
+
+  // Effet facultatif (« Vous pouvez… ») : la recherche tranche entre l'appliquer et y
+  // renoncer (elle évalue l'état résultant — Woody qui disperse SES Héros y perdrait).
+  if (state.pendingOptionalEffect) {
+    return [
+      { type: 'RESOLVE_OPTIONAL_EFFECT', accept: true },
+      { type: 'RESOLVE_OPTIONAL_EFFECT', accept: false },
+    ]
   }
 
   // Bandit — enchaînement puis POSE. Le bot n'enchaîne pas (il joue ses Bandits un par un

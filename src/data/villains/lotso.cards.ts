@@ -294,7 +294,7 @@ export const lotsoCards: CardDef[] = [
     englishName: 'Woody',
     deck: 'fate',
     type: 'hero',
-    strength: 1,
+    strength: 5,
     copies: 1,
     text:
       'Si le CHAPEAU DE WOODY se trouve dans le royaume, défaussez-le. Puis vous pouvez déplacer les Héros ' +

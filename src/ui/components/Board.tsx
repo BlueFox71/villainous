@@ -135,7 +135,10 @@ export function Board({
     (c.reachesAdjacentVanquish || c.cardId === 'archers-loups' || c.cardId === 'flibustiers')
   const attackTotalAt = (index: number): number => {
     const here = (player.board[displayLocations[index].id] ?? [])
-      .filter((c) => c.type === 'ally' && !c.isWicket)
+      // Lotso — Buzz l'Éclair en mode GARDIEN n'attaque pas (il PROTÈGE les Héros de son
+      // lieu) et s'affiche dans la zone du haut : le compter donnait un « ⚔4 » sur une case
+      // visuellement vide. En mode Démo il redevient un Allié ordinaire, donc compté.
+      .filter((c) => c.type === 'ally' && !c.isWicket && !(c.isBuzz && c.buzzMode === 'guardian'))
       .reduce((n, c) => n + (strengths[c.instanceId] ?? c.strength ?? 0), 0)
     const archersAround = [displayLocations[index - 1], displayLocations[index + 1]]
       .filter((l): l is NonNullable<typeof l> => !!l)

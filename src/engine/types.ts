@@ -974,7 +974,10 @@ export type Effect =
   | { type: 'LOTSO_FATE_DISCARD_ALLY'; optional?: boolean }
   /** Woody (Fatalité, à la pose) : si le Chapeau de Woody est en jeu, défaussez-le ; puis
    *  déplace les Héros de la Salle des Chenilles vers d'autres lieux (auto, dispersion). */
-  | { type: 'WOODY_RELEASE' }
+  /** Woody (Fatalité, à la pose) : défausse le Chapeau de Woody s'il est en jeu (obligatoire),
+   *  puis propose de disperser les Héros de la Salle des Chenilles — « vous POUVEZ », donc via
+   *  `pendingOptionalEffect`. `scatterOnly` = la dispersion seule (2ᵉ temps, après le OUI). */
+  | { type: 'WOODY_RELEASE'; scatterOnly?: boolean }
   /** Médaillon de Daisy (Fatalité) : si Big Baby est en jeu, défaussez-le ; puis mélange
    *  la défausse Fatalité dans la pioche Fatalité. */
   | { type: 'DAISY_LOCKET' }
@@ -4230,6 +4233,23 @@ export interface GameState {
    *  jusqu'à épuisement du Pouvoir / des cibles ou « Terminer ». `spent` = total déjà
    *  dépensé (pour le journal). RESOLVE_LOTSO_BOOKWORM (heroInstanceId=null → terminer). */
   pendingLotsoBookworm?: { playerIndex: number; spent: number } | null
+  /**
+   * Effet FACULTATIF (« Vous pouvez… ») en attente d'un OUI/NON, générique et réutilisable.
+   * `chooserIndex` décide ; en cas d'acceptation, `effects` sont résolus sur `actorIndex`.
+   * Évite d'appliquer d'office un effet que la carte présente comme optionnel (Woody :
+   * « puis vous POUVEZ déplacer les Héros de la Salle des Chenilles »).
+   */
+  pendingOptionalEffect?: {
+    chooserIndex: number
+    actorIndex: number
+    /** Titre (nom de la carte). */
+    title: string
+    /** Question posée au joueur. */
+    prompt: string
+    /** Libellé du OUI (défaut « Oui »). */
+    acceptLabel?: string
+    effects: Effect[]
+  } | null
   /** Lotso — Flex (capacité activée) : déplace un Héros OU Buzz du lieu de Flex vers
    *  n'importe quel AUTRE lieu, en 2 phases. `fromLocationId` = lieu de Flex ;
    *  `candidateIds` = Héros/Buzz déplaçables ; `cardInstanceId` absent → phase « quelle
@@ -5159,6 +5179,8 @@ export type GameAction =
   | { type: 'RESOLVE_EVOLVE_ALLY'; instanceId: string }
   /** Lotso — résout `pendingLotsoBuzzMove` : déplace la tuile Buzz (mode Démo) vers le lieu choisi. */
   | { type: 'RESOLVE_LOTSO_BUZZ_MOVE'; to: LocationId }
+  /** Effet FACULTATIF (« Vous pouvez… ») : `accept` = le résoudre ou y renoncer. */
+  | { type: 'RESOLVE_OPTIONAL_EFFECT'; accept: boolean }
   /** Lotso — Le Bibliothécaire : ajoute `count` (défaut 1) jetons Force −1 au Héros
    *  désigné, en payant 1 Pouvoir chacun. `heroInstanceId: null` = terminer la répartition. */
   | { type: 'RESOLVE_LOTSO_BOOKWORM'; heroInstanceId: string | null; count?: number }

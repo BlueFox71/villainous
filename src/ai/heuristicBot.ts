@@ -203,7 +203,26 @@ export function objectiveScore(p: PlayerState): number {
           .some((c) => c.type === 'hero' && c.cardId === obj.raiseHeroCardId)
         if (samusPresent) threshold = obj.raiseTo
       }
-      return Math.min(1, (killed + 0.25 * reserve) / threshold)
+      const base = Math.min(1, (killed + 0.25 * reserve) / threshold)
+      // L'ÉMISSAIRE SUBSPATIAL (4ᵉ lieu, moteur de dévoilement) se débloque en posant un Orbe
+      // sur chacun des 3 autres lieux. Sans crédit, poser un Orbe ne faisait RIEN monter : le
+      // bot ne débloquait jamais son 4ᵉ lieu (0/8 parties sur 80 tours).
+      //
+      // Le crédit récompense le DÉBLOCAGE, pas l'Orbe isolé : un Orbe posé seul se fait
+      // défausser par la Fatalité adverse (Onix) avant les suivants — mesuré, le bot les
+      // posait au compte-gouttes et perdait chaque fois sa mise. Un premier Orbe ne vaut donc
+      // rien ; le 2ᵉ amorce, et le déblocage paie. Conséquence voulue : le bot GARDE ses
+      // Orbes en main puis les pose groupés, dans le même tour si possible.
+      const emissaire = p.emissaireLocationId
+      if (emissaire === undefined) return base
+      if (!(p.lockedLocations ?? []).includes(emissaire)) return Math.min(1, base + 0.24)
+      const orbLocs = p.locations.map((l) => l.id).filter((id) => id !== emissaire)
+      const withOrb = orbLocs.filter((locId) =>
+        (p.board[locId] ?? []).some(
+          (c) => !c.attachedTo && (c.effects ?? []).some((e) => e.type === 'SUBSPACE_ORB_PLACED'),
+        ),
+      ).length
+      return Math.min(1, base + (withOrb >= 2 ? 0.06 : 0))
     }
     case 'KING_CANDY_RACE': {
       // Sa Sucrerie : avant la course, jalonner l'arrivée de Vanellope dans le royaume
