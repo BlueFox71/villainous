@@ -3,6 +3,10 @@ import { existsSync } from 'node:fs'
 import { seigneurCles, seigneurClesCards } from '../published/seigneurCles'
 import { buildDeck } from '../types'
 
+/** Chemin FICHIER d'une image publiée : les JSON embarqués portent un cache-buster
+ *  `?v=<updatedAt>` (cf. imageExternalize), qui ne fait pas partie du chemin sur disque. */
+const filePath = (url: string) => url.split('?')[0]
+
 describe('cartes du Seigneur des clés — intégrité du paquet', () => {
   it('le deck Méchant totalise 30 cartes', () => {
     expect(buildDeck(seigneurClesCards, 'villain')).toHaveLength(30)
@@ -12,14 +16,14 @@ describe('cartes du Seigneur des clés — intégrité du paquet', () => {
     expect(buildDeck(seigneurClesCards, 'fate')).toHaveLength(15)
   })
 
-  it('répartition Méchant : 3 Conditions, 27 Événements', () => {
+  it('répartition Méchant : 4 Conditions, 26 Événements', () => {
     // Depuis la migration du vilain dans l'Atelier (source unique = custom-seigneur-cles.json),
     // le deck Méchant ne contient plus d'Objet : sa composition suit désormais le JSON publié.
     const v = seigneurClesCards.filter((c) => c.deck === 'villain')
     const count = (t: string) => v.filter((c) => c.type === t).reduce((n, c) => n + c.copies, 0)
     expect(count('item')).toBe(0)
-    expect(count('condition')).toBe(3)
-    expect(count('effect')).toBe(27)
+    expect(count('condition')).toBe(4)
+    expect(count('effect')).toBe(26)
   })
 
   it('répartition Fatalité : 6 Héros, 1 Objet, 8 Événements', () => {
@@ -37,10 +41,11 @@ describe('cartes du Seigneur des clés — intégrité du paquet', () => {
       expect(ids.has(c.id)).toBe(false)
       ids.add(c.id)
       expect(c.name.length).toBeGreaterThan(0)
-      expect(c.englishName.length).toBeGreaterThan(0)
+      // `englishName` : facultatif pour un vilain de l'Atelier (l'éditeur ne le demande
+      // pas ; les cartes créées après la migration le laissent vide).
       expect(c.text.length).toBeGreaterThan(0)
       expect(c.copies).toBeGreaterThanOrEqual(1)
-      expect(c.image).toMatch(/^\/cards\/custom-seigneur-cles\/.+\.(png|webp)$/)
+      expect(filePath(c.image)).toMatch(/^\/cards\/custom-seigneur-cles\/.+\.(png|webp)$/)
       if (c.deck === 'villain') expect(typeof c.cost).toBe('number')
       else expect(c.cost).toBeUndefined()
       if (c.type === 'hero') expect(typeof c.strength).toBe('number')
@@ -50,7 +55,7 @@ describe('cartes du Seigneur des clés — intégrité du paquet', () => {
 
   it('chaque illustration référencée existe dans public/', () => {
     for (const c of seigneurClesCards) {
-      expect(existsSync('public' + c.image), `image manquante : ${c.image}`).toBe(true)
+      expect(existsSync('public' + filePath(c.image)), `image manquante : ${c.image}`).toBe(true)
     }
   })
 
@@ -61,7 +66,7 @@ describe('cartes du Seigneur des clés — intégrité du paquet', () => {
       seigneurCles.backVillainImage,
       seigneurCles.backFateImage,
     ]) {
-      expect(existsSync('public' + path), `asset manquant : ${path}`).toBe(true)
+      expect(existsSync('public' + filePath(path)), `asset manquant : ${path}`).toBe(true)
     }
   })
 
@@ -89,6 +94,6 @@ describe('cartes du Seigneur des clés — intégrité du paquet', () => {
     const fosse = seigneurCles.locations.find((l) => l.id === 'fosse-commune')!
     const row = (r: 'top' | 'bottom') => fosse.actions.filter((a) => a.row === r).map((a) => a.type)
     expect(row('top')).toEqual(['FATE'])
-    expect(row('bottom')).toEqual(['MOVE_HERO', 'VANQUISH', 'GAIN_POWER'])
+    expect(row('bottom')).toEqual(['MOVE_HERO', 'VANQUISH', 'PLAY_CARD'])
   })
 })

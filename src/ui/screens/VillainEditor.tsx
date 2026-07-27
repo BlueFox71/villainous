@@ -83,11 +83,17 @@ interface SaveProgress {
   title?: string
 }
 
+/** Phases situées APRÈS la génération des images (barre pleine) : la persistance du
+ *  brouillon et, à la publication, le rangement des fichiers puis l'embarquement. */
+const SAVING_PHASES = ['Sauvegarde', 'Rangement', 'Embarquement']
+
 /** Overlay affiché pendant « Enregistrer » / « Publier » : barre de progression à ÉTAPES
  *  nommées (Génération → Sauvegarde → Terminé), puis fermeture automatique. */
 function SaveProgressOverlay({ done, total, phase, title }: SaveProgress) {
   const isDone = phase.startsWith('✓')
-  const isSaving = phase.startsWith('Sauvegarde')
+  // Étape « Sauvegarde » au sens large : persistance du brouillon, mais aussi les
+  // phases de PUBLICATION qui la suivent (rangement des fichiers, embarquement).
+  const isSaving = SAVING_PHASES.some((p) => phase.startsWith(p))
   const pct = total > 0 ? Math.round((done / total) * 100) : isDone ? 100 : 0
   const stepClass = (active: boolean, passed: boolean) =>
     active ? 'font-semibold text-amber-200' : passed ? 'text-emerald-300/80' : 'text-white/35'
@@ -105,7 +111,7 @@ function SaveProgressOverlay({ done, total, phase, title }: SaveProgress) {
           />
         </div>
         <span className="text-[11px] text-white/45">
-          {isDone ? 'Brouillon sauvegardé.' : isSaving ? 'Sauvegarde du brouillon…' : `${done} / ${total} images`}
+          {isDone ? 'Brouillon sauvegardé.' : isSaving ? 'Ne quitte pas l’éditeur…' : `${done} / ${total} images`}
         </span>
         <div className="flex items-center gap-1.5 text-[11px]">
           <span className={stepClass(!isDone && !isSaving, isSaving || isDone)}>Génération</span>
@@ -499,11 +505,19 @@ export function VillainEditor({ onBack, onPlay, openVillainId }: Props) {
   }
 
   /** Fige toutes les images (faces + dos) puis persiste. Renvoie le vilain baké.
-   *  Alimente la barre de chargement via `bakeProgress`. */
-  const bakeAndSave = async (v: CustomVillain, opts?: { title?: string }): Promise<CustomVillain> => {
+   *  Alimente la barre de chargement via `bakeProgress`.
+   *  `hold` : NE PAS relâcher l'overlay à la fin — l'appelant enchaîne d'autres phases
+   *  (publication) et fera lui-même `releaseBusy()`. Sans ça, l'éditeur redevenait
+   *  interactif pendant l'export/embarquement, où une action de l'utilisateur pouvait
+   *  faire planter l'onglet (rendus lourds concurrents d'un JSON de plusieurs Mo). */
+  const bakeAndSave = async (
+    v: CustomVillain,
+    opts?: { title?: string; hold?: boolean },
+  ): Promise<CustomVillain> => {
     const title = opts?.title
     setBusy(true)
     setBakeProgress({ done: 0, total: v.cards.length + 3, phase: 'Préparation…', title })
+    let ok = false
     try {
       const baked = await bakeVillain(v, (done, total, phase) => setBakeProgress({ done, total, phase, title }))
       // Étape « Sauvegarde » (barre pleine) pendant la persistance IndexedDB + disque.
@@ -511,14 +525,28 @@ export function VillainEditor({ onBack, onPlay, openVillainId }: Props) {
       await save(baked)
       setDraft(baked)
       setDirty(false)
+      if (opts?.hold) {
+        ok = true
+        return baked
+      }
       // État final « ✓ Terminé » affiché brièvement, puis fermeture automatique.
       setBakeProgress((p) => ({ done: p?.total ?? 1, total: p?.total ?? 1, phase: '✓ Terminé', title }))
       await new Promise((r) => setTimeout(r, 900))
       return baked
     } finally {
-      setBusy(false)
-      setBakeProgress(null)
+      // En mode `hold`, on ne relâche que si le bake a ÉCHOUÉ (sinon l'appelant garde
+      // la main jusqu'à la fin de la publication).
+      if (!ok) {
+        setBusy(false)
+        setBakeProgress(null)
+      }
     }
+  }
+
+  /** Relâche le verrou posé par `bakeAndSave(..., { hold: true })`. */
+  const releaseBusy = () => {
+    setBusy(false)
+    setBakeProgress(null)
   }
 
   const onSave = async () => {
@@ -828,28 +856,46 @@ Lance \`npm run test\` et \`npm run lint\`. Puis rappelle à l'utilisateur de cl
     setPublishOpen(false)
     const name = draft.name
     const wasPublished = draft.published
-    const baked = await bakeAndSave({ ...draft, published: true, creator: creator.trim() || undefined, origin })
-    // Écrit aussi ses fichiers dans assets/ (decks/<Nom>/, portraits, presentations,
-    // pions) comme un vilain natif. Best-effort : sans serveur de dév, on n'affiche rien.
-    const exp = await exportVillainAssets(baked)
-    const filesMsg = exp.ok ? `\n\n${exp.written} ${plural(exp.written, 'fichier')} ${plural(exp.written, 'rangé')} dans assets/.` : ''
-    // EMBARQUE le vilain (JSON « chemins », images en fichiers sous public/cards/) dans
-    // `src/data/published/` : chargé au démarrage, il devient disponible pour TOUS les
-    // joueurs (après commit + redéploiement). Best-effort : ne marche qu'avec le serveur
-    // de dév (apply: 'serve').
+    // `hold` : l'overlay reste posé jusqu'au message final. Les phases qui suivent
+    // (export + embarquement) manipulent des JSON de plusieurs Mo ; laisser l'éditeur
+    // interactif entre-temps faisait planter l'onglet si on y touchait.
+    const title = wasPublished ? '⏳ Mise à jour…' : '⏳ Publication…'
+    const baked = await bakeAndSave(
+      { ...draft, published: true, creator: creator.trim() || undefined, origin },
+      { title, hold: true },
+    )
+    let filesMsg = ''
     let sharedMsg = ''
     try {
-      // Protocole LÉGER : id en query, corps = JSON BRUT du vilain (UN SEUL stringify). Le 2e
-      // JSON.stringify (qui ré-échapperait ~des dizaines de Mo de base64 sur les gros decks)
-      // faisait planter l'onglet (OOM) à la publication. cf. handler /__publish-villain.
-      const res = await fetch(`/__publish-villain?id=${encodeURIComponent(baked.id)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(baked),
-      })
-      if (res.ok) sharedMsg = '\n\nEmbarqué dans l’app (src/data/published/) — committe + redéploie pour le rendre disponible à tous.'
-    } catch {
-      /* pas de serveur de dév : le vilain reste local (IndexedDB) */
+      // Écrit aussi ses fichiers dans assets/ (decks/<Nom>/, portraits, presentations,
+      // pions) comme un vilain natif. Best-effort : sans serveur de dév, on n'affiche rien.
+      setBakeProgress((p) => ({ done: p?.total ?? 1, total: p?.total ?? 1, phase: 'Rangement des fichiers…', title }))
+      try {
+        const exp = await exportVillainAssets(baked)
+        if (exp.ok) filesMsg = `\n\n${exp.written} ${plural(exp.written, 'fichier')} ${plural(exp.written, 'rangé')} dans assets/.`
+      } catch {
+        /* pas de serveur de dév : rien n'est rangé dans assets/ */
+      }
+      // EMBARQUE le vilain (JSON « chemins », images en fichiers sous public/cards/) dans
+      // `src/data/published/` : chargé au démarrage, il devient disponible pour TOUS les
+      // joueurs (après commit + redéploiement). Best-effort : ne marche qu'avec le serveur
+      // de dév (apply: 'serve').
+      setBakeProgress((p) => ({ done: p?.total ?? 1, total: p?.total ?? 1, phase: 'Embarquement dans l’app…', title }))
+      try {
+        // Protocole LÉGER : id en query, corps = JSON BRUT du vilain (UN SEUL stringify). Le 2e
+        // JSON.stringify (qui ré-échapperait ~des dizaines de Mo de base64 sur les gros decks)
+        // faisait planter l'onglet (OOM) à la publication. cf. handler /__publish-villain.
+        const res = await fetch(`/__publish-villain?id=${encodeURIComponent(baked.id)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(baked),
+        })
+        if (res.ok) sharedMsg = '\n\nEmbarqué dans l’app (src/data/published/) — committe + redéploie pour le rendre disponible à tous.'
+      } catch {
+        /* pas de serveur de dév : le vilain reste local (IndexedDB) */
+      }
+    } finally {
+      releaseBusy()
     }
     alert(
       (wasPublished

@@ -584,38 +584,10 @@ const ACTION_POS: Record<string, Record<string, Record<string, { x: number; y: n
       'gain-power': { x: 93.1, y: 67.4 },
     },
   },
-  // Le Seigneur des clés : gabarit standard (panneau objectif à gauche + 4 lieux),
-  // colonnes ~22.7/30.5 · 43.5/51.4 · 64.3/72.1 · 85.1/92.9 %, rangées haut ~20 /
-  // bas ~67.8. La Crypte porte 2 actions « Jouer » en haut et Gagner 3 · Obtenir une
-  // clé en bas. MESURES À AFFINER via l'inspecteur.
-  'custom-seigneur-cles': {
-    crypte: {
-      'play-card-top': { x: 23, y: 20 },
-      'play-card-top2': { x: 31, y: 20.5 },
-      'gain-power': { x: 23, y: 67.8 },
-      'obtain-key': { x: 30.9, y: 68 },
-    },
-    cachot: {
-      'play-card-top': { x: 43.5, y: 20 },
-      'gain-power': { x: 51.3, y: 20 },
-      'play-card-bottom': { x: 43.3, y: 67.8 },
-      discard: { x: 51.2, y: 67.8 },
-    },
-    cimetiere: {
-      discard: { x: 64.3, y: 20 },
-      'gain-power': { x: 72.1, y: 20 },
-      'play-card': { x: 64.2, y: 67.5 },
-      fate: { x: 72.1, y: 67.8 },
-    },
-    // Fosse commune : 1 seule action en haut (Fatalité, centrée) et 3 en bas, dans
-    // l'ordre des icônes du plateau — Déplacer un Héros · Éliminer un Héros · Gagner 1.
-    'fosse-commune': {
-      fate: { x: 88.8, y: 20 },
-      'move-hero': { x: 82.6, y: 67.2 },
-      vanquish: { x: 89.1, y: 67.2 },
-      'gain-power': { x: 95.4, y: 67.2 },
-    },
-  },
+  // NB : « Le Seigneur des clés » (custom-seigneur-cles) n'a PAS d'entrée ici. C'est
+  // un vilain de l'ATELIER : ses positions viennent de `customActionPositions` (donc
+  // de ses données), sinon les pastilles resteraient figées aux coordonnées mesurées
+  // sur l'ancien plateau et ne suivraient plus ses modifications.
   // Madame de Trémaine : gabarit standard (panneau objectif à gauche + 4 lieux),
   // colonnes ~22.7/30.5 · 43.5/51.4 · 64.3/72.1 · 85.1/92.9 %, rangées haut ~20 /
   // bas ~67.8. La Salle de Bal n'a que 3 actions (en bas : Activer · Jouer · Déplacer).

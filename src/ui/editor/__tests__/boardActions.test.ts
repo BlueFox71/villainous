@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { typeOptionsFor, hasFreeLabel } from '../BoardTab'
+import { typeOptionsFor, hasFreeLabel } from '../boardActionTypes'
 
 // Actions de plateau de l'Atelier : le type PERSONNALISÉ (icône importée + libellé libre)
 // et la préservation des types SPÉCIAUX déjà posés (OBTAIN_KEY…), qui ne doivent jamais être

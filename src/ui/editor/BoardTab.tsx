@@ -5,7 +5,8 @@ import type { CustomVillain, CustomLocation, CustomAction, BoardLock } from '../
 import { DEFAULT_BOARD_LOCK_SIZE } from '../../data/customVillain'
 import type { ActionRow, LocationActionType } from '../../engine/types'
 import { Field, TextField, NumberField, ImageField, SelectField, inputClass } from './fields'
-import { renderBoard } from './boardRender'
+import { typeOptionsFor, hasFreeLabel, defaultLabelFor } from './boardActionTypes'
+import { renderBoard, boardSignature } from './boardRender'
 import { loadImage } from './imageUtils'
 import { BOARD_W, BOARD_H } from './boardLayout'
 import { Hotspot } from './CardLayout'
@@ -26,56 +27,6 @@ interface LockDrag {
   ox: number
   oy: number
   osize: number
-}
-
-/** Types d'action GÉNÉRIQUES exposés à l'éditeur (tous gérés génériquement par le
- *  moteur, sans mécanique propre à un vilain). On exclut les actions spéciales
- *  (BREW_POISON, OBTAIN_KEY…) qui supposent une mécanique dédiée. */
-const ACTION_TYPES: { value: LocationActionType; label: string; defaultLabel: string }[] = [
-  { value: 'GAIN_POWER', label: 'Gagner du pouvoir', defaultLabel: 'Gagner du pouvoir' },
-  { value: 'PLAY_CARD', label: 'Jouer une carte', defaultLabel: 'Jouer une carte' },
-  { value: 'FATE', label: 'Fatalité', defaultLabel: 'Fatalité' },
-  { value: 'MOVE_ITEM_ALLY', label: 'Déplacer un objet/allié', defaultLabel: 'Déplacer un objet ou un allié' },
-  { value: 'MOVE_HERO', label: 'Déplacer un héros', defaultLabel: 'Déplacer un héros' },
-  { value: 'VANQUISH', label: 'Vaincre un héros', defaultLabel: 'Vaincre un héros' },
-  { value: 'DISCARD_CARDS', label: 'Défausser', defaultLabel: 'Défausser des cartes' },
-  { value: 'ACTIVATE', label: 'Activer une capacité', defaultLabel: 'Activer une capacité' },
-  // Action PERSONNALISÉE : aucune mécanique générique (effet « à coder au test »),
-  // icône importée + libellé libre décrivant l'effet.
-  { value: 'CUSTOM', label: 'Personnalisée (icône + effet décrit)', defaultLabel: 'Action personnalisée' },
-]
-
-/** Libellés lisibles des types SPÉCIAUX (mécanique dédiée à un vilain) qui peuvent
- *  déjà exister sur un plateau mais ne sont PAS proposés à la création dans l'éditeur.
- *  On les affiche en clair pour ne pas les écraser silencieusement à l'édition. */
-const SPECIAL_TYPE_LABELS: Partial<Record<LocationActionType, string>> = {
-  BREW_POISON: 'Préparer du poison (spéciale)',
-  OBTAIN_KEY: 'Obtenir une clé (spéciale)',
-  CATCH_POKEMON: 'Attraper un Pokémon (spéciale)',
-  REVEAL_FIGHTER: 'Dévoiler un combattant (spéciale)',
-}
-
-/** Options du sélecteur de type pour UNE action : les types génériques + le type
- *  courant s'il est SPÉCIAL (préservé, non clobberé) avec un libellé explicite. */
-export function typeOptionsFor(type: LocationActionType): { value: LocationActionType; label: string }[] {
-  const opts = ACTION_TYPES.map((t) => ({ value: t.value, label: t.label }))
-  if (!opts.some((o) => o.value === type)) {
-    opts.push({ value: type, label: SPECIAL_TYPE_LABELS[type] ?? `${type} (spéciale)` })
-  }
-  return opts
-}
-
-/** Une action porte-t-elle un LIBELLÉ libre éditable ? Vrai pour les actions
- *  personnalisées et les actions spéciales (leur texte n'est pas dérivé d'un type
- *  générique). Les types génériques gardent un libellé auto (dérivé du type). */
-export function hasFreeLabel(type: LocationActionType): boolean {
-  return type === 'CUSTOM' || !ACTION_TYPES.some((t) => t.value === type)
-}
-
-/** Libellé par défaut d'une action selon son type (et son montant). */
-function defaultLabelFor(type: LocationActionType, amount?: number): string {
-  if (type === 'GAIN_POWER') return `Gagner ${amount ?? 1} pouvoir`
-  return ACTION_TYPES.find((t) => t.value === type)?.defaultLabel ?? type
 }
 
 /** Identifiant d'action libre au sein d'une liste d'actions (act1, act2…). */
@@ -145,13 +96,32 @@ function ActionEditor({
               fit="contain"
             />
           </div>
-          <div className="flex-1">
+          <div className="flex flex-1 flex-col gap-1.5">
             <TextField
               label="Libellé / effet (décrit)"
               value={action.label}
               onChange={(label) => onChange({ ...action, label })}
               placeholder="Ex. : Obtenir une clé de la couleur du dé"
             />
+            {/* Taille de l'icône DANS l'anneau doré (100 % = logée comme les icônes
+                du gabarit ; au-delà elle déborde sur l'anneau). */}
+            {action.iconImage && (
+              <label className="flex items-center gap-2 text-xs text-white/50">
+                <span className="shrink-0 font-semibold uppercase tracking-wide">🔍 Taille icône</span>
+                <input
+                  type="range"
+                  min={40}
+                  max={150}
+                  step={5}
+                  value={Math.round((action.iconScale ?? 1) * 100)}
+                  onChange={(e) => onChange({ ...action, iconScale: Number(e.target.value) / 100 })}
+                  className="flex-1 accent-amber-400"
+                />
+                <span className="w-10 shrink-0 text-right tabular-nums text-white/70">
+                  {Math.round((action.iconScale ?? 1) * 100)} %
+                </span>
+              </label>
+            )}
           </div>
         </div>
       )}
@@ -411,21 +381,7 @@ function BoardPreview({
     : v
   // Re-rend quand un champ visuel du plateau change (débanché). Les cadenas
   // décoratifs ne sont PAS bakés ici (skipLocks) : ils sont en overlay live.
-  const key = JSON.stringify({
-    b: showB,
-    c: previewV.color,
-    n: previewV.name,
-    o: previewV.boardObjective,
-    oy: previewV.objectiveTextOffsetY,
-    art: previewV.boardArt?.slice(0, 48),
-    pp: previewV.portraitPos,
-    locs: previewV.locations.map((l) => ({
-      n: l.name,
-      i: l.image?.slice(0, 48),
-      ip: l.imagePos,
-      a: l.actions.map((x) => ({ t: x.type, r: x.row, m: x.amount, ic: x.iconImage?.slice(0, 32) })),
-    })),
-  })
+  const key = `${showB}|${boardSignature(previewV, { skipLocks: true })}`
   useEffect(() => {
     let alive = true
     const h = setTimeout(() => {

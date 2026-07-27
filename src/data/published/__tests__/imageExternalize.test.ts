@@ -18,9 +18,19 @@ const villain = () => ({
   backFateImage: PNG,
   backExtraImage: JPG,
   audio: 'data:audio/mpeg;base64,QQ==',
+  // Empreinte d'éditeur (calculée sur les data-URLs) : ne doit pas suivre dans la copie publiée.
+  boardSig: '{"art":"UklGRhilAQBXRUJQVlA4WAoAA#143767"}',
   backOverlays: [{ image: PNG }, { image: JPG }],
   backExtra: { overlays: [{ image: PNG }] },
-  locations: [{ id: 'loc-a', image: PNG, alt: { image: JPG, columnImage: PNG } }],
+  locations: [
+    {
+      id: 'loc-a',
+      image: PNG,
+      // Icône importée d'une action « Personnalisée » (l'autre action n'en a pas).
+      actions: [{ id: 'obtain-key', iconImage: PNG }, { id: 'gain-power' }],
+      alt: { image: JPG, columnImage: PNG, actions: [{ id: 'obtain-key', iconImage: JPG }] },
+    },
+  ],
   cards: [
     { id: 'ma-carte', image: PNG, artImage: JPG },
     { id: 'sans-art', image: PNG },
@@ -47,8 +57,15 @@ describe('externalizeVillainImages', () => {
     expect(out.backOverlays[0].image).toBe('/cards/custom-test/back-overlay-0.png?v=1783728000000')
     expect(out.backOverlays[1].image).toBe('/cards/custom-test/back-overlay-1.jpg?v=1783728000000')
     expect(out.backExtra.overlays[0].image).toBe('/cards/custom-test/back-extra-overlay-0.png?v=1783728000000')
-    // un fichier par image (11 top + 2 backOverlays + 1 backExtra.overlay + 3 loc + 3 cartes = 20)
-    expect(files.length).toBe(20)
+    // Icônes d'action importées (face A et face B du lieu).
+    expect(out.locations[0].actions[0].iconImage).toBe('/cards/custom-test/loc-loc-a.act-obtain-key.png?v=1783728000000')
+    expect(out.locations[0].actions[1].iconImage).toBeUndefined()
+    expect(out.locations[0].alt.actions[0].iconImage).toBe('/cards/custom-test/loc-loc-a.alt.act-obtain-key.jpg?v=1783728000000')
+    // Empreinte du plateau retirée : périmée hors éditeur, et porteuse de bribes de base64.
+    expect(out.boardSig).toBeUndefined()
+    // un fichier par image (11 top + 2 backOverlays + 1 backExtra.overlay + 3 loc
+    // + 2 icônes d'action + 3 cartes = 22)
+    expect(files.length).toBe(22)
     const p = files.find((f) => f.path === 'cards/custom-test/portrait.png')
     expect(p).toEqual({ path: 'cards/custom-test/portrait.png', base64: 'QUJD', mime: 'image/png' })
     // Chaque nouveau champ produit bien un fichier avec le bon path relatif.

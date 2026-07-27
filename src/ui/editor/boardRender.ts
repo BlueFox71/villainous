@@ -160,6 +160,39 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 /** Fichier du cadenas (partagé avec l'overlay « lieu verrouillé » en jeu). */
 const LOCK_SRC = '/cards/jafar/lock.webp'
 
+/** Empreinte d'une image (chemin ou dataURL) : début + longueur — assez pour repérer
+ *  un changement sans trimballer des mégaoctets de base64 dans la signature. L'entête
+ *  d'une dataURL (`data:image/webp;base64,`) est retirée : la signature est stockée
+ *  sur le vilain, et un littéral `data:image` y ferait passer un JSON pour porteur
+ *  d'images embarquées (cf. `publishedNoDataUrl.test.ts`). */
+function imgSig(img?: string): string {
+  if (!img) return ''
+  const body = img.startsWith('data:') ? img.slice(img.indexOf(',') + 1) : img
+  return `${body.slice(0, 32)}#${img.length}`
+}
+
+/** Signature des DONNÉES dont dépend le rendu du plateau (cf. `renderBoard`, mêmes
+ *  options). Deux vilains de même signature donnent la même image : sert au bake à
+ *  savoir si un plateau déjà figé (chemin externe) est encore à jour ou doit être
+ *  re-généré, et à l'aperçu de l'Atelier à savoir quand se rafraîchir. */
+export function boardSignature(v: CustomVillain, opts: { skipLocks?: boolean } = {}): string {
+  return JSON.stringify({
+    c: v.color,
+    n: v.name,
+    o: v.boardObjective,
+    oy: v.objectiveTextOffsetY,
+    art: imgSig(v.boardArt),
+    pp: v.portraitPos,
+    locks: opts.skipLocks ? undefined : v.boardLocks,
+    locs: v.locations.map((l) => ({
+      n: l.name,
+      i: imgSig(l.image),
+      ip: l.imagePos,
+      a: l.actions.map((a) => ({ t: a.type, r: a.row, m: a.amount, ic: imgSig(a.iconImage), is: a.iconScale })),
+    })),
+  })
+}
+
 /** Rend le plateau complet d'un vilain personnalisé en dataURL PNG.
  *  `skipLocks` : ne bake PAS les cadenas décoratifs (l'éditeur les affiche en
  *  overlay live à la place, pour rester réactif pendant le glisser). */
@@ -357,6 +390,10 @@ export async function renderBoard(v: CustomVillain, opts: { skipLocks?: boolean 
   // rétrécit pas quand on réduit l'icône d'action.
   const DISC = 204
   const ICON = 190 // taille de dessin de l'icône PNG (carrée), en px — rétrécie dans le disque
+  // Icône IMPORTÉE : elle se loge À L'INTÉRIEUR de l'anneau (« Bord action »), comme
+  // les glyphes du gabarit. Fraction d'ICON telle que la diagonale du carré reste
+  // sous le cercle intérieur de l'anneau.
+  const ICON_IN_RING = 0.62
 
   // Disque sombre commun à tous les médaillons (gabarit « Fill #4 » teinté en
   // ardoise) : sans lui, l'arrière-plan transparaîtrait à travers l'anneau ajouré.
@@ -370,15 +407,21 @@ export async function renderBoard(v: CustomVillain, opts: { skipLocks?: boolean 
       const py = (p.y / 100) * BOARD_H
       let drawn = false
       // Icône IMPORTÉE (action perso ou surcharge visuelle d'un type) : disque teinté
-      // commun + image « contain » à la taille de l'icône, priorité sur l'icône du type.
+      // commun + anneau doré du gabarit + image « contain » logée dedans, priorité sur
+      // l'icône du type. Le facteur `iconScale` (Atelier) redimensionne l'image seule.
       if (a.iconImage) {
         try {
           const custom = await loadImage(a.iconImage)
           if (disc) ctx.drawImage(disc, px - DISC / 2, py - DISC / 2, DISC, DISC)
-          const scale = Math.min(ICON / custom.width, ICON / custom.height)
+          // Anneau doré SEUL (« Bord action » du gabarit) : le bord des médaillons,
+          // sans glyphe — pour entourer l'icône importée comme les icônes de type.
+          const ring = await asset('action-ring.png').catch(() => null)
+          const box = ICON * (ring ? ICON_IN_RING : 1) * (a.iconScale ?? 1)
+          const scale = Math.min(box / custom.width, box / custom.height)
           const dw = custom.width * scale
           const dh = custom.height * scale
           ctx.drawImage(custom, px - dw / 2, py - dh / 2, dw, dh)
+          if (ring) ctx.drawImage(ring, px - ICON / 2, py - ICON / 2, ICON, ICON)
           drawn = true
         } catch { /* image illisible → icône du type */ }
       }

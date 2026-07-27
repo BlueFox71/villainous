@@ -4,7 +4,7 @@
 import type { CustomVillain } from '../../data/customVillain'
 import { FATE_CARD_COLOR, extraBackColor, extraBackPaper } from '../../data/customVillain'
 import { renderCardFace, renderCardBack } from './cardRender'
-import { renderBoard, renderLocationColumnB, renderAltObjectiveBoard } from './boardRender'
+import { renderBoard, renderLocationColumnB, renderAltObjectiveBoard, boardSignature } from './boardRender'
 import { downscaleDataUrl } from './imageUtils'
 
 /** Largeur de stockage des faces (suffisante à l'affichage en jeu, plus légère). */
@@ -88,7 +88,18 @@ export async function bakeVillain(
     )
     tick('Génération des dos')
   }
-  const boardImage = isExternal(v.boardImage)
+  // Plateau : une fois le vilain publié, `boardImage` est un CHEMIN (fichier sous
+  // public/cards/) — la garde `isExternal` le gelait alors DÉFINITIVEMENT et aucune
+  // modification du plateau n'apparaissait plus en jeu. On compare donc la signature
+  // de ses données à celle du dernier rendu : identique = on garde le fichier,
+  // différente = on re-génère. Sans signature mémorisée (vilains publiés avant), on
+  // re-génère dès qu'on a de quoi redessiner (illustration ou image de lieu) et on
+  // conserve l'image figée sinon.
+  const boardSig = boardSignature(v)
+  const canRedraw = !!v.boardArt || v.locations.some((l) => l.image)
+  const boardFrozen =
+    isExternal(v.boardImage) && (v.boardSig === boardSig || (v.boardSig === undefined && !canRedraw))
+  const boardImage = boardFrozen
     ? v.boardImage!
     : await downscaleDataUrl(await renderBoard(v), BOARD_STORE_W, 'image/webp', 0.9)
   tick('Génération du plateau')
@@ -109,5 +120,5 @@ export async function bakeVillain(
     ? await downscaleDataUrl(await renderAltObjectiveBoard(v), BOARD_STORE_W, 'image/webp', 0.9)
     : undefined
   if (v.altObjective) tick('Génération du plateau')
-  return { ...v, cards, backVillainImage, backFateImage, backExtraImage, boardImage, locations, altBoardImage }
+  return { ...v, cards, backVillainImage, backFateImage, backExtraImage, boardImage, boardSig, locations, altBoardImage }
 }

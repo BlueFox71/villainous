@@ -57,11 +57,19 @@ export function externalizeVillainImages(villain, opts = {}) {
     out.backExtra.overlays.forEach((o, i) => processField(o, 'image', `back-extra-overlay-${i}`, ctx))
   }
   if (Array.isArray(out.locations)) {
+    // Icône IMPORTÉE d'une action de plateau (action « Personnalisée », ou surcharge
+    // visuelle d'un type) : data-URL comme les autres visuels → externalisée aussi.
+    const actionIcons = (actions, prefix) => {
+      if (!Array.isArray(actions)) return
+      for (const a of actions) processField(a, 'iconImage', `${prefix}.act-${a.id}`, ctx)
+    }
     for (const l of out.locations) {
       processField(l, 'image', `loc-${l.id}`, ctx)
+      actionIcons(l.actions, `loc-${l.id}`)
       if (l.alt) {
         processField(l.alt, 'image', `loc-${l.id}.alt`, ctx)
         processField(l.alt, 'columnImage', `loc-${l.id}.alt-col`, ctx)
+        actionIcons(l.alt.actions, `loc-${l.id}.alt`)
       }
     }
   }
@@ -78,5 +86,11 @@ export function externalizeVillainImages(villain, opts = {}) {
       }
     }
   }
+  // `boardSig` (empreinte des données du plateau au dernier rendu, cf. `boardSignature`)
+  // est une info d'ÉDITEUR calculée sur les images en data-URL : dans la copie publiée
+  // (où elles sont devenues des chemins) elle est de toute façon périmée, et elle ferait
+  // traîner des bribes de base64 dans le JSON. On la retire — un vilain publié re-généré
+  // dans l'Atelier redessine simplement son plateau.
+  delete out.boardSig
   return { villain: out, files: ctx.files }
 }

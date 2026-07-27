@@ -42,6 +42,9 @@ export interface CustomAction {
    *  plateau baké. Surtout utile pour une action `CUSTOM` (dont le type n'a pas
    *  d'icône), mais surchargeable sur n'importe quelle action. Absent = icône du type. */
   iconImage?: string
+  /** Taille de l'icône importée, en facteur de sa taille par défaut (1 = logée dans
+   *  l'anneau doré comme les icônes du gabarit ; >1 déborde, <1 rétrécit). */
+  iconScale?: number
 }
 
 /** Position de cadrage d'une image « cover » dans sa zone (façon object-position) :
@@ -385,6 +388,10 @@ export interface CustomVillain {
   portraitPos?: CropPos
   /** Image du plateau. */
   boardImage?: string
+  /** Signature des données du plateau au moment où `boardImage` a été généré
+   *  (cf. `boardSignature`). Permet au bake de savoir qu'un plateau déjà figé en
+   *  FICHIER (vilain publié) est périmé et doit être re-généré. */
+  boardSig?: string
   /** Pion. */
   pawnImage?: string
   pawnHeightPx: number
@@ -852,7 +859,9 @@ export function mergeGameData(target: CustomVillain, light: Partial<CustomVillai
 const VARIANT_OWN_VILLAIN_FIELDS = [
   'name', 'devise', 'color', 'coverColor', 'keywordColors',
   'portrait', 'portraitRaw', 'portraitCrop', 'presentation',
-  'boardArt', 'portraitPos', 'boardImage', 'altBoardImage',
+  // `boardSig` suit `boardImage` : la variante a son propre plateau, donc sa propre
+  // signature de fraîcheur (sinon celle de la base la ferait passer pour à jour).
+  'boardArt', 'portraitPos', 'boardImage', 'boardSig', 'altBoardImage',
   'pawnImage', 'pawnHeightPx', 'audio',
   // Dos de cartes : ornements importés + images bakées (re-générées à la couleur de la variante).
   'backOverlays', 'backVillainImage', 'backFateImage', 'backExtra', 'backExtraImage',
