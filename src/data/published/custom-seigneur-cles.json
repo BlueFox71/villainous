@@ -1,585 +1,722 @@
 {
- "formatVersion": 1,
- "id": "custom-seigneur-cles",
- "name": "Le Seigneur des clés",
- "devise": "Ce n’est que le début de votre cauchemar !",
- "stars": 2,
- "color": "#303030",
- "portrait": "/cards/custom-seigneur-cles/portrait.png",
- "presentation": "/cards/custom-seigneur-cles/presentation.png",
- "boardImage": "/cards/custom-seigneur-cles/board.webp",
- "pawnImage": "/cards/custom-seigneur-cles/pawn.png",
- "pawnHeightPx": 80,
- "backVillainImage": "/cards/custom-seigneur-cles/back-villain.webp",
- "backFateImage": "/cards/custom-seigneur-cles/back-fate.webp",
- "boardObjective": "Au début de votre tour, vous devez avoir au moins 1 clé de chaque couleur.",
- "objectiveDescription": "Au début de votre tour, possédez au moins 1 clé de CHAQUE couleur (bleu, rouge, vert, jaune, violet, orange). 12 clés sont réparties sur vos 4 lieux ; ramassez-les avec l’action « Obtenir une clé » (Crypte), Toute Puissance, Pierre Tombale, 00:00… Certaines cartes lancent un dé de couleur. Tant que vous détenez la Clé Noire, vous ne pouvez pas gagner.",
- "objective": {
-  "type": "KEYS_ALL_COLORS"
- },
- "startingKeysPerLocation": 3,
- "locations": [
-  {
-   "id": "crypte",
-   "name": "Crypte",
-   "actions": [
-    {
-     "id": "play-card-top",
-     "type": "PLAY_CARD",
-     "label": "Jouer une carte",
-     "row": "top"
-    },
-    {
-     "id": "play-card-top2",
-     "type": "PLAY_CARD",
-     "label": "Jouer une carte",
-     "row": "top"
-    },
-    {
-     "id": "gain-power",
-     "type": "GAIN_POWER",
-     "label": "Gagner 3 pouvoir",
-     "row": "bottom",
-     "amount": 3
-    },
-    {
-     "id": "obtain-key",
-     "type": "OBTAIN_KEY",
-     "label": "Obtenir une clé",
-     "row": "bottom"
-    }
-   ]
+  "formatVersion": 1,
+  "id": "custom-seigneur-cles",
+  "name": "Le Seigneur des clés",
+  "devise": "Ce n’est que le début de votre cauchemar !",
+  "stars": 2,
+  "color": "#463c96",
+  "portrait": "/cards/custom-seigneur-cles/portrait.webp?v=1785148243696",
+  "presentation": "/cards/custom-seigneur-cles/presentation.webp?v=1785148243696",
+  "boardImage": "/cards/custom-seigneur-cles/board.webp?v=1785148243696",
+  "pawnImage": "/cards/custom-seigneur-cles/pawn.png",
+  "pawnHeightPx": 80,
+  "backVillainImage": "/cards/custom-seigneur-cles/back-villain.webp",
+  "backFateImage": "/cards/custom-seigneur-cles/back-fate.webp",
+  "boardObjective": "Au début de votre tour, vous devez avoir au moins 1 clé de chaque couleur.",
+  "objectiveDescription": "Au début de votre tour, possédez au moins 1 clé de CHAQUE couleur (bleu, rouge, vert, jaune, violet, orange). 12 clés sont réparties sur vos 4 lieux ; ramassez-les avec l’action « Obtenir une clé » (Crypte), Toute Puissance, Pierre Tombale, 00:00… Certaines cartes lancent un dé de couleur. Tant que vous détenez la Clé Noire, vous ne pouvez pas gagner.",
+  "objective": {
+    "type": "KEYS_ALL_COLORS"
   },
-  {
-   "id": "cachot",
-   "name": "Cachot",
-   "actions": [
+  "startingKeysPerLocation": 3,
+  "locations": [
     {
-     "id": "play-card-top",
-     "type": "PLAY_CARD",
-     "label": "Jouer une carte",
-     "row": "top"
+      "id": "crypte",
+      "name": "LA CRYPTE",
+      "actions": [
+        {
+          "id": "play-card-top",
+          "type": "PLAY_CARD",
+          "label": "Jouer une carte",
+          "row": "top"
+        },
+        {
+          "id": "play-card-top2",
+          "type": "PLAY_CARD",
+          "label": "Jouer une carte",
+          "row": "top"
+        },
+        {
+          "id": "gain-power",
+          "type": "GAIN_POWER",
+          "label": "Gagner 3 pouvoir",
+          "row": "bottom",
+          "amount": 3
+        },
+        {
+          "id": "obtain-key",
+          "type": "OBTAIN_KEY",
+          "label": "Obtenir une clé",
+          "row": "bottom",
+          "iconImage": "/cards/custom-seigneur-cles/loc-crypte.act-obtain-key.webp?v=1785148243696"
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/loc-crypte.webp?v=1785148243696"
     },
     {
-     "id": "gain-power",
-     "type": "GAIN_POWER",
-     "label": "Gagner 1 pouvoir",
-     "row": "top",
-     "amount": 1
+      "id": "cachot",
+      "name": "LE CACHOT",
+      "actions": [
+        {
+          "id": "play-card-top",
+          "type": "PLAY_CARD",
+          "label": "Jouer une carte",
+          "row": "top"
+        },
+        {
+          "id": "gain-power",
+          "type": "GAIN_POWER",
+          "label": "Gagner 2 pouvoir",
+          "row": "top",
+          "amount": 2
+        },
+        {
+          "id": "play-card-bottom",
+          "type": "PLAY_CARD",
+          "label": "Jouer une carte",
+          "row": "bottom"
+        },
+        {
+          "id": "discard",
+          "type": "DISCARD_CARDS",
+          "label": "Défausser des cartes",
+          "row": "bottom"
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/loc-cachot.webp?v=1785148243696"
     },
     {
-     "id": "play-card-bottom",
-     "type": "PLAY_CARD",
-     "label": "Jouer une carte",
-     "row": "bottom"
+      "id": "cimetiere",
+      "name": "LE CIMETIÈRE",
+      "actions": [
+        {
+          "id": "discard",
+          "type": "DISCARD_CARDS",
+          "label": "Défausser des cartes",
+          "row": "top"
+        },
+        {
+          "id": "gain-power",
+          "type": "PLAY_CARD",
+          "label": "Jouer une carte",
+          "row": "top"
+        },
+        {
+          "id": "play-card",
+          "type": "GAIN_POWER",
+          "label": "Gagner 1 pouvoir",
+          "row": "bottom",
+          "amount": 1
+        },
+        {
+          "id": "fate",
+          "type": "FATE",
+          "label": "Fatalité",
+          "row": "bottom"
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/loc-cimetiere.webp?v=1785148243696"
     },
     {
-     "id": "discard",
-     "type": "DISCARD_CARDS",
-     "label": "Défausser des cartes",
-     "row": "bottom"
+      "id": "fosse-commune",
+      "name": "LA FOSSE COMMUNE",
+      "actions": [
+        {
+          "id": "fate",
+          "type": "FATE",
+          "label": "Fatalité",
+          "row": "top"
+        },
+        {
+          "id": "move-hero",
+          "type": "MOVE_HERO",
+          "label": "Déplacer un héros",
+          "row": "bottom"
+        },
+        {
+          "id": "vanquish",
+          "type": "VANQUISH",
+          "label": "Éliminer un héros",
+          "row": "bottom"
+        },
+        {
+          "id": "gain-power",
+          "type": "PLAY_CARD",
+          "label": "Jouer une carte",
+          "row": "bottom"
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/loc-fosse-commune.webp?v=1785148243696"
     }
-   ]
+  ],
+  "cards": [
+    {
+      "id": "miserable-cloporte",
+      "name": "Misérable cloporte",
+      "englishName": "Misérable cloporte",
+      "deck": "villain",
+      "type": "condition",
+      "copies": 2,
+      "text": "Cette carte est jouable pendant le tour d’un adversaire lorsqu’il défausse au moins 2 cartes. Piochez autant de cartes Méchant que de cartes défaussées par l’adversaire.",
+      "trigger": {
+        "type": "opponent-discarded-ge",
+        "value": 2
+      },
+      "effects": [
+        {
+          "type": "DRAW_PER_OPPONENT_DISCARD"
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/miserable-cloporte.webp?v=1785148243696",
+      "artImage": "/cards/custom-seigneur-cles/miserable-cloporte.art.webp?v=1785148243696",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -26
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 80,
+        "w": 79,
+        "size": 76
+      }
+    },
+    {
+      "id": "souffre-douleur",
+      "name": "SOYEZ BANNI !",
+      "englishName": "Souffre douleur",
+      "deck": "villain",
+      "type": "effect",
+      "cost": 2,
+      "copies": 3,
+      "text": "Associez cette carte à un Héros, sa force est réduite à 0 puis déplacez le dans la fosse commune.",
+      "effects": [
+        {
+          "type": "REDUCE_HERO_STRENGTH_PERM",
+          "amount": 99
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/souffre-douleur.webp?v=1785148243696",
+      "textLayout": {
+        "x": 50,
+        "y": 80,
+        "w": 79,
+        "size": 76
+      },
+      "artImage": "/cards/custom-seigneur-cles/souffre-douleur.art.webp?v=1785148243696",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -26
+      }
+    },
+    {
+      "id": "pierre-tombale",
+      "name": "Pierre tombale",
+      "englishName": "Pierre tombale",
+      "deck": "villain",
+      "type": "effect",
+      "cost": 2,
+      "copies": 3,
+      "text": "Jetez le dé de couleur. Si une clé de cette couleur se trouve sur le lieu où vous êtes, prenez-la.",
+      "effects": [
+        {
+          "type": "ROLL_DIE_TAKE_KEY_AT_PAWN"
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/pierre-tombale.webp?v=1785148243696",
+      "artImage": "/cards/custom-seigneur-cles/pierre-tombale.art.webp?v=1785148243696",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -27
+      },
+      "textLayout": {
+        "x": 49.65277777777778,
+        "y": 77.3091770821389,
+        "w": 79,
+        "size": 76
+      }
+    },
+    {
+      "id": "carte-temps",
+      "name": "Carte Temps",
+      "englishName": "Carte Temps",
+      "deck": "villain",
+      "type": "effect",
+      "cost": 2,
+      "copies": 2,
+      "text": "Au prochain tour, effectuez une action 2 fois.",
+      "effects": [
+        {
+          "type": "GRANT_REPEAT_ACTION_NEXT_TURN"
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/carte-temps.webp?v=1785148243696",
+      "artImage": "/cards/custom-seigneur-cles/carte-temps.art.webp?v=1785148243696",
+      "artTransform": {
+        "scale": 0.7,
+        "offsetXPct": 0,
+        "offsetYPct": -26
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 80,
+        "w": 79,
+        "size": 76
+      }
+    },
+    {
+      "id": "carte-destin",
+      "name": "Carte Destin",
+      "englishName": "Carte Destin",
+      "deck": "villain",
+      "type": "effect",
+      "cost": 2,
+      "copies": 2,
+      "text": "Piochez 3 cartes et défaussez une carte de votre main.",
+      "effects": [
+        {
+          "type": "DRAW_THEN_DISCARD",
+          "draw": 3,
+          "discard": 1
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/carte-destin.webp?v=1785148243696",
+      "artImage": "/cards/custom-seigneur-cles/carte-destin.art.webp?v=1785148243696",
+      "artTransform": {
+        "scale": 0.71,
+        "offsetXPct": 0,
+        "offsetYPct": -23
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 80,
+        "w": 79,
+        "size": 76
+      }
+    },
+    {
+      "id": "toute-puissance",
+      "name": "Toute Puissance",
+      "englishName": "Toute Puissance",
+      "deck": "villain",
+      "type": "effect",
+      "cost": 3,
+      "copies": 2,
+      "text": "Gagnez une clé de votre choix sur le lieu où vous êtes.",
+      "effects": [
+        {
+          "type": "TAKE_KEY_AT_PAWN"
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/toute-puissance.webp?v=1785148243696",
+      "artImage": "/cards/custom-seigneur-cles/toute-puissance.art.webp?v=1785148243696",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -26
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 80,
+        "w": 79,
+        "size": 76
+      }
+    },
+    {
+      "id": "manque-de-temps",
+      "name": "Manque de temps",
+      "englishName": "Manque de temps",
+      "deck": "villain",
+      "type": "effect",
+      "cost": 2,
+      "copies": 2,
+      "text": "Défaussez toute votre main et piochez 4 cartes Méchant.",
+      "effects": [
+        {
+          "type": "DISCARD_HAND_DRAW",
+          "draw": 4
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/manque-de-temps.webp?v=1785148243696",
+      "artImage": "/cards/custom-seigneur-cles/manque-de-temps.art.webp?v=1785148243696",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": -2,
+        "offsetYPct": -25
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 75,
+        "w": 79,
+        "size": 76
+      }
+    },
+    {
+      "id": "cest-moi-qui-decide",
+      "name": "C’est moi qui décide",
+      "englishName": "C'est moi qui décide",
+      "deck": "villain",
+      "type": "effect",
+      "cost": 3,
+      "copies": 3,
+      "text": "Effectuez une action « Obtenir une clé ».",
+      "effects": [
+        {
+          "type": "ROLL_DIE_TAKE_KEY_FROM_BOARD"
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/cest-moi-qui-decide.webp?v=1785148243696",
+      "artImage": "/cards/custom-seigneur-cles/cest-moi-qui-decide.art.webp?v=1785148243696",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -25
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 77.6908229178611,
+        "w": 79,
+        "size": 76
+      }
+    },
+    {
+      "id": "repondez",
+      "name": "Répondez !",
+      "englishName": "Répondez !",
+      "deck": "villain",
+      "type": "effect",
+      "cost": 0,
+      "copies": 2,
+      "text": "Gagnez 1 jeton Pouvoir par couleur de clé différente en votre possession.",
+      "effects": [
+        {
+          "type": "GAIN_POWER_PER_KEY_COLOR"
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/repondez.webp?v=1785148243696",
+      "artImage": "/cards/custom-seigneur-cles/repondez.art.webp?v=1785148243696",
+      "textLayout": {
+        "x": 50,
+        "y": 80,
+        "w": 79,
+        "size": 76
+      },
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -26
+      }
+    },
+    {
+      "id": "trop-facile",
+      "name": "Trop facile",
+      "englishName": "Trop facile",
+      "deck": "villain",
+      "type": "effect",
+      "cost": 0,
+      "copies": 2,
+      "text": "Perdez une clé de votre choix et gagnez 3 jetons Pouvoir.",
+      "effects": [
+        {
+          "type": "LOSE_KEY_GAIN_POWER",
+          "power": 3
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/trop-facile.webp?v=1785148243696",
+      "artImage": "/cards/custom-seigneur-cles/trop-facile.art.webp?v=1785148243696",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -25
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 75,
+        "w": 79,
+        "size": 76
+      }
+    },
+    {
+      "id": "plus-quune-minute",
+      "name": "Plus qu’une minute",
+      "englishName": "Plus qu'une minute",
+      "deck": "villain",
+      "type": "effect",
+      "cost": 1,
+      "copies": 2,
+      "text": "Perdez une clé de votre choix et piochez 3 cartes.",
+      "effects": [
+        {
+          "type": "LOSE_KEY_DRAW",
+          "draw": 3
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/plus-quune-minute.webp?v=1785148243696",
+      "artImage": "/cards/custom-seigneur-cles/plus-quune-minute.art.webp?v=1785148243696",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -28
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 80,
+        "w": 79,
+        "size": 76
+      }
+    },
+    {
+      "id": "minuit",
+      "name": "CARTE CHANCE",
+      "englishName": "00:00",
+      "deck": "villain",
+      "type": "effect",
+      "cost": 2,
+      "copies": 3,
+      "text": "Choisissez une couleur puis lancez le dé de couleur. Si la couleur obtenue est la même, prenez une clé de cette couleur.",
+      "effects": [
+        {
+          "type": "CHOOSE_COLOR_ROLL_TAKE_KEY"
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/minuit.webp?v=1785148243696",
+      "artImage": "/cards/custom-seigneur-cles/minuit.art.webp?v=1785148243696",
+      "artTransform": {
+        "scale": 0.72,
+        "offsetXPct": 0,
+        "offsetYPct": -26
+      },
+      "textLayout": {
+        "x": 50,
+        "y": 80,
+        "w": 79,
+        "size": 76
+      }
+    },
+    {
+      "id": "anne-de-chantraine",
+      "name": "Anne de Chantraine",
+      "englishName": "Anne de Chantraine",
+      "deck": "fate",
+      "type": "hero",
+      "strength": 2,
+      "copies": 1,
+      "text": "Lorsqu’ANNE est jouée, le Seigneur des clés doit défausser toutes les cartes Événement de sa main.",
+      "onPlace": [
+        {
+          "type": "TARGET_DISCARD_ALL_OF_TYPE",
+          "cardType": "effect"
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/anne-de-chantraine.webp",
+      "fateMalus": "slow"
+    },
+    {
+      "id": "elisabeth-bathory",
+      "name": "Élisabeth Bathory",
+      "englishName": "Élisabeth Bathory",
+      "deck": "fate",
+      "type": "hero",
+      "strength": 2,
+      "copies": 1,
+      "text": "Tant qu’ÉLISABETH BATHORY est présente, les cartes « Condition » sont inutilisables.",
+      "image": "/cards/custom-seigneur-cles/elisabeth-bathory.webp",
+      "fateMalus": "slow"
+    },
+    {
+      "id": "baron-samedi",
+      "name": "Baron Samedi",
+      "englishName": "Baron Samedi",
+      "deck": "fate",
+      "type": "hero",
+      "strength": 2,
+      "copies": 1,
+      "text": "Lorsque BARON SAMEDI est joué, jetez le dé de couleur. Tant qu’il est présent, le Seigneur ne peut pas gagner de clé de cette couleur à l’aide du dé.",
+      "onPlace": [
+        {
+          "type": "ROLL_DIE_BLOCK_KEY_COLOR"
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/baron-samedi.webp",
+      "fateMalus": "block-advance"
+    },
+    {
+      "id": "hellin",
+      "name": "Hellin",
+      "englishName": "Hellin",
+      "deck": "fate",
+      "type": "hero",
+      "strength": 2,
+      "copies": 1,
+      "coversExtraAction": true,
+      "text": "HELLIN bloque 3 actions au lieu de 2.",
+      "image": "/cards/custom-seigneur-cles/hellin.webp",
+      "fateMalus": "slow"
+    },
+    {
+      "id": "khufu",
+      "name": "Khufu",
+      "englishName": "Khufu",
+      "deck": "fate",
+      "type": "hero",
+      "strength": 2,
+      "copies": 1,
+      "text": "Défaussez la carte Appel sur le lieu où est joué KHUFU.",
+      "onPlace": [
+        {
+          "type": "DISCARD_CARDS_AT_HOST",
+          "cardId": "appel"
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/khufu.webp",
+      "fateMalus": "slow"
+    },
+    {
+      "id": "gevaudan",
+      "name": "Gévaudan",
+      "englishName": "Gévaudan",
+      "deck": "fate",
+      "type": "hero",
+      "strength": 2,
+      "copies": 1,
+      "text": "Lorsque GÉVAUDAN est joué, il vole 2 clés au Seigneur des clés. S’il est éliminé, le Seigneur récupère ses clés.",
+      "onPlace": [
+        {
+          "type": "STEAL_KEY_TO_HERO"
+        }
+      ],
+      "onVanquish": [
+        {
+          "type": "RETURN_STOLEN_KEYS"
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/gevaudan.webp",
+      "fateMalus": "block-advance"
+    },
+    {
+      "id": "cle-noire",
+      "name": "Clé Noire",
+      "englishName": "Clé Noire",
+      "deck": "fate",
+      "type": "item",
+      "copies": 1,
+      "text": "Associez cette Clé Noire à un lieu. Si le Seigneur s’y rend, il la récupère. Tant qu’il la possède, il ne peut pas remporter la partie.",
+      "image": "/cards/custom-seigneur-cles/cle-noire.webp",
+      "fateMalus": "block-win"
+    },
+    {
+      "id": "jai-affronte-mon-cauchemar",
+      "name": "J’ai affronté mon cauchemar !",
+      "englishName": "J'ai affronté mon cauchemar !",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 1,
+      "text": "Lancez le dé de couleur. Le Seigneur des clés perd toutes les clés de la couleur obtenue.",
+      "effects": [
+        {
+          "type": "ROLL_DIE_LOSE_KEYS_COLOR"
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/jai-affronte-mon-cauchemar.webp"
+    },
+    {
+      "id": "sorcellerie",
+      "name": "Sorcellerie",
+      "englishName": "Sorcellerie",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 2,
+      "text": "Choisissez une clé du Seigneur des clés et remettez-la sur un lieu de votre choix.",
+      "effects": [
+        {
+          "type": "RETURN_OWNED_KEY_TO_BOARD"
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/sorcellerie.webp"
+    },
+    {
+      "id": "duel",
+      "name": "Duel",
+      "englishName": "Duel",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 3,
+      "text": "Prenez toutes les clés du plateau et replacez-les aléatoirement, équilibrées sur chaque lieu.",
+      "effects": [
+        {
+          "type": "REDISTRIBUTE_BOARD_KEYS"
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/duel.webp"
+    },
+    {
+      "id": "plaisir-ou-souffrance",
+      "name": "Plaisir ou souffrance",
+      "englishName": "Plaisir ou souffrance",
+      "deck": "fate",
+      "type": "effect",
+      "copies": 2,
+      "text": "Le Seigneur des clés choisit : perdre 3 jetons Pouvoir OU reposer une clé de son choix.",
+      "effects": [
+        {
+          "type": "PLAISIR_OU_SOUFFRANCE",
+          "power": 3
+        }
+      ],
+      "image": "/cards/custom-seigneur-cles/plaisir-ou-souffrance.webp"
+    },
+    {
+      "id": "custom-seigneur-cles-c1",
+      "name": "SOUFFRE DOULEUR",
+      "englishName": "",
+      "deck": "villain",
+      "type": "condition",
+      "copies": 2,
+      "text": "Cette carte est jouable pendant le tour de l'adversaire si celui-ci a effectué au moins 3 actions. Il devra rester sur place à son prochain tour.",
+      "image": "/cards/custom-seigneur-cles/custom-seigneur-cles-c1.webp?v=1785148243696",
+      "artTransform": {
+        "scale": 0.5,
+        "offsetXPct": 0,
+        "offsetYPct": -25
+      },
+      "textLayout": {
+        "x": 48.958333333333336,
+        "y": 77.2015823873409,
+        "w": 79,
+        "size": 76
+      },
+      "strength": 1,
+      "artImage": "/cards/custom-seigneur-cles/custom-seigneur-cles-c1.art.webp?v=1785148243696",
+      "typeLabel": "Condition",
+      "typeColor": "#d96fc0"
+    }
+  ],
+  "published": true,
+  "creator": "Alexis",
+  "origin": "Collaborations",
+  "createdAt": "2026-06-20T23:01:15.000Z",
+  "updatedAt": "2026-07-27T10:30:43.696Z",
+  "backOverlays": [
+    {
+      "id": "ovl-1",
+      "image": "/cards/custom-seigneur-cles/back-overlay-0.webp?v=1785148243696",
+      "x": 50,
+      "y": 50,
+      "size": 104,
+      "aspect": 1.4085281980742779
+    }
+  ],
+  "portraitRaw": "/cards/custom-seigneur-cles/portrait-raw.webp?v=1785148243696",
+  "portraitCrop": {
+    "x": 50,
+    "y": 50,
+    "zoom": 1
   },
-  {
-   "id": "cimetiere",
-   "name": "Cimetière",
-   "actions": [
-    {
-     "id": "discard",
-     "type": "DISCARD_CARDS",
-     "label": "Défausser des cartes",
-     "row": "top"
-    },
-    {
-     "id": "gain-power",
-     "type": "GAIN_POWER",
-     "label": "Gagner 1 pouvoir",
-     "row": "top",
-     "amount": 1
-    },
-    {
-     "id": "play-card",
-     "type": "PLAY_CARD",
-     "label": "Jouer une carte",
-     "row": "bottom"
-    },
-    {
-     "id": "fate",
-     "type": "FATE",
-     "label": "Fatalité",
-     "row": "bottom"
-    }
-   ]
-  },
-  {
-   "id": "fosse-commune",
-   "name": "Fosse commune",
-   "actions": [
-    {
-     "id": "fate",
-     "type": "FATE",
-     "label": "Fatalité",
-     "row": "top"
-    },
-    {
-     "id": "move-hero",
-     "type": "MOVE_HERO",
-     "label": "Déplacer un héros",
-     "row": "bottom"
-    },
-    {
-     "id": "vanquish",
-     "type": "VANQUISH",
-     "label": "Éliminer un héros",
-     "row": "bottom"
-    },
-    {
-     "id": "gain-power",
-     "type": "GAIN_POWER",
-     "label": "Gagner 1 pouvoir",
-     "row": "bottom",
-     "amount": 1
-    }
-   ]
+  "boardArt": "/cards/custom-seigneur-cles/board-art.webp?v=1785148243696",
+  "portraitPos": {
+    "x": 50,
+    "y": 50,
+    "zoom": 1
   }
- ],
- "cards": [
-  {
-   "id": "appel",
-   "name": "Appel",
-   "englishName": "Appel",
-   "deck": "villain",
-   "type": "item",
-   "cost": 3,
-   "copies": 1,
-   "attach": "location",
-   "onHeroPlayedHere": [
-    {
-     "type": "DRAW_OR_GAIN_POWER",
-     "draw": 1,
-     "power": 1
-    }
-   ],
-   "text": "Associez cette carte à un lieu. Si un Héros est joué sur ce lieu, gagnez 1 jeton Pouvoir ou piochez une carte Méchant.",
-   "image": "/cards/custom-seigneur-cles/appel.webp"
-  },
-  {
-   "id": "miserable-cloporte",
-   "name": "Misérable cloporte",
-   "englishName": "Misérable cloporte",
-   "deck": "villain",
-   "type": "condition",
-   "cost": 0,
-   "copies": 2,
-   "text": "Cette carte est jouable pendant le tour d’un adversaire lorsqu’il défausse au moins 2 cartes. Piochez autant de cartes Méchant que de cartes défaussées par l’adversaire.",
-   "trigger": {
-    "type": "opponent-discarded-ge",
-    "value": 2
-   },
-   "effects": [
-    {
-     "type": "DRAW_PER_OPPONENT_DISCARD"
-    }
-   ],
-   "image": "/cards/custom-seigneur-cles/miserable-cloporte.webp"
-  },
-  {
-   "id": "peste",
-   "name": "Peste",
-   "englishName": "Peste",
-   "deck": "villain",
-   "type": "condition",
-   "cost": 0,
-   "copies": 1,
-   "text": "Cette carte est jouable pendant le tour d’un adversaire s’il réalise au moins 3 actions. À son prochain tour, il ne pourra réaliser qu’une seule action.",
-   "trigger": {
-    "type": "opponent-actions-ge",
-    "value": 3
-   },
-   "effects": [
-    {
-     "type": "CAP_OPPONENT_NEXT_TURN",
-     "actions": 1
-    }
-   ],
-   "image": "/cards/custom-seigneur-cles/peste.webp"
-  },
-  {
-   "id": "banni",
-   "name": "Banni !",
-   "englishName": "Banni !",
-   "deck": "villain",
-   "type": "effect",
-   "cost": 2,
-   "copies": 2,
-   "text": "Envoyez un Héros dans la Fosse commune.",
-   "effects": [
-    {
-     "type": "MOVE_HERO_TO_LOCATION",
-     "locationId": "fosse-commune"
-    }
-   ],
-   "image": "/cards/custom-seigneur-cles/banni.webp"
-  },
-  {
-   "id": "souffre-douleur",
-   "name": "Souffre douleur",
-   "englishName": "Souffre douleur",
-   "deck": "villain",
-   "type": "effect",
-   "cost": 2,
-   "copies": 2,
-   "text": "Associez cette carte à un Héros, sa force est réduite à 0.",
-   "effects": [
-    {
-     "type": "REDUCE_HERO_STRENGTH_PERM",
-     "amount": 99
-    }
-   ],
-   "image": "/cards/custom-seigneur-cles/souffre-douleur.webp"
-  },
-  {
-   "id": "pierre-tombale",
-   "name": "Pierre tombale",
-   "englishName": "Pierre tombale",
-   "deck": "villain",
-   "type": "effect",
-   "cost": 1,
-   "copies": 3,
-   "text": "Jetez le dé de couleur. Si une clé de cette couleur se trouve sur le lieu où vous êtes, prenez-la.",
-   "effects": [
-    {
-     "type": "ROLL_DIE_TAKE_KEY_AT_PAWN"
-    }
-   ],
-   "image": "/cards/custom-seigneur-cles/pierre-tombale.webp"
-  },
-  {
-   "id": "carte-temps",
-   "name": "Carte Temps",
-   "englishName": "Carte Temps",
-   "deck": "villain",
-   "type": "effect",
-   "cost": 3,
-   "copies": 2,
-   "text": "Au prochain tour, effectuez une action 2 fois.",
-   "effects": [
-    {
-     "type": "GRANT_REPEAT_ACTION_NEXT_TURN"
-    }
-   ],
-   "image": "/cards/custom-seigneur-cles/carte-temps.webp"
-  },
-  {
-   "id": "carte-destin",
-   "name": "Carte Destin",
-   "englishName": "Carte Destin",
-   "deck": "villain",
-   "type": "effect",
-   "cost": 2,
-   "copies": 2,
-   "text": "Piochez 3 cartes et défaussez une carte de votre main.",
-   "effects": [
-    {
-     "type": "DRAW_THEN_DISCARD",
-     "draw": 3,
-     "discard": 1
-    }
-   ],
-   "image": "/cards/custom-seigneur-cles/carte-destin.webp"
-  },
-  {
-   "id": "toute-puissance",
-   "name": "Toute Puissance",
-   "englishName": "Toute Puissance",
-   "deck": "villain",
-   "type": "effect",
-   "cost": 2,
-   "copies": 3,
-   "text": "Gagnez une clé de votre choix sur le lieu où vous êtes.",
-   "effects": [
-    {
-     "type": "TAKE_KEY_AT_PAWN"
-    }
-   ],
-   "image": "/cards/custom-seigneur-cles/toute-puissance.webp"
-  },
-  {
-   "id": "manque-de-temps",
-   "name": "Manque de temps",
-   "englishName": "Manque de temps",
-   "deck": "villain",
-   "type": "effect",
-   "cost": 2,
-   "copies": 2,
-   "text": "Défaussez toute votre main et piochez 4 cartes Méchant.",
-   "effects": [
-    {
-     "type": "DISCARD_HAND_DRAW",
-     "draw": 4
-    }
-   ],
-   "image": "/cards/custom-seigneur-cles/manque-de-temps.webp"
-  },
-  {
-   "id": "cest-moi-qui-decide",
-   "name": "C’est moi qui décide",
-   "englishName": "C'est moi qui décide",
-   "deck": "villain",
-   "type": "effect",
-   "cost": 3,
-   "copies": 3,
-   "text": "Effectuez une action « Obtenir une clé » (lancez le dé de couleur).",
-   "effects": [
-    {
-     "type": "ROLL_DIE_TAKE_KEY_FROM_BOARD"
-    }
-   ],
-   "image": "/cards/custom-seigneur-cles/cest-moi-qui-decide.webp"
-  },
-  {
-   "id": "repondez",
-   "name": "Répondez !",
-   "englishName": "Répondez !",
-   "deck": "villain",
-   "type": "effect",
-   "cost": 0,
-   "copies": 2,
-   "text": "Gagnez 1 jeton Pouvoir par couleur de clé différente en votre possession.",
-   "effects": [
-    {
-     "type": "GAIN_POWER_PER_KEY_COLOR"
-    }
-   ],
-   "image": "/cards/custom-seigneur-cles/repondez.webp"
-  },
-  {
-   "id": "trop-facile",
-   "name": "Trop facile",
-   "englishName": "Trop facile",
-   "deck": "villain",
-   "type": "effect",
-   "cost": 0,
-   "copies": 2,
-   "text": "Perdez une clé de votre choix et gagnez 3 jetons Pouvoir.",
-   "effects": [
-    {
-     "type": "LOSE_KEY_GAIN_POWER",
-     "power": 3
-    }
-   ],
-   "image": "/cards/custom-seigneur-cles/trop-facile.webp"
-  },
-  {
-   "id": "plus-quune-minute",
-   "name": "Plus qu’une minute",
-   "englishName": "Plus qu'une minute",
-   "deck": "villain",
-   "type": "effect",
-   "cost": 2,
-   "copies": 2,
-   "text": "Perdez une clé de votre choix et piochez 3 cartes.",
-   "effects": [
-    {
-     "type": "LOSE_KEY_DRAW",
-     "draw": 3
-    }
-   ],
-   "image": "/cards/custom-seigneur-cles/plus-quune-minute.webp"
-  },
-  {
-   "id": "minuit",
-   "name": "00:00",
-   "englishName": "00:00",
-   "deck": "villain",
-   "type": "effect",
-   "cost": 2,
-   "copies": 1,
-   "text": "Choisissez une couleur puis lancez le dé de couleur. Si la couleur obtenue est la même, prenez une clé de cette couleur.",
-   "effects": [
-    {
-     "type": "CHOOSE_COLOR_ROLL_TAKE_KEY"
-    }
-   ],
-   "image": "/cards/custom-seigneur-cles/minuit.webp"
-  },
-  {
-   "id": "anne-de-chantraine",
-   "name": "Anne de Chantraine",
-   "englishName": "Anne de Chantraine",
-   "deck": "fate",
-   "type": "hero",
-   "strength": 2,
-   "copies": 1,
-   "text": "Lorsqu’ANNE est jouée, le Seigneur des clés doit défausser toutes les cartes Événement de sa main.",
-   "onPlace": [
-    {
-     "type": "TARGET_DISCARD_ALL_OF_TYPE",
-     "cardType": "effect"
-    }
-   ],
-   "image": "/cards/custom-seigneur-cles/anne-de-chantraine.webp",
-   "fateMalus": "slow"
-  },
-  {
-   "id": "elisabeth-bathory",
-   "name": "Élisabeth Bathory",
-   "englishName": "Élisabeth Bathory",
-   "deck": "fate",
-   "type": "hero",
-   "strength": 2,
-   "copies": 1,
-   "text": "Tant qu’ÉLISABETH BATHORY est présente, les cartes « Condition » sont inutilisables.",
-   "image": "/cards/custom-seigneur-cles/elisabeth-bathory.webp",
-   "fateMalus": "slow"
-  },
-  {
-   "id": "baron-samedi",
-   "name": "Baron Samedi",
-   "englishName": "Baron Samedi",
-   "deck": "fate",
-   "type": "hero",
-   "strength": 2,
-   "copies": 1,
-   "text": "Lorsque BARON SAMEDI est joué, jetez le dé de couleur. Tant qu’il est présent, le Seigneur ne peut pas gagner de clé de cette couleur à l’aide du dé.",
-   "onPlace": [
-    {
-     "type": "ROLL_DIE_BLOCK_KEY_COLOR"
-    }
-   ],
-   "image": "/cards/custom-seigneur-cles/baron-samedi.webp",
-   "fateMalus": "block-advance"
-  },
-  {
-   "id": "hellin",
-   "name": "Hellin",
-   "englishName": "Hellin",
-   "deck": "fate",
-   "type": "hero",
-   "strength": 2,
-   "copies": 1,
-   "coversExtraAction": true,
-   "text": "HELLIN bloque 3 actions au lieu de 2.",
-   "image": "/cards/custom-seigneur-cles/hellin.webp",
-   "fateMalus": "slow"
-  },
-  {
-   "id": "khufu",
-   "name": "Khufu",
-   "englishName": "Khufu",
-   "deck": "fate",
-   "type": "hero",
-   "strength": 2,
-   "copies": 1,
-   "text": "Défaussez la carte Appel sur le lieu où est joué KHUFU.",
-   "onPlace": [
-    {
-     "type": "DISCARD_CARDS_AT_HOST",
-     "cardId": "appel"
-    }
-   ],
-   "image": "/cards/custom-seigneur-cles/khufu.webp",
-   "fateMalus": "slow"
-  },
-  {
-   "id": "gevaudan",
-   "name": "Gévaudan",
-   "englishName": "Gévaudan",
-   "deck": "fate",
-   "type": "hero",
-   "strength": 2,
-   "copies": 1,
-   "text": "Lorsque GÉVAUDAN est joué, il vole 2 clés au Seigneur des clés. S’il est éliminé, le Seigneur récupère ses clés.",
-   "onPlace": [
-    {
-     "type": "STEAL_KEY_TO_HERO"
-    }
-   ],
-   "onVanquish": [
-    {
-     "type": "RETURN_STOLEN_KEYS"
-    }
-   ],
-   "image": "/cards/custom-seigneur-cles/gevaudan.webp",
-   "fateMalus": "block-advance"
-  },
-  {
-   "id": "cle-noire",
-   "name": "Clé Noire",
-   "englishName": "Clé Noire",
-   "deck": "fate",
-   "type": "item",
-   "copies": 1,
-   "text": "Associez cette Clé Noire à un lieu. Si le Seigneur s’y rend, il la récupère. Tant qu’il la possède, il ne peut pas remporter la partie.",
-   "image": "/cards/custom-seigneur-cles/cle-noire.webp",
-   "fateMalus": "block-win"
-  },
-  {
-   "id": "jai-affronte-mon-cauchemar",
-   "name": "J’ai affronté mon cauchemar !",
-   "englishName": "J'ai affronté mon cauchemar !",
-   "deck": "fate",
-   "type": "effect",
-   "copies": 1,
-   "text": "Lancez le dé de couleur. Le Seigneur des clés perd toutes les clés de la couleur obtenue.",
-   "effects": [
-    {
-     "type": "ROLL_DIE_LOSE_KEYS_COLOR"
-    }
-   ],
-   "image": "/cards/custom-seigneur-cles/jai-affronte-mon-cauchemar.webp"
-  },
-  {
-   "id": "sorcellerie",
-   "name": "Sorcellerie",
-   "englishName": "Sorcellerie",
-   "deck": "fate",
-   "type": "effect",
-   "copies": 2,
-   "text": "Choisissez une clé du Seigneur des clés et remettez-la sur un lieu de votre choix.",
-   "effects": [
-    {
-     "type": "RETURN_OWNED_KEY_TO_BOARD"
-    }
-   ],
-   "image": "/cards/custom-seigneur-cles/sorcellerie.webp"
-  },
-  {
-   "id": "duel",
-   "name": "Duel",
-   "englishName": "Duel",
-   "deck": "fate",
-   "type": "effect",
-   "copies": 3,
-   "text": "Prenez toutes les clés du plateau et replacez-les aléatoirement, équilibrées sur chaque lieu.",
-   "effects": [
-    {
-     "type": "REDISTRIBUTE_BOARD_KEYS"
-    }
-   ],
-   "image": "/cards/custom-seigneur-cles/duel.webp"
-  },
-  {
-   "id": "plaisir-ou-souffrance",
-   "name": "Plaisir ou souffrance",
-   "englishName": "Plaisir ou souffrance",
-   "deck": "fate",
-   "type": "effect",
-   "copies": 2,
-   "text": "Le Seigneur des clés choisit : perdre 3 jetons Pouvoir OU reposer une clé de son choix.",
-   "effects": [
-    {
-     "type": "PLAISIR_OU_SOUFFRANCE",
-     "power": 3
-    }
-   ],
-   "image": "/cards/custom-seigneur-cles/plaisir-ou-souffrance.webp"
-  }
- ],
- "published": true,
- "creator": "Alexis",
- "origin": "Collaborations",
- "createdAt": "2026-06-20T23:01:15.000Z",
- "updatedAt": "2026-07-26T12:00:00.000Z"
 }

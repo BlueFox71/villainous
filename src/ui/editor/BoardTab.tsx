@@ -5,7 +5,8 @@ import type { CustomVillain, CustomLocation, CustomAction, BoardLock } from '../
 import { DEFAULT_BOARD_LOCK_SIZE } from '../../data/customVillain'
 import type { ActionRow, LocationActionType } from '../../engine/types'
 import { Field, TextField, NumberField, ImageField, SelectField, inputClass } from './fields'
-import { renderBoard } from './boardRender'
+import { typeOptionsFor, hasFreeLabel, defaultLabelFor } from './boardActionTypes'
+import { renderBoard, boardSignature } from './boardRender'
 import { loadImage } from './imageUtils'
 import { BOARD_W, BOARD_H } from './boardLayout'
 import { Hotspot } from './CardLayout'
@@ -26,26 +27,6 @@ interface LockDrag {
   ox: number
   oy: number
   osize: number
-}
-
-/** Types d'action GÉNÉRIQUES exposés à l'éditeur (tous gérés génériquement par le
- *  moteur, sans mécanique propre à un vilain). On exclut les actions spéciales
- *  (BREW_POISON, OBTAIN_KEY…) qui supposent une mécanique dédiée. */
-const ACTION_TYPES: { value: LocationActionType; label: string; defaultLabel: string }[] = [
-  { value: 'GAIN_POWER', label: 'Gagner du pouvoir', defaultLabel: 'Gagner du pouvoir' },
-  { value: 'PLAY_CARD', label: 'Jouer une carte', defaultLabel: 'Jouer une carte' },
-  { value: 'FATE', label: 'Fatalité', defaultLabel: 'Fatalité' },
-  { value: 'MOVE_ITEM_ALLY', label: 'Déplacer un objet/allié', defaultLabel: 'Déplacer un objet ou un allié' },
-  { value: 'MOVE_HERO', label: 'Déplacer un héros', defaultLabel: 'Déplacer un héros' },
-  { value: 'VANQUISH', label: 'Vaincre un héros', defaultLabel: 'Vaincre un héros' },
-  { value: 'DISCARD_CARDS', label: 'Défausser', defaultLabel: 'Défausser des cartes' },
-  { value: 'ACTIVATE', label: 'Activer une capacité', defaultLabel: 'Activer une capacité' },
-]
-
-/** Libellé par défaut d'une action selon son type (et son montant). */
-function defaultLabelFor(type: LocationActionType, amount?: number): string {
-  if (type === 'GAIN_POWER') return `Gagner ${amount ?? 1} pouvoir`
-  return ACTION_TYPES.find((t) => t.value === type)?.defaultLabel ?? type
 }
 
 /** Identifiant d'action libre au sein d'une liste d'actions (act1, act2…). */
@@ -74,28 +55,76 @@ function ActionEditor({
   // resté collé sur un MOVE_HERO / FATE après un changement de type).
   const setType = (type: LocationActionType) => {
     const amount = type === 'GAIN_POWER' ? action.amount ?? 1 : undefined
-    onChange({ ...action, type, amount, label: defaultLabelFor(type, amount) })
+    // On conserve un libellé libre déjà saisi quand la nouvelle action en accepte un
+    // (perso / spéciale) ; sinon on (re)dérive le libellé du type.
+    const label = hasFreeLabel(type) && hasFreeLabel(action.type) ? action.label : defaultLabelFor(type, amount)
+    onChange({ ...action, type, amount, label })
   }
+  const freeLabel = hasFreeLabel(action.type)
   return (
-    <div className="flex items-end gap-2 rounded-lg border border-white/10 bg-black/20 p-2">
-      <SelectField label="Action" value={action.type} options={ACTION_TYPES} onChange={setType} />
-      {action.type === 'GAIN_POWER' && (
-        <NumberField
-          label="Pouvoir"
-          value={action.amount ?? 1}
-          min={1}
-          max={3}
-          onChange={(amount) => onChange({ ...action, amount, label: defaultLabelFor('GAIN_POWER', amount) })}
-        />
+    <div className="flex flex-col gap-2 rounded-lg border border-white/10 bg-black/20 p-2">
+      <div className="flex items-end gap-2">
+        <SelectField label="Action" value={action.type} options={typeOptionsFor(action.type)} onChange={setType} />
+        {action.type === 'GAIN_POWER' && (
+          <NumberField
+            label="Pouvoir"
+            value={action.amount ?? 1}
+            min={1}
+            max={3}
+            onChange={(amount) => onChange({ ...action, amount, label: defaultLabelFor('GAIN_POWER', amount) })}
+          />
+        )}
+        <button
+          type="button"
+          onClick={onRemove}
+          className="rounded-lg border border-white/15 bg-white/5 px-2 py-2 text-xs text-white/50 transition hover:border-red-400/60 hover:text-red-300"
+          title="Supprimer cette action"
+        >
+          🗑
+        </button>
+      </div>
+      {/* Action PERSONNALISÉE / SPÉCIALE : libellé libre + icône importée. Le libellé
+          décrit l'effet (codé au test) ; l'icône remplace l'icône dorée par défaut. */}
+      {freeLabel && (
+        <div className="flex items-end gap-3 rounded-md border border-amber-300/20 bg-amber-400/5 p-2">
+          <div className="w-20 shrink-0">
+            <ImageField
+              label="Icône"
+              value={action.iconImage}
+              onChange={(iconImage) => onChange({ ...action, iconImage })}
+              aspect="square"
+              fit="contain"
+            />
+          </div>
+          <div className="flex flex-1 flex-col gap-1.5">
+            <TextField
+              label="Libellé / effet (décrit)"
+              value={action.label}
+              onChange={(label) => onChange({ ...action, label })}
+              placeholder="Ex. : Obtenir une clé de la couleur du dé"
+            />
+            {/* Taille de l'icône DANS l'anneau doré (100 % = logée comme les icônes
+                du gabarit ; au-delà elle déborde sur l'anneau). */}
+            {action.iconImage && (
+              <label className="flex items-center gap-2 text-xs text-white/50">
+                <span className="shrink-0 font-semibold uppercase tracking-wide">🔍 Taille icône</span>
+                <input
+                  type="range"
+                  min={40}
+                  max={150}
+                  step={5}
+                  value={Math.round((action.iconScale ?? 1) * 100)}
+                  onChange={(e) => onChange({ ...action, iconScale: Number(e.target.value) / 100 })}
+                  className="flex-1 accent-amber-400"
+                />
+                <span className="w-10 shrink-0 text-right tabular-nums text-white/70">
+                  {Math.round((action.iconScale ?? 1) * 100)} %
+                </span>
+              </label>
+            )}
+          </div>
+        </div>
       )}
-      <button
-        type="button"
-        onClick={onRemove}
-        className="rounded-lg border border-white/15 bg-white/5 px-2 py-2 text-xs text-white/50 transition hover:border-red-400/60 hover:text-red-300"
-        title="Supprimer cette action"
-      >
-        🗑
-      </button>
     </div>
   )
 }
@@ -352,21 +381,7 @@ function BoardPreview({
     : v
   // Re-rend quand un champ visuel du plateau change (débanché). Les cadenas
   // décoratifs ne sont PAS bakés ici (skipLocks) : ils sont en overlay live.
-  const key = JSON.stringify({
-    b: showB,
-    c: previewV.color,
-    n: previewV.name,
-    o: previewV.boardObjective,
-    oy: previewV.objectiveTextOffsetY,
-    art: previewV.boardArt?.slice(0, 48),
-    pp: previewV.portraitPos,
-    locs: previewV.locations.map((l) => ({
-      n: l.name,
-      i: l.image?.slice(0, 48),
-      ip: l.imagePos,
-      a: l.actions.map((x) => ({ t: x.type, r: x.row, m: x.amount })),
-    })),
-  })
+  const key = `${showB}|${boardSignature(previewV, { skipLocks: true })}`
   useEffect(() => {
     let alive = true
     const h = setTimeout(() => {

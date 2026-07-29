@@ -47,8 +47,8 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
-    version: '1.9.6',
-    date: '2026-07-26',
+    version: '1.9.7',
+    date: '2026-07-29',
     title: 'Le Journal de partie raconte enfin ce que font les cartes',
     tags: ['interface', 'cartes'],
     changes: [
@@ -56,6 +56,21 @@ export const PATCH_NOTES: PatchNote[] = [
       "Chaque vilain **parle son propre langage** : Poison, Pile de l'Au-delà, Titans entravés, Tuiles Chiots, jetons Confiance, Salle des Chenilles, marqueur Pilote, jetons Feu, lancers de dés, jetons Trésor, Étoiles, Pierres d'Infinité…",
       "Les messages **s'accordent** enfin : plus de « Ariel est éliminé » ni de « Les Archers Loups gagne +1 Force ».",
       "**Kilaire** n'affichait **aucun** message de Journal — ils étaient restés attachés aux cartes de Sumbra.",
+    ],
+  },
+  {
+    version: '1.9.6',
+    date: '2026-07-27',
+    title: 'Atelier : actions de plateau perso & cartes figées débloquées',
+    tags: ['atelier', 'correctif', 'cartes'],
+    changes: [
+      "**Actions de plateau personnalisées** : dans l'Atelier, ajoute une action **« Personnalisée »**, **importe ton icône** et **décris son effet** — posée sur la rangée de ton choix.",
+      "L'icône importée d'une action perso est désormais **entourée de l'anneau doré** des autres actions, et un curseur **« Taille icône »** permet de l'agrandir ou de la rétrécir dans son médaillon.",
+      "Les cartes **importées comme images finies** (scans, imports migrés) affichaient un aperçu **figé** : un bouton **« Rendre éditable »** les reconstruit depuis leur texte pour pouvoir les retravailler.",
+      "Les actions **spéciales** déjà posées sur un plateau (ex. **« Obtenir une clé »**) ne sont plus écrasées à l'édition.",
+      "**Mettre à jour un vilain publié** : l'écran de chargement reste affiché jusqu'au message de confirmation. Avant, l'éditeur redevenait cliquable trop tôt et **toucher à quoi que ce soit faisait planter la page**.",
+      "**Plateau gelé après publication** : une fois un vilain publié, ses retouches de plateau (illustrations, objectif, actions) n'apparaissaient **plus jamais** en jeu ni dans la liste. Le plateau est maintenant **re-généré dès que ses données changent**, et les **pastilles cliquables** du **Seigneur des clés** suivent enfin ses actions au lieu de rester figées.",
+      "**Le Seigneur des clés** : plateau et cartes remis à jour — nouvelle Condition **SOUFFRE DOULEUR** (visuel posé, effet à venir) et **Jouer une carte** à la place de **Gagner du pouvoir** à la **Fosse commune**.",
     ],
   },
   {
