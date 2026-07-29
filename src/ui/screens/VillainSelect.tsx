@@ -156,7 +156,7 @@ function SlotCard({
       disabled={!clickable}
       onClick={(e) => { e.stopPropagation(); if (clickable) { playHeroSelect(); onActivate() } }}
       onMouseEnter={() => { if (clickable) playHover() }}
-      className={`relative flex min-h-[5.5rem] w-full items-center gap-3 overflow-hidden rounded-xl border p-2.5 text-left transition ${
+      className={`relative flex min-h-[11rem] w-full items-center gap-5 overflow-hidden rounded-2xl border p-5 text-left transition ${
         active ? `border-transparent bg-[#181227] ring-2 ${style.ring}` : 'border-white/10 bg-[#0d0a17]'
       } ${clickable ? 'hover:bg-[#1e1733]' : 'cursor-default'}`}
     >
@@ -173,24 +173,24 @@ function SlotCard({
           <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#0d0a17] via-[#0d0a17]/85 to-transparent" />
         </>
       )}
-      <span className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/15 bg-white/5">
+      <span className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/15 bg-white/5">
         {isRandom ? (
-          <span className="text-xl">🎲</span>
+          <span className="text-4xl">🎲</span>
         ) : v ? (
           <img src={villainPortrait(value as string)} alt={v.def.name} className="h-full w-full object-cover" />
         ) : (
-          <span className="text-lg text-white/30">?</span>
+          <span className="text-3xl text-white/30">?</span>
         )}
       </span>
-      <div className="relative flex min-w-0 flex-col">
-        <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/60">
+      <div className="relative flex min-w-0 flex-col gap-0.5">
+        <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-white/60">
           {sideLabel}
-          {active && <span className={`inline-block h-1.5 w-1.5 rounded-full ${side === 'mine' ? 'bg-amber-400' : 'bg-purple-400'}`} />}
+          {active && <span className={`inline-block h-2 w-2 rounded-full ${side === 'mine' ? 'bg-amber-400' : 'bg-purple-400'}`} />}
         </span>
-        <span className={`truncate text-base font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)] ${value ? style.text : 'text-white/30'}`}>
+        <span className={`truncate text-2xl font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)] ${value ? style.text : 'text-white/30'}`}>
           {isRandom ? 'Aléatoire' : v ? v.def.name : 'À choisir'}
         </span>
-        {hint && <span className="truncate text-[11px] leading-tight text-white/50">{hint}</span>}
+        {hint && <span className="truncate text-sm leading-tight text-white/50">{hint}</span>}
       </div>
     </button>
   )
@@ -592,7 +592,9 @@ export function VillainSelect({ onStart, onBack }: Props) {
       {/* INVISIBLE : aucun habillage (ni fond, ni bordure, ni ombre, ni flou) — seuls les
           deux camps et le bouton se détachent, posés directement sur le décor. */}
       <footer className="relative z-0 flex items-end justify-center gap-4 px-4 pb-5 pt-2">
-        <div className="w-64 shrink-0">
+        {/* `min-w-0` sans `shrink-0` : à cette taille les deux cases + le bouton frôlent la
+            largeur de l'écran, elles doivent pouvoir se comprimer plutôt que déborder. */}
+        <div className="w-[32rem] min-w-0">
           <SlotCard
             side="mine"
             value={mine}
@@ -677,7 +679,9 @@ export function VillainSelect({ onStart, onBack }: Props) {
         )}
         </div>
 
-        <div className="w-64 shrink-0">
+        {/* `min-w-0` sans `shrink-0` : à cette taille les deux cases + le bouton frôlent la
+            largeur de l'écran, elles doivent pouvoir se comprimer plutôt que déborder. */}
+        <div className="w-[32rem] min-w-0">
           <SlotCard
             side="opp"
             value={opp}
