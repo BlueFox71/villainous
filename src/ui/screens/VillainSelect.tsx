@@ -145,34 +145,52 @@ function SlotCard({
   const sideLabel = label ?? style.label
   const isRandom = value === 'random'
   const v = value && value !== 'random' ? villainEntry(value) : null
+  // Illustration de présentation du vilain choisi, posée EN FOND de la carte. Elle est
+  // ancrée à DROITE et débordante en hauteur (`h-[210%]`, rognée par l'overflow) : les
+  // illustrations sont des personnages en pied, donc seule leur MOITIÉ HAUTE (tête +
+  // buste) est lisible dans une carte aussi basse. Un dégradé la couvre côté texte.
+  const backdrop = value && value !== 'random' ? villainPresentation(value) : undefined
   return (
     <button
       type="button"
       disabled={!clickable}
       onClick={(e) => { e.stopPropagation(); if (clickable) { playHeroSelect(); onActivate() } }}
       onMouseEnter={() => { if (clickable) playHover() }}
-      className={`flex w-full items-center gap-2 rounded-lg border p-2 text-left transition ${
+      className={`relative flex min-h-[5.5rem] w-full items-center gap-3 overflow-hidden rounded-xl border p-2.5 text-left transition ${
         active ? `border-transparent bg-[#181227] ring-2 ${style.ring}` : 'border-white/10 bg-[#0d0a17]'
       } ${clickable ? 'hover:bg-[#1e1733]' : 'cursor-default'}`}
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded border border-white/15 bg-white/5">
+      {backdrop && (
+        <>
+          <img
+            src={backdrop}
+            alt=""
+            aria-hidden
+            className={`pointer-events-none absolute right-0 top-0 h-[150%] w-auto max-w-none object-contain opacity-55 ${
+              side === 'opp' ? '-scale-x-100' : ''
+            }`}
+          />
+          <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#0d0a17] via-[#0d0a17]/85 to-transparent" />
+        </>
+      )}
+      <span className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/15 bg-white/5">
         {isRandom ? (
-          <span className="text-lg">🎲</span>
+          <span className="text-xl">🎲</span>
         ) : v ? (
           <img src={villainPortrait(value as string)} alt={v.def.name} className="h-full w-full object-cover" />
         ) : (
-          <span className="text-base text-white/30">?</span>
+          <span className="text-lg text-white/30">?</span>
         )}
       </span>
-      <div className="flex min-w-0 flex-col">
-        <span className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.15em] text-white/50">
+      <div className="relative flex min-w-0 flex-col">
+        <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/60">
           {sideLabel}
           {active && <span className={`inline-block h-1.5 w-1.5 rounded-full ${side === 'mine' ? 'bg-amber-400' : 'bg-purple-400'}`} />}
         </span>
-        <span className={`truncate text-sm font-bold leading-tight ${value ? style.text : 'text-white/30'}`}>
+        <span className={`truncate text-base font-bold leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)] ${value ? style.text : 'text-white/30'}`}>
           {isRandom ? 'Aléatoire' : v ? v.def.name : 'À choisir'}
         </span>
-        {hint && <span className="truncate text-[10px] leading-tight text-white/40">{hint}</span>}
+        {hint && <span className="truncate text-[11px] leading-tight text-white/50">{hint}</span>}
       </div>
     </button>
   )
@@ -574,7 +592,7 @@ export function VillainSelect({ onStart, onBack }: Props) {
       {/* INVISIBLE : aucun habillage (ni fond, ni bordure, ni ombre, ni flou) — seuls les
           deux camps et le bouton se détachent, posés directement sur le décor. */}
       <footer className="relative z-0 flex items-end justify-center gap-4 px-4 pb-5 pt-2">
-        <div className="w-48 shrink-0">
+        <div className="w-64 shrink-0">
           <SlotCard
             side="mine"
             value={mine}
@@ -659,7 +677,7 @@ export function VillainSelect({ onStart, onBack }: Props) {
         )}
         </div>
 
-        <div className="w-48 shrink-0">
+        <div className="w-64 shrink-0">
           <SlotCard
             side="opp"
             value={opp}
