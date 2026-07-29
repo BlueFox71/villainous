@@ -56,7 +56,7 @@ export const PATCH_NOTES: PatchNote[] = [
       "Chaque vilain **parle son propre langage** : Poison, Pile de l'Au-delà, Titans entravés, Tuiles Chiots, jetons Confiance, Salle des Chenilles, marqueur Pilote, jetons Feu, lancers de dés, jetons Trésor, Étoiles, Pierres d'Infinité…",
       "Les messages **s'accordent** enfin : plus de « Ariel est éliminé » ni de « Les Archers Loups gagne +1 Force ».",
       "**Kilaire** n'affichait **aucun** message de Journal — ils étaient restés attachés aux cartes de Sumbra.",
-      "**Choix des vilains** : la grille occupe enfin toute la largeur de l'écran — jusqu'à **10 vilains par rangée** au lieu de 6, moins de défilement. Les illustrations des deux vilains choisis et leur devise restent visibles sur les côtés.",
+      "**Choix des vilains** : la grille s'élargit avec l'écran et ses vignettes sont plus compactes — jusqu'à **12 vilains par rangée** au lieu de 6, soit **toute la galerie d'un seul coup d'œil**, sans défiler. Les illustrations des deux vilains choisis et leur devise restent dégagées sur les côtés.",
     ],
   },
   {

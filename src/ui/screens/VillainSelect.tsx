@@ -89,7 +89,9 @@ function Tile({
       ) : (
         <img src={villainPortrait(choice)} alt={v?.def.name} className="aspect-square w-full object-cover" />
       )}
-      <span className="px-2 py-1.5 text-center text-xs font-bold leading-tight text-amber-100">
+      {/* Vignettes petites (grille dense) : nom borné à 2 lignes pour que toutes les
+          tuiles d'une rangée gardent la même hauteur, quel que soit le nom. */}
+      <span className="line-clamp-2 px-1 py-1 text-center text-[11px] font-bold leading-tight text-amber-100">
         {isRandom ? 'Aléatoire' : v?.def.name}
       </span>
       {/* Pastilles des camps ayant choisi cette tuile (random peut être les deux). */}
@@ -521,7 +523,7 @@ export function VillainSelect({ onStart, onBack }: Props) {
             {/* Grille partagée de tous les vilains (façon sélection de perso). En
                 réseau, on diffuse mon survol et on affiche le curseur de l'adversaire. */}
             <div
-              className="grid grid-cols-3 gap-3 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-10"
+              className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-7 lg:grid-cols-9 xl:grid-cols-10 2xl:grid-cols-12"
               onMouseLeave={() => { if (network) setHoverVillain(null) }}
             >
               {tiles.map((c) => (
