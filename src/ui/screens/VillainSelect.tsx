@@ -260,11 +260,11 @@ function PresentationArt({ choice, side }: { choice: Choice | null; side: 'left'
           conteneur z-0) pour ne pas être plafonnée par son contexte d'empilement. */}
       {devise && (
         <div
-          className={`pointer-events-none absolute bottom-10 z-20 hidden w-[40vw] justify-center px-6 lg:flex ${
+          className={`pointer-events-none absolute bottom-10 z-20 hidden min-w-[13rem] justify-center px-4 lg:flex lg:w-[8vw] xl:w-[12vw] 2xl:w-[15vw] ${
             side === 'left' ? 'left-0' : 'right-0'
           }`}
         >
-          <p className="max-w-[16rem] text-center text-lg font-semibold italic leading-snug text-amber-100 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
+          <p className="max-w-full text-center text-lg font-semibold italic leading-snug text-amber-100 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
             « {devise} »
           </p>
         </div>
@@ -487,10 +487,17 @@ export function VillainSelect({ onStart, onBack }: Props) {
         <PresentationArt choice={mine} side="left" />
         <PresentationArt choice={opp} side="right" />
         <Scroller className="relative z-10 h-full">
-          <div className="mx-auto flex max-w-4xl flex-col gap-5 px-6 pb-32 pt-6">
+          {/* Pleine largeur pour tenir un maximum de colonnes. Sous `lg` les illustrations
+              latérales sont masquées → on va bord à bord ; à partir de `lg` on réserve des
+              gouttières (en vw) pour laisser respirer l'illustration du vilain choisi, de
+              plus en plus fines à mesure que l'écran s'élargit (l'illustration, en `h-full
+              w-auto`, grandit avec la HAUTEUR, pas avec la largeur). */}
+          <div className="mx-auto flex w-full flex-col gap-5 px-6 pb-32 pt-6 lg:px-[8vw] xl:px-[12vw] 2xl:px-[15vw]">
             {/* Récap des deux camps : en solo, cliquer un slot le rend actif.
-                FIGÉ en haut (sticky) : reste visible pendant le défilement de la grille. */}
-            <div className="sticky top-0 z-30 flex gap-3 py-3">
+                FIGÉ en haut (sticky) : reste visible pendant le défilement de la grille.
+                Gardé à sa largeur d'origine (les slots sont en `flex-1` : pleine largeur,
+                ils s'étireraient en cartes démesurées). */}
+            <div className="sticky top-0 z-30 mx-auto flex w-full max-w-4xl gap-3 py-3">
               <SlotCard
                 side="mine"
                 value={mine}
@@ -514,7 +521,7 @@ export function VillainSelect({ onStart, onBack }: Props) {
             {/* Grille partagée de tous les vilains (façon sélection de perso). En
                 réseau, on diffuse mon survol et on affiche le curseur de l'adversaire. */}
             <div
-              className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6"
+              className="grid grid-cols-3 gap-3 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-10"
               onMouseLeave={() => { if (network) setHoverVillain(null) }}
             >
               {tiles.map((c) => (
