@@ -455,6 +455,43 @@ export function VillainSelect({ onStart, onBack }: Props) {
     return byOrigin
   }, [allKeys])
 
+  // Disney + Marvel se partagent une rangée (cf. rendu) ; le reste s'empile en dessous.
+  const disneySection = sections.find((s) => s.origin === 'Disney')
+  const marvelSection = sections.find((s) => s.origin === 'Marvel')
+  const otherSections = sections.filter((s) => s !== disneySection && s !== marvelSection)
+
+  /** Une section d'univers : en-tête (libellé + filet) puis sa grille de vignettes. */
+  const renderSection = (s: (typeof sections)[number], className?: string) => (
+    <section key={s.origin} className={className}>
+      {/* En-tête de section : même idiome que la galerie (libellé + filet). */}
+      <h2 className="mb-1.5 flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.2em] text-amber-300/80">
+        {s.label}
+        <span className="h-px flex-1 bg-white/10" />
+      </h2>
+      {/* Remplissage AUTO : autant de colonnes que la largeur en autorise, avec une
+          vignette d'au moins 5rem. Évite une échelle de breakpoints à maintenir et garde
+          des tuiles de taille constante d'une section à l'autre. */}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(5rem,1fr))] gap-2">
+        {s.keys.map((c) => (
+          <Tile
+            key={c}
+            choice={c}
+            mineIs={mine === c}
+            oppIs={opp === c}
+            mineLabel={mineLabel}
+            oppLabel={oppLabel}
+            oppHovering={network && peerHover === c}
+            // Verrouillé si pris par l'adversaire, ou si c'est le skin lié d'un vilain déjà
+            // choisi (Sumbra ⟷ Kilaire = même vilain, un seul par partie).
+            disabled={disabledFor(c)}
+            onPick={() => pickTile(c)}
+            onHoverEnter={network ? () => setHoverVillain(c === 'random' ? null : (c as VillainKey)) : undefined}
+          />
+        ))}
+      </div>
+    </section>
+  )
+
   const launchSolo = () => {
     if (!mineSolo || !oppSolo) return
     const playerKey = mineSolo === 'random' ? randomKey(takenBy(oppSolo) ?? undefined) : mineSolo
@@ -514,37 +551,17 @@ export function VillainSelect({ onStart, onBack }: Props) {
               className="flex flex-col gap-3"
               onMouseLeave={() => { if (network) setHoverVillain(null) }}
             >
-              {sections.map((s) => (
-                <section key={s.origin}>
-                  {/* En-tête de section : même idiome que la galerie (libellé + filet). */}
-                  <h2 className="mb-1.5 flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.2em] text-amber-300/80">
-                    {s.label}
-                    <span className="h-px flex-1 bg-white/10" />
-                  </h2>
-                  {/* Remplissage AUTO : autant de colonnes que la largeur en autorise, avec
-                      une vignette d'au moins 5rem. Évite une échelle de breakpoints à
-                      maintenir et garde des tuiles de taille constante d'une section
-                      à l'autre. */}
-                  <div className="grid grid-cols-[repeat(auto-fill,minmax(5rem,1fr))] gap-2">
-                    {s.keys.map((c) => (
-                      <Tile
-                        key={c}
-                        choice={c}
-                        mineIs={mine === c}
-                        oppIs={opp === c}
-                        mineLabel={mineLabel}
-                        oppLabel={oppLabel}
-                        oppHovering={network && peerHover === c}
-                        // Verrouillé si pris par l'adversaire, ou si c'est le skin lié d'un vilain déjà
-                        // choisi (Sumbra ⟷ Kilaire = même vilain, un seul par partie).
-                        disabled={disabledFor(c)}
-                        onPick={() => pickTile(c)}
-                        onHoverEnter={network ? () => setHoverVillain(c === 'random' ? null : (c as VillainKey)) : undefined}
-                      />
-                    ))}
-                  </div>
-                </section>
-              ))}
+              {/* Disney et Marvel PARTAGENT une rangée (80 % / 20 %) : Marvel ne compte que
+                  2 vilains, une section pleine largeur pour lui gâchait une rangée entière.
+                  Si l'un des deux manque, l'autre reprend toute la largeur. */}
+              {(disneySection || marvelSection) && (
+                <div className="flex gap-4">
+                  {disneySection && renderSection(disneySection, marvelSection ? 'min-w-0 basis-4/5' : 'min-w-0 flex-1')}
+                  {marvelSection && renderSection(marvelSection, disneySection ? 'min-w-0 basis-1/5' : 'min-w-0 flex-1')}
+                </div>
+              )}
+              {/* Les autres univers (Collaborations) gardent la pleine largeur. */}
+              {otherSections.map((s) => renderSection(s))}
             </div>
           </div>
         </Scroller>
