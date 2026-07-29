@@ -380,9 +380,10 @@ export function VillainSelect({ onStart, onBack }: Props) {
       label: ORIGIN_LABELS[origin],
       keys: allKeys.filter((k) => villainOrigin(k) === origin),
     })).filter((s) => s.keys.length > 0)
-    // « Aléatoire » n'a PAS de section à lui : une rangée entière pour une seule tuile.
-    // Il ouvre donc la première section, en tête de sa grille.
-    if (byOrigin.length > 0) byOrigin[0] = { ...byOrigin[0], keys: ['random', ...byOrigin[0].keys] }
+    // « Aléatoire » n'a PAS de section à lui : une rangée entière pour une seule tuile. Il
+    // ferme donc la DERNIÈRE section, en queue de sa grille.
+    const last = byOrigin.length - 1
+    if (last >= 0) byOrigin[last] = { ...byOrigin[last], keys: [...byOrigin[last].keys, 'random'] }
     return byOrigin
   }, [allKeys])
 
@@ -399,11 +400,12 @@ export function VillainSelect({ onStart, onBack }: Props) {
         {s.label}
         <span className="h-px flex-1 bg-white/10" />
       </h2>
-      {/* Remplissage AUTO : autant de colonnes que la largeur en autorise, avec une
-          vignette d'au moins 7rem — évite une échelle de breakpoints à maintenir. Le `1fr`
-          répartit le reliquat, donc une section ÉTROITE (Marvel, sur 20 %) a des vignettes
-          un peu plus larges que les autres : voulu, ça évite un bord droit en dents de scie. */}
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2">
+      {/* Remplissage AUTO à piste FIXE (7rem) et non `minmax(7rem,1fr)` : avec `1fr` le
+          reliquat était réparti sur les colonnes, si bien qu'une section étroite (Marvel,
+          sur 20 %) avait des vignettes plus larges que les autres. Piste fixe = vignettes
+          RIGOUREUSEMENT identiques d'une section à l'autre, au prix d'un peu d'espace
+          libre au bout des rangées. */}
+      <div className="grid grid-cols-[repeat(auto-fill,7rem)] gap-2">
         {s.keys.map((c) => (
           <Tile
             key={c}
@@ -495,26 +497,12 @@ export function VillainSelect({ onStart, onBack }: Props) {
         </Scroller>
       </main>
 
-      {/* Barre du bas : le récap des deux camps ENCADRE le bouton de lancement (mon camp à
-          gauche, l'adversaire à droite), pour avoir les trois informations décisives au même
-          endroit au lieu de les répartir haut/bas. */}
-      {/* INVISIBLE : aucun habillage (ni fond, ni bordure, ni ombre, ni flou) — seuls les
-          deux camps et le bouton se détachent, posés directement sur le décor. */}
-      <footer className="relative z-0 flex items-center justify-center gap-4 px-4 pb-5 pt-2">
-        {/* `min-w-0` sans `shrink-0` : à cette taille les deux cases + le bouton frôlent la
-            largeur de l'écran, elles doivent pouvoir se comprimer plutôt que déborder. */}
-        <div className="w-[32rem] min-w-0">
-          <SlotCard
-            side="mine"
-            value={mine}
-            active={!network && activeSide === 'mine'}
-            clickable={!network}
-            hint={network ? undefined : 'Clique la grille'}
-            label={mineLabel}
-            onActivate={() => setActiveSide('mine')}
-          />
-        </div>
-
+      {/* Barre du bas, en colonne : le bouton de lancement CENTRÉ au-dessus, les deux camps
+          côte à côte en dessous — les trois informations décisives au même endroit.
+          INVISIBLE : aucun habillage (ni fond, ni bordure, ni ombre, ni flou), seuls les
+          camps et le bouton se détachent, posés directement sur le décor. */}
+      <footer className="relative z-0 flex flex-col items-center gap-3 px-4 pb-12 pt-2">
+        {/* Bouton de lancement (et ses messages) AU-DESSUS des deux camps, centré. */}
         <div className="flex flex-col items-center gap-2">
         {/* RÉSEAU : toute erreur (dont un échec de lancement) est affichée ici — sans ça,
             un clic « Lancer » qui échoue donnait l'impression que « rien ne se passe ». */}
@@ -588,18 +576,32 @@ export function VillainSelect({ onStart, onBack }: Props) {
         )}
         </div>
 
-        {/* `min-w-0` sans `shrink-0` : à cette taille les deux cases + le bouton frôlent la
-            largeur de l'écran, elles doivent pouvoir se comprimer plutôt que déborder. */}
-        <div className="w-[32rem] min-w-0">
-          <SlotCard
-            side="opp"
-            value={opp}
-            active={!network && activeSide === 'opp'}
-            clickable={!network}
-            hint={network ? 'en direct' : undefined}
-            label={oppLabel}
-            onActivate={() => setActiveSide('opp')}
-          />
+        {/* Les deux camps, côte à côte SOUS le bouton. `min-w-0` sans `shrink-0` : à cette
+            taille les deux cases frôlent la largeur de l'écran, elles doivent pouvoir se
+            comprimer plutôt que déborder. */}
+        <div className="flex w-full items-start justify-center gap-4">
+          <div className="w-[32rem] min-w-0">
+            <SlotCard
+              side="mine"
+              value={mine}
+              active={!network && activeSide === 'mine'}
+              clickable={!network}
+              hint={network ? undefined : 'Clique la grille'}
+              label={mineLabel}
+              onActivate={() => setActiveSide('mine')}
+            />
+          </div>
+          <div className="w-[32rem] min-w-0">
+            <SlotCard
+              side="opp"
+              value={opp}
+              active={!network && activeSide === 'opp'}
+              clickable={!network}
+              hint={network ? 'en direct' : undefined}
+              label={oppLabel}
+              onActivate={() => setActiveSide('opp')}
+            />
+          </div>
         </div>
       </footer>
 

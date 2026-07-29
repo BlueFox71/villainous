@@ -310,11 +310,18 @@ JSON du vilain. Tu ne crées **aucun** fichier natif ni câblage (cf. avertissem
   - **Jamais** committer `electron/update-config.cjs` (jeton **lecture** embarqué,
     gitignoré). Ne jamais manipuler ni réclamer le jeton d'écriture.
 - **Tant que les commits ne sont pas poussés** (`git log origin/main..main`), ne
-  laisse pas s'accumuler une note de version par commit : **fusionne-les en une
-  seule entrée** en tête de `PATCH_NOTES` (changes et tags regroupés, doublons
-  retirés). Son numéro suit la même règle MINOR/PATCH à partir de la dernière
-  entrée **déjà poussée**. Une fois poussé, repars d'une nouvelle entrée au commit
-  suivant.
+  laisse pas s'accumuler une note de version par commit : **fusionne en une seule
+  entrée les commits qui traitent du MÊME SUJET** (changes et tags regroupés,
+  doublons retirés). Son numéro suit la même règle MINOR/PATCH à partir de la
+  dernière entrée **déjà poussée**. Une fois poussé, repars d'une nouvelle entrée
+  au commit suivant.
+  - **Changement de sujet = NOUVELLE entrée**, même non poussée. Dès qu'on passe à
+    un autre chantier (autre écran, autre vilain, autre mécanique, autre type de
+    travail), on ouvre une entrée de plus en tête de `PATCH_NOTES` au lieu d'élargir
+    la précédente : une entrée = un sujet, pour que le joueur lise des notes
+    cohérentes. Plusieurs entrées non poussées peuvent donc coexister ; elles
+    s'incrémentent normalement (PATCH, ou MINOR si nouveau vilain), et
+    `package.json` reste synchro avec **celle du haut**.
 - **Avant chaque commit, range les nouveaux fichiers d'`assets/`.** Si `git status`
   montre des fichiers non rangés à la racine d'`assets/` (ou mal placés), déplace-les
   dans le sous-dossier adapté **— mais demande validation avant de déplacer/supprimer.**

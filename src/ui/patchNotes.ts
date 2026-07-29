@@ -47,6 +47,18 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.9.8',
+    date: '2026-07-30',
+    title: 'Choix des vilains : toute la galerie d’un seul coup d’œil',
+    tags: ['interface', 'liste-villains'],
+    changes: [
+      "L'écran de **choix des vilains** est réagencé : la grille prend **toute la largeur** de l'écran et elle est **rangée par univers** — **Disney / Pixar**, **Marvel**, **Collaborations** — comme la galerie. Plus besoin de défiler pour voir tout le monde.",
+      "**Aléatoire** ferme la dernière rangée, au lieu de s'emparer d'une ligne entière pour lui seul.",
+      "Le bouton **Lancer la partie** est **centré au-dessus** de ton camp et de celui de l'**adversaire**, désormais côte à côte en bas de l'écran.",
+      "Chaque camp affiche l'**illustration de son vilain en fond** et sa **devise** juste en dessous. Les grandes illustrations qui mangeaient les côtés de l'écran ont disparu.",
+    ],
+  },
+  {
     version: '1.9.7',
     date: '2026-07-29',
     title: 'Le Journal de partie raconte enfin ce que font les cartes',
@@ -56,8 +68,6 @@ export const PATCH_NOTES: PatchNote[] = [
       "Chaque vilain **parle son propre langage** : Poison, Pile de l'Au-delà, Titans entravés, Tuiles Chiots, jetons Confiance, Salle des Chenilles, marqueur Pilote, jetons Feu, lancers de dés, jetons Trésor, Étoiles, Pierres d'Infinité…",
       "Les messages **s'accordent** enfin : plus de « Ariel est éliminé » ni de « Les Archers Loups gagne +1 Force ».",
       "**Kilaire** n'affichait **aucun** message de Journal — ils étaient restés attachés aux cartes de Sumbra.",
-      "**Choix des vilains entièrement réagencé** : la grille prend toute la largeur avec des vignettes compactes — **toute la galerie d'un seul coup d'œil**, sans défiler — et elle est **rangée par univers** (**Disney / Pixar**, **Marvel**, **Collaborations**), comme la galerie.",
-      "Ton camp et celui de l'**adversaire** descendent **en bas de l'écran** et **encadrent** le bouton **Lancer la partie** : les trois informations décisives au même endroit. Chaque camp affiche l'**illustration de son vilain en fond** et sa **devise** juste en dessous — les grandes illustrations latérales disparaissent, la grille prend toute la largeur.",
     ],
   },
   {
