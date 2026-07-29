@@ -8,8 +8,9 @@
 // après (rang naturel).
 // =============================================================================
 
-import { COLLAB_VILLAINS, type VillainKey } from './store/gameStore'
+import { COLLAB_VILLAINS, MARVEL_VILLAINS, customVillainOf, isCustomKey, type VillainKey } from './store/gameStore'
 import { villainCreator } from './villainPacks'
+import type { VillainOrigin } from '../data/customVillain'
 
 /** Vilains Disney/Pixar dans leur ordre de sortie (les Collaborations suivent). */
 export const DISNEY_RELEASE_ORDER: VillainKey[] = [
@@ -47,4 +48,28 @@ export function releaseRank(key: string): number {
 /** Comparateur de tri par ordre de sortie (stable : les inconnus gardent leur ordre relatif). */
 export function byRelease(a: string, b: string): number {
   return releaseRank(a) - releaseRank(b)
+}
+
+// --- Origine (univers) d'un vilain -----------------------------------------
+// Même taxonomie que les sections de la galerie. La règle vit ICI (et non dupliquée
+// par écran) pour que la galerie et le choix des vilains ne divergent jamais.
+
+/** Univers affichés, dans l'ordre des sections. */
+export const VILLAIN_ORIGINS: VillainOrigin[] = ['Disney', 'Marvel', 'Collaborations']
+
+/** Libellé affiché par origine (la clé reste interne aux données/filtres). */
+export const ORIGIN_LABELS: Record<VillainOrigin, string> = {
+  Disney: 'Disney / Pixar',
+  Marvel: 'Marvel',
+  Collaborations: 'Collaborations',
+}
+
+/** Univers d'un vilain, natif OU publié. Un vilain publié porte son `origin` (choisi
+ *  à la publication) ; un natif se déduit des listes de `gameStore`. Repli sur
+ *  « Collaborations » : un publié sans `origin` n'est jamais un Disney officiel. */
+export function villainOrigin(key: string): VillainOrigin {
+  if (isCustomKey(key)) return customVillainOf(key)?.origin ?? 'Collaborations'
+  if ((MARVEL_VILLAINS as string[]).includes(key)) return 'Marvel'
+  if ((COLLAB_VILLAINS as string[]).includes(key)) return 'Collaborations'
+  return 'Disney'
 }

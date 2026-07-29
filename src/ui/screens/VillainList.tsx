@@ -10,7 +10,8 @@ import { villainHasSurprise } from '../surpriseBus'
 import { villainCreator } from '../villainPacks'
 import { useFavoritesStore } from '../store/favoritesStore'
 import { useVillainOrderStore, orderRank } from '../store/villainOrderStore'
-import { DISNEY_RELEASE_ORDER, CREATOR_ORDER } from '../villainOrder'
+import { DISNEY_RELEASE_ORDER, CREATOR_ORDER, VILLAIN_ORIGINS, ORIGIN_LABELS } from '../villainOrder'
+import type { VillainOrigin } from '../../data/customVillain'
 import { useStatsStore } from '../store/statsStore'
 import { useIsDesktopApp } from '../store/settingsStore'
 import { Scroller } from '../components/Scroller'
@@ -31,7 +32,8 @@ interface Props {
  * Une barre latérale gauche permet de filtrer (recherche par nom, difficulté,
  * origine Disney/Collaborations) et de trier (par sortie, difficulté ou nom).
  */
-type Origin = 'Disney' | 'Marvel' | 'Collaborations'
+/** Alias local de la taxonomie partagée (cf. `villainOrder.ts`). */
+type Origin = VillainOrigin
 
 /** Catégories de vilains, dans leur ordre de SORTIE (les collaborations en dernier).
  *  L'ordre vient de la source de vérité partagée `villainOrder.ts`. */
@@ -81,13 +83,7 @@ const ALL_VILLAINS: VillainMeta[] = CATEGORIES.flatMap((cat) =>
 type GridItem = { kind: 'villain'; name: string; origin: Origin; release: number; difficulty: number; meta: VillainMeta }
 
 const DIFFICULTIES = [1, 2, 3, 4, 5]
-const ORIGINS: Origin[] = ['Disney', 'Marvel', 'Collaborations']
-/** Libellé affiché par origine (la clé `Origin` reste interne au filtre/données). */
-const ORIGIN_LABELS: Record<Origin, string> = {
-  Disney: 'Disney / Pixar',
-  Marvel: 'Marvel',
-  Collaborations: 'Collaborations',
-}
+const ORIGINS = VILLAIN_ORIGINS
 /** Sous-sections de Collaborations par créateur, dans l'ordre d'affichage souhaité
  *  (`CREATOR_ORDER` partagé). Les créateurs hors liste suivent (ordre alpha) ; les
  *  vilains sans créateur vont dans « Autres ». */

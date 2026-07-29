@@ -5,7 +5,7 @@ import { usePlayerStore } from '../store/playerStore'
 import { useIsDesktopApp } from '../store/settingsStore'
 import { villainPortrait, villainPresentation, PRESENTATION_TWEAK } from '../villainArt'
 import { villainGuideOf } from '../villainGuide'
-import { byRelease } from '../villainOrder'
+import { byRelease, villainOrigin, VILLAIN_ORIGINS, ORIGIN_LABELS } from '../villainOrder'
 import { VILLAIN_COLOR, villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from '../villainColors'
 import { Scroller } from '../components/Scroller'
 import { OptionsButton } from '../components/OptionsButton'
@@ -91,7 +91,7 @@ function Tile({
       )}
       {/* Vignettes petites (grille dense) : nom borné à 2 lignes pour que toutes les
           tuiles d'une rangée gardent la même hauteur, quel que soit le nom. */}
-      <span className="line-clamp-2 px-1 py-1 text-center text-[11px] font-bold leading-tight text-amber-100">
+      <span className="line-clamp-2 px-0.5 py-1 text-center text-[10px] font-bold leading-tight text-amber-100">
         {isRandom ? 'Aléatoire' : v?.def.name}
       </span>
       {/* Pastilles des camps ayant choisi cette tuile (random peut être les deux). */}
@@ -151,28 +151,28 @@ function SlotCard({
       disabled={!clickable}
       onClick={(e) => { e.stopPropagation(); if (clickable) { playHeroSelect(); onActivate() } }}
       onMouseEnter={() => { if (clickable) playHover() }}
-      className={`flex flex-1 items-center gap-3 rounded-xl border p-3 text-left transition ${
+      className={`flex w-full items-center gap-2 rounded-lg border p-2 text-left transition ${
         active ? `border-transparent bg-[#181227] ring-2 ${style.ring}` : 'border-white/10 bg-[#0d0a17]'
       } ${clickable ? 'hover:bg-[#1e1733]' : 'cursor-default'}`}
     >
-      <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/15 bg-white/5">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded border border-white/15 bg-white/5">
         {isRandom ? (
-          <span className="text-2xl">🎲</span>
+          <span className="text-lg">🎲</span>
         ) : v ? (
           <img src={villainPortrait(value as string)} alt={v.def.name} className="h-full w-full object-cover" />
         ) : (
-          <span className="text-xl text-white/30">?</span>
+          <span className="text-base text-white/30">?</span>
         )}
       </span>
       <div className="flex min-w-0 flex-col">
-        <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-white/50">
+        <span className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.15em] text-white/50">
           {sideLabel}
-          {active && <span className={`inline-block h-2 w-2 rounded-full ${side === 'mine' ? 'bg-amber-400' : 'bg-purple-400'}`} />}
+          {active && <span className={`inline-block h-1.5 w-1.5 rounded-full ${side === 'mine' ? 'bg-amber-400' : 'bg-purple-400'}`} />}
         </span>
-        <span className={`truncate text-base font-bold ${value ? style.text : 'text-white/30'}`}>
+        <span className={`truncate text-sm font-bold leading-tight ${value ? style.text : 'text-white/30'}`}>
           {isRandom ? 'Aléatoire' : v ? v.def.name : 'À choisir'}
         </span>
-        {hint && <span className="truncate text-[11px] text-white/40">{hint}</span>}
+        {hint && <span className="truncate text-[10px] leading-tight text-white/40">{hint}</span>}
       </div>
     </button>
   )
@@ -210,7 +210,7 @@ function RandomArt({ side }: { side: 'left' | 'right' }) {
           alt=""
           aria-hidden
           style={transform ? { transform, transformOrigin: 'bottom' } : undefined}
-          className={`villain-fade-bottom h-full w-auto max-w-[40vw] object-contain brightness-0 blur-[3px] ${
+          className={`villain-fade-bottom h-full w-auto max-w-[14vw] object-contain brightness-0 blur-[3px] ${
             side === 'left' ? 'object-left' : 'object-right'
           }`}
         />
@@ -253,7 +253,7 @@ function PresentationArt({ choice, side }: { choice: Choice | null; side: 'left'
         alt=""
         aria-hidden
         style={transform ? { transform, transformOrigin: 'bottom' } : undefined}
-        className={`villain-fade-bottom ${SIDE_ART_BASE} max-w-[40vw] object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)] ${
+        className={`villain-fade-bottom ${SIDE_ART_BASE} max-w-[14vw] object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)] ${
           side === 'left' ? 'left-0 object-left' : tweak ? 'right-0 object-right' : 'right-0 object-right -scale-x-100'
         }`}
       />
@@ -262,11 +262,11 @@ function PresentationArt({ choice, side }: { choice: Choice | null; side: 'left'
           conteneur z-0) pour ne pas être plafonnée par son contexte d'empilement. */}
       {devise && (
         <div
-          className={`pointer-events-none absolute bottom-10 z-20 hidden min-w-[13rem] justify-center px-4 lg:flex lg:w-[8vw] xl:w-[12vw] 2xl:w-[15vw] ${
+          className={`pointer-events-none absolute bottom-32 z-20 hidden min-w-[11rem] justify-center px-3 lg:flex lg:w-[10vw] xl:w-[14vw] ${
             side === 'left' ? 'left-0' : 'right-0'
           }`}
         >
-          <p className="max-w-full text-center text-lg font-semibold italic leading-snug text-amber-100 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
+          <p className="max-w-full text-center text-sm font-semibold italic leading-snug text-amber-100 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
             « {devise} »
           </p>
         </div>
@@ -440,8 +440,20 @@ export function VillainSelect({ onStart, onBack }: Props) {
     return linkedButDifferent(c, mine) || linkedButDifferent(c, opp)
   }
 
-  // Tuiles de la grille : « Aléatoire » d'abord, puis tous les vilains (natifs + publiés en solo).
-  const tiles: Choice[] = ['random', ...allKeys]
+  // Tuiles de la grille, GROUPÉES PAR UNIVERS (mêmes sections que la galerie, via
+  // `villainOrigin` partagé). Une section vide n'est pas rendue (ex. Marvel en mode exe,
+  // où Thanos est encore inédit).
+  const sections = useMemo(() => {
+    const byOrigin = VILLAIN_ORIGINS.map((origin) => ({
+      origin: origin as string,
+      label: ORIGIN_LABELS[origin],
+      keys: allKeys.filter((k) => villainOrigin(k) === origin),
+    })).filter((s) => s.keys.length > 0)
+    // « Aléatoire » n'a PAS de section à lui : une rangée entière pour une seule tuile.
+    // Il ouvre donc la première section, en tête de sa grille.
+    if (byOrigin.length > 0) byOrigin[0] = { ...byOrigin[0], keys: ['random', ...byOrigin[0].keys] }
+    return byOrigin
+  }, [allKeys])
 
   const launchSolo = () => {
     if (!mineSolo || !oppSolo) return
@@ -491,63 +503,70 @@ export function VillainSelect({ onStart, onBack }: Props) {
         <Scroller className="relative z-10 h-full">
           {/* Pleine largeur pour tenir un maximum de colonnes. Sous `lg` les illustrations
               latérales sont masquées → on va bord à bord ; à partir de `lg` on réserve des
-              gouttières (en vw) pour laisser respirer l'illustration du vilain choisi, de
-              plus en plus fines à mesure que l'écran s'élargit (l'illustration, en `h-full
-              w-auto`, grandit avec la HAUTEUR, pas avec la largeur). */}
-          <div className="mx-auto flex w-full flex-col gap-5 px-6 pb-32 pt-6 lg:px-[8vw] xl:px-[12vw] 2xl:px-[15vw]">
-            {/* Récap des deux camps : en solo, cliquer un slot le rend actif.
-                FIGÉ en haut (sticky) : reste visible pendant le défilement de la grille.
-                Gardé à sa largeur d'origine (les slots sont en `flex-1` : pleine largeur,
-                ils s'étireraient en cartes démesurées). */}
-            <div className="sticky top-0 z-30 mx-auto flex w-full max-w-4xl gap-3 py-3">
-              <SlotCard
-                side="mine"
-                value={mine}
-                active={!network && activeSide === 'mine'}
-                clickable={!network}
-                hint={network ? undefined : 'Clique la grille pour choisir'}
-                label={mineLabel}
-                onActivate={() => setActiveSide('mine')}
-              />
-              <SlotCard
-                side="opp"
-                value={opp}
-                active={!network && activeSide === 'opp'}
-                clickable={!network}
-                hint={network ? 'en direct' : undefined}
-                label={oppLabel}
-                onActivate={() => setActiveSide('opp')}
-              />
-            </div>
-
-            {/* Grille partagée de tous les vilains (façon sélection de perso). En
-                réseau, on diffuse mon survol et on affiche le curseur de l'adversaire. */}
+              gouttières (en vw) calées sur la largeur MAX des illustrations, pour qu'elles
+              ne passent pas sous la grille. Le récap des deux camps vit dans le pied de
+              page (avec le bouton de lancement), pas au-dessus de la grille. */}
+          <div className="mx-auto flex w-full flex-col gap-5 px-6 pb-24 pt-4 lg:px-[10vw] xl:px-[14vw]">
+            {/* Grille partagée de tous les vilains (façon sélection de perso), découpée en
+                SECTIONS par univers. En réseau, on diffuse mon survol et on affiche le
+                curseur de l'adversaire. */}
             <div
-              className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-7 lg:grid-cols-9 xl:grid-cols-10 2xl:grid-cols-12"
+              className="flex flex-col gap-3"
               onMouseLeave={() => { if (network) setHoverVillain(null) }}
             >
-              {tiles.map((c) => (
-                <Tile
-                  key={c}
-                  choice={c}
-                  mineIs={mine === c}
-                  oppIs={opp === c}
-                  mineLabel={mineLabel}
-                  oppLabel={oppLabel}
-                  oppHovering={network && peerHover === c}
-                  // Verrouillé si pris par l'adversaire, ou si c'est le skin lié d'un vilain déjà
-                  // choisi (Sumbra ⟷ Kilaire = même vilain, un seul par partie).
-                  disabled={disabledFor(c)}
-                  onPick={() => pickTile(c)}
-                  onHoverEnter={network ? () => setHoverVillain(c === 'random' ? null : (c as VillainKey)) : undefined}
-                />
+              {sections.map((s) => (
+                <section key={s.origin}>
+                  {/* En-tête de section : même idiome que la galerie (libellé + filet). */}
+                  <h2 className="mb-1.5 flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.2em] text-amber-300/80">
+                    {s.label}
+                    <span className="h-px flex-1 bg-white/10" />
+                  </h2>
+                  {/* Remplissage AUTO : autant de colonnes que la largeur en autorise, avec
+                      une vignette d'au moins 5rem. Évite une échelle de breakpoints à
+                      maintenir et garde des tuiles de taille constante d'une section
+                      à l'autre. */}
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(5rem,1fr))] gap-2">
+                    {s.keys.map((c) => (
+                      <Tile
+                        key={c}
+                        choice={c}
+                        mineIs={mine === c}
+                        oppIs={opp === c}
+                        mineLabel={mineLabel}
+                        oppLabel={oppLabel}
+                        oppHovering={network && peerHover === c}
+                        // Verrouillé si pris par l'adversaire, ou si c'est le skin lié d'un vilain déjà
+                        // choisi (Sumbra ⟷ Kilaire = même vilain, un seul par partie).
+                        disabled={disabledFor(c)}
+                        onPick={() => pickTile(c)}
+                        onHoverEnter={network ? () => setHoverVillain(c === 'random' ? null : (c as VillainKey)) : undefined}
+                      />
+                    ))}
+                  </div>
+                </section>
               ))}
             </div>
           </div>
         </Scroller>
       </main>
 
-      <footer className="relative z-0 -mt-28 flex flex-col items-center gap-2 border-t border-white/10 bg-black/30 px-4 pb-8 pt-28 shadow-[0_-6px_20px_rgba(0,0,0,0.35)] backdrop-blur-md">
+      {/* Barre du bas : le récap des deux camps ENCADRE le bouton de lancement (mon camp à
+          gauche, l'adversaire à droite), pour avoir les trois informations décisives au même
+          endroit au lieu de les répartir haut/bas. */}
+      <footer className="relative z-0 -mt-28 flex items-end justify-center gap-4 border-t border-white/10 bg-black/30 px-4 pb-5 pt-28 shadow-[0_-6px_20px_rgba(0,0,0,0.35)] backdrop-blur-md">
+        <div className="w-48 shrink-0">
+          <SlotCard
+            side="mine"
+            value={mine}
+            active={!network && activeSide === 'mine'}
+            clickable={!network}
+            hint={network ? undefined : 'Clique la grille'}
+            label={mineLabel}
+            onActivate={() => setActiveSide('mine')}
+          />
+        </div>
+
+        <div className="flex flex-col items-center gap-2">
         {/* RÉSEAU : toute erreur (dont un échec de lancement) est affichée ici — sans ça,
             un clic « Lancer » qui échoue donnait l'impression que « rien ne se passe ». */}
         {network && netError && (
@@ -618,6 +637,19 @@ export function VillainSelect({ onStart, onBack }: Props) {
             {!takenBy(mine) ? 'Choisis ton vilain.' : '⏳ En attente que l’hôte lance la partie…'}
           </span>
         )}
+        </div>
+
+        <div className="w-48 shrink-0">
+          <SlotCard
+            side="opp"
+            value={opp}
+            active={!network && activeSide === 'opp'}
+            clickable={!network}
+            hint={network ? 'en direct' : undefined}
+            label={oppLabel}
+            onActivate={() => setActiveSide('opp')}
+          />
+        </div>
       </footer>
 
       <OptionsButton />
