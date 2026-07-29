@@ -145,11 +145,6 @@ function SlotCard({
   const sideLabel = label ?? style.label
   const isRandom = value === 'random'
   const v = value && value !== 'random' ? villainEntry(value) : null
-  // Illustration de présentation du vilain choisi, posée EN FOND de la carte. Elle est
-  // ancrée à DROITE et débordante en hauteur (`h-[150%]`, rognée par l'overflow) : les
-  // illustrations sont des personnages en pied, donc seule leur MOITIÉ HAUTE (tête +
-  // buste) est lisible dans une carte aussi basse. Un dégradé la couvre côté texte.
-  const backdrop = value && value !== 'random' ? villainPresentation(value) : undefined
   // Devise du vilain choisi (si renseignée), posée SOUS la carte.
   const devise = value && value !== 'random' ? villainGuideOf(value).devise : undefined
   return (
@@ -163,19 +158,6 @@ function SlotCard({
         active ? `border-transparent bg-[#181227] ring-2 ${style.ring}` : 'border-white/10 bg-[#0d0a17]'
       } ${clickable ? 'hover:bg-[#1e1733]' : 'cursor-default'}`}
     >
-      {backdrop && (
-        <>
-          <img
-            src={backdrop}
-            alt=""
-            aria-hidden
-            className={`pointer-events-none absolute right-0 top-0 h-[150%] w-auto max-w-none object-contain opacity-55 ${
-              side === 'opp' ? '-scale-x-100' : ''
-            }`}
-          />
-          <span className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#0d0a17] via-[#0d0a17]/85 to-transparent" />
-        </>
-      )}
       <span className="relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/15 bg-white/5">
         {isRandom ? (
           <span className="text-4xl">🎲</span>
@@ -205,6 +187,28 @@ function SlotCard({
   )
 }
 
+/** Illustration du vilain choisi, dressée sur le BORD de son camp : à gauche pour le joueur,
+ *  à droite pour l'adversaire (miroir, pour qu'ils se fassent face).
+ *
+ *  Positionnée en ABSOLU, donc hors du flux : sans ça, une illustration de cette taille
+ *  dicterait la hauteur du pied de page et la grille se ferait rogner sa dernière rangée.
+ *  Elle dépasse SOUS le bas de l'écran (`-bottom-48`, rogné par l'`overflow-hidden` de la
+ *  racine) : on ne voit jamais le bas de l'illustration, le personnage sort du décor.
+ *  Masquée sous `lg` (pas la place) et pour « Aléatoire » (pas d'illustration). */
+function SlotArt({ choice, side }: { choice: Choice | null; side: 'left' | 'right' }) {
+  const src = choice && choice !== 'random' ? villainPresentation(choice) : undefined
+  if (!src) return null
+  return (
+    <img
+      src={src}
+      alt=""
+      aria-hidden
+      className={`pointer-events-none absolute -bottom-48 hidden h-[52rem] w-[32rem] object-cover object-top drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)] lg:block ${
+        side === 'right' ? 'right-0 -scale-x-100' : 'left-0'
+      }`}
+    />
+  )
+}
 
 /**
  * Choix des vilains avant la partie.
@@ -451,7 +455,7 @@ export function VillainSelect({ onStart, onBack }: Props) {
 
   return (
     <div
-      className="villain-bg relative flex h-screen flex-col bg-[#0a0814] text-white"
+      className="villain-bg relative flex h-screen flex-col overflow-hidden bg-[#0a0814] text-white"
       style={{ backgroundImage: pageBackground }}
     >
       <header className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
@@ -576,10 +580,12 @@ export function VillainSelect({ onStart, onBack }: Props) {
         )}
         </div>
 
-        {/* Les deux camps, côte à côte SOUS le bouton. `min-w-0` sans `shrink-0` : à cette
-            taille les deux cases frôlent la largeur de l'écran, elles doivent pouvoir se
-            comprimer plutôt que déborder. */}
-        <div className="flex w-full items-start justify-center gap-4">
+        {/* Les deux camps, côte à côte SOUS le bouton, chacun flanqué de l'illustration de
+            son vilain (à l'extérieur). `min-w-0` sans `shrink-0` : à cette taille les deux
+            cases frôlent la largeur de l'écran, elles doivent pouvoir se comprimer plutôt
+            que déborder. */}
+        {/* `relative z-10` : les illustrations sont en absolu et les recouvriraient sinon. */}
+        <div className="relative z-10 flex w-full items-end justify-center gap-4">
           <div className="w-[32rem] min-w-0">
             <SlotCard
               side="mine"
@@ -603,6 +609,9 @@ export function VillainSelect({ onStart, onBack }: Props) {
             />
           </div>
         </div>
+
+        <SlotArt choice={mine} side="left" />
+        <SlotArt choice={opp} side="right" />
       </footer>
 
       <OptionsButton />
