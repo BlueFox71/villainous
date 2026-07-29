@@ -91,7 +91,7 @@ function Tile({
       )}
       {/* Vignettes petites (grille dense) : nom borné à 2 lignes pour que toutes les
           tuiles d'une rangée gardent la même hauteur, quel que soit le nom. */}
-      <span className="line-clamp-2 px-0.5 py-1 text-center text-[10px] font-bold leading-tight text-amber-100">
+      <span className="line-clamp-2 px-1 py-1 text-center text-[11px] font-bold leading-tight text-amber-100">
         {isRandom ? 'Aléatoire' : v?.def.name}
       </span>
       {/* Pastilles des camps ayant choisi cette tuile (random peut être les deux). */}
@@ -262,7 +262,7 @@ function PresentationArt({ choice, side }: { choice: Choice | null; side: 'left'
           conteneur z-0) pour ne pas être plafonnée par son contexte d'empilement. */}
       {devise && (
         <div
-          className={`pointer-events-none absolute bottom-32 z-20 hidden min-w-[11rem] justify-center px-3 lg:flex lg:w-[10vw] xl:w-[14vw] ${
+          className={`pointer-events-none absolute bottom-6 z-20 hidden min-w-[11rem] justify-center px-3 lg:flex lg:w-[10vw] xl:w-[14vw] ${
             side === 'left' ? 'left-0' : 'right-0'
           }`}
         >
@@ -469,9 +469,10 @@ export function VillainSelect({ onStart, onBack }: Props) {
         <span className="h-px flex-1 bg-white/10" />
       </h2>
       {/* Remplissage AUTO : autant de colonnes que la largeur en autorise, avec une
-          vignette d'au moins 5rem. Évite une échelle de breakpoints à maintenir et garde
-          des tuiles de taille constante d'une section à l'autre. */}
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(5rem,1fr))] gap-2">
+          vignette d'au moins 7rem — évite une échelle de breakpoints à maintenir. Le `1fr`
+          répartit le reliquat, donc une section ÉTROITE (Marvel, sur 20 %) a des vignettes
+          un peu plus larges que les autres : voulu, ça évite un bord droit en dents de scie. */}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2">
         {s.keys.map((c) => (
           <Tile
             key={c}
@@ -543,7 +544,7 @@ export function VillainSelect({ onStart, onBack }: Props) {
               gouttières (en vw) calées sur la largeur MAX des illustrations, pour qu'elles
               ne passent pas sous la grille. Le récap des deux camps vit dans le pied de
               page (avec le bouton de lancement), pas au-dessus de la grille. */}
-          <div className="mx-auto flex w-full flex-col gap-5 px-6 pb-24 pt-4 lg:px-[10vw] xl:px-[14vw]">
+          <div className="mx-auto flex w-full flex-col gap-5 px-6 pb-6 pt-4 lg:px-[10vw] xl:px-[14vw]">
             {/* Grille partagée de tous les vilains (façon sélection de perso), découpée en
                 SECTIONS par univers. En réseau, on diffuse mon survol et on affiche le
                 curseur de l'adversaire. */}
@@ -570,7 +571,9 @@ export function VillainSelect({ onStart, onBack }: Props) {
       {/* Barre du bas : le récap des deux camps ENCADRE le bouton de lancement (mon camp à
           gauche, l'adversaire à droite), pour avoir les trois informations décisives au même
           endroit au lieu de les répartir haut/bas. */}
-      <footer className="relative z-0 -mt-28 flex items-end justify-center gap-4 border-t border-white/10 bg-black/30 px-4 pb-5 pt-28 shadow-[0_-6px_20px_rgba(0,0,0,0.35)] backdrop-blur-md">
+      {/* INVISIBLE : aucun habillage (ni fond, ni bordure, ni ombre, ni flou) — seuls les
+          deux camps et le bouton se détachent, posés directement sur le décor. */}
+      <footer className="relative z-0 flex items-end justify-center gap-4 px-4 pb-5 pt-2">
         <div className="w-48 shrink-0">
           <SlotCard
             side="mine"
