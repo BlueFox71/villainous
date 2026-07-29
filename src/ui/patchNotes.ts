@@ -57,7 +57,7 @@ export const PATCH_NOTES: PatchNote[] = [
       "Les messages **s'accordent** enfin : plus de « Ariel est éliminé » ni de « Les Archers Loups gagne +1 Force ».",
       "**Kilaire** n'affichait **aucun** message de Journal — ils étaient restés attachés aux cartes de Sumbra.",
       "**Choix des vilains entièrement réagencé** : la grille prend toute la largeur avec des vignettes compactes — **toute la galerie d'un seul coup d'œil**, sans défiler — et elle est **rangée par univers** (**Disney / Pixar**, **Marvel**, **Collaborations**), comme la galerie.",
-      "Ton camp et celui de l'**adversaire** descendent **en bas de l'écran** et **encadrent** le bouton **Lancer la partie** : les trois informations décisives au même endroit. Les illustrations des vilains choisis sont **plus petites**, pour laisser la grille respirer.",
+      "Ton camp et celui de l'**adversaire** descendent **en bas de l'écran** et **encadrent** le bouton **Lancer la partie** : les trois informations décisives au même endroit. Chaque camp affiche l'**illustration de son vilain en fond** et sa **devise** juste en dessous — les grandes illustrations latérales disparaissent, la grille prend toute la largeur.",
     ],
   },
   {

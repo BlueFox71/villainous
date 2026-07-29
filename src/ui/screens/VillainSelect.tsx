@@ -3,7 +3,7 @@ import { VILLAIN_REGISTRY, villainEntry, useGameStore, UNRELEASED_VILLAINS, type
 import { useCustomVillainStore } from '../store/customVillainStore'
 import { usePlayerStore } from '../store/playerStore'
 import { useIsDesktopApp } from '../store/settingsStore'
-import { villainPortrait, villainPresentation, PRESENTATION_TWEAK } from '../villainArt'
+import { villainPortrait, villainPresentation } from '../villainArt'
 import { villainGuideOf } from '../villainGuide'
 import { byRelease, villainOrigin, VILLAIN_ORIGINS, ORIGIN_LABELS } from '../villainOrder'
 import { VILLAIN_COLOR, villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from '../villainColors'
@@ -146,11 +146,14 @@ function SlotCard({
   const isRandom = value === 'random'
   const v = value && value !== 'random' ? villainEntry(value) : null
   // Illustration de présentation du vilain choisi, posée EN FOND de la carte. Elle est
-  // ancrée à DROITE et débordante en hauteur (`h-[210%]`, rognée par l'overflow) : les
+  // ancrée à DROITE et débordante en hauteur (`h-[150%]`, rognée par l'overflow) : les
   // illustrations sont des personnages en pied, donc seule leur MOITIÉ HAUTE (tête +
   // buste) est lisible dans une carte aussi basse. Un dégradé la couvre côté texte.
   const backdrop = value && value !== 'random' ? villainPresentation(value) : undefined
+  // Devise du vilain choisi (si renseignée), posée SOUS la carte.
+  const devise = value && value !== 'random' ? villainGuideOf(value).devise : undefined
   return (
+    <div className="flex w-full flex-col gap-2">
     <button
       type="button"
       disabled={!clickable}
@@ -193,105 +196,15 @@ function SlotCard({
         {hint && <span className="truncate text-sm leading-tight text-white/50">{hint}</span>}
       </div>
     </button>
-  )
-}
-
-/** Position/visibilité commune des illustrations latérales (bord + arrière-plan). */
-const SIDE_ART_BASE = 'pointer-events-none absolute inset-y-0 z-0 hidden h-full w-auto lg:block'
-
-/** Illustration « mystère » pour le choix « Aléatoire » : un vilain tiré au hasard
- *  rendu en silhouette noire légèrement floutée, avec un « ? » au centre. Le tirage
- *  est figé tant que le composant reste monté. */
-function RandomArt({ side }: { side: 'left' | 'right' }) {
-  const [key] = useState<VillainKey | null>(() => {
-    const withArt = BUILTIN_KEYS.filter((k) => villainPresentation(k))
-    return withArt[Math.floor(Math.random() * withArt.length)] ?? null
-  })
-  const src = key ? villainPresentation(key) : undefined
-  if (!src) return null
-  // Même réglage de taille/position que la présentation réelle (ex. Imposteur).
-  const tweak = key ? PRESENTATION_TWEAK[key] : undefined
-  const mirror = side === 'right' ? -1 : 1
-  const transform = tweak
-    ? `translate(${tweak.dxPct ?? 0}%, ${tweak.dyPct ?? 0}%) scale(${tweak.scale ?? 1}) scaleX(${mirror})`
-    : undefined
-  return (
-    <div
-      className={`pointer-events-none absolute inset-y-0 z-0 hidden lg:block ${
-        side === 'left' ? 'left-0' : 'right-0'
-      }`}
-    >
-      <div className="relative h-full">
-        {/* Silhouette noire, légèrement floutée. */}
-        <img
-          src={src}
-          alt=""
-          aria-hidden
-          style={transform ? { transform, transformOrigin: 'bottom' } : undefined}
-          className={`villain-fade-bottom h-full w-auto max-w-[14vw] object-contain brightness-0 blur-[3px] ${
-            side === 'left' ? 'object-left' : 'object-right'
-          }`}
-        />
-        {/* « ? » au centre de la silhouette. */}
-        <span className="absolute inset-0 flex items-center justify-center text-[11rem] font-black leading-none text-white/85 [text-shadow:0_4px_24px_rgba(0,0,0,0.85)]">
-          ?
-        </span>
-      </div>
+      {devise && (
+        <p className="px-2 text-center text-sm font-semibold italic leading-snug text-amber-100/90 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
+          « {devise} »
+        </p>
+      )}
     </div>
   )
 }
 
-/** Illustration « en grand » du vilain choisi, ancrée sur un bord EN ARRIÈRE-PLAN
- *  (z-0, plein hauteur) pour décorer le côté sans perturber le layout des listes.
- *  « Aléatoire » → illustration mystère ; rien tant qu'aucun camp n'est choisi. */
-function PresentationArt({ choice, side }: { choice: Choice | null; side: 'left' | 'right' }) {
-  if (choice === 'random') return <RandomArt side={side} />
-  const src = choice ? villainPresentation(choice) : undefined
-  if (!src) return null
-  // Réglage exceptionnel par vilain (échelle + décalage). Quand présent, on pilote
-  // la transform en inline (mirror inclus) au lieu de la classe -scale-x-100.
-  const tweak = choice ? PRESENTATION_TWEAK[choice as VillainKey] : undefined
-  const mirror = side === 'right' ? -1 : 1
-  // Art de côté : `selectDxPct` = décalage VERS LE CENTRE (côté gauche/joueur → vers la
-  // droite ; côté droit/adversaire → vers la gauche). Sinon le `dxPct` de la fiche.
-  const dx = tweak
-    ? tweak.selectDxPct != null
-      ? tweak.selectDxPct * (side === 'left' ? 1 : -1)
-      : tweak.dxPct ?? 0
-    : 0
-  const transform = tweak
-    ? `translate(${dx}%, ${tweak.dyPct ?? 0}%) scale(${tweak.scale ?? 1}) scaleX(${mirror})`
-    : undefined
-  // Devise du vilain choisi (si renseignée) : posée en bas de l'illustration.
-  const devise = choice ? villainGuideOf(choice).devise : undefined
-  return (
-    <>
-      <img
-        src={src}
-        alt=""
-        aria-hidden
-        style={transform ? { transform, transformOrigin: 'bottom' } : undefined}
-        className={`villain-fade-bottom ${SIDE_ART_BASE} max-w-[14vw] object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)] ${
-          side === 'left' ? 'left-0 object-left' : tweak ? 'right-0 object-right' : 'right-0 object-right -scale-x-100'
-        }`}
-      />
-      {/* Devise AU PREMIER PLAN (z-20, au-dessus du scroller z-10) : en bas de
-          l'illustration, sur son bord. Élément frère de l'image (pas enfant du
-          conteneur z-0) pour ne pas être plafonnée par son contexte d'empilement. */}
-      {devise && (
-        <div
-          className={`pointer-events-none absolute bottom-6 z-20 hidden min-w-[11rem] justify-center px-3 lg:flex lg:w-[10vw] xl:w-[14vw] ${
-            side === 'left' ? 'left-0' : 'right-0'
-          }`}
-        >
-          <p className="max-w-full text-center text-sm font-semibold italic leading-snug text-amber-100 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
-            « {devise} »
-          </p>
-        </div>
-      )}
-    </>
-  )
-}
 
 /**
  * Choix des vilains avant la partie.
@@ -554,15 +467,11 @@ export function VillainSelect({ onStart, onBack }: Props) {
       </header>
 
       <main className="relative min-h-0 flex-1 overflow-hidden">
-        <PresentationArt choice={mine} side="left" />
-        <PresentationArt choice={opp} side="right" />
         <Scroller className="relative z-10 h-full">
-          {/* Pleine largeur pour tenir un maximum de colonnes. Sous `lg` les illustrations
-              latérales sont masquées → on va bord à bord ; à partir de `lg` on réserve des
-              gouttières (en vw) calées sur la largeur MAX des illustrations, pour qu'elles
-              ne passent pas sous la grille. Le récap des deux camps vit dans le pied de
-              page (avec le bouton de lancement), pas au-dessus de la grille. */}
-          <div className="mx-auto flex w-full flex-col gap-5 px-6 pb-6 pt-4 lg:px-[10vw] xl:px-[14vw]">
+          {/* Pleine largeur, bord à bord : les gouttières n'existaient que pour dégager les
+              illustrations latérales, désormais supprimées (la présentation du vilain choisi
+              vit derrière sa case, dans le pied de page). */}
+          <div className="mx-auto flex w-full flex-col gap-5 px-6 pb-6 pt-4">
             {/* Grille partagée de tous les vilains (façon sélection de perso), découpée en
                 SECTIONS par univers. En réseau, on diffuse mon survol et on affiche le
                 curseur de l'adversaire. */}
@@ -591,7 +500,7 @@ export function VillainSelect({ onStart, onBack }: Props) {
           endroit au lieu de les répartir haut/bas. */}
       {/* INVISIBLE : aucun habillage (ni fond, ni bordure, ni ombre, ni flou) — seuls les
           deux camps et le bouton se détachent, posés directement sur le décor. */}
-      <footer className="relative z-0 flex items-end justify-center gap-4 px-4 pb-5 pt-2">
+      <footer className="relative z-0 flex items-center justify-center gap-4 px-4 pb-5 pt-2">
         {/* `min-w-0` sans `shrink-0` : à cette taille les deux cases + le bouton frôlent la
             largeur de l'écran, elles doivent pouvoir se comprimer plutôt que déborder. */}
         <div className="w-[32rem] min-w-0">
