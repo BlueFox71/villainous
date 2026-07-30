@@ -686,14 +686,21 @@ export function VillainSelect({ onStart, onBack }: Props) {
           </div>
         </div>
 
-        {/* DEV : panneau « Configuration » ouvert → l'illustration de GAUCHE montre le
-            vilain en cours de réglage, avec le brouillon appliqué (aperçu en direct). */}
+        {/* DEV : panneau « Configuration » ouvert → le vilain en cours de réglage occupe
+            LES DEUX bords, avec le brouillon appliqué (aperçu en direct). Les deux côtés
+            à la fois : le décalage horizontal joue en miroir, on voit donc du même coup ce
+            que donne le réglage côté joueur ET côté adversaire. */}
         {configOpen && tweakVillain ? (
-          <SlotArt choice={tweakVillain} side="left" draft={tweakDraft} />
+          <>
+            <SlotArt choice={tweakVillain} side="left" draft={tweakDraft} />
+            <SlotArt choice={tweakVillain} side="right" draft={tweakDraft} />
+          </>
         ) : (
-          <SlotArt choice={mine} side="left" />
+          <>
+            <SlotArt choice={mine} side="left" />
+            <SlotArt choice={opp} side="right" />
+          </>
         )}
-        <SlotArt choice={opp} side="right" />
       </footer>
 
       <OptionsButton />
