@@ -390,7 +390,7 @@ export function VillainSelect({ onStart, onBack }: Props) {
   const mine = network ? seatVillain(localPlayerIndex) : mineSolo
   const opp = network ? seatVillain(1 - localPlayerIndex) : oppSolo
 
-  // « Aléatoire » : la silhouette ne se fige pas, elle CHANGE de vilain toutes les trois
+  // « Aléatoire » : la silhouette ne se fige pas, elle CHANGE de vilain toutes les cinq
   // secondes (chaque forme se déplie à la place de la précédente, cf. `.silhouette-morph`)
   // — le camp cherche encore son maître. Un seul minuteur pour les deux camps concernés.
   useEffect(() => {
@@ -404,7 +404,7 @@ export function VillainSelect({ onStart, onBack }: Props) {
         for (const side of cycling) next[side] = drawSilhouette()
         return next
       })
-    }, 3000)
+    }, 5000)
     return () => clearInterval(id)
   }, [mine, opp])
 
