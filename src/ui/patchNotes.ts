@@ -55,7 +55,7 @@ export const PATCH_NOTES: PatchNote[] = [
       "L'écran de **choix des vilains** est réagencé : la grille prend **toute la largeur** de l'écran et elle est **rangée par univers** — **Disney / Pixar**, **Marvel**, **Collaborations** — comme la galerie. Plus besoin de défiler pour voir tout le monde.",
       "**Aléatoire** ferme la dernière rangée, au lieu de s'emparer d'une ligne entière pour lui seul.",
       "Le bouton **Lancer la partie** est **centré au-dessus** de ton camp et de celui de l'**adversaire**, désormais côte à côte en bas de l'écran.",
-      "Les **répliques ne se coupent plus** : choisis ton vilain puis celui de l'**adversaire** et les deux parlent **en même temps**, chacun allant au bout de sa phrase. Revenir au menu coupe la voix en cours.",
+      "Les **répliques** des deux camps se **superposent** : choisis ton vilain puis celui de l'**adversaire** et tous deux parlent en même temps. Changer le vilain d'un camp coupe en revanche **sa** réplique précédente, et revenir au menu coupe tout.",
       "Le **fond teinté** par les deux vilains est **plus franc** et remonte désormais **du bas de l'écran** : ta couleur en bas à gauche, celle de l'**adversaire** en bas à droite, sous leurs illustrations.",
       "Le **vilain de chaque camp** se dresse **à côté de sa case** — le tien à gauche, celui de l'adversaire à droite, tous deux tournés vers le centre. Son illustration est affichée **en entier**, posée sur le bas de l'écran et **à la bonne taille** pour chaque vilain — **L'Imposteur** ne mange plus la moitié de l'écran. Sa **devise** s'affiche sous sa case.",
     ],

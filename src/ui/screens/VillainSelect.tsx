@@ -367,7 +367,9 @@ export function VillainSelect({ onStart, onBack }: Props) {
 
   // Joue la réplique d'un vilain choisi : natif → fichier de phrase ; publié → sa
   // « Devise en audio ». `playVillainPhrase` résout lui-même le cas custom (no-op si aucune).
-  const playPhrase = (key: string) => playVillainPhrase(key)
+  // UN CANAL PAR CAMP : changer le vilain d'un camp coupe SA réplique précédente, mais
+  // les deux camps peuvent parler en même temps (on choisit l'un puis l'autre).
+  const playPhrase = (key: string, side: Side) => playVillainPhrase(key, side)
 
   // Affecte un vilain à un camp (avec anti-miroir : on le retire à l'autre s'il l'avait).
   const assignSide = (c: Choice, side: Side) => {
@@ -385,7 +387,7 @@ export function VillainSelect({ onStart, onBack }: Props) {
   // pour changer un vilain, on clique d'abord sa carte « Toi » / « Adversaire ».
   const pickSolo = (c: Choice) => {
     if (!activeSide) return // aucun camp actif : choisis-en un via sa carte d'abord
-    if (c !== 'random') playPhrase(c) // phrase du vilain choisi (Scar, Maléfique…)
+    if (c !== 'random') playPhrase(c, activeSide) // phrase du vilain choisi (Scar, Maléfique…)
     // Le camp actif avait-il DÉJÀ un vilain ? Si oui, on est en train de le MODIFIER :
     // on garde ce camp actif (pas de désélection) pour pouvoir le changer en série.
     const editingChosen = !!(activeSide === 'mine' ? mineSolo : oppSolo)
@@ -403,7 +405,7 @@ export function VillainSelect({ onStart, onBack }: Props) {
   // un vilain disponible (on exclut celui pris par l'adversaire) puis confirmé.
   const pickMineNet = (c: Choice) => {
     const key = c === 'random' ? randomKey(takenBy(opp) ?? undefined) : c
-    playPhrase(key) // phrase du vilain choisi (Scar, Maléfique…)
+    playPhrase(key, 'mine') // phrase du vilain choisi (Scar, Maléfique…)
     selectVillain(key as VillainKey)
   }
   const pickTile = network ? pickMineNet : pickSolo

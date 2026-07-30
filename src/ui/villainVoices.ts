@@ -117,14 +117,25 @@ function stopCurrent(ms = 450): void {
  *  tout de suite, assez long pour ne pas claquer. */
 const CUT_MS = 120
 
-// Répliques de SÉLECTION (choix des vilains), suivies à part de `current` : elles se
-// SUPERPOSENT volontairement — choisir son vilain puis celui de l'adversaire fait
-// parler les deux en même temps, chacun allant au bout de sa phrase.
-const phrases = new Set<HTMLAudioElement>()
+/** Canal d'une réplique : une VOIX à la fois par canal, mais les canaux se SUPERPOSENT.
+ *  Sur le choix des vilains, un canal par camp — changer SON vilain coupe sa réplique
+ *  précédente, alors que choisir celui de l'adversaire laisse les deux parler ensemble. */
+export type PhraseChannel = string
 
-/** Coupe toutes les répliques de sélection encore en cours. */
+// Répliques de SÉLECTION, suivies à part de `current` : une entrée par canal.
+const phrases = new Map<PhraseChannel, HTMLAudioElement>()
+
+/** Coupe la réplique d'UN canal (celle qu'une nouvelle remplace sur le même camp). */
+function stopPhrase(channel: PhraseChannel, ms = CUT_MS): void {
+  const audio = phrases.get(channel)
+  if (!audio) return
+  fadeOutAndStop(audio, ms)
+  phrases.delete(channel)
+}
+
+/** Coupe TOUTES les répliques de sélection encore en cours (tous canaux). */
 function stopPhrases(ms = CUT_MS): void {
-  for (const audio of phrases) fadeOutAndStop(audio, ms)
+  for (const audio of phrases.values()) fadeOutAndStop(audio, ms)
   phrases.clear()
 }
 
@@ -254,9 +265,11 @@ export function villainPhraseUrl(villainId: string): string | undefined {
 
 /** Joue la phrase d'un vilain (si elle existe), p. ex. à sa sélection dans l'écran
  *  de choix. No-op si aucun fichier de phrase, si le son est coupé, ou hors navigateur.
- *  NE COUPE RIEN : une réplique déjà en cours continue, les deux vilains parlent
- *  ensemble (choisir son camp puis celui de l'adversaire). */
-export function playVillainPhrase(villainId: string) {
+ *
+ *  Coupe uniquement la réplique du MÊME `channel` : changer le vilain d'un camp fait
+ *  taire son choix précédent, tandis que l'autre camp continue de parler (les deux
+ *  vilains se répondent en même temps). */
+export function playVillainPhrase(villainId: string, channel: PhraseChannel = 'default') {
   if (typeof Audio === 'undefined') return
   const { sfxVolume } = useSettingsStore.getState()
   if (sfxVolume <= 0) return
@@ -273,16 +286,19 @@ export function playVillainPhrase(villainId: string) {
   const baseVolume = Math.min(1, sfxVolume * 2 * track.gain)
   audio.volume = baseVolume
   audio.src = track.url
-  // Sa propre piste, ajoutée aux répliques en cours : elle ne remplace pas les autres.
-  phrases.add(audio)
-  audio.addEventListener('ended', () => phrases.delete(audio))
-  audio.addEventListener('error', () => phrases.delete(audio))
+  // Prend la place de la réplique du même canal (et d'elle seule) : les autres canaux
+  // gardent la leur, d'où deux vilains qui parlent ensemble.
+  stopPhrase(channel)
+  phrases.set(channel, audio)
+  const release = () => { if (phrases.get(channel) === audio) phrases.delete(channel) }
+  audio.addEventListener('ended', release)
+  audio.addEventListener('error', release)
   // Fondu en fin de phrase : sur les dernières `fadeEndS` secondes, on baisse le volume
   // jusqu'à 0 pour éviter une coupure sèche. Désactivé si la phrase a été coupée
-  // (retirée de `phrases` → `fadeOutAndStop` gère déjà son fondu d'interruption).
+  // (remplacée dans `phrases` → `fadeOutAndStop` gère déjà son fondu d'interruption).
   const FADE_S = track.fadeEndS
   audio.addEventListener('timeupdate', () => {
-    if (!phrases.has(audio) || !isFinite(audio.duration)) return
+    if (phrases.get(channel) !== audio || !isFinite(audio.duration)) return
     const left = audio.duration - audio.currentTime
     if (left < FADE_S) audio.volume = Math.max(0, baseVolume * (left / FADE_S))
   })
