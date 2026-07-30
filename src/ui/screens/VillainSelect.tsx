@@ -255,24 +255,43 @@ function SlotArt({
   // le personnage regarde déjà de l'autre côté.
   const mirrored = !left !== (draft?.mirror ?? tweak?.selectMirror ?? false)
   return (
-    <img
-      src={src}
-      alt=""
+    // Le cadre porte la POSITION et le réglage (décalage + échelle) ; le miroir reste sur
+    // l'image seule, sinon le « ? » de la silhouette s'afficherait à l'envers.
+    <div
       aria-hidden
-      className={`pointer-events-none absolute bottom-0 hidden h-[min(52rem,calc(100vh-5rem))] w-[32rem] object-contain object-bottom drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)] lg:block ${
+      className={`pointer-events-none absolute bottom-0 hidden h-[min(52rem,calc(100vh-5rem))] w-[32rem] lg:block ${
         left ? 'left-0' : 'right-0'
       }`}
       style={{
         transformOrigin: 'bottom',
-        transform: `translate(${dx}%, ${dy}%) scale(${scale}) scaleX(${mirrored ? -1 : 1})`,
-        // Silhouette : `brightness(0)` noircit tout le dessin (l'alpha du PNG est conservé,
-        // donc c'est bien la FORME du vilain qui reste). Le halo clair la détache du fond,
-        // sinon une masse noire sur un fond noir ne se voit pas.
-        ...(isRandom
-          ? { filter: 'brightness(0) drop-shadow(0 0 18px rgba(255,255,255,0.3))', opacity: 0.9 }
-          : null),
+        transform: `translate(${dx}%, ${dy}%) scale(${scale})`,
       }}
-    />
+    >
+      <img
+        src={src}
+        alt=""
+        className="h-full w-full object-contain object-bottom drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)]"
+        style={{
+          transform: `scaleX(${mirrored ? -1 : 1})`,
+          // Silhouette : `brightness(0)` noircit tout le dessin (l'alpha du PNG est conservé,
+          // donc c'est bien la FORME du vilain qui reste). Le halo clair la détache du fond,
+          // sinon une masse noire sur un fond noir ne se voit pas.
+          ...(isRandom
+            ? { filter: 'brightness(0) drop-shadow(0 0 18px rgba(255,255,255,0.3))', opacity: 0.9 }
+            : null),
+        }}
+      />
+      {/* « ? » posé au CENTRE de la silhouette. Les présentations natives sont carrées et
+          `object-contain` les cale sur le bas : le dessin occupe donc le carré inférieur
+          de 32rem du cadre — c'est lui qu'on centre, pas le cadre entier. */}
+      {isRandom && (
+        <span className="absolute inset-x-0 bottom-0 flex h-[32rem] items-center justify-center">
+          <span className="text-[11rem] font-black leading-none text-white/85 drop-shadow-[0_0_25px_rgba(0,0,0,0.9)]">
+            ?
+          </span>
+        </span>
+      )}
+    </div>
   )
 }
 
