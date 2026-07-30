@@ -192,8 +192,9 @@ function SlotCard({
  *
  *  Positionnée en ABSOLU, donc hors du flux : sans ça, une illustration de cette taille
  *  dicterait la hauteur du pied de page et la grille se ferait rogner sa dernière rangée.
- *  Elle dépasse SOUS le bas de l'écran (`-bottom-48`, rogné par l'`overflow-hidden` de la
- *  racine) : on ne voit jamais le bas de l'illustration, le personnage sort du décor.
+ *  Affichée ENTIÈRE (`object-contain`, posée sur le bas de l'écran) : l'illustration est
+ *  mise à l'échelle pour tenir dans son gabarit au lieu d'être rognée, et sa hauteur est
+ *  plafonnée à la fenêtre pour qu'elle ne déborde jamais sur les petits écrans.
  *  Masquée sous `lg` (pas la place) et pour « Aléatoire » (pas d'illustration). */
 function SlotArt({ choice, side }: { choice: Choice | null; side: 'left' | 'right' }) {
   const src = choice && choice !== 'random' ? villainPresentation(choice) : undefined
@@ -203,7 +204,7 @@ function SlotArt({ choice, side }: { choice: Choice | null; side: 'left' | 'righ
       src={src}
       alt=""
       aria-hidden
-      className={`pointer-events-none absolute -bottom-48 hidden h-[52rem] w-[32rem] object-cover object-top drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)] lg:block ${
+      className={`pointer-events-none absolute bottom-0 hidden h-[min(52rem,calc(100vh-5rem))] w-[32rem] object-contain object-bottom drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)] lg:block ${
         side === 'right' ? 'right-0 -scale-x-100' : 'left-0'
       }`}
     />
