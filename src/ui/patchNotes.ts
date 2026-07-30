@@ -47,6 +47,15 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.9.9',
+    date: '2026-07-31',
+    title: 'Lancement depuis Le Grenier',
+    tags: ['interface'],
+    changes: [
+      "Lancé depuis **Le Grenier**, le jeu s'ouvre **directement** au lieu de repasser par son propre écran d'accueil : un seul accueil, une seule recherche de mise à jour.",
+    ],
+  },
+  {
     version: '1.9.8',
     date: '2026-07-30',
     title: 'Choix des vilains : toute la galerie d’un seul coup d’œil',

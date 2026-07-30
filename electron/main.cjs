@@ -14,6 +14,12 @@ const DIST = path.join(__dirname, '..', 'dist')
 // packagé et en `npm run electron` classique → comportement autonome inchangé.
 const DEV_URL = process.env.ELECTRON_DEV_URL
 
+// Lancement depuis « Le Grenier » (le launcher multi-projets) : on va DIRECTEMENT au
+// jeu, sans repasser par notre propre launcher. Variable d'environnement et non
+// argument de ligne de commande : la cible `portable` d'electron-builder est un stub
+// qui se décompresse puis relance l'app, et les arguments n'y survivent pas.
+const START_DIRECTLY = !!process.env.LANCE_PAR_LE_GRENIER
+
 // --- Mode d'affichage persisté (fenêtré / plein écran) ---------------------
 // Le choix du joueur est stocké dans userData pour être lu DÈS le lancement (la
 // fenêtre native est créée ici, avant tout code du renderer). Premier lancement
@@ -285,11 +291,20 @@ app.whenReady().then(() => {
   // fenêtre de jeu quand le joueur clique « Jouer ». La vérification de MAJ (GitHub
   // Releases privées) est déclenchée par le launcher (IPC 'launcher:start') ; sans
   // effet en dev ou sans jeton embarqué (cf. electron/updater.cjs).
-  createLauncher()
+  //
+  // SAUF si l'app est lancée depuis « Le Grenier » (le launcher multi-projets, cf.
+  // ../le-grenier) : il a déjà fait l'accueil, et c'est LUI qui possède la version
+  // installée. Réafficher notre launcher enchaînerait deux écrans d'accueil et, pire,
+  // lancerait un second updater sur un dossier qu'il gère déjà.
+  if (START_DIRECTLY) createWindow()
+  else createLauncher()
 
   app.on('activate', () => {
-    // Rien d'ouvert (macOS) → on repart du launcher.
-    if (BrowserWindow.getAllWindows().length === 0) createLauncher()
+    // Rien d'ouvert (macOS) → on repart de l'écran de départ habituel.
+    if (BrowserWindow.getAllWindows().length === 0) {
+      if (START_DIRECTLY) createWindow()
+      else createLauncher()
+    }
   })
 })
 
