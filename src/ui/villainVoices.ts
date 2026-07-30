@@ -113,14 +113,26 @@ function stopCurrent(ms = 450): void {
   current = null
 }
 
-/** Fondu de COUPURE quand une phrase en remplace une autre (choix des vilains) : assez
- *  court pour qu'on n'entende jamais deux vilains parler en même temps. */
+/** Fondu de COUPURE quand on quitte l'écran : assez court pour que la voix s'arrête
+ *  tout de suite, assez long pour ne pas claquer. */
 const CUT_MS = 120
 
-/** Coupe la voix en cours (phrase ou séquence d'intro). Sert à ne pas laisser un vilain
- *  finir sa réplique après qu'on a quitté l'écran qui l'a déclenchée. */
+// Répliques de SÉLECTION (choix des vilains), suivies à part de `current` : elles se
+// SUPERPOSENT volontairement — choisir son vilain puis celui de l'adversaire fait
+// parler les deux en même temps, chacun allant au bout de sa phrase.
+const phrases = new Set<HTMLAudioElement>()
+
+/** Coupe toutes les répliques de sélection encore en cours. */
+function stopPhrases(ms = CUT_MS): void {
+  for (const audio of phrases) fadeOutAndStop(audio, ms)
+  phrases.clear()
+}
+
+/** Coupe toute voix en cours (répliques de sélection ET séquence d'intro). Sert à ne pas
+ *  laisser un vilain finir sa réplique après qu'on a quitté l'écran qui l'a déclenchée. */
 export function stopVillainVoice(): void {
   stopCurrent(CUT_MS)
+  stopPhrases()
 }
 
 /**
@@ -147,8 +159,10 @@ export function playVillainIntro(myVillainId: string, oppVillainId: string, onDo
   ].filter((u): u is string => !!u)
   if (seq.length === 0) { onDone?.(); return }
 
-  // Coupe une éventuelle séquence/phrase précédente (en fondu, sauf phrase `noFade`).
+  // Coupe une éventuelle séquence précédente ET les répliques de sélection encore en
+  // cours : la séquence d'intro doit démarrer seule, sans voix du choix par-dessus.
   stopCurrent()
+  stopPhrases()
 
   const audio = new Audio()
   audio.volume = volume
@@ -240,7 +254,8 @@ export function villainPhraseUrl(villainId: string): string | undefined {
 
 /** Joue la phrase d'un vilain (si elle existe), p. ex. à sa sélection dans l'écran
  *  de choix. No-op si aucun fichier de phrase, si le son est coupé, ou hors navigateur.
- *  Coupe une éventuelle phrase/voix en cours. */
+ *  NE COUPE RIEN : une réplique déjà en cours continue, les deux vilains parlent
+ *  ensemble (choisir son camp puis celui de l'adversaire). */
 export function playVillainPhrase(villainId: string) {
   if (typeof Audio === 'undefined') return
   const { sfxVolume } = useSettingsStore.getState()
@@ -254,20 +269,20 @@ export function playVillainPhrase(villainId: string) {
       })()
     : phraseTrack(villainId in VILLAIN_REGISTRY ? (villainId as VillainKey) : villainKeyOf(villainId))
   if (!track) return
-  // Coupure FRANCHE de la phrase précédente : on choisit son vilain puis celui de
-  // l'adversaire coup sur coup, les deux répliques ne doivent pas se superposer.
-  stopCurrent(CUT_MS)
   const audio = new Audio()
   const baseVolume = Math.min(1, sfxVolume * 2 * track.gain)
   audio.volume = baseVolume
   audio.src = track.url
-  current = audio
+  // Sa propre piste, ajoutée aux répliques en cours : elle ne remplace pas les autres.
+  phrases.add(audio)
+  audio.addEventListener('ended', () => phrases.delete(audio))
+  audio.addEventListener('error', () => phrases.delete(audio))
   // Fondu en fin de phrase : sur les dernières `fadeEndS` secondes, on baisse le volume
-  // jusqu'à 0 pour éviter une coupure sèche. Désactivé si la phrase est remplacée
-  // (audio ≠ current → `fadeOutAndStop` gère le fondu d'interruption).
+  // jusqu'à 0 pour éviter une coupure sèche. Désactivé si la phrase a été coupée
+  // (retirée de `phrases` → `fadeOutAndStop` gère déjà son fondu d'interruption).
   const FADE_S = track.fadeEndS
   audio.addEventListener('timeupdate', () => {
-    if (audio !== current || !isFinite(audio.duration)) return
+    if (!phrases.has(audio) || !isFinite(audio.duration)) return
     const left = audio.duration - audio.currentTime
     if (left < FADE_S) audio.volume = Math.max(0, baseVolume * (left / FADE_S))
   })
@@ -290,6 +305,7 @@ export function playClosingPhrases(myKey: VillainKey, oppKey: VillainKey, onDone
   )
   if (seq.length === 0) { onDone?.(); return }
   stopCurrent()
+  stopPhrases()
   const audio = new Audio()
   current = audio
   let i = 0
