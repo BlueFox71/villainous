@@ -83,7 +83,11 @@ export function PresentationTweakBar({
     .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
 
   const saved = savedArtTweak(villain)
-  const dirty = draft.scale !== saved.scale || draft.dx !== saved.dx || draft.dy !== saved.dy
+  const dirty =
+    draft.scale !== saved.scale ||
+    draft.dx !== saved.dx ||
+    draft.dy !== saved.dy ||
+    draft.mirror !== saved.mirror
 
   const set = (patch: Partial<ArtTweakDraft>) => { setMsg(null); onDraftChange({ ...draft, ...patch }) }
 
@@ -136,6 +140,21 @@ export function PresentationTweakBar({
       </div>
 
       <div className="flex items-center gap-2">
+        {/* Inverse le sens de l'illustration : par défaut le vilain de gauche s'affiche
+            tel quel et celui de droite est retourné, pour qu'ils se fassent face. */}
+        <button
+          type="button"
+          onClick={() => set({ mirror: !draft.mirror })}
+          title="Retourner l'illustration (le personnage regarde de l'autre côté)"
+          aria-pressed={draft.mirror}
+          className={`rounded-lg border px-2.5 py-1 text-xs transition ${
+            draft.mirror
+              ? 'border-emerald-300/70 bg-emerald-500/35 font-bold text-white'
+              : 'border-white/20 text-white/80 hover:bg-white/10'
+          }`}
+        >
+          ⇄ Miroir
+        </button>
         <button
           type="button"
           onClick={() => { setMsg(null); onDraftChange(saved) }}

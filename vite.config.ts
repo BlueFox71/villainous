@@ -265,8 +265,10 @@ function savePresentationTweakPlugin(): Plugin {
             if (typeof villain !== 'string' || !villain) throw new Error('vilain invalide')
             if (typeof entry !== 'string') throw new Error('entrée invalide')
             // Garde-fou : on n'écrit qu'une entrée d'objet d'une seule ligne, faite de
-            // paires `clé: nombre` — jamais du code arbitraire venu du client.
-            if (entry && !/^ {2}(?:'[a-z0-9_-]+'|[A-Za-z_$][\w$]*): \{ (?:[A-Za-z]+: -?\d+(?:\.\d+)?)(?:, [A-Za-z]+: -?\d+(?:\.\d+)?)* \},$/.test(entry))
+            // paires `clé: nombre|booléen` — jamais du code arbitraire venu du client.
+            const VALUE = '(?:-?\\d+(?:\\.\\d+)?|true|false)'
+            const PAIR = `[A-Za-z]+: ${VALUE}`
+            if (entry && !new RegExp(`^ {2}(?:'[a-z0-9_-]+'|[A-Za-z_$][\\w$]*): \\{ ${PAIR}(?:, ${PAIR})* \\},$`).test(entry))
               throw new Error('entrée malformée')
             let src = readFileSync(FILE, 'utf8')
             const esc = villain.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')

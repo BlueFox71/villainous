@@ -114,11 +114,15 @@ export const PRESENTATION_TWEAK: Record<
      *  Champ dédié — l'illustration y est posée sur le bas de l'écran, le `dyPct` de
      *  la fiche n'a pas le même point de départ. */
     selectDyPct?: number
+    /** Art de côté de l'écran de CHOIX : INVERSE le miroir. Par défaut le vilain de
+     *  gauche s'affiche tel quel et celui de droite est retourné (ils se font face) ;
+     *  une illustration déjà tournée vers la gauche a besoin de l'inverse. */
+    selectMirror?: boolean
   }
 > = {
   // `versusDyPct` : décalage vertical SPÉCIFIQUE à l'écran versus (début de partie),
   // sinon on reprend `dyPct` (écran de choix).
-  imposteur: { scale: 0.55, dxPct: 0, dyPct: -5, versusDyPct: -12 },
+  imposteur: { scale: 0.57, dxPct: 0, dyPct: -5, versusDyPct: -12, selectDxPct: 11 },
   // Mère Gothel : illustration un peu trop petite et trop haute aux deux endroits
   // (choix ET versus) → on l'agrandit légèrement et on la descend (dyPct/versusDyPct
   // positifs = vers le bas).
@@ -136,12 +140,27 @@ export const PRESENTATION_TWEAK: Record<
   // tirée vers le centre sur l'art de côté.
   'custom-mr-monopoly': { scale: 0.85, dxPct: -30, selectDxPct: 15 },
   // Isabella (custom) : illustration un peu trop grande → légèrement rétrécie.
-  'custom-isabella': { scale: 0.9 },
+  'custom-isabella': { scale: 0.55, selectDxPct: 13 },
+  princeJohn: { scale: 1.22, selectDxPct: 10, selectDyPct: 6 },
+  bowser: { scale: 1.14, selectDxPct: 15, selectDyPct: 8 },
+  crochet: { scale: 1.24, selectDxPct: 10, selectDyPct: 5, selectMirror: true },
+  cruella: { scale: 1.13, selectDxPct: 19 },
+  davyJones: { scale: 1.13, selectDxPct: 15 },
+  'custom-dio': { scale: 1.26, selectDxPct: 18, selectDyPct: 65 },
+  facilier: { scale: 1.24, selectDxPct: 17, selectDyPct: 5 },
+  gaston: { scale: 1.06, selectDxPct: 17 },
+  'custom-stitch': { scale: 0.72, selectDxPct: 17 },
+  'custom-gul-dan': { scale: 1.22, selectDxPct: 20, selectDyPct: 26 },
+  hades: { scale: 1.29, selectDxPct: 9, selectDyPct: 7 },
+  jafar: { scale: 1.27, selectDxPct: 17, selectDyPct: 7 },
+  'custom-killaire': { scale: 1.06, selectDxPct: 17 },
+  mechanteReine: { scale: 1.11, selectDxPct: 21 },
+  'custom-flagelleur-mental': { scale: 2, selectDxPct: 35, selectDyPct: 11, selectMirror: true },
   // >>> PRESENTATION_TWEAK entries (panneau « Configuration ») — nouvelles entrées ici <<<
 }
 
-/** Brouillon de réglage manipulé par le panneau « Configuration » (dév) : les trois
- *  champs de `PRESENTATION_TWEAK` qui pilotent l'art de côté de l'écran de choix. */
+/** Brouillon de réglage manipulé par le panneau « Configuration » (dév) : les champs
+ *  de `PRESENTATION_TWEAK` qui pilotent l'art de côté de l'écran de choix. */
 export interface ArtTweakDraft {
   /** Échelle (1 = taille naturelle) — `scale`, PARTAGÉ avec la fiche et l'écran versus. */
   scale: number
@@ -149,29 +168,37 @@ export interface ArtTweakDraft {
   dx: number
   /** Décalage vertical, en % (négatif = vers le haut) — `selectDyPct`. */
   dy: number
+  /** Retourne l'illustration (inverse le miroir par défaut) — `selectMirror`. */
+  mirror: boolean
 }
 
 /** Réglage ENREGISTRÉ d'un vilain (valeurs neutres s'il n'en a pas). */
 export function savedArtTweak(villain: string): ArtTweakDraft {
   const t = PRESENTATION_TWEAK[villain]
-  return { scale: t?.scale ?? 1, dx: t?.selectDxPct ?? 0, dy: t?.selectDyPct ?? 0 }
+  return {
+    scale: t?.scale ?? 1,
+    dx: t?.selectDxPct ?? 0,
+    dy: t?.selectDyPct ?? 0,
+    mirror: t?.selectMirror ?? false,
+  }
 }
 
 /**
  * Ligne `  <clé>: { … },` à réécrire dans `PRESENTATION_TWEAK` (panneau « Configuration »).
  * On PART des champs déjà enregistrés (`dxPct`, `dyPct`, `versusDyPct`… que le panneau ne
- * touche pas) et on n'écrase que les trois réglés ; une valeur neutre RETIRE son champ.
+ * touche pas) et on n'écrase que ceux qu'il règle ; une valeur neutre RETIRE son champ.
  * Chaîne vide = plus aucun champ, l'entrée est supprimée du fichier.
  */
 export function buildArtTweakEntry(villain: string, draft: ArtTweakDraft): string {
-  const merged: Record<string, number> = { ...PRESENTATION_TWEAK[villain] }
-  const put = (key: string, value: number, neutral: number) => {
+  const merged: Record<string, number | boolean> = { ...PRESENTATION_TWEAK[villain] }
+  const put = (key: string, value: number | boolean, neutral: number | boolean) => {
     if (value === neutral) delete merged[key]
     else merged[key] = value
   }
   put('scale', Math.round(draft.scale * 100) / 100, 1)
   put('selectDxPct', Math.round(draft.dx), 0)
   put('selectDyPct', Math.round(draft.dy), 0)
+  put('selectMirror', draft.mirror, false)
   const parts = Object.entries(merged).map(([k, v]) => `${k}: ${v}`)
   if (!parts.length) return ''
   // Clé nue si c'est un identifiant JS valide (vilains natifs), quotée sinon (`custom-…`).

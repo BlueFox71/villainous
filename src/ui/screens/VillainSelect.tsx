@@ -227,6 +227,10 @@ function SlotArt({
   const rawDx = draft?.dx ?? tweak?.selectDxPct
   const dx = rawDx != null ? rawDx * (left ? 1 : -1) : (tweak?.dxPct ?? 0)
   const dy = draft?.dy ?? tweak?.selectDyPct ?? 0
+  // Par défaut le vilain de gauche s'affiche tel quel et celui de droite est retourné
+  // (ils se font face) ; `selectMirror` inverse ce réglage pour une illustration dont
+  // le personnage regarde déjà de l'autre côté.
+  const mirrored = !left !== (draft?.mirror ?? tweak?.selectMirror ?? false)
   return (
     <img
       src={src}
@@ -237,7 +241,7 @@ function SlotArt({
       }`}
       style={{
         transformOrigin: 'bottom',
-        transform: `translate(${dx}%, ${dy}%) scale(${scale}) scaleX(${left ? 1 : -1})`,
+        transform: `translate(${dx}%, ${dy}%) scale(${scale}) scaleX(${mirrored ? -1 : 1})`,
       }}
     />
   )
@@ -310,7 +314,7 @@ export function VillainSelect({ onStart, onBack }: Props) {
   // cours de réglage remplace l'illustration de GAUCHE (aperçu), sans toucher au choix.
   const [configOpen, setConfigOpen] = useState(false)
   const [tweakVillain, setTweakVillain] = useState<string | null>(null)
-  const [tweakDraft, setTweakDraft] = useState<ArtTweakDraft>({ scale: 1, dx: 0, dy: 0 })
+  const [tweakDraft, setTweakDraft] = useState<ArtTweakDraft>({ scale: 1, dx: 0, dy: 0, mirror: false })
   /** Ouvre le panneau sur un vilain (le sien s'il en a un, sinon le premier de la grille). */
   const editTweak = (key: string) => { setTweakVillain(key); setTweakDraft(savedArtTweak(key)) }
 
