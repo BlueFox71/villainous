@@ -58,13 +58,36 @@ export const VILLAIN_COVER_COLOR: Record<string, string> = {}
 export const DEFAULT_TINT_A = '#3a2d6b'
 export const DEFAULT_TINT_B = '#6b2d3a'
 
-/** Fond « teinté par les vilains » : chaque coin prend la couleur (éclaircie, car
- *  les teintes vilains sont sombres) d'un camp sur une base sombre. Partagé par la
- *  page de partie (`App`) et le choix des vilains (`VillainSelect`). */
+/** Halo d'un camp : la couleur du vilain, à peine éclaircie (les teintes vilains sont
+ *  sombres), qui TIENT sur un bon tiers du rayon avant de s'éteindre — c'est ce palier
+ *  intermédiaire qui donne au fond une couleur franche plutôt qu'un voile. */
+function villainGlow(color: string, at: string): string {
+  return (
+    `radial-gradient(95% 78% at ${at}, ` +
+    `color-mix(in srgb, ${color}, white 18%) 0%, ` +
+    `color-mix(in srgb, ${color}, transparent 32%) 34%, ` +
+    `rgba(0,0,0,0) 72%)`
+  )
+}
+
+/** Ancres des deux halos DANS LE CALQUE du dégradé. Attention : `.villain-bg` étire
+ *  cette image à `background-size: 150%` et la fait dériver (18 %→82 %), si bien que la
+ *  page ne montre qu'une fenêtre glissante des deux tiers du calque. Le bas de l'écran
+ *  tombe donc vers 83 % du calque, pas 100 % : une ancre à `108 %` (hors fenêtre)
+ *  n'y laissait voir que la traîne délavée du halo, jamais son cœur. */
+const GLOW_BOTTOM = '83%'
+const GLOW_LEFT = '17%'
+const GLOW_RIGHT = '83%'
+
+/** Fond « teinté par les vilains » : chaque BAS de page prend la couleur d'un camp —
+ *  le joueur à gauche, l'adversaire à droite — sur une base sombre. Les deux halos
+ *  montent depuis le bas, là où se tiennent les vilains (leurs illustrations sur le
+ *  choix des vilains, les plateaux en partie). Partagé par la page de partie (`App`)
+ *  et le choix des vilains (`VillainSelect`). */
 export function villainsBackground(colorA: string, colorB: string): string {
   return (
-    `radial-gradient(130% 100% at 6% -8%, color-mix(in srgb, ${colorA}, white 30%) 0%, rgba(0,0,0,0) 56%), ` +
-    `radial-gradient(130% 100% at 94% 108%, color-mix(in srgb, ${colorB}, white 30%) 0%, rgba(0,0,0,0) 56%), ` +
+    `${villainGlow(colorA, `${GLOW_LEFT} ${GLOW_BOTTOM}`)}, ` +
+    `${villainGlow(colorB, `${GLOW_RIGHT} ${GLOW_BOTTOM}`)}, ` +
     `linear-gradient(160deg, #16121f 0%, #0a0814 100%)`
   )
 }
