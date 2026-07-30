@@ -187,6 +187,35 @@ body {
   }
 }
 
+/* Silhouette d'« Aléatoire » (choix des vilains) : le vilain change chaque seconde,
+   chaque nouvelle forme se déplie à la place de la précédente (flou + étirement) pour
+   un effet de métamorphose. Posée sur un CALQUE intermédiaire et non sur l'image :
+   celle-ci porte déjà son propre `transform` (miroir) et son `filter` (noircissement),
+   qu'une animation écraserait. */
+.silhouette-morph {
+  animation: silhouetteMorph 420ms ease-out;
+}
+@keyframes silhouetteMorph {
+  /* On part d'une opacité NON NULLE : à zéro, la silhouette disparaissait complètement à
+     chaque seconde (clignotement plutôt que métamorphose), et elle restait invisible tant
+     que l'onglet était masqué — les animations y sont gelées sur leur première image. */
+  from {
+    opacity: 0.25;
+    transform: scale(0.94, 1.06);
+    filter: blur(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1, 1);
+    filter: blur(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .silhouette-morph {
+    animation: none;
+  }
+}
+
 /* Décor de vilain : un objet/vaisseau qui traverse lentement la bande haute de
    l'écran, en arrière-plan (derrière toute l'UI, sans interaction). Le conteneur
    se déplace en translation linéaire ; l'image interne gère l'orientation. */

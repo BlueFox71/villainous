@@ -267,30 +267,35 @@ function SlotArt({
         transform: `translate(${dx}%, ${dy}%) scale(${scale})`,
       }}
     >
-      <img
-        src={src}
-        alt=""
-        className="h-full w-full object-contain object-bottom drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)]"
-        style={{
-          transform: `scaleX(${mirrored ? -1 : 1})`,
-          // Silhouette : `brightness(0)` noircit tout le dessin (l'alpha du PNG est conservé,
-          // donc c'est bien la FORME du vilain qui reste). Le halo clair la détache du fond,
-          // sinon une masse noire sur un fond noir ne se voit pas.
-          ...(isRandom
-            ? { filter: 'brightness(0) drop-shadow(0 0 18px rgba(255,255,255,0.3))', opacity: 0.9 }
-            : null),
-        }}
-      />
-      {/* « ? » posé au CENTRE de la silhouette. Les présentations natives sont carrées et
-          `object-contain` les cale sur le bas : le dessin occupe donc le carré inférieur
-          de 32rem du cadre — c'est lui qu'on centre, pas le cadre entier. */}
-      {isRandom && (
-        <span className="absolute inset-x-0 bottom-0 flex h-[32rem] items-center justify-center">
-          <span className="text-[11rem] font-black leading-none text-white/85 drop-shadow-[0_0_25px_rgba(0,0,0,0.9)]">
-            ?
+      {/* Calque de MÉTAMORPHOSE : la `key` change à chaque nouvelle silhouette, donc React
+          le remonte et l'animation rejoue. Il porte l'animation à la place de l'image, dont
+          il ne faut écraser ni le `transform` (miroir) ni le `filter` (noircissement). */}
+      <div key={isRandom ? shown : undefined} className={`h-full w-full ${isRandom ? 'silhouette-morph' : ''}`}>
+        <img
+          src={src}
+          alt=""
+          className="h-full w-full object-contain object-bottom drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)]"
+          style={{
+            transform: `scaleX(${mirrored ? -1 : 1})`,
+            // Silhouette : `brightness(0)` noircit tout le dessin (l'alpha du PNG est conservé,
+            // donc c'est bien la FORME du vilain qui reste). Le halo clair la détache du fond,
+            // sinon une masse noire sur un fond noir ne se voit pas.
+            ...(isRandom
+              ? { filter: 'brightness(0) drop-shadow(0 0 18px rgba(255,255,255,0.3))', opacity: 0.9 }
+              : null),
+          }}
+        />
+        {/* « ? » posé au CENTRE de la silhouette. Les présentations natives sont carrées et
+            `object-contain` les cale sur le bas : le dessin occupe donc le carré inférieur
+            de 32rem du cadre — c'est lui qu'on centre, pas le cadre entier. */}
+        {isRandom && (
+          <span className="absolute inset-x-0 bottom-0 flex h-[32rem] items-center justify-center">
+            <span className="text-[11rem] font-black leading-none text-white/85 drop-shadow-[0_0_25px_rgba(0,0,0,0.9)]">
+              ?
+            </span>
           </span>
-        </span>
-      )}
+        )}
+      </div>
     </div>
   )
 }
@@ -378,6 +383,24 @@ export function VillainSelect({ onStart, onBack }: Props) {
   const seatVillain = (i: number) => (lobby?.find((s) => s.seat === i)?.villainKey ?? null) as Choice | null
   const mine = network ? seatVillain(localPlayerIndex) : mineSolo
   const opp = network ? seatVillain(1 - localPlayerIndex) : oppSolo
+
+  // « Aléatoire » : la silhouette ne se fige pas, elle CHANGE de vilain chaque seconde
+  // (chaque forme se déplie à la place de la précédente, cf. `.silhouette-morph`) — le
+  // camp cherche encore son maître. Un seul minuteur pour les deux camps concernés.
+  useEffect(() => {
+    const cycling: Side[] = []
+    if (mine === 'random') cycling.push('mine')
+    if (opp === 'random') cycling.push('opp')
+    if (cycling.length === 0) return
+    const id = setInterval(() => {
+      setSilhouettes((s) => {
+        const next = { ...s }
+        for (const side of cycling) next[side] = drawSilhouette()
+        return next
+      })
+    }, 1000)
+    return () => clearInterval(id)
+  }, [mine, opp])
 
   // En réseau, dès que l'hôte lance, on entre dans la partie.
   useEffect(() => {

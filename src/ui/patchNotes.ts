@@ -53,7 +53,7 @@ export const PATCH_NOTES: PatchNote[] = [
     tags: ['interface', 'liste-villains'],
     changes: [
       "L'écran de **choix des vilains** est réagencé : la grille prend **toute la largeur** de l'écran et elle est **rangée par univers** — **Disney / Pixar**, **Marvel**, **Collaborations** — comme la galerie. Plus besoin de défiler pour voir tout le monde.",
-      "**Aléatoire** ferme la dernière rangée, au lieu de s'emparer d'une ligne entière pour lui seul. Le camp qui le choisit voit se dresser une **silhouette noire** — un vilain se tient déjà là, reste à savoir lequel.",
+      "**Aléatoire** ferme la dernière rangée, au lieu de s'emparer d'une ligne entière pour lui seul. Le camp qui le choisit voit se dresser une **silhouette noire** frappée d'un **« ? »**, qui **change de vilain chaque seconde** dans un effet de métamorphose — quelqu'un se tient déjà là, reste à savoir qui.",
       "Le bouton **Lancer la partie** est **centré au-dessus** de ton camp et de celui de l'**adversaire**, désormais côte à côte en bas de l'écran.",
       "Les **répliques** des deux camps se **superposent** : choisis ton vilain puis celui de l'**adversaire** et tous deux parlent en même temps. Changer le vilain d'un camp coupe en revanche **sa** réplique précédente, et revenir au menu coupe tout.",
       "Le **fond teinté** par les deux vilains est **plus franc** et remonte désormais **du bas de l'écran** : ta couleur en bas à gauche, celle de l'**adversaire** en bas à droite, sous leurs illustrations.",
