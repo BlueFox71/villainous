@@ -126,19 +126,19 @@ export const PRESENTATION_TWEAK: Record<
   // Mère Gothel : illustration un peu trop petite et trop haute aux deux endroits
   // (choix ET versus) → on l'agrandit légèrement et on la descend (dyPct/versusDyPct
   // positifs = vers le bas).
-  gothel: { scale: 1.05, dyPct: 10, versusDyPct: 8 },
+  gothel: { scale: 1.12, dyPct: 10, versusDyPct: 8, selectDxPct: 15 },
   // Le Seigneur des clés (custom) : on baisse légèrement sa position (sans le rétrécir).
-  'custom-seigneur-cles': { dyPct: 6 },
+  'custom-seigneur-cles': { dyPct: 6, scale: 1.54, selectDxPct: 9, selectDyPct: 2, selectMirror: true },
   // Maléfique : nouvelle illustration carrée (1000×1000) — on la remonte pour caler la
   // figure dans le cadre (négatif = vers le haut).
-  maleficent: { dyPct: -6 },
+  maleficent: { dyPct: -6, scale: 1.17, selectDxPct: 25 },
   // Pyramid Head (custom) : décalé vers la gauche dans la FICHE (dxPct). Sur l'art de côté
   // (choix + versus), `selectDxPct` est un décalage VERS LE CENTRE (côté joueur = vers la
   // droite, côté adversaire = vers la gauche).
-  'custom-pyramid-head': { dxPct: -14, selectDxPct: 15 },
+  'custom-pyramid-head': { dxPct: -14, selectDxPct: 26, scale: 0.86, selectDyPct: 28 },
   // Mr. Monopoly (custom) : présentation rétrécie, bien décalée à gauche dans la FICHE ;
   // tirée vers le centre sur l'art de côté.
-  'custom-mr-monopoly': { scale: 0.85, dxPct: -30, selectDxPct: 15 },
+  'custom-mr-monopoly': { scale: 0.6, dxPct: -30, selectDxPct: 23, selectDyPct: 4 },
   // Isabella (custom) : illustration un peu trop grande → légèrement rétrécie.
   'custom-isabella': { scale: 0.55, selectDxPct: 13 },
   princeJohn: { scale: 1.22, selectDxPct: 10, selectDyPct: 6 },
@@ -156,6 +156,30 @@ export const PRESENTATION_TWEAK: Record<
   'custom-killaire': { scale: 1.06, selectDxPct: 17 },
   mechanteReine: { scale: 1.11, selectDxPct: 21 },
   'custom-flagelleur-mental': { scale: 2, selectDxPct: 35, selectDyPct: 11, selectMirror: true },
+  seigneurTenebres: { scale: 1.08, selectDxPct: 16 },
+  lotso: { scale: 1.03, selectDxPct: 8, selectDyPct: 5 },
+  madameTremaine: { scale: 1.15, selectDxPct: 17 },
+  madameMim: { scale: 1.03, selectDxPct: 20 },
+  laBonneFee: { scale: 1.13, selectDxPct: 11, selectDyPct: 2 },
+  'custom-michael-meyers': { scale: 0.66, selectDxPct: 19 },
+  oogieBoogie: { scale: 1.09, selectDxPct: 13 },
+  patHibulaire: { scale: 0.96, selectDxPct: 15 },
+  ratigan: { scale: 1.09, selectDxPct: 19 },
+  reineCoeur: { scale: 1.18, selectDxPct: 20, selectDyPct: 5, selectMirror: true },
+  saSucrerie: { scale: 0.96, selectDxPct: 23 },
+  scar: { scale: 1.04, selectDxPct: 11 },
+  shereKhan: { scale: 1.03, selectDxPct: 20 },
+  slenderman: { scale: 0.95, selectDxPct: 15, selectDyPct: 14 },
+  sombra: { scale: 1.14, selectDxPct: 26, selectDyPct: 4 },
+  'custom-mrl4fb45': { scale: 0.77, selectDxPct: 23 },
+  syndrome: { selectDxPct: 25 },
+  tabbou: { scale: 1.08, selectDxPct: 20, selectDyPct: 5 },
+  tamatoa: { scale: 0.95, selectDxPct: 19, selectDyPct: 1 },
+  teamRocket: { selectDxPct: 20 },
+  thanos: { selectDxPct: 11, selectDyPct: 20 },
+  'custom-ultron': { selectDxPct: 28, selectDyPct: 9 },
+  ursula: { scale: 1.12, selectDxPct: 17, selectDyPct: 5, selectMirror: true },
+  yzma: { scale: 0.98, selectDxPct: 19, selectDyPct: 2 },
   // >>> PRESENTATION_TWEAK entries (panneau « Configuration ») — nouvelles entrées ici <<<
 }
 
