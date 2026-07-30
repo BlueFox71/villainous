@@ -31,6 +31,17 @@ type Side = 'mine' | 'opp'
  *  Les vilains publiés s'y ajoutent au runtime (après, façon nouveautés). */
 const BUILTIN_KEYS = (Object.keys(VILLAIN_REGISTRY) as VillainKey[]).sort(byRelease)
 
+/** Vilains dont on peut emprunter la présentation pour la SILHOUETTE d'« Aléatoire ».
+ *  Uniquement des natifs : leurs images sont servies depuis `public/`, disponibles dès
+ *  le premier rendu (les publiés se chargent au runtime). */
+const SILHOUETTE_KEYS = BUILTIN_KEYS.filter((k) => villainPresentation(k))
+
+/** Tire la silhouette d'un camp passé sur « Aléatoire ». Hors composant : le rendu doit
+ *  rester pur, le tirage n'a lieu qu'au clic. */
+function drawSilhouette(): VillainKey {
+  return SILHOUETTE_KEYS[Math.floor(Math.random() * SILHOUETTE_KEYS.length)]
+}
+
 /** Apparence d'un camp (toi / adversaire). */
 const SIDE_STYLE: Record<Side, { label: string; badge: string; ring: string; text: string }> = {
   mine: { label: 'Toi', badge: 'bg-amber-400 text-black', ring: 'ring-amber-400', text: 'text-amber-200' },
@@ -198,7 +209,11 @@ function SlotCard({
  *  Affichée ENTIÈRE (`object-contain`, posée sur le bas de l'écran) : l'illustration est
  *  mise à l'échelle pour tenir dans son gabarit au lieu d'être rognée, et sa hauteur est
  *  plafonnée à la fenêtre pour qu'elle ne déborde jamais sur les petits écrans.
- *  Masquée sous `lg` (pas la place) et pour « Aléatoire » (pas d'illustration).
+ *  Masquée sous `lg` (pas la place).
+ *
+ *  « Aléatoire » n'a pas d'illustration : on dresse à la place la SILHOUETTE NOIRE d'un
+ *  vilain tiré au sort (l'inconnu se devine sans se révéler) plutôt que de laisser le
+ *  bord vide. Elle est figée tant que le camp reste sur « Aléatoire ».
  *
  *  Le réglage par vilain (`PRESENTATION_TWEAK`) s'applique comme sur l'écran « versus »
  *  (`StartRollModal`) : certaines illustrations sont cadrées bien plus serré que les
@@ -211,15 +226,21 @@ function SlotArt({
   choice,
   side,
   draft,
+  silhouette,
 }: {
   choice: Choice | null
   side: 'left' | 'right'
   draft?: ArtTweakDraft
+  /** Vilain dont on emprunte la forme quand le camp est sur « Aléatoire ». Tiré au sort
+   *  par le parent au moment du clic (le rendu doit rester pur). */
+  silhouette?: VillainKey
 }) {
-  const src = choice && choice !== 'random' ? villainPresentation(choice) : undefined
+  const isRandom = choice === 'random'
+  const shown = isRandom ? (silhouette ?? null) : choice
+  const src = shown ? villainPresentation(shown) : undefined
   if (!src) return null
   const left = side === 'left'
-  const tweak = choice && choice !== 'random' ? PRESENTATION_TWEAK[choice] : undefined
+  const tweak = PRESENTATION_TWEAK[shown as string]
   const scale = draft?.scale ?? tweak?.scale ?? 1
   // Art de côté : `selectDxPct` = décalage VERS LE CENTRE (joueur à gauche → vers la
   // droite, adversaire à droite → vers la gauche). Sinon le `dxPct` de la fiche.
@@ -244,6 +265,12 @@ function SlotArt({
       style={{
         transformOrigin: 'bottom',
         transform: `translate(${dx}%, ${dy}%) scale(${scale}) scaleX(${mirrored ? -1 : 1})`,
+        // Silhouette : `brightness(0)` noircit tout le dessin (l'alpha du PNG est conservé,
+        // donc c'est bien la FORME du vilain qui reste). Le halo clair la détache du fond,
+        // sinon une masse noire sur un fond noir ne se voit pas.
+        ...(isRandom
+          ? { filter: 'brightness(0) drop-shadow(0 0 18px rgba(255,255,255,0.3))', opacity: 0.9 }
+          : null),
       }}
     />
   )
@@ -325,6 +352,8 @@ export function VillainSelect({ onStart, onBack }: Props) {
   const [oppSolo, setOppSolo] = useState<Choice | null>(null)
   // Camp actif : `null` = aucun (clic grille sans effet ; choisis un camp via sa carte).
   const [activeSide, setActiveSide] = useState<Side | null>('mine')
+  // Vilain qui prête sa forme à la SILHOUETTE d'un camp sur « Aléatoire » (cf. assignSide).
+  const [silhouettes, setSilhouettes] = useState<Partial<Record<Side, VillainKey>>>({})
 
   // RÉSEAU : choix dérivés du lobby (synchronisés en direct).
   const seatVillain = (i: number) => (lobby?.find((s) => s.seat === i)?.villainKey ?? null) as Choice | null
@@ -375,6 +404,12 @@ export function VillainSelect({ onStart, onBack }: Props) {
 
   // Affecte un vilain à un camp (avec anti-miroir : on le retire à l'autre s'il l'avait).
   const assignSide = (c: Choice, side: Side) => {
+    // « Aléatoire » : on tire ICI (dans le gestionnaire de clic, pas au rendu) le vilain
+    // dont l'illustration prêtera sa SILHOUETTE au bord de ce camp.
+    if (c === 'random') {
+      const key = drawSilhouette()
+      setSilhouettes((s) => ({ ...s, [side]: key }))
+    }
     if (side === 'mine') {
       setMineSolo(c)
       if (c !== 'random' && oppSolo === c) setOppSolo(null)
@@ -706,8 +741,8 @@ export function VillainSelect({ onStart, onBack }: Props) {
           </>
         ) : (
           <>
-            <SlotArt choice={mine} side="left" />
-            <SlotArt choice={opp} side="right" />
+            <SlotArt choice={mine} side="left" silhouette={silhouettes.mine} />
+            <SlotArt choice={opp} side="right" silhouette={silhouettes.opp} />
           </>
         )}
       </footer>
