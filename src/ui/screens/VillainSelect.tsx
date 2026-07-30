@@ -3,12 +3,13 @@ import { VILLAIN_REGISTRY, villainEntry, useGameStore, UNRELEASED_VILLAINS, type
 import { useCustomVillainStore } from '../store/customVillainStore'
 import { usePlayerStore } from '../store/playerStore'
 import { useIsDesktopApp } from '../store/settingsStore'
-import { villainPortrait, villainPresentation, PRESENTATION_TWEAK } from '../villainArt'
+import { villainPortrait, villainPresentation, PRESENTATION_TWEAK, savedArtTweak, type ArtTweakDraft } from '../villainArt'
 import { villainGuideOf } from '../villainGuide'
 import { byRelease, villainOrigin, VILLAIN_ORIGINS, ORIGIN_LABELS } from '../villainOrder'
 import { VILLAIN_COLOR, villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from '../villainColors'
 import { Scroller } from '../components/Scroller'
 import { OptionsButton } from '../components/OptionsButton'
+import { PresentationTweakBar } from '../components/PresentationTweakBar'
 import { playHeroSelect, playPlayButtonHover, playBackClick, playHover, playHeroHover } from '../sfx'
 import { playVillainPhrase } from '../villainVoices'
 
@@ -200,17 +201,32 @@ function SlotCard({
  *  Le réglage par vilain (`PRESENTATION_TWEAK`) s'applique comme sur l'écran « versus »
  *  (`StartRollModal`) : certaines illustrations sont cadrées bien plus serré que les
  *  autres et débordent sans un `scale` dédié. Origine du transform en bas : rétrécir
- *  garde le personnage posé sur le sol. */
-function SlotArt({ choice, side }: { choice: Choice | null; side: 'left' | 'right' }) {
+ *  garde le personnage posé sur le sol.
+ *
+ *  `draft` (dév) : réglage en cours dans le panneau « Configuration », qui prend la
+ *  place de la valeur enregistrée le temps de l'aperçu. */
+function SlotArt({
+  choice,
+  side,
+  draft,
+}: {
+  choice: Choice | null
+  side: 'left' | 'right'
+  draft?: ArtTweakDraft
+}) {
   const src = choice && choice !== 'random' ? villainPresentation(choice) : undefined
   if (!src) return null
   const left = side === 'left'
   const tweak = choice && choice !== 'random' ? PRESENTATION_TWEAK[choice] : undefined
+  const scale = draft?.scale ?? tweak?.scale ?? 1
   // Art de côté : `selectDxPct` = décalage VERS LE CENTRE (joueur à gauche → vers la
   // droite, adversaire à droite → vers la gauche). Sinon le `dxPct` de la fiche.
-  // Pas de `dyPct` ici : l'illustration est déjà posée sur le bas de l'écran
-  // (`object-bottom`), les réglages verticaux de la fiche la feraient flotter.
-  const dx = tweak?.selectDxPct != null ? tweak.selectDxPct * (left ? 1 : -1) : (tweak?.dxPct ?? 0)
+  // Vertical : `selectDyPct` seulement (champ dédié à cet écran) — le `dyPct` de la
+  // fiche part d'un autre cadrage et ferait flotter l'illustration, déjà posée sur le
+  // bas de l'écran (`object-bottom`).
+  const rawDx = draft?.dx ?? tweak?.selectDxPct
+  const dx = rawDx != null ? rawDx * (left ? 1 : -1) : (tweak?.dxPct ?? 0)
+  const dy = draft?.dy ?? tweak?.selectDyPct ?? 0
   return (
     <img
       src={src}
@@ -221,7 +237,7 @@ function SlotArt({ choice, side }: { choice: Choice | null; side: 'left' | 'righ
       }`}
       style={{
         transformOrigin: 'bottom',
-        transform: `translateX(${dx}%) scale(${tweak?.scale ?? 1}) scaleX(${left ? 1 : -1})`,
+        transform: `translate(${dx}%, ${dy}%) scale(${scale}) scaleX(${left ? 1 : -1})`,
       }}
     />
   )
@@ -288,6 +304,15 @@ export function VillainSelect({ onStart, onBack }: Props) {
   // Gardé par `!isDesktopApp` → absent de l'exe ET de la simulation « mode application ».
   const devBuild = !useIsDesktopApp()
   const [aiVsAi, setAiVsAi] = useState(false)
+
+  // DEV UNIQUEMENT : panneau « Configuration » — taille et position de l'illustration de
+  // présentation, réglées en direct puis écrites dans `PRESENTATION_TWEAK`. Le vilain en
+  // cours de réglage remplace l'illustration de GAUCHE (aperçu), sans toucher au choix.
+  const [configOpen, setConfigOpen] = useState(false)
+  const [tweakVillain, setTweakVillain] = useState<string | null>(null)
+  const [tweakDraft, setTweakDraft] = useState<ArtTweakDraft>({ scale: 1, dx: 0, dy: 0 })
+  /** Ouvre le panneau sur un vilain (le sien s'il en a un, sinon le premier de la grille). */
+  const editTweak = (key: string) => { setTweakVillain(key); setTweakDraft(savedArtTweak(key)) }
 
   // SOLO : choix local des deux camps + camp actif (alimenté par les clics grille).
   const [mineSolo, setMineSolo] = useState<Choice | null>(null)
@@ -475,18 +500,52 @@ export function VillainSelect({ onStart, onBack }: Props) {
       className="villain-bg relative flex h-screen flex-col overflow-hidden bg-[#0a0814] text-white"
       style={{ backgroundImage: pageBackground }}
     >
-      <header className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-        <h1 className="text-lg font-bold text-purple-200">
-          {network ? 'Choix des vilains (en réseau)' : 'Choix des vilains'}
-        </h1>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); playBackClick(); back() }}
-          onMouseEnter={playHover}
-          className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"
-        >
-          ← Menu
-        </button>
+      <header className="flex flex-col gap-2 border-b border-white/10 px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-lg font-bold text-purple-200">
+            {network ? 'Choix des vilains (en réseau)' : 'Choix des vilains'}
+          </h1>
+          <div className="flex items-center gap-2">
+            {/* DEV : réglage des illustrations de présentation. Absent de l'exe ET de la
+                simulation « mode application » (l'endpoint d'écriture n'existe qu'en dév). */}
+            {devBuild && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  playHover()
+                  if (!configOpen && !tweakVillain) editTweak(takenBy(mine) ?? allKeys[0])
+                  setConfigOpen((o) => !o)
+                }}
+                onMouseEnter={playHover}
+                className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition ${
+                  configOpen
+                    ? 'border-emerald-300/70 bg-emerald-500/35 text-white'
+                    : 'border-emerald-400/50 bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/35'
+                }`}
+              >
+                ⚙ Configuration
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); playBackClick(); back() }}
+              onMouseEnter={playHover}
+              className="rounded-lg border border-white/20 px-3 py-1.5 text-sm text-white/80 hover:bg-white/10"
+            >
+              ← Menu
+            </button>
+          </div>
+        </div>
+        {devBuild && configOpen && tweakVillain && (
+          <PresentationTweakBar
+            keys={allKeys}
+            villain={tweakVillain}
+            draft={tweakDraft}
+            onVillainChange={editTweak}
+            onDraftChange={setTweakDraft}
+          />
+        )}
       </header>
 
       <main className="relative min-h-0 flex-1 overflow-hidden">
@@ -627,7 +686,13 @@ export function VillainSelect({ onStart, onBack }: Props) {
           </div>
         </div>
 
-        <SlotArt choice={mine} side="left" />
+        {/* DEV : panneau « Configuration » ouvert → l'illustration de GAUCHE montre le
+            vilain en cours de réglage, avec le brouillon appliqué (aperçu en direct). */}
+        {configOpen && tweakVillain ? (
+          <SlotArt choice={tweakVillain} side="left" draft={tweakDraft} />
+        ) : (
+          <SlotArt choice={mine} side="left" />
+        )}
         <SlotArt choice={opp} side="right" />
       </footer>
 

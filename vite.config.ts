@@ -239,6 +239,58 @@ function saveVillainColorPlugin(): Plugin {
 }
 
 /**
+ * Plugin DEV uniquement : endpoint POST `/__save-presentation-tweak` qui réécrit une
+ * entrée de `PRESENTATION_TWEAK` dans `src/ui/villainArt.ts` (taille et décalages de
+ * l'illustration de présentation) depuis le panneau « Configuration » de l'écran de
+ * choix des vilains. Corps : `{ villain, entry }`, `entry` = la ligne complète
+ * (`  imposteur: { scale: 0.55 },`) ou une chaîne VIDE pour retirer l'entrée (réglage
+ * revenu au neutre). Absent du build de production (`apply: 'serve'`).
+ */
+function savePresentationTweakPlugin(): Plugin {
+  const FILE = resolve(process.cwd(), 'src/ui/villainArt.ts')
+  // Indentation COMPRISE dans le marqueur : l'entrée insérée à sa place porte déjà la
+  // sienne, sinon les deux s'additionnent.
+  const MARKER = '  // >>> PRESENTATION_TWEAK entries (panneau « Configuration ») — nouvelles entrées ici <<<'
+  return {
+    name: 'save-presentation-tweak',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__save-presentation-tweak', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return }
+        let body = ''
+        req.on('data', (c) => { body += c })
+        req.on('end', () => {
+          try {
+            const { villain, entry } = JSON.parse(body) as { villain: string; entry: string }
+            if (typeof villain !== 'string' || !villain) throw new Error('vilain invalide')
+            if (typeof entry !== 'string') throw new Error('entrée invalide')
+            // Garde-fou : on n'écrit qu'une entrée d'objet d'une seule ligne, faite de
+            // paires `clé: nombre` — jamais du code arbitraire venu du client.
+            if (entry && !/^ {2}(?:'[a-z0-9_-]+'|[A-Za-z_$][\w$]*): \{ (?:[A-Za-z]+: -?\d+(?:\.\d+)?)(?:, [A-Za-z]+: -?\d+(?:\.\d+)?)* \},$/.test(entry))
+              throw new Error('entrée malformée')
+            let src = readFileSync(FILE, 'utf8')
+            const esc = villain.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            // La clé est écrite quotée (kebab-case) ou nue (camelCase), une entrée par ligne.
+            const re = new RegExp(`^[ \\t]*(?:'${esc}'|"${esc}"|${esc}): \\{[^}]*\\},?[ \\t]*\\r?\\n`, 'm')
+            if (re.test(src)) src = src.replace(re, entry ? `${entry}\n` : '')
+            else if (entry) {
+              if (!src.includes(MARKER)) throw new Error('marqueur PRESENTATION_TWEAK introuvable')
+              src = src.replace(MARKER, `${entry}\n${MARKER}`)
+            }
+            atomicWriteFileSync(FILE, src)
+            res.statusCode = 200
+            res.end('ok')
+          } catch (e) {
+            res.statusCode = 400
+            res.end(String((e as Error)?.message ?? e))
+          }
+        })
+      })
+    },
+  }
+}
+
+/**
  * Plugin DEV uniquement : endpoint POST `/__save-villain-assets` qui écrit les images
  * d'un vilain personnalisé (« Terminé » dans l'Atelier) dans les dossiers SOURCES
  * `assets/` — comme les vilains natifs (corps : `{ files: [{ path, dataUrl }] }`, où
@@ -770,7 +822,7 @@ function testReportPlugin(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), saveActionPosPlugin(), saveBlockedOverlayPlugin(), savePawnSizePlugin(), savePortraitPlugin(), saveVillainColorPlugin(), saveVillainAssetsPlugin(), saveVillainJsonPlugin(), readVillainJsonPlugin(), savePublishedVillainPlugin(), villainBackupPlugin(), saveVillainDifficultyPlugin(), gitStagingPlugin(), testReportPlugin()],
+  plugins: [react(), tailwindcss(), saveActionPosPlugin(), saveBlockedOverlayPlugin(), savePawnSizePlugin(), savePortraitPlugin(), saveVillainColorPlugin(), savePresentationTweakPlugin(), saveVillainAssetsPlugin(), saveVillainJsonPlugin(), readVillainJsonPlugin(), savePublishedVillainPlugin(), villainBackupPlugin(), saveVillainDifficultyPlugin(), gitStagingPlugin(), testReportPlugin()],
   build: {
     // Multi-pages : le JEU (`index.html`) ET le LAUNCHER (`launcher.html`, petite
     // fenêtre d'accueil de l'app de bureau). Deux bundles distincts → le launcher

@@ -96,10 +96,25 @@ export function villainPresentation(key: string): string | undefined {
 /** Réglage EXCEPTIONNEL de la présentation par vilain (l'illustration de base est
  *  pensée pour remplir la hauteur). `scale` rétrécit, `dxPct`/`dyPct` décalent en
  *  % de la taille de l'image (dx > 0 = vers la droite ; dy > 0 = vers le bas, le
- *  personnage descend sous le bord, derrière le footer). Origine = bas. */
+ *  personnage descend sous le bord, derrière le footer). Origine = bas.
+ *
+ *  Les entrées sont éditables EN DIRECT par le panneau « Configuration » de l'écran
+ *  de choix des vilains (dév uniquement) : il réécrit ce bloc via l'endpoint
+ *  `/__save-presentation-tweak`. Elles restent modifiables à la main. */
 export const PRESENTATION_TWEAK: Record<
   string,
-  { scale?: number; dxPct?: number; dyPct?: number; versusDyPct?: number; selectDxPct?: number }
+  {
+    scale?: number
+    dxPct?: number
+    dyPct?: number
+    versusDyPct?: number
+    /** Art de côté (choix + versus) : décalage horizontal VERS LE CENTRE. */
+    selectDxPct?: number
+    /** Art de côté de l'écran de CHOIX : décalage vertical (négatif = vers le haut).
+     *  Champ dédié — l'illustration y est posée sur le bas de l'écran, le `dyPct` de
+     *  la fiche n'a pas le même point de départ. */
+    selectDyPct?: number
+  }
 > = {
   // `versusDyPct` : décalage vertical SPÉCIFIQUE à l'écran versus (début de partie),
   // sinon on reprend `dyPct` (écran de choix).
@@ -122,4 +137,44 @@ export const PRESENTATION_TWEAK: Record<
   'custom-mr-monopoly': { scale: 0.85, dxPct: -30, selectDxPct: 15 },
   // Isabella (custom) : illustration un peu trop grande → légèrement rétrécie.
   'custom-isabella': { scale: 0.9 },
+  // >>> PRESENTATION_TWEAK entries (panneau « Configuration ») — nouvelles entrées ici <<<
+}
+
+/** Brouillon de réglage manipulé par le panneau « Configuration » (dév) : les trois
+ *  champs de `PRESENTATION_TWEAK` qui pilotent l'art de côté de l'écran de choix. */
+export interface ArtTweakDraft {
+  /** Échelle (1 = taille naturelle) — `scale`, PARTAGÉ avec la fiche et l'écran versus. */
+  scale: number
+  /** Décalage horizontal VERS LE CENTRE, en % — `selectDxPct`. */
+  dx: number
+  /** Décalage vertical, en % (négatif = vers le haut) — `selectDyPct`. */
+  dy: number
+}
+
+/** Réglage ENREGISTRÉ d'un vilain (valeurs neutres s'il n'en a pas). */
+export function savedArtTweak(villain: string): ArtTweakDraft {
+  const t = PRESENTATION_TWEAK[villain]
+  return { scale: t?.scale ?? 1, dx: t?.selectDxPct ?? 0, dy: t?.selectDyPct ?? 0 }
+}
+
+/**
+ * Ligne `  <clé>: { … },` à réécrire dans `PRESENTATION_TWEAK` (panneau « Configuration »).
+ * On PART des champs déjà enregistrés (`dxPct`, `dyPct`, `versusDyPct`… que le panneau ne
+ * touche pas) et on n'écrase que les trois réglés ; une valeur neutre RETIRE son champ.
+ * Chaîne vide = plus aucun champ, l'entrée est supprimée du fichier.
+ */
+export function buildArtTweakEntry(villain: string, draft: ArtTweakDraft): string {
+  const merged: Record<string, number> = { ...PRESENTATION_TWEAK[villain] }
+  const put = (key: string, value: number, neutral: number) => {
+    if (value === neutral) delete merged[key]
+    else merged[key] = value
+  }
+  put('scale', Math.round(draft.scale * 100) / 100, 1)
+  put('selectDxPct', Math.round(draft.dx), 0)
+  put('selectDyPct', Math.round(draft.dy), 0)
+  const parts = Object.entries(merged).map(([k, v]) => `${k}: ${v}`)
+  if (!parts.length) return ''
+  // Clé nue si c'est un identifiant JS valide (vilains natifs), quotée sinon (`custom-…`).
+  const key = /^[A-Za-z_$][\w$]*$/.test(villain) ? villain : `'${villain}'`
+  return `  ${key}: { ${parts.join(', ')} },`
 }
