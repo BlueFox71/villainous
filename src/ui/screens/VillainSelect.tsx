@@ -285,17 +285,19 @@ function SlotArt({
               : null),
           }}
         />
-        {/* « ? » posé au CENTRE de la silhouette. Les présentations natives sont carrées et
-            `object-contain` les cale sur le bas : le dessin occupe donc le carré inférieur
-            de 32rem du cadre — c'est lui qu'on centre, pas le cadre entier. */}
-        {isRandom && (
-          <span className="absolute inset-x-0 bottom-0 flex h-[32rem] items-center justify-center">
-            <span className="text-[11rem] font-black leading-none text-white/85 drop-shadow-[0_0_25px_rgba(0,0,0,0.9)]">
-              ?
-            </span>
-          </span>
-        )}
       </div>
+      {/* « ? » posé au CENTRE de la silhouette. Les présentations natives sont carrées et
+          `object-contain` les cale sur le bas : le dessin occupe donc le carré inférieur
+          de 32rem du cadre — c'est lui qu'on centre, pas le cadre entier.
+          HORS du calque de métamorphose : lui seul se déplie à chaque nouvelle forme, le
+          « ? » reste fixe pendant que la silhouette change dessous. */}
+      {isRandom && (
+        <span className="absolute inset-x-0 bottom-0 flex h-[32rem] items-center justify-center">
+          <span className="text-[11rem] font-black leading-none text-white/85 drop-shadow-[0_0_25px_rgba(0,0,0,0.9)]">
+            ?
+          </span>
+        </span>
+      )}
     </div>
   )
 }
@@ -384,9 +386,9 @@ export function VillainSelect({ onStart, onBack }: Props) {
   const mine = network ? seatVillain(localPlayerIndex) : mineSolo
   const opp = network ? seatVillain(1 - localPlayerIndex) : oppSolo
 
-  // « Aléatoire » : la silhouette ne se fige pas, elle CHANGE de vilain chaque seconde
-  // (chaque forme se déplie à la place de la précédente, cf. `.silhouette-morph`) — le
-  // camp cherche encore son maître. Un seul minuteur pour les deux camps concernés.
+  // « Aléatoire » : la silhouette ne se fige pas, elle CHANGE de vilain toutes les trois
+  // secondes (chaque forme se déplie à la place de la précédente, cf. `.silhouette-morph`)
+  // — le camp cherche encore son maître. Un seul minuteur pour les deux camps concernés.
   useEffect(() => {
     const cycling: Side[] = []
     if (mine === 'random') cycling.push('mine')
@@ -398,7 +400,7 @@ export function VillainSelect({ onStart, onBack }: Props) {
         for (const side of cycling) next[side] = drawSilhouette()
         return next
       })
-    }, 1000)
+    }, 3000)
     return () => clearInterval(id)
   }, [mine, opp])
 
