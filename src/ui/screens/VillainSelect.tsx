@@ -11,7 +11,7 @@ import { Scroller } from '../components/Scroller'
 import { OptionsButton } from '../components/OptionsButton'
 import { PresentationTweakBar } from '../components/PresentationTweakBar'
 import { playHeroSelect, playPlayButtonHover, playBackClick, playHover, playHeroHover } from '../sfx'
-import { playVillainPhrase } from '../villainVoices'
+import { playVillainPhrase, stopVillainVoice } from '../villainVoices'
 
 interface Props {
   /** Le vilain est choisi et la partie démarre (l'écran de jeu prend le relais). */
@@ -490,7 +490,8 @@ export function VillainSelect({ onStart, onBack }: Props) {
 
   // Quitter le choix : en réseau on PRÉVIENT l'autre (LEAVE) pour qu'il revienne
   // aussi à l'accueil (le relais ne notifie pas les départs de lui-même).
-  const back = () => { if (network) quitNet(); onBack() }
+  // On coupe la réplique en cours : sans ça le vilain finit sa phrase par-dessus le menu.
+  const back = () => { stopVillainVoice(); if (network) quitNet(); onBack() }
   const bothChosen = !!takenBy(mine) && !!takenBy(opp)
 
   // Fond « teinté par les vilains » : réagit aux choix (toi → gauche, adversaire → droite).

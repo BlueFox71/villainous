@@ -105,11 +105,22 @@ function fadeOutAndStop(audio: HTMLAudioElement, ms = 450): void {
   }, ms / steps)
 }
 
-/** Arrête la piste courante en fondu (jamais d'arrêt net). */
-function stopCurrent(): void {
+/** Arrête la piste courante en fondu (jamais d'arrêt net, qui claquerait). `ms` court
+ *  = coupure franche à l'oreille, juste assez longue pour éviter le clic. */
+function stopCurrent(ms = 450): void {
   if (!current) return
-  fadeOutAndStop(current)
+  fadeOutAndStop(current, ms)
   current = null
+}
+
+/** Fondu de COUPURE quand une phrase en remplace une autre (choix des vilains) : assez
+ *  court pour qu'on n'entende jamais deux vilains parler en même temps. */
+const CUT_MS = 120
+
+/** Coupe la voix en cours (phrase ou séquence d'intro). Sert à ne pas laisser un vilain
+ *  finir sa réplique après qu'on a quitté l'écran qui l'a déclenchée. */
+export function stopVillainVoice(): void {
+  stopCurrent(CUT_MS)
 }
 
 /**
@@ -243,7 +254,9 @@ export function playVillainPhrase(villainId: string) {
       })()
     : phraseTrack(villainId in VILLAIN_REGISTRY ? (villainId as VillainKey) : villainKeyOf(villainId))
   if (!track) return
-  stopCurrent()
+  // Coupure FRANCHE de la phrase précédente : on choisit son vilain puis celui de
+  // l'adversaire coup sur coup, les deux répliques ne doivent pas se superposer.
+  stopCurrent(CUT_MS)
   const audio = new Audio()
   const baseVolume = Math.min(1, sfxVolume * 2 * track.gain)
   audio.volume = baseVolume
