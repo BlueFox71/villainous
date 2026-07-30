@@ -36,6 +36,10 @@ const BUILTIN_KEYS = (Object.keys(VILLAIN_REGISTRY) as VillainKey[]).sort(byRele
  *  le premier rendu (les publiés se chargent au runtime). */
 const SILHOUETTE_KEYS = BUILTIN_KEYS.filter((k) => villainPresentation(k))
 
+/** De combien le « ? » d'« Aléatoire » est tiré VERS LE CENTRE de l'écran, depuis le
+ *  milieu de sa colonne de bord. À ajuster ici pour les deux camps à la fois. */
+const MARK_INSET = '5rem'
+
 /** Tire la silhouette d'un camp passé sur « Aléatoire ». Hors composant : le rendu doit
  *  rester pur, le tirage n'a lieu qu'au clic. */
 function drawSilhouette(): VillainKey {
@@ -293,10 +297,17 @@ function SlotArt({
           le cadre porte le réglage PROPRE À CHAQUE VILAIN (décalage, échelle) et la
           métamorphose, qui faisaient sauter le « ? » à chaque nouvelle silhouette. Ici il
           garde exactement la même place, quelle que soit la forme dessous.
+          Tiré VERS LE CENTRE de l'écran (à droite côté joueur, à gauche côté adversaire) :
+          centré sur sa colonne, il tombait trop au bord, alors que les silhouettes sont
+          elles-mêmes ramenées vers le centre par leur `selectDxPct`.
           `lg:flex` seul (jamais `flex` nu) : il doit l'emporter sur le `hidden` d'`edge`,
           que deux utilitaires d'affichage de même portée ne trancheraient pas. */}
       {isRandom && (
-        <span aria-hidden className={`${edge} h-[32rem] items-center justify-center lg:flex`}>
+        <span
+          aria-hidden
+          className={`${edge} h-[32rem] items-center justify-center lg:flex`}
+          style={{ transform: `translateX(${left ? MARK_INSET : `-${MARK_INSET}`})` }}
+        >
           <span className="text-[11rem] font-black leading-none text-white/85 drop-shadow-[0_0_25px_rgba(0,0,0,0.9)]">
             ?
           </span>
