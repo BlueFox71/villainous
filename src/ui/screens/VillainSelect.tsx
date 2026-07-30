@@ -3,7 +3,7 @@ import { VILLAIN_REGISTRY, villainEntry, useGameStore, UNRELEASED_VILLAINS, type
 import { useCustomVillainStore } from '../store/customVillainStore'
 import { usePlayerStore } from '../store/playerStore'
 import { useIsDesktopApp } from '../store/settingsStore'
-import { villainPortrait, villainPresentation } from '../villainArt'
+import { villainPortrait, villainPresentation, PRESENTATION_TWEAK } from '../villainArt'
 import { villainGuideOf } from '../villainGuide'
 import { byRelease, villainOrigin, VILLAIN_ORIGINS, ORIGIN_LABELS } from '../villainOrder'
 import { VILLAIN_COLOR, villainsBackground, DEFAULT_TINT_A, DEFAULT_TINT_B } from '../villainColors'
@@ -195,18 +195,34 @@ function SlotCard({
  *  Affichée ENTIÈRE (`object-contain`, posée sur le bas de l'écran) : l'illustration est
  *  mise à l'échelle pour tenir dans son gabarit au lieu d'être rognée, et sa hauteur est
  *  plafonnée à la fenêtre pour qu'elle ne déborde jamais sur les petits écrans.
- *  Masquée sous `lg` (pas la place) et pour « Aléatoire » (pas d'illustration). */
+ *  Masquée sous `lg` (pas la place) et pour « Aléatoire » (pas d'illustration).
+ *
+ *  Le réglage par vilain (`PRESENTATION_TWEAK`) s'applique comme sur l'écran « versus »
+ *  (`StartRollModal`) : certaines illustrations sont cadrées bien plus serré que les
+ *  autres et débordent sans un `scale` dédié. Origine du transform en bas : rétrécir
+ *  garde le personnage posé sur le sol. */
 function SlotArt({ choice, side }: { choice: Choice | null; side: 'left' | 'right' }) {
   const src = choice && choice !== 'random' ? villainPresentation(choice) : undefined
   if (!src) return null
+  const left = side === 'left'
+  const tweak = choice && choice !== 'random' ? PRESENTATION_TWEAK[choice] : undefined
+  // Art de côté : `selectDxPct` = décalage VERS LE CENTRE (joueur à gauche → vers la
+  // droite, adversaire à droite → vers la gauche). Sinon le `dxPct` de la fiche.
+  // Pas de `dyPct` ici : l'illustration est déjà posée sur le bas de l'écran
+  // (`object-bottom`), les réglages verticaux de la fiche la feraient flotter.
+  const dx = tweak?.selectDxPct != null ? tweak.selectDxPct * (left ? 1 : -1) : (tweak?.dxPct ?? 0)
   return (
     <img
       src={src}
       alt=""
       aria-hidden
       className={`pointer-events-none absolute bottom-0 hidden h-[min(52rem,calc(100vh-5rem))] w-[32rem] object-contain object-bottom drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)] lg:block ${
-        side === 'right' ? 'right-0 -scale-x-100' : 'left-0'
+        left ? 'left-0' : 'right-0'
       }`}
+      style={{
+        transformOrigin: 'bottom',
+        transform: `translateX(${dx}%) scale(${tweak?.scale ?? 1}) scaleX(${left ? 1 : -1})`,
+      }}
     />
   )
 }
