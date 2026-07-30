@@ -179,11 +179,13 @@ function SlotCard({
         {hint && <span className="truncate text-sm leading-tight text-white/50">{hint}</span>}
       </div>
     </button>
-      {devise && (
-        <p className="px-2 text-center text-sm font-semibold italic leading-snug text-amber-100/90 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
-          « {devise} »
-        </p>
-      )}
+      {/* Emplacement de la devise TOUJOURS réservé (hauteur fixe = 2 lignes), même sans
+          vilain choisi : sinon l'apparition de la citation faisait remonter la case du
+          camp, et une devise d'une ligne d'un côté contre deux de l'autre les
+          désalignait. `line-clamp-2` garantit qu'elle ne dépassera jamais ce gabarit. */}
+      <p className="line-clamp-2 h-10 px-2 text-center text-sm font-semibold italic leading-snug text-amber-100/90 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
+        {devise ? `« ${devise} »` : ' '}
+      </p>
     </div>
   )
 }
