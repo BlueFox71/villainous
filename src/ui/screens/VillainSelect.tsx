@@ -219,10 +219,11 @@ function SlotCard({
  *  vilain tiré au sort (l'inconnu se devine sans se révéler) plutôt que de laisser le
  *  bord vide. Elle est figée tant que le camp reste sur « Aléatoire ».
  *
- *  Le réglage par vilain (`PRESENTATION_TWEAK`) s'applique comme sur l'écran « versus »
- *  (`StartRollModal`) : certaines illustrations sont cadrées bien plus serré que les
- *  autres et débordent sans un `scale` dédié. Origine du transform en bas : rétrécir
- *  garde le personnage posé sur le sol.
+ *  Le réglage par vilain vient des champs `select…` de `PRESENTATION_TWEAK`, PROPRES à cet
+ *  écran (certaines illustrations sont cadrées bien plus serré que les autres et débordent
+ *  sans échelle dédiée) : ni la fiche ni l'écran « versus » ne les partagent, chacun ayant
+ *  ses propres champs. Origine du transform en bas : rétrécir garde le personnage posé sur
+ *  le sol.
  *
  *  `draft` (dév) : réglage en cours dans le panneau « Configuration », qui prend la
  *  place de la valeur enregistrée le temps de l'aperçu. */
@@ -245,14 +246,15 @@ function SlotArt({
   if (!src) return null
   const left = side === 'left'
   const tweak = PRESENTATION_TWEAK[shown as string]
-  const scale = draft?.scale ?? tweak?.scale ?? 1
-  // Art de côté : `selectDxPct` = décalage VERS LE CENTRE (joueur à gauche → vers la
-  // droite, adversaire à droite → vers la gauche). Sinon le `dxPct` de la fiche.
-  // Vertical : `selectDyPct` seulement (champ dédié à cet écran) — le `dyPct` de la
-  // fiche part d'un autre cadrage et ferait flotter l'illustration, déjà posée sur le
-  // bas de l'écran (`object-bottom`).
-  const rawDx = draft?.dx ?? tweak?.selectDxPct
-  const dx = rawDx != null ? rawDx * (left ? 1 : -1) : (tweak?.dxPct ?? 0)
+  // UNIQUEMENT les champs `select…`, propres à cet écran : le cadrage de la fiche
+  // (`scale`/`dxPct`/`dyPct`) part d'un tout autre point de départ et ferait flotter ou
+  // déborder l'illustration, ici bien plus grande et posée sur le bas de l'écran
+  // (`object-bottom`). C'est aussi ce qui rend le panneau « Configuration » fidèle :
+  // ce qu'il montre en aperçu est exactement ce qu'il enregistre.
+  const scale = draft?.scale ?? tweak?.selectScale ?? 1
+  // `selectDxPct` = décalage VERS LE CENTRE (joueur à gauche → vers la droite,
+  // adversaire à droite → vers la gauche).
+  const dx = (draft?.dx ?? tweak?.selectDxPct ?? 0) * (left ? 1 : -1)
   const dy = draft?.dy ?? tweak?.selectDyPct ?? 0
   // Par défaut le vilain de gauche s'affiche tel quel et celui de droite est retourné
   // (ils se font face) ; `selectMirror` inverse ce réglage pour une illustration dont

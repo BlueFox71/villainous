@@ -47,6 +47,15 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.9.10',
+    date: '2026-08-01',
+    title: 'Illustrations : chaque écran son cadrage',
+    tags: ['correctif', 'interface'],
+    changes: [
+      "Le cadrage des illustrations réglé pour l'écran de **choix des vilains** ne débordait plus sur la **fiche du vilain** ni sur l'écran **« versus »** : ils avaient hérité de tailles pensées pour la grande illustration de côté, et certains vilains y paraissaient **énormes** (**Flagelleur Mental**, **Le Seigneur des clés**) ou **minuscules** (**Mr. Monopoly**). Chaque écran retrouve son propre cadrage.",
+    ],
+  },
+  {
     version: '1.9.9',
     date: '2026-07-31',
     title: 'Lancement depuis Le Grenier',

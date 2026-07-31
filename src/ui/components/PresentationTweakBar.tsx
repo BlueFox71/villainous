@@ -9,6 +9,9 @@ import { buildArtTweakEntry, savedArtTweak, type ArtTweakDraft } from '../villai
  * brouillon à l'illustration de gauche), et « Enregistrer » réécrit `PRESENTATION_TWEAK`
  * dans `src/ui/villainArt.ts` via l'endpoint de dév `/__save-presentation-tweak`.
  *
+ * Ce qu'on règle ici ne vaut que pour CET écran (champs `select…`) : la fiche du vilain et
+ * l'écran « versus » gardent leur propre cadrage, à retoucher à la main dans `villainArt.ts`.
+ *
  * Réservée au serveur de dév : le parent la masque hors de celui-ci (`!isDesktopApp`),
  * et l'endpoint n'existe pas dans le build de production.
  */

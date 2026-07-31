@@ -98,95 +98,112 @@ export function villainPresentation(key: string): string | undefined {
  *  % de la taille de l'image (dx > 0 = vers la droite ; dy > 0 = vers le bas, le
  *  personnage descend sous le bord, derrière le footer). Origine = bas.
  *
- *  Les entrées sont éditables EN DIRECT par le panneau « Configuration » de l'écran
- *  de choix des vilains (dév uniquement) : il réécrit ce bloc via l'endpoint
- *  `/__save-presentation-tweak`. Elles restent modifiables à la main. */
+ *  TROIS ÉCRANS, TROIS JEUX DE CHAMPS — aucun n'est partagé, car les cadrages n'ont
+ *  rien à voir (la fiche pose l'illustration dans un encart, le versus et le choix la
+ *  dressent sur un bord d'écran, à des tailles différentes) :
+ *   - FICHE (`VillainDetailModal`) : `scale`, `dxPct`, `dyPct`.
+ *   - VERSUS (`StartRollModal`) : `versusDxPct`/`versusDyPct`, sinon repli sur les
+ *     champs de la fiche.
+ *   - CHOIX (`VillainSelect`) : les champs `select…` UNIQUEMENT — ce sont les seuls que
+ *     le panneau « Configuration » écrit, et ils ne débordent sur aucun autre écran.
+ *
+ *  Les entrées `select…` sont éditables EN DIRECT par le panneau « Configuration » de
+ *  l'écran de choix des vilains (dév uniquement) : il réécrit ce bloc via l'endpoint
+ *  `/__save-presentation-tweak`. Toutes restent modifiables à la main. */
 export const PRESENTATION_TWEAK: Record<
   string,
   {
     scale?: number
     dxPct?: number
     dyPct?: number
+    /** Écran VERSUS : décalage horizontal VERS LE CENTRE (l'illustration y est collée
+     *  à un bord). Sinon repli sur le `dxPct` de la fiche. */
+    versusDxPct?: number
+    /** Écran VERSUS : décalage vertical. Sinon repli sur le `dyPct` de la fiche. */
     versusDyPct?: number
-    /** Art de côté (choix + versus) : décalage horizontal VERS LE CENTRE. */
+    /** Écran de CHOIX : échelle (1 = taille naturelle). Champ dédié — l'illustration y
+     *  est bien plus grande que dans la fiche, le `scale` de celle-ci n'a pas la même
+     *  échelle de départ. */
+    selectScale?: number
+    /** Écran de CHOIX : décalage horizontal VERS LE CENTRE. */
     selectDxPct?: number
-    /** Art de côté de l'écran de CHOIX : décalage vertical (négatif = vers le haut).
-     *  Champ dédié — l'illustration y est posée sur le bas de l'écran, le `dyPct` de
-     *  la fiche n'a pas le même point de départ. */
+    /** Écran de CHOIX : décalage vertical (négatif = vers le haut). L'illustration y est
+     *  posée sur le bas de l'écran, le `dyPct` de la fiche n'a pas le même point de départ. */
     selectDyPct?: number
-    /** Art de côté de l'écran de CHOIX : INVERSE le miroir. Par défaut le vilain de
-     *  gauche s'affiche tel quel et celui de droite est retourné (ils se font face) ;
-     *  une illustration déjà tournée vers la gauche a besoin de l'inverse. */
+    /** Écran de CHOIX : INVERSE le miroir. Par défaut le vilain de gauche s'affiche tel
+     *  quel et celui de droite est retourné (ils se font face) ; une illustration déjà
+     *  tournée vers la gauche a besoin de l'inverse. */
     selectMirror?: boolean
   }
 > = {
   // `versusDyPct` : décalage vertical SPÉCIFIQUE à l'écran versus (début de partie),
-  // sinon on reprend `dyPct` (écran de choix).
-  imposteur: { scale: 0.57, dxPct: 0, dyPct: -5, versusDyPct: -12, selectDxPct: 11 },
-  // Mère Gothel : illustration un peu trop petite et trop haute aux deux endroits
-  // (choix ET versus) → on l'agrandit légèrement et on la descend (dyPct/versusDyPct
-  // positifs = vers le bas).
-  gothel: { scale: 1.12, dyPct: 10, versusDyPct: 8, selectDxPct: 15 },
+  // sinon on reprend `dyPct` (fiche).
+  imposteur: { scale: 0.55, dxPct: 0, dyPct: -5, versusDyPct: -12, selectScale: 0.57, selectDxPct: 11 },
+  // Mère Gothel : illustration un peu trop petite et trop haute dans la fiche et au
+  // versus → on l'agrandit légèrement et on la descend (dyPct/versusDyPct positifs =
+  // vers le bas).
+  gothel: { scale: 1.05, dyPct: 10, versusDyPct: 8, selectScale: 1.12, selectDxPct: 15 },
   // Le Seigneur des clés (custom) : on baisse légèrement sa position (sans le rétrécir).
-  'custom-seigneur-cles': { dyPct: 6, scale: 1.54, selectDxPct: 9, selectDyPct: 2, selectMirror: true },
+  'custom-seigneur-cles': { dyPct: 6, selectScale: 1.54, selectDxPct: 9, selectDyPct: 2, selectMirror: true },
   // Maléfique : nouvelle illustration carrée (1000×1000) — on la remonte pour caler la
   // figure dans le cadre (négatif = vers le haut).
-  maleficent: { dyPct: -6, scale: 1.17, selectDxPct: 25 },
-  // Pyramid Head (custom) : décalé vers la gauche dans la FICHE (dxPct). Sur l'art de côté
-  // (choix + versus), `selectDxPct` est un décalage VERS LE CENTRE (côté joueur = vers la
-  // droite, côté adversaire = vers la gauche).
-  'custom-pyramid-head': { dxPct: -14, selectDxPct: 26, scale: 0.86, selectDyPct: 28 },
+  maleficent: { dyPct: -6, selectScale: 1.17, selectDxPct: 25 },
+  // Pyramid Head (custom) : décalé vers la gauche dans la FICHE (dxPct) ; tiré vers le
+  // centre au versus (`versusDxPct`) comme sur l'écran de choix (`selectDxPct`) — côté
+  // joueur = vers la droite, côté adversaire = vers la gauche.
+  'custom-pyramid-head': { dxPct: -14, versusDxPct: 15, selectScale: 0.86, selectDxPct: 26, selectDyPct: 28 },
   // Mr. Monopoly (custom) : présentation rétrécie, bien décalée à gauche dans la FICHE ;
-  // tirée vers le centre sur l'art de côté.
-  'custom-mr-monopoly': { scale: 0.6, dxPct: -30, selectDxPct: 23, selectDyPct: 4 },
+  // tirée vers le centre sur les bords d'écran (versus + choix).
+  'custom-mr-monopoly': { scale: 0.85, dxPct: -30, versusDxPct: 15, selectScale: 0.6, selectDxPct: 23, selectDyPct: 4 },
   // Isabella (custom) : illustration un peu trop grande → légèrement rétrécie.
-  'custom-isabella': { scale: 0.55, selectDxPct: 13 },
-  princeJohn: { scale: 1.22, selectDxPct: 10, selectDyPct: 6 },
-  bowser: { scale: 1.14, selectDxPct: 15, selectDyPct: 8 },
-  crochet: { scale: 1.24, selectDxPct: 10, selectDyPct: 5, selectMirror: true },
-  cruella: { scale: 1.13, selectDxPct: 19 },
-  davyJones: { scale: 1.13, selectDxPct: 15 },
-  'custom-dio': { scale: 1.26, selectDxPct: 18, selectDyPct: 65 },
-  facilier: { scale: 1.24, selectDxPct: 17, selectDyPct: 5 },
-  gaston: { scale: 1.06, selectDxPct: 17 },
-  'custom-stitch': { scale: 0.72, selectDxPct: 17 },
-  'custom-gul-dan': { scale: 1.22, selectDxPct: 20, selectDyPct: 26 },
-  hades: { scale: 1.29, selectDxPct: 9, selectDyPct: 7 },
-  jafar: { scale: 1.27, selectDxPct: 17, selectDyPct: 7 },
-  'custom-killaire': { scale: 1.06, selectDxPct: 17 },
-  mechanteReine: { scale: 1.11, selectDxPct: 21 },
-  'custom-flagelleur-mental': { scale: 2, selectDxPct: 35, selectDyPct: 11, selectMirror: true },
-  seigneurTenebres: { scale: 1.08, selectDxPct: 16 },
-  lotso: { scale: 1.03, selectDxPct: 8, selectDyPct: 5 },
-  madameTremaine: { scale: 1.15, selectDxPct: 17 },
-  madameMim: { scale: 1.03, selectDxPct: 20 },
-  laBonneFee: { scale: 1.13, selectDxPct: 11, selectDyPct: 2 },
-  'custom-michael-meyers': { scale: 0.66, selectDxPct: 19 },
-  oogieBoogie: { scale: 1.09, selectDxPct: 13 },
-  patHibulaire: { scale: 0.96, selectDxPct: 15 },
-  ratigan: { scale: 1.09, selectDxPct: 19 },
-  reineCoeur: { scale: 1.18, selectDxPct: 20, selectDyPct: 5, selectMirror: true },
-  saSucrerie: { scale: 0.96, selectDxPct: 23 },
-  scar: { scale: 1.04, selectDxPct: 11 },
-  shereKhan: { scale: 1.03, selectDxPct: 20 },
-  slenderman: { scale: 0.95, selectDxPct: 15, selectDyPct: 14 },
-  sombra: { scale: 1.14, selectDxPct: 26, selectDyPct: 4 },
-  'custom-mrl4fb45': { scale: 0.77, selectDxPct: 23 },
+  'custom-isabella': { scale: 0.9, selectScale: 0.55, selectDxPct: 13 },
+  princeJohn: { selectScale: 1.22, selectDxPct: 10, selectDyPct: 6 },
+  bowser: { selectScale: 1.14, selectDxPct: 15, selectDyPct: 8 },
+  crochet: { selectScale: 1.24, selectDxPct: 10, selectDyPct: 5, selectMirror: true },
+  cruella: { selectScale: 1.13, selectDxPct: 19 },
+  davyJones: { selectScale: 1.13, selectDxPct: 15 },
+  'custom-dio': { selectScale: 1.26, selectDxPct: 18, selectDyPct: 65 },
+  facilier: { selectScale: 1.24, selectDxPct: 17, selectDyPct: 5 },
+  gaston: { selectScale: 1.06, selectDxPct: 17 },
+  'custom-stitch': { selectScale: 0.72, selectDxPct: 17 },
+  'custom-gul-dan': { selectScale: 1.22, selectDxPct: 20, selectDyPct: 26 },
+  hades: { selectScale: 1.29, selectDxPct: 9, selectDyPct: 7 },
+  jafar: { selectScale: 1.27, selectDxPct: 17, selectDyPct: 7 },
+  'custom-killaire': { selectScale: 1.06, selectDxPct: 17 },
+  mechanteReine: { selectScale: 1.11, selectDxPct: 21 },
+  'custom-flagelleur-mental': { selectScale: 2, selectDxPct: 35, selectDyPct: 11, selectMirror: true },
+  seigneurTenebres: { selectScale: 1.08, selectDxPct: 16 },
+  lotso: { selectScale: 1.03, selectDxPct: 8, selectDyPct: 5 },
+  madameTremaine: { selectScale: 1.15, selectDxPct: 17 },
+  madameMim: { selectScale: 1.03, selectDxPct: 20 },
+  laBonneFee: { selectScale: 1.13, selectDxPct: 11, selectDyPct: 2 },
+  'custom-michael-meyers': { selectScale: 0.66, selectDxPct: 19 },
+  oogieBoogie: { selectScale: 1.09, selectDxPct: 13 },
+  patHibulaire: { selectScale: 0.96, selectDxPct: 15 },
+  ratigan: { selectScale: 1.09, selectDxPct: 19 },
+  reineCoeur: { selectScale: 1.18, selectDxPct: 20, selectDyPct: 5, selectMirror: true },
+  saSucrerie: { selectScale: 0.96, selectDxPct: 23 },
+  scar: { selectScale: 1.04, selectDxPct: 11 },
+  shereKhan: { selectScale: 1.03, selectDxPct: 20 },
+  slenderman: { selectScale: 0.95, selectDxPct: 15, selectDyPct: 14 },
+  sombra: { selectScale: 1.14, selectDxPct: 26, selectDyPct: 4 },
+  'custom-mrl4fb45': { selectScale: 0.77, selectDxPct: 23 },
   syndrome: { selectDxPct: 25 },
-  tabbou: { scale: 1.08, selectDxPct: 20, selectDyPct: 5 },
-  tamatoa: { scale: 0.95, selectDxPct: 19, selectDyPct: 1 },
+  tabbou: { selectScale: 1.08, selectDxPct: 20, selectDyPct: 5 },
+  tamatoa: { selectScale: 0.95, selectDxPct: 19, selectDyPct: 1 },
   teamRocket: { selectDxPct: 20 },
   thanos: { selectDxPct: 11, selectDyPct: 20 },
   'custom-ultron': { selectDxPct: 28, selectDyPct: 9 },
-  ursula: { scale: 1.12, selectDxPct: 17, selectDyPct: 5, selectMirror: true },
-  yzma: { scale: 0.98, selectDxPct: 19, selectDyPct: 2 },
+  ursula: { selectScale: 1.12, selectDxPct: 17, selectDyPct: 5, selectMirror: true },
+  yzma: { selectScale: 0.98, selectDxPct: 19, selectDyPct: 2 },
   // >>> PRESENTATION_TWEAK entries (panneau « Configuration ») — nouvelles entrées ici <<<
 }
 
 /** Brouillon de réglage manipulé par le panneau « Configuration » (dév) : les champs
- *  de `PRESENTATION_TWEAK` qui pilotent l'art de côté de l'écran de choix. */
+ *  de `PRESENTATION_TWEAK` qui pilotent l'art de côté de l'écran de choix. Tous sont
+ *  PROPRES à cet écran — le panneau ne touche jamais au cadrage de la fiche ni du versus. */
 export interface ArtTweakDraft {
-  /** Échelle (1 = taille naturelle) — `scale`, PARTAGÉ avec la fiche et l'écran versus. */
+  /** Échelle (1 = taille naturelle) — `selectScale`. */
   scale: number
   /** Décalage horizontal VERS LE CENTRE, en % — `selectDxPct`. */
   dx: number
@@ -200,7 +217,7 @@ export interface ArtTweakDraft {
 export function savedArtTweak(villain: string): ArtTweakDraft {
   const t = PRESENTATION_TWEAK[villain]
   return {
-    scale: t?.scale ?? 1,
+    scale: t?.selectScale ?? 1,
     dx: t?.selectDxPct ?? 0,
     dy: t?.selectDyPct ?? 0,
     mirror: t?.selectMirror ?? false,
@@ -209,9 +226,10 @@ export function savedArtTweak(villain: string): ArtTweakDraft {
 
 /**
  * Ligne `  <clé>: { … },` à réécrire dans `PRESENTATION_TWEAK` (panneau « Configuration »).
- * On PART des champs déjà enregistrés (`dxPct`, `dyPct`, `versusDyPct`… que le panneau ne
- * touche pas) et on n'écrase que ceux qu'il règle ; une valeur neutre RETIRE son champ.
- * Chaîne vide = plus aucun champ, l'entrée est supprimée du fichier.
+ * On PART des champs déjà enregistrés (`scale`, `dxPct`, `dyPct`, `versus…` — le cadrage de
+ * la fiche et du versus, que le panneau ne touche pas) et on n'écrase que les `select…`
+ * qu'il règle ; une valeur neutre RETIRE son champ. Chaîne vide = plus aucun champ,
+ * l'entrée est supprimée du fichier.
  */
 export function buildArtTweakEntry(villain: string, draft: ArtTweakDraft): string {
   const merged: Record<string, number | boolean> = { ...PRESENTATION_TWEAK[villain] }
@@ -219,7 +237,7 @@ export function buildArtTweakEntry(villain: string, draft: ArtTweakDraft): strin
     if (value === neutral) delete merged[key]
     else merged[key] = value
   }
-  put('scale', Math.round(draft.scale * 100) / 100, 1)
+  put('selectScale', Math.round(draft.scale * 100) / 100, 1)
   put('selectDxPct', Math.round(draft.dx), 0)
   put('selectDyPct', Math.round(draft.dy), 0)
   put('selectMirror', draft.mirror, false)

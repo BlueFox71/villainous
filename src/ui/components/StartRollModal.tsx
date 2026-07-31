@@ -255,7 +255,9 @@ export function StartRollModal({ names, images, villainKeys, onResult, versusOnl
     >
       {/* Présentations des deux vilains, ancrées sur les bords (écran « versus »),
           qui glissent depuis l'extérieur à l'ouverture. Le réglage par vilain
-          (échelle/décalage) est appliqué comme sur l'écran de choix. */}
+          (échelle/décalage) vient des champs `versus…` de `PRESENTATION_TWEAK`, à défaut
+          de ceux de la fiche : les champs `select…` appartiennent au SEUL écran de choix
+          (son illustration y est beaucoup plus grande, ses valeurs déborderaient ici). */}
       {([0, 1] as const).map((i) => {
         const src = images?.[i]
         if (!src) return null
@@ -263,9 +265,9 @@ export function StartRollModal({ names, images, villainKeys, onResult, versusOnl
         const mirror = left ? 1 : -1
         const tweak = villainKeys ? PRESENTATION_TWEAK[villainKeys[i] as VillainKey] : undefined
         const dy = tweak?.versusDyPct ?? tweak?.dyPct ?? 0
-        // Art de côté : selectDxPct = décalage VERS LE CENTRE (gauche/joueur → droite,
-        // droit/adversaire → gauche). Sinon le dxPct de la fiche.
-        const dx = tweak?.selectDxPct != null ? tweak.selectDxPct * (left ? 1 : -1) : (tweak?.dxPct ?? 0)
+        // `versusDxPct` = décalage VERS LE CENTRE, l'illustration étant collée à un bord
+        // (gauche/joueur → droite, droit/adversaire → gauche). Sinon le dxPct de la fiche.
+        const dx = tweak?.versusDxPct != null ? tweak.versusDxPct * (left ? 1 : -1) : (tweak?.dxPct ?? 0)
         const transform = tweak
           ? `translate(${dx}%, ${dy}%) scale(${tweak.scale ?? 1}) scaleX(${mirror})`
           : undefined

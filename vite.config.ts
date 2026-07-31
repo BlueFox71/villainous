@@ -243,7 +243,7 @@ function saveVillainColorPlugin(): Plugin {
  * entrée de `PRESENTATION_TWEAK` dans `src/ui/villainArt.ts` (taille et décalages de
  * l'illustration de présentation) depuis le panneau « Configuration » de l'écran de
  * choix des vilains. Corps : `{ villain, entry }`, `entry` = la ligne complète
- * (`  imposteur: { scale: 0.55 },`) ou une chaîne VIDE pour retirer l'entrée (réglage
+ * (`  imposteur: { selectScale: 0.57 },`) ou une chaîne VIDE pour retirer l'entrée (réglage
  * revenu au neutre). Absent du build de production (`apply: 'serve'`).
  */
 function savePresentationTweakPlugin(): Plugin {
