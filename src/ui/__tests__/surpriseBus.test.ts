@@ -14,6 +14,8 @@ describe('villainHasSurprise', () => {
     expect(villainHasSurprise('custom-flagelleur-mental')).toBe(true)
     // Mr Monopoly : décor `monopoly`, surprise « la table renversée » (useSurpriseSub).
     expect(villainHasSurprise('custom-mr-monopoly')).toBe(true)
+    // Le Seigneur des clés : décor `atmosfear`, surprise « la clé noire » (useSurpriseSub).
+    expect(villainHasSurprise('custom-seigneur-cles')).toBe(true)
   })
 
   it('faux pour un décor SANS surprise', () => {

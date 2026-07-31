@@ -175,7 +175,10 @@ export type VillainDecor =
   // `atmosfear` : le Seigneur des clés (le Gardien d'Atmosfear) — sa CASSETTE VHS. Fond NOIR
   // et un CHRONOMÈTRE au format MM:SS en haut, centré (police EvanstonTavern), précédé à sa
   // gauche d'une LUNE (#558CF4) dont la phase suit la progression d'objectif (croissant → pleine),
-  // et une RANGÉE DE PETITES FLAMMES alignées au-dessus de la barre d'objectif.
+  // et une RANGÉE DE PETITES FLAMMES alignées au-dessus de la barre d'objectif. SURPRISE minutée
+  // « la CLÉ NOIRE » : les 6 clés colorées jaillissent du centre et tournent en orbite (ellipse
+  // aplatie) autour du chronomètre, puis s'éteignent une à une pendant que la CLÉ NOIRE grossit au
+  // centre en pulsant d'une lueur violette — le chrono s'assombrit, éclipsé — avant que tout s'estompe.
   // [base — couches VHS/Gardien à venir]
   | { kind: 'atmosfear' }
   // `tamatoa` : l'antre du crabe Tamatoa (Vaiana, chanson « Shiny / Bling Bling »). Fond NOIR sur
@@ -207,9 +210,10 @@ export type VillainDecor =
   // en grand CARRÉ centré sur la colonne (sur un fond de table vert feutré + vignette), SURMONTÉE de
   // deux couches d'ambiance en boucle : des PIONS 2D (chapeau, voiture, chien, dé à coudre, brouette,
   // bateau) qui font le tour du plateau, et des chantiers où poussent des MAISONS vertes (1→4) qui se
-  // muent en HÔTEL rouge puis se réinitialisent. SURPRISE : « la table renversée » — le plateau tremble
-  // puis bascule d'un coup, et pions, maisons, hôtels, dés et billets sont projetés en arc dans toute la
-  // colonne (secousse d'écran), avant que tout se remette en place (Mr Monopoly — vilain custom publié).
+  // muent en HÔTEL rouge puis se réinitialisent. SURPRISE : « la table renversée » — le plateau tremble,
+  // puis bascule et TOMBE HORS DE L'ÉCRAN pendant que pions, maisons, hôtels, dés et billets sont projetés
+  // en arc dans toute la colonne (secousse d'écran) ; la table reste nue un instant, puis le plateau est
+  // reposé d'un coup sec et tout se replace (Mr Monopoly — vilain custom publié).
   | { kind: 'monopoly'; src: string }
   // `rift` : Sumbra (Dharkon — SSBU « La Lueur du Monde »). LES TÉNÈBRES BRISENT LE MONDE. Un abîme
   // noir-violet + vignette lourde, une LUEUR centrale rouge-violet qui pulse (l'œil de Dharkon), et
@@ -520,8 +524,18 @@ export function decorAssets(decor: VillainDecor): { images: string[]; videos: st
         videos: [],
       }
     case 'atmosfear':
-      // La rangée de petites flammes réutilise le sprite de feu ; les bougies sont un gif.
-      return { images: ['/animations/fire_sprite.png', '/animations/candles.gif'], videos: [] }
+      // La rangée de petites flammes réutilise le sprite de feu ; les bougies sont un gif. Les 6 clés
+      // colorées sont celles de la surprise « la clé noire » (l'une d'elles sert aussi de clé noire).
+      return {
+        images: [
+          '/animations/fire_sprite.png',
+          '/animations/candles.gif',
+          ...['bleu', 'vert', 'jaune', 'orange', 'rouge', 'violet'].map(
+            (c) => `/cards/custom-seigneur-cles/cle-${c}.webp`,
+          ),
+        ],
+        videos: [],
+      }
     case 'upsideDown':
       // Les arbres (sapins) + poteaux électriques de Hawkins (décor) + la silhouette du Flagelleur (surprise).
       return {

@@ -2625,34 +2625,46 @@ body {
 }
 
 /* --- SURPRISE Monopoly : « LA TABLE RENVERSÉE » ---
-   Le plateau TREMBLE (montée de tension) puis BASCULE d'un coup, soulevé par son coin bas-gauche ;
-   tout ce qui était dessus (pions, maisons, hôtels, dés, billets) est projeté en arc BALISTIQUE dans
-   toute la colonne, avec une secousse d'écran à l'impact, avant que le plateau retombe à plat.
-   Cf. la surprise de MonopolyDecor dans components/VillainDecor.tsx. */
+   Le plateau TREMBLE, puis est soulevé par son coin bas-gauche et TOMBE HORS DE L'ÉCRAN par le bas
+   en tournant ; tout ce qui était dessus (pions, maisons, hôtels, dés, billets) est projeté en arc
+   BALISTIQUE dans toute la colonne, avec une secousse d'écran. La table reste NUE un instant, puis
+   on RAMASSE le plateau : il remonte par le bas, se repose d'un coup sec (2ᵉ secousse) et s'immobilise
+   en rebondissant. Cf. la surprise de MonopolyDecor dans components/VillainDecor.tsx. */
 .monopoly-board--flip {
-  /* La DURÉE est posée en inline (= MONOPOLY_FLIP_DUR_MS) ; les % ci-dessous se calent dessus, le COUP
-     partant à ~21 % (= MONOPOLY_FLIP_SHAKE_MS). À garder en phase si l'un des deux change. */
+  /* La DURÉE est posée en inline (= MONOPOLY_FLIP_DUR_MS) ; les % ci-dessous se calent dessus : le COUP
+     part à 18 % (= MONOPOLY_FLIP_SHAKE_MS) et le plateau est reposé à 68 % (= MONOPOLY_FLIP_LAND_MS).
+     À garder en phase avec ces constantes. */
   transform-origin: 30% 100%; /* soulevé par le coin bas-gauche (quelqu'un renverse la table) */
   animation-name: monopolyBoardFlip;
   animation-timing-function: ease-in-out;
   animation-fill-mode: both;
 }
 @keyframes monopolyBoardFlip {
+  /* 1. Le tremblement : ça monte. */
   0% { transform: translate(-50%, -50%) rotate(0deg); }
-  5% { transform: translate(-50%, -50%) rotate(-0.45deg); }
-  10% { transform: translate(-50%, -50%) rotate(0.6deg); }
-  15% { transform: translate(-50%, -50%) rotate(-0.75deg); }
-  21% { transform: translate(-50%, -50%) rotate(0.9deg); } /* armé — LE COUP part ici */
-  30% { transform: translate(-52%, -54%) rotate(-11deg) scale(1.06); } /* le plateau se soulève */
-  46% { transform: translate(-49%, -48%) rotate(5deg) scale(0.99); } /* il retombe lourdement */
-  58% { transform: translate(-50.4%, -50.8%) rotate(-2.4deg) scale(1.01); } /* rebond */
-  70% { transform: translate(-50%, -49.8%) rotate(1deg); }
-  82% { transform: translate(-50%, -50%) rotate(-0.3deg); }
+  4% { transform: translate(-50%, -50%) rotate(-0.5deg); }
+  8% { transform: translate(-50%, -50%) rotate(0.65deg); }
+  12% { transform: translate(-50%, -50%) rotate(-0.8deg); }
+  18% { transform: translate(-50%, -50%) rotate(1deg); animation-timing-function: ease-out; } /* LE COUP part ici */
+  /* 2. Soulevé, puis éjecté par le bas en tournant (il sort du cadre). */
+  24% { transform: translate(-50%, -50%) translate(2vh, -10vh) rotate(-17deg) scale(1.05); animation-timing-function: ease-in; }
+  38% { transform: translate(-50%, -50%) translate(17vh, 125vh) rotate(-66deg) scale(0.93); }
+  /* 3. Hors champ, sous le cadre : la table est nue, on ramasse le plateau. */
+  50% { transform: translate(-50%, -50%) translate(17vh, 135vh) rotate(-74deg) scale(0.93); animation-timing-function: ease-out; }
+  /* 4. Reposé sur la table d'un coup sec, puis il s'immobilise en rebondissant. */
+  68% { transform: translate(-50%, -50%) rotate(0deg) scale(1); animation-timing-function: ease-out; } /* POSÉ */
+  76% { transform: translate(-50%, -50%) translate(0, -2.6vh) rotate(1.2deg) scale(1.01); }
+  86% { transform: translate(-50%, -50%) rotate(-0.5deg); }
+  93% { transform: translate(-50%, -50%) translate(0, -0.7vh) rotate(0.25deg); }
   100% { transform: translate(-50%, -50%) rotate(0deg); }
 }
-/* Secousse d'écran à l'impact. Le léger `scale` évite de découvrir les bords de la colonne en tremblant. */
+/* Les DEUX secousses d'écran : au coup (longue, désordonnée) puis à la repose du plateau (brève et
+   sèche). Le léger `scale` évite de découvrir les bords de la colonne en tremblant. */
 .monopoly-decor--shake {
   animation: monopolyQuake 0.62s ease-out 1;
+}
+.monopoly-decor--slam {
+  animation: monopolySlam 0.4s ease-out 1;
 }
 @keyframes monopolyQuake {
   0% { transform: translate(0, 0) scale(1.02); }
@@ -2661,6 +2673,13 @@ body {
   45% { transform: translate(-0.5vh, -0.3vh) scale(1.02); }
   60% { transform: translate(0.4vh, 0.4vh) scale(1.01); }
   80% { transform: translate(-0.2vh, 0.1vh) scale(1.005); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+@keyframes monopolySlam {
+  0% { transform: translate(0, 0) scale(1.015); }
+  20% { transform: translate(0, 0.8vh) scale(1.015); }
+  45% { transform: translate(0, -0.4vh) scale(1.01); }
+  70% { transform: translate(0, 0.25vh) scale(1.005); }
   100% { transform: translate(0, 0) scale(1); }
 }
 /* Pendant le vol, les pions et les dés « du plateau » sont MASQUÉS (pas démontés : leur animation
@@ -7992,6 +8011,146 @@ body {
 .atmosfear-candle-img:first-child {
   margin-left: -2.8vh;
 }
+/* ---------------------------------------------------------------------------
+   SURPRISE « LA CLÉ NOIRE ». Les 6 clés colorées jaillissent du centre et tournent en orbite
+   (ellipse aplatie) autour du chronomètre, puis s'éteignent une à une pendant que la CLÉ NOIRE
+   grossit au centre en pulsant de violet — le chrono s'assombrit, éclipsé. Séquence de 7,6 s
+   (cf. `ATMOSFEAR_KEYS_MS` dans components/VillainDecor.tsx).
+
+   Astuce de l'orbite ELLIPTIQUE : l'anneau est aplati (`scaleY`), le créneau tourne
+   (`rotate(a) translateX(r)`) et la clé applique la rotation INVERSE + l'aplatissement INVERSE.
+   Les deux rotations s'annulent → la clé reste droite et non déformée, mais sa POSITION, elle,
+   reste aplatie par l'anneau → une ellipse. ⚠️ `--afk-unsquash` doit valoir 1 / `--afk-squash`. */
+.atmosfear-keys {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4; /* au-dessus du chronomètre et des flammes/bougies */
+  --afk-squash: 0.4; /* aplatissement vertical de l'orbite */
+  --afk-unsquash: 2.5; /* = 1 / --afk-squash (à garder en phase) */
+  --afk-r: 15.5vh; /* rayon HORIZONTAL de l'orbite (le vertical vaut r × squash) */
+  --afk-spin: 26s; /* durée d'un tour d'orbite */
+  --afk-violet: 168, 85, 247; /* la lueur de la clé noire */
+}
+
+/* Point d'ancrage de l'orbite : centré sur le chronomètre (`left` posé en inline, comme lui).
+   Boîte de taille nulle → son coin EST le centre de l'orbite. Jaillit du centre à l'ouverture. */
+.afk-orbit {
+  position: absolute;
+  top: 10vh; /* centre de l'orbite ≈ milieu du chronomètre */
+  width: 0;
+  height: 0;
+  animation: afkBurst 0.72s cubic-bezier(0.2, 1.5, 0.4, 1) both;
+}
+@keyframes afkBurst {
+  from { transform: scale(0.05); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* L'anneau APLATI : c'est lui qui transforme le cercle des créneaux en ellipse. */
+.afk-ring {
+  position: absolute;
+  transform: scaleY(var(--afk-squash));
+}
+
+/* Un créneau = une position sur l'orbite. `--afk-a` (inline) est son angle de départ. */
+.afk-slot {
+  position: absolute;
+  animation: afkOrbit var(--afk-spin) linear infinite;
+}
+@keyframes afkOrbit {
+  from { transform: rotate(var(--afk-a)) translateX(var(--afk-r)); }
+  to { transform: rotate(calc(var(--afk-a) + 360deg)) translateX(var(--afk-r)); }
+}
+/* Contre-transformation (même durée/timing que `afkOrbit` → parfaitement en phase) : la clé reste
+   droite et retrouve ses proportions. */
+.afk-spin {
+  position: absolute;
+  animation: afkOrbitCounter var(--afk-spin) linear infinite;
+}
+@keyframes afkOrbitCounter {
+  from { transform: rotate(calc(-1 * var(--afk-a))) scaleY(var(--afk-unsquash)); }
+  to { transform: rotate(calc(-1 * var(--afk-a) - 360deg)) scaleY(var(--afk-unsquash)); }
+}
+
+/* Une clé colorée : centrée sur son point d'orbite, nimbée d'une ombre portée, et qui S'ÉTEINT à
+   son tour (retard posé en inline, échelonné dans l'ordre du cercle). */
+.afk-key {
+  position: absolute;
+  height: 5.6vh;
+  width: auto;
+  /* ⚠️ Le bloc conteneur (`.afk-spin`) est de largeur NULLE : sans ça, le `max-width: 100%` que
+     Tailwind pose sur les `img` la ramènerait à 0 → clé invisible. */
+  max-width: none;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 0 0.5vh rgba(0, 0, 0, 0.85));
+  animation: afkKeyOut 1.5s ease-in both;
+}
+@keyframes afkKeyOut {
+  0% { opacity: 1; filter: drop-shadow(0 0 0.5vh rgba(0, 0, 0, 0.85)); }
+  /* elle blêmit (la couleur la quitte) avant de s'éteindre tout à fait */
+  45% { opacity: 0.75; filter: grayscale(1) brightness(0.5) drop-shadow(0 0 0.5vh rgba(0, 0, 0, 0.85)); }
+  100% { opacity: 0; filter: grayscale(1) brightness(0.12); }
+}
+
+/* LA CLÉ NOIRE : un prop de clé passé au noir (aucun asset dédié), qui jaillit au centre, grossit
+   et PULSE d'une lueur violette, puis s'évanouit en grandissant. Retard = début des extinctions
+   (cf. `ATMOSFEAR_KEY_OUT_DELAY_S`) ; 3 s + 4,6 s = 7,6 s de séquence totale. */
+.afk-black {
+  position: absolute;
+  top: 10vh; /* même centre que l'orbite */
+  height: 13vh;
+  width: auto;
+  transform: translate(-50%, -50%);
+  animation: afkBlackKey 4.6s ease-out 3s both;
+}
+@keyframes afkBlackKey {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.08) rotate(-20deg);
+    filter: grayscale(1) brightness(0.15) contrast(1.4);
+  }
+  /* elle jaillit du centre en se redressant */
+  18% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1) rotate(5deg);
+    filter: grayscale(1) brightness(0.15) contrast(1.4) drop-shadow(0 0 2.4vh rgba(var(--afk-violet), 0.95));
+  }
+  26% {
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    filter: grayscale(1) brightness(0.15) contrast(1.4) drop-shadow(0 0 1vh rgba(var(--afk-violet), 0.5));
+  }
+  /* deux battements de la lueur (elle respire) */
+  44% {
+    transform: translate(-50%, -50%) scale(1.05);
+    filter: grayscale(1) brightness(0.15) contrast(1.4) drop-shadow(0 0 3vh rgba(var(--afk-violet), 1));
+  }
+  60% {
+    transform: translate(-50%, -50%) scale(1);
+    filter: grayscale(1) brightness(0.15) contrast(1.4) drop-shadow(0 0 1vh rgba(var(--afk-violet), 0.5));
+  }
+  76% {
+    transform: translate(-50%, -50%) scale(1.05);
+    filter: grayscale(1) brightness(0.15) contrast(1.4) drop-shadow(0 0 3vh rgba(var(--afk-violet), 1));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.3);
+    filter: grayscale(1) brightness(0.15) contrast(1.4) drop-shadow(0 0 4vh rgba(var(--afk-violet), 0));
+  }
+}
+
+/* Le chronomètre ÉCLIPSÉ pendant la surprise : il s'assombrit le temps que la clé noire prenne le
+   centre, puis revient (durée calée sur la séquence, 7,6 s). */
+.atmosfear-timer.is-eclipsed {
+  animation: afkTimerEclipse 7.6s ease-in-out both;
+}
+@keyframes afkTimerEclipse {
+  0%, 26% { opacity: 1; }
+  46%, 82% { opacity: 0.12; }
+  100% { opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* Bascule instantanée (pas de cross-fade) et sprite de feu figé. */
   .atmosfear-candles,
@@ -8000,6 +8159,15 @@ body {
   }
   .atmosfear-flames .fire-flame {
     animation: none;
+  }
+  /* La surprise ne se déclenche pas en reduced-motion (minuterie non lancée) — ceinture et bretelles. */
+  .afk-orbit,
+  .afk-slot,
+  .afk-spin,
+  .afk-key,
+  .afk-black,
+  .atmosfear-timer.is-eclipsed {
+    animation: none !important;
   }
 }
 

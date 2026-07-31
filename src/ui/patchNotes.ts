@@ -47,6 +47,16 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.9.13',
+    date: '2026-08-01',
+    title: 'Le Seigneur des clés : la clé noire',
+    tags: ['animation'],
+    changes: [
+      "Nouvelle **animation surprise** pour **Le Seigneur des clés** : les **6 clés colorées** jaillissent et tournent en **orbite** autour du chronomètre.",
+      "Elles **s'éteignent une à une** pendant que la **CLÉ NOIRE** grossit au centre en **pulsant de violet**, éclipsant le chrono.",
+    ],
+  },
+  {
     version: '1.9.12',
     date: '2026-08-01',
     title: 'Mr. Monopoly : la table renversée',

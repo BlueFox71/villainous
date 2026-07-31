@@ -6302,6 +6302,32 @@ function AtmosfearDecor({
     id = window.setTimeout(advance, ATMOSFEAR_GAP_MS) // rien au départ, puis on lance la séquence
     return () => window.clearTimeout(id)
   }, [])
+  // SURPRISE « la clé noire » : on monte le calque `.atmosfear-keys` le temps de la séquence, avec un
+  // compteur de passage en clé React → les animations CSS repartent de zéro à chaque déclenchement.
+  const [keysRun, setKeysRun] = useState<number | null>(null)
+  useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    let clear: ReturnType<typeof setTimeout>
+    let next: ReturnType<typeof setTimeout>
+    let run = 0
+    const fire = () => {
+      setKeysRun(++run)
+      clear = setTimeout(() => setKeysRun(null), ATMOSFEAR_KEYS_MS)
+    }
+    const schedule = (delay: number) => {
+      next = setTimeout(() => {
+        fire()
+        schedule(ATMOSFEAR_KEYS_GAP_MIN_MS + Math.random() * (ATMOSFEAR_KEYS_GAP_MAX_MS - ATMOSFEAR_KEYS_GAP_MIN_MS))
+      }, delay)
+    }
+    schedule(ATMOSFEAR_KEYS_TEST ? 3000 : 45_000 + Math.random() * 30_000) // 1re apparition : 45 s à 1 min 15
+    // MODE TEST : déclenche la séquence à la demande depuis le panneau Animation.
+    fireRef.current = fire
+    return () => {
+      clearTimeout(next)
+      clearTimeout(clear)
+    }
+  }, [])
   // La colonne du décor déborde de 10 % vers son bord EXTÉRIEUR (marginLeft pour le joueur,
   // marginRight pour l'adversaire, cf. App.tsx) → son axe `left:50%` n'est plus le centre visible.
   // On recale le minuteur de 5 % vers le bord INTÉRIEUR : joueur (left) → vers la droite, adversaire
@@ -6350,8 +6376,12 @@ function AtmosfearDecor({
   return (
     <div className="atmosfear-decor" aria-hidden>
       {/* Chronomètre MM:SS en haut, centré (les deux groupes de chiffres en tabular-nums pour
-          ne pas frémir, le « : » fixe entre les deux), précédé de la lune à sa gauche. */}
-      <div className="atmosfear-timer" style={{ left: timerLeft }}>
+          ne pas frémir, le « : » fixe entre les deux), précédé de la lune à sa gauche. Pendant la
+          surprise, il est ÉCLIPSÉ (assombri) le temps que la clé noire prenne le centre. */}
+      <div
+        className={`atmosfear-timer${keysRun !== null ? ' is-eclipsed' : ''}`}
+        style={{ left: timerLeft }}
+      >
         {/* Lune qui se remplit : moitié gauche éclairée + terminateur elliptique par-dessus. */}
         <span className="atmosfear-moon">
           <span className="atmosfear-moon-half" />
@@ -6415,6 +6445,38 @@ function AtmosfearDecor({
           )
         })}
       </div>
+      {/* SURPRISE « la clé noire ». Monté seulement pendant la séquence (clé = n° de passage → les
+          animations CSS rejouent à chaque fois). */}
+      {keysRun !== null && (
+        <div key={keysRun} className="atmosfear-keys">
+          {/* Orbite : le conteneur jaillit du centre (scale) ; l'anneau est APLATI verticalement
+              (`scaleY`) → les clés décrivent une ellipse. Chaque clé annule ce squash ET la rotation
+              de l'anneau (mêmes durée/timing) pour rester droite et non déformée. */}
+          <div className="afk-orbit" style={{ left: timerLeft }}>
+            <div className="afk-ring">
+              {ATMOSFEAR_KEY_IMAGES.map((src, i) => (
+                <span
+                  key={src}
+                  className="afk-slot"
+                  style={{ '--afk-a': `${(i / ATMOSFEAR_KEY_IMAGES.length) * 360}deg` } as CSSProperties}
+                >
+                  <span className="afk-spin">
+                    {/* Extinction échelonnée : les clés meurent une à une, dans l'ordre du cercle. */}
+                    <img
+                      className="afk-key"
+                      src={src}
+                      alt=""
+                      style={{ animationDelay: `${ATMOSFEAR_KEY_OUT_DELAY_S + i * ATMOSFEAR_KEY_OUT_STEP_S}s` }}
+                    />
+                  </span>
+                </span>
+              ))}
+            </div>
+          </div>
+          {/* La CLÉ NOIRE : elle grossit au centre (sur le chrono éclipsé) en pulsant de violet. */}
+          <img className="afk-black" src={ATMOSFEAR_BLACK_KEY_IMAGE} alt="" style={{ left: timerLeft }} />
+        </div>
+      )}
     </div>
   )
 }
@@ -8200,16 +8262,22 @@ function buildMonopolyScript(cases: number[], duration: number): Record<number, 
 const MONOPOLY_SCRIPT = buildMonopolyScript(MONOPOLY_SITE_CASES, MONOPOLY_SCRIPT_DURATION)
 
 // --- SURPRISE : « LA TABLE RENVERSÉE » ---------------------------------------------------
-// Le grand classique de la soirée Monopoly qui finit mal. Le plateau TREMBLE (montée de tension),
-// puis BASCULE d'un coup : tout ce qui était dessus (les 4 pions, les maisons vertes, les hôtels
-// rouges, les 2 dés et une volée de billets) est ÉJECTÉ en arc BALISTIQUE dans toute la colonne
-// (montée + chute hors cadre, en tournoyant), avec une secousse d'écran à l'impact. Puis le plateau
-// retombe en place et les chantiers REPOUSSENT (les bâtiments sont démontés le temps du vol → ils
-// rejouent leur `monopolyPop` au retour). Le compte de chaque chantier n'est PAS perdu : seul
-// l'affichage est balayé.
-const MONOPOLY_FLIP_SHAKE_MS = 1100 // tremblement avant le coup (≈ 21 % de la durée totale — cf. `monopolyBoardFlip`)
-const MONOPOLY_FLIP_BURST_MS = 4200 // vol des projectiles + retour du plateau à plat
-const MONOPOLY_FLIP_DUR_MS = MONOPOLY_FLIP_SHAKE_MS + MONOPOLY_FLIP_BURST_MS
+// Le grand classique de la soirée Monopoly qui finit mal, en quatre temps :
+//  1. le plateau TREMBLE (montée de tension) ;
+//  2. LE COUP : il est soulevé, bascule et TOMBE HORS DE L'ÉCRAN par le bas en tournant — au même
+//     instant, tout ce qui était dessus (les 4 pions, les maisons vertes, les hôtels rouges, les
+//     2 dés et une volée de billets) est ÉJECTÉ en arc BALISTIQUE dans toute la colonne, avec une
+//     secousse d'écran ;
+//  3. la table est NUE un instant (les derniers billets finissent de retomber) ;
+//  4. on RAMASSE le plateau : il remonte par le bas, se repose d'un coup sec (2ᵉ secousse) puis
+//     s'immobilise en rebondissant — et les chantiers REPOUSSENT (les bâtiments, démontés le temps
+//     du vol, rejouent leur `monopolyPop`). Le compte de chaque chantier n'est PAS perdu : seul
+//     l'affichage a été balayé.
+// ⚠️ Les 3 jalons ci-dessous sont exprimés en % dans le keyframe `monopolyBoardFlip` (dont la durée
+// est posée en inline = MONOPOLY_FLIP_DUR_MS) : 18 % et 68 %. À garder en phase.
+const MONOPOLY_FLIP_DUR_MS = 6000 // séquence complète
+const MONOPOLY_FLIP_SHAKE_MS = 0.18 * MONOPOLY_FLIP_DUR_MS // LE COUP part ici (fin du tremblement)
+const MONOPOLY_FLIP_LAND_MS = 0.68 * MONOPOLY_FLIP_DUR_MS // le plateau est reposé sur la table
 const MONOPOLY_FLIP_GAP_MIN_MS = 50_000 // entre deux renversements (c'est une SURPRISE : c'est rare)
 const MONOPOLY_FLIP_GAP_MAX_MS = 95_000
 const MONOPOLY_FLIP_BILLS = 16 // billets projetés
@@ -8370,25 +8438,32 @@ function MonopolyDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'mo
     '--b': `${100 - MONOPOLY_TOKEN_INSET}%`,
   } as CSSProperties
 
-  // SURPRISE « la table renversée » : `shake` = le plateau tremble ; `burst` = le coup est parti, tout
-  // ce qui était sur le plateau vole. Timer interne (rare), déclenchable aussi par l'outil de test.
+  // SURPRISE « la table renversée ». Phases : `shake` = le plateau tremble ; `burst` = le coup est
+  // parti (le plateau tombe hors de l'écran, tout ce qui était dessus vole) ; `back` = le plateau est
+  // reposé sur la table (tout se replace). Timer interne (rare), aussi tiré par l'outil de test.
   const fireRef = useRef<() => void>(() => {})
   useSurpriseSub(fireRef)
-  const [flip, setFlip] = useState<{ seq: number; phase: 'shake' | 'burst'; debris: MonopolyDebris[] } | null>(null)
+  const [flip, setFlip] = useState<{ seq: number; phase: 'shake' | 'burst' | 'back'; debris: MonopolyDebris[] } | null>(null)
   useEffect(() => {
     let next: ReturnType<typeof setTimeout>
     let burst: ReturnType<typeof setTimeout>
+    let back: ReturnType<typeof setTimeout>
     let end: ReturnType<typeof setTimeout>
     let seq = 0
     const gap = () => MONOPOLY_FLIP_GAP_MIN_MS + Math.random() * (MONOPOLY_FLIP_GAP_MAX_MS - MONOPOLY_FLIP_GAP_MIN_MS)
+    // Ne change de phase que si la séquence en cours est toujours celle qu'on a lancée.
+    const phase = (s: number, p: 'burst' | 'back') => setFlip((f) => (f && f.seq === s ? { ...f, phase: p } : f))
     const fire = (fireRef.current = () => {
       clearTimeout(next) // (re)déclenchement manuel : on repart d'un cycle propre
       clearTimeout(burst)
+      clearTimeout(back)
       clearTimeout(end)
       const s = seq++
       setFlip({ seq: s, phase: 'shake', debris: buildMonopolyDebris() })
-      // LE COUP : le plateau bascule, tout est balayé et projeté (+ secousse d'écran).
-      burst = setTimeout(() => setFlip((f) => (f && f.seq === s ? { ...f, phase: 'burst' } : f)), MONOPOLY_FLIP_SHAKE_MS)
+      // LE COUP : le plateau part hors cadre, tout est balayé et projeté (+ secousse d'écran).
+      burst = setTimeout(() => phase(s, 'burst'), MONOPOLY_FLIP_SHAKE_MS)
+      // Le plateau est reposé sur la table : pions, dés et chantiers reviennent (+ 2ᵉ secousse).
+      back = setTimeout(() => phase(s, 'back'), MONOPOLY_FLIP_LAND_MS)
       end = setTimeout(() => setFlip(null), MONOPOLY_FLIP_DUR_MS)
       next = setTimeout(fire, MONOPOLY_FLIP_DUR_MS + gap())
     })
@@ -8396,13 +8471,17 @@ function MonopolyDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'mo
     return () => {
       clearTimeout(next)
       clearTimeout(burst)
+      clearTimeout(back)
       clearTimeout(end)
     }
   }, [])
+  // `swept` : le plateau est en l'air / hors cadre → ce qui vivait dessus est masqué. Les projectiles,
+  // eux, restent affichés jusqu'à la fin (les derniers billets retombent pendant que le plateau revient).
   const swept = flip?.phase === 'burst'
+  const shakeClass = flip?.phase === 'burst' ? ' monopoly-decor--shake' : flip?.phase === 'back' ? ' monopoly-decor--slam' : ''
 
   return (
-    <div className={`monopoly-decor${swept ? ' monopoly-decor--shake' : ''}`} aria-hidden>
+    <div className={`monopoly-decor${shakeClass}`} aria-hidden>
       <MonopolyBackdrop />
       <div
         className={`monopoly-board${flip ? ' monopoly-board--flip' : ''}`}
@@ -8448,7 +8527,7 @@ function MonopolyDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'mo
       {/* SURPRISE : tout ce qui était sur le plateau, projeté en arc. Calque calé sur le CARRÉ du
           plateau (coordonnées de départ en % du plateau) mais NON basculé — les projectiles volent
           dans le repère de la colonne. */}
-      {swept && flip && (
+      {flip && flip.phase !== 'shake' && (
         <div className="monopoly-flip">
           {flip.debris.map((d, i) => (
             <span
