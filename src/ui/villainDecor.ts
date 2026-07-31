@@ -207,7 +207,9 @@ export type VillainDecor =
   // en grand CARRÉ centré sur la colonne (sur un fond de table vert feutré + vignette), SURMONTÉE de
   // deux couches d'ambiance en boucle : des PIONS 2D (chapeau, voiture, chien, dé à coudre, brouette,
   // bateau) qui font le tour du plateau, et des chantiers où poussent des MAISONS vertes (1→4) qui se
-  // muent en HÔTEL rouge puis se réinitialisent (Mr Monopoly — vilain custom publié).
+  // muent en HÔTEL rouge puis se réinitialisent. SURPRISE : « la table renversée » — le plateau tremble
+  // puis bascule d'un coup, et pions, maisons, hôtels, dés et billets sont projetés en arc dans toute la
+  // colonne (secousse d'écran), avant que tout se remette en place (Mr Monopoly — vilain custom publié).
   | { kind: 'monopoly'; src: string }
   // `rift` : Sumbra (Dharkon — SSBU « La Lueur du Monde »). LES TÉNÈBRES BRISENT LE MONDE. Un abîme
   // noir-violet + vignette lourde, une LUEUR centrale rouge-violet qui pulse (l'œil de Dharkon), et

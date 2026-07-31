@@ -15,7 +15,7 @@ const SURPRISE_KINDS = new Set<VillainDecor['kind']>([
   'underworld', 'goldenHair', 'forest', 'grotto', 'voodoo', 'galaxy', 'scar', 'yzma',
   'clockwork', 'cruella', 'tremaine', 'syndrome', 'cyber', 'castleAssault', 'mim',
   'cauldron', 'sunnyside', 'oogie', 'jungle', 'teamRocket', 'flyingDutchman', 'tamatoa',
-  'underwater', 'upsideDown', 'rift', 'radiance',
+  'underwater', 'upsideDown', 'rift', 'radiance', 'monopoly',
 ])
 
 /** Vrai si le vilain a une surprise de décor déclenchable (mode test). Accepte une clé NATIVE

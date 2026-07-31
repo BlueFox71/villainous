@@ -12,6 +12,8 @@ describe('villainHasSurprise', () => {
     // Régression : `upsideDown` doit figurer dans SURPRISE_KINDS, sinon le bouton ✨ du panneau de test
     // reste grisé pour ce vilain.
     expect(villainHasSurprise('custom-flagelleur-mental')).toBe(true)
+    // Mr Monopoly : décor `monopoly`, surprise « la table renversée » (useSurpriseSub).
+    expect(villainHasSurprise('custom-mr-monopoly')).toBe(true)
   })
 
   it('faux pour un décor SANS surprise', () => {

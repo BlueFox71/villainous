@@ -47,6 +47,17 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.9.12',
+    date: '2026-08-01',
+    title: 'Mr. Monopoly : la table renversée',
+    tags: ['animation'],
+    changes: [
+      "Nouvelle **animation surprise** pour **Mr. Monopoly** : le plateau se met à **trembler**, puis **bascule d'un coup**.",
+      "**Pions, maisons, hôtels, dés et billets** sont projetés en l'air et retombent hors de l'écran, dans une **secousse** générale.",
+      'Le plateau se remet en place et les **chantiers repoussent** aussitôt.',
+    ],
+  },
+  {
     version: '1.9.11',
     date: '2026-08-01',
     title: 'Filtres de la galerie : les vilains de l’Atelier comptent aussi',

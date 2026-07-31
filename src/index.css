@@ -2624,6 +2624,103 @@ body {
   100% { transform: translateY(0) rotate(360deg); }
 }
 
+/* --- SURPRISE Monopoly : « LA TABLE RENVERSÉE » ---
+   Le plateau TREMBLE (montée de tension) puis BASCULE d'un coup, soulevé par son coin bas-gauche ;
+   tout ce qui était dessus (pions, maisons, hôtels, dés, billets) est projeté en arc BALISTIQUE dans
+   toute la colonne, avec une secousse d'écran à l'impact, avant que le plateau retombe à plat.
+   Cf. la surprise de MonopolyDecor dans components/VillainDecor.tsx. */
+.monopoly-board--flip {
+  /* La DURÉE est posée en inline (= MONOPOLY_FLIP_DUR_MS) ; les % ci-dessous se calent dessus, le COUP
+     partant à ~21 % (= MONOPOLY_FLIP_SHAKE_MS). À garder en phase si l'un des deux change. */
+  transform-origin: 30% 100%; /* soulevé par le coin bas-gauche (quelqu'un renverse la table) */
+  animation-name: monopolyBoardFlip;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: both;
+}
+@keyframes monopolyBoardFlip {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  5% { transform: translate(-50%, -50%) rotate(-0.45deg); }
+  10% { transform: translate(-50%, -50%) rotate(0.6deg); }
+  15% { transform: translate(-50%, -50%) rotate(-0.75deg); }
+  21% { transform: translate(-50%, -50%) rotate(0.9deg); } /* armé — LE COUP part ici */
+  30% { transform: translate(-52%, -54%) rotate(-11deg) scale(1.06); } /* le plateau se soulève */
+  46% { transform: translate(-49%, -48%) rotate(5deg) scale(0.99); } /* il retombe lourdement */
+  58% { transform: translate(-50.4%, -50.8%) rotate(-2.4deg) scale(1.01); } /* rebond */
+  70% { transform: translate(-50%, -49.8%) rotate(1deg); }
+  82% { transform: translate(-50%, -50%) rotate(-0.3deg); }
+  100% { transform: translate(-50%, -50%) rotate(0deg); }
+}
+/* Secousse d'écran à l'impact. Le léger `scale` évite de découvrir les bords de la colonne en tremblant. */
+.monopoly-decor--shake {
+  animation: monopolyQuake 0.62s ease-out 1;
+}
+@keyframes monopolyQuake {
+  0% { transform: translate(0, 0) scale(1.02); }
+  15% { transform: translate(-0.7vh, 0.5vh) scale(1.02); }
+  30% { transform: translate(0.6vh, -0.6vh) scale(1.02); }
+  45% { transform: translate(-0.5vh, -0.3vh) scale(1.02); }
+  60% { transform: translate(0.4vh, 0.4vh) scale(1.01); }
+  80% { transform: translate(-0.2vh, 0.1vh) scale(1.005); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+/* Pendant le vol, les pions et les dés « du plateau » sont MASQUÉS (pas démontés : leur animation
+   continue de tourner, ils réapparaissent donc à la bonne place). */
+.monopoly-token--swept,
+.monopoly-dice--swept {
+  visibility: hidden;
+}
+/* Le calque des projectiles : MÊME cadre que `.monopoly-board` (les départs sont donc en % du plateau),
+   mais SANS la bascule — les projectiles volent dans le repère de la colonne. */
+.monopoly-flip {
+  position: absolute;
+  left: 50%;
+  top: 35%;
+  width: min(58%, 60vh);
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+/* Un projectile : l'enveloppe fait l'ARC (montée jusqu'à --peak, puis chute à --fall, décalée de --dx),
+   l'enfant fait le TOURNOIEMENT (--spin). */
+.monopoly-debris {
+  position: absolute;
+  animation-name: monopolyFling;
+  animation-fill-mode: both;
+  will-change: transform, opacity;
+}
+.monopoly-debris-spin {
+  display: block;
+  animation-name: monopolySpin;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+.monopoly-debris-img {
+  display: block;
+  width: auto;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+/* Bâtiments projetés : un peu plus gros que sur le plateau pour rester lisibles en vol. */
+.monopoly-debris .monopoly-house { height: 1.7vh; }
+.monopoly-debris .monopoly-hotel { height: 2.5vh; }
+/* Un billet : rectangle coloré, liseré sombre + cartouche clair imprimé. */
+.monopoly-bill {
+  display: block;
+  aspect-ratio: 21 / 10;
+  border-radius: 0.2vh;
+  border: 0.1vh solid rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 0 0 0.15vh rgba(255, 255, 255, 0.45), 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+@keyframes monopolyFling {
+  0% { transform: translate(-50%, -50%); opacity: 1; animation-timing-function: ease-out; }
+  38% { transform: translate(calc(-50% + var(--dx) * 0.42), calc(-50% + var(--peak))); animation-timing-function: ease-in; }
+  80% { opacity: 1; animation-timing-function: ease-in; }
+  100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--fall))); opacity: 0; }
+}
+@keyframes monopolySpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(var(--spin)); }
+}
+
 /* ----- Décor permanent : geysers de vapeur verte (Scar) -----
    Posés par-dessus l'image de fond (`.image-decor` réutilisé). Quelques évents au sol crachent des
    bouffées étagées qui montent en s'enroulant (--sx) et en grossissant (réutilise `vaporRise`).

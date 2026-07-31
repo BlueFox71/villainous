@@ -6226,6 +6226,33 @@ const ATMOSFEAR_TIME = ATMOSFEAR_FLAME_TEST ? 0.34 : 1 // facteur d'accélérati
 const ATMOSFEAR_SHOW_MS = 15_000 * ATMOSFEAR_TIME // durée d'affichage de chaque animation (15 s)
 const ATMOSFEAR_GAP_MS = 5_000 * ATMOSFEAR_TIME // temps « rien » entre les deux
 
+// SURPRISE « LA CLÉ NOIRE » : les 6 clés colorées JAILLISSENT du centre et tournent en orbite (ellipse
+// aplatie) autour du chronomètre, puis s'ÉTEIGNENT une à une tandis que la CLÉ NOIRE grossit au centre
+// en pulsant d'une lueur violette (le chrono s'assombrit, éclipsé) ; enfin tout s'estompe. Séquence
+// jouée en CSS (keyframes `afk*`, cf. index.css) : le calque est (dé)monté le temps de la surprise, sa
+// clé React rejoue donc les animations depuis le début à chaque passage. Flag de test → cadence
+// rapprochée pour régler.
+const ATMOSFEAR_KEYS_TEST = false
+const ATMOSFEAR_KEYS_MS = 7600 // durée totale de la séquence (doit correspondre aux keyframes `afk*`)
+const ATMOSFEAR_KEYS_GAP_MIN_MS = ATMOSFEAR_KEYS_TEST ? 6000 : 75_000 // 1 min 15 (c'est une SURPRISE : c'est rare)
+const ATMOSFEAR_KEYS_GAP_MAX_MS = ATMOSFEAR_KEYS_TEST ? 11_000 : 150_000 // 2 min 30
+// Retard (s) avant que les clés colorées commencent à s'éteindre, une à une (cf. `afkKeyOut`), et pas
+// entre deux extinctions. À garder en phase avec le retard de `.afk-black` dans index.css.
+const ATMOSFEAR_KEY_OUT_DELAY_S = 3
+const ATMOSFEAR_KEY_OUT_STEP_S = 0.28
+// Les 6 clés colorées (props du vilain publié) qui composent l'orbite, dans l'ordre du cercle.
+const ATMOSFEAR_KEY_IMAGES = [
+  '/cards/custom-seigneur-cles/cle-bleu.webp',
+  '/cards/custom-seigneur-cles/cle-vert.webp',
+  '/cards/custom-seigneur-cles/cle-jaune.webp',
+  '/cards/custom-seigneur-cles/cle-orange.webp',
+  '/cards/custom-seigneur-cles/cle-rouge.webp',
+  '/cards/custom-seigneur-cles/cle-violet.webp',
+]
+// La CLÉ NOIRE au centre : pas d'asset dédié (l'illustration `cle-noire.webp` est une CARTE) → on
+// reprend un prop de clé, passé au NOIR par un filtre CSS (`.afk-black`) et nimbé de violet.
+const ATMOSFEAR_BLACK_KEY_IMAGE = '/cards/custom-seigneur-cles/cle-violet.webp'
+
 function AtmosfearDecor({
   side,
   objectivePct = 0,
@@ -6235,6 +6262,8 @@ function AtmosfearDecor({
   objectivePct?: number
   timerRunning?: boolean
 }) {
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
   // CHRONOMÈTRE : même mécanique que le `GameTimer` (cf. components/GameTimer.tsx) → démarre au
   // premier instant où la partie « tourne » et se fige à la fin. Capture `Date.now` dans l'effet
   // au même rendu que le GameTimer → les deux minuteurs démarrent EXACTEMENT en même temps. Tant
@@ -8170,6 +8199,83 @@ function buildMonopolyScript(cases: number[], duration: number): Record<number, 
 
 const MONOPOLY_SCRIPT = buildMonopolyScript(MONOPOLY_SITE_CASES, MONOPOLY_SCRIPT_DURATION)
 
+// --- SURPRISE : « LA TABLE RENVERSÉE » ---------------------------------------------------
+// Le grand classique de la soirée Monopoly qui finit mal. Le plateau TREMBLE (montée de tension),
+// puis BASCULE d'un coup : tout ce qui était dessus (les 4 pions, les maisons vertes, les hôtels
+// rouges, les 2 dés et une volée de billets) est ÉJECTÉ en arc BALISTIQUE dans toute la colonne
+// (montée + chute hors cadre, en tournoyant), avec une secousse d'écran à l'impact. Puis le plateau
+// retombe en place et les chantiers REPOUSSENT (les bâtiments sont démontés le temps du vol → ils
+// rejouent leur `monopolyPop` au retour). Le compte de chaque chantier n'est PAS perdu : seul
+// l'affichage est balayé.
+const MONOPOLY_FLIP_SHAKE_MS = 1100 // tremblement avant le coup (≈ 21 % de la durée totale — cf. `monopolyBoardFlip`)
+const MONOPOLY_FLIP_BURST_MS = 4200 // vol des projectiles + retour du plateau à plat
+const MONOPOLY_FLIP_DUR_MS = MONOPOLY_FLIP_SHAKE_MS + MONOPOLY_FLIP_BURST_MS
+const MONOPOLY_FLIP_GAP_MIN_MS = 50_000 // entre deux renversements (c'est une SURPRISE : c'est rare)
+const MONOPOLY_FLIP_GAP_MAX_MS = 95_000
+const MONOPOLY_FLIP_BILLS = 16 // billets projetés
+// Teintes des billets Monopoly (1 / 5 / 10 / 20 / 50 / 100 / 500).
+const MONOPOLY_BILL_COLORS = ['#f4efe2', '#f6b8c8', '#f6e08a', '#a8d8a0', '#8fc4e8', '#e2c9a0', '#f2a65a']
+
+// Un projectile du renversement. `left`/`top` sont en % du CARRÉ du plateau (point de départ, donc
+// calé sur là où l'objet se trouvait) ; la trajectoire, elle, est en vh (repère écran).
+interface MonopolyDebris {
+  kind: 'token' | 'die' | 'house' | 'hotel' | 'bill'
+  src?: string // image (pion / dé)
+  color?: string // billet
+  left: number // % du carré du plateau
+  top: number // %
+  dx: number // vh (portée horizontale, vers l'extérieur)
+  peak: number // vh (apex de l'arc, négatif = vers le haut)
+  fall: number // vh (chute finale, hors cadre)
+  spin: number // deg (tournoiement sur tout le trajet)
+  dur: number // s
+  delay: number // s (tout ne part pas exactement en même temps)
+  size: number // vh (pions / dés / billets)
+}
+
+/** Tire les projectiles d'un renversement : chaque objet part de SA place sur le plateau et est
+ *  projeté vers l'extérieur (le côté où il se trouvait) en arc balistique. */
+function buildMonopolyDebris(): MonopolyDebris[] {
+  const launch = (left: number, top: number, extra: Partial<MonopolyDebris>): MonopolyDebris => ({
+    kind: 'bill',
+    left,
+    top,
+    dx: (left < 50 ? -1 : 1) * (8 + Math.random() * 34), // projeté du côté où il était
+    peak: -(18 + Math.random() * 30), // apex de l'arc
+    fall: 70 + Math.random() * 45, // sort par le bas du cadre
+    spin: (Math.random() < 0.5 ? -1 : 1) * (180 + Math.random() * 900),
+    dur: 2.2 + Math.random() * 1.2,
+    delay: Math.random() * 0.22,
+    size: 2,
+    ...extra,
+  })
+  const out: MonopolyDebris[] = []
+  // Les 4 pions, pris à un point au hasard de leur anneau (leur position exacte est portée par CSS).
+  MONOPOLY_TOKEN_IMAGES.forEach((src) => {
+    const p = monopolyRidePoint(Math.random())
+    out.push(launch(p.left, p.top, { kind: 'token', src, size: 2.6 }))
+  })
+  // Les 2 dés (ils traînaient sur le plateau).
+  for (let i = 0; i < 2; i++) {
+    out.push(launch(38 + Math.random() * 24, 38 + Math.random() * 24, { kind: 'die', src: MONOPOLY_DIE_IMAGE, size: 2.4 }))
+  }
+  // Les bâtiments : 1 ou 2 par CHANTIER (≈ 1 sur 4 en hôtel rouge).
+  MONOPOLY_SITES.forEach((s) => {
+    for (let i = 0; i < 1 + Math.floor(Math.random() * 2); i++) {
+      out.push(launch(s.left, s.top, { kind: Math.random() < 0.25 ? 'hotel' : 'house' }))
+    }
+  })
+  // La volée de BILLETS, ramassée un peu partout sur le plateau (ils flottent un peu plus longtemps).
+  for (let i = 0; i < MONOPOLY_FLIP_BILLS; i++) {
+    out.push(launch(12 + Math.random() * 76, 12 + Math.random() * 76, {
+      color: MONOPOLY_BILL_COLORS[Math.floor(Math.random() * MONOPOLY_BILL_COLORS.length)],
+      size: 1.5 + Math.random() * 1.1,
+      dur: 2.6 + Math.random() * 1.4,
+    }))
+  }
+  return out
+}
+
 // Petite MAISON / HÔTEL 2D (toit + corps) en SVG inline. Vert = maison, rouge = hôtel.
 function MonopolyBuilding({ hotel }: { hotel?: boolean }) {
   return (
@@ -8183,14 +8289,16 @@ function MonopolyBuilding({ hotel }: { hotel?: boolean }) {
 // Un CHANTIER : suit le SCÉNARIO de sa case. Il programme un timeout par événement ; à chaque
 // échéance, `count` prend la valeur voulue (les maisons apparaissent une à une, parfois se rasent…).
 // `count` 0 = vide, 1..4 = maisons, 5 = hôtel. Après le dernier événement, l'état reste (pas de boucle).
-function MonopolyBuildSite({ site, events }: { site: MonopolySite; events: MonopolyEvent[] }) {
+// `swept` : le chantier vient d'être BALAYÉ par un renversement de table → on n'affiche rien le temps
+// du vol (le `count` est conservé ; au retour, les bâtiments sont recréés et rejouent `monopolyPop`).
+function MonopolyBuildSite({ site, events, swept }: { site: MonopolySite; events: MonopolyEvent[]; swept?: boolean }) {
   const [count, setCount] = useState(0)
   useEffect(() => {
     const timers = events.map((e) => setTimeout(() => setCount(e.count), e.t * 1000))
     return () => timers.forEach(clearTimeout)
   }, [events])
 
-  if (count === 0) return null
+  if (count === 0 || swept) return null
   const hotel = count >= MONOPOLY_HOTEL_STEP
   return (
     <div
@@ -8262,16 +8370,52 @@ function MonopolyDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'mo
     '--b': `${100 - MONOPOLY_TOKEN_INSET}%`,
   } as CSSProperties
 
+  // SURPRISE « la table renversée » : `shake` = le plateau tremble ; `burst` = le coup est parti, tout
+  // ce qui était sur le plateau vole. Timer interne (rare), déclenchable aussi par l'outil de test.
+  const fireRef = useRef<() => void>(() => {})
+  useSurpriseSub(fireRef)
+  const [flip, setFlip] = useState<{ seq: number; phase: 'shake' | 'burst'; debris: MonopolyDebris[] } | null>(null)
+  useEffect(() => {
+    let next: ReturnType<typeof setTimeout>
+    let burst: ReturnType<typeof setTimeout>
+    let end: ReturnType<typeof setTimeout>
+    let seq = 0
+    const gap = () => MONOPOLY_FLIP_GAP_MIN_MS + Math.random() * (MONOPOLY_FLIP_GAP_MAX_MS - MONOPOLY_FLIP_GAP_MIN_MS)
+    const fire = (fireRef.current = () => {
+      clearTimeout(next) // (re)déclenchement manuel : on repart d'un cycle propre
+      clearTimeout(burst)
+      clearTimeout(end)
+      const s = seq++
+      setFlip({ seq: s, phase: 'shake', debris: buildMonopolyDebris() })
+      // LE COUP : le plateau bascule, tout est balayé et projeté (+ secousse d'écran).
+      burst = setTimeout(() => setFlip((f) => (f && f.seq === s ? { ...f, phase: 'burst' } : f)), MONOPOLY_FLIP_SHAKE_MS)
+      end = setTimeout(() => setFlip(null), MONOPOLY_FLIP_DUR_MS)
+      next = setTimeout(fire, MONOPOLY_FLIP_DUR_MS + gap())
+    })
+    next = setTimeout(fire, gap())
+    return () => {
+      clearTimeout(next)
+      clearTimeout(burst)
+      clearTimeout(end)
+    }
+  }, [])
+  const swept = flip?.phase === 'burst'
+
   return (
-    <div className="monopoly-decor" aria-hidden>
+    <div className={`monopoly-decor${swept ? ' monopoly-decor--shake' : ''}`} aria-hidden>
       <MonopolyBackdrop />
-      <div className="monopoly-board">
+      <div
+        className={`monopoly-board${flip ? ' monopoly-board--flip' : ''}`}
+        style={flip ? { animationDuration: `${MONOPOLY_FLIP_DUR_MS}ms` } : undefined}
+      >
         <img src={decor.src} alt="" className="monopoly-board-img" />
         <div className="monopoly-overlay" style={overlayVars}>
           {tokens.map((t, i) => (
             <span
               key={i}
-              className="monopoly-token"
+              // Balayé : on le MASQUE (sans le démonter) → son parcours CSS continue de tourner et il
+              // réapparaît à la bonne case, au lieu de repartir du début de l'anneau.
+              className={`monopoly-token${swept ? ' monopoly-token--swept' : ''}`}
               style={{
                 animationDuration: `${t.dur}s`,
                 animationDelay: `${t.delay}s`,
@@ -8291,16 +8435,55 @@ function MonopolyDecor({ decor }: { decor: Extract<VillainDecorData, { kind: 'mo
             </span>
           ))}
           {MONOPOLY_SITES.map((s, i) => (
-            <MonopolyBuildSite key={i} site={s} events={MONOPOLY_SCRIPT[s.caseId]} />
+            <MonopolyBuildSite key={i} site={s} events={MONOPOLY_SCRIPT[s.caseId]} swept={swept} />
           ))}
         </div>
       </div>
       {/* Les DEUX dés SE BALADENT sur toute la colonne du joueur (hors du plateau, en repère plein
           cadre) et roulent en continu. */}
-      <div className="monopoly-dice">
+      <div className={`monopoly-dice${swept ? ' monopoly-dice--swept' : ''}`}>
         <img src={MONOPOLY_DIE_IMAGE} alt="" className="monopoly-die monopoly-die--a" />
         <img src={MONOPOLY_DIE_IMAGE} alt="" className="monopoly-die monopoly-die--b" />
       </div>
+      {/* SURPRISE : tout ce qui était sur le plateau, projeté en arc. Calque calé sur le CARRÉ du
+          plateau (coordonnées de départ en % du plateau) mais NON basculé — les projectiles volent
+          dans le repère de la colonne. */}
+      {swept && flip && (
+        <div className="monopoly-flip">
+          {flip.debris.map((d, i) => (
+            <span
+              key={i}
+              className="monopoly-debris"
+              style={{
+                left: `${d.left}%`,
+                top: `${d.top}%`,
+                animationDuration: `${d.dur}s`,
+                animationDelay: `${d.delay}s`,
+                '--dx': `${d.dx}vh`,
+                '--peak': `${d.peak}vh`,
+                '--fall': `${d.fall}vh`,
+              } as CSSProperties}
+            >
+              <span
+                className="monopoly-debris-spin"
+                style={{
+                  animationDuration: `${d.dur}s`,
+                  animationDelay: `${d.delay}s`,
+                  '--spin': `${d.spin}deg`,
+                } as CSSProperties}
+              >
+                {d.kind === 'bill' ? (
+                  <span className="monopoly-bill" style={{ height: `${d.size}vh`, background: d.color }} />
+                ) : d.kind === 'house' || d.kind === 'hotel' ? (
+                  <MonopolyBuilding hotel={d.kind === 'hotel'} />
+                ) : (
+                  <img src={d.src} alt="" className="monopoly-debris-img" style={{ height: `${d.size}vh` }} />
+                )}
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
