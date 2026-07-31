@@ -47,6 +47,15 @@ export interface PatchNote {
 /** Historique des changements, du plus récent au plus ancien. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.9.11',
+    date: '2026-08-01',
+    title: 'Filtres de la galerie : les vilains de l’Atelier comptent aussi',
+    tags: ['correctif', 'liste-villains'],
+    changes: [
+      "Les filtres **arrière-plan animé**, **animation de passage** et **animation surprise** ignoraient les vilains venus de l'**Atelier** : ils étaient tous rangés dans « non », alors que **Sumbra / Kilaire**, le **Flagelleur Mental**, **Gul'dan**, **Dio**, **Mr. Monopoly** et **Le Seigneur des clés** ont bel et bien leur décor. Ils sont désormais reconnus.",
+    ],
+  },
+  {
     version: '1.9.10',
     date: '2026-08-01',
     title: 'Illustrations : chaque écran son cadrage',

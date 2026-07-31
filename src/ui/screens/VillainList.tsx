@@ -226,9 +226,12 @@ export function VillainList({ onBack }: Props) {
         origin: rep.origin ?? 'Collaborations',
         creator: rep.creator,
         release: 10000 + i++,
-        hasDecor: false,
-        hasAnim: false,
-        hasSurprise: false,
+        // Décor / animations / surprise : les tables résolvent aussi les ids `custom-…`. Sur une
+        // carte FUSIONNÉE (skins), on prend la réunion des membres — chaque skin a son propre décor
+        // (ex. Sumbra `rift` / Kilaire `radiance`) et ses propres animations de passage.
+        hasDecor: ordered.some((m) => villainDecor(m.id) !== undefined),
+        hasAnim: ordered.some((m) => villainAnimationList(m.id).length > 0),
+        hasSurprise: ordered.some((m) => villainHasSurprise(m.id)),
         variantKeys: merged ? ordered.map((m) => m.id) : undefined,
       })
     }
